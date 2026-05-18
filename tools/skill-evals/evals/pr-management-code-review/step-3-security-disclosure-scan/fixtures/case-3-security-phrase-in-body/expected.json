@@ -1,0 +1,10 @@
+{
+  "triggered": true,
+  "matches": [
+    {
+      "location": "body",
+      "matched_text": "SQL injection",
+      "context": "allowing SQL injection via crafted requests"
+    }
+  ]
+}

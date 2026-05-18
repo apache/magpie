@@ -1,0 +1,11 @@
+{
+  "findings": [
+    {
+      "file": "lib/eclipse-util/EclipseHelper.java",
+      "licence": "EPL-1.0",
+      "category": "B",
+      "severity": "blocking",
+      "reason": "EPL is a Category B licence and cannot be included in source form in an ASF release; binary-only inclusion requires explicit justification."
+    }
+  ]
+}

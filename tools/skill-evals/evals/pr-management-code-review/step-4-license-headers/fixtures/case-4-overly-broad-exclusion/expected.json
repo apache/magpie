@@ -1,0 +1,9 @@
+{
+  "findings": [
+    {
+      "file": "pom.xml",
+      "severity": "minor",
+      "reason": "The new exclusion pattern 'src/compat/**' is broader than necessary — it exempts an entire subtree of contributor-authored source from header checks; it should be scoped to the specific file or files that legitimately require exclusion."
+    }
+  ]
+}

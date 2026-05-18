@@ -1,0 +1,9 @@
+{
+  "findings": [
+    {
+      "file": "docs/integration-logos/databricks-logo.svg",
+      "severity": "comment",
+      "reason": "This appears to be a professionally produced brand logo; contributor should confirm it is original work or provide its licence, as third-party brand assets may require a LICENSE entry."
+    }
+  ]
+}

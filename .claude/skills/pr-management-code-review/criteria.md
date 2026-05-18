@@ -91,12 +91,17 @@ severity rules:
 |---|---|---|
 | X | GPL, AGPL, LGPL, CDDL, BUSL, SSPL | `blocking` — cannot be included in an ASF release in any form |
 | B | MPL, EPL | `blocking` — cannot be included in source form; binary-only inclusion requires explicit justification |
-| A | MIT, BSD-2, BSD-3, ISC, Apache 2.0 (other orgs) | `major` if `LICENSE` / `LICENSE.txt` / `licenses/` was **not** also updated in this PR — attribution is required before shipping |
+| A | MIT, BSD-2, BSD-3, ISC, Apache 2.0 (other orgs) | `major` if `LICENSE` / `LICENSE.txt` was **not** also updated in this PR — attribution is required before shipping |
 | A + LICENSE updated | any Category A | ✅ no finding |
 
-For Category A findings, check whether the same PR modifies `LICENSE`,
-`LICENSE.txt`, or any file under a `licenses/` directory. If it does, the
-inclusion is correctly attributed and no finding is raised.
+For Category A findings, check whether the same PR modifies `LICENSE`
+or `LICENSE.txt` to add an attribution notice for the bundled component.
+If it does, the inclusion is correctly attributed and no finding is raised.
+Some projects also keep a `licenses/` directory containing the full licence
+text of each bundled component — this is a common and good practice, but it
+is not required and does not affect the finding: the determining factor is
+whether `LICENSE` / `LICENSE.txt` was updated, not whether a `licenses/`
+entry exists.
 
 **Relationship to "License headers":** when a new file's header is non-Apache
 but not third-party (e.g. a contributor accidentally used the wrong SPDX
@@ -119,7 +124,7 @@ standard Apache license header
 **framework-level default** that applies regardless of
 adopter-specific rules.
 
-**Defer to the project's header tooling when it exists.** Most ASF
+**Defer to the project's header tooling when it exists.** Many ASF
 projects enforce headers in CI — `apache-rat`, the pre-commit
 `insert-license` hook, `license-eye` / `skywalking-eyes`, or an
 equivalent. If such a check appears in the PR's status-check
@@ -145,7 +150,8 @@ safety net. Scan every source file the diff **adds** (and any it
 materially rewrites) for the Apache header; raise a `major`
 finding for each contributor-authored file missing it, quoting
 `https://www.apache.org/legal/src-headers.html`. Apply the
-exemptions below using judgement, and the *When in doubt — defer*
+exemptions listed in the *Exemptions* paragraph at the end of
+this section using judgement, and the *When in doubt — defer*
 rule at the end of this file for anything borderline.
 
 **The exclusion-masking case — check even when CI is green.**
@@ -171,6 +177,13 @@ appropriate:
   file that simply has no header and was excluded to make CI
   pass. Not acceptable; the fix is to add the header, not to
   exclude the file.
+- **Overly broad exclusion pattern** — even if the files added
+  in this PR carry correct headers, a glob wider than necessary
+  (e.g. `src/**`, `*.java`, a whole subtree containing
+  contributor-authored source) silently degrades the tool for
+  all future PRs. Raise a `minor` finding asking the maintainer
+  to scope the pattern to the specific file or directory it is
+  meant to cover.
 
 Quote the added exclusion line and the offending file path in the
 finding so the maintainer can adjudicate without digging.
@@ -190,7 +203,13 @@ fully-tooled project, raise a finding for:
 **Exemptions (no finding).** Generated files; vendored or
 third-party files (handled by the third-party category); data and
 test-resource fixtures; binary files; trivially short config/data
-files where the project conventionally omits headers. On a tooled
+files where the project conventionally omits headers; files in
+formats that do not support comments and therefore cannot carry a
+header (e.g. JSON, CSV, most binary data formats); documentation
+and plain-text files (`.md`, `.rst`, `.txt`) where ASF projects
+are conventionally lenient; `README` files (in any format);
+`LICENSE`, `NOTICE`, `DISCLAIMER`, and similar legal declaration
+files that are themselves the licence artefact. On a tooled
 project the project config is the authority for these; on an
 untooled project use judgement and defer when unsure.
 
@@ -198,9 +217,11 @@ untooled project use judgement and defer when unsure.
 |---|---|
 | Missing header, no header tooling in CI | `major` |
 | Missing / 3rd-party header + new tool exclusion in same PR | `major` (confirm exclusion is justified) |
+| New exclusion pattern is overly broad | `minor` |
 | Wrong / mis-applied SPDX on contributor-authored file | `major` |
 | Missing header but header tooling is red on the PR | no separate finding — defer to CI (Golden rule 8) |
-| Header added in this PR alongside the file | `nit` / no finding |
+| Header tooling present, CI green, no exclusion change in this PR | no finding — defer to tooling |
+| Header added in this PR alongside the file | no finding |
 
 Source: `https://www.apache.org/legal/src-headers.html` (policy)
 and the project's own header-tool configuration (scope and

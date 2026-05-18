@@ -1,0 +1,10 @@
+{
+  "triggered": true,
+  "matches": [
+    {
+      "location": "body",
+      "matched_text": "path traversal",
+      "context": "This PR fixes a path traversal vulnerability in the log viewer."
+    }
+  ]
+}

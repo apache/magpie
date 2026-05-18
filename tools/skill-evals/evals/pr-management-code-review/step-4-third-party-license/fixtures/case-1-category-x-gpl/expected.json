@@ -1,0 +1,11 @@
+{
+  "findings": [
+    {
+      "file": "vendor/slugify/slugify.py",
+      "licence": "GPL-2.0-only",
+      "category": "X",
+      "severity": "blocking",
+      "reason": "GPL is a Category X licence under the ASF resolved_licenses policy and cannot be included in an ASF release in any form."
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "findings": [
+    {
+      "file": "libs/utils.jar",
+      "severity": "major",
+      "reason": "Compiled artifacts must not be committed to the source tree — ASF releases are source-only; remove this file and ensure it is generated at build time."
+    }
+  ]
+}

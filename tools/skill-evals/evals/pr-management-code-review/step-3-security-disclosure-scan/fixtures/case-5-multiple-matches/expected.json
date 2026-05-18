@@ -1,0 +1,15 @@
+{
+  "triggered": true,
+  "matches": [
+    {
+      "location": "title",
+      "matched_text": "privilege escalation",
+      "context": "Fix privilege escalation in task instance API"
+    },
+    {
+      "location": "body",
+      "matched_text": "exploit",
+      "context": "An authenticated user could exploit a missing authorisation check"
+    }
+  ]
+}

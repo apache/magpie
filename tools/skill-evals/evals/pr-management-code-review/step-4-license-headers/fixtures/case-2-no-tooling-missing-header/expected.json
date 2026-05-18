@@ -1,0 +1,9 @@
+{
+  "findings": [
+    {
+      "file": "src/utils/StringHelper.java",
+      "severity": "major",
+      "reason": "No header tooling in CI and this contributor-authored source file is missing the required Apache license header."
+    }
+  ]
+}

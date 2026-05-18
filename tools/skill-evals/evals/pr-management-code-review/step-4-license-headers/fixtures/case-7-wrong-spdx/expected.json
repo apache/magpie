@@ -1,0 +1,9 @@
+{
+  "findings": [
+    {
+      "file": "src/util/Parser.py",
+      "severity": "major",
+      "reason": "This contributor-authored file carries an MIT SPDX identifier instead of Apache-2.0 — the header tooling passes because a header is present, but the license identifier is wrong for an ASF project."
+    }
+  ]
+}

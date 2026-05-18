@@ -1,0 +1,9 @@
+{
+  "findings": [
+    {
+      "file": "airflow/_speedups.so",
+      "severity": "blocking",
+      "reason": "This compiled native artifact would be included in the release archive, violating the ASF Release Policy which requires source-only releases."
+    }
+  ]
+}

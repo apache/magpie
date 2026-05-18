@@ -1,0 +1,10 @@
+{
+  "triggered": true,
+  "matches": [
+    {
+      "location": "commit",
+      "matched_text": "use-after-free",
+      "context": "Prevent use-after-free in XCom backend cleanup"
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "findings": [
+    {
+      "file": "src/codegen/GeneratedClient.java",
+      "severity": "major",
+      "reason": "The PR simultaneously adds a .rat-excludes entry for this file and adds the file without an Apache header — CI passes green by construction; maintainer must confirm the exclusion is appropriate and the file does not need a header."
+    }
+  ]
+}

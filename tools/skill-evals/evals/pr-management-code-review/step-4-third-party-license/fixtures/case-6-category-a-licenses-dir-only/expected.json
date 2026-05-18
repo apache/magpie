@@ -1,0 +1,11 @@
+{
+  "findings": [
+    {
+      "file": "airflow/utils/cron_descriptor.py",
+      "licence": "MIT",
+      "category": "A",
+      "severity": "major",
+      "reason": "MIT is a Category A licence; LICENSE / LICENSE.txt was not updated to add an attribution notice \u2014 a licenses/ directory entry alone is not sufficient."
+    }
+  ]
+}
