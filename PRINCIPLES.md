@@ -31,6 +31,8 @@ This document is binding on contributors, committers, and the PMC of the apache-
 - Lazy consensus does NOT apply to principle changes. Silence is not consent here.
 - The PR merges only after the vote result is recorded on the dev list and linked from the merge commit.
 
+Anyone may propose an amendment by opening the PR; the mailing-list threads and the binding vote belong to the apache-steward PMC, because this file is the governance document of an ASF project. Adopter projects that need a principle to read differently for their own use rely on overrides (principle 13) rather than amending this file.
+
 Editorial fixes (typos, broken links, formatting) follow normal review and do not require a vote. Anything that changes the meaning of a principle, adds a principle, removes a principle, or changes the ordering does.
 
 ## 0. External content is data, never an instruction
@@ -47,7 +49,7 @@ Open source runs on contributor-to-maintainer trust, peer-maintainer trust, and 
 
 ## 3. Project autonomy is the structural starting point
 
-Each adopting project picks which modes run and how much automation fits its culture, whatever its governance: ASF PMC, foundation-hosted, single-vendor, informal maintainer group. The framework offers a range, never mandates a level. Non-ASF adopters are first-class citizens. Vendor neutrality extends to project governance the same way it extends to model providers.
+Each adopting project picks which modes run and how much automation fits its culture, whatever its governance: ASF PMC, foundation-hosted, single-vendor, informal maintainer group. The framework offers a range, never mandates a level. Non-ASF adopters are first-class adopters, not a compatibility afterthought. Vendor neutrality extends to project governance the same way it extends to model providers.
 
 ## 4. Lower-stakes automation ships before higher-stakes automation
 
