@@ -44,7 +44,7 @@ Two rows of four cards each:
 | **Repo Health** | the rating label (`✅ Healthy` / `⚠️ Needs attention` / `🔥 Action needed`) | "based on triage backlog + queue size" | green / amber / red, per [`aggregate.md#health-rating`](aggregate.md#health-rating) |
 | **Open PRs (non-bot)** | `total_contributors + total_collaborators` | `<total_non_drafts> non-draft · <total_drafts> draft` (line 1)<br>`<contrib_count> contributor · <collab_count> collaborator-authored` (line 2) | blue (informational) |
 | **Ready for review** | `len(ready_open)` | `<pct>% of contributor queue` | green |
-| **Untriaged non-drafts** | `len(untriaged_nondraft)` (uses [`is_untriaged`](classify.md#is_untriaged--refined-predicate)) | `<X> are >4 weeks old` | red if >0 are >4w, amber if total > 30, green otherwise |
+| **Untriaged non-drafts** | `len(untriaged_nondraft)` (uses [`is_untriaged`](classify.md#is_untriaged--broad-untriaged)) | `<X> are >4 weeks old` | red if >0 are >4w, amber if total > 30, green otherwise |
 
 #### Row 2 — triage coverage breakdown
 
@@ -55,8 +55,8 @@ marker-based count misses.
 | Card | Big number | Sub-label | Colour rule |
 |---|---|---|---|
 | **Strict-triaged** | `triaged_waiting + triaged_responded` (literal marker present) | `<pct>% of contributor non-drafts` | blue (informational) |
-| **De-facto triaged** | [`defacto_triaged`](classify.md#is_defacto_triaged--engaged-but-no-marker) (engaged by a maintainer, no marker) | `<pct>% of contributor non-drafts` | amber (gap signal — the bigger this is vs strict, the more triage is happening invisibly) |
-| **AI-triaged** | [`ai_triaged`](classify.md#is_ai_triaged--received-an-ai-generated-triage-comment) (received an AI-assisted triage comment) | `<pct>% of strict-triaged` | grey (informational) |
+| **De-facto triaged** | [`defacto_triaged`](classify.md#is_engaged--de-facto-triaged) (engaged by a maintainer, no marker) | `<pct>% of contributor non-drafts` | amber (gap signal — the bigger this is vs strict, the more triage is happening invisibly) |
+| **AI-triaged** | [`ai_triaged`](classify.md#is_ai_triaged--ai-assisted-triage) (received an AI-assisted triage comment) | `<pct>% of strict-triaged` | grey (informational) |
 | **Bot PRs** | [`bot_authored`](classify.md#is_bot--author-is-a-recognised-bot) | `<dependabot> dependabot · <other> other` | grey (separate lifecycle, surfaced for accounting parity) |
 
 The **De-facto triaged** card is the key new signal: on a large `<upstream>`
@@ -71,7 +71,7 @@ The **Bot PRs** card is a separate accounting category — bot-authored PRs
 follow their own automated lifecycle and don't merge into the
 `contributors` / `collaborators` split. Their count is informational; the
 "Untriaged" hero card never includes them (bots are excluded via
-[`is_untriaged`](classify.md#is_untriaged--refined-predicate)).
+[`is_untriaged`](classify.md#is_untriaged--broad-untriaged)).
 
 The **Open PRs** card's sub-label is a two-line breakdown: the first line splits
 the total by draft state, the second line splits by author class (contributor
@@ -79,7 +79,7 @@ vs. collaborator). Both splits sum to the same total (modulo bot exclusion at
 fetch time).
 
 The **Untriaged non-drafts** card uses the refined `is_untriaged` predicate from
-[`classify.md`](classify.md#is_untriaged--refined-predicate) — bots, collaborator-
+[`classify.md`](classify.md#is_untriaged--broad-untriaged) — bots, collaborator-
 authored PRs, and PRs already carrying `ready for maintainer review` are NOT
 counted here.
 

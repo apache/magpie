@@ -35,11 +35,11 @@ One `_AreaStats` block per area. Only two counters (`total` and `contributors`) 
 | `triaged_waiting` | classified `triaged_waiting` (see `classify.md`) | contributor-only |
 | `triaged_responded` | classified `triaged_responded` | contributor-only |
 | `ready_for_review` | label `ready for maintainer review` present | contributor-only |
-| `engaged` | satisfies [`is_engaged`](classify.md#is_engaged--broader-maintainer-touched-this-predicate) (any maintainer touched it) | contributor-only |
-| `defacto_triaged` | satisfies [`is_defacto_triaged`](classify.md#is_defacto_triaged--engaged-but-no-marker) (engaged but no marker) | contributor-only |
-| `ai_triaged` | satisfies [`is_ai_triaged`](classify.md#is_ai_triaged--received-an-ai-generated-triage-comment) (received an AI-assisted triage comment) | contributor-only |
+| `engaged` | satisfies [`is_engaged`](classify.md#is_engaged--de-facto-triaged) (any maintainer touched it) | contributor-only |
+| `defacto_triaged` | satisfies [`is_defacto_triaged`](classify.md#is_engaged--de-facto-triaged) (engaged but no marker) | contributor-only |
+| `ai_triaged` | satisfies [`is_ai_triaged`](classify.md#is_ai_triaged--ai-assisted-triage) (received an AI-assisted triage comment) | contributor-only |
 | `bot_authored` | [`is_bot`](classify.md#is_bot--author-is-a-recognised-bot)(pr.author.login) | **all** — its own category, NOT in `contributors` |
-| `untriaged_nondraft` | satisfies [`is_untriaged`](classify.md#is_untriaged--refined-predicate) AND `isDraft == false` | contributor-only |
+| `untriaged_nondraft` | satisfies [`is_untriaged`](classify.md#is_untriaged--broad-untriaged) AND `isDraft == false` | contributor-only |
 | `untriaged_old` | `untriaged_nondraft` AND `age_bucket == ">4w"` | contributor-only |
 | `untriaged_med` | `untriaged_nondraft` AND `age_bucket == "1-4w"` | contributor-only |
 | `triager_drafted` | classified `drafted_by_triager` | contributor-only |
@@ -47,7 +47,7 @@ One `_AreaStats` block per area. Only two counters (`total` and `contributors`) 
 | `draft_age_buckets` | histogram over PRs where `drafted_at` is set, same bucket labels | contributor-only |
 
 The three `untriaged_*` counters share the same predicate (see
-[`classify.md#is_untriaged--refined-predicate`](classify.md#is_untriaged--refined-predicate))
+[`classify.md#is_untriaged--broad-untriaged`](classify.md#is_untriaged--broad-untriaged))
 — a PR carrying the `ready for maintainer review` label is **not** counted as
 untriaged regardless of whether the literal triage marker is present, because
 the label itself is evidence that the PR cleared the triage bar.
@@ -62,7 +62,7 @@ the label itself is evidence that the PR cleared the triage bar.
 - `defacto_triaged + (triaged_waiting + triaged_responded) == engaged` (every engaged PR is either strictly triaged or de-facto-only)
 - `ready_for_review <= non_drafts` (a ready PR shouldn't be draft — if the inequality fails, the label is stale; surface a one-line warning but don't correct the data)
 - `untriaged_old + untriaged_med <= untriaged_nondraft <= non_drafts`
-- `triaged_waiting + triaged_responded + ready_for_review + untriaged_nondraft <= non_drafts` (every contributor non-draft is either triaged, ready, or untriaged; the difference covers PRs in a transitional state — e.g. fresh triaged_responded that haven't been marked ready yet)
+- `engaged + untriaged_nondraft + ready_for_review == non_drafts (contributor)` (the partition: every contributor non-draft is exactly one of `is_engaged` (strict OR de-facto), `is_untriaged` (no maintainer touched), or already-`ready` labelled — the three are mutually exclusive once the `is_untriaged` definition uses `NOT is_engaged` rather than `NOT is_triaged`)
 - `sum(age_buckets.values()) == contributors`
 - `contributors <= total`
 
@@ -284,7 +284,7 @@ This panel makes the *quality* of closures visible — the velocity panel says "
 The dashboard's "Triager activity" section ranks maintainers by how many
 distinct PRs each one **engaged with** in each of the last 6 calendar weeks.
 "Engaged" uses the same predicate as
-[`is_engaged`](classify.md#is_engaged--broader-maintainer-touched-this-predicate)
+[`is_engaged`](classify.md#is_engaged--de-facto-triaged)
 (any maintainer comment / review).
 
 For each open PR currently in the fetch set, walk
@@ -312,7 +312,7 @@ Every triager's per-week count is further split into:
 
 - **AI-assisted**: comments whose body contains the AI-attribution footer
   substring (`AI-assisted triage tool` — same detector as
-  [`is_ai_triaged`](classify.md#is_ai_triaged--received-an-ai-generated-triage-comment)).
+  [`is_ai_triaged`](classify.md#is_ai_triaged--ai-assisted-triage)).
 - **Manual**: comments without the footer.
 
 Same PR can contribute to *both* sub-counts for the same maintainer-week if
@@ -375,7 +375,7 @@ Top-of-dashboard hero card. Computed as a count of fired threshold conditions:
 | > 20 stale-triaged drafts (drafts where triage comment ≥ 7 days old AND no author response) | **1** |
 
 Each "untriaged" condition above uses the refined
-[`is_untriaged`](classify.md#is_untriaged--refined-predicate) predicate —
+[`is_untriaged`](classify.md#is_untriaged--broad-untriaged) predicate —
 so a PR carrying the `ready for maintainer review` label does **not** trigger the
 health-rating points even if it lacks the literal `Pull Request quality criteria`
 marker (the label is itself evidence of triage).
