@@ -1,0 +1,204 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+"""Move a Vulnogram CVE record `REVIEW` → `PUBLIC` over the OAuth API.
+
+Step 15 of the security handling process — the CNA-feed dispatch to
+`cve.org` — used to be intentionally human-only (a Vulnogram UI
+button click) because of the out-of-band side effects. The post-2026
+convention drives it from `security-issue-sync` on the
+*"published archive URL captured"* gate: at that point the advisory
+has provably shipped on `<users-list>`, which is the same real-world
+signal a human would use before clicking the button.
+
+Mechanics: Vulnogram's state machine lives in the
+``CNA_private.state`` field of the document body. This script:
+
+1. Fetches the current stored JSON via ``GET /<section>/json/<CVE-ID>``.
+2. Sets ``CNA_private.state = "PUBLIC"`` (preserves every other
+   field — this is a state-flip only, not a content edit).
+3. POSTs the modified document back via the same path
+   :class:`vulnogram_api.client.update_record` already uses.
+
+If the record is not currently in ``REVIEW`` state, the script
+refuses the transition with a non-zero exit (a sync that re-runs
+the publish on a tracker that already published is a bug, not an
+idempotent no-op — surfacing it loudly is the right escalation).
+
+The companion :mod:`vulnogram_api.record_update` script writes
+arbitrary JSON to a record. ``record_publish`` is intentionally
+narrower: it only flips the state field, so a future schema change
+to the body cannot accidentally smuggle through the publish path.
+"""
+
+from __future__ import annotations
+
+import argparse
+import re
+import sys
+
+from vulnogram_api.client import (
+    CSRFNotFound,
+    RecordSaveFailed,
+    SessionExpired,
+    VulnogramAPIError,
+    get_record,
+    update_record,
+)
+from vulnogram_api.credentials import Session, locate_session
+
+CVE_ID_RE = re.compile(r"^CVE-\d{4}-\d{4,7}$")
+
+
+class UnexpectedRecordState(VulnogramAPIError):
+    """Refuse to publish a record that is not currently in ``REVIEW``."""
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    ap = argparse.ArgumentParser(
+        description=(__doc__ or "").split("\n\n", 1)[0],
+    )
+    ap.add_argument(
+        "--cve-id",
+        required=True,
+        help="The CVE ID, e.g. CVE-2026-12345.",
+    )
+    ap.add_argument(
+        "--credentials",
+        default=None,
+        help=(
+            "Path to the session JSON. Defaults to "
+            "$VULNOGRAM_SESSION, else "
+            "~/.config/apache-steward/vulnogram-session.json."
+        ),
+    )
+    ap.add_argument(
+        "--section",
+        default="cve5",
+        help="Vulnogram section path component. Default: cve5.",
+    )
+    ap.add_argument(
+        "--allow-state",
+        action="append",
+        default=None,
+        help=(
+            "Accepted current states. Default: REVIEW only. Pass multiple "
+            "times to allow more (e.g. --allow-state REVIEW --allow-state READY). "
+            "Use sparingly — refusing unexpected states is the safety net."
+        ),
+    )
+    ap.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Fetch and report the proposed transition; do not POST.",
+    )
+    return ap.parse_args(argv)
+
+
+def _state(document: dict[str, object]) -> str | None:
+    cna = document.get("CNA_private")
+    if not isinstance(cna, dict):
+        return None
+    s = cna.get("state")
+    return s if isinstance(s, str) else None
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
+
+    if not CVE_ID_RE.match(args.cve_id):
+        raise SystemExit(f"--cve-id {args.cve_id!r} does not match CVE-YYYY-NNNN form. Refusing to publish.")
+
+    accepted_states = set(args.allow_state or ["REVIEW"])
+
+    creds_path = locate_session(args.credentials)
+    session = Session.load(creds_path)
+
+    try:
+        document = get_record(session, args.cve_id, section=args.section)
+    except SessionExpired as e:
+        print(f"✗ {e}", file=sys.stderr)
+        return 2
+    except VulnogramAPIError as e:
+        print(f"✗ {e}", file=sys.stderr)
+        return 6
+
+    current_state = _state(document)
+    if current_state == "PUBLIC":
+        print(
+            f"= {args.cve_id} already PUBLIC; no transition needed.",
+            file=sys.stderr,
+        )
+        return 0
+    if current_state not in accepted_states:
+        print(
+            f"✗ {args.cve_id} is in state {current_state!r}; expected one of "
+            f"{sorted(accepted_states)!r}. Refusing the publish — investigate "
+            f"manually via the Vulnogram UI.",
+            file=sys.stderr,
+        )
+        return 3
+
+    document.setdefault("CNA_private", {})
+    if not isinstance(document["CNA_private"], dict):
+        print(
+            f"✗ {args.cve_id} document's CNA_private field is not an object: "
+            f"{type(document['CNA_private']).__name__}. Refusing to publish.",
+            file=sys.stderr,
+        )
+        return 3
+    document["CNA_private"]["state"] = "PUBLIC"
+
+    if args.dry_run:
+        print(
+            f"= {args.cve_id} dry-run: would POST CNA_private.state = PUBLIC (currently {current_state!r}).",
+        )
+        return 0
+
+    try:
+        envelope = update_record(session, args.cve_id, document, section=args.section)
+    except SessionExpired as e:
+        print(f"✗ {e}", file=sys.stderr)
+        return 2
+    except CSRFNotFound as e:
+        print(f"✗ {e}", file=sys.stderr)
+        return 4
+    except RecordSaveFailed as e:
+        print(f"✗ {e}", file=sys.stderr)
+        return 5
+    except VulnogramAPIError as e:
+        print(f"✗ {e}", file=sys.stderr)
+        return 6
+
+    if envelope.get("type") == "saved":
+        print(
+            f"✓ {args.cve_id} published "
+            f"(state {current_state!r} → 'PUBLIC') at "
+            f"https://{session.host}/{args.section}/{args.cve_id}"
+        )
+        return 0
+    if envelope.get("type") == "go":
+        print(
+            f"✓ {args.cve_id} published; Vulnogram redirected to "
+            f"{envelope.get('to')!r} (record was renamed mid-save)."
+        )
+        return 0
+    print(f"? Unexpected envelope shape: {envelope}", file=sys.stderr)
+    return 7
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -1,0 +1,153 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+from __future__ import annotations
+
+import json
+
+import pytest
+
+from vulnogram_api import record_publish
+
+
+def _write_session(path):
+    path.write_text(
+        json.dumps(
+            {
+                "host": "cveprocess.apache.org",
+                "session_cookie_name": "connect.sid",
+                "session_cookie_value": "s%3Atest",
+                "from_address": "you@apache.org",
+            }
+        )
+    )
+    return path
+
+
+def test_invalid_cve_id_rejected(tmp_path, monkeypatch):
+    _write_session(tmp_path / "session.json")
+    monkeypatch.setenv("VULNOGRAM_SESSION", str(tmp_path / "session.json"))
+    with pytest.raises(SystemExit) as excinfo:
+        record_publish.main(["--cve-id", "not-a-cve"])
+    assert "CVE-YYYY-NNNN" in str(excinfo.value)
+
+
+def test_already_public_is_noop(tmp_path, monkeypatch, capsys):
+    _write_session(tmp_path / "session.json")
+    monkeypatch.setenv("VULNOGRAM_SESSION", str(tmp_path / "session.json"))
+
+    def _fake_get(*a, **kw):
+        return {"CNA_private": {"state": "PUBLIC"}, "cveMetadata": {"cveId": "CVE-2026-12345"}}
+
+    monkeypatch.setattr(record_publish, "get_record", _fake_get)
+    rc = record_publish.main(["--cve-id", "CVE-2026-12345"])
+    assert rc == 0
+    err = capsys.readouterr().err
+    assert "already PUBLIC" in err
+
+
+def test_unexpected_state_refused(tmp_path, monkeypatch, capsys):
+    _write_session(tmp_path / "session.json")
+    monkeypatch.setenv("VULNOGRAM_SESSION", str(tmp_path / "session.json"))
+
+    def _fake_get(*a, **kw):
+        return {"CNA_private": {"state": "DRAFT"}}
+
+    monkeypatch.setattr(record_publish, "get_record", _fake_get)
+    rc = record_publish.main(["--cve-id", "CVE-2026-12345"])
+    assert rc == 3
+    err = capsys.readouterr().err
+    assert "'DRAFT'" in err
+    assert "Refusing the publish" in err
+
+
+def test_allow_state_widens_acceptance(tmp_path, monkeypatch):
+    _write_session(tmp_path / "session.json")
+    monkeypatch.setenv("VULNOGRAM_SESSION", str(tmp_path / "session.json"))
+
+    def _fake_get(*a, **kw):
+        return {"CNA_private": {"state": "READY"}}
+
+    monkeypatch.setattr(record_publish, "get_record", _fake_get)
+    rc = record_publish.main(
+        [
+            "--cve-id",
+            "CVE-2026-12345",
+            "--allow-state",
+            "REVIEW",
+            "--allow-state",
+            "READY",
+            "--dry-run",
+        ]
+    )
+    assert rc == 0
+
+
+def test_review_to_public_dry_run(tmp_path, monkeypatch, capsys):
+    _write_session(tmp_path / "session.json")
+    monkeypatch.setenv("VULNOGRAM_SESSION", str(tmp_path / "session.json"))
+
+    def _fake_get(*a, **kw):
+        return {"CNA_private": {"state": "REVIEW"}, "cveMetadata": {"cveId": "CVE-2026-12345"}}
+
+    monkeypatch.setattr(record_publish, "get_record", _fake_get)
+    rc = record_publish.main(["--cve-id", "CVE-2026-12345", "--dry-run"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "dry-run" in out
+    assert "'REVIEW'" in out
+
+
+def test_review_to_public_apply_flips_state(tmp_path, monkeypatch, capsys):
+    _write_session(tmp_path / "session.json")
+    monkeypatch.setenv("VULNOGRAM_SESSION", str(tmp_path / "session.json"))
+
+    fetched = {"CNA_private": {"state": "REVIEW"}, "cveMetadata": {"cveId": "CVE-2026-12345"}}
+    captured: dict[str, object] = {}
+
+    def _fake_get(*a, **kw):
+        return fetched
+
+    def _fake_update(session, cve_id, document, *, section="cve5", **kw):
+        captured["cve_id"] = cve_id
+        captured["state"] = document["CNA_private"]["state"]
+        return {"type": "saved"}
+
+    monkeypatch.setattr(record_publish, "get_record", _fake_get)
+    monkeypatch.setattr(record_publish, "update_record", _fake_update)
+    rc = record_publish.main(["--cve-id", "CVE-2026-12345"])
+    assert rc == 0
+    assert captured == {"cve_id": "CVE-2026-12345", "state": "PUBLIC"}
+    out = capsys.readouterr().out
+    assert "published" in out
+    assert "'REVIEW'" in out
+    assert "'PUBLIC'" in out
+
+
+def test_session_expired_returns_2(tmp_path, monkeypatch, capsys):
+    _write_session(tmp_path / "session.json")
+    monkeypatch.setenv("VULNOGRAM_SESSION", str(tmp_path / "session.json"))
+
+    def _raise_expired(*a, **kw):
+        from vulnogram_api.client import SessionExpired
+
+        raise SessionExpired("session expired")
+
+    monkeypatch.setattr(record_publish, "get_record", _raise_expired)
+    rc = record_publish.main(["--cve-id", "CVE-2026-12345"])
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "session expired" in err

@@ -35,6 +35,7 @@ dependencies = []
 [project.scripts]
 vulnogram-api-setup = "vulnogram_api.setup_session:main"
 vulnogram-api-record-update = "vulnogram_api.record_update:main"
+vulnogram-api-record-publish = "vulnogram_api.record_publish:main"
 vulnogram-api-check = "vulnogram_api.check:main"
 
 [dependency-groups]
