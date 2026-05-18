@@ -327,13 +327,22 @@ shapes:
 - **Body** — a short paragraph explaining the cause (not just
   the symptom) and the chosen fix shape. One paragraph; not a
   novel.
-- **Trailers** — AI-assisted commits use a `Generated-by:`
-  trailer (never `Co-Authored-By:` with an agent as co-author),
-  per [`AGENTS.md` → *Commit and PR conventions*](../../../AGENTS.md#commit-and-pr-conventions).
-  The exact wording may carry a project-specific form — see
-  `<project-config>/fix-workflow.md`. The trailer is the
-  *contributor's* call on their own commit; the skill does not
-  add it to anyone else's commit.
+- **Trailers** — AI-assisted commits use a `Generated-by: <tool>`
+  trailer (e.g. `Generated-by: <tool-name>`), never
+  `Co-Authored-By:` with an agent as co-author — per
+  [`AGENTS.md` → *Commit and PR conventions*](../../../AGENTS.md#commit-and-pr-conventions)
+  and the [ASF Generative Tooling guidance](https://www.apache.org/legal/generative-tooling.html).
+  Including the tool name is a recommended practice per the policy;
+  the project's `<project-config>/fix-workflow.md` may specify a
+  preferred format. The trailer is the *contributor's* call on their
+  own commit; the skill does not add it to anyone else's commit.
+- **Security language scrub** — before finalising the commit body,
+  confirm no line references the security nature of the change
+  (e.g. *"fixes CVE"*, *"security fix"*, *"patches
+  vulnerability"*). Per the `security_committers` policy, commit
+  messages must not reference the security nature of a commit even
+  when the fix touches security-adjacent code. Describe the
+  behaviour change neutrally instead.
 
 Show the commit message to the user; ask for confirmation before
 running `git commit`.
