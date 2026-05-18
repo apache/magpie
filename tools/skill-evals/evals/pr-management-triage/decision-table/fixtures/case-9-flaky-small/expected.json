@@ -1,0 +1,5 @@
+{
+  "classification": "deterministic_flag",
+  "action": "rerun",
+  "reason": "Row 13: 1 failure (not systemic, not static), failed_count <= 2 and commits_behind <= 50 — likely flaky, suggest rerun."
+}

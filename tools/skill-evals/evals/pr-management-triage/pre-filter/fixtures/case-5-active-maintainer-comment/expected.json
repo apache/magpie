@@ -1,0 +1,5 @@
+{
+  "action": "skip",
+  "filter": "F5a",
+  "reason": "Most recent comment is from maintainer 'potiuk' (MEMBER), posted 25 hours ago after the last commit — active maintainer conversation in progress."
+}

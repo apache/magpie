@@ -1,0 +1,5 @@
+{
+  "action": "skip",
+  "filter": "F5b",
+  "reason": "Most recent collaborator comment @-mentions kaxil and mik-laj, but neither has posted on the PR since — maintainer-to-maintainer ping is still unanswered."
+}

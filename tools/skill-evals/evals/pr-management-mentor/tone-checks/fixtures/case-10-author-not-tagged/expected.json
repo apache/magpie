@@ -1,0 +1,5 @@
+{
+  "result": "hard_fail",
+  "rule": 8,
+  "offending_text": "Comment does not contain @<author> — the author must be tagged exactly once."
+}

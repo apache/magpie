@@ -1,0 +1,5 @@
+{
+  "classification": "deterministic_flag",
+  "action": "rebase",
+  "reason": "Row 16: no real CI checks were triggered and branch is mergeable — rebase onto main to re-trigger the CI suite."
+}

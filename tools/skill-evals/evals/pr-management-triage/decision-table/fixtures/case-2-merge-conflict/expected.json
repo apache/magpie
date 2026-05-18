@@ -1,0 +1,5 @@
+{
+  "classification": "deterministic_flag",
+  "action": "draft",
+  "reason": "Row 9: branch is CONFLICTING with base — author must rebase locally before this can be merged."
+}

@@ -1,0 +1,5 @@
+{
+  "action": "skip",
+  "filter": "F3",
+  "reason": "PR is a draft with activity 3 days ago, which is within the 14-day draft grace window."
+}

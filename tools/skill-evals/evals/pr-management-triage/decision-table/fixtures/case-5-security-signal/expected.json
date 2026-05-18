@@ -1,0 +1,5 @@
+{
+  "classification": "security_language_signal",
+  "action": "comment",
+  "reason": "Row 7b: title contains 'SQL injection' — security-language signal detected; ask contributor to neutralise or confirm CVE disclosure is complete."
+}

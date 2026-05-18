@@ -1,0 +1,5 @@
+{
+  "classification": "passing",
+  "action": "skip",
+  "reason": "Row 19: CI green, branch mergeable, no unresolved threads, real CI ran, and 'ready for maintainer review' label already present — nothing to do."
+}

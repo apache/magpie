@@ -1,0 +1,5 @@
+{
+  "result": "hard_fail",
+  "rule": 4,
+  "offending_text": "The maintainers will probably want to see this before approving the PR."
+}

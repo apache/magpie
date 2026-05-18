@@ -1,0 +1,5 @@
+{
+  "classification": "deterministic_flag",
+  "action": "rerun",
+  "reason": "Row 11: 1 of 2 CI failures (Pytest MySQL) matches recent main-branch failures — partially systemic, suggest rerun."
+}

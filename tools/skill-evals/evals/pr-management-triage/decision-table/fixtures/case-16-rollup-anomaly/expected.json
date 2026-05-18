@@ -1,0 +1,5 @@
+{
+  "classification": null,
+  "action": "skip",
+  "reason": "Row 22: statusCheckRollup reports SUCCESS but failed_checks is non-empty — data anomaly, rollup has not yet settled; skip and retry next page."
+}

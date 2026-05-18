@@ -1,0 +1,5 @@
+{
+  "result": "soft_fail",
+  "rule": 12,
+  "offending_text": "Body exceeds 6 sentences (7 sentences before the footer)."
+}

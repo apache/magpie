@@ -1,0 +1,5 @@
+{
+  "action": "skip",
+  "filter": "F4",
+  "reason": "PR already carries the 'ready for maintainer review' label, CI is green, branch is mergeable, and there are no unresolved threads — no regression since the label was added."
+}

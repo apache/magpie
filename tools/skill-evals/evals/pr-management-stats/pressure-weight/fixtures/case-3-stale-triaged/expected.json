@@ -1,0 +1,5 @@
+{
+  "pressure_weight": 2,
+  "matched_rule": 3,
+  "reason": "PR is triaged_waiting and the triage comment is 10 days old (>= 7 days) — stale triaged, sweep candidate."
+}

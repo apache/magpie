@@ -1,0 +1,5 @@
+{
+  "classification": "author_confirmed_ready",
+  "action": "mark-ready",
+  "reason": "Row 14a: author's most recent comment ('this is ready for review') signals readiness in direct response to the maintainer's confirmation request."
+}

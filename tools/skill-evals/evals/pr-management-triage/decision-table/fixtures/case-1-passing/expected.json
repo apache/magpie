@@ -1,0 +1,5 @@
+{
+  "classification": "passing",
+  "action": "mark-ready",
+  "reason": "Row 20: CI is SUCCESS, branch is mergeable, no unresolved threads, and real CI ran — mark ready for maintainer review."
+}

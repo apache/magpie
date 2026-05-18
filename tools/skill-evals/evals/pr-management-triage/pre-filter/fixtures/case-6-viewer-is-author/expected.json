@@ -1,0 +1,5 @@
+{
+  "action": "skip",
+  "filter": "row-6",
+  "reason": "Viewer login 'potiuk' matches the PR author login — triage of own PRs is always skipped."
+}

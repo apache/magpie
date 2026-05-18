@@ -1,0 +1,5 @@
+{
+  "pressure_weight": 3,
+  "matched_rule": 6,
+  "reason": "Untriaged non-draft contributor PR with last activity 10 days ago (>= 7 days, < 28 days) — stale untriaged mid-tier pressure."
+}

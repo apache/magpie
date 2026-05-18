@@ -1,0 +1,5 @@
+{
+  "classification": "deterministic_flag",
+  "action": "request-author-confirmation",
+  "reason": "Row 14c: 2 unresolved threads from kaxil but the author has replied to both — likely addressed, ask author to confirm readiness for maintainer review."
+}

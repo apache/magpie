@@ -1,0 +1,5 @@
+{
+  "action": "skip",
+  "filter": "row-7a",
+  "reason": "PR was created 13 minutes ago, which is less than the 30-minute warm-up window."
+}

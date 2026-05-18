@@ -1,0 +1,5 @@
+{
+  "action": "skip",
+  "filter": "F6",
+  "reason": "PR is a draft and collaborator 'kaxil' left a substantive comment (≥ 80 chars) after the last commit — maintainer is actively co-drafting."
+}

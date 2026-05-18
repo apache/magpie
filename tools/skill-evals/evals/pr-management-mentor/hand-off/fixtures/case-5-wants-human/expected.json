@@ -1,0 +1,4 @@
+{
+  "trigger": 4,
+  "reason": "Contributor explicitly asked for a human ('Can a real person from the team please look at this?') — trigger 4 fires first regardless of other active triggers."
+}

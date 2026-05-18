@@ -1,0 +1,5 @@
+{
+  "result": "hard_fail",
+  "rule": 7,
+  "offending_text": "Comment does not end with the required <ai_attribution_footer> marker."
+}

@@ -1,0 +1,5 @@
+{
+  "classification": "deterministic_flag",
+  "action": "comment",
+  "reason": "Row 12: all CI failures (mypy, ruff) are static checks — the author needs to fix type or style errors, not just rerun."
+}

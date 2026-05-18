@@ -15,7 +15,7 @@ A PR is *triaged* when it has at least one comment that:
 
 - is authored by `OWNER` / `MEMBER` / `COLLABORATOR` (`authorAssociation`)
 - contains the literal string `Pull Request quality criteria` in the comment's **raw `body`** (NOT `bodyText` — see below)
-- has `createdAt` **after** the PR's last commit's `committedDate` (otherwise the triage pre-dates the current code and is stale)
+- has `createdAt` **after** the PR's last commit's `committedDate` **at the time the comment was posted** (otherwise the triage pre-dates the current code and is stale). **Exception:** if the PR author subsequently pushes a commit *after* the triage comment (`last_commit.committedDate` > `triage_comment.createdAt`), do **not** treat the marker as stale — that commit is evidence the author responded to triage feedback. Classify as `triaged_responded` (see [Triaged sub-states](#triaged-sub-states) below) rather than reverting to `untriaged`.
 
 ### Both marker forms count
 

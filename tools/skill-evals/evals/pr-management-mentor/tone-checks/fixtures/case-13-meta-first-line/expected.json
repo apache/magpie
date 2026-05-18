@@ -1,0 +1,5 @@
+{
+  "result": "soft_fail",
+  "rule": 11,
+  "offending_text": "I'm reaching out because the PR is missing a reproduction script."
+}

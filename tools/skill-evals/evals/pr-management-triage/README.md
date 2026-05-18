@@ -1,0 +1,26 @@
+# pr-management-triage evals
+
+Behavioral evals for the `pr-management-triage` skill.
+
+## Suites (26 cases total)
+
+| Suite | Step | Cases | What it covers |
+|---|---|---|---|
+| pre-filter | Step 2 (pre-filters) | 10 | F1 (collaborator), F2 (bot), F3 (draft recent), F4 (already ready), F5a (active maintainer comment), F5b (maintainer ping unanswered), F6 (maintainer co-drafted), row-6 (viewer is author), row-7a (fresh PR); clean contributor continues |
+| decision-table | Step 2 (decision table) | 16 | Row 7b (security signal), 9 (conflict→draft), 10 (all systemic→rerun), 11 (partial systemic→rerun), 12 (static-only→comment), 13 (flaky ≤2→rerun), 14a (author confirmed→mark-ready), 14b (pending confirmation→skip), 14c (threads addressed→request-author-confirmation), 15 (threads→ping), 16 (no CI→rebase), 18 (changes-requested+new-commits→ping), 19 (already ready→skip), 20 (passing→mark-ready), 21 (stale draft sweep→close), 22 (rollup anomaly→skip) |
+
+## Run
+
+```bash
+# All cases
+uv run --project tools/skill-evals skill-eval \
+    tools/skill-evals/evals/pr-management-triage/
+
+# Single suite
+uv run --project tools/skill-evals skill-eval \
+    tools/skill-evals/evals/pr-management-triage/pre-filter/fixtures/
+
+# Single case
+uv run --project tools/skill-evals skill-eval \
+    tools/skill-evals/evals/pr-management-triage/decision-table/fixtures/case-16-rollup-anomaly
+```

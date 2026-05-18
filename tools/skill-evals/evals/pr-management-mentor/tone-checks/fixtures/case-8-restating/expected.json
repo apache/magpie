@@ -1,0 +1,5 @@
+{
+  "result": "hard_fail",
+  "rule": 2,
+  "offending_text": "If I understand correctly, you're saying the tests are failing because the fixture data doesn't match the new schema."
+}

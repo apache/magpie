@@ -1,0 +1,4 @@
+{
+  "trigger": 1,
+  "reason": "Agent has already posted 2 comments (max_agent_turns = 2) and the thread is not resolved — hand off to a maintainer."
+}

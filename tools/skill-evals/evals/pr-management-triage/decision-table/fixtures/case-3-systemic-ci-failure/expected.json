@@ -1,0 +1,5 @@
+{
+  "classification": "deterministic_flag",
+  "action": "rerun",
+  "reason": "Row 10: all 2 CI failures (Pytest MySQL, Pytest SQLite) also appear in recent main-branch failures — likely systemic, not caused by this PR."
+}

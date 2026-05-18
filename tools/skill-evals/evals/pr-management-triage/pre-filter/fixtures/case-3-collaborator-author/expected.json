@@ -1,0 +1,5 @@
+{
+  "action": "skip",
+  "filter": "F1",
+  "reason": "Author 'turboszabo' has authorAssociation MEMBER, which is in the {OWNER, MEMBER, COLLABORATOR} set."
+}

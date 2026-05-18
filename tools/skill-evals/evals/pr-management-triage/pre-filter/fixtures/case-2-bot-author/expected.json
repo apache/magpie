@@ -1,0 +1,5 @@
+{
+  "action": "skip",
+  "filter": "F2",
+  "reason": "Author login 'dependabot[bot]' matches the known bot list (ends with [bot])."
+}
