@@ -211,8 +211,7 @@ re-reads in fresh agent contexts would otherwise see.
 ## Pattern 9 — `--body-file <path>`, never `--body "..."`
 
 Use `gh issue create --body-file <path>` and `gh issue comment
---body-file <path>` exclusively. The string-form `--body
-"$(cat …)"` re-introduces shell expansion of the file's content
+--body-file <path>` exclusively. The string-form `--body "$(cat …)"` re-introduces shell expansion of the file's content
 through the outer double-quoted argument, defeating the point of
 moving the content to a file. The `--body-file` form reads the
 file directly, no expansion.

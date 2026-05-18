@@ -565,7 +565,7 @@ browser before actually submitting the PR — matching the rule in
 ```bash
 gh pr create --web --repo <upstream> --base <base-branch> \
   --title "<neutral title>" \
-  --body "$(cat /tmp/pr-body-<issue>.md)"
+  --body-file /tmp/pr-body-<issue>.md
 ```
 
 If a backport label is needed, apply it via `gh` after the PR is

@@ -276,8 +276,13 @@ In `<framework-clone>`:
 3. **Confirm with the user before posting**. Show the
    exact title + body. Wait for "OK to post" / "yes" /
    "send" / similar before running `gh pr create`.
-4. `gh pr create --repo apache/airflow-steward --base
-   main --head <user>:<branch> --title "..." --body "..."`
+4. Write the PR body to a temp file, then post:
+
+   ```bash
+   gh pr create --repo apache/airflow-steward --base main \
+     --head <user>:<branch> --title "..." \
+     --body-file /tmp/pr-body.md
+   ```
 
 ### Step 7 — Post-PR cleanup pointer
 

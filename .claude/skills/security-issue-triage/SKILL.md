@@ -769,8 +769,7 @@ gh issue comment <N> --repo <tracker> --body-file <tmpfile>
 
 Use the
 [`tools/github/issue-template.md`](../../../tools/github/issue-template.md)
-file-via-Write-tool pattern for the body — `gh issue comment
---body '<x>'` permits shell expansion of `$(...)` inside double
+file-via-Write-tool pattern for the body — `gh issue comment --body '<x>'` permits shell expansion of `$(...)` inside double
 quotes, and the comment body inevitably contains user-supplied
 text from the tracker (which crossed a trust boundary at
 import time). Write the body to `/tmp/triage-<N>.md` via the

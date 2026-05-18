@@ -35,32 +35,31 @@ Golden rule 8 downgrades any auto-`APPROVE` if CI is failing.
 ### Approve
 
 ```bash
-gh pr review <N> --repo <repo> --approve --body "$(cat <<'EOF'
+cat > /tmp/review-body.md << 'EOF'
 [review body here]
 EOF
-)"
+gh pr review <N> --repo <repo> --approve --body-file /tmp/review-body.md
 ```
 
 ### Request changes
 
 ```bash
-gh pr review <N> --repo <repo> --request-changes --body "$(cat <<'EOF'
+cat > /tmp/review-body.md << 'EOF'
 [review body here]
 EOF
-)"
+gh pr review <N> --repo <repo> --request-changes --body-file /tmp/review-body.md
 ```
 
 ### Comment
 
 ```bash
-gh pr review <N> --repo <repo> --comment --body "$(cat <<'EOF'
+cat > /tmp/review-body.md << 'EOF'
 [review body here]
 EOF
-)"
+gh pr review <N> --repo <repo> --comment --body-file /tmp/review-body.md
 ```
 
-The skill always uses **here-doc body passing** (never `--body
-"$STRING"` with quotes) to avoid shell-escape mishaps with PR
+The skill always uses **body-file passing** (never `--body "$STRING"` with quotes) to avoid shell-escape mishaps with PR
 content that may contain backticks, dollar signs, or quotes.
 
 ### Self-review guard

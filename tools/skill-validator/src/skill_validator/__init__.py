@@ -130,8 +130,9 @@ MAX_METADATA_CHARS = 1536
 
 PRINCIPLE_CATEGORY = "principle_compliance"
 TRIGGER_PRESERVATION_CATEGORY = "trigger_preservation"
+BODY_INLINE_CATEGORY = "body_inline"
 SOFT_CATEGORIES: frozenset[str] = frozenset(
-    {PRINCIPLE_CATEGORY, TRIGGER_PRESERVATION_CATEGORY},
+    {PRINCIPLE_CATEGORY, TRIGGER_PRESERVATION_CATEGORY, BODY_INLINE_CATEGORY},
 )
 
 ACTION_INVENTORY_COMMA_THRESHOLD = 5
@@ -324,6 +325,13 @@ def extract_headings(text: str) -> set[str]:
         seen[base] = count + 1
     return slugs
 
+
+# Matches ``--body "..."`` / ``--body '...'`` / ``--body="..."`` / ``--body='...'``.
+# The ``[\s=]`` character class covers both the space-separated form (common in
+# multi-line shell scripts) and the equals-sign form (common in one-liners).
+# Using ``--body-file`` instead avoids shell-injection risk from unquoted
+# or attacker-controlled content.
+_BODY_INLINE_RE = re.compile(r'--body[\s=]["\']')
 
 _FENCED_CODE_RE = re.compile(r"^```[\s\S]*?^```", re.MULTILINE)
 _DOUBLE_BACKTICK_RE = re.compile(r"``[\s\S]+?``")
@@ -675,6 +683,72 @@ def collect_skill_dirs(root: Path | None = None) -> set[Path]:
     return {p.resolve() for p in base.iterdir() if p.is_dir()}
 
 
+# ---------------------------------------------------------------------------
+# --body inline check (Pattern 9)
+# ---------------------------------------------------------------------------
+
+# Files that intentionally document the bad --body "..." pattern and must not
+# be flagged.  The security checklist uses nested 4- and 5-backtick fences for
+# embedded code-block demos; those confuse _FENCED_CODE_RE / _DOUBLE_BACKTICK_RE
+# and leave prose ``--body "..."`` mentions outside any detected code span.
+_BODY_INLINE_SKIP_SUFFIXES: tuple[str, ...] = (
+    "write-skill/security-checklist.md",
+)
+
+
+def _inline_only_code_spans(text: str) -> list[tuple[int, int]]:
+    """Return (start, end) spans for *inline* backtick code only.
+
+    Fenced code blocks are excluded so that security-pattern checks can
+    inspect fenced-block content (real agent commands) while skipping
+    inline backtick snippets that appear in instructional prose
+    (e.g. ``never use --body "..."``).
+
+    Uses position-based exclusion: any span fully contained within a
+    fenced block is dropped, regardless of the exact tuple values returned
+    by ``_code_spans`` (which can produce partially-overlapping spans for
+    the opening backticks of a fenced block).
+    """
+    fenced_spans = [m.span() for m in _FENCED_CODE_RE.finditer(text)]
+    return [
+        (s, e)
+        for (s, e) in _code_spans(text)
+        if not any(fs <= s and e <= fe for fs, fe in fenced_spans)
+    ]
+
+
+def validate_body_inline(path: Path, text: str) -> Iterable[Violation]:
+    """Flag ``--body "..."`` / ``--body '...'`` / ``--body=...`` in fenced blocks.
+
+    Passing a body as an inline shell argument is a shell-injection vector:
+    the value may contain attacker-controlled content (PR titles, issue
+    bodies, commit messages) that can break the quoting and inject
+    arbitrary shell commands.  ``--body-file <path>`` writes the content
+    to a temp file first and sidesteps the problem entirely.
+
+    Both the space-separated form (``--body "text"``) and the equals-sign
+    form (``--body="text"``) are caught.  Inline backtick mentions in
+    prose (e.g. "avoid ``--body '...'``") are skipped.
+
+    All violations are **SOFT** — advisory only.
+    """
+    if any(str(path).endswith(suffix) for suffix in _BODY_INLINE_SKIP_SUFFIXES):
+        return
+    inline_spans = _inline_only_code_spans(text)
+    for m in _BODY_INLINE_RE.finditer(text):
+        if any(s <= m.start() < e for s, e in inline_spans):
+            continue
+        line_no = text[: m.start()].count("\n") + 1
+        yield Violation(
+            path,
+            line_no,
+            f"body-inline: {m.group().strip()!r} passes a body as an inline shell "
+            f"argument — use '--body-file <path>' instead to avoid "
+            f"shell-injection risk (see write-skill/security-checklist.md § Pattern 9)",
+            category=BODY_INLINE_CATEGORY,
+        )
+
+
 def collect_doc_files(root: Path | None = None) -> set[Path]:
     """Return every .md file under docs/ and projects/_template/."""
     repo_root = root or find_repo_root()
@@ -710,6 +784,7 @@ def run_validation(root: Path | None = None) -> list[Violation]:
         # All skill files get link + placeholder validation
         violations.extend(validate_links(path, text, skill_dirs, doc_files))
         violations.extend(validate_placeholders(path, text))
+        violations.extend(validate_body_inline(path, text))
 
     return violations
 
@@ -765,10 +840,11 @@ def main(argv: list[str] | None = None) -> int:
 
 _SOFT_RULE_PREFIXES: tuple[str, ...] = (
     "action-inventory",
-    "distinct-from",
+    "body-inline",
     "chain-handoff",
-    "parenthetical rationale",
     "criteria-source",
+    "distinct-from",
+    "parenthetical rationale",
     "trigger phrase",
 )
 
