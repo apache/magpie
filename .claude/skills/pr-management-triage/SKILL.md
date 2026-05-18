@@ -181,14 +181,22 @@ PR will quickly blow the maintainer's 5000-point/h GraphQL
 budget. See [`fetch-and-batch.md`](fetch-and-batch.md) for the
 canonical query templates.
 
-**Golden rule 4 — prefetch while the maintainer is reading.** The
-next page of PRs, and the deeper-data calls (failed-job log
-snippets, diff previews for workflow-approval PRs) are issued in
-parallel with the maintainer's current decision, not serialised
-behind it. Concretely: when you present group N to the
-maintainer, the same tool-call turn also fires off the GraphQL
-enrichment for group N+1 and the diff fetch for any workflow-
-approval PRs the maintainer is likely to see next. See
+**Golden rule 4 — prefetch *and pre-classify* while the
+maintainer is reading.** The next page of PRs, and the
+deeper-data calls (failed-job log snippets, diff previews for
+workflow-approval PRs) are issued in parallel with the
+maintainer's current decision, not serialised behind it.
+Concretely: when you present group N to the maintainer, the
+same tool-call turn also fires off the GraphQL enrichment for
+group N+1 and the diff fetch for any workflow-approval PRs the
+maintainer is likely to see next. **Pre-classification rides
+along for free** — the moment the next-page payload arrives,
+run pre-filters + decision table on it (a pure function over
+the fetched data — zero further GraphQL) and pre-render the
+first group's screen. Stash the bundle under
+`prefetched_pages.<page_num>` in the session cache so Step 5's
+page-turn collapses to a cache read with no classification
+latency. See
 [`interaction-loop.md#prefetch-plan`](interaction-loop.md).
 
 **Golden rule 5 — scope is triage, not review.** The skill
@@ -445,7 +453,24 @@ window skips the PRs we just handled.
 ## Step 5 — Paginate and sweep
 
 If the page had `has_next_page=true` and the maintainer hasn't
-quit, advance to the next page and repeat Steps 1–4.
+quit, advance to the next page. Two cases:
+
+- **Prefetched** (the common case — see
+  [Golden rule 4](#golden-rules) and
+  [`interaction-loop.md#pre-classification-and-pre-rendering-of-the-next-page`](interaction-loop.md#pre-classification-and-pre-rendering-of-the-next-page)):
+  the next page's PR-list + rollup payload, the
+  `(classification, action, reason)` tuples, and the first
+  group's pre-rendered screen are already in the session cache
+  under `prefetched_pages.<page_num>`. Steps 1 and 2 collapse
+  to a cache read; present the first group immediately and
+  re-enter Step 3.
+- **Not prefetched** (last page, prefetch skipped per the
+  budget rule, or cache miss after invalidation): fall back to
+  re-running Steps 1–4 synchronously.
+
+In either branch, before presenting page N+1's first group,
+fire the prefetch for page N+2 in parallel — Golden rule 4
+applies to every page boundary, not just the first.
 
 When the maintainer has worked through every interactive group
 (or supplied `triage stale`), run the stale sweeps from

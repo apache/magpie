@@ -348,6 +348,37 @@ skip the prefetch — it's wasted budget. Heuristic: if
 `has_next_page` is false and there's no larger pending work,
 don't prefetch.
 
+### Pre-classify on arrival
+
+Once Call B's result lands (the next-page PR-list payload), do
+**not** wait for the maintainer to finish the current page
+before running classification on it. Classification is a pure
+function over the fetched data (no further network — see
+[`classify-and-act.md`](classify-and-act.md)), so the moment
+the prefetched data arrives:
+
+1. Apply pre-filters F1–F5b to drop collaborator PRs, bot
+   accounts, fresh drafts, already-marked-ready PRs without
+   regression, and PRs with an active maintainer conversation.
+2. Evaluate the decision table top-to-bottom for each
+   surviving PR.
+3. Apply the Real-CI guard for `passing` rows.
+4. Group the resulting `(pr, classification, action, reason)`
+   tuples by `(classification, action)` in the order from
+   [`interaction-loop.md#group-ordering`](interaction-loop.md#group-ordering).
+5. Pre-render the first group's presentation screen from the
+   [group-presentation template](interaction-loop.md#group-presentation).
+6. Stash the bundle under `prefetched_pages.<page_num>` in the
+   session cache (schema below).
+
+The cost is zero GraphQL points; the saving is the entire
+classification "think time" between page N's last group and
+page N+1's first group. Step 5 of [`SKILL.md`](SKILL.md) reads
+the prefetched bundle and presents page N+1's first group
+immediately, with no fresh fetch or re-classification. See
+[`interaction-loop.md#pre-classification-and-pre-rendering-of-the-next-page`](interaction-loop.md#pre-classification-and-pre-rendering-of-the-next-page)
+for the full sequence diagram and invalidation rules.
+
 ---
 
 ## Session cache
@@ -376,6 +407,23 @@ anything that isn't needed. Schema:
   "recent_main_failures": {
     "fetched_at": "2026-04-22T08:00:00Z",
     "failing_check_names": ["Helm tests (1.29)", "..."]
+  },
+  "prefetched_pages": {
+    "2": {
+      "end_cursor": "Y3Vyc29yOnYyOpHOA...",
+      "fetched_at": "2026-04-22T09:18:14Z",
+      "has_next_page": true,
+      "groups": [
+        {
+          "classification": "deterministic_flag",
+          "action": "draft",
+          "prs": [
+            {"number": 65401, "head_sha": "abc123...", "reason": "CI failed + 2 unresolved threads past grace window"}
+          ],
+          "rendered_screen": "─────────────...\nGroup 1 of 5  —  deterministic_flag → draft  —  3 PRs\n..."
+        }
+      ]
+    }
   }
 }
 ```
@@ -388,6 +436,14 @@ anything that isn't needed. Schema:
 - The `recent_main_failures` block is valid for 4 hours; after
   that, re-fetch via the canary/main-branch failure query
   (see below).
+- A `prefetched_pages.<n>` bundle's PR tuples are validated
+  against live head SHAs by the optimistic-lock re-check at
+  execute time (see
+  [`interaction-loop.md#optimistic-lock-re-check-before-mutate`](interaction-loop.md#optimistic-lock-re-check-before-mutate)).
+  A per-PR mismatch drops that PR's tuple from the bundle
+  and triggers an inline re-classification; the rest of the
+  bundle survives. Discard the entire bundle on session exit —
+  do not persist across sessions.
 - The whole cache is discardable — losing it only costs one
   extra enrichment round.
 

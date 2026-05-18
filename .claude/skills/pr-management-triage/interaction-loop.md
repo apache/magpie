@@ -296,7 +296,7 @@ Concrete prefetches:
 
 | Currently showing | Prefetch |
 |---|---|
-| Any group | Next page's PR-list + rollup query (if `has_next_page` and `page_num < max_num / 50`) |
+| Any group | Next page's PR-list + rollup query (if `has_next_page` and `page_num < max_num / 50`), then **pre-classify and pre-render the first group** of that page — see [`#pre-classification-and-pre-rendering-of-the-next-page`](#pre-classification-and-pre-rendering-of-the-next-page) below |
 | `pending_workflow_approval` group | `gh pr diff <N>` for the first 2 PRs in the group |
 | `deterministic_flag → draft/comment` group, one PR at a time | Failed-job log snippets for the current PR and the next PR in the queue |
 | `close` group (per-PR) | Author's full open-PR list (for the "you have N flagged PRs" line in the body) |
@@ -315,6 +315,52 @@ Do **not** prefetch:
 When a prefetched result lands before the maintainer acts, store
 it in the session cache; when the maintainer eventually triggers
 the drill-in, it's instant.
+
+### Pre-classification and pre-rendering of the next page
+
+The next-page prefetch is most valuable when it carries the page
+all the way through to a presentable form, not just to raw
+GraphQL nodes. Classification is a pure function over the
+fetched data (no further GraphQL, no prompts — see
+[`classify-and-act.md`](classify-and-act.md)), and so is the
+group-screen template ([`#group-presentation`](#group-presentation));
+both can run eagerly the moment the prefetch resolves. Pipeline:
+
+1. **Turn N** (presenting page N's current group): fire the
+   page-(N+1) GraphQL call in parallel with the group screen,
+   as the table above documents.
+2. **Turn N+1** (or whenever the prefetch resolves, before the
+   maintainer's decision lands): apply pre-filters F1–F5b, walk
+   the decision table top-to-bottom, run the Real-CI guard, and
+   group the resulting `(pr, classification, action, reason)`
+   tuples — exactly as Steps 2 and 3 of [`SKILL.md`](SKILL.md)
+   would have done synchronously at page-turn time. Build the
+   first group's screen text from the
+   [group-presentation template](#group-presentation). Stash
+   the bundle under `prefetched_pages.<page_num>` in the
+   session cache — see
+   [`fetch-and-batch.md#session-cache`](fetch-and-batch.md#session-cache)
+   for the schema.
+3. **Page-turn moment** (current page exhausted): instead of
+   re-fetching and re-classifying, read the prefetched bundle
+   and present the first group immediately. The maintainer
+   sees zero classification latency at the page boundary. See
+   [`SKILL.md#step-5--paginate-and-sweep`](SKILL.md#step-5--paginate-and-sweep).
+
+Invalidation: if the optimistic-lock re-check at execute time
+(see [`#optimistic-lock-re-check-before-mutate`](#optimistic-lock-re-check-before-mutate))
+finds a head-SHA mismatch for a PR in the prefetched bundle,
+drop that PR's tuple and re-classify it inline. The bundle as
+a whole survives — a single stale PR does not poison the page.
+
+If the maintainer quits (`[Q]`) on the current page, the
+prefetched bundle is discarded on session exit. The work was
+wasted, but the GraphQL cost was the same one query that would
+have happened at the page-turn anyway — the downside is
+small. Skip the pre-classification (not just the prefetch) only
+when the prefetch itself was skipped per the "last page or no
+larger pending work" heuristic in
+[`fetch-and-batch.md#prefetch-plan`](fetch-and-batch.md#prefetch-plan).
 
 ---
 
