@@ -100,9 +100,79 @@ github:
   # asfyaml / PyGithub interaction is fixed upstream and a release
   # workflow exists that needs the environment.
 
-  # No `protected_branches:` block by design — branch protections are
-  # configured directly in GitHub for now. Add here when the project's
-  # release / branching policy stabilises.
+  # Branch protection on `main`. ASF Infra reconciles this within a
+  # few minutes of merge to main (asfyaml feature
+  # `protected_branches`). Earlier note about "configured directly in
+  # GitHub" was superseded by inspection — no direct-on-GitHub rule
+  # ever existed, so the protection now lives here next to the rest
+  # of the repo config.
+  #
+  # TEMPORARY POSTURE — REVISIT AT PMC FORMATION
+  # --------------------------------------------
+  # Pull-request approvals are intentionally NOT required while the
+  # framework is in its bootstrap phase under the Airflow PMC
+  # umbrella with a small set of committers (see MISSION.md). Once
+  # the project establishes its own PMC, this block MUST be
+  # revisited: add a `required_pull_request_reviews:` section with
+  # `required_approving_review_count: 1` (or higher) and
+  # `dismiss_stale_reviews` / `require_code_owner_reviews` tuned to
+  # the new committer / CODEOWNERS shape. Until then, status checks
+  # alone gate merges — a maintainer can self-merge after CI green.
+  protected_branches:
+    main:
+      # Required status checks. Listed contexts MUST run on every PR
+      # against `main` — path-filtered workflows are excluded
+      # (classic branch-protection has no "require only if run"
+      # semantics, so a path-filtered job that doesn't post a status
+      # would block the PR). Excluded for that reason:
+      # `asf-allowlist-check` (paths: `.github/**`) and
+      # `lint .claude/settings.json against baseline` from
+      # sandbox-lint (paths: `.claude/settings.json` +
+      # `tools/sandbox-lint/**`). Also excluded: `lychee` (the
+      # link-check runs on every PR, but external link rot is a
+      # maintenance concern handled by the daily schedule — it is
+      # not a merge-blocker).
+      required_status_checks:
+        # `strict: false` — don't require the PR branch to be up
+        # to date with `main` before merging. With `strict: true`,
+        # every merge to `main` invalidates every other open PR and
+        # forces a rebase loop. False matches typical ASF practice
+        # for multi-contributor repos.
+        strict: false
+        contexts:
+          # CodeQL — two matrix legs (Python + GitHub Actions YAML).
+          - "Analyze (python)"
+          - "Analyze (actions)"
+          # zizmor (GitHub Actions security lint; complements CodeQL).
+          - "zizmor"
+          # Pre-commit (prek) — static checks across the repo.
+          - "prek"
+          # Per-project pytest matrix from tests.yml. Mirrors the
+          # `matrix.project[].name` list there; keep these two
+          # lists in sync when projects are added or renamed.
+          - "pytest (oauth-draft)"
+          - "pytest (generate-cve-json)"
+          - "pytest (skill-validator)"
+          - "pytest (privacy-llm-checker)"
+          - "pytest (privacy-llm-redactor)"
+          - "pytest (vulnogram-oauth-api)"
+          - "pytest (sandbox-lint)"
+      # `required_pull_request_reviews:` deliberately omitted — see
+      # the TEMPORARY POSTURE note above. Re-add at PMC formation.
+      #
+      # Linear history matches `enabled_merge_buttons.squash: true`
+      # above — squash is the only enabled merge mode, so every
+      # merge results in a single commit on top of main.
+      required_linear_history: true
+      # Block merge while review threads remain unresolved. This
+      # bites even without an approval requirement: any reviewer
+      # who opens a thread blocks merge until it is resolved.
+      required_conversation_resolution: true
+      # Do NOT require signed commits. External contributors
+      # without configured GPG/SSH signing would be unable to
+      # contribute. Re-enable if/when the project adopts a
+      # committer-only signing policy.
+      required_signatures: false
 
 notifications:
   # The framework is hosted under the Airflow PMC umbrella for now;
