@@ -21,6 +21,15 @@ to save it as a file.
 >
 > Fields marked [UNKNOWN] must be verified by the nominator before
 > sending the nomination thread.
+>
+> **Process note (committer target — apache_id is [none yet]):**
+> After the vote passes, the candidate must file an Individual
+> Contributor License Agreement (ICLA) before an Apache account can
+> be created. Direct them to https://www.apache.org/licenses/#clas
+> and ask them to include the project name and their desired Apache ID
+> on the form. See the full process at
+> https://www.apache.org/dev/pmc.html#noncommitter
+> Omit this note for PMC targets who already have an Apache account.
 
 ### Contributions
 

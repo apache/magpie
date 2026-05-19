@@ -1,0 +1,7 @@
+{
+  "login_accepted": true,
+  "rejection_reason": null,
+  "since": "2026-03-01",
+  "window_trimmed": true,
+  "trim_reason": "Repo apache/airflow-steward was created on 2026-03-01, which is newer than the requested window start of 2025-11-19; window trimmed to repo creation date."
+}
