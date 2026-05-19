@@ -226,12 +226,15 @@ def parse_frontmatter(text: str) -> dict[str, str] | None:
         # Strip trailing whitespace but keep leading (for folded scalars)
         line = raw_line.rstrip()
 
-        # Empty line ends a folded scalar
+        # Blank line: in real YAML, a blank line inside a block scalar
+        # is part of the value, not a terminator. Only a new top-level
+        # key finalises the current value. Preserve the blank so
+        # multi-paragraph descriptions are measured and validated in
+        # full; a trailing/leading blank is removed by `.strip()` at
+        # finalisation, so single-line values are unaffected.
         if line == "":
             if current_key is not None:
-                result[current_key] = "\n".join(current_value_lines).strip()
-                current_key = None
-                current_value_lines = []
+                current_value_lines.append("")
             continue
 
         # New top-level key?

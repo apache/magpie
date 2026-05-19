@@ -73,6 +73,30 @@ class TestParseFrontmatter:
         assert "First line" in fm["description"]
         assert "Second line" in fm["description"]
 
+    def test_block_scalar_preserves_internal_blank_line(self) -> None:
+        """Blank lines inside a ``|`` block scalar are part of the value.
+
+        Regression: the parser used to treat any blank line as a
+        terminator, silently dropping everything after the first
+        paragraph break. That made ``MAX_METADATA_CHARS`` measurement
+        and principle/trigger validation operate on truncated text.
+        """
+        text = (
+            "---\n"
+            "name: my-skill\n"
+            "description: |\n"
+            "  Paragraph one.\n"
+            "\n"
+            "  Paragraph two, which used to be dropped.\n"
+            "license: Apache-2.0\n"
+            "---\n"
+        )
+        fm = parse_frontmatter(text)
+        assert fm is not None
+        assert "Paragraph one." in fm["description"]
+        assert "Paragraph two" in fm["description"]
+        assert fm["license"] == "Apache-2.0"
+
     def test_missing_frontmatter(self) -> None:
         assert parse_frontmatter("# no frontmatter\n") is None
 
