@@ -160,7 +160,7 @@ For each `w` in `0..5`:
 ```text
 window_end   = now - w * 7 days
 window_start = window_end - 7 days
-```text
+```
 
 `w == 0` is the current week (oldest = `<now> - 7d`, newest = `<now>`). `w == 5` is the oldest week in the chart.
 
@@ -203,7 +203,7 @@ Below the chart, print two summary lines computed from these buckets:
 ```text
 Net delta this week: ±<N> PRs (<opened> opened - <closed_total> closed)
 6-week net: ±<N> PRs (<sum_opened> opened - <sum_closed> closed) — backlog <growing|shrinking|stable>
-```text
+```
 
 `stable` is used when `|6-week net| < 10`. Anything bigger reads as a real direction.
 
@@ -225,7 +225,7 @@ For each top area `a` and each weekly bucket `w` in `0..5`:
 
 ```text
 ready_count[a][w] = count of currently-ready PRs in area a where labeled_at <= w.end
-```text
+```
 
 This is a **cumulative** count, not a per-week delta — by construction it's monotonically non-decreasing because PRs that lose the label drop out of the *currently-ready* set entirely (they're not in this dataset).
 
@@ -237,7 +237,7 @@ Below the chart, print a one-line per-area summary:
 providers: 46 ready (+8 in last 7d)
 task-sdk: 40 ready (+5 in last 7d)
 …
-```text
+```
 
 The "+N in last 7d" is the count of PRs labeled within the last week — surfaces whether the queue is growing faster than it can be reviewed.
 
@@ -273,7 +273,7 @@ Below the bars, print three summary numbers:
 
 ```text
 6-week breakdown: <merged_total> merged · <closed_after_responded> engaged-then-closed · <closed_no_response> sweep-closed · <closed_no_triage> no-triage
-```text
+```
 
 This panel makes the *quality* of closures visible — the velocity panel says "how many", this panel says "of what type".
 
@@ -508,7 +508,7 @@ distributed across the project's `.github/CODEOWNERS` entries.
    - No leading `/` matches anywhere in the tree
 2. For each currently-ready PR, fetch its changed file paths (use
    `pullRequest.files(first:100)` — see
-   [`fetch.md#pr-changed-files`](fetch.md#pr-changed-files)).
+   [`fetch.md#pr-changed-files-codeowners-panel`](fetch.md#pr-changed-files-codeowners-panel)).
 3. For each file, find the **LAST** matching rule (GitHub's last-match-wins
    semantics). The owners of that rule are responsible for that file.
 4. Per ready PR, collect the union of owners across all its files.

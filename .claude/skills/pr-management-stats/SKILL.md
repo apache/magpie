@@ -287,7 +287,7 @@ Otherwise:
 
 1. Parse the file into `(pattern, [owners])` rules in declaration order. Owner tokens are stripped of leading `@`.
 2. For each currently-ready PR, fetch its changed file paths (
-   [`fetch.md#pr-changed-files`](fetch.md#pr-changed-files)) — one extra GraphQL pass, ~8 calls for ~150 ready PRs.
+   [`fetch.md#pr-changed-files-codeowners-panel`](fetch.md#pr-changed-files-codeowners-panel)) — one extra GraphQL pass, ~8 calls for ~150 ready PRs.
 3. For each file, apply the rules and take the **last** matching rule's owners. Union per PR.
 4. Per owner, count distinct PRs in their union.
 5. **Waiting subcount**: for each (owner, PR) pair, check whether the owner has posted any comment on the PR (from the comments fetched in Step 1) such that the author has not commented or pushed since. Count distinct PRs per owner.
