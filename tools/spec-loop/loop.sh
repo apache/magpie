@@ -38,6 +38,8 @@
 #   SPEC_LOOP_BASE   branch to fork work items from
 #                    (default: the branch you start the loop on, e.g. main)
 #   SPEC_LOOP_MODEL  model passed to the agent CLI (default: sonnet)
+#   SPEC_LOOP_PLAN_MAX  plan line count that triggers ONE consolidation
+#                    round before building (default: 500)
 
 set -uo pipefail
 
@@ -55,7 +57,11 @@ PLAN="$LOOP_DIR/IMPLEMENTATION_PLAN.md"
 BASE="${SPEC_LOOP_BASE:-$(git branch --show-current)}"
 BASE="${BASE:-main}"
 MODEL="${SPEC_LOOP_MODEL:-sonnet}"
-PLAN_CONSOLIDATE_THRESHOLD=500
+# Plan length that triggers ONE consolidation round before building. The
+# consolidate beat preserves every planned work item, so a plan that is long
+# because of *pending work* (not stale history) cannot shrink below this —
+# hence the one-shot latch below, which avoids re-consolidating forever.
+PLAN_CONSOLIDATE_THRESHOLD="${SPEC_LOOP_PLAN_MAX:-500}"
 
 # ---- parse arguments -------------------------------------------------
 if [ "${1:-}" = "plan" ]; then
@@ -88,6 +94,7 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 
 rm -f STOP
 ITERATION=0
+CONSOLIDATE_TRIED=false   # one-shot latch; resets when the plan drops back under the limit
 
 # spinner during silent agent calls
 spinner() {
@@ -121,11 +128,21 @@ while true; do
     fi
 
     if [ "$MODE" = "build" ]; then
-        # If the plan has grown too long, consolidate it this round instead.
+        # Consolidate at most ONCE when the plan grows too long, then build
+        # even if it is still over: the remaining length is planned work
+        # items, which the consolidate beat preserves by design. The latch
+        # resets once the plan drops back under the limit (e.g. after items
+        # merge and a plan pass prunes them), so we never re-consolidate in a
+        # loop without making progress.
         PLAN_LINES=$(wc -l < "$PLAN" 2>/dev/null || echo 0)
-        if [ "$PLAN_LINES" -gt "$PLAN_CONSOLIDATE_THRESHOLD" ]; then
-            echo "  [plan] $PLAN is ${PLAN_LINES} lines — running a consolidation round"
+        if [ "$PLAN_LINES" -le "$PLAN_CONSOLIDATE_THRESHOLD" ]; then
+            CONSOLIDATE_TRIED=false
+        elif [ "$CONSOLIDATE_TRIED" = false ]; then
+            echo "  [plan] $PLAN is ${PLAN_LINES} lines (> ${PLAN_CONSOLIDATE_THRESHOLD}) — one consolidation round"
             ACTIVE_PROMPT="$LOOP_DIR/PROMPT_consolidate.md"
+            CONSOLIDATE_TRIED=true
+        else
+            echo "  [plan] $PLAN still ${PLAN_LINES} lines after consolidation — length is planned work; building"
         fi
     fi
 

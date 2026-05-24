@@ -67,6 +67,11 @@ as defence in depth the loop also hard-denies `git push` and `gh` via
   branch you start the loop on (typically `main`); set it explicitly to
   build on top of a different branch.
 - `SPEC_LOOP_MODEL` — model passed to the agent CLI (default `sonnet`).
+- `SPEC_LOOP_PLAN_MAX` — plan line count that triggers one consolidation
+  round before building (default `500`). The consolidate beat targets
+  ~300 lines (hysteresis) and runs at most once until the plan drops back
+  under the limit, so a plan that is long because of *pending work* never
+  re-consolidates in a loop.
 
 ## Not the RFCs
 
