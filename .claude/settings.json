@@ -3,7 +3,9 @@
   "sandbox": {
     "enabled": true,
     "filesystem": {
-      "denyRead": ["~/"],
+      "denyRead": [
+        "~/"
+      ],
       "allowRead": [
         ".",
         "~/.gitconfig",
@@ -35,6 +37,7 @@
         "cveprocess.apache.org",
         "cve.org",
         "www.cve.org",
+        "cveawg.mitre.org",
         "oauth2.googleapis.com",
         "gmail.googleapis.com"
       ]
