@@ -1,0 +1,5 @@
+{
+  "action": "silent",
+  "template": null,
+  "reason": "A maintainer has commented within the last MaxAgentTurns turns; the agent does not talk over an engaged human reviewer."
+}

@@ -1,0 +1,5 @@
+{
+  "action": "silent",
+  "template": null,
+  "reason": "The PR includes a reproduction environment (version specified), follows conventions, and no intervention trigger fires — the thread is on track."
+}

@@ -1,0 +1,5 @@
+{
+  "action": "handoff",
+  "template": null,
+  "reason": "The contributor has pushed back on the agent's why-answer ('I don't think that policy applies here'), which fires hand-off trigger 2 — the skill answers the why once and does not argue."
+}

@@ -1,0 +1,5 @@
+{
+  "action": "ask",
+  "template": [1, 2],
+  "reason": "Both template 1 (no reproduction steps) and template 2 (version not specified) fire simultaneously — ask the maintainer which intervention to lead with."
+}

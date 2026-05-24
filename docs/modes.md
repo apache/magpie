@@ -51,7 +51,7 @@ sequencing commitments behind them.
 | Mode | Purpose | Status | Skill count |
 |---|---|---|---|
 | **Triage** | Issues, security reports, PRs: spot, classify, route, surface duplicates. Every output is a suggestion the human signs off on. | stable (security) / experimental (pr-management, issue-management, contributor-nomination) | 13 |
-| **Mentoring** | Joins issue and PR threads in a teaching register: clarifying questions, pointers to project conventions, paired examples from prior PRs, hand-off to a human when scope exceeds the agent. | proposed | 0 |
+| **Mentoring** | Joins issue and PR threads in a teaching register: clarifying questions, pointers to project conventions, paired examples from prior PRs, hand-off to a human when scope exceeds the agent. | experimental | 1 |
 | **Drafting** | Agent drafts a fix for a well-scoped problem and opens a PR; every PR is reviewed and merged by a human committer. | stable (security-only); experimental (issue-management) | 2 |
 | **Pairing** | Developer-side dev-cycle skills with mentorship intrinsic — multi-agent review pipelines, self-review and pre-flight patterns, scoped fix drafting under the developer's driver's seat. | proposed | 0 |
 | **Auto-merge** | Auto-merge restricted to objectively boring change classes (lint, dependency bumps inside an allow-list, license-header insertion, formatting, broken-link repair). | off | 0 |
@@ -96,24 +96,30 @@ Two notes on the boundaries:
 
 ## Mentoring
 
-**Status: proposed. No skill yet.**
+**Status: experimental. First prototype skill shipped.**
 
 [`MISSION.md` § Mentoring](../MISSION.md#technical-scope) names this
 the highest-value project-side mode and the one off-the-shelf agent
-tooling skips. Per MISSION sequencing, the spec — tone guide,
-hand-off protocol, adopter contract — lands ahead of any skill code
-so the project's tone choices are reviewable independently from
-the runtime behaviour.
+tooling skips. The spec — tone guide, hand-off protocol, adopter
+contract — landed ahead of the skill code so the project's tone
+choices were reviewable independently from the runtime behaviour.
+
+| Skill | Purpose | Status |
+|---|---|---|
+| [`pr-management-mentor`](../.claude/skills/pr-management-mentor/SKILL.md) | Draft a teaching-register comment on a single GitHub issue or PR thread; waits for maintainer confirmation before posting. | experimental |
 
 | Doc | Purpose |
 |---|---|
 | [`docs/mentoring/README.md`](mentoring/README.md) | Family overview, current status, planned shape. |
-| [`docs/mentoring/spec.md`](mentoring/spec.md) | What the future skill should do: scope, triggers, register, hand-off, adopter knobs. |
-| [`projects/_template/mentoring-config.md`](../projects/_template/mentoring-config.md) | Adopter-config scaffold the future skill will read. |
+| [`docs/mentoring/spec.md`](mentoring/spec.md) | Full spec: scope, triggers, register, hand-off, adopter knobs. |
+| [`projects/_template/mentoring-config.md`](../projects/_template/mentoring-config.md) | Adopter-config scaffold (required before running the skill). |
 
-A prototype skill (`pr-management-mentor`, working name) lands
-in a follow-up PR after the spec is reviewed; it ships flagged
-`mode: Mentoring` + `experimental`.
+The prototype ships flagged `mode: Mentoring` + `experimental`. Shape
+may change as adopter pilots and contributor-sentiment evaluation land.
+The skill is read-only by default and never posts without explicit
+maintainer confirmation — see
+[`pr-management-mentor/SKILL.md`](../.claude/skills/pr-management-mentor/SKILL.md)
+for the full contract.
 
 The closest existing surface is
 [`pr-management-triage/comment-templates.md`](../.claude/skills/pr-management-triage/comment-templates.md),

@@ -1,0 +1,5 @@
+{
+  "action": "draft",
+  "template": 2,
+  "reason": "The bug report includes a reproduction script but omits the project version, which is needed to determine if this is a known regression."
+}

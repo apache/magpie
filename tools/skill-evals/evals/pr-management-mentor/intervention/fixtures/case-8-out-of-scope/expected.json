@@ -1,0 +1,5 @@
+{
+  "action": "handoff",
+  "template": null,
+  "reason": "The thread describes a potential security vulnerability (RCE), which is an out-of-scope topic — hand off to the maintainer team without drafting a mentoring comment."
+}
