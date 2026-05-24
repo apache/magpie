@@ -43,7 +43,7 @@ Steps:
 
 Then STOP. Do NOT push, do NOT open a PR. Print the human-run commands:
 
-```
+```text
 git push -u origin spec/sync-specs
 gh pr create --web --base <integration-base> --head spec/sync-specs \
   --title "Sync specs with contributed functionality" --body-file <body>

@@ -45,7 +45,7 @@ Then STOP. Do NOT push and do NOT open a PR — `git push` and
 `gh pr create` are the human's step (they are in `.claude/settings.json`
 `ask`). Print the exact commands the human can run:
 
-```
+```text
 git push -u origin <slug>
 gh pr create --web --base <integration-base> --head <slug> \
   --title "<subject>" --body-file <prepared-body>
