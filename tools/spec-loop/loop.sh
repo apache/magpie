@@ -15,7 +15,7 @@
 #       ./loop.sh consolidate [N] shrink the plan
 #   * BRANCH PER WORK ITEM: before each build iteration the loop returns
 #     to the integration base; the build prompt then carves out
-#     spec/<slug> for the one work item it implements. One work item =
+#     <slug> for the one work item it implements. One work item =
 #     one branch = one PR.
 #   * NEVER pushes, NEVER opens a PR. `git push` / `gh pr create` are in
 #     .claude/settings.json `ask` — they are the human's step. The loop
@@ -243,7 +243,7 @@ while true; do
 
         # Check out the base now — right before the agent runs, not earlier —
         # so the reads above came from the control branch. The agent then
-        # forks its own spec/<slug> branch off this base.
+        # forks its own <slug> branch off this base.
         if [ "$(current_branch)" != "$BASE" ]; then
             if ! checkout_out="$(git checkout "$BASE" 2>&1)"; then
                 echo "Error: could not check out base '$BASE'. git reported:" >&2
@@ -293,7 +293,7 @@ while true; do
         # Safety guard: a build/update iteration must never commit to the base.
         if [ "$CUR_BRANCH" = "$BASE" ] && [ "$(git rev-parse HEAD)" != "$BASE_HEAD" ]; then
             echo "✗ This iteration committed to '$BASE' instead of a work-item branch." >&2
-            echo "  Stopping so you can review (expected a new spec/<slug> branch)." >&2
+            echo "  Stopping so you can review (expected a new <slug> branch)." >&2
             break
         fi
 

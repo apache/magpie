@@ -34,12 +34,12 @@ this is the operator quickstart.
   `IMPLEMENTATION_PLAN.md`. Plans only; no commits. It also checks open
   PRs and does not add work items that are already in flight.
 - **build** — implements the single highest-priority work item on its own
-  `spec/<slug>` branch, validates, and commits there. If the top plan
+  `<slug>` branch, validates, and commits there. If the top plan
   item is already covered by an open PR, it skips to the next uncovered
   item.
 - **update** — the inverse of plan: scans the code for functionality not
   yet described by a spec (someone contributed it the normal way) and
-  brings the specs back in sync, on a `spec/sync-specs` branch.
+  brings the specs back in sync, on a `sync-specs` branch.
 - **consolidate** — shrinks the plan without losing planned work (build
   auto-switches to this when the plan grows past ~500 lines).
 

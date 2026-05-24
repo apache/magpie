@@ -51,14 +51,14 @@ commit.
 ## Branch rules (the user's constraint: one branch per fix/feature)
 
 - **Never commit feature work to the integration branch.** Build mode
-  branches `spec/<slug>` off the integration branch (`$SPEC_LOOP_BASE`,
+  branches `<slug>` off the integration branch (`$SPEC_LOOP_BASE`,
   default: `main`) first.
 - **One spec per branch, one branch per PR.** Do not bundle specs.
 - A feature branch edits only **its own** spec's `status:` (→ `done`) —
   not sibling specs and not `IMPLEMENTATION_PLAN.md` (avoids cross-branch
   conflicts; the plan is reconciled by a later `plan` pass).
 - The **`update`** beat (specs fell behind code others contributed)
-  branches `spec/sync-specs` and edits `specs/` **only** — it documents
+  branches `sync-specs` and edits `specs/` **only** — it documents
   reality, it never changes a skill, tool, or doc outside the spec dir.
 
 ## Hard limits (governance — do not cross)

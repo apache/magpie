@@ -39,37 +39,37 @@ slugs, not numbers (numbering implies an order the specs don't carry).
    report back, never opens a PR); update `docs/modes.md` Pairing row
    0 → 1, `proposed` → `experimental`. Validate with `skill-validate`.
    Spec: [`specs/pairing-mode.md`](specs/pairing-mode.md). Branch
-   `spec/pairing-self-review`.
+   `pairing-self-review`.
 
 2. **Mentoring — first prototype skill.** `pr-management-mentor` (working
    name), `mode: Mentoring` + `experimental`, drafting replies in a
    teaching register with an explicit hand-off to a human. The Mentoring
    spec/tone-guide already exists under `docs/mentoring/`. Spec:
    [`specs/mentoring-mode.md`](specs/mentoring-mode.md). Branch
-   `spec/mentoring-prototype`.
+   `mentoring-prototype`.
 
 3. **Docs — mode economics page.** New `docs/mode-economics.md` (per-mode
    token-cost shape, vendor-neutral, indicative-not-a-quote), linked from
    `docs/modes.md`. From MISSION § Affordability. Branch
-   `spec/mode-economics-doc`.
+   `mode-economics-doc`.
 
 4. **Meta — spec-status index.** A deterministic `uv` tool (mirrors
    `list-steward-skills`) that prints specs by status and a `--ready`
    filter, so later build iterations choose the next work item
    mechanically. Spec: [`specs/meta-and-quality-tooling.md`](specs/meta-and-quality-tooling.md).
-   Branch `spec/spec-status-index`.
+   Branch `spec-status-index`.
 
 5. **Pairing — multi-agent review pipeline.** Fans a local diff through
    independent review passes (correctness / security / conventions) and
    merges the findings. Reuses the self-review report format, so it
-   follows work item 1. Branch `spec/pairing-multi-agent-review`.
+   follows work item 1. Branch `pairing-multi-agent-review`.
 
 6. **Drafting — generic (non-security) drafting.** Extend Drafting beyond
    the security + general-issue cases to lint fixes, audit-tool findings,
    and documentation holes (MISSION names these in scope). Larger; split
    into per-source work items as it is picked up. Spec:
    [`specs/drafting-mode.md`](specs/drafting-mode.md). Branch
-   `spec/generic-drafting`.
+   `generic-drafting`.
 
 7. **Meta — back-fill missing skill eval suites.** Per `/AGENTS.md`
    § Reusable skills, every skill ships an eval suite under
@@ -77,7 +77,7 @@ slugs, not numbers (numbering implies an order the specs don't carry).
    convention and have none. Add one suite per uncovered skill — one
    branch per skill (or per family). Spec:
    [`specs/meta-and-quality-tooling.md`](specs/meta-and-quality-tooling.md).
-   Branch `spec/eval-<skill-name>`.
+   Branch `eval-<skill-name>`.
 
    Also: when a build iteration creates a new skill, its eval suite is
    part of that same work item — not a separate one.

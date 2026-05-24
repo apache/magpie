@@ -25,8 +25,9 @@ Steps:
    the plan. Pick an item not already substantially covered by an open PR.
    One only.
 2. **Create its branch off the integration base**, then switch to it:
-   `git checkout -b <slug>` where `<slug>` is the work item's branch (e.g.
-   `spec/pairing-self-review`). NEVER commit the work to the integration
+   `git checkout -b <slug>` where `<slug>` is the work item's branch — the
+   bare slug, **no `spec/` or other prefix** (e.g.
+   `pairing-self-review`). NEVER commit the work to the integration
    branch. One branch per work item.
 3. Read only the relevant spec file(s) — from the control branch if a
    **Tooling source** block is appended, otherwise from the working tree —

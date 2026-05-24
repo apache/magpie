@@ -27,8 +27,8 @@ Steps:
    `Known gaps` item. Each gap is a candidate work item.
 4. Rewrite `tools/spec-loop/IMPLEMENTATION_PLAN.md` as a prioritised list
    of work items. Each work item names: the change, the spec it serves,
-   its **Validation** command, and a branch slug (`spec/<slug>` —
-   **no numbers**).
+   its **Validation** command, and a branch slug (`<slug>`, the bare
+   slug — **no `spec/` or other prefix, no numbers**).
 5. Do NOT create work items against an `off` spec (e.g. Auto-merge) —
    that would skip the proof MISSION requires.
 
