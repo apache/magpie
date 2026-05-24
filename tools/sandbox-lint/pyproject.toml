@@ -34,9 +34,9 @@ sandbox-lint = "sandbox_lint:main"
 
 [dependency-groups]
 dev = [
-  "mypy>=1.11",
+  "mypy>=2.1.0",
   "pytest>=8.0",
-  "ruff>=0.6",
+  "ruff>=0.15.13",
 ]
 
 [tool.hatch.build.targets.wheel]
