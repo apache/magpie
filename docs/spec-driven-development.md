@@ -8,6 +8,7 @@
   - [Specs are not RFCs](#specs-are-not-rfcs)
   - [A branch per fix or feature](#a-branch-per-fix-or-feature)
   - [Why it never pushes](#why-it-never-pushes)
+  - [Security and the dangerously-skip-permissions flag](#security-and-the-dangerously-skip-permissions-flag)
   - [Keeping specs honest: the update beat](#keeping-specs-honest-the-update-beat)
   - [Layout](#layout)
   - [Quick start](#quick-start)
@@ -113,6 +114,65 @@ gh pr create --web --base main --head spec/<slug> \
 Opening the PR with `--web` is the framework's convention so the reviewer
 sees the title, body, and generative-AI disclosure in the browser before
 submitting. The agent drafts; the human presses the button.
+
+## Security and the dangerously-skip-permissions flag
+
+The loop runs the agent headless with `--dangerously-skip-permissions`.
+That deserves a direct explanation, because it looks, at a glance, like
+it throws away the framework's permission gates.
+
+**Why the flag is there.** Headless iterations have no human to answer a
+per-tool-call prompt. Without the flag, the agent would stall (or, in
+non-interactive mode, deny) the moment it tried to edit a file or run a
+validation command. The flag lets the loop do its job — edit, validate,
+commit — unattended.
+
+**What it bypasses, and what it does not.** The framework's sandbox is
+layered (see [`docs/rfcs/RFC-AI-0004.md`](rfcs/RFC-AI-0004.md) for the
+normative statement and `docs/setup/secure-agent-internals.md` for the
+mechanism). `--dangerously-skip-permissions` only reaches the top two:
+
+| Layer | Mechanism | Bypassed by the flag? |
+|---|---|---|
+| 0. Clean environment | wrapper strips credential-shaped env vars before exec | **No** — it is the launching wrapper, not the agent |
+| 1. Filesystem + network sandbox | `bubblewrap` + SNI proxy (Linux) / `sandbox-exec` (macOS); default-deny egress | **No** — enforced by the OS, not the agent |
+| 2. Tool permissions | `.claude/settings.json` `permissions.deny` | **Yes** |
+| 3. Forced confirmation | `.claude/settings.json` `permissions.ask` on `git push`, `gh …` | **Yes** |
+
+So the flag removes the *agent-level* gate (Layers 2–3), but the
+*OS-level* boundary (Layers 0–1) is untouched — it is enforced beneath
+the agent and cannot be turned off from inside it. This is exactly the
+posture the flag's own guidance assumes: it is *"recommended only for
+sandboxes with no internet access."*
+
+**How the loop stays safe anyway.** Three things, in order of
+importance:
+
+1. **Run it only inside the sandbox harness.** The OS layers the flag
+   cannot bypass are the real boundary. Never run the loop on a bare
+   machine — launch it through the project's `claude-iso`/sandbox wrapper
+   so the filesystem and network allow-lists are in force.
+2. **Run it with no push/write credentials in the environment.** The
+   clean-env wrapper already strips them; keep it that way. `github.com`
+   is on the network allow-list, but a `git push` or `gh pr create` with
+   no token cannot authenticate, so it fails closed. As defence in depth
+   the loop also passes
+   `--disallowedTools "Bash(git push *)" "Bash(gh *)"`.
+3. **Structural containment.** Every iteration works on its own
+   `spec/<slug>` branch, the loop guards against commits landing on the
+   base branch, and the prompts forbid push/PR. The human-in-the-loop
+   gate is not removed — it is *relocated* from per-tool-call to the
+   push / PR / merge boundary, where the human reviews a finished branch.
+
+**Net effect.** During a run the per-call confirmation gate is traded for
+autonomy, but credentials are absent, egress is fenced, and the blast
+radius of any iteration is a single local branch the human has not yet
+pushed. That is the same reason the loop is the project's *manual-loop
+evidence* and must never be promoted to auto-merge: the autonomy is
+bounded to producing local branches, nothing more. An operator who wants
+the per-call gate back can drop the flag and pre-authorise the loop's
+tools with `--allowedTools` instead — at the cost of the loop pausing on
+anything it was not pre-authorised to do.
 
 ## Keeping specs honest: the update beat
 

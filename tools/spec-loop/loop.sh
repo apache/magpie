@@ -22,6 +22,15 @@
 #     ends at a local commit and the build prompt prints the human-run
 #     push + `gh pr create --web` commands.
 #
+# SECURITY — read before running:
+#   This loop runs the agent with `--dangerously-skip-permissions`, which
+#   bypasses the AGENT permission layer (.claude/settings.json deny/ask)
+#   but NOT the OS sandbox (clean-env + filesystem/network). Per the
+#   project's security model it MUST be launched inside the sandbox
+#   harness, with no push/write credentials in the environment. Full
+#   rationale: docs/spec-driven-development.md § Security and the
+#   dangerously-skip-permissions flag.
+#
 # Stop gracefully: press Ctrl+C, or `touch STOP` (exits after the current
 # iteration finishes).
 #
@@ -122,11 +131,16 @@ while true; do
 
     # Run one iteration with a fresh context.
     #   -p                              headless / non-interactive
-    #   --dangerously-skip-permissions  autonomous edits; the loop's safety
-    #                                   is branch-per-item + no-push (above)
-    #                                   and the OS sandbox underneath.
+    #   --dangerously-skip-permissions  let the agent edit + validate
+    #                                   unattended. Bypasses the AGENT
+    #                                   permission layer, NOT the OS sandbox
+    #                                   (see the SECURITY header above).
+    #   --disallowedTools …             defense-in-depth: hard-deny push and
+    #                                   gh so a stray call cannot reach the
+    #                                   remote even with permissions skipped.
     cat "$ACTIVE_PROMPT" | claude -p \
         --dangerously-skip-permissions \
+        --disallowedTools "Bash(git push *)" "Bash(gh *)" \
         --output-format=text \
         --model "$MODEL" &
     CLAUDE_PID=$!

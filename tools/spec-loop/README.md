@@ -49,6 +49,17 @@ this is the operator quickstart.
   `.claude/settings.json` `ask` — the human's step. Each beat ends at a
   local commit and prints the exact push + `gh pr create --web` commands.
 
+## Security
+
+The loop runs the agent with `--dangerously-skip-permissions`, so it
+**must** be launched inside the project's sandbox harness, with no
+push/write credentials in the environment. The flag bypasses the agent
+permission layer (`.claude/settings.json` deny/ask) but **not** the OS
+sandbox (clean-env + filesystem/network), which stays the real boundary;
+as defence in depth the loop also hard-denies `git push` and `gh` via
+`--disallowedTools`. Full rationale:
+[`docs/spec-driven-development.md` § Security and the dangerously-skip-permissions flag](../../docs/spec-driven-development.md#security-and-the-dangerously-skip-permissions-flag).
+
 ## Stop / configure
 
 - Stop: `Ctrl+C`, or `touch STOP` (exits after the current iteration).
