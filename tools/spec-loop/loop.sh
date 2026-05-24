@@ -26,7 +26,8 @@
 # iteration finishes).
 #
 # Env overrides:
-#   SPEC_LOOP_BASE   integration branch to fork work items from (default: spec-driven)
+#   SPEC_LOOP_BASE   branch to fork work items from
+#                    (default: the branch you start the loop on, e.g. main)
 #   SPEC_LOOP_MODEL  model passed to the agent CLI (default: sonnet)
 
 set -uo pipefail
@@ -40,7 +41,10 @@ cd "$ROOT" || exit 1
 
 LOOP_DIR="tools/spec-loop"
 PLAN="$LOOP_DIR/IMPLEMENTATION_PLAN.md"
-BASE="${SPEC_LOOP_BASE:-spec-driven}"
+# Default the integration base to the branch the loop is started on
+# (typically the repo default, e.g. main). Fall back to main if detached.
+BASE="${SPEC_LOOP_BASE:-$(git branch --show-current)}"
+BASE="${BASE:-main}"
 MODEL="${SPEC_LOOP_MODEL:-sonnet}"
 PLAN_CONSOLIDATE_THRESHOLD=500
 

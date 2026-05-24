@@ -106,7 +106,7 @@ commit** and prints the exact commands for the human to run:
 
 ```bash
 git push -u origin spec/<slug>
-gh pr create --web --base spec-driven --head spec/<slug> \
+gh pr create --web --base main --head spec/<slug> \
   --title "<subject>" --body-file <prepared-body>
 ```
 
@@ -161,14 +161,15 @@ $EDITOR tools/spec-loop/IMPLEMENTATION_PLAN.md
 # 3. Review the branch it produced, then push + open the PR yourself.
 git log --oneline -1
 git push -u origin spec/<slug>
-gh pr create --web --base spec-driven --head spec/<slug> --title "…" --body-file …
+gh pr create --web --base main --head spec/<slug> --title "…" --body-file …
 
 # Later: someone merged skills outside the loop — resync the specs.
 ./tools/spec-loop/loop.sh update 1
 ```
 
-Stop any run with `Ctrl+C` or `touch STOP`. Set `SPEC_LOOP_BASE=main`
-once this scaffolding has merged to `main`.
+Stop any run with `Ctrl+C` or `touch STOP`. By default the loop forks
+work items from the branch you start it on (typically `main`); set
+`SPEC_LOOP_BASE` to build on top of a different branch.
 
 ## How this composes with the framework's principles
 

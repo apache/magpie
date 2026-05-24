@@ -52,8 +52,9 @@ this is the operator quickstart.
 ## Stop / configure
 
 - Stop: `Ctrl+C`, or `touch STOP` (exits after the current iteration).
-- `SPEC_LOOP_BASE` — integration branch to fork from (default
-  `spec-driven`; set to `main` once this lands on `main`).
+- `SPEC_LOOP_BASE` — branch to fork work items from. Defaults to the
+  branch you start the loop on (typically `main`); set it explicitly to
+  build on top of a different branch.
 - `SPEC_LOOP_MODEL` — model passed to the agent CLI (default `sonnet`).
 
 ## Not the RFCs
