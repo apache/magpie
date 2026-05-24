@@ -20,7 +20,7 @@
 Canonical reference implementation of the pr-management-stats dashboard.
 
 Per render.md, the dashboard MUST contain all 11 sections. This script
-is the agent-invokable fallback that guarantees no section is skipped.
+is the agent-invocable fallback that guarantees no section is skipped.
 The skill remains the primary path; this script exists so that when
 agent context budget is tight, the maintainer can run a deterministic
 local render with full coverage.
@@ -254,8 +254,8 @@ def classify(pr, ctx):
     )
     # reviewThreads — required for inline-comment-only engagement (e.g. line review without submitted review)
     has_review_thread_collab = False
-    for thr in (pr.get("reviewThreads", {}).get("nodes") or []):
-        for c in (thr.get("comments", {}).get("nodes") or []):
+    for thread in (pr.get("reviewThreads", {}).get("nodes") or []):
+        for c in (thread.get("comments", {}).get("nodes") or []):
             if c.get("authorAssociation") in COLLAB_ASSOCIATIONS \
                     and not is_bot(c["author"]["login"] if c["author"] else None):
                 has_review_thread_collab = True
