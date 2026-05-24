@@ -80,13 +80,24 @@ outcomes drive the proposal:
   with a one-line *"or skip setup and use the copy-paste flow
   below"* hint. **Do not** force setup on an unwilling operator.
 
-The state-transition clicks (`DRAFT` → `REVIEW`,
-`REVIEW` → `READY`, `READY` → `PUBLIC`) stay in the Vulnogram UI
-in **both** paths. The state lives in the document body's
-`CNA_private.state` field — pre-setting it before the API call
-works for `DRAFT` ↔ `REVIEW`, but the `READY` → `PUBLIC` push has
-out-of-band side effects (CNA-feed dispatch to `cve.org`) and we
-deliberately do not automate it.
+State transitions happen at three different layers depending on
+which arrow you're crossing:
+
+- **`DRAFT` ↔ `REVIEW`** — sync-driven via the generator. The
+  `generate-cve-json` tool emits the correct state in the JSON
+  based on body-field readiness; sync pushes via
+  `vulnogram-api-record-update`; Vulnogram accepts the state from
+  the document body. No separate state-flip call.
+- **`REVIEW` → `READY`** — release-manager UI click. The generator
+  cannot decide this from the tracker body alone (it depends on
+  whether reviewer comments are closed), so it stays a human
+  action.
+- **`READY` → `PUBLIC`** — sync-driven via the dedicated
+  `vulnogram-api-record-publish` CLI, fired when the advisory
+  archive URL has been captured. The CLI defaults to refusing
+  the publish unless the current state is `REVIEW` (widen with
+  `--allow-state` for the rare cases where the RM has already
+  moved to `READY` manually).
 
 ## `#source` paste flow
 
@@ -115,42 +126,48 @@ states the generic skills interact with:
 | State | Set by | What it means |
 |---|---|---|
 | `DRAFT` | Allocation (initial state post-allocation) | Record exists, ID is reserved, but content is still being filled in. Not visible on `cve.org`. |
-| `REVIEW` | Release manager once the content is complete | Ready for CNA review. ASF CNA reviewers may leave reviewer comments at this point (see *"Reviewer-comment signal"* below). Still not on `cve.org`. |
+| `REVIEW` | **Sync, via the generator** (post-2026 convention; see below) | Ready for CNA review. ASF CNA reviewers may leave reviewer comments at this point (see *"Reviewer-comment signal"* below). Still not on `cve.org`. |
 | `READY` | Release manager once review feedback is addressed (or immediately after `REVIEW` if no feedback arrived) | Content is final and the record is staged for the advisory-send step. The advisory emails are dispatched from Vulnogram while in `READY`. Still not on `cve.org`. |
-| `PUBLIC` | Release manager as the terminal step | Record pushed to `cve.org`. World-readable. The generic tracking-issue lifecycle terminates at the `close` action once this state has been reached. |
+| `PUBLIC` | **Sync, via `vulnogram-api-record-publish`**, when the advisory archive URL is captured on the tracker | Record pushed to `cve.org`. World-readable. The generic tracking-issue lifecycle terminates at the `close` action once this state has been reached. |
 
-**`DRAFT` → `REVIEW`** happens when all required fields are populated.
-The release manager moves the record to `REVIEW` after the first
-JSON paste, opening the window for CNA reviewers to leave comments.
+**`DRAFT` → `REVIEW` — sync-driven via the generator.** The
+`generate-cve-json` tool decides `REVIEW` versus `DRAFT` automatically
+based on the readiness of the tracker's body fields — see the
+`_is_cna_ready_for_review` helper in `generate-cve-json/src/…/cve_json.py`.
+When all required fields (CVE ID, title, description, affected
+versions, CWE, non-`Unknown` severity, at least one credit, at
+least one reference) are populated, the generated JSON carries
+`CNA_private.state = "REVIEW"`; when any field is missing, it
+carries `"DRAFT"`. Sync pushes the generated JSON verbatim via
+`vulnogram-api-record-update`, and Vulnogram accepts the state
+field from the document body — no separate state-flip API call
+is needed. The release manager **never** has to click `DRAFT` →
+`REVIEW` manually; the `security-issue-sync` skill gates the RM
+hand-off on the post-push state being `REVIEW` (see
+[`security-issue-sync` Step 2b *Two-stage gate*](../../.claude/skills/security-issue-sync/SKILL.md)).
 
-**`REVIEW` → `READY`** happens once any reviewer comments have been
-addressed (via the body-field round-trip described in the
-*Record-generator round trip* section below), or immediately after
-`REVIEW` when no comments arrive. `READY` is the state Vulnogram
-expects when the release manager triggers the advisory email send.
+**`REVIEW` → `READY` — release-manager UI click.** Happens once any
+reviewer comments have been addressed (via the body-field
+round-trip described in the *Record-generator round trip* section
+below), or immediately after `REVIEW` when no comments arrive.
+`READY` is the state Vulnogram expects when the release manager
+triggers the advisory email send. The generator does not emit
+`READY` directly because it cannot tell, from the tracker body
+alone, whether reviewer comments are still pending — that
+judgement stays with the RM.
 
-**`READY` → `PUBLIC`** is a human release-manager click in Vulnogram
-after the advisory archive URL has been captured on the tracker. The
-generic `security-issue-sync` skill's Step 2b does not propose this
-transition — it is a Step 15 release-manager action. The
-publication-ready notification comment (see
-[*Release-manager checklist*](#release-manager-checklist) below)
-gives the RM the explicit go-ahead.
+**`READY` → `PUBLIC` — sync-driven via `vulnogram-api-record-publish`**,
+fired when the advisory archive URL has been captured on
+`lists.apache.org/list.html?<users-list>` (the real-world signal
+the advisory has actually shipped). This transition was
+historically a manual RM click because it triggers the CNA-feed
+dispatch to `cve.org`; the post-2026 convention drives it from
+sync because the captured archive URL is the same signal a human
+would use to decide it is safe to flip.
 
 `PUBLISHED` is sometimes used as a synonym for `PUBLIC` in older
 Vulnogram documentation; the current action is literally labelled
 `PUBLIC` in the UI.
-
-The `generate-cve-json` tool decides `REVIEW` versus `DRAFT` for the
-generated `CNA_private.state` field by inspecting whether the tracker's
-*public-advisory-url* body field is populated and whether a
-`vendor-advisory` reference landed in the generated `references[]`;
-see the *`_is_cna_ready_for_review`* helper in
-`generate-cve-json/src/…/cve_json.py` for the exact predicate. The
-`READY` state itself is set by hand in Vulnogram after the
-post-`REVIEW` body-field stabilisation — the generator does not emit
-`READY` directly because it cannot tell, from the tracker body alone,
-whether reviewer comments are still pending.
 
 ## Reviewer-comment signal
 
@@ -215,36 +232,36 @@ or copy-paste (fallback). The instructions below show the API form
 inline; the copy-paste form is the *"open `#source`, paste, Save"*
 flow described in [*`#source` paste flow*](#source-paste-flow):
 
-1. **First write — `DRAFT` → `REVIEW`.** Push the CVE JSON
-   embedded in the tracking issue (regenerated by `generate-cve-json`
-   on every sync — see
-   [*Record-generator round trip*](#record-generator-round-trip)
-   above). Then move the record `DRAFT` → `REVIEW` via the Vulnogram
-   UI button.
+1. **(pre-handoff, sync-driven) — record reaches `REVIEW` state.**
+   The release manager picks up the tracker with the record
+   *already* in `REVIEW` state. Sync pushes the
+   generator-emitted JSON via `vulnogram-api-record-update` and
+   the generator emits `CNA_private.state = "REVIEW"` when all
+   the required body fields are populated. The hand-off comment
+   the RM receives only fires once sync confirms the post-push
+   state is `REVIEW` — until then the tracker stays with the
+   remediation developer and a [*fill missing fields*](remediation-developer-fill-fields-comment.md)
+   comment names what's blocking. **The RM never performs the
+   `DRAFT` → `REVIEW` click.**
 
-   ```bash
-   # API path (default). Save the embedded JSON to a file first if
-   # you only have it in the tracker body — `gh issue view <N>
-   # --jq .body` + an editor's selection-to-file works, or use
-   # `generate-cve-json --out <path>` to write the canonical artefact.
-   uv run --project <framework>/tools/vulnogram/oauth-api vulnogram-api-record-update \
-     --cve-id <CVE-ID> --json-file <path>
-   ```
-
-2. **(conditional) Re-write after reviewer comments.** ASF CNA
-   reviewers may leave comments while the record sits in `REVIEW`
-   (see [*Reviewer-comment signal*](#reviewer-comment-signal) above).
-   The `security-issue-sync` skill detects them automatically and
-   proposes matching body-field updates on the tracker; the security
-   team confirms and the embedded JSON regenerates. Once the body has
-   settled (no more pending reviewer-comment proposals), re-push the
-   regenerated JSON via the same `vulnogram-api-record-update` call
-   (or, fallback, re-paste into `#source` and **Save**). **Skip this
-   step if no reviewer comments arrived** (the common case for
-   well-formed records).
+2. **(conditional) Body-field round-trip after reviewer comments.**
+   ASF CNA reviewers may leave comments while the record sits in
+   `REVIEW` (see [*Reviewer-comment signal*](#reviewer-comment-signal)
+   above). The `security-issue-sync` skill detects them
+   automatically and proposes matching body-field updates on the
+   tracker; the security team confirms and the embedded JSON
+   regenerates. Sync re-pushes via the same
+   `vulnogram-api-record-update` call. **As the RM, you wait
+   for the security team's next sync** — the round-trip is fully
+   handled there; you only watch the `#email` tab for the
+   reviewer thread to close. **Skip this step if no reviewer
+   comments arrived** (the common case for well-formed records).
 
 3. **Set `READY`.** Vulnogram UI action — moves the record from
    `REVIEW` to `READY` and stages it for the advisory-send step.
+   This is the **first** state-flip the RM performs; the
+   generator cannot do it (it cannot tell from the tracker body
+   alone whether reviewer comments are closed).
 
 4. **Preview the advisory email** on the
    [`#email` tab](#record-urls). The preview renders the advisory
@@ -271,28 +288,31 @@ flow described in [*`#source` paste flow*](#source-paste-flow):
    [`release-manager-publication-comment.md`](release-manager-publication-comment.md)).
    That comment is the explicit go-ahead for steps 7-8.
 
-7. **Second write — `READY` → `PUBLIC`.** *Only after the
-   publication-ready notification fires.* Push the now-final JSON
-   (carrying the archive URL in `references[]`) via the API path
-   (or, fallback, re-open `#source` and paste). Then move the record
-   `READY` → `PUBLIC` via the Vulnogram UI button — the
-   `READY` → `PUBLIC` transition is intentionally not automated
-   because it triggers the CNA-feed dispatch to `cve.org`.
+7. **(sync-driven) — record reaches `PUBLIC`.** *Fires
+   automatically once the publication-ready notification has
+   landed.* On its next pass, sync re-pushes the regenerated
+   JSON (now carrying the archive URL as a `vendor-advisory`
+   reference) and then moves the record `READY` → `PUBLIC` via
+   the dedicated `vulnogram-api-record-publish` CLI (which keys
+   off the captured archive URL — the real-world signal that
+   the advisory shipped). **The RM does not perform the
+   `READY` → `PUBLIC` click.**
 
-   ```bash
-   uv run --project <framework>/tools/vulnogram/oauth-api vulnogram-api-record-update \
-     --cve-id <CVE-ID> --json-file <path-to-final-json>
-   ```
+8. **Close the tracker.** Sync's apply step closes the tracker
+   as completed (do not update labels) and archives the
+   project-board item afterwards (per the *archive-from-board*
+   recipe in [`../github/project-board.md`](../github/project-board.md)).
+   The RM's last touchpoint is the wrap-up comment sync posts
+   on the tracker — archive from the `Announced` column on the
+   board and (conditionally) close the milestone if the just-
+   closed tracker was the last open issue on it.
 
-8. **Close the tracker.** Close as completed; do not update any
-   labels. The `security-issue-sync` skill's apply step archives the
-   project-board item afterwards (per the *archive-from-board* recipe
-   in [`../github/project-board.md`](../github/project-board.md))
-   so the closed tracker leaves the active board.
-
-The "twice write" framing in the hand-off comment maps to steps 1
-and 7 of the checklist above; step 2 is the rare conditional middle
-write. The hand-off comment (template at
+**RM-side write count** is **zero** in the common case (no
+reviewer comments): sync handles steps 1, 2, 6, 7, 8; the RM
+clicks `REVIEW` → `READY` (step 3), previews the advisory
+(step 4), and sends it (step 5). When reviewer comments arrive,
+the round-trip in step 2 is also handled by sync; the RM still
+performs only steps 3–5. The hand-off comment (template at
 [`release-manager-handoff-comment.md`](release-manager-handoff-comment.md))
-proposes the API one-liner inline and links the copy-paste fallback;
-keep both in lock-step when one changes.
+walks the RM through their three actions without invoking any
+`uv run` commands; keep both in lock-step when one changes.

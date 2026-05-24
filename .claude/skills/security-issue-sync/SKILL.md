@@ -2388,19 +2388,40 @@ per machine — see
 paste step to the release manager. The push is mechanical and follows
 from the same JSON the user just approved as part of the body update.
 
-**State auto-promote (DRAFT → REVIEW).** Unlike earlier versions of
-this skill, the JSON sync pushes **does** advance the Vulnogram state
-machine from `DRAFT` to `REVIEW` when all six mandatory body fields
-are populated and the regenerated JSON validates against the CNA
-schema. This is the load-bearing gate for the release-manager
-hand-off (see Step 2b's *Two-stage gate*): the RM never receives
-the hand-off comment while the record is still in `DRAFT`. The
-remaining transitions (`REVIEW` → `READY` → `PUBLIC`) stay
-manual / sync-driven:
+**State auto-promote (DRAFT → REVIEW) — driven by the generator,
+not by sync.** The CVE JSON the generator produces already carries
+the correct `CNA_private.state` value based on the readiness of
+the tracker's body fields. The generator's logic (see
+`compute_cna_private_state` in
+[`tools/vulnogram/generate-cve-json`](../../../tools/vulnogram/generate-cve-json/src/generate_cve_json/cve_json.py)):
+
+- `DRAFT` — when any required field is missing (no title, no
+  description, no affected versions, no CWE, no non-Unknown
+  severity, no credit, no reference).
+- `REVIEW` — when every field a release manager needs to send
+  the advisory is present, **but** no public advisory URL has
+  been captured yet.
+- `PUBLIC` — when the CNA is review-ready AND at least one
+  `references[]` entry is tagged `vendor-advisory` (i.e. the
+  *Public advisory URL* body field is populated with the
+  archived users-list URL).
+
+Sync's role is therefore **just** to push the generated JSON and
+verify the saved state matches what the generator computed.
+Vulnogram accepts the state field verbatim from the pushed
+document; no separate state-flip call is needed for the
+`DRAFT` → `REVIEW` transition. This is the load-bearing gate for
+the release-manager hand-off (see Step 2b's *Two-stage gate*):
+the RM never receives the hand-off comment while the record is
+still in `DRAFT`.
+
+The remaining transitions stay separate:
 
 - `REVIEW` → `READY` is a **release-manager UI click** in
   Vulnogram, done as Step 1 of the RM hand-off after any reviewer
-  comments on the record are resolved.
+  comments on the record are resolved. (The generator does not
+  emit `READY` — it is intentionally a human decision that
+  reviewer feedback is closed.)
 - `READY` → `PUBLIC` is **sync-driven** via the
   `vulnogram-api-record-publish` CLI (see Step 4 below), fired
   when the advisory archive URL has been captured on
@@ -2408,12 +2429,8 @@ manual / sync-driven:
   dispatch trigger has a real-world signal (the archived
   advisory) so sync drives it.
 
-The auto-promote happens **inside** Step 4's
-`vulnogram-api-record-update` call by setting
-`body.CNA_private.state = "REVIEW"` in the JSON before pushing.
-The CLI uploads the JSON verbatim; Vulnogram advances the state
-on save. Step 6 below describes how to verify the state advance
-landed (and what to do if it did not).
+Step 6 below describes how to verify the state advance landed
+(and what to do if it did not).
 
 ### Decision flow
 

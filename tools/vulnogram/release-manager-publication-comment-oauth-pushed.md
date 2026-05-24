@@ -2,7 +2,9 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [📰 Advisory archived — ready for `PUBLIC` (CVE JSON auto-pushed)](#-advisory-archived--ready-for-public-cve-json-auto-pushed)
+- [📰 Advisory archived — sync taking it from here  *(CVE JSON auto-pushed)*](#-advisory-archived--sync-taking-it-from-here--cve-json-auto-pushed)
+  - [What still happens automatically on the next sync](#what-still-happens-automatically-on-the-next-sync)
+  - [Where this fits in the lifecycle](#where-this-fits-in-the-lifecycle)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -18,6 +20,14 @@
      Vulnogram via the OAuth API on the same sync pass (Step 14 of
      the lifecycle).
 
+     **Informational only.** Sync drives every state change in the
+     post-2026 flow — the regenerated JSON push happened this run,
+     and on the next sync pass the `READY` → `PUBLIC` advance
+     (`vulnogram-api-record-publish`), the label flips, the tracker
+     close, and the board archive will all fire automatically. The
+     RM's only remaining actions land in the *wrap-up* comment sync
+     posts immediately after the close.
+
      This template is the counterpart to `release-manager-publication-
      comment.md` (the manual-paste variant). The sync skill picks
      between the two based on the outcome of `vulnogram-api-check` +
@@ -25,7 +35,7 @@
      `.claude/skills/security-issue-sync/SKILL.md` for the decision
      flow.
 
-     Idempotency: the marker on line below is the **same** as the
+     Idempotency: the marker on the first line is the **same** as the
      manual-paste variant's; the skill keys idempotency on the marker
      and detects the variant by re-reading the body. On a re-sync
      where the previous comment was manual-paste but the current push
@@ -47,40 +57,25 @@
 -->
 <!-- apache-steward: release-manager-publication-ready v1 -->
 
-## 📰 Advisory archived — ready for `PUBLIC` (CVE JSON auto-pushed)
+## 📰 Advisory archived — sync taking it from here  *(CVE JSON auto-pushed)*
 
-RM_HANDLE, the advisory you sent in step 7 of the hand-off above has
-been archived on the public users-list. This sync pass made the
-following deterministic updates on this tracker — *and pushed the
-regenerated JSON to Vulnogram via the OAuth API at `PUSH_TIMESTAMP`*,
-so the record at [`#source`](SOURCE_TAB_URL) now carries the archive
-URL as a `vendor-advisory` reference:
+RM_HANDLE — the advisory you sent in Step 2 of the hand-off comment above has now been archived on the public users-list. **You do not need to do anything in Vulnogram in response to this comment.**
+
+This sync pass made the following deterministic updates:
 
 - **Public advisory URL** body field populated: [ARCHIVE_URL](ARCHIVE_URL)
-- The embedded CVE JSON regenerated to include the archive URL.
-- The regenerated JSON pushed to the CVE record via
-  `vulnogram-api-record-update` (no manual paste needed).
+- The embedded CVE JSON regenerated to include the archive URL as a `vendor-advisory` reference.
+- The regenerated JSON auto-pushed to [`#source`](SOURCE_TAB_URL) via the Vulnogram OAuth API at `PUSH_TIMESTAMP` (no manual paste needed).
 - The `announced` label added.
 
-You can now do the final state move:
+### What still happens automatically on the next sync
 
-1. **Verify the record content** at [`#source`](SOURCE_TAB_URL)
-   matches the [tracker body](JSON_ANCHOR_URL) — they should be
-   byte-identical. If they diverge, the push failed silently; fall
-   back to the manual paste below.
+- ✅ The record is now staged for the `READY` → `PUBLIC` move (sync drives this via `vulnogram-api-record-publish` on its next pass).
+- ✅ This tracker will be closed as `completed`.
+- ✅ A **wrap-up comment** will then be posted on this tracker with the only remaining manual actions for you: archive this tracker from the `Announced` column on the [security project board](https://github.com/<tracker>/projects), and (conditionally) close the milestone if every sibling on it has shipped.
 
-2. **Move `REVIEW` → `PUBLIC`** via the Vulnogram UI. The record
-   propagates to [`cve.org`](CVE_ORG_URL) once the state lands.
+The CVE will propagate to [`cve.org`](CVE_ORG_URL) within a few hours of the `READY → PUBLIC` move. Once it does, sync posts a courtesy *"CVE is live on cve.org"* note to the reporter on the original email thread (no action from you needed).
 
-3. **Close this tracker** — close as completed; do not update any
-   labels. The `security-issue-sync` skill archives the project-board
-   item afterwards.
+### Where this fits in the lifecycle
 
-That terminates the lifecycle. Thanks for driving this one.
-
----
-
-**Manual paste fallback** (only if step 1's record content does not
-match): open [`#source`](SOURCE_TAB_URL), paste the JSON from this
-tracker's [issue body](JSON_ANCHOR_URL), click **Save**, then move
-`REVIEW` → `PUBLIC`.
+Step 14 (advisory archive captured) → Step 15 (record `PUBLIC` + tracker close) — see the [README lifecycle for Steps 12-15](../../README.md#for-release-managers--steps-1215) for the full context. The wrap-up comment that follows in the next sync pass is the explicit go-ahead for your final board + milestone cleanups.

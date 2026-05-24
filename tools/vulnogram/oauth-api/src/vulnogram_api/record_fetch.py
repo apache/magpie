@@ -1,0 +1,133 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+"""Read a Vulnogram CVE record's stored JSON over the OAuth API.
+
+Used by `security-issue-sync` to verify the record state after a
+`vulnogram-api-record-update` push — the new `DRAFT` → `REVIEW`
+auto-promote gate in Step 5b.6 of the sync skill checks whether the
+state actually advanced before firing the release-manager hand-off
+comment. See ``.claude/skills/security-issue-sync/SKILL.md`` for the
+gate-decision flow.
+
+Outputs:
+
+- Default: writes the record's full stored JSON to stdout (one
+  compact line, suitable for piping into ``jq``).
+- ``--state-only``: writes just the ``CNA_private.state`` field
+  (e.g. ``DRAFT`` / ``REVIEW`` / ``READY`` / ``PUBLIC``) to stdout,
+  no JSON. Useful for shell-parsing in the sync skill without a
+  ``jq`` dependency.
+
+Read-only: this script never POSTs. The companion
+:mod:`vulnogram_api.record_update` writes; :mod:`vulnogram_api.record_publish`
+flips state.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import sys
+
+from vulnogram_api.client import (
+    SessionExpired,
+    VulnogramAPIError,
+    get_record,
+)
+from vulnogram_api.credentials import Session, locate_session
+
+CVE_ID_RE = re.compile(r"^CVE-\d{4}-\d{4,7}$")
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    ap = argparse.ArgumentParser(
+        description=(__doc__ or "").split("\n\n", 1)[0],
+    )
+    ap.add_argument(
+        "--cve-id",
+        required=True,
+        help="The CVE ID, e.g. CVE-2026-12345.",
+    )
+    ap.add_argument(
+        "--credentials",
+        default=None,
+        help=(
+            "Path to the session JSON. Defaults to "
+            "$VULNOGRAM_SESSION, else "
+            "~/.config/apache-steward/vulnogram-session.json."
+        ),
+    )
+    ap.add_argument(
+        "--section",
+        default="cve5",
+        help="Vulnogram section path component. Default: cve5.",
+    )
+    ap.add_argument(
+        "--state-only",
+        action="store_true",
+        help=(
+            "Print only the CNA_private.state field (one word, no "
+            "JSON). Useful for shell-parsing without a jq dependency."
+        ),
+    )
+    return ap.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
+
+    if not CVE_ID_RE.match(args.cve_id):
+        raise SystemExit(f"--cve-id {args.cve_id!r} does not match CVE-YYYY-NNNN form. Refusing to fetch.")
+
+    creds_path = locate_session(args.credentials)
+    session = Session.load(creds_path)
+
+    try:
+        document = get_record(session, args.cve_id, section=args.section)
+    except SessionExpired as e:
+        print(f"✗ {e}", file=sys.stderr)
+        return 2
+    except VulnogramAPIError as e:
+        print(f"✗ {e}", file=sys.stderr)
+        return 6
+
+    if args.state_only:
+        cna = document.get("CNA_private")
+        if not isinstance(cna, dict):
+            print(
+                f"✗ {args.cve_id} document's CNA_private field is not an object: {type(cna).__name__}.",
+                file=sys.stderr,
+            )
+            return 7
+        state = cna.get("state")
+        if not isinstance(state, str):
+            print(
+                f"✗ {args.cve_id} document's CNA_private.state is not a string: {state!r}.",
+                file=sys.stderr,
+            )
+            return 7
+        print(state)
+        return 0
+
+    json.dump(document, sys.stdout, separators=(",", ":"), ensure_ascii=False)
+    sys.stdout.write("\n")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
