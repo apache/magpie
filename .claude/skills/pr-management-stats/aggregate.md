@@ -160,7 +160,7 @@ For each `w` in `0..5`:
 ```text
 window_end   = now - w * 7 days
 window_start = window_end - 7 days
-```text
+```
 
 `w == 0` is the current week (oldest = `<now> - 7d`, newest = `<now>`). `w == 5` is the oldest week in the chart.
 
@@ -203,7 +203,7 @@ Below the chart, print two summary lines computed from these buckets:
 ```text
 Net delta this week: ±<N> PRs (<opened> opened - <closed_total> closed)
 6-week net: ±<N> PRs (<sum_opened> opened - <sum_closed> closed) — backlog <growing|shrinking|stable>
-```text
+```
 
 `stable` is used when `|6-week net| < 10`. Anything bigger reads as a real direction.
 
@@ -225,7 +225,7 @@ For each top area `a` and each weekly bucket `w` in `0..5`:
 
 ```text
 ready_count[a][w] = count of currently-ready PRs in area a where labeled_at <= w.end
-```text
+```
 
 This is a **cumulative** count, not a per-week delta — by construction it's monotonically non-decreasing because PRs that lose the label drop out of the *currently-ready* set entirely (they're not in this dataset).
 
@@ -237,7 +237,7 @@ Below the chart, print a one-line per-area summary:
 providers: 46 ready (+8 in last 7d)
 task-sdk: 40 ready (+5 in last 7d)
 …
-```text
+```
 
 The "+N in last 7d" is the count of PRs labeled within the last week — surfaces whether the queue is growing faster than it can be reviewed.
 
@@ -273,7 +273,7 @@ Below the bars, print three summary numbers:
 
 ```text
 6-week breakdown: <merged_total> merged · <closed_after_responded> engaged-then-closed · <closed_no_response> sweep-closed · <closed_no_triage> no-triage
-```text
+```
 
 This panel makes the *quality* of closures visible — the velocity panel says "how many", this panel says "of what type".
 
@@ -360,6 +360,198 @@ zero engagement in the window are excluded from the panel.
   [`is_bot`](classify.md#is_bot--author-is-a-recognised-bot) test used in the
   open-PR counters; copilot review-bots that post under a `CONTRIBUTOR`
   association are not counted anyway (the maintainer check filters them).
+
+---
+
+## Backlog over time (per-week snapshots)
+
+The dashboard's "Open backlog over time" panel shows how the total open-PR count
+moved at the end of each of the last 6 weeks.
+
+For each weekly bucket `w` in `0..5`, count PRs that were *open at end-of-week-`w`*:
+
+```text
+open_count[w] = count of non-bot PRs P where:
+                  P.createdAt <= w.end
+                  AND (P is currently open
+                       OR (P is closed AND P.closedAt > w.end))
+```
+
+PRs closed *before* the cutoff are absent from both datasets, so for `w` near the
+cutoff edge the snapshot is a slight under-count. Note the caveat in the
+dashboard.
+
+Below the chart, print:
+
+```text
+6-week trend: <delta> open PRs (start: <open_count[0]>, end: <open_count[5]>)
+```
+
+Colour the delta red when growth is >10, green when shrinkage is >10, grey
+otherwise.
+
+---
+
+## PRs opened by author class (per-week)
+
+The "PRs opened by author class" panel splits the `opened` per-week count from
+[`#opened-vs-closed-weekly-buckets`](#opened-vs-closed-weekly-buckets) by the PR
+author's GitHub association:
+
+| Bucket | `authorAssociation` |
+|---|---|
+| `first_time` | `FIRST_TIME_CONTRIBUTOR`, `FIRST_TIMER` |
+| `contributor` | `CONTRIBUTOR`, `NONE`, anything else not below |
+| `collab` (maintainer) | `OWNER`, `MEMBER`, `COLLABORATOR` |
+
+Bot-authored PRs are excluded
+(per [`classify.md#is_bot`](classify.md#is_bot--author-is-a-recognised-bot)).
+
+For each `w` in `0..5`, count PRs whose `createdAt` falls in the window,
+bucketed by association. Render as a multi-line chart with three lines (or
+stacked-bar if multi-line is too crowded).
+
+Surfaces shifts in inflow composition — a sudden rise in `first_time` is signal
+for triage-attention demand; a drop in `contributor` may indicate community
+drift.
+
+---
+
+## Triage velocity (per-week)
+
+The "Triage velocity" panel counts PRs whose **first** Quality-Criteria marker
+comment fell in each week. Distinct from the closure-by-reason chart (which
+counts when PRs *closed*) — this counts when triage *happened*.
+
+For each PR (open OR closed-since-cutoff), `triage_comment_ts` is the timestamp
+of its *earliest* maintainer comment containing the `Pull Request quality
+criteria` marker. Bucket by week of `triage_comment_ts` (skip PRs that were
+never triaged).
+
+Split each week's count by AI vs manual:
+
+| Series | Definition |
+|---|---|
+| `ai` | The triage-comment also contains the [`is_ai_triaged`](classify.md#is_ai_triaged--ai-assisted-triage) footer substring |
+| `non_ai_qc` | Triage comment present but no AI footer (a maintainer pasted the QC link manually) |
+
+⚠ **Data caveat**: the closed-PR fetch caps comments at `last:25` per PR. PRs
+whose first triage marker is older than the 25 most recent comments are
+missed — so older weeks systematically under-count. Note this in the dashboard.
+
+---
+
+## Triage coverage rate by week opened
+
+The "Triage coverage rate" panel shows the percentage of PRs opened in each
+week that ever received any maintainer engagement (the broader
+[`is_engaged`](classify.md#is_engaged--de-facto-triaged) predicate — includes
+label-adds + comments + reviews).
+
+For each `w` in `0..5`:
+
+```text
+opened[w]   = count of PRs created in window w (open or closed)
+engaged[w]  = subset of opened[w] where is_engaged(p) is true
+pct[w]      = round(100 * engaged[w] / opened[w])
+```
+
+Render as a single-line chart with y-axis capped at 100. Colour the line green
+when ≥ 50%, amber for 25-49%, red below 25% (or colour each data point
+individually).
+
+A declining trend means triage capacity is falling behind inflow — usually a
+precursor to backlog growth.
+
+⚠ Same data caveat as triage velocity — `is_engaged` depends on the comment
+fetch, so older weeks under-count.
+
+---
+
+## Ready-for-review queue size (cumulative over time)
+
+A second view on the ready queue — the **total** queue size cumulatively at end
+of each week, single line for all areas combined. (The per-area version is the
+chart from [`#ready-for-review-trend-by-top-areas`](#ready-for-review-trend-by-top-areas).)
+
+For each currently-`ready for maintainer review` PR, use its most recent
+`LabeledEvent` timestamp (from the
+[`ready-label-timeline`](fetch.md#ready-label-timeline) fetch). For each `w`
+in `0..5`:
+
+```text
+ready_count[w] = count of currently-ready PRs whose labeled_at <= w.end
+```
+
+The line is monotonically non-decreasing by construction (PRs that lost the
+label are not in this dataset).
+
+Below the chart, print the per-week delta and a 6-week growth summary.
+Surfaces whether code-review capacity is keeping up with mark-ready
+throughput.
+
+---
+
+## Ready-for-review queue by CODEOWNER
+
+The "Ready by CODEOWNER" panel surfaces how the maintainer-review queue is
+distributed across the project's `.github/CODEOWNERS` entries.
+
+### Computation
+
+1. Parse `.github/CODEOWNERS` into a list of `(pattern, [owners])` rules in
+   declaration order. Patterns follow GitHub's CODEOWNERS glob syntax:
+   - Leading `/` anchors to repo root
+   - Trailing `/` matches directory contents
+   - `*` matches any character except `/`
+   - `**` matches any character including `/`
+   - No leading `/` matches anywhere in the tree
+2. For each currently-ready PR, fetch its changed file paths (use
+   `pullRequest.files(first:100)` — see
+   [`fetch.md#pr-changed-files-codeowners-panel`](fetch.md#pr-changed-files-codeowners-panel)).
+3. For each file, find the **LAST** matching rule (GitHub's last-match-wins
+   semantics). The owners of that rule are responsible for that file.
+4. Per ready PR, collect the union of owners across all its files.
+5. Per owner, count the *distinct* PRs they own at least one file of.
+   **A PR with N owners contributes to N owner rows** — counts can sum to
+   more than the total ready-PR count.
+
+### Waiting-for-author column
+
+For each (owner X, ready PR Y) where X is among Y's codeowners:
+
+```text
+waiting[X][Y] := X has posted at least one comment on Y AND
+                 the author has neither commented nor pushed a commit
+                 since X's most recent comment
+```
+
+Per owner, count the distinct PRs in `waiting[X]`. This is the subset where
+the author *currently owes that specific owner a response*.
+
+⚠ The open-PR fetch caps issue-level comments at `last:10` per PR; older
+outstanding comments are systematically missed. Treat the waiting count as a
+lower bound.
+
+### "No CODEOWNERS match" row
+
+Render an additional row at the bottom of the table for ready PRs where **no
+file** matches any CODEOWNERS rule (the union of file-owner sets is empty).
+These PRs are not routed to any maintainer by the CODEOWNERS file — a signal
+that the project might need to extend `.github/CODEOWNERS` to cover those
+paths.
+
+### Zero-count owners
+
+Surface owners listed in `.github/CODEOWNERS` who have 0 ready PRs in the
+queue as a collapsible footnote — useful for sanity-checking that no critical
+owner has been accidentally underutilised.
+
+### Adopters without `.github/CODEOWNERS`
+
+If the file is absent, skip this panel entirely. The skill should detect its
+absence at fetch time and degrade gracefully (no panel rendered, no warning
+beyond the skipped step).
 
 ---
 

@@ -223,7 +223,7 @@ def find_cases(path: Path) -> list[tuple[Path, Path]]:
     return results
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Print eval prompts for skill cases. Paste into any model and compare against expected.json."
     )
@@ -237,12 +237,12 @@ def main() -> None:
         action="store_true",
         help="Suppress prompt content; print only case names and expected JSON.",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     cases = find_cases(args.path)
     if not cases:
         print(f"No eval cases found under {args.path}", file=sys.stderr)
-        sys.exit(1)
+        return 1
 
     # Cache loaded step configs so we don't re-read prompts for every case in
     # the same fixtures dir (common when running a whole skill at once).
@@ -279,6 +279,8 @@ def main() -> None:
         print(json.dumps(expected, indent=2))
         print()
 
+    return 0
+
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

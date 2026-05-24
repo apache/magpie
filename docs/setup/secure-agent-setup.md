@@ -19,6 +19,7 @@
     - [When the helper runs](#when-the-helper-runs)
     - [Per-project vs whole-user scope](#per-project-vs-whole-user-scope)
   - [The clean-env wrapper](#the-clean-env-wrapper)
+    - [Automatic sandbox allow-paths](#automatic-sandbox-allow-paths)
   - [Sandbox-bypass visibility hook](#sandbox-bypass-visibility-hook)
     - [Why install it user-scope, not project-scope](#why-install-it-user-scope-not-project-scope)
     - [Install (user-scope)](#install-user-scope)
@@ -775,6 +776,41 @@ CLAUDE_ISO_ALLOW="GH_TOKEN" GH_TOKEN="$(op read 'op://Personal/GitHub/token')" c
 
 The `CLAUDE_ISO_ALLOW` mechanism is opt-in per invocation — no
 implicit propagation, no persistent allowlist.
+
+### Automatic sandbox allow-paths
+
+Beyond the env-stripping role, `claude-iso` also injects up to two
+absolute paths into the session's `sandbox.filesystem.allowRead`
+via a one-shot `claude --settings <json>` flag prepended to the
+argv. The injection merges with the loaded settings stack at
+startup, *before* sandbox initialisation, so the paths take
+effect for that session immediately — no on-disk
+`settings.local.json` edit, no per-checkout bootstrap, nothing
+to clean up afterwards. A stderr banner reports what was added.
+
+**Current-repo auto-allow (always on).** Whenever `claude-iso` is
+launched from inside a git working tree, the working-tree root
+(resolved via `git rev-parse --show-toplevel`) is added to
+`allowRead`. This closes the visibility gap described in
+[Project-root coverage in the sandbox allowlists](#project-root-coverage-in-the-sandbox-allowlists)
+for the wrapper-launch path: when launched through `claude-iso`,
+you do not also need the project root hand-listed in
+`<repo>/.claude/settings.local.json` for the agent to be able to
+read the source tree. (The settings.local.json fix remains the
+right answer for plain `claude` launches — the harness can't
+see the wrapper's argv.) Outside a git repo, this is a silent
+no-op.
+
+**Worktree mode (`claude-iso -w` / `claude-iso --worktree`).**
+Additive on top of the current-repo auto-allow. When `-w` is on
+the argv and `$PWD` is a worktree, the *main* repo (resolved via
+`git rev-parse --git-common-dir`) is also added — that path is
+otherwise unreachable from a worktree session, because the
+sandbox's relative `.` rule covers only the worktree itself.
+Run inside the main repo, `-w` is effectively a no-op: the
+working-tree root and the main repo resolve to the same path
+and dedupe into a single `allowRead` entry. Both paths ride
+into the session via a single `--settings` injection.
 
 ## Sandbox-bypass visibility hook
 

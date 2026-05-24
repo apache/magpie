@@ -88,7 +88,7 @@ every artefact).
 | Local lock | `<local-lock>` | exists |
 | Committed lock | `<committed-lock>` | exists |
 | `.gitignore` entries | `<repo-root>/.gitignore` | which of the entries from [`adopt.md` Step 7](adopt.md) are present |
-| Framework-skill symlinks | `<adopter-skills-dir>/` (and `.github/skills/` if double-symlinked) | each symlink whose target resolves into `<snapshot-dir>/.claude/skills/` |
+| Framework-skill symlinks | `<adopter-skills-dir>/` — both layers under Pattern B; canonical side only under Pattern D (D.1: `.github/skills/`; D.2: `.claude/skills/`); single layer under Pattern A | each symlink whose target resolves into `<snapshot-dir>/.claude/skills/` |
 | Post-checkout hook | `<repo-root>/.git/hooks/post-checkout` | exists + invokes `~/.claude/scripts/sandbox-add-project-root.sh` |
 | Doc section: `README.md` | `<repo-root>/README.md` | contains the `## Agent-assisted contribution (apache-steward)` heading |
 | Doc section: `AGENTS.md` | `<repo-root>/AGENTS.md` | contains the `## apache-steward framework` heading |
@@ -117,8 +117,12 @@ The following will be REMOVED:
     .apache-steward.local.lock
     <adopter-skills-dir>/<symlink-1>     → .apache-steward/.claude/skills/<skill-1>/
     <adopter-skills-dir>/<symlink-2>     → ...
-    .github/skills/<symlink-1>           (if double-symlinked layout)
+    .github/skills/<symlink-1>           (Pattern B only — second physical layer)
     .git/hooks/post-checkout              (if it contains the steward recipe)
+    # Pattern A:  <adopter-skills-dir> = .claude/skills/
+    # Pattern B:  <adopter-skills-dir> spans .claude/skills/ AND .github/skills/
+    # Pattern D:  <adopter-skills-dir> = canonical side only
+    #             (D.1: .github/skills/;  D.2: .claude/skills/)
 
   Committed (will show in `git status`):
     .apache-steward.lock                  (the project's pin)
@@ -188,9 +192,20 @@ half-completed unadopt never leaves a dangling symlink
 pointing at a deleted snapshot.
 
 1. **Framework-skill symlinks.** For each entry in the
-   inventory, `rm` the symlink. If the adopter uses the
-   double-symlinked convention, remove both layers. Never
-   touch a non-symlink at the same path.
+   inventory, `rm` the symlink. Per-pattern:
+
+   - **Pattern A** — one layer; just remove
+     `.claude/skills/<n>`.
+   - **Pattern B** — two layers; remove both
+     `.claude/skills/<n>` and `.github/skills/<n>`.
+   - **Pattern D** — one layer at the canonical side
+     (D.1: `.github/skills/<n>`; D.2: `.claude/skills/<n>`).
+     The directory symlink itself (`.claude/skills` or
+     `.github/skills`) is **adopter-owned** and **not
+     removed by unadopt** — it predates framework adoption
+     and serves the adopter's own native skills too.
+
+   Never touch a non-symlink at the same path.
 2. **Post-checkout hook.** Remove only if its content matches
    the steward recipe verbatim (i.e. the hook the adopt flow
    wrote — a single
@@ -262,7 +277,7 @@ A summary of what was removed + what remains:
 ```text
 ✓ Snapshot removed:        .apache-steward/
 ✓ Locks removed:           .apache-steward.lock, .apache-steward.local.lock
-✓ Symlinks removed:        <count> (under <adopter-skills-dir>/[, .github/skills/])
+✓ Symlinks removed:        <count> (per-pattern — A: under .claude/skills/; B: under both .claude/skills/ AND .github/skills/; D: under the canonical side only)
 ✓ Post-checkout hook:      removed (or: preserved — contained extra adopter logic)
 ✓ Doc sections removed:    README.md[, AGENTS.md][, CONTRIBUTING.md]
 ✓ .gitignore cleaned:      <N> entries removed
@@ -271,6 +286,7 @@ A summary of what was removed + what remains:
 Preserved:
   .apache-steward-overrides/   (M files; pass `--purge-overrides` to remove)
   ~/.config/apache-steward/user.md   (per-user; shared with other adopters on this machine — remove manually if this was your last adoption)
+  .claude/skills (or .github/skills)   (Pattern D directory symlink — adopter-owned, predates framework adoption)
   <list of any non-steward-owned content the plan flagged>
 
 Staged for commit (you'll see in `git status`):

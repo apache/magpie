@@ -1,0 +1,135 @@
+# Default configuration for security-tracker-stats-dashboard.
+#
+# All knobs here can be overridden either by a YAML file pointed at by
+# the `TRACKER_STATS_CONFIG` env var (deep-merged with this default; the
+# `milestones` and `categories` lists are REPLACED entirely, not
+# concatenated), or by env-var quick overrides for the most common knobs
+# (`TRACKER_STATS_BUCKETS`, `TRACKER_STATS_START`, `TRACKER_STATS_UPSTREAM_REPO`).
+#
+# Defaults below match the reference `airflow-s/airflow-s` dashboard
+# byte-for-byte.
+
+buckets: monthly                # monthly | quarterly
+start: null                     # null = first tracker createdAt; else "YYYY-MM" (monthly) or "YYYY-Qn" (quarterly)
+upstream_repo: apache/airflow   # null -> skip c_prc/c_prm/c_rel charts and the back-fill rule
+
+milestones:
+  - date: 2026-04-20
+    label: skill adoption
+
+scope_labels: [airflow, providers, chart]
+
+# Categories - evaluated top-to-bottom, FIRST MATCH WINS. Multiple rules
+# can share the same `name` (and `color`) to express disjoint branches
+# of the same final category. The set of distinct names defines the
+# stacked-band order in the dashboard's lifecycle chart (preserved in
+# the order they FIRST appear in this list).
+#
+# Each predicate is conjunctive: ALL conditions must match. Supported keys:
+#   state                       open | closed
+#   state_reason                COMPLETED | NOT_PLANNED | REOPENED | null
+#   any_label                   list - at least one of these labels present
+#   all_labels                  list - every label in this list present
+#   not_label                   single label - must NOT be present
+#   not_any_label               list - none of these labels present
+#   no_scope_label              true  - tracker has none of the scope_labels
+#   has_scope_label             true  - tracker has at least one scope_label
+#   pr_merged_by_snapshot       true  - a linked upstream PR is merged at snapshot time
+# Logical combinators: any_of / all_of (nest as deep as you need).
+categories:
+  # --- Closed branch (mirrors `if not is_open:` in the reference). ----
+  - name: fixed_released
+    color: "#2ca02c"
+    predicate:
+      all_of:
+        state: closed
+        any_of:
+          - any_label: [fix released, "announced - emails sent", announced]
+          - all_of:
+              state_reason: COMPLETED
+              any_label: [cve allocated]
+  - name: closed_other
+    color: "#888888"
+    predicate:
+      state: closed
+
+  # --- Open branch (mirrors the reference's open-branch order). -------
+  - name: open_untriaged
+    color: "#d62728"
+    predicate:
+      all_of:
+        state: open
+        any_of:
+          - any_label: [needs triage]
+          - no_scope_label: true
+  # PR-merge-by-snapshot back-fill: an upstream PR has merged by the
+  # snapshot timestamp. Captures historical trackers that predate the
+  # `pr merged` label convention.
+  - name: open_pr_merged
+    color: "#e67e22"
+    predicate:
+      all_of:
+        state: open
+        pr_merged_by_snapshot: true
+        not_label: fix released
+  - name: fixed_released
+    color: "#2ca02c"
+    predicate:
+      all_of:
+        state: open
+        pr_merged_by_snapshot: true
+        any_label: [fix released]
+  - name: open_pr_merged
+    color: "#e67e22"
+    predicate:
+      all_of:
+        state: open
+        any_label: [pr merged]
+        not_label: fix released
+  - name: fixed_released
+    color: "#2ca02c"
+    predicate:
+      all_of:
+        state: open
+        any_label: [fix released, "announced - emails sent", announced]
+  - name: open_triaged
+    color: "#f1c40f"
+    predicate:
+      state: open
+
+# The order in which distinct category names FIRST appear above is the
+# stacked-band order top-to-bottom in the lifecycle chart. For the
+# defaults that resolves to: fixed_released, closed_other,
+# open_untriaged, open_pr_merged, open_triaged. The reference dashboard
+# uses a different stack order, however, so we re-pin it here:
+stack_order:
+  - fixed_released
+  - open_pr_merged
+  - open_triaged
+  - open_untriaged
+  - closed_other
+
+triage:
+  keywords:
+    - triage proposal
+    - proposed disposition
+    - VALID
+    - INVALID
+    - DEFENSE-IN-DEPTH
+    - INFO-ONLY
+    - PROBABLE-DUP
+    - looks like a valid security issue
+    - not a security issue
+    - not a vulnerability
+    - out of scope
+    - out-of-scope
+    - agreed
+    - Security Model
+    - cve-worthy
+    - CVE-worthy
+  bot_prefixes:
+    - "<!-- airflow-s status rollup v"
+    - "**Sync "
+    - "**Imported on "
+    - "**Status update"
+    - "**Allocated CVE"

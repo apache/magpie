@@ -250,6 +250,29 @@ def test_api_post_parses_json_response():
     assert json.loads(request.data) == {"message": {"raw": "X"}}
 
 
+def test_api_get_raises_on_http_error():
+    """``api_get`` must surface HTTP errors as a clean ``SystemExit``.
+
+    Regression: ``api_get`` was the only ``urlopen`` call in the
+    package without a ``try/except HTTPError``, so a 401/403/404 from
+    ``threads.get`` (the path exercised on every ``oauth-draft-create
+    --thread-id <X>`` invocation) produced a raw Python traceback
+    instead of a one-line error matching the rest of the tool.
+    """
+    err = urllib.error.HTTPError(
+        url="https://x",
+        code=404,
+        msg="Not Found",
+        hdrs=None,  # type: ignore[arg-type]
+        fp=io.BytesIO(b'{"error": "thread missing"}'),
+    )
+    with patch("oauth_draft.create_draft.urllib.request.urlopen", side_effect=err):
+        with pytest.raises(SystemExit) as excinfo:
+            api_get("token", "/threads/missing-thread")
+    assert "failed (404)" in str(excinfo.value)
+    assert "thread missing" in str(excinfo.value)
+
+
 def test_api_post_raises_on_http_error():
     err = urllib.error.HTTPError(
         url="https://x",

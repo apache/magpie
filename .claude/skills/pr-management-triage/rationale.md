@@ -573,6 +573,50 @@ draft is an overreach.
 
 ---
 
+## Merit-discussion exception to `strip-ready-on-downgrade`
+
+The `strip-ready-on-downgrade` hard rule
+(see [`classify-and-act.md`](classify-and-act.md#hard-rules-cross-cutting-the-table))
+otherwise strips `ready for maintainer review` whenever a
+regressed PR matches a `deterministic_flag` row with action
+`draft` / `comment` / `close`. The
+[`merit_discussion_thread_present`](classify-and-act.md#merit_discussion_thread_present)
+exception suspends that strip — and additionally suspends the
+draft conversion and the close — when an unresolved
+maintainer-opened review thread is present on the PR.
+
+Why this matters:
+
+- The `ready for maintainer review` label exists to attract
+  senior eyes. An unresolved maintainer review thread is the
+  moment senior eyes are most valuable. Stripping the label
+  or pushing the PR back to draft mid-discussion makes the
+  PR disappear from the maintainer queue exactly when it
+  shouldn't.
+- CI red / lint failures / merge conflicts and a live design
+  debate are orthogonal axes. A maintainer can usefully weigh
+  in on the design discussion even when CI is red — the
+  mechanical blockers belong to the author, the design
+  question belongs to the maintainers.
+- The exception's precondition is deliberately broad — any
+  maintainer-opened unresolved review thread counts,
+  regardless of body length or when it was opened relative
+  to the label-add. A narrower "substantive content"
+  heuristic would mis-classify short-but-substantive prompts
+  ("is this really the right layer for this change?") as
+  trivial and strip the label anyway. Erring toward keeping
+  the label is the safer asymmetry: a stale-but-kept label
+  costs a maintainer a glance; a stripped label mid-discussion
+  costs the discussion its audience.
+- Contributor-author unresolved threads do NOT satisfy the
+  precondition. The label defers to maintainer judgment, not
+  contributor-to-contributor side chatter.
+
+Originating user-scope feedback memory:
+`feedback-ready-for-maintainer-review-label`.
+
+---
+
 ## Group-level overrides
 
 The interaction loop lets the maintainer override the suggested

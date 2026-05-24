@@ -77,7 +77,7 @@ The following will be REMOVED:
     .apache-steward.local.lock
     <skills-dir>/<symlink-1>                  → .apache-steward/.claude/skills/<skill-1>/
     <skills-dir>/<symlink-2>                  → ...
-    .github/skills/<symlink-1>                (if double-symlinked layout)
+    .github/skills/<symlink-1>                (Pattern B only — second physical layer)
     .git/hooks/post-checkout                  (if it contains the steward recipe)
 
   Committed (will show in `git status`):
@@ -93,9 +93,17 @@ The following will be PRESERVED:
     .apache-steward-overrides/                (pass `--purge-overrides` to remove)
 ```
 
-`<skills-dir>` resolves to your skills directory —
-typically `.claude/skills/`, or `.github/skills/` for repos
-using the double-symlinked layout.
+`<skills-dir>` resolves to your skills directory per the
+[skills-dir convention](../../.claude/skills/setup-steward/conventions.md)
+your repo uses:
+
+- **Pattern A** — `.claude/skills/`.
+- **Pattern B** — both `.claude/skills/` and `.github/skills/`
+  (one physical symlink per layer).
+- **Pattern D** — the canonical side only (D.1:
+  `.github/skills/`; D.2: `.claude/skills/`). The directory
+  symlink itself is adopter-owned and is **not** removed by
+  unadopt.
 
 If `--purge-overrides` is passed, `.apache-steward-overrides/`
 moves into the *removed* section with its files listed

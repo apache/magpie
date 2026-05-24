@@ -207,6 +207,59 @@ A PR pushed a new commit after the triage counts as "responded" too — treat a 
 
 ---
 
+## Waiting sub-states — AI-only vs maintainer-response
+
+The dashboard's "Triage funnel" panel splits the broader notion of "waiting on the author" into two **mutually exclusive** buckets, because the priority differs: an unresponded *manual* maintainer comment is a higher-priority "the author owes a maintainer a reply" signal than an unresponded *AI-drafted* comment.
+
+The split is computed over the same comment scan that produces `triaged_waiting` / `triaged_responded`, but extended to cover ALL maintainer comments (not just ones containing the QC marker) and partitioned by whether the comment contains the AI-attribution footer.
+
+Define `last_author_activity` as the latest of:
+
+- PR's last commit `committedDate`
+- The most recent comment by `pr.author.login`
+
+Then for each *maintainer* (`OWNER`/`MEMBER`/`COLLABORATOR`, not-`is_bot`) comment with `createdAt > last_author_activity`, classify the comment as AI vs manual:
+
+- **AI-drafted** — body contains the [`is_ai_triaged`](#is_ai_triaged--ai-assisted-triage) footer substring
+- **Manual** — body does not contain the footer
+
+### `waiting_for_manual_response`
+
+```text
+waiting_for_manual_response := EXISTS comment c WHERE
+    c is a maintainer comment AND
+    c.createdAt > last_author_activity AND
+    c is NOT AI-drafted
+```
+
+### `waiting_for_ai_only`
+
+```text
+waiting_for_ai_only := (NOT waiting_for_manual_response)
+    AND EXISTS comment c WHERE
+        c is a maintainer comment AND
+        c.createdAt > last_author_activity AND
+        c IS AI-drafted
+```
+
+The `NOT waiting_for_manual_response` clause makes these two predicates a clean partition over contributor non-draft PRs — a PR with both an AI-drafted and a manual unresponded comment counts only in the manual bucket (higher priority).
+
+### Why this split matters
+
+The `triaged_waiting` count alone conflates two very different states:
+
+- **Author owes the maintainer a reply** (manual review feedback unanswered) — high priority, real review work blocked.
+- **Author hasn't responded to an AI-drafted triage comment** (CI complaints, generic violations note) — lower priority, may not even merit a reply if the author is mid-fix.
+
+Splitting them lets the maintainer focus stale-sweep / ping efforts on the high-priority subset.
+
+### Caveats
+
+- Both predicates rely on `pr.comments(last:10)` — older outstanding comments on chatty PRs may be missed. Lower-bound numbers.
+- The footer-substring match (`AI-assisted triage tool`) is configurable per [`<project-config>/pr-management-config.md`](../../../projects/_template/pr-management-config.md)'s `ai_attribution_substring`. The default works as long as the project doesn't customise the footer text.
+
+---
+
 ## Drafted by triager
 
 A PR is *drafted by triager* when the viewer (or any maintainer) converted the PR to draft *after* having posted the triage comment. Two ways to detect this:

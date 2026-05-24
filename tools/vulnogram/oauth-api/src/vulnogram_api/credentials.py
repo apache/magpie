@@ -121,15 +121,30 @@ def write_session_atomic(
     try:
         out_path.parent.chmod(0o700)
     except OSError as e:
-        print(f"Warning: could not chmod 700 {out_path.parent}: {e}", file=sys.stderr)
-    parent_mode = out_path.parent.stat().st_mode & 0o777
-    if parent_mode & 0o077:
-        print(
-            f"Warning: {out_path.parent} mode is {oct(parent_mode)} — "
-            f"session cookie may be readable by other users on this host. "
-            f"Consider moving --out to a directory you control.",
-            file=sys.stderr,
-        )
+        # chmod failed (NFS / AFS / unowned dir on macOS / Windows
+        # ACLs). Emit a single warning that captures both the failure
+        # and the resulting open mode, rather than the two-warning
+        # cascade that the previous code produced.
+        parent_mode = out_path.parent.stat().st_mode & 0o777
+        if parent_mode & 0o077:
+            print(
+                f"Warning: could not chmod 700 {out_path.parent}: {e}. "
+                f"Current mode is {oct(parent_mode)} — session cookie "
+                f"may be readable by other users on this host. "
+                f"Consider moving --out to a directory you control.",
+                file=sys.stderr,
+            )
+    else:
+        # chmod succeeded; sanity-check the resulting mode in case a
+        # concurrent writer / umask race left it open anyway.
+        parent_mode = out_path.parent.stat().st_mode & 0o777
+        if parent_mode & 0o077:
+            print(
+                f"Warning: {out_path.parent} mode is {oct(parent_mode)} "
+                f"after chmod 700 — possible race or filesystem "
+                f"override. Session cookie may be readable by others.",
+                file=sys.stderr,
+            )
 
     payload = (
         json.dumps(

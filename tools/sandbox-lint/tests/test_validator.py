@@ -236,3 +236,109 @@ def test_cli_passes_on_match(tmp_path: Path, baseline: dict[str, Any]) -> None:
     _write_json(expected_path, baseline)
     rc = main(["--settings", str(settings_path), "--expected", str(expected_path)])
     assert rc == 0
+
+
+# ---------------------------------------------------------------------------
+# deep_diff: additional structural cases
+# ---------------------------------------------------------------------------
+
+
+def test_diff_type_mismatch_reported() -> None:
+    diffs = deep_diff({"key": "string"}, {"key": 42})
+    assert any("type mismatch" in d for d in diffs)
+
+
+def test_diff_key_missing_in_settings_reported() -> None:
+    diffs = deep_diff({}, {"key": "value"})
+    assert any("missing in settings" in d for d in diffs)
+
+
+def test_diff_extra_key_in_settings_reported() -> None:
+    diffs = deep_diff({"extra": "value"}, {})
+    assert any("extra in settings" in d for d in diffs)
+
+
+def test_diff_nested_scalar_change_reported() -> None:
+    actual = {"a": {"b": {"c": 1}}}
+    expected = {"a": {"b": {"c": 2}}}
+    diffs = deep_diff(actual, expected)
+    assert len(diffs) == 1
+    assert "$.a.b.c" in diffs[0]
+
+
+def test_diff_non_set_list_mismatch_reported() -> None:
+    # Lists whose key is not in SET_LIST_KEYS are compared positionally.
+    actual = {"hooks": [1, 2, 3]}
+    expected = {"hooks": [1, 2, 4]}
+    diffs = deep_diff(actual, expected)
+    assert any("list mismatch" in d for d in diffs)
+
+
+def test_diff_identical_trees_return_empty() -> None:
+    data = {"sandbox": {"enabled": True, "network": {"allowedDomains": ["a", "b"]}}}
+    assert deep_diff(data, data) == []
+
+
+def test_diff_empty_dicts_match() -> None:
+    assert deep_diff({}, {}) == []
+
+
+# ---------------------------------------------------------------------------
+# check_invariants: missing top-level keys
+# ---------------------------------------------------------------------------
+
+
+def test_invariant_missing_sandbox_key() -> None:
+    errors = check_invariants({})
+    assert any("sandbox" in e for e in errors)
+
+
+def test_invariant_missing_filesystem_key(baseline: dict[str, Any]) -> None:
+    settings = copy.deepcopy(baseline)
+    del settings["sandbox"]["filesystem"]
+    errors = check_invariants(settings)
+    assert any("filesystem" in e for e in errors)
+
+
+def test_invariant_missing_permissions_key(baseline: dict[str, Any]) -> None:
+    settings = copy.deepcopy(baseline)
+    del settings["permissions"]
+    errors = check_invariants(settings)
+    assert any("permissions" in e for e in errors)
+
+
+# ---------------------------------------------------------------------------
+# CLI: malformed / missing file error paths
+# ---------------------------------------------------------------------------
+
+
+def test_cli_exits_on_missing_settings_file(tmp_path: Path, baseline: dict[str, Any]) -> None:
+    expected_path = tmp_path / "expected.json"
+    _write_json(expected_path, baseline)
+    with pytest.raises(SystemExit):
+        main(["--settings", str(tmp_path / "nonexistent.json"), "--expected", str(expected_path)])
+
+
+def test_cli_exits_on_missing_expected_file(tmp_path: Path, baseline: dict[str, Any]) -> None:
+    settings_path = tmp_path / "settings.json"
+    _write_json(settings_path, baseline)
+    with pytest.raises(SystemExit):
+        main(["--settings", str(settings_path), "--expected", str(tmp_path / "nonexistent.json")])
+
+
+def test_cli_exits_on_malformed_json(tmp_path: Path, baseline: dict[str, Any]) -> None:
+    settings_path = tmp_path / "settings.json"
+    settings_path.write_text("{ not valid json }")
+    expected_path = tmp_path / "expected.json"
+    _write_json(expected_path, baseline)
+    with pytest.raises(SystemExit):
+        main(["--settings", str(settings_path), "--expected", str(expected_path)])
+
+
+def test_cli_exits_when_top_level_value_is_not_object(tmp_path: Path, baseline: dict[str, Any]) -> None:
+    settings_path = tmp_path / "settings.json"
+    settings_path.write_text("[1, 2, 3]")
+    expected_path = tmp_path / "expected.json"
+    _write_json(expected_path, baseline)
+    with pytest.raises(SystemExit):
+        main(["--settings", str(settings_path), "--expected", str(expected_path)])

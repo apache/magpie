@@ -40,17 +40,29 @@
 #   GH_TOKEN="$(gh auth token)" claude-iso
 #   AWS_PROFILE=read-only claude-iso
 #
+# Current-repo auto-allow:
+#   Whenever the wrapper is invoked from inside a git working
+#   tree, claude-iso automatically grants the session's sandbox
+#   read access to that working tree's root (resolved via
+#   `git rev-parse --show-toplevel`). Without this, the agent
+#   can't read the source the user just `cd`'d into unless the
+#   repo path was hand-listed in `.claude/settings.json` ahead of
+#   time. Outside a git repo it's a silent no-op. The path is
+#   injected via a one-shot `--settings` merge — nothing on disk
+#   changes — and a stderr banner reports what was added.
+#
 # Worktree mode (`claude-iso -w` / `claude-iso --worktree`):
-#   When `-w` / `--worktree` is present in the args AND the wrapper
-#   is invoked from inside a git repo, claude-iso automatically
-#   grants the new worktree session's sandbox read access to the
-#   *main* repo (resolved via `git rev-parse --git-common-dir`, so
-#   it works whether you launch from the main checkout or from a
-#   nested worktree). The wrapper prepends a one-shot
-#   `--settings '{"sandbox":{"filesystem":{"allowRead":["<main-repo>"]}}}'`
-#   to the `claude` argv — Claude merges this into the loaded
-#   settings stack at startup, before the sandbox is initialised.
-#   A stderr banner reports what was added. Nothing on disk changes.
+#   Additive on top of the current-repo auto-allow above. When
+#   `-w` / `--worktree` is present in the args AND the wrapper is
+#   invoked from inside a git repo, claude-iso also grants read
+#   access to the *main* repo (resolved via
+#   `git rev-parse --git-common-dir`, so it works whether you
+#   launch from the main checkout or from a nested worktree).
+#   When run in the main repo, the toplevel and the main repo
+#   resolve to the same path and are deduped. Both paths ride
+#   into the session via a single `--settings` injection that
+#   Claude merges into the loaded settings stack at startup,
+#   before the sandbox is initialised.
 
 claude_iso_main() {
   # Resolve the claude binary on PATH before clobbering the env so
@@ -142,13 +154,25 @@ claude_iso_main() {
   # without a shadow. The conservative read: include these only when
   # the user named them in CLAUDE_ISO_ALLOW.)
 
-  # `-w` / `--worktree`: auto-add the main repo to the new worktree
-  # session's sandbox allowRead. See the "Worktree mode" section in
-  # the file header for the full rationale. The injection uses
-  # `claude --settings <json>`, which merges with the loaded settings
-  # stack at startup (i.e. before sandbox init), so the added path is
-  # in scope for the worktree session immediately — no on-disk
-  # settings.json edit is performed.
+  # Sandbox auto-allow injection. See the "Current-repo auto-allow"
+  # and "Worktree mode" sections in the file header for the full
+  # rationale. The injection uses `claude --settings <json>`, which
+  # merges with the loaded settings stack at startup (i.e. before
+  # sandbox init), so the added paths are in scope for the session
+  # immediately — no on-disk settings.json edit is performed.
+  #
+  # We collect up to two candidate paths:
+  #   - cwd_toplevel: the working tree root of $PWD (always when
+  #     inside a git repo). Lets Claude read the source the user
+  #     just `cd`'d into.
+  #   - main_repo:    the parent of the main repo's .git dir; added
+  #     only when `-w`/`--worktree` is on the argv, so worktree
+  #     sessions can see the original checkout.
+  # When both resolve to the same path (no worktree, or `-w` from
+  # the main repo) they collapse to a single entry.
+  local cwd_toplevel
+  cwd_toplevel="$(git -C "$PWD" rev-parse --show-toplevel 2>/dev/null || true)"
+
   local has_worktree=0
   local arg
   for arg in "$@"; do
@@ -157,8 +181,9 @@ claude_iso_main() {
     esac
   done
 
+  local main_repo=""
   if [[ "$has_worktree" -eq 1 ]]; then
-    local common_dir main_repo
+    local common_dir
     common_dir="$(git -C "$PWD" rev-parse --git-common-dir 2>/dev/null || true)"
     if [[ -n "$common_dir" ]]; then
       case "$common_dir" in
@@ -166,18 +191,41 @@ claude_iso_main() {
         *) common_dir="$PWD/$common_dir" ;;
       esac
       main_repo="$(cd "$(dirname "$common_dir")" 2>/dev/null && pwd)"
-      if [[ -n "$main_repo" ]]; then
-        # Escape backslashes and double quotes so a pathological
-        # repo path can't break out of the JSON string literal.
-        local escaped="${main_repo//\\/\\\\}"
-        escaped="${escaped//\"/\\\"}"
-        set -- --settings "{\"sandbox\":{\"filesystem\":{\"allowRead\":[\"${escaped}\"]}}}" "$@"
-        if [[ -t 2 ]]; then
-          printf '\033[2m[claude-iso] -w detected; added main repo "%s" to worktree sandbox allowRead\033[0m\n' "$main_repo" >&2
-        else
-          printf '[claude-iso] -w detected; added main repo "%s" to worktree sandbox allowRead\n' "$main_repo" >&2
-        fi
+    fi
+  fi
+
+  local -a allow_read_paths=()
+  local candidate existing seen
+  for candidate in "$cwd_toplevel" "$main_repo"; do
+    [[ -z "$candidate" ]] && continue
+    seen=0
+    for existing in "${allow_read_paths[@]}"; do
+      if [[ "$existing" == "$candidate" ]]; then
+        seen=1
+        break
       fi
+    done
+    [[ "$seen" -eq 0 ]] && allow_read_paths+=("$candidate")
+  done
+
+  if (( ${#allow_read_paths[@]} > 0 )); then
+    # Hand-roll the JSON array literal (escape backslashes and
+    # double quotes) so a pathological repo path can't break out
+    # of the string literal. Keeping it dependency-free — no jq.
+    local json_array="" banner_paths="" sep=""
+    local p escaped
+    for p in "${allow_read_paths[@]}"; do
+      escaped="${p//\\/\\\\}"
+      escaped="${escaped//\"/\\\"}"
+      json_array+="${sep}\"${escaped}\""
+      banner_paths+="${sep}\"${p}\""
+      sep=","
+    done
+    set -- --settings "{\"sandbox\":{\"filesystem\":{\"allowRead\":[${json_array}]}}}" "$@"
+    if [[ -t 2 ]]; then
+      printf '\033[2m[claude-iso] added to sandbox allowRead: %s\033[0m\n' "$banner_paths" >&2
+    else
+      printf '[claude-iso] added to sandbox allowRead: %s\n' "$banner_paths" >&2
     fi
   fi
 

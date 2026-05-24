@@ -3,6 +3,7 @@
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
 - [Apache `<PROJECT_NAME>`](#apache-project_name)
+  - [Mission](#mission)
   - [Abstract](#abstract)
   - [Proposal](#proposal)
   - [Proposed Names](#proposed-names)
@@ -25,9 +26,15 @@
 # Apache `<PROJECT_NAME>`
 
 > [!IMPORTANT]
-> **Draft** — this proposal is a working draft, actively being edited. Expect substantial changes; not yet ready for committee or Board review.
-
 > **Motto:** *"Give maintainers time back, so they can do what matters."*
+
+## Mission
+
+Apache Magpie is responsible for the creation and maintenance of software
+related to creation and maintenance of software related to agent-assisted
+repository maintainership and development, including issue and pull-request
+triage, contributor mentoring, agent-drafted remediation, developer-side
+development-cycle skills, and narrowly-scoped fix-and-merge automation
 
 ## Abstract
 

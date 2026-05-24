@@ -148,6 +148,23 @@ def test_save_and_load_round_trip(tmp_path: pathlib.Path):
     assert loaded == mapping
 
 
+def test_load_round_trips_non_ascii_values(tmp_path: pathlib.Path):
+    """Non-ASCII PII values must survive a save/load round-trip.
+
+    Regression: ``load_mapping`` read the file with the locale-default
+    encoding while ``save_mapping_atomic`` writes UTF-8, corrupting
+    non-ASCII values (accented names, IDN domains) on non-UTF-8 hosts.
+    """
+    path = tmp_path / "pii.json"
+    mapping: dict[str, Entry] = {}
+    upsert(mapping, "N", "José Müller")
+    upsert(mapping, "E", "renée@exámple.com")
+
+    save_mapping_atomic(path, mapping)
+    loaded = load_mapping(path)
+    assert loaded == mapping
+
+
 def test_save_creates_parent_dir(tmp_path: pathlib.Path):
     path = tmp_path / "deeper" / "nested" / "pii.json"
     mapping: dict[str, Entry] = {}

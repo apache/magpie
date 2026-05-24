@@ -130,7 +130,7 @@ def main(argv: list[str] | None = None) -> int:
         help=(
             "PII to redact, declared as type:value. "
             "Repeat for each field. Type is one of: "
-            "reporter, email, phone, ip, handle, address (or codes R, E, P, IP, H, A)."
+            "name, email, phone, ip, handle, address (or codes N, E, P, IP, H, A)."
         ),
     )
     parser.add_argument(

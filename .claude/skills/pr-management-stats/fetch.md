@@ -319,6 +319,46 @@ Cache the per-PR `ready_at` in `/tmp/pr-management-stats-cache-<repo-slug>.json`
 
 ---
 
+## PR changed files (CODEOWNERS panel)
+
+For the [`#ready-for-review-queue-by-codeowner`](aggregate.md#ready-for-review-queue-by-codeowner) panel, fetch each currently-ready PR's changed file paths. Aliased GraphQL, **20 PRs per call** (the `files` connection on each PR returns up to 100 paths — `files(first:100)`).
+
+```graphql
+query {
+  repository(owner:"<owner>",name:"<name>") {
+    pr12345: pullRequest(number:12345) {
+      number
+      files(first:100) {
+        nodes { path }
+        pageInfo { hasNextPage }
+      }
+    }
+    # … repeated for the other 19 PRs in the batch
+  }
+}
+```
+
+Per-PR processing: collect the `path` list. If `pageInfo.hasNextPage == true` the PR has > 100 changed files — record it in the truncation log and proceed with the first 100 (overwhelmingly enough for CODEOWNERS matching). For most projects 100 is far above the median changed-file count.
+
+Cache per `(pr_number, head_sha)` — file lists rarely change without a new commit so the cache hit rate is high on re-runs.
+
+Budget: ~8 GraphQL calls for ~150 currently-ready PRs on a busy project. Skip the panel entirely if `.github/CODEOWNERS` is absent (no fetch necessary).
+
+### Reading `.github/CODEOWNERS`
+
+The CODEOWNERS file is read from the local checkout — same `<adopter-repo>` the skill is running in. Look at:
+
+1. `.github/CODEOWNERS` (most common — GitHub's default location)
+2. `CODEOWNERS` (repo root — also recognised by GitHub)
+3. `docs/CODEOWNERS` (last GitHub-recognised location)
+
+The first existing path wins. If none exist, skip the panel.
+
+Parse line-by-line: a non-comment, non-blank line is `<pattern> <owner1> <owner2> ...`. Strip inline `#`-comments before splitting. Owners start with `@` (individual logins) or `@<org>/<team>` (team handles). Rules apply in declaration order; matching is **last-match-wins** per GitHub semantics. See
+[`aggregate.md#ready-for-review-queue-by-codeowner`](aggregate.md#ready-for-review-queue-by-codeowner) for the glob-to-regex translation.
+
+---
+
 ## Why no `statusCheckRollup` / `mergeable` / `reviewThreads`
 
 `pr-management-triage` needs all three for classification; `pr-management-stats` does not. Dropping them keeps the query complexity well below GitHub's per-page ceiling, which is how we can safely run `batchSize=50` here versus `20` in `pr-management-triage`. If a future stats column ever needs one of those fields, raise only that query's complexity — don't pull them into the default shape "just in case".

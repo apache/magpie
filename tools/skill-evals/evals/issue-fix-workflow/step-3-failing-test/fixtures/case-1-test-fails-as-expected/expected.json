@@ -1,0 +1,6 @@
+{
+  "test_has_issue_key": true,
+  "adapts_from_reproducer": true,
+  "confirmed_failing": true,
+  "verdict": "accept"
+}

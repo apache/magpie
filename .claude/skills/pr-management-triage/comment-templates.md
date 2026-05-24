@@ -19,7 +19,19 @@ Placeholders:
 - `<commits_behind>` — integer
 - `<flagged_count>` — number of currently-flagged PRs by this
   author (for the `close` template)
-- `<reviewers>` — space-separated `@login` mentions
+- `<reviewers>` — space-separated `@login` mentions. **Use in
+  reviewer-re-review variants and `mark-ready-with-ping` only**
+  — those templates address the reviewer as the next-action
+  recipient, so `@`-pinging them is appropriate.
+- `<reviewer_logins>` — comma-separated backtick-quoted logins
+  (e.g. `` `phanikumv` ``, `` `phanikumv`, `eladkal` ``) —
+  **no `@`-pings**. Use in author-primary templates
+  (`request-author-confirmation`, `reviewer-ping` author-primary,
+  `review-nudge` author-primary) where the only addressee is the
+  PR author. The reviewer is mentioned for context; an `@`-ping
+  would needlessly notify them when the next action is on the
+  author. See the [Reviewer-mention policy](#reviewer-mention-policy)
+  section below.
 - `<days_since_triage>` — integer, for the stale-draft close
   comment
 
@@ -35,6 +47,36 @@ Do not paraphrase this link — the literal text "Pull Request
 quality criteria" is the triage-comment marker the skill
 searches for when classifying already-triaged PRs. Changing the
 anchor text breaks the re-triage skip logic.
+
+---
+
+## Reviewer-mention policy
+
+When a comment's only addressee is the PR author (the
+`request-author-confirmation`, `reviewer-ping` author-primary,
+and `review-nudge` author-primary templates), the body references
+the reviewer **without** `@`-mentioning them. The default
+`<reviewers>` placeholder renders as `@login` and is appropriate
+when the reviewer is one of the message's addressees (e.g. the
+reviewer-re-review variants and `mark-ready-with-ping`). In
+author-primary templates we use a different placeholder,
+`<reviewer_logins>`, that renders the same logins **as
+backtick-quoted code** (e.g. `` `phanikumv` ``,
+`` `phanikumv`, `eladkal` ``) — recognisable as a GitHub handle
+without producing a notification.
+
+The policy: a reviewer is mentioned for context; an `@`-ping is
+only appropriate when the reviewer is the next person whose
+action we are asking for. Author-primary templates additionally
+tell the author what to do *when* they're ready (mark threads
+resolved + `@`-mention the reviewer themselves), so the ping
+happens — driven by the author, after they've engaged — rather
+than by the bot.
+
+| Placeholder | Renders as | Use in |
+|---|---|---|
+| `<reviewers>` | `@login [, @login ...]` | reviewer-re-review variants, `mark-ready-with-ping` |
+| `<reviewer_logins>` | `` `login` [, `login` ...] `` (no `@`) | `request-author-confirmation`, `reviewer-ping` (author-primary), `review-nudge` (author-primary) |
 
 ---
 
@@ -222,7 +264,7 @@ actually done the work yet.
 ### Default — author-primary nudge *(use unless the inspection below says otherwise)*
 
 ```markdown
-@<author> — This PR has new commits since the last review requesting changes from <reviewers>. Could you address the outstanding review comments and either push a fix or reply in each thread explaining why the feedback doesn't apply? Once the threads are resolved please mark the PR as "Ready for review" and re-request review. Thanks!
+@<author> — This PR has new commits since the last review requesting changes from <reviewer_logins>. Could you address the outstanding review comments and either push a fix or reply in each thread explaining why the feedback doesn't apply? When you believe the threads are resolved, please mark them as resolved and ping the reviewer (<reviewer_logins>) — they'll either re-review or hand the PR back to the queue. Thanks!
 
 <ai_attribution_footer>
 ```
@@ -290,7 +332,7 @@ be resolved.
 ### Default — author-primary nudge *(use unless the inspection below says otherwise)*
 
 ```markdown
-@<author> — There are <N> unresolved review thread(s) on this PR from <reviewers>. Could you either push a fix or reply in each thread explaining why the feedback doesn't apply? Once you believe the feedback is addressed, mark the thread as resolved so the reviewer isn't re-pinged needlessly. Thanks!
+@<author> — There are <N> unresolved review thread(s) on this PR from <reviewer_logins>. Could you either push a fix or reply in each thread explaining why the feedback doesn't apply? When you believe the feedback is addressed, please mark the threads as resolved and ping the reviewer (<reviewer_logins>) for a final look. Thanks!
 
 <ai_attribution_footer>
 ```
@@ -332,9 +374,9 @@ precondition searches for that exact text on subsequent sweeps;
 paraphrasing it breaks the gated flow.
 
 ```markdown
-@<author> — There are <N> unresolved review thread(s) on this PR from <reviewers>, and you have engaged with each one (post-review commits and/or in-thread replies). Could you confirm whether you believe the feedback is fully addressed and the PR is ready for maintainer review confirmation?
+@<author> — There are <N> unresolved review thread(s) on this PR from <reviewer_logins>, and you have engaged with each one (post-review commits and/or in-thread replies). Could you confirm whether you believe the feedback is fully addressed and the PR is ready for maintainer review confirmation?
 
-If yes, reply here (a short "yes / ready" is fine) and an <PROJECT> maintainer will pick the PR up from the review queue on the next sweep.
+If yes, please mark the thread(s) as resolved and ping the reviewer (<reviewer_logins>) for a final look. They will either label the PR ready for maintainer review or follow up with additional feedback.
 
 If you are still working on a thread, please reply with what is outstanding so the threads stay unresolved on purpose.
 
@@ -344,12 +386,15 @@ If you are still working on a thread, please reply with what is outstanding so t
 Notes on the body:
 
 - **`@<author>` is mentioned once at the top.** They are the
-  only person whose input we need in this step.
-- **No `<reviewers>` `@`-mention.** Reviewers are reached
-  through the `ready for maintainer review` queue once the
-  author confirms — pinging them here would push a notification
-  built on the engagement signal alone, which is the failure
-  mode this two-sweep flow exists to avoid.
+  only person whose input we need *right now*.
+- **`<reviewer_logins>` (not `<reviewers>`) for the reviewer
+  reference.** Backtick-quoted, no `@`-ping. The reviewer is
+  mentioned for context — telling the author who left the
+  feedback — but pinging them in our message would build a
+  notification on the engagement signal alone, which is the
+  failure mode this two-sweep flow exists to avoid. The author
+  pings the reviewer themselves when they're ready, completing
+  the hand-back. See [Reviewer-mention policy](#reviewer-mention-policy).
 - **The marker string `ready for maintainer review
   confirmation`** appears verbatim in the first paragraph.
   Do not edit the wording around it in a way that breaks the

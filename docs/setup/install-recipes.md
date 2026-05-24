@@ -32,14 +32,24 @@ Pick the recipe that matches your distribution preference:
 | [**git-branch**](#method-3--git-branch-defaults-to-main) | WIP path — track the framework's `main` branch directly. The default during the framework's pre-release phase. | Tracks branch tip |
 
 > **Adopter convention** — pick the right `cp` step per your
-> existing skills layout:
+> existing skills layout (see
+> [`.claude/skills/setup-steward/conventions.md`](../../.claude/skills/setup-steward/conventions.md)
+> for the full taxonomy):
 >
-> - **flat** (`.claude/skills/<n>/SKILL.md` directly): copy
+> - **A — flat** (`.claude/skills/<n>/SKILL.md` directly): copy
 >   `setup-steward` into `.claude/skills/setup-steward/`.
-> - **double-symlinked** (e.g. `apache/airflow` —
->   `.claude/skills/<n>` → `.github/skills/<n>/`): copy the
->   content into `.github/skills/setup-steward/` AND symlink
+> - **B — double-symlinked** (per-skill
+>   `.claude/skills/<n>` → `.github/skills/<n>/` symlinks): copy
+>   the content into `.github/skills/setup-steward/` AND symlink
 >   `.claude/skills/setup-steward` → `../../.github/skills/setup-steward`.
+> - **D — single directory symlink** (one of
+>   `.claude/skills` / `.github/skills` is itself a directory
+>   symlink to the other): copy the content into the
+>   *canonical* side only — `.github/skills/setup-steward/`
+>   for D.1 (canonical `.github/skills/`) or
+>   `.claude/skills/setup-steward/` for D.2 (canonical
+>   `.claude/skills/`). The opposite side is the same
+>   directory via the symlink, so there is nothing to wire up.
 >
 > The `setup-steward` skill itself is the **only** framework
 > artefact you commit. Every other framework skill is wired
@@ -96,12 +106,23 @@ rm -f ${ZIP} ${ZIP}.sha512 ${ZIP}.asc
 #    Pick ONE branch based on your existing convention.
 #
 #    A — flat layout (default):
+mkdir -p .claude/skills
 cp -r .apache-steward/.claude/skills/setup-steward .claude/skills/setup-steward
 #
-#    B — double-symlinked layout (e.g. apache/airflow):
+#    B — double-symlinked layout (per-skill symlinks):
 # mkdir -p .github/skills .claude/skills
 # cp -r .apache-steward/.claude/skills/setup-steward .github/skills/setup-steward
 # ln -sf ../../.github/skills/setup-steward .claude/skills/setup-steward
+#
+#    D.1 — single directory symlink, canonical .github/skills/:
+#    (.claude/skills is itself a symlink → ../.github/skills/)
+# cp -r .apache-steward/.claude/skills/setup-steward .github/skills/setup-steward
+#    (No second copy needed — .claude/skills/setup-steward resolves
+#     to .github/skills/setup-steward via the directory symlink.)
+#
+#    D.2 — single directory symlink, canonical .claude/skills/:
+#    (.github/skills is itself a symlink → ../.claude/skills/)
+# cp -r .apache-steward/.claude/skills/setup-steward .claude/skills/setup-steward
 
 # 3. Add gitignore entries (idempotent — re-run is safe)
 cat >> .gitignore <<'GITIGNORE'
@@ -116,14 +137,20 @@ cat >> .gitignore <<'GITIGNORE'
 /.apache-steward.local.lock
 
 # Symlinks created by /setup-steward into the gitignored snapshot.
+# Pattern A (flat) → keep only the .claude/skills/ block below.
+# Pattern B (per-skill double-symlinked) → keep BOTH blocks (one
+#   physical symlink per layer needs its own ignore line).
+# Pattern D.1 (.claude/skills → .github/skills/) → keep only the
+#   .github/skills/ block — git does not descend into the directory
+#   symlink, so .claude/skills/ ignore lines are unnecessary.
+# Pattern D.2 (.github/skills → .claude/skills/) → keep only the
+#   .claude/skills/ block (same reason, opposite orientation).
 /.claude/skills/security-*
 /.claude/skills/pr-management-*
 /.claude/skills/issue-*
 /.claude/skills/setup-isolated-setup-*
 /.claude/skills/setup-shared-config-sync
 /.claude/skills/list-steward-*
-# Mirror the same patterns under .github/skills/ if your repo uses
-# the double-symlinked convention.
 /.github/skills/security-*
 /.github/skills/pr-management-*
 /.github/skills/issue-*
@@ -156,11 +183,14 @@ git clone --depth=1 \
     https://github.com/apache/airflow-steward.git \
     .apache-steward
 
-# Copy the `setup-steward` skill — pick A or B (see Method 1 step 2)
+# Copy the `setup-steward` skill — pick A / B / D (see Method 1 step 2)
+mkdir -p .claude/skills
 cp -r .apache-steward/.claude/skills/setup-steward .claude/skills/setup-steward
-# OR for double-symlinked:
+# OR for double-symlinked (B):
 # cp -r .apache-steward/.claude/skills/setup-steward .github/skills/setup-steward
 # ln -sf ../../.github/skills/setup-steward .claude/skills/setup-steward
+# OR for single directory-symlink (D) — copy to canonical side only;
+# the .claude/skills ↔ .github/skills directory symlink does the rest.
 
 # Add gitignore entries (same block as Method 1 step 3 — see there)
 
@@ -183,11 +213,14 @@ git clone --depth=1 \
     https://github.com/apache/airflow-steward.git \
     .apache-steward
 
-# Copy the `setup-steward` skill — pick A or B (see Method 1 step 2)
+# Copy the `setup-steward` skill — pick A / B / D (see Method 1 step 2)
+mkdir -p .claude/skills
 cp -r .apache-steward/.claude/skills/setup-steward .claude/skills/setup-steward
-# OR for double-symlinked:
+# OR for double-symlinked (B):
 # cp -r .apache-steward/.claude/skills/setup-steward .github/skills/setup-steward
 # ln -sf ../../.github/skills/setup-steward .claude/skills/setup-steward
+# OR for single directory-symlink (D) — copy to canonical side only;
+# the .claude/skills ↔ .github/skills directory symlink does the rest.
 
 # Add gitignore entries (same block as Method 1 step 3 — see there)
 

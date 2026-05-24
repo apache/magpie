@@ -50,9 +50,16 @@ on a still-open PR is a worse state than no comment at all.
 The PR bypassed F4 because of post-label regression (rebase /
 push re-introduced a deterministic failure — see
 [`strip-ready-on-downgrade`](classify-and-act.md#hard-rules-cross-cutting-the-table)).
-Strip the label as the **first** mutation, before converting
-to draft, so the queue position is corrected even if a later
-step fails:
+
+**Branch on the merit-discussion exception.** Before mutating,
+evaluate
+[`merit_discussion_thread_present`](classify-and-act.md#merit_discussion_thread_present)
+on the PR.
+
+**Case A — no merit discussion present** (the strip-and-draft
+default). Strip the label as the **first** mutation, before
+converting to draft, so the queue position is corrected even
+if a later step fails:
 
 ```bash
 # 0. Remove the now-stale ready-for-review label (idempotent —
@@ -74,6 +81,26 @@ failure is a soft signal (the maintainer may need to clean up
 manually), but stranding the PR in a half-state would be
 worse. The maintainer-facing preview should note when step 0
 will run so the proposal is honest about both state changes.
+
+**Case B — merit discussion present** (per the exception in
+[`strip-ready-on-downgrade`](classify-and-act.md#hard-rules-cross-cutting-the-table)).
+Skip step 0 (label stays) and step 1 (PR stays out of draft).
+Post only the violations comment:
+
+```bash
+# 1. Post the violations comment (label stays; PR stays open).
+gh pr comment <N> --repo <repo> --body-file /tmp/pr-<N>-draft-body.md
+```
+
+The maintainer-facing preview MUST surface that the merit
+discussion was detected and that the action is being
+de-escalated from `draft` to `comment-only` for this reason
+— include the URLs of the maintainer-opened unresolved review
+thread(s) that triggered the exception so the maintainer can
+sanity-check the call. The violations comment body is
+unchanged from Case A; it informs the author that mechanical
+issues remain even though the discussion is what's keeping
+the label on.
 
 ### If the PR is already a draft
 
@@ -116,10 +143,14 @@ the people it's for.
 When the upstream classification is `deterministic_flag` and the
 PR carries the label (regression bypass of F4 — see
 [`strip-ready-on-downgrade`](classify-and-act.md#hard-rules-cross-cutting-the-table)),
-strip the label **before** posting the comment:
+strip the label **before** posting the comment — **unless**
+[`merit_discussion_thread_present`](classify-and-act.md#merit_discussion_thread_present)
+holds, in which case the label stays and only the comment is
+posted.
 
 ```bash
 # 0. Remove the now-stale ready-for-review label.
+#    SKIP this step when merit_discussion_thread_present holds.
 gh pr edit <N> --repo <repo> --remove-label "ready for maintainer review"
 
 # 1. Post the violations comment
@@ -135,6 +166,11 @@ or static-check-only failures). `stale_review` and explicit
 `ping` actions do NOT strip the label — those are transient
 signals and the ready-for-review queue position is still valid
 information for the reviewer.
+
+When the merit-discussion exception applies, the
+maintainer-facing preview MUST surface that step 0 is being
+skipped and quote the URL(s) of the maintainer-opened
+unresolved review thread(s) that triggered the exception.
 
 ---
 
@@ -165,6 +201,27 @@ still valid.
 inside a `close` group, the maintainer confirms each PR
 individually — a wrongly-closed PR is the hardest mistake to
 recover from.
+
+### If the PR carries `ready for maintainer review` and a merit discussion is in flight
+
+When the PR carries `ready for maintainer review` AND
+[`merit_discussion_thread_present`](classify-and-act.md#merit_discussion_thread_present)
+holds, the
+[`strip-ready-on-downgrade`](classify-and-act.md#hard-rules-cross-cutting-the-table)
+exception applies: **skip step 2** (do not close the PR) and
+**do not strip the ready-for-maintainer-review label**. Steps
+1 and 3 still run — the close comment surfaces the
+queue-pressure reasoning, and the quality-violations label
+records that the PR was flagged. The PR remains open with
+both labels, surfaced for human review.
+
+The maintainer-facing preview MUST surface that step 2 is
+being skipped and quote the URL(s) of the maintainer-opened
+unresolved review thread(s) that triggered the exception.
+Closing a PR with an active maintainer review discussion is
+strictly more destructive than the queue-pressure problem
+`close` exists to solve — a human maintainer must make that
+call, not the skill.
 
 ---
 

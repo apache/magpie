@@ -90,7 +90,7 @@ def load_mapping(path: pathlib.Path) -> dict[str, Entry]:
     """
     if not path.exists():
         return {}
-    raw = json.loads(path.read_text())
+    raw = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(raw, dict):
         raise ValueError(f"{path}: expected a JSON object at the top level")
     version = raw.get("version")

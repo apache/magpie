@@ -95,6 +95,26 @@ If zero rules fire, render a single low-priority card with a `✨` icon and the 
 
 The order inside the panel is: high-priority first (sorted by count descending), then medium (same), then low. Within a tier the rule firing order from [`#recommendation-rules`](#recommendation-rules) breaks ties.
 
+### 3b. Trends over time (line charts, 5 sub-panels)
+
+A "Trends over time" section between "What needs attention" and "Closure velocity" with 5 sub-panels, each rendered as an inline SVG line chart followed by a precise per-week table for readers who want exact numbers. Charts use the same 6-week window the rest of the dashboard uses.
+
+| Sub-panel | Data source | Line(s) | Caveat |
+|---|---|---|---|
+| **Open backlog over time** | [`aggregate.md#backlog-over-time-per-week-snapshots`](aggregate.md#backlog-over-time-per-week-snapshots) | single line (open count at end of each week) | — |
+| **PRs opened by author class** | [`aggregate.md#prs-opened-by-author-class-per-week`](aggregate.md#prs-opened-by-author-class-per-week) | 3 lines: FIRST_TIME, CONTRIBUTOR, MAINTAINER | — |
+| **Ready-for-review queue size** | [`aggregate.md#ready-for-review-queue-size-cumulative-over-time`](aggregate.md#ready-for-review-queue-size-cumulative-over-time) | single line, cumulative end-of-week | — |
+| **Triage velocity** | [`aggregate.md#triage-velocity-per-week`](aggregate.md#triage-velocity-per-week) | 2 lines: AI-drafted, manual QC | `comments(last:25)` cap under-counts older weeks; note in panel |
+| **Triage coverage rate by week opened** | [`aggregate.md#triage-coverage-rate-by-week-opened`](aggregate.md#triage-coverage-rate-by-week-opened) | single line (% engaged), y-axis 0-100 | same comment-cap caveat |
+
+### Inline SVG line-chart helper
+
+The recommended renderer is a small inline-SVG helper rather than an external chart library — avoids JS dependencies and keeps the dashboard self-contained for archival / gist publication. Typical shape: 640×140 viewBox, left margin for Y-axis labels, right margin for series legend, 5 horizontal gridlines, coloured polylines with circular markers + inline value labels.
+
+Multi-series charts get a per-series colour key in the right margin. Single-series charts use the panel's primary colour (e.g. blue for backlog, green for ready-queue, red for the "untriaged" colour palette).
+
+The same helper is used by panels 4, 5, 6, 7, and the 8b CODEOWNERS panel below — any weekly time-series should render as a line chart for visual rhythm. Bar charts are kept only where the data is genuinely categorical (e.g. stacked velocity), and even there the line-chart version sits *above* the table for trend visibility.
+
 ### 4. Closure velocity (per-week bar chart)
 
 Title: **Closures per week (oldest → newest)**
@@ -188,18 +208,55 @@ Up to 8 rows, sorted by pressure score descending (filtering areas with < 3 cont
 
 This panel answers "if I have 30 minutes, which area moves the most needles?". Top row is always the highest-leverage focus.
 
-### 9. Triage funnel (4-column hero grid)
+### 8b. Ready-for-review queue by CODEOWNER
 
-A second hero grid, same layout as the top one, showing the funnel-health summary numbers:
+Data from [`aggregate.md#ready-for-review-queue-by-codeowner`](aggregate.md#ready-for-review-queue-by-codeowner). Rendered as a 4-column table:
 
-| Card | Big number | Sub-label | Colour rule |
-|---|---|---|---|
-| **Triage Coverage** | `<pct>%` of contributor PRs that have been seen by a maintainer (triaged + ready + draft / contributors) | `<seen> of <total> contributor PRs have been seen by a maintainer` | green ≥ 50, amber 20–49, red < 20 |
-| **Author Response Rate** | `<pct>%` of triaged PRs where the author replied | `<responded> of <triaged> triaged PRs got an author reply` | same colour rule |
-| **Stalest Bucket** | count of contributor PRs in the `>4w` age bucket | "contributor PRs untouched >4 weeks" | red if > 50, amber if > 20, green otherwise |
-| **This Week's Velocity** | this week's `merged + closed` total | `<merged> merged · <closed> closed (avg <N>/wk)` | default (informational) |
+| Column | Content |
+|---|---|
+| **CODEOWNER** | `@login` (or `@<org>/<team>` for team handles) |
+| **Ready PRs** | Count of currently-ready PRs the owner is responsible for, plus `(N% of queue)` ratio. Severity colour: red ≥ 50, amber ≥ 20, green ≥ 10, grey below. |
+| **Waiting for author response** | Count of those PRs where this owner has personally left a comment that the author hasn't replied to or pushed past. Red when > 0; grey "0" when none. Sub-text: `(N% of theirs)`. |
+| **Bar (overlay)** | Horizontal bar where the full-width green/amber/red segment shows total Ready PRs, with a red segment overlaid (same x-origin, narrower) showing the Waiting subset. |
 
-This grid completes the dashboard: hero cards at the top (queue size + immediate red flags), recommendations next (what to do), velocity + opened-vs-closed (momentum), pressure by area (where), and triage funnel (process health).
+Rows are ordered by Ready-PR count descending.
+
+Below the per-owner rows, append a **highlighted total-style row** for ready PRs with **no CODEOWNERS match** — paths not covered by any rule. This row uses a "⚠ (no CODEOWNERS match)" label, displays the count and `(N% of queue)`, leaves the Waiting column as `—`, and renders a single-tone bar (no overlay).
+
+After the table, two collapsible details:
+
+- **`<N> ready PRs with no CODEOWNERS match`** — opens to show the PR numbers as clickable links, useful for "which paths does CODEOWNERS not cover" exploration.
+- **`<N> CODEOWNERS with 0 ready PRs in the queue`** — opens to list owners present in `.github/CODEOWNERS` but with no responsibility in the current queue. Sanity check for accidentally-empty owners.
+
+Caveat note above the table:
+
+```text
+For each owner in .github/CODEOWNERS, count of currently-ready PRs that touch at least one file they own. A PR with multiple owners counts once per owner (rows can sum to more than the total ready-PR count). The Waiting column counts the subset where THAT owner has personally left a comment that the PR author hasn't replied or pushed past. Caveat: comment fetch capped at last:10 per PR; older outstanding comments on chatty PRs may be missed.
+```
+
+Skip the entire panel if `.github/CODEOWNERS` (and fallback locations — see [`fetch.md#reading-githubcodeowners`](fetch.md)) are absent.
+
+### 9. Triage funnel (5-column hero grid)
+
+A second hero grid, same layout as the top one. The contents are precedence-based — a single contributor non-draft PR lands in exactly one card. The cards in order of precedence:
+
+| Card | Definition | Colour |
+|---|---|---|
+| **Ready for review** | `is_ready` (label present) | green |
+| **Responded (post-QC)** | `triaged_responded` (QC marker + author activity since) | bright cyan |
+| **Waiting: AI-triage comment only** | [`waiting_for_ai_only`](classify.md#waiting-sub-states--ai-only-vs-maintainer-response) (unresponded AI comment, NO unresponded manual comment) | purple |
+| **Waiting: author response to maintainer** | [`waiting_for_manual_response`](classify.md#waiting-sub-states--ai-only-vs-maintainer-response) (any unresponded MANUAL maintainer comment — higher priority than AI-only) | red |
+| **Not yet triaged** | [`is_untriaged`](classify.md#is_untriaged--broad-untriaged) and non-draft | blue |
+
+The two "Waiting" cards are **mutually exclusive** by construction (the `waiting_for_ai_only` predicate explicitly excludes PRs that also have manual unresponded comments). This split surfaces the high-priority backlog of PRs where the author owes a maintainer a reply, separate from the lower-priority backlog of PRs that have only an AI-drafted comment pending.
+
+Print a one-line caveat below the grid:
+
+```text
+The two waiting cards are mutually exclusive — a PR with both unresponded AI-drafted and manual maintainer comments counts only in the "author response to maintainer" bucket.
+```
+
+This grid completes the dashboard's status section: hero cards at the top (queue size + red flags), recommendations next (what to do), trends + velocity + opened-vs-closed (momentum), pressure by area (where), CODEOWNERS distribution (who), and triage funnel (process health).
 
 ### 9b. Triager activity panel
 

@@ -85,3 +85,32 @@ def test_unknown_error_returns_3(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(check, "probe", lambda *a, **kw: "error: connection refused")
     rc = check.main([])
     assert rc == 3
+
+
+def test_unknown_error_writes_to_stderr_not_stdout(tmp_path, monkeypatch, capsys):
+    """Error results must go to stderr so `2>/dev/null` gives a clean channel.
+
+    Regression: the previous code printed every result to stdout in
+    non-quiet mode and only emitted to stderr under ``--quiet`` (and
+    only via a ternary that swallowed it the rest of the time).
+    """
+    creds = _write_session(tmp_path / "session.json")
+    monkeypatch.setenv("VULNOGRAM_SESSION", str(creds))
+    monkeypatch.setattr(check, "probe", lambda *a, **kw: "error: connection refused")
+    rc = check.main([])
+    captured = capsys.readouterr()
+    assert rc == 3
+    assert "error: connection refused" in captured.err
+    assert "error: connection refused" not in captured.out
+
+
+def test_unknown_error_quiet_still_writes_to_stderr(tmp_path, monkeypatch, capsys):
+    """Under ``--quiet``, stdout stays empty but stderr still surfaces the reason."""
+    creds = _write_session(tmp_path / "session.json")
+    monkeypatch.setenv("VULNOGRAM_SESSION", str(creds))
+    monkeypatch.setattr(check, "probe", lambda *a, **kw: "error: timeout")
+    rc = check.main(["--quiet"])
+    captured = capsys.readouterr()
+    assert rc == 3
+    assert captured.out == ""
+    assert "error: timeout" in captured.err

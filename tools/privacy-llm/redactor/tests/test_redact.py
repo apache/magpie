@@ -77,6 +77,23 @@ def test_parse_field_rejects_empty_value():
         redact.parse_field("name:")
 
 
+def test_field_help_text_lists_real_type_names(monkeypatch):
+    """The ``--field`` help must name types the parser accepts.
+
+    Regression: the help listed ``reporter`` / code ``R``, neither of
+    which exists. A user copying the help got ``SystemExit`` and their
+    PII flowed to the LLM unredacted.
+    """
+    stdout = io.StringIO()
+    monkeypatch.setattr("sys.stdout", stdout)
+    with pytest.raises(SystemExit):
+        redact.main(["--help"])
+    # argparse wraps the help line; collapse whitespace before matching.
+    help_text = " ".join(stdout.getvalue().split())
+    assert "reporter" not in help_text
+    assert "name, email, phone, ip, handle, address" in help_text
+
+
 # -- end-to-end redaction ------------------------------------------------
 
 
@@ -102,7 +119,7 @@ def test_redact_persists_mapping(mapping_path, monkeypatch):
     )
     assert rc == 0
     mapping = load_mapping(mapping_path)
-    # Exactly one entry, of type reporter, value "Jane Smith".
+    # Exactly one entry, of type name, value "Jane Smith".
     assert len(mapping) == 1
     [entry] = mapping.values()
     assert entry.type == "name"

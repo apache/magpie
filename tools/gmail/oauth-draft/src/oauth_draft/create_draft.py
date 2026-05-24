@@ -61,8 +61,11 @@ def api_get(access_token: str, path: str) -> dict:
         f"{GMAIL_API}{path}",
         headers={"Authorization": f"Bearer {access_token}"},
     )
-    with urllib.request.urlopen(req, timeout=15) as r:
-        return json.loads(r.read())
+    try:
+        with urllib.request.urlopen(req, timeout=15) as r:
+            return json.loads(r.read())
+    except urllib.error.HTTPError as e:
+        raise SystemExit(f"Gmail API {path} failed ({e.code}): {e.read().decode(errors='replace')}") from e
 
 
 def api_post(access_token: str, path: str, payload: dict) -> dict:
