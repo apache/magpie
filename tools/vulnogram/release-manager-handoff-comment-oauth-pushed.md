@@ -5,7 +5,7 @@
 - [🚀 Release-manager hand-off — `CVE_ID`  *(CVE JSON auto-pushed)*](#-release-manager-hand-off--cve_id--cve-json-auto-pushed)
   - [Step 1 of 3 — address reviewer feedback (if any), then promote to READY](#step-1-of-3--address-reviewer-feedback-if-any-then-promote-to-ready)
   - [Step 2 of 3 — preview the advisory email, then send it](#step-2-of-3--preview-the-advisory-email-then-send-it)
-  - [Step 3 of 3 — sync closes out the rest, watch for one more comment](#step-3-of-3--sync-closes-out-the-rest-watch-for-one-more-comment)
+  - [Step 3 of 3 — sync closes out the rest (no further action from you)](#step-3-of-3--sync-closes-out-the-rest-no-further-action-from-you)
   - [Reference links (only if you want them)](#reference-links-only-if-you-want-them)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -129,23 +129,21 @@ With the record in `READY`, click the [`#email` tab](EMAIL_TAB_URL) on the same 
 
 ---
 
-### Step 3 of 3 — sync closes out the rest, watch for one more comment
+### Step 3 of 3 — sync closes out the rest (no further action from you)
 
-Once the advisory archives on `lists.apache.org/list.html?USERS_LIST` (typically within minutes of sending), the next sync run does this for you:
+Once the advisory archives on `lists.apache.org/list.html?USERS_LIST` (typically within minutes of sending), the next sync run does this for you, end-to-end:
 
 1. Captures the published advisory URL into this tracker's body.
 2. Regenerates the CVE JSON (now including the archive URL as a `vendor-advisory` reference) and re-pushes it to Vulnogram via the OAuth API.
 3. Moves the Vulnogram record `READY` → `PUBLIC` (this is the CNA-feed dispatch — once it lands, `cve.org` starts propagating).
 4. Flips this tracker's labels (`fix released` → `announced - emails sent` + `announced`).
 5. Closes this tracker as `completed`.
-6. **Posts one more comment** on this tracker tagging you with two final manual cleanups.
+6. **Archives this tracker** from the `Announced` column on the [Security issues board](BOARD_URL) (`archiveProjectV2Item` GraphQL mutation — sync, not you).
+7. *(Conditional)* **Closes the [`MILESTONE_TITLE`](MILESTONE_URL) milestone** if this tracker was the last open issue on it.
 
-That last comment is your only remaining touchpoint. It will say:
+The CVE will propagate to `cve.org` on its own within a few hours; sync will detect the publication on a subsequent run and post a courtesy *"CVE is live on cve.org"* note to the reporter on the original email thread.
 
-- *"Archive this tracker from the `Announced` column on the [Security issues board](BOARD_URL)"* — one click in the GitHub project UI.
-- (Conditional) *"Close the [`MILESTONE_TITLE`](MILESTONE_URL) milestone"* — only if this tracker was the last open issue on that milestone; the comment links the milestone directly.
-
-After those two cleanups, the lifecycle is complete. The CVE will propagate to `cve.org` on its own within a few hours; sync will detect the publication on a subsequent run and post a courtesy *"CVE is live on cve.org"* note to the reporter on the original email thread.
+**You're done.** The lifecycle is complete from your side at Step 2 (Send Email). Everything above is sync's job — no further comments will tag you with manual cleanups.
 
 ---
 

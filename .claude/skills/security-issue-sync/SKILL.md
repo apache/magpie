@@ -696,7 +696,7 @@ update, label change, or next-step recommendation in Step 2:
 | Reporter reply with a confirmed credit line (*"please credit me as …"*, *"use handle X"*, *"anonymous is fine"*) | Replace the `Reporter credited as` placeholder with the confirmed form; mark the credit question as resolved so the next status-update draft does not re-ask it. |
 | Reporter explicit opt-out of credit (*"do not credit me"*, *"anonymous"*) | Set the field to `anonymous` and flag the advisory to use that form. |
 | Release manager's `[RESULT][VOTE] Release Airflow <version>` on `<dev-list>` for a version that carries the fix | Record the release manager in the "Known release managers" subsection of [`AGENTS.md`](../../../AGENTS.md) if not already there; flag Step 13 (advisory) as assigned to that person. |
-| Advisory archived on `<users-list>` (the announcement message is now visible in `lists.apache.org/list.html?<users-list>` — scan the archive with the CVE ID when `fix released` is set and the *"Public advisory URL"* body field is empty) | This is the **post-advisory lifecycle close-out trigger**. Propose, in a single combined apply: (1) populate the *"Public advisory URL"* body field with the archive URL; (2) **extract the public-facing short summary from the advisory email body** (the prose between the CVE header and the *Affected version range* block of the archived message) and write it back to the *"Short public summary for publish"* body field, so the tracker's summary matches what actually shipped; (3) flip the tracker labels — add `announced - emails sent` and `announced`, remove `fix released`; (4) regenerate the CVE JSON attachment (the generator picks up the new short summary as `descriptions[].value` and the URL as a `vendor-advisory` reference); (5) re-push the regenerated JSON to the Vulnogram record over the OAuth API; (6) **move the Vulnogram record `REVIEW → PUBLIC`** via the OAuth API — this is the CNA-feed dispatch to `cve.org`, formerly gated on a manual UI click but now driven by sync on the archive-URL signal (the URL is the real-world signal that the advisory has actually shipped); (7) move the project-board column to `Announced`; (8) close the tracker as `completed`; (9) post a follow-up "wrap-up" comment tagging the release manager with the residual manual steps: archive the closed tracker from the `Announced` column, and — **if every sibling on the tracker's milestone is also closed at that moment** — close the milestone too (the comment carries the milestone URL as a clickable link in the last-sibling case; if other siblings are still open, the comment omits the close-milestone line and the milestone close happens when the *last* sibling tracker reaches this step). The OAuth API push + `REVIEW → PUBLIC` step degrade to a paste fallback in the [`release-manager-handoff-comment.md`](../../../tools/vulnogram/release-manager-handoff-comment.md) variant when the OAuth session is not available. |
+| Advisory archived on `<users-list>` (the announcement message is now visible in `lists.apache.org/list.html?<users-list>` — scan the archive with the CVE ID when `fix released` is set and the *"Public advisory URL"* body field is empty) | This is the **post-advisory lifecycle close-out trigger**. Propose, in a single combined apply: (1) populate the *"Public advisory URL"* body field with the archive URL; (2) **extract the public-facing short summary from the advisory email body** (the prose between the CVE header and the *Affected version range* block of the archived message) and write it back to the *"Short public summary for publish"* body field, so the tracker's summary matches what actually shipped; (3) flip the tracker labels — add `announced - emails sent` and `announced`, remove `fix released`; (4) regenerate the CVE JSON attachment (the generator picks up the new short summary as `descriptions[].value` and the URL as a `vendor-advisory` reference); (5) re-push the regenerated JSON to the Vulnogram record over the OAuth API; (6) **move the Vulnogram record `REVIEW → PUBLIC`** via the OAuth API — this is the CNA-feed dispatch to `cve.org`, formerly gated on a manual UI click but now driven by sync on the archive-URL signal (the URL is the real-world signal that the advisory has actually shipped); (7) move the project-board column to `Announced`; (8) close the tracker as `completed`; (9) **archive the tracker from the `Announced` column** on the board via the `archiveProjectV2Item` GraphQL mutation; (10) — **if every sibling on the tracker's milestone is also closed at that moment** — close the milestone too via the milestone-PATCH recipe in [Step 4](#step-4--apply-confirmed-changes); (11) post a **purely informational** wrap-up comment tagging the release manager as a timeline-event marker that the lifecycle is complete — **no manual asks**, since (9) and (10) are already sync-driven and the RM has no remaining actions post-Send-Email. The OAuth API push + `REVIEW → PUBLIC` step degrade to a paste fallback in the [`release-manager-handoff-comment.md`](../../../tools/vulnogram/release-manager-handoff-comment.md) variant when the OAuth session is not available. |
 | Advisory message sent to `announce@apache.org` / `<users-list>` but archive URL not yet visible | No-op transition; **do not** flip the `fix released → announced` labels here. The label flip is part of the combined "archive URL captured" apply above and only fires when the archive URL is confirmed live on `lists.apache.org` (this is the load-bearing real-world signal that the advisory actually shipped — a `[VOTE]/[ANNOUNCE]` mail thread in flight without an archived URL is ambiguous). |
 | Project-board column drifted from the issue's label-derived state (e.g. a tracker carries `pr merged` but is still in the `PR created` column on [Project 2](<project-board-url>), or `announced` + *Public advisory URL* body field populated but the column is still `Fix released`) | Propose moving the project item to the correct column per the mapping table in Step 2b. The board is the primary security-team overview surface; a stale column hides ownership handoffs from the team at a glance. |
 | `announced` label set and CVE record on `cveprocess.apache.org` now reports state PUBLISHED (checked via `curl -s https://cveprocess.apache.org/cve5/<CVE-ID>.json` / the ASF CVE tool API, or an explicit release-manager comment on the issue stating the Vulnogram push is done) | Propose closing the issue. Do not update any labels. This is the terminal transition. |
@@ -918,7 +918,7 @@ process the issue is currently at:
 | Release with the fix has shipped, advisory not sent yet (swap `pr merged` → `fix released`) | 12 |
 | `fix released` set, advisory not yet sent — release manager owns the advisory | 13 |
 | Advisory sent, no archive URL yet (no labels flipped; the `fix released → announced` label flip is deferred to the combined "archive URL captured" apply) | 13 → 14 |
-| **Archive URL captured** — sync's combined apply fires at this moment: writes the URL into the body, extracts the public short summary from the advisory and writes it into the body, flips `fix released → announced - emails sent + announced`, regenerates + re-pushes the JSON, moves the Vulnogram record `REVIEW → PUBLIC` via API, moves the board to `Announced`, closes the tracker, and posts the conditional wrap-up comment with the milestone URL when last-sibling on the milestone. See the `Advisory archived on <users-list>` row in [Step 2](#step-2--build-a-proposal-do-not-apply-anything-yet) for the full sequence. | 14 → 15 |
+| **Archive URL captured** — sync's combined apply fires at this moment: writes the URL into the body, extracts the public short summary from the advisory and writes it into the body, flips `fix released → announced - emails sent + announced`, regenerates + re-pushes the JSON, moves the Vulnogram record `REVIEW → PUBLIC` via API, moves the board to `Announced`, closes the tracker, **archives the tracker from the board**, **closes the milestone if last-sibling**, and posts the purely-informational wrap-up comment as a timeline marker (no manual asks). See the `Advisory archived on <users-list>` row in [Step 2](#step-2--build-a-proposal-do-not-apply-anything-yet) for the full sequence. | 14 → 15 |
 | **Closed**, `announced` set, cve.org check **not yet run** for this tracker since close | post-15 (cve.org publication check — see [1g](#1g-recently-closed-trackers--check-cveorg-publication-state)) |
 | Closed, credits missing | 16 |
 
@@ -2065,25 +2065,33 @@ before moving on to the next item. Use:
   comment's *"the JSON has been regenerated to include the archive
   URL and pushed to the record"* claim is true at the moment the
   RM reads it.
-- **Wrap-up comment (post-close):** load
+- **Wrap-up comment (post-close, informational only):** load
   [`tools/<cve-tool>/release-manager-wrap-up-comment.md`](../../../tools/vulnogram/release-manager-wrap-up-comment.md)
   and post it as the **last** action of the *Advisory archived on
-  `<users-list>`* combined apply, right after the tracker close
-  succeeds. The comment is the residual-manual-steps ping to the RM
-  (archive from the `Announced` column, and — conditionally —
-  close the milestone).
+  `<users-list>`* combined apply, right after sync has already
+  (a) archived the tracker from the project board via
+  `archiveProjectV2Item` and (b) closed the milestone if the
+  just-closed tracker was the last open sibling. **The comment is
+  purely informational** — a timeline-event marker confirming
+  what sync did, **not** a ping for residual manual actions. The
+  RM has zero remaining actions post-Send-Email; asking them to
+  do what sync already did creates the same confusion class the
+  state-gated hand-off was designed to eliminate (worked example:
+  RM feedback on the original wrap-up template — *"Same here for
+  step 3 - not idiot safe (I fail to understand)"*).
 
   Placeholders to substitute: `CVE_ID`, `RM_HANDLE` (from the
   release-manager identity resolved in Step 1f / `release-trains.md`),
-  `TRACKER_URL`, `BOARD_URL` (project-board URL with
-  `?filterQuery=status%3AAnnounced` appended),
   `PUBLISH_TIMESTAMP` (from the just-completed
   `vulnogram-api-record-publish` call), `ADVISORY_URL` (the
   archive URL captured in the same apply), and the conditional
   `MILESTONE_BULLET` — see below.
 
   **`MILESTONE_BULLET` is the only conditional in the template.**
-  Resolve via a sibling-state check right before substitution:
+  When sync's milestone-close action fired in the same apply
+  (i.e. the just-closed tracker was the last open sibling on its
+  milestone), substitute with a one-line *informational* note —
+  not an ask:
 
   ```bash
   ms=$(gh issue view <N> --repo <tracker> --json milestone \
@@ -2097,7 +2105,7 @@ before moving on to the next item. Use:
     if [ "$open" -eq 0 ]; then
       ms_url=$(gh api repos/<tracker>/milestones/$ms --jq '.html_url')
       ms_title=$(gh api repos/<tracker>/milestones/$ms --jq '.title')
-      bullet="Close the [\`$ms_title\`]($ms_url) milestone — every tracker on it is now closed too."
+      bullet="Milestone [\`$ms_title\`]($ms_url) closed automatically (every tracker on it is now done)."
     else
       bullet=""
     fi
