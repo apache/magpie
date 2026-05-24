@@ -68,6 +68,14 @@ current_branch() {
 # from here. Override with SPEC_LOOP_BASE to build on top of a different
 # branch.
 BASE="${SPEC_LOOP_BASE:-main}"
+# The control branch: where loop.sh, the prompts, the plan and the specs
+# live. Captured now, before the loop checks anything out, because a
+# build/update iteration checks out BASE (e.g. main) — which need not carry
+# the spec-loop tooling. Every tooling read below goes through this ref via
+# `git show`, so the loop works when launched from a feature branch while
+# building on main.
+TOOLING_REF="$(current_branch)"
+TOOLING_REF="${TOOLING_REF:-HEAD}"
 AGENT="${SPEC_LOOP_AGENT:-claude}"
 MODEL="${SPEC_LOOP_MODEL:-sonnet}"
 PR_LIMIT="${SPEC_LOOP_PR_LIMIT:-100}"
@@ -166,32 +174,16 @@ while true; do
 
     ACTIVE_PROMPT="$PROMPT_FILE"
 
-    if [ "$MODE" = "build" ] || [ "$MODE" = "update" ]; then
-        # Return to the integration base (default: main) so the build prompt
-        # can fork a fresh spec/<slug> branch off it for the work item — one
-        # new branch per change. Only switch when we're NOT already on the
-        # base; switching to the branch we're already on is a no-op that can
-        # still fail on a stale lock, which was the spurious "could not switch
-        # to base" error.
-        if [ "$(current_branch)" != "$BASE" ]; then
-            if ! checkout_out="$(git checkout "$BASE" 2>&1)"; then
-                echo "Error: could not check out base '$BASE'. git reported:" >&2
-                printf '  %s\n' "$checkout_out" >&2
-                echo "Resolve the working tree (commit or stash changes), then re-run." >&2
-                break
-            fi
-        fi
-        BASE_HEAD="$(git rev-parse HEAD)"
-    fi
-
     if [ "$MODE" = "build" ]; then
         # Consolidate at most ONCE when the plan grows too long, then build
         # even if it is still over: the remaining length is planned work
         # items, which the consolidate beat preserves by design. The latch
         # resets once the plan drops back under the limit (e.g. after items
         # merge and a plan pass prunes them), so we never re-consolidate in a
-        # loop without making progress.
-        PLAN_LINES=$(wc -l < "$PLAN" 2>/dev/null || echo 0)
+        # loop without making progress. Prefer the working-tree plan (so
+        # local edits count); fall back to the control branch ($TOOLING_REF)
+        # if the tree is on a base (e.g. main) that lacks the spec-loop tooling.
+        PLAN_LINES=$( { [ -f "$PLAN" ] && cat "$PLAN" || git show "$TOOLING_REF:$PLAN" 2>/dev/null; } | wc -l )
         if [ "$PLAN_LINES" -le "$PLAN_CONSOLIDATE_THRESHOLD" ]; then
             CONSOLIDATE_TRIED=false
         elif [ "$CONSOLIDATE_TRIED" = false ]; then
@@ -203,9 +195,65 @@ while true; do
         fi
     fi
 
+    # A genuine build/update iteration (not a consolidate swap-in) carves a
+    # work-item branch off BASE. Plan/consolidate beats — and the consolidate
+    # swap-in — instead stay on the control branch, where the tooling lives.
+    BUILD_ITERATION=false
+    if { [ "$MODE" = "build" ] || [ "$MODE" = "update" ]; } && [ "$ACTIVE_PROMPT" = "$PROMPT_FILE" ]; then
+        BUILD_ITERATION=true
+    fi
+
+    # Assemble the prompt BEFORE any checkout, while the working tree is still
+    # on the control branch. Prefer the working-tree copy (local edits count);
+    # fall back to the control branch ($TOOLING_REF) if the tree is on a base
+    # that lacks the tooling. Either way the read never breaks after checkout.
     PROMPT_WITH_CONTEXT="$(mktemp "${TMPDIR:-/tmp}/spec-loop-prompt.XXXXXX")" || exit 1
-    cat "$ACTIVE_PROMPT" > "$PROMPT_WITH_CONTEXT"
+    if [ -f "$ACTIVE_PROMPT" ]; then
+        cat "$ACTIVE_PROMPT" > "$PROMPT_WITH_CONTEXT"
+    elif ! git show "$TOOLING_REF:$ACTIVE_PROMPT" > "$PROMPT_WITH_CONTEXT" 2>/dev/null; then
+        echo "Error: could not read '$ACTIVE_PROMPT' from the working tree or control branch '$TOOLING_REF'." >&2
+        rm -f "$PROMPT_WITH_CONTEXT"; break
+    fi
     open_pr_context >> "$PROMPT_WITH_CONTEXT"
+
+    if [ "$BUILD_ITERATION" = true ]; then
+        # The work-item branch forks off BASE (e.g. main), which need not
+        # carry the spec-loop tooling. Tell the agent to read the plan and
+        # specs from the control branch, not the working tree.
+        if [ "$TOOLING_REF" != "$BASE" ]; then
+            {
+                echo ""
+                echo "## Tooling source — read the plan and specs from here"
+                echo ""
+                echo "This iteration builds on the integration base \`$BASE\`, which does"
+                echo "NOT carry the spec-loop tooling. The plan and specs live on the"
+                echo "control branch \`$TOOLING_REF\`. Read them from there with \`git show\`,"
+                echo "never from the working tree:"
+                echo ""
+                echo '```'
+                echo "git show $TOOLING_REF:tools/spec-loop/IMPLEMENTATION_PLAN.md"
+                echo "git ls-tree -r --name-only $TOOLING_REF tools/spec-loop/specs/"
+                echo "git show $TOOLING_REF:tools/spec-loop/specs/<file>"
+                echo '```'
+                echo ""
+                echo "Implement the product change on the work branch; do NOT edit specs"
+                echo "there — they are not on \`$BASE\`. The control branch owns the specs."
+            } >> "$PROMPT_WITH_CONTEXT"
+        fi
+
+        # Check out the base now — right before the agent runs, not earlier —
+        # so the reads above came from the control branch. The agent then
+        # forks its own spec/<slug> branch off this base.
+        if [ "$(current_branch)" != "$BASE" ]; then
+            if ! checkout_out="$(git checkout "$BASE" 2>&1)"; then
+                echo "Error: could not check out base '$BASE'. git reported:" >&2
+                printf '  %s\n' "$checkout_out" >&2
+                echo "Resolve the working tree (commit or stash changes), then re-run." >&2
+                rm -f "$PROMPT_WITH_CONTEXT"; break
+            fi
+        fi
+        BASE_HEAD="$(git rev-parse HEAD)"
+    fi
 
     # Run one iteration with a fresh context.
     #   -p                              headless / non-interactive
@@ -232,12 +280,29 @@ while true; do
     echo "[ branch ] $CUR_BRANCH"
     [ -n "$LAST_COMMIT" ] && echo "[ commit ] $LAST_COMMIT"
 
-    # Safety guard: a build/update iteration must never commit to the base.
-    if { [ "$MODE" = "build" ] || [ "$MODE" = "update" ]; } && [ "$ACTIVE_PROMPT" = "$PROMPT_FILE" ]; then
+    if [ "$BUILD_ITERATION" = true ]; then
+        # Report the work-item branch the agent produced, by name, so you know
+        # exactly what to push.
+        if [ "$CUR_BRANCH" != "$BASE" ] && [ "$CUR_BRANCH" != "$TOOLING_REF" ]; then
+            echo "[ new branch ] $CUR_BRANCH  (forked off $BASE)"
+            echo "               push it with:  git push -u origin $CUR_BRANCH"
+        else
+            echo "⚠ No work-item branch was created (still on '$CUR_BRANCH'). Check the agent output above." >&2
+        fi
+
+        # Safety guard: a build/update iteration must never commit to the base.
         if [ "$CUR_BRANCH" = "$BASE" ] && [ "$(git rev-parse HEAD)" != "$BASE_HEAD" ]; then
             echo "✗ This iteration committed to '$BASE' instead of a work-item branch." >&2
             echo "  Stopping so you can review (expected a new spec/<slug> branch)." >&2
             break
+        fi
+
+        # Return to the control branch so the tooling (plan, prompts, specs) is
+        # present again and you are never stranded on the base. The work-item
+        # branch the agent created persists; this only moves HEAD.
+        if [ "$(current_branch)" != "$TOOLING_REF" ]; then
+            git checkout "$TOOLING_REF" >/dev/null 2>&1 || \
+                echo "⚠ Could not return to control branch '$TOOLING_REF' (now on '$(current_branch)')." >&2
         fi
     fi
     echo ""

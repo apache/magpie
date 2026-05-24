@@ -18,15 +18,20 @@ Steps:
 
 1. Read the appended **Open pull-request context**. Treat open PRs as
    in-flight work. Pick the single highest-priority work item from
-   `IMPLEMENTATION_PLAN.md` that is not already substantially covered by
-   an open PR. One only.
+   `IMPLEMENTATION_PLAN.md`. If a **Tooling source** block is appended
+   below, read the plan from the control branch as it shows
+   (`git show <ref>:tools/spec-loop/IMPLEMENTATION_PLAN.md`), not from the
+   working tree — the tree is on the integration base, which need not carry
+   the plan. Pick an item not already substantially covered by an open PR.
+   One only.
 2. **Create its branch off the integration base**, then switch to it:
    `git checkout -b <slug>` where `<slug>` is the work item's branch (e.g.
    `spec/pairing-self-review`). NEVER commit the work to the integration
    branch. One branch per work item.
-3. Read only the spec file(s) and `.claude/skills/` / `tools/` / `docs/`
-   files relevant to this work item. Confirm what already exists before
-   writing — do not assume.
+3. Read only the relevant spec file(s) — from the control branch if a
+   **Tooling source** block is appended, otherwise from the working tree —
+   plus the relevant `.claude/skills/` / `tools/` / `docs/` files from the
+   working tree. Confirm what already exists before writing — do not assume.
 4. Implement the work item **completely** — no placeholders, no stubs.
    Skills: follow the skill format (frontmatter `name` / `description` /
    `license`, SPDX header, placeholder convention, every state change a
@@ -36,10 +41,13 @@ Steps:
    matching eval suite is incomplete). Tools: ship tests.
 5. Run the work item's **Validation** command(s) from its spec (the
    backpressure). Fix until they pass.
-6. If this work item closes a `Known gap` or moves a spec's `status`,
-   update **only that spec's** frontmatter/Known-gaps — do not touch
-   sibling specs or `IMPLEMENTATION_PLAN.md` (the plan is reconciled by a
-   later plan beat, so concurrent branches never conflict).
+6. Specs and `IMPLEMENTATION_PLAN.md` live on the control branch. If a
+   **Tooling source** block is appended, they are **not** on this work
+   branch — do not create or edit them here; instead note any `status` or
+   `Known gap` change in the PR body for a later plan/update beat to
+   reconcile. (If no such block is present, the tooling is on this branch:
+   update **only that spec's** frontmatter/Known-gaps, and never
+   `IMPLEMENTATION_PLAN.md`.)
 7. `git add -A` then `git commit` with an imperative subject and a
    `Generated-by: Claude (Opus 4.7)` trailer. **Never** add a
    `Co-Authored-By:` trailer for an agent.
