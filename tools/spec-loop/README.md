@@ -31,9 +31,12 @@ this is the operator quickstart.
 ```
 
 - **plan** — compares `specs/` against the code and rewrites
-  `IMPLEMENTATION_PLAN.md`. Plans only; no commits.
+  `IMPLEMENTATION_PLAN.md`. Plans only; no commits. It also checks open
+  PRs and does not add work items that are already in flight.
 - **build** — implements the single highest-priority work item on its own
-  `spec/<slug>` branch, validates, and commits there.
+  `spec/<slug>` branch, validates, and commits there. If the top plan
+  item is already covered by an open PR, it skips to the next uncovered
+  item.
 - **update** — the inverse of plan: scans the code for functionality not
   yet described by a spec (someone contributed it the normal way) and
   brings the specs back in sync, on a `spec/sync-specs` branch.
@@ -66,7 +69,11 @@ as defence in depth the loop also hard-denies `git push` and `gh` via
 - `SPEC_LOOP_BASE` — branch to fork work items from. Defaults to the
   branch you start the loop on (typically `main`); set it explicitly to
   build on top of a different branch.
+- `SPEC_LOOP_AGENT` — Claude-compatible agent CLI or wrapper to run
+  (default `claude`).
 - `SPEC_LOOP_MODEL` — model passed to the agent CLI (default `sonnet`).
+- `SPEC_LOOP_PR_LIMIT` — number of open PRs to include in duplicate-work
+  checks (default `100`).
 - `SPEC_LOOP_PLAN_MAX` — plan line count that triggers one consolidation
   round before building (default `500`). The consolidate beat targets
   ~300 lines (hysteresis) and runs at most once until the plan drops back

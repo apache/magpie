@@ -37,7 +37,9 @@
 # Env overrides:
 #   SPEC_LOOP_BASE   branch to fork work items from
 #                    (default: the branch you start the loop on, e.g. main)
+#   SPEC_LOOP_AGENT  Claude-compatible agent CLI to run (default: claude)
 #   SPEC_LOOP_MODEL  model passed to the agent CLI (default: sonnet)
+#   SPEC_LOOP_PR_LIMIT  open PRs to list for duplicate-work checks (default: 100)
 #   SPEC_LOOP_PLAN_MAX  plan line count that triggers ONE consolidation
 #                    round before building (default: 500)
 
@@ -52,11 +54,23 @@ cd "$ROOT" || exit 1
 
 LOOP_DIR="tools/spec-loop"
 PLAN="$LOOP_DIR/IMPLEMENTATION_PLAN.md"
+
+current_branch() {
+    local branch
+    branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null)" || return 1
+    if [ "$branch" = "HEAD" ]; then
+        return 0
+    fi
+    printf '%s\n' "$branch"
+}
+
 # Default the integration base to the branch the loop is started on
 # (typically the repo default, e.g. main). Fall back to main if detached.
-BASE="${SPEC_LOOP_BASE:-$(git branch --show-current)}"
+BASE="${SPEC_LOOP_BASE:-$(current_branch)}"
 BASE="${BASE:-main}"
+AGENT="${SPEC_LOOP_AGENT:-claude}"
 MODEL="${SPEC_LOOP_MODEL:-sonnet}"
+PR_LIMIT="${SPEC_LOOP_PR_LIMIT:-100}"
 # Plan length that triggers ONE consolidation round before building. The
 # consolidate beat preserves every planned work item, so a plan that is long
 # because of *pending work* (not stale history) cannot shrink below this —
@@ -78,14 +92,17 @@ fi
 
 [ -f "$PROMPT_FILE" ] || { echo "Error: $PROMPT_FILE not found" >&2; exit 1; }
 
-if ! command -v claude >/dev/null 2>&1; then
-    echo "Error: 'claude' agent CLI not found on PATH." >&2; exit 1
+if ! command -v "$AGENT" >/dev/null 2>&1; then
+    echo "Error: agent CLI '$AGENT' not found on PATH." >&2
+    echo "Set SPEC_LOOP_AGENT to a Claude-compatible CLI or wrapper." >&2
+    exit 1
 fi
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "Mode:   $MODE"
 echo "Prompt: $PROMPT_FILE"
 echo "Base:   $BASE  (work items fork from here)"
+echo "Agent:  $AGENT"
 echo "Model:  $MODEL"
 [ "$MAX_ITERATIONS" -gt 0 ] && echo "Max:    $MAX_ITERATIONS iterations"
 echo "Stop:   Ctrl+C  or  touch STOP"
@@ -104,6 +121,37 @@ spinner() {
         i=$(( (i+1) % ${#frames} )); sleep 0.15
     done
     printf "\r                                              \r"
+}
+
+open_pr_context() {
+    echo ""
+    echo "## Open pull-request context"
+    echo ""
+    echo "The runner collected this immediately before the iteration. Treat open"
+    echo "pull requests as in-flight work: do not add plan items that are already"
+    echo "substantially covered by an open PR, and do not pick a build item that"
+    echo "duplicates one."
+    echo ""
+
+    if ! command -v gh >/dev/null 2>&1; then
+        echo "- unavailable: gh CLI not found on PATH."
+        return 0
+    fi
+
+    local prs
+    prs="$(gh pr list \
+        --state open \
+        --limit "$PR_LIMIT" \
+        --json number,title,headRefName,baseRefName,url,isDraft \
+        --template '{{range .}}- #{{.number}} {{.title}} ({{.headRefName}} -> {{.baseRefName}}){{if .isDraft}} [draft]{{end}} {{.url}}{{"\n"}}{{end}}' \
+        2>/dev/null)"
+    if [ $? -ne 0 ]; then
+        echo "- unavailable: gh pr list failed. Check GitHub authentication or network access."
+    elif [ -z "$prs" ]; then
+        echo "- No open pull requests found."
+    else
+        printf '%s\n' "$prs"
+    fi
 }
 
 while true; do
@@ -146,6 +194,10 @@ while true; do
         fi
     fi
 
+    PROMPT_WITH_CONTEXT="$(mktemp "${TMPDIR:-/tmp}/spec-loop-prompt.XXXXXX")" || exit 1
+    cat "$ACTIVE_PROMPT" > "$PROMPT_WITH_CONTEXT"
+    open_pr_context >> "$PROMPT_WITH_CONTEXT"
+
     # Run one iteration with a fresh context.
     #   -p                              headless / non-interactive
     #   --dangerously-skip-permissions  let the agent edit + validate
@@ -155,16 +207,18 @@ while true; do
     #   --disallowedTools …             defense-in-depth: hard-deny push and
     #                                   gh so a stray call cannot reach the
     #                                   remote even with permissions skipped.
-    cat "$ACTIVE_PROMPT" | claude -p \
+    "$AGENT" -p \
         --dangerously-skip-permissions \
         --disallowedTools "Bash(git push *)" "Bash(gh *)" \
         --output-format=text \
-        --model "$MODEL" &
-    CLAUDE_PID=$!
-    spinner "$CLAUDE_PID" & SPINNER_PID=$!
-    wait "$CLAUDE_PID"; kill "$SPINNER_PID" 2>/dev/null; wait "$SPINNER_PID" 2>/dev/null
+        --model "$MODEL" < "$PROMPT_WITH_CONTEXT" &
+    AGENT_PID=$!
+    spinner "$AGENT_PID" & SPINNER_PID=$!
+    wait "$AGENT_PID"
+    wait "$SPINNER_PID" 2>/dev/null
+    rm -f "$PROMPT_WITH_CONTEXT"
 
-    CUR_BRANCH="$(git branch --show-current)"
+    CUR_BRANCH="$(current_branch)"
     LAST_COMMIT="$(git log --oneline -1 2>/dev/null)"
     echo "[ branch ] $CUR_BRANCH"
     [ -n "$LAST_COMMIT" ] && echo "[ commit ] $LAST_COMMIT"

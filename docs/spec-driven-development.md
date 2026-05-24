@@ -86,7 +86,10 @@ Priority lives only in the implementation plan.
 ## A branch per fix or feature
 
 The defining constraint of this loop: **one work item, one branch, one
-PR**. The build beat returns to the integration base, then carves out a
+PR**. Before plan/build iterations, the runner snapshots open PRs so the
+plan beat does not add work already in flight and the build beat skips
+planned items that an open PR already covers. The build beat returns to
+the integration base, then carves out a
 `spec/<slug>` branch for the single work item it is about to implement. It
 never commits feature work to the base branch, and `loop.sh` stops if it
 detects that happening. The result of a run is a fan of independent
@@ -229,7 +232,10 @@ gh pr create --web --base main --head spec/<slug> --title "…" --body-file …
 
 Stop any run with `Ctrl+C` or `touch STOP`. By default the loop forks
 work items from the branch you start it on (typically `main`); set
-`SPEC_LOOP_BASE` to build on top of a different branch.
+`SPEC_LOOP_BASE` to build on top of a different branch. Set
+`SPEC_LOOP_AGENT` when the Claude-compatible agent CLI is installed
+under a command name other than `claude`. Set `SPEC_LOOP_PR_LIMIT` to
+change how many open PRs are included in the duplicate-work check.
 
 ## How this composes with the framework's principles
 

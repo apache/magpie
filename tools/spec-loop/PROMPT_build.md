@@ -10,13 +10,16 @@ Context to load first:
   commands, branch + hard-limit rules). The repo-wide `/AGENTS.md` also
   applies (commit trailers, placeholder convention, confidentiality).
 - `tools/spec-loop/IMPLEMENTATION_PLAN.md` — the prioritised work items.
+- The appended **Open pull-request context** block from the runner.
 - Only the spec(s) and source files relevant to the chosen work item —
   do not read the whole tree.
 
 Steps:
 
-1. Pick the single highest-priority work item from
-   `IMPLEMENTATION_PLAN.md`. One only.
+1. Read the appended **Open pull-request context**. Treat open PRs as
+   in-flight work. Pick the single highest-priority work item from
+   `IMPLEMENTATION_PLAN.md` that is not already substantially covered by
+   an open PR. One only.
 2. **Create its branch off the integration base**, then switch to it:
    `git switch -c <slug>` where `<slug>` is the work item's branch (e.g.
    `spec/pairing-self-review`). NEVER commit the work to the integration
@@ -54,6 +57,9 @@ gh pr create --web --base <integration-base> --head <slug> \
 Rules:
 
 - One work item per iteration. Do not bundle.
+- Do not duplicate in-flight work from open PRs. If the highest-priority
+  plan item is covered by an open PR, skip it and choose the next
+  uncovered item.
 - If a work item is blocked, note why in its spec's `Known gaps` and pick
   the next item instead.
 - Stay inside the sandbox; never edit `.claude/settings.json`; never add a
