@@ -498,7 +498,7 @@ def extract_headings(text: str) -> set[str]:
 # or attacker-controlled content.
 _BODY_INLINE_RE = re.compile(r'--body[\s=]["\']')
 
-_FENCED_CODE_RE = re.compile(r"^[ \t]{0,3}```[\s\S]*?^[ \t]{0,3}```", re.MULTILINE)
+_FENCED_CODE_RE = re.compile(r"^ {0,3}```[\s\S]*?^ {0,3}```", re.MULTILINE)
 _DOUBLE_BACKTICK_RE = re.compile(r"``[\s\S]+?``")
 _SINGLE_BACKTICK_RE = re.compile(r"(?<!`)`(?!`)[\s\S]+?(?<!`)`(?!`)")
 
