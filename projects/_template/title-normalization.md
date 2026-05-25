@@ -34,7 +34,13 @@ stripping step. Otherwise, list the regex cascade below.
 
 TODO: one rule per bullet, applied in order. Typical patterns:
 
-1. Leading bracketed tags — e.g. `^[ \t]*\[ ?Security (Report|Issue|Vulnerability|Bug) ?\][ \t:|\-–—]*`
+1. Leading bracketed `security` / `important` tag —
+   `^[ \t]*(?:\[[^\]]*\b(?:Security|Important)\b[^\]]*\]|\([^)]*\b(?:Security|Important)\b[^)]*\))[ \t:|\-–—]*`
+   Matches any square- or round-bracketed leading tag whose body
+   contains the word *security* or *important* (case-insensitive) —
+   e.g. `[Security Report]`, `(Security Issue)`, `[ Security
+   Vulnerability ]`, `[IMPORTANT]`, `(Important — please read)`.
+   Followed by an optional separator. Apply with `re.IGNORECASE`.
 2. Leading plain tags — `^[ \t]*Security (Report|Issue|Vulnerability|Bug)[ \t:|\-–—]+`
 3. Leading `<Project Name>` (optional version, optional separator) — TODO
 4. Leading bare product name (optional version) — TODO
@@ -43,10 +49,16 @@ TODO: one rule per bullet, applied in order. Typical patterns:
 6. Trailing `in <Project Name>` — TODO
 7. Trailing bare version parens — TODO
 8. Trailing GHSA ID paren — `[ \t]*\(GHSA-[\w-]+\)\.?[ \t]*$`
-9. Trailing *"split from #NNN"* paren — `[ \t]*\([^)]*split from #\d+[^)]*\)\.?[ \t]*$`
-10. Trailing trivia — strip trailing whitespace, trailing `.`,
+9. Trailing known external-tracker IDs (square or round brackets) —
+   `[ \t]*(?:\[(?:ZDRES|HUNTR|GHSL)-[\w-]+\]|\((?:ZDRES|HUNTR|GHSL)-[\w-]+\))\.?[ \t]*$`
+   Strips trailing IDs from known external trackers — `(ZDRES-223)`,
+   `[HUNTR-456]`, `(GHSL-2024-001)` — in either bracket style. Extend
+   the alternation per project when a new reporter brand surfaces
+   (e.g. `SNYK-…`, `BDSA-…`, internal bug-bounty platforms).
+10. Trailing *"split from #NNN"* paren — `[ \t]*\([^)]*split from #\d+[^)]*\)\.?[ \t]*$`
+11. Trailing trivia — strip trailing whitespace, trailing `.`,
     collapse internal whitespace.
-11. Capitalise — upper-case the first letter; leave the rest alone
+12. Capitalise — upper-case the first letter; leave the rest alone
     so acronyms stay intact.
 
 ## Implementation recipe
