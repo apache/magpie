@@ -79,13 +79,17 @@ github:
     - rusackas           # Evan Rusackas (Superset PMC)
     - russellspitzer     # Russell Spitzer (Incubator PMC, Polaris PMC, Iceberg PMC)
 
-  # Disable the GitHub Copilot automatic-code-review ruleset on the
-  # default branch. The framework's review workflow is human-driven
-  # (`pr-management-code-review` skill + maintainer review), and
-  # Copilot's per-PR comments duplicate / contradict that loop.
-  # The explicit `enabled: false` is required to actively remove the
-  # ruleset if it was ever previously configured (per the asf.yaml
-  # `copilot_code_review` directive).
+  # Disable GitHub Copilot completely on this repo. The framework's
+  # review workflow is human-driven (`pr-management-code-review`
+  # skill + maintainer review) and the agent-assisted authoring loop
+  # is Claude-Code-based; Copilot's per-PR comments and code-review
+  # ruleset duplicate / contradict both. The explicit `enabled:
+  # false` is required to actively remove the Copilot automatic-
+  # code-review ruleset if it was ever previously configured (per
+  # the asf.yaml `copilot_code_review` directive); this is the only
+  # lever asfyaml exposes for the Copilot integration today, and
+  # toggling it off is what "disable Copilot completely" reduces to
+  # in this config.
   copilot_code_review:
     enabled: false
 
@@ -175,16 +179,20 @@ github:
       required_signatures: false
 
 notifications:
-  # The framework is hosted under the Airflow PMC umbrella for now;
-  # routing notifications to airflow.apache.org lists matches the
-  # current ownership. Revisit if/when the repo moves to
-  # `apache/steward` under a different PMC.
+  # The framework is hosted under the Airflow PMC umbrella for now,
+  # but all notification streams from this repo are routed to the
+  # dedicated `dev-magpie@airflow.apache.org` sub-list so that the
+  # Airflow PMC's main `dev@`, `commits@`, and `jobs@` lists are not
+  # polluted with framework traffic. The sub-list belongs to the
+  # nascent Magpie effort (see `MISSION.md` /
+  # `docs/board-resolution-draft.md`) and will move with the repo
+  # when it relocates to its own TLP.
   #
   # IMPORTANT: do **not** route any notification stream to
-  # `dev@airflow.apache.org`. The dev@ list is the project's
-  # design-and-development discussion list and noise from a security-
-  # framework repo (every PR, issue, push, comment, status-check
-  # event) does not belong there.
+  # `dev@airflow.apache.org`, `commits@airflow.apache.org`, or
+  # `jobs@airflow.apache.org`. Those are the Airflow PMC's main
+  # lists; every PR, issue, push, comment, and status-check event
+  # from this repo does not belong there.
   #
   # ASF Infra defaults any *unset* notification field to
   # `dev@<project>.apache.org`, so **every documented scheme below
@@ -198,17 +206,18 @@ notifications:
   # Infra adds a new scheme, set it explicitly in the same change to
   # keep the dev@ default suppressed.
   #
-  # Why nearly everything goes to `commits@airflow.apache.org`:
-  # that's the standard "everything-bot-events" mirror list for the
-  # Airflow PMC; jobs go to `jobs@` (CI / workflow-failure mirror).
-  # Both lists are public-by-design and already moderated for
-  # bot-only traffic, so there is no signal-to-noise concern.
-  jobs:                  jobs@airflow.apache.org
-  commits:               commits@airflow.apache.org
-  issues:                commits@airflow.apache.org
-  issues_status:         commits@airflow.apache.org
-  issues_comment:        commits@airflow.apache.org
-  pullrequests:          commits@airflow.apache.org
-  pullrequests_status:   commits@airflow.apache.org
-  pullrequests_comment:  commits@airflow.apache.org
-  discussions:           commits@airflow.apache.org
+  # All ten schemes go to a single list — `dev-magpie@` — by design:
+  # the Magpie sub-list is the one place a subscriber needs to watch
+  # to follow the framework end-to-end (CI, commits, issues, PRs,
+  # discussions). When the repo gets its own TLP and the list shape
+  # diversifies (a dedicated commits@ / jobs@ under the new PMC),
+  # split the schemes across those lists then.
+  jobs:                  dev-magpie@airflow.apache.org
+  commits:               dev-magpie@airflow.apache.org
+  issues:                dev-magpie@airflow.apache.org
+  issues_status:         dev-magpie@airflow.apache.org
+  issues_comment:        dev-magpie@airflow.apache.org
+  pullrequests:          dev-magpie@airflow.apache.org
+  pullrequests_status:   dev-magpie@airflow.apache.org
+  pullrequests_comment:  dev-magpie@airflow.apache.org
+  discussions:           dev-magpie@airflow.apache.org
