@@ -25,6 +25,12 @@
     - [Install (user-scope)](#install-user-scope)
     - [Verify](#verify)
     - [Trade-offs](#trade-offs)
+  - [Sandbox-error hint hook](#sandbox-error-hint-hook)
+    - [Why install it](#why-install-it)
+    - [Why install it user-scope, not project-scope](#why-install-it-user-scope-not-project-scope-1)
+    - [Install (user-scope)](#install-user-scope-1)
+    - [Verify](#verify-1)
+    - [Trade-offs](#trade-offs-1)
   - [Sandbox-state status line](#sandbox-state-status-line)
   - [Syncing user-scope config across machines](#syncing-user-scope-config-across-machines)
     - [What to track, what not to track](#what-to-track-what-not-to-track)
@@ -156,11 +162,13 @@ npm install -g --no-save @anthropic-ai/claude-code@2.1.141
 #    file, optionally alias `claude=claude-iso`. Section: "The
 #    clean-env wrapper" below.
 
-# 4. User-scope hooks. Copy `sandbox-bypass-warn.sh` and
-#    `sandbox-status-line.sh` into `~/.claude/scripts/`, wire
-#    them into `~/.claude/settings.json` under `PreToolUse` and
-#    `statusLine`. Sections: "Sandbox-bypass visibility hook"
-#    and "Sandbox-state status line" below.
+# 4. User-scope hooks. Copy `sandbox-bypass-warn.sh`,
+#    `sandbox-error-hint.sh`, and `sandbox-status-line.sh` into
+#    `~/.claude/scripts/`, wire them into `~/.claude/settings.json`
+#    under `PreToolUse`, `PostToolUse`, and `statusLine`.
+#    Sections: "Sandbox-bypass visibility hook",
+#    "Sandbox-error hint hook", and "Sandbox-state status line"
+#    below.
 
 # 5. Verify the install actually denies what it claims to —
 #    section "Verification" below has both a three-line Bash
@@ -919,6 +927,121 @@ entirely) should produce no output and `exit=0`.
   every Claude Code upgrade — same cadence as the
   [Verification](#verification) section below.
 
+## Sandbox-error hint hook
+
+Companion to the *Sandbox-bypass visibility hook* above — a
+`PostToolUse` hook that fires **after** every Bash tool call and
+scans the result for the known sandbox-shaped error signatures
+catalogued in
+[`sandbox-troubleshooting.md`](sandbox-troubleshooting.md).
+On a match, prints a `[sandbox-hint] …` line to stderr pointing
+at the matching catalog entry. The tool's actual outcome is
+unchanged — the hook is purely an annotation layer that surfaces
+the catalog reference at the moment of failure, so the agent (or
+the user) does not have to remember the catalog exists.
+
+### Why install it
+
+The catalog (PR #291) and the diagnostic skill
+[`setup-isolated-setup-doctor`](../../.claude/skills/setup-isolated-setup-doctor/SKILL.md)
+(PR #292) cover the same ground but require explicit
+recall — *"my SSH push failed; let me check the catalog"* or
+*"let me run the doctor"*. The hint hook closes the loop by
+making the catalog reference appear next to the error
+automatically. Three classes of failure are recognised today:
+
+| Error signature | Catalog anchor |
+|---|---|
+| `Could not open a connection to your authentication agent` / `agent refused operation` / `ssh-add: error fetching identities` / `Permission denied (publickey)` | [SSH agent / Yubikey unreachable](sandbox-troubleshooting.md#ssh-agent--yubikey-appears-unreachable-from-inside-the-sandbox) |
+| `Cannot connect to the Docker daemon` / `open /var/run/docker.sock: operation not permitted` / `Cannot connect to Podman` / podman `connect: permission denied` | [Docker / Podman socket denied](sandbox-troubleshooting.md#docker--podman-command-fails-with-a-socket-error) |
+| `127.0.0.1 … Permission denied` / `Operation not permitted … bind` / `Errno 49 … assign requested address` / `Connection refused … 127.0.0.1` | [Localhost port-bind blocked](sandbox-troubleshooting.md#test-cannot-bind-to-a-localhost-port) |
+
+The hint also tells the user to run
+`/setup-isolated-setup-doctor` for a structured probe of all
+three failure modes, so a single mid-flow failure can lead to a
+broader sandbox health-check.
+
+### Why install it user-scope, not project-scope
+
+Same reasoning as the bypass-warn hook: the failure signatures
+the hook detects are not framework-specific — they show up in any
+sandboxed Bash session against any project. Putting the hook in
+`~/.claude/settings.json` makes the hint fire across every
+project on the host, including adopters that have not (yet)
+adopted the framework. Project-scope wiring would leave
+unrelated sessions silent.
+
+### Install (user-scope)
+
+```bash
+mkdir -p ~/.claude/scripts
+cp /path/to/airflow-steward/tools/agent-isolation/sandbox-error-hint.sh \
+    ~/.claude/scripts/sandbox-error-hint.sh
+chmod +x ~/.claude/scripts/sandbox-error-hint.sh
+```
+
+Then wire under `PostToolUse` with a `Bash` matcher. If a
+`PostToolUse` `Bash` matcher already exists for another hook,
+append to its `hooks` array rather than creating a second
+matcher block:
+
+```jsonc
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/scripts/sandbox-error-hint.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### Verify
+
+The hook is exit-code-driven — exit 1 with stderr output means
+"surface stderr to the user as a tool-result hint". To test
+without a real failure:
+
+```bash
+echo '{"tool_name":"Bash","tool_response":{"stdout":"","stderr":"Could not open a connection to your authentication agent."}}' \
+    | ~/.claude/scripts/sandbox-error-hint.sh; echo "exit=$?"
+```
+
+Expected: a yellow `[sandbox-hint] SSH agent / Yubikey appears
+unreachable …` line on stderr, then `exit=1`. A second call with
+benign tool output (e.g. `"stdout":"hello world","stderr":""`)
+should produce no output and `exit=0`.
+
+### Trade-offs
+
+- **Pattern-matched, not semantic.** The hook recognises literal
+  error strings; it does not know *why* a tool call failed. A
+  failure mode dressed up in a userland framework's generic error
+  ("test failed", "build error") slips past silently. The
+  doctor skill is the catch-all when the hint does not fire and
+  the user suspects a sandbox issue.
+- **Pattern set must stay in lock-step with the catalog.** When a
+  new entry lands in [`sandbox-troubleshooting.md`](sandbox-troubleshooting.md),
+  add a matching `match … hint=…` branch to the script. The
+  catalog is the source of truth; the hook is the discoverability
+  layer.
+- **Fail-open by design.** Any unexpected JSON shape, missing
+  `tool_response`, missing `jq`, or other parse failure exits 0
+  silently. A broken hint must never break a legitimate tool
+  call. Cost: a future Claude Code hook-schema change can silently
+  stop the hook from firing; re-run the verification snippet
+  above after every Claude Code upgrade.
+- **Non-blocking.** The hook exits 1, not 2 — the tool call
+  result is unchanged. The hint is informational; the user
+  decides whether to apply the catalog's remediation.
+
 ## Sandbox-state status line
 
 The Claude Code terminal footer (`statusLine`) is the
@@ -1052,7 +1175,7 @@ paths). Track the artifacts you want shared, symlink them into
 | Track in the synced repo | Keep per-machine |
 |---|---|
 | `CLAUDE.md` (personal collaboration prefs) | `~/.claude/.credentials.json` — ⚠ secret, never commit |
-| `scripts/sandbox-bypass-warn.sh`, `scripts/sandbox-status-line.sh`, and any other hooks | `~/.claude/sessions/`, `~/.claude/history.jsonl` — session state |
+| `scripts/sandbox-bypass-warn.sh`, `scripts/sandbox-error-hint.sh`, `scripts/sandbox-status-line.sh`, and any other hooks | `~/.claude/sessions/`, `~/.claude/history.jsonl` — session state |
 | `agent-isolation/claude-iso.sh` (if you globally installed it per the wrapper section) | `~/.claude/projects/` — per-project memory and tasks |
 | Custom slash commands (`commands/<name>.md`) | `~/.claude/settings.json` — typically differs per host (plugins, statusLine paths, voice) |
 | MCP servers you've audited and want everywhere (`.mcp.json` shape, by hand) | `~/.claude/settings.local.json` — by design machine-specific |

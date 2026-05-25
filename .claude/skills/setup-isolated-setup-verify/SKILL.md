@@ -104,15 +104,25 @@ Walk each in order:
 1. Project `.claude/settings.json` shape — `sandbox.enabled: true`,
    `permissions.deny`, `permissions.ask`, `sandbox.network.allowedDomains`.
 2. User-scope `~/.claude/settings.json` wiring — `PreToolUse`
-   `Bash` matcher → `sandbox-bypass-warn.sh`, `statusLine` →
+   `Bash` matcher → `sandbox-bypass-warn.sh`, `PostToolUse`
+   `Bash` matcher → `sandbox-error-hint.sh`, `statusLine` →
    `sandbox-status-line.sh` (or a custom statusline script that
    embeds the framework's prefix logic — that is the doc-allowed
-   variant; report ⚠).
-3. Hook scripts present + executable — both
-   `~/.claude/scripts/sandbox-bypass-warn.sh` and
+   variant; report ⚠). A missing `PostToolUse` entry for
+   `sandbox-error-hint.sh` reports ⚠ (not ✗) — the hook is a
+   discoverability aid for the failure modes catalogued in
+   [`docs/setup/sandbox-troubleshooting.md`](../../../docs/setup/sandbox-troubleshooting.md);
+   absence does not break anything, it just means an adopter
+   hitting one of those failures sees the raw error without the
+   `[sandbox-hint]` annotation.
+3. Hook scripts present + executable — all three of
+   `~/.claude/scripts/sandbox-bypass-warn.sh`,
+   `~/.claude/scripts/sandbox-error-hint.sh`, and
    `~/.claude/scripts/sandbox-status-line.sh`. Symlinks into a
    `~/.claude-config` sync repo are equivalent to direct files;
-   resolve the link target and check that.
+   resolve the link target and check that. ⚠ (not ✗) for a
+   missing `sandbox-error-hint.sh`, with the same rationale as
+   check 2.
 4. `claude-iso` shell function defined + sourced. The grep
    pattern is the source line in `~/.bashrc` / `~/.zshrc`. Check
    whether `alias claude='claude-iso'` is set; report it as a

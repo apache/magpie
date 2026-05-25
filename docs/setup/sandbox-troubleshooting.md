@@ -43,6 +43,27 @@ If you hit a sandbox-shaped failure not listed below, add it here
 in the same shape — the catalog grows by experience, not by
 prediction.
 
+Two surfaces make these entries discoverable in-session so a
+future reader does not have to remember the catalog exists:
+
+- The [`setup-isolated-setup-doctor`](../../.claude/skills/setup-isolated-setup-doctor/SKILL.md)
+  skill probes each catalogued failure mode on demand and links
+  back to the matching entry. Invoke it when you suspect a
+  sandbox restriction; it runs the full probe set even when only
+  one is in question.
+- The
+  [Sandbox-error hint hook](secure-agent-setup.md#sandbox-error-hint-hook)
+  fires after every Bash tool call, pattern-matches the result
+  for the literal error strings catalogued below, and prints a
+  `[sandbox-hint] …` line pointing at the matching entry — so
+  the catalog reference appears next to the error automatically.
+
+When the catalog grows a new entry, extend both surfaces too:
+add a matching probe to the doctor skill, and add a matching
+`match … hint=…` branch to the hint hook. The catalog stays the
+source of truth; the doctor and the hook stay the discoverability
+layer.
+
 Related:
 
 - [`secure-agent-setup.md`](secure-agent-setup.md) — full install
