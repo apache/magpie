@@ -1,0 +1,5 @@
+{
+  "action": "handoff",
+  "template": null,
+  "reason": "The contributor's latest message asks the maintainers to decide whether to remove the deprecated schedule_interval parameter in a future release — an out-of-scope deprecation/removal decision (hand-off trigger 3) — so the mentor hands off rather than drafting about the log-spam symptom."
+}
