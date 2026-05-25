@@ -667,10 +667,12 @@ gh api 'repos/<tracker>/milestones?state=all&per_page=100' \
 If the query returns nothing, **propose creating the milestone**:
 
 ```bash
+# Write tool: file_path: /tmp/ms-title.txt, content: <target>
+# Write tool: file_path: /tmp/ms-desc.txt, content: Airflow <target> release tracking.
 gh api repos/<tracker>/milestones \
-  -f title='<target>' \
+  -F title=@/tmp/ms-title.txt \
   -f state=open \
-  -f description='Airflow <target> release tracking.'
+  -F description=@/tmp/ms-desc.txt
 ```
 
 The skill must present the `title`, `state` and `description` it

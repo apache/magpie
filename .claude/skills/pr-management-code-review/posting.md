@@ -35,32 +35,27 @@ Golden rule 8 downgrades any auto-`APPROVE` if CI is failing.
 ### Approve
 
 ```bash
-cat > /tmp/review-body.md << 'EOF'
-[review body here]
-EOF
-gh pr review <N> --repo <repo> --approve --body-file /tmp/review-body.md
+# Write tool: file_path: /tmp/review-body-<n>.md, content: <review body>
+gh pr review <N> --repo <repo> --approve --body-file /tmp/review-body-<n>.md
 ```
 
 ### Request changes
 
 ```bash
-cat > /tmp/review-body.md << 'EOF'
-[review body here]
-EOF
-gh pr review <N> --repo <repo> --request-changes --body-file /tmp/review-body.md
+# Write tool: file_path: /tmp/review-body-<n>.md, content: <review body>
+gh pr review <N> --repo <repo> --request-changes --body-file /tmp/review-body-<n>.md
 ```
 
 ### Comment
 
 ```bash
-cat > /tmp/review-body.md << 'EOF'
-[review body here]
-EOF
-gh pr review <N> --repo <repo> --comment --body-file /tmp/review-body.md
+# Write tool: file_path: /tmp/review-body-<n>.md, content: <review body>
+gh pr review <N> --repo <repo> --comment --body-file /tmp/review-body-<n>.md
 ```
 
-The skill always uses **body-file passing** (never `--body "$STRING"` with quotes) to avoid shell-escape mishaps with PR
-content that may contain backticks, dollar signs, or quotes.
+The skill always uses **`--body-file <path>`** (never `--body "$STRING"` inline)
+to avoid shell-escape mishaps with PR content that may contain backticks,
+dollar signs, or quotes.
 
 ### Self-review guard
 
