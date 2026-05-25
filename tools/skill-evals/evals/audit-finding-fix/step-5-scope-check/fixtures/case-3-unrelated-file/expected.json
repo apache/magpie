@@ -1,0 +1,9 @@
+{
+  "in_scope": false,
+  "violations": [
+    {
+      "type": "unrelated-file",
+      "description": "`airflow/api/common/delete_dag.py` was modified but is not part of the confirmed finding batch."
+    }
+  ]
+}

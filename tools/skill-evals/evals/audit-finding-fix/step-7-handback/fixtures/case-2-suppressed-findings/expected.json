@@ -1,0 +1,8 @@
+{
+  "has_tool_and_count": true,
+  "has_branch_name": true,
+  "has_verify_result": true,
+  "has_diff_scope_summary": true,
+  "has_suppressed_findings": true,
+  "has_open_questions": true
+}

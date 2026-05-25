@@ -1,0 +1,20 @@
+{
+  "groups": [
+    {
+      "strategy": "unused-import",
+      "findings": ["ruff:F401:airflow/models/xcom.py:5"]
+    },
+    {
+      "strategy": "line-length",
+      "findings": [
+        "ruff:E501:airflow/models/xcom.py:89",
+        "ruff:E501:airflow/models/xcom.py:142"
+      ]
+    },
+    {
+      "strategy": "unused-variable",
+      "findings": ["ruff:F841:airflow/utils/helpers.py:34"]
+    }
+  ],
+  "security_flagged": []
+}

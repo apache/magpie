@@ -1,0 +1,13 @@
+{
+  "groups": [
+    {
+      "strategy": "dead-code",
+      "findings": ["verum:DEAD-001:airflow/models/connection.py:210"]
+    },
+    {
+      "strategy": "doc-coverage",
+      "findings": ["verum:DOC-004:airflow/models/connection.py:15"]
+    }
+  ],
+  "security_flagged": ["verum:SEC-cve-2024-12345:airflow/models/connection.py:88"]
+}

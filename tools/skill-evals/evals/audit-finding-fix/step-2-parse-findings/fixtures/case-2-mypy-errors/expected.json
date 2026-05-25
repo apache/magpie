@@ -1,0 +1,14 @@
+{
+  "groups": [
+    {
+      "strategy": "type-annotation",
+      "findings": [
+        "mypy:ANN201:airflow/api/common/mark_tasks.py:47",
+        "mypy:ANN001:airflow/api/common/mark_tasks.py:48",
+        "mypy:ANN001:airflow/api/common/mark_tasks.py:49",
+        "mypy:ANN201:airflow/utils/dag_cycle_tester.py:23"
+      ]
+    }
+  ],
+  "security_flagged": []
+}

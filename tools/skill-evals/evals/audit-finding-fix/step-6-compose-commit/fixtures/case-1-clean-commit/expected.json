@@ -1,0 +1,7 @@
+{
+  "subject": "fix(models): address ruff findings in xcom.py and helpers.py",
+  "body_ok": true,
+  "security_language_present": false,
+  "trailer_present": true,
+  "trailer_key": "Generated-by"
+}

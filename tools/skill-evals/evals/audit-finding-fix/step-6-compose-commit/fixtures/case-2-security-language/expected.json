@@ -1,0 +1,7 @@
+{
+  "subject": "fix(models): address Apache Verum findings in connection.py",
+  "body_ok": false,
+  "security_language_present": true,
+  "trailer_present": true,
+  "trailer_key": "Generated-by"
+}

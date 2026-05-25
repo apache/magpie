@@ -1,0 +1,9 @@
+{
+  "in_scope": false,
+  "violations": [
+    {
+      "type": "drive-by-reformat",
+      "description": "The `__init__` signature and `get_active_runs` whitespace were reformatted but neither is part of the confirmed finding batch."
+    }
+  ]
+}
