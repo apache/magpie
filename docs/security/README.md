@@ -4,6 +4,8 @@
 
 - [Security workflow skill family](#security-workflow-skill-family)
   - [Skills](#skills)
+    - [Lifecycle skills](#lifecycle-skills)
+    - [Supporting tools](#supporting-tools)
   - [Deep documentation](#deep-documentation)
   - [Adopter contract](#adopter-contract)
   - [Cross-references](#cross-references)
@@ -17,8 +19,9 @@
 
 End-to-end automation for an ASF project's security-issue handling
 process — from inbound report on the project's `security@` mailing
-list through to a published CVE record on `cve.org`. Eight skills
-that compose into the canonical 16-step lifecycle.
+list through to a published CVE record on `cve.org`. Nine skills
+that compose into the canonical 16-step lifecycle, plus one
+read-only supporting skill for tracker-stats dashboards.
 
 Why a framework skill family? The 16-step process exists across
 the foundation; every project's security team runs essentially
@@ -29,6 +32,8 @@ plug their specifics into [`<project-config>/`](../../projects/_template/)
 and reuse the skills verbatim.
 
 ## Skills
+
+### Lifecycle skills
 
 | Skill | Purpose |
 |---|---|
@@ -41,6 +46,12 @@ and reuse the skills verbatim.
 | [`security-issue-fix`](../../.claude/skills/security-issue-fix/SKILL.md) | Implement the fix as a public PR in `<upstream>`. |
 | [`security-issue-deduplicate`](../../.claude/skills/security-issue-deduplicate/SKILL.md) | Merge two trackers describing the same root-cause vulnerability. |
 | [`security-issue-invalidate`](../../.claude/skills/security-issue-invalidate/SKILL.md) | Close a tracker as invalid with a polite-but-firm reporter reply. |
+
+### Supporting tools
+
+| Skill | Purpose |
+|---|---|
+| [`security-tracker-stats-dashboard`](../../.claude/skills/security-tracker-stats-dashboard/SKILL.md) | Generate a self-contained HTML dashboard of `<tracker>` repo statistics (lifecycle bands, opened-vs-untriaged backlog, mean time to triage / first response / fix). Read-only — never modifies tracker state. |
 
 ## Deep documentation
 
