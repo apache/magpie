@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+# https://www.apache.org/licenses/LICENSE-2.0
+
+blank_issues_enabled: false
+contact_links:
+  - name: Discussion
+    url: https://github.com/apache/airflow-steward/discussions
+    about: Open-ended questions, ideas, "is this in scope?" — use Discussions, not an issue.
+  - name: Security vulnerability in a project that uses this framework
+    url: https://www.apache.org/security/
+    about: Report to that project's `security@` list per ASF policy. Do NOT file a public issue here.

@@ -43,7 +43,10 @@ repos:
         # the first thing in the file, which is incompatible with doctoc
         # inserting a TOC block at the top. Also skip skill-evals fixture and
         # README files — short, single-purpose docs that don't warrant a TOC.
-        exclude: ^(\.claude/skills/.*|tools/vulnogram/generate-cve-json/SKILL\.md|tools/skill-evals/.*)$
+        # Skip the PR template — GitHub pre-populates a new PR description
+        # with the template verbatim, so a TOC block becomes per-PR noise the
+        # contributor has to delete by hand.
+        exclude: ^(\.claude/skills/.*|tools/vulnogram/generate-cve-json/SKILL\.md|tools/skill-evals/.*|\.github/PULL_REQUEST_TEMPLATE\.md)$
         args:
           - "--maxlevel"
           - "3"

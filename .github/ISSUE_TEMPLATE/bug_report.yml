@@ -1,0 +1,66 @@
+# SPDX-License-Identifier: Apache-2.0
+# https://www.apache.org/licenses/LICENSE-2.0
+
+name: Bug report
+description: Something in the framework doesn't behave as its SKILL.md / tool.md / RFC says it should.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug. Before submitting:
+
+        - Read the relevant `SKILL.md` or `tool.md` — that contract is authoritative. If the bug is a *contract* problem (the doc says one thing, the implementation does another), say which one is wrong.
+        - Check the open issues for a duplicate.
+        - If the bug is in a skill's behaviour, the eval fixture you'd add as a regression test is the highest-signal evidence you can include. See `tools/skill-evals/README.md` for the fixture format.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What's broken
+      description: One or two sentences. The bug, not the diagnosis.
+      placeholder: |
+        e.g. `security-issue-triage` step 4 emits a `_No response_` literal for the public-advisory-url field when the reporter included a draft GHSA URL inline.
+    validations:
+      required: true
+
+  - type: textarea
+    id: where
+    attributes:
+      label: Which layer
+      description: Where in the tree does the bug live? Include the file path if you have it.
+      placeholder: |
+        e.g. `.claude/skills/security-issue-triage/step-4-classify.md`
+        or  `tools/vulnogram/generate-cve-json/src/...`
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce
+      description: |
+        Minimum steps. For a skill bug, the input that triggers the wrong output (an eval-fixture-shaped block is ideal). For a Python / Groovy bug, the command + the error.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected vs actual
+      description: What you expected to happen; what actually happened. Quote the relevant SKILL.md / tool.md / RFC line if there's a contract violation.
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Surface area (optional)
+      description: Other skills / tools / files this might also affect. Helps whoever picks this up scope the change correctly.
+
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment (optional)
+      description: |
+        Claude Code (or other harness) version, OS, sandbox state (`/setup-isolated-setup-verify` output), anything in `<project-config>/` that might matter. Skip if not relevant.

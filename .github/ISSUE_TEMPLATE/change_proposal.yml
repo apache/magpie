@@ -1,0 +1,69 @@
+# SPDX-License-Identifier: Apache-2.0
+# https://www.apache.org/licenses/LICENSE-2.0
+
+name: Change proposal
+description: New skill, new tool bridge, behaviour change to an existing one, doc improvement, or RFC. Intent-first.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This template is **intent-first** by design. Tell us *what* you want and *why* — let the agent (or a maintainer) figure out *how*. See [CONTRIBUTING.md → Authoring with an agent](../blob/main/CONTRIBUTING.md#authoring-with-an-agent) for the loop.
+
+        Don't worry about writing a complete spec. The discussion in this issue plus the agentic loop on the eventual PR are where the design converges. A sharp two-sentence intent is more useful than a vague half-built design.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What should happen
+      description: One or two sentences. Behaviour-shaped, not implementation-shaped.
+      placeholder: |
+        e.g. `security-issue-triage` should flag reports that arrive with a draft GHSA URL in the body and route them to the pre-coordinated-by-CNA branch of the triage tree.
+    validations:
+      required: true
+
+  - type: textarea
+    id: why
+    attributes:
+      label: Why
+      description: The motivation, in concrete terms. A constraint, a workflow gap, a regression, a principle from RFC-AI-0004 — whatever the actual reason is.
+      placeholder: |
+        e.g. Pre-coordinated GHSA reports are treated as fresh inbound today, which wastes a triage cycle and confuses the reporter when our acknowledgement asks them to provide information their CNA has already published.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: layer
+    attributes:
+      label: Which layer
+      description: Best guess — a maintainer or the agent can re-route during triage.
+      options:
+        - Skill (`.claude/skills/<name>/`)
+        - Tool / bridge (`tools/<system>/`)
+        - Python package (`tools/*/` with `pyproject.toml`)
+        - Groovy reference impl
+        - Cross-cutting (RFC, AGENTS.md, sandbox, privacy-LLM)
+        - Documentation (`docs/`, `README.md`, `CONTRIBUTING.md`)
+        - Project template (`projects/_template/`)
+        - Other / unsure
+    validations:
+      required: true
+
+  - type: textarea
+    id: edges
+    attributes:
+      label: Boundary conditions (optional)
+      description: |
+        Edge cases worth raising up front — what should happen if input X is empty, malformed, contradictory, or already pre-existing. The agent will probe these during implementation; flagging the obvious ones here saves a round-trip.
+
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Out of scope (optional)
+      description: Things you're *not* proposing, to keep the discussion focused. Especially useful for changes that touch a sensitive area (security, privacy-LLM, sandbox, write-access discipline).
+
+  - type: textarea
+    id: references
+    attributes:
+      label: References (optional)
+      description: Related issues, prior PRs, RFC sections, upstream API docs — anything that gives whoever picks this up a head start.
