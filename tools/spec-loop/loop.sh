@@ -21,6 +21,12 @@
 #     .claude/settings.json `ask` — they are the human's step. The loop
 #     ends at a local commit and the build prompt prints the human-run
 #     push + `gh pr create --web` commands.
+#   * NO REDOING BUILT WORK: because the loop never pushes, a work item it
+#     already built exists only as a LOCAL BRANCH and has no open PR. Each
+#     iteration therefore feeds the agent BOTH the open PRs and the local
+#     work-item branches as in-flight work. Without the local-branch signal
+#     the agent would re-pick the same top-priority plan item every
+#     iteration and rebuild it forever (an endless loop).
 #
 # SECURITY — read before running:
 #   This loop runs the agent with `--dangerously-skip-permissions`, which
@@ -175,6 +181,56 @@ open_pr_context() {
     fi
 }
 
+# Local work-item branches the loop has already built. This is the companion
+# to open_pr_context: the loop never pushes, so a freshly built item has NO
+# open PR and is invisible to the PR check above. Listing it here as in-flight
+# work is what stops the agent re-picking the same top-priority plan item and
+# rebuilding it on a new branch every iteration. Reads refs only, so it is
+# correct regardless of which branch is currently checked out.
+local_branch_context() {
+    echo ""
+    echo "## Local work-item branches"
+    echo ""
+    echo "The runner collected this immediately before the iteration. This loop"
+    echo "never pushes and never opens a PR, so a work item it has already built"
+    echo "exists ONLY as a local branch and will NOT appear in the open-PR"
+    echo "context above. Treat every branch listed here as work that is already"
+    echo "built or in flight: do not add a plan item, and do not pick a build"
+    echo "item, whose slug matches one of these branches or whose change one of"
+    echo "them already carries. Checking these branches (not just open PRs) is"
+    echo "what keeps the loop from rebuilding the same item every iteration."
+    echo ""
+
+    local have_base=false
+    if git rev-parse --verify --quiet "refs/heads/$BASE" >/dev/null 2>&1; then
+        have_base=true
+    fi
+
+    # Every local branch except the integration base and the control branch
+    # (where the tooling lives); those two are never work-item branches.
+    local branches
+    branches="$(git for-each-ref --format='%(refname:short)' refs/heads/ \
+        | grep -vxF "$BASE" \
+        | grep -vxF "$TOOLING_REF")"
+
+    if [ -z "$branches" ]; then
+        echo "- No local work-item branches found."
+        return 0
+    fi
+
+    local b subject ahead
+    while IFS= read -r b; do
+        [ -n "$b" ] || continue
+        subject="$(git log -1 --format='%s' "$b" 2>/dev/null)"
+        if [ "$have_base" = true ]; then
+            ahead="$(git rev-list --count "$BASE..$b" 2>/dev/null)"
+            echo "- ${b} (${ahead:-?} commit(s) ahead of ${BASE}): ${subject}"
+        else
+            echo "- ${b}: ${subject}"
+        fi
+    done <<< "$branches"
+}
+
 while true; do
     if [ "$MAX_ITERATIONS" -gt 0 ] && [ "$ITERATION" -ge "$MAX_ITERATIONS" ]; then
         echo "Reached max iterations: $MAX_ITERATIONS"; break
@@ -228,6 +284,7 @@ while true; do
         rm -f "$PROMPT_WITH_CONTEXT"; break
     fi
     open_pr_context >> "$PROMPT_WITH_CONTEXT"
+    local_branch_context >> "$PROMPT_WITH_CONTEXT"
 
     if [ "$BUILD_ITERATION" = true ]; then
         # The work-item branch forks off BASE (e.g. main), which need not

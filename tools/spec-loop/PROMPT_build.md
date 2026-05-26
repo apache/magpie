@@ -11,19 +11,25 @@ Context to load first:
   applies (commit trailers, placeholder convention, confidentiality).
 - `tools/spec-loop/IMPLEMENTATION_PLAN.md` — the prioritised work items.
 - The appended **Open pull-request context** block from the runner.
+- The appended **Local work-item branches** block from the runner. The
+  loop never pushes, so a work item it already built shows up here, not in
+  the PR context above.
 - Only the spec(s) and source files relevant to the chosen work item —
   do not read the whole tree.
 
 Steps:
 
-1. Read the appended **Open pull-request context**. Treat open PRs as
+1. Read the appended **Open pull-request context** and **Local work-item
+   branches**. Treat both open PRs and existing local work-item branches as
    in-flight work. Pick the single highest-priority work item from
    `IMPLEMENTATION_PLAN.md`. If a **Tooling source** block is appended
    below, read the plan from the control branch as it shows
    (`git show <ref>:tools/spec-loop/IMPLEMENTATION_PLAN.md`), not from the
-   working tree — the tree is on the integration base, which need not carry
-   the plan. Pick an item not already substantially covered by an open PR.
-   One only.
+   working tree, which is on the integration base and need not carry the
+   plan. Pick an item not already substantially covered by an open PR and
+   not already built as a local work-item branch (the loop never pushes, so
+   a built item lives only as a local branch until a human pushes it). One
+   only.
 2. **Create its branch off the integration base**, then switch to it:
    `git checkout -b <slug>` where `<slug>` is the work item's branch — the
    bare slug, **no `spec/` or other prefix** (e.g.
@@ -66,9 +72,11 @@ gh pr create --web --base <integration-base> --head <slug> \
 Rules:
 
 - One work item per iteration. Do not bundle.
-- Do not duplicate in-flight work from open PRs. If the highest-priority
-  plan item is covered by an open PR, skip it and choose the next
-  uncovered item.
+- Do not duplicate in-flight work. If the highest-priority plan item is
+  already covered by an open PR or already exists as a local work-item
+  branch, skip it and choose the next uncovered item. Checking local
+  branches, not just open PRs, is what keeps the loop from rebuilding the
+  same item every iteration.
 - If a work item is blocked, note why in its spec's `Known gaps` and pick
   the next item instead.
 - Stay inside the sandbox; never edit `.claude/settings.json`; never add a

@@ -60,6 +60,11 @@ commit.
 - The **`update`** beat (specs fell behind code others contributed)
   branches `sync-specs` and edits `specs/` **only** — it documents
   reality, it never changes a skill, tool, or doc outside the spec dir.
+- The runner feeds each iteration **both** the open PRs and the local
+  work-item branches as in-flight work. Because the loop never pushes, a
+  built-but-un-pushed item exists only as a local branch with no PR, so the
+  local-branch list (not just open PRs) is what prevents the loop from
+  rebuilding the same item every iteration.
 
 ## Hard limits (governance — do not cross)
 
