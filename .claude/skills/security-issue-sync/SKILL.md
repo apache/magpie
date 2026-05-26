@@ -732,7 +732,7 @@ update, label change, or next-step recommendation in Step 2:
 | Advisory message sent to `announce@apache.org` / `<users-list>` but archive URL not yet visible | No-op transition; **do not** flip the `fix released → announced` labels here. The label flip is part of the combined "archive URL captured" apply above and only fires when the archive URL is confirmed live on `lists.apache.org` (this is the load-bearing real-world signal that the advisory actually shipped — a `[VOTE]/[ANNOUNCE]` mail thread in flight without an archived URL is ambiguous). |
 | Project-board column drifted from the issue's label-derived state (e.g. a tracker carries `pr merged` but is still in the `PR created` column on [Project 2](<project-board-url>), or `announced` + *Public advisory URL* body field populated but the column is still `Fix released`) | Propose moving the project item to the correct column per the mapping table in Step 2b. The board is the primary security-team overview surface; a stale column hides ownership handoffs from the team at a glance. |
 | `announced` label set and CVE record on `cveprocess.apache.org` now reports state PUBLISHED (checked via `curl -s https://cveprocess.apache.org/cve5/<CVE-ID>.json` / the ASF CVE tool API, or an explicit release-manager comment on the issue stating the Vulnogram push is done) | Propose closing the issue. Do not update any labels. This is the terminal transition. |
-| CVE record has open **review comments / reviewer proposals** (detected via the Gmail-search path in Step 1e — reviewer-comment notifications from Vulnogram land on `<security-list>` with the CVE ID in the subject line; the `cveprocess.apache.org/cve5/<CVE-ID>.json` endpoint is behind ASF OAuth and is not readable from this skill's context, so Gmail is the load-bearing signal source). | Surface each open review comment in Step 2a with **clickable links** to the Gmail thread and to the CVE record on `cveprocess.apache.org` (the reader can authenticate in-browser to see live state), verbatim-quoted; then for each one that maps cleanly to a tracking-issue body field (CWE, Affected versions, Reporter credited as, Public advisory URL, Short public summary), **propose the matching body-field update** as a numbered item in Step 2b. The body is the source of truth for the CVE JSON — regeneration in Step 5 will pull the update back into the paste-ready attachment, and the release manager's only remaining action is the Vulnogram paste + comment-resolution click. Comments that do not map to a body field (severity/CVSS, out-of-scope challenges, free-form rewrites) are surfaced verbatim and flagged for human decision. See Step 1e for the full Gmail-search recipe and the reviewer-comment-to-field mapping table. |
+| CVE record has open **review comments / reviewer proposals** (detected via the Gmail-search path in Step 1e — reviewer-comment notifications from Vulnogram land on `<security-list>` with the CVE ID in the subject line; the `cveprocess.apache.org/cve5/<CVE-ID>.json` endpoint is behind ASF OAuth and is not readable from this skill's context, so Gmail is the load-bearing signal source). | Surface each open review comment in Step 2a with **clickable links** to the Gmail thread and to the CVE record on `cveprocess.apache.org` (the reader can authenticate in-browser to see live state), verbatim-quoted; then for each one that maps cleanly to a tracking-issue body field (CWE, Affected versions, Reporter credited as, Public advisory URL, Short public summary), **propose the matching body-field update** as a numbered item in Step 2b. The body is the source of truth for the CVE JSON — regeneration in Step 5 will pull the update back into the paste-ready attachment, and the release manager's only remaining action is the Vulnogram paste + comment-resolution click. Comments that do not map to a body field (severity/CVSS, out-of-scope challenges, free-form rewrites) are surfaced verbatim and flagged for human decision. See Step 1e for the full Gmail-search recipe, the reviewer-comment-to-field mapping table, and the courtesy-reply pattern. |
 | The referenced `<upstream>` PR has been opened but is still in `open` state | Propose `pr created` label; update the *"PR with the fix"* body field with the PR URL. |
 | The referenced `<upstream>` PR moved to `merged` | Propose swapping `pr created` → `pr merged`; update milestone to the shipping release if now known. **Also**: check whether all six mandatory CVE body fields are populated (*CWE*, *Affected versions*, *Severity*, *Reporter credited as*, *Short public summary for publish*, *PR with the fix*). If any is empty / `_No response_`, propose posting (or PATCH-updating) the *Remediation-developer fill-fields comment* per [the dedicated bullet in Step 2b](#step-2--build-a-proposal-do-not-apply-anything-yet) — the remediation developer is best-positioned to fill these in, and the tracker stays assigned to them until the fields are complete. This is the **first** of two firing points for the fill-fields comment; the second is the `pr merged` → `fix released` row below. |
 | The *"PR with the fix"* body field has at least one PR URL **and** the *"Remediation developer"* body field is missing the PR author's name (or is `_No response_`) | Propose appending the PR author's display name (`gh pr view <N> --repo <upstream> --json author --jq '.author.name // .author.login'`) to the *"Remediation developer"* body field. **Append, never overwrite** — manual edits (co-authors added by the triager, name spelling corrections, "Anonymous" overrides) must survive subsequent syncs. Run once per fresh PR URL added to the field; skip if the resolved name is already present (case-insensitive substring match). **Apply the [bot/AI credit policy](../../../tools/vulnogram/bot-credits-policy.md) to the resolved name + handle before proposing the append** — if the PR author matches the bot detection rule (`*[bot]` suffix, known-bot list, `*-bot`/`*-ai`/`*-agent`/`*-gpt` suffix patterns), do **not** propose the append; surface *"skipped credit: `<handle>` (matches bot policy — `<rule>`)"* in Step 2 instead. The user can override per the policy doc. The CVE JSON generator reads the field on its next regeneration and emits one `type: "remediation developer"` credit per line, so this hand-off keeps the credit attached even if Vulnogram drops the CLI flag. See the *"Auto-resolve --remediation-developer"* note in Step 5 for the historical CLI-flag fallback. |
@@ -912,6 +912,42 @@ Also include the standard *"Open the CVE record at
 user knows what the release manager still needs to do in
 Vulnogram after the body update lands (resolving the comment is
 a Vulnogram UI action that sync cannot drive).
+
+**Also propose a courtesy reply to the reviewer on their
+notification thread.** Vulnogram does not actively notify
+reviewers when a CVE record's description is updated — the
+reviewer's natural workflow is to check the Gmail thread of
+their original *"Comment added on `<CVE-ID>`"* notification
+for a reply. After the body-update + JSON re-push lands, the
+reviewer's comment can sit unresolved for days simply because
+they have no signal that the record changed. A short courtesy
+draft on the notification thread closes the loop:
+
+- **To:** the reviewer's `@apache.org` address (the `From:`
+  of the original notification).
+- **Cc:** `<security-list>` (so the security team thread
+  carries the round-trip), plus `security@apache.org` when
+  the original notification CC'd it.
+- **Subject:** `Re: <original notification subject>`
+  (typically `Re: Comment added on <CVE-ID>`).
+- **Body shape:** one paragraph acknowledging what was
+  changed in response, the CVE-tool URL, and one line asking
+  the reviewer to re-review when they have a moment. Same
+  backend selection as the reporter-draft path in Step 5d
+  (`claude_ai_mcp` default, `oauth_curl` opt-in). Always a
+  draft — never sent.
+
+Restrict this draft to comments that mapped cleanly to a
+body-field update (the mapping table above). Comments that
+need human judgement (severity/CVSS, out-of-scope challenges,
+free-form rewrites) get surfaced verbatim per the existing
+rule; no automated draft applies there — their resolution is
+a security-team conversation, not a *"please re-review"* ping.
+
+Without this, the framework's *"address the comment via body
+update"* contract is complete from sync's side but
+operationally incomplete from the reviewer's side; the
+courtesy reply is what makes the round-trip visible.
 
 **Do not try to edit the CVE record from this skill.** Writes to
 `cveprocess.apache.org` itself stay with the release manager.
