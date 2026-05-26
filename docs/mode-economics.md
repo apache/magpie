@@ -201,7 +201,7 @@ per-token billing to hardware:
 
 | Inference path | Per-token cost | Typical hardware cost | Notes |
 |---|---|---|---|
-| Consumer GPU, Small-class quantised model | $0 | ~$0.10–0.50/hr amortised | Viable for Triage and short Mentoring/Drafting |
+| Consumer GPU, Small-class quantised model | $0 | ~$0.10–0.50/hr (capex amortised over ~3 yr lifespan × moderate utilisation) | Viable for Triage and short Mentoring/Drafting |
 | Cloud spot GPU, Mid-tier model | $0 | ~$1–4/hr depending on GPU class | Viable for all modes; latency is higher than hosted APIs |
 | CPU-only, quantised Small model | $0 | Near-zero | Very slow; not recommended for interactive Pairing |
 
@@ -223,9 +223,14 @@ paths use identical skill code to hosted paths.
    skill read only what is relevant.
 
 3. **Cache skill context.** Most agent CLIs support prompt-level
-   caching. The skill file (3 000–6 000 tokens) and stable project
-   configuration files are ideal cache candidates — the first invocation
-   pays; subsequent invocations are cheap on the cached portion.
+   caching. The skill file (size varies by skill class; see
+   [What "tokens" means here](#what-tokens-means-here)) and stable
+   project configuration files are ideal cache candidates — the first
+   invocation pays; subsequent invocations are cheap on the cached
+   portion. Note: most provider caches have a short TTL (Anthropic
+   prompt cache: 5 min default, 1 h extended at higher write cost),
+   so bursty same-session workloads benefit most; periodic triage runs
+   spaced hours apart will typically miss the cache.
 
 4. **Batch triage.** `issue-reassess` and `pr-management-stats`
    amortise context load across a pool. Running them weekly rather than
