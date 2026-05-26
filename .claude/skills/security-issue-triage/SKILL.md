@@ -757,7 +757,7 @@ mechanically:
 
    ```bash
    gh pr list --repo <upstream> --search 'reviewed-by:<handle>' \
-     --json files,reviews,mergedAt -- <pointer>
+     --limit 100 --json files,reviews,mergedAt -- <pointer>
    ```
 
    Iterate the roster (cached in Step 0); the roster member with

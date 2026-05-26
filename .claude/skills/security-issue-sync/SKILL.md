@@ -2212,7 +2212,7 @@ before moving on to the next item. Use:
     # The just-closed tracker is no longer in the open list, so
     # `open` here counts SIBLINGS still open on the same milestone.
     open=$(gh issue list --repo <tracker> --milestone "$ms" \
-      --state open --json number --jq 'length')
+      --state open --limit 100 --json number --jq 'length')
     if [ "$open" -eq 0 ]; then
       ms_url=$(gh api repos/<tracker>/milestones/$ms --jq '.html_url')
       ms_title=$(gh api repos/<tracker>/milestones/$ms --jq '.title')
