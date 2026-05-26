@@ -98,6 +98,15 @@ else
     MODE="build";       PROMPT_FILE="$LOOP_DIR/PROMPT_build.md";       MAX_ITERATIONS=0
 fi
 
+# Reject a non-numeric iteration count. The plan/update/consolidate second
+# argument flows straight into the integer comparisons below, where a typo'd
+# value would otherwise error to stderr and be silently treated as 0 — i.e.
+# run unbounded instead of failing.
+if ! [[ "$MAX_ITERATIONS" =~ ^[0-9]+$ ]]; then
+    echo "Error: iteration count must be a non-negative integer, got '${MAX_ITERATIONS}'." >&2
+    exit 1
+fi
+
 [ -f "$PROMPT_FILE" ] || { echo "Error: $PROMPT_FILE not found" >&2; exit 1; }
 
 if ! command -v "$AGENT" >/dev/null 2>&1; then
@@ -123,10 +132,14 @@ CONSOLIDATE_TRIED=false   # one-shot latch; resets when the plan drops back unde
 
 # spinner during silent agent calls
 spinner() {
-    local pid=$1 frames='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏' i=0
+    local pid=$1 i=0
+    # Index frames as array elements, not string offsets: ${frames:$i:1} is
+    # byte-based under a C/POSIX locale (common in the clean-env sandbox) and
+    # would slice a multibyte braille glyph into garbage.
+    local frames=(⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏)
     while kill -0 "$pid" 2>/dev/null; do
-        printf "\r  %s  working... (Ctrl+C to stop)" "${frames:$i:1}"
-        i=$(( (i+1) % ${#frames} )); sleep 0.15
+        printf "\r  %s  working... (Ctrl+C to stop)" "${frames[i]}"
+        i=$(( (i+1) % ${#frames[@]} )); sleep 0.15
     done
     printf "\r                                              \r"
 }
@@ -236,8 +249,15 @@ while true; do
                 echo "git show $TOOLING_REF:tools/spec-loop/specs/<file>"
                 echo '```'
                 echo ""
-                echo "Implement the product change on the work branch; do NOT edit specs"
-                echo "there — they are not on \`$BASE\`. The control branch owns the specs."
+                if [ "$MODE" = "update" ]; then
+                    echo "Read the current specs from \`$TOOLING_REF\` (commands above) as the"
+                    echo "baseline, then author the updated spec files on this work branch —"
+                    echo "the sync PR adds them to \`$BASE\`. Update is the one beat that"
+                    echo "writes specs; do that here, not on the control branch."
+                else
+                    echo "Implement the product change on the work branch; do NOT edit specs"
+                    echo "there — they are not on \`$BASE\`. The control branch owns the specs."
+                fi
             } >> "$PROMPT_WITH_CONTEXT"
         fi
 
@@ -266,7 +286,7 @@ while true; do
     #                                   remote even with permissions skipped.
     "$AGENT" -p \
         --dangerously-skip-permissions \
-        --disallowedTools "Bash(git push *)" "Bash(gh *)" \
+        --disallowedTools "Bash(git push:*)" "Bash(gh:*)" \
         --output-format=text \
         --model "$MODEL" < "$PROMPT_WITH_CONTEXT" &
     AGENT_PID=$!
