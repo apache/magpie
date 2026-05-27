@@ -25,6 +25,45 @@ one PR** (the branch-per-feature constraint).
   per work item; never pushes), `PROMPT_plan.md`, `PROMPT_build.md`,
   `PROMPT_consolidate.md`, `AGENTS.md` (loop-scoped operational context),
   and this plan.
+- **Pairing — pre-flight self-review skill** — `.claude/skills/pairing-self-review/`
+  shipped; `docs/modes.md` Pairing row updated to 1 skill / `experimental`.
+  Spec: [`specs/pairing-mode.md`](specs/pairing-mode.md).
+- **Mentoring — first prototype skill** — `pr-management-mentor` shipped,
+  `mode: Mentoring` + `experimental`, teaching-register replies with
+  explicit hand-off. Spec: [`specs/mentoring-mode.md`](specs/mentoring-mode.md).
+- **Docs — mode economics page** — `docs/mode-economics.md` exists
+  (per-mode token-cost shape, vendor-neutral).
+- **Meta — spec-status index** — `tools/spec-status-index/` exists as a
+  `uv` tool that prints specs grouped by status.
+  Spec: [`specs/meta-and-quality-tooling.md`](specs/meta-and-quality-tooling.md).
+- **Eval backfill** — 24 skill eval suites committed to `main`, covering
+  every non-setup skill. Setup-family suites are in-flight (see below).
+
+---
+
+## In-flight work
+
+These branches and/or open PRs already carry the change. Do **not** add
+a plan item for any of them; the build beat must not re-pick them.
+
+| Branch | PR | Description |
+|---|---|---|
+| `pairing-multi-agent-review` | #269 (draft) | Pairing multi-agent review pipeline |
+| `generic-drafting` | #296 (draft) | Generic (non-security) drafting from audit findings |
+| `eval-setup-isolated-setup-doctor` | — | Eval suite for setup-isolated-setup-doctor |
+| `eval-setup-isolated-setup-install` | — | Eval suite for setup-isolated-setup-install |
+| `eval-setup-isolated-setup-update` | — | Eval suite for setup-isolated-setup-update |
+| `eval-setup-override-upstream` | — | Eval suite for setup-override-upstream |
+| `eval-setup-shared-config-sync` | — | Eval suite for setup-shared-config-sync |
+| `eval-setup-steward` | — | Eval suite for setup-steward |
+| `spec-validator` | — | `tools/spec-validator/` — spec frontmatter + body-section validator |
+| `spec-loop-preflight-checks` | — | Freshness check + branch-name collision guard for the loop |
+| `injection-guard` | — | Prompt-injection defence hardening |
+| `check-headers` | — | License headers as a first-class review category |
+| `issue-fix-workflow` | — | issue-fix-workflow skill updates |
+| `contributor-readiness` | #227 (draft) | contributor-nomination skill + eval |
+| `contributor-activity` | #228 (draft) | contributor-activity-sweep skill + eval |
+| `contributor-onboarding` | #229 (draft) | committer-onboarding skill |
 
 ---
 
@@ -33,54 +72,30 @@ one PR** (the branch-per-feature constraint).
 Priority order. Each maps to one branch and one PR. Branch names are
 slugs, not numbers (numbering implies an order the specs don't carry).
 
-1. **Pairing — pre-flight self-review skill.** Highest priority: closes
-   the empty-Pairing-family gap MISSION makes a v1 goal. New
-   `.claude/skills/pairing-self-review/SKILL.md` (read-only, hands a
-   report back, never opens a PR); update `docs/modes.md` Pairing row
-   0 → 1, `proposed` → `experimental`. Validate with `skill-validate`.
-   Spec: [`specs/pairing-mode.md`](specs/pairing-mode.md). Branch
-   `pairing-self-review`.
+1. **Security reporting — add tool test suite.** `tools/security-tracker-stats-dashboard/`
+   has Python scripts (`render.py`, `fetch_*.py`) but no `tests/`
+   directory. The spec acceptance criterion #3 and its Known Gaps section
+   both require tests here. Add a `tests/` directory with pytest coverage
+   for the fetch/render pipeline. Validation:
+   ```bash
+   uv run --project tools/security-tracker-stats-dashboard --group dev pytest
+   bash -n tools/security-tracker-stats-dashboard/run.sh
+   shellcheck tools/security-tracker-stats-dashboard/run.sh
+   ```
+   Spec: [`specs/security-reporting.md`](specs/security-reporting.md).
+   Branch `security-reporting-tests`.
 
-2. **Mentoring — first prototype skill.** `pr-management-mentor` (working
-   name), `mode: Mentoring` + `experimental`, drafting replies in a
-   teaching register with an explicit hand-off to a human. The Mentoring
-   spec/tone-guide already exists under `docs/mentoring/`. Spec:
-   [`specs/mentoring-mode.md`](specs/mentoring-mode.md). Branch
-   `mentoring-prototype`.
-
-3. **Docs — mode economics page.** New `docs/mode-economics.md` (per-mode
-   token-cost shape, vendor-neutral, indicative-not-a-quote), linked from
-   `docs/modes.md`. From MISSION § Affordability. Branch
-   `mode-economics-doc`.
-
-4. **Meta — spec-status index.** A deterministic `uv` tool (mirrors
-   `list-steward-skills`) that prints specs by status and a `--ready`
-   filter, so later build iterations choose the next work item
-   mechanically. Spec: [`specs/meta-and-quality-tooling.md`](specs/meta-and-quality-tooling.md).
-   Branch `spec-status-index`.
-
-5. **Pairing — multi-agent review pipeline.** Fans a local diff through
-   independent review passes (correctness / security / conventions) and
-   merges the findings. Reuses the self-review report format, so it
-   follows work item 1. Branch `pairing-multi-agent-review`.
-
-6. **Drafting — generic (non-security) drafting.** Extend Drafting beyond
-   the security + general-issue cases to lint fixes, audit-tool findings,
-   and documentation holes (MISSION names these in scope). Larger; split
-   into per-source work items as it is picked up. Spec:
-   [`specs/drafting-mode.md`](specs/drafting-mode.md). Branch
-   `generic-drafting`.
-
-7. **Meta — back-fill missing skill eval suites.** Per `/AGENTS.md`
-   § Reusable skills, every skill ships an eval suite under
-   `tools/skill-evals/evals/<skill-name>/`. Several skills predate that
-   convention and have none. Add one suite per uncovered skill — one
-   branch per skill (or per family). Spec:
-   [`specs/meta-and-quality-tooling.md`](specs/meta-and-quality-tooling.md).
-   Branch `eval-<skill-name>`.
-
-   Also: when a build iteration creates a new skill, its eval suite is
-   part of that same work item — not a separate one.
+2. **Agent isolation — Python packaging and test harness.** `tools/agent-isolation/`
+   is shell-only (no `pyproject.toml`, no `tests/`), but the spec's
+   validation command requires `uv run --project tools/agent-isolation
+   --group dev pytest`. Convert the tool to a `uv` Python project, add a
+   `pyproject.toml`, and write tests that verify the sandbox profiles and
+   clean-env wrapper behave correctly. Validation:
+   ```bash
+   uv run --project tools/agent-isolation --group dev pytest
+   ```
+   Spec: [`specs/agent-isolation-sandbox.md`](specs/agent-isolation-sandbox.md).
+   Branch `agent-isolation-tests`.
 
 ---
 
@@ -93,3 +108,5 @@ slugs, not numbers (numbering implies an order the specs don't carry).
   section; the build prompt runs it as backpressure before committing.
 - Auto-merge is deliberately off and has no work items — building toward
   it would skip the proof MISSION requires.
+- When a build iteration creates a new skill, its eval suite is part of
+  that same work item — not a separate one.
