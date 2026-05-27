@@ -28,7 +28,6 @@ from spec_validator import (
     ALLOWED_KIND,
     ALLOWED_MODE,
     ALLOWED_STATUS,
-    REQUIRED_FRONTMATTER_KEYS,
     REQUIRED_SECTIONS,
     extract_section_headings,
     get_section_body,
@@ -37,7 +36,6 @@ from spec_validator import (
     parse_frontmatter,
     run_validation,
     validate_body,
-    validate_file,
     validate_frontmatter,
     validation_has_code_block,
 )
@@ -214,8 +212,6 @@ class TestValidationHasCodeBlock:
         assert validation_has_code_block(_VALID_SPEC) is True
 
     def test_missing_code_block(self) -> None:
-        text = _VALID_SPEC.replace("```bash\n    uv run --project tools/example --group dev pytest\n    ```", "Run pytest.")
-        # simpler replacement
         spec = _make_spec()
         spec_no_code = spec.replace("```bash\npytest\n```", "Run pytest manually.")
         assert validation_has_code_block(spec_no_code) is False
