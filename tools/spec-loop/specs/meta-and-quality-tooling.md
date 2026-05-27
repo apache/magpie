@@ -39,6 +39,12 @@ trustworthy as it grows.
 - `tools/dashboard-generator/` — read-only HTML dashboards over campaign
   artefacts.
 - `tools/probe-templates/` — reusable probes.
+- `tools/spec-status-index/` — deterministic `uv` tool that reads
+  `tools/spec-loop/specs/` and prints specs grouped by status; used by
+  build iterations to mechanically select the next work item.
+- `tools/spec-validator/` — validates spec-loop spec frontmatter
+  (required keys, valid `status`/`kind`/`mode` values, body-section
+  presence); the spec-side counterpart to `skill-validator`.
 - Skills: `write-skill` (author/update a skill), `list-steward-skills`
   (live, generated index of every skill, grouped by family).
 

@@ -36,7 +36,8 @@ Start with [`overview.md`](overview.md), then:
   [`cve-tooling.md`](cve-tooling.md),
   [`adoption-and-setup.md`](adoption-and-setup.md),
   [`adapters.md`](adapters.md),
-  [`meta-and-quality-tooling.md`](meta-and-quality-tooling.md).
+  [`meta-and-quality-tooling.md`](meta-and-quality-tooling.md),
+  [`security-reporting.md`](security-reporting.md).
 
 (Auto-merge, the fifth MISSION mode, is deliberately off and has no
 spec — see the note in [`overview.md`](overview.md).)

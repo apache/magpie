@@ -2,7 +2,7 @@
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
 ---
-title: Adapters (Gmail / PonyMail / Jira / GitHub)
+title: Adapters (Gmail / PonyMail / Jira / GitHub / mail-source)
 status: experimental
 kind: feature
 mode: infra
@@ -10,7 +10,7 @@ source: >
   MISSION.md § Rationale ("ASF integrations live behind clean
   configuration boundaries; non-ASF adopters swap them") and § Technical
   scope (extensible adapter layer). Implemented in tools/gmail/,
-  tools/ponymail/, tools/jira/, tools/github/.
+  tools/ponymail/, tools/jira/, tools/github/, tools/mail-source/.
 acceptance:
   - Project-specific integrations live behind adapter modules, not
     hardcoded into skills.
@@ -36,6 +36,13 @@ by swapping the adapter, not the skill.
 - `tools/ponymail/` — public mailing-list archive search.
 - `tools/jira/` — issue-tracker adapter for projects on Jira.
 - `tools/github/` — issues/PRs/labels read + write-back helpers.
+- `tools/mail-source/` — abstract mail backend contract (operations,
+  capability matrix, adopter-declaration syntax) with concrete IMAP and
+  mbox implementations. Skills (`security-issue-import`,
+  `security-issue-sync`, `security-cve-allocate`) address every mail
+  source through this contract rather than calling Gmail or PonyMail
+  directly; the adopter's `<project-config>/project.md → Mail sources`
+  section declares which backends are active and what role each plays.
 
 ## Behaviour & contract
 

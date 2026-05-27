@@ -35,7 +35,10 @@ saying "no".
 - `.claude/settings.json` — the `sandbox` block (filesystem
   allow/deny, network `allowedDomains`) and `permissions` (`deny` /
   `ask`).
-- Skills: `setup-isolated-setup-install`, `-update`, `-verify`.
+- Skills: `setup-isolated-setup-install`, `-update`, `-verify`,
+  `-doctor` (probes live sandbox restrictions — SSH-agent reachability,
+  localhost port binding, docker/podman socket — and maps each to a
+  numbered troubleshooting entry; read-only, never modifies settings).
 - `docs/setup/secure-agent-internals.md` — the three-layer model.
 
 ## Behaviour & contract

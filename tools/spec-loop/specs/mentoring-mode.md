@@ -3,13 +3,13 @@
 
 ---
 title: Mentoring mode
-status: proposed
+status: experimental
 kind: feature
 mode: Mentoring
 source: >
   MISSION.md § Technical scope (Mentoring) — "the highest-value
   project-side mode and the one off-the-shelf agent tooling skips".
-  docs/modes.md § Mentoring (proposed, 0 skills). Spec exists at
+  docs/modes.md § Mentoring (experimental, 1 skill). Spec exists at
   docs/mentoring/spec.md ahead of any skill code.
 acceptance:
   - The Mentoring spec (tone guide, hand-off protocol, adopter knobs) is
@@ -32,11 +32,11 @@ contributor-empowerment lever the wider ecosystem most needs.
 
 ## Where it lives
 
-- Spec ahead of code: `docs/mentoring/README.md`,
-  `docs/mentoring/spec.md`.
+- Spec: `docs/mentoring/README.md`, `docs/mentoring/spec.md`.
 - Adopter config scaffold: `projects/_template/mentoring-config.md`.
-- First skill (planned): `pr-management-mentor` (working name), ships
-  `mode: Mentoring` + `experimental`.
+- Skill: `pr-management-mentor` — drafts a teaching-register comment on
+  a single GitHub issue or PR thread; waits for explicit maintainer
+  confirmation before posting. Ships `mode: Mentoring` + `experimental`.
 
 ## Behaviour & contract
 
@@ -70,6 +70,6 @@ uv run --project tools/skill-validator --group dev skill-validate
 
 ## Known gaps
 
-- **No skill yet** — this is a pure `proposed` gap. The spec and tone
-  guide exist; the prototype skill is the first work item the loop would
-  pick up under this area.
+- **`experimental` — no adopter pilot has run.** The first skill
+  (`pr-management-mentor`) shipped; shape may change as adopter pilots
+  and contributor-sentiment evaluations land.

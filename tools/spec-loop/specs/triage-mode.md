@@ -31,13 +31,19 @@ suggestion the human signs off on.
 
 - PR queue: `pr-management-triage`, `pr-management-stats`,
   `pr-management-code-review` (deep review is a triage variant).
+  Reference implementation: `tools/pr-management-stats/`.
 - General issues: `issue-triage`, `issue-reassess`, `issue-reproducer`.
+  Companion reporting skill: `issue-reassess-stats` (read-only dashboard
+  over `verdict.json` files produced by `issue-reassess` campaigns).
+- Contributor readiness: `contributor-nomination` (read-only brief for a
+  named contributor — activity breadth, consistency, and nomination-
+  evidence prose for a committer or PMC thread).
 - Security inbound: `security-issue-import`, `-import-from-pr`,
   `-import-from-md`, `security-issue-deduplicate`,
   `security-issue-invalidate`, `security-issue-sync`,
   `security-cve-allocate`.
 - Adapters it reads through: `tools/github`, `tools/jira`,
-  `tools/ponymail`, `tools/gmail`.
+  `tools/ponymail`, `tools/gmail`, `tools/mail-source`.
 
 ## Behaviour & contract
 

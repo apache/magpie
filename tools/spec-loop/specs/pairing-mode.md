@@ -3,13 +3,13 @@
 
 ---
 title: Pairing mode
-status: proposed
+status: experimental
 kind: feature
 mode: Pairing
 source: >
   MISSION.md § Technical scope (Pairing) and § Initial Goals ("Ship at
   least one Pairing skill family in v1"). docs/modes.md § Pairing
-  (proposed, 0 skills).
+  (experimental, 1 skill).
 acceptance:
   - At least one Pairing skill exists and validates (v1 goal).
   - Pairing skills run in the developer's OWN dev loop and make no state
@@ -32,9 +32,12 @@ protecting the ASF contribution path (contributor → committer → PMC).
 
 ## Where it lives
 
-- Currently nowhere — the family is empty (`docs/modes.md`: 0 skills).
-- Planned skills: a pre-flight **self-review** skill (highest priority)
-  and a **multi-agent review** pipeline — both tracked as work items in
+- Skill: `pairing-self-review` — structured pre-flight self-review of
+  local changes before opening a PR. Read-only; returns a structured
+  report with no external writes. Ships `mode: Pairing` + `experimental`.
+- Planned follow-on: a **multi-agent review** pipeline (fans the diff
+  through independent review passes, shares the self-review report
+  format) — tracked as a work item in
   [`../IMPLEMENTATION_PLAN.md`](../IMPLEMENTATION_PLAN.md).
 
 ## Behaviour & contract
@@ -66,7 +69,6 @@ uv run --project tools/skill-validator --group dev skill-validate
 
 ## Known gaps
 
-- **Empty family** — the largest functional gap against MISSION's v1
-  goals. Work items (in [`../IMPLEMENTATION_PLAN.md`](../IMPLEMENTATION_PLAN.md)):
-  a pre-flight self-review skill (first, highest priority), then a
-  multi-agent review pipeline.
+- **`experimental` — no adopter pilot has run.** `pairing-self-review`
+  shipped; the multi-agent review pipeline is the next planned skill.
+  No contributor-sentiment evaluation has run yet; shape may change.
