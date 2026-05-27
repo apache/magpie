@@ -68,6 +68,11 @@ PYTHONPATH=tools/skill-evals/src python3 -m skill_evals.runner --cli "llm -m gpt
 # Add --verbose to also print prompts and the model's raw stdout per case.
 PYTHONPATH=tools/skill-evals/src python3 -m skill_evals.runner --cli "claude -p" --verbose \
     tools/skill-evals/evals/issue-triage/step-3-classify/fixtures/case-1-clear-bug
+
+# Run only cases tagged as useful smoke tests for local llama3.1:8b.
+PYTHONPATH=tools/skill-evals/src python3 -m skill_evals.runner --tag llama \
+    --cli "ollama run llama3.1:8b --nowordwrap --format json" \
+    tools/skill-evals/evals/
 ```
 
 **JSON extraction** tries three strategies in order: parse the whole
@@ -88,6 +93,22 @@ comparison is a self-eval pass — useful as a smoke test for prompt /
 output-shape regressions, but weaker than a cross-model run. For
 substantive changes, also run against a different model class.
 
+### Case tags
+
+Cases can opt into runner filters with a `case-meta.json` file next to
+`report.md` and `expected.json`:
+
+```json
+{
+  "tags": ["llama", "smoke"]
+}
+```
+
+Use `--tag <name>` to run only matching cases. Tags are intentionally
+conservative: for example, `llama` means the case is known to be useful
+as a local `llama3.1:8b` smoke signal, not that the whole suite is
+expected to pass on that model.
+
 ## Structure
 
 ```text
@@ -103,6 +124,7 @@ evals/
         case-N-<name>/
           report.md               # mock tool call outputs for this case
           expected.json           # ground-truth JSON the model should produce
+          case-meta.json           # optional runner tags, e.g. {"tags":["llama"]}
 ```
 
 The runner resolves the system prompt in order: `step-config.json` → `system-prompt.md` → error. When `step-config.json` is present the system prompt is assembled at run time by extracting the relevant section directly from the skill's `SKILL.md` and appending `output-spec.md`. This means a change to `SKILL.md` is immediately reflected in the prompt — if the change would cause the model to produce different output, the test fails.

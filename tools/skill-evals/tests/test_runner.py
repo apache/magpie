@@ -34,6 +34,7 @@ from skill_evals.runner import (
     find_repo_root,
     is_structural_expected,
     load_case,
+    load_case_tags,
     load_step_config,
     main,
 )
@@ -376,6 +377,30 @@ def test_load_case_loads_optional_roster(tmp_path: Path):
 
     _, roster, _, _ = load_case(case_dir)
     assert roster == roster_data
+
+
+def test_load_case_tags_missing_meta_returns_empty_set(tmp_path: Path):
+    fixtures_dir = tmp_path / "fixtures"
+    fixtures_dir.mkdir()
+    case_dir = _make_case(fixtures_dir, "case-1")
+    assert load_case_tags(case_dir) == set()
+
+
+def test_load_case_tags_reads_case_meta(tmp_path: Path):
+    fixtures_dir = tmp_path / "fixtures"
+    fixtures_dir.mkdir()
+    case_dir = _make_case(fixtures_dir, "case-1")
+    (case_dir / "case-meta.json").write_text(json.dumps({"tags": ["llama", "smoke"]}))
+    assert load_case_tags(case_dir) == {"llama", "smoke"}
+
+
+def test_load_case_tags_rejects_non_string_tags(tmp_path: Path):
+    fixtures_dir = tmp_path / "fixtures"
+    fixtures_dir.mkdir()
+    case_dir = _make_case(fixtures_dir, "case-1")
+    (case_dir / "case-meta.json").write_text(json.dumps({"tags": ["llama", 3]}))
+    with pytest.raises(ValueError, match="tags"):
+        load_case_tags(case_dir)
 
 
 # ---------------------------------------------------------------------------
@@ -769,3 +794,19 @@ def test_cli_mode_summary_counts(tmp_path: Path, capsys: pytest.CaptureFixture[s
     assert rc == 1  # because one case FAILs
     assert "1 passed" in stdout
     assert "1 failed" in stdout
+
+
+def test_tag_filter_runs_only_matching_cases(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
+    """--tag should restrict discovered cases before invoking the CLI."""
+    expected = {"verdict": "ok"}
+    fixtures_dir, case_dir = _make_cli_case(tmp_path, expected=expected)
+    _make_case(fixtures_dir, "case-2-untagged", report="x", expected={"verdict": "different"})
+    (case_dir / "case-meta.json").write_text(json.dumps({"tags": ["llama"]}))
+
+    rc, stdout, _ = _run_main(
+        capsys,
+        ["--tag", "llama", "--cli", f"echo '{json.dumps(expected)}'", str(fixtures_dir)],
+    )
+    assert rc == 0
+    assert "1 passed" in stdout
+    assert "case-2-untagged" not in stdout

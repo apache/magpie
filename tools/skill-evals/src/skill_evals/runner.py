@@ -202,6 +202,22 @@ def load_case(case_dir: Path) -> tuple[list[dict], dict, str, dict]:
     return corpus, roster, report, expected
 
 
+def load_case_tags(case_dir: Path) -> set[str]:
+    """Return optional runner-selection tags for a case.
+
+    Tags live in ``case-meta.json`` so expected.json stays focused on the
+    behavioral assertion.  Unknown metadata keys are ignored.
+    """
+    meta_path = case_dir / "case-meta.json"
+    if not meta_path.exists():
+        return set()
+    meta = json.loads(meta_path.read_text())
+    tags = meta.get("tags", [])
+    if not isinstance(tags, list) or not all(isinstance(tag, str) for tag in tags):
+        raise ValueError(f"{meta_path} must contain a string-list 'tags' field")
+    return set(tags)
+
+
 # ---------------------------------------------------------------------------
 # Automated comparison (--cli mode)
 # ---------------------------------------------------------------------------
@@ -399,11 +415,28 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="In --cli mode, also print the prompts and the model's raw stdout per case.",
     )
+    parser.add_argument(
+        "--tag",
+        action="append",
+        default=[],
+        help=(
+            "Run only cases tagged in case-meta.json. May be passed multiple "
+            "times; a case is included if it has all requested tags."
+        ),
+    )
     args = parser.parse_args(argv)
 
     cases = find_cases(args.path)
+    if args.tag:
+        requested_tags = set(args.tag)
+        cases = [
+            (case_dir, fixtures_dir)
+            for case_dir, fixtures_dir in cases
+            if requested_tags.issubset(load_case_tags(case_dir))
+        ]
     if not cases:
-        print(f"No eval cases found under {args.path}", file=sys.stderr)
+        tag_suffix = f" matching tag(s): {', '.join(args.tag)}" if args.tag else ""
+        print(f"No eval cases found under {args.path}{tag_suffix}", file=sys.stderr)
         return 1
 
     # Cache loaded step configs so we don't re-read prompts for every case in
