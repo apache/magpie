@@ -10,9 +10,9 @@
 #   * THREE modes, ONE mechanism:
 #       ./loop.sh                 build, unlimited iterations
 #       ./loop.sh 20              build, max 20 iterations
-#       ./loop.sh plan [N]        gap-analysis only (updates the plan)
-#       ./loop.sh update [N]      back-fill specs from code others contributed
-#       ./loop.sh consolidate [N] shrink the plan
+#       ./loop.sh plan [N]        gap-analysis only, updates the plan (default 1 pass; N=0 unlimited)
+#       ./loop.sh update [N]      back-fill specs from code others contributed (default 1 pass; N=0 unlimited)
+#       ./loop.sh consolidate [N] shrink the plan (default 1 pass; N=0 unlimited)
 #   * BRANCH PER WORK ITEM: before each build iteration the loop returns
 #     to the integration base; the build prompt then carves out
 #     <slug> for the one work item it implements. One work item =
@@ -93,11 +93,11 @@ PLAN_CONSOLIDATE_THRESHOLD="${SPEC_LOOP_PLAN_MAX:-500}"
 
 # ---- parse arguments -------------------------------------------------
 if [ "${1:-}" = "plan" ]; then
-    MODE="plan";        PROMPT_FILE="$LOOP_DIR/PROMPT_plan.md";        MAX_ITERATIONS="${2:-0}"
+    MODE="plan";        PROMPT_FILE="$LOOP_DIR/PROMPT_plan.md";        MAX_ITERATIONS="${2:-1}"
 elif [ "${1:-}" = "update" ]; then
-    MODE="update";      PROMPT_FILE="$LOOP_DIR/PROMPT_update.md";      MAX_ITERATIONS="${2:-0}"
+    MODE="update";      PROMPT_FILE="$LOOP_DIR/PROMPT_update.md";      MAX_ITERATIONS="${2:-1}"
 elif [ "${1:-}" = "consolidate" ]; then
-    MODE="consolidate"; PROMPT_FILE="$LOOP_DIR/PROMPT_consolidate.md"; MAX_ITERATIONS="${2:-0}"
+    MODE="consolidate"; PROMPT_FILE="$LOOP_DIR/PROMPT_consolidate.md"; MAX_ITERATIONS="${2:-1}"
 elif [[ "${1:-}" =~ ^[0-9]+$ ]]; then
     MODE="build";       PROMPT_FILE="$LOOP_DIR/PROMPT_build.md";       MAX_ITERATIONS="$1"
 else

@@ -27,9 +27,9 @@ this is the operator quickstart.
 ```bash
 ./tools/spec-loop/loop.sh              # build, unlimited iterations
 ./tools/spec-loop/loop.sh 10           # build, max 10 iterations
-./tools/spec-loop/loop.sh plan         # gap-analysis → rewrite the plan (no code changes)
-./tools/spec-loop/loop.sh update       # back-fill specs from functionality others contributed
-./tools/spec-loop/loop.sh consolidate  # shrink the plan when it grows too long
+./tools/spec-loop/loop.sh plan         # gap-analysis → rewrite the plan (no code changes; 1 pass, add N for more)
+./tools/spec-loop/loop.sh update       # back-fill specs from functionality others contributed (1 pass, add N for more)
+./tools/spec-loop/loop.sh consolidate  # shrink the plan when it grows too long (1 pass, add N for more)
 ```
 
 - **plan** — compares `specs/` against the code and rewrites
