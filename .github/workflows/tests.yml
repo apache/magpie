@@ -56,6 +56,8 @@ jobs:
             path: tools/vulnogram/oauth-api
           - name: sandbox-lint
             path: tools/sandbox-lint
+          - name: agent-isolation
+            path: tools/agent-isolation
     # GitHub Actions log viewer renders ANSI colour escapes; without
     # an attached TTY most tools default to monochrome. `FORCE_COLOR`
     # is the de-facto signal honoured by uv, ruff, mypy, and pytest's
