@@ -30,6 +30,15 @@ before calling this script. The actual publish-to-cve.org push
 (``READY`` → ``PUBLIC``) still happens through the Vulnogram UI button
 because it has out-of-band side effects (CNA feed dispatch) that the
 script intentionally does not automate.
+
+**Merge mode (default on)** — before the POST, the script fetches
+the record's current state and applies three safety nets against
+the document about to be pushed: state-downgrade refusal,
+references-by-URL merge, product/packageName-change refusal. See
+:mod:`vulnogram_api.merge_mode` for the full rules, and the
+``--allow-state-downgrade`` / ``--replace-references`` /
+``--allow-product-change`` / ``--full-replace`` flags below for the
+escape hatches.
 """
 
 from __future__ import annotations
@@ -45,9 +54,11 @@ from vulnogram_api.client import (
     RecordSaveFailed,
     SessionExpired,
     VulnogramAPIError,
+    get_record,
     update_record,
 )
 from vulnogram_api.credentials import Session, locate_session
+from vulnogram_api.merge_mode import MergeModeRefused, apply_merge_mode_guards
 
 CVE_ID_RE = re.compile(r"^CVE-\d{4}-\d{4,7}$")
 
@@ -84,7 +95,77 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default="cve5",
         help="Vulnogram section path component. Default: cve5.",
     )
+    ap.add_argument(
+        "--allow-state-downgrade",
+        action="store_true",
+        help=(
+            "Allow CNA_private.state to move backwards from PUBLIC "
+            "to REVIEW / DRAFT / READY. Required when the regression "
+            "is intentional; refused by default because every prior "
+            "instance was an accidental side-effect of a regenerator "
+            "re-push (see CVE-2026-41016)."
+        ),
+    )
+    ap.add_argument(
+        "--replace-references",
+        action="store_true",
+        help=(
+            "Replace `references[]` wholesale instead of merging the "
+            "new emission with the current record by URL. Use when "
+            "the reviewer is genuinely dropping an old reference; by "
+            "default the merge preserves any URL in the current "
+            "record that is not in the new emission (catches the "
+            "hand-added advisory URL the regenerator forgets)."
+        ),
+    )
+    ap.add_argument(
+        "--allow-product-change",
+        action="store_true",
+        help=(
+            "Allow `affected[].product` / `packageName` changes vs "
+            "the current record. Required when the change is "
+            "intentional (broadening scope to add a new package, or "
+            "correcting the originally-published name); refused by "
+            "default because every prior instance was a regenerator "
+            "scope mismatch."
+        ),
+    )
+    ap.add_argument(
+        "--full-replace",
+        action="store_true",
+        help=(
+            "Umbrella: equivalent to passing all three merge-mode "
+            "overrides above. Use only when the intent is to wholly "
+            "replace the current record (e.g. an emergency revert "
+            "to a known-good canonical JSON)."
+        ),
+    )
     return ap.parse_args(argv)
+
+
+def _fetch_current_or_none(
+    session: Session,
+    cve_id: str,
+    *,
+    section: str,
+) -> dict | None:
+    """Return the current record's JSON, or ``None`` when it does
+    not yet exist (first push for this CVE ID).
+
+    Other API errors propagate — only the "record not found" shape
+    falls through as ``None`` because that is the signal that there
+    is nothing to merge against. Distinguishing it lets the new-
+    record path land cleanly without spurious merge-guard refusals.
+    """
+    try:
+        return get_record(session, cve_id, section=section)
+    except VulnogramAPIError as exc:
+        # The not-found shape is a specific error string from
+        # `get_record`; check it loosely so we don't swallow other
+        # API failures (auth, 5xx, malformed response).
+        if "not found" in str(exc).lower():
+            return None
+        raise
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -106,6 +187,36 @@ def main(argv: list[str] | None = None) -> int:
 
     creds_path = locate_session(args.credentials)
     session = Session.load(creds_path)
+
+    # Fetch the current record so the merge-mode guards have
+    # something to compare against. The fetch is a no-op when the
+    # record does not yet exist (first push) — guards become
+    # no-ops in that case and the original document is pushed
+    # verbatim.
+    try:
+        current = _fetch_current_or_none(session, args.cve_id, section=args.section)
+    except SessionExpired as e:
+        print(f"✗ {e}", file=sys.stderr)
+        return 2
+    except VulnogramAPIError as e:
+        print(f"✗ {e}", file=sys.stderr)
+        return 6
+
+    allow_state_downgrade = args.allow_state_downgrade or args.full_replace
+    replace_references = args.replace_references or args.full_replace
+    allow_product_change = args.allow_product_change or args.full_replace
+
+    try:
+        document = apply_merge_mode_guards(
+            current,
+            document,
+            allow_state_downgrade=allow_state_downgrade,
+            replace_references=replace_references,
+            allow_product_change=allow_product_change,
+        )
+    except MergeModeRefused as exc:
+        print(f"✗ {exc}", file=sys.stderr)
+        return 3
 
     try:
         envelope = update_record(session, args.cve_id, document, section=args.section)
