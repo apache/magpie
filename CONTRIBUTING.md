@@ -874,6 +874,9 @@ Good entry points, in rough order of ramp-up cost:
    The current backlog has 24+ such issues, including 22 net-new
    tool / adapter bridges and per-CLI runtime ports tracked at
    [#301–#322](https://github.com/apache/airflow-steward/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22+sort%3Acreated-desc).
+   Before you start work, please leave a comment on the issue so a
+   maintainer can assign it to you. That keeps two people from working
+   on the same issue at the same time.
    Two clusters:
    - **Tool bridges** ([#301–#312](https://github.com/apache/airflow-steward/issues/301)) — JIRA write path, Bugzilla, IMAP / mbox concrete wiring, GitLab, Mailman 3 / Hyperkitty, Discourse, Zulip, Matrix, Forgejo, OSV.dev, Pagure.
    - **Agent-CLI runtime adapters** ([#313–#322](https://github.com/apache/airflow-steward/issues/313)) — Codex, Gemini, local-LLM, Cursor, Aider, gh-copilot, Goose, Amazon Q, Junie, OpenHands.
