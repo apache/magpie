@@ -765,7 +765,11 @@ status comment — the flag has self-replicated once and will keep going
 forever if every sync copies it forward blindly. If the verification
 step itself fails (Gmail 500, API timeout), say so explicitly rather
 than defaulting to "assume stale"; silent replication is the failure
-mode to avoid.
+mode to avoid. This is one application of the broader
+[verify-before-claim rule](../../../tools/gmail/operations.md#verify-before-claim--never-assert-a-draft-is-still-pending-without-checking) —
+the same `list_drafts` guard also applies before the
+"Reporter notification still pending — see draft `<draftId>`" line in
+the Step 4 status-rollup entry below.
 
 Do **not** act on signals automatically; as always, each one becomes a
 numbered proposal item in Step 2 and only applies after user
@@ -1568,6 +1572,17 @@ will change and *why*. Group them by category:
     the security team and is already in the loop.
   - *"Reporter notification still pending — see draft `<draftId>`."*
     — if a draft was created but the user has not yet sent it.
+    **Before emitting this line**, call
+    `mcp__claude_ai_Gmail__list_drafts` and confirm `<draftId>` is
+    in the result. If it is gone (sent or discarded between draft
+    creation and this status-comment post), flip to *"Reporter
+    draft `<draftId>` is no longer in Drafts — sent or
+    discarded."* — never assert "still pending" without checking.
+    This rule applies on **every** sync that emits the line,
+    including the sync that created the draft (the user may have
+    switched to Gmail and sent it before the comment landed). See
+    the [verify-before-claim rule](../../../tools/gmail/operations.md#verify-before-claim--never-assert-a-draft-is-still-pending-without-checking)
+    for the full rationale.
 
   **Summary action-label for a sync pass** — see the table in
   [`status-rollup.md`](../../../tools/github/status-rollup.md#summary--action-labels).

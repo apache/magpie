@@ -13,6 +13,7 @@
     - [Create draft — `oauth_curl` backend](#create-draft--oauth_curl-backend)
     - [Hard rules that apply to both backends](#hard-rules-that-apply-to-both-backends)
     - [List drafts](#list-drafts)
+    - [Verify-before-claim — never assert a draft is "still pending" without checking](#verify-before-claim--never-assert-a-draft-is-still-pending-without-checking)
   - [Hard limitation — no update, no delete](#hard-limitation--no-update-no-delete)
   - [Confidentiality of drafts](#confidentiality-of-drafts)
   - [Error handling](#error-handling)
@@ -239,6 +240,40 @@ Used by `security-issue-sync` to verify that a draft flagged as stale
 in a previous status comment still exists before carrying the flag
 forward. See the *"self-replicating stale-draft flag"* paragraph in
 that skill.
+
+### Verify-before-claim — never assert a draft is "still pending" without checking
+
+Any skill that writes a tracker status comment, proposal, or recap
+line of the shape *"Reporter notification still pending — see draft
+`<draftId>`"* (or any analogous "draft is awaiting send" claim) MUST
+call `list_drafts` immediately before emitting the line and confirm
+`<draftId>` is in the returned set.
+
+- **If the `draftId` is in the result** → emit the "still pending"
+  line as planned.
+- **If the `draftId` is NOT in the result** → the draft is gone:
+  the user has either sent it (Gmail moves sent items out of Drafts)
+  or discarded it. Do **not** emit "still pending". Instead, flip
+  the line to one of:
+  - *"Reporter draft `<draftId>` is no longer in Drafts — sent or
+    discarded (verify in Sent if uncertain)."* — neutral, no false
+    claim.
+  - *"Reporter has been notified on the original mail thread."* —
+    only if the skill can independently confirm the send (e.g. via
+    `list_sent_since` filtered to the recipient, or
+    `get_thread(threadId)` showing a SENT message after the draft
+    was created).
+
+The rule applies in **every** sync, not only on stale-flag
+carry-forward. The "draft was just created in this same pass" case
+is no exception — the user may have switched to Gmail and sent it
+between the create call and the status-comment post; one extra
+`list_drafts` call covers the race.
+
+Without this guard, a "still pending" flag posted on one sync
+self-replicates across every subsequent sync long after the user
+has actually sent the email, nagging the team about a phantom
+pending notification.
 
 ## Hard limitation — no update, no delete
 
