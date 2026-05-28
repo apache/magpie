@@ -729,6 +729,7 @@ update, label change, or next-step recommendation in Step 2:
 | Reporter reply with a confirmed credit line (*"please credit me as …"*, *"use handle X"*, *"anonymous is fine"*) | Replace the `Reporter credited as` placeholder with the confirmed form; mark the credit question as resolved so the next status-update draft does not re-ask it. |
 | Reporter explicit opt-out of credit (*"do not credit me"*, *"anonymous"*) | Set the field to `anonymous` and flag the advisory to use that form. |
 | Release manager's `[RESULT][VOTE] Release Airflow <version>` on `<dev-list>` for a version that carries the fix | Record the release manager in the "Known release managers" subsection of [`AGENTS.md`](../../../AGENTS.md) if not already there; flag Step 13 (advisory) as assigned to that person. |
+| Open `[VOTE] Release <project> <version>` thread on `dev@<project>.apache.org` for a version that matches the tracker's fix-PR milestone, *and* the project has opted into release-vote gating ([`[workflow].release_vote_gating` in `cve-json-config.toml`](../../../tools/vulnogram/generate-cve-json/SKILL.md)) | Propose adding the configured `rc voting` label (default name; see [Step 1h](#1h-detect-active-release-vote-threads-opt-in-asf-projects)). The label feeds back into the CVE-JSON generator on the next regen: `CNA_private.state` flips from `DRAFT` to `REVIEW`, signalling the release manager's *"about to publish"* moment. Detection logic, dev-list resolution, and the `pr merged` window gate live in Step 1h. |
 | Advisory archived on `<users-list>` (the announcement message is now visible in `lists.apache.org/list.html?<users-list>` — scan the archive with the CVE ID when `fix released` is set and the *"Public advisory URL"* body field is empty) | This is the **post-advisory lifecycle close-out trigger**. Propose, in a single combined apply: (1) populate the *"Public advisory URL"* body field with the archive URL; (2) **extract the public-facing short summary from the advisory email body** (the prose between the CVE header and the *Affected version range* block of the archived message) and write it back to the *"Short public summary for publish"* body field, so the tracker's summary matches what actually shipped; (3) flip the tracker labels — add `announced - emails sent` and `announced`, remove `fix released`; (4) regenerate the CVE JSON attachment (the generator picks up the new short summary as `descriptions[].value` and the URL as a `vendor-advisory` reference); (5) re-push the regenerated JSON to the Vulnogram record over the OAuth API; (6) **move the Vulnogram record `REVIEW → PUBLIC`** via the OAuth API — this is the CNA-feed dispatch to `cve.org`, formerly gated on a manual UI click but now driven by sync on the archive-URL signal (the URL is the real-world signal that the advisory has actually shipped); (7) move the project-board column to `Announced`; (8) close the tracker as `completed`; (9) **archive the tracker from the `Announced` column** on the board via the `archiveProjectV2Item` GraphQL mutation; (10) — **if every sibling on the tracker's milestone is also closed at that moment** — close the milestone too via the milestone-PATCH recipe in [Step 4](#step-4--apply-confirmed-changes); (11) post a **purely informational** wrap-up comment tagging the release manager as a timeline-event marker that the lifecycle is complete — **no manual asks**, since (9) and (10) are already sync-driven and the RM has no remaining actions post-Send-Email. The OAuth API push + `REVIEW → PUBLIC` step degrade to a paste fallback in the [`release-manager-handoff-comment.md`](../../../tools/vulnogram/release-manager-handoff-comment.md) variant when the OAuth session is not available. |
 | Advisory message sent to `announce@apache.org` / `<users-list>` but archive URL not yet visible | No-op transition; **do not** flip the `fix released → announced` labels here. The label flip is part of the combined "archive URL captured" apply above and only fires when the archive URL is confirmed live on `lists.apache.org` (this is the load-bearing real-world signal that the advisory actually shipped — a `[VOTE]/[ANNOUNCE]` mail thread in flight without an archived URL is ambiguous). |
 | Project-board column drifted from the issue's label-derived state (e.g. a tracker carries `pr merged` but is still in the `PR created` column on [Project 2](<project-board-url>), or `announced` + *Public advisory URL* body field populated but the column is still `Fix released`) | Propose moving the project item to the correct column per the mapping table in Step 2b. The board is the primary security-team overview surface; a stale column hides ownership handoffs from the team at a glance. |
@@ -1058,6 +1059,124 @@ dispositions (`invalid` / `duplicate` /
 `wontfix`) — skip the cve.org check entirely and drop the tracker
 from the closed-bucket sweep.
 
+### 1h. Detect active release-vote threads (opt-in, ASF projects)
+
+**Opt-in.** This sub-step only fires when the project has enabled
+release-vote gating in the CVE-JSON generator's config — i.e. when
+`[workflow].release_vote_gating` is `true` in
+[`<project-config>/tools/vulnogram/cve-json-config.toml`](../../../<project-config>/tools/vulnogram/cve-json-config.toml).
+Adopters that publish advisories without a separate release-vote
+step leave the flag off; the sync skill skips this sub-step
+entirely for them and the `rc voting` label is never proposed.
+
+**Why this step exists.** The CVE-JSON generator's `CNA_private.state`
+field follows a tri-state machine: `DRAFT` until the CVE is review-
+ready, then `REVIEW` once an RC for the carrier release is being
+voted, then `PUBLIC` after the advisory ships (see
+[`tools/vulnogram/generate-cve-json/SKILL.md`](../../../tools/vulnogram/generate-cve-json/SKILL.md)
+for the full state machine). The gating is driven by a tracker label
+(`[workflow].rc_voting_label`, default `"rc voting"`); this sub-step
+is the **only place** the sync skill proposes adding or removing
+that label, so the manual *"is there a vote in progress?"* check
+lives here and nowhere else.
+
+**Which trackers this applies to.** Only trackers in the
+`pr merged` → `fix released` window. Concretely:
+
+- Tracker carries `pr merged` (fix landed in `<upstream>`).
+- Tracker does **not** yet carry `fix released` (release has not
+  shipped).
+- A fix-PR milestone is known and parseable (e.g.
+  `Airflow 3.2.3`, `Providers 2026-04-21`); without a target
+  release version there is nothing to match against.
+
+Trackers outside this window are skipped:
+
+- `cve allocated` only (no public PR yet) — too early; nothing
+  to vote on.
+- `fix released` — too late; the vote already happened, the
+  release shipped, and any remaining `rc voting` label is
+  removed by the existing `pr merged` → `fix released`
+  transition (see Step 2b *Labels* bullet).
+- `announced` / closed — out of scope entirely.
+
+**Backend selection.** PonyMail is the primary read source for
+this step regardless of inbox-latency considerations, because
+`dev@<project>.apache.org` is a public list with no private-list
+gate and PonyMail's archive view gives a consistent cross-team
+read. Fall back to Gmail only when PonyMail MCP is not enabled
+/ not authenticated. Per-tracker budget: ≤ 1 archive search
+(adds to the Step 1d combined envelope).
+
+**Resolving the dev-list address.** Default to
+`dev@<project-domain>` derived from the project's `project_url`
+(e.g. `https://airflow.apache.org/` → `dev@airflow.apache.org`).
+Adopters who use a non-standard dev-list address (the project's
+top-level list is somewhere else, or the release-vote conversation
+happens on a sub-team list) can override by setting
+`[workflow].release_vote_list` in the same TOML config — the sync
+skill reads that field if present, falls back to the derived
+default otherwise.
+
+**Query shape (PonyMail).** Search the project's dev list for
+recent `[VOTE]` threads. The window is **last 21 days** —
+generous enough to catch a vote that just opened (the typical
+ASF vote runs 72 hours, but releases sometimes re-cut RCs and
+the conversation spans a couple of weeks) but short enough that
+the result set stays manageable.
+
+```text
+mcp__ponymail__search_list(
+  list: "dev",
+  domain: "<project-domain>",
+  query: "[VOTE]",
+  timespan: "lte=21d",
+  emails_only: true
+)
+```
+
+**Matching against the tracker's fix milestone.** For each
+returned thread:
+
+1. Extract the version from the subject line. ASF [VOTE] subjects
+   follow the convention `[VOTE] Release <Project> <X.Y.Z> from
+   <X.Y.Z>rcN` (sometimes with sibling artifacts on the same vote
+   — `& Task SDK <A.B.C> from <A.B.C>rcM`). Parse the **first**
+   `<X.Y.Z>` token after the project name.
+2. Compare against the tracker's fix-PR milestone (the milestone
+   on the PR, not on the tracker — the tracker's milestone may
+   be a wave-month label like `Providers 2026-04-21`, but the
+   PR's milestone carries the actual carrier version like
+   `Airflow 3.2.3`). For wave-based provider milestones, also
+   check whether the vote's release ships the right *provider
+   wave* — the wave milestone on the tracker (e.g. *Providers
+   2026-04-21*) maps to a `[VOTE] Release Providers …` thread.
+3. Check the thread's most recent message: a
+   `[RESULT][VOTE]` reply is a closed vote. Open votes have **no**
+   `[RESULT]` reply yet. Closed votes do not warrant a label
+   add — by the time the vote has resolved, either the release
+   shipped (and `fix released` flow takes over) or the vote
+   failed (and the team will cut a fresh RC; the next sync will
+   pick up the new `[VOTE]` thread).
+
+**Record in the per-tracker state bag.** Two booleans:
+
+- `release_vote_in_progress`: `true` when the conditions above
+  fire — a tracker in the `pr merged` window has a matching
+  open `[VOTE]` thread on the right list.
+- `release_vote_thread_url`: the PonyMail thread URL if found
+  (`https://lists.apache.org/thread/<hash>?<list>@<domain>`) —
+  used as the rationale in the Step 2b proposal.
+
+**Hard rule — no auto-apply.** Like every other signal in this
+step, the result feeds into Step 2b's proposal and only applies
+after the user confirms. The sync skill never adds the `rc voting`
+label silently — the label has real downstream effects (the next
+CVE-JSON regen flips the embedded `CNA_private.state` to `REVIEW`,
+which a release manager pastes into Vulnogram), so the human
+read of *"yes, that vote is for our carrier release"* is the
+required gate.
+
 ---
 
 ## Step 2 — Build a proposal (do not apply anything yet)
@@ -1076,6 +1195,37 @@ Each proposed change is a **numbered item** and must be explicit about *what*
 will change and *why*. Group them by category:
 
 - **Labels to add / remove** — e.g. *"remove `needs triage`; add `airflow`"*. Reason: one scope label is required by the process once triage is complete.
+
+  **Release-vote label (opt-in, ASF projects only).** When release-
+  vote gating is enabled (`[workflow].release_vote_gating = true` in
+  the CVE-JSON generator's config), Step 1h's detection feeds two
+  more proposal shapes into this category:
+
+  - *Add* the configured `rc voting` label (default `"rc voting"`)
+    when a matching open `[VOTE]` thread was detected on
+    `dev@<project>.apache.org` and the tracker is in the
+    `pr merged` window. The proposal must quote the PonyMail
+    thread URL as the rationale so the security team can spot-
+    check the match before confirming — *"detected active vote
+    thread: `<thread-url>` carrying version X.Y.Z, matches fix-PR
+    milestone"*.
+  - *Remove* the `rc voting` label when the existing
+    `pr merged` → `fix released` transition fires (the release
+    shipped — the vote passed and is now historical). This
+    removal piggy-backs on the same proposal that adds
+    `fix released` and removes `pr merged`; surface it as part
+    of the same numbered item so the user confirms one combined
+    label flip rather than two separate ones. The label can
+    also be removed by hand if a vote *fails* and the team
+    re-cuts an RC; the sync skill does not actively detect
+    failed votes (the heuristic is fragile and the human re-add
+    on the next vote is cheap).
+
+  The label gating is **only** consulted for projects that
+  opted in via the generator config. For non-ASF adopters that
+  did not opt in, this entire sub-paragraph is a no-op — the
+  label is never proposed, added, or referenced, and the
+  generator's legacy *"ready ⇒ REVIEW"* behaviour applies.
 - **Milestone** — propose the matching release milestone on the
   issue. The milestone format depends on the scope label and is
   project-specific; for the adopting project see
