@@ -50,9 +50,9 @@ sequencing commitments behind them.
 
 | Mode | Purpose | Status | Skill count |
 |---|---|---|---|
-| **Triage** | Issues, security reports, PRs: spot, classify, route, surface duplicates. Every output is a suggestion the human signs off on. | stable (security) / experimental (pr-management, issue-management, contributor-nomination) | 13 |
+| **Triage** | Issues, security reports, PRs: spot, classify, route, surface duplicates. Every output is a suggestion the human signs off on. | stable (security) / experimental (pr-management, issue-management, contributor-nomination) / proposed (release-management) | 13 + 4 proposed |
 | **Mentoring** | Joins issue and PR threads in a teaching register: clarifying questions, pointers to project conventions, paired examples from prior PRs, hand-off to a human when scope exceeds the agent. | experimental | 1 |
-| **Drafting** | Agent drafts a fix for a well-scoped problem and opens a PR; every PR is reviewed and merged by a human committer. | stable (security-only); experimental (issue-management) | 2 |
+| **Drafting** | Agent drafts a fix for a well-scoped problem and opens a PR; every PR is reviewed and merged by a human committer. | stable (security-only); experimental (issue-management); release-management family proposed | 2 + 6 proposed |
 | **Pairing** | Developer-side dev-cycle skills with mentorship intrinsic — multi-agent review pipelines, self-review and pre-flight patterns, scoped fix drafting under the developer's driver's seat. | experimental | 1 |
 | **Auto-merge** | Auto-merge restricted to objectively boring change classes (lint, dependency bumps inside an allow-list, license-header insertion, formatting, broken-link repair). | off | 0 |
 
@@ -82,8 +82,12 @@ do not act without human review.
 | [`security-issue-invalidate`](../.claude/skills/security-issue-invalidate/SKILL.md) | Close a tracker as invalid with a polite-but-firm reporter reply. | stable |
 | [`security-issue-sync`](../.claude/skills/security-issue-sync/SKILL.md) | Reconcile a tracker against its mail thread, fix PR, release train, and archives. | stable |
 | [`security-cve-allocate`](../.claude/skills/security-cve-allocate/SKILL.md) | Allocate a CVE for a tracker (Vulnogram URL + paste-ready JSON). | stable |
+| `release-verify-rc` | Read-only pre-flight on a staged RC: signatures against project KEYS, checksums, license headers (Apache RAT), NOTICE/LICENSE diff, no prohibited binaries, version-string consistency. Doubles as a Pairing-mode skill voters run in their own dev loop. | proposed |
+| `release-vote-tally` | Parse a `[VOTE]` thread, classify each reply (+1 / 0 / -1) binding vs non-binding against the PMC roster, propose `[RESULT] [VOTE]`. Conservative on ambiguous votes, refuses to count. | proposed |
+| `release-archive-sweep` | Scan `dist/release/<project>/`, identify releases past retention, propose the `svn mv` sequence to `archive.apache.org`. | proposed |
+| `release-audit-report` | Per-release structured report (RM, voters with binding flags, artefacts with sigs and checksums, promote revision, `[ANNOUNCE]` archive URL) appended to the project's audit log. | proposed |
 
-Two notes on the boundaries:
+Three notes on the boundaries:
 
 - `pr-management-code-review` is a deeper variant of triage —
   the agent reads diff and surrounding code rather than only
@@ -93,6 +97,13 @@ Two notes on the boundaries:
   (CVE allocation happens after assessment), but it shares Triage's
   shape: the agent prepares a paste-ready artefact, the human
   PMC member submits it. Listed here for navigability.
+- The four `release-*` Triage skills share the same paste-ready-
+  artefact shape: `release-verify-rc` reports pass/fail per check,
+  `release-vote-tally` proposes `[RESULT]`, `release-archive-sweep`
+  proposes an `svn mv` sequence, `release-audit-report` proposes
+  an audit-log append. None of them flip state labels or
+  publish artefacts, see
+  [`docs/release-management/spec.md` § Cross-cutting commitments](release-management/spec.md#cross-cutting-commitments).
 
 ## Mentoring
 
@@ -138,13 +149,26 @@ the agent never merges its own work.
 |---|---|---|
 | [`security-issue-fix`](../.claude/skills/security-issue-fix/SKILL.md) | Draft a fix PR in `<upstream>` from a triaged, CVE-allocated tracker. | stable (security-only) |
 | [`issue-fix-workflow`](../.claude/skills/issue-fix-workflow/SKILL.md) | Draft a fix for a triaged general-issue-tracker issue (BUG or FEATURE-REQUEST). | experimental |
+| `release-prepare` | Planning issue + version-bump / changelog / NOTICE / LICENSE prep PR (Steps 1-2). Also the post-release `-SNAPSHOT` bump (Step 14). | proposed |
+| `release-keys-sync` | Draft the `KEYS` diff for a new Release Manager (Step 3). Agent never holds the private key. | proposed |
+| `release-rc-cut` | Paste-ready command sequence: signed tag, build, detached signatures, checksums, `svn import` to `dist/dev/` (Steps 4-5). Agent never signs and never imports. | proposed |
+| `release-vote-draft` | Draft the `[VOTE]` email body to `dev@<project>` (Step 7). Agent never sends. | proposed |
+| `release-promote` | Paste-ready `svn mv dist/dev → dist/release` command set after a passing vote (Step 10). Agent never moves; the human commit is the act of release. | proposed |
+| `release-announce-draft` | Draft the `[ANNOUNCE]` email body for `announce@apache.org` and the site-bump PR (Step 11). Agent never sends mail and never merges the PR. | proposed |
 
 **Generic Drafting is proposed.** [`MISSION.md`](../MISSION.md)
 names lint fixes, audit-tool findings (Apache Verum, Apache Caer,
 CodeQL, equivalents), failing tests with obvious causes, and
 documentation holes as in-scope for Drafting beyond the security
 case. None of those are implemented yet; security-issue-fix is
-the only Drafting skill in the framework today.
+the only Drafting skill shipping in the framework today.
+
+The six `release-*` Drafting skills above land as a single family
+([`docs/release-management/README.md`](release-management/README.md))
+once the spec lands. They share the security family's discipline
+that every state-changing action is a *proposal* the human
+executes, see
+[`docs/release-management/spec.md` § Cross-cutting commitments](release-management/spec.md#cross-cutting-commitments).
 
 For security-class Drafting PRs, the public surface strips CVE
 and private context per the project's disclosure policy, so the
