@@ -266,62 +266,66 @@ concurrently, which is exactly what the sync needs.
      change tracker state but do not alter the published CVE
      record.
 
-4. **Walk CVE-affecting trackers individually; bundle the rest.**
-   The two buckets are presented to the user differently:
+4. **Present both buckets as merged bulk proposals; the
+   CVE-affecting bucket gets a richer per-item view.** The
+   two buckets are presented to the user differently:
 
    - **Non-CVE-affecting bucket** — fold into one combined
-     proposal, same shape as before this change. The user
+     proposal, same shape as the legacy bulk mode. The user
      confirms once with `all`, `NN:all`, `NN:1,3`, or per-issue
      subsets, and the orchestrator applies them sequentially.
      This bucket is bundled because the actions are reversible,
      low-blast-radius, and do not leak into public CVE surfaces.
-   - **CVE-affecting bucket** — walk **one tracker at a time**,
-     even when many trackers are in the bulk run. For each
-     CVE-affecting tracker the orchestrator:
-     1. Presents a self-contained per-tracker proposal —
-        CVE ID, gate-failure summary, every proposed body-field
-        update with old / new value side by side, the planned
-        regen+push action, any deferral conditions. The proposal
-        is the only context the user needs to read to confirm.
-     2. Waits for explicit user confirmation (`OK`, item subset,
-        free-form edits, or `skip`). A confirmed bundle from the
-        previous tracker does **not** carry to the next.
-     3. Applies the confirmed items + Step 5/5b regen+push for
-        that one tracker, then moves to the next.
+   - **CVE-affecting bucket** — present **all proposed
+     CVE-record-affecting changes from all trackers as ONE
+     merged bulk proposal**, with per-tracker sections so the
+     user can review every body-field rewrite, every regen+push
+     target, every deferral condition at a glance. For each
+     tracker section the proposal shows: CVE ID, gate-failure
+     summary, every body-field update with old / new value
+     side by side, the planned regen+push action, any deferral
+     conditions. The user reviews the **whole bulk pack at
+     once** and signals which items to apply / skip / modify
+     using the same syntax as the non-CVE-affecting bucket
+     (`all`, `NN:all`, `NN:1,3`, `NN:skip`, `NN:edit <item>:
+     <new value>`). On confirmation the orchestrator applies
+     the confirmed items across all trackers sequentially.
 
-   **Why the per-tracker walk for CVE-affecting changes.** A
-   bundled confirmation across N CVE-affecting trackers
-   compresses N independent CVE records into one yes/no, which
-   makes it too easy to nod through a body-field rewrite that
-   ships to `cve.org` (where it stays — `cve.org` records are
-   public-by-default and edits land as new revisions, not silent
-   overwrites). The five pre-push hygiene gates in
-   [Step 5b 1b](#decision-flow) catch *mechanical* drift (bare
-   CWE, missing upgrade target, etc.) but they cannot catch
-   *judgment* drift — whether the team agrees the summary's
-   threat model is right, whether the credit line names the
-   right person, whether the CWE choice fits the patch's
-   nature. Those decisions belong with the user, one record at
-   a time. The non-CVE-affecting bucket does not share this
-   property (a wrong label is reverted with a single `gh issue
-   edit`; a wrong public CVE summary requires a record
-   revision that downstream feeds re-pick-up).
+   **Why bulk-review (and not per-tracker walk).** Per-tracker
+   walk through N CVE-affecting trackers serialises the
+   confirmation cost into N round-trips and forces context
+   re-loading for each one — the operator can't compare
+   proposed summaries across trackers, can't notice that two
+   trackers should converge on the same CWE long-form, can't
+   see at a glance that three are blocked on the same missing
+   field. A single merged proposal puts everything on one
+   page: the operator sees the full bulk shape, edits whichever
+   items they want, and the orchestrator applies the
+   confirmed set in one pass. The hygiene gates in
+   [Step 5b 1b](#decision-flow) still catch *mechanical* drift
+   (bare CWE, missing upgrade target, etc.) on every JSON
+   regen; the bulk-review surface is for the operator to make
+   *judgment* calls (threat-model framing, credit-line shape,
+   CWE choice) before the push fires.
 
-   **No `--bundled` override.** This is the default and only
-   mode for the CVE-affecting bucket. The user can still
-   `skip` a tracker, or interrupt mid-walk and ask the
-   orchestrator to abort the rest; what they cannot do is
-   collapse multiple CVE pushes into one confirmation. The
-   round-trip cost (one extra confirmation prompt per CVE) is
-   the point: it forces a re-read of the per-tracker proposal
-   right before the push lands on `cve.org`.
+   **Confirmation syntax** for the merged proposal:
 
-   **Walk order.** Within the CVE-affecting bucket, walk
-   trackers in **ascending tracker-number order** unless the
-   user names a different order at confirmation. Deterministic
-   order makes the walk predictable across reruns and lets the
-   user say *"do #232 last, I want to think about it"* without
-   the orchestrator inventing a heuristic.
+   - `all` — apply every proposed change across all trackers.
+   - `<N>:all` — apply every change on tracker `<N>`; skip the
+     others.
+   - `<N>:1,3,5` — apply only the listed items on tracker
+     `<N>`.
+   - `<N>:skip` — skip tracker `<N>` entirely.
+   - `<N>:edit <item-number>: <new value>` — replace the
+     proposed item with a free-form override before applying.
+   - `cancel` / `none` — apply nothing.
+
+   **Proposal order in the merged pack.** Trackers appear in
+   **ascending tracker-number order** so the operator can
+   navigate predictably across reruns. The operator can name a
+   different order at confirmation (*"apply #438 first; I want
+   to think about #232 last"*) and the orchestrator honours
+   it.
 
 5. **Apply sequentially, not in parallel.** Even though
    assessment ran in parallel, the apply phase must be
