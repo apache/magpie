@@ -62,7 +62,7 @@ This matters for three skill behaviours:
 1. **Credit extraction.** The `From:` header of a relay message
    names the broker, not the reporter. Per the bot/AI credit
    policy in
-   [`tools/cve-tool-vulnogram/bot-credits-policy.md`](../vulnogram/bot-credits-policy.md)
+   [`tools/cve-tool-vulnogram/bot-credits-policy.md`](../cve-tool-vulnogram/bot-credits-policy.md)
    the tracker's *Reporter credited as* field must name the
    external reporter, so the skill has to pull the name from the
    message body (the broker's preamble convention) instead of
@@ -173,7 +173,7 @@ credit. Returns:
   (automated scanner like `bugbunny.ai`, `protectai/modelscan`),
   `service` (a broker / VRP / SOC operating on someone else's
   behalf). Drives the bot-credit policy gate in
-  [`tools/cve-tool-vulnogram/bot-credits-policy.md`](../vulnogram/bot-credits-policy.md).
+  [`tools/cve-tool-vulnogram/bot-credits-policy.md`](../cve-tool-vulnogram/bot-credits-policy.md).
 * `raw_string` — the exact substring lifted from the body
   (e.g. *"This vulnerability was discovered and reported by
   bugbunny.ai"*). Stored so a later sync can diff against the
@@ -387,7 +387,7 @@ addresses than just `*@apache.org`).
   interface; the prose file remains the human-readable
   reference for the shipping adapter.
 * **Bot-credit gate** —
-  [`tools/cve-tool-vulnogram/bot-credits-policy.md`](../vulnogram/bot-credits-policy.md)
+  [`tools/cve-tool-vulnogram/bot-credits-policy.md`](../cve-tool-vulnogram/bot-credits-policy.md)
   reads the `kind` field returned by `extract_credit()` to
   decide whether a CVE record should list the credit as a tool
   / organisation rather than an individual.
