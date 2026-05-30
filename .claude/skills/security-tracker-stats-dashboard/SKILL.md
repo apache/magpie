@@ -204,15 +204,20 @@ The most-overridden knobs by adopters tend to be:
   changes the dashboard should highlight (skill adoption, team
   handover, policy update). Set to `[]` to remove them.
 - **`scope_labels:`** — the project's primary "what does this
-  affect" axis. Defaults to `[airflow, providers, chart]`;
-  adopters use whatever scope-label set
-  [`<project-config>/scope-labels.md`](../../../projects/_template/scope-labels.md)
-  declares.
+  affect" axis. Resolved from `scope_detection.labels` in
+  [`<project-config>/project.md`](../../../projects/_template/project.md)
+  (and the matching rows of
+  [`<project-config>/scope-labels.md`](../../../projects/_template/scope-labels.md)).
+  ASF/Airflow default is `[airflow, providers, chart]` —
+  non-ASF adopters re-state this list in their overlay to
+  match their own scope set.
 - **`categories:`** — the lifecycle-band classification rules.
   Defaults match the airflow-s reference implementation
   byte-for-byte; adopters with different label conventions
   (e.g. `triaged` instead of *no `needs triage`*) re-state the
-  whole list.
+  whole list. The label literals used in predicates come from
+  `tracker.labels` in
+  [`<project-config>/project.md`](../../../projects/_template/project.md).
 - **`triage.keywords:`** / **`triage.bot_prefixes:`** — the
   time-to-triage signal. Adopters whose security team uses
   different phrasing in triage-proposal comments override these.

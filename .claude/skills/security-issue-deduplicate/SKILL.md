@@ -53,14 +53,19 @@ command, and shows all of them to the user. Nothing is applied
 until the user confirms. There is no fast-path.
 
 **Golden rule — never merge across scopes.** Two trackers with
-different **scope labels** (`airflow` vs. `providers`, `airflow`
-vs. `chart`, etc.) must not be merged. If an external reporter
-rediscovers the same bug in two different products' surfaces, that
-is a multi-scope report and the resolution is a
-**scope split** handled by the `security-issue-sync` skill, not a
-dedupe. This skill refuses to operate when the two candidate
-trackers have different scope labels, and the proposal says so
-explicitly.
+different **scope labels** must not be merged. The set of scope
+labels the project recognises comes from `scope_detection.labels`
+in [`<project-config>/project.md`](../../../<project-config>/project.md#scope-detection)
+(cross-referenced from [`<project-config>/scope-labels.md`](../../../<project-config>/scope-labels.md)).
+In the airflow-s adopter's case the scope labels are `airflow`,
+`providers`, and `chart`, so `airflow` vs. `providers` or
+`airflow` vs. `chart` are the typical mismatches; other adopters
+declare their own. If an external reporter rediscovers the same
+bug in two different products' surfaces, that is a multi-scope
+report and the resolution is a **scope split** handled by the
+`security-issue-sync` skill, not a dedupe. This skill refuses to
+operate when the two candidate trackers have different scope
+labels, and the proposal says so explicitly.
 
 **Golden rule — every `<tracker>` / `<upstream>` reference is
 clickable in the surface it lands on.** Whenever this skill emits
@@ -228,10 +233,13 @@ Verify:
 - Both trackers are in state `open` (merging into or out of a closed
   tracker is almost always a mistake; surface as a blocker if
   either side is already closed and ask the user to confirm).
-- Both have the **same scope label** — `airflow` vs. `airflow`,
-  or `providers` vs. `providers`, or `chart` vs. `chart`. If the
-  scope labels differ, refuse the merge and tell the user this is
-  a multi-scope report to be handled by `security-issue-sync`'s
+- Both have the **same scope label** — the recognised scope
+  labels come from `scope_detection.labels` in
+  [`<project-config>/project.md`](../../../<project-config>/project.md#scope-detection).
+  In the airflow-s adopter that means matching one of `airflow`,
+  `providers`, or `chart` against itself. If the scope labels
+  differ, refuse the merge and tell the user this is a
+  multi-scope report to be handled by `security-issue-sync`'s
   scope-split flow instead.
 - Neither tracker is already labelled `duplicate` (that would
   indicate a partial-merge already happened and someone left it
@@ -262,8 +270,11 @@ Also capture:
 
 - Each tracker's **labels** (scope, `cve allocated`, `pr *`,
   `announced - emails sent`, etc.).
-- Each tracker's **milestone** (Airflow version / Providers wave /
-  Chart version).
+- Each tracker's **milestone** — per-scope milestone naming
+  conventions live in
+  [`<project-config>/milestones.md`](../../../<project-config>/milestones.md)
+  (the airflow-s adopter uses Airflow-version / Providers-wave /
+  Chart-version shapes, one per `scope_detection.labels` entry).
 - Each tracker's **assignees**.
 - Whether each tracker has a **CVE JSON attachment** comment (from
   `generate-cve-json --attach`) — only the kept side's attachment
@@ -440,7 +451,7 @@ before `</details>`.
 - Body: <keep.reporter>'s original report preserved; <drop.reporter>'s report appended as *"Second independent report"*.
 - Credits: **<keep credit>** + **<drop credit>**.
 - Mailing threads: both listed.
-- CVE: [<CVE-N>-<M>](https://cveprocess.apache.org/cve5/<CVE-N>-<M>) stays allocated here; [<tracker>#<drop>](...) being closed as duplicate.
+- CVE: [<CVE-N>-<M>](<cve-record-url>) stays allocated here; [<tracker>#<drop>](...) being closed as duplicate. The `<cve-record-url>` form is assembled from `cve_authority.record_url_template` in [`<project-config>/project.md`](../../../<project-config>/project.md#cve-authority) (the airflow-s adopter resolves to `https://cveprocess.apache.org/cve5/<CVE-ID>`).
 
 **Next:** <one-line next step — e.g. credit-preference confirmation for both, or Step 6 CVE refinement>.
 

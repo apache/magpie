@@ -7,16 +7,30 @@
 # (`TRACKER_STATS_BUCKETS`, `TRACKER_STATS_START`, `TRACKER_STATS_UPSTREAM_REPO`).
 #
 # Defaults below match the reference `airflow-s/airflow-s` dashboard
-# byte-for-byte.
+# byte-for-byte; the ASF adopter inherits these without an overlay.
+# Non-ASF adopters override via the YAML overlay pointed at by
+# `tracker_stats_config:` in <project-config>/security-tracker-stats.md.
+# The `upstream_repo`, `scope_labels`, and `categories` knobs below
+# mirror values declared in <project-config>/project.md (Repositories
+# block and `scope_detection.labels`) — keep them in sync with that
+# manifest when overriding.
 
 buckets: monthly                # monthly | quarterly
 start: null                     # null = first tracker createdAt; else "YYYY-MM" (monthly) or "YYYY-Qn" (quarterly)
 upstream_repo: apache/airflow   # null -> skip c_prc/c_prm/c_rel charts and the back-fill rule
+                                # Mirrors <project-config>/project.md -> `upstream_repo`; ASF default is the airflow-s adopter's
+                                # value. Override in the overlay if the renderer should chart a different repo (or null).
 
 milestones:
   - date: 2026-04-20
     label: skill adoption
 
+# Tracker scope labels — the project's "what does this affect" axis.
+# Mirrors the keys of `scope_detection.labels` in
+# <project-config>/project.md (and the rows of
+# <project-config>/scope-labels.md). ASF/Airflow default below matches
+# the three airflow-s scope labels; non-ASF adopters override in the
+# overlay to match their own scope label set.
 scope_labels: [airflow, providers, chart]
 
 # Categories - evaluated top-to-bottom, FIRST MATCH WINS. Multiple rules

@@ -254,17 +254,30 @@ release train, the milestone format, the CVE container, and the
 *Affected versions* shape (see
 [`<project-config>/scope-labels.md`](../../../<project-config>/scope-labels.md)).
 
-Map `pr.files[].path` to scope:
+The scope label set and the `path_prefix` → scope mapping come
+from `scope_detection.labels` in
+[`<project-config>/project.md`](../../../<project-config>/project.md#scope-detection).
+Each entry there declares a `path_prefix` regex; the skill matches
+`pr.files[].path` against these regexes and the matching label
+becomes the tracker's scope.
 
-| Path prefix | Scope | Notes |
+In this example we use the airflow-s adopter's scope labels
+(`airflow`, `providers`, `chart`) — your project's scope labels
+come from `scope_detection.labels`:
+
+| `path_prefix` match | Scope (airflow-s default) | Notes |
 |---|---|---|
-| `providers/<name>/…` | `providers` | Capture `<name>` (e.g. `amazon`, `cncf-kubernetes`, `smtp`) — used for the package name and the *Affected versions* field. |
-| `chart/…` or `helm-chart/…` | `chart` | Helm-chart-only changes. |
-| Anything else (e.g. `airflow-core/…`, top-level `airflow/…`, `task-sdk/…` through 3.2.x) | `airflow` | Core / shared. |
+| `^providers/` (with `<name>` segment, e.g. `providers/amazon/`) | `providers` | Capture `<name>` — used for the `packageName` substitution in `scope_detection.labels.providers.packageName` and the *Affected versions* field. |
+| `^chart/` | `chart` | Helm-chart-only changes. |
+| `^(airflow-core/|airflow/(?!providers/)|airflow-ctl/)` (or whatever the project's `airflow`-equivalent label declares) | `airflow` | Core / shared. |
 
-**Mixed-scope guard.** If `pr.files[]` touches more than one
-scope (e.g. one file in `providers/amazon/` and one in
-`airflow-core/`), **stop** and surface a blocker:
+When `scope_detection.enabled` is `false`, every PR maps to the
+single product declared in the `product` block of `project.md` —
+skip the matching step and apply the default scope label (if any).
+
+**Mixed-scope guard.** If `pr.files[]` matches more than one
+scope's `path_prefix` (e.g. one file under `^providers/` and one
+under `^airflow-core/`), **stop** and surface a blocker:
 
 > PR <N> changes files across more than one scope (`<scope-A>`,
 > `<scope-B>`). One tracker maps to one CVE container. Either
@@ -277,13 +290,14 @@ The same convention exists in
 *"if a report affects more than one scope, the security team
 splits the report into per-scope trackers before allocation."*
 
-**Multiple providers.** A PR that touches
-`providers/amazon/` only is a single-package `providers`
-tracker. A PR that touches `providers/amazon/` **and**
-`providers/google/` is still a single `providers`-scope tracker
-(scope is one), but the *Affected versions* body field carries
-**one line per affected package** — propose both lines in
-Step 5.
+**Multiple sub-packages within one scope.** When a scope's
+`packageName` template contains a `<…>` substitution (the
+airflow-s `providers` label uses
+`apache-airflow-providers-<provider>`), a PR that touches more
+than one sub-package within that scope (e.g. `providers/amazon/`
+**and** `providers/google/`) is still a single tracker (scope is
+one), but the *Affected versions* body field carries **one line
+per affected sub-package** — propose both lines in Step 5.
 
 **Test-only changes** (`*/tests/**`) do **not** count toward
 scope detection — they ride wherever the production code rides.
@@ -293,8 +307,13 @@ Strip them before applying the scope mapping.
 
 ## Step 3 — Propose milestone
 
-Milestone shape is scope-dependent (see
-[`milestones.md`](../../../<project-config>/milestones.md)):
+Milestone shape is scope-dependent. The per-scope milestone
+formats and "which scopes ride the PR's own milestone vs which
+ride a separate release-train wave" mapping live in
+[`<project-config>/milestones.md`](../../../<project-config>/milestones.md)
+and [`<project-config>/release-trains.md`](../../../<project-config>/release-trains.md).
+
+On the airflow-s adopter, the cascade is:
 
 - **`airflow` / `chart` scope** — propose the PR's own
   milestone (e.g. `Airflow 3.2.2`). If the PR has no milestone,
@@ -307,6 +326,10 @@ Milestone shape is scope-dependent (see
   providers — the providers wave ships on a separate cadence.
   If the PR is already merged and the next wave's date is
   unclear, surface the question and let the user pick.
+
+Other projects' scope-to-milestone mapping comes from their
+`milestones.md`; the skill applies the same "consult per-scope
+mapping; fall back to user pick on ambiguity" pattern.
 
 Validate the proposed milestone exists on `<tracker>`:
 
@@ -367,11 +390,13 @@ Start from `pr.title`. Strip:
 - `[skip ci]`, `[ci-skip]`, `[skip-ci]` markers.
 - Trailing `(#NNNN)` and `[#NNNN]`.
 
-Do **not** add `<vendor>: <product>:` (e.g. `Apache Airflow:`) prefix — that lives in the CVE
-title, not the tracker title (the
-[`security-cve-allocate`](../security-cve-allocate/SKILL.md) skill normalises for
-the CVE record). Tracker titles in `<tracker>` are
-plain-language summaries.
+Do **not** add a `<vendor>: <product>:` prefix (e.g. the
+airflow-s adopter would otherwise prepend `<vendor>: <product>:` —
+derived from `project.md`'s `vendor` / `product.name` fields) —
+that prefix lives in the CVE title, not the tracker title (the
+[`security-cve-allocate`](../security-cve-allocate/SKILL.md)
+skill normalises for the CVE record). Tracker titles in
+`<tracker>` are plain-language summaries.
 
 If the cleaned title is shorter than ~25 characters or vague
 (e.g. just `fix bug in secrets backend`), propose a longer
@@ -388,7 +413,7 @@ has nine fields. Fill them as follows:
 |---|---|
 | **The issue description** | Two paragraphs: (1) a one-line note `> **Imported from public PR <upstream>#<N>** — there is no inbound \`security@\` report; the PR description below is the public statement of the vulnerability.` (2) the PR body verbatim, fenced if it is heavily templated. |
 | **Short public summary for publish** | `_No response_` (the team writes this when drafting the advisory; not derivable from the PR). |
-| **Affected versions** | Per the scope's *Affected versions* convention from [`scope-labels.md`](../../../<project-config>/scope-labels.md). For `providers`: one line per affected package, `<package-name> < NEXT VERSION`. For `airflow` / `chart`: `< X.Y.Z` from the milestone. |
+| **Affected versions** | Per the scope's *Affected versions* convention from [`scope-labels.md`](../../../<project-config>/scope-labels.md). The `packageName` shape comes from `scope_detection.labels.<scope>.packageName` in [`<project-config>/project.md`](../../../<project-config>/project.md#scope-detection). On the airflow-s adopter: for `providers`, one line per affected sub-package, `<package-name> < NEXT VERSION`; for `airflow` / `chart`, `< X.Y.Z` from the milestone. |
 | **Security mailing list thread** | Sentinel: `N/A — opened from public PR <upstream>#<N>; no security@ thread`. The field is `required: true` in the form — the skill creates the issue via `gh api` (Step 7), which bypasses form-required-field enforcement, but the sentinel is still set so future `security-issue-sync` runs do not flag the field as missing. |
 | **Public advisory URL** | `_No response_`. |
 | **Reporter credited as** | `_No response_`. **The PR author is *not* credited as the CVE reporter for this kind of import.** A public PR is not a responsible disclosure — the contributor went straight to the public fix without giving the security team a chance to coordinate the announcement, so the security team neither owes a finder credit nor wants to incentivise the practice. The user can populate the field manually if there is a project-specific reason to credit a different individual (e.g. an internal reviewer who privately flagged the issue on the PR before it landed). See *[Reporter credit policy for public-PR imports](#reporter-credit-policy-for-public-pr-imports)* below. |
@@ -445,21 +470,43 @@ learns about the CVE — if at all — when the public advisory ships.
 
 ### 5c — Labels
 
-Apply at creation:
+Apply at creation. Concrete label names come from `tracker.labels`
+in [`<project-config>/project.md`](../../../<project-config>/project.md#tracker)
+— the skill speaks in roles, the project binds role → literal:
 
-- **Scope label**: `<scope>` (`airflow`, `providers`, or `chart`).
-- **PR-state label**: `pr created` if `pr.state == OPEN`, `pr merged` if `pr.state == MERGED`.
-- **`security issue`** — required for the `<tracker>` *Auto-add to project* workflow filter (`is:issue label:"security issue"`); without it the issue will not appear on the board.
+- **Scope label**: one of `scope_detection.labels` (airflow-s
+  values: `airflow`, `providers`, `chart`).
+- **PR-state label**: `tracker.labels.pr_open` if
+  `pr.state == OPEN`, `tracker.labels.pr_merged` if
+  `pr.state == MERGED` (airflow-s values: `pr created` /
+  `pr merged`).
+- **`security issue`** — required for the `<tracker>` *Auto-add
+  to project* workflow filter (`is:issue label:"security
+  issue"`); without it the issue will not appear on the board.
+  This is the airflow-s security-marker label; non-ASF adopters
+  whose marker label differs use whichever literal their auto-add
+  filter requires (declared in `tracker.labels.security_marker`).
 
-Do **not** apply `needs triage` — this skill's deliberate-import
-contract is that the validity assessment has already happened.
+Do **not** apply the `tracker.labels.needs_triage` label (airflow-s
+value: `needs triage`) — this skill's deliberate-import contract
+is that the validity assessment has already happened.
 
 ### 5d — Project board
 
-Target column: `Assessed` (option ID
-`ce6377ce` — see
-[`<project-config>/project.md`](../../../<project-config>/project.md#github-project-board)).
-Validates the *Label + body state → Status* mapping:
+Target column: `Assessed`. The board's `project_board_node_id`,
+`status_field_node_id`, and the per-column option IDs all live in
+[`<project-config>/project.md`](../../../<project-config>/project.md#github-project-board);
+the skill reads the `Assessed` option ID from that table at run
+time (re-fetch via the introspection query in
+[`tools/github/project-board.md`](../../../tools/github/project-board.md)
+if a write returns `not found`).
+
+When `tracker.project_board_enabled` is `false` in
+[`<project-config>/project.md`](../../../<project-config>/project.md#tracker),
+this step is a no-op — skills skip column transitions on projects
+that don't run a board.
+
+This validates the *Label + body state → Status* mapping:
 
 > Scope label applied, no CVE yet → `Assessed`.
 

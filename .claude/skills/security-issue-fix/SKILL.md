@@ -194,15 +194,19 @@ tracker only to discover you cannot push the branch.
   skill does **not** guess filesystem layouts — there is no
   hard-coded search path. The clone must:
   - have a remote pointing at your fork;
-  - be on a non-dirty `main` (or the appropriate base branch) —
-    the skill will create a new branch from that base;
-  - have the project's dev toolchain available — for the active
-    project see
+  - be on a non-dirty `<default-branch>` (or the appropriate base
+    branch) — the skill will create a new branch from that base;
+  - have the project's dev toolchain available — the list and
+    invocation form of those tools live in
     [`<project-config>/fix-workflow.md`](../../../<project-config>/fix-workflow.md#toolchain)
-    (`uv`, Python 3.x, `breeze` when needed) and
+    (for the airflow-s adopter that's `uv`, Python, and `breeze`;
+    your project's toolchain is whatever `fix-workflow.md` declares)
+    and
     [`<upstream>/contributing-docs`](https://github.com/<upstream>/blob/main/contributing-docs/README.md).
-- **Outbound HTTPS to `pypi.org` / `github.com`** for dependency
-  resolution and `gh` API calls.
+- **Outbound HTTPS** to the project's package registries (from
+  `release_process.artifact_registries` in
+  [`<project-config>/project.md`](../../../<project-config>/project.md))
+  and `github.com` for dependency resolution and `gh` API calls.
 
 See
 [Prerequisites for running the agent skills](../../../docs/prerequisites.md#prerequisites-for-running-the-agent-skills)
@@ -222,25 +226,32 @@ continue.
    on the first means no <tracker> access; on the second it is a
    quota/auth issue — both require user action, stop.
 2. **Fork exists and is pushable** —
-   `gh repo view <your-login>/airflow --json name --jq .name`
-   returns `airflow`. If there is no fork, tell the user to run
+   `gh repo view <your-login>/<upstream-repo-name> --json name --jq .name`
+   returns the bare repo name (the segment after the `/` in
+   `<upstream>`). If there is no fork, tell the user to run
    `gh repo fork <upstream> --clone=false` and re-invoke.
-3. **Local clone is found and clean** — probe the usual locations
-   (the input path if supplied, else `~/code/airflow`,
-   `~/src/airflow`, `~/airflow`, or a sibling of the current
-   working directory) for a directory whose `origin` remote
-   points at `<upstream>`. Then verify `git status
-   --porcelain` is empty. Uncommitted work would collide with the
-   branch the skill is about to create; stop and ask the user to
-   stash / commit / clean first.
+3. **Local clone is found and clean** — resolve the clone path
+   from
+   [`.apache-steward-overrides/user.md`](../../../docs/setup/agentic-overrides.md)
+   → `environment.upstream_clone` (per
+   [`AGENTS.md` § Per-project and per-user configuration](../../../AGENTS.md#per-project-and-per-user-configuration)).
+   Verify that path resolves to a directory whose `origin` remote
+   points at `<upstream>`, then `git status --porcelain` is empty.
+   Uncommitted work would collide with the branch the skill is
+   about to create; stop and ask the user to stash / commit /
+   clean first. Do not probe hard-coded filesystem paths — layouts
+   vary per user.
 4. **Base branch is current** — `git fetch origin` and make sure
-   the base (default `main`, or the branch the user specified) is
-   a fast-forward of `origin/<base>`. Stale bases produce stale
-   PRs.
-5. **Toolchain probe** — `uv --version`, `python3 --version`. If
-   `breeze` is required for the area of the fix, also
-   `breeze --version`. Any missing tool stops the skill;
-   installing them mid-run is out of scope.
+   the base (default `<default-branch>`, or the branch the user
+   specified) is a fast-forward of `origin/<base>`. Stale bases
+   produce stale PRs.
+5. **Toolchain probe** — run the tool-version checks named in
+   [`<project-config>/fix-workflow.md`](../../../<project-config>/fix-workflow.md#toolchain).
+   For the airflow-s adopter that is `uv --version`,
+   `python3 --version`, and `breeze --version` when `breeze` is
+   required for the area of the fix; your project's probe list is
+   whatever `fix-workflow.md` declares. Any missing tool stops the
+   skill; installing them mid-run is out of scope.
 6. **Privacy-LLM gate-check** passes:
 
    ```bash
@@ -465,21 +476,25 @@ touching any files:
    untracked or modified files the user did not opt in to).
    If it is dirty, stop and ask the user how to proceed.
 
-4. Check that `prek` is installed and hooks are enabled per
-   `<upstream>/AGENTS.md` — `uv tool install prek` and
-   `prek install` if not.
+4. Check that any project-required pre-commit hook tool is
+   installed and hooks are enabled per `<upstream>/AGENTS.md` and
+   [`<project-config>/fix-workflow.md`](../../../<project-config>/fix-workflow.md#toolchain).
+   For the airflow-s adopter that's `uv tool install prek` and
+   `prek install`; your project may use plain `pre-commit` or a
+   different hook runner.
 
 5. Fast-forward the base branch to the latest upstream. For a typical
-   fix, that is `main`:
+   fix, that is `<default-branch>`:
 
    ```bash
-   git checkout main
-   git fetch <upstream-remote> main
-   git reset --hard <upstream-remote>/main
+   git checkout <default-branch>
+   git fetch <upstream-remote> <default-branch>
+   git reset --hard <upstream-remote>/<default-branch>
    ```
 
    Do not run this destructive command without the user's explicit
-   confirmation if `main` is ahead of the upstream for any reason.
+   confirmation if `<default-branch>` is ahead of the upstream for
+   any reason.
 
 ---
 
@@ -491,7 +506,7 @@ verbatim.**
 
 ### 5a. Branch and base
 
-- **Base:** `main` (or the specific release branch if agreed).
+- **Base:** `<default-branch>` (or the specific release branch if agreed).
 - **Branch name:** Use a descriptive, non-security slug. For example:
   - good: `fix-extra-links-xcom-deserialization`
   - good: `tighten-assets-graph-dag-permission-check`
@@ -555,31 +570,44 @@ List:
 - existing tests that the change must continue to pass,
 - new tests to be added that exercise the fix (required unless the
   change is a pure rename / typo fix),
-- the exact commands the skill will run locally before pushing, taken
-  from `<upstream>/AGENTS.md`:
+- the exact commands the skill will run locally before pushing,
+  taken from `<upstream>/AGENTS.md` and the toolchain block of
+  [`<project-config>/fix-workflow.md`](../../../<project-config>/fix-workflow.md#toolchain).
+  In this example we use the airflow-s adopter's commands (the
+  `<upstream>` toolchain is `uv` / `prek` / `mypy`); your project's
+  invocation forms come from `fix-workflow.md`:
 
   - `uv run --project airflow-core pytest path/to/test.py::TestClass::test_method -xvs` (unit test),
-  - `prek run --from-ref main --stage pre-commit` (fast static checks),
-  - `prek run --from-ref main --stage manual` (slow static checks),
+  - `prek run --from-ref <default-branch> --stage pre-commit` (fast static checks),
+  - `prek run --from-ref <default-branch> --stage manual` (slow static checks),
   - and a type-check (`uv run --project <project> --with "apache-airflow-devel-common[mypy]" mypy <path>`) where applicable.
 
 ### 5e. Backport label
 
-If the `<tracker>` issue's milestone indicates a release branch that
-has not yet been cut (e.g. `3.1.9`, `3.2.1`), note which
-`backport-to-vX-Y-test` label the PR should carry so that the fix
-lands on the intended patch release. If no backport is needed (the
-milestone is the next `main`-branch release), say so explicitly.
+If the `<tracker>` issue's milestone indicates a release branch
+that has not yet been cut, note which backport label the PR should
+carry so that the fix lands on the intended patch release. The
+label vocabulary and the active release branches live in
+[`<project-config>/fix-workflow.md`](../../../<project-config>/fix-workflow.md#backport-labels)
+and
+[`<project-config>/release-trains.md`](../../../<project-config>/release-trains.md).
+If no backport is needed (the milestone is the next
+`<default-branch>`-branch release), say so explicitly.
 
 ### 5f. Newsfragment
 
-Per `<upstream>/AGENTS.md`, newsfragments are only added for
-major or breaking user-visible changes, and usually coordinated
-during review. For a security-adjacent bug fix, default to **not**
-adding a newsfragment in the initial PR — reviewers will ask for one
-if needed. Never add a newsfragment that describes the change as a
-security fix, because that reveals the security nature and defeats
-the whole point of the private tracking workflow.
+Per `<upstream>/AGENTS.md` and
+`release_process.newsfragments` in
+[`<project-config>/project.md`](../../../<project-config>/project.md),
+where the project ships a newsfragment / changelog-fragment tool,
+fragments are typically only added for major or breaking
+user-visible changes and usually coordinated during review. For a
+security-adjacent bug fix, default to **not** adding a fragment in
+the initial PR — reviewers will ask for one if needed. Never add a
+fragment that describes the change as a security fix, because that
+reveals the security nature and defeats the whole point of the
+private tracking workflow. Skip this section entirely for projects
+whose `release_process.newsfragments.enabled` is `false`.
 
 ### 5g. PR body draft
 

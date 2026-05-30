@@ -246,7 +246,7 @@ in `docs/prerequisites.md` for the overall setup.
 |---|---|
 | `triage` (default) | every open issue carrying `needs triage` |
 | `triage #NNN`, `triage 212`, `triage #NNN, #MMM`, `triage #NNN-#MMM` | specific issues by number (verbatim — no resolution) |
-| `triage scope:<label>` (e.g. `triage scope:airflow`) | subset by scope label, when set; useful when scoped-batch triage is split across triagers |
+| `triage scope:<label>` (e.g. `triage scope:airflow` for the airflow-s adopter; the project's scope labels come from `scope_detection.labels` in [`<project-config>/project.md`](../../../<project-config>/project.md)) | subset by scope label, when set; useful when scoped-batch triage is split across triagers |
 | `triage CVE-YYYY-NNNNN` | the tracker for that allocated CVE — used together with `--retriage` (below) when a passed-triage decision needs re-litigating |
 | `--retriage` (flag) | force-include trackers that already had `needs triage` removed but where new comment activity warrants a fresh proposal (e.g. a reporter follow-up landed a substantive update; a sibling-vector report changed the team's read on a prior `INVALID` close). Combine with one of the selectors above; bare `--retriage` without a selector is a hard error — the skill refuses to re-triage everything ever. |
 
@@ -362,10 +362,14 @@ the inputs the classifier needs. Each tracker gets:
    bodies before passing them to the classifier.
 
 2. **Scope label** — extract from the `labels` field; classify as
-   one of `airflow`, `providers`, `chart`, `<missing>` (or the
-   project's analogous scope labels per
-   [`<project-config>/scope-labels.md`](../../../<project-config>/scope-labels.md)).
-   The scope drives the `@`-mention routing in Step 4.
+   one of the project's scope labels declared in
+   `scope_detection.labels` in
+   [`<project-config>/project.md`](../../../<project-config>/project.md)
+   (see also
+   [`<project-config>/scope-labels.md`](../../../<project-config>/scope-labels.md)),
+   or `<missing>` when no scope label is set yet. For the airflow-s
+   adopter this resolves to `airflow`, `providers`, `chart`. The
+   scope drives the `@`-mention routing in Step 4.
 
 3. **Linked-PR state** — same `gh search prs` calls as
    [`security-issue-sync`](../security-issue-sync/SKILL.md) Step
@@ -416,12 +420,16 @@ the inputs the classifier needs. Each tracker gets:
 5. **Canned-response precedent check** — scan
    [`<project-config>/canned-responses.md`](../../../<project-config>/canned-responses.md)
    for headings whose name matches the tracker's report shape.
-   A hit on *"When someone claims Dag author-provided 'user
-   input' is dangerous"* (or analogous) is a strong signal for
-   `INVALID`; a hit on *"Image scan results"* / *"DoS/RCE
-   via Connection configuration"* signals `INFO-ONLY` or
-   `INVALID`. Surface the matching canned-response name
-   in the proposal so the team can confirm-with-template.
+   A hit on a *"misframed user-input"-shaped* template (e.g. the
+   airflow-s adopter's *"When someone claims Dag author-provided
+   'user input' is dangerous"*) is a strong signal for `INVALID`;
+   a hit on a *"scanner output"-shaped* or *"misconfiguration"-shaped*
+   template (e.g. airflow-s's *"Image scan results"* or *"DoS/RCE
+   via Connection configuration"*) signals `INFO-ONLY` or `INVALID`.
+   Project-specific heading names come from
+   [`<project-config>/canned-responses.md`](../../../<project-config>/canned-responses.md);
+   surface the matching canned-response name in the proposal so the
+   team can confirm-with-template.
 
 6. **Cross-reference search** — for `PROBABLE-DUP` detection,
    run the same three-key fuzzy match
@@ -463,14 +471,25 @@ explain how this tracker maps to (or escapes) that wording.
 ### Trust-boundary cheat-sheet
 
 Apply mechanically before VALID / DEFENSE-IN-DEPTH /
-INVALID:
+INVALID. The table below is the **airflow-s adopter's worked
+example** — each row maps an actor-and-effect pair to a Security
+Model section the project considers authoritative. Adopters
+maintain their own per-project trust-boundary cheat-sheet at the
+top of
+[`<project-config>/security-model.md`](../../../<project-config>/security-model.md);
+the section names quoted in the *Default class* column are the
+literal `§` anchors declared there (the airflow-s table cites the
+airflow-s Security Model anchors). The *positive precedent* search
+in Step 2.6 reads the precedent-tracker label name from
+`tracker.labels.cve_allocated` in
+[`<project-config>/project.md`](../../../<project-config>/project.md).
 
 | If the attacker is… | …and the target / effect is… | Default class |
 |---|---|---|
 | DAG author | code execution in worker / DAG processor / Triggerer | INVALID (cite §"DAG Authors executing arbitrary code") |
 | DAG author | cross-DAG effect within shared parser / triggerer / worker pool | INVALID (cite §"Limiting DAG Author access to subset of Dags") |
 | Worker holding Execution JWT | read or write of another task's data via Execution API | INVALID (cite the *"Cross-DAG access via the Task Execution API or Task SDK"* canned: `ti:self` is mutation-only, not per-DAG access control) |
-| Authenticated UI / REST user with restricted DAG-scoped perms | reads other DAGs' data via UI / REST | **VALID** (precedent: prior CVEs on this shape — search closed `cve allocated` trackers in Step 2.6) |
+| Authenticated UI / REST user with restricted DAG-scoped perms | reads other DAGs' data via UI / REST | **VALID** (precedent: prior CVEs on this shape — search closed `tracker.labels.cve_allocated` trackers in Step 2.6) |
 | Operator / Deployment Manager | misconfigures something with side-effects | INVALID (cite §"Connection configuration users" / operator-trust framing) |
 | Authenticated user | DoS or self-XSS | INVALID (cite §"DoS by authenticated users" / §"Self-XSS by authenticated users") |
 | External actor (email sender, request poster) | exploit via parser on attacker-controlled input that reaches a supported platform | **VALID** |
@@ -504,11 +523,20 @@ Step 2's fuzzy-dup search looks for open-tracker duplicates. This
 step adds **rejection-precedent search** — same fuzzy keys (GHSA
 IDs, code pointers, subject keywords from Step 2a of
 [`security-issue-import`](../security-issue-import/SKILL.md#step-2a--search-for-related-potentially-duplicate-existing-trackers)),
-but against **closed trackers labelled `invalid` /
-`not CVE worthy` / `duplicate`**:
+but against **closed trackers labelled with the project's closing-
+disposition labels** — resolve the literal label names from
+`tracker.labels.not_cve_worthy` and the generic closing-disposition
+labels (`invalid`, `duplicate`) declared in
+[`<project-config>/project.md`](../../../<project-config>/project.md)
+and
+[`<project-config>/scope-labels.md`](../../../<project-config>/scope-labels.md)
+(*Closing dispositions* section). For the airflow-s adopter these
+resolve to `invalid`, `not CVE worthy`, `duplicate`:
 
 ```bash
-# Per orthogonal key (code pointer, GHSA, subject keyword):
+# Per orthogonal key (code pointer, GHSA, subject keyword) — example
+# labels are the airflow-s defaults; substitute from the adopter's
+# tracker.labels and scope-labels.md closing dispositions:
 gh search issues "<key>" --repo <tracker> --state closed \
   --label "invalid" --json number,title,closedAt --jq '.[]'
 gh search issues "<key>" --repo <tracker> --state closed \
@@ -526,7 +554,10 @@ VALID → INVALID. Include the citation in the proposal:
 > (closed YYYY-MM-DD as INVALID, same shape: <one-line>).
 
 Also search for **positive precedents** — CVE-allocated trackers
-with similar shape — via:
+with similar shape — via (substitute the literal label from
+`tracker.labels.cve_allocated` in
+[`<project-config>/project.md`](../../../<project-config>/project.md);
+the airflow-s default is `cve allocated`):
 
 ```bash
 gh search issues "<key>" --repo <tracker> --state all \
@@ -617,10 +648,12 @@ Propose when **all** of:
 - The behaviour does **not** violate any documented rule, and a
   canned-response template in
   [`<project-config>/canned-responses.md`](../../../<project-config>/canned-responses.md)
-  already covers the shape (e.g. *"Not an issue, please submit
-  it"*, *"DoS/RCE via Connection configuration"*, *"Image scan
-  results"*, *"When someone claims Dag author-provided 'user
-  input' is dangerous"*).
+  already covers the shape (the airflow-s adopter ships templates
+  named *"Not an issue, please submit it"*, *"DoS/RCE via Connection
+  configuration"*, *"Image scan results"*, and *"When someone claims
+  Dag author-provided 'user input' is dangerous"*; project-specific
+  heading names come from
+  [`<project-config>/canned-responses.md`](../../../<project-config>/canned-responses.md)).
 
 `INFO-ONLY` is distinct from `INVALID`: the latter is
 typically a *misframing* the team has to explain (and may
