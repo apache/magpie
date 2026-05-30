@@ -188,6 +188,9 @@ ASF members for the roster:
 - Rich Bowen (rbowen) — Incubator PMC, ComDev PMC, …
 - Mike Drob (mdrob) — Accumulo PMC, Curator PMC, HBase PMC, Lucene PMC, Solr PMC
 - Craig L Russell (clr) — Security Team, Incubator PMC, ComDev PMC, …
+- Coty Sutherland (csutherl) — Tomcat PMC
+- Rémy Maucherat (remm) — Tomcat PMC
+- Richard Zowalla (rzo1) — Logging Services PMC, Hop PMC
 
 The named PMC roster will accompany the resolution at the time of vote.
 
