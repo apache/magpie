@@ -160,7 +160,7 @@ updates:
           - "*"
 
   - package-ecosystem: "uv"
-    directory: "/tools/vulnogram/generate-cve-json"
+    directory: "/tools/cve-tool-vulnogram/generate-cve-json"
     schedule:
       interval: "weekly"
     cooldown:
@@ -174,7 +174,7 @@ updates:
           - "*"
 
   - package-ecosystem: "uv"
-    directory: "/tools/vulnogram/oauth-api"
+    directory: "/tools/cve-tool-vulnogram/oauth-api"
     schedule:
       interval: "weekly"
     cooldown:

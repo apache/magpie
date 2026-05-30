@@ -141,7 +141,7 @@ are **suppressed** in via-forwarder mode:
 * **Credit-acceptance confirmations** — i.e. messages asking the
   reporter to *confirm receipt and acceptance of the credit line
   the team plans to use*. The standalone
-  [bot/AI credit-clarification draft](../../tools/vulnogram/bot-credits-policy.md)
+  [bot/AI credit-clarification draft](../../tools/cve-tool-vulnogram/bot-credits-policy.md)
   belongs to this class (it asks *"is this AI/bot handle the
   intended credit, or should we credit someone else?"* — a
   confirmation prompt on a proposed credit). So do the

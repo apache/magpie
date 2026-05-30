@@ -9,7 +9,7 @@ mode: Triage
 source: >
   MISSION.md § Rationale ("Security-issue handling is a load-bearing use
   case"). README.md § Skill families (security). The security skill
-  family + tools/vulnogram + tools/gmail + tools/ponymail +
+  family + tools/cve-tool-vulnogram + tools/gmail + tools/ponymail +
   tools/privacy-llm.
 acceptance:
   - The flow runs import → triage → dedupe → CVE allocate → fix → sync →
@@ -33,7 +33,7 @@ publication, with a human gate and an audit-log entry at every step.
   `security-issue-triage`, `security-issue-deduplicate`,
   `security-cve-allocate`, `security-issue-fix`, `security-issue-sync`,
   `security-issue-invalidate`.
-- Tools: `tools/vulnogram/generate-cve-json` (CVE 5.x JSON),
+- Tools: `tools/cve-tool-vulnogram/generate-cve-json` (CVE 5.x JSON),
   `tools/cve-org`, `tools/gmail` + `tools/ponymail` (mail), and the
   `tools/privacy-llm` gate/redactor ([the privacy gate](privacy-llm-gate.md)).
 
@@ -67,7 +67,7 @@ publication, with a human gate and an audit-log entry at every step.
 
 ```bash
 uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-validate
-uv run --project tools/vulnogram/generate-cve-json --group dev pytest
+uv run --project tools/cve-tool-vulnogram/generate-cve-json --group dev pytest
 ```
 
 ## Known gaps

@@ -31,7 +31,7 @@ body:
       description: Where in the tree does the bug live? Include the file path if you have it.
       placeholder: |
         e.g. `.claude/skills/security-issue-triage/step-4-classify.md`
-        or  `tools/vulnogram/generate-cve-json/src/...`
+        or  `tools/cve-tool-vulnogram/generate-cve-json/src/...`
     validations:
       required: true
 

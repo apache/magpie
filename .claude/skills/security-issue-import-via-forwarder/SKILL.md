@@ -345,7 +345,7 @@ The adapter returns either:
 
 **When the adapter returns a credit** — apply the bot/AI credit
 policy in
-[`tools/vulnogram/bot-credits-policy.md`](../../../tools/vulnogram/bot-credits-policy.md)
+[`tools/cve-tool-vulnogram/bot-credits-policy.md`](../../../tools/cve-tool-vulnogram/bot-credits-policy.md)
 to the extracted `name`. The policy decides whether the credit
 should be recorded with `type: "tool"` in the CVE record (when
 the name matches `*-ai` / `*-bot` / `*-agent` / `*-gpt` / a
@@ -585,7 +585,7 @@ call against the tracker; there is no Gmail draft created.
   a tracker, *which* milestones get relayed, and *what* falls
   into the do-not-relay negative space. The adapter contract is
   the mechanism; this doc is the policy that drives it.
-- [`tools/vulnogram/bot-credits-policy.md`](../../../tools/vulnogram/bot-credits-policy.md)
+- [`tools/cve-tool-vulnogram/bot-credits-policy.md`](../../../tools/cve-tool-vulnogram/bot-credits-policy.md)
   — the bot / AI credit policy applied to the extracted credit
   string at Step 2. Drives whether the CVE record lists the
   credit as a tool vs an individual, and whether the parent

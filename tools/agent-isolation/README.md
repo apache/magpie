@@ -19,7 +19,7 @@
 This directory ships the moving pieces the framework's
 [`docs/setup/secure-agent-setup.md`](../../docs/setup/secure-agent-setup.md) document
 references. It is not a Python project (unlike the sibling tools
-under `tools/vulnogram/` and `tools/gmail/oauth-draft/`) — these are
+under `tools/cve-tool-vulnogram/` and `tools/gmail/oauth-draft/`) — these are
 plain shell scripts plus a TOML manifest of pinned upstream
 versions.
 

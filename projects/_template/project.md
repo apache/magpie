@@ -100,7 +100,7 @@ publicly archived lists may appear in CVE `references[]` as
 |---|---|---|---|
 | Issue tracking + source control + project board | `github` | [`../../tools/github/`](../../tools/github/) | `tracker_repo`, `upstream_repo`, `github_project_board_*`, `issue_template_fields` |
 | Inbound email / drafts | `<one or more mail-source backends>` | [`../../tools/mail-source/contract.md`](../../tools/mail-source/contract.md) (abstract) + per-backend adapter dirs (`tools/gmail/`, `tools/ponymail/`, `tools/mail-source/imap/`, `tools/mail-source/mbox/`, ...) | See [Mail sources](#mail-sources) below — declare each backend's role (primary / preferred-for-`<op>` / fallback / optional) and `mandatory` flag |
-| CVE allocation + record mgmt | `vulnogram` | [`../../tools/vulnogram/`](../../tools/vulnogram/) | see [CVE tooling](#cve-tooling) below |
+| CVE allocation + record mgmt | `vulnogram` | [`../../tools/cve-tool-vulnogram/`](../../tools/cve-tool-vulnogram/) | see [CVE tooling](#cve-tooling) below |
 | Release voting / announce | TODO: ASF mailing lists — or replace with the project's release-comms backend | — | via `dev_list` / `announce_list` / `users_list` |
 
 To replace a tool (e.g. swap GitHub issues for JIRA), declare an
@@ -113,7 +113,7 @@ reachable from this manifest.
 TODO: describe which CNA tool the project uses. For ASF projects the
 default is ASF's Vulnogram; other CNAs will substitute their own
 equivalents. The Vulnogram-side mechanics live under
-[`../../tools/vulnogram/`](../../tools/vulnogram/); the per-project
+[`../../tools/cve-tool-vulnogram/`](../../tools/cve-tool-vulnogram/); the per-project
 values below are what the generic recipes substitute in.
 
 | Key | Value |
@@ -246,7 +246,7 @@ it*, and the *consuming skills* (1-3 most relevant names).
 
 The adapter contracts these blocks reference live under:
 
-- [`../../tools/cve-tool/README.md`](../../tools/cve-tool/README.md) — CNA tool interface (ASF default adapter: `tools/vulnogram/`)
+- [`../../tools/cve-tool/README.md`](../../tools/cve-tool/README.md) — CNA tool interface (ASF default adapter: `tools/cve-tool-vulnogram/`)
 - [`../../tools/mail-archive/README.md`](../../tools/mail-archive/README.md) — public-archive interface (ASF default adapter: `tools/ponymail/`)
 - [`../../tools/forwarder-relay/README.md`](../../tools/forwarder-relay/README.md) — inbound-relay interface (ASF default adapter: the ASF-security forwarder shape in `tools/gmail/asf-relay.md`)
 

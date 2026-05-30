@@ -48,7 +48,7 @@ repos:
         # Skip the PR template — GitHub pre-populates a new PR description
         # with the template verbatim, so a TOC block becomes per-PR noise the
         # contributor has to delete by hand.
-        exclude: ^(\.claude/skills/.*|tools/vulnogram/generate-cve-json/SKILL\.md|tools/skill-evals/.*|tools/spec-loop/.*|\.github/PULL_REQUEST_TEMPLATE\.md)$
+        exclude: ^(\.claude/skills/.*|tools/cve-tool-vulnogram/generate-cve-json/SKILL\.md|tools/skill-evals/.*|tools/spec-loop/.*|\.github/PULL_REQUEST_TEMPLATE\.md)$
         args:
           - "--maxlevel"
           - "3"
@@ -98,7 +98,7 @@ repos:
         files: ^(\.claude/skills/.*|tools/.*)\.(md|sh|py|yaml|yml|toml)$
         pass_filenames: false
   # Project-local checks for the `generate-cve-json` Python project at
-  # `tools/vulnogram/generate-cve-json/`. Each hook sets the working
+  # `tools/cve-tool-vulnogram/generate-cve-json/`. Each hook sets the working
   # directory via `uv run --directory` so ruff / mypy / pytest pick up
   # config from the project's pyproject.toml without explicit paths.
   # The `files:` pattern scopes each hook to changes inside the project
@@ -108,26 +108,26 @@ repos:
       - id: generate-cve-json-ruff-check
         name: ruff check (generate-cve-json)
         language: system
-        entry: uv run --directory tools/vulnogram/generate-cve-json ruff check
-        files: ^tools/vulnogram/generate-cve-json/(src|tests|pyproject\.toml)
+        entry: uv run --directory tools/cve-tool-vulnogram/generate-cve-json ruff check
+        files: ^tools/cve-tool-vulnogram/generate-cve-json/(src|tests|pyproject\.toml)
         pass_filenames: false
       - id: generate-cve-json-ruff-format
         name: ruff format (generate-cve-json)
         language: system
-        entry: uv run --directory tools/vulnogram/generate-cve-json ruff format --check
-        files: ^tools/vulnogram/generate-cve-json/(src|tests|pyproject\.toml)
+        entry: uv run --directory tools/cve-tool-vulnogram/generate-cve-json ruff format --check
+        files: ^tools/cve-tool-vulnogram/generate-cve-json/(src|tests|pyproject\.toml)
         pass_filenames: false
       - id: generate-cve-json-mypy
         name: mypy (generate-cve-json)
         language: system
-        entry: uv run --directory tools/vulnogram/generate-cve-json mypy
-        files: ^tools/vulnogram/generate-cve-json/(src|tests|pyproject\.toml)
+        entry: uv run --directory tools/cve-tool-vulnogram/generate-cve-json mypy
+        files: ^tools/cve-tool-vulnogram/generate-cve-json/(src|tests|pyproject\.toml)
         pass_filenames: false
       - id: generate-cve-json-pytest
         name: pytest (generate-cve-json)
         language: system
-        entry: uv run --directory tools/vulnogram/generate-cve-json pytest
-        files: ^tools/vulnogram/generate-cve-json/(src|tests|pyproject\.toml)
+        entry: uv run --directory tools/cve-tool-vulnogram/generate-cve-json pytest
+        files: ^tools/cve-tool-vulnogram/generate-cve-json/(src|tests|pyproject\.toml)
         pass_filenames: false
   # Project-local checks for the `oauth-draft` Python project at
   # `tools/gmail/oauth-draft/`. Same shape as the generate-cve-json
@@ -161,33 +161,33 @@ repos:
         pass_filenames: false
 
   # Project-local checks for the Vulnogram OAuth-API helpers at
-  # `tools/vulnogram/oauth-api/`. Same shape as the gmail/oauth-draft
+  # `tools/cve-tool-vulnogram/oauth-api/`. Same shape as the gmail/oauth-draft
   # hooks above.
   - repo: local
     hooks:
       - id: vulnogram-oauth-api-ruff-check
         name: ruff check (vulnogram-oauth-api)
         language: system
-        entry: uv run --directory tools/vulnogram/oauth-api ruff check
-        files: ^tools/vulnogram/oauth-api/(src|tests|pyproject\.toml)
+        entry: uv run --directory tools/cve-tool-vulnogram/oauth-api ruff check
+        files: ^tools/cve-tool-vulnogram/oauth-api/(src|tests|pyproject\.toml)
         pass_filenames: false
       - id: vulnogram-oauth-api-ruff-format
         name: ruff format (vulnogram-oauth-api)
         language: system
-        entry: uv run --directory tools/vulnogram/oauth-api ruff format --check
-        files: ^tools/vulnogram/oauth-api/(src|tests|pyproject\.toml)
+        entry: uv run --directory tools/cve-tool-vulnogram/oauth-api ruff format --check
+        files: ^tools/cve-tool-vulnogram/oauth-api/(src|tests|pyproject\.toml)
         pass_filenames: false
       - id: vulnogram-oauth-api-mypy
         name: mypy (vulnogram-oauth-api)
         language: system
-        entry: uv run --directory tools/vulnogram/oauth-api mypy
-        files: ^tools/vulnogram/oauth-api/(src|tests|pyproject\.toml)
+        entry: uv run --directory tools/cve-tool-vulnogram/oauth-api mypy
+        files: ^tools/cve-tool-vulnogram/oauth-api/(src|tests|pyproject\.toml)
         pass_filenames: false
       - id: vulnogram-oauth-api-pytest
         name: pytest (vulnogram-oauth-api)
         language: system
-        entry: uv run --directory tools/vulnogram/oauth-api pytest
-        files: ^tools/vulnogram/oauth-api/(src|tests|pyproject\.toml)
+        entry: uv run --directory tools/cve-tool-vulnogram/oauth-api pytest
+        files: ^tools/cve-tool-vulnogram/oauth-api/(src|tests|pyproject\.toml)
         pass_filenames: false
 
   - repo: local

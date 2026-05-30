@@ -118,5 +118,5 @@ schema):
 | `cve-tool-link` | **not exported** — points at the tool itself, not at a public URL |
 
 Full implementation lives in the `generate-cve-json` skill / Python
-tool (to be relocated under `tools/vulnogram/` in PR 4 of this
+tool (to be relocated under `tools/cve-tool-vulnogram/` in PR 4 of this
 refactor series).

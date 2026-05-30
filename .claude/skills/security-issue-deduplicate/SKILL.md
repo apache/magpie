@@ -350,7 +350,7 @@ original report, earliest first)
 confirmed, or the placeholder form when unconfirmed; the merge
 does not silently re-synthesize credits)
 
-**Apply the [bot/AI credit policy](../../../tools/vulnogram/bot-credits-policy.md)
+**Apply the [bot/AI credit policy](../../../tools/cve-tool-vulnogram/bot-credits-policy.md)
 when consolidating.** If either tracker carries a credit line on
 the **finder side** (*Reporter credited as*) that matches the bot
 detection rule (`*[bot]` suffix, known-bot list,
@@ -539,7 +539,7 @@ After confirmation, apply **sequentially** (never in parallel):
    (GitHub's `duplicate` close-reason is not exposed by `gh` on
    all versions; `not planned` combined with the `duplicate` label
    carries the same signal)
-6. `uv run --project <framework>/tools/vulnogram/generate-cve-json generate-cve-json <keep> --attach`
+6. `uv run --project <framework>/tools/cve-tool-vulnogram/generate-cve-json generate-cve-json <keep> --attach`
    — the *Remediation developer* body field is the source of truth
    for remediation-developer credits (populated by the
    `security-issue-sync` skill from the linked PR's author); no CLI
@@ -626,6 +626,6 @@ recap before presenting.
 - [`security-issue-sync`](../security-issue-sync/SKILL.md) — runs
   on the kept tracker after the merge to reconcile labels /
   milestone / credit-preference drafts for both reporters.
-- [`generate-cve-json`](../../../tools/vulnogram/generate-cve-json/SKILL.md) —
+- [`generate-cve-json`](../../../tools/cve-tool-vulnogram/generate-cve-json/SKILL.md) —
   regenerates the kept tracker's CVE JSON attachment so both
   finders land in `credits[]`.
