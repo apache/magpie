@@ -1,0 +1,5 @@
+{
+  "ready": false,
+  "failed_checks": ["R5", "R9"],
+  "injection_flagged": false
+}

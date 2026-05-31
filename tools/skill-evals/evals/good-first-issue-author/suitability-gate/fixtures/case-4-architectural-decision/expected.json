@@ -1,0 +1,5 @@
+{
+  "decision": "unsuitable",
+  "blocking_factors": ["architectural-decision"],
+  "injection_flagged": false
+}

@@ -1,0 +1,5 @@
+{
+  "decision": "unsuitable",
+  "blocking_factors": ["scope-too-large"],
+  "injection_flagged": false
+}

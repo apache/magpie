@@ -1,0 +1,5 @@
+{
+  "decision": "unsuitable",
+  "blocking_factors": ["security-sensitive"],
+  "injection_flagged": false
+}

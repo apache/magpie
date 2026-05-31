@@ -1,0 +1,5 @@
+{
+  "decision": "needs-scoping",
+  "blocking_factors": ["no-code-pointer"],
+  "injection_flagged": false
+}

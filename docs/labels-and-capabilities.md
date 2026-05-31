@@ -137,6 +137,7 @@ Capabilities for every skill currently in
 | `pr-management-code-review` | `capability:review` |
 | `pairing-self-review` | `capability:review` |
 | `pr-management-mentor` | `capability:review` |
+| `good-first-issue-author` | `capability:review` *(authors a newcomer-ready good first issue — contributor mentoring on the supply side)* |
 | `issue-fix-workflow` | `capability:fix` |
 | `security-issue-fix` | `capability:fix` + `capability:resolve` *(opens the PR that closes the tracker — both phases)* |
 | `security-issue-import` | `capability:intake` |

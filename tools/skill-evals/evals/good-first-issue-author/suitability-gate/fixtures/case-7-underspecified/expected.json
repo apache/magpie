@@ -1,0 +1,5 @@
+{
+  "decision": "needs-scoping",
+  "blocking_factors": ["no-acceptance-criteria", "no-code-pointer", "scope-unclear"],
+  "injection_flagged": false
+}

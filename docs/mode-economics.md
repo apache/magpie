@@ -124,6 +124,7 @@ cost depends on contributor volume.
 | Skill | Typical invocation | Token range | Notes |
 |---|---|---|---|
 | `pr-management-mentor` | Single threaded reply | 6 000–20 000 | Estimated; skill experimental |
+| `good-first-issue-author` | One candidate → one issue draft | 6 000–18 000 | Estimated; reads one candidate + named source files, no full-thread history; skill experimental |
 
 **Rule of thumb for Mentoring:** budget 10 000–20 000 tokens per
 contributor interaction. A project with 20 active contributors each

@@ -97,6 +97,20 @@ slugs, not numbers (numbering implies an order the specs don't carry).
    Spec: [`specs/agent-isolation-sandbox.md`](specs/agent-isolation-sandbox.md).
    Branch `agent-isolation-tests`.
 
+3. **Mentoring: good-first-issue authoring skill.** The Mentoring spec
+   names `good-first-issue-author` as proposed (not yet built): a skill
+   that drafts a single net-new good first issue from a supplied known gap
+   or maintainer-named small task (scope, code pointers, contributing-doc
+   links, acceptance criteria, effort estimate), flagged `mode: Mentoring`
+   + `experimental`, and never files it without maintainer confirmation.
+   Ship the skill plus its eval suite as one work item. Validation:
+   ```bash
+   test -d .claude/skills/good-first-issue-author
+   uv run --project tools/skill-validator --group dev skill-validate
+   ```
+   Spec: [`specs/mentoring-mode.md`](specs/mentoring-mode.md).
+   Branch `good-first-issue-author`.
+
 ---
 
 ## Notes & discoveries
