@@ -375,6 +375,124 @@ sessions that crash, get interrupted, or end via context-
 window-exhaustion leak. This check is the periodic cleanup
 sweep that catches the leakage.
 
+### 8d. Permission allow-list hygiene
+
+Audit the adopter's per-machine permission allow-list for
+patterns that grant arbitrary code execution, and surface
+the recommended read-only patterns the framework's skills
+use heavily. **Local-state only** — the framework never
+mutates `.claude/settings*.json`; this check produces
+*proposals* the operator confirms before any write.
+
+Two files to read:
+
+- `<repo-root>/.claude/settings.json` (committed,
+  project-wide).
+- `<repo-root>/.claude/settings.local.json` (gitignored,
+  per-machine — same security model as
+  `.apache-steward.local.lock`).
+
+For each, parse the JSON, walk `permissions.allow[]`, and
+bucket each entry against two canonical lists.
+
+**Forbidden — propose removal (✗ per entry hit):** broad
+wildcards over interpreters, shells, and package runners.
+Treat any of the following allow-list strings as an
+arbitrary-code-execution hole, regardless of how the
+adopter justified adding them:
+
+- `Bash(python *)`, `Bash(python3 *)`,
+  `Bash(node *)`, `Bash(bun *)`, `Bash(deno *)`,
+  `Bash(ruby *)`, `Bash(perl *)`, `Bash(php *)`,
+  `Bash(lua *)`
+- `Bash(bash *)`, `Bash(sh *)`, `Bash(zsh *)`,
+  `Bash(fish *)`, `Bash(eval *)`, `Bash(exec *)`,
+  `Bash(ssh *)`
+- `Bash(npx *)`, `Bash(bunx *)`, `Bash(uvx *)`,
+  `Bash(uv run *)`
+- `Bash(npm run *)`, `Bash(yarn run *)`,
+  `Bash(pnpm run *)`, `Bash(bun run *)`,
+  `Bash(make *)`, `Bash(just *)`, `Bash(cargo run *)`,
+  `Bash(go run *)`
+- `Bash(gh api *)`, `Bash(docker run *)`,
+  `Bash(docker exec *)`, `Bash(kubectl exec *)`,
+  `Bash(sudo *)`
+
+The list mirrors the *"Never allowlist a pattern that
+grants arbitrary code execution"* rule from Claude Code's
+user-level `/fewer-permission-prompts` slash command — the
+framework's copy lives here so adoption itself is not
+silently contingent on a sibling skill being present.
+**It is not exhaustive**: an allow-list entry that fits
+the *same category* (anything that can spawn an arbitrary
+process or shell out via a flag) is a ✗ even if its exact
+token does not appear above.
+
+**Recommended — propose addition (⚠ per entry missing):**
+narrow read-only patterns the framework's skills invoke
+often. An adopter who picks up the `security` family will
+hit these constantly; pre-allowing them removes the
+repetitive confirmation prompts without weakening the
+boundary. Tailor the recommendation to the families the
+adopter opted into via
+[`<committed-lock>` → `skill-families`](adopt.md#step-5--pick-the-skill-families):
+
+- **`security` family** —
+  - `mcp__claude_ai_Gmail__get_thread`
+  - `mcp__claude_ai_Gmail__search_threads`
+  - `mcp__claude_ai_Gmail__list_drafts`
+  - `mcp__claude_ai_Gmail__list_labels`
+  - `mcp__ponymail__search_list`
+  - `mcp__ponymail__auth_status`
+  - `mcp__ponymail__get_thread`
+  - `mcp__ponymail__get_email`
+  - `mcp__ponymail__list_restrictions`
+  - `Bash(vulnogram-api-record-fetch *)`
+
+- **Any family that ships docs / markdown** (effectively
+  every adopter, since the framework itself ships docs) —
+  - `Bash(lychee *)` — read-only link-checker invoked by
+    the *"run lychee before pushing a PR"* hygiene gate
+    documented in [`AGENTS.md`](../../../AGENTS.md).
+
+The recommended list is **deliberately narrow** — every
+entry is read-only, scoped to a specific tool, and
+verified against Claude Code's auto-allowed harness
+exclusions (`READONLY_COMMANDS`, `GIT_READ_ONLY_COMMANDS`,
+`GH_READ_ONLY_COMMANDS`, etc.) so the framework does not
+redundantly propose entries that never prompt anyway.
+
+**Reporting shape:** group findings by file, then by
+bucket. For each forbidden entry, print the exact JSON-
+pointer-style path (`.permissions.allow[<index>]`) so the
+operator can locate it instantly; for each recommended
+entry missing, print the suggested string verbatim ready
+for paste. **Do not auto-write the files** — the per-
+machine `settings.local.json` is the operator's; surface
+the proposal and let `/setup-steward verify --apply-
+permission-audit` (interactive) or a hand-edit close the
+gap. The interactive apply path uses an atomic JSON read
+→ mutate → write so concurrent
+`/setup-isolated-setup-install` (which also writes to the
+same file) does not silently clobber the diff. When the
+target file lives at a path the agent's sandbox marks as
+`denyWithinAllow` (the per-machine settings files
+typically are), the apply path requires the operator to
+authorise the sandbox bypass for that single write — it
+does not silently skip the file. ⚠ if either file is
+absent (most adopters will have at least
+`settings.local.json` after the first
+`/setup-isolated-setup-install` pass; absence is a soft
+signal not a hard fault).
+
+**Why we propose, never auto-apply.** The allow-list is
+the operator's *capability surface* for the agent in this
+checkout. Even an objectively-safer edit (drop a
+known-dangerous wildcard) is a capability change the
+operator must own, both to know it happened and to keep
+the audit trail human-readable. The framework's job is to
+*surface* the gap — the operator's job is to close it.
+
 ### 9. Project documentation mentions the framework
 
 Two files to check (per
@@ -431,5 +549,21 @@ list, ordered most → least urgent:
   commit / push or stash, then `git worktree remove --force
   <path>`. Never propose `--force` without first
   surfacing the diff.
+- ✗ on check 8d (forbidden allow-list entry — arbitrary
+  code execution) → propose removing the named entry from
+  the file's `permissions.allow[]` array. Print the JSON-
+  pointer path so the operator can locate it. Per-machine
+  `settings.local.json` writes go via
+  `/setup-steward verify --apply-permission-audit`
+  (interactive, atomic JSON edit, sandbox-bypass requires
+  per-write authorisation). Committed `settings.json`
+  writes are a regular file edit + commit; flag them
+  loudly because they bind every developer on the project.
+- ⚠ on check 8d (recommended allow-list entry missing) →
+  optional. Print the suggested string ready for paste;
+  apply via the same `--apply-permission-audit` flag, or
+  paste manually. The recommendation is family-scoped, so
+  an adopter who skipped the `security` family will not
+  see the Gmail / PonyMail entries surfaced as gaps.
 - All other ✗ / ⚠ → name the gap, give the one-line
   remediation.
