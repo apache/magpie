@@ -17,6 +17,7 @@ members = [
     "checker",
     "generate-cve-json",
     "github-body-field",
+    "github-rollup",
     "jira-bridge",
     "oauth-draft",
     "permission-audit",
@@ -349,6 +350,11 @@ source = { editable = "tools/cve-tool-vulnogram/generate-cve-json" }
 name = "github-body-field"
 version = "0.1.0"
 source = { editable = "tools/github-body-field" }
+
+[[package]]
+name = "github-rollup"
+version = "0.1.0"
+source = { editable = "tools/github-rollup" }
 
 [[package]]
 name = "google-auth"

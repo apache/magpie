@@ -98,6 +98,7 @@ members = [
   "tools/cve-tool-vulnogram/generate-cve-json",
   "tools/cve-tool-vulnogram/oauth-api",
   "tools/github-body-field",
+  "tools/github-rollup",
   "tools/gmail/oauth-draft",
   "tools/jira",
   "tools/permission-audit",
