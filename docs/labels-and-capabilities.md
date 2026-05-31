@@ -187,6 +187,7 @@ Tools under [`tools/`](../tools/). Tools with two values (separated by
 | [`tools/ponymail`](../tools/ponymail/) | `capability:setup` + `capability:intake` | PonyMail archive substrate; same dual role as `mail-source` — substrate plus an intake-pipeline component |
 | [`tools/permission-audit`](../tools/permission-audit/) | `capability:setup` | Audit + atomically edit Claude Code `permissions.allow[]` entries; backs `/setup-steward verify --apply-permission-audit` (check 8d) |
 | [`tools/pr-management-stats`](../tools/pr-management-stats/) | `capability:stats` | PR-backlog analytics engine |
+| [`tools/preflight-audit`](../tools/preflight-audit/) | `capability:stats` | Dry-run the bulk-mode pre-flight classifier; measure skip-rate before / after any rule edit in the security-issue-sync skill |
 | [`tools/privacy-llm`](../tools/privacy-llm/) | `capability:setup` | Privacy-LLM PII-scrubbing gate |
 | [`tools/probe-templates`](../tools/probe-templates/) | `capability:setup` | Sandbox-doctor probe templates |
 | [`tools/sandbox-lint`](../tools/sandbox-lint/) | `capability:setup` | Sandbox settings linter |

@@ -409,6 +409,36 @@ repos:
         files: ^tools/permission-audit/(src|tests|pyproject\.toml)
         pass_filenames: false
 
+  # Project-local checks for the pre-flight classifier dry-run tool
+  # at `tools/preflight-audit/`. Lets us measure skip-rate before /
+  # after any rule edit in `bulk-mode.md`.
+  - repo: local
+    hooks:
+      - id: preflight-audit-ruff-check
+        name: ruff check (preflight-audit)
+        language: system
+        entry: uv run --directory tools/preflight-audit ruff check
+        files: ^tools/preflight-audit/(src|tests|pyproject\.toml)
+        pass_filenames: false
+      - id: preflight-audit-ruff-format
+        name: ruff format (preflight-audit)
+        language: system
+        entry: uv run --directory tools/preflight-audit ruff format --check
+        files: ^tools/preflight-audit/(src|tests|pyproject\.toml)
+        pass_filenames: false
+      - id: preflight-audit-mypy
+        name: mypy (preflight-audit)
+        language: system
+        entry: uv run --directory tools/preflight-audit mypy
+        files: ^tools/preflight-audit/(src|tests|pyproject\.toml)
+        pass_filenames: false
+      - id: preflight-audit-pytest
+        name: pytest (preflight-audit)
+        language: system
+        entry: uv run --directory tools/preflight-audit pytest
+        files: ^tools/preflight-audit/(src|tests|pyproject\.toml)
+        pass_filenames: false
+
   # Validate `.claude/skills/**`, every `tools/<name>/README.md`, and the
   # `docs/labels-and-capabilities.md` taxonomy via the
   # `skill-and-tool-validate` CLI. Re-fires on validator-source changes so
