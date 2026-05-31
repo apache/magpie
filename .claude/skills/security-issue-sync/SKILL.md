@@ -959,8 +959,15 @@ PMC member). The body usually contains explicit proposals — *"Please
 update the CWE to CWE-NNN"*, *"The affected range should be `< X.Y.Z`"*,
 *"Credits are missing a remediation-developer entry"*, etc.
 
-Read each matching thread **once** with `mcp__claude_ai_Gmail__get_thread`
-to extract the comment bodies verbatim.
+Read each matching thread **once** with
+`mcp__claude_ai_Gmail__get_thread(threadId, messageFormat='FULL_CONTENT')`
+to extract the comment bodies verbatim. This is one of the few
+sync-skill paths that genuinely needs `FULL_CONTENT` — the
+reviewer's body text IS the actionable signal. Per the
+[get-thread default rule](../../../tools/gmail/operations.md#get-thread),
+every other `get_thread` call in this skill defaults to
+`MINIMAL` (state probes, anchor-point lookups, draft-presence
+checks) and only escalates when body parsing is required.
 
 **Fallback when no CVE-review emails are found.** Absence of signal is
 the common case — most CVEs go through REVIEW and PUBLISHED with no

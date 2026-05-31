@@ -86,20 +86,58 @@ the skills use, see [`search-queries.md`](search-queries.md).
 ```text
 mcp__claude_ai_Gmail__get_thread(
   threadId='<threadId>',
-  messageFormat='FULL_CONTENT',   # or 'METADATA' when bodies are not needed
+  messageFormat='MINIMAL',        # default — see escalation rule below
 )
 ```
 
-Returns the full message history of a thread. Body reads are
-expensive — most skills filter candidates down on metadata first and
-only fetch bodies for the narrow set that actually warrants it
-(`security-issue-import` does this explicitly at Step 3).
+**Default to `MINIMAL`.** The `MINIMAL` format returns message
+snippets, key headers (`Subject`, `From`, `To`, `Cc`, `Date`), and
+message IDs — enough to:
+
+- pick the chronologically-last message for `replyToMessageId`
+  attachment;
+- detect SENT-by-us vs reporter-replied state on a thread;
+- list draft IDs on the thread (`labelIds` carries `DRAFT`);
+- check whether the thread exists / has any messages at all;
+- read `Subject` for fallback threading when the message ID is lost.
+
+This covers the vast majority of `get_thread` call sites the
+skills make. `FULL_CONTENT` returns the entire conversation
+including HTML body parts — typically 5-20× the byte size of
+`MINIMAL` for a non-trivial thread (a long reporter conversation
+can exceed the in-context token limit and spill to disk).
+
+**Escalate to `FULL_CONTENT` only when the call site actually
+processes the message body.** Concrete cases that need
+`FULL_CONTENT`:
+
+- `security-issue-import` Step 3 — classifies a thread into
+  `Report` / `ASF-security relay` / `automated-scanner` / etc.
+  by scanning the body for forwarding preambles, credit lines,
+  scanner-product tokens.
+- `security-issue-sync` Step 1e — extracts CVE-reviewer asks
+  from review-comment emails on `<security-list>`.
+- Any draft-composition step that quotes the reporter's prior
+  message back to them (e.g. when the operator wants to
+  reference a specific paragraph the reporter wrote).
+- Reading an inbound report's body to extract a credit form
+  the reporter explicitly provided (*"please credit me as X"*).
+
+For everything else — thread-state probes, anchor-point
+lookups, draft-already-exists checks — default to `MINIMAL`
+and avoid the body fetch.
+
+**Cost note.** A 12-tracker bulk sync that calls `get_thread`
+once per tracker for state-anchoring lands around
+~5K tokens of Gmail context on `MINIMAL`; the same call on
+`FULL_CONTENT` typically lands 60-100K tokens. The savings
+compound on every bulk run.
 
 **Privacy-LLM contract — apply to every body read.** Every
-`get_thread` call against a `<security-list>` thread (or any
-`<private-list>` thread, where the approved-LLM gate also
-applies) MUST be followed by the redact-after-fetch protocol
-documented in
+`get_thread(messageFormat='FULL_CONTENT')` call against a
+`<security-list>` thread (or any `<private-list>` thread, where
+the approved-LLM gate also applies) MUST be followed by the
+redact-after-fetch protocol documented in
 [`../privacy-llm/wiring.md`](../privacy-llm/wiring.md#redact-after-fetch-protocol)
 before the body is used for any further processing. The window
 between `get_thread` returning and `pii-redact` running should
@@ -107,7 +145,7 @@ be a single tool invocation wide; the redacted body is what
 flows through the rest of the skill. Skills that consume bodies
 without running the protocol are framework bugs.
 
-Skip the protocol on `messageFormat='METADATA'` calls — the
+Skip the protocol on `messageFormat='MINIMAL'` calls — the
 returned envelope carries the reporter's `From:` header (which
 is not redacted under the contract) and routing fields, no
 free-form body content. The protocol applies once an actual
