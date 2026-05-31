@@ -1681,6 +1681,32 @@ that does not change what the model is asked to produce —
 
 - Re-read the diff and check that every change is intentional.
 - Check that any renamed headings have matching TOC updates.
+- **Run lychee against every changed `.md` / `.rst` / `.md.j2` file.**
+  CI runs the same check on every PR and a single broken link blocks
+  the merge; catching it locally avoids a round-trip. The canonical
+  recipe — same as
+  [`.github/workflows/doc-validation.yml`](.github/workflows/doc-validation.yml)
+  invokes:
+
+  ```bash
+  lychee --config .lychee.toml .
+  ```
+
+  Run on the whole repo (cheap — most checks are offline file +
+  fragment lookups; only the external-URL subset hits the network).
+  Pay attention to **`Fragment not found in document`** errors —
+  those are anchor-style links (`other.md#section`) whose target
+  heading no longer exists. They are the most common breakage after
+  any refactor that moved a section between files or renamed a
+  heading. Re-write the link to point at the new location; do not
+  silence it with an ignore-pattern.
+
+  If your local lychee is v0.24+ (the example config in
+  `.lychee.toml` pins the v0.23 schema), replace
+  `include_fragments = true` with `include_fragments = "anchor-only"`
+  before running, or invoke directly:
+  `lychee --include-fragments=anchor-only --no-progress <paths>`.
+
 - Verify that links to the project's Security Model use an anchor that
   exists on the current stable version (adopting project's anchors:
   [`<project-config>/security-model.md`](<project-config>/security-model.md)).
