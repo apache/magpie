@@ -1685,7 +1685,7 @@ that does not change what the model is asked to produce —
   CI runs the same check on every PR and a single broken link blocks
   the merge; catching it locally avoids a round-trip. The canonical
   recipe — same as
-  [`.github/workflows/doc-validation.yml`](.github/workflows/doc-validation.yml)
+  [`.github/workflows/link-check.yml`](.github/workflows/link-check.yml)
   invokes:
 
   ```bash
