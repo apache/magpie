@@ -71,7 +71,9 @@ concurrently, which is exactly what the sync needs.
 
     **One query, one round-trip.** Build an aliased multi-field
     GraphQL query that fetches state for every resolved issue at
-    once:
+    once. The `body` field on `comments(last: 1)` lets the classifier
+    distinguish skill-authored writes from human activity (see
+    *Skill-or-bot detection* below):
 
     ```bash
     gh api graphql --raw-field query="$(cat <<'GQL'
@@ -80,7 +82,9 @@ concurrently, which is exactly what the sync needs.
         i<N1>: issue(number: <N1>) {
           number state closedAt updatedAt
           labels(first: 30) { nodes { name } }
-          comments(last: 1) { nodes { author { login } createdAt } }
+          comments(last: 1) {
+            nodes { author { login } createdAt body }
+          }
         }
         i<N2>: issue(number: <N2>) { ... }
         # repeat one aliased block per resolved issue
@@ -92,8 +96,40 @@ concurrently, which is exactly what the sync needs.
 
     The aliased-field form (`i<N>: issue(number: <N>) { ... }`)
     works for any number of issues in a single query. For a 30-issue
-    bulk sweep the request is ~3 KB and the response is ~6 KB —
-    cheaper than a single subagent transcript.
+    bulk sweep the request is ~3 KB and the response is ~50-130 KB
+    depending on how long the latest comments are — still cheaper
+    than even one subagent transcript, and the body field is what
+    enables the skill-marker detection that drives ~30% of the
+    real-world skip rate.
+
+    **Skill-or-bot detection — required for the rules below.** On a
+    private single-operator tracker, the sync skill itself writes
+    rollup updates and RM hand-off comments as the operator's
+    GitHub user — *not* as a `*[bot]` account. A naive
+    *"last comment author is a bot"* check is structurally
+    unreachable on those trackers and the classifier degenerates
+    to ~5% skip rate. The fix: recognise skill-authored comments
+    by their **marker comment**, which every status-rollup /
+    hand-off / wrap-up comment begins with:
+
+    ```text
+    <!-- apache-steward: <comment-kind> v<N> -->
+    ```
+
+    Concretely, treat the last-comment author as *bot-equivalent* if
+    **any** of these is true:
+
+    - `login in {github-actions[bot], dependabot[bot]}` or
+      `login` ends with `[bot]` (real GitHub App accounts).
+    - The body starts with `<!-- apache-steward: ` (skill-authored
+      comment — see [`tools/github/status-rollup.md`](../../../tools/github/status-rollup.md)
+      for the marker spec).
+    - `login` matches a `bot_logins:` entry in the override file at
+      [`.apache-steward-overrides/security-issue-sync.md`](../../../docs/setup/agentic-overrides.md)
+      (for adopters with personal-account bots).
+
+    The remaining rules use *"skill-or-bot last commenter"* as a
+    shorthand for this composite check.
 
     **Classification rule table.** Apply the rules **in order**;
     the first match wins. Conservative by design — `skip-noop`
@@ -101,21 +137,20 @@ concurrently, which is exactly what the sync needs.
 
     | Signals | Decision | Reason recorded in recap |
     |---|---|---|
-    | `updatedAt` within the last **7 days** | `dispatch` | recent activity safety override — never skip |
-    | Last comment author is **not** a bot AND `createdAt` within last **24h** | `dispatch-urgent` | reporter just replied |
+    | `updatedAt` within last **7 days** AND last comment is **NOT** skill-or-bot | `dispatch` | recent human activity — safety override |
+    | Last comment author is **not** skill-or-bot AND `createdAt` within last **24h** | `dispatch-urgent` | reporter just replied |
     | Closed > **30 days** ago AND has `announced` label | `skip-noop` | `post-announce; CVE published` |
     | Closed > **90 days** ago AND no `announced` label | `skip-noop` | `stale closed (invalid/duplicate/abandoned)` |
-    | Open AND has `cve allocated` + `pr merged` + `announced` AND last comment > 14d ago AND last comment author is a bot | `skip-noop` | `all phases done; awaiting closure heuristic` |
-    | Open AND has `cve allocated` + `pr merged` AND last comment > 14d ago AND last comment author is a bot | `skip-noop` | `awaiting release` |
+    | Open AND has `cve allocated` + `pr merged` + `announced` AND last comment is skill-or-bot | `skip-noop` | `all phases done; awaiting closure heuristic` |
+    | Open AND has `cve allocated` + `pr merged` AND last comment is skill-or-bot | `skip-noop` | `awaiting release` |
+    | Open AND has `cve allocated` + `fix released` AND last comment is skill-or-bot | `skip-noop` | `fix released; awaiting advisory propagation` |
     | Anything else | `dispatch` | — |
 
-    **Bot detection.** The "author is a bot" test is *login matches
-    one of*: `github-actions[bot]`, `dependabot[bot]`, the
-    project's `<sync-bot>` handle if configured in
-    [`<project-config>/project.md`](../../../<project-config>/project.md),
-    or any GitHub user with the `[bot]` suffix. If the project has
-    a personal-account bot, list it in the override file at
-    [`.apache-steward-overrides/security-issue-sync.md`](../../../docs/setup/agentic-overrides.md).
+    The relaxation vs the original rule design: skip-eligibility
+    rules no longer require *"idle > 14 days"*. Once the labels
+    show steady-state AND the last write was the skill itself,
+    a recently-bumped `updatedAt` is just the skill's own work —
+    not a reason to dispatch.
 
     **Hard rules**:
 
