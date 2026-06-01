@@ -116,7 +116,7 @@ The framework, its skills, and its release artifacts do not phone home. Outbound
 
 ## 11. Releases are reproducible from signed source
 
-The bytes a maintainer fetches from the canonical distribution point and the bytes a contributor builds locally from the matching ref are identical. No release artifact contains code that did not pass through a reviewed PR. Reproducibility is what makes every signature, every pin, and every audit log entry worth the storage they take.
+Releases are reproducible from signed source to the extent the toolchain permits. Where byte-identical builds are achievable, they are required. Where the toolchain or platform makes byte-identical output impractical, the release process documents the known sources of divergence and provides an alternative verification mechanism that a contributor can run locally to confirm the artifact matches the canonical distribution. No release artifact contains code that did not pass through a reviewed PR. Reproducibility, whether by identical bytes or by a documented verification path, is what makes every signature, every pin, and every audit log entry worth the storage they take.
 
 ## 12. The framework is project-agnostic; concrete names live in adopter config
 
