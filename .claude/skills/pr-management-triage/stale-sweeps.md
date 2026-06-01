@@ -233,10 +233,39 @@ The author-activity condition makes this sweep about *author
 silence*, not label age — a "still working on it" reply resets
 the clock.
 
+### Branch-health resolution — re-poll mergeability live (before 4a/4b)
+
+The 4a/4b split turns on whether the branch is *healthy* or *rotted*. **Do not
+read that from the batched `mergeable` / `mergeStateStatus`.** GitHub computes
+mergeability lazily, so a batched search over the `ready` queue returns
+`UNKNOWN` for many PRs and `BLOCKED` for *most* (branch protection withholding
+the merge pending the required approval they do not have yet) — gating the split
+on the batch value mis-routes clean-but-unapproved stale PRs into 4b (close) when
+their branch is actually fine. The Sweep-4 candidate set is already small (stale
+ready PRs concentrate at the back of the queue), so resolve mergeability **live,
+per candidate**:
+
+```bash
+gh api repos/<upstream>/pulls/<N> --jq '[.mergeable, .mergeable_state]|@tsv'
+```
+
+Classify the live `(mergeable, mergeable_state)` pair:
+
+- `mergeable == true` and `mergeable_state ∈ {clean, has_hooks, unstable, behind, blocked}` → **healthy** (`blocked` is a clean branch withheld only on the missing approval — not bitrot) → route to **4a**.
+- `mergeable == false` **or** `mergeable_state == dirty` → **conflicted** → route to **4b**.
+- `mergeable == null` / `mergeable_state == unknown` after the live call → **defer this run** (do not strip, do not close); it settles and re-qualifies next sweep.
+
+`statusCheckRollup.state == FAILURE` independently routes to **4b** (red CI is
+bitrot regardless of mergeability). This mirrors the live re-poll the
+[`pr-management-quick-merge`](../pr-management-quick-merge/candidate-rules.md#stage-3--live-merge-readiness)
+skill uses for the same reason — observed: a batch mergeability gate misjudged
+~87% of a real `ready` queue.
+
 ### 4a — Branch healthy → strip label
 
-**Extra trigger.** `mergeable != CONFLICTING` and
-`statusCheckRollup.state != FAILURE`.
+**Extra trigger.** The live branch-health resolution above classifies the PR as
+**healthy** (not conflicted, and `statusCheckRollup.state != FAILURE`). A batch
+`mergeStateStatus == BLOCKED` is *healthy* here, not a reason to skip 4a.
 
 **Action.** `strip-ready-label`. See
 [`actions.md#strip-ready-label`](actions.md#strip-ready-label--remove-the-ready-for-review-label-no-comment).
@@ -250,8 +279,10 @@ per-PR confirm.
 
 ### 4b — Branch rotted → propose close
 
-**Extra trigger.** `mergeable == CONFLICTING` **or**
-`statusCheckRollup.state == FAILURE`.
+**Extra trigger.** The live branch-health resolution above classifies the PR as
+**conflicted** (`mergeable == false` / `mergeable_state == dirty`) **or**
+`statusCheckRollup.state == FAILURE`. A batch `mergeStateStatus == BLOCKED` is
+**not** a 4b trigger — that is the healthy-awaiting-approval case (4a).
 
 **Action.** `close` with the
 [`stale-ready-label-close`](comment-templates.md#stale-ready-label-close)
@@ -395,11 +426,16 @@ and 3.
 
 ## Budget
 
-The sweep adds no new GraphQL calls beyond what classification
-already fetched. The timestamps (`updated_at`,
+The sweeps add no new GraphQL calls beyond what classification
+already fetched — the timestamps (`updated_at`,
 `last_triage_comment_at`) come from the per-page batch query.
-The only extra cost is mutations for each confirmed action —
-which is the whole point of the sweep.
+The one exception is Sweep 4's
+[live mergeability re-poll](#branch-health-resolution--re-poll-mergeability-live-before-4a4b):
+one `GET /pulls/<N>` REST call per *stale Sweep-4 candidate* (a
+small set — single digits in a typical sweep), the unavoidable
+cost of getting a trustworthy branch-health read. Beyond that,
+the only cost is mutations for each confirmed action — which is
+the whole point of the sweep.
 
 A typical morning `<upstream>` sweep surfaces:
 
