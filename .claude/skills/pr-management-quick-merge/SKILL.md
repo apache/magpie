@@ -131,14 +131,19 @@ already performs on confirmation), not Mode D. The approve is gated by
 and detailed in [Step 3b](#step-3b--optional-approve-action). Everything else
 the skill emits is read-only.
 
-**Golden rule 2 — all gates green is non-negotiable.** A PR reaches the
-triviality screen only after it passes **every** quality gate: real CI green
-(rollup SUCCESS *and* the [Real-CI guard](../pr-management-triage/classify-and-act.md#real-ci-guard)
-confirms real CI actually ran, not just `Mergeable`/`DCO`/`boring-cyborg`),
-`mergeable != CONFLICTING`, GitHub `mergeStateStatus` not `BLOCKED`/`DIRTY`, no
+**Golden rule 2 — all gates green is non-negotiable; mergeability is resolved
+live.** A PR reaches the triviality screen only after it passes **every**
+quality gate: real CI green (rollup SUCCESS *and* the [Real-CI guard](../pr-management-triage/classify-and-act.md#real-ci-guard)
+confirms real CI actually ran, not just `Mergeable`/`DCO`/`boring-cyborg`), no
 unresolved collaborator review threads, no outstanding `CHANGES_REQUESTED`, and
-no workflow run in `action_required`. A near-miss is **not** surfaced — there
-is no "almost green" tier. The gate is in [`candidate-rules.md`](candidate-rules.md#stage-1--quality-gate).
+no workflow run in `action_required`. A near-miss is **not** surfaced — there is
+no "almost green" tier. **Mergeability is deliberately *not* gated from the
+batch** — GitHub reports `BLOCKED`/`UNKNOWN` for most ready PRs in a batched
+fetch (branch protection withholding the merge pending an approval), so gating
+on it drops nearly the whole queue. Instead it is resolved by a **live
+per-candidate re-poll** in [Stage 3](candidate-rules.md#stage-3--live-merge-readiness),
+where `BLOCKED` is recognised as *"needs your approval"* (the skill's primary
+case), not a conflict. The gates are in [`candidate-rules.md`](candidate-rules.md#stage-1--quality-gate).
 
 **Golden rule 3 — allow-list wins, one consequential file disqualifies.** A PR
 is trivial only if **every** changed file matches the supplementary allow-list
@@ -253,52 +258,65 @@ maintainer asks for `[V]iew diff` on a specific candidate.
 
 ---
 
-## Step 2 — Two-stage screen
+## Step 2 — Three-stage screen
 
 Run every fetched PR through [`candidate-rules.md`](candidate-rules.md):
 
-1. **Quality-gate gate** (hard pass/fail) — drop any PR that is not green on
-   every gate in Golden rule 2. No partial credit.
-2. **Triviality classification** — of the survivors, keep those whose footprint
-   is within `max_churn` / `max_files` **and** whose every file matches the
-   allow-list with none in the deny-list. Assign Tier A or Tier B.
+1. **Quality-gate gate** (hard pass/fail, from the batch) — drop any PR not green
+   on every Stage-1 gate: real CI green, no failed/pending checks, no workflow
+   approval pending, no unresolved collaborator threads, no outstanding
+   changes-requested. Mergeability is **not** gated here beyond an early-drop of
+   the obviously batch-`CONFLICTING`. No partial credit.
+2. **Triviality classification** (from the batch) — of the survivors, keep those
+   whose footprint is within `max_churn` / `max_files` **and** whose every file
+   matches the allow-list with none in the deny-list. Assign Tier A or Tier B.
+3. **Live merge-readiness** — for each survivor (now a handful), make **one REST
+   call** (`GET /repos/<repo>/pulls/<N>`) to resolve `mergeable` +
+   `mergeable_state` live, because the batched value is unreliable for a large
+   `ready` queue. Bucket each as **ready-to-merge** (`clean`/`unstable`/`behind`),
+   **needs-approval** (`blocked` — branch merges cleanly but a committer approval
+   is missing; the skill's primary case), or **drop** (`dirty`/conflict, or still
+   `unknown` this run). See [Stage 3](candidate-rules.md#stage-3--live-merge-readiness).
 
-The screen is a pure function of the data fetched in Step 1 (plus the lazy diff,
-which is not needed for the screen itself). No mutations, no prompts.
-
-The output is a list of `(pr, tier, churn, files, gate_evidence)` tuples.
+Stages 1–2 are a pure function of the Step-1 batch (no mutations, no prompts);
+Stage 3 adds the small per-candidate re-poll. The output is two ranked lists:
+**ready-to-merge** and **needs-approval-then-merge**.
 
 ---
 
 ## Step 3 — Rank and present
 
-Order: **Tier A before Tier B; within a tier, smallest churn first; ties broken
-by oldest-updated.** Present as a single read-only group:
+Order within each bucket: **Tier A before Tier B; within a tier, smallest churn
+first; ties broken by oldest-updated.** Present **two** read-only buckets — the
+*ready-to-merge* set first, then the *needs-your-approval-then-merge* set:
 
 ```text
 ─────────────────────────────────────────────────────
-Quick-merge candidates — N PRs · all gates green · review & merge yourself
+Quick-merge candidates · all gates green · review & act yourself
 ─────────────────────────────────────────────────────
 
- [A] #67676  @vividbaek      +18/-0   1 file   Tier A (docs)
-       docs/apache-airflow/howto/remediation.rst
-       gates: CI ✓ (Tests, Static checks, Docs)  mergeable ✓  threads 0  approvals: 0
-       merge:  gh pr merge 67676 --squash --repo <repo>
+READY TO MERGE — M PRs (clean / mergeable now)
+ [A] #67452  @nailo2c       +12/-1   1 file   Tier A (docs)   mergeable_state: clean
+       airflow-core/docs/core-concepts/dags.rst
+       gates: CI ✓ (Tests, Static checks, Docs)  threads 0  approvals: 1
+       merge:  gh pr merge 67452 --squash --repo <repo>
        [V] view full diff
 
- [A] #67685  @ed-kyu         +2/-3    1 file   Tier A (comment/typo)
-       providers/http/.../http.py   (TODO comment removal — within churn budget, path not in deny-list)
-       gates: CI ✓  mergeable ✓  threads 0  approvals: 1
-       merge:  gh pr merge 67685 --squash --repo <repo>
+NEEDS YOUR APPROVAL, THEN MERGE — K PRs (clean branch, blocked on a missing committer approval)
+ [A] #64724  @auyua9        +2/-2    1 file   Tier A (docs)   mergeable_state: blocked (REVIEW_REQUIRED)
+       INSTALLING.md
+       gates: CI ✓  threads 0  approvals: 0
+       action:  [A]pprove 64724  →  then  gh pr merge 64724 --squash --repo <repo>
        [V] view full diff
  ...
 ```
 
 For each candidate print: PR number (clickable), author, `+adds/-dels`, file
-count, tier + one-word reason, the **full file list**, an explicit per-gate
-attestation (which real-CI checks are green, mergeable state, unresolved-thread
-count, current approval count), the exact **merge command** from
-`merge_command_template`, and a `[V]iew diff` affordance.
+count, tier + one-word reason, the live `mergeable_state`, the **full file
+list**, an explicit per-gate attestation (which real-CI checks are green,
+unresolved-thread count, current approval count), and a `[V]iew diff` affordance.
+For the *ready* bucket print the **merge command**; for the *needs-approval*
+bucket print the `[A]pprove NN` → merge sequence.
 
 The maintainer's options on the group:
 
