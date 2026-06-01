@@ -87,6 +87,10 @@ TOOLING_REF="${TOOLING_REF:-HEAD}"
 AGENT="${SPEC_LOOP_AGENT:-claude}"
 MODEL="${SPEC_LOOP_MODEL:-sonnet}"
 PR_LIMIT="${SPEC_LOOP_PR_LIMIT:-100}"
+# Agent output format. Default `text` is what the spinner expects; switch to
+# `stream-json` (SPEC_LOOP_OUTPUT_FORMAT=stream-json) to see live tool-call
+# events when debugging a slow or wedged run.
+OUTPUT_FORMAT="${SPEC_LOOP_OUTPUT_FORMAT:-text}"
 # Plan length that triggers ONE consolidation round before building. The
 # consolidate beat preserves every planned work item, so a plan that is long
 # because of *pending work* (not stale history) cannot shrink below this —
@@ -215,6 +219,50 @@ open_pr_context() {
 # work is what stops the agent re-picking the same top-priority plan item and
 # rebuilding it on a new branch every iteration. Reads refs only, so it is
 # correct regardless of which branch is currently checked out.
+# Incremental scope for `update`: read the saved sync marker and tell the
+# agent to only re-inspect paths that changed since then. Without this the
+# update beat re-audits every skill, tool, and modes.md row on every run,
+# which is the bulk of the streaming volume on a slow link.
+#
+# The marker is `tools/spec-loop/.last-sync` — a plain file containing the
+# BASE SHA the specs were last synced against. Read from the working tree
+# (so a half-finished sync counts); fall back to the control branch via
+# `git show` for the case where BASE is already checked out. The update
+# prompt overwrites this file at the end of every successful sync.
+update_scope_context() {
+    echo ""
+    echo "## Incremental scope — only re-inspect what changed since the last sync"
+    echo ""
+    local marker="tools/spec-loop/.last-sync"
+    local prev
+    if [ -f "$marker" ]; then
+        prev="$(tr -d '[:space:]' < "$marker")"
+    else
+        prev="$(git show "$TOOLING_REF:$marker" 2>/dev/null | tr -d '[:space:]')"
+    fi
+    if [ -z "$prev" ]; then
+        echo "No \`$marker\` recorded — do a full inventory, then write the new"
+        echo "BASE SHA to that file as part of the sync commit."
+        return 0
+    fi
+    echo "The last sync marker (\`$marker\`) is \`$prev\`. The current BASE HEAD"
+    echo "is \`$BASE_HEAD\`."
+    echo ""
+    echo "Scope your inventory to paths touched in that range:"
+    echo ""
+    echo '```'
+    echo "git diff --name-only $prev..$BASE_HEAD -- .claude/skills tools docs/modes.md"
+    echo '```'
+    echo ""
+    echo "Skills, tools, and \`docs/modes.md\` rows untouched in that range are still"
+    echo "in sync as of the previous run — skip them. Only re-inspect specs whose"
+    echo "subjects appear in the diff. If the diff is empty there is nothing to"
+    echo "sync; exit without creating a branch or commit."
+    echo ""
+    echo "When you finish the sync, overwrite \`$marker\` with \`$BASE_HEAD\` and"
+    echo "include it in the sync commit so the next run picks up from here."
+}
+
 local_branch_context() {
     echo ""
     echo "## Local work-item branches"
@@ -311,7 +359,11 @@ while true; do
         echo "Error: could not read '$ACTIVE_PROMPT' from the working tree or control branch '$TOOLING_REF'." >&2
         rm -f "$PROMPT_WITH_CONTEXT"; break
     fi
-    open_pr_context >> "$PROMPT_WITH_CONTEXT"
+    # Update mode just diffs code against specs; it doesn't pick a work item, so
+    # the open-PR list (a network round-trip via gh) buys nothing. Skip it there.
+    if [ "$MODE" != "update" ]; then
+        open_pr_context >> "$PROMPT_WITH_CONTEXT"
+    fi
     local_branch_context >> "$PROMPT_WITH_CONTEXT"
 
     if [ "$BUILD_ITERATION" = true ]; then
@@ -358,6 +410,13 @@ while true; do
             fi
         fi
         BASE_HEAD="$(git rev-parse HEAD)"
+
+        # Update-only: append incremental scope now that BASE is checked out
+        # and BASE_HEAD is known. The agent will diff $prev..$BASE_HEAD on the
+        # listed paths and skip anything not touched in that range.
+        if [ "$MODE" = "update" ]; then
+            update_scope_context >> "$PROMPT_WITH_CONTEXT"
+        fi
     fi
 
     # Run one iteration with a fresh context.
@@ -369,10 +428,15 @@ while true; do
     #   --disallowedTools …             defense-in-depth: hard-deny push and
     #                                   gh so a stray call cannot reach the
     #                                   remote even with permissions skipped.
+    # Claude CLI requires --verbose with -p when output-format is stream-json;
+    # add it only in that case to keep the default `text` run quiet.
+    VERBOSE_ARGS=()
+    [ "$OUTPUT_FORMAT" = "stream-json" ] && VERBOSE_ARGS=(--verbose)
     "$AGENT" -p \
         --dangerously-skip-permissions \
         --disallowedTools "Bash(git push:*)" "Bash(gh:*)" \
-        --output-format=text \
+        --output-format="$OUTPUT_FORMAT" \
+        "${VERBOSE_ARGS[@]}" \
         --model "$MODEL" < "$PROMPT_WITH_CONTEXT" &
     AGENT_PID=$!
     spinner "$AGENT_PID" & SPINNER_PID=$!
@@ -393,6 +457,39 @@ while true; do
             echo "               push it with:  git push -u origin $CUR_BRANCH"
         else
             echo "⚠ No work-item branch was created (still on '$CUR_BRANCH'). Check the agent output above." >&2
+        fi
+
+        # Update mode: advance the .last-sync marker to $BASE_HEAD, so the
+        # next `update` run scopes from here. Bundle the marker bump into
+        # the agent's sync commit when there is one (so it ships in the
+        # same PR); otherwise — if the agent saw nothing to sync and stayed
+        # on BASE — make a tiny marker-only branch off BASE.
+        if [ "$MODE" = "update" ]; then
+            if [ "$CUR_BRANCH" != "$BASE" ] && [ "$CUR_BRANCH" != "$TOOLING_REF" ]; then
+                printf '%s\n' "$BASE_HEAD" > tools/spec-loop/.last-sync
+                if ! git diff --quiet -- tools/spec-loop/.last-sync 2>/dev/null; then
+                    git add tools/spec-loop/.last-sync
+                    if git commit --amend --no-edit >/dev/null 2>&1; then
+                        echo "[ marker ] amended .last-sync = $BASE_HEAD into $CUR_BRANCH"
+                    else
+                        echo "⚠ Could not amend .last-sync into '$CUR_BRANCH' — bump it by hand." >&2
+                    fi
+                fi
+            elif [ "$CUR_BRANCH" = "$BASE" ]; then
+                cur_marker="$(tr -d '[:space:]' < tools/spec-loop/.last-sync 2>/dev/null)"
+                if [ "$cur_marker" != "$BASE_HEAD" ]; then
+                    marker_branch="advance-last-sync-${BASE_HEAD:0:7}"
+                    if git checkout -b "$marker_branch" >/dev/null 2>&1; then
+                        printf '%s\n' "$BASE_HEAD" > tools/spec-loop/.last-sync
+                        git add tools/spec-loop/.last-sync
+                        if git commit -m "chore(spec-loop): advance .last-sync to $BASE_HEAD" >/dev/null 2>&1; then
+                            echo "[ marker ] advanced .last-sync on $marker_branch"
+                            echo "           push it with:  git push -u origin $marker_branch"
+                            CUR_BRANCH="$marker_branch"
+                        fi
+                    fi
+                fi
+            fi
         fi
 
         # Safety guard: a build/update iteration must never commit to the base.

@@ -16,14 +16,22 @@ Context to load first:
 
 Steps:
 
-1. **Create the sync branch off the integration base**, then switch to
+1. **Check the `## Incremental scope` section appended below by the
+   runner.** If it names a previous sync commit, run the `git diff
+   --name-only` command it provides and treat that file list as the
+   *only* surface to re-audit — everything else is already in sync as of
+   that commit. If the diff is empty, exit without creating a branch or
+   commit (print "specs already in sync as of <SHA>"). If no previous
+   sync commit is recorded, fall through to a full inventory.
+2. **Create the sync branch off the integration base**, then switch to
    it: `git checkout -b sync-specs`. (One reviewable PR for the
    sync.) Never commit the sync to the integration branch.
-2. Inventory the code with parallel subagents:
+3. Inventory the code with parallel subagents (full inventory only if
+   step 1 did not narrow the surface):
    - every `.claude/skills/*/SKILL.md` (name, mode, what it does);
    - every `tools/*` project (what it does, its tests);
    - the mode/status table in `docs/modes.md`.
-3. Diff that inventory against `tools/spec-loop/specs/`:
+4. Diff that inventory against `tools/spec-loop/specs/`:
    - **New functionality with no spec** → author a new topic-named spec
      (no number prefix) following the format in
      [`specs/README.md`](specs/README.md), grounded in the real code it
@@ -35,11 +43,15 @@ Steps:
      are reflected).
    - **Removed functionality** → mark the spec or move it to a `Known
      gaps`/retired note; do not silently delete history.
-4. Update `specs/overview.md` and `specs/README.md` indexes if areas were
+5. Update `specs/overview.md` and `specs/README.md` indexes if areas were
    added or renamed.
-5. `git add -A` then `git commit` with subject
+6. `git add -A` then `git commit` with subject
    `docs(spec-loop): sync specs with contributed functionality` and a
-   `Generated-by: Claude (Opus 4.7)` trailer.
+   `Generated-by: Claude (Opus 4.7)` trailer. **Do NOT touch
+   `tools/spec-loop/.last-sync` yourself** — `loop.sh` amends the marker
+   into this commit after you finish, so the next `update` run knows to
+   scope from `$BASE_HEAD`. Leaving it alone avoids merge conflicts with
+   that amendment.
 
 Then STOP. Do NOT push, do NOT open a PR. Print the human-run commands:
 
@@ -51,9 +63,10 @@ gh pr create --web --base <integration-base> --head sync-specs \
 
 Rules:
 
-- **Edit specs only.** This beat changes `tools/spec-loop/specs/` (and
-  the indexes). It must NOT change any skill, tool, or doc outside the
-  spec directory — it documents reality, it does not alter it.
+- **Edit specs only.** This beat changes `tools/spec-loop/specs/` and
+  the indexes. It must NOT change any skill, tool, or doc outside the
+  spec directory — it documents reality, it does not alter it. The
+  marker file `.last-sync` is owned by `loop.sh`; do not touch it.
 - Confirm with a code search before recording something as present or
   absent. Do not invent behaviour the code does not have.
 - Keep the RFCs untouched — they are a separate governance layer.
