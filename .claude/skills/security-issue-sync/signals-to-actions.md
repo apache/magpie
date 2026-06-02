@@ -148,6 +148,33 @@ will change and *why*. Group them by category:
   notifications. Instead, leave the assignee empty or propose a
   security-team member who is already engaged in the discussion.
 
+  **Sign-up (volunteer) branch.** A fix PR is not the only ownership
+  signal. When a person has **signed up** to own the issue — the
+  *volunteer-owner* signal from
+  [`gather.md` Step 1d](gather.md#1d-mine-comments-and-mail-messages-for-actionable-signals)
+  (a comment volunteering to take it: *"I'll take this"*, *"assign
+  me"*, *"I can work on the fix"*, *"I'll drive the advisory"*) —
+  **propose setting that person as the assignee**, subject to the
+  **same project-member gate** as the PR-author branch: their handle
+  must appear in the security-team roster in
+  [`<project-config>/release-trains.md`](../../../<project-config>/release-trains.md),
+  or in `gh api repos/<tracker>/collaborators --jq '.[].login'`
+  (every permission level counts). The gate matters twice over for a
+  private tracker: a non-collaborator **cannot see the issue**, and
+  GitHub silently drops assignee writes for non-collaborators. So a
+  volunteer who is **not** a project member is recorded in the
+  proposal as context but **not** assigned — surface *"`<handle>`
+  volunteered but is not a `<tracker>` collaborator — invite them
+  first?"* and let the user decide. Precedence and idempotency:
+
+  - When both a sign-up and a fix-PR author exist, the **PR author
+    wins** — the in-flight fix is the stronger ownership signal;
+    record the volunteer as context only.
+  - Only propose the sign-up assignment when the issue currently has
+    **no assignee**. Never override an existing assignee on a
+    volunteer signal — that is a hand-off, which only happens at the
+    `fix released` transition below.
+
   Also propose clearing a stale assignment if the person is no longer
   active on the issue, and propose self-assigning a team member only
   if the user explicitly asks.
