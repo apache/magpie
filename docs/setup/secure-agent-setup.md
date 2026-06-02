@@ -374,7 +374,8 @@ below, annotated.
         "github.com", "api.github.com", "raw.githubusercontent.com",
         "objects.githubusercontent.com", "codeload.github.com", "uploads.github.com",
         "pypi.org", "files.pythonhosted.org",
-        "lists.apache.org", "cveprocess.apache.org", "cve.org", "www.cve.org",
+        "lists.apache.org", "dist.apache.org", "downloads.apache.org", "archive.apache.org",
+        "cveprocess.apache.org", "cve.org", "www.cve.org",
         "oauth2.googleapis.com", "gmail.googleapis.com"
       ]
     }
