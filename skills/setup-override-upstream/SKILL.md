@@ -2,7 +2,7 @@
 name: setup-override-upstream
 description: |
   Walk an adopter through promoting a local
-  `.apache-steward-overrides/<skill>.md` file into a PR
+  `.apache-magpie-overrides/<skill>.md` file into a PR
   against `apache/airflow-steward`. After the PR merges and
   the adopter runs `/setup-steward upgrade`, the override file
   is no longer needed and the skill prompts for its removal.
@@ -24,10 +24,10 @@ license: Apache-2.0
 
 <!-- Placeholder convention (see ../../AGENTS.md#placeholder-convention-used-in-skill-files):
      <adopter-repo>           → repo this skill is being run in (an adopter)
-     <override-file>          → .apache-steward-overrides/<skill>.md being upstreamed
+     <override-file>          → .apache-magpie-overrides/<skill>.md being upstreamed
      <framework-skill>        → framework skill the override modifies
      <framework-clone>        → user's local clone of apache/airflow-steward
-                                (separate from .apache-steward/, which is a gitignored snapshot)
+                                (separate from .apache-magpie/, which is a gitignored snapshot)
      <framework-fork>         → user's GitHub fork of apache/airflow-steward
                                 (where the PR branch gets pushed) -->
 
@@ -35,7 +35,7 @@ license: Apache-2.0
 
 This skill is the path from *local override* to *framework
 feature*. It takes a single
-`.apache-steward-overrides/<skill>.md` file in an adopter
+`.apache-magpie-overrides/<skill>.md` file in an adopter
 repo, walks the user through deciding whether the change is
 worth upstreaming, designs the framework-level abstraction,
 implements it in `apache/airflow-steward`, and opens a PR.
@@ -56,7 +56,7 @@ making every adopter benefit on their next
 
 Before running the default behaviour documented below, this
 skill consults
-[`.apache-steward-overrides/setup-override-upstream.md`](../../docs/setup/agentic-overrides.md)
+[`.apache-magpie-overrides/setup-override-upstream.md`](../../docs/setup/agentic-overrides.md)
 in the adopter repo if it exists, and applies any
 agent-readable overrides it finds. See
 [`docs/setup/agentic-overrides.md`](../../docs/setup/agentic-overrides.md)
@@ -65,7 +65,7 @@ the reconciliation flow on framework upgrade, upstreaming
 guidance.
 
 **Hard rule**: agents NEVER modify the snapshot under
-`<adopter-repo>/.apache-steward/`. Local modifications go in
+`<adopter-repo>/.apache-magpie/`. Local modifications go in
 the override file. Framework changes go via PR to
 `apache/airflow-steward`.
 
@@ -74,8 +74,8 @@ the override file. Framework changes go via PR to
 ## Snapshot drift
 
 Also at the top of every run, this skill compares the
-gitignored `.apache-steward.local.lock` (per-machine
-fetch) against the committed `.apache-steward.lock` (the
+gitignored `.apache-magpie.local.lock` (per-machine
+fetch) against the committed `.apache-magpie.lock` (the
 project pin). On mismatch the skill surfaces the gap and
 proposes
 [`/setup-steward upgrade`](../setup-steward/upgrade.md).
@@ -115,7 +115,7 @@ early if the change is not generalisable.
 **Golden rule 2 — write to `<framework-clone>`, never to
 the snapshot.** The framework PR is implemented in the
 user's local apache-steward clone (a separate working
-directory from the adopter's `.apache-steward/` snapshot,
+directory from the adopter's `.apache-magpie/` snapshot,
 which is gitignored and read-only). If the user does not
 have a clone yet, the skill helps them set one up.
 
@@ -141,8 +141,8 @@ preemptively.
 ### Step 0 — Pre-flight
 
 1. We are in an adopter repo (has
-   `<adopter-repo>/.apache-steward.lock` and
-   `<adopter-repo>/.apache-steward-overrides/`). If not,
+   `<adopter-repo>/.apache-magpie.lock` and
+   `<adopter-repo>/.apache-magpie-overrides/`). If not,
    stop — the skill is for adopters with at least one
    override file.
 2. The snapshot is current (no drift per the section
@@ -154,12 +154,12 @@ preemptively.
    If not found, surface and ask the user where it is, or
    help them clone it (`git clone
    git@github.com:apache/airflow-steward.git`). The clone
-   is **separate** from `<adopter-repo>/.apache-steward/`
+   is **separate** from `<adopter-repo>/.apache-magpie/`
    (the snapshot).
 
 ### Step 1 — Pick the override
 
-List `<adopter-repo>/.apache-steward-overrides/*.md`
+List `<adopter-repo>/.apache-magpie-overrides/*.md`
 (excluding the directory's own `README.md`). For each,
 print the file name + first headline.
 
@@ -178,7 +178,7 @@ Read the chosen override file. Surface to the user:
 
 Then read the framework skill it modifies, from the
 snapshot at
-`<adopter-repo>/.apache-steward/.claude/skills/<framework-skill>/`.
+`<adopter-repo>/.apache-magpie/.claude/skills/<framework-skill>/`.
 Surface:
 
 - The skill's purpose (frontmatter description)
@@ -313,8 +313,8 @@ Next steps once it merges:
 
   1. /setup-steward upgrade   (in <adopter-repo>)
      - Bumps the snapshot to the new framework version.
-     - .apache-steward.lock will reflect the new pin.
-  2. Delete .apache-steward-overrides/<skill>.md in <adopter-repo>
+     - .apache-magpie.lock will reflect the new pin.
+  2. Delete .apache-magpie-overrides/<skill>.md in <adopter-repo>
      - The override is now redundant; the framework does
        what the override used to do.
   3. Commit the deletion + the bumped lock together.
@@ -329,7 +329,7 @@ lands.
 ## Output to the user (skill end)
 
 ```text
-✓ Override picked:        .apache-steward-overrides/<skill>.md
+✓ Override picked:        .apache-magpie-overrides/<skill>.md
 ✓ Framework skill:        <framework-skill>
 ✓ Decision:               upstreamable as <shape from Step 4>
 ✓ Framework clone:        <framework-clone>
@@ -339,7 +339,7 @@ lands.
 
 Next: wait for the PR to merge, then in <adopter-repo>:
   /setup-steward upgrade
-  rm .apache-steward-overrides/<skill>.md
+  rm .apache-magpie-overrides/<skill>.md
   git add -A && git commit -m "Remove override <skill>: upstreamed in apache/airflow-steward#<N>"
 ```
 
@@ -347,7 +347,7 @@ Next: wait for the PR to merge, then in <adopter-repo>:
 
 | Symptom | Likely cause | Remediation |
 |---|---|---|
-| `<adopter-repo>` has no `.apache-steward-overrides/` | not adopted, or adopted without the overrides scaffold | run `/setup-steward adopt` (idempotent) |
+| `<adopter-repo>` has no `.apache-magpie-overrides/` | not adopted, or adopted without the overrides scaffold | run `/setup-steward adopt` (idempotent) |
 | Step 1 finds zero overrides | nothing to upstream — adopter has no local modifications recorded | stop |
 | `<framework-clone>` not found | user has not cloned `apache/airflow-steward` yet | help them clone, then resume |
 | Framework pre-commit fails after the implementation | the change does not match framework conventions | iterate with the user, re-run pre-commit, do not bypass with `--no-verify` |

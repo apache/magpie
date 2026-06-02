@@ -8,7 +8,7 @@
   - [What you'll be asked to confirm](#what-youll-be-asked-to-confirm)
   - [Verifying the removal](#verifying-the-removal)
   - [What remains after unadopt — and how to remove it](#what-remains-after-unadopt--and-how-to-remove-it)
-    - [`.apache-steward-overrides/`](#apache-steward-overrides)
+    - [`.apache-magpie-overrides/`](#apache-magpie-overrides)
     - [Symlinks pointing outside the snapshot](#symlinks-pointing-outside-the-snapshot)
     - [`post-checkout` hook with extra logic](#post-checkout-hook-with-extra-logic)
     - [Overlapping `.gitignore` entries](#overlapping-gitignore-entries)
@@ -36,7 +36,7 @@ into your repo.
 > — it keeps your overrides and re-uses the existing
 > wiring. To **temporarily detach a single skill for
 > debugging**, edit the relevant file under
-> `.apache-steward-overrides/` instead.
+> `.apache-magpie-overrides/` instead.
 
 ## Quick removal
 
@@ -54,7 +54,7 @@ looks like, how to verify, and how to clean up what
 ## Invocation
 
 ```bash
-/setup-steward unadopt              # default: preserves .apache-steward-overrides/
+/setup-steward unadopt              # default: preserves .apache-magpie-overrides/
 /setup-steward unadopt --purge-overrides
 /setup-steward unadopt dry-run      # print the plan; no writes, no confirmation
 ```
@@ -73,15 +73,15 @@ present in your repo. The plan looks like:
 The following will be REMOVED:
 
   Gitignored (no commit needed):
-    .apache-steward/                          (snapshot)
-    .apache-steward.local.lock
-    <skills-dir>/<symlink-1>                  → .apache-steward/.claude/skills/<skill-1>/
+    .apache-magpie/                          (snapshot)
+    .apache-magpie.local.lock
+    <skills-dir>/<symlink-1>                  → .apache-magpie/.claude/skills/<skill-1>/
     <skills-dir>/<symlink-2>                  → ...
     .github/skills/<symlink-1>                (Pattern B only — second physical layer)
     .git/hooks/post-checkout                  (if it contains the Magpie recipe)
 
   Committed (will show in `git status`):
-    .apache-steward.lock                      (your project's pin)
+    .apache-magpie.lock                      (your project's pin)
     .gitignore                                (the Magpie entries)
     README.md                                 (the adoption section, if present)
     AGENTS.md                                 (the Magpie framework section, if present)
@@ -90,7 +90,7 @@ The following will be REMOVED:
 
 The following will be PRESERVED:
 
-    .apache-steward-overrides/                (pass `--purge-overrides` to remove)
+    .apache-magpie-overrides/                (pass `--purge-overrides` to remove)
 ```
 
 `<skills-dir>` resolves to your skills directory per the
@@ -105,7 +105,7 @@ your repo uses:
   symlink itself is adopter-owned and is **not** removed by
   unadopt.
 
-If `--purge-overrides` is passed, `.apache-steward-overrides/`
+If `--purge-overrides` is passed, `.apache-magpie-overrides/`
 moves into the *removed* section with its files listed
 explicitly. If any uncommitted edits exist under it, the
 flow warns and asks for a second confirmation.
@@ -119,17 +119,17 @@ After the flow finishes, confirm the result:
 ```bash
 git status                       # staged deletions / modifications
 git diff --cached                # review patches before committing
-ls .apache-steward 2>/dev/null   # should print nothing — directory gone
+ls .apache-magpie 2>/dev/null   # should print nothing — directory gone
 ```
 
-You should see staged deletions for `.apache-steward.lock`,
+You should see staged deletions for `.apache-magpie.lock`,
 your `setup-steward/` skill directory, and modifications
 to `.gitignore` plus any of `README.md` / `AGENTS.md` /
 `CONTRIBUTING.md` that had adoption sections. Pay extra
 attention to the `.gitignore` and doc patches — those are
 the lines most likely to need a human re-read before
-committing. On disk, `.apache-steward/` and
-`.apache-steward.local.lock` should no longer exist.
+committing. On disk, `.apache-magpie/` and
+`.apache-magpie.local.lock` should no longer exist.
 
 If anything is missing or unexpected — or if removal failed
 partway through — the canonical per-step plan, including
@@ -145,7 +145,7 @@ installed. Anything you authored, or anything that
 overlapped with the framework's footprint but predates the
 adoption, is preserved on purpose.
 
-### `.apache-steward-overrides/`
+### `.apache-magpie-overrides/`
 
 Your hand-written customisations: any per-skill overrides
 you filled in (e.g. `pr-management-triage.md`) and, if you
@@ -156,7 +156,7 @@ Preserved because the content is yours, not the
 framework's. Remove with:
 
 ```bash
-git rm -r .apache-steward-overrides/
+git rm -r .apache-magpie-overrides/
 ```
 
 Or use `/setup-steward unadopt --purge-overrides` to do
@@ -190,7 +190,7 @@ $EDITOR .git/hooks/post-checkout
 
 `unadopt` removes only the exact lines from the adopt
 template. If you had unrelated rules referencing
-`.apache-steward/` (e.g. a custom path under the snapshot
+`.apache-magpie/` (e.g. a custom path under the snapshot
 dir), they remain. Audit and clean manually:
 
 ```bash

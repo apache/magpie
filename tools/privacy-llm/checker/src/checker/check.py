@@ -178,8 +178,8 @@ def main(argv: list[str] | None = None) -> int:
         help=(
             "Path to the privacy-llm.md config. Default: "
             "$PRIVACY_LLM_CONFIG, then "
-            "<cwd>/.apache-steward/privacy-llm.md, then "
-            "<cwd>/.apache-steward-overrides/privacy-llm.md."
+            "<cwd>/.apache-magpie/privacy-llm.md, then "
+            "<cwd>/.apache-magpie-overrides/privacy-llm.md."
         ),
     )
     parser.add_argument(

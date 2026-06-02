@@ -1,12 +1,12 @@
 ## Snapshot lock file state
 
-cat .apache-steward.lock:
+cat .apache-magpie.lock:
   method: svn-zip
   url: https://dist.apache.org/repos/dist/dev/airflow/airflow-steward-0.9.2.tar.gz
   ref: v0.9.2
   sha512: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08d2e7a12f7c9e81237abc456789...
 
-cat .apache-steward.local.lock:
+cat .apache-magpie.local.lock:
   method: svn-zip
   url: https://dist.apache.org/repos/dist/dev/airflow/airflow-steward-0.9.2.tar.gz
   ref: v0.9.2

@@ -98,7 +98,7 @@ set is the strongest signal for what milestone the security issue should carry.
 
 **Backend selection.** When Step 0 recorded
 `ponymail_authenticated: true` **and**
-`security@<project>.apache.org` is in `.apache-steward-overrides/user.md` →
+`security@<project>.apache.org` is in `.apache-magpie-overrides/user.md` →
 `tools.ponymail.private_lists`, **PonyMail MCP is the primary
 backend for this step** — the archive is authoritative and
 reaches back further than any single user's Gmail window. Run the
@@ -262,7 +262,7 @@ it for: historical lookups, cross-list fan-outs
 reliably find messages older than ~90 days. Gmail is the fallback
 when (a) PonyMail is not enabled / not authenticated, (b) a
 private list the query targets is not in
-`.apache-steward-overrides/user.md` → `tools.ponymail.private_lists`, or (c) the
+`.apache-magpie-overrides/user.md` → `tools.ponymail.private_lists`, or (c) the
 signal is *just-arrived inbound mail* where Gmail's inbox latency
 beats the archive's indexing delay. The per-issue budget is
 ≤ 2 archive searches (whichever backend) plus ≤ 3 Gmail inbox
@@ -383,7 +383,7 @@ uses for reporter threads. That is the load-bearing signal path.
 
 **Backend selection.** When PonyMail MCP is enabled and
 authenticated (Step 0) **and** `security@<project>.apache.org` is
-in `.apache-steward-overrides/user.md` → `tools.ponymail.private_lists`, **PonyMail
+in `.apache-magpie-overrides/user.md` → `tools.ponymail.private_lists`, **PonyMail
 MCP is the primary path** for reviewer-comment archive queries:
 
 ```text

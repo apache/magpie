@@ -64,7 +64,7 @@ cannot compose reporter replies.
 
 **Role when PonyMail MCP is opted into.** When a user sets
 `tools.ponymail.enabled: true` in their
-`.apache-steward-overrides/user.md` and authenticates the
+`.apache-magpie-overrides/user.md` and authenticates the
 MCP, PonyMail becomes the primary read backend for archive
 queries (reporter-thread lookups, reviewer-comment searches,
 `users@` / `dev@` archive scans, prior-rejection precedents).

@@ -1,10 +1,10 @@
-.apache-steward.lock (committed):
+.apache-magpie.lock (committed):
   method: git-tag
   url:    https://github.com/apache/airflow-steward.git
   ref:    v1.3.0
   commit: def789abc123def789abc123def789abc123def7
 
-.apache-steward.local.lock (local):
+.apache-magpie.local.lock (local):
   source_method:  git-tag
   source_url:     https://github.com/apache/airflow-steward.git
   source_ref:     v1.2.0

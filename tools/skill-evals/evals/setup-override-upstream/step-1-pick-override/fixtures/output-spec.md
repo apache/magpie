@@ -12,7 +12,7 @@ Return ONLY valid JSON with this structure:
 ```
 
 Rules:
-- `override_count` counts `.md` files in `.apache-steward-overrides/` excluding `README.md`.
+- `override_count` counts `.md` files in `.apache-magpie-overrides/` excluding `README.md`.
 - `selection` is the filename of the auto-picked override when `override_count` is 1; `null` otherwise.
 - `action`:
   - `stop` when `override_count` is 0 — nothing to upstream.

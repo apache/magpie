@@ -24,7 +24,7 @@ license: Apache-2.0
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
-     <project-config> → adopting project's `.apache-steward/` directory -->
+     <project-config> → adopting project's `.apache-magpie/` directory -->
 
 # setup-isolated-setup-doctor
 

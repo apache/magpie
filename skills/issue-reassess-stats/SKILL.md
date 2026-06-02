@@ -80,14 +80,14 @@ aggregates across campaigns.
 
 Before running the default behaviour documented below, this skill
 consults
-[`.apache-steward-overrides/issue-reassess-stats.md`](../../docs/setup/agentic-overrides.md)
+[`.apache-magpie-overrides/issue-reassess-stats.md`](../../docs/setup/agentic-overrides.md)
 in the adopter repo if it exists, and applies any agent-readable
 overrides it finds. See
 [`docs/setup/agentic-overrides.md`](../../docs/setup/agentic-overrides.md)
 for the contract.
 
 **Hard rule**: agents NEVER modify the snapshot under
-`<adopter-repo>/.apache-steward/`. Local modifications go in the
+`<adopter-repo>/.apache-magpie/`. Local modifications go in the
 override file.
 
 ---
@@ -95,8 +95,8 @@ override file.
 ## Snapshot drift
 
 Also at the top of every run, this skill compares the gitignored
-`.apache-steward.local.lock` (per-machine fetch) against the
-committed `.apache-steward.lock` (the project pin). On mismatch
+`.apache-magpie.local.lock` (per-machine fetch) against the
+committed `.apache-magpie.lock` (the project pin). On mismatch
 the skill surfaces the gap and proposes
 [`/setup-steward upgrade`](../setup-steward/upgrade.md).
 
@@ -240,8 +240,8 @@ recommends.
 | Campaign directory contains no `verdict.json` files | Campaign hasn't run yet, or paths are wrong | Invoke `issue-reassess` to populate, or correct the path |
 | `verdict.json` parse error on N files | Schema drift, manual edits, or interrupted campaign run | Surface the failing paths; do not aggregate partial data |
 | All verdicts classified `cannot-run-*` | Pool was shape-D / shape-H heavy, or runtime is broken | Surface in the dashboard's *"limitations"* section |
-| Health rating threshold seems wrong for this project | Project's defaults don't match its scale | Override via `.apache-steward-overrides/issue-reassess-stats.md` |
-| Age bands don't match the project's pace | "Recent" is project-relative; defaults assume a moderately active project | Override the band edges via `.apache-steward-overrides/issue-reassess-stats.md` |
+| Health rating threshold seems wrong for this project | Project's defaults don't match its scale | Override via `.apache-magpie-overrides/issue-reassess-stats.md` |
+| Age bands don't match the project's pace | "Recent" is project-relative; defaults assume a moderately active project | Override the band edges via `.apache-magpie-overrides/issue-reassess-stats.md` |
 
 ---
 

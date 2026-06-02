@@ -81,7 +81,7 @@ proceed with the documented flow. See the absolute rule in
 
 Before running the default behaviour documented below, this skill
 consults
-[`.apache-steward-overrides/good-first-issue-author.md`](../../docs/setup/agentic-overrides.md)
+[`.apache-magpie-overrides/good-first-issue-author.md`](../../docs/setup/agentic-overrides.md)
 in the adopter repo if it exists, and applies any agent-readable
 overrides it finds. See
 [`docs/setup/agentic-overrides.md`](../../docs/setup/agentic-overrides.md)

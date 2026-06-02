@@ -1,5 +1,5 @@
 Resolved config state for this run:
-  config_path: /home/user/airflow-s/.apache-steward-overrides/security-tracker-stats.yaml
+  config_path: /home/user/airflow-s/.apache-magpie-overrides/security-tracker-stats.yaml
   buckets: monthly
   output_path: /home/user/reports/tracker-stats.html
 

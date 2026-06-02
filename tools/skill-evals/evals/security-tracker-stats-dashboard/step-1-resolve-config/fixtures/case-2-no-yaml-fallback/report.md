@@ -5,7 +5,7 @@ project-config/security-tracker-stats.md:
   (no output_path key — using default HTML path)
 
 YAML file check:
-  path: /home/user/airflow-s/.apache-steward-overrides/security-tracker-stats.yaml
+  path: /home/user/airflow-s/.apache-magpie-overrides/security-tracker-stats.yaml
   exists: no
 
 Fallback: framework built-in default-config.yaml (monthly buckets)

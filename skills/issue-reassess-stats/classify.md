@@ -118,7 +118,7 @@ them into one bucket hid the signal.
 These bands are reasonable defaults, not a contract. "Recent" is
 project-relative — a month-old issue is fresh for a fast-moving
 project but stale for a long-stable one. An adopter retunes the
-band edges via `.apache-steward-overrides/issue-reassess-stats.md`
+band edges via `.apache-magpie-overrides/issue-reassess-stats.md`
 (see [`SKILL.md`](SKILL.md) failure modes); absent an override,
 the defaults above apply.
 

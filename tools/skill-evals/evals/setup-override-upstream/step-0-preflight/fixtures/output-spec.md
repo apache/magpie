@@ -11,7 +11,7 @@ Return ONLY valid JSON with this structure:
 ```
 
 `state` describes the repo / lock-file situation:
-- `not-adopter-repo`: no `.apache-steward.lock` or no `.apache-steward-overrides/` found.
+- `not-adopter-repo`: no `.apache-magpie.lock` or no `.apache-magpie-overrides/` found.
 - `no-drift`: both lock files present and in sync; no mismatch.
 - `drift-ref`: same method + URL but committed ref differs from local fetched ref.
 - `drift-method-url`: method or URL differ between committed and local locks.

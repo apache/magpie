@@ -103,7 +103,7 @@ installing.
 ## Step 3 — Delete the old snapshot
 
 ```bash
-rm -rf .apache-steward
+rm -rf .apache-magpie
 ```
 
 The snapshot is gitignored — destroying it loses no
@@ -115,14 +115,14 @@ committed work. Do this **before** the new install to avoid
 Per `<committed-lock>.method`:
 
 - **`git-branch`** — `git clone --depth=1 --branch
-  <committed.ref> <committed.url> .apache-steward`. If
+  <committed.ref> <committed.url> .apache-magpie`. If
   `from:<git-ref>` was passed, use that branch instead of
   the committed one (this run only).
 - **`git-tag`** — `git clone --depth=1 --branch
-  <committed.ref> <committed.url> .apache-steward`. If
+  <committed.ref> <committed.url> .apache-magpie`. If
   `from:<git-ref>` overrides, use it.
 - **`svn-zip`** — `curl` the zip + verify `sha512` +
-  `unzip` to `.apache-steward/`. The verification step is
+  `unzip` to `.apache-magpie/`. The verification step is
   **mandatory**; mismatched SHA-512 stops the upgrade and
   surfaces the discrepancy.
 
@@ -132,7 +132,7 @@ new `<local-lock>`:
 - `source_method`, `source_url`, `source_ref` — from
   whatever method was used in this run (committed lock or
   `from:` override).
-- `fetched_commit` — `git -C .apache-steward rev-parse
+- `fetched_commit` — `git -C .apache-magpie rev-parse
   HEAD` for git methods; the version for svn-zip.
 - `fetched_at` — current ISO-8601 timestamp.
 
@@ -147,7 +147,7 @@ bootstrap logic. It implements
 1. Compute the diff between the adopter-side
    `<adopter-skills-dir>/setup-steward/` (committed copy)
    and the snapshot's
-   `.apache-steward/.claude/skills/setup-steward/`.
+   `.apache-magpie/.claude/skills/setup-steward/`.
 2. **If the adopter has local modifications** to their
    committed copy beyond what the snapshot ships — surface
    the diff and stop. Do **not** silently overwrite local
@@ -162,12 +162,12 @@ bootstrap logic. It implements
    ```bash
    # For the flat layout (Pattern A):
    rm -rf .claude/skills/setup-steward
-   cp -r .apache-steward/.claude/skills/setup-steward \
+   cp -r .apache-magpie/.claude/skills/setup-steward \
          .claude/skills/setup-steward
 
    # For the double-symlinked layout (Pattern B):
    rm -rf .github/skills/setup-steward
-   cp -r .apache-steward/.claude/skills/setup-steward \
+   cp -r .apache-magpie/.claude/skills/setup-steward \
          .github/skills/setup-steward
    # The .claude/skills/setup-steward per-skill symlink does
    # not need touching — it points at .github/skills/setup-steward
@@ -177,7 +177,7 @@ bootstrap logic. It implements
    # write to the *canonical* side only. With D.1
    # (canonical = .github/skills/):
    rm -rf .github/skills/setup-steward
-   cp -r .apache-steward/.claude/skills/setup-steward \
+   cp -r .apache-magpie/.claude/skills/setup-steward \
          .github/skills/setup-steward
    # With D.2 (canonical = .claude/skills/), write to
    # .claude/skills/setup-steward instead. Either way: the
@@ -203,13 +203,13 @@ bootstrap logic. It implements
 
 The adopter shouldn't modify the bootstrap copy locally —
 the framework's hard rule is *"local mods go in
-`.apache-steward-overrides/`, framework changes go via PR
+`.apache-magpie-overrides/`, framework changes go via PR
 to `apache/airflow-steward`"*. But if they did, step (2)
 catches it before the overwrite would erase their work.
 
 ## Step 5 — Reconcile overrides
 
-For each file in `<repo-root>/.apache-steward-overrides/`:
+For each file in `<repo-root>/.apache-magpie-overrides/`:
 
 1. **Target skill check** — does the named framework skill
    exist in the new snapshot? If not (skill renamed or
@@ -357,7 +357,7 @@ For each hook / local config file the framework declares as
 
 1. Compute the snapshot's *expected* content for that file
    (the framework ships the expected content under
-   `.apache-steward/.claude/skills/setup-steward/` or a
+   `.apache-magpie/.claude/skills/setup-steward/` or a
    sibling location — locate the canonical source for each
    file).
 2. Compare against the local copy.
@@ -404,7 +404,7 @@ Procedure:
 2. For each linked worktree, invoke
    `/setup-steward worktree-init` with that worktree's
    working directory as the `cwd`. The sub-action picks up
-   the family set from `<main>/.apache-steward.lock` (the
+   the family set from `<main>/.apache-magpie.lock` (the
    committed lock the worktree shares via git) plus the
    always-on families per
    [`SKILL.md` Golden rule 8](SKILL.md#golden-rules), and
@@ -597,7 +597,7 @@ Drift remediated:
   Method:    <method>
   Project:   <committed.ref>      (committed)
   Local:     <local.fetched-commit-or-version>  → <new>
-  Snapshot:  refreshed at .apache-steward/
+  Snapshot:  refreshed at .apache-magpie/
 
 setup-steward (bootstrap):
   ✓ in sync   OR   ↻ overwritten from snapshot (reloaded in-flight)
@@ -649,7 +649,7 @@ Recommended follow-ups:
   - Run /setup-isolated-setup-update if the secure-setup blast
     radius (settings.json, agent-isolation/, pinned-versions.toml)
     appears in the diff.
-  - Open .apache-steward-overrides/<name>.md for any ⚠ entry above.
+  - Open .apache-magpie-overrides/<name>.md for any ⚠ entry above.
 ```
 
 ## Failure modes

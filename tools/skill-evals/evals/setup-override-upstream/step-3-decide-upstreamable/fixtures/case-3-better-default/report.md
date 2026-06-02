@@ -1,4 +1,4 @@
-Override file: `.apache-steward-overrides/issue-triage.md`
+Override file: `.apache-magpie-overrides/issue-triage.md`
 Override content summary:
   # Override 1 — Change stale-detection default to 90 days
   The framework marks issues as potentially stale after 60 days

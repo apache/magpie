@@ -27,7 +27,7 @@ license: Apache-2.0
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
-     <project-config> → adopting project's `.apache-steward/` directory
+     <project-config> → adopting project's `.apache-magpie/` directory
      <tracker>        → value of `tracker_repo:` in <project-config>/project.md
                        (example: airflow-s/airflow-s for the Apache Airflow security team)
      <upstream>       → value of `upstream_repo:` in <project-config>/project.md
@@ -118,7 +118,7 @@ absolute rule in
 
 Before running the default behaviour documented
 below, this skill consults
-[`.apache-steward-overrides/security-issue-fix.md`](../../docs/setup/agentic-overrides.md)
+[`.apache-magpie-overrides/security-issue-fix.md`](../../docs/setup/agentic-overrides.md)
 in the adopter repo if it exists, and applies any
 agent-readable overrides it finds. See
 [`docs/setup/agentic-overrides.md`](../../docs/setup/agentic-overrides.md)
@@ -127,7 +127,7 @@ rules, the reconciliation flow on framework upgrade,
 upstreaming guidance.
 
 **Hard rule**: agents NEVER modify the snapshot under
-`<adopter-repo>/.apache-steward/`. Local modifications
+`<adopter-repo>/.apache-magpie/`. Local modifications
 go in the override file. Framework changes go via PR
 to `apache/airflow-steward`.
 
@@ -136,8 +136,8 @@ to `apache/airflow-steward`.
 ## Snapshot drift
 
 Also at the top of every run, this skill compares the
-gitignored `.apache-steward.local.lock` (per-machine
-fetch) against the committed `.apache-steward.lock`
+gitignored `.apache-magpie.local.lock` (per-machine
+fetch) against the committed `.apache-magpie.lock`
 (the project pin). On mismatch the skill surfaces the
 gap and proposes
 [`/setup-steward upgrade`](../setup-steward/upgrade.md).
@@ -187,10 +187,10 @@ tracker only to discover you cannot push the branch.
     directly — a fork is required.
 - **A clean local clone of `<upstream>`** reachable from the
   agent's working directory. The path comes from the user's
-  `.apache-steward-overrides/user.md` →
+  `.apache-magpie-overrides/user.md` →
   `environment.upstream_clone`; if the file or key is missing,
   the skill asks the user interactively and offers to save the
-  answer back into `.apache-steward-overrides/user.md` so the next run is silent. The
+  answer back into `.apache-magpie-overrides/user.md` so the next run is silent. The
   skill does **not** guess filesystem layouts — there is no
   hard-coded search path. The clone must:
   - have a remote pointing at your fork;
@@ -232,7 +232,7 @@ continue.
    `gh repo fork <upstream> --clone=false` and re-invoke.
 3. **Local clone is found and clean** — resolve the clone path
    from
-   [`.apache-steward-overrides/user.md`](../../docs/setup/agentic-overrides.md)
+   [`.apache-magpie-overrides/user.md`](../../docs/setup/agentic-overrides.md)
    → `environment.upstream_clone` (per
    [`AGENTS.md` § Per-project and per-user configuration](../../AGENTS.md#per-project-and-per-user-configuration)).
    Verify that path resolves to a directory whose `origin` remote
@@ -450,14 +450,14 @@ change; it writes into a local clone of `<upstream>`. Before
 touching any files:
 
 1. Resolve the clone path from the user's
-   `.apache-steward-overrides/user.md` →
+   `.apache-magpie-overrides/user.md` →
    `environment.upstream_clone` (see
    [`AGENTS.md` § Per-project and per-user configuration](../../AGENTS.md#per-project-and-per-user-configuration)
    for the config-layer explainer). If the file is missing, the key is unset, or
    the stored path does not resolve to a git repo with a remote
    pointing at `<upstream>` or the user's fork, **ask the user
    for the path interactively** and offer to save their answer back
-   into `.apache-steward-overrides/user.md` so the next run is silent. Do **not**
+   into `.apache-magpie-overrides/user.md` so the next run is silent. Do **not**
    probe hard-coded paths like `~/code/airflow` — filesystem layouts
    vary per user and a wrong guess masks a misconfigured clone.
 
@@ -465,7 +465,7 @@ touching any files:
    and which is the upstream `<upstream>`. Per the rule in
    [`<upstream>/AGENTS.md`](https://github.com/<upstream>/blob/main/AGENTS.md),
    push only to the user's fork, never to `<upstream>` directly.
-   If the user's `.apache-steward-overrides/user.md` has
+   If the user's `.apache-magpie-overrides/user.md` has
    `environment.upstream_fork_remote` set, prefer that remote
    name; otherwise use the first non-`origin` remote that looks like
    a fork. If no fork remote is configured, **stop and ask the user

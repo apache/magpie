@@ -32,7 +32,7 @@ Compute one of three project-level ratings:
 | **Action needed** | Still-failing > 20%, or unrun > 40% |
 
 Thresholds are reasonable defaults; adopters override via
-[`.apache-steward-overrides/issue-reassess-stats.md`](../../docs/setup/agentic-overrides.md)
+[`.apache-magpie-overrides/issue-reassess-stats.md`](../../docs/setup/agentic-overrides.md)
 when the project's scale or expectations differ.
 
 ## Action candidates

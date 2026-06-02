@@ -34,7 +34,7 @@ license: Apache-2.0
      <repo>   → target GitHub repository in `owner/name` form (default: read from `<project-config>/project.md → upstream_repo`)
      <viewer> → the authenticated GitHub login of the maintainer running the skill
      <base>   → the PR's base branch (typically `main`)
-     <project-config> → the adopter's config directory (`.apache-steward-overrides/` in an adopter repo)
+     <project-config> → the adopter's config directory (`.apache-magpie-overrides/` in an adopter repo)
      Substitute these before running any `gh` command below. -->
 
 # pr-management-quick-merge
@@ -97,16 +97,16 @@ proceed with the documented screen. See the absolute rule in
 ## Adopter overrides
 
 Before running the default behaviour, this skill consults
-[`.apache-steward-overrides/pr-management-quick-merge.md`](../../docs/setup/agentic-overrides.md)
+[`.apache-magpie-overrides/pr-management-quick-merge.md`](../../docs/setup/agentic-overrides.md)
 in the adopter repo if it exists, and applies any agent-readable overrides it
 finds. **Hard rule**: agents never modify the snapshot under
-`<adopter-repo>/.apache-steward/`. Local modifications go in the override file;
+`<adopter-repo>/.apache-magpie/`. Local modifications go in the override file;
 framework changes go via PR to `apache/airflow-steward`.
 
 ## Snapshot drift
 
-At the top of every run, compare the gitignored `.apache-steward.local.lock`
-against the committed `.apache-steward.lock`. On mismatch, surface the gap and
+At the top of every run, compare the gitignored `.apache-magpie.local.lock`
+against the committed `.apache-magpie.lock`. On mismatch, surface the gap and
 propose [`/setup-steward upgrade`](../setup-steward/upgrade.md). Non-blocking —
 the maintainer may defer.
 

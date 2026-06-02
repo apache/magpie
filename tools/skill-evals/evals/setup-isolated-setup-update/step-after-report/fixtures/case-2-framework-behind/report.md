@@ -3,8 +3,8 @@ commits behind origin/main. Changes since last pull include:
   tools/agent-isolation/claude-iso.sh — 2 lines updated (new deny path)
   docs/setup/secure-agent-setup.md — 1 section added (Step P.0 clarification)
 
-Snapshot drift check: .apache-steward.lock ref is v0.9.5 but
-.apache-steward.local.lock ref is v0.9.4. Sync needed.
+Snapshot drift check: .apache-magpie.lock ref is v0.9.5 but
+.apache-magpie.local.lock ref is v0.9.4. Sync needed.
 
 Check 2 (pinned tools): all tools are at their pinned versions. No upgrade
 candidates.

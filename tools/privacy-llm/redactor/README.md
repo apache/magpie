@@ -77,7 +77,7 @@ uv run --project <framework>/tools/privacy-llm/redactor pii-redact ...
 ```
 
 `<framework>` substitutes to the snapshot path inside an adopting
-project (typically `.apache-steward/apache-steward/`) and to `.`
+project (typically `.apache-magpie/apache-steward/`) and to `.`
 when running standalone — see the placeholder convention in
 [`AGENTS.md`](../../../AGENTS.md#placeholder-convention-used-in-skill-files).
 

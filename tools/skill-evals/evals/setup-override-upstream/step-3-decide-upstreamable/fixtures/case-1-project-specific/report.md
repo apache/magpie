@@ -1,4 +1,4 @@
-Override file: `.apache-steward-overrides/security-issue-import.md`
+Override file: `.apache-magpie-overrides/security-issue-import.md`
 Override content summary:
   # Override 1 — Customise the acknowledgement reply
   This override replaces the default acknowledgement message body

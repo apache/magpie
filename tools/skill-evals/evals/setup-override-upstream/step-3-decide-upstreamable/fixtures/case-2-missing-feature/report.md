@@ -1,4 +1,4 @@
-Override file: `.apache-steward-overrides/pr-management-triage.md`
+Override file: `.apache-magpie-overrides/pr-management-triage.md`
 Override content summary:
   # Override 1 — Skip draft PRs
   Before any classification work, check whether the PR is in draft

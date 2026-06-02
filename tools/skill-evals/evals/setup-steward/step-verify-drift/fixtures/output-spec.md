@@ -20,7 +20,7 @@ Return ONLY valid JSON with this structure:
 - `"security-flagged"` — `svn-zip` method and the SHA-512 in the
   committed lock does not match what is on disk / last fetched.
   `severity: "error"`, `remediation: "investigate"`.
-- `"local-lock-missing"` — `.apache-steward.local.lock` is absent or
+- `"local-lock-missing"` — `.apache-magpie.local.lock` is absent or
   unparsable. `severity: "warning"`,
   `remediation: "/setup-steward upgrade"`.
 - Do not include any text outside the JSON object.

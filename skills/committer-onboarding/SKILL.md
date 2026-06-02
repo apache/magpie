@@ -26,7 +26,7 @@ license: Apache-2.0
      <podling>       → podling short name for Whimsy URLs (e.g. "airflow"), or
                        committee short name for TLPs (e.g. "airflow")
      <upstream>      → GitHub repo in owner/name form
-     <project-config>→ adopter's .apache-steward/ directory
+     <project-config>→ adopter's .apache-magpie/ directory
      <candidate>     → full name of the nominee
      <apache-id>     → candidate's Apache ID (if they already have one, else "none")
      <nominator>      → Apache ID of the person running this skill

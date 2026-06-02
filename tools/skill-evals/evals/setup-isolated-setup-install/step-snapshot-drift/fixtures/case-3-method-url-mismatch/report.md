@@ -1,11 +1,11 @@
 ## Snapshot lock file state
 
-cat .apache-steward.lock:
+cat .apache-magpie.lock:
   method: git-branch
   url: https://github.com/apache/airflow-steward.git
   ref: v0.9.2
 
-cat .apache-steward.local.lock:
+cat .apache-magpie.local.lock:
   method: svn-zip
   url: https://dist.apache.org/repos/dist/dev/airflow/airflow-steward-0.9.1.tar.gz
   ref: v0.9.1

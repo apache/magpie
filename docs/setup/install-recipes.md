@@ -83,7 +83,7 @@ PROJECT=<PROJECT>
 DIST_BASE=https://dist.apache.org/repos/dist/release/${PROJECT}
 ZIP=apache-steward-${VERSION}-source-release.zip
 
-# 1. Download zip + signature + checksum, verify, extract to .apache-steward/
+# 1. Download zip + signature + checksum, verify, extract to .apache-magpie/
 curl -fsSLO ${DIST_BASE}/${ZIP}
 curl -fsSLO ${DIST_BASE}/${ZIP}.sha512
 curl -fsSLO ${DIST_BASE}/${ZIP}.asc
@@ -94,12 +94,12 @@ sha512sum -c ${ZIP}.sha512
 #   gpg --import KEYS
 #   gpg --verify ${ZIP}.asc ${ZIP}
 
-mkdir -p .apache-steward
-unzip -q ${ZIP} -d .apache-steward
-mv .apache-steward/apache-steward-${VERSION}/* \
-   .apache-steward/apache-steward-${VERSION}/.[!.]* \
-   .apache-steward/ 2>/dev/null
-rmdir .apache-steward/apache-steward-${VERSION}
+mkdir -p .apache-magpie
+unzip -q ${ZIP} -d .apache-magpie
+mv .apache-magpie/apache-steward-${VERSION}/* \
+   .apache-magpie/apache-steward-${VERSION}/.[!.]* \
+   .apache-magpie/ 2>/dev/null
+rmdir .apache-magpie/apache-steward-${VERSION}
 rm -f ${ZIP} ${ZIP}.sha512 ${ZIP}.asc
 
 # 2. Copy the `setup-steward` skill into your skills dir.
@@ -107,34 +107,34 @@ rm -f ${ZIP} ${ZIP}.sha512 ${ZIP}.asc
 #
 #    A — flat layout (default):
 mkdir -p .claude/skills
-cp -r .apache-steward/.claude/skills/setup-steward .claude/skills/setup-steward
+cp -r .apache-magpie/.claude/skills/setup-steward .claude/skills/setup-steward
 #
 #    B — double-symlinked layout (per-skill symlinks):
 # mkdir -p .github/skills .claude/skills
-# cp -r .apache-steward/.claude/skills/setup-steward .github/skills/setup-steward
+# cp -r .apache-magpie/.claude/skills/setup-steward .github/skills/setup-steward
 # ln -sf ../../.github/skills/setup-steward .claude/skills/setup-steward
 #
 #    D.1 — single directory symlink, canonical .github/skills/:
 #    (.claude/skills is itself a symlink → ../.github/skills/)
-# cp -r .apache-steward/.claude/skills/setup-steward .github/skills/setup-steward
+# cp -r .apache-magpie/.claude/skills/setup-steward .github/skills/setup-steward
 #    (No second copy needed — .claude/skills/setup-steward resolves
 #     to .github/skills/setup-steward via the directory symlink.)
 #
 #    D.2 — single directory symlink, canonical .claude/skills/:
 #    (.github/skills is itself a symlink → ../.claude/skills/)
-# cp -r .apache-steward/.claude/skills/setup-steward .claude/skills/setup-steward
+# cp -r .apache-magpie/.claude/skills/setup-steward .claude/skills/setup-steward
 
 # 3. Add gitignore entries (idempotent — re-run is safe)
 cat >> .gitignore <<'GITIGNORE'
 
 # Magpie — gitignored snapshot of the framework, refreshed
 # by /setup-steward upgrade. Build artefact, not source.
-/.apache-steward/
+/.apache-magpie/
 
 # Per-machine local-pin file. Records what THIS machine fetched and
-# when. Compared against the committed .apache-steward.lock to
+# when. Compared against the committed .apache-magpie.lock to
 # detect drift.
-/.apache-steward.local.lock
+/.apache-magpie.local.lock
 
 # Symlinks created by /setup-steward into the gitignored snapshot.
 # Pattern A (flat) → keep only the .claude/skills/ block below.
@@ -160,8 +160,8 @@ cat >> .gitignore <<'GITIGNORE'
 GITIGNORE
 
 # 4. Tell your agent: "follow /setup-steward to finish adopting Magpie."
-#    The skill will write .apache-steward.lock (committed) and
-#    .apache-steward.local.lock (gitignored), ask which skill family
+#    The skill will write .apache-magpie.lock (committed) and
+#    .apache-magpie.local.lock (gitignored), ask which skill family
 #    to wire up, create the gitignored framework-skill symlinks, and
 #    update your project docs.
 ```
@@ -181,13 +181,13 @@ TAG=<TAG>
 git clone --depth=1 \
     --branch ${TAG} \
     https://github.com/apache/airflow-steward.git \
-    .apache-steward
+    .apache-magpie
 
 # Copy the `setup-steward` skill — pick A / B / D (see Method 1 step 2)
 mkdir -p .claude/skills
-cp -r .apache-steward/.claude/skills/setup-steward .claude/skills/setup-steward
+cp -r .apache-magpie/.claude/skills/setup-steward .claude/skills/setup-steward
 # OR for double-symlinked (B):
-# cp -r .apache-steward/.claude/skills/setup-steward .github/skills/setup-steward
+# cp -r .apache-magpie/.claude/skills/setup-steward .github/skills/setup-steward
 # ln -sf ../../.github/skills/setup-steward .claude/skills/setup-steward
 # OR for single directory-symlink (D) — copy to canonical side only;
 # the .claude/skills ↔ .github/skills directory symlink does the rest.
@@ -211,13 +211,13 @@ BRANCH=main   # or another branch you want to track
 git clone --depth=1 \
     --branch ${BRANCH} \
     https://github.com/apache/airflow-steward.git \
-    .apache-steward
+    .apache-magpie
 
 # Copy the `setup-steward` skill — pick A / B / D (see Method 1 step 2)
 mkdir -p .claude/skills
-cp -r .apache-steward/.claude/skills/setup-steward .claude/skills/setup-steward
+cp -r .apache-magpie/.claude/skills/setup-steward .claude/skills/setup-steward
 # OR for double-symlinked (B):
-# cp -r .apache-steward/.claude/skills/setup-steward .github/skills/setup-steward
+# cp -r .apache-magpie/.claude/skills/setup-steward .github/skills/setup-steward
 # ln -sf ../../.github/skills/setup-steward .claude/skills/setup-steward
 # OR for single directory-symlink (D) — copy to canonical side only;
 # the .claude/skills ↔ .github/skills directory symlink does the rest.
@@ -244,14 +244,14 @@ the rest:
 1. **Pick the skill families** to symlink in (`security`,
    `pr-management`, `issue`).
 2. **Write the lock files**:
-   - `.apache-steward.lock` (**committed**) — the project's pin
+   - `.apache-magpie.lock` (**committed**) — the project's pin
      (the method + URL + ref you used in the recipe). Future
      adopters of *this same repo* re-install per this pin.
-   - `.apache-steward.local.lock` (**gitignored**) — what THIS
+   - `.apache-magpie.local.lock` (**gitignored**) — what THIS
      machine actually fetched (commit SHA, timestamp).
 3. **Create the symlinks** for chosen skill families
    (gitignored — they target the gitignored snapshot).
-4. **Scaffold `.apache-steward-overrides/`** (committed) for
+4. **Scaffold `.apache-magpie-overrides/`** (committed) for
    any local workflow modifications.
 5. **Install a `post-checkout` git hook** so worktrees
    re-create the gitignored runtime state.
@@ -260,7 +260,7 @@ the rest:
 
 After this, adopters fresh-cloning the repo can run
 `/setup-steward` and get the framework provisioned per your
-project's committed `.apache-steward.lock` — no need to redo
+project's committed `.apache-magpie.lock` — no need to redo
 the manual recipe.
 
 ## Subsequent runs and drift detection
@@ -268,7 +268,7 @@ the manual recipe.
 Every framework skill — and `/setup-steward verify` —
 compares the local lock against the committed lock at the top
 of its run. If they have drifted (e.g. the project lead bumped
-`.apache-steward.lock` to a newer ref, or the local install is
+`.apache-magpie.lock` to a newer ref, or the local install is
 stale on a `main`-tracking adopter), the skill surfaces the
 gap and proposes:
 

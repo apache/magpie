@@ -125,7 +125,7 @@ concurrently, which is exactly what the sync needs.
       comment — see [`tools/github/status-rollup.md`](../../tools/github/status-rollup.md)
       for the marker spec).
     - `login` matches a `bot_logins:` entry in the override file at
-      [`.apache-steward-overrides/security-issue-sync.md`](../../docs/setup/agentic-overrides.md)
+      [`.apache-magpie-overrides/security-issue-sync.md`](../../docs/setup/agentic-overrides.md)
       (for adopters with personal-account bots).
 
     The remaining rules use *"skill-or-bot last commenter"* as a

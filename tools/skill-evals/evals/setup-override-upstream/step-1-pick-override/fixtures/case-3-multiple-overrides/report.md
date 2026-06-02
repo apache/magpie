@@ -1,6 +1,6 @@
 User invocation: /setup-override-upstream
 
-Contents of `.apache-steward-overrides/`:
+Contents of `.apache-magpie-overrides/`:
   README.md
   pr-management-triage.md    (headline: "# Override 1 — Skip draft PRs automatically")
   security-issue-import.md   (headline: "# Override 1 — Route reports CC'd to security@ to Jira")

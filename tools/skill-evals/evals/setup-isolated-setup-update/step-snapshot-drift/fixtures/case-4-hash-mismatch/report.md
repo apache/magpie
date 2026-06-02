@@ -1,10 +1,10 @@
-cat .apache-steward.lock:
+cat .apache-magpie.lock:
   method: svn-zip
   url: https://dist.apache.org/repos/dist/release/airflow/steward/airflow-steward-0.9.4-source.tar.gz
   ref: v0.9.4
   sha512: a3f8c2e1d4b09f7e2c6a1d8b3f5e7c9a2d4b6f8e0c2a4d6b8f0e2c4a6d8b0f2e4c6a8d0b2f4e6c8a0d2b4f6e8c0a2d4b6f8e0c2a4d6b8f0e2c4a6d8b0f2e4c6
 
-cat .apache-steward.local.lock:
+cat .apache-magpie.local.lock:
   method: svn-zip
   url: https://dist.apache.org/repos/dist/release/airflow/steward/airflow-steward-0.9.4-source.tar.gz
   ref: v0.9.4

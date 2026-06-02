@@ -70,7 +70,7 @@ framework**.
 It contains skills, tool adapters, generic process documentation,
 and a project-template scaffold — and **no project-specific
 content**. Adopting projects fetch this repository as a gitignored
-**snapshot** at `<adopter-tracker>/.apache-steward/` (managed by
+**snapshot** at `<adopter-tracker>/.apache-magpie/` (managed by
 the [`setup-steward`](skills/setup-steward/SKILL.md) skill —
 see [`docs/setup/install-recipes.md`](docs/setup/install-recipes.md))
 and configure their project-specific bits alongside the snapshot
@@ -244,7 +244,7 @@ up.
 **Project layer — shared, checked in.** Each adopting project keeps
 its project-specific configuration in a `<project-config>/` directory
 in their tracker repository, alongside the gitignored framework
-snapshot at `.apache-steward/` (which `setup-steward` manages and
+snapshot at `.apache-magpie/` (which `setup-steward` manages and
 which carries no adopter-specific content). The framework refers
 to the project-config directory via the `<project-config>`
 placeholder; the concrete path is the adopter's choice (the
@@ -330,8 +330,8 @@ the active configuration before executing any command:
 
 | Placeholder | Resolves to | Source |
 |---|---|---|
-| `<project-config>` | The adopting project's config directory in its tracker repo (path is adopter's choice; alongside the gitignored `.apache-steward/` snapshot, not inside it). Bootstrapped from `projects/_template/`. | Filesystem convention. |
-| `<framework>` | The framework's root — i.e. this repository. In adopting projects, `.apache-steward/` (the gitignored snapshot path managed by `setup-steward`); in framework standalone, `.` (the repository root). Used in `uv run` and other invocations that need to address the framework's `tools/<name>/` subtrees from a path the agent can resolve at the agent's current `cwd`. | Filesystem convention. |
+| `<project-config>` | The adopting project's config directory in its tracker repo (path is adopter's choice; alongside the gitignored `.apache-magpie/` snapshot, not inside it). Bootstrapped from `projects/_template/`. | Filesystem convention. |
+| `<framework>` | The framework's root — i.e. this repository. In adopting projects, `.apache-magpie/` (the gitignored snapshot path managed by `setup-steward`); in framework standalone, `.` (the repository root). Used in `uv run` and other invocations that need to address the framework's `tools/<name>/` subtrees from a path the agent can resolve at the agent's current `cwd`. | Filesystem convention. |
 | `<tracker>` | The GitHub slug of the (security) tracker repo (example: `airflow-s/airflow-s` for the Apache Airflow security team). | `<project-config>/project.md` → `tracker_repo` |
 | `<upstream>` | The GitHub slug of the upstream codebase the fixes land in (example: `apache/airflow`). | `<project-config>/project.md` → `upstream_repo` |
 | `<security-list>` | The project's security mailing list (example: `security@airflow.apache.org`). | `<project-config>/project.md` → `mailing_lists.security` |
@@ -351,7 +351,7 @@ means *"before running this, substitute `<tracker>` for the value in
 `<project-config>/project.md` → `tracker_repo`"*. In a markdown
 link, `[…](../../../<project-config>/canned-responses.md)` means
 *"replace `<project-config>/` with the path to the adopter's
-`.apache-steward/` directory and then follow the link"*. Writing the
+`.apache-magpie/` directory and then follow the link"*. Writing the
 literal value directly (e.g. `<tracker>`) in a skill is a
 refactor bug — skills must stay project-agnostic so swapping
 projects is a config change, not a code change.
@@ -415,15 +415,15 @@ PR round-trip, instead of after a CI failure that costs a
 round-trip and a reviewer's attention on a mechanical fix.
 
 **Keep the framework snapshot in sync with the project's pin.**
-The framework lives at `<adopter-tracker>/.apache-steward/` as a
+The framework lives at `<adopter-tracker>/.apache-magpie/` as a
 **gitignored snapshot** that
 [`setup-steward`](skills/setup-steward/SKILL.md) manages
 (see [Repository purpose](#repository-purpose) above). The
 project's pinned framework version is recorded in the committed
-`.apache-steward.lock`; the snapshot itself is fetched on first
+`.apache-magpie.lock`; the snapshot itself is fetched on first
 adoption and refreshed by `/setup-steward upgrade`. Every
-framework skill compares the gitignored `.apache-steward.local.lock`
-(per-machine fetch) against the committed `.apache-steward.lock`
+framework skill compares the gitignored `.apache-magpie.local.lock`
+(per-machine fetch) against the committed `.apache-magpie.lock`
 (project pin) at the top of its run; on drift, the skill surfaces
 the gap and proposes `/setup-steward upgrade`. There is **no**
 `git submodule update` step — the snapshot mechanism replaces
@@ -1721,9 +1721,9 @@ that does not change what the model is asked to produce —
 
 ## References
 
-- `.apache-steward-overrides/user.md` — per-user configuration (PMC status, local clone paths, optional tool backends) scaffolded during adoption.
+- `.apache-magpie-overrides/user.md` — per-user configuration (PMC status, local clone paths, optional tool backends) scaffolded during adoption.
 - [`<project-config>/project.md`](<project-config>/project.md) — the adopting project's manifest (identity, repositories, mailing lists, tools enabled, CVE tooling, GitHub project board + issue-template field declarations).
-- `.apache-steward-overrides/` — adopter-specific overrides and per-user config committed in the adopter repo.
+- `.apache-magpie-overrides/` — adopter-specific overrides and per-user config committed in the adopter repo.
 - [`<project-config>/project.md`](<project-config>/project.md) — the adopting project's manifest (identity, repositories, mailing lists, tools enabled, CVE tooling, GitHub project board + issue-template field declarations).
 - [`<project-config>/`](projects/_template/) — other project-specific files (canned responses, release trains, security model, scope labels, milestones, title-normalization, fix workflow, naming conventions).
 - [`tools/github/`](tools/github/) — GitHub tool adapter: `tool.md` (overview), `operations.md` (`gh` CLI / API catalogue), `issue-template.md` (body-field schema), `labels.md` (lifecycle-label taxonomy), `project-board.md` (Projects V2 GraphQL).

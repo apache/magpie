@@ -80,7 +80,7 @@ flow. See the absolute rule in
 
 Before running the default behaviour documented below, this
 skill consults
-[`.apache-steward-overrides/pr-management-mentor.md`](../../docs/setup/agentic-overrides.md)
+[`.apache-magpie-overrides/pr-management-mentor.md`](../../docs/setup/agentic-overrides.md)
 in the adopter repo if it exists, and applies any
 agent-readable overrides it finds. See
 [`docs/setup/agentic-overrides.md`](../../docs/setup/agentic-overrides.md)

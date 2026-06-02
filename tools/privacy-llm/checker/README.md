@@ -49,8 +49,8 @@ From the framework's root (this repository when running standalone;
 the snapshot path inside an adopting tracker repo):
 
 ```bash
-# Default lookup — reads <cwd>/.apache-steward/privacy-llm.md or
-# <cwd>/.apache-steward-overrides/privacy-llm.md.
+# Default lookup — reads <cwd>/.apache-magpie/privacy-llm.md or
+# <cwd>/.apache-magpie-overrides/privacy-llm.md.
 uv run --project tools/privacy-llm/checker privacy-llm-check
 
 # Skill-style invocation: tells the user the check fires because
@@ -73,7 +73,7 @@ uv run --project <framework>/tools/privacy-llm/checker privacy-llm-check ...
 ```
 
 `<framework>` substitutes to the snapshot path inside an adopting
-project (typically `.apache-steward/apache-steward/`) and to `.`
+project (typically `.apache-magpie/apache-steward/`) and to `.`
 when running standalone — see the placeholder convention in
 [`AGENTS.md`](../../../AGENTS.md#placeholder-convention-used-in-skill-files).
 
@@ -85,8 +85,8 @@ In order of precedence:
 |---|---|
 | `--config <path>` | Explicit override; absolute or relative to `<cwd>`. |
 | `$PRIVACY_LLM_CONFIG` | Environment-variable override. |
-| `<cwd>/.apache-steward/privacy-llm.md` | Standard adopter location (the framework's `<project-config>` substitutes here). |
-| `<cwd>/.apache-steward-overrides/privacy-llm.md` | Alternative location used by adopters who keep overrides in a separate dir. |
+| `<cwd>/.apache-magpie/privacy-llm.md` | Standard adopter location (the framework's `<project-config>` substitutes here). |
+| `<cwd>/.apache-magpie-overrides/privacy-llm.md` | Alternative location used by adopters who keep overrides in a separate dir. |
 
 If none of the candidates exist, the checker exits 2 with the list
 of paths it tried.

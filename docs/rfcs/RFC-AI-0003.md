@@ -219,7 +219,7 @@ uv run --project <framework>/tools/privacy-llm/checker privacy-llm-check \
 
 The checker:
 
-1. **Locates the config.** Precedence: `--config <path>` → `$PRIVACY_LLM_CONFIG` → `<cwd>/.apache-steward/privacy-llm.md` → `<cwd>/.apache-steward-overrides/privacy-llm.md`.
+1. **Locates the config.** Precedence: `--config <path>` → `$PRIVACY_LLM_CONFIG` → `<cwd>/.apache-magpie/privacy-llm.md` → `<cwd>/.apache-magpie-overrides/privacy-llm.md`.
 2. **Parses** the *Currently configured LLM stack* and *Approved third-party endpoints (opt-in)* sections. The parser is permissive about comments and whitespace but strict about the section-heading anchors.
 3. **Applies the rules** for every active-stack entry:
    - Claude Code → ✓ default-approved
@@ -337,8 +337,8 @@ The internal structure is two modules:
 Skill invocation pattern:
 
 ```text
-# Default lookup against <cwd>/.apache-steward/privacy-llm.md or
-# <cwd>/.apache-steward-overrides/privacy-llm.md:
+# Default lookup against <cwd>/.apache-magpie/privacy-llm.md or
+# <cwd>/.apache-magpie-overrides/privacy-llm.md:
 uv run --project <framework>/tools/privacy-llm/checker privacy-llm-check \
   --reads-private-list
 
@@ -352,7 +352,7 @@ uv run --project <framework>/tools/privacy-llm/checker privacy-llm-check \
 # ✓ Claude Code (the agent running framework skills) — Claude Code itself (default-approved)
 # ✗ AWS Bedrock at https://bedrock-runtime.eu-central-1.amazonaws.com — no default-approval rule matches and no opt-in entry was declared for this LLM. Add an entry under 'Approved third-party endpoints (opt-in)' with a Data-residency contract line and an Approved-by sign-off, or remove this LLM from the active stack.
 #
-# Fix: edit /repo/.apache-steward/privacy-llm.md per tools/privacy-llm/models.md.
+# Fix: edit /repo/.apache-magpie/privacy-llm.md per tools/privacy-llm/models.md.
 ```
 
 Implementation: stdlib-only (`argparse`, `dataclasses`, `re`, `urllib.parse`, `pathlib`). Test count: **33 unit tests**, all passing, including a fixture test that the shipped [`projects/_template/privacy-llm.md`](https://github.com/apache/airflow-steward/blob/main/projects/_template/privacy-llm.md) parses + approves out of the box. Pre-commit hooks (ruff, ruff-format, mypy, pytest) wired into the framework's `prek` config in PR #51.

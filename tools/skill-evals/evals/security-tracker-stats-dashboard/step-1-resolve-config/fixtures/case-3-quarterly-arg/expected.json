@@ -1,5 +1,5 @@
 {
-  "config_path": "/home/user/airflow-s/.apache-steward-overrides/security-tracker-stats.yaml",
+  "config_path": "/home/user/airflow-s/.apache-magpie-overrides/security-tracker-stats.yaml",
   "buckets": "quarterly",
   "output_path": "/tmp/tracker-stats.html"
 }

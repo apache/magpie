@@ -6,7 +6,7 @@
 The agentic-overrides mechanism is the framework's answer to
 "how does an adopter modify a framework skill's behaviour
 without forking the framework". An override file lives at
-`.apache-steward-overrides/<framework-skill>.md` in the
+`.apache-magpie-overrides/<framework-skill>.md` in the
 adopter repo (committed). The framework skill consults the
 file at run-time **before** executing default behaviour and
 applies the agent-readable instructions in it.
@@ -31,14 +31,14 @@ in the framework. This file is the operational helper.
    check 1 + check 5). If not, redirect to `/setup-steward
    adopt`.
 2. The named `<framework-skill>` must exist in the snapshot at
-   `<repo-root>/.apache-steward/.claude/skills/<framework-skill>/`.
+   `<repo-root>/.apache-magpie/.claude/skills/<framework-skill>/`.
    If not, name the typo and list the available framework
    skills.
 
 ## Step 1 — Resolve the override path
 
 `<override-path>` =
-`<repo-root>/.apache-steward-overrides/<framework-skill>.md`.
+`<repo-root>/.apache-magpie-overrides/<framework-skill>.md`.
 
 If `<override-path>` already exists, this is an *open*
 operation: surface the file's current content, ask the user
@@ -76,7 +76,7 @@ Use the canonical scaffold below.
 
 <!-- apache-steward agentic override
      Framework skill:    <framework-skill>
-     Pinned to snapshot: see ../.apache-steward.lock for the SHA
+     Pinned to snapshot: see ../.apache-magpie.lock for the SHA
                           this override was authored against.
      Applied by:         the framework skill at run-time, before
                           executing default behaviour. -->
@@ -110,7 +110,7 @@ Whenever the skill scaffolds or opens an override file,
 remind the user:
 
 1. **Never modify the snapshot** at
-   `<repo-root>/.apache-steward/`. Local mods go in this
+   `<repo-root>/.apache-magpie/`. Local mods go in this
    override file.
 2. **If the override is widely useful, upstream it.** Open a
    PR against `apache/airflow-steward` implementing the change

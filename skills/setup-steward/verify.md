@@ -24,7 +24,7 @@ default — surfaces gaps and remediation commands.
 2. `git remote get-url origin` — refuse if it resolves to
    `apache/airflow-steward` itself (this skill is for
    adopters, not the framework).
-3. If `<repo-root>/.apache-steward.lock` is missing, the
+3. If `<repo-root>/.apache-magpie.lock` is missing, the
    repo is not adopted. Surface and stop with a pointer at
    `/setup-steward adopt`.
 
@@ -65,8 +65,8 @@ resolves to one) and contains the expected top-level files
 
 ### 2. Both lock files exist + parse
 
-`<committed-lock>` (`.apache-steward.lock`) and
-`<local-lock>` (`.apache-steward.local.lock`) both parse.
+`<committed-lock>` (`.apache-magpie.lock`) and
+`<local-lock>` (`.apache-magpie.local.lock`) both parse.
 
 - ✗ if `<committed-lock>` is missing → not adopted;
   redirect (already caught in pre-flight).
@@ -102,8 +102,8 @@ Check that the entries from
 [`adopt.md` Step 7](adopt.md) are present in
 `<repo-root>/.gitignore`. Required:
 
-- `/.apache-steward/` (snapshot path)
-- `/.apache-steward.local.lock` (per-machine state)
+- `/.apache-magpie/` (snapshot path)
+- `/.apache-magpie.local.lock` (per-machine state)
 - `/.claude/settings.local.json` (per-machine project-scope
   settings — written to by
   [`sandbox-add-project-root.sh`](../../tools/agent-isolation/sandbox-add-project-root.sh)
@@ -128,9 +128,9 @@ Recommended (the family patterns the adopter's
   lines because git does not descend into a directory
   symlink.
 
-- ✗ if `/.apache-steward/` is not gitignored — the snapshot
+- ✗ if `/.apache-magpie/` is not gitignored — the snapshot
   is at risk of being accidentally committed.
-- ✗ if `/.apache-steward.local.lock` is not gitignored —
+- ✗ if `/.apache-magpie.local.lock` is not gitignored —
   per-machine state would leak into the repo.
 - ✗ if `/.claude/settings.local.json` is not gitignored —
   per-machine absolute paths would leak into the repo; the
@@ -143,7 +143,7 @@ Recommended (the family patterns the adopter's
 ### 5. Symlinks point at live framework skills
 
 For each symlink under `<adopter-skills-dir>` that resolves
-into `.apache-steward/.claude/skills/<name>/`:
+into `.apache-magpie/.claude/skills/<name>/`:
 
 - ✓ if the target exists.
 - ✗ if dangling (target deleted or snapshot missing).
@@ -174,9 +174,9 @@ classes in place without prompting; the ⚠ class needs an
 explicit `/setup-steward adopt` re-run with the family
 added to the pick.
 
-### 6. `.apache-steward-overrides/` exists + has the README
+### 6. `.apache-magpie-overrides/` exists + has the README
 
-`<repo-root>/.apache-steward-overrides/` is a directory
+`<repo-root>/.apache-magpie-overrides/` is a directory
 with the `README.md` scaffold from
 [`adopt.md` Step 9](adopt.md).
 
@@ -190,7 +190,7 @@ with the `README.md` scaffold from
 
 Compare the adopter-side committed `setup-steward` skill
 (at `<adopter-skills-dir>/setup-steward/`) against the
-snapshot's `.apache-steward/.claude/skills/setup-steward/`.
+snapshot's `.apache-magpie/.claude/skills/setup-steward/`.
 
 - ✓ if same content.
 - ⚠ if different — the adopter's committed copy has
@@ -215,7 +215,7 @@ snapshot's `.apache-steward/.claude/skills/setup-steward/`.
     framework-side fix is to upstream the modifications as
     a PR against `apache/airflow-steward`; the local fix
     is to revert the modifications and use
-    `.apache-steward-overrides/` instead.
+    `.apache-magpie-overrides/` instead.
 
 ### 8. Post-checkout hook installed *and content matches the framework's expected*
 
@@ -390,7 +390,7 @@ Two files to read:
   project-wide).
 - `<repo-root>/.claude/settings.local.json` (gitignored,
   per-machine — same security model as
-  `.apache-steward.local.lock`).
+  `.apache-magpie.local.lock`).
 
 For each, parse the JSON, walk `permissions.allow[]`, and
 bucket each entry against two canonical lists.
@@ -576,7 +576,7 @@ Two files to check (per
   section (typically `## Agent-assisted contribution
   (apache-steward)`) that mentions the snapshot mechanism, the
   `/setup-steward` invocation for fresh clones, the
-  `.apache-steward.lock` pin, and `.apache-steward-overrides/`.
+  `.apache-magpie.lock` pin, and `.apache-magpie-overrides/`.
   Grep for `apache-steward` and `/setup-steward` together as a
   proxy. ⚠ if either token is absent.
 - **`<repo-root>/AGENTS.md`** — if the file exists, it should

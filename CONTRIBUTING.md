@@ -240,7 +240,7 @@ every piece of context it needs from some combination of the four
 └── .github/                  # CI: pre-commit, zizmor, link-check, ISSUE_TEMPLATE
 ```
 
-The adopter-side `.apache-steward/` snapshot, the per-user
+The adopter-side `.apache-magpie/` snapshot, the per-user
 `user.md`, and the `<project-config>/` directory all live in the
 **adopter's** tracker repo, not here. The framework never carries
 those files.
@@ -337,7 +337,7 @@ skills and all tools.
    catches violations. Per-CLI runtime ports are tracked at
    issues [#313](https://github.com/apache/airflow-steward/issues/313)–[#322](https://github.com/apache/airflow-steward/issues/322).
 4. **Conversational, correctable.** A maintainer override
-   (`.apache-steward-overrides/<skill>.md` in the adopter repo)
+   (`.apache-magpie-overrides/<skill>.md` in the adopter repo)
    modifies skill behaviour without forking the framework. The
    [`setup-override-upstream`](skills/setup-override-upstream/SKILL.md)
    skill promotes useful overrides back into the framework as PRs.

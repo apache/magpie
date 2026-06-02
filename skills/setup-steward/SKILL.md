@@ -16,11 +16,11 @@ description: |
     `/setup-steward verify`  — health check + drift detection
     `/setup-steward override <skill>` — open or scaffold an
                                 agentic override in
-                                `.apache-steward-overrides/`
+                                `.apache-magpie-overrides/`
     `/setup-steward unadopt` — reverse the adoption (snapshot,
                                locks, symlinks, hook, doc
                                sections); preserves
-                               `.apache-steward-overrides/` by
+                               `.apache-magpie-overrides/` by
                                default (main-checkout only)
 when_to_use: |
   Invoke when the user says "adopt apache-steward", "adopt
@@ -38,10 +38,10 @@ license: Apache-2.0
      https://www.apache.org/legal/release-policy.html -->
 
 <!-- Placeholder convention (see ../../AGENTS.md#placeholder-convention-used-in-skill-files):
-     <project-config>           → adopter's `.apache-steward-overrides/` directory
-     <snapshot-dir>             → `.apache-steward/` (gitignored snapshot of the framework)
-     <committed-lock>           → `.apache-steward.lock` (committed — project's pin)
-     <local-lock>               → `.apache-steward.local.lock` (gitignored — per-machine record)
+     <project-config>           → adopter's `.apache-magpie-overrides/` directory
+     <snapshot-dir>             → `.apache-magpie/` (gitignored snapshot of the framework)
+     <committed-lock>           → `.apache-magpie.lock` (committed — project's pin)
+     <local-lock>               → `.apache-magpie.local.lock` (gitignored — per-machine record)
      <upstream>                 → adopter's public source repo (the repo this skill is being run in)
      <framework-source>         → the apache-steward source we download a snapshot from
                                    — one of: signed zip from ASF dist, git tag, git branch.
@@ -82,7 +82,7 @@ copy):
   runs.
 - Adopter-specific modifications to framework workflows live as
   agent-readable instructions under
-  `.apache-steward-overrides/<skill-name>.md` (committed). They
+  `.apache-magpie-overrides/<skill-name>.md` (committed). They
   invalidate or change steps the framework's skill would
   otherwise run. See
   [`overrides.md`](overrides.md) for the contract and
@@ -96,13 +96,13 @@ to** (committed) from **what this machine actually fetched**
 (local). This split is the foundation of drift detection and
 the multi-installer support.
 
-### `<committed-lock>` — `.apache-steward.lock`
+### `<committed-lock>` — `.apache-magpie.lock`
 
 Committed at the adopter repo root. The **project's pin**.
 Edited only by `/setup-steward`; do not modify by hand.
 
 ```text
-# .apache-steward.lock — committed; the project's pin.
+# .apache-magpie.lock — committed; the project's pin.
 
 method: <git-branch | git-tag | svn-zip>
 url:    <see per-method format below>
@@ -124,13 +124,13 @@ file and re-installs to the **same version** the project
 declared. This is the core of the "adopt once, all subsequent
 users get the same thing" promise.
 
-### `<local-lock>` — `.apache-steward.local.lock`
+### `<local-lock>` — `.apache-magpie.local.lock`
 
 Gitignored at the adopter repo root. The **local snapshot's
 fingerprint**. Records what this machine fetched and when.
 
 ```text
-# .apache-steward.local.lock — gitignored; per-machine.
+# .apache-magpie.local.lock — gitignored; per-machine.
 
 source_method:    <git-branch | git-tag | svn-zip>
 source_url:       <URL the snapshot was actually fetched from>
@@ -147,19 +147,19 @@ proposed `/setup-steward upgrade`.
 
 | File | Purpose |
 |---|---|
-| [`adopt.md`](adopt.md) | First-time adoption walk-through — recognise existing-snapshot vs needs-bootstrap, write the two lock files, ask the user which skill families to wire up, create the gitignored symlinks, scaffold `.apache-steward-overrides/`, install the post-checkout hook, update project docs. The default sub-action. |
+| [`adopt.md`](adopt.md) | First-time adoption walk-through — recognise existing-snapshot vs needs-bootstrap, write the two lock files, ask the user which skill families to wire up, create the gitignored symlinks, scaffold `.apache-magpie-overrides/`, install the post-checkout hook, update project docs. The default sub-action. |
 | [`upgrade.md`](upgrade.md) | Refresh the gitignored snapshot per the committed lock, reconcile any agentic overrides + symlinks against the new framework structure, surface conflicts. Drives the on-drift remediation flow. |
-| [`verify.md`](verify.md) | Read-only health check — snapshot present + intact, both lock files in sync, symlinks point at live targets, `.gitignore` correct, `.apache-steward-overrides/` exists, drift status (committed vs local), the `setup-steward` skill itself is current. |
+| [`verify.md`](verify.md) | Read-only health check — snapshot present + intact, both lock files in sync, symlinks point at live targets, `.gitignore` correct, `.apache-magpie-overrides/` exists, drift status (committed vs local), the `setup-steward` skill itself is current. |
 | [`conventions.md`](conventions.md) | Adopter skills-dir convention auto-detection — four patterns: A (flat `.claude/skills/<n>/`), B (per-skill `.claude/skills/<n>` → `.github/skills/<n>/` double-symlink), C (none yet), D (single directory symlink where one of `.claude/skills` / `.github/skills` is itself a symlink to the other; two orientations). |
 | [`overrides.md`](overrides.md) | Agentic-override file management — open / scaffold an override for a framework skill, list existing overrides, help reconcile when the framework changes the underlying skill's structure on upgrade. |
-| [`unadopt.md`](unadopt.md) | Reverse the adoption — remove snapshot, locks, symlinks, post-checkout hook, `.gitignore` entries, the adoption sections in `README.md` / `AGENTS.md` / `CONTRIBUTING.md`, and the committed `setup-steward` skill itself. Preserves `.apache-steward-overrides/` by default; `--purge-overrides` removes it too. Surfaces the full removal plan before any write. |
+| [`unadopt.md`](unadopt.md) | Reverse the adoption — remove snapshot, locks, symlinks, post-checkout hook, `.gitignore` entries, the adoption sections in `README.md` / `AGENTS.md` / `CONTRIBUTING.md`, and the committed `setup-steward` skill itself. Preserves `.apache-magpie-overrides/` by default; `--purge-overrides` removes it too. Surfaces the full removal plan before any write. |
 
 ## Golden rules
 
 **Golden rule 1 — never modify the snapshot.** The
 `<snapshot-dir>` is a build artefact, gitignored, and **read-
 only** from an adopter's perspective. Every modification an
-adopter wants must go into `.apache-steward-overrides/` (where
+adopter wants must go into `.apache-magpie-overrides/` (where
 it is *committed* and survives the next `upgrade`). The skill,
 and any other framework skill consulting overrides at run-time,
 **never** writes to `<snapshot-dir>`.
@@ -207,7 +207,7 @@ Three things gitignored in the adopter repo:
   they would dangle in a fresh clone).
 
 **Committed**: this skill (`setup-steward`), the
-`<committed-lock>`, the `.apache-steward-overrides/`
+`<committed-lock>`, the `.apache-magpie-overrides/`
 directory, the `.gitignore` entries themselves, any
 project-doc updates the `adopt` sub-action makes.
 
@@ -229,7 +229,7 @@ silently mis-applies.
 
 **Golden rule 7 — agentic overrides are read at run-time.**
 Every framework skill that supports overrides starts its run
-by checking `.apache-steward-overrides/<this-skill>.md` for
+by checking `.apache-magpie-overrides/<this-skill>.md` for
 adopter-specific instructions and applying them before
 executing the default behaviour. The override file is plain
 markdown the agent interprets — no templating engine, no
@@ -295,7 +295,7 @@ The skill dispatches by the first positional argument:
 | `/setup-steward worktree-init` | [`worktree-init.md`](worktree-init.md) | **Worktree-only.** Symlink the worktree's `<snapshot-dir>` to the main checkout's so this worktree shares one framework state. No fetch, no lock files written; idempotent. |
 | `/setup-steward verify` | [`verify.md`](verify.md) | Read-only health check + drift status report. Works in both main and worktrees. |
 | `/setup-steward override <skill>` | [`overrides.md`](overrides.md) | Open / scaffold an override file. |
-| `/setup-steward unadopt` | [`unadopt.md`](unadopt.md) | Reverse the adoption. Removes snapshot, locks, symlinks, hook, doc sections, and this skill itself. Preserves `.apache-steward-overrides/` unless `--purge-overrides` is passed. **Main-checkout only.** |
+| `/setup-steward unadopt` | [`unadopt.md`](unadopt.md) | Reverse the adoption. Removes snapshot, locks, symlinks, hook, doc sections, and this skill itself. Preserves `.apache-magpie-overrides/` unless `--purge-overrides` is passed. **Main-checkout only.** |
 
 **Main-checkout-only sub-actions** (`adopt`, `upgrade`, `unadopt`)
 detect their context via `git rev-parse --git-dir` ≠
@@ -331,7 +331,7 @@ first, then continue.
 | `from:<git-ref>` / `from:<version>` | Adopt or upgrade from a specific framework ref or version. Used during `adopt` (overrides the user prompt) and `upgrade` (overrides the committed lock for *this run only* — does NOT update the committed lock). |
 | `method:<git-branch\|git-tag\|svn-zip>` | Pick the install method explicitly. Default during `adopt`: prompt the user. |
 | `skill-families:<list>` | Comma-separated **opt-in** families to symlink (`security`, `pr-management`, `issue`). Default on `adopt`: prompt. Default on `upgrade`: read the families list from `<committed-lock>` / `<local-lock>`, **auto-include any opt-in family the framework has introduced since the lock was written** (recorded back into the lock), and **ensure every framework skill in the effective family set has a valid symlink** — create or repair missing / broken symlinks, not just add new ones. The flag never accepts the always-on families (`setup-*` minus `setup-steward` itself, and `list-steward-*`); per [Golden rule 8](#golden-rules) those are wired up unconditionally on every run and there is no way to ask for them or opt out. |
-| `--purge-overrides` | *(unadopt only)* Also `git rm -r` `.apache-steward-overrides/`. Default: preserve. |
+| `--purge-overrides` | *(unadopt only)* Also `git rm -r` `.apache-magpie-overrides/`. Default: preserve. |
 | `dry-run` | Show what the skill would do without writing anything. |
 
 ## What this skill is NOT for
@@ -357,4 +357,4 @@ first, then continue.
 | Snapshot present but symlinks dangle | Adopter ran `git clone` but not `/setup-steward` after — symlinks are gitignored but persist in their target's absence on disk | `/setup-steward verify --auto-fix-symlinks` (or `/setup-steward adopt`, idempotent) |
 | Worktree off the adopter repo can't find framework skills | Worktrees off the adopter don't auto-inherit the gitignored snapshot | The `adopt` sub-action installs a `post-checkout` git hook that re-runs the snapshot install on worktree creation; verify the hook is present (`/setup-steward verify`) |
 | `git clone` of an upstream PR sees no framework skills | Expected — the snapshot is gitignored, so a fresh clone has no `<snapshot-dir>`. The clone needs `/setup-steward` once before any framework skill is invocable | `/setup-steward` |
-| Project decided to stop using apache-steward | The reverse of adoption — remove the snapshot, locks, symlinks, hook, doc sections, and the `setup-steward` skill itself. `.apache-steward-overrides/` is preserved by default | `/setup-steward unadopt` (add `--purge-overrides` to also drop the overrides directory) |
+| Project decided to stop using apache-steward | The reverse of adoption — remove the snapshot, locks, symlinks, hook, doc sections, and the `setup-steward` skill itself. `.apache-magpie-overrides/` is preserved by default | `/setup-steward unadopt` (add `--purge-overrides` to also drop the overrides directory) |

@@ -17,7 +17,7 @@
 Hello, new member of the adopting project's security team. This
 repository hosts a project-agnostic framework for handling security
 issues; the adopting project's per-project layer lives in
-[`<project-config>/`](<project-config>/) (i.e. `.apache-steward/` at
+[`<project-config>/`](<project-config>/) (i.e. `.apache-magpie/` at
 the root of the adopter's tracker repo). This document
 is the soft-landing guide — it tells you how the team works, where
 the action happens, and what is expected of you in the first few
@@ -125,7 +125,7 @@ week. A good starting routine:
    name — leaves the private channels.
 6. **Set up your per-user config** if (and only if) you plan to run
    the agent skills. Copy
-   `.apache-steward-overrides/user.md` (scaffolded automatically when
+   `.apache-magpie-overrides/user.md` (scaffolded automatically when
    the project adopts Magpie) and fill in your GitHub handle, email,
    governance-gate status (whatever
    `<project-config>/project.md → governance.cve_allocation_gate`
@@ -133,7 +133,7 @@ week. A good starting routine:
    and (for remediation-developer work) the path to your local
    `<upstream>` clone. You can skip this step on day one;
    skills fall back to runtime prompts when
-   `.apache-steward-overrides/user.md` is missing.
+   `.apache-magpie-overrides/user.md` is missing.
 
 You can start commenting on issues on day one. Just commenting,
 voting on validity, suggesting severity — those are valuable
@@ -203,7 +203,7 @@ remediation-developer turn:
   pre-fix sync, reads the discussion on the tracker to build a fix
   plan, shows you the plan, and — only after you confirm — writes the
   change in your local `<upstream>` clone (path from
-  `.apache-steward-overrides/user.md → environment.upstream_clone`), runs the local
+  `.apache-magpie-overrides/user.md → environment.upstream_clone`), runs the local
   checks and tests, and opens a public `gh pr create --web` PR from
   your fork. Every public surface (commit message, branch name, PR
   title, PR body, newsfragment) is scrubbed for CVE / the tracker
@@ -240,7 +240,7 @@ shape the team are small enough to read in one sitting:
 - [`README.md`](../../README.md) — the end-to-end handling process.
 - [`<project-config>/canned-responses.md`](<project-config>/canned-responses.md) — reply templates.
 - [`AGENTS.md`](../../AGENTS.md) — agent-facing conventions and confidentiality rules.
-- `.apache-steward-overrides/user.md` — per-user configuration
+- `.apache-magpie-overrides/user.md` — per-user configuration
   (governance-gate status per
   `<project-config>/project.md → governance.cve_allocation_gate`,
   local clone paths, optional tool backends) scaffolded during adoption.

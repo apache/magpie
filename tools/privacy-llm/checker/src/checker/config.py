@@ -45,11 +45,11 @@ ENV_CONFIG_PATH = "PRIVACY_LLM_CONFIG"
 
 # The standard adopter location: <repo-root>/<project-config>/
 # privacy-llm.md. The framework's <project-config> placeholder
-# resolves at adoption time to either `.apache-steward/` (the
+# resolves at adoption time to either `.apache-magpie/` (the
 # committed adopter-config dir under the tracker) or
-# `.apache-steward-overrides/` (the override dir). The checker
+# `.apache-magpie-overrides/` (the override dir). The checker
 # tries both, in that order.
-DEFAULT_CONFIG_DIRS = (".apache-steward", ".apache-steward-overrides")
+DEFAULT_CONFIG_DIRS = (".apache-magpie", ".apache-magpie-overrides")
 
 
 @dataclasses.dataclass(frozen=True)

@@ -91,7 +91,7 @@ The two are **not** interchangeable today. Specifically:
 
 **Primary vs. fallback.** When a project declares both tools in
 its manifest **and** the user opts into PonyMail MCP in
-`.apache-steward-overrides/user.md`, **PonyMail MCP is the primary read backend** for
+`.apache-magpie-overrides/user.md`, **PonyMail MCP is the primary read backend** for
 archive queries (reporter-thread lookups, reviewer-comment
 searches, advisory-URL scans, `[RESULT][VOTE]` attribution,
 prior-rejection precedent searches). Gmail is the fallback —

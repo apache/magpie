@@ -1,17 +1,17 @@
 User invocation: /setup-override-upstream
 
 Directory scan results:
-- `.apache-steward.lock` found at repo root.
-- `.apache-steward-overrides/` directory found at repo root.
-- `.apache-steward.local.lock` found at repo root (gitignored).
+- `.apache-magpie.lock` found at repo root.
+- `.apache-magpie-overrides/` directory found at repo root.
+- `.apache-magpie.local.lock` found at repo root (gitignored).
 
-Committed lock (`.apache-steward.lock`):
+Committed lock (`.apache-magpie.lock`):
   method: svn-zip
   url:    https://dist.apache.org/repos/dist/release/airflow-steward/airflow-steward-1.0.0.zip
   ref:    1.0.0
   sha512: aabbccdd11223344aabbccdd11223344aabbccdd11223344aabbccdd11223344aabbccdd11223344aabbccdd11223344aabbccdd11223344aabbccdd11223344
 
-Local lock (`.apache-steward.local.lock`):
+Local lock (`.apache-magpie.local.lock`):
   source_method: svn-zip
   source_url:    https://dist.apache.org/repos/dist/release/airflow-steward/airflow-steward-1.0.0.zip
   source_ref:    1.0.0

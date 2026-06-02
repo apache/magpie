@@ -257,7 +257,7 @@ The skill never operates on the private key half.
 |---|---|
 | `keys_file_url` | `https://dist.apache.org/repos/dist/release/<project>/KEYS` (overridable for non-ASF adopters). |
 | `keyserver` | Default `keys.openpgp.org`; overridable per project. |
-| `rm_key_fingerprint` | Set per-RM (often in `.apache-steward-overrides/user.md`, not project config). |
+| `rm_key_fingerprint` | Set per-RM (often in `.apache-magpie-overrides/user.md`, not project config). |
 
 ### `release-rc-cut`
 
@@ -752,7 +752,7 @@ Required keys (cross-skill):
 | `vote_pass_rule_overrides` | Optional stricter rule (ASF baseline cannot be weakened; non-ASF backends define their own rule keys). | `release-vote-tally` |
 | `archive_retention_rule` | Retention rule for the archive sweep. | `release-archive-sweep` |
 | `audit_log_path` | Path under the adopter repo for audit records. | `release-audit-report` |
-| `rm_key_fingerprint` | RM's key fingerprint (often per-user, in `.apache-steward-overrides/user.md`). | `release-keys-sync` |
+| `rm_key_fingerprint` | RM's key fingerprint (often per-user, in `.apache-magpie-overrides/user.md`). | `release-keys-sync` |
 | `category_x_dependencies` | Pinned Category-X identifiers; refuses prep PR if any appear. | `release-prepare` |
 
 The contract is the single per-adopter knob set. Skills consult

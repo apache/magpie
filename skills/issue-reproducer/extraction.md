@@ -235,7 +235,7 @@ signature changed, a removed API needs a non-trivial replacement):
 Where the project documents class moves in release notes (e.g., a
 JVM-language project's major-version split-packages refactor),
 record the URL once in the adopter override file
-(`.apache-steward-overrides/issue-reproducer.md`); subsequent runs
+(`.apache-magpie-overrides/issue-reproducer.md`); subsequent runs
 of the skill use it without re-deriving.
 
 ## Anti-fabrication discipline

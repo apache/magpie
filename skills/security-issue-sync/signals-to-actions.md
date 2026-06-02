@@ -1002,7 +1002,7 @@ will change and *why*. Group them by category:
   - `FRAMEWORK_RECORD_MD_URL`, `FRAMEWORK_SYNC_SKILL_URL`,
     `FRAMEWORK_README_URL` — absolute GitHub URLs into
     `apache/airflow-steward` `main`, since the framework lives in
-    the gitignored snapshot at `<adopter-tracker>/.apache-steward/`
+    the gitignored snapshot at `<adopter-tracker>/.apache-magpie/`
     that does not render through the parent-repo viewer (per the
     absolute-URL rule used elsewhere in this repo).
   - `CANNED_RESPONSES_URL` — absolute GitHub URL into the tracker

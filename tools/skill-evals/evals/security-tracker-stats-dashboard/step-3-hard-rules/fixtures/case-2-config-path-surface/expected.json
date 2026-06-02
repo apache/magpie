@@ -1,5 +1,5 @@
 {
   "has_config_path_in_output": true,
-  "config_path_value": "/home/user/airflow-s/.apache-steward-overrides/security-tracker-stats.yaml",
+  "config_path_value": "/home/user/airflow-s/.apache-magpie-overrides/security-tracker-stats.yaml",
   "complies_with_golden_rule_4": true
 }

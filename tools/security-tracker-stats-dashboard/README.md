@@ -92,7 +92,7 @@ run is ~5–10 minutes on a 250-issue tracker; incremental re-renders
 
 1. `default-config.yaml` (in this directory).
 2. `$TRACKER_STATS_CONFIG` overlay YAML, when set (typically
-   `<adopter-repo>/.apache-steward-overrides/security-tracker-stats.yaml`).
+   `<adopter-repo>/.apache-magpie-overrides/security-tracker-stats.yaml`).
    Deep-merged with the default. **The `milestones` and `categories`
    lists are REPLACED entirely** (not concatenated) — overlaying a
    single category requires re-stating the whole list.

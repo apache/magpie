@@ -15,9 +15,9 @@ Incremental re-renders against a warm cache (~30 seconds) can run
 without a prompt.
 
 **Golden rule 3 — never edit the snapshot.**  Agentic overrides go in
-`.apache-steward-overrides/security-tracker-stats-dashboard.md`; renderer
+`.apache-magpie-overrides/security-tracker-stats-dashboard.md`; renderer
 overrides go in the project's tracker-stats YAML config file.  The
-gitignored snapshot under `.apache-steward/` is never modified.
+gitignored snapshot under `.apache-magpie/` is never modified.
 
 **Golden rule 4 — surface the config path on every run.**  The dashboard's
 output depends entirely on which YAML file the renderer loaded.  Print

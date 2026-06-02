@@ -108,9 +108,9 @@ between automatically:
 ## Step 1 — Detect adoption shape
 
 ```text
-if .apache-steward.lock exists:
+if .apache-magpie.lock exists:
     → SUBSEQUENT adoption
-elif .apache-steward/ exists (snapshot only):
+elif .apache-magpie/ exists (snapshot only):
     → manual recipe was run; finish bootstrap (write committed
       lock from the recipe's choices, then continue as FRESH
       from Step 5)
@@ -158,12 +158,12 @@ Per the chosen method (FRESH) or per the committed lock
 (SUBSEQUENT):
 
 - **`git-branch`**: `git clone --depth=1 --branch <ref> <url>
-  .apache-steward`
+  .apache-magpie`
 - **`git-tag`**: `git clone --depth=1 --branch <tag> <url>
-  .apache-steward`. After clone, capture the resolved commit
+  .apache-magpie`. After clone, capture the resolved commit
   SHA for `<committed-lock>` (FRESH only).
 - **`svn-zip`**: `curl` the zip + `.sha512` + `.asc`,
-  verify, `unzip` to `.apache-steward/`. Re-fetch
+  verify, `unzip` to `.apache-magpie/`. Re-fetch
   verification details into `<committed-lock>` (FRESH only).
 
 If `<snapshot-dir>/` already exists with content, skip the
@@ -184,7 +184,7 @@ otherwise we finish adoption against the *old* bootstrap
 logic for a *new* framework version.
 
 1. Diff `<adopter-skills-dir>/setup-steward/` against
-   `.apache-steward/.claude/skills/setup-steward/`.
+   `.apache-magpie/.claude/skills/setup-steward/`.
 2. If they match — skip the rest of this step.
 3. If they differ and the adopter has **no** local
    modifications beyond what the snapshot ships — overwrite
@@ -193,7 +193,7 @@ logic for a *new* framework version.
    ```bash
    # Flat layout:
    rm -rf <adopter-skills-dir>/setup-steward
-   cp -r .apache-steward/.claude/skills/setup-steward \
+   cp -r .apache-magpie/.claude/skills/setup-steward \
          <adopter-skills-dir>/setup-steward
 
    # Double-symlinked layout: copy into .github/skills/ —
@@ -224,10 +224,10 @@ copy, the overwrite + reload is the common case.
 
 ## Step 4 — Write `<committed-lock>` (FRESH only)
 
-Create `<repo-root>/.apache-steward.lock`:
+Create `<repo-root>/.apache-magpie.lock`:
 
 ```text
-# .apache-steward.lock — committed; the project's pin.
+# .apache-magpie.lock — committed; the project's pin.
 # Edited only by /setup-steward; do not modify by hand.
 
 method: <method>
@@ -370,7 +370,7 @@ Always written, both FRESH and SUBSEQUENT. Records what
 this machine fetched.
 
 ```text
-# .apache-steward.local.lock — gitignored; per-machine.
+# .apache-magpie.local.lock — gitignored; per-machine.
 
 source_method:    <method>
 source_url:       <url>
@@ -387,8 +387,8 @@ idempotent — re-add them if they're missing.
 **Base entries — always needed**:
 
 ```text
-/.apache-steward/
-/.apache-steward.local.lock
+/.apache-magpie/
+/.apache-magpie.local.lock
 /.claude/settings.local.json
 ```
 
@@ -526,9 +526,9 @@ confirm, then create them. Always-on entries are surfaced
 read-only — the prompt is "confirm this list" not "edit this
 list".
 
-## Step 9 — Scaffold `.apache-steward-overrides/` (FRESH only)
+## Step 9 — Scaffold `.apache-magpie-overrides/` (FRESH only)
 
-Create `<repo-root>/.apache-steward-overrides/` (directory)
+Create `<repo-root>/.apache-magpie-overrides/` (directory)
 with a small `README.md` inside:
 
 ```markdown
@@ -546,7 +546,7 @@ before executing default behaviour. See
 in the framework for the full contract.
 
 **Hard rule**: never modify the snapshot under
-`<repo-root>/.apache-steward/`. Local mods go here.
+`<repo-root>/.apache-magpie/`. Local mods go here.
 Framework changes go via PR to `apache/airflow-steward`.
 ```
 
@@ -567,7 +567,7 @@ worktree of every adopter project on the operator's machine, so
 identity-and-tool-picks stay coherent without symlinks or
 per-worktree bootstrap.
 
-**Fallback location: `<repo-root>/.apache-steward-overrides/user.md`** —
+**Fallback location: `<repo-root>/.apache-magpie-overrides/user.md`** —
 the legacy per-project location. Adopters with an existing
 project-local `user.md` keep working without action; new adopters
 should prefer the per-user location above.
@@ -640,7 +640,7 @@ setup; the skills skip any block that is missing or marked `TODO`.
 `~/.config/apache-steward/user.md` for new adopters (the per-user
 canonical location — shared across every worktree and every
 adopter project on the operator's machine). If the operator
-already has `<repo-root>/.apache-steward-overrides/user.md` from a
+already has `<repo-root>/.apache-magpie-overrides/user.md` from a
 previous setup, leave it alone — skills resolve the per-project
 file as a fallback, no migration needed. If both exist, the
 per-user file wins; surface the conflict to the operator so they
@@ -887,9 +887,9 @@ framework before they hit a "skill not found" error:
    Code.
 
    The framework is **not** vendored — it lives as a
-   gitignored snapshot under `.apache-steward/`, fetched on
+   gitignored snapshot under `.apache-magpie/`, fetched on
    demand from the version pinned in the committed
-   [`.apache-steward.lock`](.apache-steward.lock). The only
+   [`.apache-magpie.lock`](.apache-magpie.lock). The only
    framework artefact committed to this repo is the
    `setup-steward` skill at
    [`.github/skills/setup-steward/`](.github/skills/setup-steward/);
@@ -907,7 +907,7 @@ framework before they hit a "skill not found" error:
    that re-creates them on each worktree checkout.
 
    Adopter-specific modifications to framework workflows live
-   in [`.apache-steward-overrides/`](.apache-steward-overrides/)
+   in [`.apache-magpie-overrides/`](.apache-magpie-overrides/)
    (committed) — never edit the snapshot directly. Framework
    changes go via PR to
    [`apache/airflow-steward`](https://github.com/apache/airflow-steward).
@@ -937,20 +937,20 @@ framework before they hit a "skill not found" error:
    [`apache/airflow-steward`](https://github.com/apache/airflow-steward)
    framework via the snapshot mechanism. The framework
    provides the `pr-management-*` skills; they are gitignored
-   symlinks into the `.apache-steward/` snapshot directory.
+   symlinks into the `.apache-magpie/` snapshot directory.
 
    A fresh clone needs the snapshot populated before any
    framework skill is invocable. Run `/setup-steward` (or
    follow [`.claude/skills/setup-steward/`](.claude/skills/setup-steward/))
    to fetch it per the committed
-   [`.apache-steward.lock`](.apache-steward.lock). The
+   [`.apache-magpie.lock`](.apache-magpie.lock). The
    contributor-facing summary of the adoption + setup flow
    lives in the
    [Agent-assisted contribution section of `README.md`](README.md#agent-assisted-contribution-apache-steward).
 
    Adopter-specific modifications to framework-skill
    workflows live in
-   [`.apache-steward-overrides/`](.apache-steward-overrides/)
+   [`.apache-magpie-overrides/`](.apache-magpie-overrides/)
    — never edit the snapshot directly. Framework changes go
    via PR to
    [`apache/airflow-steward`](https://github.com/apache/airflow-steward).
@@ -1018,7 +1018,7 @@ Four passes, in this order:
    - For each linked worktree, invoke
      `/setup-steward worktree-init` with that worktree's
      working directory as the `cwd`. The sub-action picks up
-     the family set from `<main>/.apache-steward.lock` plus
+     the family set from `<main>/.apache-magpie.lock` plus
      the always-on families per
      [`SKILL.md` Golden rule 8](SKILL.md#golden-rules), and
      reconciles both the snapshot symlink and the
@@ -1108,23 +1108,23 @@ A summary of what was written:
 ```text
 ✓ Method:   <method>
 ✓ Source:   <url>@<ref>
-✓ Snapshot: .apache-steward/ (commit <SHA>)
-✓ Locks:    .apache-steward.lock (committed) + .apache-steward.local.lock (gitignored)
+✓ Snapshot: .apache-magpie/ (commit <SHA>)
+✓ Locks:    .apache-magpie.lock (committed) + .apache-magpie.local.lock (gitignored)
 ✓ Symlinks: <list of created symlinks>
-✓ Overrides scaffold: .apache-steward-overrides/ (committed)
+✓ Overrides scaffold: .apache-magpie-overrides/ (committed)
 ✓ post-checkout hook installed
 ✓ <repo>/README.md updated with adoption note
 
 Committed (you'll see in `git status`):
   .gitignore
-  .apache-steward.lock
-  .apache-steward-overrides/README.md
+  .apache-magpie.lock
+  .apache-magpie-overrides/README.md
   <adopter-skills-dir>/setup-steward/   (this skill itself)
   README.md (or CONTRIBUTING.md)
 
 Gitignored (do NOT commit):
-  .apache-steward/
-  .apache-steward.local.lock
+  .apache-magpie/
+  .apache-magpie.local.lock
   <adopter-skills-dir>/{security,pr-management}-*            # opt-in families
   <adopter-skills-dir>/setup-isolated-setup-*                # always-on
   <adopter-skills-dir>/{setup-override-upstream,setup-shared-config-sync}  # always-on
@@ -1139,7 +1139,7 @@ a PR.
 
 ## Failure modes
 
-- **Existing `<repo-root>/.apache-steward/` and
+- **Existing `<repo-root>/.apache-magpie/` and
   `<committed-lock>` are out of sync** → drift; suggest
   `/setup-steward upgrade`.
 - **Existing committed skill conflicts with a framework

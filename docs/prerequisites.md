@@ -152,7 +152,7 @@ checks and tests, pushes a branch to your fork, and opens a PR via
 `gh pr create --web`. You need:
 
 - a clean clone of `<upstream>` reachable from the agent's working
-  directory — the path comes from `.apache-steward-overrides/user.md →
+  directory — the path comes from `.apache-magpie-overrides/user.md →
   environment.upstream_clone`, set interactively the first time
   you run the skill;
 - the adopting project's dev toolchain installed per

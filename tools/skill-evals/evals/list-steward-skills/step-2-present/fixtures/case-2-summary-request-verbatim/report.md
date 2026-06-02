@@ -31,7 +31,7 @@ setup
   setup-isolated-setup-install: Install the framework's secure agent setup on this machine.
   setup-isolated-setup-update: Update the framework's secure agent setup to a newer version.
   setup-isolated-setup-verify: Walk the verification checklist for the framework's secure agent setup.
-  setup-override-upstream: Promote a local .apache-steward-overrides skill into a PR upstream.
+  setup-override-upstream: Promote a local .apache-magpie-overrides skill into a PR upstream.
   setup-shared-config-sync: Commit and push the user's shared Claude config to the sync repo.
   setup-steward: Adopt and maintain the apache-steward framework in a project repo.
 

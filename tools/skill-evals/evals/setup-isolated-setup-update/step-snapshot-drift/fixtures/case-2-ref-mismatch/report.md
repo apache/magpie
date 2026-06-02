@@ -1,9 +1,9 @@
-cat .apache-steward.lock:
+cat .apache-magpie.lock:
   method: git-branch
   url: https://github.com/apache/airflow-steward.git
   ref: v0.9.5
 
-cat .apache-steward.local.lock:
+cat .apache-magpie.local.lock:
   method: git-branch
   url: https://github.com/apache/airflow-steward.git
   ref: v0.9.4

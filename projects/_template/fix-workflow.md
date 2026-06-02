@@ -51,7 +51,7 @@ TODO: list the project's developer toolchain. Example shape:
 
 The `security-issue-fix` skill assumes a clean clone of `<upstream>`
 reachable from the agent's working directory (path from
-`.apache-steward-overrides/user.md → environment.upstream_clone`), with a remote named
+`.apache-magpie-overrides/user.md → environment.upstream_clone`), with a remote named
 for the user's GitHub fork that `gh pr create` can push to.
 
 ## Backport labels

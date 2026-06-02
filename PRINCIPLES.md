@@ -124,7 +124,7 @@ Skills, tool adapters, and root docs use `<PROJECT>` / `<tracker>` / `<upstream>
 
 ## 13. Snapshot plus override, never vendored copies
 
-Adopters consume the framework as a gitignored snapshot at `.apache-steward/`, pinned via a committed lock file, refreshed by one skill (`setup-steward`). Project-specific modifications live as agent-readable markdown under `<project-config>/.apache-steward-overrides/`, committed. No git submodules. No vendored copies of framework skills inside adopter repos. Marketplaces, indexes, and catalogs may exist for discovery, never for installation.
+Adopters consume the framework as a gitignored snapshot at `.apache-magpie/`, pinned via a committed lock file, refreshed by one skill (`setup-steward`). Project-specific modifications live as agent-readable markdown under `<project-config>/.apache-magpie-overrides/`, committed. No git submodules. No vendored copies of framework skills inside adopter repos. Marketplaces, indexes, and catalogs may exist for discovery, never for installation.
 
 ## 14. Skills are the unit of authorship
 

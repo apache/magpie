@@ -117,14 +117,14 @@ flow. See
 
 Before running the default behaviour documented below, this skill
 consults
-[`.apache-steward-overrides/audit-finding-fix.md`](../../docs/setup/agentic-overrides.md)
+[`.apache-magpie-overrides/audit-finding-fix.md`](../../docs/setup/agentic-overrides.md)
 in the adopter repo if it exists, and applies any agent-readable
 overrides it finds. See
 [`docs/setup/agentic-overrides.md`](../../docs/setup/agentic-overrides.md)
 for the contract.
 
 **Hard rule**: agents NEVER modify the snapshot under
-`<adopter-repo>/.apache-steward/`. Local modifications go in the
+`<adopter-repo>/.apache-magpie/`. Local modifications go in the
 override file. Framework changes go via PR to
 `apache/airflow-steward`.
 
@@ -133,8 +133,8 @@ override file. Framework changes go via PR to
 ## Snapshot drift
 
 Also at the top of every run, this skill compares the gitignored
-`.apache-steward.local.lock` (per-machine fetch) against the
-committed `.apache-steward.lock` (the project pin). On mismatch
+`.apache-magpie.local.lock` (per-machine fetch) against the
+committed `.apache-magpie.lock` (the project pin). On mismatch
 the skill surfaces the gap and proposes
 [`/setup-steward upgrade`](../setup-steward/upgrade.md). The
 proposal is non-blocking.

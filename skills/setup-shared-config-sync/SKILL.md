@@ -25,7 +25,7 @@ license: Apache-2.0
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
-     <project-config> → adopting project's `.apache-steward/` directory -->
+     <project-config> → adopting project's `.apache-magpie/` directory -->
 
 # setup-shared-config-sync
 
@@ -40,7 +40,7 @@ modifications upstream.
 
 Before running the default behaviour documented
 below, this skill consults
-[`.apache-steward-overrides/setup-shared-config-sync.md`](../../docs/setup/agentic-overrides.md)
+[`.apache-magpie-overrides/setup-shared-config-sync.md`](../../docs/setup/agentic-overrides.md)
 in the adopter repo if it exists, and applies any
 agent-readable overrides it finds. See
 [`docs/setup/agentic-overrides.md`](../../docs/setup/agentic-overrides.md)
@@ -49,7 +49,7 @@ rules, the reconciliation flow on framework upgrade,
 upstreaming guidance.
 
 **Hard rule**: agents NEVER modify the snapshot under
-`<adopter-repo>/.apache-steward/`. Local modifications
+`<adopter-repo>/.apache-magpie/`. Local modifications
 go in the override file. Framework changes go via PR
 to `apache/airflow-steward`.
 
@@ -58,8 +58,8 @@ to `apache/airflow-steward`.
 ## Snapshot drift
 
 Also at the top of every run, this skill compares the
-gitignored `.apache-steward.local.lock` (per-machine
-fetch) against the committed `.apache-steward.lock`
+gitignored `.apache-magpie.local.lock` (per-machine
+fetch) against the committed `.apache-magpie.lock`
 (the project pin). On mismatch the skill surfaces the
 gap and proposes
 [`/setup-steward upgrade`](../setup-steward/upgrade.md).

@@ -65,7 +65,7 @@ model. An adopter project commits a single skill —
 into their repo. That skill manages everything else:
 
 1. **Snapshot.** `setup-steward` downloads the framework into
-   a **gitignored** `<adopter>/.apache-steward/` directory.
+   a **gitignored** `<adopter>/.apache-magpie/` directory.
    The snapshot is a build artefact, not source — refreshed
    by `/setup-steward upgrade`, never committed.
 2. **Symlinks.** `setup-steward` symlinks the framework's
@@ -78,7 +78,7 @@ into their repo. That skill manages everything else:
    would dangle on a fresh clone before `/setup-steward` runs.
 3. **Overrides.** Adopter-specific modifications to framework
    workflows live as agent-readable markdown under
-   `<adopter>/.apache-steward-overrides/<skill>.md`,
+   `<adopter>/.apache-magpie-overrides/<skill>.md`,
    **committed** in the adopter repo. The framework's skills
    consult those files at run-time and apply the overrides
    before executing default behaviour. See
@@ -108,10 +108,10 @@ Pick an install method and follow the verbatim recipe in
 
 Each recipe is a single shell block that:
 
-1. Adds `.apache-steward/`, `.apache-steward.local.lock`, and
+1. Adds `.apache-magpie/`, `.apache-magpie.local.lock`, and
    the framework-skill symlinks to `.gitignore`.
 2. Downloads + verifies + extracts the framework into
-   `.apache-steward/` (gitignored — build artefact, not
+   `.apache-magpie/` (gitignored — build artefact, not
    source).
 3. Copies the
    [`setup-steward`](skills/setup-steward/SKILL.md)
@@ -129,14 +129,14 @@ Tell your agent: **"adopt apache/airflow-steward in my repo"**
 (or invoke `/setup-steward` directly). The skill walks
 through the rest:
 
-- writes `.apache-steward.lock` (committed) — the project's
+- writes `.apache-magpie.lock` (committed) — the project's
   pin: install method + URL + ref + verification anchor;
-- writes `.apache-steward.local.lock` (gitignored) — what
+- writes `.apache-magpie.local.lock` (gitignored) — what
   this machine actually fetched + when;
 - asks which skill families (`security`, `pr-management`) to
   symlink in;
 - creates the gitignored framework-skill symlinks;
-- scaffolds `.apache-steward-overrides/` (committed) for any
+- scaffolds `.apache-magpie-overrides/` (committed) for any
   local workflow modifications;
 - installs a `post-checkout` git hook so worktrees re-create
   runtime state automatically;
@@ -152,7 +152,7 @@ done. Open a PR.
 
 Future contributors who clone your repo just say "adopt
 Magpie in this repo" (or invoke `/setup-steward`).
-The skill reads `.apache-steward.lock` (already committed)
+The skill reads `.apache-magpie.lock` (already committed)
 and re-installs to the same version your project pinned. No
 need to redo the manual recipe — the committed lock is the
 project's source-of-truth.
@@ -160,8 +160,8 @@ project's source-of-truth.
 ### Drift detection
 
 Every framework skill compares the gitignored
-`.apache-steward.local.lock` against the committed
-`.apache-steward.lock` at the top of its run. If they have
+`.apache-magpie.local.lock` against the committed
+`.apache-magpie.lock` at the top of its run. If they have
 drifted (project lead bumped the pin, or the local install
 is stale on a `main`-tracking adopter), the skill surfaces
 the gap and proposes `/setup-steward upgrade`. `upgrade`

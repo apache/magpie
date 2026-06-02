@@ -23,10 +23,10 @@ license: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
-     <project-config> → adopting project's `.apache-steward/` directory
+     <project-config> → adopting project's `.apache-magpie/` directory
      <tracker>        → value of `tracker_repo:` in <project-config>/project.md
      <upstream>       → value of `upstream_repo:` in <project-config>/project.md
-     <framework>      → `.apache-steward/apache-steward` in adopters; `.` in
+     <framework>      → `.apache-magpie/apache-steward` in adopters; `.` in
                         the framework standalone -->
 
 # list-steward-skills

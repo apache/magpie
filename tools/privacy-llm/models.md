@@ -163,8 +163,8 @@ uv run --project <framework>/tools/privacy-llm/checker privacy-llm-check \
 
 The checker auto-locates `<project-config>/privacy-llm.md`:
 explicit `--config` → `$PRIVACY_LLM_CONFIG` env var → standard
-adopter paths (`<cwd>/.apache-steward/privacy-llm.md`,
-`<cwd>/.apache-steward-overrides/privacy-llm.md`). On approval
+adopter paths (`<cwd>/.apache-magpie/privacy-llm.md`,
+`<cwd>/.apache-magpie-overrides/privacy-llm.md`). On approval
 it prints a one-line banner per stack entry; on rejection it
 prints the failing entries to stderr and exits 1. Exit 2 means
 the config file could not be located or parsed.

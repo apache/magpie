@@ -22,10 +22,10 @@ license: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
-     <project-config> → adopting project's `.apache-steward/` directory
+     <project-config> → adopting project's `.apache-magpie/` directory
      <tracker>        → value of `tracker_repo:` in <project-config>/project.md
      <upstream>       → value of `upstream_repo:` in <project-config>/project.md
-     <framework>      → `.apache-steward/apache-steward` in adopters; `.` in
+     <framework>      → `.apache-magpie/apache-steward` in adopters; `.` in
                         the framework standalone -->
 
 # write-skill
@@ -239,15 +239,15 @@ Hard rules, References. Apply the framework's conventions:
   prek hook catches the obvious cases but it is a backstop, not a
   substitute for getting the placeholder right at write time.
 - **Adopter overrides.** Every skill consults
-  `<adopter>/.apache-steward-overrides/<skill-name>.md` at
+  `<adopter>/.apache-magpie-overrides/<skill-name>.md` at
   runtime; the preamble that
   [`init_skill.py`](scripts/init_skill.py) scaffolds wires this
   in. See
   [`docs/setup/agentic-overrides.md`](../../docs/setup/agentic-overrides.md)
   for the contract.
 - **Snapshot drift.** Every skill compares the gitignored
-  `.apache-steward.local.lock` against the committed
-  `.apache-steward.lock` at the top of its run; on mismatch,
+  `.apache-magpie.local.lock` against the committed
+  `.apache-magpie.lock` at the top of its run; on mismatch,
   surface and propose `/setup-steward upgrade`. The preamble
   that `init_skill.py` scaffolds wires this in.
 - **Status-rollup contribution.** Skills that mutate a tracker
@@ -342,7 +342,7 @@ applies:
 
 If the skill has been adopted in a downstream project (an
 adopter ran `/setup-steward upgrade` against a snapshot containing
-this skill) and its `.apache-steward-overrides/<skill-name>.md`
+this skill) and its `.apache-magpie-overrides/<skill-name>.md`
 file has accumulated changes worth promoting, the
 [`setup-override-upstream`](../setup-override-upstream/SKILL.md)
 skill walks the user through that promotion. See

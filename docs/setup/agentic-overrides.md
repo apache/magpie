@@ -28,7 +28,7 @@ The framework's skills are project-agnostic by design. An
 adopter project that needs to modify a framework workflow's
 behaviour — different defaults, an extra step, a skipped step,
 a different tone — does **not** fork the framework, does **not**
-modify the framework's snapshot in `.apache-steward/`, and does
+modify the framework's snapshot in `.apache-magpie/`, and does
 **not** copy a framework skill into their own
 `.claude/skills/`. Instead, they write an **override file**:
 agent-readable markdown that the framework skill consults at
@@ -40,7 +40,7 @@ override files and framework authors of skills that read them.
 ## Where override files live
 
 ```text
-<adopter-repo>/.apache-steward-overrides/
+<adopter-repo>/.apache-magpie-overrides/
 ├── README.md                            (the dir's own readme,
 │                                          scaffolded by
 │                                          /setup-steward adopt)
@@ -125,7 +125,7 @@ maintainer (or a future agent on a later run):
 Every framework skill that supports overrides starts each
 invocation with this opening protocol:
 
-1. Read `<adopter-repo>/.apache-steward-overrides/<this-skill>.md`
+1. Read `<adopter-repo>/.apache-magpie-overrides/<this-skill>.md`
    if it exists. Surface the file's title and the list of
    override headlines (`### Override N — ...`) to the user
    before doing anything else.
@@ -149,10 +149,10 @@ These are baked into agent instructions across the framework.
 A framework agent NEVER:
 
 - Modifies the snapshot under
-  `<adopter-repo>/.apache-steward/`. The snapshot is a build
+  `<adopter-repo>/.apache-magpie/`. The snapshot is a build
   artefact — every modification gets blown away on the next
   `/setup-steward upgrade`. Local mods go into
-  `.apache-steward-overrides/`.
+  `.apache-magpie-overrides/`.
 - Proposes overrides be merged in by editing the framework
   source in the snapshot. Framework changes go via PR to
   `apache/airflow-steward`.

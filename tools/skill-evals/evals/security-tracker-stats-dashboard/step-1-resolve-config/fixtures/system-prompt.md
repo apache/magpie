@@ -5,7 +5,7 @@ security-tracker-stats-dashboard skill from the Apache Steward framework.
 
 1. Read `<project-config>/security-tracker-stats.md` to find the adopter's
    YAML config path.
-   - Default path: `<adopter-repo>/.apache-steward-overrides/security-tracker-stats.yaml`
+   - Default path: `<adopter-repo>/.apache-magpie-overrides/security-tracker-stats.yaml`
    - The adopter may override this with a `tracker_stats_config:` key in that
      file.
 

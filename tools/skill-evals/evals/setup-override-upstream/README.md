@@ -40,8 +40,8 @@ and (3) a framework clone is available for the implementation step.  This suite
 covers the first two.
 
 Four branches:
-- **case-1** (not-adopter-repo) — no `.apache-steward.lock` or
-  `.apache-steward-overrides/`; action is `stop`.
+- **case-1** (not-adopter-repo) — no `.apache-magpie.lock` or
+  `.apache-magpie-overrides/`; action is `stop`.
 - **case-2** (no-drift) — both lock files in sync; action is `proceed`.
 - **case-3** (drift-ref) — same method + URL but committed ref is newer than
   local; action is `propose-upgrade-nonblocking` (user may defer).
@@ -51,7 +51,7 @@ Four branches:
 
 ### step-1-pick-override
 
-The skill lists `.apache-steward-overrides/*.md` (excluding `README.md`) and
+The skill lists `.apache-magpie-overrides/*.md` (excluding `README.md`) and
 dispatches on the count.
 
 Four branches:

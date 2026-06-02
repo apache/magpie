@@ -36,20 +36,20 @@ gitignored skill symlinks, and committed agent-readable override files.
   override into a framework PR), `setup-shared-config-sync`.
 - Docs: `docs/setup/` (install recipes, agentic-overrides contract,
   prerequisites).
-- Lock files: `.apache-steward.lock` (committed pin) and
-  `.apache-steward.local.lock` (gitignored, what this machine fetched).
+- Lock files: `.apache-magpie.lock` (committed pin) and
+  `.apache-magpie.local.lock` (gitignored, what this machine fetched).
 
 ## Behaviour & contract
 
 - **One committed skill, no submodules, no vendored framework copies.**
-  The snapshot lives in a gitignored `.apache-steward/`.
+  The snapshot lives in a gitignored `.apache-magpie/`.
 - **Committed lock is the source of truth.** A fresh contributor runs
   `/setup-steward` and re-installs to the project's pinned version.
 - **Drift detection** at the top of every framework skill: if the
   gitignored local lock has drifted from the committed pin, the skill
   proposes `/setup-steward upgrade`.
 - **Overrides are agent-readable Markdown** under
-  `.apache-steward-overrides/`, consulted at runtime and merged before
+  `.apache-magpie-overrides/`, consulted at runtime and merged before
   default behaviour ([pairing/correctability is the model]).
 
 ## Out of scope

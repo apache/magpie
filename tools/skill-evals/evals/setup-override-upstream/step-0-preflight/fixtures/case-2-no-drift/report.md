@@ -1,16 +1,16 @@
 User invocation: /setup-override-upstream
 
 Directory scan results:
-- `.apache-steward.lock` found at repo root.
-- `.apache-steward-overrides/` directory found at repo root.
-- `.apache-steward.local.lock` found at repo root (gitignored).
+- `.apache-magpie.lock` found at repo root.
+- `.apache-magpie-overrides/` directory found at repo root.
+- `.apache-magpie.local.lock` found at repo root (gitignored).
 
-Committed lock (`.apache-steward.lock`):
+Committed lock (`.apache-magpie.lock`):
   method: git-branch
   url:    https://github.com/apache/airflow-steward.git
   ref:    main
 
-Local lock (`.apache-steward.local.lock`):
+Local lock (`.apache-magpie.local.lock`):
   source_method: git-branch
   source_url:    https://github.com/apache/airflow-steward.git
   source_ref:    main

@@ -26,7 +26,7 @@ license: Apache-2.0
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
-     <project-config> → adopting project's `.apache-steward/` directory
+     <project-config> → adopting project's `.apache-magpie/` directory
      <tracker>        → value of `tracker_repo:` in <project-config>/project.md
                        (example: airflow-s/airflow-s for the Apache Airflow security team)
      <upstream>       → value of `upstream_repo:` in <project-config>/project.md
@@ -152,7 +152,7 @@ wrapper, and convert any match.
 
 Before running the default behaviour documented
 below, this skill consults
-[`.apache-steward-overrides/security-issue-import.md`](../../docs/setup/agentic-overrides.md)
+[`.apache-magpie-overrides/security-issue-import.md`](../../docs/setup/agentic-overrides.md)
 in the adopter repo if it exists, and applies any
 agent-readable overrides it finds. See
 [`docs/setup/agentic-overrides.md`](../../docs/setup/agentic-overrides.md)
@@ -161,7 +161,7 @@ rules, the reconciliation flow on framework upgrade,
 upstreaming guidance.
 
 **Hard rule**: agents NEVER modify the snapshot under
-`<adopter-repo>/.apache-steward/`. Local modifications
+`<adopter-repo>/.apache-magpie/`. Local modifications
 go in the override file. Framework changes go via PR
 to `apache/airflow-steward`.
 
@@ -170,8 +170,8 @@ to `apache/airflow-steward`.
 ## Snapshot drift
 
 Also at the top of every run, this skill compares the
-gitignored `.apache-steward.local.lock` (per-machine
-fetch) against the committed `.apache-steward.lock`
+gitignored `.apache-magpie.local.lock` (per-machine
+fetch) against the committed `.apache-magpie.lock`
 (the project pin). On mismatch the skill surfaces the
 gap and proposes
 [`/setup-steward upgrade`](../setup-steward/upgrade.md).
@@ -367,7 +367,7 @@ lags the inbox by minutes-to-hours for brand-new messages, which
 is exactly the window this skill most cares about.
 
 When PonyMail MCP is enabled and authenticated (Step 0) **and**
-`security@<project>.apache.org` is in `.apache-steward-overrides/user.md` →
+`security@<project>.apache.org` is in `.apache-magpie-overrides/user.md` →
 `tools.ponymail.private_lists`, run the archive as a **paired
 authoritative check** against the Gmail result set:
 
@@ -817,7 +817,7 @@ in short:
 
 **Backend selection.** When PonyMail MCP is enabled and
 authenticated (Step 0) **and** `security@<project>.apache.org`
-is in `.apache-steward-overrides/user.md` → `tools.ponymail.private_lists`,
+is in `.apache-magpie-overrides/user.md` → `tools.ponymail.private_lists`,
 **PonyMail MCP is the primary backend for this step**:
 
 ```text

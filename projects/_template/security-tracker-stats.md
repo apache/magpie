@@ -27,7 +27,7 @@ when a key is unset.
 ## YAML config path
 
 ```yaml
-tracker_stats_config: .apache-steward-overrides/security-tracker-stats.yaml
+tracker_stats_config: .apache-magpie-overrides/security-tracker-stats.yaml
 ```
 
 The renderer reads its configuration from the YAML file pointed at by

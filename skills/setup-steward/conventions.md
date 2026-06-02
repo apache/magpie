@@ -27,7 +27,7 @@ started using Claude Code use this. **Detection signal**:
 
 For framework symlinks: create them at
 `<repo-root>/.claude/skills/<n>` → relative path into
-`.apache-steward/.claude/skills/<n>/`.
+`.apache-magpie/.claude/skills/<n>/`.
 
 **Caveat — `.claude/` already gitignored.** Some adopters (notably
 those that previously used Claude Code with per-user `.claude/`
@@ -77,7 +77,7 @@ is a symlink resolving into `.github/skills/`.
 
 For framework symlinks: create *both* layers — the inner
 `.github/skills/<n>` → relative path into
-`.apache-steward/.claude/skills/<n>/`, and the outer
+`.apache-magpie/.claude/skills/<n>/`, and the outer
 `.claude/skills/<n>` → `../../.github/skills/<n>/` (matching
 the existing pattern). Both layers gitignored.
 
@@ -99,7 +99,7 @@ preference, they say so during the adopt flow.
     └── skills/
         ├── <native-skill>/
         │   └── SKILL.md
-        ├── <framework-symlink>  →  ../../.apache-steward/.claude/skills/<framework-skill>/
+        ├── <framework-symlink>  →  ../../.apache-magpie/.claude/skills/<framework-skill>/
         └── ...
 ```
 
@@ -110,7 +110,7 @@ preference, they say so during the adopt flow.
 │   └── skills/
 │       ├── <native-skill>/
 │       │   └── SKILL.md
-│       ├── <framework-symlink>  →  ../../.apache-steward/.claude/skills/<framework-skill>/
+│       ├── <framework-symlink>  →  ../../.apache-magpie/.claude/skills/<framework-skill>/
 │       └── ...
 └── .github/
     └── skills  →  ../.claude/skills/
@@ -149,7 +149,7 @@ repo. Either orientation counts as Pattern D.
 For framework symlinks: create them at **only one layer** —
 the *real* directory side, never the symlinked side. With
 D.1 that means `.github/skills/<n>` → relative path into
-`.apache-steward/.claude/skills/<n>/`; with D.2 it means
+`.apache-magpie/.claude/skills/<n>/`; with D.2 it means
 `.claude/skills/<n>` → the same. The opposite path is
 automatically the same content via the directory symlink.
 

@@ -49,7 +49,7 @@ invocation, and the project's own test/lint workflow.
 ## Run
 
 From the framework's root (this repository when running standalone;
-the `.apache-steward/` snapshot path inside an adopting tracker repo):
+the `.apache-magpie/` snapshot path inside an adopting tracker repo):
 
 ```bash
 uv run --project tools/gmail/oauth-draft oauth-draft-create \
@@ -67,7 +67,7 @@ Skill files and framework docs reference the same invocation via the
 uv run --project <framework>/tools/gmail/oauth-draft oauth-draft-create ...
 ```
 
-`<framework>` substitutes to `.apache-steward/apache-steward` in
+`<framework>` substitutes to `.apache-magpie/apache-steward` in
 adopting projects and to `.` (the repository root) in framework
 standalone — see the placeholder convention in
 [`AGENTS.md`](../../../AGENTS.md#placeholder-convention-used-in-skill-files).

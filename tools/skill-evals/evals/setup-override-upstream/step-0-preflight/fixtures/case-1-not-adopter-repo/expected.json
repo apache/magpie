@@ -1,1 +1,1 @@
-{"state": "not-adopter-repo", "action": "stop", "reason": "No .apache-steward.lock or .apache-steward-overrides/ found; this is not an adopted repo."}
+{"state": "not-adopter-repo", "action": "stop", "reason": "No .apache-magpie.lock or .apache-magpie-overrides/ found; this is not an adopted repo."}

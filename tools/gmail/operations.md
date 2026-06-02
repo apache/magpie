@@ -156,7 +156,7 @@ body is fetched.
 ### Drafting backends
 
 Draft creation runs through one of two backends, selected by the user
-in `.apache-steward-overrides/user.md` under
+in `.apache-magpie-overrides/user.md` under
 `tools.gmail.draft_backend`. The full comparison and rationale live
 in [`draft-backends.md`](draft-backends.md); the call shape per
 backend is here.

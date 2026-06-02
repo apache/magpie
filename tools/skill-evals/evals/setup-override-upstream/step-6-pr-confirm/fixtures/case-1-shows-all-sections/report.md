@@ -10,7 +10,7 @@ Body:
 - Controlled by a `skip_draft_prs` config key (default: `true`).
 
 ## Motivation
-Apache Airflow's adopter override `.apache-steward-overrides/pr-management-triage.md`
+Apache Airflow's adopter override `.apache-magpie-overrides/pr-management-triage.md`
 implements this behaviour locally ([link to override in adopter repo]).
 Triage on draft PRs generates noise: labels are applied and routing happens
 before the PR is ready, requiring manual cleanup when the PR is finalised.

@@ -107,7 +107,7 @@ privilege-elevating runs without you saying so.
 2. If you consume the framework as a gitignored snapshot managed
    by `setup-steward` (the canonical adopter pattern), run
    `/setup-steward verify` to confirm the snapshot at
-   `.apache-steward/`, the committed `.apache-steward.lock`, and
+   `.apache-magpie/`, the committed `.apache-magpie.lock`, and
    the project-config files are wired correctly. Read-only —
    surfaces gaps, never auto-fixes.
 3. Run /setup-isolated-setup-install — guided first-time install of
@@ -428,7 +428,7 @@ silently drops the literal `.`*. The consequence is that a session
 in a freshly-cloned adopter repo can **write** to CWD but cannot
 **read** from it under the sandbox — `git rev-parse --git-dir`
 fails with `Operation not permitted`, and `Read`-tool reads of
-files like `.apache-steward.lock` fail too. The full reproducer
+files like `.apache-magpie.lock` fail too. The full reproducer
 and harness-side analysis is in
 [issue #197](https://github.com/apache/airflow-steward/issues/197).
 
@@ -1436,7 +1436,7 @@ sub-section that follows.
    above.
 2. Copy
    [`.claude/settings.json`](../../.claude/settings.json) from the framework
-   snapshot at `<your-tracker>/.apache-steward/.claude/settings.json`
+   snapshot at `<your-tracker>/.apache-magpie/.claude/settings.json`
    into `<your-tracker>/.claude/settings.json`. Adjust:
    - The `sandbox.network.allowedDomains` list — drop the framework
      domains you don't actually use, add any project-specific hosts.
@@ -1460,7 +1460,7 @@ sub-section that follows.
    [The clean-env wrapper](#the-clean-env-wrapper). When the
    framework is consumed via the standard snapshot path, the
    per-repo source path is
-   `<your-tracker>/.apache-steward/tools/agent-isolation/claude-iso.sh`.
+   `<your-tracker>/.apache-magpie/tools/agent-isolation/claude-iso.sh`.
 4. Decide whether to gitignore `.claude/settings.local.json` in your
    tracker repo — Claude Code does this by default; verify with
    `git check-ignore .claude/settings.local.json`.

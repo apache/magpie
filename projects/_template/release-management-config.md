@@ -101,7 +101,7 @@ the analogous draft/promote convention and document it in
 |---|---|
 | `keys_file_url` | `https://dist.apache.org/repos/dist/release/airflow/KEYS` |
 | `keyserver` | `keys.openpgp.org` |
-| `rm_key_fingerprint` | *(per-RM; lives in `.apache-steward-overrides/user.md` under `release_manager.gpg_fingerprint`)* |
+| `rm_key_fingerprint` | *(per-RM; lives in `.apache-magpie-overrides/user.md` under `release_manager.gpg_fingerprint`)* |
 
 The agent never reads or stores the private key half. The
 fingerprint is the only signing-related value the skill consumes;

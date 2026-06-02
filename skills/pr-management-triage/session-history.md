@@ -27,10 +27,10 @@ Why this exists:
 
 ## Local state file
 
-**Path.** `<adopter-repo-root>/.apache-steward.session-state.json`.
+**Path.** `<adopter-repo-root>/.apache-magpie.session-state.json`.
 
 **Status.** Gitignored. The adopter repo's snapshot mechanism
-already gitignores `.apache-steward.local.lock` next to the
+already gitignores `.apache-magpie.local.lock` next to the
 session-state file; the same `.gitignore` entry covers both.
 
 **Schema.**
@@ -214,7 +214,7 @@ About to CREATE a private gist on your account:
   Filename:    triage-history.md
   Visibility:  secret (default; not public)
   Length:      <N> lines
-  Local state will be written to: .apache-steward.session-state.json
+  Local state will be written to: .apache-magpie.session-state.json
 
 First 50 lines:
 ─────────────────────────────────────────────────────
