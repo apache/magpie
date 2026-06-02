@@ -43,7 +43,7 @@
     - [Anti-patterns to avoid](#anti-patterns-to-avoid-5)
     - [References to the broader privacy posture](#references-to-the-broader-privacy-posture)
   - [How the six principles compose](#how-the-six-principles-compose)
-  - [Adoption guidance for non-Steward (to be renamed) projects](#adoption-guidance-for-non-steward-to-be-renamed-projects)
+  - [Adoption guidance for non-Magpie projects](#adoption-guidance-for-non-magpie-projects)
   - [What this RFC does NOT specify](#what-this-rfc-does-not-specify)
   - [References](#references)
     - [Internal (this repository)](#internal-this-repository)
@@ -57,7 +57,7 @@
 
 <!-- Source: ASF Confluence wiki (RFCs space). Public-safe re-export:
      wiki-internal links and members-only references have been stripped
-     per the Apache Steward project's RFC-AI-0004 § Privacy-by-Design
+     per the Apache Magpie project's RFC-AI-0004 § Privacy-by-Design
      principle (no exposing of SSO-gated URLs in public artefacts).
      The authoritative source remains the Confluence page; this file
      is a public mirror for review by adopters who do not have ASF SSO. -->
@@ -69,11 +69,11 @@
 | **RFC** | AI-0004 |
 | **Title** | Principles of agentic interaction for open-source maintainers |
 | **Status** | Draft |
-| **Authors** | The Apache Steward (to be renamed) project (see [`MISSION.md`](https://github.com/apache/airflow-steward/blob/main/MISSION.md) for roster) |
+| **Authors** | The Apache Magpie project (see [`MISSION.md`](https://github.com/apache/airflow-steward/blob/main/MISSION.md) for roster) |
 | **Initial draft** | 2026-05-07 |
 | **Supersedes** | None |
 | **Superseded by** | None |
-| **Reference implementation** | [`apache/airflow-Steward (to be renamed)`](https://github.com/apache/airflow-steward) |
+| **Reference implementation** | [`apache/airflow-steward`](https://github.com/apache/airflow-steward) |
 | **License** | Apache License 2.0 |
 
 ---
@@ -82,7 +82,7 @@
 
 This RFC describes six principles that govern how AI agents should interact with open-source projects when **the human in the interaction is a project maintainer** — committer, PMC member, release manager, security-team member, triager. The six principles — **(1) human-in-the-loop on every state change**, **(2) secure sandbox by default**, **(3) vendor neutrality across LLM backends and project governance**, **(4) conversational, correctable agentic skills**, **(5) write access and outbound messages require human review**, and **(6) privacy by design** — are framed as *a baseline*. They define the minimum trust posture under which agentic tooling can be ethically deployed against the public artefacts of a community-governed project (issues, PRs, mailing lists, releases, security reports, contributor data).
 
-The RFC is normative for the Apache Steward (to be renamed) framework ([`apache/airflow-Steward (to be renamed)`](https://github.com/apache/airflow-steward), the working draft of which is summarised in [`MISSION.md`](https://github.com/apache/airflow-steward/blob/main/MISSION.md)) and is offered as a **pattern other projects can adopt or adapt** when integrating agentic tooling into their own maintainership workflow.
+The RFC is normative for the Apache Magpie framework ([`apache/airflow-steward`](https://github.com/apache/airflow-steward), the working draft of which is summarised in [`MISSION.md`](https://github.com/apache/airflow-steward/blob/main/MISSION.md)) and is offered as a **pattern other projects can adopt or adapt** when integrating agentic tooling into their own maintainership workflow.
 
 It is **not** a specification of any particular implementation detail (LLM choice, prompt format, model size, scaffolding library). The principles are independent of those choices.
 
@@ -90,10 +90,10 @@ It is **not** a specification of any particular implementation detail (LLM cho
 
 ## Status of this document
 
-This is a **Draft**. The Apache Steward (to be renamed) project's reference implementation operationalises every principle in this RFC, but the RFC itself is the project's first attempt to extract the principles from the implementation and frame them as a portable contract. The next two milestones are:
+This is a **Draft**. The Apache Magpie project's reference implementation operationalises every principle in this RFC, but the RFC itself is the project's first attempt to extract the principles from the implementation and frame them as a portable contract. The next two milestones are:
 
 1. **Public review** — comments solicited from ASF Members, non-ASF maintainers running similar agentic frameworks, and the ASF Responsible AI Initiative working group.
-2. **Pilot validation** — the four principles tested against the Apache Steward (to be renamed) pilot cohort (one ASF PMC running the full security-issue flow, one ASF PMC running just triage + mentoring, at least one non-ASF project) before promotion from `Draft` to `Stable`.
+2. **Pilot validation** — the four principles tested against the Apache Magpie pilot cohort (one ASF PMC running the full security-issue flow, one ASF PMC running just triage + mentoring, at least one non-ASF project) before promotion from `Draft` to `Stable`.
 
 ---
 
@@ -115,7 +115,7 @@ This RFC names the four shifts that, taken together, make agentic tooling accept
 | Term | Definition |
 |---|---|
 | **Agent** | A program that selects and executes actions to advance a maintainer-stated goal, where at least one of those actions is mediated by an LLM and where action selection is conditioned on natural-language conversation rather than a pre-coded flow chart. |
-| **Skill** | A package of agent-readable text (typically a markdown file with YAML frontmatter and bundled scripts/references) that scopes the agent to a single workflow. The Apache Steward (to be renamed) framework's skills (`security-issue-import`, `pr-management-triage`, etc.) are reference instances. |
+| **Skill** | A package of agent-readable text (typically a markdown file with YAML frontmatter and bundled scripts/references) that scopes the agent to a single workflow. The Apache Magpie framework's skills (`security-issue-import`, `pr-management-triage`, etc.) are reference instances. |
 | **Maintainer** | A human with write access (or comparable governance authority) on the target project. PMC members, committers, triagers, release managers all qualify; bots and agents do not. |
 | **State change** | Any operation observable by parties outside the maintainer's local machine: posted comment, edited issue body, applied label, merged PR, sent email, written file under the repo's tracked path, etc. Operations that touch only the maintainer's `/tmp` or `~/.config/<framework>/` cache are **not** state changes. |
 | **Confirmation** | An explicit, in-session, reversible-only-by-history act by the maintainer that authorises one specific state change. Standing approvals, "yes to all", and pre-approved-via-config are explicitly **not** confirmations. |
@@ -143,7 +143,7 @@ A skill that triages 200 PRs in 10 minutes is doing 200 state changes. If the ma
 
 ### Narrow auto-merge carve-out
 
-Auto-merge ("narrowly-scoped fix-and-merge", in Apache Steward (to be renamed)'s terminology) is the explicit exception. It permits auto-merge, but only after **all** of the following gate conditions hold:
+Auto-merge ("narrowly-scoped fix-and-merge", in Apache Magpie's terminology) is the explicit exception. It permits auto-merge, but only after **all** of the following gate conditions hold:
 
 - The change class is on a per-project, per-class allow-list (lint fixes, dependency bumps within an allow-list, license headers, formatting, broken-link repair). Security-class changes are explicitly out.
 - The project has been running Triage, Mentoring, and Drafting with HITL confirmation for at least two release cycles, and a contributor-sentiment evaluation says the project is healthier, not just faster.
@@ -213,7 +213,7 @@ The reference implementation (see [`docs/setup/secure-agent-internals.md`](http
 
 1. **Pluggable backend.** The framework's skills cite no model name in their flow logic. "Use the strongest model available" / "use a fast model for this lookup step" are acceptable hints; "must be Claude Sonnet 4.5" is not.
 2. **Pluggable adapters.** Private-mailing-list, CVE-tool, release-process, and audit-finding ingest MUST live behind adapter modules. The reference implementation's `tools/<adapter>/` directories (`tools/cve-tool-vulnogram/`, `tools/gmail/`, `tools/ponymail/`) are this pattern.
-3. **Pilot diversity.** Validation runs (per the Apache Steward (to be renamed) [MISSION.md](https://github.com/apache/airflow-steward/blob/main/MISSION.md)) cover at least one frontier-model backend, at least one fully-local inference setup (Ollama / vLLM / equivalent), and at least one Apache-hosted or Apache-aligned endpoint. A framework that only validates against one vendor is a vendor-locked framework that has not noticed yet.
+3. **Pilot diversity.** Validation runs (per the Apache Magpie [MISSION.md](https://github.com/apache/airflow-steward/blob/main/MISSION.md)) cover at least one frontier-model backend, at least one fully-local inference setup (Ollama / vLLM / equivalent), and at least one Apache-hosted or Apache-aligned endpoint. A framework that only validates against one vendor is a vendor-locked framework that has not noticed yet.
 4. **Privacy-LLM gating is vendor-neutral by construction.** Private content (security reports, embargoed CVE detail, PMC-private mail) flows only to LLMs the project's PMC has explicitly approved. "Approved" is per-PMC, not per-framework — the framework's contribution is the gate check, not the policy. See [`tools/privacy-llm/`](https://github.com/apache/airflow-steward/blob/main/tools/privacy-llm/) for the reference gate.
 5. **License + IP posture.** Framework code AL2.0 / MIT. Skills AL2.0. Generated artefacts (commit messages, PR bodies, advisory drafts) inherit the maintainer's commit licence; the framework MUST NOT introduce a vendor's model-output licence by reference.
 
@@ -240,7 +240,7 @@ The shift the maintainer makes is from "this tool needs a code change" to "this 
 ### Five concrete consequences
 
 1. **Skills are markdown.** Not YAML. Not JSON. Not a DSL. Markdown with YAML frontmatter and inline code blocks. The maintainer reads them like documentation; the agent reads them like instructions; the diff between two revisions is reviewable in the normal PR review surface.
-2. **Local override before upstream PR.** The reference implementation's `.apache-steward (to be renamed)-overrides/<skill>.md` convention lets a maintainer encode "for this project, do X differently" without forking the framework. The override file is committed in the adopter's repo; the framework reads it at runtime and merges agent-readable modifications before executing the default behaviour.
+2. **Local override before upstream PR.** The reference implementation's `.apache-steward-overrides/<skill>.md` convention lets a maintainer encode "for this project, do X differently" without forking the framework. The override file is committed in the adopter's repo; the framework reads it at runtime and merges agent-readable modifications before executing the default behaviour.
 3. **Upstream loop is first-class.** When an override has stabilised — typically after a few weeks of running — the `setup-override-upstream` skill (or equivalent) walks the maintainer through promoting the override into a framework PR. Some overrides stay local forever (project-specific policy); some belong upstream (general improvement). The framework MUST surface the choice explicitly.
 4. **Correction is in-conversation.** The maintainer says "stop using `--repo` argument; my project uses `--repository`" and the agent acknowledges, applies the change in this session, and surfaces the override-file path so the correction persists across sessions. The maintainer is not expected to know the framework's source layout to make a behaviour change stick.
 5. **Skills carry their own provenance.** Every skill cites what it does, what it does **not** do, the placeholders it uses, the adapter-config knobs it consults, and (where applicable) the upstream commit it was derived from. The maintainer who reads the skill knows what they are trusting.
@@ -312,7 +312,7 @@ The reference implementation operationalises this principle in [`tools/privacy-
 
 ### Five concrete consequences
 
-1. **Approved-LLM gate.** The project's PMC declares the set of LLMs that may receive private content. The list is per-PMC, not per-framework — Apache Steward (to be renamed)'s gate-check tool (`tools/privacy-llm/checker/`) enforces the gate but the *policy* is the project's. The reference list defaults to "Claude Code trusted; `*.apache.org` auto-approved; `localhost` for local-inference setups; everything else requires explicit opt-in."
+1. **Approved-LLM gate.** The project's PMC declares the set of LLMs that may receive private content. The list is per-PMC, not per-framework — Apache Magpie's gate-check tool (`tools/privacy-llm/checker/`) enforces the gate but the *policy* is the project's. The reference list defaults to "Claude Code trusted; `*.apache.org` auto-approved; `localhost` for local-inference setups; everything else requires explicit opt-in."
 2. **Redact-before-read.** When a skill fetches Gmail or PonyMail private content, it pipes the fetched bytes through the framework's PII redactor (`tools/privacy-llm/redactor/`) *before* the LLM sees them. Reporter names → `N-<hash>`, email addresses → `E-<hash>`, IPs → `IP-<hash>`. The skill operates on the hash-prefixed identifiers; the reverse map lives only on the maintainer's local disk (mode 0600, never committed), and the *reveal* step happens at draft-write time inside the maintainer's own process, not inside an LLM call.
 3. **Reporter-PII is redacted, but reporter *credit* is not.** The redaction is for in-context PII — the reporter's name and email when the agent is reasoning about routing, triage, deduplication. The reporter's *publicly-credited* identity (e.g., "Reported by Jane Smith" in the CVE record's `credits[]` field) is a deliberate output and passes through unredacted, only after the maintainer confirms the credit shape with the reporter on the inbound thread.
 4. **Confidentiality scrub before public emission.** Every skill that emits a public artefact (advisory email, public PR body, public CVE-record JSON, GitHub Security Advisory) MUST run a confidentiality scrub against the draft body: regex match for `CVE-\d{4}-\d{4,7}` (forbidden in pre-disclosure public PRs), reporter names from the private mapping table, mailing-list addresses, and any string the project's policy file enumerates as private. The scrub fires before the draft is shown to the maintainer; failures stop the flow with a specific message.
@@ -377,17 +377,17 @@ Drop any one of the six and the system regresses to a recognisable bad pattern: 
 
 ---
 
-## Adoption guidance for non-Steward (to be renamed) projects
+## Adoption guidance for non-Magpie projects
 
-A project that wants to adopt these principles without adopting Apache Steward (to be renamed) as a whole has the following minimum bar:
+A project that wants to adopt these principles without adopting Apache Magpie as a whole has the following minimum bar:
 
 1. **Pick an agent host with HITL primitives.** Claude Code, Cursor's Composer, and Aider all support per-action confirmation. Avoid hosts that default to "auto-apply suggested changes".
 2. **Wrap the host in an OS sandbox.** On Linux, `bubblewrap` + a network-allow-list HTTP proxy is one day's work. On macOS, a `sandbox-exec` profile is similar. The agent's parent shell runs in the sandbox; every subprocess inherits.
-3. **Treat skill files as code.** Land them in a `skills/` directory under your project's main repo or a sibling `<project>-Steward (to be renamed)` repo. PR them. Review them. Diff them. Don't hand-edit them on production machines without committing.
+3. **Treat skill files as code.** Land them in a `skills/` directory under your project's main repo or a sibling `<project>-steward` repo. PR them. Review them. Diff them. Don't hand-edit them on production machines without committing.
 4. **Document the adapter boundaries.** What is project-specific (your release process, your CVE flow, your private mailing list)? Move those into a `<project-config>/` directory with documented placeholders and let the skills consult them.
 5. **Pilot before scale.** Run the agent against your project's own backlog for a release cycle before letting it touch contributor-facing artefacts at full speed. The contributor-sentiment data you collect during the pilot is the only honest signal that the framework is helping, not just speeding up the harm.
 
-The Apache Steward (to be renamed) project is happy to consult on the lift — see [`MISSION.md`](https://github.com/apache/airflow-steward/blob/main/MISSION.md) for the maintainer- education stream.
+The Apache Magpie project is happy to consult on the lift — see [`MISSION.md`](https://github.com/apache/airflow-steward/blob/main/MISSION.md) for the maintainer- education stream.
 
 ---
 
@@ -415,4 +415,4 @@ The Apache Steward (to be renamed) project is happy to consult on the lift — s
 
 ## Acknowledgements
 
-This RFC distils principles operationalised in the Apache Steward (to be renamed) reference implementation. The PMC roster and collaborator list (see [`MISSION.md`](https://github.com/apache/airflow-steward/blob/main/MISSION.md)) includes the people whose discussion, code, and incident-review work shaped these principles. The framing of the principles here owes a particular debt to the 2026-05 prompt-injection audit ([gist](https://gist.github.com/andrew/0bc8bdaac6902656ccf3b1400ad160f0)) that surfaced the Principle 2 specifics, and to the Triage/Mentoring/Drafting/Auto-merge swimlane discussion that surfaced the carve-out structure of Principle 1.
+This RFC distils principles operationalised in the Apache Magpie reference implementation. The PMC roster and collaborator list (see [`MISSION.md`](https://github.com/apache/airflow-steward/blob/main/MISSION.md)) includes the people whose discussion, code, and incident-review work shaped these principles. The framing of the principles here owes a particular debt to the 2026-05 prompt-injection audit ([gist](https://gist.github.com/andrew/0bc8bdaac6902656ccf3b1400ad160f0)) that surfaced the Principle 2 specifics, and to the Triage/Mentoring/Drafting/Auto-merge swimlane discussion that surfaced the carve-out structure of Principle 1.

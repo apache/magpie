@@ -126,7 +126,7 @@ week. A good starting routine:
 6. **Set up your per-user config** if (and only if) you plan to run
    the agent skills. Copy
    `.apache-steward-overrides/user.md` (scaffolded automatically when
-   the project adopts steward) and fill in your GitHub handle, email,
+   the project adopts Magpie) and fill in your GitHub handle, email,
    governance-gate status (whatever
    `<project-config>/project.md → governance.cve_allocation_gate`
    declares — for the ASF/Airflow named example: PMC membership),

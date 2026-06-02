@@ -39,14 +39,14 @@
 
 <!-- Source: ASF Confluence wiki (RFCs space). Public-safe re-export:
      wiki-internal links and members-only references have been stripped
-     per the Apache Steward project's RFC-AI-0004 § Privacy-by-Design
+     per the Apache Magpie project's RFC-AI-0004 § Privacy-by-Design
      principle (no exposing of SSO-gated URLs in public artefacts).
      The authoritative source remains the Confluence page; this file
      is a public mirror for review by adopters who do not have ASF SSO. -->
 
 # RFC-AI-0003: Privacy-aware LLM routing for foundation private information
 
-Apache Steward (to be renamed) — third-party PII redaction + approved-LLM gate
+Apache Magpie — third-party PII redaction + approved-LLM gate
 
 apache/airflow-steward maintainers
 
@@ -59,14 +59,14 @@ apache/airflow-steward maintainers
 | Field | Value |
 |---|---|
 | **Status** | Provisional — pending ASF Privacy VP/Legal VP ratification |
-| **Targets** | `apache/airflow-steward` (the Apache Steward (to be renamed) framework) + adopting projects |
+| **Targets** | `apache/airflow-steward` (the Apache Magpie framework) + adopting projects |
 | **Implemented in** | [PR #48](https://github.com/apache/airflow-steward/pull/48) (foundation), [PR #50](https://github.com/apache/airflow-steward/pull/50) (refinement + skill-side redactor wiring), [PR #51](https://github.com/apache/airflow-steward/pull/51) (gate-check + skill-side gate wiring) |
 | **Source-of-truth docs** | [`tools/privacy-llm/{tool,pii,models,wiring}.md`](https://github.com/apache/airflow-steward/tree/main/tools/privacy-llm), [`docs/setup/privacy-llm.md`](https://github.com/apache/airflow-steward/blob/main/docs/setup/privacy-llm.md), [`AGENTS.md → Privacy-LLM`](https://github.com/apache/airflow-steward/blob/main/AGENTS.md) |
 | **Reference implementation** | [`tools/privacy-llm/redactor/`](https://github.com/apache/airflow-steward/tree/main/tools/privacy-llm/redactor) (PII redactor, stdlib-only Python, 48 unit tests), [`tools/privacy-llm/checker/`](https://github.com/apache/airflow-steward/tree/main/tools/privacy-llm/checker) (approved-LLM gate-check, stdlib-only Python, 33 unit tests) |
 
 ## 1. Abstract
 
-The Apache Steward (to be renamed) framework lets agents drive ASF security workflows that read **two distinct classes of private mail**: external reporters' mail to a project's `<security-list>` and PMC-internal mail on `<private-list>`. Both classes must not leak through any LLM in the active stack — but they require **different** remediations, and a single conflated mechanism would either over-block (refuse to process `<security-list>` content needlessly) or under-protect (let `<private-list>` bodies flow through arbitrary LLMs).
+The Apache Magpie framework lets agents drive ASF security workflows that read **two distinct classes of private mail**: external reporters' mail to a project's `<security-list>` and PMC-internal mail on `<private-list>`. Both classes must not leak through any LLM in the active stack — but they require **different** remediations, and a single conflated mechanism would either over-block (refuse to process `<security-list>` content needlessly) or under-protect (let `<private-list>` bodies flow through arbitrary LLMs).
 
 This RFC describes — and the linked PRs implement — a **two-mechanism design**:
 

@@ -111,11 +111,10 @@ to land them in the right place at the right time:
   *"7 or more members"* size criterion and the diversity / developer-
   experience criteria in MISSION.md § Initial PMC composition.
 
-- **PMC name vs. trademark review** — `MISSION.md` § Proposed Names lists
-  four candidates (Magpie / Beacon / Guild / Lichen) pending parallel
-  `trademarks@apache.org` review. The first to clear `trademarks@` becomes
-  the final name. Replace "Magpie" in the resolution text above with
-  whichever name is cleared before the resolution lands on the agenda.
+- **PMC name** — the project name is **Apache Magpie**, confirmed
+  available via PODLINGSEARCH (see `MISSION.md` § Name). The historical
+  bikeshed alternates (Beacon / Guild / Lichen) are no longer in play,
+  so the resolution text above carries the final name as-is.
 
 - **Special Order number** — assigned by the Board Secretary when the
   agenda is built. Placeholder `[NN]` above.

@@ -2,7 +2,7 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [Removing apache-steward from an adopter repo (unadopt)](#removing-apache-steward-from-an-adopter-repo-unadopt)
+- [Removing Magpie from an adopter repo (unadopt)](#removing-magpie-from-an-adopter-repo-unadopt)
   - [Quick removal](#quick-removal)
   - [Invocation](#invocation)
   - [What you'll be asked to confirm](#what-youll-be-asked-to-confirm)
@@ -21,9 +21,9 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/legal/release-policy.html -->
 
-# Removing apache-steward from an adopter repo (unadopt)
+# Removing Magpie from an adopter repo (unadopt)
 
-If your project has decided to stop using apache-steward,
+If your project has decided to stop using Magpie,
 or the adoption was experimental and is now over, this
 page walks through the removal. It reverses everything an
 install recipe in [`install-recipes.md`](install-recipes.md)
@@ -78,13 +78,13 @@ The following will be REMOVED:
     <skills-dir>/<symlink-1>                  → .apache-steward/.claude/skills/<skill-1>/
     <skills-dir>/<symlink-2>                  → ...
     .github/skills/<symlink-1>                (Pattern B only — second physical layer)
-    .git/hooks/post-checkout                  (if it contains the steward recipe)
+    .git/hooks/post-checkout                  (if it contains the Magpie recipe)
 
   Committed (will show in `git status`):
     .apache-steward.lock                      (your project's pin)
-    .gitignore                                (the steward entries)
+    .gitignore                                (the Magpie entries)
     README.md                                 (the adoption section, if present)
-    AGENTS.md                                 (the apache-steward framework section, if present)
+    AGENTS.md                                 (the Magpie framework section, if present)
     CONTRIBUTING.md                           (the adoption section, if present)
     <skills-dir>/setup-steward/               (this skill itself — self-destructive)
 
@@ -178,7 +178,7 @@ rm .claude/skills/<name>
 ### `post-checkout` hook with extra logic
 
 If your `.git/hooks/post-checkout` contained anything
-beyond the steward `verify --auto-fix-symlinks` recipe,
+beyond the Magpie `verify --auto-fix-symlinks` recipe,
 `unadopt` left the entire hook in place and told you which
 line to delete. Edit it by hand:
 
@@ -201,12 +201,12 @@ grep apache-steward .gitignore
 
 `unadopt` only touches your adopter repo. None of the
 following are removed — retire each one only if you are
-also retiring apache-steward from this machine entirely:
+also retiring Magpie from this machine entirely:
 
 - **`~/.config/apache-steward/user.md`** — the recommended
   per-user identity / tool-picks config. One file, shared
   across every adopter repo on this machine. If you still
-  use apache-steward in any other repo, leave it.
+  use Magpie in any other repo, leave it.
   Otherwise:
 
   ```bash

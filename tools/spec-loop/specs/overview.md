@@ -3,7 +3,7 @@
 
 # Product overview
 
-Apache Steward (working name; rename in flight) is a **project-agnostic
+Apache Magpie is a **project-agnostic
 framework for agent-assisted repository maintainership and development**.
 It is not an application with a `src/` tree — it is a substrate plus a
 catalogue of agent-readable **skills** (Markdown + YAML) and deterministic

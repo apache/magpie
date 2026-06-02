@@ -31,7 +31,7 @@
 # checker
 
 Stdlib-only Python project implementing the approved-LLM gate-check
-for the apache-steward privacy-llm tool. One console script:
+for the Magpie privacy-llm tool. One console script:
 
 | Console script | Purpose |
 |---|---|

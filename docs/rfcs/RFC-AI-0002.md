@@ -32,7 +32,7 @@
 
 <!-- Source: ASF Confluence wiki (RFCs space). Public-safe re-export:
      wiki-internal links and members-only references have been stripped
-     per the Apache Steward project's RFC-AI-0004 § Privacy-by-Design
+     per the Apache Magpie project's RFC-AI-0004 § Privacy-by-Design
      principle (no exposing of SSO-gated URLs in public artefacts).
      The authoritative source remains the Confluence page; this file
      is a public mirror for review by adopters who do not have ASF SSO. -->

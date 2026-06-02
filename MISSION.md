@@ -2,11 +2,11 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [Apache `<PROJECT_NAME>`](#apache-project_name)
+- [Apache Magpie](#apache-magpie)
   - [Mission](#mission)
   - [Abstract](#abstract)
   - [Proposal](#proposal)
-  - [Proposed Names](#proposed-names)
+  - [Name](#name)
   - [Rationale](#rationale)
   - [Initial Goals](#initial-goals)
   - [Technical scope](#technical-scope)
@@ -23,7 +23,7 @@
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
-# Apache `<PROJECT_NAME>`
+# Apache Magpie
 
 > [!IMPORTANT]
 > **Motto:** *"Give maintainers time back, so they can do what matters."*
@@ -38,7 +38,7 @@ development-cycle skills, and narrowly-scoped fix-and-merge automation
 
 ## Abstract
 
-Apache `<PROJECT_NAME>` is platform infrastructure for **agent-assisted repository maintainership and development** — across the ASF and equally for any open-source project that wants in. Four streams of day-to-day work:
+Apache Magpie is platform infrastructure for **agent-assisted repository maintainership and development** — across the ASF and equally for any open-source project that wants in. Four streams of day-to-day work:
 
 - **Security-issue handling** end-to-end — inbound triage, deduplication, agent-drafted reporter replies under human review, CVE allocation hand-off, audit-logged status tracking through publication.
 - **Issue and PR triage and management** — including audit-tool findings (Apache Verum, Apache Caer, equivalents) ingested as actionable issues.
@@ -49,28 +49,23 @@ One conviction underneath: each project picks how much automation actually fits.
 
 ## Proposal
 
-The Apache Software Foundation establishes the Apache `<PROJECT_NAME>` Project as a Top-Level Project by Board resolution, scope: agent-assisted repository **maintainership and development** infrastructure under the Apache License, Version 2.0.
+The Apache Software Foundation establishes the Apache Magpie Project as a Top-Level Project by Board resolution, scope: agent-assisted repository **maintainership and development** infrastructure under the Apache License, Version 2.0.
 
-## Proposed Names
+## Name
 
-The founding-PMC bikeshed ran 8–12 May 2026; convergence is on **four names in priority order**, ratified by a [LAZY CONSENSUS] call closing **Friday 15 May 2026, 12:00 UTC** and a parallel `trademarks@apache.org` review. The first of these to clear `trademarks@`'s formal review becomes the final name:
+The project's name is **Apache Magpie**. It was selected by the founding PMC during the naming bikeshed (8–12 May 2026) and confirmed available via **PODLINGSEARCH**.
 
-1. **Apache Magpie** — primary
-2. **Apache Beacon** — backup 1
-3. **Apache Guild** — backup 2
-4. **Apache Lichen** — backup 3
-
-The Board resolution will carry whichever name clears `trademarks@` before **Friday 15 May evening**.
+For the historical record, three alternates were carried as priority-ordered backups during the bikeshed in case the primary failed the name search — **Apache Beacon**, **Apache Guild**, and **Apache Lichen**. Magpie cleared PODLINGSEARCH, so it is the final name and the alternates are no longer under consideration. The Board resolution carries the Apache Magpie name.
 
 ## Rationale
 
-Open-source projects share the same shape of problem: contributors keep arriving, reviewers don't scale to match, and the highest-stakes work — security-issue handling — is the *most* manual, the *most* reviewer-intensive, and the *most* embarrassing to get wrong. The two complaints heard most loudly — **onboarding latency** and **review-cycle latency** — are the priorities the ASF Responsible AI Initiative names. `<PROJECT_NAME>` is the operational layer for those goals: not a position paper, working tools that PMCs and non-ASF projects can adopt today.
+Open-source projects share the same shape of problem: contributors keep arriving, reviewers don't scale to match, and the highest-stakes work — security-issue handling — is the *most* manual, the *most* reviewer-intensive, and the *most* embarrassing to get wrong. The two complaints heard most loudly — **onboarding latency** and **review-cycle latency** — are the priorities the ASF Responsible AI Initiative names. Magpie is the operational layer for those goals: not a position paper, working tools that PMCs and non-ASF projects can adopt today.
 
 Four design choices set the project apart from "just bolt a code-review bot on it":
 
 **Project autonomy is the structural starting point — and "project" includes non-ASF.** Five modes — **Triage**, **Mentoring**, **Drafting** (agent-authored fix with human review), **Pairing** (developer-side development-cycle skills with mentorship intrinsic), and **Auto-merge** (narrowly-scoped fix-and-merge) — ship as separate, independently-toggleable skills. Each project picks the modes that match its culture and risk tolerance. ASF integrations (private lists, Vulnogram CVE flows, PMC roles, ASF release process) live behind clean configuration boundaries; non-ASF adopters swap them for whatever fits — a private GitHub repo, GitHub Security Advisories, a maintainer roster, their own release process. The platform is project-governance-agnostic by design — no foundation-mandated automation level survives contact with project culture, and we're not trying to make it.
 
-**Security-issue handling is a load-bearing use case, not a footnote on triage.** The work that became `<PROJECT_NAME>` started as a framework for handling ASF security reports — high-stakes, high-procedure, every-step-needs-an-audit-trail flows that turn out to be exactly what agent-assisted-with-human-gates is good at. Every mode has to clear the security-flow bar (private content stays private, every outbound draft has a human signature, every state change is logged) before it ships. Projects without a security process get a path to adopt one; projects that have one get tooling that respects the ceremony.
+**Security-issue handling is a load-bearing use case, not a footnote on triage.** The work that became Magpie started as a framework for handling ASF security reports — high-stakes, high-procedure, every-step-needs-an-audit-trail flows that turn out to be exactly what agent-assisted-with-human-gates is good at. Every mode has to clear the security-flow bar (private content stays private, every outbound draft has a human signature, every state change is logged) before it ships. Projects without a security process get a path to adopt one; projects that have one get tooling that respects the ceremony.
 
 **Mentoring is a first-class mode, not a side-effect of triage.** The lever the ASF — and the wider open-source world — actually needs and the one off-the-shelf agent tooling skips. Meets new contributors where they are, explains conventions, points at the relevant prior PR, asks the clarifying question *before* a reviewer burns time on it. This is where the Responsible AI Initiative's contributor-empowerment goal gets operationalised: the mode that produces the outcomes RAI is trying to measure, in the projects that volunteer for the eval.
 
@@ -78,8 +73,8 @@ Four design choices set the project apart from "just bolt a code-review bot on i
 
 ## Initial Goals
 
-- Stand up `github.com/apache/<PROJECT_NAME>` with project skeleton, CI, and contributor docs.
-- Provision standard ASF infrastructure: `private@`, `dev@`, `commits@`; GitHub Issues; site at `<PROJECT_NAME>.apache.org`.
+- Stand up `github.com/apache/magpie` with project skeleton, CI, and contributor docs.
+- Provision standard ASF infrastructure: `private@`, `dev@`, `commits@`; GitHub Issues; site at `magpie.apache.org`.
 - Get **Triage**, **Mentoring**, and **Drafting** running against **3–4 friendly pilots within 3 months** — at least one ASF PMC running the full security-issue flow (Airflow, given the project's lineage), one ASF PMC running just Triage + Mentoring (Arrow or ATR), and **at least one non-ASF project from day one** (Python core has folks interested). Non-ASF in the first cohort, not later — the project-governance-agnosticism claim is only worth what it can prove.
 - Cut a first Apache release through the standard process within 3 months of resolution adoption, with artefacts usable directly by non-ASF adopters (no ASF-only assumption baked into the install path).
 - Wire **Triage**, **Mentoring**, and **Drafting** up to Apache Verum and Apache Caer findings, and to at least one non-ASF audit-tool equivalent (a CodeQL output stream is the likely first non-ASF case).
@@ -111,14 +106,14 @@ The substrate also handles per-project config (which modes are on, eligible chan
 
 Most maintainers have never built an agentic application before. The mental model is genuinely different from what twenty years of writing services and CLIs trained us for: behaviour is **probabilistic, not deterministic**; prompts and skill files **are code** in every meaningful sense; **evaluating output is harder than testing a function**; the unit of authorship shifts from "a function in a file" to "a skill the agent invokes". The instincts that keep regular code reliable — strict types, tight tests, short functions, exhaustive branching — don't go away, but they're not enough on their own.
 
-`<PROJECT_NAME>` runs a maintainer-facing education stream as a **first-class part of the project**, not an afterthought wiki page:
+Magpie runs a maintainer-facing education stream as a **first-class part of the project**, not an afterthought wiki page:
 
 - **Pattern catalogue** — copy-pasteable skill / prompt / tool-use patterns with notes on what worked, what didn't, and why. The same way the early days of Python testing or distributed systems were taught: war stories with code attached.
-- **Eval-driven development examples** — how to think about correctness when "correct" is a distribution. Worked examples from real `<PROJECT_NAME>` modes; integration with Apache Plumb so the eval methodology is shared, not reinvented per-project.
-- **Workshops and pairing sessions** — scheduled office-hour sessions where maintainers from any project (ASF or not) can show up with their use case and pair with the `<PROJECT_NAME>` team. Recordings published.
+- **Eval-driven development examples** — how to think about correctness when "correct" is a distribution. Worked examples from real Magpie modes; integration with Apache Plumb so the eval methodology is shared, not reinvented per-project.
+- **Workshops and pairing sessions** — scheduled office-hour sessions where maintainers from any project (ASF or not) can show up with their use case and pair with the Magpie team. Recordings published.
 - **A "your first skill" path** — equivalent of "your first PR" docs, but for landing a working skill in your project. Aim: any motivated maintainer can take a working agentic skill from zero to merged in a weekend, without first having to learn LLM internals.
 
-Every `<PROJECT_NAME>` release ships with the docs and patterns the maintainers using it actually need. The steepness of this learning curve is currently one of the larger barriers to broader agentic adoption in open source; lowering it is part of the platform's job.
+Every Magpie release ships with the docs and patterns the maintainers using it actually need. The steepness of this learning curve is currently one of the larger barriers to broader agentic adoption in open source; lowering it is part of the platform's job.
 
 ## Privacy, security, and supply-chain integrity — the top-most priority
 
@@ -131,17 +126,17 @@ Most maintainers asked about agentic tooling lead with the same fears, in roughl
 - *Can the agent quietly exfiltrate code or contributor data?*
 - *If something goes wrong, can I see what happened and undo it?*
 
-Not theoretical — the actual reason a lot of capable maintainers are *not* using agentic tools today, even when those tools would help. `<PROJECT_NAME>`'s response, baked into the project's foundation rather than retrofitted later:
+Not theoretical — the actual reason a lot of capable maintainers are *not* using agentic tools today, even when those tools would help. Magpie's response, baked into the project's foundation rather than retrofitted later:
 
 - **Clean-environment wrapper** around every agent invocation — no envvars from the surrounding shell unless explicitly allow-listed; no silent leakage of API keys, tokens, paths.
 - **Layered sandbox by default** — filesystem, network, and tool-permission rules enforced at the harness layer; sandbox bypasses surface a loud, visible warning before they run, never silently.
-- **Privacy-aware LLM routing** — private content (security reports, embargoed CVE detail, PMC-private mail) flows only to LLMs the project's PMC has explicitly approved, with a recorded data-residency contract. The framework refuses to route private bytes through a non-approved model. *Already implemented in the upstreamed framework that became `<PROJECT_NAME>`.*
+- **Privacy-aware LLM routing** — private content (security reports, embargoed CVE detail, PMC-private mail) flows only to LLMs the project's PMC has explicitly approved, with a recorded data-residency contract. The framework refuses to route private bytes through a non-approved model. *Already implemented in the upstreamed framework that became Magpie.*
 - **PII redaction at the boundary** — reporter identity flows where operationally needed (CVE credit, reply threads); third-party PII gets redacted to stable identifiers before any LLM context.
 - **Pinned, reviewed, signed dependencies** — every system tool (`bubblewrap`, `socat`, agent CLI) pinned to a version aged through a documented cooldown window. Bumps are PRs, not silent updates. Supply-chain risk treated like code change.
 - **Audit log every agent-authored action** — comments, labels, drafts, issues, PRs. Reversible where possible; flagged where not.
 - **Hard rule: external content is data, never instructions** — reporter mail, PR comments, GHSA forwards, attachments. Documented at the framework level, enforced at the skill level.
 
-The choice to land `<PROJECT_NAME>` at the ASF — rather than as an independent project or vendor offering — is load-bearing for this. **The ASF is a trust layer.** Maintainers who would (reasonably) hesitate to install a vendor's agent framework on their dev machine, or grant it access to their security mailing list, will more readily install one that comes through the same release process as the rest of their toolchain, signed by the same KEYS, governed by a PMC, held to the same software-grant and release-policy bar the foundation has been holding software to for a quarter-century. That trust extends to non-ASF adopters too: a community that trusts the ASF's release process inherits `<PROJECT_NAME>`'s privacy and supply-chain posture without having to audit it from scratch.
+The choice to land Magpie at the ASF — rather than as an independent project or vendor offering — is load-bearing for this. **The ASF is a trust layer.** Maintainers who would (reasonably) hesitate to install a vendor's agent framework on their dev machine, or grant it access to their security mailing list, will more readily install one that comes through the same release process as the rest of their toolchain, signed by the same KEYS, governed by a PMC, held to the same software-grant and release-policy bar the foundation has been holding software to for a quarter-century. That trust extends to non-ASF adopters too: a community that trusts the ASF's release process inherits Magpie's privacy and supply-chain posture without having to audit it from scratch.
 
 This is the **first** priority — not the first among many. If a feature has to slow to keep this story honest, it slows.
 
@@ -149,14 +144,14 @@ This is the **first** priority — not the first among many. If a feature has to
 
 Current state of agentic tooling for open source: maintainers doing the most agent-assisted work tend to have **expensive personal subscriptions** to one or more frontier-model providers, or **complimentary access** a vendor handed them. Both work, neither is sustainable, neither is fair. A maintainer in a country where a $200/month subscription is six weeks of pay does not get to participate. A project whose lead maintainer happens to have a vendor relationship gets capabilities its peer projects don't.
 
-The gap `<PROJECT_NAME>` exists to close, with an uncompromising long-term commitment:
+The gap Magpie exists to close, with an uncompromising long-term commitment:
 
 - **Vendor neutrality is non-negotiable, top to bottom.** Every mode runs against the project's chosen LLM, not a hard-coded one. The platform's contract with the model is well-defined enough that Claude, OpenAI, Anthropic-via-Bedrock, Google, locally-hosted Llama / Qwen / DeepSeek (Ollama, vLLM), and a future ASF-hosted endpoint are all valid backends with the same skill code on top. Skills are written against the contract, not the vendor.
 - **Local and self-hosted paths are first-class, not fallback.** A maintainer running Ollama gets the same skill catalogue as one running a frontier-model subscription. Local-only inference is also the simplest answer to most of the privacy concerns above — it never leaves the machine.
 - **An ASF-hosted inference endpoint is on the long-term roadmap** — `inference.apache.org` (name TBD): a community-affordable, foundation-governed, audit-logged inference layer any open-source maintainer (ASF or not) can use to participate in agentic development without paying a vendor or accepting a vendor's gift. The long-term shape of "release software for the public good" in the agentic era.
-- **Economics get documented honestly.** `<PROJECT_NAME>`'s docs include a "what does each mode actually cost to run" page — token counts per typical invocation, per mode, per model class — so a maintainer evaluating adoption can make an informed call instead of guessing. The same data informs the case for the ASF-hosted endpoint when the community is ready to ask the question.
+- **Economics get documented honestly.** Magpie's docs include a "what does each mode actually cost to run" page — token counts per typical invocation, per mode, per model class — so a maintainer evaluating adoption can make an informed call instead of guessing. The same data informs the case for the ASF-hosted endpoint when the community is ready to ask the question.
 
-The ASF mission line — *"to provide software for the public good"* — has always meant the *running* software, not just the source code. For agentic tooling, the running software increasingly *is* the model, and the public-good commitment has to extend that far. **If `<PROJECT_NAME>` ends up being a thing only well-resourced maintainers can run, it has failed its core mission, regardless of how good the code is.**
+The ASF mission line — *"to provide software for the public good"* — has always meant the *running* software, not just the source code. For agentic tooling, the running software increasingly *is* the model, and the public-good commitment has to extend that far. **If Magpie ends up being a thing only well-resourced maintainers can run, it has failed its core mission, regardless of how good the code is.**
 
 ## Initial PMC composition (target)
 
@@ -207,15 +202,15 @@ on the project from day one:
 
 ## Required resources
 
-- **Mailing lists:** `private@<PROJECT_NAME>.apache.org`, `dev@<PROJECT_NAME>.apache.org`, `commits@<PROJECT_NAME>.apache.org`.
-- **Source control:** `github.com/apache/<PROJECT_NAME>`.
+- **Mailing lists:** `private@magpie.apache.org`, `dev@magpie.apache.org`, `commits@magpie.apache.org`.
+- **Source control:** `github.com/apache/magpie`.
 - **Issue tracking:** GitHub Issues.
-- **Website:** `<PROJECT_NAME>.apache.org`.
+- **Website:** `magpie.apache.org`.
 - **Release infrastructure:** `dist.apache.org` per standard ASF process.
 
 ## Source and IP
 
-Green-field project, with substantial project-agnostic code being moved over from existing ASF projects — Apache Airflow (where the security-issue handling, PR triage, mentoring, and drafting framework that became `<PROJECT_NAME>` was first developed and proven; already structured under Apache-2.0 for reuse inside and outside the ASF), Apache Groovy, and other ASF projects whose maintainers have been early adopters. All transferred code is already Apache-2.0 licensed and ASF-owned; the moves go through the standard ASF IP Clearance process, with no Software Grant Agreements needed (those apply only to code originating outside the ASF).
+Green-field project, with substantial project-agnostic code being moved over from existing ASF projects — Apache Airflow (where the security-issue handling, PR triage, mentoring, and drafting framework that became Magpie was first developed and proven; already structured under Apache-2.0 for reuse inside and outside the ASF), Apache Groovy, and other ASF projects whose maintainers have been early adopters. All transferred code is already Apache-2.0 licensed and ASF-owned; the moves go through the standard ASF IP Clearance process, with no Software Grant Agreements needed (those apply only to code originating outside the ASF).
 
 ## External dependencies
 
@@ -238,4 +233,4 @@ The project commits to:
 
 ## Ask of the Board
 
-Adopt the accompanying resolution establishing the Apache `<PROJECT_NAME>` Project as a Top-Level Project, with initial PMC roster as filed at the time of vote.
+Adopt the accompanying resolution establishing the Apache Magpie Project as a Top-Level Project, with initial PMC roster as filed at the time of vote.

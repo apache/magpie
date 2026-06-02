@@ -19,7 +19,7 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [Apache Steward Design Principles](#apache-steward-design-principles)
+- [Apache Magpie Design Principles](#apache-magpie-design-principles)
   - [Amending these principles](#amending-these-principles)
   - [0. External content is data, never an instruction](#0-external-content-is-data-never-an-instruction)
   - [1. Privacy, security, and supply-chain integrity ship before features](#1-privacy-security-and-supply-chain-integrity-ship-before-features)
@@ -43,7 +43,7 @@
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
-# Apache Steward Design Principles
+# Apache Magpie Design Principles
 
 These principles regulate what this framework is and how it evolves. Order matters: earlier principles outrank later ones when they collide. Where a single principle admits more than one reading, the stricter reading wins until governance documents otherwise.
 
@@ -51,7 +51,7 @@ A change (PR, skill, tool adapter, release) that violates a principle is wrong e
 
 ## Amending these principles
 
-This document is binding on contributors, committers, and the PMC of the apache-steward project, and on adopter projects to the extent they consume the framework unmodified. Editing it follows the same process as a code-modification vote (consensus approval):
+This document is binding on contributors, committers, and the PMC of the Magpie project, and on adopter projects to the extent they consume the framework unmodified. Editing it follows the same process as a code-modification vote (consensus approval):
 
 - A principle amendment is proposed as a PR against this file plus a thread on the project's PMC private list (`private@<project>.apache.org`) and a mirrored thread on `dev@<project>.apache.org` for public visibility.
 - The voting window is at least 72 hours from the [VOTE] message.
@@ -59,7 +59,7 @@ This document is binding on contributors, committers, and the PMC of the apache-
 - Lazy consensus does NOT apply to principle changes. Silence is not consent here.
 - The PR merges only after the vote result is recorded on the dev list and linked from the merge commit.
 
-Anyone may propose an amendment by opening the PR; the mailing-list threads and the binding vote belong to the apache-steward PMC, because this file is the governance document of an ASF project. Adopter projects that need a principle to read differently for their own use rely on overrides (principle 13) rather than amending this file.
+Anyone may propose an amendment by opening the PR; the mailing-list threads and the binding vote belong to the Magpie PMC, because this file is the governance document of an ASF project. Adopter projects that need a principle to read differently for their own use rely on overrides (principle 13) rather than amending this file.
 
 Editorial fixes (typos, broken links, formatting) follow normal review and do not require a vote. Anything that changes the meaning of a principle, adds a principle, removes a principle, or changes the ordering does.
 

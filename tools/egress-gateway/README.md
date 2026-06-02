@@ -19,7 +19,7 @@
 **Capability:** capability:setup
 
 A local **host-allowlisting HTTP(S) forward proxy** for the
-apache-steward framework. It is the egress-control chokepoint: framework
+Magpie framework. It is the egress-control chokepoint: framework
 tools point `HTTPS_PROXY`/`HTTP_PROXY` at it, and the gateway rejects any
 connection to a host that is not on its allowlist — before a socket is
 opened. This is defence-in-depth for

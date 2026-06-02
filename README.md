@@ -2,7 +2,7 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [Apache Steward (to be renamed)](#apache-steward-to-be-renamed)
+- [Apache Magpie](#apache-magpie)
   - [How adoption works](#how-adoption-works)
   - [Adopting the framework](#adopting-the-framework)
     - [1. Bootstrap (copy-pasteable shell)](#1-bootstrap-copy-pasteable-shell)
@@ -18,32 +18,21 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/legal/release-policy.html -->
 
-# Apache Steward (to be renamed)
+# Apache Magpie
 
-> **Heads-up — rename in flight, [LAZY CONSENSUS] in progress.**
-> This repository is currently served from
-> `apache/airflow-steward` and is going to be renamed to a
-> **different** name — *not* `apache/steward`. The current name
-> carries `airflow` for legacy reasons, but the framework is
-> project-agnostic (it stewards multiple ASF project workflows,
-> not just Airflow's), so the working group steering it picked
-> a new name that reflects that.
+> **Heads-up — the project is named Apache Magpie; the GitHub
+> slug rename is still pending.**
+> The framework's name is **Apache Magpie**. The current
+> `apache/airflow-steward` slug carries `airflow` for legacy
+> reasons, but the framework is project-agnostic (it stewards
+> multiple ASF project workflows, not just Airflow's), so the
+> working group steering it chose a name that reflects that.
 >
-> The founding-PMC bikeshed ran **8–12 May 2026**; convergence
-> is on four names in priority order, with a [LAZY CONSENSUS]
-> call closing **Friday 15 May 2026, 12:00 UTC** and a parallel
-> `trademarks@apache.org` review in flight. The first of these
-> to clear `trademarks@`'s formal review becomes the final name:
->
-> 1. **Apache Magpie**  — primary
-> 2. **Apache Beacon**  — backup 1
-> 3. **Apache Guild**   — backup 2
-> 4. **Apache Lichen**  — backup 3
->
-> The Board resolution establishing the project as an ASF
-> Top-Level Project is scheduled for **Wed 20 May 2026** and
-> will carry whichever name clears `trademarks@` before
-> Friday 15 May evening.
+> **Magpie** was selected by the founding PMC and confirmed
+> available via **PODLINGSEARCH**. Three alternates were carried
+> as historical backups during the bikeshed — *Beacon*, *Guild*,
+> and *Lichen* — but Magpie cleared the name search and is the
+> final name; the alternates are no longer in play.
 >
 > Until the rename lands on the GitHub side, every clone URL and
 > CI integration still uses the legacy `apache/airflow-steward`
@@ -162,7 +151,7 @@ done. Open a PR.
 ### Subsequent contributors
 
 Future contributors who clone your repo just say "adopt
-apache-steward in this repo" (or invoke `/setup-steward`).
+Magpie in this repo" (or invoke `/setup-steward`).
 The skill reads `.apache-steward.lock` (already committed)
 and re-installs to the same version your project pinned. No
 need to redo the manual recipe — the committed lock is the

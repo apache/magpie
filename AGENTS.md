@@ -61,11 +61,12 @@ choices matter.
 
 ## Repository purpose
 
-This repository (currently `apache/airflow-steward`, **to be
-renamed** — final name TBD per a working-group poll, see the
-`Heads-up — rename in flight, name not yet chosen` note at the
-top of [`README.md`](README.md) for the candidate list and
-timeline) is the **generic, project-agnostic framework**.
+This repository (the **Apache Magpie** framework — name
+confirmed available via PODLINGSEARCH; still served from the
+legacy `apache/airflow-steward` slug until the GitHub rename
+lands, see the heads-up note at the top of
+[`README.md`](README.md)) is the **generic, project-agnostic
+framework**.
 It contains skills, tool adapters, generic process documentation,
 and a project-template scaffold — and **no project-specific
 content**. Adopting projects fetch this repository as a gitignored

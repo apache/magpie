@@ -2,7 +2,7 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [Install recipes — bootstrap apache-steward in an adopter repo](#install-recipes--bootstrap-apache-steward-in-an-adopter-repo)
+- [Install recipes — bootstrap Magpie in an adopter repo](#install-recipes--bootstrap-magpie-in-an-adopter-repo)
   - [Method 1 — released zip from ASF distribution](#method-1--released-zip-from-asf-distribution)
   - [Method 2 — git tag](#method-2--git-tag)
   - [Method 3 — git branch (defaults to `main`)](#method-3--git-branch-defaults-to-main)
@@ -14,7 +14,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/legal/release-policy.html -->
 
-# Install recipes — bootstrap apache-steward in an adopter repo
+# Install recipes — bootstrap Magpie in an adopter repo
 
 Three copy-pasteable shell recipes for fetching the framework
 into a new adopter project's repo. Each recipe is **the
@@ -70,7 +70,7 @@ Pick the recipe that matches your distribution preference:
 > [Method 3 — git-branch](#method-3--git-branch-defaults-to-main).
 
 ```bash
-# === apache-steward bootstrap — Method 1: signed zip from ASF dist ===
+# === Magpie bootstrap — Method 1: signed zip from ASF dist ===
 # Replace <PROJECT> with the host adopter's ASF dist subdirectory
 # (e.g. `airflow` once releases land at
 # https://dist.apache.org/repos/dist/release/airflow/).
@@ -127,7 +127,7 @@ cp -r .apache-steward/.claude/skills/setup-steward .claude/skills/setup-steward
 # 3. Add gitignore entries (idempotent — re-run is safe)
 cat >> .gitignore <<'GITIGNORE'
 
-# apache-steward — gitignored snapshot of the framework, refreshed
+# Magpie — gitignored snapshot of the framework, refreshed
 # by /setup-steward upgrade. Build artefact, not source.
 /.apache-steward/
 
@@ -159,7 +159,7 @@ cat >> .gitignore <<'GITIGNORE'
 /.github/skills/list-steward-*
 GITIGNORE
 
-# 4. Tell your agent: "follow /setup-steward to finish adopting steward."
+# 4. Tell your agent: "follow /setup-steward to finish adopting Magpie."
 #    The skill will write .apache-steward.lock (committed) and
 #    .apache-steward.local.lock (gitignored), ask which skill family
 #    to wire up, create the gitignored framework-skill symlinks, and
@@ -171,7 +171,7 @@ GITIGNORE
 ## Method 2 — git tag
 
 ```bash
-# === apache-steward bootstrap — Method 2: pinned git tag ===
+# === Magpie bootstrap — Method 2: pinned git tag ===
 # Replace <TAG> with the framework tag you want
 # (e.g. `v1.0.0` once tags exist on apache/airflow-steward).
 
@@ -194,7 +194,7 @@ cp -r .apache-steward/.claude/skills/setup-steward .claude/skills/setup-steward
 
 # Add gitignore entries (same block as Method 1 step 3 — see there)
 
-# Tell your agent: "follow /setup-steward to finish adopting steward."
+# Tell your agent: "follow /setup-steward to finish adopting Magpie."
 ```
 
 ---
@@ -204,7 +204,7 @@ cp -r .apache-steward/.claude/skills/setup-steward .claude/skills/setup-steward
 The default WIP path while the framework is pre-release.
 
 ```bash
-# === apache-steward bootstrap — Method 3: git branch (default: main) ===
+# === Magpie bootstrap — Method 3: git branch (default: main) ===
 cd /path/to/your/repo
 
 BRANCH=main   # or another branch you want to track
@@ -224,7 +224,7 @@ cp -r .apache-steward/.claude/skills/setup-steward .claude/skills/setup-steward
 
 # Add gitignore entries (same block as Method 1 step 3 — see there)
 
-# Tell your agent: "follow /setup-steward to finish adopting steward."
+# Tell your agent: "follow /setup-steward to finish adopting Magpie."
 ```
 
 ---
@@ -235,7 +235,7 @@ Once the recipe completes, `setup-steward` is in your repo and
 the snapshot is on disk (gitignored). Tell your agent:
 
 ```text
-follow .claude/skills/setup-steward to adopt steward
+follow .claude/skills/setup-steward to adopt Magpie
 ```
 
 (or invoke `/setup-steward` directly). The skill walks through

@@ -645,8 +645,8 @@ The operator picks one during install; both are reversible.
 
 | Scope | What it covers | Mechanism | Reversal |
 |---|---|---|---|
-| **Per-project** (default) | The single adopter repo the operator is sitting in when running the install skill. Each subsequent adopter project needs the install skill re-run there. | The helper runs once with `--all-worktrees` against the current repo; nothing global is touched. The per-repo `post-checkout` hook (installed by `/setup-steward adopt` in steward-adopted repos) chains into the helper on future `git checkout` operations within that repo. | None needed — per-project scope is inert outside the configured repos. |
-| **Whole-user** | Every git repo on the operator's host, existing and future. Includes non-steward Claude-Code-aware projects (any project with a `.claude/` directory). | Walks the operator's existing checkouts under prompted root dirs and writes each one's `settings.local.json`; sets `git config --global core.hooksPath ~/.claude/git-hooks/` and installs the universal [`git-global-post-checkout.sh`](../../tools/agent-isolation/git-global-post-checkout.sh) there. | `git config --global --unset core.hooksPath` restores per-repo hook lookup. The populated `settings.local.json` files stay (they are harmless if the operator no longer wants them, and gitignored so they cause no commit noise). |
+| **Per-project** (default) | The single adopter repo the operator is sitting in when running the install skill. Each subsequent adopter project needs the install skill re-run there. | The helper runs once with `--all-worktrees` against the current repo; nothing global is touched. The per-repo `post-checkout` hook (installed by `/setup-steward adopt` in Magpie-adopted repos) chains into the helper on future `git checkout` operations within that repo. | None needed — per-project scope is inert outside the configured repos. |
+| **Whole-user** | Every git repo on the operator's host, existing and future. Includes non-Magpie Claude-Code-aware projects (any project with a `.claude/` directory). | Walks the operator's existing checkouts under prompted root dirs and writes each one's `settings.local.json`; sets `git config --global core.hooksPath ~/.claude/git-hooks/` and installs the universal [`git-global-post-checkout.sh`](../../tools/agent-isolation/git-global-post-checkout.sh) there. | `git config --global --unset core.hooksPath` restores per-repo hook lookup. The populated `settings.local.json` files stay (they are harmless if the operator no longer wants them, and gitignored so they cause no commit noise). |
 
 #### Important trade-off — `core.hooksPath` shadows per-repo hooks
 
@@ -678,7 +678,7 @@ See
     touch global git config.
   - You have per-repo hooks (pre-commit, commit-msg, etc.) you
     rely on and do not want shadowed.
-  - You are evaluating apache-steward and have not yet decided
+  - You are evaluating Magpie and have not yet decided
     whether to commit to the framework.
 
 - **Pick whole-user** when:

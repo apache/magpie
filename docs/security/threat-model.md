@@ -46,7 +46,7 @@
 
 ## Purpose
 
-Apache Steward automates the [16-step security-issue
+Apache Magpie automates the [16-step security-issue
 lifecycle](process.md) on behalf of a project's security team.
 Every skill that ships in the framework either reads from, writes
 to, or moves data across a trust boundary the project treats as

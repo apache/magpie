@@ -36,10 +36,11 @@
 Thanks for helping improve this repository. It is the **generic,
 project-agnostic framework** for agent-assisted repository
 maintainership across ASF projects (and equally for any non-ASF
-open-source community that wants in). The framework currently
-lives at `apache/airflow-steward`; a rename to **Apache Magpie**
-is in flight — see [`MISSION.md`](MISSION.md) and the heads-up
-at the top of [`README.md`](README.md).
+open-source community that wants in). The framework is named
+**Apache Magpie** (confirmed available via PODLINGSEARCH); it
+still lives at the legacy `apache/airflow-steward` slug until the
+GitHub rename lands — see [`MISSION.md`](MISSION.md) and the
+heads-up at the top of [`README.md`](README.md).
 
 Before sending a patch, please skim this file end-to-end: it lays
 out the layering the repository depends on, the cross-cutting

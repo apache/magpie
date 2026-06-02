@@ -31,7 +31,7 @@
 # redactor
 
 Stdlib-only Python project implementing the PII redactor for
-the apache-steward privacy-llm tool. Three console scripts:
+the Magpie privacy-llm tool. Three console scripts:
 
 | Console script | Purpose |
 |---|---|
