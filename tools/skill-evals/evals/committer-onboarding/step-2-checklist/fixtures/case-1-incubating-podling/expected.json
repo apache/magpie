@@ -1,0 +1,10 @@
+{
+  "checklist_variant": "new-committer",
+  "has_github_step": false,
+  "has_whimsy_step": true,
+  "whimsy_url_correct": true,
+  "whimsy_url_contains": "roster/ppmc/airflow",
+  "welcome_draft_present": true,
+  "welcome_no_unresolved_placeholders": true,
+  "github_step_held_when_login_unknown": false
+}

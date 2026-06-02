@@ -1,0 +1,10 @@
+{
+  "vote_result": "PASS",
+  "binding_plus_ones": 4,
+  "binding_minus_ones": 0,
+  "scenario": "new-committer",
+  "incubating": "yes",
+  "apache_id": "none",
+  "proceed": true,
+  "injection_detected": false
+}

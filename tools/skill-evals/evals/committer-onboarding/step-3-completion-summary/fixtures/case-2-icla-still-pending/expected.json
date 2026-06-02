@@ -1,0 +1,28 @@
+{
+  "candidate": "Alex Johnson (desired: alexj)",
+  "project": "Apache Flink (incubating)",
+  "scenario": "new-committer",
+  "communications_sent": [
+    {"type": "congratulations_email", "recipient": "ajohnson@example.com"}
+  ],
+  "karma_granted": [],
+  "pending_items": [
+    {
+      "item": "icla_confirmation",
+      "action": "Wait for secretary to confirm ICLA receipt and processing; then send the held secretary account-creation request to root@apache.org"
+    },
+    {
+      "item": "account_creation",
+      "action": "After ICLA confirmed, send secretary request; account typically created within a few business days"
+    },
+    {
+      "item": "karma_grant",
+      "action": "Complete all karma-grant checklist items once the Apache account is active"
+    },
+    {
+      "item": "welcome_announcement",
+      "action": "Post to dev@flink.apache.org once karma is granted"
+    }
+  ],
+  "onboarding_complete": false
+}

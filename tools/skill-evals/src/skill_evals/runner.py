@@ -74,6 +74,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -621,19 +622,23 @@ def _format_diff(actual: object, expected: object) -> str:
 
 
 def run_cli(cli: str, prompt: str, timeout: int = 120) -> tuple[str, str, int]:
-    """Run ``cli`` (shell command) with ``prompt`` on stdin. Return (stdout, stderr, rc).
+    """Run ``cli`` with ``prompt`` on stdin. Return (stdout, stderr, rc).
 
-    The command is run with ``shell=True`` so quoting and arguments work as a
-    developer would type them at a shell prompt. The runner is a local
-    developer tool — the operator supplies the command, so shell semantics are
-    the ergonomic choice rather than a security concern.
+    The command string is tokenised with ``shlex.split`` and executed with
+    ``shell=False``. The operator supplies the command, so trust is not the
+    issue — using an argv list rather than a shell string keeps prompt content
+    (which can be attacker-controlled when an eval exercises an injection
+    case) firmly on stdin and well away from any shell interpretation, and
+    removes a class of accidental-metacharacter footgun in the operator's
+    command. Operators who need shell features (pipes, redirections, env-var
+    prefixes) should wrap their command in ``bash -c '<pipeline>'``.
     """
     proc = subprocess.run(
-        cli,
+        shlex.split(cli),
         input=prompt,
         capture_output=True,
         text=True,
-        shell=True,
+        shell=False,
         timeout=timeout,
         check=False,
     )

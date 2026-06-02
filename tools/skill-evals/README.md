@@ -30,6 +30,7 @@ Nineteen suites are currently implemented:
 - **setup-isolated-setup-update** — 13 cases across 3 steps (step-snapshot-drift, step-tool-freshness, step-after-report)
 - **contributor-activity-sweep** — 12 cases across 3 steps (step-0-resolve-inputs, step-1-classify-reviews, step-2-render)
 - **optimize-skill** — 5 cases across 1 step (step-diagnose)
+- **committer-onboarding** — 20 cases across 4 steps (step-0-validate-vote, step-1-icla-comms, step-2-checklist, step-3-completion-summary)
 
 ## Run
 

@@ -1,0 +1,11 @@
+{
+  "vote_result": "PASS",
+  "binding_plus_ones": 3,
+  "binding_minus_ones": 0,
+  "scenario": "new-committer",
+  "incubating": "no",
+  "apache_id": "none",
+  "proceed": true,
+  "injection_detected": false,
+  "note": "For TLPs only PMC members cast binding votes; committer-x vote correctly counted as non-binding"
+}

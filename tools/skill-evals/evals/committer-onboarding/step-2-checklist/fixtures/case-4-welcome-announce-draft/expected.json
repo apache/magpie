@@ -1,0 +1,7 @@
+{
+  "checklist_variant": "direct-to-pmc",
+  "welcome_draft_present": true,
+  "welcome_no_unresolved_placeholders": true,
+  "welcome_mentions_candidate_name": true,
+  "welcome_to_address": "dev@spark.apache.org"
+}

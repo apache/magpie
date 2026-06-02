@@ -1,0 +1,9 @@
+{
+  "vote_result": "FAIL",
+  "binding_plus_ones": 4,
+  "binding_minus_ones": 0,
+  "proceed": false,
+  "fail_reason": "insufficient_vote_period",
+  "hours_elapsed": 33,
+  "required_hours": 72
+}

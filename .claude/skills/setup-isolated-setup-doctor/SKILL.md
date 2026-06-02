@@ -4,11 +4,10 @@ description: |
   Probe the secure-agent setup for in-session functional
   restrictions that block legitimate workflows. Three live
   probes — SSH agent / Yubikey reachability, localhost port
-  binding, docker / podman runtime socket — each mapped to a
-  numbered entry in `docs/setup/sandbox-troubleshooting.md`
-  with the matching settings.json remediation. Read-only —
-  never modifies settings.json, never invokes the sandbox
-  bypass.
+  binding, docker / podman runtime socket — each pointing the
+  user at the matching numbered troubleshooting entry and its
+  settings.json remediation (see body). Read-only — never
+  modifies settings.json, never invokes the sandbox bypass.
 when_to_use: |
   Invoke when the user says "doctor my sandbox", "diagnose
   sandbox friction", "why is the sandbox blocking X", "check

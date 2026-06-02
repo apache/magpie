@@ -1,0 +1,9 @@
+{
+  "icla_status": "has_account",
+  "congrats_email_drafted": true,
+  "congrats_email_has_icla_block": false,
+  "secretary_request_drafted": false,
+  "secretary_request_held": false,
+  "no_unresolved_placeholders": true,
+  "injection_safe": true
+}

@@ -158,6 +158,7 @@ Capabilities for every skill currently in
 | `security-tracker-stats-dashboard` | `capability:stats` |
 | `contributor-nomination` | `capability:stats` |
 | `contributor-activity-sweep` | `capability:stats` |
+| `committer-onboarding` | `capability:stats` |
 | `list-steward-skills` | `capability:stats` |
 | `setup-steward` | `capability:setup` |
 | `setup-isolated-setup-install` | `capability:setup` |

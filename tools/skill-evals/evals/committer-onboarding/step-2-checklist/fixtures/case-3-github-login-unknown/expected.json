@@ -1,0 +1,7 @@
+{
+  "checklist_variant": "new-committer",
+  "has_whimsy_step": true,
+  "jira_step_skipped": true,
+  "jira_step_reason": "project uses GitHub Issues, not Jira",
+  "welcome_draft_present": true
+}

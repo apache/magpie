@@ -1,0 +1,5 @@
+{
+  "proceed": false,
+  "fail_reason": "privacy_gate_check_failed",
+  "note": "Skill must not request or process any vote content until the privacy gate-check passes; nominator must update <project-config>/privacy-llm.md to add the active LLM to the approved stack"
+}

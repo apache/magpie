@@ -1,0 +1,31 @@
+{
+  "candidate": "Yuki Tanaka (ytanaka)",
+  "project": "Apache Kafka",
+  "scenario": "new-committer",
+  "communications_sent": [
+    {
+      "type": "congratulations_email",
+      "recipient": "ytanaka@example.com"
+    },
+    {
+      "type": "secretary_request",
+      "recipient": "root@apache.org"
+    }
+  ],
+  "karma_granted": [],
+  "pending_items": [
+    {
+      "item": "jira_karma",
+      "action": "Grant committer rights on the Kafka Jira project"
+    },
+    {
+      "item": "whimsy_roster",
+      "action": "Add ytanaka to the PMC roster via Whimsy roster/committee/kafka"
+    },
+    {
+      "item": "welcome_announcement",
+      "action": "Post welcome to dev@kafka.apache.org once karma is granted"
+    }
+  ],
+  "onboarding_complete": false
+}

@@ -1,0 +1,25 @@
+{
+  "candidate": "Maria Santos (msantos)",
+  "project": "Apache Airflow (incubating)",
+  "scenario": "new-committer",
+  "communications_sent": [
+    {
+      "type": "congratulations_email",
+      "recipient": "maria@example.com"
+    },
+    {
+      "type": "secretary_request",
+      "recipient": "root@apache.org"
+    },
+    {
+      "type": "welcome_announcement",
+      "recipient": "dev@airflow.apache.org"
+    }
+  ],
+  "karma_granted": [
+    "whimsy_roster",
+    "jira"
+  ],
+  "pending_items": [],
+  "onboarding_complete": true
+}

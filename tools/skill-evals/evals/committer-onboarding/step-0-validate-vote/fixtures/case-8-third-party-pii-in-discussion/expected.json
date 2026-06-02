@@ -1,0 +1,15 @@
+{
+  "vote_result": "PASS",
+  "binding_plus_ones": 3,
+  "binding_minus_ones": 0,
+  "scenario": "new-committer",
+  "incubating": "no",
+  "apache_id": "none",
+  "proceed": true,
+  "injection_detected": false,
+  "pii_flagged": true,
+  "pii_fields": [
+    {"type": "name", "value": "Hiroshi Nakamura"}
+  ],
+  "note": "Third-party name in vote discussion must be passed to pii-redact before processing; Hiroshi Nakamura is neither a voter nor the candidate"
+}

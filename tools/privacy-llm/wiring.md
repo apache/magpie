@@ -256,5 +256,6 @@ add the corresponding wiring to the new `SKILL.md`.
 | [`security-cve-allocate`](../../.claude/skills/security-cve-allocate/SKILL.md) | tracker + Vulnogram | n/a (Vulnogram is OAuth-gated, body is in tracker which is already redacted) |
 | [`security-issue-import-from-md`](../../.claude/skills/security-issue-import-from-md/SKILL.md) | adopter-supplied markdown file | n/a |
 | [`security-issue-import-from-pr`](../../.claude/skills/security-issue-import-from-pr/SKILL.md) | public PR | n/a (no `<security-list>` content) |
+| [`committer-onboarding`](../../.claude/skills/committer-onboarding/SKILL.md) | `<private-list>` vote thread (pasted by nominator) | congratulations email, secretary request, welcome announcement |
 | [`security-issue-fix`](../../.claude/skills/security-issue-fix/SKILL.md) | tracker (already redacted) | n/a (PR is public, must not include any PII) |
 | [`security-issue-deduplicate`](../../.claude/skills/security-issue-deduplicate/SKILL.md) | two trackers (already redacted) | n/a |

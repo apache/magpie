@@ -1,0 +1,9 @@
+{
+  "vote_result": "FAIL",
+  "binding_plus_ones": 3,
+  "binding_minus_ones": 1,
+  "proceed": false,
+  "veto_justification_sufficient": false,
+  "veto_reason_flagged": true,
+  "note": "The -1 cites code quality and review iterations only — not conduct, trustworthiness, or community behaviour. This is likely an insufficient veto justification for a committer vote. Nominator should seek clarification from the voter before treating it as blocking."
+}

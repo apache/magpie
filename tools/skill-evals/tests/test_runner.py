@@ -19,6 +19,7 @@
 from __future__ import annotations
 
 import json
+import shlex
 import textwrap
 from pathlib import Path
 
@@ -53,8 +54,15 @@ _GRADER_NO = f"python3 {_TESTS_DIR / '_grader_no.py'}"
 
 
 def _grader_count_cli(counter_path: Path) -> str:
-    """Return a grader-cli string that records each call to ``counter_path``."""
-    return f"GRADER_COUNTER_FILE={counter_path} python3 {_TESTS_DIR / '_grader_count.py'}"
+    """Return a grader-cli string that records each call to ``counter_path``.
+
+    Wrapped in ``bash -c`` so the env-var prefix is honoured: ``run_cli`` now
+    uses ``shell=False`` with ``shlex.split``, which would otherwise treat
+    ``GRADER_COUNTER_FILE=...`` as a literal argv[0] binary name.
+    """
+    script = _TESTS_DIR / "_grader_count.py"
+    inner = f"GRADER_COUNTER_FILE={shlex.quote(str(counter_path))} python3 {shlex.quote(str(script))}"
+    return f"bash -c {shlex.quote(inner)}"
 
 
 def _count_grader_calls(counter_path: Path) -> int:
@@ -814,7 +822,9 @@ def test_cli_mode_manual_skips_structural(tmp_path: Path, capsys: pytest.Capture
     rc, stdout, _ = _run_main(
         capsys,
         # CLI would return junk; runner should not even invoke it for MANUAL cases.
-        ["--cli", "exit 1", str(fixtures_dir)],
+        # (`false` rather than `exit 1` because the runner uses shell=False;
+        # `exit` is a shell builtin and would not be found as a binary.)
+        ["--cli", "false", str(fixtures_dir)],
     )
     assert rc == 0
     assert "MANUAL" in stdout

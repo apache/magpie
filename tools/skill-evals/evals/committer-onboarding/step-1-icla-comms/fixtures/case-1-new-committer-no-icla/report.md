@@ -1,0 +1,14 @@
+candidate_info:
+  Name: Maria Santos
+  Email: maria@example.com
+  Desired Apache ID: msantos
+  Existing Apache ID: none
+  Project: Apache Airflow (incubating)
+  Scenario: new-committer
+  Nominator: jmclean
+  Vote thread: https://lists.apache.org/thread/abc123
+
+icla_lookup:
+  Searched: https://people.apache.org/committer-index.html for "Maria Santos"
+  Result: No record found
+  Note: candidate has not yet filed an ICLA
