@@ -31,7 +31,7 @@ license = { text = "Apache-2.0" }
 # the project level rather than as an extra so the three console scripts
 # can be invoked uniformly via `uv run --project ... oauth-draft-*`.
 dependencies = [
-  "google-auth-oauthlib>=1.2",
+  "google-auth-oauthlib>=1.4.0",
 ]
 
 [project.scripts]
