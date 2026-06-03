@@ -1,5 +1,5 @@
 ---
-name: write-skill
+name: magpie-write-skill
 description: |
   Author a new skill for the Apache Steward framework, or update
   an existing one. Walks the user through the framework's skill

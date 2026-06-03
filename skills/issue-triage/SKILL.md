@@ -1,5 +1,5 @@
 ---
-name: issue-triage
+name: magpie-issue-triage
 mode: Triage
 description: |
   For each open `<issue-tracker>` issue in the configured

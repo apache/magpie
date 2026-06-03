@@ -1,5 +1,5 @@
 ---
-name: setup-override-upstream
+name: magpie-setup-override-upstream
 description: |
   Walk an adopter through promoting a local
   `.apache-magpie-overrides/<skill>.md` file into a PR

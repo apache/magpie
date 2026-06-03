@@ -1,5 +1,5 @@
 ---
-name: pairing-multi-agent-review
+name: magpie-pairing-multi-agent-review
 mode: Pairing
 status: experimental
 description: |

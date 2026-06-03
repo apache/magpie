@@ -1,5 +1,5 @@
 ---
-name: good-first-issue-author
+name: magpie-good-first-issue-author
 mode: Mentoring
 description: |
   Draft a single net-new *good first issue* on the configured

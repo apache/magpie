@@ -1,5 +1,5 @@
 ---
-name: issue-reassess-stats
+name: magpie-issue-reassess-stats
 description: |
   Read-only dashboard over a directory of `verdict.json` files
   produced by `issue-reassess` campaigns. Surfaces a health

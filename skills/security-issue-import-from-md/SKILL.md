@@ -1,5 +1,5 @@
 ---
-name: security-issue-import-from-md
+name: magpie-security-issue-import-from-md
 mode: Triage
 description: |
   Open one or more `<tracker>` tracking issues from a markdown

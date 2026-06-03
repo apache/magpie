@@ -1,5 +1,5 @@
 ---
-name: setup-isolated-setup-install
+name: magpie-setup-isolated-setup-install
 description: |
   Guide an adopter through the first-time install of the
   framework's secure agent setup (bubblewrap + socat +

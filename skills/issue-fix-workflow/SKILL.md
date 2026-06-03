@@ -1,5 +1,5 @@
 ---
-name: issue-fix-workflow
+name: magpie-issue-fix-workflow
 mode: Drafting
 description: |
   For a single triaged `<issue-tracker>` issue confirmed as a

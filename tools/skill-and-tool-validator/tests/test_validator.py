@@ -64,6 +64,7 @@ from skill_and_tool_validator import (
     validate_injection_guard,
     validate_links,
     validate_lowercase_f_field,
+    validate_name_convention,
     validate_placeholders,
     validate_principle_compliance,
     validate_privacy_patterns,
@@ -338,6 +339,55 @@ class TestValidateFrontmatter:
 
 
 # ---------------------------------------------------------------------------
+# Name convention: name must be magpie-<directory-name>
+# ---------------------------------------------------------------------------
+
+
+class TestValidateNameConvention:
+    def _skill(self, root: Path, dir_name: str, name: str) -> Path:
+        skill_dir = root / "skills" / dir_name
+        skill_dir.mkdir(parents=True)
+        path = skill_dir / "SKILL.md"
+        path.write_text(
+            f"---\nname: {name}\ndescription: bar\ncapability: capability:setup\nlicense: Apache-2.0\n---\n# body\n",
+            encoding="utf-8",
+        )
+        return path
+
+    def test_matching_name_passes(self, tmp_path: Path) -> None:
+        path = self._skill(tmp_path, "issue-triage", "magpie-issue-triage")
+        assert list(validate_name_convention(path, path.read_text())) == []
+
+    def test_unprefixed_name_fails(self, tmp_path: Path) -> None:
+        path = self._skill(tmp_path, "issue-triage", "issue-triage")
+        violations = list(validate_name_convention(path, path.read_text()))
+        assert len(violations) == 1
+        assert "magpie-issue-triage" in violations[0].message
+        assert violations[0].category == "name_convention"
+
+    def test_wrong_suffix_fails(self, tmp_path: Path) -> None:
+        # Prefixed but the suffix doesn't match the directory name.
+        path = self._skill(tmp_path, "issue-triage", "magpie-issue-triag")
+        violations = list(validate_name_convention(path, path.read_text()))
+        assert len(violations) == 1
+        assert "magpie-issue-triage" in violations[0].message
+
+    def test_missing_name_is_skipped(self, tmp_path: Path) -> None:
+        # An absent/empty name is validate_frontmatter's job, not this check's.
+        skill_dir = tmp_path / "skills" / "issue-triage"
+        skill_dir.mkdir(parents=True)
+        path = skill_dir / "SKILL.md"
+        path.write_text(
+            "---\ndescription: bar\ncapability: capability:setup\nlicense: Apache-2.0\n---\n# body\n",
+            encoding="utf-8",
+        )
+        assert list(validate_name_convention(path, path.read_text())) == []
+
+    def test_name_convention_is_hard(self) -> None:
+        assert "name_convention" not in SOFT_CATEGORIES
+
+
+# ---------------------------------------------------------------------------
 # Heading / anchor helpers
 # ---------------------------------------------------------------------------
 
@@ -581,7 +631,7 @@ class TestSubDocFiles:
         skill_dir = root / "skills" / skill_name
         skill_dir.mkdir(parents=True)
         (skill_dir / "SKILL.md").write_text(
-            f"---\nname: {skill_name}\ndescription: bar\ncapability: capability:setup\nlicense: Apache-2.0\n---\n# body\n",
+            f"---\nname: magpie-{skill_name}\ndescription: bar\ncapability: capability:setup\nlicense: Apache-2.0\n---\n# body\n",
             encoding="utf-8",
         )
         docs = root / "docs"
@@ -1870,7 +1920,7 @@ def _make_valid_skill(root: Path, name: str) -> Path:
     skill_dir = root / "skills" / name
     skill_dir.mkdir(parents=True, exist_ok=True)
     (skill_dir / "SKILL.md").write_text(
-        f"---\nname: {name}\ndescription: A test skill.\ncapability: capability:setup\nlicense: Apache-2.0\n---\n# Body\nSome content.\n"
+        f"---\nname: magpie-{name}\ndescription: A test skill.\ncapability: capability:setup\nlicense: Apache-2.0\n---\n# Body\nSome content.\n"
     )
     # Inject a row into the skill table of the seeded doc.
     doc = root / "docs" / "labels-and-capabilities.md"
@@ -1936,7 +1986,7 @@ class TestMain:
         # A --body "..." in a fenced block triggers a SOFT security-pattern-9 warning.
         (skill_dir / "SKILL.md").write_text(
             "---\n"
-            "name: soft-skill\n"
+            "name: magpie-soft-skill\n"
             "description: A test skill.\n"
             "capability: capability:setup\nlicense: Apache-2.0\n"
             "---\n"

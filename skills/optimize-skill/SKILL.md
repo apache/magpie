@@ -1,5 +1,5 @@
 ---
-name: optimize-skill
+name: magpie-optimize-skill
 description: |
   Optimize an existing framework skill (or sweep a set of them) by
   applying the restructuring patterns proven on the security-skill

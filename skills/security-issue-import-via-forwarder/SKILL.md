@@ -1,5 +1,5 @@
 ---
-name: security-issue-import-via-forwarder
+name: magpie-security-issue-import-via-forwarder
 description: |
   Optional sub-skill of `security-issue-import`,
   `security-issue-invalidate`, and `security-issue-sync` that

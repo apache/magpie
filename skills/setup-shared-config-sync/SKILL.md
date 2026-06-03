@@ -1,5 +1,5 @@
 ---
-name: setup-shared-config-sync
+name: magpie-setup-shared-config-sync
 description: |
   Commit + push the user's shared Claude config to the
   `~/.claude-config` private dotfile-style sync repo. Inspects

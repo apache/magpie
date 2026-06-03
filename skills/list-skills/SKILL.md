@@ -1,5 +1,5 @@
 ---
-name: list-skills
+name: magpie-list-skills
 description: |
   Print a human-readable index of every skill in this repository,
   grouped by family prefix (`pr-management`, `security`, `setup`,

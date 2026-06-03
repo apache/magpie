@@ -1,5 +1,5 @@
 ---
-name: contributor-activity-sweep
+name: magpie-contributor-activity-sweep
 mode: Triage
 description: |
   Read-only GitHub activity card for a named contributor on <upstream>.

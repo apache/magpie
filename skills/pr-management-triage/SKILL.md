@@ -1,5 +1,5 @@
 ---
-name: pr-management-triage
+name: magpie-pr-management-triage
 mode: Triage
 description: |
   Sweep open pull requests on the configured `<upstream>` repo,

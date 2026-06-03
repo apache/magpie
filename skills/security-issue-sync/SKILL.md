@@ -1,5 +1,5 @@
 ---
-name: security-issue-sync
+name: magpie-security-issue-sync
 mode: Triage
 description: |
   Synchronize a security issue in <tracker> with the state of its

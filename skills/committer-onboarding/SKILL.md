@@ -1,5 +1,5 @@
 ---
-name: committer-onboarding
+name: magpie-committer-onboarding
 description: |
   Post-vote committer and PMC onboarding for Apache projects.
   Walks the nominator through every step from ICLA check to

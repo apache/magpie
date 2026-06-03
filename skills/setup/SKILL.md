@@ -1,5 +1,5 @@
 ---
-name: setup
+name: magpie-setup
 description: |
   Adopt and maintain the apache-steward framework in a project
   repo via the snapshot-based adoption mechanism. The only

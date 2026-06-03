@@ -1,5 +1,5 @@
 ---
-name: pr-management-code-review
+name: magpie-pr-management-code-review
 mode: Triage
 description: |
   Walk a maintainer through deep, sequential code review of open pull requests on the configured `<upstream>` repo.

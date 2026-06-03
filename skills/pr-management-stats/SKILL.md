@@ -1,5 +1,5 @@
 ---
-name: pr-management-stats
+name: magpie-pr-management-stats
 description: |
   Read-only maintainer dashboard for the open-PR backlog of <upstream>.
   Surfaces a health rating, prioritised action recommendations, weekly closure

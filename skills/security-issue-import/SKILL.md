@@ -1,5 +1,5 @@
 ---
-name: security-issue-import
+name: magpie-security-issue-import
 mode: Triage
 description: |
   Scan <security-list> for reports that have not yet been

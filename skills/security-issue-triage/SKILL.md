@@ -1,5 +1,5 @@
 ---
-name: security-issue-triage
+name: magpie-security-issue-triage
 mode: Triage
 description: |
   For each open `<tracker>` issue carrying the `needs triage`

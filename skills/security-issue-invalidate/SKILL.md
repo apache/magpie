@@ -1,5 +1,5 @@
 ---
-name: security-issue-invalidate
+name: magpie-security-issue-invalidate
 mode: Triage
 description: |
   Close an `<tracker>` tracking issue as invalid: apply the

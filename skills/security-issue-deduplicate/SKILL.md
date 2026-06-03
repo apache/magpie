@@ -1,5 +1,5 @@
 ---
-name: security-issue-deduplicate
+name: magpie-security-issue-deduplicate
 mode: Triage
 description: |
   Merge two <tracker> tracking issues that describe the same

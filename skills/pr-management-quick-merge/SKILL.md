@@ -1,5 +1,5 @@
 ---
-name: pr-management-quick-merge
+name: magpie-pr-management-quick-merge
 description: |
   Identify trivial, low-risk pull requests in the `ready for maintainer review`
   queue of <upstream> that pass every quality gate and touch only supplementary

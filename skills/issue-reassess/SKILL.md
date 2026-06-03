@@ -1,5 +1,5 @@
 ---
-name: issue-reassess
+name: magpie-issue-reassess
 mode: Triage
 description: |
   Sweep a configured pool of resolved or end-of-life

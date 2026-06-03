@@ -1,5 +1,5 @@
 ---
-name: security-issue-import-from-pr
+name: magpie-security-issue-import-from-pr
 mode: Triage
 description: |
   Open a tracking issue in <tracker> for a security-relevant fix that

@@ -32,17 +32,22 @@ link integrity, and placeholder conventions.
    skill files and docs must point to existing files and anchors.
 3. **Placeholder convention** — Skill docs must use `<PROJECT>`,
    `<upstream>`, and `<tracker>` instead of hardcoded project names.
+4. **Name convention** — Every `SKILL.md` `name:` must be
+   `magpie-<directory-name>`. Framework skills install under a
+   `magpie-` namespace prefix (`skills/issue-triage/` →
+   `.claude/skills/magpie-issue-triage`), so the frontmatter name
+   must match that installed name.
 
 ### SOFT advisories (warning, do not fail)
 
-4. **Principle compliance** — Heuristic warnings when frontmatter
+5. **Principle compliance** — Heuristic warnings when frontmatter
    carries content the LLM router doesn't need:
    - **Action-inventory** in `description` (≥ 5 commas in one sentence)
    - **Distinct-from-sibling-skill** clauses (`Unlike`, `Distinct from`, `Counterpart to`, `rather than`)
    - **Chain-handoff** narrative (`Hands off to`, `ready for X to take over`)
    - **Parenthetical rationale** (parens containing `typically`, `implies`, `because`, `since`, `is required first`, `needs to`, `requires`)
    - **Criteria-source path** (`process step N`, `Step Na`, ``docs/X.md``, `documented in …`)
-5. **Trigger-phrase preservation** — Compares quoted phrases in
+6. **Trigger-phrase preservation** — Compares quoted phrases in
    `when_to_use` against a base ref (default `origin/main`) and
    warns when any phrase has been dropped. Silently skipped when
    git or the base ref is unavailable. Override via

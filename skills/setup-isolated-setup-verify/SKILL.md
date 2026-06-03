@@ -1,5 +1,5 @@
 ---
-name: setup-isolated-setup-verify
+name: magpie-setup-isolated-setup-verify
 description: |
   Walk the verification checklist for the framework's secure
   agent setup and report ✓ done / ✗ missing / ⚠ partial for

@@ -1,5 +1,5 @@
 ---
-name: audit-finding-fix
+name: magpie-audit-finding-fix
 mode: Drafting
 description: |
   For a batch of findings from a non-security audit tool

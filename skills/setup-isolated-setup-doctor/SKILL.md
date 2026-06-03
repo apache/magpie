@@ -1,5 +1,5 @@
 ---
-name: setup-isolated-setup-doctor
+name: magpie-setup-isolated-setup-doctor
 description: |
   Probe the secure-agent setup for in-session functional
   restrictions that block legitimate workflows. Three live

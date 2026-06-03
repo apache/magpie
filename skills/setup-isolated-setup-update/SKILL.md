@@ -1,5 +1,5 @@
 ---
-name: setup-isolated-setup-update
+name: magpie-setup-isolated-setup-update
 description: |
   Surface drift between the user's installed secure agent setup
   and the framework's latest (framework checkout, pinned tools,

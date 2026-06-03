@@ -1,5 +1,5 @@
 ---
-name: issue-reproducer
+name: magpie-issue-reproducer
 description: |
   For a single `<issue-tracker>` issue identifying a code-level
   bug, extract the reporter's example code from the issue body,

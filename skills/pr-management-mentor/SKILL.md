@@ -1,5 +1,5 @@
 ---
-name: pr-management-mentor
+name: magpie-pr-management-mentor
 mode: Mentoring
 description: |
   Draft a teaching-register comment on a single GitHub issue

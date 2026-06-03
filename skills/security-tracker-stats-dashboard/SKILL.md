@@ -1,5 +1,5 @@
 ---
-name: security-tracker-stats-dashboard
+name: magpie-security-tracker-stats-dashboard
 description: Generate a self-contained HTML dashboard of `<tracker>` repository statistics for security-team review.
 when_to_use: |
   Invoke when the user says "regenerate the tracker dashboard", "show

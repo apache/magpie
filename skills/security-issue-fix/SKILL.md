@@ -1,5 +1,5 @@
 ---
-name: security-issue-fix
+name: magpie-security-issue-fix
 mode: Drafting
 description: |
   Attempt to fix a security issue tracked in `<tracker>` by

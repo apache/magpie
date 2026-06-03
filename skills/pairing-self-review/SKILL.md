@@ -1,5 +1,5 @@
 ---
-name: pairing-self-review
+name: magpie-pairing-self-review
 mode: Pairing
 description: |
   Run a structured pre-flight self-review on local changes before opening a PR.

@@ -1,5 +1,5 @@
 ---
-name: contributor-nomination
+name: magpie-contributor-nomination
 mode: Triage
 description: |
   Read-only nomination brief for a named GitHub contributor on
