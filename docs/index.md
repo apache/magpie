@@ -73,7 +73,7 @@ You would like to use agentic AI but you are concerned about security and privac
 might get access to your credentials and poison your workstation, or have access to private information
 from mailing lists, slack etc.
 
-→ When you setup Magpie, it will setup your workstation with security guardrail layers that will run your agents in containerized sandbox, and it will setup privacy gateways for the tools your agentic setup will use. Read more details in [Secure agent setup RFC](../docs/rfcs/RFC-AI-0002.md) and [Privacy-aware LLM routing for foundation private information](docs/rfcs/RFC-AI-0003.md).
+→ When you setup Magpie, it will setup your workstation with security guardrail layers that will run your agents in containerized sandbox, and it will setup privacy gateways for the tools your agentic setup will use. Read more details in [Secure agent setup RFC](../docs/rfcs/RFC-AI-0002.md) and [Privacy-aware LLM routing for foundation private information](../docs/rfcs/RFC-AI-0003.md).
 
 ---
 
