@@ -1,0 +1,7 @@
+{
+  "findings": [
+    { "file": "airflow/utils/log.py", "source": "primary" },
+    { "file": "airflow/models/dagrun.py", "source": "adversarial" },
+    { "file": "airflow/api/auth.py", "source": "adversarial" }
+  ]
+}

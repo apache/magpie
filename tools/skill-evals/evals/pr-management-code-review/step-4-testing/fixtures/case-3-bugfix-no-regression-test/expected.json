@@ -1,0 +1,10 @@
+{
+  "findings": [
+    {
+      "file": "airflow/models/taskinstance.py",
+      "category": "Testing",
+      "severity": "major",
+      "reason": "The retry-window bug fix changes existing logic with no regression test; add a test pinning remaining_retries for the off-by-one case so the corrected behaviour cannot silently regress."
+    }
+  ]
+}

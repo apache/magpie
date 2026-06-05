@@ -23,6 +23,13 @@ used the wrong SPDX identifier — route those to License headers instead.
 This category applies only when the header is clearly from an upstream
 library or external author.
 
+When you flag a Category B licence, the `reason` must state **both** that
+the work cannot be included in **source** form **and** that binary-only
+inclusion would require explicit justification. The source-form prohibition
+is categorical, so do not phrase it as conditional: the "explicit
+justification" qualifier applies only to binary-only inclusion, never to
+source form.
+
 ## Output
 
 Return ONLY valid JSON with this structure:

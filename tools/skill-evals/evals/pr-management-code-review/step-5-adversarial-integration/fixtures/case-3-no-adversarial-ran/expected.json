@@ -1,0 +1,5 @@
+{
+  "findings": [
+    { "file": "airflow/utils/slugify.py", "source": "primary" }
+  ]
+}

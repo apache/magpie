@@ -1,0 +1,10 @@
+{
+  "findings": [
+    {
+      "file": "airflow/api/task_instances.py",
+      "category": "Database / query correctness",
+      "severity": "major",
+      "reason": "all_task_instances loads every TaskInstance row with no limit or pagination and returns it as the API response; add a limit and pagination (or a filter) so the result set is bounded."
+    }
+  ]
+}

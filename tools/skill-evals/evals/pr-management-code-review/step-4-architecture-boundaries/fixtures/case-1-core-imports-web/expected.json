@@ -1,0 +1,10 @@
+{
+  "findings": [
+    {
+      "file": "airflow/core/scheduler.py",
+      "category": "Architecture boundaries",
+      "severity": "major",
+      "reason": "A core module imports from the web layer (airflow.www.views), which inverts the allowed dependency direction; core must not depend on web, so move the rendering helper down into core or keep the summary logic out of the scheduler."
+    }
+  ]
+}

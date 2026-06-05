@@ -1,0 +1,7 @@
+{
+  "assessment": {
+    "classification": "known-limitation",
+    "severity": "none",
+    "reason": "A DAG author running arbitrary Python on the worker matches the documented model's intentional limitation that DAG authors are trusted, so it is a known limitation rather than a vulnerability and is not flagged."
+  }
+}

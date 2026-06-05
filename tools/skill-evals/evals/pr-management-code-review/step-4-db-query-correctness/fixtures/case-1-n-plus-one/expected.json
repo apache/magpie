@@ -1,0 +1,10 @@
+{
+  "findings": [
+    {
+      "file": "airflow/api/dag_list.py",
+      "category": "Database / query correctness",
+      "severity": "major",
+      "reason": "A per-row User query runs inside the loop over dags, which is an N+1 query pattern; fetch the owners in a single bulk query (a User.id IN (...) query or an eager join) instead of one query per dag."
+    }
+  ]
+}

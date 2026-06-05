@@ -1,0 +1,10 @@
+{
+  "findings": [
+    {
+      "file": "airflow/metrics/emit.py",
+      "category": "Code quality",
+      "severity": "major",
+      "reason": "The new `except Exception: pass` silently swallows every error from statsd.gauge; at minimum log the exception (or narrow and handle it) instead of discarding it."
+    }
+  ]
+}

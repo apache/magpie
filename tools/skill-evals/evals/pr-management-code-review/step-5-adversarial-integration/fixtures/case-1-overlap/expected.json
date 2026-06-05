@@ -1,0 +1,7 @@
+{
+  "findings": [
+    { "file": "airflow/core/scheduler.py", "source": "primary" },
+    { "file": "airflow/api/client.py", "source": "both" },
+    { "file": "airflow/core/executors/base.py", "source": "adversarial" }
+  ]
+}

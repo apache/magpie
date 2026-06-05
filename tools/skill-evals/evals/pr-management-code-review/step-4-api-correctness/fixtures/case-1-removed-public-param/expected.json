@@ -1,0 +1,10 @@
+{
+  "findings": [
+    {
+      "file": "airflow/api/client.py",
+      "category": "API correctness",
+      "severity": "blocking",
+      "reason": "Removing the public create_dag `schedule` parameter with no deprecation breaks existing callers; keep the parameter through a deprecation cycle (accept it with a default and warn) before removing it."
+    }
+  ]
+}

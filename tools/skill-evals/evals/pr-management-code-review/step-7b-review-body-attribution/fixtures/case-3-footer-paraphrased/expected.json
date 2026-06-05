@@ -1,0 +1,5 @@
+{
+  "footer_present": false,
+  "action": "block",
+  "reason": "The review body ends with a paraphrased footer rather than the verbatim AI-attribution footer, so it cannot be posted until the exact Golden rule 5 footer is added."
+}

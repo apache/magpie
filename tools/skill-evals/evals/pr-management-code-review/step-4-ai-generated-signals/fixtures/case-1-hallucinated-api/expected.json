@@ -1,0 +1,10 @@
+{
+  "findings": [
+    {
+      "file": "airflow/utils/config_loader.py",
+      "category": "AI-generated code signals",
+      "severity": "major",
+      "reason": "load_config calls json.parse, which does not exist in the Python standard library (a fabricated API); use json.loads to parse the JSON string."
+    }
+  ]
+}

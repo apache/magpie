@@ -9,8 +9,19 @@ file types, raise a major finding:
 - Native: .so, .dll, .dylib, .exe, .o, .a
 - Packages: .whl, .egg
 
-If the file would be included in a release archive, escalate to blocking.
-Otherwise the severity is major.
+Escalate to **blocking** only when the PR content gives **explicit**
+evidence that the file is included in a release archive (for example a
+statement that it ships in the sdist/wheel, or its presence in release
+packaging configuration). Do **not** infer release inclusion from the
+directory path or file name alone. A build-output directory such as
+`dist/` is not by itself proof that the file is in the release archive.
+When there is no explicit evidence of release inclusion, the severity is
+**major**.
+
+The `reason` must be a **definitive** statement that committing the
+compiled artifact violates the ASF source-only release policy, and must
+**recommend removing the file** (generating it at build time instead). Do
+not phrase it tentatively or stop at a severity assessment.
 
 ## Output
 

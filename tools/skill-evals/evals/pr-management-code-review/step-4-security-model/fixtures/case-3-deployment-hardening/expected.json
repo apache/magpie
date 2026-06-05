@@ -1,0 +1,7 @@
+{
+  "assessment": {
+    "classification": "deployment-hardening",
+    "severity": "none",
+    "reason": "The webserver bind address and TLS termination are operator responsibilities under the documented model, so this is a deployment-hardening matter for deployment guidance rather than a code finding."
+  }
+}

@@ -1,4 +1,4 @@
 {
   "disposition": "APPROVE",
-  "reason": "CI is passing, branch is mergeable, there are no unresolved threads or blocking reviews from other maintainers, and the diff findings show no violations — the PR meets the review bar."
+  "reason": "Every approval gate is satisfied (green CI, no unresolved threads or blocking maintainer reviews, no blocking or major findings), so Golden rules 7 and 8 hold and APPROVE is correct."
 }

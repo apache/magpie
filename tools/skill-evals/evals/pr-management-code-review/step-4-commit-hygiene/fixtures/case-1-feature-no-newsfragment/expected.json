@@ -1,0 +1,10 @@
+{
+  "findings": [
+    {
+      "file": "newsfragments/",
+      "category": "Commits and PRs",
+      "severity": "major",
+      "reason": "The new --output-format CLI flag is a user-facing change but no newsfragment is added; add a newsfragment under newsfragments/ (e.g. <id>.feature.rst) describing the new option."
+    }
+  ]
+}

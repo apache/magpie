@@ -573,7 +573,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "google-auth-oauthlib", specifier = ">=1.2" }]
+requires-dist = [{ name = "google-auth-oauthlib", specifier = ">=1.4.0" }]
 
 [[package]]
 name = "oauthlib"

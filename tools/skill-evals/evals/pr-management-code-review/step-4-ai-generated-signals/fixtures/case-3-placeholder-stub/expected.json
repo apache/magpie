@@ -1,0 +1,10 @@
+{
+  "findings": [
+    {
+      "file": "airflow/utils/config_validate.py",
+      "category": "AI-generated code signals",
+      "severity": "major",
+      "reason": "validate_config is a placeholder stub whose body is only a `# TODO: implement` comment and `pass`, with none of the required validation logic; implement the validation before merging."
+    }
+  ]
+}

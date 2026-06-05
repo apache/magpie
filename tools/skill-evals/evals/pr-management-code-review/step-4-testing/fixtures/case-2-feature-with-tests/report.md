@@ -1,0 +1,20 @@
+Title: Add slugify helper for dag ids
+
+Diff adds: airflow/utils/slugify.py
+
+--- /dev/null
++++ b/airflow/utils/slugify.py
+@@
++def slugify(value: str) -> str:
++    """Return a URL-safe slug for the given value."""
++    return "-".join(value.lower().split())
+
+Diff adds: tests/utils/test_slugify.py
+
+--- /dev/null
++++ b/tests/utils/test_slugify.py
+@@
++from airflow.utils.slugify import slugify
++
++def test_slugify_lowercases_and_joins():
++    assert slugify("My Dag") == "my-dag"

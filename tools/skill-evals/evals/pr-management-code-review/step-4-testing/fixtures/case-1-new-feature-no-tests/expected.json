@@ -1,0 +1,10 @@
+{
+  "findings": [
+    {
+      "file": "airflow/utils/slugify.py",
+      "category": "Testing",
+      "severity": "major",
+      "reason": "The new public slugify function ships with no test covering its behaviour; add a unit test for slugify (including edge cases such as mixed case and extra whitespace)."
+    }
+  ]
+}
