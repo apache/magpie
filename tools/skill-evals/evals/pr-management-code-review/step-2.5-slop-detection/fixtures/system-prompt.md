@@ -8,11 +8,14 @@ fire a signal.
 
 ## Hard signals (individually strong)
 
-- **H1 new standalone top-level directory** — all changed files under a new
-  first-level directory are additions, that directory contains a
-  project-root file at its top level (README.md, pyproject.toml,
-  package.json, go.mod, pom.xml, etc.), and its name or README indicates an
-  independent project unrelated to the upstream codebase.
+- **H1 new standalone top-level directory** — detection uses `files[].path`
+  and `files[].changeType` only (no base-ref tree lookup): a first-level
+  directory is new when every one of its files has `changeType` == `ADDED`.
+  That directory must also contain a project-root file at its top level
+  (README.md, pyproject.toml, package.json, go.mod, pom.xml, etc.), and its
+  name or README must indicate an independent project unrelated to the
+  upstream codebase. Do not infer added-ness from additions/deletions counts
+  or from the path alone.
 - **H2 private-fork issue URL in PR body** — the body contains a full
   GitHub issue or PR URL pointing to a repo that is not the upstream repo
   (https://github.com/<author>/<repo>/(issues|pull)/N where <repo> differs

@@ -10,7 +10,7 @@ Commits (opened by single account team-bot-9):
 - 14:10 team-bot-9   "Merge pull request #2 from team-bot-9/b"
 - 14:20 team-bot-9   "Merge pull request #3 from team-bot-9/c"
 - 14:22 student-kai  "sprint board export"
-- 14:24 student-rin  "jira export"
+- 14:24 student-omar  "jira export"
 
 Changed files:
 - airflow/utils/teamutils.py

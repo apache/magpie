@@ -1,4 +1,4 @@
 {
-  "fired": { "hard": ["H1", "H3", "H4", "H5"], "soft": ["S1", "S2", "S3", "S4"] },
+  "fired": { "hard": ["H1", "H2", "H3", "H4", "H5"], "soft": ["S1", "S2", "S3", "S4", "S5"] },
   "outcome": "early-exit"
 }
