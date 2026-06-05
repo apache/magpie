@@ -46,6 +46,7 @@ from skill_evals.runner import (
     load_grading_schema,
     load_step_config,
     main,
+    run_cli,
 )
 
 _TESTS_DIR = Path(__file__).resolve().parent
@@ -1472,3 +1473,44 @@ def test_default_grader_not_invoked_when_decision_field_differs(
     assert rc == 1
     assert "FAIL" in stdout
     assert "verdict" in stdout
+
+
+# ---------------------------------------------------------------------------
+# run_cli — the shell=False / shlex.split invocation contract
+# ---------------------------------------------------------------------------
+
+
+def test_run_cli_returns_stdout_and_zero_rc():
+    stdout, _stderr, rc = run_cli("python3 -c \"print('hi')\"", "", timeout=10)
+    assert rc == 0
+    assert stdout.strip() == "hi"
+
+
+def test_run_cli_passes_prompt_on_stdin():
+    # `cat` echoes whatever arrives on stdin; the prompt must reach it.
+    stdout, _stderr, rc = run_cli("cat", "hello-from-stdin", timeout=10)
+    assert rc == 0
+    assert stdout == "hello-from-stdin"
+
+
+def test_run_cli_reports_non_zero_exit():
+    _stdout, _stderr, rc = run_cli("python3 -c \"import sys; sys.exit(3)\"", "", timeout=10)
+    assert rc == 3
+
+
+def test_run_cli_bare_env_prefix_is_not_a_command():
+    # Regression guard for the _grader_count_cli fix: because run_cli uses
+    # shell=False with shlex.split, a leading `VAR=value` is tokenised as a
+    # literal argv[0] binary name, which does not exist -> OSError. The env
+    # assignment is NOT honoured by a shell. This is why the test helper must
+    # wrap the inner command in `bash -c`.
+    with pytest.raises(OSError):
+        run_cli("FOO=bar python3 -c \"import os; print(os.environ['FOO'])\"", "", timeout=10)
+
+
+def test_run_cli_bash_c_honours_env_prefix():
+    # The fix: wrapping in `bash -c` lets the env assignment take effect.
+    inner = "FOO=bar python3 -c \"import os; print(os.environ['FOO'])\""
+    stdout, _stderr, rc = run_cli(f"bash -c {shlex.quote(inner)}", "", timeout=10)
+    assert rc == 0
+    assert stdout.strip() == "bar"
