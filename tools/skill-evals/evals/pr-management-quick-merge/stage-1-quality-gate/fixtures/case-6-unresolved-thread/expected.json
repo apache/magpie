@@ -1,0 +1,6 @@
+{
+  "disposition": "drop",
+  "drop_reason": "gate:G6",
+  "injection_flagged": false,
+  "reason": "G6 fails: one unresolved review thread from a MEMBER collaborator (potiuk) is still open."
+}

@@ -1,0 +1,6 @@
+{
+  "disposition": "drop",
+  "tier": null,
+  "drop_reason": "path-unmatched",
+  "reason": "airflow-core/src/airflow/providers/standard/operators/bash.py matches neither a Tier A nor Tier B allow glob — unknown paths are assumed consequential per Golden rule 4."
+}

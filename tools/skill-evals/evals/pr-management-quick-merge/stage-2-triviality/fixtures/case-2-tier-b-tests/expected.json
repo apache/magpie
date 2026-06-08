@@ -1,0 +1,6 @@
+{
+  "disposition": "candidate",
+  "tier": "B",
+  "drop_reason": null,
+  "reason": "1 file, 15 lines total — within budget; the file matches the Tier B allow glob (**/tests/**) and no deny glob."
+}

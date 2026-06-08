@@ -1,0 +1,5 @@
+{
+  "bucket": "drop",
+  "drop_reason": "gate:G5-unknown",
+  "reason": "mergeable=null, mergeable_state=unknown — mergeability is still computing even after the live re-poll; dropped this run conservatively, will qualify on the next run when the value settles."
+}

@@ -1,0 +1,6 @@
+{
+  "disposition": "pass",
+  "drop_reason": null,
+  "injection_flagged": false,
+  "reason": "All quality gates pass: CI green with real CI checks, no failed or pending checks, no action_required runs, no unresolved collaborator threads, no changes-requested."
+}

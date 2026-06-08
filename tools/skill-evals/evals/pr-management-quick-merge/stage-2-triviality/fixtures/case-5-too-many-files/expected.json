@@ -1,0 +1,6 @@
+{
+  "disposition": "drop",
+  "tier": null,
+  "drop_reason": "too-large",
+  "reason": "4 changed files exceeds the max_files budget of 3."
+}

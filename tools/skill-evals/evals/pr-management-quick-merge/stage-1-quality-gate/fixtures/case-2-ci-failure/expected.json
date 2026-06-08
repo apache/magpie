@@ -1,0 +1,6 @@
+{
+  "disposition": "drop",
+  "drop_reason": "gate:G2",
+  "injection_flagged": false,
+  "reason": "G2 fails: statusCheckRollup is FAILURE, not SUCCESS."
+}

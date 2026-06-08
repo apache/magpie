@@ -1,0 +1,6 @@
+{
+  "disposition": "drop",
+  "drop_reason": "gate:G7",
+  "injection_flagged": false,
+  "reason": "G7 fails: a CHANGES_REQUESTED review from ash-maintainer (submitted 2026-06-06) is newer than the last commit (2026-06-05) — the reviewer's concerns are still outstanding."
+}

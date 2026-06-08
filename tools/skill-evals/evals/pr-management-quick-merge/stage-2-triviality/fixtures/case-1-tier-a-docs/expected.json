@@ -1,0 +1,6 @@
+{
+  "disposition": "candidate",
+  "tier": "A",
+  "drop_reason": null,
+  "reason": "2 files, 7 lines total — within budget (max 3 files, 20 churn); both files match Tier A allow globs (*.rst / docs/**); no deny-list match."
+}

@@ -1,0 +1,6 @@
+{
+  "disposition": "drop",
+  "drop_reason": "gate:G2",
+  "injection_flagged": false,
+  "reason": "G2 fails: statusCheckRollup is SUCCESS but no real-CI context (Tests, Static checks, Docs build) ran — only bot/metadata checks (Mergeable, DCO, boring-cyborg) are present."
+}

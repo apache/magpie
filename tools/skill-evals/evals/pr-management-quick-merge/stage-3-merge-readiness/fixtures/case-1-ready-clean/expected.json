@@ -1,0 +1,5 @@
+{
+  "bucket": "ready",
+  "drop_reason": null,
+  "reason": "mergeable=true, mergeable_state=clean — the branch merges cleanly and is ready to merge now."
+}

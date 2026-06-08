@@ -1,0 +1,6 @@
+{
+  "disposition": "drop",
+  "drop_reason": "gate:G4",
+  "injection_flagged": false,
+  "reason": "G4 fails: the PR's head_sha is in the action_required workflow-run index — a workflow run is awaiting approval before executing."
+}

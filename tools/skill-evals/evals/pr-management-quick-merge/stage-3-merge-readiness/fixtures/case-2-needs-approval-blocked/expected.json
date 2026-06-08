@@ -1,0 +1,5 @@
+{
+  "bucket": "needs-approval",
+  "drop_reason": null,
+  "reason": "mergeable=true, mergeable_state=blocked, reviewDecision=REVIEW_REQUIRED — the branch merges cleanly but branch protection requires a committer approval; route to the [A]pprove action."
+}

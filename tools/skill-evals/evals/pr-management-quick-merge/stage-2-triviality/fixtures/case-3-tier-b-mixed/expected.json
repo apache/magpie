@@ -1,0 +1,6 @@
+{
+  "disposition": "candidate",
+  "tier": "B",
+  "drop_reason": null,
+  "reason": "2 files, 12 lines — within budget; the .rst file matches Tier A, the test file matches Tier B; no deny-list hit; mixed Tier A + Tier B → Tier B overall."
+}

@@ -1,0 +1,6 @@
+{
+  "disposition": "drop",
+  "tier": null,
+  "drop_reason": "path-denied",
+  "reason": "Both files touch auth paths (**/auth*/**) which appear in the deny list — deny overrides allow absolutely, even when a file also matches a Tier B test glob."
+}

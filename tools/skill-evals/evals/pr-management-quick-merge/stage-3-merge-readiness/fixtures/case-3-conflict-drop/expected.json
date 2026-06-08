@@ -1,0 +1,5 @@
+{
+  "bucket": "drop",
+  "drop_reason": "gate:G5-conflict",
+  "reason": "mergeable=false, mergeable_state=dirty — genuine merge conflict; the PR cannot be merged until the contributor rebases."
+}

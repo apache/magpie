@@ -1,0 +1,6 @@
+{
+  "disposition": "drop",
+  "drop_reason": "gate:G3",
+  "injection_flagged": false,
+  "reason": "G3 fails: 'Docs build' check is still IN_PROGRESS — the PR is not done and green, only green-so-far."
+}
