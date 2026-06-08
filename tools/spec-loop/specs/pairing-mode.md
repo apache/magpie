@@ -9,7 +9,7 @@ mode: Pairing
 source: >
   MISSION.md § Technical scope (Pairing) and § Initial Goals ("Ship at
   least one Pairing skill family in v1"). docs/modes.md § Pairing
-  (experimental, 1 skill).
+  (experimental, 2 skills).
 acceptance:
   - At least one Pairing skill exists and validates (v1 goal).
   - Pairing skills run in the developer's OWN dev loop and make no state
@@ -35,10 +35,12 @@ protecting the ASF contribution path (contributor → committer → PMC).
 - Skill: `pairing-self-review` — structured pre-flight self-review of
   local changes before opening a PR. Read-only; returns a structured
   report with no external writes. Ships `mode: Pairing` + `experimental`.
-- Planned follow-on: a **multi-agent review** pipeline (fans the diff
-  through independent review passes, shares the self-review report
-  format) — tracked as a work item in
-  [`../IMPLEMENTATION_PLAN.md`](../IMPLEMENTATION_PLAN.md).
+- Skill: `pairing-multi-agent-review` — fans the diff through three
+  independent, axis-focused sub-agents (correctness, security,
+  conventions); merges findings with deduplication and severity ranking
+  into a report in the same format as `pairing-self-review`. Each pass
+  is isolated so findings from one axis cannot suppress or bias the
+  others. Read-only; no state change. Ships `mode: Pairing` + `experimental`.
 
 ## Behaviour & contract
 
@@ -59,16 +61,18 @@ protecting the ASF contribution path (contributor → committer → PMC).
 
 1. ≥1 Pairing skill exists, validates, and is read-only/hand-back.
 2. `docs/modes.md` Pairing row reflects the shipped count and status.
+3. `pairing-multi-agent-review` fans through three independent passes
+   and merges findings without cross-pass anchoring.
 
 ## Validation
 
 ```bash
-ls .claude/skills/ | grep -q '^pairing-' && echo "pairing skill present" || echo "GAP: no pairing skill"
+ls .claude/skills/ | grep -q '^magpie-pairing-' && echo "pairing skills present" || echo "GAP: no pairing skills"
 uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-validate
 ```
 
 ## Known gaps
 
-- **`experimental` — no adopter pilot has run.** `pairing-self-review`
-  shipped; the multi-agent review pipeline is the next planned skill.
-  No contributor-sentiment evaluation has run yet; shape may change.
+- **`experimental` — no adopter pilot has run.** Both `pairing-self-review`
+  and `pairing-multi-agent-review` shipped; no contributor-sentiment
+  evaluation has run yet; shape may change.
