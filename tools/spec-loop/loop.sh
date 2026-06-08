@@ -436,7 +436,7 @@ while true; do
         --dangerously-skip-permissions \
         --disallowedTools "Bash(git push:*)" "Bash(gh:*)" \
         --output-format="$OUTPUT_FORMAT" \
-        "${VERBOSE_ARGS[@]}" \
+        ${VERBOSE_ARGS[@]+"${VERBOSE_ARGS[@]}"} \
         --model "$MODEL" < "$PROMPT_WITH_CONTEXT" &
     AGENT_PID=$!
     spinner "$AGENT_PID" & SPINNER_PID=$!
@@ -476,7 +476,8 @@ while true; do
                     fi
                 fi
             elif [ "$CUR_BRANCH" = "$BASE" ]; then
-                cur_marker="$(tr -d '[:space:]' < tools/spec-loop/.last-sync 2>/dev/null)"
+                cur_marker=""
+                [ -f tools/spec-loop/.last-sync ] && cur_marker="$(tr -d '[:space:]' < tools/spec-loop/.last-sync)"
                 if [ "$cur_marker" != "$BASE_HEAD" ]; then
                     marker_branch="advance-last-sync-${BASE_HEAD:0:7}"
                     if git checkout -b "$marker_branch" >/dev/null 2>&1; then
