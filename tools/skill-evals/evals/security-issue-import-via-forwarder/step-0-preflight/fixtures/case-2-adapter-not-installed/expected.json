@@ -1,0 +1,6 @@
+{
+  "preflight_passed": false,
+  "outcome": "abort",
+  "error": "adapter `platform-relay` is declared in forwarders.enabled but is not installed under tools/forwarder-relay/; aborting.",
+  "note": null
+}

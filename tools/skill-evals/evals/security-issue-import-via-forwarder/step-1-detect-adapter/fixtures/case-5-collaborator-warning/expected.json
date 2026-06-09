@@ -1,0 +1,8 @@
+{
+  "match": "asf-security",
+  "sub_skill_applied": true,
+  "preamble_snippet": "The Apache Security Team has received the following security report and\nis forwa",
+  "sender_matched": "j.security-member@apache.org",
+  "collaborator_warning": true,
+  "rationale": "The adapter matched, but the broker From address belongs to a project collaborator on the security team, so the skill raises a collaborator warning for the reviewer to double-check before routing."
+}

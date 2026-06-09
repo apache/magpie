@@ -1,5 +1,5 @@
 {
   "match": null,
   "sub_skill_applied": false,
-  "rationale": "No registered adapter matched this message. Neither the sender pattern nor the preamble regex for any registered adapter matched. Parent skill proceeds with the direct-reporter path."
+  "rationale": "No registered adapter matched this message: neither the sender pattern nor the preamble regex matched for any registered adapter."
 }

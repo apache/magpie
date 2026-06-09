@@ -1,0 +1,8 @@
+{
+  "match": "asf-security",
+  "sub_skill_applied": true,
+  "preamble_snippet": "The Apache Security Team has received the following security report and\nis forwa",
+  "sender_matched": "security@apache.org",
+  "collaborator_warning": false,
+  "rationale": "asf-security is first in forwarders.enabled and its detect() matched, so it wins and the later platform-relay adapter is skipped even though its preamble also appears in the body."
+}

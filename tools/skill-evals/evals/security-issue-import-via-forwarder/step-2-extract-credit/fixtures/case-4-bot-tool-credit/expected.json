@@ -1,0 +1,9 @@
+{
+  "credit": {
+    "name": "acme-security-bot",
+    "kind": "tool",
+    "raw_string": "acme-security-bot <security-bot@acme.example>"
+  },
+  "credit_unknown": false,
+  "injection_flagged": false
+}

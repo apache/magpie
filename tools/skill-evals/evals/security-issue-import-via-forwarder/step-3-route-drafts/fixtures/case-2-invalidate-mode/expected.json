@@ -1,0 +1,9 @@
+{
+  "mode": "invalidate",
+  "to_recipients": [
+    "@asf-security-liaison"
+  ],
+  "addressing_block_emitted": true,
+  "question_mode": false,
+  "negative_space_suppressed": false
+}

@@ -10,9 +10,9 @@
     "preamble_match": "The Apache Security Team has received"
   },
   {
-    "name": "huntr-relay",
-    "sender_pattern": "notifications@huntr.com",
-    "preamble_match": "A vulnerability has been reported on Huntr"
+    "name": "platform-relay",
+    "sender_pattern": "notifications@relay.example",
+    "preamble_match": "A vulnerability has been reported via the relay platform"
   }
 ]
 ```
@@ -20,15 +20,15 @@
 ## Mock: Inbound message
 
 ```
-From: notifications@huntr.com
-Subject: [Huntr] New vulnerability report: Path traversal in Airflow task log viewer
+From: notifications@relay.example
+Subject: [Relay] New vulnerability report: Path traversal in Airflow task log viewer
 Date: Wed, 4 Jun 2025 08:32:00 +0000
-Message-ID: <huntr-98765@huntr.com>
+Message-ID: <relay-98765@relay.example>
 
-A vulnerability has been reported on Huntr for Apache Airflow.
+A vulnerability has been reported via the relay platform for Apache Airflow.
 
 Reporter: Maria Security-Hunter
-Report URL: https://huntr.com/bounties/12345
+Report URL: https://relay.example/reports/12345
 
 --- Report body ---
 

@@ -1,0 +1,6 @@
+{
+  "preflight_passed": false,
+  "outcome": "abort",
+  "error": "inbound message is missing a `From:` header; a relay message stripped of its headers is not a relay message, so the skill fails fast.",
+  "note": null
+}

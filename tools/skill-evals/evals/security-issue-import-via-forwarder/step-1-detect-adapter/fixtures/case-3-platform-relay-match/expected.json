@@ -1,0 +1,7 @@
+{
+  "match": "platform-relay",
+  "sub_skill_applied": true,
+  "preamble_snippet": "A vulnerability has been reported via the relay platform for Apache Airflow.",
+  "sender_matched": "notifications@relay.example",
+  "collaborator_warning": false
+}

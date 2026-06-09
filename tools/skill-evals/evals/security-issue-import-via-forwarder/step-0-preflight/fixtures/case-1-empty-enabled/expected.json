@@ -1,0 +1,8 @@
+{
+  "preflight_passed": false,
+  "outcome": "no-forwarder-config",
+  "match": null,
+  "sub_skill_applied": false,
+  "error": null,
+  "note": "forwarders.enabled is empty, so no relay handling is configured; the parent skill proceeds with its direct-reporter path."
+}

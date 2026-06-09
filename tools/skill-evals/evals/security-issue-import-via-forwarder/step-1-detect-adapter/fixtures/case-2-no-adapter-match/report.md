@@ -10,9 +10,9 @@
     "preamble_match": "The Apache Security Team has received"
   },
   {
-    "name": "huntr-relay",
-    "sender_pattern": "notifications@huntr.com",
-    "preamble_match": "A vulnerability has been reported on Huntr"
+    "name": "platform-relay",
+    "sender_pattern": "notifications@relay.example",
+    "preamble_match": "A vulnerability has been reported via the relay platform"
   }
 ]
 ```

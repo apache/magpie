@@ -1,7 +1,0 @@
-{
-  "match": "huntr-relay",
-  "sub_skill_applied": true,
-  "preamble_snippet": "A vulnerability has been reported on Huntr for Apache Airflow.",
-  "sender_matched": "notifications@huntr.com",
-  "collaborator_warning": false
-}

@@ -1,7 +1,7 @@
 {
   "match": "asf-security",
   "sub_skill_applied": true,
-  "preamble_snippet": "The Apache Security Team has received the following security report and",
+  "preamble_snippet": "The Apache Security Team has received the following security report and\nis forwa",
   "sender_matched": "security@apache.org",
   "collaborator_warning": false
 }
