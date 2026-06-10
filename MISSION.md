@@ -8,6 +8,7 @@
   - [Proposal](#proposal)
   - [Name](#name)
   - [Rationale](#rationale)
+  - [Scope boundaries — what Magpie is, and the non-goals](#scope-boundaries--what-magpie-is-and-the-non-goals)
   - [Initial Goals](#initial-goals)
   - [Technical scope](#technical-scope)
   - [Maintainer education — building agentic projects is a different craft](#maintainer-education--building-agentic-projects-is-a-different-craft)
@@ -70,6 +71,22 @@ Four design choices set the project apart from "just bolt a code-review bot on i
 **Mentoring is a first-class mode, not a side-effect of triage.** The lever the ASF — and the wider open-source world — actually needs and the one off-the-shelf agent tooling skips. Meets new contributors where they are, explains conventions, points at the relevant prior PR, asks the clarifying question *before* a reviewer burns time on it. This is where the Responsible AI Initiative's contributor-empowerment goal gets operationalised: the mode that produces the outcomes RAI is trying to measure, in the projects that volunteer for the eval.
 
 **Development-cycle skills sit alongside maintainership skills, with mentorship intrinsic to them.** Maintainers also write code; contributors live the development side of every project. The same agentic primitives that triage an inbound report or mentor a new contributor compose into a committer's or contributor's own development cycle: multi-agent review pipelines that catch issues before submission, self-review patterns that pre-flight a PR against project conventions, scoped agent-drafted patches a contributor reviews against their own taste before opening. The shape of these skills is deliberate: **agents handle implementation-detail review** (formatting, conventions, lint-grade comments) **so the human conversation stays on the things that build relationships** — design choices, ideas, the trade-offs the project cares about, the *why* behind a review comment. Machine-to-machine traffic is fine where the work is mechanical. **What the platform actively protects is the path that turns contributors into committers and committers into PMC members** — the standard ASF progression — **and the parallel path that lets maintainers learn from contributors and from peer maintainers.** This is the same skill shape as a Triage skill, with the developer themselves as the human in the loop, and it lands on the platform's existing security and privacy posture without modification.
+
+## Scope boundaries — what Magpie is, and the non-goals
+
+Magpie's scope is broad on *capability* and deliberately narrow on *authority*. A platform this wide invites a fair question: does it overlap ComDev, the Incubator, the Security team, Tooling, or the Responsible AI Initiative, and where does the line actually sit? It is easy to misread Magpie as another foundation-level body in that mould. It is not, and the line is clean:
+
+**Magpie serves any project, ASF or not — that is the distinguishing line.** Cross-foundation reach is a founding principle, not a later expansion. ComDev, the Incubator, the Security team, Tooling, and the Responsible AI Initiative are ASF-internal bodies that serve ASF projects. Magpie is not one of them and does not aspire to be — a community that has never heard of the ASF is a first-class adopter.
+
+**Magpie is an independent PMC like any other — all it does is release software.** It does not set Foundation-wide policy. It does not decide what ASF projects should or must do — on automation level or anything else. Telling projects how to govern themselves is an explicit **non-goal**. The platform makes a range of automation levels possible without picking one; each project opts in, mode by mode.
+
+**Magpie works with the ASF bodies it overlaps — it does not absorb them.** Where ComDev, the Incubator, Security, Infrastructure, or Tooling have relevant skills, Magpie either helps implement them or *proxies* them. Those teams choose whether to contribute a skill into Magpie or keep it in their own repository and let Magpie install it by reference — Magpie does not reach into another team's domain on its own initiative. Other foundations (e.g. Eclipse, the Python Software Foundation) can do the same: contribute, proxy, layer their own integration on top, or simply take inspiration.
+
+**The data layer is shared; the skills on top are free to diverge.** This is the boundary rule that makes the above work in practice. Shared MCPs and data tools — PonyMail, Apache Projects, Trademark, and the like — stay centralized, typically in ComDev or the Incubator, because divergence there means *wrong data*, with no governance opinion to fight over. The skills built on top are free to diverge by scope, tier, and teaching voice. DRY pays on the data tools; it does not pay on the skills. Skills carry a `source` tag (e.g. `asf-comdev`, `asf-incubator`) so Magpie can proxy and install the right set per project, and so the split is a registry query rather than tribal knowledge.
+
+**Duplication is embraced where it buys decoupling.** Working across distributed, independent PMCs — and across foundations — makes some duplication inevitable, and agentic tooling makes it cheap: an agent can reconcile two near-identical skills on demand, so the price of keeping them separate is low and the coupling avoided is real. Magpie does not chase DRY across organisational boundaries. The one place divergence is *not* tolerated is the **safety baseline** — the untrusted-content-is-never-instructions rule, identity-resolution caveats, and confidentiality posture — which every skill stays eventually-consistent on, wherever it lives.
+
+**On mentoring specifically:** Magpie ships mentoring *skills* — reusable, machine-assisted tooling any project can adopt — it does not own the community-development mentoring function, which remains ComDev's (and, for podlings, the Incubator's) for ASF projects. The Mentoring mode is a tool in the box, not a claim on the role. The same framing applies to every mode: Magpie supplies the agentic capability; the project, and where relevant the responsible ASF body, keeps the policy.
 
 ## Initial Goals
 
