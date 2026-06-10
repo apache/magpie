@@ -85,6 +85,10 @@ _VALID_SPEC = textwrap.dedent("""\
     ```bash
     uv run --project tools/example --group dev pytest
     ```
+
+    ## Known gaps
+
+    - `stable`; no gaps at this time.
     """)
 
 

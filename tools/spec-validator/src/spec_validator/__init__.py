@@ -25,7 +25,8 @@ Checks every .md file that carries a YAML frontmatter block:
 4. Valid ``mode`` value  — Triage | Mentoring | Drafting | Pairing | infra.
 5. Non-empty ``acceptance`` list — at least one ``- item`` entry.
 6. Required body sections — What it does, Where it lives,
-   Behaviour & contract, Out of scope, Acceptance criteria, Validation.
+   Behaviour & contract, Out of scope, Acceptance criteria, Validation,
+   Known gaps.
 7. Validation section contains at least one fenced code block.
 
 Files without frontmatter (README.md, overview.md) are skipped silently.
@@ -61,6 +62,7 @@ REQUIRED_SECTIONS: tuple[str, ...] = (
     "Out of scope",
     "Acceptance criteria",
     "Validation",
+    "Known gaps",
 )
 
 DEFAULT_SPEC_DIR = Path("tools/spec-loop/specs")

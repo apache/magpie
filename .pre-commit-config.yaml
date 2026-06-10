@@ -29,7 +29,11 @@ default_language_version:
   # `@eslint/js@10.0.1` declares engines `^20.19.0 || ^22.13.0 || >=24`,
   # so the old 22.11.0 pin failed `npm install` with EBADENGINE. 22.13.0
   # is the lowest 22.x that satisfies it.
-  node: 22.13.0
+  #
+  # Bumped 22.13.0 -> 22.20.0: ava@7.0.0 declares engines
+  # `^20.19 || ^22.20 || ^24.12 || >=25`; 22.13.0 fails EBADENGINE.
+  # 22.20.0 is the lowest 22.x that satisfies both constraints.
+  node: 22.20.0
 minimum_prek_version: '0.3.5'
 repos:
   - repo: meta
