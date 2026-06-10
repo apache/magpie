@@ -1653,9 +1653,7 @@ def validate_license_header(path: Path, text: str) -> Iterable[Violation]:
     A missing header is a HARD failure — caught at validation time rather
     than in code review.
     """
-    if path.suffix.lower() == ".py" and not any(
-        marker in text for marker in _LICENSE_PY_MARKERS
-    ):
+    if path.suffix.lower() == ".py" and not any(marker in text for marker in _LICENSE_PY_MARKERS):
         yield Violation(
             path,
             1,
