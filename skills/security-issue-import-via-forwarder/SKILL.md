@@ -14,10 +14,9 @@ description: |
   addressing rules, and hands the routing decision back. Never
   mutates tracker state on its own.
 when_to_use: |
-  Invoked by `security-issue-import` (Step 3 classification),
-  `security-issue-invalidate` (Step 5 draft routing), and
-  `security-issue-sync` (Step 2b draft routing) when
-  `forwarders.enabled` is non-empty in
+  Invoked by `security-issue-import`, `security-issue-invalidate`,
+  and `security-issue-sync` for classification and draft routing
+  when `forwarders.enabled` is non-empty in
   `<project-config>/project.md`. Also invocable standalone when
   a security team member says "is this thread a relay?",
   "extract the credit from this relay body", or "route the
