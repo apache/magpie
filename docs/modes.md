@@ -50,9 +50,9 @@ sequencing commitments behind them.
 
 | Mode | Purpose | Status | Skill count |
 |---|---|---|---|
-| **Triage** | Issues, security reports, PRs: spot, classify, route, surface duplicates. Every output is a suggestion the human signs off on. | stable (security) / experimental (pr-management, issue-management, contributor-nomination) / proposed (release-management) | 13 + 4 proposed |
+| **Triage** | Issues, security reports, PRs: spot, classify, route, surface duplicates. Every output is a suggestion the human signs off on. | stable (security) / experimental (pr-management, issue-management, contributor-nomination) / proposed (release-management) | 18 + 4 proposed |
 | **Mentoring** | Joins issue and PR threads in a teaching register: clarifying questions, pointers to project conventions, paired examples from prior PRs, hand-off to a human when scope exceeds the agent. Also authors net-new good first issues to lower onboarding latency. | experimental | 2 |
-| **Drafting** | Agent drafts a fix for a well-scoped problem and opens a PR; every PR is reviewed and merged by a human committer. | stable (security-only); experimental (issue-management); release-management family proposed | 2 + 6 proposed |
+| **Drafting** | Agent drafts a fix for a well-scoped problem and opens a PR; every PR is reviewed and merged by a human committer. | stable (security-only); experimental (issue-management, audit-findings); release-management family proposed | 3 + 6 proposed |
 | **Pairing** | Developer-side dev-cycle skills with mentorship intrinsic — multi-agent review pipelines, self-review and pre-flight patterns, scoped fix drafting under the developer's driver's seat. | experimental | 2 |
 | **Auto-merge** | Auto-merge restricted to objectively boring change classes (lint, dependency bumps inside an allow-list, license-header insertion, formatting, broken-link repair). | off | 0 |
 
@@ -82,6 +82,11 @@ do not act without human review.
 | [`security-issue-invalidate`](../skills/security-issue-invalidate/SKILL.md) | Close a tracker as invalid with a polite-but-firm reporter reply. | stable |
 | [`security-issue-sync`](../skills/security-issue-sync/SKILL.md) | Reconcile a tracker against its mail thread, fix PR, release train, and archives. | stable |
 | [`security-cve-allocate`](../skills/security-cve-allocate/SKILL.md) | Allocate a CVE for a tracker (Vulnogram URL + paste-ready JSON). | stable |
+| [`security-issue-triage`](../skills/security-issue-triage/SKILL.md) | Batch-triage open tracker issues carrying `needs triage`; classifies each into one of six dispositions and posts a proposal comment on confirmation. | experimental |
+| [`security-issue-import-via-forwarder`](../skills/security-issue-import-via-forwarder/SKILL.md) | Sub-skill of `security-issue-import` / `-invalidate` / `-sync` for the relay/forwarder case: reports relayed by an upstream broker (e.g. ASF security team) rather than arriving directly from the reporter. | experimental |
+| [`contributor-activity-sweep`](../skills/contributor-activity-sweep/SKILL.md) | Read-only GitHub activity card for a named contributor: PR authorship, code-review participation, issues, and comments over a configurable window. | experimental |
+| [`pr-management-quick-merge`](../skills/pr-management-quick-merge/SKILL.md) | Identify trivial, low-risk PRs in the `ready for maintainer review` queue that pass every quality gate and touch only supplementary areas (docs, changelog, translations, tests); surfaces candidates with diff summaries and the exact merge command. | experimental |
+| [`ci-runner-audit`](../skills/ci-runner-audit/SKILL.md) | Read-only audit of GitHub Actions workflow runner compatibility across one repo, an explicit set, one Apache project's repos, or the full Apache GitHub org. | experimental |
 | `release-verify-rc` | Read-only pre-flight on a staged RC: signatures against project KEYS, checksums, license headers (Apache RAT), NOTICE/LICENSE diff, no prohibited binaries, version-string consistency. Doubles as a Pairing-mode skill voters run in their own dev loop. | proposed |
 | `release-vote-tally` | Parse a `[VOTE]` thread, classify each reply (+1 / 0 / -1) binding vs non-binding against the PMC roster, propose `[RESULT] [VOTE]`. Conservative on ambiguous votes, refuses to count. | proposed |
 | `release-archive-sweep` | Scan `dist/release/<project>/`, identify releases past retention, propose the `svn mv` sequence to `archive.apache.org`. | proposed |
@@ -107,7 +112,7 @@ Three notes on the boundaries:
 
 ## Mentoring
 
-**Status: experimental. First prototype skill shipped.**
+**Status: experimental. 2 skills shipped.**
 
 [`MISSION.md` § Mentoring](../MISSION.md#technical-scope) names this
 the highest-value project-side mode and the one off-the-shelf agent
@@ -150,6 +155,7 @@ the agent never merges its own work.
 |---|---|---|
 | [`security-issue-fix`](../skills/security-issue-fix/SKILL.md) | Draft a fix PR in `<upstream>` from a triaged, CVE-allocated tracker. | stable (security-only) |
 | [`issue-fix-workflow`](../skills/issue-fix-workflow/SKILL.md) | Draft a fix for a triaged general-issue-tracker issue (BUG or FEATURE-REQUEST). | experimental |
+| [`audit-finding-fix`](../skills/audit-finding-fix/SKILL.md) | Draft fixes for non-security audit-tool findings (lint violations, type errors, CodeQL alerts, doc-coverage gaps); re-runs the tool after each batch to confirm findings are cleared. | experimental |
 | `release-prepare` | Planning issue + version-bump / changelog / NOTICE / LICENSE prep PR (Steps 1-2). Also the post-release `-SNAPSHOT` bump (Step 14). | proposed |
 | `release-keys-sync` | Draft the `KEYS` diff for a new Release Manager (Step 3). Agent never holds the private key. | proposed |
 | `release-rc-cut` | Paste-ready command sequence: signed tag, build, detached signatures, checksums, `svn import` to `dist/dev/` (Steps 4-5). Agent never signs and never imports. | proposed |
@@ -157,12 +163,15 @@ the agent never merges its own work.
 | `release-promote` | Paste-ready `svn mv dist/dev → dist/release` command set after a passing vote (Step 10). Agent never moves; the human commit is the act of release. | proposed |
 | `release-announce-draft` | Draft the `[ANNOUNCE]` email body for `announce@apache.org` and the site-bump PR (Step 11). Agent never sends mail and never merges the PR. | proposed |
 
-**Generic Drafting is proposed.** [`MISSION.md`](../MISSION.md)
-names lint fixes, audit-tool findings (Apache Verum, Apache Caer,
-CodeQL, equivalents), failing tests with obvious causes, and
-documentation holes as in-scope for Drafting beyond the security
-case. None of those are implemented yet; security-issue-fix is
-the only Drafting skill shipping in the framework today.
+[`audit-finding-fix`](../skills/audit-finding-fix/SKILL.md)
+extends Drafting to **non-security audit-tool findings**: lint
+violations, type errors, CodeQL alerts, and documentation-coverage
+gaps. It is the generic-Drafting companion to
+[`issue-fix-workflow`](../skills/issue-fix-workflow/SKILL.md)
+(issue-tracker bugs) and
+[`security-issue-fix`](../skills/security-issue-fix/SKILL.md)
+(security-class findings). Failing tests with an obvious cause
+remain proposed.
 
 The six `release-*` Drafting skills above land as a single family
 ([`docs/release-management/README.md`](release-management/README.md))
@@ -179,7 +188,7 @@ for the rules the skill enforces.
 
 ## Pairing
 
-**Status: experimental. 1 skill.**
+**Status: experimental. 2 skills.**
 
 [`MISSION.md` § Pairing](../MISSION.md#technical-scope) introduces
 this mode as the developer-side counterpart to the project-side
@@ -252,9 +261,19 @@ threads on their own.
 | [`setup-isolated-setup-verify`](../skills/setup-isolated-setup-verify/SKILL.md) | Read-only health check of the sandbox harness. |
 | [`setup-override-upstream`](../skills/setup-override-upstream/SKILL.md) | Promote an adopter's local override into a framework PR. |
 | [`setup-shared-config-sync`](../skills/setup-shared-config-sync/SKILL.md) | Sync shared configuration across worktrees. |
+| [`setup-isolated-setup-doctor`](../skills/setup-isolated-setup-doctor/SKILL.md) | In-session functional health check of the secure-agent sandbox: probes SSH agent / Yubikey reachability, localhost port access, and filesystem restrictions. |
+| [`setup-status`](../skills/setup-status/SKILL.md) | Render a Markdown adoption dashboard: install method and pin, drift, and which skills are wired in the current repo. |
+| [`committer-onboarding`](../skills/committer-onboarding/SKILL.md) | Post-vote committer and PMC onboarding for Apache projects: walks the nominator through every step from ICLA check to welcome announcement for both podlings and TLPs. |
+| [`security-tracker-stats-dashboard`](../skills/security-tracker-stats-dashboard/SKILL.md) | Generate a self-contained HTML dashboard of `<tracker>` statistics (lifecycle-band breakdowns, time-to-triage trends, velocity) without modifying any tracker state. |
+| [`optimize-skill`](../skills/optimize-skill/SKILL.md) | Optimize an existing framework skill by applying restructuring patterns: split oversized SKILL.md into linked sibling docs, trim frontmatter, improve eval alignment. |
+| [`list-skills`](../skills/list-skills/SKILL.md) | Print a live index of every skill in this repository grouped by family, with each skill's name and first-sentence description. |
+| [`write-skill`](../skills/write-skill/SKILL.md) | Author a new framework skill or update an existing one: frontmatter, placeholder convention, injection defences, Privacy-LLM gate-check, and validator sign-off. |
 
-These ship as a single **setup family** — see
-[`docs/setup/README.md`](setup/README.md).
+The `setup*` skills ship as a single **setup family** — see
+[`docs/setup/README.md`](setup/README.md). The remaining skills
+(`committer-onboarding`, `security-tracker-stats-dashboard`,
+`optimize-skill`, `list-skills`, `write-skill`) are standalone
+framework utilities.
 
 ## Mode lifecycle
 
