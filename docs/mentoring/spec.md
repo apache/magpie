@@ -12,7 +12,7 @@
     - [AI-attribution footer](#ai-attribution-footer)
   - [Hand-off protocol](#hand-off-protocol)
   - [Adopter contract](#adopter-contract)
-  - [Open questions](#open-questions)
+  - [Resolved design decisions](#resolved-design-decisions)
   - [Cross-references](#cross-references)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -24,13 +24,18 @@
 
 ## Status
 
-Proposed. No skill code yet. This document defines what Mentoring
-should do once it exists; it lands ahead of any skill so the
-project's tone choices and hand-off rules are reviewable
-independently from runtime behaviour. See
-[`MISSION.md` § Mentoring](../../MISSION.md#technical-scope) and
-[`docs/modes.md` § Mentoring](../modes.md#mentoring)
-for sequencing.
+Experimental. Two skills shipped:
+
+| Skill | Purpose |
+|---|---|
+| [`pr-management-mentor`](../../skills/pr-management-mentor/SKILL.md) | Draft a teaching-register comment on a single GitHub issue or PR thread. |
+| [`good-first-issue-author`](../../skills/good-first-issue-author/SKILL.md) | Draft a single net-new good first issue from a maintainer-supplied candidate. |
+
+This document is the normative Mentoring spec: tone guide, hand-off
+protocol, and adopter contract. The skills implement these conventions;
+the spec is the authoritative reference when the two diverge.
+See [`MISSION.md` § Mentoring](../../MISSION.md#technical-scope) and
+[`docs/modes.md` § Mentoring](../modes.md#mentoring).
 
 ## Scope
 
@@ -74,7 +79,7 @@ invoked on. The skill is opt-in per invocation. Three trigger
 paths:
 
 1. **Maintainer-on-demand**. A maintainer runs
-   `/magpie-pr-management-mentor <pr-number>` (working name). The skill
+   `/magpie-pr-management-mentor <pr-number>`. The skill
    reads the thread, decides whether a mentoring intervention is
    warranted, drafts the comment, and waits for the maintainer
    to confirm before posting.
@@ -185,33 +190,29 @@ Required keys:
 | `max_agent_turns` | Integer, default 2. Hard ceiling on consecutive agent comments per thread. |
 | `out_of_scope_topics` | Explicit list of topics on which the agent always hands off (security, deprecation, license, etc.). |
 
-## Open questions
+## Resolved design decisions
 
-Surfaced here so reviewers can weigh in before the skill is
-built.
+These questions were open before the skills shipped. The answers are
+fixed in the shipped implementations.
 
-- **Should Mentoring post on the project's mailing list, or only
-  on GitHub threads?** Current draft: GitHub only. Mailing-list
-  mentoring lives in the human maintainer's voice; the agent
-  does not have a list-subscriber identity.
-- **Is the AI-attribution footer the same wording as the triage
-  footer, or distinct?** Current draft: same wording, different
-  step token. One contributor-trust calibration is easier to
-  reason about than two.
-- **Should the maintainer review every Mentoring draft, or can
-  they pre-authorize a class of comments (e.g., "always ok to
-  ask for repro")?** Current draft: every draft is reviewed.
-  Pre-authorization is Auto-merge-shaped and inherits the same
-  sequencing constraint.
+- **GitHub-only.** `pr-management-mentor` posts to GitHub threads
+  only. Mailing-list mentoring stays with the human maintainer; the
+  agent has no list-subscriber identity.
+- **Attribution footer.** Same wording as the triage footer, different
+  step token (`mentoring` vs `triage`). One contributor-trust
+  calibration is easier to reason about than two.
+- **Every draft reviewed.** Every Mentoring comment requires explicit
+  maintainer confirmation before posting. Pre-authorization is
+  Auto-merge-shaped and inherits Auto-merge's sequencing constraint.
 
 ## Cross-references
 
 - [`MISSION.md` § Mentoring](../../MISSION.md#technical-scope) —
   the mode definition + responsible-AI framing.
 - [`docs/modes.md` § Mentoring](../modes.md#mentoring) —
-  current implementation status (proposed).
+  current implementation status (experimental, 2 skills shipped).
 - [`.claude/skills/pr-management-triage/comment-templates.md`](../../skills/pr-management-triage/comment-templates.md) —
-  closest existing surface; informs the tone-footer convention
-  but is not Mentoring.
+  tone-footer convention; `pr-management-mentor` mirrors its
+  format with a `mentoring` step token.
 - [`AGENTS.md`](../../AGENTS.md) — repository-level rules every
   mode inherits.
