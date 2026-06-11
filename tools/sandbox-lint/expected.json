@@ -42,8 +42,21 @@
         "www.cve.org",
         "cveawg.mitre.org",
         "oauth2.googleapis.com",
-        "gmail.googleapis.com"
-      ]
+        "gmail.googleapis.com",
+        "*.crates.io",
+        "*.apache.org",
+        "*.anthropic.com",
+        "*.claude.com",
+        "*.mitre.org",
+        "*.nist.gov",
+        "*.github.io",
+        "gist.github.com",
+        "astral.sh",
+        "json.schemastore.org",
+        "lychee.cli.rs",
+        "sdkman.io"
+      ],
+      "enableWeakerNetworkIsolation": true
     }
   },
   "permissions": {

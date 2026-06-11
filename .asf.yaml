@@ -154,15 +154,15 @@ github:
         contexts:
           # zizmor — GitHub Actions security lint.
           - "zizmor"
-          # Pre-commit (prek) — static checks across the repo.
+          # Pre-commit (prek) — static checks across the repo,
+          # including the `lychee` link-check hook (link rot, broken
+          # `#anchor` fragments, dead external URLs). lychee was a
+          # standalone `link-check.yml` workflow with its own required
+          # `lychee` status; it is now a prek hook, so the `prek`
+          # context above is what gates link health. (Converting also
+          # dropped the old daily-cron rot sweep — link rot on files
+          # no PR touches is now only caught when a PR next edits them.)
           - "prek"
-          # NOTE: `lychee` (the link checker) is intentionally NOT a
-          # required context. It is being converted from the
-          # standalone `link-check.yml` workflow into a `prek` hook;
-          # de-requiring it here first lets that conversion PR merge
-          # without being blocked on a `lychee` status that will stop
-          # posting once `link-check.yml` is removed. lychee still
-          # runs (and gates via `prek`) once the conversion lands.
           # Per-project pytest matrix from tests.yml. Required via
           # the single `tests-ok` umbrella job rather than the
           # individual `pytest (<project>)` matrix entries — branch

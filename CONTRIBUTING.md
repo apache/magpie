@@ -804,13 +804,15 @@ Separate GitHub workflows:
 - **`pre-commit.yml`** — runs `prek run --all-files` in CI.
 - **`zizmor.yml`** — lints GitHub Actions workflows for known-bad
   patterns; runs on every PR.
-- **`link-check.yml`** — runs [lychee](https://lychee.cli.rs/) on
-  every PR and daily on a schedule. **Hard gate** (`fail: true`,
-  `continue-on-error: false`); a single broken internal link or
-  unreachable external URL fails the workflow and blocks merge.
-  Run lychee locally before pushing (see *Before submitting* in
-  [`AGENTS.md`](AGENTS.md#before-submitting)) — the local invocation
-  catches the same errors and avoids a CI round-trip.
+The link check ([lychee](https://lychee.cli.rs/)) is **not** a
+separate workflow — it runs as the `lychee` hook inside
+`prek run --all-files` (the `pre-commit.yml` workflow above), and so
+is part of the required `prek` status check. It is a **hard gate**: a
+single broken internal link, dead `#anchor` fragment, or unreachable
+external URL fails `prek` and blocks merge. The hook is
+`language: rust`, so prek installs lychee itself — `prek run lychee`
+locally (no separate lychee install needed) catches the same errors
+before you push.
 
 To run a single Python package's tests directly:
 

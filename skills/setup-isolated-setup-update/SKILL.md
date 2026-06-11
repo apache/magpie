@@ -175,6 +175,30 @@ Walk each:
    `hooks.PreToolUse` entry** (matcher `Bash`) if the user wired
    the secure setup before the guard shipped. Report new entries
    the user does not have; do not auto-merge.
+
+   Two network-layer defaults landed with the `lychee` link-check
+   prek hook — surface both if the user's settings predate them
+   (both `sandbox.network.*`):
+
+   - **Broadened `allowedDomains`.** The dogfooded default now
+     allows the curated set the framework's own docs and dev tools
+     reach — `*.crates.io` (so the rust `lychee` hook can
+     `cargo install` lychee), `*.apache.org`, `*.anthropic.com`,
+     `*.claude.com`, `*.mitre.org`, `*.nist.gov`, `*.github.io`,
+     `gist.github.com`, `astral.sh`, `json.schemastore.org`,
+     `lychee.cli.rs`, `sdkman.io`. Without these, lychee fails the
+     PR-blocking `prek` check locally on first run.
+   - **`enableWeakerNetworkIsolation: true`.** Required for
+     native-TLS CLI tools (lychee, and the same mechanism the
+     schema notes for `gh` / `gcloud` / `terraform`) to verify TLS
+     through the sandbox's TLS-terminating proxy — without it lychee
+     fails every external link with `failed to verify TLS
+     certificate`. **Surface the documented trade-off when
+     reporting it**: the schema warns it "reduces security — opens a
+     potential data-exfiltration vector through the trustd service,"
+     so the user decides whether to enable it (the default ships it
+     on because the link check needs it). It is a no-op outside the
+     sandbox, e.g. in CI.
 5. **comdev MCP checkouts (`ponymail`, `apache-projects`).** These
    ASF MCP servers are installed from a local `apache/comdev`
    checkout and are **tracked at `main`, not pinned** — unlike the

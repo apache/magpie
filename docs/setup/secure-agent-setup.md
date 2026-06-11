@@ -380,9 +380,23 @@ below, annotated.
         "objects.githubusercontent.com", "codeload.github.com", "uploads.github.com",
         "pypi.org", "files.pythonhosted.org",
         "lists.apache.org", "dist.apache.org", "downloads.apache.org", "archive.apache.org",
-        "cveprocess.apache.org", "cve.org", "www.cve.org",
-        "oauth2.googleapis.com", "gmail.googleapis.com"
-      ]
+        "cveprocess.apache.org", "cve.org", "www.cve.org", "cveawg.mitre.org",
+        "oauth2.googleapis.com", "gmail.googleapis.com",
+        // Added with the `lychee` link-check prek hook: the hosts the
+        // framework's own docs link to (so lychee passes in-sandbox)
+        // plus `*.crates.io` (so the rust hook can `cargo install` lychee).
+        "*.crates.io", "*.apache.org", "*.anthropic.com", "*.claude.com",
+        "*.mitre.org", "*.nist.gov", "*.github.io", "gist.github.com",
+        "astral.sh", "json.schemastore.org", "lychee.cli.rs", "sdkman.io"
+      ],
+      // Lets native-TLS CLI tools (lychee — and, per the schema, gh /
+      // gcloud / terraform) verify TLS through the sandbox's
+      // TLS-terminating proxy; without it lychee fails every external
+      // link with `failed to verify TLS certificate`. Documented
+      // trade-off: "reduces security — opens a potential
+      // data-exfiltration vector through the trustd service." No-op
+      // outside the sandbox (e.g. CI). macOS-only.
+      "enableWeakerNetworkIsolation": true
     }
   },
   "permissions": {

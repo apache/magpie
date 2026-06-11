@@ -898,14 +898,15 @@ model responds.
 
 - Re-read the diff and check that every change is intentional.
 - Check that any renamed headings have matching TOC updates.
-- **Run lychee against every changed `.md` / `.rst` / `.md.j2` file.**
-  CI runs the same check on every PR and a single broken link blocks
-  the merge; catching it locally avoids a round-trip. The canonical
-  recipe — same as
-  [`.github/workflows/link-check.yml`](.github/workflows/link-check.yml)
-  invokes:
+- **Run the lychee link check.** It runs as the `lychee` hook in
+  `prek run --all-files` (the `pre-commit.yml` CI workflow) and gates
+  merge via the required `prek` status; a single broken link, dead
+  `#anchor`, or unreachable URL fails it. Catch it locally first — the
+  hook is `language: rust`, so prek installs lychee for you:
 
   ```bash
+  prek run lychee --all-files
+  # or, if you have lychee >= 0.24 installed directly:
   lychee --config .lychee.toml .
   ```
 

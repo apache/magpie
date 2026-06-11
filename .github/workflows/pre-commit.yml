@@ -61,10 +61,39 @@ jobs:
         # `package = false` so member packages and their
         # `[project.scripts]` entry points would be skipped.
         run: uv sync --all-packages --group dev
+      # Cache prek's hook environments. The `lychee` hook is
+      # `language: rust` with `additional_dependencies: [cli:lychee:…]`,
+      # so prek `cargo install`s lychee into a hook env under
+      # `~/.cache/prek` — a multi-minute compile. Caching that dir
+      # reuses the built binary (and every other hook env) across runs;
+      # keyed on the prek config so a hook/version change busts it.
+      - name: Cache prek hook environments
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae  # v5.0.5
+        with:
+          path: ~/.cache/prek
+          key: prek-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+          restore-keys: |
+            prek-${{ runner.os }}-
+      # Restore the lychee result cache so external-URL checks reuse
+      # results across runs (`.lychee.toml` sets `max_cache_age = "7d"`).
+      - name: Cache lychee link-check results
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae  # v5.0.5
+        with:
+          path: .lycheecache
+          key: cache-lychee-${{ github.sha }}
+          restore-keys: |
+            cache-lychee-
       # Install prek via uv (rather than via the `j178/prek-action`
       # action) so the `[tool.uv] exclude-newer` cooldown in the
       # root `pyproject.toml` applies to the prek install as well.
       - name: Install prek
         run: uv tool install prek
       - name: Run prek
+        # GITHUB_TOKEN lets the `lychee` hook authenticate its
+        # github.com link checks — unauthenticated requests get
+        # rate-limited (429) once a run checks more than a handful of
+        # GitHub URLs. lychee reads GITHUB_TOKEN automatically; the
+        # job's `contents: read` scope is sufficient for link checking.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: prek run --show-diff-on-failure --color=always --all-files

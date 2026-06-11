@@ -103,6 +103,37 @@ repos:
       - id: typos
         name: typos
         args: [--force-exclude]
+  # lychee — link checker (was the standalone `link-check.yml`
+  # workflow; converted to this prek hook). Validates cross-file links,
+  # `#anchor` fragments, and external URLs across markdown / rst /
+  # `.md.j2`. Config in `.lychee.toml`.
+  #
+  # `language: rust` with `additional_dependencies: [cli:lychee]`
+  # means prek installs lychee itself (cargo install from crates.io)
+  # into an isolated, cached hook env — the hook does NOT depend on a
+  # locally-installed lychee, and the prek CI workflow needs no extra
+  # install step. Unpinned, so it tracks the **latest** lychee; the
+  # exact version is resolved when the hook env is first built and then
+  # held stable by the prek env cache until the cache busts (keyed on
+  # this file). lychee must be >= 0.24 for `.lychee.toml`'s
+  # `include_fragments = "anchor-only"` enum-string schema.
+  #
+  # `pass_filenames: false` + the trailing `.` arg → lychee scans the
+  # whole repo (so a renamed link target is caught no matter which
+  # file references it); `files:` only gates *whether* the whole-repo
+  # scan fires, i.e. it runs when any doc file changes and always on
+  # `prek run --all-files` (CI). External-URL results are cached for
+  # 7 days (`.lycheecache`, gitignored).
+  - repo: local
+    hooks:
+      - id: lychee
+        name: lychee (link check)
+        language: rust
+        entry: lychee
+        args: ["--config", ".lychee.toml", "--no-progress", "."]
+        additional_dependencies: ["cli:lychee"]
+        files: \.(md|rst|j2)$
+        pass_filenames: false
   # Local placeholder linter — catches hardcoded references like
   # `apache/airflow` or `Apache Airflow` that should be the
   # placeholder tokens `<upstream>` / `<PROJECT>` per

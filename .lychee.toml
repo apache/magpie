@@ -5,18 +5,21 @@
 #   * cross-file fragments     — `[text](other.md#anchor)`
 #   * external URLs            — HTTP 2xx
 #
-# Run locally:
-#   lychee --config .lychee.toml .
+# Run via prek (locally and in CI) as the `lychee` hook in
+# `.pre-commit-config.yaml` — prek installs lychee itself, so no local
+# lychee install is needed:
+#   prek run lychee --all-files
 #
-# Run in CI: see `.github/workflows/doc-validation.yml`.
+# (Or directly, if you have lychee >= 0.24 installed:
+#   lychee --config .lychee.toml .)
 
 # Check anchor fragments, not just file paths — `#section` checks
-# the GitHub-style slug exists in the linked file. Boolean form is
-# the v0.23.x schema (and the version `link-check.yml` pins; see
-# the comment there for why we cannot move to v0.24's enum-string
-# form yet). When CI moves to lychee v0.24+, change this to
-# `include_fragments = "anchor-only"`.
-include_fragments = true
+# the GitHub-style slug exists in the linked file. The enum-string
+# form (`"anchor-only"`) is the lychee v0.24+ schema; the link check
+# now runs as the `lychee` prek hook (see `.pre-commit-config.yaml`)
+# against a directly-installed lychee >= 0.24, not the old pinned
+# `lychee-action`. The v0.23.x boolean form (`true`) no longer parses.
+include_fragments = "anchor-only"
 
 # Concurrency cap — kept moderate to avoid being rate-limited by GitHub.
 max_concurrency = 14
