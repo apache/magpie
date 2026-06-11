@@ -7,12 +7,14 @@
 # A small loop in the general "Ralph" style (run a fresh agent context
 # against a prompt, repeat), adapted to this framework's posture:
 #
-#   * THREE modes, ONE mechanism:
+#   * FOUR modes, ONE mechanism:
 #       ./loop.sh                 build, unlimited iterations
 #       ./loop.sh 20              build, max 20 iterations
+#       ./loop.sh build [N]       build, max N iterations (N=0/omitted = unlimited)
 #       ./loop.sh plan [N]        gap-analysis only, updates the plan (default 1 pass; N=0 unlimited)
 #       ./loop.sh update [N]      back-fill specs from code others contributed (default 1 pass; N=0 unlimited)
 #       ./loop.sh consolidate [N] shrink the plan (default 1 pass; N=0 unlimited)
+#       ./loop.sh -h | --help     show usage and exit
 #   * BRANCH PER WORK ITEM: before each build iteration the loop returns
 #     to the integration base; the build prompt then carves out
 #     <slug> for the one work item it implements. One work item =
@@ -92,22 +94,48 @@ PR_LIMIT="${SPEC_LOOP_PR_LIMIT:-100}"
 PLAN_CONSOLIDATE_THRESHOLD="${SPEC_LOOP_PLAN_MAX:-500}"
 
 # ---- parse arguments -------------------------------------------------
-if [ "${1:-}" = "plan" ]; then
-    MODE="plan";        PROMPT_FILE="$LOOP_DIR/PROMPT_plan.md";        MAX_ITERATIONS="${2:-1}"
-elif [ "${1:-}" = "update" ]; then
-    MODE="update";      PROMPT_FILE="$LOOP_DIR/PROMPT_update.md";      MAX_ITERATIONS="${2:-1}"
-elif [ "${1:-}" = "consolidate" ]; then
-    MODE="consolidate"; PROMPT_FILE="$LOOP_DIR/PROMPT_consolidate.md"; MAX_ITERATIONS="${2:-1}"
-elif [[ "${1:-}" =~ ^[0-9]+$ ]]; then
-    MODE="build";       PROMPT_FILE="$LOOP_DIR/PROMPT_build.md";       MAX_ITERATIONS="$1"
-else
-    MODE="build";       PROMPT_FILE="$LOOP_DIR/PROMPT_build.md";       MAX_ITERATIONS=0
-fi
+usage() {
+    cat <<'EOF'
+Spec-driven build loop.
 
-# Reject a non-numeric iteration count. The plan/update/consolidate second
-# argument flows straight into the integer comparisons below, where a typo'd
-# value would otherwise error to stderr and be silently treated as 0 — i.e.
-# run unbounded instead of failing.
+Usage:
+  ./loop.sh [N]               build; N iterations (omit or 0 = unlimited)
+  ./loop.sh build [N]         same as above, explicit
+  ./loop.sh plan [N]          gap-analysis only, updates the plan (default 1; 0 = unlimited)
+  ./loop.sh update [N]        back-fill specs from contributed code (default 1; 0 = unlimited)
+  ./loop.sh consolidate [N]   shrink the plan (default 1; 0 = unlimited)
+  ./loop.sh -h | --help       show this help
+
+Stop gracefully: Ctrl+C, or `touch STOP` (exits after the current iteration).
+EOF
+}
+
+# The iteration count is the SECOND arg for the named modes, and the FIRST
+# (bare number) for build. `build [N]` is also accepted so the count position
+# is consistent across every mode. An unknown first argument is an error —
+# it must never fall through to an unbounded build run.
+case "${1:-}" in
+    -h|--help|help)
+        usage; exit 0 ;;
+    plan)        MODE="plan";        PROMPT_FILE="$LOOP_DIR/PROMPT_plan.md";        MAX_ITERATIONS="${2:-1}" ;;
+    update)      MODE="update";      PROMPT_FILE="$LOOP_DIR/PROMPT_update.md";      MAX_ITERATIONS="${2:-1}" ;;
+    consolidate) MODE="consolidate"; PROMPT_FILE="$LOOP_DIR/PROMPT_consolidate.md"; MAX_ITERATIONS="${2:-1}" ;;
+    build)       MODE="build";       PROMPT_FILE="$LOOP_DIR/PROMPT_build.md";       MAX_ITERATIONS="${2:-0}" ;;
+    "")          MODE="build";       PROMPT_FILE="$LOOP_DIR/PROMPT_build.md";       MAX_ITERATIONS=0 ;;
+    *)
+        if [[ "$1" =~ ^[0-9]+$ ]]; then
+            MODE="build"; PROMPT_FILE="$LOOP_DIR/PROMPT_build.md"; MAX_ITERATIONS="$1"
+        else
+            echo "Error: unknown argument '$1'." >&2
+            echo >&2
+            usage >&2
+            exit 1
+        fi ;;
+esac
+
+# Reject a non-numeric iteration count (e.g. `plan abc`, `build 2x`). Without
+# this the value would flow into the integer comparisons below, error to
+# stderr, and be silently treated as 0 — i.e. run unbounded instead of failing.
 if ! [[ "$MAX_ITERATIONS" =~ ^[0-9]+$ ]]; then
     echo "Error: iteration count must be a non-negative integer, got '${MAX_ITERATIONS}'." >&2
     exit 1
@@ -127,7 +155,7 @@ echo "Prompt: $PROMPT_FILE"
 echo "Base:   $BASE  (work items fork from here)"
 echo "Agent:  $AGENT"
 echo "Model:  $MODEL"
-[ "$MAX_ITERATIONS" -gt 0 ] && echo "Max:    $MAX_ITERATIONS iterations"
+if [ "$MAX_ITERATIONS" -gt 0 ]; then echo "Max:    $MAX_ITERATIONS iterations"; else echo "Max:    unlimited"; fi
 echo "Stop:   Ctrl+C  or  touch STOP"
 echo "Note:   this loop never pushes and never opens a PR."
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
