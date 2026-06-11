@@ -29,6 +29,7 @@ from spec_validator import (
     ALLOWED_MODE,
     ALLOWED_STATUS,
     REQUIRED_SECTIONS,
+    SPDX_MARKER,
     extract_section_headings,
     get_section_body,
     has_acceptance_items,
@@ -37,6 +38,7 @@ from spec_validator import (
     run_validation,
     validate_body,
     validate_frontmatter,
+    validate_spdx_header,
     validation_has_code_block,
 )
 
@@ -88,8 +90,12 @@ _VALID_SPEC = textwrap.dedent("""\
     """)
 
 
-def _make_spec(*, status: str = "stable", **overrides: str) -> str:
-    """Build a minimal valid spec, replacing frontmatter values as needed."""
+def _make_spec(*, status: str = "stable", spdx: bool = True, **overrides: str) -> str:
+    """Build a minimal valid spec, replacing frontmatter values as needed.
+
+    Pass ``spdx=False`` to produce a spec intentionally missing the SPDX
+    header (used by SPDX-check tests).
+    """
     defaults = {
         "title": "Test spec",
         "kind": "feature",
@@ -115,7 +121,8 @@ def _make_spec(*, status: str = "stable", **overrides: str) -> str:
         "## Validation\n\n```bash\npytest\n```",
     )
     fm = "\n".join(fm_lines)
-    return f"---\n{fm}\n---\n\n# Test spec\n\n{body_sections}\n"
+    header = f"<!-- {SPDX_MARKER}\n     https://www.apache.org/licenses/LICENSE-2.0 -->\n\n" if spdx else ""
+    return f"{header}---\n{fm}\n---\n\n# Test spec\n\n{body_sections}\n"
 
 
 # ---------------------------------------------------------------------------
@@ -217,6 +224,55 @@ class TestValidationHasCodeBlock:
     def test_no_validation_section(self) -> None:
         text = "---\ntitle: t\n---\n## Other\n\ncontent\n"
         assert validation_has_code_block(text) is False
+
+
+# ---------------------------------------------------------------------------
+# validate_spdx_header
+# ---------------------------------------------------------------------------
+
+
+class TestValidateSpdxHeader:
+    def test_spec_with_spdx_passes(self, tmp_path: Path) -> None:
+        text = _make_spec()  # spdx=True by default
+        p = tmp_path / "spec.md"
+        p.write_text(text)
+        assert validate_spdx_header(p, text) == []
+
+    def test_spec_missing_spdx_flagged(self, tmp_path: Path) -> None:
+        text = _make_spec(spdx=False)
+        p = tmp_path / "spec.md"
+        p.write_text(text)
+        violations = validate_spdx_header(p, text)
+        assert len(violations) == 1
+        assert SPDX_MARKER in violations[0].message
+
+    def test_readme_without_frontmatter_skipped(self, tmp_path: Path) -> None:
+        text = "# README\n\nNo frontmatter, no SPDX required.\n"
+        p = tmp_path / "README.md"
+        p.write_text(text)
+        assert validate_spdx_header(p, text) == []
+
+    def test_valid_spec_fixture_has_spdx(self, tmp_path: Path) -> None:
+        p = tmp_path / "spec.md"
+        p.write_text(_VALID_SPEC)
+        assert validate_spdx_header(p, _VALID_SPEC) == []
+
+    def test_spdx_violation_line_number_is_1(self, tmp_path: Path) -> None:
+        text = _make_spec(spdx=False)
+        p = tmp_path / "spec.md"
+        p.write_text(text)
+        violations = validate_spdx_header(p, text)
+        assert violations[0].line == 1
+
+    def test_run_validation_catches_missing_spdx(self, tmp_path: Path) -> None:
+        (tmp_path / "spec.md").write_text(_make_spec(spdx=False))
+        violations = run_validation(tmp_path)
+        assert any(SPDX_MARKER in v.message for v in violations)
+
+    def test_run_validation_accepts_spec_with_spdx(self, tmp_path: Path) -> None:
+        (tmp_path / "spec.md").write_text(_make_spec())
+        violations = [v for v in run_validation(tmp_path) if SPDX_MARKER in v.message]
+        assert violations == []
 
 
 # ---------------------------------------------------------------------------

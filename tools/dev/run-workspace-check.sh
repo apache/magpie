@@ -66,6 +66,22 @@ CHECK_KEY="$1"
 CHECK_CMD="$2"
 shift 2
 
+# On Apple Silicon Macs, git ships as x86_64 (Rosetta). Pre-commit hooks
+# invoked by git therefore run in an x86_64 context where universal Python
+# binaries also run as x86_64, which cannot load arm64-compiled extensions
+# (e.g. mypy .so files, cffi, cryptography). Probe for this condition at
+# runtime: if the workspace venv Python runs as x86_64 but arch -arm64 can
+# switch it to arm64, prefer the native arm64 path for Python-based checks.
+_NATIVE_PYTHON=""
+_VENV_PYTHON="$(pwd)/.venv/bin/python3"
+if [[ -x "$_VENV_PYTHON" ]]; then
+  _CURR_ARCH=$("$_VENV_PYTHON" -c "import platform; print(platform.machine())" 2>/dev/null || echo "")
+  _ARM64_ARCH=$(arch -arm64 "$_VENV_PYTHON" -c "import platform; print(platform.machine())" 2>/dev/null || echo "")
+  if [[ "$_CURR_ARCH" == "x86_64" ]] && [[ "$_ARM64_ARCH" == "arm64" ]]; then
+    _NATIVE_PYTHON="arch -arm64 $_VENV_PYTHON"
+  fi
+fi
+
 # Discover workspace members + per-check applicability. The Python
 # helper walks the root `[tool.uv.workspace] members` list, opens
 # each member's pyproject.toml, and emits one line per applicable
@@ -148,8 +164,15 @@ for member in $applicable; do
   # `uv run --directory` so each member runs with its own `cwd` —
   # ruff / mypy / pytest configs resolve paths relative to the
   # member root.
+  # On Apple Silicon + Rosetta, use native arm64 Python for Python-based
+  # checks to avoid loading arm64 extensions from an x86_64 Python process.
+  # Ruff is a Rust binary that already runs natively so no prefix is needed.
   # shellcheck disable=SC2086 # CHECK_CMD may legitimately be multi-token
-  if ! uv run --directory "$member" $CHECK_CMD "$@"; then
+  if [[ -n "$_NATIVE_PYTHON" ]] && [[ "$CHECK_KEY" != "ruff" ]] && [[ "$CHECK_KEY" != "ruff-format" ]]; then
+    if ! (cd "$member" && $_NATIVE_PYTHON -m $CHECK_CMD "$@"); then
+      failed+=("$name")
+    fi
+  elif ! uv run --directory "$member" $CHECK_CMD "$@"; then
     failed+=("$name")
   fi
 done

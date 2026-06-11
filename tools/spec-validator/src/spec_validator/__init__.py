@@ -27,6 +27,9 @@ Checks every .md file that carries a YAML frontmatter block:
 6. Required body sections — What it does, Where it lives,
    Behaviour & contract, Out of scope, Acceptance criteria, Validation.
 7. Validation section contains at least one fenced code block.
+8. SPDX license header — every spec file must carry the Apache-2.0 SPDX
+   identifier (``<!-- SPDX-License-Identifier: Apache-2.0``) before the
+   opening ``---`` frontmatter delimiter.
 
 Files without frontmatter (README.md, overview.md) are skipped silently.
 
@@ -62,6 +65,9 @@ REQUIRED_SECTIONS: tuple[str, ...] = (
     "Acceptance criteria",
     "Validation",
 )
+
+# Every spec .md file must carry this SPDX identifier before the frontmatter.
+SPDX_MARKER = "SPDX-License-Identifier: Apache-2.0"
 
 DEFAULT_SPEC_DIR = Path("tools/spec-loop/specs")
 
@@ -285,6 +291,35 @@ def validate_body(path: Path, text: str) -> list[Violation]:
 
 
 # ---------------------------------------------------------------------------
+# SPDX header validation
+# ---------------------------------------------------------------------------
+
+
+def validate_spdx_header(path: Path, text: str) -> list[Violation]:
+    """Check that a spec file carries the Apache-2.0 SPDX license header.
+
+    Every ``.md`` file that has a YAML frontmatter block (i.e. is a spec,
+    not a README or overview) must contain ``SPDX-License-Identifier:
+    Apache-2.0`` somewhere before the opening ``---`` delimiter.  Files
+    without frontmatter are skipped silently — they are not spec files.
+    """
+    if parse_frontmatter(text) is None:
+        return []  # Not a spec file; no SPDX required.
+
+    if SPDX_MARKER not in text:
+        return [
+            Violation(
+                path,
+                1,
+                f"missing SPDX license header — spec files must contain "
+                f"'<!-- {SPDX_MARKER}' before the frontmatter delimiter; "
+                f"see AGENTS.md § Commit and PR conventions",
+            )
+        ]
+    return []
+
+
+# ---------------------------------------------------------------------------
 # Orchestrator
 # ---------------------------------------------------------------------------
 
@@ -294,7 +329,7 @@ def validate_file(path: Path) -> list[Violation]:
         text = path.read_text(encoding="utf-8")
     except OSError as exc:
         return [Violation(path, None, f"cannot read file: {exc}")]
-    return validate_frontmatter(path, text) + validate_body(path, text)
+    return validate_spdx_header(path, text) + validate_frontmatter(path, text) + validate_body(path, text)
 
 
 def collect_spec_files(target: Path) -> list[Path]:
