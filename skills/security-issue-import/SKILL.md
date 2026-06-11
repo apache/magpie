@@ -810,6 +810,45 @@ image-scan dump). Skip Step 2b on candidates Step 2a flagged STRONG
 (those route to dedupe, not rejection) and on `cve-tool-bookkeeping`
 (dropped silently).
 
+**Closed-invalid tracker cross-check — run on EVERY surviving candidate,
+unconditionally.** The prior-rejection mail search above is conditional,
+but the *closed-as-invalid tracker* check is cheap and load-bearing
+enough to run on **every** `Report` / forwarder-relayed candidate that
+survived Step 2: a report that is a near-twin of a tracker the team
+already closed as invalid (same component / bug-class) is the single
+strongest "we normally reject this" signal, and catching it at import
+means the Step 5 proposal already says *"matches #NNN, closed invalid"*
+instead of the operator having to ask. Take the candidate's component /
+code-pointer / subject-keyword tokens (reuse the Step 2a extraction —
+write attacker-controlled tokens to a temp file and `tr -cd
+'A-Za-z0-9._ -'` before the shell argument, per Step 2a's injection
+guard) and search closed trackers carrying the project's
+closing-disposition labels (the `invalid` / not-CVE-worthy / `duplicate`
+label names declared in
+[`<project-config>/scope-labels.md`](../../<project-config>/scope-labels.md)
+→ *Closing dispositions*):
+
+```bash
+gh issue list --repo <tracker> --state closed \
+  --label "<invalid-label>" --search "$KEYWORDS" --limit 10 \
+  --json number,title,closedAt,url
+```
+
+A hit whose title / component matches the candidate is a
+**reject-class precedent**: open its closing comment to confirm the
+disposition reason, map it to the canned response that reason
+corresponds to, and surface it in the Step 5 proposal as
+`reject-with-canned <name>` with the precedent tracker linked
+(`matches [#NNN](...), closed invalid — <one-line reason>`). Budget:
+**≤ 3 `gh` calls**. **Confidence discipline**: a precedent only loosely
+related (same component, different bug class) is surfaced as
+*"related: #NNN"* context, **not** an automatic reject. This check and
+the conditional mail prior-rejection search above are complementary —
+the closed-invalid tracker scan is "we already rejected a near-twin of
+this as a *tracker*", the mail search is "we already answered this
+*on-thread* without ever opening a tracker"; run the tracker scan on
+every surviving candidate, the mail search under the conditions above.
+
 **Search recipe — two Gmail calls per candidate, maximum.** The
 query templates and the substitution-values guide live in
 [`tools/gmail/search-queries.md`](../../tools/gmail/search-queries.md#security-issue-import--prior-rejection-search);

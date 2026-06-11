@@ -62,14 +62,18 @@ The shared fixtures use a four-tracker corpus and a one-entry reporter roster.
 ## Step 2b — Prior rejection (`step-2b-prior-rejection`)
 
 Searches the closed-tracker history for a prior canned-response reply that
-matches the current report's shape. The result tells the propose step whether
-to use a canned response verbatim, augment it, or draft from scratch.
+matches the current report's shape, AND runs the **unconditional
+closed-invalid tracker cross-check** (every surviving candidate, regardless of
+whether it looks like a likely-reject). The result tells the propose step
+whether to use a canned response verbatim, augment it, or draft from scratch,
+and whether a closed-as-invalid tracker is a reject-class precedent.
 
 | Case | Scenario | Expected outcome |
 |------|----------|-----------------|
 | `case-1-prior-same-shape` | Authenticated DoS via large DAG conf — identical shape to a prior NOT-CVE-WORTHY close that used the "DoS by authenticated users" canned response. | `use_verbatim`, correct `canned_response_name` |
 | `case-2-prior-pushback-resolved` | Same /health endpoint info-disclosure as a prior rejection, but the reporter has now raised the version-fingerprinting angle which was not previously addressed. | `use_with_augmentation`, `followup_summary` captures the new angle |
 | `case-3-no-precedent` | SMTP header injection via email operator — no prior rejection found on this shape. | `prior_rejection_found=false`, proceed to new ground |
+| `case-4-closed-invalid-tracker` | Local file read via Connection extra on the worker — no mailing-list precedent, but closed-invalid tracker #188 matches on component AND bug-class (a second closed tracker shares only a loose keyword). | `prior_rejection_found=false`, `closed_invalid_tracker_match=true`, `closed_invalid_tracker_ref="#188"`; loose-keyword tracker correctly excluded |
 
 ---
 

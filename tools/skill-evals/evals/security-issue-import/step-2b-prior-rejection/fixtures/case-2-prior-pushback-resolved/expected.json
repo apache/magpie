@@ -3,5 +3,7 @@
   "prior_thread_url": "https://lists.apache.org/thread/AAMkADEF456",
   "canned_response_name": "When someone reports a DoS that requires authenticated access",
   "reporter_followup_summary": "pushed back on viewer-vs-trigger permission distinction; team clarified that trigger permission is required and is an authoritative role",
+  "closed_invalid_tracker_match": false,
+  "closed_invalid_tracker_ref": null,
   "recommendation": "use_with_augmentation"
 }

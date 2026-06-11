@@ -1,0 +1,9 @@
+{
+  "prior_rejection_found": false,
+  "prior_thread_url": null,
+  "canned_response_name": "When someone reports that a trusted component can read its own secrets",
+  "reporter_followup_summary": "no prior mailing-list rejection, but closed-invalid tracker #188 matches on component AND bug-class; #142 shares only a loose keyword and is not a match",
+  "closed_invalid_tracker_match": true,
+  "closed_invalid_tracker_ref": "#188",
+  "recommendation": "use_verbatim"
+}

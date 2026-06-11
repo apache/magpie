@@ -3,5 +3,7 @@
   "prior_thread_url": "https://lists.apache.org/thread/AAMkABC123",
   "canned_response_name": "When someone claims Dag author-provided 'user input' is dangerous",
   "reporter_followup_summary": "no reply after our response",
+  "closed_invalid_tracker_match": false,
+  "closed_invalid_tracker_ref": null,
   "recommendation": "use_verbatim"
 }

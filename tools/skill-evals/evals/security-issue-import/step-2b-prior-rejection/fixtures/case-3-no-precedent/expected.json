@@ -3,5 +3,7 @@
   "prior_thread_url": null,
   "canned_response_name": null,
   "reporter_followup_summary": null,
+  "closed_invalid_tracker_match": false,
+  "closed_invalid_tracker_ref": null,
   "recommendation": "new_ground"
 }
