@@ -45,8 +45,11 @@ trustworthy as it grows.
 - `tools/spec-validator/` — validates spec-loop spec frontmatter
   (required keys, valid `status`/`kind`/`mode` values, body-section
   presence); the spec-side counterpart to `skill-and-tool-validator`.
-- Skills: `write-skill` (author/update a skill), `list-skills`
-  (live, generated index of every skill, grouped by family).
+- Skills: `write-skill` (author/update a skill), `optimize-skill`
+  (restructure an existing skill or sweep a set: split oversized
+  `SKILL.md`, lift project-specific values into placeholders, harden
+  prompt-injection defences), `list-skills` (live, generated index of
+  every skill, grouped by family).
 
 ## Behaviour & contract
 
