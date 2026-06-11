@@ -63,13 +63,24 @@ to those categories).
 The framework uses a literal string to detect already-triaged
 PRs (searches the PR body and comments for it). **Do not
 paraphrase**: the same exact string must appear verbatim in
-every triage comment the skill posts, and the
+every triage feedback body the skill writes, and the
 `pr-management-stats` skill uses the same marker for
 "is this PR triaged" detection.
+
+Under the default
+[`triage_feedback_channel: pr-body`](pr-management-config.md),
+the violations feedback for `draft` / `comment` / `close` is
+**folded into the PR description** (a `pr-triage-fold` managed
+block) rather than posted as a comment — so the marker appears in
+the PR body. The block still carries the
+`Pull Request quality criteria` link text, so the same marker
+detection works in both channels. See
+[`comment-templates.md#body-fold-rendering`](../../skills/pr-management-triage/comment-templates.md#body-fold-rendering).
 
 | Concept | Value |
 |---|---|
 | Triage-marker visible link text | `Pull Request quality criteria` |
+| Body-fold block marker tokens (framework-fixed) | `pr-triage-fold` / `/pr-triage-fold` |
 
 ## AI-attribution footer
 
@@ -88,6 +99,13 @@ _Note: This comment was drafted by an AI-assisted triage tool and may contain mi
 expanded from the [Project-specific URLs](#project-specific-urls)
 table (`<project_display_name>` and
 `<two_stage_triage_rationale_url>` respectively).
+
+When a body is folded into the PR description instead of posted
+as a comment (the default `pr-body` channel), the framework uses
+the parallel `<ai_attribution_footer_body>` variant — same
+`<PROJECT>` / `<two_stage_triage_rationale_url>` substitutions,
+worded for a description edit. See
+[`comment-templates.md#body-fold-rendering`](../../skills/pr-management-triage/comment-templates.md#body-fold-rendering).
 
 ## Template body overrides
 

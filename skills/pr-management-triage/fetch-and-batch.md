@@ -40,6 +40,7 @@ query(
         updatedAt
         id                     # node_id — needed for mutations
         isDraft
+        body                   # raw markdown — carries the pr-triage-fold block (see below)
         mergeable              # MERGEABLE / CONFLICTING / UNKNOWN
         baseRefName
         author { login }
@@ -145,9 +146,18 @@ pick action). Nothing here is speculative:
   thread count + ping targets
 - `latestReviews` → stale `CHANGES_REQUESTED` detection and
   `has_collaborator_review` flag (extended grace period)
+- `body` → the `pr-triage-fold` managed block (the body-fold
+  feedback channel, default `triage_feedback_channel: pr-body`).
+  Read for "already triaged" detection when the feedback lives in
+  the PR description rather than a comment — the
+  [`viewer_triage_fold_present`](classify-and-act.md#viewer_triage_fold_present)
+  glossary entry parses its `triaged=` / `head=` metadata. Use the
+  **raw `body`** (not `bodyText`): `bodyText` strips HTML comments,
+  which would erase the markers.
 - `comments(last: 10)` → "already triaged" detection (viewer's
-  prior triage comment), "author responded after triage"
-  detection, and the active-maintainer-conversation pre-filter
+  prior triage comment, the `comment` channel / legacy), "author
+  responded after triage" detection, and the
+  active-maintainer-conversation pre-filter
   (recent collaborator comment + maintainer-to-maintainer
   `@`-ping detection — see
   [`classify-and-act.md#pre-filters`](classify-and-act.md), F5a/F5b)

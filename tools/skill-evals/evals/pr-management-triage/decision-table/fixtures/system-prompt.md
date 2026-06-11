@@ -34,11 +34,28 @@ and reason.
 - **`follow_up_ping`** — at least one comment from `OWNER`/`MEMBER`/`COLLABORATOR`
   was posted after the CHANGES_REQUESTED review and after the author's subsequent
   commits.
+- **triage marker** — evidence the PR was already triaged by a maintainer, in
+  either feedback channel: (a) a comment by `OWNER`/`MEMBER`/`COLLABORATOR`
+  containing the literal text "Pull Request quality criteria" (the comment
+  channel), or (b) `viewer_triage_fold_present` (the default body-fold channel).
+  Its timestamp (`triage_marker_at`) is the comment's `createdAt`, or the fold
+  block's `triaged=` value.
+- **`viewer_triage_fold_present`** — the PR body contains a `pr-triage-fold`
+  managed block (the body-fold feedback channel, default
+  `triage_feedback_channel: pr-body`). The block's opening marker carries
+  `triaged=<ISO>` (the triage timestamp) and `head=<sha7>`. The block counts as
+  an after-last-commit triage marker **only when `head=` equals the PR's current
+  `HeadSHA`** (the author has not pushed since the fold). If `head=` no longer
+  matches the current head, treat `viewer_triage_fold_present` as **false** — the
+  author pushed after the fold, so the fold is stale and the PR is re-classified
+  on its current state.
 
 ## Decision table (first-match wins)
 
 | # | Precondition | Classification | Action |
 |---|---|---|---|
+| 3 | triage marker present AND after last commit AND `(now - triage_marker_at) < 7 days` AND no author activity since the marker (sub-state `waiting`) | `already_triaged` | `skip` |
+| 4 | triage marker present AND after last commit AND `(now - triage_marker_at) < 7 days` AND author has commented/pushed since the marker but `head=` still matches (sub-state `responded`) | `already_triaged` | `skip` |
 | 7b | `security_language_signal` | `security_language_signal` | `comment` |
 | 9 | `mergeable == CONFLICTING` | `deterministic_flag` | `draft` |
 | 10 | `ci_failures_only` AND every failure ∈ `recent_main_failures` | `deterministic_flag` | `rerun` |

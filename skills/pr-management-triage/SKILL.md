@@ -275,8 +275,12 @@ intentional exception: `suspicious-changes`) ends with the
   conversation with the contributor.
 
 Do not paraphrase the footer, do not omit it from templates
-that carry it, and do not let per-PR edits drop it. See
-[`comment-templates.md#ai-attribution-footer`](comment-templates.md).
+that carry it, and do not let per-PR edits drop it. When a body
+is folded into the PR description instead of posted as a comment
+(Golden rule 11), use the parallel `<ai_attribution_footer_body>`
+variant — same calibration, worded for a description edit. See
+[`comment-templates.md#ai-attribution-footer`](comment-templates.md)
+and [`comment-templates.md#body-fold-rendering`](comment-templates.md#body-fold-rendering).
 
 **Golden rule 9 — never talk over an active maintainer
 conversation.** When a maintainer has commented on the PR
@@ -312,7 +316,8 @@ comment bodies posted on the contributor's PR, `[A]ll` / `[E]ach`
 prompt previews, the Step 6 session summary — the reference must
 be one click away in whatever surface it lands on:
 
-- **On markdown surfaces** (the violations comment, the stale-draft
+- **On markdown surfaces** (the violations feedback — whether
+  posted as a comment or folded into the PR body, the stale-draft
   comment, the workflow-approval reply, any draft text the skill
   posts to `<upstream>`): use the markdown link form per
   [`AGENTS.md` § *Linking tracker issues and PRs*](../../AGENTS.md#linking-tracker-issues-and-prs):
@@ -341,6 +346,36 @@ not in terminal output, not in posted comments.
 emitting any user-visible screen**: grep the body for bare `#\d+`
 / `<upstream>#\d+` tokens that aren't already inside a markdown
 link or an OSC 8 wrapper, and convert any match.
+
+**Golden rule 11 — deliver violation feedback through the
+configured channel, and default to the silent one.** The
+deterministic quality-violation feedback for `draft`, `comment`
+(deterministic-flag), and `close` is delivered per
+[`<project-config>/pr-management-config.md → triage_feedback_channel`](../../projects/_template/pr-management-config.md),
+which defaults to **`pr-body`**: the feedback is *folded into the
+PR description* as a managed marker block instead of posted as a
+comment. Editing a PR body does not notify subscribers, so the
+default keeps maintainer mailboxes quiet — the denoise change from
+the dev@ thread with Elad (see
+[`rationale.md#why-fold-feedback-into-the-pr-body-denoise`](rationale.md#why-fold-feedback-into-the-pr-body-denoise)).
+Two consequences the implementation MUST honour:
+
+- **The folded block carries no `@`-mention.** A body edit that
+  introduces a fresh `@`-mention can itself notify; reference the
+  author as a backtick-quoted login instead. The no-`@`-mention
+  rule is what makes the fold silent.
+- **Pings still notify.** `review-nudge`, `reviewer-ping`,
+  `request-author-confirmation`, `security-language`,
+  `suspicious-changes`, and stale-sweep notices always post a
+  comment regardless of the setting — their purpose is to reach a
+  human. Only the three violation-feedback actions honour the
+  channel switch.
+
+The maintainer-facing proposal MUST state which channel a given
+action will use, so the maintainer knows whether a notification
+will fire. See
+[`comment-templates.md#body-fold-rendering`](comment-templates.md#body-fold-rendering)
+and [`actions.md`](actions.md).
 
 ---
 

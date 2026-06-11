@@ -72,12 +72,12 @@ Action verbs are defined in [`actions.md`](actions.md).
 
 | #  | Precondition (all must hold)                                                                  | Classification             | Action                  | Reason template |
 |----|-----------------------------------------------------------------------------------------------|---------------------------|------------------------|-----------------|
-| 0  | [`first_time_stale_abandoned`](#first_time_stale_abandoned) — first-time contributor PR with a prior viewer triage marker and no commits since the marker, ≥ 30 days old | `first_time_stale_abandoned` | `skip` | First-time contributor's PR was triaged ≥ 30d ago, no push since — let the stale-sweep retire it rather than re-approving CI |
+| 0  | [`first_time_stale_abandoned`](#first_time_stale_abandoned) — first-time contributor PR with a prior viewer triage marker (comment marker **or** [`viewer_triage_fold_present`](#viewer_triage_fold_present)) and no commits since the marker, ≥ 30 days old | `first_time_stale_abandoned` | `skip` | First-time contributor's PR was triaged ≥ 30d ago, no push since — let the stale-sweep retire it rather than re-approving CI |
 | 1  | `head_sha` appears in the per-page `action_required` REST index, OR ([`first_time_no_real_ci`](#first_time_no_real_ci))     | `pending_workflow_approval` | `approve-workflow`     | First-time contributor — review the diff and approve CI, or flag suspicious |
 | 2  | [`copilot_review_stale`](#copilot_review_stale)                                               | `stale_copilot_review`     | `draft` (include the specific Copilot thread URL in the violation body) | Unaddressed Copilot review ≥ 7 days old — convert to draft |
-| 3  | Viewer comment containing the triage marker exists, posted after last commit, age < 7 days, sub-state `waiting` | `already_triaged`         | `skip`                 | Already triaged M days ago — still waiting on author |
-| 4  | Same as #3 but sub-state `responded`                                                           | `already_triaged`          | `skip`                 | Already triaged M days ago — author responded, maintainer to re-engage |
-| 5  | Viewer triage marker exists, posted after last commit, sub-state `waiting`, age ≥ 7 days, `isDraft == true` | `stale_draft`     | (defer to [`stale-sweeps.md`](stale-sweeps.md) Sweep 1a) | Draft triaged N days ago, no author reply |
+| 3  | Viewer triage marker present, after last commit, age < 7 days, sub-state `waiting`. **Marker = viewer comment with the `Pull Request quality criteria` link (comment channel) OR [`viewer_triage_fold_present`](#viewer_triage_fold_present) with matching `head` (pr-body channel).** | `already_triaged`         | `skip`                 | Already triaged M days ago — still waiting on author |
+| 4  | Same as #3 (either channel) but sub-state `responded`                                          | `already_triaged`          | `skip`                 | Already triaged M days ago — author responded, maintainer to re-engage |
+| 5  | Viewer triage marker present (either channel — see row 3), after last commit, sub-state `waiting`, age ≥ 7 days, `isDraft == true` | `stale_draft`     | (defer to [`stale-sweeps.md`](stale-sweeps.md) Sweep 1a) | Draft triaged N days ago, no author reply |
 | 6  | `viewer == pr.author.login`                                                                   | n/a                        | `skip`                 | You are the PR author — triage skipped |
 | 7a | `now - createdAt < 30min`                                                                      | n/a                        | `skip`                 | Too fresh — CI still warming up |
 | 7b | [`security_language_signal`](#security_language_signal)                                        | `security_language_signal` | `comment`              | Security-language in title / body / commits — ask contributor to neutralise or confirm CVE disclosure complete |
@@ -182,9 +182,9 @@ Action verbs are defined in [`actions.md`](actions.md).
   `feedback-ready-for-maintainer-review-label`.
 
   Implementation: see
-  [`actions.md#draft`](actions.md#draft--convert-to-draft-and-post-violations-comment),
-  [`actions.md#comment`](actions.md#comment--post-violations--stale-review--ping-comment),
-  and [`actions.md#close`](actions.md#close--close-with-comment-and-quality-violations-label).
+  [`actions.md#draft`](actions.md#draft--convert-to-draft-and-fold-violations-into-the-pr-body),
+  [`actions.md#comment`](actions.md#comment--deliver-violations--stale-review--ping-feedback),
+  and [`actions.md#close`](actions.md#close--close-with-fold-and-quality-violations-label).
 
 ---
 
@@ -323,6 +323,55 @@ All of:
 Heuristic, conservative on purpose. Rationale:
 [`rationale.md#unresolved_threads_only_likely_addressed-heuristic-detail`](rationale.md#unresolved_threads_only_likely_addressed-heuristic-detail).
 
+### `viewer_triage_fold_present`
+
+True when the PR **body** contains a `pr-triage-fold` managed
+block — the body-fold feedback channel (default
+`triage_feedback_channel: pr-body`; see
+[`comment-templates.md#body-fold-rendering`](comment-templates.md#body-fold-rendering)).
+The block is delimited by `<!-- pr-triage-fold: … -->` … `<!-- /pr-triage-fold -->`;
+parse the opening marker's space-separated metadata:
+
+- `triaged=<ISO-8601 UTC>` — the fold timestamp. **This is the
+  fold channel's equivalent of a triage comment's `createdAt`** —
+  every age / "age < 7 days" / "age ≥ 7 days" test in rows 3–5,
+  0, and the stale-sweeps reads it.
+- `head=<sha7>` — the PR head SHA at fold time. **`head` equal to
+  the current `commits(last:1).oid` (first 7 chars) is the fold
+  channel's equivalent of "posted after last commit"** — equal ⇒
+  the author has not pushed since the fold, so the fold is current
+  and the PR is genuinely already-triaged; not equal ⇒ the author
+  pushed after the fold, the fold is stale, and the PR must be
+  re-classified against the new state (treat
+  `viewer_triage_fold_present` as **false** for the already-triaged
+  rows in that case).
+- `action=<draft|comment|close>` — informational.
+
+**The "viewer triage marker exists, posted after last commit"
+precondition in rows 0, 3, 4, and 5 is satisfied by EITHER** a
+viewer comment containing the `Pull Request quality criteria`
+marker with `createdAt` after the head `committedDate` (the
+`comment` channel / legacy PRs) **OR** `viewer_triage_fold_present`
+with `head=` matching the current head (the `pr-body` channel).
+The downstream age and sub-state logic is identical once the
+"triaged-at" anchor is resolved (the comment's `createdAt`, or the
+fold's `triaged=`).
+
+Sub-state, fold channel: `responded` when the PR author has a
+comment (issue-level in `comments(last:10)` or a review-thread
+reply) or a commit with timestamp **after** `triaged=`; otherwise
+`waiting`. Same rule as the comment channel, just anchored on
+`triaged=` instead of the comment `createdAt`.
+
+The marker tokens `pr-triage-fold` / `/pr-triage-fold` and the
+field names `triaged` / `head` / `action` are framework-fixed and
+must match byte-for-byte what
+[`actions.md`](actions.md) and
+[`comment-templates.md#body-fold-rendering`](comment-templates.md#body-fold-rendering)
+write — a mismatch silently breaks already-triaged detection and
+the PR gets re-flagged every sweep (the exact noise this channel
+exists to remove).
+
 ### `viewer_confirmation_request_present`
 
 True when the viewer (the authenticated maintainer running the
@@ -437,12 +486,16 @@ All of:
 
 - `authorAssociation == FIRST_TIME_CONTRIBUTOR` or
   `FIRST_TIMER`.
-- A viewer triage marker exists in `comments(last:10)` (i.e.
-  a comment by the viewer containing the literal string
-  `Pull Request quality criteria`).
+- A viewer triage marker exists, in **either channel**: a comment
+  by the viewer in `comments(last:10)` containing the literal
+  string `Pull Request quality criteria` (comment channel), OR
+  [`viewer_triage_fold_present`](#viewer_triage_fold_present) in
+  the PR body (pr-body channel).
 - The PR's `commits(last:1).committedDate` is **at or before**
-  the triage marker's `createdAt` — author has not pushed
-  since the maintainer's feedback.
+  the marker's anchor timestamp (the comment's `createdAt`, or
+  the fold's `triaged=`) — author has not pushed since the
+  maintainer's feedback. For the fold channel this is equivalent
+  to the fold's `head=` still matching the current head SHA.
 - `<now> - committedDate >= 30 days`.
 
 Order matters: this precondition is evaluated by **row 0**,
@@ -630,7 +683,7 @@ applies — rows do not get to reach back for more data.
 | `copilot_review_stale` (row 2) | `reviewThreads.nodes.{isResolved,comments.nodes.{author.login,createdAt,url}}`, `comments(last:10).nodes.{author.login,createdAt}` |
 | `has_deterministic_signal`, `ci_failures_only`, `unresolved_threads_only`, `unresolved_threads_only_likely_addressed` (rows 8–17) | `mergeable`, `statusCheckRollup.{state,contexts}`, `reviewThreads.nodes.{isResolved,comments(first:5).nodes.{author.login,authorAssociation,createdAt}}`, `updatedAt`, `comments(last:10).nodes.{author.login,authorAssociation,createdAt}`, `commits(last:1).nodes.commit.committedDate`, `author.login` |
 | Row 18 (`stale_review`) | `latestReviews.nodes.{state,author.login,submittedAt}`, `commits(last:1).nodes.commit.committedDate`, `comments(last:10)`, `reviewThreads.nodes.comments(first:5).nodes.{author.login,createdAt}` |
-| Rows 3–5 (`already_triaged` / `stale_draft` from triage marker) | `comments(last:10).nodes.{author.login,bodyText,createdAt}`, viewer login, `commits(last:1).nodes.commit.committedDate` |
+| Rows 3–5 (`already_triaged` / `stale_draft` from triage marker) | `comments(last:10).nodes.{author.login,bodyText,createdAt}`, viewer login, `commits(last:1).nodes.commit.{oid,committedDate}`, **`body`** (raw — for [`viewer_triage_fold_present`](#viewer_triage_fold_present), the pr-body channel) |
 | Rows 19, 20 (`passing`) | `statusCheckRollup.state`, `statusCheckRollup.contexts`, `mergeable`, `reviewThreads.totalCount`, `labels` |
 
 ---

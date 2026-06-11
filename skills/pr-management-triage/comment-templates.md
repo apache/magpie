@@ -111,6 +111,12 @@ Rules for the footer:
   `suspicious-changes` template, which is short, operationally
   sensitive, and already directs the contributor to maintainers
   on Slack — adding the footer there would dilute the signal.
+- **When a body is folded into the PR description** instead of
+  posted as a comment (the `draft` / `comment-only` / `close`
+  bodies under `triage_feedback_channel: pr-body`), use the
+  parallel `<ai_attribution_footer_body>` variant defined in
+  [Body-fold rendering](#body-fold-rendering) — same rules,
+  worded for a description edit rather than a comment.
 - **Do not paraphrase it.** Post the block verbatim. If the
   wording needs to change, update this section and propagate —
   do not drift per-template.
@@ -124,6 +130,115 @@ Rules for the footer:
   the body so GitHub renders it as a clear footer.
 - **The footer is italicised in one block** to read as meta-
   commentary rather than part of the primary message.
+
+---
+
+## Body-fold rendering
+
+When `<project-config>/pr-management-config.md` sets
+`triage_feedback_channel: pr-body` (the default — see
+[`pr-management-config.md`](../../projects/_template/pr-management-config.md)
+"Workflow choices"), the deterministic quality-violation feedback
+for the **`draft`**, **`comment`** (deterministic-flag only), and
+**`close`** actions is **not posted as a PR comment**. Instead the
+exact same body is **folded into the PR description** as a managed,
+marker-delimited block. Editing a PR body does not notify
+subscribers, so this keeps the maintainer mailbox quiet — the
+denoise change motivated by the dev@ thread with Elad (see
+[`rationale.md#why-fold-feedback-into-the-pr-body-denoise`](rationale.md#why-fold-feedback-into-the-pr-body-denoise)).
+
+The other contributor-facing templates (`security-language`,
+`review-nudge`, `reviewer-ping`, `request-author-confirmation`,
+`suspicious-changes`, and the stale-sweep close/convert bodies)
+**always post as comments regardless of this setting** — their
+purpose is to notify a human, which a silent body edit would
+defeat.
+
+### The managed block
+
+The folded content is wrapped in a single HTML-comment-delimited
+span, appended at the **end** of the PR body (the author's own
+description is preserved above it, untouched):
+
+```markdown
+<!-- pr-triage-fold: triaged=2026-06-11T14:22:00Z head=abc1234 action=draft -->
+
+<the rendered template body — same content the comment channel would post,
+ minus the @-mention; see the no-@-mention rule below>
+
+<!-- /pr-triage-fold -->
+```
+
+- **Opening marker metadata** (one HTML comment, space-separated
+  `key=value` fields — all required):
+  - `triaged=<ISO-8601 UTC>` — the moment the block was written.
+    This replaces a comment's `createdAt` for every downstream
+    age / "posted after last commit" check (see
+    [`classify-and-act.md#viewer_triage_fold_present`](classify-and-act.md#viewer_triage_fold_present)).
+  - `head=<sha7>` — the PR head SHA at fold time. Re-triage
+    compares this against the current head: equal ⇒ the author has
+    not pushed since the fold (the fold is current); different ⇒
+    the author pushed (the fold is stale, re-classify against the
+    new state).
+  - `action=<draft|comment|close>` — which action wrote the block,
+    for human readability and stats attribution.
+- **`pr-triage-fold` and `/pr-triage-fold` are the literal,
+  framework-fixed marker tokens.** They must appear byte-for-byte
+  identical everywhere they are written or searched
+  ([`actions.md`](actions.md), this file,
+  [`classify-and-act.md`](classify-and-act.md),
+  [`stale-sweeps.md`](stale-sweeps.md), and the
+  `pr-management-stats` classifier). A single typo breaks both the
+  idempotent replace and the re-triage skip — do not paraphrase.
+- The visible content still contains the literal
+  `Pull Request quality criteria` link text, so the existing
+  already-triaged marker search (which scans the PR body as well
+  as comments) keeps working.
+
+### No `@`-mention in the folded block
+
+The block **must not** contain an `@`-mention of anyone. The
+opening `@<author>` that the comment templates use is dropped in
+fold mode; reference the author as a backtick-quoted login
+(`` `<author>` ``) instead, the same convention the
+[Reviewer-mention policy](#reviewer-mention-policy) uses for
+`<reviewer_logins>`. A body edit that introduces a fresh
+`@`-mention can generate the very notification this change exists
+to avoid, so the no-`@`-mention rule is what makes the fold truly
+silent. The author owns the PR and sees its description — they do
+not need pinging to read it.
+
+### Idempotent replace, never append
+
+The fold is a **read-modify-write**, not an append. Before writing,
+strip any existing span from the opening `<!-- pr-triage-fold: … -->`
+marker through the closing `<!-- /pr-triage-fold -->` marker
+(inclusive, plus surrounding blank lines), then append the freshly
+rendered block. This keeps exactly one fold block in the body no
+matter how many sweeps touch the PR — the violation list is always
+the current one, never a stack of stale ones. The recipe lives in
+[`actions.md#draft`](actions.md#draft--convert-to-draft-and-fold-violations-into-the-pr-body).
+
+### Body-fold attribution footer
+
+Where the comment channel ends a body with the
+[`<ai_attribution_footer>`](#ai-attribution-footer), the fold uses
+the parallel `<ai_attribution_footer_body>` variant — same
+calibration of trust, worded for a description edit rather than a
+comment:
+
+```markdown
+---
+
+_Note: This note was added to the PR description by an AI-assisted triage tool and may contain mistakes. Once you have addressed the points above, mark the PR "Ready for review" and a <PROJECT> maintainer — a real person — will take the next look. We use this [two-stage triage process](<two_stage_triage_rationale_url>) so that our maintainers' limited time is spent where it matters most: the conversation with you._
+```
+
+(`<two_stage_triage_rationale_url>` and `<PROJECT>` resolve from
+`<project-config>/pr-management-triage-comment-templates.md`, same
+as the comment footer.) All other footer rules from the
+[AI-attribution footer](#ai-attribution-footer) section apply
+verbatim — post the block as-is, place it last, italicise it as
+one block.
 
 ---
 
@@ -165,7 +280,7 @@ If you haven't already followed the [ASF security reporting process](https://www
 
 ## Draft comment
 
-*(`draft` — convert-to-draft comment)*
+*(`draft` — convert-to-draft body)*
 
 Used when the action is `draft` (see
 [`actions.md#draft`](actions.md)).
@@ -181,6 +296,15 @@ See the linked criteria for how to fix each item, then mark the PR "Ready for re
 
 <ai_attribution_footer>
 ```
+
+**Channel.** Under the default `triage_feedback_channel: pr-body`
+this body is **folded into the PR description**, not posted as a
+comment — wrap it per [Body-fold rendering](#body-fold-rendering):
+drop the leading `@<author>` and open with `` `<author>` `` instead
+(no `@`-mention), and replace the trailing `<ai_attribution_footer>`
+with `<ai_attribution_footer_body>`. Under
+`triage_feedback_channel: comment` the body above is posted verbatim
+as a comment.
 
 `<rebase_note_if_needed>` is present **only** when
 `commits_behind > 50`:
@@ -216,6 +340,15 @@ is being drafted/closed here, so it doesn't apply). The
 classification marker ("Pull Request quality criteria" link
 text) is still present — re-triage logic recognises both.
 
+**Channel.** This is a deterministic-flag `comment` body, so it
+follows `triage_feedback_channel` exactly like `draft`: under the
+default `pr-body` it is **folded into the PR description** per
+[Body-fold rendering](#body-fold-rendering) (drop the `@`, use
+`` `<author>` ``, swap to `<ai_attribution_footer_body>`); under
+`comment` it is posted verbatim as a comment. (The `comment`
+action's other, non-deterministic-flag uses — e.g.
+`security-language` — always post as comments.)
+
 ---
 
 ## Close
@@ -242,6 +375,17 @@ list before rendering — do not re-render `<violations>` without
 it. If `flagged_count <= 3` (which shouldn't happen on this
 template per [`classify-and-act.md`](classify-and-act.md) row 8),
 render the close comment without this extra line.
+
+**Channel.** `close` follows `triage_feedback_channel`: under the
+default `pr-body` the body is **folded into the PR description**
+per [Body-fold rendering](#body-fold-rendering) (drop the `@`, use
+`` `<author>` ``, swap to `<ai_attribution_footer_body>`) *before*
+the PR is closed — see the action order in
+[`actions.md#close`](actions.md#close--close-with-fold-and-quality-violations-label).
+Under `comment` the body is posted as a comment as before. The
+close event itself notifies subscribers in either channel (that is
+inherent to closing); the fold only removes the *extra* comment
+notification.
 
 ---
 

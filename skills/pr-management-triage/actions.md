@@ -10,9 +10,13 @@ action in this file assumes:
 - the PR's `head_sha` has been re-checked against the value
   captured in Step 1 and matches (optimistic lock — see
   [`interaction-loop.md#optimistic-lock`](interaction-loop.md)),
-- the action's comment (if any) has been previewed to the
-  maintainer from the appropriate template in
-  [`comment-templates.md`](comment-templates.md).
+- the action's feedback body (if any) — whether it will be
+  posted as a comment or folded into the PR description per
+  [`triage_feedback_channel`](../../projects/_template/pr-management-config.md)
+  — has been previewed to the maintainer from the appropriate
+  template in [`comment-templates.md`](comment-templates.md). The
+  preview MUST state which channel will be used so the maintainer
+  knows whether a notification will fire.
 
 All mutations go through **`gh`**, never through raw `curl` /
 `requests`. `gh` carries the maintainer's authenticated token
@@ -20,30 +24,85 @@ and retries transient failures correctly.
 
 ---
 
-## `draft` — convert to draft and post violations comment
+## `draft` — convert to draft and fold violations into the PR body
 
-Two mutations, **sequence matters** — convert first, then post
-the comment. Posting the comment before converting leaves the
-comment on a non-draft PR if the conversion fails.
+Two mutations, **sequence matters** — convert first, then deliver
+the violations feedback. Delivering the feedback before converting
+risks a "converted to draft" note on a still-open PR if the
+conversion fails.
 
 ```bash
 # 1. Convert to draft (`gh pr ready <N> --undo` is the CLI
 #    equivalent of the GraphQL `convertPullRequestToDraft` mutation).
 gh pr ready <N> --repo <repo> --undo
 
-# 2. Post the violations comment
+# 2. Deliver the violations feedback — fold into the PR body (default)
+#    or post a comment, per triage_feedback_channel (see below).
+```
+
+On the `gh pr ready --undo` failing: surface the error, **do
+not** deliver the feedback. A "converted to draft" note on a
+still-open PR is a worse state than no note at all.
+
+### Delivering the feedback — `triage_feedback_channel`
+
+The body is built from the `draft` template in
+[`comment-templates.md#draft-comment`](comment-templates.md#draft-comment).
+**Which channel carries it is read from
+[`<project-config>/pr-management-config.md → triage_feedback_channel`](../../projects/_template/pr-management-config.md)**
+(default `pr-body`).
+
+**`pr-body` (default) — fold into the PR description, no
+notification.** Render the body wrapped per
+[`comment-templates.md#body-fold-rendering`](comment-templates.md#body-fold-rendering)
+(no `@`-mention; `<ai_attribution_footer_body>`; opening marker
+carrying `triaged=<ISO-UTC> head=<sha7> action=draft`) into
+`/tmp/pr-<N>-foldblock.md`, then read-modify-write the body:
+
+```bash
+# Read the current body.
+gh pr view <N> --repo <repo> --json body --jq '.body' > /tmp/pr-<N>-curbody.md
+
+# Strip any existing managed span (idempotent — keeps exactly one block).
+awk 'BEGIN{skip=0}
+     /<!-- pr-triage-fold:/{skip=1}
+     skip==0{print}
+     /<!-- \/pr-triage-fold -->/{skip=0}' \
+    /tmp/pr-<N>-curbody.md > /tmp/pr-<N>-stripped.md
+
+# Append the freshly rendered block (a blank line separates it from
+# the author's body) and write back. A body edit does NOT notify.
+{ cat /tmp/pr-<N>-stripped.md; printf '\n'; cat /tmp/pr-<N>-foldblock.md; } > /tmp/pr-<N>-newbody.md
+gh pr edit <N> --repo <repo> --body-file /tmp/pr-<N>-newbody.md
+rm -f /tmp/pr-<N>-curbody.md /tmp/pr-<N>-stripped.md /tmp/pr-<N>-newbody.md /tmp/pr-<N>-foldblock.md
+```
+
+The `awk` strip is the contract — any text tool that removes the
+`<!-- pr-triage-fold: … -->` … `<!-- /pr-triage-fold -->` span
+inclusively is equivalent. `gh pr edit --body` replaces the whole
+body, which is why we read → splice → write rather than append
+blindly.
+
+**`comment` — legacy behaviour, posts a comment (notifies).**
+
+```bash
+# Post the violations comment (built from the draft template, @-mention intact).
 gh pr comment <N> --repo <repo> --body-file /tmp/pr-<N>-draft-body.md
 ```
 
-Build `/tmp/pr-<N>-draft-body.md` from the `draft` template in
-[`comment-templates.md`](comment-templates.md#draft-comment).
-Write the file, `gh pr comment --body-file`, then delete the
-temp file in the same turn. Body-file mode avoids shell-escape
-issues for long markdown bodies.
+Build `/tmp/pr-<N>-draft-body.md` from the `draft` template, write
+the file, `gh pr comment --body-file`, then delete the temp file
+in the same turn. Body-file mode avoids shell-escape issues for
+long markdown bodies.
 
-On the `gh pr ready --undo` failing: surface the error, **do
-not** post the comment. A comment that says "converted to draft"
-on a still-open PR is a worse state than no comment at all.
+On the body edit (or comment) failing after a successful draft
+conversion: surface the error and leave the PR as a draft — the
+draft flip is still a maintainer-visible improvement; the next
+sweep will re-deliver the feedback. Do not roll back the draft.
+
+The sub-cases below (`ready for maintainer review` label, already
+a draft, collaborator-authored) apply to **both** channels —
+"deliver the feedback" means *fold or comment per the setting*.
 
 ### If the PR carries `ready for maintainer review`
 
@@ -70,13 +129,13 @@ gh pr edit <N> --repo <repo> --remove-label "ready for maintainer review"
 # 1. Convert to draft
 gh pr ready <N> --repo <repo> --undo
 
-# 2. Post the violations comment
-gh pr comment <N> --repo <repo> --body-file /tmp/pr-<N>-draft-body.md
+# 2. Deliver the violations feedback (fold into body, or comment —
+#    per triage_feedback_channel; see "Delivering the feedback" above).
 ```
 
 If step 0 fails with anything other than the benign "label not
 applied" / "label not found" response, surface the error and
-proceed to the draft + comment anyway — the label-removal
+proceed to the draft + feedback anyway — the label-removal
 failure is a soft signal (the maintainer may need to clean up
 manually), but stranding the PR in a half-state would be
 worse. The maintainer-facing preview should note when step 0
@@ -85,80 +144,94 @@ will run so the proposal is honest about both state changes.
 **Case B — merit discussion present** (per the exception in
 [`strip-ready-on-downgrade`](classify-and-act.md#hard-rules-cross-cutting-the-table)).
 Skip step 0 (label stays) and step 1 (PR stays out of draft).
-Post only the violations comment:
+Deliver only the violations feedback (fold into the body under
+`pr-body`, or post the comment under `comment`):
 
 ```bash
-# 1. Post the violations comment (label stays; PR stays open).
-gh pr comment <N> --repo <repo> --body-file /tmp/pr-<N>-draft-body.md
+# Deliver the violations feedback only (label stays; PR stays open).
+# pr-body: read-modify-write the body block; comment: gh pr comment.
 ```
 
 The maintainer-facing preview MUST surface that the merit
 discussion was detected and that the action is being
-de-escalated from `draft` to `comment-only` for this reason
+de-escalated from `draft` to feedback-only for this reason
 — include the URLs of the maintainer-opened unresolved review
 thread(s) that triggered the exception so the maintainer can
-sanity-check the call. The violations comment body is
-unchanged from Case A; it informs the author that mechanical
-issues remain even though the discussion is what's keeping
-the label on.
+sanity-check the call. The feedback body is unchanged from Case
+A; it informs the author that mechanical issues remain even
+though the discussion is what's keeping the label on.
 
 ### If the PR is already a draft
 
-Skip the `gh pr ready --undo` step. Post only the comment. The
-decision table in [`classify-and-act.md`](classify-and-act.md)
-should have chosen `comment` instead in this case, but
-double-check here as a guard. The label-removal step (when
-applicable) still runs first.
+Skip the `gh pr ready --undo` step. Deliver only the feedback
+(fold or comment per the channel). The decision table in
+[`classify-and-act.md`](classify-and-act.md) should have chosen
+`comment` instead in this case, but double-check here as a
+guard. The label-removal step (when applicable) still runs first.
 
 ### Collaborator-authored PRs
 
 Do not draft a collaborator's PR. If somehow the action landed
-as `draft` for a collaborator, fall back to `comment` with the
-same body — no draft flip. The label-removal step (when
-applicable) still runs.
+as `draft` for a collaborator, fall back to delivering the
+feedback only (no draft flip) — folded into the body under
+`pr-body`, or posted as a comment under `comment`. The
+label-removal step (when applicable) still runs.
 
 ---
 
-## `comment` — post violations / stale-review / ping comment
+## `comment` — deliver violations / stale-review / ping feedback
 
-A single mutation. The template depends on the upstream
+A single mutation. The template — and **whether it folds into the
+PR body or posts a comment** — depends on the upstream
 classification:
 
-| Upstream | Body source |
-|---|---|
-| `deterministic_flag` with action `comment` | [`comment-templates.md#comment-only`](comment-templates.md) |
-| `stale_review` with action `ping` | [`comment-templates.md#review-nudge`](comment-templates.md) |
-| `deterministic_flag` (explicit ping action) | [`comment-templates.md#reviewer-ping`](comment-templates.md) |
+| Upstream | Body source | Channel |
+|---|---|---|
+| `deterministic_flag` with action `comment` | [`comment-templates.md#comment-only`](comment-templates.md) | **`triage_feedback_channel`** (fold under `pr-body`, comment under `comment`) |
+| `stale_review` with action `ping` | [`comment-templates.md#review-nudge`](comment-templates.md) | **always comment** (the purpose is to notify) |
+| `deterministic_flag` (explicit ping action) | [`comment-templates.md#reviewer-ping`](comment-templates.md) | **always comment** (the purpose is to notify) |
+
+**Only the `deterministic_flag` → `comment` (violations) body
+honours `triage_feedback_channel`.** Under the default `pr-body`
+it is folded into the PR description using the read-modify-write
+recipe in
+[`#draft`](#draft--convert-to-draft-and-fold-violations-into-the-pr-body)
+(opening marker `action=comment`); under `comment` it is posted
+as a PR comment. The two `ping` bodies always post a comment —
+folding a ping into the body would defeat its only purpose.
 
 ```bash
+# ping bodies (and the violations body under triage_feedback_channel: comment):
 gh pr comment <N> --repo <repo> --body-file /tmp/pr-<N>-comment.md
 ```
 
 For a `ping` action, `@`-mention every stale reviewer plus the
 PR author in the body — do not let the ping go without naming
-the people it's for.
+the people it's for. (The fold path, by contrast, carries no
+`@`-mention — that distinction is intentional: pings notify,
+folds don't.)
 
 ### If the PR carries `ready for maintainer review` (deterministic_flag only)
 
 When the upstream classification is `deterministic_flag` and the
 PR carries the label (regression bypass of F4 — see
 [`strip-ready-on-downgrade`](classify-and-act.md#hard-rules-cross-cutting-the-table)),
-strip the label **before** posting the comment — **unless**
+strip the label **before** delivering the feedback — **unless**
 [`merit_discussion_thread_present`](classify-and-act.md#merit_discussion_thread_present)
-holds, in which case the label stays and only the comment is
-posted.
+holds, in which case the label stays and only the feedback is
+delivered.
 
 ```bash
 # 0. Remove the now-stale ready-for-review label.
 #    SKIP this step when merit_discussion_thread_present holds.
 gh pr edit <N> --repo <repo> --remove-label "ready for maintainer review"
 
-# 1. Post the violations comment
-gh pr comment <N> --repo <repo> --body-file /tmp/pr-<N>-comment.md
+# 1. Deliver the violations feedback (fold into body, or comment —
+#    per triage_feedback_channel).
 ```
 
 A 422 "label not applied" / "label not found" is benign — log
-and continue with the comment.
+and continue with the feedback.
 
 This applies only to the `deterministic_flag` → `comment`
 branch (typically the collaborator-mode fallback from `draft`,
@@ -174,11 +247,31 @@ unresolved review thread(s) that triggered the exception.
 
 ---
 
-## `close` — close with comment and quality-violations label
+## `close` — close with fold and quality-violations label
 
-Three mutations. Comment first (so the contributor sees the
-reasoning), then close, then label. Closing without commenting
-is perceived as hostile — do not do it.
+Three mutations. Deliver the reasoning **first** (so the
+contributor sees why), then close, then label. Closing without
+explaining the reasoning is perceived as hostile — do not do it.
+
+**`pr-body` (default) — fold the reasoning into the description,
+then close.** The fold lands *before* the close so the description
+already explains the close when the close notification fires. The
+close event still notifies subscribers (inherent to closing); the
+fold only removes the separate comment notification.
+
+```bash
+# 1. Fold the close reasoning into the PR body (read-modify-write,
+#    opening marker action=close — recipe under `#draft`).
+gh pr edit <N> --repo <repo> --body-file /tmp/pr-<N>-newbody.md
+
+# 2. Close the PR
+gh pr close <N> --repo <repo>
+
+# 3. Add the quality-violations label (if the label exists on the repo)
+gh pr edit <N> --repo <repo> --add-label "closed because of multiple quality violations"
+```
+
+**`comment` — legacy behaviour, comment first then close.**
 
 ```bash
 # 1. Post the close comment
@@ -191,10 +284,12 @@ gh pr close <N> --repo <repo>
 gh pr edit <N> --repo <repo> --add-label "closed because of multiple quality violations"
 ```
 
-Body template: [`comment-templates.md#close`](comment-templates.md).
+Body template: [`comment-templates.md#close`](comment-templates.md);
+fold wrapping per
+[`comment-templates.md#body-fold-rendering`](comment-templates.md#body-fold-rendering).
 
 If the label is missing (per `prerequisites.md#3`), skip the
-label step with a one-line warning; the close + comment is
+label step with a one-line warning; the close + feedback is
 still valid.
 
 `close` is always a **per-PR** action, never batched. Even
@@ -210,10 +305,11 @@ holds, the
 [`strip-ready-on-downgrade`](classify-and-act.md#hard-rules-cross-cutting-the-table)
 exception applies: **skip step 2** (do not close the PR) and
 **do not strip the ready-for-maintainer-review label**. Steps
-1 and 3 still run — the close comment surfaces the
-queue-pressure reasoning, and the quality-violations label
-records that the PR was flagged. The PR remains open with
-both labels, surfaced for human review.
+1 and 3 still run — the close reasoning is delivered (folded
+into the body under `pr-body`, or posted as a comment under
+`comment`) and the quality-violations label records that the PR
+was flagged. The PR remains open with both labels, surfaced for
+human review.
 
 The maintainer-facing preview MUST surface that step 2 is
 being skipped and quote the URL(s) of the maintainer-opened
@@ -666,8 +762,8 @@ The label string is read from
 [`<project-config>/pr-management-config.md → ready_for_maintainer_review_label`](../../projects/_template/pr-management-config.md);
 do not hard-code it. The same `gh` recipe is used by the
 "strip-on-downgrade" hook inside `draft` and `comment`
-(`actions.md` §[draft](#draft--convert-to-draft-and-post-violations-comment) /
-§[comment](#comment--post-violations--stale-review--ping-comment)),
+(`actions.md` §[draft](#draft--convert-to-draft-and-fold-violations-into-the-pr-body) /
+§[comment](#comment--deliver-violations--stale-review--ping-feedback)),
 but those flows additionally convert to draft / post a
 comment. The `strip-ready-label` action is **only** the
 label-removal step — no other mutation, no comment.
@@ -701,14 +797,17 @@ One step. No comment to sequence against.
 
 ## Order-of-operations recap for destructive actions
 
-For every action that includes a comment, post the comment
-**before** the state change that hides it:
+"Deliver feedback" below means *fold into the PR body or post a
+comment per `triage_feedback_channel`* for the three actions that
+honour it (`draft`, `comment` deterministic-flag, `close`); the
+rest always post a comment. For every action that posts a comment,
+post it **before** the state change that hides it:
 
 | Action | Order |
 |---|---|
-| `draft` | (*if F4-regression: remove ready-for-review label*) → convert to draft → post comment |
-| `comment` | (*if F4-regression on `deterministic_flag`: remove ready-for-review label*) → post comment |
-| `close` | post comment → close → label |
+| `draft` | (*if F4-regression: remove ready-for-review label*) → convert to draft → deliver feedback (fold/comment) |
+| `comment` | (*if F4-regression on `deterministic_flag`: remove ready-for-review label*) → deliver feedback (fold/comment for deterministic-flag; comment for pings) |
+| `close` | deliver feedback (fold→close, or comment→close) → close → label |
 | `flag-suspicious` | post comment → close → label *(per PR in the batch)* |
 | `mark-ready` | label only |
 | `request-author-confirmation` | post comment only (no label) |
@@ -719,10 +818,14 @@ For every action that includes a comment, post the comment
 | `approve-workflow` | approve (no comment) |
 
 The `draft` case is the exception to "comment before state
-change" because drafts still show comments fine. The `close`
-case must be comment-first because closed-PR comments are
-visible but the "PR closed" notification beats the comment
-otherwise and the contributor reads the wrong order.
+change" because drafts still show comments (and the folded body)
+fine. The `close` case sequences the feedback first because a
+closed-PR comment is visible but the "PR closed" notification
+beats it otherwise — and under `pr-body` the fold must land
+before the close so the description already explains it. Under
+`pr-body`, the `draft` / `comment` / `close` feedback is a silent
+body edit (no `@`-mention) and produces no notification at all —
+only `close`'s own close event notifies.
 
 ---
 

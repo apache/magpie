@@ -573,6 +573,76 @@ draft is an overreach.
 
 ---
 
+## Why fold feedback into the PR body (denoise)
+
+By default (`triage_feedback_channel: pr-body`) the deterministic
+quality-violation feedback for `draft`, `comment`, and `close` is
+**folded into the PR description** as a managed marker block rather
+than posted as a PR comment. See
+[`comment-templates.md#body-fold-rendering`](comment-templates.md#body-fold-rendering)
+for the mechanism and [`actions.md`](actions.md) for the recipe.
+
+**The motivating problem.** On the dev@airflow.apache.org thread
+*"[DISCUSS] What do we do with unreviewed PRs"* (2026-06-10), Elad
+Kalif raised that the triage process posts so many comments that
+it floods maintainer mailboxes — and that the resulting noise
+causes maintainers to **miss the real human comments** on the PRs
+they actively track. A comment on a PR notifies every subscriber;
+across a queue of hundreds of PRs, the routine "here are your
+violations" comments drown out the conversations that need a human.
+
+**The fix.** A new PR *comment* notifies; editing the PR
+*description* does **not**. Folding the same violation text into
+the body delivers identical information to the contributor (who
+sees it on their PR) and remains fully deterministic, while
+producing zero notifications. Jarek proposed exactly this on the
+thread, noting it is the technique already used for security
+issues. The change keeps the whole triage process intact — PRs
+that need fixing are still drafted, the criteria are still
+surfaced — it only moves the delivery from a notifying channel to
+a silent one.
+
+**Why these three actions and not the pings.** `draft`,
+`comment` (deterministic-flag), and `close` carry the same
+mechanical violation feedback — high-volume, deterministic, and
+addressed to the PR author who already watches their own PR. They
+are the bulk of the noise. The ping family (`review-nudge`,
+`reviewer-ping`), `request-author-confirmation`, the
+security-language warning, suspicious-changes, and the stale-sweep
+notices are deliberately the opposite: their *entire purpose* is
+to reach a specific human's inbox. Folding those into the body
+would defeat them, so they always post a comment regardless of the
+setting.
+
+**Why no `@`-mention in the fold.** A body edit is only silent if
+it does not introduce a fresh `@`-mention — an added mention can
+itself notify. So the folded block references the author as a
+backtick-quoted login, never `@author`. The author owns the PR and
+sees its description; they do not need pinging to read it. This is
+the same reasoning behind the
+[Reviewer-mention policy](comment-templates.md#reviewer-mention-policy)
+for `<reviewer_logins>`.
+
+**Why an idempotent marker block, with metadata.** The block
+carries `triaged=` / `head=` in its opening marker so re-triage can
+tell, from the body alone, *when* the PR was last triaged and
+*whether the author has pushed since* — the exact facts a triage
+*comment* used to supply via `createdAt` and "posted after last
+commit". Without that, a folded PR would be re-flagged every sweep
+— turning a denoise change into a *re-noising* one. The block is
+rewritten in place (never appended) so the body holds exactly one
+current violation list, and the legacy comment-marker detection is
+kept so PRs triaged under the old channel still classify correctly.
+See [`viewer_triage_fold_present`](classify-and-act.md#viewer_triage_fold_present).
+
+The behaviour is a project-config switch
+([`triage_feedback_channel`](../../projects/_template/pr-management-config.md))
+defaulting to `pr-body`; an adopter that prefers the notifying
+comment channel can set it to `comment` and get the prior
+behaviour unchanged.
+
+---
+
 ## Merit-discussion exception to `strip-ready-on-downgrade`
 
 The `strip-ready-on-downgrade` hard rule

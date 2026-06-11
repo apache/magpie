@@ -1,0 +1,5 @@
+{
+  "classification": "deterministic_flag",
+  "action": "draft",
+  "reason": "Row 9: the pr-triage-fold block is stale — its head (abc1234) no longer matches the current head (def5678), so the author pushed since the fold and viewer_triage_fold_present is false; the branch is now CONFLICTING, so re-draft."
+}

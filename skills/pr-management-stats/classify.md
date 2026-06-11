@@ -26,6 +26,7 @@ is_triaged(pr) :=
         AND c.body CONTAINS "Pull Request quality criteria"
         AND (c.createdAt > head_commit.committedDate
              OR head_commit.committedDate > c.createdAt)   # see [Triage marker](#triage-marker)
+    OR  pr.body CONTAINS "pr-triage-fold"                  # body-fold channel (default) — see [Triage marker](#triage-marker)
 ```
 
 **What the literal marker is:** the **substring `Pull Request quality
@@ -34,8 +35,13 @@ template that every `pr-management-triage` action body carries (see
 [`pr-management-triage/comment-templates.md`](../pr-management-triage/comment-templates.md)).
 The classifier scans every comment's `body` (NOT `bodyText` — the latter
 strips HTML comments, see [Both marker forms count](#both-marker-forms-count)
-below) for the exact substring. The string is also accepted in an HTML-comment
-form left by the legacy `breeze pr auto-triage` command.
+below) for the exact substring, **and the PR's own `body`** — under the
+default `triage_feedback_channel: pr-body` the `pr-management-triage` skill
+folds the same marker into the PR description as a `pr-triage-fold` block
+instead of posting a comment (the denoise change; see
+[`pr-management-triage/rationale.md`](../pr-management-triage/rationale.md#why-fold-feedback-into-the-pr-body-denoise)).
+The string is also accepted in an HTML-comment form left by the legacy
+`breeze pr auto-triage` command.
 
 The marker is a **single point of failure** — rename the link text in the
 comment template and this detector silently stops counting. Adopters can
@@ -76,6 +82,7 @@ is_ai_triaged(pr) :=
     EXISTS comment c IN pr.comments
       WHERE c.authorAssociation IN (OWNER, MEMBER, COLLABORATOR)
         AND c.body CONTAINS "AI-assisted triage tool"
+    OR  pr.body CONTAINS "AI-assisted triage tool"          # body-fold footer (default channel)
 ```
 
 A PR received at least one maintainer comment whose body contains the
@@ -164,22 +171,27 @@ de-facto-triaged until they pick up the marker or the ready label.
 
 ## Triage marker
 
-A PR is *triaged* when it has at least one comment that:
+A PR is *triaged* when **either** of the following holds:
+
+**(a) Comment channel** — it has at least one comment that:
 
 - is authored by `OWNER` / `MEMBER` / `COLLABORATOR` (`authorAssociation`)
 - contains the literal string `Pull Request quality criteria` in the comment's **raw `body`** (NOT `bodyText` — see below)
 - has `createdAt` **after** the PR's last commit's `committedDate` **at the time the comment was posted** (otherwise the triage pre-dates the current code and is stale). **Exception:** if the PR author subsequently pushes a commit *after* the triage comment (`last_commit.committedDate` > `triage_comment.createdAt`), do **not** treat the marker as stale — that commit is evidence the author responded to triage feedback. Classify as `triaged_responded` (see [Triaged sub-states](#triaged-sub-states) below) rather than reverting to `untriaged`.
 
+**(b) Body-fold channel** (default `triage_feedback_channel: pr-body`) — the PR's **raw `body`** contains a `pr-triage-fold` managed block. The block's opening marker carries `triaged=<ISO>` and `head=<sha7>`; use `triaged=` as the triage timestamp and `head=` matching the current head SHA as the "after last commit" test (when `head=` no longer matches, the author pushed since the fold — classify as `triaged_responded`, same as the comment-channel exception). This is the form the live `pr-management-triage` skill emits by default; see [`pr-management-triage/classify-and-act.md#viewer_triage_fold_present`](../pr-management-triage/classify-and-act.md#viewer_triage_fold_present).
+
 ### Both marker forms count
 
 Two flavours of the marker circulate in `<upstream>` and both must be detected:
 
-| Source | Form of marker in the comment body | Where it appears |
+| Source | Form of marker | Where it appears |
 |---|---|---|
-| `pr-management-triage` skill / removed `breeze pr auto-triage` — violations path | `[Pull Request quality criteria](https://github.com/…)` visible link | violations-style draft / comment / close bodies |
-| Removed `breeze pr auto-triage` — staleness path (legacy comments only) | `<!-- Pull Request quality criteria -->` **HTML comment** appended to the body | staleness-close / stale-workflow / inactive-open comments posted before the command was removed |
+| `pr-management-triage` skill (`triage_feedback_channel: pr-body`, the default) — violations path | `pr-triage-fold` HTML-comment block **in the PR `body`**, containing the `[Pull Request quality criteria](…)` link | folded into the PR description for draft / comment / close |
+| `pr-management-triage` skill (`triage_feedback_channel: comment`) / removed `breeze pr auto-triage` — violations path | `[Pull Request quality criteria](https://github.com/…)` visible link **in a comment** | violations-style draft / comment / close comment bodies |
+| Removed `breeze pr auto-triage` — staleness path (legacy comments only) | `<!-- Pull Request quality criteria -->` **HTML comment** appended to a comment body | staleness-close / stale-workflow / inactive-open comments posted before the command was removed |
 
-The HTML-comment form is invisible in the GraphQL `bodyText` field (bodyText strips HTML comments). Fetching `body` preserves it, and a single substring match for `Pull Request quality criteria` catches both the visible link and the hidden HTML marker. The `pr-management-triage` skill currently only emits the visible-link form, but the HTML-comment form remains on PRs that were triaged before the breeze command was removed, so the detector must continue to handle both.
+The HTML-comment form is invisible in the GraphQL `bodyText` field (bodyText strips HTML comments). Fetching `body` (both the comment bodies and the PR-level body) preserves it. A substring match for `Pull Request quality criteria` catches the visible link in either location; the `pr-triage-fold` block additionally carries the literal token `pr-triage-fold`, which is what `is_triaged`'s body clause matches. The detector must handle all three forms: the default body-fold block, the comment-channel visible link, and the legacy HTML-comment marker.
 
 This is why [`fetch.md`](fetch.md) specifies `body` (not `bodyText`) in the comments subfield. A previous iteration of the skill used `bodyText` and missed ~10% of triaged PRs on `<upstream>` — specifically, the ones that had only the staleness-style legacy auto-triage comment.
 

@@ -38,9 +38,16 @@ Each stale sweep needs these timestamps per PR:
 
 - `updated_at` — the PR's `updatedAt` field (already in the
   batch query)
-- `last_triage_comment_at` — the `createdAt` of the most
-  recent comment by the viewer containing the
-  `Pull Request quality criteria` marker, if any
+- `last_triage_comment_at` — the most recent triage-marker
+  timestamp from **either feedback channel**, if any: the
+  `createdAt` of the most recent viewer comment containing the
+  `Pull Request quality criteria` marker (comment channel), OR
+  the `triaged=` timestamp parsed from the `pr-triage-fold` block
+  in the PR `body` (pr-body channel — the default; see
+  [`viewer_triage_fold_present`](classify-and-act.md#viewer_triage_fold_present)).
+  When both are present (a project that switched channels), take
+  the later of the two. Despite the legacy field name, this is
+  "last triaged at", not strictly a comment.
 - `last_author_activity_at` — the max of three timestamps,
   all already in the batch query:
   1. the head commit's `committedDate` from `commits(last: 1)`
@@ -288,7 +295,7 @@ per-PR confirm.
 [`stale-ready-label-close`](comment-templates.md#stale-ready-label-close)
 comment template; **skip the quality-violations label step**
 (close reason is bitrot, not policy violation). Otherwise
-[`actions.md#close`](actions.md#close--close-with-comment-and-quality-violations-label)
+[`actions.md#close`](actions.md#close--close-with-fold-and-quality-violations-label)
 unchanged.
 
 **Reason string.** *"Ready-for-review label stale — N days
