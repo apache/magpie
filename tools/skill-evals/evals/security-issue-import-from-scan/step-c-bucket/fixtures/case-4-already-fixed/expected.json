@@ -1,0 +1,6 @@
+{
+  "id": "FINDING-014",
+  "disposition_bucket": "already-fixed",
+  "creates_tracker": false,
+  "grounding": "Already fixed on the default branch since the scan commit, in apache/<upstream>#67496."
+}

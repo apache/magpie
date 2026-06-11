@@ -1,0 +1,6 @@
+{
+  "id": "FINDING-003",
+  "disposition_bucket": "PR-worth",
+  "creates_tracker": false,
+  "grounding": "Below the CVE bar (limited sensitivity, authenticated user); a consistency hardening worth a public PR, not a tracker."
+}

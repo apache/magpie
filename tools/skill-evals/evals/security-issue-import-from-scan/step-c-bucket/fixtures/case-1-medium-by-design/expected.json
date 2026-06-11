@@ -1,0 +1,6 @@
+{
+  "id": "FINDING-002",
+  "disposition_bucket": "by-design",
+  "creates_tracker": false,
+  "grounding": "Connection-configuration users are trusted (equivalent to root on connected systems) per the Security Model; the attacker controls the connection config, so no privilege boundary is crossed."
+}

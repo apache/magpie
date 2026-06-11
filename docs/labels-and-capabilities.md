@@ -148,6 +148,7 @@ Capabilities for every skill currently in
 | `security-issue-import-from-md` | `capability:intake` |
 | `security-issue-import-from-pr` | `capability:intake` |
 | `security-issue-import-via-forwarder` | `capability:intake` |
+| `security-issue-import-from-scan` | `capability:intake` |
 | `security-issue-sync` | `capability:intake` *(+ `capability:reconciliation` once [#337](https://github.com/apache/airflow-steward/issues/337) lands the ASF-dashboard step)* |
 | `setup-shared-config-sync` | `capability:intake` + `capability:setup` *(reconciles user-scope config to a sync repo; the act is intake, the subject is setup)* |
 | `security-cve-allocate` | `capability:resolve` |
@@ -197,6 +198,7 @@ Tools under [`tools/`](../tools/). Tools with two values (separated by
 | [`tools/mail-archive`](../tools/mail-archive/) | `capability:setup` | Adapter contract for public mail-archive backends (PonyMail, Hyperkitty, Discourse, Google Groups, GitHub Discussions). Pure interface spec. |
 | [`tools/mail-source`](../tools/mail-source/) | `capability:setup` + `capability:intake` | Mail-source backend abstraction (mbox / IMAP / Mailman 3); the abstraction is setup, every concrete read is part of the intake pipeline |
 | [`tools/ponymail`](../tools/ponymail/) | `capability:setup` + `capability:intake` | PonyMail archive substrate; same dual role as `mail-source` — substrate plus an intake-pipeline component |
+| [`tools/scan-format`](../tools/scan-format/) | `capability:intake` | Adapter contract for security-scanner report formats (ASVS reference); reads a scan's finding index + per-finding evidence for the `security-issue-import-from-scan` pipeline. |
 | [`tools/permission-audit`](../tools/permission-audit/) | `capability:setup` | Audit + atomically edit Claude Code `permissions.allow[]` entries; backs `/magpie-setup verify --apply-permission-audit` (check 8d) |
 | [`tools/pr-management-stats`](../tools/pr-management-stats/) | `capability:stats` | PR-backlog analytics engine |
 | [`tools/preflight-audit`](../tools/preflight-audit/) | `capability:stats` | Dry-run the bulk-mode pre-flight classifier; measure skip-rate before / after any rule edit in the security-issue-sync skill |
