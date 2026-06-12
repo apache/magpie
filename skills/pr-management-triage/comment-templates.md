@@ -50,6 +50,103 @@ anchor text breaks the re-triage skip logic.
 
 ---
 
+## The folded maintainer-triage note — the single contributor channel
+
+> **This section is normative and supersedes the per-template bodies and the
+> reviewer-re-review variants further down this file.** All contributor-facing
+> triage feedback is delivered as **one** managed, replace-in-place block folded
+> into the PR description — never as a standalone comment.
+
+### Author-only notification (the hard rule)
+
+The PR **author** is the only person this skill ever notifies:
+
+- Only the author is **`@`-mentioned**, and only the author is **assigned**
+  (`gh pr edit <N> --add-assignee <author>`). The author's `@`-mention in the
+  note is the one notification each refresh produces.
+- **No maintainer is ever `@`-mentioned, assigned, or pinged** — not the operator
+  running the triage, not a reviewer, not a CODEOWNER, not a committers team.
+  When a maintainer handle must appear (operator credit, the reviewer who left
+  feedback), render it **backtick-quoted** — `` `@login` `` — which shows the
+  handle without notifying.
+- The framework's *reviewer-re-review* and *reviewer-ping* variants (which
+  `@`-mention `<reviewers>` to summon a maintainer back) are **removed** — see
+  the note on [Review nudge](#review-nudge) / [Reviewer ping](#reviewer-ping).
+  The only nudge that goes out is the author-directed note below. Where the body
+  tells the author to "ping the reviewer when ready", the *author* does that from
+  their own account; our note names the reviewer with a backtick handle only.
+
+### The note format
+
+Every action (`draft`, `comment`, `close`, `ping`,
+`request-author-confirmation`, and the stale-sweep notices) renders this one
+compact callout, folded into the body via the
+[`pr-triage-fold` marker](#body-fold-rendering) so the newest note always
+replaces the previous one:
+
+```markdown
+---
+
+> [!IMPORTANT]
+> **🛠️ Maintainer triage note for @<author>** · by `@<operator>` · <YYYY-MM-DD HH:MM UTC>
+>
+> <one-line framing for this action — see the per-action table>
+> <violation bullets, or the action-specific ask, as `>`-quoted lines>
+>
+> **The ball is in your court** — you've been assigned to this PR. <one-line next step>.
+>
+> <sub>_Automated triage — may be imperfect; a maintainer takes the next look._</sub>
+```
+
+- `@<author>` — the one `@`-mention. `<operator>` (the authenticated `<viewer>`
+  login) is credited backtick-quoted so the contributor knows which maintainer
+  stands behind the note, without a notification.
+- A UTC `YYYY-MM-DD HH:MM UTC` stamp always appears in the header (matches the
+  fold marker's `triaged=`).
+- The literal `Pull Request quality criteria` marker link (and, for
+  `request-author-confirmation`, the literal `ready for maintainer review
+  confirmation` string) must still appear verbatim so the already-triaged /
+  confirmation detectors keep working.
+- One `<sub>` disclaimer line replaces the multi-sentence
+  [AI-attribution footer](#ai-attribution-footer) — do not also append the long
+  footer.
+
+#### Per-action framing + next step
+
+| Action | Framing line | Next-step line |
+|---|---|---|
+| `draft` / `comment` | Helpful heads-up from the maintainers — please address before this PR can be reviewed: | Fix the above, then mark it **Ready for review**. |
+| `ping` (threads / stale review) | Some review feedback from `@<reviewer>` is waiting on you: | Reply or push a fix in each thread, then mark them resolved. |
+| `request-author-confirmation` | Your review threads look addressed — please confirm this PR is **ready for maintainer review confirmation**: | Reply `yes / ready` and a maintainer will pick it up from the queue. |
+| `stale-*-close` | This PR is being closed to keep the queue clean: | Reopen or open a fresh PR once addressed — no rush. |
+| `inactive-to-draft` / `stale-workflow-approval` | Paused pending your next update: | Rebase, address new failures, and mark **Ready for review** again. |
+
+### The ✅ ready-for-review flip
+
+When a PR carrying a `pr-triage-fold` block is detected as ready on a later sweep
+(the author un-drafted it / marked it Ready for review, the items resolved so it
+classifies `passing`, or the skill applies the `ready for maintainer review`
+label), **replace** the note with the ready confirmation, **unassign the author**
+(`gh pr edit <N> --remove-assignee <author>` — the ball is back with the
+maintainers), and apply the ready label as usual:
+
+```markdown
+---
+
+> [!NOTE]
+> **✅ Ready for review** · @<author> → `@<operator>` · <YYYY-MM-DD HH:MM UTC>
+>
+> Thanks @<author> — the earlier triage items look addressed and this PR is now ready for review. The ball is back with the maintainers; a maintainer will take the next look.
+>
+> <sub>_Automated triage — may be imperfect._</sub>
+```
+
+(Use `action=ready` in the opening marker.) Instant flipping on the author's
+click would need an event-driven hook on `pull_request.ready_for_review`; the
+sweep replacement above is the baseline.
+
+---
+
 ## Reviewer-mention policy
 
 When a comment's only addressee is the PR author (the
@@ -81,6 +178,12 @@ than by the bot.
 ---
 
 ## AI-attribution footer
+
+> **Superseded by the folded-note model.** Under
+> [the folded maintainer-triage note](#the-folded-maintainer-triage-note--the-single-contributor-channel)
+> the multi-sentence footer below is replaced by the single `<sub>` disclaimer
+> line in the note template. The long footer is retained here only for adopters
+> who pin `triage_feedback_channel: comment` and want the legacy comment bodies.
 
 **Every contributor-facing template below ends with this
 footer.** It calibrates the contributor's trust in the comment
@@ -195,18 +298,18 @@ description is preserved above it, untouched):
   already-triaged marker search (which scans the PR body as well
   as comments) keeps working.
 
-### No `@`-mention in the folded block
+### Author-only `@`-mention in the folded block
 
-The block **must not** contain an `@`-mention of anyone. The
-opening `@<author>` that the comment templates use is dropped in
-fold mode; reference the author as a backtick-quoted login
-(`` `<author>` ``) instead, the same convention the
-[Reviewer-mention policy](#reviewer-mention-policy) uses for
-`<reviewer_logins>`. A body edit that introduces a fresh
-`@`-mention can generate the very notification this change exists
-to avoid, so the no-`@`-mention rule is what makes the fold truly
-silent. The author owns the PR and sees its description — they do
-not need pinging to read it.
+The block `@`-mentions **only the PR author** (once, in the header) — that single
+mention is the intended notification, the "your move" signal. **Every other
+handle is backtick-quoted** (`` `@login` ``) and therefore silent: the operator
+credit, any reviewer named in a `ping` / `request-author-confirmation` note, and
+any team. A body edit that introduces a *maintainer* `@`-mention would notify a
+maintainer, which this model forbids — see
+[Author-only notification](#author-only-notification-the-hard-rule). The
+deterministic enforcement of this lives in the agent-guard `mention` guard
+([`tools/agent-guard`](../../tools/agent-guard/README.md)): in a
+`gh pr edit --body` it permits the author's `@`-mention and blocks any other.
 
 ### Idempotent replace, never append
 
@@ -393,6 +496,13 @@ notification.
 
 *(`review-nudge` — stale `CHANGES_REQUESTED` ping)*
 
+> **Reviewer-re-review variant removed.** Per
+> [Author-only notification](#author-only-notification-the-hard-rule) the skill
+> never `@`-pings a reviewer. Always use the author-primary nudge, folded into
+> the note (action `ping`), with the reviewer named as a backtick handle. The
+> reviewer-re-review variant below is retained only for the legacy
+> `triage_feedback_channel: comment` mode and must not `@`-mention the reviewer.
+
 Used when the action is `ping` on a `stale_review`
 classification.
 
@@ -460,6 +570,11 @@ coherent to-do list.
 ## Reviewer ping
 
 *(`reviewer-ping` — unresolved-review-thread ping)*
+
+> **Reviewer-re-review variant removed.** Per
+> [Author-only notification](#author-only-notification-the-hard-rule) the skill
+> never `@`-pings a reviewer. Always use the author-primary nudge, folded into
+> the note (action `ping`), with the reviewer named as a backtick handle.
 
 Used when the action is `ping` on a `deterministic_flag`
 classification triggered by unresolved review threads (i.e.

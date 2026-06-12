@@ -17,11 +17,16 @@
 
 """pr-management-triage mention guard (skill-contributed).
 
-Deterministically enforces the denoise rule (Golden rule 11): author-directed
-feedback never @-pings a maintainer, and the silent PR-body "fold" channel never
-@-mentions anyone. Discovered by the agent-guard PreToolUse dispatcher from a
-guards.d directory — see tools/agent-guard for the engine and the GuardContext
-API. Import-free: everything comes from ``ctx``.
+Deterministically enforces author-only notification (Golden rule 12): the PR
+author is the only login the skill may @-mention. This applies identically to
+the folded maintainer-triage note (`gh pr edit --body` / `--body-file`) and to
+author-directed comments (`gh pr/issue comment`) — in both, the author's
+@-mention is permitted (it is the intended "your move" signal) and any other
+@-mention (a maintainer: operator, reviewer, CODEOWNER, team) is blocked.
+Maintainer handles must be backtick-quoted so they never notify. Discovered by
+the agent-guard PreToolUse dispatcher from a guards.d directory — see
+tools/agent-guard for the engine and the GuardContext API. Import-free:
+everything comes from ``ctx``.
 """
 
 TRIGGERS = ["gh"]
@@ -47,36 +52,30 @@ def guard(ctx):
     if ctx.override("STEWARD_ALLOW_MENTIONS"):
         return None
 
-    if is_pr_body_edit:
-        return (
-            "agent-guard[mention]: a `gh pr edit --body` (the silent PR-description "
-            f"'fold' channel) must not @-mention anyone — found {sorted(set(mentions))}. "
-            "Editing a PR body should never ping; reference logins as backticked "
-            "`login`, not @login. Override (rare): prefix STEWARD_ALLOW_MENTIONS=1."
-        )
-
-    # Comment channel: only the PR/issue author may be @-mentioned.
-    target = ctx.positional_after(name)
+    # Both channels share one rule: only the PR/issue author may be @-mentioned.
+    # Resolve the author from the target PR/issue number.
+    target = ctx.positional_after("edit" if is_pr_body_edit else name)
     view = "pr" if group == "pr" else "issue"
     author = None
     if target:
         author = ctx.run(
             ["gh", view, "view", target, *ctx.repo_flag(), "--json", "author", "--jq", ".author.login"]
         )
+    surface = "folded triage note" if is_pr_body_edit else "author-directed comment"
     if not author:
         return (
-            "agent-guard[mention]: this author-directed comment @-mentions "
+            f"agent-guard[mention]: this {surface} @-mentions "
             f"{sorted(set(mentions))} but the PR/issue author could not be verified, "
-            "so the guard cannot confirm none of them are maintainers. Re-run once the "
+            "so the guard cannot confirm they are not a maintainer. Re-run once the "
             "author is known, drop the @-mentions (use backticked `login`), or override "
-            "with STEWARD_ALLOW_MENTIONS=1 if the ping is intentional."
+            "with STEWARD_ALLOW_MENTIONS=1 if the mention is intentional."
         )
     offenders = sorted({m for m in mentions if m != author.lower()})
     if offenders:
         return (
-            "agent-guard[mention]: an author-directed comment may only @-mention the "
-            f"author (`{author}`); refusing to ping {offenders}. Reference other people "
-            "as backticked `login` (no @) so they are not notified, or override with "
-            "STEWARD_ALLOW_MENTIONS=1 for a deliberate ping."
+            f"agent-guard[mention]: a {surface} may only @-mention the PR author "
+            f"(`{author}`); refusing to notify maintainer(s) {offenders}. Reference "
+            "them as backticked `login` (no @) so they are not pinged, or override with "
+            "STEWARD_ALLOW_MENTIONS=1 for a deliberate exception."
         )
     return None

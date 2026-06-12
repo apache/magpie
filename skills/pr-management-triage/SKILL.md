@@ -262,7 +262,11 @@ owed to a contributor who will otherwise be left guessing. See
 bodies.
 
 **Golden rule 8 — every contributor-facing comment ends with
-the AI-attribution footer.** The triage comments this skill
+the AI-attribution footer.** (Under the default folded-note model
+the multi-sentence footer is replaced by the single `<sub>`
+disclaimer line in the note — see Golden rule 12; the long footer
+below applies to the legacy `triage_feedback_channel: comment`
+mode.) The triage comments this skill
 posts are AI-drafted on the maintainer's behalf, and
 contributors deserve to know that up front. Every template in
 [`comment-templates.md`](comment-templates.md) (with one
@@ -365,29 +369,44 @@ comment. Editing a PR body does not notify subscribers, so the
 default keeps maintainer mailboxes quiet — the denoise change from
 the dev@ thread with Elad (see
 [`rationale.md#why-fold-feedback-into-the-pr-body-denoise`](rationale.md#why-fold-feedback-into-the-pr-body-denoise)).
-Two consequences the implementation MUST honour:
-
-- **The folded block carries no `@`-mention.** A body edit that
-  introduces a fresh `@`-mention can itself notify; reference the
-  author as a backtick-quoted login instead. The no-`@`-mention
-  rule is what makes the fold silent. When the framework's secure
-  setup is installed, this is **enforced deterministically** by the
-  agent-guard `PreToolUse` hook (the `mention` guard): any
-  `@`-mention in a `gh pr edit --body` is blocked, and an
-  author-directed `gh pr comment` may only `@`-mention the PR
-  author — see [`tools/agent-guard`](../../tools/agent-guard/README.md).
-- **Pings still notify.** `review-nudge`, `reviewer-ping`,
-  `request-author-confirmation`, `security-language`,
-  `suspicious-changes`, and stale-sweep notices always post a
-  comment regardless of the setting — their purpose is to reach a
-  human. Only the three violation-feedback actions honour the
-  channel switch.
-
-The maintainer-facing proposal MUST state which channel a given
-action will use, so the maintainer knows whether a notification
-will fire. See
-[`comment-templates.md#body-fold-rendering`](comment-templates.md#body-fold-rendering)
+Under the default `pr-body` channel **every** contributor-facing
+action — not just the three violation actions, but `ping`,
+`request-author-confirmation`, and the stale-sweep notices too —
+folds into the one managed block (Golden rule 12), so a PR never
+carries more than a single triage note. The legacy
+`triage_feedback_channel: comment` mode keeps the per-template
+comment bodies for adopters who opt into it. See
+[`comment-templates.md#the-folded-maintainer-triage-note--the-single-contributor-channel`](comment-templates.md#the-folded-maintainer-triage-note--the-single-contributor-channel)
 and [`actions.md`](actions.md).
+
+**Golden rule 12 — the folded note notifies the author, and only
+the author.** Under the default `pr-body` channel the folded
+maintainer-triage note is **not** silent — it deliberately
+`@`-mentions the PR author and **assigns** them, because the note
+is a "your move" signal. But the author is the *only* person ever
+notified:
+
+- Only the author is `@`-mentioned; only the author is assigned
+  (`gh pr edit --add-assignee <author>`). On the ready-for-review
+  flip the author is **un-assigned** (the ball returns to the
+  maintainers).
+- **No maintainer is ever `@`-mentioned, assigned, or pinged** —
+  not the operator, not a reviewer, not a CODEOWNER, not a team.
+  Maintainer handles appear backtick-quoted (`` `@login` ``) only.
+- The framework's reviewer-re-review / reviewer-ping variants are
+  removed; the author-primary nudge (folded, reviewer named with a
+  backtick handle) is the only nudge. The author pings the reviewer
+  themselves, from their own account, when ready.
+- Enforced deterministically by the agent-guard `mention` guard:
+  in a `gh pr edit --body` it permits the author's `@`-mention and
+  blocks every other. See
+  [`tools/agent-guard`](../../tools/agent-guard/README.md) and
+  [`comment-templates.md`](comment-templates.md#the-folded-maintainer-triage-note--the-single-contributor-channel).
+
+This supersedes Golden rule 9's "pings still notify a maintainer"
+expectation for the operator/reviewer side: F5a/F5b still make the
+skill *step back* from an active maintainer conversation, but the
+skill itself never generates a maintainer notification.
 
 ---
 

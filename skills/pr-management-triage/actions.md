@@ -3,6 +3,21 @@
 
 # Actions
 
+> **Author-only folded-note model (Golden rule 12).** Under the default
+> `triage_feedback_channel: pr-body`, **every** contributor-facing action below
+> delivers its feedback as the one replace-in-place
+> [folded maintainer-triage note](comment-templates.md#the-folded-maintainer-triage-note--the-single-contributor-channel),
+> not a comment — including `ping`, `request-author-confirmation`, and the
+> stale-sweep notices, which the legacy comment mode posts separately. In
+> addition, every such action **assigns the PR author**
+> (`gh pr edit <N> --repo <repo> --add-assignee <author>`) to signal the ball is
+> in their court, and `@`-mentions **only** the author (all maintainer handles
+> backtick-quoted — no operator/reviewer ping; the reviewer-ping mutation is
+> removed). On the **ready-for-review flip** the note is replaced with the `✅`
+> variant and the author is **un-assigned** (`--remove-assignee <author>`). The
+> per-action recipes below describe the body content; this banner is the
+> cross-cutting behaviour they all share.
+
 Exact recipes for every mutation the skill can execute. Every
 action in this file assumes:
 
