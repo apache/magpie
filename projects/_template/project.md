@@ -711,15 +711,15 @@ scope_detection:
   # Consumed by: security-issue-triage, generate-cve-json.
   labels:
     airflow:
-      product: "Apache Airflow"
+      product: "<Product Name>"
       packageName: "apache-airflow"
       path_prefix: "^(airflow-core/|airflow/(?!providers/)|airflow-ctl/)"
     providers:
-      product: "Apache Airflow"
+      product: "<Product Name>"
       packageName: "apache-airflow-providers-<provider>"
       path_prefix: "^providers/"
     chart:
-      product: "Apache Airflow Helm Chart"
+      product: "<Secondary Product Name>"
       packageName: "apache-airflow-helm-chart"
       path_prefix: "^chart/"
 ```
@@ -834,7 +834,7 @@ product:
   # Override when: any other project — replace with the canonical
   # short name.
   # Consumed by: generate-cve-json, canned-responses templating.
-  name: Airflow
+  name: <ProjectShortName>
 
   # Package name shape for the primary artifact — used by the
   # advisory templating and the CVE JSON `affected[].packageName`.
@@ -877,7 +877,7 @@ product:
   # Override when: any other product — the literal product token
   # reporters use in version expressions.
   # Consumed by: security-issue-sync, generate-cve-json.
-  affected_version_extract_prefix: "Airflow"
+  affected_version_extract_prefix: "<ProjectShortName>"
 ```
 
 ## Pointers to sibling files
