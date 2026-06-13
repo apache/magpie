@@ -1,7 +1,11 @@
 {
   "subject": "[ANNOUNCE] Apache Airflow 2.11.0 released",
-  "body": "To: announce@apache.org\nCc: dev@airflow.apache.org, users@airflow.apache.org\nSubject: [ANNOUNCE] Apache Airflow 2.11.0 released\n\nNOTE: This email must be sent from your @apache.org address. The\nannounce@apache.org list rejects non-@apache.org senders.\n\nThe Apache Airflow community is pleased to announce the release\nof Apache Airflow 2.11.0.\n\nThis release is available for download at the project Download Page:\n  https://airflow.apache.org/docs/apache-airflow/2.11.0/installation/installing-from-pypi.html\n\nRelease notes / changelog for 2.11.0:\n  https://github.com/apache/airflow/blob/2.11.0/CHANGELOG.md\n\nKeys used to sign the release artifacts:\n  https://dist.apache.org/repos/dist/release/airflow/KEYS\n\n[SKIP-PROMOTE-WAIT: promote-wait gate overridden; the RM accepted this with the reason: Critical security release; mirrors propagated within 30 minutes per infra confirmation.]",
   "backend": "announce-list",
   "skip_promote_wait_logged": true,
-  "asf_address_reminder_present": true
+  "asf_address_reminder_present": true,
+  "has_apache_org_sender_reminder": true,
+  "has_download_page_link": true,
+  "has_changelog_link": true,
+  "has_keys_link": true,
+  "has_skip_promote_wait_note": true
 }

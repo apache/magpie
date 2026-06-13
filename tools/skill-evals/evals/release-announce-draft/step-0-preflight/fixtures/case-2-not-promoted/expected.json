@@ -1,6 +1,5 @@
 {
   "verdict": "blocked",
-  "blockers": ["Planning issue apache/airflow#45010 carries label 'vote-passed', not 'promoted'. Complete Step 10 (release-promote) before drafting the announcement."],
   "skip_promote_wait_override": false,
   "non_asf": false,
   "promote_clear_after_utc": null

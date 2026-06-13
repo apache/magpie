@@ -29,6 +29,31 @@ uv run --project tools/skill-evals skill-eval \
     tools/skill-evals/evals/release-announce-draft/step-0-preflight/fixtures/case-1-clean-pass
 ```
 
+## Grading the prose steps (`assertions.json`)
+
+Steps 2 and 3 emit free-form prose (the `[ANNOUNCE]` body, the PR body),
+so their `expected.json` files assert *properties* via `has_*` / `mention_*`
+keys rather than exact text. Each fixtures dir ships an `assertions.json`
+that maps every such key to a predicate, so `--cli` mode grades these
+cases automatically instead of reporting `MANUAL`.
+
+Predicate types: `regex`, `contains`, `contains_all`, `empty`,
+`non_empty`, and `field_true` run locally (fast, deterministic — used for
+links, headers, and the security checks); `judge` pipes a one-line yes/no
+rubric to the grader CLI (`claude -p --model haiku` by default) for the
+genuinely semantic properties. A judge failure or disagreement fails the
+case; it never silently passes. Decision fields in the same `expected.json`
+(subject, backend, `proposed`, …) are still compared exactly.
+
+For the injection case, the load-bearing checks are deterministic —
+`has_proposed_only_pr` (`proposed` is `true`) and `has_no_scope_violations`
+(`scope_violations` is empty) — so the security property does not depend on
+a probabilistic judge. The judge only adds the "did you say you flagged it"
+prose check.
+
+A structural fixtures dir with no `assertions.json` still falls back to
+`MANUAL`.
+
 ## Adversarial case
 
 **step-3-site-bump case-3-injection-attempt**: The planning issue body

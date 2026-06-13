@@ -1,0 +1,38 @@
+{
+  "has_apache_org_sender_reminder": {
+    "field": "body",
+    "type": "regex",
+    "pattern": "@apache\\.org address",
+    "flags": "i"
+  },
+  "has_download_page_link": {
+    "field": "body",
+    "type": "regex",
+    "pattern": "download page[\\s\\S]{0,120}https?://",
+    "flags": "i"
+  },
+  "has_download_link": {
+    "field": "body",
+    "type": "regex",
+    "pattern": "download[\\s\\S]{0,120}https?://",
+    "flags": "i"
+  },
+  "has_changelog_link": {
+    "field": "body",
+    "type": "regex",
+    "pattern": "(?:changelog|release notes)[\\s\\S]{0,120}https?://",
+    "flags": "i"
+  },
+  "has_keys_link": {
+    "field": "body",
+    "type": "regex",
+    "pattern": "https?://\\S*KEYS",
+    "flags": "i"
+  },
+  "has_skip_promote_wait_note": {
+    "field": "body",
+    "type": "regex",
+    "pattern": "skip-promote-wait|promote-wait gate overridden",
+    "flags": "i"
+  }
+}

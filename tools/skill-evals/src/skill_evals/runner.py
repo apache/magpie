@@ -29,9 +29,14 @@ Two modes:
    to the configured shell command, capture stdout, extract the JSON
    the model produced, and compare against expected.json automatically.
    Reports PASS / FAIL / MANUAL per case and exits non-zero on any FAIL.
-   MANUAL is reserved for "structural" expected.json files (top-level
-   ``has_*`` flags or ``mention_*`` lists) where automatic comparison
-   is not meaningful; those still print prompts for manual review.
+   "Structural" expected.json files (top-level ``has_*`` flags or
+   ``mention_*`` lists) assert properties of the model's prose rather than
+   exact field values. When the fixtures dir provides an ``assertions.json``
+   mapping each such key to a predicate (``regex`` / ``contains`` /
+   ``contains_all`` / ``empty`` / ``non_empty`` / ``field_true`` run locally;
+   ``judge`` piped to the grader CLI), those cases are graded automatically.
+   A structural case with no ``assertions.json`` falls back to MANUAL and
+   prints prompts for manual review.
 
    By default, free-text fields (rationale, reason, drop_reason,
    blockers, etc.) are graded by piping a short rubric prompt to a
@@ -606,6 +611,266 @@ def compare_with_grader(
     return ok, msgs
 
 
+# ---------------------------------------------------------------------------
+# Structural assertions (has_* / mention_* keys)
+# ---------------------------------------------------------------------------
+
+# Structural expected.json files assert *properties of the model's prose*
+# (does the announce body contain the Download Page link? did the model flag
+# the injection?) rather than exact field values. Each such property is named
+# by a has_* / mention_* key and is evaluated by a predicate declared in the
+# fixtures dir's assertions.json. Deterministic predicate types run locally —
+# fast, free, and flake-free, which is exactly what you want for links,
+# headers, and security properties. The judge type pipes a yes/no rubric to
+# the grader CLI for the genuinely semantic properties that regex can't pin
+# down.
+
+_DETERMINISTIC_ASSERTION_TYPES: frozenset[str] = frozenset(
+    {"regex", "contains", "contains_all", "empty", "non_empty", "field_true"}
+)
+_VALID_ASSERTION_TYPES: frozenset[str] = _DETERMINISTIC_ASSERTION_TYPES | {"judge"}
+
+
+def load_assertions(fixtures_dir: Path) -> dict[str, dict]:
+    """Return the structural-assertion specs for cases in this fixtures dir.
+
+    Reads ``fixtures_dir/assertions.json`` when present: an object mapping
+    each ``has_*`` / ``mention_*`` key to a predicate spec. Returns an empty
+    dict when the file is absent — the runner then falls back to MANUAL for
+    structural cases, preserving the prior behaviour.
+
+    Raises ValueError if the file is malformed or names an unknown predicate
+    type, so a typo fails loudly rather than silently skipping a check.
+    """
+    path = fixtures_dir / "assertions.json"
+    if not path.exists():
+        return {}
+    data = json.loads(path.read_text())
+    if not isinstance(data, dict):
+        raise ValueError(f"{path} must be a JSON object mapping assertion keys to specs")
+    for key, spec in data.items():
+        if not isinstance(spec, dict):
+            raise ValueError(f"{path}: assertion {key!r} must be an object")
+        atype = spec.get("type")
+        if atype not in _VALID_ASSERTION_TYPES:
+            raise ValueError(
+                f"{path}: assertion {key!r} has invalid type {atype!r}; "
+                f"valid types: {sorted(_VALID_ASSERTION_TYPES)}"
+            )
+    return data
+
+
+def _resolve_field(actual: object, field: str) -> tuple[object, bool]:
+    """Return ``(value, present)`` for a dotted ``field`` path into ``actual``."""
+    cur = actual
+    for part in field.split("."):
+        if isinstance(cur, dict) and part in cur:
+            cur = cur[part]
+        else:
+            return None, False
+    return cur, True
+
+
+def _compile_flags(spec: dict) -> int:
+    flags = 0
+    mapping = {"i": re.IGNORECASE, "s": re.DOTALL, "m": re.MULTILINE}
+    for ch in str(spec.get("flags", "")):
+        flags |= mapping.get(ch, 0)
+    return flags
+
+
+def evaluate_deterministic_assertion(spec: dict, actual: object) -> tuple[bool | None, str]:
+    """Evaluate a non-judge assertion. Return ``(holds, note)``.
+
+    ``holds`` is True/False for whether the asserted property is present in
+    the model output, or None on a spec/usage error (which the caller reports
+    as a failure). ``note`` is a short explanation, empty on a clean result.
+
+    Missing-field semantics: ``empty`` treats an absent field as empty (True);
+    ``non_empty`` / ``field_true`` / the text predicates treat an absent field
+    as not satisfied (False).
+    """
+    atype = spec["type"]
+    field = spec.get("field")
+    if field is None:
+        return None, f"type {atype!r} requires a 'field'"
+    value, present = _resolve_field(actual, field)
+
+    if atype == "empty":
+        return (not present or value in ([], "", None, {})), ""
+    if atype == "non_empty":
+        return (present and value not in ([], "", None, {})), ""
+    if atype == "field_true":
+        return (present and value is True), ""
+
+    # Text predicates need a string. Non-string values are JSON-serialised so
+    # a list/number field can still be substring/regex-matched if a spec asks.
+    if not present:
+        return False, f"field {field!r} not present in output"
+    text = value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
+    ci = "i" in str(spec.get("flags", ""))
+
+    if atype == "regex":
+        pattern = spec.get("pattern")
+        if pattern is None:
+            return None, "type 'regex' requires a 'pattern'"
+        return (re.search(pattern, text, _compile_flags(spec)) is not None), ""
+    if atype == "contains":
+        sub = spec.get("substring")
+        if sub is None:
+            return None, "type 'contains' requires a 'substring'"
+        hay = text.lower() if ci else text
+        needle = sub.lower() if ci else sub
+        return (needle in hay), ""
+    if atype == "contains_all":
+        subs = spec.get("substrings")
+        if not isinstance(subs, list) or not subs:
+            return None, "type 'contains_all' requires a non-empty 'substrings' list"
+        hay = text.lower() if ci else text
+        missing = [s for s in subs if (s.lower() if ci else s) not in hay]
+        return (not missing), (f"missing: {missing}" if missing else "")
+    return None, f"unhandled assertion type {atype!r}"
+
+
+JUDGE_ASSERTION_RUBRIC = """\
+You are checking whether a model's output satisfies specific named properties.
+
+Model output (JSON):
+{output}
+
+For each property below, decide strictly from the output whether the property holds.
+
+{props_block}
+
+Reply with one line of JSON only, no prose: an object mapping each property key to {{"holds": true|false, "reason": "<one-line explanation>"}}. Include every property key listed above. Example:
+{{"has_foo": {{"holds": true, "reason": "output states X"}}, "mention_bar": {{"holds": false, "reason": "not mentioned"}}}}
+"""
+
+
+def _format_judge_props_block(specs: dict[str, dict]) -> str:
+    chunks = []
+    for key, spec in specs.items():
+        rubric = spec.get("rubric", "")
+        field = spec.get("field")
+        scope = f" (focus on the {field!r} field)" if field else ""
+        chunks.append(f"Property: {key}{scope}\nHolds when: {rubric}")
+    return "\n\n".join(chunks)
+
+
+def batch_judge_assertions(
+    specs: dict[str, dict],
+    actual: object,
+    grader_cli: str,
+    timeout: int,
+) -> dict[str, tuple[bool | None, str]]:
+    """Send one rubric covering every judge assertion; return key -> (holds, note).
+
+    Empty ``specs`` makes no grader call. On any grader failure (timeout,
+    OSError, non-zero exit, unparsable output, missing key in the verdict),
+    the affected keys are returned with ``holds=None`` so the caller fails the
+    assertion rather than silently passing it — important for the security
+    cases this is used on.
+    """
+    if not specs:
+        return {}
+    prompt = JUDGE_ASSERTION_RUBRIC.format(
+        output=json.dumps(actual, indent=2, ensure_ascii=False, sort_keys=True),
+        props_block=_format_judge_props_block(specs),
+    )
+    try:
+        stdout, stderr, rc = run_cli(grader_cli, prompt, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return dict.fromkeys(specs, (None, f"grader CLI timed out after {timeout}s"))
+    except OSError as exc:
+        return dict.fromkeys(specs, (None, f"grader CLI invocation failed ({exc})"))
+    if rc != 0:
+        return dict.fromkeys(specs, (None, f"grader CLI exited {rc} ({stderr.strip()[:200]})"))
+    verdict, err = extract_json_from_output(stdout)
+    if err is not None or not isinstance(verdict, dict):
+        return dict.fromkeys(specs, (None, f"grader returned unusable output ({err or 'not a dict'})"))
+    result: dict[str, tuple[bool | None, str]] = {}
+    for key in specs:
+        entry = verdict.get(key)
+        if not isinstance(entry, dict) or "holds" not in entry:
+            result[key] = (None, f"grader did not return a verdict for {key}")
+            continue
+        result[key] = (bool(entry.get("holds")), str(entry.get("reason", "")).strip())
+    return result
+
+
+def compare_structural(
+    actual: object,
+    expected: dict,
+    assertions: dict[str, dict],
+    *,
+    prose_fields: set[str],
+    grader_cli: str,
+    exact: bool,
+    grader_timeout: int,
+) -> tuple[bool, list[str]]:
+    """Grade a structural expected.json (``has_*`` / ``mention_*`` keys).
+
+    Structural keys are evaluated by their ``assertions.json`` predicates;
+    deterministic ones run locally and judge ones go to the grader in a single
+    batched call. Any remaining (non-structural) keys are compared with the
+    standard field-aware comparator — exact for decision fields, grader for
+    prose, or pure exact when ``exact`` is set. Returns ``(ok, notes)`` with
+    one note per failing field.
+    """
+    structural = {k: v for k, v in expected.items() if k.startswith(("has_", "mention_"))}
+    remainder = {k: v for k, v in expected.items() if k not in structural}
+
+    ok = True
+    notes: list[str] = []
+
+    if remainder:
+        sub_ok, sub_notes = compare_with_grader(
+            actual,
+            remainder,
+            prose_fields=set() if exact else prose_fields,
+            grader_cli=grader_cli,
+            timeout=grader_timeout,
+        )
+        if not sub_ok:
+            ok = False
+            notes.extend(sub_notes)
+
+    judge_specs: dict[str, dict] = {}
+    judge_expected: dict[str, bool] = {}
+    for key, exp_val in structural.items():
+        spec = assertions.get(key)
+        if spec is None:
+            ok = False
+            notes.append(f"{key}: no assertion defined in assertions.json")
+            continue
+        if spec["type"] == "judge":
+            judge_specs[key] = spec
+            judge_expected[key] = bool(exp_val)
+            continue
+        holds, note = evaluate_deterministic_assertion(spec, actual)
+        if holds is None:
+            ok = False
+            notes.append(f"{key}: {note}")
+        elif holds != bool(exp_val):
+            detail = f" ({note})" if note else ""
+            notes.append(f"{key}: property={holds}, expected {bool(exp_val)}{detail}")
+            ok = False
+
+    if judge_specs:
+        grades = batch_judge_assertions(judge_specs, actual, grader_cli, grader_timeout)
+        for key in judge_specs:
+            holds, note = grades.get(key, (None, "no verdict returned by grader"))
+            if holds is None:
+                ok = False
+                notes.append(f"{key}: {note}")
+            elif holds != judge_expected[key]:
+                detail = f" ({note})" if note else ""
+                notes.append(f"{key}: judge says property={holds}, expected {judge_expected[key]}{detail}")
+                ok = False
+
+    return ok, notes
+
+
 def _format_diff(actual: object, expected: object) -> str:
     actual_text = json.dumps(actual, indent=2, sort_keys=True)
     expected_text = json.dumps(expected, indent=2, sort_keys=True)
@@ -817,6 +1082,8 @@ def main(argv: list[str] | None = None) -> int:
     _step_config_cache: dict[Path, tuple[str, str]] = {}
     # Cache the prose-field schema per fixtures dir (config only, not grader results).
     _grading_schema_cache: dict[Path, set[str]] = {}
+    # Cache the structural-assertion specs per fixtures dir.
+    _assertions_cache: dict[Path, dict[str, dict]] = {}
 
     passed = failed = manual = errored = 0
 
@@ -860,12 +1127,19 @@ def main(argv: list[str] | None = None) -> int:
             continue
 
         # --cli mode: run the configured command and auto-compare.
-        if isinstance(expected, dict) and is_structural_expected(expected):
-            print(f"MANUAL  {case_label} (structural expected.json — review actual output by hand)")
-            if args.verbose:
-                _print_prompts_and_run(args, system_prompt, user_prompt)
-            manual += 1
-            continue
+        structural = isinstance(expected, dict) and is_structural_expected(expected)
+        assertions: dict[str, dict] = {}
+        if structural:
+            if fixtures_dir not in _assertions_cache:
+                _assertions_cache[fixtures_dir] = load_assertions(fixtures_dir)
+            assertions = _assertions_cache[fixtures_dir]
+            if not assertions:
+                # No assertions.json: preserve the manual-review fallback.
+                print(f"MANUAL  {case_label} (structural expected.json — review actual output by hand)")
+                if args.verbose:
+                    _print_prompts_and_run(args, system_prompt, user_prompt)
+                manual += 1
+                continue
 
         full_prompt = f"{system_prompt}\n\n{user_prompt}"
         try:
@@ -911,7 +1185,27 @@ def main(argv: list[str] | None = None) -> int:
                 # asserts on `raw_output`.
                 actual = {"raw_output": stdout}
 
-        if not args.exact:
+        if structural:
+            if fixtures_dir not in _grading_schema_cache:
+                _grading_schema_cache[fixtures_dir] = load_grading_schema(fixtures_dir)
+            ok, notes = compare_structural(
+                actual,
+                expected,
+                assertions,
+                prose_fields=_grading_schema_cache[fixtures_dir],
+                grader_cli=args.grader_cli,
+                exact=args.exact,
+                grader_timeout=args.grader_timeout,
+            )
+            if ok:
+                print(f"PASS    {case_label}")
+                passed += 1
+            else:
+                print(f"FAIL    {case_label}")
+                for note in notes:
+                    print(f"  {note}")
+                failed += 1
+        elif not args.exact:
             if fixtures_dir not in _grading_schema_cache:
                 _grading_schema_cache[fixtures_dir] = load_grading_schema(fixtures_dir)
             prose_fields = _grading_schema_cache[fixtures_dir]

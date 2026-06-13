@@ -325,14 +325,23 @@ Return ONLY valid JSON with this structure:
 ```
 
 `asf_address_reminder_present` is always `true` for `announce-list`
-backend; it confirms the reminder was not accidentally omitted.
+backend; it confirms the reminder was not accidentally omitted. For every
+non-`announce-list` backend there is no @apache.org sender reminder in
+the output, so set `asf_address_reminder_present` to `false`.
 
 ---
 
 ## Step 3 — Propose site-bump PR
 
 This step is skipped when `site_repo` is not configured in
-`release-management-config.md`.
+`release-management-config.md`. When skipped, return ONLY this JSON:
+
+```json
+{
+  "skipped": true,
+  "reason": "site_repo is not configured in release-management-config.md; no site-bump PR will be opened."
+}
+```
 
 Compose a draft PR on `<site_repo>` that updates the download page,
 release notes index, and current-version banner to reflect `<version>`.

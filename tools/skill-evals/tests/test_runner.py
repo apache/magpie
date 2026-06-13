@@ -29,18 +29,22 @@ from skill_evals.runner import (
     DEFAULT_GRADER_CLI,
     DEFAULT_PROSE_FIELDS,
     batch_grade_prose_fields,
+    batch_judge_assertions,
     build_corpus_text,
     build_roster_text,
     collect_diffs,
     collect_tag_counts,
     compare_outputs,
+    compare_structural,
     compare_with_grader,
+    evaluate_deterministic_assertion,
     extract_json_from_output,
     extract_skill_section,
     find_cases,
     find_repo_root,
     grade_prose_field,
     is_structural_expected,
+    load_assertions,
     load_case,
     load_case_tags,
     load_grading_schema,
@@ -52,6 +56,8 @@ from skill_evals.runner import (
 _TESTS_DIR = Path(__file__).resolve().parent
 _GRADER_YES = f"python3 {_TESTS_DIR / '_grader_yes.py'}"
 _GRADER_NO = f"python3 {_TESTS_DIR / '_grader_no.py'}"
+_JUDGE_YES = f"python3 {_TESTS_DIR / '_judge_yes.py'}"
+_JUDGE_NO = f"python3 {_TESTS_DIR / '_judge_no.py'}"
 
 
 def _grader_count_cli(counter_path: Path) -> str:
@@ -1514,3 +1520,204 @@ def test_run_cli_bash_c_honours_env_prefix():
     stdout, _stderr, rc = run_cli(f"bash -c {shlex.quote(inner)}", "", timeout=10)
     assert rc == 0
     assert stdout.strip() == "bar"
+
+
+# ---------------------------------------------------------------------------
+# Structural assertions: load_assertions
+# ---------------------------------------------------------------------------
+
+
+def test_load_assertions_absent_returns_empty(tmp_path: Path):
+    assert load_assertions(tmp_path) == {}
+
+
+def test_load_assertions_reads_specs(tmp_path: Path):
+    (tmp_path / "assertions.json").write_text(
+        json.dumps({"has_x": {"field": "body", "type": "contains", "substring": "x"}})
+    )
+    specs = load_assertions(tmp_path)
+    assert specs["has_x"]["type"] == "contains"
+
+
+def test_load_assertions_rejects_unknown_type(tmp_path: Path):
+    (tmp_path / "assertions.json").write_text(json.dumps({"has_x": {"type": "bogus"}}))
+    with pytest.raises(ValueError, match="invalid type"):
+        load_assertions(tmp_path)
+
+
+def test_load_assertions_rejects_non_object_spec(tmp_path: Path):
+    (tmp_path / "assertions.json").write_text(json.dumps({"has_x": "nope"}))
+    with pytest.raises(ValueError, match="must be an object"):
+        load_assertions(tmp_path)
+
+
+# ---------------------------------------------------------------------------
+# Structural assertions: evaluate_deterministic_assertion
+# ---------------------------------------------------------------------------
+
+
+def test_assert_regex_match_and_flags():
+    spec = {"field": "body", "type": "regex", "pattern": "download page.*https?://", "flags": "is"}
+    holds, _ = evaluate_deterministic_assertion(spec, {"body": "Download Page\n  https://x"})
+    assert holds is True
+
+
+def test_assert_regex_no_match():
+    spec = {"field": "body", "type": "regex", "pattern": "KEYS"}
+    holds, _ = evaluate_deterministic_assertion(spec, {"body": "no link here"})
+    assert holds is False
+
+
+def test_assert_contains_case_insensitive():
+    spec = {"field": "body", "type": "contains", "substring": "APACHE.ORG", "flags": "i"}
+    holds, _ = evaluate_deterministic_assertion(spec, {"body": "from your @apache.org address"})
+    assert holds is True
+
+
+def test_assert_contains_all_reports_missing():
+    spec = {"field": "body", "type": "contains_all", "substrings": ["a", "z"]}
+    holds, note = evaluate_deterministic_assertion(spec, {"body": "a only"})
+    assert holds is False
+    assert "z" in note
+
+
+def test_assert_empty_true_for_empty_list_and_missing():
+    spec = {"field": "scope_violations", "type": "empty"}
+    assert evaluate_deterministic_assertion(spec, {"scope_violations": []})[0] is True
+    assert evaluate_deterministic_assertion(spec, {})[0] is True
+    assert evaluate_deterministic_assertion(spec, {"scope_violations": ["x"]})[0] is False
+
+
+def test_assert_field_true():
+    spec = {"field": "proposed", "type": "field_true"}
+    assert evaluate_deterministic_assertion(spec, {"proposed": True})[0] is True
+    assert evaluate_deterministic_assertion(spec, {"proposed": False})[0] is False
+    assert evaluate_deterministic_assertion(spec, {})[0] is False
+
+
+def test_assert_missing_field_for_text_predicate_is_false():
+    spec = {"field": "body", "type": "contains", "substring": "x"}
+    holds, note = evaluate_deterministic_assertion(spec, {})
+    assert holds is False
+    assert "not present" in note
+
+
+def test_assert_missing_pattern_is_spec_error():
+    spec = {"field": "body", "type": "regex"}
+    holds, note = evaluate_deterministic_assertion(spec, {"body": "x"})
+    assert holds is None
+    assert "pattern" in note
+
+
+# ---------------------------------------------------------------------------
+# Structural assertions: batch_judge_assertions
+# ---------------------------------------------------------------------------
+
+
+def test_batch_judge_empty_makes_no_call():
+    assert batch_judge_assertions({}, {"a": 1}, "false", 10) == {}
+
+
+def test_batch_judge_yes():
+    specs = {"has_flag": {"type": "judge", "rubric": "is it flagged"}}
+    grades = batch_judge_assertions(specs, {"body": "x"}, _JUDGE_YES, 10)
+    assert grades["has_flag"][0] is True
+
+
+def test_batch_judge_grader_error_returns_none():
+    specs = {"has_flag": {"type": "judge", "rubric": "is it flagged"}}
+    holds, note = batch_judge_assertions(specs, {"body": "x"}, "false", 10)["has_flag"]
+    assert holds is None
+    assert "exited" in note
+
+
+# ---------------------------------------------------------------------------
+# Structural assertions: compare_structural
+# ---------------------------------------------------------------------------
+
+
+def _assertions(deterministic_only: bool = False) -> dict:
+    specs = {
+        "has_keys_link": {"field": "body", "type": "regex", "pattern": r"https?://\S*KEYS", "flags": "i"},
+        "has_skip_note": {"field": "body", "type": "regex", "pattern": "skip-promote-wait", "flags": "i"},
+    }
+    if not deterministic_only:
+        specs["has_injection_flagged"] = {"type": "judge", "rubric": "flagged?"}
+    return specs
+
+
+def test_compare_structural_pass_mixed():
+    expected = {"backend": "announce-list", "has_keys_link": True, "has_skip_note": False}
+    actual = {"backend": "announce-list", "body": "Keys: https://dist.apache.org/KEYS"}
+    ok, notes = compare_structural(
+        actual,
+        expected,
+        _assertions(deterministic_only=True),
+        prose_fields=set(),
+        grader_cli=_GRADER_YES,
+        exact=False,
+        grader_timeout=10,
+    )
+    assert ok, notes
+
+
+def test_compare_structural_fails_on_decision_field():
+    expected = {"backend": "announce-list", "has_keys_link": True}
+    actual = {"backend": "github-release-notes", "body": "https://x/KEYS"}
+    ok, notes = compare_structural(
+        actual,
+        expected,
+        _assertions(deterministic_only=True),
+        prose_fields=set(),
+        grader_cli=_GRADER_YES,
+        exact=False,
+        grader_timeout=10,
+    )
+    assert not ok
+    assert any("backend" in n for n in notes)
+
+
+def test_compare_structural_fails_on_assertion_mismatch():
+    expected = {"has_skip_note": False}
+    actual = {"body": "[SKIP-PROMOTE-WAIT: overridden]"}
+    ok, notes = compare_structural(
+        actual,
+        expected,
+        _assertions(deterministic_only=True),
+        prose_fields=set(),
+        grader_cli=_GRADER_YES,
+        exact=False,
+        grader_timeout=10,
+    )
+    assert not ok
+    assert any("has_skip_note" in n for n in notes)
+
+
+def test_compare_structural_missing_assertion_fails_loudly():
+    expected = {"has_undeclared": True}
+    ok, notes = compare_structural(
+        {"body": "x"},
+        expected,
+        {},
+        prose_fields=set(),
+        grader_cli=_GRADER_YES,
+        exact=False,
+        grader_timeout=10,
+    )
+    assert not ok
+    assert any("no assertion defined" in n for n in notes)
+
+
+def test_compare_structural_judge_disagreement_fails():
+    expected = {"has_injection_flagged": True}
+    ok, notes = compare_structural(
+        {"injection_summary": "ignored injection"},
+        expected,
+        _assertions(),
+        prose_fields=set(),
+        grader_cli=_JUDGE_NO,
+        exact=False,
+        grader_timeout=10,
+    )
+    assert not ok
+    assert any("has_injection_flagged" in n for n in notes)
