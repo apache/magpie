@@ -788,6 +788,22 @@ name = "skill-and-tool-validator"
 version = "0.1.0"
 source = { editable = "tools/skill-and-tool-validator" }
 
+[package.dev-dependencies]
+dev = [
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "mypy", specifier = ">=1.11" },
+    { name = "pytest", specifier = ">=8.0" },
+    { name = "ruff", specifier = ">=0.6" },
+]
+
 [[package]]
 name = "skill-evals"
 version = "0.1.0"
