@@ -66,6 +66,7 @@ health without navigating the tracker issue-by-issue.
 ## Validation
 
 ```bash
+uv run --directory tools/security-tracker-stats-dashboard --group dev pytest
 bash -n tools/security-tracker-stats-dashboard/run.sh
 shellcheck tools/security-tracker-stats-dashboard/run.sh
 ```
@@ -73,5 +74,4 @@ shellcheck tools/security-tracker-stats-dashboard/run.sh
 ## Known gaps
 
 - `experimental` — no adopter pilot has run the dashboard end-to-end.
-  The tool's test coverage and CI integration are tracked as follow-on
-  work items.
+- CI integration is a follow-on item.

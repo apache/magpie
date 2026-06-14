@@ -46,18 +46,46 @@ null, those three charts are omitted and the snapshot back-fill rule is
 disabled.
 """
 
-import calendar
+import datetime as dt
 import json
 import os
 import re
 import statistics
-import datetime as dt
+import sys
 from collections import defaultdict
+
+# Make the src/ package importable when render.py is run as a standalone script.
+_HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(_HERE, "src"))
+
+from security_tracker_stats_dashboard.core import (  # noqa: E402
+    _minimal_yaml_load,
+    build_triage_regex,
+    deep_merge,
+    eval_predicate,
+    is_bot_body,
+    iter_months,
+    iter_quarters,
+    iter_weeks,
+    js_array,
+    js_quotes,
+    mean_or_none,
+    milestone_x,
+    month_end,
+    month_label,
+    month_of,
+    parse_dt,
+    quarter_end,
+    quarter_label,
+    quarter_of,
+    week_end,
+    week_label,
+    week_of,
+)
 
 # --- YAML loader ----------------------------------------------------
 # Prefer pyyaml when available (handles every edge case). When it's not
-# installed, fall back to a tiny subset parser that covers the schema in
-# default-config.yaml only.
+# installed, fall back to the pure-Python subset parser from core.
 try:
     import yaml  # type: ignore
 
@@ -65,311 +93,55 @@ try:
         return yaml.safe_load(text)
 
 except ImportError:
+
     def yaml_load(text):
         return _minimal_yaml_load(text)
 
 
-def _minimal_yaml_load(text):
-    """Tiny YAML subset parser sufficient for default-config.yaml.
-
-    Supports: nested block mappings, block sequences (`- ...`), inline
-    flow lists `[a, b, "c d"]`, string scalars (with optional quotes),
-    integers, floats, booleans, null. Comments start at `#` outside of
-    quoted strings. No anchors, no merge keys, no flow mappings.
-    """
-    lines = []
-    for raw in text.splitlines():
-        # Strip comments outside of quotes.
-        in_q = None
-        out = []
-        i = 0
-        while i < len(raw):
-            ch = raw[i]
-            if in_q:
-                out.append(ch)
-                if ch == '\\' and i + 1 < len(raw):
-                    out.append(raw[i + 1])
-                    i += 2
-                    continue
-                if ch == in_q:
-                    in_q = None
-                i += 1
-                continue
-            if ch in ('"', "'"):
-                in_q = ch
-                out.append(ch)
-                i += 1
-                continue
-            if ch == '#':
-                break
-            out.append(ch)
-            i += 1
-        line = ''.join(out).rstrip()
-        if line.strip():
-            lines.append(line)
-
-    # Parse using indentation stack.
-    def indent_of(s):
-        return len(s) - len(s.lstrip(' '))
-
-    def scalar(s):
-        s = s.strip()
-        if not s:
-            return None
-        if s.lower() in ('null', '~'):
-            return None
-        if s.lower() == 'true':
-            return True
-        if s.lower() == 'false':
-            return False
-        if s.startswith('"') and s.endswith('"') and len(s) >= 2:
-            return s[1:-1].encode().decode('unicode_escape')
-        if s.startswith("'") and s.endswith("'") and len(s) >= 2:
-            return s[1:-1]
-        if s.startswith('[') and s.endswith(']'):
-            inner = s[1:-1].strip()
-            if not inner:
-                return []
-            return [scalar(x) for x in _split_flow_list(inner)]
-        try:
-            if '.' in s or 'e' in s or 'E' in s:
-                return float(s)
-            return int(s)
-        except ValueError:
-            return s
-
-    def _split_flow_list(inner):
-        parts = []
-        cur = []
-        in_q = None
-        depth = 0
-        for ch in inner:
-            if in_q:
-                cur.append(ch)
-                if ch == in_q:
-                    in_q = None
-                continue
-            if ch in ('"', "'"):
-                in_q = ch
-                cur.append(ch)
-                continue
-            if ch == '[':
-                depth += 1
-                cur.append(ch)
-                continue
-            if ch == ']':
-                depth -= 1
-                cur.append(ch)
-                continue
-            if ch == ',' and depth == 0:
-                parts.append(''.join(cur).strip())
-                cur = []
-                continue
-            cur.append(ch)
-        if cur:
-            parts.append(''.join(cur).strip())
-        return parts
-
-    def parse_block(idx, base_indent):
-        # Returns (value, next_idx). Inspects the first non-empty line
-        # at >= base_indent to decide mapping vs. sequence.
-        if idx >= len(lines):
-            return None, idx
-        first = lines[idx]
-        ind = indent_of(first)
-        if ind < base_indent:
-            return None, idx
-        if first.lstrip().startswith('- '):
-            return parse_seq(idx, ind)
-        return parse_map(idx, ind)
-
-    def parse_map(idx, base_indent):
-        out = {}
-        while idx < len(lines):
-            line = lines[idx]
-            ind = indent_of(line)
-            if ind < base_indent:
-                break
-            if ind > base_indent:
-                # Shouldn't happen at top of map.
-                break
-            stripped = line.strip()
-            if stripped.startswith('- '):
-                break
-            # key: value or key:
-            if ':' not in stripped:
-                idx += 1
-                continue
-            # Split on the first ':' that isn't inside quotes.
-            key, _, rest = _split_key_value(stripped)
-            rest = rest.strip()
-            idx += 1
-            if rest == '' or rest is None:
-                # Block child.
-                if idx < len(lines) and indent_of(lines[idx]) > base_indent:
-                    child, idx = parse_block(idx, indent_of(lines[idx]))
-                    out[key] = child
-                else:
-                    out[key] = None
-            else:
-                out[key] = scalar(rest)
-        return out, idx
-
-    def _split_key_value(stripped):
-        in_q = None
-        for i, ch in enumerate(stripped):
-            if in_q:
-                if ch == in_q:
-                    in_q = None
-                continue
-            if ch in ('"', "'"):
-                in_q = ch
-                continue
-            if ch == ':':
-                key = stripped[:i].strip()
-                rest = stripped[i + 1 :]
-                # Unquote key.
-                if (key.startswith('"') and key.endswith('"')) or (
-                    key.startswith("'") and key.endswith("'")
-                ):
-                    key = key[1:-1]
-                return key, ':', rest
-        return stripped, None, ''
-
-    def parse_seq(idx, base_indent):
-        out = []
-        while idx < len(lines):
-            line = lines[idx]
-            ind = indent_of(line)
-            if ind < base_indent:
-                break
-            if ind > base_indent:
-                break
-            stripped = line.strip()
-            if not stripped.startswith('- '):
-                break
-            after_dash = stripped[2:].rstrip()
-            # Item indent = base_indent + 2 (for "- ")
-            item_inner_indent = base_indent + 2
-            idx += 1
-            if after_dash == '':
-                # Block item, child lines.
-                if idx < len(lines) and indent_of(lines[idx]) > base_indent:
-                    child, idx = parse_block(idx, indent_of(lines[idx]))
-                    out.append(child)
-                else:
-                    out.append(None)
-                continue
-            if ':' in after_dash and not (
-                after_dash.startswith('"') or after_dash.startswith("'")
-            ):
-                # Inline first key-value of a mapping item. Treat the "- "
-                # as introducing a mapping whose first key is on this line.
-                key, _, rest = _split_key_value(after_dash)
-                rest = rest.strip()
-                item = {}
-                if rest == '':
-                    if idx < len(lines) and indent_of(lines[idx]) > item_inner_indent:
-                        child, idx = parse_block(idx, indent_of(lines[idx]))
-                        item[key] = child
-                    else:
-                        item[key] = None
-                else:
-                    item[key] = scalar(rest)
-                # Continue absorbing further keys at item_inner_indent.
-                while idx < len(lines):
-                    nline = lines[idx]
-                    nind = indent_of(nline)
-                    if nind < item_inner_indent:
-                        break
-                    if nind > item_inner_indent:
-                        break
-                    nstripped = nline.strip()
-                    if nstripped.startswith('- '):
-                        break
-                    if ':' not in nstripped:
-                        idx += 1
-                        continue
-                    nkey, _, nrest = _split_key_value(nstripped)
-                    nrest = nrest.strip()
-                    idx += 1
-                    if nrest == '':
-                        if idx < len(lines) and indent_of(lines[idx]) > item_inner_indent:
-                            child, idx = parse_block(idx, indent_of(lines[idx]))
-                            item[nkey] = child
-                        else:
-                            item[nkey] = None
-                    else:
-                        item[nkey] = scalar(nrest)
-                out.append(item)
-            else:
-                out.append(scalar(after_dash))
-        return out, idx
-
-    val, _ = parse_block(0, 0)
-    return val
-
-
 # --- Config loading -------------------------------------------------
 
-ROOT = os.environ.get('TRACKER_STATS_CACHE', '/tmp/tracker-stats-cache')
-OUT_PATH = os.environ.get('TRACKER_STATS_OUT', '/tmp/airflow_s_monthly.html')
+ROOT = os.environ.get("TRACKER_STATS_CACHE", "/tmp/tracker-stats-cache")
+OUT_PATH = os.environ.get("TRACKER_STATS_OUT", "/tmp/airflow_s_monthly.html")
 HERE = os.path.dirname(os.path.abspath(__file__))
-DEFAULT_CONFIG_PATH = os.path.join(HERE, 'default-config.yaml')
-
-
-def deep_merge(base, overlay):
-    """Deep-merge overlay into base. Lists are REPLACED (not concatenated)."""
-    if overlay is None:
-        return base
-    if not isinstance(base, dict) or not isinstance(overlay, dict):
-        return overlay
-    out = dict(base)
-    for k, v in overlay.items():
-        if k in out and isinstance(out[k], dict) and isinstance(v, dict):
-            out[k] = deep_merge(out[k], v)
-        else:
-            out[k] = v
-    return out
+DEFAULT_CONFIG_PATH = os.path.join(HERE, "default-config.yaml")
 
 
 def load_config():
     with open(DEFAULT_CONFIG_PATH) as f:
         cfg = yaml_load(f.read()) or {}
-    overlay_path = os.environ.get('TRACKER_STATS_CONFIG')
+    overlay_path = os.environ.get("TRACKER_STATS_CONFIG")
     if overlay_path and os.path.exists(overlay_path):
         with open(overlay_path) as f:
             overlay = yaml_load(f.read()) or {}
         cfg = deep_merge(cfg, overlay)
     # Env-var quick overrides.
-    if os.environ.get('TRACKER_STATS_BUCKETS'):
-        cfg['buckets'] = os.environ['TRACKER_STATS_BUCKETS']
-    if 'TRACKER_STATS_START' in os.environ:
-        v = os.environ['TRACKER_STATS_START']
-        cfg['start'] = v if v else None
-    if 'TRACKER_STATS_UPSTREAM_REPO' in os.environ:
-        v = os.environ['TRACKER_STATS_UPSTREAM_REPO']
-        cfg['upstream_repo'] = None if v in ('', 'none', 'null') else v
+    if os.environ.get("TRACKER_STATS_BUCKETS"):
+        cfg["buckets"] = os.environ["TRACKER_STATS_BUCKETS"]
+    if "TRACKER_STATS_START" in os.environ:
+        v = os.environ["TRACKER_STATS_START"]
+        cfg["start"] = v if v else None
+    if "TRACKER_STATS_UPSTREAM_REPO" in os.environ:
+        v = os.environ["TRACKER_STATS_UPSTREAM_REPO"]
+        cfg["upstream_repo"] = None if v in ("", "none", "null") else v
     return cfg
 
 
 CONFIG = load_config()
 
-BUCKETS_MODE = CONFIG.get('buckets', 'monthly')
-if BUCKETS_MODE not in ('monthly', 'quarterly', 'weekly'):
-    raise SystemExit(
-        f"buckets must be 'monthly', 'quarterly' or 'weekly', got {BUCKETS_MODE!r}")
+BUCKETS_MODE = CONFIG.get("buckets", "monthly")
+if BUCKETS_MODE not in ("monthly", "quarterly", "weekly"):
+    raise SystemExit(f"buckets must be 'monthly', 'quarterly' or 'weekly', got {BUCKETS_MODE!r}")
 
-START_OVERRIDE = CONFIG.get('start')
-UPSTREAM_REPO = CONFIG.get('upstream_repo')
-SCOPE_LABELS = set(CONFIG.get('scope_labels') or [])
-MILESTONES = CONFIG.get('milestones') or []
-CATEGORIES_CFG = CONFIG.get('categories') or []
-TRIAGE_KW = CONFIG.get('triage', {}).get('keywords') or []
-BOT_PREFIXES = tuple(CONFIG.get('triage', {}).get('bot_prefixes') or [])
+START_OVERRIDE = CONFIG.get("start")
+UPSTREAM_REPO = CONFIG.get("upstream_repo")
+SCOPE_LABELS = set(CONFIG.get("scope_labels") or [])
+MILESTONES = CONFIG.get("milestones") or []
+CATEGORIES_CFG = CONFIG.get("categories") or []
+TRIAGE_KW = CONFIG.get("triage", {}).get("keywords") or []
+BOT_PREFIXES = tuple(CONFIG.get("triage", {}).get("bot_prefixes") or [])
 # Label identifying the "rejected without tracker" ledger issue. When
 # null (or no such issue exists) the rejection stat is omitted / shows 0.
-REJECTIONS_LEDGER_LABEL = CONFIG.get('rejections_ledger_label')
+REJECTIONS_LEDGER_LABEL = CONFIG.get("rejections_ledger_label")
 
 # Distinct category names in the order they FIRST appear in CATEGORIES_CFG
 # (multiple rules can share a name to express disjoint branches of the
@@ -377,30 +149,30 @@ REJECTIONS_LEDGER_LABEL = CONFIG.get('rejections_ledger_label')
 _seen = set()
 CATS_DEFAULT_ORDER = []
 for c in CATEGORIES_CFG:
-    if c['name'] not in _seen:
-        _seen.add(c['name'])
-        CATS_DEFAULT_ORDER.append(c['name'])
-STACK_ORDER = CONFIG.get('stack_order') or CATS_DEFAULT_ORDER
+    if c["name"] not in _seen:
+        _seen.add(c["name"])
+        CATS_DEFAULT_ORDER.append(c["name"])
+STACK_ORDER = CONFIG.get("stack_order") or CATS_DEFAULT_ORDER
 # CATS used for snapshot counting is the distinct-name set. Plotting uses
 # STACK_ORDER (which may re-order them for visual layering).
 CATS = list(CATS_DEFAULT_ORDER)
 CAT_COLORS = {}
 for c in CATEGORIES_CFG:
-    CAT_COLORS.setdefault(c['name'], c.get('color', '#888888'))
+    CAT_COLORS.setdefault(c["name"], c.get("color", "#888888"))
 
 
 # --- Cache load -----------------------------------------------------
 
-with open(f'{ROOT}/issues.json') as f:
+with open(f"{ROOT}/issues.json") as f:
     all_issues = json.load(f)
-with open(f'{ROOT}/roster.txt') as f:
+with open(f"{ROOT}/roster.txt") as f:
     roster = {ln.strip() for ln in f if ln.strip()}
-with open(f'{ROOT}/issue_extra.json') as f:
+with open(f"{ROOT}/issue_extra.json") as f:
     issue_extra = json.load(f)
 
 
 def _issue_label_names(issue):
-    return {(l.get('name') if isinstance(l, dict) else l) for l in (issue.get('labels') or [])}
+    return {(lbl.get("name") if isinstance(lbl, dict) else lbl) for lbl in (issue.get("labels") or [])}
 
 
 # Partition out the "rejected without tracker" ledger issue(s). The ledger
@@ -410,17 +182,15 @@ def _issue_label_names(issue):
 # (`all_issues`) only for the rejection-comment parse; `issues` is the
 # tracker-only list every downstream loop iterates.
 if REJECTIONS_LEDGER_LABEL:
-    ledger_issues = [i for i in all_issues
-                     if REJECTIONS_LEDGER_LABEL in _issue_label_names(i)]
-    issues = [i for i in all_issues
-              if REJECTIONS_LEDGER_LABEL not in _issue_label_names(i)]
+    ledger_issues = [i for i in all_issues if REJECTIONS_LEDGER_LABEL in _issue_label_names(i)]
+    issues = [i for i in all_issues if REJECTIONS_LEDGER_LABEL not in _issue_label_names(i)]
 else:
     ledger_issues = []
     issues = list(all_issues)
 
 prs_cache = {}
 if UPSTREAM_REPO:
-    prs_path = f'{ROOT}/prs.json'
+    prs_path = f"{ROOT}/prs.json"
     if os.path.exists(prs_path):
         with open(prs_path) as f:
             prs_cache = json.load(f)
@@ -432,108 +202,17 @@ if UPSTREAM_REPO:
     # of `apache/airflow` still matches the historical pre-existing
     # `apache/airflow#NNN` references byte-for-byte.
     repo_re = re.escape(UPSTREAM_REPO)
-    PR_PAT = re.compile(
-        rf'{repo_re}#(\d+)|https://github\.com/{repo_re}/pull/(\d+)', re.I
-    )
+    PR_PAT = re.compile(rf"{repo_re}#(\d+)|https://github\.com/{repo_re}/pull/(\d+)", re.I)
 else:
     PR_PAT = None
 
 
-# --- helpers --------------------------------------------------------
-
-def parse_dt(s):
-    if not s:
-        return None
-    return dt.datetime.fromisoformat(s.replace('Z', '+00:00'))
-
-
-# --- Bucket abstraction --------------------------------------------
-
-def month_of(d):
-    return d.year, d.month
-
-
-def quarter_of(d):
-    return d.year, (d.month - 1) // 3 + 1
-
-
-def month_label(y, m):
-    return f"{y}-{m:02d}"
-
-
-def quarter_label(y, q):
-    return f"{y}-Q{q}"
-
-
-def month_end(y, m):
-    last_day = calendar.monthrange(y, m)[1]
-    return dt.datetime(y, m, last_day, 23, 59, 59, tzinfo=dt.timezone.utc)
-
-
-def quarter_end(y, q):
-    # q in {1,2,3,4}
-    last_month = q * 3
-    last_day = calendar.monthrange(y, last_month)[1]
-    return dt.datetime(y, last_month, last_day, 23, 59, 59, tzinfo=dt.timezone.utc)
-
-
-def iter_months(y0, m0, y1, m1):
-    y, m = y0, m0
-    while (y, m) <= (y1, m1):
-        yield y, m
-        m += 1
-        if m == 13:
-            m = 1
-            y += 1
-
-
-def iter_quarters(y0, q0, y1, q1):
-    y, q = y0, q0
-    while (y, q) <= (y1, q1):
-        yield y, q
-        q += 1
-        if q == 5:
-            q = 1
-            y += 1
-
-
-# Weekly buckets key on ISO (year, week) — note the ISO year can differ from
-# the calendar year in late December / early January, but (iso_year, iso_week)
-# tuples remain chronologically ordered, so the existing <=-based iteration
-# and bucketing carry over unchanged.
-def week_of(d):
-    iso = d.isocalendar()
-    return iso[0], iso[1]
-
-
-def week_label(y, w):
-    return f"{y}-W{w:02d}"
-
-
-def week_end(y, w):
-    # ISO weeks run Monday (day 1) .. Sunday (day 7); end at Sunday 23:59:59.
-    sunday = dt.date.fromisocalendar(y, w, 7)
-    return dt.datetime(sunday.year, sunday.month, sunday.day,
-                       23, 59, 59, tzinfo=dt.timezone.utc)
-
-
-def iter_weeks(y0, w0, y1, w1):
-    # Step by 7 days from the Monday of the start week through the end week;
-    # ISO years have 52 or 53 weeks, so stepping by date avoids that edge.
-    cur = dt.date.fromisocalendar(y0, w0, 1)
-    last = dt.date.fromisocalendar(y1, w1, 1)
-    while cur <= last:
-        iso = cur.isocalendar()
-        yield iso[0], iso[1]
-        cur += dt.timedelta(days=7)
-
-
-if BUCKETS_MODE == 'monthly':
+if BUCKETS_MODE == "monthly":
     bucket_of = month_of
     bucket_label = month_label
     bucket_end = month_end
     bucket_iter = iter_months
-elif BUCKETS_MODE == 'weekly':
+elif BUCKETS_MODE == "weekly":
     bucket_of = week_of
     bucket_label = week_label
     bucket_end = week_end
@@ -547,18 +226,18 @@ else:
 
 # --- index issues + buckets ----------------------------------------
 
-issues_by_n = {i['number']: i for i in issues}
-earliest = min(parse_dt(i['createdAt']) for i in issues)
+issues_by_n = {i["number"]: i for i in issues}
+earliest = min(parse_dt(i["createdAt"]) for i in issues)
 
 if START_OVERRIDE:
-    if BUCKETS_MODE == 'monthly':
-        y0, m0 = (int(x) for x in START_OVERRIDE.split('-'))
+    if BUCKETS_MODE == "monthly":
+        y0, m0 = (int(x) for x in START_OVERRIDE.split("-"))
         start_key = (y0, m0)
-    elif BUCKETS_MODE == 'weekly':
-        y_part, w_part = START_OVERRIDE.split('-W')
+    elif BUCKETS_MODE == "weekly":
+        y_part, w_part = START_OVERRIDE.split("-W")
         start_key = (int(y_part), int(w_part))
     else:
-        y_part, q_part = START_OVERRIDE.split('-Q')
+        y_part, q_part = START_OVERRIDE.split("-Q")
         start_key = (int(y_part), int(q_part))
 else:
     start_key = bucket_of(earliest)
@@ -597,19 +276,18 @@ print(f"buckets in range ({BUCKETS_MODE}): {n_buckets}")
 # than smearing it across buckets — that keeps the per-bucket series
 # faithful (only real dated rejections appear in it) while still
 # surfacing the historical lump in the summary / HTML header.
-REJECTION_MARKER = '<!-- rejection v1 -->'
-REJECTION_BACKFILL_RE = re.compile(
-    r'<!--\s*rejection-backfill\s+v1\s+count:\s*(\d+)\s*-->', re.I)
-REJECTION_DATE_RE = re.compile(r'^\s*date:\s*(\d{4})-(\d{2})-(\d{2})\s*$', re.M)
+REJECTION_MARKER = "<!-- rejection v1 -->"
+REJECTION_BACKFILL_RE = re.compile(r"<!--\s*rejection-backfill\s+v1\s+count:\s*(\d+)\s*-->", re.I)
+REJECTION_DATE_RE = re.compile(r"^\s*date:\s*(\d{4})-(\d{2})-(\d{2})\s*$", re.M)
 
-rejections_by_b = defaultdict(int)   # bucket label -> dated rejection count
-rejections_dated = []                # every dated rejection datetime (in + out of range)
+rejections_by_b = defaultdict(int)  # bucket label -> dated rejection count
+rejections_dated = []  # every dated rejection datetime (in + out of range)
 rejections_dated_total = 0
 rejections_backfill_total = 0
 
 for li in ledger_issues:
-    for c in (li.get('comments') or []):
-        body = c.get('body') or ''
+    for c in li.get("comments") or []:
+        body = c.get("body") or ""
         # Historical backfill marker (undated lump).
         for m in REJECTION_BACKFILL_RE.finditer(body):
             try:
@@ -630,8 +308,7 @@ for li in ledger_issues:
                 # No / malformed date line — skip this entry defensively.
                 continue
             try:
-                d = dt.datetime(int(dm.group(1)), int(dm.group(2)),
-                                int(dm.group(3)), tzinfo=dt.timezone.utc)
+                d = dt.datetime(int(dm.group(1)), int(dm.group(2)), int(dm.group(3)), tzinfo=dt.timezone.utc)
             except ValueError:
                 continue
             rejections_dated.append(d)
@@ -650,7 +327,7 @@ rejections_total = rejections_dated_total + rejections_backfill_total
 # Per-issue events
 events_by_n = {}
 for n in issues_by_n:
-    p = f'{ROOT}/events/{n}.json'
+    p = f"{ROOT}/events/{n}.json"
     if os.path.exists(p) and os.path.getsize(p) > 0:
         with open(p) as f:
             events_by_n[n] = json.load(f)
@@ -660,15 +337,16 @@ for n in issues_by_n:
 
 # --- tracker -> linked PR list (from body parse + closedBy) --------
 
+
 def extract_prs_for_issue(n):
     if not UPSTREAM_REPO:
         return set()
     v = issue_extra.get(str(n)) or {}
     nums = set()
-    for ref in (v.get('closedByPullRequestsReferences') or []):
-        if ref.get('repository', {}).get('nameWithOwner') == UPSTREAM_REPO:
-            nums.add(ref['number'])
-    body = v.get('body') or ''
+    for ref in v.get("closedByPullRequestsReferences") or []:
+        if ref.get("repository", {}).get("nameWithOwner") == UPSTREAM_REPO:
+            nums.add(ref["number"])
+    body = v.get("body") or ""
     if PR_PAT is not None:
         for m in PR_PAT.findall(body):
             x = m[0] or m[1]
@@ -683,12 +361,12 @@ issue_prs = {n: extract_prs_for_issue(n) for n in issues_by_n}
 def pr_meta(num):
     """Return dict(createdAt=dt, mergedAt=dt|None, state=str) or None."""
     v = prs_cache.get(str(num))
-    if not v or 'error' in v:
+    if not v or "error" in v:
         return None
     return {
-        'createdAt': parse_dt(v.get('createdAt')),
-        'mergedAt': parse_dt(v.get('mergedAt')),
-        'state': v.get('state'),
+        "createdAt": parse_dt(v.get("createdAt")),
+        "mergedAt": parse_dt(v.get("mergedAt")),
+        "state": v.get("state"),
     }
 
 
@@ -701,21 +379,19 @@ def tracker_pr_signals(n):
         meta = pr_meta(prn)
         if meta is None:
             continue
-        c = meta['createdAt']
-        if c is not None:
-            if earliest_created is None or c < earliest_created:
-                earliest_created = c
-                earliest_created_pr = prn
-        mt = meta['mergedAt']
-        if mt is not None:
-            if earliest_merged_ts is None or mt < earliest_merged_ts:
-                earliest_merged_ts = mt
-                earliest_merged_pr = prn
+        c = meta["createdAt"]
+        if c is not None and (earliest_created is None or c < earliest_created):
+            earliest_created = c
+            earliest_created_pr = prn
+        mt = meta["mergedAt"]
+        if mt is not None and (earliest_merged_ts is None or mt < earliest_merged_ts):
+            earliest_merged_ts = mt
+            earliest_merged_pr = prn
     return {
-        'first_pr_created': earliest_created,
-        'first_pr_created_num': earliest_created_pr,
-        'first_pr_merged': earliest_merged_ts,
-        'first_pr_merged_num': earliest_merged_pr,
+        "first_pr_created": earliest_created,
+        "first_pr_created_num": earliest_created_pr,
+        "first_pr_merged": earliest_merged_ts,
+        "first_pr_merged_num": earliest_merged_pr,
     }
 
 
@@ -724,116 +400,52 @@ tracker_signals = {n: tracker_pr_signals(n) for n in issues_by_n}
 
 # --- label timeline replay ------------------------------------------
 
+
 def labels_open_at(issue, ts):
-    n = issue['number']
-    created = parse_dt(issue['createdAt'])
+    n = issue["number"]
+    created = parse_dt(issue["createdAt"])
     if ts < created:
         return None, None
     labels = set()
     is_open = True
     for e in events_by_n.get(n, []):
-        et = parse_dt(e['created_at'])
+        et = parse_dt(e["created_at"])
         if et > ts:
             break
-        if e['event'] == 'labeled' and e.get('label'):
-            labels.add(e['label'])
-        elif e['event'] == 'unlabeled' and e.get('label'):
-            labels.discard(e['label'])
-        elif e['event'] == 'closed':
+        if e["event"] == "labeled" and e.get("label"):
+            labels.add(e["label"])
+        elif e["event"] == "unlabeled" and e.get("label"):
+            labels.discard(e["label"])
+        elif e["event"] == "closed":
             is_open = False
-        elif e['event'] == 'reopened':
+        elif e["event"] == "reopened":
             is_open = True
     # The issue-events API can omit the 'closed' event for some (often
     # older) issues, which would leave is_open stuck True and miscount a
     # closed issue as open. Trust the authoritative closedAt from the
     # issue payload as a backstop (the cum_closed series already does).
-    closed_at = parse_dt(issue.get('closedAt'))
-    if issue.get('state') == 'CLOSED' and closed_at and closed_at <= ts:
+    closed_at = parse_dt(issue.get("closedAt"))
+    if issue.get("state") == "CLOSED" and closed_at and closed_at <= ts:
         is_open = False
     return labels, is_open
 
 
-# --- Predicate evaluator -------------------------------------------
-
-def eval_predicate(pred, ctx):
-    """Evaluate a category predicate against a snapshot context.
-
-    `ctx` keys:
-        labels (set), is_open (bool), state_reason (str|None),
-        pr_merged_by_snapshot (bool).
-    """
-    if not isinstance(pred, dict):
-        return False
-    for key, val in pred.items():
-        if key == 'any_of':
-            if not any(eval_predicate(p, ctx) for p in val):
-                return False
-        elif key == 'all_of':
-            if isinstance(val, list):
-                if not all(eval_predicate(p, ctx) for p in val):
-                    return False
-            elif isinstance(val, dict):
-                if not eval_predicate(val, ctx):
-                    return False
-            else:
-                return False
-        elif key == 'state':
-            want_open = (val == 'open')
-            if ctx['is_open'] != want_open:
-                return False
-        elif key == 'state_reason':
-            if ctx['state_reason'] != val:
-                return False
-        elif key == 'any_label':
-            if not any(l in ctx['labels'] for l in val):
-                return False
-        elif key == 'all_labels':
-            if not all(l in ctx['labels'] for l in val):
-                return False
-        elif key == 'not_label':
-            if val in ctx['labels']:
-                return False
-        elif key == 'not_any_label':
-            if any(l in ctx['labels'] for l in val):
-                return False
-        elif key == 'no_scope_label':
-            has_scope = bool(ctx['labels'] & SCOPE_LABELS)
-            if val and has_scope:
-                return False
-            if not val and not has_scope:
-                return False
-        elif key == 'has_scope_label':
-            has_scope = bool(ctx['labels'] & SCOPE_LABELS)
-            if val and not has_scope:
-                return False
-            if not val and has_scope:
-                return False
-        elif key == 'pr_merged_by_snapshot':
-            if val and not ctx['pr_merged_by_snapshot']:
-                return False
-            if not val and ctx['pr_merged_by_snapshot']:
-                return False
-        else:
-            # Unknown key — fail safe.
-            return False
-    return True
-
-
 def classify_per_config(labels, is_open, ts, n):
     issue = issues_by_n[n]
-    state_reason = issue.get('stateReason')
+    state_reason = issue.get("stateReason")
     sig = tracker_signals.get(n, {})
-    fm = sig.get('first_pr_merged')
+    fm = sig.get("first_pr_merged")
     pr_merged_by_snapshot = bool(UPSTREAM_REPO and fm is not None and fm <= ts)
     ctx = {
-        'labels': labels,
-        'is_open': is_open,
-        'state_reason': state_reason,
-        'pr_merged_by_snapshot': pr_merged_by_snapshot,
+        "labels": labels,
+        "is_open": is_open,
+        "state_reason": state_reason,
+        "pr_merged_by_snapshot": pr_merged_by_snapshot,
+        "scope_labels": SCOPE_LABELS,
     }
     for cat in CATEGORIES_CFG:
-        if eval_predicate(cat['predicate'], ctx):
-            return cat['name']
+        if eval_predicate(cat["predicate"], ctx):
+            return cat["name"]
     return None
 
 
@@ -849,13 +461,13 @@ for bi, b in enumerate(buckets):
         labels, is_open = labels_open_at(i, ts)
         if labels is None:
             continue
-        cat = classify_per_config(labels, is_open, ts, i['number'])
+        cat = classify_per_config(labels, is_open, ts, i["number"])
         if cat is None:
             continue
         counts[cat][bi] += 1
 
-        if cat == 'open_pr_merged' and is_open and 'pr merged' not in labels:
-            backfill_trackers.add(i['number'])
+        if cat == "open_pr_merged" and is_open and "pr merged" not in labels:
+            backfill_trackers.add(i["number"])
 
 # --- cumulative opened / closed ------------------------------------
 
@@ -867,10 +479,10 @@ for bi, b in enumerate(buckets):
     op = 0
     cl = 0
     for i in issues:
-        ca = parse_dt(i['createdAt'])
+        ca = parse_dt(i["createdAt"])
         if ca and ca <= ts:
             op += 1
-        cz = parse_dt(i.get('closedAt'))
+        cz = parse_dt(i.get("closedAt"))
         if cz and cz <= ts:
             cl += 1
     cum_opened[bi] = op
@@ -888,17 +500,16 @@ cum_rejected = []
 for b in buckets:
     be = bucket_end(*b)
     ts = NOW if be > NOW else be
-    cum_rejected.append(
-        rejections_backfill_total + sum(1 for rd in rejections_dated if rd <= ts))
+    cum_rejected.append(rejections_backfill_total + sum(1 for rd in rejections_dated if rd <= ts))
 cum_reported = [o + r for o, r in zip(cum_opened, cum_rejected)]
 
 # --- Opened-in-bucket vs untriaged-at-bucket-end ------------------
 
 opened_in_b = [0] * n_buckets
-untriaged_at_bend = counts.get('open_untriaged', [0] * n_buckets)
+untriaged_at_bend = counts.get("open_untriaged", [0] * n_buckets)
 
 for i in issues:
-    ca = parse_dt(i['createdAt'])
+    ca = parse_dt(i["createdAt"])
     if ca is None:
         continue
     cb = bucket_of(ca)
@@ -914,28 +525,7 @@ reported_in_b = [o + r for o, r in zip(opened_in_b, rejected_series)]
 
 # --- triage / response ---------------------------------------------
 
-# Build the triage regex from config. Keep word-boundary wrapping for
-# the all-caps keywords so they don't match substrings inside other
-# words (mirrors the original handwritten regex).
-_kw_parts = []
-for kw in TRIAGE_KW:
-    if kw.isupper() and ' ' not in kw and '-' not in kw:
-        _kw_parts.append(rf'\b{re.escape(kw)}\b')
-    elif kw.isalpha() and kw.islower() and ' ' not in kw:
-        _kw_parts.append(rf'\b{re.escape(kw)}\b')
-    else:
-        _kw_parts.append(re.escape(kw))
-TRIAGE_RE = re.compile('|'.join(_kw_parts), re.IGNORECASE) if _kw_parts else None
-
-
-def is_bot_body(body):
-    if not body:
-        return False
-    b = body.lstrip()
-    for p in BOT_PREFIXES:
-        if b.startswith(p):
-            return True
-    return False
+TRIAGE_RE = build_triage_regex(TRIAGE_KW)
 
 
 triage_hours_by_b = defaultdict(list)
@@ -945,26 +535,22 @@ n_no_triage = 0
 all_triage_hours = []
 
 for i in issues:
-    created = parse_dt(i['createdAt'])
+    created = parse_dt(i["createdAt"])
     blbl = bucket_label(*bucket_of(created))
-    comments = i.get('comments', []) or []
+    comments = i.get("comments", []) or []
 
     first_roster = None
     first_roster_keyword = None
     for c in comments:
-        author = (c.get('author') or {}).get('login')
+        author = (c.get("author") or {}).get("login")
         if not author or author not in roster:
             continue
-        if is_bot_body(c.get('body') or ''):
+        if is_bot_body(c.get("body") or "", BOT_PREFIXES):
             continue
-        ct = parse_dt(c['createdAt'])
+        ct = parse_dt(c["createdAt"])
         if first_roster is None:
             first_roster = ct
-        if (
-            first_roster_keyword is None
-            and TRIAGE_RE is not None
-            and TRIAGE_RE.search(c.get('body') or '')
-        ):
+        if first_roster_keyword is None and TRIAGE_RE is not None and TRIAGE_RE.search(c.get("body") or ""):
             first_roster_keyword = ct
         if first_roster is not None and first_roster_keyword is not None:
             break
@@ -982,10 +568,6 @@ for i in issues:
     hours = (triage_ts - created).total_seconds() / 3600
     triage_hours_by_b[blbl].append(hours)
     all_triage_hours.append(hours)
-
-
-def mean_or_none(xs):
-    return round(statistics.mean(xs), 2) if xs else None
 
 
 def per_b_series(by_b):
@@ -1016,41 +598,40 @@ rel_by_b = defaultdict(list)
 
 def first_label_time(n, label):
     for e in events_by_n.get(n, []):
-        if e['event'] == 'labeled' and e.get('label') == label:
-            return parse_dt(e['created_at'])
+        if e["event"] == "labeled" and e.get("label") == label:
+            return parse_dt(e["created_at"])
     return None
 
 
 if UPSTREAM_REPO:
     for i in issues:
-        n = i['number']
-        created = parse_dt(i['createdAt'])
+        n = i["number"]
+        created = parse_dt(i["createdAt"])
         sig = tracker_signals.get(n, {})
 
-        first_pr_c = sig.get('first_pr_created')
-        first_pr_m = sig.get('first_pr_merged')
+        first_pr_c = sig.get("first_pr_created")
+        first_pr_m = sig.get("first_pr_merged")
 
         if first_pr_c and created and first_pr_c >= created:
             days = (first_pr_c - created).total_seconds() / 86400
             prc_by_b[bucket_label(*bucket_of(created))].append(days)
 
         if first_pr_m is not None:
-            prn = sig.get('first_pr_merged_num')
+            prn = sig.get("first_pr_merged_num")
             meta = pr_meta(prn) if prn else None
-            if meta and meta['createdAt'] and meta['mergedAt'] and meta['mergedAt'] >= meta['createdAt']:
-                days = (meta['mergedAt'] - meta['createdAt']).total_seconds() / 86400
-                prm_by_b[bucket_label(*bucket_of(meta['createdAt']))].append(days)
+            if meta and meta["createdAt"] and meta["mergedAt"] and meta["mergedAt"] >= meta["createdAt"]:
+                days = (meta["mergedAt"] - meta["createdAt"]).total_seconds() / 86400
+                prm_by_b[bucket_label(*bucket_of(meta["createdAt"]))].append(days)
 
         if first_pr_m is not None:
-            announced = (first_label_time(n, 'announced - emails sent')
-                         or first_label_time(n, 'announced'))
+            announced = first_label_time(n, "announced - emails sent") or first_label_time(n, "announced")
             rel_ts = announced
             if rel_ts is None:
-                ca = parse_dt(i.get('closedAt'))
-                state_reason = i.get('stateReason')
-                cur_labels = {l['name'] for l in i.get('labels', [])}
-                is_closed_completed = (i.get('state') == 'CLOSED' and state_reason == 'COMPLETED')
-                has_cve = 'cve allocated' in cur_labels
+                ca = parse_dt(i.get("closedAt"))
+                state_reason = i.get("stateReason")
+                cur_labels = {lb["name"] for lb in i.get("labels", [])}
+                is_closed_completed = i.get("state") == "CLOSED" and state_reason == "COMPLETED"
+                has_cve = "cve allocated" in cur_labels
                 if ca and is_closed_completed and has_cve:
                     rel_ts = ca
             if rel_ts is not None and rel_ts > first_pr_m:
@@ -1079,8 +660,9 @@ def overall_n(by_b):
 # --- KPIs ----------------------------------------------------------
 
 total = len(issues)
-open_now = sum(1 for i in issues if i.get('state') == 'OPEN')
+open_now = sum(1 for i in issues if i.get("state") == "OPEN")
 closed_now = total - open_now
+
 
 def latest(cat):
     return counts[cat][-1] if cat in counts else 0
@@ -1089,68 +671,51 @@ def latest(cat):
 print(f"total trackers: {total}")
 print(f"open: {open_now}, closed: {closed_now}")
 print(f"fixed_released (latest bucket): {latest('fixed_released')}")
-print(f"open_untriaged: {latest('open_untriaged')}, open_triaged: {latest('open_triaged')}, "
-      f"open_pr_merged: {latest('open_pr_merged')}, closed_other: {latest('closed_other')}")
-print(f"triage median {triage_median}h, mean {triage_mean}h, n={triage_n} "
-      f"(fallback={n_fallback_triage}, none={n_no_triage})")
+print(
+    f"open_untriaged: {latest('open_untriaged')}, open_triaged: {latest('open_triaged')}, "
+    f"open_pr_merged: {latest('open_pr_merged')}, closed_other: {latest('closed_other')}"
+)
+print(
+    f"triage median {triage_median}h, mean {triage_mean}h, n={triage_n} "
+    f"(fallback={n_fallback_triage}, none={n_no_triage})"
+)
 if REJECTIONS_LEDGER_LABEL:
-    print(f"rejected without tracker: {rejections_dated_total} dated + "
-          f"{rejections_backfill_total} historical = {rejections_total} "
-          f"(ledger issues: {len(ledger_issues)})")
+    print(
+        f"rejected without tracker: {rejections_dated_total} dated + "
+        f"{rejections_backfill_total} historical = {rejections_total} "
+        f"(ledger issues: {len(ledger_issues)})"
+    )
 
 if UPSTREAM_REPO:
     print()
     print("PR-driven mean-time series:")
     for name, by_b in [
-        ('c_prc', prc_by_b),
-        ('c_prm', prm_by_b),
-        ('c_rel', rel_by_b),
+        ("c_prc", prc_by_b),
+        ("c_prm", prm_by_b),
+        ("c_rel", rel_by_b),
     ]:
-        print(f"  {name}: n={overall_n(by_b)} median={overall_median(by_b)} "
-              f"buckets_with_data={n_buckets_with_data(by_b)}")
+        print(
+            f"  {name}: n={overall_n(by_b)} median={overall_median(by_b)} "
+            f"buckets_with_data={n_buckets_with_data(by_b)}"
+        )
 
 print()
-print(f"open_pr_merged back-fill: {len(backfill_trackers)} trackers were re-classified "
-      f"from open_triaged -> open_pr_merged in at least one historical bucket "
-      f"because of the PR-merge-date rule")
+print(
+    f"open_pr_merged back-fill: {len(backfill_trackers)} trackers were re-classified "
+    f"from open_triaged -> open_pr_merged in at least one historical bucket "
+    f"because of the PR-merge-date rule"
+)
 print()
-print(f"Latest bucket ({bucket_labels[-1]}) opened-vs-untriaged: "
-      f"opened_in_b={opened_in_b[-1]}, untriaged_at_bend={untriaged_at_bend[-1]}")
+print(
+    f"Latest bucket ({bucket_labels[-1]}) opened-vs-untriaged: "
+    f"opened_in_b={opened_in_b[-1]}, untriaged_at_bend={untriaged_at_bend[-1]}"
+)
 
 
 # --- Render HTML ---------------------------------------------------
 
-def js_array(xs, fmt_null='null'):
-    parts = []
-    for x in xs:
-        if x is None:
-            parts.append(fmt_null)
-        elif isinstance(x, float):
-            parts.append(f"{x:.2f}" if not (x == int(x)) else f"{int(x)}")
-        else:
-            parts.append(str(x))
-    return '[' + ', '.join(parts) + ']'
-
-
-def js_quotes(xs):
-    return '[' + ', '.join(f'"{x}"' for x in xs) + ']'
-
-
-def milestone_x(milestone_date):
-    """Map a milestone date (YYYY-MM-DD) onto a bucket-axis label."""
-    y = int(milestone_date[:4])
-    mo = int(milestone_date[5:7])
-    if BUCKETS_MODE == 'monthly':
-        return f"{y}-{mo:02d}"
-    if BUCKETS_MODE == 'weekly':
-        d = dt.date(y, mo, int(milestone_date[8:10]))
-        iso = d.isocalendar()
-        return f"{iso[0]}-W{iso[1]:02d}"
-    return f"{y}-Q{(mo - 1) // 3 + 1}"
-
-
 # Title prefix differs between bucket modes for clarity.
-bucket_word = {'monthly': 'month', 'weekly': 'week'}.get(BUCKETS_MODE, 'quarter')
+bucket_word = {"monthly": "month", "weekly": "week"}.get(BUCKETS_MODE, "quarter")
 
 # Build stacked-band traces in STACK_ORDER. With the default config that
 # resolves to `fixed_released, open_pr_merged, open_triaged,
@@ -1159,36 +724,43 @@ stacked_traces = []
 for cat in STACK_ORDER:
     if cat not in counts:
         continue
-    color = CAT_COLORS.get(cat, '#888888')
+    color = CAT_COLORS.get(cat, "#888888")
     ys = js_array(counts[cat])
     stacked_traces.append(
         f"  {{x: buckets, y: {ys},  name: '{cat}',  stackgroup: 'one', "
         f"type: 'scatter', mode: 'lines', line: {{color: '{color}', width: 0}}, "
         f"fillcolor: '{color}', hoveron: 'points+fills'}}"
     )
-stacked_block = ',\n'.join(stacked_traces)
+stacked_block = ",\n".join(stacked_traces)
 
 # Milestone shapes + annotations (multi-milestone capable).
 ms_shapes = []
 ms_annots = []
 for ms in MILESTONES:
-    ms_date = ms.get('date')
-    ms_label = ms.get('label') or 'milestone'
+    ms_date = ms.get("date")
+    ms_label = ms.get("label") or "milestone"
     if not ms_date:
         continue
-    x_val = milestone_x(str(ms_date))
+    x_val = milestone_x(str(ms_date), BUCKETS_MODE)
     ms_shapes.append(
-        "{type: 'line', xref: 'x', yref: 'paper', x0: '" + x_val
-        + "', x1: '" + x_val
+        "{type: 'line', xref: 'x', yref: 'paper', x0: '"
+        + x_val
+        + "', x1: '"
+        + x_val
         + "', y0: 0, y1: 1, line: {color: '#888', width: 1.5, dash: 'dash'}}"
     )
     ms_annots.append(
-        "{xref: 'x', yref: 'paper', x: '" + x_val
-        + "', y: 1.04, xanchor: 'left', text: '↓ " + ms_label + " (" + str(ms_date) + ")', "
+        "{xref: 'x', yref: 'paper', x: '"
+        + x_val
+        + "', y: 1.04, xanchor: 'left', text: '↓ "
+        + ms_label
+        + " ("
+        + str(ms_date)
+        + ")', "
         + "showarrow: false, font: {size: 11, color: '#666'}}"
     )
-shapes_js = '[' + ', '.join(ms_shapes) + ']'
-annots_js = '[' + ', '.join(ms_annots) + ']'
+shapes_js = "[" + ", ".join(ms_shapes) + "]"
+annots_js = "[" + ", ".join(ms_annots) + "]"
 
 
 # Build the optional PR-charts HTML and JS sections.
@@ -1207,8 +779,8 @@ if UPSTREAM_REPO:
         f"{js_array(rel_ys)}, {js_array(rel_ns)}, 'd', '#d35400');"
     )
 else:
-    pr_cards_html = ''
-    pr_charts_js = ''
+    pr_cards_html = ""
+    pr_charts_js = ""
 
 
 # Build the optional "rejected (no tracker)" header banner, chart card,
@@ -1217,8 +789,8 @@ else:
 if REJECTIONS_LEDGER_LABEL and (rejections_total or ledger_issues):
     rej_header_html = (
         '<div class="banner">Reports rejected without a tracker: '
-        f'<strong>{rejections_total}</strong> '
-        f'({rejections_dated_total} dated + {rejections_backfill_total} historical)</div>\n'
+        f"<strong>{rejections_total}</strong> "
+        f"({rejections_dated_total} dated + {rejections_backfill_total} historical)</div>\n"
     )
     rej_cards_html = '<div class="card full"><div id="c_rejected"></div></div>\n'
     rej_chart_js = (
@@ -1236,9 +808,9 @@ if REJECTIONS_LEDGER_LABEL and (rejections_total or ledger_issues):
         f"}});"
     )
 else:
-    rej_header_html = ''
-    rej_cards_html = ''
-    rej_chart_js = ''
+    rej_header_html = ""
+    rej_cards_html = ""
+    rej_chart_js = ""
 
 # Extra cumulative traces (rejected + reported) appended to the c_cum
 # chart. Only emitted when the rejections stat is active; otherwise an
@@ -1247,30 +819,35 @@ else:
 # verbatim into the HTML f-string via {cum_rej_traces}.
 if REJECTIONS_LEDGER_LABEL and (rejections_total or ledger_issues):
     cum_rej_traces = (
-        ",\n  {x: buckets, y: " + js_array(cum_rejected) +
-        ", name: 'cumulative rejected (no tracker)', type: 'scatter', "
+        ",\n  {x: buckets, y: "
+        + js_array(cum_rejected)
+        + ", name: 'cumulative rejected (no tracker)', type: 'scatter', "
         "mode: 'lines+markers', connectgaps: true, "
         "line: {color: '#7f8c8d', dash: 'dot'}},\n"
-        "  {x: buckets, y: " + js_array(cum_reported) +
-        ", name: 'reported (opened + rejected)', type: 'scatter', "
+        "  {x: buckets, y: "
+        + js_array(cum_reported)
+        + ", name: 'reported (opened + rejected)', type: 'scatter', "
         "mode: 'lines+markers', connectgaps: true, "
         "line: {color: '#9467bd', width: 3}}"
     )
 else:
-    cum_rej_traces = ''
+    cum_rej_traces = ""
 
 # Extra "reported" trace (opened + rejected per bucket) appended to the
 # opened-vs-untriaged chart. Same activation rule as cum_rej_traces so it
 # is omitted (and the chart keeps its two original lines) when no ledger.
 if REJECTIONS_LEDGER_LABEL and (rejections_total or ledger_issues):
     rep_ou_trace = (
-        ",\n  {x: buckets, y: " + js_array(reported_in_b) +
-        ", name: 'reported in " + bucket_word + " (opened + rejected)', "
+        ",\n  {x: buckets, y: "
+        + js_array(reported_in_b)
+        + ", name: 'reported in "
+        + bucket_word
+        + " (opened + rejected)', "
         "type: 'scatter', mode: 'lines+markers', connectgaps: true, "
         "line: {color: '#9467bd', width: 3}}"
     )
 else:
-    rep_ou_trace = ''
+    rep_ou_trace = ""
 
 
 HTML = f"""<!DOCTYPE html>
@@ -1374,7 +951,7 @@ meanChart('c_resp',   'Mean time to first response (hours)',  {js_array(resp_ys)
 </html>
 """
 
-with open(OUT_PATH, 'w') as f:
+with open(OUT_PATH, "w") as f:
     f.write(HTML)
 
 print(f"\nWrote {OUT_PATH} ({len(HTML)} bytes)")
