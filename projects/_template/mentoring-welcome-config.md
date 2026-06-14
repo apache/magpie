@@ -55,14 +55,15 @@ Replace `<two_stage_process_doc_url>` with the project's documented
 mentoring / triage policy URL and `<PROJECT>` with the project's display
 name (read from [`<project-config>/project.md`](project.md)).
 
-Add the rendered footer to the config as `ai_attribution_footer`:
+Add the rendered footer to the config as `ai_attribution_footer`.
+Filled-in example for Apache Airflow:
 
 ```markdown
 ai_attribution_footer: |
   ---
 
   _Note: This comment was drafted by an AI-assisted mentoring tool and may
-  contain mistakes. A Apache Airflow maintainer — a real person — will be the
+  contain mistakes. An Apache Airflow maintainer — a real person — will be the
   next to engage. We use this [two-stage process](https://github.com/apache/airflow/blob/main/contributing-docs/09_who_can_merge.rst)
   so that our maintainers' limited time is spent where it matters most:
   the conversation with you._

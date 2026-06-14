@@ -705,23 +705,22 @@ scope_detection:
   # label to the CVE `product` field value, the package-name shape
   # the advisory will use, and the upstream path prefix the skill
   # uses to confirm a PR really touches that scope.
-  # ASF/Airflow default: the three existing scope labels.
+  # ASF/Airflow default: three scope labels —
+  #   airflow    product "Apache Airflow"            packageName apache-airflow                       path_prefix ^(airflow-core/|airflow/(?!providers/)|airflow-ctl/)
+  #   providers  product "Apache Airflow"            packageName apache-airflow-providers-<provider>  path_prefix ^providers/
+  #   chart      product "Apache Airflow Helm Chart" packageName apache-airflow-helm-chart            path_prefix ^chart/
   # Override when: a project with different scope axes — keep the
   # `product`/`packageName`/`path_prefix` triad shape.
   # Consumed by: security-issue-triage, generate-cve-json.
   labels:
-    airflow:
+    <scope-label>:
       product: "<Product Name>"
-      packageName: "apache-airflow"
-      path_prefix: "^(airflow-core/|airflow/(?!providers/)|airflow-ctl/)"
-    providers:
-      product: "<Product Name>"
-      packageName: "apache-airflow-providers-<provider>"
-      path_prefix: "^providers/"
-    chart:
+      packageName: "<package-name>"
+      path_prefix: "<path-prefix-regex>"
+    <secondary-scope-label>:
       product: "<Secondary Product Name>"
-      packageName: "apache-airflow-helm-chart"
-      path_prefix: "^chart/"
+      packageName: "<secondary-package-name>"
+      path_prefix: "<secondary-path-prefix-regex>"
 ```
 
 ### Release process
@@ -842,7 +841,7 @@ product:
   # Override when: any other project — use the package-registry
   # name (PyPI / npm / Maven / ...).
   # Consumed by: generate-cve-json, canned-responses templating.
-  package_name: apache-airflow
+  package_name: <package-name>
 
   # Regex matched against changed paths in an upstream PR to
   # confirm "this PR really touches the product". Used as a
@@ -851,7 +850,7 @@ product:
   # airflow/, airflow-core/, airflow-ctl/, etc.).
   # Override when: any other repo layout.
   # Consumed by: security-issue-fix, pr-management-triage.
-  code_pointer_path_prefix: "^airflow"
+  code_pointer_path_prefix: "<code-path-prefix-regex>"
 
   # Prefixes the title-normalization skill strips when normalising
   # an inbound subject line into a CVE title. Matched at the start
