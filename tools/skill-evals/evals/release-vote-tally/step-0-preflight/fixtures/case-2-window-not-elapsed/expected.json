@@ -1,0 +1,7 @@
+{
+  "verdict": "blocked",
+  "blockers": ["vote window has not elapsed: 4 hours elapsed of 72-hour window"],
+  "force_close": false,
+  "mechanism": "dev-list-vote",
+  "roster_path": "projects/airflow/pmc-roster.md"
+}

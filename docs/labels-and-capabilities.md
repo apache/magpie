@@ -153,6 +153,7 @@ Capabilities for every skill currently in
 | `security-issue-import-from-scan` | `capability:intake` |
 | `security-issue-sync` | `capability:intake` *(+ `capability:reconciliation` once [#337](https://github.com/apache/airflow-steward/issues/337) lands the ASF-dashboard step)* |
 | `setup-shared-config-sync` | `capability:intake` + `capability:setup` *(reconciles user-scope config to a sync repo; the act is intake, the subject is setup)* |
+| `release-vote-tally` | `capability:triage` *(reads the vote thread / approval signal, classifies each reply as binding or non-binding, tallies the result, and drafts the `[RESULT] [VOTE]` email for RM review — triage over the vote-thread queue)* |
 | `release-announce-draft` | `capability:resolve` *(drafts the `[ANNOUNCE]` email and opens the site-bump PR that complete the release lifecycle)* |
 | `security-cve-allocate` | `capability:resolve` |
 | `security-issue-invalidate` | `capability:resolve` |
