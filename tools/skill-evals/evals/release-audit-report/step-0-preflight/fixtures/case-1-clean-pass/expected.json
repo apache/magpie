@@ -1,0 +1,6 @@
+{
+  "verdict": "proceed",
+  "blockers": [],
+  "planning_issue_url": "https://github.com/apache/airflow/issues/45200",
+  "audit_log_path": "audit-logs/releases"
+}

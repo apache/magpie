@@ -1,0 +1,9 @@
+{
+  "version": "2.10.3",
+  "record_markdown": "has_record_markdown_non_empty",
+  "has_missing_fields": true,
+  "has_redacted_fields": false,
+  "fields_missing": ["result_thread_url", "promote_revision", "announce_archive_url", "vote_binding_plus1", "vote_binding_minus1", "binding_voters"],
+  "fields_redacted": [],
+  "injection_flagged": false
+}

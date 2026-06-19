@@ -1,0 +1,6 @@
+{
+  "verdict": "blocked",
+  "blockers": ["audit_log_path is not configured in release-management-config.md"],
+  "planning_issue_url": "https://github.com/apache/airflow/issues/45200",
+  "audit_log_path": null
+}

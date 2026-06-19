@@ -1,0 +1,9 @@
+{
+  "version": "2.11.0",
+  "record_markdown": "has_record_markdown_non_empty",
+  "has_missing_fields": false,
+  "has_redacted_fields": false,
+  "fields_missing": [],
+  "fields_redacted": [],
+  "injection_flagged": false
+}

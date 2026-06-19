@@ -1,0 +1,6 @@
+{
+  "verdict": "blocked",
+  "blockers": ["No planning issue found on apache/airflow matching version 2.12.0; pass --planning-issue <url> to specify one explicitly"],
+  "planning_issue_url": null,
+  "audit_log_path": "audit-logs/releases"
+}
