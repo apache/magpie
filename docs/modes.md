@@ -50,7 +50,7 @@ sequencing commitments behind them.
 
 | Mode | Purpose | Status | Skill count |
 |---|---|---|---|
-| **Triage** | Issues, security reports, PRs: spot, classify, route, surface duplicates. Every output is a suggestion the human signs off on. | stable (security) / experimental (pr-management, issue-management, contributor-nomination) / proposed (release-management) | 18 + 4 proposed |
+| **Triage** | Issues, security reports, PRs: spot, classify, route, surface duplicates. Every output is a suggestion the human signs off on. | stable (security) / experimental (pr-management, issue-management, contributor-nomination) / proposed (release-management) | 19 + 4 proposed |
 | **Mentoring** | Joins issue and PR threads in a teaching register: clarifying questions, pointers to project conventions, paired examples from prior PRs, hand-off to a human when scope exceeds the agent. Also authors net-new good first issues to lower onboarding latency. | experimental | 2 |
 | **Drafting** | Agent drafts a fix for a well-scoped problem and opens a PR; every PR is reviewed and merged by a human committer. | stable (security-only); experimental (issue-management, audit-findings); release-management family proposed | 3 + 6 proposed |
 | **Pairing** | Developer-side dev-cycle skills with mentorship intrinsic — multi-agent review pipelines, self-review and pre-flight patterns, scoped fix drafting under the developer's driver's seat. | experimental | 2 |
@@ -84,6 +84,7 @@ do not act without human review.
 | [`security-cve-allocate`](../skills/security-cve-allocate/SKILL.md) | Allocate a CVE for a tracker (Vulnogram URL + paste-ready JSON). | stable |
 | [`security-issue-triage`](../skills/security-issue-triage/SKILL.md) | Batch-triage open tracker issues carrying `needs triage`; classifies each into one of six dispositions and posts a proposal comment on confirmation. | experimental |
 | [`security-issue-import-via-forwarder`](../skills/security-issue-import-via-forwarder/SKILL.md) | Sub-skill of `security-issue-import` / `-invalidate` / `-sync` for the relay/forwarder case: reports relayed by an upstream broker (e.g. ASF security team) rather than arriving directly from the reporter. | experimental |
+| [`security-issue-import-from-scan`](../skills/security-issue-import-from-scan/SKILL.md) | Triage a security scanner's multi-finding output (via the `scan-format` adapter) into per-finding dispositions; opens tracker issues only after operator confirmation of the triage decisions. | experimental |
 | [`contributor-activity-sweep`](../skills/contributor-activity-sweep/SKILL.md) | Read-only GitHub activity card for a named contributor: PR authorship, code-review participation, issues, and comments over a configurable window. | experimental |
 | [`pr-management-quick-merge`](../skills/pr-management-quick-merge/SKILL.md) | Identify trivial, low-risk PRs in the `ready for maintainer review` queue that pass every quality gate and touch only supplementary areas (docs, changelog, translations, tests); surfaces candidates with diff summaries and the exact merge command. | experimental |
 | [`ci-runner-audit`](../skills/ci-runner-audit/SKILL.md) | Read-only audit of GitHub Actions workflow runner compatibility across one repo, an explicit set, one Apache project's repos, or the full Apache GitHub org. | experimental |
