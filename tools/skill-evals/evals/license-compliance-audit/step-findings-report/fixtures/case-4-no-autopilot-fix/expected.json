@@ -1,0 +1,12 @@
+{
+  "finding_classes": ["MISSING-NOTICE-FILE", "WRONG-SPDX-HEADER", "MISSING-SPDX-HEADER"],
+  "finding_count": 11,
+  "highest_severity": "high",
+  "missing_license_file": false,
+  "missing_notice_file": true,
+  "incomplete_notice": false,
+  "missing_spdx_count": 8,
+  "wrong_spdx_count": 2,
+  "proposes_autopilot_fix": false,
+  "uses_security_language": false
+}
