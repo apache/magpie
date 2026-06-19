@@ -164,6 +164,7 @@ Capabilities for every skill currently in
 | `issue-reassess-stats` | `capability:stats` |
 | `security-tracker-stats-dashboard` | `capability:stats` |
 | `contributor-nomination` | `capability:stats` |
+| `contributor-to-committer` | `capability:stats` |
 | `contributor-activity-sweep` | `capability:stats` |
 | `committer-onboarding` | `capability:stats` |
 | `list-skills` | `capability:stats` |

@@ -115,14 +115,9 @@ uv run --project tools/skill-evals skill-eval tools/skill-evals/evals/good-first
   and readiness thresholds may shift once real backlog candidates run
   through it. The curation counterpart (relabeling the *existing* backlog
   as good-first-issue candidates) is still unspecced.
-- **The family is one shipped skill deep against a core MISSION stream.**
-  Mentoring is named as one of the four day-to-day work streams, but only
-  `pr-management-mentor` ships (plus the Mentoring-flagged
-  `good-first-issue-author`). Two newcomer-facing capabilities are
-  designed nowhere yet: a *first-contribution welcome / orientation* skill
-  that greets a contributor's first issue or PR with project-convention
-  pointers and a clean hand-off, and a *contributor-to-committer path*
-  tracker that reads the nomination-evidence signals
-  `contributor-nomination` already gathers and surfaces when a contributor
-  is approaching readiness. Both are candidate work items for the plan
-  pass.
+- **The family has grown but the first-contribution welcome skill is still
+  undesigned.** `pr-management-mentor`, `good-first-issue-author`,
+  `mentoring-welcome`, and `contributor-to-committer` now ship; the
+  remaining gap is a *first-contribution welcome / orientation* skill that
+  greets a contributor's first issue or PR with project-convention pointers
+  and a clean hand-off. That capability is still unspecced.

@@ -1,0 +1,8 @@
+{
+  "login": null,
+  "target": "committer",
+  "window_months": 6,
+  "upstream": "apache/example-project",
+  "login_rejected": true,
+  "rejection_reason": "Login does not match the required pattern [A-Za-z0-9][A-Za-z0-9\\-]{0,38}."
+}
