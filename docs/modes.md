@@ -50,9 +50,9 @@ sequencing commitments behind them.
 
 | Mode | Purpose | Status | Skill count |
 |---|---|---|---|
-| **Triage** | Issues, security reports, PRs: spot, classify, route, surface duplicates. Every output is a suggestion the human signs off on. | stable (security) / experimental (pr-management, issue-management, contributor-nomination) / proposed (release-management) | 18 + 4 proposed |
-| **Mentoring** | Joins issue and PR threads in a teaching register: clarifying questions, pointers to project conventions, paired examples from prior PRs, hand-off to a human when scope exceeds the agent. Also authors net-new good first issues to lower onboarding latency. | experimental | 2 |
-| **Drafting** | Agent drafts a fix for a well-scoped problem and opens a PR; every PR is reviewed and merged by a human committer. | stable (security-only); experimental (issue-management, audit-findings); release-management family proposed | 3 + 6 proposed |
+| **Triage** | Issues, security reports, PRs: spot, classify, route, surface duplicates. Every output is a suggestion the human signs off on. | stable (security) / experimental (pr-management, issue-management, contributor-nomination) / proposed (release-management) | 19 + 4 proposed |
+| **Mentoring** | Joins issue and PR threads in a teaching register: clarifying questions, pointers to project conventions, paired examples from prior PRs, hand-off to a human when scope exceeds the agent. Also authors net-new good first issues to lower onboarding latency. | experimental | 3 |
+| **Drafting** | Agent drafts a fix for a well-scoped problem and opens a PR; every PR is reviewed and merged by a human committer. | stable (security-only); experimental (issue-management, audit-findings, release-announce-draft); release-management family mostly proposed | 4 + 5 proposed |
 | **Pairing** | Developer-side dev-cycle skills with mentorship intrinsic — multi-agent review pipelines, self-review and pre-flight patterns, scoped fix drafting under the developer's driver's seat. | experimental | 2 |
 | **Auto-merge** | Auto-merge restricted to objectively boring change classes (lint, dependency bumps inside an allow-list, license-header insertion, formatting, broken-link repair). | off | 0 |
 
@@ -74,6 +74,7 @@ do not act without human review.
 | [`pr-management-code-review`](../skills/pr-management-code-review/SKILL.md) | Maintainer-facing deep code review. | experimental |
 | [`issue-triage`](../skills/issue-triage/SKILL.md) | General-issue-tracker triage (per-issue classification + disposition proposal). | experimental |
 | [`issue-reassess`](../skills/issue-reassess/SKILL.md) | Pool-level sweep of resolved / EOL issues for re-assessment. | experimental |
+| [`issue-stale-sweep`](../skills/issue-stale-sweep/SKILL.md) | Sweep open issues for inactivity past a configurable threshold; proposes a nudge (`REQUEST-UPDATE`) or a pre-close notice (`CLOSE-STALE`); waits for maintainer confirmation before posting. | experimental |
 | [`contributor-nomination`](../skills/contributor-nomination/SKILL.md) | Nomination-readiness brief for a named contributor — activity breadth, consistency, and evidence prose for a committer or PMC thread. | experimental |
 | [`security-issue-import`](../skills/security-issue-import/SKILL.md) | Inbound security-report classification + initial routing. | stable |
 | [`security-issue-import-from-pr`](../skills/security-issue-import-from-pr/SKILL.md) | Open a tracker from a security-relevant public PR. | stable |
@@ -112,7 +113,7 @@ Three notes on the boundaries:
 
 ## Mentoring
 
-**Status: experimental. 2 skills shipped.**
+**Status: experimental. 3 skills shipped.**
 
 [`MISSION.md` § Mentoring](../MISSION.md#technical-scope) names this
 the highest-value project-side mode and the one off-the-shelf agent
@@ -124,6 +125,7 @@ choices were reviewable independently from the runtime behaviour.
 |---|---|---|
 | [`pr-management-mentor`](../skills/pr-management-mentor/SKILL.md) | Draft a teaching-register comment on a single GitHub issue or PR thread; waits for maintainer confirmation before posting. | experimental |
 | [`good-first-issue-author`](../skills/good-first-issue-author/SKILL.md) | Draft one net-new good first issue from a supplied gap or small task (suitability gate + readiness checklist); waits for maintainer confirmation before filing. | experimental |
+| [`mentoring-welcome`](../skills/mentoring-welcome/SKILL.md) | Draft a first-contact orientation comment for a first-time contributor on a newly opened issue or PR; detects first-time authorship via `author_association`, drafts a welcome with contributing-guide link and expected next steps; waits for maintainer confirmation before posting. | experimental |
 
 | Doc | Purpose |
 |---|---|
@@ -161,7 +163,7 @@ the agent never merges its own work.
 | `release-rc-cut` | Paste-ready command sequence: signed tag, build, detached signatures, checksums, `svn import` to `dist/dev/` (Steps 4-5). Agent never signs and never imports. | proposed |
 | `release-vote-draft` | Draft the `[VOTE]` email body to `dev@<project>` (Step 7). Agent never sends. | proposed |
 | `release-promote` | Paste-ready `svn mv dist/dev → dist/release` command set after a passing vote (Step 10). Agent never moves; the human commit is the act of release. | proposed |
-| `release-announce-draft` | Draft the `[ANNOUNCE]` email body for `announce@apache.org` and the site-bump PR (Step 11). Agent never sends mail and never merges the PR. | proposed |
+| [`release-announce-draft`](../skills/release-announce-draft/SKILL.md) | Draft the `[ANNOUNCE]` email body for `announce@apache.org` and the site-bump PR (Step 11). Agent never sends mail and never merges the PR. | experimental |
 
 [`audit-finding-fix`](../skills/audit-finding-fix/SKILL.md)
 extends Drafting to **non-security audit-tool findings**: lint
@@ -173,11 +175,12 @@ gaps. It is the generic-Drafting companion to
 (security-class findings). Failing tests with an obvious cause
 remain proposed.
 
-The six `release-*` Drafting skills above land as a single family
-([`docs/release-management/README.md`](release-management/README.md))
-once the spec lands. They share the security family's discipline
-that every state-changing action is a *proposal* the human
-executes, see
+The `release-*` Drafting skills form a single family
+([`docs/release-management/README.md`](release-management/README.md)).
+`release-announce-draft` shipped experimental; the remaining five
+are proposed. They share the security family's discipline that
+every state-changing action is a *proposal* the human executes —
+see
 [`docs/release-management/spec.md` § Cross-cutting commitments](release-management/spec.md#cross-cutting-commitments).
 
 For security-class Drafting PRs, the public surface strips CVE
