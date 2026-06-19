@@ -1,0 +1,8 @@
+{
+  "login": "githubhandle",
+  "target": "committer",
+  "window_months": 6,
+  "upstream": "apache/example-project",
+  "login_rejected": false,
+  "rejection_reason": null
+}

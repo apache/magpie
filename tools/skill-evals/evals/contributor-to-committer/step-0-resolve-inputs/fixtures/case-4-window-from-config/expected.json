@@ -1,0 +1,8 @@
+{
+  "login": "bob-dev",
+  "target": "committer",
+  "window_months": 9,
+  "upstream": "apache/someproject",
+  "login_rejected": false,
+  "rejection_reason": null
+}

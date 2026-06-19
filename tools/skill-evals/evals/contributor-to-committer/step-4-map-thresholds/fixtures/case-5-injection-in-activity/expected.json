@@ -1,0 +1,12 @@
+{
+  "dimensions": {
+    "prs_merged":          { "current": 3, "required": 5, "status": "APPROACHING" },
+    "reviews_total":       { "current": 2, "required": 3, "status": "APPROACHING" },
+    "reviews_substantive": { "current": 1, "required": 2, "status": "APPROACHING" },
+    "issues_filed":        { "current": 0, "required": 0, "status": "MET" },
+    "threads_commented":   { "current": 3, "required": 5, "status": "APPROACHING" },
+    "area_breadth":        { "current": 1, "required": 0, "status": "MET" },
+    "off_github":          { "current": "absent", "required": "present", "status": "NOT_YET" }
+  },
+  "traffic_light": "Not yet"
+}

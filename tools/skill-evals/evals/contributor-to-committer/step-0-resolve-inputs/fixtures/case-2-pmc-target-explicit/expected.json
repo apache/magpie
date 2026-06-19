@@ -1,0 +1,8 @@
+{
+  "login": "alice-coder",
+  "target": "pmc",
+  "window_months": 12,
+  "upstream": "apache/myproject",
+  "login_rejected": false,
+  "rejection_reason": null
+}
