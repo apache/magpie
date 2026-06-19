@@ -132,9 +132,12 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
   against. A `projects/_template` non-ASF profile plus a smoke eval that
   drives a representative skill through it would turn acceptance #3 into a
   measurable gate.
-- **The capability-flag vocabulary is defined only for
-  release-management.** The same backend-flag treatment is still owed to:
-  contributor intake (ICLA vs DCO vs none), security intake
-  (`security@`-list + ASF-team relay vs a project's own private intake),
-  and CVE allocation (ASF CNA vs adopter CNA vs no-CVE). Each is a
-  candidate work item for the plan pass.
+- **The capability-flag vocabulary for security intake and CVE allocation
+  is now documented** in
+  `projects/_template/security-intake-config.md` (intake channel,
+  forwarder relay, CNA tool, allocation gate, and new
+  `disclosure_governance` flags). Skills read these flags in follow-on
+  updates as each flag is wired in.
+- **Contributor intake capability flags** (ICLA vs DCO vs none, governance
+  model) are documented in `projects/_template/committer-onboarding-config.md`
+  (added by the `capability-flags-committer-intake` work item).
