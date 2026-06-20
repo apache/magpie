@@ -1,0 +1,3 @@
+{
+  "prose_fields": ["similarity_summary", "closing_comment", "cross_ref_comment", "injection_warning"]
+}

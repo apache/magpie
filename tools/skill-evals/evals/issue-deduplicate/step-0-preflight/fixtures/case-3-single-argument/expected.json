@@ -1,6 +1,6 @@
 {
   "verdict": "blocked",
-  "blockers": ["Only one issue number was supplied (#5010). Supply both the kept and the duplicate issue numbers: deduplicate #<kept> #<duplicate>."],
+  "blockers": ["Only one issue number was supplied (#5010); the second (duplicate) issue number is missing and must be provided before deduplicating."],
   "kept": 5010,
   "duplicate": 0
 }
