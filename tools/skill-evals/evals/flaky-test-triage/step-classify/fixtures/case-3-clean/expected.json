@@ -1,0 +1,7 @@
+{
+  "classification": "CLEAN",
+  "failure_rate": 0.017,
+  "rerun_recovery_count": 0,
+  "evidence_summary": "Fails only ~1.7% of runs, well below the 10% threshold.",
+  "reason": "Failure rate (0.017) is below the configured threshold (0.10)."
+}

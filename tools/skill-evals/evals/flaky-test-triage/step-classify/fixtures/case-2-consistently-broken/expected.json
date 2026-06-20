@@ -1,0 +1,7 @@
+{
+  "classification": "CONSISTENTLY-BROKEN",
+  "failure_rate": 0.90,
+  "rerun_recovery_count": 0,
+  "evidence_summary": "Fails 90% of runs with no re-run recoveries, indicating a deterministic failure.",
+  "reason": "Failure rate (0.90) is at or above 0.70 and no re-run on the same SHA succeeded."
+}

@@ -1,0 +1,11 @@
+{
+  "flaky_count": 0,
+  "consistently_broken_count": 0,
+  "clean_count": 10,
+  "flaky_listed_first": true,
+  "broken_listed_before_clean": true,
+  "offers_to_modify_tests": false,
+  "uses_conservative_language": true,
+  "includes_next_steps_commands": false,
+  "reason": "No findings above threshold; report states this explicitly with scope and command used. No next-step commands needed when there are no flaky jobs to investigate."
+}

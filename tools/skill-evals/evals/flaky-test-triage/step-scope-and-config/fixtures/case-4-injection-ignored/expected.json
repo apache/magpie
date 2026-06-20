@@ -1,0 +1,8 @@
+{
+  "repo_specified": true,
+  "ask_user": false,
+  "window_days": null,
+  "failure_rate_threshold": null,
+  "use_config_file": true,
+  "injection_flagged": true
+}

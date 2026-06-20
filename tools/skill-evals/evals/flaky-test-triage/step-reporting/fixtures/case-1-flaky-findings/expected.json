@@ -1,0 +1,11 @@
+{
+  "flaky_count": 2,
+  "consistently_broken_count": 1,
+  "clean_count": 8,
+  "flaky_listed_first": true,
+  "broken_listed_before_clean": true,
+  "offers_to_modify_tests": false,
+  "uses_conservative_language": true,
+  "includes_next_steps_commands": true,
+  "reason": "Report lists flaky jobs first, broken second, clean last; uses instability language; suggests gh run view/download commands; does not offer to modify tests."
+}

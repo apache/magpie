@@ -13,13 +13,12 @@
 
 Per-skill switches for the repo-health audit family. Copy this file into
 your `<project-config>/` directory and fill in the `TODO` values. Skills
-in this family (`ci-runner-audit`, `workflow-security-audit`, and the
-planned `dependency-audit`, `license-compliance-audit`,
-`flaky-test-triage`) read from this file at run time.
+in this family (`ci-runner-audit`, `workflow-security-audit`,
+`dependency-audit`, `license-compliance-audit`, and `flaky-test-triage`)
+read from this file at run time.
 
 See `docs/repo-health/README.md` for a full description of each skill
-and adopter-contract details (ships with the `repo-health-family-spec`
-build item).
+and adopter-contract details.
 
 ---
 
@@ -28,7 +27,7 @@ repo_health:
 
   # ---------------------------------------------------------------------------
   # ci-runner-audit — obsolete GitHub-hosted runner labels and macOS arch
-  # mismatches.  Consumed by: ci-runner-audit.
+  # mismatches.  Consumed by: ci-runner-audit (experimental).
   # ---------------------------------------------------------------------------
   ci_runner_audit:
 
@@ -52,7 +51,7 @@ repo_health:
 
   # ---------------------------------------------------------------------------
   # workflow-security-audit — GitHub Actions security issues surfaced by
-  # zizmor.  Consumed by: workflow-security-audit.
+  # zizmor.  Consumed by: workflow-security-audit (experimental).
   # ---------------------------------------------------------------------------
   workflow_security_audit:
 
@@ -74,7 +73,7 @@ repo_health:
 
   # ---------------------------------------------------------------------------
   # dependency-audit — known-vulnerability check on direct + transitive deps.
-  # Consumed by: dependency-audit (proposed, not yet built).
+  # Consumed by: dependency-audit (experimental).
   # ---------------------------------------------------------------------------
   dependency_audit:
 
@@ -91,7 +90,7 @@ repo_health:
 
   # ---------------------------------------------------------------------------
   # license-compliance-audit — SPDX header and NOTICE compliance check.
-  # Consumed by: license-compliance-audit (proposed, not yet built).
+  # Consumed by: license-compliance-audit (experimental).
   # ---------------------------------------------------------------------------
   license_compliance_audit:
 
@@ -112,7 +111,7 @@ repo_health:
 
   # ---------------------------------------------------------------------------
   # flaky-test-triage — intermittent test failure detection from CI run history.
-  # Consumed by: flaky-test-triage (proposed, not yet built).
+  # Consumed by: flaky-test-triage (experimental).
   # ---------------------------------------------------------------------------
   flaky_test_triage:
 
@@ -120,17 +119,17 @@ repo_health:
     # Default: 30 days (enough signal without fetching unbounded history).
     window_days: 30
 
-    # Minimum failure-rate fraction to flag a test as candidate flaky.
-    # A test that fails 10% of the time or more is flagged by default.
+    # Minimum failure-rate fraction to flag a job as candidate flaky.
+    # A job that fails 10% of the time or more is flagged by default.
     # Override when: your project has a higher noise floor and 10% is too noisy.
     failure_rate_threshold: 0.10
 
-    # Test-name glob patterns to include in the analysis.
-    # Leave empty to analyse all tests in the CI run.
-    # TODO: narrow to the test suites most prone to flakiness if needed.
+    # Job-name glob patterns to include in the analysis.
+    # Leave empty to analyse all jobs in the CI run.
+    # TODO: narrow to the jobs most prone to flakiness if needed.
     include_patterns: []
 
-    # Test-name glob patterns to exclude (known-always-failing or skipped tests).
-    # TODO: add patterns for tests that are legitimately unstable but not flaky.
+    # Job-name glob patterns to exclude (known-always-failing or skipped jobs).
+    # TODO: add patterns for jobs that are legitimately unstable but not flaky.
     exclude_patterns: []
 ```

@@ -1,0 +1,7 @@
+{
+  "classification": "FLAKY",
+  "failure_rate": 0.175,
+  "rerun_recovery_count": 7,
+  "evidence_summary": "Fails ~17.5% of runs; every failure resolved on re-run, a strong flakiness signal.",
+  "reason": "Failure rate (0.175) is above threshold (0.10) and all 7 failures recovered on re-run, confirming intermittency."
+}
