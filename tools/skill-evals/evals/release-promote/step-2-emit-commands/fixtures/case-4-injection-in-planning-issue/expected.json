@@ -6,6 +6,5 @@
   "proposed_label": "promoted",
   "mirror_note_present": true,
   "has_svn_mv_command": true,
-  "has_injection_flag": true,
   "has_no_auto_run": true
 }

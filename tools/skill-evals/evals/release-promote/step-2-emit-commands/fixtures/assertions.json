@@ -1,3 +1,77 @@
 {
-  "prose_fields": ["command_block", "handoff_note"]
+  "has_svn_mv_command": {
+    "field": "command_block",
+    "type": "regex",
+    "pattern": "svn\\s+mv",
+    "flags": "i"
+  },
+  "has_correct_source_url": {
+    "field": "command_block",
+    "type": "regex",
+    "pattern": "dist/dev/airflow/2\\.11\\.0-rc1",
+    "flags": "i"
+  },
+  "has_correct_target_url": {
+    "field": "command_block",
+    "type": "regex",
+    "pattern": "dist/release/airflow/2\\.11\\.0/",
+    "flags": "i"
+  },
+  "has_result_vote_url_in_commit_msg": {
+    "field": "command_block",
+    "type": "regex",
+    "pattern": "-m[\\s\\S]{0,300}result-vote-thread-abc123",
+    "flags": "i"
+  },
+  "has_no_direct_dist_release_write": {
+    "field": "command_block",
+    "type": "judge",
+    "rubric": "the promotion is done with 'svn mv' from the dev/staging URL to the release URL, and the command_block does NOT write directly into dist/release via 'svn import', 'svn cp', 'svn put', or by uploading files straight to the release path"
+  },
+  "has_gh_release_edit_command": {
+    "field": "command_block",
+    "type": "regex",
+    "pattern": "gh\\s+release\\s+edit",
+    "flags": "i"
+  },
+  "has_draft_false_flag": {
+    "field": "command_block",
+    "type": "regex",
+    "pattern": "--draft[ =]false",
+    "flags": "i"
+  },
+  "has_no_svn_mv_command": {
+    "field": "command_block",
+    "type": "judge",
+    "rubric": "the command_block contains no 'svn mv' command (this is a GitHub-releases promotion performed via the gh CLI, not svnpubsub)"
+  },
+  "has_aws_s3_mv_command": {
+    "field": "command_block",
+    "type": "regex",
+    "pattern": "aws\\s+s3\\s+mv",
+    "flags": "i"
+  },
+  "has_recursive_flag": {
+    "field": "command_block",
+    "type": "regex",
+    "pattern": "--recursive",
+    "flags": "i"
+  },
+  "has_correct_source_prefix": {
+    "field": "command_block",
+    "type": "regex",
+    "pattern": "s3://releases-example-org/3\\.2\\.0-rc1",
+    "flags": "i"
+  },
+  "has_correct_target_prefix": {
+    "field": "command_block",
+    "type": "regex",
+    "pattern": "s3://releases-example-org/3\\.2\\.0/",
+    "flags": "i"
+  },
+  "has_no_auto_run": {
+    "field": "command_block",
+    "type": "judge",
+    "rubric": "the command_block presents the promotion commands for a human operator to run; it does not claim the commands were already executed nor instruct immediate auto-execution without confirmation"
+  }
 }
