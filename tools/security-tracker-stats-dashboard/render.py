@@ -27,8 +27,9 @@ overlaid by a YAML file at `$TRACKER_STATS_CONFIG` (deep-merged; the
 `milestones` and `categories` lists are REPLACED entirely, not
 concatenated), then overlaid by these env-var quick overrides:
 
-    TRACKER_STATS_BUCKETS         monthly | quarterly
-    TRACKER_STATS_START           "YYYY-MM" (monthly) or "YYYY-Qn" (quarterly)
+    TRACKER_STATS_BUCKETS         monthly | quarterly | weekly
+    TRACKER_STATS_START           "YYYY-MM" (monthly), "YYYY-Qn" (quarterly)
+                                  or "YYYY-Www" (weekly, ISO week)
     TRACKER_STATS_UPSTREAM_REPO   upstream repo slug (or "" / "none" to skip PR charts)
     TRACKER_STATS_REPO            tracker repo slug (operational)
     TRACKER_STATS_OUT             output path
@@ -355,8 +356,9 @@ def load_config():
 CONFIG = load_config()
 
 BUCKETS_MODE = CONFIG.get('buckets', 'monthly')
-if BUCKETS_MODE not in ('monthly', 'quarterly'):
-    raise SystemExit(f"buckets must be 'monthly' or 'quarterly', got {BUCKETS_MODE!r}")
+if BUCKETS_MODE not in ('monthly', 'quarterly', 'weekly'):
+    raise SystemExit(
+        f"buckets must be 'monthly', 'quarterly' or 'weekly', got {BUCKETS_MODE!r}")
 
 START_OVERRIDE = CONFIG.get('start')
 UPSTREAM_REPO = CONFIG.get('upstream_repo')
@@ -495,11 +497,47 @@ def iter_quarters(y0, q0, y1, q1):
             y += 1
 
 
+# Weekly buckets key on ISO (year, week) — note the ISO year can differ from
+# the calendar year in late December / early January, but (iso_year, iso_week)
+# tuples remain chronologically ordered, so the existing <=-based iteration
+# and bucketing carry over unchanged.
+def week_of(d):
+    iso = d.isocalendar()
+    return iso[0], iso[1]
+
+
+def week_label(y, w):
+    return f"{y}-W{w:02d}"
+
+
+def week_end(y, w):
+    # ISO weeks run Monday (day 1) .. Sunday (day 7); end at Sunday 23:59:59.
+    sunday = dt.date.fromisocalendar(y, w, 7)
+    return dt.datetime(sunday.year, sunday.month, sunday.day,
+                       23, 59, 59, tzinfo=dt.timezone.utc)
+
+
+def iter_weeks(y0, w0, y1, w1):
+    # Step by 7 days from the Monday of the start week through the end week;
+    # ISO years have 52 or 53 weeks, so stepping by date avoids that edge.
+    cur = dt.date.fromisocalendar(y0, w0, 1)
+    last = dt.date.fromisocalendar(y1, w1, 1)
+    while cur <= last:
+        iso = cur.isocalendar()
+        yield iso[0], iso[1]
+        cur += dt.timedelta(days=7)
+
+
 if BUCKETS_MODE == 'monthly':
     bucket_of = month_of
     bucket_label = month_label
     bucket_end = month_end
     bucket_iter = iter_months
+elif BUCKETS_MODE == 'weekly':
+    bucket_of = week_of
+    bucket_label = week_label
+    bucket_end = week_end
+    bucket_iter = iter_weeks
 else:
     bucket_of = quarter_of
     bucket_label = quarter_label
@@ -516,6 +554,9 @@ if START_OVERRIDE:
     if BUCKETS_MODE == 'monthly':
         y0, m0 = (int(x) for x in START_OVERRIDE.split('-'))
         start_key = (y0, m0)
+    elif BUCKETS_MODE == 'weekly':
+        y_part, w_part = START_OVERRIDE.split('-W')
+        start_key = (int(y_part), int(w_part))
     else:
         y_part, q_part = START_OVERRIDE.split('-Q')
         start_key = (int(y_part), int(q_part))
@@ -1101,11 +1142,15 @@ def milestone_x(milestone_date):
     mo = int(milestone_date[5:7])
     if BUCKETS_MODE == 'monthly':
         return f"{y}-{mo:02d}"
+    if BUCKETS_MODE == 'weekly':
+        d = dt.date(y, mo, int(milestone_date[8:10]))
+        iso = d.isocalendar()
+        return f"{iso[0]}-W{iso[1]:02d}"
     return f"{y}-Q{(mo - 1) // 3 + 1}"
 
 
 # Title prefix differs between bucket modes for clarity.
-bucket_word = 'month' if BUCKETS_MODE == 'monthly' else 'quarter'
+bucket_word = {'monthly': 'month', 'weekly': 'week'}.get(BUCKETS_MODE, 'quarter')
 
 # Build stacked-band traces in STACK_ORDER. With the default config that
 # resolves to `fixed_released, open_pr_merged, open_triaged,
