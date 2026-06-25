@@ -47,11 +47,16 @@ filter is skipped silently from the main triage flow.
 | F4 | Already marked ready, no regression | `labels` contains `ready for maintainer review` AND CI green AND `mergeable != CONFLICTING` AND no unresolved **collaborator** threads (same collaborator-author qualifier as rows 19/20 / [`unresolved_threads_only`](#unresolved_threads_only) — contributor-author threads alone don't count as a regression for an already-ready PR). **Regression bypasses this filter** — any of: CI red, new conflict, or a new unresolved collaborator thread whose triggering event (failing check `startedAt`, conflict detection, thread `createdAt`) is *after* the label-add timestamp. The typical case is a contributor pushing a rebase or fixup commit to a ready-for-review PR that re-introduces deterministic failures, OR a maintainer leaving a new review thread post-label-add. PRs bypassing F4 fall through to the decision table normally; the cross-cutting [`strip-ready-on-downgrade` hard rule](#hard-rules-cross-cutting-the-table) ensures the label comes off if a `deterministic_flag` row fires. |
 | F5a | Recent collaborator comment (author cooldown) | Most recent comment from the **union of** general-issue comments (`comments(last:10)`) and **review-thread comments** (`reviewThreads.nodes.comments`) is by a `COLLABORATOR`/`MEMBER`/`OWNER`, `createdAt < 72h` ago, AND posted after `commits(last:1).committedDate`. The review-thread leg is essential — a maintainer asking a clarifying question in-thread is just as much an active conversation as a top-level comment, and treating only the latter routes the PR to `ping` / `request-author-confirmation` while the maintainer is still mid-sentence. |
 | F5b | Maintainer-to-maintainer ping unanswered | **Walk the most recent 5 collaborator comments** from the **union** described in F5a above (newest-first). For each, if it `@`-mentions one or more logins other than the PR author AND none of those mentioned logins have posted on the PR (general comments **or** review threads) or in `latestReviews` after that comment, F5b fires. The 5-comment window catches the case where maintainer A pings maintainer B, then a different maintainer C (often the viewer) posts a quality-criteria comment on the PR — the more-recent quality comment is not itself a ping, but the older A→B ping is still unanswered and the PR is still mid-conversation between maintainers. Without the deep scan F5b only inspects the most recent collaborator comment and the older ping slides past unfiltered. The 5-comment cap is the same one driving `comments(last:10)` / `reviewThreads.comments(first:5)` — bounded scan, no extra GraphQL. Team mentions (e.g. `@<upstream>-committers`) are conservatively treated as F5b matches. |
+| F5c | Author question to a maintainer unanswered (ball in maintainers' court) | [`author_question_to_maintainer_unanswered`](#author_question_to_maintainer_unanswered) holds — the most recent **human** comment on the PR is by the **PR author** and `@`-mentions a maintainer (or the committers team) with no maintainer reply after it. This is the **inverse of F5b**: the author is waiting on *maintainer* input, so the next move is a maintainer's. Skip the main triage flow — do **not** hand the PR back to the author (`ping`, `request-author-confirmation`), convert it to draft, or close it for author silence. The PR is in the maintainers' court; surfacing it for a human answer is a maintainer move outside triage's mutation scope. Team mentions are conservatively treated as matches (same as F5b). |
 | F6 | Maintainer co-drafted | `isDraft == true` AND any of: (a) `latestReviews` has a node with `authorAssociation ∈ {OWNER, MEMBER, COLLABORATOR}` AND `author.login ≠ <viewer>` AND `state ∈ {COMMENTED, CHANGES_REQUESTED, APPROVED}` AND `submittedAt > commits(last:1).committedDate` AND review body is non-empty (avoids the "review with only inline thread comments and an empty top-level body" false positive — those are already counted by row 14/15 unresolved-thread logic); (b) `comments(last:10)` has a node with `authorAssociation ∈ {OWNER, MEMBER, COLLABORATOR}` AND `author.login ≠ <viewer>` AND `length(bodyText) ≥ 80` AND `createdAt > commits(last:1).committedDate`. Trivial signals (emoji-only, `+1`, `lgtm`, pure `@team` pings without prose) do not count — those are already covered by F5a/F5b or are below the substantive-engagement threshold. **Stale-sweep classifications in [`stale-sweeps.md`](stale-sweeps.md) may still pull the PR back in** — F6 only suppresses duplicate-proposal rows from the decision table, not eventual-resurfacing on a different action. |
 
-F5a, F5b, and F6 override every signal in the decision table —
+F5a, F5b, F5c, and F6 override every signal in the decision table —
 they are not weighed against conflicts, failing CI, or unresolved
-threads. See
+threads. (F5c in particular overrides a merge conflict or red CI:
+when the author has asked us a question, auto-pinging them to "fix
+CI" while their question sits unanswered is exactly the talk-over
+F5a/F5b guard against — the maintainer answers, and asks for the
+CI fix themselves if needed.) See
 [`rationale.md#pre-filter-5-active-maintainer-conversation`](rationale.md#pre-filter-5-active-maintainer-conversation)
 and
 [`rationale.md#pre-filter-6-maintainer-co-drafted`](rationale.md#pre-filter-6-maintainer-co-drafted)
@@ -226,6 +231,43 @@ The live check is invoked only for the small set of load-bearing
 decisions (a Sweep-4 candidate, an F5a/F5b comment that would suppress a
 ping), not for every PR in the batch, so it adds no per-PR cost to the
 main sweep.
+
+### `author_question_to_maintainer_unanswered`
+
+All of:
+
+- The most recent **human** comment on the PR — taken from the
+  **union** of issue-level comments (`comments(last:10)`) and
+  review-thread comments (`reviewThreads.nodes.comments(first:5)`),
+  newest by `createdAt`, ignoring `*[bot]` authors — is by the
+  **PR author** (`author.login == pr.author.login`). A later
+  bot comment does **not** reset the match.
+- That comment `@`-mentions at least one **maintainer** (resolved
+  per [Maintainer activity](#maintainer-activity) — a
+  `committers_team` member or an account with
+  `write`/`maintain`/`admin`, **not** `authorAssociation` alone),
+  **or** `@`-mentions the committers team.
+- No maintainer has posted a comment (issue-level or review-thread)
+  or a review (`latestReviews`) with `createdAt` / `submittedAt`
+  after that author comment.
+
+This is the **inverse of [F5b](#pre-filters)**: F5b is a maintainer
+waiting on another maintainer; this is the **author waiting on a
+maintainer**. In both, the next move is a human maintainer's, so
+the ball is in the maintainers' court and the triage skill must not
+hand the PR back to the author, convert it to draft, or close it
+for "author silence". It is the precondition behind pre-filter
+[F5c](#pre-filters) and the maintainer-court guard in
+[`stale-sweeps.md`](stale-sweeps.md).
+
+Maintainer resolution is the same load-bearing live check
+[F5b / Sweep 4](#maintainer-activity) use — confirm a
+`COLLABORATOR` mention's committer status via the `permission` /
+team-membership API before relying on it, for the small set of PRs
+where this precondition is the deciding factor (a Sweep-4 candidate,
+or a PR F5c would otherwise skip). Team mentions
+(e.g. `@<upstream>-committers`) are conservatively treated as
+matches — same calibration as F5b.
 
 ### `has_deterministic_signal`
 
@@ -712,7 +754,7 @@ applies — rows do not get to reach back for more data.
 
 | Decision rows / preconditions | Required fields |
 |---|---|
-| F5a, F5b, F6, grace periods | `comments(last:10).nodes.{author.login,authorAssociation,bodyText,createdAt}`, `reviewThreads.nodes.comments(first:5).nodes.{author.login,authorAssociation,bodyText,createdAt}`, `latestReviews.nodes.{state,author.login,authorAssociation,submittedAt}`, `commits(last:1).nodes.commit.committedDate`, viewer login |
+| F5a, F5b, F5c, F6, grace periods | `comments(last:10).nodes.{author.login,authorAssociation,bodyText,createdAt}`, `reviewThreads.nodes.comments(first:5).nodes.{author.login,authorAssociation,bodyText,createdAt}`, `latestReviews.nodes.{state,author.login,authorAssociation,submittedAt}`, `commits(last:1).nodes.commit.committedDate`, viewer login |
 | Row 1 + Real-CI guard | `statusCheckRollup.state`, `statusCheckRollup.contexts`, `authorAssociation`, `head_sha` (REST `action_required` index keyed by `head_sha`) |
 | `copilot_review_stale` (row 2) | `reviewThreads.nodes.{isResolved,comments.nodes.{author.login,createdAt,url}}`, `comments(last:10).nodes.{author.login,createdAt}` |
 | `has_deterministic_signal`, `ci_failures_only`, `unresolved_threads_only`, `unresolved_threads_only_likely_addressed` (rows 8–17) | `mergeable`, `statusCheckRollup.{state,contexts}`, `reviewThreads.nodes.{isResolved,comments(first:5).nodes.{author.login,authorAssociation,createdAt}}`, `updatedAt`, `comments(last:10).nodes.{author.login,authorAssociation,createdAt}`, `commits(last:1).nodes.commit.committedDate`, `author.login` |

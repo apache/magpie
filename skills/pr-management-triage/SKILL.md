@@ -294,10 +294,10 @@ variant — same calibration, worded for a description edit. See
 and [`comment-templates.md#body-fold-rendering`](comment-templates.md#body-fold-rendering).
 
 **Golden rule 9 — never talk over an active maintainer
-conversation.** When a maintainer has commented on the PR
-recently, the skill steps back. Two specific cases, both
+conversation.** When a human conversation needs the next move,
+the skill steps back. Three specific cases, all
 enforced as pre-classification filters in
-[`classify-and-act.md#pre-filters`](classify-and-act.md) (rows F5a, F5b):
+[`classify-and-act.md#pre-filters`](classify-and-act.md) (rows F5a, F5b, F5c):
 
 - **Author-response cooldown (≥ 72 hours).** If the most recent
   comment by a `COLLABORATOR`/`MEMBER`/`OWNER` was posted after
@@ -312,6 +312,16 @@ enforced as pre-classification filters in
   author should work on comments" auto-draft de-focuses the
   thread away from the input the original commenter was asking
   for.
+- **Author question to a maintainer (ball in our court).** The
+  inverse of the maintainer-to-maintainer case: if the most
+  recent human comment is by the **PR author** and `@`-mentions a
+  maintainer (or the committers team) with no maintainer reply
+  after it, the author is waiting on *us*. Skip the author-facing
+  flow — never ping the author, request readiness confirmation,
+  convert to draft, or close it for "silence". The next move is a
+  maintainer answering; the PR belongs in the maintainers' court.
+  This is the case that closed a real PR after the triage process
+  missed an open question to the team.
 
 These filters override every deterministic flag (failing CI,
 conflicts, unresolved threads). The cost of a missed auto-action
@@ -553,11 +563,12 @@ pulls a PR out of a group.
 Run **every PR fetched in Step 1** through
 [`classify-and-act.md`](classify-and-act.md), once:
 
-1. Apply the [pre-filters](classify-and-act.md#pre-filters) (F1–F5b)
+1. Apply the [pre-filters](classify-and-act.md#pre-filters) (F1–F5c)
    to drop collaborator PRs, bot accounts, fresh drafts,
    already-marked-ready PRs without regression, and PRs with an
-   active maintainer conversation (72-hour author cooldown or an
-   unanswered maintainer-to-maintainer ping).
+   active maintainer conversation (72-hour author cooldown, an
+   unanswered maintainer-to-maintainer ping, or an unanswered
+   author question to a maintainer — ball in our court).
 2. Evaluate the [decision table](classify-and-act.md#decision-table)
    top-to-bottom. The first matching row yields the
    `(classification, action, reason)` tuple for that PR.

@@ -159,8 +159,9 @@ pick action). Nothing here is speculative:
   responded after triage" detection, and the
   active-maintainer-conversation pre-filter
   (recent collaborator comment + maintainer-to-maintainer
-  `@`-ping detection — see
-  [`classify-and-act.md#pre-filters`](classify-and-act.md), F5a/F5b)
+  `@`-ping detection + author-to-maintainer `@`-ping detection —
+  see [`classify-and-act.md#pre-filters`](classify-and-act.md),
+  F5a/F5b/F5c)
   — which is why the comment node carries `authorAssociation`
   and `bodyText` in addition to author login
 - `baseRef.target.history.totalCount` → commits-behind anchor

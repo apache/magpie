@@ -81,6 +81,34 @@ cases (a PR updated mid-session) don't shift.
 
 ---
 
+## Maintainer-court guard (applies to every sweep)
+
+A PR satisfying
+[`author_question_to_maintainer_unanswered`](classify-and-act.md#author_question_to_maintainer_unanswered)
+— the author's most recent comment `@`-mentions a maintainer (or
+the committers team) and no maintainer has replied since — is in
+the **maintainers' court**: the next move is a maintainer
+answering, not anything the author owes. Every sweep below honours
+it:
+
+- **Sweeps 1–3** (close / convert-to-draft for staleness) **skip
+  it.** A PR is not "abandoned by the author" while the author is
+  waiting on *us*; closing or drafting it for inactivity punishes
+  the contributor for maintainer silence. This is the exact
+  failure that closed a real PR after the triage process missed an
+  open question to the team.
+- **Sweep 4** keeps the `ready for maintainer review` label (see
+  [Step B](#step-b--court-disposition)) — the label *means* "ball
+  in the maintainers' court", which is precisely true here.
+
+Inactivity timers (`updated_at`-based) do **not** override this
+guard; only a maintainer reply — which flips the PR out of the
+precondition — does. The guard is the stale-sweep counterpart of
+pre-filter [F5c](classify-and-act.md#pre-filters), which removes
+the same PRs from the *interactive* flow.
+
+---
+
 ## Sweep 1 — Stale drafts
 
 Two sub-cases, both resulting in `close`:
@@ -305,7 +333,15 @@ decision table already draws that line (rows 10–13 `rerun` vs 12/12b/17
 skill uses for the same reason — observed: a batch mergeability gate
 misjudged ~87% of a real `ready` queue.
 
-Then run the PR through the live decision table
+**Check the maintainer-court guard first.** If
+[`author_question_to_maintainer_unanswered`](classify-and-act.md#author_question_to_maintainer_unanswered)
+holds (pre-filter [F5c](classify-and-act.md#pre-filters) would
+have skipped it in the interactive flow), the PR is maintainer-court
+regardless of branch state — keep the label and stop. Resolve the
+mentioned maintainer's committer status live (per the section above)
+before relying on this, since it is the deciding signal.
+
+Otherwise run the PR through the live decision table
 ([`classify-and-act.md`](classify-and-act.md)) to get its current
 `(classification, action)`, resolving "maintainer" per the section
 above. Step B reads the court off that result.
@@ -316,6 +352,7 @@ Read the court off the Step-A `(classification, action)`:
 
 | Next move (decision-table action / state) | Court | Sweep-4 action |
 |---|---|---|
+| [`author_question_to_maintainer_unanswered`](classify-and-act.md#author_question_to_maintainer_unanswered) — author asked a maintainer, unanswered | maintainer (respond) | **keep label** — the author is waiting on us; never strip |
 | `approve-workflow` | maintainer | **keep label**; perform the approval |
 | `rerun` — flaky / systemic CI (rows 10/11/13) | maintainer | **keep label**; perform the rerun |
 | `rebase` — branch behind, mergeable (row 16) | maintainer | **keep label**; perform the branch update |
