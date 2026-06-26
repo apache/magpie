@@ -224,6 +224,10 @@ follows only after Pairing has established that human reasoning
 and relationships, not implementation chatter, are the
 load-bearing parts of the workflow.
 
+| Doc | Purpose |
+|---|---|
+| [`docs/pairing/README.md`](pairing/README.md) | Family overview: skills, when to use each, adopter contract. |
+
 ## Auto-merge
 
 **Status: off. Deliberately not implemented.**
