@@ -1,10 +1,10 @@
 {
   "dimensions": {
-    "prs_merged":          { "current": 2, "required": 5, "status": "APPROACHING" },
-    "reviews_total":       { "current": 1, "required": 3, "status": "APPROACHING" },
+    "prs_merged":          { "current": 2, "required": 5, "status": "NOT_YET" },
+    "reviews_total":       { "current": 1, "required": 3, "status": "NOT_YET" },
     "reviews_substantive": { "current": 0, "required": 2, "status": "NOT_YET" },
     "issues_filed":        { "current": 0, "required": 0, "status": "MET" },
-    "threads_commented":   { "current": 2, "required": 5, "status": "APPROACHING" },
+    "threads_commented":   { "current": 2, "required": 5, "status": "NOT_YET" },
     "area_breadth":        { "current": 1, "required": 0, "status": "MET" },
     "off_github":          { "current": "absent", "required": "present", "status": "NOT_YET" }
   },

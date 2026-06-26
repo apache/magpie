@@ -18,6 +18,6 @@ Return ONLY valid JSON with this structure:
 ```
 
 - `status`: "MET" when current >= required (or required == 0); "APPROACHING" when current >= 50% of required; "NOT_YET" when current < 50% of required; "narrative_only" when thresholds are qualitative
-- `traffic_light`: "Ready to nominate" if every mandatory dimension is MET; "Approaching" if >= 50% of mandatory dimensions are MET and none is NOT_YET; "Not yet" if any mandatory dimension is NOT_YET
+- `traffic_light`: "Ready to nominate" if every mandatory dimension is MET; "Not yet" if any mandatory dimension is NOT_YET; otherwise "Approaching" (no dimension NOT_YET but not all MET). Mandatory dimensions are those with threshold > 0, plus off_github when required; threshold-0 and undeclared dimensions are advisory, auto-MET, and excluded from the aggregate
 
 Do not include any text outside the JSON object.

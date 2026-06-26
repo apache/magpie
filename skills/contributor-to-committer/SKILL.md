@@ -350,17 +350,21 @@ skip numeric MET/APPROACHING/NOT_YET and instead record a qualitative
 `narrative_only` assessment per dimension, noting what the maintainer
 said and how the observed activity relates to it.
 
-**Traffic-light logic:**
+**Traffic-light logic.** *Mandatory dimensions* are the ones the config
+declares with a threshold greater than 0, plus `off_github` when a
+signal is required. Dimensions with threshold 0, or not declared in the
+config, are advisory: always treated as MET and excluded from the
+aggregate below (no gap shown for them).
 
 - **Ready to nominate** — every mandatory dimension is MET (or
   narrative_only with strong signal)
-- **Approaching** — at least half the mandatory dimensions are MET,
-  no dimension is NOT_YET
 - **Not yet** — any mandatory dimension is NOT_YET
+- **Approaching** — otherwise: no mandatory dimension is NOT_YET, but
+  at least one is still APPROACHING (not all are MET)
 
-A dimension with threshold 0 in the config is always treated as MET.
-A dimension not declared in the config is not assessed (no gap shown
-for it).
+These three bands are exhaustive and mutually exclusive: each mandatory
+dimension is exactly MET, APPROACHING, or NOT_YET, so every run lands in
+exactly one band.
 
 ---
 
