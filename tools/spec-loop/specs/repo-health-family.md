@@ -38,14 +38,17 @@ grouped, prioritised report → wait for confirmation before any write.
 
 ## Where it lives
 
-- Skill: `ci-runner-audit` — first shipped member. Reads GitHub Actions
-  workflow files across one repo, an explicit set, one Apache project's
-  repos, or the full Apache GitHub org and surfaces obsolete
-  GitHub-hosted runner labels and macOS architecture mismatches. Read-only;
-  no workflow files are modified. Ships `mode: Triage` + `experimental`.
-- Design docs: `docs/repo-health/README.md` — family overview, candidate
-  skills (workflow-security-audit, dependency-audit, license-compliance-audit,
-  flaky-test-triage), and the planned adopter-config scaffold.
+- Skills (three shipped): `ci-runner-audit` (obsolete GitHub-hosted runner
+  labels and macOS architecture mismatches), `workflow-security-audit`
+  (zizmor-backed Actions security findings — injection, excessive
+  permissions, unpinned external actions, fork-secret leaks), and
+  `dependency-audit` (known-vulnerable / outdated dependencies). Each reads
+  across one repo, an explicit set, one Apache project's repos, or the full
+  Apache GitHub org, is read-only (no workflow file, manifest, or lock file
+  is modified), and ships `mode: Triage` + `experimental` with an eval suite.
+- Design docs: `docs/repo-health/README.md` — family overview, remaining
+  candidate skills (license-compliance-audit, flaky-test-triage), and the
+  planned adopter-config scaffold.
 - Planned adopter config: `projects/_template/repo-health-config.md` —
   per-skill switches (deprecated-runner families, zizmor rule classes,
   dependency-manager selection, SPDX expression, flaky-test window).
@@ -97,17 +100,19 @@ grouped, prioritised report → wait for confirmation before any write.
 
 ```bash
 test -f .claude/skills/magpie-ci-runner-audit/SKILL.md
+test -f .claude/skills/magpie-workflow-security-audit/SKILL.md
+test -f .claude/skills/magpie-dependency-audit/SKILL.md
 uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-validate
 ```
 
 ## Known gaps
 
-- **Family is one skill deep.** `ci-runner-audit` is the sole shipped
-  member. Four candidates are designed in `docs/repo-health/README.md`:
-  `workflow-security-audit` (zizmor-backed, highest priority — the tool
-  is already in pre-commit), `dependency-audit`, `license-compliance-audit`,
-  and `flaky-test-triage`. Each is a separate build item, sequenced after
-  `ci-runner-audit`'s pilot evaluation confirms the family shape.
+- **Family is three skills deep.** `ci-runner-audit`,
+  `workflow-security-audit`, and `dependency-audit` have shipped (read-only,
+  `experimental`, each with an eval suite). Two candidates remain designed
+  in `docs/repo-health/README.md`: `license-compliance-audit` and
+  `flaky-test-triage`. Each is a separate build item, sequenced after the
+  shipped members' pilot evaluation confirms the family shape.
 - **No adopter-config scaffold yet.** `projects/_template/repo-health-config.md`
   is planned alongside the first candidate skill; the keys are sketched in
   `docs/repo-health/README.md § Adopter contract`.

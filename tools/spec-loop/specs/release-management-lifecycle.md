@@ -3,7 +3,7 @@
 
 ---
 title: Release-management lifecycle (end-to-end)
-status: proposed
+status: experimental
 kind: feature
 mode: Drafting
 source: >
@@ -11,8 +11,9 @@ source: >
   standard process within 3 months of resolution adoption"). README.md
   § Skill families (release-management, proposed). Designed spec-first in
   docs/release-management/ (README.md, process.md, spec.md) plus the
-  adopter scaffold projects/_template/release-management-config.md. No
-  release-* skill code exists yet.
+  adopter scaffold projects/_template/release-management-config.md.
+  Four of the ten skills have since shipped (release-announce-draft,
+  release-verify-rc, release-vote-tally, release-promote).
 acceptance:
   - The family's design (14-step process, per-skill state-change
     boundaries, adopter contract) is reviewable independently of any
@@ -55,15 +56,20 @@ code lands.
   `projects/_template/release-build.md`, `projects/_template/pmc-roster.md`,
   `projects/_template/site-repo.md`, and the shared
   `projects/_template/release-trains.md`.
-- Skills: `release-announce-draft` is now implemented (`experimental`,
-  `mode: Drafting`): drafts the `[ANNOUNCE]` email body and proposes
-  the site-bump PR for a promoted release (Step 11). Enforces the
-  one-hour promote-wait gate, `@apache.org` address reminder, Download
-  Page link constraint, and no-send / no-auto-merge boundaries.
-  The remaining nine skills (`release-prepare`, `release-keys-sync`,
-  `release-rc-cut`, `release-verify-rc`, `release-vote-draft`,
-  `release-vote-tally`, `release-promote`, `release-archive-sweep`,
-  `release-audit-report`) are still `proposed`, none implemented yet.
+- Skills (four shipped, all `experimental`): `release-announce-draft`
+  (`mode: Drafting`) drafts the `[ANNOUNCE]` body and proposes the
+  site-bump PR for a promoted release (Step 11), enforcing the one-hour
+  promote-wait gate, `@apache.org` address reminder, Download Page link
+  constraint, and no-send / no-auto-merge boundaries; `release-verify-rc`
+  (`mode: Triage`) runs read-only RC pre-flight (signatures, checksums,
+  RAT headers, NOTICE/LICENSE, prohibited binaries, version consistency,
+  Step 6); `release-vote-tally` (`mode: Triage`) classifies +1/0/-1
+  binding vs non-binding once the window closes and drafts the `[RESULT]`
+  (Step 9); `release-promote` (`mode: Drafting`) emits the backend-shaped
+  staging→release promotion command set for a vote-passed release
+  (Step 10). The remaining six skills (`release-prepare`,
+  `release-keys-sync`, `release-rc-cut`, `release-vote-draft`,
+  `release-archive-sweep`, `release-audit-report`) are still `proposed`.
 - Adapters it will read/draft through: `tools/github`, `tools/ponymail`
   (vote threads), `tools/gmail` (announce/vote drafts), plus the project's
   `svn` dist tree as a distribution backend.
@@ -122,23 +128,22 @@ test -f docs/release-management/spec.md
 test -f docs/release-management/process.md
 test -f projects/_template/release-management-config.md
 test -f .claude/skills/magpie-release-announce-draft/SKILL.md
+test -f .claude/skills/magpie-release-verify-rc/SKILL.md
+test -f .claude/skills/magpie-release-vote-tally/SKILL.md
+test -f .claude/skills/magpie-release-promote/SKILL.md
 uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-validate
 uv run --project tools/skill-evals skill-eval tools/skill-evals/evals/release-announce-draft/
 ```
 
 ## Known gaps
 
-- **`release-verify-rc` shipped** — read-only RC pre-flight skill
-  (Step 6) landed with eval suite (13 cases across 6 steps); status
-  updated to `experimental`.
-- **Nine `release-*` skills remain unimplemented** (`release-prepare`,
-  `release-keys-sync`, `release-rc-cut`, `release-vote-draft`,
-  `release-vote-tally`, `release-promote`, `release-announce-draft`,
-  `release-archive-sweep`, `release-audit-report`; `release-announce-draft`
-  landed earlier, `release-vote-draft` and `release-vote-tally` are
-  in-flight on local branches). The plan pass turns each
-  un-implemented skill in the `docs/release-management/` table into a
-  work item.
+- **Four of ten skills have shipped** (`release-announce-draft`,
+  `release-verify-rc`, `release-vote-tally`, `release-promote`), all
+  `experimental` with eval suites. **Six remain `proposed`**
+  (`release-prepare`, `release-keys-sync`, `release-rc-cut`,
+  `release-vote-draft`, `release-archive-sweep`, `release-audit-report`).
+  The plan pass turns each un-implemented skill in the
+  `docs/release-management/` table into a work item.
 - **Health-evidence promotion criteria are unmeasured.** No adopter has
   cut a full release through the family yet, so the RM/binding-voter
   evidence window that would justify default-on or a state-changing lane

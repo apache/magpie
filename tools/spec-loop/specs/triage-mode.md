@@ -37,9 +37,13 @@ suggestion the human signs off on.
 - General issues: `issue-triage`, `issue-reassess`, `issue-reproducer`,
   `issue-stale-sweep` (configurable inactivity sweep: nudge or
   propose-close after a warning window; waits for confirmation before
-  posting). Companion reporting skill: `issue-reassess-stats`
-  (read-only dashboard over `verdict.json` files produced by
-  `issue-reassess` campaigns).
+  posting), `issue-deduplicate` (merge two open issues describing the same
+  root cause — proposes a close + cross-reference, waits for confirmation).
+  Companion reporting skills: `issue-reassess-stats` (read-only dashboard
+  over `verdict.json` files produced by `issue-reassess` campaigns) and
+  `issue-backlog-stats` (read-only maintainer dashboard over the open
+  general-issue backlog — health rating, age/staleness, area pressure,
+  triage funnel).
 - Contributor readiness: `contributor-nomination` (read-only brief for a
   named contributor — activity breadth, consistency, and nomination-
   evidence prose for a committer or PMC thread);
@@ -92,13 +96,13 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
 
 - PR and general-issue triage are `experimental` — no adopter-pilot eval
   has run; behaviour may change.
-- **General-issue triage lacks a deduplication skill and a backlog
-  dashboard.** `issue-stale-sweep` now provides the stale-handling /
-  close-proposal capability. There is still no general-issue
-  deduplication skill (only `security-issue-deduplicate` exists), and no
-  general open-issue backlog dashboard (`pr-management-stats` covers
-  PRs; `issue-reassess-stats` only covers reassess-campaign
-  `verdict.json` output). Each is a candidate work item.
+- **General-issue triage gained its deduplication skill and backlog
+  dashboard.** `issue-deduplicate` (general-issue dedup, parallel to
+  `security-issue-deduplicate`) and `issue-backlog-stats` (open-issue
+  backlog dashboard, parallel to `pr-management-stats`) have now shipped
+  (`experimental`); `issue-stale-sweep` provides stale-handling /
+  close-proposal. No adopter-pilot eval has run on the general-issue
+  family yet, so behaviour may change.
 - **The contributor-growth skills span the path but are not yet a named
   family.** `contributor-nomination`, `contributor-activity-sweep`,
   `committer-onboarding`, and `good-first-issue-author` (Mentoring) are
@@ -107,9 +111,8 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
   committer), emeritus / inactive-committer handling, and contributor
   offboarding. Worth deciding whether this becomes a named family with
   its own spec.
-- **Repo-health audits are a one-off with no family around them.**
-  `ci-runner-audit` is a standalone read-only audit (obsolete runner
-  labels, macOS arch mismatches) with no sibling skills. A repo-health
-  family is a candidate: GitHub Actions workflow security audit (the repo
-  already runs `zizmor` in pre-commit), dependency-update triage,
-  license / NOTICE compliance, and flaky-test detection.
+- **Repo-health audits are now a three-skill family.** `ci-runner-audit`,
+  `workflow-security-audit` (zizmor-backed), and `dependency-audit` have
+  shipped (read-only, `experimental`); see
+  [repo-health-family.md](repo-health-family.md). Remaining candidates:
+  license / NOTICE compliance and flaky-test detection.
