@@ -20,27 +20,6 @@
 
 # Apache Magpie
 
-> **Heads-up — the project is named Apache Magpie; the GitHub
-> slug rename is still pending.**
-> The framework's name is **Apache Magpie**. The current
-> `apache/airflow-steward` slug carries `airflow` for legacy
-> reasons, but the framework is project-agnostic (it stewards
-> multiple ASF project workflows, not just Airflow's), so the
-> working group steering it chose a name that reflects that.
->
-> **Magpie** was selected by the founding PMC and confirmed
-> available via **PODLINGSEARCH**. Three alternates were carried
-> as historical backups during the bikeshed — *Beacon*, *Guild*,
-> and *Lichen* — but Magpie cleared the name search and is the
-> final name; the alternates are no longer in play.
->
-> Until the rename lands on the GitHub side, every clone URL and
-> CI integration still uses the legacy `apache/airflow-steward`
-> slug — all path examples in this README and the linked docs use
-> that slug verbatim. The rename will only change the GitHub
-> repository slug; existing checkouts will keep working with a
-> single `git remote set-url`.
-
 A reusable, project-agnostic framework for ASF-project automation.
 Currently in development for ASF projects + Python Core team
 friendlies. **Not** a public marketplace skill — adoption is by
