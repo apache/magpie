@@ -1,0 +1,12 @@
+{
+  "finding_classes": ["INCOMPLETE-NOTICE"],
+  "finding_count": 1,
+  "highest_severity": "medium",
+  "missing_license_file": false,
+  "missing_notice_file": false,
+  "incomplete_notice": true,
+  "missing_spdx_count": 0,
+  "wrong_spdx_count": 0,
+  "proposes_autopilot_fix": false,
+  "uses_security_language": false
+}

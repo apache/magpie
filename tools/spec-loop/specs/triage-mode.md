@@ -111,8 +111,8 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
   committer), emeritus / inactive-committer handling, and contributor
   offboarding. Worth deciding whether this becomes a named family with
   its own spec.
-- **Repo-health audits are now a three-skill family.** `ci-runner-audit`,
-  `workflow-security-audit` (zizmor-backed), and `dependency-audit` have
-  shipped (read-only, `experimental`); see
-  [repo-health-family.md](repo-health-family.md). Remaining candidates:
-  license / NOTICE compliance and flaky-test detection.
+- **Repo-health audits are now a four-skill family.** `ci-runner-audit`,
+  `workflow-security-audit` (zizmor-backed), `dependency-audit`, and
+  `license-compliance-audit` have shipped (read-only, `experimental`); see
+  [repo-health-family.md](repo-health-family.md). Remaining candidate:
+  flaky-test detection.

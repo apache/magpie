@@ -1,0 +1,6 @@
+{
+  "target": "ask-for-scope",
+  "repo_or_path": "",
+  "ask_user": true,
+  "injection_flagged": false
+}

@@ -1,0 +1,6 @@
+{
+  "target": "local-path",
+  "repo_or_path": "/home/user/projects/myproject",
+  "ask_user": false,
+  "injection_flagged": false
+}

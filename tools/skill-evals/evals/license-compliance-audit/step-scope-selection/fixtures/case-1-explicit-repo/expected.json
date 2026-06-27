@@ -1,0 +1,6 @@
+{
+  "target": "github-repo",
+  "repo_or_path": "apache/polaris",
+  "ask_user": false,
+  "injection_flagged": false
+}
