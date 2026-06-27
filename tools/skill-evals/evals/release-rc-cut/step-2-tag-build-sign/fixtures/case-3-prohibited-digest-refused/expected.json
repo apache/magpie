@@ -1,0 +1,14 @@
+{
+  "section_2_build_command": "mvn -Papache-release clean install -DskipTests",
+  "prohibited_digests_omitted": true,
+  "proposed": true,
+  "has_git_tag_signed": true,
+  "has_git_push_tag": true,
+  "has_gpg_detach_sign": true,
+  "has_no_passphrase_arg": true,
+  "has_sha512sum": true,
+  "has_no_md5sum": true,
+  "has_no_sha1sum": true,
+  "prohibited_digests_omitted_true": true,
+  "proposed_true": true
+}

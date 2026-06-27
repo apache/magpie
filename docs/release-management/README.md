@@ -66,16 +66,20 @@ for the full backend table and per-step mapping.
 
 ## Status
 
-**Proposed.** No `release-*` skill code exists in the framework
-today. This family lands as docs first (this README, the 14-step
+**Experimental (1 of 10 skills shipped).**
+[`release-announce-draft`](../../skills/release-announce-draft/SKILL.md)
+(Step 11, `[ANNOUNCE]` email draft + site-bump PR) landed as
+`experimental` in #512. The remaining nine skills follow in
+subsequent PRs, each flagged `experimental` and tracked in
+[`docs/modes.md`](../modes.md).
+
+The family landed as docs first (this README, the 14-step
 [`process.md`](process.md), the per-skill [`spec.md`](spec.md), and
 the adopter scaffold
 [`projects/_template/release-management-config.md`](../../projects/_template/release-management-config.md))
 so the lifecycle, the state-change boundaries, and the adopter
 contract are reviewable independently from runtime behaviour.
-The skills follow in subsequent PRs, each shipped flagged
-`experimental` and tracked in [`docs/modes.md`](../modes.md). This
-pattern matches [Mentoring](../mentoring/README.md).
+This pattern matches [Mentoring](../mentoring/README.md).
 
 Promotion of any skill in this family from `experimental` to
 default-on, or from Drafting to a state-changing lane, requires
@@ -97,18 +101,18 @@ the lifecycle step(s) it owns. Read [`spec.md`](spec.md) for the
 per-skill state-change boundary; read [`process.md`](process.md)
 for the step it executes against.
 
-| Skill | Mode | Steps owned | Purpose |
-|---|---|---|---|
-| `release-prepare` | Drafting | 1, 2, 14 | Open the planning issue, draft the version-bump + changelog + NOTICE/LICENSE PR, then draft the post-release `-SNAPSHOT` bump. |
-| `release-keys-sync` | Drafting | 3 | Draft the `KEYS` diff for a Release Manager cutting their first release for the project. Agent never holds the private key. |
-| `release-rc-cut` | Drafting | 4, 5 | Emit the paste-ready command sequence, signed tag, build, detached signatures, checksums, `svn` import to `dist/dev/<project>/`. Agent never signs and never imports. |
-| `release-verify-rc` | Triage / Pairing | 6 | Read-only pre-flight: signatures against the project's `KEYS`, checksums, license headers (Apache RAT), NOTICE/LICENSE presence, no prohibited binaries, version-string consistency. Voters can run it in their own dev loop before posting `+1`. |
-| `release-vote-draft` | Drafting | 7 | Draft the `[VOTE]` email body to `dev@<project>`. Agent never sends. |
-| `release-vote-tally` | Triage | 9 | Parse the vote thread, classify each reply (+1 / 0 / -1) binding vs non-binding against the PMC roster, propose `[RESULT] [VOTE]`. Conservative on ambiguous votes, refuses to count, flags `AMBIGUOUS, needs RM call`. |
-| `release-promote` | Drafting | 10 | Emit the paste-ready `svn mv dist/dev → dist/release` command set plus commit message. Agent never moves; the human commit is the act of release. |
-| `release-announce-draft` | Drafting | 11 | Draft the `[ANNOUNCE]` email body to `announce@apache.org` and the site-bump PR (download page, release notes, version banner). Agent never sends mail and never merges the site PR. |
-| `release-archive-sweep` | Triage | 12 | Scan `dist/release/<project>/`, identify releases past retention, propose the `svn mv` sequence to `archive.apache.org`. Agent never moves. |
-| `release-audit-report` | Triage (dashboard) | 13 | Read-only structured report per release, RM, voters with binding flags, artefacts with sigs and checksums, promotion revision, `[ANNOUNCE]` archive URL. Output appended to the project's audit log. |
+| Skill | Mode | Steps owned | Status | Purpose |
+|---|---|---|---|---|
+| `release-prepare` | Drafting | 1, 2, 14 | proposed | Open the planning issue, draft the version-bump + changelog + NOTICE/LICENSE PR, then draft the post-release `-SNAPSHOT` bump. |
+| `release-keys-sync` | Drafting | 3 | proposed | Draft the `KEYS` diff for a Release Manager cutting their first release for the project. Agent never holds the private key. |
+| `release-rc-cut` | Drafting | 4, 5 | proposed | Emit the paste-ready command sequence, signed tag, build, detached signatures, checksums, `svn` import to `dist/dev/<project>/`. Agent never signs and never imports. |
+| `release-verify-rc` | Triage / Pairing | 6 | proposed | Read-only pre-flight: signatures against the project's `KEYS`, checksums, license headers (Apache RAT), NOTICE/LICENSE presence, no prohibited binaries, version-string consistency. Voters can run it in their own dev loop before posting `+1`. |
+| `release-vote-draft` | Drafting | 7 | proposed | Draft the `[VOTE]` email body to `dev@<project>`. Agent never sends. |
+| `release-vote-tally` | Triage | 9 | proposed | Parse the vote thread, classify each reply (+1 / 0 / -1) binding vs non-binding against the PMC roster, propose `[RESULT] [VOTE]`. Conservative on ambiguous votes, refuses to count, flags `AMBIGUOUS, needs RM call`. |
+| `release-promote` | Drafting | 10 | proposed | Emit the paste-ready `svn mv dist/dev → dist/release` command set plus commit message. Agent never moves; the human commit is the act of release. |
+| [`release-announce-draft`](../../skills/release-announce-draft/SKILL.md) | Drafting | 11 | **experimental** | Draft the `[ANNOUNCE]` email body to `announce@apache.org` and the site-bump PR (download page, release notes, version banner). Agent never sends mail and never merges the site PR. |
+| `release-archive-sweep` | Triage | 12 | proposed | Scan `dist/release/<project>/`, identify releases past retention, propose the `svn mv` sequence to `archive.apache.org`. Agent never moves. |
+| `release-audit-report` | Triage (dashboard) | 13 | proposed | Read-only structured report per release, RM, voters with binding flags, artefacts with sigs and checksums, promotion revision, `[ANNOUNCE]` archive URL. Output appended to the project's audit log. |
 
 Two non-negotiable boundaries cross every Drafting skill above:
 
@@ -173,8 +177,9 @@ file-by-file index. Required at minimum:
 Release-management is a **family**, not a mode. The lifecycle
 spans the existing Triage and Drafting modes; no new mode is
 introduced. See [`docs/modes.md`](../modes.md) for the
-family-by-mode breakdown, `release-*` skills appear under the
-**Triage** and **Drafting** subsections, each marked `proposed`.
+family-by-mode breakdown; `release-*` skills appear under the
+**Triage** and **Drafting** subsections (`release-announce-draft`
+is now `experimental`; the remaining nine remain `proposed`).
 
 The family's read-only dashboard skill
 (`release-audit-report`)

@@ -1,0 +1,17 @@
+{
+  "step": "version-consistency",
+  "status": "FAIL",
+  "expected_version": "2.11.0",
+  "results": [
+    {
+      "file": "setup.cfg",
+      "extracted": "2.11.0",
+      "match": true
+    },
+    {
+      "file": "airflow/__init__.py",
+      "extracted": "2.11.0.dev0",
+      "match": false
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "category_x_hit": false,
+  "notice_removal_unjustified": true,
+  "unjustified_removals": [
+    "This product includes software developed by The Jackson Project (https://github.com/FasterXML/jackson)."
+  ],
+  "handoff_reason": "NOTICE attribution removed for a dependency still present in the tree. Justify the removal or revert it."
+}

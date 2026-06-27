@@ -1,0 +1,10 @@
+{
+  "proposed": true,
+  "has_pgp_begin_header": true,
+  "has_pgp_end_footer": true,
+  "has_uid_comment": true,
+  "has_checkout_command": true,
+  "has_commit_command": true,
+  "has_keyserver_reminder": true,
+  "has_expiry_warning": false
+}

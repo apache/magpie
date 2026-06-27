@@ -1,0 +1,22 @@
+{
+  "step": "checksums",
+  "status": "FAIL",
+  "results": [
+    {
+      "file": "apache-airflow-2.11.0-source-release.tar.gz",
+      "digests": [
+        {"type": "sha512", "classification": "PASS"},
+        {"type": "sha256", "classification": "PASS"}
+      ]
+    },
+    {
+      "file": "apache-airflow-2.11.0-bin.tar.gz",
+      "digests": [
+        {"type": "sha512", "classification": "MISMATCH"},
+        {"type": "sha256", "classification": "PASS"}
+      ]
+    }
+  ],
+  "deprecated_md5_present": false,
+  "paste_recipe": "sha512sum --check apache-airflow-2.11.0-source-release.tar.gz.sha512\nsha256sum --check apache-airflow-2.11.0-source-release.tar.gz.sha256\nsha512sum --check apache-airflow-2.11.0-bin.tar.gz.sha512\nsha256sum --check apache-airflow-2.11.0-bin.tar.gz.sha256"
+}

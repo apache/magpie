@@ -1,0 +1,6 @@
+{
+  "verdict": "blocked",
+  "blockers": ["archive_retention_rule is missing from release-management-config.md"],
+  "non_asf": false,
+  "dist_backend": "svnpubsub"
+}

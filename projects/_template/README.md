@@ -12,6 +12,7 @@
     - [Remediation workflow](#remediation-workflow)
     - [Editorial + reporter-facing](#editorial--reporter-facing)
     - [Issue management](#issue-management)
+    - [Repo-health audits](#repo-health-audits)
     - [PR triage and review](#pr-triage-and-review)
   - [Recommended setup order](#recommended-setup-order)
   - [Checklist after copying](#checklist-after-copying)
@@ -104,6 +105,18 @@ delete this group.
 | [`runtime-invocation.md`](runtime-invocation.md) | Build prerequisite, run-a-single-file recipe, stream-capture conventions, network/dependency handling. Used by `issue-reproducer`. |
 | [`reassess-pool-defaults.md`](reassess-pool-defaults.md) | Named pools for reassessment sweeps (`open-eol`, `reopened`, `stale-unresolved`, project-specific). Used by `issue-reassess`. |
 | [`reproducer-conventions.md`](reproducer-conventions.md) | Evidence-package directory layout and frozen-copy discipline. Used by `issue-reproducer` and `issue-reassess-stats`. |
+
+### Repo-health audits
+
+These files configure the [`ci-runner-audit`](../../skills/ci-runner-audit/SKILL.md)
+and [`workflow-security-audit`](../../skills/workflow-security-audit/SKILL.md)
+skills and the planned `dependency-audit`, `license-compliance-audit`, and
+`flaky-test-triage` skills. Adopters who do not use repo-health audits can
+delete this group.
+
+| File | Purpose |
+|---|---|
+| [`repo-health-config.md`](repo-health-config.md) | Per-skill switches: deprecated runner labels, zizmor rule classes, dependency managers, SPDX expression, flaky-test thresholds. Used by every `*-audit` and `flaky-test-triage` skill. |
 
 ### PR triage and review
 

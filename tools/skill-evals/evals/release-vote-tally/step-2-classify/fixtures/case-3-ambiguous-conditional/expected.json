@@ -1,0 +1,38 @@
+{
+  "classifications": [
+    {
+      "from": "alice@apache.org",
+      "date": "2026-06-11T09:00:00Z",
+      "binding": true,
+      "value": "+1",
+      "ambiguous": false,
+      "raw_vote_line": "+1"
+    },
+    {
+      "from": "bob.martinez@apache.org",
+      "date": "2026-06-11T11:30:00Z",
+      "binding": true,
+      "value": "+1",
+      "ambiguous": false,
+      "raw_vote_line": "+1 all looks good"
+    },
+    {
+      "from": "dave.kim@apache.org",
+      "date": "2026-06-12T16:00:00Z",
+      "binding": true,
+      "value": "+1",
+      "ambiguous": false,
+      "raw_vote_line": "+1 (binding)"
+    }
+  ],
+  "ambiguous": [
+    {
+      "from": "carol@example.com",
+      "date": "2026-06-12T14:00:00Z",
+      "raw_vote_line": "+1 if the CI run passes",
+      "reason": "conditional vote: approval depends on an external condition ('if the CI run passes')"
+    }
+  ],
+  "has_nonempty_classifications": true,
+  "conditional_vote_in_ambiguous_not_classifications": true
+}

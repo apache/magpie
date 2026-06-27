@@ -1,0 +1,6 @@
+{
+  "verdict": "blocked",
+  "blockers": ["Issue #4100 is already closed; both issues must be open to deduplicate.", "Issue #4100 is already labelled 'duplicate', which suggests a partial dedupe may have already occurred — surface as a blocker and let the maintainer decide how to proceed."],
+  "kept": 3900,
+  "duplicate": 4100
+}

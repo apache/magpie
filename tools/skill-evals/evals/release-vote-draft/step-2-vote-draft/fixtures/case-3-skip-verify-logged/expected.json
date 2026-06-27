@@ -1,0 +1,7 @@
+{
+  "subject": "[VOTE] Release Apache Airflow 2.11.0 from 2.11.0-rc3",
+  "body": "To: dev@airflow.apache.org\nSubject: [VOTE] Release Apache Airflow 2.11.0 from 2.11.0-rc3\n\nHi all,\n\nI propose we release the following artifacts as Apache Airflow 2.11.0.\n\nThe release artifacts, signatures, and checksums are available at:\n  https://dist.apache.org/repos/dist/dev/airflow/2.11.0-rc3/\n\nThe release tag to be voted upon:\n  https://github.com/apache/airflow/releases/tag/2.11.0-rc3\n\nThe changelog for this release:\n  https://github.com/apache/airflow/blob/2.11.0-rc3/CHANGELOG.md\n\nKeys to verify artifact signatures:\n  https://dist.apache.org/repos/dist/release/airflow/KEYS\n\nPlease vote to release:\n  [ ] +1  Release Apache Airflow 2.11.0\n  [ ] +0\n  [ ] -1  Do not release (please comment with specific reasons)\n\nThis vote is open for at least 72 hours.\n\n[SKIP-VERIFY: release-verify-rc was not run for this RC; the RM accepted this with the reason: rc3 is identical to rc2 except for a KEYS fix; RM confirmed all artefact checksums match rc2 which passed verify.]\n\nThanks,\nJustin McLean",
+  "vote_window_hours": 72,
+  "expedited": false,
+  "skip_verify_logged": true
+}

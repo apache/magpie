@@ -1,0 +1,6 @@
+{
+  "verdict": "blocked",
+  "blockers": ["vote_window_hours (48) is below the ASF 72-hour floor. Pass --expedited <reason> to proceed with an abbreviated window, or raise vote_window_hours to at least 72 in release-management-config.md."],
+  "skip_verify_override": false,
+  "expedited": false
+}

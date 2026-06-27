@@ -239,6 +239,16 @@ sudo apt-get install --no-install-recommends \
     socat=1.8.1.1-*
 ```
 
+> **Debian stable (bookworm) caveat.** The pinned `bubblewrap 0.11.2`
+> is not available on Debian bookworm — bookworm ships an older
+> `bubblewrap`, and an adopter reported the `0.11.x` line not working
+> there. `0.11.x` ships in **Debian trixie**, so the supported path is
+> to run the secure setup on **trixie** (or newer). If you must stay on
+> bookworm, install the older distro `bubblewrap` and accept the same
+> LTS trade-off documented in the Ubuntu Noble shortcut below — the
+> sandbox flags don't depend on a specific bubblewrap version (the
+> `denyRead`/`allowRead` API has been stable since `0.6.x`).
+
 **Fedora / RHEL (dnf)**:
 
 ```bash

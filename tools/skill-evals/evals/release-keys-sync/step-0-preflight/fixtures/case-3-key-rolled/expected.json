@@ -1,0 +1,8 @@
+{
+  "verdict": "blocked",
+  "blockers": ["fingerprint A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6ABCD is already in KEYS for uid 'Brendan Ngan <bngan@oldcompany.example.com>' but the keyserver reports uid 'Brendan Ngan <bngan@apache.org>'; the RM must decide whether to append the updated key block or replace the existing one, then update rm_key_fingerprint if the key itself changed"],
+  "noop_reason": null,
+  "fingerprint": "A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6ABCD",
+  "keys_file_url": "https://dist.apache.org/repos/dist/release/airflow/KEYS",
+  "keyserver": "keys.openpgp.org"
+}

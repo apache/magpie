@@ -1,0 +1,9 @@
+{
+  "pr_title": "chore: prepare 2.11.0 release",
+  "files_in_scope": ["setup.cfg", "airflow/__init__.py"],
+  "scope_violations": [],
+  "category_x_hit": false,
+  "notice_removal_unjustified": false,
+  "changelog_coverage_pct": 100,
+  "proposed": true
+}

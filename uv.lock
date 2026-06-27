@@ -27,6 +27,7 @@ members = [
     "preflight-audit",
     "redactor",
     "sandbox-lint",
+    "security-tracker-stats-dashboard",
     "skill-and-tool-validator",
     "skill-evals",
     "spec-status-index",
@@ -784,9 +785,40 @@ version = "0.1.0"
 source = { editable = "tools/sandbox-lint" }
 
 [[package]]
+name = "security-tracker-stats-dashboard"
+version = "0.1.0"
+source = { editable = "tools/security-tracker-stats-dashboard" }
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=8.0" }]
+
+[[package]]
 name = "skill-and-tool-validator"
 version = "0.1.0"
 source = { editable = "tools/skill-and-tool-validator" }
+
+[package.dev-dependencies]
+dev = [
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "mypy", specifier = ">=1.11" },
+    { name = "pytest", specifier = ">=8.0" },
+    { name = "ruff", specifier = ">=0.6" },
+]
 
 [[package]]
 name = "skill-evals"
@@ -802,6 +834,20 @@ source = { editable = "tools/spec-status-index" }
 name = "spec-validator"
 version = "0.1.0"
 source = { editable = "tools/spec-validator" }
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest", specifier = ">=8.0" },
+    { name = "ruff", specifier = ">=0.4" },
+]
 
 [[package]]
 name = "typing-extensions"

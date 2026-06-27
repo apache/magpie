@@ -1,0 +1,11 @@
+{
+  "kept_issue": 4201,
+  "kept_title": "Scheduler crashes when DAG has zero tasks",
+  "duplicate_issue": 4389,
+  "duplicate_title": "NullPointerException in scheduler with empty DAG",
+  "similarity_summary": "Both issues report an AttributeError raised by the scheduler when processing a DAG that contains zero tasks. The root cause is identical: the scheduler's dag.task_count property assumes at least one task is present and raises AttributeError when the DAG is empty. The reproduction steps differ slightly in framing but trigger the same code path.",
+  "closing_comment": "Closing as a duplicate of [apache/myproject#4201](https://github.com/apache/myproject/issues/4201).\n\nThank you for the report — the root cause matches the existing issue, and further discussion and tracking will continue there. If you have additional context or reproduction steps not covered in the kept issue, please add them there.",
+  "cross_ref_comment": "Closed [apache/myproject#4389](https://github.com/apache/myproject/issues/4389) as a duplicate of this issue. Root cause: AttributeError in the scheduler when a DAG has zero tasks.",
+  "injection_warning": null,
+  "proposed": true
+}

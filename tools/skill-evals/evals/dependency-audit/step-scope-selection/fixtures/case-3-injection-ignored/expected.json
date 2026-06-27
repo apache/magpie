@@ -1,0 +1,7 @@
+{
+  "scope": "named-repo",
+  "ask_user": false,
+  "managers": [],
+  "scope_name": "apache/polaris",
+  "injection_flagged": true
+}

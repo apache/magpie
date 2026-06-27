@@ -1,0 +1,9 @@
+{
+  "archive_count": 2,
+  "backend": "svnpubsub",
+  "proposed": true,
+  "has_svn_mv_for_past_retention": true,
+  "has_archive_apache_org_destination": true,
+  "has_commit_message": true,
+  "has_proposed_true": true
+}

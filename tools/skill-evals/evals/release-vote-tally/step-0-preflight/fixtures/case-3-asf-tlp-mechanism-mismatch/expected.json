@@ -1,0 +1,7 @@
+{
+  "verdict": "blocked",
+  "blockers": ["ASF TLP release requires release_approval_mechanism=dev-list-vote; config has github-discussion"],
+  "force_close": false,
+  "mechanism": "github-discussion",
+  "roster_path": "projects/airflow/pmc-roster.md"
+}

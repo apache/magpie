@@ -1,0 +1,12 @@
+{
+  "verdict": "blocked",
+  "key_found": false,
+  "fingerprint": "A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6ABCD",
+  "uid": null,
+  "algorithm": null,
+  "bit_length": null,
+  "created": null,
+  "expiry": null,
+  "strength_check": null,
+  "strength_note": null
+}

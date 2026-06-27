@@ -1,0 +1,9 @@
+{
+  "findings_present": true,
+  "critical_or_high_first": true,
+  "patchable_listed": true,
+  "unpatchable_section_present": false,
+  "autopilot_fix_offered": false,
+  "scope_and_command_included": true,
+  "findings_as_risk_not_confirmed_exploit": true
+}

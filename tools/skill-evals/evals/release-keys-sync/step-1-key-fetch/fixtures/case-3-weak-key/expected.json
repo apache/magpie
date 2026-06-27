@@ -1,0 +1,12 @@
+{
+  "verdict": "blocked",
+  "key_found": true,
+  "fingerprint": "A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6ABCD",
+  "uid": "Brendan Ngan <bngan@apache.org>",
+  "algorithm": "RSA",
+  "bit_length": 1024,
+  "created": "2008-07-10",
+  "expiry": null,
+  "strength_check": "fail",
+  "strength_note": "RSA 1024-bit is below the ASF minimum floor of 2048 bits; the RM must generate a new key of at least RSA 2048-bit (RSA 4096 recommended) and upload it to the keyserver before proceeding"
+}

@@ -1,0 +1,6 @@
+{
+  "verdict": "blocked",
+  "blockers": ["release-verify-rc has not reported PASS for 2.11.0-rc2; the latest verify result is for rc1, not rc2. Run release-verify-rc for rc2, or pass --skip-verify-check with a reason."],
+  "skip_verify_override": false,
+  "expedited": false
+}

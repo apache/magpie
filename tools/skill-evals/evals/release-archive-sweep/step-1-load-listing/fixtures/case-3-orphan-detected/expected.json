@@ -1,0 +1,9 @@
+{
+  "releases_found": ["1.10.15", "2.10.0", "2.11.0"],
+  "past_retention": ["2.10.0"],
+  "orphans": ["1.10.15"],
+  "latest_of_each_line": {"2.x": "2.11.0"},
+  "retention_rule_summary": "Keep only the latest version of each supported release train; all earlier versions are past retention.",
+  "handoff_required": true,
+  "handoff_reasons": ["1.10.15 is not listed in release-trains.md and is an orphan; no archival command will be proposed for it — the RM must decide whether to archive, keep, or reconcile it into a known train"]
+}

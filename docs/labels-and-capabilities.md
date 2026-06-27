@@ -60,7 +60,7 @@ What part of the framework does this touch?
 | `area:pr-management` | `pr-management-*` skills |
 | `area:security` | `security-*` skills, `security-tracker-stats-dashboard` |
 | `area:setup` | `setup-*` skills, framework adoption, agent-sandbox setup |
-| `area:issue` | `issue-*` skills (`issue-triage`, `issue-fix-workflow`, `issue-reassess`, `issue-reassess-stats`, `issue-reproducer`, `issue-stale-sweep`) |
+| `area:issue` | `issue-*` skills (`issue-triage`, `issue-fix-workflow`, `issue-reassess`, `issue-reassess-stats`, `issue-reproducer`, `issue-stale-sweep`, `issue-deduplicate`, `issue-backlog-stats`) |
 | `area:tools` | Substrate tools under `tools/*` (CLI bridges, agent-runtime adapters, mail-source backends) |
 | `area:ci` | `.github/` workflows, prek, validators |
 | `area:docs` | `docs/`, `MISSION.md`, READMEs |
@@ -136,6 +136,8 @@ Capabilities for every skill currently in
 | `issue-stale-sweep` | `capability:triage` |
 | `security-issue-triage` | `capability:triage` |
 | `ci-runner-audit` | `capability:triage` |
+| `dependency-audit` | `capability:triage` |
+| `workflow-security-audit` | `capability:triage` |
 | `pr-management-quick-merge` | `capability:triage` + `capability:review` *(screens the ready-for-review queue for trivial, all-gates-green PRs — triage; submits the maintainer's approve on per-PR confirmation — review)* |
 | `pr-management-code-review` | `capability:review` |
 | `pairing-self-review` | `capability:review` |
@@ -153,15 +155,24 @@ Capabilities for every skill currently in
 | `security-issue-import-from-scan` | `capability:intake` |
 | `security-issue-sync` | `capability:intake` *(+ `capability:reconciliation` once [#337](https://github.com/apache/airflow-steward/issues/337) lands the ASF-dashboard step)* |
 | `setup-shared-config-sync` | `capability:intake` + `capability:setup` *(reconciles user-scope config to a sync repo; the act is intake, the subject is setup)* |
+| `release-vote-tally` | `capability:triage` *(reads the vote thread / approval signal, classifies each reply as binding or non-binding, tallies the result, and drafts the `[RESULT] [VOTE]` email for RM review — triage over the vote-thread queue)* |
+| `release-prepare` | `capability:resolve` *(drafts the planning issue, prep PR, and post-release bump PR that open the release lifecycle)* |
 | `release-announce-draft` | `capability:resolve` *(drafts the `[ANNOUNCE]` email and opens the site-bump PR that complete the release lifecycle)* |
+| `release-verify-rc` | `capability:triage` *(read-only RC pre-flight: verifies GPG signatures, checksums, RAT licence headers, NOTICE/LICENSE presence, prohibited binaries, and version-string consistency; emits a PASS/PASS-WITH-WARNINGS/FAIL report)* |
 | `release-promote` | `capability:resolve` *(emits the backend-shaped promotion command set that moves a passed-vote RC to the release distribution area; never runs the command itself)* |
+| `release-keys-sync` | `capability:resolve` *(drafts the KEYS file diff and paste-ready `svn` command sequence to add the RM's public key; validates key strength against the ASF floor)* |
+| `release-rc-cut` | `capability:resolve` *(emits the paste-ready tag, build, sign, checksum, and staging command sequences for an RC)* |
+| `release-vote-draft` | `capability:resolve` *(drafts the `[VOTE]` email and planning-issue comment that advance the release to the vote stage)* |
+| `release-archive-sweep` | `capability:resolve` *(scans the dist area and proposes the command set to move past-retention releases to the archive)* |
 | `security-cve-allocate` | `capability:resolve` |
 | `security-issue-invalidate` | `capability:resolve` |
 | `security-issue-deduplicate` | `capability:resolve` |
+| `issue-deduplicate` | `capability:resolve` *(closes a duplicate general-issue and posts cross-reference comments; maintainer confirms before any action is applied)* |
 | `issue-reassess` | `capability:reassess` |
 | `issue-reproducer` | `capability:reassess` |
 | `pr-management-stats` | `capability:stats` |
 | `issue-reassess-stats` | `capability:stats` |
+| `issue-backlog-stats` | `capability:stats` |
 | `security-tracker-stats-dashboard` | `capability:stats` |
 | `contributor-nomination` | `capability:stats` |
 | `contributor-to-committer` | `capability:stats` |

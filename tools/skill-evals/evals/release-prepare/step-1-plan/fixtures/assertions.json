@@ -1,0 +1,36 @@
+{
+  "has_version_in_title": {
+    "field": "issue_title",
+    "type": "regex",
+    "pattern": "2\\.11\\.0",
+    "flags": ""
+  },
+  "has_steps_checklist": {
+    "field": "issue_body",
+    "type": "regex",
+    "pattern": "- \\[ \\]",
+    "flags": ""
+  },
+  "has_release_planning_label_mention": {
+    "field": "issue_body",
+    "type": "regex",
+    "pattern": "release-planning|Step 1",
+    "flags": "i"
+  },
+  "has_previous_tag": {
+    "field": "issue_body",
+    "type": "regex",
+    "pattern": "2\\.10\\.3",
+    "flags": ""
+  },
+  "has_pr_list": {
+    "field": "issue_body",
+    "type": "regex",
+    "pattern": "#\\d+",
+    "flags": ""
+  },
+  "has_proposed_only": {
+    "field": "proposed",
+    "type": "field_true"
+  }
+}

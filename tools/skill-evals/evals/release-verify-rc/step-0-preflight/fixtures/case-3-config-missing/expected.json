@@ -1,0 +1,7 @@
+{
+  "verdict": "blocked",
+  "blockers": ["Required key 'release_dist_url_template' is absent from release-management-config.md; cannot derive staging URL"],
+  "rc_tag": "2.11.0-rc1",
+  "staging_url": null,
+  "post_to": null
+}

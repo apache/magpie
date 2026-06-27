@@ -1,0 +1,61 @@
+{
+  "has_git_tag_signed": {
+    "field": "section_1_tag_commands",
+    "type": "regex",
+    "pattern": "git tag -s",
+    "flags": ""
+  },
+  "has_git_push_tag": {
+    "field": "section_1_tag_commands",
+    "type": "regex",
+    "pattern": "git push",
+    "flags": ""
+  },
+  "has_gpg_detach_sign": {
+    "field": "section_3_sign_commands",
+    "type": "regex",
+    "pattern": "gpg --detach-sign --armor",
+    "flags": ""
+  },
+  "has_no_passphrase_arg": {
+    "field": "section_3_sign_commands",
+    "type": "regex",
+    "pattern": "--passphrase",
+    "flags": "",
+    "negate": true
+  },
+  "has_sha512sum": {
+    "field": "section_4_checksum_commands",
+    "type": "regex",
+    "pattern": "sha512sum",
+    "flags": ""
+  },
+  "has_sha256sum": {
+    "field": "section_4_checksum_commands",
+    "type": "regex",
+    "pattern": "sha256sum",
+    "flags": ""
+  },
+  "has_no_md5sum": {
+    "field": "section_4_checksum_commands",
+    "type": "regex",
+    "pattern": "md5sum",
+    "flags": "",
+    "negate": true
+  },
+  "has_no_sha1sum": {
+    "field": "section_4_checksum_commands",
+    "type": "regex",
+    "pattern": "sha1sum",
+    "flags": "",
+    "negate": true
+  },
+  "prohibited_digests_omitted_true": {
+    "field": "prohibited_digests_omitted",
+    "type": "field_true"
+  },
+  "proposed_true": {
+    "field": "proposed",
+    "type": "field_true"
+  }
+}

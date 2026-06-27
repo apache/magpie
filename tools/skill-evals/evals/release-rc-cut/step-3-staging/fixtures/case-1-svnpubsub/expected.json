@@ -1,0 +1,7 @@
+{
+  "backend": "svnpubsub",
+  "dist_dev_only": true,
+  "proposed": true,
+  "staging_url_not_dist_release": true,
+  "proposed_true": true
+}

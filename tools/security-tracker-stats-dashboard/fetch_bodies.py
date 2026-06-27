@@ -25,11 +25,11 @@ import os
 import subprocess
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-ROOT = os.environ.get('TRACKER_STATS_CACHE', '/tmp/tracker-stats-cache')
-REPO = os.environ.get('TRACKER_STATS_REPO', 'airflow-s/airflow-s')
-OUT = f'{ROOT}/issue_extra.json'
+ROOT = os.environ.get("TRACKER_STATS_CACHE", "/tmp/tracker-stats-cache")
+REPO = os.environ.get("TRACKER_STATS_REPO", "airflow-s/airflow-s")
+OUT = f"{ROOT}/issue_extra.json"
 
-with open(f'{ROOT}/issues.json') as f:
+with open(f"{ROOT}/issues.json") as f:
     issues = json.load(f)
 
 # Resume support
@@ -39,22 +39,32 @@ if os.path.exists(OUT):
         cache = json.load(f)
     print(f"resume: {len(cache)} cached")
 
-todo = [i['number'] for i in issues if str(i['number']) not in cache]
+todo = [i["number"] for i in issues if str(i["number"]) not in cache]
 print(f"to fetch: {len(todo)}")
 
 
 def fetch(n):
     try:
         r = subprocess.run(
-            ['gh', 'issue', 'view', str(n), '--repo', REPO,
-             '--json', 'number,body,closedByPullRequestsReferences'],
-            capture_output=True, text=True, timeout=60,
+            [
+                "gh",
+                "issue",
+                "view",
+                str(n),
+                "--repo",
+                REPO,
+                "--json",
+                "number,body,closedByPullRequestsReferences",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=60,
         )
         if r.returncode != 0:
-            return n, {'error': r.stderr.strip()}
+            return n, {"error": r.stderr.strip()}
         return n, json.loads(r.stdout)
     except Exception as e:
-        return n, {'error': str(e)}
+        return n, {"error": str(e)}
 
 
 done = 0
@@ -65,10 +75,10 @@ with ThreadPoolExecutor(max_workers=10) as ex:
         cache[str(n)] = data
         done += 1
         if done % 25 == 0:
-            with open(OUT, 'w') as f:
+            with open(OUT, "w") as f:
                 json.dump(cache, f)
             print(f"  {done}/{len(todo)}")
 
-with open(OUT, 'w') as f:
+with open(OUT, "w") as f:
     json.dump(cache, f)
 print(f"done: cached {len(cache)} → {OUT}")

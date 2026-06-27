@@ -1,0 +1,7 @@
+{
+  "verdict": "proceed",
+  "blockers": [],
+  "rc_tag": "2.11.0-rc1",
+  "staging_url": "https://dist.apache.org/repos/dist/dev/airflow/2.11.0-rc1/",
+  "post_to": null
+}

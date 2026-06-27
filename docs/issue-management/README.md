@@ -17,7 +17,7 @@
 # Issue management skill family
 
 Maintainer-facing skills for projects with a general-issue tracker
-(JIRA, GitHub Issues, Bugzilla, GitLab Issues). Five skills that
+(JIRA, GitHub Issues, Bugzilla, GitLab Issues). Six skills that
 cover per-issue work, pool-level sweeps, and read-only reporting:
 
 1. **Triage** — sweep open issues in the configured candidate pool,
@@ -35,7 +35,12 @@ cover per-issue work, pool-level sweeps, and read-only reporting:
    feature, draft a fix PR (code change, regression test, commit
    message, PR description). Drafts only; the human committer
    reviews and pushes.
-5. **Stats** — read-only dashboard over a directory of `verdict.json`
+5. **Stale-sweep** — sweep open issues for inactivity past a
+   configurable threshold, classify each as `REQUEST-UPDATE` (nudge)
+   or `CLOSE-STALE` (pre-close notice), post one comment per issue on
+   maintainer confirmation; closures require a second explicit
+   confirmation step.
+6. **Stats** — read-only dashboard over a directory of `verdict.json`
    files produced by reassess campaigns. Surfaces health rating,
    classification distribution, partial-fix surfaces, and per-component
    breakdowns.
@@ -66,6 +71,7 @@ configured with different trackers.
 | [`issue-reassess`](../../skills/issue-reassess/SKILL.md) | Triage | Pool-level sweep of resolved / EOL issues for re-assessment |
 | [`issue-reproducer`](../../skills/issue-reproducer/SKILL.md) | — | Per-issue extraction + execution of code examples |
 | [`issue-fix-workflow`](../../skills/issue-fix-workflow/SKILL.md) | Drafting | Drafts a fix PR for a triaged issue |
+| [`issue-stale-sweep`](../../skills/issue-stale-sweep/SKILL.md) | Triage | Backlog hygiene: classifies dormant issues as `REQUEST-UPDATE` or `CLOSE-STALE`; posts one comment per issue on confirmation |
 | [`issue-reassess-stats`](../../skills/issue-reassess-stats/SKILL.md) | — | Read-only campaign dashboard |
 
 Reproducer and stats sit outside the MISSION mode taxonomy; they
@@ -83,15 +89,10 @@ adopter's `<project-config>/` directory:
 | [`scope-labels.md`](../../projects/_template/scope-labels.md) | `issue-triage`, `issue-reassess` (component / area routing) |
 | [`release-trains.md`](../../projects/_template/release-trains.md) | `issue-triage` (`@`-mention routing) |
 | [`canned-responses.md`](../../projects/_template/canned-responses.md) | `issue-triage` (NEEDS-INFO templates) |
-
-Additional template files added by this family (forthcoming):
-
-- `runtime-invocation.md` — how to invoke the project's runtime;
-  consumed by `issue-reproducer` for executing extracted code.
-- `reassess-pool-defaults.md` — pool definitions extending the
-  default queries in `issue-tracker-config.md`.
-- `reproducer-conventions.md` — evidence-package directory layout
-  for `issue-reproducer` output.
+| [`runtime-invocation.md`](../../projects/_template/runtime-invocation.md) | `issue-reproducer` (how to invoke the project's runtime on extracted code) |
+| [`reassess-pool-defaults.md`](../../projects/_template/reassess-pool-defaults.md) | `issue-reassess` (pool definitions extending the default queries in `issue-tracker-config.md`) |
+| [`reproducer-conventions.md`](../../projects/_template/reproducer-conventions.md) | `issue-reproducer` (evidence-package directory layout) |
+| [`stale-sweep-config.md`](../../projects/_template/stale-sweep-config.md) | `issue-stale-sweep` (warn / close / hard-close thresholds; omit to use framework defaults of 90 / 180 / 365 days) |
 
 ## Status
 

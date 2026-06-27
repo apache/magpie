@@ -1,0 +1,6 @@
+{
+  "verdict": "proceed",
+  "blockers": [],
+  "non_asf": false,
+  "dist_backend": "svnpubsub"
+}

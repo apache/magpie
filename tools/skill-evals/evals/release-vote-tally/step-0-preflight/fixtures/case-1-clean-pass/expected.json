@@ -1,0 +1,7 @@
+{
+  "verdict": "proceed",
+  "blockers": [],
+  "force_close": false,
+  "mechanism": "dev-list-vote",
+  "roster_path": "projects/airflow/pmc-roster.md"
+}

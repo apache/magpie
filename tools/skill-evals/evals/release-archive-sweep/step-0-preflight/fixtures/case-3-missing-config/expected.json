@@ -1,0 +1,9 @@
+{
+  "verdict": "blocked",
+  "blockers": [
+    "release-trains.md not found in project-config directory",
+    "archive destination for github-releases backend is not configured (archive_url_template missing)"
+  ],
+  "non_asf": true,
+  "dist_backend": "github-releases"
+}

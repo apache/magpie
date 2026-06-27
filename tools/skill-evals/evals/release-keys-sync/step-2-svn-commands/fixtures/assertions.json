@@ -1,0 +1,40 @@
+{
+  "has_pgp_begin_header": {
+    "field": "keys_block_to_append",
+    "type": "regex",
+    "pattern": "-----BEGIN PGP PUBLIC KEY BLOCK-----"
+  },
+  "has_pgp_end_footer": {
+    "field": "keys_block_to_append",
+    "type": "regex",
+    "pattern": "-----END PGP PUBLIC KEY BLOCK-----"
+  },
+  "has_uid_comment": {
+    "field": "keys_block_to_append",
+    "type": "regex",
+    "pattern": "^# .+@",
+    "flags": "m"
+  },
+  "has_checkout_command": {
+    "field": "svn_command_sequence",
+    "type": "regex",
+    "pattern": "svn checkout|git checkout|git clone",
+    "flags": "i"
+  },
+  "has_commit_command": {
+    "field": "svn_command_sequence",
+    "type": "regex",
+    "pattern": "svn commit|git commit|git push",
+    "flags": "i"
+  },
+  "has_keyserver_reminder": {
+    "field": "keyserver_upload_reminder",
+    "type": "non_empty"
+  },
+  "has_expiry_warning": {
+    "field": "keyserver_upload_reminder",
+    "type": "regex",
+    "pattern": "expir\\w*\\s+(on|in|within|by)|in\\s+\\d+\\s+days?|extend\\w*\\s+the\\s+key|renew\\w*\\s+the\\s+key|before\\s+\\w+\\s+expir",
+    "flags": "i"
+  }
+}

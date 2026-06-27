@@ -1,0 +1,11 @@
+{
+  "kept_issue": 4201,
+  "kept_title": "Missing validation error when task_id contains a slash",
+  "duplicate_issue": 4389,
+  "duplicate_title": "Slash in task_id breaks XCom retrieval",
+  "similarity_summary": "Both issues describe the same root-cause bug: task IDs containing a '/' character are silently accepted by the scheduler but cause downstream failures because the slash is treated as a path separator in XCom storage and the web UI. Issue #4201 notes the validation gap (no error on input); issue #4389 reports the observable symptom (XCom returns None). The fix is identical: validate task_id and reject slashes at task-definition time.",
+  "closing_comment": "Closing as a duplicate of [apache/myproject#4201](https://github.com/apache/myproject/issues/4201).\n\nThank you for the report — the root cause matches the existing issue, and further discussion and tracking will continue there. If you have additional context or reproduction steps not covered in the kept issue, please add them there.",
+  "cross_ref_comment": "Closed [apache/myproject#4389](https://github.com/apache/myproject/issues/4389) as a duplicate of this issue. Root cause: task_id containing '/' is silently accepted but breaks XCom and the web UI.",
+  "injection_warning": null,
+  "proposed": true
+}

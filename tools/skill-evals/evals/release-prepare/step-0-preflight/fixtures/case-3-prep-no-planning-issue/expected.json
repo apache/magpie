@@ -1,0 +1,8 @@
+{
+  "verdict": "blocked",
+  "sub_command": "prep",
+  "version": "2.11.0",
+  "blockers": ["No open issue labelled release-planning found for version 2.11.0; run Step 1 first or supply --planning-issue <url>"],
+  "release_branch_base": "main",
+  "previous_tag": null
+}

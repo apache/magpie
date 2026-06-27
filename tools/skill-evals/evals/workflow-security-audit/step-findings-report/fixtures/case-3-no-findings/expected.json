@@ -1,0 +1,12 @@
+{
+  "findings_present": false,
+  "injection_count": 0,
+  "fork_secrets_count": 0,
+  "excessive_permissions_count": 0,
+  "unpinned_actions_count": 0,
+  "high_severity_reported_before_medium": true,
+  "remediation_suggestions_present": false,
+  "autopilot_fix_offered": false,
+  "scope_and_command_included": true,
+  "security_breach_overclaim": false
+}

@@ -1,0 +1,6 @@
+{
+  "verdict": "blocked",
+  "blockers": ["prep PR not merged"],
+  "rc_tag_exists": false,
+  "prep_pr_merged": false
+}

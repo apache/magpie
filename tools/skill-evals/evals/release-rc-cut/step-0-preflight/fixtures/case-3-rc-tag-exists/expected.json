@@ -1,0 +1,6 @@
+{
+  "verdict": "blocked",
+  "blockers": ["RC tag 2.12.0-rc1 already exists on remote"],
+  "rc_tag_exists": true,
+  "prep_pr_merged": true
+}

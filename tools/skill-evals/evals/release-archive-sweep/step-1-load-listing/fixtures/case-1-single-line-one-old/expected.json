@@ -1,0 +1,9 @@
+{
+  "releases_found": ["2.10.0", "2.11.0"],
+  "past_retention": ["2.10.0"],
+  "orphans": [],
+  "latest_of_each_line": {"2.x": "2.11.0"},
+  "retention_rule_summary": "Keep only the latest version of each supported release train; all earlier versions are past retention.",
+  "handoff_required": false,
+  "handoff_reasons": []
+}

@@ -124,17 +124,23 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
 
 ## Known gaps
 
-- **No automated ASF-coupling lint exists.** The sweep above is a manual
-  grep; a deterministic advisory check (analogous to the
-  `skill-and-tool-validator` warnings, with an allowlist for legitimate
-  ASF-default strings) is a candidate work item.
+- **ASF-coupling lint is advisory only.** Check #10 in
+  `tools/skill-and-tool-validator` (SOFT category `asf_coupling`) now
+  surfaces coupled tokens automatically on every validator run.  The 86
+  advisory hits in the current catalogue are real candidates for
+  generalisation (mostly bare `PMC` and a few `announce@apache.org` /
+  `dist/dev/` hits); a human judges which warrant a placeholder or
+  capability-flag change.  No remaining tooling gap — the lint exists.
 - **No non-ASF adopter profile fixture exists** to run the catalogue
   against. A `projects/_template` non-ASF profile plus a smoke eval that
   drives a representative skill through it would turn acceptance #3 into a
   measurable gate.
-- **The capability-flag vocabulary is defined only for
-  release-management.** The same backend-flag treatment is still owed to:
-  contributor intake (ICLA vs DCO vs none), security intake
-  (`security@`-list + ASF-team relay vs a project's own private intake),
-  and CVE allocation (ASF CNA vs adopter CNA vs no-CVE). Each is a
-  candidate work item for the plan pass.
+- **The capability-flag vocabulary for security intake and CVE allocation
+  is now documented** in
+  `projects/_template/security-intake-config.md` (intake channel,
+  forwarder relay, CNA tool, allocation gate, and new
+  `disclosure_governance` flags). Skills read these flags in follow-on
+  updates as each flag is wired in.
+- **Contributor intake capability flags** (ICLA vs DCO vs none, governance
+  model) are documented in `projects/_template/committer-onboarding-config.md`
+  (added by the `capability-flags-committer-intake` work item).

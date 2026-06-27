@@ -35,8 +35,9 @@ Two modes:
    mapping each such key to a predicate (``regex`` / ``contains`` /
    ``contains_all`` / ``empty`` / ``non_empty`` / ``field_true`` run locally;
    ``judge`` piped to the grader CLI), those cases are graded automatically.
-   A structural case with no ``assertions.json`` falls back to MANUAL and
-   prints prompts for manual review.
+   Any predicate may carry ``"negate": true`` to assert the absence of a
+   match. A structural case with no ``assertions.json`` falls back to MANUAL
+   and prints prompts for manual review.
 
    By default, free-text fields (rationale, reason, drop_reason,
    blockers, etc.) are graded by piping a short rubric prompt to a
@@ -689,7 +690,21 @@ def evaluate_deterministic_assertion(spec: dict, actual: object) -> tuple[bool |
     Missing-field semantics: ``empty`` treats an absent field as empty (True);
     ``non_empty`` / ``field_true`` / the text predicates treat an absent field
     as not satisfied (False).
+
+    A ``"negate": true`` key inverts the result, so a predicate can assert the
+    *absence* of a pattern (e.g. ``has_no_passphrase_arg`` checks that the
+    ``--passphrase`` token does not appear). Negation is applied only to a
+    concrete True/False result; a spec/usage error (None) is passed through
+    unchanged so the typo still fails loudly.
     """
+    holds, note = _evaluate_deterministic_assertion_raw(spec, actual)
+    if spec.get("negate") and holds is not None:
+        holds = not holds
+    return holds, note
+
+
+def _evaluate_deterministic_assertion_raw(spec: dict, actual: object) -> tuple[bool | None, str]:
+    """Evaluate the predicate before any ``negate`` inversion is applied."""
     atype = spec["type"]
     field = spec.get("field")
     if field is None:

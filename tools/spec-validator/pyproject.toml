@@ -46,6 +46,12 @@ ignore = ["E501"]
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["B", "SIM"]
 
+[dependency-groups]
+dev = [
+  "pytest>=8.0",
+  "ruff>=0.4",
+]
+
 [tool.pytest.ini_options]
 minversion = "8.0"
 addopts = "-ra -q"

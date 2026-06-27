@@ -1,0 +1,4 @@
+{
+  "comment_body": "**Vote open (expedited):** `[VOTE] Release Apache Airflow 2.10.4 from 2.10.4-rc1`\nsent to `dev@airflow.apache.org` on 2026-06-11 10:00 UTC.\nVote window closes: 2026-06-13 10:00 UTC (minimum, 48-hour expedited window).\n\n**Expedited:** Critical security fix for CVE-2026-12345; abbreviated window approved by PMC chair.\nReminder: note this deviation in the project's next board report per ASF policy.\n\nNext step: `release-vote-tally` after the window closes.",
+  "proposed": true
+}

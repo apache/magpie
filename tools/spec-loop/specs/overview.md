@@ -31,8 +31,8 @@ Each mode is an independently toggleable set of skills. Maturity mirrors
 | Mode | Spec | Maturity |
 |---|---|---|
 | Triage | [triage-mode.md](triage-mode.md) | stable (security) / experimental (PR, issue, contributor-nomination) |
-| Mentoring | [mentoring-mode.md](mentoring-mode.md) | experimental (2 skills) |
-| Drafting | [drafting-mode.md](drafting-mode.md) | stable (security) / experimental (issue, audit-finding-fix) |
+| Mentoring | [mentoring-mode.md](mentoring-mode.md) | experimental (3 skills) |
+| Drafting | [drafting-mode.md](drafting-mode.md) | stable (security) / experimental (issue, audit-finding-fix, release-announce-draft) |
 | Pairing | [pairing-mode.md](pairing-mode.md) | experimental (2 skills) |
 
 > **Auto-merge** is the fifth MISSION mode but is deliberately **off** by
@@ -45,7 +45,7 @@ Each mode is an independently toggleable set of skills. Maturity mirrors
 | Area | Spec |
 |---|---|
 | Security-issue lifecycle (the load-bearing use case) | [security-issue-lifecycle.md](security-issue-lifecycle.md) |
-| Release-management lifecycle (proposed, spec-first) | [release-management-lifecycle.md](release-management-lifecycle.md) |
+| Release-management lifecycle (experimental — 9 of 10 skills shipped) | [release-management-lifecycle.md](release-management-lifecycle.md) |
 | Privacy-LLM gate + PII redaction | [privacy-llm-gate.md](privacy-llm-gate.md) |
 | Agent isolation / layered sandbox | [agent-isolation-sandbox.md](agent-isolation-sandbox.md) |
 | CVE tooling | [cve-tooling.md](cve-tooling.md) |

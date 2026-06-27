@@ -1,0 +1,7 @@
+{
+  "verdict": "blocked",
+  "blockers": ["Staging URL https://dist.apache.org/repos/dist/dev/airflow/2.11.0-rc2/ is not reachable (HTTP 404); the RC has not been staged yet"],
+  "rc_tag": "2.11.0-rc2",
+  "staging_url": "https://dist.apache.org/repos/dist/dev/airflow/2.11.0-rc2/",
+  "post_to": null
+}

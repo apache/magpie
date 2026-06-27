@@ -1,0 +1,9 @@
+{
+  "step": "notice-license",
+  "status": "PASS",
+  "notice_present": true,
+  "license_present": true,
+  "notice_diff_lines": 2,
+  "license_diff_lines": 0,
+  "diff_summary": "version-string-only changes in NOTICE; LICENSE unchanged"
+}

@@ -1,0 +1,19 @@
+{
+  "binding_plus1": 2,
+  "binding_minus1": 1,
+  "binding_zero": 0,
+  "nonbinding_plus1": 2,
+  "nonbinding_minus1": 0,
+  "nonbinding_zero": 0,
+  "fractional_count": 0,
+  "excluded_ambiguous_count": 0,
+  "result": "FAILED",
+  "pass_rule_applied": "ASF baseline: binding_plus1 >= 3 AND binding_plus1 > binding_minus1",
+  "subject": "[RESULT] [VOTE] Release Apache Airflow 2.11.0 from 2.11.0-rc2",
+  "proposed_label": "rc-rolled",
+  "force_close_logged": false,
+  "has_binding_counts_in_body": true,
+  "has_nonbinding_counts_in_body": true,
+  "has_version_in_subject": true,
+  "has_rcN_in_subject": true
+}

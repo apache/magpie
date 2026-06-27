@@ -1,0 +1,18 @@
+{
+  "has_empty_ambiguous_when_no_ambiguous_votes": {
+    "field": "ambiguous",
+    "type": "empty"
+  },
+  "has_nonempty_classifications": {
+    "field": "classifications",
+    "type": "non_empty"
+  },
+  "fractional_vote_not_in_ambiguous": {
+    "type": "judge",
+    "rubric": "if any vote has a fractional value (e.g. +0.9, +0.5), it appears in 'classifications' with value 'fractional' and binding false — it does NOT appear in the 'ambiguous' array"
+  },
+  "conditional_vote_in_ambiguous_not_classifications": {
+    "type": "judge",
+    "rubric": "if any vote is conditional or retracted (e.g. '+1 if CI passes', 'retract my +1'), it appears only in the 'ambiguous' array with a reason explaining why — it does NOT appear in 'classifications'"
+  }
+}

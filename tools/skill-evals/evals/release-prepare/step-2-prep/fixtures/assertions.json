@@ -1,0 +1,34 @@
+{
+  "has_version_in_pr_title": {
+    "field": "pr_title",
+    "type": "regex",
+    "pattern": "2\\.11\\.0",
+    "flags": ""
+  },
+  "has_version_bump_mention": {
+    "field": "pr_body",
+    "type": "regex",
+    "pattern": "version bump|version_manifest",
+    "flags": "i"
+  },
+  "has_changelog_mention": {
+    "field": "pr_body",
+    "type": "regex",
+    "pattern": "changelog",
+    "flags": "i"
+  },
+  "has_notice_mention": {
+    "field": "pr_body",
+    "type": "regex",
+    "pattern": "NOTICE|LICENSE",
+    "flags": ""
+  },
+  "has_proposed_only": {
+    "field": "proposed",
+    "type": "field_true"
+  },
+  "scope_violations_empty": {
+    "field": "scope_violations",
+    "type": "empty"
+  }
+}

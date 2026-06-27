@@ -1609,6 +1609,22 @@ def test_assert_missing_pattern_is_spec_error():
     assert "pattern" in note
 
 
+def test_assert_negate_inverts_regex_result():
+    # negate asserts the *absence* of a match: pattern missing -> True,
+    # pattern present -> False (so a real leak is still caught).
+    spec = {"field": "cmds", "type": "regex", "pattern": "--passphrase", "negate": True}
+    assert evaluate_deterministic_assertion(spec, {"cmds": "gpg --detach-sign x"})[0] is True
+    assert evaluate_deterministic_assertion(spec, {"cmds": "gpg --passphrase p x"})[0] is False
+
+
+def test_assert_negate_passes_spec_error_through():
+    # A spec/usage error (None) must not be flipped to a bogus True/False.
+    spec = {"field": "body", "type": "regex", "negate": True}
+    holds, note = evaluate_deterministic_assertion(spec, {"body": "x"})
+    assert holds is None
+    assert "pattern" in note
+
+
 # ---------------------------------------------------------------------------
 # Structural assertions: batch_judge_assertions
 # ---------------------------------------------------------------------------

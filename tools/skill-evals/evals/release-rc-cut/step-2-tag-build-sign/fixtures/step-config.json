@@ -1,0 +1,4 @@
+{
+  "skill_md": "skills/release-rc-cut/SKILL.md",
+  "step_heading": "## Step 2 — Emit RC tag, build, sign, and checksum commands"
+}

@@ -1,0 +1,21 @@
+{
+  "step": "signatures",
+  "status": "FAIL",
+  "results": [
+    {
+      "file": "apache-airflow-2.11.0-source-release.tar.gz",
+      "sig_file": "apache-airflow-2.11.0-source-release.tar.gz.asc",
+      "classification": "PASS",
+      "fingerprint": "ABCD1234ABCD1234ABCD1234ABCD1234ABCD1234",
+      "key_in_keys": true
+    },
+    {
+      "file": "apache-airflow-2.11.0-bin.tar.gz",
+      "sig_file": "apache-airflow-2.11.0-bin.tar.gz.asc",
+      "classification": "FAIL",
+      "fingerprint": null,
+      "key_in_keys": false
+    }
+  ],
+  "paste_recipe": "curl -s https://dist.apache.org/repos/dist/release/airflow/KEYS | gpg --import\ngpg --verify apache-airflow-2.11.0-source-release.tar.gz.asc apache-airflow-2.11.0-source-release.tar.gz\ngpg --verify apache-airflow-2.11.0-bin.tar.gz.asc apache-airflow-2.11.0-bin.tar.gz"
+}

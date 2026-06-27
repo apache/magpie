@@ -1,0 +1,13 @@
+{
+  "staging_url_not_dist_release": {
+    "field": "staging_url",
+    "type": "regex",
+    "pattern": "dist/release/",
+    "flags": "",
+    "negate": true
+  },
+  "proposed_true": {
+    "field": "proposed",
+    "type": "field_true"
+  }
+}

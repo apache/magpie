@@ -1,0 +1,7 @@
+{
+  "category_x_hit": true,
+  "category_x_violations": [
+    { "identifier": "org.acme:cc-by-nc-widget", "found_in": "setup.cfg" }
+  ],
+  "handoff_reason": "Category-X dependency found. Remove before preparing the release."
+}

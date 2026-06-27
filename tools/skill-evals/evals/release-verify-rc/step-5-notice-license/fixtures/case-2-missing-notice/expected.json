@@ -1,0 +1,9 @@
+{
+  "step": "notice-license",
+  "status": "FAIL",
+  "notice_present": false,
+  "license_present": true,
+  "notice_diff_lines": null,
+  "license_diff_lines": null,
+  "diff_summary": "NOTICE file absent from artefact root; cannot diff"
+}

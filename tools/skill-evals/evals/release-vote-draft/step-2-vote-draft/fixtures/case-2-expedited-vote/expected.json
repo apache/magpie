@@ -1,0 +1,7 @@
+{
+  "subject": "[VOTE] Release Apache Airflow 2.10.4 from 2.10.4-rc1",
+  "body": "To: dev@airflow.apache.org\nSubject: [VOTE] Release Apache Airflow 2.10.4 from 2.10.4-rc1\n\nHi all,\n\nI propose we release the following artifacts as Apache Airflow 2.10.4.\n\nThe release artifacts, signatures, and checksums are available at:\n  https://dist.apache.org/repos/dist/dev/airflow/2.10.4-rc1/\n\nThe release tag to be voted upon:\n  https://github.com/apache/airflow/releases/tag/2.10.4-rc1\n\nThe changelog for this release:\n  https://github.com/apache/airflow/blob/2.10.4-rc1/CHANGELOG.md\n\nKeys to verify artifact signatures:\n  https://dist.apache.org/repos/dist/release/airflow/KEYS\n\nPlease vote to release:\n  [ ] +1  Release Apache Airflow 2.10.4\n  [ ] +0\n  [ ] -1  Do not release (please comment with specific reasons)\n\nThis vote is open for at least 48 hours.\n\n[EXPEDITED: Critical security fix for CVE-2026-12345; abbreviated window approved by PMC chair. ASF policy requires this deviation to be noted in the project's next board report.]\n\nThanks,\nJustin McLean",
+  "vote_window_hours": 48,
+  "expedited": true,
+  "skip_verify_logged": false
+}

@@ -3,7 +3,7 @@
 
 ---
 title: Release-management lifecycle (end-to-end)
-status: proposed
+status: experimental
 kind: feature
 mode: Drafting
 source: >
@@ -11,8 +11,11 @@ source: >
   standard process within 3 months of resolution adoption"). README.md
   § Skill families (release-management, proposed). Designed spec-first in
   docs/release-management/ (README.md, process.md, spec.md) plus the
-  adopter scaffold projects/_template/release-management-config.md. No
-  release-* skill code exists yet.
+  adopter scaffold projects/_template/release-management-config.md.
+  Nine of the ten skills have since shipped (release-prepare,
+  release-keys-sync, release-rc-cut, release-vote-draft,
+  release-archive-sweep, release-announce-draft, release-verify-rc,
+  release-vote-tally, release-promote).
 acceptance:
   - The family's design (14-step process, per-skill state-change
     boundaries, adopter contract) is reviewable independently of any
@@ -55,11 +58,34 @@ code lands.
   `projects/_template/release-build.md`, `projects/_template/pmc-roster.md`,
   `projects/_template/site-repo.md`, and the shared
   `projects/_template/release-trains.md`.
-- Skills (all `proposed`, none implemented yet): `release-prepare`,
-  `release-keys-sync`, `release-rc-cut`, `release-verify-rc`,
-  `release-vote-draft`, `release-vote-tally`, `release-promote`,
-  `release-announce-draft`, `release-archive-sweep`,
-  `release-audit-report`.
+- Skills (nine shipped, all `experimental`): `release-prepare`
+  (`mode: Drafting`) drafts the planning issue (Step 1), the prep PR with
+  version bump / changelog / NOTICE / LICENSE (Step 2), and the
+  post-release development-version bump PR (Step 14), never marking ready,
+  merging, or closing; `release-keys-sync` (`mode: Drafting`) drafts the
+  KEYS-file diff and paste-ready `svn` command sequence to add the RM's
+  public key and validates key strength against the ASF floor, never
+  holding or reading the private key (Step 3); `release-rc-cut`
+  (`mode: Drafting`) emits the paste-ready tag / build / sign / checksum /
+  staging command sequences for an RC, run locally by the RM with their
+  own key (Steps 4–5); `release-announce-draft`
+  (`mode: Drafting`) drafts
+  the `[ANNOUNCE]` body and proposes the site-bump PR for a promoted
+  release (Step 11), enforcing the one-hour promote-wait gate,
+  `@apache.org` address reminder, Download Page link constraint, and
+  no-send / no-auto-merge boundaries; `release-verify-rc` (`mode: Triage`)
+  runs read-only RC pre-flight (signatures, checksums, RAT headers,
+  NOTICE/LICENSE, prohibited binaries, version consistency, Step 6);
+  `release-vote-draft` (`mode: Drafting`) drafts the `[VOTE]` email body
+  and planning-issue comment after a PASS pre-flight, never sending or
+  posting (Step 7); `release-vote-tally` (`mode: Triage`) classifies
+  +1/0/-1 binding vs non-binding once the window closes and drafts the
+  `[RESULT]` (Step 9); `release-promote` (`mode: Drafting`) emits the
+  backend-shaped staging→release promotion command set for a vote-passed
+  release (Step 10); `release-archive-sweep` (`mode: Triage`) scans the
+  dist area and proposes the command set to move past-retention releases
+  to the archive, read-only on the dist surface (Step 12). The remaining
+  skill (`release-audit-report`) is still `proposed`.
 - Adapters it will read/draft through: `tools/github`, `tools/ponymail`
   (vote threads), `tools/gmail` (announce/vote drafts), plus the project's
   `svn` dist tree as a distribution backend.
@@ -117,20 +143,29 @@ code lands.
 test -f docs/release-management/spec.md
 test -f docs/release-management/process.md
 test -f projects/_template/release-management-config.md
+test -f .claude/skills/magpie-release-prepare/SKILL.md
+test -f .claude/skills/magpie-release-keys-sync/SKILL.md
+test -f .claude/skills/magpie-release-rc-cut/SKILL.md
+test -f .claude/skills/magpie-release-vote-draft/SKILL.md
+test -f .claude/skills/magpie-release-archive-sweep/SKILL.md
+test -f .claude/skills/magpie-release-announce-draft/SKILL.md
+test -f .claude/skills/magpie-release-verify-rc/SKILL.md
+test -f .claude/skills/magpie-release-vote-tally/SKILL.md
+test -f .claude/skills/magpie-release-promote/SKILL.md
 uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-validate
+uv run --project tools/skill-evals skill-eval tools/skill-evals/evals/release-announce-draft/
 ```
 
 ## Known gaps
 
-- **No `release-*` skill code exists yet.** The family is `proposed`,
-  designed docs-first (mirroring Mentoring). All ten skills land in
-  follow-up PRs, each flagged `experimental`. The plan pass turns each
-  un-implemented skill in the `docs/release-management/` table into a work
-  item.
-- **No eval suites exist** under `tools/skill-evals/evals/release-*/`;
-  each skill needs one per the per-skill-eval convention before it can
-  graduate from `experimental`.
+- **Nine of ten skills have shipped** (`release-prepare`,
+  `release-keys-sync`, `release-rc-cut`, `release-vote-draft`,
+  `release-archive-sweep`, `release-announce-draft`, `release-verify-rc`,
+  `release-vote-tally`, `release-promote`), all `experimental` with eval
+  suites. **One remains `proposed`** (`release-audit-report`).
+  The plan pass turns each un-implemented skill in the
+  `docs/release-management/` table into a work item.
 - **Health-evidence promotion criteria are unmeasured.** No adopter has
-  cut a release through the family yet, so the RM/binding-voter evidence
-  window that would justify default-on or a state-changing lane has no
-  data behind it.
+  cut a full release through the family yet, so the RM/binding-voter
+  evidence window that would justify default-on or a state-changing lane
+  has no data behind it.

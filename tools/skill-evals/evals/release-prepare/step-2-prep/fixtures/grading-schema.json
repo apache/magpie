@@ -1,0 +1,16 @@
+{
+  "prose_fields": [
+    "rationale",
+    "reason",
+    "reasons",
+    "drop_reason",
+    "blockers",
+    "notes",
+    "summary",
+    "explanation",
+    "details",
+    "description",
+    "handoff_reason",
+    "found_in"
+  ]
+}

@@ -29,10 +29,20 @@ publication, with a human gate and an audit-log entry at every step.
 
 ## Where it lives
 
-- Skills: `security-issue-import` (+ `-from-pr`, `-from-md`),
+- Skills: `security-issue-import` (+ `-from-pr`, `-from-md`,
+  `-from-scan`, `-via-forwarder`),
   `security-issue-triage`, `security-issue-deduplicate`,
   `security-cve-allocate`, `security-issue-fix`, `security-issue-sync`,
   `security-issue-invalidate`.
+  `security-issue-import-from-scan` is the scanner on-ramp: it ingests
+  multi-finding scan output through a pluggable scan-format adapter
+  (`tools/scan-format/`), buckets each finding for operator review, and
+  creates trackers only after per-finding confirmation.
+  `security-issue-import-via-forwarder` is the relay sub-skill: handles
+  reports relayed by an upstream broker (ASF security team or a
+  third-party disclosure platform) by applying preamble-detect,
+  credit-extract, and routing rules declared in
+  `tools/forwarder-relay/`; never mutates tracker state on its own.
 - Tools: `tools/cve-tool-vulnogram/generate-cve-json` (CVE 5.x JSON),
   `tools/cve-org`, `tools/gmail` + `tools/ponymail` (mail), and the
   `tools/privacy-llm` gate/redactor ([the privacy gate](privacy-llm-gate.md)).

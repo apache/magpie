@@ -9,7 +9,7 @@ mode: Mentoring
 source: >
   MISSION.md § Technical scope (Mentoring) — "the highest-value
   project-side mode and the one off-the-shelf agent tooling skips".
-  docs/modes.md § Mentoring (experimental, 1 skill). Spec exists at
+  docs/modes.md § Mentoring (experimental, 3 skills). Spec exists at
   docs/mentoring/spec.md ahead of any skill code. MISSION.md names
   onboarding latency as one of the two loudest ecosystem complaints;
   authoring newcomer-ready good first issues targets it directly.
@@ -22,6 +22,9 @@ acceptance:
   - The good-first-issue authoring skill drafts net-new, newcomer-ready
     issues (scope, code pointers, contributing-doc links, effort estimate)
     and never files them without maintainer confirmation.
+  - The first-contact welcome skill greets first-time contributors with
+    project-convention pointers, never posts without confirmation, and
+    skips repeat contributors.
 ---
 
 # Mentoring mode
@@ -60,6 +63,14 @@ a project can offer a first-time contributor.
   confirmation before any issue is filed via `gh`. Ships `mode: Mentoring`
   + `experimental`, with an eval suite under
   `tools/skill-evals/evals/good-first-issue-author/`.
+- Skill: `mentoring-welcome` — drafts a first-contact orientation comment
+  for a first-time contributor on a newly opened issue or PR. Detects
+  first-time authorship via the GitHub `author_association` field and
+  drafts a welcome with contributing-guide link, community-norm pointers,
+  and expected next steps. Does not post for repeat contributors; waits
+  for explicit maintainer confirmation before posting. Ships `mode:
+  Mentoring` + `experimental`, with an eval suite under
+  `tools/skill-evals/evals/mentoring-welcome/`.
 
 ## Behaviour & contract
 
@@ -101,20 +112,14 @@ a project can offer a first-time contributor.
 ```bash
 test -f docs/mentoring/spec.md
 test -f .claude/skills/magpie-good-first-issue-author/SKILL.md
+test -f .claude/skills/magpie-mentoring-welcome/SKILL.md
 uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-validate
 uv run --project tools/skill-evals skill-eval tools/skill-evals/evals/good-first-issue-author/
+uv run --project tools/skill-evals skill-eval tools/skill-evals/evals/mentoring-welcome/
 ```
 
 ## Known gaps
 
-- **`experimental` — no adopter pilot has run.** The first skill
-  (`pr-management-mentor`) shipped; shape may change as adopter pilots
-  and contributor-sentiment evaluations land.
-- **`good-first-issue-author` shipped `experimental`; no adopter pilot
-  has authored a live good first issue through it yet.** The suitability
-  and readiness thresholds may shift once real backlog candidates run
-  through it. The curation counterpart (relabeling the *existing* backlog
-  as good-first-issue candidates) is still unspecced.
 - **The family now covers the newcomer journey end to end.**
   `pr-management-mentor`, `good-first-issue-author`, `mentoring-welcome`
   (first-contribution welcome / orientation), and `contributor-to-committer`
@@ -122,3 +127,16 @@ uv run --project tools/skill-evals skill-eval tools/skill-evals/evals/good-first
   this spec previously flagged as undesigned are both built; the open
   item that remains is the backlog-curation counterpart noted above
   (relabeling the existing backlog as good-first-issue candidates).
+- **`experimental` — no adopter pilot has run.** All four shipped skills
+  (`pr-management-mentor`, `good-first-issue-author`, `mentoring-welcome`)
+  and `contributor-to-committer` may change shape as adopter pilots and
+  contributor-sentiment evaluations land.
+- **`good-first-issue-author` shipped `experimental`; no adopter pilot
+  has authored a live good first issue through it yet.** The suitability
+  and readiness thresholds may shift once real backlog candidates run
+  through it. The curation counterpart (relabeling the *existing* backlog
+  as good-first-issue candidates) is still unspecced.
+- **`mentoring-welcome` shipped `experimental`; no adopter pilot run.**
+  The welcome tone, detecting first-timer vs. repeat contributor, and
+  the content of the orientation template may shift once live threads run
+  through it.

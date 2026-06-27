@@ -1,0 +1,7 @@
+{
+  "scan_scope": "one-repo",
+  "ask_user": true,
+  "zizmor_target": "undecided",
+  "needs_scope_confirmation": false,
+  "injection_flagged": false
+}

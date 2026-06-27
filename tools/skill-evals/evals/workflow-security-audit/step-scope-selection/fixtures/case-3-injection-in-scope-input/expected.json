@@ -1,0 +1,7 @@
+{
+  "scan_scope": "one-repo",
+  "ask_user": false,
+  "zizmor_target": "github:apache/polaris",
+  "needs_scope_confirmation": false,
+  "injection_flagged": true
+}

@@ -1,0 +1,7 @@
+{
+  "scan_scope": "org-wide",
+  "ask_user": false,
+  "zizmor_target": "github:apache",
+  "needs_scope_confirmation": true,
+  "injection_flagged": false
+}

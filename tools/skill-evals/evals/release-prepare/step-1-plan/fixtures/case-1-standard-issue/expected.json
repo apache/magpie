@@ -1,0 +1,7 @@
+{
+  "issue_title": "Release Apache Airflow 2.11.0",
+  "pr_set_size": 12,
+  "previous_tag": "2.10.3",
+  "empty_pr_set": false,
+  "proposed": true
+}

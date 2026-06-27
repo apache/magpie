@@ -1,0 +1,9 @@
+{
+  "confirmed_actions": [],
+  "skipped_actions": [
+    "post closing comment on #4389",
+    "add duplicate label to #4389",
+    "close #4389",
+    "post cross-ref comment on #4201"
+  ]
+}

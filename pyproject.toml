@@ -109,6 +109,7 @@ members = [
   "tools/privacy-llm/checker",
   "tools/privacy-llm/redactor",
   "tools/sandbox-lint",
+  "tools/security-tracker-stats-dashboard",
   "tools/skill-and-tool-validator",
   "tools/skill-evals",
   "tools/spec-status-index",

@@ -34,14 +34,30 @@ suggestion the human signs off on.
   `pr-management-quick-merge` (read-only express-lane surfacing of
   trivial, low-risk PRs a maintainer can review in seconds).
   Reference implementation: `tools/pr-management-stats/`.
-- General issues: `issue-triage`, `issue-reassess`, `issue-reproducer`.
-  Companion reporting skill: `issue-reassess-stats` (read-only dashboard
-  over `verdict.json` files produced by `issue-reassess` campaigns).
+- General issues: `issue-triage`, `issue-reassess`, `issue-reproducer`,
+  `issue-stale-sweep` (configurable inactivity sweep: nudge or
+  propose-close after a warning window; waits for confirmation before
+  posting), `issue-deduplicate` (merge two open issues describing the same
+  root cause — proposes a close + cross-reference, waits for confirmation).
+  Companion reporting skills: `issue-reassess-stats` (read-only dashboard
+  over `verdict.json` files produced by `issue-reassess` campaigns) and
+  `issue-backlog-stats` (read-only maintainer dashboard over the open
+  general-issue backlog — health rating, age/staleness, area pressure,
+  triage funnel).
 - Contributor readiness: `contributor-nomination` (read-only brief for a
   named contributor — activity breadth, consistency, and nomination-
-  evidence prose for a committer or PMC thread).
+  evidence prose for a committer or PMC thread);
+  `contributor-activity-sweep` (read-only GitHub activity card for a
+  named contributor over a configurable window);
+  `committer-onboarding` (post-vote ICLA/account/permissions/welcome
+  checklist for committer and PMC promotions).
 - Security inbound: `security-issue-import`, `-import-from-pr`,
-  `-import-from-md`, `security-issue-deduplicate`,
+  `-import-from-md`, `-import-from-scan` (triage-first scanner-output
+  import via pluggable scan-format adapters),
+  `-import-via-forwarder` (relay-broker variant: reports relayed by an
+  upstream broker such as the ASF security team),
+  `security-issue-triage` (batch-triage open tracker issues carrying
+  `needs triage`), `security-issue-deduplicate`,
   `security-issue-invalidate`, `security-issue-sync`,
   `security-cve-allocate`.
 - Adapters it reads through: `tools/github`, `tools/jira`,
@@ -80,25 +96,23 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
 
 - PR and general-issue triage are `experimental` — no adopter-pilot eval
   has run; behaviour may change.
-- **General-issue triage lacks the dedupe, stale-handling, and
-  backlog-dashboard coverage the security side already has.** There is
-  no general-issue deduplication skill (only `security-issue-deduplicate`
-  exists), no stale-issue management (nudge, then propose-close after a
-  warning window), and no general open-issue backlog dashboard
-  (`pr-management-stats` covers PRs; `issue-reassess-stats` only covers
-  reassess-campaign `verdict.json` output). Each is a candidate work item.
-- **The contributor-growth skills are not yet a formalised family.**
-  `contributor-nomination`, `contributor-activity-sweep`,
-  `committer-onboarding`, and `good-first-issue-author` (Mentoring) span
-  the contributor-to-committer path but are catalogued ad hoc;
-  `contributor-activity-sweep` and `committer-onboarding` are not yet
-  referenced by any spec. Missing members of that path: PMC-member
-  nomination (distinct from committer), emeritus / inactive-committer
-  handling, and contributor offboarding. Worth deciding whether this
-  becomes a named family.
-- **Repo-health audits are a one-off with no family around them.**
-  `ci-runner-audit` is a standalone read-only audit (obsolete runner
-  labels, macOS arch mismatches) with no sibling skills. A repo-health
-  family is a candidate: GitHub Actions workflow security audit (the repo
-  already runs `zizmor` in pre-commit), dependency-update triage,
-  license / NOTICE compliance, and flaky-test detection.
+- **General-issue triage gained its deduplication skill and backlog
+  dashboard.** `issue-deduplicate` (general-issue dedup, parallel to
+  `security-issue-deduplicate`) and `issue-backlog-stats` (open-issue
+  backlog dashboard, parallel to `pr-management-stats`) have now shipped
+  (`experimental`); `issue-stale-sweep` provides stale-handling /
+  close-proposal. No adopter-pilot eval has run on the general-issue
+  family yet, so behaviour may change.
+- **The contributor-growth skills span the path but are not yet a named
+  family.** `contributor-nomination`, `contributor-activity-sweep`,
+  `committer-onboarding`, and `good-first-issue-author` (Mentoring) are
+  now all catalogued in the specs. Missing members of the
+  contributor-to-committer path: PMC-member nomination (distinct from
+  committer), emeritus / inactive-committer handling, and contributor
+  offboarding. Worth deciding whether this becomes a named family with
+  its own spec.
+- **Repo-health audits are now a three-skill family.** `ci-runner-audit`,
+  `workflow-security-audit` (zizmor-backed), and `dependency-audit` have
+  shipped (read-only, `experimental`); see
+  [repo-health-family.md](repo-health-family.md). Remaining candidates:
+  license / NOTICE compliance and flaky-test detection.

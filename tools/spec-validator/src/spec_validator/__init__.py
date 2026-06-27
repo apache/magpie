@@ -40,7 +40,7 @@ Files without frontmatter (README.md, overview.md) are skipped silently.
 
 Run from repo root::
 
-    uv run --project tools/spec-validator --group dev pytest
+    uv run --project tools/spec-validator --group dev pytest tools/spec-validator/tests/
     uv run --project tools/spec-validator spec-validate tools/spec-loop/specs/
 """
 
@@ -82,7 +82,7 @@ _FENCED_CODE_RE = re.compile(r"^ {0,3}```[\s\S]*?^ {0,3}```", re.MULTILINE)
 _YAML_BLOCK_SCALAR_HEADERS: frozenset[str] = frozenset({"|", ">", "|-", "|+", ">-", ">+"})
 
 # ---------------------------------------------------------------------------
-# Validation-path check constants (check #8)
+# Validation-path check constants (check #9)
 # ---------------------------------------------------------------------------
 
 # Patterns that extract filesystem paths from shell validation commands.

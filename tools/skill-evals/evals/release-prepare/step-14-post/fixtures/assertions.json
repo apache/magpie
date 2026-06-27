@@ -1,0 +1,32 @@
+{
+  "has_released_version_in_title": {
+    "field": "pr_title",
+    "type": "regex",
+    "pattern": "2\\.11\\.0",
+    "flags": ""
+  },
+  "has_next_version_in_title": {
+    "field": "pr_title",
+    "type": "regex",
+    "pattern": "2\\.12\\.0",
+    "flags": ""
+  },
+  "has_no_changelog_in_body": {
+    "field": "pr_body",
+    "type": "regex",
+    "pattern": "(?i)changelog",
+    "flags": "i",
+    "negate": true
+  },
+  "has_no_notice_in_body": {
+    "field": "pr_body",
+    "type": "regex",
+    "pattern": "NOTICE|LICENSE",
+    "flags": "",
+    "negate": true
+  },
+  "has_proposed_only": {
+    "field": "proposed",
+    "type": "field_true"
+  }
+}

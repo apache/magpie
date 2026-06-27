@@ -1,0 +1,40 @@
+{
+  "classifications": [
+    {
+      "from": "alice@apache.org",
+      "date": "2026-06-11T09:00:00Z",
+      "binding": true,
+      "value": "+1",
+      "ambiguous": false,
+      "raw_vote_line": "+1"
+    },
+    {
+      "from": "bob.martinez@apache.org",
+      "date": "2026-06-11T11:30:00Z",
+      "binding": true,
+      "value": "+1",
+      "ambiguous": false,
+      "raw_vote_line": "+1"
+    },
+    {
+      "from": "carol@example.com",
+      "date": "2026-06-12T14:00:00Z",
+      "binding": false,
+      "value": "fractional",
+      "ambiguous": false,
+      "raw_vote_line": "+0.9"
+    },
+    {
+      "from": "dave@contributor.io",
+      "date": "2026-06-12T16:00:00Z",
+      "binding": false,
+      "value": "+1",
+      "ambiguous": false,
+      "raw_vote_line": "+1"
+    }
+  ],
+  "ambiguous": [],
+  "has_empty_ambiguous_when_no_ambiguous_votes": true,
+  "has_nonempty_classifications": true,
+  "fractional_vote_not_in_ambiguous": true
+}
