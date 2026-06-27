@@ -430,6 +430,21 @@ to a home-dir path and update the tool to read from there.
   staging branch for the private-PR fallback described in
   [`README.md`](README.md). Unless the user explicitly says otherwise, base
   PRs on the tracker's default branch.
+- **Spec-sync pre-check before pushing a functionality PR.** The specs in
+  [`tools/spec-loop/specs/`](tools/spec-loop/specs/) are the source of truth
+  and must not fall behind the code. Before pushing a PR that ships or changes
+  a skill, tool, or mode — **and before pushing a rebase of one onto a `main`
+  that has moved** — confirm `tools/spec-loop/.last-sync` is at (or near) the
+  current `main` tip and that the affected specs reflect what actually
+  shipped. If they have drifted, run the sync
+  (`tools/spec-loop/loop.sh update`, which writes to a `spec/sync-specs`
+  branch — see
+  [`docs/spec-driven-development.md`](docs/spec-driven-development.md)) or,
+  for a small known gap, update the spec(s) and bump `.last-sync` by hand;
+  then either fold it into the PR or open a companion `sync-specs` PR. The
+  failure this prevents: a "sync specs" PR that lands already stale because
+  more functionality shipped while it sat. Pure-mechanical PRs (a rebase that
+  ships no new functionality, lint, docs-only edits) are exempt.
 - Keep the commit message focused on the user-visible change, not the mechanics of how the edit
   was made.
 
