@@ -291,12 +291,29 @@ Compose a brief planning-issue comment summarising the vote-open
 state. This comment is **proposed** — it is not posted until the RM
 explicitly confirms.
 
-Default comment body:
+The **standard** comment body, used when the vote window is at the
+normal floor, reuses the Step 2 vote subject (`<vote_subject>`):
 
 ```markdown
-**Vote open:** `[VOTE] Release <Product Name> <version>-<rcN>`
+**Vote open:** `<vote_subject>`
 sent to `<vote_list>` on <date> UTC.
 Vote window closes: <date+vote_window_hours> UTC (minimum).
+
+Next step: `release-vote-tally` after the window closes.
+```
+
+When the vote is **expedited** (Golden rule 4), use the expedited
+variant: mark the header `(expedited)`, note the shortened window,
+state the `--expedited` reason, and restate the RM's obligation to
+record the deviation in the project's next board report per ASF policy:
+
+```markdown
+**Vote open (expedited):** `<vote_subject>`
+sent to `<vote_list>` on <date> UTC.
+Vote window closes: <date+vote_window_hours> UTC (minimum, <vote_window_hours>-hour expedited window).
+
+**Expedited:** <reason>.
+Reminder: note this deviation in the project's next board report per ASF policy.
 
 Next step: `release-vote-tally` after the window closes.
 ```
