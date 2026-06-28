@@ -389,7 +389,7 @@ Unpack the source artefact (or read its directory listing) and verify:
 
 1. A `NOTICE` file exists at the root.
 2. A `LICENSE` file exists at the root.
-3. If a previous promoted release exists in `dist/release/<project>/`,
+3. If a previous promoted release exists in `dist/release/<project>/` (svnpubsub; see `release_dist_backend`),
    fetch its `NOTICE` and `LICENSE` and produce a diff against the
    current RC's files.
 

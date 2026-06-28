@@ -380,7 +380,7 @@ updates land, based on the process step. Examples:
 - *"Step 10: close the private PR at <tracker>#NNN now that <upstream>#NNNN has merged."*
 - *"Step 11: `pr merged` — tracker parked until the release train ships. No action needed from the security team; the next sync run will detect the PyPI / Helm release and propose the `fix released` swap (Step 12)."*
 - *"Step 12: `fix released` — the release carrying the fix is now on PyPI / the Helm registry. Ownership of the issue has transferred to the release manager; the label swap was the hand-off."*
-- *"Step 13: the release manager should now fill in the CVE tool fields taken from the issue — CWE, product, versions, severity, patch link, credits — move the CVE to REVIEW → READY, and send the advisory to `announce@apache.org` / `<users-list>`."*
+- *"Step 13: the release manager should now fill in the CVE tool fields taken from the issue — CWE, product, versions, severity, patch link, credits — move the CVE to REVIEW → READY, and send the advisory to `<announce-list>` / `<users-list>`."*
 - *"Step 14: scan the users@ archive for the CVE ID, populate the *Public advisory URL* body field, regenerate the CVE JSON attachment, and move the issue to `announced`. Sync does all of this automatically on the next run once the advisory is archived."*
 - *"Step 15: release manager — copy the regenerated CVE JSON into Vulnogram, close the issue."*
 

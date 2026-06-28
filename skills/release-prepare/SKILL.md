@@ -71,7 +71,7 @@ This skill composes with:
 - `release-keys-sync` (proposed) — downstream of Step 1; syncs the
   RM's GPG key into `KEYS` before the RC is cut.
 - `release-rc-cut` (proposed) — downstream of Step 2; cuts the RC
-  tag, signs artefacts, stages to `dist/dev/`.
+  tag, signs artefacts, stages to the RC staging area (`dist/dev/` when `release_dist_backend = svnpubsub`).
 - `release-verify-rc` (proposed) — downstream of Step 2; verifies the
   staged RC before the `[VOTE]` thread opens.
 - `release-announce-draft` — downstream of Step 14 only in

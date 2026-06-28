@@ -73,7 +73,7 @@ keyserver. It never requests, stores, or reads a passphrase, a
 secret-key export, or any private-key half.
 
 **Golden rule 2 — every state-changing action is a proposal.** The
-KEYS diff and `svn commit` command are paste-ready recipes for the RM.
+KEYS diff and `svn commit` (or backend-equivalent; see `release_dist_backend`) command are paste-ready recipes for the RM.
 The skill never commits or writes to any repository.
 
 **Golden rule 3 — no-op gracefully when already present.** When the
@@ -263,13 +263,13 @@ Using the public key block from Step 1, compose:
 
    ```text
    # 1. Check out only the KEYS-file directory
-   svn checkout <svn-keys-dir-url> /tmp/<project-dist-name>-keys \
+   svn checkout <svn-keys-dir-url> /tmp/<project-dist-name>-keys \  # release_dist_backend=svnpubsub
      --depth immediates
 
    # 2. Append the key block below to /tmp/<project-dist-name>-keys/KEYS
 
    # 3. Commit
-   svn commit /tmp/<project-dist-name>-keys/KEYS \
+   svn commit /tmp/<project-dist-name>-keys/KEYS \  # release_dist_backend=svnpubsub
      -m "Add <rm-uid> to KEYS (fingerprint: <fingerprint>)"
    ```
 
@@ -327,7 +327,7 @@ The AI-driven part ends with a hand-back artefact containing:
 
 - **Never hold the private key.** No passphrase, secret-key export, or
   hardware-token request of any kind.
-- **Never commit.** Every `svn commit` (or equivalent) is a paste-ready
+- **Never commit.** Every `svn commit` (or `release_dist_backend`-equivalent) is a paste-ready
   recipe; the RM runs it as themselves.
 - **Never emit commands for a key below the ASF strength floor.** Stop
   at Step 1 when the key fails strength validation.
