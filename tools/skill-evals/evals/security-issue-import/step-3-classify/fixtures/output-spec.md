@@ -6,7 +6,7 @@ ONLY valid JSON with these fields:
 
 ```json
 {
-  "class": "<one of: Report | ASF-security-relay | cve-tool-bookkeeping | automated-scanner | consolidated-multi-issue | media-request | spam | cross-thread-followup | ghsa-relay>",
+  "class": "<one of: Report | ASF-security-relay | cve-tool-bookkeeping | automated-scanner | consolidated-multi-issue | media-request | spam | cross-thread-followup | fix-already-public>",
   "rationale": "<one paragraph explanation>"
 }
 ```

@@ -2,7 +2,5 @@
   "verdict": "MEDIUM",
   "match_tracker": 103,
   "action": "offer_options",
-  "axes_matched": ["component", "bug_class"],
-  "reporter_identity_hit": false,
-  "rationale": "Two-axis overlap with #103: both are API-layer SSRF issues. However the attack_path differs (DAG-author callback vs authenticated user via connection-test UI) and the fix_shape differs (callback URL allowlist vs connection-test auth gate). Two axes = MEDIUM, surface to team but do not auto-deduplicate."
+  "reporter_identity_hit": false
 }

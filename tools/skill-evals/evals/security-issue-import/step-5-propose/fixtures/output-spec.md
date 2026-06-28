@@ -21,6 +21,11 @@ Compose the proposal and return ONLY valid JSON with these fields:
 
 `has_tracker_body` is true when `tracker_body` is a non-empty string.
 `has_receipt_reply` is true when `receipt_reply_body` is a non-empty string.
+`receipt_reply_body` holds **only** the receipt-of-confirmation reply for an
+imported `Report`. For non-import classes (a `reject-with-canned`,
+`automated-scanner`, `consolidated-multi-issue`, `media-request`, etc.), leave
+`receipt_reply_body` null and reference the canned reply by
+`canned_response_name` instead, so `has_receipt_reply` stays false.
 `has_unfilled_placeholders` must always be false — rewrite any remaining
 SCREAMING_SNAKE_CASE placeholders before returning.
 

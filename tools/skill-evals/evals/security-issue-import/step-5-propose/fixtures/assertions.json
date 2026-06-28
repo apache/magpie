@@ -1,0 +1,5 @@
+{
+  "has_tracker_body": {"type": "non_empty", "field": "tracker_body"},
+  "has_receipt_reply": {"type": "non_empty", "field": "receipt_reply_body"},
+  "has_unfilled_placeholders": {"type": "field_true", "field": "has_unfilled_placeholders"}
+}
