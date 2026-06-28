@@ -28,3 +28,5 @@ Field rules:
 - `milestone_create_needed`: `true` when the required milestone does not yet exist on the tracker and a `gh api` create call is included in the proposal.
 - `assignee_proposed`: the GitHub handle proposed for assignee, or `null`. Only propose a security-team collaborator, never an external reporter.
 - `has_bare_issue_numbers`: `true` if any item contains a bare `#NNN` without a full URL — should be `false`.
+- `overdue_for_disclosure_proposed`: `true` when `items` contains an escalation item due to the CVD window expiring. Optional field — omit (or set `false`) when the tracker is not overdue.
+- `distributor_notify_proposed`: `true` when `items` contains a distributor pre-announcement draft proposal. Optional field — omit (or set `false`) when `pre_announce_distributors` is `false` or the fix is not yet in a pending release.

@@ -38,6 +38,26 @@ Record:
   - link to the fixing PR(s);
 - the discussion so far (comments), paying attention to the most recent activity
   and any stalled-for-30-days state.
+- **Disclosure deadline check.** Compute `issue_age_days` as the number of
+  calendar days between `createdAt` and today's date.  Compare against the
+  `window_days` and `grace_period_days` values loaded in Step 0.6 and set the
+  following flags in the observed-state bag:
+  - `overdue_for_disclosure: true` — when `issue_age_days > window_days` **and**
+    the `announced` label is absent (the advisory has not yet been sent).
+  - `approaching_window_end: true` — when `issue_age_days > window_days * 0.8`
+    (≥ 80 % of the window elapsed) and the issue is not yet `announced` — a
+    yellow-flag caution surfaced in the observed-state dump but no proposal item
+    is added.
+  - `grace_period_expired: true` — when the issue carries `pr merged` or
+    `fix released` **and** `issue_age_days > window_days + grace_period_days` and
+    the `announced` label is absent.
+  - `distributor_notify_pending: true` — when `pre_announce_distributors: true`
+    (from Step 0.6) **and** the issue carries `pr merged` or `fix released` and
+    the `announced` label is absent.  Signals that Step 2b should propose a
+    pre-announcement draft for the distributor embargo list.
+  These flags are informational observations only; they do not stop the sync.
+  A missing `announced` label on a tracker whose `announced` date is populated
+  in the body is treated as missing-label (propose adding it, not as overdue).
 
 Also read the tracker's **project-board status** on the "Security
 issues" board — the board is the primary overview surface for the

@@ -330,6 +330,26 @@ Before reading any tracker state, verify:
    when (and only when) the rendered draft references a
    third-party identifier.
 
+6. **Disclosure governance flags from `<project-config>/security-intake-config.md`.**
+   If the file exists, read the `disclosure_governance` block and load these
+   three keys into the observed-state bag for use in Steps 1 and 2b:
+
+   - `window_days` — integer; the CVD window in calendar days from first
+     receipt to public disclosure.  Used in Step 1a to flag trackers past
+     their disclosure deadline.
+   - `grace_period_days` — integer; the additional days granted after a fix
+     ships before the team is expected to publish the advisory.  Used in
+     Step 1a to determine whether the grace period has also lapsed.
+   - `pre_announce_distributors` — boolean; when `true` the team maintains
+     a distributor embargo list and the skill proposes a pre-announcement
+     draft once the fix is in a pending release.  Used in Step 2b.
+
+   If the file does not exist or the `disclosure_governance` block is absent,
+   silently default to `window_days: 90`, `grace_period_days: 14`, and
+   `pre_announce_distributors: false`.  A missing file is **not** a stop
+   condition — adopters who have not yet created this config receive the same
+   ASF defaults the skill has always applied.
+
 If any check fails (other than PonyMail, which degrades quietly),
 stop and surface what is missing. Do **not** proceed to Step 1 on a
 partial setup — half the observations would be wrong and the
