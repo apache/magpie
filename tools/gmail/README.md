@@ -12,9 +12,12 @@
 
 # `tools/gmail/`
 
-**Capability:** contract:mail-draft
+**Capability:** contract:mail-source + contract:mail-draft
 
-Gmail API substrate. Read + draft-only — never sends. Used by the security-issue-import / sync / invalidate flows for inbound report intake and outbound courtesy-reply drafting. See [`tool.md`](tool.md) for the operation catalogue and the per-area files for ASF relay routing, draft backends, threading, search queries.
+Gmail API substrate. Read + draft-only — never sends. Provides two
+contracts: `mail-source` for inbound report intake (search / read a
+uniform thread/message view) and `mail-draft` for outbound courtesy-reply
+drafting. Used by the security-issue-import / sync / invalidate flows. See [`tool.md`](tool.md) for the operation catalogue and the per-area files for ASF relay routing, draft backends, threading, search queries.
 
 ## Prerequisites
 

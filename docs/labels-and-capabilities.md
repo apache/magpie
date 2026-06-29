@@ -11,6 +11,7 @@
     - [Standalone labels](#standalone-labels)
   - [Capability to skill map](#capability-to-skill-map)
   - [Capability to tool map](#capability-to-tool-map)
+  - [MCP servers, classified by capability](#mcp-servers-classified-by-capability)
   - [The rule](#the-rule)
     - [A GitHub issue](#a-github-issue)
     - [A pull request](#a-pull-request)
@@ -221,8 +222,8 @@ Capabilities for every skill currently in
 
 Tools under [`tools/`](../tools/). A tool's capability is the interface
 it provides; a tool may carry more than one value (separated by `+`) when
-it implements multiple contracts, though today every tool carries exactly
-one.
+it implements multiple contracts (e.g. `tools/gmail` provides both
+`mail-source` and `mail-draft`).
 
 | Tool | Capability / capabilities | Role |
 |---|---|---|
@@ -239,7 +240,7 @@ one.
 | [`tools/github`](../tools/github/) | `contract:tracker` | GitHub REST / GraphQL substrate (called by every lifecycle phase — pure substrate, no single phase) |
 | [`tools/github-body-field`](../tools/github-body-field/) | `contract:tracker` | Read or rewrite one `### Field` section of a GitHub issue body without bringing the body into agent context — substrate helper for the security-sync skills |
 | [`tools/github-rollup`](../tools/github-rollup/) | `contract:tracker` | Append to (or create) the status-rollup comment on a GitHub issue without bringing the rollup body into agent context — substrate helper for every status-update-emitting skill |
-| [`tools/gmail`](../tools/gmail/) | `contract:mail-draft` | Gmail API substrate |
+| [`tools/gmail`](../tools/gmail/) | `contract:mail-source` + `contract:mail-draft` | Gmail API substrate — inbound report intake (`mail-source`) plus outbound courtesy-reply drafting (`mail-draft`); read + draft only, never sends |
 | [`tools/jira`](../tools/jira/) | `contract:tracker` | JIRA REST substrate (read-only today; write subcommands tracked in [#301](https://github.com/apache/magpie/issues/301)) |
 | [`tools/mail-archive`](../tools/mail-archive/) | `contract:mail-archive` | Adapter contract for public mail-archive backends (PonyMail, Hyperkitty, Discourse, Google Groups, GitHub Discussions). Pure interface spec. |
 | [`tools/mail-source`](../tools/mail-source/) | `contract:mail-source` | Mail-source backend abstraction (mbox / IMAP / Mailman 3) feeding a uniform inbound thread/message view to the intake pipeline |
@@ -265,7 +266,29 @@ happen to consume it (RFC-AI-0005). `tools/github` provides the
 `contract:cve-authority`; `tools/privacy-llm` is `substrate:privacy`.
 Use a `contract:<name>` value when the tool implements a capability
 contract under `tools/<contract>/`, and a `substrate:<name>` value for
-framework substrate. A tool may carry more than one (rare).
+framework substrate. A tool may carry more than one (rare —
+`tools/gmail` is the only one today).
+
+## MCP servers, classified by capability
+
+Several tools wrap a [Model Context Protocol](https://modelcontextprotocol.io)
+(MCP) server as their concrete backend. An MCP server is **not** a
+separate axis — it is classified by the capability its *wrapping tool*
+provides; the MCP is just the transport, interchangeable with a CLI or
+REST backend behind the same contract. A skill never names an MCP
+server — it targets the capability, and the tool routes to whichever
+backend the adopter wired in. The framework consumes four:
+
+| MCP server | Tool prefix | Wrapped by | Capability provided | Organization |
+|---|---|---|---|---|
+| GitHub MCP | `mcp__github__*` | [`tools/github`](../tools/github/) | `contract:tracker` | — |
+| Gmail MCP (claude.ai) | `mcp__claude_ai_Gmail__*` | [`tools/gmail`](../tools/gmail/) | `contract:mail-source` + `contract:mail-draft` | — |
+| PonyMail MCP (`apache/comdev`) | `mcp__ponymail__*` | [`tools/ponymail`](../tools/ponymail/) | `contract:mail-archive` | ASF |
+| apache-projects MCP (`apache/comdev`) | `mcp__apache-projects__*` | [`tools/apache-projects`](../tools/apache-projects/) | `contract:project-metadata` | ASF |
+
+Non-MCP backends fulfil the same contracts: JIRA is reached over REST
+and `gh` is the CLI fallback, both `contract:tracker`. See
+[`docs/prerequisites.md`](prerequisites.md) for connection setup.
 
 ---
 

@@ -154,7 +154,7 @@ with pluggable backends already include:
 |---|---|
 | [`tools/cve-tool`](../tools/cve-tool/) | CNA backends — Vulnogram, MITRE form, CVE.org direct, GHSA |
 | [`tools/mail-archive`](../tools/mail-archive/) | PonyMail, Hyperkitty, Discourse, Google Groups, GitHub Discussions |
-| [`tools/mail-source`](../tools/mail-source/) | mbox, IMAP, Mailman 3 |
+| [`tools/mail-source`](../tools/mail-source/) | mbox, IMAP, Gmail API ([`tools/gmail`](../tools/gmail/)), Mailman 3 |
 | [`tools/forwarder-relay`](../tools/forwarder-relay/) | ASF Security relay, huntr.com, HackerOne triagers |
 | [`tools/scan-format`](../tools/scan-format/) | security-scanner report formats (ASVS reference) |
 | [`tools/vcs`](../tools/vcs/) | Git (complete), Mercurial, Subversion, … (extension points) |
@@ -199,7 +199,7 @@ contract for one vendor:
 |---|---|---|
 | [`tools/cve-tool`](../tools/cve-tool/) | [`tools/cve-tool-vulnogram`](../tools/cve-tool-vulnogram/) (ASF) | MITRE form, CVE.org direct, GHSA |
 | [`tools/mail-archive`](../tools/mail-archive/) | [`tools/ponymail`](../tools/ponymail/) (ASF) | Hyperkitty, Discourse, Google Groups, GitHub Discussions |
-| [`tools/mail-source`](../tools/mail-source/) | mbox, IMAP | Mailman 3 |
+| [`tools/mail-source`](../tools/mail-source/) | mbox, IMAP, Gmail API ([`tools/gmail`](../tools/gmail/)) | Mailman 3 |
 | [`tools/forwarder-relay`](../tools/forwarder-relay/) | ASF-security ([`tools/gmail/asf-relay.md`](../tools/gmail/asf-relay.md)) | huntr.com, HackerOne |
 | [`tools/scan-format`](../tools/scan-format/) | ASVS | other scanner formats |
 | [`tools/vcs`](../tools/vcs/) | Git | Mercurial, Subversion, … |
