@@ -1,0 +1,7 @@
+{
+  "issue_number": 318,
+  "classification": "SKIP",
+  "failing_criteria": [],
+  "skip_reason": "architectural-decision",
+  "injection_flagged": false
+}
