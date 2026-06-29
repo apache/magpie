@@ -30,13 +30,13 @@ license: Apache-2.0
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
      <project-config> → adopting project's `.apache-magpie/` directory
      <tracker>        → value of `tracker_repo:` in <project-config>/project.md
-                       (example: airflow-s/airflow-s for the Apache Airflow security team)
+                       (example: `<tracker>`)
      <upstream>       → value of `upstream_repo:` in <project-config>/project.md
-                       (example: apache/airflow)
+                       (example: `<upstream>`)
      <security-list>  → value of `security_list:` in <project-config>/project.md
-                       (example: security@airflow.apache.org)
+                       (example: `<security-list>`)
      <security-list-domain> → host portion of <security-list>
-                       (example: airflow.apache.org)
+                       (example: host of `<security-list>`)
      Before running any bash command below, substitute these with the
      concrete values from the adopting project's <project-config>/project.md. -->
 
@@ -325,7 +325,7 @@ and continue to Step 2.
 **Self-check before proceeding**: the `From:` of a relay message
 is the broker, not the reporter. If the matched adapter's
 `From:` regex unexpectedly matches the project's own collaborator
-list (e.g. a security-team member's personal `@apache.org`
+list (e.g. a security-team member's personal email
 address landed in a relay-shaped thread), surface a *"this looks
 like a relay-shaped message from a project collaborator; double-
 check before routing"* warning in the recap. The parent skill

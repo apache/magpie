@@ -29,9 +29,7 @@ license: Apache-2.0
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
      <project-config> → adopting project's `.apache-magpie/` directory
      <tracker>        → value of `tracker_repo:` in <project-config>/project.md
-                       (example: airflow-s/airflow-s for the Apache Airflow security team)
      <upstream>       → value of `upstream_repo:` in <project-config>/project.md
-                       (example: apache/airflow)
      Before running any bash command below, substitute these with the
      concrete values from the adopting project's <project-config>/project.md. -->
 
@@ -199,8 +197,7 @@ tracker only to discover you cannot push the branch.
   - have the project's dev toolchain available — the list and
     invocation form of those tools live in
     [`<project-config>/fix-workflow.md`](../../<project-config>/fix-workflow.md#toolchain)
-    (for the airflow-s adopter that's `uv`, Python, and `breeze`;
-    your project's toolchain is whatever `fix-workflow.md` declares)
+    (your project's toolchain is whatever `fix-workflow.md` declares)
     and
     [`<upstream>/contributing-docs`](https://github.com/<upstream>/blob/main/contributing-docs/README.md).
 - **Outbound HTTPS** to the project's package registries (from
@@ -260,11 +257,9 @@ continue.
    produce stale PRs.
 5. **Toolchain probe** — run the tool-version checks named in
    [`<project-config>/fix-workflow.md`](../../<project-config>/fix-workflow.md#toolchain).
-   For the airflow-s adopter that is `uv --version`,
-   `python3 --version`, and `breeze --version` when `breeze` is
-   required for the area of the fix; your project's probe list is
-   whatever `fix-workflow.md` declares. Any missing tool stops the
-   skill; installing them mid-run is out of scope.
+   Your project's probe list is whatever `fix-workflow.md` declares.
+   Any missing tool stops the skill; installing them mid-run is out
+   of scope.
 6. **Privacy-LLM gate-check** passes:
 
    ```bash
@@ -471,7 +466,7 @@ touching any files:
    pointing at `<upstream>` or the user's fork, **ask the user
    for the path interactively** and offer to save their answer back
    into `.apache-magpie-overrides/user.md` so the next run is silent. Do **not**
-   probe hard-coded paths like `~/code/airflow` — filesystem layouts
+   probe hard-coded paths like `~/code/<upstream-repo-name>` — filesystem layouts
    vary per user and a wrong guess masks a misconfigured clone.
 
 2. Check `git remote -v`. Identify which remote is the **user's fork**
@@ -492,9 +487,7 @@ touching any files:
 4. Check that any project-required pre-commit hook tool is
    installed and hooks are enabled per `<upstream>/AGENTS.md` and
    [`<project-config>/fix-workflow.md`](../../<project-config>/fix-workflow.md#toolchain).
-   For the airflow-s adopter that's `uv tool install prek` and
-   `prek install`; your project may use plain `pre-commit` or a
-   different hook runner.
+   Your project may use plain `pre-commit` or a different hook runner.
 
 5. Fast-forward the base branch to the latest upstream. For a typical
    fix, that is `<default-branch>`:
@@ -586,14 +579,9 @@ List:
 - the exact commands the skill will run locally before pushing,
   taken from `<upstream>/AGENTS.md` and the toolchain block of
   [`<project-config>/fix-workflow.md`](../../<project-config>/fix-workflow.md#toolchain).
-  In this example we use the airflow-s adopter's commands (the
-  `<upstream>` toolchain is `uv` / `prek` / `mypy`); your project's
-  invocation forms come from `fix-workflow.md`:
-
-  - `uv run --project airflow-core pytest path/to/test.py::TestClass::test_method -xvs` (unit test),
-  - `prek run --from-ref <default-branch> --stage pre-commit` (fast static checks),
-  - `prek run --from-ref <default-branch> --stage manual` (slow static checks),
-  - and a type-check (`uv run --project <project> --with "apache-airflow-devel-common[mypy]" mypy <path>`) where applicable.
+  Your project's invocation forms come from `fix-workflow.md` and
+  typically cover a unit-test run, a fast static-check pass, a slow
+  static-check pass, and a type-check where applicable.
 
 ### 5e. Backport label
 
@@ -869,8 +857,8 @@ gh api repos/<tracker>/issues/<N> -X PATCH -F milestone=<milestone-number>
 #### 10b. Assign the issue to the target milestone
 
 If the issue currently sits on a stale milestone (for example
-`3.1.9`, `3.2.1` now that it has been cut, or the legacy `Airflow 3`
-placeholder), propose moving it to the current default and apply
+`3.1.9`, `3.2.1` now that it has been cut, or a legacy catch-all
+milestone placeholder), propose moving it to the current default and apply
 with user confirmation:
 
 ```bash
@@ -895,7 +883,7 @@ gh label list --repo <tracker> --limit 100 \
 
 For a post-triage, pre-merge fix, the target label set is:
 
-- **one** scope label: `airflow` | `providers` | `chart`;
+- **one** scope label: `<scope-a>` | `<scope-b>` | `<scope-c>`;
 - `cve allocated` if a CVE has been allocated;
 - `needs triage` **removed** (if still present after triage);
 - `pr created` once the public PR is open;
@@ -929,7 +917,7 @@ one audit trail entry:
 
 ```bash
 gh issue edit <N> --repo <tracker> \
-  --add-label 'airflow,cve allocated' \
+  --add-label '<scope-a>,cve allocated' \
   --remove-label 'needs triage'
 ```
 
@@ -937,8 +925,8 @@ gh issue edit <N> --repo <tracker> \
 
 Before leaving the tracking issue, verify:
 
-- exactly one scope label is set (`airflow` **xor** `providers`
-  **xor** `chart`);
+- exactly one scope label is set (`<scope-a>` **xor** `<scope-b>`
+  **xor** `<scope-c>`);
 - the milestone matches the current default from `AGENTS.md`, or
   the user has explicitly confirmed a different one;
 - the issue body "PR with the fix" field points at the newly-opened

@@ -219,7 +219,7 @@ concurrently, which is exactly what the sync needs.
      and cross-check the cve.org publication state (per
      [`tools/cve-org/`](../../tools/cve-org/)). A `<users-list>`
      archive hit authored by the release manager **is** the
-     advisory-shipped signal, and its `lists.apache.org/thread/<id>`
+     advisory-shipped signal, and its `<mail-archive-url>/thread/<id>`
      permalink is the *Public advisory URL*. The tracker body's
      *Public advisory URL* field and `announced` label are a
      **lagging mirror**: once populated they confirm shipment, but an
@@ -349,7 +349,7 @@ these fields so the orchestrator can merge deterministically:
 ```yaml
 issue: <N>
 title: <one line>
-scope_label: airflow | providers | chart | <missing>
+scope_label: <scope-a> | <scope-b> | <scope-c> | <missing>
 current_labels: [<label>, ...]
 current_milestone: <title or null>
 current_assignees: [<login>, ...]
@@ -362,7 +362,7 @@ fix_pr:
   milestone: <PR milestone title or null>
 release_shipped: true | false | unknown
 advisory_shipped: true | false | unknown   # from the <users-list> archive search for the CVE ID — NOT derived from the tracker body
-advisory_url: <lists.apache.org/thread/... permalink, or null>   # the archive permalink when advisory_shipped is true
+advisory_url: <<mail-archive-url>/thread/... permalink, or null>   # the archive permalink when advisory_shipped is true
 cve_published: true | false | unknown      # cve.org publication state (MITRE API), independent of the tracker body
 reporter:
   name: <name or null>

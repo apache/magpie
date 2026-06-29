@@ -13,8 +13,7 @@ when_to_use: |
   Invoke when a security team member says "import the scan",
   "triage the <scanner> findings for <repo/component>", "import
   scan results from <issue>", or hands one or more paths / tree-URLs
-  to scan report folders. The reference adapter is ASVS
-  (`apache/tooling-agents` ASVS reports), but the flow is
+  to scan report folders. The reference adapter is ASVS, but the flow is
   scanner-agnostic via `tools/scan-format/`. Skip for a single
   human-authored inbound report (use `security-issue-import`), a
   single markdown findings file with no per-finding evidence split
@@ -30,8 +29,7 @@ license: Apache-2.0
      <tracker>        → `tracker_repo:` in <project-config>/project.md
      <upstream>       → `upstream_repo:` in <project-config>/project.md
      <scan-repo>      → the public repository the scan reports live in
-                        (declared in <project-config>/project.md → scan sources;
-                        the reference adopter uses `apache/tooling-agents`)
+                        (declared in <project-config>/project.md → scan sources)
      <scan-format>    → adapter under `tools/scan-format/` named by the
                         project's enabled scan formats (reference: `asvs`) -->
 
@@ -125,7 +123,7 @@ proposing [`/magpie-setup upgrade`](../setup/upgrade.md) on drift
 
 The selector accepts **one or more** sources, freely mixing GitHub
 issues and report folders (e.g. *"import #23, #24 and #34"*, or
-*"import the `ASVS/reports/opus-4.8/airflow` tree"*).
+*"import the `ASVS/reports/opus-4.8/<component>` tree"*).
 
 **Multiple sources in one run.** Resolve every source to a concrete set
 of **scan folders** (each a directory the scan-format adapter recognises
