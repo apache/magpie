@@ -321,13 +321,18 @@ confirmation before creating the issue.
 
 Proposed issue title: `Release <Product Name> <version>`
 
-If the RM confirms, create the issue via:
+If the RM confirms, write the body to a temp file (the planning issue body
+is internally-generated content, not attacker-controlled, but using
+`--body-file` avoids shell-quoting edge cases with multi-line bodies):
 
 ```bash
+cat > /tmp/planning-issue-body-<version>.md <<'EOF'
+<body>
+EOF
 gh issue create \
   --repo <upstream> \
   --title "Release <Product Name> <version>" \
-  --body "<body>" \
+  --body-file /tmp/planning-issue-body-<version>.md \
   --label "release-planning"
 ```
 

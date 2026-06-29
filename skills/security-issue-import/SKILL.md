@@ -1937,7 +1937,7 @@ media / cross-thread-followup / fix-already-public):
 
    ```bash
    LEDGER=$(gh issue list --repo <tracker> --state open \
-     --label rejections-ledger --json number --jq '.[0].number')
+     --label rejections-ledger --limit 5 --json number --jq '.[0].number')
    ```
 
    *Write tool call:* `file_path: /tmp/rejection-<threadId>.md`,

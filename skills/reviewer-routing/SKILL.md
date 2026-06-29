@@ -27,7 +27,6 @@ license: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
 <!-- Placeholder convention (see ../../AGENTS.md#placeholder-convention-used-in-skill-files):
-     <tracker>         → GitHub slug of the security tracker repo
      <upstream>        → GitHub slug of the upstream codebase
      <project-config>  → the adopting project's config directory
      <default-branch>  → upstream's default branch (master vs main)
