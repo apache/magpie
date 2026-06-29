@@ -97,4 +97,5 @@ governance vocabulary and the capability→adapter bundle, and point your
 project at it with `organization: <org>`. You can then either
 **contribute it back** to `apache/magpie` under Apache-2.0 (so other
 projects in your organization reuse it) or keep it local. See
-[`docs/vendor-neutrality.md` § Authoring your own adapter](../docs/vendor-neutrality.md#authoring-your-own-adapter).
+[`docs/adapters/authoring.md`](../docs/adapters/authoring.md) (and
+[`docs/vendor-neutrality.md` § Authoring your own adapter](../docs/vendor-neutrality.md#authoring-your-own-adapter)).

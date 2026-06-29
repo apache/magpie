@@ -248,11 +248,13 @@ organization profile — you author one, and you have two supported paths:
   so every other adopter on that backend reuses your work. The
   [`write-skill`](../skills/write-skill/SKILL.md) flow and
   [`CONTRIBUTING.md`](../CONTRIBUTING.md) walk you through the conventions
-  (a `**Capability:**` line, a `## Prerequisites` section, an eval).
+  (a `**Capability:**` line, a `## Prerequisites` section, an eval); the
+  step-by-step how-to is [`docs/adapters/authoring.md`](adapters/authoring.md).
 - **Link to an adapter defined elsewhere.** You do not have to upstream
   it. Keep the adapter in your own repository and point your project or
-  organization config at it. The framework curates a discovery index of
-  in-tree and community-maintained adapters — but, per
+  organization config at it. The framework curates a
+  [discovery index](adapters/registry.md) of in-tree and
+  community-maintained adapters — but, per
   [`PRINCIPLES.md` §13](../PRINCIPLES.md#13-snapshot-plus-override-never-vendored-copies),
   an index is **for discovery, never for installation**: nothing is
   auto-fetched, and you wire an external adapter in deliberately, exactly
