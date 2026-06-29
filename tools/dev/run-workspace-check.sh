@@ -66,6 +66,16 @@ CHECK_KEY="$1"
 CHECK_CMD="$2"
 shift 2
 
+# Scrub location-redirecting git env vars. When pre-commit runs this script
+# as a git hook, git exports GIT_DIR / GIT_INDEX_FILE / GIT_WORK_TREE (etc.)
+# pointing at *this* repository. Any member test that shells out to `git` in
+# a throwaway repo (e.g. tools/agent-isolation, tools/vcs) would otherwise
+# inherit those and operate on the wrong repository — passing standalone but
+# failing under `git commit`. Unsetting them makes git resolve the repo from
+# each test's own cwd. This script reads pyproject.toml via Python, not git,
+# so it needs none of these itself.
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX
+
 # On Apple Silicon Macs, git ships as x86_64 (Rosetta). Pre-commit hooks
 # invoked by git therefore run in an x86_64 context where universal Python
 # binaries also run as x86_64, which cannot load arm64-compiled extensions
