@@ -21,6 +21,7 @@ members = [
     "github-body-field",
     "github-rollup",
     "jira-bridge",
+    "magpie-vcs",
     "oauth-draft",
     "permission-audit",
     "pr-management-stats",
@@ -510,6 +511,11 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/62/4a/7d1415567027286a75ba1093ec4aca11f073e0f559c530cf3e0a757ad55c/librt-0.11.0-cp314-cp314t-win_amd64.whl", hash = "sha256:28edb433edde181112a908c78907af28f964eabc15f4dd16c9d66c834302677c", size = 124327, upload-time = "2026-05-10T18:17:05.465Z" },
     { url = "https://files.pythonhosted.org/packages/ce/62/b40b382fa0c66fee1478073eb8db352a4a6beda4a1adccf1df911d8c289c/librt-0.11.0-cp314-cp314t-win_arm64.whl", hash = "sha256:dee008f20b542e3cd162ba338a7f9ec0f6d23d395f66fe8aeeec3c9d067ea253", size = 102572, upload-time = "2026-05-10T18:17:06.809Z" },
 ]
+
+[[package]]
+name = "magpie-vcs"
+version = "0.1.0"
+source = { editable = "tools/vcs" }
 
 [[package]]
 name = "mypy"

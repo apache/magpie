@@ -111,4 +111,5 @@ members = [
   "tools/skill-evals",
   "tools/spec-status-index",
   "tools/spec-validator",
+  "tools/vcs",
 ]

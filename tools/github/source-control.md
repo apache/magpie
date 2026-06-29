@@ -26,6 +26,14 @@ explicit `fetch` / `push`. A project can in principle pair GitHub's
 tracker with a different VCS, or a different forge with Git — see
 [*When to replace this capability*](#when-to-replace-this-capability).
 
+This contract has a runnable implementation in
+[`tools/vcs/`](../vcs/README.md) (`magpie-vcs`): one abstract
+`VCSBackend` interface, a complete Git backend, and detected extension
+points for the non-Git bridges. A skill can call the abstract operation
+(`magpie-vcs diff`, `magpie-vcs log`) instead of a raw `git` command and
+let the tool dispatch to whichever backend governs the working copy. The
+Git-binding tables below are the contract that tool implements.
+
 ## What the skills require
 
 The dev-loop skills (`issue-fix-workflow`, `pr-management-code-review`,

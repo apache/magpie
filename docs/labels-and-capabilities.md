@@ -230,6 +230,7 @@ Tools under [`tools/`](../tools/). Tools with two values (separated by
 | [`tools/skill-and-tool-validator`](../tools/skill-and-tool-validator/) | `capability:setup` | Skill-frontmatter and convention validator |
 | [`tools/spec-status-index`](../tools/spec-status-index/) | `capability:setup` + `capability:stats` | Index of spec / RFC implementation status — substrate that also doubles as a governance/stats view |
 | [`tools/spec-validator`](../tools/spec-validator/) | `capability:setup` | Spec-frontmatter and body-section validator — counterpart to `skill-and-tool-validator` for `tools/spec-loop/specs/` |
+| [`tools/vcs`](../tools/vcs/) | `capability:setup` | Backend-dispatching implementation of the source-control (VCS) capability ([`tools/github/source-control.md`](../tools/github/source-control.md)); complete Git backend plus detected extension points for non-Git VCS bridges (#601 Hg, #602 SVN) |
 
 A tool's capabilities are determined by its **use-case lifecycle
 phases**, not by which skills happen to consume it. `tools/github` is
