@@ -214,7 +214,18 @@ giving every other agent directory (`.claude/skills/`,
 ([`README.md` § snapshot + override](../README.md)). Users already run
 Magpie under several different agentic CLIs. Adding first-class features
 for another runtime is an [`area:tools`](labels-and-capabilities.md#1-area--subject)
-contribution, not a re-architecture.
+contribution, not a re-architecture — and the extension points are
+already open, labelled `good first issue`:
+[Codex](https://github.com/apache/magpie/issues/313),
+[Gemini CLI](https://github.com/apache/magpie/issues/314),
+[local LLM (Ollama / llama.cpp / vLLM)](https://github.com/apache/magpie/issues/315),
+[Cursor](https://github.com/apache/magpie/issues/316),
+[Aider](https://github.com/apache/magpie/issues/317),
+[GitHub Copilot](https://github.com/apache/magpie/issues/318),
+[Goose](https://github.com/apache/magpie/issues/319),
+[Amazon Q](https://github.com/apache/magpie/issues/320),
+[JetBrains Junie](https://github.com/apache/magpie/issues/321),
+[OpenHands](https://github.com/apache/magpie/issues/322).
 
 ### 3. Forge and tracker
 
@@ -223,9 +234,28 @@ Forge and tracker access is mediated entirely by the tool layer:
 are substrate today, and the contract-plus-adapter tools above
 (`mail-archive`, `mail-source`, `forwarder-relay`, `cve-tool`,
 `scan-format`) already abstract the surfaces where more than one vendor
-exists. Skills speak to the capability, so a Git-forge backend
-(GitLab, Gitea, Forgejo, Pagure, Bitbucket) plugs in at the tool layer
-without the workflows knowing which forge answered.
+exists. Skills speak to the capability, so a forge/tracker backend plugs
+in at the tool layer without the workflows knowing which forge answered
+— the recipe is documented in
+[`tools/github/tool.md` § When to replace this tool](../tools/github/tool.md#when-to-replace-this-tool-with-another)
+(create a sibling `tools/<name>/` with the same capability files;
+declare it under *Tools enabled*; no skill changes).
+
+The forge/tracker extension points are open, labelled `good first
+issue`, not hypothetical:
+[GitLab](https://github.com/apache/magpie/issues/305),
+[Codeberg / Gitea / Forgejo](https://github.com/apache/magpie/issues/310),
+[Pagure](https://github.com/apache/magpie/issues/312) (Fedora /
+`pagure.io`),
+[Bitbucket](https://github.com/apache/magpie/issues/306) (deep Jira
+pairing), and
+[SourceHut](https://github.com/apache/magpie/issues/607) (email-patch
+review). Tracker-only surfaces are tracked the same way — e.g.
+[Bugzilla](https://github.com/apache/magpie/issues/302) — alongside the
+existing [`tools/jira`](../tools/jira/) bridge. The
+tracker capability and the source-control capability are *separable*: a
+project can pair, say, GitHub issues with a Subversion working copy, or
+a Bitbucket forge over Git, because each is a distinct contract.
 
 ### 4. Source control (VCS)
 
@@ -313,8 +343,8 @@ coverage without pretending one team can implement an open-ended set.
 | Axis | Architecture neutral? | Reference backends working today | Extension points |
 |---|---|---|---|
 | LLM backend | ✅ by construction | Claude Code, Ollama, vLLM, Apache-hosted, Bedrock, direct Anthropic | Any endpoint meeting the capability floor + privacy gate |
-| Agentic runtime | ✅ by construction (`AGENTS.md` standard) | Claude Code; community use under Codex, Cursor, Gemini CLI, Copilot, OpenCode, Kiro | `area:tools` features per runtime |
-| Forge / tracker | ✅ by construction | GitHub, Jira; mail/CVE/scan/relay via adapter contracts | Git-forge + tracker adapters at the tool layer |
+| Agentic runtime | ✅ by construction (`AGENTS.md` standard) | Claude Code; community use under Codex, Cursor, Gemini CLI, Copilot, OpenCode, Kiro | Runtime adapters [#313–#322](https://github.com/apache/magpie/issues?q=is%3Aissue+state%3Aopen+adapter+in%3Atitle) |
+| Forge / tracker | ✅ by construction | GitHub, Jira; mail/CVE/scan/relay via adapter contracts | GitLab [#305](https://github.com/apache/magpie/issues/305), Forgejo/Gitea [#310](https://github.com/apache/magpie/issues/310), Pagure [#312](https://github.com/apache/magpie/issues/312), Bitbucket [#306](https://github.com/apache/magpie/issues/306), SourceHut [#607](https://github.com/apache/magpie/issues/607), Bugzilla [#302](https://github.com/apache/magpie/issues/302) |
 | Source control (VCS) | ✅ by construction | **Git (complete)** | Mercurial, Subversion (detected); Jujutsu, Fossil, Perforce, Bitbucket, SourceHut (tracked) |
 | Project governance | ✅ by construction | ASF + non-ASF adopter profiles | Adopter config (modes, thresholds) |
 
