@@ -23,7 +23,7 @@ The checks run in order. The first failure stops the run.
 
 | # | Rule | Detection |
 |---|---|---|
-| 1 | No praise without specificity. | Reject if the draft contains "great question", "thanks for the contribution", "awesome", "amazing", "fantastic", "love this", or any standalone praise sentence (a sentence whose only content is positive affect). Praise *with* a specific reference ("nice catch on the off-by-one in `foo()`") is fine, but Mentoring does not have that information by construction; in practice this rule means: no praise. |
+| 1 | No praise without specificity. | Reject if the draft contains "great question", "thanks for the contribution", "awesome", "amazing", "fantastic", "love this", or any standalone praise sentence (a sentence whose only content is positive affect). Praise *with* a specific reference ("nice catch on the off-by-one in `foo()`") is fine, but Agentic Mentoring does not have that information by construction; in practice this rule means: no praise. |
 | 2 | No restating the contributor's message. | Reject if the draft contains "so what you're saying is", "if I understand correctly", "you mentioned that", or any sentence whose content is a paraphrase of the contributor's most recent message. |
 | 3 | No AI self-reference outside the footer. | Reject if the body (everything before `<ai_attribution_footer>`) contains "as an AI", "I'm an AI", "I cannot", "as a language model", "I was trained", "my training", or "I don't have access to". The footer says it once. The body says nothing. |
 | 4 | No speaking for the maintainer. | Reject if the draft contains "the maintainers will probably", "the maintainers want", "the team would prefer", or any forward-looking claim about a maintainer decision. The skill says "a maintainer will reply" and stops. |
@@ -32,7 +32,7 @@ The checks run in order. The first failure stops the run.
 | 7 | Footer present and verbatim. | Reject if the draft does not end with the literal `<ai_attribution_footer>` expansion from `<project-config>/mentoring-config.md`. Reject if anything follows the footer. |
 | 8 | Author tagged once. | Reject if `@<author>` appears zero times or more than once. The first line tags; the rest of the comment does not. |
 | 9 | No paraphrased docs. | Reject if the body contains a quoted block of more than two lines from a project doc. The convention is link, don't quote. |
-| 10 | No predictions about review outcome. | Reject if the draft contains "looks good", "this should be approved", "this will probably be merged", "I don't think this will land". Mentoring does not signal review outcomes. |
+| 10 | No predictions about review outcome. | Reject if the draft contains "looks good", "this should be approved", "this will probably be merged", "I don't think this will land". Agentic Mentoring does not signal review outcomes. |
 
 ---
 
@@ -67,5 +67,5 @@ Surfaced so reviewers can push back.
   the right length depends on the intervention; a why-question
   answer can legitimately need a few sentences of context.
 - **Inclusivity / language scan.** Important, but lives in the
-  framework's general writing standards, not in the Mentoring
+  framework's general writing standards, not in the Agentic Mentoring
   tone checks specifically.

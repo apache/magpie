@@ -30,7 +30,7 @@ license: Apache-2.0
 
 # pairing-self-review
 
-This skill is the **pre-flight self-review** entry point for the Pairing mode family.
+This skill is the **pre-flight self-review** entry point for the Agentic Pairing mode family.
 It runs in the developer's own dev loop — after local changes are ready but before
 opening a PR — and returns a structured review report. The report replaces
 implementation-detail chatter so the eventual human-to-human conversation stays on

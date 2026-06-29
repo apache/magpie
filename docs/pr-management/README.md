@@ -14,11 +14,14 @@
 
 # PR management skill family
 
+> **Scope — `asf: false`.** Works on any project, ASF or not — no
+> Apache-Software-Foundation-specific assumptions baked in.
+
 Maintainer-facing PR-queue management for projects with a public
 contributor PR queue. Four skills that compose into a complete
 triage + review pass:
 
-1. **Triage** — sweep open PRs, classify against the project's
+1. **Agentic Triage** — sweep open PRs, classify against the project's
    quality criteria, propose a disposition (draft / comment /
    close / rebase / rerun / mark ready / ping), execute on
    maintainer confirmation.

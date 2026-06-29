@@ -35,7 +35,7 @@ page is the two-minute summary.
    airflow-s adopter, the foundation-wide relay is
    `security@apache.org`.)
 
-2. **Triage.**
+2. **Agentic Triage.**
    A rotating triager imports new reports into the private
    `<tracker>` repository (see the
    [`security-issue-import`](../../skills/security-issue-import/SKILL.md)

@@ -17,6 +17,11 @@
 
 # Release-management skill family
 
+> **Scope — `asf: true` · 🪶 ASF-specific.** This family encodes Apache Software
+> Foundation processes (the 14-step release lifecycle) and assumes an ASF adopter
+> profile by default. Non-ASF projects can still adopt it through the
+> adapter/config layer, but it carries ASF assumptions the generic families do not.
+
 End-to-end automation for an ASF project's release lifecycle,
 from the planning issue and version bump through to `[ANNOUNCE]`
 on `announce@apache.org`, archive sweep, and the per-release
@@ -58,8 +63,8 @@ baked into the install path:
   `discord-channel`.
 
 The 14 steps stay identical across backends; only the command set
-the agent emits changes. The state-change boundaries (Drafting vs
-Triage; agent never holds the signing key; agent never publishes)
+the agent emits changes. The state-change boundaries (Agentic Drafting vs
+Agentic Triage; agent never holds the signing key; agent never publishes)
 stay identical too. See
 [`process.md` § Adopter backends](process.md#adopter-backends)
 for the full backend table and per-step mapping.
@@ -95,7 +100,7 @@ contract are reviewable independently from runtime behaviour.
 This pattern matches [Mentoring](../mentoring/README.md).
 
 Promotion of any skill in this family from `experimental` to
-default-on, or from Drafting to a state-changing lane, requires
+default-on, or from Agentic Drafting to a state-changing lane, requires
 evidence sourced from Release Managers and binding voters that
 the project's release process is healthier (fewer stalled
 RCs, shorter time-to-`[ANNOUNCE]`, fewer reverted promotions),
@@ -116,18 +121,18 @@ for the step it executes against.
 
 | Skill | Mode | Steps owned | Status | Purpose |
 |---|---|---|---|---|
-| [`release-prepare`](../../skills/release-prepare/SKILL.md) | Drafting | 1, 2, 14 | **experimental** | Open the planning issue, draft the version-bump + changelog + NOTICE/LICENSE PR, then draft the post-release `-SNAPSHOT` bump. |
-| [`release-keys-sync`](../../skills/release-keys-sync/SKILL.md) | Drafting | 3 | **experimental** | Draft the `KEYS` diff for a Release Manager cutting their first release for the project. Agent never holds the private key. |
-| [`release-rc-cut`](../../skills/release-rc-cut/SKILL.md) | Drafting | 4, 5 | **experimental** | Emit the paste-ready command sequence, signed tag, build, detached signatures, checksums, `svn` import to `dist/dev/<project>/`. Agent never signs and never imports. |
-| [`release-verify-rc`](../../skills/release-verify-rc/SKILL.md) | Triage / Pairing | 6 | **experimental** | Read-only pre-flight: signatures against the project's `KEYS`, checksums, license headers (Apache RAT), NOTICE/LICENSE presence, no prohibited binaries, version-string consistency. Voters can run it in their own dev loop before posting `+1`. |
-| [`release-vote-draft`](../../skills/release-vote-draft/SKILL.md) | Drafting | 7 | **experimental** | Draft the `[VOTE]` email body to `dev@<project>`. Agent never sends. |
-| [`release-vote-tally`](../../skills/release-vote-tally/SKILL.md) | Triage | 9 | **experimental** | Parse the vote thread, classify each reply (+1 / 0 / -1) binding vs non-binding against the PMC roster, propose `[RESULT] [VOTE]`. Conservative on ambiguous votes, refuses to count, flags `AMBIGUOUS, needs RM call`. |
-| [`release-promote`](../../skills/release-promote/SKILL.md) | Drafting | 10 | **experimental** | Emit the paste-ready `svn mv dist/dev → dist/release` command set plus commit message. Agent never moves; the human commit is the act of release. |
-| [`release-announce-draft`](../../skills/release-announce-draft/SKILL.md) | Drafting | 11 | **experimental** | Draft the `[ANNOUNCE]` email body to `announce@apache.org` and the site-bump PR (download page, release notes, version banner). Agent never sends mail and never merges the site PR. |
-| [`release-archive-sweep`](../../skills/release-archive-sweep/SKILL.md) | Triage | 12 | **experimental** | Scan `dist/release/<project>/`, identify releases past retention, propose the `svn mv` sequence to `archive.apache.org`. Agent never moves. |
-| [`release-audit-report`](../../skills/release-audit-report/SKILL.md) | Triage (dashboard) | 13 | **experimental** | Read-only structured report per release, RM, voters with binding flags, artefacts with sigs and checksums, promotion revision, `[ANNOUNCE]` archive URL. Output appended to the project's audit log. |
+| [`release-prepare`](../../skills/release-prepare/SKILL.md) | Agentic Drafting | 1, 2, 14 | **experimental** | Open the planning issue, draft the version-bump + changelog + NOTICE/LICENSE PR, then draft the post-release `-SNAPSHOT` bump. |
+| [`release-keys-sync`](../../skills/release-keys-sync/SKILL.md) | Agentic Drafting | 3 | **experimental** | Draft the `KEYS` diff for a Release Manager cutting their first release for the project. Agent never holds the private key. |
+| [`release-rc-cut`](../../skills/release-rc-cut/SKILL.md) | Agentic Drafting | 4, 5 | **experimental** | Emit the paste-ready command sequence, signed tag, build, detached signatures, checksums, `svn` import to `dist/dev/<project>/`. Agent never signs and never imports. |
+| [`release-verify-rc`](../../skills/release-verify-rc/SKILL.md) | Agentic Triage / Agentic Pairing | 6 | **experimental** | Read-only pre-flight: signatures against the project's `KEYS`, checksums, license headers (Apache RAT), NOTICE/LICENSE presence, no prohibited binaries, version-string consistency. Voters can run it in their own dev loop before posting `+1`. |
+| [`release-vote-draft`](../../skills/release-vote-draft/SKILL.md) | Agentic Drafting | 7 | **experimental** | Draft the `[VOTE]` email body to `dev@<project>`. Agent never sends. |
+| [`release-vote-tally`](../../skills/release-vote-tally/SKILL.md) | Agentic Triage | 9 | **experimental** | Parse the vote thread, classify each reply (+1 / 0 / -1) binding vs non-binding against the PMC roster, propose `[RESULT] [VOTE]`. Conservative on ambiguous votes, refuses to count, flags `AMBIGUOUS, needs RM call`. |
+| [`release-promote`](../../skills/release-promote/SKILL.md) | Agentic Drafting | 10 | **experimental** | Emit the paste-ready `svn mv dist/dev → dist/release` command set plus commit message. Agent never moves; the human commit is the act of release. |
+| [`release-announce-draft`](../../skills/release-announce-draft/SKILL.md) | Agentic Drafting | 11 | **experimental** | Draft the `[ANNOUNCE]` email body to `announce@apache.org` and the site-bump PR (download page, release notes, version banner). Agent never sends mail and never merges the site PR. |
+| [`release-archive-sweep`](../../skills/release-archive-sweep/SKILL.md) | Agentic Triage | 12 | **experimental** | Scan `dist/release/<project>/`, identify releases past retention, propose the `svn mv` sequence to `archive.apache.org`. Agent never moves. |
+| [`release-audit-report`](../../skills/release-audit-report/SKILL.md) | Agentic Triage (dashboard) | 13 | **experimental** | Read-only structured report per release, RM, voters with binding flags, artefacts with sigs and checksums, promotion revision, `[ANNOUNCE]` archive URL. Output appended to the project's audit log. |
 
-Two non-negotiable boundaries cross every Drafting skill above:
+Two non-negotiable boundaries cross every Agentic Drafting skill above:
 
 - **The agent never holds, invokes, or proxies the Release
   Manager's private signing key.** Steps 3, 4, 10 emit paste-ready
@@ -188,15 +193,15 @@ file-by-file index. Required at minimum:
 ## Mode mapping
 
 Release-management is a **family**, not a mode. The lifecycle
-spans the existing Triage and Drafting modes; no new mode is
+spans the existing Agentic Triage and Agentic Drafting modes; no new mode is
 introduced. See [`docs/modes.md`](../modes.md) for the
 family-by-mode breakdown; `release-*` skills appear under the
-**Triage** and **Drafting** subsections (all ten skills are now
+**Agentic Triage** and **Agentic Drafting** subsections (all ten skills are now
 `experimental`; the family is feature-complete).
 
 The family's read-only dashboard skill
 (`release-audit-report`)
-sits in Triage because it classifies and reports against existing
+sits in Agentic Triage because it classifies and reports against existing
 state, not because it routes inbound work. The
 [`docs/modes.md` § Outside the modes](../modes.md#outside-the-modes)
 section is reserved for framework infrastructure (`setup-*`,

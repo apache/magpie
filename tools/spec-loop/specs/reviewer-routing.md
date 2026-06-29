@@ -8,7 +8,7 @@ kind: feature
 mode: Triage
 source: >
   MISSION.md § Rationale ("review-cycle latency" is one of the two named
-  priorities) and § Technical scope (Triage: "proposes initial routing",
+  priorities) and § Technical scope (Agentic Triage: "proposes initial routing",
   "proposes routing"). The substrate config already declares "who
   reviews" (overview.md § Substrate; projects/_template adopter config),
   but no skill turns that roster plus repository signal into an assignee
@@ -39,13 +39,13 @@ touched area, git-history familiarity with the changed paths, and the
 reviewer's current open-review load so routing spreads work instead of
 piling it on the most-recently-active person. The output is a proposal a
 maintainer confirms; nothing is assigned on autopilot. This is the
-Triage-mode counterpart to `contributor-nomination` on the read-only
+Agentic Triage-mode counterpart to `contributor-nomination` on the read-only
 side: a grounded brief a human acts on, not a state change.
 
 ## Where it lives
 
 - Skill (proposed, not implemented): `reviewer-routing` under
-  `skills/`, in the Triage family alongside `pr-management-triage` and
+  `skills/`, in the Agentic Triage family alongside `pr-management-triage` and
   `issue-triage`.
 - Roster source: the project's configured reviewer roster
   (`projects/<project>/` adopter config; `pmc-roster.md` for ASF
@@ -85,7 +85,7 @@ side: a grounded brief a human acts on, not a state change.
 
 - Assigning, requesting review, or labelling on the tracker (those are
   human acts the maintainer performs after confirming).
-- Authoring or merging the change (Drafting / Auto-merge, not Triage).
+- Authoring or merging the change (Agentic Drafting / Agentic Autonomous, not Agentic Triage).
 - Inventing a reviewer outside the roster, or routing on contributor
   sentiment / performance ranking — the skill proposes who is best
   placed to review a specific change, not who is a "better" maintainer.

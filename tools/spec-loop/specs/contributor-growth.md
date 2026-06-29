@@ -9,7 +9,7 @@ mode: Triage
 source: >
   MISSION.md § Rationale ("Project health depends on a growing contributor
   base"). triage-mode.md § Known gaps (contributor-growth skills span
-  Triage and Mentoring but are not yet a named family).
+  Agentic Triage and Agentic Mentoring but are not yet a named family).
   mentoring-mode.md § Known gaps. Implemented by contributor-nomination,
   contributor-activity-sweep, committer-onboarding, good-first-issue-author,
   and mentoring-welcome.
@@ -97,7 +97,7 @@ state change for human sign-off.
   activity card are inputs for a PMC vote, not a pre-decided
   recommendation.
 - **Teaching register for first-contact.** `mentoring-welcome` and
-  `good-first-issue-author` follow the Mentoring mode's tone
+  `good-first-issue-author` follow the Agentic Mentoring mode's tone
   contract (polite, never gatekeeping) and hand off to a human
   reviewer on anything that exceeds the agent's scope.
 
@@ -153,7 +153,7 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
   before a skill can safely propose anything. These are candidate work
   items once the active-path skills stabilise and an adopter pilot
   surfaces the concrete policy knobs needed.
-- **Mode boundary with Mentoring is intentionally fuzzy.** Two family
+- **Mode boundary with Agentic Mentoring is intentionally fuzzy.** Two family
   skills (`mentoring-welcome`, `good-first-issue-author`) carry
   `mode: Mentoring` and are documented in [mentoring-mode.md](mentoring-mode.md);
   three carry `mode: Triage`. A later family-maturity review may

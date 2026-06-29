@@ -30,7 +30,7 @@ license: Apache-2.0
 
 # mentoring-welcome
 
-**Status: experimental.** A Mentoring
+**Status: experimental.** A Agentic Mentoring
 ([conversational mentoring](../../docs/mentoring/spec.md)) skill that
 greets a first-time contributor with orientation context on their very
 first issue or PR: the contributing guide, community norms, expected
@@ -50,7 +50,7 @@ If the author is not a first-time contributor, the skill exits silently.
 The agent's silence is a feature: it does not spam repeat contributors
 with orientation they have already internalized.
 
-The Mentoring spec (scope, tone, hand-off rules, adopter knobs) lives in
+The Agentic Mentoring spec (scope, tone, hand-off rules, adopter knobs) lives in
 [`docs/mentoring/spec.md`](../../docs/mentoring/spec.md). This SKILL.md
 is the runtime; detail files break out the orientation content:
 
@@ -173,8 +173,8 @@ confirmation; the maintainer decides whether to notify the team.
   hand-off immediately.
 - **Auto-fire.** Every invocation is opt-in by a maintainer. No cron,
   no webhook, no auto-trigger — the same constraint that governs every
-  Mentoring skill.
-- **Tag or label the thread.** Labeling is Triage's job
+  Agentic Mentoring skill.
+- **Tag or label the thread.** Labeling is Agentic Triage's job
   ([`pr-management-triage`](../pr-management-triage/SKILL.md)).
 - **Teach conventions.** Convention pointers on an existing thread belong
   to [`pr-management-mentor`](../pr-management-mentor/SKILL.md). This
@@ -183,7 +183,7 @@ confirmation; the maintainer decides whether to notify the team.
 ## Cross-references
 
 - [`docs/mentoring/spec.md`](../../docs/mentoring/spec.md) — the
-  Mentoring spec this skill implements.
+  Agentic Mentoring spec this skill implements.
 - [`docs/mentoring/README.md`](../../docs/mentoring/README.md) — family
   overview and status.
 - [`docs/modes.md` § Mentoring](../../docs/modes.md#mentoring) —
@@ -191,8 +191,8 @@ confirmation; the maintainer decides whether to notify the team.
 - [`pr-management-mentor`](../pr-management-mentor/SKILL.md) — sibling
   skill for teaching-register interventions on existing threads.
 - [`good-first-issue-author`](../good-first-issue-author/SKILL.md) —
-  the supply-side Mentoring skill that authors newcomer-ready issues.
+  the supply-side Agentic Mentoring skill that authors newcomer-ready issues.
 - [`projects/_template/mentoring-welcome-config.md`](../../projects/_template/mentoring-welcome-config.md) —
   adopter config scaffold.
-- [`MISSION.md` § Mentoring](../../MISSION.md#technical-scope) —
+- [`MISSION.md` § Agentic Mentoring](../../MISSION.md#technical-scope) —
   onboarding-latency framing.

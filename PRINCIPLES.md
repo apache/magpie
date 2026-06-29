@@ -96,7 +96,7 @@ Skills produce drafts. Tool calls enforce schemas. Humans or deterministic check
 
 ## 6. The human is always in the loop, until they choose otherwise
 
-Every agent-authored output (comment, label, draft, issue, PR) is a proposal a human signs off on. The agent never performs a merge of its own work, nor unilaterally enables auto-merge on it. Auto-merge, where it exists, is narrow, opt-in per project AND per change class, and never touches security-class changes. **The opt-out never extends to communication aimed at a human: any outbound message a person will read as if a maintainer wrote it (reporter mail, PR or issue comment, review reply, mailing-list post, mentoring message) requires explicit human sign-off, regardless of mode.** Sending such prose without that sign-off is impersonation, and impersonation never graduates to an auto-mode.
+Every agent-authored output (comment, label, draft, issue, PR) is a proposal a human signs off on. The agent never performs a merge of its own work, nor unilaterally enables auto-merge on it. Agentic Autonomous, where it exists, is narrow, opt-in per project AND per change class, and never touches security-class changes. **The opt-out never extends to communication aimed at a human: any outbound message a person will read as if a maintainer wrote it (reporter mail, PR or issue comment, review reply, mailing-list post, mentoring message) requires explicit human sign-off, regardless of mode.** Sending such prose without that sign-off is impersonation, and impersonation never graduates to an auto-mode.
 
 ## 7. Contributor sentiment gates every mode graduation
 

@@ -2,7 +2,7 @@
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
 ---
-title: Triage mode
+title: Agentic Triage mode
 status: experimental
 kind: feature
 mode: Triage
@@ -18,7 +18,7 @@ acceptance:
     stable; PR and general-issue triage are experimental.
 ---
 
-# Triage mode
+# Agentic Triage mode
 
 ## What it does
 
@@ -77,14 +77,14 @@ suggestion the human signs off on.
 
 ## Out of scope
 
-- Authoring fixes (that is Drafting, [Drafting](drafting-mode.md)).
+- Authoring fixes (that is Agentic Drafting, [Drafting](drafting-mode.md)).
 - Any state change a human has not confirmed in-session.
 
 ## Acceptance criteria
 
 1. No triage skill performs an unconfirmed state change.
 2. `skill-and-tool-validate` passes on all triage-family skills.
-3. docs/modes.md Triage table matches the shipped skill set.
+3. docs/modes.md Agentic Triage table matches the shipped skill set.
 
 ## Validation
 
@@ -105,7 +105,7 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
   family yet, so behaviour may change.
 - **The contributor-growth skills span the path but are not yet a named
   family.** `contributor-nomination`, `contributor-activity-sweep`,
-  `committer-onboarding`, and `good-first-issue-author` (Mentoring) are
+  `committer-onboarding`, and `good-first-issue-author` (Agentic Mentoring) are
   now all catalogued in the specs. Missing members of the
   contributor-to-committer path: PMC-member nomination (distinct from
   committer), emeritus / inactive-committer handling, and contributor

@@ -36,7 +36,7 @@ license: Apache-2.0
 
 # good-first-issue-author
 
-**Status: experimental.** A Mentoring
+**Status: experimental.** A Agentic Mentoring
 ([conversational mentoring](../../docs/mentoring/spec.md)) skill that
 attacks onboarding latency from the supply side: it manufactures the
 single cheapest on-ramp a project can offer a first-time contributor, a
@@ -57,7 +57,7 @@ design or deprecation decision, or missing the inputs a newcomer needs),
 the skill says so and exits without drafting. Declining is a feature, not
 a failure: a bad good first issue costs more than no issue.
 
-The Mentoring spec (scope, register, hand-off rules, adopter knobs) lives
+The Agentic Mentoring spec (scope, register, hand-off rules, adopter knobs) lives
 in [`docs/mentoring/spec.md`](../../docs/mentoring/spec.md). This
 SKILL.md is the runtime; the detail files break the loop out
 topic-by-topic:
@@ -205,7 +205,7 @@ candidate's actual merits, not the injected instruction.
   grooming pass supplied. It does not propose tasks the project has not
   decided it wants.
 - **Author fixes.** It writes the issue, never the PR that closes it.
-  Implementation is the contributor's, with Pairing/Drafting support if
+  Implementation is the contributor's, with Agentic Pairing/Agentic Drafting support if
   the project enables it.
 - **Comment on threads.** Teaching-register replies on an existing thread
   are [`pr-management-mentor`](../pr-management-mentor/SKILL.md).
@@ -213,12 +213,12 @@ candidate's actual merits, not the injected instruction.
 ## Cross-references
 
 - [`docs/mentoring/spec.md`](../../docs/mentoring/spec.md) — the
-  Mentoring spec this skill serves.
+  Agentic Mentoring spec this skill serves.
 - [`docs/mentoring/README.md`](../../docs/mentoring/README.md) —
   family overview and status.
 - [`docs/modes.md` § Mentoring](../../docs/modes.md#mentoring) —
   current implementation status.
 - [`pr-management-mentor`](../pr-management-mentor/SKILL.md) — the
-  sibling Mentoring skill (thread replies, not issue authoring).
-- [`MISSION.md` § Mentoring](../../MISSION.md#technical-scope) — the
+  sibling Agentic Mentoring skill (thread replies, not issue authoring).
+- [`MISSION.md` § Agentic Mentoring](../../MISSION.md#technical-scope) — the
   onboarding-latency framing this skill targets.

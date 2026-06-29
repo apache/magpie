@@ -16,11 +16,14 @@
 
 # Issue management skill family
 
+> **Scope — `asf: false`.** Works on any project, ASF or not — no
+> Apache-Software-Foundation-specific assumptions baked in.
+
 Maintainer-facing skills for projects with a general-issue tracker
 (JIRA, GitHub Issues, Bugzilla, GitLab Issues). Six skills that
 cover per-issue work, pool-level sweeps, and read-only reporting:
 
-1. **Triage** — sweep open issues in the configured candidate pool,
+1. **Agentic Triage** — sweep open issues in the configured candidate pool,
    classify against the project's criteria, propose a disposition
    (BUG / FEATURE-REQUEST / NEEDS-INFO / DUPLICATE / INVALID /
    ALREADY-FIXED), execute on maintainer confirmation.
@@ -67,11 +70,11 @@ configured with different trackers.
 
 | Skill | Mode | Purpose |
 |---|---|---|
-| [`issue-triage`](../../skills/issue-triage/SKILL.md) | Triage | Per-issue classification + disposition proposal |
-| [`issue-reassess`](../../skills/issue-reassess/SKILL.md) | Triage | Pool-level sweep of resolved / EOL issues for re-assessment |
+| [`issue-triage`](../../skills/issue-triage/SKILL.md) | Agentic Triage | Per-issue classification + disposition proposal |
+| [`issue-reassess`](../../skills/issue-reassess/SKILL.md) | Agentic Triage | Pool-level sweep of resolved / EOL issues for re-assessment |
 | [`issue-reproducer`](../../skills/issue-reproducer/SKILL.md) | — | Per-issue extraction + execution of code examples |
-| [`issue-fix-workflow`](../../skills/issue-fix-workflow/SKILL.md) | Drafting | Drafts a fix PR for a triaged issue |
-| [`issue-stale-sweep`](../../skills/issue-stale-sweep/SKILL.md) | Triage | Backlog hygiene: classifies dormant issues as `REQUEST-UPDATE` or `CLOSE-STALE`; posts one comment per issue on confirmation |
+| [`issue-fix-workflow`](../../skills/issue-fix-workflow/SKILL.md) | Agentic Drafting | Drafts a fix PR for a triaged issue |
+| [`issue-stale-sweep`](../../skills/issue-stale-sweep/SKILL.md) | Agentic Triage | Backlog hygiene: classifies dormant issues as `REQUEST-UPDATE` or `CLOSE-STALE`; posts one comment per issue on confirmation |
 | [`issue-reassess-stats`](../../skills/issue-reassess-stats/SKILL.md) | — | Read-only campaign dashboard |
 
 Reproducer and stats sit outside the MISSION mode taxonomy; they

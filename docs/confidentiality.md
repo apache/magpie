@@ -13,7 +13,7 @@
 
 # Confidentiality — drafting elaboration
 
-Drafting-time elaboration of the tracker-confidentiality rules. The
+Agentic Drafting-time elaboration of the tracker-confidentiality rules. The
 load-bearing rules — the three-layer model (identifiers public, contents
 private, security-framing embargoed), the "what public surfaces must not
 contain" checklist, the content scrub, and "other ASF projects" — live

@@ -17,6 +17,11 @@
 
 # Security workflow skill family
 
+> **Scope — `asf: false`.** Works on any project, ASF or not. The ASF intake
+> path (`security@`, Vulnogram CVE flow) is the default profile; non-ASF
+> adopters swap it for GitHub Security Advisories / a MITRE CNA through the
+> adapter/config layer.
+
 End-to-end automation for an ASF project's security-issue handling
 process — from inbound report on the project's `security@` mailing
 list through to a published CVE record on `cve.org`. Nine skills

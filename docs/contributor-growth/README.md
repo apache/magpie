@@ -17,6 +17,11 @@
 
 # Contributor-growth skill family
 
+> **Scope — `asf: true` · 🪶 ASF-specific.** This family encodes Apache Software
+> Foundation processes (the contributor-to-committer path) and assumes an ASF
+> adopter profile by default. Non-ASF projects can still adopt it through the
+> adapter/config layer, but it carries ASF assumptions the generic families do not.
+
 Maintainer-facing skills that span the contributor-to-committer path:
 welcoming first-time contributors, keeping the issue backlog newcomer-
 ready, tracking contribution activity, assembling nomination evidence,
@@ -48,11 +53,11 @@ without explicit maintainer confirmation.
 
 | Skill | Mode | Status |
 |---|---|---|
-| [`mentoring-welcome`](../../skills/mentoring-welcome/SKILL.md) | Mentoring | experimental |
-| [`good-first-issue-author`](../../skills/good-first-issue-author/SKILL.md) | Mentoring | experimental |
-| [`contributor-activity-sweep`](../../skills/contributor-activity-sweep/SKILL.md) | Triage | experimental |
-| [`contributor-nomination`](../../skills/contributor-nomination/SKILL.md) | Triage | experimental |
-| [`committer-onboarding`](../../skills/committer-onboarding/SKILL.md) | Triage | experimental |
+| [`mentoring-welcome`](../../skills/mentoring-welcome/SKILL.md) | Agentic Mentoring | experimental |
+| [`good-first-issue-author`](../../skills/good-first-issue-author/SKILL.md) | Agentic Mentoring | experimental |
+| [`contributor-activity-sweep`](../../skills/contributor-activity-sweep/SKILL.md) | Agentic Triage | experimental |
+| [`contributor-nomination`](../../skills/contributor-nomination/SKILL.md) | Agentic Triage | experimental |
+| [`committer-onboarding`](../../skills/committer-onboarding/SKILL.md) | Agentic Triage | experimental |
 
 All five skills are `experimental`; no adopter has run the full
 contributor-to-committer path under evaluation conditions yet.
@@ -61,7 +66,7 @@ contributor-to-committer path under evaluation conditions yet.
 
 This family sits **alongside** two overlapping skill families:
 
-- [`docs/mentoring/README.md`](../mentoring/README.md) — the Mentoring
+- [`docs/mentoring/README.md`](../mentoring/README.md) — the Agentic Mentoring
   mode spec and family overview. `mentoring-welcome` and
   `good-first-issue-author` carry `mode: Mentoring` and are also
   listed in that spec. The families cross-reference each other; a later
@@ -113,10 +118,10 @@ per-project policy knobs before a skill can safely propose anything):
 ## Cross-references
 
 - [`docs/modes.md` § Triage](../modes.md#triage) — mode taxonomy the
-  three Triage-mode family skills declare against.
+  three Agentic Triage-mode family skills declare against.
 - [`docs/modes.md` § Mentoring](../modes.md#mentoring) — mode taxonomy
-  the two Mentoring-mode family skills declare against.
-- [`docs/mentoring/README.md`](../mentoring/README.md) — the Mentoring
+  the two Agentic Mentoring-mode family skills declare against.
+- [`docs/mentoring/README.md`](../mentoring/README.md) — the Agentic Mentoring
   mode family overview, which cross-references `mentoring-welcome` and
   `good-first-issue-author`.
 - [`projects/_template/README.md`](../../projects/_template/README.md) —

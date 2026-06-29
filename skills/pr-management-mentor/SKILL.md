@@ -34,7 +34,7 @@ license: Apache-2.0
 
 # pr-management-mentor
 
-**Status: experimental.** First prototype of Mentoring
+**Status: experimental.** First prototype of Agentic Mentoring
 ([conversational mentoring](../../docs/mentoring/spec.md)). The
 skill exists to make the spec executable on a single thread at
 a time so we can iterate on tone wording, convention pointers,
@@ -50,7 +50,7 @@ answer, for the invoked thread, one question:
 > what does it say?*
 
 If the answer is "no" (thread is already on track, maintainer
-already engaging, scope exceeds Mentoring), the skill says so and
+already engaging, scope exceeds Agentic Mentoring), the skill says so and
 exits without posting. The agent's silence is a feature, not a
 failure.
 
@@ -119,7 +119,7 @@ is short on purpose — one comment in, one decision out:
    audience.
 3. **Out-of-scope check**. If the thread title or recent
    comments touch any `out_of_scope_topics` entry, **do not
-   draft**. Surface "this thread is out of Mentoring scope —
+   draft**. Surface "this thread is out of Agentic Mentoring scope —
    handing off" and run the [hand-off](hand-off.md) flow.
 4. **Maintainer-already-engaged check**. If a maintainer (login
    in the configured committers team, see `pr-management-config.md →
@@ -176,10 +176,10 @@ maintainer reads the thread.
   request-changes submissions.
   [`pr-management-code-review`](../pr-management-code-review/SKILL.md)
   owns that.
-- **Triage.** No labels, no draft toggles, no closes.
+- **Agentic Triage.** No labels, no draft toggles, no closes.
   [`pr-management-triage`](../pr-management-triage/SKILL.md)
   owns that.
-- **Authoring fixes.** No PRs opened. That is Drafting.
+- **Authoring fixes.** No PRs opened. That is Agentic Drafting.
 - **Predicting maintainer decisions.** The skill never says
   "the maintainers will probably want X". It says "a
   maintainer will reply on this; in the meantime, here's the
@@ -189,7 +189,7 @@ maintainer reads the thread.
   voice; the agent does not have a list-subscriber identity.
 - **Auto-fire.** Every invocation is opt-in by a maintainer.
   No cron, no webhook, no auto-trigger. Auto-fire is a
-  Auto-merge-shaped problem and inherits Auto-merge's sequencing
+  Agentic Autonomous-shaped problem and inherits Agentic Autonomous's sequencing
   constraint.
 
 ## Cross-references
@@ -203,5 +203,5 @@ maintainer reads the thread.
   ships).
 - [`projects/_template/mentoring-config.md`](../../projects/_template/mentoring-config.md) —
   adopter scaffold.
-- [`MISSION.md` § Mentoring](../../MISSION.md#technical-scope) —
+- [`MISSION.md` § Agentic Mentoring](../../MISSION.md#technical-scope) —
   RAI empowerment framing.

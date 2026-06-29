@@ -30,12 +30,12 @@ Each mode is an independently toggleable set of skills. Maturity mirrors
 
 | Mode | Spec | Maturity |
 |---|---|---|
-| Triage | [triage-mode.md](triage-mode.md) | stable (security) / experimental (PR, issue, contributor-nomination) |
-| Mentoring | [mentoring-mode.md](mentoring-mode.md) | experimental (3 skills) |
-| Drafting | [drafting-mode.md](drafting-mode.md) | stable (security) / experimental (issue, audit-finding-fix, release-announce-draft) |
-| Pairing | [pairing-mode.md](pairing-mode.md) | experimental (2 skills) |
+| Agentic Triage | [triage-mode.md](triage-mode.md) | stable (security) / experimental (PR, issue, contributor-nomination) |
+| Agentic Mentoring | [mentoring-mode.md](mentoring-mode.md) | experimental (3 skills) |
+| Agentic Drafting | [drafting-mode.md](drafting-mode.md) | stable (security) / experimental (issue, audit-finding-fix, release-announce-draft) |
+| Agentic Pairing | [pairing-mode.md](pairing-mode.md) | experimental (2 skills) |
 
-> **Auto-merge** is the fifth MISSION mode but is deliberately **off** by
+> **Agentic Autonomous** is the fifth MISSION mode but is deliberately **off** by
 > sequencing policy (`.asf.yaml` `allow_auto_merge: false`) — it has no
 > implementation and nothing to build, so it is documented as a boundary
 > in [`docs/modes.md`](../../../docs/modes.md), not as a spec here.
@@ -54,7 +54,7 @@ Each mode is an independently toggleable set of skills. Maturity mirrors
 | Adapters (Gmail / PonyMail / Jira / GitHub / mail-source / forwarder-relay / mail-archive / github-body-field / github-rollup) | [adapters.md](adapters.md) |
 | Project-agnosticism (de-ASF coupling) | [project-agnosticism.md](project-agnosticism.md) |
 | Meta & quality tooling | [meta-and-quality-tooling.md](meta-and-quality-tooling.md) |
-| Reviewer routing (proposed, Triage) | [reviewer-routing.md](reviewer-routing.md) |
+| Reviewer routing (proposed, Agentic Triage) | [reviewer-routing.md](reviewer-routing.md) |
 | Cross-project skill reconciler (proposed, infra) | [skill-reconciler.md](skill-reconciler.md) |
 
 ## The non-negotiables every area inherits

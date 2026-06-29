@@ -62,7 +62,7 @@ publication, with a human gate and an audit-log entry at every step.
 
 ## Out of scope
 
-- Drafting beyond the security case (see [Drafting](drafting-mode.md)).
+- Agentic Drafting beyond the security case (see [Drafting](drafting-mode.md)).
 - Sending mail — replies are drafted to the maintainer's outbox.
 
 ## Acceptance criteria

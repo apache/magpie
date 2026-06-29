@@ -2,7 +2,7 @@
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
 ---
-title: Drafting mode
+title: Agentic Drafting mode
 status: experimental
 kind: feature
 mode: Drafting
@@ -19,7 +19,7 @@ acceptance:
     "vulnerability" from every public surface until the embargo lifts.
 ---
 
-# Drafting mode
+# Agentic Drafting mode
 
 ## What it does
 
@@ -55,7 +55,7 @@ merges its own work.
 
 ## Out of scope
 
-- Generic Drafting beyond the three shipped families (lint fixes at
+- Generic Agentic Drafting beyond the three shipped families (lint fixes at
   scale, doc holes at scale) — `proposed`, not yet built.
 - Merging, releasing, or pushing without a human.
 

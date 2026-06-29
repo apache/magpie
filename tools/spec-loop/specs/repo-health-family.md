@@ -17,7 +17,7 @@ acceptance:
     human confirmation.
   - ci-runner-audit validates under skill-and-tool-validate and ships an
     eval suite.
-  - docs/modes.md Triage table lists each shipped repo-health skill.
+  - docs/modes.md Agentic Triage table lists each shipped repo-health skill.
 ---
 
 # Repo-health audits
@@ -31,7 +31,7 @@ flaky-test patterns. Every skill in the family produces a structured report
 and proposes remedies for human review; no skill applies a change without
 explicit maintainer confirmation.
 
-The family extends the Triage mode's classify-and-propose discipline to
+The family extends the Agentic Triage mode's classify-and-propose discipline to
 repository maintenance. The canonical sequence is: fetch a bounded snapshot
 of the target artefacts → classify each against a rule set → present a
 grouped, prioritised report → wait for confirmation before any write.
@@ -82,8 +82,8 @@ grouped, prioritised report → wait for confirmation before any write.
   humans act.
 - **Continuous monitoring.** That is a CI / GitHub Actions job responsibility.
   Each skill run is a triggered, bounded audit.
-- **Auto-merge of housekeeping changes.** Runner-label fixes and NOTICE
-  updates are eligible for Auto-merge only once that mode is on; the
+- **Agentic Autonomous of housekeeping changes.** Runner-label fixes and NOTICE
+  updates are eligible for Agentic Autonomous only once that mode is on; the
   repo-health skills never trigger a merge autonomously.
 - **Security-class vulnerabilities.** CVE-rated dependency issues flow
   through the security-issue lifecycle
@@ -97,7 +97,7 @@ grouped, prioritised report → wait for confirmation before any write.
    human confirmation.
 2. `ci-runner-audit` validates under `skill-and-tool-validate` and ships an
    eval suite under `tools/skill-evals/evals/ci-runner-audit/`.
-3. `docs/modes.md` Triage table carries each shipped repo-health skill.
+3. `docs/modes.md` Agentic Triage table carries each shipped repo-health skill.
 
 ## Validation
 

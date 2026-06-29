@@ -15,6 +15,9 @@
 
 # Setup skill family
 
+> **Scope — `asf: false`.** Works on any project, ASF or not — no
+> Apache-Software-Foundation-specific assumptions baked in.
+
 The **setup** skill family is the prerequisite for running any
 framework skill. It walks a new adopter (or a fresh dev machine on
 an existing adopter) through the secure-agent install — pinned

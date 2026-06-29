@@ -96,7 +96,7 @@ Listed so reviewers see the choices and can push back.
   agent posting "welcome to the project!" before the
   maintainer has the chance is rude and cuts the maintainer
   out of the relationship. If a project wants a welcome
-  comment, that is a triage-level concern, not a Mentoring
+  comment, that is a triage-level concern, not a Agentic Mentoring
   concern.
 - **Closing comment**. The skill never posts on a thread it is
   about to close — closing belongs to triage. If the
@@ -104,7 +104,7 @@ Listed so reviewers see the choices and can push back.
   skill exits without commenting and lets
   [`pr-management-triage`](../pr-management-triage/SKILL.md)
   handle the close.
-- **Approval / "looks good"**. Mentoring does not signal review
+- **Approval / "looks good"**. Agentic Mentoring does not signal review
   outcomes. Even a casual "this looks like a good direction"
   shifts contributor expectations.
   [`pr-management-code-review`](../pr-management-code-review/SKILL.md)

@@ -137,16 +137,16 @@ A skill that triages 200 PRs in 10 minutes is doing 200 state changes. If the ma
 
 1. **Propose-then-apply, always.** The agent's natural unit of work is "here is the proposal, will you confirm?". The "apply" pass that follows confirmation is mechanical — no reasoning, no surprises, no second proposal hidden inside.
 2. **Per-proposal confirmation, no batch yes.** Multiple state changes in the same response require a confirmation surface that lets the maintainer say "1, 3, 4 yes; 2 no". `all` as a one-keystroke shortcut is acceptable; the agent must still surface every item before honouring it.
-3. **No standing pre-approvals.** A skill MUST NOT support a config switch that says "auto-approve every X-class proposal". The boundary between Drafting (agent-authored fix with human review) and Auto-merge (narrowly-scoped auto-merge) is exactly this; Auto-merge is governed by a separate, much stricter contract (see Principle 1, *narrow auto-merge carve-out* below).
+3. **No standing pre-approvals.** A skill MUST NOT support a config switch that says "auto-approve every X-class proposal". The boundary between Agentic Drafting (agent-authored fix with human review) and Agentic Autonomous (narrowly-scoped auto-merge) is exactly this; Agentic Autonomous is governed by a separate, much stricter contract (see Principle 1, *narrow auto-merge carve-out* below).
 4. **Drafts, never sends.** Outbound communication (email, chat) is **drafted** by the agent and stored in the communication system's drafts folder. The maintainer reviews and presses Send. The framework MUST NOT have a "yes, send the draft" path that bypasses the human read.
 5. **Audit log of every confirmation.** Every applied state change writes a structured audit-log entry: timestamp, maintainer identity, proposal text, applied diff, triggering skill. Open-source maintenance is a public-trust activity; the trail makes future review possible.
 
 ### Narrow auto-merge carve-out
 
-Auto-merge ("narrowly-scoped fix-and-merge", in Apache Magpie's terminology) is the explicit exception. It permits auto-merge, but only after **all** of the following gate conditions hold:
+Agentic Autonomous ("limited fix-and-merge", in Apache Magpie's terminology) is the explicit exception. It permits auto-merge, but only after **all** of the following gate conditions hold:
 
 - The change class is on a per-project, per-class allow-list (lint fixes, dependency bumps within an allow-list, license headers, formatting, broken-link repair). Security-class changes are explicitly out.
-- The project has been running Triage, Mentoring, and Drafting with HITL confirmation for at least two release cycles, and a contributor-sentiment evaluation says the project is healthier, not just faster.
+- The project has been running Agentic Triage, Agentic Mentoring, and Agentic Drafting with HITL confirmation for at least two release cycles, and a contributor-sentiment evaluation says the project is healthier, not just faster.
 - Every auto-merged change is reversibly logged; reverts are one keystroke away.
 
 The carve-out exists because lint-rebase-format has marginal human value and should not require a human in the loop forever. It is **off by default** in the reference implementation. A project that turns it on without first running the manual loop has skipped the proof.
@@ -415,4 +415,4 @@ The Apache Magpie project is happy to consult on the lift — see [`MISSION.md`
 
 ## Acknowledgements
 
-This RFC distils principles operationalised in the Apache Magpie reference implementation. The PMC roster and collaborator list (see [`MISSION.md`](https://github.com/apache/magpie/blob/main/MISSION.md)) includes the people whose discussion, code, and incident-review work shaped these principles. The framing of the principles here owes a particular debt to the 2026-05 prompt-injection audit ([gist](https://gist.github.com/andrew/0bc8bdaac6902656ccf3b1400ad160f0)) that surfaced the Principle 2 specifics, and to the Triage/Mentoring/Drafting/Auto-merge swimlane discussion that surfaced the carve-out structure of Principle 1.
+This RFC distils principles operationalised in the Apache Magpie reference implementation. The PMC roster and collaborator list (see [`MISSION.md`](https://github.com/apache/magpie/blob/main/MISSION.md)) includes the people whose discussion, code, and incident-review work shaped these principles. The framing of the principles here owes a particular debt to the 2026-05 prompt-injection audit ([gist](https://gist.github.com/andrew/0bc8bdaac6902656ccf3b1400ad160f0)) that surfaced the Principle 2 specifics, and to the Agentic Triage/Agentic Mentoring/Agentic Drafting/Agentic Autonomous swimlane discussion that surfaced the carve-out structure of Principle 1.

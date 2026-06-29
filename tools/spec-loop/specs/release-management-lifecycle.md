@@ -115,7 +115,7 @@ code lands.
   consistency) and `release-audit-report` make no state change; voters can
   run verification in their own dev loop before posting `+1`.
 - **Promotion gated on health evidence, not throughput.** Moving any
-  release-* skill from `experimental` to default-on, or from Drafting to a
+  release-* skill from `experimental` to default-on, or from Agentic Drafting to a
   state-changing lane, requires evidence from Release Managers and binding
   voters that the process is healthier (fewer stalled RCs, shorter
   time-to-`[ANNOUNCE]`, fewer reverted promotions).
@@ -125,8 +125,8 @@ code lands.
 - Holding, invoking, or proxying the RM's private signing key.
 - Publishing the release: the `svn mv` promotion, the `[ANNOUNCE]` send,
   and the site-bump merge are human acts.
-- A new mode. Release-management is a family spanning the existing Triage
-  and Drafting modes; it introduces no new mode.
+- A new mode. Release-management is a family spanning the existing Agentic Triage
+  and Agentic Drafting modes; it introduces no new mode.
 
 ## Acceptance criteria
 

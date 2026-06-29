@@ -271,4 +271,4 @@ human confirmation of exploitability and impact.
 - `docs/repo-health/README.md` — family overview and candidate skill
   descriptions (ships with the `repo-health-family-spec` branch).
 - [`tools/spec-loop/specs/triage-mode.md`](../../tools/spec-loop/specs/triage-mode.md) —
-  the Triage-mode spec this skill's family lives under.
+  the Agentic Triage-mode spec this skill's family lives under.

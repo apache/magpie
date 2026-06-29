@@ -11,7 +11,7 @@
     - [Mentoring](#mentoring)
     - [Drafting](#drafting)
     - [Pairing](#pairing)
-    - [Auto-merge](#auto-merge)
+    - [Agentic Autonomous](#agentic-autonomous)
   - [Model class and mode cost shape](#model-class-and-mode-cost-shape)
   - [Local and self-hosted inference](#local-and-self-hosted-inference)
   - [Reducing costs](#reducing-costs)
@@ -88,7 +88,7 @@ capability; they incur hardware cost rather than per-token billing. See
 
 ### Triage
 
-The lowest-cost mode. Most Triage skills are read-bounded: the
+The lowest-cost mode. Most Agentic Triage skills are read-bounded: the
 expensive part is loading context (PR diff, report body, existing
 issue sample), not generating output. Every output is a short
 proposal — a label suggestion, a routing recommendation, a
@@ -110,13 +110,13 @@ to input.
 | `security-issue-sync` | Full tracker reconciliation | 20 000–100 000 | Tracker age, mail-thread depth, linked PRs |
 | `security-cve-allocate` | CVE allocation workflow | 5 000–12 000 | Mostly procedural; low variance |
 
-**Rule of thumb for Triage:** budget 10 000–30 000 tokens per
+**Rule of thumb for Agentic Triage:** budget 10 000–30 000 tokens per
 PR / issue / report on average. A project processing 50 inbound items
-per week uses roughly 500 000–1 500 000 tokens/week across Triage work.
+per week uses roughly 500 000–1 500 000 tokens/week across Agentic Triage work.
 
 ### Mentoring
 
-Mentoring is conversational and per-reply: the agent reads thread
+Agentic Mentoring is conversational and per-reply: the agent reads thread
 context, project conventions, and contributor history, then produces
 a single targeted response. Cost per reply is moderate; total weekly
 cost depends on contributor volume.
@@ -126,7 +126,7 @@ cost depends on contributor volume.
 | `pr-management-mentor` | Single threaded reply | 6 000–20 000 | Estimated; skill experimental |
 | `good-first-issue-author` | One candidate → one issue draft | 6 000–18 000 | Estimated; reads one candidate + named source files, no full-thread history; skill experimental |
 
-**Rule of thumb for Mentoring:** budget 10 000–20 000 tokens per
+**Rule of thumb for Agentic Mentoring:** budget 10 000–20 000 tokens per
 contributor interaction. A project with 20 active contributors each
 receiving 3 agent replies per week: roughly 600 000–1 200 000
 tokens/week.
@@ -143,14 +143,14 @@ source files in addition to the issue or report.
 | `security-issue-fix` — code fix | Agent-drafted fix + PR | 30 000–150 000 | Adds source files; wide variance |
 | `issue-fix-workflow` | Issue fix + PR | 25 000–120 000 | Bounded by what the skill reads from the codebase |
 
-**Rule of thumb for Drafting:** reporter replies average 15 000–25 000
+**Rule of thumb for Agentic Drafting:** reporter replies average 15 000–25 000
 tokens; code-producing invocations average 50 000–100 000 tokens
 depending on codebase scope. Limiting the skill to the relevant source
-files is the single biggest lever on Drafting cost.
+files is the single biggest lever on Agentic Drafting cost.
 
 ### Pairing
 
-Pairing runs in the developer's own development cycle, not on project
+Agentic Pairing runs in the developer's own development cycle, not on project
 infrastructure — cost is per-developer-session. Multi-agent pipelines
 multiply the per-pass cost by the number of review agents.
 
@@ -159,14 +159,14 @@ multiply the per-pass cost by the number of review agents.
 | `pairing-self-review` | Pre-flight review of a local diff | 10 000–50 000 | Estimated; skill experimental. Scales with diff size and conventions doc length. |
 | Multi-agent review pipeline | Full three-pass review | 30 000–200 000 | Estimated; future skill. 3–4 × single-pass cost. Parallelism reduces latency, not billing. |
 
-**Rule of thumb for Pairing:** a typical pre-flight self-review of a
+**Rule of thumb for Agentic Pairing:** a typical pre-flight self-review of a
 medium PR uses 15 000–30 000 tokens. A three-agent review pipeline on
 the same PR: 45 000–90 000 tokens.
 
-### Auto-merge
+### Agentic Autonomous
 
-**Status: off.** Auto-merge is not implemented; it has no token cost.
-See [`docs/modes.md` § Auto-merge](modes.md#auto-merge).
+**Status: off.** Agentic Autonomous is not implemented; it has no token cost.
+See [`docs/modes.md` § Agentic Autonomous](modes.md#agentic-autonomous).
 
 ---
 
@@ -179,12 +179,12 @@ class" means quality requirements that mid-tier models often miss.
 
 | Mode | Small class | Mid-tier class | Large class |
 |---|---|---|---|
-| Triage — classification / routing | Viable for most cases | Recommended default | Rarely needed |
-| Triage — security import (novel patterns) | Miss rate is higher | Recommended default | For subtle or novel reports |
-| Mentoring | Acceptable on simple threads | Recommended default | Not typical |
-| Drafting — reporter reply | Acceptable | Recommended default | Rarely needed |
-| Drafting — code fix | Often insufficient | Recommended default | Complex bugs or large refactors |
-| Pairing — self-review | Limited recall on conventions | Recommended default | Anchor pass in multi-agent pipelines |
+| Agentic Triage — classification / routing | Viable for most cases | Recommended default | Rarely needed |
+| Agentic Triage — security import (novel patterns) | Miss rate is higher | Recommended default | For subtle or novel reports |
+| Agentic Mentoring | Acceptable on simple threads | Recommended default | Not typical |
+| Agentic Drafting — reporter reply | Acceptable | Recommended default | Rarely needed |
+| Agentic Drafting — code fix | Often insufficient | Recommended default | Complex bugs or large refactors |
+| Agentic Pairing — self-review | Limited recall on conventions | Recommended default | Anchor pass in multi-agent pipelines |
 
 **Cost differential across classes (indicative ratio, not a price):**
 Small-class models are typically 10–50× cheaper per token than
@@ -202,9 +202,9 @@ per-token billing to hardware:
 
 | Inference path | Per-token cost | Typical hardware cost | Notes |
 |---|---|---|---|
-| Consumer GPU, Small-class quantised model | $0 | ~$0.10–0.50/hr (capex amortised over ~3 yr lifespan × moderate utilisation) | Viable for Triage and short Mentoring/Drafting |
+| Consumer GPU, Small-class quantised model | $0 | ~$0.10–0.50/hr (capex amortised over ~3 yr lifespan × moderate utilisation) | Viable for Agentic Triage and short Agentic Mentoring/Agentic Drafting |
 | Cloud spot GPU, Mid-tier model | $0 | ~$1–4/hr depending on GPU class | Viable for all modes; latency is higher than hosted APIs |
-| CPU-only, quantised Small model | $0 | Near-zero | Very slow; not recommended for interactive Pairing |
+| CPU-only, quantised Small model | $0 | Near-zero | Very slow; not recommended for interactive Agentic Pairing |
 
 Local inference is also the simplest privacy answer for most skills:
 data never leaves the machine, and no third-party data-processing
@@ -215,11 +215,11 @@ paths use identical skill code to hosted paths.
 
 ## Reducing costs
 
-1. **Match model class to task.** Triage classification and short
-   Mentoring replies do not need a frontier model. Reserve Large-class
+1. **Match model class to task.** Agentic Triage classification and short
+   Agentic Mentoring replies do not need a frontier model. Reserve Large-class
    for novel-pattern security analysis and complex multi-file code fixes.
 
-2. **Scope code reads.** The biggest driver of Drafting cost is how
+2. **Scope code reads.** The biggest driver of Agentic Drafting cost is how
    many source files the agent loads. Small, well-named files help the
    skill read only what is relevant.
 

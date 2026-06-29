@@ -9,7 +9,7 @@
   - [Mentoring](#mentoring)
   - [Drafting](#drafting)
   - [Pairing](#pairing)
-  - [Auto-merge](#auto-merge)
+  - [Agentic Autonomous](#agentic-autonomous)
   - [Outside the modes](#outside-the-modes)
   - [Mode lifecycle](#mode-lifecycle)
   - [Cross-references](#cross-references)
@@ -23,10 +23,10 @@
 
 [`MISSION.md`](../MISSION.md) frames the framework around five
 toggleable **modes** of agent-assisted repository maintainership
-and development: **Triage**, **Mentoring**, **Drafting**
-(agent-authored fixes with human review), **Pairing**
+and development: **Agentic Triage**, **Agentic Mentoring**, **Agentic Drafting**
+(agent-authored fixes with human review), **Agentic Pairing**
 (developer-side dev-cycle skills with mentorship intrinsic), and
-**Auto-merge** (narrowly-scoped fix-and-merge). Each adopting
+**Agentic Autonomous** (limited fix-and-merge). Each adopting
 project picks the modes that match its culture and risk
 tolerance.
 
@@ -44,17 +44,23 @@ sequencing commitments behind them.
 | **stable** | Implemented, in use by at least one adopter, behaviour expected to remain backward-compatible across minor framework versions. |
 | **experimental** | Implemented but not yet covered by an adopter pilot or contributor-sentiment evaluation; shape may change. |
 | **proposed** | Designed in [`MISSION.md`](../MISSION.md) but no skill yet exists; tracked for future implementation. |
-| **off** | Deliberately not implemented per a MISSION-level sequencing rule (Auto-merge). |
+| **off** | Deliberately not implemented per a MISSION-level sequencing rule (Agentic Autonomous). |
 
 ## Modes at a glance
 
+The **Mode** column below holds the canonical identifier used in each skill's
+`mode:` frontmatter (and validated against this table). The display name carried
+in the docs and on the site prefixes it with *Agentic* — *Agentic Triage*,
+*Agentic Mentoring*, *Agentic Drafting*, *Agentic Pairing*, and *Agentic
+Autonomous* (the renamed former *Auto-merge*).
+
 | Mode | Purpose | Status | Skill count |
 |---|---|---|---|
-| **Triage** | Issues, security reports, PRs: spot, classify, route, surface duplicates. Every output is a suggestion the human signs off on. | stable (security) / experimental (pr-management, issue-management, contributor-nomination, repo-health, release-management) | 31 |
-| **Mentoring** | Joins issue and PR threads in a teaching register: clarifying questions, pointers to project conventions, paired examples from prior PRs, hand-off to a human when scope exceeds the agent. Also authors net-new good first issues to lower onboarding latency. | experimental | 3 |
-| **Drafting** | Agent drafts a fix for a well-scoped problem and opens a PR; every PR is reviewed and merged by a human committer. | stable (security-only); experimental (issue-management, audit-findings, release-management family) | 9 |
-| **Pairing** | Developer-side dev-cycle skills with mentorship intrinsic — multi-agent review pipelines, self-review and pre-flight patterns, scoped fix drafting under the developer's driver's seat. | experimental | 2 |
-| **Auto-merge** | Auto-merge restricted to objectively boring change classes (lint, dependency bumps inside an allow-list, license-header insertion, formatting, broken-link repair). | off | 0 |
+| **Triage** | *(Agentic Triage)* Issues, security reports, PRs: spot, classify, route, surface duplicates. Every output is a suggestion the human signs off on. | stable (security) / experimental (pr-management, issue-management, contributor-nomination, repo-health, release-management) | 31 |
+| **Mentoring** | *(Agentic Mentoring)* Joins issue and PR threads in a teaching register: clarifying questions, pointers to project conventions, paired examples from prior PRs, hand-off to a human when scope exceeds the agent. Also authors net-new good first issues to lower onboarding latency. | experimental | 3 |
+| **Drafting** | *(Agentic Drafting)* Agent drafts a fix for a well-scoped problem and opens a PR; every PR is reviewed and merged by a human committer. | stable (security-only); experimental (issue-management, audit-findings, release-management family) | 9 |
+| **Pairing** | *(Agentic Pairing)* Developer-side dev-cycle skills with mentorship intrinsic — multi-agent review pipelines, self-review and pre-flight patterns, scoped fix drafting under the developer's driver's seat. | experimental | 2 |
+| **Agentic Autonomous** | Auto-merges objectively boring change classes only (lint, dependency bumps inside an allow-list, license-header insertion, formatting, broken-link repair). | off | 0 |
 
 A few skills sit **outside** the mode taxonomy by design — see
 [Outside the modes](#outside-the-modes) below.
@@ -96,7 +102,7 @@ do not act without human review.
 | [`workflow-security-audit`](../skills/workflow-security-audit/SKILL.md) | Read-only GitHub Actions workflow security audit powered by `zizmor`: surfaces injection vulnerabilities, excessive permissions, unpinned external actions, and self-hosted-runner fork-secret leaks. | experimental |
 | [`license-compliance-audit`](../skills/license-compliance-audit/SKILL.md) | Read-only license-compliance audit: LICENSE presence, NOTICE completeness when required, and SPDX-header consistency across source files; proposes remedies for maintainer review. | experimental |
 | [`flaky-test-triage`](../skills/flaky-test-triage/SKILL.md) | Read-only flaky-test detection from CI run history: per-job failure-rate analysis over a configurable window, separating intermittent (flaky) from deterministic failures. | experimental |
-| [`release-verify-rc`](../skills/release-verify-rc/SKILL.md) | Read-only pre-flight on a staged RC: signatures against project KEYS, checksums, license headers (Apache RAT), NOTICE/LICENSE diff, no prohibited binaries, version-string consistency. Doubles as a Pairing-mode skill voters run in their own dev loop. | experimental |
+| [`release-verify-rc`](../skills/release-verify-rc/SKILL.md) | Read-only pre-flight on a staged RC: signatures against project KEYS, checksums, license headers (Apache RAT), NOTICE/LICENSE diff, no prohibited binaries, version-string consistency. Doubles as an Agentic Pairing-mode skill voters run in their own dev loop. | experimental |
 | [`release-vote-tally`](../skills/release-vote-tally/SKILL.md) | Fetch the approval signal for an RC, classify each reply (+1 / 0 / -1) binding vs non-binding against the configured roster, produce the tally summary, and draft the `[RESULT] [VOTE]` email. Conservative on ambiguous votes, refuses to count. | experimental |
 | [`release-archive-sweep`](../skills/release-archive-sweep/SKILL.md) | Scan `dist/release/<project>/`, identify releases past retention, propose the `svn mv` sequence to `archive.apache.org`. | experimental |
 | [`release-audit-report`](../skills/release-audit-report/SKILL.md) | Per-release structured report (RM, voters with binding flags, artefacts with sigs and checksums, promote revision, `[ANNOUNCE]` archive URL) appended to the project's audit log. | experimental |
@@ -106,12 +112,12 @@ Three notes on the boundaries:
 - `pr-management-code-review` is a deeper variant of triage —
   the agent reads diff and surrounding code rather than only
   metadata, but the output is still a suggestion for the human
-  reviewer. It belongs to Triage by the same rule.
+  reviewer. It belongs to Agentic Triage by the same rule.
 - `security-cve-allocate` is procedural rather than classificatory
-  (CVE allocation happens after assessment), but it shares Triage's
+  (CVE allocation happens after assessment), but it shares Agentic Triage's
   shape: the agent prepares a paste-ready artefact, the human
   PMC member submits it. Listed here for navigability.
-- The four `release-*` Triage skills share the same paste-ready-
+- The four `release-*` Agentic Triage skills share the same paste-ready-
   artefact shape: `release-verify-rc` reports pass/fail per check,
   `release-vote-tally` proposes `[RESULT]`, `release-archive-sweep`
   proposes an `svn mv` sequence, `release-audit-report` proposes
@@ -123,7 +129,7 @@ Three notes on the boundaries:
 
 **Status: experimental. 3 skills shipped.**
 
-[`MISSION.md` § Mentoring](../MISSION.md#technical-scope) names this
+[`MISSION.md` § Agentic Mentoring](../MISSION.md#technical-scope) names this
 the highest-value project-side mode and the one off-the-shelf agent
 tooling skips. The spec — tone guide, hand-off protocol, adopter
 contract — landed ahead of the skill code so the project's tone
@@ -150,8 +156,8 @@ for the full contract.
 
 The closest existing surface is
 [`pr-management-triage/comment-templates.md`](../skills/pr-management-triage/comment-templates.md),
-which carries Triage classification responses — informational,
-not pedagogical. It is **not** Mentoring.
+which carries Agentic Triage classification responses — informational,
+not pedagogical. It is **not** Agentic Mentoring.
 
 ## Drafting
 
@@ -174,9 +180,9 @@ the agent never merges its own work.
 | [`release-announce-draft`](../skills/release-announce-draft/SKILL.md) | Draft the `[ANNOUNCE]` email body for `announce@apache.org` and the site-bump PR (Step 11). Agent never sends mail and never merges the PR. | experimental |
 
 [`audit-finding-fix`](../skills/audit-finding-fix/SKILL.md)
-extends Drafting to **non-security audit-tool findings**: lint
+extends Agentic Drafting to **non-security audit-tool findings**: lint
 violations, type errors, CodeQL alerts, and documentation-coverage
-gaps. It is the generic-Drafting companion to
+gaps. It is the generic-Agentic Drafting companion to
 [`issue-fix-workflow`](../skills/issue-fix-workflow/SKILL.md)
 (issue-tracker bugs) and
 [`security-issue-fix`](../skills/security-issue-fix/SKILL.md)
@@ -185,13 +191,13 @@ remain proposed.
 
 The `release-*` skills form a single family
 ([`docs/release-management/README.md`](release-management/README.md))
-spanning Drafting (Steps 1–5, 7, 10–11, 14) and Triage (Steps 6, 9,
+spanning Agentic Drafting (Steps 1–5, 7, 10–11, 14) and Agentic Triage (Steps 6, 9,
 12–13). All ten have now shipped `experimental`. They share the
 security family's discipline that every state-changing action is a
 *proposal* the human executes — see
 [`docs/release-management/spec.md` § Cross-cutting commitments](release-management/spec.md#cross-cutting-commitments).
 
-For security-class Drafting PRs, the public surface strips CVE
+For security-class Agentic Drafting PRs, the public surface strips CVE
 and private context per the project's disclosure policy, so the
 public surface stays clean until the embargo lifts — see
 [`AGENTS.md` § Confidentiality](../AGENTS.md#confidentiality-of-the-tracker-repository)
@@ -201,27 +207,27 @@ for the rules the skill enforces.
 
 **Status: experimental. 2 skills.**
 
-[`MISSION.md` § Pairing](../MISSION.md#technical-scope) introduces
+[`MISSION.md` § Agentic Pairing](../MISSION.md#technical-scope) introduces
 this mode as the developer-side counterpart to the project-side
-modes. Where Triage / Mentoring / Drafting / Auto-merge describe
-the agent's presence on the project's own infrastructure, Pairing
+modes. Where Agentic Triage / Agentic Mentoring / Agentic Drafting / Agentic Autonomous describe
+the agent's presence on the project's own infrastructure, Agentic Pairing
 skills run in the maintainer's or contributor's *own* dev loop —
 multi-agent review pipelines, self-review and pre-flight patterns,
 scoped fix drafting under the developer's driver's seat.
-**Mentorship is intrinsic** to Pairing skills: the agent handles
+**Mentorship is intrinsic** to Agentic Pairing skills: the agent handles
 the mechanical, implementation-detail review (formatting,
 conventions, lint-grade nits) so the human conversation between
 contributor and maintainer — and between peer maintainers —
 stays on design, reasoning, and the trade-offs the project cares
-about. Pairing skills are the platform's mechanism for protecting
+about. Agentic Pairing skills are the platform's mechanism for protecting
 the **ASF contribution path** (contributor → committer → PMC)
 against being eroded by automation that replaces, rather than
 augments, the human-to-human relationships that path is built on.
 
-Pairing skills don't make state changes on behalf of the project;
+Agentic Pairing skills don't make state changes on behalf of the project;
 they share the same skill format and security posture as the
 project-side modes, so a maintainer who already trusts the
-framework for Triage gets the same posture for the patches they
+framework for Agentic Triage gets the same posture for the patches they
 write themselves.
 
 | Skill | Domain | Status |
@@ -229,9 +235,9 @@ write themselves.
 | [`pairing-self-review`](../skills/pairing-self-review/SKILL.md) | Pre-flight self-review of local changes before opening a PR. Read-only; returns a structured report. | experimental |
 | [`pairing-multi-agent-review`](../skills/pairing-multi-agent-review/SKILL.md) | Fan a diff through three independent review passes (correctness, security, conventions) and merge findings. | experimental |
 
-**Sequencing.** Pairing ships before Auto-merge in the project's
+**Sequencing.** Agentic Pairing ships before Agentic Autonomous in the project's
 automation roadmap — full auto-merge of maintainer-driven changes
-follows only after Pairing has established that human reasoning
+follows only after Agentic Pairing has established that human reasoning
 and relationships, not implementation chatter, are the
 load-bearing parts of the workflow.
 
@@ -239,22 +245,22 @@ load-bearing parts of the workflow.
 |---|---|
 | [`docs/pairing/README.md`](pairing/README.md) | Family overview: skills, when to use each, adopter contract. |
 
-## Auto-merge
+## Agentic Autonomous
 
 **Status: off. Deliberately not implemented.**
 
-[`MISSION.md` § Auto-merge](../MISSION.md#technical-scope) holds
-auto-merge off until Triage, Mentoring, Drafting, and Pairing
+[`MISSION.md` § Agentic Autonomous](../MISSION.md#technical-scope) holds
+auto-merge off until Agentic Triage, Agentic Mentoring, Agentic Drafting, and Agentic Pairing
 have been running for two quarters and contributor-sentiment
 data says the project is healthier, not just faster.
-Security-class changes are explicitly **out** of Auto-merge — no
+Security-class changes are explicitly **out** of Agentic Autonomous — no
 auto-merge ever touches anything embargoed or CVE-tagged.
 
 The framework's current `.asf.yaml` configuration reflects this
 posture: `pull_requests.allow_auto_merge` is set to `false`
 ([`.asf.yaml`](../.asf.yaml)).
 
-When Auto-merge ships, the eligible change classes will be
+When Agentic Autonomous ships, the eligible change classes will be
 declared per-adopter in `<project-config>/` and gated by an
 allow-list that the framework refuses to grow without an
 adopter PR.
@@ -305,12 +311,12 @@ A mode moves through four states as it matures:
    production, behaviour is backward-compatible across minor
    framework versions. The default state for skills shipped to
    adopters.
-4. **graduated-to-Auto-merge-eligible** *(future state; Triage,
-   Mentoring, Drafting, and Pairing only)* — the mode has run
+4. **graduated-to-Agentic-Autonomous-eligible** *(future state; Agentic Triage,
+   Agentic Mentoring, Agentic Drafting, and Agentic Pairing only)* — the mode has run
    stable for two quarters with positive contributor-sentiment
    evidence, the framework will start considering an equivalent
-   change class for Auto-merge. This state does not exist yet
-   because Auto-merge itself is off.
+   change class for Agentic Autonomous. This state does not exist yet
+   because Agentic Autonomous itself is off.
 
 A mode can be **retracted** from any state. The retraction
 triggers MISSION names — sustained negative contributor

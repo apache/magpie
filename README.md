@@ -166,15 +166,21 @@ The **Modes** column maps each family to the MISSION agent-assistance
 taxonomy — see [`docs/modes.md`](docs/modes.md) for what each mode
 means and which modes are still proposed vs. shipping today.
 
-| Family | Modes | Purpose | Detail |
-|---|---|---|---|
-| [**setup**](docs/setup/README.md) | (infra) | Isolated agent setup, framework adoption + maintenance, shared-config sync. The prerequisite — at minimum the `setup` skill itself runs out of this family. | 6 skills, [`docs/setup/`](docs/setup/) |
-| [**security**](docs/security/README.md) | A, C | 16-step security-issue handling lifecycle — from `security@` import through CVE publication, including state sync. Maintainer-only. | 9 skills, [`docs/security/`](docs/security/) |
-| **pr-management** | A | Maintainer-facing PR-queue management — triage, stats, and deep code review. | 3 skills, [`docs/pr-management/`](docs/pr-management/README.md) |
-| [**release-management**](docs/release-management/README.md) | A, C | 14-step ASF release lifecycle, planning issue, RC cut + sign, `[VOTE]` thread, tally, promote, `[ANNOUNCE]`, archive, audit log. Agent never holds the RM's signing key and never publishes the release. **Proposed**, spec-first, like Mentoring; skill code lands in follow-up PRs. | 10 skills proposed, [`docs/release-management/`](docs/release-management/) |
-| [**mentoring**](docs/mentoring/README.md) | Mentoring | Contributor mentoring — spec and tone guide in place; first skill (`pr-management-mentor`) shipping. **Experimental** — shape may change as adopter pilots and contributor-sentiment evaluation land. | 1 skill, [`docs/mentoring/`](docs/mentoring/README.md) |
-| **issue** | A, Triage | Issue lifecycle management — triage, bug reproduction, fix drafting, and backlog re-assessment against the current branch. | 5 skills |
-| **utilities** | (meta) | Framework meta-skills: author or update skills (`write-skill`); print a live index of all available skills (`list-skills`). | 2 skills |
+Most families work on **any** project, ASF or not. Families marked
+**🪶 ASF-specific** in the **Scope** column encode Apache Software Foundation
+processes (the release lifecycle, the contributor-to-committer path) and assume
+an ASF adopter profile by default — non-ASF projects adopt them through the
+adapter/config layer.
+
+| Family | Modes | Scope | Purpose | Detail |
+|---|---|---|---|---|
+| [**setup**](docs/setup/README.md) | (infra) | Any project | Isolated agent setup, framework adoption + maintenance, shared-config sync. The prerequisite — at minimum the `setup` skill itself runs out of this family. | 6 skills, [`docs/setup/`](docs/setup/) |
+| [**security**](docs/security/README.md) | A, C | Any project | 16-step security-issue handling lifecycle — from `security@` import through CVE publication, including state sync. Maintainer-only. | 9 skills, [`docs/security/`](docs/security/) |
+| **pr-management** | A | Any project | Maintainer-facing PR-queue management — triage, stats, and deep code review. | 3 skills, [`docs/pr-management/`](docs/pr-management/README.md) |
+| [**release-management**](docs/release-management/README.md) | A, C | 🪶 ASF-specific | 14-step ASF release lifecycle, planning issue, RC cut + sign, `[VOTE]` thread, tally, promote, `[ANNOUNCE]`, archive, audit log. Agent never holds the RM's signing key and never publishes the release. **Proposed**, spec-first, like Agentic Mentoring; skill code lands in follow-up PRs. | 10 skills proposed, [`docs/release-management/`](docs/release-management/) |
+| [**mentoring**](docs/mentoring/README.md) | Agentic Mentoring | Any project | Contributor mentoring — spec and tone guide in place; first skill (`pr-management-mentor`) shipping. **Experimental** — shape may change as adopter pilots and contributor-sentiment evaluation land. | 1 skill, [`docs/mentoring/`](docs/mentoring/README.md) |
+| **issue** | A, Agentic Triage | Any project | Issue lifecycle management — triage, bug reproduction, fix drafting, and backlog re-assessment against the current branch. | 5 skills |
+| **utilities** | (meta) | Any project | Framework meta-skills: author or update skills (`write-skill`); print a live index of all available skills (`list-skills`). | 2 skills |
 
 ## Maintenance
 

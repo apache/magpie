@@ -2,7 +2,7 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [Pairing skill family](#pairing-skill-family)
+- [Agentic Pairing skill family](#agentic-pairing-skill-family)
   - [Skills](#skills)
     - [When to use which](#when-to-use-which)
   - [Relationship to `pr-management-code-review`](#relationship-to-pr-management-code-review)
@@ -15,7 +15,10 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
-# Pairing skill family
+# Agentic Pairing skill family
+
+> **Scope — `asf: false`.** Works on any project, ASF or not — no
+> Apache-Software-Foundation-specific assumptions baked in.
 
 Developer-side pre-flight review skills that run in the maintainer's or
 contributor's **own** dev loop — after local changes are ready but before
@@ -24,7 +27,7 @@ so the eventual human-to-human conversation between contributor and
 maintainer stays on design, reasoning, and the trade-offs the project
 cares about.
 
-**Mentorship is intrinsic.** Pairing skills are not a replacement for
+**Mentorship is intrinsic.** Agentic Pairing skills are not a replacement for
 human code review; they are a pre-flight filter that separates
 implementation-detail nits (formatting, convention violations, obvious
 logical gaps) from the design-level conversation the project's
@@ -71,7 +74,7 @@ instead.
 
 ## Adopter contract
 
-The Pairing skills have no project-specific config files. They resolve
+The Agentic Pairing skills have no project-specific config files. They resolve
 two standard placeholders from the adopter's `<project-config>/`:
 
 | Placeholder | Resolved from |
@@ -95,8 +98,8 @@ shape may change between framework versions.
 
 ## Cross-references
 
-- [`MISSION.md` § Pairing](../../MISSION.md#technical-scope) — mode
-  rationale, sequencing constraints relative to Auto-merge.
+- [`MISSION.md` § Agentic Pairing](../../MISSION.md#technical-scope) — mode
+  rationale, sequencing constraints relative to Agentic Autonomous.
 - [`docs/modes.md` § Pairing](../modes.md#pairing) — implementation
   status and mode-lifecycle stage.
 - [`docs/modes.md` § Mode lifecycle](../modes.md#mode-lifecycle) — how

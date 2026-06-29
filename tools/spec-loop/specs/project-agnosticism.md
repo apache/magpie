@@ -59,16 +59,29 @@ The three mechanisms, in order of preference:
   `projects/_template/`.
 - The backend-flag precedent: `docs/release-management/README.md`
   (§ adopter backends) and `projects/_template/release-management-config.md`.
+- The per-family **`asf:` metadata flag** (`asf: true` / `asf: false`),
+  declared in each family's scope banner at the top of
+  `docs/<family>/README.md` and surfaced in the **Scope** column of the
+  family tables in [`README.md`](../../../README.md#skill-families) and
+  [`docs/index.md`](../../../docs/index.md#need-help-with-one-of-these-adopt-a-family-of-skills).
+  Only **release-management** and **contributor-growth** carry `asf: true`:
+  their *core purpose* is an ASF Foundation process (the release lifecycle,
+  the contributor-to-committer path). This is a narrower lens than the
+  residual-coupling audit list below — a family can be `asf: false`
+  (generic core, runs anywhere) and still carry ASF-flavoured defaults that
+  the coupling audit tracks (security is the clearest case).
 - The skills carrying residual ASF coupling to audit, by family:
-  - **security**: `security@`-style intake and the ASF security-team
-    relay (`security-issue-import-via-forwarder`), CVE allocation assuming
-    an ASF CNA (`security-cve-allocate`), Vulnogram as the CVE tool.
-  - **contributor / committer growth**: `committer-onboarding`
+  - **security** (`asf: false`): generic at its core, but ships an
+    ASF-flavoured default profile — `security@`-style intake and the ASF
+    security-team relay (`security-issue-import-via-forwarder`), CVE
+    allocation assuming an ASF CNA (`security-cve-allocate`), Vulnogram as
+    the CVE tool — all swappable for GHSA / MITRE-CNA via the config layer.
+  - **contributor / committer growth** (`asf: true`): `committer-onboarding`
     (ICLA gate, PMC vote semantics, `dev@` announce),
     `contributor-nomination` (committer-vs-PMC roster framing).
-  - **release-management** (proposed): the whole ASF release ritual,
-    already designed with backend flags; the audit confirms the non-ASF
-    paths stay first-class as the skills land.
+  - **release-management** (`asf: true`, proposed): the whole ASF release
+    ritual, already designed with backend flags; the audit confirms the
+    non-ASF paths stay first-class as the skills land.
   - any skill whose prose names `apache.org` lists, `svn` dist trees,
     `incubator`, or ASF-only governance steps without a flag.
 

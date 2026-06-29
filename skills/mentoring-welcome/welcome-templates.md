@@ -83,7 +83,7 @@ Our [community norms](<code_of_conduct_url>) are also worth a quick read.
 - Do not reword or expand the numbered steps. The steps are intentionally
   minimal: the contributing guide is the authoritative source; the welcome
   points there and steps aside.
-- The tone follows the Mentoring spec:
+- The tone follows the Agentic Mentoring spec:
   [`docs/mentoring/spec.md`](../../docs/mentoring/spec.md#teaching-register--tone-guide).
   Patient, specific, short. No praise, no hedging, no AI self-reference
   outside the footer.

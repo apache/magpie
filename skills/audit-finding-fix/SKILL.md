@@ -50,7 +50,7 @@ finding is cleared. The entire batch is committed on a single
 branch and handed back for human review. The skill **stops before
 opening a PR**.
 
-This skill is the generic-Drafting companion to
+This skill is the generic-Agentic Drafting companion to
 [`issue-fix-workflow`](../issue-fix-workflow/SKILL.md) (which
 handles issue-tracker bugs and feature requests) and
 [`security-issue-fix`](../security-issue-fix/SKILL.md) (which

@@ -19,6 +19,9 @@
 
 # Repo-health audits — family overview
 
+> **Scope — `asf: false`.** Works on any project, ASF or not — no
+> Apache-Software-Foundation-specific assumptions baked in.
+
 Read-only agent-assisted audits that surface repository maintenance signals
 a human would otherwise have to detect by hand: runner label obsolescence,
 Actions workflow security issues, stale or vulnerable dependencies,

@@ -42,7 +42,7 @@ license: Apache-2.0
 This skill is Step 6 of the
 [release-management lifecycle](../../docs/release-management/process.md):
 read-only verification of a staged release candidate before the
-`[VOTE]` thread opens (RM) or before a voter posts `+1` (voter Pairing
+`[VOTE]` thread opens (RM) or before a voter posts `+1` (voter Agentic Pairing
 loop).
 
 **This report is a mechanical aid, not a vote.** A `PASS` result does

@@ -43,7 +43,7 @@ Start with [`overview.md`](overview.md), then:
   [`reviewer-routing.md`](reviewer-routing.md),
   [`skill-reconciler.md`](skill-reconciler.md).
 
-(Auto-merge, the fifth MISSION mode, is deliberately off and has no
+(Agentic Autonomous, the fifth MISSION mode, is deliberately off and has no
 spec — see the note in [`overview.md`](overview.md).)
 
 ## Spec format

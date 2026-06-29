@@ -16,10 +16,14 @@
 
 # Utilities skill family
 
+> **Scope — `asf: false`.** Works on any project, ASF or not — no
+> Apache-Software-Foundation-specific assumptions baked in.
+
 Framework meta-skills — the tools you use to **build and maintain skills
 themselves**, rather than to run a maintainership mode on your project. They
-sit outside the MISSION mode taxonomy (Triage, Mentoring, Drafting, Pairing,
-Auto-merge): nothing here acts on your issues, PRs, or contributor threads.
+sit outside the MISSION mode taxonomy (Agentic Triage, Agentic Mentoring,
+Agentic Drafting, Agentic Pairing, Agentic Autonomous): nothing here acts on
+your issues, PRs, or contributor threads.
 They are for skill authors and framework contributors.
 
 ---

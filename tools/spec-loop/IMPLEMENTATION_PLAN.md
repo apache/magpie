@@ -26,18 +26,18 @@ one PR** (the branch-per-feature constraint).
   per work item; never pushes), `PROMPT_plan.md`, `PROMPT_build.md`,
   `PROMPT_consolidate.md`, `AGENTS.md` (loop-scoped operational context),
   and this plan. Branch-collision guard is inline in `loop.sh`.
-- **Pairing — both skills shipped** — `pairing-self-review` and
+- **Agentic Pairing — both skills shipped** — `pairing-self-review` and
   `pairing-multi-agent-review` (three independent axis passes; eval
-  suites present); `docs/modes.md` Pairing row reflects 2 skills /
+  suites present); `docs/modes.md` Agentic Pairing row reflects 2 skills /
   `experimental`. Spec: [`specs/pairing-mode.md`](specs/pairing-mode.md).
-- **Mentoring — both skills shipped** — `pr-management-mentor` and
+- **Agentic Mentoring — both skills shipped** — `pr-management-mentor` and
   `good-first-issue-author` (eval suites present); `docs/modes.md`
-  Mentoring row reflects 2 skills / `experimental`.
+  Agentic Mentoring row reflects 2 skills / `experimental`.
   Spec: [`specs/mentoring-mode.md`](specs/mentoring-mode.md).
 - **Contributor skills** — `contributor-nomination`,
   `contributor-activity-sweep`, and `committer-onboarding` shipped with
   eval suites. Formerly tracked under draft PRs #227–#229.
-- **Drafting — issue-fix-workflow and audit-finding-fix skills** —
+- **Agentic Drafting — issue-fix-workflow and audit-finding-fix skills** —
   both shipped with eval suites (covers generic drafting from triaged
   issues and audit findings, formerly tracked as `generic-drafting` /
   #296). Spec: [`specs/drafting-mode.md`](specs/drafting-mode.md).
@@ -64,11 +64,11 @@ one PR** (the branch-per-feature constraint).
   and `release-verify-rc` landed with eval suites (formerly planned work
   items 1–2 plus two follow-ups). Six `release-*` skills remain; see
   [`specs/release-management-lifecycle.md`](specs/release-management-lifecycle.md).
-- **Triage — general-issue family filled out** — `issue-stale-sweep`,
+- **Agentic Triage — general-issue family filled out** — `issue-stale-sweep`,
   `issue-deduplicate`, and `issue-backlog-stats` shipped with eval suites
   (formerly planned work item 3 plus its deferred siblings).
   Spec: [`specs/triage-mode.md`](specs/triage-mode.md).
-- **Mentoring — first-contribution welcome shipped** — `mentoring-welcome`
+- **Agentic Mentoring — first-contribution welcome shipped** — `mentoring-welcome`
   landed with an eval suite (formerly planned work item 4).
   Spec: [`specs/mentoring-mode.md`](specs/mentoring-mode.md).
 - **Project-agnosticism — ASF-coupling advisory lint shipped** — the SOFT
@@ -87,7 +87,7 @@ one PR** (the branch-per-feature constraint).
   `workflow-security-audit`, and `dependency-audit` landed (read-only,
   `experimental`). Spec: [`specs/repo-health-family.md`](specs/repo-health-family.md).
 - **New proposed specs awaiting their first build item** —
-  [`specs/reviewer-routing.md`](specs/reviewer-routing.md) (Triage) and
+  [`specs/reviewer-routing.md`](specs/reviewer-routing.md) (Agentic Triage) and
   [`specs/skill-reconciler.md`](specs/skill-reconciler.md) (infra) are
   documented spec-first; their build items are below.
 
@@ -120,7 +120,7 @@ slugs, not numbers (numbering implies an order the specs don't carry).
 1. **First reviewer-routing skill: reviewer-routing.**
    `specs/reviewer-routing.md` is `proposed` with zero implemented
    skills, and review-cycle latency is one of the two priorities MISSION
-   names. Add a Triage-family skill `reviewer-routing` that takes an open
+   names. Add an Agentic Triage-family skill `reviewer-routing` that takes an open
    issue or PR and proposes a primary reviewer (and optional backup) from
    the project's configured roster, scored on roster eligibility for the
    touched area, git-history familiarity with the changed paths, and the
@@ -193,7 +193,7 @@ slugs, not numbers (numbering implies an order the specs don't carry).
   are in the repo's `ask` permission list and are the human's step.
 - Validation per work item lives in the relevant spec's **Validation**
   section; the build prompt runs it as backpressure before committing.
-- Auto-merge is deliberately off and has no work items — building toward
+- Agentic Autonomous is deliberately off and has no work items — building toward
   it would skip the proof MISSION requires.
 - When a build iteration creates a new skill, its eval suite is part of
   that same work item — not a separate one.
@@ -204,7 +204,7 @@ slugs, not numbers (numbering implies an order the specs don't carry).
   `release-promote`, `release-archive-sweep`, `release-audit-report`)
   should be planned in subsequent passes now that the first four have
   established the skill-authoring patterns for this family.
-- **Triage contributor-growth gaps** (PMC-member nomination,
+- **Agentic Triage contributor-growth gaps** (PMC-member nomination,
   emeritus-committer handling, contributor offboarding) noted in
   `triage-mode.md` Known Gaps are intentionally deferred: they are
   vague enough that a spec-RFC conversation is more appropriate than

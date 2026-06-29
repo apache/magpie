@@ -2,7 +2,7 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [TODO: `<Project Name>` — mentoring (Mentoring) configuration](#todo-project-name--mentoring-mentoring-configuration)
+- [TODO: `<Project Name>` — mentoring (Agentic Mentoring) configuration](#todo-project-name--mentoring-agentic-mentoring-configuration)
   - [Identifiers](#identifiers)
   - [Convention pointers](#convention-pointers)
   - [Out-of-scope topics](#out-of-scope-topics)
@@ -13,13 +13,13 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
-# TODO: `<Project Name>` — mentoring (Mentoring) configuration
+# TODO: `<Project Name>` — mentoring (Agentic Mentoring) configuration
 
-**This file is a placeholder ahead of the Mentoring skill landing.**
-The skill does not exist yet (Mentoring is proposed per
+**This file is a placeholder ahead of the Agentic Mentoring skill landing.**
+The skill does not exist yet (Agentic Mentoring is proposed per
 [`docs/modes.md`](../../docs/modes.md#mentoring)).
 The keys below match the
-[Mentoring spec](../../docs/mentoring/spec.md#adopter-contract)
+[Agentic Mentoring spec](../../docs/mentoring/spec.md#adopter-contract)
 and are the values the future skill will read.
 
 Copy this file into your own

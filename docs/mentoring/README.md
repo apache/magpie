@@ -2,7 +2,7 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [Mentoring skill family](#mentoring-skill-family)
+- [Agentic Mentoring skill family](#agentic-mentoring-skill-family)
   - [Skills](#skills)
     - [What each skill covers](#what-each-skill-covers)
   - [Adopter contract](#adopter-contract)
@@ -14,14 +14,17 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
-# Mentoring skill family
+# Agentic Mentoring skill family
+
+> **Scope — `asf: false`.** Works on any project, ASF or not — no
+> Apache-Software-Foundation-specific assumptions baked in.
 
 Maintainer-facing skills that join contributor threads in a teaching
 register, author newcomer-ready issues, and orient first-time contributors.
 Three skills shipped at `experimental`; a fourth (`contributor-to-committer`)
 is in-flight.
 
-MISSION names Mentoring as the highest-value project-side mode and the one
+MISSION names Agentic Mentoring as the highest-value project-side mode and the one
 off-the-shelf agent tooling skips. The framework lands the spec — tone guide,
 hand-off protocol, adopter contract — and the skill implementations together,
 so the project's tone choices are reviewable independently of runtime
@@ -41,12 +44,12 @@ confirmation in-session.
 
 ### What each skill covers
 
-- **`pr-management-mentor`** — the thread-level Mentoring skill. Reads an
+- **`pr-management-mentor`** — the thread-level Agentic Mentoring skill. Reads an
   issue or PR thread, decides whether a teaching-register intervention is
   warranted (clarifying question, convention pointer, paired example from a
   prior PR), drafts the comment, and waits for maintainer confirmation before
-  posting. Never reviews code, routes PRs, or authors fixes — those are Triage
-  and Drafting respectively.
+  posting. Never reviews code, routes PRs, or authors fixes — those are Agentic Triage
+  and Agentic Drafting respectively.
 - **`good-first-issue-author`** — the issue on-ramp skill. Takes a maintainer-
   supplied gap or small task, applies a suitability gate (too large, security-
   sensitive, or requiring a design decision → decline), runs through R1–R9
@@ -85,11 +88,11 @@ signals `contributor-nomination` already gathers. It is not yet on `main`.
 
 ## Cross-references
 
-- [`MISSION.md` § Mentoring](../../MISSION.md#technical-scope) —
+- [`MISSION.md` § Agentic Mentoring](../../MISSION.md#technical-scope) —
   mode definition, contributor-empowerment framing.
 - [`docs/modes.md` § Mentoring](../modes.md#mentoring) —
   current implementation status.
-- [`spec.md`](spec.md) — full Mentoring spec: tone guide, hand-off
+- [`spec.md`](spec.md) — full Agentic Mentoring spec: tone guide, hand-off
   protocol, adopter contract.
 - [`projects/_template/README.md`](../../projects/_template/README.md) —
   adopter scaffold index.

@@ -109,7 +109,7 @@ the skill, not the permission set.
 
 ### Boundary 3: Agent never sends mail to `dev@`, `users@`, `announce@`
 
-Drafting skills (`release-vote-draft`, `release-announce-draft`,
+Agentic Drafting skills (`release-vote-draft`, `release-announce-draft`,
 `release-vote-tally` for the `[RESULT]` reply) emit email bodies as
 markdown blocks the RM copies into their mail client. No skill in
 the family is wired to an outbound SMTP path, an MCP send-mail
@@ -147,7 +147,7 @@ the skill reads.
 
 ### `release-prepare`
 
-**Mode:** Drafting. **Steps owned:** 1, 2, 14.
+**Mode:** Agentic Drafting. **Steps owned:** 1, 2, 14.
 
 **Scope.** Drafts the planning issue, the prep PR (version bump +
 changelog + NOTICE/LICENSE), and the post-release `-SNAPSHOT` bump
@@ -205,7 +205,7 @@ skill never marks ready, never merges, never closes.
 
 ### `release-keys-sync`
 
-**Mode:** Drafting. **Steps owned:** 3.
+**Mode:** Agentic Drafting. **Steps owned:** 3.
 
 **Scope.** Draft the diff that adds the RM's public key to the
 project's `KEYS` file under `dist/release/<project>/KEYS`, emit the
@@ -261,7 +261,7 @@ The skill never operates on the private key half.
 
 ### `release-rc-cut`
 
-**Mode:** Drafting. **Steps owned:** 4, 5.
+**Mode:** Agentic Drafting. **Steps owned:** 4, 5.
 
 **Scope.** Emit the paste-ready command sequence to tag the RC,
 build artefacts, sign each artefact, generate checksums, and stage
@@ -325,11 +325,11 @@ scaffold.
 
 ### `release-verify-rc`
 
-**Mode:** Triage / Pairing. **Steps owned:** 6.
+**Mode:** Agentic Triage / Agentic Pairing. **Steps owned:** 6.
 
 **Scope.** Read-only verification of a staged RC. Designed to run
 in two contexts: (1) the RM's pre-flight self-check before
-posting the `[VOTE]` thread, and (2) any voter's Pairing-mode dev
+posting the `[VOTE]` thread, and (2) any voter's Agentic Pairing-mode dev
 loop before posting `+1`.
 
 **Triggers.**
@@ -376,7 +376,7 @@ posting.
 
 ### `release-vote-draft`
 
-**Mode:** Drafting. **Steps owned:** 7.
+**Mode:** Agentic Drafting. **Steps owned:** 7.
 
 **Scope.** Draft the `[VOTE]` email body to `dev@<project>` from
 the planning issue's metadata.
@@ -436,7 +436,7 @@ explicit RM confirmation.
 
 ### `release-vote-tally`
 
-**Mode:** Triage. **Steps owned:** 9.
+**Mode:** Agentic Triage. **Steps owned:** 9.
 
 **Scope.** After the approval window closes, fetch the approval
 signal from the adopter's `release_approval_mechanism` backend,
@@ -513,7 +513,7 @@ classification is the agent's; the decision is the RM's.
 
 ### `release-promote`
 
-**Mode:** Drafting. **Steps owned:** 10.
+**Mode:** Agentic Drafting. **Steps owned:** 10.
 
 **Scope.** Emit the backend-shaped promotion command set after a
 passing vote. For `svnpubsub` (ASF): `svn mv dist/dev → dist/release`
@@ -568,7 +568,7 @@ hard skill-side denylist; removing it requires a skill PR.
 
 ### `release-announce-draft`
 
-**Mode:** Drafting. **Steps owned:** 11.
+**Mode:** Agentic Drafting. **Steps owned:** 11.
 
 **Scope.** Draft the announcement artefact and the site-bump PR
 on the configured site repo. The announcement artefact shape
@@ -625,7 +625,7 @@ draft; the agent never marks ready and never merges.
 
 ### `release-archive-sweep`
 
-**Mode:** Triage. **Steps owned:** 12.
+**Mode:** Agentic Triage. **Steps owned:** 12.
 
 **Scope.** Scan `dist/release/<project>/`, identify releases past
 retention per the project's rule, propose the `svn mv` to
@@ -668,7 +668,7 @@ runs `svn mv`. The RM executes.
 
 ### `release-audit-report`
 
-**Mode:** Triage (read-only dashboard). **Steps owned:** 13.
+**Mode:** Agentic Triage (read-only dashboard). **Steps owned:** 13.
 
 **Scope.** Assemble a per-release record from the planning issue,
 vote thread, RC artefact list, promote revision, announcement
@@ -808,14 +808,14 @@ can run a baseline eval before recording their own.
 Surfaced here so reviewers can weigh in before any skill is
 built.
 
-- **Should `release-verify-rc` ship as a Pairing skill from day
-  one, or land as Triage and graduate later?** Current draft: ship
-  Triage-marked with explicit Pairing-mode invocation
+- **Should `release-verify-rc` ship as an Agentic Pairing skill from day
+  one, or land as Agentic Triage and graduate later?** Current draft: ship
+  Agentic Triage-marked with explicit Agentic Pairing-mode invocation
   (`/release-verify-rc --pairing`) so the same code path serves
   the RM's project-side self-check and the voter's developer-side
-  pre-flight. The framework's Pairing-mode definition is still
+  pre-flight. The framework's Agentic Pairing-mode definition is still
   proposed ([`docs/modes.md` § Pairing](../modes.md#pairing)); this
-  question is best resolved alongside the Pairing spec, not in
+  question is best resolved alongside the Agentic Pairing spec, not in
   isolation.
 - **Where do non-ASF adopters' release-distribution analogues
   plug in?** Current draft: `release_dist_url_template` is generic
@@ -832,13 +832,13 @@ built.
   requirements; the skill can support both by accepting either a
   path inside the adopter repo or a URL to a separate repo, but
   the second case requires extra credentials and is deferred.
-- **Auto-merge eligibility for the prep PR's `-SNAPSHOT` bump
+- **Agentic Autonomous eligibility for the prep PR's `-SNAPSHOT` bump
   (Step 14)?** Current draft: not eligible. The Step 14 PR is
   mechanical (`<version>-SNAPSHOT` bump on a single manifest
   file) but per
-  [`docs/modes.md` § Auto-merge](../modes.md#auto-merge),
-  Auto-merge is off until Pairing has run stable for two
-  quarters. Revisit when Auto-merge sequencing changes; the
+  [`docs/modes.md` § Agentic Autonomous](../modes.md#agentic-autonomous),
+  Agentic Autonomous is off until Agentic Pairing has run stable for two
+  quarters. Revisit when Agentic Autonomous sequencing changes; the
   bump is a plausible first eligible class given its mechanical
   shape and reversibility.
 - **Publishing to distribution areas beyond `dist/release/`, and

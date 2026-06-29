@@ -8,7 +8,7 @@ description: |
   single structured report. Each pass is isolated so findings from one
   axis cannot suppress or bias the others. The merged report uses the
   same format as pairing-self-review so the developer gets a consistent
-  signal regardless of which Pairing skill they invoke.
+  signal regardless of which Agentic Pairing skill they invoke.
 when_to_use: |
   Invoke when a developer says "multi-agent review my diff", "run all
   three review passes", "fan-out review", "independent review passes",
@@ -35,7 +35,7 @@ license: Apache-2.0
 
 # pairing-multi-agent-review
 
-This skill is the **multi-agent review pipeline** for the Pairing mode family.
+This skill is the **multi-agent review pipeline** for the Agentic Pairing mode family.
 It fans a local diff through three independent, axis-focused review passes
 and merges their findings into one structured report.
 
@@ -231,7 +231,7 @@ Collect the three JSON outputs from Step 2. Produce a merged findings list:
 
 Compose the final merged self-review report using the same format as
 `pairing-self-review`. This ensures a consistent output signal regardless of
-which Pairing skill the developer invokes.
+which Agentic Pairing skill the developer invokes.
 
 ```markdown
 ## Multi-agent pre-flight review

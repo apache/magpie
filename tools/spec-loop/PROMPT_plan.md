@@ -34,7 +34,7 @@ Steps:
    of work items. Each work item names: the change, the spec it serves,
    its **Validation** command, and a branch slug (`<slug>`, the bare
    slug — **no `spec/` or other prefix, no numbers**).
-5. Do NOT create work items against an `off` spec (e.g. Auto-merge) —
+5. Do NOT create work items against an `off` spec (e.g. Agentic Autonomous) —
    that would skip the proof MISSION requires.
 
 Rules:
