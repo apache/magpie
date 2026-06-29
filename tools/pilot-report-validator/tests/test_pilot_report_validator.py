@@ -389,7 +389,10 @@ class TestTemplate:
             template = candidate / "docs" / "pilot-report-template.md"
             if template.is_file():
                 return template
+        # pytest.skip() raises Skipped, so control never falls through; the explicit
+        # raise keeps every path either returning a Path or raising (no implicit None).
         pytest.skip("docs/pilot-report-template.md not found — skipping template smoke test")
+        raise AssertionError("unreachable")  # pragma: no cover
 
     def test_template_frontmatter_is_detected_at_top(self) -> None:
         text = self._find_template().read_text(encoding="utf-8")
