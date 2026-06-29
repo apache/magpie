@@ -225,6 +225,7 @@ Tools under [`tools/`](../tools/). Tools with two values (separated by
 | [`tools/pr-management-stats`](../tools/pr-management-stats/) | `capability:stats` | PR-backlog analytics engine |
 | [`tools/preflight-audit`](../tools/preflight-audit/) | `capability:stats` | Dry-run the bulk-mode pre-flight classifier; measure skip-rate before / after any rule edit in the security-issue-sync skill |
 | [`tools/privacy-llm`](../tools/privacy-llm/) | `capability:setup` | Privacy-LLM PII-scrubbing gate |
+| [`tools/pilot-report-validator`](../tools/pilot-report-validator/) | `capability:setup` | Validates adopter pilot-report files — required frontmatter keys, valid profile value, and required body sections |
 | [`tools/probe-templates`](../tools/probe-templates/) | `capability:setup` | Sandbox-doctor probe templates |
 | [`tools/sandbox-lint`](../tools/sandbox-lint/) | `capability:setup` | Sandbox settings linter |
 | [`tools/security-tracker-stats-dashboard`](../tools/security-tracker-stats-dashboard/) | `capability:stats` | Security-tracker analytics engine |

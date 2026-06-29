@@ -60,4 +60,6 @@ __pycache__/
 campaign/
 campaigns/
 pilot-*/
+# tools/pilot-report-validator is a committed framework tool, not an evidence package
+!/tools/pilot-report-validator/
 reassess-*/
