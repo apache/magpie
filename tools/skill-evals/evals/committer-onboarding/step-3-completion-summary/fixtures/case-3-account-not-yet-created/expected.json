@@ -15,12 +15,12 @@
   "karma_granted": [],
   "pending_items": [
     {
-      "item": "jira_karma",
-      "action": "Grant committer rights on the Kafka Jira project"
+      "item": "account_creation",
+      "action": "Wait for root@apache.org to create the Apache account after the secretary request"
     },
     {
-      "item": "whimsy_roster",
-      "action": "Add ytanaka to the PMC roster via Whimsy roster/committee/kafka"
+      "item": "karma_grant",
+      "action": "Once the account is active, grant Jira committer rights and add ytanaka to the PMC roster via Whimsy roster/committee/kafka"
     },
     {
       "item": "welcome_announcement",

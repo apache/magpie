@@ -3,6 +3,16 @@
 The model must produce the correct checklist variant and a
 welcome announcement draft, shaped by the resolved governance model.
 
+**Output format (overrides any checklist-rendering instruction in
+the skill).** Your entire response must be a single JSON object: it
+begins with `{` and ends with `}`. Never begin the response with `[`
+and never return a bare JSON array of checklist items, for any
+governance model, including `github-codeowners` and
+`maintainer-roster`. The checklist is conveyed through the boolean
+step flags (`has_*`) and the other fields as top-level keys of that
+object, not as a list. Each `has_*` field must be present as a
+literal JSON boolean (`true` / `false`).
+
 ## Fields present in all cases
 
 - `welcome_draft_present`: boolean
@@ -15,9 +25,10 @@ welcome announcement draft, shaped by the resolved governance model.
 - `whimsy_url_correct`: boolean
   - incubating: contains "roster/ppmc/<podling>"
   - TLP: references committee-info.txt or "roster/committee/<podling>"
-- `whimsy_url_contains`: string — the substring the Whimsy URL must include
-  (the PPMC vs. PMC discriminator: e.g. `roster/ppmc` for incubating,
-  `roster/committee` for TLP)
+- `whimsy_url_contains`: string — the project-specific substring the
+  Whimsy URL must include: `roster/ppmc/<podling>` for incubating (e.g.
+  `roster/ppmc/airflow`), `roster/committee/<committee>` for TLP. Include
+  the project/podling name, not just the `roster/ppmc` prefix.
 - `has_github_step`: boolean — GitHub org invite present in checklist
 - `github_step_held_when_login_unknown`: boolean — true when GitHub login
   was not provided and the skill asks for it rather than guessing

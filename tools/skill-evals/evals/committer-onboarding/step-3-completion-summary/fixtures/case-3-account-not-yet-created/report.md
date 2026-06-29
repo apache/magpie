@@ -7,10 +7,10 @@ actions_log:
   Communications:
     - Congratulations email sent to ytanaka@example.com
     - Secretary request sent to root@apache.org on 2026-05-16
-    - Account status: root@ replied 2026-05-18 — account created, ytanaka active
+    - Account status: NOT yet created — awaiting root@ response
 
   Karma granted:
-    - GitHub org membership: active via gitbox (automatic)
-    - Jira committer rights: NOT YET GRANTED (nominator forgot)
+    - GitHub org membership: pending — provisioned automatically via gitbox once the account is active
+    - Jira committer rights: NOT YET GRANTED
     - Whimsy roster: NOT YET UPDATED
     - Welcome announcement: NOT YET POSTED
