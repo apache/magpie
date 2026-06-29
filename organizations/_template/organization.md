@@ -2,7 +2,7 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [TODO: `<Organization Name>` — organization adapter](#todo-organization-name--organization-adapter)
+- [TODO: `<Organization Name>` — organization](#todo-organization-name--organization)
   - [Governance vocabulary](#governance-vocabulary)
   - [Capability-to-backend bundle](#capability-to-backend-bundle)
 
@@ -11,9 +11,9 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
-# TODO: `<Organization Name>` — organization adapter
+# TODO: `<Organization Name>` — organization
 
-Authoring skeleton for a new [organization adapter](../README.md). Copy
+Authoring skeleton for a new [organization](../README.md). Copy
 this directory to `organizations/<org>/`, fill in the values, and point
 projects at it with `organization: <org>` in their `project.md`.
 

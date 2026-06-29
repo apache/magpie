@@ -2,22 +2,22 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [Organization adapters](#organization-adapters)
+- [Organizations](#organizations)
   - [Why this exists](#why-this-exists)
   - [Resolution order](#resolution-order)
   - [What ships here](#what-ships-here)
-  - [Authoring a new organization adapter](#authoring-a-new-organization-adapter)
+  - [Authoring a new organization](#authoring-a-new-organization)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
-# Organization adapters
+# Organizations
 
-An **organization adapter** groups everything a governing
-organization — a foundation, a company, or an informal maintainer
-collective — makes *default* for the projects that belong to it:
+An **organization** in Magpie groups everything a governing body — a
+foundation, a company, or an informal maintainer collective — makes
+*default* for the projects that belong to it:
 
 - its **governance vocabulary** (what the governing body is called, how
   contributors are admitted, the project-lifecycle stages), and
@@ -42,7 +42,7 @@ Most of those concrete values are **the same for every project under one
 organization** — every ASF project allocates CVEs through the same
 Vulnogram instance, reads the same `lists.apache.org` archive, and gates
 on PMC membership. Without this layer each project would re-declare the
-identical "ASF defaults". The organization adapter holds them once.
+identical "ASF defaults". The organization holds them once.
 
 ## Resolution order
 
@@ -63,13 +63,13 @@ not branch on the organization.
 
 ## What ships here
 
-| Adapter | What it is |
+| Organization | What it is |
 |---|---|
-| [`ASF/`](ASF/) | The **Apache Software Foundation** organization adapter — the reference org adapter; the default values that reproduce ASF project behaviour. |
+| [`ASF/`](ASF/) | The **Apache Software Foundation** organization — the reference organization; the default values that reproduce ASF project behaviour. |
 | [`independent/`](independent/) | The **no-formal-organization** baseline — DCO sign-off, GitHub-native security/releases, no mailing-list/forwarder/metadata backends. Used by [`projects/non-asf-example/`](../projects/non-asf-example/). |
-| [`_template/`](_template/) | Authoring skeleton for a **new** organization adapter. |
+| [`_template/`](_template/) | Authoring skeleton for a **new** organization. |
 
-## Authoring a new organization adapter
+## Authoring a new organization
 
 Copy [`_template/`](_template/) to `organizations/<org>/`, fill in the
 governance vocabulary and the capability→adapter bundle, and point your

@@ -296,7 +296,7 @@ a confidentiality principle, a brevity rule) live in this file or in
 
 A project may belong to an **organization** (a foundation, company, or
 maintainer collective) that supplies shared defaults via an
-[organization adapter](organizations/README.md). `project.md` names it
+[organization](organizations/README.md). `project.md` names it
 once:
 
 ```yaml
@@ -319,7 +319,7 @@ inheritance in the config model — skills never branch on the
 organization; they read a key and take the first value the chain
 yields. When this document says a value comes from
 `<project-config>/project.md`, read it as "from `project.md`, else the
-project's organization adapter, else the framework default".
+project's organization, else the framework default".
 
 ### Placeholder convention used in skill files
 
@@ -339,8 +339,8 @@ configuration before executing any command:
 | `<issue-tracker-project>` | Project key within the issue tracker (JIRA key or `owner/repo`). | `<project-config>/issue-tracker-config.md` → `project_key` |
 | `<runtime>` | Recipe for invoking the project's runtime on a single source file. | `<project-config>/runtime-invocation.md` |
 | `<default-branch>` | The upstream repo's default branch (`master` or `main`). | `<project-config>/project.md` → `upstream_default_branch` |
-| `<governance-body>` | The project's governing body, named in its own terms (example: `PMC`). | `project.md` → org adapter → `governance_vocabulary.governance_body` |
-| `<project-stage>` | The project's lifecycle stage, if its organization has one (example: `incubating`). | `project.md` → org adapter → `governance_vocabulary.project_stage_vocab` |
+| `<governance-body>` | The project's governing body, named in its own terms (example: `PMC`). | `project.md` → organization → `governance_vocabulary.governance_body` |
+| `<project-stage>` | The project's lifecycle stage, if its organization has one (example: `incubating`). | `project.md` → organization → `governance_vocabulary.project_stage_vocab` |
 | `<N>` | An issue or PR number. | The user's input to the skill |
 | `<CVE-ID>` | A CVE identifier of the form `CVE-YYYY-NNNNN`. | Per-tracker |
 

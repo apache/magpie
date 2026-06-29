@@ -2,7 +2,7 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [Apache Software Foundation — organization adapter](#apache-software-foundation--organization-adapter)
+- [Apache Software Foundation — organization](#apache-software-foundation--organization)
   - [Governance vocabulary](#governance-vocabulary)
   - [CVE authority](#cve-authority)
   - [Governance gate](#governance-gate)
@@ -20,9 +20,9 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
-# Apache Software Foundation — organization adapter
+# Apache Software Foundation — organization
 
-The **ASF organization adapter**: the default governance vocabulary,
+The **ASF organization**: the default governance vocabulary,
 backend selections, and infrastructure values shared by every Apache
 project that adopts Magpie. A project under the ASF sets
 `organization: ASF` in [`<project-config>/project.md`](../../projects/_template/project.md)

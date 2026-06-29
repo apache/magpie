@@ -2,16 +2,16 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [Independent organization adapter](#independent-organization-adapter)
+- [Independent organization](#independent-organization)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
-# Independent organization adapter
+# Independent organization
 
-The [organization adapter](../README.md) for projects with **no formal
+The [organization](../README.md) for projects with **no formal
 governing body** — informal maintainer collectives and single-vendor
 teams. It is the baseline a project inherits when it sets:
 

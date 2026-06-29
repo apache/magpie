@@ -11,7 +11,7 @@
 
 # Organization-adapter template
 
-Authoring skeleton for a new [organization adapter](../README.md).
+Authoring skeleton for a new [organization](../README.md).
 
 1. Copy this directory: `cp -R organizations/_template organizations/<org>`.
 2. Fill in [`organization.md`](organization.md) — governance vocabulary

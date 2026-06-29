@@ -2,7 +2,7 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [Independent — organization adapter (no formal governing body)](#independent--organization-adapter-no-formal-governing-body)
+- [Independent — organization (no formal governing body)](#independent--organization-no-formal-governing-body)
   - [Governance vocabulary](#governance-vocabulary)
   - [CVE authority](#cve-authority)
   - [Governance gate](#governance-gate)
@@ -16,9 +16,9 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
-# Independent — organization adapter (no formal governing body)
+# Independent — organization (no formal governing body)
 
-The **baseline** organization adapter for a project that belongs to no
+The **baseline** organization for a project that belongs to no
 foundation: an informal maintainer collective or a single-vendor team
 using GitHub-native security and releases. It is the `organization:`
 value a project sets when it is not part of a larger organization, and

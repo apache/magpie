@@ -10,7 +10,7 @@
     - [Tools are the only place vendor-specific code lives](#tools-are-the-only-place-vendor-specific-code-lives)
     - [Capabilities are the contract between them](#capabilities-are-the-contract-between-them)
   - [Tool adapters](#tool-adapters)
-  - [Organization adapters](#organization-adapters)
+  - [Organizations](#organizations)
   - [Authoring your own adapter](#authoring-your-own-adapter)
   - [How each axis is delivered](#how-each-axis-is-delivered)
     - [1. LLM backend](#1-llm-backend)
@@ -211,12 +211,12 @@ choice.** Tool adapters are exactly where vendor specificity is allowed
 to live — and the reason adding a vendor is "write one adapter," not a
 fork of the workflows.
 
-## Organization adapters
+## Organizations
 
 Most adapter selections are identical for every project under one
 governing organization: every ASF project allocates CVEs through the same
 Vulnogram, reads the same `lists.apache.org` archive, and gates on PMC
-membership. An **organization adapter**
+membership. An **organization**
 ([`organizations/<org>/`](../organizations/)) groups those shared
 defaults — the **governance vocabulary** (what the governing body is
 called, how contributors are admitted, the lifecycle stages) plus the
@@ -225,7 +225,7 @@ once instead of in every project.
 
 A project names its organization (`organization: ASF`) and inherits the
 rest; resolution is `project.md → organizations/<org>/ → framework
-default`, first hit wins. The reference adapter is
+default`, first hit wins. The reference organization is
 [`organizations/ASF/`](../organizations/ASF/);
 [`organizations/independent/`](../organizations/independent/) is the
 no-formal-organization baseline. This is what lets the *same skill* run
@@ -242,7 +242,7 @@ organization profile — you author one, and you have two supported paths:
 - **Contribute it to Magpie.** Scaffold the adapter against the
   capability contract (or copy
   [`organizations/_template/`](../organizations/_template/) for an
-  organization adapter) and open a PR. Accepted adapters ship under
+  organization) and open a PR. Accepted adapters ship under
   Apache-2.0 like the rest of the framework
   ([`PRINCIPLES.md` §17](../PRINCIPLES.md#17-contributions-land-under-apache-license-20)),
   so every other adopter on that backend reuses your work. The

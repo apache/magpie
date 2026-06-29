@@ -2,7 +2,7 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [ASF organization adapter](#asf-organization-adapter)
+- [ASF organization](#asf-organization)
   - [Using it](#using-it)
   - [What is *not* here](#what-is-not-here)
 
@@ -11,9 +11,9 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
-# ASF organization adapter
+# ASF organization
 
-The reference [organization adapter](../README.md) for the **Apache
+The reference [organization](../README.md) for the **Apache
 Software Foundation**. [`organization.md`](organization.md) holds the
 ASF defaults every Apache project inherits: PMC governance vocabulary,
 the Vulnogram CVE authority, the PonyMail archive, the

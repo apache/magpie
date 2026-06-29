@@ -2,13 +2,12 @@
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
 ---
-title: Organization adapters (governance + backend defaults grouped per org)
+title: Organizations (governance + backend defaults grouped per org)
 status: experimental
 kind: feature
 mode: infra
 source: >
-  Extends project-agnosticism.md and adapters.md. An organization
-  adapter groups the governance vocabulary and capability→backend
+  Extends project-agnosticism.md and adapters.md. An organization groups the governance vocabulary and capability→backend
   defaults shared by every project under one governing body (foundation,
   company, maintainer collective), so those defaults live once instead of
   being copied into each project's manifest. Implemented under
@@ -22,15 +21,14 @@ acceptance:
     (organization:<org> in project.md) and inherits the rest.
   - Config resolves project.md -> organizations/<org>/ -> framework
     default, first hit wins; skills never branch on the organization.
-  - A new organization adapter can be authored from
+  - A new organization can be authored from
     organizations/_template/ without editing any skill body.
 ---
 
 ## What it does
 
 Introduces a configuration layer **between** a single project's
-`<project-config>/` and the framework defaults. An **organization
-adapter** captures what a governing organization makes default for all
+`<project-config>/` and the framework defaults. An **organization** captures what a governing organization makes default for all
 its projects:
 
 - **governance vocabulary** — what the governing body is called
@@ -48,7 +46,7 @@ identical "ASF default" values in its own `project.md`.
 ## Where it lives
 
 - `organizations/README.md` — the entity overview.
-- `organizations/ASF/` — the reference adapter (Apache Software
+- `organizations/ASF/` — the reference organization (Apache Software
   Foundation defaults: PMC governance, Vulnogram, PonyMail,
   `apache-projects-mcp`, ASF-security forwarder, `*.apache.org` infra).
 - `organizations/independent/` — the no-formal-org baseline (DCO, GHSA,
@@ -69,7 +67,7 @@ identical "ASF default" values in its own `project.md`.
 - Skills do **not** read the `organization:` key to branch behaviour;
   they read capability keys (`cve_authority.tool`, `archive_system.kind`,
   `<governance-body>`, …) and take the first value the chain yields.
-- An organization adapter declares only org-wide values. Per-project
+- An organization declares only org-wide values. Per-project
   values (security-list address, scope labels, product name, roster,
   tracker label/body-field vocabulary) stay in `project.md`.
 - The `organizations/ASF/organization.md` keys mirror the namespaces of
@@ -92,10 +90,10 @@ identical "ASF default" values in its own `project.md`.
 - An organization's shared defaults live in
   `organizations/<org>/organization.md`, not duplicated per project.
 - `organization: <org>` in `project.md` selects the adapter.
-- Resolution is `project.md → org adapter → framework default`,
+- Resolution is `project.md → organization → framework default`,
   first hit wins; no skill branches on the organization.
-- A new adapter can be authored from `organizations/_template/` with no
-  skill edits.
+- A new organization can be authored from `organizations/_template/` with
+  no skill edits.
 
 ## Validation
 
