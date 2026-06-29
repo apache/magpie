@@ -3,6 +3,7 @@
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
 - [Probe templates](#probe-templates)
+  - [Prerequisites](#prerequisites)
   - [Layout](#layout)
   - [What a probe template looks like](#what-a-probe-template-looks-like)
   - [Contributing a runtime](#contributing-a-runtime)
@@ -26,6 +27,13 @@ The probe pattern, contract, and recording schema are in the
 skill's [`probe-templates.md`](../../skills/issue-reproducer/probe-templates.md)
 companion. This directory holds runtime-specific reference
 implementations.
+
+## Prerequisites
+
+- **Runtime:** None of its own — this directory holds per-runtime probe template files (today `groovy/`). Running a probe needs the matching language runtime (e.g. a Groovy interpreter for the `groovy/` templates).
+- **CLIs:** Whatever runs the target runtime's scripts; nothing else.
+- **Credentials / auth:** None.
+- **Network:** Runs fully offline/local.
 
 ## Layout
 

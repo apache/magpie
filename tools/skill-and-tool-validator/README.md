@@ -3,6 +3,7 @@
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
 - [skill-and-tool-validator](#skill-and-tool-validator)
+  - [Prerequisites](#prerequisites)
   - [What it checks](#what-it-checks)
     - [Hard rules (failure)](#hard-rules-failure)
     - [SOFT advisories (warning, do not fail)](#soft-advisories-warning-do-not-fail)
@@ -20,6 +21,16 @@
 
 Validate framework skill definitions — YAML frontmatter, internal
 link integrity, and placeholder conventions.
+
+## Prerequisites
+
+- **Runtime:** Python 3.11+ run via `uv`; stdlib-only (no third-party
+  runtime dependencies). The `dev` group pulls `pytest`, `ruff`, `mypy`.
+- **CLIs:** None beyond the runtime. `git` is used only for the optional
+  trigger-phrase-preservation check and is silently skipped when git or
+  the base ref is unavailable.
+- **Credentials / auth:** None.
+- **Network:** Runs fully offline against local skill files.
 
 ## What it checks
 

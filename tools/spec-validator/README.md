@@ -3,6 +3,7 @@
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
 - [spec-validator](#spec-validator)
+  - [Prerequisites](#prerequisites)
   - [What it checks](#what-it-checks)
   - [Usage](#usage)
 
@@ -17,6 +18,14 @@
 
 Validates spec files in `tools/spec-loop/specs/` — the counterpart to
 `tools/skill-and-tool-validator/` for the spec side of the framework.
+
+## Prerequisites
+
+- **Runtime:** Python 3.11+ run via `uv`; stdlib-only (no runtime
+  dependencies). The `dev` group pulls `pytest`, `ruff`.
+- **CLIs:** None beyond the runtime.
+- **Credentials / auth:** None.
+- **Network:** Runs fully offline against local spec files.
 
 ## What it checks
 

@@ -3,6 +3,7 @@
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
 - [spec-status-index](#spec-status-index)
+  - [Prerequisites](#prerequisites)
   - [Usage](#usage)
   - [Statuses](#statuses)
   - [Run tests](#run-tests)
@@ -19,6 +20,15 @@
 A deterministic `uv` tool that reads spec-loop specs from
 `tools/spec-loop/specs/` and prints them grouped by status, so build
 iterations can choose the next work item mechanically.
+
+## Prerequisites
+
+- **Runtime:** Python 3.11+ run via `uv`; stdlib-only (no runtime
+  dependencies). The `dev` group pulls `pytest`.
+- **CLIs:** None beyond the runtime.
+- **Credentials / auth:** None.
+- **Network:** Runs fully offline; reads spec files from
+  `tools/spec-loop/specs/` on the local filesystem.
 
 ## Usage
 

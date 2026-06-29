@@ -3,6 +3,7 @@
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
 - [preflight-audit](#preflight-audit)
+  - [Prerequisites](#prerequisites)
   - [Why](#why)
   - [Invocation](#invocation)
     - [Live mode](#live-mode)
@@ -24,6 +25,13 @@ Dry-run the bulk-mode pre-flight classifier against a real or
 replayed tracker. Use to **measure skip-rate before / after any
 rule change** — closes the tune-then-verify loop so rule edits
 are made against evidence, not guesswork.
+
+## Prerequisites
+
+- **Runtime:** Python 3.11+ run via `uv` (stdlib only, no third-party deps).
+- **CLIs:** `gh` (GitHub CLI) for live mode; replay mode needs none.
+- **Credentials / auth:** `gh` authenticated to the tracker repo (live mode only).
+- **Network:** GitHub GraphQL API via `gh` (live mode); replay mode runs fully offline.
 
 ## Why
 

@@ -3,6 +3,7 @@
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
 - [agent-guard](#agent-guard)
+  - [Prerequisites](#prerequisites)
   - [Guards](#guards)
   - [Per-command overrides](#per-command-overrides)
   - [Wiring](#wiring)
@@ -27,6 +28,13 @@ It is **stdlib-only** and is invoked directly as
 `python3 <path>/agent_guard/__init__.py` (never via `uv run`) so it returns in a
 few milliseconds for any command that is not a guarded `gh` / `git commit` /
 `git push`.
+
+## Prerequisites
+
+- **Runtime:** Python stdlib only — the hook runs as `python3 .../agent_guard/__init__.py` (3.11+), never via `uv`, so it needs no built/installed environment. The test suite runs under `uv run --project tools/agent-guard pytest`.
+- **CLIs:** `git` and `gh` — the guards shell out (via `ctx.run`) to inspect commits, branch state, and GitHub Actions runs. None otherwise.
+- **Credentials / auth:** None. The guards read local `git` / `gh` state; `gh` must be on `PATH` for the `mark-ready` guard's Actions lookup.
+- **Network:** None in the hot path; the `mark-ready` guard reaches `api.github.com` (via `gh`) when it checks for awaiting-approval Actions runs.
 
 ## Guards
 

@@ -88,14 +88,20 @@ DOCS_DIR = Path("docs")
 SKILL_EVALS_DIR = Path("tools/skill-evals/evals")
 PROJECTS_TEMPLATE_DIR = Path("projects/_template")
 
-# Categories for the tool-validator block. Both HARD by default — every
-# tool must have a README that declares its capability.
+# Categories for the tool-validator block. All HARD by default — every
+# tool must have a README that declares its capability and its prerequisites.
 TOOL_README_CATEGORY = "tool-readme"
 TOOL_CAPABILITY_CATEGORY = "tool-capability"
+TOOL_PREREQUISITES_CATEGORY = "tool-prerequisites"
 
 # Matches `**Capability:** capability:NAME` (and multi-value
 # `capability:NAME + capability:NAME + …`) on a single line.
 TOOL_CAPABILITY_RE = re.compile(r"^\*\*Capability:\*\*[ \t]+(.+)$", re.MULTILINE)
+
+# Matches a level-2 `## Prerequisites` heading. Every tool README must carry
+# one so the tool's runtime / CLI / credential / network requirements are
+# stated up front rather than discovered at first run.
+TOOL_PREREQUISITES_RE = re.compile(r"^##[ \t]+Prerequisites[ \t]*$", re.MULTILINE)
 
 # Capability-sync check: keeps docs/labels-and-capabilities.md tables aligned
 # with live skill frontmatter + tool README declarations.
@@ -287,6 +293,7 @@ HARD_CATEGORIES: frozenset[str] = frozenset(
     {
         TOOL_README_CATEGORY,
         TOOL_CAPABILITY_CATEGORY,
+        TOOL_PREREQUISITES_CATEGORY,
         CAPABILITY_SYNC_CATEGORY,
         INJECTION_GUARD_CATEGORY,
         NAME_CONVENTION_CATEGORY,
@@ -1309,10 +1316,14 @@ def validate_tools(root: Path | None = None) -> Iterable[Violation]:
     2. The README to contain a ``**Capability:** capability:NAME`` line,
        with NAME drawn from ``ALLOWED_CAPABILITIES``. Multi-value form is
        ``**Capability:** capability:NAME + capability:NAME``.
+    3. The README to contain a ``## Prerequisites`` section so the tool's
+       runtime / CLI / credential / network requirements are stated up
+       front.
 
-    Both are HARD checks — every tool must declare its capabilities so
-    the per-tool map in ``docs/labels-and-capabilities.md`` stays
-    authoritative.
+    All are HARD checks — every tool must declare its capabilities and
+    its prerequisites so the per-tool map in
+    ``docs/labels-and-capabilities.md`` stays authoritative and an adopter
+    can tell what a tool needs before running it.
     """
     for tool_dir in collect_tool_dirs(root):
         readme = tool_dir / "README.md"
@@ -1332,6 +1343,16 @@ def validate_tools(root: Path | None = None) -> Iterable[Violation]:
         except OSError as exc:
             yield Violation(readme, None, f"cannot read README.md: {exc}")
             continue
+
+        if TOOL_PREREQUISITES_RE.search(text) is None:
+            yield Violation(
+                readme,
+                1,
+                f"tool '{tool_dir.name}' README missing a '## Prerequisites' section — "
+                f"state the tool's runtime, required CLIs, credentials, and network "
+                f"access up front (see tools/AGENTS.md)",
+                category=TOOL_PREREQUISITES_CATEGORY,
+            )
 
         match = TOOL_CAPABILITY_RE.search(text)
         if match is None:

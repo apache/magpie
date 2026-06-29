@@ -3,6 +3,7 @@
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
 - [tools/mail-archive/](#toolsmail-archive)
+  - [Prerequisites](#prerequisites)
   - [Today's adapters](#todays-adapters)
   - [Interface](#interface)
     - [`search_thread_url(list, year, month, query) to string`](#search_thread_urllist-year-month-query-to-string)
@@ -62,6 +63,20 @@ ASF projects keep the existing PonyMail behaviour by default. A
 non-ASF adopter declares a different `archive_system.kind` in
 `projects/<project>/project.md` and the adapter for that kind is
 loaded in place of PonyMail. Skills do not change.
+
+## Prerequisites
+
+- **Runtime:** None of its own — this file is an adapter-contract
+  *specification* (pure Markdown). Concrete prerequisites belong to
+  whichever adapter the project declares.
+- **CLIs:** None for the contract itself.
+- **Credentials / auth:** Per adapter. The shipping `ponymail`
+  adapter needs ASF LDAP OAuth for private lists (`security@`,
+  `private@`) and anonymous read for public lists; the placeholder
+  adapters (Hyperkitty / Discourse / Google Groups / GitHub
+  Discussions / none) each bring their own auth model.
+- **Network:** Per adapter. The ASF default reaches
+  `lists.apache.org`; the `none` adapter performs no network access.
 
 ## Today's adapters
 

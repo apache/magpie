@@ -3,6 +3,7 @@
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
 - [permission-audit](#permission-audit)
+  - [Prerequisites](#prerequisites)
   - [Why](#why)
   - [Install](#install)
   - [CLI](#cli)
@@ -28,6 +29,17 @@ in `<repo>/.claude/settings.json` and `<repo>/.claude/settings.local.json`.
 Backs the `--apply-permission-audit` flag of
 [`/magpie-setup verify`](../../skills/setup/verify.md#8d-permission-allow-list-hygiene)
 (check 8d), and is also directly usable as a CLI.
+
+## Prerequisites
+
+- **Runtime:** Python 3.11+ run via `uv` (`uv sync` / `uv run`); the
+  tool itself is stdlib-only.
+- **CLIs:** None beyond the runtime.
+- **Credentials / auth:** None.
+- **Network:** None — operates entirely on local
+  `.claude/settings.json` / `.claude/settings.local.json` files.
+- **Optional:** dev group adds `pytest`, `ruff`, `mypy` for the test
+  + lint suite.
 
 ## Why
 

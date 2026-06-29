@@ -3,6 +3,7 @@
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
 - [JIRA bridge](#jira-bridge)
+  - [Prerequisites](#prerequisites)
   - [Layout](#layout)
   - [Invocation](#invocation)
   - [Read subcommands](#read-subcommands)
@@ -41,6 +42,14 @@ Write operations require `JIRA_API_TOKEN` and follow the same
 write-path discipline as the GitHub bridge: every mutation is
 gated on explicit user confirmation in the calling skill — the
 bridge only executes confirmed actions.
+
+## Prerequisites
+
+- **Runtime:** Groovy 4.x+ on `PATH` (`groovy tools/jira/bridge.groovy …`); `@Grab` pulls the HTTP-client dependencies on first run, no separate install step. Python 3.11+ via `uv` is needed only for the pytest test harness.
+- **CLIs:** `groovy` (4.x — the `@Grab` coordinate uses the `org.apache.groovy` group ID); `uv` only to run the tests.
+- **Credentials / auth:** `ISSUE_TRACKER_URL` (required) and `ISSUE_TRACKER_PROJECT` exported by the caller; write subcommands require `JIRA_API_TOKEN` (`JIRA_AUTH_SCHEME` = `Basic` default, or `Bearer` for ASF PATs). Anonymous-read trackers need no auth for read subcommands.
+- **Network:** the configured `<issue-tracker>` JIRA host (e.g. `issues.apache.org/jira`); `@Grab` reaches Maven Central on first run to resolve dependencies.
+- **Optional:** `groovy` on `PATH` for the pytest suite — tests auto-skip when Groovy is absent.
 
 ## Layout
 

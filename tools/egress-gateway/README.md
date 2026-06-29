@@ -3,6 +3,7 @@
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
 - [egress-gateway](#egress-gateway)
+  - [Prerequisites](#prerequisites)
   - [Run it](#run-it)
   - [Point tools at it](#point-tools-at-it)
   - [The allowlist](#the-allowlist)
@@ -29,6 +30,20 @@ destination is blocked.
 
 The contract (what/why) lives in [`tool.md`](tool.md); this file is the
 how-to.
+
+## Prerequisites
+
+- **Runtime:** Python 3.11+ run via `uv` (no system install needed).
+- **Dependencies:** `proxy.py` (`>=2.4,<3`) — the forward-proxy runtime,
+  resolved by `uv` from PyPI; the allowlist policy is the only first-party code.
+- **CLIs:** None beyond the runtime.
+- **Credentials / auth:** None.
+- **Network:** Binds a loopback listen socket (default `127.0.0.1:8899`) and
+  makes unrestricted outbound by design — must run in a **non-sandboxed**
+  context. Needs a writable `$HOME` (or a `HOME` override) for runtime state
+  under `~/.proxy`. Default allowlist mirrors the sandbox's curated domains
+  (ASF infra, GitHub, Google APIs, PyPI).
+- **Optional:** the `dev` dependency group (`pytest`, `ruff`, `mypy`) to run the test suite.
 
 ## Run it
 

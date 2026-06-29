@@ -3,6 +3,7 @@
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
 - [`sandbox-lint`](#sandbox-lint)
+  - [Prerequisites](#prerequisites)
   - [What it checks](#what-it-checks)
   - [How to use](#how-to-use)
   - [CI wiring](#ci-wiring)
@@ -24,6 +25,13 @@ invariants documented in `docs/security/threat-model.md`
 (mitigation **M.29**). The threat-model document lands in a
 companion PR; the lint stands on its own and runs immediately on
 merge.
+
+## Prerequisites
+
+- **Runtime:** Python 3.11+ run via `uv` (stdlib only, no third-party deps).
+- **CLIs:** None beyond the runtime.
+- **Credentials / auth:** None.
+- **Network:** Runs fully offline/local — it only reads local JSON files.
 
 ## What it checks
 

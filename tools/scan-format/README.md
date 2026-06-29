@@ -2,6 +2,7 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 
 - [tools/scan-format/ — adapter contract](#toolsscan-format--adapter-contract)
+  - [Prerequisites](#prerequisites)
   - [What "a scan" means](#what-a-scan-means)
   - [Today's adapters](#todays-adapters)
   - [Interface](#interface)
@@ -29,6 +30,13 @@ scanner-agnostic; everything format-specific — how to recognise a scan
 folder, how to enumerate findings, how to pull a finding's evidence, and
 how to normalise the fields — lives behind this contract so the triage
 flow is identical across scanners.
+
+## Prerequisites
+
+- **Runtime:** None — this directory is a documented adapter *contract* (specification), not executable code; an adapter is implemented as documented behaviour inside the consuming skill.
+- **CLIs:** None.
+- **Credentials / auth:** None.
+- **Network:** None — the contract reaches no hosts; locating scan folders and issues is the consuming skill's job.
 
 ## What "a scan" means
 

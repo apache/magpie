@@ -3,6 +3,7 @@
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
 - [Dashboard generator](#dashboard-generator)
+  - [Prerequisites](#prerequisites)
   - [Layout](#layout)
   - [Invocation](#invocation)
   - [Contract](#contract)
@@ -29,6 +30,17 @@ The agent-emitted version (via the skill) is the **default**; the
 reference implementations are a *deterministic* alternative for
 adopters who want byte-for-byte reproducibility (CI pipelines,
 audit trails).
+
+## Prerequisites
+
+- **Runtime:** Groovy (JVM) for the working `reference.groovy`
+  (`MarkupBuilder` + `JsonSlurper`); `reference.py` is a Python 3
+  stdlib-only stub.
+- **CLIs:** `groovy` to run the Groovy reference. None beyond that.
+- **Credentials / auth:** None.
+- **Network:** None — reads local `<campaign-dir>/<KEY>/verdict.json`
+  files and emits self-contained HTML (inline CSS, no JS, no external
+  assets).
 
 ## Layout
 

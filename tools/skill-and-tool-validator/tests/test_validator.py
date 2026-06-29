@@ -2347,7 +2347,10 @@ class TestValidateTools:
         root = _make_tools_root(tmp_path)
         tool = root / "tools" / "foo"
         tool.mkdir()
-        (tool / "README.md").write_text("# tools/foo\n\n**Capability:** capability:setup\n\nFoo tool.\n")
+        (tool / "README.md").write_text(
+            "# tools/foo\n\n**Capability:** capability:setup\n\nFoo tool.\n\n"
+            "## Prerequisites\n\n- Python 3.11+ via uv.\n"
+        )
         violations = list(validate_tools(root))
         assert violations == []
 
@@ -2363,7 +2366,9 @@ class TestValidateTools:
         root = _make_tools_root(tmp_path)
         tool = root / "tools" / "bare"
         tool.mkdir()
-        (tool / "README.md").write_text("# bare\n\nDescription only, no capability line.\n")
+        (tool / "README.md").write_text(
+            "# bare\n\nDescription only, no capability line.\n\n## Prerequisites\n\n- None.\n"
+        )
         violations = list(validate_tools(root))
         assert len(violations) == 1
         assert "missing '**Capability:**" in violations[0].message
@@ -2381,7 +2386,9 @@ class TestValidateTools:
         root = _make_tools_root(tmp_path)
         tool = root / "tools" / "dual"
         tool.mkdir()
-        (tool / "README.md").write_text("# dual\n\n**Capability:** capability:setup + capability:intake\n")
+        (tool / "README.md").write_text(
+            "# dual\n\n**Capability:** capability:setup + capability:intake\n\n## Prerequisites\n\n- None.\n"
+        )
         violations = list(validate_tools(root))
         assert violations == []
 
@@ -2395,10 +2402,29 @@ class TestValidateTools:
         (tool / "README.md").write_text(
             "# tools/with-prose\n\n"
             "**Capability:** capability:setup\n\n"
-            "Some prose that follows the capability line and should NOT be parsed as part of it.\n"
+            "Some prose that follows the capability line and should NOT be parsed as part of it.\n\n"
+            "## Prerequisites\n\n- None.\n"
         )
         violations = list(validate_tools(root))
         assert violations == []
+
+    def test_tool_missing_prerequisites(self, tmp_path: Path) -> None:
+        root = _make_tools_root(tmp_path)
+        tool = root / "tools" / "no-prereq"
+        tool.mkdir()
+        (tool / "README.md").write_text("# no-prereq\n\n**Capability:** capability:setup\n\nA tool.\n")
+        violations = list(validate_tools(root))
+        assert len(violations) == 1
+        assert "'## Prerequisites'" in violations[0].message
+        assert violations[0].category == "tool-prerequisites"
+
+    def test_tool_missing_both_capability_and_prerequisites(self, tmp_path: Path) -> None:
+        root = _make_tools_root(tmp_path)
+        tool = root / "tools" / "bare-both"
+        tool.mkdir()
+        (tool / "README.md").write_text("# bare-both\n\nDescription only.\n")
+        cats = {v.category for v in validate_tools(root)}
+        assert cats == {"tool-prerequisites", "tool-capability"}
 
 
 # ---------------------------------------------------------------------------

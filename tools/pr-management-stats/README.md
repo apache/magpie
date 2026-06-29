@@ -3,6 +3,7 @@
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
 - [pr-management-stats reference implementation](#pr-management-stats-reference-implementation)
+  - [Prerequisites](#prerequisites)
   - [Layout](#layout)
   - [Invocation](#invocation)
   - [Configuration and vendor neutrality](#configuration-and-vendor-neutrality)
@@ -40,6 +41,19 @@ exists for two reasons:
    this script on a schedule, extend it with the full render per
    [`render.md`](../../skills/pr-management-stats/render.md),
    and publish the HTML as a build artefact or gist.
+
+## Prerequisites
+
+- **Runtime:** Python 3.11+, stdlib-only; run as
+  `python3 reference.py` / `python3 dashboard.py`.
+- **CLIs:** `gh` (GitHub CLI) for the GraphQL fetch; `bash` + `awk`
+  for the optional `gen_charts.sh` SVG helper.
+- **Credentials / auth:** an authenticated `gh` session
+  (`gh auth status` must succeed for the viewer against `<upstream>`).
+- **Network:** `api.github.com` via `gh` GraphQL. (The test suite
+  stubs every `gh` call — no network.)
+- **Optional:** `pytest` (dev-only) via `uv run pytest` or
+  `python3 -m pytest`.
 
 ## Layout
 

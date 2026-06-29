@@ -4,7 +4,7 @@
 
 - [How Magpie achieves vendor neutrality](#how-magpie-achieves-vendor-neutrality)
   - [Two questions that get conflated](#two-questions-that-get-conflated)
-  - [The five axes of neutrality](#the-five-axes-of-neutrality)
+  - [The six axes of neutrality](#the-six-axes-of-neutrality)
   - [The mechanism: skills, tools, capabilities](#the-mechanism-skills-tools-capabilities)
     - [Skills target the abstraction, never a vendor's client](#skills-target-the-abstraction-never-a-vendors-client)
     - [Tools are the only place vendor-specific code lives](#tools-are-the-only-place-vendor-specific-code-lives)
@@ -13,8 +13,9 @@
     - [1. LLM backend](#1-llm-backend)
     - [2. Agentic runtime](#2-agentic-runtime)
     - [3. Forge and tracker](#3-forge-and-tracker)
-    - [4. Source control (VCS)](#4-source-control-vcs)
-    - [5. Project governance](#5-project-governance)
+    - [4. Communication channels](#4-communication-channels)
+    - [5. Source control (VCS)](#5-source-control-vcs)
+    - [6. Project governance](#6-project-governance)
   - [What keeps it neutral over time](#what-keeps-it-neutral-over-time)
   - [The contribution model — neutrality as an invitation](#the-contribution-model--neutrality-as-an-invitation)
   - [Status at a glance](#status-at-a-glance)
@@ -74,20 +75,21 @@ documented contract — not a fork of the workflows.** That is what
 "vendor neutral" means here, and it is the only definition that is both
 achievable and useful.
 
-## The five axes of neutrality
+## The six axes of neutrality
 
-"Vendor" is not one thing. Magpie is neutral across five independent
+"Vendor" is not one thing. Magpie is neutral across six independent
 axes, and a backend choice on one axis never constrains the others:
 
 | Axis | The "vendor" | Neutral by… |
 |---|---|---|
 | **LLM backend** | Anthropic, OpenAI, Google, Bedrock, local Ollama/vLLM, a future ASF endpoint | Skills written against a model *contract* (capability floor), not a client; a privacy gate that keys on endpoint identity, not on who hosts it |
 | **Agentic runtime** | Claude Code, Codex, Cursor, Gemini CLI, Copilot, OpenCode, Kiro, … | Skills are [`AGENTS.md`](https://agents.md/)-standard markdown under a shared `.agents/skills/` home that every runtime reads |
-| **Forge / tracker** | GitHub, GitLab, Gitea, Forgejo, Pagure, Bitbucket, Jira, mailing lists | Per-interface **tools** behind capability contracts; many tools are pure adapter *specs* with pluggable backends |
+| **Forge / tracker** | GitHub, GitLab, Gitea, Forgejo, Pagure, Bitbucket, Jira, Bugzilla | Per-interface **tools** behind capability contracts; many tools are pure adapter *specs* with pluggable backends |
+| **Communication channels** | Mailing lists, GitHub Discussions, Discourse, Zulip, Matrix, IRC | Mail-archive / mail-source adapter contracts; chat and forum bridges as sibling tools |
 | **Source control (VCS)** | Git, Mercurial, Subversion, Jujutsu, Fossil, Perforce, … | A single `VCSBackend` contract; skills call the abstract operation, the backend is detected from the working copy |
 | **Project governance** | ASF PMC, foundation-hosted, single-vendor, informal maintainer group | Modes and thresholds are adopter config; non-ASF adopters are first-class ([`PRINCIPLES.md` §3](../PRINCIPLES.md#3-project-autonomy-is-the-structural-starting-point)) |
 
-The rest of this page walks the mechanism that makes all five true,
+The rest of this page walks the mechanism that makes all six true,
 then states exactly where each axis stands today.
 
 ## The mechanism: skills, tools, capabilities
@@ -153,6 +155,15 @@ with pluggable backends already include:
 | [`tools/forwarder-relay`](../tools/forwarder-relay/) | ASF Security relay, huntr.com, HackerOne triagers |
 | [`tools/scan-format`](../tools/scan-format/) | security-scanner report formats (ASVS reference) |
 | [`tools/vcs`](../tools/vcs/) | Git (complete), Mercurial, Subversion, … (extension points) |
+
+The security-team surface follows the same pattern: CNA backends live
+behind [`tools/cve-tool`](../tools/cve-tool/) (the ASF Vulnogram adapter
+[`tools/cve-tool-vulnogram`](../tools/cve-tool-vulnogram/) is the landed
+reference), inbound report relays behind
+[`tools/forwarder-relay`](../tools/forwarder-relay/), scanner formats
+behind [`tools/scan-format`](../tools/scan-format/), and an OSV.dev
+vulnerability cross-reference bridge is the open extension point
+([#311](https://github.com/apache/magpie/issues/311)).
 
 The distinction Magpie enforces: **vendor-specific *integrations* are
 expected and welcome; vendor-specific *workflows* are forbidden.** A
@@ -247,7 +258,7 @@ issue`, not hypothetical:
 [Codeberg / Gitea / Forgejo](https://github.com/apache/magpie/issues/310),
 [Pagure](https://github.com/apache/magpie/issues/312) (Fedora /
 `pagure.io`),
-[Bitbucket](https://github.com/apache/magpie/issues/306) (deep Jira
+[Bitbucket](https://github.com/apache/magpie/issues/606) (deep Jira
 pairing), and
 [SourceHut](https://github.com/apache/magpie/issues/607) (email-patch
 review). Tracker-only surfaces are tracked the same way — e.g.
@@ -257,7 +268,33 @@ tracker capability and the source-control capability are *separable*: a
 project can pair, say, GitHub issues with a Subversion working copy, or
 a Bitbucket forge over Git, because each is a distinct contract.
 
-### 4. Source control (VCS)
+### 4. Communication channels
+
+Project conversation does not all live on the forge. The intake and
+mentoring skills read mailing-list archives, and a project may run its
+discussion on a forum or chat system instead of (or alongside) a list.
+Both surfaces sit behind adapter contracts:
+
+- [`tools/mail-archive`](../tools/mail-archive/) — public archive reads
+  across PonyMail, Hyperkitty, Discourse, Google Groups, GitHub
+  Discussions.
+- [`tools/mail-source`](../tools/mail-source/) — raw mail ingestion
+  across mbox, IMAP, Mailman 3.
+
+The open extension points are labelled `good first issue`:
+mail-source backends —
+[mbox](https://github.com/apache/magpie/issues/304),
+[IMAP](https://github.com/apache/magpie/issues/303),
+[Mailman 3 / Hyperkitty](https://github.com/apache/magpie/issues/306);
+and chat / forum bridges —
+[Discourse](https://github.com/apache/magpie/issues/307),
+[Zulip](https://github.com/apache/magpie/issues/308),
+[Matrix / Element](https://github.com/apache/magpie/issues/309). A
+project on IRC, Slack, or any other channel plugs in the same way — a
+sibling tool fulfilling the read capability the mentoring / intake
+skills declare, with no skill change.
+
+### 5. Source control (VCS)
 
 The newest axis to be abstracted, and a good worked example of the
 mechanism. Earlier, dev-loop skills inlined `git …` calls. Two changes
@@ -271,19 +308,29 @@ fixed that:
   (`magpie-vcs`) runs the *abstract* operation and detects the active
   backend from the working copy.
 
-Today: **Git is complete** (the default binding); Mercurial and
-Subversion are real, detected extension points that raise an actionable
-error naming their tracking issue until the full binding lands. Adding
-a backend means replacing one `_UnimplementedBackend` with a concrete
-`VCSBackend` subclass — detection, dispatch, the CLI, and every skill
-that calls `magpie-vcs` pick it up automatically. Nothing else changes.
+Today: **Git is complete** (the default binding); Mercurial
+([#601](https://github.com/apache/magpie/issues/601)) and Subversion
+([#602](https://github.com/apache/magpie/issues/602)) are real, detected
+extension points that raise an actionable error naming their tracking
+issue until the full binding lands. Adding a backend means replacing one
+`_UnimplementedBackend` with a concrete `VCSBackend` subclass —
+detection, dispatch, the CLI, and every skill that calls `magpie-vcs`
+pick it up automatically. Nothing else changes.
 
-Tracking issues exist for the non-Git systems — Mercurial, Subversion
-(ASF-critical: `svn.apache.org` and the release `dist.apache.org` area
-are SVN), Jujutsu, Fossil, Perforce, Bitbucket, SourceHut — so the
-extension points are public and labelled, not hypothetical.
+Tracking issues exist, labelled `good first issue`, for the rest of the
+non-Git systems:
+[Mercurial](https://github.com/apache/magpie/issues/601),
+[Subversion](https://github.com/apache/magpie/issues/602) (ASF-critical:
+`svn.apache.org` and the release `dist.apache.org` area are SVN; the
+full ASF SVN surface is [#608](https://github.com/apache/magpie/issues/608)),
+[Jujutsu](https://github.com/apache/magpie/issues/603),
+[Fossil](https://github.com/apache/magpie/issues/604), and
+[Perforce](https://github.com/apache/magpie/issues/605) — so the
+extension points are public and labelled, not hypothetical. (The
+Bitbucket and SourceHut forges, which carry their own VCS, are tracked
+under the forge axis above.)
 
-### 5. Project governance
+### 6. Project governance
 
 Vendor neutrality extends to *how a project is run*, not just to its
 tooling. Each adopting project picks which modes run and how much
@@ -344,8 +391,9 @@ coverage without pretending one team can implement an open-ended set.
 |---|---|---|---|
 | LLM backend | ✅ by construction | Claude Code, Ollama, vLLM, Apache-hosted, Bedrock, direct Anthropic | Any endpoint meeting the capability floor + privacy gate |
 | Agentic runtime | ✅ by construction (`AGENTS.md` standard) | Claude Code; community use under Codex, Cursor, Gemini CLI, Copilot, OpenCode, Kiro | Runtime adapters [#313–#322](https://github.com/apache/magpie/issues?q=is%3Aissue+state%3Aopen+adapter+in%3Atitle) |
-| Forge / tracker | ✅ by construction | GitHub, Jira; mail/CVE/scan/relay via adapter contracts | GitLab [#305](https://github.com/apache/magpie/issues/305), Forgejo/Gitea [#310](https://github.com/apache/magpie/issues/310), Pagure [#312](https://github.com/apache/magpie/issues/312), Bitbucket [#306](https://github.com/apache/magpie/issues/306), SourceHut [#607](https://github.com/apache/magpie/issues/607), Bugzilla [#302](https://github.com/apache/magpie/issues/302) |
-| Source control (VCS) | ✅ by construction | **Git (complete)** | Mercurial, Subversion (detected); Jujutsu, Fossil, Perforce, Bitbucket, SourceHut (tracked) |
+| Forge / tracker | ✅ by construction | GitHub, Jira; CVE/scan/relay via adapter contracts | GitLab [#305](https://github.com/apache/magpie/issues/305), Forgejo/Gitea [#310](https://github.com/apache/magpie/issues/310), Pagure [#312](https://github.com/apache/magpie/issues/312), Bitbucket [#606](https://github.com/apache/magpie/issues/606), SourceHut [#607](https://github.com/apache/magpie/issues/607), Bugzilla [#302](https://github.com/apache/magpie/issues/302) |
+| Communication channels | ✅ by construction | PonyMail / mail-archive reads | mbox [#304](https://github.com/apache/magpie/issues/304), IMAP [#303](https://github.com/apache/magpie/issues/303), Mailman 3 [#306](https://github.com/apache/magpie/issues/306); Discourse [#307](https://github.com/apache/magpie/issues/307), Zulip [#308](https://github.com/apache/magpie/issues/308), Matrix [#309](https://github.com/apache/magpie/issues/309) |
+| Source control (VCS) | ✅ by construction | **Git (complete)** | Mercurial [#601](https://github.com/apache/magpie/issues/601), Subversion [#602](https://github.com/apache/magpie/issues/602)/[#608](https://github.com/apache/magpie/issues/608) (detected); Jujutsu [#603](https://github.com/apache/magpie/issues/603), Fossil [#604](https://github.com/apache/magpie/issues/604), Perforce [#605](https://github.com/apache/magpie/issues/605) (tracked) |
 | Project governance | ✅ by construction | ASF + non-ASF adopter profiles | Adopter config (modes, thresholds) |
 
 ✅ "by construction" means the workflows carry no vendor assumption;

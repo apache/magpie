@@ -12,6 +12,19 @@ human-in-the-loop posture. The full write-up is in
 [`docs/spec-driven-development.md`](../../docs/spec-driven-development.md);
 this is the operator quickstart.
 
+## Prerequisites
+
+- **Runtime:** Bash + coreutils (`loop.sh` is the runner); the
+  spec-side helper tools it drives are Python 3.11+ run via `uv`.
+- **CLIs:** `git` (required — must run inside a git checkout), `gh`
+  (for open-PR duplicate-work checks), and a Claude-compatible agent
+  CLI (`SPEC_LOOP_AGENT`, default `claude`).
+- **Credentials / auth:** `gh` must be authenticated for the PR checks;
+  the loop is designed to run with **no** push/write credentials in the
+  environment (it hard-denies `git push` and `gh` writes).
+- **Network:** Reaches GitHub (via `gh`) and the agent/model backend; the
+  agent itself performs the model calls.
+
 ## The pieces
 
 | File | Role |

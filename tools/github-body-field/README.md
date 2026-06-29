@@ -3,6 +3,7 @@
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
 - [github-body-field](#github-body-field)
+  - [Prerequisites](#prerequisites)
   - [Why](#why)
   - [Invocation](#invocation)
     - [`get <issue> --field "<name>"`](#get-issue---field-name)
@@ -22,6 +23,13 @@
 
 Read or rewrite a single `### Field` section of a GitHub issue
 body **without bringing the body into agent context**.
+
+## Prerequisites
+
+- **Runtime:** Python 3.11+ run via `uv` (`uv run --directory tools/github-body-field body-field …`); stdlib-only, no third-party dependencies.
+- **CLIs:** `uv`; `gh` — the script shells out to it for all GitHub access (the `--repo` argument is forwarded verbatim).
+- **Credentials / auth:** an authenticated `gh` session (`gh auth status` must pass) — the body read / parse / replace / push all go through `gh`.
+- **Network:** `api.github.com` via `gh`.
 
 ## Why
 

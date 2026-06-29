@@ -36,6 +36,22 @@ Suites are currently implemented for:
 - **setup-status** — 14 cases across 4 steps (step-0-preflight, step-1-command, step-2-present, step-3-adjust-decision)
 - **non-asf-profile-smoke** — 6 cases across 2 steps (step-1-fetch-pool, step-3-classify); drives `issue-stale-sweep` through the `projects/non-asf-example/` fixture to verify non-ASF config resolves without skill-body edits
 
+## Prerequisites
+
+- **Runtime:** Python 3.11+ (stdlib only) — the runner is pure standard
+  library with no third-party deps and no build step; run it directly
+  with `python3` and `PYTHONPATH=tools/skill-evals/src`.
+- **CLIs:** None for the default print mode. Automated mode (`--cli`)
+  needs an LLM CLI that reads a prompt on stdin and writes the response
+  to stdout (e.g. `claude -p`, `llm`, `ollama run …`). Field-aware
+  grading adds a judge CLI (default `claude -p --model haiku`).
+- **Credentials / auth:** None in print mode; in `--cli` mode whatever
+  the chosen model CLI requires (e.g. a Claude / API key, or a local
+  Ollama install).
+- **Network:** Evals mock all external tool calls, so the harness itself
+  makes no network calls; any network use comes from the model CLI you
+  point `--cli` / `--grader-cli` at.
+
 ## Run
 
 The runner is pure Python standard library — no third-party dependencies and no

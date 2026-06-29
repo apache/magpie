@@ -2,6 +2,7 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 
 - [`magpie-vcs`](#magpie-vcs)
+  - [Prerequisites](#prerequisites)
   - [Why](#why)
   - [The abstraction](#the-abstraction)
   - [Backends](#backends)
@@ -34,6 +35,18 @@ uv run --project tools/vcs magpie-vcs -C <upstream> log --grep ISSUE-123
 The active backend is **detected** from the working copy (or forced
 with `--backend` / `$MAGPIE_VCS`), so the same command works whatever
 VCS the project enables under *Tools enabled → Source control*.
+
+## Prerequisites
+
+- **Runtime:** Python 3.11+ run via `uv`; stdlib-only (no runtime
+  dependencies). The `dev` group pulls `pytest`, `ruff`, `mypy`.
+- **CLIs:** Depends on the active backend — the tool shells out to the
+  underlying VCS binary. `git` for the complete backend; `hg` / `svn` are
+  detected but their bindings are not yet implemented.
+- **Credentials / auth:** None of its own; write operations (`fetch`,
+  `push`) inherit whatever auth the underlying VCS/remote needs.
+- **Network:** Local for read and local-write operations; `fetch` / `push`
+  reach the project's remote (e.g. GitHub) over the network.
 
 ## Why
 

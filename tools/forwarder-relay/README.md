@@ -3,6 +3,7 @@
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
 - [tools/forwarder-relay/ — adapter contract](#toolsforwarder-relay--adapter-contract)
+  - [Prerequisites](#prerequisites)
   - [What "a relay message" means](#what-a-relay-message-means)
   - [Today's adapters](#todays-adapters)
     - [Sub-skill consumers](#sub-skill-consumers)
@@ -46,6 +47,17 @@ that adopters whose security inbox sits behind huntr.com,
 HackerOne, GitHub Security Advisories, an internal SOC, or any
 other forwarding service can plug in an adapter without
 patching the skill bodies.
+
+## Prerequisites
+
+- **Runtime:** None — this is a prose adapter *contract*; no executable
+  ships in this directory. The interface is implemented by the security
+  skills that dispatch through it.
+- **CLIs:** None.
+- **Credentials / auth:** None directly; consuming skills authenticate
+  through the mail-source layer (e.g. Gmail) for inbound reads and drafts.
+- **Network:** None directly — the contract performs no I/O. Mail
+  fetch/draft happens in the [`tools/mail-source`](../mail-source/contract.md) layer.
 
 ## What "a relay message" means
 

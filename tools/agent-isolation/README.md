@@ -3,6 +3,7 @@
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
 - [`tools/agent-isolation/` — secure agent setup helpers](#toolsagent-isolation--secure-agent-setup-helpers)
+  - [Prerequisites](#prerequisites)
   - [Files](#files)
   - [Usage at a glance](#usage-at-a-glance)
   - [Referenced by](#referenced-by)
@@ -22,6 +23,13 @@ references. It is not a Python project (unlike the sibling tools
 under `tools/cve-tool-vulnogram/` and `tools/gmail/oauth-draft/`) — these are
 plain shell scripts plus a TOML manifest of pinned upstream
 versions.
+
+## Prerequisites
+
+- **Runtime:** Bash + coreutils — this directory is plain shell scripts plus a TOML manifest, not a Python project (the `pyproject.toml` ships only the test harness, which runs under Python 3.11+ via `uv`). `claude-term-bg.sh` uses `python3` / `python` for one heuristic and falls back to calm when absent.
+- **CLIs:** `jq` (required by `check-tool-updates.sh` and the status-line scripts), `curl` (the update check), `git` (status line / git hooks), and `gh` (optional — status-line PR title). The secure setup itself installs the pinned `bubblewrap` and `socat` (via `apt-get`) and `@anthropic-ai/claude-code` (via `npm`).
+- **Credentials / auth:** None for these helpers; the wrapped `claude` session authenticates on its own (and `claude-iso.sh` deliberately strips credential-shaped env vars).
+- **Network:** `api.github.com` and `www.dest-unreach.org` (the release checks in `check-tool-updates.sh`); the install step also reaches the apt and npm registries.
 
 ## Files
 
