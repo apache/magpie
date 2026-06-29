@@ -15,7 +15,7 @@ when_to_use: |
   override locally for a while and deciding the change is
   worth contributing back.
 argument-hint: "[skill-name]"
-capability: capability:setup
+capability: capability:platform
 license: Apache-2.0
 ---
 

@@ -88,7 +88,7 @@ from skill_and_tool_validator import (
 
 class TestParseFrontmatter:
     def test_valid_frontmatter(self) -> None:
-        text = "---\nname: foo\ndescription: bar\ncapability: capability:setup\nlicense: Apache-2.0\n---\n# heading\n"
+        text = "---\nname: foo\ndescription: bar\ncapability: capability:platform\nlicense: Apache-2.0\n---\n# heading\n"
         fm = parse_frontmatter(text)
         assert fm is not None
         assert fm["name"] == "foo"
@@ -102,7 +102,7 @@ class TestParseFrontmatter:
             "description: |\n"
             "  First line of description.\n"
             "  Second line.\n"
-            "capability: capability:setup\nlicense: Apache-2.0\n"
+            "capability: capability:platform\nlicense: Apache-2.0\n"
             "---\n"
         )
         fm = parse_frontmatter(text)
@@ -125,7 +125,7 @@ class TestParseFrontmatter:
             "  Paragraph one.\n"
             "\n"
             "  Paragraph two, which used to be dropped.\n"
-            "capability: capability:setup\nlicense: Apache-2.0\n"
+            "capability: capability:platform\nlicense: Apache-2.0\n"
             "---\n"
         )
         fm = parse_frontmatter(text)
@@ -149,13 +149,13 @@ class TestParseFrontmatter:
 class TestValidateFrontmatter:
     def test_valid(self, tmp_path: Path) -> None:
         path = tmp_path / "SKILL.md"
-        text = "---\nname: foo\ndescription: bar\ncapability: capability:setup\nlicense: Apache-2.0\n---\n"
+        text = "---\nname: foo\ndescription: bar\ncapability: capability:platform\nlicense: Apache-2.0\n---\n"
         violations = list(validate_frontmatter(path, text))
         assert violations == []
 
     def test_missing_name(self, tmp_path: Path) -> None:
         path = tmp_path / "SKILL.md"
-        text = "---\ndescription: bar\ncapability: capability:setup\nlicense: Apache-2.0\n---\n"
+        text = "---\ndescription: bar\ncapability: capability:platform\nlicense: Apache-2.0\n---\n"
         violations = list(validate_frontmatter(path, text))
         assert len(violations) == 1
         assert "name" in violations[0].message
@@ -171,7 +171,7 @@ class TestValidateFrontmatter:
 
     def test_empty_value(self, tmp_path: Path) -> None:
         path = tmp_path / "SKILL.md"
-        text = "---\nname: \ndescription: bar\ncapability: capability:setup\nlicense: Apache-2.0\n---\n"
+        text = "---\nname: \ndescription: bar\ncapability: capability:platform\nlicense: Apache-2.0\n---\n"
         violations = list(validate_frontmatter(path, text))
         assert any("name' is empty" in v.message for v in violations)
 
@@ -184,20 +184,20 @@ class TestValidateFrontmatter:
     def test_valid_mode(self, tmp_path: Path) -> None:
         path = tmp_path / "SKILL.md"
         for mode in ("Triage", "Mentoring", "Drafting", "Pairing"):
-            text = f"---\nname: foo\ndescription: bar\ncapability: capability:setup\nlicense: Apache-2.0\nmode: {mode}\n---\n"
+            text = f"---\nname: foo\ndescription: bar\ncapability: capability:platform\nlicense: Apache-2.0\nmode: {mode}\n---\n"
             violations = list(validate_frontmatter(path, text))
             assert violations == [], f"mode '{mode}' should be valid"
 
     def test_invalid_mode(self, tmp_path: Path) -> None:
         path = tmp_path / "SKILL.md"
-        text = "---\nname: foo\ndescription: bar\ncapability: capability:setup\nlicense: Apache-2.0\nmode: Auto-merge\n---\n"
+        text = "---\nname: foo\ndescription: bar\ncapability: capability:platform\nlicense: Apache-2.0\nmode: Auto-merge\n---\n"
         violations = list(validate_frontmatter(path, text))
         assert any("mode" in v.message and "'Auto-merge'" in v.message for v in violations)
 
     def test_mode_optional(self, tmp_path: Path) -> None:
         # Skills without a mode (e.g. setup-* infrastructure) must not fail.
         path = tmp_path / "SKILL.md"
-        text = "---\nname: foo\ndescription: bar\ncapability: capability:setup\nlicense: Apache-2.0\n---\n"
+        text = "---\nname: foo\ndescription: bar\ncapability: capability:platform\nlicense: Apache-2.0\n---\n"
         violations = list(validate_frontmatter(path, text))
         assert violations == []
 
@@ -225,7 +225,7 @@ class TestValidateFrontmatter:
         path = tmp_path / "SKILL.md"
         desc = "a" * 800
         wtu = "b" * 700
-        text = f"---\nname: foo\ndescription: {desc}\nwhen_to_use: {wtu}\ncapability: capability:setup\nlicense: Apache-2.0\n---\n"
+        text = f"---\nname: foo\ndescription: {desc}\nwhen_to_use: {wtu}\ncapability: capability:platform\nlicense: Apache-2.0\n---\n"
         violations = list(validate_frontmatter(path, text))
         assert violations == []
 
@@ -233,7 +233,7 @@ class TestValidateFrontmatter:
         path = tmp_path / "SKILL.md"
         desc = "a" * 1000
         wtu = "b" * (MAX_METADATA_CHARS - 1000 + 1)
-        text = f"---\nname: foo\ndescription: {desc}\nwhen_to_use: {wtu}\ncapability: capability:setup\nlicense: Apache-2.0\n---\n"
+        text = f"---\nname: foo\ndescription: {desc}\nwhen_to_use: {wtu}\ncapability: capability:platform\nlicense: Apache-2.0\n---\n"
         violations = list(validate_frontmatter(path, text))
         assert any("truncates" in v.message and str(MAX_METADATA_CHARS) in v.message for v in violations)
 
@@ -246,7 +246,7 @@ class TestValidateFrontmatter:
             "---\n"
             "name: foo\n"
             "description: bar\n"
-            "capability: capability:setup\nlicense: Apache-2.0\n"
+            "capability: capability:platform\nlicense: Apache-2.0\n"
             "argument-hint: [--quick|--standard|--deep] <idea>\n"
             "---\n"
         )
@@ -262,7 +262,7 @@ class TestValidateFrontmatter:
             "---\n"
             "name: setup\n"
             "description: bar\n"
-            "capability: capability:setup\nlicense: Apache-2.0\n"
+            "capability: capability:platform\nlicense: Apache-2.0\n"
             "argument-hint: [adopt|upgrade|worktree-init|verify|override skill-name|unadopt]\n"
             "---\n"
         )
@@ -285,7 +285,7 @@ class TestValidateFrontmatter:
             f"name: foo\n"
             f"description: {desc}\n"
             f"when_to_use: {wtu}\n"
-            f"capability: capability:setup\nlicense: Apache-2.0\n"
+            f"capability: capability:platform\nlicense: Apache-2.0\n"
             f"argument-hint: {hint}\n"
             f"---\n"
         )
@@ -293,7 +293,7 @@ class TestValidateFrontmatter:
         assert violations == [], "argument-hint must not count toward description+when_to_use budget"
 
     def test_metadata_block_scalar_indicator_not_counted(self) -> None:
-        text = f"---\nname: foo\ndescription: |\n  {'a' * 100}\ncapability: capability:setup\nlicense: Apache-2.0\n---\n"
+        text = f"---\nname: foo\ndescription: |\n  {'a' * 100}\ncapability: capability:platform\nlicense: Apache-2.0\n---\n"
         fm = parse_frontmatter(text)
         assert fm is not None
         assert not fm["description"].startswith("|")
@@ -309,7 +309,7 @@ class TestValidateFrontmatter:
         path = tmp_path / "SKILL.md"
         text = (
             "---\nname: foo\ndescription: bar\n"
-            "capability:\n  - capability:intake\n  - capability:setup\n"
+            "capability:\n  - capability:intake\n  - capability:platform\n"
             "license: Apache-2.0\n---\n"
         )
         violations = list(validate_frontmatter(path, text))
@@ -331,7 +331,7 @@ class TestValidateFrontmatter:
         path = tmp_path / "SKILL.md"
         text = (
             "---\nname: foo\ndescription: bar\n"
-            "capability:\n  - capability:setup\n  - capability:invented\n"
+            "capability:\n  - capability:platform\n  - capability:invented\n"
             "license: Apache-2.0\n---\n"
         )
         violations = list(validate_frontmatter(path, text))
@@ -357,7 +357,7 @@ class TestValidateNameConvention:
         skill_dir.mkdir(parents=True)
         path = skill_dir / "SKILL.md"
         path.write_text(
-            f"---\nname: {name}\ndescription: bar\ncapability: capability:setup\nlicense: Apache-2.0\n---\n# body\n",
+            f"---\nname: {name}\ndescription: bar\ncapability: capability:platform\nlicense: Apache-2.0\n---\n# body\n",
             encoding="utf-8",
         )
         return path
@@ -386,7 +386,7 @@ class TestValidateNameConvention:
         skill_dir.mkdir(parents=True)
         path = skill_dir / "SKILL.md"
         path.write_text(
-            "---\ndescription: bar\ncapability: capability:setup\nlicense: Apache-2.0\n---\n# body\n",
+            "---\ndescription: bar\ncapability: capability:platform\nlicense: Apache-2.0\n---\n# body\n",
             encoding="utf-8",
         )
         assert list(validate_name_convention(path, path.read_text())) == []
@@ -639,7 +639,7 @@ class TestSubDocFiles:
         skill_dir = root / "skills" / skill_name
         skill_dir.mkdir(parents=True)
         (skill_dir / "SKILL.md").write_text(
-            f"---\nname: magpie-{skill_name}\ndescription: bar\ncapability: capability:setup\nlicense: Apache-2.0\n---\n"
+            f"---\nname: magpie-{skill_name}\ndescription: bar\ncapability: capability:platform\nlicense: Apache-2.0\n---\n"
             "<!-- SPDX-License-Identifier: Apache-2.0\n     https://www.apache.org/licenses/LICENSE-2.0 -->\n"
             "# body\n",
             encoding="utf-8",
@@ -651,7 +651,7 @@ class TestSubDocFiles:
             "## Capability to skill map\n\n"
             "| Skill | Capability / capabilities |\n"
             "|---|---|\n"
-            f"| `{skill_name}` | `capability:setup` |\n\n"
+            f"| `{skill_name}` | `capability:platform` |\n\n"
             "## Capability to tool map\n\n"
             "| Tool | Capability / capabilities | Role |\n"
             "|---|---|---|\n",
@@ -964,7 +964,7 @@ class TestTriggerPreservation:
 
 # Minimal valid SKILL.md frontmatter used across injection-guard tests.
 _GUARD_FM = (
-    "---\nname: test-skill\ndescription: bar\ncapability: capability:setup\nlicense: Apache-2.0\n---\n"
+    "---\nname: test-skill\ndescription: bar\ncapability: capability:platform\nlicense: Apache-2.0\n---\n"
 )
 
 # A gh-pr-view signal that unambiguously looks like a workflow fetch step.
@@ -1375,7 +1375,7 @@ class TestSecurityPatterns:
 
 def _fenced_skill_lf(cmd: str) -> str:
     """Wrap *cmd* in a minimal SKILL.md with a fenced bash block."""
-    return f"---\nname: test\ndescription: test\ncapability: capability:setup\nlicense: Apache-2.0\n---\n\n```bash\n{cmd}\n```\n"
+    return f"---\nname: test\ndescription: test\ncapability: capability:platform\nlicense: Apache-2.0\n---\n\n```bash\n{cmd}\n```\n"
 
 
 class TestLowercaseFField:
@@ -1445,7 +1445,7 @@ class TestLowercaseFField:
         """Inline backtick prose like ``-f title='...'`` must not fire."""
         path = tmp_path / "SKILL.md"
         text = (
-            "---\nname: test\ndescription: test\ncapability: capability:setup\nlicense: Apache-2.0\n---\n\n"
+            "---\nname: test\ndescription: test\ncapability: capability:platform\nlicense: Apache-2.0\n---\n\n"
             "Avoid using `-f title='value'` — use `-F title=@file` instead.\n"
         )
         violations = list(validate_lowercase_f_field(path, text))
@@ -1455,7 +1455,7 @@ class TestLowercaseFField:
         """Bare prose outside a fenced block must not fire."""
         path = tmp_path / "SKILL.md"
         text = (
-            "---\nname: test\ndescription: test\ncapability: capability:setup\nlicense: Apache-2.0\n---\n\n"
+            "---\nname: test\ndescription: test\ncapability: capability:platform\nlicense: Apache-2.0\n---\n\n"
             "Run: gh api milestones -f title='v1'\n"
         )
         violations = list(validate_lowercase_f_field(path, text))
@@ -1518,7 +1518,7 @@ class TestValidateLicenseHeader:
     def test_md_file_is_exempt(self, tmp_path: Path) -> None:
         """Skill .md files declare license via frontmatter, so they need no header."""
         path = tmp_path / "SKILL.md"
-        text = "---\nname: foo\ndescription: bar\ncapability: capability:setup\nlicense: Apache-2.0\n---\n# Body\n"
+        text = "---\nname: foo\ndescription: bar\ncapability: capability:platform\nlicense: Apache-2.0\n---\n# Body\n"
         violations = list(validate_license_header(path, text))
         assert violations == []
 
@@ -2089,7 +2089,7 @@ def _make_valid_skill(root: Path, name: str) -> Path:
     skill_dir = root / "skills" / name
     skill_dir.mkdir(parents=True, exist_ok=True)
     (skill_dir / "SKILL.md").write_text(
-        f"---\nname: magpie-{name}\ndescription: A test skill.\ncapability: capability:setup\nlicense: Apache-2.0\n---\n"
+        f"---\nname: magpie-{name}\ndescription: A test skill.\ncapability: capability:platform\nlicense: Apache-2.0\n---\n"
         "<!-- SPDX-License-Identifier: Apache-2.0\n     https://www.apache.org/licenses/LICENSE-2.0 -->\n"
         "# Body\nSome content.\n"
     )
@@ -2097,7 +2097,7 @@ def _make_valid_skill(root: Path, name: str) -> Path:
     doc = root / "docs" / "labels-and-capabilities.md"
     if doc.exists():
         text = doc.read_text()
-        row = f"| `{name}` | `capability:setup` |\n"
+        row = f"| `{name}` | `capability:platform` |\n"
         # Insert right after the skill table's separator row.
         marker = "## Capability to skill map\n\n| Skill | Capability / capabilities |\n|---|---|\n"
         if marker in text and row not in text:
@@ -2162,7 +2162,7 @@ class TestMain:
             "---\n"
             "name: magpie-soft-skill\n"
             "description: A test skill.\n"
-            "capability: capability:setup\nlicense: Apache-2.0\n"
+            "capability: capability:platform\nlicense: Apache-2.0\n"
             "---\n"
             "<!-- SPDX-License-Identifier: Apache-2.0\n     https://www.apache.org/licenses/LICENSE-2.0 -->\n"
             "```bash\n"
@@ -2173,7 +2173,7 @@ class TestMain:
         doc = root / "docs" / "labels-and-capabilities.md"
         text = doc.read_text()
         marker = "## Capability to skill map\n\n| Skill | Capability / capabilities |\n|---|---|\n"
-        doc.write_text(text.replace(marker, marker + "| `soft-skill` | `capability:setup` |\n", 1))
+        doc.write_text(text.replace(marker, marker + "| `soft-skill` | `capability:platform` |\n", 1))
         monkeypatch.chdir(root)
 
         rc_normal = main([])
@@ -2349,7 +2349,7 @@ class TestValidateTools:
         tool = root / "tools" / "foo"
         tool.mkdir()
         (tool / "README.md").write_text(
-            "# tools/foo\n\n**Capability:** capability:setup\n\nFoo tool.\n\n"
+            "# tools/foo\n\n**Capability:** substrate:framework-dev\n\nFoo tool.\n\n"
             "## Prerequisites\n\n- Python 3.11+ via uv.\n"
         )
         violations = list(validate_tools(root))
@@ -2388,7 +2388,7 @@ class TestValidateTools:
         tool = root / "tools" / "dual"
         tool.mkdir()
         (tool / "README.md").write_text(
-            "# dual\n\n**Capability:** capability:setup + capability:intake\n\n## Prerequisites\n\n- None.\n"
+            "# dual\n\n**Capability:** contract:tracker + substrate:analytics\n\n## Prerequisites\n\n- None.\n"
         )
         violations = list(validate_tools(root))
         assert violations == []
@@ -2402,7 +2402,7 @@ class TestValidateTools:
         tool.mkdir()
         (tool / "README.md").write_text(
             "# tools/with-prose\n\n"
-            "**Capability:** capability:setup\n\n"
+            "**Capability:** substrate:framework-dev\n\n"
             "Some prose that follows the capability line and should NOT be parsed as part of it.\n\n"
             "## Prerequisites\n\n- None.\n"
         )
@@ -2413,7 +2413,7 @@ class TestValidateTools:
         root = _make_tools_root(tmp_path)
         tool = root / "tools" / "no-prereq"
         tool.mkdir()
-        (tool / "README.md").write_text("# no-prereq\n\n**Capability:** capability:setup\n\nA tool.\n")
+        (tool / "README.md").write_text("# no-prereq\n\n**Capability:** substrate:framework-dev\n\nA tool.\n")
         violations = list(validate_tools(root))
         assert len(violations) == 1
         assert "'## Prerequisites'" in violations[0].message
@@ -2433,7 +2433,7 @@ class TestValidateTools:
         tool = root / "tools" / "asf-backend"
         tool.mkdir()
         (tool / "README.md").write_text(
-            "# asf-backend\n\n**Capability:** capability:setup\n\n"
+            "# asf-backend\n\n**Capability:** substrate:framework-dev\n\n"
             "**Organization:** ASF\n\nAn ASF backend.\n\n## Prerequisites\n\n- None.\n"
         )
         violations = list(validate_tools(root))
@@ -2445,7 +2445,7 @@ class TestValidateTools:
         tool = root / "tools" / "bogus-org"
         tool.mkdir()
         (tool / "README.md").write_text(
-            "# bogus-org\n\n**Capability:** capability:setup\n\n"
+            "# bogus-org\n\n**Capability:** substrate:framework-dev\n\n"
             "**Organization:** Nope\n\nA tool.\n\n## Prerequisites\n\n- None.\n"
         )
         violations = [v for v in validate_tools(root) if v.category == "organization"]
@@ -2463,7 +2463,7 @@ class TestOrganizationMembership:
         (tmp_path / "organizations" / "ASF").mkdir(parents=True)
         text = (
             "---\nname: magpie-x\ndescription: d\nlicense: Apache-2.0\n"
-            "capability: capability:setup\norganization: ASF\n---\n\nBody.\n"
+            "capability: capability:platform\norganization: ASF\n---\n\nBody.\n"
         )
         violations = [
             v
@@ -2476,7 +2476,7 @@ class TestOrganizationMembership:
         (tmp_path / "organizations" / "ASF").mkdir(parents=True)
         text = (
             "---\nname: magpie-x\ndescription: d\nlicense: Apache-2.0\n"
-            "capability: capability:setup\norganization: Nope\n---\n\nBody.\n"
+            "capability: capability:platform\norganization: Nope\n---\n\nBody.\n"
         )
         violations = [
             v
@@ -2502,7 +2502,7 @@ def _seed_capability_repo(
     """Build a tiny repo with a labels-and-capabilities.md doc, skills, and tool READMEs.
 
     `*_skills` maps skill-name → capability cell text (e.g. ``capability:triage``).
-    `*_tools` maps tool-name → capability cell text (e.g. ``capability:setup + capability:intake``).
+    `*_tools` maps tool-name → capability cell text (e.g. ``capability:platform + capability:intake``).
     """
     root = tmp_path / "repo"
     (root / "docs").mkdir(parents=True)
@@ -2544,9 +2544,9 @@ class TestValidateCapabilitySync:
         root = _seed_capability_repo(
             tmp_path,
             doc_skills={"alpha": "capability:triage"},
-            doc_tools={"omega": "capability:setup"},
+            doc_tools={"omega": "capability:platform"},
             live_skills={"alpha": "capability:triage"},
-            live_tools={"omega": "capability:setup"},
+            live_tools={"omega": "capability:platform"},
         )
         violations = list(validate_capability_sync(root))
         assert violations == []
@@ -2588,9 +2588,9 @@ class TestValidateCapabilitySync:
         root = _seed_capability_repo(
             tmp_path,
             doc_skills={},
-            doc_tools={"omega": "capability:setup", "ghost-tool": "capability:setup"},
+            doc_tools={"omega": "capability:platform", "ghost-tool": "capability:platform"},
             live_skills={},
-            live_tools={"omega": "capability:setup"},
+            live_tools={"omega": "capability:platform"},
         )
         violations = list(validate_capability_sync(root))
         assert any("'ghost-tool'" in v.message and "no live tools/" in v.message for v in violations)
@@ -2599,9 +2599,9 @@ class TestValidateCapabilitySync:
         root = _seed_capability_repo(
             tmp_path,
             doc_skills={},
-            doc_tools={"omega": "capability:setup"},
+            doc_tools={"omega": "capability:platform"},
             live_skills={},
-            live_tools={"omega": "capability:setup", "extra-tool": "capability:stats"},
+            live_tools={"omega": "capability:platform", "extra-tool": "capability:stats"},
         )
         violations = list(validate_capability_sync(root))
         assert any(

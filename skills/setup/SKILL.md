@@ -20,7 +20,7 @@ when_to_use: |
   maintenance: "upgrade magpie", "verify magpie setup",
   "check magpie drift", "the snapshot is stale".
 argument-hint: "[adopt|upgrade|worktree-init|verify|override skill-name|unadopt]"
-capability: capability:setup
+capability: capability:platform
 license: Apache-2.0
 ---
 

@@ -494,27 +494,28 @@ dimensions on every issue and PR:
 - **`area:*`** — *what part of the framework does this touch?* (e.g.
   `area:pr-management`, `area:security`, `area:setup`, `area:issue`,
   `area:tools`, `area:ci`, `area:docs`).
-- **`capability:*`** — *what does the tool / change actually do?* (e.g.
-  `capability:triage`, `capability:review`, `capability:fix`,
-  `capability:intake`, `capability:reconciliation`,
-  `capability:resolve`, `capability:reassess`, `capability:stats`,
-  `capability:setup`).
+- **capability** — *what does it do / provide?*, in two axes
+  (RFC-AI-0005): **skill capability** `capability:*` for skills
+  (`triage`, `review`, `fix`, `intake`, `reconciliation`, `resolve`,
+  `reassess`, `stats`, `platform`, `authoring`), and **tool capability**
+  `contract:*` / `substrate:*` for tools (the contract a tool implements,
+  e.g. `contract:tracker`, or a substrate kind, e.g. `substrate:privacy`).
 
-The full taxonomy — every label dimension, every capability bucket,
-the skill-to-capability and tool-to-capability maps — lives in
-[`docs/labels-and-capabilities.md`](docs/labels-and-capabilities.md).
-Read that page once; treat it as the source of truth.
+The full taxonomy — every label dimension, both capability axes, the
+skill-capability and contract→adapter maps — lives in
+[`docs/labels-and-capabilities.md`](docs/labels-and-capabilities.md) and
+[RFC-AI-0005](docs/rfcs/RFC-AI-0005.md). Read those once; treat them as
+the source of truth.
 
 **Rules** (full taxonomy and per-target details in
 [`docs/labels-and-capabilities.md`](docs/labels-and-capabilities.md)):
 
 - **Issues and PRs** get at least one `area:*` and every applicable
-  `capability:*` — match the capabilities the change *implements*, not
-  the file paths it touches; do not collapse multi-phase work to a single
-  "primary".
-- **New tools** declare their capabilities in the first paragraph of the
-  tool README (`**Capability:** capability:NAME`); a tool is
-  `capability:setup` substrate by default.
+  capability — match what the change *implements*, not the file paths it
+  touches; do not collapse multi-phase work to a single "primary".
+- **New tools** declare their capability in the first paragraph of the
+  tool README (`**Capability:** contract:NAME` or `substrate:NAME`) — the
+  contract the tool implements, or the substrate kind that fits.
 - **New skills** declare the capability in frontmatter (a string, or a
   YAML list for multi-capability skills); [`write-skill`](skills/write-skill/SKILL.md)
   prompts for it on every scaffold.

@@ -17,7 +17,7 @@
 
 # `sandbox-lint`
 
-**Capability:** capability:setup
+**Capability:** substrate:sandbox
 
 Lints `.claude/settings.json` against the shipped baseline at
 `tools/sandbox-lint/expected.json`, and against the security

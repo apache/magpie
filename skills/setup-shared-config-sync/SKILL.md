@@ -20,7 +20,7 @@ when_to_use: |
   other machines.
 capability:
   - capability:intake
-  - capability:setup
+  - capability:platform
 license: Apache-2.0
 ---
 

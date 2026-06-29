@@ -21,7 +21,7 @@
 
 # permission-audit
 
-**Capability:** capability:setup
+**Capability:** substrate:sandbox
 
 Audit + atomically edit Claude Code's `permissions.allow[]` entries
 in `<repo>/.claude/settings.json` and `<repo>/.claude/settings.local.json`.

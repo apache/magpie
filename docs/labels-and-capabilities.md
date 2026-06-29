@@ -5,7 +5,7 @@
 - [Labels and capabilities](#labels-and-capabilities)
   - [Label dimensions](#label-dimensions)
     - [1. `area:*` — subject](#1-area--subject)
-    - [2. `capability:*` — what the tool does](#2-capability--what-the-tool-does)
+    - [2. capability — two axes (skills vs tools)](#2-capability--two-axes-skills-vs-tools)
     - [3. `kind:*` — change type (pre-existing)](#3-kind--change-type-pre-existing)
     - [4. `mode:*` — handling mode (pre-existing)](#4-mode--handling-mode-pre-existing)
     - [Standalone labels](#standalone-labels)
@@ -65,17 +65,16 @@ What part of the framework does this touch?
 | `area:ci` | `.github/` workflows, prek, validators |
 | `area:docs` | `docs/`, `MISSION.md`, READMEs |
 
-### 2. `capability:*` — what the tool does
+### 2. capability — two axes (skills vs tools)
 
-Nine buckets. A tool or skill carries **one or more** `capability:*`
-labels. Most map cleanly to a single bucket; dual-capability cases
-are real and explicitly enumerated below. Issues and PRs follow the
-same rule — apply every capability the change is implementing.
+Per [RFC-AI-0005](rfcs/RFC-AI-0005.md), "capability" is **two orthogonal
+vocabularies**, one per entity. A skill carries one or more **skill
+capabilities** (`capability:*`); a tool carries one or more **tool
+capabilities** (`contract:*` or `substrate:*`). List **all** that apply;
+do not pick a single "primary".
 
-When a skill or tool spans multiple capabilities, list **all** of
-them in its frontmatter / README. Do not pick a single "primary"
-to be neat; that loses information the label system exists to
-surface.
+**Axis 1 — skill capability** (`capability:*`) — the workflow-lifecycle
+phase a skill performs:
 
 | Label | Definition |
 |---|---|
@@ -87,9 +86,32 @@ surface.
 | `capability:resolve` | Close-out actions: invalidate, dedupe, CVE-allocate, post-announcement housekeeping. |
 | `capability:reassess` | Re-run resolved or end-of-life issues against current code to verify still-fixed / still-broken. |
 | `capability:stats` | Read-only dashboards, metrics, governance evidence, contributor nomination briefs. |
-| `capability:setup` | Framework / agent / substrate infrastructure: install, verify, update, doctor, override-upstream, write-skill, optimize-skill, plus new tools under `tools/*`. |
+| `capability:platform` | Framework / agent substrate skills: install, verify, update, doctor, override-upstream, status, shared-config-sync, the `setup` bootstrap. |
+| `capability:authoring` | Skills that author or maintain other skills: `write-skill`, `optimize-skill`. |
 
-The `capability:*` dimension is **orthogonal** to `area:*`. A single
+**Axis 2 — tool capability** (`contract:*` / `substrate:*`) — the
+interface a tool/adapter provides. `contract:<name>` implements a
+capability contract under `tools/<contract>/`; `substrate:<name>` is
+framework substrate:
+
+| Label | Kind | Definition |
+|---|---|---|
+| `contract:tracker` | contract | Issue / PR / board / label backend. |
+| `contract:source-control` | contract | Branch / commit / diff / push (VCS). |
+| `contract:mail-archive` | contract | Public mailing-list / forum archive reads. |
+| `contract:mail-source` | contract | Inbound-mail ingestion (mbox / IMAP / …). |
+| `contract:mail-draft` | contract | Outbound mail composition (draft, never send). |
+| `contract:cve-authority` | contract | CVE allocation / record management / publication. |
+| `contract:report-relay` | contract | Inbound security-report relay detection. |
+| `contract:scan-format` | contract | Security-scanner report parsing. |
+| `contract:project-metadata` | contract | Governance rosters / people / releases. |
+| `substrate:analytics` | substrate | Read-only metrics / dashboards / renderers. |
+| `substrate:sandbox` | substrate | Agent isolation, egress control, settings audit. |
+| `substrate:action-guard` | substrate | Deterministic pre-tool-use command guards. |
+| `substrate:privacy` | substrate | PII redaction / approved-LLM gating. |
+| `substrate:framework-dev` | substrate | Build / validate / eval the framework itself. |
+
+Both capability axes are **orthogonal** to `area:*`. A single
 query can answer "how is our triage stack doing across PR + issue +
 security?" by filtering on `capability:triage` alone, without
 enumerating per-area queries.
@@ -158,7 +180,7 @@ Capabilities for every skill currently in
 | `security-issue-import-via-forwarder` | `capability:intake` |
 | `security-issue-import-from-scan` | `capability:intake` |
 | `security-issue-sync` | `capability:intake` *(+ `capability:reconciliation` once [#337](https://github.com/apache/magpie/issues/337) lands the ASF-dashboard step)* |
-| `setup-shared-config-sync` | `capability:intake` + `capability:setup` *(reconciles user-scope config to a sync repo; the act is intake, the subject is setup)* |
+| `setup-shared-config-sync` | `capability:intake` + `capability:platform` *(reconciles user-scope config to a sync repo; the act is intake, the subject is setup)* |
 | `release-vote-tally` | `capability:triage` *(reads the vote thread / approval signal, classifies each reply as binding or non-binding, tallies the result, and drafts the `[RESULT] [VOTE]` email for RM review — triage over the vote-thread queue)* |
 | `release-prepare` | `capability:resolve` *(drafts the planning issue, prep PR, and post-release bump PR that open the release lifecycle)* |
 | `release-announce-draft` | `capability:resolve` *(drafts the `[ANNOUNCE]` email and opens the site-bump PR that complete the release lifecycle)* |
@@ -184,15 +206,15 @@ Capabilities for every skill currently in
 | `committer-onboarding` | `capability:stats` |
 | `list-skills` | `capability:stats` |
 | `release-audit-report` | `capability:stats` *(assembles the per-release audit record from the planning issue, vote thread, artefact list, and announce archive URL)* |
-| `setup-status` | `capability:stats` + `capability:setup` *(reports the adoption configuration — stats — and delegates reconfiguration to the setup skill)* |
-| `setup` | `capability:setup` |
-| `setup-isolated-setup-install` | `capability:setup` |
-| `setup-isolated-setup-verify` | `capability:setup` |
-| `setup-isolated-setup-update` | `capability:setup` |
-| `setup-isolated-setup-doctor` | `capability:setup` + `capability:reassess` *(re-checks an installed sandbox against current spec — the phase is reassess on subject setup)* |
-| `setup-override-upstream` | `capability:setup` |
-| `write-skill` | `capability:setup` |
-| `optimize-skill` | `capability:setup` |
+| `setup-status` | `capability:stats` + `capability:platform` *(reports the adoption configuration — stats — and delegates reconfiguration to the setup skill)* |
+| `setup` | `capability:platform` |
+| `setup-isolated-setup-install` | `capability:platform` |
+| `setup-isolated-setup-verify` | `capability:platform` |
+| `setup-isolated-setup-update` | `capability:platform` |
+| `setup-isolated-setup-doctor` | `capability:platform` + `capability:reassess` *(re-checks an installed sandbox against current spec — the phase is reassess on subject setup)* |
+| `setup-override-upstream` | `capability:platform` |
+| `write-skill` | `capability:authoring` |
+| `optimize-skill` | `capability:authoring` |
 | `skill-reconciler` | `capability:reconciliation` *(compares two near-duplicate skill copies and classifies every difference as ALLOWED, DRIFT, or SAFETY-BASELINE; proposes convergence; never writes either copy)* |
 
 ## Capability to tool map
@@ -202,52 +224,46 @@ Tools under [`tools/`](../tools/). Tools with two values (separated by
 
 | Tool | Capability / capabilities | Role |
 |---|---|---|
-| [`tools/agent-guard`](../tools/agent-guard/) | `capability:setup` | Deterministic `PreToolUse` guard dispatcher: blocks `gh`/`git` commands that would ping maintainers, carry a `Co-Authored-By` trailer, mark-ready prematurely, leak security language publicly, or empty a PR via force-push. Extensible — skills contribute guards via `guards.d` |
-| [`tools/agent-isolation`](../tools/agent-isolation/) | `capability:setup` | Secure-agent sandbox helpers |
-| [`tools/apache-projects`](../tools/apache-projects/) | `capability:stats` + `capability:intake` | ASF project-metadata substrate (`apache/comdev` `apache-projects-mcp`); read-only `projects.apache.org/json` rosters / people / releases. Backs `contributor-nomination` and the security roster-resolution paths; tracked at `main`, not pinned |
-| [`tools/cve-org`](../tools/cve-org/) | `capability:resolve` + `capability:intake` | Publishes to CVE.org *(resolve)* and records the resulting CVE state back into the tracker *(intake)* |
-| [`tools/cve-tool`](../tools/cve-tool/) | `capability:setup` | Adapter contract for CNA backends (Vulnogram, MITRE form, CVE.org direct, GHSA). Pure interface spec; no executable code — adapters under sibling `tools/cve-tool-*/` directories implement it. |
-| [`tools/cve-tool-vulnogram`](../tools/cve-tool-vulnogram/) | `capability:resolve` | ASF Vulnogram CVE-allocation adapter. Implements the `tools/cve-tool/` contract. Previously named `tools/vulnogram/`. |
-| [`tools/dashboard-generator`](../tools/dashboard-generator/) | `capability:stats` | Self-contained HTML dashboard generator |
-| [`tools/dev`](../tools/dev/) | `capability:setup` | Framework dev-loop helpers |
-| [`tools/egress-gateway`](../tools/egress-gateway/) | `capability:setup` | Egress-allowlist forward proxy (proxy.py plugin); host-level egress chokepoint — defence-in-depth for RFC-AI-0003 §4.4 |
-| [`tools/forwarder-relay`](../tools/forwarder-relay/) | `capability:setup` | Adapter contract for inbound-relay backends (ASF Security relay, huntr.com, HackerOne triagers). Pure interface spec; adapters declare detection + credit-extraction + reporter-addressing rules. |
-| [`tools/github`](../tools/github/) | `capability:setup` | GitHub REST / GraphQL substrate (called by every lifecycle phase — pure substrate, no single phase) |
-| [`tools/github-body-field`](../tools/github-body-field/) | `capability:setup` | Read or rewrite one `### Field` section of a GitHub issue body without bringing the body into agent context — substrate helper for the security-sync skills |
-| [`tools/github-rollup`](../tools/github-rollup/) | `capability:setup` | Append to (or create) the status-rollup comment on a GitHub issue without bringing the rollup body into agent context — substrate helper for every status-update-emitting skill |
-| [`tools/gmail`](../tools/gmail/) | `capability:setup` | Gmail API substrate |
-| [`tools/jira`](../tools/jira/) | `capability:setup` | JIRA REST substrate (read-only today; write subcommands tracked in [#301](https://github.com/apache/magpie/issues/301)) |
-| [`tools/mail-archive`](../tools/mail-archive/) | `capability:setup` | Adapter contract for public mail-archive backends (PonyMail, Hyperkitty, Discourse, Google Groups, GitHub Discussions). Pure interface spec. |
-| [`tools/mail-source`](../tools/mail-source/) | `capability:setup` + `capability:intake` | Mail-source backend abstraction (mbox / IMAP / Mailman 3); the abstraction is setup, every concrete read is part of the intake pipeline |
-| [`tools/ponymail`](../tools/ponymail/) | `capability:setup` + `capability:intake` | PonyMail archive substrate; same dual role as `mail-source` — substrate plus an intake-pipeline component |
-| [`tools/scan-format`](../tools/scan-format/) | `capability:intake` | Adapter contract for security-scanner report formats (ASVS reference); reads a scan's finding index + per-finding evidence for the `security-issue-import-from-scan` pipeline. |
-| [`tools/permission-audit`](../tools/permission-audit/) | `capability:setup` | Audit + atomically edit Claude Code `permissions.allow[]` entries; backs `/magpie-setup verify --apply-permission-audit` (check 8d) |
-| [`tools/pr-management-stats`](../tools/pr-management-stats/) | `capability:stats` | PR-backlog analytics engine |
-| [`tools/preflight-audit`](../tools/preflight-audit/) | `capability:stats` | Dry-run the bulk-mode pre-flight classifier; measure skip-rate before / after any rule edit in the security-issue-sync skill |
-| [`tools/privacy-llm`](../tools/privacy-llm/) | `capability:setup` | Privacy-LLM PII-scrubbing gate |
-| [`tools/probe-templates`](../tools/probe-templates/) | `capability:setup` | Sandbox-doctor probe templates |
-| [`tools/sandbox-lint`](../tools/sandbox-lint/) | `capability:setup` | Sandbox settings linter |
-| [`tools/security-tracker-stats-dashboard`](../tools/security-tracker-stats-dashboard/) | `capability:stats` | Security-tracker analytics engine |
-| [`tools/spec-loop`](../tools/spec-loop/) | `capability:setup` | Spec-driven build loop runner (Ralph-style) for framework development |
-| [`tools/skill-evals`](../tools/skill-evals/) | `capability:setup` + `capability:stats` | Eval harness for skills; the harness is setup infrastructure, the run output is governance evidence |
-| [`tools/skill-and-tool-validator`](../tools/skill-and-tool-validator/) | `capability:setup` | Skill-frontmatter and convention validator |
-| [`tools/spec-status-index`](../tools/spec-status-index/) | `capability:setup` + `capability:stats` | Index of spec / RFC implementation status — substrate that also doubles as a governance/stats view |
-| [`tools/spec-validator`](../tools/spec-validator/) | `capability:setup` | Spec-frontmatter and body-section validator — counterpart to `skill-and-tool-validator` for `tools/spec-loop/specs/` |
-| [`tools/vcs`](../tools/vcs/) | `capability:setup` | Backend-dispatching implementation of the source-control (VCS) capability ([`tools/github/source-control.md`](../tools/github/source-control.md)); complete Git backend plus detected extension points for non-Git VCS bridges (#601 Hg, #602 SVN) |
+| [`tools/agent-guard`](../tools/agent-guard/) | `substrate:action-guard` | Deterministic `PreToolUse` guard dispatcher: blocks `gh`/`git` commands that would ping maintainers, carry a `Co-Authored-By` trailer, mark-ready prematurely, leak security language publicly, or empty a PR via force-push. Extensible — skills contribute guards via `guards.d` |
+| [`tools/agent-isolation`](../tools/agent-isolation/) | `substrate:sandbox` | Secure-agent sandbox helpers |
+| [`tools/apache-projects`](../tools/apache-projects/) | `contract:project-metadata` | ASF project-metadata substrate (`apache/comdev` `apache-projects-mcp`); read-only `projects.apache.org/json` rosters / people / releases. Backs `contributor-nomination` and the security roster-resolution paths; tracked at `main`, not pinned |
+| [`tools/cve-org`](../tools/cve-org/) | `contract:cve-authority` | Publishes to CVE.org *(resolve)* and records the resulting CVE state back into the tracker *(intake)* |
+| [`tools/cve-tool`](../tools/cve-tool/) | `contract:cve-authority` | Adapter contract for CNA backends (Vulnogram, MITRE form, CVE.org direct, GHSA). Pure interface spec; no executable code — adapters under sibling `tools/cve-tool-*/` directories implement it. |
+| [`tools/cve-tool-vulnogram`](../tools/cve-tool-vulnogram/) | `contract:cve-authority` | ASF Vulnogram CVE-allocation adapter. Implements the `tools/cve-tool/` contract. Previously named `tools/vulnogram/`. |
+| [`tools/dashboard-generator`](../tools/dashboard-generator/) | `substrate:analytics` | Self-contained HTML dashboard generator |
+| [`tools/dev`](../tools/dev/) | `substrate:framework-dev` | Framework dev-loop helpers |
+| [`tools/egress-gateway`](../tools/egress-gateway/) | `substrate:sandbox` | Egress-allowlist forward proxy (proxy.py plugin); host-level egress chokepoint — defence-in-depth for RFC-AI-0003 §4.4 |
+| [`tools/forwarder-relay`](../tools/forwarder-relay/) | `contract:report-relay` | Adapter contract for inbound-relay backends (ASF Security relay, huntr.com, HackerOne triagers). Pure interface spec; adapters declare detection + credit-extraction + reporter-addressing rules. |
+| [`tools/github`](../tools/github/) | `contract:tracker` | GitHub REST / GraphQL substrate (called by every lifecycle phase — pure substrate, no single phase) |
+| [`tools/github-body-field`](../tools/github-body-field/) | `contract:tracker` | Read or rewrite one `### Field` section of a GitHub issue body without bringing the body into agent context — substrate helper for the security-sync skills |
+| [`tools/github-rollup`](../tools/github-rollup/) | `contract:tracker` | Append to (or create) the status-rollup comment on a GitHub issue without bringing the rollup body into agent context — substrate helper for every status-update-emitting skill |
+| [`tools/gmail`](../tools/gmail/) | `contract:mail-draft` | Gmail API substrate |
+| [`tools/jira`](../tools/jira/) | `contract:tracker` | JIRA REST substrate (read-only today; write subcommands tracked in [#301](https://github.com/apache/magpie/issues/301)) |
+| [`tools/mail-archive`](../tools/mail-archive/) | `contract:mail-archive` | Adapter contract for public mail-archive backends (PonyMail, Hyperkitty, Discourse, Google Groups, GitHub Discussions). Pure interface spec. |
+| [`tools/mail-source`](../tools/mail-source/) | `contract:mail-source` | Mail-source backend abstraction (mbox / IMAP / Mailman 3); the abstraction is setup, every concrete read is part of the intake pipeline |
+| [`tools/ponymail`](../tools/ponymail/) | `contract:mail-archive` | PonyMail archive substrate; same dual role as `mail-source` — substrate plus an intake-pipeline component |
+| [`tools/scan-format`](../tools/scan-format/) | `contract:scan-format` | Adapter contract for security-scanner report formats (ASVS reference); reads a scan's finding index + per-finding evidence for the `security-issue-import-from-scan` pipeline. |
+| [`tools/permission-audit`](../tools/permission-audit/) | `substrate:sandbox` | Audit + atomically edit Claude Code `permissions.allow[]` entries; backs `/magpie-setup verify --apply-permission-audit` (check 8d) |
+| [`tools/pr-management-stats`](../tools/pr-management-stats/) | `substrate:analytics` | PR-backlog analytics engine |
+| [`tools/preflight-audit`](../tools/preflight-audit/) | `substrate:analytics` | Dry-run the bulk-mode pre-flight classifier; measure skip-rate before / after any rule edit in the security-issue-sync skill |
+| [`tools/privacy-llm`](../tools/privacy-llm/) | `substrate:privacy` | Privacy-LLM PII-scrubbing gate |
+| [`tools/probe-templates`](../tools/probe-templates/) | `substrate:sandbox` | Sandbox-doctor probe templates |
+| [`tools/sandbox-lint`](../tools/sandbox-lint/) | `substrate:sandbox` | Sandbox settings linter |
+| [`tools/security-tracker-stats-dashboard`](../tools/security-tracker-stats-dashboard/) | `substrate:analytics` | Security-tracker analytics engine |
+| [`tools/spec-loop`](../tools/spec-loop/) | `substrate:framework-dev` | Spec-driven build loop runner (Ralph-style) for framework development |
+| [`tools/skill-evals`](../tools/skill-evals/) | `substrate:framework-dev` | Eval harness for skills; the harness is setup infrastructure, the run output is governance evidence |
+| [`tools/skill-and-tool-validator`](../tools/skill-and-tool-validator/) | `substrate:framework-dev` | Skill-frontmatter and convention validator |
+| [`tools/spec-status-index`](../tools/spec-status-index/) | `substrate:framework-dev` | Index of spec / RFC implementation status — substrate that also doubles as a governance/stats view |
+| [`tools/spec-validator`](../tools/spec-validator/) | `substrate:framework-dev` | Spec-frontmatter and body-section validator — counterpart to `skill-and-tool-validator` for `tools/spec-loop/specs/` |
+| [`tools/vcs`](../tools/vcs/) | `contract:source-control` | Backend-dispatching implementation of the source-control (VCS) capability ([`tools/github/source-control.md`](../tools/github/source-control.md)); complete Git backend plus detected extension points for non-Git VCS bridges (#601 Hg, #602 SVN) |
 
-A tool's capabilities are determined by its **use-case lifecycle
-phases**, not by which skills happen to consume it. `tools/github` is
-called by every triage / intake / fix / resolve skill but is tagged
-only `capability:setup` because it doesn't encode any one lifecycle
-phase — it is pure substrate. `tools/cve-org`, by contrast, exists
-specifically to *do* CVE publication and to record that result; both
-the resolve action and the intake of state into the tracker are
-first-class jobs of the tool, so it carries both labels.
-
-When a tool grows to serve a new lifecycle phase as a first-class
-feature (rather than as generic substrate that other skills happen
-to compose), add the new `capability:*` label to its README and to
-the table above.
+A tool's capability is the **interface it provides**, not which skills
+happen to consume it (RFC-AI-0005). `tools/github` provides the
+`contract:tracker` interface; `tools/cve-tool-vulnogram` provides
+`contract:cve-authority`; `tools/privacy-llm` is `substrate:privacy`.
+Use a `contract:<name>` value when the tool implements a capability
+contract under `tools/<contract>/`, and a `substrate:<name>` value for
+framework substrate. A tool may carry more than one (rare).
 
 ---
 
@@ -258,18 +274,17 @@ capability:
 
 ### A GitHub issue
 
-Apply at least one `area:*` AND one `capability:*` label. If the issue
-genuinely spans capabilities, apply both — for example,
-[#337](https://github.com/apache/magpie/issues/337) carries
-both `capability:reconciliation` and `capability:setup` because it
-covers a new substrate tool *and* a new sync-flow integration.
+Apply at least one `area:*` AND one capability label — a skill
+capability (`capability:*`) for skill work, a tool capability
+(`contract:*` / `substrate:*`) for tool work. If the issue genuinely
+spans capabilities, apply all that apply.
 
 ### A pull request
 
-Same: `area:*` AND `capability:*`. Match the capability the change is
-*implementing*, not the file paths it happens to touch. A PR that
-adjusts the validator config to support a new triage rule is
-`capability:triage` (the change's purpose), not `capability:setup`
+Same: `area:*` AND the matching capability. Match the capability the
+change is *implementing*, not the file paths it happens to touch. A PR
+that adjusts the validator config to support a new triage rule is
+`capability:triage` (the change's purpose), not `substrate:framework-dev`
 (the file it edited).
 
 ### A new tool under `tools/`
@@ -278,12 +293,13 @@ Declare the tool's capability in the **first paragraph of its README**
 using the line:
 
 ```markdown
-**Capability:** capability:NAME
+**Capability:** contract:NAME
 ```
 
-If the tool serves more than one capability, list both. Substrate
-bridges (`tools/github`, `tools/gmail`, …) default to
-`capability:setup` unless they encode a specific lifecycle capability.
+…or `substrate:NAME` for framework substrate. If the tool serves more
+than one, list them (`contract:a + substrate:b`). Pick the
+`contract:<name>` that matches the capability contract the tool
+implements, or the `substrate:<name>` kind that fits.
 
 ### A new skill under `.claude/skills/`
 

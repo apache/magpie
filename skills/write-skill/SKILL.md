@@ -14,7 +14,7 @@ when_to_use: |
   variations thereof. Also when refactoring or expanding an
   existing skill that should pick up the framework's current
   conventions (e.g. the prompt-injection-defence patterns).
-capability: capability:setup
+capability: capability:authoring
 license: Apache-2.0
 ---
 
@@ -113,7 +113,8 @@ skill bundles:
 │   │   │   `capability:triage`, `capability:review`, `capability:fix`,
 │   │   │   `capability:intake`, `capability:reconciliation`,
 │   │   │   `capability:resolve`, `capability:reassess`,
-│   │   │   `capability:stats`, `capability:setup` — see
+│   │   │   `capability:stats`, `capability:platform`,
+│   │   │   `capability:authoring` — see
 │   │   │   [`docs/labels-and-capabilities.md`](../../docs/labels-and-capabilities.md))
 │   │   └── license: Apache-2.0 (required, exact string)
 │   ├── SPDX header comment + placeholder-convention comment
@@ -373,7 +374,7 @@ for the override → upstream loop.
   lifecycle phases (e.g. `security-issue-fix` does
   `capability:fix` + `capability:resolve`,
   `setup-isolated-setup-doctor` does
-  `capability:setup` + `capability:reassess`), use the YAML list
+  `capability:authoring` + `capability:reassess`), use the YAML list
   form and list **all** that apply — do not collapse to one to be
   neat. If the skill doesn't fit any of the nine buckets at all,
   treat that as a design signal worth pausing for — either the

@@ -12,7 +12,7 @@
 
 # `tools/mail-source/`
 
-**Capability:** capability:setup + capability:intake
+**Capability:** contract:mail-source
 
 Mail-source backend abstraction. Pluggable backends (mbox, IMAP, future Mailman 3 / Hyperkitty) that feed the security-issue-import intake pipeline a uniform thread/message view. See [`contract.md`](contract.md) for the backend interface.
 

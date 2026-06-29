@@ -53,7 +53,7 @@ A tool adapter fulfils a capability *contract* for one backend.
    contract's operations.
 3. **Declare the metadata** the validator requires (see
    [`tools/AGENTS.md`](../../tools/AGENTS.md)):
-   - a `**Capability:** capability:NAME` line in the README;
+   - a `**Capability:** contract:NAME` (or `substrate:NAME`) line in the README;
    - a `## Prerequisites` section (runtime, CLIs, credentials, network);
    - optionally an `**Organization:** <org>` line if the adapter belongs
      to a specific organization.

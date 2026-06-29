@@ -22,7 +22,7 @@
 
 # security-tracker-stats-dashboard
 
-**Capability:** capability:stats
+**Capability:** substrate:analytics
 
 Generate a self-contained HTML dashboard of `<tracker>` repository
 statistics — issue-lifecycle bands (untriaged / triaged / PR-merged /

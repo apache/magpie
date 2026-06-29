@@ -19,7 +19,7 @@
 
 # pr-management-stats reference implementation
 
-**Capability:** capability:stats
+**Capability:** substrate:analytics
 
 Deterministic reference implementation of the data-fetch +
 classification contract that backs the

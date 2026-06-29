@@ -17,7 +17,7 @@
 
 # skill-and-tool-validator
 
-**Capability:** capability:setup
+**Capability:** substrate:framework-dev
 
 Validate framework skill definitions — YAML frontmatter, internal
 link integrity, and placeholder conventions.

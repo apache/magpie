@@ -18,7 +18,7 @@
 
 # Dashboard generator
 
-**Capability:** capability:stats
+**Capability:** substrate:analytics
 
 Deterministic reference implementations of the dashboard that
 [`issue-reassess-stats`](../../skills/issue-reassess-stats/SKILL.md)

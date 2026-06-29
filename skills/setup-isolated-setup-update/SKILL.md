@@ -14,7 +14,7 @@ when_to_use: |
   blocked Bash call now appears to succeed. Recommended cadence
   per the doc: once per Claude Code upgrade or once a month,
   whichever comes first. Cheap to re-run; never destructive.
-capability: capability:setup
+capability: capability:platform
 license: Apache-2.0
 ---
 

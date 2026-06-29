@@ -18,7 +18,7 @@ when_to_use: |
   Claude Code upgrade — the sandbox profile evolves and a
   previously-working call may have moved into deny.
 capability:
-  - capability:setup
+  - capability:platform
   - capability:reassess
 license: Apache-2.0
 ---

@@ -17,7 +17,7 @@
 
 # egress-gateway
 
-**Capability:** capability:setup
+**Capability:** substrate:sandbox
 
 A local **host-allowlisting HTTP(S) forward proxy** for the
 Magpie framework. It is the egress-control chokepoint: framework

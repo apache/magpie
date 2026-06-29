@@ -12,7 +12,7 @@
 
 # `tools/privacy-llm/`
 
-**Capability:** capability:setup
+**Capability:** substrate:privacy
 
 Privacy-LLM PII-scrubbing gate. Standalone redactor / checker pair that screens content for PII before it reaches an external LLM. See [`tool.md`](tool.md) and [`wiring.md`](wiring.md) for integration details, [`models.md`](models.md) for the model catalogue, and [`pii.md`](pii.md) for the PII taxonomy.
 

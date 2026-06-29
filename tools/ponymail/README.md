@@ -12,7 +12,7 @@
 
 # `tools/ponymail/`
 
-**Capability:** capability:setup + capability:intake
+**Capability:** contract:mail-archive
 
 **Organization:** ASF
 

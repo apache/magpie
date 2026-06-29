@@ -12,7 +12,7 @@
 
 # `tools/dev/`
 
-**Capability:** capability:setup
+**Capability:** substrate:framework-dev
 
 Framework dev-loop helpers (placeholder check, agent pre-commit hook). Invoked by prek and CI; not consumed by any skill directly. See the individual scripts in this directory for usage.
 

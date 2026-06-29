@@ -94,8 +94,9 @@ TOOL_README_CATEGORY = "tool-readme"
 TOOL_CAPABILITY_CATEGORY = "tool-capability"
 TOOL_PREREQUISITES_CATEGORY = "tool-prerequisites"
 
-# Matches `**Capability:** capability:NAME` (and multi-value
-# `capability:NAME + capability:NAME + …`) on a single line.
+# Matches the `**Capability:** <token>` line (tool capability =
+# `contract:NAME` / `substrate:NAME`, multi-value `a + b`) regardless of
+# the token value; the value is validated against TOOL_CAPABILITIES.
 TOOL_CAPABILITY_RE = re.compile(r"^\*\*Capability:\*\*[ \t]+(.+)$", re.MULTILINE)
 
 # Matches a level-2 `## Prerequisites` heading. Every tool README must carry
@@ -122,8 +123,9 @@ CAPABILITY_SYNC_CATEGORY = "capability-sync"
 EVAL_COVERAGE_CATEGORY = "eval-coverage"
 _SKILL_TABLE_HEADER = "## Capability to skill map"
 _TOOL_TABLE_HEADER = "## Capability to tool map"
-# Tokens like `capability:setup`. Optional backticks around the token.
-_CAPABILITY_TOKEN_RE = re.compile(r"`?(capability:[a-z]+)`?")
+# Tokens like `capability:triage`, `contract:source-control`,
+# `substrate:sandbox`. Optional backticks. Hyphens allowed for multi-word names.
+_CAPABILITY_TOKEN_RE = re.compile(r"`?((?:capability|contract|substrate):[a-z-]+)`?")
 # Italic-parenthetical annotation in the docs tables: `*( … )*` — used for
 # future-state notes (e.g. "*(+ capability:reconciliation once #337 lands)*").
 # Stripped before extracting authoritative capability tokens. The terminator
@@ -136,9 +138,12 @@ REQUIRED_FRONTMATTER_KEYS = {"name", "description", "license", "capability"}
 OPTIONAL_FRONTMATTER_KEYS = {"when_to_use", "mode", "organization"}
 ALLOWED_LICENSES = {"Apache-2.0"}
 
-# Canonical capability taxonomy — docs/labels-and-capabilities.md is authoritative.
-# Skills may declare a single capability (string form) or several (YAML list form).
-ALLOWED_CAPABILITIES = {
+# Canonical capability taxonomy — two orthogonal axes per RFC-AI-0005;
+# docs/labels-and-capabilities.md is authoritative.
+#
+# Axis 1 — SKILL capability: the workflow-lifecycle phase a skill performs.
+# Skills may declare a single capability (string form) or several (YAML list).
+SKILL_CAPABILITIES = {
     "capability:triage",
     "capability:review",
     "capability:fix",
@@ -147,7 +152,29 @@ ALLOWED_CAPABILITIES = {
     "capability:resolve",
     "capability:reassess",
     "capability:stats",
-    "capability:setup",
+    "capability:platform",
+    "capability:authoring",
+}
+
+# Axis 2 — TOOL capability: the interface a tool (adapter) provides, in two
+# kinds distinguished by prefix (RFC-AI-0005):
+#   contract:<name>   — implements a capability contract under tools/<contract>/
+#   substrate:<name>  — framework substrate (replaces the old capability:setup)
+TOOL_CAPABILITIES = {
+    "contract:tracker",
+    "contract:source-control",
+    "contract:mail-archive",
+    "contract:mail-source",
+    "contract:mail-draft",
+    "contract:cve-authority",
+    "contract:report-relay",
+    "contract:scan-format",
+    "contract:project-metadata",
+    "substrate:analytics",
+    "substrate:sandbox",
+    "substrate:action-guard",
+    "substrate:privacy",
+    "substrate:framework-dev",
 }
 
 
@@ -594,7 +621,7 @@ def validate_frontmatter(path: Path, text: str, root: Path | None = None) -> Ite
     if fm.get("capability"):
         # The frontmatter parser stores both forms as a single string:
         #   single — `capability: capability:triage`            → "capability:triage"
-        #   list   — `capability:\n  - capability:intake\n …`   → "- capability:intake\n- capability:setup"
+        #   list   — `capability:\n  - capability:intake\n …`   → "- capability:intake\n- capability:platform"
         # Split on lines, strip `- ` prefix when present.
         entries: list[str] = []
         for raw_line in fm["capability"].splitlines():
@@ -608,12 +635,12 @@ def validate_frontmatter(path: Path, text: str, root: Path | None = None) -> Ite
         if not entries:
             yield Violation(path, 1, "frontmatter key 'capability' is empty")
         for entry in entries:
-            if entry not in ALLOWED_CAPABILITIES:
+            if entry not in SKILL_CAPABILITIES:
                 yield Violation(
                     path,
                     1,
-                    f"frontmatter capability '{entry}' not in {sorted(ALLOWED_CAPABILITIES)} "
-                    f"(see docs/labels-and-capabilities.md)",
+                    f"frontmatter capability '{entry}' not in {sorted(SKILL_CAPABILITIES)} "
+                    f"(skills use Axis-1 capability:* values; see docs/labels-and-capabilities.md)",
                 )
 
     desc_len = len(fm.get("description", ""))
@@ -1349,9 +1376,10 @@ def validate_tools(root: Path | None = None) -> Iterable[Violation]:
     """For each ``tools/<name>/`` directory, require:
 
     1. A ``README.md`` to exist at the tool root.
-    2. The README to contain a ``**Capability:** capability:NAME`` line,
-       with NAME drawn from ``ALLOWED_CAPABILITIES``. Multi-value form is
-       ``**Capability:** capability:NAME + capability:NAME``.
+    2. The README to contain a ``**Capability:** <token>`` line, with the
+       token drawn from ``TOOL_CAPABILITIES`` (a ``contract:<name>`` or
+       ``substrate:<name>`` value per RFC-AI-0005). Multi-value form is
+       ``**Capability:** contract:a + substrate:b``.
     3. The README to contain a ``## Prerequisites`` section so the tool's
        runtime / CLI / credential / network requirements are stated up
        front.
@@ -1408,8 +1436,8 @@ def validate_tools(root: Path | None = None) -> Iterable[Violation]:
             yield Violation(
                 readme,
                 1,
-                f"tool '{tool_dir.name}' README missing '**Capability:** capability:NAME' "
-                f"declaration (see docs/labels-and-capabilities.md)",
+                f"tool '{tool_dir.name}' README missing '**Capability:** contract:NAME' "
+                f"(or substrate:NAME) declaration (see docs/labels-and-capabilities.md)",
                 category=TOOL_CAPABILITY_CATEGORY,
             )
             continue
@@ -1427,12 +1455,13 @@ def validate_tools(root: Path | None = None) -> Iterable[Violation]:
             )
             continue
         for entry in entries:
-            if entry not in ALLOWED_CAPABILITIES:
+            if entry not in TOOL_CAPABILITIES:
                 yield Violation(
                     readme,
                     line_no,
                     f"tool '{tool_dir.name}' capability '{entry}' not in "
-                    f"{sorted(ALLOWED_CAPABILITIES)} (see docs/labels-and-capabilities.md)",
+                    f"{sorted(TOOL_CAPABILITIES)} (tools use contract:* / substrate:* "
+                    f"values; see docs/labels-and-capabilities.md)",
                     category=TOOL_CAPABILITY_CATEGORY,
                 )
 

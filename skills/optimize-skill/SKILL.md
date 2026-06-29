@@ -23,7 +23,7 @@ when_to_use: |
   that is `write-skill`. Skip when the request is a behavior
   change dressed up as an optimization; route those through normal
   skill editing + review.
-capability: capability:setup
+capability: capability:authoring
 license: Apache-2.0
 ---
 

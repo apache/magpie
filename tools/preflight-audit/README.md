@@ -19,7 +19,7 @@
 
 # preflight-audit
 
-**Capability:** capability:stats
+**Capability:** substrate:analytics
 
 Dry-run the bulk-mode pre-flight classifier against a real or
 replayed tracker. Use to **measure skip-rate before / after any

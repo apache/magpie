@@ -35,12 +35,15 @@ declares, up front:
 1. **Its capability** — a line of the exact form
 
    ```markdown
-   **Capability:** capability:NAME
+   **Capability:** contract:NAME
    ```
 
-   (multi-value: `capability:NAME + capability:NAME`), with NAME drawn
-   from the taxonomy in `docs/labels-and-capabilities.md`. Substrate
-   bridges default to `capability:setup`.
+   …or `substrate:NAME` (multi-value: `contract:a + substrate:b`). A
+   **tool capability** is the interface the tool provides (RFC-AI-0005):
+   `contract:<name>` when it implements a capability contract under
+   `tools/<contract>/` (e.g. `contract:tracker`), or `substrate:<name>`
+   for framework substrate (e.g. `substrate:sandbox`). Draw the value
+   from the taxonomy in `docs/labels-and-capabilities.md`.
 
 2. **Its prerequisites** — a `## Prerequisites` section stating what the
    tool needs *before it can run*, so an adopter never discovers a

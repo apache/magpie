@@ -12,7 +12,7 @@
 
 # `tools/apache-projects/`
 
-**Capability:** capability:stats + capability:intake
+**Capability:** contract:project-metadata
 
 **Organization:** ASF
 
