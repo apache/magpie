@@ -22,7 +22,7 @@ collective — makes *default* for the projects that belong to it:
 - its **governance vocabulary** (what the governing body is called, how
   contributors are admitted, the project-lifecycle stages), and
 - its **default backend selections + infrastructure values** — which
-  tool [adapter](../docs/vendor-neutrality.md#adapters) fulfils each
+  tool [adapter](../docs/vendor-neutrality.md#tool-adapters) fulfils each
   capability (CVE authority, mail archive, project metadata, …) and the
   concrete URLs / addresses those backends use.
 

@@ -9,7 +9,7 @@
     - [Skills target the abstraction, never a vendor's client](#skills-target-the-abstraction-never-a-vendors-client)
     - [Tools are the only place vendor-specific code lives](#tools-are-the-only-place-vendor-specific-code-lives)
     - [Capabilities are the contract between them](#capabilities-are-the-contract-between-them)
-  - [Adapters](#adapters)
+  - [Tool adapters](#tool-adapters)
   - [Organization adapters](#organization-adapters)
   - [Authoring your own adapter](#authoring-your-own-adapter)
   - [How each axis is delivered](#how-each-axis-is-delivered)
@@ -187,13 +187,13 @@ swapping a backend is a config change, never a code change to the
 workflow. An adopter picks, under *Tools enabled*, which tool fulfils a
 capability; the same skill code runs on top.
 
-## Adapters
+## Tool adapters
 
-The contract-plus-backend split above has a name. An **adapter** is the
-unit that fulfils a capability for **one concrete backend**. A capability
-*contract* — `tools/<contract>/`, a pure interface spec — defines the
-verbs a workflow needs; an **adapter** implements that contract for one
-vendor:
+The contract-plus-backend split above has a name. A **tool adapter** is
+the unit that fulfils a capability for **one concrete backend**. A
+capability *contract* — `tools/<contract>/`, a pure interface spec —
+defines the verbs a workflow needs; a **tool adapter** implements that
+contract for one vendor:
 
 | Capability contract | Reference adapter(s) | Other backends (extension points) |
 |---|---|---|
@@ -207,9 +207,9 @@ vendor:
 A project selects an adapter per capability in its config
 (`cve_authority.tool: vulnogram`, `archive_system.kind: ponymail`,
 `forwarders.enabled: [asf-security]`); **skill bodies never branch on the
-choice.** Adapters are exactly where vendor specificity is allowed to
-live — and the reason adding a vendor is "write one adapter," not a fork
-of the workflows.
+choice.** Tool adapters are exactly where vendor specificity is allowed
+to live — and the reason adding a vendor is "write one adapter," not a
+fork of the workflows.
 
 ## Organization adapters
 
