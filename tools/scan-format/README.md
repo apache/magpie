@@ -21,7 +21,7 @@
 
 # tools/scan-format/ — adapter contract
 
-**Capability:** capability:intake
+**Capability:** contract:scan-format
 
 A **scan-format adapter** teaches
 [`security-issue-import-from-scan`](../../skills/security-issue-import-from-scan/SKILL.md)

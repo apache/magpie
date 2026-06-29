@@ -3,7 +3,7 @@
 
 # spec-loop
 
-**Capability:** capability:setup
+**Capability:** substrate:framework-dev
 
 A spec-driven build loop for this framework, in the general
 [Ralph](https://ghuntley.com/ralph/) style (run a fresh agent context

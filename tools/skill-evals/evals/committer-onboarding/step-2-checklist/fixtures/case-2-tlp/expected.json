@@ -3,7 +3,7 @@
   "has_github_step": false,
   "has_whimsy_step": true,
   "whimsy_url_correct": true,
-  "whimsy_url_contains": "roster/committee",
+  "whimsy_url_contains": "roster/committee/kafka",
   "welcome_draft_present": true,
   "welcome_no_unresolved_placeholders": true
 }

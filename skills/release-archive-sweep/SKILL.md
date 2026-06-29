@@ -1,8 +1,9 @@
 ---
 name: magpie-release-archive-sweep
+organization: ASF
 mode: Triage
 description: |
-  Scan `dist/release/<project>/` (or the configured distribution location),
+  Scan the release distribution area (`dist/release/<project>/` when `release_dist_backend = svnpubsub`, or the configured distribution location),
   identify releases past the project's retention rule, and propose the
   backend-shaped command set to move them to the archive area. Read-only on
   the distribution surface; the RM executes every archival command as
@@ -10,8 +11,8 @@ description: |
 when_to_use: |
   Invoke when a Release Manager says "run the archive sweep", "clean up old
   releases from dist", "archive past-retention releases for <project>", or
-  similar. Appropriate after Step 11 (`release-announce-draft`) confirms a
-  new release is promoted and announced. Safe to run periodically on any
+  similar. Appropriate after the announcement phase (`release-announce-draft`)
+  confirms a new release is promoted and announced. Safe to run periodically on any
   schedule; it is a no-op when nothing is past retention.
 argument-hint: "[--planning-issue <url>]"
 capability: capability:resolve
@@ -26,9 +27,9 @@ license: Apache-2.0
      <upstream>            → adopter's public source repo (e.g. apache/airflow)
      <project>             → project distribution name (e.g. airflow)
      <version>             → release version string (e.g. 2.11.0)
-     <dist-release-url>    → URL root for dist/release/<project>/ listing
+     <dist-release-url>    → URL root for release distribution listing (dist/release/<project>/ when release_dist_backend = svnpubsub)
      <archive-url>         → URL root for the archive area (e.g. https://archive.apache.org/dist/<project>/)
-     <svn-release-base>    → SVN URL for dist/release/<project>/ (svnpubsub backend)
+     <svn-release-base>    → SVN URL for dist/release/<project>/ (release_dist_backend = svnpubsub)
      <svn-archive-base>    → SVN URL for the archive destination
      Substitute these with concrete values from the adopting
      project's <project-config>/release-management-config.md before
@@ -42,7 +43,7 @@ set for the RM to archive them. It is Step 12 of the
 [release-management lifecycle](../../docs/release-management/process.md).
 
 The skill is **read-only on the distribution surface**. It never runs
-`svn mv`, `gh release delete`, `aws s3 mv`, or any equivalent archival
+`svn mv` (for `release_dist_backend = svnpubsub`), `gh release delete`, `aws s3 mv`, or any equivalent archival
 command. Every command it emits is paste-ready for the RM to execute under
 their own credentials.
 
@@ -66,7 +67,7 @@ This skill composes with:
 
 **Golden rule 1 — every state-changing action is a proposal.**
 The archive command set is paste-ready output for the RM. The skill never
-runs `svn mv`, `gh release`, or `aws s3 mv` on its own. The human executes
+runs `svn mv` (for `release_dist_backend = svnpubsub`), `gh release`, or `aws s3 mv` on its own. The human executes
 every archival operation.
 
 **Golden rule 2 — never archive the latest release of any supported line.**
@@ -119,7 +120,7 @@ non-blocking.
 - **`<project-config>/release-trains.md` readable** — the set of supported
   release lines and their current latest versions. Used to identify orphans.
 - **Distribution listing accessible** — the skill must be able to read the
-  list of releases currently on `dist/release/<project>/` (or the backend
+  list of releases currently on `dist/release/<project>/` (for `release_dist_backend = svnpubsub`, or the backend
   equivalent). For `svnpubsub`, this is an `svn list` call against the
   distribution URL.
 
@@ -187,7 +188,7 @@ Return ONLY valid JSON with this structure:
 3. **Apply the retention rule.** The `archive_retention_rule` field in
    `<project-config>/release-management-config.md` controls what stays.
    The ASF default rule is: **only the latest version of each supported
-   release train** remains on `dist/release/`; all earlier versions of
+   release train** remains on `dist/release/` (for `release_dist_backend = svnpubsub`); all earlier versions of
    each train are past-retention. Project configs may add more specific
    rules (e.g. keep the latest two of a given train) but may never drop
    the latest-of-each-train floor.
@@ -236,13 +237,13 @@ from the distribution surface to the archive area.
 For each past-retention version `<ver>`:
 
 ```text
-svn mv \
-  https://dist.apache.org/repos/dist/release/<project>/<ver> \
+svn mv \  # release_dist_backend=svnpubsub
+  https://dist.apache.org/repos/dist/release/<project>/<ver> \  # release_dist_backend=svnpubsub
   https://archive.apache.org/dist/<project>/<ver> \
   -m "Archive <project> <ver> per retention policy"
 ```
 
-One `svn mv` per past-retention version, in ascending version order (oldest
+One `svn mv` (for `release_dist_backend = svnpubsub`) per past-retention version, in ascending version order (oldest
 first). Include the commit message inline.
 
 **`github-releases`.**
@@ -304,7 +305,7 @@ The AI-driven part ends with a hand-back artefact containing:
 
 ## Hard rules
 
-- **Never run `svn mv`, `gh release delete`, `aws s3 mv`, or equivalent.**
+- **Never run `svn mv` (for `release_dist_backend = svnpubsub`), `gh release delete`, `aws s3 mv`, or equivalent.**
   Every archival command is paste-ready output; the RM executes it.
 - **Never archive the latest release of any supported train.** If the
   retention rule implies this, block with `retention-rule-error` and require

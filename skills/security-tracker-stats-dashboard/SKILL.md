@@ -20,9 +20,9 @@ license: Apache-2.0
                          snapshot in an adopter repo, or `.` in the
                          framework standalone checkout)
      <tracker>        -> value of `tracker_repo:` in <project-config>/project.md
-                         (example: airflow-s/airflow-s)
+                         (example: <tracker>)
      <upstream>       -> value of `upstream_repo:` in <project-config>/project.md
-                         (example: apache/airflow); may be null for
+                         (example: <upstream>); may be null for
                          trackers whose fixes do not land in a
                          single upstream codebase.
      Before running any bash command below, substitute these with the
@@ -208,11 +208,11 @@ The most-overridden knobs by adopters tend to be:
   [`<project-config>/project.md`](../../projects/_template/project.md)
   (and the matching rows of
   [`<project-config>/scope-labels.md`](../../projects/_template/scope-labels.md)).
-  ASF/Airflow default is `[airflow, providers, chart]` —
-  non-ASF adopters re-state this list in their overlay to
+  The framework default is `[<scope-a>, <scope-b>, <scope-c>]` —
+  adopters re-state this list in their overlay to
   match their own scope set.
 - **`categories:`** — the lifecycle-band classification rules.
-  Defaults match the airflow-s reference implementation
+  Defaults match the framework's reference implementation
   byte-for-byte; adopters with different label conventions
   (e.g. `triaged` instead of *no `needs triage`*) re-state the
   whole list. The label literals used in predicates come from

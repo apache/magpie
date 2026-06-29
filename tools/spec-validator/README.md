@@ -14,7 +14,7 @@
 
 # spec-validator
 
-**Capability:** capability:setup
+**Capability:** substrate:framework-dev
 
 Validates spec files in `tools/spec-loop/specs/` — the counterpart to
 `tools/skill-and-tool-validator/` for the spec side of the framework.

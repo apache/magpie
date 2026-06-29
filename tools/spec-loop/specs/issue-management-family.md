@@ -192,11 +192,6 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
 
 ## Known gaps
 
-- **`docs/issue-management/README.md` is out of date.** The family README
-  on `main` lists six skills; `issue-backlog-stats` (#535) and
-  `issue-deduplicate` (#532) landed on `main` after the README was last
-  synced. A follow-on docs-sync item should add them to the skills table
-  and adopter-contract matrix.
 - **No adopter pilot has run the full family.** All eight skills are
   `experimental`; no maintainer has exercised the triage → reproduce →
   fix-draft → stale-sweep → deduplicate → dashboard pipeline end-to-end.

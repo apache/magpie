@@ -17,7 +17,7 @@
 
 # Security workflow skill family
 
-> **Scope — `asf: false`.** Works on any project, ASF or not. The ASF intake
+> **Scope.** Works on any project, ASF or not. The ASF intake
 > path (`security@`, Vulnogram CVE flow) is the default profile; non-ASF
 > adopters swap it for GitHub Security Advisories / a MITRE CNA through the
 > adapter/config layer.

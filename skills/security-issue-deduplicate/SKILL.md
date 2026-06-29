@@ -23,9 +23,9 @@ license: Apache-2.0
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
      <project-config> → adopting project's `.apache-magpie/` directory
      <tracker>        → value of `tracker_repo:` in <project-config>/project.md
-                       (example: airflow-s/airflow-s for the Apache Airflow security team)
+                       (example: <tracker>)
      <upstream>       → value of `upstream_repo:` in <project-config>/project.md
-                       (example: apache/airflow)
+                       (example: <upstream>)
      <cve-tool>       → CVE-tool adapter directory under `tools/` named by
                        `cve_authority.tool` in <project-config>/project.md
                        (example: cve-tool-vulnogram for the ASF default).
@@ -60,10 +60,10 @@ different **scope labels** must not be merged. The set of scope
 labels the project recognises comes from `scope_detection.labels`
 in [`<project-config>/project.md`](../../<project-config>/project.md#scope-detection)
 (cross-referenced from [`<project-config>/scope-labels.md`](../../<project-config>/scope-labels.md)).
-In the airflow-s adopter's case the scope labels are `airflow`,
-`providers`, and `chart`, so `airflow` vs. `providers` or
-`airflow` vs. `chart` are the typical mismatches; other adopters
-declare their own. If an external reporter rediscovers the same
+For example, with scope labels `<scope-a>`, `<scope-b>`, and
+`<scope-c>`, `<scope-a>` vs. `<scope-b>` or `<scope-a>` vs.
+`<scope-c>` are the typical mismatches; other adopters declare
+their own. If an external reporter rediscovers the same
 bug in two different products' surfaces, that is a multi-scope
 report and the resolution is a **scope split** handled by the
 `security-issue-sync` skill, not a dedupe. This skill refuses to
@@ -251,8 +251,8 @@ Verify:
 - Both have the **same scope label** — the recognised scope
   labels come from `scope_detection.labels` in
   [`<project-config>/project.md`](../../<project-config>/project.md#scope-detection).
-  In the airflow-s adopter that means matching one of `airflow`,
-  `providers`, or `chart` against itself. If the scope labels
+  That means matching one of `<scope-a>`, `<scope-b>`, or
+  `<scope-c>` against itself. If the scope labels
   differ, refuse the merge and tell the user this is a
   multi-scope report to be handled by `security-issue-sync`'s
   scope-split flow instead.
@@ -288,8 +288,8 @@ Also capture:
 - Each tracker's **milestone** — per-scope milestone naming
   conventions live in
   [`<project-config>/milestones.md`](../../<project-config>/milestones.md)
-  (the airflow-s adopter uses Airflow-version / Providers-wave /
-  Chart-version shapes, one per `scope_detection.labels` entry).
+  (one milestone shape per `scope_detection.labels` entry — e.g. a
+  `<scope-a>`-axis / `<scope-b>`-axis / `<scope-c>`-axis form).
 - Each tracker's **assignees**.
 - Whether each tracker has a **CVE JSON attachment** comment (from
   `generate-cve-json --attach`) — only the kept side's attachment
@@ -466,7 +466,7 @@ before `</details>`.
 - Body: <keep.reporter>'s original report preserved; <drop.reporter>'s report appended as *"Second independent report"*.
 - Credits: **<keep credit>** + **<drop credit>**.
 - Mailing threads: both listed.
-- CVE: [<CVE-N>-<M>](<cve-record-url>) stays allocated here; [<tracker>#<drop>](https://github.com/<tracker>/issues/<N>) being closed as duplicate. The `<cve-record-url>` form is assembled from `cve_authority.record_url_template` in [`<project-config>/project.md`](../../<project-config>/project.md#cve-authority) (the airflow-s adopter resolves to `https://cveprocess.apache.org/cve5/<CVE-ID>`).
+- CVE: [<CVE-N>-<M>](<cve-record-url>) stays allocated here; [<tracker>#<drop>](https://github.com/<tracker>/issues/<N>) being closed as duplicate. The `<cve-record-url>` form is assembled from `cve_authority.record_url_template` in [`<project-config>/project.md`](../../<project-config>/project.md#cve-authority).
 
 **Next:** <one-line next step — e.g. credit-preference confirmation for both, or Step 6 CVE refinement>.
 

@@ -1,0 +1,6 @@
+{
+  "has_differences": {"type": "non_empty", "field": "differences"},
+  "has_drift": {"type": "field_true", "field": "has_drift"},
+  "has_safety_baseline_divergence": {"type": "field_true", "field": "has_safety_baseline_divergence"},
+  "has_injection_flag": {"type": "field_true", "field": "injection_flagged"}
+}

@@ -17,7 +17,7 @@ when_to_use: |
   time a previously-blocked Bash call appears to have succeeded
   (the "did a denial silently turn into an allow?" canary). Cheap
   to re-run; never destructive.
-capability: capability:setup
+capability: capability:platform
 license: Apache-2.0
 ---
 

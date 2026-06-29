@@ -57,6 +57,12 @@ artefact for leakage before emission.
   and any project-declared private string; failures stop the flow.
 - **Audit log is privacy-aware** — references hashed identifiers, never
   raw PII.
+- **Public branch names are public artefacts.** Generated branch names,
+  commit-message examples, PR-body templates, changelog snippets, and
+  release-note text must avoid embargo-breaking security terms before
+  disclosure. In particular, pre-disclosure public branch names must not
+  contain CVE IDs, `security`, `vulnerability`, `advisory`, or
+  tracker-private title fragments.
 
 ## Out of scope
 
@@ -71,6 +77,8 @@ artefact for leakage before emission.
    map local (0600, gitignored).
 3. The scrub catches CVE IDs / reporter names / list addresses before any
    public write.
+4. Generated public branch-name examples are scrubbed for CVE IDs and
+   embargoed security framing before use.
 
 ## Validation
 
@@ -82,3 +90,7 @@ uv run --project tools/privacy-llm --group dev pytest
 
 - `stable`; gaps surface as new PII patterns or new public-emission
   surfaces not yet covered by the scrub — caught as drift by the plan pass.
+- **Branch-name confidentiality validation is missing.** Security-fix
+  workflows already require neutral branch names, but no deterministic
+  check scans skill/docs examples for CVE IDs or embargoed terms in
+  generated branch names.

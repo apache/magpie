@@ -544,7 +544,7 @@ adopter opted into via
 
   (The `mcp__apache-projects__*` read tools back the roster /
   affiliation lookups — also used by `contributor-nomination`,
-  the maintainer-side PMC/committer assessment skill. Both MCP
+  the maintainer-side <governance-body>/committer assessment skill. Both MCP
   servers are installed from the latest `main` of `apache/comdev`;
   see [`tools/apache-projects/tool.md`](../../tools/apache-projects/tool.md)
   and [`tools/ponymail/tool.md`](../../tools/ponymail/tool.md).)

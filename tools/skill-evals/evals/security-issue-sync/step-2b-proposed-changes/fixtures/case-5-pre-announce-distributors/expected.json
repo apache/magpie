@@ -1,0 +1,16 @@
+{
+  "items": [
+    {
+      "number": 1,
+      "category": "status_comment",
+      "action": "Draft distributor pre-announcement email to the embargo list declared in projects/airflow/distributor-list.md, noting the pending Airflow 3.2.3 release carrying the fix for this tracker",
+      "reason": "distributor_notify_pending is true — pre_announce_distributors is set and the pr merged label is present with the announced label absent."
+    }
+  ],
+  "labels_to_add": [],
+  "labels_to_remove": [],
+  "milestone_create_needed": false,
+  "assignee_proposed": null,
+  "has_bare_issue_numbers": false,
+  "distributor_notify_proposed": true
+}

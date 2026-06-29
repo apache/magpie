@@ -1,0 +1,7 @@
+{
+  "issue_number": 113,
+  "classification": "NEAR-MISS",
+  "failing_criteria": ["G1", "G2", "G3"],
+  "skip_reason": null,
+  "injection_flagged": false
+}

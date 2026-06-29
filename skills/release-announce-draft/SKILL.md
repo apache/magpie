@@ -1,5 +1,6 @@
 ---
 name: magpie-release-announce-draft
+organization: ASF
 mode: Drafting
 description: |
   Draft the `[ANNOUNCE]` email body and open (not merge) the site-bump PR
@@ -29,7 +30,7 @@ license: Apache-2.0
      <version>                 → release version string (e.g. 2.11.0)
      <product-name>            → project display name (e.g. Apache Airflow)
      <promote-timestamp>       → UTC timestamp of the Step 10 svn promote commit
-     <dist-release-url>        → URL to the promoted dist/release/<project>/<version>/ directory
+     <dist-release-url>        → URL to the promoted release directory (dist/release/<project>/<version>/ when release_dist_backend = svnpubsub)
      <download-page-url>       → URL to the project's canonical Download Page
      <changelog-url>           → URL to the changelog for this release
      <keys-url>                → URL to the project KEYS file
@@ -68,7 +69,7 @@ This skill composes with:
 - `release-promote` (proposed) — upstream step; the `promoted` label on
   the planning issue confirms that Step 10 completed.
 - `release-archive-sweep` (proposed) — downstream step; runs after the
-  announcement is sent to clean up old RC artefacts from `dist/dev/`.
+  announcement is sent to clean up old RC staging artefacts.
 - `release-audit-report` (proposed) — downstream step; records the
   complete release lifecycle.
 
@@ -94,7 +95,7 @@ send. The RM can override with `--skip-promote-wait <reason>`.
 
 **Golden rule 4 — ASF address reminder.** The `[ANNOUNCE]` body header
 carries a reminder that the email must be sent from the RM's
-`@apache.org` address; the `announce@apache.org` list rejects
+`@apache.org` address; the `<announce-list>` rejects
 non-`@apache.org` senders. This reminder is always present, never
 omitted.
 
@@ -154,7 +155,7 @@ non-blocking.
   completed. The skill can also accept an explicit `--planning-issue <url>`
   override.
 - **Promote timestamp available** — the planning issue body contains the
-  UTC timestamp of the Step 10 `svn mv` (or backend-equivalent promote
+  UTC timestamp of the Step 10 promote commit (`svn mv` for `release_dist_backend = svnpubsub`, or backend-equivalent promote
   commit), or the RM provides it via `--promote-timestamp <ISO-8601>`.
 - **`<project-config>/release-management-config.md` readable** —
   `announce_list`, `announce_cc_lists`, `announce_subject_template`,
@@ -233,7 +234,7 @@ Read the following from the planning issue body and
 | `product_name` | `release-management-config.md` | derived from `project_dist_name` (capitalised display name) |
 | `version` | trigger argument | `<version>` |
 | `promote_timestamp` | planning issue body or `--promote-timestamp` | UTC ISO-8601 timestamp of Step 10 promote commit |
-| `dist_release_url` | planning issue body | URL under `dist/release/<project>/<version>/` |
+| `dist_release_url` | planning issue body | URL under `dist/release/<project>/<version>/` (for `release_dist_backend = svnpubsub`) |
 | `download_page_url` | planning issue body, config, or `--download-page` | canonical Download Page URL |
 | `changelog_url` | planning issue body | URL to changelog for this release |
 | `keys_url` | `release-management-config.md` | `keys_file_url` |
@@ -271,7 +272,7 @@ Cc: <announce_cc_lists joined by ", ">
 Subject: [ANNOUNCE] <Product Name> <version> released
 
 NOTE: This email must be sent from your @apache.org address. The
-announce@apache.org list rejects non-@apache.org senders.
+<announce-list> rejects non-@apache.org senders (for ASF TLPs).
 
 The Apache <Project Name> community is pleased to announce the release
 of <Product Name> <version>.
@@ -417,7 +418,7 @@ The AI-driven part ends with a hand-back artefact containing:
 - **Site-bump PR** — URL if opened, or "skipped — `site_repo` not
   configured", with a reminder that merge follows `[ANNOUNCE]`, not precedes it.
 - **Next steps** — `release-archive-sweep` to clean up RC artefacts from
-  `dist/dev/`; `release-audit-report` to record the lifecycle.
+  the staging area; `release-audit-report` to record the lifecycle.
 
 ---
 
@@ -470,10 +471,10 @@ The AI-driven part ends with a hand-back artefact containing:
 - `release-promote` (proposed) — upstream step; `promoted` label is the
   completion signal.
 - `release-archive-sweep` (proposed) — downstream step; cleans up RC
-  artefacts from `dist/dev/`.
+  artefacts from the staging area.
 - `release-audit-report` (proposed) — downstream step; records the
   complete lifecycle.
 - [ASF release policy § announcements](https://www.apache.org/legal/release-policy.html#release-announcements) —
-  the `announce@apache.org` requirement for ASF TLP releases.
+  the `<announce-list>` requirement for ASF TLP releases (see `release_announce_backend`).
 - [ASF release distribution](https://infra.apache.org/release-distribution.html) —
   the `closer.lua` CDN/mirror selector requirement for download links.

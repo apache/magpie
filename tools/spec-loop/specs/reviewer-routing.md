@@ -3,7 +3,7 @@
 
 ---
 title: Reviewer routing
-status: proposed
+status: experimental
 kind: feature
 mode: Triage
 source: >

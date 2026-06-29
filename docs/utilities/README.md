@@ -16,7 +16,7 @@
 
 # Utilities skill family
 
-> **Scope — `asf: false`.** Works on any project, ASF or not — no
+> **Scope.** Works on any project, ASF or not — no
 > Apache-Software-Foundation-specific assumptions baked in.
 
 Framework meta-skills — the tools you use to **build and maintain skills

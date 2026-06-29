@@ -25,9 +25,9 @@ license: Apache-2.0
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
      <project-config> → adopting project's `.apache-magpie/` directory
      <tracker>        → value of `tracker_repo:` in <project-config>/project.md
-                       (example: airflow-s/airflow-s for the Apache Airflow security team)
+                       (example: `<tracker>`)
      <upstream>       → value of `upstream_repo:` in <project-config>/project.md
-                       (example: apache/airflow)
+                       (example: `<upstream>`)
      Before running any bash command below, substitute these with the
      concrete values from the adopting project's <project-config>/project.md. -->
 
@@ -415,7 +415,7 @@ out of the per-field surgery the other skills perform.
 Apply at creation (the concrete label names come from
 `tracker.labels` in `<project-config>/project.md` —
 `needs_triage` and `security_marker`; literals below are the
-ASF/airflow-s defaults):
+framework defaults):
 
 - **`needs triage`** — every finding from this skill enters the
   standard validity-assessment flow.
@@ -770,13 +770,13 @@ the validity discussion produces signal.
 
 ### Example 1 — A six-finding AI-scan output
 
-In this example we use the airflow-s adopter's filename
-convention (`<reporter>-<project>-<date>`) — your project's
+In this example the filename happens to follow a
+`<reporter>-<project>-<date>` convention — your project's
 file-naming convention is irrelevant to the skill; the basename
 just gets carried into the rollup comment verbatim.
 
 ```text
-import findings from /tmp/scan-michaelwinser-airflow-2026-04-28.md
+import findings from /tmp/scan-reporter-product-2026-04-28.md
 ```
 
 The skill parses six findings (severities: HIGH×2, MEDIUM×2,

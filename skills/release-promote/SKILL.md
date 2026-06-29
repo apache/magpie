@@ -1,5 +1,6 @@
 ---
 name: magpie-release-promote
+organization: ASF
 mode: Drafting
 description: |
   Emit the backend-shaped promotion command set for a release that has
@@ -28,8 +29,8 @@ license: Apache-2.0
      <version>                 → release version string (e.g. 2.11.0)
      <rcN>                     → release candidate number (e.g. rc1)
      <product-name>            → project display name (e.g. Apache Airflow)
-     <dist-dev-url>            → URL to the staged RC in dist/dev/<project>/<version>-rcN/
-     <dist-release-url>        → URL to the promoted target in dist/release/<project>/<version>/
+     <dist-dev-url>            → URL to the staged RC in dist/dev/<project>/<version>-rcN/ (release_dist_backend=svnpubsub)
+     <dist-release-url>        → URL to the promoted target in dist/release/<project>/<version>/ (release_dist_backend=svnpubsub)
      <result-vote-url>         → Archive URL of the [RESULT] [VOTE] thread
      Substitute these with concrete values from the adopting
      project's <project-config>/release-management-config.md before
@@ -44,7 +45,7 @@ that has passed its vote. It is Step 10 of the
 The skill **never runs the promotion command itself** and **never publishes
 the release**. This is
 [Boundary 2](../../docs/release-management/spec.md#boundary-2-agent-never-publishes-the-release):
-the `dist/release/` destination is on a hard skill-side denylist regardless
+the `dist/release/` (`release_dist_backend = svnpubsub`) destination is on a hard skill-side denylist regardless
 of what permissions the agent session has been granted. The Release Manager
 executes the emitted command set under their own ASF credentials as
 themselves.
@@ -76,9 +77,9 @@ command set (svn, gh, aws, or project template) is paste-ready for the RM.
 The skill never invokes it. This holds even when the agent session has svn,
 gh, or aws credentials available; the promotion is a human act.
 
-**Golden rule 2 — `dist/release/` is on a hard denylist.** The target URL
-(`dist/release/<project>/<version>/`) is identified by the `dist/release/`
-prefix and may never be written to by the agent. Removing this constraint
+**Golden rule 2 — `dist/release/` is on a hard denylist (for `release_dist_backend = svnpubsub`).** The target URL
+(`dist/release/<project>/<version>/`) is identified by the `dist/release/` prefix (`release_dist_backend = svnpubsub`)
+and may never be written to by the agent. Removing this constraint
 requires a skill PR, not a permission grant.
 
 **Golden rule 3 — `vote-passed` is a hard gate.** The skill refuses to emit
@@ -87,11 +88,11 @@ There is no override flag for this gate; the RM must rerun `release-vote-tally`
 or resolve the vote result manually on the planning issue.
 
 **Golden rule 4 — target-URL existence check is a hard blocker.** If the
-target URL (`dist/release/<project>/<version>/`) already contains content,
+target URL (`dist/release/<project>/<version>/` for `release_dist_backend = svnpubsub`) already contains content,
 the skill refuses and hands off to the RM with ASF Infra, rather than
 guessing whether to overwrite or skip.
 
-**Golden rule 5 — PMC membership gate.** The `dist/release/` tree is PMC-write-only
+**Golden rule 5 — PMC membership gate.** The `dist/release/` tree (for `release_dist_backend = svnpubsub`) is PMC-write-only
 by default per
 [release-policy.html](https://www.apache.org/legal/release-policy.html). If
 the RM is a committer but not on the PMC roster in
@@ -162,7 +163,7 @@ non-blocking.
 |---|---|
 | `<version>-rc<N>` (positional) | Version string and RC number of the release candidate to promote |
 | `--planning-issue <url>` | Explicit planning issue URL (auto-detected from `<upstream>` if omitted) |
-| `--result-vote-url <url>` | Archive URL of the `[RESULT] [VOTE]` thread (used in svn commit message; auto-read from planning issue if present) |
+| `--result-vote-url <url>` | Archive URL of the `[RESULT] [VOTE]` thread (used in `svn commit` message for `release_dist_backend = svnpubsub`; auto-read from planning issue if present) |
 | `--non-asf` | Signal that this is a non-ASF adopter; skips PMC membership check and ASF-specific policy notes |
 
 ---
@@ -177,7 +178,7 @@ non-blocking.
 3. **`release-management-config.md` readable.** The required keys
    (`release_dist_backend`, `release_dist_url_template`) are present.
 4. **Target URL not already populated.** For `svnpubsub` backend: attempt a
-   non-mutating directory listing of `dist/release/<project>/<version>/`;
+   non-mutating directory listing of `dist/release/<project>/<version>/` (for `release_dist_backend = svnpubsub`);
    if any content is found, surface a hard blocker. For other backends:
    check whether the release already exists (e.g. `gh release view <version>`
    for `github-releases`).
@@ -225,9 +226,9 @@ Read the following from the planning issue and
 | `rc` | trigger argument | `<rcN>` (e.g. `rc1`) |
 | `dist_backend` | `release-management-config.md` | `release_dist_backend` |
 | `dist_url_template` | `release-management-config.md` | `release_dist_url_template` |
-| `staging_url` | planning issue body | URL under `dist/dev/<project>/<version>-rcN/` (or backend-equivalent staging location) |
+| `staging_url` | planning issue body | URL under `dist/dev/<project>/<version>-rcN/` (for `release_dist_backend = svnpubsub`, or backend-equivalent staging location) |
 | `target_url` | constructed | render `dist_url_template` with `<bucket>=release` and `<version>=<version>` (strip the `-rcN` suffix) |
-| `result_vote_url` | planning issue body or `--result-vote-url` | Archive URL of the `[RESULT] [VOTE]` thread; used in the svn commit message |
+| `result_vote_url` | planning issue body or `--result-vote-url` | Archive URL of the `[RESULT] [VOTE]` thread; used in the `svn commit` message for `release_dist_backend = svnpubsub` |
 | `promote_command_template` | `release-management-config.md` | `release_publish_command_template` (required when `dist_backend = self-hosted`; ignored for the other backends, which have built-in recipes) |
 
 Surface the loaded metadata to the RM for a brief sanity check before
@@ -244,10 +245,10 @@ Emit a paste-ready command block shaped by `dist_backend`.
 If `rm_is_pmc = false` (from Step 0), replace the command set with:
 
 ```text
-HAND-OFF: The distribution tree at dist/release/ is PMC-write-only.
+HAND-OFF: The distribution tree at dist/release/ (release_dist_backend=svnpubsub) is PMC-write-only.
 <RM's GitHub handle or apache_id> does not appear on the PMC roster in
-<project-config>/pmc-roster.md. Ask a PMC member to run the svn mv
-below on your behalf, or request PMC access from VP of <project>.
+<project-config>/pmc-roster.md. Ask a PMC member to run the svn mv command below (release_dist_backend=svnpubsub)
+on your behalf, or request PMC access from VP of <project>.
 
 The command set a PMC member would run:
 
@@ -257,15 +258,15 @@ The command set a PMC member would run:
 Whether or not a hand-off is needed, the svn command block is:
 
 ```text
-# Step 1 of 2 — move RC to release
-svn mv \
-  https://dist.apache.org/repos/dist/dev/<project>/<version>-rc<N>/ \
-  https://dist.apache.org/repos/dist/release/<project>/<version>/ \
+# Step 1 of 2 — move RC to release (release_dist_backend=svnpubsub)
+svn mv \  # release_dist_backend=svnpubsub
+  https://dist.apache.org/repos/dist/dev/<project>/<version>-rc<N>/ \  # release_dist_backend=svnpubsub
+  https://dist.apache.org/repos/dist/release/<project>/<version>/ \  # release_dist_backend=svnpubsub
   --username <apache_id> \
   -m "Promoting Apache <product-name> <version> (from rc<N>). [RESULT]: <result_vote_url>"
 
-# Step 2 of 2 — verify the move landed
-svn list https://dist.apache.org/repos/dist/release/<project>/<version>/
+# Step 2 of 2 — verify the move landed (release_dist_backend=svnpubsub)
+svn list https://dist.apache.org/repos/dist/release/<project>/<version>/  # release_dist_backend=svnpubsub
 ```
 
 Followed by the mirror-propagation and announce timing note (see *Mirror
@@ -326,7 +327,7 @@ Mirror propagation (svnpubsub) / CDN cache (other backends):
   Earliest announce time: <promote_timestamp + 1h> UTC (once the promote commit is confirmed).
 ```
 
-For the `svnpubsub` backend, the promote commit happens when the RM runs `svn mv`.
+For the `svnpubsub` backend (`release_dist_backend = svnpubsub`), the promote commit happens when the RM runs `svn mv`.
 For other backends, the equivalent promotion event is the publish action.
 The `promote_timestamp` in this note is left as a placeholder (`YYYY-MM-DD HH:MM UTC`)
 for the RM to fill in once they know the actual commit time.
@@ -368,7 +369,7 @@ The AI-driven part ends with a hand-back artefact containing:
 - **Mirror and announce timing note** — always present (see *Mirror note* above).
 - **Next steps** — `release-announce-draft` to draft the `[ANNOUNCE]` email
   and site-bump PR after the `[ANNOUNCE]` timing gate passes; then
-  `release-archive-sweep` to move old RC artefacts out of `dist/dev/`;
+  `release-archive-sweep` to move old RC artefacts out of `dist/dev/` (for `release_dist_backend = svnpubsub`);
   then `release-audit-report`.
 
 ---
@@ -377,7 +378,7 @@ The AI-driven part ends with a hand-back artefact containing:
 
 - **Never run the promotion command.** The command set is paste-ready for
   the RM; the agent does not invoke it, regardless of available credentials.
-- **Never write to `dist/release/` directly.** This path prefix is on a
+- **Never write to `dist/release/` directly (for `release_dist_backend = svnpubsub`).** This path prefix is on a
   skill-side hard denylist independent of session permissions.
 - **Never proceed without `vote-passed` on the planning issue.** There is no
   override for this gate.
@@ -395,9 +396,9 @@ The AI-driven part ends with a hand-back artefact containing:
 | Symptom | Likely cause | Remediation |
 |---|---|---|
 | Pre-flight blocked — not vote-passed | Planning issue lacks `vote-passed` label | Rerun `release-vote-tally` or manually confirm the vote result on the planning issue |
-| Pre-flight blocked — target URL exists | Previous promote attempt may have partially landed | Inspect `dist/release/<project>/<version>/` manually; contact ASF Infra if the state is unclear |
+| Pre-flight blocked — target URL exists | Previous promote attempt may have partially landed | Inspect `dist/release/<project>/<version>/` (`release_dist_backend = svnpubsub`) manually; contact ASF Infra if the state is unclear |
 | Pre-flight blocked — config key missing | `release_dist_backend` or `release_dist_url_template` absent | Add the key to `<project-config>/release-management-config.md` |
-| Hand-off — non-PMC RM | RM not in `pmc-roster.md` | Ask a PMC member to run the svn mv; or update the roster if the RM is already a PMC member and the roster is stale |
+| Hand-off — non-PMC RM | RM not in `pmc-roster.md` | Ask a PMC member to run the `svn mv` (`release_dist_backend = svnpubsub`); or update the roster if the RM is already a PMC member and the roster is stale |
 | Self-hosted template missing | `dist_backend = self-hosted` but no `release_publish_command_template` | Add the template key to `release-management-config.md` |
 
 ---
@@ -422,6 +423,6 @@ The AI-driven part ends with a hand-back artefact containing:
 - `release-audit-report` (proposed) — downstream step; assembles the
   per-release audit record.
 - [ASF release policy](https://www.apache.org/legal/release-policy.html) —
-  `dist/release/` PMC-write-only rule; one-hour promote-to-announce wait.
+  `dist/release/` PMC-write-only rule (for `release_dist_backend = svnpubsub`); one-hour promote-to-announce wait.
 - [ASF release distribution](https://infra.apache.org/release-distribution.html) —
   mirror propagation timing (~24 h); archive move rules.

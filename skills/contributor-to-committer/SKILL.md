@@ -1,5 +1,6 @@
 ---
 name: magpie-contributor-to-committer
+organization: ASF
 mode: Mentoring
 description: |
   Read-only readiness tracker that maps a contributor's GitHub activity

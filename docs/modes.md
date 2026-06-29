@@ -56,11 +56,11 @@ Autonomous* (the renamed former *Auto-merge*).
 
 | Mode | Purpose | Status | Skill count |
 |---|---|---|---|
-| **Triage** | *(Agentic Triage)* Issues, security reports, PRs: spot, classify, route, surface duplicates. Every output is a suggestion the human signs off on. | stable (security) / experimental (pr-management, issue-management, contributor-nomination, repo-health, release-management) | 31 |
-| **Mentoring** | *(Agentic Mentoring)* Joins issue and PR threads in a teaching register: clarifying questions, pointers to project conventions, paired examples from prior PRs, hand-off to a human when scope exceeds the agent. Also authors net-new good first issues to lower onboarding latency. | experimental | 3 |
+| **Triage** | *(Agentic Triage)* Issues, security reports, PRs: spot, classify, route, surface duplicates. Every output is a suggestion the human signs off on. | stable (security) / experimental (pr-management, issue-management, contributor-nomination, repo-health, release-management) | 30 |
+| **Mentoring** | *(Agentic Mentoring)* Joins issue and PR threads in a teaching register: clarifying questions, pointers to project conventions, paired examples from prior PRs, hand-off to a human when scope exceeds the agent. Also authors net-new good first issues to lower onboarding latency. | experimental | 4 |
 | **Drafting** | *(Agentic Drafting)* Agent drafts a fix for a well-scoped problem and opens a PR; every PR is reviewed and merged by a human committer. | stable (security-only); experimental (issue-management, audit-findings, release-management family) | 9 |
 | **Pairing** | *(Agentic Pairing)* Developer-side dev-cycle skills with mentorship intrinsic — multi-agent review pipelines, self-review and pre-flight patterns, scoped fix drafting under the developer's driver's seat. | experimental | 2 |
-| **Agentic Autonomous** | Auto-merges objectively boring change classes only (lint, dependency bumps inside an allow-list, license-header insertion, formatting, broken-link repair). | off | 0 |
+| **Agentic Autonomous** | Auto-merge restricted to objectively boring change classes only (lint, dependency bumps inside an allow-list, license-header insertion, formatting, broken-link repair). | off | 0 |
 
 A few skills sit **outside** the mode taxonomy by design — see
 [Outside the modes](#outside-the-modes) below.
@@ -95,7 +95,6 @@ do not act without human review.
 | [`security-issue-import-via-forwarder`](../skills/security-issue-import-via-forwarder/SKILL.md) | Sub-skill of `security-issue-import` / `-invalidate` / `-sync` for the relay/forwarder case: reports relayed by an upstream broker (e.g. ASF security team) rather than arriving directly from the reporter. | experimental |
 | [`security-issue-import-from-scan`](../skills/security-issue-import-from-scan/SKILL.md) | Triage a security scanner's multi-finding output (via the `scan-format` adapter) into per-finding dispositions; opens tracker issues only after operator confirmation of the triage decisions. | experimental |
 | [`contributor-activity-sweep`](../skills/contributor-activity-sweep/SKILL.md) | Read-only GitHub activity card for a named contributor: PR authorship, code-review participation, issues, and comments over a configurable window. | experimental |
-| [`contributor-to-committer`](../skills/contributor-to-committer/SKILL.md) | Read-only readiness tracker mapping a contributor's GitHub activity against the adopter's PMC-declared committer/PMC thresholds; surfaces a traffic-light brief (Not yet / Approaching / Ready to nominate) plus the specific evidence gaps that remain. | experimental |
 | [`pr-management-quick-merge`](../skills/pr-management-quick-merge/SKILL.md) | Identify trivial, low-risk PRs in the `ready for maintainer review` queue that pass every quality gate and touch only supplementary areas (docs, changelog, translations, tests); surfaces candidates with diff summaries and the exact merge command. | experimental |
 | [`ci-runner-audit`](../skills/ci-runner-audit/SKILL.md) | Read-only audit of GitHub Actions workflow runner compatibility across one repo, an explicit set, one Apache project's repos, or the full Apache GitHub org. | experimental |
 | [`dependency-audit`](../skills/dependency-audit/SKILL.md) | Read-only dependency vulnerability audit: detects the project's dependency manager(s), runs the appropriate audit tool, surfaces patchable findings grouped by severity, and proposes upgrades for maintainer review. | experimental |
@@ -127,7 +126,7 @@ Three notes on the boundaries:
 
 ## Mentoring
 
-**Status: experimental. 3 skills shipped.**
+**Status: experimental. 4 skills shipped.**
 
 [`MISSION.md` § Agentic Mentoring](../MISSION.md#technical-scope) names this
 the highest-value project-side mode and the one off-the-shelf agent
@@ -140,6 +139,7 @@ choices were reviewable independently from the runtime behaviour.
 | [`pr-management-mentor`](../skills/pr-management-mentor/SKILL.md) | Draft a teaching-register comment on a single GitHub issue or PR thread; waits for maintainer confirmation before posting. | experimental |
 | [`good-first-issue-author`](../skills/good-first-issue-author/SKILL.md) | Draft one net-new good first issue from a supplied gap or small task (suitability gate + readiness checklist); waits for maintainer confirmation before filing. | experimental |
 | [`mentoring-welcome`](../skills/mentoring-welcome/SKILL.md) | Draft a first-contact orientation comment for a first-time contributor on a newly opened issue or PR; detects first-time authorship via `author_association`, drafts a welcome with contributing-guide link and expected next steps; waits for maintainer confirmation before posting. | experimental |
+| [`contributor-to-committer`](../skills/contributor-to-committer/SKILL.md) | Read-only readiness tracker mapping a contributor's GitHub activity against the adopter's PMC-declared committer/PMC thresholds; surfaces a traffic-light brief (Not yet / Approaching / Ready to nominate) plus the specific evidence gaps that remain. | experimental |
 
 | Doc | Purpose |
 |---|---|

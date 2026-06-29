@@ -1,5 +1,6 @@
 ---
 name: magpie-release-vote-draft
+organization: ASF
 mode: Drafting
 description: |
   Draft the `[VOTE]` email body and planning-issue comment for an
@@ -201,7 +202,7 @@ Read the following from the planning issue body and
 | `product_name` | `release-management-config.md` | derived from `project_dist_name` (capitalised project display name) |
 | `version` | trigger argument | `<version>` |
 | `rc_number` | trigger argument | `<rcN>` |
-| `staging_url` | planning issue body | URL under `dist/dev/<project>/<version>-<rcN>/` |
+| `staging_url` | planning issue body | URL under `dist/dev/<project>/<version>-<rcN>/` (for `release_dist_backend = svnpubsub`) |
 | `tag_url` | planning issue body | URL to the RC git tag |
 | `keys_url` | `release-management-config.md` | `keys_file_url` |
 | `changelog_url` | planning issue body | URL to changelog |

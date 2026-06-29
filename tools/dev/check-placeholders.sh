@@ -67,6 +67,7 @@ ALLOWLIST_PATHS=(
   "docs/security/new-members-onboarding.md"
   "pyproject.toml"
   "projects/_template/"
+  "organizations/"
   "tools/dev/check-placeholders.sh"
   ".github/"
   ".asf.yaml"

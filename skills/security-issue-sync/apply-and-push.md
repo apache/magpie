@@ -38,7 +38,7 @@ before moving on to the next item. Use:
   members. Replace each bare name with the corresponding
   ``@``-handle (or `"<Full Name> (@handle)"` when readability
   warrants keeping the plain name too) so GitHub actually notifies
-  the person. See the "Mentioning Airflow maintainers and
+  the person. See the "Mentioning maintainers and
   security-team members" section of
   [`AGENTS.md`](../../AGENTS.md). Concrete grep-list to check
   against: `Jarek Potiuk`, `Jens Scheffler`, `Vincent BECK`,
@@ -207,7 +207,7 @@ before moving on to the next item. Use:
 - **Advisory short-summary extraction:** when the *Advisory
   archived on `<users-list>`* combined apply fires (Step 2b row),
   fetch the archived advisory email body from the
-  `lists.apache.org` archive and extract the public-facing short
+  `<mail-archive-url>` archive and extract the public-facing short
   summary into the *Short public summary for publish* body field
   **before** the Step 5 JSON regen.
 
@@ -342,7 +342,7 @@ it out explicitly in the Step 6 recap:
   field is still `_No response_`. Running the generator in that state
   would embed a block with an `UNKNOWN` CVE marker, which is not useful.
   Remind the user to allocate a CVE via
-  <https://cveprocess.apache.org/allocatecve> and mention that the next
+  `<cve-tool-url>` and mention that the next
   sync run will embed the JSON automatically once a CVE is set.
 - **The tracking issue was closed as `invalid` /
   `duplicate`** and there is nothing to attach.
@@ -418,7 +418,7 @@ name into the body field for permanence.
 The sync skill deliberately does **not** try to guess `--version-start`.
 If the *Affected versions* body field has a `>= X, < Y` shape, the script
 picks `X` automatically. If it has a bare `< Y` shape (the typical
-Airflow case), the script's default `"0"` is used, and the reviewer can
+case), the script's default `"0"` is used, and the reviewer can
 tighten it later with a manual `--version-start 3.0.0` invocation that
 patches the same embedded attachment block.
 
@@ -500,7 +500,7 @@ The remaining transitions stay separate:
 - `publish-ready` → `public` is **sync-driven** via the
   adapter's `publish(cve_id)` method (see Step 4 below), fired
   when the advisory archive URL has been captured on
-  `lists.apache.org/list.html?<users-list>` — the CNA-feed
+  `<mail-archive-url>/list.html?<users-list>` — the CNA-feed
   dispatch trigger has a real-world signal (the archived
   advisory) so sync drives it.
 
@@ -583,9 +583,8 @@ Step 6 below describes how to verify the state advance landed
      in the rollup, body, or linked PR text. Without that
      evidence the gate refuses the push and surfaces the
      widened-range proposal (`version: "0"` lower bound)
-     described in the matching Step 1d row. Per ASF Security
-     policy (Arnout Engelen's 2026-05-29 review on
-     CVE-2026-33264), the default is all-versions-affected
+     described in the matching Step 1d row. Per conservative
+     security-advisory practice, the default is all-versions-affected
      unless we have positive evidence to the contrary.
 
    When any gate fails the JSON the regen just produced, the

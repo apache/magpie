@@ -16,7 +16,7 @@ This subdoc carries the signal-to-action lookup table — every row a Step 1d si
 Each proposed change is a **numbered item** and must be explicit about *what*
 will change and *why*. Group them by category:
 
-- **Labels to add / remove** — e.g. *"remove `needs triage`; add `airflow`"*. Reason: one scope label is required by the process once triage is complete.
+- **Labels to add / remove** — e.g. *"remove `needs triage`; add `<scope-a>`"*. Reason: one scope label is required by the process once triage is complete.
 
   **Release-vote label (opt-in, ASF projects only).** When release-
   vote gating is enabled (`[workflow].release_vote_gating = true` in
@@ -25,7 +25,7 @@ will change and *why*. Group them by category:
 
   - *Add* the configured `rc voting` label (default `"rc voting"`)
     when a matching open `[VOTE]` thread was detected on
-    `dev@<project>.apache.org` and the tracker is in the
+    `<dev-list>` and the tracker is in the
     `pr merged` window. The proposal must quote the PonyMail
     thread URL as the rationale so the security team can spot-
     check the match before confirming — *"detected active vote
@@ -190,8 +190,8 @@ will change and *why*. Group them by category:
   actually on the hook next. Look up the release manager using the
   three-source cascade from Step 2c (the "Known release managers"
   subsection of [`AGENTS.md`](../../AGENTS.md), then the
-  [Release Plan wiki](https://cwiki.apache.org/confluence/display/AIRFLOW/Release+Plan),
-  then the `[RESULT][VOTE] Release Airflow <version>` thread on
+  project's Release Plan wiki (`<project-wiki>`),
+  then the `[RESULT][VOTE] Release <product> <version>` thread on
   `<dev-list>`), and propose the swap as a concrete
   numbered item in Step 2b. If the release manager is not a
   collaborator on `<tracker>` yet, surface that as a
@@ -292,7 +292,7 @@ will change and *why*. Group them by category:
   **Validate this on every sync pass that proposes a body-field update
   or a JSON regen**, not only at the `pr merged → fix released`
   boundary. A summary that names the vulnerability accurately but
-  lacks the upgrade-target version (e.g. *"upgrade to the Airflow
+  lacks the upgrade-target version (e.g. *"upgrade to the
   version that contains the fix"* without naming `3.3.0`) is a
   defect; propose tightening it before regen lands in the embedded
   JSON + the next push to the CVE record.
@@ -312,7 +312,7 @@ will change and *why*. Group them by category:
      feature that has to be active for the issue to apply (e.g.
      *"when `[opensearch] host` embeds credentials"*, *"when the
      Kubernetes executor is configured"*, *"when the
-     `apache-airflow-providers-keycloak` auth manager is enabled"*,
+     `<product>-<component>` auth manager is enabled"*,
      *"when DAGs with assets are configured to materialise via the
      REST API"*).
   3. **Action / surface** — the step the attacker takes against
@@ -330,23 +330,23 @@ will change and *why*. Group them by category:
   missing one of (who / when / action), propose adding it on the
   same sync pass as the upgrade-target tightening.
 
-  Worked example shape (a single ASF Airflow CVE):
+  Worked example shape (a single CVE):
 
   > *"An authenticated UI user with permission to read DAGs could
   > craft a `next=` parameter on the login route that bypassed
   > `is_safe_url`, redirecting other users to an attacker-controlled
   > origin after authentication. Affects deployments where the
   > webserver is reachable by untrusted users. Users are advised to
-  > upgrade to `apache-airflow` 3.2.2 or later."*
+  > upgrade to `<product>` 3.2.2 or later."*
 
   The first sentence names the attacker (*authenticated UI user*),
   the action (*crafts `next=`*), and the surface (*login route*); the
   second sentence names the configuration (*webserver reachable by
   untrusted users*); the third is the upgrade ask. When the carrier release
   is known (the fix PR's milestone is set), name it verbatim —
-  ``apache-airflow 3.3.0 or later``,
-  ``apache-airflow-providers-google 11.2.0 or later``,
-  ``apache-airflow-helm-chart 1.18.0 or later``, etc. When the
+  ``<product> 3.3.0 or later``,
+  ``<product>-<component> 11.2.0 or later``,
+  ``<product> 1.18.0 or later``, etc. When the
   carrier release is not yet known (early `pr created` state where
   the PR has no milestone), keep the placeholder but flag the gap
   in Step 2c so the next sync after milestone-set catches it. The
@@ -421,8 +421,8 @@ will change and *why*. Group them by category:
 
   **The "Public advisory URL" body field** is a separate body field
   that carries the archived public advisory URL on
-  `lists.apache.org/list.html?<users-list>` (or
-  `announce@apache.org`). Empty until Step 13 — the release manager
+  `<mail-archive-url>/list.html?<users-list>` (or
+  `<announce-list>`). Empty until Step 13 — the release manager
   fills it in **after** the advisory email has been sent and archived.
   Every sync run must:
 
@@ -476,7 +476,7 @@ will change and *why*. Group them by category:
      CVE JSON into Vulnogram and closing the issue (no label
      changes).
   4. On subsequent sync runs, check whether the CVE record on
-     `cveprocess.apache.org/cve5/<CVE-ID>` has moved to PUBLISHED.
+     `<cve-tool-url>/cve5/<CVE-ID>` has moved to PUBLISHED.
      When it has, propose closing the issue (do not update labels).
      This is the only place sync proposes closing an advisory-flow
      issue; all earlier closes are only for closing dispositions
@@ -492,7 +492,7 @@ will change and *why*. Group them by category:
   (*"Low"*, *"High"*, *"Critical"*) to the mail thread, a GHSA draft, or the
   issue body, surface it in the *observed state* dump as informational context
   (e.g. *"reporter estimated CVSS 4.0 = 7.2 per the GHSA"*) but **do not** use
-  it as the proposed value for the `Severity` field. The Airflow security team
+  it as the proposed value for the `Severity` field. The security team
   scores every accepted vulnerability independently during the CVE-allocation
   step; the independent score is the one that ends up in the CVE record and
   the public advisory. The `Severity` field on the tracking issue must either
@@ -580,9 +580,9 @@ will change and *why*. Group them by category:
     in plain-text email — use the bare URL.
   - CVE IDs appear as **plain ``CVE-YYYY-NNNN`` inline text only**
     — email clients typically do not autolink them, which is the
-    intended behaviour. **Never** include the ASF CVE-tool URL
-    (``https://cveprocess.apache.org/cve5/CVE-YYYY-NNNN``) in a
-    reporter email: the tool is ASF-OAuth-gated, the reporter
+    intended behaviour. **Never** include the CVE-tool URL
+    (``<cve-tool-url>/cve5/CVE-YYYY-NNNN``) in a
+    reporter email: the tool is access-gated, the reporter
     cannot authenticate, and the URL exposes internal tooling to
     an external party. Once the CVE is **published** on
     ``cve.org`` (advisory sent, ``announced`` label set on the
@@ -590,10 +590,10 @@ will change and *why*. Group them by category:
     (``https://www.cve.org/CVERecord?id=CVE-YYYY-NNNN``) is an
     acceptable clickable alternative, but plain CVE-ID text is
     still the default. See the "Reporter emails: CVE ID only,
-    never the ASF CVE-tool URL" subsection of
+    never the CVE-tool URL" subsection of
     [`AGENTS.md`](../../AGENTS.md) for the full rule +
     rationale + the pre-draft self-check.
-  - Advisory archive URLs (``lists.apache.org/thread/...``) are
+  - Advisory archive URLs (``<mail-archive-url>/thread/...``) are
     already full URLs; just paste them as-is.
 
   This is specific to the **email** path. Comments on the
@@ -1064,6 +1064,54 @@ will change and *why*. Group them by category:
 
   **Apply mechanic** — same as the hand-off comment: a fresh
   `gh issue comment`, surfaced in the recap.
+
+- **Overdue-for-disclosure escalation** — when `overdue_for_disclosure: true`
+  (Step 1a) the tracker has passed its CVD window without the advisory being
+  sent.  Propose appending a rollup entry that:
+
+  1. Notes the elapsed time and the configured `window_days` ceiling (e.g.
+     *"Tracker is {issue_age_days} days old; the project's CVD window is
+     {window_days} days — disclosure is overdue."*).
+  2. Recommends one of:
+     - Notifying the reporter of an extended timeline on the mail thread
+       (propose a Gmail draft if the acknowledgement model is `manual`); or
+     - Proceeding to disclosure with a partial or advisory-only fix if a
+       coordinated full fix cannot ship in the near term.
+  3. Does **not** override or silence any other proposal — the overdue flag
+     is additive context, not a shortcut past the normal lifecycle steps.
+
+  When `grace_period_expired: true` (fix shipped but grace period has also
+  lapsed), promote the rollup entry to a **separate first-class comment** (not
+  a `<details>` entry) so it is immediately visible to the release manager and
+  the security team without expanding the rollup.  Use the same idempotency
+  check as the RM hand-off comment — scan for the marker
+  ```html
+  <!-- apache-magpie: disclosure-overdue v1 -->
+  ```
+  before proposing; if it already exists, update it in-place via PATCH rather
+  than posting a duplicate.
+
+- **Distributor pre-announcement draft** — when `distributor_notify_pending: true`
+  (Step 1a) the project maintains an embargo distributor list and the fix is
+  about to ship.  Propose a Gmail draft pre-announcement to the distributor
+  list declared in `<project-config>/distributor-list.md` (if that file exists;
+  if absent, surface a one-line note that the adopter should create it and
+  document the list URL there before this proposal can be executed).  The draft:
+
+  - Names the CVE ID and the affected product/versions from the tracker body.
+  - States the expected public disclosure date as
+    `createdAt + window_days + grace_period_days` (or earlier if the team
+    decides to disclose sooner) — do not commit to a specific calendar date
+    unless the advisory send date has already been confirmed by the team.
+  - Omits any detail beyond what is in the advisory's *Short public summary
+    for publish* body field — the pre-announcement is not the advisory itself.
+  - Is marked **DRAFT, NEVER SEND** until the team confirms the wording, the
+    recipient list, and the timing.
+
+  Trigger condition: `distributor_notify_pending: true` AND the `announced`
+  label is absent AND no pre-announcement draft already exists in Gmail for
+  this tracker's thread (check via the existing Gmail draft-scan the skill
+  performs in Step 1e before proposing a new draft).
 
 - **Draft email to reporter (other reasons)** — whenever the ball is in our
   court on the email thread for any other reason (a question from the

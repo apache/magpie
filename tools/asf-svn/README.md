@@ -12,7 +12,9 @@
 
 # `tools/asf-svn/`
 
-**Capability:** capability:setup + capability:resolve
+**Capability:** contract:source-control
+
+**Organization:** ASF
 
 ASF SVN tool adapter — the Subversion counterpart to
 [`tools/github/`](../github/). Where the GitHub tool covers forge

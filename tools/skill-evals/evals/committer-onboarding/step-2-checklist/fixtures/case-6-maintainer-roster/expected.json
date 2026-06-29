@@ -1,0 +1,10 @@
+{
+  "governance_model": "maintainer-roster",
+  "has_roster_file_update_step": true,
+  "roster_pr_step_present": true,
+  "has_whimsy_step": false,
+  "has_github_team_invite_step": false,
+  "secretary_request_present": false,
+  "welcome_draft_present": true,
+  "welcome_no_unresolved_placeholders": true
+}

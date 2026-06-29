@@ -148,7 +148,7 @@ defect reads like a plausible fix.
 ## Pattern 6 — Privacy-LLM gate-check boilerplate
 
 Skills that read **private** content (Gmail private mails,
-PMC-private trackers, embargoed CVE detail) must run the
+<governance-body>-private trackers, embargoed CVE detail) must run the
 Privacy-LLM gate-check before invoking any non-approved LLM:
 
 ```bash

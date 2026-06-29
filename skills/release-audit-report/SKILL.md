@@ -1,17 +1,18 @@
 ---
 name: magpie-release-audit-report
+organization: ASF
 mode: Triage
 description: |
-  Assemble a per-release audit record from the planning issue, vote thread,
-  RC artefact list, promote revision, and announcement archive URL, then
-  propose a PR that appends the record to the project's audit log.
+  Assemble a per-release audit record from lifecycle artefacts (planning
+  issue, vote thread, artefact list, promote revision, and announcement
+  URL) and propose a PR appending it to the project's audit log.
   Read-only on every release surface; the only write is a PR the RM
   reviews and a committer merges.
 when_to_use: |
   Invoke when a Release Manager says "generate the audit report for
   <version>", "write the release audit log entry for <version>", "record
-  the lifecycle for <version>", or similar. Appropriate after Step 12
-  (`release-archive-sweep`) completes. Standalone: can also be run
+  the lifecycle for <version>", or similar. Appropriate after the archive
+  sweep (`release-archive-sweep`) completes. Standalone: can also be run
   periodically to refresh existing audit entries from updated source data.
 argument-hint: "<version> [--planning-issue <url>]"
 capability: capability:stats

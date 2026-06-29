@@ -23,9 +23,7 @@ license: Apache-2.0
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
      <project-config> → adopting project's `.apache-magpie/` directory
      <tracker>        → value of `tracker_repo:` in <project-config>/project.md
-                       (example: airflow-s/airflow-s for the Apache Airflow security team)
      <upstream>       → value of `upstream_repo:` in <project-config>/project.md
-                       (example: apache/airflow)
      <cve-tool>       → adapter directory under `tools/` named by
                        `cve_authority.tool:` in <project-config>/project.md
                        (example: cve-tool-vulnogram when `tool: vulnogram`,
@@ -232,7 +230,7 @@ The skill needs:
   `<tracker>` (read + issue-write) and `<upstream>`
   (read is enough — the sync only reads PR state on that repo).
 - Outbound HTTPS to `pypi.org`, `artifacthub.io`, and
-  `lists.apache.org` — the sync curls these to detect released
+  `<mail-archive-url>` — the sync curls these to detect released
   versions and to find advisory archive URLs.
 
 See
@@ -254,9 +252,7 @@ Before reading any tracker state, verify:
    to figure out which backend serves which op for this run. A
    `mandatory: yes` backend that is unavailable is a **hard stop**;
    `mandatory: no` backends degrade quietly and the affected ops
-   are skipped per the contract. The reference adopter
-   (`airflow-s`) has Gmail as `mandatory: yes` primary, so for the
-   reference flow a Gmail-MCP failure is always a stop.
+   are skipped per the contract.
 2. **`gh` is authenticated** with access to `<tracker>` —
    `gh api repos/<tracker> --jq .name` must return
    `<tracker>`. A 401/403/404 means the user needs
@@ -272,14 +268,14 @@ Before reading any tracker state, verify:
      skill's observed-state bag. **Downstream steps use PonyMail
      MCP as the primary read path** for the mailing-list queries
      documented in 1c / 1d / 1e / 2b / 2c; Gmail becomes the
-     fallback. This is the normal configuration for PMC-authenticated
+     fallback. This is the normal configuration for <governance-body>-authenticated
      triagers.
    - **No session / expired session** —
      - *`mandatory: yes` (ASF default):* **stop**. Surface
        *"mandatory mail-source backend `ponymail` is registered but
        not authenticated — run `mcp__ponymail__login()` and
        re-invoke"*. Private-list reads need the LDAP session, and
-       ASF triagers are PMC-authenticated, so an unauthenticated
+       ASF triagers are <governance-body>-authenticated, so an unauthenticated
        session is a hard stop, not a Gmail-only fallback.
      - *`mandatory: no`:* record
        `ponymail_enabled: true, ponymail_authenticated: false`,
@@ -310,7 +306,7 @@ Before reading any tracker state, verify:
    bodies (and may read `<private-list>` content when escalating)
    that may contain third-party PII. Run the gate-check first —
    non-zero exit is a hard stop, and pass `--reads-private-list`
-   because escalation paths in this skill may read PMC-private
+   because escalation paths in this skill may read <governance-body>-private
    foundation lists:
 
    ```bash
@@ -329,6 +325,26 @@ Before reading any tracker state, verify:
    [reveal-before-send protocol](../../tools/privacy-llm/wiring.md#reveal-before-send-protocol)
    when (and only when) the rendered draft references a
    third-party identifier.
+
+6. **Disclosure governance flags from `<project-config>/security-intake-config.md`.**
+   If the file exists, read the `disclosure_governance` block and load these
+   three keys into the observed-state bag for use in Steps 1 and 2b:
+
+   - `window_days` — integer; the CVD window in calendar days from first
+     receipt to public disclosure.  Used in Step 1a to flag trackers past
+     their disclosure deadline.
+   - `grace_period_days` — integer; the additional days granted after a fix
+     ships before the team is expected to publish the advisory.  Used in
+     Step 1a to determine whether the grace period has also lapsed.
+   - `pre_announce_distributors` — boolean; when `true` the team maintains
+     a distributor embargo list and the skill proposes a pre-announcement
+     draft once the fix is in a pending release.  Used in Step 2b.
+
+   If the file does not exist or the `disclosure_governance` block is absent,
+   silently default to `window_days: 90`, `grace_period_days: 14`, and
+   `pre_announce_distributors: false`.  A missing file is **not** a stop
+   condition — adopters who have not yet created this config receive the same
+   ASF defaults the skill has always applied.
 
 If any check fails (other than PonyMail, which degrades quietly),
 stop and surface what is missing. Do **not** proceed to Step 1 on a
@@ -376,11 +392,11 @@ updates land, based on the process step. Examples:
 
 - *"Step 3: start the CVE-worthiness discussion in a comment on the issue, tagging at least one other security team member."*
 - *"Step 4: escalate to a wider audience — the discussion has been stalled for 34 days. Run the two-phase escalation per [`docs/security/process.md` — Step 4](../../docs/security/process.md#step-4--escalate-stalled-discussions): phase 1 is a short call for ideas to `<private-list>` (no AI analysis), phase 2 — only if phase 1 stays silent for ~7 more days — is an AI-generated design-space analysis that the triager reviews before posting. The agent drafts both phases as proposals; the triager confirms the exact wording + the list of people to `@`-mention before anything is sent."*
-- *"Step 6: allocate a CVE. Run the [`security-cve-allocate`](../security-cve-allocate/SKILL.md) skill (it prints the ASF Vulnogram form URL plus a CVE-ready title and wires the allocated ID back into the tracker)."*
+- *"Step 6: allocate a CVE. Run the [`security-cve-allocate`](../security-cve-allocate/SKILL.md) skill (it prints the `<cve-tool>` form URL plus a CVE-ready title and wires the allocated ID back into the tracker)."*
 - *"Step 10: close the private PR at <tracker>#NNN now that <upstream>#NNNN has merged."*
 - *"Step 11: `pr merged` — tracker parked until the release train ships. No action needed from the security team; the next sync run will detect the PyPI / Helm release and propose the `fix released` swap (Step 12)."*
 - *"Step 12: `fix released` — the release carrying the fix is now on PyPI / the Helm registry. Ownership of the issue has transferred to the release manager; the label swap was the hand-off."*
-- *"Step 13: the release manager should now fill in the CVE tool fields taken from the issue — CWE, product, versions, severity, patch link, credits — move the CVE to REVIEW → READY, and send the advisory to `announce@apache.org` / `<users-list>`."*
+- *"Step 13: the release manager should now fill in the CVE tool fields taken from the issue — CWE, product, versions, severity, patch link, credits — move the CVE to REVIEW → READY, and send the advisory to `<announce-list>` / `<users-list>`."*
 - *"Step 14: scan the users@ archive for the CVE ID, populate the *Public advisory URL* body field, regenerate the CVE JSON attachment, and move the issue to `announced`. Sync does all of this automatically on the next run once the advisory is archived."*
 - *"Step 15: release manager — copy the regenerated CVE JSON into Vulnogram, close the issue."*
 
@@ -393,15 +409,14 @@ the actual person, in this order:
    listed there, use that name. This is the cache; the next two sources
    are how the cache was populated and how you refresh it.
 2. **Check the project's release plan** at
-   <https://cwiki.apache.org/confluence/display/AIRFLOW/Release+Plan>.
+   `<project-wiki>`.
    This is the canonical forward-looking schedule for every release
-   train (core Airflow, Providers, Airflow Ctl, Helm Chart, Airflow 2)
-   and lists the release manager for each *upcoming* cut. Use this when
+   train and lists the release manager for each *upcoming* cut. Use this when
    the relevant release hasn't been cut yet, or when you need the
    rotation roster.
 3. **Check the `[RESULT][VOTE]` thread on `<dev-list>`** —
-   the sender of the `[RESULT][VOTE] Release Airflow <version>` (or
-   `[RESULT][VOTE] Airflow Providers - release preparation date
+   the sender of the `[RESULT][VOTE] Release <product> <version>` (or
+   `[RESULT][VOTE] <product> <scope-b> - release preparation date
    <YYYY-MM-DD>`) message **is** the release manager for that specific
    cut. Use this when the release has already shipped (the wiki only
    tracks upcoming schedule, not past releases). Two query paths:
@@ -425,7 +440,7 @@ the actual person, in this order:
 
    - **Gmail (fallback).** When PonyMail MCP is disabled or
      unauthenticated, search Gmail:
-     `"[RESULT][VOTE]" "Airflow Providers" from:<dev-list>`.
+     `"[RESULT][VOTE]" "<product> <scope-b>" from:<dev-list>`.
      Narrow with a date range if needed. Gmail requires the user
      to be subscribed to `dev@` from the account they are running
      from — PonyMail MCP is the more reliable path for triagers
@@ -447,9 +462,9 @@ desk.
 line so the handoff is unambiguous:
 
 > Allocate a CVE via the [`security-cve-allocate`](../security-cve-allocate/SKILL.md)
-> skill. It opens the ASF Vulnogram form at
-> <https://cveprocess.apache.org/allocatecve>, pre-computes a CVE-ready
-> title (stripped of `<vendor>: <product>:` (e.g. `Apache Airflow:`) / `[ Security Report ]` / version
+> skill. It opens the `<cve-tool>` form at
+> `<cve-tool-url>`, pre-computes a CVE-ready
+> title (stripped of `<vendor>: <product>:` / `[ Security Report ]` / version
 > noise), and — once you paste back the allocated `CVE-YYYY-NNNNN` ID —
 > wires it into the tracker (body field, label, status comment, CVE
 > JSON embed).
@@ -459,11 +474,11 @@ comment on the `<tracker>` issue, in the draft email to the reporter, or in
 the recap — render it as a clickable link per the "Linking CVEs" section of
 [`AGENTS.md`](../../AGENTS.md). Concretely:
 
-- Before publication: link to the ASF CVE tool record, e.g.
-  `[CVE-2026-40690](https://cveprocess.apache.org/cve5/CVE-2026-40690)`.
+- Before publication: link to the `<cve-tool>` record, e.g.
+  `[CVE-2026-40690](<cve-tool-url>/cve5/CVE-2026-40690)`.
 - After publication (issue has `vendor-advisory`, advisory has been sent to
   `<users-list>`): additionally link to the public `cve.org`
-  record, e.g. `CVE-2025-50213 ([ASF](https://cveprocess.apache.org/cve5/CVE-2025-50213),
+  record, e.g. `CVE-2025-50213 ([CVE tool](<cve-tool-url>/cve5/CVE-2025-50213),
   [cve.org](https://www.cve.org/CVERecord?id=CVE-2025-50213))`.
 
 Do not emit bare `CVE-YYYY-NNNNN` text — always link.
@@ -548,7 +563,7 @@ finalising the recap.
   label** into the `Severity` field, the proposed body patch, the CVE JSON,
   the status-change comment, the draft email reply, or any other
   user-visible surface. Surface it in the *observed state* only, tagged as
-  informational. The Airflow security team scores every accepted
+  informational. The security team scores every accepted
   vulnerability independently during the CVE-allocation step. See the
   "Reporter-supplied CVSS scores are informational only" section of
   [`AGENTS.md`](../../AGENTS.md) for the full rationale.
@@ -560,7 +575,7 @@ finalising the recap.
   tracker-destined surface — rollup entry bodies, status comments, issue
   bodies, CVE JSON fields, draft emails, anything the sync pass writes.
   Step 1d frequently surfaces cross-project signals via the reporter's
-  mail thread or `security@apache.org` digests; they are useful context
+  mail thread or `<security-list>` digests; they are useful context
   for *your* triage but **must not** land in the tracker, even when the
   reporter brought up the other project openly, even when the other
   project's CVE is already public. Summarise load-bearing cross-project
@@ -576,7 +591,7 @@ finalising the recap.
   [`AGENTS.md`](../../AGENTS.md): one sentence on what changed, one on
   what comes next, artifact URLs on their own line(s). No recap of earlier
   messages on the same thread, no re-introduction of the vulnerability, no
-  process explanation. Messages to the ASF security team or to PMC members
+  process explanation. Messages to the ASF security team or to <governance-body> members
   are even terser — they already know the process.
 - **Milestone naming** must follow the project's convention. For the
   adopting project the formats (and the create-missing-milestone recipe)
@@ -587,23 +602,22 @@ finalising the recap.
 - **Scope label is mandatory once triage is complete** — exactly one
   of the scope labels defined in
   [`<project-config>/scope-labels.md`](../../<project-config>/scope-labels.md).
-  The `task-sdk` note (through Airflow 3.2.x the Task SDK ships bundled
-  into `apache-airflow` and Task-SDK-only reports are classified under
-  `airflow`; from 3.3+ a new `task-sdk` label is needed) lives with the
+  Project-specific scope nuances (such as how a bundled sub-component
+  maps to an existing scope label until it gets its own) live with the
   release-train state in
   [`<project-config>/release-trains.md`](../../<project-config>/release-trains.md).
 - **Multi-scope reports must be split into one tracking issue per
   scope.** When an incoming report turns out to affect more than one
-  scope (for example a bug whose root cause lives in
-  `airflow.utils.*` but the same vector also exists in a provider's
-  hook), the sync skill must **not** apply two scope labels to one
+  scope (for example a bug whose root cause lives in a shared core
+  module but the same vector also exists in a plugin/extension
+  component), the sync skill must **not** apply two scope labels to one
   issue. Instead, propose splitting the report so each scope has its
   own tracker. Concretely:
 
   1. Keep the original issue on the scope whose milestone family will
-     ship *first* (usually core Airflow vs. a providers wave — core
-     patch releases cut on a faster cadence, so core is typically the
-     anchor). Drop the extra scope label from that issue.
+     ship *first* (usually the core scope vs. a secondary-component
+     wave — core patch releases cut on a faster cadence, so core is
+     typically the anchor). Drop the extra scope label from that issue.
   2. Create one new issue per remaining scope via `gh issue create
      --repo <tracker>`, copying the report body
      verbatim but with a one-line preamble that says *"Split from

@@ -30,6 +30,12 @@ configuration flag or placeholder declared below.
 
 ## What differs from an ASF profile
 
+This fixture sets `organization: independent` and inherits the
+[`organizations/independent/`](../../organizations/independent/) baseline,
+where an ASF project sets `organization: ASF` and inherits
+[`organizations/ASF/`](../../organizations/ASF/). The two organizations
+carry the differences below — the *skills* are identical:
+
 | Dimension | ASF default | This fixture (non-ASF) |
 |---|---|---|
 | Governance | PMC membership, ICLA | DCO sign-off, no formal governance body |

@@ -1,5 +1,6 @@
 ---
 name: magpie-release-vote-tally
+organization: ASF
 mode: Triage
 description: |
   After the approval window closes, fetch the approval signal for an RC
@@ -62,7 +63,7 @@ This skill composes with:
 - `release-vote-draft` (proposed) — upstream step; the `[VOTE]` thread
   this skill tallies was opened by `release-vote-draft`.
 - `release-promote` (proposed) — downstream step; runs after a
-  `vote-passed` result to move artefacts to `dist/release/`.
+  `vote-passed` result to move artefacts to the release distribution (`release_dist_backend`).
 - `release-announce-draft` (proposed) — downstream step; runs after
   promotion to draft the `[ANNOUNCE]` email.
 

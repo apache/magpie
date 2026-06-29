@@ -28,7 +28,7 @@
 
 # tools/forwarder-relay/ — adapter contract
 
-**Capability:** capability:setup
+**Capability:** contract:report-relay
 
 A forwarder-relay adapter is a pluggable seam that teaches the
 security skills how to recognise an inbound report that arrived

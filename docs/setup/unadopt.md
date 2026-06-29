@@ -149,7 +149,7 @@ Your hand-written customisations: any per-skill overrides
 you filled in (e.g. `pr-management-triage.md`) and, if you
 used the fallback location instead of the recommended
 per-user one, a project-local `user.md` carrying identity
-and tool-picks (PMC status, local clone paths, etc.).
+and tool-picks (governance membership, local clone paths, etc.).
 Preserved because the content is yours, not the
 framework's. Remove with:
 

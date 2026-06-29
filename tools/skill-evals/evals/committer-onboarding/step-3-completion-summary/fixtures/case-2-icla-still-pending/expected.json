@@ -9,7 +9,7 @@
   "pending_items": [
     {
       "item": "icla_confirmation",
-      "action": "Wait for secretary to confirm ICLA receipt and processing; then send the held secretary account-creation request to root@apache.org"
+      "action": "Wait for the secretary to confirm ICLA receipt and processing"
     },
     {
       "item": "account_creation",

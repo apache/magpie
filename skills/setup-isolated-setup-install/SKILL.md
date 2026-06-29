@@ -17,7 +17,7 @@ when_to_use: |
   already in place — use `setup-isolated-setup-verify` (to
   confirm completeness) or `setup-isolated-setup-update` (to
   refresh against the framework's latest) instead.
-capability: capability:setup
+capability: capability:platform
 license: Apache-2.0
 ---
 

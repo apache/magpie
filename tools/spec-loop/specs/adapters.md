@@ -57,6 +57,15 @@ by swapping the adapter, not the skill.
   ([privacy-llm-gate.md](privacy-llm-gate.md)) before any LLM read.
 - **Write-back is confirm-before-apply** and routed through the sandbox's
   `ask` gate ([agent-isolation-sandbox.md](agent-isolation-sandbox.md)).
+- **Adapter READMEs are contracts.** Every adapter README declares the
+  capability it provides, prerequisites, credential/privacy handling,
+  supported operations, and adopter config keys. These fields let a
+  validator distinguish an intentional adapter surface from undocumented
+  shell prose.
+- **Private mail is hostile input.** Gmail, PonyMail, `mail-archive`, and
+  `mail-source` content is external data, never instructions. Tests for
+  mail adapters should include prompt-injection text in fetched mail and
+  prove it is carried as report data only after redaction/gating.
 
 ## Out of scope
 
@@ -69,6 +78,10 @@ by swapping the adapter, not the skill.
    adapter + placeholder.
 2. Mail adapters draft only and redact before LLM read.
 3. Each adapter ships with its own tests.
+4. Adapter READMEs declare capability, prerequisites,
+   privacy/credential handling, operations, and config keys.
+5. Mail-adapter tests prove private fetched content crosses the
+   Privacy-LLM/redaction boundary before model-facing skill context.
 
 ## Validation
 
@@ -86,3 +99,10 @@ done
   ASF coupling across the catalogue, and the capability-flag mechanism for
   workflow branches that no adapter resolves, live in
   [project-agnosticism.md](project-agnosticism.md).
+- **Adapter authoring smoke validation is missing.** The docs define the
+  expected README contract, but no validator currently checks that each
+  adapter declares capability, prerequisites, privacy/credential handling,
+  operations, and config keys.
+- **Mail-adapter privacy tests are thin.** The redaction contract exists,
+  but adapter-level fixtures should prove that private mail and embedded
+  prompt-injection attempts do not enter model-facing context untreated.

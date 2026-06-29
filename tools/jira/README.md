@@ -30,7 +30,7 @@
 
 # JIRA bridge
 
-**Capability:** capability:setup
+**Capability:** contract:tracker
 
 JIRA REST helpers for the `issue-*` skill family.
 Adopters with JIRA-based issue trackers wire this in as their

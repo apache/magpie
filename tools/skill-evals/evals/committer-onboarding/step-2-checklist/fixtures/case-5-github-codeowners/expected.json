@@ -1,0 +1,10 @@
+{
+  "governance_model": "github-codeowners",
+  "has_github_team_invite_step": true,
+  "github_team_slug_correct": true,
+  "has_codeowners_pr_step": true,
+  "has_whimsy_step": false,
+  "secretary_request_present": false,
+  "welcome_draft_present": true,
+  "welcome_no_unresolved_placeholders": true
+}

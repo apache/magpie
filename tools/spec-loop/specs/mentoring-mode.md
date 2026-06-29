@@ -123,10 +123,11 @@ uv run --project tools/skill-evals skill-eval tools/skill-evals/evals/mentoring-
 - **The family now covers the newcomer journey end to end.**
   `pr-management-mentor`, `good-first-issue-author`, `mentoring-welcome`
   (first-contribution welcome / orientation), and `contributor-to-committer`
-  (readiness path tracker) all ship. The two newcomer-facing capabilities
-  this spec previously flagged as undesigned are both built; the open
-  item that remains is the backlog-curation counterpart noted above
-  (relabeling the existing backlog as good-first-issue candidates).
+  (readiness path tracker) all ship. `docs/mentoring/README.md` reflects all
+  four shipped skills. The two newcomer-facing capabilities this spec
+  previously flagged as undesigned are both built; the open item that remains
+  is the backlog-curation counterpart noted above (relabeling the existing
+  backlog as good-first-issue candidates).
 - **`experimental` — no adopter pilot has run.** All four shipped skills
   (`pr-management-mentor`, `good-first-issue-author`, `mentoring-welcome`)
   and `contributor-to-committer` may change shape as adopter pilots and

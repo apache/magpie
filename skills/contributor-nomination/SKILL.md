@@ -1,5 +1,6 @@
 ---
 name: magpie-contributor-nomination
+organization: ASF
 mode: Triage
 description: |
   Read-only nomination brief for a named GitHub contributor on

@@ -30,9 +30,7 @@ license: Apache-2.0
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
      <project-config> → adopting project's `.apache-magpie/` directory
      <tracker>        → value of `tracker_repo:` in <project-config>/project.md
-                       (example: airflow-s/airflow-s for the Apache Airflow security team)
      <upstream>       → value of `upstream_repo:` in <project-config>/project.md
-                       (example: apache/airflow)
      <security-list>  → value of `security_list:` in <project-config>/project.md
      Before running any bash command below, substitute these with the
      concrete values from the adopting project's <project-config>/project.md. -->
@@ -246,7 +244,7 @@ in `docs/prerequisites.md` for the overall setup.
 |---|---|
 | `triage` (default) | every open issue carrying `needs triage` |
 | `triage #NNN`, `triage 212`, `triage #NNN, #MMM`, `triage #NNN-#MMM` | specific issues by number (verbatim — no resolution) |
-| `triage scope:<label>` (e.g. `triage scope:airflow` for the airflow-s adopter; the project's scope labels come from `scope_detection.labels` in [`<project-config>/project.md`](../../<project-config>/project.md)) | subset by scope label, when set; useful when scoped-batch triage is split across triagers |
+| `triage scope:<label>` (e.g. `triage scope:<scope-a>`; the project's scope labels come from `scope_detection.labels` in [`<project-config>/project.md`](../../<project-config>/project.md)) | subset by scope label, when set; useful when scoped-batch triage is split across triagers |
 | `triage CVE-YYYY-NNNNN` | the tracker for that allocated CVE — used together with `--retriage` (below) when a passed-triage decision needs re-litigating |
 | `--retriage` (flag) | force-include trackers that already had `needs triage` removed but where new comment activity warrants a fresh proposal (e.g. a reporter follow-up landed a substantive update; a sibling-vector report changed the team's read on a prior `INVALID` close). Combine with one of the selectors above; bare `--retriage` without a selector is a hard error — the skill refuses to re-triage everything ever. |
 
@@ -367,8 +365,7 @@ the inputs the classifier needs. Each tracker gets:
    [`<project-config>/project.md`](../../<project-config>/project.md)
    (see also
    [`<project-config>/scope-labels.md`](../../<project-config>/scope-labels.md)),
-   or `<missing>` when no scope label is set yet. For the airflow-s
-   adopter this resolves to `airflow`, `providers`, `chart`. The
+   or `<missing>` when no scope label is set yet. The
    scope drives the `@`-mention routing in Step 4.
 
 3. **Linked-PR state** — same `gh search prs` calls as
@@ -420,12 +417,10 @@ the inputs the classifier needs. Each tracker gets:
 5. **Canned-response precedent check** — scan
    [`<project-config>/canned-responses.md`](../../<project-config>/canned-responses.md)
    for headings whose name matches the tracker's report shape.
-   A hit on a *"misframed user-input"-shaped* template (e.g. the
-   airflow-s adopter's *"When someone claims Dag author-provided
-   'user input' is dangerous"*) is a strong signal for `INVALID`;
-   a hit on a *"scanner output"-shaped* or *"misconfiguration"-shaped*
-   template (e.g. airflow-s's *"Image scan results"* or *"DoS/RCE
-   via Connection configuration"*) signals `INFO-ONLY` or `INVALID`.
+   A hit on a *"misframed user-input"-shaped* template is a strong
+   signal for `INVALID`; a hit on a *"scanner output"-shaped* or
+   *"misconfiguration"-shaped* template signals `INFO-ONLY` or
+   `INVALID`.
    Project-specific heading names come from
    [`<project-config>/canned-responses.md`](../../<project-config>/canned-responses.md);
    surface the matching canned-response name in the proposal so the
@@ -471,15 +466,13 @@ explain how this tracker maps to (or escapes) that wording.
 ### Trust-boundary cheat-sheet
 
 Apply mechanically before VALID / DEFENSE-IN-DEPTH /
-INVALID. The table below is the **airflow-s adopter's worked
-example** — each row maps an actor-and-effect pair to a Security
-Model section the project considers authoritative. Adopters
-maintain their own per-project trust-boundary cheat-sheet at the
-top of
+INVALID. The table below is a **worked example** — each row maps
+an actor-and-effect pair to a Security Model section the project
+considers authoritative. Adopters maintain their own per-project
+trust-boundary cheat-sheet at the top of
 [`<project-config>/security-model.md`](../../<project-config>/security-model.md);
 the section names quoted in the *Default class* column are the
-literal `§` anchors declared there (the airflow-s table cites the
-airflow-s Security Model anchors). The *positive precedent* search
+literal `§` anchors declared there. The *positive precedent* search
 in Step 2.6 reads the precedent-tracker label name from
 `tracker.labels.cve_allocated` in
 [`<project-config>/project.md`](../../<project-config>/project.md).
@@ -530,12 +523,11 @@ labels (`invalid`, `duplicate`) declared in
 [`<project-config>/project.md`](../../<project-config>/project.md)
 and
 [`<project-config>/scope-labels.md`](../../<project-config>/scope-labels.md)
-(*Closing dispositions* section). For the airflow-s adopter these
-resolve to `invalid`, `not CVE worthy`, `duplicate`:
+(*Closing dispositions* section):
 
 ```bash
 # Per orthogonal key (code pointer, GHSA, subject keyword) — example
-# labels are the airflow-s defaults; substitute from the adopter's
+# labels only; substitute from the adopter's
 # tracker.labels and scope-labels.md closing dispositions:
 gh search issues "<key>" --repo <tracker> --state closed \
   --label "invalid" --json number,title,closedAt --jq '.[]'
@@ -556,8 +548,7 @@ VALID → INVALID. Include the citation in the proposal:
 Also search for **positive precedents** — CVE-allocated trackers
 with similar shape — via (substitute the literal label from
 `tracker.labels.cve_allocated` in
-[`<project-config>/project.md`](../../<project-config>/project.md);
-the airflow-s default is `cve allocated`):
+[`<project-config>/project.md`](../../<project-config>/project.md)):
 
 ```bash
 gh search issues "<key>" --repo <tracker> --state all \
@@ -648,11 +639,8 @@ Propose when **all** of:
 - The behaviour does **not** violate any documented rule, and a
   canned-response template in
   [`<project-config>/canned-responses.md`](../../<project-config>/canned-responses.md)
-  already covers the shape (the airflow-s adopter ships templates
-  named *"Not an issue, please submit it"*, *"DoS/RCE via Connection
-  configuration"*, *"Image scan results"*, and *"When someone claims
-  Dag author-provided 'user input' is dangerous"*; project-specific
-  heading names come from
+  already covers the shape (project-specific heading names come
+  from
   [`<project-config>/canned-responses.md`](../../<project-config>/canned-responses.md)).
 
 `INFO-ONLY` is distinct from `INVALID`: the latter is
@@ -866,9 +854,8 @@ mechanically:
    but do not require them.
 
 **Cache the routing decision per code area** within the run —
-if 5 trackers all touch `airflow/api_fastapi/execution_api/`,
-the @-mention set is identical for all 5 (computed once,
-re-used).
+if 5 trackers all touch the same code area, the @-mention set is
+identical for all 5 (computed once, re-used).
 
 **Cap at 3 handles per comment**, prefer 2. The triager (cached
 in Step 0 as `viewer_login`) is automatically excluded.

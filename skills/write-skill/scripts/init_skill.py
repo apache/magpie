@@ -163,7 +163,7 @@ acceptable, etc.) and the disambiguation rules.
 <!-- TODO — PRIVACY-LLM GATE-CHECK (Pattern 6 from
      ../write-skill/security-checklist.md). Fill in if the skill
      reads any *private* content (Gmail private mails,
-     PMC-private trackers, embargoed CVE detail). Delete this
+     <governance-body>-private trackers, embargoed CVE detail). Delete this
      whole block if the skill operates only on public content.
 
      - **Privacy-LLM contract.** This skill reads <list of

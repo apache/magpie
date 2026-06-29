@@ -1,19 +1,20 @@
 ---
 name: magpie-release-verify-rc
+organization: ASF
 mode: Triage
 description: |
   Read-only pre-flight verification of a staged release candidate (RC)
-  for `<upstream>`. Verifies GPG signatures, checksums, Apache RAT
-  license headers, NOTICE/LICENSE presence, prohibited-binary absence,
-  and version-string consistency across manifest files. Emits a
+  for `<upstream>`. Checks artefact integrity (GPG signatures and
+  checksums), Apache RAT licence headers, NOTICE/LICENSE completeness,
+  prohibited-binary absence, and version-string consistency. Emits a
   structured PASS / PASS-WITH-WARNINGS / FAIL report. Makes no state
   change; a `--post-to <planning-issue>` flag proposes a comment for
   explicit RM confirmation before any posting.
 when_to_use: |
   Invoke when a Release Manager or voter says "verify rc N for
   <version>", "run pre-flight on <version>-rcN", "check the RC
-  artefacts for <version>", or similar. Appropriate at Step 6 of the
-  release lifecycle — before the `[VOTE]` thread is opened (RM's
+  artefacts for <version>", or similar. Appropriate during the RC
+  pre-flight phase — before the `[VOTE]` thread is opened (RM's
   self-check) or during the vote window (any voter's dev loop). Can be
   run standalone with no other release-* skill in the session.
 argument-hint: "<version>-rcN [--post-to <planning-issue-url>]"
@@ -389,7 +390,7 @@ Unpack the source artefact (or read its directory listing) and verify:
 
 1. A `NOTICE` file exists at the root.
 2. A `LICENSE` file exists at the root.
-3. If a previous promoted release exists in `dist/release/<project>/`,
+3. If a previous promoted release exists in `dist/release/<project>/` (svnpubsub; see `release_dist_backend`),
    fetch its `NOTICE` and `LICENSE` and produce a diff against the
    current RC's files.
 

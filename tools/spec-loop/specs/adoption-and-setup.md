@@ -61,6 +61,12 @@ gitignored skill symlinks, and committed agent-readable override files.
 - **Overrides are agent-readable Markdown** under
   `.apache-magpie-overrides/`, consulted at runtime and merged before
   default behaviour ([pairing/correctability is the model]).
+- **Overrides are additive, never authority inversion.** An override may
+  supply adopter-specific process details, paths, labels, or wording, but
+  it must not replace or weaken the framework's safety, confidentiality,
+  privacy, or external-content-as-data baseline. If an override conflicts
+  with those baseline rules, the framework rule wins and the conflict is
+  surfaced.
 
 ## Out of scope
 
@@ -73,6 +79,9 @@ gitignored skill symlinks, and committed agent-readable override files.
 1. Adoption commits only the bootstrap skill + lock/override scaffold.
 2. The committed lock re-installs the same version on a fresh clone.
 3. Drift between local and committed locks is surfaced with an upgrade.
+4. Override files can be discovered and surfaced to skills without
+   editing upstream skill bodies, and override text cannot weaken the
+   safety/confidentiality baseline.
 
 ## Validation
 
@@ -86,3 +95,7 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
 - `stable`; gaps appear as new agent targets to add to the registry
   ([`agents.md`](../../../skills/setup/agents.md)) or new override
   surfaces — recorded by the plan pass.
+- **Override-file contract tests are missing.** The docs describe
+  agentic overrides, but no smoke fixture proves that clean overrides are
+  additive or that an override attempting to relax safety/confidentiality
+  rules is flagged rather than applied.

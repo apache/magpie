@@ -1,0 +1,1 @@
+{"primary_reviewer": null, "backup_reviewer": null, "no_eligible_reviewer": true, "signals_shown": false, "load_signal_shown": false, "injection_flagged": false, "roster_bounded": true, "reason": "Roster is empty; skill must emit NO ELIGIBLE REVIEWER signal and never invent a handle from git blame or other heuristics."}

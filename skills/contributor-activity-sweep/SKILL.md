@@ -1,5 +1,6 @@
 ---
 name: magpie-contributor-activity-sweep
+organization: ASF
 mode: Triage
 description: |
   Read-only GitHub activity card for a named contributor on <upstream>.

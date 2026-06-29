@@ -19,7 +19,7 @@
 ---
 github:
   description: "Agent-assisted maintainership and development framework for Apache projects — Triage and Drafting (agent-authored fixes with human review); Mentoring, Pairing (developer-side dev-cycle), and Auto-merge on the roadmap."
-  homepage: "https://github.com/apache/magpie"
+  homepage: "https://magpie.apache.org/"
   labels:
     # Note that GitHub only supports <=20 labels/topics per repo! Pipeline
     # will fail if you add more.

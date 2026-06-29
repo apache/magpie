@@ -22,7 +22,7 @@
 
 # tools/mail-archive/
 
-**Capability:** capability:setup
+**Capability:** contract:mail-archive
 
 This file defines the adapter contract for **public mail-archive
 backends** — the seam that lets adopting projects plug a non-ASF

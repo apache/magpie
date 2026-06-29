@@ -14,12 +14,12 @@
 
 # PR management skill family
 
-> **Scope — `asf: false`.** Works on any project, ASF or not — no
+> **Scope.** Works on any project, ASF or not — no
 > Apache-Software-Foundation-specific assumptions baked in.
 
 Maintainer-facing PR-queue management for projects with a public
-contributor PR queue. Four skills that compose into a complete
-triage + review pass:
+contributor PR queue. Five skills that compose into a complete
+triage + review + mentoring pass:
 
 1. **Agentic Triage** — sweep open PRs, classify against the project's
    quality criteria, propose a disposition (draft / comment /
@@ -38,6 +38,12 @@ triage + review pass:
    and the exact merge command for the maintainer to run. Never
    merges itself — automated merge is the framework's
    deliberately-deferred Mode D.
+5. **Mentor** — joins a PR (or issue) thread in a teaching
+   register: clarifying questions, pointers to project conventions
+   and docs, an explanation of *why* a change is being asked for.
+   Waits for explicit maintainer confirmation before posting;
+   never gatekeeps. Lives in the Mentoring mode but operates on
+   the same PR surface as skills 1–4.
 
 Why a framework skill family? These skills were originally
 maintained inside one ASF project's developer-tooling repo as
@@ -57,6 +63,7 @@ wording, CI-check → doc-URL map, review-criteria source files).
 | [`pr-management-stats`](../../skills/pr-management-stats/SKILL.md) | Read-only summary tables grouped by area label. |
 | [`pr-management-code-review`](../../skills/pr-management-code-review/SKILL.md) | Deep code review, one PR at a time. |
 | [`pr-management-quick-merge`](../../skills/pr-management-quick-merge/SKILL.md) | Express-lane screener for trivial, low-risk PRs in the `ready for maintainer review` queue; surfaces ranked candidates with diff summaries and the exact merge command. Read-only on the queue; the one optional mutation (APPROVE) requires explicit per-PR confirmation. |
+| [`pr-management-mentor`](../../skills/pr-management-mentor/SKILL.md) | Draft a teaching-register comment on a single GitHub issue or PR thread (clarifying questions, project-convention pointers, rationale explanations); waits for explicit maintainer confirmation before posting. `mode: Mentoring` — see also [`docs/mentoring/README.md`](../mentoring/README.md). |
 
 ## Adopter contract
 
@@ -70,6 +77,7 @@ the adopter's `<project-config>/` directory:
 | [`pr-management-triage-ci-check-map.md`](../../projects/_template/pr-management-triage-ci-check-map.md) | `pr-management-triage` |
 | [`pr-management-code-review-criteria.md`](../../projects/_template/pr-management-code-review-criteria.md) | `pr-management-code-review` |
 | [`pr-management-quick-merge-config.md`](../../projects/_template/pr-management-quick-merge-config.md) | `pr-management-quick-merge` (thresholds, path globs, merge-command template) |
+| [`mentoring-config.md`](../../projects/_template/mentoring-config.md) | `pr-management-mentor` (tone knobs, hand-off protocol) |
 
 The skills read project-specific defaults from the `<project-config>/`
 files above. Adopters customise by editing their copy of each
@@ -81,4 +89,6 @@ patterns that motivated the framework (monorepo `<area>/` layout,
 ## Cross-references
 
 - [Top-level README — Adopting the framework](../../README.md#adopting-the-framework) — 3-step bootstrap.
-- [`projects/_template/README.md`](../../projects/_template/README.md) — adopter scaffold index, including the five PR-management config files.
+- [`projects/_template/README.md`](../../projects/_template/README.md) — adopter scaffold index, including the PR-management config files.
+- [`tools/spec-loop/specs/pr-management-family.md`](../../tools/spec-loop/specs/pr-management-family.md) — functional spec: acceptance criteria, validation commands, and known gaps.
+- [`docs/mentoring/README.md`](../mentoring/README.md) — `pr-management-mentor` family overview.

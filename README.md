@@ -156,31 +156,25 @@ for the full flow.
 
 ## Skill families
 
-Four skill families ship in the framework (plus one experimental
-family, mentoring; one proposed family, release-management; and
-two meta utilities). Pick whichever families the adopter wants to
-use; symlinks for the picked families land in the adopter's skill
-directory.
+Eight skill families ship in the framework, all at `experimental` or
+`stable`. Pick whichever families the adopter wants to use; symlinks for
+the picked families land in the adopter's skill directory.
 
 The **Modes** column maps each family to the MISSION agent-assistance
 taxonomy — see [`docs/modes.md`](docs/modes.md) for what each mode
 means and which modes are still proposed vs. shipping today.
 
-Most families work on **any** project, ASF or not. Families marked
-**🪶 ASF-specific** in the **Scope** column encode Apache Software Foundation
-processes (the release lifecycle, the contributor-to-committer path) and assume
-an ASF adopter profile by default — non-ASF projects adopt them through the
-adapter/config layer.
-
-| Family | Modes | Scope | Purpose | Detail |
-|---|---|---|---|---|
-| [**setup**](docs/setup/README.md) | (infra) | Any project | Isolated agent setup, framework adoption + maintenance, shared-config sync. The prerequisite — at minimum the `setup` skill itself runs out of this family. | 6 skills, [`docs/setup/`](docs/setup/) |
-| [**security**](docs/security/README.md) | A, C | Any project | 16-step security-issue handling lifecycle — from `security@` import through CVE publication, including state sync. Maintainer-only. | 9 skills, [`docs/security/`](docs/security/) |
-| **pr-management** | A | Any project | Maintainer-facing PR-queue management — triage, stats, and deep code review. | 3 skills, [`docs/pr-management/`](docs/pr-management/README.md) |
-| [**release-management**](docs/release-management/README.md) | A, C | 🪶 ASF-specific | 14-step ASF release lifecycle, planning issue, RC cut + sign, `[VOTE]` thread, tally, promote, `[ANNOUNCE]`, archive, audit log. Agent never holds the RM's signing key and never publishes the release. **Proposed**, spec-first, like Agentic Mentoring; skill code lands in follow-up PRs. | 10 skills proposed, [`docs/release-management/`](docs/release-management/) |
-| [**mentoring**](docs/mentoring/README.md) | Agentic Mentoring | Any project | Contributor mentoring — spec and tone guide in place; first skill (`pr-management-mentor`) shipping. **Experimental** — shape may change as adopter pilots and contributor-sentiment evaluation land. | 1 skill, [`docs/mentoring/`](docs/mentoring/README.md) |
-| **issue** | A, Agentic Triage | Any project | Issue lifecycle management — triage, bug reproduction, fix drafting, and backlog re-assessment against the current branch. | 5 skills |
-| **utilities** | (meta) | Any project | Framework meta-skills: author or update skills (`write-skill`); print a live index of all available skills (`list-skills`). | 2 skills |
+| Family | Modes | Purpose | Detail |
+|---|---|---|---|
+| [**setup**](docs/setup/README.md) | (infra) | Isolated agent setup, framework adoption + maintenance, shared-config sync. The prerequisite — at minimum the `setup` skill itself runs out of this family. | 8 skills, [`docs/setup/`](docs/setup/) |
+| [**security**](docs/security/README.md) | Triage, Drafting | 16-step security-issue handling lifecycle — from `security@` import through CVE publication, including state sync. Maintainer-only. | 12 skills, [`docs/security/`](docs/security/) |
+| [**pr-management**](docs/pr-management/README.md) | Triage | Maintainer-facing PR-queue management — triage, stats, deep code review, and express-lane merge surfacing. | 4 skills, [`docs/pr-management/`](docs/pr-management/README.md) |
+| [**release-management**](docs/release-management/README.md) | Triage, Drafting | 14-step ASF release lifecycle, planning issue, RC cut + sign, `[VOTE]` thread, tally, promote, `[ANNOUNCE]`, archive, audit log. Agent never holds the RM's signing key and never publishes the release. **Experimental**, all 10 skills shipped. | 10 skills, [`docs/release-management/`](docs/release-management/) |
+| [**mentoring**](docs/mentoring/README.md) | Mentoring | Contributor mentoring — first-contact welcome, teaching-register PR/issue comments, and net-new good-first-issue authoring. **Experimental** — shape may change as adopter pilots and contributor-sentiment evaluation land. | 3 skills, [`docs/mentoring/`](docs/mentoring/README.md) |
+| [**issue**](docs/issue-management/README.md) | Triage, Drafting | General-issue lifecycle: triage, reproduction, fix drafting, stale-sweep, deduplication, and backlog reporting. | 8 skills, [`docs/issue-management/`](docs/issue-management/README.md) |
+| [**contributor-growth**](docs/contributor-growth/README.md) | Triage, Mentoring | Skills spanning the contributor-to-committer path: first-contact welcome, on-ramp issue authoring, activity tracking, nomination brief, post-vote onboarding. | 5 skills, [`docs/contributor-growth/`](docs/contributor-growth/README.md) |
+| [**repo-health**](docs/repo-health/README.md) | Triage | Read-only repository-health audits: obsolete runner labels, Actions workflow security, dependency vulnerabilities, license/NOTICE compliance, flaky-test patterns. | 5 skills, [`docs/repo-health/`](docs/repo-health/) |
+| **utilities** | (meta) | Framework meta-skills: author or update skills (`write-skill`), restructure existing skills (`optimize-skill`), print a live index of all available skills (`list-skills`). | 3 skills |
 
 ## Maintenance
 

@@ -35,12 +35,15 @@ declares, up front:
 1. **Its capability** — a line of the exact form
 
    ```markdown
-   **Capability:** capability:NAME
+   **Capability:** contract:NAME
    ```
 
-   (multi-value: `capability:NAME + capability:NAME`), with NAME drawn
-   from the taxonomy in `docs/labels-and-capabilities.md`. Substrate
-   bridges default to `capability:setup`.
+   …or `substrate:NAME` (multi-value: `contract:a + substrate:b`). A
+   **tool capability** is the interface the tool provides (RFC-AI-0005):
+   `contract:<name>` when it implements a capability contract under
+   `tools/<contract>/` (e.g. `contract:tracker`), or `substrate:<name>`
+   for framework substrate (e.g. `substrate:sandbox`). Draw the value
+   from the taxonomy in `docs/labels-and-capabilities.md`.
 
 2. **Its prerequisites** — a `## Prerequisites` section stating what the
    tool needs *before it can run*, so an adopter never discovers a
@@ -62,11 +65,29 @@ declares, up front:
    A pure interface-spec tool (an adapter *contract* with no executable
    code) says so and defers concrete prerequisites to its adapters.
 
-Both are **HARD** checks in
+3. **(Optional) its organization** — when a tool *belongs to* a specific
+   organization (it is the backend/adapter for that org's stack, e.g.
+   the ASF Vulnogram / PonyMail / apache-projects tools), add a line of
+   the exact form
+
+   ```markdown
+   **Organization:** ASF
+   ```
+
+   The value must name an organization under
+   [`organizations/`](../organizations/) (e.g. `ASF`). Omit the line for
+   organization-agnostic tools — absence means "belongs to no specific
+   organization". Skills declare the same membership with an
+   `organization:` frontmatter key; skill families with an
+   `organization:` scope banner in `docs/<family>/README.md`.
+
+The capability and prerequisites are **HARD** checks in
 [`tools/skill-and-tool-validator`](skill-and-tool-validator/) — a tool
 README missing either the `**Capability:**` line or the
 `## Prerequisites` section fails `skill-and-tool-validate` (and the
-`prek` / pre-commit hook that runs it).
+`prek` / pre-commit hook that runs it). The optional `**Organization:**`
+line, when present, must name a known organization or the validator
+fails the run.
 
 ## Refresh the cross-references when tools change
 

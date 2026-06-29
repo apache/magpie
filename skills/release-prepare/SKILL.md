@@ -1,11 +1,12 @@
 ---
 name: magpie-release-prepare
+organization: ASF
 mode: Drafting
 description: |
-  Draft the release planning issue (Step 1), the prep PR with version
-  bump, changelog, NOTICE, and LICENSE updates (Step 2), or the
-  post-release development-version bump PR (Step 14) for `<upstream>`.
-  Reads release metadata from `<project-config>/release-trains.md` and
+  Draft release preparation artefacts for `<upstream>`: the planning
+  issue, the version-bump and changelog prep PR, or the post-release
+  development-version bump PR. Reads release metadata from
+  `<project-config>/release-trains.md` and
   `<project-config>/release-management-config.md`. Every output is a
   draft confirmed by the Release Manager before filing; the agent never
   marks a PR ready, never merges, and never closes any artefact.
@@ -13,12 +14,12 @@ when_to_use: |
   Invoke when a Release Manager says "prepare the <version> release",
   "draft the planning issue for <version>", "open the prep PR for
   <version>", "write the version bump for <version>", "draft the
-  post-release bump for <version>", or similar. Also invoked as
-  Steps 1, 2, and 14 of the release-management lifecycle
-  (`/release-prepare <version>` for Step 1, `/release-prepare prep
-  <version>` for Step 2, `/release-prepare post <version>` for
-  Step 14). Requires `<project-config>/release-management-config.md`
-  and `<project-config>/release-trains.md` to exist.
+  post-release bump for <version>", or similar. Covers three lifecycle
+  moments: planning-issue creation (`/release-prepare <version>`),
+  version-bump prep PR (`/release-prepare prep <version>`), and
+  post-release dev-version bump (`/release-prepare post <version>`).
+  Requires `<project-config>/release-management-config.md` and
+  `<project-config>/release-trains.md` to exist.
 argument-hint: "[prep | post] <version>"
 capability: capability:resolve
 license: Apache-2.0
@@ -71,7 +72,7 @@ This skill composes with:
 - `release-keys-sync` (proposed) — downstream of Step 1; syncs the
   RM's GPG key into `KEYS` before the RC is cut.
 - `release-rc-cut` (proposed) — downstream of Step 2; cuts the RC
-  tag, signs artefacts, stages to `dist/dev/`.
+  tag, signs artefacts, stages to the RC staging area (`dist/dev/` when `release_dist_backend = svnpubsub`).
 - `release-verify-rc` (proposed) — downstream of Step 2; verifies the
   staged RC before the `[VOTE]` thread opens.
 - `release-announce-draft` — downstream of Step 14 only in

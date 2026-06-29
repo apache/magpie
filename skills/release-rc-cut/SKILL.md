@@ -1,5 +1,6 @@
 ---
 name: magpie-release-rc-cut
+organization: ASF
 mode: Drafting
 description: |
   Emit the paste-ready command sequence to tag an RC, build artefacts,
@@ -105,9 +106,9 @@ The RM invoking the skill is **not** a blanket yes; the comment gets
 its own confirmation step.
 
 **Golden rule 5 — promotion-path denylist.**
-The staging commands for `svnpubsub` may only import to `dist/dev/`.
-Any path that includes `dist/release/` is on a hard denylist; the
-skill refuses to emit a command that stages to `dist/release/`
+For `release_dist_backend = svnpubsub`, staging commands may only import to `dist/dev/`.
+Any path that includes `dist/release/` is on a hard denylist (when `release_dist_backend = svnpubsub`); the
+skill refuses to emit a command that stages to `dist/release/` (`release_dist_backend = svnpubsub`)
 regardless of input. Promotion is `release-promote`'s responsibility.
 
 ---
@@ -217,7 +218,7 @@ Read the following from `<project-config>/release-build.md` and
 | `expected_artefacts` | `release-build.md` | `expected_artefacts` list |
 | `digest_set` | `release-build.md` | `digest_set` list |
 | `backend` | `release-management-config.md` | `release_dist_backend` |
-| `staging_url` | `release-management-config.md` | `release_dist_url_template` rendered with `<version>-<rcN>` at `dist/dev/<project>/` |
+| `staging_url` | `release-management-config.md` | `release_dist_url_template` rendered with `<version>-<rcN>` at `dist/dev/<project>/` (for `release_dist_backend = svnpubsub`) |
 | `signing_key_fingerprint` | user.md or `release-management-config.md` | `rm_key_fingerprint` |
 | `release_branch` | `release-management-config.md` | `release_branch_base` (or `--release-branch` override) |
 
@@ -323,13 +324,13 @@ Compose the backend-shaped staging command sequence based on
 ```text
 # Import the signed + checksummed artefacts into dist/dev
 svn import <local-artefact-dir>/ \
-  https://dist.apache.org/repos/dist/dev/<project>/<version>-<rcN>/ \
+  https://dist.apache.org/repos/dist/dev/<project>/<version>-<rcN>/ \  # release_dist_backend=svnpubsub
   --username <asf-id> \
   -m "Release <project> <version> <rcN>"
 ```
 
-Note: the target URL **must** be `dist/dev/`, never `dist/release/`. Any
-path containing `dist/release/` is refused by the skill (Golden rule 5).
+Note: the target URL **must** be `dist/dev/` (when `release_dist_backend = svnpubsub`), never `dist/release/`. Any
+path containing `dist/release/` is refused by the skill (see `release_dist_backend` — Golden rule 5).
 
 **`github-releases`:**
 
@@ -372,8 +373,8 @@ Return ONLY valid JSON with this structure:
 }
 ```
 
-`dist_dev_only` is always `true` for `svnpubsub`; it confirms that no
-`dist/release/` path was emitted. For non-`svnpubsub` backends it is
+`dist_dev_only` is always `true` for `svnpubsub` (`release_dist_backend = svnpubsub`); it confirms that no
+`dist/release/` path (`release_dist_backend = svnpubsub`) was emitted. For non-`svnpubsub` backends it is
 `false` (the field is not meaningful but must be present). `proposed`
 is always `true` at this point.
 
@@ -440,8 +441,8 @@ The AI-driven part ends with a hand-back artefact containing:
 - **Never handle the signing key.** No passphrase, no key-file path, no
   `gpg` invocation.
 - **Never emit MD5 or SHA-1 checksum commands**, even if configured.
-- **Never stage to `dist/release/`.** Only `dist/dev/` paths are
-  permitted for `svnpubsub`.
+- **Never stage to `dist/release/` (`release_dist_backend = svnpubsub`).** Only `dist/dev/` paths are permitted
+  for `release_dist_backend = svnpubsub`.
 - **Never post the planning-issue comment without explicit RM confirmation.**
 - **Never advance past Step 0** if the prep PR is not merged or if the
   RC tag already exists.
@@ -457,7 +458,7 @@ The AI-driven part ends with a hand-back artefact containing:
 | Pre-flight blocked — prep PR not merged | The prep PR is still open or closed without merge | Merge the prep PR or supply `--planning-issue` pointing at a planning issue where prep is confirmed |
 | Pre-flight blocked — RC tag exists | `<version>-<rcN>` already exists on the remote | Decide whether to delete the tag (rare) or bump the RC number; rerun with the new RC number |
 | Pre-flight blocked — prohibited digest | `release-build.md` lists `md5` or `sha1` | Remove the prohibited digest from `release-build.md`; only `sha512` (required) and `sha256` (optional) are accepted |
-| Staging command uses `dist/release/` | Config error in `release_dist_url_template` | Correct the template; staging target must be `dist/dev/` |
+| Staging command uses `dist/release/` (`release_dist_backend = svnpubsub`) | Config error in `release_dist_url_template` | Correct the template; staging target must be `dist/dev/` |
 | `release-build.md` missing or incomplete | Adopter has not filled out the template | Complete `<project-config>/release-build.md` before running this skill |
 | `signing_key_fingerprint` empty | `rm_key_fingerprint` not set in user.md or config | Add `rm_key_fingerprint` to user.md (preferred) or `release-management-config.md` |
 

@@ -16,7 +16,7 @@
 
 # `magpie-vcs`
 
-**Capability:** capability:setup
+**Capability:** contract:source-control
 
 Runnable implementation of the **source-control (VCS) capability**
 documented in

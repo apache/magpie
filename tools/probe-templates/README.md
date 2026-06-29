@@ -16,7 +16,7 @@
 
 # Probe templates
 
-**Capability:** capability:setup
+**Capability:** substrate:sandbox
 
 Runnable cross-family probe scripts that the
 [`issue-reproducer`](../../skills/issue-reproducer/SKILL.md)

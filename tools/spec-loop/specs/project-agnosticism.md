@@ -59,27 +59,33 @@ The three mechanisms, in order of preference:
   `projects/_template/`.
 - The backend-flag precedent: `docs/release-management/README.md`
   (§ adopter backends) and `projects/_template/release-management-config.md`.
-- The per-family **`asf:` metadata flag** (`asf: true` / `asf: false`),
-  declared in each family's scope banner at the top of
-  `docs/<family>/README.md` and surfaced in the **Scope** column of the
-  family tables in [`README.md`](../../../README.md#skill-families) and
-  [`docs/index.md`](../../../docs/index.md#need-help-with-one-of-these-adopt-a-family-of-skills).
-  Only **release-management** and **contributor-growth** carry `asf: true`:
-  their *core purpose* is an ASF Foundation process (the release lifecycle,
-  the contributor-to-committer path). This is a narrower lens than the
-  residual-coupling audit list below — a family can be `asf: false`
-  (generic core, runs anywhere) and still carry ASF-flavoured defaults that
-  the coupling audit tracks (security is the clearest case).
+- The per-family **`organization:` scope** (formerly the binary
+  `asf: true` / `asf: false` flag), declared in each family's scope banner
+  at the top of `docs/<family>/README.md` and surfaced in the **Scope**
+  column of the family tables in [`README.md`](../../../README.md#skill-families)
+  and [`docs/index.md`](../../../docs/index.md#need-help-with-one-of-these-adopt-a-family-of-skills).
+  An organization-scoped family declares `organization: <org>` (naming a
+  directory under [`organizations/`](../../../organizations/)); an
+  organization-agnostic family declares no scope key at all. Only
+  **release-management** and **contributor-growth** carry
+  `organization: ASF`: their *core purpose* is an ASF Foundation process
+  (the release lifecycle, the contributor-to-committer path). This is a
+  narrower lens than the residual-coupling audit list below — a family can
+  be agnostic (no `organization:`, runs anywhere) and still carry
+  ASF-flavoured *defaults* that the coupling audit tracks (security is the
+  clearest case; those defaults now live in `organizations/ASF/`).
+  Skills, tools, and tool adapters declare the same membership — see
+  [`organizations/README.md` § Membership](../../../organizations/README.md#membership--what-can-belong-to-an-organization).
 - The skills carrying residual ASF coupling to audit, by family:
-  - **security** (`asf: false`): generic at its core, but ships an
+  - **security** (agnostic): generic at its core, but ships an
     ASF-flavoured default profile — `security@`-style intake and the ASF
     security-team relay (`security-issue-import-via-forwarder`), CVE
     allocation assuming an ASF CNA (`security-cve-allocate`), Vulnogram as
     the CVE tool — all swappable for GHSA / MITRE-CNA via the config layer.
-  - **contributor / committer growth** (`asf: true`): `committer-onboarding`
-    (ICLA gate, PMC vote semantics, `dev@` announce),
+  - **contributor / committer growth** (`organization: ASF`):
+    `committer-onboarding` (ICLA gate, PMC vote semantics, `dev@` announce),
     `contributor-nomination` (committer-vs-PMC roster framing).
-  - **release-management** (`asf: true`, proposed): the whole ASF release
+  - **release-management** (`organization: ASF`): the whole ASF release
     ritual, already designed with backend flags; the audit confirms the
     non-ASF paths stay first-class as the skills land.
   - any skill whose prose names `apache.org` lists, `svn` dist trees,
@@ -102,6 +108,11 @@ The three mechanisms, in order of preference:
 - **Advisory, not paternalistic.** The audit surfaces candidate coupling
   for a maintainer to judge; some ASF strings are legitimate (examples,
   the ASF default profile, ASF-specific docs). It does not auto-rewrite.
+- **Template and example profiles stay comparable.** `projects/_template/`
+  is the adopter contract; `projects/non-asf-example/` is the proof that
+  a non-ASF adopter can satisfy that contract. Required files and config
+  keys should be structurally comparable, with omissions explained rather
+  than silently drifting.
 
 ## Out of scope
 
@@ -123,6 +134,9 @@ The three mechanisms, in order of preference:
    `<project-config>` flag, not on skill edits.
 3. The ASF profile runs the catalogue unchanged (default-valued flags),
    and a non-ASF profile can be declared without editing any skill body.
+4. The template profile and non-ASF example expose the same required
+   config surfaces, except where the example documents an intentional
+   omission or an organization-inherited default.
 
 ## Validation
 
@@ -167,3 +181,8 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
   catalogue (bare `PMC`, `ICLA`, `announce@apache.org`) is surfaced by the
   advisory lint (check #10 in `skill-and-tool-validator`) for human
   judgement.
+- **Template/profile drift is not mechanically checked.** The non-ASF
+  example is now a real smoke fixture, but no validator compares its file
+  and key surface against `projects/_template/`. A drift check should
+  catch missing required files, stale documented keys, and hidden
+  organization-default assumptions.

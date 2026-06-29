@@ -16,12 +16,13 @@
 
 # Issue management skill family
 
-> **Scope — `asf: false`.** Works on any project, ASF or not — no
+> **Scope.** Works on any project, ASF or not — no
 > Apache-Software-Foundation-specific assumptions baked in.
 
 Maintainer-facing skills for projects with a general-issue tracker
-(JIRA, GitHub Issues, Bugzilla, GitLab Issues). Six skills that
-cover per-issue work, pool-level sweeps, and read-only reporting:
+(JIRA, GitHub Issues, Bugzilla, GitLab Issues). Eight skills that
+cover per-issue work, pool-level sweeps, deduplication, and
+read-only reporting:
 
 1. **Agentic Triage** — sweep open issues in the configured candidate pool,
    classify against the project's criteria, propose a disposition
@@ -47,6 +48,14 @@ cover per-issue work, pool-level sweeps, and read-only reporting:
    files produced by reassess campaigns. Surfaces health rating,
    classification distribution, partial-fix surfaces, and per-component
    breakdowns.
+7. **Deduplicate** — identify two open issues sharing the same root
+   cause, draft a cross-link comment and a closing rationale, and
+   close the duplicate on maintainer confirmation; closures require a
+   second explicit confirmation step.
+8. **Backlog stats** — read-only dashboard over the open issue
+   backlog. Surfaces a health rating, prioritised recommendations,
+   age and staleness breakdowns, area pressure ranking, and a
+   triage-funnel summary without modifying any tracker state.
 
 ## Family boundary
 
@@ -76,9 +85,12 @@ configured with different trackers.
 | [`issue-fix-workflow`](../../skills/issue-fix-workflow/SKILL.md) | Agentic Drafting | Drafts a fix PR for a triaged issue |
 | [`issue-stale-sweep`](../../skills/issue-stale-sweep/SKILL.md) | Agentic Triage | Backlog hygiene: classifies dormant issues as `REQUEST-UPDATE` or `CLOSE-STALE`; posts one comment per issue on confirmation |
 | [`issue-reassess-stats`](../../skills/issue-reassess-stats/SKILL.md) | — | Read-only campaign dashboard |
+| [`issue-deduplicate`](../../skills/issue-deduplicate/SKILL.md) | Triage | Merge two open issues describing the same root cause; posts notices and closes the duplicate on explicit two-step confirmation |
+| [`issue-backlog-stats`](../../skills/issue-backlog-stats/SKILL.md) | Triage | Read-only dashboard over the open issue backlog: health rating, area pressure, age breakdown, triage funnel, and staleness candidates |
 
-Reproducer and stats sit outside the MISSION mode taxonomy; they
-are mechanical / read-only, not classificatory or mutating.
+`issue-reproducer` and `issue-reassess-stats` sit outside the MISSION
+mode taxonomy; they are mechanical / read-only, not classificatory or
+mutating.
 
 ## Adopter contract
 
@@ -89,13 +101,13 @@ adopter's `<project-config>/` directory:
 |---|---|
 | [`project.md`](../../projects/_template/project.md) | all `issue-*` skills (identifiers, `upstream_default_branch`) |
 | [`issue-tracker-config.md`](../../projects/_template/issue-tracker-config.md) | all `issue-*` skills (URL, project key, auth, default queries) |
-| [`scope-labels.md`](../../projects/_template/scope-labels.md) | `issue-triage`, `issue-reassess` (component / area routing) |
+| [`scope-labels.md`](../../projects/_template/scope-labels.md) | `issue-triage`, `issue-reassess`, `issue-backlog-stats` (component / area routing and area pressure ranking) |
 | [`release-trains.md`](../../projects/_template/release-trains.md) | `issue-triage` (`@`-mention routing) |
 | [`canned-responses.md`](../../projects/_template/canned-responses.md) | `issue-triage` (NEEDS-INFO templates) |
 | [`runtime-invocation.md`](../../projects/_template/runtime-invocation.md) | `issue-reproducer` (how to invoke the project's runtime on extracted code) |
 | [`reassess-pool-defaults.md`](../../projects/_template/reassess-pool-defaults.md) | `issue-reassess` (pool definitions extending the default queries in `issue-tracker-config.md`) |
 | [`reproducer-conventions.md`](../../projects/_template/reproducer-conventions.md) | `issue-reproducer` (evidence-package directory layout) |
-| [`stale-sweep-config.md`](../../projects/_template/stale-sweep-config.md) | `issue-stale-sweep` (warn / close / hard-close thresholds; omit to use framework defaults of 90 / 180 / 365 days) |
+| [`stale-sweep-config.md`](../../projects/_template/stale-sweep-config.md) | `issue-stale-sweep`, `issue-backlog-stats` (warn / close / hard-close thresholds; omit to use framework defaults of 90 / 180 / 365 days) |
 
 ## Status
 

@@ -19,7 +19,7 @@
 
 # github-body-field
 
-**Capability:** capability:setup
+**Capability:** contract:tracker
 
 Read or rewrite a single `### Field` section of a GitHub issue
 body **without bringing the body into agent context**.

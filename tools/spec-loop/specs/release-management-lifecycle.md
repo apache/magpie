@@ -119,6 +119,11 @@ code lands.
   state-changing lane, requires evidence from Release Managers and binding
   voters that the process is healthier (fewer stalled RCs, shorter
   time-to-`[ANNOUNCE]`, fewer reverted promotions).
+- **Audit records are structured.** `release-audit-report` output should
+  follow a schema/template with required fields for release version, RC
+  artefacts, vote thread, tally outcome, promotion revision, announcement
+  URL, archive state, and follow-up notes. Missing required fields are a
+  report finding, not silently omitted prose.
 
 ## Out of scope
 
@@ -139,6 +144,9 @@ code lands.
 3. No skill in the family signs, imports, promotes, sends, or merges on
    autopilot; the key-holding and publishing steps emit paste-ready
    recipes only.
+4. `release-audit-report` validates the audit record against the
+   required-field schema and flags incomplete lifecycle evidence before
+   proposing an audit-log PR.
 
 ## Validation
 
@@ -171,3 +179,7 @@ uv run --project tools/skill-evals skill-eval tools/skill-evals/evals/release-an
   cut a full release through the family yet, so the RM/binding-voter
   evidence window that would justify default-on or a state-changing lane
   has no data behind it.
+- **Release audit record schema is prose-only.** The audit-report skill
+  exists, but there is no structured schema/template that downstream
+  review can validate. The plan tracks a schema and eval fixtures for
+  incomplete records.

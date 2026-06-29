@@ -9,6 +9,9 @@
     - [Skills target the abstraction, never a vendor's client](#skills-target-the-abstraction-never-a-vendors-client)
     - [Tools are the only place vendor-specific code lives](#tools-are-the-only-place-vendor-specific-code-lives)
     - [Capabilities are the contract between them](#capabilities-are-the-contract-between-them)
+  - [Tool adapters](#tool-adapters)
+  - [Organizations](#organizations)
+  - [Authoring your own adapter](#authoring-your-own-adapter)
   - [How each axis is delivered](#how-each-axis-is-delivered)
     - [1. LLM backend](#1-llm-backend)
     - [2. Agentic runtime](#2-agentic-runtime)
@@ -151,7 +154,7 @@ with pluggable backends already include:
 |---|---|
 | [`tools/cve-tool`](../tools/cve-tool/) | CNA backends — Vulnogram, MITRE form, CVE.org direct, GHSA |
 | [`tools/mail-archive`](../tools/mail-archive/) | PonyMail, Hyperkitty, Discourse, Google Groups, GitHub Discussions |
-| [`tools/mail-source`](../tools/mail-source/) | mbox, IMAP, Mailman 3 |
+| [`tools/mail-source`](../tools/mail-source/) | mbox, IMAP, Gmail API ([`tools/gmail`](../tools/gmail/)), Mailman 3 |
 | [`tools/forwarder-relay`](../tools/forwarder-relay/) | ASF Security relay, huntr.com, HackerOne triagers |
 | [`tools/scan-format`](../tools/scan-format/) | security-scanner report formats (ASVS reference) |
 | [`tools/vcs`](../tools/vcs/) | Git (complete), Mercurial, Subversion, … (extension points) |
@@ -183,6 +186,85 @@ Because the skill ↔ tool coupling is the capability and nothing else,
 swapping a backend is a config change, never a code change to the
 workflow. An adopter picks, under *Tools enabled*, which tool fulfils a
 capability; the same skill code runs on top.
+
+## Tool adapters
+
+The contract-plus-backend split above has a name. A **tool adapter** is
+the unit that fulfils a capability for **one concrete backend**. A
+capability *contract* — `tools/<contract>/`, a pure interface spec —
+defines the verbs a workflow needs; a **tool adapter** implements that
+contract for one vendor:
+
+| Capability contract | Reference adapter(s) | Other backends (extension points) |
+|---|---|---|
+| [`tools/cve-tool`](../tools/cve-tool/) | [`tools/cve-tool-vulnogram`](../tools/cve-tool-vulnogram/) (ASF) | MITRE form, CVE.org direct, GHSA |
+| [`tools/mail-archive`](../tools/mail-archive/) | [`tools/ponymail`](../tools/ponymail/) (ASF) | Hyperkitty, Discourse, Google Groups, GitHub Discussions |
+| [`tools/mail-source`](../tools/mail-source/) | mbox, IMAP, Gmail API ([`tools/gmail`](../tools/gmail/)) | Mailman 3 |
+| [`tools/forwarder-relay`](../tools/forwarder-relay/) | ASF-security ([`tools/gmail/asf-relay.md`](../tools/gmail/asf-relay.md)) | huntr.com, HackerOne |
+| [`tools/scan-format`](../tools/scan-format/) | ASVS | other scanner formats |
+| [`tools/vcs`](../tools/vcs/) | Git | Mercurial, Subversion, … |
+
+A project selects an adapter per capability in its config
+(`cve_authority.tool: vulnogram`, `archive_system.kind: ponymail`,
+`forwarders.enabled: [asf-security]`); **skill bodies never branch on the
+choice.** Tool adapters are exactly where vendor specificity is allowed
+to live — and the reason adding a vendor is "write one adapter," not a
+fork of the workflows.
+
+## Organizations
+
+Most adapter selections are identical for every project under one
+governing organization: every ASF project allocates CVEs through the same
+Vulnogram, reads the same `lists.apache.org` archive, and gates on PMC
+membership. An **organization**
+([`organizations/<org>/`](../organizations/)) groups those shared
+defaults — the **governance vocabulary** (what the governing body is
+called, how contributors are admitted, the lifecycle stages) plus the
+**capability→adapter bundle and infrastructure values** — so they live
+once instead of in every project.
+
+A project names its organization (`organization: ASF`) and inherits the
+rest; resolution is `project.md → organizations/<org>/ → framework
+default`, first hit wins. The reference organization is
+[`organizations/ASF/`](../organizations/ASF/);
+[`organizations/independent/`](../organizations/independent/) is the
+no-formal-organization baseline. This is what lets the *same skill* run
+unchanged for an ASF project and a non-ASF one — the **organization**,
+not the skill, carries the difference. See
+[`organizations/README.md`](../organizations/README.md).
+
+## Authoring your own adapter
+
+Neutrality is only real if adopters can extend it. When Magpie ships no
+adapter for your backend — a forge, a CNA, a chat system, or a whole
+organization profile — you author one, and you have two supported paths:
+
+- **Contribute it to Magpie.** Scaffold the adapter against the
+  capability contract (or copy
+  [`organizations/_template/`](../organizations/_template/) for an
+  organization) and open a PR. Accepted adapters ship under
+  Apache-2.0 like the rest of the framework
+  ([`PRINCIPLES.md` §17](../PRINCIPLES.md#17-contributions-land-under-apache-license-20)),
+  so every other adopter on that backend reuses your work. The
+  [`write-skill`](../skills/write-skill/SKILL.md) flow and
+  [`CONTRIBUTING.md`](../CONTRIBUTING.md) walk you through the conventions
+  (a `**Capability:**` line, a `## Prerequisites` section, an eval); the
+  step-by-step how-to is [`docs/adapters/authoring.md`](adapters/authoring.md).
+- **Link to an adapter defined elsewhere.** You do not have to upstream
+  it. Keep the adapter in your own repository and point your project or
+  organization config at it. The framework curates a
+  [discovery index](adapters/registry.md) of in-tree and
+  community-maintained adapters — but, per
+  [`PRINCIPLES.md` §13](../PRINCIPLES.md#13-snapshot-plus-override-never-vendored-copies),
+  an index is **for discovery, never for installation**: nothing is
+  auto-fetched, and you wire an external adapter in deliberately, exactly
+  as you would a built-in one.
+
+Either way the skills stay agnostic: they target the capability, and your
+adapter — wherever it lives — supplies the backend. The same three homes
+(in-tree, your adopter repo, an external repo) apply to skills and whole
+organizations too — see [`docs/extending.md`](extending.md) for the full
+extension model (by project, organization, or individual).
 
 ## How each axis is delivered
 

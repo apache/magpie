@@ -64,6 +64,18 @@ trustworthy as it grows.
   heuristic/text tools with no model calls — reproducible in CI.
 - **Hard vs soft rules.** The validator fails on missing frontmatter or
   broken links; advisories are warnings unless `--strict`.
+- **Schema-backed metadata.** Skill frontmatter, tool README capability
+  declarations, and family/index docs are treated as machine-checkable
+  contracts. New checks should prefer clear enum/list validation over
+  prose inference when the repository already declares the vocabulary.
+- **Generated-index consistency.** Human-facing catalogue pages such as
+  `docs/modes.md` may stay hand-written, but validator checks should
+  compare their skill lists and counts against live `skills/*/SKILL.md`
+  frontmatter so documentation drift is visible before review.
+- **Pilot evidence is structured.** Experimental-family pilot reports
+  should capture the same minimal fields every time: skill/family,
+  target repo/profile, blocked preflights, false positives, confirmation
+  points, privacy/adapter notes, and proposed spec changes.
 
 ## Out of scope
 
@@ -76,6 +88,15 @@ trustworthy as it grows.
 1. `skill-and-tool-validate` enforces required frontmatter + link integrity.
 2. `list-skills` generates its index from live frontmatter.
 3. Each meta tool ships with its own tests.
+4. Frontmatter values for `mode`, `status`, `capability`,
+   `organization`, and `source` are validated against documented
+   vocabularies; unknown organizations fail unless the organization
+   exists under `organizations/`.
+5. Capabilities declared in skill frontmatter and tool READMEs are
+   present in `docs/labels-and-capabilities.md`; taxonomy entries with no
+   implementation are explicitly marked reserved or future.
+6. `docs/modes.md` skill lists and shipped counts are checked against
+   live skill frontmatter.
 
 ## Validation
 
@@ -86,10 +107,23 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
 
 ## Known gaps
 
-- **Eval coverage is complete.** All 44 shipped skills have a matching
-  suite in `tools/skill-evals/evals/`; the soft eval-coverage check in
-  `skill-and-tool-validator` (check #8) warns when a newly added skill
-  has no suite, keeping coverage complete going forward.
-- Other gaps appear as new quality checks worth adding — recorded by the
-  plan pass. The spec validator (analogous to the skill validator) and
-  the ASF-coupling advisory lint are two recent additions to this surface.
+- **Eval coverage is complete.** Every shipped skill has a matching suite
+  in `tools/skill-evals/evals/`; the soft eval-coverage check in
+  `skill-and-tool-validator` warns when a newly added skill has no suite,
+  keeping coverage complete going forward.
+- **Frontmatter validation is still shallow.** Current validation covers
+  required fields, but the next pass should make `mode`, `status`,
+  `capability`, `organization`, and `source` combinations explicit and
+  test-backed.
+- **Capability taxonomy drift is not yet checked.** The validator should
+  catch misspelled or undocumented capability values, and should surface
+  taxonomy rows that no skill/tool implements unless they are marked
+  reserved.
+- **`docs/modes.md` is manually synced.** The plan tracks a generated
+  consistency check so mode tables and shipped counts cannot silently
+  drift from skill frontmatter.
+- **Tool README prerequisites vary.** A prerequisites consistency pass
+  should normalize older tool READMEs before tightening the validator.
+- **Pilot evidence has no common shape.** Experimental-family specs all
+  need adopter evidence, but there is no standard pilot-report template
+  or helper yet.

@@ -18,7 +18,7 @@ when_to_use: |
   state", "which families are installed", "add the github target".
 capability:
   - capability:stats
-  - capability:setup
+  - capability:platform
 license: Apache-2.0
 ---
 

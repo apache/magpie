@@ -17,7 +17,7 @@
 
 # agent-guard
 
-**Capability:** capability:setup
+**Capability:** substrate:action-guard
 
 A deterministic Claude Code [`PreToolUse`](https://code.claude.com/docs/en/hooks)
 guard dispatcher. It inspects every `Bash` command **before it runs** and

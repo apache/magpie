@@ -686,10 +686,11 @@ setup; the skills skip any block that is missing or marked `TODO`.
 
 ## `role_flags`
 
-- `pmc_member: TODO` — set to `true` if you are a PMC member of the
-  adopting project. Used by `security-cve-allocate` to decide whether
-  you can submit the CVE allocation form directly or need to relay
-  the request to a PMC member.
+- `governance_member: TODO` — set to `true` if you are a member of the
+  adopting project's governing body (a PMC member at the ASF; whatever
+  the project's `governance.cve_allocation_gate` names elsewhere). Used
+  by `security-cve-allocate` to decide whether you can submit the CVE
+  allocation form directly or need to relay the request to a member.
 
 ## `environment`
 
@@ -781,11 +782,11 @@ When the agent harness offers a structured-question tool, ask the
 remaining unknowns in **one batch** rather than serially. The
 canonical batch is:
 
-1. **`role_flags.pmc_member`** — *single-select, default `No`*.
-   "Are you a PMC member of `<adopter>`?" Used by
-   `security-cve-allocate` to decide whether the user can submit
-   the CVE allocation form directly or needs to relay through a
-   PMC member.
+1. **`role_flags.governance_member`** — *single-select, default `No`*.
+   "Are you a member of `<adopter>`'s governing body (e.g. a PMC
+   member at the ASF)?" Used by `security-cve-allocate` to decide
+   whether the user can submit the CVE allocation form directly or
+   needs to relay through a member.
 2. **Auto-detected env paths confirmation** — *single-select,
    default "Use as detected"*. Only ask this if both
    `upstream_clone` and `upstream_fork_remote` were auto-detected

@@ -37,10 +37,17 @@ See [`README.md`](README.md) for the fixture's purpose.
 
 | Key | Value |
 |---|---|
+| `organization` | `independent` ([`organizations/independent/`](../../organizations/independent/)) — the no-formal-governing-body baseline. |
 | `project_name` | Velox Stream |
 | `vendor` | Velox Community |
 | `short_name` | velox-stream |
 | `product_family_url` | https://velox-stream.example.io/ |
+
+This fixture **spells out every workflow knob explicitly** below, even
+the ones it would otherwise inherit from `organizations/independent/`,
+so the worked example is self-contained and the values are visible at a
+glance. A real adopter would omit the inherited keys and declare only
+its per-project values (see [`projects/_template/project.md`](../_template/project.md)).
 
 ## Repositories
 

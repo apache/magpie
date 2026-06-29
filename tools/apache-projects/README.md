@@ -12,7 +12,9 @@
 
 # `tools/apache-projects/`
 
-**Capability:** capability:stats + capability:intake
+**Capability:** contract:project-metadata
+
+**Organization:** ASF
 
 ASF project-metadata substrate. Read-only, unauthenticated client
 for the official `apache/comdev` `apache-projects-mcp` server, which

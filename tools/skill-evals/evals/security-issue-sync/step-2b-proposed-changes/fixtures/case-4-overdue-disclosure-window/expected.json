@@ -1,0 +1,16 @@
+{
+  "items": [
+    {
+      "number": 1,
+      "category": "status_comment",
+      "action": "Append disclosure-overdue rollup entry noting tracker is 60 days old against a 45-day CVD window and recommending either notifying the reporter of an extended timeline or proceeding to advisory-only disclosure",
+      "reason": "overdue_for_disclosure is true — issue_age_days (60) exceeds window_days (45) and the announced label is absent."
+    }
+  ],
+  "labels_to_add": [],
+  "labels_to_remove": [],
+  "milestone_create_needed": false,
+  "assignee_proposed": null,
+  "has_bare_issue_numbers": false,
+  "overdue_for_disclosure_proposed": true
+}

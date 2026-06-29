@@ -27,9 +27,7 @@ license: Apache-2.0
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
      <project-config> → adopting project's `.apache-magpie/` directory
      <tracker>        → value of `tracker_repo:` in <project-config>/project.md
-                       (example: airflow-s/airflow-s for the Apache Airflow security team)
      <upstream>       → value of `upstream_repo:` in <project-config>/project.md
-                       (example: apache/airflow)
      Before running any bash command below, substitute these with the
      concrete values from the adopting project's <project-config>/project.md. -->
 
@@ -261,23 +259,24 @@ Each entry there declares a `path_prefix` regex; the skill matches
 `pr.files[].path` against these regexes and the matching label
 becomes the tracker's scope.
 
-In this example we use the airflow-s adopter's scope labels
-(`airflow`, `providers`, `chart`) — your project's scope labels
-come from `scope_detection.labels`:
+The mapping below uses placeholder scope labels
+(`<scope-a>` / `<scope-b>` / `<scope-c>`); your project's scope
+labels and their `path_prefix` regexes come from
+`scope_detection.labels`:
 
-| `path_prefix` match | Scope (airflow-s default) | Notes |
+| `path_prefix` match | Scope | Notes |
 |---|---|---|
-| `^providers/` (with `<name>` segment, e.g. `providers/amazon/`) | `providers` | Capture `<name>` — used for the `packageName` substitution in `scope_detection.labels.providers.packageName` and the *Affected versions* field. |
-| `^chart/` | `chart` | Helm-chart-only changes. |
-| `^(airflow-core/|airflow/(?!providers/)|airflow-ctl/)` (or whatever the project's `airflow`-equivalent label declares) | `airflow` | Core / shared. |
+| `^<scope-b>/` (with `<name>` segment, e.g. `<scope-b>/<name>/`) | `<scope-b>` | Capture `<name>` — used for the `packageName` substitution in `scope_detection.labels.<scope-b>.packageName` and the *Affected versions* field. |
+| `^<scope-c>/` | `<scope-c>` | Single-component changes. |
+| `^<scope-a>/` (or whatever the project's `<scope-a>`-equivalent label declares) | `<scope-a>` | Core / shared. |
 
 When `scope_detection.enabled` is `false`, every PR maps to the
 single product declared in the `product` block of `project.md` —
 skip the matching step and apply the default scope label (if any).
 
 **Mixed-scope guard.** If `pr.files[]` matches more than one
-scope's `path_prefix` (e.g. one file under `^providers/` and one
-under `^airflow-core/`), **stop** and surface a blocker:
+scope's `path_prefix` (e.g. one file under `^<scope-b>/` and one
+under `^<scope-a>/`), **stop** and surface a blocker:
 
 > PR <N> changes files across more than one scope (`<scope-A>`,
 > `<scope-B>`). One tracker maps to one CVE container. Either
@@ -291,13 +290,12 @@ The same convention exists in
 splits the report into per-scope trackers before allocation."*
 
 **Multiple sub-packages within one scope.** When a scope's
-`packageName` template contains a `<…>` substitution (the
-airflow-s `providers` label uses
-`apache-airflow-providers-<provider>`), a PR that touches more
-than one sub-package within that scope (e.g. `providers/amazon/`
-**and** `providers/google/`) is still a single tracker (scope is
-one), but the *Affected versions* body field carries **one line
-per affected sub-package** — propose both lines in Step 5.
+`packageName` template contains a `<…>` substitution, a PR that
+touches more than one sub-package within that scope (e.g. two
+different `<scope-b>/<name>/` sub-packages) is still a single
+tracker (scope is one), but the *Affected versions* body field
+carries **one line per affected sub-package** — propose both
+lines in Step 5.
 
 **Test-only changes** (`*/tests/**`) do **not** count toward
 scope detection — they ride wherever the production code rides.
@@ -313,21 +311,19 @@ ride a separate release-train wave" mapping live in
 [`<project-config>/milestones.md`](../../<project-config>/milestones.md)
 and [`<project-config>/release-trains.md`](../../<project-config>/release-trains.md).
 
-On the airflow-s adopter, the cascade is:
+The typical cascade is:
 
-- **`airflow` / `chart` scope** — propose the PR's own
-  milestone (e.g. `Airflow 3.2.2`). If the PR has no milestone,
-  ask the user to pick the next core release; do not invent
-  one.
-- **`providers` scope** — propose the next `Providers
-  YYYY-MM-DD` wave from
+- **Core / single-release scopes** — propose the PR's own
+  milestone. If the PR has no milestone, ask the user to pick
+  the next core release; do not invent one.
+- **Release-train scopes** — propose the next dated wave from
   [`release-trains.md`](../../<project-config>/release-trains.md).
-  The PR's own milestone (if any) is the **wrong** signal for
-  providers — the providers wave ships on a separate cadence.
+  The PR's own milestone (if any) is the **wrong** signal for a
+  release-train scope — that wave ships on a separate cadence.
   If the PR is already merged and the next wave's date is
   unclear, surface the question and let the user pick.
 
-Other projects' scope-to-milestone mapping comes from their
+Each project's scope-to-milestone mapping comes from its
 `milestones.md`; the skill applies the same "consult per-scope
 mapping; fall back to user pick on ambiguity" pattern.
 
@@ -390,9 +386,8 @@ Start from `pr.title`. Strip:
 - `[skip ci]`, `[ci-skip]`, `[skip-ci]` markers.
 - Trailing `(#NNNN)` and `[#NNNN]`.
 
-Do **not** add a `<vendor>: <product>:` prefix (e.g. the
-airflow-s adopter would otherwise prepend `<vendor>: <product>:` —
-derived from `project.md`'s `vendor` / `product.name` fields) —
+Do **not** add a `<vendor>: <product>:` prefix (derived from
+`project.md`'s `vendor` / `product.name` fields) —
 that prefix lives in the CVE title, not the tracker title (the
 [`security-cve-allocate`](../security-cve-allocate/SKILL.md)
 skill normalises for the CVE record). Tracker titles in
@@ -413,7 +408,7 @@ has nine fields. Fill them as follows:
 |---|---|
 | **The issue description** | Two paragraphs: (1) a one-line note `> **Imported from public PR <upstream>#<N>** — there is no inbound \`security@\` report; the PR description below is the public statement of the vulnerability.` (2) the PR body verbatim, fenced if it is heavily templated. |
 | **Short public summary for publish** | `_No response_` (the team writes this when drafting the advisory; not derivable from the PR). |
-| **Affected versions** | Per the scope's *Affected versions* convention from [`scope-labels.md`](../../<project-config>/scope-labels.md). The `packageName` shape comes from `scope_detection.labels.<scope>.packageName` in [`<project-config>/project.md`](../../<project-config>/project.md#scope-detection). On the airflow-s adopter: for `providers`, one line per affected sub-package, `<package-name> < NEXT VERSION`; for `airflow` / `chart`, `< X.Y.Z` from the milestone. |
+| **Affected versions** | Per the scope's *Affected versions* convention from [`scope-labels.md`](../../<project-config>/scope-labels.md). The `packageName` shape comes from `scope_detection.labels.<scope>.packageName` in [`<project-config>/project.md`](../../<project-config>/project.md#scope-detection). |
 | **Security mailing list thread** | Sentinel: `N/A — opened from public PR <upstream>#<N>; no security@ thread`. The field is `required: true` in the form — the skill creates the issue via `gh api` (Step 7), which bypasses form-required-field enforcement, but the sentinel is still set so future `security-issue-sync` runs do not flag the field as missing. |
 | **Public advisory URL** | `_No response_`. |
 | **Reporter credited as** | `_No response_`. **The PR author is *not* credited as the CVE reporter for this kind of import.** A public PR is not a responsible disclosure — the contributor went straight to the public fix without giving the security team a chance to coordinate the announcement, so the security team neither owes a finder credit nor wants to incentivise the practice. The user can populate the field manually if there is a project-specific reason to credit a different individual (e.g. an internal reviewer who privately flagged the issue on the PR before it landed). See *[Reporter credit policy for public-PR imports](#reporter-credit-policy-for-public-pr-imports)* below. |
@@ -474,21 +469,19 @@ Apply at creation. Concrete label names come from `tracker.labels`
 in [`<project-config>/project.md`](../../<project-config>/project.md#tracker)
 — the skill speaks in roles, the project binds role → literal:
 
-- **Scope label**: one of `scope_detection.labels` (airflow-s
-  values: `airflow`, `providers`, `chart`).
+- **Scope label**: one of `scope_detection.labels`.
 - **PR-state label**: `tracker.labels.pr_open` if
   `pr.state == OPEN`, `tracker.labels.pr_merged` if
-  `pr.state == MERGED` (airflow-s values: `pr created` /
-  `pr merged`).
+  `pr.state == MERGED`.
 - **`security issue`** — required for the `<tracker>` *Auto-add
   to project* workflow filter (`is:issue label:"security
   issue"`); without it the issue will not appear on the board.
-  This is the airflow-s security-marker label; non-ASF adopters
-  whose marker label differs use whichever literal their auto-add
-  filter requires (declared in `tracker.labels.security_marker`).
+  Adopters whose marker label differs use whichever literal their
+  auto-add filter requires (declared in
+  `tracker.labels.security_marker`).
 
-Do **not** apply the `tracker.labels.needs_triage` label (airflow-s
-value: `needs triage`) — this skill's deliberate-import contract
+Do **not** apply the `tracker.labels.needs_triage` label — this
+skill's deliberate-import contract
 is that the validity assessment has already happened.
 
 ### 5d — Project board
@@ -571,8 +564,8 @@ Do **not** auto-default to import the way `security-issue-import`
 does. This skill is invoked deliberately on a single PR;
 spending one round-trip on explicit confirmation is the right
 trade. The proposal-to-confirmation pause also lets the user
-catch a bad scope detection (e.g. a `task-sdk` change
-mis-classified as `airflow`) before any tracker write.
+catch a bad scope detection (e.g. a change mis-classified into
+the wrong scope) before any tracker write.
 
 ---
 
@@ -671,7 +664,7 @@ gh issue edit <new-issue-number> \
   --add-label 'security issue'
 ```
 
-`<scope>` is one of `airflow`, `providers`, `chart`.
+`<scope>` is one of `<scope-a>`, `<scope-b>`, `<scope-c>`.
 `<pr-state-label>` is `pr created` or `pr merged` per Step 5c.
 
 ### 7c — Set milestone
@@ -764,8 +757,8 @@ Then a one-line hand-off:
 > [`security-cve-allocate`](../security-cve-allocate/SKILL.md) on `<tracker>#NNN`.
 
 Do **not** auto-invoke `security-cve-allocate` — CVE allocation is
-PMC-gated (a non-PMC triager must relay the allocation request
-to a PMC member), and the user may want to batch the allocation
+<governance-body>-gated (a non-member triager must relay the allocation request
+to a <governance-body> member), and the user may want to batch the allocation
 with other trackers.
 
 ---
@@ -809,13 +802,13 @@ with other trackers.
 | `gh api repos/<tracker>/issues` returns 422 | Missing or invalid title / body field shape | Re-check the body against the issue template's nine fields; the `### <field>` headings must match exactly (case-sensitive). |
 | `addProjectV2ItemById` returns `not found` for the project | Project-board node ID changed | Re-run the introspection query in [`project-board.md`](../../tools/github/project-board.md) and update [`project.md`](../../<project-config>/project.md). |
 | Multiple existing trackers match the duplicate-guard search | Earlier closed-as-duplicate trackers reference the PR number in passing | Surface all hits to the user; let them confirm `force` to proceed anyway. |
-| Mixed-scope PR (e.g. `providers/` + `airflow-core/`) | The fix lives in more than one product | Stop; surface the per-scope split decision to the user before re-invoking. |
+| Mixed-scope PR (e.g. `<scope-b>/` + `<scope-a>/`) | The fix lives in more than one product | Stop; surface the per-scope split decision to the user before re-invoking. |
 
 ---
 
 ## Examples
 
-### Example 1 — `providers` scope, already merged
+### Example 1 — `<scope-b>` scope, already merged
 
 ```text
 import from pr 65703
@@ -824,26 +817,27 @@ import from pr 65703
 PR `<upstream>#65703` (*Prevent unauthorized access to
 team-scoped secrets in SM and SSM*), state `MERGED`, author
 `justinpakzad`. Files: 6 paths under
-`providers/amazon/.../secrets/`. Scope detection: `providers`
-(amazon). Milestone: next `Providers YYYY-MM-DD` wave (the PR
-itself has no milestone). Labels: `providers`, `pr merged`,
+`<scope-b>/<name>/.../secrets/`. Scope detection: `<scope-b>`
+(sub-package `<name>`). Milestone: next release-train wave (the PR
+itself has no milestone). Labels: `<scope-b>`, `pr merged`,
 `security issue`. Board column: `Assessed`. *Affected versions*:
-`apache-airflow-providers-amazon < NEXT VERSION`. *Remediation
+`<product>-<component> < NEXT VERSION`. *Remediation
 developer*: `Justin Pakzad` (PR commit attributes the change
 publicly). *Reporter credited as*: blank — public-PR imports do
 not credit the PR author as the CVE reporter (no responsible
 disclosure; see *[Reporter credit policy](#reporter-credit-policy-for-public-pr-imports)*).
 
-### Example 2 — `airflow` scope, in-flight
+### Example 2 — `<scope-a>` scope, in-flight
 
 ```text
 import from pr https://github.com/<upstream>/pull/65999
 ```
 
-PR state `OPEN`, milestone `Airflow 3.2.3`. Files all under
-`airflow-core/src/airflow/api_fastapi/`. Scope: `airflow`.
-Milestone: `Airflow 3.2.3`. Labels: `airflow`, `pr created`,
-`security issue`. *Affected versions*: `< 3.2.3`. The skill
+PR state `OPEN`, milestone `X.Y.Z` (the project's core release
+train). Files all under
+`<scope-a>/src/.../api_fastapi/`. Scope: `<scope-a>`.
+Milestone: `X.Y.Z`. Labels: `<scope-a>`, `pr created`,
+`security issue`. *Affected versions*: `< X.Y.Z`. The skill
 proposes everything; on user confirmation, the tracker lands
 `Assessed`, ready for `security-cve-allocate`.
 
@@ -853,11 +847,11 @@ proposes everything; on user confirmation, the tracker lands
 import from pr 66042
 ```
 
-PR touches `airflow-core/src/.../serialization.py` **and**
-`providers/standard/src/.../python_operator.py`. The skill
+PR touches `<scope-a>/src/.../serialization.py` **and**
+`<scope-b>/<name>/src/.../python_operator.py`. The skill
 **stops** and surfaces:
 
-> PR 66042 changes files across `airflow` and `providers`
+> PR 66042 changes files across `<scope-a>` and `<scope-b>`
 > scopes. Split the report into two trackers (one per scope)
 > manually, or re-confirm which scope the CVE should be
 > allocated against.

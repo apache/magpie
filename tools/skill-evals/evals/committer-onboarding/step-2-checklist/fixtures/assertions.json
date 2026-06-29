@@ -1,0 +1,22 @@
+{
+  "has_whimsy_step": {
+    "field": "has_whimsy_step",
+    "type": "field_true"
+  },
+  "has_github_step": {
+    "field": "has_github_step",
+    "type": "field_true"
+  },
+  "has_github_team_invite_step": {
+    "field": "has_github_team_invite_step",
+    "type": "field_true"
+  },
+  "has_codeowners_pr_step": {
+    "field": "has_codeowners_pr_step",
+    "type": "field_true"
+  },
+  "has_roster_file_update_step": {
+    "field": "has_roster_file_update_step",
+    "type": "field_true"
+  }
+}

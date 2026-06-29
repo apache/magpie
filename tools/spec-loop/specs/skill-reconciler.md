@@ -3,7 +3,7 @@
 
 ---
 title: Cross-project skill reconciler
-status: proposed
+status: experimental
 kind: feature
 mode: infra
 source: >
@@ -122,15 +122,16 @@ uv run --project tools/skill-evals skill-eval tools/skill-evals/evals/skill-reco
 
 ## Known gaps
 
-- **Nothing is implemented yet.** This spec is `proposed`; the plan pass
-  turns it into a build item (the skill, optionally its structural-diff
-  tool, and an eval suite).
-- **The safety-baseline definition is not yet machine-readable.** The
-  reconciler needs an authoritative list of baseline clauses to check
-  against; today that posture lives in prose across PRINCIPLES.md and the
-  security docs. A buildable precursor is to extract that baseline into a
-  single referenced checklist the reconciler (and humans) can cite.
-- **`source`-tag-driven pairing is unproven.** MISSION frames copy
-  selection as a registry query over `source` tags, but no registry index
-  pairs copies automatically yet; the first implementation can take two
-  explicit paths and defer auto-pairing.
+- **Safety-baseline definition is prose, not machine-readable.** The
+  shipped reconciler checks for injection-guard, collaborator-trust, and
+  confidentiality-posture clauses by recognising their prose patterns; a
+  future improvement is to extract those three clauses into a single
+  authoritative checklist file the skill and a deterministic linter can
+  both reference.
+- **`source`-tag-driven auto-pairing not implemented.** The first
+  implementation takes two explicit paths; MISSION's vision of pairing
+  copies via a registry query over `source` tags is deferred.
+- **No deterministic structural-diff helper.** The optional `tools/`
+  helper mentioned in the spec (for normalised frontmatter / section /
+  placeholder diffs) was not built in the first pass; the skill reasons
+  over the prose report rather than a structured diff object.

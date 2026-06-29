@@ -28,9 +28,7 @@ license: Apache-2.0
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
      <project-config> → adopting project's `.apache-magpie/` directory
      <tracker>        → value of `tracker_repo:` in <project-config>/project.md
-                       (example: airflow-s/airflow-s for the Apache Airflow security team)
      <upstream>       → value of `upstream_repo:` in <project-config>/project.md
-                       (example: apache/airflow)
      <cve-tool>       → adapter directory under `tools/` named by
                        `cve_authority.tool:` in <project-config>/project.md
                        (example: cve-tool-vulnogram when `tool: vulnogram`,
@@ -362,7 +360,7 @@ the close. Read the *Security mailing list thread* body field:
 
 | Body field shape | Import path | Email-draft step |
 |---|---|---|
-| Real `lists.apache.org` URL or any URL | `security@`-imported (public-archive case) | Draft on the original Gmail thread; locate via the rollup-comment `threadId` reference. |
+| Real `<mail-archive-url>` URL or any URL | `security@`-imported (public-archive case) | Draft on the original Gmail thread; locate via the rollup-comment `threadId` reference. |
 | `No public archive URL — tracked privately on Gmail thread <threadId>` (sentinel from [`security-issue-import`](../security-issue-import/SKILL.md) Step 7) | `security@`-imported (Gmail-only case) | Draft on the named `<threadId>`. |
 | **Multiple lines** — primary reporter thread plus one or more forwarder/relay threads (huntr.com, GHSA, HackerOne, ASF-security relay) | `security@`-imported, with a relay second thread | Draft on the **primary reporter thread** per [`tools/gmail/threading.md` — Selecting the inbound thread when multiple are recorded](../../tools/gmail/threading.md#selecting-the-inbound-thread-when-multiple-are-recorded). The relay thread is for back-channel relay only; the invalid-close reply goes to the primary. |
 | `N/A — opened from public PR <upstream>#<N>; no security@ thread` (sentinel from [`security-issue-import-from-pr`](../security-issue-import-from-pr/SKILL.md)) | PR-imported | **Skip** the email-draft step. No reporter exists to notify. |
@@ -466,7 +464,7 @@ Surface every change to the user before any write.
 
 - **Add:** `invalid`.
 - **Remove:** `needs triage` (if set), the scope label
-  (`airflow` / `providers` / `chart`), and `pr created` /
+  (`<scope-a>` / `<scope-b>` / `<scope-c>`), and `pr created` /
   `pr merged` (if set — the public PR stays open as the
   contributor's normal-process work, but the tracker no longer
   treats it as the security fix).
@@ -548,7 +546,7 @@ named explicitly** in the Step 5e rollup terminal entry:
 
 - **Internal-audit-finding imports.** The tracker was
   imported from a project-internal markdown audit
-  (`airflow-core-findings.md` or equivalent) with no inbound
+  (`<source-markdown>` or equivalent) with no inbound
   `security@` thread. No reporter to notify. The rollup
   terminal entry MUST state: *"No reporter notification owed
   — internal audit finding, no inbound `security@` thread."*
@@ -588,13 +586,7 @@ named explicitly** in the Step 5e rollup terminal entry:
   GHSA URL on its own line + a paste-ready block in the
   reporter's voice with the invalid-disposition rationale +
   canonical CVE-ID (when `duplicate`) for the forwarder to
-  post on the GHSA. Worked example: for an `airflow-s`
-  adopter with the `asf-security` forwarder enabled, the
-  adapter resolves the contact to `engelen@apache.org` (or
-  the named `@apache.org` forwarder who relayed the original
-  GHSA report) and the paste-ready block follows the
-  [`tools/gmail/asf-relay.md`](../../tools/gmail/asf-relay.md)
-  shape. Record in the rollup terminal entry: *"GHSA-relay-only
+  post on the GHSA. Record in the rollup terminal entry: *"GHSA-relay-only
   reporter channel (GHSA-XXXX-XXXX-XXXX); operator lacks
   GHSA-write access on `<upstream>`. Forwarder-relay draft
   `<draftId>` queued to `<forwarder-contact>` requesting they
@@ -627,12 +619,7 @@ the **recipient** and the **body shape**.
      *Report assessed as invalid* milestone-body shape in the
      policy doc — short, references the external identifier
      (GHSA ID, HackerOne URL) rather than restating the
-     technical detail. Worked example: for an `airflow-s` adopter
-     with the `asf-security` forwarder enabled, the adapter
-     resolves the contact to the `@apache.org` forwarder address
-     from the inbound `From:` and the paste-ready reporter block
-     follows the [`tools/gmail/asf-relay.md`](../../tools/gmail/asf-relay.md)
-     shape.
+     technical detail.
    - `ccRecipients`: always includes `<security-list>`
      (`<security-list>` for the adopting project) —
      value comes from
@@ -660,11 +647,8 @@ the **recipient** and the **body shape**.
      body MUST name the canonical `CVE-YYYY-NNNNN` ID
      verbatim — e.g. *"This is the same root cause as
      `CVE-2026-XXXXX` which we already track and ship the fix
-     for in `apache-airflow` X.Y.Z."* This lets a forwarder's
-     dedup workflow group the two threads (worked example: the
-     ASF Security team's dedup workflow groups by canonical
-     CVE-ID, per Arnout Engelen's 2026-05-29 ASF-Security ask
-     in the Kyuubi SSRF context). For via-forwarder mode this
+     for in `<product>` X.Y.Z."* This lets a forwarder's
+     dedup workflow group the two threads. For via-forwarder mode this
      additionally goes inside the adapter's paste-ready
      reporter-voice block per the matching adapter's
      `reporter_addressing_block` convention — see
@@ -712,7 +696,7 @@ upsert recipe). Shape:
 
 **Reporter notification:** <one of — required line, never omit:>
 - **`security@`-imported, direct-reporter mode:** Gmail draft `<draftId>` created on thread `<threadId>` anchored at message `<messageId>` — awaiting user review.
-- **`security@`-imported, via-forwarder mode:** Forwarder-relay draft `<draftId>` to `<forwarder-contact>` on thread `<threadId>` per the matching adapter's `reporter_addressing_block` convention (clickable URL + paste-ready reporter-voice block) — awaiting user review. For an `airflow-s` adopter with the `asf-security` forwarder enabled, the contact resolves to an `@apache.org` forwarder and the block follows the [`tools/gmail/asf-relay.md`](https://github.com/apache/magpie/blob/main/tools/gmail/asf-relay.md) shape.
+- **`security@`-imported, via-forwarder mode:** Forwarder-relay draft `<draftId>` to `<forwarder-contact>` on thread `<threadId>` per the matching adapter's `reporter_addressing_block` convention (clickable URL + paste-ready reporter-voice block) — awaiting user review.
 - **`security@`-imported, `duplicate` disposition:** *(same as direct or via-forwarder above; the draft body MUST name the canonical CVE-ID per Step 5d).*
 - **No notification owed — internal audit finding:** Tracker imported from project-internal markdown audit (`<source-markdown>`), no inbound `security@` thread, no reporter to notify.
 - **No Gmail draft owed — GHSA-relay-only, operator has GHSA-write access:** GHSA-relay-only reporter channel (`GHSA-XXXX-XXXX-XXXX`); closure communicated as GHSA comment `<URL>` / advisory state set to `<withdrawn|informational>`. No Gmail reply needed.
@@ -982,13 +966,13 @@ invalidate 257
 ```
 
 Step 0 sees `cve allocated` label and *CVE tool link* populated
-with `https://cveprocess.apache.org/.../CVE-2026-XXXXX`. The
+with `<cve-tool-url>`. The
 skill stops:
 
 > Tracker `#257` has CVE `CVE-2026-XXXXX` allocated.
 > Closing as invalid here would orphan a public CVE record.
 > Reject the CVE in Vulnogram first
-> (https://cveprocess.apache.org/.../CVE-2026-XXXXX), then
+> (<cve-tool-url>), then
 > re-invoke `invalidate 257`.
 
 No labels touched, no comments posted, no archive performed.

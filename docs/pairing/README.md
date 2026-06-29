@@ -17,7 +17,7 @@
 
 # Agentic Pairing skill family
 
-> **Scope — `asf: false`.** Works on any project, ASF or not — no
+> **Scope.** Works on any project, ASF or not — no
 > Apache-Software-Foundation-specific assumptions baked in.
 
 Developer-side pre-flight review skills that run in the maintainer's or

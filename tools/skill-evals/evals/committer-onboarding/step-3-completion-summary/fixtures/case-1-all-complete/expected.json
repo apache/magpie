@@ -18,7 +18,8 @@
   ],
   "karma_granted": [
     "whimsy_roster",
-    "jira"
+    "jira",
+    "github_org"
   ],
   "pending_items": [],
   "onboarding_complete": true
