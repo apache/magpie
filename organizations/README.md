@@ -1,0 +1,79 @@
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+**Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
+
+- [Organization adapters](#organization-adapters)
+  - [Why this exists](#why-this-exists)
+  - [Resolution order](#resolution-order)
+  - [What ships here](#what-ships-here)
+  - [Authoring a new organization adapter](#authoring-a-new-organization-adapter)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
+# Organization adapters
+
+An **organization adapter** groups everything a governing
+organization — a foundation, a company, or an informal maintainer
+collective — makes *default* for the projects that belong to it:
+
+- its **governance vocabulary** (what the governing body is called, how
+  contributors are admitted, the project-lifecycle stages), and
+- its **default backend selections + infrastructure values** — which
+  tool [adapter](../docs/vendor-neutrality.md#adapters) fulfils each
+  capability (CVE authority, mail archive, project metadata, …) and the
+  concrete URLs / addresses those backends use.
+
+It is the layer between a single project's
+[`<project-config>/`](../projects/_template/) and the framework
+defaults. A project names its organization once
+(`organization: <org>` in `<project-config>/project.md`) and inherits
+the rest.
+
+## Why this exists
+
+Skills are vendor- and project-agnostic: they target *capabilities* and
+resolve concrete values from configuration (see
+[`docs/vendor-neutrality.md`](../docs/vendor-neutrality.md) and
+[`PRINCIPLES.md` §12](../PRINCIPLES.md#12-the-framework-is-project-agnostic-concrete-names-live-in-adopter-config)).
+Most of those concrete values are **the same for every project under one
+organization** — every ASF project allocates CVEs through the same
+Vulnogram instance, reads the same `lists.apache.org` archive, and gates
+on PMC membership. Without this layer each project would re-declare the
+identical "ASF defaults". The organization adapter holds them once.
+
+## Resolution order
+
+Every placeholder and dotted config key resolves in this order
+(first hit wins):
+
+```text
+<project-config>/project.md
+  →  organizations/<org>/organization.md     (org named by project.md → organization:)
+    →  framework default
+```
+
+A project overrides only what differs from its organization; an
+organization overrides only what differs from the framework baseline.
+The contract is stated once in
+[`AGENTS.md`](../AGENTS.md#configuration-resolution-order) — skills do
+not branch on the organization.
+
+## What ships here
+
+| Adapter | What it is |
+|---|---|
+| [`ASF/`](ASF/) | The **Apache Software Foundation** organization adapter — the reference org adapter; the default values that reproduce ASF project behaviour. |
+| [`independent/`](independent/) | The **no-formal-organization** baseline — DCO sign-off, GitHub-native security/releases, no mailing-list/forwarder/metadata backends. Used by [`projects/non-asf-example/`](../projects/non-asf-example/). |
+| [`_template/`](_template/) | Authoring skeleton for a **new** organization adapter. |
+
+## Authoring a new organization adapter
+
+Copy [`_template/`](_template/) to `organizations/<org>/`, fill in the
+governance vocabulary and the capability→adapter bundle, and point your
+project at it with `organization: <org>`. You can then either
+**contribute it back** to `apache/magpie` under Apache-2.0 (so other
+projects in your organization reuse it) or keep it local. See
+[`docs/vendor-neutrality.md` § Authoring your own adapter](../docs/vendor-neutrality.md#authoring-your-own-adapter).

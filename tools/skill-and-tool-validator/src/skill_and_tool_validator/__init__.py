@@ -210,6 +210,7 @@ ALLOWLIST_PATHS: tuple[str, ...] = (
     "docs/security/new-members-onboarding.md",
     "pyproject.toml",
     "projects/_template/",
+    "organizations/",
     "tools/dev/check-placeholders.sh",
     ".github/",
     ".asf.yaml",
@@ -243,6 +244,8 @@ FRAMEWORK_PLACEHOLDERS: tuple[str, ...] = (
     "<issue-tracker-project>",
     "<runtime>",
     "<default-branch>",
+    "<governance-body>",
+    "<project-stage>",
 )
 
 # YAML block-scalar headers — must not be stored as scalar content,
