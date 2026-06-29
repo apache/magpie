@@ -1847,6 +1847,13 @@ _ASF_COUPLING_ALLOW_MARKERS: tuple[str, ...] = (
     "ASF profile",
     "ASF adopter",
     "asf-default",
+    # Phrases where "ASF PMC" is explicitly qualified — the ASF org context
+    # is already named on the line, so the mention is intentional.
+    "ASF PMC",
+    # Lines discussing prompt-injection examples: PMC/ICLA appear as
+    # examples of attacker-crafted social-engineering text, not as
+    # actual skill process steps.
+    "prompt-injection",
 )
 
 
@@ -1861,9 +1868,20 @@ def validate_asf_coupling(path: Path, text: str) -> Iterable[Violation]:
     Reuses the existing ALLOWLIST_PATHS and INLINE_ALLOW_MARKERS machinery
     from validate_placeholders.  Additional _ASF_COUPLING_ALLOW_MARKERS
     cover lines that already name the generalisation mechanism.
+
+    Skills that declare ``organization: ASF`` in their frontmatter are
+    explicitly scoped to ASF and may legitimately use low-confidence
+    governance terms (PMC, ICLA, incubator) without generalisation.
+    Low-confidence hits are suppressed for those skills; high-confidence
+    patterns (svn commands, hardcoded apache.org lists, dist tree paths,
+    Vulnogram URL) still fire because they should be behind capability flags
+    even in ASF-only skills.
     """
     if is_path_allowlisted(path):
         return
+
+    fm = parse_frontmatter(text)
+    skip_low = fm is not None and fm.get("organization", "").strip() == "ASF"
 
     lines = text.splitlines()
     for line_no, line in enumerate(lines, start=1):
@@ -1875,6 +1893,10 @@ def validate_asf_coupling(path: Path, text: str) -> Iterable[Violation]:
         if any(marker in line for marker in _ASF_COUPLING_ALLOW_MARKERS):
             continue
         for pattern, confidence, remedy, note in _ASF_COUPLING_PATTERNS:
+            # Skip low-confidence patterns for organization: ASF skills — those
+            # terms (PMC, ICLA, incubator) are intentional ASF-default prose.
+            if skip_low and confidence == "low":
+                continue
             m = pattern.search(line)
             if m:
                 yield Violation(
