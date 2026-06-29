@@ -119,6 +119,7 @@ from mailing lists, slack etc.
 | I want to… | Read… |
 |---|---|
 | Understand the full vision | [MISSION.md](../MISSION.md) |
+| Understand how it stays vendor-neutral | [vendor-neutrality.md](vendor-neutrality.md) |
 | See what skills exist today | [modes.md](modes.md) |
 | Adopt in my project | [README → Adopting](../README.md#adopting-the-framework) |
 | Set up the secure agent sandbox | [setup/](setup/README.md) |

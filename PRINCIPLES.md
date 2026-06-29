@@ -108,7 +108,7 @@ Skill behavior is probabilistic, so correctness lives in distributions, not unit
 
 ## 9. Vendor neutrality is non-negotiable
 
-Every skill targets the abstraction layer, never a single vendor's client. Frontier APIs, local inference (Ollama, vLLM), community-hosted endpoints: all valid backends, provided they meet the skill's declared capability floor (context window, tool use, vision, sustained reasoning). A skill hard-coded to one vendor or model family is broken, not specialized. Capability floors must be justified and minimized so the floor itself does not become a vendor lock-in by proxy. Affordability is part of this: every release ships at least one configuration that runs end-to-end on a single developer machine, even if individual skills run at reduced quality there.
+Every skill targets the abstraction layer, never a single vendor's client. Frontier APIs, local inference (Ollama, vLLM), community-hosted endpoints: all valid backends, provided they meet the skill's declared capability floor (context window, tool use, vision, sustained reasoning). A skill hard-coded to one vendor or model family is broken, not specialized. Capability floors must be justified and minimized so the floor itself does not become a vendor lock-in by proxy. Affordability is part of this: every release ships at least one configuration that runs end-to-end on a single developer machine, even if individual skills run at reduced quality there. How this is achieved in practice — the skills / tools / capabilities architecture and the per-axis status — is documented in [`docs/vendor-neutrality.md`](docs/vendor-neutrality.md).
 
 ## 10. No default telemetry
 
