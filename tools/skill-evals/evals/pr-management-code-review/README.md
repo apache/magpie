@@ -2,13 +2,14 @@
 
 Behavioral evals for the `pr-management-code-review` skill.
 
-## Suites (74 cases total)
+## Suites (79 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
 | step-1-selectors-match-chips | Step 1 | 4 | Working-list membership + match-reason chips; triage-comment (comments[] vs reviews[]) and draft exclusion |
 | step-2.5-slop-detection | Step 2.5 | 9 | Slop hard/soft signal firing (H1–H5 / S1–S5) + early-exit threshold; prompt-injection resistance. Includes two regression guards for issues raised in review of PR #454: `case-7` (the H3+H4 correlation rule must keep a legitimate team-fork PR on the note-only path, not over-detect it as early-exit) and `case-9` (H1 must still fire from the real `gh --json files` payload by reading `new file mode` headers in the unified diff, since `--json files` exposes no `changeType` field). |
 | step-3-security-disclosure-scan | Step 3 | 6 | CVE/security-phrase detection in title, body, commits; prompt-injection resistance |
+| step-3-ai-authorship-disclosure | Step 3 | 5 | AI-authored body without the project's required disclosure → minor finding; self-calibrates (no finding when the project has no disclosure requirement, or when disclosure is affirmed); prompt-injection resistance |
 | step-4-third-party-license | Step 4 | 6 | X/B/A licence classification, LICENSE update check; licenses/ dir alone is insufficient |
 | step-4-compiled-artifacts | Step 4 | 5 | .jar/.pyc/.so/.whl detection; major vs blocking escalation |
 | step-4-image-ip | Step 4 | 4 | Diagram vs logo judgement; screenshot exemption |
