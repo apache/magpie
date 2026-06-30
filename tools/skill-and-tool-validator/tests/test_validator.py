@@ -44,10 +44,12 @@ from skill_and_tool_validator import (
     LOWERCASE_F_FIELD_CATEGORY,
     MAX_METADATA_CHARS,
     MODES_DOC_CATEGORY,
+    MULTI_CAPABILITY_CATEGORY,
     PRINCIPLE_CATEGORY,
     PRIVACY_CATEGORY,
     SECURITY_PATTERN_CATEGORY,
     SOFT_CATEGORIES,
+    STATUS_CATEGORY,
     TRIGGER_PRESERVATION_CATEGORY,
     _parse_modes_doc,
     _read_mode_table,
@@ -349,6 +351,100 @@ class TestValidateFrontmatter:
             if "capability '" in v.message and "not in" in v.message
         ]
         assert flagged_subjects == ["capability:invented"]
+
+
+# ---------------------------------------------------------------------------
+# Status field: must be from ALLOWED_SKILL_STATUSES when present (HARD)
+# ---------------------------------------------------------------------------
+
+
+class TestStatusValidation:
+    def test_valid_status_experimental(self, tmp_path: Path) -> None:
+        path = tmp_path / "SKILL.md"
+        text = (
+            "---\nname: foo\ndescription: bar\n"
+            "capability: capability:platform\nlicense: Apache-2.0\n"
+            "status: experimental\n---\n"
+        )
+        violations = list(validate_frontmatter(path, text))
+        assert not any(v.category == "skill_status" for v in violations)
+
+    def test_invalid_status_proposed(self, tmp_path: Path) -> None:
+        path = tmp_path / "SKILL.md"
+        text = (
+            "---\nname: foo\ndescription: bar\n"
+            "capability: capability:platform\nlicense: Apache-2.0\n"
+            "status: proposed\n---\n"
+        )
+        violations = list(validate_frontmatter(path, text))
+        assert any("skill_status" == v.category and "proposed" in v.message for v in violations)
+
+    def test_invalid_status_done(self, tmp_path: Path) -> None:
+        path = tmp_path / "SKILL.md"
+        text = (
+            "---\nname: foo\ndescription: bar\n"
+            "capability: capability:platform\nlicense: Apache-2.0\n"
+            "status: done\n---\n"
+        )
+        violations = list(validate_frontmatter(path, text))
+        assert any("skill_status" == v.category for v in violations)
+
+    def test_status_absent_is_ok(self, tmp_path: Path) -> None:
+        path = tmp_path / "SKILL.md"
+        text = "---\nname: foo\ndescription: bar\ncapability: capability:platform\nlicense: Apache-2.0\n---\n"
+        violations = list(validate_frontmatter(path, text))
+        assert not any(v.category == "skill_status" for v in violations)
+
+    def test_status_category_is_hard(self) -> None:
+        assert STATUS_CATEGORY in HARD_CATEGORIES
+        assert STATUS_CATEGORY not in SOFT_CATEGORIES
+
+
+# ---------------------------------------------------------------------------
+# Multi-capability form: space/comma-separated string → SOFT advisory
+# ---------------------------------------------------------------------------
+
+
+class TestMultiCapabilityForm:
+    def test_space_separated_triggers_advisory(self, tmp_path: Path) -> None:
+        path = tmp_path / "SKILL.md"
+        text = (
+            "---\nname: foo\ndescription: bar\n"
+            "capability: capability:triage capability:fix\n"
+            "license: Apache-2.0\n---\n"
+        )
+        violations = list(validate_frontmatter(path, text))
+        assert any(v.category == "multi_capability_form" for v in violations)
+
+    def test_comma_separated_triggers_advisory(self, tmp_path: Path) -> None:
+        path = tmp_path / "SKILL.md"
+        text = (
+            "---\nname: foo\ndescription: bar\n"
+            "capability: capability:fix, capability:resolve\n"
+            "license: Apache-2.0\n---\n"
+        )
+        violations = list(validate_frontmatter(path, text))
+        assert any(v.category == "multi_capability_form" for v in violations)
+
+    def test_yaml_list_form_clean(self, tmp_path: Path) -> None:
+        path = tmp_path / "SKILL.md"
+        text = (
+            "---\nname: foo\ndescription: bar\n"
+            "capability:\n  - capability:fix\n  - capability:resolve\n"
+            "license: Apache-2.0\n---\n"
+        )
+        violations = list(validate_frontmatter(path, text))
+        assert not any(v.category == "multi_capability_form" for v in violations)
+
+    def test_single_capability_string_clean(self, tmp_path: Path) -> None:
+        path = tmp_path / "SKILL.md"
+        text = "---\nname: foo\ndescription: bar\ncapability: capability:triage\nlicense: Apache-2.0\n---\n"
+        violations = list(validate_frontmatter(path, text))
+        assert not any(v.category == "multi_capability_form" for v in violations)
+
+    def test_multi_capability_category_is_soft(self) -> None:
+        assert MULTI_CAPABILITY_CATEGORY in SOFT_CATEGORIES
+        assert MULTI_CAPABILITY_CATEGORY not in HARD_CATEGORIES
 
 
 # ---------------------------------------------------------------------------

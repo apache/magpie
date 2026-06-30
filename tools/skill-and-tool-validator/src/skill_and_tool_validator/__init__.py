@@ -74,6 +74,20 @@ skills/:
     the actual per-section row counts, and every live skill with a
     ``mode:`` frontmatter must appear in the corresponding section.
     Advisory only — never fails the run unless ``--strict``.
+13. Status field validation (HARD) — when a skill declares a
+    ``status:`` frontmatter key, its value must be from the
+    documented lifecycle vocabulary (``ALLOWED_SKILL_STATUSES``).
+    An unknown status (e.g. ``proposed``, ``done``) is a HARD failure
+    because those values belong to the spec lifecycle, not skill
+    lifecycle.
+14. Multi-capability form advisory (SOFT) — when a ``capability:``
+    value looks like multiple tokens joined by a space or comma (e.g.
+    ``capability: capability:fix capability:resolve``), the skill is
+    using string form for what should be a YAML list.  Use the list
+    form (``capability:\\n  - capability:fix\\n  - capability:resolve``)
+    so each entry is validated individually.  Advisory only — the
+    vocabulary check (aspect 1) already rejects the joined string, but
+    this advisory gives a more actionable error message.
 
 SOFT categories surface as advisory warnings (stderr) without
 failing the run unless ``--strict`` is passed.
@@ -210,8 +224,14 @@ _CAPABILITY_TOKEN_RE = re.compile(r"`?((?:capability|contract|substrate):[a-z-]+
 _ITALIC_PARENS_RE = re.compile(r"\*\(.*?\)\*")
 
 REQUIRED_FRONTMATTER_KEYS = {"name", "description", "license", "capability"}
-OPTIONAL_FRONTMATTER_KEYS = {"when_to_use", "mode", "organization"}
+OPTIONAL_FRONTMATTER_KEYS = {"when_to_use", "mode", "organization", "status", "source"}
 ALLOWED_LICENSES = {"Apache-2.0"}
+
+# Documented skill lifecycle vocabulary.  Skills may declare a ``status:``
+# frontmatter key; its value must be one of these strings.  Spec lifecycle
+# values (``proposed``, ``done``) belong only in spec-loop spec files and
+# are rejected here so a spec status cannot accidentally appear on a skill.
+ALLOWED_SKILL_STATUSES: frozenset[str] = frozenset({"experimental"})
 
 # Canonical capability taxonomy — two orthogonal axes per RFC-AI-0005;
 # docs/labels-and-capabilities.md is authoritative.
@@ -374,6 +394,10 @@ TRIGGER_PRESERVATION_CATEGORY = "trigger_preservation"
 # Pattern 4 — injection-guard callout.  Missing callout = HARD; unfilled TODO = SOFT.
 INJECTION_GUARD_CATEGORY = "injection_guard"
 INJECTION_GUARD_TODO_CATEGORY = "injection_guard_todo"
+# Skill lifecycle status vocabulary check (HARD).
+STATUS_CATEGORY = "skill_status"
+# Space/comma-separated multi-capability form check (SOFT advisory).
+MULTI_CAPABILITY_CATEGORY = "multi_capability_form"
 
 GH_LIST_CATEGORY = "gh_list_no_limit"
 SECURITY_PATTERN_CATEGORY = "security_pattern"
@@ -410,6 +434,7 @@ SOFT_CATEGORIES: frozenset[str] = frozenset(
         ASF_COUPLING_CATEGORY,
         ADAPTER_AUTHORING_CATEGORY,
         MODES_DOC_CATEGORY,
+        MULTI_CAPABILITY_CATEGORY,
     }
 )
 HARD_CATEGORIES: frozenset[str] = frozenset(
@@ -423,6 +448,7 @@ HARD_CATEGORIES: frozenset[str] = frozenset(
         INJECTION_GUARD_CATEGORY,
         NAME_CONVENTION_CATEGORY,
         LICENSE_HEADER_CATEGORY,
+        STATUS_CATEGORY,
     }
 )
 ALL_CATEGORIES = HARD_CATEGORIES | SOFT_CATEGORIES
@@ -706,8 +732,28 @@ def validate_frontmatter(path: Path, text: str, root: Path | None = None) -> Ite
         #   single — `capability: capability:triage`            → "capability:triage"
         #   list   — `capability:\n  - capability:intake\n …`   → "- capability:intake\n- capability:platform"
         # Split on lines, strip `- ` prefix when present.
+        raw_cap = fm["capability"]
+
+        # Advisory: detect space- or comma-separated multi-capability written as a
+        # string instead of a YAML list.  The vocabulary check below would also catch
+        # it (the joined string is not in SKILL_CAPABILITIES), but this gives a more
+        # actionable message so the author knows exactly how to fix the form.
+        if not raw_cap.startswith("- "):
+            # Two capability:* tokens joined by a space or comma look like string-form
+            # multi-capability.  One token (the normal single-value form) is fine.
+            _multi_cap_re = re.compile(r"capability:[a-z-]+[ ,]+capability:[a-z-]+")
+            if _multi_cap_re.search(raw_cap):
+                yield Violation(
+                    path,
+                    1,
+                    f"multi-capability declared as a string '{raw_cap}' — "
+                    f"use YAML list form (capability:\\n  - capability:foo\\n  - capability:bar) "
+                    f"so each entry is validated individually",
+                    category=MULTI_CAPABILITY_CATEGORY,
+                )
+
         entries: list[str] = []
-        for raw_line in fm["capability"].splitlines():
+        for raw_line in raw_cap.splitlines():
             line = raw_line.strip()
             if not line:
                 continue
@@ -725,6 +771,16 @@ def validate_frontmatter(path: Path, text: str, root: Path | None = None) -> Ite
                     f"frontmatter capability '{entry}' not in {sorted(SKILL_CAPABILITIES)} "
                     f"(skills use Axis-1 capability:* values; see docs/labels-and-capabilities.md)",
                 )
+
+    if fm.get("status") and fm["status"] not in ALLOWED_SKILL_STATUSES:
+        yield Violation(
+            path,
+            1,
+            f"frontmatter status '{fm['status']}' not in {sorted(ALLOWED_SKILL_STATUSES)} "
+            f"(documented skill lifecycle vocabulary; spec values like 'proposed'/'done' "
+            f"belong in spec-loop specs, not in skill frontmatter)",
+            category=STATUS_CATEGORY,
+        )
 
     desc_len = len(fm.get("description", ""))
     wtu_len = len(fm.get("when_to_use", ""))
@@ -2557,6 +2613,7 @@ _SOFT_RULE_PREFIXES: tuple[str, ...] = (
     "distinct-from",
     "lowercase-f-field",
     "modes-doc:",
+    "multi-capability declared",
     "parenthetical rationale",
     "trigger phrase",
     "injection-guard TODO",
