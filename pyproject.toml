@@ -109,6 +109,7 @@ members = [
   "tools/security-tracker-stats-dashboard",
   "tools/skill-and-tool-validator",
   "tools/skill-evals",
+  "tools/pilot-report-validator",
   "tools/spec-status-index",
   "tools/spec-validator",
   "tools/vcs",

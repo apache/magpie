@@ -102,6 +102,15 @@ required key documentation.
 contributor-to-committer interaction path under evaluation conditions yet;
 shape may change between framework versions.
 
+To provide pilot feedback, copy
+[`docs/pilot-report-template.md`](../pilot-report-template.md) into your
+project notes, fill in each section, and optionally validate the filled-in
+report with:
+
+```bash
+uv run --project tools/pilot-report-validator pilot-report-validate <your-report.md>
+```
+
 ## Cross-references
 
 - [`MISSION.md` § Agentic Mentoring](../../MISSION.md#technical-scope) —

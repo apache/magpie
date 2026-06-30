@@ -94,6 +94,15 @@ project's tracker, label set, or any shared infrastructure.
 `skill-and-tool-validate`. No adopter-pilot evaluation has run yet;
 shape may change between framework versions.
 
+To provide pilot feedback, copy
+[`docs/pilot-report-template.md`](../pilot-report-template.md) into your
+project notes, fill in each section, and optionally validate the filled-in
+report with:
+
+```bash
+uv run --project tools/pilot-report-validator pilot-report-validate <your-report.md>
+```
+
 ---
 
 ## Cross-references

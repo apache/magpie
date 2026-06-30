@@ -24,6 +24,7 @@ members = [
     "magpie-vcs",
     "oauth-draft",
     "permission-audit",
+    "pilot-report-validator",
     "pr-management-stats",
     "preflight-audit",
     "redactor",
@@ -619,6 +620,25 @@ wheels = [
 name = "permission-audit"
 version = "0.1.0"
 source = { editable = "tools/permission-audit" }
+
+[[package]]
+name = "pilot-report-validator"
+version = "0.1.0"
+source = { editable = "tools/pilot-report-validator" }
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest", specifier = ">=8.0" },
+    { name = "ruff", specifier = ">=0.4" },
+]
 
 [[package]]
 name = "pluggy"

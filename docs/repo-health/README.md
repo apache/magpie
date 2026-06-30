@@ -9,6 +9,7 @@
     - [`dependency-audit` (experimental)](#dependency-audit-experimental)
     - [`license-compliance-audit` (experimental)](#license-compliance-audit-experimental)
     - [`flaky-test-triage` (experimental)](#flaky-test-triage-experimental)
+  - [Status](#status)
   - [Adopter contract](#adopter-contract)
   - [Cross-references](#cross-references)
 
@@ -131,6 +132,20 @@ the audit window, the failure-rate threshold, and which test-name patterns
 to include or exclude.
 
 ---
+
+## Status
+
+**Experimental.** All five skills shipped. No adopter-pilot evaluation
+has run end-to-end yet; shape may change between framework versions.
+
+To provide pilot feedback, copy
+[`docs/pilot-report-template.md`](../pilot-report-template.md) into your
+project notes, fill in each section, and optionally validate the filled-in
+report with:
+
+```bash
+uv run --project tools/pilot-report-validator pilot-report-validate <your-report.md>
+```
 
 ## Adopter contract
 

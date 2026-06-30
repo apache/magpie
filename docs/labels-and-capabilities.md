@@ -258,6 +258,7 @@ it implements multiple contracts (e.g. `tools/gmail` provides both
 | [`tools/skill-and-tool-validator`](../tools/skill-and-tool-validator/) | `substrate:framework-dev` | Skill-frontmatter and convention validator |
 | [`tools/spec-status-index`](../tools/spec-status-index/) | `substrate:framework-dev` | Index of spec / RFC implementation status — substrate that also doubles as a governance/stats view |
 | [`tools/spec-validator`](../tools/spec-validator/) | `substrate:framework-dev` | Spec-frontmatter and body-section validator — counterpart to `skill-and-tool-validator` for `tools/spec-loop/specs/` |
+| [`tools/pilot-report-validator`](../tools/pilot-report-validator/) | `substrate:framework-dev` | Adopter pilot-report validator — required frontmatter keys, no unfilled placeholders, valid profile, and required body sections; counterpart to `spec-validator` for `docs/pilot-report-template.md` |
 | [`tools/vcs`](../tools/vcs/) | `contract:source-control` | Backend-dispatching implementation of the source-control (VCS) capability ([`tools/github/source-control.md`](../tools/github/source-control.md)); complete Git backend plus detected extension points for non-Git VCS bridges (#601 Hg, #602 SVN) |
 
 A tool's capability is the **interface it provides**, not which skills
