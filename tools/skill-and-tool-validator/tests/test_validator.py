@@ -43,11 +43,13 @@ from skill_and_tool_validator import (
     LICENSE_HEADER_CATEGORY,
     LOWERCASE_F_FIELD_CATEGORY,
     MAX_METADATA_CHARS,
+    MODES_DOC_CATEGORY,
     PRINCIPLE_CATEGORY,
     PRIVACY_CATEGORY,
     SECURITY_PATTERN_CATEGORY,
     SOFT_CATEGORIES,
     TRIGGER_PRESERVATION_CATEGORY,
+    _parse_modes_doc,
     _read_mode_table,
     collect_doc_files,
     collect_files_to_check,
@@ -74,6 +76,7 @@ from skill_and_tool_validator import (
     validate_license_header,
     validate_links,
     validate_lowercase_f_field,
+    validate_modes_doc_consistency,
     validate_name_convention,
     validate_placeholders,
     validate_principle_compliance,
@@ -3022,3 +3025,260 @@ class TestValidateEvalCoverage:
         (skills_dir / "README.md").write_text("# skills\n")
         violations = list(validate_eval_coverage(tmp_path))
         assert violations == []
+
+
+# ---------------------------------------------------------------------------
+# docs/modes.md consistency check (check #11 — SOFT)
+# ---------------------------------------------------------------------------
+
+
+class TestParseModesDocs:
+    """Unit tests for the _parse_modes_doc internal parser."""
+
+    def test_parses_claimed_counts(self) -> None:
+        text = (
+            "## Modes at a glance\n"
+            "| **Triage** | purpose | stable | 5 |\n"
+            "| **Mentoring** | purpose | experimental | 3 |\n"
+            "\n"
+            "## Triage\n"
+            "| [`issue-triage`](../skills/issue-triage/SKILL.md) | desc | experimental |\n"
+        )
+        counts, _, _ = _parse_modes_doc(text)
+        assert counts == {"Triage": 5, "Mentoring": 3}
+
+    def test_parses_section_skills(self) -> None:
+        text = (
+            "## Modes at a glance\n"
+            "| **Triage** | p | s | 2 |\n"
+            "\n"
+            "## Triage\n"
+            "| [`issue-triage`](../skills/issue-triage/SKILL.md) | d | experimental |\n"
+            "| [`issue-reassess`](../skills/issue-reassess/SKILL.md) | d | experimental |\n"
+        )
+        _, section, outside = _parse_modes_doc(text)
+        assert section == {"Triage": ["issue-triage", "issue-reassess"]}
+        assert outside == []
+
+    def test_parses_outside_skills(self) -> None:
+        text = (
+            "## Outside the modes\n"
+            "| [`setup`](../skills/setup/SKILL.md) | d |\n"
+            "| [`list-skills`](../skills/list-skills/SKILL.md) | d |\n"
+        )
+        _, section, outside = _parse_modes_doc(text)
+        assert "setup" in outside
+        assert "list-skills" in outside
+        assert section == {}
+
+    def test_skips_non_skill_rows(self) -> None:
+        text = (
+            "## Triage\n"
+            "| Skill | Domain | Status |\n"
+            "|---|---|---|\n"
+            "| [`issue-triage`](../skills/issue-triage/SKILL.md) | d | experimental |\n"
+            "| Doc | Purpose |\n"
+            "| [`docs/README.md`](README.md) | overview |\n"
+        )
+        _, section, _ = _parse_modes_doc(text)
+        # The doc row must not be parsed as a skill (its link isn't to skills/).
+        assert section == {"Triage": ["issue-triage"]}
+
+    def test_empty_doc_returns_empty_structures(self) -> None:
+        counts, section, outside = _parse_modes_doc("")
+        assert counts == {}
+        assert section == {}
+        assert outside == []
+
+
+class TestValidateModeDocConsistency:
+    """Behavioural tests for validate_modes_doc_consistency."""
+
+    _GLANCE = (
+        "## Modes at a glance\n"
+        "| **Triage** | purpose | stable | {triage_count} |\n"
+        "| **Mentoring** | purpose | experimental | {mentoring_count} |\n"
+        "\n"
+    )
+
+    def _make_skill(self, root: Path, slug: str, mode: str | None = None) -> None:
+        skill_dir = root / "skills" / slug
+        skill_dir.mkdir(parents=True, exist_ok=True)
+        mode_line = f"mode: {mode}\n" if mode else ""
+        (skill_dir / "SKILL.md").write_text(
+            f"---\nname: magpie-{slug}\ndescription: test skill\n"
+            f"capability: capability:triage\nlicense: Apache-2.0\n{mode_line}---\n"
+        )
+
+    def _make_modes_md(self, root: Path, text: str) -> Path:
+        docs_dir = root / "docs"
+        docs_dir.mkdir(parents=True, exist_ok=True)
+        path = docs_dir / "modes.md"
+        path.write_text(text)
+        return path
+
+    # --- Check 1: missing skill on disk ---
+
+    def test_listed_skill_exists_passes(self, tmp_path: Path) -> None:
+        self._make_skill(tmp_path, "issue-triage", mode="Triage")
+        doc = (
+            self._GLANCE.format(triage_count=1, mentoring_count=0)
+            + "## Triage\n"
+            + "| [`issue-triage`](../skills/issue-triage/SKILL.md) | d | experimental |\n"
+        )
+        self._make_modes_md(tmp_path, doc)
+        violations = [
+            v
+            for v in validate_modes_doc_consistency(tmp_path)
+            if "missing" in v.message or "does not exist" in v.message
+        ]
+        assert violations == []
+
+    def test_listed_skill_missing_from_disk_yields_violation(self, tmp_path: Path) -> None:
+        doc = (
+            self._GLANCE.format(triage_count=1, mentoring_count=0)
+            + "## Triage\n"
+            + "| [`ghost-skill`](../skills/ghost-skill/SKILL.md) | d | experimental |\n"
+        )
+        self._make_modes_md(tmp_path, doc)
+        violations = list(validate_modes_doc_consistency(tmp_path))
+        assert len(violations) == 1
+        v = violations[0]
+        assert v.category == MODES_DOC_CATEGORY
+        assert "ghost-skill" in v.message
+        assert "does not exist" in v.message
+
+    # --- Check 2: mode mismatch ---
+
+    def test_mode_matches_section_passes(self, tmp_path: Path) -> None:
+        self._make_skill(tmp_path, "issue-triage", mode="Triage")
+        doc = (
+            self._GLANCE.format(triage_count=1, mentoring_count=0)
+            + "## Triage\n"
+            + "| [`issue-triage`](../skills/issue-triage/SKILL.md) | d | experimental |\n"
+        )
+        self._make_modes_md(tmp_path, doc)
+        violations = [v for v in validate_modes_doc_consistency(tmp_path) if "mode" in v.message.lower()]
+        # Count mismatch is the only expected warning; no mode mismatch.
+        assert not any("frontmatter declares mode" in v.message for v in violations)
+
+    def test_mode_mismatch_yields_violation(self, tmp_path: Path) -> None:
+        # Skill is listed under Triage but its frontmatter says Mentoring.
+        self._make_skill(tmp_path, "issue-triage", mode="Mentoring")
+        doc = (
+            self._GLANCE.format(triage_count=1, mentoring_count=0)
+            + "## Triage\n"
+            + "| [`issue-triage`](../skills/issue-triage/SKILL.md) | d | experimental |\n"
+        )
+        self._make_modes_md(tmp_path, doc)
+        violations = list(validate_modes_doc_consistency(tmp_path))
+        mismatch = [v for v in violations if "frontmatter declares mode" in v.message]
+        assert len(mismatch) == 1
+        assert "issue-triage" in mismatch[0].message
+        assert "Mentoring" in mismatch[0].message
+        assert mismatch[0].category == MODES_DOC_CATEGORY
+
+    def test_skill_without_mode_frontmatter_exempt_from_mismatch_check(self, tmp_path: Path) -> None:
+        # Skill in Triage section but has no mode: field → no mismatch warning.
+        self._make_skill(tmp_path, "issue-triage", mode=None)
+        doc = (
+            self._GLANCE.format(triage_count=1, mentoring_count=0)
+            + "## Triage\n"
+            + "| [`issue-triage`](../skills/issue-triage/SKILL.md) | d | experimental |\n"
+        )
+        self._make_modes_md(tmp_path, doc)
+        violations = [
+            v for v in validate_modes_doc_consistency(tmp_path) if "frontmatter declares mode" in v.message
+        ]
+        assert violations == []
+
+    # --- Check 3: count mismatch ---
+
+    def test_count_matches_section_row_count_passes(self, tmp_path: Path) -> None:
+        self._make_skill(tmp_path, "issue-triage", mode="Triage")
+        self._make_skill(tmp_path, "issue-reassess", mode="Triage")
+        doc = (
+            self._GLANCE.format(triage_count=2, mentoring_count=0)
+            + "## Triage\n"
+            + "| [`issue-triage`](../skills/issue-triage/SKILL.md) | d | experimental |\n"
+            + "| [`issue-reassess`](../skills/issue-reassess/SKILL.md) | d | experimental |\n"
+        )
+        self._make_modes_md(tmp_path, doc)
+        count_violations = [
+            v
+            for v in validate_modes_doc_consistency(tmp_path)
+            if "Skill count" in v.message or "claims" in v.message
+        ]
+        assert count_violations == []
+
+    def test_count_mismatch_yields_violation(self, tmp_path: Path) -> None:
+        self._make_skill(tmp_path, "issue-triage", mode="Triage")
+        doc = (
+            # Claims 3 but only 1 row.
+            self._GLANCE.format(triage_count=3, mentoring_count=0)
+            + "## Triage\n"
+            + "| [`issue-triage`](../skills/issue-triage/SKILL.md) | d | experimental |\n"
+        )
+        self._make_modes_md(tmp_path, doc)
+        violations = list(validate_modes_doc_consistency(tmp_path))
+        count_v = [v for v in violations if "claims" in v.message]
+        assert len(count_v) == 1
+        assert "3" in count_v[0].message
+        assert "1" in count_v[0].message
+        assert count_v[0].category == MODES_DOC_CATEGORY
+
+    # --- Check 4: live skill with mode: not listed in section ---
+
+    def test_unlisted_skill_with_mode_yields_violation(self, tmp_path: Path) -> None:
+        # Skill has mode: Triage but is absent from the Triage section.
+        self._make_skill(tmp_path, "new-triage-skill", mode="Triage")
+        doc = self._GLANCE.format(triage_count=0, mentoring_count=0) + "## Triage\n"
+        self._make_modes_md(tmp_path, doc)
+        violations = list(validate_modes_doc_consistency(tmp_path))
+        unlisted = [v for v in violations if "is not listed" in v.message]
+        assert len(unlisted) == 1
+        assert "new-triage-skill" in unlisted[0].message
+        assert unlisted[0].category == MODES_DOC_CATEGORY
+
+    def test_skill_with_no_mode_not_flagged_as_unlisted(self, tmp_path: Path) -> None:
+        # Skill has no mode: frontmatter → must NOT be flagged as unlisted.
+        self._make_skill(tmp_path, "utility-skill", mode=None)
+        doc = self._GLANCE.format(triage_count=0, mentoring_count=0) + "## Triage\n"
+        self._make_modes_md(tmp_path, doc)
+        violations = [v for v in validate_modes_doc_consistency(tmp_path) if "is not listed" in v.message]
+        assert violations == []
+
+    def test_skill_with_outside_modes_mode_not_flagged(self, tmp_path: Path) -> None:
+        # Skills whose mode field value isn't a named section aren't flagged.
+        self._make_skill(tmp_path, "setup", mode=None)
+        doc = "## Outside the modes\n| [`setup`](../skills/setup/SKILL.md) | d |\n"
+        self._make_modes_md(tmp_path, doc)
+        violations = [v for v in validate_modes_doc_consistency(tmp_path) if "is not listed" in v.message]
+        assert violations == []
+
+    # --- General ---
+
+    def test_no_modes_md_returns_no_violations(self, tmp_path: Path) -> None:
+        self._make_skill(tmp_path, "issue-triage", mode="Triage")
+        # docs/modes.md does not exist — silent, no violations.
+        violations = list(validate_modes_doc_consistency(tmp_path))
+        assert violations == []
+
+    def test_modes_doc_category_is_soft(self) -> None:
+        assert MODES_DOC_CATEGORY in SOFT_CATEGORIES
+        assert MODES_DOC_CATEGORY not in HARD_CATEGORIES
+
+    def test_modes_doc_category_in_all_categories(self) -> None:
+        assert MODES_DOC_CATEGORY in ALL_CATEGORIES
+
+    def test_all_violations_point_to_modes_md(self, tmp_path: Path) -> None:
+        doc = (
+            self._GLANCE.format(triage_count=5, mentoring_count=0)
+            + "## Triage\n"
+            + "| [`ghost-skill`](../skills/ghost-skill/SKILL.md) | d | e |\n"
+        )
+        self._make_modes_md(tmp_path, doc)
+        violations = list(validate_modes_doc_consistency(tmp_path))
+        modes_md = tmp_path / "docs" / "modes.md"
+        for v in violations:
+            assert v.path == modes_md

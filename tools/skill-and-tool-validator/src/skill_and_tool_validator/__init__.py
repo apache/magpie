@@ -17,7 +17,7 @@
 
 """Validate framework skill definitions.
 
-This module validates eleven aspects of every skill under
+This module validates twelve aspects of every skill under
 skills/:
 
 1. YAML frontmatter — every SKILL.md must have a valid frontmatter
@@ -66,6 +66,14 @@ skills/:
     handling, supported operations, and adopter config keys.
     Missing fields are advisories so legacy adapters can be brought
     into compliance deliberately without blocking unrelated changes.
+12. docs/modes.md consistency (SOFT) — compares the per-mode skill
+    tables in ``docs/modes.md`` against live ``skills/*/SKILL.md``
+    frontmatter: every listed skill must exist on disk, each skill's
+    ``mode:`` frontmatter must match the section it appears in, the
+    claimed skill counts in the "Modes at a glance" table must equal
+    the actual per-section row counts, and every live skill with a
+    ``mode:`` frontmatter must appear in the corresponding section.
+    Advisory only — never fails the run unless ``--strict``.
 
 SOFT categories surface as advisory warnings (stderr) without
 failing the run unless ``--strict`` is passed.
@@ -79,6 +87,7 @@ Run from repo root:
 from __future__ import annotations
 
 import argparse
+import contextlib
 import re
 import sys
 from collections.abc import Iterable
@@ -93,6 +102,7 @@ TOOLS_DIR = Path("tools")
 DOCS_DIR = Path("docs")
 SKILL_EVALS_DIR = Path("tools/skill-evals/evals")
 PROJECTS_TEMPLATE_DIR = Path("projects/_template")
+MODES_DOC_PATH = Path("docs/modes.md")
 
 # Categories for the tool-validator block. All HARD by default — every
 # tool must have a README that declares its capability and its prerequisites.
@@ -362,6 +372,9 @@ LICENSE_HEADER_CATEGORY = "license_header"
 ASF_COUPLING_CATEGORY = "asf_coupling"
 # SOFT advisory: adapter authoring fields for contract:* tools.
 ADAPTER_AUTHORING_CATEGORY = "adapter-authoring"
+# SOFT advisory: docs/modes.md skill lists and claimed counts are checked against
+# live skill frontmatter — detects doc drift before review.
+MODES_DOC_CATEGORY = "modes-doc-consistency"
 
 # The `magpie-` namespace prefix every installed framework skill carries.
 SKILL_NAME_PREFIX = "magpie-"
@@ -377,6 +390,7 @@ SOFT_CATEGORIES: frozenset[str] = frozenset(
         EVAL_COVERAGE_CATEGORY,
         ASF_COUPLING_CATEGORY,
         ADAPTER_AUTHORING_CATEGORY,
+        MODES_DOC_CATEGORY,
     }
 )
 HARD_CATEGORIES: frozenset[str] = frozenset(
@@ -2137,6 +2151,197 @@ def collect_doc_files(root: Path | None = None) -> set[Path]:
 
 
 # ---------------------------------------------------------------------------
+# docs/modes.md consistency check (check #11, SOFT)
+# ---------------------------------------------------------------------------
+
+# Regex that matches a skill row in a per-mode section table:
+#   | [`skill-slug`](../skills/skill-slug/SKILL.md) | ... |
+# Group 1: skill slug (the backtick-quoted identifier).
+_MODES_DOC_SKILL_ROW_RE = re.compile(r"^\|\s*\[`([a-z][a-z0-9-]*)`\]\(\.\./skills/[^)]+/SKILL\.md\)")
+
+# Regex that matches the skill-count cell in the "Modes at a glance" table:
+#   | **ModeName** | purpose text | status text | 30 |
+# Group 1: mode name (the bold identifier).
+# Group 2: skill count (last non-empty cell, integer).
+_MODES_GLANCE_ROW_RE = re.compile(r"^\|\s*\*\*([^*]+)\*\*\s*\|[^|]+\|[^|]+\|\s*(\d+)\s*\|")
+
+# The h2 headings in docs/modes.md that map 1-to-1 to mode names in skill
+# frontmatter.  "Outside the modes" and "Agentic Autonomous" are listed
+# separately because they don't correspond to mode: frontmatter values.
+_MODES_DOC_NAMED_SECTIONS: frozenset[str] = frozenset({"Triage", "Mentoring", "Drafting", "Pairing"})
+_MODES_DOC_SKIP_SECTIONS: frozenset[str] = frozenset({"Agentic Autonomous", "Outside the modes"})
+
+
+def _parse_modes_doc(
+    text: str,
+) -> tuple[dict[str, int], dict[str, list[str]], list[str]]:
+    """Parse docs/modes.md into (claimed_counts, section_skills, outside_skills).
+
+    claimed_counts  — {mode_name: claimed_int} from "Modes at a glance" table.
+    section_skills  — {mode_name: [slug, …]} from each named h2 section.
+    outside_skills  — [slug, …] listed under "## Outside the modes".
+    """
+    claimed_counts: dict[str, int] = {}
+    section_skills: dict[str, list[str]] = {}
+    outside_skills: list[str] = []
+
+    # --- "Modes at a glance" table ---
+    if "## Modes at a glance" in text:
+        glance_section = text.split("## Modes at a glance", 1)[1]
+        next_h2 = glance_section.find("\n## ")
+        if next_h2 > 0:
+            glance_section = glance_section[:next_h2]
+        for line in glance_section.splitlines():
+            m = _MODES_GLANCE_ROW_RE.match(line)
+            if m:
+                mode_name = m.group(1).strip()
+                with contextlib.suppress(ValueError):
+                    claimed_counts[mode_name] = int(m.group(2))
+
+    # --- Per-section skill rows ---
+    current_section: str | None = None
+    for line in text.splitlines():
+        h2_match = re.match(r"^## (.+)$", line)
+        if h2_match:
+            current_section = h2_match.group(1).strip()
+            continue
+        if current_section is None:
+            continue
+        row_match = _MODES_DOC_SKILL_ROW_RE.match(line)
+        if not row_match:
+            continue
+        slug = row_match.group(1)
+        if current_section == "Outside the modes":
+            outside_skills.append(slug)
+        elif current_section in _MODES_DOC_NAMED_SECTIONS:
+            section_skills.setdefault(current_section, []).append(slug)
+
+    return claimed_counts, section_skills, outside_skills
+
+
+def validate_modes_doc_consistency(root: Path | None = None) -> Iterable[Violation]:
+    """Compare docs/modes.md skill tables against live skill frontmatter.
+
+    Four advisory checks (all SOFT — never fails the run unless --strict):
+
+    1. **Missing skill** — a slug listed in a named per-mode section
+       (Triage / Mentoring / Drafting / Pairing) has no matching
+       ``skills/<slug>/`` directory on disk.
+
+    2. **Mode mismatch** — a skill listed in section ``X`` has a ``mode:``
+       frontmatter value that differs from ``X``.  Skills without a
+       ``mode:`` frontmatter field are exempt (not every skill declares one).
+
+    3. **Count mismatch** — the integer in the Skill-count column of the
+       "Modes at a glance" table does not match the number of skill rows
+       actually present in that section.  Counts for "Agentic Autonomous"
+       and "Outside the modes" are skipped (no skill rows expected there).
+
+    4. **Unlisted skill** — a live skill under ``skills/`` has a ``mode:``
+       frontmatter value that is a named section (Triage / Mentoring /
+       Drafting / Pairing) but the skill does not appear in that section.
+       This catches new skills that were added to the skill directory without
+       updating docs/modes.md.
+    """
+    repo_root = root or find_repo_root()
+    doc_path = repo_root / MODES_DOC_PATH
+    if not doc_path.exists():
+        return
+
+    try:
+        doc_text = doc_path.read_text(encoding="utf-8")
+    except OSError:
+        return
+
+    claimed_counts, section_skills, _outside_skills = _parse_modes_doc(doc_text)
+
+    # Build the set of skills listed per section for O(1) membership tests.
+    section_skill_sets: dict[str, set[str]] = {mode: set(slugs) for mode, slugs in section_skills.items()}
+
+    # Check 1 & 2 — per-listed-skill checks.
+    for mode, slugs in section_skills.items():
+        for slug in slugs:
+            skill_dir = repo_root / SKILLS_DIR / slug
+            if not skill_dir.is_dir():
+                yield Violation(
+                    doc_path,
+                    None,
+                    f"modes-doc: skill '{slug}' listed in '## {mode}' section "
+                    f"but skills/{slug}/ does not exist — remove the row or add the skill",
+                    category=MODES_DOC_CATEGORY,
+                )
+                continue
+            skill_md = skill_dir / "SKILL.md"
+            if not skill_md.exists():
+                continue
+            try:
+                skill_text = skill_md.read_text(encoding="utf-8")
+            except OSError:
+                continue
+            fm = parse_frontmatter(skill_text)
+            if fm is None:
+                continue
+            fm_mode = fm.get("mode", "")
+            if fm_mode and fm_mode != mode:
+                yield Violation(
+                    doc_path,
+                    None,
+                    f"modes-doc: skill '{slug}' is listed under '## {mode}' "
+                    f"but its frontmatter declares mode: {fm_mode!r} — "
+                    f"move the row to '## {fm_mode}' or fix the frontmatter",
+                    category=MODES_DOC_CATEGORY,
+                )
+
+    # Check 3 — claimed count vs actual row count.
+    for mode, claimed in claimed_counts.items():
+        if mode in _MODES_DOC_SKIP_SECTIONS:
+            continue
+        if mode not in _MODES_DOC_NAMED_SECTIONS:
+            continue
+        actual = len(section_skills.get(mode, []))
+        if actual != claimed:
+            yield Violation(
+                doc_path,
+                None,
+                f"modes-doc: '## Modes at a glance' claims {claimed} skill(s) for "
+                f"'{mode}' but the '## {mode}' section lists {actual} skill row(s) — "
+                f"update the Skill count column",
+                category=MODES_DOC_CATEGORY,
+            )
+
+    # Check 4 — live skills with mode: not listed in the corresponding section.
+    skills_base = repo_root / SKILLS_DIR
+    if not skills_base.exists():
+        return
+    for skill_dir in sorted(skills_base.iterdir()):
+        if not skill_dir.is_dir():
+            continue
+        skill_md = skill_dir / "SKILL.md"
+        if not skill_md.exists():
+            continue
+        try:
+            skill_text = skill_md.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        fm = parse_frontmatter(skill_text)
+        if fm is None:
+            continue
+        fm_mode = fm.get("mode", "")
+        if fm_mode not in _MODES_DOC_NAMED_SECTIONS:
+            continue
+        slug = skill_dir.name
+        if slug not in section_skill_sets.get(fm_mode, set()):
+            yield Violation(
+                doc_path,
+                None,
+                f"modes-doc: skill '{slug}' has frontmatter mode: {fm_mode!r} "
+                f"but is not listed in the '## {fm_mode}' section of docs/modes.md — "
+                f"add a row for this skill",
+                category=MODES_DOC_CATEGORY,
+            )
+
+
+# ---------------------------------------------------------------------------
 # Eval-coverage check (check #9, SOFT)
 # ---------------------------------------------------------------------------
 
@@ -2224,6 +2429,9 @@ def run_validation(root: Path | None = None) -> list[Violation]:
     # Eval-coverage check: every skill must have a matching eval suite.
     violations.extend(validate_eval_coverage(repo_root))
 
+    # docs/modes.md consistency check: skill lists and counts match live frontmatter.
+    violations.extend(validate_modes_doc_consistency(repo_root))
+
     return violations
 
 
@@ -2295,6 +2503,7 @@ _SOFT_RULE_PREFIXES: tuple[str, ...] = (
     "criteria-source",
     "distinct-from",
     "lowercase-f-field",
+    "modes-doc:",
     "parenthetical rationale",
     "trigger phrase",
     "injection-guard TODO",

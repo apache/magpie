@@ -490,6 +490,25 @@ slugs, not numbers (numbering implies an order the specs don't carry).
    Spec: [`specs/adapters.md`](specs/adapters.md).
    Branch `adapter-readme-authoring-compliance`.
 
+22. **Reconcile docs/modes.md with the modes-doc detection.**
+   The `modes-doc-consistency-check` item added detection only; running the
+   validator now surfaces two real gaps it was meant to catch. `reviewer-routing`
+   carries `mode: Triage` in frontmatter but has no row in the `## Triage`
+   table, and `good-first-issue-sweep` carries `mode: Mentoring` but has no row
+   in the `## Mentoring` section. Add the missing `reviewer-routing` Triage row
+   (with its current status), then re-run the validator to confirm the doc is
+   clean. The `good-first-issue-sweep` row is already owned by the post-merge
+   sync item above and stays blocked until that PR lands, so do not add it here
+   unless that PR has merged; just confirm the only remaining `modes-doc`
+   warning is the blocked one. Detection-only stays as the validator's job;
+   this item is the human-confirmed doc update it was designed to trigger.
+   Validation:
+   ```bash
+   uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-validate
+   ```
+   Spec: [`specs/meta-and-quality-tooling.md`](specs/meta-and-quality-tooling.md).
+   Branch `modes-doc-reviewer-routing-row`.
+
 ---
 
 ## Notes & discoveries
