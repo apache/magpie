@@ -464,6 +464,32 @@ slugs, not numbers (numbering implies an order the specs don't carry).
    Spec: [`specs/skill-reconciler.md`](specs/skill-reconciler.md).
    Branch `skill-reconciler-source-pairing`.
 
+21. **Bring legacy adapter READMEs into adapter-authoring compliance.**
+   The adapter-authoring smoke check (work item 9, shipped on
+   `adapter-authoring-smoke-validation`) now flags 10 SOFT advisories across 9
+   `contract:*` adapter READMEs that are missing a required authoring field.
+   Bring each into compliance by adding the missing section/reference (or
+   documenting why the field legitimately does not apply, once an opt-out
+   convention exists). Missing **config-keys** (a `## Configuration` section,
+   a `project-config` / `*-config.md` reference, or an inline
+   `tools.<adapter>.<key>` knob): `apache-projects`, `cve-org`, `github`,
+   `github-body-field`, `github-rollup`, `ponymail`, `vcs`, and
+   `cve-tool-vulnogram`. Missing **operations** (an `## Operations` /
+   `## Interface` / `## Invocation` / `## How to use` section or a `tool.md`
+   reference): `cve-tool-vulnogram` and `mail-source`. Several are thin
+   backend adapters whose real docs live in their contract README, so prefer a
+   one-line pointer to the contract over duplicating prose. The two former
+   false positives (`cve-tool` credential delegation, `gmail` inline config
+   key) are already resolved by broadening the validator matchers and are not
+   part of this item.
+   Validation:
+   ```bash
+   uv run --directory tools/skill-and-tool-validator skill-and-tool-validate
+   uv run --directory tools/skill-and-tool-validator --group dev pytest
+   ```
+   Spec: [`specs/adapters.md`](specs/adapters.md).
+   Branch `adapter-readme-authoring-compliance`.
+
 ---
 
 ## Notes & discoveries

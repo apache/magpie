@@ -118,8 +118,12 @@ TOOL_PREREQUISITES_RE = re.compile(r"^##[ \t]+Prerequisites[ \t]*$", re.MULTILIN
 _ADAPTER_CONTRACT_PREFIX = "contract:"
 
 # Credential / privacy handling — matches the canonical **Credentials / auth:**
-# bullet used in all adapter Prerequisites sections.
-_ADAPTER_CREDENTIALS_RE = re.compile(r"\*\*Credentials\s*/\s*auth:\*\*", re.IGNORECASE)
+# bullet used in most adapter Prerequisites sections, plus equivalent bolded
+# labels that declare credential handling under different wording (e.g. a
+# contract README that delegates to a backend with
+# **CLIs / credentials / network:**). The shape is a bolded label ending in a
+# colon that mentions "credential(s)" — narrow enough to avoid matching prose.
+_ADAPTER_CREDENTIALS_RE = re.compile(r"\*\*[^*]*\bcredentials?\b[^*]*:\*\*", re.IGNORECASE)
 
 # Operations documentation — any of: a named operations section heading, a
 # tool.md or operations.md reference in the intro text.
@@ -133,13 +137,15 @@ _ADAPTER_OPERATIONS_RE = re.compile(
     re.MULTILINE | re.IGNORECASE,
 )
 
-# Config keys documentation — a Configuration section or a project-config
-# / *-config.md reference that points adopters to the adopter-visible knobs.
+# Config keys documentation — a Configuration section, a project-config
+# / *-config.md reference, or an inline dotted project-config key
+# (`tools.<adapter>.<key>`) that points adopters to the adopter-visible knobs.
 _ADAPTER_CONFIG_RE = re.compile(
     r"(?:"
     r"^##\s+(?:Configuration|Config(?:uration)?\s+[Kk]eys?)\s*$"
     r"|\bproject-config\b"
     r"|-config\.md\b"
+    r"|\btools\.[a-z0-9_-]+\.[a-z0-9_]+\b"
     r")",
     re.MULTILINE,
 )

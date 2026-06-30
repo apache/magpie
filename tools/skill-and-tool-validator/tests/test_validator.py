@@ -2593,6 +2593,46 @@ class TestValidateAdapterAuthoring:
         violations = [v for v in validate_adapter_authoring(root) if v.category == ADAPTER_AUTHORING_CATEGORY]
         assert violations == []
 
+    def test_alt_credentials_label_satisfies_credentials(self, tmp_path: Path) -> None:
+        # Regression: a contract README that declares credential handling under
+        # a non-canonical bolded label (here, delegating to a backend adapter
+        # like the real tools/cve-tool) must NOT be flagged as missing creds.
+        root = _make_tools_root(tmp_path)
+        tool = root / "tools" / "delegating-contract"
+        tool.mkdir()
+        readme = (
+            "# delegating-contract\n\n**Capability:** contract:cve-authority\n\n"
+            "A contract that delegates to a resolved backend adapter.\n\n"
+            "## Prerequisites\n\n"
+            "- **CLIs / credentials / network:** Provided entirely by the "
+            "resolved adapter — see that adapter for its concrete prerequisites.\n\n"
+            "## Interface\n\nThe contract methods.\n\n"
+            "## Configuration\n\nSet via `project.md`.\n"
+        )
+        (tool / "README.md").write_text(readme)
+        violations = [v for v in validate_adapter_authoring(root) if v.category == ADAPTER_AUTHORING_CATEGORY]
+        assert violations == []
+
+    def test_inline_dotted_config_key_satisfies_config(self, tmp_path: Path) -> None:
+        # Regression: a contract README that documents an adopter knob inline as
+        # a dotted project-config key (here, like the real tools/gmail
+        # `tools.gmail.oauth_credentials_path`) must NOT be flagged as missing
+        # config, even without a dedicated ## Configuration heading.
+        root = _make_tools_root(tmp_path)
+        tool = root / "tools" / "inline-config"
+        tool.mkdir()
+        readme = (
+            "# inline-config\n\n**Capability:** contract:mail-source\n\n"
+            "A mail-source adapter.\n\n"
+            "## Operations\n\n- `fetch` — read mail.\n\n"
+            "## Prerequisites\n\n"
+            "- **Credentials / auth:** OAuth refresh-token file, overridable "
+            "via `tools.inline-config.oauth_credentials_path`.\n"
+        )
+        (tool / "README.md").write_text(readme)
+        violations = [v for v in validate_adapter_authoring(root) if v.category == ADAPTER_AUTHORING_CATEGORY]
+        assert violations == []
+
     def test_multi_capability_with_contract_is_checked(self, tmp_path: Path) -> None:
         root = _make_tools_root(tmp_path)
         tool = root / "tools" / "multi-cap"
