@@ -61,7 +61,7 @@ operations. The SVN binding is shown alongside each:
 | History read | `svn log [-l <n>] [-r <rev>:<rev>]` | `--xml` for machine-readable; `--verbose` adds changed-path list |
 | File at revision | `svn cat <url>@<rev>` | Reads a file at a specific revision without changing the working copy |
 | Blame | `svn blame <path>` | `--xml` for machine-readable |
-| Determine divergence base | `svn mergeinfo --show-revs eligible <branch-url> <trunk-url>` | Finds revisions on trunk not yet merged to the branch |
+| Determine divergence base | `svn mergeinfo --show-revs eligible <trunk-url> <branch-url>` | `eligible SOURCE TARGET` lists revisions in SOURCE not yet in TARGET; with SOURCE=trunk, TARGET=branch this finds revisions on trunk not yet merged to the branch |
 | Sync working copy | `svn update` | Brings the working copy to HEAD (or `-r <rev>` for a specific revision) |
 | Park uncommitted work | `svn diff > patch.diff && svn revert -R .` | Save diff to file; restore with `svn patch patch.diff` |
 

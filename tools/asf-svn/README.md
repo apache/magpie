@@ -4,6 +4,7 @@
 
 - [`tools/asf-svn/`](#toolsasf-svn)
   - [Prerequisites](#prerequisites)
+  - [Configuration](#configuration)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -75,3 +76,23 @@ that ships through `dist.apache.org`.
   for roster lookups against `projects.apache.org` — used by
   [`authorization.md`](authorization.md) when LDAP is not directly
   queryable from the agent environment.
+
+## Configuration
+
+An adopting project enables this tool per capability in its
+[`<project-config>/project.md`](../../projects/_template/project.md)
+manifest under *Tools enabled* — one row per capability, naming
+`asf-svn` for the capabilities it fulfils (see
+[`tool.md`](tool.md#when-to-use-this-tool-alongside-another) for the
+combination rules):
+
+| Config key | Value | Meaning |
+|---|---|---|
+| `tools_enabled.source_control` | `asf-svn` | SVN working copies on `svn.apache.org` (else `github` / another VCS tool) |
+| `tools_enabled.release_distribution` | `asf-svn` | releases ship through `dist.apache.org` (required for every ASF project) |
+| `tools_enabled.website_publishing` | `asf-svn` | *optional* — set only if the project's site lives in SVN (svnpubsub); omit otherwise |
+| `tools_enabled.tracker` | `github` / `jira` / … | not provided by this tool — SVN is not a forge; pair with a tracker tool |
+
+The concrete project name, SVN repository URLs, and `dist` paths are
+substituted from the adopter's `<project-config>` at run time; this
+adapter carries only placeholders (`<project>`, `<asf-id>`).

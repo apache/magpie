@@ -74,9 +74,17 @@ svn checkout \
 
 # Edit / regenerate the site content under site-wc/ ...
 
-# Stage any new or removed files
-svn add --force site-wc/        # schedule new files
-svn status site-wc/             # review what will be committed
+# Schedule NEW files for addition.
+svn add --force site-wc/        # schedules additions only — NOT deletions
+
+# Schedule REMOVED files for deletion. `svn add --force` does not do this,
+# so regenerating a site that dropped pages would otherwise leave the
+# stale pages versioned and re-commit them — and svnpubsub keeps serving
+# them. `svn status` marks missing-but-versioned paths with `!`; feed
+# those to `svn rm` so the deletions are part of the commit:
+svn status site-wc/ | awk '/^!/{print $2}' | xargs -r svn rm
+
+svn status site-wc/             # review the full add/delete set before commit
 
 # Commit — svnpubsub mirrors this to the live site automatically
 svn commit site-wc \
@@ -84,8 +92,10 @@ svn commit site-wc \
   -m "Publish <project> site update: <summary>"
 ```
 
-For a generated site, regenerate into the working copy first, then let
-`svn status` / `svn add --force` pick up the changes before commit.
+For a generated site, regenerate into the working copy first, then run
+**both** scheduling steps above (`svn add --force` for new pages and the
+`svn status | svn rm` step for removed pages) so deletions propagate —
+otherwise stale pages stay live after the commit.
 
 ---
 

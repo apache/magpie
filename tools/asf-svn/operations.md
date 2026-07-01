@@ -86,9 +86,10 @@ svn auth                      # SVN 1.9+; lists cached credential realms
 
 # If no cached credential, authenticate by running an interactive svn
 # command and letting svn PROMPT for the password. Do NOT pass the
-# password on the command line — argv is visible in `ps`, shell history,
-# and process logs on the same shared/ephemeral machine --no-auth-cache
-# is meant to protect.
+# password on the command line: anything in argv is visible to other
+# users via `ps`, and it is recorded in shell history and process logs.
+# On a shared or ephemeral machine that exposure is exactly what you are
+# trying to avoid, so keep the secret off argv entirely.
 #
 # In CI or a sandboxed agent, add --no-auth-cache so the credential is
 # NOT persisted to ~/.subversion/auth/. Let svn prompt for the password
