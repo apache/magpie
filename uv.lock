@@ -34,6 +34,7 @@ members = [
     "skill-evals",
     "spec-status-index",
     "spec-validator",
+    "symlink-lint",
     "vulnogram-api",
 ]
 
@@ -841,8 +842,8 @@ dev = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "mypy", specifier = ">=1.11" },
-    { name = "pytest", specifier = ">=8.0" },
+    { name = "mypy", specifier = ">=2.1.0" },
+    { name = "pytest", specifier = ">=9.1.1" },
     { name = "ruff", specifier = ">=0.15.18" },
 ]
 
@@ -874,6 +875,11 @@ dev = [
     { name = "pytest", specifier = ">=8.0" },
     { name = "ruff", specifier = ">=0.15.18" },
 ]
+
+[[package]]
+name = "symlink-lint"
+version = "0.1.0"
+source = { editable = "tools/symlink-lint" }
 
 [[package]]
 name = "typing-extensions"

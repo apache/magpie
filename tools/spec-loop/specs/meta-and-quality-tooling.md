@@ -37,6 +37,9 @@ trustworthy as it grows.
   (soft check: warns when a skill has no eval suite). CLI: `skill-and-tool-validate`.
 - `tools/skill-evals/` — harness for measuring skill behaviour.
 - `tools/sandbox-lint/` — lints the sandbox/permissions configuration.
+- `tools/symlink-lint/` — lints the framework's self-adoption skill
+  symlinks: rejects cyclic symlinks and misdirected relays (canonical/
+  relay target-correctness).
 - `tools/dashboard-generator/` — read-only HTML dashboards over campaign
   artefacts.
 - `tools/probe-templates/` — reusable probes.
@@ -60,8 +63,8 @@ trustworthy as it grows.
 - **Generated, never cached.** `list-skills` reads the live
   `.claude/skills/*/SKILL.md` frontmatter on every run, so the index never
   goes stale.
-- **Deterministic checks.** `skill-and-tool-validator` and `sandbox-lint` are
-  heuristic/text tools with no model calls — reproducible in CI.
+- **Deterministic checks.** `skill-and-tool-validator`, `sandbox-lint`, and
+  `symlink-lint` are heuristic/text tools with no model calls — reproducible in CI.
 - **Hard vs soft rules.** The validator fails on missing frontmatter or
   broken links; advisories are warnings unless `--strict`.
 - **Schema-backed metadata.** Skill frontmatter, tool README capability

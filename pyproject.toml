@@ -112,5 +112,6 @@ members = [
   "tools/pilot-report-validator",
   "tools/spec-status-index",
   "tools/spec-validator",
+  "tools/symlink-lint",
   "tools/vcs",
 ]
