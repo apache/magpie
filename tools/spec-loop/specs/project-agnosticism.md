@@ -152,12 +152,14 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
 ## Known gaps
 
 - **ASF-coupling lint is advisory only.** Check #10 in
-  `tools/skill-and-tool-validator` (SOFT category `asf_coupling`) now
-  surfaces coupled tokens automatically on every validator run.  The 86
-  advisory hits in the current catalogue are real candidates for
-  generalisation (mostly bare `PMC` and a few `announce@apache.org` /
-  `dist/dev/` hits); a human judges which warrant a placeholder or
-  capability-flag change.  No remaining tooling gap — the lint exists.
+  `tools/skill-and-tool-validator` (SOFT category `asf_coupling`) surfaces
+  coupled tokens automatically on every validator run.  As of the
+  `low-confidence-asf-coupling-pass` work (mechanical cleanup + suppression
+  of low-confidence hits for `organization:`-scoped families), the live
+  catalogue produces **0 asf-coupling warnings**; remaining bare `PMC` /
+  `ICLA` / `announce@apache.org` references are inside org-scoped skills
+  where ASF-specific text is appropriate.  No remaining tooling gap — the
+  lint exists and a human judges any new hits.
 - **Non-ASF adopter profile fixture shipped** — `projects/non-asf-example/`
   contains a worked non-ASF profile (Velox Stream: GitHub-hosted, DCO,
   GHSA intake, MITRE CNA, GitHub Releases). The

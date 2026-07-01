@@ -206,6 +206,7 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
   fixes exceed the skill's scope and must be handed back to a human-led
   workflow. This boundary is intentional, not a tooling gap, but adopters
   should be aware of it.
-- **`docs/modes.md` Agentic Triage table may not reflect newer skills.**
-  `issue-backlog-stats` and `issue-deduplicate` may not yet appear in the
-  `docs/modes.md` Agentic Triage table; a docs-sync PR should verify and add them.
+- **`reviewer-routing` row missing from `docs/modes.md` Triage table.**
+  `issue-backlog-stats` and `issue-deduplicate` now appear in the Agentic
+  Triage table; however, `reviewer-routing` (mode: Triage) still lacks a
+  row — tracked as a separate work item (`modes-doc-reviewer-routing-row`).

@@ -107,10 +107,10 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
 
 ## Known gaps
 
-- **Eval coverage is complete.** Every shipped skill has a matching suite
-  in `tools/skill-evals/evals/`; the soft eval-coverage check in
-  `skill-and-tool-validator` warns when a newly added skill has no suite,
-  keeping coverage complete going forward.
+- **Eval coverage is complete.** All 63 shipped skills have a matching
+  suite in `tools/skill-evals/evals/`; the soft eval-coverage check in
+  `skill-and-tool-validator` (check #8) warns when a newly added skill has
+  no suite, keeping coverage complete going forward.
 - **Frontmatter validation is still shallow.** Current validation covers
   required fields, but the next pass should make `mode`, `status`,
   `capability`, `organization`, and `source` combinations explicit and
