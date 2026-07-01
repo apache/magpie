@@ -18,6 +18,10 @@
 
 **Capability:** contract:source-control
 
+**Kind:** implementation
+
+**Vendor:** Git
+
 Runnable implementation of the **source-control (VCS) capability**
 documented in
 [`tools/github/source-control.md`](../github/source-control.md). It

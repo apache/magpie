@@ -15,6 +15,10 @@
 
 **Capability:** contract:source-control
 
+**Kind:** implementation
+
+**Vendor:** Subversion
+
 **Organization:** ASF
 
 ASF SVN tool adapter — the Subversion counterpart to

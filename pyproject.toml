@@ -114,4 +114,5 @@ members = [
   "tools/spec-validator",
   "tools/symlink-lint",
   "tools/vcs",
+  "tools/vendor-neutrality-score",
 ]

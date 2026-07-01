@@ -14,6 +14,10 @@
 
 **Capability:** contract:project-metadata
 
+**Kind:** implementation
+
+**Vendor:** ASF
+
 **Organization:** ASF
 
 ASF project-metadata substrate. Read-only, unauthenticated client

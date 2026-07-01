@@ -245,7 +245,7 @@ it implements multiple contracts (e.g. `tools/gmail` provides both
 | [`tools/jira`](../tools/jira/) | `contract:tracker` | JIRA REST substrate (read-only today; write subcommands tracked in [#301](https://github.com/apache/magpie/issues/301)) |
 | [`tools/mail-archive`](../tools/mail-archive/) | `contract:mail-archive` | Adapter contract for public mail-archive backends (PonyMail, Hyperkitty, Discourse, Google Groups, GitHub Discussions). Pure interface spec. |
 | [`tools/mail-source`](../tools/mail-source/) | `contract:mail-source` | Mail-source backend abstraction (mbox / IMAP / Mailman 3) feeding a uniform inbound thread/message view to the intake pipeline |
-| [`tools/ponymail`](../tools/ponymail/) | `contract:mail-archive` | PonyMail public mail-archive substrate (ASF `lists.apache.org`); implements the `tools/mail-archive/` contract |
+| [`tools/ponymail`](../tools/ponymail/) | `contract:mail-archive` + `contract:mail-source` | PonyMail public mail-archive substrate (ASF `lists.apache.org`); implements the `tools/mail-archive/` contract for archive reads and the `tools/mail-source/` contract for inbound list-traffic ingestion |
 | [`tools/scan-format`](../tools/scan-format/) | `contract:scan-format` | Adapter contract for security-scanner report formats (ASVS reference); reads a scan's finding index + per-finding evidence for the `security-issue-import-from-scan` pipeline. |
 | [`tools/permission-audit`](../tools/permission-audit/) | `substrate:sandbox` | Audit + atomically edit Claude Code `permissions.allow[]` entries; backs `/magpie-setup verify --apply-permission-audit` (check 8d) |
 | [`tools/pr-management-stats`](../tools/pr-management-stats/) | `substrate:analytics` | PR-backlog analytics engine |
@@ -258,6 +258,7 @@ it implements multiple contracts (e.g. `tools/gmail` provides both
 | [`tools/skill-evals`](../tools/skill-evals/) | `substrate:framework-dev` | Eval harness for skills; framework-dev infrastructure whose run output is governance evidence |
 | [`tools/skill-and-tool-validator`](../tools/skill-and-tool-validator/) | `substrate:framework-dev` | Skill-frontmatter and convention validator |
 | [`tools/spec-status-index`](../tools/spec-status-index/) | `substrate:framework-dev` + `substrate:analytics` | Index of spec / RFC implementation status — framework-dev substrate that also doubles as a governance/stats view (`analytics`) |
+| [`tools/vendor-neutrality-score`](../tools/vendor-neutrality-score/) | `substrate:framework-dev` + `substrate:analytics` | Deterministic vendor-neutrality score — reads each contract tool's `**Kind:**` / `**Vendor:**` metadata and scores per-contract + per-skill neutrality (`analytics`); backs the score block in [`docs/vendor-neutrality.md`](vendor-neutrality.md) |
 | [`tools/spec-validator`](../tools/spec-validator/) | `substrate:framework-dev` | Spec-frontmatter and body-section validator — counterpart to `skill-and-tool-validator` for `tools/spec-loop/specs/` |
 | [`tools/symlink-lint`](../tools/symlink-lint/) | `substrate:framework-dev` | Self-adoption symlink hygiene — rejects cyclic symlinks and misdirected skill relays (canonical/relay target-correctness) |
 | [`tools/pilot-report-validator`](../tools/pilot-report-validator/) | `substrate:framework-dev` | Adopter pilot-report validator — required frontmatter keys, no unfilled placeholders, valid profile, and required body sections; counterpart to `spec-validator` for `docs/pilot-report-template.md` |
@@ -286,7 +287,7 @@ backend the adopter wired in. The framework consumes four:
 |---|---|---|---|---|
 | GitHub MCP | `mcp__github__*` | [`tools/github`](../tools/github/) | `contract:tracker` + `contract:source-control` | — |
 | Gmail MCP (claude.ai) | `mcp__claude_ai_Gmail__*` | [`tools/gmail`](../tools/gmail/) | `contract:mail-source` + `contract:mail-draft` + `contract:mail-archive` | — |
-| PonyMail MCP (`apache/comdev`) | `mcp__ponymail__*` | [`tools/ponymail`](../tools/ponymail/) | `contract:mail-archive` | ASF |
+| PonyMail MCP (`apache/comdev`) | `mcp__ponymail__*` | [`tools/ponymail`](../tools/ponymail/) | `contract:mail-archive` + `contract:mail-source` | ASF |
 | apache-projects MCP (`apache/comdev`) | `mcp__apache-projects__*` | [`tools/apache-projects`](../tools/apache-projects/) | `contract:project-metadata` | ASF |
 
 Non-MCP backends fulfil the same contracts: JIRA is reached over REST

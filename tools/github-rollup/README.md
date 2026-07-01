@@ -20,6 +20,10 @@
 
 **Capability:** contract:tracker
 
+**Kind:** implementation
+
+**Vendor:** GitHub
+
 Append to (or create) the status-rollup comment on a GitHub
 issue **without bringing the rollup body into agent context**.
 

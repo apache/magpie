@@ -14,6 +14,10 @@
 
 **Capability:** contract:mail-source + contract:mail-draft + contract:mail-archive
 
+**Kind:** implementation
+
+**Vendor:** Google
+
 Gmail API substrate. Read + draft-only — never sends. Provides two
 contracts: `mail-source` for inbound report intake (search / read a
 uniform thread/message view) and `mail-draft` for outbound courtesy-reply

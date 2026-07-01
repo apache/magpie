@@ -24,6 +24,10 @@
 
 **Capability:** contract:mail-archive
 
+**Kind:** interface
+
+**Vendor:** agnostic
+
 This file defines the adapter contract for **public mail-archive
 backends** — the seam that lets adopting projects plug a non-ASF
 archive system (Hyperkitty, Discourse, Google Groups, GitHub

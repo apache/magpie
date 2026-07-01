@@ -23,6 +23,10 @@
 
 **Capability:** contract:scan-format
 
+**Kind:** interface
+
+**Vendor:** agnostic
+
 A **scan-format adapter** teaches
 [`security-issue-import-from-scan`](../../skills/security-issue-import-from-scan/SKILL.md)
 how to read one security scanner's report layout. The skill is

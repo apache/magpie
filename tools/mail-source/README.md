@@ -14,6 +14,10 @@
 
 **Capability:** contract:mail-source
 
+**Kind:** interface
+
+**Vendor:** agnostic
+
 Mail-source backend abstraction. Pluggable backends (mbox, IMAP, the Gmail API via [`tools/gmail`](../gmail/), future Mailman 3 / Hyperkitty) that feed the security-issue-import intake pipeline a uniform thread/message view. See [`contract.md`](contract.md) for the backend interface.
 
 ## Prerequisites

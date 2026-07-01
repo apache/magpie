@@ -21,6 +21,10 @@
 
 **Capability:** contract:tracker
 
+**Kind:** implementation
+
+**Vendor:** GitHub
+
 Read or rewrite a single `### Field` section of a GitHub issue
 body **without bringing the body into agent context**.
 

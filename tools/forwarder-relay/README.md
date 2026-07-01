@@ -30,6 +30,10 @@
 
 **Capability:** contract:report-relay
 
+**Kind:** interface
+
+**Vendor:** agnostic
+
 A forwarder-relay adapter is a pluggable seam that teaches the
 security skills how to recognise an inbound report that arrived
 **through a relay** (someone else forwarded the original
