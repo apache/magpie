@@ -158,7 +158,7 @@ The same flow, condensed to commands you run yourself:
 #    section: "Required tools (pinned versions)" below.
 sudo apt-get install --no-install-recommends \
     bubblewrap=0.11.2-* socat=1.8.1.1-*
-npm install -g --no-save @anthropic-ai/claude-code@2.1.193
+npm install -g --no-save @anthropic-ai/claude-code@2.1.196
 
 # 2. Project-scope `.claude/settings.json`. Copy the framework's
 #    sandbox / permissions.deny / permissions.ask / allowedDomains
@@ -266,7 +266,7 @@ version, no pin enforced — Homebrew rolls forward, so the
 
 ```bash
 # npm distribution (the only stable channel today)
-npm install -g --no-save @anthropic-ai/claude-code@2.1.193
+npm install -g --no-save @anthropic-ai/claude-code@2.1.196
 ```
 
 ### Distro-specific shortcut — Linux Mint 22.x / Ubuntu 24.04 Noble
