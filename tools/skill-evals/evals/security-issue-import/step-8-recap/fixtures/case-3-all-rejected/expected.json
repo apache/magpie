@@ -6,7 +6,7 @@
   "skipped": [
     {"candidate": 1, "reason": "user skipped"},
     {"candidate": 2, "reason": "rejected with canned response: When someone claims Dag author-provided 'user input' is dangerous"},
-    {"candidate": 3, "reason": "already tracked as #198"}
+    {"candidate": 3, "reason": "already tracked as example-s/example-s#198"}
   ],
   "cve_tool_bookkeeping_dropped": 2,
   "next_step_reminder": true

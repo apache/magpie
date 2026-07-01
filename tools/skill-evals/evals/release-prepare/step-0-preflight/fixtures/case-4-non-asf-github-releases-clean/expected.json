@@ -1,0 +1,8 @@
+{
+  "verdict": "proceed",
+  "sub_command": "plan",
+  "version": "0.9.3",
+  "blockers": [],
+  "release_branch_base": "main",
+  "previous_tag": "0.9.2"
+}

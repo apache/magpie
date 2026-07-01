@@ -1,0 +1,8 @@
+{
+  "verdict": "blocked",
+  "sub_command": "plan",
+  "version": "1.0.0",
+  "blockers": ["release-trains.md has no entry for version 1.0.0 or a 1.x train"],
+  "release_branch_base": "main",
+  "previous_tag": null
+}
