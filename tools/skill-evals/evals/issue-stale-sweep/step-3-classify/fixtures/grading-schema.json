@@ -10,11 +10,6 @@
     "explanation",
     "details",
     "description",
-    "candidate",
-    "action",
-    "note",
-    "communications_sent",
-    "karma_granted",
-    "pending_items"
+    "skip_reason"
   ]
 }

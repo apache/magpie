@@ -16,7 +16,8 @@ Return ONLY valid JSON with this structure:
 ```
 
 `critical_or_high_first` is `true` when the report places critical/high
-findings before medium findings.
+findings before medium findings. When there are no findings at all, it is
+vacuously `true` — there is no ordering to violate.
 `patchable_listed` is `true` when each patchable finding includes the
 package name, current version, CVE/advisory identifier, and fixed version.
 `unpatchable_section_present` is `true` when there are unpatchable

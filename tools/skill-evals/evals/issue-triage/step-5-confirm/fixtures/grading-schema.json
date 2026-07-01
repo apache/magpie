@@ -10,11 +10,9 @@
     "explanation",
     "details",
     "description",
-    "candidate",
-    "action",
-    "note",
-    "communications_sent",
-    "karma_granted",
-    "pending_items"
+    "post_items",
+    "skip_items",
+    "edits",
+    "reclassifications"
   ]
 }

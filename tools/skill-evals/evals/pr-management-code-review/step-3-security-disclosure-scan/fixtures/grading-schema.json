@@ -1,3 +1,6 @@
 {
-  "prose_fields": ["context"]
+  "prose_fields": [
+    "context",
+    "matches"
+  ]
 }

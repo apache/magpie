@@ -20,4 +20,9 @@ Return ONLY valid JSON with this structure:
 }
 ```
 
+`runtime_version` captures the reporter's full runtime stack: the
+framework/library version together with the language/interpreter version
+(e.g. `"Airflow 2.9.1, Python 3.11"`). Put the operating system in `os`, not
+in `runtime_version`, and keep any remaining environment details in `notes`.
+
 Do not include any text outside the JSON object.

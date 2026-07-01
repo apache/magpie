@@ -116,7 +116,7 @@ code as `skip_reason`. Do not score G1–G4 for SKIP issues.
 |---|---|---|
 | `G1` | Well-scoped | The issue describes one concrete, bounded task with a clear endpoint (a definition of done that a newcomer can verify). Vague "improve performance" or open-ended investigations fail. |
 | `G2` | Self-contained | All information needed to start is in the issue body or linked from it. References to "see Slack", "see email", "ask the team" indicate missing context and fail this check. |
-| `G3` | Has a code pointer | The issue body names at least one specific file path, module, class, or function where the work begins. A feature-area name in prose ("in the auth module") without a concrete path does not count. |
+| `G3` | Has a code pointer | The issue body names at least one specific file path, module, class, or function where the work begins. A feature-area name in prose ("in the auth module") without a concrete path does not count, and neither does a command, subcommand, or CLI/API name on its own (even in backticks, e.g. `list`) — G3 needs a file path, module path, class, or named function/symbol. |
 | `G4` | Small effort | The scope is clearly achievable in `max_effort_hours` (default: 4 hours) by a contributor unfamiliar with the codebase. Size markers that fail: "requires understanding the entire scheduler", "touches N major subsystems", explicit multi-day estimates in the body. |
 
 If all of G1–G4 pass and G5–G7 also pass, the issue is `READY`.
@@ -124,6 +124,19 @@ If all of G1–G4 pass and G5–G7 also pass, the issue is `READY`.
 If G5–G7 pass but one or more of G1–G4 fail, the issue is `NEAR-MISS`.
 Record the failing G1–G4 codes in `failing_criteria`. The failing
 codes identify exactly what edits would move the issue to READY.
+
+Score each of G1–G4 independently: a strong scope, a clear
+definition of done, and a tight effort estimate do **not** compensate
+for a missing code pointer or missing context. One failing criterion
+is enough to make the issue a `NEAR-MISS`.
+
+**Worked example (G3).** An issue asking to change how the `status`
+command formats its output, with a clear description, acceptance criteria,
+and effort estimate, but naming only the `status` command — no file path,
+module, class, or function — is a `NEAR-MISS` with `failing_criteria`
+`["G3"]`, **not** `READY`. A command or subcommand name says *what* to
+change but not *where* in the source to begin, so G3 is not satisfied even
+though G1, G2, and G4 all pass.
 
 ---
 

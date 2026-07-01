@@ -21,9 +21,9 @@ checks"). A rule that does not hold is a *failed* check.
 | `R1` | The title is a specific, action-oriented imperative, not a vague topic label. |
 | `R2` | The body has a Background section giving context a newcomer would lack. |
 | `R3` | The body names at least one concrete starting location the contributor can open: a file path, module path, or function. A bare feature name in prose does not count. |
-| `R4` | The body has explicit, observable acceptance criteria (a definition of done), not "make it better". |
+| `R4` | The body has explicit, observable acceptance criteria (a definition of done), not "make it better". A summary or background that merely describes the desired behaviour in prose does not satisfy R4; there must be a distinct, checkable list of done-conditions (e.g. a checklist or an explicit "acceptance criteria" / "definition of done" section). |
 | `R5` | The body states an estimated effort. |
-| `R6` | The body links a real newcomer-onboarding doc (the `getting_started_link` from the adopter config) rather than paraphrasing it. The link must be an absolute URL that resolves from inside a GitHub issue body; relative paths, unresolved placeholders, and 404ing anchors fail. |
+| `R6` | The body links a real newcomer-onboarding doc (the `getting_started_link` from the adopter config) rather than paraphrasing it. The link must be an absolute URL: relative paths, unresolved placeholders, and links you can confirm 404 fail. When the adopter config is not supplied or the link cannot be fetched, judge only what is checkable — an absolute, non-placeholder URL passes; do not fail R6 solely because resolution or the config value could not be confirmed. |
 | `R7` | Every piece of project jargon is either avoided or linked; no unexplained term a newcomer cannot act on. |
 | `R8` | The draft proposes the project's good-first-issue label. |
 | `R9` | The AI-attribution footer is present, verbatim from the adopter config. |

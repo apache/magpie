@@ -10,11 +10,8 @@
     "explanation",
     "details",
     "description",
-    "candidate",
-    "action",
-    "note",
-    "communications_sent",
-    "karma_granted",
-    "pending_items"
+    "sections_present",
+    "sections_stubbed",
+    "sections_missing"
   ]
 }

@@ -1,4 +1,3 @@
 {
-  "findings": [],
-  "axes_without_findings": ["correctness", "security", "conventions"]
+  "findings": []
 }

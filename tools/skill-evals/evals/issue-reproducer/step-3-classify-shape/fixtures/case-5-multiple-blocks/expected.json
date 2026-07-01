@@ -1,4 +1,4 @@
 {
-  "shape": "B",
-  "rationale": "The simpler one-liner in the comment body is the preferred candidate — it is nearly self-contained and requires only a missing import for DAG context to run; the full DAG version is complete but more complex."
+  "shape": "A",
+  "rationale": "The body contains a complete, runnable DAG script with imports and a top-level construction, which is shape A (complete runnable script). A simpler one-liner also appears in a comment, but the primary reproducer is the full self-contained script."
 }

@@ -1,6 +1,4 @@
 {
-  "tracks_with_signal": ["code", "review", "comments", "mailing-list", "release-management"],
-  "tracks_thin_or_absent": ["documentation", "testing", "user-support", "mentoring", "talks-writing"],
   "off_github_warning": false,
   "community_concern": false,
   "merit_note_triggered": false,

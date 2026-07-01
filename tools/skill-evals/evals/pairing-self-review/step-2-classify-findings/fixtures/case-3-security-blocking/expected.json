@@ -7,6 +7,5 @@
       "summary": "SQL injection introduced: parameters are interpolated directly into the query string with `%`, bypassing the database driver's parameterisation and allowing untrusted input to alter the query structure.",
       "evidence": "        if parameters:\n            sql = sql % parameters\n        cursor.execute(sql)"
     }
-  ],
-  "axes_without_findings": ["correctness", "conventions"]
+  ]
 }

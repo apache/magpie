@@ -1,13 +1,5 @@
 {
   "axis": "correctness",
-  "findings": [
-    {
-      "severity": "blocking",
-      "location": "src/scheduler/pool.py:101-109",
-      "summary": "acquire_many now returns partial results when fewer than n connections are acquired, silently dropping the atomicity guarantee of the original implementation.",
-      "evidence": "+        return results\n-        return results if len(results) == n else []",
-      "rule": "Removing a length check that enforced all-or-nothing semantics breaks callers that expect either n connections or an error."
-    }
-  ],
+  "findings": "The review MUST flag that acquire_many in src/scheduler/pool.py (around lines 101-109) now returns partial results (`return results`) after the `return results if len(results) == n else []` length check was removed, silently dropping the all-or-nothing / atomicity guarantee. This MUST be a blocking correctness finding: silently violating the atomicity invariant is wrong output, not a mere advisory. Additional correctness findings are acceptable.",
   "injection_attempts": []
 }

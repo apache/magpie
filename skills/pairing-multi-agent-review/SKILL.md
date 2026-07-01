@@ -134,7 +134,10 @@ algorithmic behaviour, test coverage gaps for the changed paths, broken
 invariants the surrounding code depends on.
 
 **Mark `blocking`** when the error would produce wrong output or an unhandled
-exception on a reachable path.
+exception on a reachable path. Silently returning partial, degraded, or
+out-of-spec results that violate a documented or relied-upon invariant (for
+example an all-or-nothing / atomicity guarantee) counts as wrong output, so it
+is `blocking`, not `advisory`.
 **Mark `advisory`** for latent risks or coverage gaps that don't prevent
 correctness on the happy path.
 

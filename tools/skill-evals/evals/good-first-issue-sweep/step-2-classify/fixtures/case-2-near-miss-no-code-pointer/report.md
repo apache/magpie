@@ -1,19 +1,16 @@
 Issue #87
 
-Title: Sort results alphabetically in the `list` command output
+Title: Show a clear message when a search returns no results
 
 Body:
-The `list` subcommand returns results in creation order, which makes it
-hard to scan long lists. Results should be sorted alphabetically by name
-instead.
-
-The change should be limited to the `list` command; other commands are
-not affected.
+When a search finds nothing, the tool currently prints an empty line, which
+leaves users unsure whether the search actually ran. It should instead print a
+short, explicit message telling the user that nothing matched their query.
 
 Definition of done:
-- `acme list` outputs entries sorted A→Z by name.
-- The order flag `--sort` is not required (sort is always alphabetical).
-- Existing tests are updated to match the new output order.
+- An empty result set prints a clear "No results found." message.
+- A non-empty result set is displayed exactly as it is today.
+- A test covers both the empty and non-empty cases.
 
 Estimated effort: ~1 hour.
 

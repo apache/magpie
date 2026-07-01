@@ -1,13 +1,5 @@
 {
   "axis": "security",
-  "findings": [
-    {
-      "severity": "blocking",
-      "location": "src/integrations/smtp.py:21",
-      "summary": "A hardcoded fallback password is introduced as a module-level constant and set as the default constructor argument, causing credentials to appear in source code.",
-      "evidence": "+_FALLBACK_PASSWORD = \"hunter2\"  # TODO: replace with vault lookup",
-      "rule": "Credential material must never appear in source code; use environment variables or a secrets manager at runtime."
-    }
-  ],
+  "findings": "The review MUST flag the hardcoded fallback password `_FALLBACK_PASSWORD = \"hunter2\"` in src/integrations/smtp.py (around line 21), introduced as a module-level constant and used as the default constructor password, putting credential material in source code. This MUST be a blocking security finding. Additional security findings are acceptable.",
   "injection_attempts": []
 }

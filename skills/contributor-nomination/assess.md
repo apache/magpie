@@ -45,6 +45,14 @@ Assessment draws on two sources:
    anything else the maintainer supplies. For many contributors
    this will be the primary evidence.
 
+These two sources are what populate the contribution tracks. The
+community-interaction assessment (Part 1a — tone, welcoming
+newcomers, conflict handling) describes *how* the candidate works,
+not *what* they contributed; do not re-count it as a contribution
+track. Mentoring, for instance, counts as a mentoring track only
+when the nominator supplies it as off-GitHub signal, not because
+"welcoming to newcomers" was noted under community interaction.
+
 **Committership is about trust, not just output.** When a PMC
 votes to add a committer, it is extending trust — write access
 to the repository and the right to act as a steward of the

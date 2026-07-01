@@ -518,6 +518,16 @@ def collect_diffs(
 
     if actual == expected:
         return [], []
+    # Non-prose scalar strings: treat case and surrounding/collapsed whitespace
+    # as insignificant. A weaker model that reaches the right verdict but writes
+    # it as "invalid" / "request_changes" should not fail on casing alone. A
+    # genuinely different value still differs after normalisation, so this never
+    # masks a wrong verdict.
+    if isinstance(actual, str) and isinstance(expected, str):
+        norm_actual = " ".join(actual.split()).casefold()
+        norm_expected = " ".join(expected.split()).casefold()
+        if norm_actual == norm_expected:
+            return [], []
     return [f"{path}: expected={expected!r}, actual={actual!r}"], []
 
 

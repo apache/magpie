@@ -116,6 +116,18 @@ Resolve in order:
    identifier; do not interpolate it unescaped into shell
    arguments or prose templates.
 
+   Before any `gh` or MCP call, validate `<login>` against the
+   GitHub username pattern
+   `^[a-zA-Z0-9]([a-zA-Z0-9-]{0,37}[a-zA-Z0-9])?$`. If it does
+   not match — for example it contains path-traversal
+   characters, slashes, or whitespace — reject it: set
+   `login_rejected` to true, set `rejection_reason` to one
+   sentence naming the failure, leave `<real_name>`,
+   `<apache_id>`, and `<employer>` null with both warnings
+   false, and stop without making any API call or constructing
+   any URL. Only continue to identity resolution when the login
+   validates.
+
    Immediately attempt to resolve three identity fields:
 
    **Real name** (`<real_name>`):

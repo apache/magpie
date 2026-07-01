@@ -299,7 +299,10 @@ For explicit-key selectors (`triage <KEY>`), take the key verbatim
 — no resolution, no fuzzy match. Anything that doesn't match
 `^[A-Z][A-Z0-9_]*-\d+$` (JIRA-style) or `^#?\d+$` (GitHub-style) is
 a hard error — *never* interpolate an unvalidated free-form string
-into a tracker query.
+into a tracker query. Emit each resolved key **exactly as the user
+typed it**, including any project prefix (e.g. `AIRFLOW-99101` stays
+`AIRFLOW-99101`). Prefix-stripping is only ever used to validate the
+format; never apply it to the keys you echo or return.
 
 After resolving, **echo the final list back to the user** and ask
 for confirmation before proceeding to Step 2. This catches:

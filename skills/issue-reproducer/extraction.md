@@ -93,7 +93,13 @@ verbatim code but enough precision to construct a faithful test
 The distinction from fabrication: E-precise is *instantiation of
 an explicit claim* (the prose IS the spec); fabrication is
 *guessing at inputs, structure, or APIs the reporter didn't
-specify*.
+specify*. A named error alone is not enough: if building a
+faithful test would require inventing unstated setup the reporter
+never gave (environment variables, backend or secrets
+configuration, fixtures, or the surrounding call context),
+classify it **E-vague**, even when a bare code fragment or a
+specific exception is shown. E-precise applies only when the
+stated claim is sufficient on its own to construct the test.
 
 **F — Attachment.** Source file with project extension (`.py`,
 `.foo`, etc.), project archive (`.zip`, `.tar.gz`), log file
