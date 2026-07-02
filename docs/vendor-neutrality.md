@@ -538,11 +538,8 @@ implementation of a capability.
 
 | Capability contract | Neutral? | Class | Backends today | Basis |
 |---|---|---|---|---|
-| `contract:tracker` | ✅ | vendor-backed | Atlassian, Fossil, GitHub | 3 backend vendors: Atlassian, Fossil, GitHub |
-| `contract:source-control` | ✅ | vendor-backed | Fossil, Git, GitHub, Subversion | 4 backend vendors: Fossil, Git, GitHub, Subversion |
-| `contract:mail-archive` | ✅ | vendor-backed | Google, PonyMail | 2 backend vendors: Google, PonyMail |
-| `contract:tracker` | ✅ | vendor-backed | Atlassian, GitHub, SourceHut | 3 backend vendors: Atlassian, GitHub, SourceHut |
-| `contract:source-control` | ✅ | vendor-backed | Git, GitHub, SourceHut, Subversion | 4 backend vendors: Git, GitHub, SourceHut, Subversion |
+| `contract:tracker` | ✅ | vendor-backed | Atlassian, Fossil, GitHub, SourceHut | 4 backend vendors: Atlassian, Fossil, GitHub, SourceHut |
+| `contract:source-control` | ✅ | vendor-backed | Fossil, Git, GitHub, SourceHut, Subversion | 5 backend vendors: Fossil, Git, GitHub, SourceHut, Subversion |
 | `contract:mail-archive` | ✅ | vendor-backed | Google, PonyMail, SourceHut | 3 backend vendors: Google, PonyMail, SourceHut |
 | `contract:mail-source` | ✅ | vendor-backed | Google, PonyMail | 2 backend vendors: Google, PonyMail |
 | `contract:mail-draft` | ❌ | vendor-backed | Google | only 1 backend vendor (Google); needs 1 more |

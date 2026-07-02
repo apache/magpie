@@ -458,6 +458,9 @@ class MercurialBackend(VCSBackend):
         _run(["hg", "update", "--clean"], self.root, check=False, capture=False)
         _run(["hg", "purge", "--config", "extensions.purge="], self.root, check=False, capture=False)
 
+    def cat(self, rev: str, path: str) -> str:
+        return _run(["hg", "cat", "-r", rev, path], self.root)
+
 
 class FossilBackend(VCSBackend):
     """Fossil SCM binding of the source-control capability."""
