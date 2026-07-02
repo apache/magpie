@@ -25,6 +25,7 @@
     - [Linking tracker issues and PRs](#linking-tracker-issues-and-prs)
     - [Mentioning project maintainers and security-team members](#mentioning-project-maintainers-and-security-team-members)
   - [Reusable skills](#reusable-skills)
+    - [Reviewing pull requests](#reviewing-pull-requests)
   - [Keeping evals and mode-economics in sync](#keeping-evals-and-mode-economics-in-sync)
     - [When the rule fires](#when-the-rule-fires)
   - [Before submitting](#before-submitting)
@@ -916,6 +917,20 @@ When adding a new skill:
 - make every state-changing action a *proposal* that requires explicit user confirmation before it runs;
 - avoid agent-specific syntax so the skill remains portable across tools;
 - **ship a behavioural eval suite** under [`tools/skill-evals/evals/<skill-name>/`](tools/skill-evals/) — see [Keeping evals and mode-economics in sync](#keeping-evals-and-mode-economics-in-sync). The [`write-skill`](skills/write-skill/SKILL.md) skill prompts for the capability frontmatter on every new-skill scaffold. A skill PR without a matching eval suite is incomplete.
+
+### Reviewing pull requests
+
+For PR code review in this repo, use the
+[`pr-management-code-review`](skills/pr-management-code-review/SKILL.md)
+skill — not an ad-hoc review pass or a generic review command. It
+anchors every finding as an **inline review comment** (`file:line`),
+presents the drafted comments to the maintainer **individually for
+accept/skip**, and posts the accepted set as a single review. A
+body-only review is the explicit opt-out (`inline:off`), never the
+default; findings that cannot be anchored to a changed line go in the
+review body. Adopters that install the `pr-management-*` family inherit
+the same default in their own `AGENTS.md` (wired by
+[`skills/setup/adopt.md`](skills/setup/adopt.md)).
 
 ## Keeping evals and mode-economics in sync
 

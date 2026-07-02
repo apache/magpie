@@ -509,12 +509,17 @@ For each PR in the list, run the per-PR review loop in
    [`posting.md#disposition`](posting.md), apply Golden rules 7
    and 8, and produce a draft body using the templates in
    [`posting.md`](posting.md).
-6. **Show the inline-comments picker** — for every anchored
-   finding the skill drafts an inline review comment and
-   presents them in a numbered list with all entries enabled
-   by default. The maintainer picks `[A]ll` / `[N]one` /
-   `[<indices>]` / drops a few. Suppressed for the whole
-   session if `inline:off` was passed.
+6. **Show the inline-comments picker** — inline review
+   comments are the **default and preferred** output of this
+   skill: for every anchored finding the skill drafts an
+   inline review comment and presents them in a numbered list
+   with all entries enabled by default, so the maintainer
+   accepts them individually. The maintainer picks `[A]ll` /
+   `[N]one` / `[<indices>]` / drops a few. A body-only review
+   is the explicit exception, reached only by passing
+   `inline:off`, which suppresses the picker for the whole
+   session. Findings that cannot be anchored to a `file:line`
+   (e.g. on unchanged lines) go in the review body instead.
 7. **Show the draft to the maintainer** — full body, count of
    inline comments to be posted, and the chosen disposition.
 8. **On confirmation** — post via the GraphQL
