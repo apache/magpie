@@ -17,6 +17,8 @@
 
 **Capability:** substrate:framework-dev
 
+**Harness:** agnostic
+
 Validates adopter pilot-report files against the required schema defined
 in [`docs/pilot-report-template.md`](../../docs/pilot-report-template.md).
 Pilot reports are the feedback artefact that documents an adopter's

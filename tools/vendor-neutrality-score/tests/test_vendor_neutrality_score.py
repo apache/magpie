@@ -218,12 +218,85 @@ def test_doc_block_is_in_sync() -> None:
     end = "<!-- END vendor-neutrality-score -->"
     assert begin in doc and end in doc, "regen markers missing from docs/vendor-neutrality.md"
     block = doc.split(begin, 1)[1].split("-->", 1)[1].split(end, 1)[0].strip()
-    contract_results, skill_results = vns.compute(root)
-    expected = vns.render_markdown(contract_results, skill_results).strip()
+    contract_results, skill_results, harness_results, llm_classes = vns.compute_all(root)
+    expected = vns.render_markdown(contract_results, skill_results, harness_results, llm_classes).strip()
     assert block == expected, (
         "docs/vendor-neutrality.md is stale — regenerate with:\n"
         "  uv run --project tools/vendor-neutrality-score vendor-neutrality-score --markdown"
     )
+
+
+# ---------------------------------------------------------------------------
+# Agent-harness axis (Part A) + LLM-endpoint axis (Part B)
+# ---------------------------------------------------------------------------
+
+
+def _write_substrate(root, name: str, capability: str, harness: str) -> None:
+    d = root / "tools" / name
+    d.mkdir(parents=True)
+    (d / "README.md").write_text(
+        f"# {name}\n\n**Capability:** {capability}\n\n**Harness:** {harness}\n\nProse.\n",
+        encoding="utf-8",
+    )
+
+
+def test_harness_verdicts(tmp_path) -> None:
+    _write_substrate(tmp_path, "guard", "substrate:action-guard", "Claude Code")
+    _write_substrate(tmp_path, "multi", "substrate:sandbox", "Claude Code, Codex")
+    _write_substrate(tmp_path, "checker", "substrate:framework-dev", "agnostic")
+    by_tool = {r.tool: r for r in vns.load_substrate_harnesses(tmp_path)}
+    assert by_tool["guard"].verdict == "coupled"  # single harness
+    assert by_tool["multi"].verdict == "portable"  # two harnesses
+    assert by_tool["checker"].verdict == "agnostic"  # no harness dependency
+    assert by_tool["multi"].harnesses == ("Claude Code", "Codex")
+
+
+def test_harness_missing_field_raises(tmp_path) -> None:
+    d = tmp_path / "tools" / "nope"
+    d.mkdir(parents=True)
+    (d / "README.md").write_text("# nope\n\n**Capability:** substrate:sandbox\n\nProse.\n", "utf-8")
+    with pytest.raises(ValueError, match="Harness"):
+        vns.load_substrate_harnesses(tmp_path)
+
+
+def test_harness_unknown_value_raises(tmp_path) -> None:
+    _write_substrate(tmp_path, "weird", "substrate:sandbox", "Emacs")
+    with pytest.raises(ValueError, match="unknown harness"):
+        vns.load_substrate_harnesses(tmp_path)
+
+
+def test_contract_tools_are_not_scored_for_harness(tmp_path) -> None:
+    # A tool that carries a contract:* is on the vendor axis, not the harness axis.
+    d = tmp_path / "tools" / "gh"
+    d.mkdir(parents=True)
+    (d / "README.md").write_text(
+        "# gh\n\n**Capability:** contract:tracker + substrate:analytics\n\nProse.\n", "utf-8"
+    )
+    assert vns.load_substrate_harnesses(tmp_path) == []
+
+
+def test_harness_appears_in_renders(tmp_path) -> None:
+    _write_substrate(tmp_path, "guard", "substrate:action-guard", "Claude Code")
+    harness = vns.load_substrate_harnesses(tmp_path)
+    md = vns.render_markdown([], [], harness, [])
+    assert "Agent harness:" in md and "`guard`" in md and "coupled" in md
+    payload = json.loads(vns.render_json([], [], harness, []))
+    assert payload["harness"]["overall"]["total"] == 1
+    assert payload["harness"]["matrix"]["Claude Code"] == ["guard"]
+
+
+def test_approved_llms_parsed_from_live_registry() -> None:
+    classes = vns.load_approved_llms(vns.find_repo_root())
+    names = [c.name for c in classes]
+    assert "Claude Code itself" in names
+    assert any("apache.org" in n for n in names)
+    assert all(c.examples for c in classes)
+
+
+def test_compute_all_covers_every_axis() -> None:
+    contracts, skills, harness, llm = vns.compute_all(vns.find_repo_root())
+    assert contracts and skills and harness and llm
+    assert all(r.verdict in {"agnostic", "portable", "coupled"} for r in harness)
 
 
 def test_main_json_exits_zero() -> None:

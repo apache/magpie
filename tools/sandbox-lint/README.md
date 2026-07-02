@@ -19,6 +19,8 @@
 
 **Capability:** substrate:sandbox
 
+**Harness:** Claude Code
+
 Lints `.claude/settings.json` against the shipped baseline at
 `tools/sandbox-lint/expected.json`, and against the security
 invariants documented in `docs/security/threat-model.md`

@@ -24,6 +24,8 @@
 
 **Capability:** substrate:analytics
 
+**Harness:** agnostic
+
 Generate a self-contained HTML dashboard of `<tracker>` repository
 statistics — issue-lifecycle bands (untriaged / triaged / PR-merged /
 fixed-released / closed-other), opened-vs-untriaged backlog, cumulative

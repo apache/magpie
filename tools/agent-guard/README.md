@@ -19,6 +19,8 @@
 
 **Capability:** substrate:action-guard
 
+**Harness:** Claude Code
+
 A deterministic Claude Code [`PreToolUse`](https://code.claude.com/docs/en/hooks)
 guard dispatcher. It inspects every `Bash` command **before it runs** and
 **denies** the ones that would break a hard framework rule — protections that

@@ -21,6 +21,8 @@
 
 **Capability:** substrate:analytics
 
+**Harness:** agnostic
+
 Deterministic reference implementation of the data-fetch +
 classification contract that backs the
 [`pr-management-stats`](../../skills/pr-management-stats/SKILL.md) skill.

@@ -23,6 +23,8 @@
 
 **Capability:** substrate:sandbox
 
+**Harness:** Claude Code
+
 Audit + atomically edit Claude Code's `permissions.allow[]` entries
 in `<repo>/.claude/settings.json` and `<repo>/.claude/settings.local.json`.
 

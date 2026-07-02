@@ -18,6 +18,8 @@
 
 **Capability:** substrate:framework-dev + substrate:analytics
 
+**Harness:** agnostic
+
 A deterministic `uv` tool that scores Magpie's vendor neutrality from
 repository metadata alone — no network, no judgement at runtime. It
 answers the question raised in

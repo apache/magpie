@@ -2,6 +2,8 @@
 
 **Capability:** substrate:framework-dev
 
+**Harness:** agnostic
+
 Behavioral eval harness for Apache Magpie skills. Each eval suite tests a skill pipeline step by step, verifying that the model produces the correct structured JSON output for a fixed set of fixture cases.
 
 Suites are currently implemented for:

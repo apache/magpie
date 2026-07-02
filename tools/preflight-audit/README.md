@@ -21,6 +21,8 @@
 
 **Capability:** substrate:analytics
 
+**Harness:** agnostic
+
 Dry-run the bulk-mode pre-flight classifier against a real or
 replayed tracker. Use to **measure skip-rate before / after any
 rule change** — closes the tune-then-verify loop so rule edits

@@ -17,6 +17,8 @@
 
 **Capability:** substrate:framework-dev
 
+**Harness:** agnostic
+
 Lints the framework's **self-adoption skill symlinks** — the canonical
 `.agents/skills/` links and their relays — against two invariants. This is
 the single place the rationale lives; the module, the prek hook, and the

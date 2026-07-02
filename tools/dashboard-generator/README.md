@@ -20,6 +20,8 @@
 
 **Capability:** substrate:analytics
 
+**Harness:** agnostic
+
 Deterministic reference implementations of the dashboard that
 [`issue-reassess-stats`](../../skills/issue-reassess-stats/SKILL.md)
 produces. Adopters who want CI-rendered dashboards (refreshed on

@@ -17,6 +17,8 @@
 
 **Capability:** substrate:sandbox
 
+**Harness:** Claude Code
+
 This directory ships the moving pieces the framework's
 [`docs/setup/secure-agent-setup.md`](../../docs/setup/secure-agent-setup.md) document
 references. It is not a Python project (unlike the sibling tools

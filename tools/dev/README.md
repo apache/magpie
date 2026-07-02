@@ -14,6 +14,8 @@
 
 **Capability:** substrate:framework-dev
 
+**Harness:** agnostic
+
 Framework dev-loop helpers (placeholder check, agent pre-commit hook). Invoked by prek and CI; not consumed by any skill directly. See the individual scripts in this directory for usage.
 
 ## Prerequisites

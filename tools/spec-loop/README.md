@@ -5,6 +5,8 @@
 
 **Capability:** substrate:framework-dev
 
+**Harness:** Claude Code
+
 A spec-driven build loop for this framework, in the general
 [Ralph](https://ghuntley.com/ralph/) style (run a fresh agent context
 against a fixed prompt, repeat), adapted to the framework's

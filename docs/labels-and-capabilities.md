@@ -118,6 +118,17 @@ query can answer "how is our triage stack doing across PR + issue +
 security?" by filtering on `capability:triage` alone, without
 enumerating per-area queries.
 
+**Agent-harness support (substrate tools only).** A substrate tool that
+integrates with the agent runtime (a hook, a settings file, a launcher)
+declares a `**Harness:**` field naming the harness(es) it supports, or
+`agnostic` when it depends on none. This is the *agent-harness* axis of
+LLM-integration neutrality and is scored by
+[`tools/vendor-neutrality-score`](../tools/vendor-neutrality-score/) —
+distinct from a tool's `**Runtime:**` field, which is its *execution*
+environment (e.g. "Python stdlib"). The recognised harnesses are: Claude
+Code, Codex, Cursor, Gemini CLI, Copilot, OpenCode, Kiro. A tool is
+harness-neutral when it is `agnostic` or supports two or more harnesses.
+
 ### 3. `kind:*` — change type (pre-existing)
 
 | Label | Covers |

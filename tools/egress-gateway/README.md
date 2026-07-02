@@ -19,6 +19,8 @@
 
 **Capability:** substrate:sandbox
 
+**Harness:** agnostic
+
 A local **host-allowlisting HTTP(S) forward proxy** for the
 Magpie framework. It is the egress-control chokepoint: framework
 tools point `HTTPS_PROXY`/`HTTP_PROXY` at it, and the gateway rejects any

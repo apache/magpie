@@ -141,6 +141,36 @@ _ORG_RE = re.compile(r"^organization:[ \t]*(.+?)[ \t]*$", re.MULTILINE)
 INTERFACE = "interface"
 IMPLEMENTATION = "implementation"
 
+# ---------------------------------------------------------------------------
+# LLM / agent-integration axis
+# ---------------------------------------------------------------------------
+# The six-axes narrative separates the *model* (which LLM provider) from the
+# *agent harness* (which runtime drives the skills). Both are "LLM integration"
+# neutrality, and both are measured here:
+#
+#   Part A — agent harness. Substrate tools are Magpie's own machinery; the ones
+#   that integrate with the agent (hooks, settings, launch) declare **Harness:**
+#   — the harness(es) they support, or `agnostic`. This is distinct from a
+#   tool's **Runtime:** (its *execution* env, e.g. "Python stdlib"). A substrate
+#   tool is harness-neutral when it is agnostic or supports two or more harnesses.
+#
+#   Part B — model endpoint. tools/privacy-llm/models.md is the source of truth
+#   for which LLM endpoints may receive framework data; its default-approved
+#   classes span independent trust domains (the agent itself, ASF-hosted, local,
+#   air-gapped) plus adopter opt-in — so the model axis is neutral by design.
+HARNESS_VOCAB = {
+    "Claude Code",
+    "Codex",
+    "Cursor",
+    "Gemini CLI",
+    "Copilot",
+    "OpenCode",
+    "Kiro",
+}
+AGNOSTIC_HARNESS = "agnostic"
+_HARNESS_RE = re.compile(r"^\*\*Harness:\*\*[ \t]+(.+?)[ \t]*$", re.MULTILINE)
+_MODELS_DEFAULT_HEADING = "## The default-approved entries"
+
 
 # ---------------------------------------------------------------------------
 # Data model
@@ -179,6 +209,28 @@ class SkillResult:
     contracts: list[str]  # capability contracts the skill invokes
     verdict: str
     coupled: list[tuple[str, str]]  # (sole vendor, contract) with no alternative
+
+
+@dataclass
+class HarnessResult:
+    """A substrate tool's declared agent-harness support (Part A)."""
+
+    tool: str
+    substrates: tuple[str, ...]  # the substrate:* labels it carries
+    harnesses: tuple[str, ...]  # declared harnesses (empty when agnostic)
+    verdict: str  # 'agnostic' | 'portable' | 'coupled'
+
+    @property
+    def support(self) -> str:
+        return "any" if self.verdict == "agnostic" else ", ".join(self.harnesses)
+
+
+@dataclass
+class LLMClass:
+    """A default-approved LLM endpoint class from the privacy-llm registry (Part B)."""
+
+    name: str
+    examples: str
 
 
 # ---------------------------------------------------------------------------
@@ -248,6 +300,79 @@ def load_skills(repo_root: Path) -> list[tuple[str, str, str]]:
         org = org_m.group(1).strip() if org_m else "agnostic"
         out.append((skill_md.parent.name, org, body))
     return out
+
+
+def load_substrate_harnesses(repo_root: Path) -> list[HarnessResult]:
+    """Read every substrate tool's declared **Harness:** support (Part A).
+
+    A substrate tool is one whose ``**Capability:**`` carries ``substrate:*`` and
+    no ``contract:*`` (contract tools live on the vendor axis instead). Each must
+    declare ``**Harness:**`` — the agent harness(es) it integrates with, or
+    ``agnostic`` when it depends on no particular harness.
+    """
+    results: list[HarnessResult] = []
+    for readme in sorted((repo_root / "tools").glob("*/README.md")):
+        text = readme.read_text(encoding="utf-8")
+        cap_m = _CAP_RE.search(text)
+        if not cap_m:
+            continue
+        caps = _parse_capabilities(cap_m.group(1))
+        substrates = tuple(c for c in caps if c.startswith("substrate:"))
+        if not substrates or any(c.startswith("contract:") for c in caps):
+            continue
+        name = readme.parent.name
+        h_m = _HARNESS_RE.search(text)
+        if not h_m:
+            raise ValueError(
+                f"tools/{name}/README.md is a substrate tool but is missing a "
+                f"'**Harness:**' field required for the agent-harness score "
+                f"(declare the harness(es) it integrates with, or '{AGNOSTIC_HARNESS}')"
+            )
+        raw = h_m.group(1).strip()
+        if raw.lower() == AGNOSTIC_HARNESS:
+            harnesses: tuple[str, ...] = ()
+            verdict = "agnostic"
+        else:
+            harnesses = tuple(sorted({h.strip() for h in raw.split(",") if h.strip()}))
+            unknown = set(harnesses) - HARNESS_VOCAB
+            if unknown:
+                raise ValueError(
+                    f"tools/{name}: unknown harness(es) {sorted(unknown)} — "
+                    f"use one of {sorted(HARNESS_VOCAB)} or '{AGNOSTIC_HARNESS}'"
+                )
+            verdict = "portable" if len(harnesses) >= MIN_VENDORS else "coupled"
+        results.append(HarnessResult(name, substrates, harnesses, verdict))
+    return results
+
+
+def load_approved_llms(repo_root: Path) -> list[LLMClass]:
+    """Parse the default-approved LLM endpoint classes from privacy-llm/models.md (Part B).
+
+    The registry's ``## The default-approved entries`` section carries a
+    ``| Class | Rationale | Examples |`` table; each row is one endpoint class
+    that may receive framework data with no adopter action. Opt-in endpoints are
+    adopter-declared (no fixed list) and are surfaced as a note, not rows.
+    """
+    models = repo_root / "tools" / "privacy-llm" / "models.md"
+    if not models.is_file():
+        return []
+    text = models.read_text(encoding="utf-8")
+    if _MODELS_DEFAULT_HEADING not in text:
+        return []
+    section = text.split(_MODELS_DEFAULT_HEADING, 1)[1].split("\n## ", 1)[0]
+    classes: list[LLMClass] = []
+    for line in section.splitlines():
+        line = line.strip()
+        if not line.startswith("|") or line.startswith("|--") or "| Class " in line:
+            continue
+        cells = [c.strip() for c in line.strip("|").split("|")]
+        if len(cells) < 3:
+            continue
+        name = cells[0].replace("**", "").replace("`", "").strip()
+        examples = cells[2].strip()
+        if name:
+            classes.append(LLMClass(name=name, examples=examples))
+    return classes
 
 
 # ---------------------------------------------------------------------------
@@ -343,7 +468,12 @@ def _overall(contract_results: list[ContractResult]) -> tuple[int, int, int]:
     return green, total, pct
 
 
-def render_text(contract_results: list[ContractResult], skill_results: list[SkillResult]) -> str:
+def render_text(
+    contract_results: list[ContractResult],
+    skill_results: list[SkillResult],
+    harness_results: list[HarnessResult] | None = None,
+    llm_classes: list[LLMClass] | None = None,
+) -> str:
     green, total, pct = _overall(contract_results)
     lines = [
         "Vendor-neutrality score (deterministic)",
@@ -371,12 +501,26 @@ def render_text(contract_results: list[ContractResult], skill_results: list[Skil
         for s in coupled:
             detail = "; ".join(f"{v} → {c}" for v, c in s.coupled)
             lines.append(f"  - {s.name}: {detail}")
+    if harness_results is not None:
+        hn, ht, hp = _harness_overall(harness_results)
+        lines += ["", f"Agent harness: {hn}/{ht} substrate tools harness-neutral ({hp}%)"]
+        for hr in sorted(harness_results, key=lambda h: (h.verdict != "coupled", h.tool)):
+            lines.append(f"  {_MARK[hr.verdict != 'coupled']} {hr.tool:32} {hr.verdict:9} {hr.support}")
+    if llm_classes:
+        lines += ["", f"LLM model endpoints: {len(llm_classes)} default-approved classes + adopter opt-in"]
+        for c in llm_classes:
+            lines.append(f"  - {c.name}")
     return "\n".join(lines) + "\n"
 
 
-def render_json(contract_results: list[ContractResult], skill_results: list[SkillResult]) -> str:
+def render_json(
+    contract_results: list[ContractResult],
+    skill_results: list[SkillResult],
+    harness_results: list[HarnessResult] | None = None,
+    llm_classes: list[LLMClass] | None = None,
+) -> str:
     green, total, pct = _overall(contract_results)
-    payload = {
+    payload: dict = {
         "overall": {"green": green, "total": total, "percent": pct},
         "contracts": [
             {
@@ -401,10 +545,56 @@ def render_json(contract_results: list[ContractResult], skill_results: list[Skil
             for s in skill_results
         ],
     }
+    if harness_results is not None:
+        hn, ht, hp = _harness_overall(harness_results)
+        payload["harness"] = {
+            "overall": {"neutral": hn, "total": ht, "percent": hp},
+            "tools": [
+                {
+                    "tool": r.tool,
+                    "substrates": list(r.substrates),
+                    "harnesses": list(r.harnesses),
+                    "verdict": r.verdict,
+                }
+                for r in harness_results
+            ],
+            "matrix": _harness_matrix(harness_results),
+        }
+    if llm_classes is not None:
+        payload["llm"] = {
+            "default_approved": [{"class": c.name, "examples": c.examples} for c in llm_classes],
+            "opt_in": "adopter-declared in <project-config>/privacy-llm.md (no fixed list)",
+        }
     return json.dumps(payload, indent=2, ensure_ascii=False)
 
 
-def render_markdown(contract_results: list[ContractResult], skill_results: list[SkillResult]) -> str:
+def _harness_overall(harness_results: list[HarnessResult]) -> tuple[int, int, int]:
+    neutral = sum(1 for r in harness_results if r.verdict != "coupled")
+    total = len(harness_results)
+    pct = round(100 * neutral / total) if total else 0
+    return neutral, total, pct
+
+
+def _harness_matrix(harness_results: list[HarnessResult]) -> dict[str, list[str]]:
+    """harness id (+ 'agnostic') -> substrate tools it supports."""
+    matrix: dict[str, list[str]] = {AGNOSTIC_HARNESS: []}
+    for h in sorted(HARNESS_VOCAB):
+        matrix[h] = []
+    for r in harness_results:
+        if r.verdict == "agnostic":
+            matrix[AGNOSTIC_HARNESS].append(r.tool)
+        else:
+            for h in r.harnesses:
+                matrix.setdefault(h, []).append(r.tool)
+    return {h: sorted(tools) for h, tools in matrix.items() if tools}
+
+
+def render_markdown(
+    contract_results: list[ContractResult],
+    skill_results: list[SkillResult],
+    harness_results: list[HarnessResult] | None = None,
+    llm_classes: list[LLMClass] | None = None,
+) -> str:
     """Emit the generated block for docs/vendor-neutrality.md."""
     green, total, pct = _overall(contract_results)
     lines = [
@@ -448,6 +638,54 @@ def render_markdown(contract_results: list[ContractResult], skill_results: list[
         for s in coupled:
             detail = "; ".join(f"`{v}` → `{c}`" for v, c in s.coupled)
             lines.append(f"- `{s.name}` — {detail}")
+
+    if harness_results is not None:
+        hn, ht, hp = _harness_overall(harness_results)
+        lines += [
+            "",
+            "**LLM / agent-integration neutrality**",
+            "",
+            f"**Agent harness: {hn}/{ht} substrate tools run under any harness "
+            f"unchanged ({hp}%).** Substrate tools are Magpie's own machinery; each "
+            "declares the agent harness it integrates with (`**Harness:**`), or "
+            "`agnostic`. A tool is neutral when it is harness-agnostic or supports "
+            "two or more harnesses; *coupled* when it targets a single harness.",
+            "",
+            "| Substrate tool | Substrate | Harness support | Verdict |",
+            "|---|---|---|---|",
+        ]
+        for hr in sorted(harness_results, key=lambda h: (h.verdict != "coupled", h.tool)):
+            subs = ", ".join(s.replace("substrate:", "") for s in hr.substrates)
+            mark = _MARK[hr.verdict != "coupled"]
+            lines.append(f"| `{hr.tool}` | {subs} | {hr.support} | {mark} {hr.verdict} |")
+        matrix = _harness_matrix(harness_results)
+        lines += ["", "Harness → substrate tools it supports:", ""]
+        for h in [*sorted(k for k in matrix if k != AGNOSTIC_HARNESS), AGNOSTIC_HARNESS]:
+            if h in matrix:
+                tools = ", ".join(f"`{t}`" for t in matrix[h])
+                label = "any harness" if h == AGNOSTIC_HARNESS else h
+                lines.append(f"- **{label}** ({len(matrix[h])}): {tools}")
+
+    if llm_classes:
+        lines += [
+            "",
+            f"**Model endpoint: neutral by construction — {len(llm_classes)} "
+            "default-approved endpoint classes across independent trust domains, "
+            "plus adopter opt-in.** From the "
+            "[`privacy-llm` registry](../tools/privacy-llm/models.md): the framework "
+            "keys approval on *endpoint identity*, not on who hosts the model, so no "
+            "single LLM vendor is privileged.",
+            "",
+            "| Default-approved endpoint class | Examples |",
+            "|---|---|",
+        ]
+        for c in llm_classes:
+            lines.append(f"| {c.name} | {c.examples} |")
+        lines.append(
+            "\nEvery other endpoint is **opt-in** — the adopting project's security "
+            "team declares it in `<project-config>/privacy-llm.md` (endpoint URL, "
+            "data-residency contract, approver), so the choice is local and audited."
+        )
     return "\n".join(lines) + "\n"
 
 
@@ -461,6 +699,17 @@ def compute(repo_root: Path) -> tuple[list[ContractResult], list[SkillResult]]:
     contract_results = score_contracts(tools)
     skill_results = score_skills(load_skills(repo_root), contract_results)
     return contract_results, skill_results
+
+
+def compute_all(
+    repo_root: Path,
+) -> tuple[list[ContractResult], list[SkillResult], list[HarnessResult], list[LLMClass]]:
+    """Full assessment: capability contracts + skills (vendor axis) plus the
+    agent-harness and LLM-endpoint axes (the LLM-integration axis)."""
+    contract_results, skill_results = compute(repo_root)
+    harness_results = load_substrate_harnesses(repo_root)
+    llm_classes = load_approved_llms(repo_root)
+    return contract_results, skill_results, harness_results, llm_classes
 
 
 def main(argv: Iterable[str] | None = None) -> int:
@@ -484,17 +733,17 @@ def main(argv: Iterable[str] | None = None) -> int:
 
     repo_root = args.repo_root.resolve() if args.repo_root else find_repo_root()
     try:
-        contract_results, skill_results = compute(repo_root)
+        contract_results, skill_results, harness_results, llm_classes = compute_all(repo_root)
     except ValueError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 
     if args.json:
-        print(render_json(contract_results, skill_results))
+        print(render_json(contract_results, skill_results, harness_results, llm_classes))
     elif args.markdown:
-        print(render_markdown(contract_results, skill_results))
+        print(render_markdown(contract_results, skill_results, harness_results, llm_classes))
     else:
-        print(render_text(contract_results, skill_results), end="")
+        print(render_text(contract_results, skill_results, harness_results, llm_classes), end="")
 
     if args.fail_under is not None:
         _, _, pct = _overall(contract_results)

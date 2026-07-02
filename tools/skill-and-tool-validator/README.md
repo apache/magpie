@@ -19,6 +19,8 @@
 
 **Capability:** substrate:framework-dev
 
+**Harness:** agnostic
+
 Validate framework skill definitions — YAML frontmatter, internal
 link integrity, and placeholder conventions.
 
