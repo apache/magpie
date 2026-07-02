@@ -20,8 +20,8 @@
 This module extracts the abstraction documented in
 ``tools/github/source-control.md`` into runnable code: one abstract
 :class:`VCSBackend` interface listing the operations the dev-loop skills
-need, a complete :class:`GitBackend`, and explicit extension points for the
-non-Git VCS bridges (Mercurial #601, Subversion #602, Jujutsu #603,
+need, a complete :class:`GitBackend`, a complete :class:`MercurialBackend`, and explicit extension points for the
+non-Git/non-Hg VCS bridges (Subversion #602, Jujutsu #603,
 Fossil #604, Perforce #605).
 
 A skill calls the abstract operation (``magpie-vcs diff``) instead of a raw
@@ -356,13 +356,93 @@ class _UnimplementedBackend(VCSBackend):
         raise self._unsupported("reset_worktree")
 
 
-class MercurialBackend(_UnimplementedBackend):
-    """Mercurial (Hg) extension point — see apache/magpie#601."""
+class MercurialBackend(VCSBackend):
+    """Mercurial (Hg) backend implementation."""
 
     name = "hg"
     distributed = True
-    marker = ".hg"
-    issue = "apache/magpie#601"
+
+    @classmethod
+    def detect(cls, start: Path) -> Path | None:
+        for d in (start, *start.parents):
+            if (d / ".hg").exists():
+                return d
+        return None
+
+    @classmethod
+    def is_available(cls) -> bool:
+        try:
+            subprocess.run(["hg", "--version"], capture_output=True, check=True)
+        except (OSError, subprocess.CalledProcessError):
+            return False
+        return True
+
+    def status(self) -> str:
+        return _run(["hg", "status"], self.root)
+
+    def current_branch(self) -> str:
+        return _run(["hg", "branch"], self.root).strip()
+
+    def diff(self, base: str | None = None, cached: bool = False, paths: Sequence[str] = ()) -> str:
+        if cached:
+            raise VCSError("hg does not support staging area/cached diff")
+        args = ["hg", "diff"]
+        if base:
+            args.extend(["-r", base])
+        if paths:
+            args.extend(["--", *paths])
+        return _run(args, self.root)
+
+    def log(
+        self,
+        max_count: int | None = None,
+        grep: str | None = None,
+        author: str | None = None,
+        since: str | None = None,
+        paths: Sequence[str] = (),
+    ) -> str:
+        args = ["hg", "log", "--template", "{node|short} {desc|firstline}\n"]
+        if max_count is not None:
+            args.extend(["-l", str(max_count)])
+        if grep:
+            args.extend(["-k", grep])
+        if author:
+            args.extend(["-u", author])
+        if since:
+            args.extend(["-d", f">= {since}"])
+        if paths:
+            args.extend(["--", *paths])
+        return _run(args, self.root)
+
+    def create_branch(self, name: str) -> None:
+        # Creates and automatically activates the bookmark on the current revision,
+        # switching the working directory to this bookmark for subsequent commits.
+        _run(["hg", "bookmark", name], self.root, capture=False)
+
+    def switch(self, ref: str) -> None:
+        _run(["hg", "update", ref], self.root, capture=False)
+
+    def stage(self, paths: Sequence[str]) -> None:
+        if not paths:
+            raise VCSError("stage: refusing to stage nothing")
+        _run(["hg", "add", "--", *paths], self.root, capture=False)
+
+    def commit(self, message: str) -> None:
+        _run(["hg", "commit", "-m", message], self.root, capture=False)
+
+    def fetch(self, remote: str | None = None, ref: str | None = None) -> None:
+        args = ["hg", "pull"]
+        if remote:
+            args.append(remote)
+        _run(args, self.root, capture=False)
+
+    def push(self, remote: str, ref: str, set_upstream: bool = False) -> None:
+        args = ["hg", "push", "-B", ref, remote]
+        _run(args, self.root, capture=False)
+
+    def reset_worktree(self) -> None:
+        _run(["hg", "update", "--clean"], self.root, check=False, capture=False)
+        _run(["hg", "purge", "--config", "extensions.purge="], self.root, check=False, capture=False)
 
 
 class SubversionBackend(_UnimplementedBackend):

@@ -89,18 +89,19 @@ not add its own prompt.
 | Backend | Status | Notes |
 |---|---|---|
 | `git` | **complete** | GitHub's native VCS; the default binding |
-| `hg` (Mercurial) | extension point | detected; operations raise a clear error → [#601](https://github.com/apache/magpie/issues/601) |
+| `hg` (Mercurial) | **complete** | Mercurial VCS support |
 | `svn` (Subversion) | extension point | detected; centralized model (`distributed = False`) → [#602](https://github.com/apache/magpie/issues/602) |
 
 Detection is real for every backend (so `magpie-vcs detect` reports the
-working copy's VCS correctly); the non-Git backends raise an actionable
+working copy's VCS correctly); the non-Git/non-Hg backends raise an actionable
 `VCSError` naming their tracking issue until the full binding lands.
 
 ### Adding a backend
 
-A VCS bridge (e.g. #601 Mercurial) implements the full binding by
+A VCS bridge (e.g. #602 Subversion) implements the full binding by
 replacing that backend's `_UnimplementedBackend` base with a concrete
 `VCSBackend` subclass — `detect()`, the read operations, the write
+
 operations — and nothing else changes: detection, dispatch, the CLI,
 and every skill that calls `magpie-vcs` pick it up automatically.
 
