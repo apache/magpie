@@ -116,4 +116,5 @@ members = [
   "tools/vcs",
   "tools/vendor-neutrality-score",
   "tools/fossil",
+  "tools/sourcehut",
 ]

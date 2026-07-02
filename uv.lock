@@ -22,6 +22,7 @@ members = [
     "github-rollup",
     "jira-bridge",
     "magpie-fossil",
+    "magpie-sourcehut",
     "magpie-vcs",
     "oauth-draft",
     "permission-audit",
@@ -520,6 +521,9 @@ wheels = [
 name = "magpie-fossil"
 version = "0.1.0"
 source = { editable = "tools/fossil" }
+name = "magpie-sourcehut"
+version = "0.1.0"
+source = { editable = "tools/sourcehut" }
 
 [[package]]
 name = "magpie-vcs"
