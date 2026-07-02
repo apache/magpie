@@ -41,10 +41,15 @@ for _var in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR", "GI
     os.environ.pop(_var, None)
 
 git_required = pytest.mark.skipif(not GitBackend.is_available(), reason="git not installed")
+hg_required = pytest.mark.skipif(not MercurialBackend.is_available(), reason="hg not installed")
 
 
 def _git(repo: Path, *args: str) -> None:
     subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True)
+
+
+def _hg(repo: Path, *args: str) -> None:
+    subprocess.run(["hg", *args], cwd=repo, check=True, capture_output=True)
 
 
 @pytest.fixture
@@ -57,6 +62,19 @@ def git_repo(tmp_path: Path) -> Path:
     (repo / "file.txt").write_text("hello\n")
     _git(repo, "add", "file.txt")
     _git(repo, "commit", "-q", "-m", "initial commit")
+    return repo
+
+
+@pytest.fixture
+def hg_repo(tmp_path: Path) -> Path:
+    repo = tmp_path / "repo_hg"
+    repo.mkdir()
+    _hg(repo, "init")
+    with open(repo / ".hg" / "hgrc", "w") as f:
+        f.write("[ui]\nusername = Tester <t@example.com>\n")
+    (repo / "file.txt").write_text("hello\n")
+    _hg(repo, "add", "file.txt")
+    _hg(repo, "commit", "-m", "initial commit")
     return repo
 
 
@@ -175,13 +193,59 @@ def test_git_reset_worktree(git_repo: Path) -> None:
 
 
 def test_unimplemented_raise_with_issue(tmp_path: Path) -> None:
-    hg = MercurialBackend(tmp_path)
-    with pytest.raises(VCSError, match=r"apache/magpie#601"):
-        hg.status()
     svn = SubversionBackend(tmp_path)
     with pytest.raises(VCSError, match=r"apache/magpie#602"):
         svn.commit("x")
     assert svn.distributed is False  # centralized model flagged
+
+
+# -- hg backend operations -------------------------------------------------
+
+
+@hg_required
+def test_hg_clean_then_dirty(hg_repo: Path) -> None:
+    backend = MercurialBackend(hg_repo)
+    assert backend.is_clean()
+    (hg_repo / "file.txt").write_text("changed\n")
+    assert not backend.is_clean()
+    assert "file.txt" in backend.status()
+
+
+@hg_required
+def test_hg_bookmark_and_commit(hg_repo: Path) -> None:
+    backend = MercurialBackend(hg_repo)
+    assert backend.current_branch() == "default"
+    backend.create_branch("fix-bookmark")
+    (hg_repo / "new.txt").write_text("x\n")
+    backend.stage(["new.txt"])
+    assert "new.txt" in backend.diff()
+    backend.commit("add new.txt")
+    assert backend.is_clean()
+    assert "add new.txt" in backend.log(max_count=1)
+
+
+@hg_required
+def test_hg_cached_diff_raises(hg_repo: Path) -> None:
+    backend = MercurialBackend(hg_repo)
+    with pytest.raises(VCSError, match="does not support staging area"):
+        backend.diff(cached=True)
+
+
+@hg_required
+def test_hg_reset_worktree(hg_repo: Path) -> None:
+    backend = MercurialBackend(hg_repo)
+    (hg_repo / ".hgignore").write_text("ignored.txt\n")
+    backend.stage([".hgignore"])
+    backend.commit("add hgignore")
+
+    (hg_repo / "file.txt").write_text("dirty\n")
+    (hg_repo / "untracked.txt").write_text("junk\n")
+    (hg_repo / "ignored.txt").write_text("ignored\n")
+    backend.reset_worktree()
+    assert backend.is_clean()
+    assert not (hg_repo / "untracked.txt").exists()
+    assert (hg_repo / "file.txt").read_text() == "hello\n"
+    assert (hg_repo / "ignored.txt").exists()  # ignored files should be preserved
 
 
 def test_registry_unique_names() -> None:
@@ -217,6 +281,6 @@ def test_cli_unknown_backend_errors(git_repo: Path, capsys: pytest.CaptureFixtur
 
 
 def test_cli_unimplemented_backend_errors(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    (tmp_path / ".hg").mkdir()
+    (tmp_path / ".svn").mkdir()
     assert main(["-C", str(tmp_path), "status"]) == 2
-    assert "apache/magpie#601" in capsys.readouterr().err
+    assert "apache/magpie#602" in capsys.readouterr().err
