@@ -52,6 +52,8 @@ asert = "asert"
 # Lucene / Solr PMC member, listed in the MISSION.md roster).
 # typos flags it as a typo of `Drop`.
 Drob = "Drob"
+# `firt` is Fossil's literal database column name for "forum in reply to"
+firt = "firt"
 
 [default.extend-identifiers]
 # Identifiers that look like typos but are real symbol names.
