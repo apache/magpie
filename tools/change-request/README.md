@@ -201,7 +201,7 @@ Post a review verdict + body onto the proposal.
 - **Output.** `ok` sentinel (failure raises). On GitHub this is
   `gh pr review`; on `jira-patch` it is a JIRA comment (with the
   verdict encoded as a label transition); on `mail-patch` it is a
-  drafted reply through `contract:mail-draft` (never auto-sent).
+  drafted reply through `contract:mail-create` (never auto-sent).
 - **No-op case.** The `none` adapter raises `NotApplicable`; the
   skill falls back to surfacing the drafted review to the maintainer
   as copy-paste text.

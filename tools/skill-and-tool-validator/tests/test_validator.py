@@ -2938,9 +2938,9 @@ class TestValidateAdapterAuthoring:
         root = _make_tools_root(tmp_path)
         tool = root / "tools" / "multi-cap"
         tool.mkdir()
-        # contract:mail-source + contract:mail-draft — should be checked
+        # contract:mail-source + contract:mail-create — should be checked
         (tool / "README.md").write_text(
-            "# multi-cap\n\n**Capability:** contract:mail-source + contract:mail-draft\n\n"
+            "# multi-cap\n\n**Capability:** contract:mail-source + contract:mail-create\n\n"
             "A dual-contract adapter.\n\n## Prerequisites\n\n- Something.\n"
         )
         violations = [v for v in validate_adapter_authoring(root) if v.category == ADAPTER_AUTHORING_CATEGORY]

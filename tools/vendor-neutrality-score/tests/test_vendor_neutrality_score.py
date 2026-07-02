@@ -52,8 +52,8 @@ def test_vendor_backed_needs_two_distinct_vendors() -> None:
 
 
 def test_vendor_backed_single_vendor_is_not_green() -> None:
-    tools = [_tool("gmail", "contract:mail-draft", vns.IMPLEMENTATION, "Google")]
-    r = _result(vns.score_contracts(tools), "contract:mail-draft")
+    tools = [_tool("gmail", "contract:mail-create", vns.IMPLEMENTATION, "Google")]
+    r = _result(vns.score_contracts(tools), "contract:mail-create")
     assert r.green is False
     assert "needs 1 more" in r.basis
 
@@ -113,7 +113,7 @@ def _contract_results_with_gap() -> list[vns.ContractResult]:
     tools = [
         _tool("github", "contract:tracker", vns.IMPLEMENTATION, "GitHub"),
         _tool("jira", "contract:tracker", vns.IMPLEMENTATION, "Atlassian"),
-        _tool("gmail", "contract:mail-draft", vns.IMPLEMENTATION, "Google"),
+        _tool("gmail", "contract:mail-create", vns.IMPLEMENTATION, "Google"),
     ]
     return vns.score_contracts(tools)
 
@@ -172,7 +172,7 @@ def test_skill_vendor_coupled_on_sole_backend_contract() -> None:
     skills = [("reply", "ASF", "Draft a courtesy reply with mcp__claude_ai_Gmail__create_draft.")]
     (s,) = vns.score_skills(skills, _contract_results_with_gap())
     assert s.verdict == "vendor-coupled"
-    assert s.coupled == [("Google", "contract:mail-draft")]
+    assert s.coupled == [("Google", "contract:mail-create")]
 
 
 def test_prose_mention_is_not_usage() -> None:
@@ -191,7 +191,7 @@ def test_json_render_is_valid_and_complete() -> None:
     skills = vns.score_skills([("t", "agnostic", "gh pr view")], contracts)
     payload = json.loads(vns.render_json(contracts, skills))
     assert payload["overall"]["total"] == len(vns.CONTRACT_POLICY)
-    assert any(c["contract"] == "contract:mail-draft" and c["green"] is False for c in payload["contracts"])
+    assert any(c["contract"] == "contract:mail-create" and c["green"] is False for c in payload["contracts"])
 
 
 def test_markdown_render_contains_score_and_table() -> None:

@@ -42,7 +42,7 @@ framework already ships:
   (`tools/ponymail/` at the ASF) — thread search, thread fetch,
   participant extraction.
 - **Review replies** are drafted through
-  [`contract:mail-draft`](../gmail/) — the adapter never sends mail
+  [`contract:mail-create`](../gmail/) — the adapter never sends mail
   autonomously; `post_review` and `reject` produce a drafted reply the
   maintainer sends by hand.
 
@@ -54,12 +54,12 @@ reply on the thread.
 ## Prerequisites
 
 - **Runtime:** Bash — doc-only adapter; composes the `mail-archive`,
-  `mail-draft`, and `source-control` adapters, no local package.
+  `mail-create`, and `source-control` adapters, no local package.
 - **CLIs:** the mail-archive backend (PonyMail MCP at the ASF), the
-  mail-draft backend (Gmail draft API), and `svn` for the delegated
+  mail-create backend (Gmail draft API), and `svn` for the delegated
   `land`.
 - **Credentials / auth:** anonymous read for public `dev@` archives
-  (PonyMail); an authenticated mail-draft session to compose replies
+  (PonyMail); an authenticated mail-create session to compose replies
   (drafts only — never sends); and ASF committer credentials for the
   SVN commit that `land` delegates to `tools/asf-svn/`. As with
   `jira-patch`, the commit runs under the landing committer's identity
@@ -85,7 +85,7 @@ Each change-request verb resolves onto the mail surfaces as follows.
 | `list_open(filter)` | `mail-archive.list_recent_threads(dev-list, since)` filtered to `[PATCH]`-subject threads that have no terminal "applied"/"rejected" reply. One `proposal_summary` per open patch thread. |
 | `get(id)` | `mail-archive.fetch_thread_by_url(id)`; the `diff` is extracted from the first message's `[PATCH]` body or `.patch` attachment. `base` is the trunk from config; `commits` is `[]`; `mergeable` is `unknown` until an `svn patch --dry-run`. |
 | `get_discussion(id)` | The thread's reply chain, normalised to `{author, date, body, kind}`. A reply containing the configured approval token (`LGTM` / `+1`) maps to `kind: approval`. |
-| `post_review(id, verdict, body)` | **Drafts** a threaded reply via `contract:mail-draft` (`in-reply-to` the thread), never sends. The `verdict` shapes the reply's opening line (`+1`, `needs work`); the maintainer reviews and sends. |
+| `post_review(id, verdict, body)` | **Drafts** a threaded reply via `contract:mail-create` (`in-reply-to` the thread), never sends. The `verdict` shapes the reply's opening line (`+1`, `needs work`); the maintainer reviews and sends. |
 | `land(id, strategy)` | **Delegates to `contract:source-control`.** Extracts the patch via `get`, calls the source-control adapter's apply + commit (`svn patch <file>` then `svn commit` — see [`tools/asf-svn/source-control.md`](../asf-svn/source-control.md)), then drafts an "applied in rNNNNN, thanks!" reply on the thread. `strategy` is advisory — SVN lands a patch as one commit (`squash`). |
 | `reject(id, reason)` | Drafts a threaded reply carrying `reason`. **No commit** — the absence of a `land` is the rejection. Nothing is transitioned; the thread simply closes socially. |
 | `status(id)` | `checks: none` (a mail thread has no CI), `mergeable` from an `svn patch --dry-run`. Skills degrade the `checks` gate to advisory and fall back to a human-judgement prompt (the contract's `status` graceful-degradation path — this is the maximally-degraded backend). |
@@ -142,6 +142,6 @@ generic keys are the contract's.
 
 - Contract: [`tools/change-request/`](../change-request/)
 - Archive reads: [`tools/mail-archive/`](../mail-archive/) (ASF: [`tools/ponymail/`](../ponymail/))
-- Reply drafting: [`contract:mail-draft`](../gmail/)
+- Reply drafting: [`contract:mail-create`](../gmail/)
 - Delegated land: [`tools/asf-svn/source-control.md`](../asf-svn/source-control.md)
 - Issue: [#669](https://github.com/apache/magpie/issues/669)

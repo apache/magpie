@@ -12,7 +12,7 @@
 
 # `tools/gmail/`
 
-**Capability:** contract:mail-source + contract:mail-draft + contract:mail-archive
+**Capability:** contract:mail-source + contract:mail-create + contract:mail-archive
 
 **Kind:** implementation
 
@@ -20,8 +20,11 @@
 
 Gmail API substrate. Read + draft-only — never sends. Provides two
 contracts: `mail-source` for inbound report intake (search / read a
-uniform thread/message view) and `mail-draft` for outbound courtesy-reply
-drafting. Used by the security-issue-import / sync / invalidate flows. See [`tool.md`](tool.md) for the operation catalogue and the per-area files for ASF relay routing, draft backends, threading, search queries.
+uniform thread/message view) and `mail-create` for outbound
+courtesy-reply composition. It implements only the `mail-create` **draft**
+mode: every message is created as an editable Gmail draft the user reviews,
+edits, and sends by hand — this backend never performs the `send` mode.
+Used by the security-issue-import / sync / invalidate flows. See [`tool.md`](tool.md) for the operation catalogue and the per-area files for ASF relay routing, draft backends, threading, search queries.
 
 ## Prerequisites
 

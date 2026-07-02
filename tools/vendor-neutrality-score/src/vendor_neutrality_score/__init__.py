@@ -81,7 +81,11 @@ CONTRACT_POLICY: dict[str, tuple[str, str]] = {
     ),
     "contract:mail-archive": (VENDOR_BACKED, "Mailing-list / forum archive reads"),
     "contract:mail-source": (VENDOR_BACKED, "Inbound-mail ingestion (mbox / IMAP / …)"),
-    "contract:mail-draft": (VENDOR_BACKED, "Outbound mail composition (draft, never send)"),
+    "contract:mail-create": (
+        VENDOR_BACKED,
+        "Outbound mail composition — always an editable draft; sending is a separate "
+        "human-approved step (draft mode default; send mode declared, unimplemented)",
+    ),
     "contract:cve-authority": (VENDOR_BACKED, "CVE allocation / record management / publication"),
     "contract:report-relay": (AGNOSTIC, "Inbound security-report relay detection"),
     "contract:scan-format": (AGNOSTIC, "Security-scanner report parsing"),
@@ -118,7 +122,7 @@ CONTRACT_USAGE_TOKENS: dict[str, tuple[str, ...]] = {
         r"mcp__ponymail__",
         r"mcp__claude_ai_Gmail__(?:search_threads|get_thread|list_)",
     ),
-    "contract:mail-draft": (
+    "contract:mail-create": (
         r"mcp__claude_ai_Gmail__create_draft",
         r"\bcreate_draft\b",
     ),

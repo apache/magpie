@@ -525,7 +525,7 @@ identity). The scorer reads them and applies one rule per contract
   is no vendor choice to make.
 
 The overall score is `green contracts / total contracts` — a hard,
-falsifiable number. Add a second outbound-mail backend and `mail-draft`
+falsifiable number. Add a second outbound-mail backend and `mail-create`
 flips to green on the next run; remove a backend and its contract flips
 back. The same rule then classifies every **skill**: *capability-pure*
 if it names no backend, *portable* if every backend it invokes has an
@@ -552,7 +552,7 @@ generated block below.
 | `contract:change-request` | ✅ | vendor-backed | Atlassian, GitHub, email | 3 backend vendors: Atlassian, GitHub, email |
 | `contract:mail-archive` | ✅ | vendor-backed | Google, PonyMail | 2 backend vendors: Google, PonyMail |
 | `contract:mail-source` | ✅ | vendor-backed | Google, PonyMail | 2 backend vendors: Google, PonyMail |
-| `contract:mail-draft` | ❌ | vendor-backed | Google | only 1 backend vendor (Google); needs 1 more |
+| `contract:mail-create` | ❌ | vendor-backed | Google | only 1 backend vendor (Google); needs 1 more |
 | `contract:cve-authority` | ✅ | vendor-backed | CVE.org, Vulnogram | 2 backend vendors: CVE.org, Vulnogram |
 | `contract:report-relay` | ✅ | agnostic | — | vendor-neutral by construction — one spec serves every backend |
 | `contract:scan-format` | ✅ | agnostic | — | vendor-neutral by construction — one spec serves every backend |
@@ -570,10 +570,10 @@ Organization scope (declared, orthogonal to vendor): ASF = 14, agnostic = 49.
 
 Vendor-coupled skills (the only lock-ins today):
 
-- `security-issue-import` — `Google` → `contract:mail-draft`
-- `security-issue-import-via-forwarder` — `Google` → `contract:mail-draft`
-- `security-issue-invalidate` — `Google` → `contract:mail-draft`
-- `security-issue-sync` — `Google` → `contract:mail-draft`
+- `security-issue-import` — `Google` → `contract:mail-create`
+- `security-issue-import-via-forwarder` — `Google` → `contract:mail-create`
+- `security-issue-invalidate` — `Google` → `contract:mail-create`
+- `security-issue-sync` — `Google` → `contract:mail-create`
 
 **LLM / agent-integration neutrality**
 
@@ -623,9 +623,9 @@ Every other endpoint is **opt-in** — the adopting project's security team decl
 
 90% is not "90% done." It reads as: **nine of ten capabilities already
 work across more than one vendor, and the one that doesn't — outbound
-mail drafting (`mail-draft`) — is one adapter away.** The architecture
+mail composition (`mail-create`) — is one adapter away.** The architecture
 privileges no vendor on any of the ten axes; the single red cell is a
-missing *implementation* (a second `mail-draft` backend), tracked in the
+missing *implementation* (a second `mail-create` backend), tracked in the
 open — not a design that assumes Gmail.
 
 The `change-request` gate — the pull-request review/merge contract that

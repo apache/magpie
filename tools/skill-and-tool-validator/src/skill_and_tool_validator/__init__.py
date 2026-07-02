@@ -278,7 +278,7 @@ TOOL_CAPABILITIES = {
     "contract:change-request",
     "contract:mail-archive",
     "contract:mail-source",
-    "contract:mail-draft",
+    "contract:mail-create",
     "contract:cve-authority",
     "contract:report-relay",
     "contract:scan-format",

@@ -133,7 +133,7 @@ small set of substrate kinds:
 | `source-control` | contract | branch / commit / diff / push (VCS) |
 | `mail-archive` | contract | public mailing-list / forum archive reads |
 | `mail-source` | contract | inbound-mail ingestion (mbox / IMAP / …) |
-| `mail-draft` | contract | outbound mail composition (draft, never send) |
+| `mail-create` | contract | outbound mail composition — always an editable draft; sending is a separate human-approved step (draft mode default and only mode implemented; send mode declared, unimplemented) |
 | `cve-authority` | contract | CVE allocation / record management / publication |
 | `report-relay` | contract | inbound security-report relay detection |
 | `scan-format` | contract | security-scanner report parsing |
