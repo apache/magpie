@@ -28,6 +28,12 @@ the ones that ship in-tree, the open extension points, and links to
 > your `<project-config>/project.md` (or `organizations/<org>/`) at it,
 > exactly as you would a built-in one. An external link is a pointer for
 > humans to evaluate, not a supply-chain hook.
+>
+> This applies to the *adapter/organization* index on this page. Skills
+> are different: §13 permits **installing** a skill or skill-family from a
+> **trusted** external source — pinned, verified, and adopter-vouched.
+> That mechanism and its own discovery index live under
+> [`docs/skill-sources/`](../skill-sources/README.md).
 
 To author a new adapter, see [`authoring.md`](authoring.md).
 
