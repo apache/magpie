@@ -126,11 +126,25 @@ def test_skill_capability_pure_when_no_backend_named() -> None:
 
 
 def test_skill_portable_when_named_contract_is_green() -> None:
-    skills = [("triage", "agnostic", "Run `gh pr list` then classify each PR.")]
+    skills = [("triage", "agnostic", "Run `gh issue list` then classify each issue.")]
     (s,) = vns.score_skills(skills, _contract_results_with_gap())
     assert s.verdict == "portable"
     assert s.contracts == ["contract:tracker"]
     assert s.coupled == []
+
+
+def test_skill_vendor_coupled_on_github_only_change_request() -> None:
+    # Driving pull requests (`gh pr`) is the change-request contract, which only
+    # GitHub implements — so a skill that runs it is coupled to GitHub even
+    # though the issue side of tracker is portable.
+    tools = [
+        _tool("github", "contract:change-request", vns.IMPLEMENTATION, "GitHub"),
+    ]
+    contracts = vns.score_contracts(tools)
+    skills = [("merge", "agnostic", "Run `gh pr merge --squash` after review.")]
+    (s,) = vns.score_skills(skills, contracts)
+    assert s.verdict == "vendor-coupled"
+    assert s.coupled == [("GitHub", "contract:change-request")]
 
 
 def test_skill_vendor_coupled_on_sole_backend_contract() -> None:

@@ -275,6 +275,7 @@ SKILL_CAPABILITIES = {
 TOOL_CAPABILITIES = {
     "contract:tracker",
     "contract:source-control",
+    "contract:change-request",
     "contract:mail-archive",
     "contract:mail-source",
     "contract:mail-draft",

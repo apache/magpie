@@ -73,8 +73,12 @@ MIN_VENDORS = 2
 
 # contract -> (neutrality class, human-readable capability summary)
 CONTRACT_POLICY: dict[str, tuple[str, str]] = {
-    "contract:tracker": (VENDOR_BACKED, "Issue / PR / board / label backend"),
+    "contract:tracker": (VENDOR_BACKED, "Issue / board / label backend"),
     "contract:source-control": (VENDOR_BACKED, "Branch / commit / diff / push (VCS)"),
+    "contract:change-request": (
+        VENDOR_BACKED,
+        "Proposed-change review + merge gate (PR / MR / Gerrit change)",
+    ),
     "contract:mail-archive": (VENDOR_BACKED, "Mailing-list / forum archive reads"),
     "contract:mail-source": (VENDOR_BACKED, "Inbound-mail ingestion (mbox / IMAP / …)"),
     "contract:mail-draft": (VENDOR_BACKED, "Outbound mail composition (draft, never send)"),
@@ -89,16 +93,23 @@ CONTRACT_POLICY: dict[str, tuple[str, str]] = {
 # and canonical hostnames. A skill is coupled only when a contract it
 # invokes has no alternative backend — so this maps *usage*, not prose
 # mentions (a skill that merely names "GitHub" in a sentence is not caught;
-# one that calls ``gh pr`` or ``mcp__github__*`` is). Contracts that are
+# one that calls ``gh issue`` or ``mcp__github__*`` is). Contracts that are
 # agnostic by construction (report-relay, scan-format) and mail-source
 # (indistinguishable from archive reads at the token level) are omitted —
 # they never change a skill's verdict.
+#
+# ``gh pr`` is deliberately NOT a tracker signal: driving pull requests is the
+# change-request contract (below), which only GitHub implements today. Jira —
+# the second tracker backend — has no pull-request model, so a skill that runs
+# ``gh pr`` is coupled to GitHub even though the *issue* side of tracker is
+# portable.
 CONTRACT_USAGE_TOKENS: dict[str, tuple[str, ...]] = {
     "contract:tracker": (
         r"mcp__github__",
-        r"\bgh (?:pr|issue|api|search|run|workflow|release|label)\b",
+        r"\bgh (?:issue|api|search|run|workflow|release|label)\b",
         r"\bJIRA\b",
     ),
+    "contract:change-request": (r"\bgh pr\b",),
     "contract:source-control": (
         r"\bgit (?:commit|push|checkout|branch|rebase|merge|switch|worktree)\b",
         r"\bsvn (?:checkout|commit|update|cat|list|mkdir|import|move|delete|switch|copy)\b",

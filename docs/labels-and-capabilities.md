@@ -97,8 +97,9 @@ framework substrate:
 
 | Label | Kind | Definition |
 |---|---|---|
-| `contract:tracker` | contract | Issue / PR / board / label backend. |
+| `contract:tracker` | contract | Issue / board / label backend. |
 | `contract:source-control` | contract | Branch / commit / diff / push (VCS). |
+| `contract:change-request` | contract | Proposed-change review + merge gate (pull request / merge request / Gerrit change). |
 | `contract:mail-archive` | contract | Mailing-list / forum archive reads. |
 | `contract:mail-source` | contract | Inbound-mail ingestion (mbox / IMAP / …). |
 | `contract:mail-draft` | contract | Outbound mail composition (draft, never send). |
@@ -238,7 +239,7 @@ it implements multiple contracts (e.g. `tools/gmail` provides both
 | [`tools/dev`](../tools/dev/) | `substrate:framework-dev` | Framework dev-loop helpers |
 | [`tools/egress-gateway`](../tools/egress-gateway/) | `substrate:sandbox` | Egress-allowlist forward proxy (proxy.py plugin); host-level egress chokepoint — defence-in-depth for RFC-AI-0003 §4.4 |
 | [`tools/forwarder-relay`](../tools/forwarder-relay/) | `contract:report-relay` | Adapter contract for inbound-relay backends (ASF Security relay, huntr.com, HackerOne triagers). Pure interface spec; adapters declare detection + credit-extraction + reporter-addressing rules. |
-| [`tools/github`](../tools/github/) | `contract:tracker` + `contract:source-control` | GitHub REST / GraphQL tracker substrate (called by every lifecycle phase) plus the Git source-control binding documented in [`source-control.md`](../tools/github/source-control.md) (runnable backend in [`tools/vcs`](../tools/vcs/)) |
+| [`tools/github`](../tools/github/) | `contract:tracker` + `contract:source-control` + `contract:change-request` | GitHub REST / GraphQL tracker substrate (called by every lifecycle phase) plus the Git source-control binding documented in [`source-control.md`](../tools/github/source-control.md) (runnable backend in [`tools/vcs`](../tools/vcs/)) and the pull-request review/merge gate (`change-request`; the sole backend today — Jira has no PR model) |
 | [`tools/github-body-field`](../tools/github-body-field/) | `contract:tracker` | Read or rewrite one `### Field` section of a GitHub issue body without bringing the body into agent context — substrate helper for the security-sync skills |
 | [`tools/github-rollup`](../tools/github-rollup/) | `contract:tracker` | Append to (or create) the status-rollup comment on a GitHub issue without bringing the rollup body into agent context — substrate helper for every status-update-emitting skill |
 | [`tools/gmail`](../tools/gmail/) | `contract:mail-source` + `contract:mail-draft` + `contract:mail-archive` | Gmail API substrate — inbound report intake (`mail-source`), thread / archive reads (`mail-archive`), plus outbound courtesy-reply drafting (`mail-draft`); read + draft only, never sends |
@@ -285,7 +286,7 @@ backend the adopter wired in. The framework consumes four:
 
 | MCP server | Tool prefix | Wrapped by | Capability provided | Organization |
 |---|---|---|---|---|
-| GitHub MCP | `mcp__github__*` | [`tools/github`](../tools/github/) | `contract:tracker` + `contract:source-control` | — |
+| GitHub MCP | `mcp__github__*` | [`tools/github`](../tools/github/) | `contract:tracker` + `contract:source-control` + `contract:change-request` | — |
 | Gmail MCP (claude.ai) | `mcp__claude_ai_Gmail__*` | [`tools/gmail`](../tools/gmail/) | `contract:mail-source` + `contract:mail-draft` + `contract:mail-archive` | — |
 | PonyMail MCP (`apache/comdev`) | `mcp__ponymail__*` | [`tools/ponymail`](../tools/ponymail/) | `contract:mail-archive` + `contract:mail-source` | ASF |
 | apache-projects MCP (`apache/comdev`) | `mcp__apache-projects__*` | [`tools/apache-projects`](../tools/apache-projects/) | `contract:project-metadata` | ASF |

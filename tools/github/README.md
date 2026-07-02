@@ -12,7 +12,7 @@
 
 # `tools/github/`
 
-**Capability:** contract:tracker + contract:source-control
+**Capability:** contract:tracker + contract:source-control + contract:change-request
 
 **Kind:** implementation
 
