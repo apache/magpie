@@ -10,6 +10,7 @@
     - [Subsequent contributors](#subsequent-contributors)
     - [Drift detection](#drift-detection)
   - [Skill families](#skill-families)
+    - [External skill sources](#external-skill-sources)
   - [Maintenance](#maintenance)
   - [Cross-references](#cross-references)
 
@@ -175,6 +176,19 @@ means and which modes are still proposed vs. shipping today.
 | [**contributor-growth**](docs/contributor-growth/README.md) | Triage, Mentoring | Skills spanning the contributor-to-committer path: first-contact welcome, on-ramp issue authoring, activity tracking, nomination brief, post-vote onboarding. | 5 skills, [`docs/contributor-growth/`](docs/contributor-growth/README.md) |
 | [**repo-health**](docs/repo-health/README.md) | Triage | Read-only repository-health audits: obsolete runner labels, Actions workflow security, dependency vulnerabilities, license/NOTICE compliance, flaky-test patterns. | 5 skills, [`docs/repo-health/`](docs/repo-health/) |
 | **utilities** | (meta) | Framework meta-skills: author or update skills (`write-skill`), restructure existing skills (`optimize-skill`), print a live index of all available skills (`list-skills`). | 3 skills |
+
+### External skill sources
+
+Beyond the in-tree families, an adopter can pull a skill or whole family
+from a **trusted external source** — a repo other than `apache/magpie` that
+ships Magpie-shaped skills (with their evals and tests). Where a skill
+directory would sit, a `skills/<name>/source.md` **redirect** names a
+pinned, verified source the adopter has vouched for; `/magpie-setup` fetches
+it into the gitignored snapshot and wires it in exactly like a framework
+skill. Nothing is fetched unless the adopter commits the pin — see
+[`docs/skill-sources/`](docs/skill-sources/README.md),
+[`PRINCIPLES.md` §13](PRINCIPLES.md#13-snapshot-plus-override-never-vendored-copies),
+and [`RFC-AI-0006`](docs/rfcs/RFC-AI-0006.md).
 
 ## Maintenance
 
