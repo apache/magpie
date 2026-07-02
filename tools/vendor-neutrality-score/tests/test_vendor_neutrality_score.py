@@ -147,6 +147,27 @@ def test_skill_vendor_coupled_on_github_only_change_request() -> None:
     assert s.coupled == [("GitHub", "contract:change-request")]
 
 
+def test_change_request_green_with_three_backends() -> None:
+    # #669: GitHub PR + JIRA-patch (Atlassian) + [PATCH]-mail (email) give the
+    # change-request contract three distinct backend vendors, so it flips to
+    # vendor neutral and a skill driving `gh pr` becomes portable — no longer
+    # coupled the way test_skill_vendor_coupled_on_github_only_change_request
+    # showed it was with GitHub as the sole backend.
+    tools = [
+        _tool("github", "contract:change-request", vns.IMPLEMENTATION, "GitHub"),
+        _tool("jira-patch", "contract:change-request", vns.IMPLEMENTATION, "Atlassian"),
+        _tool("mail-patch", "contract:change-request", vns.IMPLEMENTATION, "email"),
+    ]
+    contracts = vns.score_contracts(tools)
+    r = _result(contracts, "contract:change-request")
+    assert r.green is True
+    assert r.vendors == ["Atlassian", "GitHub", "email"]
+    skills = [("merge", "agnostic", "Run `gh pr merge --squash` after review.")]
+    (s,) = vns.score_skills(skills, contracts)
+    assert s.verdict == "portable"
+    assert s.coupled == []
+
+
 def test_skill_vendor_coupled_on_sole_backend_contract() -> None:
     skills = [("reply", "ASF", "Draft a courtesy reply with mcp__claude_ai_Gmail__create_draft.")]
     (s,) = vns.score_skills(skills, _contract_results_with_gap())
