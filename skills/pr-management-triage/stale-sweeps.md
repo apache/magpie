@@ -109,6 +109,47 @@ the same PRs from the *interactive* flow.
 
 ---
 
+## Ready-label exclusion (applies to Sweeps 1–3)
+
+PRs carrying the `ready for maintainer review` label are the
+**exclusive domain of [Sweep 4](#sweep-4--stale-ready-for-review-label)**
+(court disposition). Sweeps 1, 2, and 3 must **never** touch a
+ready-labelled PR — never close it, convert it to draft, assign its
+author, or fold a triage note into it.
+
+Two enforcement points, **both mandatory**:
+
+1. **Candidate query.** Every standalone candidate search a sweep
+   issues MUST carry the negative label filter
+   `-label:"ready for maintainer review"`, exactly as the default
+   sweep search shape already does (see
+   [`fetch-and-batch.md`](fetch-and-batch.md#the-one-query-that-matters--pr-list--rollup-enrichment),
+   where the default shape carries `-label:"ready for maintainer review"`
+   and Sweep 4 is the sole exception that flips it to a positive
+   match). A sweep that **builds its own query** — e.g. Sweep 2's
+   `is:pr is:open draft:false updated:<DATE>` — is the danger case: the
+   exclusion is easy to drop when the query is hand-written rather than
+   inherited from the default shape. State it explicitly in every
+   sweep's trigger below and never omit it.
+2. **Per-PR pre-mutation guard.** Immediately before executing **any**
+   Sweep 1/2/3 mutation, re-confirm the target PR does **not** carry
+   the `ready for maintainer review` label (it may have been added
+   between the candidate fetch and the mutation). If it does, drop the
+   PR from the sweep — Sweep 4 owns it.
+
+**Why.** A ready-labelled PR is, by definition, in the maintainers'
+court awaiting review. Sweep 2's blanket "inactive open → draft" (and
+Sweep 1's close / Sweep 3's draft) will otherwise yank a
+maintainer-court PR out of the review queue purely for author
+inactivity — the exact inverse of what the label means. Sweep 4
+already re-classifies these by *whose court the ball is in* and hands
+back only the author-court ones; Sweeps 1–3 must not pre-empt it. This
+is the label-side analogue of the
+[maintainer-court guard](#maintainer-court-guard-applies-to-every-sweep)
+above.
+
+---
+
 ## Sweep 1 — Stale drafts
 
 Two sub-cases, both resulting in `close`:
@@ -118,6 +159,8 @@ Two sub-cases, both resulting in `close`:
 **Trigger.**
 
 - `isDraft == true`
+- **Not** carrying the `ready for maintainer review` label (per
+  [Ready-label exclusion](#ready-label-exclusion-applies-to-sweeps-13) — Sweep 4's domain)
 - `last_triage_comment_at` is not null
 - `<now> - last_triage_comment_at >= 7 days`
 - No comment by the author after `last_triage_comment_at`
@@ -133,6 +176,8 @@ then close. No label (these are not quality-violation closes).
 **Trigger.**
 
 - `isDraft == true`
+- **Not** carrying the `ready for maintainer review` label (per
+  [Ready-label exclusion](#ready-label-exclusion-applies-to-sweeps-13) — Sweep 4's domain)
 - `last_triage_comment_at` is null
 - `<now> - updated_at >= 14 days`
 
@@ -158,6 +203,10 @@ mutating. See [`interaction-loop.md#decision-keys`](interaction-loop.md).
 **Trigger.**
 
 - `isDraft == false`
+- **Not** carrying the `ready for maintainer review` label — the
+  candidate search MUST include `-label:"ready for maintainer review"`
+  (per [Ready-label exclusion](#ready-label-exclusion-applies-to-sweeps-13);
+  these are Sweep 4's domain, never Sweep 2's)
 - `<now> - updated_at >= 28 days`
 - No other stale classification applies
 
@@ -188,6 +237,8 @@ one click — so the looser batching is appropriate.
 **Trigger.**
 
 - Classification was `pending_workflow_approval` at fetch time
+- **Not** carrying the `ready for maintainer review` label (per
+  [Ready-label exclusion](#ready-label-exclusion-applies-to-sweeps-13) — Sweep 4's domain)
 - `<now> - updated_at >= 28 days`
 - PR author has not pushed since (i.e. `head_sha` is the same
   as at last update)
