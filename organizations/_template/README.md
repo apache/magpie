@@ -20,7 +20,11 @@ Authoring skeleton for a new [organization](../README.md).
    framework default.
 3. Point a project at it: set `organization: <org>` in the project's
    `<project-config>/project.md`.
-4. Optionally **contribute it upstream** to `apache/magpie` under
+4. Optionally list the external skill sources your organization vouches
+   for in [`skill-sources.md`](skill-sources.md) — curation only; projects
+   still opt each one in. See
+   [`docs/skill-sources/`](../../docs/skill-sources/README.md).
+5. Optionally **contribute it upstream** to `apache/magpie` under
    Apache-2.0 so every project in your organization reuses it, or keep it
    local. See
    [`docs/vendor-neutrality.md` § Authoring your own adapter](../../docs/vendor-neutrality.md#authoring-your-own-adapter).

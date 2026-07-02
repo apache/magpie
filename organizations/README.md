@@ -7,6 +7,7 @@
   - [Why this exists](#why-this-exists)
   - [Resolution order](#resolution-order)
   - [What ships here](#what-ships-here)
+  - [Curated skill sources](#curated-skill-sources)
   - [Authoring a new organization](#authoring-a-new-organization)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -89,6 +90,20 @@ not branch on the organization.
 | [`ASF/`](ASF/) | The **Apache Software Foundation** organization — the reference organization; the default values that reproduce ASF project behaviour. |
 | [`independent/`](independent/) | The **no-formal-organization** baseline — DCO sign-off, GitHub-native security/releases, no mailing-list/forwarder/metadata backends. Used by [`projects/non-asf-example/`](../projects/non-asf-example/). |
 | [`_template/`](_template/) | Authoring skeleton for a **new** organization. |
+
+## Curated skill sources
+
+An organization may also **vouch for external skill sources** — repos other
+than `apache/magpie` that ship Magpie-shaped skills its projects may adopt.
+These are listed in `organizations/<org>/skill-sources.md` (see
+[`_template/skill-sources.md`](_template/skill-sources.md)). Curation is
+**not** installation: a project under the organization still opts each
+source in by committing its pin to `<project-config>/skill-sources.md`, the
+[install gate](../docs/skill-sources/README.md#the-trust-model--three-layers).
+The full mechanism — descriptor format, pointer files, and the pinned +
+verified fetch — lives in [`docs/skill-sources/`](../docs/skill-sources/README.md)
+([`PRINCIPLES.md` §13](../PRINCIPLES.md#13-snapshot-plus-override-never-vendored-copies),
+[`RFC-AI-0006`](../docs/rfcs/RFC-AI-0006.md)).
 
 ## Authoring a new organization
 

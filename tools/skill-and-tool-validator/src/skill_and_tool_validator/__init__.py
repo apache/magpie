@@ -236,6 +236,24 @@ DOCS_LABELS_AND_CAPABILITIES = Path("docs/labels-and-capabilities.md")
 CAPABILITY_SYNC_CATEGORY = "capability-sync"
 # Eval-coverage check: every skill must have a matching eval suite.
 EVAL_COVERAGE_CATEGORY = "eval-coverage"
+
+# Trusted-external-skill-source checks (HARD). A `skills/<name>/source.md`
+# pointer redirects a skill to an external source instead of a local
+# SKILL.md; source descriptors live in `organizations/<org>/skill-sources.md`,
+# `docs/skill-sources/*.md`, and `<project-config>/skill-sources.md`. See
+# docs/skill-sources/README.md and RFC-AI-0006.
+SKILL_SOURCE_CATEGORY = "skill-source"
+SKILL_SOURCE_POINTER_FILE = "source.md"
+SKILL_SOURCE_FILENAME = "skill-sources.md"
+SKILL_SOURCES_DOCS_DIR = Path("docs/skill-sources")
+PROJECTS_DIR = Path("projects")
+# Install methods a source pin may use — the same three the framework
+# snapshot supports (svn-zip is verified; git-branch tracks a tip).
+INSTALL_METHODS = frozenset({"git-tag", "git-branch", "svn-zip"})
+# Frontmatter keys a `source.md` pointer must declare.
+REQUIRED_POINTER_KEYS = frozenset({"source", "organization", "skill_path", "evals_path"})
+# Top-level keys a source descriptor must declare.
+REQUIRED_DESCRIPTOR_KEYS = frozenset({"id", "organization", "name", "method", "url", "ref", "provides"})
 _SKILL_TABLE_HEADER = "## Capability to skill map"
 _TOOL_TABLE_HEADER = "## Capability to tool map"
 # Tokens like `capability:triage`, `contract:source-control`,
@@ -488,6 +506,7 @@ HARD_CATEGORIES: frozenset[str] = frozenset(
         NAME_CONVENTION_CATEGORY,
         LICENSE_HEADER_CATEGORY,
         STATUS_CATEGORY,
+        SKILL_SOURCE_CATEGORY,
     }
 )
 ALL_CATEGORIES = HARD_CATEGORIES | SOFT_CATEGORIES
@@ -2682,6 +2701,205 @@ def validate_override_contract(root: Path | None = None) -> Iterable[Violation]:
 
 
 # ---------------------------------------------------------------------------
+# Trusted external skill sources — pointer + descriptor checks (HARD)
+# ---------------------------------------------------------------------------
+
+
+def is_skill_source_pointer(skill_dir: Path) -> bool:
+    """True when ``skill_dir`` is a trusted-source *pointer* directory — it
+    carries a ``source.md`` redirect and no local ``SKILL.md`` (the real
+    SKILL.md is fetched into the snapshot at adopt time)."""
+    return (skill_dir / SKILL_SOURCE_POINTER_FILE).exists() and not (skill_dir / "SKILL.md").exists()
+
+
+def collect_skill_source_pointers(root: Path | None = None) -> list[Path]:
+    """Return every ``skills/<name>/`` directory that is a source pointer."""
+    base = (root or find_repo_root()) / SKILLS_DIR
+    if not base.exists():
+        return []
+    return sorted(d for d in base.iterdir() if d.is_dir() and is_skill_source_pointer(d))
+
+
+def _skill_source_descriptor_files(root: Path) -> list[Path]:
+    """Return the markdown files that may declare *real* source descriptors:
+    each organization's and each project's ``skill-sources.md``. The spec
+    docs under ``docs/skill-sources/`` are excluded — their YAML fences are
+    illustrative (placeholder-valued) examples, not declarations."""
+    files: list[Path] = []
+    for base in (root / ORGANIZATIONS_DIR, root / PROJECTS_DIR):
+        if base.exists():
+            files.extend(sorted(base.glob(f"*/{SKILL_SOURCE_FILENAME}")))
+    return files
+
+
+def _iter_yaml_fence_lines(text: str) -> Iterable[str]:
+    """Yield the raw lines inside ```` ```yaml ```` / ```` ```yml ```` fenced
+    blocks of a markdown document (fence markers excluded)."""
+    in_fence = False
+    for raw in text.splitlines():
+        stripped = raw.strip()
+        if not in_fence:
+            if stripped.startswith("```yaml") or stripped.startswith("```yml"):
+                in_fence = True
+            continue
+        if stripped.startswith("```"):
+            in_fence = False
+            continue
+        yield raw
+
+
+def parse_source_descriptors(text: str) -> list[dict[str, object]]:
+    """Parse skill-source descriptors from the ```yaml fences of a
+    skill-sources markdown file.
+
+    Only *uncommented* lines count, so the commented examples in the
+    template files declare nothing. A descriptor begins at an ``id:`` (or
+    ``- id:``) line; its top-level scalar keys are captured, and the set of
+    all keys seen (including nested block headers like ``provides:``) is
+    kept under ``_keys`` for presence checks. Stdlib-only — no YAML dep, in
+    keeping with the rest of the validator."""
+    descriptors: list[dict[str, object]] = []
+    cur: dict[str, object] | None = None
+    for raw in _iter_yaml_fence_lines(text):
+        if not raw.strip() or raw.lstrip().startswith("#"):
+            continue
+        line = raw.rstrip()
+        m_id = re.match(r"^\s*(?:-\s+)?id:\s*(\S+)\s*$", line)
+        if m_id:
+            if cur is not None:
+                descriptors.append(cur)
+            source_id = m_id.group(1).strip().strip("'\"")
+            # A placeholder id (`<source-id>`) marks an illustrative example,
+            # not a declaration — ignore it and the lines that follow until
+            # the next real id.
+            if "<" in source_id or ">" in source_id:
+                cur = None
+                continue
+            cur = {"id": source_id, "_keys": {"id"}}
+            continue
+        if cur is None:
+            continue
+        m_kv = re.match(r"^\s*(?:-\s+)?([A-Za-z_][\w-]*):\s*(.*)$", line)
+        if m_kv:
+            key = m_kv.group(1)
+            val = m_kv.group(2).strip().strip("'\"")
+            keys = cur["_keys"]
+            assert isinstance(keys, set)
+            keys.add(key)
+            if val and key not in cur:
+                cur[key] = val
+    if cur is not None:
+        descriptors.append(cur)
+    return descriptors
+
+
+def collect_known_source_ids(root: Path | None = None) -> set[str]:
+    """Return the set of source ids declared across every skill-sources
+    descriptor file. A ``source.md`` pointer must reference one of these."""
+    repo_root = root or find_repo_root()
+    ids: set[str] = set()
+    for path in _skill_source_descriptor_files(repo_root):
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        for desc in parse_source_descriptors(text):
+            ids.add(str(desc["id"]))
+    return ids
+
+
+def validate_skill_source_descriptors(root: Path | None = None) -> Iterable[Violation]:
+    """Validate every declared (uncommented) source descriptor: required
+    keys present, a supported install ``method``, and a known
+    ``organization``. Commented template examples declare nothing and are
+    skipped."""
+    repo_root = root or find_repo_root()
+    orgs = known_organizations(repo_root)
+    for path in _skill_source_descriptor_files(repo_root):
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        for desc in parse_source_descriptors(text):
+            keys = desc["_keys"]
+            assert isinstance(keys, set)
+            missing = REQUIRED_DESCRIPTOR_KEYS - keys
+            for key in sorted(missing):
+                yield Violation(
+                    path,
+                    1,
+                    f"skill-source descriptor '{desc.get('id', '?')}' missing required key: '{key}'",
+                    category=SKILL_SOURCE_CATEGORY,
+                )
+            method = desc.get("method")
+            if method is not None and method not in INSTALL_METHODS:
+                yield Violation(
+                    path,
+                    1,
+                    f"skill-source descriptor '{desc.get('id', '?')}' method '{method}' "
+                    f"not in {sorted(INSTALL_METHODS)}",
+                    category=SKILL_SOURCE_CATEGORY,
+                )
+            org = desc.get("organization")
+            if org is not None and orgs and org not in orgs:
+                yield Violation(
+                    path,
+                    1,
+                    f"skill-source descriptor '{desc.get('id', '?')}' organization '{org}' "
+                    f"is not a known organization {sorted(orgs)}",
+                    category=ORGANIZATION_CATEGORY,
+                )
+
+
+def validate_skill_source_pointers(root: Path | None = None) -> Iterable[Violation]:
+    """Validate every ``skills/<name>/source.md`` redirect pointer: required
+    frontmatter keys present, a known ``organization``, and a ``source`` that
+    resolves to a declared descriptor."""
+    repo_root = root or find_repo_root()
+    orgs = known_organizations(repo_root)
+    known_ids = collect_known_source_ids(repo_root)
+    for skill_dir in collect_skill_source_pointers(repo_root):
+        path = skill_dir / SKILL_SOURCE_POINTER_FILE
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError as exc:
+            yield Violation(path, None, f"cannot read source pointer: {exc}", category=SKILL_SOURCE_CATEGORY)
+            continue
+        fm = parse_frontmatter(text)
+        if fm is None:
+            yield Violation(
+                path,
+                1,
+                "source pointer missing YAML frontmatter block (expected '---' at start)",
+                category=SKILL_SOURCE_CATEGORY,
+            )
+            continue
+        for key in sorted(REQUIRED_POINTER_KEYS - set(fm.keys())):
+            yield Violation(
+                path, 1, f"source pointer missing required key: '{key}'", category=SKILL_SOURCE_CATEGORY
+            )
+        org = fm.get("organization")
+        if org and orgs and org not in orgs:
+            yield Violation(
+                path,
+                1,
+                f"source pointer organization '{org}' is not a known organization {sorted(orgs)} "
+                f"— add organizations/{org}/ or fix the value",
+                category=ORGANIZATION_CATEGORY,
+            )
+        src = fm.get("source")
+        if src and src not in known_ids:
+            yield Violation(
+                path,
+                1,
+                f"source pointer references unknown source '{src}' — declare it in an "
+                f"organizations/<org>/{SKILL_SOURCE_FILENAME} or <project-config>/{SKILL_SOURCE_FILENAME} "
+                f"descriptor {sorted(known_ids) or '(none declared)'}",
+                category=SKILL_SOURCE_CATEGORY,
+            )
+
+
+# ---------------------------------------------------------------------------
 # Eval-coverage check (check #9, SOFT)
 # ---------------------------------------------------------------------------
 
@@ -2704,6 +2922,11 @@ def validate_eval_coverage(root: Path | None = None) -> Iterable[Violation]:
         eval_slugs = {p.name for p in evals_base.iterdir() if p.is_dir()}
     for skill_dir in sorted(skills_base.iterdir()):
         if not skill_dir.is_dir():
+            continue
+        # A trusted-external-skill-source pointer dir carries its eval suite
+        # in the source repo, fetched into the snapshot at adopt time — not
+        # in-tree. Do not demand a local eval suite for it.
+        if is_skill_source_pointer(skill_dir):
             continue
         slug = skill_dir.name
         if slug not in eval_slugs:
@@ -3024,6 +3247,11 @@ def run_validation(root: Path | None = None) -> list[Violation]:
 
     # Eval-coverage check: every skill must have a matching eval suite.
     violations.extend(validate_eval_coverage(repo_root))
+
+    # Trusted-external-skill-source checks: source.md pointers resolve to a
+    # declared, well-formed descriptor with a known organization.
+    violations.extend(validate_skill_source_descriptors(repo_root))
+    violations.extend(validate_skill_source_pointers(repo_root))
 
     # docs/modes.md consistency check: skill lists and counts match live frontmatter.
     violations.extend(validate_modes_doc_consistency(repo_root))

@@ -121,6 +121,7 @@ from mailing lists, slack etc.
 | Understand the full vision | [MISSION.md](../MISSION.md) |
 | Understand how it stays vendor-neutral | [vendor-neutrality.md](vendor-neutrality.md) |
 | Find or author a backend adapter | [adapters/registry.md](adapters/registry.md) |
+| Pull a skill/family from a trusted external source | [skill-sources/README.md](skill-sources/README.md) |
 | Extend Magpie (project / org / individual) | [extending.md](extending.md) |
 | See what skills exist today | [modes.md](modes.md) |
 | Adopt in my project | [README → Adopting](../README.md#adopting-the-framework) |

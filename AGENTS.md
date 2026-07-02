@@ -332,6 +332,18 @@ yields. When this document says a value comes from
 `<project-config>/project.md`, read it as "from `project.md`, else the
 project's organization, else the framework default".
 
+A project may also **pull skills from a trusted external source**. The
+committed `<project-config>/skill-sources.md` file is the install gate: it
+lists the source ids the adopter trusts and commits each pin (method + URL
++ ref + verification anchor). Where a skill directory would sit, a
+`skills/<name>/source.md` redirect (frontmatter `source:` / `organization:`
+/ `skill_path:` / `evals_path:`, **not** a `SKILL.md`) names the source;
+`/magpie-setup` fetches it into the gitignored snapshot and wires it in like
+a framework skill. Per [`PRINCIPLES.md` §13](PRINCIPLES.md#13-snapshot-plus-override-never-vendored-copies)
+this is the one external home that *installs* rather than being merely
+referenced — pinned, verified, and adopter-vouched. See
+[`docs/skill-sources/`](docs/skill-sources/README.md).
+
 ### Placeholder convention used in skill files
 
 Skill files, tool-adapter docs, and this file use a small set of

@@ -48,11 +48,13 @@ from skill_and_tool_validator import (
     MAX_METADATA_CHARS,
     MODES_DOC_CATEGORY,
     MULTI_CAPABILITY_CATEGORY,
+    ORGANIZATION_CATEGORY,
     OVERRIDE_CONTRACT_CATEGORY,
     OVERRIDES_DIR,
     PRINCIPLE_CATEGORY,
     PRIVACY_CATEGORY,
     SECURITY_PATTERN_CATEGORY,
+    SKILL_SOURCE_CATEGORY,
     SOFT_CATEGORIES,
     STATUS_CATEGORY,
     TEMPLATE_DRIFT_CATEGORY,
@@ -61,17 +63,21 @@ from skill_and_tool_validator import (
     _read_mode_table,
     collect_doc_files,
     collect_files_to_check,
+    collect_known_source_ids,
     collect_skill_dirs,
+    collect_skill_source_pointers,
     collect_tool_dirs,
     collect_tool_python_files,
     extract_headings,
     find_repo_root,
     is_path_allowlisted,
     is_placeholder_url,
+    is_skill_source_pointer,
     known_organizations,
     line_has_inline_allow_marker,
     main,
     parse_frontmatter,
+    parse_source_descriptors,
     resolve_link,
     run_validation,
     slugify,
@@ -95,6 +101,8 @@ from skill_and_tool_validator import (
     validate_privacy_patterns,
     validate_project_template_drift,
     validate_security_patterns,
+    validate_skill_source_descriptors,
+    validate_skill_source_pointers,
     validate_tools,
     validate_trigger_preservation,
 )
@@ -4112,3 +4120,158 @@ class TestValidateBranchNameConfidentiality:
 
     def test_category_in_all_categories(self) -> None:
         assert BRANCH_CONFIDENTIALITY_CATEGORY in ALL_CATEGORIES
+
+
+# ---------------------------------------------------------------------------
+# Trusted external skill sources — pointers + descriptors (RFC-AI-0006)
+# ---------------------------------------------------------------------------
+
+_REAL_DESCRIPTOR_FENCE = (
+    "```yaml\n"
+    "- id: acme-skills\n"
+    "  organization: ASF\n"
+    '  name: "Acme Skills"\n'
+    '  maintainer: "acme"\n'
+    "  method: git-tag\n"
+    "  url: https://github.com/acme/skills\n"
+    "  ref: v1.0.0\n"
+    "  commit: abc123def456\n"
+    "  layout:\n"
+    "    skills_root: skills\n"
+    "    evals_root: tools/skill-evals/evals\n"
+    "  provides:\n"
+    "    - skill: acme-thing\n"
+    "```\n"
+)
+
+_COMMENTED_DESCRIPTOR_FENCE = (
+    "```yaml\n"
+    "# - id: <source-id>\n"
+    "#   organization: <org>\n"
+    "#   method: <git-tag | git-branch | svn-zip>\n"
+    "```\n"
+)
+
+
+def _make_source_repo(
+    tmp_path: Path,
+    *,
+    org: str = "ASF",
+    descriptor_fence: str = _REAL_DESCRIPTOR_FENCE,
+    pointer_frontmatter: str | None = "source: acme-skills\norganization: ASF\n"
+    "skill_path: skills/acme-thing\nevals_path: tools/skill-evals/evals/acme-thing",
+    pointer_dir: str = "acme-thing",
+) -> Path:
+    """Build a minimal repo with an organization, an org skill-sources.md
+    descriptor, and (optionally) a skills/<name>/source.md pointer."""
+    (tmp_path / "organizations" / org).mkdir(parents=True)
+    (tmp_path / "organizations" / org / "skill-sources.md").write_text(
+        f"# {org} — curated skill sources\n\n## Curated sources\n\n{descriptor_fence}",
+        encoding="utf-8",
+    )
+    if pointer_frontmatter is not None:
+        pdir = tmp_path / "skills" / pointer_dir
+        pdir.mkdir(parents=True)
+        (pdir / "source.md").write_text(
+            f"---\n{pointer_frontmatter}\n---\n\n# {pointer_dir} — redirect\n",
+            encoding="utf-8",
+        )
+    return tmp_path
+
+
+class TestSourceDescriptorParsing:
+    def test_commented_examples_declare_nothing(self) -> None:
+        assert parse_source_descriptors(_COMMENTED_DESCRIPTOR_FENCE) == []
+
+    def test_placeholder_id_is_ignored(self) -> None:
+        text = "```yaml\nid: <source-id>\norganization: <org>\n```\n"
+        assert parse_source_descriptors(text) == []
+
+    def test_real_descriptor_parsed(self) -> None:
+        descs = parse_source_descriptors(_REAL_DESCRIPTOR_FENCE)
+        assert len(descs) == 1
+        d = descs[0]
+        assert d["id"] == "acme-skills"
+        assert d["organization"] == "ASF"
+        assert d["method"] == "git-tag"
+        keys = d["_keys"]
+        assert isinstance(keys, set)
+        assert "provides" in keys
+
+    def test_collect_known_source_ids(self, tmp_path: Path) -> None:
+        _make_source_repo(tmp_path, pointer_frontmatter=None)
+        assert collect_known_source_ids(tmp_path) == {"acme-skills"}
+
+
+class TestSkillSourcePointer:
+    def test_is_pointer_true_for_source_md_only(self, tmp_path: Path) -> None:
+        _make_source_repo(tmp_path)
+        pdir = tmp_path / "skills" / "acme-thing"
+        assert is_skill_source_pointer(pdir)
+        assert [p.name for p in collect_skill_source_pointers(tmp_path)] == ["acme-thing"]
+
+    def test_is_pointer_false_when_skill_md_present(self, tmp_path: Path) -> None:
+        _make_source_repo(tmp_path)
+        pdir = tmp_path / "skills" / "acme-thing"
+        (pdir / "SKILL.md").write_text("x", encoding="utf-8")
+        assert not is_skill_source_pointer(pdir)
+
+    def test_valid_pointer_passes(self, tmp_path: Path) -> None:
+        _make_source_repo(tmp_path)
+        assert list(validate_skill_source_pointers(tmp_path)) == []
+
+    def test_unknown_source_hard_fails(self, tmp_path: Path) -> None:
+        _make_source_repo(
+            tmp_path,
+            pointer_frontmatter="source: ghost-source\norganization: ASF\n"
+            "skill_path: skills/acme-thing\nevals_path: tools/skill-evals/evals/acme-thing",
+        )
+        vs = list(validate_skill_source_pointers(tmp_path))
+        assert any(v.category == SKILL_SOURCE_CATEGORY and "ghost-source" in v.message for v in vs)
+
+    def test_unknown_org_hard_fails(self, tmp_path: Path) -> None:
+        _make_source_repo(
+            tmp_path,
+            pointer_frontmatter="source: acme-skills\norganization: Nope\n"
+            "skill_path: skills/acme-thing\nevals_path: tools/skill-evals/evals/acme-thing",
+        )
+        vs = list(validate_skill_source_pointers(tmp_path))
+        assert any(v.category == ORGANIZATION_CATEGORY and "Nope" in v.message for v in vs)
+
+    def test_missing_required_key(self, tmp_path: Path) -> None:
+        _make_source_repo(
+            tmp_path,
+            pointer_frontmatter="source: acme-skills\norganization: ASF",
+        )
+        vs = list(validate_skill_source_pointers(tmp_path))
+        msgs = " ".join(v.message for v in vs)
+        assert "skill_path" in msgs and "evals_path" in msgs
+
+    def test_pointer_dir_draws_no_eval_coverage_advisory(self, tmp_path: Path) -> None:
+        _make_source_repo(tmp_path)
+        vs = list(validate_eval_coverage(tmp_path))
+        assert not any("acme-thing" in v.message for v in vs)
+
+
+class TestSkillSourceDescriptorValidation:
+    def test_valid_descriptor_passes(self, tmp_path: Path) -> None:
+        _make_source_repo(tmp_path, pointer_frontmatter=None)
+        assert list(validate_skill_source_descriptors(tmp_path)) == []
+
+    def test_unknown_method_hard_fails(self, tmp_path: Path) -> None:
+        bad = _REAL_DESCRIPTOR_FENCE.replace("method: git-tag", "method: rsync")
+        _make_source_repo(tmp_path, descriptor_fence=bad, pointer_frontmatter=None)
+        vs = list(validate_skill_source_descriptors(tmp_path))
+        assert any(v.category == SKILL_SOURCE_CATEGORY and "rsync" in v.message for v in vs)
+
+    def test_unknown_org_hard_fails(self, tmp_path: Path) -> None:
+        bad = _REAL_DESCRIPTOR_FENCE.replace("organization: ASF", "organization: Nope")
+        _make_source_repo(tmp_path, descriptor_fence=bad, pointer_frontmatter=None)
+        vs = list(validate_skill_source_descriptors(tmp_path))
+        assert any(v.category == ORGANIZATION_CATEGORY and "Nope" in v.message for v in vs)
+
+    def test_missing_required_key(self, tmp_path: Path) -> None:
+        bad = _REAL_DESCRIPTOR_FENCE.replace("  url: https://github.com/acme/skills\n", "")
+        _make_source_repo(tmp_path, descriptor_fence=bad, pointer_frontmatter=None)
+        vs = list(validate_skill_source_descriptors(tmp_path))
+        assert any(v.category == SKILL_SOURCE_CATEGORY and "url" in v.message for v in vs)

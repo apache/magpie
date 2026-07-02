@@ -34,6 +34,7 @@ indexes and catalogs exist for discovery, not installation.
 | Entity | What it is | Reference |
 |---|---|---|
 | **Skill** | a workflow the agent follows | [`PRINCIPLES.md` §14](../PRINCIPLES.md#14-skills-are-the-unit-of-authorship), [`write-skill`](../skills/write-skill/SKILL.md) |
+| **Skill source** | a trusted external repo a skill/family is *pulled* from | [`docs/skill-sources/`](skill-sources/README.md), [`RFC-AI-0006`](rfcs/RFC-AI-0006.md) |
 | **Tool / tool adapter** | the only layer that knows a vendor — a backend behind a capability contract | [vendor-neutrality § Tool adapters](vendor-neutrality.md#tool-adapters), [`adapters/authoring.md`](adapters/authoring.md) |
 | **Capability contract** | the stable verb set a skill depends on; the seam adapters plug into | [`tools/cve-tool/`](../tools/cve-tool/) and siblings |
 | **Organization** | governance vocabulary + backend bundle + identity, shared by an org's projects | [`organizations/README.md`](../organizations/README.md) |
@@ -65,6 +66,13 @@ discovery.
 - **Skills** — framework skills come from the snapshot; project tweaks
   live in `.apache-magpie-overrides/<skill>.md` (consulted at run time);
   a wholly new skill you keep can live in your repo's agent-skill dir.
+  A skill or skill-family maintained in **another repo** can also be
+  *pulled in* from a **trusted external source** — a `skills/<name>/source.md`
+  redirect that names a pinned, verified source the adopter has vouched
+  for, fetched into the snapshot and wired in like a framework skill. This
+  is the one external home that *installs* rather than merely being
+  referenced (see [`PRINCIPLES.md` §13](../PRINCIPLES.md#13-snapshot-plus-override-never-vendored-copies)
+  and [`docs/skill-sources/`](skill-sources/README.md)).
 - **Tools / adapters** — selected per capability in
   `<project-config>/project.md` *Tools enabled*. The selected adapter may
   be an in-tree `tools/<name>/`, a directory you keep in your adopter

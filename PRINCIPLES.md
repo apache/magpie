@@ -124,7 +124,7 @@ Skills, tool adapters, and root docs use `<PROJECT>` / `<tracker>` / `<upstream>
 
 ## 13. Snapshot plus override, never vendored copies
 
-Adopters consume the framework as a gitignored snapshot at `.apache-magpie/`, pinned via a committed lock file, refreshed by one skill (`setup`). Project-specific modifications live as agent-readable markdown under `<project-config>/.apache-magpie-overrides/`, committed. No git submodules. No vendored copies of framework skills inside adopter repos. Marketplaces, indexes, and catalogs may exist for discovery, never for installation.
+Adopters consume the framework as a gitignored snapshot at `.apache-magpie/`, pinned via a committed lock file, refreshed by one skill (`setup`). Project-specific modifications live as agent-readable markdown under `<project-config>/.apache-magpie-overrides/`, committed. No git submodules. No vendored copies of framework skills inside adopter repos. Marketplaces, indexes, and catalogs exist for discovery. Installation is permitted only from a **trusted source** — an external organization or repository the adopter has explicitly vouched for by committing its pin (method + URL + ref + verification anchor) to the repo. Everything else stays discovery-only. A trusted install obeys the same snapshot-plus-pin discipline as the framework itself: a gitignored snapshot, a committed lock, a verified and deliberate fetch by the one `setup` skill — never a git submodule, and never an unpinned or unverified auto-fetch. See [`docs/skill-sources/`](docs/skill-sources/README.md) for the trusted-skill-source mechanism.
 
 ## 14. Skills are the unit of authorship
 

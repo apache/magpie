@@ -505,4 +505,5 @@ product:
 - [`fix-workflow.md`](fix-workflow.md) — fork / toolchain / commit-trailer specifics.
 - [`naming-conventions.md`](naming-conventions.md) — project-specific editorial rules.
 - [`canned-responses.md`](canned-responses.md) — reporter-facing reply templates.
+- [`skill-sources.md`](skill-sources.md) — trusted external skill sources this project pulls skills from (the install gate).
 - [`README.md`](README.md) — project file index + onboarding checklist.

@@ -15,6 +15,7 @@
     - [Issue management](#issue-management)
     - [Repo-health audits](#repo-health-audits)
     - [PR triage and review](#pr-triage-and-review)
+    - [External skill sources](#external-skill-sources)
   - [Recommended setup order](#recommended-setup-order)
   - [Checklist after copying](#checklist-after-copying)
   - [Cross-references](#cross-references)
@@ -155,6 +156,12 @@ fill them in.
 > for concrete examples (filled in with the Apache Airflow project's
 > values, which new adopters can use as a reference when drafting
 > their own configuration).
+
+### External skill sources
+
+| File | Purpose |
+|---|---|
+| [`skill-sources.md`](skill-sources.md) | **The install gate** for pulling skills/families from trusted external repos. Lists the source ids this project trusts and commits each pin. `/magpie-setup` fetches only what is listed here. Leave empty to run only in-tree framework skills. See [`docs/skill-sources/`](../../docs/skill-sources/README.md). |
 
 ## Recommended setup order
 
