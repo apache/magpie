@@ -48,8 +48,9 @@ ignore = ["E501"]
 
 [dependency-groups]
 dev = [
-  "pytest>=8.0",
-  "ruff>=0.4",
+  "mypy>=2.1.0",
+  "pytest>=9.1.1",
+  "ruff>=0.15.18",
 ]
 
 [tool.pytest.ini_options]

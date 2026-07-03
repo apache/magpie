@@ -76,21 +76,14 @@ shift 2
 # so it needs none of these itself.
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX
 
-# On Apple Silicon Macs, git ships as x86_64 (Rosetta). Pre-commit hooks
-# invoked by git therefore run in an x86_64 context where universal Python
-# binaries also run as x86_64, which cannot load arm64-compiled extensions
-# (e.g. mypy .so files, cffi, cryptography). Probe for this condition at
-# runtime: if the workspace venv Python runs as x86_64 but arch -arm64 can
-# switch it to arm64, prefer the native arm64 path for Python-based checks.
-_NATIVE_PYTHON=""
-_VENV_PYTHON="$(pwd)/.venv/bin/python3"
-if [[ -x "$_VENV_PYTHON" ]]; then
-  _CURR_ARCH=$("$_VENV_PYTHON" -c "import platform; print(platform.machine())" 2>/dev/null || echo "")
-  _ARM64_ARCH=$(arch -arm64 "$_VENV_PYTHON" -c "import platform; print(platform.machine())" 2>/dev/null || echo "")
-  if [[ "$_CURR_ARCH" == "x86_64" ]] && [[ "$_ARM64_ARCH" == "arm64" ]]; then
-    _NATIVE_PYTHON="arch -arm64 $_VENV_PYTHON"
-  fi
-fi
+# Every check runs through `uv` against the member's own project — never a
+# bare interpreter — so the tool version comes from that sub-project's
+# pyproject.toml + dev group (see each member's `[dependency-groups] dev`).
+# mypy and pytest are invoked as `python -m <tool>` rather than via their
+# console scripts: a console script bakes an absolute interpreter path into
+# its shebang, which breaks when the shared workspace venv is reused across
+# repos (a stale `#!/…/other-repo/.venv/bin/python3` fails to spawn). The
+# `-m` form resolves the tool from the live interpreter and sidesteps that.
 
 # Discover workspace members + per-check applicability. The Python
 # helper walks the root `[tool.uv.workspace] members` list, opens
@@ -171,18 +164,20 @@ echo "→ workspace-check: ${CHECK_KEY} (${CHECK_CMD} $*) across ${count} member
 failed=()
 for member in $applicable; do
   name=$(basename "$member")
-  # `uv run --directory` so each member runs with its own `cwd` —
-  # ruff / mypy / pytest configs resolve paths relative to the
-  # member root.
-  # On Apple Silicon + Rosetta, use native arm64 Python for Python-based
-  # checks to avoid loading arm64 extensions from an x86_64 Python process.
-  # Ruff is a Rust binary that already runs natively so no prefix is needed.
+  # Run every check via uv, against the member's own project:
+  #   --directory "$member"  → cwd is the member, so ruff / mypy / pytest
+  #                            configs resolve paths relative to the member root
+  #   --project .            → the environment is that member's project (its
+  #                            pyproject.toml + dev group), resolved after the
+  #                            --directory chdir
+  # mypy and pytest go through `python -m` to bypass console-script shebangs;
+  # ruff is a native binary with no interpreter shebang, so it runs directly.
   # shellcheck disable=SC2086 # CHECK_CMD may legitimately be multi-token
-  if [[ -n "$_NATIVE_PYTHON" ]] && [[ "$CHECK_KEY" != "ruff" ]] && [[ "$CHECK_KEY" != "ruff-format" ]]; then
-    if ! (cd "$member" && $_NATIVE_PYTHON -m $CHECK_CMD "$@"); then
+  if [[ "$CHECK_KEY" == "mypy" ]] || [[ "$CHECK_KEY" == "pytest" ]]; then
+    if ! uv run --directory "$member" --project . python -m $CHECK_CMD "$@"; then
       failed+=("$name")
     fi
-  elif ! uv run --directory "$member" $CHECK_CMD "$@"; then
+  elif ! uv run --directory "$member" --project . $CHECK_CMD "$@"; then
     failed+=("$name")
   fi
 done

@@ -76,3 +76,14 @@ disallow_incomplete_defs = false
 minversion = "8.0"
 addopts = "-ra -q"
 testpaths = ["tests"]
+
+[dependency-groups]
+# Shared static-analysis + test toolchain, pinned to the same versions as the
+# workspace root so every sub-project's own environment is self-contained.
+# The workspace checks run each tool via `uv run --directory <member>
+# --project . python -m <tool>` — see tools/dev/run-workspace-check.sh.
+dev = [
+  "mypy>=2.1.0",
+  "pytest>=9.1.1",
+  "ruff>=0.15.18",
+]

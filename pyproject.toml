@@ -42,12 +42,15 @@ requires-python = ">=3.11"
 # - `prek` is the static-check / pre-commit runner. CI installs it
 #   via `uv sync --group dev` and invokes `uv run prek …`.
 # - `ruff`, `mypy`, `pytest` are the shared static-analysis +
-#   test toolchain used by every workspace member under `tools/`.
-#   They are declared once here (workspace-root) instead of being
-#   repeated in every member's `[dependency-groups] dev` block.
-#   `uv sync` at workspace root installs them into the shared
-#   workspace environment and `uv run --directory <member> <tool>`
-#   picks them up.
+#   test toolchain. They are declared here for root-level ad-hoc
+#   use AND, pinned to the same lower bounds, in every workspace
+#   member's own `[dependency-groups] dev` block — so each
+#   sub-project's environment is self-contained. The workspace
+#   checks run each tool against the member's own project via
+#   `uv run --directory <member> --project . …` (see
+#   `tools/dev/run-workspace-check.sh`), so a member is never
+#   dependent on tools leaking in from the shared root environment.
+#   Keep the version bounds here and in every member in lockstep.
 #
 # Lower bounds mirror what individual tools needed at their last
 # bump; the upper bound is enforced implicitly by the 7-day

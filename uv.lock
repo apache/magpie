@@ -44,10 +44,42 @@ name = "agent-guard"
 version = "0.1.0"
 source = { editable = "tools/agent-guard" }
 
+[package.dev-dependencies]
+dev = [
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "mypy", specifier = ">=2.1.0" },
+    { name = "pytest", specifier = ">=9.1.1" },
+    { name = "ruff", specifier = ">=0.15.18" },
+]
+
 [[package]]
 name = "agent-isolation"
 version = "0.1.0"
 source = { editable = "tools/agent-isolation" }
+
+[package.dev-dependencies]
+dev = [
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "mypy", specifier = ">=2.1.0" },
+    { name = "pytest", specifier = ">=9.1.1" },
+    { name = "ruff", specifier = ">=0.15.18" },
+]
 
 [[package]]
 name = "apache-magpie"
@@ -285,6 +317,22 @@ name = "checker"
 version = "0.1.0"
 source = { editable = "tools/privacy-llm/checker" }
 
+[package.dev-dependencies]
+dev = [
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "mypy", specifier = ">=2.1.0" },
+    { name = "pytest", specifier = ">=9.1.1" },
+    { name = "ruff", specifier = ">=0.15.18" },
+]
+
 [[package]]
 name = "colorama"
 version = "0.4.6"
@@ -373,8 +421,8 @@ requires-dist = [{ name = "proxy-py", specifier = ">=2.4,<3" }]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "mypy", specifier = ">=1.11" },
-    { name = "pytest", specifier = ">=8.0" },
+    { name = "mypy", specifier = ">=2.1.0" },
+    { name = "pytest", specifier = ">=9.1.1" },
     { name = "ruff", specifier = ">=0.15.18" },
 ]
 
@@ -383,15 +431,63 @@ name = "generate-cve-json"
 version = "0.1.0"
 source = { editable = "tools/cve-tool-vulnogram/generate-cve-json" }
 
+[package.dev-dependencies]
+dev = [
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "mypy", specifier = ">=2.1.0" },
+    { name = "pytest", specifier = ">=9.1.1" },
+    { name = "ruff", specifier = ">=0.15.18" },
+]
+
 [[package]]
 name = "github-body-field"
 version = "0.1.0"
 source = { editable = "tools/github-body-field" }
 
+[package.dev-dependencies]
+dev = [
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "mypy", specifier = ">=2.1.0" },
+    { name = "pytest", specifier = ">=9.1.1" },
+    { name = "ruff", specifier = ">=0.15.18" },
+]
+
 [[package]]
 name = "github-rollup"
 version = "0.1.0"
 source = { editable = "tools/github-rollup" }
+
+[package.dev-dependencies]
+dev = [
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "mypy", specifier = ">=2.1.0" },
+    { name = "pytest", specifier = ">=9.1.1" },
+    { name = "ruff", specifier = ">=0.15.18" },
+]
 
 [[package]]
 name = "google-auth"
@@ -441,6 +537,22 @@ wheels = [
 name = "jira-bridge"
 version = "0.1.0"
 source = { editable = "tools/jira" }
+
+[package.dev-dependencies]
+dev = [
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "mypy", specifier = ">=2.1.0" },
+    { name = "pytest", specifier = ">=9.1.1" },
+    { name = "ruff", specifier = ">=0.15.18" },
+]
 
 [[package]]
 name = "librt"
@@ -520,6 +632,22 @@ name = "magpie-vcs"
 version = "0.1.0"
 source = { editable = "tools/vcs" }
 
+[package.dev-dependencies]
+dev = [
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "mypy", specifier = ">=2.1.0" },
+    { name = "pytest", specifier = ">=9.1.1" },
+    { name = "ruff", specifier = ">=0.15.18" },
+]
+
 [[package]]
 name = "mypy"
 version = "2.1.0"
@@ -588,8 +716,22 @@ dependencies = [
     { name = "google-auth-oauthlib" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
 [package.metadata]
 requires-dist = [{ name = "google-auth-oauthlib", specifier = ">=1.4.0" }]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "mypy", specifier = ">=2.1.0" },
+    { name = "pytest", specifier = ">=9.1.1" },
+    { name = "ruff", specifier = ">=0.15.18" },
+]
 
 [[package]]
 name = "oauthlib"
@@ -623,13 +765,9 @@ name = "permission-audit"
 version = "0.1.0"
 source = { editable = "tools/permission-audit" }
 
-[[package]]
-name = "pilot-report-validator"
-version = "0.1.0"
-source = { editable = "tools/pilot-report-validator" }
-
 [package.dev-dependencies]
 dev = [
+    { name = "mypy" },
     { name = "pytest" },
     { name = "ruff" },
 ]
@@ -638,8 +776,30 @@ dev = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "pytest", specifier = ">=8.0" },
-    { name = "ruff", specifier = ">=0.4" },
+    { name = "mypy", specifier = ">=2.1.0" },
+    { name = "pytest", specifier = ">=9.1.1" },
+    { name = "ruff", specifier = ">=0.15.18" },
+]
+
+[[package]]
+name = "pilot-report-validator"
+version = "0.1.0"
+source = { editable = "tools/pilot-report-validator" }
+
+[package.dev-dependencies]
+dev = [
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "mypy", specifier = ">=2.1.0" },
+    { name = "pytest", specifier = ">=9.1.1" },
+    { name = "ruff", specifier = ">=0.15.18" },
 ]
 
 [[package]]
@@ -656,10 +816,42 @@ name = "pr-management-stats"
 version = "0.1.0"
 source = { virtual = "tools/pr-management-stats" }
 
+[package.dev-dependencies]
+dev = [
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "mypy", specifier = ">=2.1.0" },
+    { name = "pytest", specifier = ">=9.1.1" },
+    { name = "ruff", specifier = ">=0.15.18" },
+]
+
 [[package]]
 name = "preflight-audit"
 version = "0.1.0"
 source = { editable = "tools/preflight-audit" }
+
+[package.dev-dependencies]
+dev = [
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "mypy", specifier = ">=2.1.0" },
+    { name = "pytest", specifier = ">=9.1.1" },
+    { name = "ruff", specifier = ">=0.15.18" },
+]
 
 [[package]]
 name = "prek"
@@ -754,6 +946,22 @@ name = "redactor"
 version = "0.1.0"
 source = { editable = "tools/privacy-llm/redactor" }
 
+[package.dev-dependencies]
+dev = [
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "mypy", specifier = ">=2.1.0" },
+    { name = "pytest", specifier = ">=9.1.1" },
+    { name = "ruff", specifier = ">=0.15.18" },
+]
+
 [[package]]
 name = "requests"
 version = "2.34.2"
@@ -812,6 +1020,22 @@ name = "sandbox-lint"
 version = "0.1.0"
 source = { editable = "tools/sandbox-lint" }
 
+[package.dev-dependencies]
+dev = [
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "mypy", specifier = ">=2.1.0" },
+    { name = "pytest", specifier = ">=9.1.1" },
+    { name = "ruff", specifier = ">=0.15.18" },
+]
+
 [[package]]
 name = "security-tracker-stats-dashboard"
 version = "0.1.0"
@@ -819,13 +1043,19 @@ source = { editable = "tools/security-tracker-stats-dashboard" }
 
 [package.dev-dependencies]
 dev = [
+    { name = "mypy" },
     { name = "pytest" },
+    { name = "ruff" },
 ]
 
 [package.metadata]
 
 [package.metadata.requires-dev]
-dev = [{ name = "pytest", specifier = ">=9.1.1" }]
+dev = [
+    { name = "mypy", specifier = ">=2.1.0" },
+    { name = "pytest", specifier = ">=9.1.1" },
+    { name = "ruff", specifier = ">=0.15.18" },
+]
 
 [[package]]
 name = "skill-and-tool-validator"
@@ -853,18 +1083,9 @@ name = "skill-evals"
 version = "0.1.0"
 source = { editable = "tools/skill-evals" }
 
-[[package]]
-name = "spec-status-index"
-version = "0.1.0"
-source = { editable = "tools/spec-status-index" }
-
-[[package]]
-name = "spec-validator"
-version = "0.1.0"
-source = { editable = "tools/spec-validator" }
-
 [package.dev-dependencies]
 dev = [
+    { name = "mypy" },
     { name = "pytest" },
     { name = "ruff" },
 ]
@@ -873,7 +1094,50 @@ dev = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "pytest", specifier = ">=8.0" },
+    { name = "mypy", specifier = ">=2.1.0" },
+    { name = "pytest", specifier = ">=9.1.1" },
+    { name = "ruff", specifier = ">=0.15.18" },
+]
+
+[[package]]
+name = "spec-status-index"
+version = "0.1.0"
+source = { editable = "tools/spec-status-index" }
+
+[package.dev-dependencies]
+dev = [
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "mypy", specifier = ">=2.1.0" },
+    { name = "pytest", specifier = ">=9.1.1" },
+    { name = "ruff", specifier = ">=0.15.18" },
+]
+
+[[package]]
+name = "spec-validator"
+version = "0.1.0"
+source = { editable = "tools/spec-validator" }
+
+[package.dev-dependencies]
+dev = [
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "mypy", specifier = ">=2.1.0" },
+    { name = "pytest", specifier = ">=9.1.1" },
     { name = "ruff", specifier = ">=0.15.18" },
 ]
 
@@ -881,6 +1145,22 @@ dev = [
 name = "symlink-lint"
 version = "0.1.0"
 source = { editable = "tools/symlink-lint" }
+
+[package.dev-dependencies]
+dev = [
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "mypy", specifier = ">=2.1.0" },
+    { name = "pytest", specifier = ">=9.1.1" },
+    { name = "ruff", specifier = ">=0.15.18" },
+]
 
 [[package]]
 name = "typing-extensions"
@@ -905,7 +1185,39 @@ name = "vendor-neutrality-score"
 version = "0.1.0"
 source = { editable = "tools/vendor-neutrality-score" }
 
+[package.dev-dependencies]
+dev = [
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "mypy", specifier = ">=2.1.0" },
+    { name = "pytest", specifier = ">=9.1.1" },
+    { name = "ruff", specifier = ">=0.15.18" },
+]
+
 [[package]]
 name = "vulnogram-api"
 version = "0.1.0"
 source = { editable = "tools/cve-tool-vulnogram/oauth-api" }
+
+[package.dev-dependencies]
+dev = [
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "mypy", specifier = ">=2.1.0" },
+    { name = "pytest", specifier = ">=9.1.1" },
+    { name = "ruff", specifier = ">=0.15.18" },
+]
