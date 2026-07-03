@@ -188,6 +188,7 @@ only; it makes no guarantee and triggers no install.
 
 ## See also
 
+- [`authoring-a-source.md`](authoring-a-source.md) — the source-repo side: how a third-party org publishes skills for adopters to pull.
 - [`RFC-AI-0006`](../rfcs/RFC-AI-0006.md) — the design + trust + threat model.
 - [`docs/extending.md`](../extending.md) — the full extension model (what / where / who).
 - [`organizations/README.md`](../../organizations/README.md) — the organization layer and its `skill-sources.md` curation.
