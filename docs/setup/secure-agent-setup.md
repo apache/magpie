@@ -365,6 +365,16 @@ below, annotated.
 {
   "sandbox": {
     "enabled": true,
+    // `excludedCommands` runs the listed commands OUTSIDE the sandbox.
+    // `gh` authenticates via the OS keyring (and `~/.config/gh`), which the
+    // sandbox blocks — so a sandboxed `gh` fails with a keyring / "not
+    // logged in" error. Excluding it lets `gh` use the real host auth. Its
+    // write / destructive subcommands are still gated by the
+    // `permissions.ask` rules below, and `gh auth token` / `gh auth refresh`
+    // stay in `permissions.deny` so the token can never be dumped. This is
+    // what makes the "`gh` is sandbox-bypassed" note under `credentials`
+    // below actually hold.
+    "excludedCommands": ["gh *"],
     // The `lychee` link-check hook runs in OFFLINE mode (`offline =
     // true` in `.lychee.toml`): it validates only local cross-file and
     // anchor references and never fetches remote URLs, so it makes no
@@ -456,7 +466,18 @@ below, annotated.
   },
   "permissions": {
     "allow": [
-      "Bash(gh api graphql *)"                  // read-only GraphQL fetches (PR-triage paginated fetch loop, similar bulk reads); MORE SPECIFIC than the `-F`/`-f` ask rules below, so it short-circuits them. Mutations via `gh api graphql -F query='mutation {...}'` slip through this rule and are not prompted — accept this trade-off because the skills in this framework do not route mutations through graphql (REST + explicit `-X`/`--method` is the mutation path).
+      "Bash(gh api graphql *)",                 // read-only GraphQL fetches (PR-triage paginated loop). MORE SPECIFIC than the `gh *` ask below, so it — and the read-only rules that follow — run WITHOUT a prompt. GraphQL mutations slip through; accepted, since the skills route mutations through REST, not graphql.
+      // Read-only gh, allow-listed so they don't trip the `gh *` ask below.
+      // Anything NOT listed here — every write/destructive gh, and REST `gh
+      // api` (GET included) — falls through to `gh *` and prompts.
+      "Bash(gh pr view *)", "Bash(gh pr list *)", "Bash(gh pr diff *)", "Bash(gh pr checks *)",
+      "Bash(gh issue view *)", "Bash(gh issue list *)",
+      "Bash(gh repo view *)", "Bash(gh repo list *)",
+      "Bash(gh run view *)", "Bash(gh run list *)", "Bash(gh run watch *)",
+      "Bash(gh workflow view *)", "Bash(gh workflow list *)",
+      "Bash(gh release view *)", "Bash(gh release list *)",
+      "Bash(gh label list *)", "Bash(gh cache list *)",
+      "Bash(gh search *)", "Bash(gh browse *)", "Bash(gh auth status*)"
     ],
     "deny": [
       "Read(~/.aws/**)", "Read(~/.ssh/**)", "Read(~/.netrc)",
@@ -468,16 +489,12 @@ below, annotated.
       "Bash(curl *)", "Bash(wget *)",           // network egress via Bash bypasses the sandbox proxy
       "Bash(aws *)", "Bash(gcloud *)", "Bash(az *)", "Bash(kubectl *)",
       "Bash(docker login *)", "Bash(npm publish *)",
-      "Bash(pip install --upgrade *)", "Bash(uv self update *)"
+      "Bash(pip install --upgrade *)", "Bash(uv self update *)",
+      "Bash(gh auth token*)", "Bash(gh auth refresh*)"  // gh runs unsandboxed (excludedCommands), so deny the two subcommands that would print/rotate the token
     ],
     "ask": [
       "Bash(git push *)",                        // including --force / --force-with-lease variants
-      "Bash(gh pr create *)", "Bash(gh pr edit *)", "Bash(gh pr merge *)",
-      "Bash(gh issue create *)", "Bash(gh issue edit *)",
-      "Bash(gh issue close *)", "Bash(gh issue comment *)",
-      "Bash(gh release create *)",
-      "Bash(gh api * -X *)",                     // any non-default-method API call
-      "Bash(gh api * -f *)", "Bash(gh api * -F *)"  // any payload-bearing API call — narrowed by the `gh api graphql *` allow above for the GraphQL read path
+      "Bash(gh *)"                               // safe-by-default: EVERY gh command prompts unless it matches a more-specific read-only allow rule above. Guarantees every destructive / unknown gh subcommand (gh pr close, gh run delete, gh label delete, gh repo archive, gh variable set, gh project item-delete, …) is confirmed. `gh auth token`/`refresh` are denied above (deny > ask).
     ]
   }
 }
@@ -489,6 +506,14 @@ CLI, `oauth-draft-create`) need to *use* the credential, but the
 agent should never *see* it. `sandbox.filesystem.allowRead` permits
 the bash subprocess to read the file; `permissions.deny[Read(...)]`
 blocks the agent's Read tool from reading the same path.
+
+**OpenCode parity.** OpenCode has no per-command sandbox exclusion — its
+isolation is the OS-level sandbox of the [clean-env wrapper](#the-clean-env-wrapper),
+which already runs `gh` with the host keyring, so there is no `excludedCommands`
+equivalent to add. The "always confirm" half carries over via OpenCode's own
+policy: `sandbox-lint --opencode` requires `permission.bash` to default to
+`ask`/`deny` (never a blanket `allow`), so `gh` write subcommands prompt there
+by default. No `opencode.json` change is needed to match the Claude config.
 
 ## Project-root coverage in the sandbox allowlists
 

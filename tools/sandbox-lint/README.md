@@ -55,7 +55,8 @@ uv run --project tools/sandbox-lint sandbox-lint --opencode opencode.json
 
 1. **Baseline parity.** Every key/value in the live settings file
    must match the baseline. Lists tagged as set-typed (`denyRead`,
-   `allowRead`, `allowWrite`, `allowedDomains`, `deny`, `ask`) are
+   `allowRead`, `allowWrite`, `allowedDomains`, `excludedCommands`,
+   `deny`, `ask`) are
    compared as sets so a re-order does not trip the lint, but every
    addition or removal does. Any drift fails CI.
 2. **Hard invariants.** Independent of the baseline, the live

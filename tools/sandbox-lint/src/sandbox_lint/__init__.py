@@ -146,6 +146,7 @@ SET_LIST_KEYS = {
     "allowRead",
     "allowWrite",
     "allowedDomains",
+    "excludedCommands",
     "deny",
     "ask",
 }

@@ -15,8 +15,9 @@ acceptance:
   - Every agent subprocess runs inside an OS-level sandbox with default-
     deny filesystem reads and network egress.
   - Credential-shaped env vars are stripped before the agent execs.
-  - State-mutating shell calls (git push, gh pr create, …) require a
-    confirmation prompt; secrets/cred files are deny-read.
+  - State-mutating shell calls (git push, and every gh command except
+    allow-listed read-only ones) require a confirmation prompt;
+    secrets/cred files are deny-read.
 ---
 
 # Agent isolation / layered sandbox
@@ -33,8 +34,8 @@ saying "no".
 - `tools/agent-isolation/` — the harness (clean-env wrapper +
   sandbox profiles).
 - `.claude/settings.json` — the `sandbox` block (filesystem
-  allow/deny, network `allowedDomains`) and `permissions` (`deny` /
-  `ask`).
+  allow/deny, network `allowedDomains`, `excludedCommands`) and
+  `permissions` (`deny` / `ask`).
 - Skills: `setup-isolated-setup-install`, `-update`, `-verify`,
   `-doctor` (probes live sandbox restrictions — SSH-agent reachability,
   localhost port binding, docker/podman socket — and maps each to a
@@ -50,11 +51,16 @@ The reference model is four layers, layered:
    `$ANTHROPIC_API_KEY` leakage).
 2. **Filesystem + network sandbox** — Linux `bubblewrap` + `socat` SNI
    proxy; macOS `sandbox-exec`. Default-deny reads outside the tree and
-   egress to non-allowed hosts.
+   egress to non-allowed hosts. `sandbox.excludedCommands` carves out
+   commands that need host auth the sandbox blocks — `gh` (OS keyring);
+   the blast radius is held by layers 3 (`gh auth token` / `gh auth
+   refresh` denied) and 4 (`gh` writes gated by `ask`).
 3. **Tool permissions** — the host's `permissions.deny` blocks denied
    paths/binaries (`Read(~/.ssh/**)`, `Bash(curl *)`, …).
-4. **Forced confirmation** — `permissions.ask` on every state-mutating
-   shell call (`git push`, `gh pr create`, `gh issue edit`, …).
+4. **Forced confirmation** — `permissions.ask` on `git push` and,
+   safe-by-default, on `Bash(gh *)`: every `gh` command prompts unless a
+   more-specific read-only `allow` rule (`gh pr view`, `gh * list`, …)
+   exempts it, so every destructive or unknown `gh` subcommand confirms.
 
 Pinned system tools (`bubblewrap`, `socat`, agent CLI) are aged through a
 cooldown window; bumps are PRs, not silent updates.
@@ -69,8 +75,8 @@ cooldown window; bumps are PRs, not silent updates.
 
 1. Filesystem and network default-deny with explicit allow-lists.
 2. The clean-env wrapper strips credential-shaped vars before exec.
-3. `git push` / `gh pr create` are in `permissions.ask`; secret/cred
-   files are in `permissions.deny`.
+3. `git push` and `Bash(gh *)` are in `permissions.ask` (read-only `gh`
+   exempted via `allow`); secret/cred files are in `permissions.deny`.
 
 ## Validation
 
@@ -78,7 +84,7 @@ cooldown window; bumps are PRs, not silent updates.
 uv run --project tools/agent-isolation --group dev pytest
 python3 -c "import json,sys; s=json.load(open('.claude/settings.json')); \
   asks=' '.join(s['permissions']['ask']); \
-  sys.exit(0 if 'git push' in asks and 'gh pr create *' in asks else 1)"
+  sys.exit(0 if 'git push' in asks and 'gh *' in asks else 1)"
 ```
 
 ## Known gaps

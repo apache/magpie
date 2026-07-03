@@ -2,6 +2,9 @@
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "sandbox": {
     "enabled": true,
+    "excludedCommands": [
+      "gh *"
+    ],
     "filesystem": {
       "denyRead": [
         "~/"
@@ -65,6 +68,26 @@
   "permissions": {
     "allow": [
       "Bash(gh api graphql *)",
+      "Bash(gh pr view *)",
+      "Bash(gh pr list *)",
+      "Bash(gh pr diff *)",
+      "Bash(gh pr checks *)",
+      "Bash(gh issue view *)",
+      "Bash(gh issue list *)",
+      "Bash(gh repo view *)",
+      "Bash(gh repo list *)",
+      "Bash(gh run view *)",
+      "Bash(gh run list *)",
+      "Bash(gh run watch *)",
+      "Bash(gh workflow view *)",
+      "Bash(gh workflow list *)",
+      "Bash(gh release view *)",
+      "Bash(gh release list *)",
+      "Bash(gh label list *)",
+      "Bash(gh cache list *)",
+      "Bash(gh search *)",
+      "Bash(gh browse *)",
+      "Bash(gh auth status*)",
       "mcp__claude_ai_Gmail__get_thread",
       "mcp__claude_ai_Gmail__search_threads",
       "mcp__ponymail__search_list",
@@ -113,30 +136,7 @@
       "Bash(git push *)",
       "Bash(git push --force *)",
       "Bash(git push --force-with-lease *)",
-      "Bash(gh pr create *)",
-      "Bash(gh pr edit *)",
-      "Bash(gh pr merge *)",
-      "Bash(gh issue create *)",
-      "Bash(gh issue edit *)",
-      "Bash(gh issue close *)",
-      "Bash(gh issue comment *)",
-      "Bash(gh release create *)",
-      "Bash(gh api * -X *)",
-      "Bash(gh api * -f *)",
-      "Bash(gh api * -F *)",
-      "Bash(gh gist *)",
-      "Bash(gh repo create *)",
-      "Bash(gh repo edit *)",
-      "Bash(gh repo delete *)",
-      "Bash(gh api * --method *)",
-      "Bash(gh api --method *)",
-      "Bash(gh api * --input *)",
-      "Bash(gh api --input *)",
-      "Bash(gh secret *)",
-      "Bash(gh ssh-key *)",
-      "Bash(gh release upload *)",
-      "Bash(gh release delete *)",
-      "Bash(gh workflow run *)"
+      "Bash(gh *)"
     ]
   }
 }

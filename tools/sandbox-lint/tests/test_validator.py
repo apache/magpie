@@ -69,6 +69,20 @@ def test_live_settings_satisfy_invariants(live_settings: dict[str, Any]) -> None
     assert errors == [], "live settings violate invariants:\n" + "\n".join(errors)
 
 
+def test_baseline_excludes_gh_from_sandbox(baseline: dict[str, Any]) -> None:
+    # gh authenticates via the OS keyring, which is unreachable inside the
+    # sandbox; excluding it lets gh run against the real host auth. The `ask`
+    # rules still gate its write/destructive subcommands.
+    assert "gh *" in baseline["sandbox"].get("excludedCommands", [])
+
+
+def test_baseline_asks_on_all_gh_by_default(baseline: dict[str, Any]) -> None:
+    # Safe-by-default: every gh command prompts unless a more-specific
+    # read-only allow rule exempts it, so destructive/unknown gh always asks.
+    assert "Bash(gh *)" in baseline["permissions"]["ask"]
+    assert "Bash(gh pr view *)" in baseline["permissions"]["allow"]
+
+
 def test_main_exits_zero_on_repo(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(REPO_ROOT)
     assert main([]) == 0
@@ -92,6 +106,15 @@ def test_diff_detects_added_allowed_domain(baseline: dict[str, Any]) -> None:
     settings["sandbox"]["network"]["allowedDomains"].append("sandbox-lint-test-extra-marker")
     diffs = deep_diff(settings, baseline)
     assert any("sandbox-lint-test-extra-marker" in d for d in diffs)
+
+
+def test_diff_excluded_commands_order_insensitive(baseline: dict[str, Any]) -> None:
+    settings = copy.deepcopy(baseline)
+    settings["sandbox"]["excludedCommands"] = [
+        *reversed(settings["sandbox"]["excludedCommands"]),
+        *settings["sandbox"]["excludedCommands"],
+    ]
+    assert deep_diff(settings, baseline) == []
 
 
 def test_diff_detects_removed_deny_entry(baseline: dict[str, Any]) -> None:
