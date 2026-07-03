@@ -233,7 +233,7 @@ is the only verb that touches `contract:source-control`.**
     source-control adapter, not here.
 - **No-op case.** The `none` adapter raises `NotApplicable`; the
   skill emits the paste-ready backend command for the maintainer to
-  run by hand (the framework's deliberately-deferred Mode D posture —
+  run by hand (the framework's deliberately-deferred Agentic Autonomous posture —
   no skill lands autonomously).
 
 ### `reject(id, reason) to ok`

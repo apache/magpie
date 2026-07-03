@@ -37,7 +37,7 @@ triage + review + mentoring pass:
    quality gate; surfaces ranked candidates with diff summaries
    and the exact merge command for the maintainer to run. Never
    merges itself — automated merge is the framework's
-   deliberately-deferred Mode D.
+   deliberately-deferred Agentic Autonomous mode.
 5. **Mentor** — joins a PR (or issue) thread in a teaching
    register: clarifying questions, pointers to project conventions
    and docs, an explanation of *why* a change is being asked for.

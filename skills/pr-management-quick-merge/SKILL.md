@@ -10,7 +10,7 @@ description: |
   maintainer's own review of the trivial diff — useful when the PR has no
   approvals yet and branch protection needs one), exactly as
   pr-management-code-review does. It never merges itself — automated merge is the
-  framework's deliberately-deferred Mode D; the maintainer runs the printed merge
+  framework's deliberately-deferred Agentic Autonomous mode; the maintainer runs the printed merge
   command in their own session.
 when_to_use: |
   When a maintainer says "what can I merge quickly", "show me the easy wins",
@@ -67,7 +67,7 @@ uses. That exists so the maintainer can clear the common case where a trivial,
 all-green PR simply has no approval yet and branch protection needs one. It
 does **not** merge, label, comment, or convert. See
 [Golden rule 1](#golden-rules), [the approve action](#step-3b--optional-approve-action),
-and [Why the skill does not merge](#why-the-skill-does-not-merge-mode-d).
+and [Why the skill does not merge](#why-the-skill-does-not-merge-agentic-autonomous).
 
 Detail files in this directory:
 
@@ -120,16 +120,16 @@ the maintainer may defer.
 **Golden rule 1 — never merge; the only state change is an explicitly-confirmed
 approve.** This skill does not merge, label, comment, convert to draft, or
 rerun. Automated merge — even narrowly-scoped and per-PR-confirmed — is the
-framework's **Mode D**, deliberately off until Modes A/B/C have a two-quarter
-track record (see
+framework's **Agentic Autonomous** mode, deliberately off until the
+Triage/Mentoring/Drafting modes have a two-quarter track record (see
 [`docs/labels-and-capabilities.md`](../../docs/labels-and-capabilities.md),
-`mode:D`, and [Why the skill does not merge](#why-the-skill-does-not-merge-mode-d));
+`mode:Autonomous`, and [Why the skill does not merge](#why-the-skill-does-not-merge-agentic-autonomous));
 do not add a merge action while that gate stands. The skill's **one** permitted
 mutation is submitting an **APPROVE review** on a single PR, and only after the
 maintainer explicitly confirms that PR by index — never batched, never implied,
 never auto. That is `capability:review` (an act the
 [`pr-management-code-review`](../pr-management-code-review/SKILL.md) skill
-already performs on confirmation), not Mode D. The approve is gated by
+already performs on confirmation), not Agentic Autonomous. The approve is gated by
 [`enable_approve`](../../projects/_template/pr-management-quick-merge-config.md)
 and detailed in [Step 3b](#step-3b--optional-approve-action). Everything else
 the skill emits is read-only.
@@ -352,7 +352,7 @@ PR that has **no approval yet**, where the maintainer has read the (short) diff
 and is ready to vouch for it so branch protection lets the merge through. This is
 the same assistant-proposes / maintainer-fires review act that
 [`pr-management-code-review`](../pr-management-code-review/SKILL.md) performs — it
-is `capability:review`, not Mode D.
+is `capability:review`, not Agentic Autonomous.
 
 Gated by `enable_approve` in
 [`<project-config>/pr-management-quick-merge-config.md`](../../projects/_template/pr-management-quick-merge-config.md)
@@ -454,15 +454,15 @@ queue in the first place. Together they drain it from both ends.
 
 ---
 
-## Why the skill does not merge (Mode D)
+## Why the skill does not merge (Agentic Autonomous)
 
 The framework's [`docs/labels-and-capabilities.md`](../../docs/labels-and-capabilities.md)
-defines `mode:D` as *"narrowly-scoped auto-merge (off until A/B/C run 2
-quarters)"*. A per-PR-confirmed merge of a trivial PR is precisely
-narrowly-scoped auto-merge — it is Mode D, not a loophole around it. The
-framework chose to hold Mode D back until Modes A (triage), B (mentoring), and
-C (agent-authored fix with human review) have demonstrated two quarters of
-safe operation. This skill respects that decision: it ships the **Mode-A
+defines `mode:Autonomous` as *"narrowly-scoped auto-merge (off until
+Triage/Mentoring/Drafting run 2 quarters)"*. A per-PR-confirmed merge of a
+trivial PR is precisely narrowly-scoped auto-merge — it is Agentic Autonomous,
+not a loophole around it. The framework chose to hold Agentic Autonomous back
+until the Triage, Mentoring, and Drafting modes have demonstrated two quarters of
+safe operation. This skill respects that decision: it ships the **Triage-mode
 identification half** (sweep the queue, classify, propose for human action —
 `capability:triage`) and stops at the boundary. The merge stays a manual
 maintainer action.
@@ -478,8 +478,8 @@ out of scope here and must not be smuggled in under `capability:triage`.
 
 ## What this skill deliberately does NOT do
 
-- **Merge, label, comment, or convert to draft.** The skill never merges (Mode
-  D — see [below](#why-the-skill-does-not-merge-mode-d)) and never labels,
+- **Merge, label, comment, or convert to draft.** The skill never merges
+  (Agentic Autonomous — see [below](#why-the-skill-does-not-merge-agentic-autonomous)) and never labels,
   comments, or drafts. Its *only* mutation is an explicitly-confirmed APPROVE
   review (Step 3b). See Golden rule 1.
 - **Auto-approve, batch-approve, or approve a diff it hasn't shown you.** Every

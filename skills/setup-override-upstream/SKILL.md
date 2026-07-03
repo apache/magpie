@@ -278,12 +278,12 @@ In `<framework-clone>`:
    exact title + body. Wait for "OK to post" / "yes" /
    "send" / similar before running `gh pr create`.
 4. **Pick the labels.** Every framework PR carries at least one
-   `area:*` and one `capability:*` label per
+   `family:*` and one `capability:*` label per
    [`docs/labels-and-capabilities.md`](../../docs/labels-and-capabilities.md).
    The override is upstreaming a change to skill `<skill>`, so:
-   - `area:*` — follow the skill's family
-     (`area:pr-management` for `pr-management-*`, `area:security`
-     for `security-*`, `area:setup` for `setup-*`, `area:issue`
+   - `family:*` — follow the skill's family
+     (`family:pr-management` for `pr-management-*`, `family:security`
+     for `security-*`, `family:setup` for `setup-*`, `family:issue`
      for `issue-*`, etc.).
    - `capability:*` — the capability the change is *implementing*,
      not the file paths touched. Look up the skill's capability in
@@ -299,7 +299,7 @@ In `<framework-clone>`:
    # Write tool: file_path: /tmp/override-pr-body.md, content: <PR body>
    gh pr create --repo apache/magpie --base main \
      --head <user>:<branch> --title "..." --body-file /tmp/override-pr-body.md \
-     --label "area:<area>" --label "capability:<capability>"
+     --label "family:<family>" --label "capability:<capability>"
    ```
 
 ### Step 7 — Post-PR cleanup pointer

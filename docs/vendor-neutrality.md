@@ -309,7 +309,7 @@ giving every other agent directory (`.claude/skills/`,
 `.github/skills/`, …) a pointer to the same entry
 ([`README.md` § snapshot + override](../README.md)). Users already run
 Magpie under several different agentic CLIs. Adding first-class features
-for another runtime is an [`area:tools`](labels-and-capabilities.md#1-area--subject)
+for another runtime is an [`family:tools`](labels-and-capabilities.md#1-family--subject)
 contribution, not a re-architecture — and the extension points are
 already open, labelled `good first issue`:
 [Codex](https://github.com/apache/magpie/issues/313),

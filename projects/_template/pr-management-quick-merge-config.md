@@ -30,7 +30,7 @@
     - [`deny_globs` — absolute disqualifiers (consequential areas; one match drops the PR even at one line)](#deny_globs--absolute-disqualifiers-consequential-areas-one-match-drops-the-pr-even-at-one-line)
   - [Merge-command template](#merge-command-template)
   - [Approve action](#approve-action)
-  - [Note on automated merge (Mode D)](#note-on-automated-merge-mode-d)
+  - [Note on automated merge (Agentic Autonomous)](#note-on-automated-merge-agentic-autonomous)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -147,11 +147,11 @@ The approve adds exactly one approving review (the maintainer's). It never uses
 approval, one approve will not unblock the merge, and the skill says so rather
 than implying the PR is mergeable.
 
-## Note on automated merge (Mode D)
+## Note on automated merge (Agentic Autonomous)
 
 This skill **surfaces** candidates; it does not merge. Automated merge — even
-narrowly-scoped and per-PR-confirmed — is the framework's `mode:D`, off until
-Modes A/B/C have a two-quarter track record (see
+narrowly-scoped and per-PR-confirmed — is the framework's `mode:Autonomous`, off until
+the Triage/Mentoring/Drafting modes have a two-quarter track record (see
 [`docs/labels-and-capabilities.md`](../../docs/labels-and-capabilities.md)).
 There is therefore **no `enable_merge` knob** in this config: the capability is
 gated at the framework level, not per adopter. When the gate lifts, the merge

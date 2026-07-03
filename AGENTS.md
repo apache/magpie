@@ -492,9 +492,9 @@ to a home-dir path and update the tool to read from there.
 This repository uses an orthogonal label taxonomy with two required
 dimensions on every issue and PR:
 
-- **`area:*`** — *what part of the framework does this touch?* (e.g.
-  `area:pr-management`, `area:security`, `area:setup`, `area:issue`,
-  `area:tools`, `area:ci`, `area:docs`).
+- **`family:*`** — *what part of the framework does this touch?* (e.g.
+  `family:pr-management`, `family:security`, `family:setup`, `family:issue`,
+  `family:tools`, `family:ci`, `family:docs`).
 - **capability** — *what does it do / provide?*, in two axes
   (RFC-AI-0005): **skill capability** `capability:*` for skills
   (`triage`, `review`, `fix`, `intake`, `reconciliation`, `resolve`,
@@ -511,7 +511,7 @@ the source of truth.
 **Rules** (full taxonomy and per-target details in
 [`docs/labels-and-capabilities.md`](docs/labels-and-capabilities.md)):
 
-- **Issues and PRs** get at least one `area:*` and every applicable
+- **Issues and PRs** get at least one `family:*` and every applicable
   capability — match what the change *implements*, not the file paths it
   touches; do not collapse multi-phase work to a single "primary".
 - **New tools** declare their capability in the first paragraph of the

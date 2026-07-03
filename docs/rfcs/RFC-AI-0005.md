@@ -12,7 +12,7 @@
     - [Axis 2 — Tool capability (what a backend *provides*)](#axis-2--tool-capability-what-a-backend-provides)
     - [How the two axes link](#how-the-two-axes-link)
   - [The other taxonomies (unchanged, documented here for completeness)](#the-other-taxonomies-unchanged-documented-here-for-completeness)
-    - [`area:*` — subject](#area--subject)
+    - [`family:*` — subject](#family--subject)
     - [`kind:*` — change type](#kind--change-type)
     - [`mode:*` — agentic mode](#mode--agentic-mode)
     - [`organization:` — organization membership / inheritance](#organization--organization-membership--inheritance)
@@ -31,14 +31,14 @@
 ## Abstract
 
 Magpie classifies its issues, skills, and tools with several label
-dimensions — `area:`, `capability:`, `kind:`, `mode:`, and the newer
+dimensions — `family:`, `capability:`, `kind:`, `mode:`, and the newer
 `organization:` scope. This RFC documents the **whole** taxonomy in one
 place and fixes the one dimension that has drifted: **`capability:`**.
 
 Today a single capability vocabulary is stamped on two very different
 entities — *skills* (where it names a workflow-lifecycle phase) and
 *tools* (where it should name a technical interface). The mismatch
-collapses ~75% of tools into a meaningless `capability:setup` bucket and
+collapses ~75% of tools into a meaningless catch-all bucket and
 leaves four capabilities with no tool ever using them. This RFC splits
 `capability:` into two orthogonal axes — **skill capability** (what a
 workflow does) and **tool capability** (what a backend provides, = the
@@ -48,7 +48,7 @@ contract it implements) — and specifies the migration.
 
 **Proposed.** Implemented in the same change set that lands this RFC
 (`skill-and-tool-validator`, every `tools/*/README.md`, the
-`capability:setup` skills, `docs/labels-and-capabilities.md`, and the
+`setup`-capability skills, `docs/labels-and-capabilities.md`, and the
 `AGENTS.md` / `tools/AGENTS.md` labeling sections). Supersedes the single
 `capability:` vocabulary described in earlier revisions of
 `docs/labels-and-capabilities.md`.
@@ -60,7 +60,7 @@ contract it implements) — and specifies the migration.
 `stats`, `setup` — and applies them to both skills and tools. Measured
 against the live tree:
 
-- **`capability:setup` is a grab-bag — 24 of 33 tools.** It is stamped
+- **The `setup` capability is a grab-bag — 24 of 33 tools.** It is stamped
   on entities with nothing in common: API substrate (`github`, `jira`,
   `gmail`, `vcs`), adapter *contracts* (`cve-tool`, `mail-archive`,
   `forwarder-relay`, `scan-format`, `mail-source`), a command guard
@@ -78,7 +78,7 @@ against the live tree:
   authority".
 
 **Root cause.** The nine capabilities are *workflow-lifecycle phases* —
-the right model for **skills** (orthogonal to `area:`). A lifecycle phase
+the right model for **skills** (orthogonal to `family:`). A lifecycle phase
 is the wrong model for a **tool**, which has a *technical interface*, not
 a phase. The framework already has the right concept for a tool's
 capability: the **capability contract** (`tools/cve-tool/`,
@@ -91,7 +91,7 @@ records.
 
 | Dimension | Applies to | Answers | Source of truth |
 |---|---|---|---|
-| `area:*` | issues, PRs | *which part of the framework?* | this RFC + `docs/labels-and-capabilities.md` |
+| `family:*` | issues, PRs | *which part of the framework?* | this RFC + `docs/labels-and-capabilities.md` |
 | **skill capability** | skills, issues, PRs | *what lifecycle phase does the workflow perform?* | this RFC + `docs/labels-and-capabilities.md` |
 | **tool capability** | tools / adapters | *what interface/contract does the backend provide?* | this RFC + the adapter [registry](../adapters/registry.md) |
 | `kind:*` | issues, PRs | *what type of change?* | `docs/labels-and-capabilities.md` |
@@ -104,7 +104,7 @@ The change in this RFC is splitting the third row out of the second.
 
 ### Axis 1 — Skill capability (what a workflow *does*)
 
-The lifecycle phase a skill performs, orthogonal to `area:`:
+The lifecycle phase a skill performs, orthogonal to `family:`:
 
 `triage · review · fix · intake · reconciliation · resolve · reassess ·
 stats · platform · authoring`
@@ -146,7 +146,7 @@ small set of substrate kinds:
 
 The *contract* rows are exactly the seams an [adapter](../vendor-neutrality.md#tool-adapters)
 plugs into; the tool capability of an adapter is the contract it
-fulfils. The *substrate* rows replace the old `capability:setup`
+fulfils. The *substrate* rows replace the old `setup`
 catch-all with meaningful kinds.
 
 ### How the two axes link
@@ -165,12 +165,12 @@ table as the adapter [registry](../adapters/registry.md)).
 
 ## The other taxonomies (unchanged, documented here for completeness)
 
-### `area:*` — subject
+### `family:*` — subject
 
-`area:pr-management`, `area:security`, `area:setup`, `area:issue`,
-`area:tools`, `area:ci`, `area:docs`. Orthogonal to capability: a
+`family:pr-management`, `family:security`, `family:setup`, `family:issue`,
+`family:tools`, `family:ci`, `family:docs`. Orthogonal to capability: a
 triage-rule change in PR management and one in security are both skill
-capability `triage`, in different `area:`s.
+capability `triage`, in different `family:`s.
 
 ### `kind:*` — change type
 
@@ -210,7 +210,7 @@ does.
    check splits into the two maps. Tests updated.
 2. **Tools**: rewrite every `tools/*/README.md` `**Capability:**` line to
    its Axis-2 value (see the registry / `labels-and-capabilities.md` map).
-3. **Skills**: re-label the `capability:setup` skills to `platform` or
+3. **Skills**: re-label the `setup` skills to `platform` or
    `authoring`.
 4. **Docs**: `docs/labels-and-capabilities.md` becomes two maps;
    `AGENTS.md` labeling + `tools/AGENTS.md` updated.
@@ -224,7 +224,7 @@ unchanged except for the `setup` split.
 
 ## Out of scope
 
-- Reworking `area:`, `kind:`, or `mode:` — documented here, unchanged.
+- Reworking `family:`, `kind:`, or `mode:` — documented here, unchanged.
 - A per-capability *floor* spec for tools (which contract version an
   adapter targets) — a possible future RFC.
 

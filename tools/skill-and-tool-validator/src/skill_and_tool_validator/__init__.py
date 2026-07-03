@@ -271,7 +271,7 @@ SKILL_CAPABILITIES = {
 # Axis 2 — TOOL capability: the interface a tool (adapter) provides, in two
 # kinds distinguished by prefix (RFC-AI-0005):
 #   contract:<name>   — implements a capability contract under tools/<contract>/
-#   substrate:<name>  — framework substrate (replaces the old capability:setup)
+#   substrate:<name>  — framework substrate (replaces the old setup capability)
 TOOL_CAPABILITIES = {
     "contract:tracker",
     "contract:source-control",

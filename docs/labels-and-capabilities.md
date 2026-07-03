@@ -4,7 +4,7 @@
 
 - [Labels and capabilities](#labels-and-capabilities)
   - [Label dimensions](#label-dimensions)
-    - [1. `area:*` — subject](#1-area--subject)
+    - [1. `family:*` — subject](#1-family--subject)
     - [2. capability — two axes (skills vs tools)](#2-capability--two-axes-skills-vs-tools)
     - [3. `kind:*` — change type (pre-existing)](#3-kind--change-type-pre-existing)
     - [4. `mode:*` — handling mode (pre-existing)](#4-mode--handling-mode-pre-existing)
@@ -34,7 +34,7 @@ that classifies what each skill or tool in the framework actually
 *does*, independent of which subject area it sits under.
 
 Every issue and pull request opened against this repository should
-carry at least one **`area:*`** label and at least one
+carry at least one **`family:*`** label and at least one
 **`capability:*`** label. New tools and new skills must declare their
 capability up front (see [The rule](#the-rule)).
 
@@ -52,19 +52,19 @@ capability up front (see [The rule](#the-rule)).
 The repository's labels fall into four orthogonal dimensions. An issue
 or PR typically carries one label from each dimension that applies.
 
-### 1. `area:*` — subject
+### 1. `family:*` — subject
 
 What part of the framework does this touch?
 
 | Label | Covers |
 |---|---|
-| `area:pr-management` | `pr-management-*` skills |
-| `area:security` | `security-*` skills, `security-tracker-stats-dashboard` |
-| `area:setup` | `setup-*` skills, framework adoption, agent-sandbox setup |
-| `area:issue` | `issue-*` skills (`issue-triage`, `issue-fix-workflow`, `issue-reassess`, `issue-reassess-stats`, `issue-reproducer`, `issue-stale-sweep`, `issue-deduplicate`, `issue-backlog-stats`) |
-| `area:tools` | Substrate tools under `tools/*` (CLI bridges, agent-runtime adapters, mail-source backends) |
-| `area:ci` | `.github/` workflows, prek, validators |
-| `area:docs` | `docs/`, `MISSION.md`, READMEs |
+| `family:pr-management` | `pr-management-*` skills |
+| `family:security` | `security-*` skills, `security-tracker-stats-dashboard` |
+| `family:setup` | `setup-*` skills, framework adoption, agent-sandbox setup |
+| `family:issue` | `issue-*` skills (`issue-triage`, `issue-fix-workflow`, `issue-reassess`, `issue-reassess-stats`, `issue-reproducer`, `issue-stale-sweep`, `issue-deduplicate`, `issue-backlog-stats`) |
+| `family:tools` | Substrate tools under `tools/*` (CLI bridges, agent-runtime adapters, mail-source backends) |
+| `family:ci` | `.github/` workflows, prek, validators |
+| `family:docs` | `docs/`, `MISSION.md`, READMEs |
 
 ### 2. capability — two axes (skills vs tools)
 
@@ -113,7 +113,7 @@ framework substrate:
 | `substrate:privacy` | substrate | PII redaction / approved-LLM gating. |
 | `substrate:framework-dev` | substrate | Build / validate / eval the framework itself. |
 
-Both capability axes are **orthogonal** to `area:*`. A single
+Both capability axes are **orthogonal** to `family:*`. A single
 query can answer "how is our triage stack doing across PR + issue +
 security?" by filtering on `capability:triage` alone, without
 enumerating per-area queries.
@@ -142,10 +142,11 @@ harness-neutral when it is `agnostic` or supports two or more harnesses.
 
 | Label | Covers |
 |---|---|
-| `mode:A` | Mode A — triage |
-| `mode:B` | Mode B — mentoring |
-| `mode:C` | Mode C — agent-authored fix with human review |
-| `mode:D` | Mode D — narrowly-scoped auto-merge (off until A/B/C run 2 quarters) |
+| `mode:Triage` | Agentic Triage — spot, classify, route, surface duplicates |
+| `mode:Mentoring` | Agentic Mentoring — teaching-register issue/PR interventions + good-first-issue authoring |
+| `mode:Drafting` | Agentic Drafting — agent-authored fix, human-reviewed PR |
+| `mode:Pairing` | Agentic Pairing — developer-side dev-cycle skills with mentorship intrinsic |
+| `mode:Autonomous` | Agentic Autonomous — narrowly-scoped auto-merge (off until Triage/Mentoring/Drafting run 2 quarters) |
 | `mode:cross-cutting` | Spans multiple modes |
 | `mode:platform` | Substrate / infra — not a mode (sandbox, CI, validators) |
 
@@ -319,14 +320,14 @@ capability:
 
 ### A GitHub issue
 
-Apply at least one `area:*` AND one capability label — a skill
+Apply at least one `family:*` AND one capability label — a skill
 capability (`capability:*`) for skill work, a tool capability
 (`contract:*` / `substrate:*`) for tool work. If the issue genuinely
 spans capabilities, apply all that apply.
 
 ### A pull request
 
-Same: `area:*` AND the matching capability. Match the capability the
+Same: `family:*` AND the matching capability. Match the capability the
 change is *implementing*, not the file paths it happens to touch. A PR
 that adjusts the validator config to support a new triage rule is
 `capability:triage` (the change's purpose), not `substrate:framework-dev`
@@ -373,12 +374,12 @@ no capability marker.
 
 ## Why this exists
 
-The original `area:*` labels split issues by subject — useful for
+The original `family:*` labels split issues by subject — useful for
 "what part of the codebase is this?" but unable to answer "what kind
 of thing is this?". The `capability:*` dimension fills that gap and
 is orthogonal: a triage-rule change in PR management
-(`area:pr-management` + `capability:triage`) and a triage-rule change
-in security (`area:security` + `capability:triage`) become trivially
+(`family:pr-management` + `capability:triage`) and a triage-rule change
+in security (`family:security` + `capability:triage`) become trivially
 findable as a cohort even though they live in different families.
 
 Capability is also a forcing function for skill design: if a new skill
