@@ -17,7 +17,7 @@
 
 **Capability:** substrate:sandbox
 
-**Harness:** Claude Code
+**Harness:** Claude Code, OpenCode
 
 This directory ships the moving pieces the framework's
 [`docs/setup/secure-agent-setup.md`](../../docs/setup/secure-agent-setup.md) document
@@ -26,11 +26,21 @@ under `tools/cve-tool-vulnogram/` and `tools/gmail/oauth-draft/`) — these are
 plain shell scripts plus a TOML manifest of pinned upstream
 versions.
 
+The clean-environment launcher [`agent-iso.sh`](agent-iso.sh) is
+agent-agnostic at its core: it exposes a `claude-iso` entry point (the
+default) and an `opencode-iso` entry point that launch **Claude Code** and
+**OpenCode** respectively under the same `env -i` credential strip. Only the
+Claude path adds the in-process `--settings` sandbox grant; OpenCode takes its
+filesystem isolation from the OS-level sandbox of the secure setup. Isolate
+OpenCode by sourcing the script and calling `opencode-iso`, or when running it
+directly, `AGENT_ISO_AGENT=opencode bash agent-iso.sh …` (or a symlink named
+`opencode-iso`).
+
 ## Prerequisites
 
 - **Runtime:** Bash + coreutils — this directory is plain shell scripts plus a TOML manifest, not a Python project (the `pyproject.toml` ships only the test harness, which runs under Python 3.11+ via `uv`). `claude-term-bg.sh` uses `python3` / `python` for one heuristic and falls back to calm when absent.
 - **CLIs:** `jq` (required by `check-tool-updates.sh` and the status-line scripts), `curl` (the update check), `git` (status line / git hooks), and `gh` (optional — status-line PR title). The secure setup itself installs the pinned `bubblewrap` and `socat` (via `apt-get`) and `@anthropic-ai/claude-code` (via `npm`).
-- **Credentials / auth:** None for these helpers; the wrapped `claude` session authenticates on its own (and `claude-iso.sh` deliberately strips credential-shaped env vars).
+- **Credentials / auth:** None for these helpers; the wrapped `claude` session authenticates on its own (and `agent-iso.sh` deliberately strips credential-shaped env vars).
 - **Network:** `api.github.com` and `www.dest-unreach.org` (the release checks in `check-tool-updates.sh`); the install step also reaches the apt and npm registries.
 
 ## Files
@@ -39,7 +49,7 @@ versions.
 |---|---|
 | [`pinned-versions.toml`](pinned-versions.toml) | Machine-readable manifest of pinned upstream versions for `bubblewrap`, `socat`, and `claude-code`. Each entry carries a `released` date that satisfies the framework's 7-day cooldown convention. |
 | [`check-tool-updates.sh`](check-tool-updates.sh) | Reads the manifest and reports upstream releases that are newer than the pin AND have themselves aged past the 7-day cooldown. Side-effect-free — no installs, no edits, no PRs. |
-| [`claude-iso.sh`](claude-iso.sh) | Shell function to launch Claude Code with `env -i` and a tiny passthrough list, stripping every credential-shaped environment variable from the parent shell. The framework's "layer 0" of the secure setup. |
+| [`agent-iso.sh`](agent-iso.sh) | Shell function to launch Claude Code with `env -i` and a tiny passthrough list, stripping every credential-shaped environment variable from the parent shell. The framework's "layer 0" of the secure setup. |
 | [`sandbox-bypass-warn.sh`](sandbox-bypass-warn.sh) | Claude Code `PreToolUse` hook (Bash matcher). Prints a bold-red banner to stderr whenever the model invokes the Bash tool with `dangerouslyDisableSandbox: true`. Belt-and-braces visibility for the sandbox-bypass permission prompt. Recommended user-scope (`~/.claude/settings.json`) so it fires across every session on the host. |
 | [`sandbox-error-hint.sh`](sandbox-error-hint.sh) | Claude Code `PostToolUse` hook (Bash matcher). Scans the tool's stdout + stderr for the three known sandbox-shaped error signatures (SSH agent / Yubikey unreachable, loopback port-bind blocked, docker / podman socket denied) and prints a `[sandbox-hint]` line pointing at the matching entry in [`docs/setup/sandbox-troubleshooting.md`](../../docs/setup/sandbox-troubleshooting.md). Fail-open: any unexpected JSON shape exits silent. Recommended user-scope so the hint fires across every session. Complements `setup-isolated-setup-doctor` (the structured probe) by surfacing the catalog reference at the moment of failure, without the user having to remember the catalog exists. |
 | [`sandbox-status-line.sh`](sandbox-status-line.sh) | Claude Code `statusLine` helper. Renders `<model> [sandbox]` (green) or `<model> [NO SANDBOX]` (bold red) based on `sandbox.enabled` in the active settings — project `settings.local.json` first, then project `settings.json`, then user-scope, mirroring Claude Code's own precedence. Reflects in-session `/sandbox` toggles (which persist to project `settings.local.json`). Recommended user-scope. |
@@ -56,7 +66,7 @@ sudo apt-get install --no-install-recommends bubblewrap=0.11.1-* socat=1.8.1.1-*
 npm install -g --no-save @anthropic-ai/claude-code@2.1.117
 
 # Source the wrapper into your shell:
-source /path/to/magpie/tools/agent-isolation/claude-iso.sh
+source /path/to/magpie/tools/agent-isolation/agent-iso.sh
 
 # Optional: make claude-iso the default `claude` (see docs/setup/secure-agent-setup.md
 # for the trade-off — the alias also strips env in non-tracker sessions):

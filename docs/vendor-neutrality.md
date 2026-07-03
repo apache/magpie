@@ -571,15 +571,14 @@ Organization scope (declared, orthogonal to vendor): ASF = 14, agnostic = 49.
 
 **LLM / agent-integration neutrality**
 
-**Agent harness: 16/20 substrate tools run under any harness unchanged (80%).** Substrate tools are Magpie's own machinery; each declares the agent harness it integrates with (`**Harness:**`), or `agnostic`. A tool is neutral when it is harness-agnostic or supports two or more harnesses; *coupled* when it targets a single harness.
+**Agent harness: 18/20 substrate tools run under any harness unchanged (90%).** Substrate tools are Magpie's own machinery; each declares the agent harness it integrates with (`**Harness:**`), or `agnostic`. A tool is neutral when it is harness-agnostic or supports two or more harnesses; *coupled* when it targets a single harness.
 
 | Substrate tool | Substrate | Harness support | Verdict |
 |---|---|---|---|
-| `agent-isolation` | sandbox | Claude Code | ❌ coupled |
 | `permission-audit` | sandbox | Claude Code | ❌ coupled |
 | `sandbox-lint` | sandbox | Claude Code | ❌ coupled |
-| `spec-loop` | framework-dev | Claude Code | ❌ coupled |
 | `agent-guard` | action-guard | Claude Code, OpenCode | ✅ portable |
+| `agent-isolation` | sandbox | Claude Code, OpenCode | ✅ portable |
 | `dashboard-generator` | analytics | any | ✅ agnostic |
 | `dev` | framework-dev | any | ✅ agnostic |
 | `egress-gateway` | sandbox | any | ✅ agnostic |
@@ -591,6 +590,7 @@ Organization scope (declared, orthogonal to vendor): ASF = 14, agnostic = 49.
 | `security-tracker-stats-dashboard` | analytics | any | ✅ agnostic |
 | `skill-and-tool-validator` | framework-dev | any | ✅ agnostic |
 | `skill-evals` | framework-dev | any | ✅ agnostic |
+| `spec-loop` | framework-dev | Claude Code, OpenCode | ✅ portable |
 | `spec-status-index` | framework-dev, analytics | any | ✅ agnostic |
 | `spec-validator` | framework-dev | any | ✅ agnostic |
 | `symlink-lint` | framework-dev | any | ✅ agnostic |
@@ -599,7 +599,7 @@ Organization scope (declared, orthogonal to vendor): ASF = 14, agnostic = 49.
 Harness → substrate tools it supports:
 
 - **Claude Code** (5): `agent-guard`, `agent-isolation`, `permission-audit`, `sandbox-lint`, `spec-loop`
-- **OpenCode** (1): `agent-guard`
+- **OpenCode** (3): `agent-guard`, `agent-isolation`, `spec-loop`
 - **any harness** (15): `dashboard-generator`, `dev`, `egress-gateway`, `pilot-report-validator`, `pr-management-stats`, `preflight-audit`, `privacy-llm`, `probe-templates`, `security-tracker-stats-dashboard`, `skill-and-tool-validator`, `skill-evals`, `spec-status-index`, `spec-validator`, `symlink-lint`, `vendor-neutrality-score`
 
 **Model endpoint: neutral by construction — 4 default-approved endpoint classes across independent trust domains, plus adopter opt-in.** From the [`privacy-llm` registry](../tools/privacy-llm/models.md): the framework keys approval on *endpoint identity*, not on who hosts the model, so no single LLM vendor is privileged.

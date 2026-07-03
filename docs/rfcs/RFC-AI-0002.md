@@ -91,7 +91,7 @@ Layers 1, 2, and 3 are configured by the same project-scope `.claude/settings.j
 
 ### Layer 0 — Clean-env wrapper
 
-A shell wrapper that strips credential-shaped environment variables from the parent shell before invoking the agent. The reference implementation ships [`tools/agent-isolation/claude-iso.sh`](https://github.com/apache/magpie/blob/main/tools/agent-isolation/claude-iso.sh).
+A shell wrapper that strips credential-shaped environment variables from the parent shell before invoking the agent. The reference implementation ships [`tools/agent-isolation/agent-iso.sh`](https://github.com/apache/magpie/blob/main/tools/agent-isolation/agent-iso.sh).
 
 The wrapper hard-allows a tiny passthrough list (`HOME`, `PATH`, `SHELL`, `TERM`, `LANG`, `XDG_*`, `DISPLAY`, `SSH_AUTH_SOCK`, `USER`, `LOGNAME`, `PWD`); everything else from the parent shell is dropped via `env -i`.
 
@@ -291,7 +291,7 @@ npm install -g --no-save @anthropic-ai/claude-code@2.1.123
 # sandbox / permissions.deny / permissions.ask / allowedDomains
 # blocks into your tracker repo's `.claude/settings.json`.
 
-# 3. The clean-env wrapper. Source `claude-iso.sh` from your rc
+# 3. The clean-env wrapper. Source `agent-iso.sh` from your rc
 # file, optionally alias `claude=claude-iso`.
 
 # 4. User-scope hooks. Copy `sandbox-bypass-warn.sh` and
@@ -371,7 +371,7 @@ Operators working on more than one machine keep the user-scope pieces in lockste
 |---|---|
 | `CLAUDE.md` (personal collaboration prefs) | `~/.claude/.credentials.json` — ⚠ secret, never commit |
 | `scripts/sandbox-bypass-warn.sh`, `scripts/sandbox-status-line.sh`, and any other hooks | `~/.claude/sessions/`, `~/.claude/history.jsonl` — session state |
-| `agent-isolation/claude-iso.sh` (if globally installed) | `~/.claude/projects/` — per-project memory and tasks |
+| `agent-isolation/agent-iso.sh` (if globally installed) | `~/.claude/projects/` — per-project memory and tasks |
 | Custom slash commands (`commands/<name>.md`) | `~/.claude/settings.json` — typically differs per host |
 | Audited MCP servers | `~/.claude/settings.local.json` — by design machine-specific |
 
@@ -438,7 +438,7 @@ When the eventual filesystem access is **opaque to lexical analysis** — here
 - **macOS chained-curl gap.** The `permissions.deny` patterns match against the *first* command of a Bash invocation, not every command in a chain. On Linux, socat's SNI proxy closes the gap regardless. On macOS there is no socat — Seatbelt enforces filesystem isolation but the framework's setup does not currently wrap network egress on macOS, so a chained `curl` to an arbitrary host therefore reaches the network on macOS even when the same call in the same session would be blocked on Linux.
 - **Schema-fragile hooks.** Both the bypass-warn hook and the status-line script read fields from runtime-supplied JSON. A future Claude Code release that renames a field will silently stop firing the hook until the regex is updated. The setup-verification ritual after every Claude Code upgrade is the canary, but it is human-driven.
 - **Settings-level truth, not session-level truth.** The status-line script reads `sandbox.enabled` from the file system. It cannot see CLI flags (`--bypass-permissions`, equivalent runtime overrides) — those still display as `[sandbox]` even though the running session is unprotected. Pair the indicator with the bypass-warn hook so per-call bypass attempts also surface in real time.
-- **Dotfile-sync drift.** The user-scope global install of `claude-iso.sh` (and the synced hook scripts) decouples each host's copy from the framework's source-of-truth. Operators must `diff` and re-`cp` periodically, or the setup quietly ages.
+- **Dotfile-sync drift.** The user-scope global install of `agent-iso.sh` (and the synced hook scripts) decouples each host's copy from the framework's source-of-truth. Operators must `diff` and re-`cp` periodically, or the setup quietly ages.
 
 ## Alternatives considered
 

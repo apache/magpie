@@ -44,7 +44,14 @@
 #
 # Env overrides:
 #   SPEC_LOOP_BASE   branch to fork work items from (default: main)
-#   SPEC_LOOP_AGENT  Claude-compatible agent CLI to run (default: claude)
+#   SPEC_LOOP_AGENT  agent CLI to run (default: claude). Any headless agent
+#                    CLI works; the invocation convention is chosen by
+#                    SPEC_LOOP_HARNESS below.
+#   SPEC_LOOP_HARNESS  which harness's headless-run convention to use when
+#                    invoking SPEC_LOOP_AGENT: `claude` (default) or
+#                    `opencode`. Defaults from the agent basename (a CLI named
+#                    `opencode` selects the opencode convention), so setting
+#                    SPEC_LOOP_AGENT=opencode is usually enough.
 #   SPEC_LOOP_MODEL  model passed to the agent CLI (default: sonnet)
 #   SPEC_LOOP_PR_LIMIT  open PRs to list for duplicate-work checks (default: 100)
 #   SPEC_LOOP_PLAN_MAX  plan line count that triggers ONE consolidation
@@ -85,6 +92,13 @@ BASE="${SPEC_LOOP_BASE:-main}"
 TOOLING_REF="$(current_branch)"
 TOOLING_REF="${TOOLING_REF:-HEAD}"
 AGENT="${SPEC_LOOP_AGENT:-claude}"
+# Which harness's headless-run convention to use for $AGENT. Defaults from the
+# agent basename so `SPEC_LOOP_AGENT=opencode` is enough; override explicitly
+# with SPEC_LOOP_HARNESS when the CLI name doesn't match the convention.
+case "${SPEC_LOOP_HARNESS:-$(basename "$AGENT")}" in
+    *opencode*) HARNESS=opencode ;;
+    *)          HARNESS=claude ;;
+esac
 MODEL="${SPEC_LOOP_MODEL:-sonnet}"
 PR_LIMIT="${SPEC_LOOP_PR_LIMIT:-100}"
 # Agent output format. Default `text` is what the spinner expects; switch to
@@ -149,7 +163,8 @@ fi
 
 if ! command -v "$AGENT" >/dev/null 2>&1; then
     echo "Error: agent CLI '$AGENT' not found on PATH." >&2
-    echo "Set SPEC_LOOP_AGENT to a Claude-compatible CLI or wrapper." >&2
+    echo "Set SPEC_LOOP_AGENT to a headless agent CLI (claude / opencode / a wrapper)" >&2
+    echo "and SPEC_LOOP_HARNESS to its run convention if the name doesn't imply it." >&2
     exit 1
 fi
 
@@ -430,14 +445,35 @@ while true; do
     #                                   remote even with permissions skipped.
     # Claude CLI requires --verbose with -p when output-format is stream-json;
     # add it only in that case to keep the default `text` run quiet.
-    VERBOSE_ARGS=()
-    [ "$OUTPUT_FORMAT" = "stream-json" ] && VERBOSE_ARGS=(--verbose)
-    "$AGENT" -p \
-        --dangerously-skip-permissions \
-        --disallowedTools "Bash(git push:*)" "Bash(gh:*)" \
-        --output-format="$OUTPUT_FORMAT" \
-        ${VERBOSE_ARGS[@]+"${VERBOSE_ARGS[@]}"} \
-        --model "$MODEL" < "$PROMPT_WITH_CONTEXT" &
+    if [ "$HARNESS" = "opencode" ]; then
+        # OpenCode headless: `opencode run <message>` takes the prompt as a
+        # positional argument (no stdin), `--model provider/model`, `--auto`
+        # auto-approves permissions not explicitly denied (the OpenCode
+        # equivalent of Claude's --dangerously-skip-permissions), and
+        # `--format json` matches the stream-json request. OpenCode has no
+        # per-invocation --disallowedTools; the push/gh denial that flag
+        # provides as defense-in-depth is instead enforced by the OS sandbox
+        # (the real guard — see the SECURITY header) plus, when wired, the
+        # agent-guard OpenCode plugin and the project's opencode.json
+        # `permission` config.
+        OC_FORMAT_ARGS=()
+        [ "$OUTPUT_FORMAT" = "stream-json" ] && OC_FORMAT_ARGS=(--format json)
+        "$AGENT" run \
+            --auto \
+            --model "$MODEL" \
+            ${OC_FORMAT_ARGS[@]+"${OC_FORMAT_ARGS[@]}"} \
+            "$(cat "$PROMPT_WITH_CONTEXT")" &
+    else
+        # Claude Code headless (the default).
+        VERBOSE_ARGS=()
+        [ "$OUTPUT_FORMAT" = "stream-json" ] && VERBOSE_ARGS=(--verbose)
+        "$AGENT" -p \
+            --dangerously-skip-permissions \
+            --disallowedTools "Bash(git push:*)" "Bash(gh:*)" \
+            --output-format="$OUTPUT_FORMAT" \
+            ${VERBOSE_ARGS[@]+"${VERBOSE_ARGS[@]}"} \
+            --model "$MODEL" < "$PROMPT_WITH_CONTEXT" &
+    fi
     AGENT_PID=$!
     spinner "$AGENT_PID" & SPINNER_PID=$!
     wait "$AGENT_PID"

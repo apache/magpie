@@ -481,7 +481,7 @@ contract that matters is the CLI surface and the JSON output shape.
 ### Shell scripts
 
 - [`tools/agent-isolation/`](tools/agent-isolation/) holds the
-  shell scripts (`claude-iso.sh`, sandbox status-line helpers,
+  shell scripts (`agent-iso.sh`, sandbox status-line helpers,
   the placeholder pre-commit script) that wire the agent into
   the bubblewrap sandbox. POSIX bash.
 - [`tools/dev/`](tools/dev/) holds the local pre-commit checkers

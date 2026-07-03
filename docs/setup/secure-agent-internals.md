@@ -75,7 +75,7 @@ It does **not** defend against:
 
 | Layer | Mechanism | What it stops |
 |---|---|---|
-| **0. Clean env** | `claude-iso` shell wrapper (`tools/agent-isolation/claude-iso.sh`) | Inherited credential-shaped env vars (`$AWS_*`, `$GH_TOKEN`, `$ANTHROPIC_API_KEY`, …). |
+| **0. Clean env** | `claude-iso` shell wrapper (`tools/agent-isolation/agent-iso.sh`) | Inherited credential-shaped env vars (`$AWS_*`, `$GH_TOKEN`, `$ANTHROPIC_API_KEY`, …). |
 | **1. Filesystem sandbox** | Claude Code's `sandbox.enabled: true` + bubblewrap (Linux) / Seatbelt (macOS) | Bash subprocess reads outside the project tree. |
 | **2. Tool permissions** | Claude Code's `permissions.deny` for Read/Edit/Write/Bash | The agent's own tools cat-ing dotfiles or running `aws`/`curl`. |
 | **3. Forced confirmation** | Claude Code's `permissions.ask` | Visible-to-others writes (`git push`, `gh pr create`, …) without an explicit yes. |

@@ -1,6 +1,6 @@
 Check 1 (framework checkout): git fetch completed. Local checkout is 3
 commits behind origin/main. Changes since last pull include:
-  tools/agent-isolation/claude-iso.sh — 2 lines updated (new deny path)
+  tools/agent-isolation/agent-iso.sh — 2 lines updated (new deny path)
   docs/setup/secure-agent-setup.md — 1 section added (Step P.0 clarification)
 
 Snapshot drift check: .apache-magpie.lock ref is v0.9.5 but

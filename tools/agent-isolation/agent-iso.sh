@@ -16,14 +16,20 @@
 # specific language governing permissions and limitations
 # under the License.
 #
-# claude-iso.sh — launch Claude Code with a clean environment.
+# agent-iso.sh — launch an agent CLI with a clean environment.
 #
 # This is layer 0 of the secure-agent setup (see
 # `docs/setup/secure-agent-setup.md`): strip every credential-shaped
-# environment variable from the parent shell before exec'ing
-# Claude Code, so the agent never sees `$AWS_*`, `$GH_TOKEN`,
-# `$ANTHROPIC_API_KEY`, etc. that an unrelated terminal session
-# may have exported into your interactive shell.
+# environment variable from the parent shell before exec'ing the
+# agent, so it never sees `$AWS_*`, `$GH_TOKEN`, `$ANTHROPIC_API_KEY`,
+# etc. that an unrelated terminal session may have exported into your
+# interactive shell.
+#
+# The clean-env strip is agent-agnostic. Two entry points share the core:
+# `claude-iso` (the default) launches Claude Code, and `opencode-iso`
+# launches OpenCode. Only the Claude Code path additionally injects the
+# in-process `--settings` sandbox grant below; OpenCode gets its
+# filesystem isolation from the OS-level sandbox of the secure setup.
 #
 # Filesystem-level isolation (the bigger lift) is enforced by
 # Claude Code's `sandbox` feature — see the `.claude/settings.json`
@@ -32,9 +38,13 @@
 #
 # Usage:
 #   - Source it from your shell rc:
-#       source /path/to/claude-iso.sh
-#     and then invoke `claude-iso` instead of `claude`.
-#   - Or invoke directly: `bash claude-iso.sh [claude args ...]`.
+#       source /path/to/agent-iso.sh
+#     and then invoke `claude-iso` (or `opencode-iso`) instead of the
+#     agent CLI.
+#   - Or invoke directly: `bash agent-iso.sh [claude args ...]`. To
+#     isolate OpenCode when executing directly, either set
+#     `AGENT_ISO_AGENT=opencode` or invoke via a symlink named
+#     `opencode-iso`.
 #
 # To inject a single credential explicitly for one session:
 #   GH_TOKEN="$(gh auth token)" claude-iso
@@ -64,21 +74,28 @@
 #   Claude merges into the loaded settings stack at startup,
 #   before the sandbox is initialised.
 
-claude_iso_main() {
-  # Resolve the claude binary on PATH before clobbering the env so
+# Core: launch agent CLI "$1" (claude / opencode / …) in a clean environment.
+# The env-stripping below is identical for every agent — only the injected
+# settings differ (the `--settings` sandbox grant is Claude-specific). The
+# `claude-iso` / `opencode-iso` entry points are thin wrappers over this.
+agent_iso_run() {
+  local agent="$1"
+  shift
+
+  # Resolve the agent binary on PATH before clobbering the env so
   # the lookup uses the user's normal $PATH. Use a path-only lookup
   # (bash `type -P`, zsh `whence -p`) instead of `command -v`: with
   # `command -v`, an `alias claude=claude-iso` in the user's rc file
   # (a documented setup option — see `docs/setup/secure-agent-setup.md`) would
   # resolve back to the alias and recurse.
-  local claude_bin
+  local agent_bin
   if [[ -n "${ZSH_VERSION-}" ]]; then
-    claude_bin="$(whence -p claude 2>/dev/null || true)"
+    agent_bin="$(whence -p "$agent" 2>/dev/null || true)"
   else
-    claude_bin="$(type -P claude 2>/dev/null || true)"
+    agent_bin="$(type -P "$agent" 2>/dev/null || true)"
   fi
-  if [[ -z "$claude_bin" ]]; then
-    echo "claude-iso: 'claude' not found on PATH. Install per docs/setup/secure-agent-setup.md." >&2
+  if [[ -z "$agent_bin" ]]; then
+    echo "${agent}-iso: '${agent}' not found on PATH. Install per docs/setup/secure-agent-setup.md." >&2
     return 127
   fi
 
@@ -208,7 +225,12 @@ claude_iso_main() {
     [[ "$seen" -eq 0 ]] && allow_read_paths+=("$candidate")
   done
 
-  if (( ${#allow_read_paths[@]} > 0 )); then
+  # The `--settings` sandbox-allowRead injection is Claude Code's in-process
+  # sandbox feature and is applied only for that agent. Other harnesses (e.g.
+  # OpenCode) get their filesystem isolation from the OS-level sandbox of the
+  # secure-agent setup, which is configured out of band — so the clean-env
+  # launch below still applies, we just skip the Claude-only settings grant.
+  if [[ "$agent" == "claude" ]] && (( ${#allow_read_paths[@]} > 0 )); then
     # Hand-roll the JSON array literal (escape backslashes and
     # double quotes) so a pathological repo path can't break out
     # of the string literal. Keeping it dependency-free — no jq.
@@ -234,18 +256,29 @@ claude_iso_main() {
   # Print a one-line banner on stderr (dim if a TTY) so it's obvious
   # which mode the agent is starting in.
   if [[ -t 2 ]]; then
-    printf '\033[2m[claude-iso] running in isolated env (%s)\033[0m\n' "$claude_bin" >&2
+    printf '\033[2m[%s-iso] running in isolated env (%s)\033[0m\n' "$agent" "$agent_bin" >&2
   else
-    printf '[claude-iso] running in isolated env (%s)\n' "$claude_bin" >&2
+    printf '[%s-iso] running in isolated env (%s)\n' "$agent" "$agent_bin" >&2
   fi
 
-  exec env -i "${env_args[@]}" "$claude_bin" "$@"
+  exec env -i "${env_args[@]}" "$agent_bin" "$@"
 }
 
-# When sourced, expose `claude-iso` as a function. When executed
-# directly, just dispatch.
+# Back-compat wrapper: the historical entry point defaults to `claude`, and
+# still honours AGENT_ISO_AGENT for callers that set it.
+claude_iso_main() { agent_iso_run "${AGENT_ISO_AGENT:-claude}" "$@"; }
+
+# When sourced, expose one launcher per agent as a shell function (so a user
+# can `alias claude=claude-iso` and/or `alias opencode=opencode-iso`). When
+# executed directly, pick the agent from the invoked name (a symlink such as
+# `opencode-iso` selects OpenCode) or from AGENT_ISO_AGENT, defaulting to
+# `claude` so existing `bash agent-iso.sh …` invocations are unchanged.
 if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
-  claude-iso() { claude_iso_main "$@"; }
+  claude-iso()   { agent_iso_run claude "$@"; }
+  opencode-iso() { agent_iso_run opencode "$@"; }
 else
-  claude_iso_main "$@"
+  case "$(basename "${0}")" in
+    opencode-iso*) agent_iso_run opencode "$@" ;;
+    *)             agent_iso_run "${AGENT_ISO_AGENT:-claude}" "$@" ;;
+  esac
 fi

@@ -5,7 +5,7 @@
 
 **Capability:** substrate:framework-dev
 
-**Harness:** Claude Code
+**Harness:** Claude Code, OpenCode
 
 A spec-driven build loop for this framework, in the general
 [Ralph](https://ghuntley.com/ralph/) style (run a fresh agent context
@@ -13,6 +13,24 @@ against a fixed prompt, repeat), adapted to the framework's
 human-in-the-loop posture. The full write-up is in
 [`docs/spec-driven-development.md`](../../docs/spec-driven-development.md);
 this is the operator quickstart.
+
+The loop drives a **headless agent CLI** and is not tied to one harness.
+`SPEC_LOOP_AGENT` picks the CLI (default `claude`) and `SPEC_LOOP_HARNESS`
+picks its run convention — `claude` (`claude -p --dangerously-skip-permissions
+--output-format …`, prompt on stdin) or `opencode` (`opencode run --auto
+--model … "<prompt>"`, prompt as a positional argument). `SPEC_LOOP_HARNESS`
+defaults from the agent basename, so `SPEC_LOOP_AGENT=opencode` is usually all
+that is needed:
+
+```bash
+SPEC_LOOP_AGENT=opencode SPEC_LOOP_MODEL=anthropic/claude-sonnet-4-5 \
+  tools/spec-loop/loop.sh build 5
+```
+
+Both conventions run the agent non-interactively with permissions
+auto-approved; the loop's safety rails (never push, never open a PR) come from
+the OS sandbox and the loop's own guards, not from the harness — see the
+SECURITY notes in [`loop.sh`](loop.sh).
 
 ## Prerequisites
 

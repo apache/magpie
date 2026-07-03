@@ -99,9 +99,9 @@ Drift severity:
   "wait for a feature you actually want or a security fix",
   not "always run latest".
 - **Distinguish framework changes from local drift.** "The
-  framework's `tools/agent-isolation/claude-iso.sh` has new
+  framework's `tools/agent-isolation/agent-iso.sh` has new
   comments" is a *framework update* (resolved by `git pull`).
-  "The user's `~/.claude/agent-isolation/claude-iso.sh` no longer
+  "The user's `~/.claude/agent-isolation/agent-iso.sh` no longer
   matches the framework's copy" is *local drift* (resolved by
   re-`cp` or, for sync-repo users, by syncing the framework
   changes into `~/.claude-config/scripts/`). Report each
@@ -139,7 +139,7 @@ Walk each:
    (`~/.claude/scripts/sandbox-bypass-warn.sh`,
    `~/.claude/scripts/sandbox-status-line.sh` or whatever the
    user's actual statusLine command resolves to,
-   `~/.claude/agent-isolation/claude-iso.sh` for the global
+   `~/.claude/agent-isolation/agent-iso.sh` for the global
    wrapper install,
    `~/.claude/scripts/sandbox-add-project-root.sh` for the
    issue-#197 project-root helper, **and** —
@@ -166,6 +166,24 @@ Walk each:
    from the user's `guards.d` is the most common drift once the hook
    is wired — re-syncing `guards.d` activates it with **no
    `settings.json` change**.
+
+   **Rename migration — `claude-iso.sh` → `agent-iso.sh`.** The
+   clean-env launcher was renamed (it now isolates **OpenCode** as
+   well as Claude Code, exposing both a `claude-iso` and an
+   `opencode-iso` entry point from one file). If a **pre-rename copy
+   exists** at `~/.claude/agent-isolation/claude-iso.sh` (or wherever
+   the adopter installed the wrapper), surface it as a migration
+   candidate: recommend installing the new `agent-iso.sh` (the Step P
+   re-install path above) **and removing the stale
+   `claude-iso.sh`**, plus updating any
+   `source …/claude-iso.sh` line in the shell rc to `agent-iso.sh`.
+   The `claude-iso` shell **function/alias** name is unchanged, so
+   `alias claude=claude-iso` keeps working once the `source` path is
+   fixed. Consistent with this skill's read-only posture, **do not
+   delete the old file automatically** — list it as a candidate the
+   user confirms, and show the two commands they would run:
+   `cp tools/agent-isolation/agent-iso.sh ~/.claude/agent-isolation/agent-iso.sh`
+   then `rm ~/.claude/agent-isolation/claude-iso.sh`.
 4. **Settings.json shape drift.** Diff the user's project
    `.claude/settings.json` against the framework's dogfooded
    one — the framework occasionally adds new `denyRead` paths

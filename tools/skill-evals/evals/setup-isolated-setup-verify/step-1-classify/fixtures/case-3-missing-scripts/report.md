@@ -67,7 +67,7 @@ ls -la ~/.claude/scripts/:
 ## Check 4 — claude-iso sourced
 
 grep claude-iso ~/.bashrc:
-  source ~/.claude/scripts/claude-iso.sh
+  source ~/.claude/scripts/agent-iso.sh
 
 grep "alias claude=" ~/.bashrc:
   alias claude='claude-iso'

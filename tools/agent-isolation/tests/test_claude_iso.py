@@ -15,10 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-"""Tests for claude-iso.sh — the clean-environment wrapper.
+"""Tests for agent-iso.sh — the clean-environment wrapper.
 
 Strategy: put a fake ``claude`` binary (``printenv``) on $PATH and run
-claude-iso.sh against it.  Verify which variables survive the
+agent-iso.sh against it.  Verify which variables survive the
 ``env -i`` filter and which are stripped.
 """
 
@@ -30,7 +30,7 @@ import stat
 import subprocess
 from pathlib import Path
 
-SCRIPT = Path(__file__).parent.parent / "claude-iso.sh"
+SCRIPT = Path(__file__).parent.parent / "agent-iso.sh"
 
 # Use the absolute path so tests that restrict PATH still launch bash correctly.
 BASH = shutil.which("bash") or "/bin/bash"
@@ -50,7 +50,7 @@ def _make_fake_claude(tmp_path: Path) -> Path:
 
 
 def _run(tmp_path: Path, extra_env: dict | None = None, extra_args: list | None = None) -> subprocess.CompletedProcess:
-    """Run claude-iso.sh with a fake claude in a non-git temp directory."""
+    """Run agent-iso.sh with a fake claude in a non-git temp directory."""
     bin_dir = _make_fake_claude(tmp_path)
     env: dict[str, str] = {
         "PATH": f"{bin_dir}:{os.environ.get('PATH', '/usr/bin:/bin')}",

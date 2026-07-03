@@ -86,7 +86,7 @@ Drift severity:
   for the user to copy-paste into their own terminal. The skill
   never invokes `sudo` itself.
 - **Do not edit shell rc files without approval.** `~/.bashrc` /
-  `~/.zshrc` modifications (sourcing `claude-iso.sh`, the optional
+  `~/.zshrc` modifications (sourcing `agent-iso.sh`, the optional
   `alias claude='claude-iso'`) are surfaced as the exact line to
   add; the user pastes it themselves. The skill confirms the rc
   file path with the user first; it does not assume.

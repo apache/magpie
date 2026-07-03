@@ -9,7 +9,7 @@ Check 3 (user-scope scripts): diff shows no differences between installed
 scripts and framework source-of-truth.
   ~/.claude/scripts/sandbox-bypass-warn.sh — identical
   ~/.claude/scripts/sandbox-status-line.sh — identical
-  ~/.claude/agent-isolation/claude-iso.sh — identical
+  ~/.claude/agent-isolation/agent-iso.sh — identical
   ~/.claude/scripts/sandbox-add-project-root.sh — identical
 
 Check 4 (settings.json shape): no new framework entries detected.

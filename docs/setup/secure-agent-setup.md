@@ -165,7 +165,7 @@ npm install -g --no-save @anthropic-ai/claude-code@2.1.197
 #    blocks into your tracker repo's `.claude/settings.json`.
 #    Section: "The framework's own .claude/settings.json" below.
 
-# 3. The clean-env wrapper. Source `claude-iso.sh` from your rc
+# 3. The clean-env wrapper. Source `agent-iso.sh` from your rc
 #    file, optionally alias `claude=claude-iso`. Section: "The
 #    clean-env wrapper" below.
 
@@ -776,7 +776,7 @@ the global `post-checkout` keeps everything aligned going forward.
 
 Layer 0 — strip credential-shaped env vars from the parent shell
 before invoking `claude` — is implemented by
-[`tools/agent-isolation/claude-iso.sh`](../../tools/agent-isolation/claude-iso.sh).
+[`tools/agent-isolation/agent-iso.sh`](../../tools/agent-isolation/agent-iso.sh).
 
 There are two valid ways to make `claude-iso` available on your
 shell. Pick whichever matches how you use Claude Code; the wrapper
@@ -789,7 +789,7 @@ but only works on hosts where the framework path resolves.
 
 ```bash
 # ~/.bashrc or ~/.zshrc
-source /path/to/magpie/tools/agent-isolation/claude-iso.sh
+source /path/to/magpie/tools/agent-isolation/agent-iso.sh
 ```
 
 **Global (user-scope) install** — copy the script into
@@ -802,12 +802,12 @@ out on a given host.
 ```bash
 # one-time install (re-run to pick up an upstream wrapper change)
 mkdir -p ~/.claude/agent-isolation
-cp /path/to/magpie/tools/agent-isolation/claude-iso.sh \
-    ~/.claude/agent-isolation/claude-iso.sh
+cp /path/to/magpie/tools/agent-isolation/agent-iso.sh \
+    ~/.claude/agent-isolation/agent-iso.sh
 
 # ~/.bashrc or ~/.zshrc — guarded so it's a no-op until the file exists
-[ -f "$HOME/.claude/agent-isolation/claude-iso.sh" ] \
-    && . "$HOME/.claude/agent-isolation/claude-iso.sh"
+[ -f "$HOME/.claude/agent-isolation/agent-iso.sh" ] \
+    && . "$HOME/.claude/agent-isolation/agent-iso.sh"
 ```
 
 Trade-off: the global install decouples the wrapper from the
@@ -1487,7 +1487,7 @@ shell's pty via `$PPID` and writes there.)
 
 The user-scope pieces of the secure setup —
 `~/.claude/scripts/sandbox-bypass-warn.sh`, an optional global copy
-of `claude-iso.sh` (per the
+of `agent-iso.sh` (per the
 [Global (user-scope) install](#the-clean-env-wrapper) trade-off),
 your personal `~/.claude/CLAUDE.md`, plus any other custom hooks —
 only protect a host once they are installed there. Working on more
@@ -1507,7 +1507,7 @@ paths). Track the artifacts you want shared, symlink them into
 |---|---|
 | `CLAUDE.md` (personal collaboration prefs) | `~/.claude/.credentials.json` — ⚠ secret, never commit |
 | `scripts/sandbox-bypass-warn.sh`, `scripts/sandbox-error-hint.sh`, `scripts/sandbox-status-line.sh`, and any other hooks | `~/.claude/sessions/`, `~/.claude/history.jsonl` — session state |
-| `agent-isolation/claude-iso.sh` (if you globally installed it per the wrapper section) | `~/.claude/projects/<key>/` — per-project session state and tasks (the `memory/` subdir is optionally sharable, see [Extending `sync.sh`: share project memory across machines](#extending-syncsh-share-project-memory-across-machines)) |
+| `agent-isolation/agent-iso.sh` (if you globally installed it per the wrapper section) | `~/.claude/projects/<key>/` — per-project session state and tasks (the `memory/` subdir is optionally sharable, see [Extending `sync.sh`: share project memory across machines](#extending-syncsh-share-project-memory-across-machines)) |
 | Custom slash commands (`commands/<name>.md`) | `~/.claude/settings.json` — typically differs per host (plugins, statusLine paths, voice) |
 | MCP servers you've audited and want everywhere (`.mcp.json` shape, by hand) | `~/.claude/settings.local.json` — by design machine-specific |
 
@@ -1532,7 +1532,7 @@ A minimal repo layout:
 │   ├── sandbox-bypass-warn.sh          # symlinked → ~/.claude/scripts/sandbox-bypass-warn.sh
 │   └── sandbox-status-line.sh          # symlinked → ~/.claude/scripts/sandbox-status-line.sh
 ├── agent-isolation/
-│   └── claude-iso.sh                   # symlinked → ~/.claude/agent-isolation/claude-iso.sh
+│   └── agent-iso.sh                   # symlinked → ~/.claude/agent-isolation/agent-iso.sh
 ├── README.md                           # what's in the repo, install steps per machine
 └── sync.sh                             # the pull/commit/push helper
 ```
@@ -1560,13 +1560,13 @@ ln -sfn ~/.claude-config/scripts/sandbox-status-line.sh \
 
 # (Optional) global claude-iso wrapper — see the wrapper section
 mkdir -p ~/.claude/agent-isolation
-ln -sfn ~/.claude-config/agent-isolation/claude-iso.sh \
-    ~/.claude/agent-isolation/claude-iso.sh
+ln -sfn ~/.claude-config/agent-isolation/agent-iso.sh \
+    ~/.claude/agent-isolation/agent-iso.sh
 ```
 
 Then wire the per-machine bits one time, per the install snippets
 in the relevant sections (the hook entry in
-`~/.claude/settings.json`, the `source …/claude-iso.sh` line in
+`~/.claude/settings.json`, the `source …/agent-iso.sh` line in
 `~/.bashrc` / `~/.zshrc`, etc.).
 
 ### A minimal `sync.sh`
@@ -1785,7 +1785,7 @@ sub-section that follows.
    [The clean-env wrapper](#the-clean-env-wrapper). When the
    framework is consumed via the standard snapshot path, the
    per-repo source path is
-   `<your-tracker>/.apache-magpie/tools/agent-isolation/claude-iso.sh`.
+   `<your-tracker>/.apache-magpie/tools/agent-isolation/agent-iso.sh`.
 4. Decide whether to gitignore `.claude/settings.local.json` in your
    tracker repo — Claude Code does this by default; verify with
    `git check-ignore .claude/settings.local.json`.
@@ -1800,7 +1800,7 @@ sub-section that follows.
    `.claude/settings.json`.
 6. **Optional (multi-machine workflow):** keep the user-scope
    pieces (the hook scripts, the status-line script, your personal
-   `CLAUDE.md`, an optional global `claude-iso.sh`) in a private
+   `CLAUDE.md`, an optional global `agent-iso.sh`) in a private
    dotfile-style repo per
    [Syncing user-scope config across machines](#syncing-user-scope-config-across-machines).
 
@@ -1851,7 +1851,7 @@ Then walk through:
 
 3. **Clean-env wrapper.** Surface the line to add to my
    `~/.bashrc` or `~/.zshrc` to source
-   `<magpie>/tools/agent-isolation/claude-iso.sh`. Ask
+   `<magpie>/tools/agent-isolation/agent-iso.sh`. Ask
    whether I want it as the default `claude` (alias) or
    on-demand only. Print the line; do not edit my shell rc
    yourself.
@@ -2023,8 +2023,8 @@ synchronised is a periodic operation, not a one-time install.
        /path/to/magpie/tools/agent-isolation/sandbox-bypass-warn.sh
    diff ~/.claude/scripts/sandbox-status-line.sh \
        /path/to/magpie/tools/agent-isolation/sandbox-status-line.sh
-   diff ~/.claude/agent-isolation/claude-iso.sh \
-       /path/to/magpie/tools/agent-isolation/claude-iso.sh
+   diff ~/.claude/agent-isolation/agent-iso.sh \
+       /path/to/magpie/tools/agent-isolation/agent-iso.sh
    ```
 
 4. **comdev MCP checkouts.** If you registered the `ponymail`
