@@ -21,8 +21,9 @@ release. Template: [`projects/_template/release-build.md`](../_template/release-
 
 Magpie is a source-first project (skills, docs, and Python tooling).
 **The source package is the release** per
-[release-policy § what is a release](https://www.apache.org/legal/release-policy.html#release-definition);
-any published Python distribution is *convenience* only.
+[release-policy § what is a release](https://www.apache.org/legal/release-policy.html#release-definition).
+Magpie ships **no convenience binaries** — the signed source artefact is
+the only release artefact.
 
 ## Build invocation
 
@@ -48,13 +49,7 @@ so `git archive` drops them. **TODO:** add `.gitattributes` with the
 
 - `apache-magpie-<version>-source.zip` — canonical source artefact
   (**required**, signed, checksummed). This is what the `[VOTE]` votes
-  on.
-
-*(Convenience Python distributions — `apache_magpie-<version>.tar.gz`
-sdist / `-py3-none-any.whl` wheel to PyPI — are optional and, if
-published, ship under the same signature regime and are recorded as
-downstream distributions in ATR. Not part of the first release unless
-the PMC decides to publish to PyPI.)*
+  on, and the only artefact Magpie ships. No convenience binaries.
 
 ## Digest set
 
