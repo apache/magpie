@@ -7,6 +7,7 @@
   - [Guards](#guards)
   - [Per-command overrides](#per-command-overrides)
   - [Wiring](#wiring)
+    - [OpenCode](#opencode)
   - [Contributing guards](#contributing-guards)
   - [Tests](#tests)
 
@@ -19,12 +20,22 @@
 
 **Capability:** substrate:action-guard
 
-**Harness:** Claude Code
+**Harness:** Claude Code, OpenCode
 
-A deterministic Claude Code [`PreToolUse`](https://code.claude.com/docs/en/hooks)
-guard dispatcher. It inspects every `Bash` command **before it runs** and
-**denies** the ones that would break a hard framework rule — protections that
-must not depend on the model remembering a `SKILL.md` instruction.
+A deterministic pre-execution guard dispatcher. It inspects every shell command
+**before it runs** and **denies** the ones that would break a hard framework
+rule — protections that must not depend on the model remembering a `SKILL.md`
+instruction.
+
+The guard *decisions* live in one harness-agnostic core (`dispatch()`); a thin
+adapter per harness translates that harness's pre-tool hook to/from the core,
+so every wired harness enforces an identical rule set from one source of truth:
+
+- **Claude Code** — a [`PreToolUse`](https://code.claude.com/docs/en/hooks)
+  hook on the `Bash` matcher (the default, no-argument invocation).
+- **OpenCode** — a [plugin](https://opencode.ai/docs/plugins/) on the
+  `tool.execute.before` hook for the `bash` tool, which blocks a call by
+  throwing (`agent-guard.py --opencode`). See [Wiring](#wiring).
 
 It is **stdlib-only** and is invoked directly as
 `python3 <path>/agent_guard/__init__.py` (never via `uv run`) so it returns in a
@@ -102,6 +113,30 @@ into the adopter tree (`.claude/hooks/agent-guard.py`) and into the user-scope
 secure setup (`~/.claude/scripts/agent-guard.py`); `/magpie-setup upgrade`,
 `verify`, and the `setup-isolated-setup-install` / `…-update` skills keep it and
 the settings.json entry in sync. See those skills for the exact steps.
+
+### OpenCode
+
+The same engine backs OpenCode via the plugin in
+[`opencode/plugin.js`](opencode/plugin.js). OpenCode aborts a tool call whose
+[`tool.execute.before`](https://opencode.ai/docs/plugins/) handler throws, so
+the plugin forwards each `bash` command to `agent-guard.py --opencode` and
+throws with the deny reason when the shared core denies it — the OpenCode
+equivalent of a Claude `PreToolUse` deny.
+
+Drop the plugin into OpenCode's plugin directory (`.opencode/plugin/` in the
+project, or `~/.config/opencode/plugin/` globally):
+
+```bash
+mkdir -p .opencode/plugin
+ln -s "<framework>/tools/agent-guard/opencode/plugin.js" .opencode/plugin/agent-guard.js
+```
+
+The plugin locates the engine at `.claude/hooks/agent-guard.py` under the
+worktree by default — so a repo already wired for Claude Code needs no second
+copy of the script — and honours `MAGPIE_AGENT_GUARD=/abs/path/agent-guard.py`
+to point elsewhere. Because both harnesses call `dispatch()`, the bundled and
+skill-contributed guards, the `MAGPIE_*` overrides, and the deny reasons are
+byte-for-byte identical across the two; nothing about a guard is harness-aware.
 
 ## Contributing guards
 

@@ -15,11 +15,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
-"""Deterministic ``PreToolUse`` guard dispatcher for apache-magpie.
+"""Deterministic pre-execution guard dispatcher for apache-magpie.
 
-Reads a Claude Code ``PreToolUse`` hook event on stdin, inspects the ``Bash``
-command, and **denies** the ones that would violate a hard framework rule
-that should never depend on the model remembering a SKILL.md instruction.
+Inspects a shell command before it runs and **denies** the ones that would
+violate a hard framework rule that should never depend on the model remembering
+a SKILL.md instruction. The guard decisions live in one harness-agnostic core
+(:func:`dispatch`); a thin per-harness adapter translates that harness's
+pre-tool hook to/from the core, so every wired harness enforces one rule set:
+
+* :func:`main` — Claude Code ``PreToolUse`` hook (reads the event on stdin,
+  emits a deny decision as JSON). The default, no-argument invocation.
+* :func:`opencode_main` — OpenCode ``tool.execute.before`` plugin adapter
+  (``--opencode``): reads ``{"command", "cwd"}`` on stdin, signals deny via a
+  non-zero exit so the plugin can throw and abort the tool call.
 
 The engine ships two **bundled** guards — the universal ``git`` hygiene rules
 that apply to every project:
@@ -493,6 +501,7 @@ def _emit_deny(reason: str) -> None:
 
 
 def main() -> int:
+    """Claude Code ``PreToolUse`` entry point (the default invocation)."""
     try:
         event = json.load(sys.stdin)
     except (json.JSONDecodeError, ValueError):
@@ -507,5 +516,55 @@ def main() -> int:
     return 0
 
 
+# Exit codes for the harness-neutral entry point (``--opencode`` and any future
+# harness whose hook blocks on a non-zero child exit): 0 = allow, DENY = block.
+ALLOW_EXIT = 0
+DENY_EXIT = 2
+
+
+def opencode_main() -> int:
+    """Harness-neutral entry point used by the OpenCode plugin.
+
+    Reads a minimal ``{"command": "...", "cwd": "..."}`` JSON object on stdin —
+    the shape the OpenCode ``tool.execute.before`` plugin forwards for the
+    ``bash`` tool — and runs the **same** :func:`dispatch` core that backs the
+    Claude Code hook. On a deny it writes the reason to stdout and exits
+    ``DENY_EXIT``; the plugin turns that non-zero exit into a thrown error that
+    aborts the tool call. On allow (or any malformed input) it exits
+    ``ALLOW_EXIT`` — fail-open, exactly like the Claude path, so a guard glitch
+    never wedges the user's session.
+
+    The guard *decisions* are therefore identical across harnesses; only this
+    thin I/O shell differs from :func:`main`.
+    """
+    try:
+        event = json.load(sys.stdin)
+    except (json.JSONDecodeError, ValueError):
+        return ALLOW_EXIT
+    if not isinstance(event, dict):
+        return ALLOW_EXIT
+    command = str(event.get("command", ""))
+    cwd = event.get("cwd")
+    reason = dispatch(command, cwd if isinstance(cwd, str) else None)
+    if reason:
+        sys.stdout.write(reason + "\n")
+        return DENY_EXIT
+    return ALLOW_EXIT
+
+
+def cli(argv: list[str] | None = None) -> int:
+    """Route to the harness adapter named on the command line.
+
+    No argument → the Claude Code ``PreToolUse`` hook (:func:`main`); the
+    ``--opencode`` flag → the OpenCode adapter (:func:`opencode_main`). A single
+    self-contained file thus serves every wired harness, so ``/magpie-setup``
+    ships one script and each harness points its own hook at it.
+    """
+    args = sys.argv[1:] if argv is None else argv
+    if args and args[0] == "--opencode":
+        return opencode_main()
+    return main()
+
+
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(cli())
