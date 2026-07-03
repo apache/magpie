@@ -125,8 +125,9 @@ directory draws no eval-coverage advisory because its evals are external).
 
 ## How a trusted skill is installed
 
-The [`setup`](../../skills/setup/SKILL.md) skill drives the fetch (see
-`/magpie-setup skill-sources`). In outline:
+The [`setup`](../../skills/setup/SKILL.md) skill drives the fetch — the
+[`skill-sources`](../../skills/setup/skill-sources.md) sub-action
+(`/magpie-setup skill-sources`). In outline:
 
 1. Read `<project-config>/skill-sources.md` — the trust list. Sources not
    listed there are never fetched.

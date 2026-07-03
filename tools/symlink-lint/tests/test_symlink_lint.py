@@ -92,6 +92,15 @@ def test_pruned_directory_ignored(tmp_path: Path) -> None:
     assert symlink_lint.find_cyclic_symlinks(tmp_path) == []
 
 
+def test_source_snapshot_dir_pruned(tmp_path: Path) -> None:
+    # The gitignored fetch of a trusted external skill source is a build
+    # artefact like the framework snapshot — never scanned. A stray link
+    # inside it must not be flagged.
+    _symlink(tmp_path, ".apache-magpie-sources/acme/loop", target=".")
+    assert symlink_lint.find_cyclic_symlinks(tmp_path) == []
+    assert symlink_lint.find_misdirected_relays(tmp_path) == []
+
+
 def test_symlink_name_with_spaces_detected(tmp_path: Path) -> None:
     _symlink(tmp_path, "weird dir/loop with space", target=".")
     assert offending_paths(symlink_lint.find_cyclic_symlinks(tmp_path), tmp_path) == {

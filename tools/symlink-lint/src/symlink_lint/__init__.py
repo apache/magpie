@@ -45,6 +45,7 @@ PRUNE_DIR_NAMES = frozenset(
         ".venv",
         "node_modules",
         ".apache-magpie",
+        ".apache-magpie-sources",
         ".mypy_cache",
         ".pytest_cache",
         ".hatch",
