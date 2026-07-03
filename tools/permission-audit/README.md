@@ -23,7 +23,7 @@
 
 **Capability:** substrate:sandbox
 
-**Harness:** Claude Code
+**Harness:** Claude Code, OpenCode
 
 Audit + atomically edit Claude Code's `permissions.allow[]` entries
 in `<repo>/.claude/settings.json` and `<repo>/.claude/settings.local.json`.
@@ -31,6 +31,31 @@ in `<repo>/.claude/settings.json` and `<repo>/.claude/settings.local.json`.
 Backs the `--apply-permission-audit` flag of
 [`/magpie-setup verify`](../../skills/setup/verify.md#8d-permission-allow-list-hygiene)
 (check 8d), and is also directly usable as a CLI.
+
+**OpenCode.** The same over-permissioning check applies to the other
+harness through `audit-opencode`, which reads an
+[`opencode.json`](https://opencode.ai/docs/permissions/) `permission`
+config instead of a Claude allow-list. OpenCode models permissions
+differently — `permission` is a string or an object keyed by tool, and
+`permission.bash` may map glob command patterns to `allow`/`ask`/`deny`
+(last-matching-rule-wins, with a `"*"` default) — so this is a separate
+classifier, but it enforces the same intent: **flag configuration that
+auto-approves dangerous shell execution.** It reports, in JSON:
+
+- `blanket-allow` — `permission` is the string `"allow"` (every tool
+  auto-approved);
+- `bash-allow-all` — the default `permission.bash` decision is `"allow"`;
+- `dangerous-allow` — a specific rule auto-approves a dangerous command
+  family (`git push`, `sudo`, `curl`/`wget`, `rm -rf`, cloud CLIs,
+  `kubectl`, `docker run`, `ssh`, interpreters/`npx`/`uvx`, …) while the
+  default is stricter.
+
+```bash
+uv run --project tools/permission-audit permission-audit audit-opencode opencode.json
+```
+
+The Claude-only `apply` subcommand (atomic allow-list edits) has no
+OpenCode counterpart yet; `audit-opencode` is read-only.
 
 ## Prerequisites
 

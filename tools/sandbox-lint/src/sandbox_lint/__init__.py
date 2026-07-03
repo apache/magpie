@@ -263,12 +263,28 @@ def _load_json(p: Path) -> dict[str, Any]:
     return data
 
 
+def _lint_opencode(config_path: Path) -> int:
+    """Lint an OpenCode opencode.json permission policy (invariants only)."""
+    from sandbox_lint.opencode import check_opencode_invariants
+
+    config = _load_json(config_path)
+    errors = check_opencode_invariants(config)
+    if not errors:
+        print(f"sandbox-lint: OK ({config_path} permission policy satisfies the OpenCode invariants)")
+        return 0
+    print(f"sandbox-lint: OpenCode permission-policy violations in {config_path}:", file=sys.stderr)
+    for e in errors:
+        print(f"  - {e}", file=sys.stderr)
+    return 1
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="sandbox-lint",
         description=(
             "Lint .claude/settings.json against the shipped baseline and the "
-            "security invariants from docs/security/threat-model.md (M.29)."
+            "security invariants from docs/security/threat-model.md (M.29); or, "
+            "with --opencode, lint an opencode.json permission policy."
         ),
     )
     parser.add_argument(
@@ -283,7 +299,21 @@ def main(argv: list[str] | None = None) -> int:
         default=DEFAULT_EXPECTED,
         help=f"Path to the canonical baseline (default: {DEFAULT_EXPECTED})",
     )
+    parser.add_argument(
+        "--opencode",
+        type=Path,
+        default=None,
+        metavar="OPENCODE_JSON",
+        help=(
+            "Lint an OpenCode opencode.json permission policy against the "
+            "OpenCode security invariants instead of the Claude Code sandbox "
+            "config (invariants only — no baseline diff)."
+        ),
+    )
     args = parser.parse_args(argv)
+
+    if args.opencode is not None:
+        return _lint_opencode(args.opencode)
 
     settings = _load_json(args.settings)
     expected = _load_json(args.expected)

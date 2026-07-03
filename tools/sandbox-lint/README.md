@@ -19,7 +19,7 @@
 
 **Capability:** substrate:sandbox
 
-**Harness:** Claude Code
+**Harness:** Claude Code, OpenCode
 
 Lints `.claude/settings.json` against the shipped baseline at
 `tools/sandbox-lint/expected.json`, and against the security
@@ -27,6 +27,22 @@ invariants documented in `docs/security/threat-model.md`
 (mitigation **M.29**). The threat-model document lands in a
 companion PR; the lint stands on its own and runs immediately on
 merge.
+
+**OpenCode.** `--opencode opencode.json` lints the other harness's
+security config. OpenCode has no `sandbox.filesystem` allow/deny model
+(its filesystem isolation comes from the OS-level sandbox of the
+secure-agent setup), so there is no baseline to diff — instead the lint
+asserts **invariants on the `permission` policy**
+([OpenCode permissions](https://opencode.ai/docs/permissions/)): the
+policy must not be a blanket `"allow"`, `permission.bash` must not default
+to `"allow"`, no rule may auto-approve a dangerous command family
+(`git push`, `sudo`, `curl`/`wget`, `rm -rf`, cloud CLIs, `kubectl`,
+`docker run`, `ssh`, interpreters, …) via last-match-wins evaluation, and
+`webfetch` / `external_directory` must not be blanket-`"allow"`.
+
+```bash
+uv run --project tools/sandbox-lint sandbox-lint --opencode opencode.json
+```
 
 ## Prerequisites
 

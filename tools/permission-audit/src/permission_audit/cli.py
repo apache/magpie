@@ -40,6 +40,7 @@ from permission_audit.audit import (
     audit_settings,
 )
 from permission_audit.edit import apply_changes
+from permission_audit.opencode import audit_opencode
 
 
 def _read_allow(settings_path: Path) -> list[str]:
@@ -105,6 +106,36 @@ def _cmd_apply(args: argparse.Namespace) -> int:
     return 0
 
 
+def _read_opencode_config(config_path: Path) -> dict:
+    if not config_path.exists():
+        return {}
+    raw = config_path.read_text(encoding="utf-8")
+    if not raw.strip():
+        return {}
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError as e:
+        sys.stderr.write(f"{config_path}: invalid JSON: {e}\n")
+        raise SystemExit(2) from e
+    return data if isinstance(data, dict) else {}
+
+
+def _cmd_audit_opencode(args: argparse.Namespace) -> int:
+    config_path = Path(args.config_path).resolve()
+    config = _read_opencode_config(config_path)
+    result = audit_opencode(config)
+
+    output = {
+        "config_path": str(config_path),
+        "file_exists": config_path.exists(),
+        "harness": "opencode",
+        "forbidden": [asdict(f) for f in result.forbidden],
+    }
+    json.dump(output, sys.stdout, indent=2)
+    sys.stdout.write("\n")
+    return 1 if result.forbidden else 0
+
+
 def _cmd_list_known(args: argparse.Namespace) -> int:
     output = {
         "forbidden_patterns": sorted(FORBIDDEN_PATTERNS),
@@ -120,7 +151,8 @@ def _build_parser() -> argparse.ArgumentParser:
         prog="permission-audit",
         description=(
             "Audit + atomically edit Claude Code permissions.allow[] entries "
-            "in .claude/settings.json / .claude/settings.local.json."
+            "in .claude/settings.json / .claude/settings.local.json; and "
+            "audit an OpenCode opencode.json permission config (audit-opencode)."
         ),
     )
     subparsers = parser.add_subparsers(dest="cmd", required=True)
@@ -154,6 +186,13 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Create the settings file if it does not exist.",
     )
     p_apply.set_defaults(func=_cmd_apply)
+
+    p_audit_oc = subparsers.add_parser(
+        "audit-opencode",
+        help="Audit an OpenCode opencode.json permission config for over-permissioning.",
+    )
+    p_audit_oc.add_argument("config_path", help="Path to opencode.json.")
+    p_audit_oc.set_defaults(func=_cmd_audit_opencode)
 
     p_known = subparsers.add_parser(
         "list-known",
