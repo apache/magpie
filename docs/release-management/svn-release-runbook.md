@@ -30,6 +30,14 @@ tagged revision, package it as a source `.zip`, sign it, checksum
 it, and stage it to `dist.apache.org/repos/dist/dev/` for the
 `[VOTE]`.
 
+> [!NOTE]
+> This is the **`svnpubsub`** backend. For the **Apache Trusted
+> Releases (ATR)** backend — compose a signed candidate in the ATR
+> platform, let it run the checks and drive the vote, then *finish*
+> to publish — see the
+> [ATR release runbook](atr-release-runbook.md). Same 14-step
+> lifecycle, same skills, different distribution backend.
+
 This runbook is the hands-on companion to the
 [`release-rc-cut`](../../skills/release-rc-cut/SKILL.md) skill
 (lifecycle Steps 4–5). The skill *emits* this command set tailored

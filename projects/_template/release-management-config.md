@@ -64,7 +64,7 @@ for the dimensions.
 
 | Key | Value | Allowed values |
 |---|---|---|
-| `release_dist_backend` | `svnpubsub` | `svnpubsub`, `github-releases`, `s3`, `self-hosted` |
+| `release_dist_backend` | `svnpubsub` | `svnpubsub`, `atr`, `github-releases`, `s3`, `self-hosted` |
 | `release_approval_mechanism` | `dev-list-vote` | `dev-list-vote`, `github-discussion`, `pr-approval`, `maintainer-roster` |
 | `release_announce_backend` | `announce-list` | `announce-list`, `github-release-notes`, `site-post`, `discord-channel` |
 
@@ -74,6 +74,17 @@ and `announce-list` (mandatory per
 [`release-policy.html § announcements`](https://www.apache.org/legal/release-policy.html#release-announcements));
 `release-vote-tally` and `release-announce-draft` refuse to run an
 ASF TLP release against any other value.
+
+`atr` selects the **[Apache Trusted Releases](https://release-test.apache.org/)**
+platform: the RM composes a signed candidate in ATR (which runs the
+signature/checksum/license/notice/source-header checks on upload),
+ATR drives the `dev@` `[VOTE]` and tabulation, and *finishing*
+publishes to `dist.apache.org`. It is an ASF-only backend and an
+alternative to `svnpubsub` for the same `dev-list-vote` /
+`announce-list` approval and announce mechanisms. See the
+[ATR release runbook](../../docs/release-management/atr-release-runbook.md)
+for the phase-by-phase flow. ATR is in alpha; until a PMC ratifies it,
+`svnpubsub` remains the ratified default.
 
 Non-ASF adopters set the values their workflow uses; the skills
 emit backend-shaped paste-ready commands per

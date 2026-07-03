@@ -160,6 +160,14 @@ Two non-negotiable boundaries cross every Agentic Drafting skill above:
   package a tagged revision as a signed source `.zip` with SHA-512
   and stage it to `dist/dev/` (lifecycle Steps 4–5). The longhand
   companion to [`release-rc-cut`](../../skills/release-rc-cut/SKILL.md).
+- [**`atr-release-runbook.md`**](atr-release-runbook.md), the
+  counterpart runbook for the `atr` (**Apache Trusted Releases**)
+  backend: compose a signed candidate in ATR, let the platform run
+  the policy checks and drive the `[VOTE]`, then *finish* to publish
+  and announce. Same 14-step lifecycle and same skills as the
+  `svnpubsub` runbook; ATR replaces the mechanics of Steps 5–11. ATR
+  is in alpha — the forward-looking backend, tracked against the
+  [MISSION § first-release commitment](../../MISSION.md#initial-goals).
 
 Two documents that **do not** ship in this family but are
 referenced from it:
