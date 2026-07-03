@@ -1550,17 +1550,35 @@ def collect_tool_dirs(root: Path | None = None) -> list[Path]:
         return []
 
     dirs = sorted(d for d in base.iterdir() if d.is_dir() and not d.name.startswith("."))
-    tracked_names = _git_tracked_tool_names(repo_root)
-    if tracked_names is None:
+    visible_names = _git_visible_tool_names(repo_root)
+    if visible_names is None:
         return dirs
-    return [d for d in dirs if d.name in tracked_names]
+    return [d for d in dirs if d.name in visible_names]
 
 
-def _git_tracked_tool_names(root: Path) -> set[str] | None:
-    """Return top-level ``tools/<name>`` entries tracked by git, if available."""
+def _git_visible_tool_names(root: Path) -> set[str] | None:
+    """Return top-level ``tools/<name>`` entries git considers non-ignored
+    (tracked *or* untracked-but-not-``.gitignore``d), if git is available.
+
+    Using ``--cached --others --exclude-standard`` — rather than tracked
+    files alone — means a freshly-authored tool directory that has not been
+    ``git add``ed yet is still validated, while gitignored artifact
+    directories (e.g. ``__pycache__``, build output) are excluded.
+    """
     try:
         result = subprocess.run(
-            ["git", "-C", str(root), "ls-files", "-z", "--", str(TOOLS_DIR)],
+            [
+                "git",
+                "-C",
+                str(root),
+                "ls-files",
+                "-z",
+                "--cached",
+                "--others",
+                "--exclude-standard",
+                "--",
+                str(TOOLS_DIR),
+            ],
             check=False,
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,

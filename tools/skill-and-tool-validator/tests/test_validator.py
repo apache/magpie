@@ -2611,6 +2611,31 @@ class TestValidateTools:
         violations = list(validate_tools(root))
         assert violations == []
 
+    def test_untracked_tool_directory_still_checked(self, tmp_path: Path) -> None:
+        # A freshly-authored tool directory that has not been ``git add``ed yet
+        # is not gitignored, so it must still be validated. Regression guard: an
+        # earlier tracked-only filter silently dropped such directories.
+        root = _make_tools_root(tmp_path)
+        subprocess.run(["git", "init"], cwd=root, check=True, capture_output=True)
+        (root / ".gitignore").write_text("tools/ignored-artifact/\n", encoding="utf-8")
+
+        untracked_tool = root / "tools" / "brand-new"
+        untracked_tool.mkdir()
+        (untracked_tool / "README.md").write_text(
+            "# tools/brand-new\n\n**Capability:** substrate:framework-dev\n\nNew tool.\n\n" + _VALID_PREREQS,
+            encoding="utf-8",
+        )
+
+        ignored_tool = root / "tools" / "ignored-artifact"
+        ignored_tool.mkdir()
+        (ignored_tool / "junk.txt").write_text("", encoding="utf-8")
+
+        # Only .gitignore is staged; the new tool is deliberately left untracked.
+        subprocess.run(["git", "add", ".gitignore"], cwd=root, check=True, capture_output=True)
+
+        assert [d.name for d in collect_tool_dirs(root)] == ["brand-new"]
+        assert list(validate_tools(root)) == []
+
     def test_tool_missing_readme(self, tmp_path: Path) -> None:
         root = _make_tools_root(tmp_path)
         (root / "tools" / "no-readme").mkdir()
