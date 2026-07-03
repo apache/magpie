@@ -1,0 +1,91 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "magpie-maildir"
+version = "0.1.0"
+description = "Local Maildir backend for the mail contracts — writes editable outbound drafts (contract:mail-create) and reads a local mbox/Maildir archive (contract:mail-source). Offline, no vendor, no credentials."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+# stdlib-only — composes email.message + mailbox from the standard library.
+dependencies = []
+
+[project.scripts]
+maildir-draft-create = "maildir_draft.create_draft:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/maildir_draft"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+  "E",     # pycodestyle errors
+  "W",     # pycodestyle warnings
+  "F",     # pyflakes
+  "I",     # isort
+  "B",     # flake8-bugbear
+  "UP",    # pyupgrade
+  "SIM",   # flake8-simplify
+  "C4",    # flake8-comprehensions
+  "RUF",   # ruff-specific
+]
+ignore = [
+  "E501",  # line-too-long — the 110-char limit above is already generous
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["B", "SIM"]  # test clarity beats these
+
+[tool.mypy]
+python_version = "3.11"
+files = ["src", "tests"]
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unreachable = true
+check_untyped_defs = true
+no_implicit_optional = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-ra -q"
+testpaths = ["tests"]
+
+[dependency-groups]
+# Shared static-analysis + test toolchain, pinned to the same versions as the
+# workspace root so every sub-project's own environment is self-contained.
+# The workspace checks run each tool via `uv run --directory <member>
+# --project . python -m <tool>` — see tools/dev/run-workspace-check.sh.
+dev = [
+  "mypy>=2.1.0",
+  "pytest>=9.1.1",
+  "ruff>=0.15.18",
+]

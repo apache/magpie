@@ -26,6 +26,13 @@ See [`../contract.md`](../contract.md) for the abstract
 mail-source-backend operations + capability matrix + adopter
 resolution rules this adapter conforms to.
 
+The concrete vendor home for this local-files backend is
+[`tools/maildir/`](../../maildir/) (Vendor: `Maildir`). That tool pairs
+this inbound read side with a fully-implemented outbound side — it files
+editable drafts into a local Maildir for the `contract:mail-create`
+capability — so one offline, credential-free vendor covers both mail
+directions, the way `tools/gmail` does for Google.
+
 ## When this adapter makes sense
 
 * **Forensics / late triage of a historical security thread.** The

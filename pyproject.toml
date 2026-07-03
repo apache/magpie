@@ -103,6 +103,7 @@ members = [
   "tools/github-rollup",
   "tools/gmail/oauth-draft",
   "tools/jira",
+  "tools/maildir",
   "tools/permission-audit",
   "tools/pr-management-stats",
   "tools/preflight-audit",
