@@ -145,9 +145,43 @@ def test_weekly_velocity_counts_merged_and_closed():
         make_pr(31, assoc="NONE", created_days_ago=20, closed_days_ago=3,
                 merged=False, include_engagement=False),
     ]
-    weekly = reference.compute_weekly_velocity(closed, ctx["weeks"], ctx["triage_marker"])
+    weekly = reference.compute_weekly_velocity(closed, ctx["weeks"], ctx)
 
     assert len(weekly) == 6
     assert sum(w["merged"] for w in weekly) == 1
     assert sum(w["closed_not_merged"] for w in weekly) == 1
     assert sum(w["merged_triaged"] for w in weekly) == 1
+
+
+def test_fold_channel_triage_is_counted():
+    """A PR triaged via the pr-body fold block (no QC comment) must count as
+    triaged + AI-drafted across classify, triage-velocity, and weekly-velocity
+    — the regression that made recent-week triage velocity read as zero once
+    the pr-body channel became the default."""
+    from datetime import timedelta
+
+    ctx = make_ctx()
+    now = ctx["now"]
+    triaged_iso = (now - timedelta(days=3)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    fold_body = (
+        f"Original description.\n\n"
+        f"<!-- pr-triage-fold: triaged={triaged_iso} head=abc1234 action=comment -->\n"
+        f"> Maintainer triage note for @alice · by `@potiuk`\n"
+        f"> see the {QC}\n"
+        f"<!-- /pr-triage-fold -->"
+    )
+    # No collaborator QC *comment* — the marker lives only in the body fold.
+    pr = make_pr(50, assoc="NONE", created_days_ago=10, comments=[])
+    pr["body"] = fold_body
+
+    reference.classify(pr, ctx)
+    assert pr["_is_triaged"] is True
+    assert pr["_has_ai_footer"] is True  # a fold is always AI-drafted
+    assert pr["_triage_at"] is not None
+
+    events = reference.triage_marker_events(pr, ctx)
+    assert len(events) == 1 and events[0][1] is True
+
+    vel = dashboard.compute_triage_velocity([pr], ctx["weeks"], ctx)
+    assert sum(w["ai"] for w in vel) == 1
+    assert sum(w["manual"] for w in vel) == 0

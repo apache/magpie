@@ -128,7 +128,7 @@ query($q: String!, $first: Int!, $after: String) {
     pageInfo { hasNextPage endCursor }
     nodes {
       ... on PullRequest {
-        number title isDraft createdAt updatedAt
+        number title isDraft createdAt updatedAt body
         author { login __typename } authorAssociation
         baseRefName reviewDecision
         labels(first: 20) { nodes { name } }
@@ -169,7 +169,7 @@ query($q: String!, $first: Int!, $after: String) {
     pageInfo { hasNextPage endCursor }
     nodes {
       ... on PullRequest {
-        number title isDraft createdAt closedAt mergedAt merged state
+        number title isDraft createdAt closedAt mergedAt merged state body
         author { login __typename } authorAssociation
         baseRefName
         labels(first: 20) { nodes { name } }
@@ -318,6 +318,42 @@ def fetch_codeowners(repo):
 # Classification — see classify.md
 # --------------------------------------------------------------------------
 
+_FOLD_TRIAGED_RE = re.compile(r"<!--\s*pr-triage-fold:\s*triaged=(\S+)")
+
+
+def fold_triaged_at(pr):
+    """Timestamp of the pr-body fold triage note, or None.
+
+    The default ``pr-body`` feedback channel folds the triage marker into the
+    PR *description* as a ``<!-- pr-triage-fold: triaged=<ISO> ... -->`` block
+    rather than posting a comment. A comment-only marker scan is blind to it,
+    so every folded triage note goes uncounted -- the bug this fixes. A fold is
+    always AI-drafted (it is written by the automated triage tool)."""
+    m = _FOLD_TRIAGED_RE.search(pr.get("body") or "")
+    return parse_iso(m.group(1)) if m else None
+
+
+def triage_marker_events(pr, ctx):
+    """All triage-marker occurrences across BOTH feedback channels.
+
+    Returns ``(at, is_ai)`` tuples -- one per collaborator comment carrying the
+    QC marker (``comment`` channel) plus one for the pr-body fold block
+    (``pr-body`` channel, always AI). Empty when the PR was never triaged in
+    either channel. The single source of truth for "is this PR triaged, when,
+    and by which channel" -- classification and every velocity metric route
+    through it so the fold channel is never invisible again."""
+    events = []
+    for c in (pr.get("comments", {}) or {}).get("nodes", []) or []:
+        if c.get("authorAssociation") in COLLAB_ASSOCIATIONS and ctx["triage_marker"] in c.get("body", ""):
+            at = parse_iso(c.get("createdAt"))
+            if at:
+                events.append((at, ctx["ai_footer"] in c.get("body", "")))
+    fat = fold_triaged_at(pr)
+    if fat:
+        events.append((fat, True))
+    return events
+
+
 def classify(pr, ctx, *, partial=False):
     """Annotate a PR node in place with `_`-prefixed classification fields.
 
@@ -349,14 +385,11 @@ def classify(pr, ctx, *, partial=False):
         and not is_bot(c["author"]["login"] if c["author"] else None)
         for c in pr["comments"]["nodes"]
     )
-    has_qc_marker = any(
-        c.get("authorAssociation") in COLLAB_ASSOCIATIONS and ctx["triage_marker"] in c.get("body", "")
-        for c in pr["comments"]["nodes"]
-    )
-    has_ai_footer = any(
-        c.get("authorAssociation") in COLLAB_ASSOCIATIONS and ctx["ai_footer"] in c.get("body", "")
-        for c in pr["comments"]["nodes"]
-    )
+    # Triage marker across BOTH channels: collaborator comments (comment
+    # channel) AND the pr-body fold block (pr-body channel, the default).
+    triage_events = triage_marker_events(pr, ctx)
+    has_qc_marker = bool(triage_events)
+    has_ai_footer = any(is_ai for _, is_ai in triage_events)
     has_review = any(
         r.get("author", {}).get("login") and not is_bot(r["author"]["login"])
         for r in (pr.get("latestReviews", {}).get("nodes") or [])
@@ -401,14 +434,8 @@ def classify(pr, ctx, *, partial=False):
         and not pr["_has_ready"]
     )
 
-    # Triage timestamp + responded
-    triage_at = None
-    if has_qc_marker:
-        for c in pr["comments"]["nodes"]:
-            if c.get("authorAssociation") in COLLAB_ASSOCIATIONS and ctx["triage_marker"] in c.get("body", ""):
-                at = parse_iso(c["createdAt"])
-                if triage_at is None or at > triage_at:
-                    triage_at = at
+    # Triage timestamp + responded -- latest marker across both channels
+    triage_at = max((at for at, _ in triage_events), default=None)
     pr["_triage_at"] = triage_at
 
     responded = False
@@ -437,7 +464,7 @@ def weeks_buckets(now, weeks=6):
             for i in range(weeks)]
 
 
-def compute_weekly_velocity(closed_prs, weeks, triage_marker):
+def compute_weekly_velocity(closed_prs, weeks, ctx):
     out = []
     for s, e in weeks:
         b = {"start": s, "end": e, "merged": 0, "closed_not_merged": 0,
@@ -446,13 +473,10 @@ def compute_weekly_velocity(closed_prs, weeks, triage_marker):
             ca = parse_iso(pr.get("closedAt"))
             if not ca or not (s <= ca < e):
                 continue
-            has_triage = False
-            t_at = None
-            for c in pr["comments"]["nodes"]:
-                if c.get("authorAssociation") in COLLAB_ASSOCIATIONS and triage_marker in c.get("body", ""):
-                    has_triage = True
-                    t_at = parse_iso(c["createdAt"])
-                    break
+            # Triage across both channels (comments + pr-body fold)
+            events = triage_marker_events(pr, ctx)
+            has_triage = bool(events)
+            t_at = min((at for at, _ in events), default=None)
             responded = False
             if has_triage and t_at:
                 for c in pr["comments"]["nodes"]:

@@ -71,10 +71,12 @@ from reference import (
     compute_weekly_velocity,
     fetch_codeowners,
     fetch_ready_pr_files,
+    fold_triaged_at,
     is_backport,
     is_bot,
     paginated_search,
     parse_iso,
+    triage_marker_events,
     weeks_buckets,
 )
 
@@ -793,22 +795,17 @@ def compute_ready_queue_cumulative(open_prs, weeks):
 
 
 def compute_triage_velocity(all_prs, weeks, ctx):
-    """2-line: AI-drafted, manual QC marker — by first QC-comment week."""
+    """2-line: AI-drafted, manual — by first-triage week across BOTH channels
+    (collaborator QC comments AND the pr-body fold block)."""
     out = []
     for s, e in weeks:
         b = {"start": s, "end": e, "ai": 0, "manual": 0}
         for pr in all_prs:
-            first_qc = None
-            is_ai = False
-            for c in (pr.get("comments", {}) or {}).get("nodes", []) or []:
-                if c.get("authorAssociation") not in COLLAB_ASSOCIATIONS:
-                    continue
-                if ctx["triage_marker"] in (c.get("body") or ""):
-                    at = parse_iso(c["createdAt"])
-                    if first_qc is None or at < first_qc:
-                        first_qc = at
-                        is_ai = ctx["ai_footer"] in (c.get("body") or "")
-            if first_qc and s <= first_qc < e:
+            events = triage_marker_events(pr, ctx)
+            if not events:
+                continue
+            first_qc, is_ai = min(events, key=lambda ev: ev[0])
+            if s <= first_qc < e:
                 if is_ai:
                     b["ai"] += 1
                 else:
@@ -945,6 +942,17 @@ def compute_triager_activity(open_prs, closed_prs, weeks, ctx):
                     else:
                         activity[author][idx]["manual"].add(pr_num)
                     break
+        # pr-body fold channel: credit the folded triage note to its operator
+        # (the `by @login` in the note header), always AI, at the fold time.
+        fat = fold_triaged_at(pr)
+        if fat:
+            om = re.search(r"by `@([A-Za-z0-9-]+)`", pr.get("body") or "")
+            operator = om.group(1) if om else None
+            if operator and not is_bot(operator):
+                for idx, (s, e) in enumerate(weeks):
+                    if s <= fat < e:
+                        activity[operator][idx]["ai"].add(pr_num)
+                        break
     rows = []
     for login, per_week in activity.items():
         totals_ai = set().union(*[w["ai"] for w in per_week])
@@ -2292,7 +2300,7 @@ def main():
     # ---- Aggregate ----
     print("Aggregating ...", file=sys.stderr)
     hero = compute_hero_counts(open_prs)
-    weekly = compute_weekly_velocity(closed_prs, ctx["weeks"], args.triage_marker)
+    weekly = compute_weekly_velocity(closed_prs, ctx["weeks"], ctx)
     pressure = compute_pressure_by_area(open_prs, args.area_prefix)
     ready_trend = compute_ready_trend_by_area(
         open_prs, ctx["weeks"], pressure, args.area_prefix
