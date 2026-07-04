@@ -1,0 +1,1 @@
+{"match": "open-issue", "action": "inform-open-issue", "reason": "An open issue already reports this with no fix yet, so inform the user and optionally add signal rather than duplicating."}

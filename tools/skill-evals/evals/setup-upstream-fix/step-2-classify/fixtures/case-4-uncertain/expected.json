@@ -1,0 +1,1 @@
+{"classification": "uncertain", "action": "offer-issue", "reason": "There is no clear defect and the change is design-shaped, so a change-proposal issue is the right route rather than a fix PR."}

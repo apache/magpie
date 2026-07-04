@@ -1,0 +1,1 @@
+{"classification": "framework-bug", "action": "proceed-to-dedup", "reason": "A wrong-nesting defect in the framework tool code that reproduces regardless of adopter config, on a current snapshot."}

@@ -227,6 +227,7 @@ Capabilities for every skill currently in
 | `setup-isolated-setup-update` | `capability:platform` |
 | `setup-isolated-setup-doctor` | `capability:platform` + `capability:reassess` *(re-checks an installed sandbox against current spec — the phase is reassess on subject setup)* |
 | `setup-override-upstream` | `capability:platform` |
+| `setup-upstream-fix` | `capability:platform` |
 | `write-skill` | `capability:authoring` |
 | `optimize-skill` | `capability:authoring` |
 | `skill-reconciler` | `capability:reconciliation` *(compares two near-duplicate skill copies and classifies every difference as ALLOWED, DRIFT, or SAFETY-BASELINE; proposes convergence; never writes either copy)* |

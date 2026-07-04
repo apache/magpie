@@ -1,0 +1,1 @@
+{"match": "none", "action": "propose-new-pr", "reason": "No existing issue or PR covers this defect, so a new fix PR is warranted."}

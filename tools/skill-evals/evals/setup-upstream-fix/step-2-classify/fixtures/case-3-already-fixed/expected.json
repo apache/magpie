@@ -1,0 +1,1 @@
+{"classification": "already-fixed-upstream", "action": "propose-upgrade", "reason": "The snapshot is behind and main already carries the fix, so an upgrade resolves it without a new PR."}

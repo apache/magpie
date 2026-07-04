@@ -1,0 +1,1 @@
+{"match": "merged-fix", "action": "propose-upgrade", "reason": "A merged PR already fixes this on main, so propose an upgrade rather than re-fixing it."}

@@ -1,0 +1,1 @@
+{"classification": "local-misconfig", "action": "stop-local-remediation", "reason": "The cause is an adopter-side missing config file, not a framework defect; the fix is to create it locally."}

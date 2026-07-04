@@ -1,0 +1,1 @@
+{"match": "open-pr", "action": "inform-open-pr", "reason": "An open PR already fixes this exact defect, so inform the user and do not open a duplicate."}
