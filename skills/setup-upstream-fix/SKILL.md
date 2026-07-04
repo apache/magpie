@@ -272,12 +272,18 @@ Do this **once per quirk**, in `<framework-clone>`:
      --label "family:<family>" --label "capability:<capability>"
    ```
 
-   Pick labels per
+   Pick one label from each of the two axes in
    [`docs/labels-and-capabilities.md`](../../docs/labels-and-capabilities.md):
-   the `family:*` of the touched area (`family:tools`,
-   `family:security`, …) plus the `capability:*` the fix
-   implements (`capability:fix` for a code repair). Show the
-   labels in the confirmation preview.
+   a `family:*` (the *subject* axis — `family:tools`,
+   `family:security`, `family:setup`, …) plus a `capability:*`
+   (the *phase* axis — `capability:fix` for a code repair). Both
+   namespaces are documented there and exist as repo labels, but
+   `gh pr create --label` **fails the whole call on an unknown
+   label** — so verify each first
+   (`gh label list --repo apache/magpie --search family:` /
+   `--search capability:`) and pass only labels that are both
+   documented and present. Show the chosen labels in the
+   confirmation preview.
 
 Never combine two quirks into one branch or one PR.
 
