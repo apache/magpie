@@ -32,7 +32,7 @@ from magpie_bitbucket.normalize import pull_request, pull_request_list, reposito
 @pytest.fixture
 def cloud_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("BITBUCKET_KIND", "cloud")
-    monkeypatch.setenv("BITBUCKET_USERNAME", "alice")
+    monkeypatch.setenv("BITBUCKET_CLOUD_USER", "alice@example.test")
     monkeypatch.setenv("BITBUCKET_TOKEN", "token-123")
     monkeypatch.setenv("BITBUCKET_WORKSPACE", "apache")
     monkeypatch.setenv("BITBUCKET_REPO_SLUG", "magpie")
@@ -49,8 +49,20 @@ def datacenter_env(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def make_mock_response(body: dict[str, Any]) -> MagicMock:
     response = MagicMock()
-    response.read.return_value = json.dumps(body).encode("utf-8")
+    response.read.return_value = json.dumps(body).encode()
     return response
+
+
+def mock_opener(mock_build_opener: MagicMock, *bodies: dict[str, Any]) -> MagicMock:
+    opener = MagicMock()
+    opener.open.side_effect = [
+        MagicMock(
+            __enter__=MagicMock(return_value=make_mock_response(body)), __exit__=MagicMock(return_value=None)
+        )
+        for body in bodies
+    ]
+    mock_build_opener.return_value = opener
+    return opener
 
 
 def test_load_config_defaults_to_cloud(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -71,76 +83,106 @@ def test_make_auth_header_basic(cloud_env: None) -> None:
     assert make_auth_header(config).startswith("Basic ")
 
 
+def test_make_auth_header_rejects_unknown_scheme(cloud_env: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("BITBUCKET_AUTH_SCHEME", "Digest")
+    config = load_config()
+
+    with pytest.raises(BitbucketError, match="BITBUCKET_AUTH_SCHEME must be 'Basic' or 'Bearer'"):
+        make_auth_header(config)
+
+
 def test_make_auth_header_bearer(datacenter_env: None) -> None:
     config = load_config()
     assert make_auth_header(config) == "Bearer token-123"
 
 
-@patch("urllib.request.urlopen")
-def test_cloud_get_repository_url(mock_urlopen: MagicMock, cloud_env: None) -> None:
-    mock_urlopen.return_value.__enter__.return_value = make_mock_response(
-        {"name": "Magpie", "slug": "magpie"}
-    )
+@patch("urllib.request.build_opener")
+def test_cloud_get_repository_url(mock_build_opener: MagicMock, cloud_env: None) -> None:
+    opener = mock_opener(mock_build_opener, {"name": "Magpie", "slug": "magpie"})
     result = cloud.get_repository(load_config())
 
-    request = mock_urlopen.call_args.args[0]
+    request = opener.open.call_args.args[0]
     assert request.full_url == "https://api.bitbucket.org/2.0/repositories/apache/magpie"
+    assert opener.open.call_args.kwargs["timeout"] == 30
     assert result["name"] == "Magpie"
 
 
-@patch("urllib.request.urlopen")
-def test_cloud_list_open_pull_requests_url(mock_urlopen: MagicMock, cloud_env: None) -> None:
-    mock_urlopen.return_value.__enter__.return_value = make_mock_response({"values": []})
+@patch("urllib.request.build_opener")
+def test_cloud_list_open_pull_requests_follows_next(mock_build_opener: MagicMock, cloud_env: None) -> None:
+    opener = mock_opener(
+        mock_build_opener,
+        {
+            "values": [{"id": 1, "title": "One"}],
+            "next": "https://api.bitbucket.org/2.0/repositories/apache/magpie/pullrequests?page=2",
+        },
+        {"values": [{"id": 2, "title": "Two"}]},
+    )
     result = cloud.list_open_pull_requests(load_config())
 
-    request = mock_urlopen.call_args.args[0]
+    first_request = opener.open.call_args_list[0].args[0]
+    second_request = opener.open.call_args_list[1].args[0]
     assert (
-        request.full_url == "https://api.bitbucket.org/2.0/repositories/apache/magpie/pullrequests?state=OPEN"
+        first_request.full_url
+        == "https://api.bitbucket.org/2.0/repositories/apache/magpie/pullrequests?state=OPEN"
     )
-    assert result == {"values": []}
+    assert (
+        second_request.full_url
+        == "https://api.bitbucket.org/2.0/repositories/apache/magpie/pullrequests?page=2"
+    )
+    assert [item["id"] for item in result["values"]] == [1, 2]
 
 
-@patch("urllib.request.urlopen")
-def test_cloud_get_pull_request_url(mock_urlopen: MagicMock, cloud_env: None) -> None:
-    mock_urlopen.return_value.__enter__.return_value = make_mock_response({"id": 7, "title": "Fix docs"})
+@patch("urllib.request.build_opener")
+def test_cloud_get_pull_request_url(mock_build_opener: MagicMock, cloud_env: None) -> None:
+    opener = mock_opener(mock_build_opener, {"id": 7, "title": "Fix docs"})
     result = cloud.get_pull_request(load_config(), "7")
 
-    request = mock_urlopen.call_args.args[0]
+    request = opener.open.call_args.args[0]
     assert request.full_url == "https://api.bitbucket.org/2.0/repositories/apache/magpie/pullrequests/7"
     assert result["title"] == "Fix docs"
 
 
-@patch("urllib.request.urlopen")
-def test_datacenter_get_repository_url(mock_urlopen: MagicMock, datacenter_env: None) -> None:
-    mock_urlopen.return_value.__enter__.return_value = make_mock_response(
-        {"name": "Magpie", "slug": "magpie"}
-    )
+@patch("urllib.request.build_opener")
+def test_datacenter_get_repository_url(mock_build_opener: MagicMock, datacenter_env: None) -> None:
+    opener = mock_opener(mock_build_opener, {"name": "Magpie", "slug": "magpie"})
     result = datacenter.get_repository(load_config())
 
-    request = mock_urlopen.call_args.args[0]
+    request = opener.open.call_args.args[0]
     assert request.full_url == "https://bitbucket.example.test/rest/api/1.0/projects/MAGPIE/repos/magpie"
     assert result["slug"] == "magpie"
 
 
-@patch("urllib.request.urlopen")
-def test_datacenter_list_open_pull_requests_url(mock_urlopen: MagicMock, datacenter_env: None) -> None:
-    mock_urlopen.return_value.__enter__.return_value = make_mock_response({"values": []})
+@patch("urllib.request.build_opener")
+def test_datacenter_list_open_pull_requests_follows_next_page_start(
+    mock_build_opener: MagicMock,
+    datacenter_env: None,
+) -> None:
+    opener = mock_opener(
+        mock_build_opener,
+        {"values": [{"id": 1, "title": "One"}], "isLastPage": False, "nextPageStart": 25},
+        {"values": [{"id": 2, "title": "Two"}], "isLastPage": True},
+    )
     result = datacenter.list_open_pull_requests(load_config())
 
-    request = mock_urlopen.call_args.args[0]
+    first_request = opener.open.call_args_list[0].args[0]
+    second_request = opener.open.call_args_list[1].args[0]
     assert (
-        request.full_url
-        == "https://bitbucket.example.test/rest/api/1.0/projects/MAGPIE/repos/magpie/pull-requests?state=OPEN"
+        first_request.full_url
+        == "https://bitbucket.example.test/rest/api/1.0/projects/MAGPIE/repos/magpie/pull-requests?state=OPEN&start=0"
     )
-    assert result == {"values": []}
+    assert (
+        second_request.full_url
+        == "https://bitbucket.example.test/rest/api/1.0/projects/MAGPIE/repos/magpie/pull-requests?state=OPEN&start=25"
+    )
+    assert [item["id"] for item in result["values"]] == [1, 2]
 
 
-@patch("urllib.request.urlopen")
-def test_datacenter_get_pull_request_url(mock_urlopen: MagicMock, datacenter_env: None) -> None:
-    mock_urlopen.return_value.__enter__.return_value = make_mock_response({"id": 9, "title": "Fix tests"})
+@patch("urllib.request.build_opener")
+def test_datacenter_get_pull_request_url(mock_build_opener: MagicMock, datacenter_env: None) -> None:
+    opener = mock_opener(mock_build_opener, {"id": 9, "title": "Fix tests"})
     result = datacenter.get_pull_request(load_config(), "9")
 
-    request = mock_urlopen.call_args.args[0]
+    request = opener.open.call_args.args[0]
     assert (
         request.full_url
         == "https://bitbucket.example.test/rest/api/1.0/projects/MAGPIE/repos/magpie/pull-requests/9"
@@ -165,15 +207,16 @@ def test_normalize_cloud_repository() -> None:
     assert result["id"] == "{abc}"
     assert result["main_branch"] == "main"
     assert result["links"]["html"] == "https://bitbucket.org/apache/magpie"
+    assert result["capabilities"]["issues"] == "not_implemented"
 
 
-def test_normalize_datacenter_repository() -> None:
+def test_normalize_datacenter_repository_accepts_string_default_branch() -> None:
     raw = {
         "id": 101,
         "name": "Magpie",
         "slug": "magpie",
         "public": False,
-        "defaultBranch": {"displayId": "main"},
+        "defaultBranch": "refs/heads/main",
         "links": {"self": [{"href": "https://bitbucket.example.test/projects/MAGPIE/repos/magpie"}]},
     }
 
@@ -182,7 +225,7 @@ def test_normalize_datacenter_repository() -> None:
     assert result["backend"] == "bitbucket-datacenter"
     assert result["id"] == "101"
     assert result["is_private"] is True
-    assert result["main_branch"] == "main"
+    assert result["main_branch"] == "refs/heads/main"
 
 
 def test_normalize_cloud_pull_request() -> None:
@@ -208,10 +251,13 @@ def test_normalize_cloud_pull_request() -> None:
     assert result["source"] == "fix-docs"
     assert result["target"] == "main"
     assert result["mergeable"] == "unknown"
-    assert result["checks"] == []
+    assert result["checks"] == "none"
+    assert result["diff"] is None
+    assert result["commits"] is None
+    assert result["labels"] == ["bitbucket", "read-only", "partial-change-request"]
 
 
-def test_normalize_datacenter_pull_request() -> None:
+def test_normalize_datacenter_pull_request_timestamp() -> None:
     raw = {
         "id": 13,
         "title": "Fix tests",
@@ -235,6 +281,8 @@ def test_normalize_datacenter_pull_request() -> None:
     assert result["author"] == "Bob"
     assert result["source"] == "fix-tests"
     assert result["target"] == "main"
+    assert result["created"] == "2026-05-28T20:26:40Z"
+    assert result["updated"] == "2026-05-28T20:26:41Z"
 
 
 def test_normalize_pull_request_list() -> None:
@@ -248,6 +296,7 @@ def test_normalize_pull_request_list() -> None:
     result = pull_request_list("cloud", raw)
 
     assert result["backend"] == "bitbucket-cloud"
+    assert result["coverage"] == "read-only-partial-change-request"
     assert [item["id"] for item in result["pull_requests"]] == ["1", "2"]
     assert [item["state"] for item in result["pull_requests"]] == ["open", "merged"]
 

@@ -28,9 +28,27 @@ import urllib.request
 from dataclasses import dataclass
 from typing import Any
 
+DEFAULT_TIMEOUT_SECONDS = 30
+_ALLOWED_AUTH_SCHEMES = {"basic", "bearer"}
+
 
 class BitbucketError(Exception):
     """Raised when the Bitbucket bridge cannot complete a request."""
+
+
+class NoAuthRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Reject redirects so Authorization is not forwarded to another host."""
+
+    def redirect_request(
+        self,
+        req: urllib.request.Request,
+        fp: Any,
+        code: int,
+        msg: str,
+        headers: Any,
+        newurl: str,
+    ) -> urllib.request.Request | None:
+        raise BitbucketError(f"Bitbucket request redirected to {newurl}; refusing to forward credentials")
 
 
 @dataclass(frozen=True)
@@ -59,7 +77,7 @@ def load_config() -> BitbucketConfig:
         kind=kind,
         token=os.environ.get("BITBUCKET_TOKEN"),
         auth_scheme=os.environ.get("BITBUCKET_AUTH_SCHEME", default_auth_scheme),
-        username=os.environ.get("BITBUCKET_USERNAME"),
+        username=os.environ.get("BITBUCKET_CLOUD_USER"),
         workspace=os.environ.get("BITBUCKET_WORKSPACE"),
         repo_slug=os.environ.get("BITBUCKET_REPO_SLUG"),
         base_url=os.environ.get("BITBUCKET_BASE_URL"),
@@ -84,16 +102,20 @@ def make_auth_header(config: BitbucketConfig) -> str:
     token = require(config.token, "BITBUCKET_TOKEN")
     scheme = config.auth_scheme.strip()
 
+    if scheme.lower() not in _ALLOWED_AUTH_SCHEMES:
+        raise BitbucketError("BITBUCKET_AUTH_SCHEME must be 'Basic' or 'Bearer'")
+
     if scheme.lower() == "basic":
-        username = require(config.username, "BITBUCKET_USERNAME")
+        username = require(config.username, "BITBUCKET_CLOUD_USER")
         raw = f"{username}:{token}".encode()
         return f"Basic {base64.b64encode(raw).decode('ascii')}"
 
-    return f"{scheme} {token}"
+    return f"Bearer {token}"
 
 
 def get_json(url: str, config: BitbucketConfig) -> dict[str, Any]:
     """GET a Bitbucket API URL and parse the JSON response."""
+    _require_https(url)
     request = urllib.request.Request(
         url,
         headers={
@@ -103,20 +125,35 @@ def get_json(url: str, config: BitbucketConfig) -> dict[str, Any]:
         method="GET",
     )
 
+    opener = urllib.request.build_opener(NoAuthRedirectHandler)
+
     try:
-        with urllib.request.urlopen(request) as response:
+        with opener.open(request, timeout=DEFAULT_TIMEOUT_SECONDS) as response:
             body = response.read().decode("utf-8")
             parsed = json.loads(body)
             if not isinstance(parsed, dict):
                 raise BitbucketError(f"Expected JSON object from {url}")
             return parsed
+    except BitbucketError:
+        raise
     except urllib.error.HTTPError as exc:
         message = _read_http_error(exc)
         raise BitbucketError(f"Bitbucket request failed with HTTP {exc.code}: {message}") from exc
     except urllib.error.URLError as exc:
         raise BitbucketError(f"Failed to connect to Bitbucket: {exc.reason}") from exc
+    except TimeoutError as exc:
+        raise BitbucketError(
+            f"Timed out while connecting to Bitbucket after {DEFAULT_TIMEOUT_SECONDS}s"
+        ) from exc
     except json.JSONDecodeError as exc:
         raise BitbucketError(f"Failed to parse JSON response from {url}") from exc
+
+
+def _require_https(url: str) -> None:
+    """Require HTTPS for Bitbucket API URLs."""
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme != "https":
+        raise BitbucketError("Bitbucket API URLs must use HTTPS")
 
 
 def _read_http_error(exc: urllib.error.HTTPError) -> str:

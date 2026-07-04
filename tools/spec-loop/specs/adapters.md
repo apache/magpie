@@ -2,7 +2,7 @@
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
 ---
-title: Adapters (Gmail / PonyMail / Jira / GitHub / mail-source / SourceHut / maildir / VCS / change-request)
+title: Adapters (Gmail / PonyMail / Jira / GitHub / Bitbucket / mail-source / SourceHut / maildir / VCS / change-request)
 status: experimental
 kind: feature
 mode: infra
@@ -10,7 +10,7 @@ source: >
   MISSION.md § Rationale ("ASF integrations live behind clean
   configuration boundaries; non-ASF adopters swap them") and § Technical
   scope (extensible adapter layer). Implemented in tools/gmail/,
-  tools/ponymail/, tools/jira/, tools/github/, tools/mail-source/,
+  tools/ponymail/, tools/jira/, tools/github/, tools/bitbucket/, tools/mail-source/,
   tools/sourcehut/, tools/maildir/, tools/vcs/, tools/change-request/,
   tools/asf-svn/, tools/mail-archive/, tools/mail-patch/,
   tools/jira-patch/, tools/forwarder-relay/, tools/github-body-field/,
@@ -24,7 +24,7 @@ acceptance:
     redactor before any LLM read.
 ---
 
-# Adapters (Gmail / PonyMail / Jira / GitHub / SourceHut / maildir / VCS / change-request)
+# Adapters (Gmail / PonyMail / Jira / GitHub / Bitbucket / SourceHut / maildir / VCS / change-request)
 
 ## What it does
 
@@ -47,6 +47,12 @@ by swapping the adapter, not the skill.
   Sub-adapters: `tools/github-body-field/` (reads GitHub issue/PR body
   structured field sets) and `tools/github-rollup/` (aggregates
   multi-repo PR state into a single view).
+- `tools/bitbucket/` — initial read-only Bitbucket Cloud and Bitbucket
+  Data Center bridge foundation. Supports repository metadata reads, open
+  pull-request listing, and single pull-request fetching behind one CLI
+  surface. It is not a complete `contract:change-request` backend yet;
+  deeper Jira handoff, issue operations, review/merge writes, branch
+  permissions, and Pipelines status remain tracked in #606.
 - `tools/sourcehut/` — SourceHut (sr.ht) forge bridge: ticket tracking
   (`todo.sr.ht`), mailing-list patchset review (`lists.sr.ht`), CI build
   status (`builds.sr.ht`), and repository reads (`git.sr.ht`/`hg.sr.ht`)
@@ -126,7 +132,7 @@ by swapping the adapter, not the skill.
 ## Validation
 
 ```bash
-for t in gmail maildir ponymail jira github; do
+for t in gmail maildir ponymail jira github bitbucket; do
   uv run --project tools/$t --group dev pytest || echo "check tools/$t test setup"
 done
 uv run --project tools/vcs --group dev pytest || echo "check tools/vcs test setup"
@@ -136,6 +142,9 @@ uv run --project tools/vcs --group dev pytest || echo "check tools/vcs test setu
 
 - `experimental` overall — adapter coverage varies; a new adopter system
   (e.g. GitLab, a different mail backend) is a gap the plan pass records.
+- **Bitbucket adapter is new and intentionally partial.** `tools/bitbucket/`
+  currently provides read-only repository and pull-request discovery only;
+  #606 remains open for full tracker/change-request coverage.
 - **SourceHut adapter is new and untested end-to-end.** `tools/sourcehut/`
   ships the GraphQL-based bridge (ticket, patchset, CI, repo), but no
   adopter pilot has exercised it; signal/roster heuristics may change.

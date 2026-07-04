@@ -39,11 +39,36 @@ def get_repository(config: BitbucketConfig) -> dict[str, Any]:
 
 
 def list_open_pull_requests(config: BitbucketConfig) -> dict[str, Any]:
-    """List open pull requests from Bitbucket Data Center."""
+    """List all open pull requests from Bitbucket Data Center."""
     project_key = quote_path(require(config.project_key, "BITBUCKET_PROJECT_KEY"))
     repo_slug = quote_path(require(config.repo_slug, "BITBUCKET_REPO_SLUG"))
-    url = f"{_api_base(config)}/projects/{project_key}/repos/{repo_slug}/pull-requests?state=OPEN"
-    return get_json(url, config)
+    base_url = f"{_api_base(config)}/projects/{project_key}/repos/{repo_slug}/pull-requests"
+
+    start = 0
+    combined: dict[str, Any] = {
+        "values": [],
+        "paginated": True,
+        "pages": [],
+    }
+
+    while True:
+        page = get_json(f"{base_url}?state=OPEN&start={start}", config)
+        combined["pages"].append(page)
+
+        values = page.get("values")
+        if isinstance(values, list):
+            combined["values"].extend(item for item in values if isinstance(item, dict))
+
+        if page.get("isLastPage") is True:
+            break
+
+        next_start = page.get("nextPageStart")
+        if not isinstance(next_start, int):
+            break
+
+        start = next_start
+
+    return combined
 
 
 def get_pull_request(config: BitbucketConfig, pull_request_id: str) -> dict[str, Any]:

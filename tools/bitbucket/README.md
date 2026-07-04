@@ -18,18 +18,19 @@
 
 # Bitbucket forge bridge
 
-**Capability:** contract:tracker + contract:change-request
+**Capability:** contract:change-request
 
 **Kind:** implementation
 
 **Vendor:** Atlassian
 
 Bitbucket Cloud and Bitbucket Data Center bridge for Magpie adopters
-that use Bitbucket as a forge, pull-request review surface, issue
-tracker, or Jira-paired Atlassian backend.
+that use Bitbucket as a forge, pull-request review surface, or Jira-paired Atlassian backend.
 
 This initial bridge provides a read-only foundation for repository
-metadata and pull-request discovery/fetching. Later PRs can extend the
+metadata and pull-request discovery/fetching. It is not a complete
+`contract:change-request` backend yet; #606 remains open for the
+remaining Bitbucket/Jira workflow coverage. Later PRs can extend the
 same adapter with write operations, Bitbucket Issues, linked Jira
 handoff, branch permissions, and Pipelines status reads.
 
@@ -37,8 +38,8 @@ handoff, branch permissions, and Pipelines status reads.
 
 - **Runtime:** Python 3.11+ run via `uv`; the bridge uses the Python standard library at runtime.
 - **CLIs:** `uv` to run the bridge and its tests; no Bitbucket-specific CLI is required.
-- **Credentials / auth:** `BITBUCKET_TOKEN` is required for authenticated Bitbucket API calls. Bitbucket Cloud also needs `BITBUCKET_USERNAME`; Data Center uses `BITBUCKET_AUTH_SCHEME=Bearer` by default.
-- **Network:** Bitbucket Cloud reaches `api.bitbucket.org`; Bitbucket Data Center reaches the configured `BITBUCKET_BASE_URL`.
+- **Credentials / auth:** `BITBUCKET_TOKEN` is required for authenticated Bitbucket API calls. Bitbucket Cloud also needs `BITBUCKET_CLOUD_USER`; Data Center uses `BITBUCKET_AUTH_SCHEME=Bearer` by default.
+- **Network:** Bitbucket Cloud reaches `api.bitbucket.org`; Bitbucket Data Center reaches the configured `BITBUCKET_BASE_URL`. Adopters using Data Center must explicitly allow their own Bitbucket host in the secure egress configuration.
 - **Optional:** `pytest`, `ruff`, and `mypy` run through `uv` for the test/type/lint harness.
 
 ## Features
@@ -81,9 +82,9 @@ the bridge does not read `<project-config>/` files directly.
 | Variable | Required for | Description |
 |---|---|---|
 | `BITBUCKET_KIND` | all commands | `cloud` or `datacenter`. Defaults to `cloud`. |
-| `BITBUCKET_TOKEN` | authenticated API calls | API token, app password, or personal access token accepted by the selected backend. |
+| `BITBUCKET_TOKEN` | authenticated API calls | API token or personal access token accepted by the selected backend. For Bitbucket Cloud, use minimum read scopes for repositories and pull requests. |
 | `BITBUCKET_AUTH_SCHEME` | all commands | Authentication scheme. Defaults to `Basic` for Cloud and `Bearer` for Data Center. |
-| `BITBUCKET_USERNAME` | Cloud Basic auth | Bitbucket Cloud username or Atlassian account identifier used with `BITBUCKET_TOKEN`. |
+| `BITBUCKET_CLOUD_USER` | Cloud Basic auth | Atlassian account email/user used with `BITBUCKET_TOKEN`. |
 | `BITBUCKET_WORKSPACE` | Cloud | Bitbucket Cloud workspace slug. |
 | `BITBUCKET_REPO_SLUG` | Cloud and Data Center | Repository slug. |
 | `BITBUCKET_BASE_URL` | Data Center | Base URL of the Bitbucket Data Center instance. |
@@ -112,7 +113,7 @@ then invoke the write command.
 
 Follow-up PRs can extend this bridge with:
 
-- Bitbucket issue read/write operations.
+- Bitbucket issue read/write operations, which will add tracker coverage.
 - Linked Jira issue handoff through `tools/jira/`.
 - Pull-request comment, review, approve, decline, and merge operations.
 - Branch restriction and permission reads.

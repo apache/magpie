@@ -39,6 +39,7 @@ ALLOW_EXACT: frozenset[str] = frozenset(
     {
         "github.com",
         "api.github.com",
+        "api.bitbucket.org",
         "pypi.org",
         "docs.google.com",
         "nvd.nist.gov",

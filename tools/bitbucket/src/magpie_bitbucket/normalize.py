@@ -19,7 +19,10 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Any
+
+READ_ONLY_LABELS = ["bitbucket", "read-only", "partial-change-request"]
 
 
 def repository(kind: str, raw: dict[str, Any]) -> dict[str, Any]:
@@ -34,6 +37,12 @@ def repository(kind: str, raw: dict[str, Any]) -> dict[str, Any]:
             "is_private": raw.get("is_private"),
             "main_branch": _cloud_main_branch(raw),
             "links": _cloud_links(raw),
+            "capabilities": {
+                "repository_metadata": "read",
+                "pull_requests": "read",
+                "issues": "not_implemented",
+                "writes": "not_implemented",
+            },
             "raw": raw,
         }
 
@@ -46,12 +55,18 @@ def repository(kind: str, raw: dict[str, Any]) -> dict[str, Any]:
         "is_private": _datacenter_private(raw),
         "main_branch": _datacenter_main_branch(raw),
         "links": _datacenter_links(raw),
+        "capabilities": {
+            "repository_metadata": "read",
+            "pull_requests": "read",
+            "issues": "not_implemented",
+            "writes": "not_implemented",
+        },
         "raw": raw,
     }
 
 
 def pull_request_summary(kind: str, raw: dict[str, Any]) -> dict[str, Any]:
-    """Normalize one pull request as a change-request proposal summary."""
+    """Normalize one pull request as a read-only change-request summary."""
     if kind == "cloud":
         return {
             "backend": "bitbucket-cloud",
@@ -59,11 +74,12 @@ def pull_request_summary(kind: str, raw: dict[str, Any]) -> dict[str, Any]:
             "title": raw.get("title"),
             "author": _cloud_user(raw.get("author")),
             "state": _normalize_state(raw.get("state")),
-            "created": raw.get("created_on"),
-            "updated": raw.get("updated_on"),
+            "created": _cloud_timestamp(raw.get("created_on")),
+            "updated": _cloud_timestamp(raw.get("updated_on")),
             "source": _cloud_branch(raw.get("source")),
             "target": _cloud_branch(raw.get("destination")),
             "permalink": _cloud_link(raw, "html"),
+            "labels": READ_ONLY_LABELS,
         }
 
     return {
@@ -72,20 +88,23 @@ def pull_request_summary(kind: str, raw: dict[str, Any]) -> dict[str, Any]:
         "title": raw.get("title"),
         "author": _datacenter_user(raw.get("author")),
         "state": _normalize_state(raw.get("state")),
-        "created": raw.get("createdDate"),
-        "updated": raw.get("updatedDate"),
+        "created": _epoch_millis_to_iso(raw.get("createdDate")),
+        "updated": _epoch_millis_to_iso(raw.get("updatedDate")),
         "source": _datacenter_branch(raw.get("fromRef")),
         "target": _datacenter_branch(raw.get("toRef")),
         "permalink": _datacenter_link(raw),
+        "labels": READ_ONLY_LABELS,
     }
 
 
 def pull_request(kind: str, raw: dict[str, Any]) -> dict[str, Any]:
-    """Normalize one pull request as a change-request proposal."""
+    """Normalize one pull request as a read-only change-request proposal."""
     summary = pull_request_summary(kind, raw)
     summary["description"] = raw.get("description")
     summary["mergeable"] = "unknown"
-    summary["checks"] = []
+    summary["checks"] = "none"
+    summary["diff"] = None
+    summary["commits"] = None
     summary["raw"] = raw
     return summary
 
@@ -98,6 +117,7 @@ def pull_request_list(kind: str, raw: dict[str, Any]) -> dict[str, Any]:
 
     return {
         "backend": "bitbucket-cloud" if kind == "cloud" else "bitbucket-datacenter",
+        "coverage": "read-only-partial-change-request",
         "pull_requests": [pull_request_summary(kind, item) for item in values if isinstance(item, dict)],
         "raw": raw,
     }
@@ -122,12 +142,24 @@ def _normalize_state(value: object) -> str:
     return state or "unknown"
 
 
+def _cloud_timestamp(value: object) -> str | None:
+    """Return a Cloud timestamp string when present."""
+    return _string(value)
+
+
+def _epoch_millis_to_iso(value: object) -> str | None:
+    """Convert Bitbucket Data Center epoch milliseconds to UTC ISO-8601."""
+    if isinstance(value, int | float):
+        return datetime.fromtimestamp(value / 1000, tz=UTC).isoformat().replace("+00:00", "Z")
+    return _string(value)
+
+
 def _cloud_main_branch(raw: dict[str, Any]) -> str | None:
     mainbranch = raw.get("mainbranch")
     if isinstance(mainbranch, dict):
         value = mainbranch.get("name")
         return _string(value)
-    return None
+    return _string(mainbranch)
 
 
 def _cloud_links(raw: dict[str, Any]) -> dict[str, str]:
@@ -172,7 +204,7 @@ def _datacenter_main_branch(raw: dict[str, Any]) -> str | None:
     branch = raw.get("defaultBranch")
     if isinstance(branch, dict):
         return _string(branch.get("displayId") or branch.get("id"))
-    return None
+    return _string(branch)
 
 
 def _datacenter_links(raw: dict[str, Any]) -> dict[str, str]:

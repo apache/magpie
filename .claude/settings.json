@@ -30,6 +30,7 @@
       "allowedDomains": [
         "github.com",
         "api.github.com",
+        "api.bitbucket.org",
         "raw.githubusercontent.com",
         "objects.githubusercontent.com",
         "codeload.github.com",
