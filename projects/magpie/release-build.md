@@ -39,11 +39,11 @@ git archive --format=zip \
 ```
 
 Files that must not ship in the source release (CI config, editor
-metadata) should be marked `export-ignore` in a root `.gitattributes`
-so `git archive` drops them. **TODO:** add `.gitattributes` with the
-`export-ignore` set before the first RC.
+metadata) are marked `export-ignore` in the root
+[`.gitattributes`](../../.gitattributes), so `git archive` drops them.
 [Apache RAT](https://creadur.apache.org/rat/) (run by
-`release-verify-rc`) is the authoritative check on artefact contents.
+`release-verify-rc`) is the authoritative check on artefact contents;
+extend the `export-ignore` set if RAT flags anything on the first RC.
 
 ## Expected artefact list
 

@@ -1,0 +1,18 @@
+# Files excluded from the source release artefact.
+# `git archive` (used by release-rc-cut / release-build.md to build
+# apache-magpie-<version>-source.zip) honours `export-ignore`, so the
+# paths below are kept out of the signed source .zip that the [VOTE]
+# votes on. Keep this list to VCS/CI/editor metadata — never source.
+
+.gitattributes      export-ignore
+.gitignore          export-ignore
+.github/            export-ignore
+.idea/              export-ignore
+.agents/            export-ignore
+.pre-commit-config.yaml export-ignore
+.lychee.toml        export-ignore
+.lycheecache        export-ignore
+.markdownlint.json  export-ignore
+.typos.toml         export-ignore
+.zizmor.yml         export-ignore
+.apache-magpie.session-state.json export-ignore

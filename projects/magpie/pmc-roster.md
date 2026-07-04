@@ -3,8 +3,8 @@
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
 - [Apache Magpie: PMC roster](#apache-magpie-pmc-roster)
-  - [Chair](#chair)
-  - [PMC members](#pmc-members)
+  - [Roster](#roster)
+  - [Resolution](#resolution)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -13,52 +13,84 @@
 
 # Apache Magpie: PMC roster
 
-The PMC member roster `release-vote-tally` reads to classify `[VOTE]`
-replies as **binding** (PMC member) vs **non-binding**. Template:
-[`projects/_template/pmc-roster.md`](../_template/pmc-roster.md).
+The PMC roster `release-vote-tally` reads to classify each `[VOTE]`
+reply as binding (PMC member) or non-binding (committer / community).
+Template: [`projects/_template/pmc-roster.md`](../_template/pmc-roster.md).
 
-Source of truth for the roster is the official ASF committee roster
+Authoritative source is the project's official committee roster
 (`https://whimsy.apache.org/roster/committee/magpie`). This file
-mirrors it for the skills; keep it in sync. The roster below reflects
-the founding PMC recorded in [`MISSION.md`](../../MISSION.md).
+mirrors it so the tally skill can resolve a `From:` address without
+hitting LDAP every run. Keep it in sync; membership changes land in
+Whimsy first. The roster below reflects the founding PMC recorded in
+[`MISSION.md`](../../MISSION.md).
 
-**A `+1` from a PMC member is binding.** Votes from anyone not on this
-list are counted as non-binding (community) votes.
+## Roster
 
-## Chair
+| Apache ID | Name | Primary email | Binding since |
+|---|---|---|---|
+| `potiuk` | Jarek Potiuk (Chair) | `potiuk@apache.org` | `[resolution]` |
+| `pkarwasz` | Piotr Karwasz | `pkarwasz@apache.org` | `[resolution]` |
+| `eladkal` | Elad Kalif | `eladkal@apache.org` | `[resolution]` |
+| `zeroshade` | Matthew Topol | `zeroshade@apache.org` | `[resolution]` |
+| `gopidesu` | Pavan Kumar Gopidesu | `gopidesu@apache.org` | `[resolution]` |
+| `amoghdesai` | Amogh Desai | `amoghdesai@apache.org` | `[resolution]` |
+| `akm` | Andrew Musselman | `akm@apache.org` | `[resolution]` |
+| `jmclean` | Justin Mclean | `jmclean@apache.org` | `[resolution]` |
+| `jbonofre` | Jean-Baptiste Onofré | `jbonofre@apache.org` | `[resolution]` |
+| `paulk` | Paul King | `paulk@apache.org` | `[resolution]` |
+| `rusackas` | Evan Rusackas | `rusackas@apache.org` | `[resolution]` |
+| `russellspitzer` | Russell Spitzer | `russellspitzer@apache.org` | `[resolution]` |
+| `iemejia` | Ismael Mejia | `iemejia@apache.org` | `[resolution]` |
+| `tison` | Zili Chen (tison) | `tison@apache.org` | `[resolution]` |
+| `jamesfredley` | James Fredley | `jamesfredley@apache.org` | `[resolution]` |
+| `kirs` | Calvin Kirs | `kirs@apache.org` | `[resolution]` |
+| `rbowen` | Rich Bowen | `rbowen@apache.org` | `[resolution]` |
+| `mdrob` | Mike Drob | `mdrob@apache.org` | `[resolution]` |
+| `clr` | Craig L Russell | `clr@apache.org` | `[resolution]` |
+| `csutherl` | Coty Sutherland | `csutherl@apache.org` | `[resolution]` |
+| `remm` | Rémy Maucherat | `remm@apache.org` | `[resolution]` |
+| `rzo1` | Richard Zowalla | `rzo1@apache.org` | `[resolution]` |
 
-| Name | Apache ID |
-|---|---|
-| Jarek Potiuk | `potiuk` |
+**A `+1` from a PMC member is binding; from anyone not on this roster,
+non-binding.**
 
-## PMC members
+A `[VOTE]` reply counts as binding when:
 
-| Name | Apache ID |
-|---|---|
-| Jarek Potiuk | `potiuk` |
-| Piotr Karwasz | `pkarwasz` |
-| Elad Kalif | `eladkal` |
-| Matthew Topol | `zeroshade` |
-| Pavan Kumar Gopidesu | `gopidesu` |
-| Amogh Desai | `amoghdesai` |
-| Andrew Musselman | `akm` |
-| Justin Mclean | `jmclean` |
-| Jean-Baptiste Onofré | `jbonofre` |
-| Paul King | `paulk` |
-| Evan Rusackas | `rusackas` |
-| Russell Spitzer | `russellspitzer` |
-| Ismael Mejia | `iemejia` |
-| Zili Chen (tison) | `tison` |
-| James Fredley | `jamesfredley` |
-| Calvin Kirs | `kirs` |
-| Rich Bowen | `rbowen` |
-| Mike Drob | `mdrob` |
-| Craig L Russell | `clr` |
-| Coty Sutherland | `csutherl` |
-| Rémy Maucherat | `remm` |
-| Richard Zowalla | `rzo1` |
+1. The `From:` address matches a row's `Primary email` exactly, **or**
+2. The `From:` address contains `@apache.org` and the local part
+   matches a row's `Apache ID` exactly.
+
+Rule (2) is the fallback because PMC members occasionally vote from
+`<id>@apache.org` rather than the `Primary email` recorded here.
+
+> [!IMPORTANT]
+> `Primary email` is set to each member's `@apache.org` address, so
+> rules (1) and (2) both resolve an `@apache.org` vote. **A member who
+> intends to vote from a personal Gmail or corporate address MUST have
+> that address added to their `Primary email` here before the 0.1.0
+> `[VOTE]`** — otherwise neither rule matches and their `+1` tallies
+> non-binding. `Binding since` is `[resolution]` for the founding
+> roster; replace with the establishment-resolution date once
+> confirmed (informational only; not used for resolution).
+
+## Resolution
+
+`release-vote-tally`'s resolution algorithm:
+
+1. Normalise the `From:` header to `local@domain` form.
+2. Try exact match against `Primary email` (case-insensitive).
+3. If `domain == apache.org`, try the local part against the
+   `Apache ID` column.
+4. If neither hits, the vote is classified non-binding, flagged
+   `BINDING-CANDIDATE-UNRESOLVED`, and surfaced for RM review; the
+   skill refuses to count it until the RM updates this roster or
+   confirms the vote is non-binding.
+
+The roster is the source of truth for the tally skill. The skill never
+infers binding status from message content (a sign-off that says "PMC
+member" does not promote a non-roster voter to binding).
 
 > [!NOTE]
-> This roster reflects the founding PMC per `MISSION.md`. Reconcile
-> against the Whimsy roster before relying on it for a binding tally —
-> membership changes (additions, emeritus) land in Whimsy first.
+> Reconcile against the Whimsy roster before relying on this for a
+> binding tally. Membership changes (additions, emeritus) land in
+> Whimsy first.

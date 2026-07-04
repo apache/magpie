@@ -33,15 +33,16 @@ mandatory ASF approval + announce mechanisms (`dev-list-vote`,
 `announce-list`).
 
 > [!IMPORTANT]
-> **Distribution backend = `atr` (Apache Trusted Releases).** Magpie
-> cuts releases through the [ATR platform](https://release-test.apache.org/)
-> per the [ATR release runbook](../../docs/release-management/atr-release-runbook.md).
-> ATR is in **alpha**; this backend selection is **pending PMC
-> ratification**. Until the PMC ratifies ATR on `dev@`, the
-> [`svnpubsub` runbook](../../docs/release-management/svn-release-runbook.md)
-> is the fallback and `release_dist_backend` may be switched to
-> `svnpubsub` without any other change to this file — the approval and
-> announce mechanisms are backend-independent.
+> **Distribution backend = `svnpubsub`** (the ASF-ratified default),
+> per the [`svnpubsub` runbook](../../docs/release-management/svn-release-runbook.md).
+> **Apache Trusted Releases (ATR) is the intended direction** and is
+> fully documented in the [ATR release runbook](../../docs/release-management/atr-release-runbook.md),
+> but ATR is in **alpha** and its adoption is **pending a PMC
+> ratification vote on `dev@`**. Until that vote passes,
+> `release_dist_backend` stays `svnpubsub`. After ratification, switch
+> the value below to `atr` (and see `atr_platform_url`); no other change
+> to this file is needed, since the approval and announce mechanisms are
+> backend-independent.
 
 ## Identifiers
 
@@ -58,7 +59,7 @@ mandatory ASF approval + announce mechanisms (`dev-list-vote`,
 
 | Key | Value | Allowed values |
 |---|---|---|
-| `release_dist_backend` | `atr` | `svnpubsub`, `atr`, `github-releases`, `s3`, `self-hosted` |
+| `release_dist_backend` | `svnpubsub` | `svnpubsub`, `atr`, `github-releases`, `s3`, `self-hosted` |
 | `release_approval_mechanism` | `dev-list-vote` | `dev-list-vote`, `github-discussion`, `pr-approval`, `maintainer-roster` |
 | `release_announce_backend` | `announce-list` | `announce-list`, `github-release-notes`, `site-post`, `discord-channel` |
 
@@ -66,22 +67,25 @@ As an ASF TLP, Magpie is pinned to `dev-list-vote` (mandatory per
 [release-policy § release approval](https://www.apache.org/legal/release-policy.html#release-approval))
 and `announce-list` (mandatory per
 [release-policy § announcements](https://www.apache.org/legal/release-policy.html#release-announcements)).
-`release_dist_backend = atr` selects the ATR platform for compose /
-check / vote-drive / finish; see the
+`release_dist_backend = svnpubsub` stages the RC under `dist/dev/` and
+promotes to `dist/release/` on `dist.apache.org`; see the
+[`svnpubsub` runbook](../../docs/release-management/svn-release-runbook.md).
+Setting it to `atr` (after PMC ratification) instead drives compose /
+check / vote / finish through the ATR platform; see the
 [ATR release runbook](../../docs/release-management/atr-release-runbook.md).
 
 ## Distribution URLs
 
 | Key | Value |
 |---|---|
-| `atr_platform_url` | `https://release-test.apache.org/` *(alpha; production host will be `release.apache.org`)* |
 | `release_dist_url_template` | `https://dist.apache.org/repos/dist/<bucket>/magpie/<version>/` |
 | `archive_url_template` | `https://archive.apache.org/dist/magpie/` |
+| `atr_platform_url` | `https://release-test.apache.org/` *(only used once `release_dist_backend = atr`; alpha host, production will be `release.apache.org`)* |
 
-Under the `atr` backend the RC lives in ATR's draft/candidate area
-during Compose+Vote; **Finish** publishes to the `dist/release/magpie/`
-area on `dist.apache.org`. `<bucket>` (`dev`/`release`) applies to the
-`svnpubsub` fallback path.
+On the `svnpubsub` default, `<bucket>` resolves to `dev` while the RC
+is staged for the vote and `release` after promotion. On the `atr`
+backend (post-ratification) the RC lives in ATR's draft/candidate area
+during Compose+Vote and **Finish** publishes to `dist/release/magpie/`.
 
 ## Signing
 
@@ -91,8 +95,9 @@ area on `dist.apache.org`. `<bucket>` (`dev`/`release`) applies to the
 | `keyserver` | `keys.openpgp.org` |
 | `rm_key_fingerprint` | *(per-RM; lives in the RM's `user.md` under `release_manager.gpg_fingerprint`)* |
 
-Under `atr`, the committee's public keys are also registered in the ATR
-platform, which validates candidate signatures during Compose (see the
+The RM signs each artefact and the public key must be in `KEYS` (and,
+once `release_dist_backend = atr`, also registered in the ATR platform,
+which validates candidate signatures during Compose — see the ATR
 runbook, Step B). The agent never holds the private key half.
 
 ## Vote
@@ -109,9 +114,10 @@ runbook, Step B). The agent never holds the private key half.
 | `release_approver_roster_path` | `projects/magpie/pmc-roster.md` |
 
 `vote_window_hours` is a floor per
-[release-policy § release approval](https://www.apache.org/legal/release-policy.html#release-approval);
-under `atr` the platform sends the `[VOTE]` and tabulates, but the ≥72h
-window and the binding-vote rule are unchanged.
+[release-policy § release approval](https://www.apache.org/legal/release-policy.html#release-approval).
+The ≥72h window and the binding-vote rule are backend-independent; on
+the `atr` backend the platform sends the `[VOTE]` and tabulates, but the
+window and rule are unchanged.
 
 ## Announce
 
