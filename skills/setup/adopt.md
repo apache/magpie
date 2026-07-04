@@ -279,6 +279,13 @@ Per the chosen method (FRESH) or per the committed lock
   verify, `unzip` to `.apache-magpie/`. Re-fetch
   verification details into `<committed-lock>` (FRESH only).
 
+**Sandboxed agents:** for the `git-branch` / `git-tag` methods
+the clone writes the snapshot's nested `.apache-magpie/.git/`,
+which is in Claude Code's git-internals write-deny set, so the
+clone fails with `operation not permitted`. Only the local
+`.git/` write is blocked (the fetch host is allowlisted) —
+propose a sandbox bypass to the operator before cloning.
+
 If `<snapshot-dir>/` already exists with content, skip the
 fetch — the recipe ran first and left the snapshot in place.
 
