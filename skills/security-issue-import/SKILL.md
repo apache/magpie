@@ -1946,10 +1946,25 @@ media / cross-thread-followup / fix-already-public):
    <!-- rejection v1 -->
    date: <YYYY-MM-DD>
    reporter: <reporter email or display name>
+   title: <thread subject, verbatim — strip Re:/Fwd:>
    canned: <canned-response-slug>
-   thread: <Gmail/PonyMail thread URL or threadId>
+   thread: <mailbox threadId>
+   archive: <stable mail-archive permalink (e.g. lists.apache.org/thread/<hash>), or "unresolved (archive lag)">
    summary: <one-line disposition>
    ```
+
+   Record **`title:`** (the verbatim thread subject) and **`archive:`**
+   (a stable mail-archive permalink) in addition to the mailbox
+   `thread:` id. A bare mailbox threadId resolves only inside the one
+   mailbox that holds it; the archive permalink plus the title make
+   each rejected report archive-locatable and human-scannable for
+   anyone auditing the ledger / the tracker-stats dashboard. Resolve
+   the permalink from the project's configured mail archive (for ASF
+   projects, PonyMail: search the list archive for the thread and take
+   its `lists.apache.org/thread/<hash>` permalink); if the thread is
+   not yet indexed (brand-new inbound mail lags the archive), record
+   `archive: unresolved (archive lag)` and keep the mailbox
+   `thread:` id so a later run can backfill it.
 
    ```bash
    gh api repos/<tracker>/issues/$LEDGER/comments \
