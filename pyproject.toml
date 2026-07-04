@@ -96,6 +96,7 @@ package = false
 members = [
   "tools/agent-guard",
   "tools/agent-isolation",
+  "tools/bitbucket",
   "tools/egress-gateway",
   "tools/cve-tool-vulnogram/generate-cve-json",
   "tools/cve-tool-vulnogram/oauth-api",
