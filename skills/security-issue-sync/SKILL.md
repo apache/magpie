@@ -511,8 +511,12 @@ edits, milestone create / assign / close, assignee swaps, body
 PATCH, rollup append, RM hand-off comment, project-board moves,
 GHSA write paths, Gmail draft creation), the CVE JSON regen flow
 (Step 5 / 5a), the OAuth-API push including the six pre-push
-hygiene gates (Step 5b), and the RM hand-off comment reconciliation
-(Step 5c) all live in [`apply-and-push.md`](apply-and-push.md).
+hygiene gates (Step 5b), the RM hand-off comment reconciliation
+(Step 5c), and the unconditional end-of-sync reconciliation sweep —
+board column / milestone / RM assignee hand-off over every tracker in
+the run (Step 5d) — all live in
+[`apply-and-push.md`](apply-and-push.md).
+
 ## Step 6 — Recap
 
 After the regeneration step finishes, print a short recap:

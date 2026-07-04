@@ -769,3 +769,89 @@ the *Release-manager hand-off comment* and *Publication-ready
 notification comment* bullets there.
 
 ---
+
+## Step 5d — End-of-sync reconciliation sweep (board / milestone / RM hand-off)
+
+After every confirmed per-tracker change has been applied — and
+**before** the Step 6 recap is printed — the sync runs a **final
+reconciliation sweep over every tracker in the run** (single-issue or
+bulk). The sweep guarantees three dimensions are consistent with each
+tracker's label / PR-derived state.
+
+It is **unconditional**: it runs on every sync and is **not** gated on
+whether a matching signal happened to surface in Step 1d earlier in the
+run. The signal-driven proposals in
+[`signals-to-actions.md`](signals-to-actions.md) already move the board
+column, set milestones, and hand off the assignee **when a signal
+fires** — but trackers drift between runs in ways no signal captures: a
+label flipped by hand on the GitHub UI, a release that shipped since the
+last sync, an assignee hand-off announced in a rollup comment but never
+reflected in the assignee field. This sweep is the backstop that keeps
+the board, the milestones, and the assignees honest regardless of
+whether a signal was observed.
+
+Run it over the same tracker set the sync just processed. In bulk mode
+the orchestrator runs it after the sequential apply phase (never inside
+the read-only assessor subagents). For each tracker:
+
+1. **Board `Status` column.** Compute the correct column from the
+   tracker's labels + body per the label→column mapping the adopter
+   declares in
+   [`<project-config>/project.md`](../../<project-config>/project.md),
+   and move any tracker whose current column differs via the
+   `updateProjectV2ItemFieldValue` mutation (introspection + write
+   recipe in
+   [`tools/github/project-board.md`](../../tools/github/project-board.md)).
+   Precedence when several labels coexist: a *needs-triage* marker keeps
+   the tracker in the triage column until a disposition lands
+   (per-adopter — some projects couple `needs triage` with scope, some
+   treat them as independent dimensions; follow the adopter's
+   `project.md`); otherwise the **highest fix-flow state wins**
+   (advisory-shipped › fix-released › pr-merged › pr-created ›
+   cve-allocated › assessed). Closed trackers that have shipped their
+   advisory are **archived off the board**, not recoloured.
+
+2. **Milestone.** Compute the correct milestone from the fix PR's
+   milestone / the shipped release per
+   [`<project-config>/milestones.md`](../../<project-config>/milestones.md)
+   and set/correct any drift. **Never guess** a due date or a release
+   date — if the correct milestone is ambiguous, or would require
+   creating a new milestone on an unknown date, **flag it in the recap
+   for confirmation** rather than auto-creating (creating a milestone on
+   a documented, unambiguous date is fine). Pre-release trackers (no
+   shipped version yet) correctly keep an empty milestone; that is not
+   drift.
+
+3. **RM assignee hand-off.** For each tracker at `fix released` (or
+   transitioning to it this run), if the assignee is still the
+   remediation developer, **swap it to the release manager** for the
+   shipping release — looked up via the three-source cascade in Step 2c
+   (the "Known release managers" subsection of
+   [`AGENTS.md`](../../AGENTS.md) → the project's Release Plan wiki →
+   the `[RESULT][VOTE] Release <product> <version>` thread on
+   `<dev-list>`). Reaching `Fix released` hands ownership to the RM for
+   Steps 13–15, so the **board column and the assignee move together** —
+   the RM hand-off is part of the board move, not a separate
+   afterthought. **Always hand off** at `fix released`, even when the
+   fix is incomplete or a follow-up is still open: in that case still
+   swap the assignee to the RM **and post a guard note** on the tracker
+   (`@`-mention the RM) telling them to **hold advisory publication**
+   until the follow-up merges. A withheld assignee is the wrong signal —
+   the RM is the owner at `fix released`; the note, not a missing
+   hand-off, is how the "don't publish yet" nuance is carried. If the RM
+   is not yet a `<tracker>` collaborator, surface that as a blocker
+   (GitHub silently drops assignee writes for non-collaborators) instead
+   of a silent no-op.
+
+**Confirmation model.** Pure label-derived reconciliation — a column
+move, an RM swap to the *looked-up* release manager, assigning an
+*already-existing* milestone — is the confirmed end-of-sync behaviour
+and does **not** need separate per-item confirmation; the whole point of
+the sweep is that these never silently drift again. Anything that
+**creates** state (a new milestone, an ambiguous release-date choice) or
+that posts an outbound message (the guard note `@`-mentioning the RM)
+still follows the skill's normal propose-before-apply rule. The Step 6
+recap always lists what the sweep moved (column, milestone, assignee)
+per tracker so the operator can eyeball it.
+
+---
