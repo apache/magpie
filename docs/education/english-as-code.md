@@ -8,7 +8,7 @@
 - [English as a programming language](#english-as-a-programming-language)
   - [Words used on this page](#words-used-on-this-page)
   - [The shift in one picture](#the-shift-in-one-picture)
-  - [Precision still matters — it just moves](#precision-still-matters--it-just-moves)
+  - [Precision still matters, it just moves](#precision-still-matters-it-just-moves)
   - [Ambiguity is the new class of bug](#ambiguity-is-the-new-class-of-bug)
   - [Because it's code, treat it like code](#because-its-code-treat-it-like-code)
   - [The compiler is fuzzy, so you test harder](#the-compiler-is-fuzzy-so-you-test-harder)
@@ -21,9 +21,9 @@
 
 # English as a programming language
 
-By now you have worked with an agent, chosen a model, let a task run on its own,
-and written a skill. This page steps back to name the idea underneath all of it —
-the mental shift that makes the whole craft click.
+By now you have worked with an agent, chosen a model, written a skill, tested it
+with evals, and let it run on its own. This page steps back to name the idea
+underneath all of it, the mental shift that makes the whole craft click.
 
 Here it is: when you build with agents, **the words you write are the program**.
 The English (or any natural language) in your prompts and skills is not
@@ -53,20 +53,20 @@ New to some of these words? Here is what they mean here. The
 |---|---|
 | You write code in a formal language | You write instructions in natural language |
 | The compiler is exact and unforgiving | The model is flexible and interprets |
-| A typo fails loudly | A vague phrase fails *quietly*, by doing something plausible-but-wrong |
+| A typo fails loudly | A vague phrase fails *quietly*, by doing something plausible but wrong |
 | You debug logic | You debug *wording and ambiguity* |
-| Tests give a yes/no | Evals give a distribution — better or worse across many inputs |
+| Tests give a yes or no | Evals give a distribution, better or worse across many inputs |
 
 The middle column is where twenty years of habit lives. The right column is the
 new craft. Neither is harder; they fail differently, and you debug them
 differently.
 
-## Precision still matters — it just moves
+## Precision still matters, it just moves
 
 A beginner's hope is that natural language means you can be vague and the model
 will "just get it". The opposite is true. Because the model *will* act on
-whatever you wrote, imprecise words produce imprecise behaviour — and, worse,
-they fail quietly. A compiler rejects a typo with an error. A model reads a woolly
+whatever you wrote, imprecise words produce imprecise behaviour, and, worse, they
+fail quietly. A compiler rejects a typo with an error. A model reads a woolly
 instruction and does something *reasonable-looking* that is not what you meant,
 and you may not notice until it matters.
 
@@ -78,7 +78,7 @@ to *meaning*. Compare:
 against:
 
 > *"An issue is 'stale' if it has had no comment for 90 days and carries no
-> `pinned` label. For each stale issue, draft — do not post — a comment asking
+> `pinned` label. For each stale issue, draft (do not post) a comment asking
 > whether it is still relevant."*
 
 The second leaves the model far less to invent. Every ambiguity you remove is a
@@ -88,9 +88,9 @@ the discipline of hunting down ambiguity and closing it.
 ## Ambiguity is the new class of bug
 
 In ordinary prose, "review the recent changes" is a perfectly clear sentence. As
-an instruction to an agent it hides at least three bugs: *recent* since when?
-*review* how — read them, critique them, summarise them? *the changes* to what?
-Each unstated answer is a place the agent will guess, and it may guess
+an instruction to an agent it hides at least three bugs. *Recent* since when?
+*Review* how, meaning read them, critique them, or summarise them? *The changes*
+to what? Each unstated answer is a place the agent will guess, and it may guess
 differently on Tuesday than it did on Monday.
 
 This is why so much of good skill-writing is really *disambiguation*:
@@ -100,13 +100,13 @@ This is why so much of good skill-writing is really *disambiguation*:
 - **Say what "done" looks like.** A concrete example of a good output removes a
   whole category of guessing.
 - **State the boundaries.** What should the agent *not* do? Where does it stop?
-- **Name the edge cases.** Empty input, malformed input, the "looks like X but is
-  really Y" case — spell out what to do, or the model will improvise.
+- **Name the edge cases.** Empty input, malformed input, and the "looks like X
+  but is really Y" case. Spell out what to do, or the model will improvise.
 
 ## Because it's code, treat it like code
 
 If prose is the program, then everything you already do to keep code healthy
-applies — and Magpie leans into exactly this:
+applies, and Magpie leans into exactly this:
 
 - **Review it.** Skills and prompts are read and critiqued by another person
   before they land, the same as any code (PRINCIPLE 14). A reviewer reads the
@@ -124,13 +124,13 @@ applies — and Magpie leans into exactly this:
 
 ## The compiler is fuzzy, so you test harder
 
-The deepest consequence of this idea: your "compiler" — the model — is
+The deepest consequence of this idea is that your "compiler", the model, is
 *probabilistic*. Give it the same instruction twice and it may act slightly
 differently each time. A real compiler is deterministic, so passing once means
 passing forever. A model is not, so a single successful run tells you almost
 nothing.
 
-That is the whole reason this stream keeps returning to evals. When the language
+That is the whole reason this stream gives evals their own step. When the language
 you program in is executed by something that interprets rather than computes, the
 only way to know your program works is to run it over many representative inputs
 and judge the results as a whole. Evals are not an add-on to programming in
@@ -141,12 +141,12 @@ English; they are the part that makes it *engineering* instead of hoping.
 Hold onto "the words are the program" and the rest of the craft organises itself:
 
 - Vague prompt giving odd results? That is a **bug in your spec**, not a flaky
-  tool — go tighten the words.
+  tool, so go tighten the words.
 - Wondering whether a wording change is safe to ship? **Run the evals**, the same
   as you would run tests on a refactor.
-- Tempted to paste a rule into three skills? That is **copy-paste code smell** —
-  point to one shared source instead.
-- Reviewing someone's skill? You are **reviewing code** — read for ambiguity,
+- Tempted to paste a rule into three skills? That is **copy-paste code smell**,
+  so point to one shared source instead.
+- Reviewing someone's skill? You are **reviewing code**, so read for ambiguity,
   missing edge cases, and unstated assumptions.
 
 The tools are new. The engineering instincts are the ones you already have. This
@@ -154,7 +154,7 @@ page is just the bridge that lets you reuse them.
 
 ## Check your understanding
 
-- Where does "precision" go when you program in English — and why does vagueness
+- Where does "precision" go when you program in English, and why does vagueness
   fail more quietly than a syntax error?
 - Why is ambiguity a *bug* here rather than a harmless feature of prose?
 - Why can't a single successful run tell you a prompt "works"?
@@ -162,13 +162,13 @@ page is just the bridge that lets you reuse them.
 ## How this connects to the other guides
 
 - **[How to write your first skill](your-first-skill.md)** is this idea in
-  practice — a skill is a program written in English.
+  practice: a skill is a program written in English.
 - **[Eval-driven development](eval-driven-development.md)** is the testing half of
   the discipline, and the reason "it ran once" is not enough.
 - **[Pattern catalogue](pattern-catalogue.md)** is the reusable-code library for
   this language: vetted blocks you compose instead of rewriting.
-- **[How to contribute to Magpie](contributing.md)** is where you put it to
-  work — contributing to Magpie *is* programming in English.
+- **[How to contribute to Magpie](contributing.md)** is where you put it to work,
+  because contributing to Magpie *is* programming in English.
 
 ## Licence
 

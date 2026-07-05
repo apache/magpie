@@ -67,11 +67,16 @@ slugs, not numbers (numbering implies an order the specs don't carry).
    The MISSION-named pages have shipped as a flat set; the gap is
    sequencing them into an ordered learning path and filling the missing
    conceptual stages. Restructure `docs/education/` so `README.md` presents
-   the seven-step progression, add the new stages `what-agents-are.md`,
-   `working-with-agents.md`, `choosing-models.md`, `agentic-work.md`,
-   `english-as-code.md`, and `contributing.md`, keep `pattern-catalogue.md`
-   and `eval-driven-development.md` as the skill-writing references, and
-   rename `workshops.md` to `tutorials.md` (retitling its content). Every
+   the eight-step progression (what agents are -> working with agents ->
+   choosing models -> writing skills -> eval-driven development -> agentic
+   work -> English as a programming language -> contributing), add the new
+   stages `what-agents-are.md`, `working-with-agents.md`,
+   `choosing-models.md`, `agentic-work.md`, `english-as-code.md`, and
+   `contributing.md`, promote `eval-driven-development.md` into the numbered
+   spine (step 5), keep `pattern-catalogue.md` and `tutorials.md` as the
+   skill-writing references, and rename `workshops.md` to `tutorials.md`
+   (retitling its content). Skill-writing and evals precede agentic work so
+   autonomy is taught only after a skill is built and tested. Every
    page keeps SPDX headers, project-agnostic placeholders (PRINCIPLE 12),
    and Apache-2.0 licensing (PRINCIPLE 17), cross-links forward/back in the
    progression, and passes doctoc / markdownlint / link checks. This is one

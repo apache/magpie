@@ -25,10 +25,10 @@ words here are new to you, that is normal. Read the short list of words below
 first, then start the progression.
 
 Building software with an AI agent is a new skill, even for people who have
-written code for many years. It is not harder than other coding. It is
-different. This stream is arranged as an **ordered progression**: a path you can
-read front to back, each page assuming only the ones before it. Every Magpie
-release comes with the learning material for the skills in that release
+written code for many years. It is not harder than other coding, but it is
+different. This stream is arranged as an ordered progression: a path you can
+read front to back, where each page assumes only the ones before it. Every
+Magpie release comes with the learning material for the skills in that release
 (PRINCIPLE 18).
 
 ## Who this is for
@@ -55,9 +55,9 @@ New to AI, or to these words? Here is what they mean in Magpie:
 - **Prompt**: the written instructions you give the model.
 - **Skill**: a text file that tells the agent how to do one job, with
   instructions and examples. In Magpie, writing skills is the main work.
-- **Deterministic and probabilistic**: normal code is *deterministic*. The same
-  input always gives the same result. An agent is *probabilistic*. The same
-  input can give slightly different results each time.
+- **Deterministic and probabilistic**: normal code is *deterministic*, so the
+  same input always gives the same result. An agent is *probabilistic*, so the
+  same input can give slightly different results each time.
 - **Eval** (short for evaluation): a test that checks whether the agent's
   answers are good enough.
 
@@ -83,20 +83,20 @@ each builds on the ones before it.
 
 | # | Page | What you will learn |
 |---|---|---|
-| 1 | [What agents are](what-agents-are.md) | What an agent actually is — a model, tools, a loop, and context — and why its answers can vary |
+| 1 | [What agents are](what-agents-are.md) | What an agent actually is (a model, tools, a loop, and context) and why its answers can vary |
 | 2 | [How to work with agents](working-with-agents.md) | Driving an agent through a conversation: how to ask, how to steer, when to confirm |
-| 3 | [How to use different models](choosing-models.md) | Choosing a model by capability, speed, and cost — and letting evals decide |
-| 4 | [Agentic and autonomous work](agentic-work.md) | Letting an agent run a whole task, and the guardrails that make that safe |
-| 5 | [How to write your first skill](your-first-skill.md) | Writing, testing, and merging your own skill — the main work in Magpie |
-| 6 | [English as a programming language](english-as-code.md) | The mindset underneath it all: the words you write *are* the program |
-| 7 | [How to contribute to Magpie](contributing.md) | Giving your work back — contributing skills, patterns, and docs to the framework |
+| 3 | [How to use different models](choosing-models.md) | Choosing a model by capability, speed, and cost, and letting evals decide |
+| 4 | [How to write your first skill](your-first-skill.md) | Writing and merging your own skill, the main work in Magpie |
+| 5 | [Eval-driven development](eval-driven-development.md) | How to judge whether an agent's answers are good, when the answers can change |
+| 6 | [Agentic and autonomous work](agentic-work.md) | Letting an agent run a whole task, and the guardrails that make that safe |
+| 7 | [English as a programming language](english-as-code.md) | The mindset underneath it all: the words you write *are* the program |
+| 8 | [How to contribute to Magpie](contributing.md) | Giving your work back: contributing skills, patterns, and docs to the framework |
 
-**Supporting the skill-writing stage (step 5):**
+**Supporting references for the skill-writing steps (4 and 5):**
 
 | Page | What it is |
 |---|---|
 | [Pattern catalogue](pattern-catalogue.md) | Ready-to-copy skill, prompt, and tool-use patterns, with notes on what worked and what did not |
-| [Eval-driven development](eval-driven-development.md) | How to judge whether an agent's answers are good, when the answers can change |
 | [Tutorials](tutorials.md) | A hands-on lab: build a small skill, give it an eval suite, and run it, in about 90 minutes |
 
 ## What every page also teaches
@@ -117,7 +117,7 @@ follow. You learn them by seeing them used, not as a list of rules to memorise:
 
 - **[magpie-write-skill](../../skills/write-skill/SKILL.md)** is
   the full reference for writing a skill, for someone who already knows the
-  basic shape of one. Step 5, [your first skill](your-first-skill.md), is the
+  basic shape of one. Step 4, [your first skill](your-first-skill.md), is the
   gentle start that gets you to that point.
 - **[tools/privacy-llm/pii.md](../../tools/privacy-llm/pii.md)** lists how
   personal data is removed before it reaches a model. The

@@ -374,13 +374,14 @@ skill you cannot.
 
 ## Where to go next
 
-This is **step 5** in the [learning progression](README.md). Once your first
-skill has landed:
+This is **step 4** in the [learning progression](README.md). The natural next
+step is to make its behaviour testable:
 
-- **[English as a programming language](english-as-code.md)** — step 6: the
-  mindset that makes everything here click, now that you have done it once.
-- **[How to contribute to Magpie](contributing.md)** — step 7: turning this into
-  contributions back to the framework.
+- **[Eval-driven development](eval-driven-development.md)** — step 5: how to judge
+  output that can vary, with worked examples from real Magpie skills. Your skill
+  is not finished until it has an eval suite, so this is the immediate next read.
+- **[Agentic and autonomous work](agentic-work.md)** — step 6: once a skill is
+  written and tested, this is how you let it run without watching every step.
 
 Supporting references for skill-writing:
 
@@ -390,9 +391,7 @@ Supporting references for skill-writing:
   walk-through.
 - **[Pattern catalogue](pattern-catalogue.md)** — ready-to-copy skill, prompt,
   and tool-use patterns.
-- **[Eval-driven development](eval-driven-development.md)** — how to judge output
-  that can vary, with worked examples from real Magpie skills.
-- **[Tutorials](tutorials.md)** — a hands-on lab that puts step 5 into practice
-  end to end.
+- **[Tutorials](tutorials.md)** — a hands-on lab that puts steps 4 and 5 into
+  practice end to end.
 - **[CONTRIBUTING.md](../../CONTRIBUTING.md)** — the framework's contribution
   process, PR conventions, and review expectations.

@@ -17,12 +17,15 @@ acceptance:
   - A docs/education/ landing page exists and is linked from docs/index.md.
   - The landing page presents the material as an ordered learning
     progression: what agents are -> working with agents (conversational)
-    -> choosing models -> agentic / autonomous work -> writing skills ->
-    English as a programming language -> contributing to the framework.
-  - Each progression stage exists as a page. The skill-writing stage keeps
-    the "your first skill" path plus the pattern catalogue and
-    eval-driven-development examples as its supporting references, and the
-    hands-on lab as practice.
+    -> choosing models -> writing skills -> eval-driven development ->
+    agentic / autonomous work -> English as a programming language ->
+    contributing to the framework. Writing and testing a skill precede
+    agentic work, so autonomy is taught only after the reader has built
+    and evaluated a skill.
+  - Each progression stage exists as a page. The skill-writing steps keep
+    the pattern catalogue as a supporting reference and the hands-on lab
+    as practice; eval-driven development is a numbered stage on the main
+    path, not a side reference.
   - The hands-on lab ships as tutorials.md (renamed from workshops.md).
   - The "your first skill" path is beginner-facing onboarding, distinct
     from the write-skill authoring reference.
@@ -67,11 +70,7 @@ it front to back, each page assuming only the ones before it:
   models: the capability / speed / cost trade-off, judge models, local vs
   hosted, and letting evals decide. Model-neutral (skills call a model
   through a supplied command).
-- `docs/education/agentic-work.md` — **step 4.** Agentic and autonomous
-  work: the supervision spectrum and the guardrails (sandbox,
-  propose-confirm-act, data-not-instructions) that make unattended runs
-  safe.
-- `docs/education/your-first-skill.md` — **step 5.** A beginner
+- `docs/education/your-first-skill.md` — **step 4.** A beginner
   "zero-to-merged" path for landing a first working skill, the agentic
   equivalent of a "your first PR" doc. Distinct from the `write-skill`
   skill, which is the authoring *reference* for someone who already knows
@@ -81,18 +80,25 @@ it front to back, each page assuming only the ones before it:
     why. Distinct from the PII pattern catalogue at
     `tools/privacy-llm/pii.md`, which is a redaction reference, not a
     teaching artefact.
-  - `docs/education/eval-driven-development.md` — how to think about
-    correctness when "correct" is a distribution, with worked examples
-    drawn from real Magpie skills and wired to a shared eval methodology
-    (MISSION § Initial Goals) rather than reinvented per page.
   - `docs/education/tutorials.md` — the hands-on lab (renamed from
     `workshops.md`): build a small skill, give it an eval suite, and run
     it, self-paced or run for a group.
-- `docs/education/english-as-code.md` — **step 6.** English as a
+- `docs/education/eval-driven-development.md` — **step 5.** How to think
+  about correctness when "correct" is a distribution, with worked examples
+  drawn from real Magpie skills and wired to a shared eval methodology
+  (MISSION § Initial Goals) rather than reinvented per page. A numbered
+  stage on the main path: a skill is not finished without its eval suite,
+  and agentic work depends on that evidence.
+- `docs/education/agentic-work.md` — **step 6.** Agentic and autonomous
+  work: the supervision spectrum and the guardrails (sandbox,
+  propose-confirm-act, data-not-instructions) that make unattended runs
+  safe. Placed after skill-writing and evals, because autonomy is what a
+  written-and-tested skill unlocks.
+- `docs/education/english-as-code.md` — **step 7.** English as a
   programming language: the mental shift that the words in a prompt or
   skill *are* the program — precision, ambiguity as a bug class, and
   reviewing / versioning / testing prose the way you would code.
-- `docs/education/contributing.md` — **step 7.** How to contribute to the
+- `docs/education/contributing.md` — **step 8.** How to contribute to the
   framework: turning what the reader has learned into a merged change,
   through the framework's contribution process.
 - `docs/education/apache-training/` — the stream repackaged as a
@@ -142,14 +148,15 @@ it front to back, each page assuming only the ones before it:
 ## Acceptance criteria
 
 1. `docs/education/README.md` exists, is linked from `docs/index.md`, and
-   presents the material as the ordered progression (steps 1–7).
-2. Each progression stage exists as a page: `what-agents-are.md`,
-   `working-with-agents.md`, `choosing-models.md`, `agentic-work.md`,
-   `your-first-skill.md`, `english-as-code.md`, and `contributing.md`.
-3. The skill-writing stage keeps its supporting references
-   (`pattern-catalogue.md`, `eval-driven-development.md`) and the hands-on
-   lab `tutorials.md` (renamed from `workshops.md`; no `workshops.md`
-   remains).
+   presents the material as the ordered progression (steps 1–8).
+2. Each progression stage exists as a page, in order: `what-agents-are.md`,
+   `working-with-agents.md`, `choosing-models.md`, `your-first-skill.md`,
+   `eval-driven-development.md`, `agentic-work.md`, `english-as-code.md`,
+   and `contributing.md`. Skill-writing (step 4) and eval-driven
+   development (step 5) precede agentic work (step 6).
+3. The skill-writing steps keep their supporting references
+   (`pattern-catalogue.md` and the hands-on lab `tutorials.md`, renamed
+   from `workshops.md`; no `workshops.md` remains).
 4. The "your first skill" path is beginner onboarding, cross-linked to
    but distinct from `write-skill`.
 5. Pages carry the SPDX header, use placeholders (no concrete adopter

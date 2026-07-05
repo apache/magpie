@@ -23,6 +23,11 @@
 
 # Eval-driven development
 
+This is **step 5** in the [learning progression](README.md). You wrote a skill in
+step 4; this page is how you tell whether it actually works. A skill is not
+finished without an eval suite, and the next step (autonomy) depends on the
+evidence you build here, so this stage sits on the main path, not off to the side.
+
 For a service that returns `200 OK` or throws an error, "correct" is a yes or
 no. For an agentic skill, it is not. A skill that reads a GitHub issue,
 classifies it, drafts a response, and proposes it to a maintainer can be
@@ -422,10 +427,14 @@ In practice this means:
 
 ## How this connects to the other guides
 
-- **[`your-first-skill.md`](your-first-skill.md)** is the starting guide. It
-  covers the mechanics of making an eval suite: the file layout, running the
-  harness, and the case format. This page covers the *design* of evals: what to
-  check, when to use prose grading, and how to think about correctness.
+- **[`your-first-skill.md`](your-first-skill.md)** is step 4, the page before
+  this one. It covers the mechanics of making an eval suite: the file layout,
+  running the harness, and the case format. This page covers the *design* of
+  evals: what to check, when to use prose grading, and how to think about
+  correctness.
+- **[`agentic-work.md`](agentic-work.md)** is step 6, the page after this one.
+  The eval evidence you build here is exactly what lets a skill run
+  autonomously, so evals come first for a reason.
 - **[`tools/skill-evals/README.md`](../../tools/skill-evals/README.md)** is the
   harness reference: every runner flag, the grading modes, and the full case
   format.
