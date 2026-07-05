@@ -21,7 +21,7 @@
 
 # Apache Magpie
 
-[![Magpie](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/johnslavik/magpie/docs/magpie-badge-assets/assets/badge.json)](https://magpie.apache.org/)
+[![Magpie](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/apache/magpie/main/assets/badge.json)](https://magpie.apache.org/)
 
 A reusable, project-agnostic framework for ASF-project automation.
 Currently in development for ASF projects + Python Core team
