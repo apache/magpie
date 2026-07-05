@@ -48,7 +48,7 @@
 | **Reference implementation** | [`apache/magpie`](https://github.com/apache/magpie) |
 | **Related documents** | [`secure-agent-setup.md`](https://github.com/apache/magpie/blob/main/docs/setup/secure-agent-setup.md), [`secure-agent-internals.md`](https://github.com/apache/magpie/blob/main/docs/setup/secure-agent-internals.md) |
 
-> **Note for Confluence editors.** This page combines two source documents (`secure-agent-setup.md` — the adopter install path, and `secure-agent-internals.md` — the threat model and mechanism). Image references (`images/session-*.png`, `images/sandbox-*.png`) point at PNG files in the source repo. Upload them as Confluence attachments and re-link from this page when publishing — the alt-text in each `![…]` reference is enough to reproduce the screenshot if needed.
+> **Note for Confluence editors.** This page combines two source documents (`secure-agent-setup.md` — the adopter install path, and `secure-agent-internals.md` — the threat model and mechanism). Image references (`assets/session-*.png`, `assets/sandbox-*.png`) point at PNG files in the source repo. Upload them as Confluence attachments and re-link from this page when publishing — the alt-text in each `![…]` reference is enough to reproduce the screenshot if needed.
 
 ## Abstract
 
@@ -399,35 +399,35 @@ The repo is **private** for three reasons:
 
 ## What a session looks like
 
-> The five PNG files referenced below live in the [`apache/magpie`](https://github.com/apache/magpie) repo under `images/`. Upload them as Confluence attachments when publishing this RFC.
+> The five PNG files referenced below live in the [`apache/magpie`](https://github.com/apache/magpie) repo under `assets/`. Upload them as Confluence attachments when publishing this RFC.
 
 **1. Sandboxed session — the steady state.**
 
-![session-sandboxed](https://raw.githubusercontent.com/apache/magpie/main/images/session-sandboxed.png)
+![session-sandboxed](https://raw.githubusercontent.com/apache/magpie/main/assets/session-sandboxed.png)
 
 The terminal footer renders `<model> [sandbox]` in green when the active settings set `sandbox.enabled: true`. Bash subprocesses run inside bubblewrap (Linux) or Seatbelt (macOS) and only see paths listed in `sandbox.filesystem.allowRead`.
 
 **2. Unsandboxed session — the failure mode the setup exists to make obvious.**
 
-![session-no-sandbox](https://raw.githubusercontent.com/apache/magpie/main/images/session-no-sandbox.png)
+![session-no-sandbox](https://raw.githubusercontent.com/apache/magpie/main/assets/session-no-sandbox.png)
 
 `[NO SANDBOX]` in bold red means the active settings do not enable the sandbox. The agent's Bash subprocesses run with full access to the host filesystem.
 
 **3. Sandbox-bypass attempt — the per-call signal.**
 
-![Bold red SANDBOX BYPASS banner immediately above the Claude Code permission prompt](https://raw.githubusercontent.com/apache/magpie/main/images/sandbox-bypass-banner.png)
+![Bold red SANDBOX BYPASS banner immediately above the Claude Code permission prompt](https://raw.githubusercontent.com/apache/magpie/main/assets/sandbox-bypass-banner.png)
 
 When the model invokes the Bash tool with `dangerouslyDisableSandbox: true`, the bypass-warn hook prints a bold red banner to stderr **before** the permission prompt renders. Approving the prompt at that point is a deliberate act, not a skim-past click.
 
 **4. Sandbox actually denying a read — proof it is real.**
 
-![sandbox-blocks-read](https://raw.githubusercontent.com/apache/magpie/main/images/sandbox-blocks-read.png)
+![sandbox-blocks-read](https://raw.githubusercontent.com/apache/magpie/main/assets/sandbox-blocks-read.png)
 
 In a sandboxed session **without** bypass, a Bash call that tries to touch a path outside `allowRead` is intercepted by the runtime *before* the bubblewrap / Seatbelt subprocess actually fires. The runtime surfaces the rule that was violated by name (`read ~/Downloads (outside allowed read paths)`) and offers to retry with the sandbox disabled.
 
 **5. bubblewrap / Seatbelt in action — the OS layer the runtime falls back to.**
 
-![sandbox-os-level-block](https://raw.githubusercontent.com/apache/magpie/main/images/sandbox-os-level-block.png)
+![sandbox-os-level-block](https://raw.githubusercontent.com/apache/magpie/main/assets/sandbox-os-level-block.png)
 
 When the eventual filesystem access is **opaque to lexical analysis** — here, a path constructed inside a `python3 -c` one-liner via `os.path.expanduser`, which the runtime cannot parse without actually executing it — the runtime hands the Bash subprocess off to bubblewrap (Linux) / Seatbelt (macOS). The OS sandbox then catches the violation at the syscall boundary. The two layers are stacked deliberately: the runtime is the cheap, predictable check; bubblewrap / Seatbelt is the unbypassable backstop for everything the runtime cannot lexically pre-parse.
 
