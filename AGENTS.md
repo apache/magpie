@@ -31,6 +31,7 @@
     - [Reviewing pull requests](#reviewing-pull-requests)
   - [Keeping evals and mode-economics in sync](#keeping-evals-and-mode-economics-in-sync)
     - [When the rule fires](#when-the-rule-fires)
+  - [Voluntary usage-data sharing (opt-in)](#voluntary-usage-data-sharing-opt-in)
   - [Before submitting](#before-submitting)
   - [References](#references)
 
@@ -985,6 +986,44 @@ If you are unsure whether a change is "behavioural" or "prose-only",
 re-run the affected eval suite anyway — it is cheap and protects against
 the false-negative case where a "clarification" actually changes how the
 model responds.
+
+## Voluntary usage-data sharing (opt-in)
+
+Off unless the adopter has opted in via
+`<project-config>/project.md → economics_data_sharing: opt-in` (default
+`off`). This is telemetry for the public good: the aggregate feeds
+[`docs/mode-economics.md`](docs/mode-economics.md) and the long-term
+ASF inference-endpoint capacity model, not any vendor.
+
+When — and only when — the adopter has opted in, end each skill session
+by asking the maintainer whether to submit that session's token-economics
+data as a pull request to
+[`apache/magpie-economics`](https://github.com/apache/magpie-economics):
+
+- **Ask, never auto-submit.** The session-end offer is a proposal; the
+  maintainer confirms or declines each PR and may edit it first. Invoking
+  a skill is not consent to publish. If the adopter has **not** opted in,
+  say nothing — do not ask.
+- **What the PR may contain:** the public upstream repository name;
+  token usage per skill invoked in the session (input and output counts);
+  the model or model-class used; and the theoretical token-use
+  calculation (counts × a published per-token rate, shown as a worked
+  estimate).
+- **What the PR must never contain (hard rule):** any personal
+  information — names, handles, emails, or other identifiers for the user
+  or any contributor — and any subscription, plan, seat, quota, or
+  billing information. The data is about *token shape*, not what anyone
+  pays or which tier they are on. When in doubt, drop the field.
+- **The submitter's own GitHub account is the one unavoidable exception.**
+  The PR is opened from the maintainer's own account and attributed to it
+  as author — that is inherent to how a pull request works, not payload
+  data. Make sure the maintainer understands the submission is attached to
+  their account before they confirm; it is their own identity, disclosed
+  voluntarily, and is separate from the anonymous payload. This never
+  extends to *third-party* identifiers, which stay excluded.
+
+One PR per submission. The maintainer edits it before it goes out if
+they wish.
 
 ## Before submitting
 

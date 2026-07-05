@@ -18,6 +18,7 @@
   - [Model class and mode cost shape](#model-class-and-mode-cost-shape)
   - [Local and self-hosted inference](#local-and-self-hosted-inference)
   - [Reducing costs](#reducing-costs)
+  - [Sharing your usage data (opt-in)](#sharing-your-usage-data-opt-in)
   - [Long-term: the ASF inference endpoint](#long-term-the-asf-inference-endpoint)
   - [Cross-references](#cross-references)
 
@@ -249,6 +250,59 @@ paths use identical skill code to hosted paths.
 
 ---
 
+## Sharing your usage data (opt-in)
+
+The ranges on this page are still mostly theoretical estimates. They get
+more accurate as real adopters share what their invocations actually
+cost. That sharing is **opt-in and never automatic**, and its data
+payload carries no personal or billing information (with one unavoidable
+caveat about PR authorship — see below).
+
+**How to opt in.** Set `economics_data_sharing: opt-in` in
+`<project-config>/project.md` (the default is `off`). See the field in the
+template at
+[`projects/_template/project.md`](../projects/_template/project.md#usage-data-sharing-opt-in).
+
+**What happens when you opt in.** At the end of each Magpie skill session,
+the agent asks whether to submit that session's token-economics data as a
+pull request to
+[`apache/magpie-economics`](https://github.com/apache/magpie-economics), a
+dedicated public repository that aggregates the data feeding this page. It
+is a question, not an automatic upload: you confirm — or decline — every
+submission, and you can edit the PR before it goes out. If you have not
+opted in, the agent never asks.
+
+**What a submission contains:**
+
+- the public upstream repository name (already public information);
+- token usage per skill invoked in the session (input and output counts);
+- the model or model-class used;
+- the theoretical token-use calculation — the counts multiplied by a
+  published per-token rate, shown as a worked estimate.
+
+**What a submission never contains:**
+
+- **Any personal information.** No names, handles, emails, or other
+  identifiers for you or any contributor.
+- **Any subscription, plan, seat, quota, or billing information.** The data
+  describes *token shape*, not what you pay or which tier you are on. A
+  flat-rate subscriber and a pay-per-token user submitting the same
+  workload produce identical data.
+
+**One thing is inherently disclosed: your GitHub account.** Of course, the
+submission is a pull request, so it is opened *from your own GitHub
+account* and attributed to it as author — that is how a PR works, and it
+cannot be otherwise. That is your own identity, revealed voluntarily by
+choosing to submit; it is personal data, but it is *yours*, not a third
+party's, and it is separate from the anonymous data payload above. If you
+would rather not attach your account to the data, do not opt in — or open
+the PR from an account you are comfortable associating with it.
+
+The cross-cutting rule that governs this session-end behaviour lives in
+[`AGENTS.md` § Voluntary usage-data sharing](../AGENTS.md#voluntary-usage-data-sharing-opt-in).
+
+---
+
 ## Long-term: the ASF inference endpoint
 
 [MISSION.md § Affordability](../MISSION.md#affordability-and-vendor-neutrality--the-public-good-commitment)
@@ -260,8 +314,10 @@ accepting a vendor's gift.
 
 This page's data — token counts per mode, per typical workload — is the
 quantitative input for the capacity planning and cost models that
-endpoint will need. As pilot adopters accumulate real usage data, this
-page will be updated with observed ranges rather than theoretical
+endpoint will need. The [opt-in data-sharing program](#sharing-your-usage-data-opt-in)
+above is how that evidence accumulates: as pilot adopters volunteer real
+usage data to [`apache/magpie-economics`](https://github.com/apache/magpie-economics),
+this page will be updated with observed ranges rather than theoretical
 estimates, so the endpoint sizing argument rests on evidence.
 
 ---
@@ -271,3 +327,5 @@ estimates, so the endpoint sizing argument rests on evidence.
 - [`MISSION.md` § Affordability](../MISSION.md#affordability-and-vendor-neutrality--the-public-good-commitment) — the policy commitment behind this page.
 - [`docs/modes.md`](modes.md) — per-mode skill catalogue and maturity status.
 - [`docs/prerequisites.md`](prerequisites.md) — what you need to run the framework, including model-backend setup.
+- [`apache/magpie-economics`](https://github.com/apache/magpie-economics) — the public repository that collects opt-in usage data feeding this page.
+- [`AGENTS.md` § Voluntary usage-data sharing](../AGENTS.md#voluntary-usage-data-sharing-opt-in) — the session-end rule that governs opt-in submissions.
