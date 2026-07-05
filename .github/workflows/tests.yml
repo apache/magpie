@@ -146,6 +146,13 @@ jobs:
     name: "pytest (${{ matrix.project.name }})"
     runs-on: ubuntu-latest
     needs: members
+    # Guard against an empty selection. When the path filter selects no
+    # members (a PR that changed no project's Python), the members output
+    # is `[]`; feeding an empty array to `matrix` makes GitHub mark this
+    # job `failure` ("matrix vector does not contain any values"), not
+    # `skipped` — which would fail `tests-ok`. Skipping the job on an
+    # empty list yields the `skipped` result `tests-ok` treats as a pass.
+    if: ${{ needs.members.outputs.members != '[]' }}
     permissions:
       contents: read
     strategy:
