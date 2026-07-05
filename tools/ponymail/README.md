@@ -18,7 +18,7 @@
 
 **Kind:** implementation
 
-**Vendor:** PonyMail
+**Vendor:** ASF
 
 **Organization:** ASF
 

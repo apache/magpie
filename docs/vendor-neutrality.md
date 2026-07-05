@@ -555,8 +555,8 @@ generated block below.
 | `contract:tracker` | ✅ | vendor-backed | Atlassian, Fossil, GitHub, SourceHut | 4 backend vendors: Atlassian, Fossil, GitHub, SourceHut |
 | `contract:source-control` | ✅ | vendor-backed | Fossil, Git, GitHub, SourceHut, Subversion | 5 backend vendors: Fossil, Git, GitHub, SourceHut, Subversion |
 | `contract:change-request` | ✅ | vendor-backed | Atlassian, GitHub, email | 3 backend vendors: Atlassian, GitHub, email |
-| `contract:mail-archive` | ✅ | vendor-backed | Google, PonyMail, SourceHut | 3 backend vendors: Google, PonyMail, SourceHut |
-| `contract:mail-source` | ✅ | vendor-backed | Google, Maildir, PonyMail | 3 backend vendors: Google, Maildir, PonyMail |
+| `contract:mail-archive` | ✅ | vendor-backed | ASF, Google, SourceHut | 3 backend vendors: ASF, Google, SourceHut |
+| `contract:mail-source` | ✅ | vendor-backed | ASF, Google, Maildir | 3 backend vendors: ASF, Google, Maildir |
 | `contract:mail-create` | ✅ | vendor-backed | Google, Maildir | 2 backend vendors: Google, Maildir |
 | `contract:cve-authority` | ✅ | vendor-backed | CVE.org, Vulnogram | 2 backend vendors: CVE.org, Vulnogram |
 | `contract:report-relay` | ✅ | agnostic | — | vendor-neutral by construction — one spec serves every backend |
