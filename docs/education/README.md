@@ -84,14 +84,14 @@ each builds on the ones before it.
 | # | Page | What you will learn |
 |---|---|---|
 | 1 | [What agents are](what-agents-are.md) | What an agent actually is (a model, tools, a loop, and context) and why its answers can vary |
-| 2 | [How to work with agents](working-with-agents.md) | Driving an agent through a conversation: how to ask, how to steer, when to confirm |
-| 3 | [How to use different models](choosing-models.md) | Choosing a model by capability, speed, and cost, and letting evals decide |
-| 4 | [How to write your first skill](your-first-skill.md) | Writing and merging your own skill, the main work in Magpie |
+| 2 | [Working with agents](working-with-agents.md) | Driving an agent through a conversation: how to ask, how to steer, when to confirm |
+| 3 | [Choosing models](choosing-models.md) | Choosing a model by capability, speed, and cost, and letting evals decide |
+| 4 | [Your first skill](your-first-skill.md) | Writing and merging your own skill, the main work in Magpie |
 | 5 | [Writing safe skills](writing-safe-skills.md) | Authoring patterns that hold the data-not-instructions and sandbox principles in every skill you write |
 | 6 | [Eval-driven development](eval-driven-development.md) | How to judge whether an agent's answers are good, when the answers can change |
-| 7 | [Agentic and autonomous work](agentic-work.md) | Letting an agent run a whole task, and the guardrails that make that safe |
-| 8 | [English as a programming language](english-as-code.md) | The mindset underneath it all: the words you write *are* the program |
-| 9 | [How to contribute to Magpie](contributing.md) | Giving your work back: contributing skills, patterns, and docs to the framework |
+| 7 | [Agentic & autonomous work](agentic-work.md) | Letting an agent run a whole task, and the guardrails that make that safe |
+| 8 | [English as code](english-as-code.md) | The mindset underneath it all: the words you write *are* the program |
+| 9 | [Contributing back](contributing.md) | Giving your work back: contributing skills, patterns, and docs to the framework |
 
 **Supporting references for the skill-writing steps (4 and 5):**
 
