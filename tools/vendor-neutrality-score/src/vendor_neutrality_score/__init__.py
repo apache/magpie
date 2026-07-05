@@ -694,6 +694,56 @@ def render_markdown(
 
 
 # ---------------------------------------------------------------------------
+# Generated-block sync (docs/vendor-neutrality.md)
+# ---------------------------------------------------------------------------
+
+DOC_RELPATH = Path("docs") / "vendor-neutrality.md"
+DOC_BEGIN = "<!-- BEGIN vendor-neutrality-score"
+DOC_END = "<!-- END vendor-neutrality-score -->"
+
+
+def render_doc(repo_root: Path) -> str:
+    """Return the full docs/vendor-neutrality.md text with the generated block refreshed.
+
+    The block is considered in sync when its *content* (stripped of surrounding
+    whitespace) already matches the tool output — the same equality the
+    ``test_doc_block_is_in_sync`` guard uses. When it is in sync the document is
+    returned byte-for-byte unchanged, so the hook never churns the file over a
+    stray blank line or an environment-specific whitespace quirk; only a genuine
+    content change triggers a rewrite (which normalises the spacing to a single
+    blank line on each side of the block).
+    """
+    doc_path = repo_root / DOC_RELPATH
+    doc = doc_path.read_text(encoding="utf-8")
+    begin_idx = doc.find(DOC_BEGIN)
+    end_idx = doc.find(DOC_END)
+    if begin_idx == -1 or end_idx == -1:
+        raise ValueError(f"regen markers missing from {DOC_RELPATH}")
+    # Preserve the BEGIN comment (everything up to and including its closing "-->").
+    marker_end = doc.find("-->", begin_idx)
+    if marker_end == -1 or marker_end > end_idx:
+        raise ValueError(f"malformed BEGIN marker in {DOC_RELPATH}")
+    marker_end += len("-->")
+    block = render_markdown(*compute_all(repo_root)).strip()
+    if doc[marker_end:end_idx].strip() == block:
+        return doc  # content already in sync — leave the bytes untouched
+    return doc[:marker_end] + "\n\n" + block + "\n\n" + doc[end_idx:]
+
+
+def write_doc_block(repo_root: Path) -> bool:
+    """Refresh the generated block in docs/vendor-neutrality.md in place.
+
+    Returns True if the file was changed, False if it was already in sync.
+    """
+    doc_path = repo_root / DOC_RELPATH
+    new_text = render_doc(repo_root)
+    if new_text == doc_path.read_text(encoding="utf-8"):
+        return False
+    doc_path.write_text(new_text, encoding="utf-8")
+    return True
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
@@ -726,6 +776,14 @@ def main(argv: Iterable[str] | None = None) -> int:
     group.add_argument(
         "--markdown", action="store_true", help="Emit the generated block for docs/vendor-neutrality.md."
     )
+    group.add_argument(
+        "--in-place",
+        action="store_true",
+        help=(
+            "Rewrite the generated block in docs/vendor-neutrality.md and exit non-zero "
+            "if it changed (for the pre-commit hook)."
+        ),
+    )
     parser.add_argument(
         "--fail-under",
         type=int,
@@ -741,6 +799,19 @@ def main(argv: Iterable[str] | None = None) -> int:
     except ValueError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
+
+    if args.in_place:
+        try:
+            changed = write_doc_block(repo_root)
+        except ValueError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
+        rel = DOC_RELPATH.as_posix()
+        if changed:
+            print(f"regenerated {rel} — re-stage it and commit again", file=sys.stderr)
+            return 1
+        print(f"{rel} already in sync")
+        return 0
 
     if args.json:
         print(render_json(contract_results, skill_results, harness_results, llm_classes))

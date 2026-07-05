@@ -146,6 +146,26 @@ repos:
         entry: tools/dev/check-placeholders.sh
         files: ^(skills/.*|tools/.*)\.(md|sh|py|yaml|yml|toml)$
         pass_filenames: false
+  # Vendor-neutrality score — regenerate the block embedded in
+  # docs/vendor-neutrality.md from repository metadata (tool README
+  # `**Vendor:**` / `**Harness:**` fields, skill frontmatter, the
+  # privacy-llm registry) so the published number never drifts from the
+  # tree. `--in-place` rewrites the block and exits non-zero when it
+  # changed, so a stale doc fails the commit and the contributor re-stages
+  # the regenerated file — the doctoc pattern, but for a computed score.
+  # `pass_filenames: false`: the scorer always reads the whole tree; the
+  # `files:` filter only gates *whether* the regen fires (and it always
+  # runs on `prek run --all-files` in CI). Deterministic and offline, so
+  # the same tree always yields the same block. Tool + tests + scoring
+  # rule live in tools/vendor-neutrality-score (README + tests).
+  - repo: local
+    hooks:
+      - id: vendor-neutrality-score
+        name: Regenerate the vendor-neutrality score in docs/vendor-neutrality.md
+        language: system
+        entry: uv run --project tools/vendor-neutrality-score vendor-neutrality-score --in-place
+        files: ^(tools/[^/]+/README\.md|tools/privacy-llm/models\.md|tools/vendor-neutrality-score/.*|skills/[^/]+/SKILL\.md|docs/vendor-neutrality\.md)$
+        pass_filenames: false
   # Self-adoption symlink hygiene: reject cyclic symlinks and misdirected
   # skill relays. `types: [symlink]` fires it on any staged symlink (always
   # on `prek run --all-files`). Rules, rationale, and the pytest suite live

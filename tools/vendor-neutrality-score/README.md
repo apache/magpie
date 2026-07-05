@@ -7,6 +7,7 @@
   - [What it reads](#what-it-reads)
   - [The scoring rule](#the-scoring-rule)
   - [Usage](#usage)
+  - [Keeping `docs/vendor-neutrality.md` in sync](#keeping-docsvendor-neutralitymd-in-sync)
   - [Run tests](#run-tests)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -78,12 +79,27 @@ uv run --project tools/vendor-neutrality-score vendor-neutrality-score
 # Machine-readable JSON
 uv run --project tools/vendor-neutrality-score vendor-neutrality-score --json
 
-# Regenerate the block embedded in docs/vendor-neutrality.md
+# Print the block embedded in docs/vendor-neutrality.md
 uv run --project tools/vendor-neutrality-score vendor-neutrality-score --markdown
+
+# Rewrite that block in docs/vendor-neutrality.md in place; exits non-zero
+# if it changed anything (this is what the pre-commit hook runs)
+uv run --project tools/vendor-neutrality-score vendor-neutrality-score --in-place
 
 # CI gate: fail if neutrality drops below a threshold
 uv run --project tools/vendor-neutrality-score vendor-neutrality-score --fail-under 80
 ```
+
+## Keeping `docs/vendor-neutrality.md` in sync
+
+The `vendor-neutrality-score` pre-commit hook (`.pre-commit-config.yaml`)
+runs `--in-place` and fails the commit when the generated block between the
+`<!-- BEGIN vendor-neutrality-score … -->` / `<!-- END … -->` markers no
+longer matches the tree — mirroring how `doctoc` keeps a table of contents
+current. It fires whenever a tool `README.md`, a skill `SKILL.md`, the
+`privacy-llm` model registry, this tool, or the doc itself changes; when it
+rewrites the block, re-stage `docs/vendor-neutrality.md` and commit again.
+`test_doc_block_is_in_sync` guards the same invariant in CI.
 
 ## Run tests
 

@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -306,3 +307,88 @@ def test_main_json_exits_zero() -> None:
 def test_fail_under_gate() -> None:
     # Far above any achievable score → non-zero exit.
     assert vns.main(["--fail-under", "101"]) == 1
+
+
+# ---------------------------------------------------------------------------
+# In-place doc regeneration (the pre-commit hook)
+# ---------------------------------------------------------------------------
+
+
+def _mirror_repo(root: Path, live: Path) -> None:
+    """Build a repo_root whose inputs symlink the live tree but whose
+    docs/vendor-neutrality.md is a real, mutable copy."""
+    (root / "tools").symlink_to(live / "tools")
+    (root / "skills").symlink_to(live / "skills")
+    docs = root / "docs"
+    docs.mkdir()
+    (docs / "labels-and-capabilities.md").symlink_to(live / "docs" / "labels-and-capabilities.md")
+    (docs / "vendor-neutrality.md").write_text(
+        (live / "docs" / "vendor-neutrality.md").read_text(encoding="utf-8"), encoding="utf-8"
+    )
+
+
+def test_render_doc_matches_live_file_when_in_sync() -> None:
+    root = vns.find_repo_root()
+    rendered = vns.render_doc(root)
+    assert rendered == (root / vns.DOC_RELPATH).read_text(encoding="utf-8")
+
+
+def test_write_doc_block_is_noop_when_in_sync() -> None:
+    assert vns.write_doc_block(vns.find_repo_root()) is False
+
+
+def test_in_sync_content_with_non_normalized_whitespace_is_a_noop(tmp_path) -> None:
+    """A block whose content matches but whose surrounding whitespace is not the
+    normalised single blank line must be left untouched — the hook keys on
+    content, not byte-exact spacing, so it never churns the file (this is the
+    scenario that made the byte-exact comparison fail on CI)."""
+    _mirror_repo(tmp_path, vns.find_repo_root())
+    doc = tmp_path / vns.DOC_RELPATH
+    text = doc.read_text(encoding="utf-8")
+    marker_end = text.index("-->", text.index(vns.DOC_BEGIN)) + len("-->")
+    end = text.index(vns.DOC_END)
+    block = text[marker_end:end].strip()
+    # Extra blank lines around the (unchanged) block content.
+    doc.write_text(text[:marker_end] + "\n\n\n" + block + "\n\n\n" + text[end:], encoding="utf-8")
+
+    before = doc.read_text(encoding="utf-8")
+    assert vns.write_doc_block(tmp_path) is False
+    assert doc.read_text(encoding="utf-8") == before  # bytes untouched
+    assert vns.render_doc(tmp_path) == before
+
+
+def test_write_doc_block_regenerates_stale_block(tmp_path) -> None:
+    _mirror_repo(tmp_path, vns.find_repo_root())
+    doc = tmp_path / vns.DOC_RELPATH
+    # Corrupt the generated block so it goes stale.
+    text = doc.read_text(encoding="utf-8")
+    marker_end = text.index("-->", text.index(vns.DOC_BEGIN)) + len("-->")
+    end = text.index(vns.DOC_END)
+    doc.write_text(text[:marker_end] + "\n\nSTALE\n\n" + text[end:], encoding="utf-8")
+
+    assert vns.write_doc_block(tmp_path) is True
+    assert vns.write_doc_block(tmp_path) is False  # idempotent second run
+    refreshed = doc.read_text(encoding="utf-8")
+    assert "STALE" not in refreshed
+    block = refreshed.split(vns.DOC_BEGIN, 1)[1].split("-->", 1)[1].split(vns.DOC_END, 1)[0].strip()
+    assert block == vns.render_markdown(*vns.compute_all(tmp_path)).strip()
+
+
+def test_in_place_cli_exit_codes(tmp_path) -> None:
+    _mirror_repo(tmp_path, vns.find_repo_root())
+    doc = tmp_path / vns.DOC_RELPATH
+    text = doc.read_text(encoding="utf-8")
+    marker_end = text.index("-->", text.index(vns.DOC_BEGIN)) + len("-->")
+    end = text.index(vns.DOC_END)
+    doc.write_text(text[:marker_end] + "\n\nSTALE\n\n" + text[end:], encoding="utf-8")
+
+    # First run rewrites the file → exit 1; second run is already in sync → exit 0.
+    assert vns.main(["--in-place", "--repo-root", str(tmp_path)]) == 1
+    assert vns.main(["--in-place", "--repo-root", str(tmp_path)]) == 0
+
+
+def test_render_doc_raises_without_markers(tmp_path) -> None:
+    _mirror_repo(tmp_path, vns.find_repo_root())
+    (tmp_path / vns.DOC_RELPATH).write_text("no markers here\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="markers missing"):
+        vns.render_doc(tmp_path)
