@@ -24,7 +24,7 @@
 
 ## Status
 
-Experimental. Six skills shipped:
+Experimental. Seven skills shipped:
 
 | Skill | Purpose |
 |---|---|
@@ -34,6 +34,7 @@ Experimental. Six skills shipped:
 | [`contributor-to-committer`](../../skills/contributor-to-committer/SKILL.md) | Read-only readiness tracker mapping a contributor's GitHub activity against the adopter's declared committer/PMC thresholds. |
 | [`good-first-issue-sweep`](../../skills/good-first-issue-sweep/SKILL.md) | Sweep the open issue backlog for issues that could be labelled as good first issues, scoring each against the G1–G7 suitability rubric. |
 | [`onboarding-concierge`](../../skills/onboarding-concierge/SKILL.md) | Answer a newcomer's "how do I contribute here" question from the project's `CONTRIBUTING.md`; classifies the question and hands off to a human for design, security, or out-of-scope queries. |
+| [`newcomer-issue-explainer`](../../skills/newcomer-issue-explainer/SKILL.md) | Explain an open good-first-issue in beginner terms and sketch a concrete approach (file pointers, done-definition, where to ask); an assessment gate declines closed, security-sensitive, or scope-unclear issues; nothing is posted without maintainer confirmation. |
 
 This document is the normative Agentic Mentoring spec: tone guide, hand-off
 protocol, and adopter contract. The skills implement these conventions;
@@ -214,7 +215,7 @@ fixed in the shipped implementations.
 - [`MISSION.md` § Agentic Mentoring](../../MISSION.md#technical-scope) —
   the mode definition + responsible-AI framing.
 - [`docs/modes.md` § Mentoring](../modes.md#mentoring) —
-  current implementation status (experimental, 5 skills shipped).
+  current implementation status (experimental, 7 skills shipped).
 - [`.claude/skills/pr-management-triage/comment-templates.md`](../../skills/pr-management-triage/comment-templates.md) —
   tone-footer convention; `pr-management-mentor` mirrors its
   format with a `mentoring` step token.

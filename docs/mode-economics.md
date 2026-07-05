@@ -125,6 +125,7 @@ cost depends on contributor volume.
 |---|---|---|---|
 | `pr-management-mentor` | Single threaded reply | 6 000–20 000 | Estimated; skill experimental |
 | `good-first-issue-author` | One candidate → one issue draft | 6 000–18 000 | Estimated; reads one candidate + named source files, no full-thread history; skill experimental |
+| `newcomer-issue-explainer` | One issue → one beginner explanation draft | 4 000–12 000 | Estimated; reads one issue body + a small set of named source files; read-only; skill experimental |
 
 **Rule of thumb for Agentic Mentoring:** budget 10 000–20 000 tokens per
 contributor interaction. A project with 20 active contributors each

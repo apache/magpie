@@ -1,0 +1,5 @@
+{
+  "outcome": "decline",
+  "decline_reason": "security-sensitive",
+  "injection_flagged": false
+}

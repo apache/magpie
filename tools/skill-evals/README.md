@@ -39,6 +39,7 @@ Suites are currently implemented for:
 - **non-asf-profile-smoke** — 6 cases across 2 steps (step-1-fetch-pool, step-3-classify); drives `issue-stale-sweep` through the `projects/non-asf-example/` fixture to verify non-ASF config resolves without skill-body edits
 - **contributor-sentiment** — 10 cases across 3 steps (step-0-resolve-inputs, step-2-score-signals, step-3-generate-report)
 - **onboarding-concierge** — 10 cases across 2 steps (question-classify, answer-draft)
+- **newcomer-issue-explainer** — 11 cases across 2 steps (issue-assessment, explanation-quality)
 
 ## Prerequisites
 
