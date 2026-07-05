@@ -6,6 +6,7 @@
   - [Label dimensions](#label-dimensions)
     - [1. `family:*` — subject](#1-family--subject)
     - [2. capability — two axes (skills vs tools)](#2-capability--two-axes-skills-vs-tools)
+    - [Coverage qualifiers](#coverage-qualifiers)
     - [3. `kind:*` — change type (pre-existing)](#3-kind--change-type-pre-existing)
     - [4. `mode:*` — handling mode (pre-existing)](#4-mode--handling-mode-pre-existing)
     - [Standalone labels](#standalone-labels)
@@ -100,6 +101,7 @@ framework substrate:
 | `contract:tracker` | contract | Issue / board / label backend. |
 | `contract:source-control` | contract | Branch / commit / diff / push (VCS). |
 | `contract:change-request` | contract | Proposed-change review + merge gate (pull request / merge request / Gerrit change). |
+
 | `contract:mail-archive` | contract | Mailing-list / forum archive reads. |
 | `contract:mail-source` | contract | Inbound-mail ingestion (mbox / IMAP / …). |
 | `contract:mail-create` | contract | Outbound mail composition. Always produces an editable draft; sending is a separate human-approved step on that draft (draft mode = default and the only mode implemented today; send mode declared but unimplemented — no autonomous send). |
@@ -112,6 +114,15 @@ framework substrate:
 | `substrate:action-guard` | substrate | Deterministic pre-tool-use command guards. |
 | `substrate:privacy` | substrate | PII redaction / approved-LLM gating. |
 | `substrate:framework-dev` | substrate | Build / validate / eval the framework itself. |
+
+### Coverage qualifiers
+
+Some tool READMEs may declare a `Coverage:` qualifier next to a capability
+when the tool intentionally implements only part of a contract.
+
+`partial-read-only` means the tool implements a read-only subset of named
+contract operations, but does not satisfy the complete contract and must not
+be advertised as a complete/selectable backend.
 
 Both capability axes are **orthogonal** to `family:*`. A single
 query can answer "how is our triage stack doing across PR + issue +
@@ -255,7 +266,7 @@ it implements multiple contracts (e.g. `tools/gmail` provides both
 | [`tools/dev`](../tools/dev/) | `substrate:framework-dev` | Framework dev-loop helpers |
 | [`tools/egress-gateway`](../tools/egress-gateway/) | `substrate:sandbox` | Egress-allowlist forward proxy (proxy.py plugin); host-level egress chokepoint — defence-in-depth for RFC-AI-0003 §4.4 |
 | [`tools/forwarder-relay`](../tools/forwarder-relay/) | `contract:report-relay` | Adapter contract for inbound-relay backends (ASF Security relay, huntr.com, HackerOne triagers). Pure interface spec; adapters declare detection + credit-extraction + reporter-addressing rules. |
-| [`tools/bitbucket`](../tools/bitbucket/) | `contract:change-request` | Bitbucket Cloud and Bitbucket Data Center read-only bridge foundation for repository metadata and pull-request discovery/fetching. Future PRs will add Bitbucket Issues / Jira handoff coverage before claiming tracker completeness. |
+| [`tools/bitbucket`](../tools/bitbucket/) | `contract:change-request` | Coverage: `partial-read-only`. Bitbucket Cloud and Bitbucket Data Center bridge foundation for repository metadata context and pull-request discovery/fetching. The `partial-read-only` qualifier means this tool implements named read-only contract operations but does not satisfy the complete contract and must not be counted as a complete/selectable backend. `contract:tracker` remains absent until Bitbucket issue operations or linked Jira handoff coverage exist. |
 | [`tools/fossil`](../tools/fossil/) | `contract:tracker` + `contract:source-control` | Fossil SCM forge bridge: integrates local SQLite-backed ticket tracking, wiki, and forum reads with the version-control shim |
 | [`tools/github`](../tools/github/) | `contract:tracker` + `contract:source-control` + `contract:change-request` | GitHub REST / GraphQL tracker substrate (called by every lifecycle phase) plus the Git source-control binding documented in [`source-control.md`](../tools/github/source-control.md) (runnable backend in [`tools/vcs`](../tools/vcs/)) and the pull-request review/merge gate (`change-request`; the ASF default backend, alongside `tools/jira-patch/` and `tools/mail-patch/` for SVN-first projects) |
 | [`tools/github-body-field`](../tools/github-body-field/) | `contract:tracker` | Read or rewrite one `### Field` section of a GitHub issue body without bringing the body into agent context — substrate helper for the security-sync skills |

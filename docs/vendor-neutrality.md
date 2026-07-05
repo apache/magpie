@@ -348,8 +348,9 @@ issue`, not hypothetical:
 [Pagure](https://github.com/apache/magpie/issues/312) (Fedora /
 `pagure.io`),
 [Bitbucket](https://github.com/apache/magpie/issues/606) (initial
-[`tools/bitbucket`](../tools/bitbucket/) bridge; deeper Jira pairing and
-write coverage tracked there), and
+[`tools/bitbucket`](../tools/bitbucket/) `partial-read-only` bridge;
+deeper Jira pairing, complete change-request coverage, and write
+coverage tracked there), and
 [SourceHut](https://github.com/apache/magpie/issues/607) (email-patch
 review). Tracker-only surfaces are tracked the same way — e.g.
 [Bugzilla](https://github.com/apache/magpie/issues/302) — alongside the
@@ -423,7 +424,7 @@ binding; `tools/asf-svn` covers the full ASF SVN surface including
 [Fossil](https://github.com/apache/magpie/issues/604), and
 [Perforce](https://github.com/apache/magpie/issues/605) — so the
 extension points are public and labelled, not hypothetical. (The
-Bitbucket and SourceHut forges, which carry their own VCS, are tracked
+Bitbucket and SourceHut forges, which carry their own VCS surfaces, are tracked
 under the forge axis above.)
 
 ### 6. Project governance
@@ -487,7 +488,7 @@ coverage without pretending one team can implement an open-ended set.
 |---|---|---|---|
 | LLM backend | ✅ by construction | Claude Code, Ollama, vLLM, Apache-hosted, Bedrock, direct Anthropic | Any endpoint meeting the capability floor + privacy gate |
 | Agentic runtime | ✅ by construction (`AGENTS.md` standard) | Claude Code; community use under Codex, Cursor, Gemini CLI, Copilot, OpenCode, Kiro | Runtime adapters [#313–#322](https://github.com/apache/magpie/issues?q=is%3Aissue+state%3Aopen+adapter+in%3Atitle) |
-| Forge / tracker | ✅ by construction | GitHub, Jira, SourceHut; Bitbucket read-only foundation; CVE/scan/relay via adapter contracts | GitLab [#305](https://github.com/apache/magpie/issues/305), Forgejo/Gitea [#310](https://github.com/apache/magpie/issues/310), Pagure [#312](https://github.com/apache/magpie/issues/312), full Bitbucket tracker/change-request/Jira coverage [#606](https://github.com/apache/magpie/issues/606), Bugzilla [#302](https://github.com/apache/magpie/issues/302) |
+| Forge / tracker | ✅ by construction | GitHub, Jira, SourceHut; Bitbucket `partial-read-only` foundation excluded from complete-backend counts; CVE/scan/relay via adapter contracts | GitLab [#305](https://github.com/apache/magpie/issues/305), Forgejo/Gitea [#310](https://github.com/apache/magpie/issues/310), Pagure [#312](https://github.com/apache/magpie/issues/312), full Bitbucket tracker/change-request/Jira coverage [#606](https://github.com/apache/magpie/issues/606), Bugzilla [#302](https://github.com/apache/magpie/issues/302) |
 | Communication channels | ✅ by construction | PonyMail / mail-archive reads | mbox [#304](https://github.com/apache/magpie/issues/304), IMAP [#303](https://github.com/apache/magpie/issues/303), Mailman 3 [#306](https://github.com/apache/magpie/issues/306); Discourse [#307](https://github.com/apache/magpie/issues/307), Zulip [#308](https://github.com/apache/magpie/issues/308), Matrix [#309](https://github.com/apache/magpie/issues/309) |
 | Source control (VCS) | ✅ by construction | **Git (complete)**, **Mercurial (complete)**; ASF SVN surface ([`tools/asf-svn`](../tools/asf-svn/): source control + dist.apache.org + authorization) | Subversion generic VCS binding [\#602](https://github.com/apache/magpie/issues/602) (detected); Jujutsu [\#603](https://github.com/apache/magpie/issues/603), Fossil [\#604](https://github.com/apache/magpie/issues/604), Perforce [\#605](https://github.com/apache/magpie/issues/605) (tracked) |
 | Project governance | ✅ by construction | ASF + non-ASF adopter profiles | Adopter config (modes, thresholds) |

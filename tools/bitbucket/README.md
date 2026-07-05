@@ -5,6 +5,7 @@
 - [Bitbucket forge bridge](#bitbucket-forge-bridge)
   - [Prerequisites](#prerequisites)
   - [Features](#features)
+  - [Operation coverage](#operation-coverage)
   - [Invocation](#invocation)
   - [Configuration](#configuration)
   - [Output contract](#output-contract)
@@ -20,6 +21,8 @@
 
 **Capability:** contract:change-request
 
+**Coverage:** `partial-read-only`
+
 **Kind:** implementation
 
 **Vendor:** Atlassian
@@ -27,12 +30,20 @@
 Bitbucket Cloud and Bitbucket Data Center bridge for Magpie adopters
 that use Bitbucket as a forge, pull-request review surface, or Jira-paired Atlassian backend.
 
-This initial bridge provides a read-only foundation for repository
-metadata and pull-request discovery/fetching. It is not a complete
-`contract:change-request` backend yet; #606 remains open for the
-remaining Bitbucket/Jira workflow coverage. Later PRs can extend the
-same adapter with write operations, Bitbucket Issues, linked Jira
-handoff, branch permissions, and Pipelines status reads.
+This initial bridge implements a `partial-read-only` profile for
+repository metadata context and pull-request discovery/fetching under
+`contract:change-request`. Partial adapters may implement named
+contract verbs, but they do not satisfy the complete contract and must
+not be advertised as complete/selectable backends.
+
+Repository metadata reads are currently bridge context for Bitbucket
+pull-request workflows, not a complete `contract:source-control`
+backend. `contract:tracker` is also intentionally absent until
+Bitbucket issue operations or linked Jira handoff coverage exist.
+#606 remains open for the remaining Bitbucket/Jira workflow coverage.
+Later PRs can extend the same adapter with write operations,
+Bitbucket Issues, linked Jira handoff, branch permissions, and
+Pipelines status reads.
 
 ## Prerequisites
 
@@ -57,6 +68,20 @@ surface:
 - `BITBUCKET_KIND=cloud`
 - `BITBUCKET_KIND=datacenter`
 
+## Operation coverage
+
+| Contract area | Operation | Coverage | Notes |
+|---|---|---|---|
+| Repository metadata | `repo get` | Supported read-only context | Reads repository metadata from Bitbucket Cloud or Data Center for Bitbucket PR workflows. This does not make the bridge a complete `contract:source-control` backend. |
+| Change requests | `list_open` / `pr list-open` | Supported read-only | Lists open pull requests with pagination. |
+| Change requests | `get` / `pr get <id>` | Partial read-only | Fetches PR metadata only. Discussion, commits, diffs, checks, review state, and mergeability are not complete yet. |
+| Change requests | `get_discussion` | Not implemented | Follow-up work for #606. |
+| Change requests | `post_review` | Not implemented | Follow-up work for #606. |
+| Change requests | `land` | Not implemented | Follow-up work for #606. |
+| Change requests | `reject` | Not implemented | Follow-up work for #606. |
+| Tracker | issue operations | Not implemented | `contract:tracker` remains absent until Bitbucket issue operations or linked Jira handoff coverage exist. |
+| CI | Pipelines status | Not implemented | Follow-up work for #606. |
+
 ## Invocation
 
 ```bash
@@ -78,6 +103,10 @@ uv run --project tools/bitbucket magpie-bitbucket pr get 123
 The bridge is configured through environment variables. The calling
 skill resolves adopter project configuration and exports these values;
 the bridge does not read `<project-config>/` files directly.
+
+Persistent Bitbucket credentials should live outside the project tree,
+for example under `~/.config/apache-magpie/bitbucket/`, and should be
+injected by the caller as `BITBUCKET_TOKEN` / `BITBUCKET_CLOUD_USER`.
 
 | Variable | Required for | Description |
 |---|---|---|
