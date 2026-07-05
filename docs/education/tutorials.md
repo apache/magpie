@@ -5,7 +5,7 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [Workshop: build and evaluate a skill](#workshop-build-and-evaluate-a-skill)
+- [Tutorial: build and evaluate a skill](#tutorial-build-and-evaluate-a-skill)
   - [Words used on this page](#words-used-on-this-page)
   - [Learning objectives](#learning-objectives)
   - [The skill we will build](#the-skill-we-will-build)
@@ -20,16 +20,16 @@
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
-# Workshop: build and evaluate a skill
+# Tutorial: build and evaluate a skill
 
-This is a hands-on workshop. You do the work; the page guides you. In about 90
+This is a hands-on tutorial. You do the work; the page guides you. In about 90
 minutes you build one small skill, give it an eval suite, and run it. It is
 self-contained: you can work through it alone, or run it for a group. If you run
 it for a group, work in pairs and swap who types at each exercise.
 
 This is not a lecture and not a scheduled event. It is a lab you can start at
 any time. So that you have something concrete to type and compare against, the
-whole workshop builds **one specific skill together**. To use your own task
+whole tutorial builds **one specific skill together**. To use your own task
 instead, keep the same steps and swap the name and content.
 
 ## Words used on this page
@@ -50,7 +50,7 @@ page has a fuller list.
 
 ## Learning objectives
 
-By the end of this workshop you will be able to:
+By the end of this tutorial you will be able to:
 
 - Scaffold a new skill in the right place, with valid frontmatter.
 - Write a short skill body that follows the framework's three rules
@@ -71,7 +71,7 @@ The step we will focus on returns a small, structured answer:
 { "verdict": "allow" | "flag", "licence": "<SPDX id>", "reason": "<one sentence>" }
 ```
 
-The rule for this workshop is deliberately simple: permissive licences (`MIT`,
+The rule for this tutorial is deliberately simple: permissive licences (`MIT`,
 `BSD-2-Clause`, `BSD-3-Clause`, `Apache-2.0`, `ISC`) are `allow`; anything else
 is `flag`. A real project's licence policy is more nuanced than this; the point
 here is the shape of a skill and its eval, not the policy.
@@ -83,7 +83,7 @@ You need:
 - A clone of the `<framework>` repository, and a setup that can run `uv` and
   `python3` (see [CONTRIBUTING.md](../../CONTRIBUTING.md)).
 - To have read [`your-first-skill.md`](your-first-skill.md) once, and skimmed
-  [`eval-driven-development.md`](eval-driven-development.md). This workshop puts
+  [`eval-driven-development.md`](eval-driven-development.md). This tutorial puts
   both into practice, so it goes faster if the ideas are already familiar.
 - About 90 minutes.
 
@@ -95,7 +95,7 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
 PYTHONPATH=tools/skill-evals/src python3 -m skill_evals.runner tools/skill-evals/evals/
 ```
 
-A broken local setup is the most common thing that stalls this workshop.
+A broken local setup is the most common thing that stalls this tutorial.
 
 ## Exercise 1 — Scaffold the skill
 
@@ -287,7 +287,7 @@ If any answer is no, go back to the exercise that covers it.
 ## How this connects to the other guides
 
 - **[`your-first-skill.md`](your-first-skill.md)** — the step-by-step reference
-  for the mechanics this workshop drills. Keep it open in another tab.
+  for the mechanics this tutorial drills. Keep it open in another tab.
 - **[`eval-driven-development.md`](eval-driven-development.md)** — the design
   thinking behind Exercises 3 and 4: what to check and how to grade it.
 - **[`pattern-catalogue.md`](pattern-catalogue.md)** — ready-to-copy patterns

@@ -422,14 +422,14 @@ In practice this means:
 
 ## How this connects to the other guides
 
-- **`your-first-skill.md`** (planned) is the starting guide. It covers the
-  mechanics of making an eval suite: the file layout, running the harness, and
-  the case format. This page covers the *design* of evals: what to check, when
-  to use prose grading, and how to think about correctness.
+- **[`your-first-skill.md`](your-first-skill.md)** is the starting guide. It
+  covers the mechanics of making an eval suite: the file layout, running the
+  harness, and the case format. This page covers the *design* of evals: what to
+  check, when to use prose grading, and how to think about correctness.
 - **[`tools/skill-evals/README.md`](../../tools/skill-evals/README.md)** is the
   harness reference: every runner flag, the grading modes, and the full case
   format.
-- **`pattern-catalogue.md`** (planned) includes a "test your skill with an eval
-  before shipping it" pattern as a ready-to-copy recipe.
+- **[`pattern-catalogue.md`](pattern-catalogue.md)** includes a "test your skill
+  with an eval before shipping it" pattern as a ready-to-copy recipe.
 - **[PRINCIPLES.md](../../PRINCIPLES.md)**: PRINCIPLE 8 is the release rule;
   PRINCIPLE 0 is the data-not-instructions rule that the injection cases check.

@@ -6,8 +6,8 @@
   - [Who this is for](#who-this-is-for)
   - [Words to know](#words-to-know)
   - [Why building with agents is different](#why-building-with-agents-is-different)
-  - [What you can learn here](#what-you-can-learn-here)
-  - [What every example also teaches](#what-every-example-also-teaches)
+  - [The learning progression](#the-learning-progression)
+  - [What every page also teaches](#what-every-page-also-teaches)
   - [How this connects to the other guides](#how-this-connects-to-the-other-guides)
   - [About the examples](#about-the-examples)
   - [Licence](#licence)
@@ -22,13 +22,14 @@
 Welcome. This part of Magpie teaches you how to build and run AI agents for
 your project. You do not need to be an AI expert to begin. If some of the
 words here are new to you, that is normal. Read the short list of words below
-first, then come back.
+first, then start the progression.
 
 Building software with an AI agent is a new skill, even for people who have
 written code for many years. It is not harder than other coding. It is
-different. This stream gives you the steps, the examples, and the words you
-need, one page at a time. Every Magpie release comes with the learning
-material for the skills in that release (PRINCIPLE 18).
+different. This stream is arranged as an **ordered progression**: a path you can
+read front to back, each page assuming only the ones before it. Every Magpie
+release comes with the learning material for the skills in that release
+(PRINCIPLE 18).
 
 ## Who this is for
 
@@ -75,20 +76,30 @@ action:
   do not check one answer once. You run an eval many times and look at the
   results as a whole.
 
-## What you can learn here
+## The learning progression
 
-| Page | What you will learn | Status |
+Read these in order the first time. Each page ends by pointing at the next, and
+each builds on the ones before it.
+
+| # | Page | What you will learn |
 |---|---|---|
-| **This page** | What this stream is, and the words you need to begin | Ready |
-| [`pattern-catalogue.md`](pattern-catalogue.md) | Ready-to-copy examples of skills and prompts, with notes on what worked and what did not | Ready |
-| [`your-first-skill.md`](your-first-skill.md) | A step-by-step path to writing and merging your first skill | Ready |
-| [`eval-driven-development.md`](eval-driven-development.md) | How to judge whether an agent's answers are good, when the answers can change | Ready |
-| [`workshops.md`](workshops.md) | A hands-on lab: build a small skill, give it an eval suite, and run it, in about 90 minutes | Ready |
+| 1 | [What agents are](what-agents-are.md) | What an agent actually is — a model, tools, a loop, and context — and why its answers can vary |
+| 2 | [How to work with agents](working-with-agents.md) | Driving an agent through a conversation: how to ask, how to steer, when to confirm |
+| 3 | [How to use different models](choosing-models.md) | Choosing a model by capability, speed, and cost — and letting evals decide |
+| 4 | [Agentic and autonomous work](agentic-work.md) | Letting an agent run a whole task, and the guardrails that make that safe |
+| 5 | [How to write your first skill](your-first-skill.md) | Writing, testing, and merging your own skill — the main work in Magpie |
+| 6 | [English as a programming language](english-as-code.md) | The mindset underneath it all: the words you write *are* the program |
+| 7 | [How to contribute to Magpie](contributing.md) | Giving your work back — contributing skills, patterns, and docs to the framework |
 
-Pages marked **Coming soon** are already planned and each one will appear as
-a link here when it is ready.
+**Supporting the skill-writing stage (step 5):**
 
-## What every example also teaches
+| Page | What it is |
+|---|---|
+| [Pattern catalogue](pattern-catalogue.md) | Ready-to-copy skill, prompt, and tool-use patterns, with notes on what worked and what did not |
+| [Eval-driven development](eval-driven-development.md) | How to judge whether an agent's answers are good, when the answers can change |
+| [Tutorials](tutorials.md) | A hands-on lab: build a small skill, give it an eval suite, and run it, in about 90 minutes |
+
+## What every page also teaches
 
 Every example here follows the same safety habits that all Magpie skills
 follow. You learn them by seeing them used, not as a list of rules to memorise:
@@ -104,13 +115,14 @@ follow. You learn them by seeing them used, not as a list of rules to memorise:
 
 ## How this connects to the other guides
 
-- **[magpie-write-skill](../../.claude/skills/magpie-write-skill/SKILL.md)** is
+- **[magpie-write-skill](../../skills/write-skill/SKILL.md)** is
   the full reference for writing a skill, for someone who already knows the
-  basic shape of one. The "your first skill" page (coming soon) is the gentle
-  start that gets you to that point.
+  basic shape of one. Step 5, [your first skill](your-first-skill.md), is the
+  gentle start that gets you to that point.
 - **[tools/privacy-llm/pii.md](../../tools/privacy-llm/pii.md)** lists how
-  personal data is removed before it reaches a model. The pattern catalogue
-  (coming soon) shows *how* and *why* to use it, with examples.
+  personal data is removed before it reaches a model. The
+  [pattern catalogue](pattern-catalogue.md) shows *how* and *why* to use it,
+  with examples.
 - **[docs/rfcs/RFC-AI-0004.md](../rfcs/RFC-AI-0004.md)** is the decision that
   started this stream. It points here through
   [MISSION.md](../../MISSION.md).

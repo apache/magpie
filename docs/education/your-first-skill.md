@@ -92,9 +92,9 @@ test a function. Instead, you write example cases that cover the range of real
 inputs, and you check that the agent's output meets the criteria you care
 about. When you find a new way it can fail, you add an example for it.
 
-The pattern catalogue (`pattern-catalogue.md`, planned) has ready-to-copy
-examples. The `eval-driven-development.md` page (planned) goes deeper on how to
-judge output that can vary.
+The [pattern catalogue](pattern-catalogue.md) has ready-to-copy
+examples. The [eval-driven-development](eval-driven-development.md) page goes
+deeper on how to judge output that can vary.
 
 ---
 
@@ -295,7 +295,7 @@ PYTHONPATH=tools/skill-evals/src python3 -m skill_evals.runner --cli "<agent-com
     tools/skill-evals/evals/<name>/
 ```
 
-See the eval-driven-development page (`eval-driven-development.md`, planned) for
+See the [eval-driven-development](eval-driven-development.md) page for
 a fuller worked example.
 
 ---
@@ -374,13 +374,25 @@ skill you cannot.
 
 ## Where to go next
 
+This is **step 5** in the [learning progression](README.md). Once your first
+skill has landed:
+
+- **[English as a programming language](english-as-code.md)** — step 6: the
+  mindset that makes everything here click, now that you have done it once.
+- **[How to contribute to Magpie](contributing.md)** — step 7: turning this into
+  contributions back to the framework.
+
+Supporting references for skill-writing:
+
 - **[magpie-write-skill](../../skills/write-skill/SKILL.md)** —
   the full authoring reference, with the security checklist and packaging
   details. Run it with `/write-skill` once you are ready for the complete
   walk-through.
-- **`pattern-catalogue.md`** (planned) — ready-to-copy skill, prompt, and
-  tool-use patterns.
-- **`eval-driven-development.md`** (planned) — how to judge output that can
-  vary, with worked examples from real Magpie skills.
+- **[Pattern catalogue](pattern-catalogue.md)** — ready-to-copy skill, prompt,
+  and tool-use patterns.
+- **[Eval-driven development](eval-driven-development.md)** — how to judge output
+  that can vary, with worked examples from real Magpie skills.
+- **[Tutorials](tutorials.md)** — a hands-on lab that puts step 5 into practice
+  end to end.
 - **[CONTRIBUTING.md](../../CONTRIBUTING.md)** — the framework's contribution
   process, PR conventions, and review expectations.
