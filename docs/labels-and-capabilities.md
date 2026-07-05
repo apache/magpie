@@ -192,6 +192,7 @@ Capabilities for every skill currently in
 | `pr-management-code-review` | `capability:review` |
 | `pairing-self-review` | `capability:review` |
 | `pairing-multi-agent-review` | `capability:review` |
+| `pre-first-pr-check` | `capability:review` *(newcomer-facing pre-flight checklist: SPDX headers, commit shape, Generated-by trailer, placeholder convention — read-only)* |
 | `pr-management-mentor` | `capability:review` |
 | `good-first-issue-author` | `capability:review` *(authors a newcomer-ready good first issue — contributor mentoring on the supply side)* |
 | `good-first-issue-sweep` | `capability:review` + `capability:triage` *(sweeps the open issue backlog for GFI candidates; scores each against the G1–G7 rubric and proposes the label on maintainer confirmation — a triage sweep in the mentoring family)* |

@@ -1,0 +1,18 @@
+{
+  "has_attribution_footer": {
+    "field": "has_attribution_footer",
+    "type": "field_true"
+  },
+  "has_base_ref": {
+    "field": "has_base_ref",
+    "type": "field_true"
+  },
+  "has_commit_count": {
+    "field": "has_commit_count",
+    "type": "field_true"
+  },
+  "has_files_changed": {
+    "field": "has_files_changed",
+    "type": "field_true"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "checks": [
+    {"category": "spdx_headers", "status": "pass"},
+    {"category": "commit_shape", "status": "fail"},
+    {"category": "placeholder_convention", "status": "pass"},
+    {"category": "contributing_conventions"},
+    {"category": "injection_guard", "status": "pass"}
+  ],
+  "any_blocking": true
+}

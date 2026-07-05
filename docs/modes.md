@@ -59,7 +59,7 @@ Autonomous* (the renamed former *Auto-merge*).
 | **Triage** | *(Agentic Triage)* Issues, security reports, PRs: spot, classify, route, surface duplicates. Every output is a suggestion the human signs off on. | stable (security) / experimental (pr-management, issue-management, contributor-nomination, repo-health, release-management) | 32 |
 | **Mentoring** | *(Agentic Mentoring)* Joins issue and PR threads in a teaching register: clarifying questions, pointers to project conventions, paired examples from prior PRs, hand-off to a human when scope exceeds the agent. Also authors net-new good first issues, curates the existing backlog, and explains filed issues to newcomers to lower onboarding latency. | experimental | 7 |
 | **Drafting** | *(Agentic Drafting)* Agent drafts a fix for a well-scoped problem and opens a PR; every PR is reviewed and merged by a human committer. | stable (security-only); experimental (issue-management, audit-findings, release-management family) | 9 |
-| **Pairing** | *(Agentic Pairing)* Developer-side dev-cycle skills with mentorship intrinsic — multi-agent review pipelines, self-review and pre-flight patterns, scoped fix drafting under the developer's driver's seat. | experimental | 2 |
+| **Pairing** | *(Agentic Pairing)* Developer-side dev-cycle skills with mentorship intrinsic — multi-agent review pipelines, self-review and pre-flight patterns, scoped fix drafting under the developer's driver's seat. | experimental | 3 |
 | **Agentic Autonomous** | Auto-merge restricted to objectively boring change classes only (lint, dependency bumps inside an allow-list, license-header insertion, formatting, broken-link repair). | off | 0 |
 
 A few skills sit **outside** the mode taxonomy by design — see
@@ -210,7 +210,7 @@ for the rules the skill enforces.
 
 ## Pairing
 
-**Status: experimental. 2 skills.**
+**Status: experimental. 3 skills.**
 
 [`MISSION.md` § Agentic Pairing](../MISSION.md#technical-scope) introduces
 this mode as the developer-side counterpart to the project-side
@@ -239,6 +239,7 @@ write themselves.
 |---|---|---|
 | [`pairing-self-review`](../skills/pairing-self-review/SKILL.md) | Pre-flight self-review of local changes before opening a PR. Read-only; returns a structured report. | experimental |
 | [`pairing-multi-agent-review`](../skills/pairing-multi-agent-review/SKILL.md) | Fan a diff through three independent review passes (correctness, security, conventions) and merge findings. | experimental |
+| [`pre-first-pr-check`](../skills/pre-first-pr-check/SKILL.md) | Newcomer-facing pre-flight checklist: SPDX headers, commit-message shape, Generated-by trailer, placeholder convention. Read-only. | experimental |
 
 **Sequencing.** Agentic Pairing ships before Agentic Autonomous in the project's
 automation roadmap — full auto-merge of maintainer-driven changes

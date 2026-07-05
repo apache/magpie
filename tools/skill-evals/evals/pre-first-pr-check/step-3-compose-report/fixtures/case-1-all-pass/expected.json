@@ -1,0 +1,14 @@
+{
+  "has_base_ref": true,
+  "has_commit_count": true,
+  "has_files_changed": true,
+  "spdx_section_present": true,
+  "commit_shape_section_present": true,
+  "placeholder_section_present": true,
+  "contributing_section_present": true,
+  "injection_guard_section_present": true,
+  "readiness_signal": "ready",
+  "blocking_count": 0,
+  "advisory_count": 0,
+  "has_attribution_footer": true
+}

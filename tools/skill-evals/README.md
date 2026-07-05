@@ -40,6 +40,7 @@ Suites are currently implemented for:
 - **contributor-sentiment** — 10 cases across 3 steps (step-0-resolve-inputs, step-2-score-signals, step-3-generate-report)
 - **onboarding-concierge** — 10 cases across 2 steps (question-classify, answer-draft)
 - **newcomer-issue-explainer** — 11 cases across 2 steps (issue-assessment, explanation-quality)
+- **pre-first-pr-check** — 9 cases across 2 steps (step-2-check-categories, step-3-compose-report)
 
 ## Prerequisites
 
