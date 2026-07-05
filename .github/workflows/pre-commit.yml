@@ -96,4 +96,18 @@ jobs:
         # job's `contents: read` scope is sufficient for link checking.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: prek run --show-diff-on-failure --color=always --all-files
+        # `--skip workspace-pytest`: pytest already runs in CI as the
+        # dedicated, path-filtered `tests` workflow matrix
+        # (`.github/workflows/tests.yml`). Running it a second time here
+        # (bundled across every workspace member) is pure duplication in
+        # CI, so skip it — the hook still runs locally on `git commit` /
+        # `prek run`, where there is no separate matrix.
+        #
+        # `--verbose`: without it prek renders a progress UI that a
+        # non-TTY CI log buffers and only flushes at the end, so a long
+        # run shows nothing while it works. Verbose prints each hook's
+        # result and output as it completes, giving live progress in the
+        # Actions log.
+        run: >-
+          prek run --show-diff-on-failure --color=always --all-files
+          --verbose --skip workspace-pytest

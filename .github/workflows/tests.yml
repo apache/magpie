@@ -41,24 +41,76 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
         with:
           persist-credentials: false
+          # Full history so the PR path-filter below can diff the PR
+          # head against its merge base. Harmless on push events.
+          fetch-depth: 0
       - id: list
         # Emit the workspace members as a JSON array of {name,path}
         # objects so the matrix below can both label jobs by name
         # AND pass the path to `uv run --directory`. The `pytest`
-        # filter mirrors the auto-discovery rule in
+        # applicability filter mirrors the auto-discovery rule in
         # `tools/dev/run-workspace-check.sh`: only members with a
         # `[tool.pytest.ini_options]` section get pytest jobs, and
         # an explicit `[tool.magpie.checks] skip = [..., "pytest"]`
         # opts out.
+        #
+        # Path filter (PRs only): a member's pytest job is emitted
+        # only when that member's own Python source/test files changed
+        # in the PR. On push to `main` — and when a shared build input
+        # changes (root `pyproject.toml` / `uv.lock` / the
+        # workspace-check helper / this workflow) — the full matrix
+        # runs. If no member's tests are affected the matrix is empty
+        # and the `pytest` job is skipped; `tests-ok` treats that as a
+        # pass (see below).
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
+          if [ "${EVENT}" = "pull_request" ]; then
+            CHANGED=$(git diff --name-only "${BASE_SHA}...${HEAD_SHA}")
+          else
+            CHANGED=""
+          fi
+          export CHANGED
           members=$(python3 <<'PY'
           import json
-          import sys
+          import os
           import tomllib
+
+          event = os.environ.get("EVENT", "")
+          changed = [
+              line.strip()
+              for line in os.environ.get("CHANGED", "").splitlines()
+              if line.strip()
+          ]
 
           with open("pyproject.toml", "rb") as f:
               root = tomllib.load(f)
           paths = root["tool"]["uv"]["workspace"]["members"]
+
+          # Shared build inputs that force the full matrix even on a PR:
+          # a change to any of these can affect every member's tests.
+          GLOBAL = {
+              "pyproject.toml",
+              "uv.lock",
+              "tools/dev/run-workspace-check.sh",
+              ".github/workflows/tests.yml",
+          }
+          run_all = event != "pull_request" or any(c in GLOBAL for c in changed)
+
+          def member_changed(path: str) -> bool:
+              # A member is affected when the PR touches a `.py` file
+              # anywhere under it, or any file under its `tests/` dir
+              # (fixtures / data a test reads).
+              prefix = path + "/"
+              tests_prefix = path + "/tests/"
+              for c in changed:
+                  if c.startswith(prefix) and (
+                      c.endswith(".py") or c.startswith(tests_prefix)
+                  ):
+                      return True
+              return False
 
           out = []
           for path in paths:
@@ -70,6 +122,8 @@ jobs:
               skip = tool.get("magpie", {}).get("checks", {}).get("skip", [])
               if "pytest" in skip:
                   continue
+              if not run_all and not member_changed(path):
+                  continue
               out.append({"name": path.split("/")[-1], "path": path})
           # Sort for deterministic CI ordering.
           out.sort(key=lambda x: x["name"])
@@ -77,7 +131,7 @@ jobs:
           PY
           )
           echo "members=${members}" >> "$GITHUB_OUTPUT"
-          echo "Discovered workspace members for pytest matrix:"
+          echo "Selected workspace members for pytest matrix:"
           echo "${members}" | python3 -m json.tool
 
   # Per-member pytest matrix. Each Python project under tools/ that
@@ -156,9 +210,15 @@ jobs:
     if: always()
     steps:
       - name: Assert all pytest matrix entries succeeded
+        # `success` — every selected member passed.
+        # `skipped` — the path filter selected no members (the PR
+        #   changed no project's Python source/test files), so there
+        #   was nothing to run; that is a pass, not a gap.
+        # Anything else (`failure` / `cancelled`) fails the gate.
         run: |
-          if [ "${{ needs.pytest.result }}" != "success" ]; then
-            echo "pytest matrix result: ${{ needs.pytest.result }}"
+          result="${{ needs.pytest.result }}"
+          if [ "${result}" != "success" ] && [ "${result}" != "skipped" ]; then
+            echo "pytest matrix result: ${result}"
             exit 1
           fi
-          echo "all pytest matrix entries passed"
+          echo "pytest gate satisfied (matrix result: ${result})"
