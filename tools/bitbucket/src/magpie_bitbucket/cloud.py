@@ -67,3 +67,31 @@ def get_pull_request(config: BitbucketConfig, pull_request_id: str) -> dict[str,
     pr_id = quote_path(pull_request_id)
     url = f"{CLOUD_API_BASE}/repositories/{workspace}/{repo_slug}/pullrequests/{pr_id}"
     return get_json(url, config)
+
+
+def get_pull_request_discussion(config: BitbucketConfig, pull_request_id: str) -> dict[str, Any]:
+    """Fetch pull request comments from Bitbucket Cloud."""
+    workspace = quote_path(require(config.workspace, "BITBUCKET_WORKSPACE"))
+    repo_slug = quote_path(require(config.repo_slug, "BITBUCKET_REPO_SLUG"))
+    pr_id = quote_path(pull_request_id)
+    url = f"{CLOUD_API_BASE}/repositories/{workspace}/{repo_slug}/pullrequests/{pr_id}/comments"
+
+    combined: dict[str, Any] = {
+        "pull_request_id": pull_request_id,
+        "values": [],
+        "paginated": True,
+        "pages": [],
+    }
+
+    while url:
+        page = get_json(url, config)
+        combined["pages"].append(page)
+
+        values = page.get("values")
+        if isinstance(values, list):
+            combined["values"].extend(item for item in values if isinstance(item, dict))
+
+        next_url = page.get("next")
+        url = next_url if isinstance(next_url, str) else ""
+
+    return combined

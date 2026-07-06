@@ -123,6 +123,75 @@ def pull_request_list(kind: str, raw: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def pull_request_discussion(kind: str, raw: dict[str, Any]) -> dict[str, Any]:
+    """Normalize pull request discussion/comments from Bitbucket."""
+    values = raw.get("values")
+    if not isinstance(values, list):
+        values = []
+
+    return {
+        "backend": "bitbucket-cloud" if kind == "cloud" else "bitbucket-datacenter",
+        "coverage": "partial-read-only",
+        "pull_request_id": _string(raw.get("pull_request_id")),
+        "comments": [
+            _cloud_comment(item) if kind == "cloud" else _datacenter_activity(item)
+            for item in values
+            if isinstance(item, dict)
+        ],
+        "raw": raw,
+    }
+
+
+def _cloud_comment(raw: dict[str, Any]) -> dict[str, Any]:
+    """Normalize one Bitbucket Cloud pull request comment."""
+    content = raw.get("content")
+    inline = raw.get("inline")
+
+    return {
+        "id": _string(raw.get("id")),
+        "author": _cloud_user(raw.get("user")),
+        "created": _cloud_timestamp(raw.get("created_on")),
+        "updated": _cloud_timestamp(raw.get("updated_on")),
+        "body": _content_text(content),
+        "state": _string(raw.get("state")),
+        "deleted": raw.get("deleted"),
+        "inline": inline if isinstance(inline, dict) else None,
+        "raw": raw,
+    }
+
+
+def _datacenter_activity(raw: dict[str, Any]) -> dict[str, Any]:
+    """Normalize one Bitbucket Data Center pull request activity."""
+    comment = raw.get("comment")
+    if not isinstance(comment, dict):
+        comment = {}
+
+    return {
+        "id": _string(comment.get("id") or raw.get("id")),
+        "author": _datacenter_user(comment.get("author") or raw.get("user")),
+        "created": _epoch_millis_to_iso(comment.get("createdDate") or raw.get("createdDate")),
+        "updated": _epoch_millis_to_iso(comment.get("updatedDate") or raw.get("updatedDate")),
+        "body": _string(comment.get("text")),
+        "state": _string(raw.get("action") or raw.get("type")),
+        "deleted": comment.get("deleted"),
+        "inline": _datacenter_comment_anchor(comment),
+        "raw": raw,
+    }
+
+
+def _content_text(raw: object) -> str | None:
+    """Extract Bitbucket Cloud rendered/raw comment text."""
+    if not isinstance(raw, dict):
+        return None
+    return _string(raw.get("raw") or raw.get("markup") or raw.get("html"))
+
+
+def _datacenter_comment_anchor(raw: dict[str, Any]) -> dict[str, Any] | None:
+    """Return Data Center comment anchor when present."""
+    anchor = raw.get("anchor")
+    return anchor if isinstance(anchor, dict) else None
+
+
 def _string(value: object) -> str | None:
     """Convert a value to string while preserving missing values as None."""
     if value is None:

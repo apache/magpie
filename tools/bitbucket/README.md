@@ -64,6 +64,7 @@ This first implementation covers read-only operations:
 2. **Repository metadata:** fetch normalized repository details from Bitbucket Cloud or Data Center.
 3. **Pull-request listing:** list open pull requests as `contract:change-request` proposal summaries.
 4. **Pull-request fetch:** fetch one pull request as a normalized proposal object.
+5. **Pull-request discussion fetch:** fetch pull request comments/activity as normalized read-only discussion output.
 
 The bridge supports two Bitbucket API flavours behind one command
 surface:
@@ -78,7 +79,7 @@ surface:
 | Repository metadata | `repo get` | Supported read-only context | Reads repository metadata from Bitbucket Cloud or Data Center for Bitbucket PR workflows. This does not make the bridge a complete `contract:source-control` backend. |
 | Change requests | `list_open` / `pr list-open` | Supported read-only | Lists open pull requests with pagination. |
 | Change requests | `get` / `pr get <id>` | Partial read-only | Fetches PR metadata only. Discussion, commits, diffs, checks, review state, and mergeability are not complete yet. |
-| Change requests | `get_discussion` | Not implemented | Follow-up work for #606. |
+| Change requests | `get_discussion` / `pr discussion <id>` | Supported read-only | Fetches pull request comments/activity with pagination and normalizes them into stable discussion output. |
 | Change requests | `post_review` | Not implemented | Follow-up work for #606. |
 | Change requests | `land` | Not implemented | Follow-up work for #606. |
 | Change requests | `reject` | Not implemented | Follow-up work for #606. |
@@ -99,6 +100,9 @@ uv run --project tools/bitbucket magpie-bitbucket pr list-open
 
 # Fetch one pull request
 uv run --project tools/bitbucket magpie-bitbucket pr get 123
+
+# Fetch pull request discussion/comments
+uv run --project tools/bitbucket magpie-bitbucket pr discussion 123
 ```
 
 ## Configuration
@@ -147,6 +151,6 @@ Follow-up PRs can extend this bridge with:
 
 - Bitbucket issue read/write operations, which will add tracker coverage.
 - Linked Jira issue handoff through `tools/jira/`.
-- Pull-request comment, review, approve, decline, and merge operations.
+- Pull-request comment creation, review, approve, decline, and merge operations.
 - Branch restriction and permission reads.
 - Bitbucket Pipelines status reads for change-request `status`.
