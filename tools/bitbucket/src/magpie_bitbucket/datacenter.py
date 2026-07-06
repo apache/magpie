@@ -66,6 +66,9 @@ def list_open_pull_requests(config: BitbucketConfig) -> dict[str, Any]:
         if not isinstance(next_start, int):
             break
 
+        if next_start <= start:
+            break
+
         start = next_start
 
     return combined
@@ -110,6 +113,9 @@ def get_pull_request_discussion(config: BitbucketConfig, pull_request_id: str) -
 
         next_start = page.get("nextPageStart")
         if not isinstance(next_start, int):
+            break
+
+        if next_start <= start:
             break
 
         start = next_start

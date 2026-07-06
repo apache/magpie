@@ -420,7 +420,12 @@ def test_normalize_cloud_pull_request_discussion() -> None:
     assert result["comments"][0]["id"] == "101"
     assert result["comments"][0]["author"] == "Alice"
     assert result["comments"][0]["body"] == "Looks good."
-    assert result["comments"][0]["inline"] == {"path": "README.md", "to": 10}
+    assert result["comments"][0]["date"] == "2026-07-01T00:00:00Z"
+    assert result["comments"][0]["kind"] == "comment"
+    assert result["comments"][0]["deleted"] is False
+    assert result["comments"][0]["inline"] == {"path": "README.md", "to_line": 10}
+    assert result["participants"] == ["Alice"]
+    assert result["unresolved_count"] is None
 
 
 def test_normalize_datacenter_pull_request_discussion() -> None:
@@ -455,7 +460,12 @@ def test_normalize_datacenter_pull_request_discussion() -> None:
     assert result["comments"][0]["body"] == "Please update tests."
     assert result["comments"][0]["created"] == "2026-05-28T20:26:40Z"
     assert result["comments"][0]["updated"] == "2026-05-28T20:26:41Z"
-    assert result["comments"][0]["inline"] == {"path": "tests/test_bitbucket.py", "line": 42}
+    assert result["comments"][0]["date"] == "2026-05-28T20:26:40Z"
+    assert result["comments"][0]["kind"] == "comment"
+    assert result["comments"][0]["deleted"] is False
+    assert result["comments"][0]["inline"] == {"path": "tests/test_bitbucket.py", "to_line": 42}
+    assert result["participants"] == ["Bob"]
+    assert result["unresolved_count"] is None
 
 
 @patch("magpie_bitbucket.cloud.get_pull_request_discussion")
@@ -477,3 +487,105 @@ def test_cli_pr_discussion_cloud(
     assert output["pull_request_id"] == "7"
     assert output["comments"][0]["id"] == "101"
     assert output["comments"][0]["body"] == "Looks good."
+
+
+def test_normalize_datacenter_discussion_filters_non_comment_activities() -> None:
+    raw = {
+        "pull_request_id": "9",
+        "values": [
+            {"id": 1, "action": "APPROVED", "user": {"displayName": "Reviewer"}},
+            {
+                "id": 2,
+                "action": "COMMENTED",
+                "comment": {
+                    "id": 302,
+                    "text": "Real comment.",
+                    "author": {"displayName": "Alice"},
+                    "createdDate": 1780000000000,
+                },
+            },
+        ],
+    }
+
+    result = pull_request_discussion("datacenter", raw)
+
+    assert len(result["comments"]) == 1
+    assert result["comments"][0]["id"] == "302"
+    assert result["comments"][0]["body"] == "Real comment."
+    assert result["participants"] == ["Alice"]
+
+
+def test_normalize_cloud_discussion_preserves_empty_raw_body() -> None:
+    raw = {
+        "pull_request_id": "7",
+        "values": [
+            {
+                "id": 101,
+                "content": {"raw": "", "markup": "markdown fallback", "html": "<p>fallback</p>"},
+                "user": {"display_name": "Alice"},
+            }
+        ],
+    }
+
+    result = pull_request_discussion("cloud", raw)
+
+    assert result["comments"][0]["body"] == ""
+
+
+@patch("urllib.request.build_opener")
+def test_cloud_discussion_rejects_next_url_host_change(
+    mock_build_opener: MagicMock,
+    cloud_env: None,
+) -> None:
+    mock_opener(
+        mock_build_opener,
+        {
+            "values": [],
+            "next": "https://evil.example.test/steal-token",
+        },
+    )
+
+    with pytest.raises(BitbucketError, match="pagination URL changed scheme or host"):
+        cloud.get_pull_request_discussion(load_config(), "7")
+
+
+@patch("urllib.request.build_opener")
+def test_cloud_discussion_rejects_repeated_next_url(
+    mock_build_opener: MagicMock,
+    cloud_env: None,
+) -> None:
+    repeated_url = "https://api.bitbucket.org/2.0/repositories/apache/magpie/pullrequests/7/comments?page=2"
+    mock_opener(
+        mock_build_opener,
+        {
+            "values": [],
+            "next": repeated_url,
+        },
+        {
+            "values": [],
+            "next": repeated_url,
+        },
+    )
+
+    with pytest.raises(BitbucketError, match="pagination returned a repeated URL"):
+        cloud.get_pull_request_discussion(load_config(), "7")
+
+
+@patch("urllib.request.build_opener")
+def test_datacenter_discussion_stops_on_non_advancing_next_page_start(
+    mock_build_opener: MagicMock,
+    datacenter_env: None,
+) -> None:
+    opener = mock_opener(
+        mock_build_opener,
+        {
+            "values": [{"id": 201, "comment": {"text": "First"}}],
+            "isLastPage": False,
+            "nextPageStart": 0,
+        },
+    )
+
+    result = datacenter.get_pull_request_discussion(load_config(), "9")
+
+    assert opener.open.call_count == 1
+    assert result["values"][0]["id"] == 201

@@ -20,10 +20,30 @@
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import urlparse
 
-from magpie_bitbucket.client import BitbucketConfig, get_json, quote_path, require
+from magpie_bitbucket.client import BitbucketConfig, BitbucketError, get_json, quote_path, require
 
 CLOUD_API_BASE = "https://api.bitbucket.org/2.0"
+
+
+def _validated_next_url(next_url: object, seen_urls: set[str]) -> str:
+    """Return a safe Bitbucket Cloud pagination URL or an empty string."""
+    if not isinstance(next_url, str):
+        return ""
+
+    parsed_next = urlparse(next_url)
+    parsed_base = urlparse(CLOUD_API_BASE)
+    if parsed_next.scheme != parsed_base.scheme or parsed_next.hostname != parsed_base.hostname:
+        msg = "Bitbucket Cloud pagination URL changed scheme or host"
+        raise BitbucketError(msg)
+
+    if next_url in seen_urls:
+        msg = "Bitbucket Cloud pagination returned a repeated URL"
+        raise BitbucketError(msg)
+
+    seen_urls.add(next_url)
+    return next_url
 
 
 def get_repository(config: BitbucketConfig) -> dict[str, Any]:
@@ -46,6 +66,7 @@ def list_open_pull_requests(config: BitbucketConfig) -> dict[str, Any]:
         "pages": [],
     }
 
+    seen_urls = {url}
     while url:
         page = get_json(url, config)
         combined["pages"].append(page)
@@ -54,8 +75,7 @@ def list_open_pull_requests(config: BitbucketConfig) -> dict[str, Any]:
         if isinstance(values, list):
             combined["values"].extend(item for item in values if isinstance(item, dict))
 
-        next_url = page.get("next")
-        url = next_url if isinstance(next_url, str) else ""
+        url = _validated_next_url(page.get("next"), seen_urls)
 
     return combined
 
@@ -83,6 +103,7 @@ def get_pull_request_discussion(config: BitbucketConfig, pull_request_id: str) -
         "pages": [],
     }
 
+    seen_urls = {url}
     while url:
         page = get_json(url, config)
         combined["pages"].append(page)
@@ -91,7 +112,6 @@ def get_pull_request_discussion(config: BitbucketConfig, pull_request_id: str) -
         if isinstance(values, list):
             combined["values"].extend(item for item in values if isinstance(item, dict))
 
-        next_url = page.get("next")
-        url = next_url if isinstance(next_url, str) else ""
+        url = _validated_next_url(page.get("next"), seen_urls)
 
     return combined
