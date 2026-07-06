@@ -489,6 +489,34 @@ transition. This is the load-bearing gate for the release-manager
 hand-off (see Step 2b's *Two-stage gate*): the RM never receives
 the hand-off comment while the record is still in `allocated`.
 
+**The `pr merged → fix released` transition performs this push in
+the same apply pass — it is not deferrable.** When a sync run
+advances a tracker `pr merged → fix released`, the label flip and
+this 5a-regen + 5b-push are **one atomic unit**: the user's
+confirmation of the transition authorises the push, and both land in
+the same apply pass. The `fix released` label is in the generator's
+forward-state set (`compute_cna_private_state`), so the regenerated
+JSON carries `review-ready`, and the push advances the record
+`allocated → review-ready` — the very action that unblocks and
+performs the hand-off. Do **not** park the push behind a second
+confirmation, and do **not** defer it on the reasoning that "the
+release manager will promote the record": the RM owns
+`review-ready → publish-ready → advisory` (the hand-off steps); the
+`allocated → review-ready` promotion is sync's job at `fix released`.
+A tracker labelled `fix released` whose record is still
+`allocated` (Vulnogram: `DRAFT`) after the sync is a **process
+bug** — it strands the RM, who is gated on `review-ready`, and
+silently stalls the advisory.
+
+**The only acceptable deferral** is a genuinely-unavailable
+authenticated session at sync time (the adapter's session probe
+fails — see the decision flow below). Then, and only then, sync
+posts the **manual-paste** hand-off variant *and* raises an explicit
+blocker in the Step 6 recap (*"<CVE> still in `allocated`/DRAFT —
+push on the next authenticated sync"*), so the gap is loud, never
+silent. Completing the push is the first action of the next
+session-capable sync.
+
 The remaining transitions stay separate:
 
 - `review-ready` → `publish-ready` is a **release-manager UI

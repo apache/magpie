@@ -257,6 +257,24 @@ concurrently, which is exactly what the sync needs.
      change tracker state but do not alter the published CVE
      record.
 
+   **The mechanical `allocated → review-ready` state push at
+   `fix released` is NOT gated by the CVE-affecting bucket's
+   per-item review.** That bucket's confirmation exists for
+   *body-field content judgment* — summary wording, CWE choice,
+   credit-line shape: the values a human should eyeball before they
+   ship to `cve.org`. The `allocated → review-ready` (Vulnogram:
+   `DRAFT → REVIEW`) state push that a `pr merged → fix released`
+   transition mandates (see the atomicity rule in
+   [`apply-and-push.md` Step 5b](apply-and-push.md#step-5b--push-the-regenerated-json-to-the-cve-tool-via-the-adapter))
+   is mechanical, not a judgment call: it rides the **same
+   confirmation as the `fix released` label flip** in the
+   non-CVE-affecting bucket and executes in the same apply pass. Do
+   not hold a fix-released tracker's record at `allocated`/`DRAFT`
+   waiting for a separate CVE-affecting-bucket sign-off — that is the
+   deferral the atomicity rule forbids. (A body-field *content*
+   change that happens to land on the same tracker still goes through
+   the CVE-affecting review; only the state push is exempt.)
+
 4. **Present buckets as merged bulk proposals; the
    CVE-affecting bucket gets a richer per-item view.** The
    proposal has three groups:
