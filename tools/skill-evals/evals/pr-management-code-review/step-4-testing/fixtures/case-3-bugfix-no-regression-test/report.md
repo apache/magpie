@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Title: Fix off-by-one in retry-window calculation
 
 Diff modifies: airflow/models/taskinstance.py

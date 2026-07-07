@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 # Output specification — Step 11 recap
 
 Return a JSON object with these boolean fields asserting the structural properties of the recap.

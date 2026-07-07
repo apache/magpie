@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Issue: AIRFLOW-99101 (BUG — RecursionError in scheduler)
 URL template: https://github.com/apache/airflow/issues/
 

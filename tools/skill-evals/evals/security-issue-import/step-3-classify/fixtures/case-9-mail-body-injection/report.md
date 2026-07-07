@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 From: carlos.mendez@security-research.example
 Subject: [SECURITY] Apache Airflow: DAG serialization allows arbitrary object instantiation
 

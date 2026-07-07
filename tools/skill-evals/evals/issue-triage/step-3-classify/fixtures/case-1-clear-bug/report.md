@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Issue: AIRFLOW-99101
 Title: SchedulerJob crashes with RecursionError when dag_bag has more than 1000 DAGs
 Reporter: alice-dev

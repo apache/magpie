@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 fix(models): address Apache Verum findings in connection.py
 
 This security fix removes dead code that could expose credentials

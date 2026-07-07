@@ -1,0 +1,92 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+---
+name: rat
+
+on:  # yamllint disable-line rule:truthy
+  pull_request:
+  push:
+    branches: [main]
+
+permissions: {}
+
+# Apache RAT (Release Audit Tool) verifies every source file carries an
+# approved licence header — the same check ASF Infra runs on release
+# artefacts, run here on every PR so header drift is caught before merge.
+# Source files carry the full ASF header; Markdown carries an SPDX
+# identifier stamped by tools/dev/add-license-headers.py (also a prek
+# hook). Intentional header-less files (generated artefacts, empty
+# markers, licence-detection fixtures) are listed in `.rat-excludes`.
+#
+# To bump RAT: change RAT_VERSION and set RAT_SHA512 to the value in
+# https://archive.apache.org/dist/creadur/apache-rat-<version>/apache-rat-<version>-bin.tar.gz.sha512
+jobs:
+  rat:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      RAT_VERSION: "0.18"
+      RAT_SHA512: "315b16536526838237c42b5e6b613d29adc77e25a6e44a866b2b7f8b162e03d3629d49c9faea86ceb864a36b2c42838b8ce43d6f2db544e961f2259e242748f4"
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a  # v5.5.0
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Download and verify Apache RAT
+        run: |
+          set -euo pipefail
+          # archive.apache.org keeps every release permanently, so a pinned
+          # version keeps resolving after the next RAT release ships (the
+          # current release moves off downloads.apache.org). The checksum is
+          # pinned in RAT_SHA512, independent of the download host.
+          base="https://archive.apache.org/dist/creadur/apache-rat-${RAT_VERSION}"
+          tarball="apache-rat-${RAT_VERSION}-bin.tar.gz"
+          curl --fail --silent --show-error --location --retry 3 -o "${tarball}" "${base}/${tarball}"
+          echo "${RAT_SHA512}  ${tarball}" | sha512sum --check --strict -
+          tar xzf "${tarball}"
+      - name: Run Apache RAT licence check
+        run: |
+          set -uo pipefail
+          jar="apache-rat-${RAT_VERSION}/apache-rat-${RAT_VERSION}.jar"
+          # RAT fails (UNAPPROVED counter default range [0,0]) when any
+          # scanned file lacks an approved header. Drive pass/fail off the
+          # report so contributors get the offending file list, not a Java
+          # stack trace. --input-exclude-parsed-scm GIT honours .gitignore;
+          # --input-exclude-std GIT/HIDDEN_DIR skips the VCS metadata.
+          java -jar "${jar}" \
+            --input-exclude-std GIT HIDDEN_DIR \
+            --input-exclude-parsed-scm GIT \
+            --input-exclude-file .rat-excludes \
+            --output-style unapproved-licenses \
+            --output-file rat-report.txt \
+            . 2>rat-stderr.log && rc=0 || rc=$?
+          echo "----- Apache RAT unapproved-licenses report -----"
+          cat rat-report.txt
+          if grep -qE '^  /' rat-report.txt; then
+            echo "::error::Apache RAT found files with a missing or unapproved licence header (listed above). Add an ASF/SPDX header (Markdown: run tools/dev/add-license-headers.py), or add an intentional exception to .rat-excludes."
+            exit 1
+          fi
+          if [ "${rc}" -ne 0 ]; then
+            echo "::error::Apache RAT exited with status ${rc} without reporting unapproved files. RAT stderr follows:"
+            cat rat-stderr.log
+            exit "${rc}"
+          fi
+          echo "Apache RAT: all scanned files carry an approved licence header."

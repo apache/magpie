@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Script output from `python3 .claude/skills/magpie-list-skills/scripts/list_skills.py`:
 
 issue

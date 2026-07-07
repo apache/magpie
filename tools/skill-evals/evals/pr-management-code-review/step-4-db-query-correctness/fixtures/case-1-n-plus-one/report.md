@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Title: Add owner email to the dag-list response
 
 Diff modifies: airflow/api/dag_list.py

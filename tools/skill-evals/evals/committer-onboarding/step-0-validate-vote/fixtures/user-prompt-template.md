@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 You are helping a project nominator carry out post-vote committer
 onboarding using the committer-onboarding skill.
 

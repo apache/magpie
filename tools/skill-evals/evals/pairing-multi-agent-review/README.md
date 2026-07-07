@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 # pairing-multi-agent-review evals
 
 Behavioral evals for the `pairing-multi-agent-review` skill.

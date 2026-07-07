@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 You are computing the default "my reviews" working-list membership and the
 Step 1 match-reason chips for one pull request, from the
 pr-management-code-review skill of the Apache Magpie framework.

@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Invocation: /reviewer-routing pr:42
 
 gh auth status: authenticated as maintainer-ops (read scope confirmed).

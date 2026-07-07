@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 PR #5505
 Author: eve
 LastCommitDate: 2026-05-15T09:00:00Z

@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 From: "D. Park" <d.park@vulnlab.example>
 Subject: Scheduler: pickle deserialization in XCom allows RCE (CVSSv3: 9.8 CRITICAL)
 

@@ -1,4 +1,6 @@
 ---
+# SPDX-License-Identifier: Apache-2.0
+# https://www.apache.org/licenses/LICENSE-2.0
 name: magpie-pr-management-stats
 description: |
   Read-only maintainer dashboard for the open-PR backlog of <upstream>.

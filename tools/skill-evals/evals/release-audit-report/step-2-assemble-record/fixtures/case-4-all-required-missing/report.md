@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Gathered record data (from Step 1):
   version: 3.0.0
   planning_issue_url: https://github.com/apache/airflow/issues/48000

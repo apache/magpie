@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Thread: Issue #41237 — "DeprecationWarning spam for schedule_interval after 2.9→2.10 upgrade — can we just drop it?"
 MaxAgentTurns: 2
 AgentCommentCount: 0

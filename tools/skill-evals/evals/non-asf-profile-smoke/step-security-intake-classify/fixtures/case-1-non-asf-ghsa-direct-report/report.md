@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Project config: Velox Stream (non-ASF community project)
   security_inbox.kind: ghsa-inbox
   forwarders.enabled: []

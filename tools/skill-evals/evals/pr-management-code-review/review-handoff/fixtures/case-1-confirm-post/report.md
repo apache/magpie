@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Session context:
 - PR: #6501 — "Add retry jitter to HTTP provider"
 - Draft disposition: REQUEST_CHANGES

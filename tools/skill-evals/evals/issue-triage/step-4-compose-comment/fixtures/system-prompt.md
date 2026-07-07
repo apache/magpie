@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 You are executing Step 4 (Compose proposal comment) of the issue-triage skill from the Apache Magpie framework.
 
 Given a classified issue (class, rationale, action items) and project routing info, assess whether a drafted triage proposal comment meets the skill's requirements. Return a structural assertion object.

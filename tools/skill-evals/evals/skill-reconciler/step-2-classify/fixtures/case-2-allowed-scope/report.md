@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Comparing skills/security-cve-allocate/SKILL.md (ASF variant)
          vs non-asf-adopter/security-cve-allocate/SKILL.md (generic variant)
 

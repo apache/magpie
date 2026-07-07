@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Base ref: origin/main (merge base def5678)
 Files changed: 1 (1 modified)
 Diff size: 12 additions, 4 deletions

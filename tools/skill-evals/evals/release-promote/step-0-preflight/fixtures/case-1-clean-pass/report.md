@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Trigger: /release-promote 2.11.0-rc1
 --planning-issue was NOT passed (auto-detect).
 --non-asf was NOT passed.

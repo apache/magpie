@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Comparing skills/issue-reproducer/SKILL.md (version A)
          vs skills/issue-reproducer/SKILL.md (version B, from branch adopter-enhancements)
 

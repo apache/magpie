@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Could you add the Apache license header to the new source file?
 
 Every contributor-authored source file needs the standard header. The

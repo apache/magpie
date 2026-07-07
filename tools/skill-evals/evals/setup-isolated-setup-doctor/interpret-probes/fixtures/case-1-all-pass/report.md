@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 All three probes ran to completion.
 
 PROBE: ssh-agent → ✓ (3 identities listed)

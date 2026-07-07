@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 ## Mock: Read /tmp/adversarial-findings-2025-05-10.md
 
 ```markdown

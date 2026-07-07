@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Override file: `.apache-magpie-overrides/issue-triage.md`
 Override content summary:
   # Override 1 — Change stale-detection default to 90 days

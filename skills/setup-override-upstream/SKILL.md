@@ -1,4 +1,6 @@
 ---
+# SPDX-License-Identifier: Apache-2.0
+# https://www.apache.org/licenses/LICENSE-2.0
 name: magpie-setup-override-upstream
 description: |
   Walk an adopter through promoting a local

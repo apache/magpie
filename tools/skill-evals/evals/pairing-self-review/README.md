@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 # pairing-self-review evals
 
 Behavioral evals for the `pairing-self-review` skill.

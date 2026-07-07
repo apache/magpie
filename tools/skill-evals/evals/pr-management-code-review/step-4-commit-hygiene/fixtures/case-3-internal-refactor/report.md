@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Title: Rename internal helper _fmt to _format_row
 
 Diff modifies: airflow/cli/commands/dag_command.py

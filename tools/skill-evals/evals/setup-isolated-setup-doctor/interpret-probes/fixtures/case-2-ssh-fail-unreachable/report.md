@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Probe output collected on 2026-05-26.
 
 PROBE: ssh-agent → ✗ (agent unreachable: Could not open a connection to your authentication agent)

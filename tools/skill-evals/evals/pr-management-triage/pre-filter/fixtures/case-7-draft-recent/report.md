@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 PR #7010
 Author: ivan-contributor
 AuthorAssociation: CONTRIBUTOR

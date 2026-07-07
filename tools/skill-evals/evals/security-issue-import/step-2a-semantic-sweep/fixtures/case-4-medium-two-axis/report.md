@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 From: dave@bugbounty.example
 Subject: Apache Airflow task callback URL allows SSRF to internal hosts
 

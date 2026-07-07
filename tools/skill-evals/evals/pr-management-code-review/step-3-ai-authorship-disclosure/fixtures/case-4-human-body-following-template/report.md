@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 The repository's PR template has a generative-AI disclosure section. The body is
 plain human prose with no AI-authorship signals; the disclosure box is correctly
 left unchecked because no AI tooling was used. No finding.

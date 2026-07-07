@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Current issue: #234
 Title: "Authenticated user can trigger scheduler DoS via large conf payload"
 Code pointer: airflow/models/dagrun.py — DagRun.verify_integrity()

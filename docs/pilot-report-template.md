@@ -1,4 +1,6 @@
 ---
+# SPDX-License-Identifier: Apache-2.0
+# https://www.apache.org/licenses/LICENSE-2.0
 skill: <skill-name>
 date: YYYY-MM-DD
 target_repo: <owner>/<repo>

@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 From: eve@attacker.example
 Subject: RCE via crafted DAG file in Airflow scheduler
 

@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 You are executing the pre-filter phase from Step 2 of the pr-management-triage
 skill from the Apache Magpie framework.
 

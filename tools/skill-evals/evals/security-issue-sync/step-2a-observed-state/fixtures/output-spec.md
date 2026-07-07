@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 # Output specification — Step 2a observed state
 
 Return a JSON object summarising the observed tracker state. This is an exact-match assertion.

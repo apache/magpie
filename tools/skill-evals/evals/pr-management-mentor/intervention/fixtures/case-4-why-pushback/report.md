@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Thread: PR #11830 — "feat(scheduler): add dag-level concurrency knob"
 MaxAgentTurns: 2
 AgentCommentCount: 1

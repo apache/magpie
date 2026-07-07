@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Pre-flight: PASS
 Step 2 commands confirmed by RM.
 version: 3.0.0

@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Issue #71: "Possible path traversal in file-sink connector"
 Repo: velox-community/velox-stream (non-ASF project; no apache.org affiliation)
 Reporter: @external-researcher

@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Thread: Issue #4820 — "Possible privilege escalation in the API server"
 ThreadType: issue
 authorAssociation: FIRST_TIMER

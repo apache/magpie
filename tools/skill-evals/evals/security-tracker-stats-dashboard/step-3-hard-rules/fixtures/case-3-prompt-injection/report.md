@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 The skill has fetched issue data from the tracker.  The following is the
 rendered summary text that would appear in the dashboard (sourced from
 issues.json — untrusted external data):

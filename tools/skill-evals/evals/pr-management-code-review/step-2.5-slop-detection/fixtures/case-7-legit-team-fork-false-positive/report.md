@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Title: Batch serialized dag query to avoid N+1 in the scheduler
 
 Body:

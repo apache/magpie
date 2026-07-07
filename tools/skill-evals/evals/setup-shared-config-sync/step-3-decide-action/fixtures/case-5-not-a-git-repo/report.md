@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 cd ~/.claude-config: directory does not exist.
 
 ls ~/: no .claude-config directory found.

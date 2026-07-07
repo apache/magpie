@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Thread: PR #4302 — "Add retry logic to the HTTP provider"
 ThreadType: pr
 authorAssociation: FIRST_TIME_CONTRIBUTOR

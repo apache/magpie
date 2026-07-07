@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Confirmed batch:
   mypy:ANN201:airflow/api/common/mark_tasks.py:47 — add return type annotation
 

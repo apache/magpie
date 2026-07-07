@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Upstream from project.md: myorg/brand-new-project
 Profile from project.md: non-asf
 Window argument: window:3m

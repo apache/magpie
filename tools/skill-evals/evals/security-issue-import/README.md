@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 # Evals: security-issue-import
 
 Behavioural evals for the `security-issue-import` skill. Each case supplies a

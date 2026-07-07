@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Invocation: /release-prepare prep 2.11.0
 (no --planning-issue flag provided)
 

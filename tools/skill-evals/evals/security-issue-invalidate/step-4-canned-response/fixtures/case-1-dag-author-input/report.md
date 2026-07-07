@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 ## Reasoning summary extracted from tracker discussion
 
 **Tracker #318 — "BashOperator executes arbitrary commands from DAG definition"**

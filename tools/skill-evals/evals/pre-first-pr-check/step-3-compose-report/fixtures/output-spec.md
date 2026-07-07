@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 ## Output format
 
 Return ONLY valid JSON with this structure (structural assertion — prose fields are checked for required properties, not exact text):

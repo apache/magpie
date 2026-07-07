@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 release-management-config.md:
   release_dist_backend: svnpubsub
   release_dist_url_template: https://dist.apache.org/repos/dist/release/airflow/<version>/

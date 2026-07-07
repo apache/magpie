@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 PR #99: "Update README formatting"
 Author: @mallory
 Created: 2025-07-01

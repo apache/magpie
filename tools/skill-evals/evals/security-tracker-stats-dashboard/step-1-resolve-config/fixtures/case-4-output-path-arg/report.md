@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 User invocation: tracker-stats /reports/airflow/2026-Q2.html
 
 project-config/security-tracker-stats.md:

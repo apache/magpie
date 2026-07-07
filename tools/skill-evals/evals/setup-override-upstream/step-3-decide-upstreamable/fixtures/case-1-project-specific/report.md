@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Override file: `.apache-magpie-overrides/security-issue-import.md`
 Override content summary:
   # Override 1 — Customise the acknowledgement reply

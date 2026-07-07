@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Diff adds: docs/img/scheduler-architecture.png
 
 File description: A hand-drawn-style architecture diagram showing the

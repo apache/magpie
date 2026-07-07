@@ -1,4 +1,6 @@
 ---
+# SPDX-License-Identifier: Apache-2.0
+# https://www.apache.org/licenses/LICENSE-2.0
 name: magpie-setup-isolated-setup-verify
 description: |
   Walk the verification checklist for the framework's secure

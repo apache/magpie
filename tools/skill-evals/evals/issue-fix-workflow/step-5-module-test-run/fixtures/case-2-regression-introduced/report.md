@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Fix applied: AIRFLOW-88101 — bytes early-return in XCom.serialize_value()
 
 Module test run:

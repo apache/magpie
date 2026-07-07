@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Pre-flight passed. Sub-command: prep. Version: 2.11.0.
 Planning issue: apache/airflow#48700 (labelled release-planning)
 Previous tag: 2.10.3. Release branch base: main.

@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 PR #55: "Fix CVE-2025-9999: SQL injection in query builder"
 Author: @dave
 Created: 2025-07-01

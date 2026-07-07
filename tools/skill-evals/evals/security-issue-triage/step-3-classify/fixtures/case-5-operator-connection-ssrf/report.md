@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 **Title:** HTTP operator follows redirects to internal hosts when connection URL is operator-controlled
 
 The Airflow HTTP operator uses `allow_redirects=True` by default. When a

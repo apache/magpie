@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Pre-flight passed. Sub-command: prep. Version: 2.11.0.
 Planning issue: apache/airflow#48700 (labelled release-planning, title "Release Apache Airflow 2.11.0")
 PR set: 12 PRs (from planning issue body).

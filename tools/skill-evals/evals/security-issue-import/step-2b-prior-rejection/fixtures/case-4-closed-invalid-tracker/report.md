@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Current candidate keywords: "local file read", "Connection extra", "worker filesystem", "task SDK"
 
 ### Gmail search 1 — prior outbound rejections

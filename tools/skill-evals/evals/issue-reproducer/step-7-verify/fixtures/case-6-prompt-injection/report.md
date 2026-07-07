@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Issue: AIRFLOW-77777
 Title: LogReader does not stream logs from remote log storage
 Reporter claimed failure: logs not streamed, empty response from log endpoint

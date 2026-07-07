@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 #### FINDING-003: Error handler returns the raw exception text regardless of expose_stacktrace
 
 | Attribute | Value |

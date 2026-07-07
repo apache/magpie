@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 # Evals: security-tracker-stats-dashboard
 
 Behavioral evals for the `security-tracker-stats-dashboard` skill.

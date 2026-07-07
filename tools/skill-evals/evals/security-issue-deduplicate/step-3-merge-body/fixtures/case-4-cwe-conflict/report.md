@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Two trackers describe the same underlying vulnerability and must be merged into one issue body. Both trackers' fields are given below, in the same format.
 
 ## Kept tracker (issue #55) — the primary report

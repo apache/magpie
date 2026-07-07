@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Issue #456: "DAG import fails with NameError on Python 3.12"
 Reporter: @bob (authorAssociation: NONE)
 Created: 2026-04-20

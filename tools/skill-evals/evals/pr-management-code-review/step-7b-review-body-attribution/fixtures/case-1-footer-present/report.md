@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 **REQUEST_CHANGES**
 
 - [major] airflow/api/client.py: removing the public `schedule` parameter

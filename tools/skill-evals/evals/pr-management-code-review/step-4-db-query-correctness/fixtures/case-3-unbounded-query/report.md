@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Title: Add endpoint returning task instances for the UI
 
 Diff adds: airflow/api/task_instances.py

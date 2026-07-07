@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 ## Detected scope: airflow
 
 ## Mock: gh pr view 53801 --repo apache/airflow --json milestone

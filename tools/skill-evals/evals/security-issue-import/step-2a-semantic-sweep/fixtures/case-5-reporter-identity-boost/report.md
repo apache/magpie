@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 From: b.researcher@secfirm.io
 Subject: Path traversal in Airflow HTTP operator allow_redirects parameter
 

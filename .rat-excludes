@@ -1,0 +1,50 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
+# Apache RAT exclusions for apache/magpie.
+#
+# Each line is a pattern passed to RAT via `--input-exclude-file`
+# (.github/workflows/rat.yml). Listed here are files that legitimately
+# carry no licence header: generated artefacts, empty markers, and eval
+# fixtures that intentionally contain non-Apache licence text as test
+# input. Source files carry the full ASF header; Markdown carries an SPDX
+# identifier stamped by tools/dev/add-license-headers.py.
+
+# Generated dependency lock files
+**/*.lock
+*.lock
+
+# Python bytecode caches (untracked; present only in local runs)
+**/__pycache__/**
+
+# Empty package markers
+**/__init__.py
+
+# PEP 561 typing marker
+**/py.typed
+
+# Generated sync-state file
+**/.last-sync
+
+# Skill / eval data fixtures that carry no licence header
+**/probe.txt
+**/SYNC_CHECK.txt
+
+# Third-party-licence detection fixtures — these deliberately contain
+# non-Apache (GPL / EPL / …) licence text as eval input, so RAT must not
+# treat them as source files needing an Apache header.
+tools/skill-evals/evals/pr-management-code-review/step-4-third-party-license/fixtures/**

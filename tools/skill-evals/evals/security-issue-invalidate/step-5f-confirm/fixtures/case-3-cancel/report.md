@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 ## Proposal surfaced to user
 
 **Tracker:** airflow-s/airflow-s#287

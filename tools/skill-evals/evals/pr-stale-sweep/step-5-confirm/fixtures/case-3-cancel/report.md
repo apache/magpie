@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Proposals presented:
 
 1. #42  REQUEST-UPDATE  48 d   "Hi @alice …"

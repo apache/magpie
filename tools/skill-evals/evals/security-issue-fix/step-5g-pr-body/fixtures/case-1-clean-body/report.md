@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 ## Proposed PR body
 
 Improve XCom value type handling in the extra links API by replacing the `pickle.loads()` call in `deserialize_value()` with `json.loads()`. This ensures only JSON-serializable values are accepted, preventing arbitrary object instantiation.

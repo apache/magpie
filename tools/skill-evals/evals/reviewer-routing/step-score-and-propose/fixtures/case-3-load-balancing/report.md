@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 PR: apache/example#101
 Title: "fix(dag-parsing): handle cyclic import in user DAG files"
 Author: contributor-frank

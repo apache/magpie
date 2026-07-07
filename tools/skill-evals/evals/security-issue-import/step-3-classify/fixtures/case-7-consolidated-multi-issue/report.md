@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 From: pen-tester@consulting.example
 Subject: Multiple security vulnerabilities in Apache Airflow 2.10.x
 

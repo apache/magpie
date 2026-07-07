@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 release-build.md digest set: sha512, sha256
 
 Artefacts and digest files present:

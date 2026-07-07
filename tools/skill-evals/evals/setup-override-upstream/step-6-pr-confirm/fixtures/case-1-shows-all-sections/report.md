@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 PR draft shown to user:
 
 Title: feat(skills): add draft-PR short-circuit gate to pr-management-triage

@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 ## Proposed PR body
 
 Fix security vulnerability in XCom deserialization. CVE-2025-44812 is addressed by replacing pickle.loads() with json.loads(). This prevents exploitation of the vulnerability by compromised workers.

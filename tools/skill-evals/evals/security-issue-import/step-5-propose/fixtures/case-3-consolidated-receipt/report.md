@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 ### Candidates this run — same reporter, two separate threads
 
 Both are class Report. Both from researcher@example.com. Import both as

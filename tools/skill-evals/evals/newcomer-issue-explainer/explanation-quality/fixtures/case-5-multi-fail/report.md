@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Issue #412 asks you to add a `--output-format` flag to the `report`
 command so CI pipelines can receive JSON output.
 

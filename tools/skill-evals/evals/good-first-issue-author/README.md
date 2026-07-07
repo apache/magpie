@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 # good-first-issue-author evals
 
 Behavioral evals for the `good-first-issue-author` skill.

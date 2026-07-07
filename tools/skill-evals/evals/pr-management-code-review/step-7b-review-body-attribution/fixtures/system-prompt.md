@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 You are executing the pre-post validation from Step 7b / Step 8 of the
 pr-management-code-review skill from the Apache Magpie framework.
 

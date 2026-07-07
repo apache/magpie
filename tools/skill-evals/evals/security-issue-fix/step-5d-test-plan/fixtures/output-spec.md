@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 # Output specification — Step 5d test plan
 
 Return a JSON object with these fields. Do not include the prose test-plan text itself.

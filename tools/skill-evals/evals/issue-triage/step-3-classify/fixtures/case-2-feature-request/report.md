@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Issue: AIRFLOW-99202
 Title: Add native support for scheduling DAGs based on upstream DAG completion
 Reporter: carol-data-engineer

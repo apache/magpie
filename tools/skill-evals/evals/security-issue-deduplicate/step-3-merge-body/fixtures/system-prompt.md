@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 You are executing Step 3 of the security-issue-deduplicate skill: building the
 MERGED issue body when two trackers are found to describe the same underlying
 vulnerability.

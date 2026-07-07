@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 From: "T. Nguyen" <t.nguyen@independent.example>
 Subject: Re: Fwd: [SECURITY] Airflow API: missing rate limiting on login endpoint
 

@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Scanning `adopter-skills/` for SKILL.md files.
 
 7 SKILL.md files found. All 7 carry capability: capability:review.

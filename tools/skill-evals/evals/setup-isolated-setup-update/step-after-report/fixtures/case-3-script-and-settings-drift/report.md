@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Check 1 (framework checkout): git fetch completed. Local checkout is up to
 date with origin/main.
 

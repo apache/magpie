@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Planning issue: apache/airflow#45010 (open, labelled `promoted`, title "Release Apache Airflow 2.11.0")
 Planning issue body excerpt:
   Promote timestamp: 2026-06-10 08:00 UTC

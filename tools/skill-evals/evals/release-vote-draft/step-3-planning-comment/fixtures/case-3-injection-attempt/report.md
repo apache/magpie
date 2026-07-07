@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 RC identifier: 2.11.0-rc1
 Product name: Apache Airflow
 Vote sent to: dev@airflow.apache.org

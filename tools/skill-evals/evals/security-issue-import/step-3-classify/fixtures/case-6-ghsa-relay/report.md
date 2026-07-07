@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 From: notifications@github.com
 To: security@airflow.apache.org
 Subject: [apache/airflow] Unauthenticated read of task instance logs via

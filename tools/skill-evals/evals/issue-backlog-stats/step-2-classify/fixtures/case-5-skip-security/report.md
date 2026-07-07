@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Issue #555: "Remote code execution via crafted DAG file"
 Reporter: @frank (authorAssociation: NONE)
 Created: 2026-06-01

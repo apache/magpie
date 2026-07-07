@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Login: highvolume-dev
 Real name: Drew Okafor
 Apache ID: [none yet]

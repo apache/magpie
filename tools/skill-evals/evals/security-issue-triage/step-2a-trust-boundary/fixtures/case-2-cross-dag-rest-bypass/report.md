@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Reporter claims: An authenticated API user whose permissions are scoped to
 a single DAG can call GET /api/v1/dags/{other_dag_id}/tasks via the Airflow
 REST API and receive the full task list and parameters of a DAG they have no

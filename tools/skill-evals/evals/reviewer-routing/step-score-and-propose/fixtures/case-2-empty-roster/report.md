@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 PR: apache/example#77
 Title: "feat(api): add v2 health-check endpoint"
 Author: contributor-eve

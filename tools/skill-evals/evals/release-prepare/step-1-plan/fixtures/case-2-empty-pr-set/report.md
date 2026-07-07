@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Pre-flight passed. Sub-command: plan. Version: 2.11.0.
 Previous tag: 2.10.3. Release branch base: main.
 --skip-empty-check was NOT passed.

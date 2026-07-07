@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 ## Apply result
 
 **Tracker:** airflow-s/airflow-s#341 (https://github.com/airflow-s/airflow-s/issues/341)

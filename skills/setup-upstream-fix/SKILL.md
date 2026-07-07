@@ -1,4 +1,6 @@
 ---
+# SPDX-License-Identifier: Apache-2.0
+# https://www.apache.org/licenses/LICENSE-2.0
 name: magpie-setup-upstream-fix
 description: |
   Turn a framework bug or quirk the agent hit while running a

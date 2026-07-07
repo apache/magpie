@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 You are executing Step 2 — Check cache freshness of the
 security-tracker-stats-dashboard skill from the Apache Magpie framework.
 

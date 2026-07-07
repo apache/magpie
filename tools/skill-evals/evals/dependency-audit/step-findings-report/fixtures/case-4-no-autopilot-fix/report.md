@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Scope: /home/maintainer/myproject (local Python checkout, pip-audit)
 Command: `pip-audit --format json --output /tmp/dep-audit-pip.json`
 

@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 ## Eval task
 
 You are evaluating the **disposition-bucketing** step (Step C) of the `security-issue-import-from-scan` skill.

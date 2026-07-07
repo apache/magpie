@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Thread: PR #13102 — "fix(scheduler): handle empty dag bag gracefully"
 MaxAgentTurns: 2
 AgentCommentCount: 0

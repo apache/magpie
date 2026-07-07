@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 From: alice@example.com
 Subject: <PROJECT> REST API exposes DAG execution data without login
 

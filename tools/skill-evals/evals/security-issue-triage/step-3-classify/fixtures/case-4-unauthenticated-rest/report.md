@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 **Title:** Unauthenticated attacker can enumerate DAG run histories via REST API
 
 The endpoint `GET /api/v1/dags/{dag_id}/dagRuns` does not enforce

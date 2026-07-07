@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 The repository's PR template has a generative-AI disclosure section. The PR body
 is AI-style, but the author ticked the disclosure box and added a Generated-by
 line, so the disclosure is affirmed.

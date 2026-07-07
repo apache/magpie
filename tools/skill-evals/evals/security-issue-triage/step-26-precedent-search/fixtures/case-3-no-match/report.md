@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Current issue: #241
 Title: "SMTP header injection via DAG-configured email recipient"
 Code pointer: airflow/utils/email.py — send_email_smtp()

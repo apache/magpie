@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 ## Proposal surfaced to user
 
 **PR:** apache/airflow#58044 — "fix: patch SSRF vector in HTTP hook and core connection resolver"

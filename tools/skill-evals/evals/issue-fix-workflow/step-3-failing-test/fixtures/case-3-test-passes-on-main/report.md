@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Issue: AIRFLOW-77204 — DagRun.get_duration() returns 0.0 when end_time is None
 
 No reproducer verdict available.

@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 PR #6102 — "Add connection export command"  (isDraft: false)
 
 - reviewRequests: [bob]   (alice not requested)

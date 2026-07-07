@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 ## Proposal surfaced to user
 
 **PR:** apache/airflow#52199 — "fix: prevent XCom pickle deserialization of untrusted payloads"

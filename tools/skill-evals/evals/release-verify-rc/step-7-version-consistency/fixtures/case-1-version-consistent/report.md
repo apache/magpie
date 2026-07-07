@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 RC tag: 2.11.0-rc1 → expected version: 2.11.0
 
 version_manifest_files (from release-management-config.md): setup.cfg, airflow/__init__.py

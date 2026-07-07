@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Issue #789: "Scheduler memory leak on long-running deployments"
 Reporter: @carol (authorAssociation: NONE)
 Created: 2026-03-01

@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Skill name: issue-labeller
 Purpose: Reads open GitHub issues from a public tracker and proposes labels
 based on their title and body.

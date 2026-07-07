@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 # issue-reassess-stats evals
 
 Behavioral evals for the `issue-reassess-stats` skill.

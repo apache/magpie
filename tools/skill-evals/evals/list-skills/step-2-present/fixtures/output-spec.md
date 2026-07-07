@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 ## Hard rule (from the skill's Hard rules section)
 
 **No paraphrasing.** Always present the script output verbatim.

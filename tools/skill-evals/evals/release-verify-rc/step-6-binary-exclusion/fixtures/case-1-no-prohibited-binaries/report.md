@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 release-build.md binary-exclude list: *.class, *.jar
 
 Scan of unpacked apache-airflow-2.11.0-source-release.tar.gz:

@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 ## Hand-back: mypy findings — airflow/api/common/
 
 **Tool:** mypy — 3 findings addressed, 1 suppressed

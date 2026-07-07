@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 @new-contributor-c — thanks for filing this issue.
 
 As an AI, I want to let you know what to expect next:

@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Diff against main (3 files changed, +187 -42):
 
 diff --git a/airflow/models/xcom.py b/airflow/models/xcom.py

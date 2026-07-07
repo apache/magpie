@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Issue: AIRFLOW-99404 (DUPLICATE of AIRFLOW-97801)
 URL template: https://github.com/apache/airflow/issues/
 

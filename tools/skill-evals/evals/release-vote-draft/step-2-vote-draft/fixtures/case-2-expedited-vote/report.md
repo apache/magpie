@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Pre-flight: PASS (--expedited accepted)
 product_name: Apache Airflow
 version: 2.10.4

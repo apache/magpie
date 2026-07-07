@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Thread: Issue #5001 — "DAG parsing timeout on large repo"
 ThreadType: issue
 authorAssociation: FIRST_TIMER

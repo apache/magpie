@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 # license-compliance-audit evals
 
 Behavioral evals for the `license-compliance-audit` skill.

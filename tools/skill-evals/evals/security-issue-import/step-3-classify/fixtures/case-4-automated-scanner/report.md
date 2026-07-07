@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 From: scanner-bot@sectools.example
 Subject: Automated security scan results for Apache Airflow 2.10.1
 

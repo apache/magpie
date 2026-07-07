@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 @carol — As an AI language model, I can help clarify the contributing process.
 
 Please add the `Apache-2.0` SPDX identifier to the top of each new source

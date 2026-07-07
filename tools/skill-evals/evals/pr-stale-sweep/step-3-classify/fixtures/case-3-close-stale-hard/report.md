@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 PR #7: "Refactor legacy auth module"
 Author: @carol
 Created: 2024-11-15

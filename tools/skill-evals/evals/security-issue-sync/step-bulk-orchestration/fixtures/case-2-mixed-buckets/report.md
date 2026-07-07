@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Four subagent reports came back from a `sync all open` selector. Two trackers carry body-field updates (CWE, summary); two are pure label flips.
 
 ---

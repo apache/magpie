@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Session results:
 - #1234: REQUEST-UPDATE comment posted, comment URL: https://github.com/apache/myproject/issues/1234#issuecomment-111
 - #2001: CLOSE-STALE comment posted, issue closed, comment URL: https://github.com/apache/myproject/issues/2001#issuecomment-222

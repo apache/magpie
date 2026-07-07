@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 You are executing the commit/PR title neutrality check from Step 5c of the
 security-issue-fix skill from the Apache Magpie framework.
 

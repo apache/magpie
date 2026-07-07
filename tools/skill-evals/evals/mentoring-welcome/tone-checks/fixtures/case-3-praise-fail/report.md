@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 @new-contributor-b — welcome aboard! We're so glad you found us and
 thanks for contributing to Apache Airflow.
 

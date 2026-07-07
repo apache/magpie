@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Login: clean-coder
 Real name: Riley Santos
 Apache ID: [none yet]

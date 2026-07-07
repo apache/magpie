@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 ### Reject-pattern taxonomy (from canned-responses.md)
 
 | Pattern (heading verbatim) | When it applies |

@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Title: Allow create_dag to set a description
 
 Diff modifies: airflow/api/client.py  (public client API)

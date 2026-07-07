@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Assessment window: 2025-11-19 → 2026-05-19 (6 months)
 Login: devcontrib
 Target: committer

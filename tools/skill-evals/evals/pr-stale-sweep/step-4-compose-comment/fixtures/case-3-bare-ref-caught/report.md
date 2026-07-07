@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 PR #88: "Update changelog for v2.1"
 Author: @frank
 Classification: REQUEST-UPDATE

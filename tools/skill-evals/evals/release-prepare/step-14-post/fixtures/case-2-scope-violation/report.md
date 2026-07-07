@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Pre-flight passed. Sub-command: post. Version: 2.11.0.
 Planning issue: apache/airflow#48700 (labelled announced)
 Release branch base: main.

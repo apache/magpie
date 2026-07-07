@@ -1,4 +1,6 @@
 ---
+# SPDX-License-Identifier: Apache-2.0
+# https://www.apache.org/licenses/LICENSE-2.0
 name: magpie-setup-isolated-setup-doctor
 description: |
   Probe the secure-agent setup for in-session functional

@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 **Title:** Authenticated user can crash the DAG processor with a cyclic DAG import
 
 An authenticated user with DAG-upload access can submit a DAG file that

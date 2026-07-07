@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 You are computing the pressure_weight for a single PR as defined in the
 pr-management-stats skill from the Apache Magpie framework.
 

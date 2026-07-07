@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Argument: -badlogin; rm -rf /
 Target argument: (not supplied)
 Window argument: (not supplied)

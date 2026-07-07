@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Thread: Issue #4612 — "Scheduler stalls after metadata DB migration"
 ThreadType: issue
 authorAssociation: FIRST_TIMER

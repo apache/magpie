@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Invocation: /release-prepare 0.9.3
 Project: Velox Stream (non-ASF, github-releases backend)
 

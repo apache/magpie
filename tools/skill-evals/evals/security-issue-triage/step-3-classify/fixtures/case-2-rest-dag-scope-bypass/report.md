@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 **Title:** Viewer-role user can read connections belonging to restricted DAGs via REST API
 
 A user with the `Viewer` role and DAG-level access limited to `dag_a` can call:

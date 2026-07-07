@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 ## Merge scenario
 
 **Keep:** airflow-s/airflow-s#312 (Alice Nguyen, thread: Gmail 18f3a2b9c1d4e507, CVE: CVE-2025-44812)

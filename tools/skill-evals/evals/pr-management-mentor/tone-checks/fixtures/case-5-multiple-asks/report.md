@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 @eve — Could you add a unit test for the new operator class?
 
 Also, could you update the CHANGELOG to mention this addition?

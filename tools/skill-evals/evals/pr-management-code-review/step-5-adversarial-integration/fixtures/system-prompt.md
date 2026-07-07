@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 You are executing Step 5 integration from the pr-management-code-review
 skill of the Apache Magpie framework: merging a second (adversarial)
 reviewer's findings into your own.

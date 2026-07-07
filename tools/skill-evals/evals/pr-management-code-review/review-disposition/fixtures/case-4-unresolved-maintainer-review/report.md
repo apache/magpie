@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 PR #6504 — Add connection retry to SFTP provider
 Author: dave-contributor (CONTRIBUTOR)
 CI: SUCCESS — all required checks pass

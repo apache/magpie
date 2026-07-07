@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Campaign directory: /tmp/reassess/pilot-2026-05-13/
 Files found:
   AIRFLOW-88101/verdict.json — parsed OK

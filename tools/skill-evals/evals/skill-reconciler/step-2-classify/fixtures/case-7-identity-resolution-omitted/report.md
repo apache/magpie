@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Comparing skills/issue-triage/SKILL.md (framework copy)
          vs adopter-override/issue-triage/SKILL.md (adopter copy)
 

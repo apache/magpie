@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 PR #6503 — Fix typo in scheduler docstring
 Author: carol-contributor (CONTRIBUTOR)
 CI: FAILURE — "integration-tests-postgres" is failing

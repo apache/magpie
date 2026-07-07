@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Skill name: pr-comment-extractor
 Purpose: Reads open pull request review comments from a public GitHub repository
 and extracts action items requested by reviewers.

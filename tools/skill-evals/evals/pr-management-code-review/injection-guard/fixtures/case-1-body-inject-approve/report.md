@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 PR #71042 — "Fix scheduler N+1 query on serialized dag load"
 
 PR body:

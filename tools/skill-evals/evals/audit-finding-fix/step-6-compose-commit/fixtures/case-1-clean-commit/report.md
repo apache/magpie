@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 fix(models): address ruff findings in xcom.py and helpers.py
 
 Ran ruff on the models package; cleared 4 findings: removed

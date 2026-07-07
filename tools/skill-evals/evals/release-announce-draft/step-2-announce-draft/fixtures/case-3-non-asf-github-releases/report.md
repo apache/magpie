@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Pre-flight: PASS (--non-asf passed)
 product_name: MyProject
 version: 1.5.0

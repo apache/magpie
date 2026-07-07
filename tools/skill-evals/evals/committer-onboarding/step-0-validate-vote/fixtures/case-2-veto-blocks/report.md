@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Project: Apache Beam (TLP)
 Candidate: David Chen
 Candidate email: dchen@example.com

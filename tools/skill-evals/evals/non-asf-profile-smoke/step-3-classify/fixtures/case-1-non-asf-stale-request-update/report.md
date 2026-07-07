@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Issue #88: "Backpressure propagation drops events under high load"
 Repo: velox-community/velox-stream (non-ASF project; no apache.org affiliation)
 Reporter: @priya-velox

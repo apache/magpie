@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Tracker state for airflow-s/airflow-s#219 (Path traversal via log endpoint):
 
 Labels: airflow, cve allocated

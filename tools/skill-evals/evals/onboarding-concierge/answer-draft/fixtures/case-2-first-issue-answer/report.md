@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Question: Where can I find a good first issue, and how do I claim one?
 Category: first-issue
 Hand-off required: false

@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 diff --git a/src/scheduler/pool.py b/src/scheduler/pool.py
 --- a/src/scheduler/pool.py
 +++ b/src/scheduler/pool.py

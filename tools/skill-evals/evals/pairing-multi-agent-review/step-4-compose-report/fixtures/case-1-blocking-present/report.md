@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 resolved_base: a3f9c12
 files_changed: 2 (1 modified, 1 added)
 lines_added: 21, lines_removed: 6

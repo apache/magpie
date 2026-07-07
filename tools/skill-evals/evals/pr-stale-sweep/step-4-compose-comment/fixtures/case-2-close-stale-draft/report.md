@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 PR #17: "Fix typo in config docs"
 Author: @bob
 Classification: CLOSE-STALE

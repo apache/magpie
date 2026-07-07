@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Configuration resolved:
   rm_key_fingerprint: A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6ABCD
   keys_file_url: https://dist.apache.org/repos/dist/release/airflow/KEYS

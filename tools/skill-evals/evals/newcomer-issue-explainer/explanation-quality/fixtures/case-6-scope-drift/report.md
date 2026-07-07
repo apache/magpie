@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Issue #518 asks you to fix the error message shown when the config file
 is missing: change the wording from "config not found" to "configuration
 file not found" so it reads more clearly.

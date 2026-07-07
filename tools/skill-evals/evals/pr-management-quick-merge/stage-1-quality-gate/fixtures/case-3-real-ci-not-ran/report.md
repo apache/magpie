@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 PR #70500
 Author: carol-first-timer
 AuthorAssociation: FIRST_TIME_CONTRIBUTOR

@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 # ci-runner-audit evals
 
 Behavioral evals for the `ci-runner-audit` skill.

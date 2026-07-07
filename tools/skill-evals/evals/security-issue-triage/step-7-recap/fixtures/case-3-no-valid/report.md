@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Posted triage proposals this run:
 
 | # | Class | Kept tracker | Comment URL |

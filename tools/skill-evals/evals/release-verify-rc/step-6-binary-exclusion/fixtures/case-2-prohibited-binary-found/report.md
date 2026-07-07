@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 release-build.md binary-exclude list: *.class (listed as expected/known binary)
 
 Note: *.jar is NOT in the binary-exclude list — jar files are prohibited in this source artefact.

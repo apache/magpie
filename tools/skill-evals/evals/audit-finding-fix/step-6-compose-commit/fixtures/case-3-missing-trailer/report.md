@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 fix(api): add missing type annotations in mark_tasks.py and dag_cycle_tester.py
 
 Mypy reported four missing annotations (ANN001, ANN201). Added

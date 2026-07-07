@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 ## Hand-back: ruff findings — airflow/models/xcom.py, airflow/utils/helpers.py
 
 **Tool:** ruff — 4 findings addressed

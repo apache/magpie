@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Question: How do I install the project and its dependencies locally?
 Category: setup
 Hand-off required: false

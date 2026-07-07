@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Thread: Issue #4905 — "Backfill fails with KeyError on custom XCom backend"
 ThreadType: issue
 authorAssociation: NONE

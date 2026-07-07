@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Posted proposals this session:
 1. AIRFLOW-99101 — BUG — comment posted at https://github.com/apache/airflow/issues/99101#issuecomment-1001
 2. AIRFLOW-99202 — FEATURE-REQUEST — comment posted at https://github.com/apache/airflow/issues/99202#issuecomment-1002

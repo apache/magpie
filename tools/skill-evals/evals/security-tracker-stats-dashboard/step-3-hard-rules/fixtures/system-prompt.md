@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 You are checking hard-rules compliance for the
 security-tracker-stats-dashboard skill from the Apache Magpie framework.
 

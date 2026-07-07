@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 diff --git a/src/notifications/webhook.py b/src/notifications/webhook.py
 new file mode 100644
 --- /dev/null

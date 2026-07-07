@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 PR #4404
 Author: dave
 LastCommitDate: 2026-05-13T16:00:00Z

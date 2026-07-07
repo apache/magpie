@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Planning issue: apache/airflow#47000 (open, labelled `release-planning`,
 title "Release Apache Airflow 2.12.0")
 Planning issue body excerpt:

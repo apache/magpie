@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 # pr-management-triage evals
 
 Behavioral evals for the `pr-management-triage` skill.

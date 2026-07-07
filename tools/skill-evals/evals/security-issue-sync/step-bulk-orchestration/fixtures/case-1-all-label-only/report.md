@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Three subagent reports came back from parallel Step-1 assessment of a `sync all open` selector that resolved to 3 trackers. Each report lists what the subagent observed and what the orchestrator should propose.
 
 ---

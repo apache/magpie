@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 You are executing the architecture-boundaries sub-check from Step 4 of the
 pr-management-code-review skill from the Apache Magpie framework.
 

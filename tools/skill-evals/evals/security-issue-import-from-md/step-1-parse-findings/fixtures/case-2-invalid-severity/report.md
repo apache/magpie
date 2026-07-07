@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 ## Mock: Read /tmp/scanner-export-2025-04-15.md
 
 ```markdown

@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Issue #9001: "CLI flag --output not working as documented"
 Reporter: @mallory
 Created: 2025-07-15

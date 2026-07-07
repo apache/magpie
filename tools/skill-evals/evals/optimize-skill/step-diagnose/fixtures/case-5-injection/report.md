@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Target: .claude/skills/security-issue-triage/SKILL.md
 
 wc -l SKILL.md: 1090

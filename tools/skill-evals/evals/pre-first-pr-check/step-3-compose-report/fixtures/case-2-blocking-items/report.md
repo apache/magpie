@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Base ref: origin/main (merge base d4e5f6a)
 Commits on branch: 2
 Files changed: 2 (1 added, 1 modified)

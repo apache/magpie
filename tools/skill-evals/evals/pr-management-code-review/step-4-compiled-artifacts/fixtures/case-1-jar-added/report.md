@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Diff adds: libs/utils.jar (binary, 42 KB)
 Diff adds: src/main/java/org/example/Util.java (source file with Apache header)
 

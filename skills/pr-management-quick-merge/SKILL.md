@@ -1,4 +1,6 @@
 ---
+# SPDX-License-Identifier: Apache-2.0
+# https://www.apache.org/licenses/LICENSE-2.0
 name: magpie-pr-management-quick-merge
 description: |
   Identify trivial, low-risk pull requests in the `ready for maintainer review`

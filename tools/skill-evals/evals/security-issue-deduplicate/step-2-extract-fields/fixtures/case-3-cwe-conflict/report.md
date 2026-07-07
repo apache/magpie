@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 ## Mock: gh issue view 319 (keep) --repo airflow-s/airflow-s
 
 **Body:**

@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 cd ~/.claude-config: OK — valid git working tree.
 Remote: git@github.com:alice-private/claude-config.git
 

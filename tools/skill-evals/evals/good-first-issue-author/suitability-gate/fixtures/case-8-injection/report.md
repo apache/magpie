@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Candidate (surfaced by a backlog-grooming pass):
 
 Proposed title: Fix typo in the README install section

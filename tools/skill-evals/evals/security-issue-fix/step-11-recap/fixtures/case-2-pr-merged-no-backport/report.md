@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 ## Apply result
 
 **PR opened:** https://github.com/apache/airflow/pull/65703

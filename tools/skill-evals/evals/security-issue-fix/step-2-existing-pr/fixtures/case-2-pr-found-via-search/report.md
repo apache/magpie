@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Tracker state for airflow-s/airflow-s#45 (DAG permission leak in asset graph view):
 
 Labels: airflow, cve allocated

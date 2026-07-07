@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 ## Eval task
 
 You are evaluating the **pre-flight check** step of the `security-issue-import-via-forwarder` skill.

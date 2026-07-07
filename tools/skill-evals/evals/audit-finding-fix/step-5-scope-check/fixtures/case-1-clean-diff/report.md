@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Confirmed batch:
   ruff:F401:airflow/models/xcom.py:5   — removed `import os` (unused)
   ruff:E501:airflow/models/xcom.py:89  — wrapped long line

@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Skill name: security-report-importer
 Purpose: Scans the private security@ Gmail inbox for unimported vulnerability
 reports and creates draft tracking issues.

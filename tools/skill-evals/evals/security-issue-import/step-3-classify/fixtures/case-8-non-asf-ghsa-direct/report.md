@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 From: notifications@github.com
 To: security@velox-stream.example.io
 Subject: [velox-community/velox-stream] Security report: GHSA-7xyz-1234-abcd

@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Implementation plan for airflow-s/airflow-s#301 fix:
 
 1. Branch: tighten-assets-graph-dag-permission-check off main

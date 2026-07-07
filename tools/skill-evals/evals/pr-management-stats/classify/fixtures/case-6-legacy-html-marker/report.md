@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 PR #6606
 Author: frank
 LastCommitDate: 2026-04-20T14:00:00Z

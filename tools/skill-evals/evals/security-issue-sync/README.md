@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 # security-issue-sync eval suite
 
 Behavioral evals for the `security-issue-sync` skill. Eight steps are

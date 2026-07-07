@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Thread: Issue #9017 — "BashOperator crashes with exit code 1"
 MaxAgentTurns: 2
 AgentCommentCount: 0

@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Tracker state for airflow-s/airflow-s#23 (Bulk API team-context authz bypass):
 
 Labels: airflow, needs triage

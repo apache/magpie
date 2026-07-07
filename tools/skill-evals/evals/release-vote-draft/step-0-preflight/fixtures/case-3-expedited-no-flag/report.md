@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 RC identifier: 2.10.4-rc1
 Planning issue: apache/airflow#44800 (open, labelled release-planning, title "Release Apache Airflow 2.10.4 [security]")
 release-management-config.md:

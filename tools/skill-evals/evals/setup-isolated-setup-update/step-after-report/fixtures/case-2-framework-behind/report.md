@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Check 1 (framework checkout): git fetch completed. Local checkout is 3
 commits behind origin/main. Changes since last pull include:
   tools/agent-isolation/agent-iso.sh — 2 lines updated (new deny path)

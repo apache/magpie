@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 You are executing the Step 2.5 slop-detection structural scan from the
 pr-management-code-review skill of the Apache Magpie framework. It runs
 after the diff and metadata are fetched, before the line-by-line review.

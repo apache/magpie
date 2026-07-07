@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Thread: Issue #4410 — "DAG import error with new custom operator"
 ThreadType: issue
 authorAssociation: CONTRIBUTOR

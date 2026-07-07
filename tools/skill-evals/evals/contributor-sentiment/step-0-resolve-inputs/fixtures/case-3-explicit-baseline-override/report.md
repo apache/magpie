@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 Upstream from project.md: apache/another-project
 Profile from project.md: asf
 Window argument: window:6m baseline:2024-01-01..2024-07-01
