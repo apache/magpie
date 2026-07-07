@@ -365,6 +365,20 @@ gating, also detect active release-vote threads.)
 The full per-sub-step recipe — 1a through 1h, with the Gmail search
 queries, PonyMail fallback path, signal-detection rules, and process-
 step decision table — lives in [`gather.md`](gather.md).
+
+**GHSA-sourced trackers** — when a tracker's report arrived through
+GitHub's *"Report a vulnerability"* flow (a `GHSA-…` repository security
+advisory on `<upstream>`) and the operator is an advisory collaborator,
+the sync reconciles the advisory **record** directly via the GitHub
+*repository security advisories* REST API (link `cve_id`, mirror
+`severity`/`cwe_ids`/`vulnerabilities`/`credits`, record the advisory
+link as a clickable tracker field) and replaces the email relay with a
+direct-post reply path — with an admin hand-off for the operations that
+need admin / security-manager rights (collaborator-management, publish).
+The full contract — access tiers, the Step 1 reconcile, the Step 4
+writes, and the reply path — lives in
+[`github-advisory.md`](github-advisory.md).
+
 ## Step 2 — Build a proposal (do not apply anything yet)
 
 Produce a single, compact summary for the user with three sections:
