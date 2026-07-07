@@ -58,7 +58,7 @@ requires-python = ">=3.11"
 # is "the most recent that is at least 7 days old".
 dev = [
   "prek>=0.4.5",
-  "ruff>=0.15.18",
+  "ruff>=0.15.20",
   "mypy>=2.1.0",
   "pytest>=9.1.1",
 ]
