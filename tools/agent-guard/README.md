@@ -11,6 +11,7 @@
   - [Per-command overrides](#per-command-overrides)
   - [Wiring](#wiring)
     - [OpenCode](#opencode)
+    - [Kiro CLI](#kiro-cli)
   - [Contributing guards](#contributing-guards)
   - [Tests](#tests)
 
@@ -23,7 +24,7 @@
 
 **Capability:** substrate:action-guard
 
-**Harness:** Claude Code, OpenCode
+**Harness:** Claude Code, OpenCode, Kiro
 
 A deterministic pre-execution guard dispatcher. It inspects every shell command
 **before it runs** and **denies** the ones that would break a hard framework
@@ -39,6 +40,9 @@ so every wired harness enforces an identical rule set from one source of truth:
 - **OpenCode** — a [plugin](https://opencode.ai/docs/plugins/) on the
   `tool.execute.before` hook for the `bash` tool, which blocks a call by
   throwing (`agent-guard.py --opencode`). See [Wiring](#wiring).
+- **Kiro CLI** — a [`preToolUse`](https://kiro.dev/docs/cli/hooks) hook on the
+  `execute_bash` matcher, which blocks a call when the hook exits `2`
+  (`agent-guard.py --kiro`, reason on stderr). See [Wiring](#wiring).
 
 It is **stdlib-only** and is invoked directly as
 `python3 <path>/agent_guard/__init__.py` (never via `uv run`) so it returns in a
@@ -140,6 +144,46 @@ copy of the script — and honours `MAGPIE_AGENT_GUARD=/abs/path/agent-guard.py`
 to point elsewhere. Because both harnesses call `dispatch()`, the bundled and
 skill-contributed guards, the `MAGPIE_*` overrides, and the deny reasons are
 byte-for-byte identical across the two; nothing about a guard is harness-aware.
+
+### Kiro CLI
+
+The same engine backs [Kiro CLI](https://kiro.dev/docs/cli/hooks) via its
+`preToolUse` hook. Kiro pipes the hook event
+(`{"tool_name": "execute_bash", "tool_input": {"command": …}, "cwd": …}`) to
+the hook command on stdin and **blocks** the tool call when that command exits
+`2`, returning its stderr to the model — so `agent-guard.py --kiro` matches the
+shell tool, runs the shared core, and on a deny writes the reason to stderr and
+exits `2`, the Kiro equivalent of a Claude `PreToolUse` deny.
+
+Register it in the agent configuration's `hooks` field
+([reference](https://kiro.dev/docs/cli/custom-agents/configuration-reference#hooks-field)):
+
+```json
+{
+  "hooks": {
+    "preToolUse": [
+      {
+        "matcher": "execute_bash",
+        "command": "python3 \"${MAGPIE_AGENT_GUARD:-.claude/hooks/agent-guard.py}\" --kiro"
+      }
+    ]
+  }
+}
+```
+
+The engine is one shared, harness-agnostic file (`--kiro` only selects the I/O
+adapter). On a repo already wired for Claude Code it lives at
+`.claude/hooks/agent-guard.py`, so the hook reuses it; a **Kiro-only** adopter
+(no `.claude/`) points `MAGPIE_AGENT_GUARD` at wherever the engine is installed.
+Note: `/magpie-setup` currently installs the engine only on the Claude path — a
+general installer that drops it for non-Claude-only adopters is a pending
+follow-up (see [`docs/adapters/add-a-harness.md`](../../docs/adapters/add-a-harness.md)).
+
+Because every harness calls `dispatch()`, the bundled and skill-contributed
+guards, the `MAGPIE_*` overrides, and the deny reasons are identical to the
+Claude Code and OpenCode paths — verified end-to-end: with this hook wired,
+Kiro refuses a `Co-Authored-By` commit (quoting the `commit-trailer` reason and
+leaving the commit uncreated) while a clean commit proceeds.
 
 ## Contributing guards
 

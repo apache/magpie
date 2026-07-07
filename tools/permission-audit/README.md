@@ -26,7 +26,7 @@
 
 **Capability:** substrate:sandbox
 
-**Harness:** Claude Code, OpenCode
+**Harness:** Claude Code, OpenCode, Kiro
 
 Audit + atomically edit Claude Code's `permissions.allow[]` entries
 in `<repo>/.claude/settings.json` and `<repo>/.claude/settings.local.json`.
@@ -59,6 +59,29 @@ uv run --project tools/permission-audit permission-audit audit-opencode opencode
 
 The Claude-only `apply` subcommand (atomic allow-list edits) has no
 OpenCode counterpart yet; `audit-opencode` is read-only.
+
+**Kiro.** `audit-kiro` reads a Kiro CLI agent config
+(`.kiro/agents/<name>.json`). Kiro models permissions as an
+allowlist/denylist rather than a per-command decision map
+([Kiro shell tool](https://kiro.dev/docs/cli/reference/built-in-tools#execute-shell-commands)):
+`allowedCommands` / `deniedCommands` are `\A..\z`-anchored regex,
+deny-before-allow, with `denyByDefault` and `autoAllowReadonly`; and the
+shell tool in `allowedTools` auto-approves everything (overriding
+`toolsSettings`). Same intent, reported in JSON:
+
+- `shell-allow-all` — the shell tool (`shell` / `execute_bash` / `*` /
+  `@builtin`) is in `allowedTools` (every shell command auto-approved);
+- `dangerous-allow` — an `allowedCommands` regex auto-approves a dangerous
+  family (unblocked by `deniedCommands`);
+- `exfil-allow` — `aws` / `web_fetch` is blanket-allowed in `allowedTools`,
+  or `web_fetch.trusted` is a blanket `.*`.
+
+```bash
+uv run --project tools/permission-audit permission-audit audit-kiro .kiro/agents/<name>.json
+```
+
+Like `audit-opencode`, `audit-kiro` is read-only (no `apply`), and a
+*missing* shell policy is not flagged — Kiro's default is to prompt.
 
 ## Prerequisites
 

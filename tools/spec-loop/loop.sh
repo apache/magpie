@@ -106,6 +106,7 @@ case "${SPEC_LOOP_HARNESS:-$(basename "$AGENT")}" in
     *cursor*)   HARNESS=cursor ;;
     *gemini*)   HARNESS=gemini ;;
     *opencode*) HARNESS=opencode ;;
+    *kiro*)     HARNESS=kiro ;;
     *)          HARNESS=claude ;;
 esac
 if [ -n "${SPEC_LOOP_MODEL:-}" ]; then

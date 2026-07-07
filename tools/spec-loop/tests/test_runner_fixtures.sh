@@ -114,6 +114,14 @@ test_harness_command_construction() {
     assert_contains "$TMPDIR_TEST/codex.log" "<--json>"
     assert_contains "$TMPDIR_TEST/codex.log" "<->"
     assert_contains "$TMPDIR_TEST/codex.log" "stdin:PROMPT BODY"
+
+    make_fake_agent "$TMPDIR_TEST/kiro-cli" "$TMPDIR_TEST/kiro.log"
+    spec_loop_launch_agent kiro "$TMPDIR_TEST/kiro-cli" /repo "$TMPDIR_TEST/prompt.md" "" text
+    wait "$SPEC_LOOP_AGENT_PID"
+    assert_contains "$TMPDIR_TEST/kiro.log" "<chat>"
+    assert_contains "$TMPDIR_TEST/kiro.log" "<--no-interactive>"
+    assert_contains "$TMPDIR_TEST/kiro.log" "<PROMPT BODY>"
+    assert_not_contains "$TMPDIR_TEST/kiro.log" "<--model>"
 }
 
 test_last_sync_marker_helpers() {

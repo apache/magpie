@@ -583,24 +583,24 @@ Organization scope (declared, orthogonal to vendor): ASF = 14, agnostic = 55.
 
 | Substrate tool | Substrate | Harness support | Verdict |
 |---|---|---|---|
-| `agent-guard` | action-guard | Claude Code, OpenCode | ✅ portable |
-| `agent-isolation` | sandbox | Claude Code, OpenCode | ✅ portable |
+| `agent-guard` | action-guard | Claude Code, Kiro, OpenCode | ✅ portable |
+| `agent-isolation` | sandbox | Claude Code, Kiro, OpenCode | ✅ portable |
 | `dashboard-generator` | analytics | any | ✅ agnostic |
 | `dev` | framework-dev | any | ✅ agnostic |
 | `egress-gateway` | sandbox | any | ✅ agnostic |
-| `permission-audit` | sandbox | Claude Code, OpenCode | ✅ portable |
+| `permission-audit` | sandbox | Claude Code, Kiro, OpenCode | ✅ portable |
 | `pilot-report-validator` | framework-dev | any | ✅ agnostic |
 | `pr-management-stats` | analytics | any | ✅ agnostic |
 | `preflight-audit` | analytics | any | ✅ agnostic |
 | `privacy-llm` | privacy | any | ✅ agnostic |
 | `probe-templates` | sandbox | any | ✅ agnostic |
-| `sandbox-lint` | sandbox | Claude Code, OpenCode | ✅ portable |
+| `sandbox-lint` | sandbox | Claude Code, Kiro, OpenCode | ✅ portable |
 | `security-tracker-stats-dashboard` | analytics | any | ✅ agnostic |
 | `skill-and-tool-validator` | framework-dev | any | ✅ agnostic |
 | `skill-evals` | framework-dev | any | ✅ agnostic |
 | `skill-reconciler-diff` | framework-dev | any | ✅ agnostic |
 | `spec-inventory` | framework-dev, analytics | any | ✅ agnostic |
-| `spec-loop` | framework-dev | Claude Code, Codex, Cursor, Gemini CLI, OpenCode | ✅ portable |
+| `spec-loop` | framework-dev | Claude Code, Codex, Cursor, Gemini CLI, Kiro, OpenCode | ✅ portable |
 | `spec-status-index` | framework-dev, analytics | any | ✅ agnostic |
 | `spec-validator` | framework-dev | any | ✅ agnostic |
 | `symlink-lint` | framework-dev | any | ✅ agnostic |
@@ -612,6 +612,7 @@ Harness → substrate tools it supports:
 - **Codex** (1): `spec-loop`
 - **Cursor** (1): `spec-loop`
 - **Gemini CLI** (1): `spec-loop`
+- **Kiro** (5): `agent-guard`, `agent-isolation`, `permission-audit`, `sandbox-lint`, `spec-loop`
 - **OpenCode** (5): `agent-guard`, `agent-isolation`, `permission-audit`, `sandbox-lint`, `spec-loop`
 - **any harness** (17): `dashboard-generator`, `dev`, `egress-gateway`, `pilot-report-validator`, `pr-management-stats`, `preflight-audit`, `privacy-llm`, `probe-templates`, `security-tracker-stats-dashboard`, `skill-and-tool-validator`, `skill-evals`, `skill-reconciler-diff`, `spec-inventory`, `spec-status-index`, `spec-validator`, `symlink-lint`, `vendor-neutrality-score`
 

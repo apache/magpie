@@ -5,7 +5,7 @@
 
 **Capability:** substrate:framework-dev
 
-**Harness:** Claude Code, Codex, Cursor, Gemini CLI, OpenCode
+**Harness:** Claude Code, Codex, Cursor, Gemini CLI, OpenCode, Kiro
 
 A spec-driven build loop for this framework, in the general
 [Ralph](https://ghuntley.com/ralph/) style (run a fresh agent context

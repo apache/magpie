@@ -20,7 +20,7 @@
 
 **Capability:** substrate:sandbox
 
-**Harness:** Claude Code, OpenCode
+**Harness:** Claude Code, OpenCode, Kiro
 
 This directory ships the moving pieces the framework's
 [`docs/setup/secure-agent-setup.md`](../../docs/setup/secure-agent-setup.md) document
@@ -30,14 +30,17 @@ plain shell scripts plus a TOML manifest of pinned upstream
 versions.
 
 The clean-environment launcher [`agent-iso.sh`](agent-iso.sh) is
-agent-agnostic at its core: it exposes a `claude-iso` entry point (the
-default) and an `opencode-iso` entry point that launch **Claude Code** and
-**OpenCode** respectively under the same `env -i` credential strip. Only the
-Claude path adds the in-process `--settings` sandbox grant; OpenCode takes its
-filesystem isolation from the OS-level sandbox of the secure setup. Isolate
-OpenCode by sourcing the script and calling `opencode-iso`, or when running it
-directly, `AGENT_ISO_AGENT=opencode bash agent-iso.sh …` (or a symlink named
-`opencode-iso`).
+agent-agnostic at its core: it exposes `claude-iso` (the default),
+`opencode-iso`, and `kiro-iso` entry points that launch **Claude Code**,
+**OpenCode**, and **Kiro CLI** respectively under the same `env -i`
+credential strip. Only the Claude path adds the in-process `--settings`
+sandbox grant; OpenCode and Kiro take their filesystem isolation from the
+OS-level sandbox of the secure setup. Isolate OpenCode or Kiro by sourcing
+the script and calling `opencode-iso` / `kiro-iso`, or when running it
+directly, `AGENT_ISO_AGENT=opencode bash agent-iso.sh …` /
+`AGENT_ISO_AGENT=kiro bash agent-iso.sh …` (or a symlink named
+`opencode-iso` / `kiro-iso`). The Kiro harness name `kiro` normalises to
+its `kiro-cli` binary.
 
 ## Prerequisites
 
