@@ -53,40 +53,47 @@ jobs:
       - name: Download and verify Apache RAT
         run: |
           set -euo pipefail
+          # Download and unpack into RUNNER_TEMP, *outside* the checkout, so
+          # the tarball and the extracted RAT tree are never part of the
+          # directory RAT scans in the next step.
           # archive.apache.org keeps every release permanently, so a pinned
           # version keeps resolving after the next RAT release ships (the
           # current release moves off downloads.apache.org). The checksum is
           # pinned in RAT_SHA512, independent of the download host.
           base="https://archive.apache.org/dist/creadur/apache-rat-${RAT_VERSION}"
           tarball="apache-rat-${RAT_VERSION}-bin.tar.gz"
-          curl --fail --silent --show-error --location --retry 3 -o "${tarball}" "${base}/${tarball}"
-          echo "${RAT_SHA512}  ${tarball}" | sha512sum --check --strict -
-          tar xzf "${tarball}"
+          curl --fail --silent --show-error --location --retry 3 -o "${RUNNER_TEMP}/${tarball}" "${base}/${tarball}"
+          echo "${RAT_SHA512}  ${RUNNER_TEMP}/${tarball}" | sha512sum --check --strict -
+          tar xzf "${RUNNER_TEMP}/${tarball}" -C "${RUNNER_TEMP}"
       - name: Run Apache RAT licence check
         run: |
           set -uo pipefail
-          jar="apache-rat-${RAT_VERSION}/apache-rat-${RAT_VERSION}.jar"
-          # RAT fails (UNAPPROVED counter default range [0,0]) when any
-          # scanned file lacks an approved header. Drive pass/fail off the
-          # report so contributors get the offending file list, not a Java
-          # stack trace. --input-exclude-parsed-scm GIT honours .gitignore;
-          # --input-exclude-std GIT/HIDDEN_DIR skips the VCS metadata.
+          # The jar, report, and captured stderr all live under RUNNER_TEMP
+          # so RAT does not scan its own artefacts (it scans '.', the
+          # checkout). RAT fails (UNAPPROVED counter default range [0,0])
+          # when any scanned file lacks an approved header. Drive pass/fail
+          # off the report so contributors get the offending file list, not a
+          # Java stack trace. --input-exclude-parsed-scm GIT honours
+          # .gitignore; --input-exclude-std GIT/HIDDEN_DIR skips VCS metadata.
+          jar="${RUNNER_TEMP}/apache-rat-${RAT_VERSION}/apache-rat-${RAT_VERSION}.jar"
+          report="${RUNNER_TEMP}/rat-report.txt"
+          stderr_log="${RUNNER_TEMP}/rat-stderr.log"
           java -jar "${jar}" \
             --input-exclude-std GIT HIDDEN_DIR \
             --input-exclude-parsed-scm GIT \
             --input-exclude-file .rat-excludes \
             --output-style unapproved-licenses \
-            --output-file rat-report.txt \
-            . 2>rat-stderr.log && rc=0 || rc=$?
+            --output-file "${report}" \
+            . 2>"${stderr_log}" && rc=0 || rc=$?
           echo "----- Apache RAT unapproved-licenses report -----"
-          cat rat-report.txt
-          if grep -qE '^  /' rat-report.txt; then
+          cat "${report}"
+          if grep -qE '^  /' "${report}"; then
             echo "::error::Apache RAT found files with a missing or unapproved licence header (listed above). Add an ASF/SPDX header (Markdown: run tools/dev/add-license-headers.py), or add an intentional exception to .rat-excludes."
             exit 1
           fi
           if [ "${rc}" -ne 0 ]; then
             echo "::error::Apache RAT exited with status ${rc} without reporting unapproved files. RAT stderr follows:"
-            cat rat-stderr.log
+            cat "${stderr_log}"
             exit "${rc}"
           fi
           echo "Apache RAT: all scanned files carry an approved licence header."

@@ -63,3 +63,12 @@ pilot-*/
 # tools/pilot-report-validator is a committed framework tool, not an evidence package
 !/tools/pilot-report-validator/
 reassess-*/
+
+# Apache RAT working artefacts. The rat.yml workflow keeps these under
+# RUNNER_TEMP, but a local `java -jar apache-rat.jar . ...` run drops them
+# in the checkout; gitignoring them means RAT's --input-exclude-parsed-scm
+# GIT excludes them from its own scan (and they never get committed).
+/apache-rat-*-bin.tar.gz
+/apache-rat-*/
+rat-report.txt
+rat-stderr.log
