@@ -129,13 +129,14 @@ def pull_request_discussion(kind: str, raw: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(values, list):
         values = []
 
-    comments = [
-        comment
-        for item in values
-        if isinstance(item, dict)
-        for comment in [_cloud_comment(item) if kind == "cloud" else _datacenter_comment_activity(item)]
-        if comment is not None
-    ]
+    comments: list[dict[str, Any]] = []
+    for item in values:
+        if not isinstance(item, dict):
+            continue
+        if kind == "cloud":
+            comments.append(_cloud_comment(item))
+        else:
+            comments.extend(_datacenter_comment_activity(item))
 
     return {
         "backend": "bitbucket-cloud" if kind == "cloud" else "bitbucket-datacenter",
@@ -148,7 +149,7 @@ def pull_request_discussion(kind: str, raw: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _cloud_comment(raw: dict[str, Any]) -> dict[str, Any] | None:
+def _cloud_comment(raw: dict[str, Any]) -> dict[str, Any]:
     """Normalize one Bitbucket Cloud pull request comment."""
     body = _content_text(raw.get("content"))
     author = _cloud_user(raw.get("user"))
@@ -169,30 +170,53 @@ def _cloud_comment(raw: dict[str, Any]) -> dict[str, Any] | None:
     }
 
 
-def _datacenter_comment_activity(raw: dict[str, Any]) -> dict[str, Any] | None:
-    """Normalize one comment-bearing Bitbucket Data Center activity."""
-    comment = raw.get("comment")
-    if not isinstance(comment, dict):
-        return None
-
+def _datacenter_comment_activity(raw: dict[str, Any]) -> list[dict[str, Any]]:
+    """Normalize comment-bearing Bitbucket Data Center activity, including replies."""
     action = str(raw.get("action") or raw.get("type") or "").upper()
     if action and action != "COMMENTED":
-        return None
+        return []
 
-    author = _datacenter_user(comment.get("author") or raw.get("user"))
-    created = _epoch_millis_to_iso(comment.get("createdDate") or raw.get("createdDate"))
-    updated = _epoch_millis_to_iso(comment.get("updatedDate") or raw.get("updatedDate"))
+    comment = raw.get("comment")
+    if not isinstance(comment, dict):
+        return []
+
+    return _datacenter_comment_tree(comment, raw)
+
+
+def _datacenter_comment_tree(
+    raw: dict[str, Any],
+    activity: dict[str, Any],
+    parent_id: str | None = None,
+) -> list[dict[str, Any]]:
+    normalized = _datacenter_comment(raw, activity, parent_id)
+
+    replies: list[dict[str, Any]] = []
+    for reply in raw.get("comments", []):
+        if isinstance(reply, dict):
+            replies.extend(_datacenter_comment_tree(reply, activity, normalized["id"]))
+
+    return [normalized, *replies]
+
+
+def _datacenter_comment(
+    raw: dict[str, Any],
+    activity: dict[str, Any],
+    parent_id: str | None,
+) -> dict[str, Any]:
+    created = _epoch_millis_to_iso(raw.get("createdDate") or activity.get("createdDate"))
+    updated = _epoch_millis_to_iso(raw.get("updatedDate") or activity.get("updatedDate"))
 
     return {
-        "id": _string(comment.get("id") or raw.get("id")),
-        "author": author,
+        "id": _string(raw.get("id") or activity.get("id")),
+        "parent_id": parent_id,
+        "author": _datacenter_user(raw.get("author") or activity.get("user")),
         "date": created,
         "created": created,
         "updated": updated,
-        "body": _string(comment.get("text")),
+        "body": _string(raw.get("text")),
         "kind": "comment",
-        "deleted": _bool_or_none(comment.get("deleted")),
-        "inline": _datacenter_inline(comment.get("anchor")),
+        "deleted": _bool_or_none(raw.get("deleted")),
+        "inline": _datacenter_inline(raw.get("anchor")),
         "raw": raw,
     }
 

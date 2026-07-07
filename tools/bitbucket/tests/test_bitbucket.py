@@ -489,6 +489,74 @@ def test_cli_pr_discussion_cloud(
     assert output["comments"][0]["body"] == "Looks good."
 
 
+@patch("magpie_bitbucket.cli.load_config")
+def test_cli_pr_discussion_datacenter(
+    mock_load_config: MagicMock,
+    datacenter_env: None,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    config = load_config()
+    mock_load_config.return_value = config
+
+    with patch.object(datacenter, "get_pull_request_discussion") as mock_discussion:
+        mock_discussion.return_value = {
+            "pull_request_id": "9",
+            "values": [
+                {
+                    "action": "COMMENTED",
+                    "comment": {
+                        "id": 1,
+                        "text": "Looks good",
+                        "author": {"displayName": "Asha"},
+                    },
+                }
+            ],
+        }
+
+        exit_code = main(["pr", "discussion", "9"])
+
+    captured = capsys.readouterr()
+    output = json.loads(captured.out)
+    mock_discussion.assert_called_once_with(config, "9")
+    assert exit_code == 0
+    assert output["backend"] == "bitbucket-datacenter"
+    assert output["comments"][0]["body"] == "Looks good"
+
+
+def test_normalize_datacenter_discussion_includes_threaded_replies() -> None:
+    raw = {
+        "pull_request_id": "9",
+        "values": [
+            {
+                "action": "COMMENTED",
+                "comment": {
+                    "id": 1,
+                    "text": "Parent comment",
+                    "author": {"displayName": "Asha"},
+                    "createdDate": 1783428000000,
+                    "comments": [
+                        {
+                            "id": 2,
+                            "text": "Reply comment",
+                            "author": {"displayName": "Ravi"},
+                            "createdDate": 1783428300000,
+                        }
+                    ],
+                },
+            }
+        ],
+    }
+
+    result = pull_request_discussion("datacenter", raw)
+
+    assert [comment["body"] for comment in result["comments"]] == [
+        "Parent comment",
+        "Reply comment",
+    ]
+    assert result["comments"][1]["parent_id"] == "1"
+    assert result["participants"] == ["Asha", "Ravi"]
+
+
 def test_normalize_datacenter_discussion_filters_non_comment_activities() -> None:
     raw = {
         "pull_request_id": "9",
