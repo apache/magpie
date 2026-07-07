@@ -51,6 +51,19 @@ def fake_run(handler):
     return _stub
 
 
+def gh_stub(*, author, operator="operator-bot"):
+    """Distinguish the guard's two lookups: ``gh api user`` (operator identity)
+    vs. ``gh pr/issue view`` (target author). Default operator differs from the
+    author so a bare stub keeps the author-only rule in force."""
+
+    def handler(args):
+        if "api" in args and "user" in args:
+            return operator
+        return author
+
+    return handler
+
+
 def dispatch(command):
     return agent_guard.dispatch(command, cwd=None)
 
@@ -65,17 +78,39 @@ def test_guard_files_exist():
 
 
 def test_mention_author_allowed(monkeypatch):
-    monkeypatch.setattr(agent_guard, "_run", fake_run(lambda a: "alice"))
+    monkeypatch.setattr(agent_guard, "_run", fake_run(gh_stub(author="alice")))
     assert dispatch('gh pr comment 5 --body "@alice thanks"') is None
 
 
 def test_mention_non_author_denied(monkeypatch):
-    monkeypatch.setattr(agent_guard, "_run", fake_run(lambda a: "alice"))
+    monkeypatch.setattr(agent_guard, "_run", fake_run(gh_stub(author="alice")))
     reason = dispatch('gh pr comment 5 --body "@bob please review"')
     assert reason and "bob" in reason and "mention" in reason
 
 
-def test_fold_any_mention_denied():
+def test_mention_own_pr_allows_maintainers(monkeypatch):
+    # Operator commenting on their own PR may @-mention maintainers/reviewers.
+    monkeypatch.setattr(agent_guard, "_run", fake_run(gh_stub(author="alice", operator="alice")))
+    assert dispatch('gh pr comment 5 --body "@bob @carol please take a look"') is None
+
+
+def test_mention_own_pr_case_insensitive(monkeypatch):
+    monkeypatch.setattr(agent_guard, "_run", fake_run(gh_stub(author="Alice", operator="alice")))
+    assert dispatch('gh pr comment 5 --body "@bob review please"') is None
+
+
+def test_mention_others_pr_still_denied_when_operator_known(monkeypatch):
+    # Author is someone else; operator resolving successfully must not relax the rule.
+    monkeypatch.setattr(agent_guard, "_run", fake_run(gh_stub(author="alice", operator="carol")))
+    reason = dispatch('gh pr comment 5 --body "@bob ping"')
+    assert reason and "bob" in reason and "mention" in reason
+
+
+def test_fold_any_mention_denied(monkeypatch):
+    # Hermetic: a non-author maintainer @-mention in a fold edit is denied.
+    # Stubbed so it never depends on a real `gh pr view` (and so the own-PR
+    # exemption, author == operator, is not accidentally triggered).
+    monkeypatch.setattr(agent_guard, "_run", fake_run(gh_stub(author="bob", operator="carol")))
     reason = dispatch('gh pr edit 5 --body "@alice heads up"')
     assert reason and "fold" in reason
 
@@ -85,7 +120,7 @@ def test_fold_clean_allowed():
 
 
 def test_mention_body_file(monkeypatch, tmp_path):
-    monkeypatch.setattr(agent_guard, "_run", fake_run(lambda a: "alice"))
+    monkeypatch.setattr(agent_guard, "_run", fake_run(gh_stub(author="alice")))
     body = tmp_path / "b.md"
     body.write_text("@bob please look", encoding="utf-8")
     assert dispatch(f"gh pr comment 5 --body-file {body}") is not None
@@ -98,7 +133,7 @@ def test_mention_author_unresolved_fails_closed(monkeypatch):
 
 
 def test_mention_override(monkeypatch):
-    monkeypatch.setattr(agent_guard, "_run", fake_run(lambda a: "alice"))
+    monkeypatch.setattr(agent_guard, "_run", fake_run(gh_stub(author="alice")))
     assert dispatch('MAGPIE_ALLOW_MENTIONS=1 gh pr comment 5 --body "@bob ping"') is None
 
 

@@ -23,7 +23,13 @@ the folded maintainer-triage note (`gh pr edit --body` / `--body-file`) and to
 author-directed comments (`gh pr/issue comment`) — in both, the author's
 @-mention is permitted (it is the intended "your move" signal) and any other
 @-mention (a maintainer: operator, reviewer, CODEOWNER, team) is blocked.
-Maintainer handles must be backtick-quoted so they never notify. Discovered by
+Two exceptions lift the block: an explicit ``MAGPIE_ALLOW_MENTIONS=1`` override
+(a deliberate one-off, requested by the operator), and the operator commenting
+on their **own** PR/issue — when the target's author is the authenticated ``gh``
+user, mentioning maintainers is a legitimate self-directed nudge to one's own
+reviewers, not the drive-by maintainer spam this guard exists to stop.
+Otherwise maintainer handles must be backtick-quoted so they never notify.
+Discovered by
 the agent-guard PreToolUse dispatcher from a guards.d directory — see
 tools/agent-guard for the engine and the GuardContext API. Import-free:
 everything comes from ``ctx``.
@@ -70,6 +76,13 @@ def guard(ctx):
             "author is known, drop the @-mentions (use backticked `login`), or override "
             "with MAGPIE_ALLOW_MENTIONS=1 if the mention is intentional."
         )
+    # Operator's own PR/issue: when the target's author is the authenticated gh
+    # user, mentioning maintainers is a self-directed nudge to one's own reviewers
+    # (legitimate), not the drive-by maintainer spam this guard blocks. Resolution
+    # failing falls through to the normal author-only rule (safe default).
+    operator = ctx.run(["gh", "api", "user", "--jq", ".login"])
+    if operator and operator.lower() == author.lower():
+        return None
     offenders = sorted({m for m in mentions if m != author.lower()})
     if offenders:
         return (
