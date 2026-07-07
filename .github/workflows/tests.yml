@@ -67,23 +67,28 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
+          # Write the changed-file list to a file rather than exporting it
+          # as an env var: a repo-wide PR (e.g. a licence-header sweep) can
+          # list thousands of paths, and putting that into the environment
+          # overflows the exec arg/env size limit — `python3` then dies with
+          # "Argument list too long" (exit 126). A file path stays small.
+          changed_file="${RUNNER_TEMP}/changed-files.txt"
           if [ "${EVENT}" = "pull_request" ]; then
-            CHANGED=$(git diff --name-only "${BASE_SHA}...${HEAD_SHA}")
+            git diff --name-only "${BASE_SHA}...${HEAD_SHA}" > "${changed_file}"
           else
-            CHANGED=""
+            : > "${changed_file}"
           fi
-          export CHANGED
-          members=$(python3 <<'PY'
+          members=$(CHANGED_FILE="${changed_file}" python3 <<'PY'
           import json
           import os
           import tomllib
 
           event = os.environ.get("EVENT", "")
-          changed = [
-              line.strip()
-              for line in os.environ.get("CHANGED", "").splitlines()
-              if line.strip()
-          ]
+          changed_file = os.environ.get("CHANGED_FILE", "")
+          changed = []
+          if changed_file:
+              with open(changed_file, encoding="utf-8") as fh:
+                  changed = [line.strip() for line in fh if line.strip()]
 
           with open("pyproject.toml", "rb") as f:
               root = tomllib.load(f)
