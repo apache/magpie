@@ -455,6 +455,35 @@ instead of leaving the paste step to the release manager. The push
 is mechanical and follows from the same JSON the user just approved
 as part of the body update.
 
+**Push trigger — every regen, not only `fix released`.** The push
+above fires on **every** run that regenerates the CVE JSON (any
+`generate-cve-json` / Step 5a `--attach`), not only at the
+`pr merged → fix released` transition. Whenever a confirmed change
+causes a regen, the regenerated JSON is pushed to the record in the
+**same apply pass**, so the live record never drifts from the tracker
+body. The operator's confirmation of the underlying change that
+triggered the regen **is** the authorisation to push — it is not a
+separate confirmation, and the push is never deferred to the release
+manager. Triggers include, beyond `fix released`:
+
+- **advisory-URL / `announced` close-out** on an already-`public`
+  (Vulnogram: `PUBLIC`) record — the regen adds the
+  `vendor-advisory` reference captured from the *Public advisory URL*
+  body field, and the push writes it to the published record;
+- **reviewer-feedback title / summary edits** on a record still in
+  `allocated` / `review-ready` (Vulnogram: `DRAFT` / `REVIEW`);
+- **field corrections** — *Affected versions*, *CWE*, *Severity*,
+  *Reporter credited as*, *Remediation developer* — that change any
+  value the generator reads into the record.
+
+Because `push_update` writes the generator-computed `CNA_private.state`
+verbatim (see below), a regen can legitimately walk a record **back**
+— e.g. `review-ready → allocated` (Vulnogram: `REVIEW → DRAFT`) — when
+a title or summary edit re-opens a question a reviewer had already
+signed off on. That walk-back is intended: the reviewer re-reviews
+from the corrected lower state. Surface every such state change in the
+Step 6 recap so it is never silent.
+
 **State auto-promote from `allocated` to `review-ready` — driven by
 the generator, not by sync.** The CVE JSON the generator produces
 already carries the correct `CNA_private.state` value based on the
@@ -489,8 +518,10 @@ transition. This is the load-bearing gate for the release-manager
 hand-off (see Step 2b's *Two-stage gate*): the RM never receives
 the hand-off comment while the record is still in `allocated`.
 
-**The `pr merged → fix released` transition performs this push in
-the same apply pass — it is not deferrable.** When a sync run
+**The `pr merged → fix released` transition is the one instance of
+the general push-on-regen rule above that is also *mandatory*: it
+performs this push in the same apply pass and it is not deferrable.**
+When a sync run
 advances a tracker `pr merged → fix released`, the label flip and
 this 5a-regen + 5b-push are **one atomic unit**: the user's
 confirmation of the transition authorises the push, and both land in
