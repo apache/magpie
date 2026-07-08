@@ -277,13 +277,17 @@ key and perform the registration
 2. **Create the draft release and upload** to ATR (Compose):
 
    ```bash
-   # Create a draft candidate for magpie <version> and upload the
-   # artefact + signature + checksum. Confirm exact subcommands with
-   # `atr --help`; these map to POST /api/release/create and
-   # POST /api/release/upload.
-   atr release create magpie "${VERSION}" --rc "${RC}"
-   atr release upload  magpie "${VERSION}" \
-     "${ARTIFACT}" "${ARTIFACT}.asc" "${ARTIFACT}.sha512"
+   # Start a draft release for magpie <version>, then upload the artefact
+   # + signature + checksum. ATR tracks *revisions*, not rc-numbers: each
+   # upload adds to the current revision (the rcN identity lives in the tag
+   # and the [VOTE] subject, not in the ATR release name). `atr upload` takes
+   # PROJECT VERSION PATH FILEPATH — PATH is the file's name inside the
+   # release, FILEPATH the local file — so upload one file per call.
+   # (Verbs per the client's COMMANDS.md; run `atr <cmd> --help` for flags.)
+   atr release start magpie "${VERSION}"
+   atr upload magpie "${VERSION}" "${ARTIFACT}"        "${ARTIFACT}"
+   atr upload magpie "${VERSION}" "${ARTIFACT}.asc"    "${ARTIFACT}.asc"
+   atr upload magpie "${VERSION}" "${ARTIFACT}.sha512" "${ARTIFACT}.sha512"
    ```
 
 3. **Let the checks run.** On upload, ATR fires asynchronous checks:
@@ -292,7 +296,9 @@ key and perform the registration
    Poll them:
 
    ```bash
-   atr checks list magpie "${VERSION}"     # GET /api/checks/list/...
+   atr check status magpie "${VERSION}" --verbose
+   # for anything blocking on a given revision:
+   #   atr check blockers magpie "${VERSION}" <revision>
    ```
 
    Fix any failing check and re-upload a new revision before voting.
@@ -321,7 +327,15 @@ the binding votes.
 2. **Start the vote in ATR.** The RM triggers the vote for the
    composed candidate; ATR sends the `[VOTE]` email to
    `dev@magpie.apache.org` and opens the tabulation. Starting the
-   vote is an **RM action** — the agent drafts, the RM starts.
+   vote is an **RM action** — the agent drafts, the RM starts:
+
+   ```bash
+   # atr vote start PROJECT VERSION REVISION -m MAILING-LIST [--duration H] [--subject S]
+   # REVISION comes from `atr check status` / the candidate page.
+   atr vote start magpie "${VERSION}" <revision> \
+     -m dev@magpie.apache.org --duration "${VOTE_WINDOW_HOURS:-72}" \
+     --subject "[VOTE] Release Apache Magpie ${VERSION} from ${RC_TAG}"
+   ```
 3. **72-hour window** (Step 8). Minimum per
    [release-policy § release approval](https://www.apache.org/legal/release-policy.html#release-approval);
    the Magpie config may lengthen but not shorten it
