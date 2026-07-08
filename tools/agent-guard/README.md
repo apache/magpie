@@ -107,7 +107,7 @@ The guard is registered as a `PreToolUse` hook on the `Bash` matcher in
       {
         "matcher": "Bash",
         "hooks": [
-          { "type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/agent-guard.py\"", "timeout": 30 }
+          { "type": "command", "command": "[ -f \"$CLAUDE_PROJECT_DIR/.claude/hooks/agent-guard.py\" ] && python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/agent-guard.py\" || true", "timeout": 30 }
         ]
       }
     ]

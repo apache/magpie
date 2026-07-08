@@ -1248,9 +1248,16 @@ Four passes, in this order:
 
      ```json
      { "matcher": "Bash", "hooks": [ { "type": "command",
-       "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/agent-guard.py\"",
+       "command": "[ -f \"$CLAUDE_PROJECT_DIR/.claude/hooks/agent-guard.py\" ] && python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/agent-guard.py\" || true",
        "timeout": 30 } ] }
      ```
+
+     The `[ -f … ] && … || true` guard makes the hook a **no-op on a
+     fresh clone** — before `/magpie-setup` has synced `agent-guard.py`
+     in (the script is gitignored framework code, not committed), so
+     without the guard the committed hook would exec a missing file on
+     every Bash call and a `PreToolUse` error can block the tool. Once
+     the script is present the guard passes and the hook runs normally.
 
      Wiring happens **only once**; thereafter guards are
      added/removed purely by syncing `guards.d` — no settings.json
