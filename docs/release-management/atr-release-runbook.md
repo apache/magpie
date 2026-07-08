@@ -296,9 +296,11 @@ key and perform the registration
    Poll them:
 
    ```bash
-   atr check status magpie "${VERSION}" --verbose
-   # for anything blocking on a given revision:
+   atr revisions magpie "${VERSION}"                # list revisions; note the revision id
+   atr check status magpie "${VERSION}" --verbose   # poll checks
+   # review a specific revision's hard blockers and non-blocking concerns:
    #   atr check blockers magpie "${VERSION}" <revision>
+   #   atr check concerns magpie "${VERSION}" <revision>
    ```
 
    Fix any failing check and re-upload a new revision before voting.
@@ -330,8 +332,10 @@ the binding votes.
    vote is an **RM action** — the agent drafts, the RM starts:
 
    ```bash
-   # atr vote start PROJECT VERSION REVISION -m MAILING-LIST [--duration H] [--subject S]
-   # REVISION comes from `atr check status` / the candidate page.
+   # atr vote start PROJECT VERSION REVISION -m LIST [--duration H] [--subject S] [CONCERNS-NOTED]
+   # REVISION comes from `atr revisions magpie "${VERSION}"` (or the candidate page).
+   # If `atr check concerns` flagged non-blocking concerns, start the vote WITH the
+   # concerns-noted flag so they're acknowledged in the thread (see `atr vote start --help`).
    atr vote start magpie "${VERSION}" <revision> \
      -m dev@magpie.apache.org --duration "${VOTE_WINDOW_HOURS:-72}" \
      --subject "[VOTE] Release Apache Magpie ${VERSION} from ${RC_TAG}"
