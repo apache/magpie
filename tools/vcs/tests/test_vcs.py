@@ -312,7 +312,7 @@ def test_cli_cat(git_repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
 
 
 def test_fossil_parser_status(monkeypatch: pytest.MonkeyPatch) -> None:
-    def mock_run(args, cwd, **kwargs):
+    def mock_run(args: list[str], cwd: str | None = None, **kwargs: object) -> str:
         if "changes" in args:
             return "EDITED     file1.txt\nADDED      file2.txt\nDELETED    file3.txt\n"
         if "extras" in args:
@@ -330,7 +330,7 @@ def test_fossil_parser_status(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_fossil_parser_status_error(monkeypatch: pytest.MonkeyPatch) -> None:
-    def mock_run(args, cwd, **kwargs):
+    def mock_run(args: list[str], cwd: str | None = None, **kwargs: object) -> str:
         raise VCSError("command failed")
 
     monkeypatch.setattr("magpie_vcs._run", mock_run)
@@ -346,7 +346,7 @@ def test_fossil_parser_log(monkeypatch: pytest.MonkeyPatch) -> None:
 16:00:00 [1234567890ab] Add a new feature [options] (user: alice tags: trunk)
 """
 
-    def mock_run(args, cwd, **kwargs):
+    def mock_run(args: list[str], cwd: str | None = None, **kwargs: object) -> str:
         if "timeline" in args:
             return sample_timeline
         return ""
