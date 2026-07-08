@@ -43,10 +43,6 @@ This skill is adapted from the **`skill-creator`** skill in the
 repository, distributed under the Apache License 2.0. The
 upstream commit at the time of adoption is
 [`5380239`](https://github.com/JuliusBrussee/awesome-claude-skills/tree/5380239b724883543db9e9e2de56c4dd8796090d/skill-creator).
-See [`LICENSE.txt`](LICENSE.txt) for the full upstream licence
-text and the project root [`NOTICE`](../../NOTICE) for the
-attribution under the *"Third-party content"* section, per
-[ASF licensing-howto guidance](https://infra.apache.org/licensing-howto.html).
 
 The framework's adaptations of the upstream content are
 substantial. They are summarised in the bullets below, in

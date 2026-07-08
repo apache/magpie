@@ -76,7 +76,8 @@ An **agent** wraps the model in two things the model does not have on its own:
 
 1. **Tools**, which are concrete actions in the real world. "Read this file."
    "Search the code for this word." "Run this command and give me the output."
-   "Post this comment." Each tool does one job and reports back.
+   "Open a saved comment draft." "Open an issue draft." Each tool does one job
+   and reports back.
 
 2. **A loop**, which is the machinery that runs the model again and again. Each
    time round the loop, the model sees everything that has happened so far and
@@ -97,9 +98,12 @@ you ask for something
 
 The model is still only reading and writing text. But now some of the text it
 writes is *"use this tool with these inputs"*, and the loop turns that text into
-a real action and feeds the result back. That feedback loop of act, observe, and
-act again is what makes an agent more than a chatbot. It can look things up,
-check its own work, and correct course when a result surprises it.
+a real action and feeds the result back. Which actions are allowed depends on
+the tools and permissions you give the agent: a safe teaching setup might only
+open a saved comment draft, while a more privileged workflow might post after a
+maintainer approves. That feedback loop of act, observe, and act again is what
+makes an agent more than a chatbot. It can look things up, check its own work,
+and correct course when a result surprises it.
 
 ## What the agent can "see": context
 
@@ -128,8 +132,9 @@ almost every tool you have used is built on it.
 An agent is **probabilistic**. The model does not compute one guaranteed answer.
 It produces a *likely* one, and "likely" leaves room for variation. Ask the same
 question twice and you may get two wordings, two orderings, and occasionally two
-different decisions. Neither is a bug in the usual sense. It is the nature of the
-tool.
+different decisions. Wording variation is not automatically a bug. Decision or
+quality variation is a signal to test the agent across many examples, because it
+may or may not be acceptable for the workflow.
 
 Three consequences follow, and they shape everything in this progression:
 
@@ -141,9 +146,9 @@ Three consequences follow, and they shape everything in this progression:
 | The program is the code | The program is the code *and the words you give it* |
 
 You do not need to master the right-hand column yet. The point for now is only
-that "it changed its answer" is expected, not broken, and that testing an agent
-means running many examples and looking at the results together, not checking
-one answer once.
+that "it changed its wording" is expected, while "it changed its decision" is
+something to evaluate. Testing an agent means running many examples and looking
+at the results together, not checking one answer once.
 
 ## Why this matters for a maintainer
 
@@ -166,7 +171,7 @@ Before moving on, can you answer these in a sentence each?
 - What are the two things an agent adds to a bare language model?
 - What does it mean that the agent can only reason about its *context*?
 - Why can the same request give a slightly different answer twice, and why is
-  that not a bug?
+  that not automatically a bug?
 
 If any of those is fuzzy, re-read the matching section. The next page assumes
 these three ideas.

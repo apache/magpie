@@ -3,30 +3,3 @@ Copyright 2026 The Apache Software Foundation
 
 This product includes software developed at
 The Apache Software Foundation (https://www.apache.org/).
-
-================================================================================
-Contributions from other Apache Software Foundation projects
-================================================================================
-
-This product incorporates project-agnostic code contributed from
-other Apache Software Foundation projects:
-
-- Apache Airflow (https://airflow.apache.org/) — the framework that
-  became this project was first developed and proven within Apache
-  Airflow, already structured under Apache License 2.0 for reuse
-  inside and outside the ASF.
-- Apache Groovy (https://groovy.apache.org/) — contributions from
-  the Groovy PMC at the early stage of this project.
-
-================================================================================
-Third-party content
-================================================================================
-
-This product includes substantially-modified content adapted from the
-"skill-creator" skill in the awesome-claude-skills repository by
-Julius Brussee (https://github.com/JuliusBrussee/awesome-claude-skills),
-licensed under the Apache License, Version 2.0. See
-.claude/skills/write-skill/LICENSE.txt for the full upstream license
-text and .claude/skills/write-skill/SKILL.md § "Provenance" for the
-specific upstream commit and the scope of the framework's
-modifications.

@@ -200,3 +200,32 @@
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.
+
+================================================================================
+Contributions from other Apache Software Foundation projects
+================================================================================
+
+This product incorporates project-agnostic code contributed from
+other Apache Software Foundation projects:
+
+- Apache Airflow (https://airflow.apache.org/) — the framework that
+  became this project was first developed and proven within Apache
+  Airflow, already structured under Apache License 2.0 for reuse
+  inside and outside the ASF.
+- Apache Groovy (https://groovy.apache.org/) — contributions from
+  the Groovy PMC at the early stage of this project.
+
+Apache Airflow
+Copyright 2016-2026 The Apache Software Foundation
+
+Apache Groovy
+Copyright 2003-2026 The Apache Software Foundation
+
+================================================================================
+Third-party content
+================================================================================
+
+This product includes substantially-modified content adapted from the
+"skill-creator" skill in the awesome-claude-skills repository by
+Julius Brussee (https://github.com/JuliusBrussee/awesome-claude-skills),
+licensed under the Apache License, Version 2.0.

@@ -11,6 +11,7 @@
   - [Relationship to RFC-AI-0003](#relationship-to-rfc-ai-0003)
   - [How adopters consume this tool](#how-adopters-consume-this-tool)
   - [What this tool is NOT for](#what-this-tool-is-not-for)
+  - [Declared egress surfaces](#declared-egress-surfaces)
   - [Failure modes](#failure-modes)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -97,6 +98,44 @@ layers.
 - **Not** a sandbox replacement. The sandbox still owns filesystem isolation,
   credential denial, and bind restrictions; the gateway only adds an
   egress-allowlist chokepoint for outbound HTTP(S).
+
+## Declared egress surfaces
+
+**The default is zero outbound calls.**  The framework guarantees that no tool
+makes a network call unless the skill it backs explicitly performs an adapter
+action (PRINCIPLE 10).  This guarantee rests on two pillars:
+
+1. **Only declared adapter tools may egress.**  Tools that declare a
+   `contract:*` capability in their `README.md` are the named egress surfaces —
+   they communicate with their designated external systems (tracker APIs, mail
+   services, VCS hosts, CVE authorities, etc.) on behalf of skill steps that
+   ask for it.  The `egress-gateway` proxy itself is also a declared surface;
+   all other `substrate:*` tools are network-free by design.
+
+2. **The validator enforces the invariant.**  `tools/skill-and-tool-validator/`
+   check #21 (`no-telemetry-import`) scans the source of every `substrate:*`
+   tool for network-calling imports (`requests`, `httpx`, `aiohttp`,
+   `urllib.request`, `http.client`, `socket`) and flags any hit as a SOFT
+   advisory.  A substrate tool that accidentally grows a network import is
+   caught before it is merged.
+
+The declared egress surfaces as of this writing:
+
+| Tool | Capability | Egresses to |
+|------|-----------|-------------|
+| `egress-gateway` | `substrate:sandbox` | any host on the allowlist (forward proxy) |
+| `bitbucket` | `contract:change-request` | Bitbucket Cloud / Server REST API |
+| `fossil` | `contract:tracker + contract:source-control` | Fossil repository host |
+| `github`, `github-body-field`, `github-rollup` | `contract:tracker` / `contract:source-control` | GitHub API (`gh` CLI) |
+| `gmail` | `contract:mail-source + contract:mail-create + contract:mail-archive` | Gmail API |
+| `jira`, `jira-patch` | `contract:tracker` / `contract:change-request` | Jira REST API |
+| `maildir`, `mail-source`, `mail-archive`, `mail-patch` | `contract:mail-*` | local maildir / IMAP |
+| `ponymail` | `contract:mail-archive + contract:mail-source` | PonyMail REST API |
+| `sourcehut` | `contract:tracker + contract:source-control + contract:mail-archive` | sourcehut API |
+| `vcs` | `contract:source-control` | generic VCS host |
+| `apache-projects`, `asf-svn`, `cve-org`, `cve-tool`, `cve-tool-vulnogram`, `forwarder-relay`, `scan-format` | `contract:*` | ASF / CVE authorities / relay |
+
+All remaining tools (`substrate:*`) make no outbound calls.
 
 ## Failure modes
 

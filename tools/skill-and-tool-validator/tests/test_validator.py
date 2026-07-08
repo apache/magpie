@@ -4807,3 +4807,169 @@ class TestValidateSkillLineLimit:
 
     def test_category_is_soft(self) -> None:
         assert SKILL_LINE_LIMIT_CATEGORY in SOFT_CATEGORIES
+
+
+# ---------------------------------------------------------------------------
+# No-default-telemetry import check (aspect #21, SOFT)
+# ---------------------------------------------------------------------------
+
+
+from skill_and_tool_validator import (  # noqa: E402
+    NO_TELEMETRY_CATEGORY,
+    validate_no_telemetry_imports,
+)
+
+
+class TestValidateNoTelemetryImports:
+    """Tests for the SOFT no-telemetry-import check (aspect #21)."""
+
+    _SUBSTRATE_README = (
+        "# my-tool\n\n"
+        "**Capability:** substrate:framework-dev\n\n"
+        "## Prerequisites\n\n"
+        "- **Runtime:** Python 3.11+\n"
+        "- **CLIs:** None.\n"
+        "- **Credentials / auth:** None.\n"
+        "- **Network:** None.\n"
+    )
+    _CONTRACT_README = (
+        "# my-adapter\n\n"
+        "**Capability:** contract:tracker\n\n"
+        "## Prerequisites\n\n"
+        "- **Runtime:** Python 3.11+\n"
+        "- **CLIs / credentials / network:** Provided by tracker backend.\n"
+    )
+
+    def _make_tool(
+        self,
+        tmp_path: Path,
+        *,
+        name: str,
+        readme: str,
+        src_files: dict[str, str] | None = None,
+    ) -> Path:
+        root = _make_tools_root(tmp_path)
+        tool_dir = root / "tools" / name
+        (tool_dir / "src" / name.replace("-", "_")).mkdir(parents=True)
+        (tool_dir / "README.md").write_text(readme)
+        for rel, content in (src_files or {}).items():
+            path = tool_dir / "src" / rel
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(content)
+        return root
+
+    def test_substrate_clean_no_violations(self, tmp_path: Path) -> None:
+        root = self._make_tool(
+            tmp_path,
+            name="clean-substrate",
+            readme=self._SUBSTRATE_README,
+            src_files={"clean_substrate/__init__.py": "# SPDX-License-Identifier: Apache-2.0\n"},
+        )
+        violations = list(validate_no_telemetry_imports(root))
+        assert violations == []
+
+    def test_substrate_with_requests_flagged(self, tmp_path: Path) -> None:
+        root = self._make_tool(
+            tmp_path,
+            name="bad-substrate",
+            readme=self._SUBSTRATE_README,
+            src_files={
+                "bad_substrate/__init__.py": (
+                    "# SPDX-License-Identifier: Apache-2.0\nimport requests\nimport json\n"
+                )
+            },
+        )
+        violations = list(validate_no_telemetry_imports(root))
+        assert len(violations) == 1
+        assert NO_TELEMETRY_CATEGORY == violations[0].category
+        assert "requests" in violations[0].message
+        assert "bad-substrate" in violations[0].message
+
+    def test_substrate_with_httpx_flagged(self, tmp_path: Path) -> None:
+        root = self._make_tool(
+            tmp_path,
+            name="bad-httpx",
+            readme=self._SUBSTRATE_README,
+            src_files={"bad_httpx/client.py": "# SPDX-License-Identifier: Apache-2.0\nimport httpx\n"},
+        )
+        violations = list(validate_no_telemetry_imports(root))
+        assert any(NO_TELEMETRY_CATEGORY == v.category for v in violations)
+        assert any("httpx" in v.message for v in violations)
+
+    def test_substrate_with_urllib_request_flagged(self, tmp_path: Path) -> None:
+        root = self._make_tool(
+            tmp_path,
+            name="bad-urllib",
+            readme=self._SUBSTRATE_README,
+            src_files={
+                "bad_urllib/fetch.py": ("# SPDX-License-Identifier: Apache-2.0\nimport urllib.request\n")
+            },
+        )
+        violations = list(validate_no_telemetry_imports(root))
+        assert any("urllib.request" in v.message for v in violations)
+
+    def test_substrate_with_socket_flagged(self, tmp_path: Path) -> None:
+        root = self._make_tool(
+            tmp_path,
+            name="bad-socket",
+            readme=self._SUBSTRATE_README,
+            src_files={"bad_socket/__init__.py": "# SPDX-License-Identifier: Apache-2.0\nimport socket\n"},
+        )
+        violations = list(validate_no_telemetry_imports(root))
+        assert any("socket" in v.message for v in violations)
+
+    def test_contract_tool_with_network_import_not_flagged(self, tmp_path: Path) -> None:
+        root = self._make_tool(
+            tmp_path,
+            name="my-adapter",
+            readme=self._CONTRACT_README,
+            src_files={
+                "my_adapter/client.py": ("# SPDX-License-Identifier: Apache-2.0\nimport urllib.request\n")
+            },
+        )
+        violations = [v for v in validate_no_telemetry_imports(root) if v.category == NO_TELEMETRY_CATEGORY]
+        assert violations == []
+
+    def test_egress_gateway_not_flagged(self, tmp_path: Path) -> None:
+        root = self._make_tool(
+            tmp_path,
+            name="egress-gateway",
+            readme=(
+                "# egress-gateway\n\n"
+                "**Capability:** substrate:sandbox\n\n"
+                "## Prerequisites\n\n"
+                "- **Runtime:** Python 3.11+\n"
+                "- **CLIs:** None.\n"
+                "- **Credentials / auth:** None.\n"
+                "- **Network:** loopback proxy.\n"
+            ),
+            src_files={
+                "egress_gateway/__init__.py": ("# SPDX-License-Identifier: Apache-2.0\nimport socket\n")
+            },
+        )
+        violations = [v for v in validate_no_telemetry_imports(root) if v.category == NO_TELEMETRY_CATEGORY]
+        assert violations == []
+
+    def test_no_src_directory_skipped(self, tmp_path: Path) -> None:
+        root = _make_tools_root(tmp_path)
+        tool_dir = root / "tools" / "metadata-only"
+        tool_dir.mkdir()
+        (tool_dir / "README.md").write_text(self._SUBSTRATE_README)
+        # No src/ directory
+        violations = list(validate_no_telemetry_imports(root))
+        assert violations == []
+
+    def test_category_is_soft(self) -> None:
+        assert NO_TELEMETRY_CATEGORY in SOFT_CATEGORIES
+
+    def test_violation_message_mentions_principle_10(self, tmp_path: Path) -> None:
+        root = self._make_tool(
+            tmp_path,
+            name="principle-check",
+            readme=self._SUBSTRATE_README,
+            src_files={
+                "principle_check/__init__.py": "# SPDX-License-Identifier: Apache-2.0\nimport requests\n"
+            },
+        )
+        violations = list(validate_no_telemetry_imports(root))
+        assert any("PRINCIPLE 10" in v.message for v in violations)

@@ -133,6 +133,15 @@ skills/:
     Advisory only — existing skills that pre-date this check are flagged
     for gradual migration; the check prevents new oversized entrypoints
     from being merged unnoticed.
+21. No-default-telemetry import check (SOFT) — PRINCIPLE 10 guarantees
+    zero outbound calls from the framework unless a skill's adapter
+    action explicitly makes them.  Only ``contract:*`` adapter tools and
+    the ``egress-gateway`` proxy are declared egress surfaces; all other
+    tools (``substrate:*``) must stay network-free.  Flags Python source
+    files under ``tools/<name>/src/`` that import ``requests``,
+    ``httpx``, ``aiohttp``, ``urllib.request``, ``http.client``, or
+    ``socket`` in tools that do not declare a ``contract:*`` capability.
+    Advisory only — never fails the run unless ``--strict``.
 
 SOFT categories surface as advisory warnings (stderr) without
 failing the run unless ``--strict`` is passed.
@@ -361,6 +370,27 @@ TOOL_CAPABILITIES = {
 }
 
 
+# ---------------------------------------------------------------------------
+# No-default-telemetry check constants (aspect #21, SOFT)
+# ---------------------------------------------------------------------------
+
+# The egress-gateway tool is a network proxy by design — it is the one
+# substrate tool permitted to make outbound connections.
+_EGRESS_TOOL_NAME = "egress-gateway"
+
+# Network-calling import patterns that must not appear in substrate tool source.
+# Each entry is (compiled line-level regex, human-readable library name).
+_NETWORK_IMPORT_PATTERNS: list[tuple[re.Pattern[str], str]] = [
+    (re.compile(r"^\s*(?:import|from)\s+requests\b"), "requests"),
+    (re.compile(r"^\s*(?:import|from)\s+httpx\b"), "httpx"),
+    (re.compile(r"^\s*(?:import|from)\s+aiohttp\b"), "aiohttp"),
+    (re.compile(r"^\s*(?:import|from)\s+urllib\.request\b"), "urllib.request"),
+    (re.compile(r"^\s*from\s+urllib\s+import\s+(?:\w+\s*,\s*)*request\b"), "urllib.request"),
+    (re.compile(r"^\s*(?:import|from)\s+http\.client\b"), "http.client"),
+    (re.compile(r"^\s*import\s+socket\b"), "socket"),
+]
+
+
 def _read_mode_table() -> dict[str, str]:
     """Read the canonical MISSION mode table from ``docs/modes.md``."""
     starts = [Path.cwd().resolve(), Path(__file__).resolve().parent]
@@ -527,6 +557,10 @@ MAIL_PRIVACY_CATEGORY = "mail-privacy-boundary"
 # markdown files linked one level deep, with no unreferenced siblings.
 SKILL_LINE_LIMIT = 500
 SKILL_LINE_LIMIT_CATEGORY = "skill-line-limit"
+# SOFT advisory: substrate tools (substrate:*) must not import network-calling
+# modules — only contract:* adapter tools and the egress-gateway proxy are
+# declared egress surfaces (PRINCIPLE 10).
+NO_TELEMETRY_CATEGORY = "no-telemetry-import"
 
 # The `magpie-` namespace prefix every installed framework skill carries.
 SKILL_NAME_PREFIX = "magpie-"
@@ -550,6 +584,7 @@ SOFT_CATEGORIES: frozenset[str] = frozenset(
         CAPABILITY_TAXONOMY_CATEGORY,
         MAIL_PRIVACY_CATEGORY,
         SKILL_LINE_LIMIT_CATEGORY,
+        NO_TELEMETRY_CATEGORY,
     }
 )
 HARD_CATEGORIES: frozenset[str] = frozenset(
@@ -3554,6 +3589,66 @@ def validate_skill_line_limit(path: Path, text: str) -> Iterable[Violation]:
         )
 
 
+def validate_no_telemetry_imports(root: Path | None = None) -> Iterable[Violation]:
+    """SOFT advisory: substrate tools must not import network-calling modules.
+
+    The framework guarantees zero outbound calls unless a skill's adapter
+    action explicitly makes them (PRINCIPLE 10).  Only ``contract:*`` adapter
+    tools and the ``egress-gateway`` proxy are declared egress surfaces; all
+    other tools (``substrate:*``) must stay network-free.
+
+    Flags Python source files under ``tools/<name>/src/`` that import
+    ``requests``, ``httpx``, ``aiohttp``, ``urllib.request``, ``http.client``,
+    or ``socket`` in tools that do not declare a ``contract:*`` capability.
+
+    Advisory only — never fails the run unless ``--strict``.
+    See ``tools/egress-gateway/tool.md`` § Declared egress surfaces.
+    """
+    for tool_dir in collect_tool_dirs(root):
+        if tool_dir.name == _EGRESS_TOOL_NAME:
+            continue  # the proxy itself makes network calls by design
+
+        readme = tool_dir / "README.md"
+        if readme.exists():
+            try:
+                readme_text = readme.read_text(encoding="utf-8")
+            except OSError:
+                readme_text = ""
+            cap_match = TOOL_CAPABILITY_RE.search(readme_text)
+            if cap_match is not None:
+                raw = cap_match.group(1).strip()
+                entries = [e.strip() for e in raw.split("+") if e.strip()]
+                if any(e.startswith(_ADAPTER_CONTRACT_PREFIX) for e in entries):
+                    continue  # declared contract:* adapter — network is expected
+
+        src_dir = tool_dir / "src"
+        if not src_dir.is_dir():
+            continue
+
+        for py_path in sorted(src_dir.rglob("*.py")):
+            if any(part in _LICENSE_SKIP_PATH_PARTS for part in py_path.parts):
+                continue
+            try:
+                py_text = py_path.read_text(encoding="utf-8")
+            except OSError:
+                continue
+
+            for line_no, line in enumerate(py_text.splitlines(), start=1):
+                for pattern, lib_name in _NETWORK_IMPORT_PATTERNS:
+                    if pattern.match(line):
+                        yield Violation(
+                            py_path,
+                            line_no,
+                            f"no-telemetry-import: substrate tool '{tool_dir.name}' "
+                            f"imports '{lib_name}' — only contract:* adapter tools and "
+                            f"egress-gateway may make network calls; "
+                            f"PRINCIPLE 10 requires zero default outbound egress "
+                            f"(see tools/egress-gateway/tool.md § Declared egress surfaces)",
+                            category=NO_TELEMETRY_CATEGORY,
+                        )
+                        break  # one violation per line
+
+
 def run_validation(root: Path | None = None) -> list[Violation]:
     """Run the full validation suite and return all violations."""
     repo_root = root or find_repo_root()
@@ -3631,6 +3726,9 @@ def run_validation(root: Path | None = None) -> list[Violation]:
 
     # Project-template drift check: _template/ and non-asf-example/ stay comparable.
     violations.extend(validate_project_template_drift(repo_root))
+
+    # No-default-telemetry import check: substrate tools must not call the network.
+    violations.extend(validate_no_telemetry_imports(repo_root))
 
     # Branch-name confidentiality check on docs/ (skills/ is already covered above).
     for doc_path in sorted(doc_files):
@@ -3716,6 +3814,7 @@ _SOFT_RULE_PREFIXES: tuple[str, ...] = (
     "lowercase-f-field",
     "mail-privacy-boundary",
     "modes-doc:",
+    "no-telemetry-import",
     "skill-line-limit",
     "multi-capability declared",
     "override-contract",
