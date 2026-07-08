@@ -160,8 +160,8 @@ The same flow, condensed to commands you run yourself:
 #    `tools/agent-isolation/pinned-versions.toml`; canonical
 #    section: "Required tools (pinned versions)" below.
 sudo apt-get install --no-install-recommends \
-    bubblewrap=0.11.2-* socat=1.8.1.1-*
-npm install -g --no-save @anthropic-ai/claude-code@2.1.197
+    bubblewrap=0.11.2-* socat=1.8.1.3-*
+npm install -g --no-save @anthropic-ai/claude-code@2.1.202
 
 # 2. Project-scope `.claude/settings.json`. Copy the framework's
 #    sandbox / permissions.deny / permissions.ask / allowedDomains
@@ -219,8 +219,8 @@ The current pins live in machine-readable form in
 | Tool | Pinned version | Released | Cooldown | Purpose |
 |---|---|---|---|---|
 | `bubblewrap` | 0.11.2 | 2026-04-23 | 7d (default) | Linux user-namespace sandbox (filesystem layer). Required on Linux; macOS uses Seatbelt instead. |
-| `socat` | 1.8.1.1 | 2026-03-13 | 7d (default) | TCP relay for the sandbox network allowlist. Linux only. |
-| `claude-code` | 2.1.141 | 2026-05-13 | 1d (override) | Agent runtime. Pin separately from any system claude install so behavioural changes don't drift the framework's effective security posture without review. |
+| `socat` | 1.8.1.3 | 2026-06-26 | 7d (default) | TCP relay for the sandbox network allowlist. Linux only. |
+| `claude-code` | 2.1.202 | 2026-07-06 | 1d (override) | Agent runtime. Pin separately from any system claude install so behavioural changes don't drift the framework's effective security posture without review. |
 
 The pin date floor (`pinned_at` in the manifest) is the day the
 manifest was last touched; it is the framework's promise that every
@@ -239,7 +239,7 @@ distro. Choose whichever applies to your host.
 sudo apt-get update
 sudo apt-get install --no-install-recommends \
     bubblewrap=0.11.2-* \
-    socat=1.8.1.1-*
+    socat=1.8.1.3-*
 ```
 
 > **Debian stable (bookworm) caveat.** The pinned `bubblewrap 0.11.2`
@@ -257,7 +257,7 @@ sudo apt-get install --no-install-recommends \
 ```bash
 sudo dnf install \
     bubblewrap-0.11.2 \
-    socat-1.8.1.1
+    socat-1.8.1.3
 ```
 
 **macOS**: bubblewrap is not needed (Seatbelt is built in); socat is
@@ -269,12 +269,12 @@ version, no pin enforced — Homebrew rolls forward, so the
 
 ```bash
 # npm distribution (the only stable channel today)
-npm install -g --no-save @anthropic-ai/claude-code@2.1.197
+npm install -g --no-save @anthropic-ai/claude-code@2.1.202
 ```
 
 ### Distro-specific shortcut — Linux Mint 22.x / Ubuntu 24.04 Noble
 
-The pinned versions above (bubblewrap `0.11.2`, socat `1.8.1.1`) are
+The pinned versions above (bubblewrap `0.11.2`, socat `1.8.1.3`) are
 the *upstream* releases that have aged past the framework's 7-day
 cooldown. **They are not in Ubuntu Noble's main repos** — Noble
 ships `bubblewrap 0.9.0` (`0.9.0-1ubuntu0.1`) and
@@ -301,7 +301,7 @@ sandbox flags don't depend on a specific bubblewrap version (the
 `denyRead`/`allowRead` API has been stable since `0.6.x`).
 
 The framework's `tools/agent-isolation/check-tool-updates.sh` will
-still report upstream `0.11.2` / `1.8.1.1` as the pinned versions —
+still report upstream `0.11.2` / `1.8.1.3` as the pinned versions —
 that's the manifest's view of what's *upstream-current*, not what
 your distro shipped. If you want to silence the drift, override the
 manifest locally with a `pinned-versions.local.toml` (gitignored)

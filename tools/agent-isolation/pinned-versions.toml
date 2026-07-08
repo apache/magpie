@@ -52,7 +52,7 @@
 
 # When this file was last touched. The check script uses this as the
 # minimum age the entries below claim to satisfy.
-pinned_at = "2026-07-01"
+pinned_at = "2026-07-08"
 
 [tools.bubblewrap]
 version = "0.11.2"
@@ -76,8 +76,8 @@ install.brew = "# macOS does not need bubblewrap; it uses Seatbelt."
 install.from_source = "https://github.com/containers/bubblewrap/releases/tag/v0.11.2"
 
 [tools.socat]
-version = "1.8.1.1"
-released = "2026-03-13"
+version = "1.8.1.3"
+released = "2026-06-26"
 purpose = """
 TCP relay used by Claude Code's sandbox network proxy to enforce
 the `sandbox.network.allowedDomains` allowlist. Without socat the
@@ -86,13 +86,13 @@ fine outcome). Linux only; macOS does not need it.
 """
 docs = "http://www.dest-unreach.org/socat/"
 upstream_releases = "http://www.dest-unreach.org/socat/download/"
-install.apt = "apt-get install --no-install-recommends socat=1.8.1.1-*"
-install.dnf = "dnf install socat-1.8.1.1"
-install.from_source = "http://www.dest-unreach.org/socat/download/socat-1.8.1.1.tar.gz"
+install.apt = "apt-get install --no-install-recommends socat=1.8.1.3-*"
+install.dnf = "dnf install socat-1.8.1.3"
+install.from_source = "http://www.dest-unreach.org/socat/download/socat-1.8.1.3.tar.gz"
 
 [tools.claude-code]
-version = "2.1.197"
-released = "2026-06-30"
+version = "2.1.202"
+released = "2026-07-06"
 # Override the framework-wide 7-day default. Claude Code releases
 # cadence is high (multiple releases per week) and any regression
 # that affects the framework's permission-rule semantics, sandbox
@@ -118,5 +118,5 @@ upstream_releases = "https://api.github.com/repos/anthropics/claude-code/release
 # Claude Code is distributed via npm; use `--no-save` so the global
 # install doesn't drift the local lockfile of any project the user
 # installs from.
-install.npm = "npm install -g --no-save @anthropic-ai/claude-code@2.1.197"
-install.brew = "# brew tap anthropics/claude-code; brew install claude-code@2.1.197 (when available)"
+install.npm = "npm install -g --no-save @anthropic-ai/claude-code@2.1.202"
+install.brew = "# brew tap anthropics/claude-code; brew install claude-code@2.1.202 (when available)"
