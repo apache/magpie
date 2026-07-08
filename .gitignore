@@ -74,3 +74,11 @@ reassess-*/
 /apache-rat-*/
 rat-report.txt
 rat-stderr.log
+
+# Release-candidate build artefacts (produced by release-rc-cut: the source
+# zip, its detached signature, and its checksum). They are staged to
+# dist/dev via svn, never committed to git — ignore them so a stray
+# `git add` at the repo root can't pick them up.
+/apache-magpie-*-source.zip
+/apache-magpie-*-source.zip.asc
+/apache-magpie-*-source.zip.sha512

@@ -263,14 +263,15 @@ git push <git-upstream-remote> <version>-<rcN>
 ```
 
 `<git-upstream-remote>` resolves from `git_upstream_remote` in
-`release-management-config.md` — the git remote name pointing at the
-upstream repo (typical: `origin`, `upstream`, `apache`; default `origin`;
-`--remote` overrides). Emit the concrete resolved name, not the placeholder.
+`release-management-config.md` — the upstream repo's git remote name
+(typical `origin`/`upstream`/`apache`; default `origin`; `--remote` overrides). Emit the concrete name.
 
 **Section 2 — Build command.**
 
-The exact `build_command` from `release-build.md`, emitted verbatim with
-a note that it must run at the release tag:
+The exact `build_command` from `release-build.md`, emitted verbatim (run at
+the tag). First **gitignore the RC artefacts** (`<artefact>` + `.asc`/`.sha512`,
+e.g. a committed glob like `*-source.zip*`) so a stray `git add` never commits
+an RC build:
 
 ```text
 # Run at the release tag <version>-<rcN>
