@@ -20,7 +20,7 @@ acceptance:
   - Open PRs and local work-item branches are passed into plan/build prompts
     as in-flight work so the loop does not duplicate already-built items.
   - The headless-agent harness contract is explicit for Claude Code, Codex,
-    Cursor, Gemini CLI, and OpenCode.
+    Cursor, Gemini CLI, OpenCode, and Kiro.
   - The update marker `tools/spec-loop/.last-sync` is owned by the runner,
     not by the prompt.
 ---
@@ -109,6 +109,7 @@ sandbox, and stop without pushing or opening a PR.
 | Cursor | positional prompt to `cursor agent --print` or `cursor-agent --print` | `--workspace "$ROOT"` | `--force --trust` | `--model` | `--output-format` | external sandbox and Cursor policy |
 | Gemini CLI | `--prompt "<prompt>"` | launched from repo root | `--yolo` | `--model` | default CLI output | external sandbox and Gemini policy |
 | OpenCode | positional prompt to `opencode run` | launched from repo root | `--auto` | `--model` | `--format json` for stream JSON | external sandbox and OpenCode policy |
+| Kiro | positional prompt to `kiro-cli chat` | launched from repo root | `--no-interactive` | agent config (`.kiro/agents`) | plain text only | external sandbox and the agent-guard `--kiro` hook |
 
 `SPEC_LOOP_AGENT` chooses the CLI. `SPEC_LOOP_HARNESS` chooses the
 invocation convention and defaults from the agent basename. Adding a new
@@ -135,7 +136,7 @@ updating `loop.sh` in the same change.
    branch context.
 4. Update prompts receive incremental-scope guidance from `.last-sync`
    when present, but the runner remains the only writer of `.last-sync`.
-5. Claude Code, Codex, Cursor, Gemini CLI, and OpenCode are documented in
+5. Claude Code, Codex, Cursor, Gemini CLI, OpenCode, and Kiro are documented in
    the headless harness matrix and implemented in `loop.sh`.
 6. Operator docs and prompts agree on branch naming: build uses bare
    `<slug>` branches; update uses `sync-specs-<timestamp>` branches.

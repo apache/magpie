@@ -60,6 +60,9 @@ def _build_parser() -> argparse.ArgumentParser:
     pr_get = pr_subparsers.add_parser("get", help="Fetch one pull request.")
     pr_get.add_argument("pull_request_id", help="Pull request ID to fetch.")
 
+    pr_discussion = pr_subparsers.add_parser("discussion", help="Fetch pull request discussion.")
+    pr_discussion.add_argument("pull_request_id", help="Pull request ID to fetch discussion for.")
+
     return parser
 
 
@@ -86,6 +89,10 @@ def _dispatch(args: argparse.Namespace, config: BitbucketConfig) -> dict[str, An
     if args.subcommand == "pr" and args.pr_action == "get":
         raw = backend.get_pull_request(config, args.pull_request_id)
         return normalize.pull_request(config.kind, raw)
+
+    if args.subcommand == "pr" and args.pr_action == "discussion":
+        raw = backend.get_pull_request_discussion(config, args.pull_request_id)
+        return normalize.pull_request_discussion(config.kind, raw)
 
     msg = "Unsupported command"
     raise ValueError(msg)

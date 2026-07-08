@@ -110,6 +110,12 @@ spec_loop_launch_agent() {
             --yolo \
             ${model_args[@]+"${model_args[@]}"} \
             --prompt "$(cat "$prompt_file")" &
+    elif [ "$harness" = "kiro" ]; then
+        # Kiro CLI headless: positional prompt to `kiro-cli chat --no-interactive`.
+        # The model is selected by the chosen agent config (.kiro/agents), not a
+        # per-invocation flag, and Kiro has no stream-json output mode here.
+        "$agent" chat --no-interactive \
+            "$(cat "$prompt_file")" &
     else
         local verbose_args=()
         [ "$output_format" = "stream-json" ] && verbose_args=(--verbose)

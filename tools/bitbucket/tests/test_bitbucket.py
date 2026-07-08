@@ -26,7 +26,7 @@ import pytest
 from magpie_bitbucket import cloud, datacenter
 from magpie_bitbucket.cli import main
 from magpie_bitbucket.client import BitbucketError, load_config, make_auth_header
-from magpie_bitbucket.normalize import pull_request, pull_request_list, repository
+from magpie_bitbucket.normalize import pull_request, pull_request_discussion, pull_request_list, repository
 
 
 @pytest.fixture
@@ -336,3 +336,324 @@ def test_cli_pr_list_open_cloud(
     assert exit_code == 0
     assert output["pull_requests"][0]["id"] == "1"
     assert output["pull_requests"][0]["state"] == "open"
+
+
+@patch("urllib.request.build_opener")
+def test_cloud_get_pull_request_discussion_follows_next(
+    mock_build_opener: MagicMock,
+    cloud_env: None,
+) -> None:
+    opener = mock_opener(
+        mock_build_opener,
+        {
+            "values": [{"id": 101, "content": {"raw": "First comment"}}],
+            "next": "https://api.bitbucket.org/2.0/repositories/apache/magpie/pullrequests/7/comments?page=2",
+        },
+        {"values": [{"id": 102, "content": {"raw": "Second comment"}}]},
+    )
+
+    result = cloud.get_pull_request_discussion(load_config(), "7")
+
+    first_request = opener.open.call_args_list[0].args[0]
+    second_request = opener.open.call_args_list[1].args[0]
+    assert (
+        first_request.full_url
+        == "https://api.bitbucket.org/2.0/repositories/apache/magpie/pullrequests/7/comments"
+    )
+    assert (
+        second_request.full_url
+        == "https://api.bitbucket.org/2.0/repositories/apache/magpie/pullrequests/7/comments?page=2"
+    )
+    assert result["pull_request_id"] == "7"
+    assert [item["id"] for item in result["values"]] == [101, 102]
+
+
+@patch("urllib.request.build_opener")
+def test_datacenter_get_pull_request_discussion_follows_next_page_start(
+    mock_build_opener: MagicMock,
+    datacenter_env: None,
+) -> None:
+    opener = mock_opener(
+        mock_build_opener,
+        {"values": [{"id": 201, "comment": {"text": "First"}}], "isLastPage": False, "nextPageStart": 25},
+        {"values": [{"id": 202, "comment": {"text": "Second"}}], "isLastPage": True},
+    )
+
+    result = datacenter.get_pull_request_discussion(load_config(), "9")
+
+    first_request = opener.open.call_args_list[0].args[0]
+    second_request = opener.open.call_args_list[1].args[0]
+    assert (
+        first_request.full_url
+        == "https://bitbucket.example.test/rest/api/1.0/projects/MAGPIE/repos/magpie/pull-requests/9/activities?start=0"
+    )
+    assert (
+        second_request.full_url
+        == "https://bitbucket.example.test/rest/api/1.0/projects/MAGPIE/repos/magpie/pull-requests/9/activities?start=25"
+    )
+    assert result["pull_request_id"] == "9"
+    assert [item["id"] for item in result["values"]] == [201, 202]
+
+
+def test_normalize_cloud_pull_request_discussion() -> None:
+    raw = {
+        "pull_request_id": "7",
+        "values": [
+            {
+                "id": 101,
+                "content": {"raw": "Looks good."},
+                "user": {"display_name": "Alice"},
+                "created_on": "2026-07-01T00:00:00Z",
+                "updated_on": "2026-07-01T01:00:00Z",
+                "state": "active",
+                "deleted": False,
+                "inline": {"path": "README.md", "to": 10},
+            }
+        ],
+    }
+
+    result = pull_request_discussion("cloud", raw)
+
+    assert result["backend"] == "bitbucket-cloud"
+    assert result["coverage"] == "partial-read-only"
+    assert result["pull_request_id"] == "7"
+    assert result["comments"][0]["id"] == "101"
+    assert result["comments"][0]["author"] == "Alice"
+    assert result["comments"][0]["body"] == "Looks good."
+    assert result["comments"][0]["date"] == "2026-07-01T00:00:00Z"
+    assert result["comments"][0]["kind"] == "comment"
+    assert result["comments"][0]["deleted"] is False
+    assert result["comments"][0]["inline"] == {"path": "README.md", "to_line": 10}
+    assert result["participants"] == ["Alice"]
+    assert result["unresolved_count"] is None
+
+
+def test_normalize_datacenter_pull_request_discussion() -> None:
+    raw = {
+        "pull_request_id": "9",
+        "values": [
+            {
+                "id": 201,
+                "action": "COMMENTED",
+                "createdDate": 1780000000000,
+                "user": {"displayName": "Bob"},
+                "comment": {
+                    "id": 301,
+                    "text": "Please update tests.",
+                    "author": {"displayName": "Bob"},
+                    "createdDate": 1780000000000,
+                    "updatedDate": 1780000001000,
+                    "anchor": {"path": "tests/test_bitbucket.py", "line": 42},
+                    "deleted": False,
+                },
+            }
+        ],
+    }
+
+    result = pull_request_discussion("datacenter", raw)
+
+    assert result["backend"] == "bitbucket-datacenter"
+    assert result["coverage"] == "partial-read-only"
+    assert result["pull_request_id"] == "9"
+    assert result["comments"][0]["id"] == "301"
+    assert result["comments"][0]["author"] == "Bob"
+    assert result["comments"][0]["body"] == "Please update tests."
+    assert result["comments"][0]["created"] == "2026-05-28T20:26:40Z"
+    assert result["comments"][0]["updated"] == "2026-05-28T20:26:41Z"
+    assert result["comments"][0]["date"] == "2026-05-28T20:26:40Z"
+    assert result["comments"][0]["kind"] == "comment"
+    assert result["comments"][0]["deleted"] is False
+    assert result["comments"][0]["inline"] == {"path": "tests/test_bitbucket.py", "to_line": 42}
+    assert result["participants"] == ["Bob"]
+    assert result["unresolved_count"] is None
+
+
+@patch("magpie_bitbucket.cloud.get_pull_request_discussion")
+def test_cli_pr_discussion_cloud(
+    mock_get_pull_request_discussion: MagicMock,
+    cloud_env: None,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    mock_get_pull_request_discussion.return_value = {
+        "pull_request_id": "7",
+        "values": [{"id": 101, "content": {"raw": "Looks good."}}],
+    }
+
+    exit_code = main(["pr", "discussion", "7"])
+
+    captured = capsys.readouterr()
+    output = json.loads(captured.out)
+    assert exit_code == 0
+    assert output["pull_request_id"] == "7"
+    assert output["comments"][0]["id"] == "101"
+    assert output["comments"][0]["body"] == "Looks good."
+
+
+@patch("magpie_bitbucket.cli.load_config")
+def test_cli_pr_discussion_datacenter(
+    mock_load_config: MagicMock,
+    datacenter_env: None,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    config = load_config()
+    mock_load_config.return_value = config
+
+    with patch.object(datacenter, "get_pull_request_discussion") as mock_discussion:
+        mock_discussion.return_value = {
+            "pull_request_id": "9",
+            "values": [
+                {
+                    "action": "COMMENTED",
+                    "comment": {
+                        "id": 1,
+                        "text": "Looks good",
+                        "author": {"displayName": "Asha"},
+                    },
+                }
+            ],
+        }
+
+        exit_code = main(["pr", "discussion", "9"])
+
+    captured = capsys.readouterr()
+    output = json.loads(captured.out)
+    mock_discussion.assert_called_once_with(config, "9")
+    assert exit_code == 0
+    assert output["backend"] == "bitbucket-datacenter"
+    assert output["comments"][0]["body"] == "Looks good"
+
+
+def test_normalize_datacenter_discussion_includes_threaded_replies() -> None:
+    raw = {
+        "pull_request_id": "9",
+        "values": [
+            {
+                "action": "COMMENTED",
+                "comment": {
+                    "id": 1,
+                    "text": "Parent comment",
+                    "author": {"displayName": "Asha"},
+                    "createdDate": 1783428000000,
+                    "comments": [
+                        {
+                            "id": 2,
+                            "text": "Reply comment",
+                            "author": {"displayName": "Ravi"},
+                            "createdDate": 1783428300000,
+                        }
+                    ],
+                },
+            }
+        ],
+    }
+
+    result = pull_request_discussion("datacenter", raw)
+
+    assert [comment["body"] for comment in result["comments"]] == [
+        "Parent comment",
+        "Reply comment",
+    ]
+    assert result["comments"][1]["parent_id"] == "1"
+    assert result["participants"] == ["Asha", "Ravi"]
+
+
+def test_normalize_datacenter_discussion_filters_non_comment_activities() -> None:
+    raw = {
+        "pull_request_id": "9",
+        "values": [
+            {"id": 1, "action": "APPROVED", "user": {"displayName": "Reviewer"}},
+            {
+                "id": 2,
+                "action": "COMMENTED",
+                "comment": {
+                    "id": 302,
+                    "text": "Real comment.",
+                    "author": {"displayName": "Alice"},
+                    "createdDate": 1780000000000,
+                },
+            },
+        ],
+    }
+
+    result = pull_request_discussion("datacenter", raw)
+
+    assert len(result["comments"]) == 1
+    assert result["comments"][0]["id"] == "302"
+    assert result["comments"][0]["body"] == "Real comment."
+    assert result["participants"] == ["Alice"]
+
+
+def test_normalize_cloud_discussion_preserves_empty_raw_body() -> None:
+    raw = {
+        "pull_request_id": "7",
+        "values": [
+            {
+                "id": 101,
+                "content": {"raw": "", "markup": "markdown fallback", "html": "<p>fallback</p>"},
+                "user": {"display_name": "Alice"},
+            }
+        ],
+    }
+
+    result = pull_request_discussion("cloud", raw)
+
+    assert result["comments"][0]["body"] == ""
+
+
+@patch("urllib.request.build_opener")
+def test_cloud_discussion_rejects_next_url_host_change(
+    mock_build_opener: MagicMock,
+    cloud_env: None,
+) -> None:
+    mock_opener(
+        mock_build_opener,
+        {
+            "values": [],
+            "next": "https://evil.example.test/steal-token",
+        },
+    )
+
+    with pytest.raises(BitbucketError, match="pagination URL changed scheme or host"):
+        cloud.get_pull_request_discussion(load_config(), "7")
+
+
+@patch("urllib.request.build_opener")
+def test_cloud_discussion_rejects_repeated_next_url(
+    mock_build_opener: MagicMock,
+    cloud_env: None,
+) -> None:
+    repeated_url = "https://api.bitbucket.org/2.0/repositories/apache/magpie/pullrequests/7/comments?page=2"
+    mock_opener(
+        mock_build_opener,
+        {
+            "values": [],
+            "next": repeated_url,
+        },
+        {
+            "values": [],
+            "next": repeated_url,
+        },
+    )
+
+    with pytest.raises(BitbucketError, match="pagination returned a repeated URL"):
+        cloud.get_pull_request_discussion(load_config(), "7")
+
+
+@patch("urllib.request.build_opener")
+def test_datacenter_discussion_stops_on_non_advancing_next_page_start(
+    mock_build_opener: MagicMock,
+    datacenter_env: None,
+) -> None:
+    opener = mock_opener(
+        mock_build_opener,
+        {
+            "values": [{"id": 201, "comment": {"text": "First"}}],
+            "isLastPage": False,
+            "nextPageStart": 0,
+        },
+    )
+
+    result = datacenter.get_pull_request_discussion(load_config(), "9")
+
+    assert opener.open.call_count == 1
+    assert result["values"][0]["id"] == 201

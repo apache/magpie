@@ -279,6 +279,21 @@ def _lint_opencode(config_path: Path) -> int:
     return 1
 
 
+def _lint_kiro(config_path: Path) -> int:
+    """Lint a Kiro CLI agent-config permission policy (invariants only)."""
+    from sandbox_lint.kiro import check_kiro_invariants
+
+    config = _load_json(config_path)
+    errors = check_kiro_invariants(config)
+    if not errors:
+        print(f"sandbox-lint: OK ({config_path} permission policy satisfies the Kiro invariants)")
+        return 0
+    print(f"sandbox-lint: Kiro permission-policy violations in {config_path}:", file=sys.stderr)
+    for e in errors:
+        print(f"  - {e}", file=sys.stderr)
+    return 1
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="sandbox-lint",
@@ -311,8 +326,21 @@ def main(argv: list[str] | None = None) -> int:
             "config (invariants only — no baseline diff)."
         ),
     )
+    parser.add_argument(
+        "--kiro",
+        type=Path,
+        default=None,
+        metavar="KIRO_AGENT_JSON",
+        help=(
+            "Lint a Kiro CLI agent-config (.kiro/agents/<name>.json) permission "
+            "policy against the Kiro security invariants instead of the Claude "
+            "Code sandbox config (invariants only — no baseline diff)."
+        ),
+    )
     args = parser.parse_args(argv)
 
+    if args.kiro is not None:
+        return _lint_kiro(args.kiro)
     if args.opencode is not None:
         return _lint_opencode(args.opencode)
 

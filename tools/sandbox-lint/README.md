@@ -22,7 +22,7 @@
 
 **Capability:** substrate:sandbox
 
-**Harness:** Claude Code, OpenCode
+**Harness:** Claude Code, OpenCode, Kiro
 
 Lints `.claude/settings.json` against the shipped baseline at
 `tools/sandbox-lint/expected.json`, and against the security
@@ -45,6 +45,25 @@ to `"allow"`, no rule may auto-approve a dangerous command family
 
 ```bash
 uv run --project tools/sandbox-lint sandbox-lint --opencode opencode.json
+```
+
+**Kiro.** `--kiro .kiro/agents/<name>.json` lints a Kiro CLI agent
+config. Kiro's shell posture is an allowlist/denylist rather than a
+per-command decision map
+([Kiro shell tool](https://kiro.dev/docs/cli/reference/built-in-tools#execute-shell-commands)):
+`allowedCommands` / `deniedCommands` are full-string-anchored regex,
+deny is evaluated before allow, `denyByDefault` is the native
+allowlist-safe posture, and Kiro's default (no config) is to prompt —
+so, unlike OpenCode, a *missing* policy is not flagged. The invariants:
+the shell tool (`shell` / `execute_bash` / `*` / `@builtin`) must not be
+in `allowedTools` (that auto-approves every shell command and overrides
+`toolsSettings`), no `allowedCommands` regex may auto-approve a dangerous
+family (and stay unblocked by `deniedCommands`), `aws` / `web_fetch` must
+not be blanket-allowed in `allowedTools`, and `web_fetch.trusted` must
+not be a blanket `.*`.
+
+```bash
+uv run --project tools/sandbox-lint sandbox-lint --kiro .kiro/agents/<name>.json
 ```
 
 ## Prerequisites

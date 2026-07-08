@@ -66,6 +66,9 @@ def list_open_pull_requests(config: BitbucketConfig) -> dict[str, Any]:
         if not isinstance(next_start, int):
             break
 
+        if next_start <= start:
+            break
+
         start = next_start
 
     return combined
@@ -78,3 +81,47 @@ def get_pull_request(config: BitbucketConfig, pull_request_id: str) -> dict[str,
     pr_id = quote_path(pull_request_id)
     url = f"{_api_base(config)}/projects/{project_key}/repos/{repo_slug}/pull-requests/{pr_id}"
     return get_json(url, config)
+
+
+# Bitbucket Data Center exposes PR comments through the broader activities feed.
+# We fetch the paginated feed here and filter comment-bearing activities during
+# normalization so review/merge/rescope lifecycle events are not exposed as
+# discussion comments.
+def get_pull_request_discussion(config: BitbucketConfig, pull_request_id: str) -> dict[str, Any]:
+    """Fetch pull request activities from Bitbucket Data Center."""
+    project_key = quote_path(require(config.project_key, "BITBUCKET_PROJECT_KEY"))
+    repo_slug = quote_path(require(config.repo_slug, "BITBUCKET_REPO_SLUG"))
+    pr_id = quote_path(pull_request_id)
+    base_url = (
+        f"{_api_base(config)}/projects/{project_key}/repos/{repo_slug}/pull-requests/{pr_id}/activities"
+    )
+
+    start = 0
+    combined: dict[str, Any] = {
+        "pull_request_id": pull_request_id,
+        "values": [],
+        "paginated": True,
+        "pages": [],
+    }
+
+    while True:
+        page = get_json(f"{base_url}?start={start}", config)
+        combined["pages"].append(page)
+
+        values = page.get("values")
+        if isinstance(values, list):
+            combined["values"].extend(item for item in values if isinstance(item, dict))
+
+        if page.get("isLastPage") is True:
+            break
+
+        next_start = page.get("nextPageStart")
+        if not isinstance(next_start, int):
+            break
+
+        if next_start <= start:
+            break
+
+        start = next_start
+
+    return combined

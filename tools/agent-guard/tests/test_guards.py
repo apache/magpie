@@ -267,3 +267,19 @@ class _Stdin:
 
     def read(self):
         return self._text
+
+
+# Regression: a path-qualified command head (e.g. the documented
+# ``--exec /usr/bin/git`` wrapper install) must be guarded identically to the
+# bare name. Segment normalises argv[0] to its basename, so the guard cannot be
+# bypassed by invoking the real binary by absolute or relative path.
+def test_abs_path_git_commit_coauthor_denied():
+    assert dispatch('/usr/bin/git commit -m "x\n\nCo-Authored-By: a <x@y.z>"') is not None
+
+
+def test_relative_path_git_commit_coauthor_denied():
+    assert dispatch('./git commit -m "x\n\nCo-Authored-By: a <x@y.z>"') is not None
+
+
+def test_abs_path_plain_commit_still_allowed():
+    assert dispatch('/usr/bin/git commit -m "ordinary commit"') is None
