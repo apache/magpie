@@ -97,15 +97,67 @@ Each is a separate confirmable proposal item (SKILL Golden rule 1).
    advisory. **Never** copy an advisory-supplied CVSS back into the
    tracker's severity field (the project's severity rule governs the
    tracker; the advisory mirrors *it*).
-2. **Mirror state (publish) — admin tier, HAND OFF.** Do not PATCH
-   `state` at the collaborator tier. Surface it as a hand-off to a repo
-   admin / the hosting security team, and note that many foundation
-   advisories stay `triage` by design (the CVE ships through the
-   foundation's own CVE tool, not GitHub's advisory flow), so publishing
-   is often not even desirable.
-3. **Provide collaborator access — admin tier, HAND OFF.** Surface the
-   missing-roster access drift as a hand-off to an admin; the sync cannot
-   add collaborators at the collaborator tier.
+2. **Mirror state (publish / close) — admin tier, HAND OFF.** Do not PATCH
+   `state` at the collaborator tier. Route it through the
+   [Admin hand-off relay](#admin-hand-off--relay-the-needed-change-to-the-advisory-admin-team)
+   below, and note that many foundation advisories stay `triage` by design
+   (the CVE ships through the foundation's own CVE tool, not GitHub's
+   advisory flow), so publishing is often not even desirable.
+3. **Provide collaborator access — admin tier, HAND OFF.** The sync cannot
+   add collaborators at the collaborator tier; route the missing-roster
+   access drift through the
+   [Admin hand-off relay](#admin-hand-off--relay-the-needed-change-to-the-advisory-admin-team).
+
+---
+
+## Admin hand-off — relay the needed change to the advisory-admin team
+
+Step 4 items 2 (state / publish / close) and 3 (collaborator management) are
+**admin / security-manager** operations the collaborator tier cannot perform.
+Do **not** leave them as a passive recap line, and do **not** post a
+`<tracker>` comment @-mentioning project members — the project's own
+security-team members typically do **not** hold GitHub advisory admin rights
+either, so mentioning them leaves the action on nobody's desk. Instead,
+**relay the needed change to the team that administers GitHub Private
+Vulnerability Reporting for the hosting org** — for ASF projects, the
+foundation security team, via the [`tools/gmail/asf-relay.md`](../../tools/gmail/asf-relay.md)
+path.
+
+### Delivery — an email relay (draft, never auto-sent)
+
+Create a **draft** email to the org's advisory-admin security team
+(`<security-team-list>`; for ASF, `security@apache.org`) with
+`oauth-draft-create` — never send directly (SKILL Golden rule 1; and the
+Gmail MCP mangles the `security/advisories/GHSA-…` URLs into redirects, so
+use oauth-draft). **Always CC the project `<security-list>`** so the
+project security team stays looped in on what was requested. Reply on the
+originating `<security-list>` thread when the report was relayed there
+(`--thread-id <id>`); otherwise it is a **new** message (omit `--thread-id`)
+with a self-describing subject. Do **not** post a `<tracker>` comment as the
+hand-off; the tracker gets at most a one-line rollup note recording that the
+relay draft was prepared.
+
+### What the relay says (three parts, terse)
+
+1. **What the sync already did** — the collaborator-tier field edits applied
+   (e.g. *"linked `cve_id=<CVE>` onto GHSA-…; recorded @… as a co-finder"*),
+   each advisory as a clickable `…/security/advisories/GHSA-…` URL.
+2. **The admin-only change + why the sync can't** — the exact action
+   (*"close GHSA-… as a duplicate of GHSA-…"*, *"publish GHSA-…"*, *"add @…
+   to collaborating_users"*) and that the operator holds only advisory-
+   **collaborator** rights (state / collaborator PATCHes return `403`).
+3. **The ask** — one line asking the advisory admins to perform it.
+
+### Guardrails
+
+- **Propose-then-confirm** the draft (recipient, CC, subject, body); the
+  operator reviews the Gmail draft and sends it.
+- **Idempotent** — record a prepared hand-off with a `<tracker>` rollup
+  marker (`<!-- <marker-prefix>: ghsa-admin-handoff v1 -->`) naming the GHSA
+  id + requested action; do not re-draft the same pending action.
+- **Collaborator-doable ≠ hand-off** — field writes the operator CAN do
+  (`cve_id`, `credits`, `severity`, `cwe_ids`, `vulnerabilities`) are just
+  applied; the relay fires **only** for the admin-only cases above.
 
 ---
 
