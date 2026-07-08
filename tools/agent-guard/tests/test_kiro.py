@@ -31,8 +31,7 @@ import json
 
 import pytest
 
-import agent_guard
-from agent_guard import ALLOW_EXIT, DENY_EXIT, kiro_main
+from agent_guard import ALLOW_EXIT, DENY_EXIT, kiro_main, opencode_main
 
 
 def _feed(monkeypatch: pytest.MonkeyPatch, payload: object) -> None:
@@ -103,5 +102,5 @@ def test_verdict_matches_opencode_core(monkeypatch: pytest.MonkeyPatch) -> None:
     _feed(monkeypatch, _event(cmd))
     kiro_rc = kiro_main()
     _feed(monkeypatch, {"command": cmd})
-    opencode_rc = agent_guard.opencode_main()
+    opencode_rc = opencode_main()
     assert kiro_rc == opencode_rc == DENY_EXIT
