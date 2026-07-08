@@ -11,6 +11,7 @@
   - [Per-command overrides](#per-command-overrides)
   - [Wiring](#wiring)
     - [OpenCode](#opencode)
+    - [Harness-neutral path (any runtime)](#harness-neutral-path-any-runtime)
   - [Contributing guards](#contributing-guards)
   - [Tests](#tests)
 
@@ -39,6 +40,9 @@ so every wired harness enforces an identical rule set from one source of truth:
 - **OpenCode** — a [plugin](https://opencode.ai/docs/plugins/) on the
   `tool.execute.before` hook for the `bash` tool, which blocks a call by
   throwing (`agent-guard.py --opencode`). See [Wiring](#wiring).
+- **Any other runtime** — the `--check` and `--exec` CLI modes let any
+  harness or shell wrapper enforce guard rules without a harness-specific hook
+  adapter. See [Harness-neutral path (any runtime)](#harness-neutral-path-any-runtime).
 
 It is **stdlib-only** and is invoked directly as
 `python3 <path>/agent_guard/__init__.py` (never via `uv run`) so it returns in a
@@ -140,6 +144,57 @@ copy of the script — and honours `MAGPIE_AGENT_GUARD=/abs/path/agent-guard.py`
 to point elsewhere. Because both harnesses call `dispatch()`, the bundled and
 skill-contributed guards, the `MAGPIE_*` overrides, and the deny reasons are
 byte-for-byte identical across the two; nothing about a guard is harness-aware.
+
+### Harness-neutral path (any runtime)
+
+For runtimes that do not expose a pre-tool hook API (Codex CLI, Gemini CLI,
+Cursor, Kiro, or any other harness not yet wired above), the engine ships two
+CLI modes that allow enforcement without a harness-specific adapter:
+
+**`--check <command…>`** — inspects the command and reports allow/deny without
+executing it. Exits `0` on allow (silent), `2` on deny (reason on stdout), or
+`64` (usage) when no command is supplied — `64` is deliberately distinct from
+the deny code so a caller testing `$? -eq 2` never mistakes a misinvocation for
+a policy block. Shell scripts and wrappers can inspect the exit code before
+proceeding:
+
+```bash
+reason=$(python3 /path/to/agent-guard.py --check git push origin main)
+if [ $? -eq 2 ]; then
+  echo "blocked: $reason" >&2
+  exit 1
+fi
+git push origin main
+```
+
+**`--exec <command…>`** — inspects the command then exec-replaces this process
+with it on allow. On deny it prints the reason to stderr and exits `2`. The
+exec'd command's own exit code and output are indistinguishable from a direct
+invocation, making `--exec` suitable as a transparent wrapper:
+
+```bash
+# Shell alias in project .envrc / .bashrc. Safe: aliases are invisible to the
+# execvp that --exec uses, so the bare name resolves to the real binary.
+alias git='python3 /path/to/agent-guard.py --exec git'
+alias gh='python3 /path/to/agent-guard.py --exec gh'
+
+# Wrapper script named 'git' earlier on $PATH than the real one. It MUST exec
+# the real git by ABSOLUTE path — passing the bare name 'git' would make --exec
+# re-resolve it through $PATH, find this wrapper again, and loop. Adjust the
+# path to your real git (`command -v git` with this wrapper off $PATH).
+#!/usr/bin/env bash
+exec python3 "${MAGPIE_AGENT_GUARD:-/path/to/agent-guard.py}" --exec /usr/bin/git "$@"
+```
+
+Both modes use the same `dispatch()` core as the Claude Code and OpenCode
+adapters, so the guard decisions are identical regardless of which path you use.
+Both are **fail-open**: a guard glitch never hard-blocks the user (and `--exec`
+bounds any accidental wrapper recursion instead of looping forever).
+
+Locate the engine at `agent_guard/__init__.py` inside the framework snapshot
+(`.apache-magpie/tools/agent-guard/src/agent_guard/__init__.py` in an adopter
+tree) or at the path `/magpie-setup` ships it to (`.claude/hooks/agent-guard.py`
+for Claude Code setups — the file is the same and works for all three modes).
 
 ## Contributing guards
 

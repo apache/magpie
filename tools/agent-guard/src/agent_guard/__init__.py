@@ -28,6 +28,17 @@ pre-tool hook to/from the core, so every wired harness enforces one rule set:
 * :func:`opencode_main` — OpenCode ``tool.execute.before`` plugin adapter
   (``--opencode``): reads ``{"command", "cwd"}`` on stdin, signals deny via a
   non-zero exit so the plugin can throw and abort the tool call.
+* :func:`check_main` — Harness-neutral check-only entry point (``--check``):
+  takes the command as remaining CLI args, exits ``DENY_EXIT`` with the reason
+  on stdout on a deny, ``ALLOW_EXIT`` silently on allow, ``USAGE_EXIT`` when no
+  command is supplied. Suitable for shell scripts and wrappers that inspect the
+  guard decision before acting.
+* :func:`exec_main` — Harness-neutral check-then-exec entry point (``--exec``):
+  same guard check, but on allow it exec-replaces this process with the command
+  so the exit code and output are indistinguishable from a direct invocation.
+  On deny it prints the reason to stderr and exits ``DENY_EXIT``. Any harness
+  that can be configured to wrap commands through an executable can use this to
+  enforce guard rules without a harness-specific hook adapter.
 
 The engine ships two **bundled** guards — the universal ``git`` hygiene rules
 that apply to every project:
@@ -113,7 +124,16 @@ class Segment:
             name, _, value = tokens[i].partition("=")
             self.env[name] = value
             i += 1
-        self.argv: list[str] = tokens[i:]
+        argv = tokens[i:]
+        # Normalise the command head to its basename so a path-qualified
+        # invocation (`/usr/bin/git`, `./git`) is guarded identically to the
+        # bare name. Guard rules only inspect argv[0] as a command *name*; the
+        # real execution path is untouched (exec_main hands the original argv
+        # to os.execvp). Prefix wrappers like `env git` / `command git` keep
+        # argv[0] == "env" and remain a separate, pre-existing gap.
+        if argv:
+            argv[0] = os.path.basename(argv[0])
+        self.argv: list[str] = argv
         self.raw = raw
 
     def override(self, *names: str) -> bool:
@@ -520,6 +540,15 @@ def main() -> int:
 # harness whose hook blocks on a non-zero child exit): 0 = allow, DENY = block.
 ALLOW_EXIT = 0
 DENY_EXIT = 2
+# Usage error (no command supplied to ``--check`` / ``--exec``). Deliberately
+# distinct from DENY_EXIT so a wrapper testing ``$? -eq 2`` for a *policy* deny
+# never mistakes a misinvocation for a block. Matches sysexits ``EX_USAGE``.
+USAGE_EXIT = 64
+# Cap on ``--exec`` self-re-entry. A wrapper named e.g. ``git`` placed earlier on
+# ``$PATH`` that calls ``--exec git`` will have ``os.execvp`` re-resolve the bare
+# name back to itself and loop; this bound turns that runaway into a clear error.
+_EXEC_DEPTH_VAR = "_AGENT_GUARD_EXEC_DEPTH"
+_EXEC_DEPTH_MAX = 20
 
 
 def opencode_main() -> int:
@@ -552,17 +581,137 @@ def opencode_main() -> int:
     return ALLOW_EXIT
 
 
+def check_main(argv: list[str]) -> int:
+    """Harness-neutral check-only entry point (``--check``).
+
+    Takes the command to inspect as ``argv`` (the remaining arguments after the
+    ``--check`` flag), joins them into a command string, and runs
+    :func:`dispatch`. On a deny it writes the reason to *stdout* and exits
+    ``DENY_EXIT``; on allow it exits ``ALLOW_EXIT`` silently.
+
+    Stdout is used (matching the ``--opencode`` convention) so callers can
+    capture the reason::
+
+        reason=$(python3 agent-guard.py --check git push origin main)
+        if [ $? -eq 2 ]; then echo "blocked: $reason"; exit 1; fi
+        git push origin main
+
+    **Fail-open on decision, like every other entry point:** a *present*
+    command that matches no guard rule — or one the engine cannot evaluate
+    (a :func:`dispatch` error) — returns ``ALLOW_EXIT`` so a misconfigured
+    wrapper never hard-blocks the user. Invoking with **no command at all** is
+    a usage error and returns ``USAGE_EXIT`` (not ``DENY_EXIT``), so a caller
+    testing ``$? -eq 2`` for a policy deny never mistakes a misinvocation for a
+    block.
+    """
+    if not argv:
+        sys.stderr.write("agent-guard --check: no command specified\n")
+        return USAGE_EXIT
+    command = shlex.join(argv)
+    cwd = os.getcwd()
+    try:
+        reason = dispatch(command, cwd)
+    except Exception as exc:  # fail-open: a guard glitch never blocks the user
+        sys.stderr.write(f"agent-guard --check: guard engine error, allowing: {exc}\n")
+        return ALLOW_EXIT
+    if reason:
+        sys.stdout.write(reason + "\n")
+        return DENY_EXIT
+    return ALLOW_EXIT
+
+
+def exec_main(argv: list[str]) -> int:
+    """Harness-neutral check-then-exec entry point (``--exec``).
+
+    Takes the command to execute as ``argv`` (remaining arguments after
+    ``--exec``), runs :func:`dispatch`, and either exec-replaces this process
+    with the command (allow) or prints the deny reason to *stderr* and exits
+    ``DENY_EXIT`` (deny). On allow the process image is replaced via
+    :func:`os.execvp`, so the command's own exit code and output are
+    indistinguishable from a direct invocation.
+
+    Any harness or shell integration that can substitute this as the executor
+    for ``git`` and ``gh`` commands enforces guard rules without a
+    harness-specific hook adapter::
+
+        # As a shell alias (project .bashrc / .zshrc). Safe: aliases are
+        # invisible to os.execvp, so the bare name resolves to the real binary.
+        alias git='python3 /path/to/agent-guard.py --exec git'
+        alias gh='python3 /path/to/agent-guard.py --exec gh'
+
+        # As a wrapper script named 'git' earlier on $PATH than the real one.
+        # It MUST exec the real git by absolute path — otherwise --exec would
+        # re-resolve the bare name 'git' through $PATH, find this wrapper again,
+        # and loop. Adjust the path to your real git.
+        #!/usr/bin/env bash
+        exec python3 /path/to/agent-guard.py --exec /usr/bin/git "$@"
+
+    On allow, ``argv[0]`` is passed to :func:`os.execvp`, which resolves a bare
+    name through ``$PATH``; pass an absolute path when a same-named wrapper
+    shadows the real binary (see above). As a backstop, runaway self-re-entry is
+    bounded by ``_EXEC_DEPTH_MAX`` and turned into a clear error rather than an
+    unbounded loop.
+
+    **Fail-open on decision, like every other entry point:** if the guard
+    engine itself errors (a :func:`dispatch` exception) the command is still
+    executed. Invoking with no command is a usage error (``USAGE_EXIT``).
+    """
+    if not argv:
+        sys.stderr.write("agent-guard --exec: no command specified\n")
+        return USAGE_EXIT
+    command = shlex.join(argv)
+    cwd = os.getcwd()
+    try:
+        reason = dispatch(command, cwd)
+    except Exception as exc:  # fail-open: a guard glitch never blocks the user
+        sys.stderr.write(f"agent-guard --exec: guard engine error, allowing: {exc}\n")
+        reason = None
+    if reason:
+        sys.stderr.write(f"agent-guard: {reason}\n")
+        return DENY_EXIT
+    # Backstop against a same-named PATH wrapper re-resolving into agent-guard.
+    depth = 0
+    try:
+        depth = int(os.environ.get(_EXEC_DEPTH_VAR, "0"))
+    except ValueError:
+        depth = 0
+    if depth >= _EXEC_DEPTH_MAX:
+        sys.stderr.write(
+            "agent-guard --exec: refusing to exec — self-re-entry depth "
+            f"({depth}) exceeded. A PATH wrapper is re-resolving the bare "
+            "command name back to agent-guard; point it at the real binary by "
+            "absolute path.\n"
+        )
+        return 1
+    os.environ[_EXEC_DEPTH_VAR] = str(depth + 1)
+    # execvp replaces the process image on success; on failure it raises OSError
+    # and control falls through to the explicit return below.
+    try:
+        os.execvp(argv[0], argv)
+    except OSError as exc:
+        sys.stderr.write(f"agent-guard --exec: {exc}\n")
+    return 1
+
+
 def cli(argv: list[str] | None = None) -> int:
     """Route to the harness adapter named on the command line.
 
-    No argument → the Claude Code ``PreToolUse`` hook (:func:`main`); the
-    ``--opencode`` flag → the OpenCode adapter (:func:`opencode_main`). A single
-    self-contained file thus serves every wired harness, so ``/magpie-setup``
-    ships one script and each harness points its own hook at it.
+    No argument → the Claude Code ``PreToolUse`` hook (:func:`main`).
+    ``--opencode`` → the OpenCode adapter (:func:`opencode_main`).
+    ``--check <cmd…>`` → harness-neutral check-only (:func:`check_main`).
+    ``--exec <cmd…>`` → harness-neutral check-then-exec (:func:`exec_main`).
+
+    A single self-contained file thus serves every wired harness, so
+    ``/magpie-setup`` ships one script and each harness (or wrapper) points its
+    own hook at it.
     """
     args = sys.argv[1:] if argv is None else argv
     if args and args[0] == "--opencode":
         return opencode_main()
+    if args and args[0] == "--check":
+        return check_main(args[1:])
+    if args and args[0] == "--exec":
+        return exec_main(args[1:])
     return main()
 
 
