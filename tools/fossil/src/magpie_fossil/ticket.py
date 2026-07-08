@@ -49,9 +49,10 @@ def get_ticket(repo_path: Path, tkt_uuid: str) -> dict[str, Any]:
             mtime = chng.get("tkt_mtime") or chng.get("mtime")
             if c_text:
                 comments.append({"id": idx + 1, "body": c_text, "author": user, "date": mtime})
-    except Exception:
-        # If ticket_chng is missing/different, we still return the ticket without history comments
-        pass
+    except FossilError as exc:
+        import sys
+
+        print(f"Warning: failed to query ticket comments (schema might be custom): {exc}", file=sys.stderr)
 
     # If the main ticket body has a comment, and no change comments were found,
     # we can treat that as the initial comment
@@ -81,11 +82,10 @@ def list_tickets(repo_path: Path) -> list[dict[str, Any]]:
 
 def submit_ticket(repo_path: Path, title: str, body: str, extra_fields: dict[str, str] | None = None) -> str:
     """Create a new ticket using Fossil CLI."""
-    args = ["ticket", "add", "title", title, "comment", body]
+    args = ["ticket", "add", "-R", str(repo_path), "--", "title", title, "comment", body]
     if extra_fields:
         for k, v in extra_fields.items():
             args.extend([k, v])
-    args.extend(["-R", str(repo_path)])
 
     # Fossil ticket add outputs: "Created new ticket <UUID>"
     out = run_fossil(args)
@@ -102,10 +102,9 @@ def update_ticket_fields(repo_path: Path, tkt_uuid: str, fields: dict[str, str])
     tkt = get_ticket(repo_path, tkt_uuid)
     full_uuid = tkt["tkt_uuid"]
 
-    args = ["ticket", "set", full_uuid]
+    args = ["ticket", "set", full_uuid, "-R", str(repo_path), "--"]
     for k, v in fields.items():
         args.extend([k, v])
-    args.extend(["-R", str(repo_path)])
 
     run_fossil(args)
     return full_uuid

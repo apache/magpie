@@ -19,6 +19,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import os
 import sqlite3
 import subprocess
@@ -67,13 +68,12 @@ def find_repo_db(start_dir: Path) -> Path | None:
             db_path = d / marker
             if db_path.exists():
                 try:
-                    conn = sqlite3.connect(db_path)
-                    cursor = conn.cursor()
-                    cursor.execute("SELECT value FROM vvar WHERE name = 'repository'")
-                    row = cursor.fetchone()
-                    conn.close()
-                    if row:
-                        return Path(row[0])
+                    with contextlib.closing(sqlite3.connect(db_path)) as conn:
+                        cursor = conn.cursor()
+                        cursor.execute("SELECT value FROM vvar WHERE name = 'repository'")
+                        row = cursor.fetchone()
+                        if row:
+                            return Path(row[0])
                 except sqlite3.Error:
                     pass
     return None
@@ -82,12 +82,11 @@ def find_repo_db(start_dir: Path) -> Path | None:
 def query_db(repo_path: Path, query: str, params: Sequence[Any] = ()) -> list[dict[str, Any]]:
     """Execute a read-only SQL query against the Fossil SQLite database."""
     try:
-        conn = sqlite3.connect(repo_path)
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
-        cursor.execute(query, params)
-        rows = cursor.fetchall()
-        conn.close()
-        return [dict(r) for r in rows]
+        with contextlib.closing(sqlite3.connect(repo_path)) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute(query, params)
+            rows = cursor.fetchall()
+            return [dict(r) for r in rows]
     except sqlite3.Error as exc:
         raise FossilError(f"Failed to query Fossil SQLite database: {exc}") from exc

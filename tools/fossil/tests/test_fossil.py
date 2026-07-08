@@ -111,7 +111,7 @@ def test_submit_ticket(mock_run_fossil: MagicMock) -> None:
     uuid = submit_ticket(Path("repo.fossil"), "T1", "Body", {"type": "Bug"})
     assert uuid == "1234567890abcdef12"
     mock_run_fossil.assert_called_once_with(
-        ["ticket", "add", "title", "T1", "comment", "Body", "type", "Bug", "-R", "repo.fossil"]
+        ["ticket", "add", "-R", "repo.fossil", "--", "title", "T1", "comment", "Body", "type", "Bug"]
     )
 
 
@@ -123,7 +123,7 @@ def test_submit_comment(mock_query_db: MagicMock, mock_run_fossil: MagicMock) ->
     uuid = submit_comment(Path("repo.fossil"), "abc", "My comment")
     assert uuid == "abcdef123456"
     mock_run_fossil.assert_called_once_with(
-        ["ticket", "set", "abcdef123456", "+comment", "My comment", "-R", "repo.fossil"]
+        ["ticket", "set", "abcdef123456", "-R", "repo.fossil", "--", "+comment", "My comment"]
     )
 
 

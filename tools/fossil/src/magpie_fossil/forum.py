@@ -85,8 +85,13 @@ def list_forum_threads(repo_path: Path) -> list[dict[str, Any]]:
                     "date": parsed["date"],
                 }
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            import sys
+
+            print(
+                f"Warning: skipped corrupt or missing forum post artifact '{root_uuid}': {exc}",
+                file=sys.stderr,
+            )
     return threads
 
 
@@ -129,6 +134,11 @@ def read_forum_thread(repo_path: Path, thread_uuid: str) -> list[dict[str, Any]]
                     "body": parsed["body"],
                 }
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            import sys
+
+            print(
+                f"Warning: skipped corrupt or missing forum post artifact '{post_uuid}': {exc}",
+                file=sys.stderr,
+            )
     return posts

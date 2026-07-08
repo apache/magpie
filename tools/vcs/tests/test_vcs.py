@@ -309,3 +309,58 @@ def test_cli_unimplemented_backend_errors(tmp_path: Path, capsys: pytest.Capture
 def test_cli_cat(git_repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
     assert main(["-C", str(git_repo), "cat", "HEAD", "file.txt"]) == 0
     assert capsys.readouterr().out == "hello\n"
+
+
+def test_fossil_parser_status(monkeypatch: pytest.MonkeyPatch) -> None:
+    def mock_run(args, cwd, **kwargs):
+        if "changes" in args:
+            return "EDITED     file1.txt\nADDED      file2.txt\nDELETED    file3.txt\n"
+        if "extras" in args:
+            return "untracked1.txt\nuntracked2.txt\n"
+        return ""
+
+    monkeypatch.setattr("magpie_vcs._run", mock_run)
+    backend = FossilBackend(Path("/tmp/repo"))
+    status_out = backend.status()
+    assert "M file1.txt" in status_out
+    assert "A file2.txt" in status_out
+    assert "D file3.txt" in status_out
+    assert "? untracked1.txt" in status_out
+    assert "? untracked2.txt" in status_out
+
+
+def test_fossil_parser_status_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    def mock_run(args, cwd, **kwargs):
+        raise VCSError("command failed")
+
+    monkeypatch.setattr("magpie_vcs._run", mock_run)
+    backend = FossilBackend(Path("/tmp/repo"))
+    assert backend.status() == ""
+
+
+def test_fossil_parser_log(monkeypatch: pytest.MonkeyPatch) -> None:
+    sample_timeline = """
+=== 2026-07-08 ===
+17:00:00 [a1b2c3d4e5f6] Initial commit (user: arnav tags: trunk)
+16:30:00 [f6e5d4c3b2a1] Fix a bug in forum post rendering (user: jsmith tags: trunk)
+16:00:00 [1234567890ab] Add a new feature [options] (user: alice tags: trunk)
+"""
+
+    def mock_run(args, cwd, **kwargs):
+        if "timeline" in args:
+            return sample_timeline
+        return ""
+
+    monkeypatch.setattr("magpie_vcs._run", mock_run)
+    backend = FossilBackend(Path("/tmp/repo"))
+
+    # Test basic log
+    log_out = backend.log()
+    assert "a1b2c3d4e5f6 Initial commit" in log_out
+    assert "f6e5d4c3b2a1 Fix a bug in forum post rendering" in log_out
+    assert "1234567890ab Add a new feature [options]" in log_out
+
+    # Test grep search
+    grep_out = backend.log(grep="bug")
+    assert "f6e5d4c3b2a1 Fix a bug in forum post rendering" in grep_out
+    assert "a1b2c3d4e5f6" not in grep_out
