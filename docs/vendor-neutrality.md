@@ -584,7 +584,7 @@ Organization scope (declared, orthogonal to vendor): ASF = 14, agnostic = 55.
 | Substrate tool | Substrate | Harness support | Verdict |
 |---|---|---|---|
 | `agent-guard` | action-guard | Claude Code, OpenCode | ✅ portable |
-| `agent-isolation` | sandbox | Claude Code, OpenCode | ✅ portable |
+| `agent-isolation` | sandbox | any | ✅ agnostic |
 | `dashboard-generator` | analytics | any | ✅ agnostic |
 | `dev` | framework-dev | any | ✅ agnostic |
 | `egress-gateway` | sandbox | any | ✅ agnostic |
@@ -608,12 +608,12 @@ Organization scope (declared, orthogonal to vendor): ASF = 14, agnostic = 55.
 
 Harness → substrate tools it supports:
 
-- **Claude Code** (5): `agent-guard`, `agent-isolation`, `permission-audit`, `sandbox-lint`, `spec-loop`
+- **Claude Code** (4): `agent-guard`, `permission-audit`, `sandbox-lint`, `spec-loop`
 - **Codex** (1): `spec-loop`
 - **Cursor** (1): `spec-loop`
 - **Gemini CLI** (1): `spec-loop`
-- **OpenCode** (5): `agent-guard`, `agent-isolation`, `permission-audit`, `sandbox-lint`, `spec-loop`
-- **any harness** (17): `dashboard-generator`, `dev`, `egress-gateway`, `pilot-report-validator`, `pr-management-stats`, `preflight-audit`, `privacy-llm`, `probe-templates`, `security-tracker-stats-dashboard`, `skill-and-tool-validator`, `skill-evals`, `skill-reconciler-diff`, `spec-inventory`, `spec-status-index`, `spec-validator`, `symlink-lint`, `vendor-neutrality-score`
+- **OpenCode** (4): `agent-guard`, `permission-audit`, `sandbox-lint`, `spec-loop`
+- **any harness** (18): `agent-isolation`, `dashboard-generator`, `dev`, `egress-gateway`, `pilot-report-validator`, `pr-management-stats`, `preflight-audit`, `privacy-llm`, `probe-templates`, `security-tracker-stats-dashboard`, `skill-and-tool-validator`, `skill-evals`, `skill-reconciler-diff`, `spec-inventory`, `spec-status-index`, `spec-validator`, `symlink-lint`, `vendor-neutrality-score`
 
 **Model endpoint: neutral by construction — 4 default-approved endpoint classes across independent trust domains, plus adopter opt-in.** From the [`privacy-llm` registry](../tools/privacy-llm/models.md): the framework keys approval on *endpoint identity*, not on who hosts the model, so no single LLM vendor is privileged.
 

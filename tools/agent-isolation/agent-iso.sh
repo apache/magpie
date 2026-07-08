@@ -119,7 +119,12 @@ agent_iso_run() {
     XDG_DATA_HOME
     DISPLAY              # for OAuth flows that pop a browser
     WAYLAND_DISPLAY
-    SSH_AUTH_SOCK        # for git push (the agent gates push behind ASK; the socket alone is harmless)
+    # SSH_AUTH_SOCK is a fixed member of the Layer 0 passthrough (RFC-AI-0002
+    # § "Layer 0 — Clean-env wrapper"): git push/pull needs the ssh-agent socket.
+    # Layer 0 stays harness-agnostic. Gating the push itself is a *separate* layer
+    # (Layer 3 — permissions.ask / agent-guard), wired per-harness; a runtime with
+    # no Layer 3 adapter is responsible for providing its own push gate.
+    SSH_AUTH_SOCK
   )
 
   # Build an `env -i ... NAME=value ...` argv from the passthrough list.
@@ -198,6 +203,26 @@ agent_iso_run() {
     esac
   done
 
+  # `-w` / `--worktree` is an agent-iso control flag understood only by the
+  # Claude sandbox-grant path below (it widens the allowRead set to the main
+  # repo). For any other harness it is meaningless, and forwarding it into the
+  # launched CLI's argv risks it being misparsed as a native flag. Strip it for
+  # non-Claude agents so the generic entry point stays transparent.
+  if [[ "$agent" != "claude" && "$has_worktree" -eq 1 ]]; then
+    local -a _passargs=()
+    for arg in "$@"; do
+      case "$arg" in
+        -w|--worktree|-w=*|--worktree=*) ;;   # drop the control flag
+        *) _passargs+=("$arg") ;;
+      esac
+    done
+    set -- "${_passargs[@]}"
+    # The main-repo git resolution below is Claude-only (settings injection is
+    # gated on `$agent == claude`), so once `-w` is stripped for a non-Claude
+    # agent there is nothing left to resolve — skip the git calls.
+    has_worktree=0
+  fi
+
   local main_repo=""
   if [[ "$has_worktree" -eq 1 ]]; then
     local common_dir
@@ -273,12 +298,59 @@ claude_iso_main() { agent_iso_run "${AGENT_ISO_AGENT:-claude}" "$@"; }
 # executed directly, pick the agent from the invoked name (a symlink such as
 # `opencode-iso` selects OpenCode) or from AGENT_ISO_AGENT, defaulting to
 # `claude` so existing `bash agent-iso.sh …` invocations are unchanged.
+#
+# Generic entry point:
+#   agent-iso() / `bash agent-iso.sh agent-iso <cli> [args]` takes the
+#   harness CLI name as its first positional argument and works for ANY
+#   agentic runtime — Codex, Cursor, Gemini CLI, Aider, or any future CLI.
+#   The credential-strip and clean-env launch are harness-agnostic; only the
+#   `--settings` sandbox allowRead injection is skipped (it is Claude-specific
+#   and already guarded by `if [[ "$agent" == "claude" ]]`).
 if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
   claude-iso()   { agent_iso_run claude "$@"; }
   opencode-iso() { agent_iso_run opencode "$@"; }
+  # Harness-agnostic entry point: agent-iso <cli> [cli-args]
+  # Guard the no-CLI case so it matches the direct-exec path (usage + exit 1)
+  # instead of falling through to agent_iso_run with an empty agent name.
+  agent-iso() {
+    if [[ $# -lt 1 ]]; then
+      printf 'Usage: agent-iso <cli> [cli-args]\n  e.g.: agent-iso codex "my prompt"\n' >&2
+      return 1
+    fi
+    agent_iso_run "$@"
+  }
 else
-  case "$(basename "${0}")" in
+  _aig_basename="$(basename "${0}")"
+  case "$_aig_basename" in
     opencode-iso*) agent_iso_run opencode "$@" ;;
-    *)             agent_iso_run "${AGENT_ISO_AGENT:-claude}" "$@" ;;
+    # Symlink named exactly `agent-iso` (no .sh extension) → first positional
+    # arg is the harness CLI name.
+    agent-iso)
+      if [[ $# -ge 1 ]]; then
+        _aig_cli="$1"; shift; agent_iso_run "$_aig_cli" "$@"
+      else
+        printf 'Usage: %s <cli> [cli-args]\n  e.g.: agent-iso codex "my prompt"\n' \
+          "$_aig_basename" >&2
+        exit 1
+      fi
+      ;;
+    *)
+      # Default direct-exec path (e.g. `bash agent-iso.sh`).
+      # If the first positional arg is the literal word "agent-iso", treat
+      # the next arg as the harness CLI name — generic sub-command:
+      #   bash agent-iso.sh agent-iso codex [codex-args]
+      if [[ "${1-}" == "agent-iso" ]]; then
+        shift
+        if [[ $# -ge 1 ]]; then
+          _aig_cli="$1"; shift; agent_iso_run "$_aig_cli" "$@"
+        else
+          printf 'Usage: %s agent-iso <cli> [cli-args]\n  e.g.: bash %s agent-iso codex "my prompt"\n' \
+            "$_aig_basename" "$_aig_basename" >&2
+          exit 1
+        fi
+      else
+        agent_iso_run "${AGENT_ISO_AGENT:-claude}" "$@"
+      fi
+      ;;
   esac
 fi

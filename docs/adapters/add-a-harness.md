@@ -117,9 +117,20 @@ uv run --project tools/agent-guard --group dev pytest
 in the row's notes in `skills/setup/agents.md`. An OS-level wrapper
 (e.g. `bubblewrap` on Linux, `sandbox-exec` on macOS, or a custom
 `PATH`-shadowing script that intercepts `git push` and `gh pr create`)
-can enforce the rules at the process level without a harness hook. See
-`tools/agent-isolation/agent-iso.sh` for the credential-stripping
-pattern; extend it or write a sibling wrapper for the new runtime.
+can enforce the rules at the process level without a harness hook. The
+credential-strip layer is already available for any runtime:
+
+```bash
+# Source agent-iso.sh and use the generic entry point:
+source /path/to/magpie/tools/agent-isolation/agent-iso.sh
+agent-iso <your-runtime-cli> [cli-args]
+```
+
+See [`tools/agent-isolation/README.md`](../../tools/agent-isolation/README.md)
+for the full generic-harness usage. The `agent-iso` entry point works
+for any CLI; the Claude-specific `--settings` sandbox grant is skipped
+automatically. For deeper enforcement (action guard, confirmation
+prompts), a harness-specific adapter is still needed.
 
 Whatever the enforcement mechanism, update the affected substrate tool
 READMEs (step 4) to declare the new harness in their `**Harness:**` line
@@ -181,13 +192,16 @@ README. When your new runtime uses one of these tools, update its line:
 | Tool | Current harness declaration |
 |---|---|
 | `tools/agent-guard` | `**Harness:** Claude Code, OpenCode` |
-| `tools/agent-isolation` | `**Harness:** Claude Code, OpenCode` |
+| `tools/agent-isolation` | `**Harness:** agnostic` |
 | `tools/permission-audit` | `**Harness:** Claude Code, OpenCode` |
 | `tools/sandbox-lint` | `**Harness:** Claude Code, OpenCode` |
 | `tools/spec-loop` | `**Harness:** Claude Code, Codex, Cursor, Gemini CLI, OpenCode` |
 
-Add your runtime to every tool it integrates with. Tools that declare
-`**Harness:** agnostic` need no change — they work under any runtime
+`tools/agent-isolation` already exposes a harness-agnostic `agent-iso <cli>` entry
+point — no update needed for new runtimes (see
+[`tools/agent-isolation/README.md`](../../tools/agent-isolation/README.md)).
+Add your runtime to every other tool it integrates with. Tools that declare
+`**Harness:** any` or `agnostic` need no change — they work under any runtime
 unchanged. After updating, refresh the vendor-neutrality score:
 
 ```bash

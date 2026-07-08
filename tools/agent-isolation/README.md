@@ -20,7 +20,7 @@
 
 **Capability:** substrate:sandbox
 
-**Harness:** Claude Code, OpenCode
+**Harness:** agnostic
 
 This directory ships the moving pieces the framework's
 [`docs/setup/secure-agent-setup.md`](../../docs/setup/secure-agent-setup.md) document
@@ -29,15 +29,38 @@ under `tools/cve-tool-vulnogram/` and `tools/gmail/oauth-draft/`) — these are
 plain shell scripts plus a TOML manifest of pinned upstream
 versions.
 
-The clean-environment launcher [`agent-iso.sh`](agent-iso.sh) is
-agent-agnostic at its core: it exposes a `claude-iso` entry point (the
-default) and an `opencode-iso` entry point that launch **Claude Code** and
-**OpenCode** respectively under the same `env -i` credential strip. Only the
-Claude path adds the in-process `--settings` sandbox grant; OpenCode takes its
-filesystem isolation from the OS-level sandbox of the secure setup. Isolate
-OpenCode by sourcing the script and calling `opencode-iso`, or when running it
-directly, `AGENT_ISO_AGENT=opencode bash agent-iso.sh …` (or a symlink named
-`opencode-iso`).
+The clean-environment launcher [`agent-iso.sh`](agent-iso.sh) provides
+harness-agnostic env isolation. It exposes three entry points, all sharing
+the same `env -i` credential-strip core:
+
+- **`claude-iso`** — launches Claude Code; additionally injects a one-shot
+  `--settings` sandbox `allowRead` grant for the current repo (Claude-specific).
+- **`opencode-iso`** — launches OpenCode with the same clean env; no settings
+  grant (OpenCode takes its filesystem isolation from the OS-level sandbox).
+- **`agent-iso <cli>`** — launches *any* agentic CLI (`codex`, `cursor`,
+  `gemini`, `aider`, …) with the same credential strip. The `--settings`
+  injection is skipped for non-Claude CLIs, which take their filesystem
+  isolation from the OS-level sandbox. The `-w` / `--worktree` flag is a
+  Claude-only control flag and is stripped from the argv of non-Claude CLIs
+  (it has no meaning for them). The Layer 0 env passthrough (including
+  `SSH_AUTH_SOCK`) is identical for every harness per
+  [RFC-AI-0002 § Layer 0](https://magpie.apache.org/docs/rfcs/rfc-ai-0002/#layer-0--clean-env-wrapper);
+  gating git push is a separate Layer 3 concern wired per-harness (see
+  [`docs/adapters/add-a-harness.md`](../../docs/adapters/add-a-harness.md)).
+
+All three paths enforce layer 0 of the secure-agent posture regardless of
+which harness drives the session. Harness-specific layers (the in-process
+action guard, the `permissions.ask` confirmation list) are wired separately
+per runtime — see [`docs/adapters/add-a-harness.md`](../../docs/adapters/add-a-harness.md).
+
+> ⚠️ **Generic harnesses (`agent-iso <cli>`) get Layer 0 only — no push gate.**
+> Claude and OpenCode ship a Layer 3 push gate (agent-guard / `permissions.ask`),
+> so a `git push` from those harnesses is gated. An arbitrary CLI launched via
+> `agent-iso` (`codex`, `aider`, …) receives the live `SSH_AUTH_SOCK` with
+> **nothing gating `git push`**. The credential-strip posture is identical across
+> harnesses, but the *net* protection is weaker: a runtime with no Layer 3 adapter
+> is responsible for providing its own push gate before it is trusted with the
+> agent socket.
 
 ## Prerequisites
 
@@ -78,6 +101,13 @@ alias claude='claude-iso'
 # Launch a session with no inherited credentials:
 cd ~/code/<tracker>
 claude-iso
+
+# For any other harness — same credential strip, no Claude-specific settings:
+agent-iso codex [codex-args]
+agent-iso cursor [cursor-args]
+agent-iso gemini [gemini-cli-args]
+# Or directly without sourcing:
+bash /path/to/magpie/tools/agent-isolation/agent-iso.sh agent-iso codex [codex-args]
 
 # Periodically (or via /schedule weekly), check for upgrade candidates:
 bash /path/to/magpie/tools/agent-isolation/check-tool-updates.sh
