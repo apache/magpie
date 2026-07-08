@@ -166,6 +166,7 @@ non-blocking.
 | `rc<N>` (positional, required) | RC suffix (e.g. `rc1`) |
 | `--planning-issue <url>` | Explicit planning issue URL (auto-detected if omitted) |
 | `--release-branch <branch>` | Override release branch (default from `release_branch_base` in config) |
+| `--remote <name>` | Override the git remote name pointing at the upstream repo (default from `git_upstream_remote` in config, else `origin`) |
 
 ---
 
@@ -223,6 +224,7 @@ Read the following from `<project-config>/release-build.md` and
 | `staging_url` | `release-management-config.md` | `release_dist_url_template` rendered with `<version>-<rcN>` at `dist/dev/<project>/` (for `release_dist_backend = svnpubsub`) |
 | `signing_key_fingerprint` | user.md or `release-management-config.md` | `rm_key_fingerprint` |
 | `release_branch` | `release-management-config.md` | `release_branch_base` (or `--release-branch` override) |
+| `git_upstream_remote` | `release-management-config.md` | `git_upstream_remote` — git remote name pointing at the upstream repo (default `origin`, or `--remote` override) |
 
 Surface the loaded configuration to the RM for confirmation before
 proceeding to Step 2.
@@ -239,7 +241,8 @@ Return ONLY valid JSON with this structure:
   "backend": "svnpubsub" | "github-releases" | "s3" | "self-hosted",
   "staging_url": "<URL>",
   "signing_key_fingerprint": "<fingerprint or empty string>",
-  "release_branch": "<branch>"
+  "release_branch": "<branch>",
+  "git_upstream_remote": "<remote>"
 }
 ```
 
@@ -256,11 +259,13 @@ configuration.
 git tag -s <version>-<rcN> \
   -m "Release <version> RC<N>" \
   HEAD
-git push <upstream-remote> <version>-<rcN>
+git push <git-upstream-remote> <version>-<rcN>
 ```
 
-`<upstream-remote>` is the name the RM's checkout uses for the upstream
-remote (default `origin`; mention it explicitly so the RM can substitute).
+`<git-upstream-remote>` resolves from `git_upstream_remote` in
+`release-management-config.md` — the git remote name pointing at the
+upstream repo (typical: `origin`, `upstream`, `apache`; default `origin`;
+`--remote` overrides). Emit the concrete resolved name, not the placeholder.
 
 **Section 2 — Build command.**
 
@@ -478,7 +483,7 @@ The AI-driven part ends with a hand-back artefact containing:
 - [`<project-config>/release-management-config.md`](../../projects/_template/release-management-config.md) —
   adopter keys this skill reads (`release_dist_backend`,
   `release_dist_url_template`, `release_publish_command_template`,
-  `rm_key_fingerprint`, `release_branch_base`).
+  `rm_key_fingerprint`, `release_branch_base`, `git_upstream_remote`).
 - `release-keys-sync` — upstream step; the RM's public key must be in
   `KEYS` before the RC is tagged.
 - `release-prepare` — upstream step; the prep PR it creates must be merged.

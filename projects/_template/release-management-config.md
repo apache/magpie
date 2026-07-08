@@ -54,9 +54,17 @@ ship in the same adopter directory and are referenced from here:
 | Key | Value |
 |---|---|
 | `project_dist_name` | `airflow` |
+| `git_upstream_remote` | `origin` |
 | `release_planning_issue_template` | `<project-config>/release-planning-issue.md` |
 | `release_branch_base` | `main` |
 | `version_manifest_files` | `setup.cfg`, `airflow/__init__.py` |
+
+> `git_upstream_remote` is the **git remote name** in the RM's local
+> checkout that points at the upstream release repo (`<upstream>`), used
+> by `release-rc-cut` for the RC tag push. Typical values: `origin` (when
+> the RM's checkout is a direct clone of the upstream), `upstream`, or
+> `apache`. Defaults to `origin` if unset; override per-invocation with
+> `release-rc-cut`'s `--remote` flag.
 
 ## Backends
 
