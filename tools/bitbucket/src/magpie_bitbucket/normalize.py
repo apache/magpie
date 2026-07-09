@@ -149,6 +149,82 @@ def pull_request_discussion(kind: str, raw: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def pull_request_status(kind: str, raw: dict[str, Any]) -> dict[str, Any]:
+    """Normalize pull request build/status checks from Bitbucket."""
+    values = raw.get("values")
+    if not isinstance(values, list):
+        values = []
+
+    checks = [
+        _cloud_status_check(item) if kind == "cloud" else _datacenter_status_check(item)
+        for item in values
+        if isinstance(item, dict)
+    ]
+
+    return {
+        "backend": "bitbucket-cloud" if kind == "cloud" else "bitbucket-datacenter",
+        "coverage": "partial-read-only",
+        "pull_request_id": _string(raw.get("pull_request_id")),
+        "commit": _string(raw.get("commit")),
+        "status": _aggregate_status(checks),
+        "checks": checks,
+        "raw": raw,
+    }
+
+
+def _cloud_status_check(raw: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "key": _string(raw.get("key")),
+        "name": _string(raw.get("name") or raw.get("key")),
+        "state": _normalize_check_state(raw.get("state")),
+        "url": _string(raw.get("url")),
+        "description": _string(raw.get("description")),
+        "created": _cloud_timestamp(raw.get("created_on")),
+        "updated": _cloud_timestamp(raw.get("updated_on")),
+        "raw": raw,
+    }
+
+
+def _datacenter_status_check(raw: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "key": _string(raw.get("key")),
+        "name": _string(raw.get("name") or raw.get("key")),
+        "state": _normalize_check_state(raw.get("state")),
+        "url": _string(raw.get("url")),
+        "description": _string(raw.get("description")),
+        "created": _epoch_millis_to_iso(raw.get("dateAdded")),
+        "updated": _epoch_millis_to_iso(raw.get("dateUpdated")),
+        "raw": raw,
+    }
+
+
+def _aggregate_status(checks: list[dict[str, Any]]) -> str:
+    states = {check.get("state") for check in checks}
+    if not states:
+        return "unknown"
+    if "failure" in states:
+        return "failure"
+    if "pending" in states:
+        return "pending"
+    if states == {"success"}:
+        return "success"
+    return "unknown"
+
+
+def _normalize_check_state(value: object) -> str:
+    raw_state = _string(value)
+    state = raw_state.upper() if raw_state is not None else ""
+    if state in {"SUCCESS", "SUCCESSFUL", "PASSED"}:
+        return "success"
+    if state in {"FAILED", "FAILURE", "ERROR"}:
+        return "failure"
+    if state in {"INPROGRESS", "IN_PROGRESS", "PENDING"}:
+        return "pending"
+    if state in {"STOPPED", "CANCELLED", "CANCELED"}:
+        return "cancelled"
+    return "unknown"
+
+
 def _cloud_comment(raw: dict[str, Any]) -> dict[str, Any]:
     """Normalize one Bitbucket Cloud pull request comment."""
     body = _content_text(raw.get("content"))

@@ -26,7 +26,13 @@ import pytest
 from magpie_bitbucket import cloud, datacenter
 from magpie_bitbucket.cli import main
 from magpie_bitbucket.client import BitbucketError, load_config, make_auth_header
-from magpie_bitbucket.normalize import pull_request, pull_request_discussion, pull_request_list, repository
+from magpie_bitbucket.normalize import (
+    pull_request,
+    pull_request_discussion,
+    pull_request_list,
+    pull_request_status,
+    repository,
+)
 
 
 @pytest.fixture
@@ -188,6 +194,137 @@ def test_datacenter_get_pull_request_url(mock_build_opener: MagicMock, datacente
         == "https://bitbucket.example.test/rest/api/1.0/projects/MAGPIE/repos/magpie/pull-requests/9"
     )
     assert result["title"] == "Fix tests"
+
+
+@patch("urllib.request.build_opener")
+def test_cloud_get_pull_request_status_uses_source_commit(
+    mock_build_opener: MagicMock,
+    cloud_env: None,
+) -> None:
+    opener = mock_opener(
+        mock_build_opener,
+        {"id": 7, "source": {"commit": {"hash": "abc123"}}},
+        {"values": [{"key": "build", "state": "SUCCESSFUL"}]},
+    )
+
+    result = cloud.get_pull_request_status(load_config(), "7")
+
+    first_request = opener.open.call_args_list[0].args[0]
+    second_request = opener.open.call_args_list[1].args[0]
+    assert first_request.full_url == "https://api.bitbucket.org/2.0/repositories/apache/magpie/pullrequests/7"
+    assert (
+        second_request.full_url
+        == "https://api.bitbucket.org/2.0/repositories/apache/magpie/commit/abc123/statuses"
+    )
+    assert result["commit"] == "abc123"
+    assert result["values"][0]["key"] == "build"
+
+
+@patch("urllib.request.build_opener")
+def test_datacenter_get_pull_request_status_uses_latest_commit(
+    mock_build_opener: MagicMock,
+    datacenter_env: None,
+) -> None:
+    opener = mock_opener(
+        mock_build_opener,
+        {"id": 9, "fromRef": {"latestCommit": "def456"}},
+        {"values": [{"key": "build", "state": "SUCCESSFUL"}]},
+    )
+
+    result = datacenter.get_pull_request_status(load_config(), "9")
+
+    first_request = opener.open.call_args_list[0].args[0]
+    second_request = opener.open.call_args_list[1].args[0]
+    assert (
+        first_request.full_url
+        == "https://bitbucket.example.test/rest/api/1.0/projects/MAGPIE/repos/magpie/pull-requests/9"
+    )
+    assert (
+        second_request.full_url
+        == "https://bitbucket.example.test/rest/api/1.0/projects/MAGPIE/repos/magpie/commits/def456/builds"
+    )
+    assert result["commit"] == "def456"
+    assert result["values"][0]["key"] == "build"
+
+
+def test_normalize_cloud_pull_request_status() -> None:
+    raw = {
+        "pull_request_id": "7",
+        "commit": "abc123",
+        "values": [
+            {
+                "key": "build",
+                "name": "Build",
+                "state": "SUCCESSFUL",
+                "url": "https://ci.example.test/build/1",
+                "description": "Build passed",
+                "created_on": "2026-07-09T10:00:00+00:00",
+                "updated_on": "2026-07-09T10:02:00+00:00",
+            }
+        ],
+    }
+
+    result = pull_request_status("cloud", raw)
+
+    assert result["backend"] == "bitbucket-cloud"
+    assert result["coverage"] == "partial-read-only"
+    assert result["pull_request_id"] == "7"
+    assert result["commit"] == "abc123"
+    assert result["status"] == "success"
+    assert result["checks"][0]["key"] == "build"
+    assert result["checks"][0]["state"] == "success"
+    assert result["checks"][0]["url"] == "https://ci.example.test/build/1"
+
+
+def test_normalize_datacenter_pull_request_status_failure() -> None:
+    raw = {
+        "pull_request_id": "9",
+        "commit": "def456",
+        "values": [
+            {
+                "key": "build",
+                "name": "Build",
+                "state": "FAILED",
+                "url": "https://ci.example.test/build/2",
+                "description": "Build failed",
+                "dateAdded": 1783428000000,
+                "dateUpdated": 1783428300000,
+            }
+        ],
+    }
+
+    result = pull_request_status("datacenter", raw)
+
+    assert result["backend"] == "bitbucket-datacenter"
+    assert result["pull_request_id"] == "9"
+    assert result["commit"] == "def456"
+    assert result["status"] == "failure"
+    assert result["checks"][0]["state"] == "failure"
+    assert result["checks"][0]["created"] == "2026-07-07T12:40:00Z"
+    assert result["checks"][0]["updated"] == "2026-07-07T12:45:00Z"
+
+
+@patch("magpie_bitbucket.cloud.get_pull_request_status")
+def test_cli_pr_status_cloud(
+    mock_get_pull_request_status: MagicMock,
+    cloud_env: None,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    mock_get_pull_request_status.return_value = {
+        "pull_request_id": "7",
+        "commit": "abc123",
+        "values": [{"key": "build", "state": "SUCCESSFUL"}],
+    }
+
+    exit_code = main(["pr", "status", "7"])
+
+    captured = capsys.readouterr()
+    output = json.loads(captured.out)
+    assert exit_code == 0
+    assert output["pull_request_id"] == "7"
+    assert output["commit"] == "abc123"
+    assert output["status"] == "success"
+    assert output["checks"][0]["key"] == "build"
 
 
 def test_normalize_cloud_repository() -> None:

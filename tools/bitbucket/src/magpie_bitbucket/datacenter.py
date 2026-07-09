@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from magpie_bitbucket.client import BitbucketConfig, get_json, quote_path, require
+from magpie_bitbucket.client import BitbucketConfig, BitbucketError, get_json, quote_path, require
 
 
 def _api_base(config: BitbucketConfig) -> str:
@@ -81,6 +81,39 @@ def get_pull_request(config: BitbucketConfig, pull_request_id: str) -> dict[str,
     pr_id = quote_path(pull_request_id)
     url = f"{_api_base(config)}/projects/{project_key}/repos/{repo_slug}/pull-requests/{pr_id}"
     return get_json(url, config)
+
+
+def get_pull_request_status(config: BitbucketConfig, pull_request_id: str) -> dict[str, Any]:
+    """Fetch build statuses for the source commit of a Bitbucket Data Center pull request."""
+    pull_request = get_pull_request(config, pull_request_id)
+    commit = _pull_request_source_commit(pull_request)
+
+    project_key = quote_path(require(config.project_key, "BITBUCKET_PROJECT_KEY"))
+    repo_slug = quote_path(require(config.repo_slug, "BITBUCKET_REPO_SLUG"))
+    commit_id = quote_path(commit)
+    url = f"{_api_base(config)}/projects/{project_key}/repos/{repo_slug}/commits/{commit_id}/builds"
+
+    statuses = get_json(url, config)
+    return {
+        "pull_request_id": pull_request_id,
+        "commit": commit,
+        "values": statuses.get("values") if isinstance(statuses.get("values"), list) else [],
+        "paginated": False,
+        "pages": [statuses],
+        "pull_request": pull_request,
+    }
+
+
+def _pull_request_source_commit(raw: dict[str, Any]) -> str:
+    """Return the Bitbucket Data Center source commit hash for a pull request."""
+    from_ref = raw.get("fromRef")
+    if isinstance(from_ref, dict):
+        latest_commit = from_ref.get("latestCommit")
+        if isinstance(latest_commit, str) and latest_commit:
+            return latest_commit
+
+    msg = "Bitbucket Data Center pull request response did not include fromRef.latestCommit"
+    raise BitbucketError(msg)
 
 
 # Bitbucket Data Center exposes PR comments through the broader activities feed.

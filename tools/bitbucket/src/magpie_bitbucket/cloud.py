@@ -89,6 +89,53 @@ def get_pull_request(config: BitbucketConfig, pull_request_id: str) -> dict[str,
     return get_json(url, config)
 
 
+def get_pull_request_status(config: BitbucketConfig, pull_request_id: str) -> dict[str, Any]:
+    """Fetch build statuses for the source commit of a Bitbucket Cloud pull request."""
+    pull_request = get_pull_request(config, pull_request_id)
+    commit = _pull_request_source_commit(pull_request)
+
+    workspace = quote_path(require(config.workspace, "BITBUCKET_WORKSPACE"))
+    repo_slug = quote_path(require(config.repo_slug, "BITBUCKET_REPO_SLUG"))
+    commit_id = quote_path(commit)
+    url = f"{CLOUD_API_BASE}/repositories/{workspace}/{repo_slug}/commit/{commit_id}/statuses"
+
+    combined: dict[str, Any] = {
+        "pull_request_id": pull_request_id,
+        "commit": commit,
+        "values": [],
+        "paginated": True,
+        "pages": [],
+        "pull_request": pull_request,
+    }
+
+    seen_urls = {url}
+    while url:
+        page = get_json(url, config)
+        combined["pages"].append(page)
+
+        values = page.get("values")
+        if isinstance(values, list):
+            combined["values"].extend(item for item in values if isinstance(item, dict))
+
+        url = _validated_next_url(page.get("next"), seen_urls)
+
+    return combined
+
+
+def _pull_request_source_commit(raw: dict[str, Any]) -> str:
+    """Return the Bitbucket Cloud source commit hash for a pull request."""
+    source = raw.get("source")
+    if isinstance(source, dict):
+        commit = source.get("commit")
+        if isinstance(commit, dict):
+            commit_hash = commit.get("hash")
+            if isinstance(commit_hash, str) and commit_hash:
+                return commit_hash
+
+    msg = "Bitbucket Cloud pull request response did not include source.commit.hash"
+    raise BitbucketError(msg)
+
+
 def get_pull_request_discussion(config: BitbucketConfig, pull_request_id: str) -> dict[str, Any]:
     """Fetch pull request comments from Bitbucket Cloud."""
     workspace = quote_path(require(config.workspace, "BITBUCKET_WORKSPACE"))

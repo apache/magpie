@@ -65,6 +65,7 @@ This first implementation covers read-only operations:
 3. **Pull-request listing:** list open pull requests as `contract:change-request` proposal summaries.
 4. **Pull-request fetch:** fetch one pull request as a normalized proposal object.
 5. **Pull-request discussion fetch:** fetch a comments-only pull request discussion subset as normalized read-only output.
+6. **Pull-request status fetch:** fetch build/status checks for the pull request source commit as normalized read-only output.
 
 The bridge supports two Bitbucket API flavours behind one command
 surface:
@@ -84,7 +85,7 @@ surface:
 | Change requests | `land` | Not implemented | Follow-up work for #606. |
 | Change requests | `reject` | Not implemented | Follow-up work for #606. |
 | Tracker | issue operations | Not implemented | `contract:tracker` remains absent until Bitbucket issue operations or linked Jira handoff coverage exist. |
-| CI | Pipelines status | Not implemented | Follow-up work for #606. |
+| CI | `pr status <id>` | Partial read-only | Fetches build/status checks for the pull request source commit. This does not trigger, retry, or mutate Pipelines/builds. |
 
 ## Invocation
 
@@ -103,6 +104,9 @@ uv run --project tools/bitbucket magpie-bitbucket pr get 123
 
 # Fetch pull request discussion/comments
 uv run --project tools/bitbucket magpie-bitbucket pr discussion 123
+
+# Fetch pull request build/status checks
+uv run --project tools/bitbucket magpie-bitbucket pr status 123
 ```
 
 ## Configuration
@@ -158,4 +162,4 @@ Follow-up PRs can extend this bridge with:
 - Linked Jira issue handoff through `tools/jira/`.
 - Pull-request comment creation, review, approve, decline, and merge operations.
 - Branch restriction and permission reads.
-- Bitbucket Pipelines status reads for change-request `status`.
+- Fuller Bitbucket Pipelines coverage beyond read-only source-commit status reads.
