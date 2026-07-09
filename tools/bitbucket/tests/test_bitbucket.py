@@ -557,6 +557,31 @@ def test_normalize_datacenter_discussion_includes_threaded_replies() -> None:
     assert result["participants"] == ["Asha", "Ravi"]
 
 
+def test_normalize_datacenter_discussion_allows_null_threaded_replies() -> None:
+    raw = {
+        "pull_request_id": "9",
+        "values": [
+            {
+                "action": "COMMENTED",
+                "comment": {
+                    "id": 1,
+                    "text": "Parent comment",
+                    "author": {"displayName": "Asha"},
+                    "createdDate": 1783428000000,
+                    "comments": None,
+                },
+            }
+        ],
+    }
+
+    result = pull_request_discussion("datacenter", raw)
+
+    assert len(result["comments"]) == 1
+    assert result["comments"][0]["body"] == "Parent comment"
+    assert result["comments"][0]["parent_id"] is None
+    assert result["participants"] == ["Asha"]
+
+
 def test_normalize_datacenter_discussion_filters_non_comment_activities() -> None:
     raw = {
         "pull_request_id": "9",

@@ -191,7 +191,7 @@ def _datacenter_comment_tree(
     normalized = _datacenter_comment(raw, activity, parent_id)
 
     replies: list[dict[str, Any]] = []
-    for reply in raw.get("comments", []):
+    for reply in raw.get("comments") or []:
         if isinstance(reply, dict):
             replies.extend(_datacenter_comment_tree(reply, activity, normalized["id"]))
 
