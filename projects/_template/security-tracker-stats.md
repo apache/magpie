@@ -52,7 +52,7 @@ tracker_stats_output: tmp/tracker_stats.html
 The skill writes the rendered HTML to this path (relative to the
 adopter repo root, or absolute) when the user does not pass an
 explicit `<output-path>` argument. The
-`airflow-s/airflow-s` adopter uses `tmp/airflow_s_monthly.html`
+reference `<org>/<repo>` adopter uses `tmp/<project>_monthly.html`
 (committed into `tmp/` as the canonical artefact for security-team
 review).
 
@@ -96,7 +96,7 @@ markers to produce a *rejected (no tracker)* count (a per-bucket area
 series plus a `<dated> + <historical> = <total>` headline).
 
 Set to `null` to disable the stat entirely (no ledger issue needed).
-The ASF/Airflow default is `rejections-ledger`, matching
+The ASF default is `rejections-ledger`, matching
 `tracker.labels.rejections_ledger` in `project.md`. To turn the stat
 on, create the open ledger issue, label it, and keep this knob
 pointed at the same label.
@@ -118,7 +118,7 @@ milestones:
     label: handover to PMC sec team
 ```
 
-A bigger overlay that renames the scope labels for a non-Airflow
+A bigger overlay that renames the scope labels for a non-ASF
 adopter and removes the upstream-PR charts entirely (because fixes
 land in many repos, not a single `<upstream>`):
 

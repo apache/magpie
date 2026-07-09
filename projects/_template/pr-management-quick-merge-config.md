@@ -115,12 +115,11 @@ scripts/ci/**
 **/security/**
 **/auth*/**
 **/jwt*/**
-airflow-core/src/airflow/jobs/**
-airflow-core/src/airflow/models/**
-airflow-core/src/airflow/executors/**
-airflow-core/src/airflow/api_fastapi/**
-airflow-core/src/airflow/serialization/**
-task-sdk/src/airflow/sdk/execution_time/**
+# Core application code — replace with your project's security-sensitive
+# module paths. Example (Apache Airflow monorepo):
+#   airflow-core/src/airflow/{jobs,models,executors,api_fastapi,serialization}/**
+#   task-sdk/src/airflow/sdk/execution_time/**
+<core-src-path>/**
 ```
 
 Tune `deny_globs` toward over-inclusion: a false deny just means a PR waits for
