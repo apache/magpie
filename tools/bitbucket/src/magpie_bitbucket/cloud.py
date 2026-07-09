@@ -90,22 +90,17 @@ def get_pull_request(config: BitbucketConfig, pull_request_id: str) -> dict[str,
 
 
 def get_pull_request_status(config: BitbucketConfig, pull_request_id: str) -> dict[str, Any]:
-    """Fetch build statuses for the source commit of a Bitbucket Cloud pull request."""
-    pull_request = get_pull_request(config, pull_request_id)
-    commit = _pull_request_source_commit(pull_request)
-
+    """Fetch build statuses for a Bitbucket Cloud pull request."""
     workspace = quote_path(require(config.workspace, "BITBUCKET_WORKSPACE"))
     repo_slug = quote_path(require(config.repo_slug, "BITBUCKET_REPO_SLUG"))
-    commit_id = quote_path(commit)
-    url = f"{CLOUD_API_BASE}/repositories/{workspace}/{repo_slug}/commit/{commit_id}/statuses"
+    pr_id = quote_path(pull_request_id)
+    url = f"{CLOUD_API_BASE}/repositories/{workspace}/{repo_slug}/pullrequests/{pr_id}/statuses"
 
     combined: dict[str, Any] = {
         "pull_request_id": pull_request_id,
-        "commit": commit,
         "values": [],
         "paginated": True,
         "pages": [],
-        "pull_request": pull_request,
     }
 
     seen_urls = {url}
@@ -120,20 +115,6 @@ def get_pull_request_status(config: BitbucketConfig, pull_request_id: str) -> di
         url = _validated_next_url(page.get("next"), seen_urls)
 
     return combined
-
-
-def _pull_request_source_commit(raw: dict[str, Any]) -> str:
-    """Return the Bitbucket Cloud source commit hash for a pull request."""
-    source = raw.get("source")
-    if isinstance(source, dict):
-        commit = source.get("commit")
-        if isinstance(commit, dict):
-            commit_hash = commit.get("hash")
-            if isinstance(commit_hash, str) and commit_hash:
-                return commit_hash
-
-    msg = "Bitbucket Cloud pull request response did not include source.commit.hash"
-    raise BitbucketError(msg)
 
 
 def get_pull_request_discussion(config: BitbucketConfig, pull_request_id: str) -> dict[str, Any]:

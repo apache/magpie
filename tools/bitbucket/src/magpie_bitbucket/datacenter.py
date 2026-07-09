@@ -87,21 +87,41 @@ def get_pull_request_status(config: BitbucketConfig, pull_request_id: str) -> di
     """Fetch build statuses for the source commit of a Bitbucket Data Center pull request."""
     pull_request = get_pull_request(config, pull_request_id)
     commit = _pull_request_source_commit(pull_request)
-
-    project_key = quote_path(require(config.project_key, "BITBUCKET_PROJECT_KEY"))
-    repo_slug = quote_path(require(config.repo_slug, "BITBUCKET_REPO_SLUG"))
     commit_id = quote_path(commit)
-    url = f"{_api_base(config)}/projects/{project_key}/repos/{repo_slug}/commits/{commit_id}/builds"
 
-    statuses = get_json(url, config)
-    return {
+    base_url = f"{require(config.base_url, 'BITBUCKET_BASE_URL').rstrip('/')}/rest/build-status/1.0/commits/{commit_id}"
+
+    start = 0
+    combined: dict[str, Any] = {
         "pull_request_id": pull_request_id,
         "commit": commit,
-        "values": statuses.get("values") if isinstance(statuses.get("values"), list) else [],
-        "paginated": False,
-        "pages": [statuses],
+        "values": [],
+        "paginated": True,
+        "pages": [],
         "pull_request": pull_request,
     }
+
+    while True:
+        page = get_json(f"{base_url}?start={start}", config)
+        combined["pages"].append(page)
+
+        values = page.get("values")
+        if isinstance(values, list):
+            combined["values"].extend(item for item in values if isinstance(item, dict))
+
+        if page.get("isLastPage") is True:
+            break
+
+        next_start = page.get("nextPageStart")
+        if not isinstance(next_start, int):
+            break
+
+        if next_start <= start:
+            break
+
+        start = next_start
+
+    return combined
 
 
 def _pull_request_source_commit(raw: dict[str, Any]) -> str:

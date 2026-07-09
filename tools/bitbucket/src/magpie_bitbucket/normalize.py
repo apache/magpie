@@ -155,7 +155,7 @@ def pull_request_status(kind: str, raw: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(values, list):
         values = []
 
-    checks = [
+    check_details = [
         _cloud_status_check(item) if kind == "cloud" else _datacenter_status_check(item)
         for item in values
         if isinstance(item, dict)
@@ -166,8 +166,10 @@ def pull_request_status(kind: str, raw: dict[str, Any]) -> dict[str, Any]:
         "coverage": "partial-read-only",
         "pull_request_id": _string(raw.get("pull_request_id")),
         "commit": _string(raw.get("commit")),
-        "status": _aggregate_status(checks),
-        "checks": checks,
+        "state": _pull_request_state(kind, raw.get("pull_request")),
+        "checks": _aggregate_checks(check_details),
+        "mergeable": "unknown",
+        "check_details": check_details,
         "raw": raw,
     }
 
@@ -198,17 +200,25 @@ def _datacenter_status_check(raw: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _aggregate_status(checks: list[dict[str, Any]]) -> str:
-    states = {check.get("state") for check in checks}
+def _aggregate_checks(check_details: list[dict[str, Any]]) -> str:
+    states = {check.get("state") for check in check_details}
     if not states:
-        return "unknown"
+        return "none"
     if "failure" in states:
-        return "failure"
+        return "failing"
     if "pending" in states:
         return "pending"
     if states == {"success"}:
-        return "success"
-    return "unknown"
+        return "passing"
+    return "pending"
+
+
+def _pull_request_state(kind: str, raw: object) -> str:
+    if not isinstance(raw, dict):
+        return "unknown"
+    if kind == "cloud":
+        return _normalize_state(raw.get("state"))
+    return _normalize_state(raw.get("state"))
 
 
 def _normalize_check_state(value: object) -> str:
