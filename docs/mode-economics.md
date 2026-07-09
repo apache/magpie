@@ -48,26 +48,28 @@ planning for an ASF-hosted inference endpoint
 ### What "tokens" means here
 
 One token ≈ 0.75 words in English prose, or roughly one character in
-structured code or JSON. Practical anchors:
+structured code or JSON. Token counts on this page use **K** for a
+thousand tokens and **M** for a million (so `30K` = 30,000 and
+`1.5M` = 1,500,000). Practical anchors:
 
 | Content | Approximate token count |
 |---|---|
 | Typical bug-report body (400 words) | ~530 tokens |
 | Small PR diff (50 lines changed) | ~800 tokens |
-| Medium PR diff (300 lines changed) | ~5 000 tokens |
-| Large PR diff (1 500 lines changed) | ~25 000 tokens |
-| Mail thread, 10 messages | ~3 000–8 000 tokens |
-| One skill file (SKILL.md), small setup/utility skill | ~1 000–3 000 tokens |
-| One skill file (SKILL.md), typical workflow skill | ~3 500–9 000 tokens (median ~5 300) |
-| One skill file (SKILL.md), large multi-step security skill | ~11 000–36 000 tokens |
+| Medium PR diff (300 lines changed) | ~5K tokens |
+| Large PR diff (1,500 lines changed) | ~25K tokens |
+| Mail thread, 10 messages | ~3K–8K tokens |
+| One skill file (SKILL.md), small setup/utility skill | ~1K–3K tokens |
+| One skill file (SKILL.md), typical workflow skill | ~3.5K–9K tokens (median ~5.3K) |
+| One skill file (SKILL.md), large multi-step security skill | ~11K–36K tokens |
 
 Every invocation loads the relevant skill file as part of its context,
 and that overhead varies widely by skill (measured with `cl100k_base`
 across the current catalogue). Small setup/utility skills run
-~1 000–3 000 tokens; most workflow skills ~3 500–9 000 (median ~5 300);
+~1K–3K tokens; most workflow skills ~3.5K–9K (median ~5.3K);
 and the large multi-step security skills go much higher —
-`security-issue-triage` ~11 000, `security-issue-import` ~22 000,
-`security-issue-sync` ~36 000. This overhead applies before any
+`security-issue-triage` ~11K, `security-issue-import` ~22K,
+`security-issue-sync` ~36K. This overhead applies before any
 project-specific content is read.
 
 ### Model classes
@@ -100,22 +102,22 @@ to input.
 
 | Skill | Typical invocation | Token range | Primary cost driver |
 |---|---|---|---|
-| `pr-management-triage` | Single PR triage pass | 5 000–30 000 | PR diff size and comment count |
-| `pr-management-stats` | Weekly queue report | 10 000–50 000 | Number of open PRs read |
-| `pr-management-code-review` | Single PR deep review | 15 000–80 000 | Diff size; code-heavy PRs are expensive |
-| `issue-triage` | Single issue classification | 4 000–15 000 | Issue body length + similar-issue cross-check sample |
-| `issue-reassess` | Pool-level sweep (10 issues) | 30 000–120 000 | Pool size; batch cost scales linearly |
-| `security-issue-import` | Single inbound report | 8 000–25 000 | Report length + known-dup cross-check |
-| `security-issue-import-from-pr` | Single security PR import | 10 000–30 000 | PR diff + associated discussion |
-| `security-issue-import-from-md` | Batch import (5 findings) | 15 000–60 000 | Number of findings × finding length |
-| `security-issue-deduplicate` | Two-tracker merge | 10 000–30 000 | Tracker age and mail-thread depth |
-| `security-issue-invalidate` | Single invalid close | 8 000–20 000 | Report length + reply draft |
-| `security-issue-sync` | Full tracker reconciliation | 20 000–100 000 | Tracker age, mail-thread depth, linked PRs |
-| `security-cve-allocate` | CVE allocation workflow | 5 000–12 000 | Mostly procedural; low variance |
+| `pr-management-triage` | Single PR triage pass | 5K–30K | PR diff size and comment count |
+| `pr-management-stats` | Weekly queue report | 10K–50K | Number of open PRs read |
+| `pr-management-code-review` | Single PR deep review | 15K–80K | Diff size; code-heavy PRs are expensive |
+| `issue-triage` | Single issue classification | 4K–15K | Issue body length + similar-issue cross-check sample |
+| `issue-reassess` | Pool-level sweep (10 issues) | 30K–120K | Pool size; batch cost scales linearly |
+| `security-issue-import` | Single inbound report | 8K–25K | Report length + known-dup cross-check |
+| `security-issue-import-from-pr` | Single security PR import | 10K–30K | PR diff + associated discussion |
+| `security-issue-import-from-md` | Batch import (5 findings) | 15K–60K | Number of findings × finding length |
+| `security-issue-deduplicate` | Two-tracker merge | 10K–30K | Tracker age and mail-thread depth |
+| `security-issue-invalidate` | Single invalid close | 8K–20K | Report length + reply draft |
+| `security-issue-sync` | Full tracker reconciliation | 20K–100K | Tracker age, mail-thread depth, linked PRs |
+| `security-cve-allocate` | CVE allocation workflow | 5K–12K | Mostly procedural; low variance |
 
-**Rule of thumb for Agentic Triage:** budget 10 000–30 000 tokens per
+**Rule of thumb for Agentic Triage:** budget 10K–30K tokens per
 PR / issue / report on average. A project processing 50 inbound items
-per week uses roughly 500 000–1 500 000 tokens/week across Agentic Triage work.
+per week uses roughly 500K–1.5M tokens/week across Agentic Triage work.
 
 ### Mentoring
 
@@ -126,13 +128,13 @@ cost depends on contributor volume.
 
 | Skill | Typical invocation | Token range | Notes |
 |---|---|---|---|
-| `pr-management-mentor` | Single threaded reply | 6 000–20 000 | Estimated; skill experimental |
-| `good-first-issue-author` | One candidate → one issue draft | 6 000–18 000 | Estimated; reads one candidate + named source files, no full-thread history; skill experimental |
-| `newcomer-issue-explainer` | One issue → one beginner explanation draft | 4 000–12 000 | Estimated; reads one issue body + a small set of named source files; read-only; skill experimental |
+| `pr-management-mentor` | Single threaded reply | 6K–20K | Estimated; skill experimental |
+| `good-first-issue-author` | One candidate → one issue draft | 6K–18K | Estimated; reads one candidate + named source files, no full-thread history; skill experimental |
+| `newcomer-issue-explainer` | One issue → one beginner explanation draft | 4K–12K | Estimated; reads one issue body + a small set of named source files; read-only; skill experimental |
 
-**Rule of thumb for Agentic Mentoring:** budget 10 000–20 000 tokens per
+**Rule of thumb for Agentic Mentoring:** budget 10K–20K tokens per
 contributor interaction. A project with 20 active contributors each
-receiving 3 agent replies per week: roughly 600 000–1 200 000
+receiving 3 agent replies per week: roughly 600K–1.2M
 tokens/week.
 
 ### Drafting
@@ -143,12 +145,12 @@ source files in addition to the issue or report.
 
 | Skill | Typical invocation | Token range | Notes |
 |---|---|---|---|
-| `security-issue-fix` — reporter reply | Single reply draft | 10 000–35 000 | Reads report + canned responses + prior thread |
-| `security-issue-fix` — code fix | Agent-drafted fix + PR | 30 000–150 000 | Adds source files; wide variance |
-| `issue-fix-workflow` | Issue fix + PR | 25 000–120 000 | Bounded by what the skill reads from the codebase |
+| `security-issue-fix` — reporter reply | Single reply draft | 10K–35K | Reads report + canned responses + prior thread |
+| `security-issue-fix` — code fix | Agent-drafted fix + PR | 30K–150K | Adds source files; wide variance |
+| `issue-fix-workflow` | Issue fix + PR | 25K–120K | Bounded by what the skill reads from the codebase |
 
-**Rule of thumb for Agentic Drafting:** reporter replies average 15 000–25 000
-tokens; code-producing invocations average 50 000–100 000 tokens
+**Rule of thumb for Agentic Drafting:** reporter replies average 15K–25K
+tokens; code-producing invocations average 50K–100K tokens
 depending on codebase scope. Limiting the skill to the relevant source
 files is the single biggest lever on Agentic Drafting cost.
 
@@ -160,12 +162,12 @@ multiply the per-pass cost by the number of review agents.
 
 | Skill | Typical invocation | Token range | Notes |
 |---|---|---|---|
-| `pairing-self-review` | Pre-flight review of a local diff | 10 000–50 000 | Estimated; skill experimental. Scales with diff size and conventions doc length. |
-| Multi-agent review pipeline | Full three-pass review | 30 000–200 000 | Estimated; future skill. 3–4 × single-pass cost. Parallelism reduces latency, not billing. |
+| `pairing-self-review` | Pre-flight review of a local diff | 10K–50K | Estimated; skill experimental. Scales with diff size and conventions doc length. |
+| Multi-agent review pipeline | Full three-pass review | 30K–200K | Estimated; future skill. 3–4 × single-pass cost. Parallelism reduces latency, not billing. |
 
 **Rule of thumb for Agentic Pairing:** a typical pre-flight self-review of a
-medium PR uses 15 000–30 000 tokens. A three-agent review pipeline on
-the same PR: 45 000–90 000 tokens.
+medium PR uses 15K–30K tokens. A three-agent review pipeline on
+the same PR: 45K–90K tokens.
 
 ### Agentic Autonomous
 
