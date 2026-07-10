@@ -28,6 +28,7 @@ from magpie_bitbucket.cli import main
 from magpie_bitbucket.client import BitbucketError, load_config, make_auth_header
 from magpie_bitbucket.normalize import (
     pull_request,
+    pull_request_commits,
     pull_request_discussion,
     pull_request_list,
     pull_request_status,
@@ -382,6 +383,158 @@ def test_datacenter_get_pull_request_status_requires_latest_commit(
 
     with pytest.raises(BitbucketError, match=r"fromRef\.latestCommit"):
         datacenter.get_pull_request_status(load_config(), "9")
+
+
+@patch("urllib.request.build_opener")
+def test_cloud_get_pull_request_commits_follows_next(
+    mock_build_opener: MagicMock,
+    cloud_env: None,
+) -> None:
+    opener = mock_opener(
+        mock_build_opener,
+        {
+            "values": [{"hash": "abc123", "message": "First commit"}],
+            "next": "https://api.bitbucket.org/2.0/repositories/apache/magpie/pullrequests/7/commits?page=2",
+        },
+        {"values": [{"hash": "def456", "message": "Second commit"}]},
+    )
+
+    result = cloud.get_pull_request_commits(load_config(), "7")
+
+    first_request = opener.open.call_args_list[0].args[0]
+    second_request = opener.open.call_args_list[1].args[0]
+    assert (
+        first_request.full_url
+        == "https://api.bitbucket.org/2.0/repositories/apache/magpie/pullrequests/7/commits"
+    )
+    assert (
+        second_request.full_url
+        == "https://api.bitbucket.org/2.0/repositories/apache/magpie/pullrequests/7/commits?page=2"
+    )
+    assert result["pull_request_id"] == "7"
+    assert [item["hash"] for item in result["values"]] == ["abc123", "def456"]
+
+
+@patch("urllib.request.build_opener")
+def test_datacenter_get_pull_request_commits_follows_next_page_start(
+    mock_build_opener: MagicMock,
+    datacenter_env: None,
+) -> None:
+    opener = mock_opener(
+        mock_build_opener,
+        {"values": [{"id": "abc123", "message": "First commit"}], "isLastPage": False, "nextPageStart": 25},
+        {"values": [{"id": "def456", "message": "Second commit"}], "isLastPage": True},
+    )
+
+    result = datacenter.get_pull_request_commits(load_config(), "9")
+
+    first_request = opener.open.call_args_list[0].args[0]
+    second_request = opener.open.call_args_list[1].args[0]
+    assert (
+        first_request.full_url
+        == "https://bitbucket.example.test/rest/api/1.0/projects/MAGPIE/repos/magpie/pull-requests/9/commits?start=0"
+    )
+    assert (
+        second_request.full_url
+        == "https://bitbucket.example.test/rest/api/1.0/projects/MAGPIE/repos/magpie/pull-requests/9/commits?start=25"
+    )
+    assert result["pull_request_id"] == "9"
+    assert [item["id"] for item in result["values"]] == ["abc123", "def456"]
+
+
+def test_normalize_cloud_pull_request_commits() -> None:
+    raw = {
+        "pull_request_id": "7",
+        "values": [
+            {
+                "hash": "abc123",
+                "message": "Fix docs",
+                "author": {"raw": "Alice <alice@example.test>", "user": {"display_name": "Alice"}},
+                "date": "2026-07-09T10:00:00+00:00",
+                "links": {"html": {"href": "https://bitbucket.org/apache/magpie/commits/abc123"}},
+            }
+        ],
+    }
+
+    result = pull_request_commits("cloud", raw)
+
+    assert result["backend"] == "bitbucket-cloud"
+    assert result["coverage"] == "partial-read-only"
+    assert result["pull_request_id"] == "7"
+    assert result["commits"][0]["hash"] == "abc123"
+    assert result["commits"][0]["message"] == "Fix docs"
+    assert result["commits"][0]["author"] == "Alice"
+    assert result["commits"][0]["date"] == "2026-07-09T10:00:00+00:00"
+    assert result["commits"][0]["links"]["html"] == "https://bitbucket.org/apache/magpie/commits/abc123"
+
+
+def test_normalize_datacenter_pull_request_commits() -> None:
+    raw = {
+        "pull_request_id": "9",
+        "values": [
+            {
+                "id": "def456789",
+                "displayId": "def4567",
+                "message": "Fix tests",
+                "author": {"displayName": "Bob"},
+                "authorTimestamp": 1783428000000,
+                "links": {"self": [{"href": "https://bitbucket.example.test/commits/def456789"}]},
+            }
+        ],
+    }
+
+    result = pull_request_commits("datacenter", raw)
+
+    assert result["backend"] == "bitbucket-datacenter"
+    assert result["pull_request_id"] == "9"
+    assert result["commits"][0]["hash"] == "def456789"
+    assert result["commits"][0]["display_hash"] == "def4567"
+    assert result["commits"][0]["message"] == "Fix tests"
+    assert result["commits"][0]["author"] == "Bob"
+    assert result["commits"][0]["date"] == "2026-07-07T12:40:00Z"
+    assert result["commits"][0]["links"]["self"] == "https://bitbucket.example.test/commits/def456789"
+
+
+@patch("magpie_bitbucket.cloud.get_pull_request_commits")
+def test_cli_pr_commits_cloud(
+    mock_get_pull_request_commits: MagicMock,
+    cloud_env: None,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    mock_get_pull_request_commits.return_value = {
+        "pull_request_id": "7",
+        "values": [{"hash": "abc123", "message": "Fix docs"}],
+    }
+
+    exit_code = main(["pr", "commits", "7"])
+
+    captured = capsys.readouterr()
+    output = json.loads(captured.out)
+    assert exit_code == 0
+    assert output["backend"] == "bitbucket-cloud"
+    assert output["pull_request_id"] == "7"
+    assert output["commits"][0]["hash"] == "abc123"
+
+
+@patch("magpie_bitbucket.datacenter.get_pull_request_commits")
+def test_cli_pr_commits_datacenter(
+    mock_get_pull_request_commits: MagicMock,
+    datacenter_env: None,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    mock_get_pull_request_commits.return_value = {
+        "pull_request_id": "9",
+        "values": [{"id": "def456789", "message": "Fix tests"}],
+    }
+
+    exit_code = main(["pr", "commits", "9"])
+
+    captured = capsys.readouterr()
+    output = json.loads(captured.out)
+    assert exit_code == 0
+    assert output["backend"] == "bitbucket-datacenter"
+    assert output["pull_request_id"] == "9"
+    assert output["commits"][0]["hash"] == "def456789"
 
 
 def test_normalize_cloud_repository() -> None:

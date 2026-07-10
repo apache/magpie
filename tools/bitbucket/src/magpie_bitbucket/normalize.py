@@ -174,6 +174,75 @@ def pull_request_status(kind: str, raw: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def pull_request_commits(kind: str, raw: dict[str, Any]) -> dict[str, Any]:
+    """Normalize pull request commits from Bitbucket."""
+    values = raw.get("values")
+    if not isinstance(values, list):
+        values = []
+
+    commits = [
+        _cloud_commit(item) if kind == "cloud" else _datacenter_commit(item)
+        for item in values
+        if isinstance(item, dict)
+    ]
+
+    return {
+        "backend": "bitbucket-cloud" if kind == "cloud" else "bitbucket-datacenter",
+        "coverage": "partial-read-only",
+        "pull_request_id": _string(raw.get("pull_request_id")),
+        "commits": commits,
+        "raw": raw,
+    }
+
+
+def _cloud_commit(raw: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "hash": _string(raw.get("hash")),
+        "message": _string(raw.get("message")),
+        "author": _cloud_commit_author(raw.get("author")),
+        "date": _cloud_timestamp(raw.get("date")),
+        "links": _cloud_links(raw),
+        "raw": raw,
+    }
+
+
+def _datacenter_commit(raw: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "hash": _string(raw.get("id") or raw.get("displayId")),
+        "display_hash": _string(raw.get("displayId")),
+        "message": _string(raw.get("message")),
+        "author": _datacenter_commit_author(raw.get("author")),
+        "date": _epoch_millis_to_iso(raw.get("authorTimestamp") or raw.get("committerTimestamp")),
+        "links": _datacenter_links(raw),
+        "raw": raw,
+    }
+
+
+def _cloud_commit_author(raw: object) -> str | None:
+    if not isinstance(raw, dict):
+        return None
+
+    user = raw.get("user")
+    if isinstance(user, dict):
+        display_name = _cloud_user(user)
+        if display_name:
+            return display_name
+
+    raw_author = raw.get("raw")
+    if isinstance(raw_author, str):
+        return raw_author
+
+    return None
+
+
+def _datacenter_commit_author(raw: object) -> str | None:
+    if isinstance(raw, dict):
+        return _datacenter_user(raw)
+    if isinstance(raw, str):
+        return raw
+    return None
+
+
 def _cloud_status_check(raw: dict[str, Any]) -> dict[str, Any]:
     return {
         "key": _string(raw.get("key")),
