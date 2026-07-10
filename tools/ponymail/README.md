@@ -18,6 +18,8 @@
 
 **Kind:** implementation
 
+**MCP:** PonyMail — apache/comdev (mcp__ponymail__*)
+
 **Vendor:** ASF
 
 **Organization:** ASF

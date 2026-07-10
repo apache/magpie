@@ -17,6 +17,8 @@
 
 **Kind:** implementation
 
+**MCP:** GitHub MCP (mcp__github__*)
+
 **Vendor:** GitHub
 
 GitHub REST + GraphQL substrate. Pure read/write wrapper used by every lifecycle phase (triage / intake / fix / resolve / stats). See [`tool.md`](tool.md) for the operation catalogue and the per-area files ([`issue-template.md`](issue-template.md), [`labels.md`](labels.md), [`operations.md`](operations.md), [`project-board.md`](project-board.md), [`status-rollup.md`](status-rollup.md)) for specifics.

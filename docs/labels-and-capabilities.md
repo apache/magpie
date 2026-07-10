@@ -332,9 +332,24 @@ backend the adopter wired in. The framework consumes four:
 | PonyMail MCP (`apache/comdev`) | `mcp__ponymail__*` | [`tools/ponymail`](../tools/ponymail/) | `contract:mail-archive` + `contract:mail-source` | ASF |
 | apache-projects MCP (`apache/comdev`) | `mcp__apache-projects__*` | [`tools/apache-projects`](../tools/apache-projects/) | `contract:project-metadata` | ASF |
 
+Each wrapping tool declares this relationship in its own README with an
+`**MCP:** <server> (mcp__<prefix>__*)` marker (see
+[`tools/AGENTS.md`](../tools/AGENTS.md)) — that per-tool marker is the
+source of truth; this table mirrors it for a one-glance overview.
+
 Non-MCP backends fulfil the same contracts: JIRA is reached over REST
 and `gh` is the CLI fallback, both `contract:tracker`. See
 [`docs/prerequisites.md`](prerequisites.md) for connection setup.
+
+**MCP servers are installed for the user, not the project.** They are
+registered at **user scope** (`claude mcp add … -s user`), so a single
+registration serves every repository on the machine. Consequently they
+are usable by **any** agent session — not only Magpie-adopting projects
+or Magpie-related work. Magpie surfaces the registration command and
+verifies it during setup, but the server itself is a plain,
+project-agnostic MCP: once registered it is available to any agentic
+session the same way a globally-installed CLI would be. Nothing about
+using one ties a session to Magpie.
 
 ---
 

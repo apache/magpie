@@ -17,6 +17,8 @@
 
 **Kind:** implementation
 
+**MCP:** Gmail — claude.ai (mcp__claude_ai_Gmail__*)
+
 **Vendor:** Google
 
 Gmail API substrate. Read + draft-only — never sends. Provides two

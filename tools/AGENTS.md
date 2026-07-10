@@ -81,6 +81,25 @@ declares, up front:
    `organization:` frontmatter key; skill families with an
    `organization:` scope banner in `docs/<family>/README.md`.
 
+4. **(Optional) its MCP backing** — when a tool wraps a
+   [Model Context Protocol](https://modelcontextprotocol.io) server as a
+   concrete backend, declare it with a line of the exact form
+
+   ```markdown
+   **MCP:** <server> (mcp__<prefix>__*)
+   ```
+
+   e.g. `**MCP:** PonyMail — apache/comdev (mcp__ponymail__*)`. The value
+   names the human-readable server (optionally with `— <org>`) and, in
+   parentheses, the `mcp__<prefix>__*` tool namespace it exposes. Omit the
+   line for tools with no MCP backend — absence means "wraps no MCP". This
+   marker is the per-tool source of truth for the "wraps an MCP"
+   classification: it is mirrored in the
+   [`docs/labels-and-capabilities.md`](../docs/labels-and-capabilities.md#mcp-servers-classified-by-capability)
+   MCP table and read by the project website's tool index to drive its
+   "Wraps an MCP" filter. An MCP is transport, not a capability axis — the
+   `**Capability:**` line still states the contract the tool provides.
+
 The capability and prerequisites are **HARD** checks in
 [`tools/skill-and-tool-validator`](skill-and-tool-validator/) — a tool
 README missing either the `**Capability:**` line or the

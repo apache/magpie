@@ -17,6 +17,8 @@
 
 **Kind:** implementation
 
+**MCP:** apache-projects — apache/comdev (mcp__apache-projects__*)
+
 **Vendor:** ASF
 
 **Organization:** ASF
