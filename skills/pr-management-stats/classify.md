@@ -79,36 +79,49 @@ The terminology in the dashboard:
 
 ```text
 is_ai_triaged(pr) :=
-    EXISTS comment c IN pr.comments
-      WHERE c.authorAssociation IN (OWNER, MEMBER, COLLABORATOR)
-        AND c.body CONTAINS "AI-assisted triage tool"
-    OR  pr.body CONTAINS "AI-assisted triage tool"          # body-fold footer (default channel)
+    EXISTS triage_event e IN triage_marker_events(pr) WHERE e.is_ai
+  # triage_marker_events(pr) yields one (timestamp, is_ai) per triage marker across BOTH channels:
+  #   - comment channel: each OWNER/MEMBER/COLLABORATOR comment whose body contains the
+  #     "Pull Request quality criteria" marker; is_ai = comment body CONTAINS "AI-assisted triage tool"
+  #   - body-fold channel: the PR body's `pr-triage-fold` block; is_ai = True ALWAYS (a fold is
+  #     written by the automated triage tool, so its presence — not a footer substring — is the signal)
 ```
 
-A PR received at least one maintainer comment whose body contains the
-**AI-attribution footer substring** (`AI-assisted triage tool`). Every
-`pr-management-triage` comment template (draft / comment / ping /
-request-author-confirmation / close-comment etc.) ends with this footer
-verbatim — so the detector counts any PR whose triage included a skill-drafted
-comment.
+A PR is AI-triaged when a skill-drafted triage marker reached it through **either
+feedback channel**, routed through the single `triage_marker_events` helper so the
+default body-fold channel is never invisible:
 
-This predicate is **independent of** `is_triaged` and `is_engaged`:
+- **Comment channel** — an `OWNER`/`MEMBER`/`COLLABORATOR` comment that carries the
+  `Pull Request quality criteria` marker *and* whose body contains the
+  **AI-attribution footer substring** (`AI-assisted triage tool`). The
+  violations-style comment templates end with this footer verbatim.
+- **Body-fold channel** (the default `triage_feedback_channel: pr-body`) — the PR
+  description carries a `pr-triage-fold` block. **A fold block is always
+  AI-drafted** (it is written by the automated triage tool), so its *presence* is
+  the signal. Do **not** match a footer substring against the fold body: the
+  fold's visible footer varies by template (e.g. the ping /
+  request-author-confirmation folds read `Automated triage — may be imperfect`,
+  not `AI-assisted triage tool`), so a substring scan would silently miss them.
 
-- An AI-drafted draft+comment includes the `Pull Request quality criteria`
-  link → both `is_triaged` and `is_ai_triaged` fire.
-- An AI-drafted **ping** or **request-author-confirmation** uses a different
-  template that does NOT include the criteria link → `is_engaged` and
-  `is_ai_triaged` fire but `is_triaged` does NOT.
-- A maintainer's hand-typed comment in the criteria-template form (rare —
-  this happens when a maintainer manually pastes the link text without the
-  skill) → `is_triaged` and `is_engaged` fire but `is_ai_triaged` does NOT.
+Because both cases are triage markers, **`is_ai_triaged` is a subset of
+`is_triaged`** — every AI-drafted triage note is, by construction, a triage note:
+
+- An AI-drafted violations draft/comment (comment channel) carries the
+  `Pull Request quality criteria` link **and** the AI footer → both `is_triaged`
+  and `is_ai_triaged` fire.
+- Any `pr-triage-fold` block (body-fold channel — draft / comment / ping /
+  request-author-confirmation alike) → both `is_triaged` and `is_ai_triaged` fire
+  (a fold is always AI-drafted).
+- A maintainer's hand-typed QC-marker comment with no AI footer → `is_triaged`
+  and `is_engaged` fire but `is_ai_triaged` does NOT (that one triage event is
+  manual).
 
 The implication chains:
 
 ```text
-is_triaged(pr)    ⇒ is_engaged(pr)         # marker requires maintainer comment, which requires engagement
-is_ai_triaged(pr) ⇒ is_engaged(pr)         # AI footer requires maintainer comment, which requires engagement
-is_triaged(pr)    ⇎ is_ai_triaged(pr)      # independent — see cases above
+is_triaged(pr)    ⇒ is_engaged(pr)         # marker requires maintainer comment/fold, which requires engagement
+is_ai_triaged(pr) ⇒ is_triaged(pr)         # every AI-drafted marker is a marker (subset)
+is_ai_triaged(pr) ⇒ is_engaged(pr)         # transitively
 ```
 
 ### `is_untriaged` — *broad untriaged*
@@ -149,7 +162,7 @@ The age uses the `last_author_interaction` defined in the
 |---|---|---|---|
 | Quality-Criteria-triaged | `is_triaged` | maintainer posted the literal `Pull Request quality criteria` link | **Quality Criteria triaged** (hero row 2, blue) |
 | De-facto triaged | `is_engaged AND NOT is_triaged` | maintainer engaged but no marker | **De-facto triaged** (hero row 2, amber — the gap signal) |
-| AI-triaged | `is_ai_triaged` | comment with the AI-attribution footer | **AI-triaged** (hero row 2, purple — accounting) |
+| AI-triaged | `is_ai_triaged` | an AI-drafted triage marker — a comment with the AI footer, or any `pr-triage-fold` block | **AI-triaged** (hero row 2, purple — accounting) |
 | Engaged (overall) | `is_engaged` | union of the above two | not a card on its own; equals `triaged + defacto_triaged` |
 | Untriaged | `is_untriaged` | NOT engaged + contributor + non-bot + not ready-labelled | **Untriaged non-drafts** (hero row 1) |
 
@@ -268,7 +281,8 @@ Splitting them lets the maintainer focus stale-sweep / ping efforts on the high-
 ### Caveats
 
 - Both predicates rely on `pr.comments(last:10)` — older outstanding comments on chatty PRs may be missed. Lower-bound numbers.
-- The footer-substring match (`AI-assisted triage tool`) is configurable per [`<project-config>/pr-management-config.md`](../../projects/_template/pr-management-config.md)'s `ai_attribution_substring`. The default works as long as the project doesn't customise the footer text.
+- The footer-substring match (`AI-assisted triage tool`) applies to the **comment
+  channel** only and is configurable per [`<project-config>/pr-management-config.md`](../../projects/_template/pr-management-config.md)'s `ai_attribution_substring`. The **body-fold channel** is detected structurally by the `pr-triage-fold` block (always AI-drafted) and does not depend on this substring.
 
 ---
 
@@ -364,8 +378,11 @@ the dashboard surface the fuller picture.
 For the configurable AI-attribution detection substring, adopters can override
 [`<project-config>/pr-management-config.md`](../../projects/_template/pr-management-config.md)'s
 `ai_attribution_substring` field; the framework defaults to
-`AI-assisted triage tool`. The literal substring is a single point of failure
-— keep it identical between the comment templates and this detector.
+`AI-assisted triage tool`. That substring is the **comment-channel** signal and
+is a single point of failure — keep it identical between the comment templates and
+this detector. The **body-fold channel** does not use it: a `pr-triage-fold` block
+is always AI-drafted and is detected by the marker itself, so no footer text needs
+to stay in sync there.
 
 ---
 

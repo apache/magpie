@@ -297,6 +297,13 @@ for each comment c by login L where authorAssociation IN
     if bucket is one of the 6 windows:
         kind = "ai" if "AI-assisted triage tool" in c.body else "manual"
         triager_weekly[L][bucket][kind] += (first-engagement-in-bucket counter)
+
+# ALSO credit the body-fold channel (the default) — a comment-only walk misses it:
+for each PR with a `pr-triage-fold` block:
+    operator = login parsed from the fold header (``by `@<login>` ``)
+    bucket = which_week(fold `triaged=<ISO>` timestamp)
+    if operator is a non-bot maintainer AND bucket is one of the 6 windows:
+        triager_weekly[operator][bucket]["ai"] += 1   # a fold is always AI-drafted
 ```
 
 Per-week counting rule: count **at most one PR per (login, week, kind)** even
@@ -311,9 +318,11 @@ PR of the same kind collapse to a single tally.
 Every triager's per-week count is further split into:
 
 - **AI-assisted**: comments whose body contains the AI-attribution footer
-  substring (`AI-assisted triage tool` — same detector as
-  [`is_ai_triaged`](classify.md#is_ai_triaged--ai-assisted-triage)).
-- **Manual**: comments without the footer.
+  substring (`AI-assisted triage tool` — same comment-channel detector as
+  [`is_ai_triaged`](classify.md#is_ai_triaged--ai-assisted-triage)), **plus every
+  `pr-triage-fold` note**, which is always AI-drafted and credited to the
+  maintainer named in the fold header.
+- **Manual**: comment-channel engagement without the AI footer.
 
 Same PR can contribute to *both* sub-counts for the same maintainer-week if
 they posted both an AI-drafted comment and a manually-typed comment in the
@@ -419,25 +428,34 @@ drift.
 
 ## Triage velocity (per-week)
 
-The "Triage velocity" panel counts PRs whose **first** Quality-Criteria marker
-comment fell in each week. Distinct from the closure-by-reason chart (which
-counts when PRs *closed*) — this counts when triage *happened*.
+The "Triage velocity" panel counts PRs whose **first** triage marker fell in each
+week. Distinct from the closure-by-reason chart (which counts when PRs *closed*) —
+this counts when triage *happened*.
 
-For each PR (open OR closed-since-cutoff), `triage_comment_ts` is the timestamp
-of its *earliest* maintainer comment containing the `Pull Request quality
-criteria` marker. Bucket by week of `triage_comment_ts` (skip PRs that were
-never triaged).
+For each PR (open OR closed-since-cutoff), `triage_ts` is the timestamp of its
+*earliest* triage marker **across both feedback channels** — take `min` over
+[`triage_marker_events(pr)`](classify.md#is_ai_triaged--ai-assisted-triage), which
+yields one event per QC-marker comment (comment channel) **and** one for the
+`pr-triage-fold` block's `triaged=<ISO>` timestamp (body-fold channel, the
+default). Bucket by week of `triage_ts` (skip PRs never triaged in either
+channel). **Counting only the comment channel here is the classic bug**: under the
+default body-fold channel almost every triage is folded into the PR body, so a
+comment-only scan reports recent-week velocity as ≈0 even while triage is running
+at full pace.
 
-Split each week's count by AI vs manual:
+Split each week's count by AI vs manual — using the `is_ai` flag on the earliest
+triage event (see [`is_ai_triaged`](classify.md#is_ai_triaged--ai-assisted-triage)):
 
 | Series | Definition |
 |---|---|
-| `ai` | The triage-comment also contains the [`is_ai_triaged`](classify.md#is_ai_triaged--ai-assisted-triage) footer substring |
-| `non_ai_qc` | Triage comment present but no AI footer (a maintainer pasted the QC link manually) |
+| `ai` | The earliest triage event is AI-drafted — a comment carrying the AI footer, **or** any `pr-triage-fold` block (a fold is always AI-drafted) |
+| `non_ai_qc` | The earliest triage event is a manual QC-marker comment (no AI footer, no fold) — a maintainer pasted the QC link by hand |
 
-⚠ **Data caveat**: the closed-PR fetch caps comments at `last:25` per PR. PRs
-whose first triage marker is older than the 25 most recent comments are
-missed — so older weeks systematically under-count. Note this in the dashboard.
+⚠ **Data caveat**: the closed-PR fetch caps comments at `last:25` per PR, so a
+first triage marker delivered as a **comment** older than the 25 most recent
+comments is missed and older weeks under-count on the comment channel. The
+body-fold `triaged=` timestamp lives in the PR body (always fetched), so
+fold-channel velocity is **not** subject to the comment cap.
 
 ---
 
