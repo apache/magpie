@@ -50,6 +50,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from typing import Any
 
 from google_auth_oauthlib.flow import InstalledAppFlow
 
@@ -102,6 +103,88 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return ap.parse_args(argv)
 
 
+def read_client_app(client_secrets_path: Path) -> tuple[str, str]:
+    """Return ``(client_id, client_secret)`` from a client_secrets.json.
+
+    Accepts both the ``installed`` (Desktop app) and ``web`` shapes, and
+    a bare object as a last resort.
+    """
+    raw = json.loads(client_secrets_path.read_text())
+    inner = raw.get("installed", raw.get("web", raw))
+    return inner["client_id"], inner["client_secret"]
+
+
+def run_consent_flow(client_secrets_path: Path) -> Any:
+    """Run the local-server OAuth consent flow and return the credentials.
+
+    Opens a browser tab for the broad ``mail.google.com`` scope and blocks
+    until the local callback captures the auth code. Raises ``SystemExit``
+    if the flow yields no refresh token (usually because the OAuth client
+    was already consented to before).
+    """
+    flow = InstalledAppFlow.from_client_secrets_file(str(client_secrets_path), scopes=SCOPES)
+    creds = flow.run_local_server(port=0, prompt="consent")
+    if not creds.refresh_token:
+        raise SystemExit(
+            "OAuth flow returned no refresh_token. "
+            "If you've consented to this OAuth client before, revoke it at "
+            "https://myaccount.google.com/permissions and rerun."
+        )
+    return creds
+
+
+def write_credentials(
+    *,
+    client_id: str,
+    client_secret: str,
+    refresh_token: str,
+    from_address: str,
+    out_path: Path,
+) -> None:
+    """Atomically write the credentials JSON at mode 600 under a 700 parent.
+
+    The refresh token is the long-lived secret of the whole ``oauth_curl``
+    backend, so the write is restrictive from the start: a temp file created
+    at 0o600 in the same directory, then ``os.replace`` onto the target —
+    no write-then-chmod race.
+    """
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        out_path.parent.chmod(0o700)
+    except OSError as e:
+        print(f"Warning: could not chmod 700 {out_path.parent}: {e}", file=sys.stderr)
+    parent_mode = out_path.parent.stat().st_mode & 0o777
+    if parent_mode & 0o077:
+        print(
+            f"Warning: {out_path.parent} mode is {oct(parent_mode)} — "
+            f"refresh token may be readable by other users on this host. "
+            f"Consider moving the output to a directory you control.",
+            file=sys.stderr,
+        )
+    payload = (
+        json.dumps(
+            {
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "refresh_token": refresh_token,
+                "from_address": from_address,
+            },
+            indent=2,
+        )
+        + "\n"
+    )
+    fd, tmp_name = tempfile.mkstemp(dir=str(out_path.parent), prefix=".gmail-oauth-", suffix=".tmp")
+    try:
+        os.fchmod(fd, stat.S_IRUSR | stat.S_IWUSR)  # 0o600
+        with os.fdopen(fd, "w") as f:
+            f.write(payload)
+        os.replace(tmp_name, str(out_path))
+    except BaseException:
+        with contextlib.suppress(OSError):
+            os.unlink(tmp_name)
+        raise
+
+
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
 
@@ -122,69 +205,17 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Running OAuth flow against {client_secrets_path} ...")
     print(f"Scopes requested: {' '.join(SCOPES)}")
     print("A browser tab will open; pick the account, click through consent.")
-    flow = InstalledAppFlow.from_client_secrets_file(str(client_secrets_path), scopes=SCOPES)
-    creds = flow.run_local_server(port=0, prompt="consent")
-
-    if not creds.refresh_token:
-        raise SystemExit(
-            "OAuth flow returned no refresh_token. "
-            "If you've consented to this OAuth client before, revoke it at "
-            "https://myaccount.google.com/permissions and rerun."
-        )
-
-    raw = json.loads(client_secrets_path.read_text())
-    inner = raw.get("installed", raw.get("web", raw))
+    creds = run_consent_flow(client_secrets_path)
+    client_id, client_secret = read_client_app(client_secrets_path)
 
     out_path = Path(args.out).expanduser()
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-
-    # Lock down the parent directory. Surface failures loudly — the
-    # refresh token about to land is the long-lived secret of the
-    # whole oauth_curl backend; a permissive parent makes it readable
-    # by anyone with shell access on this host.
-    try:
-        out_path.parent.chmod(0o700)
-    except OSError as e:
-        print(
-            f"Warning: could not chmod 700 {out_path.parent}: {e}",
-            file=sys.stderr,
-        )
-    parent_mode = out_path.parent.stat().st_mode & 0o777
-    if parent_mode & 0o077:
-        print(
-            f"Warning: {out_path.parent} mode is {oct(parent_mode)} — "
-            f"refresh token may be readable by other users on this host. "
-            f"Consider moving --out to a directory you control.",
-            file=sys.stderr,
-        )
-
-    # Atomic, restrictive-from-the-start write: create a temp file
-    # in the same directory with mode 0o600, write the secret, then
-    # os.replace() onto the target. This eliminates the
-    # write-then-chmod race where the secret would briefly sit at
-    # the existing target file's permissions (or umask defaults).
-    payload = (
-        json.dumps(
-            {
-                "client_id": inner["client_id"],
-                "client_secret": inner["client_secret"],
-                "refresh_token": creds.refresh_token,
-                "from_address": args.from_address,
-            },
-            indent=2,
-        )
-        + "\n"
+    write_credentials(
+        client_id=client_id,
+        client_secret=client_secret,
+        refresh_token=creds.refresh_token,
+        from_address=args.from_address,
+        out_path=out_path,
     )
-    fd, tmp_name = tempfile.mkstemp(dir=str(out_path.parent), prefix=".gmail-oauth-", suffix=".tmp")
-    try:
-        os.fchmod(fd, stat.S_IRUSR | stat.S_IWUSR)  # 0o600
-        with os.fdopen(fd, "w") as f:
-            f.write(payload)
-        os.replace(tmp_name, str(out_path))
-    except BaseException:
-        with contextlib.suppress(OSError):
-            os.unlink(tmp_name)
-        raise
     print(f"Wrote credentials to {out_path} (mode 600).")
     print(f"Granted scopes: {' '.join(creds.scopes or SCOPES)}")
     print(f"From: address baked in: {args.from_address}")

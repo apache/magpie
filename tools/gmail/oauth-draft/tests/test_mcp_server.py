@@ -19,8 +19,11 @@ from __future__ import annotations
 import asyncio
 import email
 import email.policy
+import pathlib
 from email.message import EmailMessage
 from unittest.mock import patch
+
+import pytest
 
 from oauth_draft import mcp_server
 from oauth_draft.credentials import Credentials
@@ -77,14 +80,18 @@ def _parse(raw: bytes) -> EmailMessage:
     return msg
 
 
-def test_tool_is_registered_without_any_html_parameter():
+def test_tools_are_registered_without_any_html_parameter():
     tools = asyncio.run(mcp_server.mcp.list_tools())
     names = {t.name for t in tools}
-    assert names == {"create_draft"}
-    props = tools[0].inputSchema.get("properties", {})
-    # The tool must never expose an HTML / rich-text body knob.
-    assert not any("html" in p.lower() for p in props)
-    assert {"to", "subject", "body"} <= set(props)
+    assert names == {"create_draft", "setup_credentials", "check_auth"}
+    by_name = {t.name: t for t in tools}
+    draft_props = by_name["create_draft"].inputSchema.get("properties", {})
+    # The draft tool must never expose an HTML / rich-text body knob.
+    assert not any("html" in p.lower() for p in draft_props)
+    assert {"to", "subject", "body"} <= set(draft_props)
+    # No tool anywhere exposes an html parameter.
+    for t in tools:
+        assert not any("html" in p.lower() for p in t.inputSchema.get("properties", {}))
 
 
 def test_impl_produces_single_part_plain_text_with_verbatim_link():
@@ -142,3 +149,99 @@ def test_impl_skips_thread_lookup_when_no_thread_id():
     _, raw = _run_impl(thread_id=None)
     decoded = raw.decode()
     assert "In-Reply-To:" not in decoded
+
+
+# --- create_draft SystemExit handling --------------------------------------
+
+
+def test_create_draft_impl_converts_systemexit_to_tool_error():
+    # The CLI helpers raise SystemExit (BaseException); it must be surfaced as
+    # a normal tool error, not allowed to kill the server process.
+    with patch.object(mcp_server, "locate_credentials", side_effect=SystemExit("no creds found")):
+        with pytest.raises(RuntimeError, match="no creds found"):
+            mcp_server._create_draft_impl(
+                to=["x@example.com"],
+                subject="S",
+                body="b",
+                cc=None,
+                bcc=None,
+                thread_id=None,
+                no_reply_headers=False,
+                credentials_path=None,
+            )
+
+
+# --- setup_credentials -----------------------------------------------------
+
+
+class _FakeOAuthCreds:
+    refresh_token = "rt"
+    scopes = ("https://mail.google.com/",)
+
+
+def test_setup_credentials_runs_flow_and_writes(tmp_path):
+    secrets = tmp_path / "client_secrets.json"
+    secrets.write_text("{}")
+    out = tmp_path / "gmail-oauth.json"
+    written: dict[str, str] = {}
+
+    def fake_write(**kwargs):
+        written.update(kwargs)
+
+    with (
+        patch.object(mcp_server._setup, "run_consent_flow", return_value=_FakeOAuthCreds()),
+        patch.object(mcp_server._setup, "read_client_app", return_value=("cid", "sec")),
+        patch.object(mcp_server._setup, "write_credentials", side_effect=fake_write),
+    ):
+        result = mcp_server.setup_credentials(
+            client_secrets_path=str(secrets),
+            from_address="me@example.com",
+            credentials_path=str(out),
+        )
+    assert result["from_address"] == "me@example.com"
+    assert result["credentials_path"] == str(out)
+    assert "mail.google.com" in result["scopes"]
+    assert written["client_id"] == "cid"
+    assert written["client_secret"] == "sec"
+    assert written["refresh_token"] == "rt"
+    assert written["from_address"] == "me@example.com"
+
+
+def test_setup_credentials_errors_without_from_address(tmp_path):
+    secrets = tmp_path / "client_secrets.json"
+    secrets.write_text("{}")
+    with patch.object(mcp_server._setup, "detect_from_address", return_value=None):
+        with pytest.raises(ValueError, match="from_address"):
+            mcp_server.setup_credentials(client_secrets_path=str(secrets))
+
+
+def test_setup_credentials_errors_when_client_secrets_missing(tmp_path):
+    with pytest.raises(ValueError, match="client_secrets not found"):
+        mcp_server.setup_credentials(
+            client_secrets_path=str(tmp_path / "nope.json"),
+            from_address="me@example.com",
+        )
+
+
+# --- check_auth ------------------------------------------------------------
+
+
+def test_check_auth_reports_ok_when_token_refreshes():
+    with (
+        patch.object(mcp_server, "locate_credentials", return_value=pathlib.Path("/dev/null")),
+        patch.object(mcp_server.Credentials, "load", return_value=CREDS),
+        patch.object(mcp_server, "refresh_access_token", return_value="tok"),
+    ):
+        result = mcp_server.check_auth()
+    assert result["status"] == "ok"
+    assert result["from_address"] == "me@example.com"
+
+
+def test_check_auth_converts_systemexit_to_tool_error():
+    with (
+        patch.object(mcp_server, "locate_credentials", return_value=pathlib.Path("/dev/null")),
+        patch.object(mcp_server.Credentials, "load", return_value=CREDS),
+        patch.object(mcp_server, "refresh_access_token", side_effect=SystemExit("refresh failed (401)")),
+    ):
+        with pytest.raises(RuntimeError, match="refresh failed"):
+            mcp_server.check_auth()

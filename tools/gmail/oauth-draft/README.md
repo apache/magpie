@@ -37,7 +37,7 @@
 # oauth-draft
 
 Small Python project that talks directly to the Gmail REST API on a
-user-provided OAuth refresh token. Four console scripts:
+user-provided OAuth refresh token. Five console scripts:
 
 | Console script | Purpose |
 |---|---|
@@ -45,7 +45,7 @@ user-provided OAuth refresh token. Four console scripts:
 | `oauth-draft-create` | Create a Gmail draft with `threadId` attachment. (As of the `replyToMessageId` parameter on the claude.ai Gmail MCP `create_draft`, the MCP can also produce thread-attached drafts — see [`../draft-backends.md`](../draft-backends.md). This script remains useful when you have a `threadId` on hand and would rather skip the extra `get_thread` round-trip the MCP path requires, and is the only path that lets the skills delete drafts via the Gmail API afterwards.) |
 | `oauth-draft-mark-read` | Bulk-modify Gmail threads matching a search query (default: mark as read by removing the `UNREAD` label). No MCP equivalent today. |
 | `oauth-draft-message-id` | Resolve the root RFC-5322 `Message-ID` header of one or more threads (`threads.get?format=metadata`). No MCP equivalent — the claude.ai Gmail MCP `get_thread` surfaces only Gmail's opaque per-message IDs, never the `Message-ID:` header. `security-issue-import` records the result in the *Security mailing list thread* tracker field. |
-| `oauth-draft-mcp` | Exposes the same plain-text drafting as an **MCP server** (one tool, `create_draft`) so any MCP-speaking agent can create Gmail drafts without the claude.ai Gmail connector (which rewrites links into tracking redirects). Needs the optional `mcp` extra. See [MCP server](#mcp-server) below. |
+| `oauth-draft-mcp` | Exposes the same plain-text drafting as an **MCP server** (`create_draft`, plus `setup_credentials` / `check_auth` for in-MCP authentication) so any MCP-speaking agent can create Gmail drafts without the claude.ai Gmail connector (which rewrites links into tracking redirects). Needs the optional `mcp` extra. See [MCP server](#mcp-server) below. |
 
 The **strongly preferred** drafting backend is this `oauth_curl` tool:
 the claude.ai Gmail MCP `create_draft` silently rewrites embedded URLs
@@ -174,12 +174,20 @@ testing — production drafts always want the headers set).
 `oauth-draft-mcp` runs the same OAuth + REST plain-text drafting as an
 [MCP](https://modelcontextprotocol.io/) stdio server, so an agent can
 create Gmail drafts by calling a tool instead of shelling out. It exposes
-a single tool, `create_draft`, backed by the exact `build_mime` /
-`create_draft` code the CLI uses — so the message is **plain text only,
-by construction** (a single `text/plain` part; there is no HTML / rich-text
-parameter and no code path that can emit one), and links go out verbatim.
-Prefer it over the claude.ai Gmail connector's `create_draft`, which
-rewrites embedded URLs into Google tracking redirects (see
+three tools:
+
+- `create_draft` — backed by the exact `build_mime` / `create_draft` code
+  the CLI uses, so the message is **plain text only, by construction** (a
+  single `text/plain` part; there is no HTML / rich-text parameter and no
+  code path that can emit one), and links go out verbatim.
+- `setup_credentials` — runs the one-time OAuth consent flow (the same flow
+  as `oauth-draft-setup`) and writes the credentials file, so an agent can
+  **authenticate through the MCP itself**, no separate shell step.
+- `check_auth` — exchanges the stored refresh token for an access token to
+  confirm auth works before drafting.
+
+Prefer `create_draft` over the claude.ai Gmail connector's `create_draft`,
+which rewrites embedded URLs into Google tracking redirects (see
 [`../draft-backends.md`](../draft-backends.md#privacy-warning--the-claudeai-gmail-mcp-rewrites-embedded-urls-into-google-tracking-redirects)).
 
 The `mcp` SDK is an **optional extra** (kept out of the base deps so the
@@ -191,15 +199,22 @@ claude mcp add gmail-plaintext -s user -- \
   uv run --project <framework>/tools/gmail/oauth-draft --extra mcp oauth-draft-mcp
 ```
 
-That makes the tool available to agents as
-`mcp__gmail-plaintext__create_draft`. Add that tool id to the
-`permissions.allow` list so it runs without a prompt (it only ever
-creates **unsent** drafts the human reviews and sends). The server reuses
-the same credential file as the CLI
-(`~/.config/apache-magpie/gmail-oauth.json`; run `oauth-draft-setup`
-first) — no separate setup.
+That makes the tools available to agents under the
+`mcp__gmail-plaintext__*` prefix (e.g. `mcp__gmail-plaintext__create_draft`).
+Add that tool id to the `permissions.allow` list so it runs without a
+prompt (it only ever creates **unsent** drafts the human reviews and sends).
 
-Tool arguments: `to`, `subject`, `body` (required); `cc`, `bcc`,
+Because it is registered at **user scope** (`-s user`), it is installed for
+*you*, not for a single project — it is available to **any** Claude Code
+session on the machine, whether or not that work has anything to do with
+Magpie. Registering it once is enough for every repo you touch.
+
+The server reuses the same credential file as the CLI
+(`~/.config/apache-magpie/gmail-oauth.json`). Authenticate either by
+running `oauth-draft-setup` (CLI) or by calling the `setup_credentials`
+tool once — both write the same file.
+
+`create_draft` arguments: `to`, `subject`, `body` (required); `cc`, `bcc`,
 `thread_id`, `no_reply_headers`, `credentials_path` (optional). When
 `thread_id` is set the server derives `In-Reply-To` / `References` from
 the thread's last message, exactly like `oauth-draft-create`.

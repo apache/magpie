@@ -979,11 +979,13 @@ redirects (see
 
 Same hands-off contract as 9c — **surface, do not run**:
 
-1. **Prerequisite:** the operator has completed
+1. **Prerequisite — auth:** a Gmail OAuth credential at
+   `~/.config/apache-magpie/gmail-oauth.json`. The operator can create it
+   either with the
    [`oauth-draft-setup`](../../tools/gmail/oauth-draft/README.md#setup--one-time)
-   (the credential file `~/.config/apache-magpie/gmail-oauth.json`
-   already backs the CLI `oauth-draft-*` scripts). The MCP server
-   reuses it — no separate setup.
+   CLI **or** by calling the server's own `setup_credentials` tool once —
+   both run the same consent flow and write the same file, which also backs
+   the CLI `oauth-draft-*` scripts.
 2. **Surface the registration** (user scope; the `--extra mcp` pulls
    the optional `mcp` SDK):
 
@@ -992,7 +994,11 @@ Same hands-off contract as 9c — **surface, do not run**:
      uv run --project <framework>/tools/gmail/oauth-draft --extra mcp oauth-draft-mcp
    ```
 
-   The tool then appears as `mcp__gmail-plaintext__create_draft`.
+   The tools then appear under the `mcp__gmail-plaintext__*` prefix
+   (`create_draft`, `setup_credentials`, `check_auth`). Registering at
+   **user scope** installs it for the operator, not a single project — it
+   is then usable by **any** agent session on the machine, Magpie-related
+   or not (see [`tools/gmail/oauth-draft/README.md` → MCP server](../../tools/gmail/oauth-draft/README.md#mcp-server)).
 3. **Reflect the outcome** in the recommended permission allow-list
    (add `mcp__gmail-plaintext__create_draft` alongside the Gmail read
    tools — see [`verify.md`](verify.md) check 8d). It only ever creates
