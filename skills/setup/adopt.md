@@ -961,6 +961,44 @@ Add `mcp__apache-projects__*` to the per-family permission
 allow-list recommendation exactly as the `mcp__ponymail__*` tools
 are handled — both are read-only and scoped.
 
+## Step 9d — gmail-plaintext MCP (optional, Gmail drafters)
+
+**Run this step only for operators who draft mail from an agent**
+(the `security` family's mailing-list replies, release announcements,
+etc.). It is **optional** and not ASF-gated — unlike the comdev
+servers in 9c, this one ships **in-repo** as part of the
+[`oauth-draft`](../../tools/gmail/oauth-draft/README.md#mcp-server)
+tool, so there is nothing to clone.
+
+`gmail-plaintext` exposes one tool, `create_draft`, that POSTs a raw
+`text/plain` message straight to Gmail's `drafts.create` — links go
+out verbatim. Prefer it over the claude.ai Gmail connector's
+`create_draft`, which rewrites embedded URLs into Google tracking
+redirects (see
+[`tools/gmail/draft-backends.md`](../../tools/gmail/draft-backends.md#privacy-warning--the-claudeai-gmail-mcp-rewrites-embedded-urls-into-google-tracking-redirects)).
+
+Same hands-off contract as 9c — **surface, do not run**:
+
+1. **Prerequisite:** the operator has completed
+   [`oauth-draft-setup`](../../tools/gmail/oauth-draft/README.md#setup--one-time)
+   (the credential file `~/.config/apache-magpie/gmail-oauth.json`
+   already backs the CLI `oauth-draft-*` scripts). The MCP server
+   reuses it — no separate setup.
+2. **Surface the registration** (user scope; the `--extra mcp` pulls
+   the optional `mcp` SDK):
+
+   ```bash
+   claude mcp add gmail-plaintext -s user -- \
+     uv run --project <framework>/tools/gmail/oauth-draft --extra mcp oauth-draft-mcp
+   ```
+
+   The tool then appears as `mcp__gmail-plaintext__create_draft`.
+3. **Reflect the outcome** in the recommended permission allow-list
+   (add `mcp__gmail-plaintext__create_draft` alongside the Gmail read
+   tools — see [`verify.md`](verify.md) check 8d). It only ever creates
+   **unsent** drafts the human reviews and sends, so allow-listing it
+   avoids a prompt on every draft.
+
 ## Step 10 — Worktree-aware post-checkout hook (FRESH only)
 
 Install `<repo-root>/.git/hooks/post-checkout` — a best-effort

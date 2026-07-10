@@ -35,11 +35,20 @@ dependencies = [
   "google-auth-oauthlib>=1.4.0",
 ]
 
+# The MCP-server frontend (`oauth-draft-mcp`) needs the `mcp` SDK. It is an
+# optional extra so the stdlib-only console scripts above stay lightweight;
+# install it with `uv run --project ... --extra mcp oauth-draft-mcp`.
+[project.optional-dependencies]
+mcp = [
+  "mcp>=1.2.0",
+]
+
 [project.scripts]
 oauth-draft-setup = "oauth_draft.setup_creds:main"
 oauth-draft-create = "oauth_draft.create_draft:main"
 oauth-draft-mark-read = "oauth_draft.mark_threads_read:main"
 oauth-draft-message-id = "oauth_draft.message_id:main"
+oauth-draft-mcp = "oauth_draft.mcp_server:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/oauth_draft"]
@@ -89,6 +98,12 @@ disallow_incomplete_defs = false
 module = "google_auth_oauthlib.*"
 ignore_missing_imports = true
 
+# The `mcp` SDK is an optional extra (not in the base deps), so mypy may
+# not always have it importable; treat it as untyped rather than failing.
+[[tool.mypy.overrides]]
+module = "mcp.*"
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 minversion = "8.0"
 addopts = "-ra -q"
@@ -103,4 +118,6 @@ dev = [
   "mypy>=2.1.0",
   "pytest>=9.1.1",
   "ruff>=0.15.20",
+  # Needed to import and test `oauth_draft.mcp_server` (the `mcp` extra).
+  "mcp>=1.2.0",
 ]

@@ -33,6 +33,11 @@ user in `.apache-magpie-overrides/user.md` under
 | OAuth + `curl` script | `oauth_curl` (**strongly preferred — use this**) | **yes** — via `threadId` (and explicit `In-Reply-To` / `References` headers) | one-time Google OAuth client + refresh-token setup, automated via `uv run --project <framework>/tools/gmail/oauth-draft oauth-draft-setup` — see [`oauth-draft/README.md`](oauth-draft/README.md) |
 | claude.ai Gmail MCP | `claude_ai_mcp` (**discouraged — do not use; see privacy warning**) | **yes** — via `replyToMessageId` (a message ID resolved from the inbound thread) | none — works as soon as the Gmail connector is authenticated on claude.ai, **but silently rewrites embedded URLs into Google tracking redirects (see below)** |
 
+The `oauth_curl` backend is also exposed as an **MCP server**
+(`gmail-plaintext`, tool `create_draft`) for agents that would rather
+call a tool than shell out — same plain-text-only guarantee, same
+credential file. See [`oauth-draft/README.md` → MCP server](oauth-draft/README.md#mcp-server).
+
 Both backends create **drafts** — never send. The human review-and-send
 step is still required before any outbound message leaves the user's
 Gmail.
