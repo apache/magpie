@@ -172,7 +172,7 @@ means and which modes are still proposed vs. shipping today.
 
 | Family | Modes | Purpose | Detail |
 |---|---|---|---|
-| [**setup**](docs/setup/README.md) | (infra) | Isolated agent setup, framework adoption + maintenance, shared-config sync. The prerequisite — at minimum the `setup` skill itself runs out of this family. | 8 skills, [`docs/setup/`](docs/setup/) |
+| [**setup**](docs/setup/README.md) | (infra) | Isolated agent setup, framework adoption + maintenance, shared-config sync. The prerequisite — at minimum the `setup` skill itself runs out of this family. | 9 skills, [`docs/setup/`](docs/setup/) |
 | [**security**](docs/security/README.md) | Triage, Drafting | 16-step security-issue handling lifecycle — from `security@` import through CVE publication, including state sync. Maintainer-only. | 12 skills, [`docs/security/`](docs/security/) |
 | [**pr-management**](docs/pr-management/README.md) | Triage | Maintainer-facing PR-queue management — triage, stats, deep code review, and express-lane merge surfacing. | 4 skills, [`docs/pr-management/`](docs/pr-management/README.md) |
 | [**release-management**](docs/release-management/README.md) | Triage, Drafting | 14-step ASF release lifecycle, planning issue, RC cut + sign, `[VOTE]` thread, tally, promote, `[ANNOUNCE]`, archive, audit log. Agent never holds the RM's signing key and never publishes the release. **Experimental**, all 10 skills shipped. | 10 skills, [`docs/release-management/`](docs/release-management/) |
