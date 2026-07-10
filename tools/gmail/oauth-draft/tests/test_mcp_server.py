@@ -200,7 +200,7 @@ def test_setup_credentials_runs_flow_and_writes(tmp_path):
         )
     assert result["from_address"] == "me@example.com"
     assert result["credentials_path"] == str(out)
-    assert "mail.google.com" in result["scopes"]
+    assert result["scopes"] == "https://mail.google.com/"
     assert written["client_id"] == "cid"
     assert written["client_secret"] == "sec"
     assert written["refresh_token"] == "rt"
