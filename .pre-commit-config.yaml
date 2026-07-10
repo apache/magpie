@@ -91,12 +91,29 @@ repos:
         name: Check that merge conflicts are not being committed
       - id: detect-private-key
         name: Detect if private key is added to the repository
+      # The next three hooks are *fixers*: they open every matched file
+      # in read-write mode (to normalise it in place) before checking
+      # whether a fix is even needed. The secure-agent sandbox
+      # write-denies two tracked path sets — the agent's own config
+      # (`.claude/settings.json`) and the self-adoption skill relays
+      # (`.claude/skills/*` symlinks) — because agents must never modify
+      # them. So on `prek run --all-files` (which `agent-pre-commit.sh`
+      # and the CI mirror both run) the read-write `open()` on those
+      # paths is denied and the whole run aborts, even though the files
+      # need no fix. Exclude them: `.claude/settings.json` is gated by
+      # the sandbox-lint baseline and the skill symlinks are validated by
+      # `symlink-lint`, so neither loses coverage by skipping EOF /
+      # whitespace / line-ending normalisation here. This keeps prek a
+      # single invocation that runs cleanly in-sandbox with no bypass.
       - id: end-of-file-fixer
         name: Make sure that there is an empty line at the end
+        exclude: &sandbox_write_denied ^\.claude/(settings\.json|skills/)
       - id: mixed-line-ending
         name: Detect if mixed line ending is used (\r vs. \r\n)
+        exclude: *sandbox_write_denied
       - id: trailing-whitespace
         name: Remove trailing whitespace at end of line
+        exclude: *sandbox_write_denied
   # markdownlint — catches structurally-bad markdown. Config in
   # `.markdownlint.json` enables only the rules that catch real bugs
   # (broken anchors via MD051, dangling link references via MD053);
