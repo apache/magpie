@@ -85,10 +85,14 @@
 #      deterministic reset is an explicit colour via CLAUDE_RESET_BG (OSC 11,
 #      the path we know works); without it we emit BOTH OSC 111 and iTerm2's
 #      proprietary SetColors=bg=default and let whichever the terminal
-#      understands win.
+#      understands win. VTE terminals (terminator, gnome-terminal) DO honour
+#      OSC 111, so on Linux the default reset works without CLAUDE_RESET_BG; the
+#      iTerm2-proprietary escape they don't recognise is harmlessly ignored.
 #
-# Tested on iTerm2 + macOS. Terminals that ignore OSC 11 entirely simply see
-# no change (fail-soft). For a guaranteed reset anywhere, set CLAUDE_RESET_BG.
+# Tested on iTerm2 + macOS and terminator (VTE) + Linux. The only OS-specific
+# part is locating the pty device: find_tty_dev() matches both macOS "ttysNNN"
+# and Linux "pts/N" names. Terminals that ignore OSC 11 entirely simply see no
+# change (fail-soft). For a guaranteed reset anywhere, set CLAUDE_RESET_BG.
 set -u
 WAIT_BG="${CLAUDE_WAIT_BG:-#2a1a3a}"
 RESET_BG="${CLAUDE_RESET_BG:-}"
@@ -99,8 +103,10 @@ find_tty_dev() {
   for i in 1 2 3 4 5 6 7 8; do
     [ -z "$pid" ] || [ "$pid" = "0" ] || [ "$pid" = "1" ] && break
     t=$(ps -o tty= -p "$pid" 2>/dev/null | tr -d ' ')
+    # macOS reports ptys as "ttys003"; Linux (terminator/VTE, xterm, …) reports
+    # them as "pts/0". Both prepend /dev to give a writable device path.
     case "$t" in
-      ttys*|tty[0-9]*) echo "/dev/$t"; return 0 ;;
+      ttys*|tty[0-9]*|pts/[0-9]*) echo "/dev/$t"; return 0 ;;
     esac
     pid=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')
   done
