@@ -9,7 +9,9 @@ description: |
   Read-only pre-flight verification of a staged release candidate (RC)
   for `<upstream>`. Checks artefact integrity (GPG signatures and
   checksums), Apache RAT licence headers, NOTICE/LICENSE completeness,
-  prohibited-binary absence, and version-string consistency. Emits a
+  prohibited-binary absence (including `.pyc` / `__pycache__`),
+  source-tree integrity (no dangling symlinks or broken internal
+  references), and version-string consistency. Emits a
   structured PASS / PASS-WITH-WARNINGS / FAIL report. Makes no state
   change; a `--post-to <planning-issue>` flag proposes a comment for
   explicit RM confirmation before any posting.
@@ -431,9 +433,14 @@ binary-exclude list from `release-build.md`. Emit the paste-ready
 scan command:
 
 ```bash
-# Example: find compiled Java class files and native shared libraries
-find <unpacked-dir> -type f \( -name "*.class" -o -name "*.jar" \
-  -o -name "*.so" -o -name "*.dylib" -o -name "*.dll" -o -name "*.exe" \)
+# Compiled Java class files, native shared libraries, AND compiled
+# Python bytecode. `.pyc` / `__pycache__` must NEVER appear in a
+# source release — their presence proves the artefact was zipped from
+# a working tree that had run tests rather than exported clean from
+# the tag (build via `git archive <tag>`, never `zip -r`).
+find <unpacked-dir> \( -type f \( -name "*.class" -o -name "*.jar" \
+  -o -name "*.so" -o -name "*.dylib" -o -name "*.dll" -o -name "*.exe" \
+  -o -name "*.pyc" \) -o -type d -name "__pycache__" \) -print
 ```
 
 Emit the bare `find` with no `grep` post-filtering: the recipe must
@@ -472,11 +479,78 @@ Return ONLY valid JSON with this structure:
 }
 ```
 
-`status` is `"FAIL"` if `prohibited_found` is non-empty.
+`status` is `"FAIL"` if `prohibited_found` is non-empty. Any `.pyc`
+file or `__pycache__` directory found is a hard `FAIL` (never an
+`EXPECTED-BINARY`): it is both a prohibited binary and proof the
+tarball was not exported clean from the tag.
 
 ---
 
-## Step 7 — Version string consistency
+## Step 7 — Source-tree integrity (dangling symlinks + broken references)
+
+The rc1 `-1` came from this class of defect, not from signatures or
+RAT: committed agent-view symlinks (`.claude/skills/*`, `.kiro/skills/*`,
+`.github/skills/*`) relayed into a directory (`.agents/`) that the
+release stripped, so **every relay dangled**; and shipped files linked
+to other stripped paths (`.github/` templates, `projects/_template/.gitignore`,
+`.claude/skills/magpie-*/SKILL.md`), so the framework's own validators
+failed. This step runs the same checks the framework applies to its own
+tree, but **against the unpacked tarball**, so a packaging regression
+(an `export-ignore` that strips a still-referenced path) fails the RC
+before the `[VOTE]` rather than during it.
+
+Emit the paste-ready recipe (run from the unpacked dir; adapt tool
+paths to the project — for Magpie the tools ship in-tree under
+`tools/`):
+
+```bash
+cd <unpacked-dir>
+
+# 1. Dangling symlinks — every symlink must resolve inside the tarball.
+find . -type l ! -exec test -e {} \; -print        # any output = FAIL
+
+# 2. Internal reference / link integrity — run the project's own
+#    validators against the unpacked source (Magpie ships these):
+uv run --project tools/symlink-lint symlink-lint .
+uv run --project tools/skill-and-tool-validator skill-and-tool-validate
+uv run --project tools/spec-validator spec-validate   # if the project ships specs
+```
+
+Classify:
+
+- `PASS` — no dangling symlinks and every validator exits 0.
+- `FAIL` — any dangling symlink, or any validator reports a broken
+  internal link / missing referenced file. This is a hard `FAIL`:
+  a release whose own files reference content that was stripped from
+  the artefact is incomplete.
+- `SKIP` — the project ships no symlinks and no in-tree validators
+  (state this explicitly; do not silently pass).
+
+Do **not** post-filter the `find`; surface every dangling link so the
+voter sees the full set. When a validator is not shippable in the
+tarball, run it from a checkout of the *same tag* against the unpacked
+dir instead, and note that in the report.
+
+Return ONLY valid JSON with this structure:
+
+```json
+{
+  "step": "source-tree-integrity",
+  "status": "PASS" | "FAIL" | "SKIP",
+  "dangling_symlinks": ["<path>"],
+  "validator_failures": [
+    {"validator": "<name>", "detail": "<broken link / missing target>"}
+  ],
+  "paste_recipe": "<multi-line shell commands>"
+}
+```
+
+`status` is `"FAIL"` if `dangling_symlinks` is non-empty or any
+validator failed.
+
+---
+
+## Step 8 — Version string consistency
 
 Read each file listed in `version_manifest_files` from
 `release-management-config.md` (e.g. `setup.cfg`,
@@ -510,7 +584,7 @@ Return ONLY valid JSON with this structure:
 
 ---
 
-## Step 8 — Hand-back verification report
+## Step 9 — Hand-back verification report
 
 Aggregate the per-step results into a final report.
 
@@ -604,7 +678,10 @@ supplied and the RM has not yet confirmed posting.
 | Step 5 FAIL — NOTICE or LICENSE absent | Source artefact build skipped packaging | RM fixes build process and cuts a new RC |
 | Step 5 WARN — material diff | Licence or attribution changed vs previous release | RM reviews diff; if intentional, document in planning issue |
 | Step 6 FAIL — prohibited binary | Binary sneaked into source artefact | RM removes binary, updates `.gitattributes` or build excludes, cuts new RC |
-| Step 7 FAIL — version mismatch | Version bump missed one manifest file | RM fixes the manifest and cuts a new RC |
+| Step 6 FAIL — `.pyc` / `__pycache__` present | Tarball zipped from a working tree that ran tests, not exported clean from the tag | RM rebuilds via `git archive <tag>` (never `zip -r`), cuts new RC |
+| Step 7 FAIL — dangling symlink | A committed symlink's target was stripped by `export-ignore` (or is otherwise absent) | RM fixes `.gitattributes` to ship the target (or drops the symlink), cuts new RC |
+| Step 7 FAIL — broken internal reference | A shipped file links to a path stripped from the artefact | RM stops stripping the referenced path, or repoints the reference at shipped content, cuts new RC |
+| Step 8 FAIL — version mismatch | Version bump missed one manifest file | RM fixes the manifest and cuts a new RC |
 
 ---
 

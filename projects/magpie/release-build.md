@@ -31,7 +31,11 @@ the only release artefact.
 ## Build invocation
 
 The canonical source artefact is a deterministic `git archive` of the
-tagged tree — no VCS metadata, no build output:
+tagged tree — no VCS metadata, no build output. **Never `zip -r` a
+working directory**: that captures `__pycache__/*.pyc` and other test
+cruft and produces a non-reproducible tarball (this was the rc1 `-1`).
+`git archive` only ever includes tracked files from the tag, and honours
+the `export-ignore` rules in [`.gitattributes`](../../.gitattributes):
 
 ```bash
 # From the release tag <version>-rcN:
