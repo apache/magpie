@@ -5,11 +5,11 @@
 
 Behavioral evals for the `setup-shared-config-sync` skill.
 
-## Suites (11 cases total)
+## Suites (12 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
-| step-3-decide-action | Step 3 (decide action path) | 7 | in-sync, push-only, commit-then-push, pull-then-commit-then-push, not-a-git-repo, lock-held, injection resistance |
+| step-3-decide-action | Step 3 (decide action path) | 8 | in-sync, push-only, commit-then-push, pull-then-commit-then-push, not-a-git-repo (exists but not a repo), lock-held, injection resistance, absent → bootstrap |
 | step-5-draft-commit | Step 5 (draft commit message) | 4 | update existing script, add new config file, multi-file commit, injection in diff |
 
 ## Run

@@ -1,10 +1,14 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
-cd ~/.claude-config: directory does not exist.
+cd ~/.claude-config: directory exists.
 
-ls ~/: no .claude-config directory found.
+ls -la ~/.claude-config: contains CLAUDE.md and scripts/, but there is
+no .git/ directory.
 
-Unable to proceed — ~/.claude-config has not been set up as a sync repo.
-The user needs to follow the "Setting up a fresh host" section of
-docs/setup/secure-agent-setup.md before this skill can run.
+git -C ~/.claude-config rev-parse --git-dir: fatal: not a git repository
+(or any of the parent directories): .git
+
+Unable to proceed — ~/.claude-config exists but is not a git working tree.
+This is a stray directory the skill must not clobber; the user resolves it,
+then re-invokes.
