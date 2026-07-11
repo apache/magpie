@@ -1292,16 +1292,17 @@ Four passes, in this order:
 
      ```json
      { "matcher": "Bash", "hooks": [ { "type": "command",
-       "command": "[ -f \"$CLAUDE_PROJECT_DIR/.claude/hooks/agent-guard.py\" ] && python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/agent-guard.py\" || true",
+       "command": "python3 -c \"import os,sys,subprocess; p=os.path.join(os.environ.get('CLAUDE_PROJECT_DIR',''),'.claude','hooks','agent-guard.py'); sys.exit(subprocess.call([sys.executable,p]) if os.path.isfile(p) else 0)\"",
        "timeout": 30 } ] }
      ```
 
-     The `[ -f … ] && … || true` guard makes the hook a **no-op on a
-     fresh clone** — before `/magpie-setup` has synced `agent-guard.py`
-     in (the script is gitignored framework code, not committed), so
-     without the guard the committed hook would exec a missing file on
-     every Bash call and a `PreToolUse` error can block the tool. Once
-     the script is present the guard passes and the hook runs normally.
+     The command no-ops when `agent-guard.py` is absent (a **fresh
+     clone**, before `/magpie-setup` has synced the gitignored script in)
+     and runs the guard otherwise — so the committed hook never execs a
+     missing file on a Bash call (a `PreToolUse` error can block the
+     tool). It is written as an inline `python3 -c` existence check
+     rather than a shell one-liner (`[ -f … ] && … || true`) so it works
+     on **Windows** (PowerShell) too, not only POSIX shells.
 
      Wiring happens **only once**; thereafter guards are
      added/removed purely by syncing `guards.d` — no settings.json
