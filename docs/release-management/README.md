@@ -219,7 +219,7 @@ The family's read-only dashboard skill
 (`release-audit-report`)
 sits in Agentic Triage because it classifies and reports against existing
 state, not because it routes inbound work. The
-[`docs/modes.md` § Outside the modes](../modes.md#outside-the-modes)
+[`docs/modes.md` § Meta](../modes.md#meta)
 section is reserved for framework infrastructure (`setup-*`,
 `issue-reassess-stats`, isolation tooling) and the audit skill
 does not belong there, it is project-facing maintainership work.

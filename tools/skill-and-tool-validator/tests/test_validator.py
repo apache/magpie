@@ -61,7 +61,6 @@ from skill_and_tool_validator import (
     SKILL_LINE_LIMIT_CATEGORY,
     SKILL_SOURCE_CATEGORY,
     SOFT_CATEGORIES,
-    STATUS_CATEGORY,
     TEMPLATE_DRIFT_CATEGORY,
     TOOL_CAPABILITIES,
     TRIGGER_PRESERVATION_CATEGORY,
@@ -125,7 +124,7 @@ from skill_and_tool_validator import (
 
 class TestParseFrontmatter:
     def test_valid_frontmatter(self) -> None:
-        text = "---\nname: foo\ndescription: bar\ncapability: capability:platform\nlicense: Apache-2.0\n---\n# heading\n"
+        text = "---\nname: foo\ndescription: bar\ncapability: capability:platform\nfamily: repo-health\nmode: Triage\nwhen_to_use: when it applies\nlicense: Apache-2.0\n---\n# heading\n"
         fm = parse_frontmatter(text)
         assert fm is not None
         assert fm["name"] == "foo"
@@ -139,7 +138,7 @@ class TestParseFrontmatter:
             "description: |\n"
             "  First line of description.\n"
             "  Second line.\n"
-            "capability: capability:platform\nlicense: Apache-2.0\n"
+            "capability: capability:platform\nfamily: repo-health\nmode: Triage\nwhen_to_use: when it applies\nlicense: Apache-2.0\n"
             "---\n"
         )
         fm = parse_frontmatter(text)
@@ -162,7 +161,7 @@ class TestParseFrontmatter:
             "  Paragraph one.\n"
             "\n"
             "  Paragraph two, which used to be dropped.\n"
-            "capability: capability:platform\nlicense: Apache-2.0\n"
+            "capability: capability:platform\nfamily: repo-health\nmode: Triage\nwhen_to_use: when it applies\nlicense: Apache-2.0\n"
             "---\n"
         )
         fm = parse_frontmatter(text)
@@ -186,13 +185,13 @@ class TestParseFrontmatter:
 class TestValidateFrontmatter:
     def test_valid(self, tmp_path: Path) -> None:
         path = tmp_path / "SKILL.md"
-        text = "---\nname: foo\ndescription: bar\ncapability: capability:platform\nlicense: Apache-2.0\n---\n"
+        text = "---\nname: foo\ndescription: bar\ncapability: capability:platform\nfamily: repo-health\nmode: Triage\nwhen_to_use: when it applies\nlicense: Apache-2.0\n---\n"
         violations = list(validate_frontmatter(path, text))
         assert violations == []
 
     def test_missing_name(self, tmp_path: Path) -> None:
         path = tmp_path / "SKILL.md"
-        text = "---\ndescription: bar\ncapability: capability:platform\nlicense: Apache-2.0\n---\n"
+        text = "---\ndescription: bar\ncapability: capability:platform\nfamily: repo-health\nmode: Triage\nwhen_to_use: when it applies\nlicense: Apache-2.0\n---\n"
         violations = list(validate_frontmatter(path, text))
         assert len(violations) == 1
         assert "name" in violations[0].message
@@ -208,7 +207,7 @@ class TestValidateFrontmatter:
 
     def test_empty_value(self, tmp_path: Path) -> None:
         path = tmp_path / "SKILL.md"
-        text = "---\nname: \ndescription: bar\ncapability: capability:platform\nlicense: Apache-2.0\n---\n"
+        text = "---\nname: \ndescription: bar\ncapability: capability:platform\nfamily: repo-health\nmode: Triage\nwhen_to_use: when it applies\nlicense: Apache-2.0\n---\n"
         violations = list(validate_frontmatter(path, text))
         assert any("name' is empty" in v.message for v in violations)
 
@@ -221,20 +220,27 @@ class TestValidateFrontmatter:
     def test_valid_mode(self, tmp_path: Path) -> None:
         path = tmp_path / "SKILL.md"
         for mode in ("Triage", "Mentoring", "Drafting", "Pairing"):
-            text = f"---\nname: foo\ndescription: bar\ncapability: capability:platform\nlicense: Apache-2.0\nmode: {mode}\n---\n"
+            text = f"---\nname: foo\ndescription: bar\ncapability: capability:platform\nfamily: repo-health\nwhen_to_use: when it applies\nlicense: Apache-2.0\nmode: {mode}\n---\n"
             violations = list(validate_frontmatter(path, text))
             assert violations == [], f"mode '{mode}' should be valid"
 
     def test_invalid_mode(self, tmp_path: Path) -> None:
         path = tmp_path / "SKILL.md"
-        text = "---\nname: foo\ndescription: bar\ncapability: capability:platform\nlicense: Apache-2.0\nmode: Auto-merge\n---\n"
+        text = "---\nname: foo\ndescription: bar\ncapability: capability:platform\nfamily: repo-health\nwhen_to_use: when it applies\nlicense: Apache-2.0\nmode: Auto-merge\n---\n"
         violations = list(validate_frontmatter(path, text))
         assert any("mode" in v.message and "'Auto-merge'" in v.message for v in violations)
 
-    def test_mode_optional(self, tmp_path: Path) -> None:
-        # Skills without a mode (e.g. setup-* infrastructure) must not fail.
+    def test_mode_required(self, tmp_path: Path) -> None:
+        # mode is a required key: a skill without one must fail.
         path = tmp_path / "SKILL.md"
-        text = "---\nname: foo\ndescription: bar\ncapability: capability:platform\nlicense: Apache-2.0\n---\n"
+        text = "---\nname: foo\ndescription: bar\ncapability: capability:platform\nfamily: repo-health\nwhen_to_use: when it applies\nlicense: Apache-2.0\n---\n"
+        violations = list(validate_frontmatter(path, text))
+        assert any("mode" in v.message for v in violations)
+
+    def test_meta_mode_valid(self, tmp_path: Path) -> None:
+        # Framework infrastructure/meta skills declare mode: Meta.
+        path = tmp_path / "SKILL.md"
+        text = "---\nname: foo\ndescription: bar\ncapability: capability:platform\nfamily: setup\nmode: Meta\nwhen_to_use: when it applies\nlicense: Apache-2.0\n---\n"
         violations = list(validate_frontmatter(path, text))
         assert violations == []
 
@@ -262,7 +268,7 @@ class TestValidateFrontmatter:
         path = tmp_path / "SKILL.md"
         desc = "a" * 800
         wtu = "b" * 700
-        text = f"---\nname: foo\ndescription: {desc}\nwhen_to_use: {wtu}\ncapability: capability:platform\nlicense: Apache-2.0\n---\n"
+        text = f"---\nname: foo\ndescription: {desc}\nwhen_to_use: {wtu}\ncapability: capability:platform\nfamily: repo-health\nmode: Triage\nwhen_to_use: when it applies\nlicense: Apache-2.0\n---\n"
         violations = list(validate_frontmatter(path, text))
         assert violations == []
 
@@ -270,7 +276,7 @@ class TestValidateFrontmatter:
         path = tmp_path / "SKILL.md"
         desc = "a" * 1000
         wtu = "b" * (MAX_METADATA_CHARS - 1000 + 1)
-        text = f"---\nname: foo\ndescription: {desc}\nwhen_to_use: {wtu}\ncapability: capability:platform\nlicense: Apache-2.0\n---\n"
+        text = f"---\nname: foo\ndescription: {desc}\nwhen_to_use: {wtu}\ncapability: capability:platform\nfamily: repo-health\nmode: Triage\nlicense: Apache-2.0\n---\n"
         violations = list(validate_frontmatter(path, text))
         assert any("truncates" in v.message and str(MAX_METADATA_CHARS) in v.message for v in violations)
 
@@ -283,7 +289,7 @@ class TestValidateFrontmatter:
             "---\n"
             "name: foo\n"
             "description: bar\n"
-            "capability: capability:platform\nlicense: Apache-2.0\n"
+            "capability: capability:platform\nfamily: repo-health\nmode: Triage\nwhen_to_use: when it applies\nlicense: Apache-2.0\n"
             "argument-hint: [--quick|--standard|--deep] <idea>\n"
             "---\n"
         )
@@ -299,7 +305,7 @@ class TestValidateFrontmatter:
             "---\n"
             "name: setup\n"
             "description: bar\n"
-            "capability: capability:platform\nlicense: Apache-2.0\n"
+            "capability: capability:platform\nfamily: repo-health\nmode: Triage\nwhen_to_use: when it applies\nlicense: Apache-2.0\n"
             "argument-hint: [adopt|upgrade|worktree-init|verify|override skill-name|unadopt]\n"
             "---\n"
         )
@@ -322,7 +328,7 @@ class TestValidateFrontmatter:
             f"name: foo\n"
             f"description: {desc}\n"
             f"when_to_use: {wtu}\n"
-            f"capability: capability:platform\nlicense: Apache-2.0\n"
+            f"capability: capability:platform\nfamily: repo-health\nmode: Triage\nwhen_to_use: when it applies\nlicense: Apache-2.0\n"
             f"argument-hint: {hint}\n"
             f"---\n"
         )
@@ -330,7 +336,7 @@ class TestValidateFrontmatter:
         assert violations == [], "argument-hint must not count toward description+when_to_use budget"
 
     def test_metadata_block_scalar_indicator_not_counted(self) -> None:
-        text = f"---\nname: foo\ndescription: |\n  {'a' * 100}\ncapability: capability:platform\nlicense: Apache-2.0\n---\n"
+        text = f"---\nname: foo\ndescription: |\n  {'a' * 100}\ncapability: capability:platform\nfamily: repo-health\nmode: Triage\nwhen_to_use: when it applies\nlicense: Apache-2.0\n---\n"
         fm = parse_frontmatter(text)
         assert fm is not None
         assert not fm["description"].startswith("|")
@@ -338,7 +344,7 @@ class TestValidateFrontmatter:
 
     def test_capability_single_string(self, tmp_path: Path) -> None:
         path = tmp_path / "SKILL.md"
-        text = "---\nname: foo\ndescription: bar\ncapability: capability:triage\nlicense: Apache-2.0\n---\n"
+        text = "---\nname: foo\ndescription: bar\ncapability: capability:triage\nfamily: repo-health\nmode: Triage\nwhen_to_use: when it applies\nlicense: Apache-2.0\n---\n"
         violations = list(validate_frontmatter(path, text))
         assert violations == []
 
@@ -347,20 +353,20 @@ class TestValidateFrontmatter:
         text = (
             "---\nname: foo\ndescription: bar\n"
             "capability:\n  - capability:intake\n  - capability:platform\n"
-            "license: Apache-2.0\n---\n"
+            "family: repo-health\nmode: Triage\nwhen_to_use: when it applies\nlicense: Apache-2.0\n---\n"
         )
         violations = list(validate_frontmatter(path, text))
         assert violations == []
 
     def test_capability_missing(self, tmp_path: Path) -> None:
         path = tmp_path / "SKILL.md"
-        text = "---\nname: foo\ndescription: bar\nlicense: Apache-2.0\n---\n"
+        text = "---\nname: foo\ndescription: bar\nfamily: repo-health\nmode: Triage\nwhen_to_use: when it applies\nlicense: Apache-2.0\n---\n"
         violations = list(validate_frontmatter(path, text))
         assert any("capability" in v.message for v in violations)
 
     def test_capability_invalid_value(self, tmp_path: Path) -> None:
         path = tmp_path / "SKILL.md"
-        text = "---\nname: foo\ndescription: bar\ncapability: capability:bogus\nlicense: Apache-2.0\n---\n"
+        text = "---\nname: foo\ndescription: bar\ncapability: capability:bogus\nfamily: repo-health\nmode: Triage\nwhen_to_use: when it applies\nlicense: Apache-2.0\n---\n"
         violations = list(validate_frontmatter(path, text))
         assert any("capability:bogus" in v.message for v in violations)
 
@@ -369,7 +375,7 @@ class TestValidateFrontmatter:
         text = (
             "---\nname: foo\ndescription: bar\n"
             "capability:\n  - capability:platform\n  - capability:invented\n"
-            "license: Apache-2.0\n---\n"
+            "family: repo-health\nmode: Triage\nwhen_to_use: when it applies\nlicense: Apache-2.0\n---\n"
         )
         violations = list(validate_frontmatter(path, text))
         # The "subject" of each violation is the first single-quoted token after
@@ -384,53 +390,6 @@ class TestValidateFrontmatter:
 
 
 # ---------------------------------------------------------------------------
-# Status field: must be from ALLOWED_SKILL_STATUSES when present (HARD)
-# ---------------------------------------------------------------------------
-
-
-class TestStatusValidation:
-    def test_valid_status_experimental(self, tmp_path: Path) -> None:
-        path = tmp_path / "SKILL.md"
-        text = (
-            "---\nname: foo\ndescription: bar\n"
-            "capability: capability:platform\nlicense: Apache-2.0\n"
-            "status: experimental\n---\n"
-        )
-        violations = list(validate_frontmatter(path, text))
-        assert not any(v.category == "skill_status" for v in violations)
-
-    def test_invalid_status_proposed(self, tmp_path: Path) -> None:
-        path = tmp_path / "SKILL.md"
-        text = (
-            "---\nname: foo\ndescription: bar\n"
-            "capability: capability:platform\nlicense: Apache-2.0\n"
-            "status: proposed\n---\n"
-        )
-        violations = list(validate_frontmatter(path, text))
-        assert any("skill_status" == v.category and "proposed" in v.message for v in violations)
-
-    def test_invalid_status_done(self, tmp_path: Path) -> None:
-        path = tmp_path / "SKILL.md"
-        text = (
-            "---\nname: foo\ndescription: bar\n"
-            "capability: capability:platform\nlicense: Apache-2.0\n"
-            "status: done\n---\n"
-        )
-        violations = list(validate_frontmatter(path, text))
-        assert any("skill_status" == v.category for v in violations)
-
-    def test_status_absent_is_ok(self, tmp_path: Path) -> None:
-        path = tmp_path / "SKILL.md"
-        text = "---\nname: foo\ndescription: bar\ncapability: capability:platform\nlicense: Apache-2.0\n---\n"
-        violations = list(validate_frontmatter(path, text))
-        assert not any(v.category == "skill_status" for v in violations)
-
-    def test_status_category_is_hard(self) -> None:
-        assert STATUS_CATEGORY in HARD_CATEGORIES
-        assert STATUS_CATEGORY not in SOFT_CATEGORIES
-
-
-# ---------------------------------------------------------------------------
 # Multi-capability form: space/comma-separated string → SOFT advisory
 # ---------------------------------------------------------------------------
 
@@ -441,7 +400,7 @@ class TestMultiCapabilityForm:
         text = (
             "---\nname: foo\ndescription: bar\n"
             "capability: capability:triage capability:fix\n"
-            "license: Apache-2.0\n---\n"
+            "family: repo-health\nmode: Triage\nwhen_to_use: when it applies\nlicense: Apache-2.0\n---\n"
         )
         violations = list(validate_frontmatter(path, text))
         assert any(v.category == "multi_capability_form" for v in violations)
@@ -451,7 +410,7 @@ class TestMultiCapabilityForm:
         text = (
             "---\nname: foo\ndescription: bar\n"
             "capability: capability:fix, capability:resolve\n"
-            "license: Apache-2.0\n---\n"
+            "family: repo-health\nmode: Triage\nwhen_to_use: when it applies\nlicense: Apache-2.0\n---\n"
         )
         violations = list(validate_frontmatter(path, text))
         assert any(v.category == "multi_capability_form" for v in violations)
@@ -461,14 +420,14 @@ class TestMultiCapabilityForm:
         text = (
             "---\nname: foo\ndescription: bar\n"
             "capability:\n  - capability:fix\n  - capability:resolve\n"
-            "license: Apache-2.0\n---\n"
+            "family: repo-health\nmode: Triage\nwhen_to_use: when it applies\nlicense: Apache-2.0\n---\n"
         )
         violations = list(validate_frontmatter(path, text))
         assert not any(v.category == "multi_capability_form" for v in violations)
 
     def test_single_capability_string_clean(self, tmp_path: Path) -> None:
         path = tmp_path / "SKILL.md"
-        text = "---\nname: foo\ndescription: bar\ncapability: capability:triage\nlicense: Apache-2.0\n---\n"
+        text = "---\nname: foo\ndescription: bar\ncapability: capability:triage\nfamily: repo-health\nmode: Triage\nwhen_to_use: when it applies\nlicense: Apache-2.0\n---\n"
         violations = list(validate_frontmatter(path, text))
         assert not any(v.category == "multi_capability_form" for v in violations)
 
@@ -488,7 +447,7 @@ class TestValidateNameConvention:
         skill_dir.mkdir(parents=True)
         path = skill_dir / "SKILL.md"
         path.write_text(
-            f"---\nname: {name}\ndescription: bar\ncapability: capability:platform\nlicense: Apache-2.0\n---\n# body\n",
+            f"---\nname: {name}\ndescription: bar\ncapability: capability:platform\nfamily: repo-health\nmode: Triage\nwhen_to_use: when it applies\nlicense: Apache-2.0\n---\n# body\n",
             encoding="utf-8",
         )
         return path
@@ -517,7 +476,7 @@ class TestValidateNameConvention:
         skill_dir.mkdir(parents=True)
         path = skill_dir / "SKILL.md"
         path.write_text(
-            "---\ndescription: bar\ncapability: capability:platform\nlicense: Apache-2.0\n---\n# body\n",
+            "---\ndescription: bar\ncapability: capability:platform\nfamily: repo-health\nmode: Triage\nwhen_to_use: when it applies\nlicense: Apache-2.0\n---\n# body\n",
             encoding="utf-8",
         )
         assert list(validate_name_convention(path, path.read_text())) == []
@@ -770,7 +729,7 @@ class TestSubDocFiles:
         skill_dir = root / "skills" / skill_name
         skill_dir.mkdir(parents=True)
         (skill_dir / "SKILL.md").write_text(
-            f"---\nname: magpie-{skill_name}\ndescription: bar\ncapability: capability:platform\nlicense: Apache-2.0\n---\n"
+            f"---\nname: magpie-{skill_name}\ndescription: bar\ncapability: capability:platform\nfamily: repo-health\nmode: Triage\nwhen_to_use: when it applies\nlicense: Apache-2.0\n---\n"
             "<!-- SPDX-License-Identifier: Apache-2.0\n     https://www.apache.org/licenses/LICENSE-2.0 -->\n"
             "# body\n",
             encoding="utf-8",
@@ -1094,9 +1053,7 @@ class TestTriggerPreservation:
 # ---------------------------------------------------------------------------
 
 # Minimal valid SKILL.md frontmatter used across injection-guard tests.
-_GUARD_FM = (
-    "---\nname: test-skill\ndescription: bar\ncapability: capability:platform\nlicense: Apache-2.0\n---\n"
-)
+_GUARD_FM = "---\nname: test-skill\ndescription: bar\ncapability: capability:platform\nfamily: repo-health\nmode: Triage\nwhen_to_use: when it applies\nlicense: Apache-2.0\n---\n"
 
 # A gh-pr-view signal that unambiguously looks like a workflow fetch step.
 _GH_PR_VIEW_SIGNAL = "2. **Fetch the PR.** `gh pr view <N> --json title,body`\n"
@@ -1506,7 +1463,7 @@ class TestSecurityPatterns:
 
 def _fenced_skill_lf(cmd: str) -> str:
     """Wrap *cmd* in a minimal SKILL.md with a fenced bash block."""
-    return f"---\nname: test\ndescription: test\ncapability: capability:platform\nlicense: Apache-2.0\n---\n\n```bash\n{cmd}\n```\n"
+    return f"---\nname: test\ndescription: test\ncapability: capability:platform\nfamily: repo-health\nmode: Triage\nwhen_to_use: when it applies\nlicense: Apache-2.0\n---\n\n```bash\n{cmd}\n```\n"
 
 
 class TestLowercaseFField:
@@ -1576,7 +1533,7 @@ class TestLowercaseFField:
         """Inline backtick prose like ``-f title='...'`` must not fire."""
         path = tmp_path / "SKILL.md"
         text = (
-            "---\nname: test\ndescription: test\ncapability: capability:platform\nlicense: Apache-2.0\n---\n\n"
+            "---\nname: test\ndescription: test\ncapability: capability:platform\nfamily: repo-health\nmode: Triage\nwhen_to_use: when it applies\nlicense: Apache-2.0\n---\n\n"
             "Avoid using `-f title='value'` — use `-F title=@file` instead.\n"
         )
         violations = list(validate_lowercase_f_field(path, text))
@@ -1586,7 +1543,7 @@ class TestLowercaseFField:
         """Bare prose outside a fenced block must not fire."""
         path = tmp_path / "SKILL.md"
         text = (
-            "---\nname: test\ndescription: test\ncapability: capability:platform\nlicense: Apache-2.0\n---\n\n"
+            "---\nname: test\ndescription: test\ncapability: capability:platform\nfamily: repo-health\nmode: Triage\nwhen_to_use: when it applies\nlicense: Apache-2.0\n---\n\n"
             "Run: gh api milestones -f title='v1'\n"
         )
         violations = list(validate_lowercase_f_field(path, text))
@@ -1603,9 +1560,10 @@ class TestLowercaseFField:
     def test_violation_line_number_correct(self, tmp_path: Path) -> None:
         path = tmp_path / "SKILL.md"
         text = _fenced_skill_lf("gh api repos/<tracker>/milestones -f title='v1.0'")
-        # Layout: 1:--- 2:name 3:description 4:capability 5:license 6:--- 7:blank 8:```bash 9:command
+        # Layout: 1:--- 2:name 3:description 4:capability 5:family 6:mode
+        # 7:when_to_use 8:license 9:--- 10:blank 11:```bash 12:command
         violations = list(validate_lowercase_f_field(path, text))
-        assert violations[0].line == 9
+        assert violations[0].line == 12
 
     def test_lowercase_f_field_in_soft_categories(self) -> None:
         assert LOWERCASE_F_FIELD_CATEGORY in SOFT_CATEGORIES
@@ -1649,7 +1607,7 @@ class TestValidateLicenseHeader:
     def test_md_file_is_exempt(self, tmp_path: Path) -> None:
         """Skill .md files declare license via frontmatter, so they need no header."""
         path = tmp_path / "SKILL.md"
-        text = "---\nname: foo\ndescription: bar\ncapability: capability:platform\nlicense: Apache-2.0\n---\n# Body\n"
+        text = "---\nname: foo\ndescription: bar\ncapability: capability:platform\nfamily: repo-health\nmode: Triage\nwhen_to_use: when it applies\nlicense: Apache-2.0\n---\n# Body\n"
         violations = list(validate_license_header(path, text))
         assert violations == []
 
@@ -2220,7 +2178,7 @@ def _make_valid_skill(root: Path, name: str) -> Path:
     skill_dir = root / "skills" / name
     skill_dir.mkdir(parents=True, exist_ok=True)
     (skill_dir / "SKILL.md").write_text(
-        f"---\nname: magpie-{name}\ndescription: A test skill.\ncapability: capability:platform\nlicense: Apache-2.0\n---\n"
+        f"---\nname: magpie-{name}\ndescription: A test skill.\ncapability: capability:platform\nfamily: repo-health\nmode: Triage\nwhen_to_use: when it applies\nlicense: Apache-2.0\n---\n"
         "<!-- SPDX-License-Identifier: Apache-2.0\n     https://www.apache.org/licenses/LICENSE-2.0 -->\n"
         "# Body\nSome content.\n"
     )
@@ -2293,7 +2251,7 @@ class TestMain:
             "---\n"
             "name: magpie-soft-skill\n"
             "description: A test skill.\n"
-            "capability: capability:platform\nlicense: Apache-2.0\n"
+            "capability: capability:platform\nfamily: repo-health\nmode: Triage\nwhen_to_use: when it applies\nlicense: Apache-2.0\n"
             "---\n"
             "<!-- SPDX-License-Identifier: Apache-2.0\n     https://www.apache.org/licenses/LICENSE-2.0 -->\n"
             "```bash\n"
@@ -2335,7 +2293,7 @@ class TestValidateAsfCoupling:
             "---\n"
             "name: magpie-test\n"
             "description: Test skill.\n"
-            "license: Apache-2.0\n"
+            "family: repo-health\nmode: Triage\nwhen_to_use: when it applies\nlicense: Apache-2.0\n"
             "capability: capability:triage\n"
             "---\n" + body
         )
@@ -2483,7 +2441,7 @@ class TestValidateAsfCoupling:
             "name: magpie-test\n"
             "organization: ASF\n"
             "description: Test skill.\n"
-            "license: Apache-2.0\n"
+            "family: repo-health\nmode: Triage\nwhen_to_use: when it applies\nlicense: Apache-2.0\n"
             "capability: capability:triage\n"
             "---\n" + body
         )
@@ -3047,7 +3005,7 @@ class TestOrganizationMembership:
     def test_frontmatter_organization_known(self, tmp_path: Path) -> None:
         (tmp_path / "organizations" / "ASF").mkdir(parents=True)
         text = (
-            "---\nname: magpie-x\ndescription: d\nlicense: Apache-2.0\n"
+            "---\nname: magpie-x\ndescription: d\nfamily: repo-health\nmode: Triage\nwhen_to_use: when it applies\nlicense: Apache-2.0\n"
             "capability: capability:platform\norganization: ASF\n---\n\nBody.\n"
         )
         violations = [
@@ -3060,7 +3018,7 @@ class TestOrganizationMembership:
     def test_frontmatter_organization_unknown(self, tmp_path: Path) -> None:
         (tmp_path / "organizations" / "ASF").mkdir(parents=True)
         text = (
-            "---\nname: magpie-x\ndescription: d\nlicense: Apache-2.0\n"
+            "---\nname: magpie-x\ndescription: d\nfamily: repo-health\nmode: Triage\nwhen_to_use: when it applies\nlicense: Apache-2.0\n"
             "capability: capability:platform\norganization: Nope\n---\n\nBody.\n"
         )
         violations = [
@@ -3171,7 +3129,7 @@ def _seed_capability_repo(
         d = root / "skills" / skill
         d.mkdir()
         (d / "SKILL.md").write_text(
-            f"---\nname: {skill}\ndescription: test\ncapability: {cap}\nlicense: Apache-2.0\n---\n"
+            f"---\nname: {skill}\ndescription: test\ncapability: {cap}\nfamily: repo-health\nmode: Triage\nwhen_to_use: when it applies\nlicense: Apache-2.0\n---\n"
         )
 
     for tool, cap in live_tools.items():
@@ -3269,7 +3227,7 @@ class TestValidateCapabilitySync:
         )
         (root / "docs" / "labels-and-capabilities.md").write_text(doc)
         (root / "skills" / "alpha" / "SKILL.md").write_text(
-            "---\nname: alpha\ndescription: test\ncapability: capability:intake\nlicense: Apache-2.0\n---\n"
+            "---\nname: alpha\ndescription: test\ncapability: capability:intake\nfamily: repo-health\nmode: Triage\nwhen_to_use: when it applies\nlicense: Apache-2.0\n---\n"
         )
         (root / "tools").mkdir()
         violations = list(validate_capability_sync(root))
@@ -3512,7 +3470,7 @@ class TestValidateEvalCoverage:
         skill_dir = root / "skills" / slug
         skill_dir.mkdir(parents=True, exist_ok=True)
         (skill_dir / "SKILL.md").write_text(
-            f"---\nname: magpie-{slug}\ndescription: test\ncapability: capability:triage\nlicense: Apache-2.0\n---\n"
+            f"---\nname: magpie-{slug}\ndescription: test\ncapability: capability:triage\nfamily: repo-health\nmode: Triage\nwhen_to_use: when it applies\nlicense: Apache-2.0\n---\n"
         )
 
     def _make_eval(self, root: Path, slug: str) -> None:
@@ -3661,7 +3619,7 @@ class TestValidateModeDocConsistency:
         mode_line = f"mode: {mode}\n" if mode else ""
         (skill_dir / "SKILL.md").write_text(
             f"---\nname: magpie-{slug}\ndescription: test skill\n"
-            f"capability: capability:triage\nlicense: Apache-2.0\n{mode_line}---\n"
+            f"capability: capability:triage\nfamily: repo-health\nwhen_to_use: when it applies\nlicense: Apache-2.0\n{mode_line}---\n"
         )
 
     def _make_modes_md(self, root: Path, text: str) -> Path:

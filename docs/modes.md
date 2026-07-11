@@ -13,7 +13,7 @@
   - [Drafting](#drafting)
   - [Pairing](#pairing)
   - [Agentic Autonomous](#agentic-autonomous)
-  - [Outside the modes](#outside-the-modes)
+  - [Meta](#meta)
   - [Mode lifecycle](#mode-lifecycle)
   - [Cross-references](#cross-references)
 
@@ -63,10 +63,11 @@ Autonomous* (the renamed former *Auto-merge*).
 | **Mentoring** | *(Agentic Mentoring)* Joins issue and PR threads in a teaching register: clarifying questions, pointers to project conventions, paired examples from prior PRs, hand-off to a human when scope exceeds the agent. Also authors net-new good first issues, curates the existing backlog, and explains filed issues to newcomers to lower onboarding latency. | experimental | 7 |
 | **Drafting** | *(Agentic Drafting)* Agent drafts a fix for a well-scoped problem and opens a PR; every PR is reviewed and merged by a human committer. | stable (security-only); experimental (issue-management, audit-findings, release-management family) | 9 |
 | **Pairing** | *(Agentic Pairing)* Developer-side dev-cycle skills with mentorship intrinsic — multi-agent review pipelines, self-review and pre-flight patterns, scoped fix drafting under the developer's driver's seat. | experimental | 3 |
+| **Meta** | *(framework infrastructure & authoring)* Adoption, isolation, upgrade, status, and skill-authoring flows plus read-only stats dashboards' framework plumbing. These skills are framework machinery rather than a maintainership mode; they do not act on issues, PRs, or contributor threads on their own. | stable | 17 |
 | **Agentic Autonomous** | Auto-merge restricted to objectively boring change classes only (lint, dependency bumps inside an allow-list, license-header insertion, formatting, broken-link repair). | off | 0 |
 
-A few skills sit **outside** the mode taxonomy by design — see
-[Outside the modes](#outside-the-modes) below.
+Framework-infrastructure and authoring skills carry the **Meta**
+mode — see [Meta](#meta) below.
 
 ## Triage
 
@@ -276,16 +277,21 @@ declared per-adopter in `<project-config>/` and gated by an
 allow-list that the framework refuses to grow without an
 adopter PR.
 
-## Outside the modes
+## Meta
 
-Several skills are framework infrastructure rather than
-maintainership modes. They support adoption, isolation, and
-upgrade flows; they do not act on issues, PRs, or contributor
-threads on their own.
+The **Meta** mode (`mode: Meta`) covers skills that are framework
+machinery rather than a maintainership mode: adoption, isolation,
+upgrade, status, and skill-authoring flows, plus read-only stats
+dashboards and evidence producers. They support the framework and
+the maintainer's own tooling; they do not act on issues, PRs, or
+contributor threads on their own. The always-on `setup` and
+`utilities` families live entirely in this mode.
 
 | Skill | Purpose |
 |---|---|
 | [`setup`](../skills/setup/SKILL.md) | Adopt the framework into an adopter repo; manage the snapshot, symlinks, and overrides. |
+| [`setup-upstream-fix`](../skills/setup-upstream-fix/SKILL.md) | Turn a framework bug hit while running a skill into a fix PR against `apache/magpie`. |
+| [`skill-reconciler`](../skills/skill-reconciler/SKILL.md) | Compare two near-duplicate skills and classify each difference as ALLOWED / DRIFT / SAFETY-BASELINE. Read-only. |
 | [`issue-reproducer`](../skills/issue-reproducer/SKILL.md) | Per-issue code extraction + execution; produces structured evidence. Read-only on the tracker. |
 | [`issue-reassess-stats`](../skills/issue-reassess-stats/SKILL.md) | Read-only dashboard over reassessment-campaign verdict.json files. |
 | [`setup-isolated-setup-install`](../skills/setup-isolated-setup-install/SKILL.md) | Install the credential-isolation sandbox harness. |
@@ -301,11 +307,14 @@ threads on their own.
 | [`list-skills`](../skills/list-skills/SKILL.md) | Print a live index of every skill in this repository grouped by family, with each skill's name and first-sentence description. |
 | [`write-skill`](../skills/write-skill/SKILL.md) | Author a new framework skill or update an existing one: frontmatter, placeholder convention, injection defences, Privacy-LLM gate-check, and validator sign-off. |
 
-The `setup*` skills ship as a single **setup family** — see
-[`docs/setup/README.md`](setup/README.md). The remaining skills
-(`committer-onboarding`, `security-tracker-stats-dashboard`,
-`optimize-skill`, `list-skills`, `write-skill`) are standalone
-framework utilities.
+The `setup*` skills ship as the always-on **setup family** — see
+[`docs/setup/README.md`](setup/README.md) — and `list-skills`,
+`optimize-skill`, `write-skill`, and `skill-reconciler` as the
+always-on **utilities family**. The rest (`committer-onboarding`,
+`security-tracker-stats-dashboard`, `issue-reproducer`,
+`issue-reassess-stats`) are opt-in family skills that nonetheless
+carry the Meta mode because they are read-only dashboards or
+evidence producers, not maintainership actions.
 
 ## Mode lifecycle
 

@@ -70,7 +70,7 @@ with the framework's own conventions rather than with adopter pilots.
 
 ## Cross-references
 
-- [`docs/modes.md` § Outside the modes](../modes.md#outside-the-modes) — why
+- [`docs/modes.md` § Meta](../modes.md#meta) — why
   these skills sit outside the maintainership-mode taxonomy.
 - [`docs/spec-driven-development.md`](../spec-driven-development.md) — the
   authoring loop `write-skill` and `optimize-skill` support.

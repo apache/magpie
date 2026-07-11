@@ -3,6 +3,7 @@
 # https://www.apache.org/licenses/LICENSE-2.0
 name: magpie-setup-isolated-setup-verify
 family: setup
+mode: Meta
 description: |
   Walk the verification checklist for the framework's secure
   agent setup and report ✓ done / ✗ missing / ⚠ partial for

@@ -3,6 +3,7 @@
 # https://www.apache.org/licenses/LICENSE-2.0
 name: magpie-pr-management-stats
 family: pr-management
+mode: Triage
 description: |
   Read-only maintainer dashboard for the open-PR backlog of <upstream>.
   Surfaces a health rating, prioritised action recommendations, weekly closure

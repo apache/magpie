@@ -3,6 +3,7 @@
 # https://www.apache.org/licenses/LICENSE-2.0
 name: magpie-skill-reconciler
 family: utilities
+mode: Meta
 description: |
   Compare two near-duplicate skills — typically an ASF variant and a
   non-ASF or multi-project variant — and classify every difference as

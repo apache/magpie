@@ -3,6 +3,7 @@
 # https://www.apache.org/licenses/LICENSE-2.0
 name: magpie-issue-reassess-stats
 family: issue
+mode: Meta
 description: |
   Read-only dashboard over a directory of `verdict.json` files
   produced by `issue-reassess` campaigns. Surfaces a health

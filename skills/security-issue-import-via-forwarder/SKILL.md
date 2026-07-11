@@ -3,6 +3,7 @@
 # https://www.apache.org/licenses/LICENSE-2.0
 name: magpie-security-issue-import-via-forwarder
 family: security
+mode: Triage
 description: |
   Optional sub-skill of `security-issue-import`,
   `security-issue-invalidate`, and `security-issue-sync` that

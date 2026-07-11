@@ -3,6 +3,7 @@
 # https://www.apache.org/licenses/LICENSE-2.0
 name: magpie-setup-status
 family: setup
+mode: Meta
 description: |
   Show how the apache-magpie framework is adopted in the current
   repo, then adjust that setup in place. Renders a Markdown

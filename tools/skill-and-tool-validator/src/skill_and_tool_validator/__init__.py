@@ -74,12 +74,6 @@ skills/:
     the actual per-section row counts, and every live skill with a
     ``mode:`` frontmatter must appear in the corresponding section.
     Advisory only — never fails the run unless ``--strict``.
-13. Status field validation (HARD) — when a skill declares a
-    ``status:`` frontmatter key, its value must be from the
-    documented lifecycle vocabulary (``ALLOWED_SKILL_STATUSES``).
-    An unknown status (e.g. ``proposed``, ``done``) is a HARD failure
-    because those values belong to the spec lifecycle, not skill
-    lifecycle.
 14. Multi-capability form advisory (SOFT) — when a ``capability:``
     value looks like multiple tokens joined by a space or comma (e.g.
     ``capability: capability:fix capability:resolve``), the skill is
@@ -319,8 +313,8 @@ _CAPABILITY_TOKEN_RE = re.compile(r"`?((?:capability|contract|substrate):[a-z-]+
 # parens.
 _ITALIC_PARENS_RE = re.compile(r"\*\(.*?\)\*")
 
-REQUIRED_FRONTMATTER_KEYS = {"name", "description", "license", "capability"}
-OPTIONAL_FRONTMATTER_KEYS = {"when_to_use", "mode", "organization", "status", "source", "family"}
+REQUIRED_FRONTMATTER_KEYS = {"name", "description", "license", "capability", "family", "mode", "when_to_use"}
+OPTIONAL_FRONTMATTER_KEYS = {"organization", "mcp"}
 ALLOWED_LICENSES = {"Apache-2.0"}
 
 # Canonical skill-family vocabulary.  Skills declare their family via a
@@ -345,12 +339,6 @@ ALLOWED_FAMILIES: frozenset[str] = frozenset(
 # The two families that are wired unconditionally and never appear in the
 # adopt/upgrade opt-in prompt (Golden rule 8).
 ALWAYS_ON_FAMILIES: frozenset[str] = frozenset({"setup", "utilities"})
-
-# Documented skill lifecycle vocabulary.  Skills may declare a ``status:``
-# frontmatter key; its value must be one of these strings.  Spec lifecycle
-# values (``proposed``, ``done``) belong only in spec-loop spec files and
-# are rejected here so a spec status cannot accidentally appear on a skill.
-ALLOWED_SKILL_STATUSES: frozenset[str] = frozenset({"experimental"})
 
 # Canonical capability taxonomy — two orthogonal axes per RFC-AI-0005;
 # docs/labels-and-capabilities.md is authoritative.
@@ -535,8 +523,6 @@ TRIGGER_PRESERVATION_CATEGORY = "trigger_preservation"
 # Pattern 4 — injection-guard callout.  Missing callout = HARD; unfilled TODO = SOFT.
 INJECTION_GUARD_CATEGORY = "injection_guard"
 INJECTION_GUARD_TODO_CATEGORY = "injection_guard_todo"
-# Skill lifecycle status vocabulary check (HARD).
-STATUS_CATEGORY = "skill_status"
 # Space/comma-separated multi-capability form check (SOFT advisory).
 MULTI_CAPABILITY_CATEGORY = "multi_capability_form"
 
@@ -621,7 +607,6 @@ HARD_CATEGORIES: frozenset[str] = frozenset(
         INJECTION_GUARD_CATEGORY,
         NAME_CONVENTION_CATEGORY,
         LICENSE_HEADER_CATEGORY,
-        STATUS_CATEGORY,
         SKILL_SOURCE_CATEGORY,
     }
 )
@@ -993,16 +978,6 @@ def validate_frontmatter(path: Path, text: str, root: Path | None = None) -> Ite
                     f"frontmatter capability '{entry}' not in {sorted(SKILL_CAPABILITIES)} "
                     f"(skills use Axis-1 capability:* values; see docs/labels-and-capabilities.md)",
                 )
-
-    if fm.get("status") and fm["status"] not in ALLOWED_SKILL_STATUSES:
-        yield Violation(
-            path,
-            1,
-            f"frontmatter status '{fm['status']}' not in {sorted(ALLOWED_SKILL_STATUSES)} "
-            f"(documented skill lifecycle vocabulary; spec values like 'proposed'/'done' "
-            f"belong in spec-loop specs, not in skill frontmatter)",
-            category=STATUS_CATEGORY,
-        )
 
     desc_len = len(fm.get("description", ""))
     wtu_len = len(fm.get("when_to_use", ""))

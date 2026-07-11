@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # https://www.apache.org/licenses/LICENSE-2.0
 name: magpie-dependency-license-audit
+family: repo-health
 mode: Triage
 description: |
   Read-only license audit of a project's direct and transitive dependency

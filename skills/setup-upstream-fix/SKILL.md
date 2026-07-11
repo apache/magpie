@@ -3,6 +3,7 @@
 # https://www.apache.org/licenses/LICENSE-2.0
 name: magpie-setup-upstream-fix
 family: setup
+mode: Meta
 description: |
   Turn a framework bug or quirk the agent hit while running a
   Magpie skill or tool into a fix PR against `apache/magpie` —

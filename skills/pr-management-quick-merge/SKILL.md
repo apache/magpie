@@ -3,6 +3,7 @@
 # https://www.apache.org/licenses/LICENSE-2.0
 name: magpie-pr-management-quick-merge
 family: pr-management
+mode: Triage
 description: |
   Identify trivial, low-risk pull requests in the `ready for maintainer review`
   queue of <upstream> that pass every quality gate and touch only supplementary

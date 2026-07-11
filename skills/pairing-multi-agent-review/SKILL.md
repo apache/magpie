@@ -4,7 +4,6 @@
 name: magpie-pairing-multi-agent-review
 family: pairing
 mode: Pairing
-status: experimental
 description: |
   Fan a local diff through three independent, axis-focused review passes
   (correctness, security, conventions), then merge the findings into a

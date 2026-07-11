@@ -3,6 +3,7 @@
 # https://www.apache.org/licenses/LICENSE-2.0
 name: magpie-optimize-skill
 family: utilities
+mode: Meta
 description: |
   Optimize an existing framework skill (or sweep a set of them) by
   applying the restructuring patterns proven on the security-skill

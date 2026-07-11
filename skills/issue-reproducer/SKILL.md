@@ -3,6 +3,7 @@
 # https://www.apache.org/licenses/LICENSE-2.0
 name: magpie-issue-reproducer
 family: issue
+mode: Meta
 description: |
   For a single `<issue-tracker>` issue identifying a code-level
   bug, extract the reporter's example code from the issue body,

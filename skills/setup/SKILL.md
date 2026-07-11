@@ -3,6 +3,7 @@
 # https://www.apache.org/licenses/LICENSE-2.0
 name: magpie-setup
 family: setup
+mode: Meta
 description: |
   Adopt and maintain the apache-magpie framework in a project
   repo via the snapshot-based adoption mechanism. The only

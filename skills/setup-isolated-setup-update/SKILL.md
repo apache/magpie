@@ -3,6 +3,7 @@
 # https://www.apache.org/licenses/LICENSE-2.0
 name: magpie-setup-isolated-setup-update
 family: setup
+mode: Meta
 description: |
   Surface drift between the user's installed secure agent setup
   and the framework's latest (framework checkout, pinned tools,
