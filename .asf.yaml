@@ -18,7 +18,7 @@
 # https://cwiki.apache.org/confluence/display/INFRA/git+-+.asf.yaml+features
 ---
 github:
-  description: "Agent-assisted maintainership and development framework for Apache projects — Triage and Drafting (agent-authored fixes with human review); Mentoring, Pairing (developer-side dev-cycle), and Auto-merge on the roadmap."
+  description: "Agent-assisted maintainership and development framework for Apache projects — Triage, Mentoring, Drafting (agent-authored fixes with human review), and Pairing (developer-side dev-cycle) skills shipping; Agentic Autonomous (auto-merge) on the roadmap."
   homepage: "https://magpie.apache.org/"
   labels:
     # Note that GitHub only supports <=20 labels/topics per repo! Pipeline
@@ -111,17 +111,19 @@ github:
   # ever existed, so the protection now lives here next to the rest
   # of the repo config.
   #
-  # TEMPORARY POSTURE — REVISIT AT PMC FORMATION
-  # --------------------------------------------
-  # Pull-request approvals are intentionally NOT required while the
-  # framework is in its bootstrap phase under the Airflow PMC
-  # umbrella with a small set of committers (see MISSION.md). Once
-  # the project establishes its own PMC, this block MUST be
-  # revisited: add a `required_pull_request_reviews:` section with
+  # PMC FORMED — REVIEW REQUIREMENT IS A PMC DECISION
+  # -------------------------------------------------
+  # Pull-request approvals are currently NOT required. This was the
+  # bootstrap posture from when the framework ran under the Airflow
+  # PMC umbrella with a small set of committers (see MISSION.md);
+  # Magpie is now a Top-Level Project with its own PMC, so the PMC
+  # should decide whether to keep self-merge-after-CI or add a
+  # `required_pull_request_reviews:` section with
   # `required_approving_review_count: 1` (or higher) and
   # `dismiss_stale_reviews` / `require_code_owner_reviews` tuned to
-  # the new committer / CODEOWNERS shape. Until then, status checks
-  # alone gate merges — a maintainer can self-merge after CI green.
+  # the committer / CODEOWNERS shape. Until the PMC changes it,
+  # status checks alone gate merges — a maintainer can self-merge
+  # after CI green.
   protected_branches:
     main:
       # Required status checks. Listed contexts MUST run on every PR
@@ -174,7 +176,8 @@ github:
           # same.
           - "tests-ok"
       # `required_pull_request_reviews:` deliberately omitted — see
-      # the TEMPORARY POSTURE note above. Re-add at PMC formation.
+      # the PMC-decision note above. Re-add once the PMC settles the
+      # review requirement.
       #
       # Linear history matches `enabled_merge_buttons.squash: true`
       # above — squash is the only enabled merge mode, so every
@@ -191,19 +194,14 @@ github:
       required_signatures: false
 
 notifications:
-  # The framework is hosted under the Airflow PMC umbrella, and its
-  # commit / PR / issue / discussion traffic lands on the PMC's own
-  # lists rather than the previously-used `dev-magpie@` sub-list.
-  # Traffic volume on the Airflow PMC's lists is already strong and
-  # noisy enough that adding this repo's events does not materially
-  # change the signal/noise profile — separating them onto a
-  # dedicated sub-list was not worth the cost of subscribers having
-  # to follow a second list to see what was happening here. When the
-  # framework eventually moves to its own TLP it will inherit its
-  # own `commits@` list and the schemes below will be re-pointed at
-  # that list in the same change.
+  # Magpie is a Top-Level Project with its own mailing lists. All
+  # commit / PR / issue / discussion traffic routes to the project's
+  # own `commits@magpie.apache.org` list. (During the bootstrap phase
+  # the framework ran under the Airflow PMC umbrella and its events
+  # rode the Airflow PMC's lists; with TLP status Magpie now has its
+  # own `commits@` and the schemes below point at it.)
   #
-  # Routing follows Airflow's `.asf.yaml` destinations:
+  # Routing:
   #   - jobs            → jobs@    (CI run notifications)
   #   - everything else → commits@
   #

@@ -37,10 +37,10 @@ for the canonical distribution mechanism we will adopt.
 
 > [!IMPORTANT]
 > The motivation, scope, and design commitments behind this work
-> live in [`MISSION.md`](MISSION.md) — the **draft** project-
-> establishment proposal for an Apache Top-Level Project built on
-> this framework. Read that for the *why*; this README is the
-> *how* once you've decided to adopt.
+> live in [`MISSION.md`](MISSION.md) — the founding mission of the
+> Apache Magpie Top-Level Project, originally filed as its
+> establishment proposal. Read that for the *why*; this README is
+> the *how* once you've decided to adopt.
 
 ## How adoption works
 

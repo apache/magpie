@@ -29,6 +29,13 @@
 
 # Apache Magpie
 
+> [!NOTE]
+> **Status:** Apache Magpie was established as an Apache Top-Level
+> Project by ASF Board resolution on **17 June 2026**.
+> The text below is the original establishment proposal, kept as a
+> historical record of the project's founding mission, scope, and
+> design commitments.
+
 > [!IMPORTANT]
 > **Motto:** *"Give maintainers time back, so they can do what matters."*
 

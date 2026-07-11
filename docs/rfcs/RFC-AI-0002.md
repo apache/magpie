@@ -59,7 +59,7 @@ This RFC proposes a layered, opt-in secure setup that an ASF project handling *
 
 The setup is built around four layers — a **clean-env shell wrapper**, a **filesystem sandbox** (bubblewrap on Linux, Seatbelt on macOS), a set of **tool-permission rules** in the agent's own configuration, and a **forced-confirmation** policy for write-side actions visible to others — plus two **visibility mechanisms** (a status-line indicator and a per-call bypass-warn hook) that make sandbox state continuously legible to the operator.
 
-A reference implementation ships in the [`apache/magpie`](https://github.com/apache/magpie) incubator-podling project (the ASF Incubator's maintainership tooling for a tracker repo). This RFC abstracts the lessons of that implementation into a pattern other ASF projects can adopt with or without depending on `magpie` itself.
+A reference implementation ships in the [`apache/magpie`](https://github.com/apache/magpie) Top-Level Project (agent-assisted repository maintainership tooling for a tracker repo). This RFC abstracts the lessons of that implementation into a pattern other ASF projects can adopt with or without depending on `magpie` itself.
 
 ## Motivation
 

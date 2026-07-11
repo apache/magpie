@@ -13,10 +13,11 @@
 
 # Board resolution — Establish the Apache Magpie Project (draft)
 
-> **Status:** *Draft.* Working text for the forthcoming ASF Board resolution
-> establishing Apache Magpie as a Top-Level Project. The companion supporting
-> document is [`MISSION.md`](../MISSION.md), which the Board is expected to
-> read alongside the resolution.
+> **Status:** **Adopted.** Apache Magpie was established as an Apache
+> Top-Level Project by ASF Board resolution on **17 June 2026**.
+> The text below is the establishment resolution as drafted, kept as a
+> historical record. The companion supporting document is
+> [`MISSION.md`](../MISSION.md), which the Board read alongside the resolution.
 >
 > The resolution itself is short and procedural by ASF convention; rationale,
 > roster lineage, scope justification, and the donated-code story live in
