@@ -314,7 +314,7 @@ _CAPABILITY_TOKEN_RE = re.compile(r"`?((?:capability|contract|substrate):[a-z-]+
 _ITALIC_PARENS_RE = re.compile(r"\*\(.*?\)\*")
 
 REQUIRED_FRONTMATTER_KEYS = {"name", "description", "license", "capability", "family", "mode", "when_to_use"}
-OPTIONAL_FRONTMATTER_KEYS = {"organization", "mcp"}
+OPTIONAL_FRONTMATTER_KEYS = {"organization"}
 ALLOWED_LICENSES = {"Apache-2.0"}
 
 # Canonical skill-family vocabulary.  Skills declare their family via a
