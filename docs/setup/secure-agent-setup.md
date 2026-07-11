@@ -470,9 +470,18 @@ below, annotated.
   "permissions": {
     "allow": [
       "Bash(gh api graphql *)",                 // read-only GraphQL fetches (PR-triage paginated loop). MORE SPECIFIC than the `gh *` ask below, so it — and the read-only rules that follow — run WITHOUT a prompt. GraphQL mutations slip through; accepted, since the skills route mutations through REST, not graphql.
+      // Two read-only REST `gh api` GETs the skills need for read-only
+      // analysis (security-team / reviewer roster lookup; release-tag ↔
+      // fix-commit ancestry when verifying a fix shipped). Without these,
+      // read-only assessor subagents prompt mid-run for the roster/ancestry
+      // reads. Kept mutation-safe: the `collaborators --*` guard matches the
+      // list GET (`… /collaborators --paginate --jq …`) but NOT the add-member
+      // mutation (`… /collaborators/<user> -X PUT`, which has no ` --` prefix);
+      // `compare/…` is a GET-only endpoint with no mutating counterpart.
+      "Bash(gh api repos/*/*/collaborators --*)", "Bash(gh api repos/*/*/compare/*)",
       // Read-only gh, allow-listed so they don't trip the `gh *` ask below.
-      // Anything NOT listed here — every write/destructive gh, and REST `gh
-      // api` (GET included) — falls through to `gh *` and prompts.
+      // Anything NOT listed here — every write/destructive gh, and any other
+      // REST `gh api` (GET included) — falls through to `gh *` and prompts.
       "Bash(gh pr view *)", "Bash(gh pr list *)", "Bash(gh pr diff *)", "Bash(gh pr checks *)",
       "Bash(gh issue view *)", "Bash(gh issue list *)",
       "Bash(gh repo view *)", "Bash(gh repo list *)",
