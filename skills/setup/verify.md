@@ -215,8 +215,9 @@ in a given active target dir, classify it (a skill missing
 from `.agents/skills/` is as much a gap as one missing from
 `.claude/skills/`):
 
-- **Always-on family** (every `setup-*` *except*
-  `setup` itself, and every `list-*` — per
+- **Always-on family** (every `family: setup` skill *except*
+  `setup` itself, and every `family: utilities` skill — read the
+  `family:` frontmatter key, per
   [`SKILL.md` Golden rule 8](SKILL.md#golden-rules)) →
   surface as ✗. These families are not opt-in; missing
   symlinks here indicate a broken install or a skipped
@@ -543,7 +544,7 @@ hit these constantly; pre-allowing them removes the
 repetitive confirmation prompts without weakening the
 boundary. Tailor the recommendation to the families the
 adopter opted into via
-[`<committed-lock>` → `skill-families`](adopt.md#step-5--pick-the-skill-families):
+[`<committed-lock>` → `skill-families`](adopt.md#step-5--pick-the-skill-families-and-mcp-servers):
 
 - **`security` family** —
   - `mcp__claude_ai_Gmail__get_thread`

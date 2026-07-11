@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # https://www.apache.org/licenses/LICENSE-2.0
 name: magpie-security-issue-sync
+family: security
 mode: Triage
 description: |
   Synchronize a security issue in <tracker> with the state of its

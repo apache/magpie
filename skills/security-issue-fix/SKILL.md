@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # https://www.apache.org/licenses/LICENSE-2.0
 name: magpie-security-issue-fix
+family: security
 mode: Drafting
 description: |
   Attempt to fix a security issue tracked in `<tracker>` by

@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # https://www.apache.org/licenses/LICENSE-2.0
 name: magpie-write-skill
+family: utilities
 description: |
   Author a new skill for the Apache Magpie framework, or update
   an existing one. Walks the user through the framework's skill

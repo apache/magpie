@@ -71,23 +71,29 @@ in-repo `skills/<n>/` — self-adoption), `canonical-snapshot`
 
 ## `families`
 
-Each installed canonical skill is bucketed by source-name prefix:
+Each installed canonical skill is bucketed by the `family:`
+frontmatter key read from its `SKILL.md` (never by name prefix —
+`repo-health` and `contributor-growth` span several prefixes, per
+[Golden rule 8](../setup/SKILL.md#golden-rules)):
 
-- `opt_in` — `security`, `pr-management`, `issue`: the three
-  user-selectable families. `opt_in_present` / `opt_in_absent`
-  list which are wired.
-- `always_on` — `setup` (every `setup-*` plus the committed
-  `setup` bootstrap) and `list` (`list-*`): wired unconditionally
-  per [Golden rule 8](../setup/SKILL.md#golden-rules).
-- `other` — installed skills outside those prefixes (the
-  contributor, pairing, audit, and authoring skills). Reported by
-  name so the dashboard never silently drops them.
+- `opt_in` — the user-selectable families: `security`,
+  `pr-management`, `issue`, `release-management`, `repo-health`,
+  `pairing`, `mentoring`, `contributor-growth`. `opt_in_present` /
+  `opt_in_absent` list which are wired.
+- `always_on` — `setup` (every `family: setup` skill plus the
+  committed `setup` bootstrap) and `utilities` (`list-skills`,
+  `write-skill`, `optimize-skill`, `skill-reconciler`): wired
+  unconditionally per
+  [Golden rule 8](../setup/SKILL.md#golden-rules).
+- `other` — any installed skill whose `SKILL.md` declares no
+  readable family. Reported by name so the dashboard never
+  silently drops it (empty for a healthy framework snapshot).
 
-The bucketing is a prefix heuristic over what is actually on disk.
-The authoritative opt-in pick for a normal adopter is recorded in
-the lock files; when present, prefer the lock's family list over
-the heuristic for the *intended* set, and use the heuristic for
-the *installed* set so the dashboard can flag a gap between them.
+The bucketing reads what is actually on disk. The authoritative
+opt-in pick for a normal adopter is recorded in the lock files;
+when present, prefer the lock's family list over the on-disk read
+for the *intended* set, and use the on-disk read for the
+*installed* set so the dashboard can flag a gap between them.
 
 ## `drift`
 

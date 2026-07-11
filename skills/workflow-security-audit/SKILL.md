@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # https://www.apache.org/licenses/LICENSE-2.0
 name: magpie-workflow-security-audit
+family: repo-health
 mode: Triage
 description: |
   Read-only GitHub Actions workflow security audit for one repository,

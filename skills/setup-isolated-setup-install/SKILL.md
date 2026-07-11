@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # https://www.apache.org/licenses/LICENSE-2.0
 name: magpie-setup-isolated-setup-install
+family: setup
 description: |
   Guide an adopter through the first-time install of the
   framework's secure agent setup (bubblewrap + socat +

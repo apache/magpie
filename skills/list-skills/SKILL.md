@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # https://www.apache.org/licenses/LICENSE-2.0
 name: magpie-list-skills
+family: utilities
 description: |
   Print a human-readable index of every skill in this repository,
   grouped by family prefix (`pr-management`, `security`, `setup`,

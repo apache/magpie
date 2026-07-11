@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # https://www.apache.org/licenses/LICENSE-2.0
 name: magpie-mentoring-welcome
+family: mentoring
 mode: Mentoring
 description: |
   Draft a first-contact orientation comment for a first-time contributor

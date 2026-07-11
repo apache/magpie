@@ -120,10 +120,23 @@ def load_agent_targets() -> tuple[list[tuple[str, str, str, str]], str]:
         return _FALLBACK_TARGETS, "fallback"
     return targets, "agents.md"
 
-# Opt-in families the lock can record; every other prefix is
-# either always-on (setup-*, list-*) or "other".
-OPT_IN_FAMILIES = ["security", "pr-management", "issue"]
-ALWAYS_ON_FAMILIES = ["setup", "list"]
+# Opt-in families the lock can record. Membership is read from each
+# skill's ``family:`` frontmatter key (see skills/setup/SKILL.md
+# Golden rule 8), NOT the name prefix — families like ``repo-health``
+# and ``contributor-growth`` span several prefixes. ``setup`` and
+# ``utilities`` are always-on; anything with no readable family lands
+# in "other".
+OPT_IN_FAMILIES = [
+    "security",
+    "pr-management",
+    "issue",
+    "release-management",
+    "repo-health",
+    "pairing",
+    "mentoring",
+    "contributor-growth",
+]
+ALWAYS_ON_FAMILIES = ["setup", "utilities"]
 
 
 def repo_root(explicit: str | None) -> Path:
@@ -157,15 +170,25 @@ def parse_lock(path: Path) -> dict | None:
     return data
 
 
-def family_of(skill: str) -> str:
-    """Map a framework skill source name to its family bucket."""
-    if skill == "setup" or skill.startswith("setup-"):
-        return "setup"
-    if skill.startswith("list-"):
-        return "list"
-    for fam in OPT_IN_FAMILIES:
-        if skill == fam or skill.startswith(fam + "-"):
-            return fam
+def read_family(skill_dir: Path) -> str:
+    """Read the ``family:`` frontmatter key from a skill's SKILL.md.
+
+    Returns the declared family, or ``"other"`` when the SKILL.md is
+    absent / unreadable or declares no family. Membership is never
+    inferred from the name prefix (Golden rule 8)."""
+    skill_md = skill_dir / "SKILL.md"
+    try:
+        text = skill_md.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return "other"
+    if not text.startswith("---"):
+        return "other"
+    end = text.find("\n---", 3)
+    frontmatter = text[3:end] if end != -1 else text
+    for raw in frontmatter.splitlines():
+        line = raw.strip()
+        if line.startswith("family:"):
+            return line.partition(":")[2].strip() or "other"
     return "other"
 
 
@@ -173,7 +196,7 @@ def link_info(entry: Path, root: Path) -> dict:
     """Describe one ``magpie-*`` directory entry."""
     name = entry.name
     skill = name[len("magpie-") :]
-    info: dict = {"name": name, "skill": skill, "family": family_of(skill)}
+    info: dict = {"name": name, "skill": skill}
     if not entry.is_symlink():
         info.update(is_symlink=False, resolves=False, raw_target=None)
         # A non-symlink magpie-* (e.g. the committed magpie-setup
@@ -181,12 +204,17 @@ def link_info(entry: Path, root: Path) -> dict:
         # SKILL.md.
         info["resolves"] = (entry / "SKILL.md").is_file()
         info["kind"] = "copy" if info["resolves"] else "broken"
+        info["family"] = read_family(entry)
         return info
     raw = os.readlink(entry)
     info["raw_target"] = raw
     info["is_symlink"] = True
     resolved = (entry.parent / raw).resolve() if not os.path.isabs(raw) else Path(raw)
     info["resolves"] = (resolved / "SKILL.md").is_file()
+    # Family comes from the target skill's frontmatter (Golden rule 8),
+    # not the symlink name. A relay points at the canonical entry, which
+    # itself points at the skill dir — resolve() collapses both hops.
+    info["family"] = read_family(resolved)
     # Relay links point back at the canonical .agents/skills home;
     # canonical links point at the snapshot or the in-repo source.
     if ".agents/skills/magpie-" in raw:
@@ -382,11 +410,11 @@ def render_markdown(d: dict) -> str:
     out.append("")
     out.append("| Family | Type | Installed |")
     out.append("|---|---|---|")
-    for f in ("security", "pr-management", "issue"):
+    for f in OPT_IN_FAMILIES:
         n = len(fam["opt_in"][f])
         out.append(f"| {f} | opt-in | {'✅ ' + str(n) if n else '— none'} |")
-    out.append(f"| setup-* | always-on | {len(fam['always_on']['setup'])} |")
-    out.append(f"| list-* | always-on | {len(fam['always_on']['list'])} |")
+    out.append(f"| setup | always-on | {len(fam['always_on']['setup'])} |")
+    out.append(f"| utilities | always-on | {len(fam['always_on']['utilities'])} |")
     out.append(f"| other | — | {len(fam['other'])} |")
     out.append("")
 

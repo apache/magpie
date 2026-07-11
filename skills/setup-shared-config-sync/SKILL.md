@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # https://www.apache.org/licenses/LICENSE-2.0
 name: magpie-setup-shared-config-sync
+family: setup
 description: |
   Commit + push the user's shared Claude config to the
   `~/.claude-config` private dotfile-style sync repo. Inspects

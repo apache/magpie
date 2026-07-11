@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # https://www.apache.org/licenses/LICENSE-2.0
 name: magpie-pr-management-code-review
+family: pr-management
 mode: Triage
 description: |
   Walk a maintainer through deep, sequential code review of open pull requests on the configured `<upstream>` repo.

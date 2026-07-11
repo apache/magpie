@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # https://www.apache.org/licenses/LICENSE-2.0
 name: magpie-setup
+family: setup
 description: |
   Adopt and maintain the apache-magpie framework in a project
   repo via the snapshot-based adoption mechanism. The only
@@ -188,7 +189,7 @@ They are written and reconciled by
 
 | File | Purpose |
 |---|---|
-| [`adopt.md`](adopt.md) | First-time adoption walk-through — recognise existing-snapshot vs needs-bootstrap, write the two lock files, ask the user which skill families to wire up, create the gitignored symlinks, scaffold `.apache-magpie-overrides/`, install the post-checkout hook, update project docs. The default sub-action. |
+| [`adopt.md`](adopt.md) | First-time adoption walk-through — recognise existing-snapshot vs needs-bootstrap, write the two lock files, ask the user which skill families and MCP servers to install, create the gitignored symlinks, scaffold `.apache-magpie-overrides/`, install the post-checkout hook, update project docs. The default sub-action. |
 | [`upgrade.md`](upgrade.md) | Refresh the gitignored snapshot per the committed lock, reconcile any agentic overrides + symlinks against the new framework structure, surface conflicts. Drives the on-drift remediation flow. |
 | [`verify.md`](verify.md) | Read-only health check — snapshot present + intact, both lock files in sync, symlinks point at live targets, `.gitignore` correct, `.apache-magpie-overrides/` exists, drift status (committed vs local), the `setup` skill itself is current. |
 | [`skill-sources.md`](skill-sources.md) | Fetch/verify skills from trusted external sources listed in `<project-config>/skill-sources.md`, pin them in the committed `.apache-magpie.sources.lock`, and symlink the provided skills in exactly like framework skills. The runnable half of [trusted external skill sources](../../docs/skill-sources/README.md); the install gate is the adopter trust list. |
@@ -304,34 +305,54 @@ patch tool. See
 [`docs/setup/agentic-overrides.md`](../../docs/setup/agentic-overrides.md)
 for the contract.
 
-**Golden rule 8 — two families are *always* installed; the
-rest are opt-in.** Two skill families are wired up
-unconditionally on every adopt / upgrade / worktree-init run
-and the user is **never asked** about them:
+**Golden rule 8 — family membership is declared in
+frontmatter; two families are *always* installed, the rest
+are opt-in.** Every framework skill declares its family in a
+`family:` key in its `SKILL.md` frontmatter (e.g.
+`family: repo-health`). The sub-actions read that key from the
+snapshot to build the adopt/upgrade install choice and to wire
+each family's symlinks — **family membership is never inferred
+from the skill-name prefix**, because families such as
+`repo-health` and `contributor-growth` deliberately span
+several prefixes. The canonical family vocabulary is validated
+by [`skill-and-tool-validator`](../../tools/skill-and-tool-validator/README.md)
+(`ALLOWED_FAMILIES`) and mirrored adopter-facing in
+[`README.md` → Skill families](../../README.md#skill-families).
 
-- **`setup-*`** — every framework skill whose source name
-  starts with `setup-` *except* the bootstrap `setup` itself
-  (which is copied as `magpie-setup` per Rule 6, not
-  symlinked). Concretely:
-  `setup-isolated-setup-install`,
-  `setup-isolated-setup-update`,
-  `setup-isolated-setup-verify`, `setup-override-upstream`,
-  `setup-shared-config-sync`, plus any new `setup-*` skill
-  the framework grows in the future — each symlinked as
-  `magpie-setup-*`.
-- **`list-*`** — the discovery family; every framework skill
-  whose source name starts with `list-`. Today this is
-  `list-skills` only (symlinked as `magpie-list-skills`); the
-  prefix lets the framework grow a discovery family without
-  re-prompting every adopter.
+Two families are wired up **unconditionally** on every adopt /
+upgrade / worktree-init run and the user is **never asked**
+about them:
 
-These two families are not exposed in the `skill-families:`
-prompt and not stored as user-selectable in the lock files;
-every sub-action that wires symlinks always covers them in
-addition to the user's opt-in family picks (`security`,
-`pr-management`, `issue`). Dropping them is *not* a supported
-configuration — the secure-setup and discovery flows the
-framework ships depend on those skills being callable.
+- **`setup`** — every skill with `family: setup` *except* the
+  bootstrap `setup` itself (which is copied as `magpie-setup`
+  per Rule 6, not symlinked): `setup-isolated-setup-install`,
+  `setup-isolated-setup-update`, `setup-isolated-setup-verify`,
+  `setup-isolated-setup-doctor`, `setup-override-upstream`,
+  `setup-shared-config-sync`, `setup-status`,
+  `setup-upstream-fix`, plus any new `family: setup` skill the
+  framework grows — each symlinked as `magpie-setup-*`.
+- **`utilities`** — the meta / discovery family; skills with
+  `family: utilities`: `list-skills`, `write-skill`,
+  `optimize-skill`, `skill-reconciler`. These are framework
+  self-authoring and discovery tools every adopter gets so the
+  framework can grow them without re-prompting.
+
+These two always-on families (`ALWAYS_ON_FAMILIES` in the
+validator) are not exposed in the `skill-families:` prompt and
+not stored as user-selectable in the lock files; every
+sub-action that wires symlinks always covers them **in addition
+to** the user's opt-in family picks. Dropping them is *not* a
+supported configuration — the secure-setup, discovery, and
+skill-authoring flows the framework ships depend on those
+skills being callable.
+
+Every **other** family is **opt-in** — offered in the Step 5
+prompt and recorded in the lock files. Today those are:
+`security`, `pr-management`, `issue`, `release-management`,
+`repo-health`, `pairing`, `mentoring`, `contributor-growth`.
+The set is computed from the `family:` keys present in the
+snapshot minus the always-on families, so a new opt-in family
+appears in the prompt automatically the run after it ships.
 
 **Golden rule 9 — reload `setup` in-flight after a
 self-update.** When a sub-action changes or creates the
@@ -401,7 +422,7 @@ first, then continue.
 | `from:<git-ref>` / `from:<version>` | Adopt or upgrade from a specific framework ref or version. Used during `adopt` (overrides the user prompt) and `upgrade` (overrides the committed lock for *this run only* — does NOT update the committed lock). |
 | `method:<git-branch\|git-tag\|svn-zip\|local>` | Pick the install method explicitly. Default during `adopt`: prompt the user. **`local`** is **framework-checkout only** — it self-adopts by linking the in-repo `skills/` source directly instead of fetching a snapshot (see [`adopt.md` → Local self-adoption](adopt.md#local-self-adoption-methodlocal)). |
 | `agents:<list>` | Comma-separated **agent targets** to wire symlinks into ([`agents.md`](agents.md) registry ids: `universal`, `claude-code`, `github`, `windsurf`, `goose`, …). Default on `adopt`/`upgrade`: auto — the always-on neutral set (`universal` + `claude-code` + `github`) plus any other registry dir already present in the repo. When passed, **replaces** the auto-detected set for that run, except `universal` (`.agents/skills/`) which is always retained because it is the canonical home every other target relays into — dropping it would leave the relays dangling. |
-| `skill-families:<list>` | Comma-separated **opt-in** families to symlink (`security`, `pr-management`, `issue`). Default on `adopt`: prompt. Default on `upgrade`: read the families list from `<committed-lock>` / `<local-lock>`, **auto-include any opt-in family the framework has introduced since the lock was written** (recorded back into the lock), and **ensure every framework skill in the effective family set has a valid symlink** — create or repair missing / broken symlinks, not just add new ones. The flag never accepts the always-on families (`setup-*` minus `setup` itself, and `list-*`); per [Golden rule 8](#golden-rules) those are wired up unconditionally on every run and there is no way to ask for them or opt out. |
+| `skill-families:<list>` | Comma-separated **opt-in** families to symlink — any of the opt-in families declared by a `family:` frontmatter key in the snapshot (today: `security`, `pr-management`, `issue`, `release-management`, `repo-health`, `pairing`, `mentoring`, `contributor-growth`). Default on `adopt`: prompt (see [`adopt.md` Step 5](adopt.md#step-5--pick-the-skill-families-and-mcp-servers)). Default on `upgrade`: read the families list from `<committed-lock>` / `<local-lock>`, **auto-include any opt-in family the framework has introduced since the lock was written** (recorded back into the lock), and **ensure every framework skill in the effective family set has a valid symlink** — create or repair missing / broken symlinks, not just add new ones. The flag never accepts the always-on families (`setup`, `utilities`); per [Golden rule 8](#golden-rules) those are wired up unconditionally on every run and there is no way to ask for them or opt out. |
 | `--purge-overrides` | *(unadopt only)* Also `git rm -r` `.apache-magpie-overrides/`. Default: preserve. |
 | `dry-run` | Show what the skill would do without writing anything. |
 

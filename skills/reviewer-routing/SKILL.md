@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # https://www.apache.org/licenses/LICENSE-2.0
 name: magpie-reviewer-routing
+family: pr-management
 mode: Triage
 description: |
   Given an open issue or PR, scores the project's configured reviewer roster

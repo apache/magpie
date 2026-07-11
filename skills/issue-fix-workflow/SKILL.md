@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # https://www.apache.org/licenses/LICENSE-2.0
 name: magpie-issue-fix-workflow
+family: issue
 mode: Drafting
 description: |
   For a single triaged `<issue-tracker>` issue confirmed as a

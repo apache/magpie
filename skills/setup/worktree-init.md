@@ -101,10 +101,11 @@ Compose the **effective family set** for this worktree:
 - **Opt-in families** the project recorded — read from
   `<main>/.apache-magpie.lock` (the committed lock; the
   worktree shares it via git).
-- **Always-on families** — every `setup-*` skill in the
+- **Always-on families** — every `family: setup` skill in the
   snapshot *except* `setup` itself, and every
-  `list-*` skill, per
-  [`SKILL.md` Golden rule 8](SKILL.md#golden-rules). These
+  `family: utilities` skill, per
+  [`SKILL.md` Golden rule 8](SKILL.md#golden-rules) (read the
+  `family:` frontmatter key, not the name prefix). These
   are added unconditionally, never read from the lock.
 
 Wiring follows the **canonical-plus-relay** model

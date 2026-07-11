@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # https://www.apache.org/licenses/LICENSE-2.0
 name: magpie-security-issue-deduplicate
+family: security
 mode: Triage
 description: |
   Merge two <tracker> tracking issues that describe the same

@@ -36,10 +36,12 @@ between automatically:
 - `method:<git-branch | git-tag | svn-zip>` — explicit method
   (overrides the prompt).
 - `skill-families:<list>` — comma-separated **opt-in**
-  families to symlink (default: prompt). Valid values:
-  `security`, `pr-management`, `issue`. The flag does **not**
-  accept the always-on families (`setup-*` minus
-  `setup` itself, and `list-*`); per
+  families to symlink (default: prompt). Valid values are the
+  opt-in families declared by `family:` keys in the snapshot:
+  `security`, `pr-management`, `issue`, `release-management`,
+  `repo-health`, `pairing`, `mentoring`, `contributor-growth`.
+  The flag does **not** accept the always-on families (`setup`,
+  `utilities`); per
   [`SKILL.md` Golden rule 8](SKILL.md#golden-rules) those
   are wired up unconditionally on every adopt run and the
   user is never asked about them.
@@ -137,7 +139,7 @@ How it differs from a remote adoption:
   skills active with no setup step, whatever agent they use.
 - **All skills, no family prompt.** Self-adoption links *every*
   skill under `skills/`, so the opt-in family prompt of
-  [Step 5](#step-5--pick-the-skill-families) is skipped.
+  [Step 5](#step-5--pick-the-skill-families-and-mcp-servers) is skipped.
   `skill-families:` is still honoured if the maintainer wants to
   narrow the set.
 - **`magpie-setup` is itself a symlink** (→ `../../skills/setup/`),
@@ -290,10 +292,11 @@ If `<snapshot-dir>/` already exists with content, skip the
 fetch — the recipe ran first and left the snapshot in place.
 
 After the fetch (or skip), confirm
-`<snapshot-dir>/skills/` lists the framework skills
-(`pr-management-*`, `security-*`, `issue-*`, `setup-*`,
-`list-*`). If not, the fetch produced an unexpected
-layout — surface and stop.
+`<snapshot-dir>/skills/` lists the framework skills (e.g.
+`pr-management-*`, `security-*`, `issue-*`, `release-*`,
+`setup-*`, `list-skills`, `write-skill`) and that each
+`SKILL.md` carries a `family:` frontmatter key. If not, the
+fetch produced an unexpected layout — surface and stop.
 
 ## Step 3b — Reconcile the committed `setup` with the new snapshot + reload in-flight
 
@@ -422,67 +425,111 @@ Step 5's fallback default applies.
 > content. Counts and dates are the only fields consumed; any
 > free-text field is discarded after extraction.
 
-## Step 5 — Pick the skill families
+## Step 5 — Pick the skill families and MCP servers
 
-The framework's family set splits into two tiers:
+This is the **single install choice**: which opt-in skill
+families to wire up, **and** which MCP servers to register.
+Both are collected here so the operator picks everything
+installable in one prompt; the MCP picks are then walked
+through their install in Steps 9c / 9d and reflected in the
+Step 9b `user.md` `tools` blocks.
 
-**Always-on (no prompt; per
-[`SKILL.md` Golden rule 8](SKILL.md#golden-rules)):**
+**Compute the family set from the snapshot, not from a hard-coded
+list.** Walk `<snapshot-dir>/skills/*/SKILL.md`, read each skill's
+`family:` frontmatter key, and group. Never infer a family from the
+skill-name prefix — `repo-health`, `contributor-growth`, and
+`mentoring` span several prefixes (per
+[`SKILL.md` Golden rule 8](SKILL.md#golden-rules)).
 
-- **`setup-*`** *(minus `setup` itself)* — every
-  `setup-*` skill in the snapshot. Today:
-  `setup-isolated-setup-install`,
-  `setup-isolated-setup-update`,
-  `setup-isolated-setup-verify`, `setup-override-upstream`,
-  `setup-shared-config-sync`.
-- **`list-*`** — every `list-*` skill in
-  the snapshot. Today: `list-skills`.
+**Always-on (no prompt):** the `setup` family (every
+`family: setup` skill except the bootstrap `setup` itself) and
+the `utilities` family (`list-skills`, `write-skill`,
+`optimize-skill`, `skill-reconciler`). These are wired
+unconditionally, cannot be opted out via `skill-families:`, and
+are **not** recorded in the lock files. Do **not** offer them as
+selectable options.
 
-These are wired up unconditionally; the user is **not**
-asked about them and they cannot be opted out via the
-`skill-families:` flag. The lock files do not record them
-because they are framework-mandated, not user-selected.
+**Opt-in families** = every family present in the snapshot minus
+the always-on two. Today, with a one-line purpose each (counts
+come from the snapshot, do not hard-code them):
 
-**Opt-in (prompt, or read from
-`skill-families:` / the locks):**
+- **`security`** — the security-issue handling lifecycle
+  (import → triage → CVE → sync). Maintainer-only; needs a
+  security tracker.
+- **`pr-management`** — maintainer-facing PR-queue work: triage,
+  deep code review, stats, express-lane merge, stale-sweep,
+  reviewer routing, pre-first-PR checks.
+- **`issue`** — general-issue tracker lifecycle: triage,
+  reproduce, fix-workflow, reassess, stale-sweep, deduplicate,
+  backlog stats. For a general-issue tracker (JIRA, GitHub
+  Issues, Bugzilla, GitLab) that is *not* the security tracker.
+  See [`docs/issue-management/README.md`](../../docs/issue-management/README.md).
+- **`release-management`** — the ASF release lifecycle: prepare,
+  RC cut + sign, `[VOTE]`, tally, promote, `[ANNOUNCE]`, archive,
+  audit. Release-Manager-facing; the agent never holds the
+  signing key. See [`docs/release-management/README.md`](../../docs/release-management/README.md).
+- **`repo-health`** — read-only repository-health audits: CI
+  runner labels, Actions workflow security, dependency
+  vulnerabilities, license/NOTICE compliance, flaky tests, and
+  audit-finding fixes. See [`docs/repo-health/README.md`](../../docs/repo-health/README.md).
+- **`pairing`** — pair a change with a structured self-review or
+  a multi-agent adversarial review. See [`docs/pairing/README.md`](../../docs/pairing/README.md).
+- **`mentoring`** — newcomer-facing: first-contact welcome,
+  newcomer-issue explainer, good-first-issue authoring and
+  backlog curation. See [`docs/mentoring/README.md`](../../docs/mentoring/README.md).
+- **`contributor-growth`** — the path-to-committer track:
+  activity sweep, nomination brief, sentiment signals, readiness
+  tracking, committer / post-vote onboarding. See
+  [`docs/contributor-growth/README.md`](../../docs/contributor-growth/README.md).
 
-(SUBSEQUENT adoption: re-use the opt-in families currently
-recorded in `<committed-lock>` / `<local-lock>`, if any. Or
-re-prompt if none.)
+**MCP servers** (folded into the same choice — read
+[Step 9b](#step-9b--scaffold-usermd-fresh-only)'s `tools` contract for the
+detail; install is walked in [Step 9c](#step-9c--comdev-mcp-prerequisites-asf-projects)
+/ [Step 9d](#step-9d--gmail-plaintext-mcp-optional-gmail-drafters)):
 
-If `skill-families:` was passed, use those values verbatim
-for the opt-in set. Otherwise prompt the user with:
+- **`ponymail`** — read the ASF mailing-list archives (the
+  primary mail-read backend for the security / release families;
+  Gmail is the fallback). **ASF projects: mandatory** — the
+  `_template` manifest declares it `mandatory: yes`.
+- **`apache-projects`** — read-only ASF rosters / people /
+  releases metadata (used by `contributor-nomination` and the
+  security roster paths). **ASF projects: mandatory.**
+- **`gmail-plaintext`** — create plain-text Gmail drafts with no
+  tracking redirects (for operators who draft mail from the
+  agent). Optional; not ASF-gated.
 
-- **`security`** — eight skills for security-issue
-  handling. Maintainer-only; not useful unless the project
-  has a security tracker.
-- **`pr-management`** — five skills for maintainer-facing
-  PR queue work.
-- **`issue`** — five skills for general-issue tracker work
-  (triage, reassess, reproducer, fix-workflow, stats).
-  Maintainer-only; for projects with a general-issue tracker
-  (JIRA, GitHub Issues, Bugzilla, GitLab Issues) that is
-  *not* the security tracker. See
-  [`docs/issue-management/README.md`](../../docs/issue-management/README.md).
+**Prefer structured Q&A.** When the harness offers a
+structured-question tool, use **one** *multi-select* prompt with
+two labelled groups — "Skill families" (the opt-in families
+above) and "MCP servers" (the three above). None are mutually
+exclusive. Pre-selection:
 
-**Prefer structured Q&A.** When the agent harness offers a
-structured-question tool, use a *multi-select* prompt for
-the three opt-in families (`security`, `pr-management`,
-`issue`) — the families are not mutually exclusive.
-Pre-select the **union** of (a) families the user named in
-their initial "adopt" request (e.g. *"adopt apache-magpie
-for PR triage"* → `pr-management`) and (b)
-`<signal-derived-families>` from Step 4b. Mention in the
-prompt body why each family is pre-ticked (named by the
-user, or which signal triggered it) so the operator can
-untick what does not fit. If both sources are empty, default
-to selecting all three for an adopter that is a maintainer-
-driven repo, or to no pre-selection otherwise. Free-form
-chat is the fallback.
+- *Families* — pre-tick the **union** of (a) families the user
+  named in their initial "adopt" request (e.g. *"adopt for PR
+  triage"* → `pr-management`, *"for releases"* →
+  `release-management`) and (b) `<signal-derived-families>` from
+  Step 4b. State in the prompt body why each is pre-ticked so the
+  operator can untick what does not fit. If both sources are
+  empty, pre-tick nothing and let the operator choose.
+- *MCP servers* — for an ASF project (detected per
+  [Step 9c](#step-9c--comdev-mcp-prerequisites-asf-projects)),
+  pre-tick `ponymail` and `apache-projects` and label them
+  **required**; pre-tick `gmail-plaintext` only if the operator
+  selected a mail-drafting family (`security` or
+  `release-management`). For a non-ASF project, pre-tick nothing.
 
-Do **not** offer `setup-*` or `list-*` as
-selectable options in the prompt — they are wired up
-silently regardless of what the user picks here.
+SUBSEQUENT adoption: re-use the opt-in families recorded in
+`<committed-lock>` / `<local-lock>` and the already-registered
+MCP servers (inspect the session tool list for `mcp__ponymail__*`
+/ `mcp__apache-projects__*` / `mcp__gmail-plaintext__*`); only
+re-prompt for what is neither locked nor registered. If
+`skill-families:` was passed, use those values verbatim for the
+family set (the flag does not carry MCP picks — confirm those
+separately). Free-form chat is the fallback when no structured
+tool is available; keep the same two-group structure.
+
+Record the family picks for Step 6 (the lock) and Step 8 (the
+symlink wiring), and the MCP picks for Steps 9b–9d.
 
 ## Step 6 — Write `<local-lock>`
 
@@ -581,10 +628,10 @@ gitignored exactly like the canonical ones: a relay points at
 gitignored snapshot, so it dangles on a fresh clone before
 `/magpie-setup` runs.
 
-The `magpie-*` glob covers both the opt-in families and the
-always-on families (`magpie-setup-*` and the `magpie-list-*`
-discovery family) per
-[`SKILL.md` Golden rule 8](SKILL.md#golden-rules); every
+The `magpie-*` glob covers every symlinked framework skill —
+the opt-in families and the always-on `setup` / `utilities`
+families alike (per
+[`SKILL.md` Golden rule 8](SKILL.md#golden-rules)); every
 symlinked framework skill is gitignored on every adopter
 regardless of the opt-in family pick. The committed
 `magpie-setup` skill is kept tracked by the
@@ -612,21 +659,25 @@ gitignored **canonical** symlink at `.agents/skills/magpie-<skill>`
 
 The set of skills to link is the **union** of:
 
-1. **The opt-in families the user picked in Step 5**
-   (`security`, `pr-management`, `issue`, or any
-   combination). Each contributes every framework skill in
-   the snapshot whose name starts with that family's prefix.
+1. **The opt-in families the user picked in Step 5** (any
+   combination of `security`, `pr-management`, `issue`,
+   `release-management`, `repo-health`, `pairing`, `mentoring`,
+   `contributor-growth`). Each contributes every framework skill
+   in the snapshot whose `family:` frontmatter key equals that
+   family — **not** by name prefix (per
+   [`SKILL.md` Golden rule 8](SKILL.md#golden-rules)).
 2. **The always-on families** (no user input — per
    [`SKILL.md` Golden rule 8](SKILL.md#golden-rules)):
-   every `setup-*` skill *except* `setup` itself,
-   and every `list-*` skill.
+   every `family: setup` skill *except* `setup` itself,
+   and every `family: utilities` skill.
 
 The always-on set is added on every run, even when the user
 picked no opt-in families, even when `skill-families:` was
 passed with a narrow value, and even on the SUBSEQUENT-
 adoption path where the committed lock only records the
-opt-in pick. Compute the family glob fresh from the snapshot
-contents on disk — do not hard-code skill names.
+opt-in pick. Compute family membership fresh by reading the
+`family:` key from each `SKILL.md` in the snapshot on disk — do
+not hard-code skill names, and do not glob by prefix.
 
 Symlink wiring (targets from [`agents.md`](agents.md)) — the
 **canonical-plus-relay** model, applied identically no matter
@@ -855,29 +906,26 @@ canonical batch is:
    leave the relevant TODO in place. "Auto-detected
    `upstream_clone=<path>`, `upstream_fork_remote=<remote>` — use
    as detected, or customise?"
-3. **`tools.ponymail.enabled`** — *single-select*. "Enable
-   PonyMail MCP as the primary mailing-list-archive backend?
-   (Gmail remains the fallback.)" **Default depends on the
-   manifest:** when `<project-config>/project.md → Mail sources`
-   declares `ponymail` with `mandatory: yes` (the ASF default),
-   default `Yes` and note that it is **required** for this
-   project, not optional — Step 9c walks the install. When
-   `mandatory: no`, default `No` (most non-ASF adopters have not
-   registered the MCP).
+3. **`tools.ponymail.enabled`** — do **not** re-ask; set it from
+   the **Step 5 MCP selection** (`ponymail` ticked → `true`). This
+   value only *records* the Step 5 pick in `user.md`; the install
+   is walked in Step 9c. (If Step 5 was skipped — e.g. no
+   structured tool and the operator deferred MCP — fall back to
+   the manifest default here: `mandatory: yes` → `true` and note
+   it is **required**, `mandatory: no` → `false`.)
 
-If the user picks `Yes` for Ponymail in (3), follow up with **one
-more** question — do not ask it upfront:
+If `ponymail` was selected, collect **one more** value not asked
+in Step 5 — do not ask it upfront:
 
 4. **`tools.ponymail.private_lists`** — *free-text*. "List the
    private mailing-list addresses PonyMail should query (one per
    line, e.g. `security@<adopter>.apache.org`)."
 
-5. **`tools.apache-projects.enabled`** — *single-select*. "Enable
-   the Apache Projects metadata MCP (read-only ASF rosters /
-   people / releases)?" **Default `Yes` for ASF projects** (the
-   manifest declares `project_metadata.mandatory: true`); default
-   `No` otherwise. Step 9c walks the install — the same `comdev`
-   checkout serves both MCP servers.
+5. **`tools.apache-projects.enabled`** — do **not** re-ask; set it
+   from the **Step 5 MCP selection** (`apache-projects` ticked →
+   `true`). Step 9c walks the install — the same `comdev` checkout
+   serves both MCP servers. (Same Step-5-skipped fallback as (3):
+   `project_metadata.mandatory: true` → `true`, else `false`.)
 
 Free-form chat is the fallback when the harness has no
 structured-Q&A tool. In that case still respect the order above
@@ -963,7 +1011,8 @@ are handled — both are read-only and scoped.
 
 ## Step 9d — gmail-plaintext MCP (optional, Gmail drafters)
 
-**Run this step only for operators who draft mail from an agent**
+**Run this step when `gmail-plaintext` was ticked in the Step 5
+MCP selection** — i.e. for operators who draft mail from an agent
 (the `security` family's mailing-list replies, release announcements,
 etc.). It is **optional** and not ASF-gated — unlike the comdev
 servers in 9c, this one ships **in-repo** as part of the

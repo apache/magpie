@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # https://www.apache.org/licenses/LICENSE-2.0
 name: magpie-security-issue-import-from-scan
+family: security
 mode: Triage
 description: |
   Triage a security scanner's multi-finding output (read via a

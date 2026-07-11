@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # https://www.apache.org/licenses/LICENSE-2.0
 name: magpie-skill-reconciler
+family: utilities
 description: |
   Compare two near-duplicate skills — typically an ASF variant and a
   non-ASF or multi-project variant — and classify every difference as

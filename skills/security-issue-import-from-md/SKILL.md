@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # https://www.apache.org/licenses/LICENSE-2.0
 name: magpie-security-issue-import-from-md
+family: security
 mode: Triage
 description: |
   Open one or more `<tracker>` tracking issues from a markdown

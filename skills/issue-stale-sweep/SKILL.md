@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # https://www.apache.org/licenses/LICENSE-2.0
 name: magpie-issue-stale-sweep
+family: issue
 mode: Triage
 description: |
   Sweep open `<issue-tracker>` issues for inactivity past a

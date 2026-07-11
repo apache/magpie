@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # https://www.apache.org/licenses/LICENSE-2.0
 name: magpie-security-tracker-stats-dashboard
+family: security
 description: Generate a self-contained HTML dashboard of `<tracker>` repository statistics for security-team review.
 when_to_use: |
   Invoke when the user says "regenerate the tracker dashboard", "show

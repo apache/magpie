@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # https://www.apache.org/licenses/LICENSE-2.0
 name: magpie-pr-stale-sweep
+family: pr-management
 mode: Triage
 description: |
   Sweep open pull requests on the configured `<upstream>` repo for

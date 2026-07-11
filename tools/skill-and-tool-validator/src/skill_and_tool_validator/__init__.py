@@ -320,8 +320,31 @@ _CAPABILITY_TOKEN_RE = re.compile(r"`?((?:capability|contract|substrate):[a-z-]+
 _ITALIC_PARENS_RE = re.compile(r"\*\(.*?\)\*")
 
 REQUIRED_FRONTMATTER_KEYS = {"name", "description", "license", "capability"}
-OPTIONAL_FRONTMATTER_KEYS = {"when_to_use", "mode", "organization", "status", "source"}
+OPTIONAL_FRONTMATTER_KEYS = {"when_to_use", "mode", "organization", "status", "source", "family"}
 ALLOWED_LICENSES = {"Apache-2.0"}
+
+# Canonical skill-family vocabulary.  Skills declare their family via a
+# ``family:`` frontmatter key; `/magpie-setup` reads it to group the
+# adopt/upgrade install choice and to wire the family's symlinks (see
+# skills/setup/SKILL.md Golden rule 8).  ``setup`` and ``utilities`` are the
+# always-on families (never offered as an opt-in); the rest are opt-in.
+ALLOWED_FAMILIES: frozenset[str] = frozenset(
+    {
+        "setup",
+        "utilities",
+        "security",
+        "issue",
+        "release-management",
+        "pr-management",
+        "repo-health",
+        "pairing",
+        "mentoring",
+        "contributor-growth",
+    }
+)
+# The two families that are wired unconditionally and never appear in the
+# adopt/upgrade opt-in prompt (Golden rule 8).
+ALWAYS_ON_FAMILIES: frozenset[str] = frozenset({"setup", "utilities"})
 
 # Documented skill lifecycle vocabulary.  Skills may declare a ``status:``
 # frontmatter key; its value must be one of these strings.  Spec lifecycle
@@ -916,6 +939,14 @@ def validate_frontmatter(path: Path, text: str, root: Path | None = None) -> Ite
             path,
             1,
             f"frontmatter mode '{fm['mode']}' not in {sorted(ALLOWED_MODES)} (see docs/modes.md)",
+        )
+
+    if "family" in fm and fm["family"] not in ALLOWED_FAMILIES:
+        yield Violation(
+            path,
+            1,
+            f"frontmatter family '{fm['family']}' not in {sorted(ALLOWED_FAMILIES)} "
+            f"(see skills/setup/SKILL.md Golden rule 8)",
         )
 
     if fm.get("capability"):

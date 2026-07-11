@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # https://www.apache.org/licenses/LICENSE-2.0
 name: magpie-good-first-issue-author
+family: mentoring
 mode: Mentoring
 description: |
   Draft a single net-new *good first issue* on the configured

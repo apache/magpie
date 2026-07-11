@@ -64,7 +64,7 @@ and breaks). A self-adopted framework checkout renders like:
 
 ### Skill families
 
-security ✅ 11 · pr-management ✅ 5 · issue ✅ 5 · always-on setup-*(8) list-*(1) · other 10
+security ✅ 12 · pr-management ✅ 8 · issue ✅ 8 · release-management ✅ 10 · repo-health ✅ 6 · pairing ✅ 2 · mentoring ✅ 4 · contributor-growth ✅ 6 · always-on setup(9) utilities(4) · other 0
 
 ### Drift & integrity
 

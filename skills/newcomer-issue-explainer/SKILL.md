@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # https://www.apache.org/licenses/LICENSE-2.0
 name: magpie-newcomer-issue-explainer
+family: mentoring
 mode: Mentoring
 description: |
   Given an open good-first-issue on the configured `<upstream>` repo,

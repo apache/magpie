@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # https://www.apache.org/licenses/LICENSE-2.0
 name: magpie-pre-first-pr-check
+family: pr-management
 mode: Pairing
 description: |
   Run a newcomer-focused pre-flight checklist on a local branch before opening a pull

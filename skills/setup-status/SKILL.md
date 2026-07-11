@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # https://www.apache.org/licenses/LICENSE-2.0
 name: magpie-setup-status
+family: setup
 description: |
   Show how the apache-magpie framework is adopted in the current
   repo, then adjust that setup in place. Renders a Markdown

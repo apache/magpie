@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # https://www.apache.org/licenses/LICENSE-2.0
 name: magpie-audit-finding-fix
+family: repo-health
 mode: Drafting
 description: |
   For a batch of findings from a non-security audit tool

@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # https://www.apache.org/licenses/LICENSE-2.0
 name: magpie-committer-onboarding
+family: contributor-growth
 organization: ASF
 description: |
   Post-vote committer and PMC onboarding for Apache projects.

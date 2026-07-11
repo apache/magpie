@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # https://www.apache.org/licenses/LICENSE-2.0
 name: magpie-contributor-sentiment
+family: contributor-growth
 mode: Triage
 description: |
   Measures contributor-sentiment signals on <upstream> over a
