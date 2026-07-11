@@ -15,6 +15,7 @@
   - [Skill families](#skill-families)
     - [External skill sources](#external-skill-sources)
   - [Maintenance](#maintenance)
+  - [Acknowledgements](#acknowledgements)
   - [Cross-references](#cross-references)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -207,6 +208,17 @@ maintenance:
   intact, symlinks live, `.gitignore` correct, etc.).
 - `/magpie-setup override <framework-skill>` — open or
   scaffold an override file for a framework skill.
+
+## Acknowledgements
+
+Apache Magpie was first developed and proven inside **Apache Airflow**, and was
+maintained for a time as the `apache/airflow-steward` repository under the
+Airflow PMC before being renamed and established as its own project. It also
+incorporates early skill work contributed by way of the **Apache Groovy**
+community. All of that code carries the same rightsholder — Copyright The Apache
+Software Foundation, under the Apache License 2.0 — so it is not a third-party
+inclusion; the required attribution lines from the originating projects' NOTICE
+files are reproduced in [`NOTICE`](NOTICE).
 
 ## Cross-references
 
