@@ -182,30 +182,48 @@ want — see
 [`docs/setup/secure-agent-setup.md` → *Per-project vs whole-user scope*](../../docs/setup/secure-agent-setup.md#per-project-vs-whole-user-scope)
 for the full rationale + trade-offs:
 
-- **Per-project (default).** The skill runs the helper for the
+- **Per-project.** The skill runs the helper for the
   current project only. Future projects on this host need the
   skill re-run in each, OR the operator can pick whole-user later.
   No global git config changes.
-- **Whole-user.** The skill walks the operator's existing local
-  git checkouts and populates their `settings.local.json` files,
-  then sets `git config --global core.hooksPath` so every future
-  `git checkout` / `git clone` / `git worktree add` on the host
-  picks up the framework's universal post-checkout hook.
+- **Whole-user (global).** The skill walks the operator's existing
+  local git checkouts and populates their `settings.local.json`
+  files, then sets `git config --global core.hooksPath` so every
+  future `git checkout` / `git clone` / `git worktree add` on the
+  host picks up the framework's universal post-checkout hook.
+
+**Detect whether whole-user (global) scope is already active first.**
+Read `git config --global --get core.hooksPath`:
+
+- If it is **unset** (or does not point at the framework's shared
+  hook dir), whole-user isolation is **not yet set up on this host**.
+  In that case **propose whole-user (global) as the default** — it
+  is the recommended baseline because it covers every current and
+  future repo on the host in one pass, so the operator does not have
+  to re-run this skill per project. Present per-project as the
+  narrower alternative for operators who deliberately want to keep
+  their per-repo git hooks (see the Step P.0a caveats).
+- If it is **already set** to the framework's shared hook dir,
+  whole-user isolation is already in place; default to **per-project**
+  for this specific project (the global hook already covers the host,
+  so only this project's `settings.local.json` needs the local pass).
 
 **Prefer structured Q&A.** When the agent harness offers a
 structured-question tool (e.g. Claude Code's `AskUserQuestion`),
-use a single-select prompt with `Per-project` as the default and
-`Whole-user (with caveats)` as the alternative. Free-form chat is
-the fallback.
+use a single-select prompt whose default is chosen by the detection
+above — `Whole-user (global, recommended)` when whole-user is not
+yet set up, otherwise `Per-project`. Free-form chat is the fallback.
 
 If the user picks **per-project**, skip to *Step P.1 — Install
 the helper script* and *Step P.2 — Run the helper for this project*,
 then move on to the next step in the canonical install list.
 
 If the user picks **whole-user**, follow Step P.0a's loud
-disclosure first, then Step P.1, then Steps P.2-whole-user (walk
-existing checkouts) and P.3-whole-user (install the global hook
-+ set `core.hooksPath`).
+disclosure first, then Step P.0b (pick the whole-user *flavour* —
+simple vs dispatcher), then Step P.1, then Steps P.2-whole-user
+(walk existing checkouts) and P.3-whole-user (install the global
+hook + set `core.hooksPath`). If they chose the dispatcher flavour,
+also run Step P.3b-whole-user (install the dispatcher + prek shim).
 
 ##### Step P.0a — Loud disclosure before setting whole-user scope
 
@@ -220,23 +238,55 @@ acknowledge it explicitly; no silent proceed:
 > Every `.git/hooks/*` in every existing repo on this machine
 > becomes **inert** — git will no longer fire your per-repo
 > `pre-commit`, `commit-msg`, `pre-push`, or any other hook
-> unless you migrate it into the shared dir.
+> unless the shared dir chains back to them.
 >
-> The framework installs **only** the `post-checkout` hook in the
-> shared dir. If you rely on per-repo hooks today (formatters,
-> linters, CI integration), you need to:
+> There are two whole-user flavours (you choose next, Step P.0b):
 >
-> - Either migrate them into `~/.claude/git-hooks/` so they fire
->   alongside the framework's `post-checkout`, **or**
-> - Pick **per-project** scope instead and re-run this skill in
->   each project you adopt.
+> - **Simple** — the framework installs **only** the
+>   `post-checkout` hook in the shared dir. Every other per-repo
+>   hook stays inert until you migrate it into `~/.claude/git-hooks/`
+>   yourself. Pick this only if you don't rely on per-repo hooks.
+> - **With per-repo dispatcher (recommended if you use prek /
+>   pre-commit / husky / any per-repo hook)** — the framework
+>   installs a **dispatcher** for each hook type. Each dispatcher
+>   runs the framework's own logic (the `post-checkout`
+>   sandbox-allowlist sync) **and then chains through to that
+>   repo's own `.git/hooks/<name>`**. Your per-repo hooks keep
+>   firing, and a repo with no hook is a clean no-op. A bundled
+>   `prek` PATH shim makes `prek install` write its shim into the
+>   repo-local `.git/hooks/` (via `--git-dir`) so the dispatcher
+>   can find it.
 >
-> Whole-user scope is reversible: `git config --global --unset core.hooksPath`
-> restores per-repo hook lookup.
+> Either way, whole-user scope is reversible:
+> `git config --global --unset core.hooksPath` restores per-repo
+> hook lookup, and (dispatcher flavour) removing
+> `~/.claude/bin` from PATH restores the stock `prek`.
 
 Confirm the operator wants to proceed with whole-user scope after
 reading the disclosure. If they hesitate or pick per-project,
 fall back to the per-project path.
+
+##### Step P.0b — Choose the whole-user flavour: simple or dispatcher
+
+If the operator confirmed whole-user, ask which flavour (see the
+disclosure above for the trade-off). **Default to the dispatcher
+flavour** — it is a strict superset of simple (it still runs the
+`post-checkout` sync everywhere) and it avoids silently shadowing
+per-repo hooks, which is the most common whole-user surprise.
+Pick simple only if the operator explicitly wants the minimal
+footprint and confirms they run no per-repo hooks.
+
+**Prefer structured Q&A** here too: a single-select with
+`With per-repo dispatcher (recommended)` as the default and
+`Simple (post-checkout only)` as the alternative.
+
+- **Simple** → Step P.3-whole-user installs `git-global-post-checkout.sh`
+  only.
+- **Dispatcher** → Step P.3-whole-user still runs, and Step
+  P.3b-whole-user additionally installs `git-hook-dispatcher.sh`
+  (symlinked to each hook name, including `post-checkout` — which
+  in this flavour supersedes the standalone `git-global-post-checkout.sh`)
+  and the `prek` PATH shim.
 
 #### Step P.1 — Install the helper script
 
@@ -335,17 +385,22 @@ for both existing and future repos via `core.hooksPath`).
 
 #### Step P.3-whole-user — Install the global post-checkout hook (whole-user scope)
 
-Skip if the operator picked per-project scope.
+Skip if the operator picked per-project scope. **Dispatcher
+flavour (Step P.0b):** skip step 1 below — Step P.3b-whole-user
+installs the dispatcher as `post-checkout` instead, superseding the
+standalone `git-global-post-checkout.sh`. Still run step 2 (set
+`core.hooksPath`) here.
 
-1. **Install the universal `post-checkout` hook.** Copy
+1. **(Simple flavour only) Install the universal `post-checkout`
+   hook.** Copy
    `tools/agent-isolation/git-global-post-checkout.sh` into
    `~/.claude/git-hooks/post-checkout` (or symlink it from
    `~/.claude-config/git-hooks/post-checkout` if the operator
    uses the private sync repo), mode `0755`. The hook content is
    in
    [`tools/agent-isolation/git-global-post-checkout.sh`](../../tools/agent-isolation/git-global-post-checkout.sh) —
-   it calls the sandbox-allowlist helper and (for magpie-adopted
-   repos) `setup verify --auto-fix-symlinks`.
+   it calls the sandbox-allowlist helper for Claude-Code-aware
+   worktrees.
 
 2. **Set `core.hooksPath` globally** so every git operation across
    every repo on the host uses the shared hook dir:
@@ -367,6 +422,77 @@ After this step, future `git clone`, `git worktree add`, and
 framework's universal post-checkout, which keeps each
 Claude-Code-aware project's `.claude/settings.local.json` in
 sync without any further operator action.
+
+#### Step P.3b-whole-user — Install the per-repo dispatcher + prek shim (dispatcher flavour only)
+
+Skip unless the operator picked the **dispatcher** flavour in
+Step P.0b. This is what keeps the operator's per-repo hooks (prek,
+pre-commit, husky, hand-written) firing under global
+`core.hooksPath` — the shared dir runs the framework's logic **and
+then chains through to each repo's own `.git/hooks/<name>`**. See
+[`docs/setup/secure-agent-setup.md` → *Whole-user with the per-repo dispatcher*](../../docs/setup/secure-agent-setup.md#whole-user-with-the-per-repo-dispatcher)
+for the full rationale + the validated behaviour matrix.
+
+1. **Install the dispatcher for each hook type.** Copy
+   [`tools/agent-isolation/git-hook-dispatcher.sh`](../../tools/agent-isolation/git-hook-dispatcher.sh)
+   into `~/.claude/git-hooks/git-hook-dispatcher.sh` (or symlink
+   from `~/.claude-config/git-hooks/` under the private sync repo),
+   mode `0755`, then create one symlink per hook name pointing at
+   it — including `post-checkout`, which replaces the standalone
+   file from Step P.3 (the dispatcher runs the same sandbox sync,
+   then chains to any repo-local `post-checkout`):
+
+   ```bash
+   cd ~/.claude/git-hooks
+   for h in post-checkout pre-commit prepare-commit-msg commit-msg \
+            post-commit pre-push post-merge post-rewrite \
+            pre-rebase pre-merge-commit; do
+     ln -sf git-hook-dispatcher.sh "$h"
+   done
+   ```
+
+   The dispatcher is basename-keyed, so one file serves every hook
+   type. It resolves the repo-local hook via
+   `git rev-parse --git-common-dir` (worktree-safe) and `exec`s it
+   with the original argv + inherited stdin, so a failing local
+   `pre-commit` / `pre-push` still aborts the git operation.
+
+2. **Install the `prek` PATH shim** so `prek install` writes its
+   shim into the repo-local `.git/hooks/` (where the dispatcher
+   chains) instead of the shared dir. Copy
+   [`tools/agent-isolation/prek-shim.sh`](../../tools/agent-isolation/prek-shim.sh)
+   into `~/.claude/bin/prek` (or symlink from
+   `~/.claude-config/bin/prek`), mode `0755`. The shim rewrites
+   only `prek install` (injecting
+   `--git-dir "$(git rev-parse --git-common-dir)"` unless the caller
+   already passed `--git-dir`, asked for `--help`, or is outside a
+   git work tree); **every other `prek` invocation passes through
+   unchanged**. It is a no-op on hosts with no global
+   `core.hooksPath`.
+
+3. **Surface the PATH line for the operator to add** to their
+   `~/.bashrc` / `~/.zshrc` (per the golden rules — never edit the
+   rc file directly):
+
+   ```bash
+   export PATH="$HOME/.claude/bin:$PATH"
+   ```
+
+   Confirm the rc path with the operator; print the line for them
+   to paste. Until it is on PATH ahead of the real `prek`, the
+   shim is inert and `prek install` reverts to writing into the
+   shared dir.
+
+4. **Tell the operator how their existing prek repos are picked up.**
+   Repos that already ran `prek install` before this setup have
+   their shim in `.git/hooks/pre-commit` already (that is where a
+   pre-`core.hooksPath` `prek install` put it), so the dispatcher
+   finds them with no further action. Repos where they run
+   `prek install` *after* the global switch will now install
+   locally via the shim. Only repos where the shim already landed
+   in the shared dir (from a `prek install` run *while*
+   `core.hooksPath` was set but *before* this dispatcher setup)
+   need a one-time `prek install` re-run through the shim.
 
 The `.` entry stays in the committed project-scope `allowRead`
 regardless — the explicit absolute path in
@@ -398,6 +524,23 @@ Suggest two follow-up routines the user can wire later:
   source-of-truth. Recommend a per-Claude-Code-upgrade or
   monthly cadence, whichever comes first.
 
-If the user has the `~/.claude-config` sync repo in place, also
-mention `setup-shared-config-sync` for committing + pushing local
-modifications to the shared scripts.
+**Always propose shared-config sync once the install lands.**
+Regardless of whether the operator already maintains the
+`~/.claude-config` sync repo, proactively offer to run
+`setup-shared-config-sync` as a follow-up:
+
+- If the `~/.claude-config` sync repo is already in place, the
+  skill commits + pushes the local modifications (the user-scope
+  scripts, hooks, and settings this install just wired up) so the
+  other machines pick them up.
+- If the operator does **not** yet have `~/.claude-config`, the
+  `setup-shared-config-sync` skill bootstraps it (clones the
+  default private remote if it exists, or creates a fresh private
+  remote and scaffolds the layout). Mention this so a first-time
+  operator knows the follow-up will set sync up from scratch — the
+  point of proposing it is precisely so the just-installed config
+  does not stay machine-local.
+
+Surface it as an offer for the operator to accept, not an
+auto-run — the sync skill has its own confirmation gates before it
+commits or pushes anything.

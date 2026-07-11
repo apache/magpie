@@ -745,10 +745,21 @@ The verification surface:
 offers two scopes for the project-root sandbox-allowlist setup.
 The operator picks one during install; both are reversible.
 
+**Recommended default depends on host state.** The install skill
+first checks whether whole-user (global) scope is already active
+(`git config --global --get core.hooksPath` pointing at the shared
+hook dir). When it is **not yet set up on the host**, the skill
+proposes **whole-user (global) as the default** — it is the
+recommended baseline that covers every current and future repo in
+one pass. When global scope is **already active**, the skill
+defaults to per-project for the specific repo being installed (the
+global hook already covers the host). The operator can always pick
+the other scope.
+
 | Scope | What it covers | Mechanism | Reversal |
 |---|---|---|---|
-| **Per-project** (default) | The single adopter repo the operator is sitting in when running the install skill. Each subsequent adopter project needs the install skill re-run there. | The helper runs once with `--all-worktrees` against the current repo; nothing global is touched. The per-repo `post-checkout` hook (installed by `/magpie-setup adopt` in Magpie-adopted repos) chains into the helper on future `git checkout` operations within that repo. | None needed — per-project scope is inert outside the configured repos. |
-| **Whole-user** | Every git repo on the operator's host, existing and future. Includes non-Magpie Claude-Code-aware projects (any project with a `.claude/` directory). | Walks the operator's existing checkouts under prompted root dirs and writes each one's `settings.local.json`; sets `git config --global core.hooksPath ~/.claude/git-hooks/` and installs the universal [`git-global-post-checkout.sh`](../../tools/agent-isolation/git-global-post-checkout.sh) there. | `git config --global --unset core.hooksPath` restores per-repo hook lookup. The populated `settings.local.json` files stay (they are harmless if the operator no longer wants them, and gitignored so they cause no commit noise). |
+| **Per-project** | The single adopter repo the operator is sitting in when running the install skill. Each subsequent adopter project needs the install skill re-run there. | The helper runs once with `--all-worktrees` against the current repo; nothing global is touched. The per-repo `post-checkout` hook (installed by `/magpie-setup adopt` in Magpie-adopted repos) chains into the helper on future `git checkout` operations within that repo. | None needed — per-project scope is inert outside the configured repos. |
+| **Whole-user (global)** (recommended default when not yet set up) | Every git repo on the operator's host, existing and future. Includes non-Magpie Claude-Code-aware projects (any project with a `.claude/` directory). | Walks the operator's existing checkouts under prompted root dirs and writes each one's `settings.local.json`; sets `git config --global core.hooksPath ~/.claude/git-hooks/` and installs the universal [`git-global-post-checkout.sh`](../../tools/agent-isolation/git-global-post-checkout.sh) there. | `git config --global --unset core.hooksPath` restores per-repo hook lookup. The populated `settings.local.json` files stay (they are harmless if the operator no longer wants them, and gitignored so they cause no commit noise). |
 
 #### Important trade-off — `core.hooksPath` shadows per-repo hooks
 
@@ -761,12 +772,15 @@ post-checkout actions), those will no longer fire after whole-user
 scope is set, unless the operator migrates them into
 `~/.claude/git-hooks/`.
 
-The framework installs **only** the `post-checkout` hook in the
-shared dir. Pre-commit / commit-msg / pre-push / other hook types
-need their own files in the shared dir if the operator wants
-them to fire. This is a deliberate trade-off: a single mechanism
-for whole-user coverage at the cost of needing to migrate
-per-repo hooks.
+The *simple* whole-user flavour installs **only** the
+`post-checkout` hook in the shared dir, so pre-commit / commit-msg
+/ pre-push / other hook types would need their own files there to
+fire. The **dispatcher flavour** removes that cost entirely — it
+chains the shared hooks back to each repo's own `.git/hooks/`, so
+per-repo hooks keep working with no migration. See
+[Whole-user with the per-repo dispatcher](#whole-user-with-the-per-repo-dispatcher).
+Pick simple only if you run no per-repo hooks and want the minimal
+footprint.
 
 The install skill surfaces this trade-off loudly before setting
 `core.hooksPath` and requires explicit operator acknowledgement.
@@ -799,6 +813,53 @@ idempotent. Re-running it with a different scope is the supported
 upgrade path. The walking pass under whole-user scope is also a
 one-time bulk operation — once existing checkouts are populated,
 the global `post-checkout` keeps everything aligned going forward.
+
+#### Whole-user with the per-repo dispatcher
+
+The `core.hooksPath`-shadowing trade-off above has a clean
+resolution: instead of a plain `post-checkout` in the shared dir,
+install the **dispatcher**
+([`tools/agent-isolation/git-hook-dispatcher.sh`](../../tools/agent-isolation/git-hook-dispatcher.sh))
+under *every* hook name. Each dispatcher runs the framework's own
+logic for that hook type (the `post-checkout` sandbox-allowlist
+sync) **and then chains through to the repo-local
+`.git/hooks/<name>`** — so your per-repo hooks keep firing even
+though `core.hooksPath` is global. This is the **recommended
+whole-user flavour** for anyone who uses prek, pre-commit, husky,
+lefthook, or any per-repo hook.
+
+The dispatcher is basename-keyed (one script, symlinked to each
+hook name), resolves the local hook via `git rev-parse
+--git-common-dir` (worktree-safe), and `exec`s it with the
+original argv + inherited stdin, so a failing local `pre-commit` /
+`pre-push` still aborts the git operation. A repo with **no** local
+hook is a clean no-op.
+
+**The `prek` PATH shim.** prek honours `core.hooksPath`, so a bare
+`prek install` under whole-user scope would write its shim into the
+*shared* dir, not the repo. The framework ships a transparent shim
+([`tools/agent-isolation/prek-shim.sh`](../../tools/agent-isolation/prek-shim.sh),
+installed as `~/.claude/bin/prek` with `~/.claude/bin` prepended to
+PATH) that rewrites **only** `prek install` — injecting
+`--git-dir "$(git rev-parse --git-common-dir)"` so the shim lands
+in the repo-local `.git/hooks/` where the dispatcher finds it.
+Every other `prek` command passes straight through, and the shim is
+a no-op on hosts with no global `core.hooksPath`.
+
+Validated behaviour under this flavour (`core.hooksPath` global +
+dispatchers + prek shim):
+
+| Repo's local hook | Result |
+|---|---|
+| prek shim in `.git/hooks/` (installed via the shim) | dispatcher → prek runs that repo's `.pre-commit-config.yaml` |
+| hand-written / husky / lefthook `.git/hooks/<name>` | dispatcher → that hook runs (heterogeneous tooling coexists) |
+| none | dispatcher no-op; git operation proceeds cleanly |
+| local hook exits non-zero | exit code propagates; git operation aborts |
+| `post-checkout` | framework sandbox sync **and** repo-local `post-checkout` both run |
+
+Reversal is the same as simple whole-user (`git config --global
+--unset core.hooksPath`), plus removing `~/.claude/bin` from PATH to
+restore the stock `prek`.
 
 ## The clean-env wrapper
 
@@ -1920,6 +1981,13 @@ Then walk through:
    Verification checks from the next section of this document
    ("Verification — Via a Claude Code prompt") and report
    ✓ done / ✗ missing / ⚠ partial for each piece.
+
+8. **Offer shared-config sync.** Once the install lands, propose
+   running `setup-shared-config-sync` to commit + push the
+   user-scope config this install just wired up to my private
+   `~/.claude-config` dotfile repo, so my other machines pick it
+   up. If I don't have `~/.claude-config` yet, note that the sync
+   skill will bootstrap it. Offer it — don't auto-run it.
 
 If any step fails, stop and report the failure — do not work
 around it silently.
