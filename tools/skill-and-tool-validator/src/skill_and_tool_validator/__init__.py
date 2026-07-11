@@ -74,7 +74,7 @@ skills/:
     the actual per-section row counts, and every live skill with a
     ``mode:`` frontmatter must appear in the corresponding section.
     Advisory only — never fails the run unless ``--strict``.
-14. Multi-capability form advisory (SOFT) — when a ``capability:``
+13. Multi-capability form advisory (SOFT) — when a ``capability:``
     value looks like multiple tokens joined by a space or comma (e.g.
     ``capability: capability:fix capability:resolve``), the skill is
     using string form for what should be a YAML list.  Use the list
@@ -82,14 +82,14 @@ skills/:
     so each entry is validated individually.  Advisory only — the
     vocabulary check (aspect 1) already rejects the joined string, but
     this advisory gives a more actionable error message.
-15. Override-file contract (SOFT) — when a ``.apache-magpie-overrides/``
+14. Override-file contract (SOFT) — when a ``.apache-magpie-overrides/``
     directory exists in the repo, every ``<skill>.md`` file inside it is
     checked to ensure it carries the canonical ``apache-magpie agentic
     override`` header comment and does not contain heuristic patterns that
     attempt to weaken the framework's safety / confidentiality / privacy /
     external-content-as-data baseline.  Advisory only — prose explanations
     of what NOT to do can false-positive here.
-16. Project-template drift (SOFT) — compares ``projects/_template/``
+15. Project-template drift (SOFT) — compares ``projects/_template/``
     with ``projects/non-asf-example/`` for structural drift: files
     referenced in the example README must exist on disk, every config
     file in the example must be documented in its README, and config
@@ -97,7 +97,7 @@ skills/:
     headings (``project.md`` and ``README.md`` are excluded from the
     h2 comparison because their structures intentionally differ by
     organization profile). Advisory only.
-17. Branch-name confidentiality (SOFT) — scans ``git checkout -b`` and
+16. Branch-name confidentiality (SOFT) — scans ``git checkout -b`` and
     ``git switch -c`` examples in fenced code blocks across skills and
     docs and flags any concrete branch name that contains an
     embargo-breaking term: a CVE ID (``CVE-YYYY-NNNNN``), ``security``,
@@ -105,7 +105,7 @@ skills/:
     public branch names must not reveal embargo context.  Lines in
     explicit "bad example" contexts (containing ``**bad**`` or
     ``bad:``) are exempt.  Advisory only.
-18. Capability taxonomy coverage (SOFT) — reads the Axis 1 (skill) and
+17. Capability taxonomy coverage (SOFT) — reads the Axis 1 (skill) and
     Axis 2 (tool) capability vocabulary tables from
     ``docs/labels-and-capabilities.md`` and verifies that every taxonomy
     entry appears in at least one row of the corresponding mapping table
@@ -114,20 +114,20 @@ skills/:
     Definition column are exempted.  Also cross-checks that the hardcoded
     ``SKILL_CAPABILITIES`` and ``TOOL_CAPABILITIES`` code constants match
     the parsed vocabulary so code and docs stay in sync.  Advisory only.
-19. Mail-adapter privacy-boundary (SOFT) — ``contract:mail-source``
+18. Mail-adapter privacy-boundary (SOFT) — ``contract:mail-source``
     and ``contract:mail-archive`` adapter READMEs must declare that
     fetched mail content is external data (not instructions) and must
     mention the prompt-injection risk in embedded mail content. Both
     are advisories — the check warns without failing the run so legacy
     adapters can be brought into compliance deliberately.
-20. SKILL.md line-length limit (SOFT) — ``SKILL.md`` entrypoint files
+19. SKILL.md line-length limit (SOFT) — ``SKILL.md`` entrypoint files
     must stay under ``SKILL_LINE_LIMIT`` (500) lines per PRINCIPLE 14.
     Reference material beyond that limit should move into sibling
     markdown files linked one level deep, with no unreferenced siblings.
     Advisory only — existing skills that pre-date this check are flagged
     for gradual migration; the check prevents new oversized entrypoints
     from being merged unnoticed.
-21. No-default-telemetry import check (SOFT) — PRINCIPLE 10 guarantees
+20. No-default-telemetry import check (SOFT) — PRINCIPLE 10 guarantees
     zero outbound calls from the framework unless a skill's adapter
     action explicitly makes them.  Only ``contract:*`` adapter tools and
     the ``egress-gateway`` proxy are declared egress surfaces; all other
