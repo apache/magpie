@@ -59,7 +59,13 @@ before moving on to the next item. Use:
   `tools/<cve-tool>/release-manager-handoff-comment.md` (manual-paste)
   otherwise. Substitute the placeholders (per the *Release-manager
   hand-off comment* bullet in Step 2b; the OAuth-pushed variant also
-  takes `PUSH_TIMESTAMP`), write the result to a temp file. Then
+  takes `PUSH_TIMESTAMP`), write the result to a temp file. This
+  reconciliation fires whenever the tracker's proposal carries the
+  hand-off item — at the `pr merged` → `fix released` transition
+  **and** on the invariant-repair path for a tracker already at
+  `fix released` with a review-ready record but no hand-off marker
+  (see *Hand-off presence is an invariant* under **Assignees** in
+  [`signals-to-actions.md`](signals-to-actions.md)). Then
   decide POST vs PATCH by grepping the tracker's comment list for
   the marker:
 

@@ -179,7 +179,7 @@ will change and *why*. Group them by category:
   active on the issue, and propose self-assigning a team member only
   if the user explicitly asks.
 
-  **Assignee hand-off at the `fix released` transition.** When the
+  **Assignee hand-off at the `fix released` transition (and its repair).** When the
   sync transitions an issue to `fix released` (Step 12 — the fix has
   shipped to PyPI / the Helm registry), ownership moves from the
   remediation developer to the release manager for Steps 13–15
@@ -198,13 +198,49 @@ will change and *why*. Group them by category:
   blocker and ask the user whether to invite them before assigning
   — GitHub silently ignores assignee writes for non-collaborators.
 
-  This swap is **only** appropriate at the `fix released`
-  transition. Earlier transitions (`pr created`, `pr merged`) keep
-  the remediation developer as assignee because the fix PR is still
-  their responsibility. Later transitions
+  This swap is appropriate at the `fix released` transition **and on
+  the repair path below** (a tracker already at `fix released` whose
+  swap never landed). Earlier transitions (`pr created`, `pr merged`)
+  keep the remediation developer as assignee because the fix PR is
+  still their responsibility. Later transitions
   (`announced - emails sent`, `announced`,
   `vendor-advisory`) keep the release manager because the advisory
-  lifecycle is theirs. Do **not** shuffle assignees back and forth.
+  lifecycle is theirs. Do **not** shuffle assignees back and forth —
+  the swap fires once, at (or in repair of) the `fix released`
+  hand-off.
+
+  **Hand-off presence is an invariant — repair trackers already at
+  `fix released`.** The release-manager hand-off comment and the
+  assignee swap above are normally fired as apply-actions of the
+  `pr merged` → `fix released` transition proposal. But a tracker can
+  arrive at `fix released` *without* a hand-off ever having been
+  posted — a prior run's POST failed, the `fix released` label was
+  applied by hand, or the CVE record only reached review-ready
+  (Vulnogram `REVIEW`) on a later run than the label flip. Because no
+  transition fires on those later syncs, the transition-scoped
+  proposal never regenerates and the hand-off is silently skipped,
+  leaving an advisory with **no named owner** — it stalls until a
+  human notices.
+
+  So treat the hand-off as a **reconciled invariant, checked on every
+  sync**, not a one-shot transition side-effect. On every sync of a
+  tracker at `fix released` whose CVE record is review-ready
+  (Vulnogram `REVIEW`), grep the tracker's comments for the marker
+  `<!-- apache-magpie: release-manager-handoff v1 -->` (the same grep
+  Step 5c already runs). If the marker is **absent**, generate the
+  hand-off proposal item — POST the hand-off comment and propose the
+  assignee swap — exactly as at the transition, regardless of whether
+  this run performed the flip. If present, skip (Step 5c's PATCH path
+  handles content drift). Resolve the release manager
+  **authoritatively — never guess a "plausible" name**: for a release
+  train that ships many packages in one wave (e.g. a providers /
+  plugins wave), the owning RM is the sender of *that specific wave's*
+  `[RESULT][VOTE]` / release `[ANNOUNCE]`, which is frequently a
+  different person from the core-release RM for the same period;
+  resolve it per the release-trains data and record the wave + RM
+  there if missing before posting. A generic *"Action (RM): send the
+  advisory …"* status line is **never** an acceptable substitute for
+  the hand-off comment.
 - **Issue title hygiene** — the GitHub issue title ships verbatim into
   the CVE record's `containers.cna.title` field (read by the
   `generate-cve-json` script on every regen) and from there into the
