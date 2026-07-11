@@ -111,19 +111,17 @@ github:
   # ever existed, so the protection now lives here next to the rest
   # of the repo config.
   #
-  # PMC FORMED — REVIEW REQUIREMENT IS A PMC DECISION
-  # -------------------------------------------------
-  # Pull-request approvals are currently NOT required. This was the
-  # bootstrap posture from when the framework ran under the Airflow
-  # PMC umbrella with a small set of committers (see MISSION.md);
-  # Magpie is now a Top-Level Project with its own PMC, so the PMC
-  # should decide whether to keep self-merge-after-CI or add a
-  # `required_pull_request_reviews:` section with
-  # `required_approving_review_count: 1` (or higher) and
-  # `dismiss_stale_reviews` / `require_code_owner_reviews` tuned to
-  # the committer / CODEOWNERS shape. Until the PMC changes it,
-  # status checks alone gate merges — a maintainer can self-merge
-  # after CI green.
+  # ONE APPROVING REVIEW REQUIRED ON `main`
+  # ---------------------------------------
+  # During the framework's bootstrap phase (running under the Airflow
+  # PMC umbrella with a small set of committers, see MISSION.md) PR
+  # approvals were NOT required and a maintainer could self-merge
+  # after CI green. Now that Magpie is a Top-Level Project with its
+  # own PMC, every PR into `main` requires at least one approving
+  # review from a committer
+  # (`required_pull_request_reviews.required_approving_review_count: 1`
+  # below), so self-merge without a second pair of eyes is no longer
+  # possible.
   protected_branches:
     main:
       # Required status checks. Listed contexts MUST run on every PR
@@ -175,9 +173,15 @@ github:
           # fails unless all succeed, so the gate semantics are the
           # same.
           - "tests-ok"
-      # `required_pull_request_reviews:` deliberately omitted — see
-      # the PMC-decision note above. Re-add once the PMC settles the
-      # review requirement.
+      # One approving review from a committer is required before any
+      # PR merges into `main` (see the note above). `dismiss_stale_reviews:
+      # true` — a new push after approval dismisses the stale approval,
+      # so the approving reviewer sees the final state of the diff.
+      # `require_code_owner_reviews` is left off: there is no CODEOWNERS
+      # file, so any committer's approval satisfies the requirement.
+      required_pull_request_reviews:
+        required_approving_review_count: 1
+        dismiss_stale_reviews: true
       #
       # Linear history matches `enabled_merge_buttons.squash: true`
       # above — squash is the only enabled merge mode, so every
