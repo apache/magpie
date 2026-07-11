@@ -68,7 +68,7 @@ per runtime — see [`docs/adapters/add-a-harness.md`](../../docs/adapters/add-a
 ## Prerequisites
 
 - **Runtime:** Bash + coreutils — this directory is plain shell scripts plus a TOML manifest, not a Python project (the `pyproject.toml` ships only the test harness, which runs under Python 3.11+ via `uv`). `claude-term-bg.sh` uses `python3` / `python` for one heuristic and falls back to calm when absent.
-- **CLIs:** `jq` (required by `check-tool-updates.sh` and the status-line scripts), `curl` (the update check), `git` (status line / git hooks), and `gh` (optional — status-line PR title). The secure setup itself installs the pinned `bubblewrap` and `socat` (via `apt-get`) and `@anthropic-ai/claude-code` (via `npm`).
+- **CLIs:** `jq` (required by `check-tool-updates.sh` and the status-line scripts), `curl` (the update check), `git` (status line / git hooks), and `gh` (optional — status-line PR title). The secure setup itself installs the pinned `bubblewrap` and `socat` (via `apt-get`) and `@anthropic-ai/claude-code@latest` (via `npm` — the agent runtime is intentionally unpinned; see [`pinned-versions.toml`](pinned-versions.toml)).
 - **Credentials / auth:** None for these helpers; the wrapped `claude` session authenticates on its own (and `agent-iso.sh` deliberately strips credential-shaped env vars).
 - **Network:** `api.github.com` and `www.dest-unreach.org` (the release checks in `check-tool-updates.sh`); the install step also reaches the apt and npm registries.
 
@@ -76,7 +76,7 @@ per runtime — see [`docs/adapters/add-a-harness.md`](../../docs/adapters/add-a
 
 | File | Purpose |
 |---|---|
-| [`pinned-versions.toml`](pinned-versions.toml) | Machine-readable manifest of pinned upstream versions for `bubblewrap`, `socat`, and `claude-code`. Each entry carries a `released` date that satisfies the framework's 7-day cooldown convention. |
+| [`pinned-versions.toml`](pinned-versions.toml) | Machine-readable manifest of pinned upstream versions for the sandbox primitives `bubblewrap` and `socat`. Each entry carries a `released` date that satisfies the framework's 7-day cooldown convention. `claude-code` is deliberately **not** pinned — the agent runtime installs at `@latest` so it always carries the newest permission-rule / sandbox / prompt-injection fixes. |
 | [`check-tool-updates.sh`](check-tool-updates.sh) | Reads the manifest and reports upstream releases that are newer than the pin AND have themselves aged past the 7-day cooldown. Side-effect-free — no installs, no edits, no PRs. |
 | [`agent-iso.sh`](agent-iso.sh) | Shell function to launch Claude Code with `env -i` and a tiny passthrough list, stripping every credential-shaped environment variable from the parent shell. The framework's "layer 0" of the secure setup. |
 | [`sandbox-bypass-warn.sh`](sandbox-bypass-warn.sh) | Claude Code `PreToolUse` hook (Bash matcher). Prints a bold-red banner to stderr whenever the model invokes the Bash tool with `dangerouslyDisableSandbox: true`. Belt-and-braces visibility for the sandbox-bypass permission prompt. Recommended user-scope (`~/.claude/settings.json`) so it fires across every session on the host. |
@@ -90,9 +90,10 @@ per runtime — see [`docs/adapters/add-a-harness.md`](../../docs/adapters/add-a
 ## Usage at a glance
 
 ```bash
-# Initial install (read pinned-versions.toml for the version pin):
+# Initial install (read pinned-versions.toml for the bubblewrap/socat pins):
 sudo apt-get install --no-install-recommends bubblewrap=0.11.1-* socat=1.8.1.1-*
-npm install -g --no-save @anthropic-ai/claude-code@2.1.117
+# claude-code is unpinned — always install the latest for the newest security fixes:
+npm install -g --no-save @anthropic-ai/claude-code@latest
 
 # Source the wrapper into your shell:
 source /path/to/magpie/tools/agent-isolation/agent-iso.sh

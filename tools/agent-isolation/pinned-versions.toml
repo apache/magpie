@@ -28,14 +28,24 @@
 # install it.
 #
 # Cooldown is **per-tool** with a 7-day default. A tool with an
-# unusually well-watched release stream — `claude-code` is the
-# canonical example, since its release cadence is high and any
-# regression that affects the framework's permission-rule
-# semantics or sandbox flags is caught broadly within hours of
-# release — can override the default via `cooldown_days = N` in
-# its `[tools.<name>]` table. Lowering the cooldown trades
-# settle-time for currency; raise it back if a tool starts
-# shipping pre-release fix-forwards routinely.
+# unusually well-watched release stream can override the default
+# via `cooldown_days = N` in its `[tools.<name>]` table. Lowering
+# the cooldown trades settle-time for currency; raise it back if a
+# tool starts shipping pre-release fix-forwards routinely.
+#
+# `claude-code` is deliberately **not pinned to an exact version**.
+# The secure setup installs `@anthropic-ai/claude-code@latest`
+# because each release carries the newest permission-rule, sandbox,
+# and prompt-injection fixes — pinning the agent runtime to an
+# older build would *increase* the framework's security lag, not
+# reduce it. Instead of a pin it carries a `min_version` floor: the
+# oldest release whose permission-rule / sandbox semantics the
+# secure setup relies on. When the setup is driven from Claude Code
+# itself, `setup-isolated-setup-verify` HARD-FAILS if the running
+# claude-code is below that floor (see its `[tools.claude-code]`
+# table). Only the low-level sandbox primitives (`bubblewrap`,
+# `socat`), where reproducibility and settle-time matter more than
+# chasing the newest build, carry an exact `version` pin here.
 #
 # Adopters consume this file by:
 #   1. Reading the versions in `docs/setup/secure-agent-setup.md` and installing
@@ -91,32 +101,28 @@ install.dnf = "dnf install socat-1.8.1.3"
 install.from_source = "http://www.dest-unreach.org/socat/download/socat-1.8.1.3.tar.gz"
 
 [tools.claude-code]
-version = "2.1.202"
-released = "2026-07-06"
-# Override the framework-wide 7-day default. Claude Code releases
-# cadence is high (multiple releases per week) and any regression
-# that affects the framework's permission-rule semantics, sandbox
-# flags, or prompt-injection mitigations is caught broadly within
-# hours of release — the wider Claude Code user base spans many
-# more workloads than this framework's secure setup, and a 1-day
-# floor is a reasonable balance between currency and settle-time
-# for this specific tool. Raise back to 7 if Claude Code starts
-# shipping pre-release fix-forwards routinely.
-cooldown_days = 1
+# NOT an exact-version pin — `min_version` is a hard floor, not a
+# version to install. The secure setup installs `@latest` (see
+# `install.npm` below); the floor is the oldest release whose
+# permission-rule / sandbox / prompt-injection semantics the secure
+# setup relies on. `setup-isolated-setup-verify` HARD-FAILS (not a
+# ⚠) when driven from Claude Code and the running claude-code is
+# below this floor — the secure setup's guarantees do not hold on an
+# older runtime, so the run stops. Raise the floor only when the
+# framework starts to depend on behaviour from a newer release.
+min_version = "2.1.202"
+released = "2026-07-06"  # release date of the min_version floor
 purpose = """
-The agent runtime itself. Pinning matters because the
-permission-rule semantics, the sandbox flags, and the
-prompt-injection mitigations evolve between releases — a
-silent autoupdate to a release with a different default would
-change the framework's effective security posture without a
-review pass. The framework maintainer bumps this in lockstep
-with reviewing release-notes for behavioural changes that
-affect the secure setup.
+The agent runtime itself. The secure setup's permission-rule
+semantics, sandbox flags, and prompt-injection mitigations depend
+on runtime behaviour present from `min_version` onward; an older
+build silently weakens the effective security posture, which is why
+the floor is enforced as a hard failure rather than a warning.
+Install `@latest` to stay comfortably ahead of the floor.
 """
 docs = "https://code.claude.com/docs/"
 upstream_releases = "https://api.github.com/repos/anthropics/claude-code/releases"
 # Claude Code is distributed via npm; use `--no-save` so the global
 # install doesn't drift the local lockfile of any project the user
-# installs from.
-install.npm = "npm install -g --no-save @anthropic-ai/claude-code@2.1.202"
-install.brew = "# brew tap anthropics/claude-code; brew install claude-code@2.1.202 (when available)"
+# installs from. Always `@latest` — never a version pin.
+install.npm = "npm install -g --no-save @anthropic-ai/claude-code@latest"

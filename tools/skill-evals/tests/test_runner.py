@@ -1310,14 +1310,14 @@ def test_compare_with_grader_handles_nested_list_of_dicts():
         "overall": "fail",
         "follow_up": [
             {"skill": "install", "reason": "missing hook script"},
-            {"skill": "update", "reason": "stale claude-code version"},
+            {"skill": "update", "reason": "claude-code below the min_version floor"},
         ],
     }
     expected = {
         "overall": "fail",
         "follow_up": [
             {"skill": "install", "reason": "hooks/scripts not installed"},
-            {"skill": "update", "reason": "claude-code is older than pinned version"},
+            {"skill": "update", "reason": "claude-code is under the min_version floor"},
         ],
     }
     ok, msgs = compare_with_grader(

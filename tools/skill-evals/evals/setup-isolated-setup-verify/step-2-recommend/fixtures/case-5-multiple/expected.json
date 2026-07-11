@@ -6,8 +6,8 @@
       "reason": "checks 1, 2, 3, 4, 6, 7, 8 failed — sandbox disabled, hooks and scripts missing, claude-iso not sourced; re-install will also add the sandbox-add-project-root.sh helper for check 8"
     },
     {
-      "skill": "setup-isolated-setup-update",
-      "reason": "check 5 — claude-code 1.9.0 is older than pinned 2.1.150"
+      "skill": "npm install -g --no-save @anthropic-ai/claude-code@latest",
+      "reason": "check 5 — claude-code 1.9.0 is BELOW the min_version floor 2.1.150; HARD FAIL under Claude Code — upgrade to @latest before re-verifying"
     }
   ]
 }

@@ -69,13 +69,16 @@ grep claude-iso ~/.bashrc:
 
 ---
 
-## Check 5 — Pinned tool versions
+## Check 5 — Tool versions
 
-tools/agent-isolation/pinned-versions.toml [tools.claude-code]:
-  version = "2.1.150"
+tools/agent-isolation/pinned-versions.toml:
+  [tools.bubblewrap]  version     = "0.11.2"   (Linux only)
+  [tools.socat]       version     = "1.8.1.3"  (Linux only)
+  [tools.claude-code] min_version = "2.1.150"  (floor; runtime tracks @latest)
 
-Installed (claude --version):
-  2.1.150
+Installed:
+  claude --version: 2.1.150
+Harness: Claude Code
 
 ---
 

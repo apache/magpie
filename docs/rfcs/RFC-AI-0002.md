@@ -225,19 +225,21 @@ A session that is inadvertently running with `sandbox.enabled` unset (or globa
 
 ### Pinned tools and cooldown discipline
 
-Every system-level tool the secure setup depends on is pinned with a **per-tool cooldown** before adopting a new upstream release — same convention as `[tool.uv] exclude-newer = "7 days"` in `pyproject.toml`. Default cooldown is 7 days; individual tools can override.
+The **sandbox primitives** the secure setup depends on (`bubblewrap`, `socat`) are pinned with a **per-tool cooldown** before adopting a new upstream release — same convention as `[tool.uv] exclude-newer = "7 days"` in `pyproject.toml`. Default cooldown is 7 days; individual tools can override.
 
-The current pins (from the reference implementation's [`tools/agent-isolation/pinned-versions.toml`](https://github.com/apache/magpie/blob/main/tools/agent-isolation/pinned-versions.toml)):
+The current constraints (from the reference implementation's [`tools/agent-isolation/pinned-versions.toml`](https://github.com/apache/magpie/blob/main/tools/agent-isolation/pinned-versions.toml)):
 
-| Tool | Pinned version | Released | Cooldown | Purpose |
+| Tool | Constraint | Released | Cooldown | Purpose |
 |---|---|---|---|---|
-| `bubblewrap` | 0.11.1 | 2026-03-21 | 7d (default) | Linux user-namespace sandbox (filesystem layer). Required on Linux; macOS uses Seatbelt instead. |
-| `socat` | 1.8.1.1 | 2026-03-13 | 7d (default) | TCP relay for the sandbox network allowlist. Linux only. |
-| `claude-code` | 2.1.123 | 2026-04-29 | 1d (override) | Agent runtime. Pin separately from any system claude install so behavioural changes don't drift the framework's effective security posture without review. |
+| `bubblewrap` | pin `0.11.2` | 2026-04-23 | 7d (default) | Linux user-namespace sandbox (filesystem layer). Required on Linux; macOS uses Seatbelt instead. |
+| `socat` | pin `1.8.1.3` | 2026-06-26 | 7d (default) | TCP relay for the sandbox network allowlist. Linux only. |
+| `claude-code` | floor `min_version ≥ 2.1.202`, install `@latest` | — | none | Agent runtime. Unpinned; installed at the latest release, with a hard `min_version` floor enforced by verify (hard-fails below it under Claude Code). |
 
-The `pinned_at` field in the manifest is the day the manifest was last touched; it is the framework's promise that every version above had at least its tool's cooldown to settle before being adopted.
+The `pinned_at` field in the manifest is the day the manifest was last touched; it is the framework's promise that every *pinned* version above had at least its tool's cooldown to settle before being adopted.
 
-`claude-code` is the canonical override at 1 day — its release cadence is high enough that a longer floor would strand the framework many versions behind upstream, and any regression that affects the secure setup's permission-rule semantics or sandbox flags is caught broadly within hours of release.
+The **agent runtime** (`claude-code`) is deliberately **not** pinned to an exact version. It installs at `@latest` because each release carries the newest permission-rule, sandbox, and prompt-injection fixes; pinning the runtime to an older build would *increase* the framework's security lag, not reduce it. Instead of a pin it carries a `min_version` **floor** — the oldest release whose permission-rule / sandbox semantics the secure setup relies on. `setup-isolated-setup-verify` **hard-fails** (not a warning) when the setup is driven from Claude Code and the running claude-code is below that floor: the run stops rather than certifying a setup whose guarantees may not hold on an older runtime.
+
+> **History.** Earlier revisions of this RFC pinned `claude-code` to an exact version (with a 1-day cooldown override) so behavioural changes stayed under review. That was reversed: for the *agent runtime specifically*, always-latest is the more secure posture, and a hard `min_version` floor gives the guarantee the exact pin was reaching for without stranding adopters on stale, less-hardened builds. The sandbox primitives (`bubblewrap`, `socat`) remain exact-pinned.
 
 #### Install commands (Linux distro)
 
@@ -246,16 +248,16 @@ The `pinned_at` field in the manifest is the day the manifest was last touched
 ```text
 sudo apt-get update
 sudo apt-get install --no-install-recommends \
-    bubblewrap=0.11.1-* \
-    socat=1.8.1.1-*
+    bubblewrap=0.11.2-* \
+    socat=1.8.1.3-*
 ```
 
 **Fedora / RHEL (dnf):**
 
 ```text
 sudo dnf install \
-    bubblewrap-0.11.1 \
-    socat-1.8.1.1
+    bubblewrap-0.11.2 \
+    socat-1.8.1.3
 ```
 
 **macOS:** bubblewrap is not needed (Seatbelt is built in); socat is optional. If you want socat, `brew install socat` (no pin enforced — Homebrew rolls forward).
@@ -263,7 +265,7 @@ sudo dnf install \
 **Claude Code (all platforms):**
 
 ```text
-npm install -g --no-save @anthropic-ai/claude-code@2.1.123
+npm install -g --no-save @anthropic-ai/claude-code@latest
 ```
 
 #### Distro shortcut — Linux Mint 22.x / Ubuntu 24.04 Noble
@@ -287,8 +289,8 @@ Two paths — manual and agent-guided. They converge on the same end state.
 ```text
 # 1. Pinned system tools (Linux only — macOS uses built-in Seatbelt).
 sudo apt-get install --no-install-recommends \
-    bubblewrap=0.11.1-* socat=1.8.1.1-*
-npm install -g --no-save @anthropic-ai/claude-code@2.1.123
+    bubblewrap=0.11.2-* socat=1.8.1.3-*
+npm install -g --no-save @anthropic-ai/claude-code@latest
 
 # 2. Project-scope `.claude/settings.json`. Copy the framework's
 # sandbox / permissions.deny / permissions.ask / allowedDomains

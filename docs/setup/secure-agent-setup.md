@@ -9,10 +9,11 @@
   - [Quick start](#quick-start)
     - [Agent-guided (recommended)](#agent-guided-recommended)
     - [Manual (if you do not want the agent-guided path)](#manual-if-you-do-not-want-the-agent-guided-path)
-  - [Required tools (pinned versions)](#required-tools-pinned-versions)
+  - [Required tools](#required-tools)
     - [Install commands](#install-commands)
     - [Distro-specific shortcut — Linux Mint 22.x / Ubuntu 24.04 Noble](#distro-specific-shortcut--linux-mint-22x--ubuntu-2404-noble)
     - [Bumping a pinned version](#bumping-a-pinned-version)
+    - [Raising the claude-code floor](#raising-the-claude-code-floor)
     - [Wiring the check script into a weekly routine](#wiring-the-check-script-into-a-weekly-routine)
   - [The framework's own `.claude/settings.json`](#the-frameworks-own-claudesettingsjson)
   - [Project-root coverage in the sandbox allowlists](#project-root-coverage-in-the-sandbox-allowlists)
@@ -158,10 +159,11 @@ The same flow, condensed to commands you run yourself:
 # 1. Pinned system tools (Linux only — macOS uses built-in
 #    Seatbelt). Exact distro commands and version pins are in
 #    `tools/agent-isolation/pinned-versions.toml`; canonical
-#    section: "Required tools (pinned versions)" below.
+#    section: "Required tools" below. claude-code is unpinned —
+#    always install the latest for the newest security fixes.
 sudo apt-get install --no-install-recommends \
     bubblewrap=0.11.2-* socat=1.8.1.3-*
-npm install -g --no-save @anthropic-ai/claude-code@2.1.202
+npm install -g --no-save @anthropic-ai/claude-code@latest
 
 # 2. Project-scope `.claude/settings.json`. Copy the framework's
 #    sandbox / permissions.deny / permissions.ask / allowedDomains
@@ -197,21 +199,25 @@ of those steps. If you used the agent-guided path, you can read
 sections on demand when a skill points you at one for more
 detail.
 
-## Required tools (pinned versions)
+## Required tools
 
-Every system-level tool the secure setup depends on is pinned with a
+The **sandbox primitives** (`bubblewrap`, `socat`) are pinned with a
 **per-tool cooldown** before the framework adopts a new upstream
 release — same convention as the `[tool.uv] exclude-newer = "7 days"`
 setting in [`pyproject.toml`](../../pyproject.toml) and the weekly Dependabot
 updates in [`.github/dependabot.yml`](../../.github/dependabot.yml).
 Default cooldown is 7 days; individual tools can override via
 `cooldown_days = N` in the manifest when their release stream
-warrants it. `claude-code` is the canonical override at 1 day —
-its release cadence is high enough that a longer floor would
-strand the framework many versions behind upstream, and any
-regression that affects the secure setup's permission-rule
-semantics or sandbox flags is caught broadly within hours of
-release.
+warrants it. These are low-level sandbox building blocks where
+reproducibility and settle-time matter more than chasing the newest
+build.
+
+The **agent runtime** (`claude-code`) is deliberately **not** pinned.
+The secure setup installs `@anthropic-ai/claude-code@latest` because
+each release carries the newest permission-rule, sandbox, and
+prompt-injection fixes — pinning the runtime to an older build would
+*increase* the framework's security lag, not reduce it. Always run
+the latest.
 
 The current pins live in machine-readable form in
 [`tools/agent-isolation/pinned-versions.toml`](../../tools/agent-isolation/pinned-versions.toml):
@@ -220,7 +226,7 @@ The current pins live in machine-readable form in
 |---|---|---|---|---|
 | `bubblewrap` | 0.11.2 | 2026-04-23 | 7d (default) | Linux user-namespace sandbox (filesystem layer). Required on Linux; macOS uses Seatbelt instead. |
 | `socat` | 1.8.1.3 | 2026-06-26 | 7d (default) | TCP relay for the sandbox network allowlist. Linux only. |
-| `claude-code` | 2.1.202 | 2026-07-06 | 1d (override) | Agent runtime. Pin separately from any system claude install so behavioural changes don't drift the framework's effective security posture without review. |
+| `claude-code` | *(unpinned — `@latest`)* | — | none | Agent runtime. Installed at the latest release so it always carries the newest permission-rule / sandbox / prompt-injection fixes; not in the pin manifest. |
 
 The pin date floor (`pinned_at` in the manifest) is the day the
 manifest was last touched; it is the framework's promise that every
@@ -265,11 +271,11 @@ optional. If you want socat, `brew install socat` (current Homebrew
 version, no pin enforced — Homebrew rolls forward, so the
 "7-day cooldown" promise is best-effort here).
 
-**Claude Code**:
+**Claude Code** (unpinned — always the latest for the newest security fixes):
 
 ```bash
 # npm distribution (the only stable channel today)
-npm install -g --no-save @anthropic-ai/claude-code@2.1.202
+npm install -g --no-save @anthropic-ai/claude-code@latest
 ```
 
 ### Distro-specific shortcut — Linux Mint 22.x / Ubuntu 24.04 Noble
@@ -321,9 +327,12 @@ follows the same `*.local` convention as Claude Code's
 
 ### Bumping a pinned version
 
-When an upstream release has aged past the tool's cooldown (7-day
-default, 1-day for `claude-code` per its manifest override) and
-you want to adopt it:
+This applies to the **pinned sandbox primitives** (`bubblewrap`,
+`socat`) only — `claude-code` is unpinned and tracks `@latest`, so
+there is nothing to bump for it (to move its `min_version` floor, see
+[Raising the claude-code floor](#raising-the-claude-code-floor) below).
+When an upstream primitive release has aged past the tool's 7-day
+cooldown and you want to adopt it:
 
 1. Run `tools/agent-isolation/check-tool-updates.sh`. It compares the
    pinned versions to upstream and prints an "upgrade candidate" line
@@ -341,6 +350,31 @@ you want to adopt it:
 
 The check script is idempotent and side-effect-free — it never edits
 the manifest, never installs anything, never opens a PR.
+
+### Raising the claude-code floor
+
+`claude-code` carries a `min_version` **floor** instead of a pin. It
+is not a version to install (installs are always `@latest`) — it is
+the oldest release whose permission-rule / sandbox / prompt-injection
+semantics the secure setup relies on. `setup-isolated-setup-verify`
+check 5 **hard-fails** when the setup is driven from Claude Code and
+the running claude-code is below the floor: the run stops rather than
+certifying a setup whose guarantees may not hold on an older runtime.
+
+Raise the floor only when the framework starts to *depend* on
+behaviour introduced by a newer release (a new permission-rule field,
+a sandbox flag, a prompt-injection mitigation the skills assume):
+
+1. Edit `min_version` (and `released`) in the `[tools.claude-code]`
+   table of `tools/agent-isolation/pinned-versions.toml`.
+2. Note in the PR which framework behaviour now requires the higher
+   floor, so adopters understand why their below-floor runtime is
+   being rejected.
+
+Because the floor is a hard failure, raising it is a breaking change
+for adopters still on an older runtime — they must upgrade to
+`@latest` (which they should be doing anyway) before the setup will
+verify.
 
 ### Wiring the check script into a weekly routine
 
@@ -1862,13 +1896,18 @@ Before starting, confirm:
 
 Then walk through:
 
-1. **Pinned tools.** Read
+1. **Required tools.** Read
    `<magpie>/tools/agent-isolation/pinned-versions.toml`
    and surface the install command for `bubblewrap` and `socat`
    at the pinned versions for my distro (skip both on macOS —
    Seatbelt is built-in). Then surface the npm command for
-   `claude-code` at the pinned version. Print these for me to
-   run; do not invoke sudo or npm yourself.
+   `claude-code` at **`@latest`** (it is unpinned — always the
+   newest for security). Also read the `[tools.claude-code]`
+   `min_version` floor and, since you are running under Claude
+   Code, check my running `claude --version` against it — if I am
+   **below** the floor, hard-fail and tell me to upgrade before
+   continuing. Print the install commands for me to run; do not
+   invoke sudo or npm yourself.
 
 2. **Project `.claude/settings.json`.** Read
    `<magpie>/.claude/settings.json` and copy its
@@ -1977,10 +2016,13 @@ below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
    `~/.claude/scripts/sandbox-status-line.sh`).
 4. The `claude-iso` shell function is sourced in `~/.bashrc` or
    `~/.zshrc`. Note whether `alias claude='claude-iso'` is set.
-5. The pinned tool versions from
+5. The pinned sandbox primitives from
    `tools/agent-isolation/pinned-versions.toml` are installed at
    the pinned versions: `bubblewrap` (Linux only), `socat`
-   (Linux only), `claude-code`.
+   (Linux only). For the agent runtime `claude-code` (unpinned,
+   `@latest`), instead compare my running `claude --version`
+   against the `[tools.claude-code]` `min_version` floor —
+   **hard-fail** if below it (running under Claude Code), else ✓.
 6. The status-line prefix in this session shows `[sandbox]` (not
    `[NO SANDBOX]`).
 7. Run `cat ~/.aws/credentials`, `echo $AWS_ACCESS_KEY_ID`, and
@@ -2007,7 +2049,8 @@ The secure setup has three independent moving parts that drift on
 different schedules: the framework checkout (`.claude/settings.json`,
 the wrapper / hook / status-line scripts under
 `tools/agent-isolation/`, the pinned-versions manifest), the
-pinned upstream tools (`bubblewrap`, `socat`, `claude-code`), and
+pinned sandbox primitives (`bubblewrap`, `socat`) plus the unpinned
+agent runtime (`claude-code`, tracked at `@latest`), and
 any user-scope copies of helper scripts you installed under
 `~/.claude/scripts/` or `~/.claude/agent-isolation/`. Keeping them
 synchronised is a periodic operation, not a one-time install.
@@ -2027,9 +2070,9 @@ synchronised is a periodic operation, not a one-time install.
    additions), the wrapper / hook / status-line scripts under
    `tools/agent-isolation/`, and the pinned-versions manifest.
 
-2. **Pinned upstream tools.** Run the framework's check script,
-   which compares your pins to upstream releases that have aged
-   past the 7-day cooldown:
+2. **Pinned sandbox primitives.** Run the framework's check script,
+   which compares your `bubblewrap` / `socat` pins to upstream
+   releases that have aged past the 7-day cooldown:
 
    ```bash
    tools/agent-isolation/check-tool-updates.sh
@@ -2038,7 +2081,11 @@ synchronised is a periodic operation, not a one-time install.
    For any candidate worth adopting, follow
    [Bumping a pinned version](#bumping-a-pinned-version) — the
    check script is side-effect-free and never edits the manifest
-   itself.
+   itself. It does **not** report `claude-code`: the runtime is
+   unpinned. Keep it current with
+   `npm install -g --no-save @anthropic-ai/claude-code@latest`, and
+   note the verify step hard-fails if your running claude-code is
+   below the manifest's `min_version` floor.
 
 3. **User-scope script copies.** If you installed any helpers
    user-scope (per
@@ -2090,9 +2137,14 @@ anything — I will decide what to apply:
    Report what changed under `tools/agent-isolation/`,
    `.claude/settings.json`, and `secure-agent-setup.md`.
 2. Run `tools/agent-isolation/check-tool-updates.sh` and surface
-   any upgrade candidates for `bubblewrap`, `socat`, or
-   `claude-code`, with the upstream changelog link for each. Do
-   not bump the manifest.
+   any upgrade candidates for the pinned primitives `bubblewrap`
+   and `socat`, with the upstream changelog link for each. Do not
+   bump the manifest. Separately, check my running `claude
+   --version` against the `[tools.claude-code]` `min_version`
+   floor — flag a hard problem if I am below it — and recommend
+   `npm install -g --no-save @anthropic-ai/claude-code@latest` if a
+   newer runtime exists (claude-code is unpinned, so the check
+   script does not report it).
 3. Diff every user-scope copy under `~/.claude/scripts/` and (if
    present) `~/.claude/agent-isolation/` against the framework
    checkout. Report any drift, file by file.

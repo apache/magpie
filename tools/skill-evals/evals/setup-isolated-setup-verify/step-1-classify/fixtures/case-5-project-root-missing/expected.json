@@ -5,7 +5,7 @@
     {"n": 2, "status": "✓", "evidence": "PreToolUse Bash → sandbox-bypass-warn.sh; PostToolUse Bash → sandbox-error-hint.sh; statusLine → sandbox-status-line.sh"},
     {"n": 3, "status": "✓", "evidence": "sandbox-bypass-warn.sh ✓ executable, sandbox-error-hint.sh ✓ executable, sandbox-status-line.sh ✓ executable"},
     {"n": 4, "status": "✓", "evidence": "source ~/.claude/scripts/agent-iso.sh in ~/.bashrc; alias claude='claude-iso' not set (optional)"},
-    {"n": 5, "status": "✓", "evidence": "claude-code 2.1.150 installed matches pinned-versions.toml 2.1.150"},
+    {"n": 5, "status": "✓", "evidence": "claude-code 2.1.150 installed, at or above min_version floor 2.1.150"},
     {"n": 6, "status": "✓", "evidence": "effective sandbox.enabled: true (from .claude/settings.json)"},
     {"n": 7, "status": "✓", "evidence": "cat ~/.aws/credentials → Operation not permitted; $AWS_ACCESS_KEY_ID empty; curl denied at permission layer"},
     {"n": 8, "status": "✗", "evidence": ".claude/settings.local.json absent — /home/dave/tracker-repo missing from allowRead and allowWrite; live read of .git/HEAD FAILED; second worktree /home/dave/tracker-repo-feat also missing settings.local.json"}

@@ -5,7 +5,7 @@
     {"n": 2, "status": "✓"},
     {"n": 3, "status": "✓"},
     {"n": 4, "status": "✓"},
-    {"n": 5, "status": "✓"},
+    {"n": 5, "status": "✓", "evidence": "claude-code 2.1.150 installed, at or above min_version floor 2.1.150"},
     {"n": 6, "status": "✗"},
     {"n": 7, "status": "✗"},
     {"n": 8, "status": "✗"}

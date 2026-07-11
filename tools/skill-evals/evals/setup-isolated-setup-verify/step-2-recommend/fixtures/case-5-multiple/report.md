@@ -7,7 +7,7 @@ Check results (all 8 checks ran):
   Check 2 (user-scope hooks):       ✗  PreToolUse hook missing; no statusLine entry
   Check 3 (hook scripts):           ✗  ~/.claude/scripts/ does not exist
   Check 4 (claude-iso):             ✗  source line missing from shell rc
-  Check 5 (pinned versions):        ⚠  claude-code 1.9.0 installed, pin is 2.1.150 (older than pin)
+  Check 5 (tool versions):          ✗  claude-code 1.9.0 BELOW min_version floor 2.1.150 — HARD FAIL (running under Claude Code)
   Check 6 (sandbox.enabled):        ✗  effective sandbox.enabled: false
   Check 7 (denial commands):        ✗  cat ~/.aws/credentials: readable; curl: succeeded
   Check 8 (project root):           ✗  .claude/settings.local.json absent; live probe failed

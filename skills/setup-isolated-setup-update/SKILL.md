@@ -97,9 +97,16 @@ Drift severity:
 - **Surface upstream changelog links.** For every pinned-tool
   upgrade candidate, include the upstream changelog / release-
   notes URL so the user can read the diff before deciding. A
-  bump is not a foregone conclusion — the framework's policy is
-  "wait for a feature you actually want or a security fix",
-  not "always run latest".
+  bump is not a foregone conclusion — the framework's policy for
+  the **pinned sandbox primitives** (`bubblewrap`, `socat`) is
+  "wait for a feature you actually want or a security fix", not
+  "always run latest". The **agent runtime** (`claude-code`) is
+  the deliberate exception: it is unpinned and *should* always run
+  the latest — recommend `npm install -g --no-save
+  @anthropic-ai/claude-code@latest` whenever a newer build exists,
+  and treat a runtime below the manifest's `min_version` floor as
+  a hard problem to fix, not a deferrable bump (see
+  `setup-isolated-setup-verify` check 5).
 - **Distinguish framework changes from local drift.** "The
   framework's `tools/agent-isolation/agent-iso.sh` has new
   comments" is a *framework update* (resolved by `git pull`).
@@ -130,12 +137,17 @@ Walk each:
    to run; do not run it.
 2. **Pinned upstream tools.** Run
    `tools/agent-isolation/check-tool-updates.sh` and surface every
-   upgrade candidate (`bubblewrap`, `socat`, `claude-code`) that
-   has aged past the framework's 7-day cooldown. Include the
-   upstream changelog link for each. Do not bump the manifest;
-   that is a separate
+   upgrade candidate among the pinned sandbox primitives
+   (`bubblewrap`, `socat`) that has aged past the framework's 7-day
+   cooldown. Include the upstream changelog link for each. Do not
+   bump the manifest; that is a separate
    [Bumping a pinned version](../../docs/setup/secure-agent-setup.md#bumping-a-pinned-version)
-   PR by hand.
+   PR by hand. `claude-code` is **not** in this list — it is
+   unpinned and tracks `@latest`; the check script does not report
+   it. Instead, confirm the running claude-code is at or above the
+   manifest's `min_version` floor (as `setup-isolated-setup-verify`
+   check 5 does) and recommend upgrading to `@latest` when a newer
+   build exists.
 3. **User-scope script-copy drift.** For every user-scope file
    the doc tells the adopter to install
    (`~/.claude/scripts/sandbox-bypass-warn.sh`,
@@ -269,8 +281,13 @@ follow-up:
   `.apache-magpie.lock` after the same pre-flight checks this
   skill recommends and surfaces what arrived in the new
   snapshot.
-- Pinned-tool upgrade candidate worth adopting → manifest bump PR
-  per [Bumping a pinned version](../../docs/setup/secure-agent-setup.md#bumping-a-pinned-version).
+- Pinned-tool (`bubblewrap` / `socat`) upgrade candidate worth
+  adopting → manifest bump PR per
+  [Bumping a pinned version](../../docs/setup/secure-agent-setup.md#bumping-a-pinned-version).
+- `claude-code` newer build available, or below the `min_version`
+  floor → `npm install -g --no-save @anthropic-ai/claude-code@latest`
+  (no manifest bump — the runtime is unpinned; below-floor is a
+  hard-fail in `setup-isolated-setup-verify`).
 - comdev MCP checkout behind `origin/main` → run the printed
   `git pull --ff-only` + `npm install`; no manifest bump or
   cooldown (these track `main` by design). If the checkout is on

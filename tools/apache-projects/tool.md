@@ -182,7 +182,7 @@ operation.
 
 Unlike the system tools the secure agent setup pins with a 7-day
 cooldown (`bubblewrap`, `socat`, `claude-code` — see
-[`docs/setup/secure-agent-setup.md` → Required tools](../../docs/setup/secure-agent-setup.md#required-tools-pinned-versions)),
+[`docs/setup/secure-agent-setup.md` → Required tools](../../docs/setup/secure-agent-setup.md#required-tools)),
 the comdev MCP servers are **intentionally tracked at the latest
 `main`**, not pinned to a tag. Two reasons:
 

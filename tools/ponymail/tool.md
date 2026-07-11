@@ -235,7 +235,7 @@ recognised; contact ASF Infra.
 
 Unlike the system tools the secure agent setup pins with a 7-day
 cooldown (`bubblewrap`, `socat`, `claude-code` — see
-[`docs/setup/secure-agent-setup.md` → Required tools](../../docs/setup/secure-agent-setup.md#required-tools-pinned-versions)),
+[`docs/setup/secure-agent-setup.md` → Required tools](../../docs/setup/secure-agent-setup.md#required-tools)),
 the comdev MCP servers are **intentionally tracked at the latest
 `main`**, not pinned to a tag. `apache/comdev` ships the MCP servers
 as in-repo source with **no tagged releases** — `main` is the only

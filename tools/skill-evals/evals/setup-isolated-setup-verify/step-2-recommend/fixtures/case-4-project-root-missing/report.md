@@ -7,7 +7,7 @@ Check results (all 8 checks ran):
   Check 2 (user-scope hooks):       ✓
   Check 3 (hook scripts):           ✓
   Check 4 (claude-iso):             ✓
-  Check 5 (pinned versions):        ✓
+  Check 5 (tool versions):          ✓
   Check 6 (sandbox.enabled):        ✓
   Check 7 (denial commands):        ✓
   Check 8 (project root):           ✗  .claude/settings.local.json absent — /home/dave/tracker-repo

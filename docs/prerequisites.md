@@ -95,11 +95,14 @@ environment. The permission + sandbox posture is enforced for both
 harnesses — a `PreToolUse` hook / `tool.execute.before` plugin
 (`agent-guard`), plus `permission-audit` / `sandbox-lint` for the
 Claude `settings.json` and OpenCode `opencode.json` policies. The
-required system tools (`bubblewrap`, `socat`, and the agent CLI
-itself — `claude-code` or `opencode`) are pinned with a 7-day
+sandbox primitives (`bubblewrap`, `socat`) are pinned with a 7-day
 upstream-release cooldown, mirroring the same convention the
 framework uses for its `[tool.uv] exclude-newer` and Dependabot
-configs.
+configs. The agent CLI itself (`claude-code` / `opencode`) is
+deliberately **not** pinned — it installs at `@latest` so it always
+carries the newest permission-rule, sandbox, and prompt-injection
+fixes; pinning the runtime to an older build would only increase
+the security lag.
 
 ### 2. A mail backend (read + draft — Gmail is one option, not the only one)
 

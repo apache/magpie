@@ -156,6 +156,22 @@ For the verification step at the end, hand off to the
 `setup-isolated-setup-verify` skill rather than re-walking the checklist
 inline.
 
+### Agent runtime — install `@latest`, enforce the floor
+
+`claude-code` is **not** pinned to an exact version. Install it with
+`npm install -g --no-save @anthropic-ai/claude-code@latest` (the
+command in the doc's install list) — latest always carries the newest
+permission-rule / sandbox / prompt-injection fixes. The manifest's
+`[tools.claude-code]` table in
+[`pinned-versions.toml`](../../tools/agent-isolation/pinned-versions.toml)
+declares a `min_version` **floor**, not a pin. Because this install is
+driven from Claude Code, apply the same hard gate
+`setup-isolated-setup-verify` check 5 applies: read the running
+version (`claude --version`) and, if it is **below** `min_version`,
+**hard-fail** — stop the install, tell the operator to upgrade to
+`@latest`, and have them re-run. The secure setup must not be stood up
+on a below-floor runtime.
+
 ### Step P — Project-root coverage in the sandbox allowlists
 
 Per

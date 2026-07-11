@@ -156,8 +156,10 @@ same — denied paths are unreachable from within the subprocess.
 No system packages need pinning on macOS — Seatbelt ships with
 the OS. The framework's
 [`pinned-versions.toml`](../../tools/agent-isolation/pinned-versions.toml)
-only pins `bubblewrap`, `socat`, and `claude-code` itself;
-Seatbelt does not appear because its version *is* the OS version.
+only pins the sandbox primitives `bubblewrap` and `socat`; the
+agent runtime `claude-code` is unpinned (tracks `@latest`, with a
+`min_version` floor enforced by verify), and Seatbelt does not
+appear because its version *is* the OS version.
 
 ## The blind spot: `Bash(curl *)` and DNS-over-HTTPS
 

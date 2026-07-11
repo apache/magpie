@@ -143,11 +143,40 @@ Walk each in order:
    pattern is the source line in `~/.bashrc` / `~/.zshrc`. Check
    whether `alias claude='claude-iso'` is set; report it as a
    note (it is optional per the doc).
-5. Pinned tool versions installed match
-   `tools/agent-isolation/pinned-versions.toml`. On macOS,
-   skip `bubblewrap` and `socat` (Seatbelt is built-in); only
-   check `claude-code`. Report drift in either direction —
-   newer-than-pin or older-than-pin — as ⚠.
+5. **Tool versions.** Two distinct rules — an exact-pin match for
+   the sandbox primitives, and a hard-floor gate for the agent
+   runtime:
+
+   - **Pinned sandbox primitives (`bubblewrap`, `socat`).** The
+     installed version must match the exact `version` pin in
+     `tools/agent-isolation/pinned-versions.toml`. Report drift in
+     either direction — newer-than-pin or older-than-pin — as ⚠. On
+     macOS, skip both (Seatbelt is built-in), leaving nothing to
+     check on this sub-rule.
+   - **Agent runtime (`claude-code`) — `min_version` floor, NOT a
+     pin.** The runtime tracks `@latest`, so there is no exact
+     version to match; instead the manifest's `[tools.claude-code]`
+     table declares a `min_version` floor. Determine the running
+     claude-code version (`claude --version`) and compare it to
+     `min_version`:
+     - **At or above the floor** → ✓ (note the version; recommend
+       `npm install -g --no-save @anthropic-ai/claude-code@latest`
+       if it is not already the newest, since latest carries the
+       freshest security fixes — but this is a note, not a ⚠).
+     - **Below the floor, and this verify is running under Claude
+       Code** → **HARD FAIL (✗)**. The secure setup's permission-rule
+       / sandbox / prompt-injection guarantees depend on runtime
+       behaviour present from `min_version` onward; on an older build
+       they may silently not hold. Do **not** downgrade this to a ⚠.
+       Stop and tell the operator to upgrade
+       (`npm install -g --no-save @anthropic-ai/claude-code@latest`)
+       and re-run — the run cannot certify the setup on a
+       below-floor runtime. This applies whenever the current harness
+       is Claude Code (the common case for this skill).
+     - **Below the floor, but the harness is not Claude Code** (e.g.
+       an OpenCode-driven run that cannot introspect a claude-code
+       version) → ⚠ with a note that the floor could not be enforced
+       as a hard gate for this runtime.
 6. Status-line prefix in this session is `[sandbox]`, not
    `[NO SANDBOX]`. Resolve the precedence:
    `<cwd>/.claude/settings.local.json` →
@@ -249,7 +278,8 @@ Walk each in order:
    installed from a local `apache/comdev` checkout and are
    **intentionally tracked at `main`, not pinned** (the servers
    ship as in-repo source with no tagged releases — contrast
-   check 5, which verifies *pinned* system tools). This check
+   check 5, which exact-pins the sandbox primitives and hard-floors
+   the agent runtime). This check
    confirms that checkout is healthy. Skip the whole check if
    neither server is registered.
 
@@ -293,9 +323,14 @@ without invoking it:
 
 - ✗ on checks 1 / 2 / 3 / 4 → `setup-isolated-setup-install` (missing
   install pieces).
-- ⚠ on check 5 (pinned-version drift) or any user-scope script
-  copy that is older than the framework's source-of-truth →
-  `setup-isolated-setup-update`.
+- **✗ on check 5 (claude-code below the `min_version` floor, running
+  under Claude Code)** → **hard fail; stop.** Tell the operator to
+  upgrade (`npm install -g --no-save @anthropic-ai/claude-code@latest`)
+  and re-run — the setup cannot be certified on a below-floor runtime.
+- ⚠ on check 5 (pinned sandbox-primitive drift, or the claude-code
+  floor could not be hard-enforced on a non-Claude harness) or any
+  user-scope script copy that is older than the framework's
+  source-of-truth → `setup-isolated-setup-update`.
 - ⚠ on check 9 (comdev MCP checkout behind `origin/main`) →
   `setup-isolated-setup-update` (it runs the live fetch and prints
   the `git pull --ff-only` + `npm install` commands). ✗ on
