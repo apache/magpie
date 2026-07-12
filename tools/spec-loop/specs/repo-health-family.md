@@ -120,11 +120,11 @@ grouped, prioritised report → wait for confirmation before any write.
 ## Validation
 
 ```bash
-test -f .claude/skills/magpie-ci-runner-audit/SKILL.md
-test -f .claude/skills/magpie-workflow-security-audit/SKILL.md
-test -f .claude/skills/magpie-dependency-audit/SKILL.md
-test -f .claude/skills/magpie-license-compliance-audit/SKILL.md
-test -f .claude/skills/magpie-flaky-test-triage/SKILL.md
+test -f .agents/skills/magpie-ci-runner-audit/SKILL.md
+test -f .agents/skills/magpie-workflow-security-audit/SKILL.md
+test -f .agents/skills/magpie-dependency-audit/SKILL.md
+test -f .agents/skills/magpie-license-compliance-audit/SKILL.md
+test -f .agents/skills/magpie-flaky-test-triage/SKILL.md
 uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-validate
 ```
 

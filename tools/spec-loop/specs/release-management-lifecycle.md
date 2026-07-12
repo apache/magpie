@@ -154,16 +154,16 @@ code lands.
 test -f docs/release-management/spec.md
 test -f docs/release-management/process.md
 test -f projects/_template/release-management-config.md
-test -f .claude/skills/magpie-release-prepare/SKILL.md
-test -f .claude/skills/magpie-release-keys-sync/SKILL.md
-test -f .claude/skills/magpie-release-rc-cut/SKILL.md
-test -f .claude/skills/magpie-release-vote-draft/SKILL.md
-test -f .claude/skills/magpie-release-archive-sweep/SKILL.md
-test -f .claude/skills/magpie-release-audit-report/SKILL.md
-test -f .claude/skills/magpie-release-announce-draft/SKILL.md
-test -f .claude/skills/magpie-release-verify-rc/SKILL.md
-test -f .claude/skills/magpie-release-vote-tally/SKILL.md
-test -f .claude/skills/magpie-release-promote/SKILL.md
+test -f .agents/skills/magpie-release-prepare/SKILL.md
+test -f .agents/skills/magpie-release-keys-sync/SKILL.md
+test -f .agents/skills/magpie-release-rc-cut/SKILL.md
+test -f .agents/skills/magpie-release-vote-draft/SKILL.md
+test -f .agents/skills/magpie-release-archive-sweep/SKILL.md
+test -f .agents/skills/magpie-release-audit-report/SKILL.md
+test -f .agents/skills/magpie-release-announce-draft/SKILL.md
+test -f .agents/skills/magpie-release-verify-rc/SKILL.md
+test -f .agents/skills/magpie-release-vote-tally/SKILL.md
+test -f .agents/skills/magpie-release-promote/SKILL.md
 uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-validate
 uv run --project tools/skill-evals skill-eval tools/skill-evals/evals/release-announce-draft/
 ```

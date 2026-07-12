@@ -144,11 +144,11 @@ is listed here for navigability since its domain is PR threads.
 ## Validation
 
 ```bash
-test -f .claude/skills/magpie-pr-management-triage/SKILL.md
-test -f .claude/skills/magpie-pr-management-stats/SKILL.md
-test -f .claude/skills/magpie-pr-management-code-review/SKILL.md
-test -f .claude/skills/magpie-pr-management-quick-merge/SKILL.md
-test -f .claude/skills/magpie-pr-management-mentor/SKILL.md
+test -f .agents/skills/magpie-pr-management-triage/SKILL.md
+test -f .agents/skills/magpie-pr-management-stats/SKILL.md
+test -f .agents/skills/magpie-pr-management-code-review/SKILL.md
+test -f .agents/skills/magpie-pr-management-quick-merge/SKILL.md
+test -f .agents/skills/magpie-pr-management-mentor/SKILL.md
 test -f docs/pr-management/README.md
 uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-validate
 ```

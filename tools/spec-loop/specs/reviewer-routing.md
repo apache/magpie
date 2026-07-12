@@ -14,7 +14,7 @@ source: >
   but no skill turns that roster plus repository signal into an assignee
   suggestion. triage-mode.md § What it does ("propose routing to the
   right human") names the behaviour. Skill ships experimental in
-  .claude/skills/magpie-reviewer-routing/ with an eval suite under
+  .agents/skills/magpie-reviewer-routing/ with an eval suite under
   tools/skill-evals/evals/reviewer-routing/.
 acceptance:
   - The skill is read-only on tracker state and proposes-then-confirms;
@@ -46,7 +46,7 @@ side: a grounded brief a human acts on, not a state change.
 
 ## Where it lives
 
-- Skill: `reviewer-routing` under `.claude/skills/magpie-reviewer-routing/`,
+- Skill: `reviewer-routing` under `.agents/skills/magpie-reviewer-routing/`,
   in the Agentic Triage family alongside `pr-management-triage` and
   `issue-triage`. Eval suite under `tools/skill-evals/evals/reviewer-routing/`.
 - Roster source: the project's configured reviewer roster

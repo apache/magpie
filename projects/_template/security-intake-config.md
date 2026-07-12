@@ -234,13 +234,13 @@ disclosure_governance:
   rating reference, and public security policy URL.
 - [`canned-responses.md`](canned-responses.md) — reporter-facing reply
   templates shaped by the `reporter_acknowledgement_model` declared here.
-- [`security-issue-import`](../../.claude/skills/magpie-security-issue-import/SKILL.md)
+- [`security-issue-import`](../../.agents/skills/magpie-security-issue-import/SKILL.md)
   — reads `security_inbox.kind`, `forwarders.enabled`, and the
   `disclosure_governance` block for the acknowledgement step.
-- [`security-cve-allocate`](../../.claude/skills/magpie-security-cve-allocate/SKILL.md)
+- [`security-cve-allocate`](../../.agents/skills/magpie-security-cve-allocate/SKILL.md)
   — reads `cve_authority.tool` and `governance.cve_allocation_gate`.
-- [`security-issue-sync`](../../.claude/skills/magpie-security-issue-sync/SKILL.md)
+- [`security-issue-sync`](../../.agents/skills/magpie-security-issue-sync/SKILL.md)
   — reads `disclosure_governance.window_days`, `grace_period_days`, and
   `pre_announce_distributors` for stale-window and pre-announcement checks.
-- [`security-issue-import-via-forwarder`](../../.claude/skills/magpie-security-issue-import-via-forwarder/SKILL.md)
+- [`security-issue-import-via-forwarder`](../../.agents/skills/magpie-security-issue-import-via-forwarder/SKILL.md)
   — reads `forwarders.enabled` and the per-adapter config in `project.md`.

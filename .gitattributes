@@ -21,18 +21,25 @@
 # paths below are kept out of the signed source .zip that the [VOTE]
 # votes on. Keep this list to VCS/CI/editor metadata — never source.
 #
-# IMPORTANT — do NOT export-ignore a directory that shipped files
-# still reference (by markdown link, `test -f`, or symlink). The
-# committed agent-view symlink dirs (`.claude/skills/`, `.github/skills/`,
-# `.kiro/skills/`) relay through `.agents/skills/*` → `skills/*`, and
-# specs test those paths, so `.agents/` MUST ship or every relay dangles
-# in the archive. Likewise `.github/ISSUE_TEMPLATE/` and
-# `.github/PULL_REQUEST_TEMPLATE.md` are linked by skills, and
-# `projects/_template/.gitignore` is example content — so only the true
-# CI/dev entries under `.github/` are stripped, and `.gitignore` is
-# anchored to the repo root. `release-verify-rc` re-checks the unpacked
-# tarball (symlink-lint + validators + no-.pyc) so a regression here
-# fails the RC before the [VOTE].
+# IMPORTANT — symlinks in the archive. The committed agent-view dirs are
+# regenerable adoption wiring, not source. `.agents/skills/*` are the
+# canonical view (single-hop symlinks straight to the real `skills/*`),
+# and the relay dirs `.claude/skills/`, `.github/skills/`, `.kiro/skills/`
+# just chain through `.agents/skills/*`. A safe extractor (ATR's upload
+# validator) rejects a symlink whose target is itself a symlink (the
+# relay chain reads as a target "outside" the entry) — so the relay dirs
+# are export-ignored here, leaving only the single-hop `.agents/skills/*`
+# links (which resolve to real `skills/*` dirs). Shipped files that used
+# to link the relay view (`projects/_template/*.md`) point at
+# `.agents/skills/*` instead. Keep `.agents/` in the release: dropping it
+# too would strip the one resolvable view and orphan those links.
+#
+# `.github/ISSUE_TEMPLATE/` and `.github/PULL_REQUEST_TEMPLATE.md` are
+# linked by skills, and `projects/_template/.gitignore` is example
+# content, so only the true CI/dev entries under `.github/` are stripped
+# and `.gitignore` is anchored to the repo root. `release-verify-rc`
+# re-checks the unpacked tarball (symlink-lint + validators + no-.pyc) so
+# a regression here fails the RC before the [VOTE].
 
 # Root-only VCS / dev-tool metadata (anchored so identically-named files
 # deeper in the tree — e.g. projects/_template/.gitignore — still ship).
@@ -49,8 +56,14 @@
 # Editor metadata.
 .idea/              export-ignore
 
+# Regenerable agent-view relay symlink dirs — chains through `.agents/`
+# that a safe extractor rejects. `.agents/skills/*` (single-hop → real
+# `skills/*`) is kept; these relays are not.
+.claude/skills/     export-ignore
+.github/skills/     export-ignore
+.kiro/skills/       export-ignore
+
 # CI / bot config only. The rest of `.github/` (ISSUE_TEMPLATE,
-# PULL_REQUEST_TEMPLATE.md, and the skills relay) is referenced by
-# shipped skills and resolves via `.agents/`, so it stays in the release.
+# PULL_REQUEST_TEMPLATE.md) is referenced by shipped skills, so it stays.
 .github/workflows/  export-ignore
 .github/dependabot.yml export-ignore
