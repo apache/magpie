@@ -216,6 +216,23 @@ repos:
         entry: python3 tools/symlink-lint/src/symlink_lint/__init__.py
         types: [symlink]
         pass_filenames: false
+  # Release-archive guard: build the source archive exactly as the release
+  # does (git archive of the export tree, honouring .gitattributes
+  # export-ignore) and reject any symlink a safe extractor refuses — a
+  # dangling link (its target got export-ignored) or a chain (target is
+  # itself a symlink, which ATR's upload validator rejects as "outside the
+  # extraction directory"). This is what -1'd an RC upload; the hook fails
+  # the commit before an RC is cut. Re-fires whenever .gitattributes, any
+  # symlink, or the skills/agent-view tree that the archive ships changes.
+  - repo: local
+    hooks:
+      - id: symlink-lint-archive
+        name: symlink-lint (release archive)
+        language: system
+        entry: python3 tools/symlink-lint/src/symlink_lint/__init__.py --archive
+        files: ^(\.gitattributes|\.(agents|claude|github|kiro)/skills/.*|skills/.*|projects/_template/.*)$
+        types_or: [symlink, file]
+        pass_filenames: false
   # Workspace-membership guard. The single source of truth for
   # which Python projects get pre-commit hooks + the CI pytest
   # matrix is the `[tool.uv.workspace] members` array in the root

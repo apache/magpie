@@ -27,6 +27,7 @@ relays point at ../../.agents/skills/magpie-<skill>.
 from __future__ import annotations
 
 import os
+import subprocess
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
@@ -162,3 +163,71 @@ def test_main_returns_one_on_misdirected_relay(tmp_path: Path, monkeypatch: pyte
     _wire_skill(tmp_path, relay_target="../../skills/x")
     monkeypatch.setattr(symlink_lint, "repo_root", lambda: tmp_path)
     assert symlink_lint.main() == 1
+
+
+# ---- rule 3: release-archive symlink safety -------------------------------
+
+
+def _git_repo(root: Path, gitattributes: str = "") -> None:
+    """Init a git repo at ``root``, write ``.gitattributes``, and stage every
+    file so `git write-tree` / `git archive` have a tree to work on."""
+    subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+    subprocess.run(["git", "config", "user.email", "t@example.com"], cwd=root, check=True)
+    subprocess.run(["git", "config", "user.name", "t"], cwd=root, check=True)
+    if gitattributes:
+        (root / ".gitattributes").write_text(gitattributes)
+    subprocess.run(["git", "add", "-A"], cwd=root, check=True)
+
+
+def test_archive_single_hop_links_clean(tmp_path: Path) -> None:
+    # .agents/skills/magpie-x -> ../../skills/x (a real dir): the only view
+    # shipped, and it resolves to a real file — extractor-safe.
+    (tmp_path / "skills" / "x").mkdir(parents=True)
+    (tmp_path / "skills" / "x" / "SKILL.md").write_text("x\n")
+    _symlink(tmp_path, ".agents/skills/magpie-x", "../../skills/x")
+    _git_repo(tmp_path)
+    assert symlink_lint.find_archive_symlink_problems(tmp_path) == []
+
+
+def test_archive_relay_chain_flagged(tmp_path: Path) -> None:
+    # A .claude relay chaining through .agents (target is itself a symlink)
+    # ships in the archive -> a safe extractor rejects it. This is the exact
+    # shape that -1'd the RC upload.
+    _wire_skill(tmp_path, relay_target="../../.agents/skills/magpie-x")
+    _git_repo(tmp_path)
+    problems = symlink_lint.find_archive_symlink_problems(tmp_path)
+    assert [(p, kind) for p, _t, kind in problems] == [(".claude/skills/magpie-x", "chain")]
+
+
+def test_archive_relay_chain_export_ignored_is_clean(tmp_path: Path) -> None:
+    # The fix: export-ignore the relay dir so only the single-hop .agents view
+    # ships. The chain never reaches the archive.
+    _wire_skill(tmp_path, relay_target="../../.agents/skills/magpie-x")
+    _git_repo(tmp_path, gitattributes=".claude/skills/ export-ignore\n")
+    assert symlink_lint.find_archive_symlink_problems(tmp_path) == []
+
+
+def test_archive_dangling_link_flagged(tmp_path: Path) -> None:
+    # export-ignore the real skills/ dir but keep the .agents view: the link's
+    # target is gone from the archive -> dangling.
+    (tmp_path / "skills" / "x").mkdir(parents=True)
+    (tmp_path / "skills" / "x" / "SKILL.md").write_text("x\n")
+    _symlink(tmp_path, ".agents/skills/magpie-x", "../../skills/x")
+    # Root-anchored so only the real skills/ dir drops, not .agents/skills/.
+    _git_repo(tmp_path, gitattributes="/skills/ export-ignore\n")
+    problems = symlink_lint.find_archive_symlink_problems(tmp_path)
+    assert [(p, kind) for p, _t, kind in problems] == [(".agents/skills/magpie-x", "dangling")]
+
+
+def test_main_archive_flag_returns_one_on_chain(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _wire_skill(tmp_path, relay_target="../../.agents/skills/magpie-x")
+    _git_repo(tmp_path)
+    monkeypatch.setattr(symlink_lint, "repo_root", lambda: tmp_path)
+    assert symlink_lint.main(["--archive"]) == 1
+
+
+def test_main_archive_flag_returns_zero_when_clean(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _wire_skill(tmp_path, relay_target="../../.agents/skills/magpie-x")
+    _git_repo(tmp_path, gitattributes=".claude/skills/ export-ignore\n")
+    monkeypatch.setattr(symlink_lint, "repo_root", lambda: tmp_path)
+    assert symlink_lint.main(["--archive"]) == 0

@@ -48,9 +48,32 @@ every other agent dir (`.claude/`, `.github/`, `.windsurf/`, `.goose/`,
    canonical, not straight at source). Catches relays that bypass
    `.agents/` — acyclic, so rule 1 alone would miss them.
 
-**Dangling / unresolvable links are skipped**, never flagged: an adopter's
-canonical links legitimately dangle until the gitignored `.apache-magpie/`
-snapshot is installed. Broken-target detection is `setup verify`'s job.
+**Dangling / unresolvable links are skipped** by rules 1–2, never flagged:
+an adopter's canonical links legitimately dangle until the gitignored
+`.apache-magpie/` snapshot is installed. Broken-target detection is
+`setup verify`'s job.
+
+3. **Release archive is extractor-safe** (run with `--archive`). Builds the
+   source archive exactly as the release does — `git archive
+   --worktree-attributes` of the *staged* tree (`git write-tree`), honouring
+   `.gitattributes` `export-ignore` — then rejects any symlink in it that a
+   safe extractor refuses:
+   - **chain** — the link's target is itself a symlink. A validator that
+     will not follow a symlink-to-symlink (ASF's [ATR](https://release-test.apache.org/)
+     upload validator does exactly this) reads the target as escaping the
+     extraction directory and rejects the whole upload. This is the shape
+     that `-1`'d an RC: the `.claude` / `.github` / `.kiro` relay dirs chain
+     through `.agents/`, so they are `export-ignore`d and only the single-hop
+     `.agents/skills/*` view (which points straight at real `skills/*`)
+     ships.
+   - **dangling** — the link's target is absent from the archive (its real
+     file got `export-ignore`d), orphaning the link.
+
+   Unlike rules 1–2 this inspects the archive, not the working tree, so a
+   dangling link here *is* a defect — it means the RC would ship a broken
+   link. Runs as the `symlink-lint-archive` hook (below); `release-verify-rc`
+   re-checks the same property against the unpacked tarball before the
+   `[VOTE]`.
 
 ## Prerequisites
 
@@ -62,7 +85,8 @@ snapshot is installed. Broken-target detection is `setup verify`'s job.
 ## How to use
 
 ```bash
-python3 tools/symlink-lint/src/symlink_lint/__init__.py
+python3 tools/symlink-lint/src/symlink_lint/__init__.py           # rules 1–2 (working tree)
+python3 tools/symlink-lint/src/symlink_lint/__init__.py --archive  # rule 3 (release archive)
 # or, once the workspace is synced:
 uv run --project tools/symlink-lint symlink-lint
 ```
@@ -71,10 +95,17 @@ Exit `0` if clean; `1` otherwise, with each offender printed to stderr.
 
 ## Wiring
 
-Runs as the `symlink-lint` [prek](https://github.com/j178/prek) hook
-(`.pre-commit-config.yaml`), fired on any staged symlink and always on
-`prek run --all-files` (CI). Behaviour is locked by the pytest suite under
-[`tests/`](tests/), run by the workspace `pytest` hook + CI matrix.
+Two [prek](https://github.com/j178/prek) hooks (`.pre-commit-config.yaml`):
+
+- `symlink-lint` — rules 1–2, fired on any staged symlink and always on
+  `prek run --all-files` (CI).
+- `symlink-lint-archive` — rule 3 (`--archive`), fired whenever
+  `.gitattributes`, any agent-view `skills/` tree, `skills/`, or
+  `projects/_template/` changes (the inputs that shape the release archive),
+  and always on `prek run --all-files`.
+
+Behaviour is locked by the pytest suite under [`tests/`](tests/), run by the
+workspace `pytest` hook + CI matrix.
 
 ## Tests
 

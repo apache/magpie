@@ -15,7 +15,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-"""Lint the framework's self-adoption skill symlinks. Two rules:
+"""Lint the framework's self-adoption skill symlinks. Two working-tree rules:
 
 1. **No cycles** — a symlink must not resolve to its own directory or an
    ancestor (that traps recursive `**/SKILL.md` scanners in looped paths).
@@ -23,11 +23,23 @@
    (canonical) points into `../../skills/`; the same link under any other
    agent dir relays through `../../.agents/skills/magpie-<skill>`.
 
-Dangling links are skipped. Full rationale + examples: `README.md`.
+Plus one **release-archive** rule, run with `--archive`:
 
-Run as the `symlink-lint` prek hook, or directly:
-`python3 tools/symlink-lint/src/symlink_lint/__init__.py`. Exit 0 if clean,
-1 otherwise (offenders on stderr).
+3. **Archive is extractor-safe** — build the source archive exactly as the
+   release does (`git archive --worktree-attributes` of the staged tree,
+   honouring `.gitattributes` `export-ignore`), then reject any symlink in
+   it that is *dangling* (target absent — orphaned by an `export-ignore`)
+   or a *chain* (target is itself a symlink — a safe extractor such as
+   ATR's upload validator rejects it as "target outside extraction
+   directory"). This is what breaks an RC upload; catching it here fails
+   the commit before an RC is ever cut. See `README.md`.
+
+Dangling links are skipped by rules 1-2. Full rationale + examples:
+`README.md`.
+
+Run as the `symlink-lint` / `symlink-lint-archive` prek hooks, or directly:
+`python3 tools/symlink-lint/src/symlink_lint/__init__.py [--archive]`.
+Exit 0 if clean, 1 otherwise (offenders on stderr).
 """
 
 from __future__ import annotations
@@ -35,6 +47,8 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+import tarfile
+import tempfile
 from pathlib import Path
 
 # Directories pruned from the scan (VCS metadata, virtualenvs, vendored
@@ -122,6 +136,68 @@ def find_misdirected_relays(
     return sorted(problems)
 
 
+def find_archive_symlink_problems(root: Path) -> list[tuple[str, str, str]]:
+    """Build the source archive the way the release does and return
+    `(archive_path, target, kind)` for every symlink in it that a safe
+    extractor rejects.
+
+    The archive is `git archive --worktree-attributes` of the *staged* tree
+    (`git write-tree`), so it reflects the change being committed and honours
+    the working-tree `.gitattributes` `export-ignore` rules — identical to
+    `release-build.md`/`release-rc-cut`. Two rejected kinds:
+
+    - `dangling` — the link's target is not present in the archive (its real
+      file was `export-ignore`d, orphaning the link).
+    - `chain` — the link's target is itself a symlink; an extractor that
+      refuses to follow a symlink-to-symlink reads the target as escaping the
+      extraction directory (ATR's upload validator rejects this exact shape).
+
+    Returns an empty list if `git` is unavailable or the tree cannot be
+    written (nothing to assert against)."""
+    try:
+        tree = subprocess.run(
+            ["git", "write-tree"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except FileNotFoundError:
+        return []
+    if tree.returncode != 0 or not tree.stdout.strip():
+        return []
+    archived = subprocess.run(
+        ["git", "archive", "--worktree-attributes", "--format=tar", tree.stdout.strip()],
+        cwd=root,
+        capture_output=True,
+        check=False,
+    )
+    if archived.returncode != 0:
+        return []
+
+    problems: list[tuple[str, str, str]] = []
+    with tempfile.TemporaryDirectory() as tmp:
+        base = Path(tmp) / "archive.tar"
+        base.write_bytes(archived.stdout)
+        with tarfile.open(base) as tar:
+            members = tar.getmembers()
+        # Map every archived path to its member; symlink targets are resolved
+        # against this set, never the host filesystem, so the check reflects
+        # only what the archive itself contains.
+        by_path = {m.name: m for m in members}
+        for member in members:
+            if not member.issym():
+                continue
+            link_dir = os.path.dirname(member.name)
+            target = os.path.normpath(os.path.join(link_dir, member.linkname))
+            resolved = by_path.get(target)
+            if resolved is None:
+                problems.append((member.name, member.linkname, "dangling"))
+            elif resolved.issym():
+                problems.append((member.name, member.linkname, "chain"))
+    return sorted(problems)
+
+
 def _rel(link: Path, root: Path) -> Path:
     try:
         return link.relative_to(root)
@@ -129,8 +205,31 @@ def _rel(link: Path, root: Path) -> Path:
         return link
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    args = sys.argv[1:] if argv is None else argv
+    archive_mode = "--archive" in args
     root = repo_root()
+
+    if archive_mode:
+        archive = find_archive_symlink_problems(root)
+        if not archive:
+            return 0
+        out = sys.stderr.write
+        out("error: release-archive symlink(s) a safe extractor rejects:\n")
+        for arc_path, arc_target, kind in archive:
+            hint = (
+                "target export-ignored -> dangling in archive"
+                if kind == "dangling"
+                else "target is itself a symlink -> extractor sees it outside the archive"
+            )
+            out(f"  {arc_path} -> {arc_target}  ({kind}: {hint})\n")
+        out(
+            "\nThe source archive (git archive of the export tree) must contain only\n"
+            "single-hop symlinks to real files. Fix .gitattributes export-ignore\n"
+            "rules or the offending links. See tools/symlink-lint/README.md.\n"
+        )
+        return 1
+
     cycles = find_cyclic_symlinks(root)
     relays = find_misdirected_relays(root)
     if not cycles and not relays:
