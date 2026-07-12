@@ -1,0 +1,5 @@
+{
+  "section_present": true,
+  "includes_committer": true,
+  "reason": "Excludes @alice-maint because she has already reviewed, and suggests the other grounded CODEOWNERS owner @eve-maint (committer) alongside frequent author @grace-active, keeping at least one committer."
+}

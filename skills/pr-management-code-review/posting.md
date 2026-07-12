@@ -171,7 +171,7 @@ so it isn't forgotten halfway through a queue.
 
 ## Review body — template structure
 
-A review body has up to four sections, in this order. Sections
+A review body has up to five sections, in this order. Sections
 with no content are omitted (don't render an empty
 "Smaller observations" header).
 
@@ -183,6 +183,8 @@ with no content are omitted (don't render an empty
 [major findings — if any]
 
 [smaller observations — minor + nit]
+
+[suggested additional reviewers — if any (see review-flow.md Step 4.5)]
 
 [ai_attribution_footer]
 ```
@@ -250,6 +252,36 @@ Minor + nit findings folded together as a bulleted list:
 ```
 
 Group by file when there are >5 observations on the same file.
+
+### Suggested additional reviewers
+
+Rendered only when Step 4.5 (see
+[`review-flow.md`](review-flow.md)) surfaced at least one
+grounded handle. Up to three, each with a one-clause reason
+tracing to the evidence that produced it (a `CODEOWNERS` rule,
+recent commits on a touched path, or a prior review on a
+touched path). Never render a handle Step 4.5 could not ground
+— omit the whole section rather than pad it or guess.
+
+```markdown
+### Worth a second look from
+
+This change touches `scheduler/`; folks with the most context here:
+
+- @alice — `CODEOWNERS` owner for `scheduler/` (committer)
+- @bob — authored 6 of the last 20 commits under `scheduler/job_runner.py`
+- @carol — reviewed the two most recent merged PRs touching these files
+
+Pinging any of them for an extra pass is optional, not a
+merge blocker.
+```
+
+The `@handle`s are **suggestions to the maintainer**, not
+auto-requests: this skill never calls `gh pr edit
+--add-reviewer` or the `requestReviews` mutation. If the
+maintainer wants them formally requested, that is a separate,
+explicit action they take (or route through
+[`reviewer-routing`](../reviewer-routing/SKILL.md)).
 
 ### AI-attribution footer
 

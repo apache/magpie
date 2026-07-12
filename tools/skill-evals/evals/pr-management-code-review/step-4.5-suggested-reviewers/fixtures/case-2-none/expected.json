@@ -1,0 +1,5 @@
+{
+  "section_present": false,
+  "includes_committer": false,
+  "reason": "No CODEOWNERS rule matches the newly added file and its only author is the PR author, so no grounded, non-excluded reviewer remains and the section is omitted rather than filled with a guess."
+}

@@ -508,7 +508,12 @@ For each PR in the list, run the per-PR review loop in
    `REQUEST_CHANGES`, or `COMMENT` per the rules in
    [`posting.md#disposition`](posting.md), apply Golden rules 7
    and 8, and produce a draft body using the templates in
-   [`posting.md`](posting.md).
+   [`posting.md`](posting.md). The body may close with up to
+   2–3 **suggested additional reviewers** — domain experts for
+   the touched area, derived from `CODEOWNERS` and commit /
+   review history per
+   [`review-flow.md#step-45`](review-flow.md), never fabricated
+   and never auto-requested.
 6. **Show the inline-comments picker** — inline review
    comments are the **default and preferred** output of this
    skill: for every anchored finding the skill drafts an
@@ -560,6 +565,11 @@ writes a session log to disk.
   current PR needs one of those, the skill says so and points
   at `/magpie-pr-management-triage pr:<N>`. *(Exception: the
   slop-detection `[X]` close+lock path — see Golden rule 9.)*
+- **Requesting reviewers.** Step 4.5 *names* domain experts in
+  the review body as a suggestion; it never calls `gh pr edit
+  --add-reviewer` or the `requestReviews` mutation. Formally
+  requesting a reviewer is a separate maintainer action (or a
+  job for [`reviewer-routing`](../reviewer-routing/SKILL.md)).
 - **Merging.** Merging is a conscious maintainer action that
   belongs in a separate flow.
 - **Submitting reviews on closed / merged PRs.** The skill only
@@ -619,6 +629,9 @@ This skill's practical GraphQL / `gh` budget per PR is:
 - 1 `gh pr diff` per PR
 - 0–1 calls into the adversarial reviewer (out-of-band, not
   GitHub API)
+- 0–1 `CODEOWNERS` read + 0–3 `commits?path=` reads for the
+  Step 4.5 reviewer suggestions (the PR-review-history source is
+  reached only when the cheap sources fall short)
 - 1 `gh pr review` mutation per posted review
 
 That's ~3 GitHub calls per PR plus one optional plugin call.

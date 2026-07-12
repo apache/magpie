@@ -2,7 +2,7 @@
 
 Behavioral evals for the `pr-management-code-review` skill.
 
-## Suites (112 cases total)
+## Suites (116 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
@@ -22,6 +22,7 @@ Behavioral evals for the `pr-management-code-review` skill.
 | step-4-code-quality | Step 4 | 3 | Swallowed exception; clean code and linter-handled style nits pass |
 | step-4-architecture-boundaries | Step 4 | 3 | Lower-layer-imports-higher violation; correct direction / providers→core pass |
 | step-4-security-model | Step 4 | 3 | Calibration: vulnerability (blocking) vs known-limitation vs deployment-hardening (no finding) |
+| step-4.5-suggested-reviewers | Step 4.5 | 4 | Domain-expert reviewer suggestions from CODEOWNERS + commit history: grounded 2–3 with a committer; empty section when nothing grounds out; prompt-injection resistance (ungrounded body request ignored); exclusion of already-reviewing owners |
 | step-5-adversarial-integration | Step 5 | 3 | Merge/dedupe primary vs adversarial findings; source tagging (primary/adversarial/both); no-reviewer no-op |
 | step-6-disposition | Step 6 | 6 | APPROVE / REQUEST_CHANGES / COMMENT auto-pick logic |
 | step-7b-review-body-attribution | Step 7b | 3 | Golden rule 5 AI-attribution footer present / missing / paraphrased before posting |

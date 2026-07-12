@@ -1,0 +1,5 @@
+{
+  "section_present": true,
+  "includes_committer": true,
+  "reason": "Suggests @alice-maint (CODEOWNERS owner and frequent committer on scheduler/) and @bob-active (frequent recent non-committer author of the changed files), excluding the PR author @dave-newcontrib; at least one is a committer."
+}
