@@ -1,1 +1,1 @@
-{"decision": "apply-overrides", "safety_baseline": "enforced", "reason": "No --no-overrides flag was passed so the override file is read and applied per the normal protocol."}
+{"decision": "apply-overrides", "safety_baseline": "enforced", "has_apply_reason": true}

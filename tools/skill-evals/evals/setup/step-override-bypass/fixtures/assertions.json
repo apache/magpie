@@ -1,0 +1,14 @@
+{
+  "has_bypass_reason": {
+    "type": "regex",
+    "field": "reason",
+    "pattern": "no-?overrides|framework default|not (be )?read|not applied|ignor",
+    "flags": "i"
+  },
+  "has_apply_reason": {
+    "type": "regex",
+    "field": "reason",
+    "pattern": "read and applied|normal protocol|no .*flag|without .*no-?overrides",
+    "flags": "i"
+  }
+}

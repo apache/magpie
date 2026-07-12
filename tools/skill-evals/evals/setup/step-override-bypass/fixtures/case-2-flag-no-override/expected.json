@@ -1,1 +1,1 @@
-{"decision": "skip-overrides", "safety_baseline": "enforced", "reason": "--no-overrides flag was present so the skill runs with framework defaults regardless of whether any override file exists."}
+{"decision": "skip-overrides", "safety_baseline": "enforced", "has_bypass_reason": true}

@@ -163,6 +163,16 @@ maintainer (or a future agent on a later run):
 Every framework skill that supports overrides starts each
 invocation with this opening protocol:
 
+0. **Check for `--no-overrides`.** If the invocation passed
+   the `--no-overrides` flag, skip steps 1–4 entirely — both
+   override surfaces — and run against framework defaults for
+   this invocation; see
+   [One-shot defaults run](#one-shot-defaults-run). The safety
+   baseline still applies. Still do step 5, reporting that the
+   run used `--no-overrides` and naming the override files that
+   existed but were not consulted, so the audit trail records
+   the bypass rather than looking like a run with no overrides
+   on disk. Otherwise, continue with step 1.
 1. Read `<adopter-repo>/.apache-magpie-local/<this-skill>.md`
    (personal, gitignored) if it exists.
 2. Read `<adopter-repo>/.apache-magpie-overrides/<this-skill>.md`
@@ -202,8 +212,8 @@ are simply not consulted for this run.
 ```
 
 When `--no-overrides` is present the skill's opening
-protocol changes: **skip steps 1–3 entirely** (do not
-read, surface, or apply any override file). The skill
+protocol changes: **skip steps 1–3 entirely** — do not
+read, surface, apply, or recap any override file. The skill
 proceeds immediately with its framework defaults, as if
 neither `.apache-magpie-overrides/<skill>.md` nor any
 personal override existed.
