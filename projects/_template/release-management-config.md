@@ -68,7 +68,7 @@ ship in the same adopter directory and are referenced from here:
 
 ## Backends
 
-Three switches select the backend each skill in the family emits
+Four switches select the backend each skill in the family emits
 commands against. See
 [`process.md` § Adopter backends](../../docs/release-management/process.md#adopter-backends)
 for the dimensions.
@@ -76,6 +76,7 @@ for the dimensions.
 | Key | Value | Allowed values |
 |---|---|---|
 | `release_dist_backend` | `svnpubsub` | `svnpubsub`, `atr`, `github-releases`, `s3`, `self-hosted` |
+| `release_vote_backend` | `manual` | `manual`, `atr` |
 | `release_approval_mechanism` | `dev-list-vote` | `dev-list-vote`, `github-discussion`, `pr-approval`, `maintainer-roster` |
 | `release_announce_backend` | `announce-list` | `announce-list`, `github-release-notes`, `site-post`, `discord-channel` |
 
@@ -86,16 +87,33 @@ and `announce-list` (mandatory per
 `release-vote-tally` and `release-announce-draft` refuse to run an
 ASF TLP release against any other value.
 
-`atr` selects the **[Apache Trusted Releases](https://release-test.apache.org/)**
-platform: the RM composes a signed candidate in ATR (which runs the
-signature/checksum/license/notice/source-header checks on upload),
-ATR drives the `dev@` `[VOTE]` and tabulation, and *finishing*
+`release_dist_backend = atr` selects the
+**[Apache Trusted Releases](https://release-test.apache.org/)** platform
+for the *whole* flow: the RM composes a signed candidate in ATR (which
+runs the signature/checksum/license/notice/source-header checks on
+upload), ATR drives the `dev@` `[VOTE]` and tabulation, and *finishing*
 publishes to `dist.apache.org`. It is an ASF-only backend and an
 alternative to `svnpubsub` for the same `dev-list-vote` /
 `announce-list` approval and announce mechanisms. See the
 [ATR release runbook](../../docs/release-management/atr-release-runbook.md)
 for the phase-by-phase flow. ATR is in alpha; until a PMC ratifies it,
 `svnpubsub` remains the ratified default.
+
+`release_vote_backend` **decouples vote administration from artefact
+hosting**, so an adopter can use ATR's automated checks + vote *without*
+letting it host or publish the release yet:
+- `manual` (default) — the RM sends the `[VOTE]` email and tallies
+  replies from the mail archive by hand (the classic `svnpubsub` flow).
+- `atr` — the signed artefacts are *also* uploaded to ATR (Compose) so
+  it runs the policy checks and then **sends and tabulates** the `[VOTE]`.
+  Combine `release_vote_backend = atr` with `release_dist_backend =
+  svnpubsub` for the **hybrid** flow: SVN hosts (`dist/dev`) and promotes
+  (`svn mv` to `dist/release`), while ATR only checks and drives the vote
+  — ATR's Finish/publish is skipped. This is the recommended stance while
+  ATR is alpha (checks + vote automation are useful; hosting/publishing is
+  not yet trusted). `release_vote_backend` is ignored when
+  `release_dist_backend = atr` (ATR already owns the vote in the full
+  flow).
 
 Non-ASF adopters set the values their workflow uses; the skills
 emit backend-shaped paste-ready commands per
@@ -108,6 +126,7 @@ The state-change boundaries are backend-independent.
 |---|---|
 | `release_dist_url_template` | `https://dist.apache.org/repos/dist/<bucket>/airflow/<version>/` |
 | `archive_url_template` | `https://archive.apache.org/dist/airflow/` |
+| `atr_platform_url` | *(set when `release_vote_backend = atr` or `release_dist_backend = atr`; ASF alpha host `https://release-test.apache.org/`, production `https://release.apache.org/`)* |
 | `release_publish_command_template` | *(`svnpubsub` default; non-ASF adopters override with backend-specific command, e.g. `gh release upload <version> <artefacts>` for `github-releases`, `aws s3 cp --recursive <local> s3://<bucket>/<version>/` for `s3`)* |
 
 `<bucket>` resolves to `dev` (staging) or `release` (promoted)
@@ -115,7 +134,10 @@ depending on the lifecycle step the skill is executing. The
 `<bucket>` semantics are `svnpubsub`-shaped; backends that have no
 staging area (`github-releases` draft, `s3` versioned prefix) use
 the analogous draft/promote convention and document it in
-`release_publish_command_template`.
+`release_publish_command_template`. When `release_vote_backend = atr`
+(with `release_dist_backend = svnpubsub`), the artefacts are staged to
+the `dist/dev` URL **and** uploaded to `atr_platform_url` for the
+checks + vote; promotion is still `svn mv` to the `release` bucket.
 
 ## Signing
 
@@ -159,6 +181,21 @@ shorten.
 `vote_pass_rule_overrides` can only *strengthen* the baseline
 (e.g. require 5 binding +1 instead of 3). Attempts to weaken the
 baseline are refused by `release-vote-tally`.
+
+When `release_vote_backend = atr`, the same `vote_*` keys apply, but the
+ATR platform *sends* the `[VOTE]` (from the uploaded candidate) and
+*tabulates* the replies instead of the RM doing it by hand:
+`release-vote-draft` emits an `atr vote start -m <vote_dev_list>
+--subject "<vote_subject_template rendered>" --no-auto-publish <project>
+<version>` command (with the drafted body pointing at the download URL)
+rather than an email to paste, and `release-vote-tally` reads ATR's
+tabulation (`atr vote tabulate`) and cross-checks it against
+`release_approver_roster_path`. `--no-auto-publish` keeps ATR from
+publishing when the dist backend (not ATR) owns promotion. The window and
+pass rule are unchanged. ATR verb/flag names may shift between releases —
+the skills confirm with `atr <cmd> --help` and do not depend on a
+`revisions` lookup (the vote targets the latest uploaded revision by
+default).
 
 ### Approval, non-list variants
 

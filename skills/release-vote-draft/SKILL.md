@@ -212,6 +212,9 @@ Read the following from the planning issue body and
 | `vote_list` | `release-management-config.md` | `vote_dev_list` |
 | `vote_window_hours` | `release-management-config.md` | `vote_window_hours` |
 | `subject_template` | `release-management-config.md` | `vote_subject_template` (fallback to default) |
+| `vote_backend` | `release-management-config.md` | `release_vote_backend` (`manual` default, or `atr`) |
+| `atr_platform_url` | `release-management-config.md` | `atr_platform_url` (only when `vote_backend = atr`) |
+| `atr_revision` | *(optional)* | Specific ATR revision to vote on; omit to use the latest uploaded revision (`atr vote start --revision` defaults to latest — do not hard-depend on a `revisions` lookup) |
 | `canned_body` | `<project-config>/canned-responses.md` | `[VOTE]` template block, if present |
 
 Surface the loaded metadata to the RM for confirmation before
@@ -275,6 +278,41 @@ Present the draft subject + body to the RM. Ask for confirmation
 before proceeding to Step 3. Allow the RM to edit the body before
 confirming.
 
+**Delivery depends on `vote_backend`:**
+
+- **`manual`** (default) — the draft is a paste-ready email. The RM
+  copies the body into their mail client and sends it to `<vote_list>`
+  themselves. The skill never sends mail (Golden rule 2).
+- **`atr`** — the drafted subject + body are handed to the ATR platform,
+  which *sends* the `[VOTE]` to `<vote_list>` and *tabulates* replies.
+  The skill still does not send anything: it emits a paste-ready
+  `atr vote start` command for the RM to run under their own ATR
+  credentials. The `<staging_url>` in the body must still point at the
+  dist backend's download location (e.g. `dist/dev/<project>/…` under the
+  hybrid) so voters fetch the canonical artefacts, even though ATR drives
+  the thread. Emit:
+
+  ```text
+  # ATR sends the [VOTE] to <vote_list> and tabulates replies.
+  # --no-auto-publish is REQUIRED for the hybrid: ATR must NOT publish
+  # (SVN owns promotion). Confirm current flags with `atr vote start --help`.
+  atr vote start -m <vote_list> \
+    --duration <vote_window_hours> \
+    --subject "<final subject line>" \
+    --no-auto-publish \
+    <project> <version>
+  # Optional: --revision <rev> targets a specific uploaded revision
+  #   (defaults to the latest). Verb/flag names may shift between ATR
+  #   releases — a required `revision` positional was dropped in favour of
+  #   this optional flag, so do not hard-depend on `atr revisions`.
+  # If `atr check concerns <project> <version>` lists concern-group keys,
+  #   acknowledge them: --concerns-noted <comma,separated,keys>.
+  ```
+
+  This is a proposal like the email: present it and get RM confirmation
+  before it is run. Posting the `[VOTE]` is a state-change the RM
+  performs, never the skill.
+
 Return ONLY valid JSON with this structure:
 
 ```json
@@ -282,6 +320,8 @@ Return ONLY valid JSON with this structure:
   "subject": "<final subject line>",
   "body": "<final vote email body>",
   "vote_window_hours": <integer>,
+  "vote_backend": "manual" | "atr",
+  "atr_vote_command": "<atr vote start … or empty when manual>",
   "expedited": true | false,
   "skip_verify_logged": true | false
 }

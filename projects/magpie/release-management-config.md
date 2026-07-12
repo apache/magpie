@@ -36,16 +36,30 @@ mandatory ASF approval + announce mechanisms (`dev-list-vote`,
 `announce-list`).
 
 > [!IMPORTANT]
-> **Distribution backend = `svnpubsub`** (the ASF-ratified default),
-> per the [`svnpubsub` runbook](../../docs/release-management/svn-release-runbook.md).
-> **Apache Trusted Releases (ATR) is the intended direction** and is
-> fully documented in the [ATR release runbook](../../docs/release-management/atr-release-runbook.md),
-> but ATR is in **alpha** and its adoption is **pending a PMC
-> ratification vote on `dev@`**. Until that vote passes,
-> `release_dist_backend` stays `svnpubsub`. After ratification, switch
-> the value below to `atr` (and see `atr_platform_url`); no other change
-> to this file is needed, since the approval and announce mechanisms are
-> backend-independent.
+> **Hybrid backend while ATR is in alpha: SVN for artefacts, ATR for the
+> vote.** The two concerns are decoupled:
+> - **`release_dist_backend = svnpubsub`** — the signed artefacts are
+>   staged to `dist/dev/` and promoted to `dist/release/` on
+>   `dist.apache.org` by `svn mv`, per the
+>   [`svnpubsub` runbook](../../docs/release-management/svn-release-runbook.md).
+>   SVN remains the **durable, ASF-hosted, canonical** home of the release
+>   bits. ATR's **Finish**/publish is **not** used while this is
+>   `svnpubsub`.
+> - **`release_vote_backend = atr`** — the mandatory `dev@` `[VOTE]` is
+>   administered by the [ATR platform](../../docs/release-management/atr-release-runbook.md):
+>   the signed artefacts are *also* uploaded to ATR (Compose) so it runs
+>   the signature / checksum / licence / source-header checks and then
+>   **sends and tabulates** the `[VOTE]`. This is why artefacts land in
+>   **both** places during the RC.
+>
+> **Why the split:** ATR is in **alpha**, so we do not yet trust it to
+> *host or publish* the release (that stays on SVN, ratified). But its
+> automated checks and vote administration are useful now. Full adoption
+> (flipping `release_dist_backend` to `atr`, so ATR also hosts/publishes
+> via Finish) is **pending a PMC ratification vote on `dev@`** and a move
+> of ATR from alpha to beta/GA. After that, set `release_dist_backend =
+> atr` and drop the SVN staging/promote steps; the approval and announce
+> mechanisms are backend-independent and need no change.
 
 ## Identifiers
 
@@ -64,6 +78,7 @@ mandatory ASF approval + announce mechanisms (`dev-list-vote`,
 | Key | Value | Allowed values |
 |---|---|---|
 | `release_dist_backend` | `svnpubsub` | `svnpubsub`, `atr`, `github-releases`, `s3`, `self-hosted` |
+| `release_vote_backend` | `atr` | `manual`, `atr` |
 | `release_approval_mechanism` | `dev-list-vote` | `dev-list-vote`, `github-discussion`, `pr-approval`, `maintainer-roster` |
 | `release_announce_backend` | `announce-list` | `announce-list`, `github-release-notes`, `site-post`, `discord-channel` |
 
@@ -71,12 +86,25 @@ As an ASF TLP, Magpie is pinned to `dev-list-vote` (mandatory per
 [release-policy § release approval](https://www.apache.org/legal/release-policy.html#release-approval))
 and `announce-list` (mandatory per
 [release-policy § announcements](https://www.apache.org/legal/release-policy.html#release-announcements)).
+
 `release_dist_backend = svnpubsub` stages the RC under `dist/dev/` and
-promotes to `dist/release/` on `dist.apache.org`; see the
+promotes to `dist/release/` on `dist.apache.org` by `svn mv`; see the
 [`svnpubsub` runbook](../../docs/release-management/svn-release-runbook.md).
-Setting it to `atr` (after PMC ratification) instead drives compose /
-check / vote / finish through the ATR platform; see the
-[ATR release runbook](../../docs/release-management/atr-release-runbook.md).
+Flipping it to `atr` (after PMC ratification) instead drives compose /
+check / vote / **finish** — including hosting and publishing — through the
+ATR platform; see the [ATR release runbook](../../docs/release-management/atr-release-runbook.md).
+
+`release_vote_backend` selects how the mandatory `dev-list-vote` is
+*administered*, independently of where the artefacts are hosted:
+- `manual` — the RM sends the `[VOTE]` email by hand and tallies replies
+  from the mail archive (the classic flow the `svnpubsub` runbook
+  describes).
+- `atr` — the signed artefacts are uploaded to ATR (Compose) so it runs
+  the automated policy checks and then **sends and tabulates** the `[VOTE]`
+  on `dev@`. **`release_vote_backend = atr` with `release_dist_backend =
+  svnpubsub` is the current hybrid** (see the callout above): SVN hosts and
+  promotes; ATR only checks and drives the vote. ATR's Finish/publish is
+  not used until `release_dist_backend` itself becomes `atr`.
 
 ## Distribution URLs
 
@@ -84,12 +112,16 @@ check / vote / finish through the ATR platform; see the
 |---|---|
 | `release_dist_url_template` | `https://dist.apache.org/repos/dist/<bucket>/magpie/<version>/` |
 | `archive_url_template` | `https://archive.apache.org/dist/magpie/` |
-| `atr_platform_url` | `https://release-test.apache.org/` *(only used once `release_dist_backend = atr`; alpha host, production will be `release.apache.org`)* |
+| `atr_platform_url` | `https://release-test.apache.org/` *(used whenever `release_vote_backend = atr` or `release_dist_backend = atr`; alpha host, production will be `release.apache.org`)* |
 
-On the `svnpubsub` default, `<bucket>` resolves to `dev` while the RC
-is staged for the vote and `release` after promotion. On the `atr`
-backend (post-ratification) the RC lives in ATR's draft/candidate area
-during Compose+Vote and **Finish** publishes to `dist/release/magpie/`.
+On the `svnpubsub` dist backend, `<bucket>` resolves to `dev` while the
+RC is staged for the vote and `release` after promotion. Under the
+current hybrid (`release_dist_backend = svnpubsub`, `release_vote_backend
+= atr`) the artefacts live in `dist/dev/magpie/<version>-rcN/` **and** are
+uploaded to ATR's candidate area for the checks + vote — but promotion is
+still `svn mv dist/dev → dist/release`, not ATR Finish. Only once
+`release_dist_backend = atr` (post-ratification) does the RC live solely
+in ATR and **Finish** publish to `dist/release/magpie/`.
 
 ## Signing
 
@@ -100,9 +132,10 @@ during Compose+Vote and **Finish** publishes to `dist/release/magpie/`.
 | `rm_key_fingerprint` | *(per-RM; lives in the RM's `user.md` under `release_manager.gpg_fingerprint`)* |
 
 The RM signs each artefact and the public key must be in `KEYS` (and,
-once `release_dist_backend = atr`, also registered in the ATR platform,
-which validates candidate signatures during Compose — see the ATR
-runbook, Step B). The agent never holds the private key half.
+whenever `release_vote_backend = atr` or `release_dist_backend = atr`,
+also registered in the ATR platform, which validates candidate signatures
+during Compose — see the ATR runbook, Step B). The agent never holds the
+private key half.
 
 ## Vote
 
@@ -119,9 +152,13 @@ runbook, Step B). The agent never holds the private key half.
 
 `vote_window_hours` is a floor per
 [release-policy § release approval](https://www.apache.org/legal/release-policy.html#release-approval).
-The ≥72h window and the binding-vote rule are backend-independent; on
-the `atr` backend the platform sends the `[VOTE]` and tabulates, but the
-window and rule are unchanged.
+The ≥72h window and the binding-vote rule are backend-independent; when
+`release_vote_backend = atr` the platform sends the `[VOTE]` to
+`vote_dev_list` and tabulates replies, but the window and rule are
+unchanged (ATR *drives* the mandatory `dev@` vote, it does not replace the
+PMC's binding decision). The `[VOTE]` body still points voters at the SVN
+`dist/dev/magpie/<version>-rcN/` staging URL for downloads while
+`release_dist_backend = svnpubsub`.
 
 ## Announce
 

@@ -45,6 +45,15 @@ This skill emits the backend-shaped promotion command set for a release
 that has passed its vote. It is Step 10 of the
 [release-management lifecycle](../../docs/release-management/process.md).
 
+**Promotion follows `release_dist_backend`, not the vote backend.** Under
+the hybrid (`release_dist_backend = svnpubsub`, `release_vote_backend =
+atr`), ATR administered the *vote* but SVN owns *hosting and promotion*:
+this skill emits the `svn mv dist/dev → dist/release` sequence, and it
+does **not** emit `atr release finish` / any ATR publish command. ATR's
+Finish phase is only used once `release_dist_backend` itself is `atr`. So
+`release_vote_backend` has no effect here — the promotion path is chosen
+solely by `release_dist_backend`.
+
 The skill **never runs the promotion command itself** and **never publishes
 the release**. This is
 [Boundary 2](../../docs/release-management/spec.md#boundary-2-agent-never-publishes-the-release):

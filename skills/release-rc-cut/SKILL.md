@@ -222,6 +222,7 @@ Read the following from `<project-config>/release-build.md` and
 | `expected_artefacts` | `release-build.md` | `expected_artefacts` list |
 | `digest_set` | `release-build.md` | `digest_set` list |
 | `backend` | `release-management-config.md` | `release_dist_backend` |
+| `vote_backend` | `release-management-config.md` | `release_vote_backend` (`manual` default, or `atr`) — when `atr`, Step 3 also emits an `atr upload` block |
 | `staging_url` | `release-management-config.md` | `release_dist_url_template` rendered with `<version>-<rcN>` at `dist/dev/<project>/` (for `release_dist_backend = svnpubsub`) |
 | `signing_key_fingerprint` | user.md or `release-management-config.md` | `rm_key_fingerprint` |
 | `release_branch` | `release-management-config.md` | `release_branch_base` (or `--release-branch` override) |
@@ -240,6 +241,7 @@ Return ONLY valid JSON with this structure:
   "expected_artefacts": ["<artefact filename pattern>"],
   "digest_set": ["sha512"] | ["sha512", "sha256"],
   "backend": "svnpubsub" | "github-releases" | "s3" | "self-hosted",
+  "vote_backend": "manual" | "atr",
   "staging_url": "<URL>",
   "signing_key_fingerprint": "<fingerprint or empty string>",
   "release_branch": "<branch>",
@@ -367,6 +369,35 @@ The `release_publish_command_template` from
 `release-management-config.md` rendered with `<version>` and `<rcN>`
 substituted.
 
+**Additionally, when `release_vote_backend = atr`** (the hybrid flow —
+`release_dist_backend = svnpubsub` hosts + promotes, ATR runs the checks
+and drives the vote), emit an ATR-upload block **after** the dist-backend
+staging block. The signed artefacts must reach ATR so its Compose checks
+run and there is a candidate revision to vote on. The artefacts land in
+**both** the dist backend (above) and ATR (here); ATR's Finish/publish is
+**not** emitted (promotion stays with `release_dist_backend`).
+
+```text
+# Upload the SAME signed + checksummed artefacts to ATR (Compose) so it
+# runs signature/checksum/licence/source-header checks and can drive the
+# [VOTE]. Verb/flag names may shift between ATR releases; confirm the
+# current shape with `atr <cmd> --help`.
+atr upload <project> <version> <artefact>        <artefact>
+atr upload <project> <version> <artefact>.asc    <artefact>.asc
+atr upload <project> <version> <artefact>.sha512 <artefact>.sha512
+atr check status   <project> <version> --verbose   # confirm checks pass
+atr check concerns <project> <version>             # list any concern-group keys to ack at vote time
+```
+
+The uploaded candidate is the one `release-vote-draft` votes on;
+`atr vote start` targets the latest uploaded revision by default (its
+`--revision` flag is optional), so there is no separate revision id to
+capture here.
+
+This block is a proposal like the rest; the RM runs it on their machine
+under their own ATR credentials. `atr_platform_url` from
+`release-management-config.md` is the target platform.
+
 Present the staging command block to the RM and ask for confirmation
 before proceeding to Step 4.
 
@@ -375,12 +406,18 @@ Return ONLY valid JSON with this structure:
 ```json
 {
   "backend": "svnpubsub" | "github-releases" | "s3" | "self-hosted",
+  "vote_backend": "manual" | "atr",
   "staging_commands": ["<command 1>", "<command 2>"],
+  "atr_upload_commands": ["<atr upload …>", "..."],
   "staging_url": "<URL>",
   "dist_dev_only": true,
   "proposed": true
 }
 ```
+
+`atr_upload_commands` is populated only when `vote_backend = atr` (empty
+list otherwise); it never contains an `atr release finish` / publish
+command while `release_dist_backend = svnpubsub`.
 
 `dist_dev_only` is always `true` for `svnpubsub` (`release_dist_backend = svnpubsub`); it confirms that no
 `dist/release/` path (`release_dist_backend = svnpubsub`) was emitted. For non-`svnpubsub` backends it is

@@ -100,6 +100,30 @@ tired human at 2am, enforced the mechanics.
 > Coordinate on `dev@tooling.apache.org` / `#apache-trusted-releases`
 > on ASF Slack before cutting a *real* release through ATR.
 
+> [!IMPORTANT]
+> **Hybrid mode (Magpie's current stance): SVN hosts, ATR votes.**
+> Because ATR is still alpha, Magpie does **not** yet let it host or
+> publish releases — but it *does* use ATR's automated checks and vote
+> administration. This is expressed as two independent config keys in
+> [`release-management-config.md`](../../projects/magpie/release-management-config.md):
+> `release_dist_backend = svnpubsub` **and** `release_vote_backend = atr`.
+> Under this mode:
+> - **Compose** — the signed artefacts are staged to SVN `dist/dev`
+>   (canonical download location) **and** uploaded to ATR so it runs the
+>   policy checks. Artefacts live in both places.
+> - **Vote** — ATR sends the `[VOTE]` to `dev@` and tabulates, exactly as
+>   the *Vote* rows below describe. The `[VOTE]` body points voters at the
+>   SVN `dist/dev` URL for downloads.
+> - **Finish** — **not done through ATR.** Promotion is `svn mv dist/dev →
+>   dist/release` per the [`svnpubsub` runbook](svn-release-runbook.md);
+>   ATR's Finish/publish is skipped until `release_dist_backend` itself
+>   becomes `atr`.
+>
+> So in hybrid mode the **Compose** and **Vote** rows of the table below
+> apply, but **Finish** falls back to the SVN runbook. The rest of this
+> document describes the *full* ATR flow (`release_dist_backend = atr`),
+> which is the post-ratification target.
+
 ## The three ATR phases vs the 14-step lifecycle
 
 ATR organises a release into three phases. They map onto the
