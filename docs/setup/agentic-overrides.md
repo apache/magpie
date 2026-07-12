@@ -15,6 +15,7 @@
     - [Pre-empt a decision-table row](#pre-empt-a-decision-table-row)
   - [What an override file should explain](#what-an-override-file-should-explain)
   - [How a framework skill consults overrides](#how-a-framework-skill-consults-overrides)
+  - [One-shot defaults run](#one-shot-defaults-run)
   - [Hard rules](#hard-rules)
   - [Reconciliation on framework upgrade](#reconciliation-on-framework-upgrade)
   - [Upstreaming an override](#upstreaming-an-override)
@@ -187,6 +188,43 @@ that explicitly in its `SKILL.md`. The
 sub-action surfaces this gap and suggests opening a
 framework-side issue requesting the hook.
 
+## One-shot defaults run
+
+Pass `--no-overrides` to any framework skill that supports
+overrides to run that single invocation against framework
+defaults, ignoring any override files that exist on disk.
+The override files are **not** modified or deleted — they
+are simply not consulted for this run.
+
+```text
+/magpie-pr-management-triage --no-overrides
+/magpie-security-issue-triage --no-overrides
+```
+
+When `--no-overrides` is present the skill's opening
+protocol changes: **skip steps 1–3 entirely** (do not
+read, surface, or apply any override file). The skill
+proceeds immediately with its framework defaults, as if
+neither `.apache-magpie-overrides/<skill>.md` nor any
+personal override existed.
+
+The **safety baseline** (confidentiality, privacy, and
+security rules baked into the framework) still applies in
+full — `--no-overrides` is not a safety bypass.  It only
+removes the adopter-customisation layer.
+
+Typical use cases:
+
+- **Debugging**: reproduce the framework's default
+  behaviour to determine whether an override is causing
+  an unexpected result.
+- **One-off clean run**: a release manager wants a
+  pristine triage run without their personal overrides
+  for this single check-in.
+- **Override authoring**: run with defaults first to see
+  what the framework produces, then compare against a
+  run that applies the override under construction.
+
 ## Hard rules
 
 These are baked into agent instructions across the framework.
@@ -297,7 +335,9 @@ this by:
 
 - [`setup` skill](../../skills/setup/SKILL.md) — the entry point
   that manages the snapshot, scaffolds overrides, and adds the
-  `.gitignore` entries for both override directories.
+  `.gitignore` entries for both override directories. Lists
+  `--no-overrides` in its Inputs table as a recognised
+  framework-level flag.
 - [`overrides.md` sub-action](../../skills/setup/overrides.md) —
   interactive override creation (lets the user choose between the
   personal-local and committed surfaces).
