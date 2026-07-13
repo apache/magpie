@@ -171,6 +171,12 @@ Two non-negotiable boundaries cross every Agentic Drafting skill above:
   `svnpubsub` runbook; ATR replaces the mechanics of Steps 5–11. ATR
   is in alpha — the forward-looking backend, tracked against the
   [MISSION § first-release commitment](../../MISSION.md#initial-goals).
+- [**`manual-release-process.md`**](manual-release-process.md), the
+  concrete **as-executed** record of the `0.1.0` release on the current
+  hybrid backend (`release_dist_backend = svnpubsub` +
+  `release_vote_backend = atr`): the exact command sequence run, the real
+  URLs, and the `rc1`/`rc2` rough edges — a practical companion to the two
+  abstract per-backend runbooks above.
 
 Two documents that **do not** ship in this family but are
 referenced from it:

@@ -232,5 +232,6 @@ files are reproduced in [`NOTICE`](NOTICE).
 - [`docs/setup/agentic-overrides.md`](docs/setup/agentic-overrides.md) — the contract between adopters who write overrides and framework skills that read them.
 - [`docs/prerequisites.md`](docs/prerequisites.md) — what a maintainer needs installed before invoking any framework skill (Claude Code, Gmail MCP, GitHub auth, browser, `uv`, etc.).
 - [`docs/source-release-contents.md`](docs/source-release-contents.md) — what ships in the signed `apache-magpie-<version>-source.zip` (and what is excluded), with the rationale for the repository-root metadata/config files it keeps.
+- [`docs/release-management/manual-release-process.md`](docs/release-management/manual-release-process.md) — the concrete, as-executed runbook for cutting a Magpie release by hand on the current hybrid SVN-dist + ATR-vote backend (with the abstract per-backend runbooks and the 14-step lifecycle alongside it in [`docs/release-management/`](docs/release-management/README.md)).
 - [`AGENTS.md`](AGENTS.md) — agent instructions, placeholder convention, framework conventions.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — for framework contributors.
