@@ -63,28 +63,26 @@ repos:
         args:
           - "--maxlevel"
           - "3"
-  # Stamp an approved Apache-2.0 licence header into Markdown and .gitignore
-  # files so the Apache RAT licence check (.github/workflows/rat.yml) — and
-  # any reviewer — sees an approved header on every one. Markdown and
-  # .gitignore carry no comment header by convention, so RAT would otherwise
-  # flag (or silently skip) them. Plain Markdown gets an HTML-comment header
-  # on line 1; files with YAML front matter get a `# SPDX-License-Identifier`
-  # comment as the first line *inside* the front matter, so line 1 stays
-  # `---` and no new key is introduced for a front-matter validator to
-  # reject; .gitignore gets the full ASF header as `#` comments (the block
-  # .gitattributes carries), matching the convention that hash-comment
-  # config files carry the full header. The hook fixes files in place and
-  # fails the commit when it changes one (the end-of-file-fixer convention),
-  # so the contributor re-stages the now-stamped file. The `exclude` mirrors
-  # `.rat-excludes`: the third-party-licence detection fixtures deliberately
-  # contain non-Apache licence text and must not be stamped Apache-2.0.
+  # Stamp an SPDX Apache-2.0 licence identifier into Markdown files so the
+  # Apache RAT licence check (.github/workflows/rat.yml) sees an approved
+  # header on every scanned file. Markdown carries no comment header by
+  # convention, so RAT would otherwise flag it as unapproved. Plain
+  # Markdown gets an HTML-comment header on line 1; files with YAML front
+  # matter get a `# SPDX-License-Identifier` comment as the first line
+  # *inside* the front matter, so line 1 stays `---` and no new key is
+  # introduced for a front-matter validator to reject. The hook fixes files
+  # in place and fails the commit when it changes one (the end-of-file-fixer
+  # convention), so the contributor re-stages the now-stamped file. The
+  # `exclude` mirrors `.rat-excludes`: the third-party-licence detection
+  # fixtures deliberately contain non-Apache licence text and must not be
+  # stamped Apache-2.0.
   - repo: local
     hooks:
       - id: add-license-headers
-        name: Stamp Apache licence header into Markdown and .gitignore
+        name: Stamp SPDX licence header into Markdown
         language: system
         entry: tools/dev/add-license-headers.py
-        files: (\.md|(^|/)\.gitignore)$
+        files: \.md$
         exclude: ^tools/skill-evals/evals/pr-management-code-review/step-4-third-party-license/fixtures/.*$
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0

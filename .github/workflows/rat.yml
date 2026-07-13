@@ -75,12 +75,10 @@ jobs:
           # off the report so contributors get the offending file list, not a
           # Java stack trace. --input-exclude-parsed-scm GIT honours
           # .gitignore; --input-exclude-std GIT/HIDDEN_DIR skips VCS metadata.
-          # --input-include '**/.gitignore' overrides those exclusions for the
-          # tracked .gitignore files themselves (parsed-scm GIT otherwise
-          # self-excludes the ignore files), so RAT enforces the ASF header
-          # that tools/dev/add-license-headers.py stamps into them. (.git/ is
-          # still skipped as a hidden dir; .apache-magpie-overrides/.gitignore
-          # stays excluded under its hidden dir.)
+          # Tracked .gitignore files carry no licence header — they are
+          # hash-comment config with no downstream licensing significance —
+          # and are excluded via `.rat-excludes` (parsed-scm GIT also
+          # self-excludes the ignore files).
           jar="${RUNNER_TEMP}/apache-rat-${RAT_VERSION}/apache-rat-${RAT_VERSION}.jar"
           report="${RUNNER_TEMP}/rat-report.txt"
           stderr_log="${RUNNER_TEMP}/rat-stderr.log"
@@ -88,7 +86,6 @@ jobs:
             --input-exclude-std GIT HIDDEN_DIR \
             --input-exclude-parsed-scm GIT \
             --input-exclude-file .rat-excludes \
-            --input-include '**/.gitignore' \
             --output-style unapproved-licenses \
             --output-file "${report}" \
             . 2>"${stderr_log}" && rc=0 || rc=$?

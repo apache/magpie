@@ -31,6 +31,12 @@
 # Python bytecode caches (untracked; present only in local runs)
 **/__pycache__/**
 
+# Git ignore files — hash-comment config with no downstream licensing
+# significance; carry no licence header. (parsed-scm GIT self-excludes
+# these too; listed here to make the exclusion explicit.)
+**/.gitignore
+.gitignore
+
 # Empty package markers
 **/__init__.py
 
