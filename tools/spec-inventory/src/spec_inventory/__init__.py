@@ -45,6 +45,10 @@ _SCRIPT_RE = re.compile(r"^\s*([A-Za-z0-9_.-]+)\s*=\s*\"([^\"]+)\"", re.MULTILIN
 _SECTION_RE = re.compile(r"^\[([^\]]+)\]\s*$")
 _YAML_BLOCK_SCALAR_HEADERS = frozenset({"|", ">", "|-", "|+", ">-", ">+"})
 
+# Scope-map patterns — used by the spec-scope entry point.
+_BACKTICK_RE = re.compile(r"`([^`]+)`")
+_SKILL_KEYWORD_RE = re.compile(r"\bSkill:\s*`([^`]+)`")
+
 
 @dataclass
 class SpecSummary:
@@ -368,6 +372,121 @@ def format_markdown(inventory: Inventory, *, brief: bool = False) -> str:
 
 def format_json(inventory: Inventory) -> str:
     return json.dumps(asdict(inventory), indent=2)
+
+
+def extract_path_patterns(where_bullets: list[str]) -> frozenset[str]:
+    """Extract normalised path prefixes from 'Where it lives' bullets.
+
+    Returns a frozenset of path strings (no leading/trailing slashes) that
+    can be used as prefix tests against changed-file paths.  Patterns come
+    from two sources in each bullet:
+
+    - Explicit skill names — ``Skill: `<name>``` bullets produce the pattern
+      ``skills/<name>`` so that changes to ``skills/<name>/SKILL.md`` resolve
+      to the right spec.
+    - Backtick-quoted path tokens — any backtick-quoted token that contains
+      a slash is treated as a path prefix directly.
+    """
+    patterns: set[str] = set()
+    for bullet in where_bullets:
+        for m in _SKILL_KEYWORD_RE.finditer(bullet):
+            name = m.group(1).strip().rstrip("/")
+            if "/" not in name:
+                patterns.add(f"skills/{name}")
+        for m in _BACKTICK_RE.finditer(bullet):
+            token = m.group(1).strip().rstrip("/")
+            if "/" in token:
+                patterns.add(token.strip("/"))
+    return frozenset(patterns)
+
+
+def _changed_path_candidates(changed: str) -> list[str]:
+    """Expand a changed path into one or more patterns to test against spec patterns.
+
+    For ``.claude/skills/magpie-<name>`` symlink entries the runner records,
+    also synthesise a ``skills/<name>`` alias so that skill-name patterns
+    extracted from 'Skill: `<name>`' bullets resolve correctly.
+    """
+    normalised = changed.lstrip("/")
+    candidates = [normalised]
+    parts = normalised.split("/")
+    if len(parts) >= 3 and parts[0] == ".claude" and parts[1] == "skills" and parts[2].startswith("magpie-"):
+        skill_name = parts[2][len("magpie-") :]
+        candidates.append("/".join(["skills", skill_name, *parts[3:]]))
+    return candidates
+
+
+def scope_map(changed_paths: list[str], repo_root: Path) -> list[str]:
+    """Return spec file paths likely relevant to the given changed file paths.
+
+    For each spec, path patterns are extracted from its 'Where it lives'
+    bullets.  A spec is included if any of its patterns is a prefix of any
+    candidate path derived from the changed list.  The result is sorted and
+    deduplicated.
+
+    Intended use: the spec-loop update beat pipes the output of
+    ``git diff --name-only`` through ``spec-scope`` to focus the agent on
+    the specs most likely to need re-inspection, rather than asking the
+    agent to do that mapping from scratch.
+    """
+    specs = load_specs(repo_root, max_where=50, max_validation=0, max_gaps=0)
+    spec_patterns: list[tuple[str, frozenset[str]]] = [
+        (spec.file, extract_path_patterns(spec.where)) for spec in specs
+    ]
+    relevant: set[str] = set()
+    for changed in changed_paths:
+        for candidate in _changed_path_candidates(changed):
+            for spec_file, patterns in spec_patterns:
+                if spec_file in relevant:
+                    continue
+                for pattern in patterns:
+                    if candidate == pattern or candidate.startswith(pattern + "/"):
+                        relevant.add(spec_file)
+                        break
+    return sorted(relevant)
+
+
+def scope_main(argv: list[str] | None = None) -> None:
+    """CLI entry point: map changed paths to relevant spec files.
+
+    Reads file paths from positional arguments or stdin (one per line) and
+    writes the relevant spec file paths to stdout, one per line.  Empty
+    input produces no output.  Exit code is always 0 so a pipeline that
+    finds no matches does not fail a shell script.
+    """
+    parser = argparse.ArgumentParser(
+        description=(
+            "Map changed file paths to likely relevant spec files for the "
+            "spec-loop update beat.  Reads paths from positional arguments "
+            "or stdin (one per line) and writes matching spec file paths to "
+            "stdout."
+        )
+    )
+    parser.add_argument("paths", nargs="*", help="Changed file paths.")
+    parser.add_argument(
+        "--repo-root",
+        type=Path,
+        default=None,
+        help="Repository root (default: nearest .git parent).",
+    )
+    args = parser.parse_args(argv)
+
+    if args.paths:
+        changed = [p for p in args.paths if p]
+    else:
+        changed = [line.rstrip("\n") for line in sys.stdin if line.strip()]
+
+    if not changed:
+        return
+
+    try:
+        repo_root = args.repo_root.resolve() if args.repo_root else find_repo_root(Path.cwd())
+    except RuntimeError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    for spec in scope_map(changed, repo_root):
+        print(spec)
 
 
 def main() -> None:

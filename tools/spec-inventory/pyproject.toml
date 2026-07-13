@@ -30,6 +30,7 @@ dependencies = []
 
 [project.scripts]
 spec-inventory = "spec_inventory:main"
+spec-scope = "spec_inventory:scope_main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/spec_inventory"]
