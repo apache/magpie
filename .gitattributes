@@ -35,16 +35,18 @@
 # too would strip the one resolvable view and orphan those links.
 #
 # `.github/ISSUE_TEMPLATE/` and `.github/PULL_REQUEST_TEMPLATE.md` are
-# linked by skills, and `projects/_template/.gitignore` is example
-# content, so only the true CI/dev entries under `.github/` are stripped
-# and `.gitignore` is anchored to the repo root. `release-verify-rc`
-# re-checks the unpacked tarball (symlink-lint + validators + no-.pyc) so
-# a regression here fails the RC before the [VOTE].
+# linked by skills, so only the true CI/dev entries under `.github/` are
+# stripped. The `.gitignore` files ship as development-environment config
+# — the repo-root one (useful for a from-source dev checkout) and the
+# nested examples (e.g. `projects/_template/.gitignore`) alike.
+# `release-verify-rc` re-checks the unpacked tarball (symlink-lint +
+# validators + no-.pyc) so a regression here fails the RC before the [VOTE].
 
-# Root-only VCS / dev-tool metadata (anchored so identically-named files
-# deeper in the tree — e.g. projects/_template/.gitignore — still ship).
+# Root-only VCS / dev-tool metadata. Anchored with a leading `/` so an
+# identically-named file deeper in the tree is unaffected. The repo-root
+# `.gitignore` is intentionally NOT listed here — it ships as
+# development-environment config (see the note above).
 /.gitattributes                    export-ignore
-/.gitignore                        export-ignore
 /.pre-commit-config.yaml           export-ignore
 /.lychee.toml                      export-ignore
 /.lycheecache                      export-ignore

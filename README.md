@@ -231,5 +231,6 @@ files are reproduced in [`NOTICE`](NOTICE).
 - [`MISSION.md`](MISSION.md) — **draft** project-establishment proposal: motivation, scope, design commitments, initial PMC composition target.
 - [`docs/setup/agentic-overrides.md`](docs/setup/agentic-overrides.md) — the contract between adopters who write overrides and framework skills that read them.
 - [`docs/prerequisites.md`](docs/prerequisites.md) — what a maintainer needs installed before invoking any framework skill (Claude Code, Gmail MCP, GitHub auth, browser, `uv`, etc.).
+- [`docs/source-release-contents.md`](docs/source-release-contents.md) — what ships in the signed `apache-magpie-<version>-source.zip` (and what is excluded), with the rationale for the repository-root metadata/config files it keeps.
 - [`AGENTS.md`](AGENTS.md) — agent instructions, placeholder convention, framework conventions.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — for framework contributors.
