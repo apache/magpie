@@ -119,7 +119,7 @@ repos:
   # (broken anchors via MD051, dangling link references via MD053);
   # style choices the existing docs already settled stay off.
   - repo: https://github.com/DavidAnson/markdownlint-cli2
-    rev: v0.22.1
+    rev: v0.23.0
     hooks:
       - id: markdownlint-cli2
         name: markdownlint
@@ -136,7 +136,7 @@ repos:
   # the hook never silently rewrites files; CI surfaces typos as
   # errors instead.
   - repo: https://github.com/crate-ci/typos
-    rev: v1.47.2
+    rev: v1.48.0
     hooks:
       - id: typos
         name: typos
