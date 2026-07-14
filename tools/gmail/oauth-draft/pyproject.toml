@@ -40,7 +40,7 @@ dependencies = [
 # install it with `uv run --project ... --extra mcp oauth-draft-mcp`.
 [project.optional-dependencies]
 mcp = [
-  "mcp>=1.2.0",
+  "mcp>=1.28.1",
 ]
 
 [project.scripts]
@@ -119,5 +119,5 @@ dev = [
   "pytest>=9.1.1",
   "ruff>=0.15.20",
   # Needed to import and test `oauth_draft.mcp_server` (the `mcp` extra).
-  "mcp>=1.2.0",
+  "mcp>=1.28.1",
 ]

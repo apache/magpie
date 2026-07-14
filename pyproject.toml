@@ -57,7 +57,7 @@ requires-python = ">=3.11"
 # `[tool.uv] exclude-newer` cooldown below, so the resolved version
 # is "the most recent that is at least 7 days old".
 dev = [
-  "prek>=0.4.5",
+  "prek>=0.4.8",
   "ruff>=0.15.20",
   "mypy>=2.1.0",
   "pytest>=9.1.1",
