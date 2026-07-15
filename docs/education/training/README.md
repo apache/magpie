@@ -77,7 +77,7 @@ needed.
 **Instructor-led.** An instructor presents the key ideas from the source page,
 assigns the exercises to pairs or small groups, and uses the self-check
 questions for a brief group debrief before moving on. The facilitator guide
-(planned, not yet shipped) covers room setup, timing, and group discussion
+([`instructor-guide.md`](instructor-guide.md)) covers room setup, timing, and group discussion
 prompts.
 
 **LMS upload.** Each lesson is a Markdown file that can be converted to SCORM,
