@@ -7,7 +7,7 @@
 
 - [Secure agent setup — how it works](#secure-agent-setup--how-it-works)
   - [Threat model](#threat-model)
-  - [Three-layer defence](#three-layer-defence)
+  - [Four-layer defence](#four-layer-defence)
   - [What `sandbox.enabled` actually does](#what-sandboxenabled-actually-does)
   - [Linux: bubblewrap + user namespaces](#linux-bubblewrap--user-namespaces)
   - [macOS: Seatbelt](#macos-seatbelt)
@@ -35,7 +35,7 @@ there. Read this document when you want to:
 
 - understand the threat model the setup is built against, and
   what it deliberately does not defend against;
-- reason about which of the three layers (clean env / filesystem
+- reason about which of the four layers (clean env / filesystem
   sandbox / tool permissions / forced confirmation) is enforcing
   any given guard;
 - debug an unexpected denial (or worse, an unexpected *allow*) by
@@ -74,7 +74,7 @@ It does **not** defend against:
 - A maliciously-crafted MCP server installed at user scope. Audit
   `~/.claude/.mcp.json` and `~/.claude.json` periodically.
 
-## Three-layer defence
+## Four-layer defence
 
 | Layer | Mechanism | What it stops |
 |---|---|---|
