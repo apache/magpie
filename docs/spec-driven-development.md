@@ -204,20 +204,22 @@ finishes. Run it after a batch of normal PRs merges, or on a schedule.
 tools/spec-loop/
 ├── README.md              operator quickstart
 ├── AGENTS.md              loop-scoped operational context
+├── lib.sh                 deterministic runner helpers
 ├── loop.sh                the runner (plan / build / update / consolidate)
 ├── PROMPT_plan.md         gap analysis → plan
 ├── PROMPT_build.md        implement one work item on its own branch
 ├── PROMPT_update.md       back-fill specs from contributed code
 ├── PROMPT_consolidate.md  shrink the plan
 ├── IMPLEMENTATION_PLAN.md prioritised work items (the gaps)
-└── specs/                 functional description of the product
-    ├── overview.md
-    ├── triage-mode.md     mentoring-mode.md   drafting-mode.md   pairing-mode.md
-    ├── security-issue-lifecycle.md            privacy-llm-gate.md
-    ├── agent-isolation-sandbox.md             cve-tooling.md
-    ├── adoption-and-setup.md                  adapters.md
-    ├── meta-and-quality-tooling.md            spec-loop-runner.md
-    └── security-reporting.md                  reviewer-routing.md
+├── specs/                 functional description of the product
+│   ├── overview.md
+│   ├── triage-mode.md     mentoring-mode.md   drafting-mode.md   pairing-mode.md
+│   ├── security-issue-lifecycle.md            privacy-llm-gate.md
+│   ├── agent-isolation-sandbox.md             cve-tooling.md
+│   ├── adoption-and-setup.md                  adapters.md
+│   ├── meta-and-quality-tooling.md            spec-loop-runner.md
+│   └── security-reporting.md                  reviewer-routing.md
+└── tests/                 deterministic runner fixture tests
 ```
 
 ## Quick start
