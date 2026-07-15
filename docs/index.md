@@ -60,6 +60,7 @@ adapter/config layer, but they carry ASF assumptions the generic families do not
 | Setting up agents safely — sandbox, clean environment, privacy routing | [setup](setup/README.md) | Any project |
 | Security reports that need careful, audited handling | [security](security/README.md) | Any project |
 | A pull-request queue that's out of control | [pr-management](pr-management/README.md) | Any project |
+| Catching implementation-detail nits before you open a PR | [pairing](pairing/README.md) | Any project |
 | An issue backlog full of duplicates and stale reports | [issue-management](issue-management/README.md) | Any project |
 | Repo hygiene slipping — CI runners, dependencies, licenses, flaky tests | [repo-health](repo-health/README.md) | Any project |
 | Releases that are a manual, error-prone slog | [release-management](release-management/README.md) | 🪶 ASF-specific |
