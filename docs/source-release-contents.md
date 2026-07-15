@@ -43,7 +43,7 @@ the vote.
 | `.apache-magpie.lock` | The committed self-adoption pin (Magpie adopts itself: `method: local`, `source: skills/`). Part of the framework's own adoption wiring, read by `/magpie-setup`. |
 | `.claude/settings.json` | Agent development-environment configuration for working on the framework from source. Part of the dev environment rather than a personal preference; more agent configs may be added over time. |
 | `.github/ISSUE_TEMPLATE/`, `.github/PULL_REQUEST_TEMPLATE.md` | Not just GitHub chrome — these are referenced by shipped GitHub-vendor skills (PR / issue triage tooling) and cross-checked by validation hooks that verify inter-file links resolve. Stripping them would break those skills and fail the validators. (The genuinely CI/bot-only parts of `.github/` are excluded — see below.) |
-| `.gitignore` files — the repository root one plus the nested ones (`projects/_template/.gitignore`, `tools/*/.gitignore`, `.apache-magpie-overrides/.gitignore`) | Development-environment configuration. The repository-root `.gitignore` keeps a from-source dev checkout of the framework clean; `projects/_template/.gitignore` is example content shipped for adopters to copy; the `tools/*` ones keep a from-source dev checkout of each tool package clean. |
+| `.gitignore` files — the repository root one plus the nested ones (`projects/_template/.gitignore`, `tools/**/.gitignore`, `.apache-magpie-overrides/.gitignore`) | Development-environment configuration. The repository-root `.gitignore` keeps a from-source dev checkout of the framework clean; `projects/_template/.gitignore` is example content shipped for adopters to copy; the `tools/**` ones (nesting depth varies by package — e.g. `tools/egress-gateway/.gitignore` one level down, `tools/gmail/oauth-draft/.gitignore` and `tools/privacy-llm/checker/.gitignore` two levels down) keep a from-source dev checkout of each tool package clean. |
 | `.agents/skills/*` (symlinks) | The canonical agent skill view — single-hop symlinks that resolve straight to the real `skills/*` directories — kept so the shipped agent view resolves out of the box. The relay chains other agent dirs use (`.claude/skills/`, `.github/skills/`, `.kiro/skills/`) are excluded because they chain symlink → symlink, which a safe archive extractor rejects. |
 
 ## Files deliberately excluded
@@ -54,7 +54,8 @@ source consumer never needs:
 
 - **Repository-root VCS / dev metadata:** `.gitattributes`,
   `.pre-commit-config.yaml`, the linter configs (`.lychee.toml`,
-  `.markdownlint.json`, `.typos.toml`, `.zizmor.yml`), and
+  `.markdownlint.json`, `.typos.toml`, `.zizmor.yml`), the lychee
+  link-checker's generated cache file (`.lycheecache`), and
   `.apache-magpie.session-state.json`. (The repository-root `.gitignore`
   is **not** excluded — it ships as dev-environment config, above.)
 - **Editor metadata:** `.idea/`.
