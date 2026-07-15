@@ -28,8 +28,8 @@
 Maintainer-facing skills that span the contributor-to-committer path:
 welcoming first-time contributors, keeping the issue backlog newcomer-
 ready, tracking contribution activity, checking readiness against declared
-thresholds, assembling nomination evidence, and walking nominators through
-post-vote onboarding. Seven skills cover the staged path from first contact
+thresholds, measuring contributor sentiment, assembling nomination evidence,
+and walking nominators through post-vote onboarding. Nine skills cover the staged path from first contact
 through committer promotion.
 
 Why a framework skill family? The contributor-to-committer path is one
@@ -49,6 +49,8 @@ them makes the adopter configuration and the evaluation story coherent.
 | **Activity tracking** | [`contributor-activity-sweep`](../../skills/contributor-activity-sweep/SKILL.md) | Produces a read-only GitHub activity card (PRs authored, code reviews, issues, comments) over a configurable window. |
 | **Readiness check** | [`contributor-to-committer`](../../skills/contributor-to-committer/SKILL.md) | Maps a contributor's GitHub activity against the adopter's PMC-declared committer or PMC thresholds; surfaces a traffic-light brief (Not yet / Approaching / Ready to nominate) and a gap table showing what would close each remaining gap. Read-only; never opens a nomination thread. |
 | **Nomination brief** | [`contributor-nomination`](../../skills/contributor-nomination/SKILL.md) | Assembles evidence prose for a committer or PMC vote thread: activity breadth, consistency, vendor-neutrality context, and a nomination-ready summary. Read-only; never posts to any list. |
+| **Sentiment analysis** | [`contributor-sentiment`](../../skills/contributor-sentiment/SKILL.md) | Analyse contributor sentiment signals (issue tone, PR abandonment, response-time frustration) to surface early-warning indicators of contributor disengagement. Read-only. |
+| **Onboarding concierge** | [`onboarding-concierge`](../../skills/onboarding-concierge/SKILL.md) | Interactive first-session guide for new contributors: walks through repo setup, points to good first issues, introduces project conventions and communication channels. |
 | **Post-vote onboarding** | [`committer-onboarding`](../../skills/committer-onboarding/SKILL.md) | Walks the nominator through ICLA check, account provisioning, permissions grant, and the welcome announcement for committer and PMC promotions at ASF TLPs and podlings. |
 
 Every stage is read-only on governance artefacts or propose-before-post:
@@ -62,12 +64,14 @@ without explicit maintainer confirmation.
 | [`mentoring-welcome`](../../skills/mentoring-welcome/SKILL.md) | Mentoring | experimental |
 | [`good-first-issue-author`](../../skills/good-first-issue-author/SKILL.md) | Mentoring | experimental |
 | [`good-first-issue-sweep`](../../skills/good-first-issue-sweep/SKILL.md) | Mentoring | experimental |
+| [`contributor-sentiment`](../../skills/contributor-sentiment/SKILL.md) | Triage | experimental |
+| [`onboarding-concierge`](../../skills/onboarding-concierge/SKILL.md) | Mentoring | experimental |
 | [`contributor-activity-sweep`](../../skills/contributor-activity-sweep/SKILL.md) | Triage | experimental |
 | [`contributor-to-committer`](../../skills/contributor-to-committer/SKILL.md) | Mentoring | experimental |
 | [`contributor-nomination`](../../skills/contributor-nomination/SKILL.md) | Triage | experimental |
 | [`committer-onboarding`](../../skills/committer-onboarding/SKILL.md) | Triage | experimental |
 
-All seven skills are `experimental`; no adopter has run the full
+All nine skills are `experimental`; no adopter has run the full
 contributor-to-committer path under evaluation conditions yet.
 
 ## Family boundary

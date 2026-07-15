@@ -24,9 +24,9 @@
 
 Maintainer-facing skills that join contributor threads in a teaching
 register, author newcomer-ready issues, curate the existing backlog for
-newcomers, orient first-time contributors, and track a contributor's
-readiness path to committer nomination.
-Five skills shipped at `experimental`.
+newcomers, orient first-time contributors, explain issue context to
+newcomers, and track a contributor's readiness path to committer nomination.
+Six skills shipped at `experimental`.
 
 MISSION names Agentic Mentoring as the highest-value project-side mode and the one
 off-the-shelf agent tooling skips. The framework lands the spec — tone guide,
@@ -41,10 +41,11 @@ behaviour and can be evolved without editing the skill body.
 | [`pr-management-mentor`](../../skills/pr-management-mentor/SKILL.md) | Draft a teaching-register comment on a single GitHub issue or PR thread; waits for maintainer confirmation before posting. | experimental |
 | [`good-first-issue-author`](../../skills/good-first-issue-author/SKILL.md) | Draft one net-new good first issue from a supplied gap or small task; a suitability gate and R1–R9 readiness checklist gate the draft; waits for maintainer confirmation before filing via `gh`. | experimental |
 | [`mentoring-welcome`](../../skills/mentoring-welcome/SKILL.md) | Draft a first-contact orientation comment for a first-time contributor on a newly opened issue or PR; detects first-time authorship via the GitHub `author_association` field; skips repeat contributors. | experimental |
-| [`contributor-to-committer`](../../skills/contributor-to-committer/SKILL.md) | Read-only readiness tracker that maps a contributor's GitHub activity against the adopter's declared committer/PMC thresholds; surfaces a traffic-light brief (Not yet / Approaching / Ready to nominate) plus the specific evidence gaps that remain. | experimental |
+| [`newcomer-issue-explainer`](../../skills/newcomer-issue-explainer/SKILL.md) | Explain a single issue's context, relevant code paths, and expected approach to a newcomer who has claimed it; teaching register, never gatekeeps. | experimental |
 | [`good-first-issue-sweep`](../../skills/good-first-issue-sweep/SKILL.md) | Sweep the open issue backlog for existing issues that could be labelled as good first issues; scores each against the G1–G7 suitability rubric and classifies as READY / NEAR-MISS / SKIP; proposes labels only after explicit maintainer confirmation. | experimental |
+| [`contributor-to-committer`](../../skills/contributor-to-committer/SKILL.md) | Read-only readiness tracker that maps a contributor's GitHub activity against the adopter's declared committer/PMC thresholds; surfaces a traffic-light brief (Not yet / Approaching / Ready to nominate) plus the specific evidence gaps that remain. (`family: contributor-growth` — cross-listed here for the mentoring path continuity.) | experimental |
 
-All five skills are read-only on tracker state or draft-then-confirm: no
+All six skills are read-only on tracker state or draft-then-confirm: no
 skill posts, labels, closes, or files anything without explicit maintainer
 confirmation in-session.
 
@@ -63,10 +64,13 @@ confirmation in-session.
   up without prior repo context: scope, code pointers, contributing-doc links,
   acceptance criteria, and a rough effort estimate.
 - **`mentoring-welcome`** — the first-contact skill. Triggered immediately
-  after a first-time contributor opens an issue or PR. Drafts a lightweight
-  orientation comment (contributing-guide link, community-norm pointers,
-  expected next steps). Skips silently for repeat contributors and
-  security-sensitive threads.
+  after a first-time contributor opens an issue or PR.
+  Drafts a lightweight orientation comment (contributing-guide link,
+  community-norm pointers, expected next steps). Skips silently for repeat
+  contributors and security-sensitive threads.
+- **`newcomer-issue-explainer`** — the issue-context skill. When a newcomer
+  claims a good-first-issue, explains the relevant code paths, project context,
+  and expected approach in a teaching register.
 - **`contributor-to-committer`** — the readiness-tracking skill. Takes a
   GitHub handle, fetches their public activity on `<upstream>`, and maps it
   against the adopter's declared committer or PMC thresholds from
@@ -101,7 +105,7 @@ required key documentation.
 
 ## Status
 
-**Experimental.** Five skills shipped. No adopter has run the full
+**Experimental.** Six skills shipped. No adopter has run the full
 contributor-to-committer interaction path under evaluation conditions yet;
 shape may change between framework versions.
 

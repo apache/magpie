@@ -18,8 +18,8 @@
 > Apache-Software-Foundation-specific assumptions baked in.
 
 Maintainer-facing PR-queue management for projects with a public
-contributor PR queue. Five skills that compose into a complete
-triage + review + mentoring pass:
+contributor PR queue. Eight skills that compose into a complete
+triage + review + mentoring + hygiene pass:
 
 1. **Agentic Triage** — sweep open PRs, classify against the project's
    quality criteria, propose a disposition (draft / comment /
@@ -44,6 +44,15 @@ triage + review + mentoring pass:
    Waits for explicit maintainer confirmation before posting;
    never gatekeeps. Lives in the Mentoring mode but operates on
    the same PR surface as skills 1–4.
+6. **Stale-sweep** — identify open PRs past a configurable
+   inactivity threshold, classify as `NUDGE` or `CLOSE-STALE`,
+   post one comment per PR on maintainer confirmation.
+7. **Pre-first-PR check** — pre-flight a contributor's first PR
+   against project conventions before it reaches a human reviewer;
+   surfaces formatting, test, and documentation gaps.
+8. **Reviewer routing** — suggest the best-fit reviewer(s) for a
+   new PR based on path ownership, recent review history, and
+   current load.
 
 Why a framework skill family? These skills were originally
 maintained inside one ASF project's developer-tooling repo as
@@ -64,6 +73,9 @@ wording, CI-check → doc-URL map, review-criteria source files).
 | [`pr-management-code-review`](../../skills/pr-management-code-review/SKILL.md) | Deep code review, one PR at a time. |
 | [`pr-management-quick-merge`](../../skills/pr-management-quick-merge/SKILL.md) | Express-lane screener for trivial, low-risk PRs in the `ready for maintainer review` queue; surfaces ranked candidates with diff summaries and the exact merge command. Read-only on the queue; the one optional mutation (APPROVE) requires explicit per-PR confirmation. |
 | [`pr-management-mentor`](../../skills/pr-management-mentor/SKILL.md) | Draft a teaching-register comment on a single GitHub issue or PR thread (clarifying questions, project-convention pointers, rationale explanations); waits for explicit maintainer confirmation before posting. `mode: Mentoring` — see also [`docs/mentoring/README.md`](../mentoring/README.md). |
+| [`pr-stale-sweep`](../../skills/pr-stale-sweep/SKILL.md) | Sweep open PRs for inactivity past a configurable threshold; classify as `NUDGE` or `CLOSE-STALE` and post one comment per PR on confirmation. |
+| [`pre-first-pr-check`](../../skills/pre-first-pr-check/SKILL.md) | Pre-flight a contributor's first PR against project conventions before it reaches a human reviewer. |
+| [`reviewer-routing`](../../skills/reviewer-routing/SKILL.md) | Suggest the best-fit reviewer(s) for a new PR based on path ownership, recent review history, and current load. |
 
 ## Adopter contract
 

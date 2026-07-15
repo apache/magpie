@@ -7,6 +7,7 @@
 
 - [Repo-health audits — family overview](#repo-health-audits--family-overview)
   - [Current skills](#current-skills)
+    - [`audit-finding-fix` (experimental)](#audit-finding-fix-experimental)
     - [`ci-runner-audit` (experimental)](#ci-runner-audit-experimental)
     - [`workflow-security-audit` (experimental)](#workflow-security-audit-experimental)
     - [`dependency-audit` (experimental)](#dependency-audit-experimental)
@@ -41,6 +42,23 @@ follow. See [`docs/modes.md` § Triage](../modes.md#triage).
 ---
 
 ## Current skills
+
+### `audit-finding-fix` (experimental)
+
+Takes a single audit finding (from `ci-runner-audit`,
+`workflow-security-audit`, `dependency-audit`, or
+`license-compliance-audit`) and drafts a targeted fix PR: code change,
+commit message, and PR description. The fix addresses exactly one finding
+and includes a regression check where applicable.
+
+Drafts only; the human committer reviews and pushes. Never modifies files
+or opens PRs without explicit maintainer confirmation.
+
+**Adopter contract**: reads `<project-config>/repo-health-config.md`
+(`audit_finding_fix.pr_template`) for the PR description template and
+branch-naming convention.
+
+---
 
 ### `ci-runner-audit` (experimental)
 
@@ -186,7 +204,7 @@ policy: <https://www.apache.org/legal/resolved.html>.
 
 ## Status
 
-**Experimental.** All six skills shipped. No adopter-pilot evaluation
+**Experimental.** All seven skills shipped. No adopter-pilot evaluation
 has run end-to-end yet; shape may change between framework versions.
 
 To provide pilot feedback, copy

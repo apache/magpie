@@ -27,9 +27,9 @@
 
 End-to-end automation for an ASF project's security-issue handling
 process — from inbound report on the project's `security@` mailing
-list through to a published CVE record on `cve.org`. Nine skills
-that compose into the canonical 16-step lifecycle, plus one
-read-only supporting skill for tracker-stats dashboards.
+list through to a published CVE record on `cve.org`. Eleven skills
+that compose into the canonical 16-step lifecycle, plus one read-only
+supporting skill for tracker-stats dashboards (twelve skills total).
 
 Why a framework skill family? The 16-step process exists across
 the foundation; every project's security team runs essentially
@@ -48,6 +48,8 @@ and reuse the skills verbatim.
 | [`security-issue-import`](../../skills/security-issue-import/SKILL.md) | Import new reports from `<security-list>` into `<tracker>`. |
 | [`security-issue-import-from-pr`](../../skills/security-issue-import-from-pr/SKILL.md) | Open a tracker for a security-relevant fix opened as a public PR. |
 | [`security-issue-import-from-md`](../../skills/security-issue-import-from-md/SKILL.md) | Bulk-import findings from a markdown report. |
+| [`security-issue-import-from-scan`](../../skills/security-issue-import-from-scan/SKILL.md) | Import findings from a security scanner output (Trivy, Grype, etc.) into `<tracker>`. |
+| [`security-issue-import-via-forwarder`](../../skills/security-issue-import-via-forwarder/SKILL.md) | Import reports relayed through the ASF security forwarder when no direct reporter contact exists. |
 | [`security-issue-triage`](../../skills/security-issue-triage/SKILL.md) | Propose an initial-triage disposition (VALID / DEFENSE-IN-DEPTH / INFO-ONLY / INVALID / PROBABLE-DUP / FIX-ALREADY-PUBLIC) for each tracker still in `Needs triage`; opens a discussion comment, never flips the label. |
 | [`security-issue-sync`](../../skills/security-issue-sync/SKILL.md) | Reconcile a tracker against its mail thread, fix PR, release train, and archives. |
 | [`security-cve-allocate`](../../skills/security-cve-allocate/SKILL.md) | Allocate a CVE for a tracker (Vulnogram URL + paste-ready JSON). |

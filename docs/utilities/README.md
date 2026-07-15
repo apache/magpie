@@ -38,6 +38,7 @@ They are for skill authors and framework contributors.
 | [`write-skill`](../../skills/write-skill/SKILL.md) | Author a new framework skill or update an existing one: frontmatter, placeholder convention, injection defenses, Privacy-LLM gate-check, and validator sign-off. | stable |
 | [`optimize-skill`](../../skills/optimize-skill/SKILL.md) | Optimize an existing skill by applying restructuring patterns — split an oversized `SKILL.md` into linked sibling docs, trim frontmatter, and improve eval alignment. | stable |
 | [`list-skills`](../../skills/list-skills/SKILL.md) | Print a live index of every skill in this repository, grouped by family, with each skill's name and first-sentence description. | stable |
+| [`skill-reconciler`](../../skills/skill-reconciler/SKILL.md) | Reconcile a skill's declared state (frontmatter, sibling docs, symlinks) against the framework's conventions and surface discrepancies with proposed fixes. | stable |
 
 ---
 
@@ -62,7 +63,7 @@ edits skill files under your control, which you review before committing.
 
 ## Status
 
-**Stable.** All three skills are shipped and validate under
+**Stable.** All four skills are shipped and validate under
 `skill-and-tool-validate`. They are framework-authoring tools, so they evolve
 with the framework's own conventions rather than with adopter pilots.
 
