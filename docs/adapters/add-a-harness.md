@@ -89,23 +89,24 @@ they run and denies ones that break hard framework rules (unauthorized
 each harness gets a thin adapter translating its hook format.
 
 **For runtimes with a pre-tool hook API:** add an adapter following the
-existing Claude Code and OpenCode examples.
+existing OpenCode example.
 
 ```text
 tools/agent-guard/
-  agent_guard/__init__.py        ← dispatch() core (harness-agnostic)
-  agent_guard/adapters/
-    claude.py                    ← reads stdin JSON, writes stdout JSON
-    opencode.py                  ← reads stdin JSON, throws on block
-    <your-runtime>.py            ← same shape; translate your hook format
+  src/agent_guard/__init__.py    ← dispatch() core (harness-agnostic)
+  src/agent_guard/__main__.py    ← CLI entry point (stdin JSON → stdout JSON)
+  src/agent_guard/guards.d/     ← individual guard scripts
+  opencode/plugin.js             ← OpenCode adapter (JS plugin)
+  tests/                         ← test suite incl. per-harness tests
 ```
 
-The adapter must:
-1. Parse the harness's pre-tool hook payload (stdin JSON, env vars, or
-   CLI args — check the runtime docs).
-2. Call `dispatch(command_string)` from the core.
-3. Return the harness's expected "allow" or "block" response (format
-   varies per harness).
+The core (`__init__.py`) exposes a `dispatch()` function. Per-harness
+adapters translate the runtime's hook format into a `dispatch()` call.
+Your adapter must:
+1. Parse the harness's pre-tool hook payload (stdin JSON, env vars,
+   CLI args, or a native plugin format — check the runtime docs).
+2. Call `dispatch(command_string)` from the core module.
+3. Return the harness's expected "allow" or "block" response.
 
 Run the guard's test suite to verify the adapter:
 

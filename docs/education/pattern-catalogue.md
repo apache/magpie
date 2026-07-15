@@ -240,25 +240,32 @@ security email, reporter contact details, issue bodies from private trackers.
 
 **The pattern (prose block in the skill):**
 
-```markdown
+````markdown
 ## Privacy routing
 
 Mail bodies and issue contents for this step may carry third-party
 PII (names, email addresses, handles). Before passing content to the
 model:
 
-1. Run the redactor: `python -m privacy_llm.redactor redact
-   --input <content_file> --output <redacted_file> --map <map_file>`.
-2. Pass `<redacted_file>` to the model.
+1. Pipe content through the redactor:
+   ```bash
+   echo "<content>" | uv run --project <framework>/tools/privacy-llm/redactor \
+     pii-redact --field name:"Third Party" --field email:"third@example.com"
+   ```
+2. Pass the redacted output to the model.
 3. After the model step, restore identifiers for any user-facing
-   output that must include them: `python -m privacy_llm.redactor
-   restore --input <model_output> --map <map_file>`.
+   output that must include them:
+   ```bash
+   echo "<model_output>" | uv run --project <framework>/tools/privacy-llm/redactor \
+     pii-reveal
+   ```
 
-The mapping file (`<map_file>`) is session-local and is deleted at the
-end of the skill run. It never leaves the local machine. See
+The redactor's map is session-local (`~/.config/apache-magpie/pii-map/`)
+and is deleted at the end of the skill run. It never leaves the local
+machine. See
 [`tools/privacy-llm/pii.md`](../../tools/privacy-llm/pii.md) for the
 full redaction contract.
-```
+````
 
 **Why it works:** the three steps (clean, then model, then restore) are the
 only safe order. Restoring the real names after the model step lets the user see

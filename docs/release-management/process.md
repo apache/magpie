@@ -79,17 +79,6 @@ adopter's `pmc-roster.md` for ASF projects, or
 files share the same schema (handle, binding-flag, optional GPG
 fingerprint).
 
-> [!IMPORTANT]
-> Release Management is **proposed** in the framework today. No
-> `release-*` skill code exists yet. This document, the family
-> [`README.md`](README.md), the [`spec.md`](spec.md), and
-> [`projects/_template/release-management-config.md`](../../projects/_template/release-management-config.md)
-> land first so the lifecycle, the state-change boundaries, and the
-> adopter contract are reviewable independently from the runtime
-> behaviour. The pattern matches [Mentoring](../mentoring/spec.md).
-> See [`docs/modes.md` § Drafting / Triage](../modes.md#drafting)
-> for status.
-
 ## Process reference: the 14 steps
 
 This is the authoritative outline of the 14-step lifecycle. Each
@@ -165,7 +154,7 @@ vote, green = publication and follow-up.
 
 **Owner:** PMC + nominated Release Manager (RM).
 **Skill:** `release-prepare`
-*(proposed)*, Agentic Drafting.
+Agentic Drafting.
 
 The RM opens a planning issue listing the target version, the
 release train it belongs to (see
@@ -186,7 +175,7 @@ and adapts.
 
 **Owner:** RM.
 **Skill:** `release-prepare`
-*(proposed)*, Agentic Drafting (same skill as Step 1, second invocation).
+Agentic Drafting (same skill as Step 1, second invocation).
 
 The skill drafts the changelog entry from the merged-PR set since
 the previous release tag, the `NOTICE` diff (third-party
@@ -213,7 +202,7 @@ after their own review.
 
 **Owner:** RM.
 **Skill:** `release-keys-sync`
-*(proposed)*, Agentic Drafting.
+Agentic Drafting.
 
 If the RM is signing their first release for the project, their
 public key must appear in the project's `KEYS` file under
@@ -232,7 +221,7 @@ no-op and reports so on the planning issue.
 
 **Owner:** RM.
 **Skill:** `release-rc-cut`
-*(proposed)*, Agentic Drafting.
+Agentic Drafting.
 
 The skill emits a paste-ready command sequence:
 
@@ -265,7 +254,7 @@ Step 13.
 
 **Owner:** RM.
 **Skill:** `release-rc-cut`
-*(proposed)*, Agentic Drafting (same skill as Step 4).
+Agentic Drafting (same skill as Step 4).
 
 The skill emits the `svn` command sequence to import the artefacts
 + `.asc` + `.sha512` files into
@@ -283,7 +272,7 @@ back to the planning issue.
 
 **Owner:** RM (self-check) + any committer who plans to vote.
 **Skill:** `release-verify-rc`
-*(proposed)*, Agentic Triage / Agentic Pairing.
+Agentic Triage / Agentic Pairing.
 
 Read-only. The skill fetches the staged artefacts from
 `dist/dev/<project>/<version>-rcN/`, then verifies:
@@ -318,7 +307,7 @@ conversation.
 
 **Owner:** RM.
 **Skill:** `release-vote-draft`
-*(proposed)*, Agentic Drafting.
+Agentic Drafting.
 
 The skill drafts the `[VOTE]` email body to `dev@<project>` from
 the planning issue's metadata: version, RC number, staging URL,
@@ -348,7 +337,7 @@ its hand-off rules, vote discussion is PMC business).
 
 **Owner:** RM.
 **Skill:** `release-vote-tally`
-*(proposed)*, Agentic Triage.
+Agentic Triage.
 
 After the window closes, the skill fetches the thread from the
 project's mail archive (PonyMail by default), parses each reply,
@@ -378,7 +367,7 @@ planning issue on a failed vote.
 
 **Owner:** RM.
 **Skill:** `release-promote`
-*(proposed)*, Agentic Drafting.
+Agentic Drafting.
 
 The skill emits a paste-ready `svn mv` command set that moves the
 voted artefacts from
@@ -411,7 +400,7 @@ set (see [`release-promote` § hand-off](spec.md#release-promote)).
 
 **Owner:** RM (`[ANNOUNCE]`) + PMC committers (site PR merge).
 **Skill:** `release-announce-draft`
-*(proposed)*, Agentic Drafting.
+Agentic Drafting.
 
 Two artefacts:
 
@@ -442,7 +431,7 @@ site PR.
 **Owner:** RM (or whoever holds release-archive duty per
 [`<project-config>/release-management-config.md`](../../projects/_template/release-management-config.md)).
 **Skill:** `release-archive-sweep`
-*(proposed)*, Agentic Triage.
+Agentic Triage.
 
 Per [release-distribution § archiving](https://infra.apache.org/release-distribution.html),
 only the current release line is kept on `dist/release/`;
@@ -465,7 +454,7 @@ under their own credentials.
 **Owner:** the framework (per-project audit-log store configured in
 [`<project-config>/release-management-config.md`](../../projects/_template/release-management-config.md)).
 **Skill:** `release-audit-report`
-*(proposed)*, Agentic Triage (read-only dashboard).
+Agentic Triage (read-only dashboard).
 
 Read-only. The skill assembles a per-release record from the
 planning issue, the `[VOTE]` and `[RESULT]` archive URLs, the
@@ -484,7 +473,7 @@ does not modify the artefacts it summarises.
 
 **Owner:** RM.
 **Skill:** `release-prepare`
-*(proposed)*, Agentic Drafting (same skill as Steps 1-2, third
+Agentic Drafting (same skill as Steps 1-2, third
 invocation).
 
 The skill drafts the PR that bumps the development branch to the

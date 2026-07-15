@@ -338,7 +338,7 @@ Once `<project-config>/privacy-llm.md` is in place:
 2. (PR-3) Run the privacy-llm-specific check:
 
    ```bash
-   uv run --project <framework>/tools/privacy-llm/redactor \
+   uv run --project <framework>/tools/privacy-llm/checker \
      privacy-llm-check --reads-private-list
    ```
 

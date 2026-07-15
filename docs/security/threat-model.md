@@ -82,7 +82,7 @@ The intended readers are:
 
 In scope for this document:
 
-- the eight skills in the [security workflow skill family](README.md#skills);
+- the twelve skills in the [security workflow skill family](README.md#skills);
 - the privacy-LLM tooling (redactor + checker) those skills invoke
   on inbound content;
 - the agent host's sandbox configuration in [`.claude/settings.json`](../../.claude/settings.json)
@@ -399,7 +399,7 @@ interested in it, and the boundary that protects it.
 
 ## STRIDE matrix per skill family
 
-The eight security skills group into five families by where they
+The twelve security skills group into five families by where they
 sit in the lifecycle. STRIDE rows below are per-family; per-skill
 deviations are noted inline.
 
@@ -409,9 +409,12 @@ to the [cross-reference table](#mitigation-cross-reference).
 
 ### Skill family A — Inbound import
 
-Skills: [`security-issue-import`](../../skills/security-issue-import/SKILL.md),
+Skills:
+[`security-issue-import`](../../skills/security-issue-import/SKILL.md),
 [`security-issue-import-from-pr`](../../skills/security-issue-import-from-pr/SKILL.md),
-[`security-issue-import-from-md`](../../skills/security-issue-import-from-md/SKILL.md).
+[`security-issue-import-from-md`](../../skills/security-issue-import-from-md/SKILL.md),
+[`security-issue-import-from-scan`](../../skills/security-issue-import-from-scan/SKILL.md),
+[`security-issue-import-via-forwarder`](../../skills/security-issue-import-via-forwarder/SKILL.md).
 
 | ID | STRIDE | Adversary | Boundary | Threat | Mitigation |
 |---|---|---|---|---|---|
@@ -427,7 +430,8 @@ Skills: [`security-issue-import`](../../skills/security-issue-import/SKILL.md),
 
 Skills: [`security-issue-sync`](../../skills/security-issue-sync/SKILL.md),
 [`security-issue-deduplicate`](../../skills/security-issue-deduplicate/SKILL.md),
-[`security-issue-invalidate`](../../skills/security-issue-invalidate/SKILL.md).
+[`security-issue-invalidate`](../../skills/security-issue-invalidate/SKILL.md),
+[`security-issue-triage`](../../skills/security-issue-triage/SKILL.md).
 
 | ID | STRIDE | Adversary | Boundary | Threat | Mitigation |
 |---|---|---|---|---|---|

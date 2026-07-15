@@ -37,10 +37,10 @@
 
 ## Status
 
-Proposed. No `release-*` skill code yet. This document defines the
-runtime contract the future skills must satisfy. The lifecycle they
-execute against is in [`process.md`](process.md); the family overview
-is in [`README.md`](README.md). The pattern matches
+**Experimental.** All ten `release-*` skills are shipped. This document
+defines the runtime contract those skills satisfy. The lifecycle they
+execute against is in [`process.md`](process.md); the family overview is
+in [`README.md`](README.md). The pattern matches
 [Mentoring](../mentoring/spec.md), spec lands first so the contract,
 state-change boundaries, and adopter knobs are reviewable
 independently from skill code.
