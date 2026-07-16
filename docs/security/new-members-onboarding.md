@@ -26,9 +26,9 @@ is the soft-landing guide — it tells you how the team works, where
 the action happens, and what is expected of you in the first few
 weeks.
 
-Read this end-to-end once, then use [`README.md`](../../README.md) as the
+Read this end-to-end once, then use [`roles.md`](roles.md) as the
 operational reference when you start actually handling issues. The
-README is organised by role (triager / remediation developer / release
+role guide is organised by role (triager / remediation developer / release
 manager); pick the role that matches what you are about to do and jump
 into its section.
 
@@ -107,7 +107,7 @@ discoverable for everyone else on the team.
 Take the pressure off. You do not have to drive any issue in your first
 week. A good starting routine:
 
-1. **Read [`README.md`](../../README.md) once, skim the role sections.** Pick
+1. **Read [`roles.md`](roles.md) once, skim the role sections.** Pick
    the role you think you are most likely to take on first, and read it
    in full.
 2. **Open the adopting project's board** — its URL is in
@@ -148,7 +148,7 @@ any per-user config.
 Once you have observed the process for a while, you can start taking
 on more of the work. The three rotating roles — issue triager,
 remediation developer, release manager — are defined in
-[`README.md`](../../README.md),
+[`roles.md`](roles.md),
 which describes the step ranges each role owns. From the onboarding
 perspective:
 
@@ -178,7 +178,7 @@ delegation rules).
 
 A lot of the repetitive work on this team has been automated into
 agent skills that live under
-[`.claude/skills/`](../../skills/). They are plain `SKILL.md`
+[`.agents/skills/`](../../skills/). They are plain `SKILL.md`
 files with YAML frontmatter, so Claude Code picks them up
 automatically and other agents that follow the emerging skill
 convention can use them too.
