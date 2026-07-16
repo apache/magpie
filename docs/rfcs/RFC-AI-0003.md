@@ -322,7 +322,7 @@ uv run --project <framework>/tools/privacy-llm/redactor pii-list
 
 `<framework>` is the standard placeholder convention — substitutes to the snapshot path inside an adopter, or to `.` standalone. The redactor reads no config file: it just does what the caller passes via `--field`. Per-project knobs are applied by the calling skill (see §7).
 
-The implementation is **stdlib-only** by design — `argparse`, `hashlib`, `json`, `pathlib`, `tempfile`, `os`. No third-party runtime dependencies. The dev group adds `pytest`, `ruff`, `mypy` for lint and test. Test count: **53 unit tests**, all passing.
+The implementation is **stdlib-only** by design — `argparse`, `hashlib`, `json`, `pathlib`, `tempfile`, `os`. No third-party runtime dependencies. The dev group adds `pytest`, `ruff`, `mypy` for lint and test. Tests all passing.
 
 ### 6.2 The checker sub-tool — `tools/privacy-llm/checker/` (PR #51)
 
