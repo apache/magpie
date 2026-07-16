@@ -41,11 +41,12 @@
 
 ## Mission
 
-Apache Magpie is responsible for the creation and maintenance of software
-related to creation and maintenance of software related to agent-assisted
-repository maintainership and development, including issue and pull-request
-triage, contributor mentoring, agent-drafted remediation, developer-side
-development-cycle skills, and narrowly-scoped fix-and-merge automation
+Apache Magpie provides high-quality recipes for agent-assisted software project
+maintenance.
+
+These recipes allow human maintainers working with AIs to efficiently handle
+the repetitive parts of running an open-source project: Issue triage, PR
+review, mentoring contributors, managing security reports, and more.
 
 ## Abstract
 
