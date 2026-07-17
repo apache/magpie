@@ -27,8 +27,14 @@
 
 [![Magpie](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/apache/magpie/main/assets/badge.json)](https://magpie.apache.org/)
 
-A reusable, project-agnostic framework for ASF-project automation.
-Currently in development for ASF projects + Python Core team
+Apache Magpie provides high-quality recipes for agent-assisted software project
+maintenance.
+
+These recipes allow human maintainers working with AIs to efficiently handle
+the repetitive parts of running an open-source project: Issue triage, PR
+review, mentoring contributors, managing security reports, and more.
+
+Magpie is currently in development for ASF projects + Python Core team
 friendlies. **Not** a public marketplace skill — adoption is by
 invitation while the framework is pre-release; once we ship via
 the [ASF release policy](https://www.apache.org/legal/release-policy.html),
