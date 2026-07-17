@@ -45,7 +45,7 @@ Apache Magpie is responsible for the creation and maintenance of software
 related to agent-assisted repository maintainership and development, including
 issue and pull-request triage, contributor mentoring, agent-drafted
 remediation, developer-side development-cycle skills, and narrowly-scoped
-fix-and-merge automation
+fix-and-merge automation.
 
 ## Abstract
 
