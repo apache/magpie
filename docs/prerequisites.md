@@ -52,7 +52,7 @@ the `SKILL.md` / [`AGENTS.md`](https://agents.md/) skill convention, and
 on any single vendor for either — any agent that reads the shared
 `.agents/skills/*/SKILL.md` files and follows their steps should work.
 
-**Agentic tool — two are fully supported today:**
+**Agentic tool — two are fully supported today, one is experimental:**
 
 - **[OpenCode](https://opencode.ai/)** is the **reference implementation**:
   it is open source and model-agnostic, so it can drive *every* LLM-access
@@ -61,9 +61,14 @@ on any single vendor for either — any agent that reads the shared
   complete implementation, powered by Anthropic subscriptions — the paid
   plans, or the free tier Anthropic often grants to open-source
   maintainers.
+- **[OpenAI Codex](https://github.com/openai/codex)** reads Magpie's
+  canonical `.agents/skills/` tree natively and ships an in-tree sandbox
+  profile and HITL exec-policy rules. The adapter is **experimental**
+  until its minimum tested runtime version and an adopter pilot are
+  recorded; see [the Codex runtime guide](adapters/codex.md).
 
-Support for more runtimes (Codex, Gemini CLI, Cursor, Copilot, …) is
-tracked in the
+Support for more runtimes (Gemini CLI, Cursor, Copilot, …) is tracked in
+the
 [open adapter issues](https://github.com/apache/magpie/issues?q=is%3Aissue%20is%3Aopen%20adapter).
 
 **Access to an LLM — any one of these works:**
@@ -89,16 +94,18 @@ with the credential-isolation setup documented in
 [`docs/setup/secure-agent-setup.md`](setup/secure-agent-setup.md) — a layered
 defence built around the agent's filesystem sandbox, tool-level
 permission rules, and a harness-neutral clean-env wrapper
-(`agent-iso.sh`, exposing both a `claude-iso` and an `opencode-iso`
-launcher) that strips credential-shaped variables from the agent's
-environment. The permission + sandbox posture is enforced for both
-harnesses — a `PreToolUse` hook / `tool.execute.before` plugin
-(`agent-guard`), plus `permission-audit` / `sandbox-lint` for the
-Claude `settings.json` and OpenCode `opencode.json` policies. The
-sandbox primitives (`bubblewrap`, `socat`) are pinned with a 7-day
+(`agent-iso.sh`, exposing `claude-iso`, `opencode-iso`, and
+`agent-iso codex`) that strips credential-shaped variables from the
+agent's environment. The permission + sandbox posture is enforced per
+harness: Claude Code and OpenCode wire a pre-execution `agent-guard`
+adapter (a `PreToolUse` hook / `tool.execute.before` plugin), Codex
+enforces HITL through its native approval policy and exec-policy rules,
+and `permission-audit` / `sandbox-lint` validate the Claude
+`settings.json`, OpenCode `opencode.json`, and Codex `.codex/` policies.
+The sandbox primitives (`bubblewrap`, `socat`) are pinned with a 7-day
 upstream-release cooldown, mirroring the same convention the
 framework uses for its `[tool.uv] exclude-newer` and Dependabot
-configs. The agent CLI itself (`claude-code` / `opencode`) is
+configs. The agent CLI itself (`claude-code` / `opencode` / `codex`) is
 deliberately **not** pinned — it installs at `@latest` so it always
 carries the newest permission-rule, sandbox, and prompt-injection
 fixes; pinning the runtime to an older build would only increase

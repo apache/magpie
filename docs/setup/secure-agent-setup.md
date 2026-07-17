@@ -8,7 +8,7 @@
 - [Secure agent setup](#secure-agent-setup)
   - [Quick start](#quick-start)
     - [Agent-guided (recommended)](#agent-guided-recommended)
-    - [Manual (if you do not want the agent-guided path)](#manual-if-you-do-not-want-the-agent-guided-path)
+    - [Manual Claude Code path (if you do not want the agent-guided path)](#manual-claude-code-path-if-you-do-not-want-the-agent-guided-path)
   - [Required tools](#required-tools)
     - [Install commands](#install-commands)
     - [Distro-specific shortcut — Linux Mint 22.x / Ubuntu 24.04 Noble](#distro-specific-shortcut--linux-mint-22x--ubuntu-2404-noble)
@@ -70,7 +70,7 @@
 
 **Audience: adopters.** This document walks through every install
 step for the secure agent setup — pinned tool versions, the
-framework's `.claude/settings.json`, the `claude-iso` clean-env
+framework's Claude Code and Codex runtime policies, the clean-env
 wrapper, the sandbox-bypass-warn hook, the sandbox-state status
 line, multi-host syncing, the agent-guided install / verify /
 keep-updated prompts, and the five session screenshots that show
@@ -103,6 +103,13 @@ you want the full picture. For the rationale and mechanism behind
 each layer, see
 [`secure-agent-internals.md`](secure-agent-internals.md).
 
+Codex has a harness-native project policy and rules contract. Read the
+[Codex first-class runtime adapter](../adapters/codex.md) for that
+runtime's exact install, sandbox, HITL, verification, and Windows
+mapping. The long-form sections below remain the canonical Claude Code
+setup; the four `setup-isolated-*` skills route Codex to the adapter
+before entering any Claude-only settings flow.
+
 ### Agent-guided (recommended)
 
 If you have Claude Code installed and a clone of `magpie`
@@ -110,6 +117,11 @@ on the host, the framework ships six skills that walk every
 step interactively. Each surfaces sudo / shell-rc / settings-file
 changes for explicit approval before applying — nothing
 privilege-elevating runs without you saying so.
+
+With Codex, start the repository through `agent-iso codex`, invoke the
+same skills by their `$magpie-*` names, and follow the Codex branch they
+select. The end state and verification commands are documented in the
+[Codex adapter](../adapters/codex.md#setup-isolated-lifecycle).
 
 ```text
 1. Open Claude Code in your tracker repo (or any directory).
@@ -151,7 +163,7 @@ document rather than duplicating them, so anything the skill walks
 you through has a longer-form section here you can read for
 context.
 
-### Manual (if you do not want the agent-guided path)
+### Manual Claude Code path (if you do not want the agent-guided path)
 
 The same flow, condensed to commands you run yourself:
 
@@ -187,12 +199,16 @@ npm install -g --no-save @anthropic-ai/claude-code@latest
 #    check and the agent-guided form.
 ```
 
-Both paths converge on the same end state: a sandboxed Claude Code
+Both Claude Code paths converge on the same end state: a sandboxed Claude Code
 session that cannot read `~/.aws/`, cannot exfiltrate via `curl`,
 runs Bash subprocesses inside bubblewrap (Linux) or Seatbelt
 (macOS), and visibly flags `sandbox` / `NO SANDBOX` / bypass
 attempts in the terminal so an unprotected session cannot drift
 unnoticed.
+
+The equivalent Codex end state uses `workspace-write`, network disabled,
+and native exec-policy decisions; see the
+[Codex security model](../adapters/codex.md#security-model).
 
 The rest of this document is the long-form reference behind each
 of those steps. If you used the agent-guided path, you can read
