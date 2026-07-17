@@ -6,15 +6,11 @@
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
 - [Apache Magpie](#apache-magpie)
-  - [How adoption works](#how-adoption-works)
-  - [Adopting the framework](#adopting-the-framework)
-    - [1. Bootstrap (copy-pasteable shell)](#1-bootstrap-copy-pasteable-shell)
-    - [2. Skill takeover](#2-skill-takeover)
-    - [Subsequent contributors](#subsequent-contributors)
-    - [Drift detection](#drift-detection)
+  - [Install](#install)
+  - [Usage](#usage)
+  - [Update / maintain](#update--maintain)
   - [Skill families](#skill-families)
     - [External skill sources](#external-skill-sources)
-  - [Maintenance](#maintenance)
   - [Acknowledgements](#acknowledgements)
   - [Cross-references](#cross-references)
 
@@ -35,146 +31,58 @@ the repetitive parts of running an open-source project: Issue triage, PR
 review, mentoring contributors, managing security reports, and more.
 
 Magpie is currently in development for ASF projects + Python Core team
-friendlies. **Not** a public marketplace skill — adoption is by
-invitation while the framework is pre-release; once we ship via
-the [ASF release policy](https://www.apache.org/legal/release-policy.html),
-the marketplace path opens up. See
-[release-distribution](https://infra.apache.org/release-distribution.html)
-for the canonical distribution mechanism we will adopt.
+friendlies. Testers welcome!
 
 > [!IMPORTANT]
 > The motivation, scope, and design commitments behind this work
 > live in [`MISSION.md`](MISSION.md) — the founding mission of the
 > Apache Magpie Top-Level Project, originally filed as its
 > establishment proposal. Read that for the *why*; this README is
-> the *how* once you've decided to adopt.
+> the *how* once you've decided to install.
 
-## How adoption works
+## Install
 
-The framework uses a **snapshot + agentic-override** adoption
-model. An adopter project commits a single skill —
-[`setup`](skills/setup/SKILL.md) —
-into their repo. That skill manages everything else:
+Magpie's recipes are plain text instructions followed by an AI agent you
+control. These recipes are installed alongside your source code, in the same
+repository.
 
-1. **Snapshot.** `setup` downloads the framework into
-   a **gitignored** `<adopter>/.apache-magpie/` directory.
-   The snapshot is a build artefact, not source — refreshed
-   by `/magpie-setup upgrade`, never committed.
-2. **Symlinks.** `setup` symlinks the framework's
-   skills (security, pr-management, the rest of setup) under
-   one canonical home — `.agents/skills/` (the path shared by
-   Codex, Cursor, Gemini CLI, Copilot, …) — and gives every
-   other agent dir (`.claude/skills/`, `.github/skills/`, …) a
-   thin per-skill **relay** symlink pointing back at the
-   canonical entry. This is the same regardless of how the
-   adopter previously organised those dirs. The symlinks are
-   **also gitignored** — they ultimately target the gitignored
-   snapshot, so they would dangle on a fresh clone before
-   `/magpie-setup` runs.
-3. **Overrides.** Adopter-specific modifications to framework
-   workflows live as agent-readable markdown under
-   `<adopter>/.apache-magpie-overrides/<skill>.md`,
-   **committed** in the adopter repo. The framework's skills
-   consult those files at run-time and apply the overrides
-   before executing default behaviour. See
-   [`docs/setup/agentic-overrides.md`](docs/setup/agentic-overrides.md)
-   for the contract.
+1. [Download](https://magpie.apache.org/downloads/)
+1. [Set up symlinks and git-ignores](https://magpie.apache.org/docs/setup/install-recipes/)
+1. Ask your agent to complete the install
 
-**No git submodules. No marketplace. No vendored copies of
-framework skills.** Just one committed skill (the bootstrap),
-a gitignored snapshot, and agent-readable override files.
+## Usage
 
-## Adopting the framework
+Magpie is used by interacting with your AI agents. You'll use plain-lanuage
+prompts like
 
-Two phases — a **shell bootstrap** that gets `setup`
-into your repo, then the **skill takeover** that wires up the
-rest interactively.
+> review PR #5193
 
-### 1. Bootstrap (copy-pasteable shell)
+or
 
-Pick an install method and follow the verbatim recipe in
-[**`docs/setup/install-recipes.md`**](docs/setup/install-recipes.md):
+> triage the latest security reports
 
-| Method | When to use | Reproducibility |
-|---|---|---|
-| `svn-zip` | Production once ASF official releases ship to `dist.apache.org` (signed + checksummed) | Frozen by version |
-| `git-tag` | Pin a specific framework version | Frozen by tag |
-| `git-branch` (default `main`) | WIP path — track the framework's `main` directly. The default during the framework's pre-release phase. | Tracks tip |
+or skill calls starting with a slash, like
 
-Each recipe is a single shell block that:
+> /dependency-audit
 
-1. Adds `.apache-magpie/`, `.apache-magpie.local.lock`, and
-   the framework-skill symlinks to `.gitignore`.
-2. Downloads + verifies + extracts the framework into
-   `.apache-magpie/` (gitignored — build artefact, not
-   source).
-3. Copies the
-   [`setup`](skills/setup/SKILL.md)
-   skill into the canonical `.agents/skills/magpie-setup/` and
-   adds a relay symlink to it from each agent dir you use
-   (`.claude/skills/magpie-setup`, `.github/skills/magpie-setup`).
+## Update / maintain
 
-After the recipe completes, the framework snapshot is on
-disk and the bootstrap skill is in your repo.
-
-### 2. Skill takeover
-
-Tell your agent: **"adopt apache/magpie in my repo"**
-(or invoke `/magpie-setup` directly). The skill walks
-through the rest:
-
-- writes `.apache-magpie.lock` (committed) — the project's
-  pin: install method + URL + ref + verification anchor;
-- writes `.apache-magpie.local.lock` (gitignored) — what
-  this machine actually fetched + when;
-- asks which skill families (`security`, `pr-management`) to
-  symlink in;
-- creates the gitignored framework-skill symlinks;
-- scaffolds `.apache-magpie-overrides/` (committed) for any
-  local workflow modifications;
-- installs a `post-checkout` git hook so worktrees re-create
-  runtime state automatically;
-- updates your project documentation with a brief mention.
-
-After the skill finishes, you commit the small, focused
-diff — the bootstrap skill, the `.gitignore` entries, the
-two lock files (committed + gitignore exclusion for the
-local one), the overrides scaffold, the doc note — and you're
-done. Open a PR.
-
-### Subsequent contributors
-
-Future contributors who clone your repo just say "adopt
-Magpie in this repo" (or invoke `/magpie-setup`).
-The skill reads `.apache-magpie.lock` (already committed)
-and re-installs to the same version your project pinned. No
-need to redo the manual recipe — the committed lock is the
-project's source-of-truth.
-
-### Drift detection
-
-Every framework skill compares the gitignored
-`.apache-magpie.local.lock` against the committed
-`.apache-magpie.lock` at the top of its run. If they have
-drifted (project lead bumped the pin, or the local install
-is stale on a `main`-tracking adopter), the skill surfaces
-the gap and proposes `/magpie-setup upgrade`. `upgrade`
-deletes the gitignored snapshot, re-installs per the
-committed pin, refreshes the gitignored symlinks, and
-reconciles any agentic overrides — see
-[`docs/setup/install-recipes.md`](docs/setup/install-recipes.md)
-and
-[`skills/setup/upgrade.md`](skills/setup/upgrade.md)
-for the full flow.
+- `/magpie-setup upgrade` — refresh the snapshot to a newer
+  framework version + reconcile any overrides against the new
+  framework structure.
+- `/magpie-setup verify` — read-only health check (snapshot
+  intact, symlinks live, `.gitignore` correct, etc.).
+- `/magpie-setup override <framework-skill>` — open or
+  scaffold an override file for a framework skill.
 
 ## Skill families
 
-Ten skill families ship in the framework, all at `experimental` or
+The following skill families ship in the framework, all at `experimental` or
 `stable`, and each skill declares its family in a `family:` frontmatter
-key. At adoption (and on every upgrade), `/magpie-setup` offers the
+key. At install (and on every upgrade), `/magpie-setup` offers the
 **opt-in** families — and the optional **MCP servers** (`ponymail`,
 `apache-projects`, `gmail-plaintext`) — in a single install choice;
-symlinks for the picked families land in the adopter's skill directory.
+symlinks for the picked families land in the skill directory.
 The two **always-on** families (`setup`, `utilities`) are wired
 unconditionally and never prompted for.
 
@@ -184,7 +92,7 @@ means and which modes are still proposed vs. shipping today.
 
 | Family | Type | Modes | Purpose | Detail |
 |---|---|---|---|---|
-| [**setup**](docs/setup/README.md) | always-on | (infra) | Isolated agent setup, framework adoption + maintenance, shared-config sync. The prerequisite — at minimum the `setup` skill itself runs out of this family. | 9 skills, [`docs/setup/`](docs/setup/) |
+| [**setup**](docs/setup/README.md) | always-on | (infra) | Isolated agent setup, framework install + maintenance, shared-config sync. The prerequisite — at minimum the `setup` skill itself runs out of this family. | 9 skills, [`docs/setup/`](docs/setup/) |
 | **utilities** | always-on | (meta) | Framework meta-skills: author skills (`write-skill`), restructure them (`optimize-skill`), reconcile skill state (`skill-reconciler`), and print a live index (`list-skills`). | 4 skills |
 | [**security**](docs/security/README.md) | opt-in | Triage, Drafting | 16-step security-issue handling lifecycle — from `security@` import through CVE publication, including state sync. Maintainer-only. | 12 skills, [`docs/security/`](docs/security/) |
 | [**pr-management**](docs/pr-management/README.md) | opt-in | Triage | Maintainer-facing PR-queue management — triage, stats, deep code review, express-lane merge, stale-sweep, reviewer routing, and pre-first-PR checks. | 8 skills, [`docs/pr-management/`](docs/pr-management/README.md) |
@@ -197,7 +105,7 @@ means and which modes are still proposed vs. shipping today.
 
 ### External skill sources
 
-Beyond the in-tree families, an adopter can pull a skill or whole family
+Skill families or individual skills can be pulled
 from a **trusted external source** — a repo other than `apache/magpie` that
 ships Magpie-shaped skills (with their evals and tests). Where a skill
 directory would sit, a `skills/<name>/source.md` **redirect** names a
@@ -207,19 +115,6 @@ skill. Nothing is fetched unless the adopter commits the pin — see
 [`docs/skill-sources/`](docs/skill-sources/README.md),
 [`PRINCIPLES.md` §13](PRINCIPLES.md#13-snapshot-plus-override-never-vendored-copies),
 and [`RFC-AI-0006`](docs/rfcs/RFC-AI-0006.md).
-
-## Maintenance
-
-After the initial adoption, the same skill handles ongoing
-maintenance:
-
-- `/magpie-setup upgrade` — refresh the snapshot to a newer
-  framework version + reconcile any overrides against the new
-  framework structure.
-- `/magpie-setup verify` — read-only health check (snapshot
-  intact, symlinks live, `.gitignore` correct, etc.).
-- `/magpie-setup override <framework-skill>` — open or
-  scaffold an override file for a framework skill.
 
 ## Acknowledgements
 
