@@ -67,7 +67,21 @@ not be a blanket `.*`.
 uv run --project tools/sandbox-lint sandbox-lint --kiro .kiro/agents/<name>.json
 ```
 
-**Any other harness (Codex, Cursor, Gemini CLI, …).** `--any-harness`
+**Codex.** `--codex .codex` validates the committed project profile:
+`config.toml` and `rules/magpie.rules`. It requires the `workspace-write`
+sandbox with workspace network access disabled, `on-request` approvals
+(Codex's native per-action human confirmation), and representative
+exec-policy coverage — known remote mutations (`git push`, `gh pr`/`gh
+issue` mutations) must `prompt`, `gh auth token` must be `forbidden`, at
+least one scoped read-only `allow` rule must exist, and `gh release
+download` must not be unconditionally allowed. Invariants only — adopters
+may keep unrelated Codex configuration in the same files.
+
+```bash
+uv run --project tools/sandbox-lint sandbox-lint --codex .codex
+```
+
+**Any other harness (Cursor, Gemini CLI, …).** `--any-harness`
 validates the harness-neutral OS-level security posture: checks that the
 two enforcement components shared across all runtimes —
 `tools/agent-isolation/agent-iso.sh` (layer 0, clean-env credential strip)
@@ -88,7 +102,7 @@ uv run --project tools/sandbox-lint sandbox-lint --any-harness /path/to/magpie
 - **Runtime:** Python 3.11+ run via `uv` (stdlib only, no third-party deps).
 - **CLIs:** None beyond the runtime.
 - **Credentials / auth:** None.
-- **Network:** Runs fully offline/local — it only reads local JSON files.
+- **Network:** Runs fully offline/local — it only reads local JSON, TOML, and rules files.
 
 ## What it checks
 
@@ -115,6 +129,11 @@ uv run --project tools/sandbox-lint sandbox-lint --any-harness /path/to/magpie
    `expected.json` itself, so a PR cannot weaken the baseline in
    lockstep with the live settings without the lint catching the
    underlying boundary violation.
+4. **Codex profile invariants.** The dedicated `--codex` mode validates
+   the sandbox mode, workspace network access, approval policy, and
+   representative exec-policy rule coverage as one contract. It validates
+   invariants rather than byte-for-byte equality, so adopters may retain
+   unrelated Codex configuration.
 
 ## How to use
 
@@ -138,9 +157,9 @@ baseline drift.
 ## Harness-neutral posture check (any runtime)
 
 For runtimes that do not expose a per-harness sandbox configuration file
-(Codex, Cursor, Gemini CLI, Kiro, and any other agent runtime not listed
-under `--settings` or `--opencode`), the security posture is enforced at
-the OS level by two harness-agnostic components:
+(Cursor, Gemini CLI, and any other agent runtime not listed under
+`--settings`, `--opencode`, `--kiro`, or `--codex`), the security posture
+is enforced at the OS level by two harness-agnostic components:
 
 Layer numbers follow the
 [RFC-AI-0002](https://magpie.apache.org/docs/rfcs/rfc-ai-0002/) four-layer model
