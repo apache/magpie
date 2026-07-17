@@ -21,7 +21,7 @@ tooling for the adopting project live in
 (adopters bootstrap from the
 [`projects/_template/`](../../projects/_template/) scaffold).
 
-The end-to-end 16-step lifecycle is in [`README.md`](../../README.md). This
+The end-to-end 16-step lifecycle is in [`process.md`](process.md). This
 page is the two-minute summary.
 
 ## Process
