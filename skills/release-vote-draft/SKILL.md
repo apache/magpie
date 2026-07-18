@@ -206,6 +206,7 @@ Read the following from the planning issue body and
 | `version` | trigger argument | `<version>` |
 | `rc_number` | trigger argument | `<rcN>` |
 | `staging_url` | planning issue body | URL under `dist/dev/<project>/<version>-<rcN>/` (for `release_dist_backend = svnpubsub`) |
+| `svn_revision` | `svn info <staging_url>` | the committed SVN revision of the staged RC directory (**required** when `release_dist_backend = svnpubsub`; omit for other backends). Read it with `svn info --show-item last-changed-revision <staging_url>` (or `svn log -l1`). SVN branches are mutable, so this pins exactly which artefacts voters reviewed. |
 | `tag_url` | planning issue body | URL to the RC git tag |
 | `keys_url` | `release-management-config.md` | `keys_file_url` |
 | `changelog_url` | planning issue body | URL to changelog |
@@ -247,6 +248,7 @@ I propose we release the following artifacts as <Product Name> <version>.
 
 The release artifacts, signatures, and checksums are available at:
   <staging_url>
+  (SVN revision: r<svn_revision>)  ← include when release_dist_backend = svnpubsub
 
 The release tag to be voted upon:
   <tag_url>

@@ -28,7 +28,7 @@ Whimsy first. The roster below reflects the founding PMC recorded in
 
 | Apache ID | Name | Primary email | Binding since |
 |---|---|---|---|
-| `potiuk` | Jarek Potiuk (Chair) | `potiuk@apache.org` | `[resolution]` |
+| `potiuk` | Jarek Potiuk (Chair) | `potiuk@apache.org`, `jarek@potiuk.com` | `[resolution]` |
 | `pkarwasz` | Piotr Karwasz | `pkarwasz@apache.org` | `[resolution]` |
 | `eladkal` | Elad Kalif | `eladkal@apache.org` | `[resolution]` |
 | `zeroshade` | Matthew Topol | `zeroshade@apache.org` | `[resolution]` |
@@ -56,7 +56,10 @@ non-binding.**
 
 A `[VOTE]` reply counts as binding when:
 
-1. The `From:` address matches a row's `Primary email` exactly, **or**
+1. The `From:` address matches any address in a row's `Primary email`
+   cell exactly — the cell may list several comma-separated addresses
+   (e.g. an `@apache.org` address plus a personal address the member
+   votes from), **or**
 2. The `From:` address contains `@apache.org` and the local part
    matches a row's `Apache ID` exactly.
 
@@ -78,7 +81,8 @@ Rule (2) is the fallback because PMC members occasionally vote from
 `release-vote-tally`'s resolution algorithm:
 
 1. Normalise the `From:` header to `local@domain` form.
-2. Try exact match against `Primary email` (case-insensitive).
+2. Try exact match (case-insensitive) against each comma-separated
+   address listed in the `Primary email` cell.
 3. If `domain == apache.org`, try the local part against the
    `Apache ID` column.
 4. If neither hits, the vote is classified non-binding, flagged
