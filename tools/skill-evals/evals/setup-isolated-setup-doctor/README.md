@@ -5,10 +5,11 @@
 
 Behavioral evals for the `setup-isolated-setup-doctor` skill.
 
-## Suites (12 cases total)
+## Suites (13 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
+| `runtime-routing` | Runtime routing | 1 | Codex routes to its native adapter and never requires Claude files |
 | `interpret-probes` | Probe interpretation (`## The 3 probes`) | 7 | all-pass, ssh-fail, localhost-fail, docker-skipped, multiple-fail, ssh-skipped-no-env, injection-in-probe-output |
 | `after-report` | Report synthesis (`## After the report`) | 5 | all-clear-all-pass, all-clear-with-skips, ssh-fail-with-catalog-link, multiple-fail-two-catalog-links, injection-asks-autofix-rejected |
 
