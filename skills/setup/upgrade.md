@@ -450,6 +450,11 @@ rather than pulls in via symlink. Examples:
   in the snapshot. Re-syncing it is how a new skill — or a skill
   that newly adds a guard — reaches an already-adopted repo; the
   `settings.json` `hooks.PreToolUse` wiring is unchanged.
+- The committed `.codex/config.toml` and `.codex/rules/magpie.rules`:
+  compare them with the current snapshot policy. Preserve unrelated
+  Codex settings; surface conflicts and hand edits rather than
+  overwriting them. Run `sandbox-lint --codex .codex` after the merge
+  and never modify Codex project trust.
 - Any future hook or local config the framework adds.
 
 These can drift independently of the snapshot — an

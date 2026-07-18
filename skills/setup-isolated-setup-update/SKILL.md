@@ -27,6 +27,18 @@ license: Apache-2.0
 
 # setup-isolated-setup-update
 
+## Runtime routing (run before the Claude-specific drift report)
+
+When the active harness is Codex, compare the installed `.codex` policy with
+the framework sources described in
+[docs/adapters/codex.md](../../docs/adapters/codex.md#setup-isolated-lifecycle).
+Surface policy, rules, and tested-version drift; never auto-weaken or
+silently overwrite a hand-edited policy. Then stop. The remainder of this
+skill is the Claude Code update branch.
+
+When the harness is Claude Code, continue below. If the harness cannot be
+determined, ask once.
+
 This skill is the **drift report** for an already-installed secure
 setup. It walks the canonical update-check at
 [`docs/setup/secure-agent-setup.md` → Keeping the setup updated → Via a Claude Code prompt](../../docs/setup/secure-agent-setup.md#via-a-claude-code-prompt-2)

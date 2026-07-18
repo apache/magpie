@@ -744,6 +744,26 @@ lists at least one source — otherwise skip this check silently
   shadows a framework skill or another source's skill. Collision
   ⇒ ✗ (surface, do not auto-resolve).
 
+### 8g. Codex project profile (if present)
+
+When `<repo-root>/.codex/config.toml` exists, validate the committed
+Codex policy with:
+
+```bash
+uv run --project tools/sandbox-lint sandbox-lint --codex <repo-root>/.codex
+```
+
+- ✓ on a clean pass.
+- ✗ on any invariant violation (sandbox mode, workspace network
+  access, approval policy, or missing exec-policy coverage) — surface
+  the violations for review. A conflicting adopter value is never
+  silently weakened; the remediation is `/magpie-setup` (adopt or
+  upgrade), which shows the diff and asks.
+
+When `.codex/` is absent this check is skipped — the Codex profile is
+opt-in per runtime; see
+[the Codex adapter](../../docs/adapters/codex.md).
+
 ## After the report
 
 If every check is ✓ (or ⚠ on items the adopter has

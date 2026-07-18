@@ -1412,6 +1412,25 @@ Four passes, in this order:
      change. If the `hooks.PreToolUse` entry is already present,
      this pass only re-syncs the script + `guards.d`.
 
+   **Codex project policy is the reviewed Codex half of the runtime
+   support.** Merge the snapshot's `.codex/config.toml` and
+   `.codex/rules/magpie.rules` into the adopter root:
+
+   - On a fresh adopter with no matching file, copy and stage it.
+   - Preserve unrelated TOML keys. If a required sandbox or approval
+     value conflicts, surface the diff and ask the operator; never
+     silently weaken the Magpie invariant.
+   - Treat `magpie.rules` as Magpie-owned. Show hand edits before
+     replacing them during a later sync.
+   - Do not edit Codex project trust. Tell the operator to make the
+     trust decision in Codex.
+
+   Validate the merged result with `sandbox-lint --codex
+   <repo-root>/.codex`. Both files are committed adopter
+   configuration — nothing under `.codex/` is generated or
+   gitignored. See
+   [the Codex adapter](../../docs/adapters/codex.md).
+
 2. **Propagate to every worktree (run `worktree-init`
    unconditionally).** The main is now adopted; any
    pre-existing linked worktree of this repo still lacks
@@ -1531,6 +1550,7 @@ A summary of what was written:
 ✓ Overrides scaffold: .apache-magpie-overrides/ (committed)
 ✓ post-checkout hook installed (seeds sandbox allowlist + agent-guard per worktree)
 ✓ agent-guard PreToolUse hook synced (.claude/hooks/agent-guard.py + guards.d/ — gitignored)
+✓ Codex project policy merged and validated (.codex/config.toml + rules/magpie.rules)
 ✓ <repo>/README.md updated with adoption note
 
 Committed (you'll see in `git status`):
@@ -1540,6 +1560,8 @@ Committed (you'll see in `git status`):
   .agents/skills/magpie-setup/         (this skill itself — canonical copy)
   .claude/skills/magpie-setup          (relay symlink → ../../.agents/skills/magpie-setup)
   .github/skills/magpie-setup          (relay symlink → ../../.agents/skills/magpie-setup)
+  .codex/config.toml                   (Codex sandbox + HITL posture; unrelated keys preserved)
+  .codex/rules/magpie.rules            (Codex exec-policy)
   README.md (or CONTRIBUTING.md)
 
 Gitignored (do NOT commit):
