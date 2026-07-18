@@ -242,6 +242,9 @@ Read the following from the planning issue and
 | `target_url` | constructed | render `dist_url_template` with `<bucket>=release` and `<version>=<version>` (strip the `-rcN` suffix) |
 | `result_vote_url` | planning issue body or `--result-vote-url` | Archive URL of the `[RESULT] [VOTE]` thread; used in the `svn commit` message for `release_dist_backend = svnpubsub` |
 | `promote_command_template` | `release-management-config.md` | `release_publish_command_template` (required when `dist_backend = self-hosted`; ignored for the other backends, which have built-in recipes) |
+| `rc_commit_sha` | git / planning issue body | commit the `<version>-rc<N>` tag points to; the final `<version>` tag is cut on this SAME commit (no rebuild). `git rev-list -n1 <version>-rc<N>` |
+| `rm_gpg_fingerprint` | RM `user.md` | `release_manager.gpg_fingerprint`; the release key the final `<version>` tag is signed with |
+| `git_upstream_remote` | `release-management-config.md` | `git_upstream_remote`; the remote the final `<version>` tag is pushed to |
 
 Surface the loaded metadata to the RM for a brief sanity check before
 proceeding to Step 2.
@@ -270,15 +273,26 @@ The command set a PMC member would run:
 Whether or not a hand-off is needed, the svn command block is:
 
 ```text
-# Step 1 of 2 — move RC to release (release_dist_backend=svnpubsub)
+# Step 1 of 3 — move RC to release (release_dist_backend=svnpubsub)
 svn mv \  # release_dist_backend=svnpubsub
   https://dist.apache.org/repos/dist/dev/<project>/<version>-rc<N>/ \  # release_dist_backend=svnpubsub
   https://dist.apache.org/repos/dist/release/<project>/<version>/ \  # release_dist_backend=svnpubsub
   --username <apache_id> \
   -m "Promoting Apache <product-name> <version> (from rc<N>). [RESULT]: <result_vote_url>"
 
-# Step 2 of 2 — verify the move landed (release_dist_backend=svnpubsub)
+# Step 2 of 3 — verify the move landed (release_dist_backend=svnpubsub)
 svn list https://dist.apache.org/repos/dist/release/<project>/<version>/  # release_dist_backend=svnpubsub
+
+# Step 3 of 3 — cut and push the FINAL release tag on the SAME commit the
+# approved RC was built from (no rebuild). Downstream links (changelog,
+# [ANNOUNCE], site) must reference this final <version> tag, never <version>-rc<N>.
+# git signs tags via gpg.format=ssh globally, so override to openpgp to use the
+# RM's release key (<rm_gpg_fingerprint> from the RM user.md; YubiKey inserted).
+git -c gpg.format=openpgp tag -s -u <rm_gpg_fingerprint> \
+  <version> <rc-commit-sha> \
+  -m "Apache <product-name> <version>"
+git push <git_upstream_remote> refs/tags/<version>
+git -c gpg.format=openpgp tag -v <version>   # confirm the release key signed it
 ```
 
 Followed by the mirror-propagation and announce timing note (see *Mirror
