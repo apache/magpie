@@ -1,15 +1,23 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
 # https://www.apache.org/licenses/LICENSE-2.0
-"""Validate the per-family marketplace plugins against the skills' `family:`
-frontmatter — the source of truth.
+"""Validate the marketplace plugins against the skills' `family:` frontmatter —
+the source of truth.
 
-For every family that skills declare in their `family:` frontmatter there must
-be a `plugins/magpie-<family>/` plugin whose `skills/` directory contains
-exactly that family's skills as single-hop symlinks into the shared
-`skills/<skill>` tree, and `.claude-plugin/marketplace.json` must list it (plus
-the all-in-one `magpie`). Drift — a new skill, a changed family, a stale
-symlink — fails the check.
+Checks that every plugin is properly defined:
+
+- the all-in-one `magpie` manifest (`.claude-plugin/plugin.json`) names itself
+  correctly, declares `skills: ./skills`, and wires the `hooks/check-upgrade.sh`
+  SessionStart hook (which must exist);
+- every `.claude-plugin/marketplace.json` entry resolves to a matching,
+  uniquely-named `plugin.json`;
+- for every family declared in a skill's `family:` frontmatter there is a
+  `plugins/magpie-<family>/` plugin whose manifest is well-formed and whose
+  `skills/` directory contains exactly that family's skills as single-hop
+  symlinks into the shared `skills/<skill>` tree.
+
+Drift — a new skill, a changed family, a stale symlink, a malformed or
+mis-named manifest, a dangling marketplace entry — fails the check.
 
 Run with `--fix` to regenerate the family plugins + symlinks + marketplace
 entries from the frontmatter.
@@ -26,6 +34,8 @@ from pathlib import Path
 SKILLS = Path("skills")
 PLUGINS = Path("plugins")
 MARKETPLACE = Path(".claude-plugin/marketplace.json")
+ROOT_MANIFEST = Path(".claude-plugin/plugin.json")  # the all-in-one `magpie` plugin
+HOOK_SCRIPT = Path("hooks/check-upgrade.sh")  # referenced by the all-in-one plugin hook
 SYMLINK_TARGET = "../../../skills/{skill}"  # relative to plugins/magpie-<f>/skills/
 
 # Per-family descriptions used when (re)generating manifests. Keep in sync with
@@ -44,6 +54,31 @@ DESC = {
 }
 
 
+def load_json(path: Path):
+    try:
+        return json.loads(path.read_text(encoding="utf-8")), None
+    except (OSError, ValueError) as exc:
+        return None, f"{path}: cannot read/parse ({exc})"
+
+
+def validate_manifest(path: Path, expected_name: str) -> list[str]:
+    """A plugin.json must exist, be valid JSON, name itself correctly, and
+    declare its skills + a description."""
+    if not path.is_file():
+        return [f"{path}: missing plugin manifest"]
+    data, err = load_json(path)
+    if err:
+        return [err]
+    errors: list[str] = []
+    if data.get("name") != expected_name:
+        errors.append(f"{path}: name is {data.get('name')!r}, expected {expected_name!r}")
+    if data.get("skills") != "./skills":
+        errors.append(f"{path}: 'skills' is {data.get('skills')!r}, expected './skills'")
+    if not str(data.get("description", "")).strip():
+        errors.append(f"{path}: missing/empty 'description'")
+    return errors
+
+
 def families_from_frontmatter() -> dict[str, set[str]]:
     fam: dict[str, set[str]] = {}
     for path in sorted(SKILLS.glob("*/SKILL.md")):
@@ -56,31 +91,60 @@ def families_from_frontmatter() -> dict[str, set[str]]:
 def check(fam: dict[str, set[str]]) -> list[str]:
     errors: list[str] = []
 
-    try:
-        market = json.loads(MARKETPLACE.read_text(encoding="utf-8"))
-        listed = {p["name"] for p in market.get("plugins", [])}
-    except (OSError, ValueError) as exc:
-        return [f"{MARKETPLACE}: cannot read/parse ({exc})"]
+    market, err = load_json(MARKETPLACE)
+    if err:
+        return [err]
+    entries = market.get("plugins", [])
+    listed = {p.get("name") for p in entries}
 
+    # 1) The all-in-one `magpie` plugin: well-formed manifest, listed, and its
+    #    SessionStart hook script is present + referenced.
+    errors += validate_manifest(ROOT_MANIFEST, "magpie")
     if "magpie" not in listed:
         errors.append(f"{MARKETPLACE}: missing the all-in-one 'magpie' plugin entry")
+    if not HOOK_SCRIPT.is_file():
+        errors.append(f"{HOOK_SCRIPT}: missing (referenced by the all-in-one plugin's SessionStart hook)")
+    root_data, root_err = load_json(ROOT_MANIFEST)
+    if root_data is not None and "check-upgrade.sh" not in json.dumps(root_data.get("hooks", {})):
+        errors.append(f"{ROOT_MANIFEST}: SessionStart hook does not reference hooks/check-upgrade.sh")
 
+    # 2) Every marketplace entry resolves to a matching, uniquely-named manifest.
+    seen: set[str] = set()
+    for ent in entries:
+        name = ent.get("name")
+        source = ent.get("source")
+        if not name or not source:
+            errors.append(f"{MARKETPLACE}: entry missing 'name'/'source': {ent}")
+            continue
+        if name in seen:
+            errors.append(f"{MARKETPLACE}: duplicate plugin entry '{name}'")
+        seen.add(name)
+        manifest = ROOT_MANIFEST if source == "." else Path(source) / ".claude-plugin" / "plugin.json"
+        if not manifest.is_file():
+            errors.append(f"{MARKETPLACE}: '{name}' source '{source}' has no {manifest}")
+            continue
+        data, jerr = load_json(manifest)
+        if jerr is None and data.get("name") != name:
+            errors.append(f"{MARKETPLACE}: '{name}' resolves to plugin.json named {data.get('name')!r}")
+
+    # 3) Per-family plugins: manifest well-formed + symlinks match the frontmatter.
     for family, skills in sorted(fam.items()):
         name = f"magpie-{family}"
         pdir = PLUGINS / name
-        if not (pdir / ".claude-plugin" / "plugin.json").is_file():
-            errors.append(f"{name}: missing {pdir}/.claude-plugin/plugin.json")
+        manifest_errs = validate_manifest(pdir / ".claude-plugin" / "plugin.json", name)
+        errors += manifest_errs
+        if manifest_errs:
             continue
         if name not in listed:
             errors.append(f"{MARKETPLACE}: missing entry for '{name}'")
 
         sdir = pdir / "skills"
         have: dict[str, Path] = {}
-        for entry in sorted(sdir.iterdir()) if sdir.is_dir() else []:
-            if entry.is_symlink():
-                have[entry.name] = entry.readlink()
+        for link in sorted(sdir.iterdir()) if sdir.is_dir() else []:
+            if link.is_symlink():
+                have[link.name] = link.readlink()
             else:
-                errors.append(f"{name}: {entry} is not a symlink")
+                errors.append(f"{name}: {link} is not a symlink")
 
         for skill in sorted(skills - set(have)):
             errors.append(f"{name}: missing symlink for '{skill}' (family={family})")
@@ -91,6 +155,7 @@ def check(fam: dict[str, set[str]]) -> list[str]:
             if have[skill] != want:
                 errors.append(f"{name}: {sdir / skill} -> {have[skill]} (expected {want})")
 
+    # 4) No orphan plugin dirs (a magpie-<x> with no skills declaring family x).
     for pdir in sorted(PLUGINS.glob("magpie-*")):
         family = pdir.name[len("magpie-"):]
         if family not in fam:
