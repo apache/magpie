@@ -36,12 +36,11 @@ review, mentoring contributors, managing security reports, and more.
 
 Magpie is distributed per the [ASF release policy](https://www.apache.org/legal/release-policy.html)
 (see [release-distribution](https://infra.apache.org/release-distribution.html)
-for the canonical mechanism); you adopt it by pinning a release.
-
-> [!NOTE]
-> A **public skill marketplace is planned but not yet implemented.**
-> Today you adopt Magpie directly from the released source, not from a
-> marketplace.
+for the canonical mechanism). Two ways in: adopt a release with
+`/magpie-setup` (full snapshot + override adoption), or install the skills
+directly from your agent's plugin marketplace — Claude Code, Codex, Copilot,
+Gemini, Cursor, and more. See
+[`docs/setup/marketplaces.md`](docs/setup/marketplaces.md).
 
 > [!IMPORTANT]
 > The motivation, scope, and design commitments behind this work
@@ -81,9 +80,10 @@ into their repo. That skill manages everything else:
    [`docs/setup/agentic-overrides.md`](docs/setup/agentic-overrides.md)
    for the contract.
 
-**No git submodules. No marketplace (yet). No vendored copies of
-framework skills.** Just one committed skill (the bootstrap),
-a gitignored snapshot, and agent-readable override files.
+**No git submodules. No vendored copies of framework skills.** Just one
+committed skill (the bootstrap), a gitignored snapshot, and agent-readable
+override files. (Prefer a marketplace? See
+[`docs/setup/marketplaces.md`](docs/setup/marketplaces.md).)
 
 ## Adopting the framework
 

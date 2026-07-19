@@ -1,0 +1,19 @@
+{
+  "name": "magpie",
+  "version": "0.2.0",
+  "description": "Apache Magpie — a reusable, governance-agnostic framework of agentic skills for maintaining open-source projects: release management, security triage, PR and issue workflows, contributor growth, and repo health.",
+  "author": { "name": "Apache Magpie", "url": "https://magpie.apache.org/" },
+  "homepage": "https://magpie.apache.org/",
+  "repository": "https://github.com/apache/magpie",
+  "license": "Apache-2.0",
+  "keywords": [
+    "apache",
+    "agent-skills",
+    "maintenance",
+    "release-management",
+    "security",
+    "pr-management",
+    "open-source"
+  ],
+  "skills": "./skills"
+}
