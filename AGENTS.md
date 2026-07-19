@@ -89,7 +89,7 @@ Repo-root files:
 - [`projects/_template/`](projects/_template/) — bootstrap scaffold for a new adopter's `<project-config>/`.
 - [`tools/<name>/`](tools/) — tool adapters (GitHub operations, issue-template schema, project-board GraphQL, …) for the external tools the skills invoke.
 - [`skills/<name>/SKILL.md`](skills/) — the agentic workflows.
-- `.agents/skills/magpie-<name>/`, `.claude/skills/magpie-<name>/`, `.github/skills/magpie-<name>/` — committed symlinks created by this repo's self-adoption (`/magpie-setup method:local`) so the framework's own skills are callable from any harness while developing it; targets are in-repo so no snapshot or remote fetch is involved. Mechanics: [`skills/setup/adopt.md`](skills/setup/adopt.md) → "Local self-adoption".
+- `.agents/skills/magpie-<name>/`, `.claude/skills/magpie-<name>/`, `.github/skills/magpie-<name>/` — committed symlinks created by this repo's self-adoption (`/magpie-setup method:local`) so the framework's own skills are callable from any harness while developing it; targets are in-repo so no snapshot or remote fetch is involved. Mechanics: [`skills/setup/install.md`](skills/setup/install.md) → "Local self-adoption".
 
 There is no source code to build or test in this framework
 repository itself. Adopting projects may include project-specific
@@ -286,7 +286,7 @@ worktree resolves to the same file, so per-user fields (apache_id,
 GitHub handle, governance membership, local clone path) stay coherent without
 symlinks or per-worktree bootstrap. The framework does not manage the
 file — adopters create / edit it directly; see
-[`setup/adopt.md`](skills/setup/adopt.md).
+[`setup/install.md`](skills/setup/install.md).
 
 When this document (or any skill) says *"the tracker repo"*, *"the
 security list"*, *"the canned responses"*, it means the value declared
@@ -946,7 +946,7 @@ body-only review is the explicit opt-out (`inline:off`), never the
 default; findings that cannot be anchored to a changed line go in the
 review body. Adopters that install the `pr-management-*` family inherit
 the same default in their own `AGENTS.md` (wired by
-[`skills/setup/adopt.md`](skills/setup/adopt.md)).
+[`skills/setup/install.md`](skills/setup/install.md)).
 
 ## Keeping evals and mode-economics in sync
 

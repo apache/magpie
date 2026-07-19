@@ -17,7 +17,7 @@ default — surfaces gaps and remediation commands.
   `.agents/skills/`, `.claude/skills/`, `.github/skills/`, plus
   any present holdout), recreate them across all of them. Used
   by the post-checkout hook
-  ([`adopt.md` Step 10](adopt.md)) on a fresh worktree
+  ([`install.md` Step 10](install.md)) on a fresh worktree
   where the gitignored symlinks didn't follow the
   checkout.
 
@@ -25,7 +25,7 @@ default — surfaces gaps and remediation commands.
 
 1. `git rev-parse --show-toplevel` — must succeed.
 2. **Framework checkout?** Detect structurally (as in
-   [`adopt.md` Step 0](adopt.md#step-0--pre-flight)):
+   [`install.md` Step 0](install.md#step-0--pre-flight)):
    `skills/setup/SKILL.md` exists at the repo root with
    `name: magpie-setup` and `skills/list-skills/` is present. If
    so **and** `.apache-magpie.lock` records `method: local`, the
@@ -147,7 +147,7 @@ Compare:
 ### 4. `.gitignore` correctly excludes the snapshot + local lock + symlinks + project-local settings
 
 Check that the entries from
-[`adopt.md` Step 7](adopt.md) are present in
+[`install.md` Step 7](install.md) are present in
 `<repo-root>/.gitignore`. Required:
 
 - `/.apache-magpie/` (snapshot path)
@@ -241,7 +241,7 @@ re-run with the family added to the pick.
 
 `<repo-root>/.apache-magpie-overrides/` is a directory
 with the `README.md` scaffold from
-[`adopt.md` Step 9](adopt.md).
+[`install.md` Step 9](install.md).
 
 - ✗ if missing → `/magpie-setup adopt` (idempotently
   re-creates).
@@ -287,7 +287,7 @@ Two sub-checks on `<repo-root>/.git/hooks/post-checkout`:
 1. **Presence + executable.** File exists, is executable,
    and carries the current hook body — the sandbox-allowlist
    helper chain **and** the agent-guard seeding block (see
-   [`adopt.md` Step 10](adopt.md#step-10--worktree-aware-post-checkout-hook-fresh-only)).
+   [`install.md` Step 10](install.md#step-10--worktree-aware-post-checkout-hook-fresh-only)).
    It must **not** contain the long-removed
    `/magpie-setup verify --auto-fix-symlinks` line (a slash
    command is not shell-callable; it printed a spurious error on
@@ -338,11 +338,11 @@ Three sub-checks for the deterministic guard
    runs `agent-guard.py`.
    - ⚠ if missing — the script is present but not active; print
      the one-time wiring snippet (see
-     [`adopt.md` Step 12](adopt.md#step-12--post-install-sync--worktree-propagation--sandbox-allowlist--sanity-check))
+     [`install.md` Step 12](install.md#step-12--post-install-sync--worktree-propagation--sandbox-allowlist--sanity-check))
      for the maintainer to apply (settings.json is agent-edit-denied).
 
 The script + `guards.d` are **gitignored** framework code
-([`adopt.md` Step 7](adopt.md#step-7--gitignore-entries-fresh-only)),
+([`install.md` Step 7](install.md#step-7--gitignore-entries-fresh-only)),
 synced from the snapshot rather than committed — so a *missing*
 script is the expected state of a fresh checkout, not a defect, and
 the fix is always a re-sync (never `git add`). When this check runs
@@ -544,7 +544,7 @@ hit these constantly; pre-allowing them removes the
 repetitive confirmation prompts without weakening the
 boundary. Tailor the recommendation to the families the
 adopter opted into via
-[`<committed-lock>` → `skill-families`](adopt.md#step-5--pick-the-skill-families-and-mcp-servers):
+[`<committed-lock>` → `skill-families`](install.md#step-5--pick-the-skill-families-and-mcp-servers):
 
 - **`security` family** —
   - `mcp__claude_ai_Gmail__get_thread`
@@ -645,7 +645,7 @@ the audit trail human-readable. The framework's job is to
 ### 8e. comdev MCP prerequisites (ASF projects)
 
 **Run this check only for ASF projects** — detect ASF the same way
-as [`adopt.md` Step 9c](adopt.md#step-9c--comdev-mcp-prerequisites-asf-projects):
+as [`install.md` Step 9c](install.md#step-9c--comdev-mcp-prerequisites-asf-projects):
 `<project-config>/project.md` declares `project_metadata.mandatory:
 true` or `Mail sources` `ponymail` `mandatory: yes`. Skip otherwise
 (the two MCP servers are optional for non-ASF adopters).
@@ -661,7 +661,7 @@ latest `main` of `apache/comdev` (tracked, not pinned). Confirm:
    mandatory pre-flight gates in `security-issue-import` /
    `security-issue-sync` (PonyMail) and `contributor-nomination`
    (Apache Projects) will hard-stop. Remediation:
-   [`adopt.md` Step 9c](adopt.md#step-9c--comdev-mcp-prerequisites-asf-projects).
+   [`install.md` Step 9c](install.md#step-9c--comdev-mcp-prerequisites-asf-projects).
 2. **PonyMail authenticated.** For ASF projects an authenticated
    LDAP session is required, not just a registered server — a
    trivial `mcp__ponymail__auth_status()` should report an
@@ -693,7 +693,7 @@ metadata:
 ### 9. Project documentation mentions the framework
 
 Two files to check (per
-[`adopt.md` Step 11](adopt.md#step-11--project-doc-updates-fresh-only)):
+[`install.md` Step 11](install.md#step-11--project-doc-updates-fresh-only)):
 
 - **`<repo-root>/README.md`** — should have a contributor-facing
   section (typically `## Agent-assisted contribution

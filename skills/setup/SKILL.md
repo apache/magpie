@@ -5,18 +5,18 @@ name: magpie-setup
 family: setup
 mode: Meta
 description: |
-  Adopt and maintain the apache-magpie framework in a project
-  repo via the snapshot-based adoption mechanism. The only
+  Install and maintain the apache-magpie framework in a project
+  repo via the snapshot-based install (adoption) mechanism. The only
   framework skill committed in an adopter's repo; every other
-  skill is a symlink the adopt sub-action wires up.
+  skill is a symlink the install sub-action wires up.
   Sub-actions:
-    `/magpie-setup` - first-time adoption (default; main-checkout only)
+    `/magpie-setup` - first-time install (default; main-checkout only). `adopt` is an alias.
     `/magpie-setup upgrade` - refresh the gitignored snapshot per the committed lock (main-checkout only)
     `/magpie-setup worktree-init` - symlink a worktree's snapshot to the main's
     `/magpie-setup verify` - health check + drift detection
     `/magpie-setup skill-sources` - fetch/pin/symlink skills from trusted external sources listed in the adopter trust list (main-checkout only)
     `/magpie-setup override <skill>` - open or scaffold an agentic override in `.apache-magpie-overrides/`
-    `/magpie-setup unadopt` - reverse the adoption (snapshot, locks, symlinks, hook, doc sections); preserves `.apache-magpie-overrides/` by default (main-checkout only)
+    `/magpie-setup uninstall` - reverse the install (snapshot, locks, symlinks, hook, doc sections); preserves `.apache-magpie-overrides/` by default (main-checkout only). `unadopt` is an alias.
 when_to_use: |
   Invoke when the user says "adopt apache-magpie", "adopt
   apache/magpie", "set up magpie in this repo",
@@ -24,7 +24,7 @@ when_to_use: |
   framework's README adoption instructions. Also for periodic
   maintenance: "upgrade magpie", "verify magpie setup",
   "check magpie drift", "the snapshot is stale".
-argument-hint: "[adopt|upgrade|worktree-init|verify|override skill-name|unadopt]"
+argument-hint: "[install|upgrade|worktree-init|verify|override skill-name|uninstall]"
 capability: capability:platform
 license: Apache-2.0
 ---
@@ -112,7 +112,7 @@ the framework's own skills callable while developing the framework,
 and every contributor gets them active on a fresh clone with no
 setup step. `adopt` detects the framework checkout structurally and
 routes there automatically (see
-[`adopt.md` → Local self-adoption](adopt.md#local-self-adoption-methodlocal)).
+[`install.md` → Local self-adoption](install.md#local-self-adoption-methodlocal)).
 
 ## The two lock files
 
@@ -190,13 +190,13 @@ They are written and reconciled by
 
 | File | Purpose |
 |---|---|
-| [`adopt.md`](adopt.md) | First-time adoption walk-through — recognise existing-snapshot vs needs-bootstrap, write the two lock files, ask the user which skill families and MCP servers to install, create the gitignored symlinks, scaffold `.apache-magpie-overrides/`, install the post-checkout hook, update project docs. The default sub-action. |
+| [`install.md`](install.md) | First-time adoption walk-through — recognise existing-snapshot vs needs-bootstrap, write the two lock files, ask the user which skill families and MCP servers to install, create the gitignored symlinks, scaffold `.apache-magpie-overrides/`, install the post-checkout hook, update project docs. The default sub-action. |
 | [`upgrade.md`](upgrade.md) | Refresh the gitignored snapshot per the committed lock, reconcile any agentic overrides + symlinks against the new framework structure, surface conflicts. Drives the on-drift remediation flow. |
 | [`verify.md`](verify.md) | Read-only health check — snapshot present + intact, both lock files in sync, symlinks point at live targets, `.gitignore` correct, `.apache-magpie-overrides/` exists, drift status (committed vs local), the `setup` skill itself is current. |
 | [`skill-sources.md`](skill-sources.md) | Fetch/verify skills from trusted external sources listed in `<project-config>/skill-sources.md`, pin them in the committed `.apache-magpie.sources.lock`, and symlink the provided skills in exactly like framework skills. The runnable half of [trusted external skill sources](../../docs/skill-sources/README.md); the install gate is the adopter trust list. |
 | [`agents.md`](agents.md) | The agent-target registry — *which* directories framework-skill symlinks land in across vendors, and the **canonical-plus-relay** model: `.agents/skills/` is the one canonical home (links into the snapshot/source); every other target (`claude-code`, `github`, holdout natives like Windsurf / Goose) gets a per-skill relay symlink into `.agents/skills/`. Defines active-target selection, SKILL.md format portability, and the Claude-Code-only layer (sandbox/hooks). The source of truth every sub-action consults for the target set. |
 | [`overrides.md`](overrides.md) | Agentic-override file management — open / scaffold an override for a framework skill, list existing overrides, help reconcile when the framework changes the underlying skill's structure on upgrade. |
-| [`unadopt.md`](unadopt.md) | Reverse the adoption — remove snapshot, locks, symlinks, post-checkout hook, `.gitignore` entries, the adoption sections in `README.md` / `AGENTS.md` / `CONTRIBUTING.md`, and the committed `setup` skill itself. Preserves `.apache-magpie-overrides/` by default; `--purge-overrides` removes it too. Surfaces the full removal plan before any write. |
+| [`uninstall.md`](uninstall.md) | Reverse the adoption — remove snapshot, locks, symlinks, post-checkout hook, `.gitignore` entries, the adoption sections in `README.md` / `AGENTS.md` / `CONTRIBUTING.md`, and the committed `setup` skill itself. Preserves `.apache-magpie-overrides/` by default; `--purge-overrides` removes it too. Surfaces the full removal plan before any write. |
 
 ## Golden rules
 
@@ -390,14 +390,16 @@ The skill dispatches by the first positional argument:
 
 | Invocation | Loads | Purpose |
 |---|---|---|
-| `/magpie-setup` (no args) | [`adopt.md`](adopt.md) | First-time adoption (default; **main-checkout only**). Idempotent — re-running on an already-adopted repo behaves like `verify`. |
-| `/magpie-setup adopt` | [`adopt.md`](adopt.md) | Same as no-arg — explicit form. Main-checkout only. |
+| `/magpie-setup` (no args) | [`install.md`](install.md) | First-time install (default; **main-checkout only**). Idempotent — re-running on an already-installed repo behaves like `verify`. |
+| `/magpie-setup install` | [`install.md`](install.md) | Same as no-arg — explicit form. Main-checkout only. |
+| `/magpie-setup adopt` | [`install.md`](install.md) | Alias of `install`. |
 | `/magpie-setup upgrade` | [`upgrade.md`](upgrade.md) | Refresh snapshot per `<committed-lock>` + reconcile overrides + refresh symlinks. **Main-checkout only** — worktrees pick up upgrades automatically via the symlink installed by `worktree-init`. |
 | `/magpie-setup worktree-init` | [`worktree-init.md`](worktree-init.md) | **Worktree-only.** Symlink the worktree's `<snapshot-dir>` to the main checkout's so this worktree shares one framework state. No fetch, no lock files written; idempotent. |
 | `/magpie-setup verify` | [`verify.md`](verify.md) | Read-only health check + drift status report. Works in both main and worktrees. |
 | `/magpie-setup skill-sources` (aka `skill-sources add <id>`) | [`skill-sources.md`](skill-sources.md) | Fetch/verify/pin/symlink skills from the trusted external sources the adopter listed in `<project-config>/skill-sources.md`. **Main-checkout only** — worktrees share the source snapshots via `worktree-init`. |
 | `/magpie-setup override <skill>` | [`overrides.md`](overrides.md) | Open / scaffold an override file. |
-| `/magpie-setup unadopt` | [`unadopt.md`](unadopt.md) | Reverse the adoption. Removes snapshot, locks, symlinks, hook, doc sections, and this skill itself. Preserves `.apache-magpie-overrides/` unless `--purge-overrides` is passed. **Main-checkout only.** |
+| `/magpie-setup uninstall` | [`uninstall.md`](uninstall.md) | Reverse the install. Removes snapshot, locks, symlinks, hook, doc sections, and this skill itself. Preserves `.apache-magpie-overrides/` unless `--purge-overrides` is passed. **Main-checkout only.** |
+| `/magpie-setup unadopt` | [`uninstall.md`](uninstall.md) | Alias of `uninstall`. |
 
 **Main-checkout-only sub-actions** (`adopt`, `upgrade`, `unadopt`)
 detect their context via `git rev-parse --git-dir` ≠
@@ -417,7 +419,7 @@ symlinks, and adds new always-on-family entries the upgrade
 introduced). The user does not need to remember to `cd` into each
 worktree and re-run anything; the main-checkout sub-action
 propagates state outward to the worktrees by itself. See
-[`adopt.md` Step 12.2](adopt.md#step-12--post-install-sync--worktree-propagation--sandbox-allowlist--sanity-check)
+[`install.md` Step 12.2](install.md#step-12--post-install-sync--worktree-propagation--sandbox-allowlist--sanity-check)
 and
 [`upgrade.md` Step 6c](upgrade.md#step-6c--propagate-to-every-worktree-run-worktree-init-unconditionally).
 
@@ -431,9 +433,9 @@ first, then continue.
 | Flag | Effect |
 |---|---|
 | `from:<git-ref>` / `from:<version>` | Adopt or upgrade from a specific framework ref or version. Used during `adopt` (overrides the user prompt) and `upgrade` (overrides the committed lock for *this run only* — does NOT update the committed lock). |
-| `method:<git-branch\|git-tag\|svn-zip\|local>` | Pick the install method explicitly. Default during `adopt`: prompt the user. **`local`** is **framework-checkout only** — it self-adopts by linking the in-repo `skills/` source directly instead of fetching a snapshot (see [`adopt.md` → Local self-adoption](adopt.md#local-self-adoption-methodlocal)). |
+| `method:<git-branch\|git-tag\|svn-zip\|local>` | Pick the install method explicitly. Default during `adopt`: prompt the user. **`local`** is **framework-checkout only** — it self-adopts by linking the in-repo `skills/` source directly instead of fetching a snapshot (see [`install.md` → Local self-adoption](install.md#local-self-adoption-methodlocal)). |
 | `agents:<list>` | Comma-separated **agent targets** to wire symlinks into ([`agents.md`](agents.md) registry ids: `universal`, `claude-code`, `github`, `windsurf`, `goose`, …). Default on `adopt`/`upgrade`: auto — the always-on neutral set (`universal` + `claude-code` + `github`) plus any other registry dir already present in the repo. When passed, **replaces** the auto-detected set for that run, except `universal` (`.agents/skills/`) which is always retained because it is the canonical home every other target relays into — dropping it would leave the relays dangling. |
-| `skill-families:<list>` | Comma-separated **opt-in** families to symlink — any of the opt-in families declared by a `family:` frontmatter key in the snapshot (today: `security`, `pr-management`, `issue`, `release-management`, `repo-health`, `pairing`, `mentoring`, `contributor-growth`). Default on `adopt`: prompt (see [`adopt.md` Step 5](adopt.md#step-5--pick-the-skill-families-and-mcp-servers)). Default on `upgrade`: read the families list from `<committed-lock>` / `<local-lock>`, **auto-include any opt-in family the framework has introduced since the lock was written** (recorded back into the lock), and **ensure every framework skill in the effective family set has a valid symlink** — create or repair missing / broken symlinks, not just add new ones. The flag never accepts the always-on families (`setup`, `utilities`); per [Golden rule 8](#golden-rules) those are wired up unconditionally on every run and there is no way to ask for them or opt out. |
+| `skill-families:<list>` | Comma-separated **opt-in** families to symlink — any of the opt-in families declared by a `family:` frontmatter key in the snapshot (today: `security`, `pr-management`, `issue`, `release-management`, `repo-health`, `pairing`, `mentoring`, `contributor-growth`). Default on `adopt`: prompt (see [`install.md` Step 5](install.md#step-5--pick-the-skill-families-and-mcp-servers)). Default on `upgrade`: read the families list from `<committed-lock>` / `<local-lock>`, **auto-include any opt-in family the framework has introduced since the lock was written** (recorded back into the lock), and **ensure every framework skill in the effective family set has a valid symlink** — create or repair missing / broken symlinks, not just add new ones. The flag never accepts the always-on families (`setup`, `utilities`); per [Golden rule 8](#golden-rules) those are wired up unconditionally on every run and there is no way to ask for them or opt out. |
 | `--purge-overrides` | *(unadopt only)* Also `git rm -r` `.apache-magpie-overrides/`. Default: preserve. |
 | `dry-run` | Show what the skill would do without writing anything. |
 

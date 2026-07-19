@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/legal/release-policy.html -->
 
-# adopt — first-time install of apache-magpie into an adopter repo
+# install — first-time install of apache-magpie into an adopter repo (alias: `adopt`)
 
 The default sub-action when the user says "adopt apache-magpie".
 
@@ -333,7 +333,7 @@ logic for a *new* framework version.
    warning.
 5. **Reload in-flight.** Immediately after the copy lands,
    re-read `.agents/skills/magpie-setup/SKILL.md`
-   and `.agents/skills/magpie-setup/adopt.md` (the
+   and `.agents/skills/magpie-setup/install.md` (the
    current sub-action file), plus any helper file already
    open in this run (`agents.md`, `overrides.md`),
    before continuing to Step 4. The remaining steps run

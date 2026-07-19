@@ -65,7 +65,7 @@ framework safe to use.
 - [**`install-recipes.md`**](install-recipes.md) — copy-pasteable
   shell recipes (svn-zip / git-tag / git-branch) for bootstrapping
   `setup` into a new adopter repo.
-- [**`unadopt.md`**](unadopt.md) — counterpart to `install-recipes.md`:
+- [**`uninstall.md`**](uninstall.md) — counterpart to `install-recipes.md`:
   remove the framework artefacts the adopt flow installed. One
   path, full plan surfaced before any write.
 - [**`sandbox-troubleshooting.md`**](sandbox-troubleshooting.md) —
