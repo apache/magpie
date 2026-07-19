@@ -1,0 +1,5 @@
+{
+  "name": "magpie-utilities",
+  "description": "Apache Magpie \u2014 framework meta-skills: write-skill, optimize-skill, skill-reconciler, list-skills.",
+  "skills": "./skills"
+}

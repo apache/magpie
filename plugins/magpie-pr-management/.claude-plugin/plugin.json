@@ -1,0 +1,5 @@
+{
+  "name": "magpie-pr-management",
+  "description": "Apache Magpie \u2014 PR-queue management: triage, stats, deep code review, quick-merge, stale-sweep, reviewer routing, pre-first-PR checks.",
+  "skills": "./skills"
+}
