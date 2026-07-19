@@ -49,6 +49,21 @@ through the plugin/extension mechanisms of the major AI coding agents,
 > `X.Y.Z` git tag; they are derived from — not a substitute for — the ASF
 > source release.
 
+> [!WARNING]
+> **Marketplace/plugin support is experimental in most agentic CLIs.** The
+> plugin and marketplace mechanisms of Claude Code, Codex, Copilot, Gemini,
+> `apm`, and others are new and evolving — manifest schemas and install
+> commands change between releases (see [Verification status](#verification-status)).
+> If a marketplace install breaks, or your agent has no marketplace at all, the
+> **non-marketplace install is always available, universal, and portable**:
+> adopt Magpie with `/magpie-setup` from either the **signed SVN release**
+> (`dist.apache.org`) or the **GitHub repo** (git tag or branch) — see
+> [`install-recipes.md`](install-recipes.md). That path is **harness-neutral**:
+> it wires the skills into *any* agent's directory via the universal
+> `.agents/skills/` layout, so it works on **every** agentic CLI — not only the
+> ones with a marketplace. Rule of thumb: use a marketplace for a quick trial
+> on a supported agent; use `/magpie-setup` for a stable, portable install.
+
 ## Choosing a plugin: all-in-one vs per-family
 
 The framework ships as **eleven** plugins. You can install **either** the
