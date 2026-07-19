@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: Apache-2.0
+# https://www.apache.org/licenses/LICENSE-2.0
+#
+# microsoft/apm (Agent Package Manager) package manifest. apm compiles this
+# single source to multiple agent clients (Claude, Cursor, Codex, Copilot,
+# Gemini). Schema is v0.1 and may change — verify against the current
+# https://microsoft.github.io/apm/ before publishing.
+name: magpie
+version: 0.2.0
+type: skill
+description: >-
+  Apache Magpie — a reusable, governance-agnostic framework of agentic skills
+  for maintaining open-source projects: release management, security triage,
+  PR and issue workflows, contributor growth, and repo health.
+author: Apache Magpie
+license: Apache-2.0
+homepage: https://magpie.apache.org/
+repository: https://github.com/apache/magpie
+keywords:
+  - apache
+  - agent-skills
+  - maintenance
+  - release-management
+  - security
+includes:
+  - skills/
