@@ -51,15 +51,35 @@ through the plugin/extension mechanisms of the major AI coding agents,
 
 ## Choosing a plugin: all-in-one vs per-family
 
-The framework ships as **eleven** plugins so you install only what you use:
+The framework ships as **eleven** plugins. You can install **either** the
+all-in-one plugin **or** any number of per-family plugins — and you can mix
+several families. Pick based on the trade-off between install simplicity and
+always-on token cost (each installed skill advertises a short description to
+the model on **every** turn — see ["always-on" cost](#versioning) below).
 
-- **`magpie`** (all-in-one) — every skill, all ten families. Simplest, but its
-  always-on metadata costs **~21.7k tokens in every session** (each installed
-  skill advertises a short description to the model on every turn — see
-  ["always-on" cost](#versioning) below).
-- **Per-family plugins** — `magpie-security`, `magpie-release-management`, … —
-  install only the families you use, so only their skills are always-on.
-  **Recommended.**
+**All-in-one — `magpie`**
+
+- ✅ One install; all 70 skills; nothing to decide. Uses the real `skills/`
+  directory, so **no symlinks** — works on Windows out of the box.
+- ⚠️ Adds **~21.7k always-on tokens to every session**, including families you
+  may never use — that context (and cost) is spent whether or not you invoke a
+  Magpie skill that turn.
+- Best when you genuinely want everything, or you're on Windows without symlink
+  support.
+
+**Per-family — `magpie-<family>`** *(recommended)*
+
+- ✅ Install only the families you use, so the always-on cost is proportional
+  (`magpie-security` ≈ 3.9k, `magpie-pairing` ≈ 0.6k). Install several to mix
+  and match.
+- ⚠️ You manage a few installs instead of one; adding a family later is a
+  separate install; relies on git symlinks (see the Windows note below).
+- Best for day-to-day use where you want a lean context window.
+
+Mixing is fine — e.g. install `magpie-release-management` + `magpie-security`
+and nothing else. The two are **not** exclusive with the all-in-one either, but
+installing both `magpie` *and* a family plugin just double-loads those skills,
+so pick one approach.
 
 | Family plugin | Skills | ~Always-on tokens |
 |---|---|---|
