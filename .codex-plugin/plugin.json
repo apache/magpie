@@ -2,5 +2,18 @@
   "name": "magpie",
   "version": "0.2.0",
   "description": "Apache Magpie — agentic skills for maintaining open-source projects.",
-  "skills": "./skills"
+  "skills": "./skills",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CODEX_PLUGIN_ROOT}/hooks/check-upgrade.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
 }

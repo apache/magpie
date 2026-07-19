@@ -2,30 +2,38 @@
 # SPDX-License-Identifier: Apache-2.0
 # https://www.apache.org/licenses/LICENSE-2.0
 #
-# Claude Code SessionStart hook for the Apache Magpie plugin.
+# Session-start hook for the Apache Magpie plugin. Wired by the Claude Code
+# plugin (SessionStart) and — best-effort, pending schema verification — by
+# the Codex CLI plugin, where a session hook is available.
 #
 # Detects when the installed plugin version has changed since the last
 # session (i.e. the marketplace updated it) and prompts the user to run
 # `/magpie-setup upgrade`, which reconciles the gitignored snapshot, the
 # agentic overrides, and drift.
 #
-# Deliberately DETECT-AND-PROMPT, not auto-run: a Claude Code hook cannot
-# invoke a slash command, and Magpie never mutates an adopter repo without
-# the guided skill's confirmation. The hook is read-only apart from writing
-# its own version marker; it makes no network calls and touches nothing in
-# the adopter repo.
+# Deliberately DETECT-AND-PROMPT, not auto-run: a plugin hook cannot invoke
+# a slash command, and Magpie never mutates an adopter repo without the
+# guided skill's confirmation. The hook is read-only apart from writing its
+# own version marker; it makes no network calls and touches nothing in the
+# adopter repo.
+#
+# Agents without a session hook (e.g. Gemini CLI) surface the same prompt via
+# their extension context file (GEMINI.md) instead.
 set -euo pipefail
 
-# Drain the event JSON delivered on stdin (unused).
+# Drain any event JSON delivered on stdin (unused).
 cat >/dev/null 2>&1 || true
 
-root="${CLAUDE_PLUGIN_ROOT:-.}"
-data="${CLAUDE_PLUGIN_DATA:-$root}"
-manifest="$root/.claude-plugin/plugin.json"
+root="${CLAUDE_PLUGIN_ROOT:-${CODEX_PLUGIN_ROOT:-.}}"
+data="${CLAUDE_PLUGIN_DATA:-${CODEX_PLUGIN_DATA:-$root/.magpie-state}}"
 
-[ -f "$manifest" ] || exit 0
+# Read the plugin version from whichever manifest is present.
+manifest=""
+for m in "$root/.claude-plugin/plugin.json" "$root/.codex-plugin/plugin.json"; do
+  [ -f "$m" ] && { manifest="$m"; break; }
+done
+[ -n "$manifest" ] || exit 0
 
-# Extract "version" without a jq dependency.
 current="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$manifest" | head -n1)"
 [ -n "$current" ] || exit 0
 

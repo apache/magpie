@@ -1,5 +1,6 @@
 {
   "name": "magpie",
   "version": "0.2.0",
-  "description": "Apache Magpie — agentic skills for maintaining open-source projects. Skills are auto-discovered from ./skills."
+  "description": "Apache Magpie — agentic skills for maintaining open-source projects. Skills are auto-discovered from ./skills.",
+  "contextFileName": "GEMINI.md"
 }
