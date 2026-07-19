@@ -610,7 +610,7 @@ any depth) keep the byte-compiled artefacts that framework skill
 scripts emit when run from the adopter checkout (e.g.
 [`setup-status/scripts/collect_status.py`](../setup-status/scripts/collect_status.py))
 out of the tree. Most adopters already carry these from a stock
-Python `.gitignore`; the adopt flow adds them if missing.
+Python `.gitignore`; the install flow adds them if missing.
 
 The `/.claude/hooks/agent-guard.py` and `/.claude/hooks/guards.d/`
 lines keep the deterministic `PreToolUse` guard **gitignored** —
@@ -674,7 +674,7 @@ per-machine settings file that
 populates with the project-root sandbox-allowlist entry (and
 that each worktree carries independently). Most adopters
 already gitignore this file by Claude Code convention; the
-adopt flow checks for the line and adds it if missing.
+install flow checks for the line and adds it if missing.
 
 ## Step 8 — Wire up the framework-skill symlinks
 
@@ -1146,7 +1146,7 @@ the user before writing:
 
 ```bash
 #!/usr/bin/env bash
-# apache-magpie post-checkout hook (installed by /magpie-setup adopt).
+# apache-magpie post-checkout hook (installed by /magpie-setup install).
 # Best-effort per-worktree reconciliation on checkout / `git worktree add`.
 # Every action is individually guarded and the hook always exits 0 — it
 # never gates the surrounding git operation.

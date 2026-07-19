@@ -246,7 +246,7 @@ shape the team are small enough to read in one sitting:
 - `.apache-magpie-overrides/user.md` — per-user configuration
   (governance-gate status per
   `<project-config>/project.md → governance.cve_allocation_gate`,
-  local clone paths, optional tool backends) scaffolded during adoption.
+  local clone paths, optional tool backends) scaffolded during installation.
 - [`<project-config>/`](<project-config>/) — project-specific content
   (roster, release trains, security model, scope labels, milestones,
   canned responses, fix-workflow specifics) — lives in the adopter's

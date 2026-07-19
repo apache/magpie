@@ -36,7 +36,7 @@ default — surfaces gaps and remediation commands.
    yet — point at `/magpie-setup`.
 3. If `<repo-root>/.apache-magpie.lock` is missing, the
    repo is not adopted. Surface and stop with a pointer at
-   `/magpie-setup adopt`.
+   `/magpie-setup install`.
 
 ## Local self-adoption checks
 
@@ -207,7 +207,7 @@ canonical ones resolving (via `.agents/skills/`) into
 - ✗ if dangling (target deleted or snapshot missing), or a relay
   pointing straight at the snapshot instead of at the canonical
   `.agents/skills/` entry, naming the target dir. Remediation:
-  `/magpie-setup adopt` (idempotent re-run) or this same skill
+  `/magpie-setup install` (idempotent re-run) or this same skill
   with `--auto-fix-symlinks`.
 
 For each framework skill in the snapshot **not** symlinked
@@ -234,7 +234,7 @@ from `.agents/skills/` is as much a gap as one missing from
 
 The `--auto-fix-symlinks` path repairs the first two
 classes in place — in **every active target dir** — without
-prompting; the ⚠ class needs an explicit `/magpie-setup adopt`
+prompting; the ⚠ class needs an explicit `/magpie-setup install`
 re-run with the family added to the pick.
 
 ### 6. `.apache-magpie-overrides/` exists + has the README
@@ -243,11 +243,11 @@ re-run with the family added to the pick.
 with the `README.md` scaffold from
 [`install.md` Step 9](install.md).
 
-- ✗ if missing → `/magpie-setup adopt` (idempotently
+- ✗ if missing → `/magpie-setup install` (idempotently
   re-creates).
 - ⚠ if present but `README.md` is missing — the directory
   may have been hand-created. Suggest re-running
-  `/magpie-setup adopt`.
+  `/magpie-setup install`.
 
 ### 7. The `setup` skill itself is up to date
 
@@ -778,7 +778,7 @@ list, ordered most → least urgent:
 - ✗ on check 5 (dangling symlinks) →
   `/magpie-setup verify --auto-fix-symlinks` (cheap;
   no-op when symlinks already correct).
-- ✗ on check 6 → `/magpie-setup adopt` (idempotent
+- ✗ on check 6 → `/magpie-setup install` (idempotent
   re-create).
 - ✗ on check 4 / SHA-512 mismatch → **investigate first**;
   do not run upgrade until you understand why the
@@ -812,7 +812,7 @@ list, ordered most → least urgent:
   an adopter who skipped the `security` family will not
   see the Gmail / PonyMail entries surfaced as gaps.
 - ✗ on check 8e (ASF project, comdev MCP not registered or
-  off-`main`) → `/magpie-setup adopt` Step 9c to (re-)install
+  off-`main`) → `/magpie-setup install` Step 9c to (re-)install
   from latest `apache/comdev` `main`. ⚠ on check 8e (PonyMail
   unauthenticated, or checkout behind `origin/main`) →
   `mcp__ponymail__login()` and/or `/magpie-setup upgrade`

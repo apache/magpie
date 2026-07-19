@@ -141,7 +141,7 @@ invoke `/magpie-setup unadopt`.
 
 ## What remains after unadopt — and how to remove it
 
-`unadopt` only deletes content the adopt flow itself
+`unadopt` only deletes content the install flow itself
 installed. Anything you authored, or anything that
 overlapped with the framework's footprint but predates the
 adoption, is preserved on purpose.

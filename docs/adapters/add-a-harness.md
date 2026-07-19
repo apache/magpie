@@ -64,7 +64,7 @@ The single source of truth for *where each runtime reads skills from* is
   directory is distinct from `.agents/skills/`; use `universal` only
   for runtimes that read `.agents/` natively.
 
-Once the row is present, `/magpie-setup adopt` and `upgrade` wire the
+Once the row is present, `/magpie-setup install` and `upgrade` wire the
 relay symlinks automatically. The rules are:
 
 - The *canonical* entry lives at `.agents/skills/magpie-<skill>` and
