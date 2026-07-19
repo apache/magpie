@@ -42,8 +42,9 @@ friendlies. Testers welcome!
 
 ## Install
 
-Magpie's recipes are plain-text instructions followed by an AI agent you
-control. There are two ways to install them:
+You **adopt** Magpie once — the decision to bring the framework into your
+project — while **installation** is how you carry that out. There are two
+ways to install:
 
 **From an agent marketplace (easiest).** Install the skills directly into your
 agent — Claude Code, Codex, Copilot, Gemini, Cursor, and more — with nothing
