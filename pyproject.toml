@@ -32,7 +32,7 @@
 # Package name matches the project's canonical name. Not published to
 # PyPI — this name only frames the framework root as a uv-managed project.
 name = "apache-magpie"
-version = "0.1.0"
+version = "0.2.0.dev0"
 description = "Reusable, governance-agnostic framework of agentic skills for maintaining open-source projects."
 requires-python = ">=3.11"
 
