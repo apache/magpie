@@ -213,14 +213,27 @@ the configured archive backend, and `<project-config>/release-management-config.
 | `product_name` | `release-management-config.md` (`product_name` key) | `<project>` |
 | `planning_issue_url` | detected or supplied | — |
 | `rc_label` | planning issue body (e.g. "rc1") | `MISSING` |
-| `vote_thread_url` | planning issue body (`[VOTE]` archive URL) | `MISSING` |
-| `result_thread_url` | planning issue body (`[RESULT]` archive URL) | `MISSING` |
+| `vote_thread_url` | planning issue body (`[VOTE]` archive URL); else resolve from the mail archive (see *Mail-archive resolution*) | `MISSING` |
+| `result_thread_url` | planning issue body (`[RESULT]` archive URL); else resolve from the mail archive (see *Mail-archive resolution*) | `MISSING` |
 | `artefacts` | planning issue body (RC artefact list with sigs and checksums) | `MISSING` |
 | `promote_revision` | planning issue body (SVN revision or backend equivalent of Step 10) | `MISSING` |
-| `announce_archive_url` | planning issue body (`[ANNOUNCE]` archive URL) | `MISSING` |
+| `announce_archive_url` | planning issue body (`[ANNOUNCE]` archive URL); else resolve from the announce-list mail archive (see *Mail-archive resolution*) | `MISSING` |
 | `vote_binding_plus1` | vote tally from planning issue or `[RESULT]` thread | `MISSING` |
 | `vote_binding_minus1` | vote tally from planning issue or `[RESULT]` thread | `MISSING` |
 | `binding_voters` | roster handle list from `pmc-roster.md` crossed with `[RESULT]` | `MISSING` |
+
+**Mail-archive resolution.** Before marking `vote_thread_url`,
+`result_thread_url`, or `announce_archive_url` as `MISSING`, resolve each
+one from the configured mail archive when it is not already on the planning
+issue: search the archive named by `mail_archive` /
+`mail_archive_url_template` (for ASF, PonyMail on `lists.apache.org`) for the
+`[VOTE]` / `[RESULT] [VOTE]` / `[ANNOUNCE]` subject of `<version>`, take the
+matching thread's permalink (`https://lists.apache.org/thread/<id>`), and
+record it. Mark the field `MISSING` **only** when the archive returns no
+match — e.g. the message was sent so recently it is not yet indexed — and
+note in the record that it should be backfilled once indexed. This keeps the
+audit record self-completing rather than depending on the URLs having been
+pasted onto the planning issue.
 
 **Privacy gate.** Before reading any field, check whether its source is a
 public surface. Fields whose source data exists only in the security tracker
