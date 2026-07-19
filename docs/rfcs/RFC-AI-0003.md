@@ -65,7 +65,7 @@ apache/magpie maintainers
 | **Targets** | `apache/magpie` (the Apache Magpie framework) + adopting projects |
 | **Implemented in** | [PR #48](https://github.com/apache/magpie/pull/48) (foundation), [PR #50](https://github.com/apache/magpie/pull/50) (refinement + skill-side redactor wiring), [PR #51](https://github.com/apache/magpie/pull/51) (gate-check + skill-side gate wiring) |
 | **Source-of-truth docs** | [`tools/privacy-llm/{tool,pii,models,wiring}.md`](https://github.com/apache/magpie/tree/main/tools/privacy-llm), [`docs/setup/privacy-llm.md`](https://github.com/apache/magpie/blob/main/docs/setup/privacy-llm.md), [`AGENTS.md → Privacy-LLM`](https://github.com/apache/magpie/blob/main/AGENTS.md) |
-| **Reference implementation** | [`tools/privacy-llm/redactor/`](https://github.com/apache/magpie/tree/main/tools/privacy-llm/redactor) (PII redactor, stdlib-only Python, 48 unit tests), [`tools/privacy-llm/checker/`](https://github.com/apache/magpie/tree/main/tools/privacy-llm/checker) (approved-LLM gate-check, stdlib-only Python, 33 unit tests) |
+| **Reference implementation** | [`tools/privacy-llm/redactor/`](https://github.com/apache/magpie/tree/main/tools/privacy-llm/redactor) (PII redactor, stdlib-only Python, 53 unit tests), [`tools/privacy-llm/checker/`](https://github.com/apache/magpie/tree/main/tools/privacy-llm/checker) (approved-LLM gate-check, stdlib-only Python, 33 unit tests) |
 
 ## 1. Abstract
 
