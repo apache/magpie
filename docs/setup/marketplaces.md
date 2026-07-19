@@ -82,6 +82,19 @@ Skills are invoked under the installing plugin's namespace — e.g.
 Per-family plugins reference the shared `skills/` tree via symlinks (no copies),
 so there is a single source of truth for every skill.
 
+> [!IMPORTANT]
+> **Windows + per-family plugins.** The per-family plugins rely on git symlinks
+> (each `plugins/magpie-<family>/skills/<skill>` links to the shared
+> `skills/<skill>`). Git for Windows does **not** materialise real symlinks
+> unless `core.symlinks` is enabled *and* the account may create them (Windows
+> Developer Mode, or an elevated shell) — otherwise the clone writes each
+> symlink as a plain text file and that family's skills won't load. On Windows,
+> either enable symlink support
+> (`git config --global core.symlinks true` + Developer Mode) **or** install the
+> **all-in-one `magpie` plugin**, which uses the real `skills/` directory and
+> needs no symlinks. macOS and Linux are unaffected. (Verified on macOS: a
+> `/plugin marketplace add` GitHub clone preserves and resolves the symlinks.)
+
 ## Supported agents
 
 Every method below uses the **GitHub repository
