@@ -233,6 +233,20 @@ repos:
         files: ^(\.gitattributes|\.(agents|claude|github|kiro)/skills/.*|skills/.*|projects/_template/.*)$
         types_or: [symlink, file]
         pass_filenames: false
+  # Family-plugin consistency guard. The per-family marketplace plugins under
+  # plugins/magpie-<family>/ must stay in sync with the skills' `family:`
+  # frontmatter (the source of truth): each family's skills present as
+  # single-hop symlinks into the shared skills/ tree, and each family listed in
+  # .claude-plugin/marketplace.json alongside the all-in-one `magpie`. Catches a
+  # new skill, a changed family, or a stale symlink. `--fix` regenerates them.
+  - repo: local
+    hooks:
+      - id: check-family-plugins
+        name: check-family-plugins (marketplace families vs frontmatter)
+        language: system
+        entry: python3 tools/dev/check-family-plugins.py
+        files: ^(skills/.*/SKILL\.md|plugins/.*|\.claude-plugin/marketplace\.json)$
+        pass_filenames: false
   # Workspace-membership guard. The single source of truth for
   # which Python projects get pre-commit hooks + the CI pytest
   # matrix is the `[tool.uv.workspace] members` array in the root
