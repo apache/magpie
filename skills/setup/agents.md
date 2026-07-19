@@ -42,7 +42,7 @@ skill. Its `magpie-<skill>` entries are the links that resolve to
 the actual skill source — the gitignored snapshot
 (`.apache-magpie/skills/<skill>/`) for a normal adopter, or the
 in-repo `../../skills/<skill>/` source for the framework's own
-[local self-adoption](adopt.md#local-self-adoption-methodlocal).
+[local self-adoption](install.md#local-self-adoption-methodlocal).
 
 This is the load-bearing move for neutrality on two fronts:
 
@@ -129,13 +129,13 @@ Every adoption rule is "canonical link, then relays", not
   committed bootstrap (`magpie-setup`) tracked; the glob ignores
   the rest (the canonical links target the gitignored snapshot, so
   the relays that follow them dangle on a fresh clone). See
-  [`adopt.md` Step 7](adopt.md#step-7--gitignore-entries-fresh-only).
+  [`install.md` Step 7](install.md#step-7--gitignore-entries-fresh-only).
 - **Symlink wiring** — the canonical `magpie-<n>` →
   snapshot/source link is created once in `.agents/skills/`; every
   other active target (`claude-code`, `github`, `windsurf`,
   `goose`, …) gets a per-skill relay `magpie-<n>` →
   `../../.agents/skills/magpie-<n>`. See
-  [`adopt.md` Step 8](adopt.md#step-8--wire-up-the-framework-skill-symlinks).
+  [`install.md` Step 8](install.md#step-8--wire-up-the-framework-skill-symlinks).
 - **Committed bootstrap** ([`SKILL.md` Golden rule 6](SKILL.md#golden-rules))
   — the one committed framework artefact, `magpie-setup`, lives at
   the **canonical** `.agents/skills/magpie-setup/` (a committed
@@ -146,7 +146,7 @@ Every adoption rule is "canonical link, then relays", not
   `.agents/skills/`, plus committed relays into
   `../../.agents/skills/magpie-<skill>` in every other active
   target. See
-  [`adopt.md` → Local self-adoption](adopt.md#local-self-adoption-methodlocal).
+  [`install.md` → Local self-adoption](install.md#local-self-adoption-methodlocal).
 - **`unadopt` / `worktree-init`** — every active target dir is
   torn down / propagated uniformly. Removing only `.claude` +
   `.github` would orphan the canonical `.agents/skills/magpie-*`

@@ -189,7 +189,7 @@ fetch.
 
 The two source locks + the `.apache-magpie-sources/` snapshot dir
 must be gitignored — see
-[`adopt.md` Step 7](adopt.md#step-7--gitignore-entries-fresh-only),
+[`install.md` Step 7](install.md#step-7--gitignore-entries-fresh-only),
 which writes the block. If any line is missing (e.g. this is the
 first source on an older adoption), add it here idempotently.
 
@@ -201,7 +201,7 @@ Expand each source's `provides` against its **fetched**
 - `skill: <name>` → the single directory `skills/<name>/`.
 - `family: <prefix>-*` → every `skills/<prefix>-*` directory in
   the fetched snapshot — the **same prefix-glob** as framework
-  family selection ([`adopt.md` Step 8](adopt.md#step-8--wire-up-the-framework-skill-symlinks)),
+  family selection ([`install.md` Step 8](install.md#step-8--wire-up-the-framework-skill-symlinks)),
   computed fresh from disk, never a hard-coded list.
 
 Show the resolved skill set per source and confirm. A
@@ -214,7 +214,7 @@ same intent — reconcile them (a pointer with no matching
 ## Step 5 — Wire the symlinks
 
 Identical to the framework's canonical-plus-relay model
-([`adopt.md` Step 8](adopt.md#step-8--wire-up-the-framework-skill-symlinks),
+([`install.md` Step 8](install.md#step-8--wire-up-the-framework-skill-symlinks),
 [`agents.md`](agents.md)) — the target is the source snapshot
 instead of the framework snapshot:
 
@@ -256,7 +256,7 @@ there are no worktrees.
 - **`adopt`** chains into this sub-action as its final content
   pass when `<trust-list>` lists any source, so a fresh adoption
   that already trusts a source wires it in the same run (see
-  [`adopt.md` Step 8b](adopt.md#step-8b--wire-up-trusted-external-source-skills)).
+  [`install.md` Step 8b](install.md#step-8b--wire-up-trusted-external-source-skills)).
 - **`upgrade`** re-fetches every source per its committed
   `<sources-lock>` pin, refreshes the symlinks, and extends drift
   detection to the two source locks (see
