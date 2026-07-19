@@ -184,7 +184,7 @@ From a teammate's perspective:
   live in your `~/.claude/`, not theirs.
 
 A teammate who later wants to adopt Magpie runs
-`/magpie-setup adopt` as normal; the one `.gitignore` line you added is
+`/magpie-setup install` as normal; the one `.gitignore` line you added is
 already present and helps them.
 
 ## What works vs what does not
@@ -229,7 +229,7 @@ to let the agent touch those surfaces.
 When the project decides to adopt, the transition from your personal setup
 is straightforward:
 
-1. Run `/magpie-setup adopt` in the shared repo (see
+1. Run `/magpie-setup install` in the shared repo (see
    [`install-recipes.md`](install-recipes.md)) — this commits the bootstrap
    skill and lock, wires the skill symlinks under `.agents/skills/` and
    `.claude/skills/`, and adds the sandbox block to the shared
@@ -250,7 +250,7 @@ adoption.
 - [Agentic overrides](agentic-overrides.md) — full contract for what you
   can put in `.apache-magpie-local/` and `.apache-magpie-overrides/`,
   including enabling role-specific MCP servers just for yourself.
-- [Full adoption recipe](install-recipes.md) — if the team later decides
+- [Full install recipe](install-recipes.md) — if the team later decides
   to adopt Magpie, this is the canonical install walkthrough.
 - [Secure agent setup](secure-agent-setup.md) — the full install reference
   including the user-scope sandbox.

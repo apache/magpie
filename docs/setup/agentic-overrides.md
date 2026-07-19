@@ -67,7 +67,7 @@ order, first hit wins:
 ├── .apache-magpie-local/                (gitignored, per-person)
 │   └── <framework-skill-name>.md       (e.g. pr-management-triage.md)
 ├── .apache-magpie-overrides/            (committed, project-wide)
-│   ├── README.md                        (scaffolded by /magpie-setup adopt)
+│   ├── README.md                        (scaffolded by /magpie-setup install)
 │   ├── <framework-skill-name>.md
 │   └── <other-framework-skill-name>.md
 ```
@@ -81,7 +81,7 @@ framework defaults.
 
 ### Adoption and `.gitignore`
 
-`/magpie-setup adopt` adds `/.apache-magpie-local/` to the adopter
+`/magpie-setup install` adds `/.apache-magpie-local/` to the adopter
 repo's `.gitignore` automatically.  On a repo that has not adopted
 Magpie, add the line manually:
 
@@ -351,7 +351,7 @@ this by:
 - [`overrides.md` sub-action](../../skills/setup/overrides.md) —
   interactive override creation (lets the user choose between the
   personal-local and committed surfaces).
-- [Top-level README](../../README.md) — adoption flow.
+- [Top-level README](../../README.md) — install flow.
 - [`setup-status` skill](../../skills/setup-status/SKILL.md) —
   the adoption dashboard, which reports whether both override
   directories are present.

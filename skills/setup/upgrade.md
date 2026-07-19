@@ -51,7 +51,7 @@ Both paths run the same flow.
    `$(dirname "$(cd "$(git rev-parse --git-common-dir)" && pwd)")` —
    surface it explicitly so the operator can `cd` there.
 2. Read `<committed-lock>`. If missing, the repo isn't
-   adopted — suggest `/magpie-setup adopt` and stop.
+   adopted — suggest `/magpie-setup install` and stop.
 3. Read `<local-lock>`. If missing (gitignored, fresh
    clone), the local install hasn't been initialised yet —
    route as a recover-snapshot install per the committed
@@ -433,7 +433,7 @@ The framework ships hooks and config files an adopter
 rather than pulls in via symlink. Examples:
 
 - `<repo-root>/.git/hooks/post-checkout` (the worktree-aware
-  hook installed during adoption). Its expected content is the
+  hook installed during installation). Its expected content is the
   [`install.md` Step 10](install.md#step-10--worktree-aware-post-checkout-hook-fresh-only)
   template — which now both chains the sandbox-allowlist helper
   **and** seeds a new worktree's agent-guard from the main
@@ -814,7 +814,7 @@ Recommended follow-ups:
 ## Failure modes
 
 - **`<committed-lock>` missing** → repo not adopted; suggest
-  `/magpie-setup adopt`.
+  `/magpie-setup install`.
 - **Network failure** → stop, surface error, user retries.
   The skill never leaves a half-deleted snapshot — Step 3's
   `rm -rf` runs only after Step 2's user confirmation.
