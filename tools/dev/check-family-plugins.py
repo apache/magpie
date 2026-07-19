@@ -17,13 +17,15 @@ entries from the frontmatter.
 from __future__ import annotations
 
 import argparse
-import glob
 import json
-import os
 import re
+import shutil
 import sys
+from pathlib import Path
 
-MARKETPLACE = ".claude-plugin/marketplace.json"
+SKILLS = Path("skills")
+PLUGINS = Path("plugins")
+MARKETPLACE = Path(".claude-plugin/marketplace.json")
 SYMLINK_TARGET = "../../../skills/{skill}"  # relative to plugins/magpie-<f>/skills/
 
 # Per-family descriptions used when (re)generating manifests. Keep in sync with
@@ -44,10 +46,10 @@ DESC = {
 
 def families_from_frontmatter() -> dict[str, set[str]]:
     fam: dict[str, set[str]] = {}
-    for path in sorted(glob.glob("skills/*/SKILL.md")):
-        m = re.search(r"^family:\s*(\S+)", open(path, encoding="utf-8").read(), re.M)
+    for path in sorted(SKILLS.glob("*/SKILL.md")):
+        m = re.search(r"^family:\s*(\S+)", path.read_text(encoding="utf-8"), re.M)
         if m:
-            fam.setdefault(m.group(1), set()).add(os.path.basename(os.path.dirname(path)))
+            fam.setdefault(m.group(1), set()).add(path.parent.name)
     return fam
 
 
@@ -55,7 +57,7 @@ def check(fam: dict[str, set[str]]) -> list[str]:
     errors: list[str] = []
 
     try:
-        market = json.load(open(MARKETPLACE, encoding="utf-8"))
+        market = json.loads(MARKETPLACE.read_text(encoding="utf-8"))
         listed = {p["name"] for p in market.get("plugins", [])}
     except (OSError, ValueError) as exc:
         return [f"{MARKETPLACE}: cannot read/parse ({exc})"]
@@ -65,61 +67,59 @@ def check(fam: dict[str, set[str]]) -> list[str]:
 
     for family, skills in sorted(fam.items()):
         name = f"magpie-{family}"
-        pdir = f"plugins/{name}"
-        if not os.path.isfile(f"{pdir}/.claude-plugin/plugin.json"):
+        pdir = PLUGINS / name
+        if not (pdir / ".claude-plugin" / "plugin.json").is_file():
             errors.append(f"{name}: missing {pdir}/.claude-plugin/plugin.json")
             continue
         if name not in listed:
             errors.append(f"{MARKETPLACE}: missing entry for '{name}'")
 
-        sdir = f"{pdir}/skills"
-        have: dict[str, str] = {}
-        for entry in os.listdir(sdir) if os.path.isdir(sdir) else []:
-            fp = os.path.join(sdir, entry)
-            if os.path.islink(fp):
-                have[entry] = os.readlink(fp)
+        sdir = pdir / "skills"
+        have: dict[str, Path] = {}
+        for entry in sorted(sdir.iterdir()) if sdir.is_dir() else []:
+            if entry.is_symlink():
+                have[entry.name] = entry.readlink()
             else:
-                errors.append(f"{name}: {fp} is not a symlink")
+                errors.append(f"{name}: {entry} is not a symlink")
 
         for skill in sorted(skills - set(have)):
             errors.append(f"{name}: missing symlink for '{skill}' (family={family})")
         for skill in sorted(set(have) - skills):
             errors.append(f"{name}: stale symlink '{skill}' — its skill is not family={family}")
         for skill in sorted(skills & set(have)):
-            want = SYMLINK_TARGET.format(skill=skill)
+            want = Path(SYMLINK_TARGET.format(skill=skill))
             if have[skill] != want:
-                errors.append(f"{name}: {sdir}/{skill} -> {have[skill]} (expected {want})")
+                errors.append(f"{name}: {sdir / skill} -> {have[skill]} (expected {want})")
 
-    for pdir in sorted(glob.glob("plugins/magpie-*")):
-        family = os.path.basename(pdir)[len("magpie-"):]
+    for pdir in sorted(PLUGINS.glob("magpie-*")):
+        family = pdir.name[len("magpie-"):]
         if family not in fam:
-            errors.append(f"orphan plugin '{os.path.basename(pdir)}': no skill declares family '{family}'")
+            errors.append(f"orphan plugin '{pdir.name}': no skill declares family '{family}'")
 
     return errors
 
 
 def fix(fam: dict[str, set[str]]) -> None:
-    import shutil
-
-    for pdir in glob.glob("plugins/magpie-*"):
+    for pdir in PLUGINS.glob("magpie-*"):
         shutil.rmtree(pdir)
     for family, skills in sorted(fam.items()):
         name = f"magpie-{family}"
-        sdir = f"plugins/{name}/skills"
-        os.makedirs(f"plugins/{name}/.claude-plugin")
-        os.makedirs(sdir)
+        pdir = PLUGINS / name
+        sdir = pdir / "skills"
+        (pdir / ".claude-plugin").mkdir(parents=True)
+        sdir.mkdir(parents=True)
         for skill in sorted(skills):
-            os.symlink(SYMLINK_TARGET.format(skill=skill), os.path.join(sdir, skill))
+            (sdir / skill).symlink_to(SYMLINK_TARGET.format(skill=skill))
         manifest = {
             "name": name,
             "description": f"Apache Magpie — {DESC.get(family, family + ' family skills')}",
             "skills": "./skills",
         }
-        with open(f"plugins/{name}/.claude-plugin/plugin.json", "w", encoding="utf-8") as fh:
-            json.dump(manifest, fh, indent=2)
-            fh.write("\n")
+        (pdir / ".claude-plugin" / "plugin.json").write_text(
+            json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
+        )
 
-    market = json.load(open(MARKETPLACE, encoding="utf-8"))
+    market = json.loads(MARKETPLACE.read_text(encoding="utf-8"))
     keep = [p for p in market["plugins"] if p["name"] == "magpie"]
     for family, skills in sorted(fam.items()):
         keep.append({
@@ -129,9 +129,7 @@ def fix(fam: dict[str, set[str]]) -> None:
             "description": f"Apache Magpie {family} family ({len(skills)} skills).",
         })
     market["plugins"] = keep
-    with open(MARKETPLACE, "w", encoding="utf-8") as fh:
-        json.dump(market, fh, indent=2)
-        fh.write("\n")
+    MARKETPLACE.write_text(json.dumps(market, indent=2) + "\n", encoding="utf-8")
     print("Regenerated per-family plugins + marketplace entries from frontmatter.")
 
 
