@@ -7,6 +7,14 @@
 
 - [Installing Apache Magpie from agent marketplaces](#installing-apache-magpie-from-agent-marketplaces)
   - [Supported agents](#supported-agents)
+    - [Claude Code](#claude-code)
+    - [OpenAI Codex CLI](#openai-codex-cli)
+    - [GitHub Copilot](#github-copilot)
+    - [Google Gemini CLI](#google-gemini-cli)
+    - [Cursor](#cursor)
+    - [microsoft/apm (multiplexer)](#microsoftapm-multiplexer)
+    - [Kiro (AWS)](#kiro-aws)
+    - [OpenCode](#opencode)
     - [Not supported](#not-supported)
   - [Automatic upgrade detection](#automatic-upgrade-detection)
   - [Versioning](#versioning)
@@ -46,16 +54,163 @@ with the installing agent's namespacing (e.g. `/magpie:release-vote-tally`).
 
 ## Supported agents
 
-| Agent | Install | Manifest in this repo |
+Every method below uses the **GitHub repository
+[`apache/magpie`](https://github.com/apache/magpie)** as the marketplace —
+no third-party or vendor "official" directory is required. Pin to a released
+tag (e.g. `0.2.0`) for reproducibility, or track `main` for the latest.
+
+Quick reference:
+
+| Agent | One-liner | Manifest in this repo |
 |---|---|---|
-| **Claude Code** | `/plugin marketplace add apache/magpie` then `/plugin install magpie@apache-magpie` | `.claude-plugin/marketplace.json`, `.claude-plugin/plugin.json` |
-| **OpenAI Codex CLI** | `codex plugin marketplace add apache/magpie` then install `magpie` | `.codex-plugin/plugin.json`, `.agents/plugins/marketplace.json` |
-| **GitHub Copilot** | add the repo as a plugin marketplace, then install `magpie` | `marketplace.json` (repo root) |
+| **Claude Code** | `/plugin marketplace add apache/magpie` → `/plugin install magpie@apache-magpie` | `.claude-plugin/marketplace.json` + `plugin.json` |
+| **OpenAI Codex CLI** | `codex plugin marketplace add apache/magpie` → install `magpie` | `.codex-plugin/plugin.json`, `.agents/plugins/marketplace.json` |
+| **GitHub Copilot** | add `apache/magpie` as a plugin marketplace → install `magpie` | `marketplace.json` (repo root) |
 | **Google Gemini CLI** | `gemini extensions install https://github.com/apache/magpie` | `gemini-extension.json` |
-| **Cursor** | add via the plugin/skill install flow pointing at the repo | consumes the plugin manifests above |
+| **Cursor** | add via the plugin/skill install flow pointing at the repo | the plugin manifests above |
 | **microsoft/apm** | `apm install apache/magpie` (compiles to Claude/Cursor/Codex/Copilot/Gemini) | `apm.yml` |
-| **Kiro** | install from the GitHub subdirectory of a skill (Kiro installs per-skill from a subdir, not the repo root) | native `skills/<name>/SKILL.md` |
-| **OpenCode** | drop the skills into `.opencode/skills/`, or use a community installer against this repo | native `skills/<name>/SKILL.md` |
+| **Kiro** | install per-skill from a GitHub subdirectory | native `skills/<name>/SKILL.md` |
+| **OpenCode** | clone skills into `.opencode/skills/`, or use a community installer | native `skills/<name>/SKILL.md` |
+
+Detailed steps per agent follow.
+
+### Claude Code
+
+1. In a Claude Code session, add the marketplace from GitHub — this clones
+   the repo and reads `.claude-plugin/marketplace.json`:
+
+   ```text
+   /plugin marketplace add apache/magpie
+   ```
+
+2. Install the `magpie` plugin from it:
+
+   ```text
+   /plugin install magpie@apache-magpie
+   ```
+
+3. Confirm it is enabled (the `magpie` plugin should appear as installed):
+
+   ```text
+   /plugin
+   ```
+
+4. Invoke any skill under the plugin namespace, e.g.:
+
+   ```text
+   /magpie:release-vote-tally
+   /magpie:security-issue-triage
+   ```
+
+5. **Update** later with `/plugin marketplace update apache-magpie` then
+   `/plugin update magpie@apache-magpie`. On a version change the bundled
+   `SessionStart` hook also prompts you to run `/magpie-setup upgrade`.
+
+To pin a specific version instead of tracking `main`, add the marketplace
+from the tag: `/plugin marketplace add apache/magpie@0.2.0`.
+
+### OpenAI Codex CLI
+
+1. Add the marketplace (reads `.agents/plugins/marketplace.json`):
+
+   ```bash
+   codex plugin marketplace add apache/magpie
+   ```
+
+2. Install the plugin:
+
+   ```bash
+   codex plugin install magpie
+   ```
+
+3. List / verify — inside Codex run `/plugins`, or from the shell
+   `codex plugin list`.
+
+> Codex's plugin/marketplace verbs are still evolving. If a command name
+> differs, check `codex plugin --help`.
+
+### GitHub Copilot
+
+Copilot treats a GitHub repo with a root `marketplace.json` as a plugin
+marketplace.
+
+1. Add `apache/magpie` as a plugin marketplace in Copilot (CLI or the
+   coding-agent settings).
+2. Install the `magpie` plugin from it.
+3. The skills become available to the agent under the plugin.
+
+> Copilot's plugin-marketplace commands are still stabilising (enterprise-
+> managed plugins are in preview). Confirm the exact `add` / `install`
+> syntax in the current Copilot documentation.
+
+### Google Gemini CLI
+
+1. Install the extension straight from GitHub (reads `gemini-extension.json`
+   and auto-discovers the skills under `skills/`):
+
+   ```bash
+   gemini extensions install https://github.com/apache/magpie
+   ```
+
+2. Verify:
+
+   ```bash
+   gemini extensions list
+   ```
+
+3. Use the skills by asking the agent in natural language or by skill name.
+
+4. **Update** with `gemini extensions update magpie`. Gemini has no lifecycle
+   hook, so the shipped [`GEMINI.md`](../../GEMINI.md) reminds you to run
+   `/magpie-setup upgrade` when the version changes.
+
+### Cursor
+
+Cursor consumes the same plugin/skill manifests. Add Magpie through Cursor's
+plugin/skill install flow (Customize → Plugins/Skills) pointing at
+`github.com/apache/magpie`.
+
+> Confirm the exact add flow in Cursor's current docs — its self-serve
+> marketplace surface is evolving.
+
+### microsoft/apm (multiplexer)
+
+`apm` compiles one package to several agents at once (Claude, Cursor, Codex,
+Copilot, Gemini).
+
+1. From your project root:
+
+   ```bash
+   apm install apache/magpie
+   ```
+
+   (reads `apm.yml`, `type: skill`).
+
+2. `apm` deploys the skills into each supported agent's directory and writes
+   an `apm.lock.yaml` — commit it to pin the exact resolved commit.
+
+> `apm` schema is **v0.1** and may change; verify verbs with `apm --help`.
+
+### Kiro (AWS)
+
+Kiro installs skills **per-skill from a GitHub subdirectory** (it does not
+consume the repo root). For each skill you want, point Kiro's "install from
+GitHub" at that skill's subdir on a pinned tag, e.g.:
+
+```text
+https://github.com/apache/magpie/tree/0.2.0/skills/release-vote-tally
+```
+
+Kiro reads the `skills/<name>/SKILL.md` there.
+
+### OpenCode
+
+OpenCode reads native Agent Skills from `.opencode/skills/`. Either:
+
+- clone the skill directories you want into `.opencode/skills/` (project) or
+  `~/.opencode/skills/` (personal) from `github.com/apache/magpie`, or
+- use a community installer (e.g. the `opencode-skills-collection` npm
+  package) pointed at this repo.
 
 ### Not supported
 
