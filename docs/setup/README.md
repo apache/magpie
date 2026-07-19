@@ -108,6 +108,6 @@ file under `~/.claude-config/`).
 
 ## Cross-references
 
-- [Top-level README — Adopting the framework](../../README.md#adopting-the-framework) — 3-step bootstrap.
+- [Top-level README — Install](../../README.md#install) — 3-step bootstrap.
 - [`docs/prerequisites.md`](../prerequisites.md) — what each framework
   skill needs (Claude Code, Gmail MCP, GitHub auth, browser, etc.).

@@ -113,7 +113,7 @@ Optional but commonly needed:
 
 ## Cross-references
 
-- [Top-level README — Adopting the framework](../../README.md#adopting-the-framework) — 3-step bootstrap.
+- [Top-level README — Install](../../README.md#install) — 3-step bootstrap.
 - [`docs/prerequisites.md`](../prerequisites.md) — what a security
   triager / remediation developer / release manager needs
   installed before invoking any skill.
