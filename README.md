@@ -50,10 +50,9 @@ agent — Claude Code, Codex, Copilot, Gemini, Cursor, and more — with nothing
 committed to your repository. See
 [`docs/setup/marketplaces.md`](docs/setup/marketplaces.md).
 
-**As a committed snapshot (full install into your repo).** For a project that
-installs Magpie as part of its own source — pin a release and let
-`/magpie-setup` set up the snapshot, overrides, and drift detection in the
-adopter repo:
+**As a committed snapshot (installed into your repo).** For a project that
+adopts Magpie into its own source — pin a release and let `/magpie-setup`
+install the snapshot, overrides, and drift detection in the adopter repo:
 
 1. [Download / pin a release](https://magpie.apache.org/downloads/)
 2. Set up the symlinks and git-ignores — see
