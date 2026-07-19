@@ -5,8 +5,8 @@ name: magpie-setup
 family: setup
 mode: Meta
 description: |
-  Install and maintain the apache-magpie framework in a project
-  repo via the snapshot-based install (adoption) mechanism. The only
+  Adopt and maintain the apache-magpie framework in a project
+  repo via the snapshot-based installation mechanism. The only
   framework skill committed in an adopter's repo; every other
   skill is a symlink the install sub-action wires up.
   Sub-actions:
