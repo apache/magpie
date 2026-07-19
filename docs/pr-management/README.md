@@ -100,7 +100,7 @@ patterns that motivated the framework (monorepo `<area>/` layout,
 
 ## Cross-references
 
-- [Top-level README — Adopting the framework](../../README.md#adopting-the-framework) — 3-step bootstrap.
+- [Top-level README — Install](../../README.md#install) — 3-step bootstrap.
 - [`projects/_template/README.md`](../../projects/_template/README.md) — adopter scaffold index, including the PR-management config files.
 - [`tools/spec-loop/specs/pr-management-family.md`](../../tools/spec-loop/specs/pr-management-family.md) — functional spec: acceptance criteria, validation commands, and known gaps.
 - [`docs/mentoring/README.md`](../mentoring/README.md) — `pr-management-mentor` family overview.
