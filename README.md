@@ -34,13 +34,14 @@ These recipes allow human maintainers working with AIs to efficiently handle
 the repetitive parts of running an open-source project: Issue triage, PR
 review, mentoring contributors, managing security reports, and more.
 
-Magpie is currently in development for ASF projects + Python Core team
-friendlies. **Not** a public marketplace skill — adoption is by
-invitation while the framework is pre-release; once we ship via
-the [ASF release policy](https://www.apache.org/legal/release-policy.html),
-the marketplace path opens up. See
-[release-distribution](https://infra.apache.org/release-distribution.html)
-for the canonical distribution mechanism we will adopt.
+Magpie is distributed per the [ASF release policy](https://www.apache.org/legal/release-policy.html)
+(see [release-distribution](https://infra.apache.org/release-distribution.html)
+for the canonical mechanism); you adopt it by pinning a release.
+
+> [!NOTE]
+> A **public skill marketplace is planned but not yet implemented.**
+> Today you adopt Magpie directly from the released source, not from a
+> marketplace.
 
 > [!IMPORTANT]
 > The motivation, scope, and design commitments behind this work
@@ -80,7 +81,7 @@ into their repo. That skill manages everything else:
    [`docs/setup/agentic-overrides.md`](docs/setup/agentic-overrides.md)
    for the contract.
 
-**No git submodules. No marketplace. No vendored copies of
+**No git submodules. No marketplace (yet). No vendored copies of
 framework skills.** Just one committed skill (the bootstrap),
 a gitignored snapshot, and agent-readable override files.
 
@@ -99,7 +100,7 @@ Pick an install method and follow the verbatim recipe in
 |---|---|---|
 | `svn-zip` | Production once ASF official releases ship to `dist.apache.org` (signed + checksummed) | Frozen by version |
 | `git-tag` | Pin a specific framework version | Frozen by tag |
-| `git-branch` (default `main`) | WIP path — track the framework's `main` directly. The default during the framework's pre-release phase. | Tracks tip |
+| `git-branch` (default `main`) | WIP path — track the framework's `main` directly for the latest unreleased changes. | Tracks tip |
 
 Each recipe is a single shell block that:
 
