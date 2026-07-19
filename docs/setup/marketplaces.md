@@ -6,6 +6,7 @@
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
 - [Installing Apache Magpie from agent marketplaces](#installing-apache-magpie-from-agent-marketplaces)
+  - [Choosing a plugin: all-in-one vs per-family](#choosing-a-plugin-all-in-one-vs-per-family)
   - [Supported agents](#supported-agents)
     - [Claude Code](#claude-code)
     - [OpenAI Codex CLI](#openai-codex-cli)
@@ -48,9 +49,38 @@ through the plugin/extension mechanisms of the major AI coding agents,
 > `X.Y.Z` git tag; they are derived from — not a substitute for — the ASF
 > source release.
 
-All entries package the whole framework as a single **`magpie`** plugin
-that exposes every skill under the `skills/` tree. Skills are then invoked
-with the installing agent's namespacing (e.g. `/magpie:release-vote-tally`).
+## Choosing a plugin: all-in-one vs per-family
+
+The framework ships as **eleven** plugins so you install only what you use:
+
+- **`magpie`** (all-in-one) — every skill, all ten families. Simplest, but its
+  always-on metadata costs **~21.7k tokens in every session** (each installed
+  skill advertises a short description to the model on every turn — see
+  ["always-on" cost](#versioning) below).
+- **Per-family plugins** — `magpie-security`, `magpie-release-management`, … —
+  install only the families you use, so only their skills are always-on.
+  **Recommended.**
+
+| Family plugin | Skills | ~Always-on tokens |
+|---|---|---|
+| `magpie-security` | 12 | ~3.9k |
+| `magpie-release-management` | 10 | ~2.9k |
+| `magpie-setup` | 9 | ~2.6k |
+| `magpie-pr-management` | 8 | ~2.4k |
+| `magpie-issue` | 8 | ~2.4k |
+| `magpie-repo-health` | 7 | ~2.1k |
+| `magpie-contributor-growth` | 6 | ~1.8k |
+| `magpie-utilities` | 4 | ~1.4k |
+| `magpie-mentoring` | 4 | ~1.2k |
+| `magpie-pairing` | 2 | ~0.6k |
+| **`magpie`** (all) | **70** | **~21.7k** |
+
+Skills are invoked under the installing plugin's namespace — e.g.
+`/magpie:release-vote-tally` (all-in-one) or
+`/magpie-release-management:release-vote-tally` (family plugin).
+
+Per-family plugins reference the shared `skills/` tree via symlinks (no copies),
+so there is a single source of truth for every skill.
 
 ## Supported agents
 
@@ -83,10 +113,12 @@ Detailed steps per agent follow.
    /plugin marketplace add apache/magpie
    ```
 
-2. Install the `magpie` plugin from it:
+2. Install the all-in-one plugin, **or** just the families you use:
 
    ```text
-   /plugin install magpie@apache-magpie
+   /plugin install magpie@apache-magpie                    # everything (~21.7k always-on)
+   /plugin install magpie-security@apache-magpie           # one family (~3.9k always-on)
+   /plugin install magpie-release-management@apache-magpie
    ```
 
 3. Confirm it is enabled (the `magpie` plugin should appear as installed):

@@ -1,0 +1,5 @@
+{
+  "name": "magpie-repo-health",
+  "description": "Apache Magpie \u2014 read-only repo-health audits: runner labels, workflow security, dependency/license/NOTICE, flaky tests, audit-finding fixes.",
+  "skills": "./skills"
+}

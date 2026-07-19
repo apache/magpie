@@ -1,0 +1,5 @@
+{
+  "name": "magpie-pairing",
+  "description": "Apache Magpie \u2014 pair a change with a structured self-review or a multi-agent adversarial review.",
+  "skills": "./skills"
+}

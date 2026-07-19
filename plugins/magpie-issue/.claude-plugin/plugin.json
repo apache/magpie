@@ -1,0 +1,5 @@
+{
+  "name": "magpie-issue",
+  "description": "Apache Magpie \u2014 issue lifecycle: triage, reproduction, fix drafting, reassess, stale-sweep, dedup, backlog stats.",
+  "skills": "./skills"
+}

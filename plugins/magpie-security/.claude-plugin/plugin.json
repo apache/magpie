@@ -1,0 +1,5 @@
+{
+  "name": "magpie-security",
+  "description": "Apache Magpie \u2014 security-issue handling lifecycle \u2014 import through CVE publication, triage, sync, dedup, invalidate. Maintainer-only.",
+  "skills": "./skills"
+}
