@@ -7,6 +7,7 @@
 
 - [Installing Apache Magpie from agent marketplaces](#installing-apache-magpie-from-agent-marketplaces)
   - [Choosing a plugin: all-in-one vs per-family](#choosing-a-plugin-all-in-one-vs-per-family)
+  - [Skill names differ by install method](#skill-names-differ-by-install-method)
   - [Supported agents](#supported-agents)
     - [Claude Code](#claude-code)
     - [OpenAI Codex CLI](#openai-codex-cli)
@@ -129,6 +130,39 @@ so there is a single source of truth for every skill.
 > **all-in-one `magpie` plugin**, which uses the real `skills/` directory and
 > needs no symlinks. macOS and Linux are unaffected. (Verified on macOS: a
 > `/plugin marketplace add` GitHub clone preserves and resolves the symlinks.)
+
+## Skill names differ by install method
+
+The **same skill** is invoked by a **different name** depending on how you
+installed it. The portable `/magpie-setup` install bakes a `magpie-` prefix into
+each skill's name (so framework skills never collide with your own); the
+marketplace plugins namespace with `plugin:skill` and keep the bare skill name.
+
+| Skill (directory) | Portable — `/magpie-setup` snapshot | Marketplace — all-in-one `magpie` | Marketplace — family plugin |
+|---|---|---|---|
+| `release-vote-tally` | `/magpie-release-vote-tally` | `/magpie:release-vote-tally` | `/magpie-release-management:release-vote-tally` |
+| `security-issue-triage` | `/magpie-security-issue-triage` | `/magpie:security-issue-triage` | `/magpie-security:security-issue-triage` |
+| `setup` | `/magpie-setup` | `/magpie:setup` | `/magpie-setup:setup` |
+
+Why the difference:
+
+- **Portable install** (`/magpie-setup` snapshot) — the `setup` skill symlinks
+  each framework skill under a `magpie-<name>` entry (e.g.
+  `skills/release-vote-tally/` → `magpie-release-vote-tally`), and the skill's
+  own frontmatter `name:` carries the same `magpie-` prefix. It is therefore
+  invoked as a **single hyphenated token**, `/magpie-<name>`. The prefix *is* the
+  namespace — it keeps framework skills from clashing with the adopter's own
+  skills.
+- **Marketplace install** — the **plugin name** is the namespace, applied with a
+  **colon**: `/<plugin>:<skill>`. The `magpie-` frontmatter prefix is ignored
+  (the plugin already namespaces), so the skill keeps its bare directory name.
+  With the all-in-one plugin that's `/magpie:<skill>`; with a family plugin it's
+  `/magpie-<family>:<skill>`.
+
+Throughout this repo's own docs and skills, cross-references use the
+**portable** form (`/magpie-<name>`), because that is the canonical install.
+When you install via a marketplace, translate `/magpie-<name>` to
+`/<plugin>:<name>` (drop the `magpie-` prefix, add the plugin namespace).
 
 ## Supported agents
 
