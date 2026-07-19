@@ -8,6 +8,7 @@
 - [Installing Apache Magpie from agent marketplaces](#installing-apache-magpie-from-agent-marketplaces)
   - [Supported agents](#supported-agents)
     - [Not supported](#not-supported)
+  - [Automatic upgrade detection (Claude Code)](#automatic-upgrade-detection-claude-code)
   - [Versioning](#versioning)
   - [Verification status](#verification-status)
 
@@ -64,6 +65,26 @@ with the installing agent's namespacing (e.g. `/magpie:release-vote-tally`).
 - **Goose (Block)** — its extension registry is Model Context Protocol
   (MCP) servers, not `SKILL.md` skills. Distributing Magpie there would
   require wrapping skills behind an MCP server (a rebuild, not packaging).
+
+## Automatic upgrade detection (Claude Code)
+
+The Claude Code plugin ships a `SessionStart` hook
+([`hooks/check-upgrade.sh`](../../hooks/check-upgrade.sh)) that fires when a
+session starts. It compares the installed plugin version against a marker in
+the plugin's persistent data directory and, when the marketplace has updated
+the plugin to a new version, prompts you to run **`/magpie-setup upgrade`** —
+which reconciles the gitignored snapshot, the agentic overrides, and drift.
+
+The hook **detects and prompts**; it does not run the upgrade itself. Claude
+Code hooks cannot invoke a slash command, and — by design — Magpie never
+mutates an adopter repo without the guided skill's confirmation, so the
+*trigger* is automatic while the *changes* stay confirmed. The hook is
+read-only apart from writing its own version marker, makes no network calls,
+and touches nothing in the adopter repo.
+
+This lifecycle wiring is **Claude Code-only**: Codex CLI and Gemini CLI have
+no equivalent plugin update/lifecycle hook, so on those agents re-run
+`/magpie-setup upgrade` yourself after updating the package.
 
 ## Versioning
 
