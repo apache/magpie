@@ -216,7 +216,7 @@ the configured archive backend, and `<project-config>/release-management-config.
 | `vote_thread_url` | planning issue body (`[VOTE]` archive URL); else resolve from the mail archive (see *Mail-archive resolution*) | `MISSING` |
 | `result_thread_url` | planning issue body (`[RESULT]` archive URL); else resolve from the mail archive (see *Mail-archive resolution*) | `MISSING` |
 | `artefacts` | planning issue body (RC artefact list with sigs and checksums) | `MISSING` |
-| `promote_revision` | planning issue body (SVN revision or backend equivalent of Step 10) | `MISSING` |
+| `promote_revision` | planning issue body; else, for `svnpubsub`, resolve via `svn info --show-item last-changed-revision <dist-release-url>` (the Step 10 `svn mv` commit that created the promoted dir) | `MISSING` |
 | `announce_archive_url` | planning issue body (`[ANNOUNCE]` archive URL); else resolve from the announce-list mail archive (see *Mail-archive resolution*) | `MISSING` |
 | `vote_binding_plus1` | vote tally from planning issue or `[RESULT]` thread | `MISSING` |
 | `vote_binding_minus1` | vote tally from planning issue or `[RESULT]` thread | `MISSING` |
@@ -229,7 +229,9 @@ issue: search the archive named by `mail_archive` /
 `mail_archive_url_template` (for ASF, PonyMail on `lists.apache.org`) for the
 `[VOTE]` / `[RESULT] [VOTE]` / `[ANNOUNCE]` subject of `<version>`, take the
 matching thread's permalink (`https://lists.apache.org/thread/<id>`), and
-record it. Mark the field `MISSING` **only** when the archive returns no
+record it. The `[ANNOUNCE]` may index under `announce_list` **or** a cc'd
+list (e.g. `dev@`), so search the cc'd list archive too before giving up.
+Mark the field `MISSING` **only** when the archive returns no
 match — e.g. the message was sent so recently it is not yet indexed — and
 note in the record that it should be backfilled once indexed. This keeps the
 audit record self-completing rather than depending on the URLs having been
