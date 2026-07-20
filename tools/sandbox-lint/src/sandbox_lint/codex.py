@@ -124,6 +124,8 @@ def check_codex_invariants(config: dict[str, Any], rules_text: str) -> list[str]
         errors.append("rules/magpie.rules: gh auth token must be forbidden")
     if not any(rule.has("gh", "auth", "refresh") for rule in forbidden_rules):
         errors.append("rules/magpie.rules: gh auth refresh must be forbidden")
+    if not any(rule.has("gh", "api") for rule in prompt_rules + forbidden_rules):
+        errors.append("rules/magpie.rules: the gh api passthrough must prompt or be forbidden")
     if not any(rule.has("gh", "pr") for rule in allow_rules):
         errors.append("rules/magpie.rules: declare a scoped read-only GitHub allow rule")
     if any(rule.has("gh", "release", "download") for rule in allow_rules):

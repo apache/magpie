@@ -37,6 +37,7 @@ prefix_rule(pattern = ["gh", "pr", "create"], decision = "prompt")
 prefix_rule(pattern = ["gh", "issue", "create"], decision = "prompt")
 prefix_rule(pattern = ["gh", "auth", ["token", "refresh"]], decision = "forbidden")
 prefix_rule(pattern = ["gh", "pr", "view"], decision = "allow")
+prefix_rule(pattern = ["gh", "api"], decision = "prompt")
 """
 
 
@@ -140,6 +141,15 @@ def test_gh_auth_refresh_must_be_forbidden() -> None:
     )
     errors = check_codex_invariants(SAFE_CONFIG, rules)
     assert any("gh auth refresh" in error for error in errors)
+
+
+def test_ungoverned_gh_api_is_flagged() -> None:
+    # The raw API passthrough can express any mutation; without a rule of
+    # its own it skips the descriptive per-action prompt that every other
+    # gh mutation gets.
+    rules = SAFE_RULES.replace('prefix_rule(pattern = ["gh", "api"], decision = "prompt")\n', "")
+    errors = check_codex_invariants(SAFE_CONFIG, rules)
+    assert any("gh api" in error for error in errors)
 
 
 def test_justification_wording_cannot_trip_a_check() -> None:

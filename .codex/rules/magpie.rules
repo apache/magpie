@@ -127,3 +127,9 @@ prefix_rule(
     decision = "prompt",
     justification = "Credential, variable, and gist operations require confirmation.",
 )
+
+prefix_rule(
+    pattern = ["gh", "api"],
+    decision = "prompt",
+    justification = "The raw API passthrough can express any read or mutation.",
+)
