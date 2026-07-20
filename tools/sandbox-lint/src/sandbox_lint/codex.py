@@ -28,6 +28,34 @@ _DECISION_RE = re.compile(r'decision\s*=\s*"(allow|prompt|forbidden)"')
 _ELEMENT_RE = re.compile(r'\[[^\]]*\]|"[^"]*"')
 _TOKEN_RE = re.compile(r'"([^"]*)"')
 
+# Verbs that mutate remote or local state when they terminate a pattern.
+# Only the final element is checked: "run" is the noun in read-only
+# patterns such as gh run view, but a mutation when final (gh workflow run).
+_MUTATION_VERBS = frozenset(
+    {
+        "create",
+        "edit",
+        "close",
+        "reopen",
+        "merge",
+        "ready",
+        "review",
+        "comment",
+        "delete",
+        "develop",
+        "lock",
+        "pin",
+        "transfer",
+        "push",
+        "upload",
+        "download",
+        "enable",
+        "disable",
+        "run",
+        "refresh",
+    }
+)
+
 
 class _Rule(NamedTuple):
     elements: tuple[tuple[str, ...], ...]
@@ -94,6 +122,8 @@ def check_codex_invariants(config: dict[str, Any], rules_text: str) -> list[str]
         errors.append("rules/magpie.rules: git push must prompt")
     if not any(rule.has("gh", "auth", "token") for rule in forbidden_rules):
         errors.append("rules/magpie.rules: gh auth token must be forbidden")
+    if not any(rule.has("gh", "auth", "refresh") for rule in forbidden_rules):
+        errors.append("rules/magpie.rules: gh auth refresh must be forbidden")
     if not any(rule.has("gh", "pr") for rule in allow_rules):
         errors.append("rules/magpie.rules: declare a scoped read-only GitHub allow rule")
     if any(rule.has("gh", "release", "download") for rule in allow_rules):
@@ -101,5 +131,13 @@ def check_codex_invariants(config: dict[str, Any], rules_text: str) -> list[str]
             "rules/magpie.rules: gh release download must not be allowed without "
             "confirmation because it writes local files"
         )
+
+    for rule in allow_rules:
+        final_element = rule.elements[-1] if rule.elements else ()
+        verbs = sorted(set(final_element) & _MUTATION_VERBS)
+        if verbs:
+            errors.append(
+                f"rules/magpie.rules: allow rule must not end in mutation verb(s): {', '.join(verbs)}"
+            )
 
     return errors

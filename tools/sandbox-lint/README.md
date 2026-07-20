@@ -72,10 +72,12 @@ uv run --project tools/sandbox-lint sandbox-lint --kiro .kiro/agents/<name>.json
 sandbox with workspace network access disabled, `on-request` approvals
 (Codex's native per-action human confirmation), and representative
 exec-policy coverage — known remote mutations (`git push`, `gh pr`/`gh
-issue` mutations) must `prompt`, `gh auth token` must be `forbidden`, at
-least one scoped read-only `allow` rule must exist, and `gh release
-download` must not be unconditionally allowed. Invariants only — adopters
-may keep unrelated Codex configuration in the same files.
+issue` mutations) must `prompt`, `gh auth token` and `gh auth refresh`
+must be `forbidden`, at least one scoped read-only `allow` rule must
+exist, no `allow` rule may end in a mutation verb (`merge`, `delete`,
+`push`, …), and `gh release download` must not be unconditionally
+allowed. Invariants only — adopters may keep unrelated Codex
+configuration in the same files.
 
 ```bash
 uv run --project tools/sandbox-lint sandbox-lint --codex .codex

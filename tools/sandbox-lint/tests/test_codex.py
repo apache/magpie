@@ -35,7 +35,7 @@ SAFE_RULES = """
 prefix_rule(pattern = ["git", "push"], decision = "prompt")
 prefix_rule(pattern = ["gh", "pr", "create"], decision = "prompt")
 prefix_rule(pattern = ["gh", "issue", "create"], decision = "prompt")
-prefix_rule(pattern = ["gh", "auth", "token"], decision = "forbidden")
+prefix_rule(pattern = ["gh", "auth", ["token", "refresh"]], decision = "forbidden")
 prefix_rule(pattern = ["gh", "pr", "view"], decision = "allow")
 """
 
@@ -112,6 +112,34 @@ def test_multiline_rule_declaration_is_recognized() -> None:
         'prefix_rule(\n    pattern = ["git", "push"],\n    decision = "prompt",\n)',
     )
     assert check_codex_invariants(SAFE_CONFIG, rules) == []
+
+
+def test_allow_rule_ending_in_mutation_verb_is_flagged() -> None:
+    # Codex most-specific matching means a later allow can silently
+    # override a committed prompt rule; the linter must reject it.
+    rules = SAFE_RULES + ('\nprefix_rule(pattern = ["gh", "pr", "merge"], decision = "allow")\n')
+    errors = check_codex_invariants(SAFE_CONFIG, rules)
+    assert any("mutation" in error and "merge" in error for error in errors)
+
+
+def test_allow_rule_with_inner_run_noun_is_clean() -> None:
+    # "run" as an inner token is the workflow-run noun, not a verb; only
+    # the final element is checked against the mutation-verb set.
+    rules = SAFE_RULES + (
+        '\nprefix_rule(pattern = ["gh", "run", ["view", "list", "watch"]], decision = "allow")\n'
+    )
+    assert check_codex_invariants(SAFE_CONFIG, rules) == []
+
+
+def test_gh_auth_refresh_must_be_forbidden() -> None:
+    # Forbidding only the token half of the credential surface is not
+    # enough; refresh rotates the credential and must stay forbidden too.
+    rules = SAFE_RULES.replace(
+        'prefix_rule(pattern = ["gh", "auth", ["token", "refresh"]], decision = "forbidden")',
+        'prefix_rule(pattern = ["gh", "auth", "token"], decision = "forbidden")',
+    )
+    errors = check_codex_invariants(SAFE_CONFIG, rules)
+    assert any("gh auth refresh" in error for error in errors)
 
 
 def test_justification_wording_cannot_trip_a_check() -> None:
