@@ -364,10 +364,13 @@ Zero findings, plus green CI, plus all threads resolved →
 ## Step 4.5 — Identify domain-expert reviewers to suggest
 
 Regardless of disposition, surface up to **three** people worth
-pinging for an additional look at *this* change's area. The
+asking for an additional look at *this* change's area. The
 output feeds the "Suggested additional reviewers" section of
 the body ([`posting.md`](posting.md)); if nothing grounds out,
-the section is simply omitted. This runs off data already in
+the section is simply omitted. Suggestions are *named, not
+notified*: handles render backtick-quoted per the mention
+policy in [`posting.md#mention-policy`](posting.md) —
+surfacing a candidate must never ping them. This runs off data already in
 hand — the changed-file paths and the `commits` list from
 Step 2 — plus at most a few extra reads.
 
@@ -395,7 +398,8 @@ Gather candidates from three sources, cheapest first:
    `gh api "repos/<repo>/commits?path=<path>&per_page=30" --jq '.[].author.login'`.
    Rank by frequency and recency. This is where **active
    non-committer contributors** surface — a frequent recent
-   author of a file is worth pinging even without commit rights.
+   author of a file is worth suggesting even without commit
+   rights.
 
 3. **Reviewers of prior merged PRs on the touched paths**
    *(only when sources 1–2 leave you short of a maintainer, or
@@ -595,6 +599,23 @@ maintainer was reading), surface that:
 `[R]efresh` re-runs Steps 2–7 on the new SHA. `[P]ost-anyway`
 proceeds; useful if the contributor's push was a tiny rebase /
 fixup the maintainer is willing to overlook.
+
+**Mention scan — runs on every post, right before the call.**
+Scan everything about to be posted — the review body and every
+surviving inline comment — for live `@`-mentions outside code
+spans and fenced blocks. The composed draft should contain
+none: drafting already renders handles backtick-quoted per the
+mention policy in [`posting.md#mention-policy`](posting.md), so
+a hit here means a stray mention slipped through via quoted
+contributor text, adversarial fold-in, or a maintainer edit.
+For each hit, ask:
+
+> *Posting this will notify `@alice` (review body, "Worth a
+> second look from"). `[K]eep` the live mention / `[E]scape`
+> to a backtick handle?*
+
+`[E]scape` is the default. A live mention reaches GitHub only
+through an explicit `[K]eep` — never silently.
 
 If the SHA is unchanged (the common case), **execute** the
 post via `gh pr review` per [`posting.md`](posting.md).

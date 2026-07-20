@@ -1,0 +1,5 @@
+{
+  "live_handles": ["ashb"],
+  "prompt_shown": true,
+  "reason": "The unresolved-threads observation live-mentions @ashb in prose, which would notify them; the maintainer is shown a [K]eep / [E]scape prompt with escape-to-backticks as the default."
+}
