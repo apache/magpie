@@ -114,6 +114,28 @@ def test_multiline_rule_declaration_is_recognized() -> None:
     assert check_codex_invariants(SAFE_CONFIG, rules) == []
 
 
+def test_justification_wording_cannot_trip_a_check() -> None:
+    # A quoted "download" inside a justification string must not trigger
+    # the release-download invariant; only pattern tokens count.
+    rules = SAFE_RULES + (
+        '\nprefix_rule(pattern = ["gh", "release", "list"], decision = "allow",'
+        " justification = 'listing releases, excludes \"download\" artifacts')\n"
+    )
+    assert check_codex_invariants(SAFE_CONFIG, rules) == []
+
+
+def test_justification_wording_cannot_satisfy_a_check() -> None:
+    # Quoted "git" / "push" tokens inside a justification string must not
+    # satisfy the git-push prompt invariant on behalf of a missing rule.
+    rules = SAFE_RULES.replace(
+        'prefix_rule(pattern = ["git", "push"], decision = "prompt")',
+        'prefix_rule(pattern = ["gh", "repo", "view"], decision = "prompt",'
+        ' justification = \'see the "git" "push" rule in the framework profile\')',
+    )
+    errors = check_codex_invariants(SAFE_CONFIG, rules)
+    assert any("git push" in error for error in errors)
+
+
 def test_parenthesis_in_justification_does_not_truncate_blocks() -> None:
     # A ')' inside a justification string must not end the rule block early
     # and hide the decision from the invariant checks.

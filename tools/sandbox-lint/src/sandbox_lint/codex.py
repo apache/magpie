@@ -19,16 +19,46 @@
 
 from __future__ import annotations
 
-from typing import Any
+import re
+from typing import Any, NamedTuple
+
+# Pattern lists nest exactly one level: ["gh", "auth", ["token", "refresh"]].
+_PATTERN_RE = re.compile(r"pattern\s*=\s*(\[(?:[^\[\]]|\[[^\]]*\])*\])")
+_DECISION_RE = re.compile(r'decision\s*=\s*"(allow|prompt|forbidden)"')
+_ELEMENT_RE = re.compile(r'\[[^\]]*\]|"[^"]*"')
+_TOKEN_RE = re.compile(r'"([^"]*)"')
 
 
-def _rule_blocks(rules_text: str) -> list[str]:
-    # Drop full-line comments first: a commented-out rule must not satisfy
-    # an invariant. Then split on declaration starts instead of matching
-    # the closing paren: a ')' inside a justification string must not
-    # truncate a block.
+class _Rule(NamedTuple):
+    elements: tuple[tuple[str, ...], ...]
+    decision: str
+
+    def has(self, *words: str) -> bool:
+        tokens = {token for element in self.elements for token in element}
+        return all(word in tokens for word in words)
+
+
+def _parse_rules(rules_text: str) -> list[_Rule]:
+    """Parse prefix_rule declarations into pattern elements plus decision.
+
+    Comment lines are dropped first: a commented-out rule must not satisfy
+    an invariant. Splitting happens on declaration starts instead of the
+    closing paren: a ')' inside a justification string must not truncate a
+    block. Invariants then match the extracted pattern tokens only, so a
+    justification string that mentions "push" or "download" can neither
+    satisfy nor trip a check.
+    """
     code = "\n".join(line for line in rules_text.splitlines() if not line.lstrip().startswith("#"))
-    return code.split("prefix_rule(")[1:]
+    rules: list[_Rule] = []
+    for block in code.split("prefix_rule(")[1:]:
+        pattern_match = _PATTERN_RE.search(block)
+        decision_match = _DECISION_RE.search(block)
+        if not pattern_match or not decision_match:
+            continue
+        inner = pattern_match.group(1)[1:-1]
+        elements = tuple(tuple(_TOKEN_RE.findall(chunk.group(0))) for chunk in _ELEMENT_RE.finditer(inner))
+        rules.append(_Rule(elements=elements, decision=decision_match.group(1)))
+    return rules
 
 
 def check_codex_invariants(config: dict[str, Any], rules_text: str) -> list[str]:
@@ -47,26 +77,26 @@ def check_codex_invariants(config: dict[str, Any], rules_text: str) -> list[str]
             "so network bridges cross the native approval boundary"
         )
 
-    blocks = _rule_blocks(rules_text)
-    if not blocks:
-        errors.append("rules/magpie.rules: no prefix_rule declarations found")
+    rules = _parse_rules(rules_text)
+    if not rules:
+        errors.append("rules/magpie.rules: no parseable prefix_rule declarations found")
         return errors
 
-    prompt_blocks = [block for block in blocks if 'decision = "prompt"' in block]
-    allow_blocks = [block for block in blocks if 'decision = "allow"' in block]
-    forbidden_blocks = [block for block in blocks if 'decision = "forbidden"' in block]
+    prompt_rules = [rule for rule in rules if rule.decision == "prompt"]
+    allow_rules = [rule for rule in rules if rule.decision == "allow"]
+    forbidden_rules = [rule for rule in rules if rule.decision == "forbidden"]
 
-    if not any('"gh"' in block and '"pr"' in block for block in prompt_blocks):
+    if not any(rule.has("gh", "pr") for rule in prompt_rules):
         errors.append("rules/magpie.rules: GitHub pull-request mutations must prompt")
-    if not any('"gh"' in block and '"issue"' in block for block in prompt_blocks):
+    if not any(rule.has("gh", "issue") for rule in prompt_rules):
         errors.append("rules/magpie.rules: GitHub issue mutations must prompt")
-    if not any('"git"' in block and '"push"' in block for block in prompt_blocks):
+    if not any(rule.has("git", "push") for rule in prompt_rules):
         errors.append("rules/magpie.rules: git push must prompt")
-    if not any('"gh"' in block and '"auth"' in block and '"token"' in block for block in forbidden_blocks):
+    if not any(rule.has("gh", "auth", "token") for rule in forbidden_rules):
         errors.append("rules/magpie.rules: gh auth token must be forbidden")
-    if not any('"gh"' in block and '"pr"' in block for block in allow_blocks):
+    if not any(rule.has("gh", "pr") for rule in allow_rules):
         errors.append("rules/magpie.rules: declare a scoped read-only GitHub allow rule")
-    if any('"gh"' in block and '"release"' in block and '"download"' in block for block in allow_blocks):
+    if any(rule.has("gh", "release", "download") for rule in allow_rules):
         errors.append(
             "rules/magpie.rules: gh release download must not be allowed without "
             "confirmation because it writes local files"
