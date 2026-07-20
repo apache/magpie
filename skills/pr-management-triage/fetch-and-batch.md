@@ -53,7 +53,12 @@ query(
               committedDate
               statusCheckRollup {
                 state          # SUCCESS / FAILURE / PENDING / ERROR
-                contexts(first: 50) {
+                # NOTE: this page is TRUNCATED on large repos and the
+                # truncation is silent — see #failed-check-lists-are-truncated.
+                # `state` is always authoritative; the derived
+                # failed-check *list* is not, and must be re-derived from
+                # the check-runs REST API before any row that reads it.
+                contexts(first: 100) {
                   nodes {
                     __typename
                     ... on CheckRun     { name conclusion status }
@@ -179,6 +184,68 @@ instead of JSON. 20 reliably comes back with `cost=3` against
 the rate-limit budget. The inner `first:` arguments are the
 dominant factor; if you need to widen them, *lower* the outer
 batch size first — never raise above 25 without measuring.
+
+Note the interaction with
+[Failed-check lists are truncated](#failed-check-lists-are-truncated):
+trimming `contexts(first:)` to buy complexity headroom widens
+that truncation window. That is an acceptable trade **only**
+because the REST re-derivation is mandatory before any row reads
+`failed_checks` — the rollup page is a fast path, never the
+source of truth.
+
+### Failed-check lists are truncated
+
+**`statusCheckRollup.contexts` is a paginated connection, and the
+page it returns is a silent prefix — not the whole set.** A
+`<upstream>` whose PRs run well past 100 check-runs (a large
+matrix-heavy CI easily does) overflows any single page. Nothing in
+the response signals the truncation: you get a well-formed list
+that happens to be missing entries.
+
+`statusCheckRollup.state` is unaffected — it is computed
+server-side over *all* contexts, so `SUCCESS` / `FAILURE` stays
+authoritative. What is **not** authoritative is the derived
+`failed_checks` list, and that list is what the decision table
+reads for every CI-shaped row.
+
+Observed on a full 333-PR sweep of a large `<upstream>` at
+`first: 50`, three PRs were misrouted by the truncated list:
+
+| Failures per rollup page | Actual failures | Effect |
+|---|---|---|
+| 1 (a static check) | 16, including a whole provider-test sweep | routed to `comment` instead of `draft` |
+| 2 | 4 — the same suite failing on **all four** DB backends | routed to `rerun`; a consistent cross-backend failure treated as a flake |
+| 1 | 3 | routed to `comment` instead of `draft` |
+
+Raising the page size shrinks the window but does not close it —
+a repo can always exceed it. **Before evaluating any row that
+reads `failed_checks`** (rows 10, 11, 12, 12b, 13, and the
+[Real-CI guard](classify-and-act.md#real-ci-guard)), re-derive the
+list from the paginated check-runs REST endpoint:
+
+```bash
+# Walk every page — stop when a page returns < 100 entries.
+page=1
+while :; do
+  batch=$(gh api "repos/<owner>/<repo>/commits/${head_sha}/check-runs?per_page=100&page=${page}" \
+            --jq '[.check_runs[] | select(.conclusion == "failure" or .conclusion == "timed_out") | .name]')
+  echo "$batch"
+  [ "$(gh api "repos/<owner>/<repo>/commits/${head_sha}/check-runs?per_page=100&page=${page}" \
+        --jq '.check_runs | length')" -lt 100 ] && break
+  page=$((page + 1))
+done
+```
+
+Cost is one REST call per ~100 check-runs per PR, and only for
+PRs whose `rollup.state` is `FAILURE` — green PRs skip it
+entirely. On the 333-PR sweep above that was ~50 extra calls,
+negligible against the 5000/h budget and far cheaper than posting
+a wrong violations list to a contributor.
+
+**Do not** report a violations list built from the rollup page
+alone. A contributor told they have "one lint failure" when they
+have sixteen will fix the lint, push, and land back in triage —
+having been actively misled by us.
 
 ### `gh` invocation
 
@@ -519,7 +586,11 @@ query($owner: String!, $repo: String!) {
             commit {
               oid
               statusCheckRollup {
-                contexts(first: 50) {
+                # Same truncation caveat as the main query. Here it only
+                # under-populates `recent_main_failures`, which makes rows
+                # 10/11 fire less often — a PR gets `draft`/`comment`
+                # instead of `rerun`. That is the safe direction to fail.
+                contexts(first: 100) {
                   nodes {
                     __typename
                     ... on CheckRun { name conclusion }

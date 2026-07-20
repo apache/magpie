@@ -362,7 +362,10 @@ executed.
 # with `conclusion: "action_required"`. The query parameter
 # `?status=action_required` matches no runs and would silently
 # return an empty result — post-filter on `conclusion` instead.
-head_sha=$(gh api "repos/<owner>/<repo>/pulls/<N>" --jq '.head.sha')
+# One fetch covers both guards.
+read -r head_sha merge_state <<<"$(gh api "repos/<owner>/<repo>/pulls/<N>" \
+  --jq '"\(.head.sha) \(.mergeable_state)"')"
+
 pending=$(gh api "repos/<owner>/<repo>/actions/runs?head_sha=${head_sha}&per_page=20" \
   --jq '[.workflow_runs[] | select(.conclusion == "action_required")] | length')
 if [ "$pending" -gt 0 ]; then
@@ -371,9 +374,28 @@ if [ "$pending" -gt 0 ]; then
   exit 2
 fi
 
-# Guard passed — apply the label.
+# Mergeability guard — GraphQL `mergeable` is computed lazily and
+# reports UNKNOWN until a background job settles it, so a PR can
+# classify as `passing` and be conflicting by the time we mutate.
+# `mergeable_state == dirty` is the REST spelling of CONFLICTING.
+if [ "$merge_state" = "dirty" ]; then
+  echo "refuse mark-ready: <N> is conflicting — route to draft instead" >&2
+  exit 2
+fi
+if [ "$merge_state" = "unknown" ]; then
+  echo "refuse mark-ready: <N> mergeability not yet computed — retry next sweep" >&2
+  exit 2
+fi
+
+# Guards passed — apply the label.
 gh pr edit <N> --repo <repo> --add-label "ready for maintainer review"
 ```
+
+When the mergeability guard refuses with `dirty`, the PR belongs
+to row 9 (`mergeable == CONFLICTING` → `draft`) — route it there
+rather than dropping it. On a full sweep of a large `<upstream>`
+this guard refused **11 of 39** `mark-ready` candidates, every one
+genuinely conflicting despite reporting `UNKNOWN` at fetch time.
 
 When the guard refuses, the implementation should **reclassify
 the PR as `pending_workflow_approval`** (see

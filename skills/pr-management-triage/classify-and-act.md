@@ -100,8 +100,8 @@ Action verbs are defined in [`actions.md`](actions.md).
 | 16 | No real CI ran (see [Real-CI guard](#real-ci-guard)) AND `mergeable != CONFLICTING` AND author NOT first-time | `deterministic_flag` | `rebase`            | No real CI checks triggered, branch mergeable — rebase to re-trigger |
 | 17 | [`has_deterministic_signal`](#has_deterministic_signal) (fallback)                             | `deterministic_flag`       | `draft`                | Has quality issues — convert to draft with violations comment |
 | 18 | `latestReviews` has CHANGES_REQUESTED AND author committed after AND NOT [`follow_up_ping`](#follow_up_ping) | `stale_review`         | `ping`                 | Author pushed commits after CHANGES_REQUESTED from <reviewers> but no follow-up — ping |
-| 19 | All of: `statusCheckRollup.state == SUCCESS`, `mergeable != CONFLICTING`, no unresolved **collaborator** threads (see [`unresolved_threads_only`](#unresolved_threads_only) for the collaborator-author qualifier), [Real-CI guard](#real-ci-guard) passes, label `ready for maintainer review` already present | `passing` | `skip` | Already marked ready for review |
-| 20 | All of: `statusCheckRollup.state == SUCCESS`, `mergeable != CONFLICTING`, no unresolved **collaborator** threads (see [`unresolved_threads_only`](#unresolved_threads_only) for the collaborator-author qualifier), [Real-CI guard](#real-ci-guard) passes | `passing` | `mark-ready` | All checks green, no conflicts, no unresolved collaborator threads — mark for deeper review |
+| 19 | All of: `statusCheckRollup.state == SUCCESS`, `mergeable == MERGEABLE` (**not** merely `!= CONFLICTING` — see [hard rules](#hard-rules-cross-cutting-the-table)), no unresolved **collaborator** threads (see [`unresolved_threads_only`](#unresolved_threads_only) for the collaborator-author qualifier), [Real-CI guard](#real-ci-guard) passes, label `ready for maintainer review` already present | `passing` | `skip` | Already marked ready for review |
+| 20 | All of: `statusCheckRollup.state == SUCCESS`, `mergeable == MERGEABLE` (**not** merely `!= CONFLICTING` — see [hard rules](#hard-rules-cross-cutting-the-table)), no unresolved **collaborator** threads (see [`unresolved_threads_only`](#unresolved_threads_only) for the collaborator-author qualifier), [Real-CI guard](#real-ci-guard) passes | `passing` | `mark-ready` | All checks green, no conflicts, no unresolved collaborator threads — mark for deeper review |
 | 21 | Stale-sweep candidate (see [`stale-sweeps.md`](stale-sweeps.md)) AND no row 1–20 matched in this session | `stale_draft` / `inactive_open` / `stale_workflow_approval` | (per sweep) | (per sweep) |
 | 22 | Data inconsistency: rollup `SUCCESS` with `failed_checks` non-empty, OR rollup `FAILURE` with `failed_checks` empty (e.g. only CANCELLED contexts visible, or rollup hasn't yet propagated the failing check-run). Evaluated **before** rows 17, 19-20 — see [hard rules](#hard-rules-cross-cutting-the-table) | n/a | `skip` | Data anomaly — rollup not yet settled, retry next page |
 
@@ -116,6 +116,33 @@ Action verbs are defined in [`actions.md`](actions.md).
   [`mark-ready` action](actions.md#mark-ready--add-ready-for-maintainer-review-label) re-checks the
   REST `action_required` index immediately before mutating
   (Golden rule 1b in [`SKILL.md`](SKILL.md)).
+- **`mergeable == UNKNOWN` is not "no conflict".** GitHub
+  computes mergeability lazily: the first query after a base-branch
+  move returns `UNKNOWN` while a background job runs. Written as
+  `mergeable != CONFLICTING`, rows 19/20 evaluate **true** for
+  `UNKNOWN` — so an unsettled PR reads as green and earns
+  `ready for maintainer review`.
+  Treat `UNKNOWN` as *undetermined*, never as *mergeable*:
+  - Rows 19/20 require `mergeable == MERGEABLE` explicitly. A PR
+    with `UNKNOWN` falls through to `skip` with reason
+    *"mergeability not yet computed — retry next sweep"*; GitHub
+    settles it within seconds and the next sweep classifies it
+    properly.
+  - The [`mark-ready` action](actions.md#mark-ready--add-ready-for-maintainer-review-label)
+    re-reads `mergeable_state` from the REST PR object immediately
+    before applying the label and refuses on `dirty`, in the same
+    pre-mutation block as the `action_required` check.
+
+  F4 keeps the looser `!= CONFLICTING` deliberately: it only
+  decides whether an *already-labelled* PR is skipped, so an
+  `UNKNOWN` there costs one sweep of delay rather than a wrong
+  label.
+
+  Observed on a full sweep of a large `<upstream>`: **11 of 39**
+  `mark-ready` candidates reported `UNKNOWN` at fetch time and
+  `dirty` at mutation time. All 11 were genuinely conflicting; the
+  pre-mutation guard refused every one. Without that guard they
+  would have entered the maintainer review queue unmergeable.
 - **Collaborator-authored PRs never get `draft`.** When
   `authors:collaborators` is active, fall back to `comment` with
   the same body. Row 9 / 17 / etc. emit `comment`, not `draft`,
