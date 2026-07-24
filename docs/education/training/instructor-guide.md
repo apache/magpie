@@ -17,7 +17,7 @@
     - [In-person](#in-person)
     - [Virtual](#virtual)
   - [Schedule templates](#schedule-templates)
-    - [One-day workshop (~7.5 hours with breaks)](#one-day-workshop-75-hours-with-breaks)
+    - [One-day workshop (~8 hours with breaks)](#one-day-workshop-8-hours-with-breaks)
     - [Two-session intensive](#two-session-intensive-1)
     - [Weekly reading group (~11 weeks)](#weekly-reading-group-11-weeks)
   - [Per-lesson facilitator notes](#per-lesson-facilitator-notes)
@@ -67,17 +67,17 @@ moves that turn static reading material into an active learning session.
 
 ## Module overview
 
-Eleven lessons totalling approximately 7 hours of learner time:
+Eleven lessons totalling approximately 7.5 hours of learner time:
 
 | Lesson | Topic | Learner time |
 |---|---|---|
 | 1 | What agents are | 30 min |
 | 2 | Working with agents | 30 min |
-| 3 | Choosing models | 30 min |
+| 3 | Choosing models | 35 min |
 | 4 | Your first skill | 60 min |
 | 5 | Writing safe skills | 45 min |
-| 6 | Debugging a skill | 45 min |
-| 7 | Writing portable skills | 30 min |
+| 6 | Debugging a skill | 50 min |
+| 7 | Writing portable skills | 35 min |
 | 8 | Eval-driven development | 60 min |
 | 9 | Agentic and autonomous work | 45 min |
 | 10 | English as a programming language | 30 min |
@@ -155,37 +155,37 @@ questions in the discussion forum.
 
 ## Schedule templates
 
-### One-day workshop (~7.5 hours with breaks)
+### One-day workshop (~8 hours with breaks)
 
 | Time | Activity |
 |---|---|
 | 09:00–09:15 | Welcome, objectives, module overview |
 | 09:15–09:45 | Lesson 1 — What agents are |
 | 09:45–10:15 | Lesson 2 — Working with agents |
-| 10:15–10:45 | Lesson 3 — Choosing models |
-| 10:45–11:00 | Break |
+| 10:15–10:50 | Lesson 3 — Choosing models |
+| 10:50–11:00 | Break |
 | 11:00–12:00 | Lesson 4 — Your first skill (60 min) |
 | 12:00–13:00 | Lunch |
 | 13:00–13:45 | Lesson 5 — Writing safe skills |
-| 13:45–14:30 | Lesson 6 — Debugging a skill |
-| 14:30–15:00 | Lesson 7 — Writing portable skills |
-| 15:00–15:15 | Break |
-| 15:15–16:15 | Lesson 8 — Eval-driven development (60 min) |
-| 16:15–17:00 | Lesson 9 — Agentic and autonomous work |
-| 17:00–17:30 | Lesson 10 — English as a programming language |
-| 17:30–18:00 | Lesson 11 — How to contribute |
-| 18:00–18:15 | Wrap-up and next steps |
+| 13:45–14:35 | Lesson 6 — Debugging a skill |
+| 14:35–15:10 | Lesson 7 — Writing portable skills |
+| 15:10–15:20 | Break |
+| 15:20–16:20 | Lesson 8 — Eval-driven development (60 min) |
+| 16:20–17:05 | Lesson 9 — Agentic and autonomous work |
+| 17:05–17:35 | Lesson 10 — English as a programming language |
+| 17:35–18:05 | Lesson 11 — How to contribute |
+| 18:05–18:20 | Wrap-up and next steps |
 
 Reduce to a half-day by covering lessons 1–5 only (concepts and first
 skill). Lessons 6–11 form a natural second half.
 
 ### Two-session intensive
 
-**Session 1 (~3.5 hours):** Welcome (15 min), lessons 1–5 (175 min), wrap-up
+**Session 1 (~3.75 hours):** Welcome (15 min), lessons 1–5 (200 min), wrap-up
 (10 min). Assign: write one skill for your project between sessions.
 
-**Session 2 (~4.5 hours):** Review and share skills from the between-session
-assignment (20 min), lessons 6–11 (240 min), retrospective (15 min).
+**Session 2 (~4.75 hours):** Review and share skills from the between-session
+assignment (20 min), lessons 6–11 (250 min), retrospective (15 min).
 
 ### Weekly reading group (~11 weeks)
 
@@ -287,7 +287,7 @@ of what you get out depends on the quality of what you put in.
 best model for a given capability, speed, and cost combination, and the
 eval suite is what decides.
 
-**Timing.** 30 min: 10 min reading, 15 min exercises, 5 min debrief.
+**Timing.** 35 min: 10 min reading, 20 min exercises, 5 min debrief.
 
 **Discussion prompts.**
 
@@ -380,7 +380,7 @@ classification exercise is dense), 5 min debrief.
 step, read the transcript, find the moment the agent diverged, and adjust the
 prompt or context — not the retry count.
 
-**Timing.** 45 min: 10 min reading, 30 min exercises, 5 min debrief.
+**Timing.** 50 min: 10 min reading, 35 min exercises, 5 min debrief.
 
 **Discussion prompts.**
 
@@ -411,7 +411,7 @@ prompt or context — not the retry count.
 assumptions only works in one place. Portability comes from placeholders and
 config-resolution, not from "making it generic."
 
-**Timing.** 30 min: 10 min reading, 15 min exercises, 5 min debrief.
+**Timing.** 35 min: 10 min reading, 20 min exercises, 5 min debrief.
 
 **Discussion prompts.**
 
