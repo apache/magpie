@@ -248,6 +248,7 @@ Capabilities for every skill currently in
 | `setup-isolated-setup-doctor` | `capability:platform` + `capability:reassess` *(re-checks an installed sandbox against current spec — the phase is reassess on subject setup)* |
 | `setup-override-upstream` | `capability:platform` |
 | `setup-upstream-fix` | `capability:platform` |
+| `report-framework-issue` | `capability:platform` *(files a redacted bug / change-proposal issue against the framework repo when a skill or tool misbehaves; the mandatory public-disclosure scrub keeps private tracker / CVE / cross-project content out of the public issue; never files without confirmation)* |
 | `write-skill` | `capability:authoring` |
 | `optimize-skill` | `capability:authoring` |
 | `skill-reconciler` | `capability:reconciliation` *(compares two near-duplicate skill copies and classifies every difference as ALLOWED, DRIFT, or SAFETY-BASELINE; proposes convergence; never writes either copy)* |
