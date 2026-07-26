@@ -10,6 +10,45 @@ verbatim review-body templates the skill uses.
 
 ---
 
+## Mention policy
+
+> **This section is normative and applies to every character this
+> skill posts** — the review body, every inline review comment,
+> findings folded in from an adversarial reviewer, and any
+> contributor text quoted inside a finding. It is the review-side
+> counterpart of the author-only notification rule in
+> [`pr-management-triage`](../pr-management-triage/comment-templates.md).
+
+Submitting a review already notifies the PR author and every
+subscriber — that is all the notification a review needs. A live
+`@`-mention additionally summons the named person, without their
+consent, onto a thread where nothing is being asked of them.
+
+- **Nothing this skill posts ever live-`@`-mentions anyone** —
+  not suggested reviewers, not `CODEOWNERS` owners or teams, not
+  the PR author, not the operator. When a handle must appear
+  (a suggested reviewer, the author of a prior review being
+  referenced), render it **backtick-quoted** — `` `@login` `` /
+  `` `@org/team` `` — which reads as a handle without producing
+  a notification.
+- **Quoted contributor text is escaped too.** Commit messages,
+  PR-body excerpts, and code comments quoted into a finding may
+  carry `@handle` tokens; keep such quotes inside code spans or
+  fenced blocks so GitHub never processes the mentions.
+- **Adversarial fold-in is covered.** Findings imported from a
+  second reviewer (Step 5 of [`review-flow.md`](review-flow.md))
+  get the same escaping before composition — the other tool's
+  output is not exempt.
+- **A deliberate ping is still possible — never silent.** The
+  mention scan in Step 8 of
+  [`review-flow.md`](review-flow.md) flags any live mention that
+  survives drafting and posts it only on the maintainer's
+  explicit `[K]eep`. Formally requesting a reviewer remains a
+  separate action
+  ([`reviewer-routing`](../reviewer-routing/SKILL.md)).
+
+---
+
 ## Disposition
 
 The disposition is one of three GitHub review submissions:
@@ -261,25 +300,29 @@ grounded handle. Up to three, each with a one-clause reason
 tracing to the evidence that produced it (a `CODEOWNERS` rule,
 recent commits on a touched path, or a prior review on a
 touched path). Never render a handle Step 4.5 could not ground
-— omit the whole section rather than pad it or guess.
+— omit the whole section rather than pad it or guess. Handles
+render backtick-quoted per the
+[mention policy](#mention-policy) — naming someone here must
+not notify them.
 
 ```markdown
 ### Worth a second look from
 
 This change touches `scheduler/`; folks with the most context here:
 
-- @alice — `CODEOWNERS` owner for `scheduler/` (committer)
-- @bob — authored 6 of the last 20 commits under `scheduler/job_runner.py`
-- @carol — reviewed the two most recent merged PRs touching these files
+- `@alice` — `CODEOWNERS` owner for `scheduler/` (committer)
+- `@bob` — authored 6 of the last 20 commits under `scheduler/job_runner.py`
+- `@carol` — reviewed the two most recent merged PRs touching these files
 
-Pinging any of them for an extra pass is optional, not a
-merge blocker.
+None of them have been notified — asking any of them for an
+extra pass is the maintainer's call, and optional.
 ```
 
-The `@handle`s are **suggestions to the maintainer**, not
-auto-requests: this skill never calls `gh pr edit
---add-reviewer` or the `requestReviews` mutation. If the
-maintainer wants them formally requested, that is a separate,
+The handles are **suggestions to the maintainer**, not pings
+and not auto-requests: this skill never live-`@`-mentions
+them, never calls `gh pr edit --add-reviewer`, and never uses
+the `requestReviews` mutation. If the maintainer wants someone
+formally requested (or actually notified), that is a separate,
 explicit action they take (or route through
 [`reviewer-routing`](../reviewer-routing/SKILL.md)).
 

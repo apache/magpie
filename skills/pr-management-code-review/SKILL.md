@@ -515,8 +515,10 @@ For each PR in the list, run the per-PR review loop in
    2–3 **suggested additional reviewers** — domain experts for
    the touched area, derived from `CODEOWNERS` and commit /
    review history per
-   [`review-flow.md#step-45`](review-flow.md), never fabricated
-   and never auto-requested.
+   [`review-flow.md#step-45`](review-flow.md), never fabricated,
+   never auto-requested, and named with backtick-quoted handles
+   so nobody is notified (see the mention policy in
+   [`posting.md#mention-policy`](posting.md)).
 6. **Show the inline-comments picker** — inline review
    comments are the **default and preferred** output of this
    skill: for every anchored finding the skill drafts an
@@ -568,11 +570,14 @@ writes a session log to disk.
   current PR needs one of those, the skill says so and points
   at `/magpie-pr-management-triage pr:<N>`. *(Exception: the
   slop-detection `[X]` close+lock path — see Golden rule 9.)*
-- **Requesting reviewers.** Step 4.5 *names* domain experts in
-  the review body as a suggestion; it never calls `gh pr edit
-  --add-reviewer` or the `requestReviews` mutation. Formally
-  requesting a reviewer is a separate maintainer action (or a
-  job for [`reviewer-routing`](../reviewer-routing/SKILL.md)).
+- **Requesting or notifying reviewers.** Step 4.5 *names*
+  domain experts in the review body as backtick-quoted handles;
+  it never live-`@`-mentions them (see the mention policy in
+  [`posting.md#mention-policy`](posting.md)), never calls
+  `gh pr edit --add-reviewer`, and never uses the
+  `requestReviews` mutation. Formally requesting a reviewer is
+  a separate maintainer action (or a job for
+  [`reviewer-routing`](../reviewer-routing/SKILL.md)).
 - **Merging.** Merging is a conscious maintainer action that
   belongs in a separate flow.
 - **Submitting reviews on closed / merged PRs.** The skill only

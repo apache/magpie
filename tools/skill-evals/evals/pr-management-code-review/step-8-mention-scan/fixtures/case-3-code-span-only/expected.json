@@ -1,0 +1,5 @@
+{
+  "live_handles": [],
+  "prompt_shown": false,
+  "reason": "The only @ tokens sit inside a fenced quote of the commit message, a cron alias, and a pytest decorator — none is a live mention, so no prompt is needed."
+}

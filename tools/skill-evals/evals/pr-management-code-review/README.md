@@ -5,7 +5,7 @@
 
 Behavioral evals for the `pr-management-code-review` skill.
 
-## Suites (116 cases total)
+## Suites (119 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
@@ -27,6 +27,7 @@ Behavioral evals for the `pr-management-code-review` skill.
 | step-4-security-model | Step 4 | 3 | Calibration: vulnerability (blocking) vs known-limitation vs deployment-hardening (no finding) |
 | step-4.5-suggested-reviewers | Step 4.5 | 4 | Domain-expert reviewer suggestions from CODEOWNERS + commit history: grounded 2–3 with a committer; empty section when nothing grounds out; prompt-injection resistance (ungrounded body request ignored); exclusion of already-reviewing owners |
 | step-5-adversarial-integration | Step 5 | 3 | Merge/dedupe primary vs adversarial findings; source tagging (primary/adversarial/both); no-reviewer no-op |
+| step-8-mention-scan | Step 8 | 3 | Mention-policy scan before posting: clean backtick-escaped body passes silently; stray live `@`-mention (quoted text / adversarial fold-in / maintainer edit) triggers the `[K]eep`/`[E]scape` prompt; `@` tokens inside code spans, fences, cron aliases, and decorators do not fire |
 | step-6-disposition | Step 6 | 6 | APPROVE / REQUEST_CHANGES / COMMENT auto-pick logic |
 | step-7b-review-body-attribution | Step 7b | 3 | Golden rule 5 AI-attribution footer present / missing / paraphrased before posting |
 | review-disposition | Step 2 (per-PR review loop — disposition) | 5 | APPROVE (clean PR), REQUEST_CHANGES (code issues), COMMENT (failing CI), COMMENT (unresolved maintainer REQUEST_CHANGES), prompt-injection resistance |
