@@ -29,6 +29,7 @@ from magpie_bitbucket.cli import main
 from magpie_bitbucket.client import BitbucketError, SameHostRedirectHandler, load_config, make_auth_header
 from magpie_bitbucket.normalize import (
     issue,
+    issue_attachments,
     issue_comments,
     issue_list,
     pull_request,
@@ -2239,3 +2240,114 @@ def test_cli_issue_comments_cloud(
     assert output["backend"] == "bitbucket-cloud"
     assert output["issue_id"] == "7"
     assert output["comments"][0]["body"] == "Looks good."
+
+
+@patch("urllib.request.build_opener")
+def test_cloud_get_issue_attachments_follows_next(mock_build_opener: MagicMock, cloud_env: None) -> None:
+    opener = mock_opener(
+        mock_build_opener,
+        {
+            "values": [{"id": 201, "name": "screenshot.png"}],
+            "next": "https://api.bitbucket.org/2.0/repositories/apache/magpie/issues/7/attachments?page=2",
+        },
+        {"values": [{"id": 202, "name": "trace.log"}]},
+    )
+
+    result = cloud.get_issue_attachments(load_config(), "7")
+
+    first_request = opener.open.call_args_list[0].args[0]
+    second_request = opener.open.call_args_list[1].args[0]
+    assert first_request.full_url == (
+        "https://api.bitbucket.org/2.0/repositories/apache/magpie/issues/7/attachments"
+    )
+    assert second_request.full_url.endswith("/issues/7/attachments?page=2")
+    assert result["issue_id"] == "7"
+    assert result["values"] == [
+        {"id": 201, "name": "screenshot.png"},
+        {"id": 202, "name": "trace.log"},
+    ]
+
+
+def test_datacenter_get_issue_attachments_unsupported(datacenter_env: None) -> None:
+    with pytest.raises(BitbucketError, match="Data Center native issue attachments are not supported"):
+        datacenter.get_issue_attachments(load_config(), "7")
+
+
+def test_normalize_cloud_issue_attachments() -> None:
+    normalized = issue_attachments(
+        "cloud",
+        {
+            "issue_id": "7",
+            "values": [
+                {
+                    "id": 201,
+                    "name": "screenshot.png",
+                    "filename": "screenshot.png",
+                    "size": 12345,
+                    "user": {"display_name": "Alice"},
+                    "created_on": "2026-07-01T00:00:00Z",
+                    "updated_on": "2026-07-01T01:00:00Z",
+                    "links": {
+                        "self": {
+                            "href": "https://api.bitbucket.org/2.0/repositories/apache/magpie/issues/7/attachments/201"
+                        },
+                        "html": {"href": "https://bitbucket.org/apache/magpie/issues/7/attachments/201"},
+                    },
+                }
+            ],
+        },
+    )
+
+    assert normalized["backend"] == "bitbucket-cloud"
+    assert normalized["coverage"] == "partial-read-only"
+    assert normalized["issue_id"] == "7"
+    assert normalized["attachments"][0]["id"] == "201"
+    assert normalized["attachments"][0]["name"] == "screenshot.png"
+    assert normalized["attachments"][0]["filename"] == "screenshot.png"
+    assert normalized["attachments"][0]["size"] == 12345
+    assert normalized["attachments"][0]["user"] == "Alice"
+    assert normalized["attachments"][0]["created"] == "2026-07-01T00:00:00Z"
+    assert normalized["attachments"][0]["download_url"].endswith("/attachments/201")
+
+    documented_payload = issue_attachments(
+        "cloud",
+        {
+            "issue_id": "7",
+            "values": [
+                {
+                    "name": "documented.txt",
+                    "links": {
+                        "self": {
+                            "href": "https://api.bitbucket.org/2.0/repositories/apache/magpie/issues/7/attachments/documented.txt"
+                        }
+                    },
+                }
+            ],
+        },
+    )
+    assert documented_payload["attachments"][0]["id"] == "documented.txt"
+    assert documented_payload["attachments"][0]["name"] == "documented.txt"
+    assert documented_payload["attachments"][0]["filename"] == "documented.txt"
+    assert documented_payload["attachments"][0]["size"] is None
+    assert documented_payload["attachments"][0]["download_url"].endswith("/attachments/documented.txt")
+
+
+@patch("magpie_bitbucket.cloud.get_issue_attachments")
+def test_cli_issue_attachments_cloud(
+    mock_get_issue_attachments: MagicMock,
+    cloud_env: None,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    mock_get_issue_attachments.return_value = {
+        "issue_id": "7",
+        "values": [{"id": 201, "name": "screenshot.png", "user": {"display_name": "Alice"}}],
+    }
+
+    exit_code = main(["issue", "attachments", "7"])
+
+    assert exit_code == 0
+    mock_get_issue_attachments.assert_called_once_with(load_config(), "7")
+    output = json.loads(capsys.readouterr().out)
+    assert output["backend"] == "bitbucket-cloud"
+    assert output["issue_id"] == "7"
+    assert output["attachments"][0]["name"] == "screenshot.png"

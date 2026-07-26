@@ -100,6 +100,15 @@ def get_issue_comments(config: BitbucketConfig, issue_id: str) -> dict[str, Any]
     raise BitbucketError(msg)
 
 
+def get_issue_attachments(config: BitbucketConfig, issue_id: str) -> dict[str, Any]:
+    """Reject native Bitbucket issue attachment fetch for Data Center."""
+    _ = (config, issue_id)
+    msg = (
+        "Bitbucket Data Center native issue attachments are not supported; use linked Jira coverage instead."
+    )
+    raise BitbucketError(msg)
+
+
 def list_open_pull_requests(config: BitbucketConfig) -> dict[str, Any]:
     """List all open pull requests from Bitbucket Data Center."""
     project_key = quote_path(require(config.project_key, "BITBUCKET_PROJECT_KEY"))

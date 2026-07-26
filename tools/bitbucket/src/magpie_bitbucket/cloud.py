@@ -143,6 +143,34 @@ def get_issue_comments(config: BitbucketConfig, issue_id: str) -> dict[str, Any]
     return combined
 
 
+def get_issue_attachments(config: BitbucketConfig, issue_id: str) -> dict[str, Any]:
+    """Fetch attachment metadata and links for a Bitbucket Cloud issue."""
+    workspace = quote_path(require(config.workspace, "BITBUCKET_WORKSPACE"))
+    repo_slug = quote_path(require(config.repo_slug, "BITBUCKET_REPO_SLUG"))
+    issue = quote_path(issue_id)
+    url = f"{CLOUD_API_BASE}/repositories/{workspace}/{repo_slug}/issues/{issue}/attachments"
+
+    combined: dict[str, Any] = {
+        "issue_id": issue_id,
+        "values": [],
+        "paginated": True,
+        "pages": [],
+    }
+
+    seen_urls = {url}
+    while url:
+        page = get_json(url, config)
+        combined["pages"].append(page)
+
+        values = page.get("values")
+        if isinstance(values, list):
+            combined["values"].extend(item for item in values if isinstance(item, dict))
+
+        url = _validated_next_url(page.get("next"), seen_urls)
+
+    return combined
+
+
 def list_open_pull_requests(config: BitbucketConfig) -> dict[str, Any]:
     """List all open pull requests from Bitbucket Cloud."""
     workspace = quote_path(require(config.workspace, "BITBUCKET_WORKSPACE"))

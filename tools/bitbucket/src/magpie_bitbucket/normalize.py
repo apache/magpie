@@ -165,6 +165,27 @@ def issue_comments(kind: str, raw: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def issue_attachments(kind: str, raw: dict[str, Any]) -> dict[str, Any]:
+    """Normalize read-only Bitbucket issue attachments."""
+    values = raw.get("values")
+    if not isinstance(values, list):
+        values = []
+
+    attachments = [
+        _cloud_issue_attachment(item) if kind == "cloud" else _unsupported_issue_attachment(item)
+        for item in values
+        if isinstance(item, dict)
+    ]
+
+    return {
+        "backend": "bitbucket-cloud" if kind == "cloud" else "bitbucket-datacenter",
+        "coverage": "partial-read-only",
+        "issue_id": _string(raw.get("issue_id")),
+        "attachments": attachments,
+        "raw": raw,
+    }
+
+
 def pull_request_summary(kind: str, raw: dict[str, Any]) -> dict[str, Any]:
     """Normalize one pull request as a read-only change-request summary."""
     if kind == "cloud":
@@ -1044,6 +1065,40 @@ def _datacenter_inline(raw: object) -> dict[str, Any] | None:
         inline["to_line"] = raw["line"]
 
     return inline or None
+
+
+def _cloud_issue_attachment(raw: dict[str, Any]) -> dict[str, Any]:
+    name = _string(raw.get("name") or raw.get("filename"))
+    size = raw.get("size")
+    normalized_size = size if isinstance(size, int) and not isinstance(size, bool) and size >= 0 else None
+
+    return {
+        "id": _string(raw.get("id") or raw.get("uuid")) or name,
+        "name": name,
+        "filename": _string(raw.get("filename") or raw.get("name")),
+        "size": normalized_size,
+        "user": _cloud_user(raw.get("user")),
+        "created": _cloud_timestamp(raw.get("created_on")),
+        "updated": _cloud_timestamp(raw.get("updated_on")),
+        "download_url": _cloud_link(raw, "self") or _cloud_link(raw, "html"),
+        "permalink": _cloud_link(raw, "html"),
+        "raw": raw,
+    }
+
+
+def _unsupported_issue_attachment(raw: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": _string(raw.get("id")),
+        "name": None,
+        "filename": None,
+        "size": None,
+        "user": None,
+        "created": None,
+        "updated": None,
+        "download_url": None,
+        "permalink": None,
+        "raw": raw,
+    }
 
 
 def _cloud_issue_comment(raw: dict[str, Any]) -> dict[str, Any]:
