@@ -53,13 +53,14 @@ repository/organization of every source is explicit.
 
 ## Status of this document
 
-**Proposed.** The design lands in phases: **Phase A** — this RFC, the §13
-amendment, the descriptor/pointer formats under
-[`docs/skill-sources/`](../skill-sources/README.md), the org/project
-`skill-sources.md` files, and `skill-and-tool-validator` support — is the
-review checkpoint. **Phase B** — the `setup`-skill fetch/lock/symlink wiring
-(`.apache-magpie.sources.lock`, `/magpie-setup skill-sources`, and the
-`adopt`/`upgrade`/`verify` integration) plus a worked example — follows.
+**Partially Implemented.** The design checkpoint for **Phase A** is implemented and verified:
+- The formats and documentation under [`docs/skill-sources/`](../skill-sources/README.md) (README, registry, and authoring guide) exist.
+- The Principle §13 amendment has landed in [`PRINCIPLES.md`](../../PRINCIPLES.md#13-snapshot-plus-override-never-vendored-copies).
+- The organization `skill-sources.md` files are created.
+- The `setup` skill has its [`skill-sources.md`](../../skills/setup/skill-sources.md) action documentation.
+- The `skill-and-tool-validator` support is complete.
+
+**Phase B** (the `setup`-skill fetch/lock/symlink wiring, including `.apache-magpie.sources.lock` lock files, `/magpie-setup skill-sources` action, and integration with `adopt`/`upgrade`/`verify`) remains **in progress**.
 
 ## Motivation
 
