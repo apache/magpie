@@ -49,7 +49,7 @@ contract it implements) — and specifies the migration.
 
 ## Status of this document
 
-**Proposed.** Implemented in the same change set that lands this RFC
+**Implemented.** Implemented in the same change set that lands this RFC
 (`skill-and-tool-validator`, every `tools/*/README.md`, the
 `setup`-capability skills, `docs/labels-and-capabilities.md`, and the
 `AGENTS.md` / `tools/AGENTS.md` labeling sections). Supersedes the single
@@ -134,6 +134,7 @@ small set of substrate kinds:
 |---|---|---|
 | `tracker` | contract | issue / PR / board / label backend |
 | `source-control` | contract | branch / commit / diff / push (VCS) |
+| `change-request` | contract | proposed-change review + merge gate (pull request / merge request / Gerrit change) |
 | `mail-archive` | contract | public mailing-list / forum archive reads |
 | `mail-source` | contract | inbound-mail ingestion (mbox / IMAP / …) |
 | `mail-create` | contract | outbound mail composition — always an editable draft; sending is a separate human-approved step (draft mode default and only mode implemented; send mode declared, unimplemented) |
