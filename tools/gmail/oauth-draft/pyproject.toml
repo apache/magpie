@@ -115,9 +115,9 @@ testpaths = ["tests"]
 # The workspace checks run each tool via `uv run --directory <member>
 # --project . python -m <tool>` — see tools/dev/run-workspace-check.sh.
 dev = [
-  "mypy>=2.1.0",
+  "mypy>=2.3.0",
   "pytest>=9.1.1",
-  "ruff>=0.15.20",
+  "ruff>=0.15.21",
   # Needed to import and test `oauth_draft.mcp_server` (the `mcp` extra).
   "mcp>=1.28.1",
 ]
