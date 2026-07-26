@@ -35,6 +35,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import tomllib
 from pathlib import Path
 from typing import Any
 
@@ -264,6 +265,17 @@ def _load_json(p: Path) -> dict[str, Any]:
     return data
 
 
+def _load_toml(p: Path) -> dict[str, Any]:
+    try:
+        with p.open("rb") as f:
+            data = tomllib.load(f)
+    except FileNotFoundError:
+        raise SystemExit(f"sandbox-lint: file not found: {p}") from None
+    except tomllib.TOMLDecodeError as e:
+        raise SystemExit(f"sandbox-lint: invalid TOML in {p}: {e}") from None
+    return data
+
+
 def _lint_opencode(config_path: Path) -> int:
     """Lint an OpenCode opencode.json permission policy (invariants only)."""
     from sandbox_lint.opencode import check_opencode_invariants
@@ -294,6 +306,27 @@ def _lint_kiro(config_path: Path) -> int:
     return 1
 
 
+def _lint_codex(config_dir: Path) -> int:
+    """Lint a project-scoped Codex sandbox + exec-policy profile."""
+    from sandbox_lint.codex import check_codex_invariants
+
+    config = _load_toml(config_dir / "config.toml")
+    rules_path = config_dir / "rules" / "magpie.rules"
+    try:
+        rules_text = rules_path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        raise SystemExit(f"sandbox-lint: file not found: {rules_path}") from None
+
+    errors = check_codex_invariants(config, rules_text)
+    if not errors:
+        print(f"sandbox-lint: OK ({config_dir} satisfies the Codex security invariants)")
+        return 0
+    print(f"sandbox-lint: Codex profile violations in {config_dir}:", file=sys.stderr)
+    for e in errors:
+        print(f"  - {e}", file=sys.stderr)
+    return 1
+
+
 def _lint_any_harness(framework_root: Path | None) -> int:
     """Validate the harness-neutral OS-level security posture.
 
@@ -301,7 +334,7 @@ def _lint_any_harness(framework_root: Path | None) -> int:
     ``tools/agent-isolation/`` (layer 0, clean-env wrapper) and
     ``tools/agent-guard/`` (layer 3, action guard) — are present in the
     framework tree. This is the posture check for runtimes that do not have a
-    settings.json or opencode.json (Codex, Cursor, Gemini CLI, …).
+    dedicated per-harness config mode here (Cursor, Gemini CLI, …).
     """
     from sandbox_lint.posture import PostureViolation, check_posture_violations, find_framework_root
 
@@ -319,7 +352,7 @@ def _lint_any_harness(framework_root: Path | None) -> int:
         return 0
     print(
         f"sandbox-lint: harness-neutral posture violations at {root} —\n"
-        "  For runtimes without a settings.json (Codex, Cursor, Gemini CLI, …)\n"
+        "  For runtimes without a dedicated config mode (Cursor, Gemini CLI, …)\n"
         "  the security posture is enforced by these OS-level components:",
         file=sys.stderr,
     )
@@ -335,6 +368,7 @@ def main(argv: list[str] | None = None) -> int:
             "Lint .claude/settings.json against the shipped baseline and the "
             "security invariants from docs/security/threat-model.md (M.29); "
             "or lint an OpenCode opencode.json permission policy (--opencode); "
+            "or lint a project Codex profile (--codex); "
             "or validate the harness-neutral OS-level posture for runtimes "
             "without a dedicated config file (--any-harness)."
         ),
@@ -377,6 +411,17 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     mode.add_argument(
+        "--codex",
+        type=Path,
+        default=None,
+        metavar="CODEX_DIR",
+        help=(
+            "Lint a project-scoped Codex directory containing config.toml "
+            "and rules/magpie.rules against the Codex security invariants "
+            "(invariants only — no baseline diff)."
+        ),
+    )
+    mode.add_argument(
         "--any-harness",
         nargs="?",
         const=True,  # True when flag given without a path → auto-detect framework root
@@ -384,7 +429,7 @@ def main(argv: list[str] | None = None) -> int:
         metavar="FRAMEWORK_ROOT",
         help=(
             "Validate the harness-neutral security posture for runtimes without "
-            "a dedicated settings file (Codex, Cursor, Gemini CLI, …). "
+            "a dedicated settings file (Cursor, Gemini CLI, …). "
             "Checks that the OS-level enforcement components (agent-isolation "
             "layer-0 clean-env wrapper and agent-guard layer-3 action guard) "
             "are present. Optionally supply the framework root directory; "
@@ -393,6 +438,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
+    if args.codex is not None:
+        return _lint_codex(args.codex)
     if args.kiro is not None:
         return _lint_kiro(args.kiro)
     if args.opencode is not None:

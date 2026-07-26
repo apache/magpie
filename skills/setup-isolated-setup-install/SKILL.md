@@ -32,6 +32,19 @@ license: Apache-2.0
 
 # setup-isolated-setup-install
 
+## Runtime routing (run before the Claude-specific procedure)
+
+Determine the active harness from the session metadata and executable. When it
+is Codex, follow the install lifecycle in
+[docs/adapters/codex.md](../../docs/adapters/codex.md#install), including the
+project profile merge, static lint, project trust, and `agent-iso codex`
+steps. Do not write Claude settings or report a missing `.claude` file as a
+Codex failure. After completing the Codex branch, stop; the remainder of this
+skill is the Claude Code branch.
+
+When the harness is Claude Code, continue below. If the harness cannot be
+determined, ask once rather than applying one runtime's policy to another.
+
 This skill is the **on-ramp** for adopters who do not yet have the
 secure setup running. It is a thin walkthrough wrapper around the
 canonical install path documented in

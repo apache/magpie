@@ -30,6 +30,17 @@ license: Apache-2.0
 
 # setup-isolated-setup-verify
 
+## Runtime routing (run before the Claude-specific checks)
+
+When the active harness is Codex, run the verification contract in
+[docs/adapters/codex.md](../../docs/adapters/codex.md#verify): static profile
+lint, native rule classification, project trust, `/skills` visibility, and
+bridge preflights. Report every Codex check and then stop. Do not interpret
+the Claude settings checks below as Codex requirements.
+
+When the harness is Claude Code, continue with the existing checks below. If
+the harness cannot be determined, ask once.
+
 This skill is the **assertion** layer over the secure setup. It
 runs the checklist documented in
 [`docs/setup/secure-agent-setup.md` → Verification → Via a Claude Code prompt](../../docs/setup/secure-agent-setup.md#via-a-claude-code-prompt-1)

@@ -55,7 +55,7 @@ extension point = a documented, labelled slot with a tracking issue.
 | [`tools/scan-format`](../../tools/scan-format/) | ASVS | other scanner formats |
 | [`tools/vcs`](../../tools/vcs/) | Git, Mercurial, Fossil | Subversion [\#602](https://github.com/apache/magpie/issues/602), Jujutsu [\#603](https://github.com/apache/magpie/issues/603), Perforce [\#605](https://github.com/apache/magpie/issues/605) |
 | Forge / tracker | [`github`](../../tools/github/), [`jira`](../../tools/jira/), [`bitbucket`](../../tools/bitbucket/) `partial-read-only` foundation, [`sourcehut`](../../tools/sourcehut/), [`fossil`](../../tools/fossil/) | GitLab [\#305](https://github.com/apache/magpie/issues/305), Forgejo/Gitea [\#310](https://github.com/apache/magpie/issues/310), Pagure [\#312](https://github.com/apache/magpie/issues/312), deeper Bitbucket/Jira coverage [\#606](https://github.com/apache/magpie/issues/606), Bugzilla [\#302](https://github.com/apache/magpie/issues/302) |
-| Agentic runtime | Claude Code | Codex [#313](https://github.com/apache/magpie/issues/313)–OpenHands [#322](https://github.com/apache/magpie/issues/322) |
+| Agentic runtime | Claude Code, [Codex](codex.md) `experimental` ([#313](https://github.com/apache/magpie/issues/313)) | Gemini CLI [#314](https://github.com/apache/magpie/issues/314)–OpenHands [#322](https://github.com/apache/magpie/issues/322) |
 | Security cross-ref | — | OSV.dev [#311](https://github.com/apache/magpie/issues/311) |
 
 ## In-tree organizations

@@ -32,6 +32,18 @@ license: Apache-2.0
 
 # setup-isolated-setup-doctor
 
+## Runtime routing (run before the Claude-specific probes)
+
+When the active harness is Codex, first require the static verification in
+[docs/adapters/codex.md](../../docs/adapters/codex.md#verify), then run the
+shared live environment probes inside the active Codex sandbox. Attribute
+failures separately to native sandbox/network denial, approval policy, or
+the POSIX agent-iso layer. Do not prescribe a `.claude` settings change for
+a Codex failure. Then stop before the Claude-specific branch below.
+
+When the harness is Claude Code, continue below. If the harness cannot be
+determined, ask once.
+
 The **diagnostic** layer over the secure agent setup. Complements
 the existing setup skills:
 

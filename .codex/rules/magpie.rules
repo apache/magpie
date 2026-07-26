@@ -1,0 +1,135 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+# Codex exec-policy is the human-in-the-loop layer for Magpie's networked
+# CLI bridges. Read-only GitHub operations may proceed; mutations prompt.
+# Commands not listed here still follow approval_policy = "on-request" and
+# the workspace-write sandbox, whose project profile disables network.
+
+prefix_rule(
+    pattern = ["git", "fetch"],
+    decision = "allow",
+    justification = "Refreshing remote refs is read-only.",
+)
+
+prefix_rule(
+    pattern = ["git", ["push", "pull"]],
+    decision = "prompt",
+    justification = "Publishing or integrating remote changes requires confirmation.",
+)
+
+prefix_rule(
+    pattern = ["gh", "auth", ["token", "refresh"]],
+    decision = "forbidden",
+    justification = "Agents must not expose or rotate the user's GitHub credential.",
+)
+
+prefix_rule(
+    pattern = ["gh", "auth", "status"],
+    decision = "allow",
+    justification = "Authentication status does not expose the credential.",
+)
+
+prefix_rule(
+    pattern = ["gh", "pr", ["view", "list", "diff", "checks", "status"]],
+    decision = "allow",
+    justification = "These pull-request operations are read-only.",
+)
+
+prefix_rule(
+    pattern = ["gh", "issue", ["view", "list", "status"]],
+    decision = "allow",
+    justification = "These issue operations are read-only.",
+)
+
+prefix_rule(
+    pattern = ["gh", "repo", ["view", "list"]],
+    decision = "allow",
+    justification = "These repository operations are read-only.",
+)
+
+prefix_rule(
+    pattern = ["gh", "run", ["view", "list", "watch"]],
+    decision = "allow",
+    justification = "These workflow-run operations do not mutate GitHub state.",
+)
+
+prefix_rule(
+    pattern = ["gh", "workflow", ["view", "list"]],
+    decision = "allow",
+    justification = "These workflow operations are read-only.",
+)
+
+prefix_rule(
+    pattern = ["gh", "release", ["view", "list"]],
+    decision = "allow",
+    justification = "These release operations do not mutate remote or local state.",
+)
+
+prefix_rule(
+    pattern = ["gh", "label", "list"],
+    decision = "allow",
+    justification = "Listing labels is read-only.",
+)
+
+prefix_rule(
+    pattern = ["gh", "cache", "list"],
+    decision = "allow",
+    justification = "Listing caches is read-only.",
+)
+
+prefix_rule(
+    pattern = ["gh", "search"],
+    decision = "allow",
+    justification = "GitHub search is read-only.",
+)
+
+prefix_rule(
+    pattern = ["gh", "pr", ["create", "edit", "close", "reopen", "merge", "ready", "review", "comment"]],
+    decision = "prompt",
+    justification = "Pull-request mutations require per-action confirmation.",
+)
+
+prefix_rule(
+    pattern = ["gh", "issue", ["create", "edit", "close", "reopen", "comment", "delete", "develop", "lock", "pin", "transfer"]],
+    decision = "prompt",
+    justification = "Issue mutations require per-action confirmation.",
+)
+
+prefix_rule(
+    pattern = ["gh", "release", ["create", "edit", "delete", "upload", "download"]],
+    decision = "prompt",
+    justification = "Release mutations and artifact downloads require per-action confirmation.",
+)
+
+prefix_rule(
+    pattern = ["gh", "workflow", ["run", "enable", "disable"]],
+    decision = "prompt",
+    justification = "Workflow mutations require per-action confirmation.",
+)
+
+prefix_rule(
+    pattern = ["gh", ["secret", "variable", "gist"]],
+    decision = "prompt",
+    justification = "Credential, variable, and gist operations require confirmation.",
+)
+
+prefix_rule(
+    pattern = ["gh", "api"],
+    decision = "prompt",
+    justification = "The raw API passthrough can express any read or mutation.",
+)

@@ -313,11 +313,11 @@ Codex, Cursor, Gemini CLI, Copilot and others, with thin relay symlinks
 giving every other agent directory (`.claude/skills/`,
 `.github/skills/`, …) a pointer to the same entry
 ([`README.md` § snapshot + override](../README.md)). Users already run
-Magpie under several different agentic CLIs. Adding first-class features
-for another runtime is an [`family:tools`](labels-and-capabilities.md#1-family--subject)
-contribution, not a re-architecture — and the extension points are
+Magpie under several different agentic CLIs. Codex now has a
+[first-class adapter](adapters/codex.md) (experimental); adding another
+runtime is a [`family:tools`](labels-and-capabilities.md#1-family--subject)
+contribution, not a re-architecture. The remaining extension points are
 already open, labelled `good first issue`:
-[Codex](https://github.com/apache/magpie/issues/313),
 [Gemini CLI](https://github.com/apache/magpie/issues/314),
 [local LLM (Ollama / llama.cpp / vLLM)](https://github.com/apache/magpie/issues/315),
 [Cursor](https://github.com/apache/magpie/issues/316),
@@ -490,7 +490,7 @@ coverage without pretending one team can implement an open-ended set.
 | Axis | Architecture neutral? | Reference backends working today | Extension points |
 |---|---|---|---|
 | LLM backend | ✅ by construction | Claude Code, Ollama, vLLM, Apache-hosted, Bedrock, direct Anthropic | Any endpoint meeting the capability floor + privacy gate |
-| Agentic runtime | ✅ by construction (`AGENTS.md` standard) | Claude Code; community use under Codex, Cursor, Gemini CLI, Copilot, OpenCode, Kiro | Runtime adapters [#313–#322](https://github.com/apache/magpie/issues?q=is%3Aissue+state%3Aopen+adapter+in%3Atitle) |
+| Agentic runtime | ✅ by construction (`AGENTS.md` standard) | Claude Code; OpenCode; [Codex adapter](adapters/codex.md) (experimental); community use under Cursor, Gemini CLI, Copilot, Kiro | Remaining runtime adapters [#314–#322](https://github.com/apache/magpie/issues?q=is%3Aissue+state%3Aopen+adapter+in%3Atitle) |
 | Forge / tracker | ✅ by construction | GitHub, Jira, SourceHut; Bitbucket `partial-read-only` foundation excluded from complete-backend counts; CVE/scan/relay via adapter contracts | GitLab [#305](https://github.com/apache/magpie/issues/305), Forgejo/Gitea [#310](https://github.com/apache/magpie/issues/310), Pagure [#312](https://github.com/apache/magpie/issues/312), full Bitbucket tracker/change-request/Jira coverage [#606](https://github.com/apache/magpie/issues/606), Bugzilla [#302](https://github.com/apache/magpie/issues/302) |
 | Communication channels | ✅ by construction | PonyMail / mail-archive reads | mbox [#304](https://github.com/apache/magpie/issues/304), IMAP [#303](https://github.com/apache/magpie/issues/303), Mailman 3 [#306](https://github.com/apache/magpie/issues/306); Discourse [#307](https://github.com/apache/magpie/issues/307), Zulip [#308](https://github.com/apache/magpie/issues/308), Matrix [#309](https://github.com/apache/magpie/issues/309) |
 | Source control (VCS) | ✅ by construction | **Git (complete)**, **Mercurial (complete)**; ASF SVN surface ([`tools/asf-svn`](../tools/asf-svn/): source control + dist.apache.org + authorization) | Subversion generic VCS binding [\#602](https://github.com/apache/magpie/issues/602) (detected); Jujutsu [\#603](https://github.com/apache/magpie/issues/603), Fossil [\#604](https://github.com/apache/magpie/issues/604), Perforce [\#605](https://github.com/apache/magpie/issues/605) (tracked) |
