@@ -1655,6 +1655,41 @@ def test_assert_negate_passes_spec_error_through():
     assert "pattern" in note
 
 
+def test_assert_negate_true_inverts_result():
+    # Explicit boolean True: the predicate result must be inverted.
+    spec = {"field": "body", "type": "contains", "substring": "present", "negate": True}
+    holds, _note = evaluate_deterministic_assertion(spec, {"body": "present"})
+    assert holds is False
+
+    holds, _note = evaluate_deterministic_assertion(spec, {"body": "absent"})
+    assert holds is True
+
+
+def test_assert_negate_false_does_not_invert_result():
+    # Explicit boolean False: the predicate result must be returned unchanged.
+    spec = {"field": "body", "type": "contains", "substring": "present", "negate": False}
+    holds, _note = evaluate_deterministic_assertion(spec, {"body": "present"})
+    assert holds is True
+
+    holds, _note = evaluate_deterministic_assertion(spec, {"body": "absent"})
+    assert holds is False
+
+
+def test_assert_negate_non_boolean_raises_type_error():
+    # Non-boolean values for 'negate' must raise TypeError immediately.
+    # The string "false" is a common mistake: it is truthy in Python, so
+    # without this guard it would silently invert the assertion.
+    for bad_value in ("false", "true", 0, 1, 0.1, [], {}):
+        spec = {
+            "field": "body",
+            "type": "contains",
+            "substring": "x",
+            "negate": bad_value,
+        }
+        with pytest.raises(TypeError, match="'negate' must be a boolean"):
+            evaluate_deterministic_assertion(spec, {"body": "x"})
+
+
 # ---------------------------------------------------------------------------
 # Structural assertions: batch_judge_assertions
 # ---------------------------------------------------------------------------

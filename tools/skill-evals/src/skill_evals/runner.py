@@ -714,9 +714,18 @@ def evaluate_deterministic_assertion(spec: dict, actual: object) -> tuple[bool |
     ``--passphrase`` token does not appear). Negation is applied only to a
     concrete True/False result; a spec/usage error (None) is passed through
     unchanged so the typo still fails loudly.
+
+    ``"negate"`` must be an exact boolean; any other type (e.g. the string
+    ``"false"``, a number, or a list) raises ``TypeError`` immediately so the
+    author sees a clear error rather than silently getting the wrong behavior.
     """
+    negate = spec.get("negate", False)
+    if not isinstance(negate, bool):
+        raise TypeError(
+            f"'negate' must be a boolean (true or false), got {type(negate).__name__!r}: {negate!r}"
+        )
     holds, note = _evaluate_deterministic_assertion_raw(spec, actual)
-    if spec.get("negate") and holds is not None:
+    if negate and holds is not None:
         holds = not holds
     return holds, note
 
