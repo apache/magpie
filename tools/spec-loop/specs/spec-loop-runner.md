@@ -114,21 +114,30 @@ sandbox, and stop without pushing or opening a PR.
 `SPEC_LOOP_EFFORT` is the harness-neutral reasoning-effort band
 (`low` / `medium` / `high`). Unset means no effort flag is added. Invalid
 values fail at startup before the first iteration. Where a CLI offers more
-levels than the framework band, `high` maps to that CLI's top value:
+levels than the framework band, `high` maps to that CLI's top value.
 
-| Harness | Effort flag | low | medium | high |
-|---|---|---|---|---|
-| Claude Code | `--effort` | `low` | `medium` | `max` |
-| Codex | `-c model_reasoning_effort=…` | `low` | `medium` | `xhigh` |
-| OpenCode | `--variant` | `minimal` | `medium` | `max` |
-| Kiro | `--effort` | `low` | `medium` | `max` |
-| Cursor | (none — omitted silently) | — | — | — |
-| Gemini CLI | (none — omitted silently) | — | — | — |
+Flag names and accepted values below were taken from each CLI's own
+`--help` (or the vendor docs when the binary was unavailable) at the time
+this mapping landed. They are version-dependent: an installed CLI that
+rejects a mapped value will fail the agent launch mid-loop. When bumping a
+harness CLI, re-check `--help` and update this table and
+`spec_loop_launch_agent` together.
+
+| Harness | Effort flag | Source | low | medium | high |
+|---|---|---|---|---|---|
+| Claude Code | `--effort` | `claude --help` (`low\|medium\|high\|xhigh\|max`) | `low` | `medium` | `max` |
+| Codex | `-c model_reasoning_effort=…` | `codex exec --help` (`-c`/`--config`); key from Codex config | `low` | `medium` | `xhigh` |
+| OpenCode | `--variant` | `opencode run --help` (e.g. `high`, `max`, `minimal`) | `minimal` | `medium` | `max` |
+| Kiro | `--effort` | [Kiro CLI effort docs](https://kiro.dev/docs/cli/chat/effort/) (`low\|medium\|high\|xhigh\|max`) | `low` | `medium` | `max` |
+| Cursor | (none — omitted silently) | `cursor agent --help` (no effort/thinking-level flag) | — | — | — |
+| Gemini CLI | (none — omitted silently) | `gemini --help` (no effort/thinking-level flag) | — | — | — |
 
 `SPEC_LOOP_AGENT` chooses the CLI. `SPEC_LOOP_HARNESS` chooses the
 invocation convention and defaults from the agent basename. Adding a new
-harness means extending this matrix, documenting the safety boundary, and
-updating `loop.sh` in the same change.
+harness means extending **both** matrices above (headless contract and
+effort mapping), documenting the safety boundary, and updating
+`spec_loop_launch_agent` in `lib.sh` (plus the harness case in `loop.sh`)
+in the same change.
 
 ## Out of scope
 

@@ -148,6 +148,21 @@ test_harness_command_construction() {
     assert_contains "$TMPDIR_TEST/opencode.log" "<--variant>"
     assert_contains "$TMPDIR_TEST/opencode.log" "<max>"
 
+    # OpenCode low is the one non-identity low mapping (low → minimal).
+    make_fake_agent "$TMPDIR_TEST/opencode-low" "$TMPDIR_TEST/opencode-low.log"
+    spec_loop_launch_agent opencode "$TMPDIR_TEST/opencode-low" /repo "$TMPDIR_TEST/prompt.md" "" text low
+    wait "$SPEC_LOOP_AGENT_PID"
+    assert_contains "$TMPDIR_TEST/opencode-low.log" "<--variant>"
+    assert_contains "$TMPDIR_TEST/opencode-low.log" "<minimal>"
+    assert_not_contains "$TMPDIR_TEST/opencode-low.log" "<low>"
+
+    # One medium case (identity mapping still worth pinning).
+    make_fake_agent "$TMPDIR_TEST/claude-medium" "$TMPDIR_TEST/claude-medium.log"
+    spec_loop_launch_agent claude "$TMPDIR_TEST/claude-medium" /repo "$TMPDIR_TEST/prompt.md" "" text medium
+    wait "$SPEC_LOOP_AGENT_PID"
+    assert_contains "$TMPDIR_TEST/claude-medium.log" "<--effort>"
+    assert_contains "$TMPDIR_TEST/claude-medium.log" "<medium>"
+
     make_fake_agent "$TMPDIR_TEST/kiro-effort" "$TMPDIR_TEST/kiro-effort.log"
     spec_loop_launch_agent kiro "$TMPDIR_TEST/kiro-effort" /repo "$TMPDIR_TEST/prompt.md" "" text high
     wait "$SPEC_LOOP_AGENT_PID"
@@ -155,7 +170,7 @@ test_harness_command_construction() {
     assert_contains "$TMPDIR_TEST/kiro-effort.log" "<max>"
     assert_not_contains "$TMPDIR_TEST/kiro-effort.log" "<--model>"
 
-    # Set-but-unsupported: Cursor has no effort knob — omit silently.
+    # Set-but-unsupported: Cursor/Gemini have no effort knob — omit silently.
     make_fake_agent "$TMPDIR_TEST/cursor-agent" "$TMPDIR_TEST/cursor.log"
     spec_loop_launch_agent cursor "$TMPDIR_TEST/cursor-agent" /repo "$TMPDIR_TEST/prompt.md" "" text high
     wait "$SPEC_LOOP_AGENT_PID"
@@ -165,7 +180,20 @@ test_harness_command_construction() {
     assert_not_contains "$TMPDIR_TEST/cursor.log" "<--effort>"
     assert_not_contains "$TMPDIR_TEST/cursor.log" "<--variant>"
     assert_not_contains "$TMPDIR_TEST/cursor.log" "model_reasoning_effort"
+
+    make_fake_agent "$TMPDIR_TEST/gemini" "$TMPDIR_TEST/gemini.log"
+    spec_loop_launch_agent gemini "$TMPDIR_TEST/gemini" /repo "$TMPDIR_TEST/prompt.md" "" text high
+    wait "$SPEC_LOOP_AGENT_PID"
+    assert_contains "$TMPDIR_TEST/gemini.log" "<--yolo>"
+    assert_contains "$TMPDIR_TEST/gemini.log" "<--prompt>"
+    assert_not_contains "$TMPDIR_TEST/gemini.log" "<--effort>"
+    assert_not_contains "$TMPDIR_TEST/gemini.log" "<--variant>"
+    assert_not_contains "$TMPDIR_TEST/gemini.log" "model_reasoning_effort"
 }
+
+# loop.sh validates SPEC_LOOP_EFFORT at startup (reject anything other than
+# low|medium|high|empty). That gate is not exercised here — these fixtures
+# only call lib.sh helpers — so keep a manual check in the PR test plan.
 
 test_last_sync_marker_helpers() {
     local marker="$TMPDIR_TEST/.last-sync"

@@ -143,7 +143,9 @@ for Claude, as defence in depth, the loop also hard-denies `git push` and
   Unset means no effort flag is passed. Mapped per harness (Claude/Kiro
   `--effort`, Codex `-c model_reasoning_effort=…`, OpenCode `--variant`;
   Cursor/Gemini have no knob and silently omit). Framework `high` maps
-  to each CLI's top value (`max` / `xhigh`); see the harness table in
+  to each CLI's top value (`max` / `xhigh`); `low`/`medium` are not always
+  pass-through (OpenCode `low` → `minimal`). Exact values are in the
+  effort table in
   [`specs/spec-loop-runner.md`](specs/spec-loop-runner.md).
 - `SPEC_LOOP_PR_LIMIT` — number of open PRs to include in duplicate-work
   checks (default `100`).
