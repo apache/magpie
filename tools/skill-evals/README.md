@@ -242,18 +242,17 @@ writes stdout works). Pass `--exact` to disable grading entirely.
 
 The default prose-field set is `rationale`, `reason`, `reasons`,
 `drop_reason`, `blockers`, `notes`, `summary`, `explanation`,
-`details`, `description`. Override it per fixtures dir by placing a
+`details`, `description`. Extend it per fixtures dir by placing a
 `grading-schema.json` next to `step-config.json`:
 
 ```json
 {
-  "prose_fields": ["rationale", "drop_reason"]
+  "prose_fields": ["custom_prose_field"]
 }
 ```
 
-An empty list (`"prose_fields": []`) makes every field decision-graded
-even with the grader on, equivalent to passing `--exact` for that
-fixtures dir. The grader is called fresh on every run; nothing is
+The fields listed in `grading-schema.json` are added to the default
+prose-field set. The grader is called fresh on every run; nothing is
 cached.
 
 **Self-eval caveat.** When the model invoked by `--cli` is the same

@@ -397,9 +397,7 @@ def load_grading_schema(fixtures_dir: Path) -> set[str]:
     """Return the set of prose field names for cases in this fixtures dir.
 
     Reads ``fixtures_dir/grading-schema.json`` when present. The file may
-    set ``prose_fields`` to a string list that *replaces* the default set
-    (use ``["rationale", "reason", ...]`` to be explicit, or ``[]`` to
-    grade everything by exact match).
+    set ``prose_fields`` to a string list extending the default set.
 
     Falls back to :data:`DEFAULT_PROSE_FIELDS` when no schema file exists.
     """
@@ -412,7 +410,7 @@ def load_grading_schema(fixtures_dir: Path) -> set[str]:
         return set(DEFAULT_PROSE_FIELDS)
     if not isinstance(fields, list) or not all(isinstance(f, str) for f in fields):
         raise ValueError(f"{path} must contain a string-list 'prose_fields' field")
-    return set(fields)
+    return set(DEFAULT_PROSE_FIELDS) | set(fields)
 
 
 def _render_field_value(value: object) -> str:
