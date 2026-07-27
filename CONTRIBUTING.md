@@ -886,15 +886,10 @@ agent self-eval mode).
 Good entry points, in rough order of ramp-up cost:
 
 1. **Pick a [`good first issue`](https://github.com/apache/magpie/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22).**
-   The current backlog has 24+ such issues, including 22 net-new
-   tool / adapter bridges and per-CLI runtime ports tracked at
-   [#301–#322](https://github.com/apache/magpie/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22+sort%3Acreated-desc).
+   The current backlog has several such issues.
    Before you start work, please leave a comment on the issue so a
    maintainer can assign it to you. That keeps two people from working
    on the same issue at the same time.
-   Two clusters:
-   - **Tool bridges** ([#301–#312](https://github.com/apache/magpie/issues/301)) — JIRA write path, Bugzilla, IMAP / mbox concrete wiring, GitLab, Mailman 3 / Hyperkitty, Discourse, Zulip, Matrix, Forgejo, OSV.dev, Pagure.
-   - **Agent-CLI runtime adapters** ([#313–#322](https://github.com/apache/magpie/issues/313)) — Codex, Gemini, local-LLM, Cursor, Aider, gh-copilot, Goose, Amazon Q, Junie, OpenHands.
 
    Each issue is self-contained: tool location, suggested
    capabilities, why-useful context, references to existing tools
@@ -908,7 +903,7 @@ Good entry points, in rough order of ramp-up cost:
    from that report is high-value.
 
 3. **Eval fixtures.** [`tools/skill-evals/evals/`](tools/skill-evals/evals/)
-   has 380+ cases across 18 skills, but every skill could use more
+   has 1000+ cases across all skills, but every skill could use more
    edge cases. A new fixture is a directory with `input.json` +
    `expected.json` + a `README.md` describing the scenario.
    Lower friction than skill code changes — no model behaviour
