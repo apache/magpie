@@ -2469,8 +2469,8 @@ _LICENSE_PY_MARKERS: tuple[str, ...] = (
     "apache.org/licenses/LICENSE-2.0",
 )
 
-# Files smaller than this threshold (bytes / characters) are treated as
-# empty placeholder stubs and exempted from the license-header check.
+# Files smaller than this threshold (bytes) are treated as empty
+# placeholder stubs and exempted from the license-header check.
 _MIN_LICENSE_FILE_SIZE = 50
 
 # Path components that mark generated or vendored subtrees that must not
@@ -2485,7 +2485,7 @@ def collect_tool_python_files(root: Path | None = None) -> list[Path]:
 
     Excludes generated / vendored subtrees (``.venv``, ``site-packages``,
     ``node_modules``, ``__pycache__``) and empty placeholder files whose
-    content is shorter than ``_MIN_LICENSE_FILE_SIZE`` characters.
+    content is shorter than ``_MIN_LICENSE_FILE_SIZE`` bytes.
     """
     base = (root or find_repo_root()) / TOOLS_DIR
     if not base.exists():
@@ -3297,8 +3297,18 @@ def validate_eval_coverage(root: Path | None = None) -> Iterable[Violation]:
         return
     eval_slugs: set[str] = set()
     if evals_base.exists():
-        eval_slugs = {p.name for p in evals_base.iterdir() if p.is_dir()}
-    for skill_dir in sorted(skills_base.iterdir()):
+        try:
+            eval_slugs = {p.name for p in evals_base.iterdir() if p.is_dir()}
+        except OSError:
+            # Restrictive runners can deny listing; skip rather than crash
+            # (same posture as collect_tool_python_files on OSError).
+            return
+    try:
+        skill_dirs = sorted(skills_base.iterdir())
+    except OSError:
+        # Same posture as collect_tool_python_files: unreadable → skip.
+        return
+    for skill_dir in skill_dirs:
         if not skill_dir.is_dir():
             continue
         # A trusted-external-skill-source pointer dir carries its eval suite

@@ -20,6 +20,7 @@
 from __future__ import annotations
 
 import subprocess
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -1595,6 +1596,21 @@ _ASF_HEADER = (
 _SPDX_PY_HEADER = "# SPDX-License-Identifier: Apache-2.0\n"
 
 
+def _live_repo_root_for_header_check() -> Path | None:
+    """Return the magpie repo root when the live license-header check can run.
+
+    ``find_repo_root`` never raises — out-of-tree it returns CWD — so the
+    live integration must additionally confirm this checkout actually
+    contains the validator package under ``tools/``. Returns ``None`` when
+    that marker is absent so callers can ``skipif`` instead of aborting.
+    """
+    root = find_repo_root()
+    marker = root / "tools" / "skill-and-tool-validator" / "src" / "skill_and_tool_validator"
+    if marker.is_dir():
+        return root
+    return None
+
+
 class TestValidateLicenseHeader:
     # ------------------------------------------------------------------ #
     # Python (.py) checks                                                 #
@@ -1683,11 +1699,23 @@ class TestValidateLicenseHeader:
     # Integration: real repo passes                                       #
     # ------------------------------------------------------------------ #
 
+    def test_live_repo_header_check_skips_out_of_tree(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Out-of-tree cwd must make the live header-check skipif fire (not error)."""
+        monkeypatch.chdir(tmp_path)
+        assert _live_repo_root_for_header_check() is None
+
+    @pytest.mark.skipif(
+        _live_repo_root_for_header_check() is None,
+        reason="not running inside a magpie repo checkout with tools/",
+    )
     def test_real_repo_tool_python_files_all_have_headers(self) -> None:
         """Every non-trivial tool Python file in the real repo carries a license header."""
         from skill_and_tool_validator import _LICENSE_PY_MARKERS
 
-        repo_root = find_repo_root()
+        repo_root = _live_repo_root_for_header_check()
+        assert repo_root is not None  # skipif above guarantees this
         missing = [
             p
             for p in collect_tool_python_files(repo_root)
@@ -3634,6 +3662,42 @@ class TestValidateEvalCoverage:
         (skills_dir / "README.md").write_text("# skills\n")
         violations = list(validate_eval_coverage(tmp_path))
         assert violations == []
+
+    def test_unreadable_skills_dir_returns_no_violations(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """PermissionError on skills/.iterdir() must not abort the run."""
+        skills_dir = tmp_path / "skills"
+        skills_dir.mkdir(parents=True)
+        self._make_skill(tmp_path, "alpha")
+
+        real_iterdir = Path.iterdir
+
+        def _boom(self: Path) -> Iterator[Path]:
+            if self.resolve() == skills_dir.resolve():
+                raise PermissionError("denied")
+            return real_iterdir(self)
+
+        monkeypatch.setattr(Path, "iterdir", _boom)
+        assert list(validate_eval_coverage(tmp_path)) == []
+
+    def test_unreadable_evals_dir_returns_no_violations(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """PermissionError on evals/.iterdir() must not abort or false-flag skills."""
+        self._make_skill(tmp_path, "alpha")
+        evals_dir = tmp_path / "tools" / "skill-evals" / "evals"
+        evals_dir.mkdir(parents=True)
+
+        real_iterdir = Path.iterdir
+
+        def _boom(self: Path) -> Iterator[Path]:
+            if self.resolve() == evals_dir.resolve():
+                raise PermissionError("denied")
+            return real_iterdir(self)
+
+        monkeypatch.setattr(Path, "iterdir", _boom)
+        assert list(validate_eval_coverage(tmp_path)) == []
 
 
 # ---------------------------------------------------------------------------
