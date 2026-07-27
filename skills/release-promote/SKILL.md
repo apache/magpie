@@ -175,7 +175,7 @@ non-blocking.
 |---|---|
 | `<version>-rc<N>` (positional) | Version string and RC number of the release candidate to promote |
 | `--planning-issue <url>` | Explicit planning issue URL (auto-detected from `<upstream>` if omitted) |
-| `--result-vote-url <url>` | Archive URL of the `[RESULT] [VOTE]` thread (used in `svn commit` message for `release_dist_backend = svnpubsub`; auto-read from planning issue if present) |
+| `--result-vote-url <url>` | Archive URL of the `[RESULT] [VOTE]` thread (used in the `svn mv -m` message for `release_dist_backend = svnpubsub`; auto-read from planning issue if present) |
 | `--non-asf` | Signal that this is a non-ASF adopter; skips PMC membership check and ASF-specific policy notes |
 
 ---
@@ -240,7 +240,7 @@ Read the following from the planning issue and
 | `dist_url_template` | `release-management-config.md` | `release_dist_url_template` |
 | `staging_url` | planning issue body | URL under `dist/dev/<project>/<version>-rcN/` (for `release_dist_backend = svnpubsub`, or backend-equivalent staging location) |
 | `target_url` | constructed | render `dist_url_template` with `<bucket>=release` and `<version>=<version>` (strip the `-rcN` suffix) |
-| `result_vote_url` | planning issue body or `--result-vote-url` | Archive URL of the `[RESULT] [VOTE]` thread; used in the `svn commit` message for `release_dist_backend = svnpubsub` |
+| `result_vote_url` | planning issue body or `--result-vote-url` | Archive URL of the `[RESULT] [VOTE]` thread; used in the `svn mv -m` message for `release_dist_backend = svnpubsub` |
 | `promote_command_template` | `release-management-config.md` | `release_publish_command_template` (required when `dist_backend = self-hosted`; ignored for the other backends, which have built-in recipes) |
 | `rc_commit_sha` | git / planning issue body | commit the `<version>-rc<N>` tag points to; the final `<version>` tag is cut on this SAME commit (no rebuild). `git rev-list -n1 <version>-rc<N>` |
 | `rm_gpg_fingerprint` | RM `user.md` | `release_manager.gpg_fingerprint`; the release key the final `<version>` tag is signed with |
