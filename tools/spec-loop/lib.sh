@@ -72,27 +72,43 @@ spec_loop_marker_branch_name() {
 
 spec_loop_launch_agent() {
     local harness=$1 agent=$2 root=$3 prompt_file=$4 model=$5 output_format=$6
+    local effort=${7:-}
     local model_args=()
     [ -n "$model" ] && model_args=(--model "$model")
 
     if [ "$harness" = "opencode" ]; then
         local oc_format_args=()
+        local oc_effort_args=()
         [ "$output_format" = "stream-json" ] && oc_format_args=(--format json)
+        case "$effort" in
+            low)    oc_effort_args=(--variant minimal) ;;
+            medium) oc_effort_args=(--variant medium) ;;
+            high)   oc_effort_args=(--variant max) ;;
+        esac
         "$agent" run \
             --auto \
             ${model_args[@]+"${model_args[@]}"} \
             ${oc_format_args[@]+"${oc_format_args[@]}"} \
+            ${oc_effort_args[@]+"${oc_effort_args[@]}"} \
             "$(cat "$prompt_file")" &
     elif [ "$harness" = "codex" ]; then
         local codex_format_args=()
+        local codex_effort_args=()
         [ "$output_format" = "stream-json" ] && codex_format_args=(--json)
+        case "$effort" in
+            low)    codex_effort_args=(-c model_reasoning_effort=low) ;;
+            medium) codex_effort_args=(-c model_reasoning_effort=medium) ;;
+            high)   codex_effort_args=(-c model_reasoning_effort=xhigh) ;;
+        esac
         "$agent" exec \
             --dangerously-bypass-approvals-and-sandbox \
             --cd "$root" \
             ${model_args[@]+"${model_args[@]}"} \
             ${codex_format_args[@]+"${codex_format_args[@]}"} \
+            ${codex_effort_args[@]+"${codex_effort_args[@]}"} \
             - < "$prompt_file" &
     elif [ "$harness" = "cursor" ]; then
+        # Cursor has no per-invocation effort/thinking-level flag.
         local cursor_format_args=(--output-format "$output_format")
         local cursor_subcommand=()
         [ "$(basename "$agent")" = "cursor" ] && cursor_subcommand=(agent)
@@ -106,6 +122,7 @@ spec_loop_launch_agent() {
             ${cursor_format_args[@]+"${cursor_format_args[@]}"} \
             "$(cat "$prompt_file")" &
     elif [ "$harness" = "gemini" ]; then
+        # Gemini CLI has no per-invocation effort/thinking-level flag.
         "$agent" \
             --yolo \
             ${model_args[@]+"${model_args[@]}"} \
@@ -114,17 +131,32 @@ spec_loop_launch_agent() {
         # Kiro CLI headless: positional prompt to `kiro-cli chat --no-interactive`.
         # The model is selected by the chosen agent config (.kiro/agents), not a
         # per-invocation flag, and Kiro has no stream-json output mode here.
+        # Effort is a first-class `--effort` flag (low|medium|high|xhigh|max).
+        local kiro_effort_args=()
+        case "$effort" in
+            low)    kiro_effort_args=(--effort low) ;;
+            medium) kiro_effort_args=(--effort medium) ;;
+            high)   kiro_effort_args=(--effort max) ;;
+        esac
         "$agent" chat --no-interactive \
+            ${kiro_effort_args[@]+"${kiro_effort_args[@]}"} \
             "$(cat "$prompt_file")" &
     else
         local verbose_args=()
+        local claude_effort_args=()
         [ "$output_format" = "stream-json" ] && verbose_args=(--verbose)
+        case "$effort" in
+            low)    claude_effort_args=(--effort low) ;;
+            medium) claude_effort_args=(--effort medium) ;;
+            high)   claude_effort_args=(--effort max) ;;
+        esac
         "$agent" -p \
             --dangerously-skip-permissions \
             --disallowedTools "Bash(git push:*)" "Bash(gh:*)" \
             --output-format="$output_format" \
             ${verbose_args[@]+"${verbose_args[@]}"} \
-            ${model_args[@]+"${model_args[@]}"} < "$prompt_file" &
+            ${model_args[@]+"${model_args[@]}"} \
+            ${claude_effort_args[@]+"${claude_effort_args[@]}"} < "$prompt_file" &
     fi
     SPEC_LOOP_AGENT_PID=$!
 }
