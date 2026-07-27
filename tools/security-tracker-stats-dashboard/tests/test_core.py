@@ -58,11 +58,11 @@ class TestParseDt:
 
     def test_z_suffix(self):
         result = parse_dt("2024-03-15T10:30:00Z")
-        assert result == dt.datetime(2024, 3, 15, 10, 30, 0, tzinfo=dt.timezone.utc)
+        assert result == dt.datetime(2024, 3, 15, 10, 30, 0, tzinfo=dt.UTC)
 
     def test_plus_offset(self):
         result = parse_dt("2024-03-15T10:30:00+00:00")
-        assert result == dt.datetime(2024, 3, 15, 10, 30, 0, tzinfo=dt.timezone.utc)
+        assert result == dt.datetime(2024, 3, 15, 10, 30, 0, tzinfo=dt.UTC)
 
     def test_aware(self):
         result = parse_dt("2025-01-01T00:00:00Z")
@@ -77,41 +77,41 @@ class TestParseDt:
 
 class TestMonthOf:
     def test_basic(self):
-        d = dt.datetime(2024, 6, 15, tzinfo=dt.timezone.utc)
+        d = dt.datetime(2024, 6, 15, tzinfo=dt.UTC)
         assert month_of(d) == (2024, 6)
 
     def test_january(self):
-        d = dt.datetime(2025, 1, 1, tzinfo=dt.timezone.utc)
+        d = dt.datetime(2025, 1, 1, tzinfo=dt.UTC)
         assert month_of(d) == (2025, 1)
 
     def test_december(self):
-        d = dt.datetime(2024, 12, 31, tzinfo=dt.timezone.utc)
+        d = dt.datetime(2024, 12, 31, tzinfo=dt.UTC)
         assert month_of(d) == (2024, 12)
 
 
 class TestQuarterOf:
     def test_q1(self):
-        d = dt.datetime(2024, 2, 15, tzinfo=dt.timezone.utc)
+        d = dt.datetime(2024, 2, 15, tzinfo=dt.UTC)
         assert quarter_of(d) == (2024, 1)
 
     def test_q2(self):
-        d = dt.datetime(2024, 4, 1, tzinfo=dt.timezone.utc)
+        d = dt.datetime(2024, 4, 1, tzinfo=dt.UTC)
         assert quarter_of(d) == (2024, 2)
 
     def test_q3(self):
-        d = dt.datetime(2024, 9, 30, tzinfo=dt.timezone.utc)
+        d = dt.datetime(2024, 9, 30, tzinfo=dt.UTC)
         assert quarter_of(d) == (2024, 3)
 
     def test_q4(self):
-        d = dt.datetime(2024, 12, 1, tzinfo=dt.timezone.utc)
+        d = dt.datetime(2024, 12, 1, tzinfo=dt.UTC)
         assert quarter_of(d) == (2024, 4)
 
     def test_boundary_month_3_is_q1(self):
-        d = dt.datetime(2024, 3, 31, tzinfo=dt.timezone.utc)
+        d = dt.datetime(2024, 3, 31, tzinfo=dt.UTC)
         assert quarter_of(d) == (2024, 1)
 
     def test_boundary_month_4_is_q2(self):
-        d = dt.datetime(2024, 4, 1, tzinfo=dt.timezone.utc)
+        d = dt.datetime(2024, 4, 1, tzinfo=dt.UTC)
         assert quarter_of(d) == (2024, 2)
 
 
@@ -140,7 +140,7 @@ class TestMonthEnd:
         assert result.day == 31
         assert result.hour == 23
         assert result.minute == 59
-        assert result.tzinfo == dt.timezone.utc
+        assert result.tzinfo == dt.UTC
 
     def test_february_leap(self):
         result = month_end(2024, 2)
@@ -177,7 +177,7 @@ class TestQuarterEnd:
         assert result.day == 31
 
     def test_aware(self):
-        assert quarter_end(2024, 1).tzinfo == dt.timezone.utc
+        assert quarter_end(2024, 1).tzinfo == dt.UTC
 
 
 # ---------------------------------------------------------------------------
@@ -254,7 +254,7 @@ class TestWeekEnd:
         assert (result.hour, result.minute, result.second) == (23, 59, 59)
 
     def test_is_utc(self):
-        assert week_end(2025, 52).tzinfo == dt.timezone.utc
+        assert week_end(2025, 52).tzinfo == dt.UTC
 
     def test_week_52(self):
         # ISO 2025-W52 ends Sun 2025-12-28.

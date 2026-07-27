@@ -71,14 +71,14 @@ def quarter_label(y: int, q: int) -> str:
 def month_end(y: int, m: int) -> dt.datetime:
     """Return the last instant of the given calendar month (UTC)."""
     last_day = calendar.monthrange(y, m)[1]
-    return dt.datetime(y, m, last_day, 23, 59, 59, tzinfo=dt.timezone.utc)
+    return dt.datetime(y, m, last_day, 23, 59, 59, tzinfo=dt.UTC)
 
 
 def quarter_end(y: int, q: int) -> dt.datetime:
     """Return the last instant of the given calendar quarter (UTC)."""
     last_month = q * 3
     last_day = calendar.monthrange(y, last_month)[1]
-    return dt.datetime(y, last_month, last_day, 23, 59, 59, tzinfo=dt.timezone.utc)
+    return dt.datetime(y, last_month, last_day, 23, 59, 59, tzinfo=dt.UTC)
 
 
 def iter_months(y0: int, m0: int, y1: int, m1: int) -> Iterator[tuple[int, int]]:
@@ -119,7 +119,7 @@ def week_label(y: int, w: int) -> str:
 def week_end(y: int, w: int) -> dt.datetime:
     # ISO weeks run Monday (day 1) .. Sunday (day 7); end at Sunday 23:59:59.
     sunday = dt.date.fromisocalendar(y, w, 7)
-    return dt.datetime(sunday.year, sunday.month, sunday.day, 23, 59, 59, tzinfo=dt.timezone.utc)
+    return dt.datetime(sunday.year, sunday.month, sunday.day, 23, 59, 59, tzinfo=dt.UTC)
 
 
 def iter_weeks(y0: int, w0: int, y1: int, w1: int) -> Iterator[tuple[int, int]]:
