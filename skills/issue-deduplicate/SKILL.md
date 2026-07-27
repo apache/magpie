@@ -397,7 +397,7 @@ links — never bare `#NNN`.
 
 ## References
 
-- [`docs/triage/spec.md`](../../tools/spec-loop/specs/triage-mode.md) —
+- [`tools/spec-loop/specs/triage-mode.md`](../../tools/spec-loop/specs/triage-mode.md) —
   the Known Gap this skill closes.
 - `security-issue-deduplicate` —
   the private-tracker counterpart for security reports.
@@ -405,7 +405,7 @@ links — never bare `#NNN`.
   deduplicating when a stale issue is also a likely duplicate.
 - `issue-triage` — may surface DUPLICATE candidates that feed this
   skill.
-- [`<project-config>/issue-tracker-config.md`](../../projects/_template/) —
+- [`<project-config>/issue-tracker-config.md`](../../projects/_template/issue-tracker-config.md) —
   `url` and `project_key` that this skill reads.
 - [GitHub CLI `gh issue` reference](https://cli.github.com/manual/gh_issue) —
   the commands this skill emits.
