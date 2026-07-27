@@ -450,8 +450,8 @@ classification below (matching files become `expected_binaries`, the
 rest `prohibited_found`), not by filtering the command.
 
 `<unpacked-dir>` is the source artefact filename with its archive
-extension removed: `apache-airflow-2.11.0-source-release.tar.gz` unpacks
-to `apache-airflow-2.11.0-source-release`. Do not drop the
+extension removed: `<artefact-source-release>.tar.gz` unpacks
+to `<artefact-source-release>`. Do not drop the
 `-source-release` suffix or substitute a shortened name. Resolve
 `<unpacked-dir>` to this concrete directory before emitting the recipe.
 
