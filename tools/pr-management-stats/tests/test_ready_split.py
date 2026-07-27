@@ -148,7 +148,6 @@ def test_render_ready_split_oldest_on_left_and_cards():
 
 
 def test_render_ready_split_empty_state():
-    ctx = make_ctx()
     out = dashboard.render_ready_split(
         {"counts": dict.fromkeys(
             ["never-reviewed", "discussed-no-decision", "changes-requested", "approved"], 0),
