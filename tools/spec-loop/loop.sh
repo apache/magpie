@@ -57,6 +57,9 @@
 #   SPEC_LOOP_MODEL  model passed to the agent CLI. Defaults to `sonnet` for
 #                    Claude; all other harnesses use their configured default
 #                    unless this is set.
+#   SPEC_LOOP_EFFORT  reasoning-effort band: `low`, `medium`, or `high`.
+#                    Unset means no effort flag is passed. Mapped per harness
+#                    in lib.sh (CLIs without a knob silently omit it).
 #   SPEC_LOOP_PR_LIMIT  open PRs to list for duplicate-work checks (default: 100)
 #   SPEC_LOOP_PLAN_MAX  plan line count that triggers ONE consolidation
 #                    round before building (default: 500)
@@ -116,6 +119,14 @@ elif [ "$HARNESS" = "claude" ]; then
 else
     MODEL=""
 fi
+EFFORT="${SPEC_LOOP_EFFORT:-}"
+case "$EFFORT" in
+    ''|low|medium|high) ;;
+    *)
+        echo "Error: SPEC_LOOP_EFFORT must be low, medium, or high (got '${EFFORT}')." >&2
+        exit 1
+        ;;
+esac
 PR_LIMIT="${SPEC_LOOP_PR_LIMIT:-100}"
 # Agent output format. Default `text` is what the spinner expects; switch to
 # `stream-json` (SPEC_LOOP_OUTPUT_FORMAT=stream-json) to see live tool-call
@@ -190,6 +201,7 @@ echo "Prompt: $PROMPT_FILE"
 echo "Base:   $BASE  (work items fork from here)"
 echo "Agent:  $AGENT"
 if [ -n "$MODEL" ]; then echo "Model:  $MODEL"; else echo "Model:  (agent default)"; fi
+if [ -n "$EFFORT" ]; then echo "Effort: $EFFORT"; fi
 if [ "$MAX_ITERATIONS" -gt 0 ]; then echo "Max:    $MAX_ITERATIONS iterations"; else echo "Max:    unlimited"; fi
 echo "Stop:   Ctrl+C  or  touch STOP"
 echo "Note:   this loop never pushes and never opens a PR."
@@ -492,7 +504,7 @@ while true; do
     # add it only in that case to keep the default `text` run quiet.
     # Harness-specific launch details live in lib.sh so fixture tests can
     # validate argv construction without starting an agent.
-    spec_loop_launch_agent "$HARNESS" "$AGENT" "$ROOT" "$PROMPT_WITH_CONTEXT" "$MODEL" "$OUTPUT_FORMAT"
+    spec_loop_launch_agent "$HARNESS" "$AGENT" "$ROOT" "$PROMPT_WITH_CONTEXT" "$MODEL" "$OUTPUT_FORMAT" "$EFFORT"
     AGENT_PID=$SPEC_LOOP_AGENT_PID
     spinner "$AGENT_PID" & SPINNER_PID=$!
     wait "$AGENT_PID"

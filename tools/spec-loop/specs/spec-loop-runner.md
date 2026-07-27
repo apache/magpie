@@ -111,6 +111,20 @@ sandbox, and stop without pushing or opening a PR.
 | OpenCode | positional prompt to `opencode run` | launched from repo root | `--auto` | `--model` | `--format json` for stream JSON | external sandbox and OpenCode policy |
 | Kiro | positional prompt to `kiro-cli chat` | launched from repo root | `--no-interactive` | agent config (`.kiro/agents`) | plain text only | external sandbox and the agent-guard `--kiro` hook |
 
+`SPEC_LOOP_EFFORT` is the harness-neutral reasoning-effort band
+(`low` / `medium` / `high`). Unset means no effort flag is added. Invalid
+values fail at startup before the first iteration. Where a CLI offers more
+levels than the framework band, `high` maps to that CLI's top value:
+
+| Harness | Effort flag | low | medium | high |
+|---|---|---|---|---|
+| Claude Code | `--effort` | `low` | `medium` | `max` |
+| Codex | `-c model_reasoning_effort=…` | `low` | `medium` | `xhigh` |
+| OpenCode | `--variant` | `minimal` | `medium` | `max` |
+| Kiro | `--effort` | `low` | `medium` | `max` |
+| Cursor | (none — omitted silently) | — | — | — |
+| Gemini CLI | (none — omitted silently) | — | — | — |
+
 `SPEC_LOOP_AGENT` chooses the CLI. `SPEC_LOOP_HARNESS` chooses the
 invocation convention and defaults from the agent basename. Adding a new
 harness means extending this matrix, documenting the safety boundary, and
