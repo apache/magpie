@@ -30,8 +30,7 @@ import json
 
 import pytest
 
-import agent_guard
-from agent_guard import ALLOW_EXIT, DENY_EXIT, cli, opencode_main
+from agent_guard import ALLOW_EXIT, DENY_EXIT, cli, dispatch, opencode_main
 
 
 def _feed(monkeypatch: pytest.MonkeyPatch, payload: object) -> None:
@@ -84,7 +83,7 @@ def test_decision_matches_claude_dispatch(monkeypatch: pytest.MonkeyPatch):
     command = "git commit -m 'x\n\nCo-Authored-By: A <a@b.c>'"
     _feed(monkeypatch, {"command": command})
     opencode_denies = opencode_main() == DENY_EXIT
-    dispatch_denies = agent_guard.dispatch(command) is not None
+    dispatch_denies = dispatch(command) is not None
     assert opencode_denies is dispatch_denies is True
 
 
