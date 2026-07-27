@@ -24,7 +24,7 @@ Grading rules:
   for `svnpubsub`, or the backend-appropriate release location.
 - `command_block` must contain the correct backend-shaped promotion command.
 - For `svnpubsub`: must contain `svn mv` with the correct source and target
-  URLs, and that `svn mv`'s `-m` referencing the `[RESULT] [VOTE]` URL.
+  URLs, and that `svn mv`'s `-m` references the `[RESULT] [VOTE]` URL.
 - For `github-releases`: must contain `gh release edit` with `--draft=false`.
 - For `s3`: must contain `aws s3 mv --recursive` with the correct prefixes.
 - `handoff_note` must be non-null (and non-empty) when `rm_is_pmc = false`.
