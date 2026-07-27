@@ -195,7 +195,7 @@ if UPSTREAM_REPO:
         with open(prs_path) as f:
             prs_cache = json.load(f)
 
-NOW = dt.datetime.now(dt.timezone.utc)
+NOW = dt.datetime.now(dt.UTC)
 
 if UPSTREAM_REPO:
     # Match the original literal in the body-parse regex so an upstream
@@ -308,7 +308,7 @@ for li in ledger_issues:
                 # No / malformed date line — skip this entry defensively.
                 continue
             try:
-                d = dt.datetime(int(dm.group(1)), int(dm.group(2)), int(dm.group(3)), tzinfo=dt.timezone.utc)
+                d = dt.datetime(int(dm.group(1)), int(dm.group(2)), int(dm.group(3)), tzinfo=dt.UTC)
             except ValueError:
                 continue
             rejections_dated.append(d)
@@ -501,7 +501,7 @@ for b in buckets:
     be = bucket_end(*b)
     ts = NOW if be > NOW else be
     cum_rejected.append(rejections_backfill_total + sum(1 for rd in rejections_dated if rd <= ts))
-cum_reported = [o + r for o, r in zip(cum_opened, cum_rejected)]
+cum_reported = [o + r for o, r in zip(cum_opened, cum_rejected, strict=True)]
 
 # --- Opened-in-bucket vs untriaged-at-bucket-end ------------------
 
@@ -521,7 +521,7 @@ for i in issues:
 # Per-bucket reported = trackers opened in the bucket + reports rejected in
 # the same bucket (rejected_series). Equals opened_in_b when the rejections
 # stat is disabled, so the trace is only drawn when the stat is active.
-reported_in_b = [o + r for o, r in zip(opened_in_b, rejected_series)]
+reported_in_b = [o + r for o, r in zip(opened_in_b, rejected_series, strict=True)]
 
 # --- triage / response ---------------------------------------------
 
