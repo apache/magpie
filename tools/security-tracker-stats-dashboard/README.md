@@ -224,7 +224,7 @@ remaining charts still render.
 
 ## Prerequisites
 
-- **Runtime:** Python 3.9+ (`python3`). Run each stage as `python3 fetch_events.py`, etc.
+- **Runtime:** Python 3.11+ (`python3`). Run each stage as `python3 fetch_events.py`, etc.
   Optional: `pyyaml` — when missing, `render.py` uses a bundled minimal YAML subset parser
   sufficient for `default-config.yaml` and typical overlays; set `TRACKER_STATS_PY=uv-yaml`
   to pin clean PyYAML invocations via `uv run --with pyyaml`.
