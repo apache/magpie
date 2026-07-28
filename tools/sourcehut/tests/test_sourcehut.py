@@ -15,7 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import io
 import json
+import urllib.error
+from email.message import Message
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -66,6 +69,18 @@ def test_query_graphql_error_in_json(mock_urlopen: MagicMock, mock_env: None) ->
     )
     with pytest.raises(SourceHutError, match=r"GraphQL error from todo\.sr\.ht: Invalid query syntax"):
         query_graphql("todo", "invalid_query")
+
+
+@patch("urllib.request.urlopen")
+def test_query_graphql_http_error_with_non_json_body(mock_urlopen: MagicMock, mock_env: None) -> None:
+    mock_urlopen.side_effect = urllib.error.HTTPError(
+        "https://todo.sr.ht/query", 400, "Bad Request", Message(), io.BytesIO(b"not json")
+    )
+
+    with pytest.raises(
+        SourceHutError, match=r"HTTP request to https://todo\.sr\.ht/query failed with status 400"
+    ):
+        query_graphql("todo", "{ version }")
 
 
 @patch("urllib.request.urlopen")
@@ -177,6 +192,68 @@ def test_get_patchset_and_mapping(mock_urlopen: MagicMock, mock_env: None) -> No
     assert len(pr["comments"]) == 1
     assert pr["comments"][0]["author"] == "Bob <bob@example.com>"
     assert pr["comments"][0]["body"] == "Looks good to me!"
+
+
+def test_map_patchset_to_pr_keeps_input_order_when_dates_cannot_be_compared() -> None:
+    patchset = {
+        "id": 200,
+        "subject": "Patch series",
+        "thread": {
+            "emails": {
+                "edges": [
+                    {
+                        "node": {
+                            "id": 1,
+                            "body": "Cover letter",
+                            "sender": {"canonicalName": "Alice"},
+                            "date": "2026-07-01T12:00:00Z",
+                        }
+                    },
+                    {
+                        "node": {
+                            "id": 2,
+                            "body": "Reply",
+                            "sender": {"canonicalName": "Bob"},
+                            "date": None,
+                        }
+                    },
+                ]
+            }
+        },
+    }
+
+    pr = map_patchset_to_pr(patchset)
+
+    assert pr["description"] == "Cover letter"
+    assert pr["author"] == "Alice"
+
+
+def test_map_patchset_to_pr_propagates_unexpected_sort_errors() -> None:
+    class ExplodingEmail(dict[str, object]):
+        def get(self, key: str, default: object = None) -> object:
+            if key == "date":
+                raise RuntimeError("unexpected date failure")
+            return super().get(key, default)
+
+    patchset = {
+        "thread": {
+            "emails": {
+                "edges": [
+                    {
+                        "node": ExplodingEmail(
+                            id=1,
+                            body="Cover letter",
+                            sender={"canonicalName": "Alice"},
+                            date="2026-07-01T12:00:00Z",
+                        )
+                    }
+                ]
+            }
+        }
+    }
+
+    with pytest.raises(RuntimeError, match="unexpected date failure"):
+        map_patchset_to_pr(patchset)
 
 
 @patch("urllib.request.urlopen")

@@ -122,7 +122,7 @@ def map_patchset_to_pr(patchset: dict[str, Any]) -> dict[str, Any]:
     emails = [edge.get("node") for edge in edges if edge and edge.get("node")]
 
     # Sort emails by date if possible
-    with contextlib.suppress(Exception):
+    with contextlib.suppress(TypeError, AttributeError):
         emails.sort(key=lambda x: x.get("date", ""))
 
     # The cover letter / description is the first email (or patchset subject)

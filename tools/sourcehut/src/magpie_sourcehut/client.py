@@ -79,7 +79,7 @@ def query_graphql(service: str, query: str, variables: dict[str, Any] | None = N
             if err_errors:
                 err_msgs = [e.get("message", "Unknown error") for e in err_errors]
                 err_msg = f"HTTP {exc.code}: {'; '.join(err_msgs)}"
-        except Exception:
+        except (json.JSONDecodeError, KeyError, TypeError):
             # Ignore errors parsing the HTTP error response body as JSON
             pass
 
