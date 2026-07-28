@@ -54,10 +54,10 @@ from skill_evals.runner import (
 )
 
 _TESTS_DIR = Path(__file__).resolve().parent
-_GRADER_YES = f"python3 {_TESTS_DIR / '_grader_yes.py'}"
-_GRADER_NO = f"python3 {_TESTS_DIR / '_grader_no.py'}"
-_JUDGE_YES = f"python3 {_TESTS_DIR / '_judge_yes.py'}"
-_JUDGE_NO = f"python3 {_TESTS_DIR / '_judge_no.py'}"
+_GRADER_YES = f"python3 {shlex.quote(str(_TESTS_DIR / '_grader_yes.py'))}"
+_GRADER_NO = f"python3 {shlex.quote(str(_TESTS_DIR / '_grader_no.py'))}"
+_JUDGE_YES = f"python3 {shlex.quote(str(_TESTS_DIR / '_judge_yes.py'))}"
+_JUDGE_NO = f"python3 {shlex.quote(str(_TESTS_DIR / '_judge_no.py'))}"
 
 
 def _grader_count_cli(counter_path: Path) -> str:
