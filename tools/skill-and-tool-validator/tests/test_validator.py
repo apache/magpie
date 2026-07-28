@@ -3086,6 +3086,18 @@ class TestOrganizationStructure:
     def test_organization_category_is_hard(self) -> None:
         assert ORGANIZATION_CATEGORY in HARD_CATEGORIES
 
+    def test_missing_file_reached_via_run_validation(self, tmp_path: Path) -> None:
+        """Guard the single wiring line in run_validation.
+
+        Direct unit tests call validate_organization_structure themselves, so
+        they stay green if that call is deleted from run_validation. This test
+        goes through the entry point so the check cannot be silently unwired.
+        """
+        self._make_org(tmp_path, "MyOrg", ["organization.md"])  # missing README.md
+        vs = [v for v in run_validation(tmp_path) if v.category == ORGANIZATION_CATEGORY]
+        assert len(vs) == 1
+        assert "README.md" in vs[0].message
+
 
 # ---------------------------------------------------------------------------
 # Non-ASF organization profile smoke coverage
