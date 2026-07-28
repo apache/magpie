@@ -212,9 +212,9 @@ and where its value comes from.
 
 ```markdown
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention):
-     <project-config>   → adopter's project-config directory
-                          (typically `.apache-magpie/` in the adopter repo)
-     <tracker>          → URL of the project's security / issue tracker
+     <project-config>   → adopter's project-config directory (sits alongside
+                          the gitignored framework snapshot, not inside it)
+     <tracker>          → project's security tracker repository (owner/name)
                           (resolves from <project-config>/project.md)
      <upstream>         → adopter's public source repository (owner/name)
      <default-branch>   → upstream's default branch (main / master)
