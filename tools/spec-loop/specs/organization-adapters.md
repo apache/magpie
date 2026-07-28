@@ -116,15 +116,18 @@ Manual resolution check: a `project.md` with `organization: ASF` and a
 key omitted resolves to the ASF adapter value; `organization: independent`
 resolves to the baseline.
 
+Adapter layout is enforced: `validate_organization_structure` in
+`tools/skill-and-tool-validator` requires every `organizations/<org>/`
+directory except `_template` to contain `README.md` and `organization.md`.
+Omitting either results in a HARD violation, so an incomplete adapter fails
+the validator before any skill can resolve against it.
+
 ## Known gaps
 
 - The reflow of `projects/_template/` + `projects/non-asf-example/` to
   set `organization:` and drop the now-inherited values is not yet done
   (tracked as the next change); until then the ASF defaults exist in both
   `projects/_template/project.md` and `organizations/ASF/`.
-- No structural validator check yet enforces required files in
-  `organizations/<org>/` (currently README + organization.md by
-  convention).
 - The family-level `organization:` scope (replacing `asf: true/false`)
   and the external-adapter discovery index are separate follow-ups.
 - **Smoke coverage is narrow.** The non-ASF profile smoke currently proves
