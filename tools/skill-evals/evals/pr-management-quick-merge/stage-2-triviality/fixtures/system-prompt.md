@@ -53,7 +53,7 @@ Assign the tier **only** when `disposition == "candidate"`:
 
 - **Tier A** — every changed file matches a Tier A allow glob.
 - **Tier B** — every changed file matches a Tier A **or** Tier B glob,
-  and at least one file matches a Tier B glob only.
+  and at least one file matches a Tier B glob.
 
 ## Output format
 

@@ -163,6 +163,11 @@ Add a branch inside `spec_loop_launch_agent()` following the existing
 patterns. Each branch runs the agent in the background (`&`) with:
 - the auto-approve / skip-permissions flag for that runtime;
 - `--model "$model"` forwarded when non-empty;
+- `SPEC_LOOP_EFFORT` mapped when the CLI has a reasoning-effort knob
+  (see the effort table in
+  [`tools/spec-loop/specs/spec-loop-runner.md`](../../tools/spec-loop/specs/spec-loop-runner.md));
+  if the CLI has no such flag, omit silently like Cursor/Gemini — do not
+  warn;
 - the prompt fed via stdin, a file argument, or a flag — whatever the
   runtime accepts.
 
@@ -170,10 +175,21 @@ Example template:
 
 ```bash
 elif [ "$harness" = "<runtime>" ]; then
+    local effort_args=()
+    case "$effort" in
+        low)    effort_args=(--<effort-flag> <low-value>) ;;
+        medium) effort_args=(--<effort-flag> <medium-value>) ;;
+        high)   effort_args=(--<effort-flag> <high-or-top-value>) ;;
+    esac
     "$agent" <headless-flag> \
         ${model_args[@]+"${model_args[@]}"} \
+        ${effort_args[@]+"${effort_args[@]}"} \
         "$(cat "$prompt_file")" &
 ```
+
+Take the flag name and accepted values from the runtime's own `--help`,
+record them in the effort matrix, and map framework `high` to the CLI's
+top sensible value when it offers more levels than `low|medium|high`.
 
 Validate the loop syntax after editing:
 

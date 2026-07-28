@@ -90,7 +90,12 @@ uv run --project tools/privacy-llm --group dev pytest
 
 - `stable`; gaps surface as new PII patterns or new public-emission
   surfaces not yet covered by the scrub — caught as drift by the plan pass.
-- **Branch-name confidentiality validation is missing.** Security-fix
-  workflows already require neutral branch names, but no deterministic
-  check scans skill/docs examples for CVE IDs or embargoed terms in
-  generated branch names.
+- **Branch-name confidentiality validation is shipped** as a SOFT
+  advisory in `tools/skill-and-tool-validator`
+  (`validate_branch_name_confidentiality`, category
+  `branch-name-confidentiality`). It scans `git checkout -b` and
+  `git switch -c` / `--create` examples in fenced code blocks under
+  `skills/` and `docs/`, and flags concrete branch names that contain a
+  CVE ID (`CVE-YYYY-NNNNN`), `security`, `vulnerability` / `vuln`, or
+  `advisory`. Placeholder names and explicit bad-example lines are
+  exempt. Advisory only unless `--strict`.
