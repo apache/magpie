@@ -362,6 +362,13 @@ version strings are kept in sync with `pyproject.toml` by the
 [`release-management-config.md`](../../projects/magpie/release-management-config.md)
 (`version_manifest_files`).
 
+The per-family plugin manifests do not carry their own version: they inherit
+`version`, `author`, `homepage`, `repository`, and `license` from the
+all-in-one [`.claude-plugin/plugin.json`](../../.claude-plugin/plugin.json), so
+a bump has one edit point. Propagate it with
+`python3 tools/dev/check-family-plugins.py --fix`; the same script, run as a
+prek hook, fails the build on any manifest left behind at the old version.
+
 ## Verification status
 
 The Claude Code and Gemini CLI manifests follow the current published

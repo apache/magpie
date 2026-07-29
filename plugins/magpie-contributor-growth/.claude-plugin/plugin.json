@@ -1,5 +1,13 @@
 {
   "name": "magpie-contributor-growth",
   "description": "Apache Magpie \u2014 path-to-committer: activity sweeps, nominations, sentiment, readiness, committer/post-vote onboarding.",
+  "version": "0.2.0",
+  "author": {
+    "name": "Apache Magpie",
+    "url": "https://magpie.apache.org/"
+  },
+  "homepage": "https://magpie.apache.org/",
+  "repository": "https://github.com/apache/magpie",
+  "license": "Apache-2.0",
   "skills": "./skills"
 }
