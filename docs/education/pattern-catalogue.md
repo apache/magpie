@@ -361,6 +361,7 @@ tools/skill-evals/evals/<skill-name>/
         ├── step-config.json          # { "skill_md": "...", "step_heading": "..." }
         ├── output-spec.md            # JSON schema the step must return
         ├── user-prompt-template.md   # user-facing prompt with {variable} slots
+        ├── assertions.json          # structural checks for has_*/mention_* fields
         ├── case-1-normal/
         │   ├── report.md             # realistic example input
         │   └── expected.json         # expected structured output
@@ -388,6 +389,12 @@ file and the heading that names the step:
 `output-spec.md` tells the model what JSON shape to return. `expected.json` in
 each case is a concrete instance of that shape — decision fields (enums,
 booleans, IDs) are compared exactly; prose fields are scored by a judge model.
+
+When an expected output uses a structural key beginning with `has_` or
+`mention_`, add an `assertions.json` beside the case directories in `fixtures/`
+and map each key to its predicate. Without that file, the runner cannot grade
+the structural property automatically and falls back to manual review. See the
+[`issue-triage` example](../../tools/skill-evals/evals/issue-triage/step-3-classify/fixtures/assertions.json).
 
 **A minimum eval suite has four cases:**
 
