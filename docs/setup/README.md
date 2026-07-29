@@ -42,6 +42,7 @@ framework safe to use.
 
 | Skill | Purpose |
 |---|---|
+| [`setup`](../../skills/setup/SKILL.md) | Adopt and maintain the snapshot-based framework installation, including upgrades, verification, overrides, and unadoption. |
 | [`setup-isolated-setup-install`](../../skills/setup-isolated-setup-install/SKILL.md) | First-time install of the secure agent setup. |
 | [`setup-isolated-setup-verify`](../../skills/setup-isolated-setup-verify/SKILL.md) | Verify the secure setup landed correctly (static checks on settings.json, hooks, pinned versions). |
 | [`setup-isolated-setup-doctor`](../../skills/setup-isolated-setup-doctor/SKILL.md) | Diagnose in-session sandbox friction (SSH agent, port bind, docker/podman socket) and map each fail to a catalog entry. |
