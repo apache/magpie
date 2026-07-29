@@ -47,6 +47,19 @@ of reporting `MANUAL`.
 Decision fields (title, `proposed`, `category_x_hit`, version
 strings) are compared exactly.
 
+### Per-suite prose-field overrides (`grading-schema.json`)
+
+The default prose-field list is appropriate for most suites, but a fixture
+directory can replace it with a `grading-schema.json` file containing a
+`prose_fields` string array. This controls which expected fields are sent to
+the rubric grader instead of being compared verbatim; use an empty array when
+every field must match exactly. For a working example, see
+[`step-1-plan/fixtures/grading-schema.json`](step-1-plan/fixtures/grading-schema.json),
+which explicitly lists the prose fields used by that suite. This is separate
+from `assertions.json`: assertions define deterministic predicates for
+`has_*`/`mention_*` expected fields, while `grading-schema.json` controls the
+runner's exact-versus-rubric comparison mode for prose values.
+
 ## Adversarial case
 
 **step-1-plan case-3-injection-in-pr-title**: A merged PR's title
