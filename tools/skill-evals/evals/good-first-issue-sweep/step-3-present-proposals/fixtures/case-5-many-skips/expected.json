@@ -1,0 +1,10 @@
+{
+  "ready_count": 1,
+  "near_miss_count": 0,
+  "skip_count_shown_as_summary_only": true,
+  "has_label_confirmation_prompt": true,
+  "near_miss_has_label_proposal": false,
+  "all_issue_refs_clickable": true,
+  "ready_label_named": true,
+  "injection_flagged_noted": false
+}
