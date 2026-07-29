@@ -250,10 +250,10 @@ Any NOTICE file that lacks either element is classified `INCOMPLETE-NOTICE`.
 **SPDX expression matching:**
 
 Compare the expression extracted from source file headers against the
-declared expression. The comparison is case-insensitive and treats
-`Apache-2.0` and `Apache 2.0` as equivalent. Do not flag decorative
-prefixes such as `// SPDX-License-Identifier: Apache-2.0` — only the
-expression token matters.
+declared expression. The comparison is case-insensitive but otherwise exact:
+`Apache-2.0` and `Apache 2.0` are different expressions, and only the valid
+SPDX identifier should match. Do not flag decorative prefixes such as
+`// SPDX-License-Identifier: Apache-2.0` — only the expression token matters.
 
 **Auto-generated or third-party files:**
 
@@ -284,7 +284,7 @@ Present findings in a structured report with this order:
    MISSING-LICENSE-FILE   | high   | 1     | repo root
    INCOMPLETE-NOTICE      | medium | 1     | Missing product-name line
    WRONG-SPDX-HEADER      | medium | 2     | src/foo.py (MIT), lib/bar.go (GPL-2.0)
-   MISSING-SPDX-HEADER    | low    | 14    | (list first 5; remainder in /tmp/lca-missing-spdx.txt)
+   MISSING-SPDX-HEADER    | low    | 14    | (list first 5; retain the full path list from the active scan)
    ```
 
 5. **Proposed remedies** — one action bullet per finding class:
@@ -328,6 +328,7 @@ skill does not provide).
 | Tree API returns empty list | Empty repo or branch has no files | Surface to user and stop |
 | NOTICE fetch fails | NOTICE not found (flagged as `MISSING-NOTICE-FILE`) | Expected; classify accordingly |
 | Source file fetch times out | Large repo; API rate-limit | Switch to local checkout mode; clone the repo first |
+| GitHub Contents API returns no content for a large blob (about 1 MB or more) | Header cannot be inspected through the Contents API | Do not classify the file as `MISSING-SPDX-HEADER`; switch to a local checkout or another blob endpoint and record the limitation |
 | 300-file cap reached | Very large repository | Surface cap, report findings on the sample, note unseen coverage |
 
 ---
