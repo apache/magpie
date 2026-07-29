@@ -3211,6 +3211,48 @@ class TestOrganizationNonASFSmoke:
         vs = list(validate_organization_structure(tmp_path))
         assert vs == []
 
+    def test_unknown_org_is_rejected(self, tmp_path: Path) -> None:
+        """An organization value without a matching profile must fail validation."""
+        self._make_org(tmp_path, "independent")
+        text = (
+            "---\n"
+            "name: magpie-unknown-org\n"
+            "description: d\n"
+            "license: Apache-2.0\n"
+            "capability: capability:platform\n"
+            "organization: missing-org\n"
+            "---\n\n"
+            "## Workflow\n\n"
+            "Use the adopter's configured backend.\n"
+        )
+        path = tmp_path / "SKILL.md"
+        violations = [
+            v for v in validate_frontmatter(path, text, root=tmp_path) if v.category == ORGANIZATION_CATEGORY
+        ]
+
+        assert len(violations) == 1
+        assert "missing-org" in violations[0].message
+
+    def test_independent_org_rejects_asf_coupled_operation(self, tmp_path: Path) -> None:
+        """Independent profiles must flag unguarded ASF-only operations."""
+        self._make_org(tmp_path, "independent")
+        text = (
+            "---\n"
+            "name: magpie-independent-release\n"
+            "description: d\n"
+            "license: Apache-2.0\n"
+            "capability: capability:resolve\n"
+            "organization: independent\n"
+            "---\n\n"
+            "## Workflow\n\n"
+            "Run `svn checkout` before publishing the release artifact.\n"
+        )
+        path = tmp_path / "SKILL.md"
+        violations = list(validate_asf_coupling(path, text))
+
+        assert len(violations) == 1
+        assert "svn command" in violations[0].message
+
 
 # ---------------------------------------------------------------------------
 # Capability sync check: docs/labels-and-capabilities.md ↔ live source
