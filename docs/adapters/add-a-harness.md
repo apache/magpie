@@ -77,7 +77,7 @@ relay symlinks automatically. The rules are:
 verify after any manual link creation:
 
 ```bash
-uv run --project tools/symlink-lint python3 -m symlink_lint
+uv run --project tools/symlink-lint symlink-lint
 ```
 
 ## Step 2 — wire the action guard
@@ -88,8 +88,12 @@ they run and denies ones that break hard framework rules (unauthorized
 …). The guard *decisions* live in one harness-agnostic `dispatch()` core;
 each harness gets a thin adapter translating its hook format.
 
-**For runtimes with a pre-tool hook API:** add an adapter following the
-existing OpenCode example.
+**For runtimes with a pre-tool hook API:** if the runtime can use the shared
+Python dispatcher, add a `*_main()` function in
+`tools/agent-guard/src/agent_guard/__init__.py` and a matching flag branch in
+`cli()`, following the existing `opencode_main()` / `kiro_main()` entries.
+Only a harness that needs a native plugin format gets a separate adapter file;
+the OpenCode plugin below is that example.
 
 ```text
 tools/agent-guard/
