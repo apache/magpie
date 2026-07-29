@@ -165,10 +165,14 @@ uv run --project tools/vcs --group dev pytest || echo "check tools/vcs test setu
   ASF coupling across the catalogue, and the capability-flag mechanism for
   workflow branches that no adapter resolves, live in
   [project-agnosticism.md](project-agnosticism.md).
-- **Adapter authoring smoke validation is missing.** The docs define the
-  expected README contract, but no validator currently checks that each
-  adapter declares capability, prerequisites, privacy/credential handling,
-  operations, and config keys.
+- **Adapter authoring smoke validation is now advisory.** The
+  `validate_adapter_authoring` check applies only to `contract:*` adapter
+  tool READMEs (not `substrate:*` tools): it uses the declared capability to
+  identify the scope and checks for explicit credential/privacy handling,
+  operations, and adopter configuration documentation. These are SOFT
+  advisories so legacy adapters can migrate without blocking unrelated work;
+  prerequisite declarations remain covered by the validator's separate
+  prerequisite checks.
 - **Mail-adapter privacy tests are thin.** The redaction contract exists,
   but adapter-level fixtures should prove that private mail and embedded
   prompt-injection attempts do not enter model-facing context untreated.
