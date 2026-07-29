@@ -258,8 +258,9 @@ In `<framework-clone>`:
    conventions (Conventional-Commits prefix:
    `feat(skills): ...` for new framework behaviour,
    `refactor(skills): ...` for restructure, etc.). Use
-   `Generated-by: Claude Code (Claude Opus 4.7)` trailer
-   per the framework's no-coauthored-by hook.
+   `Generated-by: <agent> (<model>)` trailer, filling in the actual
+   agent and model that produced the commit, per the framework's
+   no-coauthored-by hook. Do not hardcode a vendor or model name.
 
 ### Step 6 — Open the PR
 
