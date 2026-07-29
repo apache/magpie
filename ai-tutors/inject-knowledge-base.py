@@ -59,6 +59,7 @@ DOCTOC_RE = re.compile(
     re.DOTALL,
 )
 SPDX_RE = re.compile(r"<!-- SPDX-License-Identifier:.*?-->\n*", re.DOTALL)
+CODE_FENCE_RE = re.compile(r"^(?P<indent>\s*)(?P<fence>`{3,})(?P<info>[^`]*)$")
 
 
 @dataclass(frozen=True)
@@ -128,24 +129,22 @@ def tag_bare_code_fences(text: str, default_lang: str = "text") -> str:
     that already name a language are left untouched.
     """
     lines = text.split("\n")
-    in_code = False
-    fence_len = 0  # backticks in the opening fence of the current block
+    open_fence_length: int | None = None
     for i, line in enumerate(lines):
-        stripped = line.strip()
-        if not stripped.startswith("```"):
+        match = CODE_FENCE_RE.match(line)
+        if not match:
             continue
-        backticks = len(stripped) - len(stripped.lstrip("`"))
-        if not in_code:
-            in_code = True
-            fence_len = backticks
-            if stripped == "```":  # opening fence with no language
-                indent = line[: len(line) - len(line.lstrip())]
-                lines[i] = f"{indent}```{default_lang}"
-        elif backticks >= fence_len:
-            # a closing fence must be at least as long as the opening fence
-            in_code = False
-            fence_len = 0
-        # a shorter backtick run inside the block is literal content; leave as-is
+
+        fence = match.group("fence")
+        info = match.group("info").strip()
+        fence_length = len(fence)
+
+        if open_fence_length is None:
+            open_fence_length = fence_length
+            if not info:  # opening fence with no language
+                lines[i] = f"{match.group('indent')}{fence}{default_lang}"
+        elif not info and fence_length >= open_fence_length:
+            open_fence_length = None
     return "\n".join(lines)
 
 

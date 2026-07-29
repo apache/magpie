@@ -145,7 +145,7 @@ Apache-2.0 licensed.
 >
 > This is not the full authoring reference. Once you know the shape of a skill,
 > the `magpie-write-skill` (../../skills/write-skill/SKILL.md)
-> skill (you run it with `/write-skill`) takes you through every check, safety
+> skill (you run it with `/magpie-write-skill`) takes you through every check, safety
 > step, and packaging detail. Come back to it after your first skill has landed
 > and you want the complete checklist.
 >
@@ -287,8 +287,8 @@ Apache-2.0 licensed.
 >
 > The `capability:` tag places this skill in the framework's set of categories.
 > Look at the existing skills for the tag that fits best. Common values:
-> `capability:triage`, `capability:authoring`, `capability:security`,
-> `capability:release`, `capability:contributor-growth`.
+> `capability:triage`, `capability:authoring`, `capability:review`,
+> `capability:fix`, `capability:intake`.
 >
 > ---
 >
@@ -496,9 +496,15 @@ Apache-2.0 licensed.
 >   patterns that hold the data-not-instructions and sandbox principles in every
 >   skill you write. Covers the injection-flag idiom, the privacy gate, and the
 >   draft-before-post shape.
+> - **Debugging a skill (debugging-skills.md)** — step 6: reading the audit log,
+>   reproducing failures with the eval harness, and isolating prompt vs tool vs
+>   model problems when a skill does not behave as expected.
+> - **Writing portable skills (portable-skills.md)** — step 7: authoring skills
+>   that work for any project and any model, using placeholders and capability
+>   floors so your skill does not break when the project or model changes.
 > - **Eval-driven development (eval-driven-development.md)** — step 8: how to judge
 >   output that can vary, with worked examples from real Magpie skills. Your skill
->   is not finished until it has an eval suite, so read step 5 first and then this.
+>   is not finished until it has an eval suite, so read steps 5–7 first and then this.
 > - **Agentic and autonomous work (agentic-work.md)** — step 9: once a skill is
 >   written, tested, and safe, this is how you let it run without watching every step.
 >
@@ -506,7 +512,7 @@ Apache-2.0 licensed.
 >
 > - **magpie-write-skill (../../skills/write-skill/SKILL.md)** —
 >   the full authoring reference, with the security checklist and packaging
->   details. Run it with `/write-skill` once you are ready for the complete
+>   details. Run it with `/magpie-write-skill` once you are ready for the complete
 >   walk-through.
 > - **Pattern catalogue (pattern-catalogue.md)** — ready-to-copy skill, prompt,
 >   and tool-use patterns.
