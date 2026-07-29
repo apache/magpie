@@ -317,6 +317,25 @@ Every placeholder and dotted config key then resolves in this order,
     →  framework default
 ```
 
+Skills may also consult a separate per-skill override chain. Its precedence is
+**first hit wins**:
+
+```text
+.apache-magpie-local/ (personal, gitignored)
+  → .apache-magpie-overrides/ (committed, project-wide)
+    → organization defaults
+      → framework default
+```
+
+`.apache-magpie-local/` takes precedence over `.apache-magpie-overrides/` and is
+the personal, runtime-only layer; both override surfaces are additive. They may
+provide adopter-specific paths, wording, labels, or capability enablement, but
+neither may weaken the framework's safety, confidentiality, or privacy baseline.
+The per-skill chain above resolves override files, while the chain above it
+resolves placeholders and dotted config keys through `project.md` and
+organization manifests. See [`adoption-and-setup.md`](tools/spec-loop/specs/adoption-and-setup.md)
+for the authoritative override contract.
+
 The organization an `organization:` value names need **not** be in-tree.
 The framework ships `organizations/ASF/` and `organizations/independent/`,
 but an organization Magpie does not ship is resolved from an
