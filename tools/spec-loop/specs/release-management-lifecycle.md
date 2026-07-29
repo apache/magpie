@@ -179,7 +179,7 @@ uv run --project tools/skill-evals skill-eval tools/skill-evals/evals/release-an
   cut a full release through the family yet, so the RM/binding-voter
   evidence window that would justify default-on or a state-changing lane
   has no data behind it.
-- **Release audit record schema is prose-only.** The audit-report skill
-  exists, but there is no structured schema/template that downstream
-  review can validate. The plan tracks a schema and eval fixtures for
-  incomplete records.
+- **Release audit record schema has shipped.** The canonical structured
+  schema lives at `skills/release-audit-report/audit-record-schema.md`.
+  The `tools/skill-evals/evals/release-audit-report/` suite validates
+  incomplete records, including the `case-4-all-required-missing` fixture.
