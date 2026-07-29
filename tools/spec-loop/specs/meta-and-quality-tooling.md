@@ -145,15 +145,17 @@ uv run --project tools/spec-inventory --group dev pytest tools/spec-inventory/te
   required fields, but the next pass should make `mode`, `status`,
   `capability`, `organization`, and `source` combinations explicit and
   test-backed.
-- **Capability taxonomy drift is not yet checked.** The validator should
-  catch misspelled or undocumented capability values, and should surface
-  taxonomy rows that no skill/tool implements unless they are marked
-  reserved.
-- **`docs/modes.md` is manually synced.** The plan tracks a generated
-  consistency check so mode tables and shipped counts cannot silently
-  drift from skill frontmatter.
-- **Tool README prerequisites vary.** A prerequisites consistency pass
-  should normalize older tool READMEs before tightening the validator.
+- **Capability taxonomy coverage is checked.**
+  `validate_capability_taxonomy_coverage` runs from `run_validation()` and
+  reports undocumented capability values or taxonomy rows with no
+  implementation unless they are marked reserved.
+- **`docs/modes.md` consistency is checked.**
+  `validate_modes_doc_consistency` compares the mode tables and shipped
+  counts with live skill frontmatter so they cannot silently drift.
+- **Tool README prerequisite fields are enforced.** The HARD
+  `tool-prerequisites-fields` check in `validate_tools` requires the runtime,
+  CLI, credentials/auth, and network sub-fields (or the documented
+  delegation shorthand); a separate normalization pass is no longer pending.
 - **Pilot evidence shape is now defined and validated.** `docs/pilot-report-template.md`
   defines the required frontmatter schema and body sections; `tools/pilot-report-validator/`
   enforces the schema on every `.md` file with a YAML frontmatter block.
