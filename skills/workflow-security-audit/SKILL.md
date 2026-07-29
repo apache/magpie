@@ -235,7 +235,7 @@ changing the tag.
 floating reference.
 
 **Suggested remediation:** pin to the full commit SHA of the version
-you trust — e.g. `actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af68`
+you trust — e.g. `actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683` (v4.2.2)
 — and add a comment with the semantic version for readability.
 
 ### Fork-secret exposure (`fork-secrets`)
