@@ -130,16 +130,23 @@ def tag_bare_code_fences(text: str, default_lang: str = "text") -> str:
     """
     lines = text.split("\n")
     in_code = False
+    fence_len = 0  # backticks in the opening fence of the current block
     for i, line in enumerate(lines):
         stripped = line.strip()
-        if stripped.startswith("```"):
-            if not in_code:
-                in_code = True
-                if stripped == "```":  # opening fence with no language
-                    indent = line[: len(line) - len(line.lstrip())]
-                    lines[i] = f"{indent}```{default_lang}"
-            else:
-                in_code = False
+        if not stripped.startswith("```"):
+            continue
+        backticks = len(stripped) - len(stripped.lstrip("```"))
+        if not in_code:
+            in_code = True
+            fence_len = backticks
+            if stripped == "```":  # opening fence with no language
+                indent = line[: len(line) - len(line.lstrip())]
+                lines[i] = f"{indent}```{default_lang}"
+        elif backticks >= fence_len:
+            # a closing fence must be at least as long as the opening fence
+            in_code = False
+            fence_len = 0
+        # a shorter backtick run inside the block is literal content; leave as-is
     return "\n".join(lines)
 
 
