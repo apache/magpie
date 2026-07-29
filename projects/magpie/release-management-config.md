@@ -71,7 +71,21 @@ mandatory ASF approval + announce mechanisms (`dev-list-vote`,
 | `git_upstream_remote` | `upstream` |
 | `release_planning_issue_template` | *(none — uses the `release-prepare` default template)* |
 | `release_branch_base` | `main` |
-| `version_manifest_files` | `pyproject.toml`, `uv.lock`, `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `.codex-plugin/plugin.json`, `gemini-extension.json`, `apm.yml` |
+| `version_manifest_files` | `pyproject.toml`, `uv.lock`, `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `.codex-plugin/plugin.json`, `gemini-extension.json`, `apm.yml`, and the ten generated `plugins/magpie-<family>/.claude-plugin/plugin.json` manifests |
+
+The ten per-family plugin manifests and the family entries in
+`.claude-plugin/marketplace.json` are **generated** — they inherit `version`
+(and `author`, `homepage`, `repository`, `license`) from
+`.claude-plugin/plugin.json`. Bump the version in that root manifest, then
+propagate it mechanically instead of editing the ten files by hand:
+
+```bash
+python3 tools/dev/check-family-plugins.py --fix
+```
+
+`tools/dev/check-family-plugins.py` (a prek hook) fails the build if any
+family manifest or marketplace entry is left behind at the previous version,
+so a missed propagation cannot reach a release.
 
 ## Backends
 

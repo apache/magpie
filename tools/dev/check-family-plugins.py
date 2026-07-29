@@ -10,14 +10,16 @@ Checks that every plugin is properly defined:
   correctly, declares `skills: ./skills`, and wires the `hooks/check-upgrade.sh`
   SessionStart hook (which must exist);
 - every `.claude-plugin/marketplace.json` entry resolves to a matching,
-  uniquely-named `plugin.json`;
+  uniquely-named `plugin.json` and carries the root manifest's version;
 - for every family declared in a skill's `family:` frontmatter there is a
-  `plugins/magpie-<family>/` plugin whose manifest is well-formed and whose
-  `skills/` directory contains exactly that family's skills as single-hop
-  symlinks into the shared `skills/<skill>` tree.
+  `plugins/magpie-<family>/` plugin whose manifest is well-formed, inherits the
+  root manifest's shared metadata (version, author, homepage, repository,
+  license), and whose `skills/` directory contains exactly that family's skills
+  as single-hop symlinks into the shared `skills/<skill>` tree.
 
 Drift — a new skill, a changed family, a stale symlink, a malformed or
-mis-named manifest, a dangling marketplace entry — fails the check.
+mis-named manifest, a dangling marketplace entry, a family manifest left behind
+at the previous release's version — fails the check.
 
 Run with `--fix` to regenerate the family plugins + symlinks + marketplace
 entries from the frontmatter.
@@ -37,6 +39,12 @@ MARKETPLACE = Path(".claude-plugin/marketplace.json")
 ROOT_MANIFEST = Path(".claude-plugin/plugin.json")  # the all-in-one `magpie` plugin
 HOOK_SCRIPT = Path("hooks/check-upgrade.sh")  # referenced by the all-in-one plugin hook
 SYMLINK_TARGET = "../../../skills/{skill}"  # relative to plugins/magpie-<f>/skills/
+
+# Metadata the per-family plugins and the marketplace entries inherit verbatim
+# from the all-in-one manifest, so a release bump has exactly one edit point.
+# `version` + `author` are what `claude plugin validate --strict` warns about
+# when absent; the rest carry attribution into a marketplace listing.
+INHERITED = ("version", "author", "homepage", "repository", "license")
 
 # Per-family descriptions used when (re)generating manifests. Keep in sync with
 # the family README; `check` does not enforce these (only structure/symlinks).
@@ -61,9 +69,12 @@ def load_json(path: Path):
         return None, f"{path}: cannot read/parse ({exc})"
 
 
-def validate_manifest(path: Path, expected_name: str) -> list[str]:
+def validate_manifest(
+    path: Path, expected_name: str, inherited: dict | None = None
+) -> list[str]:
     """A plugin.json must exist, be valid JSON, name itself correctly, and
-    declare its skills + a description."""
+    declare its skills + a description. Per-family manifests additionally carry
+    the root manifest's shared metadata (`inherited`) verbatim."""
     if not path.is_file():
         return [f"{path}: missing plugin manifest"]
     data, err = load_json(path)
@@ -76,7 +87,24 @@ def validate_manifest(path: Path, expected_name: str) -> list[str]:
         errors.append(f"{path}: 'skills' is {data.get('skills')!r}, expected './skills'")
     if not str(data.get("description", "")).strip():
         errors.append(f"{path}: missing/empty 'description'")
+    for key, want in (inherited or {}).items():
+        if data.get(key) != want:
+            errors.append(
+                f"{path}: {key!r} is {data.get(key)!r}, expected {want!r} "
+                f"(inherited from {ROOT_MANIFEST})"
+            )
     return errors
+
+
+def root_metadata() -> tuple[dict, list[str]]:
+    """The subset of the all-in-one manifest that the family plugins inherit."""
+    data, err = load_json(ROOT_MANIFEST)
+    if err:
+        return {}, [err]
+    missing = [k for k in INHERITED if not data.get(k)]
+    if missing:
+        return {}, [f"{ROOT_MANIFEST}: missing {', '.join(repr(k) for k in missing)}"]
+    return {k: data[k] for k in INHERITED}, []
 
 
 def families_from_frontmatter() -> dict[str, set[str]]:
@@ -96,6 +124,9 @@ def check(fam: dict[str, set[str]]) -> list[str]:
         return [err]
     entries = market.get("plugins", [])
     listed = {p.get("name") for p in entries}
+
+    shared, meta_errs = root_metadata()
+    errors += meta_errs
 
     # 1) The all-in-one `magpie` plugin: well-formed manifest, listed, and its
     #    SessionStart hook script is present + referenced.
@@ -126,12 +157,19 @@ def check(fam: dict[str, set[str]]) -> list[str]:
         data, jerr = load_json(manifest)
         if jerr is None and data.get("name") != name:
             errors.append(f"{MARKETPLACE}: '{name}' resolves to plugin.json named {data.get('name')!r}")
+        if shared and ent.get("version") != shared["version"]:
+            errors.append(
+                f"{MARKETPLACE}: '{name}' version is {ent.get('version')!r}, "
+                f"expected {shared['version']!r} (from {ROOT_MANIFEST})"
+            )
 
     # 3) Per-family plugins: manifest well-formed + symlinks match the frontmatter.
     for family, skills in sorted(fam.items()):
         name = f"magpie-{family}"
         pdir = PLUGINS / name
-        manifest_errs = validate_manifest(pdir / ".claude-plugin" / "plugin.json", name)
+        manifest_errs = validate_manifest(
+            pdir / ".claude-plugin" / "plugin.json", name, inherited=shared or None
+        )
         errors += manifest_errs
         if manifest_errs:
             continue
@@ -164,7 +202,18 @@ def check(fam: dict[str, set[str]]) -> list[str]:
     return errors
 
 
-def fix(fam: dict[str, set[str]]) -> None:
+def fix(fam: dict[str, set[str]]) -> int:
+    shared, meta_errs = root_metadata()
+    if meta_errs:
+        for e in meta_errs:
+            print(f"  - {e}", file=sys.stderr)
+        print(
+            f"\nCannot regenerate: the family plugins inherit "
+            f"{', '.join(INHERITED)} from {ROOT_MANIFEST}.",
+            file=sys.stderr,
+        )
+        return 1
+
     for pdir in PLUGINS.glob("magpie-*"):
         shutil.rmtree(pdir)
     for family, skills in sorted(fam.items()):
@@ -178,6 +227,7 @@ def fix(fam: dict[str, set[str]]) -> None:
         manifest = {
             "name": name,
             "description": f"Apache Magpie — {DESC.get(family, family + ' family skills')}",
+            **shared,
             "skills": "./skills",
         }
         (pdir / ".claude-plugin" / "plugin.json").write_text(
@@ -185,17 +235,18 @@ def fix(fam: dict[str, set[str]]) -> None:
         )
 
     market = json.loads(MARKETPLACE.read_text(encoding="utf-8"))
-    keep = [p for p in market["plugins"] if p["name"] == "magpie"]
+    keep = [p | {"version": shared["version"]} for p in market["plugins"] if p["name"] == "magpie"]
     for family, skills in sorted(fam.items()):
         keep.append({
             "name": f"magpie-{family}",
             "source": f"./plugins/magpie-{family}",
-            "version": "0.2.0",
+            "version": shared["version"],
             "description": f"Apache Magpie {family} family ({len(skills)} skills).",
         })
     market["plugins"] = keep
     MARKETPLACE.write_text(json.dumps(market, indent=2) + "\n", encoding="utf-8")
     print("Regenerated per-family plugins + marketplace entries from frontmatter.")
+    return 0
 
 
 def main() -> int:
@@ -206,8 +257,7 @@ def main() -> int:
 
     fam = families_from_frontmatter()
     if args.fix:
-        fix(fam)
-        return 0
+        return fix(fam)
 
     errors = check(fam)
     if errors:
