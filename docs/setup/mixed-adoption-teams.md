@@ -60,7 +60,9 @@ The recipe has four steps:
 A per-project adoption wires Magpie skills as symlinks under the repo's
 `.agents/skills/`. In a mixed-adoption team you cannot commit those
 symlinks, so you need skills available at **user scope** instead — where
-Claude Code finds them in every directory you open.
+Claude Code finds them in every directory you open. Keep the same topology
+at user scope: `.agents/skills/` is canonical, and `~/.claude/skills/` is a
+thin relay into it.
 
 **Clone the framework** to a stable personal location:
 
@@ -70,16 +72,22 @@ git clone --depth=1 --branch main \
     ~/.magpie
 ```
 
-**Create user-scope skill symlinks** so Claude Code finds the skills in
-any project:
+**Create the canonical user-scope links and Claude relay** so Claude Code
+finds the skills in any project:
 
 ```bash
-mkdir -p ~/.claude/skills
-for skill_dir in ~/.magpie/.claude/skills/*/; do
+mkdir -p ~/.agents/skills ~/.claude/skills
+for skill_dir in ~/.magpie/skills/*/; do
     skill_name=$(basename "$skill_dir")
-    ln -sfn "$skill_dir" ~/.claude/skills/"$skill_name"
+    ln -sfn "$skill_dir" ~/.agents/skills/magpie-"$skill_name"
+    ln -sfn ../../.agents/skills/magpie-"$skill_name" \
+        ~/.claude/skills/magpie-"$skill_name"
 done
 ```
+
+The framework checkout appears exactly once in the canonical link. The
+Claude-specific entries only relay through `~/.agents/skills/`; they do not
+link independently into the checkout's `.claude/skills/` directory.
 
 **Install the secure agent setup** at user scope. This wires the sandbox
 allowlist so the secure posture applies to every repo on your machine, not
