@@ -1655,6 +1655,55 @@ def test_assert_negate_passes_spec_error_through():
     assert "pattern" in note
 
 
+def test_assert_negate_true_inverts_result():
+    # Cross-predicate coverage: negate: True must invert a 'contains' predicate
+    # (test_assert_negate_inverts_regex_result already covers the regex predicate).
+    spec = {"field": "body", "type": "contains", "substring": "present", "negate": True}
+    holds, _note = evaluate_deterministic_assertion(spec, {"body": "present"})
+    assert holds is False
+
+    holds, _note = evaluate_deterministic_assertion(spec, {"body": "absent"})
+    assert holds is True
+
+
+def test_assert_negate_false_does_not_invert_result():
+    # Explicit boolean False: the predicate result must be returned unchanged.
+    spec = {"field": "body", "type": "contains", "substring": "present", "negate": False}
+    holds, _note = evaluate_deterministic_assertion(spec, {"body": "present"})
+    assert holds is True
+
+    holds, _note = evaluate_deterministic_assertion(spec, {"body": "absent"})
+    assert holds is False
+
+
+def test_assert_negate_non_boolean_returns_none():
+    # Non-boolean values for 'negate' must return (None, note) so one bad
+    # assertion fails that case only, not the whole run.
+    # load_assertions catches this at load time; this guard is for specs built
+    # in memory (e.g. tests or callers that bypass load_assertions).
+    for bad_value in ("false", "true", 0, 1, 0.1, [], {}):
+        spec = {
+            "field": "body",
+            "type": "contains",
+            "substring": "x",
+            "negate": bad_value,
+        }
+        holds, note = evaluate_deterministic_assertion(spec, {"body": "x"})
+        assert holds is None
+        assert "negate" in note
+
+
+def test_assert_negate_absent_defaults_to_no_inversion():
+    # When 'negate' is absent the result must be returned unchanged.
+    # This is the path every real assertion in the tree uses.
+    spec = {"field": "body", "type": "contains", "substring": "present"}
+    holds, _note = evaluate_deterministic_assertion(spec, {"body": "present"})
+    assert holds is True
+
+    holds, _note = evaluate_deterministic_assertion(spec, {"body": "absent"})
+    assert holds is False
+
+
 # ---------------------------------------------------------------------------
 # Structural assertions: batch_judge_assertions
 # ---------------------------------------------------------------------------
@@ -1767,3 +1816,25 @@ def test_compare_structural_judge_disagreement_fails():
     )
     assert not ok
     assert any("has_injection_flagged" in n for n in notes)
+
+
+def test_compare_structural_bad_negate_fails_case_not_run():
+    # A spec with a non-boolean 'negate' value built in memory (bypassing
+    # load_assertions) must fail that one assertion via (None, note) without
+    # raising or aborting the run.  This exercises the path in
+    # compare_structural that calls evaluate_deterministic_assertion and
+    # checks holds is None.
+    bad_spec = {"has_key": {"field": "body", "type": "contains", "substring": "x", "negate": "false"}}
+    expected = {"has_key": True}
+    ok, notes = compare_structural(
+        {"body": "x"},
+        expected,
+        bad_spec,
+        prose_fields=set(),
+        grader_cli=_GRADER_YES,
+        exact=False,
+        grader_timeout=10,
+    )
+    assert not ok
+    assert any("has_key" in n for n in notes)
+    assert any("negate" in n for n in notes)

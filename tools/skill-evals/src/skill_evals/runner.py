@@ -676,6 +676,12 @@ def load_assertions(fixtures_dir: Path) -> dict[str, dict]:
                 f"{path}: assertion {key!r} has invalid type {atype!r}; "
                 f"valid types: {sorted(_VALID_ASSERTION_TYPES)}"
             )
+        negate = spec.get("negate")
+        if negate is not None and not isinstance(negate, bool):
+            raise ValueError(
+                f"{path}: assertion {key!r} has invalid 'negate' value {negate!r}; "
+                "'negate' must be a boolean (true or false)"
+            )
     return data
 
 
@@ -714,9 +720,22 @@ def evaluate_deterministic_assertion(spec: dict, actual: object) -> tuple[bool |
     ``--passphrase`` token does not appear). Negation is applied only to a
     concrete True/False result; a spec/usage error (None) is passed through
     unchanged so the typo still fails loudly.
+
+    ``"negate"`` must be an exact boolean. A non-boolean value is a spec
+    authoring error: it returns ``(None, note)`` so the per-case path in
+    ``compare_structural`` reports the failure without aborting the whole run.
+    In practice ``load_assertions`` catches this at load time before any model
+    is invoked, so this path is only reached when the spec is built in memory
+    (e.g. in tests).
     """
+    negate = spec.get("negate", False)
+    if not isinstance(negate, bool):
+        return (
+            None,
+            f"'negate' must be a boolean (true or false), got {type(negate).__name__!r}: {negate!r}",
+        )
     holds, note = _evaluate_deterministic_assertion_raw(spec, actual)
-    if spec.get("negate") and holds is not None:
+    if negate and holds is not None:
         holds = not holds
     return holds, note
 
