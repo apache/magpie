@@ -125,8 +125,6 @@ uv run --project tools/skill-evals skill-eval tools/skill-evals/evals/reviewer-r
 - **`experimental` — no adopter pilot has run.** The skill ships but no
   end-to-end routing workflow has been exercised in a live maintainer
   session; signal weights and roster-match heuristics may change.
-- **Temporarily absent from `docs/modes.md` Triage table.** The skill is
-  under active development (Privacy-LLM gate preflight being added to
-  Step 0); it was removed from the Triage table pending that work landing.
-  The skill itself remains at `mode: Triage` and `experimental`; it will
-  re-enter the modes table once the preflight addition is complete.
+- **Listed in `docs/modes.md` Triage table.** The skill is marked
+  `experimental`, and Step 0 now includes the Privacy-LLM gate before any
+  issue or PR body is fetched. The former documentation gap is closed.

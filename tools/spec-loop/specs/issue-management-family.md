@@ -206,7 +206,7 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
   fixes exceed the skill's scope and must be handed back to a human-led
   workflow. This boundary is intentional, not a tooling gap, but adopters
   should be aware of it.
-- **`reviewer-routing` row missing from `docs/modes.md` Triage table.**
-  `issue-backlog-stats` and `issue-deduplicate` now appear in the Agentic
-  Triage table; however, `reviewer-routing` (mode: Triage) still lacks a
-  row — tracked as a separate work item (`modes-doc-reviewer-routing-row`).
+- **`reviewer-routing` is listed in the `docs/modes.md` Triage table.**
+  The row describes its roster-based suggestions and confirmation boundary;
+  the Privacy-LLM gate is enforced by Step 0 before issue or PR content is
+  processed. The former missing-row gap is closed.
