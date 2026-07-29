@@ -149,6 +149,21 @@ def test_same_host_redirect_handler_rejects_different_port() -> None:
         )
 
 
+def test_same_host_redirect_handler_rejects_https_downgrade() -> None:
+    handler = SameHostRedirectHandler()
+    request = urllib_request("https://bitbucket.example.test/rest/api/1.0/foo")
+
+    with pytest.raises(BitbucketError, match="refusing to forward credentials"):
+        handler.redirect_request(
+            request,
+            None,
+            302,
+            "Found",
+            {},
+            "http://bitbucket.example.test/rest/api/1.0/bar",
+        )
+
+
 def test_load_config_defaults_to_cloud(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("BITBUCKET_KIND", raising=False)
     config = load_config()
@@ -904,6 +919,23 @@ def test_cloud_get_pull_request_commits_follows_next(
 
 
 @patch("urllib.request.build_opener")
+def test_cloud_get_pull_request_commits_rejects_repeated_next_url(
+    mock_build_opener: MagicMock,
+    cloud_env: None,
+) -> None:
+    initial_url = "https://api.bitbucket.org/2.0/repositories/apache/magpie/pullrequests/7/commits"
+    opener = mock_opener(
+        mock_build_opener,
+        {"values": [{"hash": "abc123", "message": "First commit"}], "next": initial_url},
+    )
+
+    with pytest.raises(BitbucketError, match="repeated URL"):
+        cloud.get_pull_request_commits(load_config(), "7")
+
+    assert opener.open.call_count == 1
+
+
+@patch("urllib.request.build_opener")
 def test_datacenter_get_pull_request_commits_follows_next_page_start(
     mock_build_opener: MagicMock,
     datacenter_env: None,
@@ -928,6 +960,29 @@ def test_datacenter_get_pull_request_commits_follows_next_page_start(
     )
     assert result["pull_request_id"] == "9"
     assert [item["id"] for item in result["values"]] == ["abc123", "def456"]
+
+
+@pytest.mark.parametrize("next_start", [0, -1])
+@patch("urllib.request.build_opener")
+def test_datacenter_get_pull_request_commits_rejects_nonadvancing_cursor(
+    mock_build_opener: MagicMock,
+    datacenter_env: None,
+    next_start: int,
+) -> None:
+    opener = mock_opener(
+        mock_build_opener,
+        {
+            "values": [{"id": "abc123", "message": "First commit"}],
+            "isLastPage": False,
+            "nextPageStart": next_start,
+        },
+    )
+
+    result = datacenter.get_pull_request_commits(load_config(), "9")
+
+    assert opener.open.call_count == 1
+    assert result["pull_request_id"] == "9"
+    assert [item["id"] for item in result["values"]] == ["abc123"]
 
 
 def test_normalize_cloud_pull_request_commits() -> None:
