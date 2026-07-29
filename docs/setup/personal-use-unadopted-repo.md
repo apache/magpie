@@ -240,8 +240,9 @@ install will shadow your `~/.claude/skills/magpie-*` links for that repo.
 Your `.apache-magpie-local/` files continue to work: the project adoption
 adds the `.gitignore` entry automatically (idempotent — the line is
 already there if you added it in Step 2), and the override lookup chain
-(`personal-local → committed → organization → framework default`) honours
-them as the highest-precedence layer.
+(`personal-local → committed → framework default`) honours
+them as the highest-precedence layer. The lookup has only two override
+surfaces: the personal-local file and the committed project file.
 
 You can delete the personal directory once the project is adopted and any
 overrides you care about have been upstreamed into
