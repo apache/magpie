@@ -16,13 +16,16 @@ Behavioral evals for the `license-compliance-audit` skill.
 
 ```bash
 # All cases
-uv run --project tools/skill-evals skill-eval tools/skill-evals/evals/license-compliance-audit/
+uv run --project tools/skill-evals skill-eval --cli "claude -p" \
+    tools/skill-evals/evals/license-compliance-audit/
 
 # Single suite
-uv run --project tools/skill-evals skill-eval tools/skill-evals/evals/license-compliance-audit/step-scope-selection/
+uv run --project tools/skill-evals skill-eval --cli "claude -p" \
+    tools/skill-evals/evals/license-compliance-audit/step-scope-selection/
 
 # Single case
-uv run --project tools/skill-evals skill-eval tools/skill-evals/evals/license-compliance-audit/step-scope-selection/fixtures/case-1-explicit-repo/
+uv run --project tools/skill-evals skill-eval --cli "claude -p" \
+    tools/skill-evals/evals/license-compliance-audit/step-scope-selection/fixtures/case-1-explicit-repo/
 ```
 
 ## What the suites cover
