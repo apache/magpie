@@ -60,15 +60,28 @@ or PR typically carries one label from each dimension that applies.
 
 What part of the framework does this touch?
 
+The ten skill families declared by `SKILL.md` frontmatter are:
+
 | Label | Covers |
 |---|---|
-| `family:pr-management` | `pr-management-*` skills |
-| `family:security` | `security-*` skills, `security-tracker-stats-dashboard` |
-| `family:setup` | `setup-*` skills, framework adoption, agent-sandbox setup |
-| `family:issue` | `issue-*` skills (`issue-triage`, `issue-fix-workflow`, `issue-reassess`, `issue-reassess-stats`, `issue-reproducer`, `issue-stale-sweep`, `issue-deduplicate`, `issue-backlog-stats`) |
+| `family:contributor-growth` | Contributor activity, onboarding, nomination, and committer-growth workflows |
+| `family:issue` | `issue-*` skills (triage, fixing, reassessment, reproduction, stale sweep, deduplication, and backlog statistics) |
+| `family:mentoring` | Newcomer-facing issue and contribution mentoring workflows |
+| `family:pairing` | Developer-side self-review and multi-agent pairing workflows |
+| `family:pr-management` | `pr-management-*` skills and reviewer-routing workflows |
+| `family:release-management` | Release preparation, verification, voting, promotion, announcement, and archival workflows |
+| `family:repo-health` | Repository, dependency, license, CI, workflow, and flaky-test health audits |
+| `family:security` | `security-*` skills and the security-tracker statistics dashboard |
+| `family:setup` | `setup-*` skills, framework adoption, and agent-sandbox setup |
+| `family:utilities` | Skill authoring, listing, optimization, and reconciliation utilities |
+
+Cross-cutting subject labels complement those skill families:
+
+| Label | Covers |
+|---|---|
 | `family:tools` | Substrate tools under `tools/*` (CLI bridges, agent-runtime adapters, mail-source backends) |
-| `family:ci` | `.github/` workflows, prek, validators |
-| `family:docs` | `docs/`, `MISSION.md`, READMEs |
+| `family:ci` | `.github/` workflows, prek, and validators |
+| `family:docs` | `docs/`, `MISSION.md`, and READMEs |
 
 ### 2. capability — two axes (skills vs tools)
 
@@ -313,8 +326,10 @@ happen to consume it (RFC-AI-0005). `tools/github` provides the
 `contract:cve-authority`; `tools/privacy-llm` is `substrate:privacy`.
 Use a `contract:<name>` value when the tool implements a capability
 contract under `tools/<contract>/`, and a `substrate:<name>` value for
-framework substrate. A tool may carry more than one (rare —
-`tools/gmail` is the only one today).
+framework substrate. Several tools carry more than one capability; for
+example, `tools/github` provides tracker, source-control, and change-request
+contracts, while `tools/gmail` provides mail-source, mail-create, and
+mail-archive contracts.
 
 ## MCP servers, classified by capability
 
