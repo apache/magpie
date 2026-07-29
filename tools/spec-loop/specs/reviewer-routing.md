@@ -120,8 +120,9 @@ uv run --project tools/skill-evals skill-eval tools/skill-evals/evals/reviewer-r
 - **Non-ASF roster shape is now exercised.** `projects/non-asf-example/reviewer-roster.md`
   provides a Velox Stream roster with no ASF-specific fields; the
   `non-asf-profile-smoke/step-reviewer-routing/` eval suite asserts that
-  area-match routing and load-aware fallback both work under the
-  `organization: independent` profile. Gap cleared.
+  area-match routing and the no-area-match empty eligible set both work
+  under the `organization: independent` profile. The suite does not cover
+  load-aware fallback; that remains an implementation-defined gap above.
 - **`experimental` — no adopter pilot has run.** The skill ships but no
   end-to-end routing workflow has been exercised in a live maintainer
   session; signal weights and roster-match heuristics may change.
