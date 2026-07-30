@@ -71,15 +71,48 @@ def test_query_graphql_error_in_json(mock_urlopen: MagicMock, mock_env: None) ->
         query_graphql("todo", "invalid_query")
 
 
+@pytest.mark.parametrize(
+    "body",
+    [
+        pytest.param(b"not json", id="not-json"),
+        pytest.param(b"\xff\xfe", id="non-utf8"),
+        pytest.param(b"null", id="json-null"),
+        pytest.param(b"[1, 2]", id="json-array"),
+        pytest.param(b'"oops"', id="json-string"),
+        pytest.param(b'{"errors": "boom"}', id="errors-not-a-list-of-objects"),
+        pytest.param(b'{"errors": ["boom"]}', id="errors-list-of-strings"),
+    ],
+)
 @patch("urllib.request.urlopen")
-def test_query_graphql_http_error_with_non_json_body(mock_urlopen: MagicMock, mock_env: None) -> None:
+def test_query_graphql_http_error_body_never_leaks(
+    mock_urlopen: MagicMock, mock_env: None, body: bytes
+) -> None:
+    # Parsing the error body is best-effort: whatever shape it arrives in, the
+    # caller must see a SourceHutError, never a raw UnicodeDecodeError /
+    # AttributeError from the parse attempt.
     mock_urlopen.side_effect = urllib.error.HTTPError(
-        "https://todo.sr.ht/query", 400, "Bad Request", Message(), io.BytesIO(b"not json")
+        "https://todo.sr.ht/query", 400, "Bad Request", Message(), io.BytesIO(body)
     )
 
     with pytest.raises(
         SourceHutError, match=r"HTTP request to https://todo\.sr\.ht/query failed with status 400"
     ):
+        query_graphql("todo", "{ version }")
+
+
+@patch("urllib.request.urlopen")
+def test_query_graphql_http_error_uses_body_message_when_parseable(
+    mock_urlopen: MagicMock, mock_env: None
+) -> None:
+    mock_urlopen.side_effect = urllib.error.HTTPError(
+        "https://todo.sr.ht/query",
+        400,
+        "Bad Request",
+        Message(),
+        io.BytesIO(b'{"errors": [{"message": "bad query"}]}'),
+    )
+
+    with pytest.raises(SourceHutError, match=r"HTTP 400: bad query"):
         query_graphql("todo", "{ version }")
 
 
@@ -194,29 +227,32 @@ def test_get_patchset_and_mapping(mock_urlopen: MagicMock, mock_env: None) -> No
     assert pr["comments"][0]["body"] == "Looks good to me!"
 
 
-def test_map_patchset_to_pr_keeps_input_order_when_dates_cannot_be_compared() -> None:
+def _email(node_id: int, body: str, sender: str, date: str | None) -> dict[str, Any]:
+    return {
+        "node": {
+            "id": node_id,
+            "body": body,
+            "sender": {"canonicalName": sender},
+            "date": date,
+        }
+    }
+
+
+def test_map_patchset_to_pr_sorts_undated_emails_last() -> None:
+    # A `None` date must not displace the real cover letter, and must not leave
+    # the list half-ordered. Four emails with the undated one in the middle: a
+    # two-element case passes even with a broken sort, because the first
+    # comparison raises before any swap.
     patchset = {
         "id": 200,
         "subject": "Patch series",
         "thread": {
             "emails": {
                 "edges": [
-                    {
-                        "node": {
-                            "id": 1,
-                            "body": "Cover letter",
-                            "sender": {"canonicalName": "Alice"},
-                            "date": "2026-07-01T12:00:00Z",
-                        }
-                    },
-                    {
-                        "node": {
-                            "id": 2,
-                            "body": "Reply",
-                            "sender": {"canonicalName": "Bob"},
-                            "date": None,
-                        }
-                    },
+                    _email(1, "Cover letter", "Alice", "2026-07-01T12:00:00Z"),
+                    _email(2, "Second", "Bob", "2026-07-02T12:00:00Z"),
+                    _email(3, "Undated", "Carol", None),
+                    _email(4, "Third", "Dave", "2026-07-03T12:00:00Z"),
                 ]
             }
         },
@@ -226,6 +262,30 @@ def test_map_patchset_to_pr_keeps_input_order_when_dates_cannot_be_compared() ->
 
     assert pr["description"] == "Cover letter"
     assert pr["author"] == "Alice"
+    # Dated emails ascending, then the undated one.
+    assert [c["body"] for c in pr["comments"]] == ["Second", "Third", "Undated"]
+
+
+def test_map_patchset_to_pr_keeps_input_order_when_key_is_uncomparable() -> None:
+    # A date of an unorderable type still raises, and the fallback must leave the
+    # input order intact rather than a partially-sorted list.
+    patchset = {
+        "thread": {
+            "emails": {
+                "edges": [
+                    _email(1, "Cover letter", "Alice", "2026-07-01T12:00:00Z"),
+                    _email(2, "Second", "Bob", "2026-07-02T12:00:00Z"),
+                    {"node": {"id": 3, "body": "Weird", "sender": {"canonicalName": "Carol"}, "date": 5}},
+                ]
+            }
+        },
+    }
+
+    pr = map_patchset_to_pr(patchset)
+
+    assert pr["description"] == "Cover letter"
+    assert pr["author"] == "Alice"
+    assert [c["body"] for c in pr["comments"]] == ["Second", "Weird"]
 
 
 def test_map_patchset_to_pr_propagates_unexpected_sort_errors() -> None:
