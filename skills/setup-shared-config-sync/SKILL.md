@@ -170,8 +170,11 @@ golden rules); never public.
   before any `git commit` runs.
 - **Use the `Generated-by:` trailer per AGENTS.md.** Commits
   authored by an agent on the user's behalf carry
-  `Generated-by: Claude Code (Opus <version>)` at the end of
-  the body — never `Co-Authored-By:`. See
+  `Generated-by: <agent> (<model>)` at the end of the body,
+  where `<agent>` and `<model>` are the actual agent and
+  model you are running as (e.g. `Claude (Opus 4.8)`,
+  `OpenCode (Big Pickle)`) — do not hardcode either, and
+  never use `Co-Authored-By:`. See
   [AGENTS.md → Commit and PR conventions](../../AGENTS.md#commit-and-pr-conventions)
   for the canonical wording.
 - **Stop on lock conflict.** The example `sync.sh` uses
@@ -320,9 +323,10 @@ contains — on a brand-new scaffold there may be nothing under
      directory and `git add -A` risks staging an editor swap
      file or a `.DS_Store` you forgot to gitignore),
    - `git commit -m '<subject>' -m '<body>'` with the
-     approved message. Always include the
-     `Generated-by: Claude Code (Opus <version>)` trailer in
-     the body per AGENTS.md.
+     approved message. Always include a
+     `Generated-by: <agent> (<model>)` trailer in the body
+     per AGENTS.md — the actual agent and model you are
+     running as, not a hardcoded value.
 
 6. **Push.** `git push` to the upstream branch. No `--force`.
    If push is rejected (non-fast-forward) it means another

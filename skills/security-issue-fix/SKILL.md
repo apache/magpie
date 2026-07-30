@@ -654,11 +654,15 @@ Write out the exact `--body` the skill will pass to
   ```markdown
   ##### Was generative AI tooling used to co-author this PR?
 
-  - [X] Yes — Claude Opus 4.6 (1M context)
+  - [X] Yes — <agent> (<model>)
 
-  Generated-by: Claude Opus 4.6 (1M context) following the guidelines at
+  Generated-by: <agent> (<model>) following the guidelines at
   https://github.com/<upstream>/blob/main/contributing-docs/05_pull_requests.rst#gen-ai-assisted-contributions
   ```
+
+  Fill in `<agent>` and `<model>` with the actual agent and model
+  you are running as (e.g. `Claude (Opus 4.8)`,
+  `OpenCode (Big Pickle)`) — do not hardcode either.
 
 Before presenting the body, **grep it for the forbidden terms** listed
 in 5c and flag any hit to the user. Do not ship anything that matches.
