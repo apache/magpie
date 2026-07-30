@@ -121,9 +121,16 @@ def map_patchset_to_pr(patchset: dict[str, Any]) -> dict[str, Any]:
     edges = emails_conn.get("edges") or []
     emails = [edge.get("node") for edge in edges if edge and edge.get("node")]
 
-    # Sort emails by date if possible
-    with contextlib.suppress(Exception):
-        emails.sort(key=lambda x: x.get("date", ""))
+    # Sort emails by date. `emails[0]` is taken as the cover letter below, so a
+    # failed sort must not leave the list half-ordered: `list.sort()` mutates in
+    # place and can raise part-way through a comparison, which would silently
+    # promote a reply to cover letter. Sort a copy and only adopt it on success.
+    # A `None` date is the common case (the `.get` default only covers a missing
+    # key), so it is folded into the key rather than left to raise; undated
+    # emails sort last and keep their input order rather than displacing a real
+    # cover letter.
+    with contextlib.suppress(TypeError, AttributeError):
+        emails = sorted(emails, key=lambda x: (x.get("date") is None, x.get("date") or ""))
 
     # The cover letter / description is the first email (or patchset subject)
     description = ""
