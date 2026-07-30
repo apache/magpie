@@ -886,7 +886,14 @@ agent self-eval mode).
 Good entry points, in rough order of ramp-up cost:
 
 1. **Pick a [`good first issue`](https://github.com/apache/magpie/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22).**
-   The current backlog has several such issues.
+   The label link above is always current, and the backlog is
+   substantial. Two broad clusters recur:
+   - **Tool / adapter bridges** — JIRA write path, Bugzilla, IMAP / mbox
+     concrete wiring, GitLab, Mailman 3 / Hyperkitty, Discourse, Zulip,
+     Matrix, Forgejo, OSV.dev, Pagure.
+   - **Agent-CLI runtime adapters** — Codex, Gemini, local-LLM, Cursor,
+     Aider, gh-copilot, Goose, Amazon Q, Junie, OpenHands.
+
    Before you start work, please leave a comment on the issue so a
    maintainer can assign it to you. That keeps two people from working
    on the same issue at the same time.
