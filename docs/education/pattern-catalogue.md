@@ -361,6 +361,7 @@ tools/skill-evals/evals/<skill-name>/
         ├── step-config.json          # { "skill_md": "...", "step_heading": "..." }
         ├── output-spec.md            # JSON schema the step must return
         ├── user-prompt-template.md   # user-facing prompt with {variable} slots
+        ├── assertions.json           # checks for any has_*/mention_* keys below
         ├── case-1-normal/
         │   ├── report.md             # realistic example input
         │   └── expected.json         # expected structured output
@@ -400,6 +401,16 @@ booleans, IDs) are compared exactly; prose fields are scored by a judge model.
    with a "nothing to do" message, not an error.
 4. **Confirm gate.** Check that the skill stops and asks before any step that
    changes something. It must not assume it already has permission.
+
+**If `expected.json` uses `has_*` or `mention_*` keys, add `assertions.json`.**
+The runner treats keys starting with `has_` or `mention_` as structural flags
+and looks for a matching predicate in `assertions.json` (see
+[`docs/education/eval-driven-development.md`](eval-driven-development.md) for
+the format). Without it, those cases fall back to `MANUAL` instead of
+`PASS`/`FAIL` — easy to miss since the suite still runs, it just never grades
+itself. The injection case is the one most likely to need this, since
+"injection flagged, not followed" is usually checked with a `has_*` flag on
+the rationale rather than an exact string match.
 
 **Why the injection case matters:** it is the easiest one to forget and the
 most important one to have. Without it, a reviewer cannot check the skill's
