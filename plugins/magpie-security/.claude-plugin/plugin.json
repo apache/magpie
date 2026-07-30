@@ -1,7 +1,7 @@
 {
   "name": "magpie-security",
   "description": "Apache Magpie \u2014 security-issue handling lifecycle \u2014 import through CVE publication, triage, sync, dedup, invalidate. Maintainer-only.",
-  "version": "0.2.0",
+  "version": "0.2.0.dev0",
   "author": {
     "name": "Apache Magpie",
     "url": "https://magpie.apache.org/"

@@ -1,7 +1,7 @@
 {
   "name": "magpie-release-management",
   "description": "Apache Magpie \u2014 ASF release lifecycle: plan, RC cut/sign, vote, tally, promote, announce, archive, audit.",
-  "version": "0.2.0",
+  "version": "0.2.0.dev0",
   "author": {
     "name": "Apache Magpie",
     "url": "https://magpie.apache.org/"

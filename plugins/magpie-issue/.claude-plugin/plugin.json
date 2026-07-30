@@ -1,7 +1,7 @@
 {
   "name": "magpie-issue",
   "description": "Apache Magpie \u2014 issue lifecycle: triage, reproduction, fix drafting, reassess, stale-sweep, dedup, backlog stats.",
-  "version": "0.2.0",
+  "version": "0.2.0.dev0",
   "author": {
     "name": "Apache Magpie",
     "url": "https://magpie.apache.org/"

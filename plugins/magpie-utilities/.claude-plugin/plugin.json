@@ -1,7 +1,7 @@
 {
   "name": "magpie-utilities",
   "description": "Apache Magpie \u2014 framework meta-skills: write-skill, optimize-skill, skill-reconciler, list-skills.",
-  "version": "0.2.0",
+  "version": "0.2.0.dev0",
   "author": {
     "name": "Apache Magpie",
     "url": "https://magpie.apache.org/"

@@ -356,18 +356,22 @@ no network calls, and touches nothing in the adopter repo.
 
 ## Versioning
 
-The plugin version tracks the framework release (`0.2.0`). The manifest
-version strings are kept in sync with `pyproject.toml` by the
-`release-prepare` version bump — see
+The plugin version tracks the framework version in `pyproject.toml`, which is
+the single authority every manifest mirrors verbatim — **including the `.devN`
+suffix**. Between releases the manifests therefore read `0.2.0.dev0`, not
+`0.2.0`: a bare `0.2.0` would advertise a release that does not exist yet. Only
+a tagged release carries a bare version, and only released versions are ever
+published to a marketplace, so the PEP 440 suffix never reaches a consumer.
+
+Nothing is hand-edited. `pyproject.toml` feeds the four ecosystem manifests,
+and the all-in-one [`.claude-plugin/plugin.json`](../../.claude-plugin/plugin.json)
+in turn feeds the ten per-family manifests and the marketplace entries, which
+also inherit `author`, `homepage`, `repository`, and `license`. Bump
+`project.version` and run `python3 tools/dev/check-family-plugins.py --fix`; the
+same script, run as a prek hook, fails the build on any manifest left behind at
+the old version. See
 [`release-management-config.md`](../../projects/magpie/release-management-config.md)
 (`version_manifest_files`).
-
-The per-family plugin manifests do not carry their own version: they inherit
-`version`, `author`, `homepage`, `repository`, and `license` from the
-all-in-one [`.claude-plugin/plugin.json`](../../.claude-plugin/plugin.json), so
-a bump has one edit point. Propagate it with
-`python3 tools/dev/check-family-plugins.py --fix`; the same script, run as a
-prek hook, fails the build on any manifest left behind at the old version.
 
 ## Verification status
 

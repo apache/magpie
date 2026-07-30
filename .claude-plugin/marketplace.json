@@ -9,67 +9,67 @@
     {
       "name": "magpie",
       "source": ".",
-      "version": "0.2.0",
+      "version": "0.2.0.dev0",
       "description": "All Apache Magpie skills (all 10 families; ~21.7k always-on tokens)."
     },
     {
       "name": "magpie-contributor-growth",
       "source": "./plugins/magpie-contributor-growth",
-      "version": "0.2.0",
+      "version": "0.2.0.dev0",
       "description": "Apache Magpie contributor-growth family (6 skills)."
     },
     {
       "name": "magpie-issue",
       "source": "./plugins/magpie-issue",
-      "version": "0.2.0",
+      "version": "0.2.0.dev0",
       "description": "Apache Magpie issue family (8 skills)."
     },
     {
       "name": "magpie-mentoring",
       "source": "./plugins/magpie-mentoring",
-      "version": "0.2.0",
+      "version": "0.2.0.dev0",
       "description": "Apache Magpie mentoring family (4 skills)."
     },
     {
       "name": "magpie-pairing",
       "source": "./plugins/magpie-pairing",
-      "version": "0.2.0",
+      "version": "0.2.0.dev0",
       "description": "Apache Magpie pairing family (2 skills)."
     },
     {
       "name": "magpie-pr-management",
       "source": "./plugins/magpie-pr-management",
-      "version": "0.2.0",
+      "version": "0.2.0.dev0",
       "description": "Apache Magpie pr-management family (8 skills)."
     },
     {
       "name": "magpie-release-management",
       "source": "./plugins/magpie-release-management",
-      "version": "0.2.0",
+      "version": "0.2.0.dev0",
       "description": "Apache Magpie release-management family (10 skills)."
     },
     {
       "name": "magpie-repo-health",
       "source": "./plugins/magpie-repo-health",
-      "version": "0.2.0",
+      "version": "0.2.0.dev0",
       "description": "Apache Magpie repo-health family (7 skills)."
     },
     {
       "name": "magpie-security",
       "source": "./plugins/magpie-security",
-      "version": "0.2.0",
+      "version": "0.2.0.dev0",
       "description": "Apache Magpie security family (12 skills)."
     },
     {
       "name": "magpie-setup",
       "source": "./plugins/magpie-setup",
-      "version": "0.2.0",
+      "version": "0.2.0.dev0",
       "description": "Apache Magpie setup family (9 skills)."
     },
     {
       "name": "magpie-utilities",
       "source": "./plugins/magpie-utilities",
-      "version": "0.2.0",
+      "version": "0.2.0.dev0",
       "description": "Apache Magpie utilities family (4 skills)."
     }
   ]
