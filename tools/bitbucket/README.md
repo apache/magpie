@@ -71,6 +71,8 @@ Implemented read-only commands:
 - `magpie-bitbucket pr diff <id>`
 - `magpie-bitbucket pr discussion <id>`
 - `magpie-bitbucket pr reviews <id>`
+- `magpie-bitbucket pr tasks <id>`
+- `magpie-bitbucket pr task <id> <task-id>`
 - `magpie-bitbucket pr merge-checks <id>`
 - `magpie-bitbucket pr status <id>`
 
@@ -116,8 +118,9 @@ This implementation covers read-only operations:
 11. **Pull-request diff fetch:** fetch the pull request unified diff as normalized read-only output.
 12. **Pull-request discussion fetch:** fetch a comments-only pull request discussion subset as normalized read-only output.
 13. **Pull-request review-state fetch:** fetch reviewers, approvals, change-request signals, pending review requests, and normalized review activity.
-14. **Pull-request merge-check context fetch:** fetch known read-only mergeability, conflict, status-check, and review blocker context while preserving unknown values where the backend does not expose a clear signal.
-15. **Pull-request status fetch:** fetch build/status checks for the pull request as normalized read-only output.
+14. **Pull-request tasks fetch:** list Bitbucket Cloud pull-request tasks and fetch one task as partial read-only change-request context.
+15. **Pull-request merge-check context fetch:** fetch known read-only mergeability, conflict, status-check, and review blocker context while preserving unknown values where the backend does not expose a clear signal.
+16. **Pull-request status fetch:** fetch build/status checks for the pull request as normalized read-only output.
 
 The bridge supports two Bitbucket API flavours behind one command
 surface:
@@ -185,6 +188,12 @@ uv run --project tools/bitbucket magpie-bitbucket pr discussion 123
 
 # Fetch pull request review state
 uv run --project tools/bitbucket magpie-bitbucket pr reviews 123
+
+# List Bitbucket Cloud pull request tasks
+uv run --project tools/bitbucket magpie-bitbucket pr tasks 123
+
+# Fetch one Bitbucket Cloud pull request task
+uv run --project tools/bitbucket magpie-bitbucket pr task 123 456
 
 # Fetch pull request merge-check context
 uv run --project tools/bitbucket magpie-bitbucket pr merge-checks 123
