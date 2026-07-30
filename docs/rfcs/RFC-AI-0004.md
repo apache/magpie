@@ -96,7 +96,7 @@ It is **not** a specification of any particular implementation detail (LLM cho
 This is a **Draft**. The Apache Magpie project's reference implementation operationalises every principle in this RFC, but the RFC itself is the project's first attempt to extract the principles from the implementation and frame them as a portable contract. The next two milestones are:
 
 1. **Public review** — comments solicited from ASF Members, non-ASF maintainers running similar agentic frameworks, and the ASF Responsible AI Initiative working group.
-2. **Pilot validation** — the four principles tested against the Apache Magpie pilot cohort (one ASF PMC running the full security-issue flow, one ASF PMC running just triage + mentoring, at least one non-ASF project) before promotion from `Draft` to `Stable`.
+2. **Pilot validation** — the six principles tested against the Apache Magpie pilot cohort (one ASF PMC running the full security-issue flow, one ASF PMC running just triage + mentoring, at least one non-ASF project) before promotion from `Draft` to `Stable`.
 
 ---
 
