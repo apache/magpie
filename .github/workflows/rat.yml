@@ -43,7 +43,7 @@ jobs:
       RAT_VERSION: "0.18"
       RAT_SHA512: "315b16536526838237c42b5e6b613d29adc77e25a6e44a866b2b7f8b162e03d3629d49c9faea86ceb864a36b2c42838b8ce43d6f2db544e961f2259e242748f4"
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
       - uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95  # v5.6.0
