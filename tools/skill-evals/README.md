@@ -247,7 +247,7 @@ The default prose-field set is `rationale`, `reason`, `reasons`,
 
 ```json
 {
-  "prose_fields": ["custom_prose_field"]
+  "prose_fields": ["paste_recipe"]
 }
 ```
 

@@ -48,7 +48,7 @@ Two modes:
    exactly. Override the grader command with ``--grader-cli``, or pass
    ``--exact`` to disable grading and require verbatim equality on
    every field. The set of prose fields defaults to a built-in list
-   and can be overridden per fixtures dir via ``grading-schema.json``.
+   and can be extended per fixtures dir via ``grading-schema.json``.
    No caching: every prose field is sent to the grader on every run.
 
 Usage:
@@ -349,7 +349,8 @@ DEFAULT_GRADER_CLI: str = "claude -p --model haiku"
 # Keys whose values are treated as prose by default. The runner sends these
 # to the grader CLI for a soft "does the candidate support the same
 # conclusion?" judgement instead of requiring verbatim string equality.
-# A per-fixtures-dir ``grading-schema.json`` can replace this list.
+# A per-fixtures-dir ``grading-schema.json`` can extend this list; it cannot
+# narrow it. Use ``--exact`` to disable grading for a whole run.
 DEFAULT_PROSE_FIELDS: frozenset[str] = frozenset(
     {
         "rationale",
