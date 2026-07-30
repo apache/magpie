@@ -12,6 +12,7 @@
   - [Delivery formats](#delivery-formats)
   - [Prerequisites](#prerequisites)
   - [Placeholders](#placeholders)
+  - [Learn with an AI tutor](#learn-with-an-ai-tutor)
   - [Licence](#licence)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -95,6 +96,22 @@ control. Specific technical prerequisites are stated in each lesson.
 
 Exercises use `<PROJECT>` wherever a real project name would appear.
 Substitute your own project name when working through the activities.
+
+## Learn with an AI tutor
+
+Each lesson in the module map above has a matching AI tutor prompt in
+[`ai-tutors/`](../../../ai-tutors/README.md). Load one into any capable chat
+model and it teaches that lesson interactively — working through the
+objectives, exercises, and self-check questions one step at a time.
+
+**How to load a tutor:** open the matching `lesson-*.md` file under `ai-tutors/`,
+find the `---` separator, and paste everything below that line as the system
+prompt. The notes above the separator are for you; only the content below goes
+to the model. See [`ai-tutors/README.md`](../../../ai-tutors/README.md) for
+tool-by-tool instructions (claude.ai Projects, Open WebUI, API).
+
+These prompts are companions to the lesson wrappers, not a replacement for the
+source pages or in-person instruction.
 
 ## Licence
 
