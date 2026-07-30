@@ -1,7 +1,7 @@
 {
   "name": "magpie-mentoring",
   "description": "Apache Magpie \u2014 newcomer mentoring: welcome, newcomer-issue explanations, good-first-issue authoring + sweep.",
-  "version": "0.2.0",
+  "version": "0.2.0.dev0",
   "author": {
     "name": "Apache Magpie",
     "url": "https://magpie.apache.org/"

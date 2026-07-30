@@ -1,6 +1,6 @@
 {
   "name": "magpie",
-  "version": "0.2.0",
+  "version": "0.2.0.dev0",
   "description": "Apache Magpie — a reusable, governance-agnostic framework of agentic skills for maintaining open-source projects: release management, security triage, PR and issue workflows, contributor growth, and repo health.",
   "author": { "name": "Apache Magpie", "url": "https://magpie.apache.org/" },
   "homepage": "https://magpie.apache.org/",

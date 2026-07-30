@@ -1,7 +1,7 @@
 {
   "name": "magpie-pairing",
   "description": "Apache Magpie \u2014 pair a change with a structured self-review or a multi-agent adversarial review.",
-  "version": "0.2.0",
+  "version": "0.2.0.dev0",
   "author": {
     "name": "Apache Magpie",
     "url": "https://magpie.apache.org/"

@@ -6,7 +6,7 @@
 # Gemini). Schema is v0.1 and may change — verify against the current
 # https://microsoft.github.io/apm/ before publishing.
 name: magpie
-version: 0.2.0
+version: 0.2.0.dev0
 type: skill
 description: >-
   Apache Magpie — a reusable, governance-agnostic framework of agentic skills
