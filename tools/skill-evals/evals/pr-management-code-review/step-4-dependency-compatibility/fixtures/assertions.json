@@ -1,0 +1,19 @@
+{
+  "has_dependency_evidence": {
+    "type": "regex",
+    "field": "findings",
+    "pattern": "\"dependency_evidence\"\\s*:\\s*\"[^\"]+\"",
+    "flags": "is"
+  },
+  "has_recommended_action": {
+    "type": "regex",
+    "field": "findings",
+    "pattern": "\"recommended_action\"\\s*:\\s*\"(release_marker|direct_lower_bound)\"",
+    "flags": "is"
+  },
+  "has_complete_constraint_ledger": {
+    "type": "judge",
+    "field": "findings",
+    "rubric": "Every dependency-version compatibility finding has a non-empty dependency_evidence field that enumerates every mandatory direct and transitive constraint path, states their effective intersection, metadata coverage, and compatibility classification, and provides exactly the applicable conclusion: a concrete supported failing resolution, an exhaustive justification that no failing resolution exists, or a statement that partial evidence leaves compatibility unknown."
+  }
+}

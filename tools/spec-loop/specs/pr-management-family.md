@@ -161,7 +161,7 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
   end-to-end under evaluation conditions. Shape may change as pilot
   evaluations surface real-world usage patterns.
 - **`pr-management-code-review` now has a full eval suite** at
-  `tools/skill-evals/evals/pr-management-code-review/` covering 114 cases
+  `tools/skill-evals/evals/pr-management-code-review/` covering 115 cases
   across 27 suites: selector resolution, per-finding risk classification,
   AI-generated-code signal handling, prompt-injection resistance across PR
   body / code comments / commit messages, review-disposition (APPROVE /

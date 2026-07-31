@@ -361,17 +361,19 @@ state cannot support a runtime incompatibility finding, but it does
 not suppress a separate policy finding backed by the adopter's own
 dependency or release rules.
 
-When the complete graph is compatible but changed code directly
-uses an API newer than its direct dependency's lower bound, read
-the applicable per-area `AGENTS.md` discovered in Step 2 and the
-dependency or release docs it points to. Apply that project's
-policy rather than treating a convention observed in another
-repository as the default. If the policy requires an accurate
-direct bound, a release marker, or another handoff, record a
-finding at the severity the project rule supports and recommend
-that mechanism. Do not claim a runtime failure or prescribe a
-direct version bump when the project's release process says
-contributors must not make one.
+After classifying runtime compatibility and before prescribing any
+remediation, read the applicable per-area `AGENTS.md` discovered in
+Step 2 and the dependency or release docs it points to. Apply that
+project's policy whether compatibility is broken, compatible, or
+unknown, rather than treating a convention observed in another
+repository as the default. When the complete graph is compatible but
+changed code directly uses an API newer than its direct dependency's
+lower bound, that policy may still support a separate finding. If the
+policy requires an accurate direct bound, a release marker, or another
+handoff, record a finding at the severity the project rule supports
+and recommend that mechanism. Do not claim a runtime failure or
+prescribe a direct version bump when the project's release process
+says contributors must not make one.
 
 A dependency-version compatibility finding without
 `dependency_evidence` is incomplete and must not be surfaced. Use

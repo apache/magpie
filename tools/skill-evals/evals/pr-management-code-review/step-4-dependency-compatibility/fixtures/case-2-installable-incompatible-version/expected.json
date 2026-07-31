@@ -3,10 +3,14 @@
     {
       "severity": "major",
       "runtime_compatibility": "broken",
-      "recommended_action": "direct_lower_bound",
+      "recommended_action": "release_marker",
       "mandatory_paths_checked": 1,
       "metadata_coverage": "partial",
-      "supported_incompatible_resolution": true
+      "supported_incompatible_resolution": true,
+      "dependency_evidence": "The direct compat-core>=1.8.0 requirement is the only mandatory constraint path, so the effective intersection is >=1.8.0. Metadata coverage is partial, but query-base==1.32.0 with compat-core==1.8.0 is a concrete supported resolution that satisfies every declaration and lacks FeatureUnavailable, so runtime compatibility is broken."
     }
-  ]
+  ],
+  "has_dependency_evidence": true,
+  "has_recommended_action": true,
+  "has_complete_constraint_ledger": true
 }

@@ -6,7 +6,11 @@
       "recommended_action": "release_marker",
       "mandatory_paths_checked": 2,
       "metadata_coverage": "partial",
-      "supported_incompatible_resolution": false
+      "supported_incompatible_resolution": false,
+      "dependency_evidence": "The direct compat-core>=1.8.0 path and the inspected query-base==1.32.0 transitive compat-core>=1.12.0 path currently intersect at >=1.12.0. Metadata for later permitted query-base versions is missing, so coverage is partial; no concrete supported failing resolution is demonstrated and runtime compatibility remains unknown."
     }
-  ]
+  ],
+  "has_dependency_evidence": true,
+  "has_recommended_action": true,
+  "has_complete_constraint_ledger": true
 }

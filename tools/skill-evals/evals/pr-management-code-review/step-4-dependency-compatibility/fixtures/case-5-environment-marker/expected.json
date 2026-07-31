@@ -1,0 +1,16 @@
+{
+  "findings": [
+    {
+      "severity": "major",
+      "runtime_compatibility": "broken",
+      "recommended_action": "direct_lower_bound",
+      "mandatory_paths_checked": 2,
+      "metadata_coverage": "partial",
+      "supported_incompatible_resolution": true,
+      "dependency_evidence": "The direct compat-core>=1.8.0 path applies in every supported environment, while the query-base==1.32.0 transitive compat-core>=1.12.0 path applies only when python_version < '3.12'. The effective intersection is >=1.12.0 on Python 3.11 and >=1.8.0 on Python 3.12. Metadata coverage is partial, but Python 3.12 with query-base==1.32.0 and compat-core==1.8.0 is a concrete supported resolution that satisfies every active constraint and lacks FeatureUnavailable, so runtime compatibility is broken."
+    }
+  ],
+  "has_dependency_evidence": true,
+  "has_recommended_action": true,
+  "has_complete_constraint_ledger": true
+}
