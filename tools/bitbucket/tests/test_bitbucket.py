@@ -919,6 +919,28 @@ def test_cloud_get_pull_request_commits_follows_next(
 
 
 @patch("urllib.request.build_opener")
+def test_cloud_get_pull_request_commits_rejects_repeated_next_url(
+    mock_build_opener: MagicMock,
+    cloud_env: None,
+) -> None:
+    repeated_url = "https://api.bitbucket.org/2.0/repositories/apache/magpie/pullrequests/7/commits?page=2"
+    mock_opener(
+        mock_build_opener,
+        {
+            "values": [],
+            "next": repeated_url,
+        },
+        {
+            "values": [],
+            "next": repeated_url,
+        },
+    )
+
+    with pytest.raises(BitbucketError, match="pagination returned a repeated URL"):
+        cloud.get_pull_request_commits(load_config(), "7")
+
+
+@patch("urllib.request.build_opener")
 def test_datacenter_get_pull_request_commits_follows_next_page_start(
     mock_build_opener: MagicMock,
     datacenter_env: None,
