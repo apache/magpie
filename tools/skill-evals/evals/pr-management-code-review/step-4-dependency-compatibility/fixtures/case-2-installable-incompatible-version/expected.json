@@ -1,0 +1,11 @@
+{
+  "findings": [
+    {
+      "severity": "major",
+      "runtime_compatibility": "broken",
+      "recommended_action": "direct_lower_bound",
+      "mandatory_paths_checked": 1,
+      "supported_incompatible_resolution": true
+    }
+  ]
+}
