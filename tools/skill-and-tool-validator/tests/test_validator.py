@@ -3257,7 +3257,7 @@ class TestOrganizationNonASFSmoke:
             "organization: independent\n"
             "---\n\n"
             "## Workflow\n\n"
-            "Import security reports filed directly to security@apache.org.\n"
+            "Send announcement to announce@apache.org upon security release.\n"
         )
         path = tmp_path / "SKILL.md"
         coupling_violations = list(validate_asf_coupling(path, text))
