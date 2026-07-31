@@ -3308,6 +3308,17 @@ class TestOrganizationNonASFSmoke:
         assert "asf-coupling" in coupling_violations[0].message
         assert "PMC" in coupling_violations[0].message
 
+    def test_independent_org_structure_missing_file_yields_violation(self, tmp_path: Path) -> None:
+        """An incomplete independent organization adapter missing organization.md yields a structure violation."""
+        org_dir = tmp_path / "organizations" / "independent"
+        org_dir.mkdir(parents=True)
+        (org_dir / "README.md").write_text("# placeholder\n")
+        vs = list(validate_organization_structure(tmp_path))
+        assert len(vs) == 1
+        assert vs[0].category == ORGANIZATION_CATEGORY
+        assert "missing required file 'organization.md'" in vs[0].message
+
+
 
 
 
