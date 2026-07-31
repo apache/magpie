@@ -3264,7 +3264,7 @@ class TestOrganizationNonASFSmoke:
         assert len(coupling_violations) == 1
         assert coupling_violations[0].category == ASF_COUPLING_CATEGORY
         assert "asf-coupling" in coupling_violations[0].message
-        assert "apache.org" in coupling_violations[0].message
+        assert "announce@apache.org" in coupling_violations[0].message
 
     def test_release_backend_asf_coupled_body_yields_violation(self, tmp_path: Path) -> None:
         """Release housekeeping skill containing SVN release commands triggers coupling violation."""
@@ -3317,11 +3317,6 @@ class TestOrganizationNonASFSmoke:
         assert len(vs) == 1
         assert vs[0].category == ORGANIZATION_CATEGORY
         assert "missing required file 'organization.md'" in vs[0].message
-
-
-
-
-
 
 
 # ---------------------------------------------------------------------------
