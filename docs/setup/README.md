@@ -46,6 +46,7 @@ framework safe to use.
 | [`setup-isolated-setup-verify`](../../skills/setup-isolated-setup-verify/SKILL.md) | Verify the secure setup landed correctly (static checks on settings.json, hooks, pinned versions). |
 | [`setup-isolated-setup-doctor`](../../skills/setup-isolated-setup-doctor/SKILL.md) | Diagnose in-session sandbox friction (SSH agent, port bind, docker/podman socket) and map each fail to a catalog entry. |
 | [`setup-isolated-setup-update`](../../skills/setup-isolated-setup-update/SKILL.md) | Surface drift between the installed setup and the framework's latest. |
+| [`setup`](../../skills/setup/SKILL.md) | Adopt and maintain the framework in a project repo through installation, verification, updates, overrides, and unadoption. |
 | [`setup upgrade`](../../skills/setup/upgrade.md) | Pull the framework checkout to latest `origin/main`. |
 | [`setup verify`](../../skills/setup/verify.md) | Verify the framework is integrated correctly into an adopter tracker. |
 | [`setup-status`](../../skills/setup-status/SKILL.md) | Render a Markdown adoption dashboard (install pin, drift, wired agent targets, installed skill families, symlink health) and adjust the wiring in place. |
