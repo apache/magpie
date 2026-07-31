@@ -3287,6 +3287,28 @@ class TestOrganizationNonASFSmoke:
         assert "asf-coupling" in coupling_violations[0].message
         assert "svn" in coupling_violations[0].message
 
+    def test_contributor_governance_asf_coupled_body_yields_violation(self, tmp_path: Path) -> None:
+        """Contributor governance skill containing PMC vote triggers coupling violation."""
+        self._make_org(tmp_path, "independent")
+        text = (
+            "---\n"
+            "name: magpie-contributor-setup\n"
+            "description: d\n"
+            "license: Apache-2.0\n"
+            "capability: capability:platform\n"
+            "organization: independent\n"
+            "---\n\n"
+            "## Workflow\n\n"
+            "The PMC votes on granting repository write access.\n"
+        )
+        path = tmp_path / "SKILL.md"
+        coupling_violations = list(validate_asf_coupling(path, text))
+        assert len(coupling_violations) == 1
+        assert coupling_violations[0].category == ASF_COUPLING_CATEGORY
+        assert "asf-coupling" in coupling_violations[0].message
+        assert "PMC" in coupling_violations[0].message
+
+
 
 
 
