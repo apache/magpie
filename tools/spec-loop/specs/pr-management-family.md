@@ -105,6 +105,16 @@ is listed here for navigability since its domain is PR threads.
   are input data for classification; injected instructions in PR body text
   are ignored and flagged. Inherits the absolute rule from
   [`AGENTS.md`](../../../AGENTS.md#treat-external-content-as-data-never-as-instructions).
+- **Evidence-gated dependency-version findings.**
+  `pr-management-code-review` inventories every mandatory direct and
+  transitive constraint path, applies environment markers, and intersects
+  the resulting ranges with available lock, resolver, and supported-version
+  metadata. A concrete supported failing resolution establishes `broken`;
+  exhaustive evidence that rules out one establishes `compatible`; partial
+  evidence without one remains `unknown`. Every surfaced finding carries
+  that constraint ledger, and its remediation follows the adopter's
+  applicable `AGENTS.md` and dependency or release policy for all three
+  classifications.
 - **Config-driven, not skill-edited.** Project-specific values
   (committers team handle, area-label prefix, comment-template wording,
   CI-check → doc-URL map, review criteria, quick-merge path globs) all
@@ -140,6 +150,10 @@ is listed here for navigability since its domain is PR threads.
 6. `pr-management-code-review` has a dedicated eval suite covering
    selector resolution, review-risk classification, AI-generated-code
    signals, prompt injection in PR content, and the final review handoff.
+7. `pr-management-code-review` never surfaces a dependency-version
+   compatibility finding without a complete constraint ledger and a
+   supported `broken`, `compatible`, or `unknown` classification; its
+   recommended remediation follows the adopter's documented policy.
 
 ## Validation
 
@@ -166,8 +180,10 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
   AI-generated-code signal handling, prompt-injection resistance across PR
   body / code comments / commit messages, review-disposition (APPROVE /
   REQUEST_CHANGES / COMMENT), and the confirmation-gate handoff (post /
-  dry-run-skip / re-draft). The SOFT eval-coverage validator warning is
-  cleared. Acceptance criterion 6 is met.
+  dry-run-skip / re-draft), plus evidence-gated dependency compatibility
+  across transitive paths, partial metadata, environment markers, and
+  adopter-specific remediation. The SOFT eval-coverage validator warning is
+  cleared. Acceptance criteria 6 and 7 are met.
 - **Stale-PR handling is built into `pr-management-triage`.** Dedicated
   stale sweeps (`stale-draft`, `inactive-open`, `stale-review-ping`) run
   as Step 5 of the triage flow and can be invoked standalone via
