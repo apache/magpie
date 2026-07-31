@@ -3245,6 +3245,28 @@ class TestOrganizationNonASFSmoke:
         assert "is not a known organization" in org_violations[0].message
         assert org_violations[0].category == ORGANIZATION_CATEGORY
 
+    def test_security_intake_asf_coupled_body_yields_violation(self, tmp_path: Path) -> None:
+        """Security intake skill containing ASF-coupled email list triggers coupling violation."""
+        self._make_org(tmp_path, "independent")
+        text = (
+            "---\n"
+            "name: magpie-security-intake\n"
+            "description: d\n"
+            "license: Apache-2.0\n"
+            "capability: capability:intake\n"
+            "organization: independent\n"
+            "---\n\n"
+            "## Workflow\n\n"
+            "Import security reports filed directly to security@apache.org.\n"
+        )
+        path = tmp_path / "SKILL.md"
+        coupling_violations = list(validate_asf_coupling(path, text))
+        assert len(coupling_violations) == 1
+        assert coupling_violations[0].category == ASF_COUPLING_CATEGORY
+        assert "asf-coupling" in coupling_violations[0].message
+        assert "apache.org" in coupling_violations[0].message
+
+
 
 
 # ---------------------------------------------------------------------------
