@@ -326,8 +326,10 @@ For each finding, record:
   severity: nit | minor | major | blocking
   dependency_evidence: |
     dependency findings only: list every mandatory constraint path,
-    their effective intersection, and either one concrete supported
-    resolution that still fails or "no failing resolution"
+    their effective intersection, the metadata coverage across the
+    supported version space, and either one concrete supported
+    resolution that still fails or an explicit justification that
+    exhaustive evidence contains no failing resolution
   suggestion: |
     short, concrete fix. If short enough, also include a
     GitHub `suggestion` block in the eventual review body
@@ -345,8 +347,12 @@ Then identify exact versions that satisfy every constraint but
 still lack the required API. Record that ledger and resolution in
 `dependency_evidence`. A direct lower bound by itself is not a
 failing resolution when another mandatory path narrows the range.
-If no concrete failing resolution exists, a runtime compatibility
-claim is disproven and must not be raised.
+If the available evidence does not identify a concrete failing
+resolution, the runtime incompatibility claim remains unsubstantiated
+and must not be raised. Absence of a failing resolution proves
+compatibility only when the inspected metadata exhaustively covers
+the supported version space; record what makes that coverage
+exhaustive.
 
 When the complete graph is compatible but changed code directly
 uses an API newer than its direct dependency's lower bound, read

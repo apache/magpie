@@ -15,6 +15,7 @@ Return ONLY valid JSON with this structure:
       "runtime_compatibility": "broken | compatible",
       "recommended_action": "release_marker | direct_lower_bound",
       "mandatory_paths_checked": "<integer>",
+      "metadata_coverage": "exhaustive | partial",
       "supported_incompatible_resolution": "<boolean>",
       "reason": "<one sentence>",
       "suggestion": "<one sentence>"
@@ -32,6 +33,10 @@ Rules:
   release marker or the installable range needs a direct lower bound.
 - `mandatory_paths_checked` counts the direct and transitive paths that
   constrain the affected dependency.
+- `metadata_coverage` is `exhaustive` only when the supplied metadata covers
+  every supported resolution; a concrete failing resolution can establish
+  incompatibility even when the remaining coverage is `partial`. Do not call
+  coverage exhaustive merely because a single counterexample is sufficient.
 - `supported_incompatible_resolution` is true only when concrete package
   versions can satisfy every mandatory constraint and still lack the API.
 - `reason` explains the observed compatibility or policy issue.

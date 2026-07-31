@@ -5,6 +5,7 @@
       "runtime_compatibility": "broken",
       "recommended_action": "direct_lower_bound",
       "mandatory_paths_checked": 1,
+      "metadata_coverage": "partial",
       "supported_incompatible_resolution": true
     }
   ]

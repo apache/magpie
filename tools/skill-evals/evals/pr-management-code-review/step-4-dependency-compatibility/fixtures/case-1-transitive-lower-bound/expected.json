@@ -5,6 +5,7 @@
       "runtime_compatibility": "compatible",
       "recommended_action": "release_marker",
       "mandatory_paths_checked": 2,
+      "metadata_coverage": "exhaustive",
       "supported_incompatible_resolution": false
     }
   ]

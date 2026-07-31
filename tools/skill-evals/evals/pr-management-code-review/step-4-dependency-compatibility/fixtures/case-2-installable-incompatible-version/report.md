@@ -28,3 +28,7 @@ Published package metadata:
 - `FeatureUnavailable` is first exported by `compat-core` 1.12.0.
 - `query-base` 1.32.0 has no dependency on `compat-core`.
 - No other mandatory dependency constrains `compat-core`.
+- `query-base==1.32.0` with `compat-core==1.8.0` is a concrete
+  resolution that satisfies every declared constraint.
+- The supplied metadata establishes that concrete resolution only; other
+  versions allowed by the declared constraints have not been enumerated.

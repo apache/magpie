@@ -11,7 +11,7 @@ Diff:
 @@
  dependencies = [
      "compat-core>=1.8.0",
-     "query-base>=1.32.0",
+     "query-base==1.32.0",
  ]
 
 --- /dev/null
