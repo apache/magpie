@@ -34,7 +34,7 @@ uv run --directory tools/skill-evals skill-eval --cli "claude -p" \
     evals/release-prepare/step-0-preflight/fixtures/case-1-clean-pass
 ```
 
-## Grading prose steps (`assertions.json`)
+## Grading prose steps (`assertions.json` & `grading-schema.json`)
 
 Steps 1, 2, and 14 emit free-form prose (issue body, PR body), so
 their `expected.json` files assert *properties* via `has_*` /
@@ -43,6 +43,12 @@ dir ships an `assertions.json` that maps every such key to a
 deterministic predicate (`regex`, `contains`, `field_true`, `empty`,
 `non_empty`) so `--cli` mode grades these cases automatically instead
 of reporting `MANUAL`.
+
+Additionally, steps can define a `grading-schema.json` file in their `fixtures/`
+directory (see `evals/release-verify-rc/step-3-verify-checksums/fixtures/grading-schema.json` for an example)
+which specifies additional `prose_fields` to be evaluated using LLM-based grading.
+These custom prose fields extend the default prose field list in `runner.py`, while
+all other unspecified fields in `expected.json` default to exact-match evaluation.
 
 Decision fields (title, `proposed`, `category_x_hit`, version
 strings) are compared exactly.
