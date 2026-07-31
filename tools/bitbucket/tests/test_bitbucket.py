@@ -149,6 +149,21 @@ def test_same_host_redirect_handler_rejects_different_port() -> None:
         )
 
 
+def test_same_host_redirect_handler_rejects_scheme_downgrade() -> None:
+    handler = SameHostRedirectHandler()
+    request = urllib_request("https://bitbucket.example.test/rest/api/1.0/foo")
+
+    with pytest.raises(BitbucketError, match="refusing to forward credentials"):
+        handler.redirect_request(
+            request,
+            None,
+            302,
+            "Found",
+            {},
+            "http://bitbucket.example.test/rest/api/1.0/bar",
+        )
+
+
 def test_load_config_defaults_to_cloud(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("BITBUCKET_KIND", raising=False)
     config = load_config()
