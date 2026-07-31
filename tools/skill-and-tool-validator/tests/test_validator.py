@@ -3223,6 +3223,29 @@ class TestOrganizationNonASFSmoke:
         vs = list(validate_organization_structure(tmp_path))
         assert vs == []
 
+    def test_invalid_organization_yields_violation(self, tmp_path: Path) -> None:
+        """An unknown organization value in frontmatter triggers an organization violation."""
+        self._make_org(tmp_path, "independent")
+        text = (
+            "---\n"
+            "name: magpie-security-intake\n"
+            "description: d\n"
+            "license: Apache-2.0\n"
+            "capability: capability:intake\n"
+            "organization: invalid_org_profile\n"
+            "---\n\n"
+            "## Workflow\n\n"
+            "Import security reports.\n"
+        )
+        path = tmp_path / "SKILL.md"
+        org_violations = [
+            v for v in validate_frontmatter(path, text, root=tmp_path) if v.category == ORGANIZATION_CATEGORY
+        ]
+        assert len(org_violations) == 1
+        assert "is not a known organization" in org_violations[0].message
+        assert org_violations[0].category == ORGANIZATION_CATEGORY
+
+
 
 # ---------------------------------------------------------------------------
 # Capability sync check: docs/labels-and-capabilities.md ↔ live source
