@@ -945,6 +945,27 @@ def test_datacenter_get_pull_request_commits_follows_next_page_start(
     assert [item["id"] for item in result["values"]] == ["abc123", "def456"]
 
 
+@patch("urllib.request.build_opener")
+def test_datacenter_get_pull_request_commits_stops_on_non_advancing_next_page_start(
+    mock_build_opener: MagicMock,
+    datacenter_env: None,
+) -> None:
+    opener = mock_opener(
+        mock_build_opener,
+        {
+            "values": [{"id": "abc123", "message": "First commit"}],
+            "isLastPage": False,
+            "nextPageStart": 0,
+        },
+    )
+
+    result = datacenter.get_pull_request_commits(load_config(), "9")
+
+    assert len(opener.open.call_args_list) == 1
+    assert result["pull_request_id"] == "9"
+    assert [item["id"] for item in result["values"]] == ["abc123"]
+
+
 def test_normalize_cloud_pull_request_commits() -> None:
     raw = {
         "pull_request_id": "7",
