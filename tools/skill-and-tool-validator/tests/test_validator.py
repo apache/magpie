@@ -3266,6 +3266,28 @@ class TestOrganizationNonASFSmoke:
         assert "asf-coupling" in coupling_violations[0].message
         assert "apache.org" in coupling_violations[0].message
 
+    def test_release_backend_asf_coupled_body_yields_violation(self, tmp_path: Path) -> None:
+        """Release housekeeping skill containing SVN release commands triggers coupling violation."""
+        self._make_org(tmp_path, "independent")
+        text = (
+            "---\n"
+            "name: magpie-release-housekeeping\n"
+            "description: d\n"
+            "license: Apache-2.0\n"
+            "capability: capability:resolve\n"
+            "organization: independent\n"
+            "---\n\n"
+            "## Workflow\n\n"
+            "Post-release housekeeping: run `svn commit -m 'release'` to publish artifacts.\n"
+        )
+        path = tmp_path / "SKILL.md"
+        coupling_violations = list(validate_asf_coupling(path, text))
+        assert len(coupling_violations) == 1
+        assert coupling_violations[0].category == ASF_COUPLING_CATEGORY
+        assert "asf-coupling" in coupling_violations[0].message
+        assert "svn" in coupling_violations[0].message
+
+
 
 
 
