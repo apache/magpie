@@ -14,9 +14,9 @@ Return ONLY valid JSON with this structure:
       "severity": "major | minor",
       "runtime_compatibility": "broken | compatible | unknown",
       "recommended_action": "release_marker | direct_lower_bound",
-      "mandatory_paths_checked": "<integer>",
+      "mandatory_paths_checked": 0,
       "metadata_coverage": "exhaustive | partial",
-      "supported_incompatible_resolution": "<boolean>",
+      "supported_incompatible_resolution": false,
       "dependency_evidence": "<complete constraint ledger>",
       "reason": "<one sentence>",
       "suggestion": "<one sentence>"
