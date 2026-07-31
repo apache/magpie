@@ -325,13 +325,14 @@ For each finding, record:
         return boto3.client(...)
   severity: nit | minor | major | blocking
   dependency_evidence: |
-    dependency findings only: list every mandatory constraint path,
-    their effective intersection, the metadata coverage across the
-    supported version space, the compatibility classification
-    (broken, compatible, or unknown), and either one concrete
-    supported resolution that still fails, an explicit justification
-    that exhaustive evidence contains no failing resolution, or a
-    statement that partial evidence leaves compatibility unknown
+    dependency-version compatibility findings only: list every
+    mandatory constraint path, their effective intersection, the
+    metadata coverage across the supported version space, the
+    compatibility classification (broken, compatible, or unknown),
+    and either one concrete supported resolution that still fails,
+    an explicit justification that exhaustive evidence contains no
+    failing resolution, or a statement that partial evidence leaves
+    compatibility unknown
   suggestion: |
     short, concrete fix. If short enough, also include a
     GitHub `suggestion` block in the eventual review body
@@ -372,10 +373,10 @@ that mechanism. Do not claim a runtime failure or prescribe a
 direct version bump when the project's release process says
 contributors must not make one.
 
-A dependency finding without `dependency_evidence` is incomplete
-and must not be surfaced. Use only the canonical severity names
-listed below; never introduce alternatives such as `high` or
-`critical`.
+A dependency-version compatibility finding without
+`dependency_evidence` is incomplete and must not be surfaced. Use
+only the canonical severity names listed below; never introduce
+alternatives such as `high` or `critical`.
 
 If the source rule has no anchor that fits, link to the
 section header (`rule_section`) and let the reader find the
