@@ -327,9 +327,11 @@ For each finding, record:
   dependency_evidence: |
     dependency findings only: list every mandatory constraint path,
     their effective intersection, the metadata coverage across the
-    supported version space, and either one concrete supported
-    resolution that still fails or an explicit justification that
-    exhaustive evidence contains no failing resolution
+    supported version space, the compatibility classification
+    (broken, compatible, or unknown), and either one concrete
+    supported resolution that still fails, an explicit justification
+    that exhaustive evidence contains no failing resolution, or a
+    statement that partial evidence leaves compatibility unknown
   suggestion: |
     short, concrete fix. If short enough, also include a
     GitHub `suggestion` block in the eventual review body
@@ -352,7 +354,11 @@ resolution, the runtime incompatibility claim remains unsubstantiated
 and must not be raised. Absence of a failing resolution proves
 compatibility only when the inspected metadata exhaustively covers
 the supported version space; record what makes that coverage
-exhaustive.
+exhaustive. When coverage is partial and contains no concrete failing
+resolution, classify runtime compatibility as unknown. That unknown
+state cannot support a runtime incompatibility finding, but it does
+not suppress a separate policy finding backed by the adopter's own
+dependency or release rules.
 
 When the complete graph is compatible but changed code directly
 uses an API newer than its direct dependency's lower bound, read

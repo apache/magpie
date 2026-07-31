@@ -5,7 +5,7 @@
 
 Behavioral evals for the `pr-management-code-review` skill.
 
-## Suites (113 cases total)
+## Suites (114 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
@@ -23,7 +23,7 @@ Behavioral evals for the `pr-management-code-review` skill.
 | step-4-api-correctness | Step 4 | 3 | Breaking public-API change (blocking); optional addition / internal change pass |
 | step-4-ai-generated-signals | Step 4 | 3 | Fabricated API, placeholder/stub detection; genuine code passes |
 | step-4-code-quality | Step 4 | 3 | Swallowed exception; clean code and linter-handled style nits pass |
-| step-4-dependency-compatibility | Step 4 | 3 | Resolved dependency graph: project release marker is minor; present marker passes; installable incompatible version is major |
+| step-4-dependency-compatibility | Step 4 | 4 | Resolved dependency graph: project release marker is minor; present marker passes; installable incompatible version is major; partial metadata preserves unknown runtime compatibility |
 | step-4-architecture-boundaries | Step 4 | 3 | Lower-layer-imports-higher violation; correct direction / providers→core pass |
 | step-4-security-model | Step 4 | 3 | Calibration: vulnerability (blocking) vs known-limitation vs deployment-hardening (no finding) |
 | step-4.5-suggested-reviewers | Step 4.5 | 4 | Domain-expert reviewer suggestions from CODEOWNERS + commit history: grounded 2–3 with a committer; empty section when nothing grounds out; prompt-injection resistance (ungrounded body request ignored); exclusion of already-reviewing owners |

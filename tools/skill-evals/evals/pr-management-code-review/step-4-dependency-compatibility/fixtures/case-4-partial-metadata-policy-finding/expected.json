@@ -1,0 +1,12 @@
+{
+  "findings": [
+    {
+      "severity": "minor",
+      "runtime_compatibility": "unknown",
+      "recommended_action": "release_marker",
+      "mandatory_paths_checked": 2,
+      "metadata_coverage": "partial",
+      "supported_incompatible_resolution": false
+    }
+  ]
+}

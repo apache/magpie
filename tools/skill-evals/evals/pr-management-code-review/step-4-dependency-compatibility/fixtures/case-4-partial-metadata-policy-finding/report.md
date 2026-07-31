@@ -11,7 +11,7 @@ Diff:
 @@
  dependencies = [
      "compat-core>=1.8.0",
-     "query-base==1.32.0",
+     "query-base>=1.32.0",
  ]
 
 --- /dev/null
@@ -25,18 +25,19 @@ Diff:
 
 Published package metadata:
 
-- `FeatureUnavailable` is first exported by `compat-core` 1.12.0 and remains
-  exported by 1.13.0 and 1.14.0.
-- `query-base` 1.32.0 declares the mandatory dependency
-  `compat-core>=1.12.0,<1.15.0`.
-- The supported-version matrix lists 1.12.0, 1.13.0, and 1.14.0 as every
-  supported `compat-core` release in that intersection.
-- Both dependencies are installed into the same environment.
+- `FeatureUnavailable` is first exported by `compat-core` 1.12.0.
+- The supplied metadata covers `query-base` 1.32.0 only; that version
+  declares the mandatory dependency `compat-core>=1.12.0`.
+- Metadata for later `query-base` versions permitted by the direct
+  requirement was not supplied, so their transitive constraints are unknown.
+- No concrete supported resolution lacking `FeatureUnavailable` has been
+  demonstrated.
 
 Repository dependency and release policy:
 
 - Packages are released independently.
 - Contributors must not change inter-package lower bounds directly.
-- When changed code starts using a newer API from another package, add the
-  exact comment `# use next version` to that direct dependency.
+- When changed code starts using a newer API than its direct dependency's
+  lower bound, add the exact comment `# use next version` to that dependency,
+  even when another currently inspected dependency narrows the runtime range.
 - Release preparation updates the lower bound and removes the marker.

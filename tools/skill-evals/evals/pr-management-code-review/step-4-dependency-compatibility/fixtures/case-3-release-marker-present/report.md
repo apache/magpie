@@ -26,9 +26,12 @@ Diff:
 
 Published package metadata:
 
-- `FeatureUnavailable` is first exported by `compat-core` 1.12.0.
+- `FeatureUnavailable` is first exported by `compat-core` 1.12.0 and remains
+  exported by 1.13.0 and 1.14.0.
 - `query-base` 1.32.0 declares the mandatory dependency
-  `compat-core>=1.12.0`.
+  `compat-core>=1.12.0,<1.15.0`.
+- The supported-version matrix lists 1.12.0, 1.13.0, and 1.14.0 as every
+  supported `compat-core` release in that intersection.
 - Both dependencies are installed into the same environment.
 
 Repository dependency and release policy:
