@@ -11,6 +11,11 @@
     "pattern": "\"recommended_action\"\\s*:\\s*\"(release_marker|direct_lower_bound)\"",
     "flags": "is"
   },
+  "has_empty_findings": {
+    "type": "max_length",
+    "field": "findings",
+    "max": 0
+  },
   "has_complete_constraint_ledger": {
     "type": "judge",
     "field": "findings",
