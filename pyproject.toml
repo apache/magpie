@@ -94,6 +94,7 @@ package = false
 # file.
 [tool.uv.workspace]
 members = [
+  "ai-tutors",
   "tools/agent-guard",
   "tools/agent-isolation",
   "tools/bitbucket",

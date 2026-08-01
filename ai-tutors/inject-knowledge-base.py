@@ -36,7 +36,6 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 AI_TUTORS_DIR = ROOT / "ai-tutors"
 TRAINING_DIR = ROOT / "docs" / "education" / "training"
@@ -135,7 +134,7 @@ def tag_bare_code_fences(text: str, default_lang: str = "text") -> str:
         stripped = line.strip()
         if not stripped.startswith("```"):
             continue
-        backticks = len(stripped) - len(stripped.lstrip("```"))
+        backticks = len(stripped) - len(stripped.lstrip("`"))
         if not in_code:
             in_code = True
             fence_len = backticks
@@ -195,9 +194,7 @@ def refresh_tutor(tutor: Path) -> TutorUpdate:
 
     training_lesson = TRAINING_DIR / tutor.name
     if not training_lesson.is_file():
-        raise FileNotFoundError(
-            f"matching training lesson does not exist: {training_lesson}"
-        )
+        raise FileNotFoundError(f"matching training lesson does not exist: {training_lesson}")
 
     source_page = source_page_for(training_lesson)
     if not source_page.is_file():

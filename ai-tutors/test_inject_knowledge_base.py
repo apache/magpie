@@ -20,6 +20,7 @@
 Covers the nested-code-fence regression (#1008): a four-backtick block
 containing a bare three-backtick fence must not invert the parser state.
 """
+
 from __future__ import annotations
 
 import importlib.util
@@ -27,9 +28,9 @@ import sys
 from pathlib import Path
 
 _HERE = Path(__file__).resolve().parent
-_SPEC = importlib.util.spec_from_file_location(
-    "inject_knowledge_base", _HERE / "inject-knowledge-base.py"
-)
+# The injector is a hyphenated script, so it cannot be imported by name.
+_SPEC = importlib.util.spec_from_file_location("inject_knowledge_base", _HERE / "inject-knowledge-base.py")
+assert _SPEC is not None and _SPEC.loader is not None, "cannot load inject-knowledge-base.py"
 mod = importlib.util.module_from_spec(_SPEC)
 sys.modules[_SPEC.name] = mod  # register before exec so @dataclass can resolve the module
 _SPEC.loader.exec_module(mod)
