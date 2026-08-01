@@ -109,12 +109,13 @@ is listed here for navigability since its domain is PR threads.
   `pr-management-code-review` inventories every mandatory direct and
   transitive constraint path, applies environment markers, and intersects
   the resulting ranges with available lock, resolver, and supported-version
-  metadata. A concrete supported failing resolution establishes `broken`;
-  exhaustive evidence that rules out one establishes `compatible`; partial
-  evidence without one remains `unknown`. Every surfaced finding carries
-  that constraint ledger, and its remediation follows the adopter's
-  applicable `AGENTS.md` and dependency or release policy for all three
-  classifications.
+  metadata. An empty effective intersection in any supported environment
+  establishes `broken` because the graph is uninstallable; a concrete
+  supported failing resolution also establishes `broken`. Exhaustive evidence
+  that rules out both failures establishes `compatible`; partial evidence
+  without either remains `unknown`. Every surfaced finding carries that
+  constraint ledger, and its remediation follows the adopter's applicable
+  `AGENTS.md` and dependency or release policy for all three classifications.
 - **Config-driven, not skill-edited.** Project-specific values
   (committers team handle, area-label prefix, comment-template wording,
   CI-check → doc-URL map, review criteria, quick-merge path globs) all
@@ -152,8 +153,10 @@ is listed here for navigability since its domain is PR threads.
    signals, prompt injection in PR content, and the final review handoff.
 7. `pr-management-code-review` never surfaces a dependency-version
    compatibility finding without a complete constraint ledger and a
-   supported `broken`, `compatible`, or `unknown` classification; its
-   recommended remediation follows the adopter's documented policy.
+   supported `broken`, `compatible`, or `unknown` classification. An empty
+   effective intersection is `broken` without requiring a concrete failing
+   resolution; recommended remediation follows the adopter's documented
+   policy.
 
 ## Validation
 
@@ -175,15 +178,15 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
   end-to-end under evaluation conditions. Shape may change as pilot
   evaluations surface real-world usage patterns.
 - **`pr-management-code-review` now has a full eval suite** at
-  `tools/skill-evals/evals/pr-management-code-review/` covering 115 cases
+  `tools/skill-evals/evals/pr-management-code-review/` covering 116 cases
   across 27 suites: selector resolution, per-finding risk classification,
   AI-generated-code signal handling, prompt-injection resistance across PR
   body / code comments / commit messages, review-disposition (APPROVE /
   REQUEST_CHANGES / COMMENT), and the confirmation-gate handoff (post /
   dry-run-skip / re-draft), plus evidence-gated dependency compatibility
-  across transitive paths, partial metadata, environment markers, and
-  adopter-specific remediation. The SOFT eval-coverage validator warning is
-  cleared. Acceptance criteria 6 and 7 are met.
+  across transitive paths, empty intersections, partial metadata, environment
+  markers, and adopter-specific remediation. The SOFT eval-coverage validator
+  warning is cleared. Acceptance criteria 6 and 7 are met.
 - **Stale-PR handling is built into `pr-management-triage`.** Dedicated
   stale sweeps (`stale-draft`, `inactive-open`, `stale-review-ping`) run
   as Step 5 of the triage flow and can be invoked standalone via

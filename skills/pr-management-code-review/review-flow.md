@@ -330,6 +330,7 @@ For each finding, record:
     metadata coverage across the supported version space, the
     compatibility classification (broken, compatible, or unknown),
     and either one concrete supported resolution that still fails,
+    the conflicting paths that make the intersection empty,
     an explicit justification that exhaustive evidence contains no
     failing resolution, or a statement that partial evidence leaves
     compatibility unknown
@@ -346,20 +347,26 @@ requirement. Build a constraint ledger for the affected package:
 enumerate every mandatory direct and transitive path, apply
 environment markers, and intersect their ranges with lock or
 resolver metadata and the supported-version matrix when present.
-Then identify exact versions that satisfy every constraint but
-still lack the required API. Record that ledger and resolution in
-`dependency_evidence`. A direct lower bound by itself is not a
-failing resolution when another mandatory path narrows the range.
-If the available evidence does not identify a concrete failing
-resolution, the runtime incompatibility claim remains unsubstantiated
-and must not be raised. Absence of a failing resolution proves
-compatibility only when the inspected metadata exhaustively covers
-the supported version space; record what makes that coverage
-exhaustive. When coverage is partial and contains no concrete failing
-resolution, classify runtime compatibility as unknown. That unknown
-state cannot support a runtime incompatibility finding, but it does
-not suppress a separate policy finding backed by the adopter's own
-dependency or release rules.
+If the effective intersection is empty in any supported environment,
+classify the dependency graph as broken because it is uninstallable.
+Record the conflicting paths and environment in `dependency_evidence`;
+an uninstallable graph does not need a concrete failing resolution and
+must never be classified as compatible. Otherwise, identify exact
+versions that satisfy every constraint but still lack the required API.
+Record that ledger and resolution in `dependency_evidence`. A direct
+lower bound by itself is not a failing resolution when another
+mandatory path narrows the range.
+For a non-empty effective intersection, if the available evidence does
+not identify a concrete failing resolution, the runtime incompatibility
+claim remains unsubstantiated and must not be raised. For that non-empty
+intersection, absence of a failing resolution proves compatibility only
+when the inspected metadata exhaustively covers the supported version
+space; record what makes that coverage exhaustive. When a non-empty
+effective intersection has partial coverage and no concrete failing
+resolution, classify runtime compatibility as unknown. That unknown state
+cannot support a runtime incompatibility finding, but it does not suppress
+a separate policy finding backed by the adopter's own dependency or release
+rules.
 
 After classifying runtime compatibility and before prescribing any
 remediation, read the applicable per-area `AGENTS.md` discovered in
