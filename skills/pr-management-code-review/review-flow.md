@@ -324,11 +324,61 @@ For each finding, record:
         import boto3  # ← arrow at the offending line
         return boto3.client(...)
   severity: nit | minor | major | blocking
+  dependency_evidence: |
+    dependency-version compatibility findings only: list every
+    mandatory constraint path, their effective intersection, the
+    metadata coverage across the supported version space, the
+    compatibility classification (broken, compatible, or unknown),
+    and either one concrete supported resolution that still fails,
+    an explicit justification that exhaustive evidence contains no
+    failing resolution, or a statement that partial evidence leaves
+    compatibility unknown
   suggestion: |
     short, concrete fix. If short enough, also include a
     GitHub `suggestion` block in the eventual review body
     (see posting.md).
 ```
+
+Before recording a correctness finding, verify the claimed
+failure against the complete evidence available. For a
+dependency-version incompatibility, do not stop at the direct
+requirement. Build a constraint ledger for the affected package:
+enumerate every mandatory direct and transitive path, apply
+environment markers, and intersect their ranges with lock or
+resolver metadata and the supported-version matrix when present.
+Then identify exact versions that satisfy every constraint but
+still lack the required API. Record that ledger and resolution in
+`dependency_evidence`. A direct lower bound by itself is not a
+failing resolution when another mandatory path narrows the range.
+If the available evidence does not identify a concrete failing
+resolution, the runtime incompatibility claim remains unsubstantiated
+and must not be raised. Absence of a failing resolution proves
+compatibility only when the inspected metadata exhaustively covers
+the supported version space; record what makes that coverage
+exhaustive. When coverage is partial and contains no concrete failing
+resolution, classify runtime compatibility as unknown. That unknown
+state cannot support a runtime incompatibility finding, but it does
+not suppress a separate policy finding backed by the adopter's own
+dependency or release rules.
+
+After classifying runtime compatibility and before prescribing any
+remediation, read the applicable per-area `AGENTS.md` discovered in
+Step 2 and the dependency or release docs it points to. Apply that
+project's policy whether compatibility is broken, compatible, or
+unknown, rather than treating a convention observed in another
+repository as the default. When the complete graph is compatible but
+changed code directly uses an API newer than its direct dependency's
+lower bound, that policy may still support a separate finding. If the
+policy requires an accurate direct bound, a release marker, or another
+handoff, record a finding at the severity the project rule supports
+and recommend that mechanism. Do not claim a runtime failure or
+prescribe a direct version bump when the project's release process
+says contributors must not make one.
+
+A dependency-version compatibility finding without
+`dependency_evidence` is incomplete and must not be surfaced. Use
+only the canonical severity names listed below; never introduce
+alternatives such as `high` or `critical`.
 
 If the source rule has no anchor that fits, link to the
 section header (`rule_section`) and let the reader find the
