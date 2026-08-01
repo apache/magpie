@@ -187,3 +187,71 @@ def test_scope_main_cli_reads_stdin(tmp_path: Path, monkeypatch: object) -> None
 
     output = captured.getvalue().strip()
     assert "tools/spec-loop/specs/example.md" in output
+
+
+def test_extract_path_patterns_plural_skills_bullet() -> None:
+    # Four specs in the tree write "Skills:" (plural), not "Skill:".  The
+    # singular-only form silently produced no patterns for them.
+    bullets = ["Skills: `write-skill` (author/update a skill), `optimize-skill`"]
+    patterns = extract_path_patterns(bullets)
+    assert "skills/write-skill" in patterns
+    assert "skills/optimize-skill" in patterns
+
+
+def test_extract_path_patterns_suffix_shorthand_replaces_last_segment() -> None:
+    # agent-isolation-sandbox.md: `-update` means setup-isolated-setup-update.
+    bullets = ["Skills: `setup-isolated-setup-install`, `-update`, `-verify`, `-doctor`"]
+    patterns = extract_path_patterns(bullets)
+    assert "skills/setup-isolated-setup-install" in patterns
+    assert "skills/setup-isolated-setup-update" in patterns
+    assert "skills/setup-isolated-setup-verify" in patterns
+    assert "skills/setup-isolated-setup-doctor" in patterns
+
+
+def test_extract_path_patterns_suffix_shorthand_appends() -> None:
+    # security-issue-lifecycle.md: `-from-pr` means security-issue-import-from-pr.
+    bullets = ["Skills: `security-issue-import` (+ `-from-pr`, `-from-md`)"]
+    patterns = extract_path_patterns(bullets)
+    assert "skills/security-issue-import" in patterns
+    assert "skills/security-issue-import-from-pr" in patterns
+    assert "skills/security-issue-import-from-md" in patterns
+
+
+def test_extract_path_patterns_bare_top_level_dir_is_not_a_pattern() -> None:
+    # Guard, not a bug fix: the trailing slash is stripped *before* the
+    # slash test, so `tools/` becomes `tools`, fails the test, and is
+    # dropped.  Reordering those two steps would make this spec match every
+    # path under tools/, so pin the behaviour.  Real case:
+    # skill-reconciler.md has "a `uv` tool under `tools/`" in Where it lives.
+    bullets = ["Optional deterministic helper (not yet built): a `uv` tool under `tools/`"]
+    patterns = extract_path_patterns(bullets)
+    assert "tools" not in patterns
+
+
+def test_scope_map_bare_top_level_dir_does_not_over_match(tmp_path: Path) -> None:
+    # End-to-end companion to the guard above: a spec whose only path token
+    # is a bare top-level directory must not be returned for every change
+    # beneath it.
+    specs = tmp_path / "tools" / "spec-loop" / "specs"
+    specs.mkdir(parents=True)
+    (tmp_path / ".git").mkdir()
+    (specs / "broad.md").write_text(_spec_text("- a helper under `tools/`\n"))
+    (specs / "narrow.md").write_text(_spec_text("- `tools/gmail/` — mail bridge.\n"))
+
+    result = scope_map(["tools/gmail/client.py"], tmp_path)
+
+    assert "tools/spec-loop/specs/narrow.md" in result
+    assert "tools/spec-loop/specs/broad.md" not in result
+
+
+def test_scope_map_matches_plural_skills_bullet(tmp_path: Path) -> None:
+    specs = tmp_path / "tools" / "spec-loop" / "specs"
+    specs.mkdir(parents=True)
+    (tmp_path / ".git").mkdir()
+    (specs / "sandbox.md").write_text(
+        _spec_text("- Skills: `setup-isolated-setup-install`, `-update`, `-verify`\n")
+    )
+
+    result = scope_map(["skills/setup-isolated-setup-verify/SKILL.md"], tmp_path)
+
+    assert "tools/spec-loop/specs/sandbox.md" in result

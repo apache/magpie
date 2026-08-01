@@ -47,7 +47,7 @@ _YAML_BLOCK_SCALAR_HEADERS = frozenset({"|", ">", "|-", "|+", ">-", ">+"})
 
 # Scope-map patterns — used by the spec-scope entry point.
 _BACKTICK_RE = re.compile(r"`([^`]+)`")
-_SKILL_KEYWORD_RE = re.compile(r"\bSkill:\s*`([^`]+)`")
+_SKILL_KEYWORD_RE = re.compile(r"\bSkills?:")
 
 
 @dataclass
@@ -381,18 +381,42 @@ def extract_path_patterns(where_bullets: list[str]) -> frozenset[str]:
     can be used as prefix tests against changed-file paths.  Patterns come
     from two sources in each bullet:
 
-    - Explicit skill names — ``Skill: `<name>``` bullets produce the pattern
-      ``skills/<name>`` so that changes to ``skills/<name>/SKILL.md`` resolve
-      to the right spec.
+    - Explicit skill names — ``Skill: `<name>``` and ``Skills: `<a>`, `<b>```
+      bullets produce ``skills/<name>`` patterns, so that changes to
+      ``skills/<name>/SKILL.md`` resolve to the right spec.  Both the
+      singular and plural forms occur in the tree.
     - Backtick-quoted path tokens — any backtick-quoted token that contains
-      a slash is treated as a path prefix directly.
+      a slash is treated as a path prefix directly.  A trailing slash is
+      stripped before the test, so a bare ``tools/`` becomes ``tools``,
+      fails the slash test, and is correctly ignored rather than
+      prefix-matching every path beneath it.
+
+    Within a skill bullet, a token beginning with ``-`` is shorthand for a
+    sibling of the preceding full name.  Two expansions are plausible and
+    the tree contains both: ``setup-isolated-setup-install`` + ``-update``
+    means ``setup-isolated-setup-update`` (last segment replaced), while
+    ``security-issue-import`` + ``-from-pr`` means
+    ``security-issue-import-from-pr`` (appended).  Both are emitted — a
+    pattern that matches no real path is inert, whereas guessing one rule
+    silently drops half the skills.
     """
     patterns: set[str] = set()
     for bullet in where_bullets:
-        for m in _SKILL_KEYWORD_RE.finditer(bullet):
-            name = m.group(1).strip().rstrip("/")
-            if "/" not in name:
-                patterns.add(f"skills/{name}")
+        if _SKILL_KEYWORD_RE.search(bullet):
+            previous: str | None = None
+            for m in _BACKTICK_RE.finditer(bullet):
+                token = m.group(1).strip().rstrip("/")
+                if not token or "/" in token:
+                    continue
+                if token.startswith("-"):
+                    if previous is not None:
+                        patterns.add(f"skills/{previous}{token}")
+                        base = previous.rsplit("-", 1)[0]
+                        if base != previous:
+                            patterns.add(f"skills/{base}{token}")
+                else:
+                    patterns.add(f"skills/{token}")
+                    previous = token
         for m in _BACKTICK_RE.finditer(bullet):
             token = m.group(1).strip().rstrip("/")
             if "/" in token:
@@ -451,8 +475,10 @@ def scope_main(argv: list[str] | None = None) -> None:
 
     Reads file paths from positional arguments or stdin (one per line) and
     writes the relevant spec file paths to stdout, one per line.  Empty
-    input produces no output.  Exit code is always 0 so a pipeline that
-    finds no matches does not fail a shell script.
+    input produces no output and exits 0, so a pipeline that finds no
+    matches does not fail a shell script.  The only non-zero exit is when
+    the repository root cannot be resolved, which is a caller error rather
+    than an empty result.
     """
     parser = argparse.ArgumentParser(
         description=(
