@@ -3223,6 +3223,101 @@ class TestOrganizationNonASFSmoke:
         vs = list(validate_organization_structure(tmp_path))
         assert vs == []
 
+    def test_invalid_organization_yields_violation(self, tmp_path: Path) -> None:
+        """An unknown organization value in frontmatter triggers an organization violation."""
+        self._make_org(tmp_path, "independent")
+        text = (
+            "---\n"
+            "name: magpie-security-intake\n"
+            "description: d\n"
+            "license: Apache-2.0\n"
+            "capability: capability:intake\n"
+            "organization: invalid_org_profile\n"
+            "---\n\n"
+            "## Workflow\n\n"
+            "Import security reports.\n"
+        )
+        path = tmp_path / "SKILL.md"
+        org_violations = [
+            v for v in validate_frontmatter(path, text, root=tmp_path) if v.category == ORGANIZATION_CATEGORY
+        ]
+        assert len(org_violations) == 1
+        assert "is not a known organization" in org_violations[0].message
+        assert org_violations[0].category == ORGANIZATION_CATEGORY
+
+    def test_security_intake_asf_coupled_body_yields_violation(self, tmp_path: Path) -> None:
+        """Security intake skill containing ASF-coupled email list triggers coupling violation."""
+        self._make_org(tmp_path, "independent")
+        text = (
+            "---\n"
+            "name: magpie-security-intake\n"
+            "description: d\n"
+            "license: Apache-2.0\n"
+            "capability: capability:intake\n"
+            "organization: independent\n"
+            "---\n\n"
+            "## Workflow\n\n"
+            "Send announcement to announce@apache.org upon security release.\n"
+        )
+        path = tmp_path / "SKILL.md"
+        coupling_violations = list(validate_asf_coupling(path, text))
+        assert len(coupling_violations) == 1
+        assert coupling_violations[0].category == ASF_COUPLING_CATEGORY
+        assert "asf-coupling" in coupling_violations[0].message
+        assert "announce@apache.org" in coupling_violations[0].message
+
+    def test_release_backend_asf_coupled_body_yields_violation(self, tmp_path: Path) -> None:
+        """Release housekeeping skill containing SVN release commands triggers coupling violation."""
+        self._make_org(tmp_path, "independent")
+        text = (
+            "---\n"
+            "name: magpie-release-housekeeping\n"
+            "description: d\n"
+            "license: Apache-2.0\n"
+            "capability: capability:resolve\n"
+            "organization: independent\n"
+            "---\n\n"
+            "## Workflow\n\n"
+            "Post-release housekeeping: run `svn commit -m 'release'` to publish artifacts.\n"
+        )
+        path = tmp_path / "SKILL.md"
+        coupling_violations = list(validate_asf_coupling(path, text))
+        assert len(coupling_violations) == 1
+        assert coupling_violations[0].category == ASF_COUPLING_CATEGORY
+        assert "asf-coupling" in coupling_violations[0].message
+        assert "svn" in coupling_violations[0].message
+
+    def test_contributor_governance_asf_coupled_body_yields_violation(self, tmp_path: Path) -> None:
+        """Contributor governance skill containing PMC vote triggers coupling violation."""
+        self._make_org(tmp_path, "independent")
+        text = (
+            "---\n"
+            "name: magpie-contributor-setup\n"
+            "description: d\n"
+            "license: Apache-2.0\n"
+            "capability: capability:platform\n"
+            "organization: independent\n"
+            "---\n\n"
+            "## Workflow\n\n"
+            "The PMC votes on granting repository write access.\n"
+        )
+        path = tmp_path / "SKILL.md"
+        coupling_violations = list(validate_asf_coupling(path, text))
+        assert len(coupling_violations) == 1
+        assert coupling_violations[0].category == ASF_COUPLING_CATEGORY
+        assert "asf-coupling" in coupling_violations[0].message
+        assert "PMC" in coupling_violations[0].message
+
+    def test_independent_org_structure_missing_file_yields_violation(self, tmp_path: Path) -> None:
+        """An incomplete independent organization adapter missing organization.md yields a structure violation."""
+        org_dir = tmp_path / "organizations" / "independent"
+        org_dir.mkdir(parents=True)
+        (org_dir / "README.md").write_text("# placeholder\n")
+        vs = list(validate_organization_structure(tmp_path))
+        assert len(vs) == 1
+        assert vs[0].category == ORGANIZATION_CATEGORY
+        assert "missing required file 'organization.md'" in vs[0].message
+
 
 # ---------------------------------------------------------------------------
 # Capability sync check: docs/labels-and-capabilities.md ↔ live source
