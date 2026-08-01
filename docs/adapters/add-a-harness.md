@@ -77,7 +77,7 @@ relay symlinks automatically. The rules are:
 verify after any manual link creation:
 
 ```bash
-uv run --project tools/symlink-lint python3 -m symlink_lint
+uv run --project tools/symlink-lint symlink-lint
 ```
 
 ## Step 2 — wire the action guard
@@ -93,20 +93,24 @@ existing OpenCode example.
 
 ```text
 tools/agent-guard/
-  src/agent_guard/__init__.py    ← dispatch() core (harness-agnostic)
-  src/agent_guard/__main__.py    ← CLI entry point (stdin JSON → stdout JSON)
-  src/agent_guard/guards.d/     ← individual guard scripts
+  src/agent_guard/__init__.py    ← dispatch() core + thin CLI adapters
+  src/agent_guard/guards.d/      ← individual guard scripts
   opencode/plugin.js             ← OpenCode adapter (JS plugin)
-  tests/                         ← test suite incl. per-harness tests
+  tests/                         ← test suite including per-harness cases
 ```
 
-The core (`__init__.py`) exposes a `dispatch()` function. Per-harness
-adapters translate the runtime's hook format into a `dispatch()` call.
-Your adapter must:
+The core (`__init__.py`) exposes `dispatch()` plus one thin `*_main()`
+function per hook-shaped harness (`opencode_main()`, `kiro_main()`,
+…). The `cli()` router near the end of the file selects those adapters
+from flags such as `--opencode` and `--kiro`. To add another hook-shaped
+harness, follow that pattern:
+
 1. Parse the harness's pre-tool hook payload (stdin JSON, env vars,
    CLI args, or a native plugin format — check the runtime docs).
 2. Call `dispatch(command_string)` from the core module.
 3. Return the harness's expected "allow" or "block" response.
+4. Add a `--<runtime>` branch in `cli()` that routes to the new
+   `*_main()` function.
 
 Run the guard's test suite to verify the adapter:
 
@@ -232,7 +236,7 @@ in its comment header.
 
 ```bash
 # 1. Symlink topology (no cycles, correct relay direction)
-uv run --project tools/symlink-lint python3 -m symlink_lint
+uv run --project tools/symlink-lint symlink-lint
 
 # 2. Skill + tool metadata (capability, prerequisites, organization lines)
 uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-validate
