@@ -18,6 +18,13 @@ The core idea:
 > the group, pulls individual PRs out for closer inspection, or
 > skips the group.
 
+Every `#NNN` token in the examples below represents output from the
+[`pr_link.py`](scripts/pr_link.py) terminal renderer described by
+[Golden rule 10](SKILL.md#terminal-pr-reference-renderer). The examples omit
+control characters for readability; the live group screen, drill-in view,
+action progress / error lines, and summary must never print the literal bare
+token.
+
 The underlying `breeze pr auto-triage` tool presented PRs one-
 at-a-time (sequential mode) or as a TUI list with per-PR keys.
 This skill lands between those: sequential per-group, with a
