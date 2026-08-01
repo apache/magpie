@@ -69,7 +69,11 @@ The reference model is four layers, layered:
    project-declared whitelist before exec (no `$GH_TOKEN`, `$AWS_*`,
    `$ANTHROPIC_API_KEY` leakage).
 2. **Filesystem + network sandbox** — Linux `bubblewrap` + `socat` SNI
-   proxy; macOS `sandbox-exec`. Default-deny reads outside the tree and
+   proxy; macOS `sandbox-exec`. Optionally a container-level backend
+   (Eclipse Enclave) isolating the whole session instead of each
+   subprocess — documented as an option, not yet wired; see
+   `docs/setup/secure-agent-internals.md`. Default-deny reads outside
+   the tree and
    egress to non-allowed hosts. `sandbox.excludedCommands` carves out
    commands that need host auth the sandbox blocks — `gh` (OS keyring);
    the blast radius is held by layers 3 (`gh auth token` / `gh auth
@@ -116,3 +120,8 @@ python3 -c "import json,sys; s=json.load(open('.claude/settings.json')); \
 - **`tools/agent-guard/` and `tools/egress-gateway/` are new additions**
   since the last pilot cycle; end-to-end integration with a real adopter
   session has not yet been exercised.
+- **The container-level Layer 2 backend is documented, not implemented.**
+  Eclipse Enclave is incubating with no released artefact, so there is no
+  pin entry, no backend selector in `agent-iso.sh`, and no check in
+  `setup-isolated-setup-verify`. The framework states the contract it
+  needs; wiring follows a stable Enclave release.

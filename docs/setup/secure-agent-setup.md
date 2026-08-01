@@ -10,6 +10,7 @@
     - [Agent-guided (recommended)](#agent-guided-recommended)
     - [Manual Claude Code path (if you do not want the agent-guided path)](#manual-claude-code-path-if-you-do-not-want-the-agent-guided-path)
   - [Required tools](#required-tools)
+    - [Optional: a container-level backend instead of bubblewrap/Seatbelt](#optional-a-container-level-backend-instead-of-bubblewrapseatbelt)
     - [Install commands](#install-commands)
     - [Distro-specific shortcut — Linux Mint 22.x / Ubuntu 24.04 Noble](#distro-specific-shortcut--linux-mint-22x--ubuntu-2404-noble)
     - [Bumping a pinned version](#bumping-a-pinned-version)
@@ -248,6 +249,25 @@ The pin date floor (`pinned_at` in the manifest) is the day the
 manifest was last touched; it is the framework's promise that every
 version above had at least its tool's cooldown to settle before
 being adopted.
+
+### Optional: a container-level backend instead of bubblewrap/Seatbelt
+
+bubblewrap and Seatbelt sandbox each Bash subprocess on the host. An
+alternative is to run the whole agent session inside a container, so
+the host is never in scope. [Eclipse Enclave](https://projects.eclipse.org/projects/ecd.enclave)
+is an Eclipse Foundation project (MIT, incubating) building a
+vendor-neutral runtime for exactly that.
+
+This is an **option, not a requirement**, and it is not yet a shipped
+integration — Enclave has no released artefact to pin, so it is
+deliberately absent from the pin table above. Adopters who already run
+agents in containers can treat that container as their Layer 1 and skip
+the `bubblewrap` / `socat` install; adopters who do not should install
+the pinned primitives as described below.
+
+The contract the framework expects of any container-level Layer 1 — and
+the trade-offs against per-subprocess sandboxing — are set out in
+[`secure-agent-internals.md`](secure-agent-internals.md#container-level-isolation-eclipse-enclave-optional).
 
 ### Install commands
 

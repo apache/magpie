@@ -11,6 +11,8 @@
   - [What `sandbox.enabled` actually does](#what-sandboxenabled-actually-does)
   - [Linux: bubblewrap + user namespaces](#linux-bubblewrap--user-namespaces)
   - [macOS: Seatbelt](#macos-seatbelt)
+  - [Container-level isolation: Eclipse Enclave (optional)](#container-level-isolation-eclipse-enclave-optional)
+    - [What Magpie requires of any container backend](#what-magpie-requires-of-any-container-backend)
   - [The blind spot: `Bash(curl *)` and DNS-over-HTTPS](#the-blind-spot-bashcurl--and-dns-over-https)
     - [`permissions.deny` Bash patterns are advisory; the network allowlist is the real control](#permissionsdeny-bash-patterns-are-advisory-the-network-allowlist-is-the-real-control)
     - [macOS: `permissions.deny` first-command-only matching](#macos-permissionsdeny-first-command-only-matching)
@@ -79,7 +81,7 @@ It does **not** defend against:
 | Layer | Mechanism | What it stops |
 |---|---|---|
 | **0. Clean env** | `claude-iso` shell wrapper (`tools/agent-isolation/agent-iso.sh`) | Inherited credential-shaped env vars (`$AWS_*`, `$GH_TOKEN`, `$ANTHROPIC_API_KEY`, …). |
-| **1. Filesystem sandbox** | Claude Code's `sandbox.enabled: true` + bubblewrap (Linux) / Seatbelt (macOS) | Bash subprocess reads outside the project tree. |
+| **1. Filesystem sandbox** | Claude Code's `sandbox.enabled: true` + bubblewrap (Linux) / Seatbelt (macOS), or a container-level backend such as [Eclipse Enclave](#container-level-isolation-eclipse-enclave-optional) | Bash subprocess reads outside the project tree. |
 | **2. Tool permissions** | Claude Code's `permissions.deny` for Read/Edit/Write/Bash | The agent's own tools cat-ing dotfiles or running `aws`/`curl`. |
 | **3. Forced confirmation** | Claude Code's `permissions.ask` | Visible-to-others writes (`git push`, `gh pr create`, …) without an explicit yes. |
 
@@ -160,6 +162,83 @@ only pins the sandbox primitives `bubblewrap` and `socat`; the
 agent runtime `claude-code` is unpinned (tracks `@latest`, with a
 `min_version` floor enforced by verify), and Seatbelt does not
 appear because its version *is* the OS version.
+
+## Container-level isolation: Eclipse Enclave (optional)
+
+bubblewrap and Seatbelt both sandbox **each Bash subprocess** on the
+host. A container-level backend takes the opposite approach: the whole
+agent session runs inside a container with its own filesystem, process
+tree, and network stack, and the host is never in scope to begin with.
+
+[Eclipse Enclave](https://projects.eclipse.org/projects/ecd.enclave) is
+an Eclipse Foundation project (MIT-licensed) building exactly that — a
+vendor-neutral runtime for executing agents in isolated,
+policy-controlled containers, with egress allowlisting, per-session
+audit trails, and git-worktree integration for parallel sessions. It
+treats agents as untrusted, replaceable workloads, which is the same
+premise as [RFC-AI-0002](https://magpie.apache.org/docs/rfcs/rfc-ai-0002/).
+
+Why this is worth having as an option rather than a replacement:
+
+- **It changes the failure mode.** Under bubblewrap/Seatbelt, a bypass
+  (`dangerouslyDisableSandbox`, a local `settings.json` edit — see
+  residual risk 4 in the [threat model](../security/threat-model.md))
+  drops the subprocess straight onto the host. Under a container
+  backend, the blast radius is still the container.
+- **It is portable.** bubblewrap is Linux-only and Seatbelt is
+  macOS-only, so the framework currently maintains two profiles with
+  visibly different behaviour (`No such file or directory` versus
+  `Operation not permitted`). A container backend is one profile on
+  both.
+- **It covers the non-Bash tools.** Layer 1 does not sandbox the
+  agent's own Read/Edit/Write tools — that is what `permissions.deny`
+  is for. A session-level container covers them too, because they run
+  inside it.
+
+Trade-offs, stated plainly:
+
+- **It requires a container runtime.** Docker is the first supported
+  backend; microVMs, rootless runtimes, and Kubernetes orchestration
+  are named as future directions rather than shipping today.
+- **Coarser granularity.** Per-subprocess sandboxing lets the framework
+  allow one path to `gh` and deny it to everything else
+  (`sandbox.excludedCommands`). A container is all-or-nothing at the
+  session boundary, so layers 2 and 3 carry proportionally more weight.
+- **It is incubating.** The Eclipse project proposal has been approved
+  and the project created, but there is no released artefact to pin.
+  This is why Enclave does **not** appear in
+  [`pinned-versions.toml`](../../tools/agent-isolation/pinned-versions.toml)
+  alongside `bubblewrap` and `socat`: a pin needs a version and a
+  release date to age through the cooldown, and neither exists yet.
+
+### What Magpie requires of any container backend
+
+Rather than wire to an interface that is still moving, the framework
+states the contract a container-level Layer 1 has to meet. Enclave is
+the first candidate expected to satisfy it:
+
+1. **Default-deny egress** with an allowlist equivalent to
+   `sandbox.network.allowedDomains`, enforced before a socket opens —
+   not after a DNS lookup.
+2. **Credential exclusion** — the Layer 0 guarantee must survive:
+   no `$GH_TOKEN`, `$AWS_*`, `$ANTHROPIC_API_KEY` reaching the agent
+   process, and no host credential paths mounted into the container.
+3. **Workspace scoping** — the container sees the project tree (or a
+   worktree of it) and nothing else of the host filesystem.
+4. **An auditable session record** — what the session reached out to,
+   retrievable after the fact. This is what the framework's own
+   [`tools/egress-gateway/`](../../tools/egress-gateway/) provides
+   today, and a container backend should subsume rather than duplicate.
+5. **A documented escape hatch** — the equivalent of
+   `sandbox.excludedCommands` for commands that legitimately need host
+   auth, so adopters do not disable the whole sandbox to unblock one
+   command.
+
+Until Enclave publishes a stable CLI and a release, this section is
+documentation of an option, not a shipped integration. The wiring
+(a backend selector in `agent-iso.sh`, a pin entry, and verification
+in `setup-isolated-setup-verify`) is deliberately deferred rather than
+guessed at.
 
 ## The blind spot: `Bash(curl *)` and DNS-over-HTTPS
 
