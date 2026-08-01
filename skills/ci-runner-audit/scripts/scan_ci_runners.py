@@ -26,8 +26,9 @@ import json
 import re
 import subprocess
 import sys
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from pathlib import Path
+from typing import Any
 from urllib.request import urlopen
 
 try:
@@ -177,9 +178,11 @@ def load_workflows_for_repos(repo_names: list[str], workers: int) -> list[dict]:
                 repos.append(repo)
     workflows: list[dict] = []
     with ThreadPoolExecutor(max_workers=workers) as executor:
-        futures = [executor.submit(list_workflows_for_repo, repo) for repo in repos]
-        for future in as_completed(futures):
-            workflows.extend(future.result())
+        workflow_futures: list[Future[list[dict]]] = [
+            executor.submit(list_workflows_for_repo, repo) for repo in repos
+        ]
+        for workflow_future in as_completed(workflow_futures):
+            workflows.extend(workflow_future.result())
     return sorted(workflows, key=lambda row: (row["repo"], row["path"]))
 
 
@@ -199,8 +202,8 @@ def matrix_rows(matrix: object) -> list[dict]:
             continue
         keys.append(str(key))
         values.append(value if isinstance(value, list) else [value])
-    rows = [{}]
-    for key, vals in zip(keys, values):
+    rows: list[dict[str, Any]] = [{}]
+    for key, vals in zip(keys, values, strict=True):
         rows = [{**row, key: val} for row in rows for val in vals]
 
     excludes = matrix.get("exclude")
@@ -303,7 +306,8 @@ def arch_hits(workflow: dict) -> list[dict]:
                 continue
             name = str(step.get("name", ""))
             uses = str(step.get("uses", ""))
-            action_inputs = step.get("with") if isinstance(step.get("with"), dict) else {}
+            raw_with = step.get("with")
+            action_inputs = raw_with if isinstance(raw_with, dict) else {}
             for key, value in action_inputs.items():
                 key_text = str(key).lower()
                 value_text = " ".join(lower_values(value))
