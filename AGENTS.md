@@ -360,7 +360,7 @@ configuration before executing any command:
 | `<framework>` | The framework root — `.apache-magpie/` (the gitignored snapshot) in adopting projects, `.` in framework standalone. Used in `uv run` and other invocations that address the framework's `tools/<name>/` subtrees. | Filesystem convention. |
 | `<tracker>` | GitHub slug of the (security) tracker repo (example: `airflow-s/airflow-s`). | `<project-config>/project.md` → `tracker_repo` |
 | `<upstream>` | GitHub slug of the upstream codebase the fixes land in (example: `apache/airflow`). | `<project-config>/project.md` → `upstream_repo` |
-| `<security-list>` | The project's security mailing list (example: `security@airflow.apache.org`). | `<project-config>/project.md` → `mailing_lists.security` |
+| `<security-list>` | The project's security mailing list (example: `security@airflow.apache.org`). | `<project-config>/project.md` → `security_list` (under **Mailing lists**) |
 | `<issue-tracker>` | URL of the project's general-issue tracker, distinct from the security tracker. | `<project-config>/issue-tracker-config.md` → `url` |
 | `<issue-tracker-project>` | Project key within the issue tracker (JIRA key or `owner/repo`). | `<project-config>/issue-tracker-config.md` → `project_key` |
 | `<runtime>` | Recipe for invoking the project's runtime on a single source file. | `<project-config>/runtime-invocation.md` |
