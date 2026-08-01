@@ -297,6 +297,24 @@ update_scope_context() {
     echo "git diff --name-only $prev..$BASE_HEAD -- .claude/skills tools docs/modes.md"
     echo '```'
     echo ""
+    # Deterministic spec-scope mapping: pipe the diff through spec-scope so the
+    # agent receives a pre-computed list of likely-relevant specs rather than
+    # deriving the mapping itself.  Failures are non-fatal (mapping is advisory).
+    local _changed_files _relevant_specs
+    _changed_files="$(git diff --name-only "$prev..$BASE_HEAD" -- .claude/skills tools docs/modes.md 2>/dev/null)"
+    if [ -n "$_changed_files" ]; then
+        _relevant_specs="$(printf '%s\n' "$_changed_files" | \
+            uv run --project tools/spec-inventory spec-scope 2>/dev/null)" || true
+        if [ -n "$_relevant_specs" ]; then
+            echo "The deterministic scope mapper (\`spec-scope\`) identified these specs"
+            echo "as likely relevant to the changed paths above:"
+            echo ""
+            echo '```'
+            printf '%s\n' "$_relevant_specs"
+            echo '```'
+            echo ""
+        fi
+    fi
     echo "Skills, tools, and \`docs/modes.md\` rows untouched in that range are still"
     echo "in sync as of the previous run — skip them. Only re-inspect specs whose"
     echo "subjects appear in the diff. If the diff is empty there is nothing to"
