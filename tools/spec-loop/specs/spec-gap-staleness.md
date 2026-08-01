@@ -146,8 +146,19 @@ Extract claims of the form "<count> skills" scoped to a named family
 from any spec section, resolve the live count of skills whose
 frontmatter carries that `family:`, and compare. Two specs asserting
 different counts for one family is a violation regardless of which is
-right, because at most one can be. Narrow and exact: no prose
+right, because at most one can be. The live count is compared
+independently of that, so the case where every spec agrees and all of
+them are stale is caught too — which is the more dangerous shape, since
+agreement reads as confirmation. Narrow and exact: no prose
 inference, no threshold, no false positives.
+
+One caveat the implementation has to face. A count disagreement can mean
+the prose is stale, or it can mean membership itself is contested: a
+skill may carry `family:` in frontmatter while the prose deliberately
+omits it because it is a different kind of thing. The check reports the
+discrepancy and names the skills on each side; it does not assume the
+frontmatter is right. Deciding membership is a human call, and a HARD
+check that presumes an answer will be argued with rather than fixed.
 
 ## Out of scope
 
@@ -187,7 +198,14 @@ inference, no threshold, no false positives.
 6. Every check has unit tests covering the firing case, the clean case,
    and the skip case.
 7. Running the validator on the live tree reproduces the known
-   five-versus-six repo-health family discrepancy.
+   repo-health family discrepancy, which is three-way rather than
+   two-way: `triage-mode.md` claims five skills,
+   `repo-health-family.md` claims six, and seven carry
+   `family: repo-health` in frontmatter. The seventh,
+   `audit-finding-fix`, appears in neither prose list — plausibly
+   because it fixes findings rather than producing them. The check
+   must report all three numbers and name the disputed skill, not
+   pick a winner.
 
 ## Validation
 
@@ -207,6 +225,13 @@ test -f tools/spec-loop/PROMPT_update.md
   eight specs describe shipped capabilities, and eleven more are
   narrative status notes needing the `none (narrative)` marker.
   Annotating them is manual and independent of building the checks.
+- **Landing order matters, and only the SOFT rule is safe to land
+  first.** The unannotated-bullet advisory is SOFT, so it changes
+  nothing on the day it ships. `validate_cross_spec_counts` is HARD and
+  acceptance criterion 7 requires it to fire on a violation that exists
+  in the tree today, so landing it before the repo-health counts are
+  reconciled turns main red for everyone. Reconcile first, then land
+  the HARD check.
 - **A predicate can drift from its bullet.** Nothing binds the comment
   to the prose above it, so an edit that rewrites a bullet without
   updating its predicate leaves a check that passes while describing
