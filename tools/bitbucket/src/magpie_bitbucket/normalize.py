@@ -295,6 +295,39 @@ def pull_request_status(kind: str, raw: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def pull_request_tasks(kind: str, raw: dict[str, Any]) -> dict[str, Any]:
+    """Normalize read-only pull request task context."""
+    values = raw.get("values")
+    if not isinstance(values, list):
+        values = []
+
+    tasks = [_cloud_pull_request_task(item) for item in values if kind == "cloud" and isinstance(item, dict)]
+
+    return {
+        "backend": "bitbucket-cloud" if kind == "cloud" else "bitbucket-datacenter",
+        "coverage": "partial-read-only",
+        "pull_request_id": _string(raw.get("pull_request_id")),
+        "tasks": tasks,
+        "pending_count": sum(task["pending"] is True for task in tasks),
+        "resolved_count": sum(task["state"] == "resolved" for task in tasks),
+        "raw": raw,
+    }
+
+
+def pull_request_task(kind: str, raw: dict[str, Any]) -> dict[str, Any]:
+    """Normalize one read-only pull request task."""
+    task = raw.get("task")
+    normalized = _cloud_pull_request_task(task) if kind == "cloud" and isinstance(task, dict) else {}
+
+    return {
+        "backend": "bitbucket-cloud" if kind == "cloud" else "bitbucket-datacenter",
+        "coverage": "partial-read-only",
+        "pull_request_id": _string(raw.get("pull_request_id")),
+        "task": normalized,
+        "raw": raw,
+    }
+
+
 def pull_request_merge_checks(kind: str, raw: dict[str, Any]) -> dict[str, Any]:
     """Normalize read-only pull request merge-check context from Bitbucket."""
     pull_request_raw = raw.get("pull_request")
@@ -1065,6 +1098,31 @@ def _datacenter_inline(raw: object) -> dict[str, Any] | None:
         inline["to_line"] = raw["line"]
 
     return inline or None
+
+
+def _cloud_pull_request_task(raw: dict[str, Any]) -> dict[str, Any]:
+    state = _string(raw.get("state"))
+    normalized_state = state.lower() if state else "unknown"
+
+    content = raw.get("content")
+    comment = raw.get("comment")
+    comment_id = _string(comment.get("id")) if isinstance(comment, dict) else None
+
+    return {
+        "id": _string(raw.get("id")),
+        "state": normalized_state,
+        "pending": _bool_or_none(raw.get("pending")),
+        "content": _cloud_issue_content(content),
+        "creator": _cloud_user(raw.get("creator")),
+        "created": _cloud_timestamp(raw.get("created_on")),
+        "updated": _cloud_timestamp(raw.get("updated_on")),
+        "resolved": _cloud_timestamp(raw.get("resolved_on")),
+        "resolved_by": _cloud_user(raw.get("resolved_by")),
+        "comment_id": comment_id,
+        "self_url": _cloud_link(raw, "self"),
+        "permalink": _cloud_link(raw, "html"),
+        "raw": raw,
+    }
 
 
 def _cloud_issue_attachment(raw: dict[str, Any]) -> dict[str, Any]:

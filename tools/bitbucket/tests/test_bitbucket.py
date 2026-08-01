@@ -40,6 +40,8 @@ from magpie_bitbucket.normalize import (
     pull_request_merge_checks,
     pull_request_reviews,
     pull_request_status,
+    pull_request_task,
+    pull_request_tasks,
     repository,
     repository_restrictions,
 )
@@ -2409,3 +2411,171 @@ def test_cli_issue_attachments_cloud(
     assert output["backend"] == "bitbucket-cloud"
     assert output["issue_id"] == "7"
     assert output["attachments"][0]["name"] == "screenshot.png"
+
+
+@patch("urllib.request.build_opener")
+def test_cloud_get_pull_request_tasks_follows_next(mock_build_opener: MagicMock, cloud_env: None) -> None:
+    opener = mock_opener(
+        mock_build_opener,
+        {
+            "values": [{"id": 11, "state": "UNRESOLVED", "pending": True}],
+            "next": ("https://api.bitbucket.org/2.0/repositories/apache/magpie/pullrequests/7/tasks?page=2"),
+        },
+        {"values": [{"id": 12, "state": "RESOLVED", "pending": False}]},
+    )
+
+    result = cloud.get_pull_request_tasks(load_config(), "7")
+
+    first_request = opener.open.call_args_list[0].args[0]
+    second_request = opener.open.call_args_list[1].args[0]
+    assert first_request.full_url == (
+        "https://api.bitbucket.org/2.0/repositories/apache/magpie/pullrequests/7/tasks"
+    )
+    assert second_request.full_url.endswith("/pullrequests/7/tasks?page=2")
+    assert result["pull_request_id"] == "7"
+    assert [task["id"] for task in result["values"]] == [11, 12]
+
+
+@patch("urllib.request.build_opener")
+def test_cloud_get_pull_request_task_url(mock_build_opener: MagicMock, cloud_env: None) -> None:
+    opener = mock_opener(
+        mock_build_opener,
+        {"id": 11, "state": "UNRESOLVED", "pending": True},
+    )
+
+    result = cloud.get_pull_request_task(load_config(), "7", "11")
+
+    request = opener.open.call_args.args[0]
+    assert request.full_url == (
+        "https://api.bitbucket.org/2.0/repositories/apache/magpie/pullrequests/7/tasks/11"
+    )
+    assert result["pull_request_id"] == "7"
+    assert result["task"]["id"] == 11
+
+
+def test_datacenter_pull_request_tasks_unsupported(
+    datacenter_env: None,
+) -> None:
+    with pytest.raises(
+        BitbucketError,
+        match="Cloud-compatible task API",
+    ):
+        datacenter.get_pull_request_tasks(load_config(), "9")
+
+
+def test_datacenter_pull_request_task_unsupported(
+    datacenter_env: None,
+) -> None:
+    with pytest.raises(
+        BitbucketError,
+        match="Cloud-compatible task API",
+    ):
+        datacenter.get_pull_request_task(load_config(), "9", "11")
+
+
+def test_normalize_cloud_pull_request_tasks() -> None:
+    normalized = pull_request_tasks(
+        "cloud",
+        {
+            "pull_request_id": "7",
+            "values": [
+                {
+                    "id": 11,
+                    "state": "UNRESOLVED",
+                    "pending": True,
+                    "content": {"raw": "Add regression coverage."},
+                    "creator": {"display_name": "Alice"},
+                    "created_on": "2026-07-01T00:00:00Z",
+                    "updated_on": "2026-07-01T01:00:00Z",
+                    "comment": {"id": 101},
+                    "links": {
+                        "self": {"href": "https://api.bitbucket.org/task/11"},
+                        "html": {"href": "https://bitbucket.org/task/11"},
+                    },
+                },
+                {
+                    "id": 12,
+                    "state": "RESOLVED",
+                    "pending": False,
+                    "content": {"raw": "Update documentation."},
+                    "creator": {"display_name": "Bob"},
+                    "resolved_on": "2026-07-02T00:00:00Z",
+                    "resolved_by": {"display_name": "Carol"},
+                },
+            ],
+        },
+    )
+
+    assert normalized["backend"] == "bitbucket-cloud"
+    assert normalized["pull_request_id"] == "7"
+    assert normalized["pending_count"] == 1
+    assert normalized["resolved_count"] == 1
+    assert normalized["tasks"][0]["id"] == "11"
+    assert normalized["tasks"][0]["state"] == "unresolved"
+    assert normalized["tasks"][0]["pending"] is True
+    assert normalized["tasks"][0]["content"] == "Add regression coverage."
+    assert normalized["tasks"][0]["creator"] == "Alice"
+    assert normalized["tasks"][0]["comment_id"] == "101"
+    assert normalized["tasks"][1]["resolved_by"] == "Carol"
+
+
+def test_normalize_cloud_pull_request_task() -> None:
+    normalized = pull_request_task(
+        "cloud",
+        {
+            "pull_request_id": "7",
+            "task": {
+                "id": 11,
+                "state": "RESOLVED",
+                "pending": False,
+                "content": {"raw": "Done."},
+                "resolved_on": "2026-07-02T00:00:00Z",
+            },
+        },
+    )
+
+    assert normalized["pull_request_id"] == "7"
+    assert normalized["task"]["id"] == "11"
+    assert normalized["task"]["state"] == "resolved"
+    assert normalized["task"]["pending"] is False
+    assert normalized["task"]["content"] == "Done."
+
+
+@patch("magpie_bitbucket.cloud.get_pull_request_tasks")
+def test_cli_pr_tasks_cloud(
+    mock_get_pull_request_tasks: MagicMock,
+    cloud_env: None,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    mock_get_pull_request_tasks.return_value = {
+        "pull_request_id": "7",
+        "values": [{"id": 11, "state": "UNRESOLVED", "pending": True}],
+    }
+
+    exit_code = main(["pr", "tasks", "7"])
+
+    assert exit_code == 0
+    mock_get_pull_request_tasks.assert_called_once_with(load_config(), "7")
+    output = json.loads(capsys.readouterr().out)
+    assert output["pull_request_id"] == "7"
+    assert output["tasks"][0]["id"] == "11"
+
+
+@patch("magpie_bitbucket.cloud.get_pull_request_task")
+def test_cli_pr_task_cloud(
+    mock_get_pull_request_task: MagicMock,
+    cloud_env: None,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    mock_get_pull_request_task.return_value = {
+        "pull_request_id": "7",
+        "task": {"id": 11, "state": "RESOLVED", "pending": False},
+    }
+
+    exit_code = main(["pr", "task", "7", "11"])
+
+    assert exit_code == 0
+    mock_get_pull_request_task.assert_called_once_with(load_config(), "7", "11")
+    output = json.loads(capsys.readouterr().out)
+    assert output["pull_request_id"] == "7"
+    assert output["task"]["id"] == "11"
