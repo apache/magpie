@@ -76,9 +76,26 @@ def test_nested_four_backtick_block_does_not_invert_state():
 
 
 def test_shorter_fence_inside_block_is_literal():
-    # a 3-backtick line inside a 4-backtick block is content, not a close
+    # a 3-backtick line inside a 4-backtick block is content, not a close.
+    # The bare 4-backtick opening fence still names no language, so MD040
+    # applies to it too and it gets tagged — at its own fence length.
     out = tag_bare_code_fences("````\n```\n````")
-    assert out == "````\n```\n````"
+    assert out == "````text\n```\n````"
+
+
+def test_bare_longer_opening_fence_is_tagged_at_its_own_length():
+    # Regression: tagging must preserve the opening fence's length rather than
+    # rewriting it to three backticks, which would break the block.
+    out = tag_bare_code_fences("`````\ncontent\n`````")
+    assert out == "`````text\ncontent\n`````"
+
+
+def test_info_string_line_does_not_close_a_block():
+    # CommonMark: a closing fence carries no info string. Treating "```python"
+    # as a close made the *real* closing fence look like an opening one and get
+    # tagged, corrupting the document.
+    out = tag_bare_code_fences("```\na\n```python\nb\n```")
+    assert out == "```text\na\n```python\nb\n```"
 
 
 def test_longer_closing_fence_closes_shorter_block():
@@ -88,3 +105,45 @@ def test_longer_closing_fence_closes_shorter_block():
     assert lines[0] == "```text", "opening bare fence tagged"
     assert lines[2] == "````", "longer fence closes the block"
     assert lines[3] == "```text", "trailing bare fence tagged after close"
+
+
+def test_tag_bare_code_fences_handles_nested_longer_fence():
+    # End-to-end case from #1010: a 4-backtick block that names a language keeps
+    # its inner bare triple fence literal, a later indented bare fence is still
+    # tagged, and an already-tagged fence is untouched.
+    text = """before
+````markdown
+outer block keeps its language
+```
+inner bare triple fence stays literal
+```
+````
+
+  ```
+  later indented bare fence gets tagged
+  ```
+
+```python
+print("already tagged")
+```
+after"""
+
+    assert (
+        tag_bare_code_fences(text)
+        == """before
+````markdown
+outer block keeps its language
+```
+inner bare triple fence stays literal
+```
+````
+
+  ```text
+  later indented bare fence gets tagged
+  ```
+
+```python
+print("already tagged")
+```
+after"""
+    )
