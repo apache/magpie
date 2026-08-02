@@ -45,3 +45,11 @@ uv run --directory tools/skill-evals skill-eval --cli "claude -p" \
   deterministic `regex` predicates in `assertions.json`
   (`has_bypass_reason` for the skip cases, `has_apply_reason` for the
   apply case) — no grader or MANUAL step is required.
+  The two predicates discriminate on *direction*, not on the flag name.
+  Keying on `no-overrides` would be useless here: the flag name appears
+  in a correct reason and in a reason arguing the exact opposite, so such
+  a pattern passes either way. Each predicate therefore requires the
+  matching verb (skipped/not-consulted versus applied/consulted) and
+  rejects the opposing phrasing. When editing them, check both
+  directions — that a right answer still passes *and* that a reason
+  arguing the other decision fails.

@@ -2,13 +2,13 @@
   "has_bypass_reason": {
     "type": "regex",
     "field": "reason",
-    "pattern": "no-?overrides|framework default|not (be )?read|not applied|ignor",
-    "flags": "i"
+    "pattern": "^(?=.*override)(?=.*\\b(?:skip|skips|skipped|skipping|bypass|bypassed|bypassing|ignore|ignores|ignored|ignoring|not\\s+(?:be\\s+)?(?:read|consulted|applied)|(?:were|was)\\s+not|without)\\b)(?!.*\\b(?:read\\s+and\\s+applied|applied\\s+the\\s+overrides?|overrides?\\s+(?:were|was)\\s+applied)\\b).*",
+    "flags": "is"
   },
   "has_apply_reason": {
     "type": "regex",
     "field": "reason",
-    "pattern": "read and applied|normal protocol|no .*flag|without .*no-?overrides",
-    "flags": "i"
+    "pattern": "^(?=.*override)(?=.*\\b(?:applied|applying|consulted|honoured|honored)\\b)(?!.*\\b(?:skipped|bypassed|ignored)\\s+(?:the\\s+)?overrides?\\b)(?!.*\\boverrides?\\s+(?:were|was)\\s+not\\b)(?!.*\\bnot\\s+(?:be\\s+)?(?:read|consulted|applied)\\b).*",
+    "flags": "is"
   }
 }
