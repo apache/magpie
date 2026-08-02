@@ -30,6 +30,7 @@ dependencies = []
 
 [project.scripts]
 spec-inventory = "spec_inventory:main"
+spec-scope = "spec_inventory:scope_main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/spec_inventory"]
@@ -66,7 +67,7 @@ disallow_incomplete_defs = false
 dev = [
   "mypy>=2.1.0",
   "pytest>=9.1.1",
-  "ruff>=0.15.21",
+  "ruff>=0.15.22",
 ]
 
 [tool.pytest.ini_options]

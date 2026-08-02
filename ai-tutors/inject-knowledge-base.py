@@ -36,7 +36,6 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 AI_TUTORS_DIR = ROOT / "ai-tutors"
 TRAINING_DIR = ROOT / "docs" / "education" / "training"
@@ -60,6 +59,7 @@ DOCTOC_RE = re.compile(
     re.DOTALL,
 )
 SPDX_RE = re.compile(r"<!-- SPDX-License-Identifier:.*?-->\n*", re.DOTALL)
+CODE_FENCE_RE = re.compile(r"^(?P<indent>\s*)(?P<fence>`{3,})(?P<info>[^`]*)$")
 
 
 @dataclass(frozen=True)
@@ -129,17 +129,22 @@ def tag_bare_code_fences(text: str, default_lang: str = "text") -> str:
     that already name a language are left untouched.
     """
     lines = text.split("\n")
-    in_code = False
+    open_fence_length: int | None = None
     for i, line in enumerate(lines):
-        stripped = line.strip()
-        if stripped.startswith("```"):
-            if not in_code:
-                in_code = True
-                if stripped == "```":  # opening fence with no language
-                    indent = line[: len(line) - len(line.lstrip())]
-                    lines[i] = f"{indent}```{default_lang}"
-            else:
-                in_code = False
+        match = CODE_FENCE_RE.match(line)
+        if not match:
+            continue
+
+        fence = match.group("fence")
+        info = match.group("info").strip()
+        fence_length = len(fence)
+
+        if open_fence_length is None:
+            open_fence_length = fence_length
+            if not info:  # opening fence with no language
+                lines[i] = f"{match.group('indent')}{fence}{default_lang}"
+        elif not info and fence_length >= open_fence_length:
+            open_fence_length = None
     return "\n".join(lines)
 
 
@@ -188,9 +193,7 @@ def refresh_tutor(tutor: Path) -> TutorUpdate:
 
     training_lesson = TRAINING_DIR / tutor.name
     if not training_lesson.is_file():
-        raise FileNotFoundError(
-            f"matching training lesson does not exist: {training_lesson}"
-        )
+        raise FileNotFoundError(f"matching training lesson does not exist: {training_lesson}")
 
     source_page = source_page_for(training_lesson)
     if not source_page.is_file():

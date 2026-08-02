@@ -78,18 +78,25 @@ Example shape:
 
 ## Binary-exclude list
 
-TODO: list any binary content the source artefact must NOT contain
-(per `release-verify-rc`'s no-prohibited-binaries check). The
-default list is conservative, `.class`, `.jar`, `.so`, `.dylib`,
-`.dll`, `.exe`, pre-built minified JS bundles checked into the
-source tree. Project-specific exclusions go here.
+TODO: configure `release-verify-rc` Step 6's prohibited-binary check.
+
+The skill always scans a **fixed baseline**: `.class`, `.jar`,
+`.so`, `.dylib`, `.dll`, `.exe`, `.pyc`, and `__pycache__`
+directories. List here:
+
+1. **Additional prohibited globs** the source artefact must also not
+   contain (appended to the Step 6 `find` beyond the baseline).
+2. **Known-accepted exceptions** — specific paths that match a
+   prohibited pattern but must ship; Step 6 classifies those as
+   `EXPECTED-BINARY` rather than `PROHIBITED-BINARY`.
 
 Example shape:
 
-> - `*.class`, `*.jar`, Java compiled output never ships in source.
-> - `assets/vendor/**/*.min.js`, vendored minified JS that has a
->   source-checked counterpart; flagged on every source-release
->   verification.
+> - `assets/vendor/**/*.min.js` — additional prohibited glob
+>   (vendored minified JS; flagged on every source-release
+>   verification).
+> - `third-party/some-native.so` — known-accepted exception (ships
+>   with a documented source counterpart).
 
 ## Apache RAT configuration
 

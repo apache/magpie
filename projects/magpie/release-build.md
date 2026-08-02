@@ -69,5 +69,7 @@ and are never emitted.
 ## Binary-exclude list
 
 The source artefact must contain no compiled or opaque binary content.
-Conservative default denylist for `release-verify-rc`:
-`.class`, `.jar`, `.so`, `.dylib`, `.dll`, `.exe`, `.pyc`.
+`release-verify-rc` Step 6 always scans its fixed baseline
+(`.class`, `.jar`, `.so`, `.dylib`, `.dll`, `.exe`, `.pyc`,
+`__pycache__`). Magpie adds no project-specific globs and names no
+known-accepted exceptions.

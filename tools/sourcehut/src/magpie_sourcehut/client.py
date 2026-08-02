@@ -79,8 +79,17 @@ def query_graphql(service: str, query: str, variables: dict[str, Any] | None = N
             if err_errors:
                 err_msgs = [e.get("message", "Unknown error") for e in err_errors]
                 err_msg = f"HTTP {exc.code}: {'; '.join(err_msgs)}"
-        except Exception:
-            # Ignore errors parsing the HTTP error response body as JSON
+        except (ValueError, AttributeError, TypeError, OSError):
+            # Ignore errors parsing the HTTP error response body as JSON. This is
+            # a best-effort attempt to extract a nicer message from an untrusted
+            # body, so failing to parse it must never be worse than not trying:
+            # control falls through to the `status`-only SourceHutError below.
+            # `ValueError` covers both json.JSONDecodeError and the
+            # UnicodeDecodeError that a non-UTF-8 body raises; `AttributeError`
+            # covers a body that is valid JSON but not an object (`null`, an
+            # array, a bare string) or an `errors` entry that is not a dict;
+            # `OSError` covers a failed `exc.read()`. Programming errors
+            # (NameError, RuntimeError, ...) are deliberately left to propagate.
             pass
 
         if err_msg:

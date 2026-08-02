@@ -386,6 +386,32 @@ be one click away in whatever surface it lands on:
     `https://github.com/<upstream>/actions/runs/<run-id>` when
     citing a failing CI run.
 
+### Terminal PR-reference renderer
+
+Use the bundled [`pr_link.py`](scripts/pr_link.py) helper for every
+terminal-bound PR reference instead of constructing OSC 8 sequences
+inside individual output paths:
+
+```bash
+python3 <framework>/skills/pr-management-triage/scripts/pr_link.py \
+  '<upstream>#NNN'
+
+# When the repository is obvious and only #NNN should be visible:
+python3 <framework>/skills/pr-management-triage/scripts/pr_link.py \
+  --repo '<upstream>' '#NNN'
+```
+
+The helper accepts `<upstream>#NNN`, the full GitHub pull-request URL, or
+`#NNN` with `--repo <upstream>`. It preserves the visible form and always
+targets the canonical `https://github.com/<owner>/<repo>/pull/<N>` URL.
+When `TERM` is unset or `dumb`, or `NO_COLOR` is present, it falls back to
+plain text plus the URL.
+
+Every terminal output path goes through this helper: fetch or apply progress
+lines that name a PR, classifier proposals, group and per-PR drill-in screens,
+error messages, and the Step 6 session summary. Do not build a one-off OSC 8
+wrapper in any of those paths.
+
 - **On terminal surfaces** (the group screen, the per-PR drill-in
   screen, the Step 6 session summary): wrap the visible short form
   `<upstream>#NNN` (or `#NNN`) in **OSC 8 hyperlink escape
@@ -402,6 +428,8 @@ not in terminal output, not in posted comments.
 emitting any user-visible screen**: grep the body for bare `#\d+`
 / `<upstream>#\d+` tokens that aren't already inside a markdown
 link or an OSC 8 wrapper, and convert any match.
+
+### Contributor-facing notification channel
 
 **Golden rule 11 — deliver violation feedback through the
 configured channel, and default to the silent one.** The

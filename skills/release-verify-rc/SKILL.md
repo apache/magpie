@@ -428,44 +428,57 @@ small (version-string-only changes).
 
 ## Step 6 — Binary exclusion check
 
-Scan the unpacked source artefact for files matching the
-binary-exclude list from `release-build.md`. Emit the paste-ready
-scan command:
+Scan the unpacked source artefact for prohibited binaries. The
+paste-ready `find` always starts from a **fixed baseline** of
+patterns; it is not generated wholesale from adopter config.
+
+Using the Binary-exclude list from `release-build.md` (heading
+**Binary-exclude list** — same file Step 4 reads for RAT
+configuration), append any additional globs that list names beyond
+the baseline, then emit the recipe:
+
+**Baseline (always scanned):** `.class`, `.jar`, `.so`, `.dylib`,
+`.dll`, `.exe`, `.pyc`, and `__pycache__` directories.
+
+**Additions from `release-build.md`:** any extra globs under
+**Binary-exclude list** that the baseline does not already cover
+(for example `*.min.js` or `assets/vendor/**/*.min.js`). Translate
+each into a `-name` or `-path` predicate and OR it into the `find`
+below before emitting.
 
 ```bash
-# Compiled Java class files, native shared libraries, AND compiled
-# Python bytecode. `.pyc` / `__pycache__` must NEVER appear in a
+# Fixed baseline. `.pyc` / `__pycache__` must NEVER appear in a
 # source release — their presence proves the artefact was zipped from
 # a working tree that had run tests rather than exported clean from
 # the tag (build via `git archive <tag>`, never `zip -r`).
+# Append -name / -path OR-predicates for any extra globs named under
+# <project-config>/release-build.md § Binary-exclude list that the
+# baseline does not already cover.
 find <unpacked-dir> \( -type f \( -name "*.class" -o -name "*.jar" \
   -o -name "*.so" -o -name "*.dylib" -o -name "*.dll" -o -name "*.exe" \
   -o -name "*.pyc" \) -o -type d -name "__pycache__" \) -print
 ```
 
 Emit the bare `find` with no `grep` post-filtering: the recipe must
-surface every matching file so nothing is hidden from the voter. The
-binary-exclude list from `release-build.md` is applied in the JSON
-classification below (matching files become `expected_binaries`, the
-rest `prohibited_found`), not by filtering the command.
+surface every matching file so nothing is hidden from the voter. Do
+not drop baseline predicates when the Binary-exclude list is empty or
+only restates the baseline — the baseline is mandatory.
 
 `<unpacked-dir>` is the source artefact filename with its archive
-extension removed: `apache-airflow-2.11.0-source-release.tar.gz` unpacks
-to `apache-airflow-2.11.0-source-release`. Do not drop the
+extension removed: `<artefact-source-release>.tar.gz` unpacks
+to `<artefact-source-release>`. Do not drop the
 `-source-release` suffix or substitute a shortened name. Resolve
 `<unpacked-dir>` to this concrete directory before emitting the recipe.
 
-The default prohibited extensions are `.class`, `.jar`, `.so`,
-`.dylib`, `.dll`, `.exe`. The `release-build.md` binary-exclude list
-may add project-specific extensions or glob patterns.
+The same Binary-exclude list is then applied in the JSON
+classification below. A found path the list marks as a
+known-and-accepted binary is `EXPECTED-BINARY` (`expected_binaries`);
+any other baseline or addition hit is `PROHIBITED-BINARY`
+(`prohibited_found`). Classification does not filter the command.
 
-A file that appears in the binary-exclude list of `release-build.md`
-is a known-and-accepted binary; surface it as `EXPECTED-BINARY` with
-a note.
-
-A file that matches a prohibited extension but is NOT in the
-binary-exclude list is classified `PROHIBITED-BINARY` and causes a
-hard `FAIL`.
+A file that matches a prohibited pattern but is NOT marked
+known-and-accepted in the Binary-exclude list is classified
+`PROHIBITED-BINARY` and causes a hard `FAIL`.
 
 Return ONLY valid JSON with this structure:
 

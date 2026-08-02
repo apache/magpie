@@ -1029,18 +1029,18 @@ def test_load_grading_schema_defaults_when_no_file(tmp_path: Path):
     assert load_grading_schema(fixtures_dir) == set(DEFAULT_PROSE_FIELDS)
 
 
-def test_load_grading_schema_override_replaces_default(tmp_path: Path):
+def test_load_grading_schema_override_extends_default(tmp_path: Path):
     fixtures_dir = tmp_path / "fixtures"
     fixtures_dir.mkdir()
     (fixtures_dir / "grading-schema.json").write_text(json.dumps({"prose_fields": ["why"]}))
-    assert load_grading_schema(fixtures_dir) == {"why"}
+    assert load_grading_schema(fixtures_dir) == set(DEFAULT_PROSE_FIELDS) | {"why"}
 
 
-def test_load_grading_schema_empty_list_disables_grader(tmp_path: Path):
+def test_load_grading_schema_empty_list_keeps_default(tmp_path: Path):
     fixtures_dir = tmp_path / "fixtures"
     fixtures_dir.mkdir()
     (fixtures_dir / "grading-schema.json").write_text(json.dumps({"prose_fields": []}))
-    assert load_grading_schema(fixtures_dir) == set()
+    assert load_grading_schema(fixtures_dir) == set(DEFAULT_PROSE_FIELDS)
 
 
 def test_load_grading_schema_rejects_non_string_entries(tmp_path: Path):
@@ -1412,24 +1412,34 @@ def test_cli_grader_mode_fails_when_grader_rejects_prose(tmp_path: Path, capsys:
 
 
 def test_cli_grader_mode_respects_grading_schema_override(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
-    """grading-schema.json with prose_fields=[] forces exact compare on `reason`."""
-    expected = {"verdict": "BUG", "reason": "crashes on null input"}
-    actual = {"verdict": "BUG", "reason": "null pointer on first call"}
+    """grading-schema.json extends prose_fields with a non-default field.
+
+    Asserted against both stub graders on purpose. A PASS with the always-yes
+    grader alone cannot distinguish "the field was sent to the grader" from
+    "the field was dropped from the comparison entirely" — both look like a
+    pass. Running the same case against the always-no grader and requiring a
+    FAIL pins that the field really is being judged.
+    """
+    expected = {"verdict": "BUG", "paste_recipe": "crashes on null input"}
+    actual = {"verdict": "BUG", "paste_recipe": "null pointer on first call"}
+
     fixtures_dir, _ = _make_cli_case(tmp_path, expected=expected)
-    (fixtures_dir / "grading-schema.json").write_text(json.dumps({"prose_fields": []}))
+    (fixtures_dir / "grading-schema.json").write_text(json.dumps({"prose_fields": ["paste_recipe"]}))
     rc, stdout, _ = _run_main(
         capsys,
-        [
-            "--cli",
-            f"echo '{json.dumps(actual)}'",
-            "--grader-cli",
-            _GRADER_YES,  # would say YES, but reason should be graded exact now
-            str(fixtures_dir),
-        ],
+        ["--cli", f"echo '{json.dumps(actual)}'", "--grader-cli", _GRADER_YES, str(fixtures_dir)],
+    )
+    assert rc == 0
+    assert "PASS" in stdout
+
+    # Same case, same differing value, grader says no: the field must be what fails.
+    rc, stdout, _ = _run_main(
+        capsys,
+        ["--cli", f"echo '{json.dumps(actual)}'", "--grader-cli", _GRADER_NO, str(fixtures_dir)],
     )
     assert rc == 1
     assert "FAIL" in stdout
-    assert "reason" in stdout
+    assert "paste_recipe" in stdout
 
 
 def test_grader_cli_requires_cli_flag(tmp_path: Path, capsys: pytest.CaptureFixture[str]):

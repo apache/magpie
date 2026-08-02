@@ -92,6 +92,13 @@ def _build_parser() -> argparse.ArgumentParser:
     pr_reviews = pr_subparsers.add_parser("reviews", help="Fetch pull request review-state activity.")
     pr_reviews.add_argument("pull_request_id", help="Pull request ID to fetch review state for.")
 
+    pr_tasks = pr_subparsers.add_parser("tasks", help="List pull request tasks.")
+    pr_tasks.add_argument("pull_request_id", help="Pull request ID whose tasks to fetch.")
+
+    pr_task = pr_subparsers.add_parser("task", help="Fetch one pull request task.")
+    pr_task.add_argument("pull_request_id", help="Pull request ID containing the task.")
+    pr_task.add_argument("task_id", help="Task ID to fetch.")
+
     pr_merge_checks = pr_subparsers.add_parser("merge-checks", help="Fetch pull request merge-check context.")
     pr_merge_checks.add_argument("pull_request_id", help="Pull request ID to fetch merge-check context for.")
 
@@ -160,6 +167,14 @@ def _dispatch(args: argparse.Namespace, config: BitbucketConfig) -> dict[str, An
     if args.subcommand == "pr" and args.pr_action == "reviews":
         raw = backend.get_pull_request_reviews(config, args.pull_request_id)
         return normalize.pull_request_reviews(config.kind, raw)
+
+    if args.subcommand == "pr" and args.pr_action == "tasks":
+        raw = backend.get_pull_request_tasks(config, args.pull_request_id)
+        return normalize.pull_request_tasks(config.kind, raw)
+
+    if args.subcommand == "pr" and args.pr_action == "task":
+        raw = backend.get_pull_request_task(config, args.pull_request_id, args.task_id)
+        return normalize.pull_request_task(config.kind, raw)
 
     if args.subcommand == "pr" and args.pr_action == "merge-checks":
         raw = backend.get_pull_request_merge_checks(config, args.pull_request_id)

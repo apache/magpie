@@ -217,6 +217,26 @@ def get_pull_request_merge_status(config: BitbucketConfig, pull_request_id: str)
     return get_json(url, config)
 
 
+def get_pull_request_tasks(config: BitbucketConfig, pull_request_id: str) -> dict[str, Any]:
+    """Reject Cloud-style pull request task listing for Data Center."""
+    _ = (config, pull_request_id)
+    msg = (
+        "Bitbucket Data Center pull request tasks are not exposed through the "
+        "Cloud-compatible task API; use blocker-comment coverage instead."
+    )
+    raise BitbucketError(msg)
+
+
+def get_pull_request_task(config: BitbucketConfig, pull_request_id: str, task_id: str) -> dict[str, Any]:
+    """Reject Cloud-style pull request task fetch for Data Center."""
+    _ = (config, pull_request_id, task_id)
+    msg = (
+        "Bitbucket Data Center pull request tasks are not exposed through the "
+        "Cloud-compatible task API; use blocker-comment coverage instead."
+    )
+    raise BitbucketError(msg)
+
+
 def get_pull_request_merge_checks(config: BitbucketConfig, pull_request_id: str) -> dict[str, Any]:
     """Fetch read-only merge-check context for a Bitbucket Data Center pull request."""
     merge_status = get_pull_request_merge_status(config, pull_request_id)

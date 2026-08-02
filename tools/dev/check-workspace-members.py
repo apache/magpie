@@ -46,9 +46,27 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def find_member_dirs() -> list[Path]:
-    """Discover every directory under `tools/` that contains its own
-    `pyproject.toml`, at depth 2 or 3 below the repo root."""
+    """Discover every directory that contains its own `pyproject.toml`:
+    top-level project directories, plus anything under `tools/` at depth
+    2 or 3 below the repo root.
+
+    Most members live under `tools/`, but not all — `ai-tutors/` carries
+    the knowledge-base injector and its tests alongside the prompts it
+    rewrites, so it is a member without being a tool. Scanning only
+    `tools/` reported such a member as stale and pushed contributors to
+    delete a correct entry."""
     found: list[Path] = []
+
+    # Top-level project directories (excluding the repo root itself, which
+    # is the workspace root rather than a member).
+    for top in sorted(ROOT.iterdir()):
+        if not top.is_dir() or top.name.startswith("."):
+            continue
+        if top.name == "tools":
+            continue  # handled below, which also descends one level
+        if (top / "pyproject.toml").is_file():
+            found.append(top)
+
     tools = ROOT / "tools"
     if not tools.is_dir():
         return found

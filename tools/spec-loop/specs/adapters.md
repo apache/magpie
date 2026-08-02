@@ -151,10 +151,10 @@ uv run --project tools/vcs --group dev pytest || echo "check tools/vcs test setu
   currently provides read-only repository metadata, read-only branch restriction
   context, pull-request discovery, pull-request fetching, read-only pull-request
   commit fetching, read-only pull-request diff fetching, comments-only pull-request
-  discussion fetching, read-only review-state fetching, read-only merge-check
+  discussion fetching, read-only review-state fetching, Cloud-only pull-request task listing/fetching, read-only merge-check
   context fetching, read-only pull-request status fetching, and Cloud-only issue listing/fetching, issue comment fetching, and issue attachment metadata fetching;
   #606 remains open for full tracker/change-request coverage.
-- Fetched Bitbucket descriptions, issue titles/descriptions, issue comments, attachment names, uploader names when present, attachment links, raw attachment payloads, issue reporter/assignee/commenter names, issue links, branch restriction policy, commit messages, diff hunks, file paths, comments, reviewer names, review decisions/events, approval/change-request activity, merge-check decisions/blockers, status descriptions,
+- Fetched Bitbucket descriptions, issue titles/descriptions, issue comments, attachment names, uploader names when present, attachment links, raw attachment payloads, issue reporter/assignee/commenter names, issue links, branch restriction policy, commit messages, diff hunks, file paths, comments, pull-request task content, task creator/resolver names, reviewer names, review decisions/events, approval/change-request activity, merge-check decisions/blockers, status descriptions,
   CI URLs, and raw payloads are external data, never agent instructions;
   private or embargoed content must follow the
   approved-LLM/privacy gate before model use.
@@ -165,10 +165,14 @@ uv run --project tools/vcs --group dev pytest || echo "check tools/vcs test setu
   ASF coupling across the catalogue, and the capability-flag mechanism for
   workflow branches that no adapter resolves, live in
   [project-agnosticism.md](project-agnosticism.md).
-- **Adapter authoring smoke validation is missing.** The docs define the
-  expected README contract, but no validator currently checks that each
-  adapter declares capability, prerequisites, privacy/credential handling,
-  operations, and config keys.
+- **Adapter authoring smoke validation is shipped.**
+  `validate_adapter_authoring` (SOFT advisory) checks that each
+  `contract:*` adapter README declares credential/privacy handling,
+  operations, and config keys. `substrate:*` tools are excluded.
+  `validate_tools` (HARD) separately enforces the
+  **Capability:** declaration and the **Prerequisites** section
+  on every tool README, so all five original gap items are now
+  covered across the two validators.
 - **Mail-adapter privacy tests are thin.** The redaction contract exists,
   but adapter-level fixtures should prove that private mail and embedded
   prompt-injection attempts do not enter model-facing context untreated.

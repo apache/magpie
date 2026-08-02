@@ -281,6 +281,49 @@ def get_pull_request_reviews(config: BitbucketConfig, pull_request_id: str) -> d
     return combined
 
 
+def get_pull_request_tasks(config: BitbucketConfig, pull_request_id: str) -> dict[str, Any]:
+    """Fetch tasks for a Bitbucket Cloud pull request."""
+    workspace = quote_path(require(config.workspace, "BITBUCKET_WORKSPACE"))
+    repo_slug = quote_path(require(config.repo_slug, "BITBUCKET_REPO_SLUG"))
+    pr_id = quote_path(pull_request_id)
+    url = f"{CLOUD_API_BASE}/repositories/{workspace}/{repo_slug}/pullrequests/{pr_id}/tasks"
+
+    combined: dict[str, Any] = {
+        "pull_request_id": pull_request_id,
+        "values": [],
+        "paginated": True,
+        "pages": [],
+    }
+
+    seen_urls = {url}
+    while url:
+        page = get_json(url, config)
+        combined["pages"].append(page)
+
+        values = page.get("values")
+        if isinstance(values, list):
+            combined["values"].extend(item for item in values if isinstance(item, dict))
+
+        url = _validated_next_url(page.get("next"), seen_urls)
+
+    return combined
+
+
+def get_pull_request_task(config: BitbucketConfig, pull_request_id: str, task_id: str) -> dict[str, Any]:
+    """Fetch one task from a Bitbucket Cloud pull request."""
+    workspace = quote_path(require(config.workspace, "BITBUCKET_WORKSPACE"))
+    repo_slug = quote_path(require(config.repo_slug, "BITBUCKET_REPO_SLUG"))
+    pr_id = quote_path(pull_request_id)
+    task = quote_path(task_id)
+    url = f"{CLOUD_API_BASE}/repositories/{workspace}/{repo_slug}/pullrequests/{pr_id}/tasks/{task}"
+
+    raw = get_json(url, config)
+    return {
+        "pull_request_id": pull_request_id,
+        "task": raw,
+    }
+
+
 def get_pull_request_merge_checks(config: BitbucketConfig, pull_request_id: str) -> dict[str, Any]:
     """Fetch read-only merge-check context for a Bitbucket Cloud pull request."""
     status = get_pull_request_status(config, pull_request_id)

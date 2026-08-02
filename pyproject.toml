@@ -57,8 +57,8 @@ requires-python = ">=3.11"
 # `[tool.uv] exclude-newer` cooldown below, so the resolved version
 # is "the most recent that is at least 7 days old".
 dev = [
-  "prek>=0.4.9",
-  "ruff>=0.15.21",
+  "prek>=0.4.10",
+  "ruff>=0.15.22",
   "mypy>=2.3.0",
   "pytest>=9.1.1",
 ]
@@ -94,6 +94,7 @@ package = false
 # file.
 [tool.uv.workspace]
 members = [
+  "ai-tutors",
   "tools/agent-guard",
   "tools/agent-isolation",
   "tools/bitbucket",

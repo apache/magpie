@@ -13,6 +13,7 @@
   - [What every page also teaches](#what-every-page-also-teaches)
   - [How this connects to the other guides](#how-this-connects-to-the-other-guides)
   - [About the examples](#about-the-examples)
+  - [Learn with an AI tutor](#learn-with-an-ai-tutor)
   - [Licence](#licence)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -139,6 +140,23 @@ Every example uses placeholders in place of real names: `<PROJECT>`,
 `<tracker>`, `<upstream>`, and `<security-list>` (PRINCIPLE 12). When you use a
 skill, you change your own settings, not the example text. If you ever see a
 real project name written into a skill, that is a bug.
+
+## Learn with an AI tutor
+
+Each lesson in the progression above has a matching AI tutor prompt in
+[`ai-tutors/`](../../ai-tutors/README.md). Load one into any capable chat
+model and it teaches that lesson interactively — walking through the ideas one
+at a time, running the exercises, and checking your answers against the lesson
+keys.
+
+**How to load a tutor:** open the matching `lesson-*.md` file under `ai-tutors/`,
+find the `---` separator, and paste everything below that line as the system
+prompt. The notes above the separator are for you; only the text below goes to
+the model. See [`ai-tutors/README.md`](../../ai-tutors/README.md) for
+tool-by-tool instructions (claude.ai Projects, Open WebUI, API).
+
+The tutors are companions to the readable pages, not replacements for them.
+Every lesson in this progression stands on its own without a model.
 
 ## Licence
 

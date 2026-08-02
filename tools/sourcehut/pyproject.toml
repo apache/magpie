@@ -28,6 +28,13 @@ requires-python = ">=3.11"
 license = { text = "Apache-2.0" }
 dependencies = []
 
+[dependency-groups]
+dev = [
+  "ruff>=0.15.22",
+  "mypy>=2.3.0",
+  "pytest>=9.1.1",
+]
+
 [project.scripts]
 magpie-sourcehut = "magpie_sourcehut:main"
 

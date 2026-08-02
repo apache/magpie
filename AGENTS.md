@@ -428,8 +428,9 @@ with default-permissive access to `~/`, env vars, and arbitrary network
 egress is a real exfiltration risk. See
 [`docs/setup/secure-agent-setup.md`](docs/setup/secure-agent-setup.md)
 for the layered defence the framework dogfoods (sandbox + tool
-permissions + clean-env wrapper, system tools pinned with a 7-day
-upstream cooldown).
+permissions + clean-env wrapper, sandbox primitives pinned with a
+7-day upstream cooldown, and an agent runtime installed at the latest
+release subject to a minimum-version floor).
 
 **Tool credentials live under `$HOME`, never in the project tree.** Any
 persistent token, API key, OAuth refresh token, or session cookie a

@@ -27,10 +27,10 @@ Suites are currently implemented for:
 - **issue-reproducer** — 27 cases across 7 steps (step-1-inventory, step-2-pick-candidate, step-3-classify-shape, step-5.5-confirm, step-7-verify, step-8-baselines, step-10-compose-verdict)
 - **issue-fix-workflow** — 12 cases across 4 steps (step-2-locate-area, step-6-scope-check, step-7-compose-commit, step-8-handback)
 - **issue-reassess-stats** — 8 cases across 3 steps (step-1-fetch-verdicts, step-2-classify, step-3-aggregate)
-- **pr-management-code-review** — 112 cases across 24 steps (selector-resolution, step-1-selectors-match-chips, step-2.5-slop-detection, step-3-security-disclosure-scan, step-3-ai-authorship-disclosure, step-4-* (12 criteria categories), step-5-adversarial-integration, step-6-disposition, step-7b-review-body-attribution, review-risk-classify, injection-guard, review-disposition, review-handoff)
+- **pr-management-code-review** — 115 cases across 27 suites (selector-resolution, step-1-selectors-match-chips, step-2.5-slop-detection, step-3-security-disclosure-scan, step-3-ai-authorship-disclosure, step-4-* checks, step-5-adversarial-integration, step-6-disposition, step-7b-review-body-attribution, review-risk-classify, injection-guard, review-disposition, review-handoff)
 - **pr-management-mentor** — 20 cases across 2 steps (tone-checks, hand-off)
 - **pr-management-stats** — 13 cases across 2 steps (classify, pressure-weight)
-- **pr-management-triage** — 26 cases across 2 steps (pre-filter, decision-table)
+- **pr-management-triage** — 33 cases across 3 steps (pre-filter, decision-table, terminal-links)
 - **list-skills** — 7 cases across 2 steps (step-1-command, step-2-present)
 - **setup-isolated-setup-verify** — 12 cases across 3 steps (runtime-routing, step-1-classify, step-2-recommend)
 - **setup-isolated-setup-update** — 14 cases across 4 steps (runtime-routing, step-snapshot-drift, step-tool-freshness, step-after-report)
@@ -242,18 +242,17 @@ writes stdout works). Pass `--exact` to disable grading entirely.
 
 The default prose-field set is `rationale`, `reason`, `reasons`,
 `drop_reason`, `blockers`, `notes`, `summary`, `explanation`,
-`details`, `description`. Override it per fixtures dir by placing a
+`details`, `description`. Extend it per fixtures dir by placing a
 `grading-schema.json` next to `step-config.json`:
 
 ```json
 {
-  "prose_fields": ["rationale", "drop_reason"]
+  "prose_fields": ["paste_recipe"]
 }
 ```
 
-An empty list (`"prose_fields": []`) makes every field decision-graded
-even with the grader on, equivalent to passing `--exact` for that
-fixtures dir. The grader is called fresh on every run; nothing is
+The fields listed in `grading-schema.json` are added to the default
+prose-field set. The grader is called fresh on every run; nothing is
 cached.
 
 **Self-eval caveat.** When the model invoked by `--cli` is the same
