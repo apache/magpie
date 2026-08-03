@@ -233,6 +233,22 @@ repos:
         files: ^(\.gitattributes|\.(agents|claude|github|kiro)/skills/.*|skills/.*|projects/_template/.*)$
         types_or: [symlink, file]
         pass_filenames: false
+  # Marketplace-plugin consistency guard. Validates that every plugin is
+  # properly defined and in sync with the skills' `family:` frontmatter (the
+  # source of truth): the all-in-one `magpie` manifest + its upgrade-hook
+  # script, each per-family manifest (name / skills / description), every
+  # `.claude-plugin/marketplace.json` entry resolving to a matching, uniquely
+  # named plugin.json, and each family's skills present as single-hop symlinks
+  # into the shared skills/ tree. Catches a new skill, a changed family, a stale
+  # symlink, or a malformed manifest. `--fix` regenerates the family plugins.
+  - repo: local
+    hooks:
+      - id: check-family-plugins
+        name: check-family-plugins (marketplace plugins vs frontmatter)
+        language: system
+        entry: python3 tools/dev/check-family-plugins.py
+        files: ^(skills/.*/SKILL\.md|plugins/.*|\.claude-plugin/(marketplace|plugin)\.json|\.codex-plugin/plugin\.json|gemini-extension\.json|apm\.yml|pyproject\.toml|hooks/check-upgrade\.sh)$
+        pass_filenames: false
   # Workspace-membership guard. The single source of truth for
   # which Python projects get pre-commit hooks + the CI pytest
   # matrix is the `[tool.uv.workspace] members` array in the root

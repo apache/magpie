@@ -71,7 +71,35 @@ mandatory ASF approval + announce mechanisms (`dev-list-vote`,
 | `git_upstream_remote` | `upstream` |
 | `release_planning_issue_template` | *(none — uses the `release-prepare` default template)* |
 | `release_branch_base` | `main` |
-| `version_manifest_files` | `pyproject.toml` |
+| `version_manifest_files` | `pyproject.toml`, `uv.lock`, `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `.codex-plugin/plugin.json`, `gemini-extension.json`, `apm.yml`, and the ten generated `plugins/magpie-<family>/.claude-plugin/plugin.json` manifests |
+
+`pyproject.toml`'s `project.version` is the **single authority** for the
+framework version; every other file above mirrors it verbatim, including a
+`.devN` suffix (between releases the manifests read `0.2.0.dev0`, not `0.2.0`).
+Dev versions are never published to a marketplace, so the PEP 440 suffix never
+reaches a consumer — and keeping one identical string across every manifest is
+what lets the Step 2a bump work as a single literal search/replace.
+
+The version flows outward in two hops, neither of them hand-edited:
+
+1. `pyproject.toml` → the four ecosystem manifests
+   (`.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`,
+   `gemini-extension.json`, `apm.yml`);
+2. `.claude-plugin/plugin.json` → the ten generated
+   `plugins/magpie-<family>/.claude-plugin/plugin.json` manifests and the
+   family entries in `.claude-plugin/marketplace.json`, which also inherit
+   `author`, `homepage`, `repository`, and `license`.
+
+So a bump is one edit plus one command:
+
+```bash
+# edit project.version in pyproject.toml, then:
+python3 tools/dev/check-family-plugins.py --fix
+```
+
+`tools/dev/check-family-plugins.py` (a prek hook) fails the build if any
+manifest or marketplace entry is left behind at the previous version, so a
+missed propagation cannot reach a release.
 
 ## Backends
 
