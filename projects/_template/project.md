@@ -29,6 +29,7 @@
     - [Release process](#release-process)
     - [Roster](#roster)
     - [Product](#product)
+  - [Usage-data sharing (opt-in)](#usage-data-sharing-opt-in)
   - [Pointers to sibling files](#pointers-to-sibling-files)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -510,6 +511,16 @@ product:
   # Consumed by: security-issue-sync, generate-cve-json.
   affected_version_extract_prefix: "<ProjectShortName>"
 ```
+
+## Usage-data sharing (opt-in)
+
+Off by default. Governs whether Magpie offers to contribute anonymised
+token-economics data that improves
+[`docs/mode-economics.md`](../../docs/mode-economics.md#sharing-your-usage-data-opt-in).
+
+| Key | Value | Notes |
+|---|---|---|
+| `economics_data_sharing` | `off` | `off` (default) or `opt-in`. When `opt-in`, each Magpie skill session ends by asking whether to submit that session's token-economics data as a pull request to [`apache/magpie-economics`](https://github.com/apache/magpie-economics). Never automatic — the maintainer confirms every submission. The PR carries only the public upstream repo name, per-skill token counts, the model / model-class, and the theoretical-cost calculation. The payload **never** contains personal information, and **never** contains subscription, plan, seat, quota, or billing details. The one unavoidable disclosure is that the PR is opened from the maintainer's own GitHub account (inherent to any PR); it is their own identity, not third-party data. See the hard rule in [`AGENTS.md` § Voluntary usage-data sharing](../../AGENTS.md#voluntary-usage-data-sharing-opt-in). |
 
 ## Pointers to sibling files
 
