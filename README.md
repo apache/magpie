@@ -98,9 +98,9 @@ Pick an install method and follow the verbatim recipe in
 
 | Method | When to use | Reproducibility |
 |---|---|---|
-| `svn-zip` | Production once ASF official releases ship to `dist.apache.org` (signed + checksummed) | Frozen by version |
-| `git-tag` | Pin a specific framework version | Frozen by tag |
-| `git-branch` (default `main`) | WIP path — track the framework's `main` directly for the latest unreleased changes. | Tracks tip |
+| `svn-zip` (**recommended**) | Production. Signed + checksummed zip from `dist.apache.org`; `0.1.0` is the current release. | Frozen by version |
+| `git-tag` | Pin a version without going through the signed zip (e.g. testing a release candidate). | Frozen by tag |
+| `git-branch` (`main`) | WIP path — track the framework's `main` directly for the latest unreleased changes. | Tracks tip |
 
 Each recipe is a single shell block that:
 
@@ -235,7 +235,7 @@ files are reproduced in [`NOTICE`](NOTICE).
 
 ## Cross-references
 
-- [`MISSION.md`](MISSION.md) — **draft** project-establishment proposal: motivation, scope, design commitments, initial PMC composition target.
+- [`MISSION.md`](MISSION.md) — the project's founding mission and design commitments, as filed in the establishment proposal adopted by the Board on 17 June 2026: motivation, scope, initial PMC composition target.
 - [`docs/setup/agentic-overrides.md`](docs/setup/agentic-overrides.md) — the contract between adopters who write overrides and framework skills that read them.
 - [`docs/prerequisites.md`](docs/prerequisites.md) — what a maintainer needs installed before invoking any framework skill (Claude Code, Gmail MCP, GitHub auth, browser, `uv`, etc.).
 - [`docs/source-release-contents.md`](docs/source-release-contents.md) — what ships in the signed `apache-magpie-<version>-source.zip` (and what is excluded), with the rationale for the repository-root metadata/config files it keeps.

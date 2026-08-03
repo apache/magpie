@@ -31,9 +31,9 @@ Pick the recipe that matches your distribution preference:
 
 | Method | When to use | Reproducibility |
 |---|---|---|
-| [**svn-zip**](#method-1--released-zip-from-asf-distribution) | Production adopters once the framework ships official ASF releases. Signed + checksummed. | Frozen by version |
+| [**svn-zip**](#method-1--released-zip-from-asf-distribution) | **Recommended for production adopters.** Signed + checksummed zip from the ASF distribution area; `0.1.0` is the current release. | Frozen by version |
 | [**git-tag**](#method-2--git-tag) | Pinning a specific framework version (e.g. for testing a release candidate, or for a cautious adopter who tracks named releases only). | Frozen by tag |
-| [**git-branch**](#method-3--git-branch-defaults-to-main) | WIP path — track the framework's `main` branch directly. The default during the framework's pre-release phase. | Tracks branch tip |
+| [**git-branch**](#method-3--git-branch-defaults-to-main) | WIP path — track the framework's `main` branch directly for the latest unreleased changes. | Tracks branch tip |
 
 > **Canonical layout — no per-project convention to pick.**
 > `.agents/skills/` is the one canonical home (see
@@ -54,33 +54,33 @@ Pick the recipe that matches your distribution preference:
 
 ## Method 1 — released zip from ASF distribution
 
-> **Status: forthcoming.** ASF release distribution
-> (`https://dist.apache.org/repos/dist/release/<project>/`)
+> **Status: recommended.** ASF release distribution
+> (`https://dist.apache.org/repos/dist/release/magpie/`)
 > is the canonical home for ASF-blessed releases per the
 > [release-policy](https://www.apache.org/legal/release-policy.html)
 > and [infra release-distribution guidelines](https://infra.apache.org/release-distribution.html).
-> This recipe will be the recommended path once the framework
-> ships its first official release; until then, use
-> [Method 3 — git-branch](#method-3--git-branch-defaults-to-main).
+> Magpie ships there from `0.1.0` onwards, so this is the path
+> production adopters should take.
 
 ```bash
 # === Magpie bootstrap — Method 1: signed zip from ASF dist ===
-# Replace <PROJECT> with the host adopter's ASF dist subdirectory
-# (e.g. `airflow` once releases land at
-# https://dist.apache.org/repos/dist/release/airflow/).
-# Replace <VERSION> with the framework version you want.
+# Replace <VERSION> with the framework version you want (e.g. 0.1.0).
+# Released versions are listed at
+# https://dist.apache.org/repos/dist/release/magpie/
 
 cd /path/to/your/repo
 
 VERSION=<VERSION>
-PROJECT=<PROJECT>
-DIST_BASE=https://dist.apache.org/repos/dist/release/${PROJECT}
-ZIP=apache-magpie-${VERSION}-source-release.zip
+# KEYS lives at the project root of the dist area; the artefacts live
+# under a per-version subdirectory.
+DIST_BASE=https://dist.apache.org/repos/dist/release/magpie
+REL_BASE=${DIST_BASE}/${VERSION}
+ZIP=apache-magpie-${VERSION}-source.zip
 
 # 1. Download zip + signature + checksum, verify, extract to .apache-magpie/
-curl -fsSLO ${DIST_BASE}/${ZIP}
-curl -fsSLO ${DIST_BASE}/${ZIP}.sha512
-curl -fsSLO ${DIST_BASE}/${ZIP}.asc
+curl -fsSLO ${REL_BASE}/${ZIP}
+curl -fsSLO ${REL_BASE}/${ZIP}.sha512
+curl -fsSLO ${REL_BASE}/${ZIP}.asc
 sha512sum -c ${ZIP}.sha512
 # Optional but recommended — verify the OpenPGP signature against the
 # project KEYS file (see https://infra.apache.org/release-signing.html):
