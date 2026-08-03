@@ -63,7 +63,7 @@ Autonomous* (the renamed former *Auto-merge*).
 | **Mentoring** | *(Agentic Mentoring)* Joins issue and PR threads in a teaching register: clarifying questions, pointers to project conventions, paired examples from prior PRs, hand-off to a human when scope exceeds the agent. Also authors net-new good first issues, curates the existing backlog, and explains filed issues to newcomers to lower onboarding latency. | experimental | 7 |
 | **Drafting** | *(Agentic Drafting)* Agent drafts a fix for a well-scoped problem and opens a PR; every PR is reviewed and merged by a human committer. | stable (security-only); experimental (issue-management, audit-findings, release-management family) | 9 |
 | **Pairing** | *(Agentic Pairing)* Developer-side dev-cycle skills with mentorship intrinsic — multi-agent review pipelines, self-review and pre-flight patterns, scoped fix drafting under the developer's driver's seat. | experimental | 3 |
-| **Meta** | *(framework infrastructure & authoring)* Adoption, isolation, upgrade, status, and skill-authoring flows plus read-only stats dashboards' framework plumbing. These skills are framework machinery rather than a maintainership mode; they do not act on issues, PRs, or contributor threads on their own. | stable | 17 |
+| **Meta** | *(framework infrastructure & authoring)* Adoption, isolation, upgrade, status, and skill-authoring flows plus read-only stats dashboards' framework plumbing. These skills are framework machinery rather than a maintainership mode; they do not act on issues, PRs, or contributor threads on their own. | stable | 18 |
 | **Agentic Autonomous** | Auto-merge restricted to objectively boring change classes only (lint, dependency bumps inside an allow-list, license-header insertion, formatting, broken-link repair). | off | 0 |
 
 Framework-infrastructure and authoring skills carry the **Meta**
@@ -306,10 +306,11 @@ contributor threads on their own. The always-on `setup` and
 | [`optimize-skill`](../skills/optimize-skill/SKILL.md) | Optimize an existing framework skill by applying restructuring patterns: split oversized SKILL.md into linked sibling docs, trim frontmatter, improve eval alignment. |
 | [`list-skills`](../skills/list-skills/SKILL.md) | Print a live index of every skill in this repository grouped by family, with each skill's name and first-sentence description. |
 | [`write-skill`](../skills/write-skill/SKILL.md) | Author a new framework skill or update an existing one: frontmatter, placeholder convention, injection defences, Privacy-LLM gate-check, and validator sign-off. |
+| [`report-framework-issue`](../skills/report-framework-issue/SKILL.md) | File a redacted bug / change-proposal issue against `apache/magpie` when a skill or tool misbehaves; the mandatory public-disclosure scrub keeps private tracker / CVE / cross-project content out. The report-an-issue sibling of `setup-upstream-fix` (which opens a fix PR). |
 
 The `setup*` skills ship as the always-on **setup family** — see
 [`docs/setup/README.md`](setup/README.md) — and `list-skills`,
-`optimize-skill`, `write-skill`, and `skill-reconciler` as the
+`optimize-skill`, `write-skill`, `report-framework-issue`, and `skill-reconciler` as the
 always-on **utilities family**. The rest (`committer-onboarding`,
 `security-tracker-stats-dashboard`, `issue-reproducer`,
 `issue-reassess-stats`) are opt-in family skills that nonetheless
