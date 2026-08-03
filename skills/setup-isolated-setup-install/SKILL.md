@@ -534,10 +534,10 @@ redundant but harmless. The committed project-scope file is
 **never** modified by the helper (machine-specific absolute paths
 have no business in a file shared across contributors).
 
-The helper is also invoked by `/magpie-setup adopt`,
+The helper is also invoked by `/magpie-setup install`,
 `/magpie-setup upgrade`, and `/magpie-setup worktree-init` for
 the same reason. The `post-checkout` git hook installed by
-`/magpie-setup adopt` chains into the helper too, so new
+`/magpie-setup install` chains into the helper too, so new
 worktrees added via `git worktree add` after this install pass
 inherit access automatically — no operator action needed.
 

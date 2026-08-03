@@ -51,7 +51,7 @@ Both paths run the same flow.
    `$(dirname "$(cd "$(git rev-parse --git-common-dir)" && pwd)")` —
    surface it explicitly so the operator can `cd` there.
 2. Read `<committed-lock>`. If missing, the repo isn't
-   adopted — suggest `/magpie-setup adopt` and stop.
+   adopted — suggest `/magpie-setup install` and stop.
 3. Read `<local-lock>`. If missing (gitignored, fresh
    clone), the local install hasn't been initialised yet —
    route as a recover-snapshot install per the committed
@@ -327,7 +327,7 @@ for this upgrade as:
   in the snapshot but absent from the lock is auto-added to the
   effective set on this run, and the addition is **written back
   to `<committed-lock>`** (same fields as
-  [`adopt.md` Step 4](adopt.md#step-4--write-committed-lock-fresh-only)).
+  [`install.md` Step 4](install.md#step-4--write-committed-lock-fresh-only)).
   Surface the added family in the upgrade summary so the
   operator sees it; do not prompt — per the framework's
   policy each opt-in family is maintainer-grade and an
@@ -349,7 +349,7 @@ Before creating symlinks for a newly-introduced opt-in
 family — or for a newly-present active target dir — reconcile
 the adopter's `.gitignore` so the new snapshot symlinks are
 gitignored. Append the `.gitignore` lines from
-[`adopt.md` Step 7](adopt.md#step-7--gitignore-entries-fresh-only)
+[`install.md` Step 7](install.md#step-7--gitignore-entries-fresh-only)
 for **each active target dir** ([`agents.md`](agents.md)). Every
 framework skill is symlinked under the `magpie-` prefix, so a
 single `magpie-*` glob (plus the `!…/magpie-setup` negation that
@@ -433,8 +433,8 @@ The framework ships hooks and config files an adopter
 rather than pulls in via symlink. Examples:
 
 - `<repo-root>/.git/hooks/post-checkout` (the worktree-aware
-  hook installed during adoption). Its expected content is the
-  [`adopt.md` Step 10](adopt.md#step-10--worktree-aware-post-checkout-hook-fresh-only)
+  hook installed during installation). Its expected content is the
+  [`install.md` Step 10](install.md#step-10--worktree-aware-post-checkout-hook-fresh-only)
   template — which now both chains the sandbox-allowlist helper
   **and** seeds a new worktree's agent-guard from the main
   checkout. An adopter on an older hook (sandbox-only, or the
@@ -443,7 +443,7 @@ rather than pulls in via symlink. Examples:
 - `<repo-root>/.claude/hooks/agent-guard.py` and the
   `<repo-root>/.claude/hooks/guards.d/` directory (the
   deterministic `PreToolUse` guard dispatcher and its guards — see
-  [`adopt.md` Step 12](adopt.md#step-12--post-install-sync--worktree-propagation--sandbox-allowlist--sanity-check)
+  [`install.md` Step 12](install.md#step-12--post-install-sync--worktree-propagation--sandbox-allowlist--sanity-check)
   and [`tools/agent-guard`](../../tools/agent-guard/README.md)).
   `guards.d/` is populated from **both** the engine's bundled
   `guards.d/*.py` **and** every skill-owned `skills/*/guards/*.py`
@@ -640,7 +640,7 @@ If every template scans clean, surface the section as
 ## Step 6e — Refresh comdev MCP checkouts (ASF projects)
 
 **Run this step only for ASF projects** — detect ASF the same way
-as [`adopt.md` Step 9c](adopt.md#step-9c--comdev-mcp-prerequisites-asf-projects):
+as [`install.md` Step 9c](install.md#step-9c--comdev-mcp-prerequisites-asf-projects):
 `<project-config>/project.md` declares `project_metadata.mandatory:
 true` or `ponymail` `mandatory: yes`. Skip otherwise.
 
@@ -678,7 +678,7 @@ This is the adoption-flow mirror of
 comdev-MCP check — it exists here so the prereq rides along with the
 upgrade an ASF adopter actually runs. If a registered MCP is
 missing entirely, point the operator at
-[`adopt.md` Step 9c](adopt.md#step-9c--comdev-mcp-prerequisites-asf-projects)
+[`install.md` Step 9c](install.md#step-9c--comdev-mcp-prerequisites-asf-projects)
 to (re-)install it.
 
 ## Step 6f — Re-fetch trusted external sources
@@ -720,7 +720,7 @@ on its next `worktree-init` or
 
 If live metadata is accessible via `gh repo view`:
 1. **Re-derive the stable fields**, following the same organization split as
-   [`adopt.md` Step 4b](adopt.md#step-4b--read-fit-signals-fresh-only):
+   [`install.md` Step 4b](install.md#step-4b--read-fit-signals-fresh-only):
    - *Organization-agnostic* (any adopter): repo name, default branch,
      homepage/product URL, labels — from GitHub repo metadata.
    - *ASF-specific* (**only when `organization: ASF`**): mailing lists from
@@ -814,7 +814,7 @@ Recommended follow-ups:
 ## Failure modes
 
 - **`<committed-lock>` missing** → repo not adopted; suggest
-  `/magpie-setup adopt`.
+  `/magpie-setup install`.
 - **Network failure** → stop, surface error, user retries.
   The skill never leaves a half-deleted snapshot — Step 3's
   `rm -rf` runs only after Step 2's user confirmation.

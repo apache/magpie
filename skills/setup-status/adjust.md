@@ -38,8 +38,8 @@ adoption is fully wired and stop — do not invent work.
 
 | Adjustment | Delegated command |
 |---|---|
-| Add an agent target | `/magpie-setup adopt agents:<full desired set>` |
-| Enable an opt-in family | `/magpie-setup adopt skill-families:<full desired set>` |
+| Add an agent target | `/magpie-setup install agents:<full desired set>` |
+| Enable an opt-in family | `/magpie-setup install skill-families:<full desired set>` |
 | Repair dangling / missing symlinks | `/magpie-setup verify --auto-fix-symlinks` |
 | Sync drift / fetch snapshot | `/magpie-setup upgrade` |
 | Adopt from scratch | `/magpie-setup` |
@@ -56,14 +56,14 @@ Example — current targets are `universal, claude-code` and the
 user wants GitHub too:
 
 ```bash
-/magpie-setup adopt agents:universal,claude-code,github
+/magpie-setup install agents:universal,claude-code,github
 ```
 
 Example — `security` and `pr-management` are installed and the
 user wants the `issue` family as well:
 
 ```bash
-/magpie-setup adopt skill-families:security,pr-management,issue
+/magpie-setup install skill-families:security,pr-management,issue
 ```
 
 **Two hard rules when building these commands:**
@@ -97,8 +97,8 @@ user wants the `issue` family as well:
 Adding targets/families is additive and safe. **Dropping** a
 target or family removes committed/gitignored symlinks and may
 strand overrides, so do not auto-propose it. If the user asks to
-drop one, restate it as a `/magpie-setup adopt` run with the
-reduced set (or [`/magpie-setup unadopt`](../setup/unadopt.md) to
+drop one, restate it as a `/magpie-setup install` run with the
+reduced set (or [`/magpie-setup unadopt`](../setup/uninstall.md) to
 remove adoption entirely), describe what disappears, and let the
 setup skill carry it out under its own confirmation.
 

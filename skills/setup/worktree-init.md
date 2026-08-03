@@ -194,15 +194,15 @@ guard ([`tools/agent-guard`](../../tools/agent-guard/README.md))
 at `$CLAUDE_PROJECT_DIR/.claude/hooks/agent-guard.py` — a
 **per-worktree** path. The script + its `guards.d/` are
 adopter-installed local files synced into the **main** checkout by
-[`adopt.md` Step 12 pass 1](adopt.md#step-12--post-install-sync--worktree-propagation--sandbox-allowlist--sanity-check)
+[`install.md` Step 12 pass 1](install.md#step-12--post-install-sync--worktree-propagation--sandbox-allowlist--sanity-check)
 / [`upgrade.md` Step 6b](upgrade.md#step-6b--sync-locally-installed-hooks-and-configuration)
-and **gitignored** ([`adopt.md` Step 7](adopt.md#step-7--gitignore-entries-fresh-only)).
+and **gitignored** ([`install.md` Step 7](install.md#step-7--gitignore-entries-fresh-only)).
 Because they are gitignored, no worktree inherits them via git —
 every worktree starts without the script and would run with the
 guard **silently inactive** until seeded.
 
 This is the agent-driven counterpart of the
-[post-checkout hook's agent-guard seeding](adopt.md#step-10--worktree-aware-post-checkout-hook-fresh-only):
+[post-checkout hook's agent-guard seeding](install.md#step-10--worktree-aware-post-checkout-hook-fresh-only):
 the git hook covers `git worktree add`, this step covers worktrees
 that pre-date the hook or where its best-effort copy did not run.
 

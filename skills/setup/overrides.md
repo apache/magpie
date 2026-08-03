@@ -37,7 +37,7 @@ in the framework. This file is the operational helper.
    framework skills.
 2. For the committed surface (`.apache-magpie-overrides/`): the
    repo must be adopted (see [`verify.md`](verify.md) check 1 +
-   check 5). If not, redirect to `/magpie-setup adopt` **or**
+   check 5). If not, redirect to `/magpie-setup install` **or**
    suggest using `--local` to create a personal override
    without adopting.
 
