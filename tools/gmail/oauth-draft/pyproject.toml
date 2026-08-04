@@ -117,7 +117,7 @@ testpaths = ["tests"]
 dev = [
   "mypy>=2.3.0",
   "pytest>=9.1.1",
-  "ruff>=0.15.22",
+  "ruff>=0.16.0",
   # Needed to import and test `oauth_draft.mcp_server` (the `mcp` extra).
   "mcp>=1.28.1",
 ]
