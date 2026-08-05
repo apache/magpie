@@ -215,7 +215,15 @@ loop:
         break
     cursor = result.search.pageInfo.endCursor
     page += 1
-return all_prs
+
+seen_numbers = set()
+deduped_prs_reversed = []
+for pr in reverse(all_prs):
+    if pr.number in seen_numbers:
+        continue
+    seen_numbers.add(pr.number)
+    deduped_prs_reversed.append(pr)
+return reverse(deduped_prs_reversed)
 ```
 
 Key invariants:
@@ -231,8 +239,14 @@ Key invariants:
   the loop is advancing if they glance over.
 - **No classification, no prompts, no presentation inside the
   loop.** Classification runs once in Step 2 over the entire
-  `all_prs` set. Presentation runs once in Step 3 over the
+  deduplicated set. Presentation runs once in Step 3 over the
   classified set. The fetch loop is uninterrupted.
+- **Deduplicate after the loop.** A PR updated during an
+  `updated-asc` search can move to a later page and be fetched
+  twice. Traverse the accumulated list from the end, keep the
+  first record for each PR number, then restore the list order.
+  This keeps the last (freshest) occurrence and its position in
+  the fetched ordering. Leave an already-unique list unchanged.
 - **Skip prefetch heuristics.** With pages fetched serially up
   front, there is no per-page maintainer wait to overlap with
   a next-page prefetch — the old prefetch-during-interaction
@@ -245,7 +259,7 @@ Key invariants:
   either a mis-targeted selector or an unhealthy backlog
   worth flagging.
 
-Stash the accumulated `all_prs` in the session cache as
+Stash the deduplicated list in the session cache as
 `fetched_prs` (see [`#session-cache`](#session-cache)) before
 returning to Step 2 — a re-invocation within the same session
 window can reuse the set if the maintainer wants to re-run with
