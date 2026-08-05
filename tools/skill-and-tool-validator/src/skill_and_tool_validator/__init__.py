@@ -399,6 +399,7 @@ _NETWORK_IMPORT_PATTERNS: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"^\s*from\s+urllib\s+import\s+(?:\w+\s*,\s*)*request\b"), "urllib.request"),
     (re.compile(r"^\s*(?:import|from)\s+http\.client\b"), "http.client"),
     (re.compile(r"^\s*import\s+socket\b"), "socket"),
+    (re.compile(r"^\s*from\s+socket\s+import\b"), "socket"),
 ]
 
 
@@ -3637,11 +3638,19 @@ def validate_no_telemetry_imports(root: Path | None = None) -> Iterable[Violatio
                 if any(e.startswith(_ADAPTER_CONTRACT_PREFIX) for e in entries):
                     continue  # declared contract:* adapter — network is expected
 
-        src_dir = tool_dir / "src"
-        if not src_dir.is_dir():
-            continue
-
-        for py_path in sorted(src_dir.rglob("*.py")):
+        # Scan every Python file the tool owns, not just ``src/``.  Several
+        # substrate tools keep their Python at the tool root
+        # (``pr-management-stats/dashboard.py``,
+        # ``security-tracker-stats-dashboard/render.py``, …), and a
+        # ``src/``-only scan silently exempted them while
+        # ``tools/egress-gateway/tool.md`` promised that "a substrate tool
+        # that accidentally grows a network import is caught before it is
+        # merged".  ``tests/`` is excluded: a test may legitimately import a
+        # network module to assert it is *not* reachable.
+        for py_path in sorted(tool_dir.rglob("*.py")):
+            rel_parts = py_path.relative_to(tool_dir).parts
+            if "tests" in rel_parts:
+                continue
             if any(part in _LICENSE_SKIP_PATH_PARTS for part in py_path.parts):
                 continue
             try:
