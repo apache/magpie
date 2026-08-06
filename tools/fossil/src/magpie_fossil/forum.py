@@ -85,7 +85,7 @@ def list_forum_threads(repo_path: Path) -> list[dict[str, Any]]:
                     "date": parsed["date"],
                 }
             )
-        except Exception as exc:
+        except (FossilError, UnicodeDecodeError) as exc:
             import sys
 
             print(
@@ -134,7 +134,7 @@ def read_forum_thread(repo_path: Path, thread_uuid: str) -> list[dict[str, Any]]
                     "body": parsed["body"],
                 }
             )
-        except Exception as exc:
+        except (FossilError, UnicodeDecodeError) as exc:
             import sys
 
             print(

@@ -171,6 +171,82 @@ def test_read_forum_thread(mock_query_db: MagicMock, mock_run_fossil: MagicMock)
     assert posts[0]["body"] == "Post content"
 
 
+@patch("magpie_fossil.forum.run_fossil")
+@patch("magpie_fossil.forum.query_db")
+def test_list_forum_threads_skips_corrupt_artifact(
+    mock_query_db: MagicMock, mock_run_fossil: MagicMock, capsys: pytest.CaptureFixture[str]
+) -> None:
+    mock_query_db.return_value = [{"root_uuid": "uuid1"}, {"root_uuid": "uuid2"}]
+    mock_run_fossil.side_effect = [
+        FossilError("missing artifact"),
+        "U bob\nD 2026-07-02T12:00:00.000\nW Thread 2\nZ checksum\nBody content",
+    ]
+    threads = list_forum_threads(Path("repo.fossil"))
+    assert len(threads) == 1
+    assert threads[0]["title"] == "Thread 2"
+    captured = capsys.readouterr()
+    assert "skipped corrupt or missing forum post artifact 'uuid1'" in captured.err
+
+
+@patch("magpie_fossil.forum.run_fossil")
+@patch("magpie_fossil.forum.query_db")
+def test_list_forum_threads_skips_unicode_decode_error(
+    mock_query_db: MagicMock, mock_run_fossil: MagicMock, capsys: pytest.CaptureFixture[str]
+) -> None:
+    mock_query_db.return_value = [{"root_uuid": "uuid1"}, {"root_uuid": "uuid2"}]
+    mock_run_fossil.side_effect = [
+        UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid start byte"),
+        "U bob\nD 2026-07-02T12:00:00.000\nW Thread 2\nZ checksum\nBody content",
+    ]
+    threads = list_forum_threads(Path("repo.fossil"))
+    assert len(threads) == 1
+    assert threads[0]["title"] == "Thread 2"
+    captured = capsys.readouterr()
+    assert "skipped corrupt or missing forum post artifact 'uuid1'" in captured.err
+
+
+@patch("magpie_fossil.forum.run_fossil")
+@patch("magpie_fossil.forum.query_db")
+def test_list_forum_threads_propagates_unexpected_exception(
+    mock_query_db: MagicMock, mock_run_fossil: MagicMock
+) -> None:
+    mock_query_db.return_value = [{"root_uuid": "uuid1"}]
+    mock_run_fossil.side_effect = RuntimeError("unexpected database error")
+    with pytest.raises(RuntimeError, match="unexpected database error"):
+        list_forum_threads(Path("repo.fossil"))
+
+
+@patch("magpie_fossil.forum.run_fossil")
+@patch("magpie_fossil.forum.query_db")
+def test_read_forum_thread_skips_corrupt_artifact(
+    mock_query_db: MagicMock, mock_run_fossil: MagicMock, capsys: pytest.CaptureFixture[str]
+) -> None:
+    mock_query_db.side_effect = [
+        [{"rid": 10}],
+        [{"uuid": "uuid1", "parent_uuid": None}, {"uuid": "uuid2", "parent_uuid": "uuid1"}],
+    ]
+    mock_run_fossil.side_effect = [
+        UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid start byte"),
+        "U bob\nD 2026-07-02T12:00:00.000\nW Thread 1\nZ checksum\nPost content",
+    ]
+    posts = read_forum_thread(Path("repo.fossil"), "uuid1")
+    assert len(posts) == 1
+    assert posts[0]["post_uuid"] == "uuid2"
+    captured = capsys.readouterr()
+    assert "skipped corrupt or missing forum post artifact 'uuid1'" in captured.err
+
+
+@patch("magpie_fossil.forum.run_fossil")
+@patch("magpie_fossil.forum.query_db")
+def test_read_forum_thread_propagates_unexpected_exception(
+    mock_query_db: MagicMock, mock_run_fossil: MagicMock
+) -> None:
+    mock_query_db.side_effect = [[{"rid": 10}], [{"uuid": "uuid1", "parent_uuid": None}]]
+    mock_run_fossil.side_effect = RuntimeError("unexpected system error")
+    with pytest.raises(RuntimeError, match="unexpected system error"):
+        read_forum_thread(Path("repo.fossil"), "uuid1")
+
+
 # -- CLI and client tests --------------------------------------------------
 
 
