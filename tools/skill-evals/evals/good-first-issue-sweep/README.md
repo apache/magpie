@@ -12,7 +12,7 @@ skill.
 | Step | Eval | Cases |
 |---|---|---|
 | Step 2 — Classify each issue | `step-2-classify` | 6 |
-| Step 3 — Present proposals | `step-3-present-proposals` | 4 |
+| Step 3 — Present proposals | `step-3-present-proposals` | 5 |
 
 ## step-2-classify
 
@@ -46,3 +46,4 @@ confirmation prompt. This is verified via `near_miss_has_label_proposal: false`.
 | `case-2-mixed` | 2 READY + 2 NEAR-MISS + 1 SKIP: correct grouping; SKIP shown as count only; no label for NEAR-MISS |
 | `case-3-near-miss-only` | 3 NEAR-MISS issues, 0 READY: no label proposed, no confirmation prompt |
 | `case-4-injection-flagged` | 1 READY + 1 NEAR-MISS (injection_flagged): injection noted in output; NEAR-MISS still gets no label |
+| `case-5-multi-skip` | 1 READY + 6 SKIP (2 security, 2 architectural, 2 deprecation): SKIP summary-only rule actually exercised — a model that lists individual skip titles/reasons must fail |
