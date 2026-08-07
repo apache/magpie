@@ -145,15 +145,23 @@ uv run --project tools/spec-inventory --group dev pytest tools/spec-inventory/te
   required fields, but the next pass should make `mode`, `status`,
   `capability`, `organization`, and `source` combinations explicit and
   test-backed.
-- **Capability taxonomy drift is not yet checked.** The validator should
-  catch misspelled or undocumented capability values, and should surface
-  taxonomy rows that no skill/tool implements unless they are marked
-  reserved.
-- **`docs/modes.md` is manually synced.** The plan tracks a generated
-  consistency check so mode tables and shipped counts cannot silently
-  drift from skill frontmatter.
-- **Tool README prerequisites vary.** A prerequisites consistency pass
-  should normalize older tool READMEs before tightening the validator.
+- **Capability taxonomy drift is now checked.**
+  `validate_capability_taxonomy_coverage` parses the Axis 1 / Axis 2
+  vocabulary tables in `docs/labels-and-capabilities.md`, surfaces
+  taxonomy rows that no skill/tool implements (entries marked
+  *(reserved)* / *(future)* are exempt), and cross-checks the
+  `SKILL_CAPABILITIES` / `TOOL_CAPABILITIES` code constants against the
+  doc — all SOFT advisories. Undocumented frontmatter capability values
+  are rejected by skill validation separately.
+- **`docs/modes.md` is no longer manually synced.**
+  `validate_modes_doc_consistency` compares the doc's per-mode tables
+  against live skill frontmatter — missing skills, mode mismatches,
+  skill-count mismatches, and unlisted skills — as SOFT advisories.
+- **Tool README prerequisites are normalized and enforced.** The HARD
+  `tool-prerequisites-fields` check requires the bold sub-field labels
+  (**Runtime:**, **CLIs:**, **Credentials / auth:**, **Network:**) or
+  the pure-contract delegation shorthand in every tool README, so the
+  normalize-then-tighten ordering this bullet used to track is done.
 - **Pilot evidence shape is now defined and validated.** `docs/pilot-report-template.md`
   defines the required frontmatter schema and body sections; `tools/pilot-report-validator/`
   enforces the schema on every `.md` file with a YAML frontmatter block.
