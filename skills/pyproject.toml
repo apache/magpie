@@ -53,7 +53,9 @@ package = false
 # here would bury the point of the change (turning the checks on) behind a
 # mechanical reformat nobody can review line by line. Lint, types, and tests
 # all run; formatting should land as its own commit, after which this skip can
-# be deleted.
+# be deleted. Tracked in
+# https://github.com/apache/magpie/issues/1076 — a skip with no tracking issue
+# is how a temporary exemption becomes a permanent one.
 [tool.magpie.checks]
 skip = ["ruff-format"]
 
