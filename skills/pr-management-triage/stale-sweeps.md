@@ -154,7 +154,7 @@ above.
 
 Two sub-cases, both resulting in `close`:
 
-### 1a. Triaged draft with no author reply ≥ 7 days
+### 1a. Triaged draft with no author response ≥ 7 days
 
 **Trigger.**
 
@@ -163,13 +163,34 @@ Two sub-cases, both resulting in `close`:
   [Ready-label exclusion](#ready-label-exclusion-applies-to-sweeps-13) — Sweep 4's domain)
 - `last_triage_comment_at` is not null
 - `<now> - last_triage_comment_at >= 7 days`
-- No comment by the author after `last_triage_comment_at`
+- `last_author_activity_at <= last_triage_comment_at` — i.e. **no
+  author response of any kind** since we asked. Use the
+  [`last_author_activity_at`](#inputs) input defined above, which
+  already folds in pushes and review-thread replies alongside
+  issue comments.
+
+**A push is a response.** Many contributors answer review feedback
+with code and never write a comment. Testing this trigger against
+*comments only* marks those authors silent while they are actively
+working — and this sweep's action is `close`, the least reversible
+thing the skill does.
+
+Observed on a full sweep of a large `<upstream>`: of 3 PRs
+matching a comments-only reading of this trigger, **one had author
+pushes 5, 12, and 25 days after the triage comment** — actively
+worked, zero comments. It would have been closed. A second had
+last pushed 32 days earlier; only the third was genuinely
+silent.
+
+The `last_author_activity_at` input exists precisely for this and
+costs no extra fetch — the trigger must not fall back to a
+bare comment scan.
 
 **Action.** `close` — post the
 [stale-draft-close](comment-templates.md#stale-draft-close) comment,
 then close. No label (these are not quality-violation closes).
 
-**Reason string.** *"Draft triaged N days ago, no author reply — close with stale-draft notice"*.
+**Reason string.** *"Draft triaged N days ago, no author reply or push — close with stale-draft notice"*.
 
 ### 1b. Untriaged draft with no activity ≥ 2 weeks
 
