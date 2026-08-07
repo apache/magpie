@@ -103,6 +103,23 @@ Reusable wording for the common cases lives in
 [`<project-config>/canned-responses.md`](<project-config>/canned-responses.md) — consult it before drafting a
 reply from scratch.
 
+**A silent reporter does not block the process.** Keeping the reporter
+informed is a commitment the team makes *to* the reporter — it is not
+a requirement that the reporter respond before the team can move
+forward. Per [ASF security policy](https://www.apache.org/security/committers.html),
+if the reporter is unresponsive in a reasonable timeframe this should
+not block the project team from moving to the next steps, particularly
+if an issue is of high severity or impact. `security-issue-sync` tracks
+this for you: when the security team's last outbound message on the
+reporter thread is older than the project's configurable
+`reporter_response_timeout_days` (declared in
+`<project-config>/project.md` → *Security inbox*, default 14 days) and
+no reply has landed since, sync surfaces an explicit proposal item
+asking whether to proceed with the fix and announcement without
+further reporter sign-off. Confirming that proposal is a normal part
+of the workflow, not an exception — you are not waiting on a reply
+that never comes.
+
 **When there's no direct reporter contact** (ASF-relay reports,
 read-only GHSA, anonymous tips), the team communicates with the
 *forwarder* instead — the security-team member or relay service

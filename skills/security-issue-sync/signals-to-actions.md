@@ -1149,6 +1149,33 @@ will change and *why*. Group them by category:
   this tracker's thread (check via the existing Gmail draft-scan the skill
   performs in Step 1e before proposing a new draft).
 
+- **Reporter unresponsiveness (proceed-without-sign-off proposal)** —
+  when Step 1c's staleness check
+  ([`gather.md` 1c step 5](gather.md#1c-find-the-real-reporter-and-read-the-mailing-list-thread))
+  marks the reporter thread **stale** (the security team's latest
+  outbound message is older than
+  [`<project-config>/project.md`](../../<project-config>/project.md#security-inbox)'s
+  `reporter_response_timeout_days`, default 14, with no reporter reply
+  since), propose a **numbered proposal item** — not a silent
+  status-comment entry — with this exact shape:
+
+  > *N.* Reporter has not replied in **`<days>` days** — propose
+  > proceeding with fix and announcement without further reporter
+  > sign-off, per [ASF security policy](https://www.apache.org/security/committers.html).
+
+  Substitute the actual elapsed day count for `<days>`. This item is
+  purely a proposal: it does not itself flip any label, close anything,
+  or send anything — it asks the user to confirm that the team should
+  keep moving through the remaining steps (discussion, fix, release,
+  advisory) treating the reporter's last-known position as final,
+  rather than waiting on a further reply. If the user confirms, continue
+  normally with whichever other Step 2b items this sync pass already
+  proposes; do **not** hold those items back pending reporter reply once
+  the user has confirmed proceeding without them. Re-surface this item
+  on every subsequent sync pass while the thread remains stale (the
+  reporter may reply at any time, at which point the check in
+  `gather.md` no longer fires and this item stops appearing).
+
 - **Draft email to reporter (other reasons)** — whenever the ball is in our
   court on the email thread for any other reason (a question from the
   reporter, a follow-up needed for triage, communicating a negative

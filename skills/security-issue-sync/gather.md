@@ -208,7 +208,26 @@ Process for finding the real reporter and the original thread:
    - the latest message in the thread, *who* sent it, and whether the ball
      is in our court.
 
-5. **Sync a reporter-confirmed credit line into the issue body** whenever
+5. **Check for reporter staleness.** Using the message timestamps and
+   senders extracted in step 4, find the security team's **most recent
+   outbound message** to the reporter on this thread and the reporter's
+   **most recent reply**, if any. If the team's latest outbound message
+   is older than
+   [`<project-config>/project.md`](../../<project-config>/project.md#security-inbox)'s
+   `reporter_response_timeout_days` (default 14) **and** no reporter
+   reply has landed since that message, mark the thread **stale** and
+   surface it in Step 2b per the *Reporter unresponsiveness* row in
+   [`signals-to-actions.md`](signals-to-actions.md#step-2b--proposed-changes-signal-to-action-lookup-table).
+   Per [ASF security policy](https://www.apache.org/security/committers.html),
+   an unresponsive reporter must not block the project team from moving
+   to the next steps, particularly for a high-severity or high-impact
+   issue — but this is a **proposal, not an automatic action**; the
+   user still confirms before the team proceeds without the reporter.
+   Skip this check when the latest message on the thread is *from* the
+   reporter (the ball is already in the security team's court) — the
+   staleness clock only runs while we are the ones waiting on a reply.
+
+6. **Sync a reporter-confirmed credit line into the issue body** whenever
    the mail thread contains a clear credit confirmation from the reporter
    that has not yet been reflected in the tracker's *"Reporter credited
    as"* field. This is a dedicated check, not an afterthought — reporters
@@ -264,7 +283,7 @@ Process for finding the real reporter and the original thread:
    world, hard to correct after publication, and directly undermines the
    trust the reporter extended to us.
 
-5. **If you cannot find the original thread**, say so explicitly in the
+7. **If you cannot find the original thread**, say so explicitly in the
    proposal and ask the user whether the GitHub issue author is also the
    reporter (which does happen for issues a security team member discovered
    themselves). Do not assume.
