@@ -614,6 +614,14 @@ if [ "$merg" = "CONFLICTING" ]; then
   echo "refuse: CONFLICTING — route to draft instead" >&2
   exit 2
 fi
+# Same lazy-computation caveat as the mark-ready guard: this live
+# re-query can itself return UNKNOWN, and UNKNOWN is not "no
+# conflict". Proceeding spends a round-trip that 422s on exactly the
+# PRs this guard exists to catch.
+if [ "$merg" = "UNKNOWN" ]; then
+  echo "refuse: mergeability not yet computed — retry next sweep" >&2
+  exit 2
+fi
 ```
 
 When the guard passes, single mutation via `gh`:

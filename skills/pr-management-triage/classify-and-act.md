@@ -138,6 +138,20 @@ Action verbs are defined in [`actions.md`](actions.md).
   `UNKNOWN` there costs one sweep of delay rather than a wrong
   label.
 
+  Row 16 also keeps `!= CONFLICTING`, but for a different reason:
+  it routes to `rebase`, whose own
+  [pre-flight guard](actions.md#rebase--update-the-pr-branch-with-base)
+  re-queries `mergeable` live and refuses on both `CONFLICTING`
+  and `UNKNOWN`. The classification stays loose because the
+  mutation is guarded; the guard has to handle `UNKNOWN` for that
+  to hold, since the live re-query is subject to the same lazy
+  computation as the batch fetch.
+
+  `unresolved_threads_only` also reads `!= CONFLICTING`. That one
+  is diagnostic — it decides which *reason* is reported, not which
+  action fires — so an `UNKNOWN` mislabels a reason string rather
+  than producing a wrong outcome.
+
   Observed on a full sweep of a large `<upstream>`: **11 of 39**
   `mark-ready` candidates reported `UNKNOWN` at fetch time and
   `dirty` at mutation time. All 11 were genuinely conflicting; the
