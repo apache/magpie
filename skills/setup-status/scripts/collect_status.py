@@ -45,6 +45,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 # The agent-target registry is owned by skills/setup/agents.md
 # ("## The registry") — the single source of truth. At runtime the
@@ -283,9 +284,9 @@ def compute_drift(committed: dict | None, local: dict | None) -> dict:
         ("ref", committed.get("ref"), local.get("source_ref")),
     ]
     mismatches = [
-        {"field": f, "committed": c, "local": l}
-        for f, c, l in pairs
-        if c is not None and l is not None and c != l
+        {"field": field, "committed": committed, "local": local}
+        for field, committed, local in pairs
+        if committed is not None and local is not None and committed != local
     ]
     return {
         "checked": True,
@@ -299,7 +300,7 @@ def gitignore_coverage(root: Path, targets: list[dict]) -> dict:
     gi = root / ".gitignore"
     text = gi.read_text(encoding="utf-8") if gi.is_file() else ""
     lines = {ln.strip() for ln in text.splitlines()}
-    cov = {
+    cov: dict[str, Any] = {
         "present": gi.is_file(),
         "snapshot_ignored": "/.apache-magpie/" in lines,
         "local_lock_ignored": "/.apache-magpie.local.lock" in lines,

@@ -23,7 +23,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
-import pr_link  # noqa: E402
+import pr_link
 
 
 class PrLinkTest(unittest.TestCase):
