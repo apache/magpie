@@ -204,6 +204,23 @@ repos:
         entry: uv run --project tools/vendor-neutrality-score vendor-neutrality-score --in-place
         files: ^(tools/[^/]+/README\.md|tools/privacy-llm/models\.md|tools/vendor-neutrality-score/.*|skills/[^/]+/SKILL\.md|docs/vendor-neutrality\.md)$
         pass_filenames: false
+  # AI-tutor knowledge-base sync — fail when a `docs/education/` source
+  # page (or a training lesson) changes without regenerating the tutor
+  # prompts in `ai-tutors/`. `--check` prints the stale prompts and exits
+  # non-zero; the contributor reruns `python3
+  # ai-tutors/inject-knowledge-base.py` (no flag) to regenerate and
+  # re-stages. `pass_filenames: false`: the script always scans every
+  # lesson; the `files:` filter only gates *whether* the check fires (and
+  # it always runs on `prek run --all-files` in CI). Deterministic and
+  # offline. Script + pytest suite live in ai-tutors/.
+  - repo: local
+    hooks:
+      - id: ai-tutors-kb-check
+        name: Check ai-tutors prompts are in sync with docs/education
+        language: system
+        entry: python3 ai-tutors/inject-knowledge-base.py --check
+        files: ^(ai-tutors/|docs/education/)
+        pass_filenames: false
   # Self-adoption symlink hygiene: reject cyclic symlinks and misdirected
   # skill relays. `types: [symlink]` fires it on any staged symlink (always
   # on `prek run --all-files`). Rules, rationale, and the pytest suite live
