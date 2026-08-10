@@ -22,10 +22,27 @@ from __future__ import annotations
 import argparse
 import json
 from collections.abc import Sequence
+from pathlib import Path
 from typing import Any
 
 from magpie_bitbucket import cloud, datacenter, normalize
-from magpie_bitbucket.client import BitbucketConfig, load_config
+from magpie_bitbucket.client import BitbucketConfig, BitbucketError, load_config
+
+
+def _read_body_file(value: str) -> str:
+    """Read a confirmed write body from disk."""
+    path = Path(value)
+    try:
+        body = path.read_text(encoding="utf-8")
+    except FileNotFoundError as exc:
+        raise BitbucketError(f"Body file not found: {path}") from exc
+    except OSError as exc:
+        raise BitbucketError(f"Failed to read body file {path}: {exc}") from exc
+
+    if not body.strip():
+        raise BitbucketError("Comment body file must not be empty")
+
+    return body
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -63,6 +80,20 @@ def _build_parser() -> argparse.ArgumentParser:
 
     issue_comments = issue_subparsers.add_parser("comments", help="Fetch issue comments.")
     issue_comments.add_argument("issue_id", help="Issue ID to fetch comments for.")
+
+    issue_comment = issue_subparsers.add_parser(
+        "comment",
+        help="Create a comment on an issue after caller-side confirmation.",
+    )
+    issue_comment.add_argument(
+        "issue_id",
+        help="Issue ID to comment on.",
+    )
+    issue_comment.add_argument(
+        "--body-file",
+        required=True,
+        help="Path to the confirmed comment body.",
+    )
 
     issue_attachments = issue_subparsers.add_parser(
         "attachments",
@@ -139,6 +170,11 @@ def _dispatch(args: argparse.Namespace, config: BitbucketConfig) -> dict[str, An
     if args.subcommand == "issue" and args.issue_action == "comments":
         raw = backend.get_issue_comments(config, args.issue_id)
         return normalize.issue_comments(config.kind, raw)
+
+    if args.subcommand == "issue" and args.issue_action == "comment":
+        body = _read_body_file(args.body_file)
+        raw = backend.create_issue_comment(config, args.issue_id, body)
+        return normalize.created_issue_comment(config.kind, raw)
 
     if args.subcommand == "issue" and args.issue_action == "attachments":
         raw = backend.get_issue_attachments(config, args.issue_id)
