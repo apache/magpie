@@ -57,7 +57,7 @@ substring matching near common prefixes.
 **Bad:**
 
 ```python
-if "xs" in output:                       # matches xsi too
+if "xs" in output:  # matches xsi too
     classified = "still-fails-same"
 ```
 
@@ -73,7 +73,8 @@ if (output.contains("foo")) {            // matches foo-bar, foobar
 
 ```python
 import re
-if re.search(r'\bxs="[^"]*"', output):   # match only xs= attribute
+
+if re.search(r'\bxs="[^"]*"', output):  # match only xs= attribute
     classified = "still-fails-same"
 ```
 

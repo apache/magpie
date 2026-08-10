@@ -45,6 +45,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 # The agent-target registry is owned by skills/setup/agents.md
 # ("## The registry") — the single source of truth. At runtime the
@@ -86,7 +87,7 @@ def load_agent_targets() -> tuple[list[tuple[str, str, str, str]], str]:
     which holds in both the framework-source and snapshot layouts
     since the skill dir structure is identical in each.
     """
-    agents_md = (Path(__file__).resolve().parent / ".." / ".." / "setup" / "agents.md")
+    agents_md = Path(__file__).resolve().parent / ".." / ".." / "setup" / "agents.md"
     try:
         text = agents_md.read_text(encoding="utf-8")
     except OSError:
@@ -120,6 +121,7 @@ def load_agent_targets() -> tuple[list[tuple[str, str, str, str]], str]:
     if not targets:
         return _FALLBACK_TARGETS, "fallback"
     return targets, "agents.md"
+
 
 # Opt-in families the lock can record. Membership is read from each
 # skill's ``family:`` frontmatter key (see skills/setup/SKILL.md
@@ -240,9 +242,7 @@ def collect_targets(root: Path, registry: list[tuple]) -> list[dict]:
             "entries": [],
         }
         if d.is_dir():
-            entries = sorted(
-                p for p in d.iterdir() if p.name.startswith("magpie-")
-            )
+            entries = sorted(p for p in d.iterdir() if p.name.startswith("magpie-"))
             rec["entries"] = [link_info(p, root) for p in entries]
         rec["magpie_count"] = len(rec["entries"])
         rec["live_count"] = sum(1 for e in rec["entries"] if e["resolves"])
@@ -283,9 +283,9 @@ def compute_drift(committed: dict | None, local: dict | None) -> dict:
         ("ref", committed.get("ref"), local.get("source_ref")),
     ]
     mismatches = [
-        {"field": f, "committed": c, "local": l}
-        for f, c, l in pairs
-        if c is not None and l is not None and c != l
+        {"field": field, "committed": committed, "local": local}
+        for field, committed, local in pairs
+        if committed is not None and local is not None and committed != local
     ]
     return {
         "checked": True,
@@ -299,7 +299,7 @@ def gitignore_coverage(root: Path, targets: list[dict]) -> dict:
     gi = root / ".gitignore"
     text = gi.read_text(encoding="utf-8") if gi.is_file() else ""
     lines = {ln.strip() for ln in text.splitlines()}
-    cov = {
+    cov: dict[str, Any] = {
         "present": gi.is_file(),
         "snapshot_ignored": "/.apache-magpie/" in lines,
         "local_lock_ignored": "/.apache-magpie.local.lock" in lines,
@@ -330,10 +330,7 @@ def override_dir_status(root: Path, dirname: str) -> dict:
     d = root / dirname
     if not d.is_dir():
         return {"present": False, "has_readme": False, "skill_count": 0}
-    skill_files = [
-        p for p in d.iterdir()
-        if p.is_file() and p.suffix == ".md" and p.name != "README.md"
-    ]
+    skill_files = [p for p in d.iterdir() if p.is_file() and p.suffix == ".md" and p.name != "README.md"]
     return {
         "present": True,
         "has_readme": (d / "README.md").is_file(),
@@ -456,18 +453,12 @@ def render_markdown(d: dict) -> str:
     ov = d["overrides"]
     local_ov = d["local_overrides"]
     ov_text = f"present ({ov['skill_count']} skill(s))" if ov["present"] else "—"
-    local_ov_text = (
-        f"present ({local_ov['skill_count']} skill(s))"
-        if local_ov["present"]
-        else "—"
-    )
+    local_ov_text = f"present ({local_ov['skill_count']} skill(s))" if local_ov["present"] else "—"
     out.append(
         f"- **shared overrides** (`.apache-magpie-overrides/`): {ov_text} · "
         f"**personal overrides** (`.apache-magpie-local/`): {local_ov_text}"
     )
-    out.append(
-        f"- **hook:** {'installed' if d['post_checkout_hook']['present'] else '—'}"
-    )
+    out.append(f"- **hook:** {'installed' if d['post_checkout_hook']['present'] else '—'}")
     out.append("- → deep check (integrity, permissions, worktrees): `/magpie-setup verify`")
     return "\n".join(out) + "\n"
 

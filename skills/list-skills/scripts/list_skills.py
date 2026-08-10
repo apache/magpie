@@ -109,10 +109,7 @@ def render(rows: list[tuple[str, str, str]], *, verbose: bool) -> str:
             else:
                 lines.append(f"  {name.ljust(width)}  {desc}")
         lines.append("")
-    lines.append(
-        "Invoke a skill by typing /<skill-name>, or describe what "
-        "you want to do."
-    )
+    lines.append("Invoke a skill by typing /<skill-name>, or describe what you want to do.")
     return "\n".join(lines)
 
 
