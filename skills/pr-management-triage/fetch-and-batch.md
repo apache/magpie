@@ -58,7 +58,11 @@ query(
                 # `state` is always authoritative; the derived
                 # failed-check *list* is not, and must be re-derived from
                 # the check-runs REST API before any row that reads it.
-                contexts(first: 100) {
+                # Kept at 50 deliberately: raising it cannot close the
+                # truncation window, and the REST re-derivation makes this
+                # page a fast path rather than a source of truth — so the
+                # extra complexity would buy nothing. See #batch-size.
+                contexts(first: 50) {
                   nodes {
                     __typename
                     ... on CheckRun     { name conclusion status }
@@ -193,14 +197,22 @@ because the REST re-derivation is mandatory before any row reads
 `failed_checks` — the rollup page is a fast path, never the
 source of truth.
 
+The same reasoning cuts the other way, and is why `contexts(first:)`
+stays at 50 rather than being raised: a larger page cannot close the
+truncation window either (a repo can always exceed any fixed page),
+so raising it would spend complexity budget — the dominant factor
+per the paragraph above — to buy a list nothing is allowed to trust.
+Widen it only alongside a measured `cost=` figure and a matching
+reduction in `$batchSize`.
+
 ### Failed-check lists are truncated
 
 **`statusCheckRollup.contexts` is a paginated connection, and the
 page it returns is a silent prefix — not the whole set.** A
-`<upstream>` whose PRs run well past 100 check-runs (a large
-matrix-heavy CI easily does) overflows any single page. Nothing in
-the response signals the truncation: you get a well-formed list
-that happens to be missing entries.
+`<upstream>` whose PRs run more check-runs than the page holds (a
+large matrix-heavy CI easily does) overflows it. Nothing in the
+response signals the truncation: you get a well-formed list that
+happens to be missing entries.
 
 `statusCheckRollup.state` is unaffected — it is computed
 server-side over *all* contexts, so `SUCCESS` / `FAILURE` stays
@@ -225,13 +237,15 @@ list from the paginated check-runs REST endpoint:
 
 ```bash
 # Walk every page — stop when a page returns < 100 entries.
+# Fetch each page ONCE and derive both the failure names and the page
+# length from that single response; re-querying the same page to count
+# it doubles the call budget this section advertises.
 page=1
 while :; do
-  batch=$(gh api "repos/<owner>/<repo>/commits/${head_sha}/check-runs?per_page=100&page=${page}" \
-            --jq '[.check_runs[] | select(.conclusion == "failure" or .conclusion == "timed_out") | .name]')
-  echo "$batch"
-  [ "$(gh api "repos/<owner>/<repo>/commits/${head_sha}/check-runs?per_page=100&page=${page}" \
-        --jq '.check_runs | length')" -lt 100 ] && break
+  page_json=$(gh api "repos/<owner>/<repo>/commits/${head_sha}/check-runs?per_page=100&page=${page}")
+  jq -r '.check_runs[] | select(.conclusion == "failure" or .conclusion == "timed_out") | .name' \
+    <<<"$page_json"
+  [ "$(jq '.check_runs | length' <<<"$page_json")" -lt 100 ] && break
   page=$((page + 1))
 done
 ```
@@ -586,11 +600,12 @@ query($owner: String!, $repo: String!) {
             commit {
               oid
               statusCheckRollup {
-                # Same truncation caveat as the main query. Here it only
-                # under-populates `recent_main_failures`, which makes rows
-                # 10/11 fire less often — a PR gets `draft`/`comment`
-                # instead of `rerun`. That is the safe direction to fail.
-                contexts(first: 100) {
+                # Same truncation caveat as the main query, and kept at 50
+                # for the same reason. Here it only under-populates
+                # `recent_main_failures`, which makes rows 10/11 fire less
+                # often — a PR gets `draft`/`comment` instead of `rerun`.
+                # That is the safe direction to fail.
+                contexts(first: 50) {
                   nodes {
                     __typename
                     ... on CheckRun { name conclusion }

@@ -103,7 +103,7 @@ Action verbs are defined in [`actions.md`](actions.md).
 | 19 | All of: `statusCheckRollup.state == SUCCESS`, `mergeable == MERGEABLE` (**not** merely `!= CONFLICTING` — see [hard rules](#hard-rules-cross-cutting-the-table)), no unresolved **collaborator** threads (see [`unresolved_threads_only`](#unresolved_threads_only) for the collaborator-author qualifier), [Real-CI guard](#real-ci-guard) passes, label `ready for maintainer review` already present | `passing` | `skip` | Already marked ready for review |
 | 20 | All of: `statusCheckRollup.state == SUCCESS`, `mergeable == MERGEABLE` (**not** merely `!= CONFLICTING` — see [hard rules](#hard-rules-cross-cutting-the-table)), no unresolved **collaborator** threads (see [`unresolved_threads_only`](#unresolved_threads_only) for the collaborator-author qualifier), [Real-CI guard](#real-ci-guard) passes | `passing` | `mark-ready` | All checks green, no conflicts, no unresolved collaborator threads — mark for deeper review |
 | 21 | Stale-sweep candidate (see [`stale-sweeps.md`](stale-sweeps.md)) AND no row 1–20 matched in this session | `stale_draft` / `inactive_open` / `stale_workflow_approval` | (per sweep) | (per sweep) |
-| 22 | Data inconsistency: rollup `SUCCESS` with `failed_checks` non-empty, OR rollup `FAILURE` with `failed_checks` empty (e.g. only CANCELLED contexts visible, or rollup hasn't yet propagated the failing check-run). Evaluated **before** rows 17, 19-20 — see [hard rules](#hard-rules-cross-cutting-the-table) | n/a | `skip` | Data anomaly — rollup not yet settled, retry next page |
+| 22 | Unsettled server-side state, either: (a) data inconsistency — rollup `SUCCESS` with `failed_checks` non-empty, OR rollup `FAILURE` with `failed_checks` empty (e.g. only CANCELLED contexts visible, or rollup hasn't yet propagated the failing check-run); or (b) `mergeable == UNKNOWN` — GitHub has not finished computing mergeability. Evaluated **before** rows 17, 19-20 — see [hard rules](#hard-rules-cross-cutting-the-table) | n/a | `skip` | State not yet settled, retry next sweep |
 
 ### Hard rules cross-cutting the table
 
@@ -123,11 +123,16 @@ Action verbs are defined in [`actions.md`](actions.md).
   `UNKNOWN` — so an unsettled PR reads as green and earns
   `ready for maintainer review`.
   Treat `UNKNOWN` as *undetermined*, never as *mergeable*:
-  - Rows 19/20 require `mergeable == MERGEABLE` explicitly. A PR
-    with `UNKNOWN` falls through to `skip` with reason
-    *"mergeability not yet computed — retry next sweep"*; GitHub
-    settles it within seconds and the next sweep classifies it
-    properly.
+  - Rows 19/20 require `mergeable == MERGEABLE` explicitly, and
+    **row 22 catches the `UNKNOWN` case** — without that the PR
+    would match no row at all, since `UNKNOWN` also fails
+    [`has_deterministic_signal`](#has_deterministic_signal) and so
+    never reaches the row 17 fallback. Row 22 is the right home:
+    it already means *"server-side state not yet settled, retry"*
+    and is already evaluated before rows 17 and 19-20. The PR
+    skips with reason *"mergeability not yet computed — retry next
+    sweep"*; GitHub settles it within seconds and the next sweep
+    classifies it properly.
   - The [`mark-ready` action](actions.md#mark-ready--add-ready-for-maintainer-review-label)
     re-reads `mergeable_state` from the REST PR object immediately
     before applying the label and refuses on `dirty`, in the same
