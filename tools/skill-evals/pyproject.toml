@@ -38,6 +38,14 @@ packages = ["src/skill_evals"]
 line-length = 110
 target-version = "py311"
 src = ["src"]
+# Eval fixtures are test *data*, not source. `report.md` files simulate what a
+# contributor actually pasted into an issue or PR — single quotes, missing
+# blank lines, and all. Ruff 0.16 began formatting Python inside Markdown
+# fenced blocks, which would rewrite those bodies into house style and change
+# the exact input the model is graded on. Several of these are prompt-injection
+# cases whose whole point is that the untrusted text reaches the model verbatim.
+# Formatting them would be a silent fixture edit, so the tree is excluded.
+extend-exclude = ["evals/**/fixtures/**"]
 
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "B", "UP", "SIM", "C4", "RUF"]
@@ -55,5 +63,5 @@ addopts = "-ra -q"
 dev = [
   "mypy>=2.3.0",
   "pytest>=9.1.1",
-  "ruff>=0.15.22",
+  "ruff>=0.16.1",
 ]
