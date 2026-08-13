@@ -359,13 +359,15 @@ executed.
 ```bash
 # Pre-check: index action_required runs at the head SHA.
 # Note: runs awaiting approval are returned as `status: "completed"`
-# with `conclusion: "action_required"`. The query parameter
-# `?status=action_required` matches no runs and would silently
-# return an empty result — post-filter on `conclusion` instead.
+# with `conclusion: "action_required"`. This lookup is already scoped
+# to one head SHA, so the `conclusion` post-filter is sufficient and
+# needs no `status=` narrowing. (For the repo-wide index in
+# fetch-and-batch.md the opposite holds: filter with
+# `status=action_required` server-side, because an unfiltered listing
+# truncates long before the backlog ends.)
 # One fetch covers both guards.
 read -r head_sha merge_state <<<"$(gh api "repos/<owner>/<repo>/pulls/<N>" \
   --jq '"\(.head.sha) \(.mergeable_state)"')"
-
 pending=$(gh api "repos/<owner>/<repo>/actions/runs?head_sha=${head_sha}&per_page=20" \
   --jq '[.workflow_runs[] | select(.conclusion == "action_required")] | length')
 if [ "$pending" -gt 0 ]; then
@@ -703,8 +705,8 @@ without burning a useless mutation):
 ```bash
 # Re-list pending workflow runs for this PR at action time.
 # Runs awaiting approval are returned as `status: "completed"` with
-# `conclusion: "action_required"` — `?status=action_required` matches
-# none of them. Post-filter on `conclusion` to enumerate the real set.
+# `conclusion: "action_required"`. Scoped to one head SHA, so the
+# `conclusion` post-filter enumerates the real set on its own.
 ids=$(gh api "repos/<owner>/<repo>/actions/runs?head_sha=<head_sha>&per_page=20" \
         --jq '.workflow_runs[] | select(.conclusion == "action_required") | .id')
 
