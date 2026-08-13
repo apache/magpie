@@ -294,6 +294,12 @@ from the tag: `/plugin marketplace add apache/magpie@0.2.0`.
 3. List / verify — inside Codex run `/plugins`, or from the shell
    `codex plugin list`.
 
+Only the **all-in-one** `magpie` plugin is offered here — the per-family
+plugins are Claude Code-only, for the reason recorded
+[above](#choosing-a-plugin-all-in-one-vs-per-family). The catalog is checked
+against that rule by `tools/dev/check-family-plugins.py`, so it cannot drift
+into advertising a plugin Codex could not install.
+
 > Codex's plugin/marketplace verbs are still evolving. If a command name
 > differs, check `codex plugin --help`.
 
@@ -318,7 +324,10 @@ as an AP1 package. Two ways in:
    the coding-agent settings) and install `magpie` from it. That path reads the
    root [`marketplace.json`](../../marketplace.json).
 
-Either way the 70 skills become available to the agent under the plugin.
+Either way the 70 skills become available to the agent under the plugin. As
+with Codex, only the **all-in-one** `magpie` plugin is offered — the per-family
+plugins are Claude Code-only, for the reason recorded
+[above](#choosing-a-plugin-all-in-one-vs-per-family).
 
 > [!NOTE]
 > VS Code **ignores client extension data and directories** in an AP1 package.
@@ -473,6 +482,16 @@ documentation**; what varies is whether it has also been exercised against a
 | root `marketplace.json` | Copilot / VS Code plugin marketplace docs | Legacy-format catalog, explicitly still supported alongside AP1. Not yet live-installed |
 | `gemini-extension.json` | Gemini CLI extensions docs | Follows the published schema. Google has joined the AP1 TSC but has published no migration for this file — keep both |
 | `apm.yml` | `microsoft/apm` schema **v0.1** | Pre-1.0 and the most likely to churn; re-check before publish |
+
+The skills themselves are checked against the
+[Agent Skills specification](https://agentskills.io/specification), which AP1
+defers to. Worth stating explicitly, because it looks like a problem and is
+not: 41 of the 70 `description` fields contain the framework's
+`<placeholder>` syntax (`<tracker>`, `<upstream>`, …). The spec constrains
+`description` on **length only** — 1–1024 characters, non-empty — and places no
+restriction on angle brackets; the character-class rules apply to `name`, which
+every skill satisfies. So the placeholders are conformant, not a portability
+risk to design around.
 
 Re-check each against the vendor's current documentation before a marketplace
 publish. Manifests that fail live validation should be fixed here and
