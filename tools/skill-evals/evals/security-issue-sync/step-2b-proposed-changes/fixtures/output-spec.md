@@ -12,7 +12,7 @@ The observed state (current tracker) vs. gathered state (PR, milestone, assignee
   "items": [
     {
       "number": 1,
-      "category": "labels" | "milestone" | "assignee" | "body_field" | "status_comment",
+      "category": "labels" | "milestone" | "assignee" | "body_field" | "status_comment" | "reporter_unresponsive",
       "action": "<string>",
       "reason": "<string>"
     }
@@ -32,9 +32,11 @@ Field rules:
   - **Assignee:** propose an assignee only at the PR-merged hand-off step, and only when the tracker currently has no assignee. While the fix PR is still open, propose no assignee (`assignee_proposed` is `null`).
   - **`status_comment` items** fire only on specific triggers, never to narrate routine progress. At the `pr created` → `pr merged` transition (process step 11), propose a fill-fields status comment ONLY if one of the six mandatory body fields — CWE, Affected versions, Severity, Reporter credited as, Short public summary for publish, PR with the fix — is empty or `_No response_`. If all six are populated (or the gathered state does not flag any missing), propose no status comment for the transition. (Disclosure-overdue and distributor pre-announcement status comments keep their own separate triggers.)
   - **No speculative labels.** Add `cve allocated` only once a CVE has actually been allocated; do not add `pr created` / `pr merged` before the process reaches those transitions. At an assessed / pre-CVE tracker (process step ~6), the usual sole change is the milestone — propose no label add or remove.
+  - **`reporter_unresponsive` items** fire only when the gathered state's Step 1c reporter-thread check reports the thread stale (the security team's last outbound message is older than `reporter_response_timeout_days`, default 14, with no reporter reply since). Propose it as its own numbered item, never folded into a `status_comment` item. Propose no such item when the thread is not stale, or when the latest message on the thread is from the reporter (the staleness check does not run while the ball is in the reporter's court).
 - `labels_to_add` / `labels_to_remove`: flat lists of all label changes across all items.
 - `milestone_create_needed`: `true` when the required milestone does not yet exist on the tracker and a `gh api` create call is included in the proposal.
 - `assignee_proposed`: the GitHub handle proposed for assignee, or `null`. Only propose a security-team collaborator, never an external reporter.
 - `has_bare_issue_numbers`: `true` if any item contains a bare `#NNN` without a full URL — should be `false`.
 - `overdue_for_disclosure_proposed`: `true` when `items` contains an escalation item due to the CVD window expiring. Optional field — omit (or set `false`) when the tracker is not overdue.
 - `distributor_notify_proposed`: `true` when `items` contains a distributor pre-announcement draft proposal. Optional field — omit (or set `false`) when `pre_announce_distributors` is `false` or the fix is not yet in a pending release.
+- `reporter_unresponsive_proposed`: `true` when `items` contains a `reporter_unresponsive` item. Optional field — omit (or set `false`) when the reporter thread is not stale.
