@@ -131,6 +131,10 @@ cost depends on contributor volume.
 | `pr-management-mentor` | Single threaded reply | 6K–20K | Estimated; skill experimental |
 | `good-first-issue-author` | One candidate → one issue draft | 6K–18K | Estimated; reads one candidate + named source files, no full-thread history; skill experimental |
 | `newcomer-issue-explainer` | One issue → one beginner explanation draft | 4K–12K | Estimated; reads one issue body + a small set of named source files; read-only; skill experimental |
+| `mentoring-welcome` | One first-time contributor → one welcome draft | 4K–12K | Estimated; reads the triggering thread + contributing-guide pointers, no full-thread history; skill experimental |
+| `onboarding-concierge` | One newcomer question → one grounded answer draft | 4K–12K | Estimated; reads `CONTRIBUTING.md` + the relevant doc excerpt; read-only; skill experimental |
+| `contributor-to-committer` | Single contributor readiness brief | 15K–50K | Estimated; reads the contributor's activity history against the adopter's thresholds; read-only; skill experimental |
+| `good-first-issue-sweep` | Backlog sweep (10 issues) | 20K–80K | Estimated; scales linearly with the number of issues scored; skill experimental |
 
 **Rule of thumb for Agentic Mentoring:** budget 10K–20K tokens per
 contributor interaction. A project with 20 active contributors each
@@ -163,7 +167,8 @@ multiply the per-pass cost by the number of review agents.
 | Skill | Typical invocation | Token range | Notes |
 |---|---|---|---|
 | `pairing-self-review` | Pre-flight review of a local diff | 10K–50K | Estimated; skill experimental. Scales with diff size and conventions doc length. |
-| Multi-agent review pipeline | Full three-pass review | 30K–200K | Estimated; future skill. 3–4 × single-pass cost. Parallelism reduces latency, not billing. |
+| `pairing-multi-agent-review` | Full three-pass review | 30K–200K | Estimated; skill experimental. 3–4 × single-pass cost. Parallelism reduces latency, not billing. |
+| `pre-first-pr-check` | Newcomer pre-flight checklist on a local branch | 5K–20K | Estimated; skill experimental. Read-only; scales with diff size and convention docs read. |
 
 **Rule of thumb for Agentic Pairing:** a typical pre-flight self-review of a
 medium PR uses 15K–30K tokens. A three-agent review pipeline on
