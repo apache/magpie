@@ -6,12 +6,13 @@
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
 - [Installing Apache Magpie from agent marketplaces](#installing-apache-magpie-from-agent-marketplaces)
+  - [Two manifest families: Agent Plugins 1.0 and client-specific](#two-manifest-families-agent-plugins-10-and-client-specific)
   - [Choosing a plugin: all-in-one vs per-family](#choosing-a-plugin-all-in-one-vs-per-family)
   - [Skill names differ by install method](#skill-names-differ-by-install-method)
   - [Supported agents](#supported-agents)
     - [Claude Code](#claude-code)
     - [OpenAI Codex CLI](#openai-codex-cli)
-    - [GitHub Copilot](#github-copilot)
+    - [VS Code and GitHub Copilot](#vs-code-and-github-copilot)
     - [Google Gemini CLI](#google-gemini-cli)
     - [Cursor](#cursor)
     - [microsoft/apm (multiplexer)](#microsoftapm-multiplexer)
@@ -23,9 +24,6 @@
   - [Verification status](#verification-status)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
-
-<!-- SPDX-License-Identifier: Apache-2.0
-     https://www.apache.org/licenses/LICENSE-2.0 -->
 
 # Installing Apache Magpie from agent marketplaces
 
@@ -51,10 +49,12 @@ through the plugin/extension mechanisms of the major AI coding agents,
 > source release.
 
 > [!WARNING]
-> **Marketplace/plugin support is experimental in most agentic CLIs.** The
-> plugin and marketplace mechanisms of Claude Code, Codex, Copilot, Gemini,
-> `apm`, and others are new and evolving — manifest schemas and install
-> commands change between releases (see [Verification status](#verification-status)).
+> **Marketplace/plugin support is still young in most agentic CLIs.**
+> [Agent Plugins 1.0](#two-manifest-families-agent-plugins-10-and-client-specific)
+> standardised the *package format* in August 2026, but it deliberately
+> specifies no install mechanism or marketplace format — so install commands,
+> catalog schemas, and the client-specific manifests still change between
+> releases (see [Verification status](#verification-status)).
 > If a marketplace install breaks, or your agent has no marketplace at all, the
 > **non-marketplace install is always available, universal, and portable**:
 > adopt Magpie with `/magpie-setup` from either the **signed SVN release**
@@ -64,6 +64,45 @@ through the plugin/extension mechanisms of the major AI coding agents,
 > `.agents/skills/` layout, so it works on **every** agentic CLI — not only the
 > ones with a marketplace. Rule of thumb: use a marketplace for a quick trial
 > on a supported agent; use `/magpie-setup` for a stable, portable install.
+
+## Two manifest families: Agent Plugins 1.0 and client-specific
+
+Magpie ships **both** of the manifest shapes an agent may look for, because as
+of 2026-08 no single one is read by every client.
+
+**[Agent Plugins 1.0](https://agent-plugins.org/specification)** (published
+2026-08-06 by a TSC drawn from Amazon, Cursor, Microsoft, OpenAI, and Vercel;
+Google has since joined) is the vendor-neutral standard. A conformant plugin is
+a directory with a root [`plugin.json`](../../plugin.json) declaring the
+canonical `$schema`, plus skills in `skills/<name>/SKILL.md` and — optionally —
+MCP servers in a root `mcp.json`. Magpie's skill tree already had exactly that
+layout, so conformance needed **no file moves**: the root `plugin.json` is the
+only addition.
+
+**Client-specific manifests** stay alongside it, because the clients that
+predate the standard still read their own:
+
+| Manifest | Read by | Why it is still needed |
+|---|---|---|
+| [`plugin.json`](../../plugin.json) (root) | VS Code, GitHub Copilot (CLI + app + SDK) | The AP1 manifest. VS Code auto-detects the format from the root manifest and treats the `$schema` value as the AP1 marker |
+| [`.claude-plugin/plugin.json`](../../.claude-plugin/plugin.json) | Claude Code (also read by VS Code) | Claude Code documents only this path, and AP1's schema is closed — it has no place for the `hooks` block or the `skills` path |
+| [`.codex-plugin/plugin.json`](../../.codex-plugin/plugin.json) | OpenAI Codex CLI | Codex documents this as its plugin entry point, with its own `interface` / `apps` / `hooks` fields |
+| [`gemini-extension.json`](../../gemini-extension.json) | Google Gemini CLI | Gemini's extension format is unrelated to AP1; Google has announced support for the standard but not a migration for this file |
+| [`apm.yml`](../../apm.yml) | `microsoft/apm` | A cross-client compiler, not a client — its own package schema |
+
+The manifests do not conflict: they sit at different paths, each client reads
+the one it documents, and every one of them points at the same single `skills/`
+tree. `tools/dev/check-family-plugins.py` enforces that they all carry the same
+version and shared metadata, and that the AP1 manifest stays inside its closed
+ten-field schema — a Claude-only key such as `skills` or `hooks` copied into it
+is a **fatal** manifest error for an AP1 client, not an ignorable one.
+
+> [!NOTE]
+> **AP1 covers skills and MCP servers only.** It deliberately specifies no
+> hooks, agents, commands, or marketplace/registry format. So Magpie's
+> `SessionStart` upgrade prompt and its marketplace catalogs remain
+> client-specific by necessity, not by choice — see
+> [Automatic upgrade detection](#automatic-upgrade-detection).
 
 ## Choosing a plugin: all-in-one vs per-family
 
@@ -131,6 +170,21 @@ so there is a single source of truth for every skill.
 > needs no symlinks. macOS and Linux are unaffected. (Verified on macOS: a
 > `/plugin marketplace add` GitHub clone preserves and resolves the symlinks.)
 
+> [!IMPORTANT]
+> **The per-family plugins are not Agent Plugins 1.0 packages.** AP1 requires a
+> symlink's final target to resolve *inside* the plugin root, and each family
+> plugin's `skills/<skill>` deliberately points out of its own root at the
+> shared `../../../skills/<skill>` tree. Materialising them as real directories
+> would mean vendored copies of every skill — which
+> [PRINCIPLES §13](../../PRINCIPLES.md) rules out, and which would leave eleven
+> divergent copies to keep in sync. So the families stay a **Claude Code**
+> feature (Claude Code resolves the symlinks, as verified above), and AP1
+> clients install the **all-in-one `magpie` plugin**, whose `skills/` *is* the
+> real tree and needs no symlink at all. If per-family granularity on AP1
+> clients turns out to be worth its cost, the way to get it is to generate
+> materialised family directories as a **release artefact** rather than commit
+> them — deliberately deferred, not overlooked.
+
 ## Skill names differ by install method
 
 The **same skill** is invoked by a **different name** depending on how you
@@ -175,13 +229,13 @@ Quick reference:
 
 | Agent | One-liner | Manifest in this repo |
 |---|---|---|
-| **Claude Code** | `/plugin marketplace add apache/magpie` → `/plugin install magpie@apache-magpie` | `.claude-plugin/marketplace.json` + `plugin.json` |
+| **Claude Code** | `/plugin marketplace add apache/magpie` → `/plugin install magpie@apache-magpie` | `.claude-plugin/marketplace.json` + `.claude-plugin/plugin.json` |
 | **OpenAI Codex CLI** | `codex plugin marketplace add apache/magpie` → install `magpie` | `.codex-plugin/plugin.json`, `.agents/plugins/marketplace.json` |
-| **GitHub Copilot** | add `apache/magpie` as a plugin marketplace → install `magpie` | `marketplace.json` (repo root) |
+| **VS Code / GitHub Copilot** | install straight from the repo URL `https://github.com/apache/magpie`, or add it as a plugin marketplace | root `plugin.json` (AP1), `marketplace.json` (repo root) |
 | **Google Gemini CLI** | `gemini extensions install https://github.com/apache/magpie` | `gemini-extension.json` |
-| **Cursor** | add via the plugin/skill install flow pointing at the repo | the plugin manifests above |
+| **Cursor** | add via the plugin/skill install flow pointing at the repo | root `plugin.json` (AP1) |
 | **microsoft/apm** | `apm install apache/magpie` (compiles to Claude/Cursor/Codex/Copilot/Gemini) | `apm.yml` |
-| **Kiro** | install per-skill from a GitHub subdirectory | native `skills/<name>/SKILL.md` |
+| **Kiro** | install per-skill from a GitHub subdirectory, or the AP1 package | root `plugin.json` (AP1), native `skills/<name>/SKILL.md` |
 | **OpenCode** | clone skills into `.opencode/skills/`, or use a community installer | native `skills/<name>/SKILL.md` |
 
 Detailed steps per agent follow.
@@ -243,19 +297,36 @@ from the tag: `/plugin marketplace add apache/magpie@0.2.0`.
 > Codex's plugin/marketplace verbs are still evolving. If a command name
 > differs, check `codex plugin --help`.
 
-### GitHub Copilot
+### VS Code and GitHub Copilot
 
-Copilot treats a GitHub repo with a root `marketplace.json` as a plugin
-marketplace.
+Agent Plugins 1.0 support is generally available in VS Code, Copilot CLI, the
+Copilot app, and the Copilot SDK on all Copilot plans. VS Code auto-detects the
+plugin format from the root manifest, and Magpie's root
+[`plugin.json`](../../plugin.json) declares the AP1 `$schema`, so it is loaded
+as an AP1 package. Two ways in:
 
-1. Add `apache/magpie` as a plugin marketplace in Copilot (CLI or the
-   coding-agent settings).
-2. Install the `magpie` plugin from it.
-3. The skills become available to the agent under the plugin.
+1. **Straight from the repo URL** — no marketplace needed. Point VS Code's
+   plugin install at:
 
-> Copilot's plugin-marketplace commands are still stabilising (enterprise-
-> managed plugins are in preview). Confirm the exact `add` / `install`
-> syntax in the current Copilot documentation.
+   ```text
+   https://github.com/apache/magpie
+   ```
+
+   VS Code clones the repo and installs the plugin.
+
+2. **As a marketplace** — add `apache/magpie` as a plugin marketplace (CLI or
+   the coding-agent settings) and install `magpie` from it. That path reads the
+   root [`marketplace.json`](../../marketplace.json).
+
+Either way the 70 skills become available to the agent under the plugin.
+
+> [!NOTE]
+> VS Code **ignores client extension data and directories** in an AP1 package.
+> Magpie's `.claude-plugin/` hook block is therefore inert here — the upgrade
+> prompt is Claude Code-only (see
+> [Automatic upgrade detection](#automatic-upgrade-detection)). Existing
+> Copilot plugins that do not target AP1 remain supported, so the root
+> `marketplace.json` keeps working regardless.
 
 ### Google Gemini CLI
 
@@ -280,9 +351,10 @@ marketplace.
 
 ### Cursor
 
-Cursor consumes the same plugin/skill manifests. Add Magpie through Cursor's
-plugin/skill install flow (Customize → Plugins/Skills) pointing at
-`github.com/apache/magpie`.
+Cursor is one of the Agent Plugins 1.0 launch clients (and sits on the spec's
+TSC), so it reads the root [`plugin.json`](../../plugin.json). Add Magpie
+through Cursor's plugin/skill install flow (Customize → Plugins/Skills)
+pointing at `github.com/apache/magpie`.
 
 > Confirm the exact add flow in Cursor's current docs — its self-serve
 > marketplace surface is evolving.
@@ -347,12 +419,26 @@ automatic while the *changes* stay confirmed.
 | Agent | Mechanism |
 |---|---|
 | **Claude Code** | `SessionStart` hook [`hooks/check-upgrade.sh`](../../hooks/check-upgrade.sh) compares the installed version to a marker in the plugin's persistent data dir and prompts on change. Deterministic. |
-| **Codex CLI** | The same [`hooks/check-upgrade.sh`](../../hooks/check-upgrade.sh) wired via the plugin's `hooks` block. Codex's hook schema is **not yet verified** — confirm before publish. |
+| **Codex CLI** | The same [`hooks/check-upgrade.sh`](../../hooks/check-upgrade.sh), wired inline via the plugin's `hooks` block — Codex uses the same event schema and the same `SessionStart` event. Codex sets `PLUGIN_ROOT`/`PLUGIN_DATA` (and the `CLAUDE_*` pair for compatibility), which the script reads. See the caveat below. |
+| **VS Code / Copilot, Cursor, Kiro (AP1)** | None. Agent Plugins 1.0 specifies no hook component and VS Code ignores client extension directories, so there is nothing to fire. Re-run `/magpie-setup upgrade` after updating. |
 | **Gemini CLI** | No lifecycle hook; the extension context file [`GEMINI.md`](../../GEMINI.md) instructs the agent to compare the extension version to a recorded marker and prompt on change (LLM-driven, advisory). |
 | Other agents | Re-run `/magpie-setup upgrade` manually after updating the package. |
 
-The hook script is read-only apart from writing its own version marker, makes
-no network calls, and touches nothing in the adopter repo.
+> [!WARNING]
+> **Codex plugin-local hooks may not fire yet.** [openai/codex#16430](https://github.com/openai/codex/issues/16430)
+> reports that the runtime executes only the global `hooks.json` even though the
+> plugin docs describe plugin-local hooks. The manifest is written to the
+> documented schema so it starts working when the runtime catches up; until
+> then, treat the Codex upgrade prompt as best-effort and re-run
+> `/magpie-setup upgrade` manually.
+
+The hook writes its prompt to **stdout**, which is what a `SessionStart` hook
+exiting 0 has added to the session context — stderr on a zero exit reaches only
+the debug log. It is read-only apart from writing its own version marker, which
+goes to the client-provided persistent data directory (`CLAUDE_PLUGIN_DATA` /
+`PLUGIN_DATA`), falling back to `$XDG_STATE_HOME/magpie` — never inside the
+plugin checkout, which a plugin update may replace wholesale. It makes no
+network calls and touches nothing in the adopter repo.
 
 ## Versioning
 
@@ -375,9 +461,20 @@ the old version. See
 
 ## Verification status
 
-The Claude Code and Gemini CLI manifests follow the current published
-schemas. The Codex CLI, GitHub Copilot, and `apm` (schema v0.1) formats
-move quickly; re-check each against the vendor's current documentation
-before a marketplace publish. Manifests that fail live validation should be
-fixed here and re-released — they never change how the ASF source release
-is built or signed.
+Every manifest here has been checked against the vendor's **published
+documentation**; what varies is whether it has also been exercised against a
+**live install**.
+
+| Manifest | Schema source | Status |
+|---|---|---|
+| root `plugin.json` | [Agent Plugins 1.0.0 spec](https://github.com/agentplugins/agent-plugins-spec/blob/main/spec/1.0.0.md) + [`plugin.schema.json`](https://agent-plugins.org/schemas/1.0.0/plugin.schema.json) | Conforms to the published closed schema; enforced by `check-family-plugins.py`. Not yet live-installed |
+| `.claude-plugin/*` | Claude Code plugins reference | Verified live — `claude plugin validate . --strict` passes with 0 warnings; a family plugin installs and loads from a local marketplace replica |
+| `.codex-plugin/plugin.json`, `.agents/plugins/marketplace.json` | Codex plugin docs (`Package your plugin`) | Matches the documented entry point, field set, and repo-marketplace path. Not yet live-installed; see the plugin-local hooks caveat above |
+| root `marketplace.json` | Copilot / VS Code plugin marketplace docs | Legacy-format catalog, explicitly still supported alongside AP1. Not yet live-installed |
+| `gemini-extension.json` | Gemini CLI extensions docs | Follows the published schema. Google has joined the AP1 TSC but has published no migration for this file — keep both |
+| `apm.yml` | `microsoft/apm` schema **v0.1** | Pre-1.0 and the most likely to churn; re-check before publish |
+
+Re-check each against the vendor's current documentation before a marketplace
+publish. Manifests that fail live validation should be fixed here and
+re-released — none of them change how the ASF source release is built or
+signed.

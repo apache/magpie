@@ -71,7 +71,7 @@ mandatory ASF approval + announce mechanisms (`dev-list-vote`,
 | `git_upstream_remote` | `upstream` |
 | `release_planning_issue_template` | *(none — uses the `release-prepare` default template)* |
 | `release_branch_base` | `main` |
-| `version_manifest_files` | `pyproject.toml`, `uv.lock`, `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `.codex-plugin/plugin.json`, `gemini-extension.json`, `apm.yml`, and the ten generated `plugins/magpie-<family>/.claude-plugin/plugin.json` manifests |
+| `version_manifest_files` | `pyproject.toml`, `uv.lock`, `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `plugin.json` (Agent Plugins 1.0), `.codex-plugin/plugin.json`, `gemini-extension.json`, `apm.yml`, and the ten generated `plugins/magpie-<family>/.claude-plugin/plugin.json` manifests |
 
 `pyproject.toml`'s `project.version` is the **single authority** for the
 framework version; every other file above mirrors it verbatim, including a
@@ -80,11 +80,15 @@ Dev versions are never published to a marketplace, so the PEP 440 suffix never
 reaches a consumer — and keeping one identical string across every manifest is
 what lets the Step 2a bump work as a single literal search/replace.
 
+`uv.lock` is the one entry `--fix` does **not** touch: it carries the version
+because it locks this workspace's own package, and it is refreshed by
+`uv lock` (which the Step 2a bump runs), not by the manifest propagation below.
+
 The version flows outward in two hops, neither of them hand-edited:
 
-1. `pyproject.toml` → the four ecosystem manifests
-   (`.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`,
-   `gemini-extension.json`, `apm.yml`);
+1. `pyproject.toml` → the five ecosystem manifests
+   (`.claude-plugin/plugin.json`, the Agent Plugins 1.0 `plugin.json`,
+   `.codex-plugin/plugin.json`, `gemini-extension.json`, `apm.yml`);
 2. `.claude-plugin/plugin.json` → the ten generated
    `plugins/magpie-<family>/.claude-plugin/plugin.json` manifests and the
    family entries in `.claude-plugin/marketplace.json`, which also inherit

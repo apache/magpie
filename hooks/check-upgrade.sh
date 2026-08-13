@@ -3,8 +3,9 @@
 # https://www.apache.org/licenses/LICENSE-2.0
 #
 # Session-start hook for the Apache Magpie plugin. Wired by the Claude Code
-# plugin (SessionStart) and — best-effort, pending schema verification — by
-# the Codex CLI plugin, where a session hook is available.
+# plugin (SessionStart) and by the Codex CLI plugin, which uses the same event
+# schema. Agent Plugins 1.0 defines no hook component, so an AP1-only client
+# does not run this at all — see docs/setup/marketplaces.md.
 #
 # Detects when the installed plugin version has changed since the last
 # session (i.e. the marketplace updated it) and prompts the user to run
@@ -24,12 +25,24 @@ set -euo pipefail
 # Drain any event JSON delivered on stdin (unused).
 cat >/dev/null 2>&1 || true
 
-root="${CLAUDE_PLUGIN_ROOT:-${CODEX_PLUGIN_ROOT:-.}}"
-data="${CLAUDE_PLUGIN_DATA:-${CODEX_PLUGIN_DATA:-$root/.magpie-state}}"
+# Claude Code exports `CLAUDE_PLUGIN_ROOT` / `CLAUDE_PLUGIN_DATA` to hook
+# processes; Codex exports `PLUGIN_ROOT` / `PLUGIN_DATA` (the Agent Plugins 1.0
+# names) *and* the `CLAUDE_*` pair for compatibility. There is no
+# `CODEX_PLUGIN_ROOT`.
+root="${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-.}}"
 
-# Read the plugin version from whichever manifest is present.
+# The final fallback is the XDG state dir — never a path inside `$root`, which
+# for a `marketplace add` install (or this repo's own local marketplace) is a
+# git working tree, and which a plugin update may replace wholesale.
+data="${CLAUDE_PLUGIN_DATA:-${PLUGIN_DATA:-${XDG_STATE_HOME:-$HOME/.local/state}/magpie}}"
+
+# Read the plugin version from whichever manifest is present. The root
+# `plugin.json` is the Agent Plugins 1.0 manifest; the two client-specific
+# manifests carry the same version string (enforced by
+# `tools/dev/check-family-plugins.py`), so the order only matters for which
+# file is read, not for the value.
 manifest=""
-for m in "$root/.claude-plugin/plugin.json" "$root/.codex-plugin/plugin.json"; do
+for m in "$root/.claude-plugin/plugin.json" "$root/.codex-plugin/plugin.json" "$root/plugin.json"; do
   [ -f "$m" ] && { manifest="$m"; break; }
 done
 [ -n "$manifest" ] || exit 0
@@ -45,10 +58,15 @@ if [ "$current" != "$stored" ]; then
   mkdir -p "$data" 2>/dev/null || true
   printf '%s' "$current" >"$marker" 2>/dev/null || true
 
+  # stdout, not stderr: for a `SessionStart` hook exiting 0, Claude Code adds
+  # stdout to the session context (stderr on a zero exit only reaches the debug
+  # log). Writing the prompt to stderr would deliver it to nobody — and because
+  # the marker is written first, the next session would see no change and stay
+  # silent too.
   if [ -n "$stored" ]; then
-    echo "Apache Magpie plugin updated ($stored -> $current). If this repo adopts Magpie, run \`/magpie-setup upgrade\` to reconcile the snapshot, agentic overrides, and drift." >&2
+    echo "Apache Magpie plugin updated ($stored -> $current). If this repo adopts Magpie, run \`/magpie-setup upgrade\` to reconcile the snapshot, agentic overrides, and drift."
   else
-    echo "Apache Magpie plugin $current is active. If this repo already adopts Magpie, run \`/magpie-setup upgrade\` to reconcile; otherwise run \`/magpie-setup\` to adopt." >&2
+    echo "Apache Magpie plugin $current is active. If this repo already adopts Magpie, run \`/magpie-setup upgrade\` to reconcile; otherwise run \`/magpie-setup\` to adopt."
   fi
 fi
 

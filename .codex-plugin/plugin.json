@@ -9,7 +9,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CODEX_PLUGIN_ROOT}/hooks/check-upgrade.sh",
+            "command": "${PLUGIN_ROOT}/hooks/check-upgrade.sh",
             "timeout": 10
           }
         ]

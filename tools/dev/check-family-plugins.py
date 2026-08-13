@@ -7,12 +7,15 @@ the source of truth.
 Checks that every plugin is properly defined:
 
 - every ecosystem manifest that declares the framework version
-  (`.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`,
-  `gemini-extension.json`, `apm.yml`) mirrors `pyproject.toml`'s
-  `project.version` verbatim — including a `.devN` suffix;
+  (`.claude-plugin/plugin.json`, the Agent Plugins 1.0 `plugin.json`,
+  `.codex-plugin/plugin.json`, `gemini-extension.json`, `apm.yml`) mirrors
+  `pyproject.toml`'s `project.version` verbatim — including a `.devN` suffix;
 - the all-in-one `magpie` manifest (`.claude-plugin/plugin.json`) names itself
   correctly, declares `skills: ./skills`, and wires the `hooks/check-upgrade.sh`
   SessionStart hook (which must exist);
+- the root `plugin.json` conforms to Agent Plugins 1.0 — the pinned `$schema`,
+  the name pattern, the closed ten-field set (so a Claude-only component path
+  never leaks in), and the same shared metadata as the Claude manifest;
 - every `.claude-plugin/marketplace.json` entry resolves to a matching,
   uniquely-named `plugin.json` and carries the root manifest's version;
 - for every family declared in a skill's `family:` frontmatter there is a
@@ -46,6 +49,33 @@ ROOT_MANIFEST = Path(".claude-plugin/plugin.json")  # the all-in-one `magpie` pl
 HOOK_SCRIPT = Path("hooks/check-upgrade.sh")  # referenced by the all-in-one plugin hook
 SYMLINK_TARGET = "../../../skills/{skill}"  # relative to plugins/magpie-<f>/skills/
 
+# The vendor-neutral Agent Plugins 1.0 manifest for the same all-in-one plugin.
+# It lives at the repo root (the spec permits no alternative location) and is
+# read by VS Code / Copilot, which auto-detect the format from the root manifest
+# and treat the `$schema` value as the AP1 marker. Its schema is *closed*: only
+# the ten fields below are permitted, so component paths (`skills`, `hooks`)
+# must NOT appear — AP1 fixes skills at `skills/` and defines no hook component.
+AP1_MANIFEST = Path("plugin.json")
+AP1_SCHEMA = "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json"
+AP1_FIELDS = frozenset(
+    {
+        "$schema",
+        "name",
+        "version",
+        "description",
+        "author",
+        "homepage",
+        "repository",
+        "license",
+        "keywords",
+        "extensions",
+    }
+)
+AP1_AUTHOR_FIELDS = frozenset({"name", "email", "url"})
+# `name`: 1–64 chars, lowercase alphanumeric plus `-`/`.`, no `--`/`..`,
+# alphanumeric at both ends.
+AP1_NAME_RE = re.compile(r"^(?!.*(?:--|\.\.))[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$")
+
 # `pyproject.toml` is the single authority for the framework version — it is what
 # the post-release `chore: bump version` commit edits. Every ecosystem manifest
 # mirrors that string verbatim (including a `.devN` suffix), so `release-prepare`
@@ -54,6 +84,7 @@ SYMLINK_TARGET = "../../../skills/{skill}"  # relative to plugins/magpie-<f>/ski
 PYPROJECT = Path("pyproject.toml")
 ECOSYSTEM_MANIFESTS = (
     ROOT_MANIFEST,
+    AP1_MANIFEST,
     Path(".codex-plugin/plugin.json"),
     Path("gemini-extension.json"),
     Path("apm.yml"),
@@ -181,6 +212,66 @@ def check_ecosystem_versions(version: str) -> list[str]:
     return errors
 
 
+def validate_ap1_manifest(inherited: dict | None = None) -> list[str]:
+    """The root `plugin.json` conforms to Agent Plugins 1.0.
+
+    Enforced here rather than by a JSON-Schema dependency: the schema is small,
+    closed, and the failure we actually care about is someone copying a
+    Claude-only field (`skills`, `hooks`, `mcpServers`) into it, which AP1
+    clients reject as a fatal manifest error rather than ignore.
+    """
+    if not AP1_MANIFEST.is_file():
+        return [f"{AP1_MANIFEST}: missing (Agent Plugins 1.0 manifest)"]
+    data, err = load_json(AP1_MANIFEST)
+    if err:
+        return [err]
+    errors: list[str] = []
+
+    if data.get("$schema") != AP1_SCHEMA:
+        errors.append(
+            f"{AP1_MANIFEST}: '$schema' is {data.get('$schema')!r}, expected {AP1_SCHEMA!r} "
+            f"(without it, VS Code/Copilot fall back to the legacy format)"
+        )
+    name = data.get("name")
+    if name != "magpie":
+        errors.append(f"{AP1_MANIFEST}: name is {name!r}, expected 'magpie'")
+    elif not AP1_NAME_RE.match(name):
+        errors.append(f"{AP1_MANIFEST}: name {name!r} violates the AP1 name pattern")
+
+    extra = sorted(set(data) - AP1_FIELDS)
+    if extra:
+        errors.append(
+            f"{AP1_MANIFEST}: {', '.join(repr(k) for k in extra)} not permitted — "
+            f"the AP1 manifest schema is closed to {len(AP1_FIELDS)} fields "
+            f"(client-specific data belongs in 'extensions' or the client's own manifest)"
+        )
+
+    author = data.get("author")
+    if author is not None:
+        if not isinstance(author, dict):
+            errors.append(f"{AP1_MANIFEST}: 'author' must be an object")
+        else:
+            bad = sorted(set(author) - AP1_AUTHOR_FIELDS)
+            if bad:
+                errors.append(
+                    f"{AP1_MANIFEST}: author has {', '.join(repr(k) for k in bad)}; "
+                    f"AP1 permits only {', '.join(sorted(AP1_AUTHOR_FIELDS))}"
+                )
+
+    # AP1 fixes the skills location; there is no manifest field to point
+    # elsewhere, so the real `skills/` tree is what any AP1 client will load.
+    if not SKILLS.is_dir():
+        errors.append(f"{SKILLS}: missing — AP1 clients discover skills only here")
+
+    for key, want in (inherited or {}).items():
+        if data.get(key) != want:
+            errors.append(
+                f"{AP1_MANIFEST}: {key!r} is {data.get(key)!r}, expected {want!r} "
+                f"(inherited from {ROOT_MANIFEST})"
+            )
+    return errors
+
+
 def root_metadata() -> tuple[dict, list[str]]:
     """The subset of the all-in-one manifest that the family plugins inherit."""
     data, err = load_json(ROOT_MANIFEST)
@@ -222,6 +313,7 @@ def check(fam: dict[str, set[str]]) -> list[str]:
     # 1) The all-in-one `magpie` plugin: well-formed manifest, listed, and its
     #    SessionStart hook script is present + referenced.
     errors += validate_manifest(ROOT_MANIFEST, "magpie")
+    errors += validate_ap1_manifest(shared)
     if "magpie" not in listed:
         errors.append(f"{MARKETPLACE}: missing the all-in-one 'magpie' plugin entry")
     if not HOOK_SCRIPT.is_file():
