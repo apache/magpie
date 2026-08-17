@@ -192,15 +192,38 @@ update_settings() {
   # .gitignore — if we land here without that entry in place, the
   # adopter setup is incomplete and the user should fix the
   # .gitignore first.
-  if ( cd "$(dirname "$file")" 2>/dev/null \
-       && git check-ignore -q "$file" 2>/dev/null ); then
-    : # ignored — safe to write
-  elif [ -d "$(dirname "$file")/.." ] \
-       && git -C "$(dirname "$file")" rev-parse --show-toplevel >/dev/null 2>&1; then
-    # Inside a git repo and check-ignore returned non-zero (path
-    # is not ignored). Refuse to write.
-    warn "$file is not gitignored — refusing to write. Add /.claude/settings.local.json to the adopter's .gitignore and re-run."
-    return 0
+  #
+  # Both git calls below run the repo discovery themselves, from the
+  # repo root, with the hook environment stripped. That matters: git
+  # hooks export GIT_DIR, and with GIT_DIR set but no GIT_WORK_TREE
+  # git treats the *current directory* as the work-tree root. Any
+  # check run from a subdirectory would then evaluate a root-anchored
+  # pattern like `/.claude/settings.local.json` against `.claude/` as
+  # the root, where it cannot match — so the check reported "not
+  # ignored" for a correctly-ignored file on every invocation from a
+  # hook (post-checkout, post-merge, …), and the helper refused to
+  # write. See the regression tests in
+  # tests/test_sandbox_add_project_root.py.
+  local git_env root probe
+  git_env="env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE"
+
+  # `.claude/` may not exist yet, so discover from the nearest
+  # existing ancestor rather than from the file's own parent.
+  probe=$(dirname "$file")
+  while [ ! -d "$probe" ] && [ "$probe" != "/" ] && [ "$probe" != "." ]; do
+    probe=$(dirname "$probe")
+  done
+
+  root=$($git_env git -C "$probe" rev-parse --show-toplevel 2>/dev/null) || root=""
+
+  if [ -n "$root" ]; then
+    if $git_env git -C "$root" check-ignore -q "$file" 2>/dev/null; then
+      : # ignored — safe to write
+    else
+      # Inside a git repo and the path is genuinely not ignored.
+      warn "$file is not gitignored — refusing to write. Add /.claude/settings.local.json to the adopter's .gitignore and re-run."
+      return 0
+    fi
   fi
   # If the parent dir is not in any git repo, we are running under a
   # caller that already verified that. Allow the write to proceed.
