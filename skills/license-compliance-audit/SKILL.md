@@ -265,12 +265,17 @@ Any NOTICE file that lacks either element is classified `INCOMPLETE-NOTICE`.
 **SPDX expression matching:**
 
 Compare the expression extracted from source file headers against the
-declared SPDX expression after trimming surrounding whitespace. Do not
-normalise punctuation, internal whitespace, or case: `Apache-2.0` is the
-canonical identifier, while `Apache 2.0` is not a valid SPDX identifier and
-must be classified as `WRONG-SPDX-HEADER`. Do not flag decorative prefixes
-such as `// SPDX-License-Identifier: Apache-2.0` — compare only the
-expression after `SPDX-License-Identifier:`.
+declared SPDX expression after trimming surrounding whitespace. The
+comparison **is** case-insensitive, because the SPDX specification requires
+it: identifiers "should be matched in a case-insensitive manner. MIT, Mit and
+mIt should all be treated as the same identifier"
+([SPDX 2.3 Annex D](https://spdx.github.io/spdx-spec/v2.3/SPDX-license-expressions/);
+SPDX 3.x makes expressions case-insensitive throughout). Do **not** normalise
+punctuation or internal whitespace: `Apache-2.0` is the canonical identifier,
+while `Apache 2.0` is not a valid SPDX identifier at all and must be
+classified as `WRONG-SPDX-HEADER`. Do not flag decorative prefixes such as
+`// SPDX-License-Identifier: Apache-2.0` — compare only the expression after
+`SPDX-License-Identifier:`.
 
 **Auto-generated or third-party files:**
 
