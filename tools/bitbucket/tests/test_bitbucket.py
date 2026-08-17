@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import urllib.request
+from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -28,6 +29,7 @@ from magpie_bitbucket import cloud, datacenter
 from magpie_bitbucket.cli import main
 from magpie_bitbucket.client import BitbucketError, SameHostRedirectHandler, load_config, make_auth_header
 from magpie_bitbucket.normalize import (
+    created_issue_comment,
     issue,
     issue_attachments,
     issue_comments,
@@ -2579,3 +2581,166 @@ def test_cli_pr_task_cloud(
     output = json.loads(capsys.readouterr().out)
     assert output["pull_request_id"] == "7"
     assert output["task"]["id"] == "11"
+
+
+@patch("urllib.request.build_opener")
+def test_cloud_create_issue_comment_posts_json(
+    mock_build_opener: MagicMock,
+    cloud_env: None,
+) -> None:
+    opener = mock_opener(
+        mock_build_opener,
+        {
+            "id": 501,
+            "content": {"raw": "Confirmed comment."},
+            "user": {"display_name": "Alice"},
+            "deleted": False,
+        },
+    )
+
+    result = cloud.create_issue_comment(
+        load_config(),
+        "7",
+        "Confirmed comment.",
+    )
+
+    request = opener.open.call_args.args[0]
+    assert request.full_url == ("https://api.bitbucket.org/2.0/repositories/apache/magpie/issues/7/comments")
+    assert request.get_method() == "POST"
+    assert request.get_header("Content-type") == "application/json"
+    assert json.loads(request.data.decode("utf-8")) == {"content": {"raw": "Confirmed comment."}}
+    assert result["issue_id"] == "7"
+    assert result["comment"]["id"] == 501
+
+
+def test_datacenter_create_issue_comment_unsupported(
+    datacenter_env: None,
+) -> None:
+    with pytest.raises(
+        BitbucketError,
+        match="Data Center native issue comment writes are not supported",
+    ):
+        datacenter.create_issue_comment(
+            load_config(),
+            "7",
+            "Confirmed comment.",
+        )
+
+
+def test_normalize_created_cloud_issue_comment() -> None:
+    normalized = created_issue_comment(
+        "cloud",
+        {
+            "issue_id": "7",
+            "comment": {
+                "id": 501,
+                "content": {"raw": "Confirmed comment."},
+                "user": {"display_name": "Alice"},
+                "created_on": "2026-08-10T00:00:00Z",
+                "deleted": False,
+                "links": {"html": {"href": ("https://bitbucket.org/apache/magpie/issues/7#comment-501")}},
+            },
+        },
+    )
+
+    assert normalized["ok"] is True
+    assert normalized["backend"] == "bitbucket-cloud"
+    assert normalized["operation"] == "issue-comment-create"
+    assert normalized["issue_id"] == "7"
+    assert normalized["comment"]["id"] == "501"
+    assert normalized["comment"]["author"] == "Alice"
+    assert normalized["comment"]["body"] == "Confirmed comment."
+
+
+@patch("magpie_bitbucket.cloud.create_issue_comment")
+def test_cli_issue_comment_cloud(
+    mock_create_issue_comment: MagicMock,
+    cloud_env: None,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    body_file = tmp_path / "comment.txt"
+    body_file.write_text("Confirmed comment.", encoding="utf-8")
+
+    mock_create_issue_comment.return_value = {
+        "issue_id": "7",
+        "comment": {
+            "id": 501,
+            "content": {"raw": "Confirmed comment."},
+            "user": {"display_name": "Alice"},
+            "deleted": False,
+        },
+    }
+
+    exit_code = main(
+        [
+            "issue",
+            "comment",
+            "7",
+            "--body-file",
+            str(body_file),
+        ]
+    )
+
+    assert exit_code == 0
+    mock_create_issue_comment.assert_called_once_with(
+        load_config(),
+        "7",
+        "Confirmed comment.",
+    )
+
+    output = json.loads(capsys.readouterr().out)
+    assert output["ok"] is True
+    assert output["operation"] == "issue-comment-create"
+    assert output["comment"]["id"] == "501"
+
+
+@patch("magpie_bitbucket.cloud.create_issue_comment")
+def test_cli_issue_comment_rejects_empty_body_before_write(
+    mock_create_issue_comment: MagicMock,
+    cloud_env: None,
+    tmp_path: Path,
+) -> None:
+    body_file = tmp_path / "empty.txt"
+    body_file.write_text("   ", encoding="utf-8")
+
+    with pytest.raises(
+        BitbucketError,
+        match="Comment body file must not be empty",
+    ):
+        main(
+            [
+                "issue",
+                "comment",
+                "7",
+                "--body-file",
+                str(body_file),
+            ]
+        )
+
+    mock_create_issue_comment.assert_not_called()
+
+
+@patch("magpie_bitbucket.cloud.create_issue_comment")
+def test_cli_issue_comment_missing_body_file_before_write(
+    mock_create_issue_comment: MagicMock,
+    cloud_env: None,
+    tmp_path: Path,
+) -> None:
+    missing = tmp_path / "missing.txt"
+
+    with pytest.raises(
+        BitbucketError,
+        match="Body file not found",
+    ):
+        main(
+            [
+                "issue",
+                "comment",
+                "7",
+                "--body-file",
+                str(missing),
+            ]
+        )
+
+    mock_create_issue_comment.assert_not_called()

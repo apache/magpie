@@ -143,6 +143,21 @@ def issue_list(kind: str, raw: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def created_issue_comment(kind: str, raw: dict[str, Any]) -> dict[str, Any]:
+    """Normalize the result of creating one Bitbucket issue comment."""
+    comment = raw.get("comment")
+    normalized = _cloud_issue_comment(comment) if kind == "cloud" and isinstance(comment, dict) else {}
+
+    return {
+        "ok": bool(normalized),
+        "backend": "bitbucket-cloud" if kind == "cloud" else "bitbucket-datacenter",
+        "operation": "issue-comment-create",
+        "issue_id": _string(raw.get("issue_id")),
+        "comment": normalized,
+        "raw": raw,
+    }
+
+
 def issue_comments(kind: str, raw: dict[str, Any]) -> dict[str, Any]:
     """Normalize read-only Bitbucket issue comments."""
     values = raw.get("values")

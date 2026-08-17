@@ -93,6 +93,20 @@ def get_issue(config: BitbucketConfig, issue_id: str) -> dict[str, Any]:
     raise BitbucketError(msg)
 
 
+def create_issue_comment(
+    config: BitbucketConfig,
+    issue_id: str,
+    body: str,
+) -> dict[str, Any]:
+    """Reject native Bitbucket issue comment creation for Data Center."""
+    _ = (config, issue_id, body)
+    msg = (
+        "Bitbucket Data Center native issue comment writes are not supported; "
+        "use linked Jira coverage instead."
+    )
+    raise BitbucketError(msg)
+
+
 def get_issue_comments(config: BitbucketConfig, issue_id: str) -> dict[str, Any]:
     """Reject native Bitbucket issue comment fetch for Data Center."""
     _ = (config, issue_id)
