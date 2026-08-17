@@ -5,6 +5,7 @@
   "missing_license_file": false,
   "missing_notice_file": true,
   "incomplete_notice": false,
+  "uninspected_spdx_count": 0,
   "missing_spdx_count": 8,
   "wrong_spdx_count": 2,
   "proposes_autopilot_fix": false,

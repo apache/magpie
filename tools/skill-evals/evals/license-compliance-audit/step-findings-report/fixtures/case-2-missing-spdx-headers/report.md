@@ -21,6 +21,6 @@ Files missing SPDX header: 23
   - ui/src/utils/floppyNavigation.ts
   - ui/src/pages/Questions/Detail/index.tsx
   - ui/src/pages/Users/Personal/index.tsx
-  ... (18 more in /tmp/lca-missing-spdx.txt)
+  ... (18 more not shown)
 Files with wrong SPDX expression: 0
 Auto-generated files excluded: 6
