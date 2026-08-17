@@ -14,7 +14,7 @@ Messages (chronological):
      minute. A typical DAG looks like:
 
      ```python
-     with DAG('etl_daily', schedule_interval='@daily') as dag:
+     with DAG("etl_daily", schedule_interval="@daily") as dag:
          ...
      ```
 
