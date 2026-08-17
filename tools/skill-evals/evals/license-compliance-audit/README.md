@@ -5,12 +5,12 @@
 
 Behavioral evals for the `license-compliance-audit` skill.
 
-## Suites (8 cases total)
+## Suites (9 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
 | step-scope-selection | Scope selection | 4 | explicit repo, ambiguous scope, prompt injection ignored, local path |
-| step-findings-report | Findings classification and report discipline | 4 | clean repo, missing SPDX headers, incomplete NOTICE, no autopilot-fix |
+| step-findings-report | Findings classification and report discipline | 5 | clean repo, missing SPDX headers, incomplete NOTICE, no autopilot-fix, large-blob and canonical-SPDX handling |
 
 ## Run
 
@@ -43,4 +43,7 @@ classes (`MISSING-LICENSE-FILE`, `MISSING-NOTICE-FILE`, `INCOMPLETE-NOTICE`,
 `MISSING-SPDX-HEADER`, `WRONG-SPDX-HEADER`), groups them by severity, and
 never proposes to apply changes autonomously. The suite also checks that
 a clean repo produces a zero-findings report and that the skill does not
-offer to auto-fix anything without explicit human confirmation.
+offer to auto-fix anything without explicit human confirmation. The
+large-blob case checks that unavailable GitHub content is reported as
+uninspected instead of missing and that noncanonical SPDX tokens are
+classified as wrong headers.

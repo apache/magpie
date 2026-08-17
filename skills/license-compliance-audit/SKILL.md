@@ -178,13 +178,23 @@ For repositories with more than 300 matching source files, sample a
 representative 300 (prioritise files in `src/`, the root, and any
 `main.*` or `app.*` file) and note the sampling in the report.
 
-To inspect headers for a sample:
+To inspect headers for a sample, request the raw media type instead of
+decoding the contents API's JSON response. The JSON form omits inline content
+for blobs larger than about 1 MiB (`encoding: "none"`), while the raw media
+type supports files up to the contents API's maximum size. If the raw fetch
+fails, record the file as **uninspected** and continue. An unavailable API
+response is never evidence that the source file lacks an SPDX header.
 
 ```bash
-# For each file, fetch the first 10 lines via the API
-# (batch up to 20 parallel requests)
-gh api repos/<upstream>/contents/<file_path> \
-  --jq '.content' | base64 --decode | head -10 | grep "SPDX-License-Identifier"
+# Run once per file (batch up to 20 parallel requests).
+if raw=$(gh api \
+  -H "Accept: application/vnd.github.raw+json" \
+  "repos/<upstream>/contents/<file_path>" 2>/dev/null); then
+  header=$(printf '%s' "$raw" | awk 'NR <= 10')
+  printf '%s\n' "$header" | grep -F "SPDX-License-Identifier"
+else
+  printf 'UNINSPECTED\t%s\n' "<file_path>"
+fi
 ```
 
 ### Local checkout
@@ -238,6 +248,11 @@ has at least one instance; omit classes with zero findings.
 | `MISSING-SPDX-HEADER` | low | Source file whose first 10 lines contain no `SPDX-License-Identifier:` line |
 | `WRONG-SPDX-HEADER` | medium | Source file has an `SPDX-License-Identifier:` line whose expression does not match the declared license |
 
+A source file whose contents could not be fetched is an audit coverage gap,
+not a `MISSING-SPDX-HEADER` finding. Track it as **uninspected**, exclude it
+from the missing/wrong counts, and surface its path and fetch failure in the
+scope/coverage part of the report.
+
 **NOTICE file completeness check (when declared license is Apache-2.0):**
 
 A minimal NOTICE file for Apache-2.0 must contain:
@@ -250,10 +265,12 @@ Any NOTICE file that lacks either element is classified `INCOMPLETE-NOTICE`.
 **SPDX expression matching:**
 
 Compare the expression extracted from source file headers against the
-declared expression. The comparison is case-insensitive and treats
-`Apache-2.0` and `Apache 2.0` as equivalent. Do not flag decorative
-prefixes such as `// SPDX-License-Identifier: Apache-2.0` — only the
-expression token matters.
+declared SPDX expression after trimming surrounding whitespace. Do not
+normalise punctuation, internal whitespace, or case: `Apache-2.0` is the
+canonical identifier, while `Apache 2.0` is not a valid SPDX identifier and
+must be classified as `WRONG-SPDX-HEADER`. Do not flag decorative prefixes
+such as `// SPDX-License-Identifier: Apache-2.0` — compare only the
+expression after `SPDX-License-Identifier:`.
 
 **Auto-generated or third-party files:**
 
@@ -269,8 +286,9 @@ checks (they are generated; headers may be injected separately).
 
 Present findings in a structured report with this order:
 
-1. **Scope scanned** — repo or path, branch, total source files inspected
-   (and sample size if a sample was used), date of scan.
+1. **Scope scanned** — repo or path, branch, total source candidates,
+   source files inspected, any uninspected files (with the fetch failure),
+   sample size if sampling was used, and date of scan.
 2. **Root license artifacts** — LICENSE file: found / missing; NOTICE
    file: found / missing / incomplete (with specific gaps).
 3. **Source file SPDX coverage** — `N of M files have a correct SPDX
@@ -284,8 +302,13 @@ Present findings in a structured report with this order:
    MISSING-LICENSE-FILE   | high   | 1     | repo root
    INCOMPLETE-NOTICE      | medium | 1     | Missing product-name line
    WRONG-SPDX-HEADER      | medium | 2     | src/foo.py (MIT), lib/bar.go (GPL-2.0)
-   MISSING-SPDX-HEADER    | low    | 14    | (list first 5; remainder in /tmp/lca-missing-spdx.txt)
+   MISSING-SPDX-HEADER    | low    | 14    | (list first 5; 9 more not shown)
    ```
+
+   For a **local checkout scan**, the final column may cite
+   `/tmp/lca-missing-spdx.txt`, because that scan path writes the artifact.
+   For a **GitHub repo scan**, never cite that local-only path; list the first
+   five paths and state how many additional findings were omitted.
 
 5. **Proposed remedies** — one action bullet per finding class:
    - `MISSING-LICENSE-FILE` → `curl -fsSL https://www.apache.org/licenses/LICENSE-2.0.txt > LICENSE`
@@ -327,6 +350,7 @@ skill does not provide).
 | `gh` returns 404 | Repo not found or `gh` not authenticated | Run `gh auth login` and verify repo name |
 | Tree API returns empty list | Empty repo or branch has no files | Surface to user and stop |
 | NOTICE fetch fails | NOTICE not found (flagged as `MISSING-NOTICE-FILE`) | Expected; classify accordingly |
+| Contents API JSON returns `encoding: "none"` or the raw request rejects a large blob | File is too large for inline JSON output or exceeds the contents API limit | Use the raw media type; if that fails, report the file as uninspected and do not classify it as missing SPDX |
 | Source file fetch times out | Large repo; API rate-limit | Switch to local checkout mode; clone the repo first |
 | 300-file cap reached | Very large repository | Surface cap, report findings on the sample, note unseen coverage |
 

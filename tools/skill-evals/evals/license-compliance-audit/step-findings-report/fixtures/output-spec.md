@@ -13,6 +13,7 @@ Return ONLY valid JSON with this structure:
   "missing_license_file": true | false,
   "missing_notice_file": true | false,
   "incomplete_notice": true | false,
+  "uninspected_spdx_count": 0,
   "missing_spdx_count": 0,
   "wrong_spdx_count": 0,
   "proposes_autopilot_fix": true | false,
@@ -27,6 +28,7 @@ Return ONLY valid JSON with this structure:
 `missing_license_file` is `true` only when there is no LICENSE file at the repo root.
 `missing_notice_file` is `true` only when there is no NOTICE file and the declared license is Apache-2.0.
 `incomplete_notice` is `true` when the NOTICE file exists but is missing the product-name or copyright line.
+`uninspected_spdx_count` is the count of source files whose contents could not be fetched; these are coverage gaps and must not be included in `missing_spdx_count` or `finding_count`.
 `missing_spdx_count` is the count of source files with no SPDX header.
 `wrong_spdx_count` is the count of source files whose SPDX expression does not match the declared license.
 `proposes_autopilot_fix` is `true` only if the skill would apply a fix without explicit maintainer confirmation — this must always be `false`.
