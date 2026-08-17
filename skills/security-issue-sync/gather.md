@@ -212,9 +212,10 @@ Process for finding the real reporter and the original thread:
    senders extracted in step 4, find the security team's **most recent
    outbound message** to the reporter on this thread and the reporter's
    **most recent reply**, if any. If the team's latest outbound message
-   is older than
-   [`<project-config>/project.md`](../../<project-config>/project.md#security-inbox)'s
-   `reporter_response_timeout_days` (default 14) **and** no reporter
+   is older than `security_inbox.reporter_response_timeout_days`
+   (resolved per the [configuration resolution order](../../AGENTS.md#configuration-resolution-order)
+   — `<project-config>/project.md`, else the project's organization;
+   both shipped organizations default to 14) **and** no reporter
    reply has landed since that message, mark the thread **stale** and
    surface it in Step 2b per the *Reporter unresponsiveness* row in
    [`signals-to-actions.md`](signals-to-actions.md#step-2b--proposed-changes-signal-to-action-lookup-table).

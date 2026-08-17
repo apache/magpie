@@ -112,8 +112,9 @@ not block the project team from moving to the next steps, particularly
 if an issue is of high severity or impact. `security-issue-sync` tracks
 this for you: when the security team's last outbound message on the
 reporter thread is older than the project's configurable
-`reporter_response_timeout_days` (declared in
-`<project-config>/project.md` → *Security inbox*, default 14 days) and
+`security_inbox.reporter_response_timeout_days` (declared by the
+project's organization — 14 days in both the ones Magpie ships — and
+overridable in `<project-config>/project.md`) and
 no reply has landed since, sync surfaces an explicit proposal item
 asking whether to proceed with the fix and announcement without
 further reporter sign-off. Confirming that proposal is a normal part

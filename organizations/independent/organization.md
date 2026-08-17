@@ -90,6 +90,7 @@ security_inbox:
   foundation_security_address: null
   has_forwarder_relay: false
   list_filter_query: null
+  reporter_response_timeout_days: 14  # days of reporter silence before sync proposes proceeding
 ```
 
 ## Forwarders / mail / archive / metadata — all off

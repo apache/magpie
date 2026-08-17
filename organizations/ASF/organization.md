@@ -116,6 +116,7 @@ security_inbox:
   foundation_security_address: security@apache.org   # ASF security team forwards reports here
   has_forwarder_relay: true
   list_filter_query: "list:<security-list-domain>"
+  reporter_response_timeout_days: 14   # ASF policy: a silent reporter must not block the team
 ```
 
 ## Forwarders

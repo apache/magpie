@@ -230,8 +230,9 @@ release schedule *with* the reporter when possible, but does not wait
 indefinitely for that agreement. `security-issue-sync` operationalises
 this: at every sync pass it checks the reporter thread for staleness
 (the security team's last outbound message older than
-`<project-config>/project.md`'s `reporter_response_timeout_days`,
-default 14, with no reply since) and, if stale, proposes proceeding
+`security_inbox.reporter_response_timeout_days` — declared by the
+project's organization, 14 in both the ones Magpie ships, overridable
+per project — with no reply since) and, if stale, proposes proceeding
 without further reporter sign-off as an explicit, user-confirmed
 proposal item — see [`security-issue-sync` Step 1c/2b](../../skills/security-issue-sync/gather.md#1c-find-the-real-reporter-and-read-the-mailing-list-thread).
 This never happens silently; the security team still confirms before

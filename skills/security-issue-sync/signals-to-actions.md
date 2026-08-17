@@ -1154,8 +1154,9 @@ will change and *why*. Group them by category:
   ([`gather.md` 1c step 5](gather.md#1c-find-the-real-reporter-and-read-the-mailing-list-thread))
   marks the reporter thread **stale** (the security team's latest
   outbound message is older than
-  [`<project-config>/project.md`](../../<project-config>/project.md#security-inbox)'s
-  `reporter_response_timeout_days`, default 14, with no reporter reply
+  `security_inbox.reporter_response_timeout_days` — resolved per the
+  [configuration resolution order](../../AGENTS.md#configuration-resolution-order),
+  14 in both shipped organizations — with no reporter reply
   since), propose a **numbered proposal item** — not a silent
   status-comment entry — with this exact shape:
 
