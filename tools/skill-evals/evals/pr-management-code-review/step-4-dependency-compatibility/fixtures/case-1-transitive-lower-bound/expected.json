@@ -7,10 +7,12 @@
       "mandatory_paths_checked": 2,
       "metadata_coverage": "exhaustive",
       "supported_incompatible_resolution": false,
-      "dependency_evidence": "The direct compat-core>=1.8.0 path and the query-base==1.32.0 transitive compat-core>=1.12.0,<1.15.0 path intersect at >=1.12.0,<1.15.0. The exhaustive supported-version matrix contains 1.12.0, 1.13.0, and 1.14.0; every version exports FeatureUnavailable, so no supported failing resolution exists and runtime compatibility is compatible."
+      "dependency_evidence": "The direct compat-core>=1.8.0 path and the query-base==1.32.0 transitive compat-core>=1.12.0,<1.15.0 path intersect at >=1.12.0,<1.15.0. The exhaustive supported-version matrix contains 1.12.0, 1.13.0, and 1.14.0; every version exports FeatureUnavailable, so no supported failing resolution exists and runtime compatibility is compatible.",
+      "suggestion": "Add the exact # use next version comment to the direct compat-core dependency; do not change its lower bound directly."
     }
   ],
   "has_dependency_evidence": true,
   "has_recommended_action": true,
+  "has_required_finding_fields": true,
   "has_complete_constraint_ledger": true
 }

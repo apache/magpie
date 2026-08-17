@@ -302,8 +302,7 @@ def main(argv: list[str] | None = None) -> int:
     path = Path(args.path).expanduser().resolve()
     if path.exists() and not args.force and any(path.iterdir()):
         raise SystemExit(
-            f"{path} already exists and is non-empty; "
-            "use --force to overwrite, or pick a different --path."
+            f"{path} already exists and is non-empty; use --force to overwrite, or pick a different --path."
         )
 
     path.mkdir(parents=True, exist_ok=True)
