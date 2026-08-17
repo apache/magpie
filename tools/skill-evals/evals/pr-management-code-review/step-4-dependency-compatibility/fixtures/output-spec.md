@@ -28,9 +28,10 @@ Return ONLY valid JSON with this structure:
 Rules:
 
 - Review dependency compatibility only; ignore unrelated categories.
-- `runtime_compatibility` is `broken` when a concrete supported resolution
-  cannot use the changed code, `compatible` when exhaustive evidence rules
-  out such a resolution, and `unknown` when partial evidence establishes
+- `runtime_compatibility` is `broken` when the effective intersection is
+  empty in any supported environment or when a concrete supported resolution
+  cannot use the changed code. It is `compatible` when exhaustive evidence
+  rules out both failures, and `unknown` when partial evidence establishes
   neither result.
 - `recommended_action` follows the supplied repository policy whether runtime
   compatibility is broken, compatible, or unknown. Never assume that broken
@@ -42,13 +43,14 @@ Rules:
   incompatibility even when the remaining coverage is `partial`. Do not call
   coverage exhaustive merely because a single counterexample is sufficient.
 - `supported_incompatible_resolution` is true only when concrete package
-  versions can satisfy every mandatory constraint and still lack the API.
+  versions can satisfy every mandatory constraint and still lack the API. It
+  is false for an empty intersection because no resolution exists.
 - `dependency_evidence` enumerates every mandatory direct and transitive
   constraint path, states their effective intersection and metadata coverage,
   and records the compatibility classification. It also gives either one
-  concrete supported failing resolution, an exhaustive justification that no
-  failing resolution exists, or a statement that partial evidence leaves
-  compatibility unknown.
+  concrete supported failing resolution, the conflicting paths that make an
+  intersection empty, an exhaustive justification that no failing resolution
+  exists, or a statement that partial evidence leaves compatibility unknown.
 - `reason` explains the observed compatibility or policy issue.
 - `suggestion` follows the repository policy supplied with the case.
 - Unknown runtime compatibility cannot support a runtime incompatibility

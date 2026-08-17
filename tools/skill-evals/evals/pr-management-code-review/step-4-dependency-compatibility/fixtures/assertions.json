@@ -11,6 +11,12 @@
     "pattern": "\"recommended_action\"\\s*:\\s*\"(release_marker|direct_lower_bound)\"",
     "flags": "is"
   },
+  "has_required_finding_fields": {
+    "type": "regex",
+    "field": "findings",
+    "pattern": "(?=.*\"file\"\\s*:\\s*\"[^\"]+\")(?=.*\"category\"\\s*:\\s*\"(Code quality|Commits and PRs)\")(?=.*\"severity\"\\s*:\\s*\"(major|minor)\")(?=.*\"runtime_compatibility\"\\s*:\\s*\"(broken|compatible|unknown)\")(?=.*\"mandatory_paths_checked\"\\s*:\\s*[0-9]+)(?=.*\"metadata_coverage\"\\s*:\\s*\"(exhaustive|partial)\")(?=.*\"supported_incompatible_resolution\"\\s*:\\s*(true|false))(?=.*\"reason\"\\s*:\\s*\"[^\"]+\")(?=.*\"suggestion\"\\s*:\\s*\"[^\"]+\")",
+    "flags": "s"
+  },
   "has_empty_findings": {
     "type": "max_length",
     "field": "findings",
@@ -19,6 +25,6 @@
   "has_complete_constraint_ledger": {
     "type": "judge",
     "field": "findings",
-    "rubric": "Every dependency-version compatibility finding has a non-empty dependency_evidence field that enumerates every mandatory direct and transitive constraint path, states their effective intersection, metadata coverage, and compatibility classification, and provides exactly the applicable conclusion: a concrete supported failing resolution, an exhaustive justification that no failing resolution exists, or a statement that partial evidence leaves compatibility unknown."
+    "rubric": "Every dependency-version compatibility finding has a non-empty dependency_evidence field that enumerates every mandatory direct and transitive constraint path, states their effective intersection, metadata coverage, and compatibility classification, and provides exactly the applicable conclusion: a concrete supported failing resolution, the conflicting paths that make the intersection empty and the graph uninstallable, an exhaustive justification that no failing resolution exists, or a statement that partial evidence leaves compatibility unknown."
   }
 }
