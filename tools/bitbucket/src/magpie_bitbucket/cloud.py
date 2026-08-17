@@ -22,7 +22,15 @@ from __future__ import annotations
 from typing import Any
 from urllib.parse import urlparse
 
-from magpie_bitbucket.client import BitbucketConfig, BitbucketError, get_json, get_text, quote_path, require
+from magpie_bitbucket.client import (
+    BitbucketConfig,
+    BitbucketError,
+    get_json,
+    get_text,
+    post_json,
+    quote_path,
+    require,
+)
 
 CLOUD_API_BASE = "https://api.bitbucket.org/2.0"
 
@@ -113,6 +121,28 @@ def get_issue(config: BitbucketConfig, issue_id: str) -> dict[str, Any]:
     issue = quote_path(issue_id)
     url = f"{CLOUD_API_BASE}/repositories/{workspace}/{repo_slug}/issues/{issue}"
     return get_json(url, config)
+
+
+def create_issue_comment(
+    config: BitbucketConfig,
+    issue_id: str,
+    body: str,
+) -> dict[str, Any]:
+    """Create one comment on a Bitbucket Cloud issue."""
+    workspace = quote_path(require(config.workspace, "BITBUCKET_WORKSPACE"))
+    repo_slug = quote_path(require(config.repo_slug, "BITBUCKET_REPO_SLUG"))
+    issue = quote_path(issue_id)
+    url = f"{CLOUD_API_BASE}/repositories/{workspace}/{repo_slug}/issues/{issue}/comments"
+
+    comment = post_json(
+        url,
+        config,
+        {"content": {"raw": body}},
+    )
+    return {
+        "issue_id": issue_id,
+        "comment": comment,
+    }
 
 
 def get_issue_comments(config: BitbucketConfig, issue_id: str) -> dict[str, Any]:

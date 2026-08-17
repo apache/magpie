@@ -189,6 +189,51 @@ def get_json(url: str, config: BitbucketConfig) -> dict[str, Any]:
         raise BitbucketError(f"Failed to parse JSON response from {url}") from exc
 
 
+def post_json(
+    url: str,
+    config: BitbucketConfig,
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    """POST JSON to a Bitbucket API URL and parse the JSON response."""
+    _require_https(url)
+    data = json.dumps(payload).encode("utf-8")
+    request = urllib.request.Request(
+        url,
+        data=data,
+        headers={
+            "Accept": "application/json",
+            "Authorization": make_auth_header(config),
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+
+    # Writes never follow redirects: repeating a mutation at a redirected
+    # location is less safe than failing and requiring the caller to retry.
+    opener = urllib.request.build_opener(NoAuthRedirectHandler)
+
+    try:
+        with opener.open(request, timeout=DEFAULT_TIMEOUT_SECONDS) as response:
+            body = response.read().decode("utf-8")
+            parsed = json.loads(body)
+            if not isinstance(parsed, dict):
+                raise BitbucketError(f"Expected JSON object from {url}")
+            return parsed
+    except BitbucketError:
+        raise
+    except urllib.error.HTTPError as exc:
+        message = _read_http_error(exc)
+        raise BitbucketError(f"Bitbucket request failed with HTTP {exc.code}: {message}") from exc
+    except urllib.error.URLError as exc:
+        raise BitbucketError(f"Failed to connect to Bitbucket: {exc.reason}") from exc
+    except TimeoutError as exc:
+        raise BitbucketError(
+            f"Timed out while connecting to Bitbucket after {DEFAULT_TIMEOUT_SECONDS}s"
+        ) from exc
+    except json.JSONDecodeError as exc:
+        raise BitbucketError(f"Failed to parse JSON response from {url}") from exc
+
+
 def get_text(url: str, config: BitbucketConfig, accept: str = "text/plain") -> dict[str, Any]:
     """GET a Bitbucket API URL and return a text response with metadata."""
     _require_https(url)
