@@ -307,14 +307,34 @@ governance:
 ### Security inbox
 
 Org-level except the concrete address: the inbox `kind`, the foundation
-security address, the `has_forwarder_relay` flag, and the list filter are
-inherited. Declare this project's inbound address:
+security address, the `has_forwarder_relay` flag, the list filter, and
+the reporter-response timeout are inherited. Declare this project's
+inbound address:
 
 ```yaml
 security_inbox:
   # The concrete inbound address / channel ID / form URL for this project.
   # Consumed by: security-issue-import, security-issue-sync, canned-responses.
   address: <security-list>
+```
+
+**Optional override — `reporter_response_timeout_days`.** Days of
+reporter silence, counted from the security team's most recent outbound
+message on the reporter thread, before `security-issue-sync` proposes
+proceeding with the fix and announcement without further reporter
+sign-off. Per
+[ASF policy](https://www.apache.org/security/committers.html), an
+unresponsive reporter must not block the project team, particularly for
+a high-severity or high-impact issue. Your organization declares the
+default (14 days for both `ASF` and `independent`); add the key here only
+to depart from it — a project handling especially sensitive reports may
+want a longer window, one under heavy report volume a shorter one.
+Consumed by `security-issue-sync` (Step 1c staleness check / Step 2b
+proposal).
+
+```yaml
+security_inbox:
+  reporter_response_timeout_days: 21   # only if your project differs from its organization
 ```
 
 ### Forwarders

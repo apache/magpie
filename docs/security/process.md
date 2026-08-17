@@ -219,6 +219,25 @@ rollup entries on the tracker (per
 [`tools/github/status-rollup.md`](../../tools/github/status-rollup.md))
 with the action label `Sync (Step 4 escalation)`.
 
+**This is separate from reporter unresponsiveness.** The escalation
+above widens the audience when the *security team's own* discussion
+has stalled; it says nothing about a reporter who has gone silent.
+Per [ASF security policy](https://www.apache.org/security/committers.html),
+reporter unresponsiveness must **not** block the project team from
+moving to the next steps, particularly for a high-severity or
+high-impact issue — the team agrees the fix, announcement, and
+release schedule *with* the reporter when possible, but does not wait
+indefinitely for that agreement. `security-issue-sync` operationalises
+this: at every sync pass it checks the reporter thread for staleness
+(the security team's last outbound message older than
+`security_inbox.reporter_response_timeout_days` — declared by the
+project's organization, 14 in both the ones Magpie ships, overridable
+per project — with no reply since) and, if stale, proposes proceeding
+without further reporter sign-off as an explicit, user-confirmed
+proposal item — see [`security-issue-sync` Step 1c/2b](../../skills/security-issue-sync/gather.md#1c-find-the-real-reporter-and-read-the-mailing-list-thread).
+This never happens silently; the security team still confirms before
+the process moves forward without the reporter.
+
 ### Step 5 — Land the valid/invalid consensus
 
 If valid, apply exactly one scope label from

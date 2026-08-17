@@ -18,7 +18,7 @@ Suites are currently implemented for:
 - **security-issue-triage** — 33 cases across 9 steps
 - **security-issue-deduplicate** — 18 cases across 6 steps (steps 1, 2, 3, 4, 5, 6)
 - **security-cve-allocate** — 20 cases across 6 steps (steps 1, 2, 3, 4, 5, 7)
-- **security-issue-sync** — 25 cases across 7 steps (1f, 2a, 2b, 2c, 3, 6, guardrails)
+- **security-issue-sync** — 32 cases across 7 steps (1f, 2a, 2b, 2c, 3, 6, guardrails)
 - **security-issue-fix** — 30 cases across 10 steps (2, 4a, 4b, 4c, 4d, 4e, 4f, 4g, 5, 10)
 - **security-issue-invalidate** — 24 cases across 9 steps (2, 3, 4, 5a, 5b, 5d, 5e, 5f, 7)
 - **security-issue-import-from-md** — 11 cases across 4 steps (1, 2, 4, 6)
@@ -30,7 +30,7 @@ Suites are currently implemented for:
 - **pr-management-code-review** — 115 cases across 27 suites (selector-resolution, step-1-selectors-match-chips, step-2.5-slop-detection, step-3-security-disclosure-scan, step-3-ai-authorship-disclosure, step-4-* checks, step-5-adversarial-integration, step-6-disposition, step-7b-review-body-attribution, review-risk-classify, injection-guard, review-disposition, review-handoff)
 - **pr-management-mentor** — 20 cases across 2 steps (tone-checks, hand-off)
 - **pr-management-stats** — 13 cases across 2 steps (classify, pressure-weight)
-- **pr-management-triage** — 33 cases across 3 steps (pre-filter, decision-table, terminal-links)
+- **pr-management-triage** — 35 cases across 4 steps (pre-filter, decision-table, terminal-links, pagination-dedup)
 - **list-skills** — 7 cases across 2 steps (step-1-command, step-2-present)
 - **setup-isolated-setup-verify** — 12 cases across 3 steps (runtime-routing, step-1-classify, step-2-recommend)
 - **setup-isolated-setup-update** — 14 cases across 4 steps (runtime-routing, step-snapshot-drift, step-tool-freshness, step-after-report)
