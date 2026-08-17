@@ -697,7 +697,7 @@ auditable:
   invocation of the helper happens in a context where the operator
   is already approving setup actions.
 - **`dangerouslyDisableSandbox: true` from agent sessions.**
-  `/magpie-setup adopt`, `upgrade`, and `worktree-init` invoke the
+  `/magpie-setup install`, `upgrade`, and `worktree-init` invoke the
   helper with explicit sandbox bypass. Every bypass triggers
   [`sandbox-bypass-warn.sh`](../../tools/agent-isolation/sandbox-bypass-warn.sh)'s
   bold-red banner naming the command, the reason, and the file
@@ -771,7 +771,7 @@ The helper is invoked from four points in the framework's lifecycle:
 1. **At install** — `setup-isolated-setup-install` runs the
    helper with `--all-worktrees` against the adopter repo the
    operator is sitting in.
-2. **During adoption** — `/magpie-setup adopt` Step 12 runs the
+2. **During installation** — `/magpie-setup install` Step 12 runs the
    helper with `--all-worktrees` so a fresh adopter repo with
    pre-existing worktrees has every working-tree path covered
    without an extra round-trip through
@@ -781,7 +781,7 @@ The helper is invoked from four points in the framework's lifecycle:
    `--all-worktrees` so any worktree added since adopt has its
    path written into its own settings.local.json.
 4. **Per worktree, on creation** — the `post-checkout` git hook
-   installed by `/magpie-setup adopt` runs the helper *without*
+   installed by `/magpie-setup install` runs the helper *without*
    `--all-worktrees`, picking up only the new worktree's path.
    `git worktree add` fires `post-checkout` in the new working
    tree, so every worktree added after adoption inherits sandbox
@@ -817,7 +817,7 @@ the other scope.
 
 | Scope | What it covers | Mechanism | Reversal |
 |---|---|---|---|
-| **Per-project** | The single adopter repo the operator is sitting in when running the install skill. Each subsequent adopter project needs the install skill re-run there. | The helper runs once with `--all-worktrees` against the current repo; nothing global is touched. The per-repo `post-checkout` hook (installed by `/magpie-setup adopt` in Magpie-adopted repos) chains into the helper on future `git checkout` operations within that repo. | None needed — per-project scope is inert outside the configured repos. |
+| **Per-project** | The single adopter repo the operator is sitting in when running the install skill. Each subsequent adopter project needs the install skill re-run there. | The helper runs once with `--all-worktrees` against the current repo; nothing global is touched. The per-repo `post-checkout` hook (installed by `/magpie-setup install` in Magpie-adopted repos) chains into the helper on future `git checkout` operations within that repo. | None needed — per-project scope is inert outside the configured repos. |
 | **Whole-user (global)** (recommended default when not yet set up) | Every git repo on the operator's host, existing and future. Includes non-Magpie Claude-Code-aware projects (any project with a `.claude/` directory). | Walks the operator's existing checkouts under prompted root dirs and writes each one's `settings.local.json`; sets `git config --global core.hooksPath ~/.claude/git-hooks/` and installs the universal [`git-global-post-checkout.sh`](../../tools/agent-isolation/git-global-post-checkout.sh) there. | `git config --global --unset core.hooksPath` restores per-repo hook lookup. The populated `settings.local.json` files stay (they are harmless if the operator no longer wants them, and gitignored so they cause no commit noise). |
 
 #### Important trade-off — `core.hooksPath` shadows per-repo hooks
