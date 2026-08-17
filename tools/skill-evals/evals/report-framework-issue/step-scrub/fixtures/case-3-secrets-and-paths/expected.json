@@ -1,0 +1,1 @@
+{"redactions": ["secret", "private-endpoint", "local-path"], "safe_to_file": true, "injection_flagged": false}
