@@ -18,7 +18,7 @@ Classify each candidate by the live `(mergeable, mergeable_state)` pair:
 | `mergeable == true`, `mergeable_state ∈ {clean, has_hooks}` | **ready** — surface with the merge command |
 | `mergeable == true`, `mergeable_state ∈ {unstable, behind}` | **ready** — note the state; `unstable` means a non-required check is still running but every required check is green; `behind` is a stale-but-clean branch GitHub will fast-forward |
 | `mergeable == true`, `mergeable_state == blocked` **and** `reviewDecision == REVIEW_REQUIRED` | **needs-approval** — the branch merges cleanly but a required committer review is missing; route to the `[A]pprove` action |
-| `mergeable == true`, `mergeable_state == blocked` **and** `reviewDecision != REVIEW_REQUIRED` | **drop** — the block is not cleared by an approval; reason `gate:G5` (a non-approval required check is the blocker) |
+| `mergeable == true`, `mergeable_state == blocked` **and** `reviewDecision != REVIEW_REQUIRED` | **drop** — the block is not cleared by an approval; reason `gate:G5-blocked` (a non-approval required context is the blocker) |
 | `mergeable == false` **or** `mergeable_state == dirty` | **drop** — genuine merge conflict; reason `gate:G5-conflict` |
 | `mergeable == null` **or** `mergeable_state == unknown` | **drop** — mergeability still computing; reason `gate:G5-unknown`; conservative per Golden rule 4. It will settle on the next run. |
 
@@ -34,8 +34,8 @@ Return ONLY valid JSON:
 }
 ```
 
-- `drop_reason` is one of `gate:G5`, `gate:G5-conflict`, `gate:G5-unknown`,
-  or `null` when `bucket != "drop"`.
+- `drop_reason` is one of `gate:G5-blocked`, `gate:G5-conflict`,
+  `gate:G5-unknown`, or `null` when `bucket != "drop"`.
 - `reason` is one concise sentence naming the classification outcome. For a
   `gate:G5-conflict` drop on a genuine merge conflict
   (`mergeable=false` / `mergeable_state=dirty`), the sentence must also name

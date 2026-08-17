@@ -125,8 +125,8 @@ G2/G3 already established every check is green and done, so a `blocked` state
 here is review-required in the normal case. Where an adopter's branch protection
 makes a *non*-CI context required, confirm with
 `gh pr view <N> --json reviewDecision` — `REVIEW_REQUIRED` ⇒ a missing approval
-is the blocker (route to the approval bucket); any other decision ⇒ drop, the
-block is not something an approval clears.
+is the blocker (route to the approval bucket); any other decision ⇒ drop as
+`gate:G5-blocked`, the block is not something an approval clears.
 
 ---
 
@@ -235,14 +235,20 @@ Every screened-out PR carries exactly one drop reason, surfaced in the
 | `path-denied` | a changed file matched `deny_globs` (consequential area) |
 | `path-unmatched` | a changed file matched no allow glob (unknown area) |
 | `gate:G5-conflict` | Stage-3 live re-poll: genuine merge conflict (`mergeable == false` / `dirty`) |
+| `gate:G5-blocked` | Stage-3 live re-poll: merges cleanly but `blocked` by a required context an approval does not clear (`reviewDecision != REVIEW_REQUIRED`) |
 | `gate:G5-unknown` | Stage-3 live re-poll: mergeability still uncomputed after the direct call — dropped this run, qualifies next |
+
+Note that the Stage-3 codes are deliberately suffixed. A bare `gate:G5` means
+"failed **Stage-1** gate G5" — the batch-level *obviously conflicting* cull — so
+reusing it for a Stage-3 outcome would give one code two meanings.
 
 `gate:*` and `gate:G5-unknown` drops are reported as a single count each (the
 maintainer rarely cares which one a non-ready-looking PR hit); `too-large`,
-`path-denied`, `path-unmatched`, and `gate:G5-conflict` are reported with PR
-numbers, because those are the "so-close" PRs a maintainer may want to glance at
-or hand to `pr-management-code-review`. **Note:** a `BLOCKED` live state is
-**not** a drop reason — it is the *approval* bucket (see
+`path-denied`, `path-unmatched`, `gate:G5-conflict`, and `gate:G5-blocked` are
+reported with PR numbers, because those are the "so-close" PRs a maintainer may
+want to glance at or hand to `pr-management-code-review`. **Note:** a `BLOCKED`
+live state with `reviewDecision == REVIEW_REQUIRED` is **not** a drop reason —
+it is the *approval* bucket (see
 [Stage 3](#stage-3--live-merge-readiness)), the skill's primary output.
 
 ---

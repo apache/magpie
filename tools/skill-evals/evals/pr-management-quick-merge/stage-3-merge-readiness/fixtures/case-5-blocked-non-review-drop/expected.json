@@ -1,5 +1,5 @@
 {
   "bucket": "drop",
-  "drop_reason": "gate:G5",
+  "drop_reason": "gate:G5-blocked",
   "reason": "mergeable=true, mergeable_state=blocked, reviewDecision=APPROVED — the branch merges cleanly but the remaining block is not cleared by another approval."
 }

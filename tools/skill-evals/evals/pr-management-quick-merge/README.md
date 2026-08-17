@@ -43,5 +43,6 @@ uv run --project tools/skill-evals skill-eval \
 - `stage-3-merge-readiness` exercises the live re-poll classification. The
   `blocked + REVIEW_REQUIRED` row (`case-2`) is the skill's primary case: it
   routes to the `[A]pprove` action rather than dropping. `blocked` without
-  `REVIEW_REQUIRED` is explicitly covered by `case-5` and drops as `gate:G5`;
-  `case-3` reserves `gate:G5-conflict` for `dirty`/`mergeable=false`.
+  `REVIEW_REQUIRED` is explicitly covered by `case-5` and drops as
+  `gate:G5-blocked`; `case-3` reserves `gate:G5-conflict` for
+  `dirty`/`mergeable=false`.
