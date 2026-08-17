@@ -15,8 +15,9 @@ Body:
   Reproduction:
   ```python
   from airflow.models import XCom
-  XCom.set(key='my|key', value='test', task_id='t1', dag_id='d1', run_id='r1')
-  result = XCom.get_many(key='my|key', task_ids='t1', dag_ids='d1', run_ids='r1')
+
+  XCom.set(key="my|key", value="test", task_id="t1", dag_id="d1", run_id="r1")
+  result = XCom.get_many(key="my|key", task_ids="t1", dag_ids="d1", run_ids="r1")
   print(list(result))  # prints []
   ```
 

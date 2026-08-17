@@ -11,6 +11,7 @@ Body:
 
   ```python
   from airflow.providers.sftp.hooks.sftp import SFTPHook
+
   hook = SFTPHook(ssh_conn_id="sftp_conn")
   hook.get_conn()
   ```

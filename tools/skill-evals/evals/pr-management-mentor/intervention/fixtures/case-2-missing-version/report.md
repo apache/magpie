@@ -12,7 +12,7 @@ Messages (chronological):
      my script manually and it works. Here is the minimal reproducer:
 
      ```python
-     bash_task = BashOperator(task_id='test', bash_command='echo hello')
+     bash_task = BashOperator(task_id="test", bash_command="echo hello")
      ```
 
      Expected: task succeeds. Actual: task marked as failed."

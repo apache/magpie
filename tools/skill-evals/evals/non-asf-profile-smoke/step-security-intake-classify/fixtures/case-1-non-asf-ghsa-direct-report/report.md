@@ -28,6 +28,7 @@ velox-stream >= 0.8.0, tested on 0.9.2.
 **Steps to reproduce**
 ```python
 import velox_stream
+
 velox_stream.parse(b"\x1f\x8b" + b"\xff" * 4096)
 # triggers OOM in velox_stream/parser/gzip.py:241
 ```
