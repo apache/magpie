@@ -53,7 +53,6 @@ github:
   collaborators:
     # Non-ASF-members named in MISSION.md → "involved as
     # collaborators on the project from day one":
-    - andreahlert        # André Ahlert Junior
     - johnslavik         # Bartosz Sławecki
     # The four below are listed in MISSION.md's non-ASF-members
     # section but are already Apache Airflow committers, so they
