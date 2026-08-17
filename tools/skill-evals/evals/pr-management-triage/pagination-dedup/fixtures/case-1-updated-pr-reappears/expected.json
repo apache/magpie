@@ -1,0 +1,7 @@
+{
+  "prs": [
+    {"number": 12, "updatedAt": "2026-08-05T10:05:00Z", "headRefOid": "head-12"},
+    {"number": 13, "updatedAt": "2026-08-05T10:10:00Z", "headRefOid": "head-13"},
+    {"number": 11, "updatedAt": "2026-08-05T10:15:00Z", "headRefOid": "fresh-11"}
+  ]
+}

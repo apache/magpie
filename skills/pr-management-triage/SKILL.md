@@ -603,8 +603,9 @@ returns, for every PR on the page:
   triaged" detection),
 - `authorAssociation` and labels.
 
-Accumulate every PR into a single in-memory list keyed by
-number. Do not classify, do not present, do not prompt the
+Accumulate every PR into a single in-memory list, then deduplicate
+it by number after the final page, keeping each PR's last (freshest)
+occurrence. Do not classify, do not present, do not prompt the
 maintainer between pages — the fetch loop is uninterrupted,
 runs to completion, and emits one progress line per page so
 the maintainer can step away during the wait. See
