@@ -199,7 +199,7 @@ calendar month to feed the activity timeline in
 ```python
 # Pseudocode — implement via jq or Python as convenient
 for event in all_events:
-    month = event["createdAt"][:7]  # "YYYY-MM"
+    month = event["createdAt"][:7]   # "YYYY-MM"
     buckets[month] += 1
 ```
 

@@ -214,7 +214,7 @@ Aggregate counts per login. Compute Gini as:
 ```python
 sorted = sorted(counts)
 n = len(sorted)
-gini = (2 * sum((i + 1) * v for i, v in enumerate(sorted)) / (n * sum(sorted))) - (n + 1) / n
+gini = (2 * sum((i+1)*v for i,v in enumerate(sorted)) / (n * sum(sorted))) - (n+1)/n
 ```
 
 Clamp to [0, 1]. If reviewer_count < 2, set `reviewer_load_gini: null`
