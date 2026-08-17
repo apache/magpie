@@ -36,9 +36,7 @@ _NUMBER_REFERENCE = re.compile(r"#(?P<number>[1-9][0-9]*)\Z")
 _REPOSITORY = re.compile(r"(?P<owner>[A-Za-z0-9_.-]+)/(?P<repo>[A-Za-z0-9_.-]+)\Z")
 
 
-def parse_pr_reference(
-    reference: str, repository: str | None = None
-) -> tuple[str, str]:
+def parse_pr_reference(reference: str, repository: str | None = None) -> tuple[str, str]:
     """Return the display text and canonical URL for a GitHub PR reference."""
     short_match = _SHORT_REFERENCE.fullmatch(reference)
     if short_match is not None:
@@ -58,9 +56,7 @@ def parse_pr_reference(
             number = url_match.group("number")
         else:
             number_match = _NUMBER_REFERENCE.fullmatch(reference)
-            repository_match = (
-                _REPOSITORY.fullmatch(repository) if repository is not None else None
-            )
+            repository_match = _REPOSITORY.fullmatch(repository) if repository is not None else None
             if number_match is None or repository_match is None:
                 raise ValueError(
                     "expected OWNER/REPO#NUMBER, "
@@ -101,9 +97,7 @@ def format_pr_reference(
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(
-        description="Render GitHub pull-request references for terminal output."
-    )
+    parser = argparse.ArgumentParser(description="Render GitHub pull-request references for terminal output.")
     parser.add_argument(
         "references",
         nargs="+",
@@ -118,10 +112,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        rendered = [
-            format_pr_reference(reference, repository=args.repo)
-            for reference in args.references
-        ]
+        rendered = [format_pr_reference(reference, repository=args.repo) for reference in args.references]
     except ValueError as error:
         parser.error(str(error))
 

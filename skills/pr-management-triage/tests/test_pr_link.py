@@ -23,19 +23,16 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
-import pr_link  # noqa: E402
+import pr_link
 
 
 class PrLinkTest(unittest.TestCase):
     def test_short_reference_uses_canonical_target(self) -> None:
-        rendered = pr_link.format_pr_reference(
-            "example/widget#66444", {"TERM": "xterm-256color"}
-        )
+        rendered = pr_link.format_pr_reference("example/widget#66444", {"TERM": "xterm-256color"})
 
         self.assertEqual(
             rendered,
-            "\033]8;;https://github.com/example/widget/pull/66444\033\\"
-            "example/widget#66444\033]8;;\033\\",
+            "\033]8;;https://github.com/example/widget/pull/66444\033\\example/widget#66444\033]8;;\033\\",
         )
 
     def test_url_reference_is_normalised(self) -> None:
@@ -59,8 +56,7 @@ class PrLinkTest(unittest.TestCase):
 
         self.assertEqual(
             rendered,
-            "\033]8;;https://github.com/example/widget/pull/66444\033\\"
-            "#66444\033]8;;\033\\",
+            "\033]8;;https://github.com/example/widget/pull/66444\033\\#66444\033]8;;\033\\",
         )
 
     def test_no_color_uses_plain_text_fallback(self) -> None:

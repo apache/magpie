@@ -28,6 +28,7 @@ members = [
     "magpie-bitbucket",
     "magpie-fossil",
     "magpie-maildir",
+    "magpie-skills",
     "magpie-sourcehut",
     "magpie-vcs",
     "oauth-draft",
@@ -819,6 +820,27 @@ dev = [
     { name = "mypy", specifier = ">=2.1.0" },
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "ruff", specifier = ">=0.15.22" },
+]
+
+[[package]]
+name = "magpie-skills"
+version = "0.1.0"
+source = { virtual = "skills" }
+
+[package.dev-dependencies]
+dev = [
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "mypy", specifier = ">=2.3.0" },
+    { name = "pytest", specifier = ">=9.1.1" },
+    { name = "ruff", specifier = ">=0.15.21" },
 ]
 
 [[package]]

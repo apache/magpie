@@ -26,8 +26,9 @@ import json
 import re
 import subprocess
 import sys
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from pathlib import Path
+from typing import Any
 from urllib.request import urlopen
 
 try:
@@ -50,12 +51,34 @@ RETIRED_LABELS = {
 }
 
 MACOS_ARM = {"macos-latest", "macos-14", "macos-15", "macos-26", "macos-13-xlarge"}
-MACOS_X64 = {"macos-15-intel", "macos-26-intel", "macos-13", "macos-12", "macos-11", "macos-10.15", "macos-13-large"}
+MACOS_X64 = {
+    "macos-15-intel",
+    "macos-26-intel",
+    "macos-13",
+    "macos-12",
+    "macos-11",
+    "macos-10.15",
+    "macos-13-large",
+}
 MACOS_ANY = MACOS_ARM | MACOS_X64
 
-X64_TERMS = re.compile(r"(?i)(?:\bx64\b|\bx86_64\b|\bamd64\b|architecture:\s*['\"]?x64['\"]?|arch:\s*['\"]?(?:x64|x86_64|amd64)['\"]?)")
-ARM_TERMS = re.compile(r"(?i)(?:\barm64\b|\baarch64\b|architecture:\s*['\"]?arm64['\"]?|arch:\s*['\"]?(?:arm64|aarch64)['\"]?)")
-ARCH_KEYS = {"architecture", "arch", "target", "targets", "platform", "platforms", "os", "goarch", "node-arch"}
+X64_TERMS = re.compile(
+    r"(?i)(?:\bx64\b|\bx86_64\b|\bamd64\b|architecture:\s*['\"]?x64['\"]?|arch:\s*['\"]?(?:x64|x86_64|amd64)['\"]?)"
+)
+ARM_TERMS = re.compile(
+    r"(?i)(?:\barm64\b|\baarch64\b|architecture:\s*['\"]?arm64['\"]?|arch:\s*['\"]?(?:arm64|aarch64)['\"]?)"
+)
+ARCH_KEYS = {
+    "architecture",
+    "arch",
+    "target",
+    "targets",
+    "platform",
+    "platforms",
+    "os",
+    "goarch",
+    "node-arch",
+}
 
 
 def run(args: list[str]) -> str:
@@ -93,14 +116,16 @@ def load_repos(cache_dir: Path, owner: str, refresh: bool) -> list[dict]:
     cache_dir.mkdir(parents=True, exist_ok=True)
     repo_file = cache_dir / f"{owner}-repos.jsonl"
     if refresh or not repo_file.exists():
-        output = run([
-            "gh",
-            "api",
-            "--paginate",
-            f"/orgs/{owner}/repos?per_page=100&type=public",
-            "--jq",
-            ".[] | select(.archived == false) | {full_name, default_branch}",
-        ])
+        output = run(
+            [
+                "gh",
+                "api",
+                "--paginate",
+                f"/orgs/{owner}/repos?per_page=100&type=public",
+                "--jq",
+                ".[] | select(.archived == false) | {full_name, default_branch}",
+            ]
+        )
         repo_file.write_text(output, encoding="utf-8")
     return [json.loads(line) for line in repo_file.read_text(encoding="utf-8").splitlines() if line.strip()]
 
@@ -139,13 +164,15 @@ def list_workflows_for_repo(repo: dict) -> list[dict]:
     for item in contents:
         path = item.get("path", "")
         if item.get("type") == "file" and re.search(r"\.ya?ml$", path):
-            workflows.append({
-                "repo": full_name,
-                "branch": branch,
-                "path": path,
-                "url": item.get("download_url"),
-                "html_url": f"https://github.com/{full_name}/blob/{branch}/{path}",
-            })
+            workflows.append(
+                {
+                    "repo": full_name,
+                    "branch": branch,
+                    "path": path,
+                    "url": item.get("download_url"),
+                    "html_url": f"https://github.com/{full_name}/blob/{branch}/{path}",
+                }
+            )
     return workflows
 
 
@@ -160,7 +187,12 @@ def load_workflows(cache_dir: Path, owner: str, refresh: bool, workers: int) -> 
             for future in as_completed(futures):
                 workflows.extend(future.result())
         with workflow_file.open("w", newline="", encoding="utf-8") as output:
-            writer = csv.DictWriter(output, delimiter="\t", fieldnames=["repo", "branch", "path", "url", "html_url"], lineterminator="\n")
+            writer = csv.DictWriter(
+                output,
+                delimiter="\t",
+                fieldnames=["repo", "branch", "path", "url", "html_url"],
+                lineterminator="\n",
+            )
             writer.writeheader()
             writer.writerows(sorted(workflows, key=lambda row: (row["repo"], row["path"])))
     with workflow_file.open(newline="", encoding="utf-8") as input_file:
@@ -177,9 +209,11 @@ def load_workflows_for_repos(repo_names: list[str], workers: int) -> list[dict]:
                 repos.append(repo)
     workflows: list[dict] = []
     with ThreadPoolExecutor(max_workers=workers) as executor:
-        futures = [executor.submit(list_workflows_for_repo, repo) for repo in repos]
-        for future in as_completed(futures):
-            workflows.extend(future.result())
+        workflow_futures: list[Future[list[dict]]] = [
+            executor.submit(list_workflows_for_repo, repo) for repo in repos
+        ]
+        for workflow_future in as_completed(workflow_futures):
+            workflows.extend(workflow_future.result())
     return sorted(workflows, key=lambda row: (row["repo"], row["path"]))
 
 
@@ -199,17 +233,20 @@ def matrix_rows(matrix: object) -> list[dict]:
             continue
         keys.append(str(key))
         values.append(value if isinstance(value, list) else [value])
-    rows = [{}]
-    for key, vals in zip(keys, values):
+    rows: list[dict[str, Any]] = [{}]
+    for key, vals in zip(keys, values, strict=True):
         rows = [{**row, key: val} for row in rows for val in vals]
 
     excludes = matrix.get("exclude")
     if isinstance(excludes, list):
+
         def is_excluded(row: dict) -> bool:
             return any(
-                isinstance(item, dict) and all(str(row.get(k)).lower() == str(v).lower() for k, v in item.items())
+                isinstance(item, dict)
+                and all(str(row.get(k)).lower() == str(v).lower() for k, v in item.items())
                 for item in excludes
             )
+
         rows = [row for row in rows if not is_excluded(row)]
 
     includes = matrix.get("include")
@@ -295,24 +332,50 @@ def arch_hits(workflow: dict) -> list[dict]:
             if not isinstance(step, dict):
                 continue
             step_if = str(step.get("if", "")).lower()
-            skip_non_macos_branch = any(token in step_if for token in [
-                "runner.os == 'windows'", 'runner.os == "windows"', "matrix.os == 'windows", 'matrix.os == "windows',
-                "runner.os == 'linux'", 'runner.os == "linux"', "matrix.os == 'ubuntu", 'matrix.os == "ubuntu',
-            ])
+            skip_non_macos_branch = any(
+                token in step_if
+                for token in [
+                    "runner.os == 'windows'",
+                    'runner.os == "windows"',
+                    "matrix.os == 'windows",
+                    'matrix.os == "windows',
+                    "runner.os == 'linux'",
+                    'runner.os == "linux"',
+                    "matrix.os == 'ubuntu",
+                    'matrix.os == "ubuntu',
+                ]
+            )
             if skip_non_macos_branch:
                 continue
             name = str(step.get("name", ""))
             uses = str(step.get("uses", ""))
-            action_inputs = step.get("with") if isinstance(step.get("with"), dict) else {}
+            raw_with = step.get("with")
+            action_inputs = raw_with if isinstance(raw_with, dict) else {}
             for key, value in action_inputs.items():
                 key_text = str(key).lower()
                 value_text = " ".join(lower_values(value))
                 if key_text in ARCH_KEYS or "arch" in key_text or "platform" in key_text:
                     evidence = f"with.{key}={value}"
                     if X64_TERMS.search(f"{key_text}: {value_text}"):
-                        observed.append(("x64", name, uses, evidence, "setup-action" if uses.startswith("actions/setup-") else "action-input"))
+                        observed.append(
+                            (
+                                "x64",
+                                name,
+                                uses,
+                                evidence,
+                                "setup-action" if uses.startswith("actions/setup-") else "action-input",
+                            )
+                        )
                     if ARM_TERMS.search(f"{key_text}: {value_text}"):
-                        observed.append(("arm64", name, uses, evidence, "setup-action" if uses.startswith("actions/setup-") else "action-input"))
+                        observed.append(
+                            (
+                                "arm64",
+                                name,
+                                uses,
+                                evidence,
+                                "setup-action" if uses.startswith("actions/setup-") else "action-input",
+                            )
+                        )
             run_script = step.get("run")
             if isinstance(run_script, str):
                 for line in run_script.splitlines():
@@ -326,18 +389,20 @@ def arch_hits(workflow: dict) -> list[dict]:
         for label, arch, matrix in contexts:
             for binary_arch, step_name, uses, evidence, confidence in observed:
                 if arch and binary_arch != arch:
-                    hits.append({
-                        **workflow,
-                        "job": str(job_name),
-                        "runner": label,
-                        "runner_arch": arch,
-                        "requested_arch": binary_arch,
-                        "step": step_name,
-                        "uses": uses,
-                        "evidence": evidence,
-                        "matrix": ",".join(f"{k}={v}" for k, v in matrix.items()),
-                        "confidence": confidence,
-                    })
+                    hits.append(
+                        {
+                            **workflow,
+                            "job": str(job_name),
+                            "runner": label,
+                            "runner_arch": arch,
+                            "requested_arch": binary_arch,
+                            "step": step_name,
+                            "uses": uses,
+                            "evidence": evidence,
+                            "matrix": ",".join(f"{k}={v}" for k, v in matrix.items()),
+                            "confidence": confidence,
+                        }
+                    )
     return hits
 
 
@@ -347,13 +412,24 @@ def parallel_scan(workflows: list[dict], scanner, workers: int) -> list[dict]:
         futures = [executor.submit(scanner, workflow) for workflow in workflows if workflow.get("url")]
         for future in as_completed(futures):
             results.extend(future.result())
-    return sorted(results, key=lambda row: (row.get("repo", ""), row.get("path", ""), row.get("job", ""), row.get("runner", ""), row.get("evidence", "")))
+    return sorted(
+        results,
+        key=lambda row: (
+            row.get("repo", ""),
+            row.get("path", ""),
+            row.get("job", ""),
+            row.get("runner", ""),
+            row.get("evidence", ""),
+        ),
+    )
 
 
 def write_tsv(path: Path, rows: list[dict], fields: list[str]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="", encoding="utf-8") as output:
-        writer = csv.DictWriter(output, delimiter="\t", fieldnames=fields, extrasaction="ignore", lineterminator="\n")
+        writer = csv.DictWriter(
+            output, delimiter="\t", fieldnames=fields, extrasaction="ignore", lineterminator="\n"
+        )
         writer.writeheader()
         writer.writerows(rows)
 
@@ -362,7 +438,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("command", choices=["retired", "macos-arch", "all"])
     parser.add_argument("--owner", default="apache")
-    parser.add_argument("--repo", action="append", default=[], help="Repository full name, e.g. apache/polaris. May be repeated.")
+    parser.add_argument(
+        "--repo",
+        action="append",
+        default=[],
+        help="Repository full name, e.g. apache/polaris. May be repeated.",
+    )
     parser.add_argument("--repo-file", type=Path, help="File containing repository full names, one per line.")
     parser.add_argument("--scope-name", help="Output filename prefix for explicit repo/repo-file scans.")
     parser.add_argument("--cache-dir", type=Path, default=Path(".cache"))
@@ -390,21 +471,64 @@ def main() -> int:
 
     if args.command in ("retired", "all"):
         retired = parallel_scan(workflows, retired_hits, args.workers)
-        write_tsv(args.out_dir / f"{prefix}-retired-gh-runners-confirmed.tsv", retired, ["repo", "path", "job", "runner", "html_url"])
+        write_tsv(
+            args.out_dir / f"{prefix}-retired-gh-runners-confirmed.tsv",
+            retired,
+            ["repo", "path", "job", "runner", "html_url"],
+        )
         print(f"retired_runner_hits={len(retired)}", file=sys.stderr)
 
     if args.command in ("macos-arch", "all"):
         arch = parallel_scan(workflows, arch_hits, args.workers)
-        write_tsv(args.out_dir / f"{prefix}-macos-arch-mismatch-candidates.tsv", arch, ["repo", "path", "job", "runner", "runner_arch", "requested_arch", "confidence", "step", "uses", "evidence", "matrix", "html_url"])
+        write_tsv(
+            args.out_dir / f"{prefix}-macos-arch-mismatch-candidates.tsv",
+            arch,
+            [
+                "repo",
+                "path",
+                "job",
+                "runner",
+                "runner_arch",
+                "requested_arch",
+                "confidence",
+                "step",
+                "uses",
+                "evidence",
+                "matrix",
+                "html_url",
+            ],
+        )
         setup = []
         seen = set()
         for row in arch:
             if row.get("confidence") == "setup-action":
-                key = (row.get("repo"), row.get("path"), row.get("job"), row.get("runner"), row.get("uses"), row.get("evidence"))
+                key = (
+                    row.get("repo"),
+                    row.get("path"),
+                    row.get("job"),
+                    row.get("runner"),
+                    row.get("uses"),
+                    row.get("evidence"),
+                )
                 if key not in seen:
                     seen.add(key)
                     setup.append(row)
-        write_tsv(args.out_dir / f"{prefix}-macos-setup-action-arch-mismatches.tsv", setup, ["repo", "path", "job", "runner", "runner_arch", "requested_arch", "step", "uses", "evidence", "html_url"])
+        write_tsv(
+            args.out_dir / f"{prefix}-macos-setup-action-arch-mismatches.tsv",
+            setup,
+            [
+                "repo",
+                "path",
+                "job",
+                "runner",
+                "runner_arch",
+                "requested_arch",
+                "step",
+                "uses",
+                "evidence",
+                "html_url",
+            ],
+        )
         print(f"macos_arch_candidates={len(arch)}", file=sys.stderr)
         print(f"setup_action_mismatches={len(setup)}", file=sys.stderr)
 
