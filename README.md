@@ -98,9 +98,9 @@ Pick an install method and follow the verbatim recipe in
 
 | Method | When to use | Reproducibility |
 |---|---|---|
-| `svn-zip` | Production once ASF official releases ship to `dist.apache.org` (signed + checksummed) | Frozen by version |
-| `git-tag` | Pin a specific framework version | Frozen by tag |
-| `git-branch` (default `main`) | WIP path — track the framework's `main` directly for the latest unreleased changes. | Tracks tip |
+| `svn-zip` (**recommended**) | Production. Signed + checksummed zip from `dist.apache.org`; `0.1.0` is the current release. | Frozen by version |
+| `git-tag` | Pin a version without going through the signed zip (e.g. testing a release candidate). | Frozen by tag |
+| `git-branch` (`main`) | WIP path — track the framework's `main` directly for the latest unreleased changes. | Tracks tip |
 
 Each recipe is a single shell block that:
 
