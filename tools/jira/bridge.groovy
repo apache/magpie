@@ -4,6 +4,7 @@
 @Grab('org.apache.groovy:groovy-json:4.0.21')
 import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
+import groovy.transform.Field
 
 /**
  * JIRA REST bridge for the issue-* skill family.
@@ -37,11 +38,15 @@ import groovy.json.JsonSlurper
  * the calling skill — the bridge only executes confirmed actions.
  */
 
-def ENV = System.getenv()
-def TRACKER_URL  = ENV['ISSUE_TRACKER_URL'] ?: ''
-def PROJECT_KEY  = ENV['ISSUE_TRACKER_PROJECT'] ?: ''
-def API_TOKEN    = ENV['JIRA_API_TOKEN'] ?: ''
-def AUTH_SCHEME  = ENV['JIRA_AUTH_SCHEME'] ?: 'Basic'
+// These are @Field so the cmd_* methods and the httpGet/httpPost helpers
+// can see them. A bare top-level `def` in a Groovy script is a local of the
+// generated run() method and is NOT visible inside methods — referencing it
+// there throws MissingPropertyException.
+@Field Map ENV = System.getenv()
+@Field String TRACKER_URL  = ENV['ISSUE_TRACKER_URL'] ?: ''
+@Field String PROJECT_KEY  = ENV['ISSUE_TRACKER_PROJECT'] ?: ''
+@Field String API_TOKEN    = ENV['JIRA_API_TOKEN'] ?: ''
+@Field String AUTH_SCHEME  = ENV['JIRA_AUTH_SCHEME'] ?: 'Basic'
 
 if (!TRACKER_URL) {
     System.err.println('error: ISSUE_TRACKER_URL not set in the environment (the calling skill resolves it from <project-config>/issue-tracker-config.md and exports it)')
