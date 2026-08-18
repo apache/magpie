@@ -1,0 +1,12 @@
+{
+  "name": "apache-magpie",
+  "owner": { "name": "Apache Magpie", "url": "https://magpie.apache.org/" },
+  "description": "Apache Magpie agentic skills for maintaining open-source projects (GitHub Copilot plugin marketplace catalog).",
+  "plugins": [
+    {
+      "name": "magpie",
+      "source": ".",
+      "description": "All Apache Magpie skills (release management, security, PR/issue workflows, contributor growth, repo health)."
+    }
+  ]
+}

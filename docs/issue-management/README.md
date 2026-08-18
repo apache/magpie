@@ -128,7 +128,7 @@ uv run --project tools/pilot-report-validator pilot-report-validate <your-report
 
 ## Cross-references
 
-- [Top-level README — Adopting the framework](../../README.md#adopting-the-framework) — 3-step bootstrap.
+- [Top-level README — Install](../../README.md#install) — 3-step bootstrap.
 - [`projects/_template/README.md`](../../projects/_template/README.md) — adopter scaffold index.
 - [`docs/modes.md`](../modes.md) — MISSION mode taxonomy that the
   `mode:` frontmatter field declares against.
