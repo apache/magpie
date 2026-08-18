@@ -30,6 +30,26 @@ def _api_base(config: BitbucketConfig) -> str:
     return f"{base_url}/rest/api/1.0"
 
 
+def _next_page_start(page: dict[str, Any], start: int) -> int | None:
+    """Return the validated next page offset, or None when pagination must stop.
+
+    A server that reports a missing, malformed, or non-advancing
+    ``nextPageStart`` would otherwise keep the caller requesting the same
+    page forever; every Data Center paginator routes through this guard.
+    """
+    if page.get("isLastPage") is True:
+        return None
+
+    next_start = page.get("nextPageStart")
+    if not isinstance(next_start, int):
+        return None
+
+    if next_start <= start:
+        return None
+
+    return next_start
+
+
 def get_repository(config: BitbucketConfig) -> dict[str, Any]:
     """Fetch repository metadata from Bitbucket Data Center."""
     project_key = quote_path(require(config.project_key, "BITBUCKET_PROJECT_KEY"))
@@ -64,14 +84,8 @@ def get_repository_restrictions(config: BitbucketConfig) -> dict[str, Any]:
         if isinstance(values, list):
             combined["values"].extend(item for item in values if isinstance(item, dict))
 
-        if page.get("isLastPage") is True:
-            break
-
-        next_start = page.get("nextPageStart")
-        if not isinstance(next_start, int):
-            break
-
-        if next_start <= start:
+        next_start = _next_page_start(page, start)
+        if next_start is None:
             break
 
         start = next_start
@@ -144,14 +158,8 @@ def list_open_pull_requests(config: BitbucketConfig) -> dict[str, Any]:
         if isinstance(values, list):
             combined["values"].extend(item for item in values if isinstance(item, dict))
 
-        if page.get("isLastPage") is True:
-            break
-
-        next_start = page.get("nextPageStart")
-        if not isinstance(next_start, int):
-            break
-
-        if next_start <= start:
+        next_start = _next_page_start(page, start)
+        if next_start is None:
             break
 
         start = next_start
@@ -191,14 +199,8 @@ def get_pull_request_commits(config: BitbucketConfig, pull_request_id: str) -> d
         if isinstance(values, list):
             combined["values"].extend(item for item in values if isinstance(item, dict))
 
-        if page.get("isLastPage") is True:
-            break
-
-        next_start = page.get("nextPageStart")
-        if not isinstance(next_start, int):
-            break
-
-        if next_start <= start:
+        next_start = _next_page_start(page, start)
+        if next_start is None:
             break
 
         start = next_start
@@ -298,14 +300,8 @@ def get_pull_request_status(config: BitbucketConfig, pull_request_id: str) -> di
         if isinstance(values, list):
             combined["values"].extend(item for item in values if isinstance(item, dict))
 
-        if page.get("isLastPage") is True:
-            break
-
-        next_start = page.get("nextPageStart")
-        if not isinstance(next_start, int):
-            break
-
-        if next_start <= start:
+        next_start = _next_page_start(page, start)
+        if next_start is None:
             break
 
         start = next_start
@@ -341,14 +337,8 @@ def get_pull_request_reviews(config: BitbucketConfig, pull_request_id: str) -> d
         if isinstance(values, list):
             combined["values"].extend(item for item in values if isinstance(item, dict))
 
-        if page.get("isLastPage") is True:
-            break
-
-        next_start = page.get("nextPageStart")
-        if not isinstance(next_start, int):
-            break
-
-        if next_start <= start:
+        next_start = _next_page_start(page, start)
+        if next_start is None:
             break
 
         start = next_start
@@ -397,14 +387,8 @@ def get_pull_request_discussion(config: BitbucketConfig, pull_request_id: str) -
         if isinstance(values, list):
             combined["values"].extend(item for item in values if isinstance(item, dict))
 
-        if page.get("isLastPage") is True:
-            break
-
-        next_start = page.get("nextPageStart")
-        if not isinstance(next_start, int):
-            break
-
-        if next_start <= start:
+        next_start = _next_page_start(page, start)
+        if next_start is None:
             break
 
         start = next_start
