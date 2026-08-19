@@ -1,0 +1,13 @@
+{
+  "name": "magpie-repo-health",
+  "description": "Apache Magpie \u2014 read-only repo-health audits: runner labels, workflow security, dependency/license/NOTICE, flaky tests, audit-finding fixes.",
+  "version": "0.2.0.dev0",
+  "author": {
+    "name": "Apache Magpie",
+    "url": "https://magpie.apache.org/"
+  },
+  "homepage": "https://magpie.apache.org/",
+  "repository": "https://github.com/apache/magpie",
+  "license": "Apache-2.0",
+  "skills": "./skills"
+}

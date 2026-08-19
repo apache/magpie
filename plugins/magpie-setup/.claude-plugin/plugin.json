@@ -1,0 +1,13 @@
+{
+  "name": "magpie-setup",
+  "description": "Apache Magpie \u2014 framework install/maintenance: install (adopt), upgrade, verify, override, status, secure-agent setup, shared-config sync.",
+  "version": "0.2.0.dev0",
+  "author": {
+    "name": "Apache Magpie",
+    "url": "https://magpie.apache.org/"
+  },
+  "homepage": "https://magpie.apache.org/",
+  "repository": "https://github.com/apache/magpie",
+  "license": "Apache-2.0",
+  "skills": "./skills"
+}
