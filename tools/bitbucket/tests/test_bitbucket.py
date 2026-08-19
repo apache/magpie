@@ -1000,12 +1000,12 @@ _DATACENTER_PR_PAGE = {"id": 9, "fromRef": {"latestCommit": "def456"}}
     ("paginate", "leading_pages"),
     [
         pytest.param(
-            lambda config: datacenter.get_repository_restrictions(config),
+            datacenter.get_repository_restrictions,
             (),
             id="repository_restrictions",
         ),
         pytest.param(
-            lambda config: datacenter.list_open_pull_requests(config),
+            datacenter.list_open_pull_requests,
             (),
             id="open_pull_requests",
         ),
