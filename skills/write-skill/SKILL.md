@@ -239,6 +239,9 @@ Hard rules, References. Apply the framework's conventions:
   [`tools/dev/check-placeholders.sh`](../../tools/dev/check-placeholders.sh)
   prek hook catches the obvious cases but it is a backstop, not a
   substitute for getting the placeholder right at write time.
+- **Semantic line breaks ([SemBr](https://sembr.org)).**
+  Format prose in the skill using semantic line breaks — break lines at natural linguistic boundaries (one sentence per line, or clause boundaries).
+  Just as traditional code formats one statement per line, writing skills in English means treating single sentences as atomic lines so that git diffs remain minimal and easy to review without rewrapping paragraphs.
 - **Adopter overrides.** Every skill consults
   `<adopter>/.apache-magpie-overrides/<skill-name>.md` at
   runtime; the preamble that

@@ -20,6 +20,7 @@
     - [Confidentiality applies to *contents*, not to identifiers](#confidentiality-applies-to-contents-not-to-identifiers)
     - [Editing rules](#editing-rules)
   - [Mentioning project maintainers and security-team members](#mentioning-project-maintainers-and-security-team-members)
+  - [Semantic line breaks (SemBr)](#semantic-line-breaks-sembr)
   - [Other editorial guidelines](#other-editorial-guidelines)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -473,6 +474,24 @@ every maintainer / security-team / release-manager reference in the
 status comments they post as an `@` handle. Before publishing a status
 comment, the skills must grep for names of known people and flag any
 bare-name occurrence to the user.
+
+## Semantic line breaks (SemBr)
+
+Prose across this repository — skill instructions (`SKILL.md`), tool contracts, documentation, and canned responses — uses **semantic line breaks** ([https://sembr.org](https://sembr.org)).
+
+Most programming language styles enforce one statement per line.
+Because English is the primary programming language for Magpie skills, prose follows the same discipline:
+
+1. **One sentence per line.**
+   Break lines after full stops, question marks, and exclamation marks.
+2. **Break at natural clause boundaries.**
+   Where sentences are long or complex, break at independent or dependent clauses (after commas, semicolons, colons, or conjunctions).
+3. **No hard-wrapping at arbitrary column limits.**
+   Avoid hard-wrapping at 72 or 80 characters mid-sentence.
+
+**Why:**
+Semantic line breaks ensure that single-sentence changes produce single-line git diffs.
+This makes skill code and documentation changes easy to review without rewrapping entire paragraphs or causing unnecessary merge conflicts.
 
 ## Other editorial guidelines
 

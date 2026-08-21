@@ -855,11 +855,11 @@ over rewrites; preserve the existing structure and the `doctoc` TOC
 markers (if you rename a heading, update its TOC entry in the same
 change). Use em dashes sparingly; do not add emojis.
 
-The full editorial playbook — reporter-facing tone, email brevity,
-Gmail threading, ASF-security-relay drafting, the "point to the
-Security Model, don't re-explain it" rule, dependency-claim phrasing,
-and the CVE / tracker-issue / PR link formats — lives in
-[`docs/editorial-guidelines.md`](docs/editorial-guidelines.md).
+Format prose across the repository (skills, docs, canned responses) using **semantic line breaks** ([SemBr](https://sembr.org)).
+Break lines at natural linguistic boundaries — specifically one sentence per line (or at clause boundaries when helpful).
+Because English is the programming language of Magpie skills, single-sentence changes produce single-line diffs rather than paragraph re-wraps.
+
+The full editorial playbook — reporter-facing tone, email brevity, Gmail threading, ASF-security-relay drafting, the "point to the Security Model, don't re-explain it" rule, dependency-claim phrasing, semantic line breaks, and the CVE / tracker-issue / PR link formats — lives in [`docs/editorial-guidelines.md`](docs/editorial-guidelines.md).
 **Load that file before drafting or editing any reporter-facing or
 tracker-facing text.** The load-bearing rules each external surface
 references are summarised below.
