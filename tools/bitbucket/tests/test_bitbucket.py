@@ -27,7 +27,13 @@ import pytest
 
 from magpie_bitbucket import cloud, datacenter
 from magpie_bitbucket.cli import main
-from magpie_bitbucket.client import BitbucketError, SameHostRedirectHandler, load_config, make_auth_header
+from magpie_bitbucket.client import (
+    BitbucketError,
+    NoAuthRedirectHandler,
+    SameHostRedirectHandler,
+    load_config,
+    make_auth_header,
+)
 from magpie_bitbucket.normalize import (
     created_issue_comment,
     issue,
@@ -104,6 +110,24 @@ def urllib_request(url: str) -> urllib.request.Request:
         headers={"Authorization": "Bearer token-123"},
         method="GET",
     )
+
+
+def test_no_auth_redirect_handler_rejects_redirect() -> None:
+    handler = NoAuthRedirectHandler()
+    request = urllib_request("https://api.bitbucket.org/2.0/repositories/apache/magpie")
+
+    with pytest.raises(
+        BitbucketError,
+        match="refusing to forward credentials",
+    ):
+        handler.redirect_request(
+            request,
+            None,
+            302,
+            "Found",
+            {},
+            "https://api.bitbucket.org/2.0/repositories/apache/magpie/issues/7/comments",
+        )
 
 
 def test_same_host_redirect_handler_allows_same_origin() -> None:
