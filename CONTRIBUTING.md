@@ -456,7 +456,7 @@ invocation, after which HTTP and JSON are fast and stdlib-only.
 | [`tools/jira/bridge.groovy`](tools/jira/bridge.groovy) | Read-only JIRA REST bridge — `search <JQL>`, `issue <KEY>`, `projects`. Uses `@Grab` for HTTP deps, no separate install step. |
 | [`tools/dashboard-generator/reference.groovy`](tools/dashboard-generator/reference.groovy) | Reference impl of the issue-reassess-stats HTML dashboard. Reads `verdict.json` artefacts from a campaign directory and emits HTML. |
 
-Install Groovy 3.x or newer on `PATH` — `sdk install groovy` via
+Install Groovy 4.x or newer on `PATH` — `sdk install groovy` via
 [SDKMAN!](https://sdkman.io/) or your package manager. Then:
 
 ```bash
