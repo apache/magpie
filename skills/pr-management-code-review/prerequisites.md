@@ -41,6 +41,12 @@ A response of `admin`, `maintain`, or `write` is sufficient.
 `triage` or `read` is not enough to post reviews; the skill
 warns and offers `dry-run` mode (which drafts but does not post).
 
+This result also decides which `COMMENT` AI-attribution footer
+[`posting.md`](posting.md) renders: GitHub itself blocks `APPROVE`/
+`REQUEST_CHANGES` from an account without write access, but a
+`COMMENT` can still post after the warning above, so its footer
+must not claim a maintainer confirmed it unless this check says so.
+
 If `gh auth status` fails entirely, surface it and ask the
 maintainer to run `gh auth login`. Do not proceed.
 
