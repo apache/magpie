@@ -992,6 +992,78 @@ def test_datacenter_get_pull_request_commits_stops_on_non_advancing_next_page_st
     assert [item["id"] for item in result["values"]] == ["abc123"]
 
 
+_DATACENTER_PR_PAGE = {"id": 9, "fromRef": {"latestCommit": "def456"}}
+
+
+@patch("urllib.request.build_opener")
+@pytest.mark.parametrize(
+    ("paginate", "leading_pages"),
+    [
+        pytest.param(
+            datacenter.get_repository_restrictions,
+            (),
+            id="repository_restrictions",
+        ),
+        pytest.param(
+            datacenter.list_open_pull_requests,
+            (),
+            id="open_pull_requests",
+        ),
+        pytest.param(
+            lambda config: datacenter.get_pull_request_commits(config, "9"),
+            (),
+            id="pull_request_commits",
+        ),
+        pytest.param(
+            lambda config: datacenter.get_pull_request_status(config, "9"),
+            (_DATACENTER_PR_PAGE,),
+            id="pull_request_status",
+        ),
+        pytest.param(
+            lambda config: datacenter.get_pull_request_reviews(config, "9"),
+            (_DATACENTER_PR_PAGE,),
+            id="pull_request_reviews",
+        ),
+        pytest.param(
+            lambda config: datacenter.get_pull_request_discussion(config, "9"),
+            (),
+            id="pull_request_discussion",
+        ),
+    ],
+)
+def test_datacenter_paginators_stop_on_non_advancing_next_page_start(
+    mock_build_opener: MagicMock,
+    paginate: Any,
+    leading_pages: tuple[dict[str, Any], ...],
+    datacenter_env: None,
+) -> None:
+    opener = mock_opener(
+        mock_build_opener,
+        *leading_pages,
+        {"values": [{"id": "abc123"}], "isLastPage": False, "nextPageStart": 0},
+    )
+
+    result = paginate(load_config())
+
+    assert len(opener.open.call_args_list) == len(leading_pages) + 1
+    assert [item["id"] for item in result["values"]] == ["abc123"]
+
+
+@pytest.mark.parametrize(
+    ("page", "start", "expected"),
+    [
+        pytest.param({"isLastPage": True, "nextPageStart": 25}, 0, None, id="last_page"),
+        pytest.param({"isLastPage": False}, 0, None, id="missing_next_page_start"),
+        pytest.param({"isLastPage": False, "nextPageStart": "25"}, 0, None, id="non_int_next_page_start"),
+        pytest.param({"isLastPage": False, "nextPageStart": 0}, 0, None, id="repeated_next_page_start"),
+        pytest.param({"isLastPage": False, "nextPageStart": 5}, 10, None, id="backwards_next_page_start"),
+        pytest.param({"isLastPage": False, "nextPageStart": 25}, 0, 25, id="advancing_next_page_start"),
+    ],
+)
+def test_datacenter_next_page_start(page: dict[str, Any], start: int, expected: int | None) -> None:
+    assert datacenter._next_page_start(page, start) == expected
+
+
 def test_normalize_cloud_pull_request_commits() -> None:
     raw = {
         "pull_request_id": "7",
