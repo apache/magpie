@@ -113,11 +113,19 @@ action (PRINCIPLE 10).  This guarantee rests on two pillars:
    all other `substrate:*` tools are network-free by design.
 
 2. **The validator enforces the invariant.**  `tools/skill-and-tool-validator/`
-   check #21 (`no-telemetry-import`) scans the source of every `substrate:*`
-   tool for network-calling imports (`requests`, `httpx`, `aiohttp`,
-   `urllib.request`, `http.client`, `socket`) and flags any hit as a SOFT
-   advisory.  A substrate tool that accidentally grows a network import is
-   caught before it is merged.
+   check #21 (`no-telemetry-import`) scans every Python file owned by a
+   `substrate:*` tool — under `src/` and at the tool root alike, excluding
+   `tests/` — for network-calling imports (`requests`, `httpx`, `aiohttp`,
+   `urllib.request`, `http.client`, `socket`, in both `import x` and
+   `from x import` form) and flags any hit as a SOFT advisory.  A substrate
+   tool that accidentally grows a network import is surfaced in the
+   validator's output before it is merged.
+
+   Two limits worth stating plainly.  The check is **advisory unless
+   `--strict`**, so an accidental import can merge on a run that does not
+   pass the flag — it is a tripwire the reviewer reads, not a gate that
+   stops the merge.  And the library list is deliberately non-exhaustive:
+   it catches the common accidents, not a determined author.
 
 The declared egress surfaces as of this writing:
 
