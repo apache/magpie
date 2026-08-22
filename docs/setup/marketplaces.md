@@ -34,7 +34,7 @@ through the plugin/extension mechanisms of the major AI coding agents,
 
 > [!IMPORTANT]
 > The marketplace path is a **discovery and trial** channel: it drops the
-> 70 skills into your agent so you can use them immediately. It does **not**
+> 71 skills into your agent so you can use them immediately. It does **not**
 > set up the full adoption machinery (the committed pin, the gitignored
 > snapshot, drift detection, agentic overrides, or the secure-agent setup).
 > For a project that adopts Magpie for real, use `/magpie-setup` — the
@@ -114,7 +114,7 @@ the model on **every** turn — see ["always-on" cost](#versioning) below).
 
 **All-in-one — `magpie`**
 
-- ✅ One install; all 70 skills; nothing to decide. Uses the real `skills/`
+- ✅ One install; all 71 skills; nothing to decide. Uses the real `skills/`
   directory, so **no symlinks** — works on Windows out of the box.
 - ⚠️ Adds **~21.7k always-on tokens to every session**, including families you
   may never use — that context (and cost) is spent whether or not you invoke a
@@ -324,7 +324,7 @@ as an AP1 package. Two ways in:
    the coding-agent settings) and install `magpie` from it. That path reads the
    root [`marketplace.json`](../../marketplace.json).
 
-Either way the 70 skills become available to the agent under the plugin. As
+Either way the 71 skills become available to the agent under the plugin. As
 with Codex, only the **all-in-one** `magpie` plugin is offered — the per-family
 plugins are Claude Code-only, for the reason recorded
 [above](#choosing-a-plugin-all-in-one-vs-per-family).
