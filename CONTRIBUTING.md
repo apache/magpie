@@ -100,7 +100,7 @@ classify a PR, mentor a contributor, allocate a CVE — is encoded
 in English-language skill files. That is the project's bet, and
 it is the bet you need to internalise before contributing.
 
-Three practical consequences:
+Four practical consequences:
 
 - **A change to a skill file is a code change.** Treat it like
   one. Run the eval suite. Think about boundary conditions. Add
@@ -110,6 +110,10 @@ Three practical consequences:
 - **A change to a tool's `tool.md` is a code change.** Tool
   contracts in markdown are read by the skills at runtime;
   rewording the contract is rewording the API.
+- **English code uses semantic line breaks ([SemBr](https://sembr.org)).**
+  Most programming language styles format one statement per line.
+  Because Magpie skills and documents are programs written in English, they follow the same convention: lines break at natural linguistic boundaries (one sentence per line, or at clause boundaries where appropriate).
+  This makes single-sentence edits produce single-line git diffs without rewrapping entire paragraphs.
 - **You author both layers agentically** — see
   [Authoring with an agent](#authoring-with-an-agent) below. The
   loop is the same whether the artefact is an English skill file
