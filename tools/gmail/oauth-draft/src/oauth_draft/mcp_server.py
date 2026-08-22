@@ -70,7 +70,7 @@ import pathlib
 from collections.abc import Iterator
 from typing import Any
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 
 from oauth_draft import create_draft as _cd
 from oauth_draft import setup_creds as _setup
@@ -81,7 +81,7 @@ from oauth_draft.credentials import (
     refresh_access_token,
 )
 
-mcp = FastMCP("gmail-plaintext")
+mcp = MCPServer("gmail-plaintext")
 
 
 @contextlib.contextmanager
@@ -90,7 +90,7 @@ def _as_tool_error() -> Iterator[None]:
 
     ``create_draft.py`` / ``credentials.py`` raise ``SystemExit`` (they are
     also console scripts). ``SystemExit`` is a ``BaseException``, not an
-    ``Exception``, so without this it would propagate past FastMCP and kill
+    ``Exception``, so without this it would propagate past MCPServer and kill
     the server process instead of surfacing as a failed tool call.
     """
     try:

@@ -12,8 +12,10 @@ Body:
   from airflow.operators.python import PythonOperator
   from datetime import datetime
 
+
   def my_func(x, y):
       print(f"x={x}, y={y}")
+
 
   with DAG("test_dag", start_date=datetime(2024, 1, 1), schedule=None) as dag:
       PythonOperator(
@@ -27,5 +29,6 @@ Body:
 
   ```python
   from airflow.operators.python import PythonOperator
+
   PythonOperator(task_id="t", python_callable=lambda x: print(x), op_kwargs={"x": 42}).execute({})
   ```
