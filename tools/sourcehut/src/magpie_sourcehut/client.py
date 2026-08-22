@@ -22,12 +22,35 @@ from __future__ import annotations
 import json
 import os
 import urllib.error
+import urllib.parse
 import urllib.request
 from typing import Any
 
 
 class SourceHutError(Exception):
     """General exception for SourceHut client errors."""
+
+
+class NoAuthRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Reject redirects so Authorization is not forwarded to another host."""
+
+    def redirect_request(
+        self,
+        req: urllib.request.Request,
+        fp: Any,
+        code: int,
+        msg: str,
+        headers: Any,
+        newurl: str,
+    ) -> urllib.request.Request | None:
+        raise SourceHutError(f"SourceHut request redirected to {newurl}; refusing to forward credentials")
+
+
+def _require_https(url: str) -> None:
+    """Require HTTPS for SourceHut API URLs."""
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme != "https":
+        raise SourceHutError("SourceHut API URLs must use HTTPS")
 
 
 def query_graphql(service: str, query: str, variables: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -46,6 +69,7 @@ def query_graphql(service: str, query: str, variables: dict[str, Any] | None = N
         raise SourceHutError("SRHT_TOKEN environment variable is not set")
 
     url = f"https://{service}.sr.ht/query"
+    _require_https(url)
     payload: dict[str, Any] = {"query": query}
     if variables:
         payload["variables"] = variables
@@ -61,8 +85,12 @@ def query_graphql(service: str, query: str, variables: dict[str, Any] | None = N
         method="POST",
     )
 
+    # Writes never follow redirects: repeating a mutation at a redirected
+    # location is less safe than failing and requiring the caller to retry.
+    opener = urllib.request.build_opener(NoAuthRedirectHandler)
+
     try:
-        with urllib.request.urlopen(req) as resp:
+        with opener.open(req) as resp:
             body = resp.read().decode("utf-8")
             res_json = json.loads(body)
             errors = res_json.get("errors")
@@ -70,6 +98,8 @@ def query_graphql(service: str, query: str, variables: dict[str, Any] | None = N
                 err_msgs = [e.get("message", "Unknown error") for e in errors]
                 raise SourceHutError(f"GraphQL error from {service}.sr.ht: {'; '.join(err_msgs)}")
             return res_json.get("data", {})
+    except SourceHutError:
+        raise
     except urllib.error.HTTPError as exc:
         err_msg = None
         try:
