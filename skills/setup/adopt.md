@@ -580,10 +580,10 @@ idempotent — re-add them if they're missing.
 **Base entries — always needed**:
 
 ```text
-/.apache-magpie/
+/.apache-magpie
 /.apache-magpie.local.lock
 /.apache-magpie-local/
-/.apache-magpie-sources/
+/.apache-magpie-sources
 /.apache-magpie.sources.local.lock
 /.claude/settings.local.json
 /.claude/hooks/agent-guard.py
@@ -591,6 +591,17 @@ idempotent — re-add them if they're missing.
 __pycache__/
 *.pyc
 ```
+
+`/.apache-magpie` and `/.apache-magpie-sources` carry **no trailing
+slash** on purpose. In the main checkout both are directories, but
+[`worktree-init`](worktree-init.md#step-1--create-the-snapshot-symlink)
+replaces each with a **symlink** to the main checkout's copy so every
+worktree shares one framework state. A `dir/`-style pattern matches
+only directories, so a trailing slash would leave both entries
+untracked-but-not-ignored in every worktree — `git status` noise, and
+one `git add -A` away from committing a machine-local absolute-path
+symlink. Without the slash the pattern matches the directory, its
+contents, and the symlink alike, so the main checkout is unaffected.
 
 The `/.apache-magpie-sources/` and
 `/.apache-magpie.sources.local.lock` lines keep the gitignored

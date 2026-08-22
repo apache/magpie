@@ -109,8 +109,10 @@ ln -sf ../../.agents/skills/magpie-setup .github/skills/magpie-setup
 cat >> .gitignore <<'GITIGNORE'
 
 # Magpie — gitignored snapshot of the framework, refreshed
-# by /magpie-setup upgrade. Build artefact, not source.
-/.apache-magpie/
+# by /magpie-setup upgrade. Build artefact, not source. No trailing
+# slash: worktree-init makes this a symlink to the main checkout's
+# snapshot, and a directory-only pattern would not match it.
+/.apache-magpie
 
 # Per-machine local-pin file. Records what THIS machine fetched and
 # when. Compared against the committed .apache-magpie.lock to
