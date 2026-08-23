@@ -237,7 +237,7 @@ a first-time adopter takes.
 
 - [`docs/setup/README.md`](README.md) — the setup skill
   family overview (verify, upgrade, shared-config sync).
-- [Top-level README — Adopting the framework](../../README.md#adopting-the-framework)
+- [Top-level README — Install](../../README.md#install)
   — the original 3-step bootstrap.
 - [`install-recipes.md`](install-recipes.md) — the
   counterpart to this page.
