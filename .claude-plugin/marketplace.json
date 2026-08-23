@@ -70,7 +70,7 @@
       "name": "magpie-utilities",
       "source": "./plugins/magpie-utilities",
       "version": "0.2.0.dev0",
-      "description": "Apache Magpie utilities family (4 skills)."
+      "description": "Apache Magpie utilities family (5 skills)."
     }
   ]
 }
