@@ -328,12 +328,26 @@ explicit action they take (or route through
 
 ### AI-attribution footer
 
-Every review body ends with the verbatim block below. Do not
-paraphrase, do not omit. The variant differs slightly by
+Every review body ends with one of the verbatim blocks below.
+Do not paraphrase, do not omit. The variant differs slightly by
 disposition (the contributor-facing tone shifts from
 "a maintainer will follow up with merge" on `APPROVE` to
 "a maintainer will follow up after you address the points" on
 the others).
+
+`APPROVE` and `REQUEST_CHANGES` only ever post when GitHub has
+already confirmed write access on the account (a non-collaborator's
+`--approve`/`--request-changes` call is rejected outright), so the
+maintainer-confirmed wording below is always accurate for those
+two. `COMMENT` has no such GitHub-side gate: any account can post
+one on a public PR regardless of permission, so its footer
+instead depends on the collaborator-permission result from
+[`prerequisites.md#1`](prerequisites.md): render the
+maintainer-confirmed variant when that check returned `admin`,
+`maintain`, or `write`, and the role-neutral variant otherwise
+(including a `COMMENT` posted after that check's dry-run
+warning). Picking between the two is a selection, not a
+paraphrase; render the matching block verbatim.
 
 #### `<ai_attribution_footer>` for `APPROVE`
 
@@ -367,7 +381,10 @@ the others).
 > [contributing-docs/05_pull_requests.rst](https://github.com/<upstream>/blob/main/contributing-docs/05_pull_requests.rst).
 ```
 
-#### `<ai_attribution_footer>` for `COMMENT`
+#### `<ai_attribution_footer>` for `COMMENT`, maintainer-confirmed
+
+Use when [`prerequisites.md#1`](prerequisites.md) returned
+`admin`, `maintain`, or `write`.
 
 ```markdown
 ---
@@ -378,6 +395,27 @@ the others).
 > maintainer — a real person — will take the next look at the
 > PR. If you think a finding is mis-applied, please reply on
 > the PR and a maintainer will weigh in.*
+>
+> *More on how <PROJECT> handles maintainer review:*
+> [contributing-docs/05_pull_requests.rst](https://github.com/<upstream>/blob/main/contributing-docs/05_pull_requests.rst).
+```
+
+#### `<ai_attribution_footer>` for `COMMENT`, role-neutral
+
+Use when [`prerequisites.md#1`](prerequisites.md) returned
+anything else (`triage`, `read`, or no collaborator access at
+all), i.e. whenever the posting account's maintainer status is
+not confirmed.
+
+```markdown
+---
+
+> *This review was drafted by an AI-assisted tool and posted by
+> a contributor who does not have confirmed <PROJECT> maintainer
+> access. The findings below are this tool's analysis only, not
+> a maintainer sign-off; an <PROJECT> maintainer will still need
+> to look at the PR before it moves forward. If you think a
+> finding is mis-applied, please reply on the PR.*
 >
 > *More on how <PROJECT> handles maintainer review:*
 > [contributing-docs/05_pull_requests.rst](https://github.com/<upstream>/blob/main/contributing-docs/05_pull_requests.rst).

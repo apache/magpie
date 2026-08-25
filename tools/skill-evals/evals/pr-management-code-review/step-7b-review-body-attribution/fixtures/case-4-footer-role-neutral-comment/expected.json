@@ -1,0 +1,5 @@
+{
+  "footer_present": true,
+  "action": "post",
+  "reason": "The COMMENT body ends with the verbatim role-neutral AI-attribution footer, which is correct when the poster does not have confirmed maintainer access, so it can be posted."
+}

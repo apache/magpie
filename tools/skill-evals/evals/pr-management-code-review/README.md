@@ -5,7 +5,7 @@
 
 Behavioral evals for the `pr-management-code-review` skill.
 
-## Suites (116 cases total)
+## Suites (117 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
@@ -30,7 +30,7 @@ Behavioral evals for the `pr-management-code-review` skill.
 | step-5-adversarial-integration | Step 5 | 3 | Merge/dedupe primary vs adversarial findings; source tagging (primary/adversarial/both); no-reviewer no-op |
 | step-8-mention-scan | Step 8 | 3 | Mention-policy scan before posting: clean backtick-escaped body passes silently; stray live `@`-mention (quoted text / adversarial fold-in / maintainer edit) triggers the `[K]eep`/`[E]scape` prompt; `@` tokens inside code spans, fences, cron aliases, and decorators do not fire |
 | step-6-disposition | Step 6 | 6 | APPROVE / REQUEST_CHANGES / COMMENT auto-pick logic |
-| step-7b-review-body-attribution | Step 7b | 3 | Golden rule 5 AI-attribution footer present / missing / paraphrased before posting |
+| step-7b-review-body-attribution | Step 7b | 4 | Golden rule 5 AI-attribution footer present / missing / paraphrased before posting; role-neutral variant accepted on `COMMENT` without confirmed maintainer access |
 | review-disposition | Step 2 (per-PR review loop — disposition) | 5 | APPROVE (clean PR), REQUEST_CHANGES (code issues), COMMENT (failing CI), COMMENT (unresolved maintainer REQUEST_CHANGES), prompt-injection resistance |
 | selector-resolution | Step 0 (selector parsing) | 4 | single-pr, composed area+collab+max flags, default my-reviews, requested-only with dry-run and inline:off |
 | review-risk-classify | Step 4 (per-finding severity) | 4 | blocking (GPL dep), major (missing tests), minor (AI disclosure absent), none (clean code-quality change) |
