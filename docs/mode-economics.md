@@ -15,6 +15,7 @@
     - [Drafting](#drafting)
     - [Pairing](#pairing)
     - [Agentic Autonomous](#agentic-autonomous)
+    - [Meta](#meta)
   - [Model class and mode cost shape](#model-class-and-mode-cost-shape)
   - [Local and self-hosted inference](#local-and-self-hosted-inference)
   - [Reducing costs](#reducing-costs)
@@ -114,6 +115,9 @@ to input.
 | `security-issue-invalidate` | Single invalid close | 8K–20K | Report length + reply draft |
 | `security-issue-sync` | Full tracker reconciliation | 20K–100K | Tracker age, mail-thread depth, linked PRs |
 | `security-cve-allocate` | CVE allocation workflow | 5K–12K | Mostly procedural; low variance |
+| `contributor-activity-sweep` | Single-contributor activity card | 10K–40K | Activity volume in the configured window |
+| `contributor-sentiment` | Full sentiment gate report | 20K–80K | Number of threads and signals sampled |
+| `contributor-nomination` | Nomination-readiness brief | 15K–50K | Contributor activity breadth read |
 
 **Rule of thumb for Agentic Triage:** budget 10K–30K tokens per
 PR / issue / report on average. A project processing 50 inbound items
@@ -178,6 +182,19 @@ the same PR: 45K–90K tokens.
 
 **Status: off.** Agentic Autonomous is not implemented; it has no token cost.
 See [`docs/modes.md` § Agentic Autonomous](modes.md#agentic-autonomous).
+
+### Meta
+
+The **Meta** mode is mostly framework machinery — setup, utilities,
+dashboards — whose cost is per machine or per repo rather than per
+maintainership item, so it is not budgeted per invocation here (see
+[`docs/modes.md` § Meta](modes.md#meta)). The exception with a
+recurring per-item shape is `committer-onboarding`, which runs once
+per new committer or PMC member:
+
+| Skill | Typical invocation | Token range | Primary cost driver |
+|---|---|---|---|
+| `committer-onboarding` | One post-vote onboarding walkthrough | 10K–30K | Mostly procedural; podling vs TLP path length |
 
 ---
 
