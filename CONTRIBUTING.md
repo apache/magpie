@@ -367,18 +367,29 @@ validator + eval cases.
 
 ## Agent harnesses
 
-The framework's reference runtime today is **Claude Code** — skills
-are loaded from `skills/<name>/SKILL.md`, MCP servers from
-the user's Claude Code config, and the sandbox from
-`setup-isolated-setup-install`.
+The framework has two **reference implementations** today —
+[OpenCode](https://opencode.ai/), which is open source and
+model-agnostic (so it can drive every LLM backend), and
+[Claude Code](https://www.anthropic.com/claude-code), powered by
+Anthropic subscriptions. Both load skills from `skills/<name>/SKILL.md`
+(exposed to every harness through the committed `.agents/skills/`
+symlink tree), read MCP servers from the runtime's own config, and
+apply the sandbox from `setup-isolated-setup-install`. A third runtime,
+[OpenAI Codex](https://github.com/openai/codex), reads the
+`.agents/skills/` tree natively and ships an in-tree sandbox profile and
+HITL exec-policy rules; its adapter is **experimental** — see the
+[Codex runtime guide](docs/adapters/codex.md).
 
 RFC-AI-0004 §3 commits the framework to **vendor neutrality across
-LLM backends**. The current state per harness:
+LLM backends** — [`docs/prerequisites.md`](docs/prerequisites.md) and
+[`docs/vendor-neutrality.md`](docs/vendor-neutrality.md) carry the
+authoritative runtime matrix. The current state per harness:
 
 | Harness | State | Tracking |
 |---|---|---|
-| Claude Code | Primary, fully supported | — |
-| Codex CLI | Partial — Claude Code plugin delegates rescue + adversarial-review subtasks to Codex | First-class runtime tracked at [#313](https://github.com/apache/magpie/issues/313) |
+| OpenCode | Reference implementation, fully supported | — |
+| Claude Code | Reference implementation, fully supported | — |
+| Codex CLI | Experimental first-class adapter — reads `.agents/skills/` natively, ships in-tree sandbox + HITL rules | [#313](https://github.com/apache/magpie/issues/313) |
 | Gemini CLI | Not yet ported | [#314](https://github.com/apache/magpie/issues/314) |
 | Local LLM (Ollama / llama.cpp / vLLM) | Not yet ported | [#315](https://github.com/apache/magpie/issues/315) |
 | Cursor (Composer + Agent CLI) | Not yet ported | [#316](https://github.com/apache/magpie/issues/316) |
@@ -389,7 +400,7 @@ LLM backends**. The current state per harness:
 | JetBrains Junie | Not yet ported | [#321](https://github.com/apache/magpie/issues/321) |
 | OpenHands | Not yet ported | [#322](https://github.com/apache/magpie/issues/322) |
 
-MCP servers used by the Claude Code runtime today: Slack, Gmail,
+MCP servers used by the reference runtimes today: Slack, Gmail,
 Google Calendar, Google Drive, plus framework-internal ones for
 the ponymail / incubator-mail / incubator-reports surfaces. MCP-
 compatible harnesses (Gemini CLI, Goose, Copilot CLI) should pick
