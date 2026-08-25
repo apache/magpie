@@ -18,6 +18,7 @@
 import io
 import json
 import urllib.error
+import urllib.request
 from email.message import Message
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -26,7 +27,12 @@ import pytest
 
 from magpie_sourcehut.builds import get_job
 from magpie_sourcehut.cli import main
-from magpie_sourcehut.client import SourceHutError, query_graphql
+from magpie_sourcehut.client import (
+    NoAuthRedirectHandler,
+    SourceHutError,
+    _require_https,
+    query_graphql,
+)
 from magpie_sourcehut.lists import get_patchset, list_patchsets, map_patchset_to_pr
 from magpie_sourcehut.repo import get_repo
 from magpie_sourcehut.todo import (
@@ -50,9 +56,53 @@ def make_mock_response(status_code: int, body_dict: dict[str, Any]) -> MagicMock
     return mock_resp
 
 
-@patch("urllib.request.urlopen")
-def test_query_graphql_success(mock_urlopen: MagicMock, mock_env: None) -> None:
-    mock_urlopen.return_value.__enter__.return_value = make_mock_response(200, {"data": {"version": "1.0"}})
+def mock_opener(mock_build_opener: MagicMock, *bodies: dict[str, Any]) -> MagicMock:
+    opener = MagicMock()
+    opener.open.side_effect = [
+        MagicMock(
+            __enter__=MagicMock(return_value=make_mock_response(200, body)),
+            __exit__=MagicMock(return_value=None),
+        )
+        for body in bodies
+    ]
+    mock_build_opener.return_value = opener
+    return opener
+
+
+def test_no_auth_redirect_handler_rejects_redirect() -> None:
+    handler = NoAuthRedirectHandler()
+    request = urllib.request.Request(
+        "https://todo.sr.ht/query",
+        headers={"Authorization": "Bearer mock_token_123"},
+        method="POST",
+    )
+
+    with pytest.raises(SourceHutError, match="refusing to forward credentials"):
+        handler.redirect_request(
+            request,
+            None,
+            302,
+            "Found",
+            {},
+            "https://todo.sr.ht/redirected",
+        )
+
+
+def test_require_https_rejects_http() -> None:
+    with pytest.raises(SourceHutError, match="SourceHut API URLs must use HTTPS"):
+        _require_https("http://todo.sr.ht/query")
+
+
+@patch("urllib.request.build_opener")
+def test_query_graphql_uses_no_auth_redirect_handler(mock_build_opener: MagicMock, mock_env: None) -> None:
+    mock_opener(mock_build_opener, {"data": {"version": "1.0"}})
+    query_graphql("todo", "{ version }")
+    mock_build_opener.assert_called_once_with(NoAuthRedirectHandler)
+
+
+@patch("urllib.request.build_opener")
+def test_query_graphql_success(mock_build_opener: MagicMock, mock_env: None) -> None:
+    mock_opener(mock_build_opener, {"data": {"version": "1.0"}})
     res = query_graphql("todo", "{ version }")
     assert res == {"version": "1.0"}
 
@@ -62,11 +112,9 @@ def test_query_graphql_no_token() -> None:
         query_graphql("todo", "{ version }")
 
 
-@patch("urllib.request.urlopen")
-def test_query_graphql_error_in_json(mock_urlopen: MagicMock, mock_env: None) -> None:
-    mock_urlopen.return_value.__enter__.return_value = make_mock_response(
-        200, {"errors": [{"message": "Invalid query syntax"}]}
-    )
+@patch("urllib.request.build_opener")
+def test_query_graphql_error_in_json(mock_build_opener: MagicMock, mock_env: None) -> None:
+    mock_opener(mock_build_opener, {"errors": [{"message": "Invalid query syntax"}]})
     with pytest.raises(SourceHutError, match=r"GraphQL error from todo\.sr\.ht: Invalid query syntax"):
         query_graphql("todo", "invalid_query")
 
@@ -83,16 +131,18 @@ def test_query_graphql_error_in_json(mock_urlopen: MagicMock, mock_env: None) ->
         pytest.param(b'{"errors": ["boom"]}', id="errors-list-of-strings"),
     ],
 )
-@patch("urllib.request.urlopen")
+@patch("urllib.request.build_opener")
 def test_query_graphql_http_error_body_never_leaks(
-    mock_urlopen: MagicMock, mock_env: None, body: bytes
+    mock_build_opener: MagicMock, mock_env: None, body: bytes
 ) -> None:
     # Parsing the error body is best-effort: whatever shape it arrives in, the
     # caller must see a SourceHutError, never a raw UnicodeDecodeError /
     # AttributeError from the parse attempt.
-    mock_urlopen.side_effect = urllib.error.HTTPError(
+    opener = MagicMock()
+    opener.open.side_effect = urllib.error.HTTPError(
         "https://todo.sr.ht/query", 400, "Bad Request", Message(), io.BytesIO(body)
     )
+    mock_build_opener.return_value = opener
 
     with pytest.raises(
         SourceHutError, match=r"HTTP request to https://todo\.sr\.ht/query failed with status 400"
@@ -100,24 +150,26 @@ def test_query_graphql_http_error_body_never_leaks(
         query_graphql("todo", "{ version }")
 
 
-@patch("urllib.request.urlopen")
+@patch("urllib.request.build_opener")
 def test_query_graphql_http_error_uses_body_message_when_parseable(
-    mock_urlopen: MagicMock, mock_env: None
+    mock_build_opener: MagicMock, mock_env: None
 ) -> None:
-    mock_urlopen.side_effect = urllib.error.HTTPError(
+    opener = MagicMock()
+    opener.open.side_effect = urllib.error.HTTPError(
         "https://todo.sr.ht/query",
         400,
         "Bad Request",
         Message(),
         io.BytesIO(b'{"errors": [{"message": "bad query"}]}'),
     )
+    mock_build_opener.return_value = opener
 
     with pytest.raises(SourceHutError, match=r"HTTP 400: bad query"):
         query_graphql("todo", "{ version }")
 
 
-@patch("urllib.request.urlopen")
-def test_get_ticket(mock_urlopen: MagicMock, mock_env: None) -> None:
+@patch("urllib.request.build_opener")
+def test_get_ticket(mock_build_opener: MagicMock, mock_env: None) -> None:
     ticket_data = {
         "id": 42,
         "title": "Fix memory leak",
@@ -127,52 +179,45 @@ def test_get_ticket(mock_urlopen: MagicMock, mock_env: None) -> None:
         "labels": [{"id": 1, "name": "bug"}],
         "comments": [],
     }
-    mock_urlopen.return_value.__enter__.return_value = make_mock_response(
-        200, {"data": {"tracker": {"ticket": ticket_data}}}
-    )
+    mock_opener(mock_build_opener, {"data": {"tracker": {"ticket": ticket_data}}})
     res = get_ticket("~user", "my-project", 42)
     assert res["id"] == 42
     assert res["title"] == "Fix memory leak"
 
 
-@patch("urllib.request.urlopen")
-def test_submit_ticket(mock_urlopen: MagicMock, mock_env: None) -> None:
-    mock_urlopen.return_value.__enter__.return_value = make_mock_response(
-        200, {"data": {"submitTicket": {"id": 101, "title": "New issue"}}}
-    )
+@patch("urllib.request.build_opener")
+def test_submit_ticket(mock_build_opener: MagicMock, mock_env: None) -> None:
+    mock_opener(mock_build_opener, {"data": {"submitTicket": {"id": 101, "title": "New issue"}}})
     res = submit_ticket("~user", "my-project", "New issue", "Description here")
     assert res["id"] == 101
 
 
-@patch("urllib.request.urlopen")
-def test_submit_comment(mock_urlopen: MagicMock, mock_env: None) -> None:
-    mock_urlopen.return_value.__enter__.return_value = make_mock_response(
-        200, {"data": {"submitComment": {"id": 501, "body": "Comment body"}}}
-    )
+@patch("urllib.request.build_opener")
+def test_submit_comment(mock_build_opener: MagicMock, mock_env: None) -> None:
+    mock_opener(mock_build_opener, {"data": {"submitComment": {"id": 501, "body": "Comment body"}}})
     res = submit_comment("~user", "my-project", 42, "Comment body")
     assert res["id"] == 501
 
 
-@patch("urllib.request.urlopen")
-def test_label_ticket(mock_urlopen: MagicMock, mock_env: None) -> None:
-    mock_urlopen.return_value.__enter__.return_value = make_mock_response(
-        200, {"data": {"labelTicket": {"id": 42}}}
-    )
+@patch("urllib.request.build_opener")
+def test_label_ticket(mock_build_opener: MagicMock, mock_env: None) -> None:
+    mock_opener(mock_build_opener, {"data": {"labelTicket": {"id": 42}}})
     res = label_ticket("~user", "my-project", 42, 10)
     assert res == {"id": 42}
 
 
-@patch("urllib.request.urlopen")
-def test_update_ticket_status(mock_urlopen: MagicMock, mock_env: None) -> None:
-    mock_urlopen.return_value.__enter__.return_value = make_mock_response(
-        200, {"data": {"updateTicketStatus": {"id": 42, "status": "RESOLVED", "resolution": "FIXED"}}}
+@patch("urllib.request.build_opener")
+def test_update_ticket_status(mock_build_opener: MagicMock, mock_env: None) -> None:
+    mock_opener(
+        mock_build_opener,
+        {"data": {"updateTicketStatus": {"id": 42, "status": "RESOLVED", "resolution": "FIXED"}}},
     )
     res = update_ticket_status("~user", "my-project", 42, "RESOLVED", "FIXED")
     assert res["status"] == "RESOLVED"
 
 
-@patch("urllib.request.urlopen")
-def test_get_patchset_and_mapping(mock_urlopen: MagicMock, mock_env: None) -> None:
+@patch("urllib.request.build_opener")
+def test_get_patchset_and_mapping(mock_build_opener: MagicMock, mock_env: None) -> None:
     patchset_data = {
         "id": 200,
         "subject": "[PATCH 0/2] Fix some logs",
@@ -208,9 +253,7 @@ def test_get_patchset_and_mapping(mock_urlopen: MagicMock, mock_env: None) -> No
             },
         },
     }
-    mock_urlopen.return_value.__enter__.return_value = make_mock_response(
-        200, {"data": {"list": {"patchset": patchset_data}}}
-    )
+    mock_opener(mock_build_opener, {"data": {"list": {"patchset": patchset_data}}})
     raw = get_patchset("~user", "my-list", 200)
     assert raw["id"] == 200
 
@@ -316,10 +359,10 @@ def test_map_patchset_to_pr_propagates_unexpected_sort_errors() -> None:
         map_patchset_to_pr(patchset)
 
 
-@patch("urllib.request.urlopen")
-def test_list_patchsets(mock_urlopen: MagicMock, mock_env: None) -> None:
-    mock_urlopen.return_value.__enter__.return_value = make_mock_response(
-        200,
+@patch("urllib.request.build_opener")
+def test_list_patchsets(mock_build_opener: MagicMock, mock_env: None) -> None:
+    mock_opener(
+        mock_build_opener,
         {
             "data": {
                 "list": {
@@ -338,29 +381,27 @@ def test_list_patchsets(mock_urlopen: MagicMock, mock_env: None) -> None:
     assert res[0]["subject"] == "P1"
 
 
-@patch("urllib.request.urlopen")
-def test_get_job(mock_urlopen: MagicMock, mock_env: None) -> None:
-    mock_urlopen.return_value.__enter__.return_value = make_mock_response(
-        200, {"data": {"job": {"id": 55, "status": "SUCCESS", "tasks": []}}}
-    )
+@patch("urllib.request.build_opener")
+def test_get_job(mock_build_opener: MagicMock, mock_env: None) -> None:
+    mock_opener(mock_build_opener, {"data": {"job": {"id": 55, "status": "SUCCESS", "tasks": []}}})
     res = get_job(55)
     assert res["status"] == "SUCCESS"
 
 
-@patch("urllib.request.urlopen")
-def test_get_repo(mock_urlopen: MagicMock, mock_env: None) -> None:
-    mock_urlopen.return_value.__enter__.return_value = make_mock_response(
-        200, {"data": {"repository": {"id": 9, "name": "my-repo", "description": "VCS"}}}
+@patch("urllib.request.build_opener")
+def test_get_repo(mock_build_opener: MagicMock, mock_env: None) -> None:
+    mock_opener(
+        mock_build_opener, {"data": {"repository": {"id": 9, "name": "my-repo", "description": "VCS"}}}
     )
     res = get_repo("git", "~user", "my-repo")
     assert res["name"] == "my-repo"
 
 
-@patch("urllib.request.urlopen")
-def test_cli_dispatch(mock_urlopen: MagicMock, mock_env: None, capsys: pytest.CaptureFixture[str]) -> None:
-    mock_urlopen.return_value.__enter__.return_value = make_mock_response(
-        200, {"data": {"job": {"id": 12, "status": "FAILED"}}}
-    )
+@patch("urllib.request.build_opener")
+def test_cli_dispatch(
+    mock_build_opener: MagicMock, mock_env: None, capsys: pytest.CaptureFixture[str]
+) -> None:
+    mock_opener(mock_build_opener, {"data": {"job": {"id": 12, "status": "FAILED"}}})
     code = main(["build", "get", "12"])
     assert code == 0
     captured = capsys.readouterr()
