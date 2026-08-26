@@ -339,27 +339,30 @@ Three sub-checks for the deterministic guard
    copy; extra locally-added `*.py` are fine. A missing skill guard
    means that skill's deterministic protection is silently inactive
    — remediation is `/magpie-setup` (adopt/upgrade), which re-collects.
-3. **Hook wired in settings.json.** `<repo-root>/.claude/settings.json`
+3. **Hook wired in settings.local.json.** `<repo-root>/.claude/settings.local.json`
    has a `hooks.PreToolUse` entry (matcher `Bash`) whose command
    runs `agent-guard.py`.
-   - ⚠ if missing — the script is present but not active; print
-     the one-time wiring snippet (see
-     [`install.md` Step 12](install.md#step-12--post-install-sync--worktree-propagation--sandbox-allowlist--sanity-check))
-     for the maintainer to apply (settings.json is agent-edit-denied).
+   - If missing, the script is present but not active. Write the
+     entry directly (idempotent merge, per
+     [`install.md` Step 12](install.md#step-12--post-install-sync--worktree-propagation--sandbox-allowlist--sanity-check)),
+     no operator prompt needed since `settings.local.json` is
+     gitignored and agent-writable, unlike the committed `settings.json`.
 
 The script + `guards.d` are **gitignored** framework code
 ([`install.md` Step 7](install.md#step-7--gitignore-entries-fresh-only)),
 synced from the snapshot rather than committed — so a *missing*
 script is the expected state of a fresh checkout, not a defect, and
 the fix is always a re-sync (never `git add`). When this check runs
-**inside a worktree**, the script + `guards.d` are per-worktree
-files (the `settings.json` wiring resolves
-`$CLAUDE_PROJECT_DIR/.claude/hooks/agent-guard.py` against the
-worktree root). The remediation for a *missing* script in a worktree
-is not the main-checkout sync but
+**inside a worktree**, the script, `guards.d`, **and** the
+`settings.local.json` wiring are all per-worktree (each worktree's own
+`settings.local.json` resolves
+`$CLAUDE_PROJECT_DIR/.claude/hooks/agent-guard.py` against that
+worktree's own root, and is not inherited via git). The remediation
+for a *missing* script or wiring entry in a worktree is not the
+main-checkout sync but
 [`worktree-init.md` Step 1d](worktree-init.md#step-1d--seed-the-worktrees-agent-guard-pretooluse-hook)
 (or the post-checkout hook on the next `git worktree add`), which
-seeds it from the main checkout's already-synced copy.
+seeds both from the main checkout's already-synced copy.
 
 ### 8b. Sandbox-allowlist coverage of the current worktree
 
