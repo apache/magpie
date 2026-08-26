@@ -150,7 +150,9 @@ Check that the entries from
 [`adopt.md` Step 7](adopt.md) are present in
 `<repo-root>/.gitignore`. Required:
 
-- `/.apache-magpie/` (snapshot path)
+- `/.apache-magpie` (snapshot path — **no trailing slash**, so the
+  pattern also matches the symlink `worktree-init` puts there; a
+  `/.apache-magpie/` entry is a finding, not a pass)
 - `/.apache-magpie.local.lock` (per-machine state)
 - `/.claude/settings.local.json` (per-machine project-scope
   settings — written to by
@@ -177,8 +179,12 @@ variation):
   `.goose/skills/`, …) — the same two-line block keyed on its own
   dir.
 
-- ✗ if `/.apache-magpie/` is not gitignored — the snapshot
-  is at risk of being accidentally committed.
+- ✗ if `/.apache-magpie` is not gitignored — the snapshot
+  is at risk of being accidentally committed. Check this from a
+  **worktree** as well as the main checkout: a legacy
+  `/.apache-magpie/` entry passes in the main checkout (directory)
+  and fails in every worktree (symlink). Remediation is dropping the
+  trailing slash, not adding a second entry.
 - ✗ if `/.apache-magpie.local.lock` is not gitignored —
   per-machine state would leak into the repo.
 - ✗ if `/.claude/settings.local.json` is not gitignored —
