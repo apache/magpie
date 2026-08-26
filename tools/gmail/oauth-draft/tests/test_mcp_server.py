@@ -85,13 +85,13 @@ def test_tools_are_registered_without_any_html_parameter():
     names = {t.name for t in tools}
     assert names == {"create_draft", "setup_credentials", "check_auth"}
     by_name = {t.name: t for t in tools}
-    draft_props = by_name["create_draft"].inputSchema.get("properties", {})
+    draft_props = by_name["create_draft"].input_schema.get("properties", {})
     # The draft tool must never expose an HTML / rich-text body knob.
     assert not any("html" in p.lower() for p in draft_props)
     assert {"to", "subject", "body"} <= set(draft_props)
     # No tool anywhere exposes an html parameter.
     for t in tools:
-        assert not any("html" in p.lower() for p in t.inputSchema.get("properties", {}))
+        assert not any("html" in p.lower() for p in t.input_schema.get("properties", {}))
 
 
 def test_impl_produces_single_part_plain_text_with_verbatim_link():
