@@ -54,29 +54,11 @@ github:
     # Non-ASF-members named in MISSION.md → "involved as
     # collaborators on the project from day one":
     - johnslavik         # Bartosz Sławecki
-    # The four below are listed in MISSION.md's non-ASF-members
-    # section but are already Apache Airflow committers, so they
-    # have triage rights via the apache GitHub org through their
-    # Airflow committer status — no `collaborators:` slot needed.
-    # Kept here as a record of intent; uncomment if and when their
-    # committer status changes.
-    # - choo121600       # Yeonguk Choo (Airflow committer)
-    # - shahar1          # Shahar Epstein (Airflow committer)
-    # - vincbeck         # Vincent Beck (Airflow committer)
-    # - bugraoz93        # Buğra Öztürk (Airflow committer)
-    # Non-Airflow-committer ASF members from the MISSION.md PMC
-    # roster — added so they have triage rights from day one. The
-    # Airflow committers on the roster (Jarek, Elad, Pavan, Amogh)
-    # are not listed here; they have access via the apache GitHub
-    # org through their existing Airflow committer status.
-    - ppkarwasz          # Piotr Karwasz (Log4J PMC)
-    - zeroshade          # Matt Topol (Arrow PMC, Iceberg PMC)
-    - andrewmusselman    # Andrew Musselman (Mahout PMC)
-    - justinmclean       # Justin Mclean (Incubator PMC, Training PMC)
-    - jbonofre           # Jean-Baptiste Onofré (Incubator PMC, Polaris PMC)
-    - paulk-asert        # Paul King (Groovy PMC, Grails PMC, Incubator PMC)
-    - rusackas           # Evan Rusackas (Superset PMC)
-    - russellspitzer     # Russell Spitzer (Incubator PMC, Polaris PMC, Iceberg PMC)
+    # Also named in MISSION.md's non-ASF-members section (Apache
+    # Airflow committers):
+    - shahar1            # Shahar Epstein (Airflow committer)
+    - vincbeck           # Vincent Beck (Airflow committer)
+    - bugraoz93          # Buğra Öztürk (Airflow committer)
 
   # Disable GitHub Copilot completely on this repo. The framework's
   # review workflow is human-driven (`pr-management-code-review`
@@ -174,13 +156,14 @@ github:
           - "tests-ok"
       # One approving review from a committer is required before any
       # PR merges into `main` (see the note above). `dismiss_stale_reviews:
-      # true` — a new push after approval dismisses the stale approval,
-      # so the approving reviewer sees the final state of the diff.
+      # false` — an approval survives later pushes to the branch, so a
+      # rebase or a review-comment fixup does not force a re-approval
+      # round-trip.
       # `require_code_owner_reviews` is left off: there is no CODEOWNERS
       # file, so any committer's approval satisfies the requirement.
       required_pull_request_reviews:
         required_approving_review_count: 1
-        dismiss_stale_reviews: true
+        dismiss_stale_reviews: false
       #
       # Linear history matches `enabled_merge_buttons.squash: true`
       # above — squash is the only enabled merge mode, so every
