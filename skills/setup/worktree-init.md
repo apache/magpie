@@ -232,7 +232,7 @@ for Step 2:
   `/magpie-setup upgrade`) from the main checkout to sync it.
 
 Then seed the wiring into this worktree's own `settings.local.json`
-the same way [`adopt.md` Step 12 pass 1](adopt.md#step-12--post-install-sync--worktree-propagation--sandbox-allowlist--sanity-check)
+the same way [`install.md` Step 12 pass 1](install.md#step-12--post-install-sync--worktree-propagation--sandbox-allowlist--sanity-check)
 does for the main checkout: an idempotent merge that preserves every
 other key and is skipped once a `Bash` entry already invokes
 `agent-guard.py`. Do this whenever the script was just copied above,
