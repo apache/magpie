@@ -5199,3 +5199,55 @@ class TestValidateNoTelemetryImports:
         )
         violations = list(validate_no_telemetry_imports(root))
         assert any("PRINCIPLE 10" in v.message for v in violations)
+
+    def test_tool_root_python_outside_src_is_scanned(self, tmp_path: Path) -> None:
+        # Several substrate tools keep Python at the tool root rather than
+        # under src/ (pr-management-stats/dashboard.py and friends). A
+        # src/-only scan exempted every one of them while tool.md promised
+        # the opposite.
+        root = self._make_tool(
+            tmp_path,
+            name="root-script-substrate",
+            readme=self._SUBSTRATE_README,
+            src_files={"root_script_substrate/__init__.py": "# SPDX-License-Identifier: Apache-2.0\n"},
+        )
+        tool_dir = root / "tools" / "root-script-substrate"
+        (tool_dir / "dashboard.py").write_text("# SPDX-License-Identifier: Apache-2.0\nimport requests\n")
+        violations = list(validate_no_telemetry_imports(root))
+        assert len(violations) == 1
+        assert violations[0].path.name == "dashboard.py"
+        assert "requests" in violations[0].message
+
+    def test_from_socket_import_is_flagged(self, tmp_path: Path) -> None:
+        # Every sibling pattern accepts both `import x` and `from x import`;
+        # socket accepted only the former.
+        root = self._make_tool(
+            tmp_path,
+            name="from-socket-substrate",
+            readme=self._SUBSTRATE_README,
+            src_files={
+                "from_socket_substrate/__init__.py": (
+                    "# SPDX-License-Identifier: Apache-2.0\nfrom socket import socket\n"
+                )
+            },
+        )
+        violations = list(validate_no_telemetry_imports(root))
+        assert len(violations) == 1
+        assert "socket" in violations[0].message
+
+    def test_tests_directory_is_not_scanned(self, tmp_path: Path) -> None:
+        # A test may legitimately import a network module to assert it is
+        # not reachable; broadening the scan must not start flagging those.
+        root = self._make_tool(
+            tmp_path,
+            name="tested-substrate",
+            readme=self._SUBSTRATE_README,
+            src_files={"tested_substrate/__init__.py": "# SPDX-License-Identifier: Apache-2.0\n"},
+        )
+        tool_dir = root / "tools" / "tested-substrate"
+        (tool_dir / "tests").mkdir()
+        (tool_dir / "tests" / "test_net.py").write_text(
+            "# SPDX-License-Identifier: Apache-2.0\nimport requests\nfrom socket import socket\n"
+        )
+        violations = list(validate_no_telemetry_imports(root))
+        assert violations == []
