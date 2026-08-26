@@ -21,6 +21,14 @@
 > **Scope.** Works on any project, ASF or not — no
 > Apache-Software-Foundation-specific assumptions baked in.
 
+> **Adoption vs. installation.** A project *adopts* Magpie — the decision to
+> bring the framework in and maintain it over time. *Installation* is the
+> mechanism that carries that out: `/magpie-setup install` sets up the
+> gitignored snapshot, the skill symlinks, and the overrides scaffold in the
+> adopter repo (`adopt` is an alias; `uninstall`/`unadopt` reverse it). You
+> adopt once; every contributor and machine then installs from the committed
+> pin.
+
 The **setup** skill family is the prerequisite for running any
 framework skill. It walks a new adopter (or a fresh dev machine on
 an existing adopter) through the secure-agent install — pinned
@@ -65,8 +73,8 @@ framework safe to use.
 - [**`install-recipes.md`**](install-recipes.md) — copy-pasteable
   shell recipes (svn-zip / git-tag / git-branch) for bootstrapping
   `setup` into a new adopter repo.
-- [**`unadopt.md`**](unadopt.md) — counterpart to `install-recipes.md`:
-  remove the framework artefacts the adopt flow installed. One
+- [**`uninstall.md`**](uninstall.md) — counterpart to `install-recipes.md`:
+  remove the framework artefacts the install flow installed. One
   path, full plan surfaced before any write.
 - [**`sandbox-troubleshooting.md`**](sandbox-troubleshooting.md) —
   catalog of known sandbox-shaped failure modes (SSH agent /

@@ -354,7 +354,7 @@ Next: wait for the PR to merge, then in <adopter-repo>:
 
 | Symptom | Likely cause | Remediation |
 |---|---|---|
-| `<adopter-repo>` has no `.apache-magpie-overrides/` | not adopted, or adopted without the overrides scaffold | run `/magpie-setup adopt` (idempotent) |
+| `<adopter-repo>` has no `.apache-magpie-overrides/` | not adopted, or adopted without the overrides scaffold | run `/magpie-setup install` (idempotent) |
 | Step 1 finds zero overrides | nothing to upstream — adopter has no local modifications recorded | stop |
 | `<framework-clone>` not found | user has not cloned `apache/magpie` yet | help them clone, then resume |
 | Framework pre-commit fails after the implementation | the change does not match framework conventions | iterate with the user, re-run pre-commit, do not bypass with `--no-verify` |

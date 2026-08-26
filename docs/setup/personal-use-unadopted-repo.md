@@ -219,7 +219,7 @@ personal adjustments are active before the skill does anything.
 
 | Works | Does not work |
 |---|---|
-| All workflow skills — `security-*`, `pr-management-*`, `issue-*`, `release-*`, `mentoring-*`, `pairing-*`, `repo-health-*` | `/magpie-setup adopt` / `verify` / `upgrade` — these manage the committed lock and snapshot, which do not exist here |
+| All workflow skills — `security-*`, `pr-management-*`, `issue-*`, `release-*`, `mentoring-*`, `pairing-*`, `repo-health-*` | `/magpie-setup install` / `verify` / `upgrade` — these manage the committed lock and snapshot, which do not exist here |
 | Personal overrides via `.apache-magpie-local/` | Shared overrides (`.apache-magpie-overrides/`) — the committed override directory requires the project to have adopted |
 | `setup-isolated-setup-install` / `-verify` / `-doctor` (the secure-setup skills are user-scope artefacts, not per-project) | Drift detection (the skill checks for `.apache-magpie.lock`; finding none, it proceeds without it rather than erroring) |
 | The full safety, confidentiality, and privacy baseline (always applied regardless of adoption state) | — |
@@ -231,7 +231,7 @@ issue tracker so the step can be made adoption-optional.
 ## If the project later adopts Magpie
 
 When Project X eventually adopts the framework via
-[`install-recipes.md`](install-recipes.md) and `/magpie-setup adopt`,
+[`install-recipes.md`](install-recipes.md) and `/magpie-setup install`,
 the project-scope skills will appear under `.agents/skills/` and
 `.claude/skills/` in that repo. Claude Code's project-scope skills take
 precedence over user-scope ones when both exist, so the project-scope
@@ -258,7 +258,7 @@ overrides you care about have been upstreamed into
   walkthrough for the secure-agent harness (the prerequisite to any
   framework use, adopted or not).
 - [`setup` skill](../../skills/setup/SKILL.md) — the entry point for
-  project-level adoption (`/magpie-setup adopt`).
+  project-level adoption (`/magpie-setup install`).
 - [`setup-status` skill](../../skills/setup-status/SKILL.md) — the
   adoption dashboard; reports whether `.apache-magpie-local/` is present
   in addition to the committed lock and override scaffold.

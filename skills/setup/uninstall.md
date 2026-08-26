@@ -1,10 +1,10 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/legal/release-policy.html -->
 
-# unadopt — remove the apache-magpie framework from an adopter repo
+# uninstall — remove the apache-magpie framework from an adopter repo (alias: `unadopt`)
 
-The reverse of [`adopt.md`](adopt.md). Removes the framework
-artefacts the adopt flow installed — gitignored snapshot,
+The reverse of [`install.md`](install.md). Removes the framework
+artefacts the install flow installed — gitignored snapshot,
 committed lock, gitignored local lock, framework-skill
 symlinks **in every active target dir** ([`agents.md`](agents.md)
 — `.agents/skills/`, `.claude/skills/`, `.github/skills/`, plus
@@ -82,7 +82,7 @@ relevant override file rather than unadopting.
    present. If missing, the repo is not adopted — surface and
    stop. (If only the snapshot is present without a committed
    lock, the adopter ran the install recipe but never
-   completed `/magpie-setup adopt`; treat that as not-yet-
+   completed `/magpie-setup install`; treat that as not-yet-
    adopted and stop with the same message.)
 5. Compute the **active target set** per
    [`agents.md`](agents.md): the canonical `.agents/skills/`, the
@@ -93,7 +93,7 @@ relevant override file rather than unadopting.
 
 ## Step 1 — Inventory what was installed
 
-Build a concrete list of every artefact the unadopt flow
+Build a concrete list of every artefact the uninstall flow
 would touch. The inventory drives the plan in Step 2 and
 distinguishes *present* from *absent* (skip absent items
 silently — adopt is configurable, so not every adopter has
@@ -104,7 +104,7 @@ every artefact).
 | Snapshot | `<snapshot-dir>/` | exists + non-empty |
 | Local lock | `<local-lock>` | exists |
 | Committed lock | `<committed-lock>` | exists |
-| `.gitignore` entries | `<repo-root>/.gitignore` | which of the entries from [`adopt.md` Step 7](adopt.md) are present |
+| `.gitignore` entries | `<repo-root>/.gitignore` | which of the entries from [`install.md` Step 7](install.md) are present |
 | Framework-skill symlinks | **Every active target dir** ([`agents.md`](agents.md)): the canonical `.agents/skills/` (always present), the `.claude/skills/` + `.github/skills/` relay pair, and any present holdout (`.windsurf/skills/`, `.goose/skills/`) | each `magpie-*` symlink — canonical entries resolving into `<snapshot-dir>/skills/`, relays resolving into `.agents/skills/magpie-*` — in **each** target dir |
 | Post-checkout hook | `<repo-root>/.git/hooks/post-checkout` | exists + invokes `~/.claude/scripts/sandbox-add-project-root.sh` and/or seeds `.claude/hooks/agent-guard.py` |
 | agent-guard hook | `<repo-root>/.claude/hooks/agent-guard.py` + `<repo-root>/.claude/hooks/guards.d/` | exist (gitignored framework code). The committed `.claude/settings.json` `hooks.PreToolUse` wiring is **adopter-owned** — surface it for the user to remove by hand (settings.json is agent-edit-denied); do not edit it. |
@@ -117,7 +117,7 @@ every artefact).
 
 For the overrides directory: distinguish the
 **framework-scaffold** files (`README.md`, `user.md` from
-[`adopt.md` Step 9 / 9b](adopt.md)) from
+[`install.md` Step 9 / 9b](install.md)) from
 **adopter-authored** files (e.g. `pr-management-triage.md`,
 any `user.md` filled in beyond the scaffold). Also check
 `git status -- .apache-magpie-overrides/` for **uncommitted
@@ -148,7 +148,7 @@ The following will be REMOVED:
 
   Committed (will show in `git status`):
     .apache-magpie.lock                  (the project's pin)
-    .gitignore                            (the entries listed in adopt.md Step 7)
+    .gitignore                            (the entries listed in install.md Step 7)
     README.md                             (the `## Agent-assisted contribution (apache-magpie)` section)
     AGENTS.md                             (the `## apache-magpie framework` section, if present)
     .agents/skills/magpie-setup/         (this skill itself — self-destructive; canonical copy)
@@ -196,7 +196,7 @@ canonical entry that does not resolve into `<snapshot-dir>/`, a
 relay that does not resolve through `.agents/skills/`, or an
 adopter who committed a real skill at the same name post-adoption
 — list it under a separate **Preserved (not framework-owned)**
-subsection. The unadopt flow never deletes content it does not
+subsection. The uninstall flow never deletes content it does not
 own.
 
 ## Step 3 — Confirm
@@ -241,12 +241,12 @@ pointing at a deleted snapshot.
 
    Never touch a non-symlink at the same path.
 2. **Post-checkout hook.** Remove only if its content matches
-   the magpie recipe verbatim (i.e. the hook the adopt flow
+   the magpie recipe verbatim (i.e. the hook the install flow
    wrote — the two-part body that chains
    `~/.claude/scripts/sandbox-add-project-root.sh` (guarded by
    the `-x` test) **and** seeds `.claude/hooks/agent-guard.py`
    from the main checkout; see
-   [`adopt.md` Step 10](adopt.md#step-10--worktree-aware-post-checkout-hook-fresh-only)
+   [`install.md` Step 10](install.md#step-10--worktree-aware-post-checkout-hook-fresh-only)
    for the exact text). If the hook contains additional adopter
    logic, surface that, leave the hook in place, and tell the
    user which lines to delete by hand. Hooks that still contain
@@ -275,7 +275,7 @@ pointing at a deleted snapshot.
 5. **Local lock.** `rm <local-lock>`.
 6. **`.gitignore` entries.** Read `<repo-root>/.gitignore`,
    remove exactly the lines from
-   [`adopt.md` Step 7](adopt.md) that are present, and leave
+   [`install.md` Step 7](install.md) that are present, and leave
    any adopter-added entries (e.g. unrelated rules near the
    adoption block) untouched. Do not collapse blank lines —
    the diff stays minimal. **Exception:** leave `__pycache__/`
@@ -283,7 +283,7 @@ pointing at a deleted snapshot.
    most repos carry independently of the framework, so removing
    them would break the adopter's own Python ignores. Only drop
    them if they sit unambiguously inside the magpie-managed
-   block (under the same comment header the adopt flow wrote)
+   block (under the same comment header the install flow wrote)
    and the repo has no other Python sources.
 7. **Doc sections.** For each of `README.md`, `AGENTS.md`,
    `CONTRIBUTING.md` that contains an adoption section,
@@ -369,13 +369,13 @@ framework repo at https://github.com/apache/magpie.
 ```
 
 Suggest the user open the diff (`git diff --cached`) before
-committing — the unadopt flow's `.gitignore` edit and the
+committing — the uninstall flow's `.gitignore` edit and the
 `README.md` / `AGENTS.md` patches are the most likely to
 need a human re-read.
 
 ## Hard rules
 
-- **Never delete what the adopt flow did not install.**
+- **Never delete what the install flow did not install.**
   Symlinks pointing outside `<snapshot-dir>/`, hooks with
   custom adopter logic, `.gitignore` entries not in the
   adopt template, and content at any of the doc-section
@@ -398,17 +398,17 @@ need a human re-read.
 ## Failure modes
 
 - **`<committed-lock>` missing** → repo not adopted. Stop
-  with a pointer at `/magpie-setup adopt`.
+  with a pointer at `/magpie-setup install`.
 - **`<snapshot-dir>/` contains committed content**
   (anti-pattern: adopter put real files inside the
   gitignored snapshot path before adoption) → surface, do
   not `rm -rf`, ask the user to relocate the content first.
 - **Symlink target resolves outside `<snapshot-dir>/`** →
-  preserved + flagged in Step 2. The adopt flow never
+  preserved + flagged in Step 2. The install flow never
   installs such symlinks; the adopter created it post-
   adoption.
 - **Post-checkout hook has extra logic** → preserved; the
-  unadopt flow names the line to remove by hand.
+  uninstall flow names the line to remove by hand.
 - **`.gitignore` entry overlaps adopter rules** (e.g. the
   adopter also has `/.apache-magpie/foo` for unrelated
   reasons) → only the exact adopt-template lines are

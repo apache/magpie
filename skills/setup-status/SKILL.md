@@ -235,7 +235,7 @@ Full gap-detection and delegation rules: [`adjust.md`](adjust.md).
 - [`scripts/collect_status.py`](scripts/collect_status.py) — the
   deterministic, read-only state collector.
 - [`/magpie-setup`](../setup/SKILL.md) — adoption mutation:
-  [`adopt.md`](../setup/adopt.md), [`upgrade.md`](../setup/upgrade.md),
+  [`install.md`](../setup/install.md), [`upgrade.md`](../setup/upgrade.md),
   the [`agents.md`](../setup/agents.md) target registry, and the
   [Golden rules](../setup/SKILL.md#golden-rules).
 - [`/magpie-setup verify`](../setup/verify.md) — the deep

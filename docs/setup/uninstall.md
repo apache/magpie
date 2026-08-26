@@ -135,13 +135,13 @@ committing. On disk, `.apache-magpie/` and
 If anything is missing or unexpected — or if removal failed
 partway through — the canonical per-step plan, including
 failure modes, lives in
-[`.claude/skills/magpie-setup/unadopt.md`](../../skills/setup/unadopt.md).
+[`.claude/skills/magpie-setup/uninstall.md`](../../skills/setup/uninstall.md).
 That's the procedure the agent steps through when you
 invoke `/magpie-setup unadopt`.
 
 ## What remains after unadopt — and how to remove it
 
-`unadopt` only deletes content the adopt flow itself
+`unadopt` only deletes content the install flow itself
 installed. Anything you authored, or anything that
 overlapped with the framework's footprint but predates the
 adoption, is preserved on purpose.

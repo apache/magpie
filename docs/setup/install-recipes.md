@@ -278,7 +278,7 @@ hand:
    locks, overrides), any un-prefixed framework symlinks under the
    skills dir, and the committed `.claude/skills/setup-steward/` skill.
 2. Re-adopt from scratch with `/magpie-setup` (see
-   [`setup/adopt.md`](../../skills/setup/adopt.md)) so the current
+   [`setup/install.md`](../../skills/setup/install.md)) so the current
    `.apache-magpie*` layout and `magpie-`-prefixed symlinks are written
    fresh. Preserve any `.apache-steward-overrides/*.md` you want to keep
    by moving them into the new `.apache-magpie-overrides/` first.
