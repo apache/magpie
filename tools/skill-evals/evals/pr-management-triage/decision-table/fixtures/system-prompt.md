@@ -72,10 +72,14 @@ and reason.
 | 16 | No real CI checks triggered AND `mergeable != CONFLICTING` AND author is NOT first-time (`authorAssociation` NOT IN {`FIRST_TIME_CONTRIBUTOR`, `FIRST_TIMER`}) | `deterministic_flag` | `rebase` |
 | 17 | `has_deterministic_signal` (fallback) | `deterministic_flag` | `draft` |
 | 18 | `latestReviews` has CHANGES_REQUESTED AND author pushed commits after that review AND NOT `follow_up_ping` | `stale_review` | `ping` |
-| 19 | `statusCheckRollup == SUCCESS` AND `mergeable != CONFLICTING` AND `unresolved_threads == 0` AND real CI ran AND labels contain `ready for maintainer review` | `passing` | `skip` |
-| 20 | `statusCheckRollup == SUCCESS` AND `mergeable != CONFLICTING` AND `unresolved_threads == 0` AND real CI ran | `passing` | `mark-ready` |
+| 19 | `statusCheckRollup == SUCCESS` AND `mergeable == MERGEABLE` AND `unresolved_threads == 0` AND real CI ran AND labels contain `ready for maintainer review` | `passing` | `skip` |
+| 20 | `statusCheckRollup == SUCCESS` AND `mergeable == MERGEABLE` AND `unresolved_threads == 0` AND real CI ran | `passing` | `mark-ready` |
 | 21 | Stale sweep candidate — no row 1–20 matched AND PR meets stale criteria: `isDraft == true` AND triage marker exists AND `(now - triage_comment_at) >= 7 days` AND `(now - last_author_activity) >= 14 days` | `stale_draft` | `close` |
-| 22 | Data anomaly — `statusCheckRollup == SUCCESS` but `failed_checks` is non-empty, OR `statusCheckRollup == FAILURE` but `failed_checks` is empty. Evaluated before rows 17, 19, 20. | n/a | `skip` |
+| 22 | Unsettled server-side state — `statusCheckRollup == SUCCESS` but `failed_checks` is non-empty, OR `statusCheckRollup == FAILURE` but `failed_checks` is empty, OR `mergeable == UNKNOWN`. Evaluated before rows 17, 19, 20. | n/a | `skip` |
+
+Note on rows 19/20: `mergeable == UNKNOWN` means GitHub has not
+finished computing mergeability. It is **not** the same as "no
+conflict" — treat it as undetermined and let row 22 handle it.
 
 ## Output
 
