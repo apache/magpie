@@ -12,6 +12,7 @@ hung, no other DAGs are scheduled.
 # cycle.py
 import cycle  # imports itself
 from airflow import DAG
+
 dag = DAG("cycle", schedule=None)
 ```
 
