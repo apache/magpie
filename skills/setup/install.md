@@ -630,13 +630,14 @@ it is framework code synced from the snapshot
 not an adopter artefact, so it is regenerated on `/magpie-setup`
 rather than committed (the same rule that keeps the snapshot and
 the framework-skill symlinks out of git — the only committed
-framework artefact is `magpie-setup`). The committed
-`.claude/settings.json` still references it; the **wiring** is
-committed, the **script** is not. Because the script is gitignored,
-**no** worktree inherits it via git — every worktree is seeded from
-the main checkout by the post-checkout hook
+framework artefact is `magpie-setup`). The `hooks.PreToolUse`
+**wiring** that references it also lives in `.claude/settings.local.json`
+(above), gitignored alongside the script itself. Neither is
+committed, so no worktree inherits either via git. Every worktree is
+seeded from the main checkout by the post-checkout hook
 ([Step 10](#step-10--worktree-aware-post-checkout-hook-fresh-only))
-or by [`worktree-init` Step 1d](worktree-init.md#step-1d--seed-the-worktrees-agent-guard-pretooluse-hook).
+or by [`worktree-init` Step 1d](worktree-init.md#step-1d--seed-the-worktrees-agent-guard-pretooluse-hook),
+which seed the wiring together with the script.
 An adopter who keeps their own non-framework guards under
 `.claude/hooks/guards.d/` and wants them tracked should commit them
 with `git add -f` (the directory is ignored by default).
@@ -681,9 +682,11 @@ framework skill.
 
 `.claude/settings.local.json` is the project-local
 per-machine settings file that
+[Step 12 pass 1](#step-12--post-install-sync--worktree-propagation--sandbox-allowlist--sanity-check)
+populates with the agent-guard `hooks.PreToolUse` wiring and that
 [Step 12 pass 3](#step-12--post-install-sync--worktree-propagation--sandbox-allowlist--sanity-check)
-populates with the project-root sandbox-allowlist entry (and
-that each worktree carries independently). Most adopters
+separately populates with the project-root sandbox-allowlist entry
+(and that each worktree carries independently). Most adopters
 already gitignore this file by Claude Code convention; the
 install flow checks for the line and adds it if missing.
 
@@ -1135,22 +1138,26 @@ guarded independently so neither can gate the git operation:
    — see
    [`setup-isolated-setup-install/SKILL.md` → Step P](../setup-isolated-setup-install/SKILL.md#step-p--project-root-coverage-in-the-sandbox-allowlists)).
 
-2. **agent-guard seeding.** The committed `.claude/settings.json`
-   wires the deterministic `PreToolUse` guard
+2. **agent-guard seeding.** The gitignored, per-machine
+   `.claude/settings.local.json` wires the deterministic
+   `PreToolUse` guard
    ([`tools/agent-guard`](../../tools/agent-guard/README.md)) at
    `$CLAUDE_PROJECT_DIR/.claude/hooks/agent-guard.py` — a
-   **per-worktree** path. The script + its `guards.d/` are
-   adopter-installed local files synced into the **main** checkout
+   **per-worktree** path. The script, its `guards.d/`, and the
+   wiring entry itself are all adopter-installed local files synced
+   into the **main** checkout
    by [Step 12 pass 1](#step-12--post-install-sync--worktree-propagation--sandbox-allowlist--sanity-check)
    and **gitignored** ([Step 7](#step-7--gitignore-entries-fresh-only)).
-   Because they are gitignored, **no** worktree inherits them via
-   `git worktree add` — every freshly-created worktree starts
-   without the script and would run with the guard **silently
-   inactive**. The hook seeds them from the main checkout's
-   already-synced copy when — and only when — this worktree has
-   none, so the guard is live in every worktree from its first
-   checkout. It never overwrites a copy the worktree already
-   carries (which may hold worktree-local guards).
+   Because they are gitignored, **no** worktree inherits any of them
+   via `git worktree add`. Every freshly-created worktree starts
+   without the script or the wiring and would run with the guard
+   **silently inactive**. The hook seeds the script from the main
+   checkout's already-synced copy only when this worktree has none
+   (never overwriting a copy the worktree already
+   carries, which may hold worktree-local guards), then wires it into
+   this worktree's own `settings.local.json` by the same idempotent
+   merge as Step 12 pass 1, so the guard is live in every worktree
+   from its first checkout.
 
 The hook is a small shell script. Surface the exact content to
 the user before writing:
@@ -1170,7 +1177,7 @@ if [ -x "$HOME/.claude/scripts/sandbox-add-project-root.sh" ]; then
   "$HOME/.claude/scripts/sandbox-add-project-root.sh" || true
 fi
 
-# (b) agent-guard PreToolUse guard: .claude/settings.json resolves it at
+# (b) agent-guard PreToolUse guard: settings.local.json resolves it at
 #     $CLAUDE_PROJECT_DIR/.claude/hooks/agent-guard.py (per-worktree). Seed
 #     this worktree from the main checkout's already-synced copy when it has
 #     none — never overwrite a copy the worktree already carries.
@@ -1183,6 +1190,42 @@ if [ -n "$wt" ] && [ "$main" != "$wt" ] \
   cp "$main/.claude/hooks/agent-guard.py" "$wt/.claude/hooks/agent-guard.py" || true
   [ -d "$main/.claude/hooks/guards.d" ] &&
     cp "$main/.claude/hooks/guards.d/"*.py "$wt/.claude/hooks/guards.d/" 2>/dev/null || true
+fi
+
+# (c) agent-guard PreToolUse wiring: settings.local.json is gitignored and
+#     per-worktree too, so the wiring entry is not inherited via
+#     `git worktree add` any more than the script is. Merge it into this
+#     worktree's own settings.local.json whenever the script is present here
+#     (just seeded above, or already carried) and the entry is missing.
+if [ -n "$wt" ] && [ -f "$wt/.claude/hooks/agent-guard.py" ]; then
+  python3 - "$wt/.claude/settings.local.json" <<'PYEOF' || true
+import json, sys
+
+path = sys.argv[1]
+command = 'python3 "$CLAUDE_PROJECT_DIR/.claude/hooks/agent-guard.py"'
+
+try:
+    with open(path) as f:
+        data = json.load(f)
+except FileNotFoundError:
+    data = {}
+except json.JSONDecodeError:
+    sys.exit(0)  # hand-edited or corrupt file, leave it alone
+
+pre_tool_use = data.setdefault("hooks", {}).setdefault("PreToolUse", [])
+for entry in pre_tool_use:
+    if entry.get("matcher") == "Bash" and any(
+        "agent-guard.py" in h.get("command", "") for h in entry.get("hooks", [])
+    ):
+        sys.exit(0)  # already wired
+
+pre_tool_use.append(
+    {"matcher": "Bash", "hooks": [{"type": "command", "command": command, "timeout": 30}]}
+)
+with open(path, "w") as f:
+    json.dump(data, f, indent=2)
+    f.write("\n")
+PYEOF
 fi
 
 exit 0
@@ -1199,7 +1242,9 @@ they later install the secure setup, no hook re-write is needed:
 the next `post-checkout` fires the helper automatically. Likewise
 (b) is a no-op when the main checkout has no agent-guard yet (the
 `-f "$main/.claude/hooks/agent-guard.py"` test fails) or when the
-worktree already carries its own copy.
+worktree already carries its own copy, and (c) is a no-op once this
+worktree's `settings.local.json` already carries the wiring (or when
+(b) found no script to wire).
 
 **Why agent-guard seeding is shell-safe but symlink
 reconciliation is not.** Seeding agent-guard is a plain
@@ -1398,30 +1443,33 @@ Four passes, in this order:
      The dispatcher auto-discovers every `*.py` in the `guards.d`
      sibling of the script — adding a skill (or a skill adding a
      guard) needs no re-wiring, only this re-sync (see the tool README).
-   - **Wire the hook once** in `.claude/settings.json` under
-     `hooks.PreToolUse` (matcher `Bash`). Because the committed
-     `.claude/settings.json` is agent-edit-denied, **surface the
-     exact snippet for the maintainer to apply** (or route it
-     through the `update-config` skill) rather than writing it:
+   - **Wire the hook once** in the **gitignored, per-machine**
+     `.claude/settings.local.json` under `hooks.PreToolUse` (matcher
+     `Bash`), at the same moment this pass deposits `agent-guard.py`.
+     Read the file if it exists (`{}` if absent), then merge in the
+     entry. **Idempotent**: preserve every other top-level key and
+     every other `hooks.PreToolUse` matcher untouched, and skip the
+     write if a `Bash` entry already invokes `agent-guard.py`:
 
      ```json
      { "matcher": "Bash", "hooks": [ { "type": "command",
-       "command": "python3 -c \"import os,sys,subprocess; p=os.path.join(os.environ.get('CLAUDE_PROJECT_DIR',''),'.claude','hooks','agent-guard.py'); sys.exit(subprocess.call([sys.executable,p]) if os.path.isfile(p) else 0)\"",
+       "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/agent-guard.py\"",
        "timeout": 30 } ] }
      ```
 
-     The command no-ops when `agent-guard.py` is absent (a **fresh
-     clone**, before `/magpie-setup` has synced the gitignored script in)
-     and runs the guard otherwise — so the committed hook never execs a
-     missing file on a Bash call (a `PreToolUse` error can block the
-     tool). It is written as an inline `python3 -c` existence check
-     rather than a shell one-liner (`[ -f … ] && … || true`) so it works
-     on **Windows** (PowerShell) too, not only POSIX shells.
+     Because the wiring is now written in the same pass that deposits
+     the script (never committed ahead of it), the command needs no
+     existence guard: unlike the old committed-`settings.json` shape,
+     there is no fresh-clone state where the wiring exists but the
+     script does not. A plain `python3 "..."` call runs identically on
+     POSIX and Windows, so the inline `python3 -c` existence check and
+     the earlier POSIX-only `[ -f ... ] && ... || true` guard are both
+     unnecessary here.
 
-     Wiring happens **only once**; thereafter guards are
-     added/removed purely by syncing `guards.d` — no settings.json
-     change. If the `hooks.PreToolUse` entry is already present,
-     this pass only re-syncs the script + `guards.d`.
+     Wiring happens **only once** per machine. Thereafter guards are
+     added or removed purely by syncing `guards.d`, with no
+     settings.local.json change. If the `hooks.PreToolUse` entry is
+     already present, this pass only re-syncs the script + `guards.d`.
 
    **Codex project policy is the reviewed Codex half of the runtime
    support.** Merge the snapshot's `.codex/config.toml` and

@@ -449,7 +449,8 @@ rather than pulls in via symlink. Examples:
   `guards.d/*.py` **and** every skill-owned `skills/*/guards/*.py`
   in the snapshot. Re-syncing it is how a new skill — or a skill
   that newly adds a guard — reaches an already-adopted repo; the
-  `settings.json` `hooks.PreToolUse` wiring is unchanged.
+  `settings.local.json` `hooks.PreToolUse` wiring is unchanged (already
+  wired, or re-added via the same idempotent merge if missing).
 - The committed `.codex/config.toml` and `.codex/rules/magpie.rules`:
   compare them with the current snapshot policy. Preserve unrelated
   Codex settings; surface conflicts and hand edits rather than

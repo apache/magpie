@@ -101,8 +101,10 @@ for (default `ready for maintainer review`).
 
 ## Wiring
 
-The guard is registered as a `PreToolUse` hook on the `Bash` matcher in
-`.claude/settings.json`:
+The guard is registered as a `PreToolUse` hook on the `Bash` matcher in the
+gitignored, per-machine `.claude/settings.local.json` (not the committed
+`.claude/settings.json`, so no worktree inherits the wiring via git: each
+worktree is seeded independently, same as the script itself):
 
 ```json
 {
@@ -111,7 +113,7 @@ The guard is registered as a `PreToolUse` hook on the `Bash` matcher in
       {
         "matcher": "Bash",
         "hooks": [
-          { "type": "command", "command": "python3 -c \"import os,sys,subprocess; p=os.path.join(os.environ.get('CLAUDE_PROJECT_DIR',''),'.claude','hooks','agent-guard.py'); sys.exit(subprocess.call([sys.executable,p]) if os.path.isfile(p) else 0)\"", "timeout": 30 }
+          { "type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/agent-guard.py\"", "timeout": 30 }
         ]
       }
     ]
@@ -123,7 +125,7 @@ The guard is registered as a `PreToolUse` hook on the `Bash` matcher in
 into the adopter tree (`.claude/hooks/agent-guard.py`) and into the user-scope
 secure setup (`~/.claude/scripts/agent-guard.py`); `/magpie-setup upgrade`,
 `verify`, and the `setup-isolated-setup-install` / `…-update` skills keep it and
-the settings.json entry in sync. See those skills for the exact steps.
+the settings.local.json entry in sync. See those skills for the exact steps.
 
 ### OpenCode
 
