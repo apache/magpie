@@ -197,6 +197,7 @@ because its group mandates per-PR), present the full detail:
 
 ```text
 ─────────────────────────────────────────────────────
+[3/27] #65471 — step: classify → propose draft
 PR #65471   "Add support for new db dialect"
 Author: @eve  (tier: new, 2 merged / 5 total on this repo)
 Age: opened 4d ago, last push 6h ago
@@ -236,6 +237,36 @@ approval PR, and it's gated on the maintainer asking for it.
 `[B]` returns to the group screen with PR `NN` marked as
 "pulled-out-and-left-pending". The maintainer can come back
 to it after finishing the rest of the group.
+
+### Per-PR progress header
+
+The first line of every individual drill-in must show the PR's stable
+position in its group and the pipeline transition currently being presented.
+Use a one-based position and the original group size:
+
+```text
+[3/27] #65471 — step: classify → propose draft
+```
+
+The position is the PR's row index in the group that was presented, not the
+number of PRs already handled in the session. Keep it stable throughout the
+drill-in and when returning to the group:
+
+- `[E]` uses the current PR's row index in the group.
+- `[P]NN` records PR `NN`'s row index before pulling it out; do not renumber
+  the remaining group or change the denominator.
+- A skipped, pending, or previously pulled-out PR still counts toward the
+  original group size.
+
+`classify → propose <action>` means that the classification from Step 2 is
+being surfaced together with the suggested action for the maintainer's
+decision; it does not trigger a second classification fetch. If the
+optimistic-lock check finds that the contributor pushed since Step 1, replace
+the marker with `re-classify → propose <action>` after the live state has been
+re-evaluated. The subsequent confirmation and mutation are shown by the
+per-PR action prompt and batch progress lines, not by changing the saved group
+position. If the maintainer overrides the suggested action, update the
+`<action>` part of the header before asking for confirmation.
 
 ---
 

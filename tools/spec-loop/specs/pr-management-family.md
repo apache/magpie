@@ -93,6 +93,12 @@ is listed here for navigability since its domain is PR threads.
   a label, comment, or state change without the maintainer typing a
   confirmation in-session. The single exception class — `pr-management-stats`
   — is unconditionally read-only; it emits rendered tables, never a write.
+- **Stable per-PR drill-in progress.** `pr-management-triage` prefixes each
+  individual drill-in with the PR's original one-based group position and
+  group size plus the active `classify → propose <action>` transition.
+  `[E]` and `[P]NN` preserve that position and denominator across skipped,
+  pending, and pulled-out rows; a changed head advances the transition to
+  `re-classify → propose <action>` after live state is refreshed.
 - **Quick-merge never merges.** `pr-management-quick-merge` surfaces
   candidates and the maintainer runs the exact `gh pr merge` command
   themselves. Automated merge belongs to a future Auto-merge mode that is
@@ -157,6 +163,9 @@ is listed here for navigability since its domain is PR threads.
    effective intersection is `broken` without requiring a concrete failing
    resolution; recommended remediation follows the adopter's documented
    policy.
+8. Every `pr-management-triage` per-PR drill-in shows a stable
+   `[position/total]` header and the active classify-to-propose transition;
+   `[E]` and `[P]NN` do not renumber the original group.
 
 ## Validation
 
