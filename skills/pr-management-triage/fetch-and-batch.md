@@ -433,11 +433,15 @@ is the anti-pattern this file exists to prevent.
 
 ## Mandatory: `action_required` run index per page
 
-Before classification runs, fetch one REST call per page:
+Before classification runs, build the index with a **filtered,
+fully-paginated** query:
 
 ```bash
-gh api "repos/<owner>/<repo>/actions/runs?event=pull_request&per_page=100" \
-  --jq '.workflow_runs[] | select(.conclusion == "action_required")'
+# Primary: filter server-side, and walk every page.
+for page in $(seq 1 10); do
+  gh api "repos/<owner>/<repo>/actions/runs?event=pull_request&status=action_required&per_page=100&page=${page}" \
+    --jq '.workflow_runs[] | {head_sha, name, id}'
+done
 ```
 
 This lists **every** workflow run across the repo that is
@@ -446,15 +450,29 @@ any PR on the current page whose head SHA appears in the index
 is `pending_workflow_approval` (see
 [`classify-and-act.md#decision-table`](classify-and-act.md), row 1).
 
-**Why the post-filter, not `?status=action_required`.** The
-GitHub Actions API returns runs awaiting approval as
-`status: "completed"` with `conclusion: "action_required"` (the
-run has *finished* the queueing phase and is now blocked
-pending approval). The query parameter `?status=action_required`
-matches no runs in this state and silently returns an empty
-result, which lets `pending_workflow_approval` PRs slip through
-classification as `passing`. The post-filter on `conclusion`
-is the only correct way to enumerate them.
+**Filter server-side; do not rely on a post-filter over recent
+runs.** `?status=action_required` **does** match these runs —
+`status` accepts the terminal `action_required` state as well as
+the lifecycle states, and it is what
+[`SKILL.md` Golden rule 1b](SKILL.md) already uses. The
+unfiltered `event=pull_request` listing returns runs
+newest-first regardless of state, so on a high-volume repository
+the pending ones are buried far beyond the first few pages.
+
+Measured on a large `<upstream>` (2026-08): `?status=action_required`
+reported **1109** matching runs, while post-filtering the first
+3 pages of `?event=pull_request` (300 most-recent runs, reaching
+back only ~12 hours) surfaced **9** distinct head SHAs against
+**322** actually pending. Every PR in the ~313-SHA gap whose
+rollup was green from bot checks alone classified as `passing`
+and became a `mark-ready` candidate — precisely the
+false-positive class this index exists to prevent.
+
+A `conclusion == "action_required"` post-filter over the
+**filtered** result set is still a harmless belt-and-braces
+check, and remains correct for hosts whose API build ignores the
+`status` value. What is *not* safe is using the post-filter as
+the primary mechanism over an unfiltered, truncated listing.
 
 Why this is mandatory, not "fallback":
 
@@ -472,10 +490,16 @@ Why this is mandatory, not "fallback":
   rate-limit budget and closes the whole class of false-
   positives.
 
-Walk all pages of `actions/runs` (or at least the first 3, which
-covers any reasonable repo-level backlog) and keep the union as
-a per-page index. Invalidate the index before fetching the next
-PR page — approval state changes fast.
+Walk **every** page of the filtered query and keep the union as
+the index. Do not cap the walk at the first few pages: the
+approval backlog on a busy repository is unbounded and ordered
+newest-first, so a truncated walk silently under-reports the
+oldest pending PRs — the ones most likely to be sitting in the
+queue waiting for exactly this. GitHub caps a listing at 1000
+results; if the run count reaches that cap, narrow with a
+`created:` window and union the slices rather than accepting the
+truncation. Invalidate the index before fetching the next PR
+page — approval state changes fast.
 
 The REST call is the primary signal. The rollup + "real CI
 pattern" guard from
