@@ -48,14 +48,35 @@ TODO: one rule per bullet, applied in order. Typical patterns:
    often reveals a nested `Security Issue |` tag.
 6. Trailing `in <Project Name>` — TODO
 7. Trailing bare version parens — TODO
-8. Trailing GHSA ID paren — `[ \t]*\(GHSA-[\w-]+\)\.?[ \t]*$`
-9. Trailing known external-tracker IDs (square or round brackets) —
-   `[ \t]*(?:\[(?:ZDRES|HUNTR|GHSL)-[\w-]+\]|\((?:ZDRES|HUNTR|GHSL)-[\w-]+\))\.?[ \t]*$`
-   Strips trailing IDs from known external trackers — `(ZDRES-223)`,
+8. GHSA ID paren, **anywhere in the title** —
+   `[ \t]*\(GHSA-[\w-]+\)\.?`
+9. Known external-tracker IDs (square or round brackets),
+   **anywhere in the title** —
+   `[ \t]*(?:\[(?:ZDRES|HUNTR|GHSL)-[\w-]+\]|\((?:ZDRES|HUNTR|GHSL)-[\w-]+\))\.?`
+   Strips IDs from known external trackers — `(ZDRES-223)`,
    `[HUNTR-456]`, `(GHSL-2024-001)` — in either bracket style. Extend
    the alternation per project when a new reporter brand surfaces
    (e.g. `SNYK-…`, `BDSA-…`, internal bug-bounty platforms).
-10. Trailing *"split from #NNN"* paren — `[ \t]*\([^)]*split from #\d+[^)]*\)\.?[ \t]*$`
+10. *"split from #NNN"* paren, **anywhere in the title** —
+    `[ \t]*\([^)]*split from #\d+[^)]*\)\.?`
+10b. Prior-CVE parenthetical, **anywhere in the title** —
+    `[ \t]*\([^)]*\bCVE-\d{4}-\d{4,7}\b[^)]*\)\.?`
+    Catches `(CVE-…)`, `(possible CVE-… variant)`, `(incomplete fix
+    for CVE-…)`, `(fix-bypass of CVE-…)`. The cross-CVE relationship
+    belongs in the public summary's cross-CVE clause, never in the
+    title.
+
+    **Why items 8–10b are not end-anchored.** Each requires a
+    well-formed tracker ID inside the parentheses, so the
+    over-stripping risk is low, and the reason the parenthetical does
+    not belong in `containers.cna.title` has nothing to do with where
+    in the string it sits. An end-anchored cascade reports
+    *changed=no* on a title that still carries one mid-string — e.g.
+    `Path traversal (incomplete fix for CVE-2026-12345) in the
+    parser` — and that title then ships to the CVE record. Contrast
+    the reporter *follow-up* paren below, which stays end-anchored on
+    purpose: its `<name>` part is loose enough that stripping it
+    mid-title could eat a substantive clause.
 11. Trailing trivia — strip trailing whitespace, trailing `.`,
     collapse internal whitespace.
 12. Capitalise — upper-case the first letter; leave the rest alone
