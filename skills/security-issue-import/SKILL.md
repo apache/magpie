@@ -454,6 +454,32 @@ The canonical query template in
 omits the blanket exclusion; project-specific `<project-config>/project.md`
 declarations enumerate dedicated mirror noreply senders only.
 
+**Mandatory second pass — run a positive GHSA query.** The rule above
+is a *negative* one, and negative rules are not self-enforcing: an
+exclusion added anywhere for noise reduction removes the whole GHSA
+intake channel, and the miss is invisible — nothing reports that a
+report was filtered out. So every import scan **also** runs the
+[GHSA-advisory query](../../tools/gmail/search-queries.md#security-issue-import--ghsa-advisory-query-mandatory-second-pass),
+which checks the channel by construction and cannot be filtered away
+by an exclusion elsewhere. Union its hits with the candidate-listing
+query's before Step 2.
+
+For each hit whose subject carries `[<upstream>] ... (GHSA-...)`:
+
+- Treat it as a **`Report`** candidate, not tracker-mirror noise.
+- The advisory **body is confidential** — it lands in the private
+  tracker only, per the confidentiality golden rule; never echo it to
+  a public surface.
+- Prefer the advisory **record API**
+  (`gh api repos/<upstream>/security-advisories/<GHSA>`). **If it
+  404s, the operator is not yet a collaborator on that specific
+  advisory** — this is an access state, not a missing advisory.
+  Extract the report from the notification email body and flag the
+  **admin hand-off**: someone with advisory-admin rights must add the
+  operator as a collaborator before the record API and the
+  reporter-reply path become usable. See the GHSA contract in
+  [`security-issue-sync`'s `github-advisory.md`](../security-issue-sync/github-advisory.md).
+
 Adjust the time window per the user's selector (`since:` → `newer_than:`
 or `after:`; `import all` → `newer_than:90d`).
 
