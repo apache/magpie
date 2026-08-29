@@ -222,6 +222,129 @@ class TestNonGitDirectory:
 
 
 # ---------------------------------------------------------------------------
+# gitignore safety check
+# ---------------------------------------------------------------------------
+
+
+def _git_dir_of(repo: Path) -> str:
+    """Absolute .git dir, as a git hook would export it in GIT_DIR."""
+    return subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "--absolute-git-dir"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+
+def _no_global_git_config(tmp_path: Path) -> dict:
+    """Env that makes only the repo's own .gitignore count.
+
+    A developer's global excludes commonly already ignore
+    `**/.claude/settings.local.json`, which would mask the "refuses"
+    cases and make these tests pass for the wrong reason on some
+    machines and not others.
+
+    Pointing ``GIT_CONFIG_GLOBAL`` at an empty file is not enough: when
+    ``core.excludesFile`` is unset git still falls back to its default
+    ``$XDG_CONFIG_HOME/git/ignore`` (``~/.config/git/ignore``). So the
+    stand-in global config has to set ``core.excludesFile`` explicitly.
+    """
+    cfg = tmp_path / "gitconfig-isolated"
+    cfg.write_text(f"[core]\n\texcludesFile = {os.devnull}\n")
+    return {"GIT_CONFIG_GLOBAL": str(cfg), "GIT_CONFIG_SYSTEM": os.devnull}
+
+
+def _bare_git_repo(tmp_path: Path) -> Path:
+    """An initialised repo with **no** .gitignore, so nothing is ignored."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    subprocess.run(["git", "init", str(repo)], check=True, capture_output=True)
+    return repo
+
+
+class TestGitignoreSafetyCheck:
+    def test_refuses_when_not_gitignored(self, tmp_path: Path) -> None:
+        """A genuinely un-ignored settings file must not be written to.
+
+        Also covers the case where `.claude/` does not exist yet: the
+        check has to resolve the repo from the nearest existing ancestor
+        rather than from the file's own (missing) parent directory.
+        """
+        repo = _bare_git_repo(tmp_path)
+        result = _run(repo, extra_env=_no_global_git_config(tmp_path))
+        assert result.returncode == 0
+        assert "is not gitignored" in result.stderr
+        assert not (repo / ".claude" / "settings.local.json").exists()
+
+    def test_writes_when_git_dir_is_exported(self, tmp_path: Path) -> None:
+        """Regression: the check must survive the git-hook environment.
+
+        Git hooks export GIT_DIR. With GIT_DIR set and no GIT_WORK_TREE,
+        git treats the current directory as the work-tree root, so a
+        check run from a subdirectory evaluated the root-anchored
+        `/.claude/settings.local.json` pattern against `.claude/` as the
+        root and wrongly concluded the file was not ignored.
+        """
+        repo = _make_git_repo(tmp_path)
+        # `.claude/` must already exist, as it does in a real adopter
+        # repo. With it missing the pre-fix code failed its `cd` and
+        # fell through to writing anyway, which would mask the bug.
+        (repo / ".claude").mkdir()
+        result = _run(
+            repo, extra_env={**_no_global_git_config(tmp_path), "GIT_DIR": _git_dir_of(repo)}
+        )
+
+        assert "is not gitignored" not in result.stderr
+        assert result.returncode == 0
+        assert (repo / ".claude" / "settings.local.json").exists()
+
+    def test_git_dir_exported_still_records_repo_root(self, tmp_path: Path) -> None:
+        """The allowlist entry must be the repo root, not the .claude subdir."""
+        repo = _make_git_repo(tmp_path)
+        (repo / ".claude").mkdir()
+        _run(repo, extra_env={**_no_global_git_config(tmp_path), "GIT_DIR": _git_dir_of(repo)})
+        data = _load(repo / ".claude" / "settings.local.json")
+        assert str(repo) in data["sandbox"]["filesystem"]["allowRead"]
+
+    def test_git_dir_exported_still_refuses_when_not_gitignored(self, tmp_path: Path) -> None:
+        """The fix must not turn the safety check into a no-op."""
+        repo = _bare_git_repo(tmp_path)
+        result = _run(
+            repo, extra_env={**_no_global_git_config(tmp_path), "GIT_DIR": _git_dir_of(repo)}
+        )
+
+        assert "is not gitignored" in result.stderr
+        assert not (repo / ".claude" / "settings.local.json").exists()
+
+    def test_works_in_linked_worktree(self, tmp_path: Path) -> None:
+        """The real-world trigger: a hook firing inside a git worktree."""
+        repo = _make_git_repo(tmp_path)
+        subprocess.run(
+            ["git", "-C", str(repo), "add", ".gitignore"], check=True, capture_output=True
+        )
+        subprocess.run(
+            ["git", "-C", str(repo), "-c", "user.email=t@e.st", "-c", "user.name=t",
+             "-c", "commit.gpgsign=false", "commit", "-m", "init"],
+            check=True,
+            capture_output=True,
+        )
+        wt = tmp_path / "wt"
+        subprocess.run(
+            ["git", "-C", str(repo), "worktree", "add", "-q", str(wt), "-b", "wt"],
+            check=True,
+            capture_output=True,
+        )
+
+        (wt / ".claude").mkdir()
+        result = _run(wt, extra_env={**_no_global_git_config(tmp_path), "GIT_DIR": _git_dir_of(wt)})
+
+        assert "is not gitignored" not in result.stderr
+        assert (wt / ".claude" / "settings.local.json").exists()
+        data = _load(wt / ".claude" / "settings.local.json")
+        assert str(wt) in data["sandbox"]["filesystem"]["allowRead"]
+
+
+# ---------------------------------------------------------------------------
 # missing jq
 # ---------------------------------------------------------------------------
 
