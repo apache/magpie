@@ -92,17 +92,30 @@ github:
   # ever existed, so the protection now lives here next to the rest
   # of the repo config.
   #
-  # ONE APPROVING REVIEW REQUIRED ON `main`
-  # ---------------------------------------
+  # APPROVAL REQUIREMENT TEMPORARILY LIFTED ON `main`
+  # -------------------------------------------------
   # During the framework's bootstrap phase (running under the Airflow
   # PMC umbrella with a small set of committers, see MISSION.md) PR
   # approvals were NOT required and a maintainer could self-merge
-  # after CI green. Now that Magpie is a Top-Level Project with its
-  # own PMC, every PR into `main` requires at least one approving
-  # review from a committer
-  # (`required_pull_request_reviews.required_approving_review_count: 1`
-  # below), so self-merge without a second pair of eyes is no longer
-  # possible.
+  # after CI green. On becoming a Top-Level Project with its own PMC,
+  # every PR into `main` was made to require one approving review from
+  # a committer (#818).
+  #
+  # That requirement is **temporarily lifted** while the marketplace-
+  # installation replacement and the reworked permission handling are
+  # brought up: both land as many small, fast iterations that need to
+  # be tested against a real merged `main`, and a per-PR approval
+  # round-trip stalls that loop for hours at a time.
+  #
+  # This is a deliberate, time-boxed exception, not a governance
+  # change. Everything else that gates `main` stays on — the
+  # `zizmor` / `prek` / `tests-ok` status checks below still have to
+  # pass, review threads still have to be resolved, and history is
+  # still linear — so nothing merges unreviewed by CI.
+  #
+  # RESTORE by uncommenting the `required_pull_request_reviews` block
+  # below once that work has landed. ASF Infra reconciles the change
+  # within a few minutes of the merge to `main`.
   protected_branches:
     main:
       # Required status checks. Listed contexts MUST run on every PR
@@ -154,16 +167,19 @@ github:
           # fails unless all succeed, so the gate semantics are the
           # same.
           - "tests-ok"
+      # TEMPORARILY DISABLED — see the note above. Restore by removing
+      # the three leading `# ` markers; the values are the ones that were
+      # in force before, so restoring is a pure uncomment.
+      #
       # One approving review from a committer is required before any
-      # PR merges into `main` (see the note above). `dismiss_stale_reviews:
-      # false` — an approval survives later pushes to the branch, so a
-      # rebase or a review-comment fixup does not force a re-approval
-      # round-trip.
+      # PR merges into `main`. `dismiss_stale_reviews: false` — an
+      # approval survives later pushes to the branch, so a rebase or a
+      # review-comment fixup does not force a re-approval round-trip.
       # `require_code_owner_reviews` is left off: there is no CODEOWNERS
       # file, so any committer's approval satisfies the requirement.
-      required_pull_request_reviews:
-        required_approving_review_count: 1
-        dismiss_stale_reviews: false
+      # required_pull_request_reviews:
+      #   required_approving_review_count: 1
+      #   dismiss_stale_reviews: false
       #
       # Linear history matches `enabled_merge_buttons.squash: true`
       # above — squash is the only enabled merge mode, so every
