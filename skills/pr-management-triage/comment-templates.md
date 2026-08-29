@@ -887,25 +887,42 @@ bad-faith actor a footnote to argue with.
 ## Violations rendering
 
 `<violations>` in the templates above expands to a bullet list,
-one bullet per violation returned by the classifier. Each
+**one bullet per category** — not one per failing check. Each
 bullet has the form:
 
 ```markdown
-- :x: **<category>** — <explanation>. See [docs](<doc_link>).
+- :x: **<category>**. See [docs](<doc_link>).
+```
+
+or, when a short payload carries signal the contributor cannot
+see at a glance:
+
+```markdown
+- :x: **<category>**: <short payload>. See [docs](<doc_link>).
 ```
 
 - `:x:` for severity `error`, `:warning:` for severity `warning`.
 - `<category>` — short category name, e.g.
   `Merge conflicts`, `mypy (type checking)`,
   `Unresolved review comments`.
-- `<explanation>` — one short clause stating what's wrong
-  (e.g. *"Failing: mypy-core, mypy-providers"*).
+- `<short payload>` — **optional**, one short clause carrying a
+  number or fact the category name does not already convey
+  (e.g. *"3 thread(s)"*, *"behind by 42 commits"*). Omit it
+  whenever the category alone says everything.
 - `<doc_link>` — link to the canonical doc that explains how to
-  fix this category. Do **not** inline project-specific
-  commands or step-by-step remediation prose in the bullet —
-  the linked doc has them. Keep the bullet to one line.
+  fix this category.
 
-The category / explanation / doc-link triples come from
+**Never enumerate individual failing check names**, and never
+inline project-specific commands or step-by-step remediation
+prose — GitHub's Checks tab already lists the failing jobs and
+the linked doc already has the steps. Repeating them costs more
+in comment length than it adds in signal, and a comment that
+runs long is a comment contributors stop reading. Several
+failing checks in the same category still produce exactly one
+bullet; violations in different categories produce one bullet
+each. Keep every bullet to one line.
+
+The category / payload / doc-link triples come from
 `assess_pr_checks` / `assess_pr_conflicts` /
 `assess_pr_unresolved_comments`-equivalent logic — this skill
 reproduces those deterministic assessments without the LLM
