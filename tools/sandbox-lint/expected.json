@@ -119,8 +119,6 @@
       "Read(//**/.env.*.local)",
       "Edit(.claude/settings.json)",
       "Edit(.claude/settings.local.json)",
-      "Write(.claude/settings.json)",
-      "Write(.claude/settings.local.json)",
       "Bash(curl *)",
       "Bash(wget *)",
       "Bash(aws *)",
