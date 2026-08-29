@@ -264,6 +264,13 @@ Process for finding the real reporter and the original thread:
    known-bot list, `*-bot`/`*-ai`/`*-agent`/`*-gpt` suffix patterns),
    propose landing the credit anyway — the CVE JSON generator will
    emit it with `type: "tool"` per the policy's finder-side rule.
+
+   **Then apply the [finder-credit policy](../../tools/cve-tool-vulnogram/finder-credit-policy.md)**,
+   which decides whether the credit is earned at all: a report that
+   arrived after a public fix PR was already *opened* earns no
+   `finder` credit (Rule 1, with its four exceptions), and where
+   there is no finder to name the field is left empty rather than
+   set to `anonymous` (Rule 2).
    Surface in Step 2 *"credited as tool: `<handle>` (matches bot
    policy — `<which rule fired>`)"* **and propose a Gmail draft on
    the reporter's thread** per the policy's *clarification-reply*
