@@ -99,9 +99,11 @@ run is ~5–10 minutes on a 250-issue tracker; incremental re-renders
 1. `default-config.yaml` (in this directory).
 2. `$TRACKER_STATS_CONFIG` overlay YAML, when set (typically
    `<adopter-repo>/.apache-magpie-overrides/security-tracker-stats.yaml`).
-   Deep-merged with the default. **The `milestones` and `categories`
-   lists are REPLACED entirely** (not concatenated) — overlaying a
-   single category requires re-stating the whole list.
+   Deep-merged with the default. **Every list is REPLACED entirely**
+   (not concatenated) — `milestones`, `categories`, `bot_prefixes`,
+   `keywords`, and any other list-valued key. Overlaying a single
+   entry requires re-stating the whole list, otherwise the defaults
+   are silently dropped.
 3. Env-var quick overrides for the most common knobs:
    `TRACKER_STATS_BUCKETS`, `TRACKER_STATS_START`,
    `TRACKER_STATS_UPSTREAM_REPO`.
