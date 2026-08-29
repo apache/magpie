@@ -57,64 +57,6 @@ Both paths run the same flow.
    route as a recover-snapshot install per the committed
    lock, not as an upgrade. Continue at Step 3.
 
-## Step 0a — Migrate `apache-steward`-era naming
-
-The framework was once named **apache-steward** before it was
-renamed to **Apache Magpie**. Every upgrade run **performs this
-migration automatically** so no adopter is left half-renamed.
-**This step is the only place the `steward` name should still
-appear anywhere in the framework — and only as the *source* side
-of a rename.**
-
-First detect whether any legacy artefact is present —
-`.apache-steward.lock`, `.apache-steward/`,
-`.apache-steward-overrides/`, a committed `setup-steward/` skill
-directory, a framework symlink **without** the `magpie-` prefix,
-a `~/.config/apache-steward/` user-config dir, a
-`[tool.steward.checks]` block in a member `pyproject.toml`, a
-`STEWARD_*` / `APACHE_STEWARD_*` reference, or an
-`apache-steward` / `airflow-steward` path in `.claude/settings*.json`.
-If **none** is present, the repo is already on the Magpie layout —
-skip to Step 1.
-
-Otherwise, perform every migration below that applies, then resume
-the normal upgrade against the clean Magpie layout.
-
-**Performed automatically by this skill:**
-
-1. **User config dir.** If `~/.config/apache-steward/` exists and
-   `~/.config/apache-magpie/` does not, move it:
-   `mv ~/.config/apache-steward ~/.config/apache-magpie`. If **both**
-   exist, do **not** clobber — stop and ask the maintainer to merge
-   them by hand.
-2. **Sandbox-allowlist path references.** In `.claude/settings.json`
-   and `.claude/settings.local.json`, rewrite any `apache-steward`
-   path to `apache-magpie` and any `airflow-steward` checkout path to
-   the current repo path.
-3. **Per-member opt-out key.** Rewrite any `[tool.steward.checks]`
-   block in a workspace member's `pyproject.toml` to
-   `[tool.magpie.checks]`.
-4. **Snapshot layout.** Remove the legacy gitignored artefacts
-   (`.apache-steward*`, any un-prefixed framework symlinks, a
-   committed `setup-steward` skill) and re-adopt with `/magpie-setup`
-   so the `.apache-magpie*` layout and `magpie-`-prefixed symlinks
-   are written fresh. (The snapshot is a build artefact, so
-   re-adoption — not hand-editing — is the safe path here.)
-
-**Cannot be reached from inside the repo — prompt the maintainer:**
-
-5. **Environment variables.** Any `STEWARD_*` override
-   (`STEWARD_GUARD_OFF`, `STEWARD_ALLOW_*`, `STEWARD_GUARD_DIRS`,
-   `STEWARD_READY_LABEL`) and `APACHE_STEWARD_USER_CONFIG` are now
-   `MAGPIE_*` / `APACHE_MAGPIE_USER_CONFIG`. Tell the maintainer to
-   update their shell profile, CI secrets, and any wrapper scripts.
-6. **Issue / PR body markers.** Comment markers written as
-   `<!-- apache-steward: … -->` are now `<!-- apache-magpie: … -->`.
-   The tooling reads only the new marker, so any open tracker item
-   still carrying the old marker must have it rewritten by hand.
-
-Then resume this upgrade against the clean Magpie layout.
-
 ## Step 1 — Compute drift
 
 Compare `<committed-lock>` to `<local-lock>` and to upstream
