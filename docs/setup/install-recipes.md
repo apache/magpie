@@ -11,7 +11,6 @@
   - [Method 3 — git branch (defaults to `main`)](#method-3--git-branch-defaults-to-main)
   - [After any recipe — let the skill take over](#after-any-recipe--let-the-skill-take-over)
   - [Subsequent runs and drift detection](#subsequent-runs-and-drift-detection)
-  - [Migrating a pre-Magpie (`apache-steward`) adopter](#migrating-a-pre-magpie-apache-steward-adopter)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -263,28 +262,3 @@ new framework skills, removing any that were renamed away),
 and updates the local lock. See
 [`setup/upgrade.md`](../../skills/setup/upgrade.md)
 for the full flow.
-
-## Migrating a pre-Magpie (`apache-steward`) adopter
-
-A repo that adopted the framework **before** it was renamed from
-`apache-steward` to **Apache Magpie** is on the old layout: a committed
-`.claude/skills/setup-steward/` skill, an `.apache-steward/` snapshot,
-`.apache-steward.lock` / `.apache-steward-overrides/`, un-prefixed
-framework symlinks, and `~/.config/apache-steward/`. The framework
-**no longer ships an automated migration** for this layout — migrate by
-hand:
-
-1. Remove the legacy in-repo artefacts: `.apache-steward*` (snapshot,
-   locks, overrides), any un-prefixed framework symlinks under the
-   skills dir, and the committed `.claude/skills/setup-steward/` skill.
-2. Re-adopt from scratch with `/magpie-setup` (see
-   [`setup/install.md`](../../skills/setup/install.md)) so the current
-   `.apache-magpie*` layout and `magpie-`-prefixed symlinks are written
-   fresh. Preserve any `.apache-steward-overrides/*.md` you want to keep
-   by moving them into the new `.apache-magpie-overrides/` first.
-3. Move `~/.config/apache-steward/` (per-user) to
-   `~/.config/apache-magpie/`, and update any `~/.config/apache-steward/`
-   entry in your Claude Code sandbox allowlist (project
-   `.claude/settings.local.json` / `.claude/settings.json` or user-scope
-   `~/.claude/settings.json`) to `~/.config/apache-magpie/` — otherwise
-   sandboxed framework tools cannot read the moved credentials.

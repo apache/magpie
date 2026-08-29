@@ -37,7 +37,7 @@ Git-binding tables below are the contract that tool implements.
 ## What the skills require
 
 The dev-loop skills (`issue-fix-workflow`, `pr-management-code-review`,
-`issue-reproducer`, `issue-reassess`) and the `setup-steward` worktree
+`issue-reproducer`, `issue-reassess`) and the `magpie-setup` worktree
 machinery rely on the following abstract operations. The Git binding is
 shown alongside each; a sibling VCS tool provides its own binding for
 the same abstract operation.
@@ -53,7 +53,7 @@ the same abstract operation.
 | Determine divergence base | `git merge-base`, `git rev-parse` | code-review (diff against base) |
 | Sync with the forge | `git fetch [origin]`, `git push [-u]` | fix-workflow hand-off |
 | Re-apply onto an updated base | `git rebase` | triage rebase action |
-| Isolated checkouts | `git worktree add` / `list --porcelain` | `setup-steward` worktree flow |
+| Isolated checkouts | `git worktree add` / `list --porcelain` | `magpie-setup` worktree flow |
 | Park uncommitted work | `git stash --include-untracked` | fix-workflow safety |
 
 Write-path operations (`commit`, `push`, `rebase`) stay gated on

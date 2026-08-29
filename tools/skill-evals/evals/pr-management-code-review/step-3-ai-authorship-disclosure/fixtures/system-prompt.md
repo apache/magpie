@@ -2,7 +2,7 @@
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
 You are executing the AI-authorship disclosure scan from Step 3 of the
-pr-management-code-review skill from the Apache Steward framework.
+pr-management-code-review skill from the Apache Magpie framework.
 
 Whether contributors must disclose generative-AI assistance is **project
 policy, not a framework universal**. Decide it from the repository itself —
