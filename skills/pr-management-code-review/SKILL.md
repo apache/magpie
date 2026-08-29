@@ -476,7 +476,8 @@ For each PR on the list, capture only the headline data needed
 to **decide whether to start the review**:
 
 - PR number, title, author, author association
-- head SHA, base ref, draft flag, mergeable state
+- head SHA, base ref, draft flag
+- merge/conflict state (`mergeable` **and** `mergeStateStatus`; `UNKNOWN` means not yet computed, not clean)
 - check-rollup state (PASSING / FAILING / PENDING)
 - count of unresolved review threads
 - labels

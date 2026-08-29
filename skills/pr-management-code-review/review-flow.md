@@ -34,6 +34,7 @@ PR #65934 — Fix scheduler N+1 on serialized Dag load
   Author: alice (CONTRIBUTOR, [external])
   Base:   main  •  Head: 4f8a09b1
   CI:     ✅ SUCCESS  •  Threads: 0 unresolved  •  Reviews: 0
+  Merge:  ✅ clean
   Files:  3 changed  +47 −12
   Labels: area:scheduler
   Match:  [review-requested 2 days ago] [touches: src/core/jobs/scheduler.py]
@@ -105,7 +106,18 @@ wanted to skip.
 
 **Read**:
 
-- `gh pr view <N> --repo <repo> --json body,changedFiles,files,statusCheckRollup,commits,reviews,reviewRequests,reviewDecision,comments,authorAssociation,labels,headRefOid,baseRefName,additions,deletions,isDraft,mergeable`
+- `gh pr view <N> --repo <repo> --json body,changedFiles,files,statusCheckRollup,commits,reviews,reviewRequests,reviewDecision,comments,authorAssociation,labels,headRefOid,baseRefName,additions,deletions,isDraft,mergeable,mergeStateStatus`
+
+  **`mergeable` alone is not enough.** GitHub computes it lazily: the
+  first read of a PR that has not been tested against its base since
+  the last push returns `UNKNOWN`, and it stays `UNKNOWN` for the whole
+  session if nothing asks again. Treat `UNKNOWN` as "not yet known",
+  not as "fine" — re-read `mergeable,mergeStateStatus` once after a
+  short pause, and if it is still `UNKNOWN` say so in the headline
+  rather than implying the branch is clean. `mergeStateStatus` is the
+  more useful of the two: `DIRTY` means real conflicts, `BEHIND` means
+  the branch merely trails the base, `BLOCKED` means a required check
+  or review is missing.
 - `gh pr diff <N> --repo <repo>` — the unified diff
 - For every touched directory, locate any nearby `AGENTS.md`:
 

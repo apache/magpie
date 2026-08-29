@@ -67,6 +67,33 @@ Golden rule 7 (`SKILL.md`) downgrades any auto-`APPROVE` if
 unresolved threads / pending other-maintainer reviews exist.
 Golden rule 8 downgrades any auto-`APPROVE` if CI is failing.
 
+### Conflicts are always stated in the body
+
+A PR whose `mergeStateStatus` is `DIRTY` (or whose `mergeable` is
+`CONFLICTING`) **must say so in the review body**, whatever the
+disposition. One sentence naming the state and asking for a rebase
+onto the base branch is enough:
+
+> The branch currently conflicts with `main` and needs a rebase
+> before this can merge.
+
+Conflicts do **not** by themselves force `REQUEST_CHANGES`. A PR can
+be entirely correct and still trail its base, and gating an otherwise
+finished review behind a mechanical rebase wastes a round trip. But
+saying nothing is worse: the author sees an approving review, assumes
+the PR is done, and only discovers the conflict when a maintainer
+reaches the merge button — by which point the reviewer has moved on.
+Approving a branch that cannot merge, without mentioning it, is the
+failure this rule exists to prevent.
+
+Where the conflict state is `UNKNOWN` after a re-read (see
+[`review-flow.md` § Step 2](review-flow.md)), say that instead of
+claiming the branch is clean.
+
+Rebasing the branch is a triage action, not a review action — point
+the maintainer at `/magpie-pr-management-triage pr:<N>` rather than
+doing it here (Golden rule 9).
+
 ---
 
 ## `gh pr review` invocation
