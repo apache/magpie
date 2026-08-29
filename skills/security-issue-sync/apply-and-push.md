@@ -626,8 +626,10 @@ Step 6 below describes how to verify the state advance landed
      `discovery-channel` signal is private. On match: propose
      replacing the credit value with the scanner's declared
      **public credit name**, emitted with `type: "tool"` per
-     [`bot-credits-policy.md`](../../tools/cve-tool-vulnogram/bot-credits-policy.md) — falling back
-     to `anonymous` only when none is declared — and stripping
+     [`bot-credits-policy.md`](../../tools/cve-tool-vulnogram/bot-credits-policy.md). When none is
+     declared, **omit the `finder` credit** rather than writing a
+     placeholder, per [Rule 2 of the finder-credit
+     policy](../../tools/cve-tool-vulnogram/finder-credit-policy.md). Also strip
      the scanner product name from the summary text. The
      tracker's *Security mailing list thread* body field stays
      unchanged (it is the private audit trail); only the

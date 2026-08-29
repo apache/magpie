@@ -78,9 +78,10 @@ above:
    the scanner-product name from the *Short public summary
    for publish* body field text. Suppressing the
    un-consenting **individual** is the goal; discarding the
-   discovery attribution entirely is not. Fall back to
-   `anonymous` only when the scanner declares no public
-   credit name.
+   discovery attribution entirely is not. When the scanner
+   declares no public credit name, **omit the `finder` credit**
+   rather than writing a placeholder — see [Rule 2 of the
+   finder-credit policy](../../tools/cve-tool-vulnogram/finder-credit-policy.md).
 2. **Audit trail stays**: the *Security mailing list thread*
    field, the status-rollup comment, and the Gmail / PonyMail
    thread keep the original scanner-product + person-name
