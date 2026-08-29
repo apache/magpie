@@ -325,3 +325,103 @@ class TestGenericIsoSymlink:
         )
         assert res.returncode != 0
         assert "Usage" in res.stderr
+
+
+class TestSourcedDoesNotReplaceTheShell:
+    """Sourced mode must not `exec` — the current process is the user's shell.
+
+    When the script is sourced from an rc file, ``agent-iso`` / ``claude-iso``
+    are shell functions running *in* the interactive shell. `exec`ing the
+    agent there replaces that shell: quitting the agent closes the terminal,
+    and an exec that fails (lost permission bit, bad interpreter, binary
+    swapped mid-upgrade) takes the shell down with it. Sourced mode runs the
+    agent as a child and returns its status; direct exec still `exec`s.
+    """
+
+    @staticmethod
+    def _env(tmp_path: Path) -> dict:
+        return {
+            "PATH": f"{tmp_path}:{os.environ.get('PATH', '/usr/bin:/bin')}",
+            "HOME": "/tmp/testhome",
+            "USER": "testuser",
+            "SHELL": "/bin/sh",
+            "TERM": "xterm",
+            "LANG": "en_US.UTF-8",
+        }
+
+    @staticmethod
+    def _fake_cli_exiting(tmp_path: Path, name: str, code: int) -> None:
+        fake = tmp_path / name
+        fake.write_text(f'#!/bin/sh\necho "AGENT RAN"\nexit {code}\n')
+        fake.chmod(fake.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
+
+    def test_sourced_shell_survives_the_agent(self, tmp_path: Path) -> None:
+        # The line after the launcher must still run: proof the shell was not
+        # replaced by the agent process.
+        self._fake_cli_exiting(tmp_path, _FAKE_CLI, 0)
+        res = subprocess.run(
+            [BASH, "-c", f'source "{SCRIPT}"\nagent-iso {_FAKE_CLI}\necho AFTER_AGENT\n'],
+            env=self._env(tmp_path),
+            cwd=str(tmp_path),
+            capture_output=True,
+            text=True,
+        )
+        assert "AGENT RAN" in res.stdout, res.stderr
+        assert "AFTER_AGENT" in res.stdout, "sourced launcher exec'd and replaced the shell"
+
+    def test_sourced_returns_the_agent_exit_status(self, tmp_path: Path) -> None:
+        self._fake_cli_exiting(tmp_path, _FAKE_CLI, 3)
+        res = subprocess.run(
+            [BASH, "-c", f'source "{SCRIPT}"\nagent-iso {_FAKE_CLI}\necho "RC=$?"\n'],
+            env=self._env(tmp_path),
+            cwd=str(tmp_path),
+            capture_output=True,
+            text=True,
+        )
+        assert "RC=3" in res.stdout, res.stderr
+
+    def test_sourced_shell_survives_a_failed_launch(self, tmp_path: Path) -> None:
+        # On PATH, exec-bit set, but the shebang names an interpreter that does
+        # not exist — the "binary swapped mid-upgrade" case. `exec` would abort
+        # the shell here; a child process just reports the failure.
+        broken = tmp_path / "broken-cli"
+        broken.write_text("#!/nonexistent/interpreter\n")
+        broken.chmod(broken.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
+        res = subprocess.run(
+            [BASH, "-c", f'source "{SCRIPT}"\nagent-iso broken-cli\necho "SURVIVED RC=$?"\n'],
+            env=self._env(tmp_path),
+            cwd=str(tmp_path),
+            capture_output=True,
+            text=True,
+        )
+        # The shell reaching the next line at all is the assertion. The exact
+        # status is left to the platform: a failed launch is 126 or 127
+        # depending on how the kernel and shell classify the unrunnable file.
+        assert "SURVIVED RC=" in res.stdout, res.stderr
+        rc = int(res.stdout.split("SURVIVED RC=")[1].split()[0])
+        assert rc != 0, f"expected a non-zero status for a failed launch, got {rc}"
+
+    def test_sourced_claude_iso_shell_survives(self, tmp_path: Path) -> None:
+        # Same contract for the named per-agent launchers, not just `agent-iso`.
+        self._fake_cli_exiting(tmp_path, "claude", 0)
+        res = subprocess.run(
+            [BASH, "-c", f'source "{SCRIPT}"\nclaude-iso\necho AFTER_AGENT\n'],
+            env=self._env(tmp_path),
+            cwd=str(tmp_path),
+            capture_output=True,
+            text=True,
+        )
+        assert "AFTER_AGENT" in res.stdout, "claude-iso exec'd and replaced the shell"
+
+    def test_direct_exec_still_execs(self, tmp_path: Path) -> None:
+        # The direct-exec path exists only to become the agent, so it must
+        # keep `exec`ing — the agent replaces this process, not a child of it.
+        self._fake_cli_exiting(tmp_path, _FAKE_CLI, 3)
+        res = subprocess.run(
+            [BASH, str(SCRIPT), "agent-iso", _FAKE_CLI],
+            env=self._env(tmp_path),
+            cwd=str(tmp_path),
+            capture_output=True,
+            text=True,
+        )
+        assert res.returncode == 3, res.stderr
