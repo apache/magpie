@@ -128,6 +128,21 @@ def test_no_auth_redirect_handler_rejects_all_redirects() -> None:
         )
 
 
+def test_no_auth_redirect_handler_rejects_cross_origin_redirect() -> None:
+    handler = NoAuthRedirectHandler()
+    request = urllib_request("https://api.bitbucket.org/2.0/repositories/apache/magpie")
+
+    with pytest.raises(BitbucketError, match="refusing to forward credentials"):
+        handler.redirect_request(
+            request,
+            None,
+            302,
+            "Found",
+            {},
+            "https://evil.example.test/redirect-target",
+        )
+
+
 def test_require_https_rejects_http() -> None:
     with pytest.raises(BitbucketError, match="Bitbucket API URLs must use HTTPS"):
         _require_https("http://bitbucket.example.test/rest/api/1.0/foo")
