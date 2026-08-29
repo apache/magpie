@@ -290,6 +290,18 @@ agent_iso_run() {
     printf '[%s-iso] running in isolated env (%s)\n' "$agent" "$agent_bin" >&2
   fi
 
+  # `exec` replaces the current process with the agent. That is right when
+  # this script was *executed* (one less process, and the agent inherits the
+  # caller's exit-status slot) but wrong when it was *sourced*: there the
+  # current process is the user's own interactive shell, so `exec` would
+  # replace it — quitting the agent would close the terminal — and a failed
+  # exec (lost permission bit, bad interpreter, binary replaced mid-upgrade)
+  # would take the shell down with it. In sourced mode run the agent as a
+  # child and hand its exit status back to the shell instead.
+  if [[ -n "${_AGENT_ISO_SOURCED-}" ]]; then
+    env -i "${env_args[@]}" "$agent_bin" "$@"
+    return $?
+  fi
   exec env -i "${env_args[@]}" "$agent_bin" "$@"
 }
 
@@ -311,6 +323,11 @@ claude_iso_main() { agent_iso_run "${AGENT_ISO_AGENT:-claude}" "$@"; }
 #   `--settings` sandbox allowRead injection is skipped (it is Claude-specific
 #   and already guarded by `if [[ "$agent" == "claude" ]]`).
 if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
+  # Sourced: every entry point below runs inside the user's interactive
+  # shell, so nothing on this path may `exec` or `exit` — both would take
+  # the shell with them. The flag tells `agent_iso_run` to launch the agent
+  # as a child and `return`; the guards below use `return`, never `exit`.
+  _AGENT_ISO_SOURCED=1
   claude-iso()   { agent_iso_run claude "$@"; }
   opencode-iso() { agent_iso_run opencode "$@"; }
   kiro-iso()     { agent_iso_run kiro "$@"; }
@@ -325,6 +342,9 @@ if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
     agent_iso_run "$@"
   }
 else
+  # Executed directly: this process exists only to become the agent, so the
+  # `exec` in `agent_iso_run` and the `exit`s below are the correct exits.
+  _AGENT_ISO_SOURCED=
   _aig_basename="$(basename "${0}")"
   case "$_aig_basename" in
     opencode-iso*) agent_iso_run opencode "$@" ;;
