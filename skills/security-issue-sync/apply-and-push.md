@@ -624,7 +624,10 @@ Step 6 below describes how to verify the state advance landed
      for `credits[].value` entries that match a person-name
      pattern (`<First> <Last>` shape) when the
      `discovery-channel` signal is private. On match: propose
-     replacing the credit value with `anonymous` and stripping
+     replacing the credit value with the scanner's declared
+     **public credit name**, emitted with `type: "tool"` per
+     [`bot-credits-policy.md`](../../tools/cve-tool-vulnogram/bot-credits-policy.md) — falling back
+     to `anonymous` only when none is declared — and stripping
      the scanner product name from the summary text. The
      tracker's *Security mailing list thread* body field stays
      unchanged (it is the private audit trail); only the

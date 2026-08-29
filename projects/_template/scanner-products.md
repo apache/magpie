@@ -30,7 +30,9 @@ The CVE-JSON generator reads three body fields verbatim into
 public surfaces:
 
 - *Short public summary for publish* → `containers.cna.descriptions[].value`
-- *Reporter credited as* → `containers.cna.credits[].value` (type `finder`)
+- *Reporter credited as* → `containers.cna.credits[].value`
+  (type `finder` for a human, `tool` for automation — see
+  [`bot-credits-policy.md`](../../tools/cve-tool-vulnogram/bot-credits-policy.md))
 - *Security mailing list thread* → **private audit trail**,
   not pushed to the CVE record
 
@@ -47,9 +49,9 @@ from public CVE surfaces when its findings flow into trackers
 on this project. Add a row per scanner the project's security
 team works with privately.
 
-| Product name (token) | Discovery channel | Notes |
-|---|---|---|
-| TODO: `<scanner-product>` | TODO: `<channel — internal SAST, partner-shared, unpublished bug-bounty pipeline, vendor private disclosure>` | TODO: `<one-line context — why the name is sensitive, contract clause if any>` |
+| Product name (token) | Public credit name | Discovery channel | Notes |
+|---|---|---|---|
+| TODO: `<scanner-product>` | TODO: `<public-safe name of the tooling that ran the scan, or leave blank>` | TODO: `<channel — internal SAST, partner-shared, unpublished bug-bounty pipeline, vendor private disclosure>` | TODO: `<one-line context — why the name is sensitive, contract clause if any>` |
 
 **Token format.** The scanner-product token is the literal
 string the scrubber matches against the *Short public summary*
@@ -70,8 +72,15 @@ mailing list thread* field references one of the products
 above:
 
 1. **Default**: rewrite the *Reporter credited as* field to
-   `anonymous` and strip the scanner-product name from the
-   *Short public summary for publish* body field text.
+   the scanner's **public credit name** (column two above),
+   which the CVE-JSON generator emits with `type: "tool"`
+   per [`bot-credits-policy.md`](../../tools/cve-tool-vulnogram/bot-credits-policy.md), and strip
+   the scanner-product name from the *Short public summary
+   for publish* body field text. Suppressing the
+   un-consenting **individual** is the goal; discarding the
+   discovery attribution entirely is not. Fall back to
+   `anonymous` only when the scanner declares no public
+   credit name.
 2. **Audit trail stays**: the *Security mailing list thread*
    field, the status-rollup comment, and the Gmail / PonyMail
    thread keep the original scanner-product + person-name
