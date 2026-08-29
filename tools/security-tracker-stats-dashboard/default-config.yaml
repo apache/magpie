@@ -163,8 +163,15 @@ triage:
     - Security Model
     - cve-worthy
     - CVE-worthy
+  # Skill-authored comments, skipped when measuring human triage
+  # activity. The first entry is the canonical machine marker every
+  # framework skill writes (`<!-- apache-magpie: <kind> vN -->`); the
+  # rest are prose prefixes from older comment shapes.
+  #
+  # NOTE: this list is REPLACED wholesale by an overlay, not merged --
+  # an overlay adding one prefix must restate the whole list.
   bot_prefixes:
-    - "<!-- airflow-s status rollup v"
+    - "<!-- apache-magpie: "
     - "**Sync "
     - "**Imported on "
     - "**Status update"
