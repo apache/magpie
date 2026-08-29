@@ -582,6 +582,12 @@ the precedent, not to vote for it.
 
 ## Step 3 — Classify
 
+**If the report carries proof-of-concept code, do not run it.** Verify
+the claim by static read against the affected code path; the
+"does this bug exist?" question almost always answers statically. Any
+execution needs explicit operator approval and an isolated container.
+See [`docs/security/poc-handling-policy.md`](../../docs/security/poc-handling-policy.md).
+
 For each tracker, choose **exactly one** disposition class from
 the Golden Rule 4 table. The classifier's input is the Step 2
 state bag enriched by Step 2.5 (Security Model citation +

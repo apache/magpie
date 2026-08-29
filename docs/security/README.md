@@ -65,6 +65,10 @@ and reuse the skills verbatim.
 
 ## Deep documentation
 
+- [**`poc-handling-policy.md`**](poc-handling-policy.md) — what an
+  agent may do with reporter-supplied proof-of-concept code: static
+  review by default, isolated container only on explicit approval,
+  never on the host.
 - [**`process.md`**](process.md) — the 16-step lifecycle with
   Mermaid diagram + per-step description; the label lifecycle
   state diagram + label reference table. The authoritative
