@@ -10,6 +10,7 @@
   - [GitHub-notification exclusions](#github-notification-exclusions)
   - [Query templates by skill](#query-templates-by-skill)
     - [`security-issue-import` — candidate-listing query](#security-issue-import--candidate-listing-query)
+    - [`security-issue-import` — GHSA-advisory query (mandatory second pass)](#security-issue-import--ghsa-advisory-query-mandatory-second-pass)
     - [`security-issue-import` — prior-rejection search](#security-issue-import--prior-rejection-search)
     - [`security-issue-sync` — reporter-thread lookup by distinctive phrase](#security-issue-sync--reporter-thread-lookup-by-distinctive-phrase)
     - [`security-issue-sync` — CVE-review-comment search](#security-issue-sync--cve-review-comment-search)
@@ -113,6 +114,33 @@ instead.
 
 Adjust the time window per the user's selector (`since:` →
 `newer_than:` or `after:`; `import all` → `newer_than:90d`).
+
+### `security-issue-import` — GHSA-advisory query (mandatory second pass)
+
+Run **in addition to** the candidate-listing query above, on every
+import scan:
+
+```text
+from:notifications@github.com
+  newer_than:<window>
+  (GHSA OR "Report a vulnerability" OR "security advisory")
+```
+
+The rule above says not to exclude `notifications@github.com`. This
+query is the positive counterpart, and it exists because the negative
+rule is not self-enforcing: an exclusion added anywhere for noise
+reduction — in the candidate query, a project override, a hand-edited
+one-off — silently removes the entire GHSA intake channel, and the
+resulting miss is invisible. Nothing reports *"a report was filtered
+out"*.
+
+Running a dedicated positive query makes the GHSA channel checked **by
+construction**. It cannot be filtered away by an exclusion elsewhere,
+because it does not depend on the other query's filter list. The cost
+is one extra search per scan; the failure it prevents is a
+silently-missed, often high-severity report.
+
+Adjust the window to match the candidate-listing query's.
 
 ### `security-issue-import` — prior-rejection search
 
