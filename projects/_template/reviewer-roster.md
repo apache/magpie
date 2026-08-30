@@ -30,7 +30,7 @@ Shape per entry:
   - handle: github-login        # GitHub @handle (required)
     areas:                      # list of areas / path prefixes / labels
       - component:scheduler
-      - airflow/jobs/
+      - src/scheduler/
     max_reviews: 5              # optional; default 5
 -->
 
@@ -48,7 +48,7 @@ Shape per entry:
 ## Notes
 
 - `areas` entries may be component labels (e.g. `component:scheduler`),
-  path prefixes (e.g. `airflow/jobs/`), or free-form area names that
+  path prefixes (e.g. `src/scheduler/`), or free-form area names that
   match the labels used in this project's issue tracker.
 - `max_reviews` is the maximum number of open review requests this
   reviewer is comfortable holding simultaneously. When their current

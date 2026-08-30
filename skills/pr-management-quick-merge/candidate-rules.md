@@ -190,7 +190,8 @@ tier_b_allow_globs:
   - "**/tests/**"
   - "**/test_*.py"
   - "**/*_test.py"
-  - "**/example_dags/**"
+  - "**/examples/**"
+  - "**/example_*/**"
 
 deny_globs:                 # absolute disqualifiers, even at one line
   - "**/migrations/**"

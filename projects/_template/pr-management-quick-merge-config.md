@@ -48,7 +48,7 @@ skill. This is the **`_template` default**; new adopters copy it into their own
 `<project-config>/pr-management-quick-merge-config.md` and tune the thresholds
 and path globs for their repository layout.
 
-The default globs below are shaped for an Apache-Airflow-like monorepo; an
+The default globs below are shaped for a Python monorepo; an
 adopter with a different layout replaces them wholesale. When a field is absent,
 the skill falls back to the default noted in its row.
 
@@ -95,7 +95,8 @@ spelling_wordlist.txt
 **/tests/**
 **/test_*.py
 **/*_test.py
-**/example_dags/**
+**/examples/**
+**/example_*/**
 ```
 
 ### `deny_globs` — absolute disqualifiers (consequential areas; one match drops the PR even at one line)
