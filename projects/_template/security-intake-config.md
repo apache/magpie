@@ -42,7 +42,7 @@ authoritative home for those values.  This file does two things:
 
 New adopters: copy this file into your own
 `<project-config>/security-intake-config.md` and replace every `TODO`.
-The ASF defaults reproduce the Apache Airflow security-team workflow
+The ASF defaults reproduce the standard ASF security-team workflow
 unchanged; override only the fields that differ for your project.
 
 Related scaffolds in the same adopter directory:
