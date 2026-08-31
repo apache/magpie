@@ -42,11 +42,11 @@
 
 # RFC-AI-0002: Secure Agents setup
 
-| **Status** | Draft |
+| **Status** | Implemented |
 |---|---|
 | **Author** | Jarek Potiuk ([@potiuk](https://github.com/potiuk)) |
 | **Created** | 2026-05-02 |
-| **Last updated** | 2026-05-02 |
+| **Last updated** | 2026-08-31 |
 | **Discussion** | *TBD — link to mailing list thread once posted* |
 | **Reference implementation** | [`apache/magpie`](https://github.com/apache/magpie) |
 | **Related documents** | [`secure-agent-setup.md`](https://github.com/apache/magpie/blob/main/docs/setup/secure-agent-setup.md), [`secure-agent-internals.md`](https://github.com/apache/magpie/blob/main/docs/setup/secure-agent-internals.md) |
