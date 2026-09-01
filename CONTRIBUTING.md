@@ -198,7 +198,7 @@ every piece of context it needs from some combination of the four
 ├── AGENTS.md             # Editorial contract: tone, placeholders, linking
 ├── CONTRIBUTING.md       # This file
 ├── docs/
-│   ├── rfcs/             # Normative RFCs — RFC-AI-0002, 0003, 0004
+│   ├── rfcs/             # Normative RFCs — RFC-AI-0002 onward
 │   ├── setup/            # Adoption, sandbox, privacy-LLM docs
 │   ├── security/         # Human-facing security-team docs
 │   ├── issue-management/ # Issue-* skill docs

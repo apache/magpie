@@ -19,7 +19,7 @@
     - [`via_forwarder_question_mode` (attribute)](#via_forwarder_question_mode-attribute)
   - [Skills that consume this contract](#skills-that-consume-this-contract)
   - [ASF default — ASF Security forwarder](#asf-default--asf-security-forwarder)
-    - [Why `@raboof` is the contact handle today](#why-raboof-is-the-contact-handle-today)
+    - [Choosing the contact handle](#choosing-the-contact-handle)
   - [Configuration](#configuration)
   - [Cross-references](#cross-references)
   - [What this contract does NOT cover](#what-this-contract-does-not-cover)
@@ -121,13 +121,15 @@ below, and add `<name>` to the `forwarders.enabled` list in
 their `<project-config>/project.md`.
 
 The ASF-security adapter's `preamble_match` regex,
-`credit_extraction_rule`, `contact_handle` (the `@raboof`
-default, lifted into project.md
-`forwarders.asf-security.contact_handle`), and
-`reporter_addressing_block` convention all live in
-[`tools/gmail/asf-relay.md`](../gmail/asf-relay.md). This is
-the only forwarder adapter shipping today; the contract above
-describes the interface for additional adapters.
+`credit_extraction_rule`,
+`contact_handle`
+(the `security@apache.org` default,
+declared org-level in [`organizations/ASF/organization.md`](../../organizations/ASF/organization.md)
+and inherited through project.md `forwarders.asf-security.contact_handle`),
+and `reporter_addressing_block` convention
+all live in [`tools/gmail/asf-relay.md`](../gmail/asf-relay.md).
+This is the only forwarder adapter shipping today;
+the contract above describes the interface for additional adapters.
 
 ### Sub-skill consumers
 
@@ -211,17 +213,20 @@ field against the latest read of the thread.
 
 ### `contact_handle` (attribute)
 
-The GitHub-style handle (or back-channel identifier) of the
-relay contact the skills should `@mention` when proposing a
-draft. For ASF Security this is currently `@raboof` (Arnout
-Engelen, the on-duty ASF Security liaison); for huntr the
-handle would be huntr's program-issued contact. Lifted into
-config now so the skill body never hard-codes a name.
+The GitHub-style handle
+(or back-channel identifier, such as a shared-inbox address)
+of the relay contact the skills should `@mention` or address when proposing a draft.
+For ASF Security the org-level default is the `security@apache.org` shared inbox
+(per [`organizations/ASF/organization.md`](../../organizations/ASF/organization.md));
+an adopter whose relays come through an individual liaison
+overrides it with that person's handle (e.g. `@raboof`).
+For huntr the handle would be huntr's program-issued contact.
+Lifted into config so the skill body never hard-codes a name.
 
-The handle MAY be a list of fallbacks (`[@raboof,
-@securityasf-rota]`) for adapters whose contact rotates; the
-skill picks the first available one and surfaces the chosen
-handle in the proposal recap.
+The handle MAY be a list of fallbacks (`[@raboof, security@apache.org]`)
+for adapters whose contact rotates;
+the skill picks the first available one
+and surfaces the chosen handle in the proposal recap.
 
 ### `preamble_match` (attribute)
 
@@ -334,7 +339,7 @@ forwarders:
         tool: ['\.ai\b', 'bot\b', 'scanner\b']
         service: ['security team\b', 'soc\b']
         # default: human
-    contact_handle: '@raboof'   # ASF Security on-duty liaison; lift to a rota when one exists
+    contact_handle: security@apache.org   # shared inbox; override with an individual liaison's handle
     via_forwarder_question_mode: true
     reporter_addressing_block:
       wrapper_salutation: 'Hi <forwarder-first-name>,'
@@ -350,21 +355,26 @@ The exact shape of the paste-ready block is defined in
 *"Reporter-facing content goes as a ready-to-paste block, not as
 a third-person ask"* rule, with the worked GHSA / CVE example.
 
-### Why `@raboof` is the contact handle today
+### Choosing the contact handle
 
-Arnout Engelen (`@raboof`, `engelen@apache.org`) is the ASF
-Security team member who currently triages relayed reports for
-the projects this framework's reference adopter belongs to. The
-handle is lifted into config rather than hard-coded so that:
+The org-level default is the `security@apache.org` shared inbox —
+durable across security-team rotations,
+declared once in [`organizations/ASF/organization.md`](../../organizations/ASF/organization.md).
+An adopter whose relayed reports are triaged by an individual liaison
+(for the reference adopter's projects,
+Arnout Engelen — `@raboof`, `engelen@apache.org` or
+Piotr Karwasz - `@ppkarwasz`, `pkarwasz@apache.org`)
+overrides the handle locally.
+The handle lives in config rather than hard-coded so that:
 
-* a future on-duty rota can declare a list (`[@raboof,
-  @next-on-duty, @asf-security-rota]`) without touching skill
-  bodies;
+* a future on-duty rota can declare a list
+  (`[@raboof, @next-on-duty, security@apache.org]`)
+  without touching skill bodies;
 * adopters whose ASF Security liaison is a different individual
   declare their own handle locally;
-* the handle is reviewable in one place during a security-team
-  rotation hand-off instead of being scattered across draft
-  templates.
+* the handle is reviewable in one place
+  during a security-team rotation hand-off
+  instead of being scattered across draft templates.
 
 ## Configuration
 
@@ -379,7 +389,7 @@ forwarders:
     # - huntr-relay          # placeholder — uncomment when implemented
     # - hackerone-relay      # placeholder — uncomment when implemented
   asf-security:
-    contact_handle: '@raboof'
+    contact_handle: security@apache.org   # or your liaison's handle, e.g. '@raboof'
     via_forwarder_question_mode: true
     # sender_pattern / preamble_match / credit_extraction_rule
     # inherit framework defaults unless the adopter overrides

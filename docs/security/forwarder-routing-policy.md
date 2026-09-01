@@ -229,11 +229,12 @@ the `security-issue-import-from-md` import case.
 **Forwarder-relayed GHSA report, advisory sent.** A report arrives
 via the configured forwarder adapter (ASF-Airflow default:
 `asf-security` carrying the relay preamble) with a GHSA reference;
-the import skill classifies it as a forwarder-relay match, drafts
-the Step 7 receipt to the forwarder contact (the relay broker's
-personal address — for ASF-Airflow, the forwarding ASF Security
-team member, e.g. `@raboof` per
-`forwarders.asf-security.contact_handle`). Weeks later the fix
+the import skill classifies it as a forwarder-relay match,
+drafts the Step 7 receipt to the forwarder contact
+(the relay broker's contact address —
+for ASF-Airflow, the ASF Security team's `security@apache.org`
+per `forwarders.asf-security.contact_handle`).
+Weeks later the fix
 ships and the advisory is archived on the project's public users
 list (per `archive_system.advisory_publication_signal_url`);
 `security-issue-sync` Step 14 captures the URL and proposes an
