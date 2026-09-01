@@ -65,6 +65,11 @@ pilot-*/
 # tools/pilot-report-validator is a committed framework tool, not an evidence package
 !/tools/pilot-report-validator/
 reassess-*/
+# The issue-reassess skill and its eval suite are committed framework
+# content, not campaign evidence: `*-reassess/` above matches both, and
+# silently drops any new file added under either.
+!/skills/issue-reassess/
+!/tools/skill-evals/evals/issue-reassess/
 
 # Apache RAT working artefacts. The rat.yml workflow keeps these under
 # RUNNER_TEMP, but a local `java -jar apache-rat.jar . ...` run drops them
