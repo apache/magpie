@@ -14,7 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-"""Behavioural fixtures for symlink-lint's two rules.
+"""Behavioural fixtures for symlink-lint's rules.
 
 Rule 1 (cycles): parity with the earlier bash draft — cyclic -> flagged,
 dangling -> skipped, canonical+relay -> allowed, plus pruned / symlink-to-
@@ -22,6 +22,9 @@ file / whitespace-name edges.
 
 Rule 2 (relay correctness): canonical links point into ../../skills/;
 relays point at ../../.agents/skills/magpie-<skill>.
+
+Rule 3 (completeness): every skill under skills/ has a canonical entry in
+.agents/skills/, and every wired agent directory relays the full set.
 """
 
 from __future__ import annotations
@@ -144,10 +147,90 @@ def test_non_magpie_symlink_ignored_by_relay_rule(tmp_path: Path) -> None:
     assert symlink_lint.find_misdirected_relays(tmp_path) == []
 
 
+# ---- Rule 3: completeness ------------------------------------------------
+
+
+def test_completeness_clean_when_all_canonical_and_relays_wired(tmp_path: Path) -> None:
+    (tmp_path / "skills" / "setup").mkdir(parents=True)
+    (tmp_path / "skills" / "setup" / "SKILL.md").write_text("setup\n")
+    _symlink(tmp_path, ".agents/skills/magpie-setup", "../../skills/setup")
+    _symlink(tmp_path, ".claude/skills/magpie-setup", "../../.agents/skills/magpie-setup")
+    _wire_skill(tmp_path, relay_target="../../.agents/skills/magpie-x")
+    assert symlink_lint.find_missing_relays(tmp_path) == []
+
+
+def test_completeness_flags_missing_canonical_link(tmp_path: Path) -> None:
+    (tmp_path / "skills" / "setup").mkdir(parents=True)
+    (tmp_path / "skills" / "setup" / "SKILL.md").write_text("setup\n")
+    (tmp_path / "skills" / "x").mkdir(parents=True)
+    (tmp_path / "skills" / "x" / "SKILL.md").write_text("x\n")
+    _symlink(tmp_path, ".agents/skills/magpie-setup", "../../skills/setup")
+    assert offending_paths(symlink_lint.find_missing_relays(tmp_path), tmp_path) == {
+        ".agents/skills/magpie-x"
+    }
+
+
+def test_completeness_flags_missing_relay_in_wired_agent_dir(tmp_path: Path) -> None:
+    (tmp_path / "skills" / "setup").mkdir(parents=True)
+    (tmp_path / "skills" / "setup" / "SKILL.md").write_text("setup\n")
+    (tmp_path / "skills" / "x").mkdir(parents=True)
+    (tmp_path / "skills" / "x" / "SKILL.md").write_text("x\n")
+    _symlink(tmp_path, ".agents/skills/magpie-setup", "../../skills/setup")
+    _symlink(tmp_path, ".agents/skills/magpie-x", "../../skills/x")
+    _symlink(tmp_path, ".claude/skills/magpie-setup", "../../.agents/skills/magpie-setup")
+    assert offending_paths(symlink_lint.find_missing_relays(tmp_path), tmp_path) == {
+        ".claude/skills/magpie-x"
+    }
+
+
+def test_completeness_unwired_agent_dir_not_required(tmp_path: Path) -> None:
+    (tmp_path / "skills" / "setup").mkdir(parents=True)
+    (tmp_path / "skills" / "setup" / "SKILL.md").write_text("setup\n")
+    _symlink(tmp_path, ".agents/skills/magpie-setup", "../../skills/setup")
+    _symlink(tmp_path, ".claude/skills/magpie-setup", "../../.agents/skills/magpie-setup")
+    _wire_skill(tmp_path, relay_target="../../.agents/skills/magpie-x")
+    (tmp_path / ".github").mkdir()
+    assert symlink_lint.find_missing_relays(tmp_path) == []
+
+
+def test_completeness_skipped_when_no_skills_dir(tmp_path: Path) -> None:
+    (tmp_path / ".agents" / "skills").mkdir(parents=True)
+    assert symlink_lint.find_missing_relays(tmp_path) == []
+
+
+def test_completeness_skipped_when_not_framework_checkout(tmp_path: Path) -> None:
+    # Adopter repo without skills/setup/SKILL.md is exempt
+    (tmp_path / "skills" / "custom").mkdir(parents=True)
+    (tmp_path / "skills" / "custom" / "SKILL.md").write_text("custom\n")
+    (tmp_path / ".agents" / "skills").mkdir(parents=True)
+    assert symlink_lint.find_missing_relays(tmp_path) == []
+
+
+def test_completeness_ignores_source_pointer_and_non_skill_files(tmp_path: Path) -> None:
+    (tmp_path / "skills" / "setup").mkdir(parents=True)
+    (tmp_path / "skills" / "setup" / "SKILL.md").write_text("setup\n")
+    _symlink(tmp_path, ".agents/skills/magpie-setup", "../../skills/setup")
+    _symlink(tmp_path, ".claude/skills/magpie-setup", "../../.agents/skills/magpie-setup")
+    _wire_skill(tmp_path, relay_target="../../.agents/skills/magpie-x")
+    # Trusted-source pointer directory (source.md, no SKILL.md) -> ignored
+    (tmp_path / "skills" / "pointer").mkdir(parents=True)
+    (tmp_path / "skills" / "pointer" / "source.md").write_text("source: foo\n")
+    # Non-skill files and cache directories -> ignored
+    (tmp_path / "skills" / "pyproject.toml").write_text("[project]\n")
+    (tmp_path / "skills" / ".mypy_cache").mkdir(parents=True)
+    (tmp_path / "skills" / ".ruff_cache").mkdir(parents=True)
+    (tmp_path / "skills" / "node_modules").mkdir(parents=True)
+    assert symlink_lint.find_missing_relays(tmp_path) == []
+
+
 # ---- main() ---------------------------------------------------------------
 
 
 def test_main_returns_zero_when_clean(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    (tmp_path / "skills" / "setup").mkdir(parents=True)
+    (tmp_path / "skills" / "setup" / "SKILL.md").write_text("setup\n")
+    _symlink(tmp_path, ".agents/skills/magpie-setup", "../../skills/setup")
+    _symlink(tmp_path, ".claude/skills/magpie-setup", "../../.agents/skills/magpie-setup")
     _wire_skill(tmp_path, relay_target="../../.agents/skills/magpie-x")
     monkeypatch.setattr(symlink_lint, "repo_root", lambda: tmp_path)
     assert symlink_lint.main() == 0
@@ -165,7 +248,14 @@ def test_main_returns_one_on_misdirected_relay(tmp_path: Path, monkeypatch: pyte
     assert symlink_lint.main() == 1
 
 
-# ---- rule 3: release-archive symlink safety -------------------------------
+def test_main_returns_one_on_missing_symlink(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    (tmp_path / "skills" / "setup").mkdir(parents=True)
+    (tmp_path / "skills" / "setup" / "SKILL.md").write_text("setup\n")
+    monkeypatch.setattr(symlink_lint, "repo_root", lambda: tmp_path)
+    assert symlink_lint.main() == 1
+
+
+# ---- rule 4: release-archive symlink safety -------------------------------
 
 
 def _git_repo(root: Path, gitattributes: str = "") -> None:
