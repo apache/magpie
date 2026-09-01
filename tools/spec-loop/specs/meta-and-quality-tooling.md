@@ -40,8 +40,8 @@ trustworthy as it grows.
 - `tools/skill-evals/` — harness for measuring skill behaviour.
 - `tools/sandbox-lint/` — lints the sandbox/permissions configuration.
 - `tools/symlink-lint/` — lints the framework's self-adoption skill
-  symlinks: rejects cyclic symlinks and misdirected relays (canonical/
-  relay target-correctness).
+  symlinks: rejects cyclic symlinks, misdirected relays (canonical/
+  relay target-correctness), and incomplete self-adoption symlink sets.
 - `tools/dashboard-generator/` — read-only HTML dashboards over campaign
   artefacts.
 - `tools/probe-templates/` — reusable probes.

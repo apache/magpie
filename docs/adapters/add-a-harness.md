@@ -73,7 +73,7 @@ relay symlinks automatically. The rules are:
   `../../.agents/skills/magpie-<skill>` — **through the canonical, not
   straight at source**.
 
-`symlink-lint` enforces both rules and is wired into `prek`; run it to
+`symlink-lint` enforces the working-tree rules and is wired into `prek`; run it to
 verify after any manual link creation:
 
 ```bash

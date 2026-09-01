@@ -15,17 +15,21 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-"""Lint the framework's self-adoption skill symlinks. Two working-tree rules:
+"""Lint the framework's self-adoption skill symlinks. Three working-tree rules:
 
 1. **No cycles** — a symlink must not resolve to its own directory or an
    ancestor (that traps recursive `**/SKILL.md` scanners in looped paths).
 2. **Relay correctness** — a `magpie-<skill>` link under `.agents/skills/`
    (canonical) points into `../../skills/`; the same link under any other
    agent dir relays through `../../.agents/skills/magpie-<skill>`.
+3. **Completeness** — in the framework checkout (where `skills/` lives), every
+   skill directory under `skills/` must have its canonical
+   `.agents/skills/magpie-<skill>` entry, and every wired agent directory
+   must relay the full canonical set.
 
 Plus one **release-archive** rule, run with `--archive`:
 
-3. **Archive is extractor-safe** — build the source archive exactly as the
+4. **Archive is extractor-safe** — build the source archive exactly as the
    release does (`git archive --worktree-attributes` of the staged tree,
    honouring `.gitattributes` `export-ignore`), then reject any symlink in
    it that is *dangling* (target absent — orphaned by an `export-ignore`)
@@ -136,6 +140,65 @@ def find_misdirected_relays(
     return sorted(problems)
 
 
+def find_missing_relays(root: Path, prune: frozenset[str] = PRUNE_DIR_NAMES) -> list[tuple[Path, str, str]]:
+    """Return `(link, expected_target, kind)` for every missing canonical or
+    relay symlink.
+
+    Scoped to the framework checkout: if ``skills/setup/SKILL.md`` does not
+    exist under ``root``, returns an empty list (adopters keep their skills in
+    the snapshot at ``.apache-magpie/skills/`` and are exempt).
+
+    When in the framework checkout:
+    1. Every skill directory under ``skills/`` (containing a ``SKILL.md``)
+       must have its canonical symlink under ``.agents/skills/magpie-<skill>``.
+    2. Every wired agent directory (any direct subdirectory of ``root``
+       whose name starts with ``.`` carrying a ``skills/`` folder, such as
+       ``.claude/``, ``.github/``, ``.kiro/``) must relay the full canonical
+       set.
+    """
+    skills_dir = root / "skills"
+    if not (skills_dir / "setup" / "SKILL.md").is_file():
+        return []
+
+    skills: list[str] = sorted(
+        d.name
+        for d in skills_dir.iterdir()
+        if d.is_dir() and not d.name.startswith(".") and d.name not in prune and (d / "SKILL.md").is_file()
+    )
+    if not skills:
+        return []
+
+    missing: list[tuple[Path, str, str]] = []
+
+    # 1. Canonical entries under .agents/skills/
+    canonical_dir = root / ".agents" / "skills"
+    for skill in skills:
+        link = canonical_dir / f"magpie-{skill}"
+        if not link.is_symlink():
+            expected = f"../../skills/{skill}"
+            missing.append((link, expected, "canonical"))
+
+    # 2. Relay entries under every wired agent directory
+    for entry in sorted(root.iterdir()):
+        if (
+            not entry.is_dir()
+            or not entry.name.startswith(".")
+            or entry.name in prune
+            or entry.name == ".agents"
+        ):
+            continue
+        agent_skills = entry / "skills"
+        if not agent_skills.is_dir():
+            continue
+        for skill in skills:
+            link = agent_skills / f"magpie-{skill}"
+            if not link.is_symlink():
+                expected = f"../../.agents/skills/magpie-{skill}"
+                missing.append((link, expected, "relay"))
+
+    return sorted(missing)
+
+
 def find_archive_symlink_problems(root: Path) -> list[tuple[str, str, str]]:
     """Build the source archive the way the release does and return
     `(archive_path, target, kind)` for every symlink in it that a safe
@@ -232,7 +295,8 @@ def main(argv: list[str] | None = None) -> int:
 
     cycles = find_cyclic_symlinks(root)
     relays = find_misdirected_relays(root)
-    if not cycles and not relays:
+    missing = find_missing_relays(root)
+    if not cycles and not relays and not missing:
         return 0
 
     out = sys.stderr.write
@@ -244,6 +308,10 @@ def main(argv: list[str] | None = None) -> int:
         out("error: misdirected skill relay symlink(s):\n")
         for link, actual, expected in relays:
             out(f"  {_rel(link, root)} -> {actual}  (expected {expected})\n")
+    if missing:
+        out("error: missing skill symlink(s):\n")
+        for link, expected, kind in missing:
+            out(f"  {_rel(link, root)}  (expected {kind} link -> {expected})\n")
     out("\nSee tools/symlink-lint/README.md and skills/setup/agents.md.\n")
     return 1
 
