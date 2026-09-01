@@ -401,6 +401,28 @@ def get_pull_request_status(config: BitbucketConfig, pull_request_id: str) -> di
     return combined
 
 
+def create_pull_request_comment(
+    config: BitbucketConfig,
+    pull_request_id: str,
+    body: str,
+) -> dict[str, Any]:
+    """Create one top-level comment on a Bitbucket Cloud pull request."""
+    workspace = quote_path(require(config.workspace, "BITBUCKET_WORKSPACE"))
+    repo_slug = quote_path(require(config.repo_slug, "BITBUCKET_REPO_SLUG"))
+    pr_id = quote_path(pull_request_id)
+    url = f"{CLOUD_API_BASE}/repositories/{workspace}/{repo_slug}/pullrequests/{pr_id}/comments"
+
+    comment = post_json(
+        url,
+        config,
+        {"content": {"raw": body}},
+    )
+    return {
+        "pull_request_id": pull_request_id,
+        "comment": comment,
+    }
+
+
 def get_pull_request_discussion(config: BitbucketConfig, pull_request_id: str) -> dict[str, Any]:
     """Fetch pull request comments from Bitbucket Cloud."""
     workspace = quote_path(require(config.workspace, "BITBUCKET_WORKSPACE"))
