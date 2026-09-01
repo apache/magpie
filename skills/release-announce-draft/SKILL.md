@@ -360,7 +360,7 @@ before including it.
 
 - Download links in the site files must resolve through the `closer.lua`
   mirror redirector (e.g.
-  `https://www.apache.org/dyn/closer.lua?path=airflow/<version>/...`),
+  `https://www.apache.org/dyn/closer.lua?path=<project>/<version>/...`),
   not through a direct `dist.apache.org` URL.
 - The PR is opened (not merged) by this skill; a committer merges it
   after the `[ANNOUNCE]` email is sent.

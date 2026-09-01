@@ -209,8 +209,8 @@ Two stages:
 2. **Fetch comments in aliased batches** of **30 PRs per GraphQL call**. Each alias queries one PR with `comments(last: 25) { nodes { author { login } authorAssociation createdAt body } }`. A single query with 30 aliases stays well inside GitHub's complexity budget; larger batch sizes occasionally hit `MAX_NODE_LIMIT_EXCEEDED`. Budget: ~54 GraphQL calls for 1600 PRs; end-to-end around 60 seconds on a warm token.
 
 ```graphql
-query {
-  repository(owner:"apache",name:"airflow") {
+query($owner: String!, $repo: String!) {   # bound from <upstream> split on "/"
+  repository(owner:$owner, name:$repo) {
     pr63407: pullRequest(number:63407) {
       number author{login} authorAssociation closedAt mergedAt state merged
       labels(first:30){nodes{name}}

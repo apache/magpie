@@ -51,6 +51,11 @@ FORBIDDEN_PATTERNS=(
   "airflow-s/airflow-s"
   "Apache Airflow"
   "apache.org/airflow"
+  # Lowercase forms that slip past the four above: a GraphQL
+  # `repository(owner:"apache",name:"airflow")` argument and a
+  # `closer.lua?path=airflow/` dist path.
+  'name:"airflow"'
+  "path=airflow"
 )
 
 # Files / directories where Airflow references are intentional:
