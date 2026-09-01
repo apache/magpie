@@ -16,14 +16,15 @@ Behavioral evals for the `workflow-security-audit` skill.
 
 ```bash
 # All cases
-uv run --project tools/skill-evals skill-eval tools/skill-evals/evals/workflow-security-audit/
+uv run --project tools/skill-evals skill-eval --cli "claude -p" \
+    tools/skill-evals/evals/workflow-security-audit/
 
 # Single suite
-uv run --project tools/skill-evals skill-eval \
+uv run --project tools/skill-evals skill-eval --cli "claude -p" \
     tools/skill-evals/evals/workflow-security-audit/step-scope-selection/fixtures/
 
 # Single case
-uv run --project tools/skill-evals skill-eval \
+uv run --project tools/skill-evals skill-eval --cli "claude -p" \
     tools/skill-evals/evals/workflow-security-audit/step-scope-selection/fixtures/case-1-explicit-repo
 ```
 
