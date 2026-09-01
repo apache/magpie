@@ -37,6 +37,7 @@ from magpie_bitbucket.client import (
 )
 from magpie_bitbucket.normalize import (
     created_issue_comment,
+    created_pull_request_comment,
     issue,
     issue_attachments,
     issue_comments,
@@ -2858,3 +2859,167 @@ def test_cli_issue_comment_missing_body_file_before_write(
         )
 
     mock_create_issue_comment.assert_not_called()
+
+
+@patch("magpie_bitbucket.client.urllib.request.build_opener")
+def test_cloud_create_pull_request_comment_posts_json(
+    mock_build_opener: MagicMock,
+    cloud_env: None,
+) -> None:
+    mock_opener(
+        mock_build_opener,
+        {
+            "id": 601,
+            "content": {"raw": "Confirmed PR comment."},
+            "user": {"display_name": "Alice"},
+            "deleted": False,
+        },
+    )
+
+    result = cloud.create_pull_request_comment(
+        load_config(),
+        "7",
+        "Confirmed PR comment.",
+    )
+
+    request = mock_build_opener.return_value.open.call_args.args[0]
+
+    assert request.full_url == (
+        "https://api.bitbucket.org/2.0/repositories/apache/magpie/pullrequests/7/comments"
+    )
+    assert request.get_method() == "POST"
+    assert request.get_header("Content-type") == "application/json"
+    assert json.loads(request.data.decode("utf-8")) == {"content": {"raw": "Confirmed PR comment."}}
+    assert result["pull_request_id"] == "7"
+    assert result["comment"]["id"] == 601
+
+
+def test_datacenter_create_pull_request_comment_unsupported(
+    datacenter_env: None,
+) -> None:
+    with pytest.raises(
+        BitbucketError,
+        match="Data Center pull request comment writes are not supported",
+    ):
+        datacenter.create_pull_request_comment(
+            load_config(),
+            "9",
+            "Confirmed PR comment.",
+        )
+
+
+def test_normalize_created_cloud_pull_request_comment() -> None:
+    normalized = created_pull_request_comment(
+        "cloud",
+        {
+            "pull_request_id": "7",
+            "comment": {
+                "id": 601,
+                "content": {"raw": "Confirmed PR comment."},
+                "user": {"display_name": "Alice"},
+                "created_on": "2026-09-01T00:00:00Z",
+                "updated_on": "2026-09-01T00:00:01Z",
+                "deleted": False,
+            },
+        },
+    )
+
+    assert normalized["ok"] is True
+    assert normalized["backend"] == "bitbucket-cloud"
+    assert normalized["operation"] == "pull-request-comment-create"
+    assert normalized["pull_request_id"] == "7"
+    assert normalized["comment"]["id"] == "601"
+    assert normalized["comment"]["author"] == "Alice"
+    assert normalized["comment"]["body"] == "Confirmed PR comment."
+
+
+@patch("magpie_bitbucket.cloud.create_pull_request_comment")
+def test_cli_pr_comment_cloud(
+    mock_create_pull_request_comment: MagicMock,
+    cloud_env: None,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    body_file = tmp_path / "comment.txt"
+    body_file.write_text("Confirmed PR comment.", encoding="utf-8")
+
+    mock_create_pull_request_comment.return_value = {
+        "pull_request_id": "7",
+        "comment": {
+            "id": 601,
+            "content": {"raw": "Confirmed PR comment."},
+            "user": {"display_name": "Alice"},
+            "deleted": False,
+        },
+    }
+
+    exit_code = main(
+        [
+            "pr",
+            "comment",
+            "7",
+            "--body-file",
+            str(body_file),
+        ]
+    )
+
+    assert exit_code == 0
+
+    mock_create_pull_request_comment.assert_called_once()
+    args = mock_create_pull_request_comment.call_args.args
+    assert args[1:] == ("7", "Confirmed PR comment.")
+
+    output = json.loads(capsys.readouterr().out)
+    assert output["operation"] == "pull-request-comment-create"
+    assert output["comment"]["id"] == "601"
+
+
+@patch("magpie_bitbucket.cloud.create_pull_request_comment")
+def test_cli_pr_comment_rejects_empty_body_before_write(
+    mock_create_pull_request_comment: MagicMock,
+    cloud_env: None,
+    tmp_path: Path,
+) -> None:
+    body_file = tmp_path / "comment.txt"
+    body_file.write_text("   ", encoding="utf-8")
+
+    with pytest.raises(
+        BitbucketError,
+        match="Comment body file must not be empty",
+    ):
+        main(
+            [
+                "pr",
+                "comment",
+                "7",
+                "--body-file",
+                str(body_file),
+            ]
+        )
+
+    mock_create_pull_request_comment.assert_not_called()
+
+
+@patch("magpie_bitbucket.cloud.create_pull_request_comment")
+def test_cli_pr_comment_missing_body_file_before_write(
+    mock_create_pull_request_comment: MagicMock,
+    cloud_env: None,
+    tmp_path: Path,
+) -> None:
+    body_file = tmp_path / "missing-comment.txt"
+
+    with pytest.raises(
+        BitbucketError,
+        match="Body file not found",
+    ):
+        main(
+            [
+                "pr",
+                "comment",
+                "7",
+                "--body-file",
+                str(body_file),
+            ]
+        )
+
+    mock_create_pull_request_comment.assert_not_called()

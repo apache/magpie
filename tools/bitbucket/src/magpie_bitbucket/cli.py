@@ -120,6 +120,20 @@ def _build_parser() -> argparse.ArgumentParser:
     pr_discussion = pr_subparsers.add_parser("discussion", help="Fetch pull request discussion.")
     pr_discussion.add_argument("pull_request_id", help="Pull request ID to fetch discussion for.")
 
+    pr_comment = pr_subparsers.add_parser(
+        "comment",
+        help="Create a pull request comment after caller-side confirmation.",
+    )
+    pr_comment.add_argument(
+        "pull_request_id",
+        help="Pull request ID to comment on.",
+    )
+    pr_comment.add_argument(
+        "--body-file",
+        required=True,
+        help="Path to the confirmed comment body.",
+    )
+
     pr_reviews = pr_subparsers.add_parser("reviews", help="Fetch pull request review-state activity.")
     pr_reviews.add_argument("pull_request_id", help="Pull request ID to fetch review state for.")
 
@@ -199,6 +213,15 @@ def _dispatch(args: argparse.Namespace, config: BitbucketConfig) -> dict[str, An
     if args.subcommand == "pr" and args.pr_action == "discussion":
         raw = backend.get_pull_request_discussion(config, args.pull_request_id)
         return normalize.pull_request_discussion(config.kind, raw)
+
+    if args.subcommand == "pr" and args.pr_action == "comment":
+        body = _read_body_file(args.body_file)
+        raw = backend.create_pull_request_comment(
+            config,
+            args.pull_request_id,
+            body,
+        )
+        return normalize.created_pull_request_comment(config.kind, raw)
 
     if args.subcommand == "pr" and args.pr_action == "reviews":
         raw = backend.get_pull_request_reviews(config, args.pull_request_id)

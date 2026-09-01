@@ -71,6 +71,7 @@ Implemented read-only commands:
 - `magpie-bitbucket pr commits <id>`
 - `magpie-bitbucket pr diff <id>`
 - `magpie-bitbucket pr discussion <id>`
+- `magpie-bitbucket pr comment <id> --body-file <path>` (Cloud-only write)
 - `magpie-bitbucket pr reviews <id>`
 - `magpie-bitbucket pr tasks <id>`
 - `magpie-bitbucket pr task <id> <task-id>`
@@ -142,6 +143,7 @@ surface:
 | Change requests | `commits[]` supplement / `pr commits <id>` | Partial read-only | Fetches the commit list associated with a pull request so partial Bitbucket `get` coverage can expose proposal commits. This does not mutate branches, refs, or repository history. |
 | Change requests | `diff` supplement / `pr diff <id>` | Partial read-only | Fetches the pull request unified diff so partial Bitbucket `get` coverage can expose proposal diffs. This does not mutate files, branches, refs, or repository history. |
 | Change requests | `get_discussion` / `pr discussion <id>` | Partial read-only | Fetches a comments-only discussion subset with pagination. Participants beyond comment authors and unresolved-thread accounting remain incomplete. |
+| Change requests | `pr comment <id> --body-file <path>` | Partial write, Cloud only | Creates one top-level Bitbucket Cloud pull-request comment from a caller-supplied body file after explicit caller-side confirmation. Data Center PR comment writes remain unsupported in this command. |
 | Change requests | `reviews` supplement / `pr reviews <id>` | Partial read-only | Fetches reviewers, approvals, change-request signals, pending review requests, normalized review events, and an aggregate review decision. This does not post reviews or mutate PR state. |
 | Change requests | `merge_checks` supplement / `pr merge-checks <id>` | Partial read-only | Fetches known read-only merge-check context, including Data Center merge-test results, reported mergeability/conflict fields, status checks, review decision, and normalized blockers. Unknown backend signals remain unknown. This does not merge or mutate PR state. |
 | Change requests | `post_review` | Not implemented | Follow-up work for #606. |
@@ -192,6 +194,9 @@ uv run --project tools/bitbucket magpie-bitbucket pr diff 123
 
 # Fetch pull request discussion/comments
 uv run --project tools/bitbucket magpie-bitbucket pr discussion 123
+
+# Create a Bitbucket Cloud pull request comment after caller-side confirmation
+uv run --project tools/bitbucket magpie-bitbucket pr comment 123 --body-file /tmp/comment.txt
 
 # Fetch pull request review state
 uv run --project tools/bitbucket magpie-bitbucket pr reviews 123
@@ -254,9 +259,16 @@ mutation, but it does **not** decide whether to mutate. Every write operation
 must be gated on **explicit user confirmation in the calling skill**; the bridge
 only executes an already-confirmed action.
 
-The comment body is read from `--body-file` to avoid shell-quoting issues.
+Comment bodies are read from `--body-file` to avoid shell-quoting issues.
 Missing or empty body files fail before any outbound write request is made.
-Bitbucket Data Center native issue-comment writes remain unsupported.
+
+The bridge currently supports two narrow Cloud comment mutations:
+
+- issue comment creation
+- top-level pull-request comment creation
+
+Bitbucket Data Center issue-comment and pull-request-comment writes remain
+unsupported by these commands.
 
 All other Bitbucket mutations remain out of scope for the current bridge and
 must be introduced separately with the same confirmation discipline.
@@ -273,6 +285,6 @@ Follow-up PRs can extend this bridge with:
 
 - Bitbucket issue write operations and additional tracker fields.
 - Linked Jira issue handoff through `tools/jira/`.
-- Pull-request comment creation, review, approve, decline, and merge operations.
+- Pull-request review, approve, decline, and merge operations.
 - Broader repository permission reads.
 - Fuller Bitbucket Pipelines run/log/retry coverage beyond read-only pull-request status reads.
