@@ -126,7 +126,7 @@ path.
 ### Delivery — an email relay (draft, never auto-sent)
 
 Create a **draft** email to the org's advisory-admin security team
-(`<security-team-list>`) with
+(`<foundation-security-list>`) with
 `oauth-draft-create` — never send directly (SKILL Golden rule 1; and the
 Gmail MCP mangles the `security/advisories/GHSA-…` URLs into redirects, so
 use oauth-draft). **Always CC the project `<security-list>`** so the

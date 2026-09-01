@@ -383,6 +383,7 @@ configuration before executing any command:
 | `<tracker>` | GitHub slug of the (security) tracker repo (example: `airflow-s/airflow-s`). | `<project-config>/project.md` → `tracker_repo` |
 | `<upstream>` | GitHub slug of the upstream codebase the fixes land in (example: `apache/airflow`). | `<project-config>/project.md` → `upstream_repo` |
 | `<security-list>` | The project's security mailing list (example: `security@airflow.apache.org`). | `<project-config>/project.md` → `security_list` (under **Mailing lists**) |
+| `<foundation-security-list>` | The org-level advisory-admin security address, distinct from the project's own `<security-list>` (example: `security@apache.org`). Inherited, not declared per-project. | organization manifest → `security_inbox.foundation_security_address` |
 | `<issue-tracker>` | URL of the project's general-issue tracker, distinct from the security tracker. | `<project-config>/issue-tracker-config.md` → `url` |
 | `<issue-tracker-project>` | Project key within the issue tracker (JIRA key or `owner/repo`). | `<project-config>/issue-tracker-config.md` → `project_key` |
 | `<runtime>` | Recipe for invoking the project's runtime on a single source file. | `<project-config>/runtime-invocation.md` |
@@ -663,7 +664,7 @@ While triaging a report, you may learn about vulnerabilities in
 **other ASF projects** through the same channels that surface our
 own reports: the reporter's mail thread mentions that they filed a
 similar issue against Superset or Allura; a cross-project digest on
-`<asf-security-list>` summarises active reports across several
+`<foundation-security-list>` summarises active reports across several
 projects; a Gmail search for a CVE ID or a vulnerability pattern
 returns hits on threads belonging to unrelated projects; your own
 deduction from a reporter's résumé or prior disclosures correlates
@@ -722,7 +723,7 @@ channel they arrived on:
   against Superset and Allura"* is not. *"A sibling ASF project
   landed a comparable fix"* is allowed; *"Tomcat landed the
   equivalent fix in 11.0.3"* is not.
-- Cross-project triage belongs on `<asf-security-list>` or in a
+- Cross-project triage belongs on `<foundation-security-list>` or in a
   direct mail to that project's security team, not in our tracker.
 
 **Self-check before posting, committing, or drafting.** Grep the
