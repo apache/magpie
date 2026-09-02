@@ -1,0 +1,6 @@
+{
+  "action_candidates": [],
+  "new_issue_candidate_keys": [],
+  "closure_candidates": ["PROJ-4470", "PROJ-4590", "PROJ-4611"],
+  "tracker_hygiene_candidates": []
+}

@@ -1,0 +1,9 @@
+{
+  "campaign_id": "pilot-2026-09",
+  "candidates": [
+    {"key": "PROJ-4412", "state": "reuse"},
+    {"key": "PROJ-4470", "state": "ask-refresh-or-reuse"},
+    {"key": "PROJ-4501", "state": "resume"},
+    {"key": "PROJ-4533", "state": "fresh"}
+  ]
+}
