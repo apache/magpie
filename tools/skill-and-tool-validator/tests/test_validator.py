@@ -1800,6 +1800,23 @@ class TestGhListLimit:
         violations = list(validate_gh_list_limit(path, text))
         assert not any("gh-list-no-limit" in v.message for v in violations)
 
+    def test_fires_when_limit_only_appears_in_a_trailing_comment(self, tmp_path: Path) -> None:
+        path = tmp_path / "SKILL.md"
+        text = _fenced("gh issue list --repo <repo> --state open  # add --limit later if slow")
+        violations = list(validate_gh_list_limit(path, text))
+        assert any("gh-list-no-limit" in v.message for v in violations)
+
+    def test_fires_when_limit_only_appears_inside_a_quoted_argument(self, tmp_path: Path) -> None:
+        path = tmp_path / "SKILL.md"
+        text = _fenced('gh issue list --repo <repo> --search "mentions --limit"')
+        violations = list(validate_gh_list_limit(path, text))
+        assert any("gh-list-no-limit" in v.message for v in violations)
+
+    def test_silent_when_limit_uses_equals_form(self, tmp_path: Path) -> None:
+        path = tmp_path / "SKILL.md"
+        violations = list(validate_gh_list_limit(path, _fenced("gh issue list --repo <repo> --limit=100")))
+        assert not any("gh-list-no-limit" in v.message for v in violations)
+
 
 # ---------------------------------------------------------------------------
 # Pattern 6 — Privacy-LLM gate-check

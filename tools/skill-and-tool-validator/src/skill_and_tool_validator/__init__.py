@@ -151,6 +151,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import re
+import shlex
 import subprocess
 import sys
 from collections.abc import Iterable
@@ -2726,7 +2727,11 @@ def validate_gh_list_limit(path: Path, text: str) -> Iterable[Violation]:
             if line_end == -1:
                 line_end = len(joined)
             logical_line = joined[line_start:line_end]
-            if "--limit" in logical_line:
+            try:
+                tokens = shlex.split(logical_line, comments=True)
+            except ValueError:
+                tokens = []  # unbalanced quoting, can't tell, so flag it
+            if any(tok == "--limit" or tok.startswith("--limit=") for tok in tokens):
                 continue
             line_no = text[: block_match.start()].count("\n") + joined[: cmd_match.start()].count("\n") + 1
             yield Violation(
