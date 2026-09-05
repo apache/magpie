@@ -218,6 +218,13 @@ def test_compound_command_guarded():
     assert dispatch('cd /tmp && git commit -m "x\nCo-Authored-By: a"') is not None
 
 
+def test_compound_command_other_segment_not_denied():
+    # The phrase lives in an unrelated earlier segment, not in the commit's
+    # own message, so the commit segment must not inherit it.
+    command = 'echo "note: never add a Co-Authored-By: trailer" && git commit -m "clean fix"'
+    assert dispatch(command) is None
+
+
 def test_malformed_command_allows():
     assert dispatch('gh pr comment 5 --body "oops') is None
 
