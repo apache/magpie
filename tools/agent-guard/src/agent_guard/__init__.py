@@ -113,8 +113,8 @@ class Segment:
     """One simple command from a (possibly compound) shell line.
 
     ``argv`` has leading ``NAME=value`` env assignments stripped into ``env``;
-    ``raw`` is the original text of the segment (used for substring scans that
-    survive heredocs, e.g. the Co-Authored-By trailer).
+    ``raw`` is a reconstruction of this segment's own tokens only (used for
+    substring scans that survive heredocs, e.g. the Co-Authored-By trailer).
     """
 
     def __init__(self, tokens: list[str], raw: str) -> None:
@@ -164,12 +164,12 @@ def split_segments(command: str) -> list[Segment]:
     for tok in tokens:
         if tok in SHELL_OPERATORS:
             if current:
-                segments.append(Segment(current, command))
+                segments.append(Segment(current, shlex.join(current)))
                 current = []
         else:
             current.append(tok)
     if current:
-        segments.append(Segment(current, command))
+        segments.append(Segment(current, shlex.join(current)))
     return segments
 
 
