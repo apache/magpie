@@ -163,6 +163,7 @@ def test_invariant_missing_deny_read_root(baseline: dict[str, Any]) -> None:
         "~/.config/gcloud",
         "/",
         "~/",
+        "~/.ssh//",
     ],
 )
 def test_invariant_allow_read_rejects_credential_paths(baseline: dict[str, Any], forbidden: str) -> None:
@@ -181,6 +182,7 @@ def test_invariant_allow_read_rejects_credential_paths(baseline: dict[str, Any],
         "~/.gnupg",
         "~/.ssh",
         "~/.aws/",
+        "~/.aws//",
     ],
 )
 def test_invariant_allow_write_rejects_credential_paths(baseline: dict[str, Any], forbidden: str) -> None:

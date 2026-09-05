@@ -121,15 +121,13 @@ REQUIRED_DENY_READ = {"~/"}
 
 
 def _normalise(path: str) -> str:
-    """Strip a single trailing slash so '~/.aws' and '~/.aws/' compare equal.
+    """Strip all trailing slashes so '~/.aws' and '~/.aws//' compare equal.
 
-    The sandbox treats both forms as the same directory; the validator
-    must too, otherwise the forbidden-list could be bypassed by a
-    trailing-slash variant.
+    The sandbox treats every trailing-slash count as the same directory;
+    the validator must too, otherwise the forbidden-list could be bypassed
+    by a multi-slash variant.
     """
-    if path.endswith("/") and len(path) > 1:
-        return path[:-1]
-    return path
+    return path.rstrip("/") or "/"
 
 
 def _normalised_set(paths: list[str]) -> set[str]:
