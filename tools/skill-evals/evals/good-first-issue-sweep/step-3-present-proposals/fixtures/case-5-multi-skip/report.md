@@ -64,6 +64,14 @@ Step 2 classification results (7 issues):
     "failing_criteria": [],
     "skip_reason": "deprecation-decision",
     "injection_flagged": false
+  }  ,
+  {
+    "issue_number": 105,
+    "title": "Add support for custom authentication providers",
+    "classification": "SKIP",
+    "failing_criteria": [],
+    "skip_reason": "security-sensitive",
+    "injection_flagged": false
   }
 ]
 ```
