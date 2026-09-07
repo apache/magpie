@@ -21,7 +21,9 @@
 # Verifies that framework-level skill / tool docs refer to
 # adopting-project specifics through placeholders only:
 #
-#   <PROJECT>   — adopting project's display name
+#   <PROJECT>   — adopting project's display name ("Apache Foo")
+#   <project>   — adopting project's infrastructure slug ("foo"), as
+#                 used in list addresses, roster URLs and svn paths
 #   <tracker>   — adopting project's private tracker repo slug
 #   <upstream>  — adopting project's public source repo slug
 #
@@ -51,11 +53,21 @@ FORBIDDEN_PATTERNS=(
   "airflow-s/airflow-s"
   "Apache Airflow"
   "apache.org/airflow"
-  # Lowercase forms that slip past the four above: a GraphQL
-  # `repository(owner:"apache",name:"airflow")` argument and a
+  # Lowercase form that slips past the four above: a
   # `closer.lua?path=airflow/` dist path.
-  'name:"airflow"'
   "path=airflow"
+)
+
+# Same purpose, but matched as extended regexes (grep -E) rather than
+# fixed strings. Reserved for references whose surrounding syntax
+# admits optional whitespace, where a fixed string would only catch
+# one spelling: GraphQL / YAML / JSON all accept `name:"airflow"` and
+# `name: "airflow"` interchangeably, so pinning the no-space form lets
+# the spaced one through. Keep entries here to the cases that actually
+# need it — a fixed string in FORBIDDEN_PATTERNS is easier to read and
+# cannot misfire on regex metacharacters.
+FORBIDDEN_REGEXES=(
+  'name:[[:space:]]*"airflow"'
 )
 
 # Files / directories where Airflow references are intentional:
@@ -137,12 +149,34 @@ main() {
 
   echo "check-placeholders: scanning ${SCAN_PATHS[*]} for hardcoded project references..."
 
-  for pattern in "${FORBIDDEN_PATTERNS[@]}"; do
+  # Tag each pattern with the grep mode it needs, so the two arrays
+  # share one match-reporting path below. The tag is split on the
+  # first colon only, which leaves regexes containing `:` intact.
+  local -a scan_specs=()
+  local entry
+  for entry in "${FORBIDDEN_PATTERNS[@]}"; do
+    scan_specs+=( "F:$entry" )
+  done
+  for entry in "${FORBIDDEN_REGEXES[@]}"; do
+    scan_specs+=( "E:$entry" )
+  done
+
+  local spec
+  for spec in "${scan_specs[@]}"; do
+    local mode="${spec%%:*}"
+    local pattern="${spec#*:}"
     local matches
-    matches=$(grep -rFn \
-      --include='*.md' \
-      "$pattern" \
-      "${SCAN_PATHS[@]}" 2>/dev/null || true)
+    if [[ "$mode" == "F" ]]; then
+      matches=$(grep -rFn \
+        --include='*.md' \
+        "$pattern" \
+        "${SCAN_PATHS[@]}" 2>/dev/null || true)
+    else
+      matches=$(grep -rEn \
+        --include='*.md' \
+        "$pattern" \
+        "${SCAN_PATHS[@]}" 2>/dev/null || true)
+    fi
 
     if [[ -z "$matches" ]]; then
       continue

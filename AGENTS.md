@@ -378,6 +378,8 @@ configuration before executing any command:
 
 | Placeholder | Resolves to | Source |
 |---|---|---|
+| `<PROJECT>` | The project's **display name**, as written in prose, headings, and reporter-facing copy (example: `Apache Foo`). Upper-case throughout. Not interchangeable with `<project>` — see the note below the table. | `<project-config>/project.md` → `project_name` |
+| `<project>` | The project's **infrastructure slug**, as it appears inside mailing-list addresses, roster URLs, and svn / dist paths (example: `foo` in `dev@foo.apache.org`, `svn.apache.org/repos/asf/foo/site`, `dist.apache.org/repos/dist/dev/foo`). Lower-case throughout. Not interchangeable with `<PROJECT>` — see the note below the table. | `<project-config>/project.md` → `short_name`, lowercased — equivalently the name half of `upstream_repo` |
 | `<project-config>` | The adopting project's config directory in its tracker repo (alongside the gitignored `.apache-magpie/` snapshot, not inside it). Bootstrapped from `projects/_template/`. | Filesystem convention. |
 | `<framework>` | The framework root — `.apache-magpie/` (the gitignored snapshot) in adopting projects, `.` in framework standalone. Used in `uv run` and other invocations that address the framework's `tools/<name>/` subtrees. | Filesystem convention. |
 | `<tracker>` | GitHub slug of the (security) tracker repo (example: `airflow-s/airflow-s`). | `<project-config>/project.md` → `tracker_repo` |
@@ -392,6 +394,19 @@ configuration before executing any command:
 | `<project-stage>` | The project's lifecycle stage, if its organization has one (example: `incubating`). | `project.md` → organization → `governance_vocabulary.project_stage_vocab` |
 | `<N>` | An issue or PR number. | The user's input to the skill |
 | `<CVE-ID>` | A CVE identifier of the form `CVE-YYYY-NNNNN`. | Per-tracker |
+
+**`<PROJECT>` and `<project>` are two different placeholders holding two
+different values, not a casing preference for one.** `<PROJECT>` is the
+display name (`Apache Foo`); `<project>` is the infrastructure slug (`foo`).
+The rule of thumb: if the substitution sits inside a hostname, an email
+address, or a URL path, it is `<project>`; if a human reads it as the
+project's name, it is `<PROJECT>`. Substituting one where the other belongs
+produces a value that is wrong rather than merely mis-cased — `Apache
+Foo.apache.org` is not a hostname, and *"the foo security team"* is not how
+the project is named to a reporter. Because the two differ only by case, a
+fixed-string linter pattern written for one will not catch the other; keep
+both spellings in mind when adding checks to
+[`tools/dev/check-placeholders.sh`](tools/dev/check-placeholders.sh).
 
 Do not invent new placeholders; thread a needed value in via the project
 manifest or the user config rather than reaching for a fresh convention.
