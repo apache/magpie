@@ -115,6 +115,7 @@ to input.
 | `security-issue-invalidate` | Single invalid close | 8K–20K | Report length + reply draft |
 | `security-issue-sync` | Full tracker reconciliation | 20K–100K | Tracker age, mail-thread depth, linked PRs |
 | `security-cve-allocate` | CVE allocation workflow | 5K–12K | Mostly procedural; low variance |
+| `security-model-verify` | One repository, both checks | 10K–40K | Reads the chain plus the whole model document; a shared model is read once for the repository set |
 | `contributor-activity-sweep` | Single-contributor activity card | 10K–40K | Activity volume in the configured window |
 | `contributor-sentiment` | Full sentiment gate report | 20K–80K | Number of threads and signals sampled |
 | `contributor-nomination` | Nomination-readiness brief | 15K–50K | Contributor activity breadth read |
@@ -156,11 +157,20 @@ source files in addition to the issue or report.
 | `security-issue-fix` — reporter reply | Single reply draft | 10K–35K | Reads report + canned responses + prior thread |
 | `security-issue-fix` — code fix | Agent-drafted fix + PR | 30K–150K | Adds source files; wide variance |
 | `issue-fix-workflow` | Issue fix + PR | 25K–120K | Bounded by what the skill reads from the codebase |
+| `security-model-update` | One update cycle | 40K–200K | Dominated by the corpus: closed trackers with discussion, the reporter threads, and the model itself. Scales with the window, not the diff |
+| `security-model-prepare` | First model for one project | 150K–600K+ | The deep surface pass over in-scope entry points is the cost, and it is meant to be — a model written from the README alone is a summary of marketing copy. Budget it as a project, not an invocation |
 
 **Rule of thumb for Agentic Drafting:** reporter replies average 15K–25K
 tokens; code-producing invocations average 50K–100K tokens
 depending on codebase scope. Limiting the skill to the relevant source
 files is the single biggest lever on Agentic Drafting cost.
+
+`security-model-prepare` is the outlier in this table and is best
+budgeted separately: it is a one-off per project, its cost is
+front-loaded into a code-reading pass whose whole purpose is to be
+thorough, and what it produces is amortised across every later triage
+decision the model routes. The recurring cost is
+`security-model-update`, which is bounded by the window it is given.
 
 ### Pairing
 

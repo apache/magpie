@@ -58,7 +58,7 @@
       "name": "magpie-security",
       "source": "./plugins/magpie-security",
       "version": "0.2.0.dev0",
-      "description": "Apache Magpie security family (12 skills)."
+      "description": "Apache Magpie security family (15 skills)."
     },
     {
       "name": "magpie-setup",

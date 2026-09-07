@@ -11,6 +11,12 @@
   - [Drafting rule](#drafting-rule)
   - [Public security policy](#public-security-policy)
   - [Severity-rating reference](#severity-rating-reference)
+  - [Model preparation, verification, and update](#model-preparation-verification-and-update)
+    - [Repositories in scope](#repositories-in-scope)
+    - [Model revision date](#model-revision-date)
+    - [Rubric](#rubric)
+    - [Where substantive conversation goes](#where-substantive-conversation-goes)
+    - [PR conventions](#pr-conventions)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -74,3 +80,59 @@ informational only — the ASF-level rule that governs this is in
 the repo-level
 [`../../AGENTS.md`](../../AGENTS.md#reporter-supplied-cvss-scores-are-informational-only--never-propagate-them)
 (it is not project-specific).
+
+## Model preparation, verification, and update
+
+Read by the three `security-model-*` skills — see
+[`docs/security/security-model-preparation.md`](../../docs/security/security-model-preparation.md)
+for what each field is used for. Leave a row `TODO` until the project
+actually has that piece; a skill that needs a missing value asks rather
+than guessing.
+
+### Repositories in scope
+
+TODO: every repository whose security posture this model covers, with
+its shape. `in-repo` means the model file lives in that repository;
+`pointer` means the repository wires its discoverability chain to an
+umbrella model held elsewhere (the normal shape for build tooling,
+language ports, and other satellites).
+
+| Repository | Shape | Model location | Note for `AGENTS.md` |
+|---|---|---|---|
+| TODO: `<owner>/<name>` | `in-repo` | `THREAT_MODEL.md` | |
+| TODO: `<owner>/<name>-tools` | `pointer` | TODO: umbrella model URL | TODO: e.g. "Build-time tooling for `<PROJECT>`." |
+
+Each repository is verified independently — an `AGENTS.md` in one says
+nothing about a sibling.
+
+### Model revision date
+
+TODO: the date the model was last revised (`YYYY-MM`). The update skill
+defaults its window to everything closed since this date.
+
+### Rubric
+
+The section numbers the skills cite (§1.15 known non-findings, §1.17
+dispositions) are coordinates into the Alpha-Omega threat-model
+specification: <https://github.com/alpha-omega-security/threat-model>.
+Magpie references it and keeps no local copy. Override this only if the
+project measures its model against a different published rubric.
+
+### Where substantive conversation goes
+
+TODO: the private list that model gaps, missing sections, and broken
+links are raised on — normally the project's private governance list.
+Substantive findings never go to a public issue tracker; the reasoning
+is in the deep doc.
+
+### PR conventions
+
+Used by the `model_pr.py` helper when it opens a discoverability or
+model PR.
+
+| Setting | Value |
+|---|---|
+| Branch prefix | TODO: default `security-model` |
+| Base branch | TODO: default is the repository's default branch |
+| License header for created files | TODO: `spdx` (default), `apache-full` (needed where the licence checker matches only the canonical boilerplate), or `none` |
+| Reporting address for a created `SECURITY.md` | TODO: normally `<security-list>` |

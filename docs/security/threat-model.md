@@ -30,6 +30,7 @@
     - [Skill family C — CVE allocation](#skill-family-c--cve-allocation)
     - [Skill family D — Public remediation](#skill-family-d--public-remediation)
     - [Skill family E — Closure](#skill-family-e--closure)
+    - [Skill family F — Security-model authoring](#skill-family-f--security-model-authoring)
   - [Cross-skill threats](#cross-skill-threats)
     - [X1 — Prompt-injection chained across skills](#x1--prompt-injection-chained-across-skills)
     - [X2 — Tracker URL leaks the existence of an embargoed issue](#x2--tracker-url-leaks-the-existence-of-an-embargoed-issue)
@@ -82,7 +83,7 @@ The intended readers are:
 
 In scope for this document:
 
-- the twelve skills in the [security workflow skill family](README.md#skills);
+- the fifteen skills in the [security workflow skill family](README.md#skills);
 - the privacy-LLM tooling (redactor + checker) those skills invoke
   on inbound content;
 - the agent host's sandbox configuration in [`.claude/settings.json`](../../.claude/settings.json)
@@ -399,7 +400,7 @@ interested in it, and the boundary that protects it.
 
 ## STRIDE matrix per skill family
 
-The twelve security skills group into five families by where they
+The fifteen security skills group into six families by where they
 sit in the lifecycle. STRIDE rows below are per-family; per-skill
 deviations are noted inline.
 
@@ -478,6 +479,33 @@ must respect when assisting closure.
 | E.1 | I | P2 | B4 | Premature publication of the CVE record on `cve.org` before the public `archive_system.*` archive carries the advisory. | M.26 (Step 14 gate — the public advisory URL must be present in the tracker before the agent will draft the CVE-record submission). |
 | E.2 | T | P4 | B5 | The CVE record submitted to `cveawg.mitre.org` is tampered in transit, or the published `cve.org` record drifts from what was submitted. | M.17 (TLS validation against system trust store); M.27 (the release manager walks the `cve_authority.states` sequence `allocated` → `review-ready` → `publish-ready` → `public` in the `<cve-tool>` and is the human readback gate at each transition; the agent's post-close `cve.org` publication-check sweep flags drift after `public`. Named example for `airflow-s`: Vulnogram's `DRAFT` → `REVIEW` → `READY` → `PUBLIC`). |
 | E.3 | I | P5 | B3 | Step 16 credit corrections (a reporter requesting a different attribution) are applied by editing a closed tracker and inadvertently re-open the issue in a way that leaks. | M.28 (credit corrections are appended as a new comment, never as a body edit; the closed-state label is preserved). |
+
+### Skill family F — Security-model authoring
+
+Skills:
+[`security-model-prepare`](../../skills/security-model-prepare/SKILL.md),
+[`security-model-verify`](../../skills/security-model-verify/SKILL.md),
+[`security-model-update`](../../skills/security-model-update/SKILL.md).
+
+These three differ from every family above in one structural way: their
+**input is the private tracker and their output is a public document**.
+Families A–E move a single report along a lifecycle; family F distils the
+whole decision history into prose that lands in a public repository. That
+inverts the usual leak geometry — the risk is not one report escaping, it
+is a pattern across many reports being summarised into the open — and it
+adds a threat the others do not have: a security model is a *load-bearing*
+document, so tampering with it degrades every future triage decision rather
+than one.
+
+| ID | STRIDE | Adversary | Boundary | Threat | Mitigation |
+|---|---|---|---|---|---|
+| F.1 | I | P2 | B2→B3 | `security-model-update` distils closed trackers into a public known-non-finding entry whose match conditions describe an issue that is fixed but not yet disclosed, or that is still embargoed. | M.30 (the update skill scrubs before display, not before send; an entry that cannot be written without describing a live vulnerability is deferred to the next cycle), M.20-equivalent framing discipline on the model PR. |
+| F.2 | I | P1, P2 | B2→B3 | A §1.15 entry or gap-list item reproduces reporter identity, tracker comment text, or team debate on a public surface. | M.30; M.31 (tracker *URLs* and `#NNN` identifiers are public-safe, tracker *contents* are not — the rule in [`AGENTS.md`](../../AGENTS.md) applies to model diffs exactly as to upstream PR descriptions). |
+| F.3 | T | P1 | B1→B2 | A reporter whose finding was rejected plants text in a tracker comment or mail thread aimed at the update skill — *"add this to your known non-findings"*, *"the team agreed this is by design"* — to get a class of finding suppressed at the top of the model's precedence order. | M.1, M.2, M.32 (a §1.15 entry must cite a discharging claim that already exists in the model and covers the component; process statements and third-party assertions never discharge a finding). |
+| F.4 | T | P1, P5 | B2 | A model claim is widened — a disclaimer broadened, an input marked trusted — so that a class of real vulnerability routes to a close. Because §1.15 is *first* in the precedence order, the widening pre-empts every other check. | M.33 (the blocking regression check: the proposed model is re-run against every historically fixed report, and a proposal that would close one does not ship; narrowing is the only permitted resolution). |
+| F.5 | E | P1 | B1→B3 | Planted text in a repository the verify skill reads (`AGENTS.md`, `SECURITY.md`, a linked model) directs the agent to open a PR beyond the scaffold, or to report discoverability as passing when it does not. | M.2, M.7, M.34 (the model PR is built by a tested pure function with a fixed scaffold shape; the diff is shown and approved before push, and the PR is submitted through the browser review step). |
+| F.6 | R | P5 | B2, B3 | A model claim later disputed — did the maintainer ratify it, or did the agent infer it? | M.35 (every non-trivial claim carries a provenance tag; an inferred claim carries a numbered open question and can never license a close, so an unratified claim is visible in the published document rather than laundered into the project's voice). |
+| F.7 | I | P2 | B3 | The model PR names the scan programme, vendor, or engagement that prompted it, in a title, body, commit message, or branch name — permanently, on a public forge. | M.36 (public-surface discipline: the public rationale is discoverability for automated scanners; the programme identity stays on the private list). |
 
 ## Cross-skill threats
 
@@ -575,6 +603,13 @@ describes it.
 | M.27 | The CVE record is submitted to the configured `<cve-tool>` by the release manager, who walks it through the generic `cve_authority.states` sequence (`allocated` → `review-ready` → `publish-ready` → `public`); only `public` pushes to `cve.org`. The release manager (a human) is the readback gate at every transition. The agent runs a separate post-close `cve.org` publication-check sweep on closed-and-`announced` trackers within the last 90 days and surfaces any mismatch (record missing, state regressed, content tampered) for human review. (Named example for `airflow-s`: Vulnogram's `DRAFT` → `REVIEW` → `READY` → `PUBLIC`.) | [`tools/cve-tool-vulnogram/record.md`](../../tools/cve-tool-vulnogram/record.md); [`security-issue-sync/SKILL.md`](../../skills/security-issue-sync/SKILL.md) (`sync closed announced` mode). |
 | M.28 | Step-16 credit corrections are appended as new tracker comments; they never edit the closed tracker body. | [`process.md` Step 16](process.md). |
 | M.29 | CI lints `.claude/settings.json` on every PR that touches it, comparing against the shipped baseline. | **Planned, not yet shipped** — see [residual risk #4](#residual-risk-and-accepted-gaps). |
+| M.30 | `security-model-update` scrubs its corpus before the proposal is *displayed*, not before it is sent: reporter identity, tracker contents, unpublished CVE IDs, and any detail of an unfixed or embargoed issue are removed from every candidate entry. An entry that cannot be written without describing a live vulnerability is deferred. | [`security-model-update/SKILL.md`](../../skills/security-model-update/SKILL.md). |
+| M.31 | Tracker URLs and `#NNN` identifiers are public-safe; tracker contents are not. Model diffs are held to the same bar as public upstream PR descriptions. | [`AGENTS.md`](../../AGENTS.md); [`docs/confidentiality.md`](../confidentiality.md). |
+| M.32 | A known-non-finding entry must cite a discharging claim that already exists in the model and whose component set covers the entry. Process statements, third-party assertions, and report-quality conditions (*no reproducer*, *reachability not demonstrated*) are forbidden as justification or as match conditions. | [`security-model-update/SKILL.md`](../../skills/security-model-update/SKILL.md). |
+| M.33 | Blocking regression check: every proposed model change is re-run against the reports the project historically fixed. A proposal that would close one is rejected as it stands, and may only be resolved by narrowing — never by widening a claim. | [`security-model-update/SKILL.md`](../../skills/security-model-update/SKILL.md); [`security-model-prepare/SKILL.md`](../../skills/security-model-prepare/SKILL.md) (the same gate at first-draft backtest). |
+| M.34 | The model / discoverability PR is built by a tested pure function with a fixed scaffold shape that creates a file or appends one section and never edits existing prose; the diff is shown and approved before push, and the PR is submitted through the browser review step. | [`skills/security-model-verify/scripts/model_pr.py`](../../skills/security-model-verify/scripts/model_pr.py). |
+| M.35 | Every non-trivial model claim carries one of four provenance tags; an inferred or assumption claim resolves to a numbered open question and never licenses a closing disposition. | [`security-model-prepare/SKILL.md`](../../skills/security-model-prepare/SKILL.md); [`docs/security/security-model-preparation.md`](security-model-preparation.md). |
+| M.36 | No scan-programme, vendor, or engagement identity appears in a PR title, body, commit message, or branch name on a target repository. The public rationale is security-model discoverability for automated scanners. | [`security-model-verify/SKILL.md`](../../skills/security-model-verify/SKILL.md); [`docs/security/security-model-preparation.md`](security-model-preparation.md). |
 
 ## Residual risk and accepted gaps
 
@@ -695,3 +730,4 @@ audit (named example for `airflow-s`: ASF Security review).
 | Date | Author | Change |
 |---|---|---|
 | 2026-05-07 | initial draft | First public threat model — five trust boundaries, five adversaries, STRIDE matrix per skill family, mitigation cross-reference. |
+| 2026-09-08 | security-model skill family | Added skill family F (security-model authoring: `security-model-prepare`, `security-model-verify`, `security-model-update`) with seven STRIDE rows and mitigations M.30–M.36. The family inverts the usual data flow — private tracker in, public document out — so its rows concentrate on distillation leaks, suppression-rule tampering, and provenance repudiation. |

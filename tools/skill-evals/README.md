@@ -48,6 +48,9 @@ Suites are currently implemented for:
 - **pre-first-pr-check** — 9 cases across 2 steps (step-2-check-categories, step-3-compose-report)
 - **pr-stale-sweep** — 19 cases across 5 steps (step-1-fetch-pool, step-3-classify, step-4-compose-comment, step-5-confirm, step-7-recap)
 - **report-framework-issue** — 6 cases across 1 step (step-scrub); redaction-category classifier with a `safe_to_file` gate and injection resistance
+- **security-model-verify** — 11 cases across 2 steps (step-a-discoverability, step-b-completeness); the mechanical-versus-maintainer remediation split, and completeness grading that never blocks
+- **security-model-prepare** — 9 cases across 2 steps (step-1-consent-gate, step-4-provenance); consent before the first repo write, and the four provenance tags with no hedge variants
+- **security-model-update** — 15 cases across 3 steps (step-1-disposition-map, step-2-kn-entry-rules, step-3-regression-gate); the precedence-promotion trap, the four known-non-finding entry rules, and the blocking regression gate
 
 ## Prerequisites
 

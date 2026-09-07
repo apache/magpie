@@ -98,6 +98,7 @@ do not act without human review.
 | [`security-issue-sync`](../skills/security-issue-sync/SKILL.md) | Reconcile a tracker against its mail thread, fix PR, release train, and archives. | stable |
 | [`security-cve-allocate`](../skills/security-cve-allocate/SKILL.md) | Allocate a CVE for a tracker (Vulnogram URL + paste-ready JSON). | stable |
 | [`security-issue-triage`](../skills/security-issue-triage/SKILL.md) | Batch-triage open tracker issues carrying `needs triage`; classifies each into one of six dispositions and posts a proposal comment on confirmation. | experimental |
+| [`security-model-verify`](../skills/security-model-verify/SKILL.md) | Pre-flight on a published security model, per repository: discoverability chain plus completeness against the minimum-bar rubric. Remediates with a repo PR or a private-list mail; never opens a public issue. | experimental |
 | [`security-issue-import-via-forwarder`](../skills/security-issue-import-via-forwarder/SKILL.md) | Sub-skill of `security-issue-import` / `-invalidate` / `-sync` for the relay/forwarder case: reports relayed by an upstream broker (e.g. ASF security team) rather than arriving directly from the reporter. | experimental |
 | [`security-issue-import-from-scan`](../skills/security-issue-import-from-scan/SKILL.md) | Triage a security scanner's multi-finding output (via the `scan-format` adapter) into per-finding dispositions; opens tracker issues only after operator confirmation of the triage decisions. | experimental |
 | [`contributor-activity-sweep`](../skills/contributor-activity-sweep/SKILL.md) | Read-only GitHub activity card for a named contributor: PR authorship, code-review participation, issues, and comments over a configurable window. | experimental |
@@ -189,6 +190,8 @@ the agent never merges its own work.
 | [`release-vote-draft`](../skills/release-vote-draft/SKILL.md) | Draft the `[VOTE]` email body to `dev@<project>` (Step 7). Agent never sends. | experimental |
 | [`release-promote`](../skills/release-promote/SKILL.md) | Emit the backend-shaped promotion command set for a release that has passed its vote; proposes the `promoted` label. Agent never runs the promotion command and never publishes the release. | experimental |
 | [`release-announce-draft`](../skills/release-announce-draft/SKILL.md) | Draft the `[ANNOUNCE]` email body for `announce@apache.org` and the site-bump PR (Step 11). Agent never sends mail and never merges the PR. | experimental |
+| [`security-model-prepare`](../skills/security-model-prepare/SKILL.md) | Draft a project's first security model in draft-first mode and land it, with its `AGENTS.md` → `SECURITY.md` discoverability chain, as one reviewable PR per repository. Maintainers ratify; the agent never merges. | experimental |
+| [`security-model-update`](../skills/security-model-update/SKILL.md) | Draft the model diff implied by the decision history — new known-non-finding entries and a model-gap list — regression-checked so a widened disclaimer cannot start closing real vulnerabilities. Read-only on the tracker. | experimental |
 
 [`audit-finding-fix`](../skills/audit-finding-fix/SKILL.md)
 extends Agentic Drafting to **non-security audit-tool findings**: lint

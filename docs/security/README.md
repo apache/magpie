@@ -8,6 +8,7 @@
 - [Security workflow skill family](#security-workflow-skill-family)
   - [Skills](#skills)
     - [Lifecycle skills](#lifecycle-skills)
+    - [Security-model skills](#security-model-skills)
     - [Supporting tools](#supporting-tools)
   - [Deep documentation](#deep-documentation)
   - [Adopter contract](#adopter-contract)
@@ -28,8 +29,10 @@
 End-to-end automation for an ASF project's security-issue handling
 process — from inbound report on the project's `security@` mailing
 list through to a published CVE record on `cve.org`. Eleven skills
-that compose into the canonical 16-step lifecycle, plus one read-only
-supporting skill for tracker-stats dashboards (twelve skills total).
+that compose into the canonical 16-step lifecycle, three that produce,
+verify, and maintain the project's own security model, plus one
+read-only supporting skill for tracker-stats dashboards (fifteen skills
+total).
 
 Why a framework skill family? The 16-step process exists across
 the foundation; every project's security team runs essentially
@@ -57,6 +60,24 @@ and reuse the skills verbatim.
 | [`security-issue-deduplicate`](../../skills/security-issue-deduplicate/SKILL.md) | Merge two trackers describing the same root-cause vulnerability. |
 | [`security-issue-invalidate`](../../skills/security-issue-invalidate/SKILL.md) | Close a tracker as invalid with a polite-but-firm reporter reply. |
 
+### Security-model skills
+
+The lifecycle skills above route **one report**. These three maintain the
+document they route it against — the project's security model — so that
+routing has something to cite. See
+[**`security-model-preparation.md`**](security-model-preparation.md) for
+the lifecycle and the rationale.
+
+| Skill | Purpose |
+|---|---|
+| [`security-model-prepare`](../../skills/security-model-prepare/SKILL.md) | Produce a first model for a project that has none, in draft-first mode, and land it with its discoverability chain as one PR per repository. |
+| [`security-model-verify`](../../skills/security-model-verify/SKILL.md) | Pre-flight an existing model: can an agent mechanically reach it, and does it cover the minimum bar a triager depends on. Discoverability is the only hard gate. |
+| [`security-model-update`](../../skills/security-model-update/SKILL.md) | Read the decision history back into the model — new known-non-finding entries and a model-gap list, regression-checked against past valid reports. |
+
+The rubric these skills measure against is maintained externally by
+Alpha-Omega (<https://github.com/alpha-omega-security/threat-model>) and
+referenced by URL; Magpie keeps no local copy.
+
 ### Supporting tools
 
 | Skill | Purpose |
@@ -69,6 +90,14 @@ and reuse the skills verbatim.
   agent may do with reporter-supplied proof-of-concept code: static
   review by default, isolated container only on explicit approval,
   never on the host.
+- [**`security-model-preparation.md`**](security-model-preparation.md) —
+  the produce / verify / update lifecycle for the project's own
+  security model: the external Alpha-Omega rubric, the
+  `AGENTS.md` → `SECURITY.md` discoverability chain and why it is the
+  only hard gate, why substantive findings go to the private list
+  rather than a public issue, the provenance tags that make a
+  draft-first model safe, and the fence around the known-non-findings
+  section.
 - [**`process.md`**](process.md) — the 16-step lifecycle with
   Mermaid diagram + per-step description; the label lifecycle
   state diagram + label reference table. The authoritative
@@ -112,7 +141,8 @@ file-by-file index. Required at minimum:
 - `title-normalization.md` — CVE-title regex cascade
 
 Optional but commonly needed:
-`milestones.md`, `fix-workflow.md`, `security-model.md`,
+`milestones.md`, `fix-workflow.md`, `security-model.md`
+(required by the security-model skills),
 `naming-conventions.md`.
 
 ## Cross-references

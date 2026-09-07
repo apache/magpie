@@ -567,15 +567,15 @@ generated block below.
 | `contract:scan-format` | ✅ | agnostic | — | vendor-neutral by construction — one spec serves every backend |
 | `contract:project-metadata` | ✅ | single-org | ASF | single-organisation capability (ASF); no vendor choice to make |
 
-**Per-skill assessment: 71/71 skills carry no vendor lock-in.** A skill is *capability-pure* when it names no backend at all, *portable* when every backend it names has an alternative (its contract is green), and *vendor-coupled* only when it reaches for a backend that is the sole implementation of a capability.
+**Per-skill assessment: 74/74 skills carry no vendor lock-in.** A skill is *capability-pure* when it names no backend at all, *portable* when every backend it names has an alternative (its contract is green), and *vendor-coupled* only when it reaches for a backend that is the sole implementation of a capability.
 
 | Skill neutrality | Count |
 |---|---|
-| capability-pure (names no backend) | 11 |
-| portable (named backends are swappable) | 60 |
+| capability-pure (names no backend) | 13 |
+| portable (named backends are swappable) | 61 |
 | vendor-coupled (sole-backend dependency) | 0 |
 
-Organization scope (declared, orthogonal to vendor): ASF = 14, agnostic = 57.
+Organization scope (declared, orthogonal to vendor): ASF = 14, agnostic = 60.
 
 **LLM / agent-integration neutrality**
 

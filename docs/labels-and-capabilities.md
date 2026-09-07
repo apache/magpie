@@ -92,7 +92,7 @@ phase a skill performs:
 | `capability:reassess` | Re-run resolved or end-of-life issues against current code to verify still-fixed / still-broken. |
 | `capability:stats` | Read-only dashboards, metrics, governance evidence, contributor nomination briefs. |
 | `capability:platform` | Framework / agent substrate skills: install, verify, update, doctor, override-upstream, status, shared-config-sync, the `setup` bootstrap. |
-| `capability:authoring` | Skills that author or maintain other skills: `write-skill`, `optimize-skill`. |
+| `capability:authoring` | Skills that author or maintain a durable framework artefact rather than acting on a queue item: other skills (`write-skill`, `optimize-skill`) and the project's own security model (`security-model-prepare`, `security-model-update`). |
 
 **Axis 2 — tool capability** (`contract:*` / `substrate:*`) — the
 interface a tool/adapter provides. `contract:<name>` implements a
@@ -204,6 +204,7 @@ Capabilities for every skill currently in
 | `mentoring-welcome` | `capability:review` *(drafts a first-contact orientation comment for first-time contributors on issues and PRs)* |
 | `onboarding-concierge` | `capability:review` *(answers newcomer "how do I contribute here" questions from the project's contributing guide; hands off design, security, and out-of-scope queries to a human)* |
 | `newcomer-issue-explainer` | `capability:review` *(explains a good-first-issue in beginner terms and sketches an approach; read-only, never posts without confirmation)* |
+| `security-model-verify` | `capability:review` *(pre-flight on a published security model: discoverability chain plus completeness against the minimum-bar rubric; remediates with a repo PR or a private-list mail, never a public issue)* |
 | `issue-fix-workflow` | `capability:fix` |
 | `audit-finding-fix` | `capability:fix` |
 | `security-issue-fix` | `capability:fix` + `capability:resolve` *(opens the PR that closes the tracker — both phases)* |
@@ -227,6 +228,7 @@ Capabilities for every skill currently in
 | `security-issue-invalidate` | `capability:resolve` |
 | `security-issue-deduplicate` | `capability:resolve` |
 | `issue-deduplicate` | `capability:resolve` *(closes a duplicate general-issue and posts cross-reference comments; maintainer confirms before any action is applied)* |
+| `security-model-update` | `capability:reassess` + `capability:authoring` *(re-reads closed trackers, reporter threads, and canned responses against the published model — reassess — and proposes the known-non-finding and gap diff — authoring)* |
 | `issue-reassess` | `capability:reassess` |
 | `issue-reproducer` | `capability:reassess` |
 | `pr-management-stats` | `capability:stats` |
@@ -249,6 +251,7 @@ Capabilities for every skill currently in
 | `setup-override-upstream` | `capability:platform` |
 | `setup-upstream-fix` | `capability:platform` |
 | `report-framework-issue` | `capability:platform` *(files a redacted bug / change-proposal issue against the framework repo when a skill or tool misbehaves; the mandatory public-disclosure scrub keeps private tracker / CVE / cross-project content out of the public issue; never files without confirmation)* |
+| `security-model-prepare` | `capability:authoring` *(produces the project's first security model in draft-first mode and lands it, plus its discoverability chain, as one reviewable PR per repository)* |
 | `write-skill` | `capability:authoring` |
 | `optimize-skill` | `capability:authoring` |
 | `skill-reconciler` | `capability:reconciliation` *(compares two near-duplicate skill copies and classifies every difference as ALLOWED, DRIFT, or SAFETY-BASELINE; proposes convergence; never writes either copy)* |
