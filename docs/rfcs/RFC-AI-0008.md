@@ -662,6 +662,16 @@ Migration is phased so each step is independently useful:
   It is surfaced downstream (to the owner) when routing requires it,
   and never to *other* reporters;
   prior reports are referenced to reporters only unattributed.
+- **Cross-party correlation stays scoped**
+  ([PRINCIPLES §15](../../PRINCIPLES.md#15-tracker-identifiers-are-public-safe-tracker-contents-are-not)).
+  §15 is the principle this persona reinterprets, so the reading is stated rather than left implicit.
+  *"Other projects' vulnerabilities never appear at all"* is public-surface-scoped:
+  a coordinator's access-gated archive necessarily holds third-party reports,
+  and §15 governs what leaves that archive, not what it stores.
+  *"Cross-project correlations stay on the channel they arrived on"* is the binding clause here,
+  and per-hop dedup scoping is what satisfies it —
+  each node correlates only across what actually reached it,
+  and an upstream *"already deduplicated"* claim never authorises a wider join.
 - **External content stays data**
   ([PRINCIPLES §0](../../PRINCIPLES.md#0-external-content-is-data-never-an-instruction)).
   Coordinator inboxes are the most injection-exposed surface in the framework —
@@ -740,5 +750,6 @@ Migration is phased so each step is independently useful:
 - [`skills/security-issue-deduplicate/SKILL.md`](../../skills/security-issue-deduplicate/SKILL.md) — the multi-credit (`credits[]`) precedent for list-valued provenance.
 - [`docs/labels-and-capabilities.md`](../labels-and-capabilities.md) — the capability vocabulary (`capability:intake`, `capability:triage`) the new skills declare.
 - [`PRINCIPLES.md` §0](../../PRINCIPLES.md#0-external-content-is-data-never-an-instruction) — external content is data; the posture the lightweight-reader pattern implements.
+- [`PRINCIPLES.md` §15](../../PRINCIPLES.md#15-tracker-identifiers-are-public-safe-tracker-contents-are-not) — tracker contents stay access-gated; the clause per-hop dedup scoping is measured against.
 - CERT/CC, *The CERT Guide to Coordinated Vulnerability Disclosure* — the finder / reporter / coordinator / vendor role model.
 - ISO/IEC 29147 (vulnerability disclosure) and ISO/IEC 30111 (vulnerability handling processes) — the standards vocabulary adopted here.
