@@ -185,10 +185,19 @@ github:
       # above — squash is the only enabled merge mode, so every
       # merge results in a single commit on top of main.
       required_linear_history: true
-      # Block merge while review threads remain unresolved. This
-      # bites even without an approval requirement: any reviewer
-      # who opens a thread blocks merge until it is resolved.
-      required_conversation_resolution: true
+      # Do NOT block merge on unresolved review threads. With the
+      # approval requirement lifted above, this was the one merge gate
+      # a reviewer could trip by accident: *any* open thread held the
+      # PR, including a nit the reviewer explicitly marked as
+      # non-blocking. The observed effect is reviewers resolving their
+      # own advisory comments purely to unblock the merge, which
+      # defeats the point of leaving the comment where the author can
+      # still see it. Unresolved threads remain visible in the PR UI;
+      # they are simply no longer a hard gate.
+      #
+      # Restore alongside `required_pull_request_reviews` above if the
+      # project later wants threads to gate merge again.
+      required_conversation_resolution: false
       # Do NOT require signed commits. External contributors
       # without configured GPG/SSH signing would be unable to
       # contribute. Re-enable if/when the project adopts a
