@@ -1,0 +1,81 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+# Config carrier, not a package. `tools/dev/` is a directory of standalone
+# helper scripts invoked by prek and CI by path, never imported as a library.
+# Before this file existed the tree was invisible to ruff, mypy, and pytest:
+# the workspace checks iterate `[tool.uv.workspace] members`, and these gates
+# — the ones that guard everyone else's changes — were themselves unguarded.
+#
+# Declaring the tree as one workspace member is the same lightest-fix pattern
+# `skills/pyproject.toml` uses: `tools/dev/run-workspace-check.sh` auto-discovers
+# which checks apply from the sections below, and the CI matrix emits a
+# `pytest (dev)` job for any member with a `[tool.pytest.ini_options]` section.
+#
+# Script filenames are hyphenated (`check-doc-sync.py`), which is not an
+# importable module name, so tests load them through `importlib.util` rather
+# than a plain import.
+
+[project]
+name = "magpie-dev"
+version = "0.1.0"
+description = "Framework dev-loop helper scripts invoked by prek and CI."
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+# stdlib-only by design — these run on a bare checkout before anything is synced.
+dependencies = []
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "UP", "SIM", "C4", "RUF"]
+ignore = [
+  "E501",   # line-too-long — the 110-char limit above is already generous
+  "RUF003", # ambiguous en dash in a comment — the repo's prose style uses
+            # en dashes throughout; rewriting comments to hyphens to satisfy
+            # a homoglyph check would make them worse, and these files carry
+            # no non-ASCII identifiers, which is what the rule guards
+]
+
+[tool.mypy]
+python_version = "3.11"
+files = ["."]
+ignore_missing_imports = true
+warn_unused_ignores = true
+check_untyped_defs = true
+no_implicit_optional = true
+# Scripts invoked by path, not a typed library surface. `check_untyped_defs`
+# above still type-checks the bodies, which is where the value is.
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-ra -q"
+testpaths = ["tests"]
+
+[dependency-groups]
+dev = [
+  "mypy>=2.3.0",
+  "pytest>=9.1.1",
+  "ruff>=0.16.2",
+]

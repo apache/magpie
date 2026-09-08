@@ -36,6 +36,7 @@ Run with `--fix` to propagate the version from `pyproject.toml` and regenerate
 the family plugins + symlinks + marketplace entries from the frontmatter. A
 release bump therefore has one edit point: `pyproject.toml`, then `--fix`.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -140,9 +141,7 @@ def load_json(path: Path):
         return None, f"{path}: cannot read/parse ({exc})"
 
 
-def validate_manifest(
-    path: Path, expected_name: str, inherited: dict | None = None
-) -> list[str]:
+def validate_manifest(path: Path, expected_name: str, inherited: dict | None = None) -> list[str]:
     """A plugin.json must exist, be valid JSON, name itself correctly, and
     declare its skills + a description. Per-family manifests additionally carry
     the root manifest's shared metadata (`inherited`) verbatim."""
@@ -161,8 +160,7 @@ def validate_manifest(
     for key, want in (inherited or {}).items():
         if data.get(key) != want:
             errors.append(
-                f"{path}: {key!r} is {data.get(key)!r}, expected {want!r} "
-                f"(inherited from {ROOT_MANIFEST})"
+                f"{path}: {key!r} is {data.get(key)!r}, expected {want!r} (inherited from {ROOT_MANIFEST})"
             )
     return errors
 
@@ -222,9 +220,7 @@ def check_ecosystem_versions(version: str) -> list[str]:
         if err:
             errors.append(err)
         elif have != version:
-            errors.append(
-                f"{path}: version is {have!r}, expected {version!r} (from {PYPROJECT})"
-            )
+            errors.append(f"{path}: version is {have!r}, expected {version!r} (from {PYPROJECT})")
     return errors
 
 
@@ -362,7 +358,7 @@ def check(fam: dict[str, set[str]]) -> list[str]:
         errors.append(f"{MARKETPLACE}: missing the all-in-one 'magpie' plugin entry")
     if not HOOK_SCRIPT.is_file():
         errors.append(f"{HOOK_SCRIPT}: missing (referenced by the all-in-one plugin's SessionStart hook)")
-    root_data, root_err = load_json(ROOT_MANIFEST)
+    root_data, _root_err = load_json(ROOT_MANIFEST)
     if root_data is not None and "check-upgrade.sh" not in json.dumps(root_data.get("hooks", {})):
         errors.append(f"{ROOT_MANIFEST}: SessionStart hook does not reference hooks/check-upgrade.sh")
 
@@ -422,7 +418,7 @@ def check(fam: dict[str, set[str]]) -> list[str]:
 
     # 4) No orphan plugin dirs (a magpie-<x> with no skills declaring family x).
     for pdir in sorted(PLUGINS.glob("magpie-*")):
-        family = pdir.name[len("magpie-"):]
+        family = pdir.name[len("magpie-") :]
         if family not in fam:
             errors.append(f"orphan plugin '{pdir.name}': no skill declares family '{family}'")
 
@@ -483,8 +479,7 @@ def fix(fam: dict[str, set[str]]) -> int:
         for e in meta_errs:
             print(f"  - {e}", file=sys.stderr)
         print(
-            f"\nCannot regenerate: the family plugins inherit "
-            f"{', '.join(INHERITED)} from {ROOT_MANIFEST}.",
+            f"\nCannot regenerate: the family plugins inherit {', '.join(INHERITED)} from {ROOT_MANIFEST}.",
             file=sys.stderr,
         )
         return 1
@@ -537,12 +532,14 @@ def fix(fam: dict[str, set[str]]) -> int:
         )
         return 1
     for family, skills in sorted(fam.items()):
-        keep.append({
-            "name": f"magpie-{family}",
-            "source": f"./plugins/magpie-{family}",
-            "version": shared["version"],
-            "description": f"Apache Magpie {family} family ({len(skills)} skills).",
-        })
+        keep.append(
+            {
+                "name": f"magpie-{family}",
+                "source": f"./plugins/magpie-{family}",
+                "version": shared["version"],
+                "description": f"Apache Magpie {family} family ({len(skills)} skills).",
+            }
+        )
     market["plugins"] = keep
     MARKETPLACE.write_text(json.dumps(market, indent=2) + "\n", encoding="utf-8")
     print("Regenerated per-family plugins + marketplace entries from frontmatter.")

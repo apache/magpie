@@ -82,10 +82,7 @@ _SCAN_LINES = 12
 # semantically wrong and corrupt the eval. RAT excludes them too, so they
 # need no header. Kept in the script (not just the prek `exclude:`) so a
 # direct or `--all` invocation cannot stamp them either.
-EXCLUDE_PREFIXES = (
-    "tools/skill-evals/evals/pr-management-code-review/"
-    "step-4-third-party-license/fixtures/",
-)
+EXCLUDE_PREFIXES = ("tools/skill-evals/evals/pr-management-code-review/step-4-third-party-license/fixtures/",)
 
 
 def _already_stamped(lines: list[str]) -> bool:
@@ -99,10 +96,7 @@ def _already_stamped(lines: list[str]) -> bool:
     SPDX) is not treated as a declaration, so such a file still gets a real
     header.
     """
-    for line in lines[:_SCAN_LINES]:
-        if "SPDX-License-Identifier:" in line:
-            return True
-    return False
+    return any("SPDX-License-Identifier:" in line for line in lines[:_SCAN_LINES])
 
 
 def stamp(path: Path) -> bool:
@@ -129,10 +123,7 @@ def _tracked_markdown() -> list[Path]:
 
 def main(argv: list[str]) -> int:
     args = argv[1:]
-    if "--all" in args:
-        targets = _tracked_markdown()
-    else:
-        targets = [Path(a) for a in args if a.endswith(".md")]
+    targets = _tracked_markdown() if "--all" in args else [Path(a) for a in args if a.endswith(".md")]
 
     modified: list[Path] = []
     for path in targets:

@@ -25,6 +25,7 @@ members = [
     "github-rollup",
     "jira-bridge",
     "magpie-bitbucket",
+    "magpie-dev",
     "magpie-fossil",
     "magpie-maildir",
     "magpie-skills",
@@ -945,6 +946,27 @@ dev = [
     { name = "mypy", specifier = ">=1.10" },
     { name = "pytest", specifier = ">=8.0" },
     { name = "ruff", specifier = ">=0.16.1" },
+]
+
+[[package]]
+name = "magpie-dev"
+version = "0.1.0"
+source = { virtual = "tools/dev" }
+
+[package.dev-dependencies]
+dev = [
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "mypy", specifier = ">=2.3.0" },
+    { name = "pytest", specifier = ">=9.1.1" },
+    { name = "ruff", specifier = ">=0.16.2" },
 ]
 
 [[package]]

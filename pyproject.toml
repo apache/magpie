@@ -97,6 +97,7 @@ members = [
   "ai-tutors",
   "skills",
   "tools/agent-guard",
+  "tools/dev",
   "tools/agent-isolation",
   "tools/bitbucket",
   "tools/egress-gateway",

@@ -111,7 +111,9 @@ def check_spec_index(errors: list[str]) -> None:
             continue
         for index, text in index_text.items():
             if f"({spec.name})" not in text:
-                errors.append(f"{index}: spec '{spec.name}' is not listed — every spec belongs in both indexes")
+                errors.append(
+                    f"{index}: spec '{spec.name}' is not listed — every spec belongs in both indexes"
+                )
 
 
 def check_readme_family_counts(errors: list[str]) -> None:
@@ -174,9 +176,7 @@ def check_total_counts(errors: list[str], total: int) -> None:
             for m in _BARE_TOTAL.finditer(line):
                 declared = int(m.group("count"))
                 if declared != total:
-                    errors.append(
-                        f"{path}:{lineno}: says {declared} skills; the catalogue has {total}"
-                    )
+                    errors.append(f"{path}:{lineno}: says {declared} skills; the catalogue has {total}")
 
 
 def check_dev_scripts_documented(errors: list[str]) -> None:
@@ -216,10 +216,7 @@ def main() -> int:
             file=sys.stderr,
         )
         return 1
-    print(
-        f"check-doc-sync: OK ({total} skills; spec indexes, declared counts, "
-        "and dev-script docs agree)."
-    )
+    print(f"check-doc-sync: OK ({total} skills; spec indexes, declared counts, and dev-script docs agree).")
     return 0
 
 

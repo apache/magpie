@@ -93,9 +93,7 @@ def read_workspace_members() -> set[str]:
     try:
         return set(data["tool"]["uv"]["workspace"]["members"])
     except KeyError:
-        sys.stderr.write(
-            "error: root pyproject.toml has no [tool.uv.workspace] members\n"
-        )
+        sys.stderr.write("error: root pyproject.toml has no [tool.uv.workspace] members\n")
         sys.exit(2)
 
 
@@ -114,10 +112,7 @@ def main() -> int:
     out("error: uv workspace members list drifts from on-disk pyprojects\n")
     out("\n")
     if missing:
-        out(
-            "Found `tools/.../pyproject.toml` that is NOT in "
-            "`[tool.uv.workspace] members`:\n"
-        )
+        out("Found `tools/.../pyproject.toml` that is NOT in `[tool.uv.workspace] members`:\n")
         for p in missing:
             out(f"  + {p!r}\n")
         out("\n")
@@ -128,10 +123,7 @@ def main() -> int:
             "pytest matrix.\n\n"
         )
     if stale:
-        out(
-            "Workspace members list references paths that no longer "
-            "have a pyproject.toml on disk:\n"
-        )
+        out("Workspace members list references paths that no longer have a pyproject.toml on disk:\n")
         for p in stale:
             out(f"  - {p!r}\n")
         out("\n")
