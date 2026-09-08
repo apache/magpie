@@ -1226,3 +1226,56 @@ will change and *why*. Group them by category:
   corrections surface the prior `draftId` for manual discard
   rather than silently shadowing it — is documented in
   [`tools/gmail/operations.md`](../../tools/gmail/operations.md#hard-limitation--no-update-no-delete).
+
+- **Signal — a fix PR merged, but not onto the branch its milestone
+  ships from.** When proposing `pr created` → `pr merged` on a
+  tracker whose milestone is a **patch** release, check that the fix
+  is actually on that release's branch. A PR merged to the main
+  development branch does not reach a patch release unless it is
+  also backported, and the tracker's *Affected versions* upper bound
+  is a claim about which release contains the fix.
+
+  **Check it at `pr merged`, not at `fix released`.** By the time
+  the release is cut it is too late: the wave ships without the fix
+  and the advisory names a version that never contained it. This is
+  the same failure the *containment* half of the
+  [`fix released` gate](SKILL.md) exists to prevent, moved one step
+  earlier so it is still cheap to correct.
+
+  **How to check — content probe, not ancestry.** A cherry-pick
+  changes the SHA, so `compare/<sha>...<branch>` reporting
+  `diverged` is not evidence of absence. Pick a distinctive string
+  the fix introduces (a comment line, a new identifier) and probe
+  each branch:
+
+  ```bash
+  gh api "repos/<upstream>/contents/<path>?ref=<branch>" \
+    --jq '.content' | base64 -d | grep -q "<distinctive string>"
+  ```
+
+  Probe the development branch, the release branch the milestone
+  ships from, and the corresponding stable branch. Present the
+  result as a table — the asymmetry is the finding.
+
+  **Corroborating signal:** projects that automate backports use a
+  per-branch label (`backport-to-<branch>` or similar). Its absence
+  on a merged PR whose tracker is milestoned to that branch's
+  release is a strong hint, but the label is a *convention* and the
+  content probe is the *evidence* — do not conclude either way from
+  the label alone.
+
+  **Two ways to resolve, and they are not equivalent** — surface
+  both and let the operator choose, because they change what ships
+  in the published record:
+
+  1. **Backport** — apply the branch label, milestone the PR to the
+     patch release, and cherry-pick. The tracker's milestone and its
+     `< <patch>` upper bound both stay correct.
+  2. **Let it ride to the next feature release** — move the tracker
+     milestone, **and** widen *Affected versions* to that release.
+     Leaving the old bound in place is the actual danger: it tells
+     users to upgrade to a version that does not contain the fix.
+
+  Never pick silently. Option 2 changes a CVE-affecting body field,
+  so it belongs in the CVE-affecting bucket and needs explicit
+  confirmation.

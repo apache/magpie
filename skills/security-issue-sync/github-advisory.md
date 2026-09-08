@@ -71,6 +71,24 @@ record it. Surface drift in the Step 2 proposal:
   tracker `announced` + CVE published while the advisory is still
   `triage`). Informational at the collaborator tier (state changes are an
   admin hand-off).
+
+  **Check `published_at`, not just `state`.** An advisory can carry the
+  CVE id, the right severity and complete content while `published_at`
+  is still `null` — the mirror was filled in but never published.
+
+  **This is a reporter-facing gap, not bookkeeping.** On a GHSA-sourced
+  tracker the advisory is the surface the reporter watches; the project
+  mailing-list advisory and the CVE record are not. So a tracker can be
+  correct and closeable while, from the reporter's side, nothing has
+  visibly happened since triage. Two consequences:
+
+  - **Do not let the tracker close silently past it.** When the tracker
+    reaches its terminal step with the advisory still unpublished,
+    surface it — closing is fine, going quiet is not.
+  - **Fold the publish request into the existing admin hand-off relay**
+    rather than opening a new thread, and pair it with the reporter
+    reply so the reporter is not told *"it is all public now"* while
+    reading an advisory still marked `triage`.
 - **access drift** — security-team roster
   (`gh api repos/<tracker>/collaborators --jq '.[].login'`) members
   missing from the advisory's `collaborating_users`. Informational at the
