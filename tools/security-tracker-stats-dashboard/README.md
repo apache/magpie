@@ -13,6 +13,7 @@
     - [Categories (lifecycle bands)](#categories-lifecycle-bands)
     - [Time-to-triage signal](#time-to-triage-signal)
     - [Milestones (vertical annotations)](#milestones-vertical-annotations)
+    - [Current-bucket projection (`projection`)](#current-bucket-projection-projection)
     - [Rejected-without-tracker ledger (`rejections_ledger_label`)](#rejected-without-tracker-ledger-rejections_ledger_label)
     - [When `upstream_repo` is null](#when-upstream_repo-is-null)
   - [Prerequisites](#prerequisites)
@@ -159,6 +160,72 @@ on every time-axis chart. Each entry needs `date: YYYY-MM-DD` (mapped
 onto the bucket axis) and `label`. Set `milestones: []` in an overlay
 to remove them entirely.
 
+### Current-bucket projection (`projection`)
+
+```yaml
+projection:
+  enabled: true
+  min_elapsed_fraction: 0.1
+```
+
+The last bucket on the axis is always cut short by "now", so every
+count in it reads low against complete buckets — regenerate the
+dashboard on the 8th of a month and September looks like a collapse in
+reports rather than a month that is 23 % over. The projection
+extrapolates that final bucket to where it is on course to end.
+
+Two kinds of series need two different extrapolations:
+
+| Kind | Series | Formula |
+|---|---|---|
+| **rate** — accumulates from zero inside the bucket | opened / rejected / reported in bucket | `observed / elapsed` |
+| **level** — carries over from the previous bucket | cumulative opened / closed / rejected / reported, every lifecycle band, the untriaged backlog | `prev + (observed - prev) / elapsed` |
+
+Only the movement *inside* the bucket is scaled for a level series —
+scaling the level itself would multiply years of accumulated history
+by four. A falling level (a backlog being worked down) projects
+further down, floored at zero. A rate projection is never below what
+has already happened.
+
+Projections are drawn on every chart that carries a projectable
+series: the lifecycle bands, *Reported vs. opened vs. untriaged*, the
+cumulative chart, and the rejections chart. Each is a dotted two-point
+segment from the last complete bucket's actual value to the projected
+end-of-bucket value, so a forecast can never be mistaken for a
+measurement. On the stacked lifecycle chart each band's forecast is
+drawn at its projected position *in the stack*, with the band's own
+projected count in the hover (legend entries suppressed — five extra
+rows would double the legend). Since the bands partition every
+tracker, their projected values sum to the projected cumulative
+opened, which makes an easy sanity check.
+
+**The mean-time charts are deliberately not projected.** A mean over
+the items seen so far is already an estimate of the bucket's mean, not
+a partial accumulation — scaling it by elapsed time would be
+meaningless.
+
+An HTML header banner carries the operational headline (reported,
+opened, and the projected untriaged backlog); stdout lists every
+projected series:
+
+```text
+Current-bucket projection (2026-09, 23% elapsed, now -> month-end):
+  opened                      9 -> 38
+  rejected                    3 -> 13
+  reported                   12 -> 51
+  cum_opened                355 -> 384
+  cum_closed                313 -> 323
+  band:open_untriaged        14 -> 7
+  band:open_triaged          16 -> 39
+```
+
+`min_elapsed_fraction` suppresses the projection early in a bucket,
+where the extrapolation is noise: two days into a month a single
+report projects to fifteen. Below the threshold the banner and traces
+are omitted and stdout says why. The projection is also skipped when
+the axis holds a single bucket — the level series have no baseline to
+project from. `enabled: false` switches the whole stat off.
+
 ### Rejected-without-tracker ledger (`rejections_ledger_label`)
 
 ```yaml
@@ -244,5 +311,6 @@ remaining charts still render.
 | `events/<N>.json` missing for some N | gh transient failure during paginate | Re-run `run.sh`; `fetch_events.py` resumes from cache |
 | `prs.json` has `{"error": ...}` entries | False-positive body parse (PR# doesn't exist) | Silently filtered at render; safe to ignore |
 | `c_rel` median jumps after re-fetch | New advisory shipped since last run | Expected — re-render is correct |
+| No projection banner / dotted trace | Bucket below `min_elapsed_fraction`, or `projection.enabled: false` | Expected — stdout prints the skip reason |
 | Empty `c_prc` / `c_prm` / `c_rel` early buckets | No linked PR in those tracker buckets | Expected — not all early trackers had a fix PR |
 | `ModuleNotFoundError: yaml` | PyYAML missing | The bundled fallback parser handles `default-config.yaml`; for richer overlays install pyyaml or use `TRACKER_STATS_PY=uv-yaml` |

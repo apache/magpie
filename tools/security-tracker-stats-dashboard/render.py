@@ -60,8 +60,10 @@ sys.path.insert(0, os.path.join(_HERE, "src"))
 
 from security_tracker_stats_dashboard.core import (  # noqa: E402
     _minimal_yaml_load,
+    bucket_bounds,
     build_triage_regex,
     deep_merge,
+    elapsed_fraction,
     eval_predicate,
     is_bot_body,
     iter_months,
@@ -75,6 +77,8 @@ from security_tracker_stats_dashboard.core import (  # noqa: E402
     month_label,
     month_of,
     parse_dt,
+    project_bucket_level,
+    project_bucket_total,
     quarter_end,
     quarter_label,
     quarter_of,
@@ -131,6 +135,8 @@ CONFIG = load_config()
 BUCKETS_MODE = CONFIG.get("buckets", "monthly")
 if BUCKETS_MODE not in ("monthly", "quarterly", "weekly"):
     raise SystemExit(f"buckets must be 'monthly', 'quarterly' or 'weekly', got {BUCKETS_MODE!r}")
+# Prose word for one bucket, used in stdout lines and chart titles.
+bucket_word = {"monthly": "month", "weekly": "week"}.get(BUCKETS_MODE, "quarter")
 
 START_OVERRIDE = CONFIG.get("start")
 UPSTREAM_REPO = CONFIG.get("upstream_repo")
@@ -142,6 +148,10 @@ BOT_PREFIXES = tuple(CONFIG.get("triage", {}).get("bot_prefixes") or [])
 # Label identifying the "rejected without tracker" ledger issue. When
 # null (or no such issue exists) the rejection stat is omitted / shows 0.
 REJECTIONS_LEDGER_LABEL = CONFIG.get("rejections_ledger_label")
+# End-of-bucket projection for the current (partial) bucket.
+PROJECTION_CFG = CONFIG.get("projection") or {}
+PROJECTION_ENABLED = PROJECTION_CFG.get("enabled", True)
+PROJECTION_MIN_ELAPSED = float(PROJECTION_CFG.get("min_elapsed_fraction", 0.1) or 0.0)
 
 # Distinct category names in the order they FIRST appear in CATEGORIES_CFG
 # (multiple rules can share a name to express disjoint branches of the
@@ -523,6 +533,69 @@ for i in issues:
 # stat is disabled, so the trace is only drawn when the stat is active.
 reported_in_b = [o + r for o, r in zip(opened_in_b, rejected_series, strict=True)]
 
+# --- current-bucket projection -------------------------------------
+#
+# The last bucket on the axis is cut short by "now", so every count in it
+# reads low against complete buckets and the series appear to fall off a
+# cliff each time the dashboard is regenerated mid-month. Extrapolate the
+# final bucket to what it is on course to be at bucket end.
+#
+# Two kinds of series need two different extrapolations:
+#
+#   RATE  — per-bucket intake that accumulates from zero inside the
+#           bucket (opened / rejected / reported in bucket). The whole
+#           count scales: observed / elapsed_fraction.
+#   LEVEL — cumulative totals and end-of-bucket snapshots (the lifecycle
+#           bands, the untriaged backlog, the cumulative lines). These
+#           carry over from the previous bucket, so only the movement
+#           *inside* the bucket scales: prev + (observed - prev) / f.
+#           Scaling the whole level would multiply three years of
+#           accumulated history by four.
+#
+# The mean-time charts (triage / first response / PR / release) are
+# deliberately NOT projected: a mean over the items seen so far is
+# already an estimate of the bucket's mean, not a partial accumulation,
+# so scaling it by elapsed time would be meaningless.
+#
+# PROJECTIONS is empty whenever there is nothing meaningful to project —
+# the stat is switched off, the final bucket is already complete (a run
+# at or after bucket end), too little of it has elapsed for the
+# extrapolation to mean anything (`min_elapsed_fraction`), or there is
+# no earlier bucket to serve as a baseline for the level series.
+b_start, b_end = bucket_bounds(*buckets[-1], BUCKETS_MODE)
+cur_elapsed = elapsed_fraction(NOW, b_start, b_end)
+PROJECTIONS = {}  # series key -> projected end-of-bucket value
+projection_skip_reason = None
+
+if not PROJECTION_ENABLED:
+    projection_skip_reason = "disabled in config"
+elif cur_elapsed >= 1.0:
+    projection_skip_reason = f"bucket {bucket_labels[-1]} is already complete"
+elif cur_elapsed < PROJECTION_MIN_ELAPSED:
+    projection_skip_reason = (
+        f"only {cur_elapsed:.0%} of {bucket_labels[-1]} elapsed "
+        f"(min_elapsed_fraction={PROJECTION_MIN_ELAPSED:.0%})"
+    )
+elif n_buckets < 2:
+    projection_skip_reason = "only one bucket on the axis — no baseline to project from"
+else:
+
+    def _proj_rate(key, series):
+        PROJECTIONS[key] = project_bucket_total(series[-1], cur_elapsed)
+
+    def _proj_level(key, series):
+        PROJECTIONS[key] = project_bucket_level(series[-2], series[-1], cur_elapsed)
+
+    _proj_rate("opened", opened_in_b)
+    _proj_rate("rejected", rejected_series)
+    _proj_rate("reported", reported_in_b)
+    _proj_level("cum_opened", cum_opened)
+    _proj_level("cum_closed", cum_closed)
+    _proj_level("cum_rejected", cum_rejected)
+    _proj_level("cum_reported", cum_reported)
+    for cat in CATS:
+        _proj_level(f"band:{cat}", counts[cat])
+
 # --- triage / response ---------------------------------------------
 
 TRIAGE_RE = build_triage_regex(TRIAGE_KW)
@@ -711,11 +784,71 @@ print(
     f"opened_in_b={opened_in_b[-1]}, untriaged_at_bend={untriaged_at_bend[-1]}"
 )
 
+if not PROJECTIONS:
+    print(f"Current-bucket projection: skipped ({projection_skip_reason})")
+else:
+    print()
+    print(
+        f"Current-bucket projection ({bucket_labels[-1]}, {cur_elapsed:.0%} elapsed, now -> {bucket_word}-end):"
+    )
+    _proj_now = {
+        "opened": opened_in_b[-1],
+        "rejected": rejected_series[-1],
+        "reported": reported_in_b[-1],
+        "cum_opened": cum_opened[-1],
+        "cum_closed": cum_closed[-1],
+        "cum_rejected": cum_rejected[-1],
+        "cum_reported": cum_reported[-1],
+        **{f"band:{cat}": counts[cat][-1] for cat in CATS},
+    }
+    _rejections_on = bool(REJECTIONS_LEDGER_LABEL and (rejections_total or ledger_issues))
+    for key, projected in PROJECTIONS.items():
+        if not _rejections_on and key in ("rejected", "reported", "cum_rejected", "cum_reported"):
+            continue
+        print(f"  {key:<24} {_proj_now[key]:>4} -> {projected}")
+
 
 # --- Render HTML ---------------------------------------------------
 
-# Title prefix differs between bucket modes for clarity.
-bucket_word = {"monthly": "month", "weekly": "week"}.get(BUCKETS_MODE, "quarter")
+# Projection traces: a dotted segment from the last COMPLETE bucket's
+# actual value to the projected end-of-bucket value. Every point before
+# that is null, and connectgaps stays off (unlike the actual series), so
+# the forecast reads as a forecast and can never be mistaken for a
+# measurement. `_proj_trace` returns "" when the series has no
+# projection, so every call site degrades to the un-projected chart.
+
+
+def _proj_trace(name, color, projected, actuals=None, prev_value=None, hover=None, showlegend=True):
+    """A two-point dotted trace: last complete bucket -> projected bucket end.
+
+    Returns "" when there is no projection for the series, so every call
+    site degrades to the plain chart. The baseline is `actuals[-2]`
+    unless *prev_value* names it explicitly (the stacked chart draws its
+    forecasts at running stack positions, not at a series value) — and
+    it is read only after the None check, so a single-bucket axis (where
+    nothing is projected) never indexes past the start of a series.
+    """
+    if projected is None:
+        return ""
+    prev = actuals[-2] if prev_value is None else prev_value
+    hover_text = hover if hover is not None else "projected: %{y}"
+    return (
+        ",\n  {x: "
+        + js_quotes([bucket_labels[-2], bucket_labels[-1]])
+        + ", y: "
+        + js_array([prev, projected])
+        + ", name: '"
+        + name
+        + "', type: 'scatter', mode: 'lines+markers', "
+        + ("" if showlegend else "showlegend: false, ")
+        + "line: {color: '"
+        + color
+        + "', dash: 'dot'}, "
+        + "hovertemplate: '%{x}<br>"
+        + hover_text
+        + "<extra></extra>'}"
+    )
+
 
 # Build stacked-band traces in STACK_ORDER. With the default config that
 # resolves to `fixed_released, open_pr_merged, open_triaged,
@@ -732,6 +865,41 @@ for cat in STACK_ORDER:
         f"fillcolor: '{color}', hoveron: 'points+fills'}}"
     )
 stacked_block = ",\n".join(stacked_traces)
+
+# Lifecycle-band projections. The bands are stacked, so each band's
+# forecast is drawn at its projected position in the STACK — the running
+# sum bottom-up, matching the order the traces are emitted in above —
+# and the hover carries the band's own projected count, not the stack
+# top it is drawn at. Legend entries are suppressed: five extra rows
+# would double the legend for no information the colours don't carry.
+proj_states_traces = ""
+_stack_prev = 0
+_stack_proj = 0
+for cat in STACK_ORDER:
+    if cat not in counts:
+        continue
+    band_proj = PROJECTIONS.get(f"band:{cat}")
+    if band_proj is None:
+        continue
+    _stack_prev += counts[cat][-2]
+    _stack_proj += band_proj
+    proj_states_traces += _proj_trace(
+        f"projected {cat}",
+        CAT_COLORS.get(cat, "#888888"),
+        _stack_proj,
+        prev_value=_stack_prev,
+        hover=f"projected {cat}: {band_proj}",
+        showlegend=False,
+    )
+
+# Defined here rather than with the other projection traces below
+# because the rejections chart's JS is assembled before that point.
+proj_rej_trace = _proj_trace(
+    f"projected rejected ({bucket_word}-end)",
+    "#7f8c8d",
+    PROJECTIONS.get("rejected"),
+    rejected_series,
+)
 
 # Milestone shapes + annotations (multi-milestone capable).
 ms_shapes = []
@@ -798,7 +966,7 @@ if REJECTIONS_LEDGER_LABEL and (rejections_total or ledger_issues):
         f"  {{x: buckets, y: {js_array(rejected_series)}, "
         f"name: 'rejected (no tracker)', type: 'scatter', "
         f"mode: 'lines+markers', connectgaps: true, line: {{color: '#7f8c8d'}}, "
-        f"fill: 'tozeroy'}}\n"
+        f"fill: 'tozeroy'}}{proj_rej_trace}\n"
         f"], {{\n"
         f"  ...MILESTONES_LAYOUT,\n"
         f"  title: 'Reports rejected without a tracker (per {bucket_word}, dated; "
@@ -849,6 +1017,58 @@ if REJECTIONS_LEDGER_LABEL and (rejections_total or ledger_issues):
 else:
     rep_ou_trace = ""
 
+# Projections for the remaining charts: intake + backlog on the
+# opened-vs-untriaged chart, the cumulative lines, and the standalone
+# rejections chart. Each is "" when the projection is off, so the charts
+# fall back to their un-projected form.
+proj_ou_traces = _proj_trace(
+    f"projected opened ({bucket_word}-end)", "#1f77b4", PROJECTIONS.get("opened"), opened_in_b
+) + _proj_trace(
+    f"projected untriaged ({bucket_word}-end)",
+    "#d62728",
+    PROJECTIONS.get("band:open_untriaged"),
+    untriaged_at_bend,
+)
+proj_cum_traces = _proj_trace(
+    "projected cumulative opened", "#1f77b4", PROJECTIONS.get("cum_opened"), cum_opened
+) + _proj_trace("projected cumulative closed", "#2ca02c", PROJECTIONS.get("cum_closed"), cum_closed)
+
+if REJECTIONS_LEDGER_LABEL and (rejections_total or ledger_issues):
+    proj_ou_traces += _proj_trace(
+        f"projected reported ({bucket_word}-end)",
+        "#9467bd",
+        PROJECTIONS.get("reported"),
+        reported_in_b,
+    )
+    proj_cum_traces += _proj_trace(
+        "projected cumulative rejected", "#7f8c8d", PROJECTIONS.get("cum_rejected"), cum_rejected
+    ) + _proj_trace(
+        "projected reported (opened + rejected)",
+        "#9467bd",
+        PROJECTIONS.get("cum_reported"),
+        cum_reported,
+    )
+
+# Header banner — the operational headline: what is coming in, and what
+# the untriaged backlog is on course to be at bucket end.
+if not PROJECTIONS:
+    proj_header_html = ""
+else:
+    proj_bits = [f"opened <strong>{PROJECTIONS['opened']}</strong> (from {opened_in_b[-1]} so far)"]
+    if REJECTIONS_LEDGER_LABEL and (rejections_total or ledger_issues):
+        proj_bits.insert(
+            0,
+            f"reported <strong>{PROJECTIONS['reported']}</strong> (from {reported_in_b[-1]} so far)",
+        )
+    untriaged_proj = PROJECTIONS.get("band:open_untriaged")
+    if untriaged_proj is not None:
+        proj_bits.append(f"untriaged backlog <strong>{untriaged_proj}</strong> (now {untriaged_at_bend[-1]})")
+    proj_header_html = (
+        f'<div class="banner">Projected end of {bucket_word} '
+        f"<strong>{bucket_labels[-1]}</strong> at the rate so far "
+        f"({cur_elapsed:.0%} of the {bucket_word} elapsed): " + " · ".join(proj_bits) + "</div>\n"
+    )
+
 
 HTML = f"""<!DOCTYPE html>
 <html lang="en">
@@ -866,7 +1086,7 @@ body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; 
 </head>
 <body>
 
-{rej_header_html}
+{rej_header_html}{proj_header_html}
 <div class="grid">
 
 <div class="card full"><div id="c_states"></div></div>
@@ -889,7 +1109,7 @@ const MILESTONES_LAYOUT = {{shapes: milestoneShapes, annotations: milestoneAnnot
 
 // Stacked-line lifecycle bands
 Plotly.newPlot('c_states', [
-{stacked_block}
+{stacked_block}{proj_states_traces}
 ], {{
   ...MILESTONES_LAYOUT,
   title: 'Issue lifecycle bands (stacked, end-of-{bucket_word} snapshots)',
@@ -905,7 +1125,7 @@ Plotly.newPlot('c_open_vs_untriaged', [
     line: {{color: '#1f77b4'}}}},
   {{x: buckets, y: {js_array(untriaged_at_bend)},  name: 'untriaged at {bucket_word}-end',
     type: 'scatter', mode: 'lines+markers', connectgaps: true,
-    line: {{color: '#d62728'}}}}{rep_ou_trace}
+    line: {{color: '#d62728'}}}}{rep_ou_trace}{proj_ou_traces}
 ], {{
   ...MILESTONES_LAYOUT,
   title: 'Reported vs. opened vs. untriaged backlog (per {bucket_word})',
@@ -919,7 +1139,7 @@ Plotly.newPlot('c_cum', [
     line: {{color: '#1f77b4'}}, fill: 'tozeroy'}},
   {{x: buckets, y: {js_array(cum_closed)}, name: 'cumulative closed',
     type: 'scatter', mode: 'lines+markers', connectgaps: true,
-    line: {{color: '#2ca02c'}}, fill: 'tozeroy'}}{cum_rej_traces}
+    line: {{color: '#2ca02c'}}, fill: 'tozeroy'}}{cum_rej_traces}{proj_cum_traces}
 ], {{
   ...MILESTONES_LAYOUT,
   title: 'Cumulative reported (opened + rejected) vs. opened vs. closed (gap = open backlog)',

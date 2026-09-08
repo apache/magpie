@@ -133,6 +133,68 @@ def iter_weeks(y0: int, w0: int, y1: int, w1: int) -> Iterator[tuple[int, int]]:
         cur += dt.timedelta(days=7)
 
 
+def bucket_bounds(y: int, k: int, buckets_mode: str = "monthly") -> tuple[dt.datetime, dt.datetime]:
+    """Return (first instant, last instant) of a bucket, UTC.
+
+    `k` is the month (1..12), quarter (1..4) or ISO week number, matching
+    the second element of the bucket key tuples produced by `month_of` /
+    `quarter_of` / `week_of`.
+    """
+    if buckets_mode == "monthly":
+        return dt.datetime(y, k, 1, tzinfo=dt.UTC), month_end(y, k)
+    if buckets_mode == "quarterly":
+        return dt.datetime(y, (k - 1) * 3 + 1, 1, tzinfo=dt.UTC), quarter_end(y, k)
+    if buckets_mode == "weekly":
+        monday = dt.date.fromisocalendar(y, k, 1)
+        return dt.datetime(monday.year, monday.month, monday.day, tzinfo=dt.UTC), week_end(y, k)
+    raise ValueError(f"unknown buckets mode: {buckets_mode!r}")
+
+
+def elapsed_fraction(now: dt.datetime, start: dt.datetime, end: dt.datetime) -> float:
+    """How far *now* is through the [start, end] span, clamped to 0.0 .. 1.0.
+
+    A bucket whose end has already passed reads 1.0 (complete); a bucket
+    that has not started yet reads 0.0.
+    """
+    span = (end - start).total_seconds()
+    if span <= 0:
+        return 1.0
+    return max(0.0, min(1.0, (now - start).total_seconds() / span))
+
+
+def project_bucket_total(observed: int, fraction: float) -> int | None:
+    """Linear pro-rata projection of a partial bucket's end-of-bucket count.
+
+    For RATE series — per-bucket counts that accumulate from zero inside
+    the bucket (reports opened, reports rejected). Assumes the rate
+    observed so far holds for the rest of the bucket: `observed /
+    fraction`, rounded to a whole count. Returns None when the elapsed
+    fraction is zero (nothing to extrapolate from). The result is never
+    below *observed* — a projection may not un-count what already
+    happened.
+    """
+    if fraction <= 0:
+        return None
+    return max(observed, round(observed / fraction))
+
+
+def project_bucket_level(previous: int, observed: int, fraction: float) -> int | None:
+    """Linear projection of a partial bucket's end-of-bucket *level*.
+
+    For LEVEL series — cumulative totals and end-of-bucket snapshots,
+    which do not start each bucket at zero but carry over from the
+    previous bucket. Only the movement *within* the bucket is
+    extrapolated: `previous + (observed - previous) / fraction`. A level
+    that is falling (a backlog being worked down) projects further down,
+    floored at zero, since these series are counts.
+
+    Returns None when the elapsed fraction is zero.
+    """
+    if fraction <= 0:
+        return None
+    return max(0, round(previous + (observed - previous) / fraction))
+
+
 def milestone_x(milestone_date: str, buckets_mode: str = "monthly") -> str:
     """Map a milestone date string (YYYY-MM-DD) to a bucket-axis label."""
     y = int(milestone_date[:4])

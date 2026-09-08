@@ -165,10 +165,21 @@ fetch.
 
 4. **Report the result.** Print the final HTML path and a short
    summary (total trackers, open count, latest-bucket category
-   breakdown, triage-median, PR-merge-median when configured). The
-   pipeline already echoes most of this to stdout — pass it
-   through verbatim and add the clickable
+   breakdown, triage-median, PR-merge-median when configured, and the
+   current-bucket projection). The pipeline already echoes most of
+   this to stdout — pass it through verbatim and add the clickable
    `file://<output-path>` line at the end.
+
+   The final bucket is always partial, so its counts are not
+   comparable with the complete buckets before it. Quote the
+   `Current-bucket projection` block as projections — never present a
+   projected number as an observed count, and keep the elapsed
+   percentage attached. Report the intake lines (`opened`,
+   `reported`) and the untriaged-backlog band; the rest of the block
+   is there for the charts and only needs quoting when the user asks
+   about that series. When the block says *skipped*, say the
+   projection was suppressed and why (too early in the bucket, a
+   single-bucket axis, or disabled) rather than silently omitting it.
 
 The full pipeline:
 
@@ -225,6 +236,16 @@ The most-overridden knobs by adopters tend to be:
 - **`triage.keywords:`** / **`triage.bot_prefixes:`** — the
   time-to-triage signal. Adopters whose security team uses
   different phrasing in triage-proposal comments override these.
+- **`projection:`** — the end-of-bucket projection for the current
+  (partial) bucket, drawn as a dotted continuation on every chart
+  that carries a projectable series (lifecycle bands, opened /
+  untriaged, cumulative, rejections) plus a header banner. Intake
+  series scale whole (`observed / elapsed`); cumulative totals and
+  snapshots scale only their movement inside the bucket; the
+  mean-time charts are not projected. `enabled: false` switches it
+  off; `min_elapsed_fraction:` (default `0.1`) suppresses it early
+  in a bucket, where one report extrapolates to a dozen. Low-volume
+  trackers may want a higher threshold.
 
 ---
 
@@ -262,6 +283,7 @@ overlay is being picked up.
 | `events/<N>.json` missing for some N | gh transient failure during paginate | Re-run; `fetch_events.py` resumes from cache |
 | `prs.json` has `{"error": ...}` entries | False-positive body parse (PR# doesn't exist) | Silently filtered at render; safe to ignore |
 | `c_rel` median jumps after re-fetch | New advisory shipped since last run | Expected — re-render is correct |
+| No projection banner on the dashboard | Current bucket below `projection.min_elapsed_fraction`, or the stat is disabled | Expected — stdout prints the skip reason |
 | Empty `c_prc` / `c_prm` / `c_rel` early buckets | No linked PR in those tracker buckets | Expected — not all early trackers had a fix PR |
 | Three PR charts missing entirely | `upstream_repo: null` in config (or env override) | By design — set `upstream_repo:` if you want them |
 | `ModuleNotFoundError: yaml` | PyYAML missing | Bundled fallback parser handles `default-config.yaml`; install pyyaml for richer overlays |

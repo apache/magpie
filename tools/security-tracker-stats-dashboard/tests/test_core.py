@@ -21,8 +21,10 @@ import pytest
 
 from security_tracker_stats_dashboard.core import (
     _minimal_yaml_load,
+    bucket_bounds,
     build_triage_regex,
     deep_merge,
+    elapsed_fraction,
     eval_predicate,
     is_bot_body,
     iter_months,
@@ -36,6 +38,8 @@ from security_tracker_stats_dashboard.core import (
     month_label,
     month_of,
     parse_dt,
+    project_bucket_level,
+    project_bucket_total,
     quarter_end,
     quarter_label,
     quarter_of,
@@ -277,6 +281,110 @@ class TestIterWeeks:
     def test_consecutive_count(self):
         result = list(iter_weeks(2026, 1, 2026, 10))
         assert len(result) == 10
+
+
+# ---------------------------------------------------------------------------
+# bucket_bounds / elapsed_fraction / project_bucket_total
+# ---------------------------------------------------------------------------
+
+
+class TestBucketBounds:
+    def test_monthly(self):
+        start, end = bucket_bounds(2026, 9, "monthly")
+        assert (start.year, start.month, start.day) == (2026, 9, 1)
+        assert (start.hour, start.minute, start.second) == (0, 0, 0)
+        assert (end.year, end.month, end.day) == (2026, 9, 30)
+        assert (end.hour, end.minute, end.second) == (23, 59, 59)
+
+    def test_monthly_february_leap(self):
+        _, end = bucket_bounds(2024, 2, "monthly")
+        assert end.day == 29
+
+    def test_quarterly(self):
+        start, end = bucket_bounds(2026, 3, "quarterly")
+        assert (start.year, start.month, start.day) == (2026, 7, 1)
+        assert (end.year, end.month, end.day) == (2026, 9, 30)
+
+    def test_weekly(self):
+        # ISO 2026-W01 runs Mon 2025-12-29 .. Sun 2026-01-04.
+        start, end = bucket_bounds(2026, 1, "weekly")
+        assert (start.year, start.month, start.day) == (2025, 12, 29)
+        assert (end.year, end.month, end.day) == (2026, 1, 4)
+
+    def test_is_utc(self):
+        start, end = bucket_bounds(2026, 9, "monthly")
+        assert start.tzinfo == dt.UTC
+        assert end.tzinfo == dt.UTC
+
+    def test_unknown_mode_raises(self):
+        with pytest.raises(ValueError):
+            bucket_bounds(2026, 9, "daily")
+
+
+class TestElapsedFraction:
+    def test_midway(self):
+        start, end = bucket_bounds(2026, 9, "monthly")
+        now = dt.datetime(2026, 9, 16, 0, 0, 0, tzinfo=dt.UTC)  # 15 of 30 days in
+        assert elapsed_fraction(now, start, end) == pytest.approx(0.5, abs=0.01)
+
+    def test_before_start_is_zero(self):
+        start, end = bucket_bounds(2026, 9, "monthly")
+        assert elapsed_fraction(dt.datetime(2026, 8, 20, tzinfo=dt.UTC), start, end) == 0.0
+
+    def test_after_end_is_one(self):
+        start, end = bucket_bounds(2026, 9, "monthly")
+        assert elapsed_fraction(dt.datetime(2026, 10, 5, tzinfo=dt.UTC), start, end) == 1.0
+
+    def test_zero_span_is_one(self):
+        t = dt.datetime(2026, 9, 1, tzinfo=dt.UTC)
+        assert elapsed_fraction(t, t, t) == 1.0
+
+
+class TestProjectBucketTotal:
+    def test_linear_extrapolation(self):
+        assert project_bucket_total(9, 0.3) == 30
+
+    def test_rounds_to_whole_count(self):
+        assert project_bucket_total(5, 0.3) == 17  # 16.67 -> 17
+
+    def test_complete_bucket_is_identity(self):
+        assert project_bucket_total(12, 1.0) == 12
+
+    def test_never_below_observed(self):
+        # Rounding must not project fewer reports than already happened.
+        assert project_bucket_total(9, 0.999) == 9
+
+    def test_zero_observed(self):
+        assert project_bucket_total(0, 0.4) == 0
+
+    def test_zero_fraction_is_none(self):
+        assert project_bucket_total(3, 0.0) is None
+
+
+class TestProjectBucketLevel:
+    def test_only_the_in_bucket_movement_is_scaled(self):
+        # 300 at the previous bucket end, +9 so far, a quarter elapsed
+        # -> +36 over the bucket. The 300 of history is NOT scaled.
+        assert project_bucket_level(300, 309, 0.25) == 336
+
+    def test_falling_level_projects_further_down(self):
+        # A backlog worked down from 16 to 14 in a quarter of the bucket.
+        assert project_bucket_level(16, 14, 0.25) == 8
+
+    def test_floored_at_zero(self):
+        assert project_bucket_level(4, 1, 0.1) == 0
+
+    def test_flat_level_stays_flat(self):
+        assert project_bucket_level(150, 150, 0.3) == 150
+
+    def test_complete_bucket_is_identity(self):
+        assert project_bucket_level(300, 309, 1.0) == 309
+
+    def test_zero_baseline_matches_rate_projection(self):
+        assert project_bucket_level(0, 9, 0.3) == project_bucket_total(9, 0.3)
+
+    def test_zero_fraction_is_none(self):
+        assert project_bucket_level(10, 12, 0.0) is None
 
 
 # ---------------------------------------------------------------------------

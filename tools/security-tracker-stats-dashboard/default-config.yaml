@@ -43,6 +43,24 @@ upstream_repo: apache/airflow   # null -> skip c_prc/c_prm/c_rel charts and the 
                                 # Mirrors <project-config>/project.md -> `upstream_repo`; ASF default is the airflow-s adopter's
                                 # value. Override in the overlay if the renderer should chart a different repo (or null).
 
+# End-of-bucket projection for the current (partial) bucket. The last
+# bucket on the axis is almost always cut short by "now", so every count
+# in it reads low next to complete buckets. When enabled, the renderer
+# extrapolates each projectable series to bucket end and draws the
+# result as a dotted continuation plus a header banner.
+#
+# Rate series (opened / rejected / reported in bucket) scale whole:
+# observed / elapsed_fraction. Level series (cumulative totals, the
+# lifecycle bands, the untriaged backlog) scale only their movement
+# inside the bucket: prev + (observed - prev) / elapsed_fraction. The
+# mean-time charts are not projected at all — a mean of the items so
+# far is already an estimate of the bucket's mean.
+projection:
+  enabled: true                 # false -> no projection banner, trace, or stdout line
+  min_elapsed_fraction: 0.1     # skip the projection until this much of the bucket has
+                                # elapsed; a couple of days into a month one report
+                                # extrapolates to fifteen, which is noise, not a signal
+
 milestones:
   - date: 2026-04-13
     label: skill adoption

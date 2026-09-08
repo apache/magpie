@@ -11,6 +11,7 @@
   - [Cache directory](#cache-directory)
   - [Refresh cadence](#refresh-cadence)
   - [Rejected-without-tracker ledger](#rejected-without-tracker-ledger)
+  - [Current-bucket projection](#current-bucket-projection)
   - [Example overlay (`security-tracker-stats.yaml`)](#example-overlay-security-tracker-statsyaml)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -100,6 +101,29 @@ The ASF default is `rejections-ledger`, matching
 `tracker.labels.rejections_ledger` in `project.md`. To turn the stat
 on, create the open ledger issue, label it, and keep this knob
 pointed at the same label.
+
+## Current-bucket projection
+
+```yaml
+projection:
+  enabled: true
+  min_elapsed_fraction: 0.1
+```
+
+Lives in the renderer's YAML overlay. The dashboard's final bucket is
+always cut short by "now", so every count in it reads low against
+complete buckets. When enabled, the renderer extrapolates each
+projectable series to its end-of-bucket value and draws a dotted
+continuation on every chart that carries one — the lifecycle bands,
+opened / untriaged / reported, the cumulative lines, and the
+rejections chart — plus a header banner. Intake counts scale whole;
+cumulative totals and end-of-bucket snapshots scale only their
+movement inside the bucket. The mean-time charts are not projected.
+
+`min_elapsed_fraction` is the floor below which the projection is
+suppressed as noise (default `0.1` — one tenth of the bucket).
+Low-volume trackers, where a single report swings the projection by
+tens, want a higher floor; `enabled: false` turns the stat off.
 
 ## Example overlay (`security-tracker-stats.yaml`)
 
