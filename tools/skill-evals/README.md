@@ -63,7 +63,12 @@ Suites are currently implemented for:
   grading adds a judge CLI (default `claude -p --model haiku`).
 - **Credentials / auth:** None in print mode; in `--cli` mode whatever
   the chosen model CLI requires (e.g. a Claude / API key, or a local
-  Ollama install).
+  Ollama install). **Run `--cli` mode outside any sandbox that denies
+  the CLI its credentials.** An agent sandbox typically blocks the
+  keychain and `~/.claude.json`, so `claude -p` returns `Not logged in`;
+  every case then reports ERROR with "nothing was graded" (see *JSON
+  extraction* below). Before that guard existed the same situation
+  reported a green run.
 - **Network:** Evals mock all external tool calls, so the harness itself
   makes no network calls; any network use comes from the model CLI you
   point `--cli` / `--grader-cli` at.
@@ -133,17 +138,23 @@ stdout as JSON, look for the first ```` ```json ```` fenced block, then
 the largest balanced `{...}` (or `[...]`) substring. Models that wrap
 output in prose or markdown fences still work.
 
-If none of those strategies finds JSON, the runner silently wraps the
-raw stdout as `{"raw_output": <stdout>}` and proceeds with normal
-field-aware grading. Under the intersection-only comparator this means
-a model that refused to emit JSON (e.g. a prose-only refusal) will
-PASS any case whose `expected.json` doesn't declare a `raw_output`
-key. A non-zero exit from the CLI is wrapped the same way as
-`{"raw_output": <stdout>, "stderr": <stderr>, "exit_code": <rc>}`, so
-refusals that signal via exit code (some safety filters) also fall
-back to the comparator. Suite authors who want to gate on the prose
-can add `"raw_output": "<expected text>"` to their `expected.json`.
-In `--exact` mode, non-JSON and non-zero exits still ERROR.
+If none of those strategies finds JSON, the runner wraps the raw stdout
+as `{"raw_output": <stdout>}`. A non-zero exit is wrapped the same way
+plus `stderr` and `exit_code`. That wrap exists so a suite can still
+grade a step whose output is prose — either by declaring `raw_output`
+(or `stderr` / `exit_code`) in `expected.json`, or by pointing a
+structural assertion's `field` at one of them in `assertions.json`
+(`security-issue-deduplicate/step-3-merge-body` does the latter).
+
+**If nothing asserts on a wrap key, the case is an ERROR, not a PASS.**
+The intersection-only comparator only checks keys present on both sides,
+so a wrap that nothing addresses compares nothing — and reporting PASS
+there means a CLI that never produced an answer yields a fully green
+run. That is not hypothetical: a sandboxed `claude -p` returns
+`Not logged in`, and before this guard existed a full suite reported
+`35/35 passed` with no model having graded a single case. The ERROR
+message names the cause and prints the first 120 characters of stdout.
+In `--exact` mode, non-JSON and non-zero exits ERROR as they always did.
 
 **Structural cases (composition steps).** When `expected.json` describes
 prose properties via boolean flags (`has_security_model_quote`,

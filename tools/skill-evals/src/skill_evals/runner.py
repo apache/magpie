@@ -651,6 +651,30 @@ _DETERMINISTIC_ASSERTION_TYPES: frozenset[str] = frozenset(
 _VALID_ASSERTION_TYPES: frozenset[str] = _DETERMINISTIC_ASSERTION_TYPES | {"judge"}
 
 
+# Keys the runner synthesises when the CLI produces no usable JSON. Wrapping
+# is only meaningful if the expected side actually asserts on one of them;
+# otherwise the intersection-only comparator has nothing to compare and the
+# case would report PASS without anything having been graded.
+_WRAP_KEYS = ("raw_output", "stderr", "exit_code")
+
+
+def wrap_is_asserted(expected: object, assertions: dict[str, dict]) -> bool:
+    """Return True when the expected side asserts on a synthetic wrap key.
+
+    Two legitimate ways to gate on a CLI's prose: a top-level ``raw_output``
+    (or ``stderr`` / ``exit_code``) key in ``expected.json``, or a structural
+    assertion in ``assertions.json`` whose ``field`` addresses one. Either
+    makes the wrap meaningful. Neither means the wrap asserts nothing.
+    """
+    for spec in assertions.values():
+        field = spec.get("field")
+        if isinstance(field, str) and field.split(".")[0] in _WRAP_KEYS:
+            return True
+    if isinstance(expected, dict):
+        return any(key in expected for key in _WRAP_KEYS)
+    return False
+
+
 def load_assertions(fixtures_dir: Path) -> dict[str, dict]:
     """Return the structural-assertion specs for cases in this fixtures dir.
 
@@ -1246,11 +1270,22 @@ def main(argv: list[str] | None = None) -> int:
                     print(stdout)
                 continue
             # Field-aware mode: a non-zero exit (often a refusal or a CLI
-            # safety filter) is wrapped just like a no-JSON case. The
-            # intersection-only comparator decides whether this case still
-            # passes based on the keys expected.json declares. Wrap is a
-            # silent implementation detail — the case still reports as
-            # PASS or FAIL like any other.
+            # safety filter) is wrapped just like a no-JSON case, so a suite
+            # that gates on the prose can still grade it. But if nothing
+            # asserts on a wrap key, the comparator would compare nothing and
+            # report PASS — so that case is an ERROR, not a pass.
+            if not wrap_is_asserted(expected, assertions):
+                print(
+                    f"ERROR   {case_label} (CLI exited {rc} and produced no JSON; "
+                    f"expected.json asserts no {'/'.join(_WRAP_KEYS)} key, so nothing was graded)"
+                )
+                errored += 1
+                if args.verbose:
+                    print("--- STDOUT ---")
+                    print(stdout)
+                    print("--- STDERR ---")
+                    print(stderr)
+                continue
             actual = {"raw_output": stdout, "stderr": stderr, "exit_code": rc}
         else:
             actual, parse_err = extract_json_from_output(stdout)
@@ -1263,10 +1298,23 @@ def main(argv: list[str] | None = None) -> int:
                         print("--- STDOUT ---")
                         print(stdout)
                     continue
-                # Field-aware mode: wrap the prose as a synthetic object so
-                # the intersection-only comparator can proceed. A model that
-                # produced prose-only output will PASS unless expected.json
-                # asserts on `raw_output`.
+                # Field-aware mode: wrap the prose as a synthetic object so a
+                # suite that gates on it can still grade it. Without such an
+                # assertion the comparator has nothing to compare, and
+                # reporting PASS there is how an unauthenticated or broken CLI
+                # produces a fully green run — the failure this guard exists
+                # to catch. See the "no JSON" note in README.md.
+                if not wrap_is_asserted(expected, assertions):
+                    print(
+                        f"ERROR   {case_label} ({parse_err}; expected.json asserts no "
+                        f"{'/'.join(_WRAP_KEYS)} key, so nothing was graded). "
+                        f"First 120 chars of stdout: {stdout.strip()[:120]!r}"
+                    )
+                    errored += 1
+                    if args.verbose:
+                        print("--- STDOUT ---")
+                        print(stdout)
+                    continue
                 actual = {"raw_output": stdout}
 
         if structural:

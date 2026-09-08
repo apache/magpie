@@ -51,6 +51,7 @@ from skill_evals.runner import (
     load_step_config,
     main,
     run_cli,
+    wrap_is_asserted,
 )
 
 _TESTS_DIR = Path(__file__).resolve().parent
@@ -896,12 +897,18 @@ def test_cli_mode_non_json_under_exact_errors(tmp_path: Path, capsys: pytest.Cap
     assert "1 errored" in stdout
 
 
-def test_cli_mode_non_json_wraps_and_passes_under_field_aware(
+def test_cli_mode_non_json_errors_when_nothing_asserts_on_the_wrap(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ):
-    """Default field-aware mode wraps prose as {"raw_output": ...} so the
-    intersection-only comparator can proceed. With expected.json declaring
-    no raw_output key, the case passes."""
+    """A CLI that emits no JSON is an ERROR, not a PASS.
+
+    The wrap into ``{"raw_output": ...}`` only helps a suite that gates on the
+    prose. When ``expected.json`` declares none of the wrap keys, the
+    intersection-only comparator compares nothing, and reporting PASS there
+    means an unauthenticated CLI yields a fully green run — which is exactly
+    how a sandboxed `claude -p` returning "Not logged in" once produced a
+    reported 35/35 on suites no model had graded.
+    """
     fixtures_dir, _ = _make_cli_case(tmp_path, expected={"verdict": "ok"})
     rc, stdout, _ = _run_main(
         capsys,
@@ -909,13 +916,14 @@ def test_cli_mode_non_json_wraps_and_passes_under_field_aware(
             "--cli",
             "echo 'just prose, no JSON here'",
             "--grader-cli",
-            _GRADER_YES,  # not actually invoked; no overlapping keys
+            _GRADER_YES,  # not invoked: the case never reaches grading
             str(fixtures_dir),
         ],
     )
-    assert rc == 0
-    assert "PASS" in stdout
-    assert "1 passed" in stdout
+    assert rc == 1
+    assert "ERROR" in stdout
+    assert "1 errored" in stdout
+    assert "nothing was graded" in stdout
 
 
 def test_cli_mode_non_json_wrap_can_assert_on_raw_output(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
@@ -946,10 +954,15 @@ def test_cli_mode_non_zero_exit_under_exact_errors(tmp_path: Path, capsys: pytes
     assert "ERROR" in stdout
 
 
-def test_cli_mode_non_zero_exit_wraps_under_field_aware(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
-    """In the default field-aware mode, a non-zero CLI exit is wrapped as
-    raw_output (+ stderr + exit_code) and the intersection-only comparator
-    decides whether the case passes."""
+def test_cli_mode_non_zero_exit_errors_when_nothing_asserts_on_the_wrap(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
+    """A non-zero CLI exit with nothing asserting on the wrap is an ERROR.
+
+    Same reasoning as the no-JSON case: some safety filters and auth failures
+    signal via exit code rather than prose, and a silent PASS there hides a
+    run in which nothing was graded.
+    """
     fixtures_dir, _ = _make_cli_case(tmp_path, expected={"verdict": "ok"})
     rc, stdout, _ = _run_main(
         capsys,
@@ -961,8 +974,44 @@ def test_cli_mode_non_zero_exit_wraps_under_field_aware(tmp_path: Path, capsys: 
             str(fixtures_dir),
         ],
     )
+    assert rc == 1
+    assert "ERROR" in stdout
+    assert "nothing was graded" in stdout
+
+
+def test_cli_mode_non_zero_exit_still_grades_when_expected_asserts_exit_code(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
+    """A suite that deliberately gates on the exit code still grades normally."""
+    fixtures_dir, _ = _make_cli_case(tmp_path, expected={"exit_code": 1})
+    rc, stdout, _ = _run_main(
+        capsys,
+        ["--cli", "false", "--grader-cli", _GRADER_YES, str(fixtures_dir)],
+    )
     assert rc == 0
     assert "PASS" in stdout
+
+
+def test_wrap_is_asserted_via_structural_assertions_field():
+    """A structural assertion addressing raw_output makes the wrap meaningful.
+
+    This is the shape `security-issue-deduplicate/step-3-merge-body` uses: the
+    step's output is prose, and `assertions.json` gates on it with regex and
+    judge predicates against `field: raw_output`. That must keep grading.
+    """
+    assertions = {
+        "has_details_disclosure": {"field": "raw_output", "type": "regex", "pattern": "<details>"},
+    }
+    assert wrap_is_asserted({"verdict": "ok"}, assertions) is True
+
+
+def test_wrap_is_asserted_false_when_nothing_addresses_a_wrap_key():
+    assertions = {"has_thing": {"field": "body.summary", "type": "regex", "pattern": "x"}}
+    assert wrap_is_asserted({"verdict": "ok"}, assertions) is False
+
+
+def test_wrap_is_asserted_via_expected_json_key():
+    assert wrap_is_asserted({"raw_output": "prose"}, {}) is True
 
 
 def test_cli_mode_extracts_json_from_fenced_response(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
