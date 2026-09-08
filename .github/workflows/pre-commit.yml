@@ -124,24 +124,33 @@ jobs:
         # thing worth reading. Failures still print their output, and
         # `--show-diff-on-failure` still shows what a fixer hook changed.
         #
-        # `script -qec … /dev/null` allocates a pty so prek uses its
-        # streaming renderer, which is the only way to get live progress:
-        # with stdout a plain pipe prek suppresses that renderer and emits
-        # one block when the whole run finishes. `-e` propagates the
-        # command's exit status, without which a failing prek would be
-        # reported as a passing step.
+        # No `--verbose`, and no pty. Live progress is not achievable here;
+        # this was measured on the runner rather than assumed. Three
+        # configurations, all with every hook-result line landing in the
+        # same one-second timestamp ~106s into the step:
         #
-        # No `--no-progress` here, despite the redraw escapes it would
-        # remove. That flag hides *the streaming renderer itself*, not
-        # just its spinner — pty plus --no-progress streams nothing, which
-        # is both halves of the cost and neither half of the benefit. The
-        # progress rendering and the live output are the same mechanism.
+        #   plain pipe                       one block at the end
+        #   pty (`script -qec`)              one block at the end
+        #   pty + `--no-progress`            one block at the end
+        #
+        # Locally, a pty does make prek stream (spinner, in-place redraws),
+        # so the renderer works — but that output does not survive to the
+        # Actions log, which shows only the final state. `--verbose` never
+        # helped either: with stdout a pipe, first output and total runtime
+        # coincide with the flag and without it.
+        #
+        # So the plain form is kept: same information, no `script`
+        # dependency, and no `-e` exit-status footgun (without `-e`,
+        # `script` returns its own status and a failing prek reports as a
+        # passing step). `--verbose` is dropped because its only remaining
+        # effect was to add every passing hook's stdout to that final
+        # block. Failures still print their output, and
+        # `--show-diff-on-failure` still shows what a fixer hook changed.
         #
         # Note the repeated flag: `--skip a,b` is NOT a list — prek takes a
         # single HOOK|PROJECT per occurrence, and a comma-joined value
         # matches no hook at all. It warns rather than failing, so the
         # comma form looks like it worked while skipping nothing.
         run: >-
-          script -qec "prek run --show-diff-on-failure --color=always
-          --all-files --skip workspace-pytest --skip identity"
-          /dev/null
+          prek run --show-diff-on-failure --color=always --all-files
+          --skip workspace-pytest --skip identity
