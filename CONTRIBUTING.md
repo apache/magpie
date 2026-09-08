@@ -209,10 +209,10 @@ every piece of context it needs from some combination of the four
 │
 ├── .claude/
 │   └── skills/           # Agent workflows (invoked via the Skill tool)
-│       ├── security-*/   # Security-issue lifecycle (10 skills)
-│       ├── pr-management-*/  # PR triage, review, mentor, stats (4 skills)
-│       ├── issue-*/      # Issue triage, fix, reassess, reproducer, stats (5 skills)
-│       ├── setup-*/      # Adoption, sandbox install/verify/update (7 skills)
+│       ├── security-*/   # Security-issue lifecycle + security model (15 skills)
+│       ├── pr-management-*/  # PR triage, review, mentor, stats (5 skills)
+│       ├── issue-*/      # Issue triage, fix, reassess, reproducer, stats (8 skills)
+│       ├── setup-*/      # Adoption, sandbox install/verify/update (8 skills)
 │       ├── contributor-nomination/
 │       ├── write-skill/
 │       └── list-skills/

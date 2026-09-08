@@ -324,9 +324,11 @@ chain used when an adopter tailors a framework workflow:
 ```text
 .apache-magpie-local/<skill>.md
   →  .apache-magpie-overrides/<skill>.md
-    →  organization defaults
-      →  framework default
+    →  framework default
 ```
+
+There is no organization layer in the per-skill chain: an organization
+supplies config-key defaults to the chain above, not skill overrides.
 
 `.apache-magpie-local/` is the personal, gitignored layer and takes
 precedence over the committed `.apache-magpie-overrides/` layer when both

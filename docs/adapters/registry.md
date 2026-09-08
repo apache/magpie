@@ -49,8 +49,8 @@ extension point = a documented, labelled slot with a tracking issue.
 | Capability contract | Shipping adapter(s) | Extension points (tracked) |
 |---|---|---|
 | [`tools/cve-tool`](../../tools/cve-tool/) | [`cve-tool-vulnogram`](../../tools/cve-tool-vulnogram/) (ASF) | MITRE form, CVE.org direct, GHSA |
-| [`tools/mail-archive`](../../tools/mail-archive/) | [`ponymail`](../../tools/ponymail/) (ASF) | Hyperkitty, Discourse, Google Groups, GitHub Discussions |
-| [`tools/mail-source`](../../tools/mail-source/) | mbox, IMAP | Mailman 3 ([#306](https://github.com/apache/magpie/issues/306)) |
+| [`tools/mail-archive`](../../tools/mail-archive/) | [`ponymail`](../../tools/ponymail/) (ASF), [`gmail`](../../tools/gmail/), [`sourcehut`](../../tools/sourcehut/) | Hyperkitty, Discourse, Google Groups, GitHub Discussions |
+| [`tools/mail-source`](../../tools/mail-source/) | mbox, IMAP, [`gmail`](../../tools/gmail/), [`maildir`](../../tools/maildir/), [`ponymail`](../../tools/ponymail/) (ASF) | Mailman 3 ([#306](https://github.com/apache/magpie/issues/306)) |
 | [`tools/forwarder-relay`](../../tools/forwarder-relay/) | ASF-security ([`tools/gmail/asf-relay.md`](../../tools/gmail/asf-relay.md)) | huntr.com, HackerOne, GHSA relay |
 | [`tools/scan-format`](../../tools/scan-format/) | ASVS | other scanner formats |
 | [`tools/vcs`](../../tools/vcs/) | Git, Mercurial, Fossil | Subversion [\#602](https://github.com/apache/magpie/issues/602), Jujutsu [\#603](https://github.com/apache/magpie/issues/603), Perforce [\#605](https://github.com/apache/magpie/issues/605) |

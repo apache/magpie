@@ -120,17 +120,36 @@ Adapter layout is enforced: `validate_organization_structure` in
 `tools/skill-and-tool-validator` requires every `organizations/<org>/`
 directory except `_template` to contain `README.md` and `organization.md`.
 Omitting either results in a HARD violation, so an incomplete adapter fails
-the validator before any skill can resolve against it.
+the validator before any skill can resolve against it. It is not a separate
+command — the check runs inside the top-level `skill-and-tool-validate`
+sweep above.
+
+Organization *references* are enforced alongside it: every `organization:`
+value — in a skill's `SKILL.md` frontmatter, a tool README's
+`**Organization:**` line, a skill-source descriptor, and a
+`skills/<name>/source.md` pointer — must name a directory under
+`organizations/` (`known_organizations()`, which excludes `_template`).
+A typo or a dangling adapter name is therefore a HARD violation rather than
+a silent fall-through to the framework default.
 
 ## Known gaps
 
-- The reflow of `projects/_template/` + `projects/non-asf-example/` to
-  set `organization:` and drop the now-inherited values is not yet done
-  (tracked as the next change); until then the ASF defaults exist in both
-  `projects/_template/project.md` and `organizations/ASF/`.
-- The family-level `organization:` scope (replacing `asf: true/false`)
-  and the external-adapter discovery index are separate follow-ups.
-- **Smoke coverage is narrow.** The non-ASF profile smoke currently proves
-  one path. The next coverage pass should exercise security intake,
-  release backend selection, and contributor governance so organization
-  defaults are tested across the surfaces most likely to drift.
+- **The structural check verifies file presence, not manifest content.**
+  `validate_organization_structure` requires `README.md` and
+  `organization.md` to exist; nothing validates what `organization.md`
+  actually declares. A present-but-empty manifest passes, and the keys it
+  omits then resolve silently to framework defaults instead of failing
+  loudly. Every other organization check in `skill-and-tool-validator` is
+  referential ("is this org name known?"), not schema-level.
+- **`skill-sources.md` is outside the required set.** All three in-tree
+  adapters carry one, `organizations/_template/skill-sources.md` tells
+  authors to keep the file with an empty list when the organization curates
+  nothing, and the validator globs `organizations/*/skill-sources.md` when
+  collecting source descriptors — but the filename is absent from
+  `_ORG_REQUIRED_FILES`, so an adapter that drops it is still structurally
+  valid.
+- **The `_template` authoring path is not covered by an eval.** `ASF` and
+  `independent` are the only adapters in the tree, and no eval exercises
+  authoring a fresh organization from `organizations/_template/`, so the
+  "new organization with no skill edits" criterion rests on the two in-tree
+  examples rather than on a test.

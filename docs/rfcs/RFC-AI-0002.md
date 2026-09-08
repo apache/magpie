@@ -7,6 +7,7 @@
 
 - [RFC-AI-0002: Secure Agents setup](#rfc-ai-0002-secure-agents-setup)
   - [Abstract](#abstract)
+  - [Status of this document](#status-of-this-document)
   - [Motivation](#motivation)
   - [Proposal](#proposal)
     - [Three-layer defence (overview)](#three-layer-defence-overview)
@@ -42,11 +43,11 @@
 
 # RFC-AI-0002: Secure Agents setup
 
-| **Status** | Draft |
+| **Status** | Implemented |
 |---|---|
 | **Author** | Jarek Potiuk ([@potiuk](https://github.com/potiuk)) |
 | **Created** | 2026-05-02 |
-| **Last updated** | 2026-05-02 |
+| **Last updated** | 2026-09-08 |
 | **Discussion** | *TBD — link to mailing list thread once posted* |
 | **Reference implementation** | [`apache/magpie`](https://github.com/apache/magpie) |
 | **Related documents** | [`secure-agent-setup.md`](https://github.com/apache/magpie/blob/main/docs/setup/secure-agent-setup.md), [`secure-agent-internals.md`](https://github.com/apache/magpie/blob/main/docs/setup/secure-agent-internals.md) |
@@ -55,11 +56,19 @@
 
 ## Abstract
 
-This RFC proposes a layered, opt-in secure setup that an ASF project handling **pre-disclosure or otherwise sensitive material** (security CVE trackers, embargoed reports, internal credentials) can adopt to safely run an AI coding agent (Claude Code today, the shape generalises) against that material on a developer workstation.
+This RFC proposes a layered, opt-in secure setup that an ASF project handling **pre-disclosure or otherwise sensitive material** (security CVE trackers, embargoed reports, internal credentials) can adopt to safely run an AI coding agent (Claude Code, OpenCode, Kiro, or any other agent CLI — the shape is agent-neutral) against that material on a developer workstation.
 
 The setup is built around four layers — a **clean-env shell wrapper**, a **filesystem sandbox** (bubblewrap on Linux, Seatbelt on macOS), a set of **tool-permission rules** in the agent's own configuration, and a **forced-confirmation** policy for write-side actions visible to others — plus two **visibility mechanisms** (a status-line indicator and a per-call bypass-warn hook) that make sandbox state continuously legible to the operator.
 
 A reference implementation ships in the [`apache/magpie`](https://github.com/apache/magpie) Top-Level Project (agent-assisted repository maintainership tooling for a tracker repo). This RFC abstracts the lessons of that implementation into a pattern other ASF projects can adopt with or without depending on `magpie` itself.
+
+## Status of this document
+
+**Implemented.** Every layer and visibility mechanism this RFC proposes ships in the reference implementation and is covered by tests: the clean-env wrapper ([`tools/agent-isolation/agent-iso.sh`](https://github.com/apache/magpie/blob/main/tools/agent-isolation/agent-iso.sh)), the filesystem sandbox and the tool-permission rules ([`.claude/settings.json`](https://github.com/apache/magpie/blob/main/.claude/settings.json)), the forced-confirmation policy, the bypass-warn hook, and the sandbox-state status line. The adopter-facing install path and the post-upgrade verification ritual are documented in [`secure-agent-setup.md`](https://github.com/apache/magpie/blob/main/docs/setup/secure-agent-setup.md) and driven by the `setup-isolated-setup-*` skills.
+
+The setup is no longer Claude-Code-only. The wrapper ships named entry points for Claude Code, OpenCode and Kiro plus a generic `agent-iso <cli>` form for any other agent CLI, each with its own test suite; [`sandbox-lint`](https://github.com/apache/magpie/tree/main/tools/sandbox-lint) and [`permission-audit`](https://github.com/apache/magpie/tree/main/tools/permission-audit) carry per-agent adapters over the same posture model.
+
+`Implemented` describes the layers proposed above; it does not close the gaps this RFC already records. The macOS network-egress gap (see *Drawbacks*) and the items under *Open questions* remain open, and neither is a prerequisite for adopting the layers described here.
 
 ## Motivation
 

@@ -113,7 +113,7 @@ adopter's `<project-config>/` directory:
 
 ## Status
 
-**Experimental.** All seven skills are on main with eval suites; no
+**Experimental.** All nine skills are on main with eval suites; no
 adopter has run the full contributor-to-committer path end-to-end under
 evaluation conditions.
 

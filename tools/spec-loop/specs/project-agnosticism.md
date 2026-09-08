@@ -156,9 +156,11 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
   coupled tokens automatically on every validator run.  As of the
   `low-confidence-asf-coupling-pass` work (mechanical cleanup + suppression
   of low-confidence hits for `organization:`-scoped families), the live
-  catalogue produces **0 asf-coupling warnings**; remaining bare `PMC` /
-  `ICLA` / `announce@apache.org` references are inside org-scoped skills
-  where ASF-specific text is appropriate.  No remaining tooling gap — the
+  catalogue produces **3 asf-coupling warnings** — `release-audit-report` and
+  `release-promote` (`svn` invocations, remedy:adapter, pending the #602
+  Subversion backend) and `dependency-license-audit` (a bare `PMC`
+  reference). Other bare `PMC` / `ICLA` / `announce@apache.org` references
+  are inside org-scoped skills where ASF-specific text is appropriate.  No remaining tooling gap — the
   lint exists and a human judges any new hits.  In the same pass:
   `skills/pr-management-triage/comment-templates.md` was generalised —
   `security@apache.org` replaced with the `<security-list>` placeholder and
@@ -169,10 +171,11 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
 - **Non-ASF adopter profile fixture shipped** — `projects/non-asf-example/`
   contains a worked non-ASF profile (Velox Stream: GitHub-hosted, DCO,
   GHSA intake, MITRE CNA, GitHub Releases). The
-  `tools/skill-evals/evals/non-asf-profile-smoke/` eval suite (6 cases
-  across 2 steps) drives `issue-stale-sweep` through it and asserts the
-  skill proceeds without any Apache-specific fields, turning acceptance #3
-  into a measurable gate.
+  `tools/skill-evals/evals/non-asf-profile-smoke/` eval suite (15 cases
+  across 6 steps) drives `issue-stale-sweep`, security intake, release-backend
+  selection, contributor governance, and reviewer routing through it, and
+  asserts each proceeds without any Apache-specific fields, turning
+  acceptance #3 into a measurable gate.
 - **The capability-flag vocabulary for security intake and CVE allocation
   is now documented** in
   `projects/_template/security-intake-config.md` (intake channel,

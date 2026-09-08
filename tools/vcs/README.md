@@ -103,10 +103,11 @@ not add its own prompt.
 |---|---|---|
 | `git` | **complete** | GitHub's native VCS; the default binding |
 | `hg` (Mercurial) | **complete** | Mercurial VCS support |
+| `fossil` | **complete** | Fossil SCM; pairs with the [`tools/fossil`](../fossil/) forge bridge |
 | `svn` (Subversion) | extension point | detected; centralized model (`distributed = False`) → [#602](https://github.com/apache/magpie/issues/602) |
 
 Detection is real for every backend (so `magpie-vcs detect` reports the
-working copy's VCS correctly); the non-Git/non-Hg backends raise an actionable
+working copy's VCS correctly); the remaining extension-point backends raise an actionable
 `VCSError` naming their tracking issue until the full binding lands.
 
 ### Adding a backend

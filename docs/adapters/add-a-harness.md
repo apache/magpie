@@ -156,6 +156,7 @@ case "${SPEC_LOOP_HARNESS:-$(basename "$AGENT")}" in
     *cursor*)     HARNESS=cursor ;;
     *gemini*)     HARNESS=gemini ;;
     *opencode*)   HARNESS=opencode ;;
+    *kiro*)       HARNESS=kiro ;;
     *<runtime>*)  HARNESS=<runtime> ;;    # add your case here
     *)            HARNESS=claude ;;
 esac
@@ -212,11 +213,11 @@ README. When your new runtime uses one of these tools, update its line:
 
 | Tool | Current harness declaration |
 |---|---|
-| `tools/agent-guard` | `**Harness:** Claude Code, OpenCode` |
+| `tools/agent-guard` | `**Harness:** Claude Code, OpenCode, Kiro` |
 | `tools/agent-isolation` | `**Harness:** agnostic` |
-| `tools/permission-audit` | `**Harness:** Claude Code, OpenCode` |
-| `tools/sandbox-lint` | `**Harness:** Claude Code, OpenCode` |
-| `tools/spec-loop` | `**Harness:** Claude Code, Codex, Cursor, Gemini CLI, OpenCode` |
+| `tools/permission-audit` | `**Harness:** agnostic` |
+| `tools/sandbox-lint` | `**Harness:** Claude Code, Codex, Cursor, Gemini CLI, OpenCode, Kiro` |
+| `tools/spec-loop` | `**Harness:** Claude Code, Codex, Cursor, Gemini CLI, OpenCode, Kiro` |
 
 `tools/agent-isolation` already exposes a harness-agnostic `agent-iso <cli>` entry
 point — no update needed for new runtimes (see

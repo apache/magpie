@@ -60,15 +60,43 @@ or PR typically carries one label from each dimension that applies.
 
 What part of the framework does this touch?
 
+Ten of these labels mirror the **canonical skill-family vocabulary** —
+the closed set every skill declares in its `family:` frontmatter key,
+enforced as `ALLOWED_FAMILIES` by
+[`skill-and-tool-validator`](../tools/skill-and-tool-validator/) and
+summarised in [`README.md` → Skill families](../README.md#skill-families).
+Two of them (`setup`, `utilities`) are the always-on families wired on
+every install; the other eight are opt-in (see
+[`skills/setup/SKILL.md`](../skills/setup/SKILL.md) Golden rule 8).
+
+| Label | Type | Covers |
+|---|---|---|
+| `family:setup` | always-on | `setup` plus the `setup-*` skills — framework adoption / upgrade / verify, isolated-agent sandbox setup, shared-config sync ([`docs/setup/`](setup/README.md)) |
+| `family:utilities` | always-on | Framework meta-skills: `write-skill`, `optimize-skill`, `skill-reconciler`, `report-framework-issue`, `list-skills` ([`docs/utilities/`](utilities/README.md)) |
+| `family:security` | opt-in | `security-issue-*`, `security-cve-allocate`, `security-model-*`, `security-tracker-stats-dashboard` ([`docs/security/`](security/README.md)) |
+| `family:issue` | opt-in | `issue-*` skills (`issue-triage`, `issue-reproducer`, `issue-fix-workflow`, `issue-reassess`, `issue-reassess-stats`, `issue-stale-sweep`, `issue-deduplicate`, `issue-backlog-stats`) ([`docs/issue-management/`](issue-management/README.md)) |
+| `family:pr-management` | opt-in | `pr-management-*` skills plus `pr-stale-sweep`, `pre-first-pr-check`, `reviewer-routing` ([`docs/pr-management/`](pr-management/README.md)) |
+| `family:release-management` | opt-in | `release-*` skills — planning, RC cut, `[VOTE]` draft + tally, promote, `[ANNOUNCE]`, archive sweep, audit report, keys sync ([`docs/release-management/`](release-management/README.md)) |
+| `family:repo-health` | opt-in | Read-only repository audits and their follow-up fixes: `ci-runner-audit`, `workflow-security-audit`, `dependency-audit`, `dependency-license-audit`, `license-compliance-audit`, `flaky-test-triage`, `audit-finding-fix` ([`docs/repo-health/`](repo-health/README.md)) |
+| `family:pairing` | opt-in | `pairing-self-review`, `pairing-multi-agent-review` ([`docs/pairing/`](pairing/README.md)) |
+| `family:mentoring` | opt-in | `mentoring-welcome`, `newcomer-issue-explainer`, `good-first-issue-author`, `good-first-issue-sweep` ([`docs/mentoring/`](mentoring/README.md)) |
+| `family:contributor-growth` | opt-in | The path-to-committer track: `contributor-activity-sweep`, `contributor-sentiment`, `contributor-to-committer`, `contributor-nomination`, `committer-onboarding`, `onboarding-concierge` ([`docs/contributor-growth/`](contributor-growth/README.md)) |
+
+Three further `family:*` labels cover parts of the repository that are
+**not** a skill family. They exist only as issue / PR labels and never
+appear in a `family:` frontmatter key — the validator would reject them:
+
 | Label | Covers |
 |---|---|
-| `family:pr-management` | `pr-management-*` skills |
-| `family:security` | `security-*` skills, `security-tracker-stats-dashboard` |
-| `family:setup` | `setup-*` skills, framework adoption, agent-sandbox setup |
-| `family:issue` | `issue-*` skills (`issue-triage`, `issue-fix-workflow`, `issue-reassess`, `issue-reassess-stats`, `issue-reproducer`, `issue-stale-sweep`, `issue-deduplicate`, `issue-backlog-stats`) |
-| `family:tools` | Substrate tools under `tools/*` (CLI bridges, agent-runtime adapters, mail-source backends) |
-| `family:ci` | `.github/` workflows, prek, validators |
+| `family:tools` | Substrate tools and capability adapters under `tools/*` (CLI bridges, agent-runtime adapters, mail-source backends) |
+| `family:ci` | `.github/` workflows, prek hooks, validators |
 | `family:docs` | `docs/`, `MISSION.md`, READMEs |
+
+A change that spans both dimensions carries both labels — a new
+mentoring skill and its guide is `family:mentoring` + `family:docs`.
+The two tables above are the reference for the repository's label set:
+if the label you need is not on the repository yet, a committer creates
+it from here rather than reaching for an approximate existing one.
 
 ### 2. capability — two axes (skills vs tools)
 
@@ -104,7 +132,6 @@ framework substrate:
 | `contract:tracker` | contract | Issue / board / label backend. |
 | `contract:source-control` | contract | Branch / commit / diff / push (VCS). |
 | `contract:change-request` | contract | Proposed-change review + merge gate (pull request / merge request / Gerrit change). |
-
 | `contract:mail-archive` | contract | Mailing-list / forum archive reads. |
 | `contract:mail-source` | contract | Inbound-mail ingestion (mbox / IMAP / …). |
 | `contract:mail-create` | contract | Outbound mail composition. Always produces an editable draft; sending is a separate human-approved step on that draft (draft mode = default and the only mode implemented today; send mode declared but unimplemented — no autonomous send). |
@@ -260,8 +287,10 @@ Capabilities for every skill currently in
 
 Tools under [`tools/`](../tools/). A tool's capability is the interface
 it provides; a tool may carry more than one value (separated by `+`) when
-it implements multiple contracts (e.g. `tools/gmail` provides both
-`mail-source` and `mail-create`).
+it provides more than one interface — either several contracts (e.g.
+`tools/gmail` provides `mail-source`, `mail-archive`, and `mail-create`)
+or a contract-free mix of substrates (e.g. `tools/spec-inventory` is
+`substrate:framework-dev` + `substrate:analytics`).
 
 | Tool | Capability / capabilities | Role |
 |---|---|---|
@@ -308,7 +337,7 @@ it implements multiple contracts (e.g. `tools/gmail` provides both
 | [`tools/symlink-lint`](../tools/symlink-lint/) | `substrate:framework-dev` | Self-adoption symlink hygiene — rejects cyclic symlinks, misdirected skill relays (canonical/relay target-correctness), and incomplete self-adoption symlink sets |
 | [`tools/pilot-report-validator`](../tools/pilot-report-validator/) | `substrate:framework-dev` | Adopter pilot-report validator — required frontmatter keys, no unfilled placeholders, valid profile, and required body sections; counterpart to `spec-validator` for `docs/pilot-report-template.md` |
 | [`tools/skill-reconciler-diff`](../tools/skill-reconciler-diff/) | `substrate:framework-dev` | Deterministic structural diff between two skill trees — parses frontmatter, section headings, step inventory, placeholders, support files, and safety-baseline clauses into a JSON diff object for the `skill-reconciler` skill |
-| [`tools/vcs`](../tools/vcs/) | `contract:source-control` | Backend-dispatching implementation of the source-control (VCS) capability ([`tools/github/source-control.md`](../tools/github/source-control.md)); complete Git and Mercurial (Hg) backends, plus detected extension point for SVN (#602) |
+| [`tools/vcs`](../tools/vcs/) | `contract:source-control` | Backend-dispatching implementation of the source-control (VCS) capability ([`tools/github/source-control.md`](../tools/github/source-control.md)); complete Git, Mercurial (Hg), and Fossil backends, plus detected extension point for SVN (#602) |
 | [`tools/sourcehut`](../tools/sourcehut/) | `contract:tracker` + `contract:source-control` + `contract:mail-archive` | SourceHut (sr.ht) forge bridge: todo.sr.ht, lists.sr.ht, builds.sr.ht, and git/hg repository reads |
 
 A tool's capability is the **interface it provides**, not which skills
@@ -317,8 +346,12 @@ happen to consume it (RFC-AI-0005). `tools/github` provides the
 `contract:cve-authority`; `tools/privacy-llm` is `substrate:privacy`.
 Use a `contract:<name>` value when the tool implements a capability
 contract under `tools/<contract>/`, and a `substrate:<name>` value for
-framework substrate. A tool may carry more than one (rare —
-`tools/gmail` is the only one today).
+framework substrate. A tool may carry more than one value whenever it
+genuinely exposes several interfaces — the multi-value rows in the table
+above are the authoritative list, and they are a normal case rather than
+an exception (forge bridges such as `tools/github`, `tools/fossil`, and
+`tools/sourcehut`; the mail backends `tools/gmail`, `tools/maildir`, and
+`tools/ponymail`; and the framework-dev tools that double as analytics).
 
 ## MCP servers, classified by capability
 

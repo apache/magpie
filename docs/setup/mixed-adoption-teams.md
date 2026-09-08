@@ -71,12 +71,15 @@ git clone --depth=1 --branch main \
 ```
 
 **Create user-scope skill symlinks** so Claude Code finds the skills in
-any project:
+any project. Link through the clone's **canonical** `.agents/skills/`
+entries — the one home every agent-specific dir relays into (see
+[`agents.md`](../../skills/setup/agents.md)) — not through a relay dir
+such as `.claude/skills/`, which would add a pointless third hop:
 
 ```bash
 mkdir -p ~/.claude/skills
-for skill_dir in ~/.magpie/.claude/skills/*/; do
-    skill_name=$(basename "$skill_dir")
+for skill_dir in ~/.magpie/.agents/skills/*/; do
+    skill_name=$(basename "$skill_dir")   # already magpie-<skill>
     ln -sfn "$skill_dir" ~/.claude/skills/"$skill_name"
 done
 ```
@@ -231,8 +234,9 @@ is straightforward:
 
 1. Run `/magpie-setup install` in the shared repo (see
    [`install-recipes.md`](install-recipes.md)) — this commits the bootstrap
-   skill and lock, wires the skill symlinks under `.agents/skills/` and
-   `.claude/skills/`, and adds the sandbox block to the shared
+   skill and lock, wires the canonical skill symlinks under
+   `.agents/skills/` plus a relay into them from `.claude/skills/`, and
+   adds the sandbox block to the shared
    `.claude/settings.json`.
 2. Move any project context from `.apache-magpie-local/project.md` into
    the committed `projects/<project>/project.md`.

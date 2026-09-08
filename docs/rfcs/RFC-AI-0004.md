@@ -71,7 +71,7 @@
 |---|---|
 | **RFC** | AI-0004 |
 | **Title** | Principles of agentic interaction for open-source maintainers |
-| **Status** | Draft |
+| **Status** | Implemented |
 | **Authors** | The Apache Magpie project (see [`MISSION.md`](https://github.com/apache/magpie/blob/main/MISSION.md) for roster) |
 | **Initial draft** | 2026-05-07 |
 | **Supersedes** | None |
@@ -93,10 +93,12 @@ It is **not** a specification of any particular implementation detail (LLM cho
 
 ## Status of this document
 
-This is a **Draft**. The Apache Magpie project's reference implementation operationalises every principle in this RFC, but the RFC itself is the project's first attempt to extract the principles from the implementation and frame them as a portable contract. The next two milestones are:
+**Implemented.** The Apache Magpie project's reference implementation operationalises every principle in this RFC; the framework's own governance document, [`PRINCIPLES.md`](https://github.com/apache/magpie/blob/main/PRINCIPLES.md), binds the project to them and its skills, tools and pre-commit gates enforce them.
+
+`Implemented` describes the reference implementation, not this RFC's standing as a portable contract for projects beyond Apache Magpie. Two milestones remain before promotion from `Implemented` to `Stable`:
 
 1. **Public review** — comments solicited from ASF Members, non-ASF maintainers running similar agentic frameworks, and the ASF Responsible AI Initiative working group.
-2. **Pilot validation** — the six principles tested against the Apache Magpie pilot cohort (one ASF PMC running the full security-issue flow, one ASF PMC running just triage + mentoring, at least one non-ASF project) before promotion from `Draft` to `Stable`.
+2. **Pilot validation** — the six principles tested against the Apache Magpie pilot cohort (one ASF PMC running the full security-issue flow, one ASF PMC running just triage + mentoring, at least one non-ASF project).
 
 ---
 
@@ -108,8 +110,10 @@ Maintainers of open-source projects increasingly find themselves at the receivin
 - Sandbox posture varies wildly. Some agents read everything in `~`; some read nothing. Some can `gh pr create`; some can silently push to the default branch. The maintainer is on the hook for figuring this out.
 - Vendor lock-in is largely silent. A skill that "uses Claude" is a skill that *requires* Claude — not a skill that happens to use Claude today and would work on a local model tomorrow. The lock-in is rarely surfaced as a choice.
 - "How do I correct this?" has become an afterthought. The maintainer who notices the agent is doing the wrong thing often has no path to fix it short of opening an upstream PR to the tool author.
+- Outbound messages carry the maintainer's voice, but the agent writes them. A tool that mails a contributor, a reporter, or a list on the maintainer's behalf without a human reading the text first has borrowed an identity it does not own.
+- Privacy is treated as a deployment detail rather than a design constraint. A security reporter's name, a contributor's mail address, an embargoed advisory — which of these reach a third-party model, and under what retention terms, is usually invisible to the maintainer who triggered the call.
 
-This RFC names the four shifts that, taken together, make agentic tooling acceptable on a maintainer-governed project. Each shift is independently necessary; the combination is sufficient.
+This RFC names the six shifts that, taken together, make agentic tooling acceptable on a maintainer-governed project. Each shift is independently necessary; the combination is sufficient.
 
 ---
 
