@@ -81,6 +81,12 @@ Being precise, because a security tool that overstates itself is worse than none
   newlines. What is constrained is which file may be read: it must resolve inside
   the configured workspace, so an operation cannot be talked into publishing
   `~/.ssh/id_rsa`.
+- **GraphQL is named, not written.** `gh api graphql` normally takes a query as a
+  string — the widest surface `gh` offers. Here a caller names one of the
+  documents shipped in [`queries/`](src/vetted_ops/queries), the dispatcher
+  supplies the text, and `owner`/`name` come from policy. A caller can choose
+  among the allowlisted queries; it cannot write one, and cannot re-aim one at
+  another repository.
 - **The catalogue is closed.** Widening the surface means editing
   [`ops.py`](src/vetted_ops/ops.py) — a reviewed code change, not a runtime
   decision.
@@ -122,9 +128,11 @@ upstream = "acme/product"
 
 [values]
 labels        = ["needs triage", "cve allocated", "pr merged"]
+pr_labels     = ["ready for maintainer review", "area:scheduler"]
 milestones    = ["1.2.3", "1.3.0"]
 assignees     = ["alice", "bob"]
 issue_states  = ["open", "closed", "all"]
+pr_states     = ["open", "closed", "merged", "all"]
 close_reasons = ["completed", "not planned"]
 
 board_project_id      = "PVT_kwDO…"   # ProjectV2 node id
@@ -138,7 +146,19 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
 "security-issue-sync"   = ["issue-view", "issue-comments", "issue-add-label",
                            "issue-set-milestone", "issue-comment", "comment-update"]
 "security-issue-triage" = ["issue-view", "issue-comments"]
+"pr-management-triage"  = ["pr-list", "pr-view", "pr-checks", "gql-pr-liveness",
+                           "pr-add-label", "pr-remove-label", "pr-draft", "pr-ready",
+                           "pr-comment", "pr-update-branch", "run-rerun-failed",
+                           "workflow-approve"]
+"pr-management-code-review" = ["pr-view", "pr-diff", "pr-comments", "pr-reviews",
+                               "gql-pr-review-threads", "pr-review-approve",
+                               "pr-review-request-changes", "pr-review-comment"]
+"pr-management-stats"   = ["pr-list", "pr-view", "gql-pr-review-threads"]
 ```
+
+Grant the narrowest set that lets a skill finish its job: `pr-management-stats`
+is a read-only dashboard, so it gets no write operation at all, and a
+prompt-injection payload in a PR title cannot talk it into one.
 
 The policy is never supplied on the command line: a caller cannot widen its own
 policy.

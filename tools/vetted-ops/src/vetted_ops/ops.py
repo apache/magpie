@@ -59,6 +59,16 @@ _GHSA = re.compile(r"^GHSA-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}$")
 #: A ProjectV2 node id, as returned by the GraphQL API.
 _NODE_ID = re.compile(r"^[A-Za-z0-9_-]{1,120}$")
 
+#: A named GraphQL query. Narrow by construction: the name is only ever used to
+#: look up a file that ships *inside this package*, so it can address nothing
+#: else even before the containment check below.
+_QUERY_NAME = re.compile(r"^[a-z][a-z0-9-]{0,60}$")
+
+#: Where the allowlisted GraphQL documents live. Shipping them as files inside
+#: the package — rather than accepting query text as a parameter — is what keeps
+#: the GraphQL surface closed: a caller selects a query, it never supplies one.
+QUERIES_DIR = Path(__file__).parent / "queries"
+
 
 class ParamError(ValueError):
     """Raised when a parameter fails validation."""
@@ -94,6 +104,29 @@ def ghsa(value: str) -> str:
 
 def node_id(value: str) -> str:
     return _check(_NODE_ID, value, "node id")
+
+
+def query_name(value: str) -> str:
+    """
+    Resolve a named GraphQL query to the document shipped with this package.
+
+    ``gh api graphql`` normally takes the query as text, which is precisely the
+    unbounded surface this catalogue exists to remove. Instead the caller names
+    one of the documents in :data:`QUERIES_DIR` and the dispatcher supplies the
+    text. Adding a query is a reviewed change to this package, exactly like
+    adding an operation.
+    """
+    _check(_QUERY_NAME, value, "query name")
+    path = (QUERIES_DIR / f"{value}.graphql").resolve()
+    # Belt and braces: the name pattern already forbids separators and dots, so
+    # this cannot trigger — but the containment check is cheap and the cost of
+    # being wrong here is reading an arbitrary file.
+    if QUERIES_DIR.resolve() not in path.parents:
+        raise ParamError(f"query {value!r} resolves outside the query directory")
+    if not path.is_file():
+        known = ", ".join(sorted(q.stem for q in QUERIES_DIR.glob("*.graphql"))) or "(none)"
+        raise ParamError(f"unknown query: {value!r}; available: {known}")
+    return str(path)
 
 
 def body_file(value: str, *, workspace: Path) -> str:
@@ -158,6 +191,12 @@ def _tracker(cfg: dict[str, str]) -> str:
 
 def _upstream(cfg: dict[str, str]) -> str:
     return cfg["upstream_repo"]
+
+
+def _owner_name(repo: str) -> tuple[str, str]:
+    """Split ``owner/name``. The value comes from policy, validated on load."""
+    owner, _, name = repo.partition("/")
+    return owner, name
 
 
 # ---- reads ----------------------------------------------------------------
@@ -531,6 +570,399 @@ _register(
         ],
     )
 )
+
+
+# ---- pull-request family ---------------------------------------------------
+#
+# The catalogue above is issue-shaped because the security lifecycle is where
+# the sweep volume first showed up. PR management makes the same shape of many
+# small forge writes, so it gets the same treatment.
+#
+# One operation is deliberately absent: there is no `pr-merge`. Merging is the
+# framework's deliberately-deferred Agentic Autonomous mode — `quick-merge`
+# prints a merge command for the maintainer to run rather than merging itself —
+# and adding a vetted merge op would quietly hand the agent the one capability
+# the surrounding design withholds. Widening the catalogue must not widen the
+# posture.
+
+_register(
+    Op(
+        name="pr-list",
+        params=("state",),
+        summary="List upstream PRs in a given state.",
+        enums={"state": "pr_states"},
+        build=lambda cfg, state: [
+            "gh",
+            "pr",
+            "list",
+            "--repo",
+            _upstream(cfg),
+            "--state",
+            state,
+            "--limit",
+            "1000",
+            "--json",
+            "number,title,state,isDraft,author,labels,milestone,updatedAt,"
+            "createdAt,reviewDecision,mergeable,headRefName,baseRefName",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="pr-diff",
+        params=("number",),
+        summary="Read one upstream PR's diff.",
+        build=lambda cfg, number: ["gh", "pr", "diff", number, "--repo", _upstream(cfg)],
+    )
+)
+
+_register(
+    Op(
+        name="pr-comments",
+        params=("number",),
+        summary="Read every issue-level comment on one upstream PR.",
+        build=lambda cfg, number: [
+            "gh",
+            "api",
+            f"repos/{_upstream(cfg)}/issues/{number}/comments",
+            "--paginate",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="pr-reviews",
+        params=("number",),
+        summary="Read the submitted reviews on one upstream PR.",
+        build=lambda cfg, number: [
+            "gh",
+            "api",
+            f"repos/{_upstream(cfg)}/pulls/{number}/reviews",
+            "--paginate",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="pr-comment",
+        params=("number", "body"),
+        writes=True,
+        summary="Post a comment on an upstream PR from a body file.",
+        body_files=("body",),
+        build=lambda cfg, number, body: [
+            "gh",
+            "pr",
+            "comment",
+            number,
+            "--repo",
+            _upstream(cfg),
+            "--body-file",
+            body,
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="pr-add-label",
+        params=("number", "label"),
+        writes=True,
+        summary="Add a configured label to an upstream PR.",
+        enums={"label": "pr_labels"},
+        build=lambda cfg, number, label: [
+            "gh",
+            "pr",
+            "edit",
+            number,
+            "--repo",
+            _upstream(cfg),
+            "--add-label",
+            label,
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="pr-remove-label",
+        params=("number", "label"),
+        writes=True,
+        summary="Remove a configured label from an upstream PR.",
+        enums={"label": "pr_labels"},
+        build=lambda cfg, number, label: [
+            "gh",
+            "pr",
+            "edit",
+            number,
+            "--repo",
+            _upstream(cfg),
+            "--remove-label",
+            label,
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="pr-set-milestone",
+        params=("number", "milestone"),
+        writes=True,
+        summary="Set a configured milestone on an upstream PR.",
+        enums={"milestone": "milestones"},
+        build=lambda cfg, number, milestone: [
+            "gh",
+            "pr",
+            "edit",
+            number,
+            "--repo",
+            _upstream(cfg),
+            "--milestone",
+            milestone,
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="pr-add-assignee",
+        params=("number", "login"),
+        writes=True,
+        summary="Assign a configured user to an upstream PR.",
+        enums={"login": "assignees"},
+        build=lambda cfg, number, login: [
+            "gh",
+            "pr",
+            "edit",
+            number,
+            "--repo",
+            _upstream(cfg),
+            "--add-assignee",
+            login,
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="pr-request-reviewer",
+        params=("number", "login"),
+        writes=True,
+        summary="Request a review from a configured user on an upstream PR.",
+        enums={"login": "assignees"},
+        build=lambda cfg, number, login: [
+            "gh",
+            "pr",
+            "edit",
+            number,
+            "--repo",
+            _upstream(cfg),
+            "--add-reviewer",
+            login,
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="pr-review-approve",
+        params=("number", "body"),
+        writes=True,
+        summary="Submit an approving review on an upstream PR from a body file.",
+        body_files=("body",),
+        build=lambda cfg, number, body: [
+            "gh",
+            "pr",
+            "review",
+            number,
+            "--repo",
+            _upstream(cfg),
+            "--approve",
+            "--body-file",
+            body,
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="pr-review-request-changes",
+        params=("number", "body"),
+        writes=True,
+        summary="Submit a request-changes review on an upstream PR from a body file.",
+        body_files=("body",),
+        build=lambda cfg, number, body: [
+            "gh",
+            "pr",
+            "review",
+            number,
+            "--repo",
+            _upstream(cfg),
+            "--request-changes",
+            "--body-file",
+            body,
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="pr-review-comment",
+        params=("number", "body"),
+        writes=True,
+        summary="Submit a non-blocking review comment on an upstream PR from a body file.",
+        body_files=("body",),
+        build=lambda cfg, number, body: [
+            "gh",
+            "pr",
+            "review",
+            number,
+            "--repo",
+            _upstream(cfg),
+            "--comment",
+            "--body-file",
+            body,
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="pr-ready",
+        params=("number",),
+        writes=True,
+        summary="Mark an upstream PR ready for review.",
+        build=lambda cfg, number: ["gh", "pr", "ready", number, "--repo", _upstream(cfg)],
+    )
+)
+
+_register(
+    Op(
+        name="pr-draft",
+        params=("number",),
+        writes=True,
+        summary="Convert an upstream PR back to draft (triage's 'not ready' disposition).",
+        build=lambda cfg, number: [
+            "gh",
+            "pr",
+            "ready",
+            number,
+            "--repo",
+            _upstream(cfg),
+            "--undo",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="pr-close",
+        params=("number",),
+        writes=True,
+        summary="Close an upstream PR without merging.",
+        build=lambda cfg, number: ["gh", "pr", "close", number, "--repo", _upstream(cfg)],
+    )
+)
+
+_register(
+    Op(
+        name="pr-update-branch",
+        params=("number",),
+        writes=True,
+        summary="Update an upstream PR's branch from its base.",
+        build=lambda cfg, number: [
+            "gh",
+            "pr",
+            "update-branch",
+            number,
+            "--repo",
+            _upstream(cfg),
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="run-rerun-failed",
+        params=("run_id",),
+        writes=True,
+        summary="Re-run the failed jobs of one upstream workflow run.",
+        build=lambda cfg, run_id: [
+            "gh",
+            "run",
+            "rerun",
+            run_id,
+            "--repo",
+            _upstream(cfg),
+            "--failed",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="workflow-approve",
+        params=("run_id",),
+        writes=True,
+        summary="Approve a pending first-time-contributor workflow run.",
+        build=lambda cfg, run_id: [
+            "gh",
+            "api",
+            "-X",
+            "POST",
+            f"repos/{_upstream(cfg)}/actions/runs/{run_id}/approve",
+        ],
+    )
+)
+
+
+# ---- allowlisted GraphQL ---------------------------------------------------
+#
+# `gh api graphql` is the widest surface `gh` offers, and the two calls the PR
+# skills actually make are narrow and repeated. Rather than exposing a generic
+# escape hatch, each document in QUERIES_DIR is registered as its own operation
+# taking only the variables it needs. The query text is never a parameter, and
+# owner/name come from policy, so a named query cannot be re-aimed.
+
+#: Query name -> the parameters it accepts, beyond the policy-supplied owner/repo.
+GRAPHQL_QUERIES: dict[str, tuple[str, ...]] = {
+    "pr-liveness": ("number",),
+    "pr-review-threads": ("number",),
+}
+
+
+def _graphql_builder(query: str) -> Callable[..., list[str]]:
+    def build(cfg: dict[str, str], **params: str) -> list[str]:
+        owner, name = _owner_name(_upstream(cfg))
+        argv = [
+            "gh",
+            "api",
+            "graphql",
+            "-F",
+            f"owner={owner}",
+            "-F",
+            f"repo={name}",
+            "-F",
+            f"query=@{query_name(query)}",
+        ]
+        for key, value in params.items():
+            argv += ["-F", f"{key}={value}"]
+        return argv
+
+    return build
+
+
+for _query, _params in GRAPHQL_QUERIES.items():
+    _register(
+        Op(
+            name=f"gql-{_query}",
+            params=_params,
+            summary=f"Run the allowlisted GraphQL query {_query!r} against the upstream repo.",
+            build=_graphql_builder(_query),
+        )
+    )
 
 
 def resolve(name: str) -> Op:

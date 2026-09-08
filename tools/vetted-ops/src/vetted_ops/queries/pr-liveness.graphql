@@ -1,0 +1,17 @@
+# The pre-mutation liveness guard: has the contributor pushed since we
+# classified this PR, and is it actually mergeable right now?
+#
+# $owner / $repo are supplied by the dispatcher from policy, never by the
+# caller, so this query cannot be pointed at another repository.
+query($owner: String!, $repo: String!, $number: Int!) {
+  repository(owner: $owner, name: $repo) {
+    pullRequest(number: $number) {
+      headRefOid
+      mergeable
+      mergeStateStatus
+      commits(last: 1) {
+        nodes { commit { oid statusCheckRollup { state } } }
+      }
+    }
+  }
+}

@@ -1,0 +1,21 @@
+# Unresolved review threads, with enough of each thread's first comment to
+# apply the "collaborator threads block, contributor threads do not"
+# qualifier that triage and quick-merge share.
+#
+# $owner / $repo are supplied by the dispatcher from policy, never by the
+# caller, so this query cannot be pointed at another repository.
+query($owner: String!, $repo: String!, $number: Int!) {
+  repository(owner: $owner, name: $repo) {
+    pullRequest(number: $number) {
+      reviewThreads(first: 100) {
+        nodes {
+          isResolved
+          isOutdated
+          comments(first: 1) {
+            nodes { author { login } authorAssociation path }
+          }
+        }
+      }
+    }
+  }
+}

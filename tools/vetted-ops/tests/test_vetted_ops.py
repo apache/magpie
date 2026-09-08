@@ -35,6 +35,8 @@ labels = ["needs triage", "cve allocated"]
 milestones = ["1.2.3"]
 assignees = ["alice"]
 issue_states = ["open", "closed", "all"]
+pr_states = ["open", "closed", "merged", "all"]
+pr_labels = ["ready for maintainer review", "area:scheduler"]
 close_reasons = ["completed", "not planned"]
 board_project_id = "PVT_proj"
 board_status_field_id = "PVTSSF_field"
@@ -66,7 +68,19 @@ def run(argv: list[str], cfg_path: Path) -> int:
 
 def test_every_op_declares_validators_for_all_its_params() -> None:
     """A parameter with no validator would fall through unchecked."""
-    known = {"number", "comment_id", "ref", "base", "head", "prefix", "path", "login", "ghsa", "item_id"}
+    known = {
+        "number",
+        "comment_id",
+        "run_id",
+        "ref",
+        "base",
+        "head",
+        "prefix",
+        "path",
+        "login",
+        "ghsa",
+        "item_id",
+    }
     for op in ops.OPS.values():
         for param in op.params:
             assert param in known or param in op.enums or param in op.body_files, (
@@ -79,6 +93,7 @@ def test_every_builder_produces_a_gh_argv(policy: config.Config) -> None:
     sample = {
         "number": "1",
         "comment_id": "1",
+        "run_id": "42",
         "ref": "main",
         "base": "main",
         "head": "v1",
@@ -237,3 +252,59 @@ def test_config_rejects_a_malformed_repo(tmp_path: Path) -> None:
     cfg_path.write_text('workspace = "."\n[repos]\ntracker = "not a repo"\nupstream = "a/b"\n')
     with pytest.raises(config.ConfigError, match="owner/name"):
         config.load(cfg_path)
+
+
+# --- the GraphQL surface stays closed ----------------------------------------
+
+
+def test_graphql_query_text_is_never_a_parameter(policy: config.Config) -> None:
+    """
+    The caller names a query; the dispatcher supplies the text.
+
+    This is the whole point of the named-query mechanism: `gh api graphql`
+    normally takes a document as a string, which is exactly the unbounded
+    surface the catalogue exists to remove.
+    """
+    argv = ops.OPS["gql-pr-liveness"].build(policy.as_mapping(), number="7")
+    query_args = [a for a in argv if a.startswith("query=")]
+    assert len(query_args) == 1
+    path = Path(query_args[0].removeprefix("query=@"))
+    assert path.is_file()
+    assert ops.QUERIES_DIR.resolve() in path.parents
+
+
+def test_graphql_repo_comes_from_policy_not_parameters(policy: config.Config) -> None:
+    argv = ops.OPS["gql-pr-review-threads"].build(policy.as_mapping(), number="7")
+    assert "owner=acme" in argv
+    assert "repo=product" in argv
+
+
+@pytest.mark.parametrize(
+    "hostile",
+    ["../../../etc/passwd", "pr-liveness/../../secret", "Absolute", "pr liveness", ""],
+)
+def test_unknown_or_hostile_query_names_are_refused(hostile: str) -> None:
+    with pytest.raises(ops.ParamError):
+        ops.query_name(hostile)
+
+
+def test_every_shipped_query_is_registered_as_an_operation() -> None:
+    """A .graphql file nobody registered is dead weight; a registration with no
+    file is a runtime failure. Neither should survive review."""
+    on_disk = {q.stem for q in ops.QUERIES_DIR.glob("*.graphql")}
+    assert on_disk == set(ops.GRAPHQL_QUERIES)
+    for name in ops.GRAPHQL_QUERIES:
+        assert f"gql-{name}" in ops.OPS
+
+
+# --- widening the catalogue must not widen the posture -----------------------
+
+
+def test_the_catalogue_offers_no_merge_operation() -> None:
+    """
+    Merging is the framework's deliberately-deferred Agentic Autonomous mode:
+    `quick-merge` prints a merge command for the maintainer rather than merging.
+    A vetted merge op would hand the agent the one capability the surrounding
+    design withholds, so its absence is a decision, not an oversight.
+    """
+    assert not [name for name in ops.OPS if "merge" in name]

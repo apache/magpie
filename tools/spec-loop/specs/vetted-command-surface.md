@@ -31,7 +31,10 @@ dispatcher whose operations are a **closed catalogue** of fixed shapes:
 - value-bearing parameters (labels, milestones, assignees, columns, close
   reasons) must appear in adopter-declared enums;
 - free text reaches the forge only by file reference, and the file must resolve
-  inside a declared workspace.
+  inside a declared workspace;
+- GraphQL documents are *named*, not supplied: the caller picks one of the
+  allowlisted queries shipped with the dispatcher, which supplies the text and
+  fills owner/name from policy.
 
 A bounded effect set can be `allow`ed once. Widening it is a reviewed code
 change.
@@ -73,11 +76,20 @@ per [`docs/adapters/registry.md`](../../../docs/adapters/registry.md).
    harness-specific hardening layered on a harness-agnostic base, with the
    asymmetry stated rather than hidden.
 
-2. **Generalise beyond the security family.** The catalogue is currently shaped by
-   the security-issue lifecycle because that is where the sweep volume is. The
-   same argument applies to any skill family that makes many small forge
-   writes — PR management, repo health, release management. Each needs its own
-   operations and its own caller manifests; none needs a second dispatcher.
+2. **Generalise beyond the security family.** *PR management has landed* — 22
+   operations covering list / view / diff / reviews, the label, milestone,
+   assignee and reviewer edits, the three review verdicts, draft/ready, close,
+   branch update, CI re-run and workflow approval, plus two allowlisted GraphQL
+   queries (`pr-liveness`, `pr-review-threads`). Repo health and release
+   management remain; each needs its own operations and its own caller
+   manifests, and none needs a second dispatcher.
+
+   Note what the PR family deliberately does *not* include: there is no
+   `pr-merge`. Merging is this framework's deferred Agentic Autonomous mode —
+   `pr-management-quick-merge` prints a merge command for the maintainer rather
+   than running one — so a vetted merge operation would hand the agent the one
+   capability the surrounding design withholds. **Widening the catalogue must
+   not widen the posture**, and that constraint binds every family added next.
 
 3. **Adapter parity.** Operations are `gh`-shaped today. The forge is already an
    adapter axis (`github`, `jira`, `bitbucket`, `sourcehut`, `fossil`), so the

@@ -62,7 +62,7 @@ def _validate_params(op: ops_mod.Op, values: list[str], config: Config) -> dict[
             resolved[name] = ops_mod.enum(config.enum_values(op.enums[name]))(raw)
         elif name in op.body_files:
             resolved[name] = ops_mod.body_file(raw, workspace=config.workspace)
-        elif name in {"number", "comment_id"}:
+        elif name in {"number", "comment_id", "run_id"}:
             resolved[name] = ops_mod.number(raw)
         elif name in {"ref", "base", "head", "prefix"}:
             resolved[name] = ops_mod.ref(raw)
