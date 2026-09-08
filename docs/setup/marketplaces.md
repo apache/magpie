@@ -453,10 +453,33 @@ network calls and touches nothing in the adopter repo.
 
 The plugin version tracks the framework version in `pyproject.toml`, which is
 the single authority every manifest mirrors verbatim — **including the `.devN`
-suffix**. Between releases the manifests therefore read `0.2.0.dev0`, not
-`0.2.0`: a bare `0.2.0` would advertise a release that does not exist yet. Only
-a tagged release carries a bare version, and only released versions are ever
-published to a marketplace, so the PEP 440 suffix never reaches a consumer.
+suffix**. Between releases the manifests therefore read
+`0.2.0.dev<YYYYMMDDHHMM>`, not `0.2.0`: a bare `0.2.0` would advertise a
+release that does not exist yet. Only a tagged release carries a bare version.
+
+**The dev suffix is a UTC timestamp, and it has to move for adopters to pick
+anything up.** This marketplace is served straight from the `main` branch of a
+git repo, so consumers *do* install dev versions — the suffix reaching them is
+the normal case, not the exception. `claude plugin update` compares version
+strings, not commit SHAs: while the suffix stays frozen at a constant like
+`.dev0`, an adopter's `claude plugin update` answers "already at the latest
+version" and never moves the pinned commit, however far behind `main` the
+installed copy has fallen. Their only recovery is
+`claude plugin marketplace update` followed by a full uninstall + reinstall of
+every plugin, which nobody discovers on their own.
+
+**When to bump.** Not every PR — that would put every contributor in conflict
+with every other over one line, for no gain on changes nobody is waiting for.
+Bump when the work needs to reach installed copies: before pointing anyone at
+`claude plugin update`, before announcing a change adopters should take, or
+when a batch of merged work has piled up behind a stale stamp. A bump is a
+one-line edit plus a regeneration, so it costs little whenever it is actually
+wanted.
+
+The stamp is minute-resolution and **UTC**, not local time: a repo with
+contributors in several timezones needs the string to sort in the order the
+bumps were actually made, and a date alone would collide whenever a day carries
+more than one.
 
 Nothing is hand-edited. `pyproject.toml` feeds the four ecosystem manifests,
 and the all-in-one [`.claude-plugin/plugin.json`](../../.claude-plugin/plugin.json)

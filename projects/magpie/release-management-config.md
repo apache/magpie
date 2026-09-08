@@ -75,10 +75,31 @@ mandatory ASF approval + announce mechanisms (`dev-list-vote`,
 
 `pyproject.toml`'s `project.version` is the **single authority** for the
 framework version; every other file above mirrors it verbatim, including a
-`.devN` suffix (between releases the manifests read `0.2.0.dev0`, not `0.2.0`).
-Dev versions are never published to a marketplace, so the PEP 440 suffix never
-reaches a consumer — and keeping one identical string across every manifest is
-what lets the Step 2a bump work as a single literal search/replace.
+`.devN` suffix (between releases the manifests read `0.2.0.dev<YYYYMMDDHHMM>`,
+not `0.2.0`). Keeping one identical string across every manifest is what lets
+the Step 2a bump work as a single literal search/replace.
+
+The dev suffix is a **UTC timestamp that moves when adopters need to pick work
+up**, not a constant carried between releases. The marketplace is served from
+`main`, so adopters install dev versions directly, and `claude plugin update`
+compares version strings — a frozen suffix makes it a silent no-op no matter
+how far the installed copy has drifted. Minute resolution keeps two bumps on
+the same day distinct; UTC keeps the ordering honest across contributors'
+timezones.
+
+Bumping is deliberate, not per-PR: do it before pointing adopters at
+`claude plugin update`, before announcing a change they should take, or when
+merged work has piled up behind a stale stamp. Requiring it of every PR would
+only put contributors in conflict over one line.
+
+```bash
+sed -i '' "s/^version = .*/version = \"0.2.0.dev$(date -u +%Y%m%d%H%M)\"/" pyproject.toml
+python3 tools/dev/check-family-plugins.py --fix
+uv lock
+```
+
+See
+[`docs/setup/marketplaces.md`](../../docs/setup/marketplaces.md) (*Versioning*).
 
 `uv.lock` is the one entry `--fix` does **not** touch: it carries the version
 because it locks this workspace's own package, and it is refreshed by
