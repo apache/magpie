@@ -122,8 +122,9 @@ So a bump is one edit plus one command:
 python3 tools/dev/check-family-plugins.py --fix
 ```
 
-`tools/dev/check-family-plugins.py` (a prek hook) fails the build if any
-manifest or marketplace entry is left behind at the previous version, so a
+`tools/dev/check-family-plugins.py` also runs as a prek hook in `--fix` mode:
+any manifest or marketplace entry left behind at the previous version is
+regenerated in place and the run fails until the corrected file is staged, so a
 missed propagation cannot reach a release.
 
 ## Backends

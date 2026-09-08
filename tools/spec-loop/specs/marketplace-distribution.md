@@ -53,7 +53,9 @@ family, each a manifest and a `skills/` directory of single-hop symlinks into
 the shared `skills/<skill>` tree.
 
 `tools/dev/check-family-plugins.py` is both the generator (`--fix`) and the
-CI gate. `docs/setup/marketplaces.md` is the adopter-facing page.
+CI gate — the prek hook runs it in `--fix` mode, so the gate corrects drift
+rather than only reporting it. `docs/setup/marketplaces.md` is the
+adopter-facing page.
 
 ## Behaviour & contract
 

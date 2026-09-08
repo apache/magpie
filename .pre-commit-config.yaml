@@ -259,13 +259,20 @@ repos:
   # `.claude-plugin/marketplace.json` entry resolving to a matching, uniquely
   # named plugin.json, and each family's skills present as single-hop symlinks
   # into the shared skills/ tree. Catches a new skill, a changed family, a stale
-  # symlink, or a malformed manifest. `--fix` regenerates the family plugins.
+  # symlink, or a malformed manifest.
+  #
+  # Runs as `--fix`, so the hook *regenerates* rather than merely reporting: the
+  # generated tree is a pure function of the frontmatter and `pyproject.toml`'s
+  # version, so there is nothing for a contributor to decide when it drifts, and
+  # a check-only hook just made them run the fixer by hand. prek fails the run
+  # when a hook modifies files, so drift still stops the commit — it now arrives
+  # already corrected and staged-ready instead of as an instruction.
   - repo: local
     hooks:
       - id: check-family-plugins
         name: check-family-plugins (marketplace plugins vs frontmatter)
         language: system
-        entry: python3 tools/dev/check-family-plugins.py
+        entry: python3 tools/dev/check-family-plugins.py --fix
         files: ^(skills/.*/SKILL\.md|plugins/.*|\.claude-plugin/(marketplace|plugin)\.json|\.codex-plugin/plugin\.json|\.agents/plugins/marketplace\.json|(plugin|marketplace)\.json|gemini-extension\.json|apm\.yml|pyproject\.toml|hooks/check-upgrade\.sh)$
         pass_filenames: false
   # Documentation claims that must track the tree. Four mechanical checks,

@@ -486,8 +486,9 @@ and the all-in-one [`.claude-plugin/plugin.json`](../../.claude-plugin/plugin.js
 in turn feeds the ten per-family manifests and the marketplace entries, which
 also inherit `author`, `homepage`, `repository`, and `license`. Bump
 `project.version` and run `python3 tools/dev/check-family-plugins.py --fix`; the
-same script, run as a prek hook, fails the build on any manifest left behind at
-the old version. See
+same script runs as a prek hook in `--fix` mode, so a manifest left behind at
+the old version is regenerated in place and the run fails until the corrected
+file is staged. See
 [`release-management-config.md`](../../projects/magpie/release-management-config.md)
 (`version_manifest_files`).
 
