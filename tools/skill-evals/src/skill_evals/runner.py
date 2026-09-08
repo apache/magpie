@@ -1288,7 +1288,18 @@ def main(argv: list[str] | None = None) -> int:
                 continue
             actual = {"raw_output": stdout, "stderr": stderr, "exit_code": rc}
         else:
-            actual, parse_err = extract_json_from_output(stdout)
+            # A suite whose expected side addresses a wrap key is declaring
+            # that this step emits prose, not JSON. Do not run the extractor
+            # on it: its last-resort strategy takes the largest balanced
+            # `{...}` / `[...]` block, and ordinary Markdown supplies plenty —
+            # a task-list `- [ ]` parses as the JSON value `[]`, a link's
+            # `[text]` as a malformed one. When that fires, the scavenged
+            # fragment replaces the prose and every raw_output assertion then
+            # fails against output the model got right.
+            if wrap_is_asserted(expected, assertions):
+                actual, parse_err = {"raw_output": stdout}, None
+            else:
+                actual, parse_err = extract_json_from_output(stdout)
             if parse_err is not None:
                 if args.exact:
                     # Exact mode requires literal JSON; non-JSON is an error.

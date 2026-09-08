@@ -1014,6 +1014,43 @@ def test_wrap_is_asserted_via_expected_json_key():
     assert wrap_is_asserted({"raw_output": "prose"}, {}) is True
 
 
+def test_prose_step_is_not_scavenged_for_json(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
+    """A prose step must not be JSON-parsed, even when its prose contains brackets.
+
+    ``extract_json_from_output``'s last-resort strategy takes the largest
+    balanced ``{...}`` / ``[...]`` block. Markdown supplies those freely — a
+    task-list ``- [ ]`` parses as the JSON value ``[]``. When that fires on a
+    step whose output is prose, the scavenged fragment replaces the whole body
+    and every ``raw_output`` assertion fails against output the model got
+    right. That is what happened to all four cases of
+    ``security-issue-deduplicate/step-3-merge-body``.
+    """
+    body = "## Checklist\n\n- [ ] done\n"
+    fixtures_dir, _ = _make_cli_case(tmp_path, expected={"raw_output": body})
+    script = tmp_path / "emit.py"
+    script.write_text(f"import sys; sys.stdout.write({body!r})\n", encoding="utf-8")
+    rc, stdout, _ = _run_main(
+        capsys,
+        ["--cli", f"python3 {shlex.quote(str(script))}", "--grader-cli", _GRADER_YES, str(fixtures_dir)],
+    )
+    assert rc == 0
+    assert "PASS" in stdout
+
+
+def test_json_step_is_still_parsed_normally(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
+    """The prose path must not swallow ordinary JSON steps: a suite asserting on
+    real keys keeps going through the extractor."""
+    fixtures_dir, _ = _make_cli_case(tmp_path, expected={"verdict": "ok"})
+    script = tmp_path / "emit_json.py"
+    script.write_text('import sys; sys.stdout.write(\'{"verdict": "ok"}\')\n', encoding="utf-8")
+    rc, stdout, _ = _run_main(
+        capsys,
+        ["--cli", f"python3 {shlex.quote(str(script))}", "--grader-cli", _GRADER_YES, str(fixtures_dir)],
+    )
+    assert rc == 0
+    assert "PASS" in stdout
+
+
 def test_cli_mode_extracts_json_from_fenced_response(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
     """The runner should find JSON inside a ```json fence in the CLI's stdout."""
     fixtures_dir, _ = _make_cli_case(tmp_path, expected={"verdict": "ok"})
