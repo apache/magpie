@@ -64,13 +64,15 @@ or disable the whole dispatcher (``MAGPIE_GUARD_OFF=1``). Overrides are read
 from the command string itself (and from the hook's own environment).
 
 **Contributing guards.** Beyond the two bundled guards, any skill adds its own
-deterministic guard **without re-wiring the hook**: drop an import-free
-``*.py`` file into a discovered ``guards.d`` directory (the ``guards.d`` sibling
-of this script, plus any dir in ``$MAGPIE_GUARD_DIRS``) that defines a
-module-level ``guard(ctx)`` returning a deny string or ``None`` — see
-``GuardContext`` and ``guards.d/no_verify_commit.py`` for the template. The hook
-is wired once at setup; thereafter guards are added/removed by managing files in
-``guards.d`` (which ``/magpie-setup`` keeps in sync from the snapshot).
+deterministic guard **without re-wiring the hook**: drop an import-free ``*.py``
+file that defines a module-level ``guard(ctx)`` returning a deny string or
+``None`` into any discovered guard directory — see ``GuardContext`` and
+``guards.d/no_verify_commit.py`` for the template. Three sources are discovered,
+in this order: every dir in ``$MAGPIE_GUARD_DIRS``, every
+``skills/<skill>/guards`` in the framework tree this file is running from, and
+the ``guards.d`` sibling of this file. A skill therefore owns its guards in its
+own directory and they take effect as soon as the framework is installed —
+nothing collects, copies, or syncs them.
 """
 
 from __future__ import annotations
@@ -334,8 +336,8 @@ def guard_empty_rebase(seg: Segment, cwd: str | None) -> str | None:
 # guards are owned and contributed by the skills that need them (e.g. the
 # mention + mark-ready guards live in `skills/pr-management-triage/guards/`, the
 # security-language guard in `skills/security-issue-fix/guards/`); they are
-# discovered at runtime from `guards.d` without editing this file or re-wiring
-# the hook — see "Contributing guards" below.
+# discovered at runtime, in place, without editing this file or re-wiring the
+# hook — see "Contributing guards" above.
 BUILTIN_GUARDS: tuple[Callable[[Segment, str | None], str | None], ...] = (
     guard_commit_trailer,
     guard_empty_rebase,
@@ -346,9 +348,9 @@ BUILTIN_GUARDS: tuple[Callable[[Segment, str | None], str | None], ...] = (
 # `gh` / `git` outbound/destructive surface.
 GUARDED_HEADS = frozenset({"gh", "git"})
 
-# Colon-separated extra guard directories (in addition to the default
-# ``guards.d`` sibling of this script). Lets a checkout point the hook at
-# skill-owned guard dirs without moving files.
+# Colon-separated extra guard directories, searched before the discovered ones.
+# Skill-owned guards no longer need it (``framework_root`` finds them in place);
+# it remains the escape hatch for guards kept outside the framework tree.
 GUARD_DIRS_ENV = "MAGPIE_GUARD_DIRS"
 
 
@@ -425,13 +427,32 @@ def command_kinds(seg: Segment) -> set[str]:
     return kinds
 
 
+def framework_root() -> Path | None:
+    """The framework tree this engine is running out of, or ``None``.
+
+    Recognised by the two directories the engine always sits beside: a
+    ``skills/`` tree and the ``tools/agent-guard`` package holding this file.
+    That holds whether the hook runs from an installed plugin, a framework
+    checkout, or an adopter's snapshot — and does not hold for a standalone copy
+    of this one file, which is why the result is optional rather than a path
+    computed by counting ``parents``.
+    """
+    for parent in Path(__file__).resolve().parents:
+        if (parent / "skills").is_dir() and (parent / "tools" / "agent-guard").is_dir():
+            return parent
+    return None
+
+
 def guard_dirs() -> list[Path]:
-    """Directories scanned for contributed guards: ``$MAGPIE_GUARD_DIRS`` entries
-    plus the ``guards.d`` sibling of this script."""
+    """Directories scanned for contributed guards: ``$MAGPIE_GUARD_DIRS`` entries,
+    then every ``skills/*/guards`` in the framework tree this file runs from, then
+    the ``guards.d`` sibling of this file."""
     dirs: list[Path] = []
     env = os.environ.get(GUARD_DIRS_ENV)
     if env:
         dirs.extend(Path(p) for p in env.split(os.pathsep) if p)
+    if (root := framework_root()) is not None:
+        dirs.extend(sorted((root / "skills").glob("*/guards")))
     dirs.append(Path(__file__).resolve().parent / "guards.d")
     seen: set[Path] = set()
     out: list[Path] = []

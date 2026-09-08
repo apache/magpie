@@ -292,17 +292,16 @@ Two sub-checks on `<repo-root>/.git/hooks/post-checkout`:
 
 1. **Presence + executable.** File exists, is executable,
    and carries the current hook body — the sandbox-allowlist
-   helper chain **and** the agent-guard seeding block (see
+   helper chain (see
    [`install.md` Step 10](install.md#step-10--worktree-aware-post-checkout-hook-fresh-only)).
    It must **not** contain the long-removed
    `/magpie-setup verify --auto-fix-symlinks` line (a slash
    command is not shell-callable; it printed a spurious error on
    every checkout).
    - ⚠ if missing — strictly optional, but worktrees off this
-     repo will then not get their sandbox allowlist or
-     agent-guard seeded automatically on `git worktree add`
-     (they fall back to `/magpie-setup worktree-init`). Print
-     the install recipe.
+     repo will then not get their sandbox allowlist added
+     automatically on `git worktree add` (they fall back to
+     `/magpie-setup worktree-init`). Print the install recipe.
 
 2. **Content drift vs the framework's expected.** Diff the
    installed hook against the framework's expected hook
@@ -321,48 +320,47 @@ Two sub-checks on `<repo-root>/.git/hooks/post-checkout`:
      remediation, no operator prompt needed; the sync
      pass overwrites silently.
 
-### 8a. agent-guard PreToolUse hook installed and wired
+### 8a. agent-guard PreToolUse hook active
 
-Three sub-checks for the deterministic guard
-([`tools/agent-guard`](../../tools/agent-guard/README.md)):
+One check, against whichever of the three installs the operator
+uses ([`tools/agent-guard`](../../tools/agent-guard/README.md)).
+Establish that a `PreToolUse` hook on the `Bash` matcher exists and
+that the engine path it names **resolves**; a wired hook pointing at
+a file that is not there is the failure mode worth catching, because
+a guard that never loads does not raise — it silently stops denying.
 
-1. **Script present + matches the snapshot.** `<repo-root>/.claude/hooks/agent-guard.py`
-   exists and its content matches the snapshot's
-   `tools/agent-guard/src/agent_guard/__init__.py`.
-   - ⚠ / ✗ on missing / stale — remediation is `/magpie-setup`
-     (adopt or upgrade), whose sync pass re-installs it.
-2. **`guards.d` populated.** `<repo-root>/.claude/hooks/guards.d/`
-   exists and contains every guard the snapshot ships — the
-   engine's bundled `guards.d/*.py` **and** each skill-owned
-   `skills/*/guards/*.py` (e.g. `mention`, `mark_ready`,
-   `security_language`). Flag a *missing* expected guard or a stale
-   copy; extra locally-added `*.py` are fine. A missing skill guard
-   means that skill's deterministic protection is silently inactive
-   — remediation is `/magpie-setup` (adopt/upgrade), which re-collects.
-3. **Hook wired in settings.local.json.** `<repo-root>/.claude/settings.local.json`
+1. **Plugin install** — the `magpie-agent-guard` plugin is
+   installed. Its manifest carries the hook, so there is nothing
+   repository-local to check and nothing to remediate per worktree.
+   - ⚠ if no agent-guard install of any kind is found: print
+     `/plugin install magpie-agent-guard@apache-magpie`.
+2. **Snapshot install** — `<repo-root>/.claude/settings.local.json`
    has a `hooks.PreToolUse` entry (matcher `Bash`) whose command
-   runs `agent-guard.py`.
-   - If missing, the script is present but not active. Write the
-     entry directly (idempotent merge, per
-     [`install.md` Step 12](install.md#step-12--post-install-sync--worktree-propagation--sandbox-allowlist--sanity-check)),
-     no operator prompt needed since `settings.local.json` is
-     gitignored and agent-writable, unlike the committed `settings.json`.
+   runs the engine, and that command's path resolves.
+   - ✗ if the entry names a path that does not exist. In
+     particular, an entry still pointing at the retired
+     per-repository copy
+     (`$CLAUDE_PROJECT_DIR/.claude/hooks/agent-guard.py`) fails in
+     every worktree that has no copy — **and breaks every `Bash`
+     call there**, since Claude Code surfaces a missing hook script
+     as a tool error. Rewrite it to the snapshot path
+     (`$CLAUDE_PROJECT_DIR/.apache-magpie/tools/agent-guard/src/agent_guard/__init__.py`);
+     `settings.local.json` is gitignored and agent-writable, unlike
+     the committed `settings.json`, so no operator prompt is needed.
+   - Leftover `<repo-root>/.claude/hooks/agent-guard.py` and
+     `guards.d/` from an older install are inert once the wiring
+     points at the snapshot; report them as removable, do not fail.
+3. **User-scope secure setup** — `~/.claude/scripts/agent-guard.py`
+   wired from `~/.claude/settings.json`
+   ([`setup-isolated-setup-install`](../setup-isolated-setup-install/SKILL.md)).
 
-The script + `guards.d` are **gitignored** framework code
-([`install.md` Step 7](install.md#step-7--gitignore-entries-fresh-only)),
-synced from the snapshot rather than committed — so a *missing*
-script is the expected state of a fresh checkout, not a defect, and
-the fix is always a re-sync (never `git add`). When this check runs
-**inside a worktree**, the script, `guards.d`, **and** the
-`settings.local.json` wiring are all per-worktree (each worktree's own
-`settings.local.json` resolves
-`$CLAUDE_PROJECT_DIR/.claude/hooks/agent-guard.py` against that
-worktree's own root, and is not inherited via git). The remediation
-for a *missing* script or wiring entry in a worktree is not the
-main-checkout sync but
-[`worktree-init.md` Step 1d](worktree-init.md#step-1d--seed-the-worktrees-agent-guard-pretooluse-hook)
-(or the post-checkout hook on the next `git worktree add`), which
-seeds both from the main checkout's already-synced copy.
+Skill-owned guards are **not** separately checked: the engine
+discovers every `skills/*/guards` in the framework tree it runs
+from, so there is no collected copy that can drift out of sync.
+
+This check is worktree-independent. None of the three installs puts
+anything in a worktree, so a worktree result never differs from the
+main checkout's.
 
 ### 8b. Sandbox-allowlist coverage of the current worktree
 

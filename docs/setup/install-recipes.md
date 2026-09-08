@@ -123,13 +123,13 @@ cat >> .gitignore <<'GITIGNORE'
 __pycache__/
 *.pyc
 
-# Deterministic agent-guard PreToolUse hook — framework code synced
-# from the snapshot by /magpie-setup (and seeded into each worktree),
-# not an adopter artefact. The committed .claude/settings.json wires
-# it; the script itself stays gitignored. Force-add your own guards
-# under guards.d/ with `git add -f` if you want them tracked.
-/.claude/hooks/agent-guard.py
-/.claude/hooks/guards.d/
+# (No agent-guard entries. The deterministic PreToolUse guard runs
+# from the install — the magpie-agent-guard plugin, or a
+# settings.local.json entry resolving the engine inside the snapshot
+# — so nothing repository-local exists to ignore, and no worktree
+# needs seeding. Repos adopted before that change can drop their
+# leftover /.claude/hooks/agent-guard.py and /.claude/hooks/guards.d/
+# lines along with the files.)
 
 # Framework-skill symlinks created by /magpie-setup. One uniform
 # block per skills dir you use: the `magpie-*` glob ignores them

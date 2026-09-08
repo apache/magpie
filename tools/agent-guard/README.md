@@ -10,6 +10,7 @@
   - [Guards](#guards)
   - [Per-command overrides](#per-command-overrides)
   - [Wiring](#wiring)
+    - [Snapshot adopters (`/magpie-setup`)](#snapshot-adopters-magpie-setup)
     - [OpenCode](#opencode)
     - [Kiro CLI](#kiro-cli)
     - [Harness-neutral path (any runtime)](#harness-neutral-path-any-runtime)
@@ -101,10 +102,36 @@ for (default `ready for maintainer review`).
 
 ## Wiring
 
-The guard is registered as a `PreToolUse` hook on the `Bash` matcher in the
-gitignored, per-machine `.claude/settings.local.json` (not the committed
-`.claude/settings.json`, so no worktree inherits the wiring via git: each
-worktree is seeded independently, same as the script itself):
+Install the `magpie-agent-guard` plugin:
+
+```text
+/plugin marketplace add apache/magpie
+/plugin install magpie-agent-guard@apache-magpie
+```
+
+That is the whole installation. The plugin's manifest
+([`plugins/magpie-agent-guard/.claude-plugin/plugin.json`](../../plugins/magpie-agent-guard/.claude-plugin/plugin.json))
+registers the `PreToolUse` hook itself and resolves the engine under
+`${CLAUDE_PLUGIN_ROOT}`, so the guard runs out of the installed plugin. **No
+file is copied into any repository, no `settings.local.json` entry is written,
+and a git worktree needs no seeding** — it is an ordinary checkout, and the
+guard is active in it the moment the plugin is installed.
+
+Skill-owned guards work the same way: the engine discovers every
+`skills/<skill>/guards` in the framework tree it is running from, so a skill's
+guards take effect where they live and nothing collects or syncs them.
+
+The guard is its own plugin rather than a hook on `magpie` or on each family
+plugin because Claude Code merges hooks from **every** enabled plugin — wiring it
+into the families would run it once per enabled family on every `Bash` call. One
+dedicated owner runs it exactly once, whatever else is installed.
+
+### Snapshot adopters (`/magpie-setup`)
+
+A project that vendors the framework as a snapshot rather than installing the
+plugin wires the hook by hand, in the gitignored, per-machine
+`.claude/settings.local.json`. Point it at the **snapshot's** engine, not at a
+per-repository copy:
 
 ```json
 {
@@ -113,7 +140,7 @@ worktree is seeded independently, same as the script itself):
       {
         "matcher": "Bash",
         "hooks": [
-          { "type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/agent-guard.py\"", "timeout": 30 }
+          { "type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR/.apache-magpie/tools/agent-guard/src/agent_guard/__init__.py\"", "timeout": 30 }
         ]
       }
     ]
@@ -121,11 +148,15 @@ worktree is seeded independently, same as the script itself):
 }
 ```
 
-`/magpie-setup` ships `agent_guard/__init__.py` as a single self-contained file
-into the adopter tree (`.claude/hooks/agent-guard.py`) and into the user-scope
-secure setup (`~/.claude/scripts/agent-guard.py`); `/magpie-setup upgrade`,
-`verify`, and the `setup-isolated-setup-install` / `…-update` skills keep it and
-the settings.local.json entry in sync. See those skills for the exact steps.
+Every worktree already symlinks `.apache-magpie/` to the main checkout's
+snapshot ([`worktree-init`](../../skills/setup/worktree-init.md)), so this path
+resolves in a worktree without seeding anything else. `/magpie-setup upgrade`
+refreshes the engine with the rest of the snapshot.
+
+The user-scope secure setup installs the engine once at
+`~/.claude/scripts/agent-guard.py` and wires it from `~/.claude/settings.json`;
+that path is worktree- and repository-independent by construction. See
+[`setup-isolated-setup-install`](../../skills/setup-isolated-setup-install/SKILL.md).
 
 ### OpenCode
 
@@ -245,15 +276,19 @@ for Claude Code setups — the file is the same and works for all three modes).
 ## Contributing guards
 
 The hook is **wired once**. Beyond the two bundled guards, additional guards are
-discovered at runtime from every `*.py` in a `guards.d` directory — the
-`guards.d` sibling of the running script, plus any directory listed in
-`$MAGPIE_GUARD_DIRS` (colon-separated). **No `settings.json` change is needed to
-add a guard.**
+discovered at runtime from every `*.py` in a discovered guard directory — any
+directory listed in `$MAGPIE_GUARD_DIRS` (colon-separated), then every
+`skills/*/guards` in the framework tree the engine runs from, then the
+`guards.d` sibling of the running script. **No `settings.json` change and no
+install step is needed to add a guard.**
 
-A skill owns its guards by shipping them under `skills/<skill>/guards/*.py`;
-`/magpie-setup` collects every `skills/*/guards/*.py` (plus the engine's bundled
-`guards.d`) into the adopter's `.claude/hooks/guards.d/` (and the user-scope
-`~/.claude/scripts/guards.d/`). A guard file is **import-free** — it defines:
+A skill owns its guards by shipping them under `skills/<skill>/guards/*.py`.
+The engine discovers them there — it resolves the framework tree it is running
+from and scans every `skills/*/guards` in it, alongside its own bundled
+`guards.d`. Nothing collects or copies them, so a new guard is live as soon as
+the framework is. (A single self-contained copy of the engine, with no framework
+tree above it, sees only its own `guards.d` and whatever `$MAGPIE_GUARD_DIRS`
+names.) A guard file is **import-free** — it defines:
 
 - `TRIGGERS` — optional list of command families to pre-filter on (`"gh"`,
   `"git:commit"`, `"git:push"`, …); omit to run on every guarded command.

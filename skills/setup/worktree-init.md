@@ -187,64 +187,37 @@ one-line recap row for the Step 2 summary:
 `worktree-init` does **not** fail when the helper is absent;
 secure-agent isolation is independent of framework adoption.
 
-## Step 1d — Seed the worktree's agent-guard PreToolUse hook
+## Step 1d — agent-guard needs nothing here
 
-The gitignored, per-machine `.claude/settings.local.json` wires the
-deterministic guard ([`tools/agent-guard`](../../tools/agent-guard/README.md))
-at `$CLAUDE_PROJECT_DIR/.claude/hooks/agent-guard.py`, a
-**per-worktree** path. The script, its `guards.d/`, and the
-`hooks.PreToolUse` wiring itself are all adopter-installed local
-files synced into the **main** checkout by
-[`install.md` Step 12 pass 1](install.md#step-12--post-install-sync--worktree-propagation--sandbox-allowlist--sanity-check)
-/ [`upgrade.md` Step 6b](upgrade.md#step-6b--sync-locally-installed-hooks-and-configuration)
-and **gitignored** ([`install.md` Step 7](install.md#step-7--gitignore-entries-fresh-only)).
-Because they are gitignored, no worktree inherits any of them via
-git. Every worktree starts without the script or the wiring and
-would run with the guard **silently inactive** until seeded.
+Nothing to do. This step is retained only to say so, because
+earlier versions of the framework seeded a per-worktree copy of
+the guard here and operators may still expect it.
 
-This is the agent-driven counterpart of the
-[post-checkout hook's agent-guard seeding](install.md#step-10--worktree-aware-post-checkout-hook-fresh-only):
-the git hook covers `git worktree add`, this step covers worktrees
-that pre-date the hook or where its best-effort copy did not run.
+The deterministic guard
+([`tools/agent-guard`](../../tools/agent-guard/README.md)) runs
+from wherever it is installed **once**, never from a per-worktree
+copy:
 
-Seed the script from the main checkout's already-synced copy, a
-plain file copy of the same `<main>` resolved in Step 0:
+- **Plugin install** (`magpie-agent-guard`) — the plugin's own
+  manifest registers the `PreToolUse` hook and resolves the engine
+  under `${CLAUDE_PLUGIN_ROOT}`. Nothing is repository-local, so a
+  worktree is covered the moment it exists.
+- **Snapshot install** — the `settings.local.json` wiring resolves
+  the engine inside the snapshot
+  (`$CLAUDE_PROJECT_DIR/.apache-magpie/tools/agent-guard/src/agent_guard/__init__.py`),
+  and Step 1 above already points this worktree's `.apache-magpie/`
+  at the main checkout's. The path therefore resolves here with no
+  further work.
+- **User-scope secure setup** — `~/.claude/scripts/agent-guard.py`,
+  wired from `~/.claude/settings.json`, is repository-independent
+  by construction.
 
-```bash
-# Only when the main has a guard and this worktree has none — never
-# overwrite a copy the worktree already carries (worktree-local guards).
-if [ -f "<main>/.claude/hooks/agent-guard.py" ] &&
-   [ ! -f "<worktree>/.claude/hooks/agent-guard.py" ]; then
-  mkdir -p "<worktree>/.claude/hooks/guards.d"
-  cp "<main>/.claude/hooks/agent-guard.py" "<worktree>/.claude/hooks/agent-guard.py"
-  cp "<main>/.claude/hooks/guards.d/"*.py "<worktree>/.claude/hooks/guards.d/" 2>/dev/null || true
-fi
-```
+Skill-owned guards need no seeding either: the engine scans every
+`skills/<skill>/guards` in the framework tree it runs from, so they
+are live wherever the framework is.
 
-Idempotent: a no-op when the worktree already has the script, and
-a no-op when the main has no agent-guard yet (an adopter who has
-not run the Step 12 / Step 6b sync). Surface a one-line recap row
-for Step 2:
-
-- ✓ already present, OR
-- + seeded from `<main>` (script + N guards), OR
-- ⚠ main has no agent-guard yet — run `/magpie-setup` (or
-  `/magpie-setup upgrade`) from the main checkout to sync it.
-
-Then seed the wiring into this worktree's own `settings.local.json`
-the same way [`install.md` Step 12 pass 1](install.md#step-12--post-install-sync--worktree-propagation--sandbox-allowlist--sanity-check)
-does for the main checkout: an idempotent merge that preserves every
-other key and is skipped once a `Bash` entry already invokes
-`agent-guard.py`. Do this whenever the script was just copied above,
-and also when the worktree already has the script but is missing
-the wiring (an older worktree created before this step covered
-wiring, or one where a prior pass copied the script but not the
-entry). Add a `+ wired` row alongside the recap above when this
-ran and the script was already present.
-
-`worktree-init` does **not** fail when the main carries no
-agent-guard; the guard is an opt-in adopter-side file, and the
-worktree's framework-skill symlinks are usable without it.
+Surface one recap row for Step 2: `✓ agent-guard runs from the
+install, nothing seeded per worktree`.
 
 ## Step 2 — Recap
 
@@ -259,8 +232,8 @@ Print a short summary:
   pair, any present holdout), split into *opt-in* and
   *always-on*, with per-skill ✓ / + / ↻ counts.
 - The sandbox-allowlist recap row from Step 1c.
-- The agent-guard recap row from Step 1d (✓ already present /
-  + seeded / ⚠ main has no agent-guard yet).
+- The agent-guard recap row from Step 1d (always ✓ — the guard
+  runs from the install, not from a per-worktree copy).
 - A reminder: `upgrade` from the main, not from the worktree.
 
 ## Inputs

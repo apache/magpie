@@ -1,0 +1,26 @@
+{
+  "name": "magpie-agent-guard",
+  "description": "Apache Magpie \u2014 deterministic pre-execution command guard: a PreToolUse hook that denies shell commands which would break a hard framework rule. Runs from the installed plugin, so no repository or worktree needs a local copy.",
+  "version": "0.2.0.dev202609080121",
+  "author": {
+    "name": "Apache Magpie",
+    "url": "https://magpie.apache.org/"
+  },
+  "homepage": "https://magpie.apache.org/",
+  "repository": "https://github.com/apache/magpie",
+  "license": "Apache-2.0",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/tools/agent-guard/src/agent_guard/__init__.py\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

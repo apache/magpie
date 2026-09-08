@@ -9,9 +9,10 @@ committed lock, gitignored local lock, framework-skill
 symlinks **in every active target dir** ([`agents.md`](agents.md)
 — `.agents/skills/`, `.claude/skills/`, `.github/skills/`, plus
 any present holdout), the matching `.gitignore` blocks,
-post-checkout hook, the gitignored agent-guard hook
-(`.claude/hooks/agent-guard.py` + `guards.d/` + the
-`settings.local.json` `hooks.PreToolUse` wiring), the Magpie-owned
+post-checkout hook, the agent-guard `hooks.PreToolUse` wiring in
+`settings.local.json` (plus any leftover
+`.claude/hooks/agent-guard.py` + `guards.d/` from a framework
+version that still copied the engine), the Magpie-owned
 Codex project policy (`.codex/config.toml` values +
 `.codex/rules/magpie.rules`), the adoption
 sections in `README.md` / `AGENTS.md` / `CONTRIBUTING.md`, and the
@@ -105,8 +106,8 @@ every artefact).
 | Committed lock | `<committed-lock>` | exists |
 | `.gitignore` entries | `<repo-root>/.gitignore` | which of the entries from [`install.md` Step 7](install.md) are present |
 | Framework-skill symlinks | **Every active target dir** ([`agents.md`](agents.md)): the canonical `.agents/skills/` (always present), the `.claude/skills/` + `.github/skills/` relay pair, and any present holdout (`.windsurf/skills/`, `.goose/skills/`) | each `magpie-*` symlink — canonical entries resolving into `<snapshot-dir>/skills/`, relays resolving into `.agents/skills/magpie-*` — in **each** target dir |
-| Post-checkout hook | `<repo-root>/.git/hooks/post-checkout` | exists + invokes `~/.claude/scripts/sandbox-add-project-root.sh` and/or seeds `.claude/hooks/agent-guard.py` |
-| agent-guard hook | `<repo-root>/.claude/hooks/agent-guard.py` + `<repo-root>/.claude/hooks/guards.d/` + the `hooks.PreToolUse` entry in `<repo-root>/.claude/settings.local.json` | exist (all gitignored, per-machine). Unlike the committed `settings.json`, `settings.local.json` is agent-writable, so remove the entry directly rather than surfacing it for manual removal. |
+| Post-checkout hook | `<repo-root>/.git/hooks/post-checkout` | exists + invokes `~/.claude/scripts/sandbox-add-project-root.sh` (older hooks additionally seeded `.claude/hooks/agent-guard.py`) |
+| agent-guard wiring | the `hooks.PreToolUse` entry in `<repo-root>/.claude/settings.local.json`, plus any leftover `<repo-root>/.claude/hooks/agent-guard.py` + `guards.d/` | exist (gitignored, per-machine). Unlike the committed `settings.json`, `settings.local.json` is agent-writable, so remove the entry directly rather than surfacing it for manual removal. The `magpie-agent-guard` **plugin**, if installed, is outside this repo — uninstalling the framework from a repo does not touch it; say so rather than silently leaving the guard active. |
 | Codex policy | `.codex/config.toml`, `.codex/rules/magpie.rules` | identify Magpie-owned values separately from unrelated adopter Codex configuration |
 | Doc section: `README.md` | `<repo-root>/README.md` | contains the `## Agent-assisted contribution (apache-magpie)` heading |
 | Doc section: `AGENTS.md` | `<repo-root>/AGENTS.md` | contains the `## apache-magpie framework` heading |
@@ -139,8 +140,8 @@ The following will be REMOVED:
     .github/skills/magpie-<skill-1>      → ../../.agents/skills/magpie-<skill-1>   (relay)
     <holdout>/skills/magpie-<skill-1>    → ../../.agents/skills/magpie-<skill-1>   (relay; e.g. .windsurf/skills/, .goose/skills/ — only if present)
     .git/hooks/post-checkout              (if it contains the magpie recipe)
-    .claude/hooks/agent-guard.py          (gitignored framework code)
-    .claude/hooks/guards.d/               (gitignored; bundled + skill-owned guards)
+    .claude/hooks/agent-guard.py          (only if a previous framework version copied it)
+    .claude/hooks/guards.d/               (only if a previous framework version collected it)
     .claude/settings.local.json           (hooks.PreToolUse entry removed; other keys kept)
     # Target dirs (per agents.md): canonical .agents/skills/, the
     #   .claude/skills/ + .github/skills/ relay pair, plus any present
@@ -244,8 +245,8 @@ pointing at a deleted snapshot.
    the magpie recipe verbatim (i.e. the hook the install flow
    wrote — the two-part body that chains
    `~/.claude/scripts/sandbox-add-project-root.sh` (guarded by
-   the `-x` test) **and** seeds `.claude/hooks/agent-guard.py`
-   from the main checkout; see
+   the `-x` test); older hooks additionally seeded
+   `.claude/hooks/agent-guard.py` from the main checkout — see
    [`install.md` Step 10](install.md#step-10--worktree-aware-post-checkout-hook-fresh-only)
    for the exact text). If the hook contains additional adopter
    logic, surface that, leave the hook in place, and tell the
@@ -254,7 +255,9 @@ pointing at a deleted snapshot.
    (a Claude Code slash command that does not work from a shell
    hook — removed in a later framework release) should be
    replaced with the current Step 10 template.
-3. **agent-guard hook files.** `rm -f
+3. **agent-guard leftovers.** Current installs put nothing here;
+   these exist only on repos adopted before the guard moved to
+   running from the install. `rm -f
    <repo-root>/.claude/hooks/agent-guard.py` and `rm -rf
    <repo-root>/.claude/hooks/guards.d/` — gitignored framework
    code, no `git rm` needed. If the adopter force-added their own
@@ -323,10 +326,12 @@ After the deletions, verify the post-state:
   the removed `<snapshot-dir>/` nor relays into the now-empty
   `.agents/skills/`.
 - `.gitignore` no longer contains the magpie entries.
-- `.claude/hooks/agent-guard.py` and `.claude/hooks/guards.d/`
-  do not exist (save any adopter-authored guards the user chose
-  to keep); the matching `hooks.PreToolUse` entry in
-  `.claude/settings.local.json` is gone too.
+- The agent-guard `hooks.PreToolUse` entry in
+  `.claude/settings.local.json` is gone, and no leftover
+  `.claude/hooks/agent-guard.py` / `guards.d/` remain (save any
+  adopter-authored guards the user chose to keep). An installed
+  `magpie-agent-guard` plugin is untouched and still active — it
+  is not part of this repository's adoption.
 - Magpie-owned Codex policy is gone while unrelated `.codex`
   configuration remains.
 - The doc sections are gone from the affected files.

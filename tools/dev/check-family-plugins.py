@@ -26,7 +26,11 @@ Checks that every plugin is properly defined:
   `plugins/magpie-<family>/` plugin whose manifest is well-formed, inherits the
   root manifest's shared metadata (version, author, homepage, repository,
   license), and whose `skills/` directory contains exactly that family's skills
-  as single-hop symlinks into the shared `skills/<skill>` tree.
+  as single-hop symlinks into the shared `skills/<skill>` tree;
+- every *substrate* plugin (`SUBSTRATE_PLUGINS` — a framework tool published as
+  its own plugin rather than a family of skills) has a well-formed manifest that
+  inherits the same shared metadata, declares the exact hook wiring the framework
+  expects, and reaches its tool through a symlink that actually resolves.
 
 Drift — a new skill, a changed family, a stale symlink, a malformed or
 mis-named manifest, a dangling marketplace entry, a family manifest left behind
@@ -53,6 +57,7 @@ MARKETPLACE = Path(".claude-plugin/marketplace.json")
 ROOT_MANIFEST = Path(".claude-plugin/plugin.json")  # the all-in-one `magpie` plugin
 HOOK_SCRIPT = Path("hooks/check-upgrade.sh")  # referenced by the all-in-one plugin hook
 SYMLINK_TARGET = "../../../skills/{skill}"  # relative to plugins/magpie-<f>/skills/
+TOOL_SYMLINK_TARGET = "../../../tools/{tool}"  # relative to plugins/magpie-<p>/tools/
 
 # The vendor-neutral Agent Plugins 1.0 manifest for the same all-in-one plugin.
 # It lives at the repo root (the spec permits no alternative location) and is
@@ -134,6 +139,47 @@ DESC = {
 }
 
 
+# Substrate plugins are *not* derived from any skill's `family:` frontmatter:
+# they publish a framework tool as its own plugin so the tool runs from the
+# installed plugin root, with nothing copied into a consumer repository. Each
+# declares the hook wiring the framework expects and reaches its tool through a
+# narrow symlink (the whole `tools/` tree is deliberately not exposed).
+#
+# A substrate plugin is a plugin of its own rather than a hook on the all-in-one
+# `magpie` plugin because Claude Code merges hooks from *every* enabled plugin:
+# wiring the guard into each family plugin would run it once per enabled family
+# on every single Bash call. One dedicated owner runs it exactly once, whatever
+# else is installed.
+AGENT_GUARD_ENGINE = "tools/agent-guard/src/agent_guard/__init__.py"
+SUBSTRATE_PLUGINS: dict[str, dict] = {
+    "magpie-agent-guard": {
+        "description": (
+            "Apache Magpie \u2014 deterministic pre-execution command guard: a PreToolUse hook "
+            "that denies shell commands which would break a hard framework rule. Runs from "
+            "the installed plugin, so no repository or worktree needs a local copy."
+        ),
+        # <link path under the plugin root> -> <tools/ subdirectory it exposes>
+        "links": {"tools/agent-guard": "agent-guard"},
+        # Files that must resolve *through* those links for the hook to fire.
+        "must_resolve": (AGENT_GUARD_ENGINE,),
+        "hooks": {
+            "PreToolUse": [
+                {
+                    "matcher": "Bash",
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": f'python3 "${{CLAUDE_PLUGIN_ROOT}}/{AGENT_GUARD_ENGINE}"',
+                            "timeout": 30,
+                        }
+                    ],
+                }
+            ]
+        },
+    },
+}
+
+
 def load_json(path: Path):
     try:
         return json.loads(path.read_text(encoding="utf-8")), None
@@ -163,6 +209,78 @@ def validate_manifest(path: Path, expected_name: str, inherited: dict | None = N
                 f"{path}: {key!r} is {data.get(key)!r}, expected {want!r} (inherited from {ROOT_MANIFEST})"
             )
     return errors
+
+
+def substrate_manifest(name: str, shared: dict) -> dict:
+    """The manifest `--fix` writes for a substrate plugin — the single source of
+    truth `check` compares the on-disk file against."""
+    spec = SUBSTRATE_PLUGINS[name]
+    return {"name": name, "description": spec["description"], **shared, "hooks": spec["hooks"]}
+
+
+def check_substrate(name: str, shared: dict) -> list[str]:
+    """A substrate plugin's manifest, hook wiring, and tool symlinks.
+
+    Unlike a family plugin it declares no `skills`, so it gets its own checks
+    rather than `validate_manifest`'s.
+    """
+    spec = SUBSTRATE_PLUGINS[name]
+    pdir = PLUGINS / name
+    path = pdir / ".claude-plugin" / "plugin.json"
+    if not path.is_file():
+        return [f"{path}: missing plugin manifest"]
+    data, err = load_json(path)
+    if err:
+        return [err]
+
+    errors: list[str] = []
+    if data.get("name") != name:
+        errors.append(f"{path}: name is {data.get('name')!r}, expected {name!r}")
+    if not str(data.get("description", "")).strip():
+        errors.append(f"{path}: missing/empty 'description'")
+    if "skills" in data:
+        errors.append(f"{path}: substrate plugins ship a tool, not skills — drop 'skills'")
+    if data.get("hooks") != spec["hooks"]:
+        errors.append(
+            f"{path}: 'hooks' does not match the wiring the framework expects (regenerate with --fix)"
+        )
+    for key, want in (shared or {}).items():
+        if data.get(key) != want:
+            errors.append(
+                f"{path}: {key!r} is {data.get(key)!r}, expected {want!r} (inherited from {ROOT_MANIFEST})"
+            )
+
+    for link_path, tool in spec["links"].items():
+        link = pdir / link_path
+        want = Path(TOOL_SYMLINK_TARGET.format(tool=tool))
+        if not link.is_symlink():
+            errors.append(f"{name}: {link} is missing or not a symlink (expected -> {want})")
+        elif link.readlink() != want:
+            errors.append(f"{name}: {link} -> {link.readlink()} (expected {want})")
+
+    # A manifest and a symlink that both look right still leave the hook dead if
+    # the file the command names is not reachable from the plugin root.
+    for rel in spec["must_resolve"]:
+        if not (pdir / rel).is_file():
+            errors.append(
+                f"{name}: {pdir / rel} does not resolve — the hook command names it, "
+                f"so the guard would silently never run"
+            )
+    return errors
+
+
+def write_substrate(name: str, shared: dict) -> None:
+    """(Re)generate a substrate plugin dir: manifest + tool symlinks."""
+    spec = SUBSTRATE_PLUGINS[name]
+    pdir = PLUGINS / name
+    (pdir / ".claude-plugin").mkdir(parents=True)
+    for link_path, tool in spec["links"].items():
+        link = pdir / link_path
+        link.parent.mkdir(parents=True, exist_ok=True)
+        link.symlink_to(TOOL_SYMLINK_TARGET.format(tool=tool))
+    (pdir / ".claude-plugin" / "plugin.json").write_text(
+        json.dumps(substrate_manifest(name, shared), indent=2) + "\n", encoding="utf-8"
+    )
 
 
 def pyproject_version() -> tuple[str | None, list[str]]:
@@ -416,8 +534,16 @@ def check(fam: dict[str, set[str]]) -> list[str]:
             if have[skill] != want:
                 errors.append(f"{name}: {sdir / skill} -> {have[skill]} (expected {want})")
 
-    # 4) No orphan plugin dirs (a magpie-<x> with no skills declaring family x).
+    # 4) Substrate plugins: manifest + hook wiring + tool symlinks that resolve.
+    for name in sorted(SUBSTRATE_PLUGINS):
+        errors += check_substrate(name, shared)
+        if name not in listed:
+            errors.append(f"{MARKETPLACE}: missing entry for '{name}'")
+
+    # 5) No orphan plugin dirs (a magpie-<x> that is neither a family nor substrate).
     for pdir in sorted(PLUGINS.glob("magpie-*")):
+        if pdir.name in SUBSTRATE_PLUGINS:
+            continue
         family = pdir.name[len("magpie-") :]
         if family not in fam:
             errors.append(f"orphan plugin '{pdir.name}': no skill declares family '{family}'")
@@ -426,7 +552,7 @@ def check(fam: dict[str, set[str]]) -> list[str]:
 
 
 def unowned_entries(pdir: Path) -> list[str]:
-    """Anything in a family plugin dir that `--fix` did not generate.
+    """Anything in a plugin dir that `--fix` did not generate.
 
     A blanket `rmtree` is safe only for as long as these directories hold
     nothing but a generated manifest and symlinks. The moment a family grows a
@@ -436,12 +562,20 @@ def unowned_entries(pdir: Path) -> list[str]:
     """
     if not pdir.is_dir():
         return []
-    mdir, sdir = pdir / ".claude-plugin", pdir / "skills"
-    unexpected = sorted(p for p in pdir.iterdir() if p not in {mdir, sdir})
+    mdir = pdir / ".claude-plugin"
+    # A substrate plugin owns its tool-symlink parents instead of `skills/`.
+    if spec := SUBSTRATE_PLUGINS.get(pdir.name):
+        owned = {mdir} | {pdir / Path(link).parts[0] for link in spec["links"]}
+        link_dirs = [pdir / Path(link).parent for link in spec["links"]]
+    else:
+        owned = {mdir, pdir / "skills"}
+        link_dirs = [pdir / "skills"]
+    unexpected = sorted(p for p in pdir.iterdir() if p not in owned)
     if mdir.is_dir():
         unexpected += sorted(p for p in mdir.iterdir() if p.name != "plugin.json")
-    if sdir.is_dir():
-        unexpected += sorted(p for p in sdir.iterdir() if not p.is_symlink())
+    for sdir in link_dirs:
+        if sdir.is_dir():
+            unexpected += sorted(p for p in sdir.iterdir() if not p.is_symlink())
     if not unexpected:
         return []
     return [
@@ -493,6 +627,8 @@ def fix(fam: dict[str, set[str]]) -> int:
         return 1
     for pdir in stale:
         shutil.rmtree(pdir)
+    for name in sorted(SUBSTRATE_PLUGINS):
+        write_substrate(name, shared)
     for family, skills in sorted(fam.items()):
         name = f"magpie-{family}"
         pdir = PLUGINS / name
@@ -531,6 +667,15 @@ def fix(fam: dict[str, set[str]]) -> int:
             file=sys.stderr,
         )
         return 1
+    for name in sorted(SUBSTRATE_PLUGINS):
+        keep.append(
+            {
+                "name": name,
+                "source": f"./plugins/{name}",
+                "version": shared["version"],
+                "description": SUBSTRATE_PLUGINS[name]["description"],
+            }
+        )
     for family, skills in sorted(fam.items()):
         keep.append(
             {

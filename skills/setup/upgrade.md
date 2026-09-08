@@ -377,22 +377,22 @@ rather than pulls in via symlink. Examples:
 - `<repo-root>/.git/hooks/post-checkout` (the worktree-aware
   hook installed during installation). Its expected content is the
   [`install.md` Step 10](install.md#step-10--worktree-aware-post-checkout-hook-fresh-only)
-  template — which now both chains the sandbox-allowlist helper
-  **and** seeds a new worktree's agent-guard from the main
-  checkout. An adopter on an older hook (sandbox-only, or the
-  long-removed `--auto-fix-symlinks` line) is re-installed to the
-  current template by this drift sync.
-- `<repo-root>/.claude/hooks/agent-guard.py` and the
-  `<repo-root>/.claude/hooks/guards.d/` directory (the
-  deterministic `PreToolUse` guard dispatcher and its guards — see
-  [`install.md` Step 12](install.md#step-12--post-install-sync--worktree-propagation--sandbox-allowlist--sanity-check)
-  and [`tools/agent-guard`](../../tools/agent-guard/README.md)).
-  `guards.d/` is populated from **both** the engine's bundled
-  `guards.d/*.py` **and** every skill-owned `skills/*/guards/*.py`
-  in the snapshot. Re-syncing it is how a new skill — or a skill
-  that newly adds a guard — reaches an already-adopted repo; the
-  `settings.local.json` `hooks.PreToolUse` wiring is unchanged (already
-  wired, or re-added via the same idempotent merge if missing).
+  template — which chains the sandbox-allowlist helper. An adopter
+  on an older hook (one that also seeded a per-worktree
+  agent-guard copy, or the long-removed `--auto-fix-symlinks`
+  line) is re-installed to the current template by this drift
+  sync.
+- The `settings.local.json` `hooks.PreToolUse` wiring for the
+  deterministic guard ([`tools/agent-guard`](../../tools/agent-guard/README.md)).
+  The engine itself is **not** copied anywhere: the wiring resolves
+  it inside the snapshot, so `upgrade` refreshing the snapshot
+  refreshes the engine and every skill-owned guard with it. An
+  adopter whose entry still names the retired per-repository copy
+  (`$CLAUDE_PROJECT_DIR/.claude/hooks/agent-guard.py`) is rewritten
+  to the snapshot path — that stale entry breaks every `Bash` call
+  in any worktree that has no copy. Any leftover
+  `<repo-root>/.claude/hooks/agent-guard.py` and `guards.d/` are
+  reported as removable.
 - The committed `.codex/config.toml` and `.codex/rules/magpie.rules`:
   compare them with the current snapshot policy. Preserve unrelated
   Codex settings; surface conflicts and hand edits rather than
