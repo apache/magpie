@@ -268,6 +268,33 @@ repos:
         entry: python3 tools/dev/check-family-plugins.py
         files: ^(skills/.*/SKILL\.md|plugins/.*|\.claude-plugin/(marketplace|plugin)\.json|\.codex-plugin/plugin\.json|\.agents/plugins/marketplace\.json|(plugin|marketplace)\.json|gemini-extension\.json|apm\.yml|pyproject\.toml|hooks/check-upgrade\.sh)$
         pass_filenames: false
+  # Documentation claims that must track the tree. Four mechanical checks,
+  # each added after the drift it catches was found by hand:
+  #   - every tools/spec-loop/specs/*.md is listed in BOTH index files
+  #     (overview.md and README.md) — ten specs were absent from both,
+  #     including per-family specs and one added four PRs earlier;
+  #   - README.md's family table "N skills" cells match live `family:`
+  #     frontmatter;
+  #   - docs/modes.md's *Modes at a glance* Skill-count column matches live
+  #     `mode:` frontmatter (the validator's modes-doc rule checks section
+  #     membership but reads only the mode and status columns, so the counts
+  #     were unguarded);
+  #   - bare "N skills" totals in docs/setup/marketplaces.md match the
+  #     catalogue;
+  #   - every script in tools/dev/ is named in tools/dev/README.md — these are
+  #     the framework's own gates, and an undocumented one is invisible to the
+  #     next contributor deciding whether it applies to their change.
+  # None of these break anything when wrong, which is exactly why they rot:
+  # they are numbers a human must remember to update while thinking about
+  # something else.
+  - repo: local
+    hooks:
+      - id: check-doc-sync
+        name: check-doc-sync (spec indexes + declared skill counts)
+        language: system
+        entry: python3 tools/dev/check-doc-sync.py
+        files: ^(skills/[^/]+/SKILL\.md|tools/spec-loop/specs/.*\.md|README\.md|docs/modes\.md|docs/setup/marketplaces\.md|tools/dev/.*)$
+        pass_filenames: false
   # Workspace-membership guard. The single source of truth for
   # which Python projects get pre-commit hooks + the CI pytest
   # matrix is the `[tool.uv.workspace] members` array in the root
