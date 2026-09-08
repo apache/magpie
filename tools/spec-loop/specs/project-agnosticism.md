@@ -105,6 +105,15 @@ The three mechanisms, in order of preference:
   `dev-list-vote`) is incomplete; it must name at least one non-ASF
   option (`pr-approval`, `maintainer-roster`, `github-discussion`, …) and
   describe the adopter-facing default.
+- **`<PROJECT>` and `<project>` are two placeholders, not one casing
+  choice.** `<PROJECT>` is the display name (`Apache Foo`); `<project>` is the
+  infrastructure slug used inside hostnames, addresses, and URL paths (`foo`).
+  Substituting one for the other yields a value that is wrong rather than
+  mis-cased. Because they differ only by case, a fixed-string lint written for
+  one does not catch the other, so `tools/dev/check-placeholders.sh` carries
+  both spellings and also matches spaced variants (`name: "<project>"` as well
+  as `name:"<project>"`), since YAML, JSON, and GraphQL all accept either form
+  and pinning one lets the other through.
 - **Advisory, not paternalistic.** The audit surfaces candidate coupling
   for a maintainer to judge; some ASF strings are legitimate (examples,
   the ASF default profile, ASF-specific docs). It does not auto-rewrite.

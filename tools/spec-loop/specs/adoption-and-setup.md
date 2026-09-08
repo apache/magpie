@@ -121,6 +121,16 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
 
 ## Known gaps
 
+- **Marketplace distribution is unspecified.** No spec covers the plugin
+  marketplace surface — the per-family manifests, the root catalogues, or the
+  `0.2.0.dev<YYYYMMDDHHMM>` version-stamping rule that `docs/setup/marketplaces.md`
+  documents. That rule is load-bearing: the marketplace is served from `main`,
+  so adopters do install dev versions, and `claude plugin update` compares
+  version strings rather than commit SHAs — a frozen suffix leaves an adopter
+  told they are "already at the latest version" indefinitely, recoverable only
+  by a full uninstall and reinstall. Worth its own spec rather than a bullet
+  here.
+
 - `stable`; gaps appear as new agent targets to add to the registry
   ([`agents.md`](../../../skills/setup/agents.md)) or new override
   surfaces — recorded by the plan pass.

@@ -50,6 +50,19 @@ health without navigating the tracker issue-by-issue.
 - **Config-driven.** Lifecycle category bands, time-to-triage signal,
   milestone vertical annotations, and the null-`upstream_repo` path are
   declared in the tool's `default-config.yaml` and overridden per-adopter.
+- **The current bucket is projected to its end-of-bucket value.** A partially
+  elapsed month, quarter, or week is otherwise read as a genuine decline when
+  it is only incomplete. The projection is linear on the elapsed fraction and
+  splits by series kind: RATE series (counts accumulating from zero inside the
+  bucket — reports opened, reports rejected) project `observed / fraction` and
+  never below the observed count; LEVEL series (cumulative totals and
+  end-of-bucket snapshots, which carry over) extrapolate only the movement
+  within the bucket, `previous + (observed - previous) / fraction`, floored at
+  zero. Mean-based signals are deliberately not projected — a mean over the
+  items seen so far is already an estimate, not a partial accumulation. The
+  output states the elapsed fraction and the observed-to-projected pair, and
+  names the reason whenever projection is skipped (disabled, bucket already
+  complete, or no baseline bucket to project from).
 
 ## Out of scope
 

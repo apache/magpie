@@ -188,7 +188,15 @@ and a consistent propose-before-act discipline.
 
 ```bash
 uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-validate
+PYTHONPATH=tools/skill-evals/src python3 -m skill_evals.runner \
+    tools/skill-evals/evals/issue-triage/ \
+    tools/skill-evals/evals/issue-reassess/
 ```
+
+Every skill in the family ships a behavioural eval suite under
+`tools/skill-evals/evals/<skill>/`. Run `--cli` mode outside any sandbox that
+denies the model CLI its credentials; an unauthenticated CLI now errors rather
+than reporting a vacuous pass (see `meta-and-quality-tooling.md`).
 
 ## Known gaps
 

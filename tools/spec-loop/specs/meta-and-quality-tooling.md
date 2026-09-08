@@ -37,7 +37,12 @@ trustworthy as it grows.
   `name`, `description`, `license`) and tool definitions, internal link integrity,
   placeholder conventions, license headers on tool Python files, and eval-coverage
   (soft check: warns when a skill has no eval suite). CLI: `skill-and-tool-validate`.
-- `tools/skill-evals/` — harness for measuring skill behaviour.
+- `tools/skill-evals/` — harness for measuring skill behaviour. A case whose
+  CLI produced no usable JSON reports ERROR unless something asserts on a
+  synthetic wrap key (`raw_output` / `stderr` / `exit_code`, via
+  `expected.json` or an `assertions.json` `field`) — a wrap nothing addresses
+  compares nothing, and passing it turned an unauthenticated CLI into a green
+  run.
 - `tools/sandbox-lint/` — lints the sandbox/permissions configuration.
 - `tools/symlink-lint/` — lints the framework's self-adoption skill
   symlinks: rejects cyclic symlinks, misdirected relays (canonical/
@@ -130,6 +135,9 @@ trustworthy as it grows.
    skills, and tools, and has its own tests.
 8. `skill-evals` keeps mock tool output in the user turn and appends optional
    trusted repository context only to the system prompt.
+9. `skill-evals` never reports PASS for a case in which nothing was graded:
+   a CLI that emits no JSON, or exits non-zero, errors unless the suite
+   explicitly asserts on the wrapped output.
 
 ## Validation
 

@@ -90,7 +90,13 @@ by swapping the adapter, not the skill.
 - `tools/forwarder-relay/` — relay adapter for security reports forwarded
   by an upstream broker (e.g. the ASF security team); the counterpart to
   direct-intake adapters for the `security-issue-import-via-forwarder`
-  sub-skill.
+  sub-skill. Its `contact_handle` — who the skills address when proposing a
+  relay draft — defaults to a shared inbox declared org-level
+  (`organizations/ASF/organization.md` for the ASF profile) and inherited
+  through `project.md`, rather than naming an individual liaison. An adopter
+  whose relays do come through a named person overrides it per-project. The
+  multi-hop case, where a report reaches the project through more than one
+  broker, is designed in `docs/rfcs/RFC-AI-0008.md` and not yet implemented.
 - `tools/mail-patch/` and `tools/jira-patch/` — patch-over-mail /
   patch-over-Jira adapters; implement `contract:change-request` for
   projects that land patches via mailing-list review or Jira rather than
