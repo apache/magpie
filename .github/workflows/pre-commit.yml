@@ -103,11 +103,35 @@ jobs:
         # CI, so skip it — the hook still runs locally on `git commit` /
         # `prek run`, where there is no separate matrix.
         #
-        # `--verbose`: without it prek renders a progress UI that a
-        # non-TTY CI log buffers and only flushes at the end, so a long
-        # run shows nothing while it works. Verbose prints each hook's
-        # result and output as it completes, giving live progress in the
-        # Actions log.
+        # `--skip identity`: the `identity` meta-hook echoes every file
+        # passed to the static checks. That is a useful local
+        # troubleshooting aid, but on `--all-files` it prints the whole
+        # repository into the CI log ahead of any actual result, burying
+        # the failure a reader came for. It stays enabled locally.
+        #
+        # No `--verbose`. It was added believing it bought live progress in
+        # a non-TTY log. It does not — measured on this repo, first output
+        # and total runtime coincide with the flag and without it: prek
+        # emits nothing until the run finishes either way. prek streams
+        # only when stdout is a TTY, where it draws an in-place progress UI
+        # (spinner, cursor-control escapes, redrawn lines); with stdout a
+        # pipe it suppresses that renderer and prints the whole result
+        # block at the end. `--no-progress` behaves identically, and `-q`
+        # prints nothing at all on success.
+        #
+        # So the flag's only effect in CI is to add every *passing* hook's
+        # stdout to that final block — several hundred lines around the one
+        # thing worth reading. Failures still print their output, and
+        # `--show-diff-on-failure` still shows what a fixer hook changed.
+        #
+        # Real streaming would mean allocating a pty (`script -qec …`),
+        # which fills the Actions log with ANSI redraw escapes. Waiting for
+        # the block is the better trade.
+        #
+        # Note the repeated flag: `--skip a,b` is NOT a list — prek takes a
+        # single HOOK|PROJECT per occurrence, and a comma-joined value
+        # matches no hook at all. It warns rather than failing, so the
+        # comma form looks like it worked while skipping nothing.
         run: >-
           prek run --show-diff-on-failure --color=always --all-files
-          --verbose --skip workspace-pytest
+          --skip workspace-pytest --skip identity
