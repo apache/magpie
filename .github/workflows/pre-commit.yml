@@ -124,14 +124,20 @@ jobs:
         # thing worth reading. Failures still print their output, and
         # `--show-diff-on-failure` still shows what a fixer hook changed.
         #
-        # Real streaming would mean allocating a pty (`script -qec …`),
-        # which fills the Actions log with ANSI redraw escapes. Waiting for
-        # the block is the better trade.
+        # `script -qec … /dev/null` allocates a pty so prek uses its
+        # streaming renderer instead. `-e` propagates the command's exit
+        # status, without which a failing prek would be reported as a
+        # passing step. `--no-progress` suppresses the spinner that the
+        # streaming renderer would otherwise redraw in place, which is
+        # what would otherwise fill this log with ESC[2K / ESC[2A
+        # sequences — the pty buys progress, --no-progress pays for it in
+        # cursor control we do not want.
         #
         # Note the repeated flag: `--skip a,b` is NOT a list — prek takes a
         # single HOOK|PROJECT per occurrence, and a comma-joined value
         # matches no hook at all. It warns rather than failing, so the
         # comma form looks like it worked while skipping nothing.
         run: >-
-          prek run --show-diff-on-failure --color=always --all-files
-          --skip workspace-pytest --skip identity
+          script -qec "prek run --show-diff-on-failure --color=always
+          --all-files --no-progress --skip workspace-pytest --skip identity"
+          /dev/null
