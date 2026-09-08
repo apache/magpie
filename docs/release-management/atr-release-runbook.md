@@ -101,6 +101,7 @@ tired human at 2am, enforced the mechanics.
 > on ASF Slack before cutting a *real* release through ATR.
 
 > [!IMPORTANT]
+> **ATR now Beta** please update
 > **Hybrid mode (Magpie's current stance): SVN hosts, ATR votes.**
 > Because ATR is still alpha, Magpie does **not** yet let it host or
 > publish releases — but it *does* use ATR's automated checks and vote
