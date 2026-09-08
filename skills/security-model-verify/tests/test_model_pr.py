@@ -175,8 +175,17 @@ class ParserTest(unittest.TestCase):
         parser = model_pr.build_parser()
         with self.assertRaises(SystemExit):
             parser.parse_args(
-                ["open", "--repo", "example/widget", "--date", "2026-09-08",
-                 "--model", "m.md", "--pointer", "https://example.invalid/m.md"]
+                [
+                    "open",
+                    "--repo",
+                    "example/widget",
+                    "--date",
+                    "2026-09-08",
+                    "--model",
+                    "m.md",
+                    "--pointer",
+                    "https://example.invalid/m.md",
+                ]
             )
 
     def test_one_of_model_or_pointer_is_required(self) -> None:

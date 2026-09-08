@@ -91,7 +91,9 @@ _APACHE_FULL_HEADER = (
     "-->"
 )
 
-_SPDX_HEADER = "<!-- SPDX-License-Identifier: Apache-2.0\n     https://www.apache.org/licenses/LICENSE-2.0 -->"
+_SPDX_HEADER = (
+    "<!-- SPDX-License-Identifier: Apache-2.0\n     https://www.apache.org/licenses/LICENSE-2.0 -->"
+)
 
 LICENSE_HEADERS: dict[str, str] = {
     "apache-full": _APACHE_FULL_HEADER,
@@ -117,9 +119,7 @@ def ensure_license_header(content: str, kind: str = DEFAULT_LICENSE_HEADER) -> s
         return stripped
     head = "\n".join(stripped.splitlines()[:30]).lower()
     already_headered = stripped.startswith("<!--") and (
-        "apache license" in head
-        or "licenses/license-2.0" in head
-        or "spdx-license-identifier:" in head
+        "apache license" in head or "licenses/license-2.0" in head or "spdx-license-identifier:" in head
     )
     if already_headered:
         return content
@@ -360,11 +360,17 @@ def cmd_open(args: argparse.Namespace) -> int:
     _run(["git", "push", "-q", "-u", "fork", branch], cwd=str(clone), capture=True)
 
     pr_cmd = [
-        "gh", "pr", "create",
-        "--repo", args.repo,
-        "--head", f"{fork_owner}:{branch}",
-        "--base", base,
-        "--title", subject,
+        "gh",
+        "pr",
+        "create",
+        "--repo",
+        args.repo,
+        "--head",
+        f"{fork_owner}:{branch}",
+        "--base",
+        base,
+        "--title",
+        subject,
     ]
     pr_cmd += ["--body-file", args.body_file] if args.body_file else ["--body", subject]
     # `--web` is the second gate: the human reads the rendered diff in the
@@ -397,7 +403,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--fork-owner", help="Fork to push to (default: the authenticated user).")
     p.add_argument("--agents-note", default="", help="Extra note for the AGENTS.md Security section.")
     p.add_argument("--report-to", help="Private vulnerability-reporting address, for a new SECURITY.md.")
-    p.add_argument("--report-policy-url", help="URL of the project's security process, for a new SECURITY.md.")
+    p.add_argument(
+        "--report-policy-url", help="URL of the project's security process, for a new SECURITY.md."
+    )
     p.add_argument(
         "--license-header",
         choices=sorted(LICENSE_HEADERS),
