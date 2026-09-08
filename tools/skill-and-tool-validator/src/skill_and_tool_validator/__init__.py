@@ -162,6 +162,11 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 
 SKILLS_DIR = Path("skills")
+# Dot-directories under ``skills/`` are never skills: they are local build
+# junk (``.mypy_cache``, ``.pytest_cache``, ``.ruff_cache``) or an agent dir
+# (``.claude``) that a tool dropped there. They are gitignored, so they exist
+# only in a dirty working tree — which is exactly when a phantom warning is
+# most confusing. Every enumeration of skill directories skips them.
 TOOLS_DIR = Path("tools")
 DOCS_DIR = Path("docs")
 SKILL_EVALS_DIR = Path("tools/skill-evals/evals")
@@ -2537,7 +2542,7 @@ def collect_skill_dirs(root: Path | None = None) -> set[Path]:
     base = (root or find_repo_root()) / SKILLS_DIR
     if not base.exists():
         return set()
-    return {p.resolve() for p in base.iterdir() if p.is_dir()}
+    return {p.resolve() for p in base.iterdir() if p.is_dir() and not p.name.startswith(".")}
 
 
 # ---------------------------------------------------------------------------
@@ -2919,7 +2924,7 @@ def validate_modes_doc_consistency(root: Path | None = None) -> Iterable[Violati
     if not skills_base.exists():
         return
     for skill_dir in sorted(skills_base.iterdir()):
-        if not skill_dir.is_dir():
+        if not skill_dir.is_dir() or skill_dir.name.startswith("."):
             continue
         skill_md = skill_dir / "SKILL.md"
         if not skill_md.exists():
@@ -3101,7 +3106,9 @@ def collect_skill_source_pointers(root: Path | None = None) -> list[Path]:
     base = (root or find_repo_root()) / SKILLS_DIR
     if not base.exists():
         return []
-    return sorted(d for d in base.iterdir() if d.is_dir() and is_skill_source_pointer(d))
+    return sorted(
+        d for d in base.iterdir() if d.is_dir() and not d.name.startswith(".") and is_skill_source_pointer(d)
+    )
 
 
 def _skill_source_descriptor_files(root: Path) -> list[Path]:
@@ -3310,7 +3317,7 @@ def validate_eval_coverage(root: Path | None = None) -> Iterable[Violation]:
             # (same posture as collect_tool_python_files on OSError).
             return
     try:
-        skill_dirs = sorted(skills_base.iterdir())
+        skill_dirs = sorted(d for d in skills_base.iterdir() if not d.name.startswith("."))
     except OSError:
         # Same posture as collect_tool_python_files: unreadable → skip.
         return

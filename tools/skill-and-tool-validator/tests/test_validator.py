@@ -4786,6 +4786,24 @@ class TestSkillSourcePointer:
         vs = list(validate_eval_coverage(tmp_path))
         assert not any("acme-thing" in v.message for v in vs)
 
+    def test_dot_dirs_under_skills_draw_no_eval_coverage_advisory(self, tmp_path: Path) -> None:
+        """Build junk under ``skills/`` is not a skill.
+
+        ``.mypy_cache`` / ``.pytest_cache`` / ``.ruff_cache`` and a stray
+        ``.claude`` land in ``skills/`` on any dirty working tree. They are
+        gitignored, so they exist only locally — which is exactly when a
+        phantom "no eval suite" warning is most confusing to act on.
+        """
+        _make_source_repo(tmp_path)
+        for junk in (".mypy_cache", ".pytest_cache", ".ruff_cache", ".claude"):
+            (tmp_path / "skills" / junk).mkdir(parents=True, exist_ok=True)
+        vs = list(validate_eval_coverage(tmp_path))
+        assert not any(
+            junk in v.message
+            for v in vs
+            for junk in (".mypy_cache", ".pytest_cache", ".ruff_cache", ".claude")
+        )
+
 
 class TestSkillSourceDescriptorValidation:
     def test_valid_descriptor_passes(self, tmp_path: Path) -> None:
