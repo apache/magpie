@@ -579,7 +579,7 @@ Organization scope (declared, orthogonal to vendor): ASF = 14, agnostic = 60.
 
 **LLM / agent-integration neutrality**
 
-**Agent harness: 22/22 substrate tools run under any harness unchanged (100%).** Substrate tools are Magpie's own machinery; each declares the agent harness it integrates with (`**Harness:**`), or `agnostic`. A tool is neutral when it is harness-agnostic or supports two or more harnesses; *coupled* when it targets a single harness.
+**Agent harness: 23/23 substrate tools run under any harness unchanged (100%).** Substrate tools are Magpie's own machinery; each declares the agent harness it integrates with (`**Harness:**`), or `agnostic`. A tool is neutral when it is harness-agnostic or supports two or more harnesses; *coupled* when it targets a single harness.
 
 | Substrate tool | Substrate | Harness support | Verdict |
 |---|---|---|---|
@@ -605,6 +605,7 @@ Organization scope (declared, orthogonal to vendor): ASF = 14, agnostic = 60.
 | `spec-validator` | framework-dev | any | ✅ agnostic |
 | `symlink-lint` | framework-dev | any | ✅ agnostic |
 | `vendor-neutrality-score` | framework-dev, analytics | any | ✅ agnostic |
+| `vetted-ops` | sandbox | any | ✅ agnostic |
 
 Harness → substrate tools it supports:
 
@@ -614,7 +615,7 @@ Harness → substrate tools it supports:
 - **Gemini CLI** (2): `sandbox-lint`, `spec-loop`
 - **Kiro** (3): `agent-guard`, `sandbox-lint`, `spec-loop`
 - **OpenCode** (3): `agent-guard`, `sandbox-lint`, `spec-loop`
-- **any harness** (19): `agent-isolation`, `dashboard-generator`, `dev`, `egress-gateway`, `permission-audit`, `pilot-report-validator`, `pr-management-stats`, `preflight-audit`, `privacy-llm`, `probe-templates`, `security-tracker-stats-dashboard`, `skill-and-tool-validator`, `skill-evals`, `skill-reconciler-diff`, `spec-inventory`, `spec-status-index`, `spec-validator`, `symlink-lint`, `vendor-neutrality-score`
+- **any harness** (20): `agent-isolation`, `dashboard-generator`, `dev`, `egress-gateway`, `permission-audit`, `pilot-report-validator`, `pr-management-stats`, `preflight-audit`, `privacy-llm`, `probe-templates`, `security-tracker-stats-dashboard`, `skill-and-tool-validator`, `skill-evals`, `skill-reconciler-diff`, `spec-inventory`, `spec-status-index`, `spec-validator`, `symlink-lint`, `vendor-neutrality-score`, `vetted-ops`
 
 **Model endpoint: neutral by construction — 4 default-approved endpoint classes across independent trust domains, plus adopter opt-in.** From the [`privacy-llm` registry](../tools/privacy-llm/models.md): the framework keys approval on *endpoint identity*, not on who hosts the model, so no single LLM vendor is privileged.
 

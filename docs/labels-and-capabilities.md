@@ -321,6 +321,7 @@ or a contract-free mix of substrates (e.g. `tools/spec-inventory` is
 | [`tools/ponymail`](../tools/ponymail/) | `contract:mail-archive` + `contract:mail-source` | PonyMail public mail-archive substrate (ASF `lists.apache.org`); implements the `tools/mail-archive/` contract for archive reads and the `tools/mail-source/` contract for inbound list-traffic ingestion |
 | [`tools/scan-format`](../tools/scan-format/) | `contract:scan-format` | Adapter contract for security-scanner report formats (ASVS reference); reads a scan's finding index + per-finding evidence for the `security-issue-import-from-scan` pipeline. |
 | [`tools/permission-audit`](../tools/permission-audit/) | `substrate:sandbox` | Audit + atomically edit Claude Code `permissions.allow[]` entries; backs `/magpie-setup verify --apply-permission-audit` (check 8d) |
+| [`tools/vetted-ops`](../tools/vetted-ops/) | `substrate:sandbox` | Fixed, policy-scoped forge operations — a closed catalogue whose parameters can never become commands or flags, so one `allow` entry replaces the wildcard Layer 3 `ask` rules |
 | [`tools/pr-management-stats`](../tools/pr-management-stats/) | `substrate:analytics` | PR-backlog analytics engine |
 | [`tools/preflight-audit`](../tools/preflight-audit/) | `substrate:analytics` | Dry-run the bulk-mode pre-flight classifier; measure skip-rate before / after any rule edit in the security-issue-sync skill |
 | [`tools/privacy-llm`](../tools/privacy-llm/) | `substrate:privacy` | Privacy-LLM PII-scrubbing gate |

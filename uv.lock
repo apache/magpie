@@ -47,6 +47,7 @@ members = [
     "spec-validator",
     "symlink-lint",
     "vendor-neutrality-score",
+    "vetted-ops",
     "vulnogram-api",
 ]
 
@@ -1887,6 +1888,21 @@ wheels = [
 name = "vendor-neutrality-score"
 version = "0.1.0"
 source = { editable = "tools/vendor-neutrality-score" }
+
+[package.dev-dependencies]
+dev = [
+    { name = "magpie-dev" },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [{ name = "magpie-dev", editable = "tools/dev" }]
+
+[[package]]
+name = "vetted-ops"
+version = "0.1.0"
+source = { editable = "tools/vetted-ops" }
 
 [package.dev-dependencies]
 dev = [

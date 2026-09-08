@@ -68,6 +68,7 @@ Each mode is an independently toggleable set of skills. Maturity mirrors
 | Good-first-issue backlog sweep | [good-first-issue-sweep.md](good-first-issue-sweep.md) |
 | Codex first-class skill runtime | [codex-runtime.md](codex-runtime.md) |
 | Spec-gap staleness verification (proposed) | [spec-gap-staleness.md](spec-gap-staleness.md) |
+| Vetted command surface (fixed-shape forge ops) | [vetted-command-surface.md](vetted-command-surface.md) |
 
 ## The non-negotiables every area inherits
 
