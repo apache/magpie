@@ -308,3 +308,15 @@ def test_the_catalogue_offers_no_merge_operation() -> None:
     design withholds, so its absence is a decision, not an oversight.
     """
     assert not [name for name in ops.OPS if "merge" in name]
+
+
+def test_every_shipped_query_carries_the_asf_licence_header() -> None:
+    """
+    Apache RAT runs as its own CI workflow, not as a prek hook, so an unstamped
+    file is invisible locally and fails only after the PR is pushed. Assert it
+    here, where the feedback is immediate.
+    """
+    for query in ops.QUERIES_DIR.glob("*.graphql"):
+        text = query.read_text(encoding="utf-8")
+        assert "Licensed to the Apache Software Foundation" in text, query.name
+        assert "http://www.apache.org/licenses/LICENSE-2.0" in text, query.name
