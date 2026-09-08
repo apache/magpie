@@ -35,7 +35,7 @@ skill-reconciler-diff = "skill_reconciler_diff:main"
 packages = ["src/skill_reconciler_diff"]
 
 [dependency-groups]
-dev = ["pytest>=8.0"]
+dev = ["magpie-dev"]
 
 [tool.ruff]
 line-length = 110

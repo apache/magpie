@@ -3,6 +3,7 @@
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
 - [`tools/dev/`](#toolsdev)
+  - [The shared dev toolchain](#the-shared-dev-toolchain)
   - [The scripts](#the-scripts)
   - [Prerequisites](#prerequisites)
 
@@ -18,6 +19,27 @@
 **Harness:** agnostic
 
 Framework dev-loop helpers (placeholder check, agent pre-commit hook). Invoked by prek and CI; not consumed by any skill directly. See the individual scripts in this directory for usage.
+
+## The shared dev toolchain
+
+`tools/dev` is also the workspace's **toolchain project**, `magpie-dev`. It
+declares ruff, mypy, and pytest as its dependencies, and every other workspace
+member names `magpie-dev` in its own `[dependency-groups] dev` instead of
+repeating the pins. Bump a version here and the whole workspace moves together.
+
+Each member's environment stays self-contained — the checks still run
+`uv run --directory <member> --project . python -m <tool>`, so no member depends
+on tools leaking in from the root environment. Only the *declaration* is shared.
+
+Why it changed: the pins used to be repeated in every member with an instruction
+to keep them in lockstep. They had drifted into three different mypy floors, two
+pytest floors, and two ruff floors, one member had no dev group at all, and
+nothing detected any of it — the duplication was the bug, and the instruction to
+keep it consistent was the workaround.
+
+The project builds as a metadata-only wheel: it ships no importable module,
+because the scripts are hyphenated and invoked by path, but it has to be
+installable for other members to depend on it.
 
 ## The scripts
 

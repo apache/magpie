@@ -80,8 +80,4 @@ addopts = "-ra -q"
 testpaths = ["tests"]
 
 [dependency-groups]
-dev = [
-  "mypy>=1.10",
-  "pytest>=8.0",
-  "ruff>=0.16.1",
-]
+dev = ["magpie-dev"]

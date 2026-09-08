@@ -41,16 +41,20 @@ requires-python = ">=3.11"
 #
 # - `prek` is the static-check / pre-commit runner. CI installs it
 #   via `uv sync --group dev` and invokes `uv run prek …`.
-# - `ruff`, `mypy`, `pytest` are the shared static-analysis +
-#   test toolchain. They are declared here for root-level ad-hoc
-#   use AND, pinned to the same lower bounds, in every workspace
-#   member's own `[dependency-groups] dev` block — so each
-#   sub-project's environment is self-contained. The workspace
+# - `magpie-dev` (tools/dev) carries the shared static-analysis +
+#   test toolchain — ruff, mypy, pytest — declared in ONE place and
+#   depended on by every workspace member's own `dev` group, so each
+#   sub-project's environment is still self-contained. The workspace
 #   checks run each tool against the member's own project via
 #   `uv run --directory <member> --project . …` (see
 #   `tools/dev/run-workspace-check.sh`), so a member is never
 #   dependent on tools leaking in from the shared root environment.
-#   Keep the version bounds here and in every member in lockstep.
+#
+#   Bump a toolchain version in `tools/dev/pyproject.toml` and the
+#   whole workspace moves together. The previous arrangement repeated
+#   the three pins in every member with an instruction to keep them in
+#   lockstep, and they had already drifted into three different mypy
+#   floors, two pytest floors, and two ruff floors.
 #
 # Lower bounds mirror what individual tools needed at their last
 # bump; the upper bound is enforced implicitly by the 7-day
@@ -58,9 +62,7 @@ requires-python = ">=3.11"
 # is "the most recent that is at least 7 days old".
 dev = [
   "prek>=0.4.12",
-  "ruff>=0.16.1",
-  "mypy>=2.3.0",
-  "pytest>=9.1.1",
+  "magpie-dev",
 ]
 
 [tool.uv]
@@ -92,6 +94,12 @@ package = false
 # per-tool install time). This is desired — drift between tools'
 # pinned versions is harder to spot when each has its own lock
 # file.
+[tool.uv.sources]
+# `magpie-dev` is the workspace's shared dev toolchain (tools/dev). Declared
+# here once so every member can name it in its `dev` group without repeating
+# the source; workspace members inherit the root's sources.
+magpie-dev = { workspace = true }
+
 [tool.uv.workspace]
 members = [
   "ai-tutors",

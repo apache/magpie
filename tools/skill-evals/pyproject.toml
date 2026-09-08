@@ -56,12 +56,8 @@ minversion = "8.0"
 addopts = "-ra -q"
 
 [dependency-groups]
-# Shared static-analysis + test toolchain, pinned to the same versions as the
-# workspace root so every sub-project's own environment is self-contained.
-# The workspace checks run each tool via `uv run --directory <member>
-# --project . python -m <tool>` — see tools/dev/run-workspace-check.sh.
-dev = [
-  "mypy>=2.3.0",
-  "pytest>=9.1.1",
-  "ruff>=0.16.1",
-]
+# The shared toolchain (mypy, pytest, ruff) comes from `magpie-dev`
+# (tools/dev), declared once for the whole workspace. The checks run each tool
+# via `uv run --directory <member> --project . python -m <tool>` — see
+# tools/dev/run-workspace-check.sh.
+dev = ["magpie-dev"]

@@ -78,3 +78,9 @@ disallow_incomplete_defs = false
 minversion = "8.0"
 addopts = "-ra -q"
 testpaths = ["tests"]
+
+[dependency-groups]
+# The shared toolchain comes from `magpie-dev` (tools/dev). This member had no
+# dev group at all, so its checks ran on whatever happened to be in the
+# environment.
+dev = ["magpie-dev"]

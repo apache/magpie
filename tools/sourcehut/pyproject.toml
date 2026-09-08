@@ -29,11 +29,7 @@ license = { text = "Apache-2.0" }
 dependencies = []
 
 [dependency-groups]
-dev = [
-  "ruff>=0.16.1",
-  "mypy>=2.3.0",
-  "pytest>=9.1.1",
-]
+dev = ["magpie-dev"]
 
 [project.scripts]
 magpie-sourcehut = "magpie_sourcehut:main"

@@ -64,11 +64,7 @@ disallow_untyped_defs = false
 disallow_incomplete_defs = false
 
 [dependency-groups]
-dev = [
-  "mypy>=2.1.0",
-  "pytest>=9.1.1",
-  "ruff>=0.16.1",
-]
+dev = ["magpie-dev"]
 
 [tool.pytest.ini_options]
 minversion = "8.0"
