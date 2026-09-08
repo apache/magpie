@@ -42,7 +42,18 @@ Start with [`overview.md`](overview.md), then:
   [`spec-loop-runner.md`](spec-loop-runner.md),
   [`security-reporting.md`](security-reporting.md),
   [`reviewer-routing.md`](reviewer-routing.md),
-  [`skill-reconciler.md`](skill-reconciler.md).
+  [`skill-reconciler.md`](skill-reconciler.md),
+  [`security-model-preparation.md`](security-model-preparation.md),
+  [`marketplace-distribution.md`](marketplace-distribution.md),
+  [`organization-adapters.md`](organization-adapters.md),
+  [`issue-management-family.md`](issue-management-family.md),
+  [`pr-management-family.md`](pr-management-family.md),
+  [`repo-health-family.md`](repo-health-family.md),
+  [`contributor-growth.md`](contributor-growth.md),
+  [`good-first-issue-sweep.md`](good-first-issue-sweep.md),
+  [`codex-runtime.md`](codex-runtime.md),
+  [`maintainer-education.md`](maintainer-education.md),
+  [`spec-gap-staleness.md`](spec-gap-staleness.md).
 
 (Agentic Autonomous, the fifth MISSION mode, is deliberately off and has no
 spec — see the note in [`overview.md`](overview.md).)

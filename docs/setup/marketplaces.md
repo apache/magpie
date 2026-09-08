@@ -509,7 +509,7 @@ documentation**; what varies is whether it has also been exercised against a
 The skills themselves are checked against the
 [Agent Skills specification](https://agentskills.io/specification), which AP1
 defers to. Worth stating explicitly, because it looks like a problem and is
-not: 41 of the 70 `description` fields contain the framework's
+not: 45 of the 74 `description` fields contain the framework's
 `<placeholder>` syntax (`<tracker>`, `<upstream>`, …). The spec constrains
 `description` on **length only** — 1–1024 characters, non-empty — and places no
 restriction on angle brackets; the character-class rules apply to `name`, which

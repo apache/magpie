@@ -58,6 +58,16 @@ Each mode is an independently toggleable set of skills. Maturity mirrors
 | Reviewer routing (experimental, Agentic Triage) | [reviewer-routing.md](reviewer-routing.md) |
 | Cross-project skill reconciler (experimental, infra) | [skill-reconciler.md](skill-reconciler.md) |
 | Maintainer-education stream (proposed — release-blocking per PRINCIPLE 18) | [maintainer-education.md](maintainer-education.md) |
+| Security-model preparation (produce / verify / update the project's own model) | [security-model-preparation.md](security-model-preparation.md) |
+| Marketplace distribution (plugin manifests, per-family plugins, versioning) | [marketplace-distribution.md](marketplace-distribution.md) |
+| Organizations (governance + backend defaults grouped per org) | [organization-adapters.md](organization-adapters.md) |
+| Issue-management family | [issue-management-family.md](issue-management-family.md) |
+| PR-management family | [pr-management-family.md](pr-management-family.md) |
+| Repo-health audits | [repo-health-family.md](repo-health-family.md) |
+| Contributor-growth family | [contributor-growth.md](contributor-growth.md) |
+| Good-first-issue backlog sweep | [good-first-issue-sweep.md](good-first-issue-sweep.md) |
+| Codex first-class skill runtime | [codex-runtime.md](codex-runtime.md) |
+| Spec-gap staleness verification (proposed) | [spec-gap-staleness.md](spec-gap-staleness.md) |
 
 ## The non-negotiables every area inherits
 
