@@ -301,15 +301,26 @@ repos:
   # `pyproject.toml`. If a new `tools/<name>/pyproject.toml`
   # appears without being added to that array, both surfaces
   # silently skip it — the very drift bug the workspace refactor
-  # was meant to prevent. This hook re-fires whenever any
-  # tools/**/pyproject.toml or the root pyproject changes.
+  # was meant to prevent.
+  #
+  # It also verifies every declared member's tests actually run. Both
+  # the CI matrix and the workspace sweep key off the presence of
+  # `[tool.pytest.ini_options]`, so a project can carry a full tests/
+  # directory and never be executed by anything — no red tick, because
+  # no job. Reported: tests with no config (never run), config with no
+  # tests (a green job that collected nothing), and neither. A project
+  # that should not be tested declares `[tool.magpie.checks] skip =
+  # ["pytest"]` rather than being quietly absent.
+  #
+  # Re-fires on any member pyproject, the root pyproject, or any test
+  # file — adding or deleting tests changes the answer.
   - repo: local
     hooks:
       - id: check-workspace-members
-        name: check-workspace-members
+        name: check-workspace-members (membership + tests actually run)
         language: system
         entry: tools/dev/check-workspace-members.py
-        files: ^(tools/[^/]+(/[^/]+)?/pyproject\.toml|pyproject\.toml)$
+        files: ^((tools/[^/]+(/[^/]+)?|ai-tutors|skills)/pyproject\.toml|pyproject\.toml|.*/tests?/.*\.py|.*/test_[^/]+\.py|.*_test\.py)$
         pass_filenames: false
   # Workspace-level static checks. Iterate over every uv-workspace
   # member declared in the root `pyproject.toml`'s
