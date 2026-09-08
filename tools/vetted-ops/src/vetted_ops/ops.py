@@ -85,6 +85,13 @@ def number(value: str) -> str:
 
 
 def ref(value: str) -> str:
+    # Refs are interpolated into API paths (`compare`, `repo-file`, `tags`,
+    # `repo-tree`), so a ref containing `..` could walk out of the
+    # policy-pinned repository once a client normalises the URL — defeating
+    # "the repo is not addressable". Git itself forbids `..` in ref names, so
+    # refusing it here costs nothing legitimate.
+    if ".." in value:
+        raise ParamError(f"path traversal in git ref: {value!r}")
     return _check(_REF, value, "git ref")
 
 
@@ -1126,6 +1133,147 @@ _register(
             "--repo",
             _upstream(cfg),
         ],
+    )
+)
+
+
+# ---- repo health, releases, and people -------------------------------------
+#
+# The remaining families are overwhelmingly *read* surfaces: a licence audit
+# walks the tree, a release check reads what is published, a contributor
+# assessment reads a public profile. They need few operations, and mentoring
+# needs none at all — it works on upstream issues and PRs, which the two
+# families above already cover.
+#
+# What is deliberately absent here is larger than what is present:
+#
+#   * `gh release create` / `upload` / `edit` / `delete` — publishing and
+#     deleting releases. Releases are vote-gated and maintainer-driven in this
+#     framework; a vetted delete would hand the agent an irreversible action the
+#     surrounding process deliberately keeps in human hands. Same reasoning as
+#     the absent `pr-merge`.
+#   * `gh search issues` / `prs`, and the GraphQL `search(...)` connection that
+#     contributor-growth leans on — the query is free text with no fixed shape.
+#   * `gh run download` — writes artifacts to local disk rather than to the
+#     forge. That is a different risk class (filesystem paths, archive
+#     extraction) and does not belong behind a forge dispatcher.
+#   * `gh repo clone` / `fork` / `create` — novel actions, which the spec's
+#     non-goals already say keep their confirmation.
+
+_register(
+    Op(
+        name="repo-view",
+        params=(),
+        summary="Read upstream repository metadata.",
+        build=lambda cfg: [
+            "gh",
+            "repo",
+            "view",
+            _upstream(cfg),
+            "--json",
+            "name,owner,description,defaultBranchRef,licenseInfo,isArchived,"
+            "visibility,pushedAt,repositoryTopics",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="repo-tree",
+        params=("ref",),
+        summary="List every upstream path at a ref (the licence/compliance walk).",
+        build=lambda cfg, ref: [
+            "gh",
+            "api",
+            f"repos/{_upstream(cfg)}/git/trees/{ref}",
+            "-F",
+            "recursive=1",
+            "--jq",
+            ".tree[].path",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="run-list",
+        params=(),
+        summary="List recent upstream workflow runs.",
+        build=lambda cfg: [
+            "gh",
+            "run",
+            "list",
+            "--repo",
+            _upstream(cfg),
+            "--limit",
+            "100",
+            "--json",
+            "databaseId,workflowName,headBranch,event,status,conclusion,createdAt",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="run-view",
+        params=("run_id",),
+        summary="Read one upstream workflow run, with its jobs.",
+        build=lambda cfg, run_id: [
+            "gh",
+            "run",
+            "view",
+            run_id,
+            "--repo",
+            _upstream(cfg),
+            "--json",
+            "databaseId,workflowName,headSha,status,conclusion,createdAt,jobs",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="release-list",
+        params=(),
+        summary="List upstream releases.",
+        build=lambda cfg: [
+            "gh",
+            "release",
+            "list",
+            "--repo",
+            _upstream(cfg),
+            "--limit",
+            "100",
+            "--json",
+            "tagName,name,isDraft,isPrerelease,publishedAt",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="release-view",
+        params=("ref",),
+        summary="Read one upstream release by tag.",
+        build=lambda cfg, ref: [
+            "gh",
+            "release",
+            "view",
+            ref,
+            "--repo",
+            _upstream(cfg),
+            "--json",
+            "tagName,name,body,isDraft,isPrerelease,publishedAt,assets",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="user-profile",
+        params=("login",),
+        summary="Read one public GitHub profile (contributor assessment).",
+        build=lambda cfg, login: ["gh", "api", f"users/{login}"],
     )
 )
 

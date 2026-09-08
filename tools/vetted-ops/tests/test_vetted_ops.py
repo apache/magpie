@@ -369,3 +369,61 @@ def test_tracker_and_upstream_operations_never_cross(policy: config.Config) -> N
             assert tracker not in argv, f"{name} reached the tracker"
         elif name.startswith("issue-") or name in {"label-list", "milestone-list", "collaborators"}:
             assert upstream not in argv, f"{name} reached the upstream repo"
+
+
+# --- a ref may not walk out of the policy-pinned repository -------------------
+
+
+@pytest.mark.parametrize(
+    "hostile",
+    [
+        "main/../../../users/attacker",
+        "../other/repo",
+        "v1.0/..",
+        "a/../b",
+    ],
+)
+def test_refs_may_not_traverse(hostile: str) -> None:
+    """
+    Refs are interpolated into API paths, so `..` in a ref could walk out of the
+    repository the policy pinned once a client normalises the URL — defeating
+    "the repo is not addressable". Git forbids `..` in ref names anyway.
+    """
+    with pytest.raises(ops.ParamError):
+        ops.ref(hostile)
+
+
+@pytest.mark.parametrize("legitimate", ["main", "v1.2.3", "release/0.2.0", "rc-1"])
+def test_ordinary_refs_still_pass(legitimate: str) -> None:
+    assert ops.ref(legitimate) == legitimate
+
+
+def test_no_operation_interpolates_a_traversing_ref(policy: config.Config) -> None:
+    """Belt and braces: no built argv may contain a `..` path segment."""
+    sample = {
+        "number": "1",
+        "comment_id": "1",
+        "run_id": "42",
+        "ref": "main",
+        "base": "main",
+        "head": "v1",
+        "prefix": "v1",
+        "path": "a/b.py",
+        "login": "alice",
+        "ghsa": "GHSA-aaaa-bbbb-cccc",
+        "item_id": "PVTI_abc",
+        "body": "unused",
+    }
+    body = policy.workspace / "ref.md"
+    body.write_text("x")
+    for op in ops.OPS.values():
+        params = {}
+        for p in op.params:
+            if p in op.body_files:
+                params[p] = str(body)
+            elif p in op.enums:
+                params[p] = policy.enum_values(op.enums[p])[0]
+            else:
+                params[p] = sample[p]
+        for arg in op.build(policy.as_mapping(), **params):
+            assert "/../" not in arg and not arg.endswith("/.."), op.name

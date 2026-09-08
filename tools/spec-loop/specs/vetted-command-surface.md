@@ -87,10 +87,23 @@ per [`docs/adapters/registry.md`](../../../docs/adapters/registry.md).
    mentoring and contributor growth remain; each needs its own operations and
    its own caller manifests, and none needs a second dispatcher.
 
-   Two shapes are refused rather than wrapped, and will stay refused: free-text
-   search (`gh search issues`) has no fixed shape, and creation (`gh issue
-   create` / `gh pr create`) would need a free-text title, since `gh` offers
-   `--body-file` but no `--title-file`. Both keep their `ask` rule.
+   *Repo health, release management, contributor growth and mentoring have
+   landed*, completing the pass over the families that touch the forge. They
+   needed seven operations between them — `repo-view`, `repo-tree`, `run-list`,
+   `run-view`, `release-list`, `release-view`, `user-profile` — because they are
+   overwhelmingly read surfaces; mentoring needed none at all, working entirely
+   through the issue and PR operations. A family earns new operations only when
+   it has a shape the catalogue lacks.
+
+   Several shapes are refused rather than wrapped, and will stay refused:
+   free-text search (`gh search issues` / `prs`, and GraphQL's `search(...)`)
+   has no fixed shape; creation (`gh issue create` / `gh pr create`) would need
+   a free-text title, since `gh` offers `--body-file` but no `--title-file`;
+   release publication and deletion is vote-gated and irreversible; and
+   `gh run download` writes to local disk rather than to the forge, which is a
+   different risk class entirely. All keep their `ask` rule. The catalogue
+   covers the sweep, not everything — and **widening it must never widen the
+   posture**, which is why `pr-merge` and `release-delete` are both absent.
 
    Note what the PR family deliberately does *not* include: there is no
    `pr-merge`. Merging is this framework's deferred Agentic Autonomous mode —

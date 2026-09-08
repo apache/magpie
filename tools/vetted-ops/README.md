@@ -75,7 +75,9 @@ Being precise, because a security tool that overstates itself is worse than none
 - **A parameter can never become a flag.** Any parameter starting with `-` is
   refused before validation, which closes flag-injection into `gh`.
 - **The repo is not addressable.** No operation takes a repository parameter; it
-  is read from policy. An operation cannot be pointed at another repository.
+  is read from policy. An operation cannot be pointed at another repository, and
+  parameters that reach an API *path* — repo paths and git refs — refuse `..`,
+  so none of them can walk out of the pinned repository either.
 - **Body content is free; body *location* is not.** Comment bodies are passed by
   file reference, so the text may contain anything — backticks, `$(…)`,
   newlines. What is constrained is which file may be read: it must resolve inside
@@ -160,7 +162,16 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
 "issue-stale-sweep"     = ["repo-issue-list", "repo-issue-view", "repo-issue-comment",
                            "repo-issue-close", "repo-issue-reopen"]
 "issue-backlog-stats"   = ["repo-issue-list"]
+"license-compliance-audit" = ["repo-view", "repo-tree", "repo-file"]
+"flaky-test-triage"     = ["run-list", "run-view", "pr-view"]
+"release-verify-rc"     = ["release-list", "release-view", "tags", "repo-file"]
+"contributor-nomination" = ["user-profile", "pr-list", "repo-issue-list"]
+"mentoring-welcome"     = ["repo-issue-view", "repo-issue-comment", "pr-view"]
 ```
+
+`mentoring-welcome` needs no operation of its own: it works on upstream issues
+and PRs, which the issue and PR families already cover. A family earns new
+operations only when it has a shape the catalogue lacks.
 
 Grant the narrowest set that lets a skill finish its job: `pr-management-stats`
 is a read-only dashboard, so it gets no write operation at all, and a
