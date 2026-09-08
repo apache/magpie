@@ -36,7 +36,7 @@ milestones = ["1.2.3"]
 assignees = ["alice"]
 issue_states = ["open", "closed", "all"]
 pr_states = ["open", "closed", "merged", "all"]
-pr_labels = ["ready for maintainer review", "area:scheduler"]
+upstream_labels = ["ready for maintainer review", "area:scheduler"]
 close_reasons = ["completed", "not planned"]
 board_project_id = "PVT_proj"
 board_status_field_id = "PVTSSF_field"
@@ -320,3 +320,52 @@ def test_every_shipped_query_carries_the_asf_licence_header() -> None:
         text = query.read_text(encoding="utf-8")
         assert "Licensed to the Apache Software Foundation" in text, query.name
         assert "http://www.apache.org/licenses/LICENSE-2.0" in text, query.name
+
+
+# --- tracker and upstream are different repositories -------------------------
+
+
+def test_tracker_and_upstream_operations_never_cross(policy: config.Config) -> None:
+    """
+    `issue-*` addresses the private tracker; `repo-issue-*` addresses the public
+    project. Confusing the two would post security-lifecycle content to a public
+    issue, or hunt for a public issue in the tracker — so assert the split holds
+    for every operation rather than trusting the naming.
+    """
+    sample = {
+        "number": "1",
+        "comment_id": "1",
+        "run_id": "42",
+        "ref": "main",
+        "base": "main",
+        "head": "v1",
+        "prefix": "v1",
+        "path": "a/b.py",
+        "login": "alice",
+        "ghsa": "GHSA-aaaa-bbbb-cccc",
+        "item_id": "PVTI_abc",
+        "label": "needs triage",
+        "milestone": "1.2.3",
+        "state": "open",
+        "reason": "completed",
+        "column": "Assessed",
+        "body": "unused",
+    }
+    body = policy.workspace / "split.md"
+    body.write_text("x")
+    tracker, upstream = "acme/tracker", "acme/product"
+
+    for name, op in ops.OPS.items():
+        params = {}
+        for p in op.params:
+            if p in op.body_files:
+                params[p] = str(body)
+            elif p in op.enums:
+                params[p] = policy.enum_values(op.enums[p])[0]
+            else:
+                params[p] = sample[p]
+        argv = " ".join(op.build(policy.as_mapping(), **params))
+        if name.startswith("repo-issue-") or name.startswith("pr-") or name.startswith("gql-"):
+            assert tracker not in argv, f"{name} reached the tracker"
+        elif name.startswith("issue-") or name in {"label-list", "milestone-list", "collaborators"}:
+            assert upstream not in argv, f"{name} reached the upstream repo"

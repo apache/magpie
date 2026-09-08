@@ -671,7 +671,7 @@ _register(
         params=("number", "label"),
         writes=True,
         summary="Add a configured label to an upstream PR.",
-        enums={"label": "pr_labels"},
+        enums={"label": "upstream_labels"},
         build=lambda cfg, number, label: [
             "gh",
             "pr",
@@ -691,7 +691,7 @@ _register(
         params=("number", "label"),
         writes=True,
         summary="Remove a configured label from an upstream PR.",
-        enums={"label": "pr_labels"},
+        enums={"label": "upstream_labels"},
         build=lambda cfg, number, label: [
             "gh",
             "pr",
@@ -913,6 +913,218 @@ _register(
             "-X",
             "POST",
             f"repos/{_upstream(cfg)}/actions/runs/{run_id}/approve",
+        ],
+    )
+)
+
+
+# ---- upstream-issue family -------------------------------------------------
+#
+# The `issue-*` operations above address the *tracker* — the private repository
+# the security lifecycle runs in. The issue family works on the project's own
+# public issues, which is a different repository and therefore a different set
+# of operations: `repo-` here means upstream, matching `repo-file`.
+#
+# Two shapes the family uses are deliberately absent:
+#
+#   * `gh search issues` — the search query is free text with no fixed shape, so
+#     wrapping it would re-introduce the unbounded surface the catalogue exists
+#     to remove.
+#   * `gh issue create` / `gh pr create` — `gh` has `--body-file` but no
+#     `--title-file`, so a title could only arrive as a free-text parameter.
+#     Creation is also a genuinely novel action, which the spec's non-goals
+#     already say keeps its confirmation.
+#
+# Both keep their `ask` rule. The catalogue covers the sweep, not everything.
+
+_register(
+    Op(
+        name="repo-issue-view",
+        params=("number",),
+        summary="Read one upstream issue as JSON.",
+        build=lambda cfg, number: [
+            "gh",
+            "issue",
+            "view",
+            number,
+            "--repo",
+            _upstream(cfg),
+            "--json",
+            "number,title,state,body,labels,milestone,assignees,author,url,"
+            "createdAt,updatedAt,closedAt,comments",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="repo-issue-list",
+        params=("state",),
+        summary="List upstream issues in a given state.",
+        enums={"state": "issue_states"},
+        build=lambda cfg, state: [
+            "gh",
+            "issue",
+            "list",
+            "--repo",
+            _upstream(cfg),
+            "--state",
+            state,
+            "--limit",
+            "1000",
+            "--json",
+            "number,title,state,labels,milestone,assignees,author,createdAt,updatedAt,closedAt",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="repo-issue-comments",
+        params=("number",),
+        summary="Read every comment on one upstream issue.",
+        build=lambda cfg, number: [
+            "gh",
+            "api",
+            f"repos/{_upstream(cfg)}/issues/{number}/comments",
+            "--paginate",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="repo-issue-comment",
+        params=("number", "body"),
+        writes=True,
+        summary="Post a comment on an upstream issue from a body file.",
+        body_files=("body",),
+        build=lambda cfg, number, body: [
+            "gh",
+            "issue",
+            "comment",
+            number,
+            "--repo",
+            _upstream(cfg),
+            "--body-file",
+            body,
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="repo-issue-add-label",
+        params=("number", "label"),
+        writes=True,
+        summary="Add a configured label to an upstream issue.",
+        enums={"label": "upstream_labels"},
+        build=lambda cfg, number, label: [
+            "gh",
+            "issue",
+            "edit",
+            number,
+            "--repo",
+            _upstream(cfg),
+            "--add-label",
+            label,
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="repo-issue-remove-label",
+        params=("number", "label"),
+        writes=True,
+        summary="Remove a configured label from an upstream issue.",
+        enums={"label": "upstream_labels"},
+        build=lambda cfg, number, label: [
+            "gh",
+            "issue",
+            "edit",
+            number,
+            "--repo",
+            _upstream(cfg),
+            "--remove-label",
+            label,
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="repo-issue-set-milestone",
+        params=("number", "milestone"),
+        writes=True,
+        summary="Set a configured milestone on an upstream issue.",
+        enums={"milestone": "milestones"},
+        build=lambda cfg, number, milestone: [
+            "gh",
+            "issue",
+            "edit",
+            number,
+            "--repo",
+            _upstream(cfg),
+            "--milestone",
+            milestone,
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="repo-issue-add-assignee",
+        params=("number", "login"),
+        writes=True,
+        summary="Assign a configured user to an upstream issue.",
+        enums={"login": "assignees"},
+        build=lambda cfg, number, login: [
+            "gh",
+            "issue",
+            "edit",
+            number,
+            "--repo",
+            _upstream(cfg),
+            "--add-assignee",
+            login,
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="repo-issue-close",
+        params=("number", "reason"),
+        writes=True,
+        summary="Close an upstream issue with a configured reason.",
+        enums={"reason": "close_reasons"},
+        build=lambda cfg, number, reason: [
+            "gh",
+            "issue",
+            "close",
+            number,
+            "--repo",
+            _upstream(cfg),
+            "--reason",
+            reason,
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="repo-issue-reopen",
+        params=("number",),
+        writes=True,
+        summary="Reopen an upstream issue (the stale-sweep reversal).",
+        build=lambda cfg, number: [
+            "gh",
+            "issue",
+            "reopen",
+            number,
+            "--repo",
+            _upstream(cfg),
         ],
     )
 )

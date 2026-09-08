@@ -80,9 +80,17 @@ per [`docs/adapters/registry.md`](../../../docs/adapters/registry.md).
    operations covering list / view / diff / reviews, the label, milestone,
    assignee and reviewer edits, the three review verdicts, draft/ready, close,
    branch update, CI re-run and workflow approval, plus two allowlisted GraphQL
-   queries (`pr-liveness`, `pr-review-threads`). Repo health and release
-   management remain; each needs its own operations and its own caller
-   manifests, and none needs a second dispatcher.
+   queries (`pr-liveness`, `pr-review-threads`). *The issue family has landed* —
+   ten `repo-issue-*` operations against the **upstream** repository, kept
+   distinct from the `issue-*` operations that address the private tracker, with
+   a test asserting the two never cross. Repo health, release management,
+   mentoring and contributor growth remain; each needs its own operations and
+   its own caller manifests, and none needs a second dispatcher.
+
+   Two shapes are refused rather than wrapped, and will stay refused: free-text
+   search (`gh search issues`) has no fixed shape, and creation (`gh issue
+   create` / `gh pr create`) would need a free-text title, since `gh` offers
+   `--body-file` but no `--title-file`. Both keep their `ask` rule.
 
    Note what the PR family deliberately does *not* include: there is no
    `pr-merge`. Merging is this framework's deferred Agentic Autonomous mode —

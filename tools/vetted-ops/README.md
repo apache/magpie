@@ -128,7 +128,7 @@ upstream = "acme/product"
 
 [values]
 labels        = ["needs triage", "cve allocated", "pr merged"]
-pr_labels     = ["ready for maintainer review", "area:scheduler"]
+upstream_labels = ["ready for maintainer review", "area:scheduler"]  # issues *and* PRs
 milestones    = ["1.2.3", "1.3.0"]
 assignees     = ["alice", "bob"]
 issue_states  = ["open", "closed", "all"]
@@ -154,6 +154,12 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
                                "gql-pr-review-threads", "pr-review-approve",
                                "pr-review-request-changes", "pr-review-comment"]
 "pr-management-stats"   = ["pr-list", "pr-view", "gql-pr-review-threads"]
+"issue-triage"          = ["repo-issue-view", "repo-issue-comments", "repo-issue-list",
+                           "repo-issue-add-label", "repo-issue-remove-label",
+                           "repo-issue-comment"]
+"issue-stale-sweep"     = ["repo-issue-list", "repo-issue-view", "repo-issue-comment",
+                           "repo-issue-close", "repo-issue-reopen"]
+"issue-backlog-stats"   = ["repo-issue-list"]
 ```
 
 Grant the narrowest set that lets a skill finish its job: `pr-management-stats`
