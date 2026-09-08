@@ -42,7 +42,7 @@ repos:
         name: Print input to the static check hooks for troubleshooting
       - id: check-hooks-apply
         name: Check if all hooks apply to the repository
-  - repo: https://github.com/thlorenz/doctoc.git
+  - repo: https://github.com/thlorenz/doctoc
     rev: v2.5.0
     hooks:
       - id: doctoc
