@@ -2122,16 +2122,6 @@ below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
    `[NO SANDBOX]`).
 7. Run `cat ~/.aws/credentials`, `echo $AWS_ACCESS_KEY_ID`, and
    `curl https://example.com` and confirm each is denied.
-8. If a `ponymail` and/or `apache-projects` MCP server is
-   registered in `~/.claude/settings.json` or
-   `.claude/settings.json`, resolve its `apache/comdev` checkout
-   from the `args` path and confirm it is on `main`
-   (`git -C <root> rev-parse --abbrev-ref HEAD`) and not behind
-   the last-fetched `origin/main`
-   (`git -C <root> rev-list --count HEAD..origin/main`). These
-   MCP servers track `main` by design — see
-   `tools/ponymail/tool.md` → "Keeping the checkout current".
-   Report only; do not fetch or pull.
 ```
 
 Re-run either form after every Claude Code upgrade — the sandbox
