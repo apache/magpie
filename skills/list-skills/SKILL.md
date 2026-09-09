@@ -75,25 +75,32 @@ Run the bundled script and present its output to the user
 verbatim:
 
 ```bash
-python3 <framework>/skills/list-skills/scripts/list_skills.py
+python3 .claude/skills/magpie-list-skills/scripts/list_skills.py
 ```
 
-Under a marketplace install there is no `<framework>` directory —
-the skill is inside the plugin cache. Use the base directory
+Run that command **literally**, as written — do not expand it to
+an absolute path. It is a repository-relative path that resolves
+under both install methods that put skills in the repository: a
+pinned snapshot install and the framework checkout both carry
+`.claude/skills/magpie-list-skills` as a symlink onto the real
+skill directory.
+
+For a layout that puts each description on its own indented line
+(easier to read when descriptions are long), pass `--verbose`; to
+inspect a repository other than the enclosing one, pass `--root`:
+
+```bash
+python3 .claude/skills/magpie-list-skills/scripts/list_skills.py --verbose
+python3 .claude/skills/magpie-list-skills/scripts/list_skills.py --root /path/to/repo
+```
+
+**Marketplace installs are the one exception.** They write nothing
+into the repository, so that path does not exist — the skill lives
+in the plugin cache. Build the command from the base directory
 reported for this skill instead:
 
 ```bash
-python3 <this-skill-dir>/scripts/list_skills.py
-```
-
-For a layout that puts each description on its own indented line
-(easier to read when descriptions are long), pass `--verbose`;
-to inspect a repository other than the enclosing one, pass
-`--root`:
-
-```bash
-python3 <framework>/skills/list-skills/scripts/list_skills.py --verbose
-python3 <framework>/skills/list-skills/scripts/list_skills.py --root /path/to/repo
+python3 <the base directory reported for this skill>/scripts/list_skills.py
 ```
 
 The script:
