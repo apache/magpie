@@ -7,6 +7,7 @@
 
 - [Quick-start screenshots — capture checklist](#quick-start-screenshots--capture-checklist)
   - [Per-family install shots — `families/`](#per-family-install-shots--families)
+  - [The capture helper](#the-capture-helper)
   - [Capture conventions](#capture-conventions)
   - [Regenerating the placeholders](#regenerating-the-placeholders)
 
@@ -57,6 +58,21 @@ screenshots**: they are illustrative shapes rather than real transcripts, and
 they are labelled as such in each README. Do not replace them with real
 captures without checking that no private tracker content, reporter address,
 or embargoed security detail is in frame.
+
+## The capture helper
+
+`tools/dev/capture-screenshot.sh` does the whole job for one shot — brief,
+capture, resize, strip metadata, write to the right path:
+
+```bash
+tools/dev/capture-screenshot.sh security      # a family shot
+tools/dev/capture-screenshot.sh claude-code   # a harness shot
+tools/dev/capture-screenshot.sh --list        # every valid target
+```
+
+It applies the conventions below for you. macOS only, and run it from your own
+terminal: Screen Recording permission is granted per calling application, so
+calling it from inside an agent's shell tends to fail silently.
 
 ## Capture conventions
 
