@@ -277,6 +277,19 @@ Cannot connect to Podman. Please verify your connection to the Linux system usin
 installed and the runtime is running on the host — the sandbox is
 just blocking access to its socket.
 
+On macOS with Docker Desktop the failure usually arrives *earlier*
+than that, as one of:
+
+```text
+zsh: operation not permitted: docker
+docker: unknown command: docker compose
+```
+
+The first means the sandbox is blocking the `docker` binary itself;
+the second means it is blocking the CLI plugins. Neither reaches the
+socket at all, so the socket allowlist below does not fix them on its
+own — see the CLI paths in the same block.
+
 ### Root cause
 
 The runtime CLI talks to its daemon via a unix-domain socket. The
@@ -287,6 +300,19 @@ and lists `~/.docker` in the broader filesystem `denyRead` set.
 Both block the socket file under `~/.docker/run/docker.sock`,
 which is where Docker.app for Mac drops its socket.
 
+On macOS the same `~/.docker` denial also blocks two things that
+are not the socket, and that a socket-only allowlist therefore
+leaves broken:
+
+- **The CLI binary.** Docker Desktop installs it *inside* the denied
+  directory — `docker` on `PATH` is `~/.docker/bin/docker`, a symlink
+  into `/Applications/Docker.app`. Denied, the shell cannot execute it
+  at all (`operation not permitted: docker`).
+- **The CLI plugins.** `docker compose` and `docker buildx` are not
+  builtins; they are separate binaries in `~/.docker/cli-plugins/`.
+  Denied, `docker ps` works while `docker compose` reports
+  `unknown command`, which breaks any compose-driven workflow.
+
 For Colima the socket lives under `~/.colima/...` (not currently
 covered by any allow / deny in the framework reference, so it
 works by default), and for rootless Podman it lives under
@@ -296,8 +322,8 @@ generic `~/.docker` denial.
 
 ### Fix
 
-Allow Bash subprocesses to read the *socket file* without opening
-the `~/.docker/` directory generally:
+Allow Bash subprocesses to read the *socket file*, the CLI, and its
+plugins without opening the `~/.docker/` directory generally:
 
 ```jsonc
 // ~/.claude/settings.json
@@ -308,7 +334,9 @@ the `~/.docker/` directory generally:
         // ...existing entries...
         "~/.docker/run/docker.sock",                    // Docker.app for Mac socket
         "~/.colima/default/docker.sock",                // Colima default socket (defensive; usually not blocked)
-        "/var/run/docker.sock"                          // Linux daemon socket (root-managed install)
+        "/var/run/docker.sock",                         // Linux daemon socket (root-managed install)
+        "~/.docker/bin/",                               // Docker Desktop CLI binaries (`docker` itself lives here on macOS)
+        "~/.docker/cli-plugins/"                        // `docker compose`, `docker buildx` — separate plugin binaries
       ]
     }
   },
@@ -333,6 +361,14 @@ Per-entry rationale:
   the generic `~/.` denial.
 - `/var/run/docker.sock` — Linux systems with daemon Docker;
   socket is root-managed but world-readable by convention.
+- `~/.docker/bin/` — Docker Desktop for Mac installs the `docker`
+  CLI here (as a symlink into `/Applications/Docker.app`), so
+  without it the binary cannot be executed and no socket entry
+  matters. Not needed for Homebrew or Linux installs, where the
+  CLI lives on a normal `PATH` directory outside `~/.docker`.
+- `~/.docker/cli-plugins/` — `docker compose` and `docker buildx`
+  are plugin binaries, not builtins. Without it `docker ps`
+  succeeds but `docker compose` fails as `unknown command`.
 - The narrowed `permissions.deny` keeps the agent's `Read` tool
   from seeing Docker auth tokens (`config.json`) and saved
   contexts (which include host IPs and credentials), while
