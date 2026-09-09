@@ -57,6 +57,22 @@ MARKETPLACE = Path(".claude-plugin/marketplace.json")
 ROOT_MANIFEST = Path(".claude-plugin/plugin.json")  # the all-in-one `magpie` plugin
 HOOK_SCRIPT = Path("hooks/check-upgrade.sh")  # referenced by the all-in-one plugin hook
 SYMLINK_TARGET = "../../../skills/{skill}"  # relative to plugins/magpie-<f>/skills/
+
+# A family plugin advertises each skill under its *symlink* name, so the symlink
+# is where the family prefix comes off: `magpie-security` + `security-issue-triage`
+# would otherwise be invoked as `/magpie-security:security-issue-triage`, saying
+# "security" twice. The source directory keeps its prefix — the portable install
+# flattens all 74 skills into one namespace where the prefix is what keeps
+# `issue-stale-sweep` and `pr-stale-sweep` apart, so renaming the directories
+# would collide them.
+#
+# Skills whose mechanical alias is worse than the name it replaces.
+ALIAS_OVERRIDES = {
+    # Stripping "setup-" leaves nothing; `/magpie-setup:setup` is the install skill.
+    "setup": "setup",
+    # "to-committer" does not read as the name of anything.
+    "contributor-to-committer": "contributor-to-committer",
+}
 TOOL_SYMLINK_TARGET = "../../../tools/{tool}"  # relative to plugins/magpie-<p>/tools/
 
 # The vendor-neutral Agent Plugins 1.0 manifest for the same all-in-one plugin.
@@ -528,6 +544,41 @@ def root_metadata() -> tuple[dict, list[str]]:
     return {k: data[k] for k in INHERITED}, []
 
 
+def plugin_alias(skill: str, family: str) -> str:
+    """The name a family plugin advertises ``skill`` under.
+
+    Strips the longest leading family token the skill name repeats — the family
+    itself (``pr-management-triage`` -> ``triage``) or its first segment
+    (``release-vote-tally`` under ``release-management`` -> ``vote-tally``) —
+    leaving the name alone when the remainder would be empty or when
+    :data:`ALIAS_OVERRIDES` says the mechanical result reads badly.
+
+    Aliases are unique within a family, which is all that is required: each
+    family plugin is its own namespace, so ``stale-sweep`` in ``magpie-issue``
+    and in ``magpie-pr-management`` do not clash.
+    """
+    if skill in ALIAS_OVERRIDES:
+        return ALIAS_OVERRIDES[skill]
+    for prefix in sorted({family, family.split("-")[0]}, key=len, reverse=True):
+        if skill.startswith(prefix + "-") and skill[len(prefix) + 1 :]:
+            return skill[len(prefix) + 1 :]
+    return skill
+
+
+def aliases_for(family: str, skills: set[str]) -> dict[str, str]:
+    """``{alias: skill}`` for one family, rejecting a within-family collision."""
+    out: dict[str, str] = {}
+    for skill in sorted(skills):
+        alias = plugin_alias(skill, family)
+        if alias in out:
+            raise SystemExit(
+                f"alias collision in magpie-{family}: '{skill}' and '{out[alias]}' "
+                f"both reduce to '{alias}' — add an ALIAS_OVERRIDES entry"
+            )
+        out[alias] = skill
+    return out
+
+
 def families_from_frontmatter() -> dict[str, set[str]]:
     fam: dict[str, set[str]] = {}
     for path in sorted(SKILLS.glob("*/SKILL.md")):
@@ -613,14 +664,19 @@ def check(fam: dict[str, set[str]]) -> list[str]:
             else:
                 errors.append(f"{name}: {link} is not a symlink")
 
-        for skill in sorted(skills - set(have)):
-            errors.append(f"{name}: missing symlink for '{skill}' (family={family})")
-        for skill in sorted(set(have) - skills):
-            errors.append(f"{name}: stale symlink '{skill}' — its skill is not family={family}")
-        for skill in sorted(skills & set(have)):
-            want = Path(SYMLINK_TARGET.format(skill=skill))
-            if have[skill] != want:
-                errors.append(f"{name}: {sdir / skill} -> {have[skill]} (expected {want})")
+        # Keyed on the advertised alias, not the skill directory: the symlink
+        # name is what the plugin invokes the skill as.
+        want_links = aliases_for(family, skills)
+        for alias in sorted(set(want_links) - set(have)):
+            errors.append(
+                f"{name}: missing symlink '{alias}' for skill '{want_links[alias]}' (family={family})"
+            )
+        for alias in sorted(set(have) - set(want_links)):
+            errors.append(f"{name}: stale symlink '{alias}' — no family={family} skill aliases to it")
+        for alias in sorted(set(want_links) & set(have)):
+            want = Path(SYMLINK_TARGET.format(skill=want_links[alias]))
+            if have[alias] != want:
+                errors.append(f"{name}: {sdir / alias} -> {have[alias]} (expected {want})")
 
     # 4) Substrate plugins: manifest + hook wiring + tool symlinks that resolve.
     for name in sorted(SUBSTRATE_PLUGINS):
@@ -723,8 +779,8 @@ def fix(fam: dict[str, set[str]]) -> int:
         sdir = pdir / "skills"
         (pdir / ".claude-plugin").mkdir(parents=True)
         sdir.mkdir(parents=True)
-        for skill in sorted(skills):
-            (sdir / skill).symlink_to(SYMLINK_TARGET.format(skill=skill))
+        for alias, skill in sorted(aliases_for(family, skills).items()):
+            (sdir / alias).symlink_to(SYMLINK_TARGET.format(skill=skill))
         manifest = {
             "name": name,
             "description": f"Apache Magpie — {DESC.get(family, family + ' family skills')}",

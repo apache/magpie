@@ -84,7 +84,7 @@ gitignored `.apache-magpie.local.lock` (per-machine
 fetch) against the committed `.apache-magpie.lock`
 (the project pin). On mismatch the skill surfaces the
 gap and proposes
-[`/magpie-setup upgrade`](../setup/upgrade.md).
+[`setup upgrade`](../setup/upgrade.md).
 The proposal is non-blocking — the user may defer if
 they want to run with the local snapshot for now. See
 [`docs/setup/install-recipes.md` § Subsequent runs and drift detection](../../docs/setup/install-recipes.md#subsequent-runs-and-drift-detection)
@@ -228,7 +228,7 @@ Walk each in order:
      `.claude/settings.local.json` — each worktree carries its
      own entry. Surface ✗ on any missing entry; remediation:
      `~/.claude/scripts/sandbox-add-project-root.sh --all-worktrees`
-     (or re-run `/magpie-setup-isolated-setup-install` if the helper is
+     (or re-run `setup-isolated-setup-install` if the helper is
      not installed).
    - **Live probe:** attempt a sandboxed read of `.git/HEAD` and
      a sandboxed write of a temp file inside the *current*
@@ -267,10 +267,10 @@ Walk each in order:
      `tools/agent-isolation/git-global-post-checkout.sh` content.
    - ⚠ if the hook is missing or non-executable — the `core.hooksPath`
      pointer is set but the hook content is gone. Remediation:
-     re-run `/magpie-setup-isolated-setup-install` Step P.3-whole-user,
-     or `/magpie-setup-isolated-setup-update` to refresh the script copy.
+     re-run `setup-isolated-setup-install` Step P.3-whole-user,
+     or `setup-isolated-setup-update` to refresh the script copy.
    - ⚠ if the hook content drifted from the framework's source-of-
-     truth — surface the diff, propose `/magpie-setup-isolated-setup-update`.
+     truth — surface the diff, propose `setup-isolated-setup-update`.
    - **Loud reminder** (every run, not a ✗): when in whole-user
      scope, surface a one-line note that per-repo `.git/hooks/*`
      are inert across the host (per [`docs/setup/secure-agent-setup.md` → *Per-project vs whole-user scope*](../../docs/setup/secure-agent-setup.md#per-project-vs-whole-user-scope)).

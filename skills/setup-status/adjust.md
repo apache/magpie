@@ -7,7 +7,7 @@ After [rendering](render.md), and unless `--no-adjust` was passed,
 offer the user concrete, confirmable changes to the adoption
 wiring. This skill **never edits symlinks, lock files, or
 `.gitignore` itself**: every change is carried out by delegating
-to [`/magpie-setup`](../setup/SKILL.md), the one skill that owns
+to [`setup`](../setup/SKILL.md), the one skill that owns
 adoption mutation. The status skill detects the delta, proposes
 the exact command, and — on the user's explicit confirmation —
 runs it.
@@ -34,15 +34,15 @@ Order the offers most → least impactful (drift and dangling links
 before optional family additions). If no delta applies, say the
 adoption is fully wired and stop — do not invent work.
 
-### Map each delta to a `/magpie-setup` command
+### Map each delta to a `setup` command
 
 | Adjustment | Delegated command |
 |---|---|
-| Add an agent target | `/magpie-setup install agents:<full desired set>` |
-| Enable an opt-in family | `/magpie-setup install skill-families:<full desired set>` |
-| Repair dangling / missing symlinks | `/magpie-setup verify --auto-fix-symlinks` |
-| Sync drift / fetch snapshot | `/magpie-setup upgrade` |
-| Adopt from scratch | `/magpie-setup` |
+| Add an agent target | `setup install agents:<full desired set>` |
+| Enable an opt-in family | `setup install skill-families:<full desired set>` |
+| Repair dangling / missing symlinks | `setup verify --auto-fix-symlinks` |
+| Sync drift / fetch snapshot | `setup upgrade` |
+| Adopt from scratch | `setup` |
 
 **The `agents:` and `skill-families:` flags replace the set for
 that run** (see [`../setup/SKILL.md` Inputs](../setup/SKILL.md#inputs)).
@@ -56,14 +56,14 @@ Example — current targets are `universal, claude-code` and the
 user wants GitHub too:
 
 ```bash
-/magpie-setup install agents:universal,claude-code,github
+setup install agents:universal,claude-code,github
 ```
 
 Example — `security` and `pr-management` are installed and the
 user wants the `issue` family as well:
 
 ```bash
-/magpie-setup install skill-families:security,pr-management,issue
+setup install skill-families:security,pr-management,issue
 ```
 
 **Two hard rules when building these commands:**
@@ -80,11 +80,11 @@ user wants the `issue` family as well:
 ## Step B — Confirm, then delegate
 
 1. Present the proposed change as a single line: *what* changes
-   and *which* `/magpie-setup` command runs.
+   and *which* `setup` command runs.
 2. Wait for explicit confirmation (`go`, `yes`, the command
    itself). No confirmation → do nothing; the dashboard already
    delivered the value.
-3. On confirmation, invoke the delegated `/magpie-setup`
+3. On confirmation, invoke the delegated `setup`
    sub-action. It owns the plan-before-write, the symlink/lock
    edits, the worktree propagation, and the sandbox-allowlist
    pass. Do not pre-empt or duplicate any of that here.
@@ -97,8 +97,8 @@ user wants the `issue` family as well:
 Adding targets/families is additive and safe. **Dropping** a
 target or family removes committed/gitignored symlinks and may
 strand overrides, so do not auto-propose it. If the user asks to
-drop one, restate it as a `/magpie-setup install` run with the
-reduced set (or [`/magpie-setup unadopt`](../setup/uninstall.md) to
+drop one, restate it as a `setup install` run with the
+reduced set (or [`setup unadopt`](../setup/uninstall.md) to
 remove adoption entirely), describe what disappears, and let the
 setup skill carry it out under its own confirmation.
 
@@ -108,7 +108,7 @@ In the framework checkout itself, adoption links *every* skill
 under `skills/` across every active target by design — there is no
 opt-in family selection and no snapshot to sync. The only
 meaningful adjustments are **repairing dangling relays** (re-run
-`/magpie-setup`, idempotent) and **adding a new registry target
+`setup`, idempotent) and **adding a new registry target
 dir** that the operator created. Skip the family-enable and
 drift-sync offers there; `families.opt_in_absent` being empty and
 `drift.checked == false` already reflect this.

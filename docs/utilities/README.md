@@ -6,6 +6,8 @@
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
 - [Utilities skill family](#utilities-skill-family)
+  - [Install & first runs](#install--first-runs)
+    - [Try these first](#try-these-first)
   - [Skills](#skills)
   - [When to adopt this family](#when-to-adopt-this-family)
   - [Adopter contract](#adopter-contract)
@@ -30,6 +32,55 @@ your issues, PRs, or contributor threads.
 They are for skill authors and framework contributors.
 
 ---
+
+## Install & first runs
+
+Install just this family — one plugin, 5 skills. Framework meta-skills: author, restructure, and index your own skills.
+
+```text
+/plugin marketplace add apache/magpie
+/plugin install magpie-utilities@apache-magpie
+```
+
+<!-- CAPTURE: assets/quickstart/README.md -->
+![Claude Code showing the magpie-utilities plugin installed and enabled](../../assets/quickstart/families/utilities-install.png)
+
+New to Magpie? The [quick start](../quick-start.md) covers the other agents,
+the all-in-one alternative, and the secure-isolation setup to run next.
+
+### Try these first
+
+*Illustrative shapes, not real transcripts — your output will differ. Nothing
+below sends, merges, or posts anything without you confirming it.*
+
+**List everything installed.**
+
+```text
+> /magpie-utilities:list-skills
+
+  magpie-setup            9 skills
+  magpie-pr-management    8 skills
+  17 skills, ~5.0k always-on tokens
+```
+
+**Author a new skill.**
+
+```text
+> /magpie-utilities:write-skill
+
+  What should the skill do? > sweep our Jira for stale triage
+  Scaffolded skills/jira-stale-sweep/SKILL.md (frontmatter, 6 steps)
+```
+
+**Report a framework bug upstream.**
+
+```text
+> /magpie-utilities:report-framework-issue
+
+  Searched apache/magpie: no existing issue matches
+  Drafted issue 'setup-status misreports drift on a fork'
+  Open it? [y/N]
+```
 
 ## Skills
 

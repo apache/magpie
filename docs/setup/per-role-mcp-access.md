@@ -170,7 +170,7 @@ is unavailable, fall back to the standard checklist in the skill body
 and note that live policy was not fetched.
 ```
 
-Other committers who run `/magpie-release-vote-draft` see no difference —
+Other committers who run `/magpie-release-management:vote-draft` see no difference —
 the skill proceeds with its built-in guidance.
 
 ---
@@ -201,7 +201,7 @@ CVEs" field. If the MCP is unavailable or returns no matches, leave the
 field blank and note that the cross-reference was not performed.
 ```
 
-Other contributors who run `/magpie-security-issue-triage` get the
+Other contributors who run `/magpie-security:issue-triage` get the
 standard triage output; only your session fetches from `vuln-db`.
 
 ---

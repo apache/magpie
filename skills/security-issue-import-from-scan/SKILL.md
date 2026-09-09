@@ -163,7 +163,7 @@ At the top of every run this skill consults
 [`.apache-magpie-local/security-issue-import-from-scan.md`](../../docs/setup/agentic-overrides.md) (personal, gitignored) and [`.apache-magpie-overrides/security-issue-import-from-scan.md`](../../docs/setup/agentic-overrides.md) (committed, project-wide)
 and applies any agent-readable overrides, and compares the gitignored
 `.apache-magpie.local.lock` against the committed `.apache-magpie.lock`,
-proposing [`/magpie-setup upgrade`](../setup/upgrade.md) on drift
+proposing [`setup upgrade`](../setup/upgrade.md) on drift
 (non-blocking). **Agents never modify the snapshot under
 `<adopter-repo>/.apache-magpie/`.**
 

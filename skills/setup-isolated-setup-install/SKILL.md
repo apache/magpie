@@ -80,7 +80,7 @@ gitignored `.apache-magpie.local.lock` (per-machine
 fetch) against the committed `.apache-magpie.lock`
 (the project pin). On mismatch the skill surfaces the
 gap and proposes
-[`/magpie-setup upgrade`](../setup/upgrade.md).
+[`setup upgrade`](../setup/upgrade.md).
 The proposal is non-blocking — the user may defer if
 they want to run with the local snapshot for now. See
 [`docs/setup/install-recipes.md` § Subsequent runs and drift detection](../../docs/setup/install-recipes.md#subsequent-runs-and-drift-detection)
@@ -534,10 +534,10 @@ redundant but harmless. The committed project-scope file is
 **never** modified by the helper (machine-specific absolute paths
 have no business in a file shared across contributors).
 
-The helper is also invoked by `/magpie-setup install`,
-`/magpie-setup upgrade`, and `/magpie-setup worktree-init` for
+The helper is also invoked by `setup install`,
+`setup upgrade`, and `setup worktree-init` for
 the same reason. The `post-checkout` git hook installed by
-`/magpie-setup install` chains into the helper too, so new
+`setup install` chains into the helper too, so new
 worktrees added via `git worktree add` after this install pass
 inherit access automatically — no operator action needed.
 

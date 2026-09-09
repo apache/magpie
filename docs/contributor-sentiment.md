@@ -254,7 +254,7 @@ Run it after two release cycles of Magpie use to generate the
 evidence for a promotion decision:
 
 ```text
-/magpie-contributor-sentiment
+/magpie-contributor-growth:sentiment
 ```
 
 The output is a report artifact; the maintainer reviews it and decides

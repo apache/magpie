@@ -24,11 +24,11 @@ when_to_use: |
   to the model", "why do we keep rejecting the same report",
   "what's missing from our security model", or on a periodic
   cadence after a batch of trackers has closed. Also when
-  `/magpie-security-issue-triage` or
-  `/magpie-security-issue-invalidate` reaches for a rejection
+  `security-issue-triage` or
+  `security-issue-invalidate` reaches for a rejection
   reason the model does not cover — that is a model gap, and this
   is the skill that records it. Skip when the project has no
-  published model (`/magpie-security-model-prepare` first).
+  published model (`security-model-prepare` first).
 argument-hint: "[since-date | last-N | tracker-range]"
 capability:
   - capability:reassess
@@ -307,8 +307,8 @@ unlucky.
     diff, it goes to the private list, not to a public issue.
 
 11. **Feed it back.** New §1.15 entries are the negative prompt for
-    `/magpie-security-issue-triage`; new §1.12 disclaimers are what
-    `/magpie-security-issue-invalidate` cites instead of paraphrasing; a resolved
+    `security-issue-triage`; new §1.12 disclaimers are what
+    `security-issue-invalidate` cites instead of paraphrasing; a resolved
     gap is a canned response that can now link a section rather than restate it.
 
 ## Hard rules

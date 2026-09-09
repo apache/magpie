@@ -1,1 +1,1 @@
-{"status": "reinstall-needed", "severity": "error", "remediation": "/magpie-setup upgrade"}
+{"status": "reinstall-needed", "severity": "error", "remediation": "setup upgrade"}

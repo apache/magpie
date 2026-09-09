@@ -71,7 +71,7 @@ security ✅ 12 · pr-management ✅ 8 · issue ✅ 8 · release-management ✅ 
 - **drift:** n/a (method:local …) · **snapshot:** in-repo source (local)
 - **shared overrides** (`.apache-magpie-overrides/`): — · **personal overrides** (`.apache-magpie-local/`): —
 - **hook:** —
-- → deep check (integrity, permissions, worktrees): `/magpie-setup verify`
+- → deep check (integrity, permissions, worktrees): `setup verify`
 ```
 
 Notes on the format:
@@ -103,8 +103,8 @@ this before assigning health:
 
 | Signal | `method:local` (self-adoption) | normal adopter (git/svn) |
 |---|---|---|
-| `snapshot.present == false` | ✅ expected — links go to in-repo `skills/` | ❌ snapshot missing → `/magpie-setup upgrade` |
-| `local_lock == null` | ✅ expected — no per-machine fetch | ⚠️ snapshot not fetched here → `/magpie-setup upgrade` |
+| `snapshot.present == false` | ✅ expected — links go to in-repo `skills/` | ❌ snapshot missing → `setup upgrade` |
+| `local_lock == null` | ✅ expected — no per-machine fetch | ⚠️ snapshot not fetched here → `setup upgrade` |
 | `gitignore.targets[].all_unignored` | ✅ expected — symlinks are committed | not the pattern used; ignore |
 | `gitignore.targets[].glob_ignored` + `setup_unignored` | not used | ✅ expected — symlinks gitignored, bootstrap tracked |
 | `drift.checked == false` | ✅ nothing to drift against | depends on `reason` (see [`collect.md`](collect.md#drift)) |

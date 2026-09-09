@@ -64,8 +64,8 @@ Given invocation context and collected adoption state, the model detects configu
 
 - **case-1**: `no_adjust=true` → no offer regardless of state.
 - **case-2**: Clean state, no gaps → no offer (adoption fully wired).
-- **case-3**: Registry target `github` present on disk but unwired → offer add-target; delegate to `/magpie-setup adopt agents:universal,claude-code,github`.
-- **case-4**: Two opt-in families not installed → offer install-families; delegate to `/magpie-setup adopt skill-families:security,pr-management,issue`.
+- **case-3**: Registry target `github` present on disk but unwired → offer add-target; delegate to `setup adopt agents:universal,claude-code,github`.
+- **case-4**: Two opt-in families not installed → offer install-families; delegate to `setup adopt skill-families:security,pr-management,issue`.
 
 ### step-4-local-overrides
 

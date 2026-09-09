@@ -57,9 +57,9 @@ between automatically:
    stop with:
 
    > *"`adopt` runs in the main checkout, not a worktree. From
-   > the main: `cd <main-path> && /magpie-setup`. To wire this
+   > the main: `cd <main-path> && setup`. To wire this
    > worktree up after adoption lands in the main, use
-   > `/magpie-setup worktree-init`."*
+   > `setup worktree-init`."*
 
    The main's path is
    `$(dirname "$(cd "$(git rev-parse --git-common-dir)" && pwd)")` —
@@ -109,7 +109,7 @@ between automatically:
 
 ## Local self-adoption (`method:local`)
 
-**Framework checkout only.** When `/magpie-setup` runs inside the
+**Framework checkout only.** When `setup` runs inside the
 Apache Magpie framework checkout (detected in
 [Step 0](#step-0--pre-flight)), it adopts the framework *into
 itself* by linking the live `skills/` source directly — **no
@@ -167,7 +167,7 @@ How it differs from a remote adoption:
    ```text
    # .apache-magpie.lock — committed. Local self-adoption marker.
    # The framework checkout links its own skills/ source; there is
-   # no remote snapshot. Edited only by /magpie-setup.
+   # no remote snapshot. Edited only by setup.
 
    method: local
    source: skills/
@@ -351,7 +351,7 @@ Create `<repo-root>/.apache-magpie.lock`:
 
 ```text
 # .apache-magpie.lock — committed; the project's pin.
-# Edited only by /magpie-setup; do not modify by hand.
+# Edited only by setup; do not modify by hand.
 
 method: <method>
 url:    <url>
@@ -662,7 +662,7 @@ Add the analogous two lines for any present holdout
 gitignored exactly like the canonical ones: a relay points at
 `../../.agents/skills/magpie-<n>`, which itself targets the
 gitignored snapshot, so it dangles on a fresh clone before
-`/magpie-setup` runs.
+`setup` runs.
 
 The `magpie-*` glob covers every symlinked framework skill —
 the opt-in families and the always-on `setup` / `utilities`
@@ -1063,7 +1063,7 @@ through it:
    asserts it is on `main` and not behind `origin/main`, and
    [`setup-isolated-setup-update`](../setup-isolated-setup-update/SKILL.md)
    runs the live `git fetch` + prints the `git pull --ff-only`.
-   `/magpie-setup verify` (check 8e) and `/magpie-setup upgrade`
+   `setup verify` (check 8e) and `setup upgrade`
    (Step 6e) re-surface the same prereq so an ASF adopter does not
    have to remember to run the isolated-setup skills separately.
 4. **Reflect the outcome** in the Step 9b `user.md` `tools` blocks
@@ -1147,7 +1147,7 @@ the user before writing:
 
 ```bash
 #!/usr/bin/env bash
-# apache-magpie post-checkout hook (installed by /magpie-setup install).
+# apache-magpie post-checkout hook (installed by setup install).
 # Best-effort per-worktree reconciliation on checkout / `git worktree add`.
 # Every action is individually guarded and the hook always exits 0 — it
 # never gates the surrounding git operation.
@@ -1155,7 +1155,7 @@ set -u
 
 # (a) Sandbox allowlist (issue #197): add the current worktree's working
 #     dir to the worktree's own .claude/settings.local.json. No-op when the
-#     helper from /magpie-setup-isolated-setup-install is absent.
+#     helper from setup-isolated-setup-install is absent.
 if [ -x "$HOME/.claude/scripts/sandbox-add-project-root.sh" ]; then
   "$HOME/.claude/scripts/sandbox-add-project-root.sh" || true
 fi
@@ -1168,7 +1168,7 @@ from failing the surrounding git operation (`git checkout`,
 `git worktree add`) — the hook is best-effort reconciliation, not
 a gate.
 
-If the operator has not yet run `/magpie-setup-isolated-setup-install`,
+If the operator has not yet run `setup-isolated-setup-install`,
 the helper-script line (a) is a no-op (the `-x` test fails). When
 they later install the secure setup, no hook re-write is needed:
 the next `post-checkout` fires the helper automatically.
@@ -1185,16 +1185,16 @@ reconciliation is not.** Line (a) shells out to a helper script — a
 pure shell operation with no dependency on the agent harness.
 Recreating the gitignored framework-skill symlinks is **not**: earlier
 template versions of this hook also called
-`/magpie-setup verify --auto-fix-symlinks` to recreate
+`setup verify --auto-fix-symlinks` to recreate
 gitignored symlinks after a checkout. That line printed a spurious
 `No such file or directory` error on every `git checkout` because
-`/magpie-setup` is a **Claude Code slash command**, not a shell
+`setup` is a **Claude Code slash command**, not a shell
 command, and the hook fires in the operator's shell where there is
 no slash-command dispatcher. The line has been removed.
 Symlink-drift reconciliation now happens **lazily** — the next
 time the operator opens Claude Code in the worktree, the framework
 skills' pre-flight drift check surfaces any missing symlinks and
-`/magpie-setup verify` (or any skill that needs the symlink)
+`setup verify` (or any skill that needs the symlink)
 prompts for the fix. Adopters whose existing hooks still contain
 the broken line should remove it; the
 [`setup-isolated-setup-update`](../setup-isolated-setup-update/SKILL.md)
@@ -1242,7 +1242,7 @@ framework before they hit a "skill not found" error:
    A fresh clone needs the snapshot populated before any
    framework skill is invocable. In your agent harness, run:
 
-       /magpie-setup
+       setup
 
    (or follow [`.agents/skills/magpie-setup/`](.agents/skills/magpie-setup/))
    to fetch the snapshot per the committed lock, scaffold the
@@ -1281,7 +1281,7 @@ framework before they hit a "skill not found" error:
    symlinks into the `.apache-magpie/` snapshot directory.
 
    A fresh clone needs the snapshot populated before any
-   framework skill is invocable. Run `/magpie-setup` (or
+   framework skill is invocable. Run `setup` (or
    follow [`.agents/skills/magpie-setup/`](.agents/skills/magpie-setup/))
    to fetch it per the committed
    [`.apache-magpie.lock`](.apache-magpie.lock). The
@@ -1350,8 +1350,8 @@ Four passes, in this order:
    surfacing the diff and asking for confirmation when the
    local copy looks hand-edited). This is the "sync local
    versions with the framework's latest" pass and runs
-   *every* time `/magpie-setup` runs in either FRESH or
-   SUBSEQUENT adoption — it is the same pass `/magpie-setup
+   *every* time `setup` runs in either FRESH or
+   SUBSEQUENT adoption — it is the same pass `setup
    upgrade` runs after a snapshot refresh.
 
    **The agent-guard PreToolUse hook is one such adopter-side
@@ -1441,7 +1441,7 @@ Four passes, in this order:
    - If the list is empty, this pass is a no-op; record
      "no linked worktrees" in the recap and continue.
    - For each linked worktree, invoke
-     `/magpie-setup worktree-init` with that worktree's
+     `setup worktree-init` with that worktree's
      working directory as the `cwd`. The sub-action picks up
      the family set from `<main>/.apache-magpie.lock` plus
      the always-on families per
@@ -1455,7 +1455,7 @@ Four passes, in this order:
    Do **not** abort adopt because one worktree failed — the
    main is already adopted, and the failing worktree is
    recorded in the summary for later resolution (typically:
-   the user `cd`s there and re-runs `/magpie-setup
+   the user `cd`s there and re-runs `setup
    worktree-init` after merging the adoption commit
    forward).
 
@@ -1498,7 +1498,7 @@ Four passes, in this order:
 
    - **Helper absent** (`~/.claude/scripts/sandbox-add-project-root.sh`
      does not exist) → surface as ⚠ in the adopt summary with a
-     pointer at `/magpie-setup-isolated-setup-install`. Do not block
+     pointer at `setup-isolated-setup-install`. Do not block
      adopt — many adopters set up secure-agent isolation later,
      and the framework-skill symlinks are usable without it (the
      adopter just runs Bash outside the sandbox until they wire
@@ -1571,7 +1571,7 @@ a PR.
 
 - **Existing `<repo-root>/.apache-magpie/` and
   `<committed-lock>` are out of sync** → drift; suggest
-  `/magpie-setup upgrade`.
+  `setup upgrade`.
 - **Existing committed skill conflicts with a framework
   skill symlink** → stop, name the conflict, let the user
   resolve.

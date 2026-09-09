@@ -145,7 +145,7 @@ gitignored `.apache-magpie.local.lock` (per-machine
 fetch) against the committed `.apache-magpie.lock`
 (the project pin). On mismatch the skill surfaces the
 gap and proposes
-[`/magpie-setup upgrade`](../magpie-setup/upgrade.md).
+[`setup upgrade`](../magpie-setup/upgrade.md).
 The proposal is non-blocking — the user may defer if
 they want to run with the local snapshot for now.
 

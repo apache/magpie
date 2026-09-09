@@ -187,3 +187,56 @@ def test_fix_regenerates_a_deleted_substrate_plugin(tree, monkeypatch):
     mod.write_substrate(NAME, SHARED)
     assert mod.check_substrate(NAME, SHARED) == []
     assert os.path.islink(tree / "plugins" / NAME / "tools" / "agent-guard")
+
+
+# ---------------------------------------------------------------------------
+# Plugin skill aliases — the family prefix comes off the symlink, not the source
+# ---------------------------------------------------------------------------
+
+
+def test_alias_strips_the_repeated_family_name():
+    """`/magpie-security:security-issue-triage` said "security" twice."""
+    assert mod.plugin_alias("security-issue-triage", "security") == "issue-triage"
+    assert mod.plugin_alias("pr-management-triage", "pr-management") == "triage"
+
+
+def test_alias_strips_the_first_family_segment_too():
+    """`release-*` skills sit in the `release-management` family, so the token
+    they repeat is the family's first segment, not its whole name."""
+    assert mod.plugin_alias("release-vote-tally", "release-management") == "vote-tally"
+
+
+def test_alias_leaves_a_name_that_does_not_repeat_the_family():
+    assert mod.plugin_alias("dependency-audit", "repo-health") == "dependency-audit"
+    assert mod.plugin_alias("reviewer-routing", "pr-management") == "reviewer-routing"
+
+
+def test_alias_overrides_win():
+    """`setup` would strip to nothing; `contributor-to-committer` to a fragment."""
+    assert mod.plugin_alias("setup", "setup") == "setup"
+    assert mod.plugin_alias("contributor-to-committer", "contributor-growth") == ("contributor-to-committer")
+
+
+def test_aliases_are_unique_within_every_real_family(monkeypatch):
+    """The guarantee the scheme rests on. Across families they may repeat —
+    `stale-sweep` exists in both magpie-issue and magpie-pr-management — because
+    each plugin is its own namespace."""
+    monkeypatch.chdir(REPO_ROOT)
+    for family, skills in mod.families_from_frontmatter().items():
+        aliases = mod.aliases_for(family, skills)
+        assert len(aliases) == len(skills), f"magpie-{family} lost a skill to a collision"
+
+
+def test_a_within_family_alias_collision_is_refused():
+    with pytest.raises(SystemExit, match="alias collision"):
+        mod.aliases_for("demo", {"demo-triage", "triage"})
+
+
+def test_generated_symlink_is_named_by_the_alias_and_targets_the_source(tree, monkeypatch):
+    """The whole point: the link *name* de-stutters, the *target* is untouched,
+    so the source directory (and the portable install name) never moves."""
+    monkeypatch.chdir(REPO_ROOT)
+    link = REPO_ROOT / "plugins" / "magpie-security" / "skills" / "issue-triage"
+    assert link.is_symlink()
+    assert link.readlink().name == "security-issue-triage"
+    assert (link / "SKILL.md").is_file()

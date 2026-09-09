@@ -207,8 +207,8 @@ The override files are **not** modified or deleted — they
 are simply not consulted for this run.
 
 ```text
-/magpie-pr-management-triage --no-overrides
-/magpie-security-issue-triage --no-overrides
+/magpie-pr-management:triage --no-overrides
+/magpie-security:issue-triage --no-overrides
 ```
 
 When `--no-overrides` is present the skill's opening

@@ -19,6 +19,15 @@
 
 # Install recipes — bootstrap Magpie in an adopter repo
 
+> [!IMPORTANT]
+> **Skill names differ on this install.** Installed from the pinned snapshot
+> (or self-adoption), a skill is invoked as a **single token** —
+> `/magpie-security-issue-triage` — not `/magpie-security:issue-triage`. There
+> is no plugin namespace here; the `magpie-` prefix *is* the namespace, and the
+> name is the skill's directory name. Magpie's other docs show the
+> marketplace form; see
+> [Skill names differ by install method](marketplaces.md#skill-names-differ-by-install-method).
+
 Three copy-pasteable shell recipes for fetching the framework
 into a new adopter project's repo. Each recipe is **the
 bootstrap that gets `setup` into the repo**; once it is

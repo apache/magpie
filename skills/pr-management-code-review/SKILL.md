@@ -141,7 +141,7 @@ gitignored `.apache-magpie.local.lock` (per-machine
 fetch) against the committed `.apache-magpie.lock`
 (the project pin). On mismatch the skill surfaces the
 gap and proposes
-[`/magpie-setup upgrade`](../setup/upgrade.md).
+[`setup upgrade`](../setup/upgrade.md).
 The proposal is non-blocking — the user may defer if
 they want to run with the local snapshot for now. See
 [`docs/setup/install-recipes.md` § Subsequent runs and drift detection](../../docs/setup/install-recipes.md#subsequent-runs-and-drift-detection)
@@ -289,7 +289,7 @@ reviewers, or rerun CI. Those are
 discovers during review that a PR needs a triage action (e.g. it
 should really be drafted because of merge conflicts that
 appeared), the skill says so explicitly and points them at
-`/magpie-pr-management-triage pr:<N>`. It does not silently invoke triage actions.
+`pr-management-triage pr:<N>`. It does not silently invoke triage actions.
 
 **Exception — slop-detection early exit.** The `[X]` action in
 [`slop-detection.md`](slop-detection.md) (close PR + lock
@@ -377,7 +377,7 @@ Step 3 with no changes to findings or disposition.
 Before running, resolve the maintainer's selector into a concrete
 query.
 
-The **default selector** — what `/magpie-pr-management-code-review` with no
+The **default selector** — what `pr-management-code-review` with no
 arguments resolves to — is the working list called
 **"my reviews"**: every open PR on `<repo>` that matches at
 least one of the five signals below, all rooted on
@@ -437,26 +437,26 @@ labels (the skill warns and degrades gracefully — see
 
 ## How to invoke — examples
 
-The slash command is `/magpie-pr-management-code-review`. A few worked
+The slash command is `pr-management-code-review`. A few worked
 examples a maintainer can paste:
 
 | Goal | Invocation |
 |---|---|
-| Walk through everything in **"my reviews"**, newest first | `/magpie-pr-management-code-review` |
-| Review a single PR (the most common ad-hoc trigger) | `/magpie-pr-management-code-review pr:65981` |
-| Just the PRs where I'm a CODEOWNER, ignore the rest | `/magpie-pr-management-code-review codeowner-only` |
-| PRs that explicitly `@`-mention me, skip the noise | `/magpie-pr-management-code-review mentioned-only` |
-| Re-look at the PRs I already reviewed (follow-ups after author push) | `/magpie-pr-management-code-review reviewed-before-only` |
-| My-reviews **but** drop touching-mine (too noisy this morning) | `/magpie-pr-management-code-review no-touching-mine` |
-| My-reviews limited to scheduler-area, max 5 | `/magpie-pr-management-code-review area:scheduler max:5` |
-| My-reviews scoped to non-collaborator authors (extra-careful pass) | `/magpie-pr-management-code-review collab:false` |
-| The team queue (PRs where `<upstream>-<team-name>` is requested) | `/magpie-pr-management-code-review team:project-team-name` |
-| The wider curated queue triage already promoted | `/magpie-pr-management-code-review ready` |
-| Stay body-only this session (no inline picker) | `/magpie-pr-management-code-review inline:off` |
-| Dry-run the queue — draft everything, post nothing | `/magpie-pr-management-code-review dry-run` |
-| Same, against a different repo | `/magpie-pr-management-code-review dry-run repo:<upstream>-site` |
-| Pair with an adversarial reviewer for a second read on each PR | `/magpie-pr-management-code-review with-reviewer:/codex-plugin:adversarial-review` |
-| Skip background analysis subagents (tiny queue, prefetch is wasted) | `/magpie-pr-management-code-review max:1 no-prefetch` |
+| Walk through everything in **"my reviews"**, newest first | `pr-management-code-review` |
+| Review a single PR (the most common ad-hoc trigger) | `pr-management-code-review pr:65981` |
+| Just the PRs where I'm a CODEOWNER, ignore the rest | `pr-management-code-review codeowner-only` |
+| PRs that explicitly `@`-mention me, skip the noise | `pr-management-code-review mentioned-only` |
+| Re-look at the PRs I already reviewed (follow-ups after author push) | `pr-management-code-review reviewed-before-only` |
+| My-reviews **but** drop touching-mine (too noisy this morning) | `pr-management-code-review no-touching-mine` |
+| My-reviews limited to scheduler-area, max 5 | `pr-management-code-review area:scheduler max:5` |
+| My-reviews scoped to non-collaborator authors (extra-careful pass) | `pr-management-code-review collab:false` |
+| The team queue (PRs where `<upstream>-<team-name>` is requested) | `pr-management-code-review team:project-team-name` |
+| The wider curated queue triage already promoted | `pr-management-code-review ready` |
+| Stay body-only this session (no inline picker) | `pr-management-code-review inline:off` |
+| Dry-run the queue — draft everything, post nothing | `pr-management-code-review dry-run` |
+| Same, against a different repo | `pr-management-code-review dry-run repo:<upstream>-site` |
+| Pair with an adversarial reviewer for a second read on each PR | `pr-management-code-review with-reviewer:/codex-plugin:adversarial-review` |
+| Skip background analysis subagents (tiny queue, prefetch is wasted) | `pr-management-code-review max:1 no-prefetch` |
 
 Selectors compose freely. Most flags carry through cleanly:
 `area:scheduler reviewed-before-only since:7d` is "PRs in
@@ -621,7 +621,7 @@ writes a session log to disk.
   pinging, rerunning CI, marking `ready for maintainer review` —
   all live in [`pr-management-triage`](../pr-management-triage/SKILL.md). If the
   current PR needs one of those, the skill says so and points
-  at `/magpie-pr-management-triage pr:<N>`. *(Exception: the
+  at `pr-management-triage pr:<N>`. *(Exception: the
   slop-detection `[X]` close+lock path — see Golden rule 9.)*
 - **Requesting or notifying reviewers.** Step 4.5 *names*
   domain experts in the review body as backtick-quoted handles;

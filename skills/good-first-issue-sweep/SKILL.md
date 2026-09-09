@@ -196,7 +196,7 @@ Before reading any tracker state, verify:
 3. **`gh` CLI authenticated** (GitHub Issues) — `gh auth status` reports
    a token with read scope on `<upstream>`.
 4. **Drift check** — compare `.apache-magpie.local.lock` vs
-   `.apache-magpie.lock`; surface and propose `/magpie-setup upgrade` on
+   `.apache-magpie.lock`; surface and propose `setup upgrade` on
    mismatch.
 5. **Override consultation** — apply any adopter overrides from
    `.apache-magpie-overrides/good-first-issue-sweep.md` if it exists.

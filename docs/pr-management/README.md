@@ -1,8 +1,13 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
 - [PR management skill family](#pr-management-skill-family)
+  - [Install & first runs](#install--first-runs)
+    - [Try these first](#try-these-first)
   - [Skills](#skills)
   - [Adopter contract](#adopter-contract)
   - [Cross-references](#cross-references)
@@ -63,6 +68,56 @@ framework lets other adopters reuse the playbook with their own
 [adopter-config files](../../projects/_template/) for project-specific
 knobs (committers team handle, area-label prefix, comment-template
 wording, CI-check → doc-URL map, review-criteria source files).
+
+## Install & first runs
+
+Install just this family — one plugin, 8 skills. Maintainer-facing PR-queue management.
+
+```text
+/plugin marketplace add apache/magpie
+/plugin install magpie-pr-management@apache-magpie
+```
+
+<!-- CAPTURE: assets/quickstart/README.md -->
+![Claude Code showing the magpie-pr-management plugin installed and enabled](../../assets/quickstart/families/pr-management-install.png)
+
+New to Magpie? The [quick start](../quick-start.md) covers the other agents,
+the all-in-one alternative, and the secure-isolation setup to run next.
+
+### Try these first
+
+*Illustrative shapes, not real transcripts — your output will differ. Nothing
+below sends, merges, or posts anything without you confirming it.*
+
+**Review a PR in depth.**
+
+```text
+> review PR #5193
+
+  PR #5193  'Add retry to the S3 client'  +212 -18, 6 files
+  2 blocking:   retry loop swallows KeyboardInterrupt (client.py:88)
+                no test for the exhausted-retries path
+  3 non-blocking nits. Review comment drafted, not posted.
+```
+
+**Triage the whole queue.**
+
+```text
+> /magpie-pr-management:triage
+
+  41 open PRs
+  12 ready to merge     9 need review     14 waiting on author
+   6 stale > 90 days -> stale-sweep candidates
+```
+
+**See where the queue is stuck.**
+
+```text
+> /magpie-pr-management:stats
+
+  median time-to-first-review   6.1 days (was 4.2 last quarter)
+  oldest unreviewed             #4871, 143 days
+```
 
 ## Skills
 

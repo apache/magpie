@@ -297,7 +297,7 @@ Hard rules, References. Apply the framework's conventions:
 - **Snapshot drift.** Every skill compares the gitignored
   `.apache-magpie.local.lock` against the committed
   `.apache-magpie.lock` at the top of its run; on mismatch,
-  surface and propose `/magpie-setup upgrade`. The preamble
+  surface and propose `setup upgrade`. The preamble
   that `init_skill.py` scaffolds wires this in.
 - **Status-rollup contribution.** Skills that mutate a tracker
   body / labels / state contribute a single entry to the
@@ -390,7 +390,7 @@ applies:
    compounds across the whole user base.
 
 If the skill has been adopted in a downstream project (an
-adopter ran `/magpie-setup upgrade` against a snapshot containing
+adopter ran `setup upgrade` against a snapshot containing
 this skill) and its `.apache-magpie-overrides/<skill-name>.md`
 file has accumulated changes worth promoting, the
 [`setup-override-upstream`](../setup-override-upstream/SKILL.md)

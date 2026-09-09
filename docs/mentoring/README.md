@@ -6,6 +6,8 @@
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
 - [Agentic Mentoring skill family](#agentic-mentoring-skill-family)
+  - [Install & first runs](#install--first-runs)
+    - [Try these first](#try-these-first)
   - [Skills](#skills)
     - [What each skill covers](#what-each-skill-covers)
   - [Adopter contract](#adopter-contract)
@@ -33,6 +35,54 @@ off-the-shelf agent tooling skips. The framework lands the spec — tone guide,
 hand-off protocol, adopter contract — and the skill implementations together,
 so the project's tone choices are reviewable independently of runtime
 behaviour and can be evolved without editing the skill body.
+
+## Install & first runs
+
+Install just this family — one plugin, 4 skills. Newcomer-facing mentoring — welcome, explain, and curate first issues.
+
+```text
+/plugin marketplace add apache/magpie
+/plugin install magpie-mentoring@apache-magpie
+```
+
+<!-- CAPTURE: assets/quickstart/README.md -->
+![Claude Code showing the magpie-mentoring plugin installed and enabled](../../assets/quickstart/families/mentoring-install.png)
+
+New to Magpie? The [quick start](../quick-start.md) covers the other agents,
+the all-in-one alternative, and the secure-isolation setup to run next.
+
+### Try these first
+
+*Illustrative shapes, not real transcripts — your output will differ. Nothing
+below sends, merges, or posts anything without you confirming it.*
+
+**Welcome a first-time contributor.**
+
+```text
+> /magpie-mentoring:welcome
+
+  PR #5210 is @kasia-w's first contribution
+  Welcome comment drafted: CI hints + the DCO step they missed
+```
+
+**Curate the good-first-issue backlog.**
+
+```text
+> /magpie-mentoring:good-first-issue-sweep
+
+  23 labelled good-first-issue
+   9 stale (>180d, no claim)   4 not actually beginner-sized
+  10 healthy
+```
+
+**Explain an issue to a newcomer.**
+
+```text
+> /magpie-mentoring:newcomer-issue-explainer
+
+  #8144 explained: what breaks, the 2 files to touch,
+  how to run just that test. Comment drafted.
+```
 
 ## Skills
 

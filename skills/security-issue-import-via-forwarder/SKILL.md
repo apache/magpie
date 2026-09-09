@@ -207,7 +207,7 @@ gitignored `.apache-magpie.local.lock` (per-machine
 fetch) against the committed `.apache-magpie.lock`
 (the project pin). On mismatch the skill surfaces the
 gap and proposes
-[`/magpie-setup upgrade`](../setup/upgrade.md).
+[`setup upgrade`](../setup/upgrade.md).
 The proposal is non-blocking — the user may defer if
 they want to run with the local snapshot for now. See
 [`docs/setup/install-recipes.md` § Subsequent runs and drift detection](../../docs/setup/install-recipes.md#subsequent-runs-and-drift-detection)
@@ -238,7 +238,7 @@ The parent skill passes in:
 
 The skill is **invoked**, never called from the command line directly
 in the common case. A standalone invocation (security team member
-typing `/magpie-security-issue-import-via-forwarder` against a single
+typing `security-issue-import-via-forwarder` against a single
 message they handed over) still resolves the same inputs from a
 prompt-time interactive Q&A: which message-id, which mode, which
 links, which inner-body.

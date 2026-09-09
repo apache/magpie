@@ -18,14 +18,14 @@ when_to_use: |
   Invoke when a security team member says "triage open issues",
   "start triage discussions on the new trackers", or "propose
   dispositions for the needs-triage queue". Also appropriate
-  after a batch import via `/magpie-security-issue-import` lands new
+  after a batch import via `security-issue-import` lands new
   trackers, or as a periodic sweep on stale needs-triage
   trackers. Use `--retriage` when a passed-triage decision
   needs re-litigating after new comment activity. Skip when
   team consensus on validity has already landed — invoke
-  `/magpie-security-cve-allocate` (VALID),
-  `/magpie-security-issue-invalidate` (INFO-ONLY / INVALID), or
-  `/magpie-security-issue-deduplicate` (PROBABLE-DUP) directly.
+  `security-cve-allocate` (VALID),
+  `security-issue-invalidate` (INFO-ONLY / INVALID), or
+  `security-issue-deduplicate` (PROBABLE-DUP) directly.
 capability: capability:triage
 license: Apache-2.0
 ---
@@ -157,12 +157,12 @@ discussion rather than starting it.
 
 | Class | When to propose | Sibling skill to invoke after team consensus |
 |---|---|---|
-| `VALID` | Clear Security Model violation; in-scope attack vector | [`/magpie-security-cve-allocate`](../security-cve-allocate/SKILL.md) |
+| `VALID` | Clear Security Model violation; in-scope attack vector | [`security-cve-allocate`](../security-cve-allocate/SKILL.md) |
 | `DEFENSE-IN-DEPTH` | Real issue, but outside the Security Model boundary (e.g. local-user attacks on a worker the model treats as operator-trusted; old-browser-only XSS that current browsers block) | close as wontfix + file a public PR for the hardening |
 | `INFO-ONLY` | Report is fact-correct but doesn't violate anything; matches a known canned-response shape (educational reply, no tracker action needed) | close + reporter-reply via the matching canned response |
-| `INVALID` | Misframed, circular, by-design, or out-of-scope per the canned-responses precedents | [`/magpie-security-issue-invalidate`](../security-issue-invalidate/SKILL.md) |
-| `PROBABLE-DUP` | Substantive overlap with an existing tracker or closed advisory (same root cause; sibling attack vector with the same fix shape) | [`/magpie-security-issue-deduplicate`](../security-issue-deduplicate/SKILL.md) |
-| `FIX-ALREADY-PUBLIC` | A public PR in `<upstream>` (open or merged) already appears to fix the reported behaviour; the reporter sent `<security-list>` independently of that PR. Per the [no-credit-when-fix-is-already-public policy](../security-issue-import-from-pr/SKILL.md#reporter-credit-policy-for-public-pr-imports), reporter is thanked but not credited; reporter is asked to verify the PR addresses what they reported, and to come back if it does not. | [`/magpie-security-issue-invalidate`](../security-issue-invalidate/SKILL.md) after reporter confirms the PR fixes their report (or `--retriage` if the reporter says it does not) |
+| `INVALID` | Misframed, circular, by-design, or out-of-scope per the canned-responses precedents | [`security-issue-invalidate`](../security-issue-invalidate/SKILL.md) |
+| `PROBABLE-DUP` | Substantive overlap with an existing tracker or closed advisory (same root cause; sibling attack vector with the same fix shape) | [`security-issue-deduplicate`](../security-issue-deduplicate/SKILL.md) |
+| `FIX-ALREADY-PUBLIC` | A public PR in `<upstream>` (open or merged) already appears to fix the reported behaviour; the reporter sent `<security-list>` independently of that PR. Per the [no-credit-when-fix-is-already-public policy](../security-issue-import-from-pr/SKILL.md#reporter-credit-policy-for-public-pr-imports), reporter is thanked but not credited; reporter is asked to verify the PR addresses what they reported, and to come back if it does not. | [`security-issue-invalidate`](../security-issue-invalidate/SKILL.md) after reporter confirms the PR fixes their report (or `--retriage` if the reporter says it does not) |
 
 **Golden rule 5 — every `<tracker>` reference is clickable in the
 surface it lands on**, per Golden rule 2 in
@@ -191,7 +191,7 @@ without manually reconstructing the URL.
 **Golden rule 6 — never auto-escalate from a comment to a
 mutation.** A reply on the tracker like *"agreed, ship the CVE"*
 is **not** authorisation for this skill to call
-`/magpie-security-cve-allocate`. The user types the next slash command
+`security-cve-allocate`. The user types the next slash command
 explicitly. The skill's job ends at "comment posted"; downstream
 skills require fresh invocations.
 
@@ -249,7 +249,7 @@ gitignored `.apache-magpie.local.lock` (per-machine
 fetch) against the committed `.apache-magpie.lock`
 (the project pin). On mismatch the skill surfaces the
 gap and proposes
-[`/magpie-setup upgrade`](../setup/upgrade.md).
+[`setup upgrade`](../setup/upgrade.md).
 The proposal is non-blocking — the user may defer if
 they want to run with the local snapshot for now. See
 [`docs/setup/install-recipes.md` § Subsequent runs and drift detection](../../docs/setup/install-recipes.md#subsequent-runs-and-drift-detection)
@@ -424,7 +424,7 @@ the inputs the classifier needs. Each tracker gets:
    a merged or open public PR for this tracker materially changes
    the disposition (the team has already converged enough to
    write code → the right next step is usually `VALID` →
-   `/magpie-security-cve-allocate`).
+   `security-cve-allocate`).
 
    **Independent-public-fix detection.** Beyond PRs that already
    reference the tracker, also search for *independent* public
@@ -737,7 +737,7 @@ Propose when **any** of:
   the new report is a sibling vector with the same fix shape.
 
 The proposal links the candidate kept-tracker and suggests
-`/magpie-security-issue-deduplicate <new> <existing>` as the next
+`security-issue-deduplicate <new> <existing>` as the next
 slash command.
 
 #### `FIX-ALREADY-PUBLIC`
@@ -776,7 +776,7 @@ issue before the unrelated PR landed).
 the read-only-on-tracker contract this skill maintains, the
 reply is **not** sent here — it is drafted for the team and
 will be sent later via
-[`/magpie-security-issue-invalidate`](../security-issue-invalidate/SKILL.md)
+[`security-issue-invalidate`](../security-issue-invalidate/SKILL.md)
 once the team confirms. Draft template:
 
 > Thanks for the report. We noticed that
@@ -804,7 +804,7 @@ trims during Step 5 confirmation).
 proposal:
 
 - If the reporter confirms the PR fixes their report →
-  [`/magpie-security-issue-invalidate`](../security-issue-invalidate/SKILL.md)
+  [`security-issue-invalidate`](../security-issue-invalidate/SKILL.md)
   closes the tracker; the reporter-credit field stays blank.
 - If the reporter says the PR does **not** fix it →
   re-triage via `--retriage` with the new evidence; the
@@ -1043,18 +1043,18 @@ After the post loop, print a recap with:
   2 INVALID, 1 INFO-ONLY, 0 PROBABLE-DUP, 1 FIX-ALREADY-PUBLIC"*).
 - Per-tracker line: clickable issue link, class, comment URL.
 - The set of sibling-skill next-step recommendations, grouped:
-  - `/magpie-security-cve-allocate NNN` for each VALID
-  - `/magpie-security-issue-invalidate NNN` for each INVALID and
+  - `security-cve-allocate NNN` for each VALID
+  - `security-issue-invalidate NNN` for each INVALID and
     INFO-ONLY (the invalidate skill handles both with the right
     canned response)
-  - `/magpie-security-issue-deduplicate NNN MMM` for each PROBABLE-DUP
-  - `/magpie-security-issue-invalidate NNN` for each FIX-ALREADY-PUBLIC,
+  - `security-issue-deduplicate NNN MMM` for each PROBABLE-DUP
+  - `security-issue-invalidate NNN` for each FIX-ALREADY-PUBLIC,
     *only after the reporter has confirmed the public PR fixes
     their report* — until then, the tracker stays open awaiting
     that verification; if the reporter says the PR does not fix
     it, re-triage via `--retriage` instead
 - A note that label flips and project-board moves stay with
-  `/magpie-security-issue-sync` once the team's decision lands — *not*
+  `security-issue-sync` once the team's decision lands — *not*
   with this skill.
 
 Apply the Golden rule 5 link-form self-check to the recap text

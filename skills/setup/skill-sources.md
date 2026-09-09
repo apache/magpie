@@ -35,9 +35,9 @@ list and does nothing for a source that is not on it.
 
 Invocations (registered in [`SKILL.md`](SKILL.md#sub-actions)):
 
-- `/magpie-setup skill-sources` — reconcile every trusted source:
+- `setup skill-sources` — reconcile every trusted source:
   fetch/verify, pin, symlink the provided skills.
-- `/magpie-setup skill-sources add <source-id>` — the same flow
+- `setup skill-sources add <source-id>` — the same flow
   scoped to one source id (the id must already be present in
   `<trust-list>` — this sub-action never edits the trust list;
   vouching for a source is the adopter's committed act).
@@ -103,7 +103,7 @@ keyed by `id`.
 **Drift** for a source is a committed-vs-local mismatch on its
 block, read identically to the framework drift check: every
 framework skill (and `verify`) compares the two and, on a gap,
-proposes `/magpie-setup upgrade`. The committed lock is the pin
+proposes `setup upgrade`. The committed lock is the pin
 that travels with the repo; the local lock is per-machine truth.
 
 ## Step 0 — Pre-flight
@@ -117,7 +117,7 @@ that travels with the repo; the local lock is per-machine truth.
 2. **Framework adopted?** Require `<committed-lock>`
    (`.apache-magpie.lock`) and a live `<snapshot-dir>`. If the
    framework itself is not adopted yet, stop and point the user
-   at `/magpie-setup` first — trusted sources ride on the same
+   at `setup` first — trusted sources ride on the same
    symlink relay the framework install establishes.
 3. **Trust list present?** Read `<trust-list>`
    (`<project-config>/skill-sources.md`). If it is absent or
@@ -275,4 +275,4 @@ there are no worktrees.
 | `git-tag` fetch aborts on a `commit` mismatch | The upstream tag was moved after it was pinned — a supply-chain signal | Re-review the source; only re-pin (bump `commit` in `<sources-lock>`) once the new tag is trusted. |
 | `svn-zip` fetch aborts on a checksum failure | The archive changed, or the pinned `sha512` is wrong | Re-verify the archive out-of-band before re-pinning. |
 | A provided `magpie-<name>` collides with a framework or another source skill | Two sources (or a source and the framework) claim the same prefixed name | Rename is the source's call; drop one `provides`/pointer to resolve locally. |
-| Worktree can't see a source skill | Source snapshots are shared via the worktree's `<snapshot-dir>` symlink, seeded by `worktree-init` | `/magpie-setup verify` in the worktree; `worktree-init` if the symlink is missing. |
+| Worktree can't see a source skill | Source snapshots are shared via the worktree's `<snapshot-dir>` symlink, seeded by `worktree-init` | `setup verify` in the worktree; `worktree-init` if the symlink is missing. |

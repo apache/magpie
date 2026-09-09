@@ -6,6 +6,8 @@
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
 - [Issue management skill family](#issue-management-skill-family)
+  - [Install & first runs](#install--first-runs)
+    - [Try these first](#try-these-first)
   - [Family boundary](#family-boundary)
   - [Skills](#skills)
   - [Adopter contract](#adopter-contract)
@@ -59,6 +61,55 @@ read-only reporting:
    backlog. Surfaces a health rating, prioritised recommendations,
    age and staleness breakdowns, area pressure ranking, and a
    triage-funnel summary without modifying any tracker state.
+
+## Install & first runs
+
+Install just this family — one plugin, 8 skills. General-issue lifecycle: triage, reproduction, dedup, backlog.
+
+```text
+/plugin marketplace add apache/magpie
+/plugin install magpie-issue@apache-magpie
+```
+
+<!-- CAPTURE: assets/quickstart/README.md -->
+![Claude Code showing the magpie-issue plugin installed and enabled](../../assets/quickstart/families/issue-install.png)
+
+New to Magpie? The [quick start](../quick-start.md) covers the other agents,
+the all-in-one alternative, and the secure-isolation setup to run next.
+
+### Try these first
+
+*Illustrative shapes, not real transcripts — your output will differ. Nothing
+below sends, merges, or posts anything without you confirming it.*
+
+**Triage the new issues.**
+
+```text
+> /magpie-issue:triage
+
+  #9021  bug, needs-repro     -> labels proposed
+  #9022  duplicate of #8877   -> close comment drafted
+  #9023  question             -> discussions, reply drafted
+```
+
+**Find the duplicates.**
+
+```text
+> /magpie-issue:deduplicate
+
+  4 clusters in 312 open issues
+  'OOM on large parquet' -> #7712 (keep) + #8109, #8330, #8901
+```
+
+**Try to reproduce one.**
+
+```text
+> /magpie-issue:reproducer
+
+  #9021 on 3.2.1: reproduced (traceback matches)
+         on main:  not reproduced -> fixed by #8990?
+  Repro script written to /tmp/repro-9021.py
+```
 
 ## Family boundary
 

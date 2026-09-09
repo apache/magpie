@@ -137,7 +137,7 @@ gitignored `.apache-magpie.local.lock` (per-machine
 fetch) against the committed `.apache-magpie.lock`
 (the project pin). On mismatch the skill surfaces the
 gap and proposes
-[`/magpie-setup upgrade`](../setup/upgrade.md).
+[`setup upgrade`](../setup/upgrade.md).
 The proposal is non-blocking — the user may defer if
 they want to run with the local snapshot for now. See
 [`docs/setup/install-recipes.md` § Subsequent runs and drift detection](../../docs/setup/install-recipes.md#subsequent-runs-and-drift-detection)
@@ -180,7 +180,7 @@ read-only and inherits everything from `pr-management-triage`'s contract.
 
 **Golden rule 6 — recommendations are deterministic, not opinions.** Every action surfaced in the "What needs attention" panel comes from a fixed rule in [`render.md#recommendation-rules`](render.md#recommendation-rules). The skill never editorialises ("queue is doing well", "you should focus on X") — it surfaces the rule's trigger and the suggested next-step command. The maintainer reads the trigger and decides; the skill never decides for them. New rules are added by editing the rules table, not by adding free-text inside the renderer.
 
-**Golden rule 7 — actions link to other skills, never mutate.** Every recommendation's `action` field is the *exact* slash-command the maintainer can paste to do the work — almost always `/magpie-pr-management-triage`, `/magpie-pr-management-code-review`, or a focused variant with a label/PR-number filter. The stats skill itself remains pure-read (Golden rule 1); the dashboard makes downstream skills *one paste away* from running.
+**Golden rule 7 — actions link to other skills, never mutate.** Every recommendation's `action` field is the *exact* slash-command the maintainer can paste to do the work — almost always `pr-management-triage`, `pr-management-code-review`, or a focused variant with a label/PR-number filter. The stats skill itself remains pure-read (Golden rule 1); the dashboard makes downstream skills *one paste away* from running.
 
 **Golden rule 8 — render ALL sections, never silently skip.** The dashboard layout in [`render.md`](render.md) declares 11 sections (Title context, Hero cards, Recommendations, Trends-over-time line charts, Closure velocity, Opened-vs-closed momentum, Ready-for-review trend by top areas, Closed-by-triage-reason, Pressure by area, CODEOWNERS responsibility, Triage funnel, Triager activity, Detailed tables, Legend). The agent MUST render every section. If a section's data is genuinely unavailable (e.g. no `.github/CODEOWNERS` present), render a stub with a one-line explanation of why — never omit a section silently. A "compact" rendering that drops line charts or the CODEOWNERS table is **not** an acceptable simplification — the maintainer asked for the dashboard, the dashboard is the full set of panels. The reference implementation in [`tools/pr-management-stats/reference.py`](../../tools/pr-management-stats/reference.py) encodes the canonical fetch + classify contract; the agent's render MUST be consistent with what that script produces.
 

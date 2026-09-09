@@ -6,6 +6,8 @@
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
 - [Repo-health audits — family overview](#repo-health-audits--family-overview)
+  - [Install & first runs](#install--first-runs)
+    - [Try these first](#try-these-first)
   - [Current skills](#current-skills)
     - [`audit-finding-fix` (experimental)](#audit-finding-fix-experimental)
     - [`ci-runner-audit` (experimental)](#ci-runner-audit-experimental)
@@ -40,6 +42,55 @@ classify-and-propose discipline the security and PR-management triage skills
 follow. See [`docs/modes.md` § Triage](../modes.md#triage).
 
 ---
+
+## Install & first runs
+
+Install just this family — one plugin, 7 skills. Read-only repository-health audits, plus fixes for what they find.
+
+```text
+/plugin marketplace add apache/magpie
+/plugin install magpie-repo-health@apache-magpie
+```
+
+<!-- CAPTURE: assets/quickstart/README.md -->
+![Claude Code showing the magpie-repo-health plugin installed and enabled](../../assets/quickstart/families/repo-health-install.png)
+
+New to Magpie? The [quick start](../quick-start.md) covers the other agents,
+the all-in-one alternative, and the secure-isolation setup to run next.
+
+### Try these first
+
+*Illustrative shapes, not real transcripts — your output will differ. Nothing
+below sends, merges, or posts anything without you confirming it.*
+
+**Audit dependencies for CVEs.**
+
+```text
+> /magpie-repo-health:dependency-audit
+
+  312 deps, 4 advisories
+  HIGH  urllib3 1.26.5  -> 1.26.19  (CVE-2024-37891)
+  LOW   idna 3.4        -> 3.7
+```
+
+**Audit the Actions workflows.**
+
+```text
+> /magpie-repo-health:workflow-security-audit
+
+  9 workflows
+  HIGH  release.yml:31  pull_request_target + checkout of PR head
+  MED   ci.yml:88       3 actions pinned by tag, not SHA
+```
+
+**Find the flaky tests.**
+
+```text
+> /magpie-repo-health:flaky-test-triage
+
+  200 runs: 6 tests failed non-deterministically
+  test_scheduler_timing  11 fails / 200 — all on the 4-core runner
+```
 
 ## Current skills
 

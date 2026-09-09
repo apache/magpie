@@ -27,7 +27,7 @@ committed .apache-magpie-overrides/ and the personal
 
 The script never fetches over the network and never writes: the
 upstream-tip drift check and any remediation belong to
-``/magpie-setup verify`` / ``/magpie-setup upgrade``.
+``setup verify`` / ``setup upgrade``.
 
 Usage::
 
@@ -291,7 +291,7 @@ def compute_drift(committed: dict | None, local: dict | None) -> dict:
         "checked": True,
         "in_sync": not mismatches,
         "mismatches": mismatches,
-        "note": "upstream-tip check for git-branch needs network — run /magpie-setup verify",
+        "note": "upstream-tip check for git-branch needs network — run setup verify",
     }
 
 
@@ -440,7 +440,7 @@ def render_markdown(d: dict) -> str:
     elif not dr.get("checked"):
         drift_line = f"n/a ({dr.get('reason', '')})"
     else:
-        drift_line = "⚠️ drift → `/magpie-setup upgrade`"
+        drift_line = "⚠️ drift → `setup upgrade`"
     if d["self_adopted"]:
         snap = "in-repo source (local)"
     elif d["snapshot"]["present"]:
@@ -459,7 +459,7 @@ def render_markdown(d: dict) -> str:
         f"**personal overrides** (`.apache-magpie-local/`): {local_ov_text}"
     )
     out.append(f"- **hook:** {'installed' if d['post_checkout_hook']['present'] else '—'}")
-    out.append("- → deep check (integrity, permissions, worktrees): `/magpie-setup verify`")
+    out.append("- → deep check (integrity, permissions, worktrees): `setup verify`")
     return "\n".join(out) + "\n"
 
 

@@ -35,7 +35,7 @@ uv run --project tools/skill-evals skill-eval \
 Given a user invocation, the model selects the correct bash command to
 run in Step 1.  The two branches are:
 
-- **default** (`verbose: false`) — plain `/magpie-list-skills` invocation
+- **default** (`verbose: false`) — plain `list-skills` invocation
   or any wording that does not request long descriptions.
 - **verbose** (`verbose: true`) — user explicitly requests full
   descriptions or uses the word "verbosely".

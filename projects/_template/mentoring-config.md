@@ -33,7 +33,7 @@ Copy this file into your own
 
 | Key | Value | Notes |
 |---|---|---|
-| `mentoring_invocation_command` | `/magpie-pr-management-mentor` | Slash command the mentoring sweep invokes. Leave as-is unless your project has renamed the skill. |
+| `mentoring_invocation_command` | `/magpie-pr-management:mentor` | Slash command the mentoring sweep invokes. Leave as-is unless your project has renamed the skill. |
 | `maintainer_team_handle` | `@<github-org>/<maintainer-team-slug>` | GitHub team the skill `@`-mentions when handing off. Example: `@apache/airflow-committers`. |
 | `max_agent_turns` | `2` | Hard cap on automated reply turns before forced hand-off. Tune up only if your project has a verified-low false-positive rate on the trigger heuristics. |
 

@@ -1,1 +1,1 @@
-{"fired_rules": ["R2", "R5", "R6"], "top_priority": "high", "top_action": "/magpie-issue-stale-sweep"}
+{"fired_rules": ["R2", "R5", "R6"], "top_priority": "high", "top_action": "issue-stale-sweep"}

@@ -149,7 +149,7 @@ a separate call. The state is one of:
   `SKILL.md`, `APPROVE` is off the table; downgrade to
   `COMMENT` or `REQUEST_CHANGES`.
 - `EXPECTED` (workflow approval pending) — surface explicitly
-  and recommend `/magpie-pr-management-triage pr:<N>` for the workflow-approval
+  and recommend `pr-management-triage pr:<N>` for the workflow-approval
   flow first; do not attempt to review the PR until CI has
   actually run.
 

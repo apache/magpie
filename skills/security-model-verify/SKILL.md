@@ -21,12 +21,12 @@ when_to_use: |
   our security model", "is our threat model good enough for the
   scanner", "verify the model for <repo>", or before queuing an
   automated security scan that will triage its findings against
-  the model. Also after `/magpie-security-model-prepare` lands a
+  the model. Also after `security-model-prepare` lands a
   first model, to confirm the chain resolves. Skip when the
   project has no model yet — run
-  `/magpie-security-model-prepare` first — and skip when the
+  `security-model-prepare` first — and skip when the
   question is "should this *finding* be closed", which is
-  `/magpie-security-issue-triage`.
+  `security-issue-triage`.
 argument-hint: "[repo-or-model-path]"
 capability: capability:review
 license: Apache-2.0
@@ -229,7 +229,7 @@ a bare heading counts as missing.
 | §1.11 Security properties provided | The "what counts as a real bug" list. The most-cited section in triage. |
 | §1.12 Security properties **not** provided | Pre-empts the largest false-positive category. |
 | §1.13 Downstream responsibilities | What the integrator owns — which finding classes are not the project's bug. |
-| §1.15 Known non-findings | The recurring-false-positive list, fed to an automated triager verbatim as a negative prompt. **Highest-leverage section for noise reduction**, and the one `/magpie-security-model-update` grows over time. |
+| §1.15 Known non-findings | The recurring-false-positive list, fed to an automated triager verbatim as a negative prompt. **Highest-leverage section for noise reduction**, and the one `security-model-update` grows over time. |
 | §1.17 Triage dispositions | The closed outcome set plus its precedence. Without it every finding is implicitly `MODEL-GAP`. |
 
 Not part of the minimum bar — good to have, verification passes without them:

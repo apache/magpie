@@ -15,5 +15,5 @@ Return ONLY valid JSON with this structure:
 
 `offer_adjustments` is `false` when `no_adjust` was set or when the collected state has no gaps.
 `deltas` contains zero or more of: `"target-unwired"`, `"family-not-installed"`, `"dangling-symlinks"`, `"drift"`.
-`delegated_commands` contains the exact `/magpie-setup` commands to propose, or is empty when there are no gaps.
+`delegated_commands` contains the exact `setup` commands to propose, or is empty when there are no gaps.
 Do not include any text outside the JSON object.

@@ -1,1 +1,1 @@
-{"offer_adjustments": true, "deltas": ["family-not-installed"], "delegated_commands": ["/magpie-setup adopt skill-families:security,pr-management,issue"]}
+{"offer_adjustments": true, "deltas": ["family-not-installed"], "delegated_commands": ["setup adopt skill-families:security,pr-management,issue"]}

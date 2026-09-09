@@ -122,7 +122,7 @@ for the contract.
 
 At the top of every run, compare the gitignored `.apache-magpie.local.lock`
 against the committed `.apache-magpie.lock`. On mismatch, surface the gap
-and propose [`/magpie-setup upgrade`](../setup/upgrade.md). The proposal is
+and propose [`setup upgrade`](../setup/upgrade.md). The proposal is
 non-blocking — the user may defer.
 
 ---

@@ -8,8 +8,8 @@ repo's on-disk adoption artefacts and emits one JSON document.
 It is **read-only** and **offline**: it parses files and reads
 symlinks; it never fetches over the network and never writes. The
 upstream-tip drift check and any remediation belong to
-[`/magpie-setup verify`](../setup/verify.md) and
-[`/magpie-setup upgrade`](../setup/upgrade.md).
+[`setup verify`](../setup/verify.md) and
+[`setup upgrade`](../setup/upgrade.md).
 
 The skill renders the dashboard via `--format md`
 ([Step 1](SKILL.md#step-1--render-the-dashboard)); this `--format
@@ -101,8 +101,8 @@ for the *intended* set, and use the on-disk read for the
 | `checked` | Then |
 |---|---|
 | `false`, reason `method:local …` | Self-adoption has no remote snapshot to drift against. |
-| `false`, reason `local lock absent …` | The snapshot was never fetched on this machine. Propose [`/magpie-setup upgrade`](../setup/upgrade.md). |
-| `true` | `in_sync` plus any `mismatches[]` over `method` / `url` / `ref`. The `git-branch` upstream-tip comparison needs network and is **not** done here — `note` names `/magpie-setup verify` as the skill that does it. |
+| `false`, reason `local lock absent …` | The snapshot was never fetched on this machine. Propose [`setup upgrade`](../setup/upgrade.md). |
+| `true` | `in_sync` plus any `mismatches[]` over `method` / `url` / `ref`. The `git-branch` upstream-tip comparison needs network and is **not** done here — `note` names `setup verify` as the skill that does it. |
 
 ## `gitignore`
 
@@ -118,5 +118,5 @@ symlink is committed, so the whole glob is un-ignored).
 Interpretation is mode-aware — see
 [`render.md`](render.md#mode-aware-interpretation). Deep
 `.gitignore` validation is owned by
-[`/magpie-setup verify`](../setup/verify.md); this skill only
+[`setup verify`](../setup/verify.md); this skill only
 surfaces the headline.

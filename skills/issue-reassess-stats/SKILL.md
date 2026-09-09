@@ -147,7 +147,7 @@ Also at the top of every run, this skill compares the gitignored
 `.apache-magpie.local.lock` (per-machine fetch) against the
 committed `.apache-magpie.lock` (the project pin). On mismatch
 the skill surfaces the gap and proposes
-[`/magpie-setup upgrade`](../setup/upgrade.md).
+[`setup upgrade`](../setup/upgrade.md).
 
 ---
 
@@ -258,7 +258,7 @@ Surface to the user:
 - Headline numbers (count of still-failing, count of new-issue
   candidates).
 - Recommended next actions:
-  - For each still-failing candidate: `/magpie-issue-fix-workflow <KEY>`.
+  - For each still-failing candidate: `issue-fix-workflow <KEY>`.
   - For each closure candidate: a manual close via the tracker.
   - For each new-issue candidate: a manual file via the tracker.
 

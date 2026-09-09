@@ -237,7 +237,257 @@ def test_totals_check_reads_only_the_allowlist(repo: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# 5. Dev scripts are documented
+# 5. Per-family plugin counts in the marketplace tables
+# ---------------------------------------------------------------------------
+
+
+def _plugin_table(repo: Path, rows: list[str], *, path: str = "docs/setup/marketplaces.md") -> None:
+    target = repo / path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(
+        "| Family plugin | Skills | ~Always-on tokens |\n|---|---|---|\n" + "\n".join(rows) + "\n",
+        encoding="utf-8",
+    )
+
+
+def test_matching_plugin_counts_are_silent(repo: Path) -> None:
+    _skill(repo, "a", "security", "Triage")
+    _skill(repo, "b", "security", "Triage")
+    _skill(repo, "c", "pairing", "Pairing")
+    _plugin_table(repo, ["| `magpie-security` | 2 | ~0.6k |", "| `magpie-pairing` | 1 | ~0.3k |"])
+    assert _errors(mod.check_family_plugin_counts, 3) == []
+
+
+def test_stale_plugin_count_is_reported_with_both_numbers(repo: Path) -> None:
+    """The drift this check was written for: `magpie-security` sat at 12 while
+    three more security skills had landed."""
+    _skill(repo, "a", "security", "Triage")
+    _skill(repo, "b", "security", "Triage")
+    _plugin_table(repo, ["| `magpie-security` | 12 | ~3.9k |"])
+    errs = _errors(mod.check_family_plugin_counts, 2)
+    assert len(errs) == 1
+    assert "says 12 skills" in errs[0] and "has 2" in errs[0]
+
+
+def test_stale_all_in_one_row_is_reported(repo: Path) -> None:
+    _skill(repo, "a", "security", "Triage")
+    _plugin_table(repo, ["| **`magpie`** (all) | **70** | **~21.7k** |"])
+    errs = _errors(mod.check_family_plugin_counts, 1)
+    assert len(errs) == 1
+    assert "all-in-one" in errs[0] and "says 70" in errs[0]
+
+
+def test_plugin_naming_no_live_family_is_reported(repo: Path) -> None:
+    """A renamed or deleted family leaves a row pointing at nothing — silence
+    there would let the table advertise an uninstallable plugin."""
+    _skill(repo, "a", "security", "Triage")
+    _plugin_table(repo, ["| `magpie-ghost` | 3 | ~0.9k |"])
+    errs = _errors(mod.check_family_plugin_counts, 1)
+    assert len(errs) == 1
+    assert "names no live family" in errs[0]
+
+
+def test_plugin_counts_are_checked_in_the_quick_start_too(repo: Path) -> None:
+    _skill(repo, "a", "setup", "Triage")
+    _plugin_table(repo, ["| `magpie-setup` | 9 | Sandbox, install |"], path="docs/quick-start.md")
+    errs = _errors(mod.check_family_plugin_counts, 1)
+    assert len(errs) == 1
+    assert "docs/quick-start.md" in errs[0]
+
+
+def test_prose_mentioning_a_plugin_is_not_a_table_row(repo: Path) -> None:
+    """Only a leading table cell counts — `magpie-security` named mid-sentence,
+    or in a bulleted trade-off list, carries no count to check."""
+    _skill(repo, "a", "security", "Triage")
+    (repo / "docs" / "setup" / "marketplaces.md").write_text(
+        "Install `magpie-security` for 12 reasons.\n"
+        "- \u2705 `magpie-security` \u2248 3.9k always-on tokens.\n",
+        encoding="utf-8",
+    )
+    assert _errors(mod.check_family_plugin_counts, 1) == []
+
+
+# ---------------------------------------------------------------------------
+# 6. Per-family skill counts in the family READMEs
+# ---------------------------------------------------------------------------
+
+
+def _family_readme(repo: Path, directory: str, plugin_family: str, declared: int) -> None:
+    target = repo / "docs" / directory / "README.md"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(
+        f"# {directory}\n\n## Install & first runs\n\n"
+        f"Install just this family — one plugin, {declared} skills.\n\n"
+        f"```text\n/plugin install magpie-{plugin_family}@apache-magpie\n```\n",
+        encoding="utf-8",
+    )
+
+
+def test_matching_family_readme_count_is_silent(repo: Path) -> None:
+    _skill(repo, "a", "pairing", "Pairing")
+    _skill(repo, "b", "pairing", "Pairing")
+    _family_readme(repo, "pairing", "pairing", 2)
+    assert _errors(mod.check_family_readme_counts) == []
+
+
+def test_stale_family_readme_count_is_reported(repo: Path) -> None:
+    _skill(repo, "a", "pairing", "Pairing")
+    _family_readme(repo, "pairing", "pairing", 9)
+    errs = _errors(mod.check_family_readme_counts)
+    assert len(errs) == 1
+    assert "says 9 skills" in errs[0] and "has 1" in errs[0]
+
+
+def test_family_is_read_from_the_install_command_not_the_directory(repo: Path) -> None:
+    """`issue` documents itself under docs/issue-management/, so keying on the
+    directory name would report every one of its skills as missing."""
+    _skill(repo, "a", "issue", "Triage")
+    _family_readme(repo, "issue-management", "issue", 1)
+    assert _errors(mod.check_family_readme_counts) == []
+
+
+def test_readme_without_an_install_section_is_skipped(repo: Path) -> None:
+    (repo / "docs" / "education").mkdir(parents=True)
+    (repo / "docs" / "education" / "README.md").write_text(
+        "# education\n\nNine skills cover the staged path.\n", encoding="utf-8"
+    )
+    assert _errors(mod.check_family_readme_counts) == []
+
+
+def test_install_section_naming_a_dead_family_is_reported(repo: Path) -> None:
+    _skill(repo, "a", "pairing", "Pairing")
+    _family_readme(repo, "ghost", "ghost", 3)
+    errs = _errors(mod.check_family_readme_counts)
+    assert len(errs) == 1
+    assert "no live family" in errs[0]
+
+
+# ---------------------------------------------------------------------------
+# 7. No plugin-name stutter in the docs
+# ---------------------------------------------------------------------------
+
+
+def test_stuttering_invocation_is_reported(repo: Path) -> None:
+    """`/magpie-security:security-issue-triage` is a command nobody can run —
+    the family plugin advertises the alias `issue-triage`."""
+    _skill(repo, "security-issue-triage", "security", "Triage")
+    (repo / "docs" / "guide.md").write_text(
+        "Run `/magpie-security:security-issue-triage` to triage.\n", encoding="utf-8"
+    )
+    errs = _errors(mod.check_no_plugin_name_stutter)
+    assert len(errs) == 1
+    assert "repeats the family name" in errs[0]
+
+
+def test_first_segment_stutter_is_caught_too(repo: Path) -> None:
+    """`release-*` skills sit in `release-management`, so the repeated token is
+    the family's first segment."""
+    _skill(repo, "release-vote-tally", "release-management", "Drafting")
+    (repo / "docs" / "guide.md").write_text(
+        "Run `/magpie-release-management:release-vote-tally`.\n", encoding="utf-8"
+    )
+    assert len(_errors(mod.check_no_plugin_name_stutter)) == 1
+
+
+def test_the_dealiased_form_is_silent(repo: Path) -> None:
+    _skill(repo, "security-issue-triage", "security", "Triage")
+    (repo / "docs" / "guide.md").write_text(
+        "Run `/magpie-security:issue-triage` to triage.\n", encoding="utf-8"
+    )
+    assert _errors(mod.check_no_plugin_name_stutter) == []
+
+
+def test_the_portable_single_token_form_is_not_a_stutter(repo: Path) -> None:
+    """Snapshot installs really do invoke `/magpie-security-issue-triage`; the
+    guard must not chase the form it is documenting as correct elsewhere."""
+    _skill(repo, "security-issue-triage", "security", "Triage")
+    (repo / "docs" / "guide.md").write_text(
+        "Snapshot installs use `/magpie-security-issue-triage`.\n", encoding="utf-8"
+    )
+    assert _errors(mod.check_no_plugin_name_stutter) == []
+
+
+def test_eval_fixtures_are_not_scanned(repo: Path) -> None:
+    """Fixtures are expected outputs, not documentation."""
+    _skill(repo, "security-issue-triage", "security", "Triage")
+    fixture = repo / "tools" / "skill-evals" / "evals" / "x"
+    fixture.mkdir(parents=True)
+    (fixture / "expected.md").write_text("`/magpie-security:security-issue-triage`\n", encoding="utf-8")
+    assert _errors(mod.check_no_plugin_name_stutter) == []
+
+
+def test_a_marked_line_may_show_the_stutter(repo: Path) -> None:
+    """marketplaces.md documents the anti-pattern, so it has to print one."""
+    _skill(repo, "security-issue-triage", "security", "Triage")
+    (repo / "docs" / "guide.md").write_text(
+        f"`/magpie-security:security-issue-triage` says security twice. {mod.STUTTER_ALLOW}\n",
+        encoding="utf-8",
+    )
+    assert _errors(mod.check_no_plugin_name_stutter) == []
+
+
+def test_the_marker_only_exempts_its_own_line(repo: Path) -> None:
+    _skill(repo, "security-issue-triage", "security", "Triage")
+    (repo / "docs" / "guide.md").write_text(
+        f"bad example {mod.STUTTER_ALLOW}\n`/magpie-security:security-issue-triage`\n",
+        encoding="utf-8",
+    )
+    assert len(_errors(mod.check_no_plugin_name_stutter)) == 1
+
+
+# ---------------------------------------------------------------------------
+# 8. The portable single-token form must say which install it means
+# ---------------------------------------------------------------------------
+
+
+def _doc(repo: Path, body: str, name: str = "guide.md") -> None:
+    (repo / "docs" / name).write_text(body, encoding="utf-8")
+
+
+def test_portable_form_without_a_note_is_reported(repo: Path) -> None:
+    """The marketplace install is the default, so a bare `/magpie-issue-triage`
+    reads as a command the reader can run — and it is not."""
+    _skill(repo, "issue-triage", "issue", "Triage")
+    _doc(repo, "Run `/magpie-issue-triage` to triage.\n")
+    errs = _errors(mod.check_portable_form_is_flagged)
+    assert len(errs) == 1
+    assert "snapshot-install form" in errs[0]
+
+
+def test_a_page_that_states_the_install_is_silent(repo: Path) -> None:
+    _skill(repo, "issue-triage", "issue", "Triage")
+    for note in mod.PORTABLE_FORM_NOTES:
+        _doc(repo, f"{note}. Run `/magpie-issue-triage`.\n")
+        assert _errors(mod.check_portable_form_is_flagged) == []
+
+
+def test_the_setup_mechanism_is_never_flagged(repo: Path) -> None:
+    """`/magpie-setup` names the install mechanism, not a skill a marketplace
+    user invokes, so it stays legal on every page."""
+    _skill(repo, "setup", "setup", "Triage")
+    _doc(repo, "Run `/magpie-setup upgrade` to refresh the snapshot.\n")
+    assert _errors(mod.check_portable_form_is_flagged) == []
+
+
+def test_a_filesystem_path_is_not_an_invocation(repo: Path) -> None:
+    """`.agents/skills/magpie-<skill>/` appears in `test -f` assertions in the
+    spec files; flagging those would demand breaking them."""
+    _skill(repo, "issue-triage", "issue", "Triage")
+    _doc(repo, "test -f .agents/skills/magpie-issue-triage/SKILL.md\n")
+    assert _errors(mod.check_portable_form_is_flagged) == []
+
+
+def test_allowlisted_pages_may_show_both_forms(repo: Path) -> None:
+    _skill(repo, "issue-triage", "issue", "Triage")
+    (repo / "docs" / "setup").mkdir(parents=True, exist_ok=True)
+    (repo / "docs" / "setup" / "marketplaces.md").write_text(
+        "Portable: `/magpie-issue-triage`.\n", encoding="utf-8"
+    )
+    assert _errors(mod.check_portable_form_is_flagged) == []
+
+
+# ---------------------------------------------------------------------------
+# 9. Dev scripts are documented
 # ---------------------------------------------------------------------------
 
 

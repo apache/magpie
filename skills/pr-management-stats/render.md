@@ -91,7 +91,7 @@ sub-labels are 12px dim grey.
 
 A vertical list of action cards built from the recommendation rules in [`#recommendation-rules`](#recommendation-rules) below. Each card has a coloured left border (red = high, amber = medium, grey = low), an icon, a one-line title, a 1–2-line detail explanation, and (when applicable) a monospace `code` block holding the exact slash-command the maintainer can paste. When a rule's `action` is `—` (no paste-clean command applies), the card omits the code block and shows title + detail only.
 
-If zero rules fire, render a single low-priority card with a `✨` icon and the body "No urgent actions detected. Queue is in healthy shape — periodic /magpie-pr-management-triage when convenient." Never leave the section visually empty.
+If zero rules fire, render a single low-priority card with a `✨` icon and the body "No urgent actions detected. Queue is in healthy shape — periodic pr-management-triage when convenient." Never leave the section visually empty.
 
 The order inside the panel is: high-priority first (sorted by count descending), then medium (same), then low. Within a tier the rule firing order from [`#recommendation-rules`](#recommendation-rules) breaks ties.
 
@@ -204,7 +204,7 @@ Up to 8 rows, sorted by pressure score descending (filtering areas with < 3 cont
 - area name (cyan, bold, e.g. `providers`)
 - one-line stat: `<contrib_total> contributor PRs · <red>untriaged_4w</red> >4w · <amber>untriaged_1_4w</amber> 1-4w · <grey>untriaged_recent</grey> recent · <green>ready_pending</green> ready for review`
 - pressure score (right-aligned)
-- the slash-command to focus on this area: `/magpie-pr-management-triage label:area:<X>` (dimmed)
+- the slash-command to focus on this area: `pr-management-triage label:area:<X>` (dimmed)
 
 This panel answers "if I have 30 minutes, which area moves the most needles?". Top row is always the highest-leverage focus.
 
@@ -391,16 +391,16 @@ The "What needs attention" panel is built from this fixed rule set, evaluated in
 
 | # | Trigger | Priority | Icon | Title template | Detail template | Action |
 |---|---|---|---|---|---|---|
-| 1 | `len(untriaged_old) > 0` (any contributor non-draft >4w) | high | 🔥 | `Triage <N> non-draft contributor PRs older than 4 weeks` | Focus on the >4w bucket — those are the ones rotting longest. | `/magpie-pr-management-triage all PR issues` |
-| 2 | `len(untriaged_old) == 0 AND len(untriaged_med) > 0` (1-4w bucket non-empty) | medium | 👀 | `Triage <N> non-draft PRs aged 1-4 weeks` | The 1–4w bucket is the queue's leading edge; staying on top of it stops PRs from rolling into >4w. | `/magpie-pr-management-triage all PR issues` |
-| 3 | `len(stale_triaged_drafts) > 0` (drafts triaged ≥ 7d ago, no reply) | medium | 🗑️ | `Close <N> stale-triaged drafts (≥7d, no response)` | Closure path lives under the `stale` flow (sweep step 1a). | `/magpie-pr-management-triage stale` |
-| 4 | `len(ready_open) >= 50` | high | 📥 | `<N> PRs labeled "ready for maintainer review"` | The `ready for maintainer review` queue is past the triage stage; it needs maintainer review attention, not triage. | `/magpie-pr-management-code-review ready` |
-| 5 | `20 <= len(ready_open) < 50` | medium | 📥 | `<N> PRs in "ready for maintainer review" queue` | Same trigger family as rule 4 — banded by queue size so the priority drops once the queue is comfortable. | `/magpie-pr-management-code-review ready` |
-| 6 | `len(responded_no_ready) > 0` (triaged + responded but not ready-for-review) | medium | 🔄 | `<N> triaged PRs have author responses awaiting re-triage` | These will surface as request-author-confirmation (first leg of the two-sweep mark-ready gate) inside the regular triage sweep. | `/magpie-pr-management-triage all PR issues` |
-| 7 | top area's `untriaged_4w + untriaged_1_4w >= 5` | medium | 📍 | `Area "<area>" has <total> contributor PRs (<X> untriaged >4w)` | One area is dominating the untriaged queue; scoping a triage pass to it clears the bulk of the load. | `/magpie-pr-management-triage label:area:<area>` |
+| 1 | `len(untriaged_old) > 0` (any contributor non-draft >4w) | high | 🔥 | `Triage <N> non-draft contributor PRs older than 4 weeks` | Focus on the >4w bucket — those are the ones rotting longest. | `pr-management-triage all PR issues` |
+| 2 | `len(untriaged_old) == 0 AND len(untriaged_med) > 0` (1-4w bucket non-empty) | medium | 👀 | `Triage <N> non-draft PRs aged 1-4 weeks` | The 1–4w bucket is the queue's leading edge; staying on top of it stops PRs from rolling into >4w. | `pr-management-triage all PR issues` |
+| 3 | `len(stale_triaged_drafts) > 0` (drafts triaged ≥ 7d ago, no reply) | medium | 🗑️ | `Close <N> stale-triaged drafts (≥7d, no response)` | Closure path lives under the `stale` flow (sweep step 1a). | `pr-management-triage stale` |
+| 4 | `len(ready_open) >= 50` | high | 📥 | `<N> PRs labeled "ready for maintainer review"` | The `ready for maintainer review` queue is past the triage stage; it needs maintainer review attention, not triage. | `pr-management-code-review ready` |
+| 5 | `20 <= len(ready_open) < 50` | medium | 📥 | `<N> PRs in "ready for maintainer review" queue` | Same trigger family as rule 4 — banded by queue size so the priority drops once the queue is comfortable. | `pr-management-code-review ready` |
+| 6 | `len(responded_no_ready) > 0` (triaged + responded but not ready-for-review) | medium | 🔄 | `<N> triaged PRs have author responses awaiting re-triage` | These will surface as request-author-confirmation (first leg of the two-sweep mark-ready gate) inside the regular triage sweep. | `pr-management-triage all PR issues` |
+| 7 | top area's `untriaged_4w + untriaged_1_4w >= 5` | medium | 📍 | `Area "<area>" has <total> contributor PRs (<X> untriaged >4w)` | One area is dominating the untriaged queue; scoping a triage pass to it clears the bulk of the load. | `pr-management-triage label:area:<area>` |
 | 8 | `velocity_drop > 30` (last_wk total - this_wk total) | low | 📉 | `PR closure velocity dropped <N> this week` | No immediate action — re-check next week to see if the drop persists or was a one-off. | — |
-| 9 | top ready-trend area's growth in last 7d ≥ 10 PRs | low | 📈 | `Ready-for-review queue in "<area>" grew by <N> this week` | Growth concentrated in one area suggests it'd benefit from a focused review pass. | `/magpie-pr-management-code-review label:area:<area>` |
-| 10 | weekly closed-by-reason `closed_no_response > merged` for 2+ recent weeks | medium | 🧹 | `Stale-sweep is dominating closures (last 2 weeks: <N> sweep-close vs <M> merged)` | Too many PRs are reaching the stale sweep — review the `/magpie-pr-management-triage stale` cadence and whether earlier-stage interventions (mark-ready, ping) are firing. | — |
+| 9 | top ready-trend area's growth in last 7d ≥ 10 PRs | low | 📈 | `Ready-for-review queue in "<area>" grew by <N> this week` | Growth concentrated in one area suggests it'd benefit from a focused review pass. | `pr-management-code-review label:area:<area>` |
+| 10 | weekly closed-by-reason `closed_no_response > merged` for 2+ recent weeks | medium | 🧹 | `Stale-sweep is dominating closures (last 2 weeks: <N> sweep-close vs <M> merged)` | Too many PRs are reaching the stale sweep — review the `pr-management-triage stale` cadence and whether earlier-stage interventions (mark-ready, ping) are firing. | — |
 
 Rules 1 and 2 are **mutually exclusive** (only one fires depending on whether any >4w PRs exist). Rules 4 and 5 are **mutually exclusive** (banding on `ready_open` count). All other rules can fire independently.
 
@@ -455,10 +455,10 @@ Distinct from the colour scheme: these are the four conceptual *states* a contri
 
 | Marker | Definition | Colour | Maintainer action |
 |---|---|---|---|
-| `Ready for review` | `ready for maintainer review` label is present | green | run `/magpie-pr-management-code-review` to actually code-review the PR |
+| `Ready for review` | `ready for maintainer review` label is present | green | run `pr-management-code-review` to actually code-review the PR |
 | `Responded` | PR is triaged AND author has commented or pushed after the triage comment, AND not yet `Ready` | bright cyan | re-triage; may now qualify for `request-author-confirmation` (first leg of the two-sweep mark-ready gate) |
 | `Waiting for Author` | PR is triaged, no author response — OR — PR is a draft (whether triaged or not) | amber | nothing; author owns the next move (may become a sweep candidate after 7d) |
-| `Not yet triaged` | None of the above. Non-draft PR that has never received a quality-criteria comment | blue (or grey) | run `/magpie-pr-management-triage` to give it a first look |
+| `Not yet triaged` | None of the above. Non-draft PR that has never received a quality-criteria comment | blue (or grey) | run `pr-management-triage` to give it a first look |
 
 Counting rules are precedence-based — `Ready` takes precedence over the others, then `Responded`, then `Waiting`, with `Not yet triaged` as the fallback. So a single PR is in exactly one bucket; the four counts must sum to the total open non-bot PR count.
 

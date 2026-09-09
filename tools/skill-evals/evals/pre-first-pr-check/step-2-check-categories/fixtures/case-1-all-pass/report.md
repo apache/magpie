@@ -22,7 +22,7 @@ git diff output:
 +2. Run `prek install` to install the pre-commit hook.
 +3. Copy `projects/_template/` to your project-config directory.
 +4. Edit the `project.md` in your project-config directory with your project identity.
-+5. Run `/magpie-setup verify` to confirm the setup is complete.
++5. Run `setup verify` to confirm the setup is complete.
 +
 +See [install-recipes.md](install-recipes.md) for full options.
 

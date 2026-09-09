@@ -30,7 +30,7 @@ has the right symlink is a no-op.
 
    > *"You appear to be in the main checkout (`<path>`).
    > `worktree-init` only runs in a worktree. Use
-   > `/magpie-setup` (or `/magpie-setup upgrade`) here
+   > `setup` (or `setup upgrade`) here
    > instead."*
 
 2. **Resolve the main checkout's path.** Take
@@ -44,7 +44,7 @@ has the right symlink is a no-op.
    stop:
 
    > *"The main checkout at `<main>` is not adopted yet. From
-   > the main checkout: `cd <main> && /magpie-setup`. Re-run
+   > the main checkout: `cd <main> && setup`. Re-run
    > `worktree-init` here once that is complete."*
 
 4. **Inspect the worktree's `<snapshot-dir>` state.** Four
@@ -182,7 +182,7 @@ one-line recap row for the Step 2 summary:
 
 - ✓ already covered, OR
 - + added `<worktree-path>`, OR
-- ⚠ helper not installed — `/magpie-setup-isolated-setup-install` to wire it up.
+- ⚠ helper not installed — `setup-isolated-setup-install` to wire it up.
 
 `worktree-init` does **not** fail when the helper is absent;
 secure-agent isolation is independent of framework adoption.
@@ -259,13 +259,13 @@ different overrides. Symlinking it would conflate branches.
   refreshed snapshot immediately.
 - **Auto-running on `git worktree add`.** Adopters who want
   automatic worktree initialisation can wrap `git worktree add`
-  with a script that calls `/magpie-setup worktree-init` —
+  with a script that calls `setup worktree-init` —
   the framework does not install that wrapper.
 
 ## Failure modes
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| Step 0 step 3 stops with "main checkout not adopted" | The main has never run `adopt`. | `cd <main> && /magpie-setup`, then re-run `worktree-init` here. |
+| Step 0 step 3 stops with "main checkout not adopted" | The main has never run `adopt`. | `cd <main> && setup`, then re-run `worktree-init` here. |
 | `worktree-init` runs but skills still fail to resolve | The per-target `magpie-<skill>` symlinks (in `.agents/skills/`, the `.claude/`/`.github/` pair, or a holdout) are missing from this worktree's commit (the worktree was branched from before `adopt` ran on main). | Re-run `worktree-init` from main's `adopt` flow afterwards, or `git merge` / `git rebase` the branch carrying the symlink commits. |
 | `<snapshot-dir>` is a regular directory and `--force` is not passed | A previous worktree snapshot is still on disk. | Re-run the skill, accept the move-aside prompt, then optionally inspect `.apache-magpie.bak.<timestamp>` for any non-snapshot content before deleting. |

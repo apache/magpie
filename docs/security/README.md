@@ -6,6 +6,8 @@
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
 - [Security workflow skill family](#security-workflow-skill-family)
+  - [Install & first runs](#install--first-runs)
+    - [Try these first](#try-these-first)
   - [Skills](#skills)
     - [Lifecycle skills](#lifecycle-skills)
     - [Security-model skills](#security-model-skills)
@@ -41,6 +43,56 @@ addresses, milestone formats, and canned-response wording. Lifting
 the workflow into a project-agnostic framework lets each adopter
 plug their specifics into [`<project-config>/`](../../projects/_template/)
 and reuse the skills verbatim.
+
+## Install & first runs
+
+Install just this family — one plugin, 15 skills. The security-report lifecycle, from intake through CVE publication.
+
+```text
+/plugin marketplace add apache/magpie
+/plugin install magpie-security@apache-magpie
+```
+
+<!-- CAPTURE: assets/quickstart/README.md -->
+![Claude Code showing the magpie-security plugin installed and enabled](../../assets/quickstart/families/security-install.png)
+
+New to Magpie? The [quick start](../quick-start.md) covers the other agents,
+the all-in-one alternative, and the secure-isolation setup to run next.
+
+### Try these first
+
+*Illustrative shapes, not real transcripts — your output will differ. Nothing
+below sends, merges, or posts anything without you confirming it.*
+
+**Pull new reports out of the mailbox.**
+
+```text
+> /magpie-security:issue-import
+
+  3 candidate reports on security@
+  #4412 buffer overflow in parser   -> new tracking issue
+  #4413 'is PHP 5 supported?'       -> not a report, skip
+  Create 1 tracking issue? [y/N]
+```
+
+**Triage what came in.**
+
+```text
+> /magpie-security:issue-triage
+
+  #4412  valid    high     -> reply drafted, CVE candidate
+  #4415  invalid  n/a      -> canned response 'out of scope'
+  Drafts are in Gmail; nothing sent.
+```
+
+**Check the security model still matches reality.**
+
+```text
+> /magpie-security:model-verify
+
+  6 chapters checked against the published model
+  GAP: no chapter covers dependency-only reports (4 this quarter)
+```
 
 ## Skills
 

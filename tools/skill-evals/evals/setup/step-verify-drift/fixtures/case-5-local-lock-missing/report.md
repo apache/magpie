@@ -7,4 +7,4 @@
   ref:    main
 
 .apache-magpie.local.lock: MISSING — file does not exist at repo root.
-(This machine has never run /magpie-setup adopt, or the local lock was deleted.)
+(This machine has never run setup adopt, or the local lock was deleted.)

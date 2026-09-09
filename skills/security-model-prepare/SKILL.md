@@ -20,10 +20,10 @@ when_to_use: |
   a threat model", "write our security model", "prepare
   <PROJECT> for an automated security review", "we have nothing
   in SECURITY.md", or when
-  `/magpie-security-model-verify` reports that a repository has
+  `security-model-verify` reports that a repository has
   no model to verify. Skip when a model already exists — verify
-  it with `/magpie-security-model-verify`, and grow it with
-  `/magpie-security-model-update`.
+  it with `security-model-verify`, and grow it with
+  `security-model-update`.
 argument-hint: "[repo-or-project]"
 capability: capability:authoring
 license: Apache-2.0
@@ -270,9 +270,9 @@ called the project's model, and saying so in the header costs nothing.
 
 ### 8. Hand off
 
-- `/magpie-security-model-verify` — confirm the chain resolves at the merge
+- `security-model-verify` — confirm the chain resolves at the merge
   commit, per repository.
-- `/magpie-security-model-update` — the standing loop that grows §1.15 and finds
+- `security-model-update` — the standing loop that grows §1.15 and finds
   the gaps as triage decisions accumulate.
 - `<project-config>/security-model.md` — record the authoritative URL so every
   other security skill can cite it.

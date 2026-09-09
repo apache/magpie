@@ -1,1 +1,1 @@
-{"status": "local-lock-missing", "severity": "warning", "remediation": "/magpie-setup upgrade"}
+{"status": "local-lock-missing", "severity": "warning", "remediation": "setup upgrade"}

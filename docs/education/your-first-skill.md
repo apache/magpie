@@ -29,8 +29,8 @@ This is a step-by-step guide to writing your first working skill in
 You do not need any earlier experience with the framework.
 
 This is not the full authoring reference. Once you know the shape of a skill,
-the [`magpie-write-skill`](../../skills/write-skill/SKILL.md)
-skill (you run it with `/magpie-write-skill`) takes you through every check, safety
+the [`write-skill`](../../skills/write-skill/SKILL.md)
+skill (you run it with `/magpie-utilities:write-skill`) takes you through every check, safety
 step, and packaging detail. Come back to it after your first skill has landed
 and you want the complete checklist.
 
@@ -397,7 +397,7 @@ Supporting references for skill-writing:
 
 - **[magpie-write-skill](../../skills/write-skill/SKILL.md)** —
   the full authoring reference, with the security checklist and packaging
-  details. Run it with `/magpie-write-skill` once you are ready for the complete
+  details. Run it with `/magpie-utilities:write-skill` once you are ready for the complete
   walk-through.
 - **[Pattern catalogue](pattern-catalogue.md)** — ready-to-copy skill, prompt,
   and tool-use patterns.

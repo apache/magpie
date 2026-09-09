@@ -27,6 +27,15 @@
 
 # How to use Magpie on a repo that has not adopted it
 
+> [!IMPORTANT]
+> **Skill names differ on this install.** Installed from the pinned snapshot
+> (or self-adoption), a skill is invoked as a **single token** —
+> `/magpie-security-issue-triage` — not `/magpie-security:issue-triage`. There
+> is no plugin namespace here; the `magpie-` prefix *is* the namespace, and the
+> name is the skill's directory name. Magpie's other docs show the
+> marketplace form; see
+> [Skill names differ by install method](marketplaces.md#skill-names-differ-by-install-method).
+
 ## Overview
 
 Project X has not adopted Magpie. You want to use Magpie skills to help

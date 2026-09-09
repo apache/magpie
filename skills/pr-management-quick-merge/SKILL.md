@@ -159,7 +159,7 @@ framework changes go via PR to `apache/magpie`.
 
 At the top of every run, compare the gitignored `.apache-magpie.local.lock`
 against the committed `.apache-magpie.lock`. On mismatch, surface the gap and
-propose [`/magpie-setup upgrade`](../setup/upgrade.md). Non-blocking —
+propose [`setup upgrade`](../setup/upgrade.md). Non-blocking —
 the maintainer may defer.
 
 ---

@@ -163,7 +163,7 @@ override file. Framework changes go via PR to
 At the top of every run, this skill compares the gitignored
 `.apache-magpie.local.lock` against the committed `.apache-magpie.lock`.
 On mismatch the skill surfaces the gap and proposes
-[`/magpie-setup upgrade`](../setup/upgrade.md). The proposal is
+[`setup upgrade`](../setup/upgrade.md). The proposal is
 non-blocking.
 
 ---

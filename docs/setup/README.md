@@ -6,6 +6,8 @@
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
 - [Setup skill family](#setup-skill-family)
+  - [Install & first runs](#install--first-runs)
+    - [Try these first](#try-these-first)
   - [Skills](#skills)
   - [Deep documentation](#deep-documentation)
   - [Typical lifecycle](#typical-lifecycle)
@@ -21,13 +23,16 @@
 > **Scope.** Works on any project, ASF or not — no
 > Apache-Software-Foundation-specific assumptions baked in.
 
-> **Adoption vs. installation.** A project *adopts* Magpie — the decision to
-> bring the framework in and maintain it over time. *Installation* is the
-> mechanism that carries that out: `/magpie-setup install` sets up the
-> gitignored snapshot, the skill symlinks, and the overrides scaffold in the
-> adopter repo (`adopt` is an alias; `uninstall`/`unadopt` reverse it). You
-> adopt once; every contributor and machine then installs from the committed
-> pin.
+> **Two ways to install, and they are complementary.** A **marketplace
+> install** puts the skills straight into your agent, per machine, with
+> nothing in the repo — the recommended path, see
+> [`marketplaces.md`](marketplaces.md). The **pinned snapshot install**,
+> `/magpie-setup install`, sets up the gitignored snapshot, the skill
+> symlinks, and the overrides scaffold in the repo so every contributor and CI
+> job runs one committed version; reach for it when your agent has no
+> marketplace, when you need the signed ASF source release, or when the
+> project wants that pin. (`adopt` remains an accepted alias of `install`;
+> `uninstall` / `unadopt` reverse it.)
 
 The **setup** skill family is the prerequisite for running any
 framework skill. It walks a new adopter (or a fresh dev machine on
@@ -45,6 +50,59 @@ wrapper), a misconfigured agent can leak credentials or
 pre-disclosure content into the model provider's training data or
 into a public PR. The setup family is what makes the rest of the
 framework safe to use.
+
+## Install & first runs
+
+Install just this family — one plugin, 9 skills. Sandbox, clean environment, and the framework's own install/upgrade.
+
+```text
+/plugin marketplace add apache/magpie
+/plugin install magpie-setup@apache-magpie
+```
+
+<!-- CAPTURE: assets/quickstart/README.md -->
+![Claude Code showing the magpie-setup plugin installed and enabled](../../assets/quickstart/families/setup-install.png)
+
+New to Magpie? The [quick start](../quick-start.md) covers the other agents,
+the all-in-one alternative, and the secure-isolation setup to run next.
+
+### Try these first
+
+*Illustrative shapes, not real transcripts — your output will differ. Nothing
+below sends, merges, or posts anything without you confirming it.*
+
+**Put the agent in its sandbox.**
+
+```text
+> /magpie-setup:isolated-setup-install
+
+Proposed changes (nothing applied yet):
+  1. .claude/settings.json   sandbox.enabled: true, 14 deny rules
+  2. ~/.claude/scripts/      3 hooks + status line
+  3. ~/.zshrc                source agent-iso.sh
+Apply 1-3? [y/N]
+```
+
+**Check it landed.**
+
+```text
+> /magpie-setup:isolated-setup-verify
+
+  OK   sandbox.enabled           true
+  OK   permissions.deny          14 rules
+  WARN pinned tools              bubblewrap 0.11.1 (want 0.11.2)
+  OK   status line               wired
+```
+
+**See what is wired up.**
+
+```text
+> /magpie-setup:status
+
+  install method   marketplace (magpie-setup, magpie-pr-management)
+  agent targets    .agents/skills, .claude/skills
+  drift            none
+```
 
 ## Skills
 

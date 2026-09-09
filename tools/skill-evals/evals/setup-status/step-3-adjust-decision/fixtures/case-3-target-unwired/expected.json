@@ -1,1 +1,1 @@
-{"offer_adjustments": true, "deltas": ["target-unwired"], "delegated_commands": ["/magpie-setup adopt agents:universal,claude-code,github"]}
+{"offer_adjustments": true, "deltas": ["target-unwired"], "delegated_commands": ["setup adopt agents:universal,claude-code,github"]}

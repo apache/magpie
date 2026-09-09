@@ -57,12 +57,12 @@ The dashboard's most important section. List ordered by priority
    - Type: Direct fix (still-failing × bug-as-advertised)
    - Age: 4 years
    - Reproducer: present at <path>
-   - Next: /magpie-issue-fix-workflow <KEY>-9999
+   - Next: issue-fix-workflow <KEY>-9999
 
 2. [<KEY>-8888] Another one
    - Type: Partial fix (8/10 cases pass)
    - Age: 6 years
-   - Next: /magpie-issue-fix-workflow <KEY>-8888
+   - Next: issue-fix-workflow <KEY>-8888
 
 ...
 ```
@@ -209,8 +209,8 @@ per candidate; one candidate appears once):
 
 | Rule | Condition | Action prefix |
 |---|---|---|
-| 1 | still-fails-same × bug-as-advertised, has reproducer | "Direct fix:" + `/magpie-issue-fix-workflow` |
-| 2 | still-fails-same × bug-as-advertised-partial-fix | "Partial fix:" + `/magpie-issue-fix-workflow` |
+| 1 | still-fails-same × bug-as-advertised, has reproducer | "Direct fix:" + `issue-fix-workflow` |
+| 2 | still-fails-same × bug-as-advertised-partial-fix | "Partial fix:" + `issue-fix-workflow` |
 | 3 | still-fails-same × feature-request-disguised-as-bug | "Tracker hygiene:" + re-type to Improvement |
 | 4 | new-issue candidate from probe | "New issue:" + file in tracker |
 | 5 | fixed-on-master × bug-as-advertised, clean evidence | "Closure:" + confirm and close |

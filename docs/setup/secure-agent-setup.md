@@ -68,6 +68,13 @@
 
 # Secure agent setup
 
+> [!NOTE]
+> **Skill names here are the marketplace form.** A family-plugin install
+> invokes these as `/magpie-setup:isolated-setup-install`. On a pinned-snapshot
+> or self-adoption install, use the single token instead —
+> `/magpie-setup-isolated-setup-install`. See
+> [Skill names differ by install method](marketplaces.md#skill-names-differ-by-install-method).
+
 **Audience: adopters.** This document walks through every install
 step for the secure agent setup — pinned tool versions, the
 framework's Claude Code and Codex runtime policies, the clean-env
@@ -131,23 +138,23 @@ select. The end state and verification commands are documented in the
    `.apache-magpie/`, the committed `.apache-magpie.lock`, and
    the project-config files are wired correctly. Read-only —
    surfaces gaps, never auto-fixes.
-3. Run /magpie-setup-isolated-setup-install — guided first-time install of
+3. Run /magpie-setup:isolated-setup-install — guided first-time install of
    the secure-agent setup (sandbox, hooks, status line,
    clean-env wrapper).
-4. Run /magpie-setup-isolated-setup-verify — confirms ✓/✗/⚠ for every piece
+4. Run /magpie-setup:isolated-setup-verify — confirms ✓/✗/⚠ for every piece
    of the secure-agent setup.
 5. When you want to be on the framework's latest, run
    `/magpie-setup upgrade` — pulls your local magpie
    checkout to origin/main with --ff-only, refuses to touch a
    dirty working tree, surfaces what arrived. Then run
-   /magpie-setup-isolated-setup-update to surface user-side drift the
+   /magpie-setup:isolated-setup-update to surface user-side drift the
    upgrade introduced (new permissions.deny entries,
    user-scope script copies older than the framework, pinned
    tool bumps that warrant a host install).
 6. Optional: if you maintain a private dotfile-style sync repo
    per
    [Syncing user-scope config across machines](#syncing-user-scope-config-across-machines),
-   run /magpie-setup-shared-config-sync to push local edits to the remote
+   run /magpie-setup:shared-config-sync to push local edits to the remote
    so other machines pick them up.
 ```
 
@@ -1325,7 +1332,7 @@ automatically. Three classes of failure are recognised today:
 | `127.0.0.1 … Permission denied` / `Operation not permitted … bind` / `Errno 49 … assign requested address` / `Connection refused … 127.0.0.1` | [Localhost port-bind blocked](sandbox-troubleshooting.md#test-cannot-bind-to-a-localhost-port) |
 
 The hint also tells the user to run
-`/magpie-setup-isolated-setup-doctor` for a structured probe of all
+`/magpie-setup:isolated-setup-doctor` for a structured probe of all
 three failure modes, so a single mid-flow failure can lead to a
 broader sandbox health-check.
 

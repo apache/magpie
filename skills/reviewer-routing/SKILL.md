@@ -191,7 +191,7 @@ Optional per-reviewer config in the roster:
 At the top of every run, this skill compares the gitignored
 `.apache-magpie.local.lock` against the committed `.apache-magpie.lock`.
 On mismatch, it surfaces the gap and proposes
-[`/magpie-setup upgrade`](../setup/upgrade.md). Non-blocking — the user
+[`setup upgrade`](../setup/upgrade.md). Non-blocking — the user
 may defer.
 
 ---
@@ -447,7 +447,7 @@ Present the proposal and ask:
 
 - `yes` / `confirm` — accept; print the next-step `gh` command the
   maintainer can run themselves (the skill does not run it).
-- `no` / `cancel` — discard; suggest `/magpie-pr-management-triage` or
+- `no` / `cancel` — discard; suggest `pr-management-triage` or
   manual assignment.
 - `swap` — swap primary and backup; re-display for confirmation.
 - `override <handle>` — replace the primary with the supplied handle (it

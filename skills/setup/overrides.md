@@ -37,7 +37,7 @@ in the framework. This file is the operational helper.
    framework skills.
 2. For the committed surface (`.apache-magpie-overrides/`): the
    repo must be adopted (see [`verify.md`](verify.md) check 1 +
-   check 5). If not, redirect to `/magpie-setup install` **or**
+   check 5). If not, redirect to `setup install` **or**
    suggest using `--local` to create a personal override
    without adopting.
 
@@ -162,7 +162,7 @@ remind the user:
    PR against `apache/magpie` implementing the change
    in the framework skill itself. The framework will then
    apply the change on every adopter's next
-   `/magpie-setup upgrade`, and this adopter's override
+   `setup upgrade`, and this adopter's override
    becomes redundant — at which point the user deletes it.
 4. **Re-anchor on framework upgrades.** The skill's
    [`upgrade.md`](upgrade.md) sub-action surfaces conflicts
@@ -171,12 +171,12 @@ remind the user:
 
 ## Failure modes
 
-- **Snapshot missing** → redirect to `/magpie-setup upgrade`.
+- **Snapshot missing** → redirect to `setup upgrade`.
 - **Skill name typo** → list available skills, ask again.
 - **Non-adopted repo + no `--local` flag** → the committed
   surface is unavailable; offer the personal surface
   (`.apache-magpie-local/`) as the fallback and note the
-  user should run `/magpie-setup` to adopt if they want
+  user should run `setup` to adopt if they want
   the shared surface.
 - **The override target is on a framework skill that does
   not consult overrides** → the framework treats overrides

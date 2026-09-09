@@ -6,6 +6,8 @@
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
 - [Release-management skill family](#release-management-skill-family)
+  - [Install & first runs](#install--first-runs)
+    - [Try these first](#try-these-first)
   - [Status](#status)
   - [Skills](#skills)
   - [Deep documentation](#deep-documentation)
@@ -71,6 +73,56 @@ Agentic Triage; agent never holds the signing key; agent never publishes)
 stay identical too. See
 [`process.md` § Adopter backends](process.md#adopter-backends)
 for the full backend table and per-step mapping.
+
+## Install & first runs
+
+Install just this family — one plugin, 10 skills. The 14-step ASF release lifecycle. The agent never holds your signing key.
+
+```text
+/plugin marketplace add apache/magpie
+/plugin install magpie-release-management@apache-magpie
+```
+
+<!-- CAPTURE: assets/quickstart/README.md -->
+![Claude Code showing the magpie-release-management plugin installed and enabled](../../assets/quickstart/families/release-management-install.png)
+
+New to Magpie? The [quick start](../quick-start.md) covers the other agents,
+the all-in-one alternative, and the secure-isolation setup to run next.
+
+### Try these first
+
+*Illustrative shapes, not real transcripts — your output will differ. Nothing
+below sends, merges, or posts anything without you confirming it.*
+
+**Open the release plan.**
+
+```text
+> /magpie-release-management:prepare
+
+  Target 2.9.0, branch release-2.9
+  14 steps, 3 need you: sign the RC, cast the VOTE, publish
+  Planning issue drafted.
+```
+
+**Check an RC before you vote.**
+
+```text
+> /magpie-release-management:verify-rc
+
+  signature      OK (key in KEYS)
+  sha512         OK
+  LICENSE/NOTICE OK
+  binaries       FAIL: 2 .jar files under src/vendor/
+```
+
+**Tally the vote thread.**
+
+```text
+> /magpie-release-management:vote-tally
+
+  +1 binding 4   +1 non-binding 2   0: 0   -1: 0
+  72h elapsed -> passes. [RESULT] mail drafted, not sent.
+```
 
 ## Status
 

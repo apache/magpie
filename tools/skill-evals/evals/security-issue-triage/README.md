@@ -182,6 +182,6 @@ PROBABLE-DUP slash commands include the kept-tracker number.
 
 | Case | Trackers posted | Key assertions |
 |------|----------------|---------------|
-| `case-1-mixed-dispositions` | 212=VALID, 215=NOT-CVE-WORTHY, 218=INFO-ONLY, 220=PROBABLE-DUP(kept=212) | `/magpie-security-issue-deduplicate 220 212` with kept-tracker; all four `next_steps` present |
-| `case-2-all-valid` | 231, 232, 235 all VALID | Three `/magpie-security-cve-allocate` commands; `distribution.VALID=3`, others 0 |
+| `case-1-mixed-dispositions` | 212=VALID, 215=NOT-CVE-WORTHY, 218=INFO-ONLY, 220=PROBABLE-DUP(kept=212) | `security-issue-deduplicate 220 212` with kept-tracker; all four `next_steps` present |
+| `case-2-all-valid` | 231, 232, 235 all VALID | Three `security-cve-allocate` commands; `distribution.VALID=3`, others 0 |
 | `case-3-no-valid` | 241=NOT-CVE-WORTHY, 242=DEFENSE-IN-DEPTH, 244=NOT-CVE-WORTHY | 242 omitted from `next_steps`; `distribution.DEFENSE_IN_DEPTH=1`, `NOT_CVE_WORTHY=2` |

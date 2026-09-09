@@ -33,10 +33,10 @@ default — surfaces gaps and remediation commands.
    [Local self-adoption checks](#local-self-adoption-checks)
    instead of the snapshot checks below, then stop. A framework
    checkout with no `method: local` lock is simply not adopted
-   yet — point at `/magpie-setup`.
+   yet — point at `setup`.
 3. If `<repo-root>/.apache-magpie.lock` is missing, the
    repo is not adopted. Surface and stop with a pointer at
-   `/magpie-setup install`.
+   `setup install`.
 
 ## Local self-adoption checks
 
@@ -48,7 +48,7 @@ adoption state.
 
 1. **Marker lock.** `.apache-magpie.lock` parses and records
    `method: local`. ✓ when present; ✗ with a pointer at
-   `/magpie-setup` otherwise.
+   `setup` otherwise.
 2. **Symlinks resolve (canonical → source, relays → canonical).**
    In the canonical dir `.agents/skills/`, every `magpie-<n>` is a
    symlink whose target (`../../skills/<n>/`) resolves to a
@@ -59,13 +59,13 @@ adoption state.
    canonical entry to the same `SKILL.md`. ✗ list any dangling or
    non-symlink entry — or any relay that points straight at the
    snapshot/source instead of at `.agents/skills/` — naming the
-   target dir; remediation: re-run `/magpie-setup` (idempotent).
+   target dir; remediation: re-run `setup` (idempotent).
 3. **Coverage.** Every `skills/<n>/` with a `SKILL.md` has a
    canonical `magpie-<n>` symlink in `.agents/skills/` and a
    matching relay in **every other active target dir**
    (unless a `skill-families:` filter was deliberately applied).
    ⚠ list any source skill with no link, per target; remediation:
-   `/magpie-setup`.
+   `setup`.
 4. **`.gitignore`.** Each active target dir's `<dir>/*` is
    ignored, with `!/<dir>/magpie-*` un-ignoring the committed
    symlinks — `.agents/skills/`, `.claude/skills/`,
@@ -90,17 +90,17 @@ resolves to one) and contains the expected top-level files
 
 - ✗ if missing **and we are in the main checkout** (`git
   rev-parse --git-dir` equals `git rev-parse --git-common-dir`)
-  → run `/magpie-setup upgrade` (it gracefully handles the
+  → run `setup upgrade` (it gracefully handles the
   recover-snapshot case when the committed lock exists but
   the snapshot does not).
 - ✗ if missing **and we are in a worktree** (the two dirs
-  differ) → run `/magpie-setup worktree-init` to symlink
+  differ) → run `setup worktree-init` to symlink
   `<snapshot-dir>` to the main checkout's. Do **not**
   propose `upgrade` — that creates a per-worktree snapshot,
   which is the bug `worktree-init` is designed to prevent.
 - ⚠ if present as a regular directory **in a worktree** →
   legacy per-worktree snapshot. Suggest
-  `/magpie-setup worktree-init` (with the move-aside flow)
+  `setup worktree-init` (with the move-aside flow)
   to convert into a symlink to the main's snapshot. Verify
   continues — the per-worktree snapshot is still functional,
   just wasteful.
@@ -120,7 +120,7 @@ resolves to one) and contains the expected top-level files
   redirect (already caught in pre-flight).
 - ⚠ if `<local-lock>` is missing or unparsable → first
   install on this machine has not run, or the file was
-  truncated. Suggest `/magpie-setup upgrade` to re-create
+  truncated. Suggest `setup upgrade` to re-create
   the snapshot + write the local lock.
 
 ### 3. Drift between committed and local locks
@@ -140,8 +140,8 @@ Compare:
 | Result | Severity |
 |---|---|
 | All match (and for `git-branch`, local is at upstream tip) | ✓ |
-| Method or URL differ | ✗ — full re-install needed; remediation: `/magpie-setup upgrade` |
-| Ref differs (e.g. project bumped tag, or `git-branch` local is behind upstream) | ⚠ — sync needed; remediation: `/magpie-setup upgrade` |
+| Method or URL differ | ✗ — full re-install needed; remediation: `setup upgrade` |
+| Ref differs (e.g. project bumped tag, or `git-branch` local is behind upstream) | ⚠ — sync needed; remediation: `setup upgrade` |
 | `svn-zip` SHA-512 differs from the verification anchor in `<committed-lock>` | ✗ — security-flagged; the released zip changed content; investigate before upgrading |
 
 ### 4. `.gitignore` correctly excludes the snapshot + local lock + symlinks + project-local settings
@@ -213,7 +213,7 @@ canonical ones resolving (via `.agents/skills/`) into
 - ✗ if dangling (target deleted or snapshot missing), or a relay
   pointing straight at the snapshot instead of at the canonical
   `.agents/skills/` entry, naming the target dir. Remediation:
-  `/magpie-setup install` (idempotent re-run) or this same skill
+  `setup install` (idempotent re-run) or this same skill
   with `--auto-fix-symlinks`.
 
 For each framework skill in the snapshot **not** symlinked
@@ -228,8 +228,8 @@ from `.agents/skills/` is as much a gap as one missing from
   surface as ✗. These families are not opt-in; missing
   symlinks here indicate a broken install or a skipped
   upgrade pass. Remediation:
-  `/magpie-setup verify --auto-fix-symlinks` (cheap), or
-  `/magpie-setup upgrade` (covers the family-wide pass).
+  `setup verify --auto-fix-symlinks` (cheap), or
+  `setup upgrade` (covers the family-wide pass).
 - **Opt-in family the project picked** (per
   `<committed-lock>` / `<local-lock>`) → surface as ✗. The
   project declared the family but the install is missing a
@@ -240,7 +240,7 @@ from `.agents/skills/` is as much a gap as one missing from
 
 The `--auto-fix-symlinks` path repairs the first two
 classes in place — in **every active target dir** — without
-prompting; the ⚠ class needs an explicit `/magpie-setup install`
+prompting; the ⚠ class needs an explicit `setup install`
 re-run with the family added to the pick.
 
 ### 6. `.apache-magpie-overrides/` exists + has the README
@@ -249,11 +249,11 @@ re-run with the family added to the pick.
 with the `README.md` scaffold from
 [`install.md` Step 9](install.md).
 
-- ✗ if missing → `/magpie-setup install` (idempotently
+- ✗ if missing → `setup install` (idempotently
   re-creates).
 - ⚠ if present but `README.md` is missing — the directory
   may have been hand-created. Suggest re-running
-  `/magpie-setup install`.
+  `setup install`.
 
 ### 7. The `setup` skill itself is up to date
 
@@ -268,8 +268,8 @@ snapshot's `.apache-magpie/skills/setup/`.
 
   - **Snapshot is newer than the committed copy** (typical
     case after a framework upgrade where the adopter has
-    not yet rerun `/magpie-setup upgrade`). Run
-    `/magpie-setup upgrade` — its
+    not yet rerun `setup upgrade`). Run
+    `setup upgrade` — its
     [Step 4b](upgrade.md#step-4b--overwrite-the-committed-setup-from-the-new-snapshot--reload-in-flight)
     auto-overwrites the committed copy with the snapshot's
     version, **reloads the skill in-flight** so the rest of
@@ -295,13 +295,13 @@ Two sub-checks on `<repo-root>/.git/hooks/post-checkout`:
    helper chain (see
    [`install.md` Step 10](install.md#step-10--worktree-aware-post-checkout-hook-fresh-only)).
    It must **not** contain the long-removed
-   `/magpie-setup verify --auto-fix-symlinks` line (a slash
+   `setup verify --auto-fix-symlinks` line (a slash
    command is not shell-callable; it printed a spurious error on
    every checkout).
    - ⚠ if missing — strictly optional, but worktrees off this
      repo will then not get their sandbox allowlist added
      automatically on `git worktree add` (they fall back to
-     `/magpie-setup worktree-init`). Print the install recipe.
+     `setup worktree-init`). Print the install recipe.
 
 2. **Content drift vs the framework's expected.** Diff the
    installed hook against the framework's expected hook
@@ -312,7 +312,7 @@ Two sub-checks on `<repo-root>/.git/hooks/post-checkout`:
    - ✓ if content matches.
    - ⚠ if drifted and the diff looks like operator
      hand-edits — surface the diff; remediation is to run
-     `/magpie-setup` (adopt or upgrade), whose
+     `setup` (adopt or upgrade), whose
      hook+config-sync pass re-installs from the snapshot
      after asking about hand-edits.
    - ✗ if drifted and the installed content is clearly
@@ -367,7 +367,7 @@ main checkout's.
 Defensive cross-check for
 [issue #197](https://github.com/apache/magpie/issues/197):
 `sandbox.filesystem.allowRead: ["."]` does not in practice cover
-CWD under the harness, so `/magpie-setup` (adopt, upgrade,
+CWD under the harness, so `setup` (adopt, upgrade,
 worktree-init) chains into
 `~/.claude/scripts/sandbox-add-project-root.sh` to add explicit
 absolute paths to each worktree's own project-local settings.
@@ -384,18 +384,18 @@ For the current worktree (resolved via
   — remediation:
   `~/.claude/scripts/sandbox-add-project-root.sh`
   (no `--all-worktrees` needed — just this worktree), or
-  re-run `/magpie-setup` (adopt/upgrade) which chains into
+  re-run `setup` (adopt/upgrade) which chains into
   the helper as part of its Step 12 / Step 6c sandbox-allowlist
   pass.
 - ⚠ if missing from either array **and** the helper script is
   absent — the operator has not run
-  `/magpie-setup-isolated-setup-install` yet. Suggest that skill.
+  `setup-isolated-setup-install` yet. Suggest that skill.
   Not ✗ because secure-agent isolation is independent of
   framework adoption, and an adopter who runs without the
   sandbox enabled has nothing to lose by the missing entry.
 - ⚠ if `<worktree>/.claude/settings.local.json` is absent
   entirely — same remediation (re-run the helper or
-  `/magpie-setup-isolated-setup-install`). The file is auto-created
+  `setup-isolated-setup-install`). The file is auto-created
   by the helper on first run.
 - ✗ if `<worktree>/.claude/settings.local.json` exists AND
   is **not** gitignored (cross-check via `git check-ignore`).
@@ -407,13 +407,13 @@ For the current worktree (resolved via
 
 The check scopes to the current worktree only, not the full
 `git worktree list`, because each worktree carries its own
-project-local settings file — `/magpie-setup verify` running
+project-local settings file — `setup verify` running
 in worktree A has no business asserting on worktree B's file
 (which it cannot even reliably read without crossing into
 another working tree's path).
 
 This check is read-only on the framework state. The defence
-is layered: `/magpie-setup` writes during adopt/upgrade,
+is layered: `setup` writes during adopt/upgrade,
 `setup-isolated-setup-verify` adds a live read+write probe
 (check 8 there), and this check is the cheap static cross-check
 to surface drift between the two skill families.
@@ -615,7 +615,7 @@ operator can locate it instantly; for each recommended entry
 missing, print the suggested string verbatim ready for paste.
 **Do not auto-write the files** — the per-machine
 `settings.local.json` is the operator's; surface the proposal
-and let `/magpie-setup verify --apply-permission-audit`
+and let `setup verify --apply-permission-audit`
 (interactive) or a hand-edit close the gap. The apply path
 calls
 
@@ -629,7 +629,7 @@ which holds a POSIX `fcntl.flock` advisory exclusive lock on
 the target file, re-parses under the lock, mutates
 `.permissions.allow[]` in place, writes to a sibling temp
 file, and `os.replace`s into place — so concurrent
-`/magpie-setup-isolated-setup-install` (which also writes to the same
+`setup-isolated-setup-install` (which also writes to the same
 file's `sandbox.filesystem.*` arrays) does not silently
 clobber the diff. When the target file lives at a path the
 agent's sandbox marks as `denyWithinAllow` (the per-machine
@@ -638,7 +638,7 @@ operator to authorise the sandbox bypass for that single write
 — it does not silently skip the file. ⚠ if either file is
 absent (most adopters will have at least
 `settings.local.json` after the first
-`/magpie-setup-isolated-setup-install` pass; absence is a soft signal
+`setup-isolated-setup-install` pass; absence is a soft signal
 not a hard fault).
 
 **Why we propose, never auto-apply.** The allow-list is
@@ -679,7 +679,7 @@ latest `main` of `apache/comdev` (tracked, not pinned). Confirm:
    `apache/comdev`, the branch is `main`, and it is not behind the
    last-fetched `origin/main`. This is the read-only, offline form
    of the freshness assertion; the authoritative live fetch belongs
-   to [`/magpie-setup upgrade` Step 6e](upgrade.md#step-6e--refresh-comdev-mcp-checkouts-asf-projects)
+   to [`setup upgrade` Step 6e](upgrade.md#step-6e--refresh-comdev-mcp-checkouts-asf-projects)
    and [`setup-isolated-setup-update`](../setup-isolated-setup-update/SKILL.md).
     ✗ off-`main` or non-`apache/comdev` remote; ⚠ behind
     `origin/main`.
@@ -695,7 +695,7 @@ metadata:
 - **Only when `organization: ASF`**: the mailing lists, against the current
   `.asf.yaml`. Skip the `.asf.yaml` comparison for a non-ASF `organization`
   (an `independent` project has no `.asf.yaml` to drift against — not a finding).
-- ⚠ if any value has changed or drifted (e.g. the default branch changed from `master` to `main`, or — for ASF projects — mailing-list routing in `.asf.yaml` was updated). Recommend running `/magpie-setup upgrade` to re-derive and align the committed configuration with the new metadata.
+- ⚠ if any value has changed or drifted (e.g. the default branch changed from `master` to `main`, or — for ASF projects — mailing-list routing in `.asf.yaml` was updated). Recommend running `setup upgrade` to re-derive and align the committed configuration with the new metadata.
 
 ### 9. Project documentation mentions the framework
 
@@ -705,9 +705,9 @@ Two files to check (per
 - **`<repo-root>/README.md`** — should have a contributor-facing
   section (typically `## Agent-assisted contribution
   (apache-magpie)`) that mentions the snapshot mechanism, the
-  `/magpie-setup` invocation for fresh clones, the
+  `setup` invocation for fresh clones, the
   `.apache-magpie.lock` pin, and `.apache-magpie-overrides/`.
-  Grep for `apache-magpie` and `/magpie-setup` together as a
+  Grep for `apache-magpie` and `setup` together as a
   proxy. ⚠ if either token is absent.
 - **`<repo-root>/AGENTS.md`** — if the file exists, it should
   have an `## apache-magpie framework` section that
@@ -732,21 +732,21 @@ lists at least one source — otherwise skip this check silently
 - **Committed pin present.** The source has a block in
   `.apache-magpie.sources.lock` (`method`/`url`/`ref` + anchor).
   Missing ⇒ ✗: the trust list vouches for a source that was never
-  pinned — run `/magpie-setup skill-sources`.
+  pinned — run `setup skill-sources`.
 - **Snapshot present.** `.apache-magpie-sources/<id>/` exists on
   disk with the source's `skills_root`. Missing ⇒ ✗ with the
-  remediation `/magpie-setup skill-sources` (the fetch is
+  remediation `setup skill-sources` (the fetch is
   gitignored, so a fresh clone has none — expected, same as the
   framework snapshot).
 - **Source drift.** The source's committed block vs its
   `.apache-magpie.sources.local.lock` block — a mismatch ⇒ ⚠ and
-  proposes `/magpie-setup upgrade`, exactly like framework drift
+  proposes `setup upgrade`, exactly like framework drift
   (check 3).
 - **Symlinks live.** Every `magpie-<name>` the source `provides`
   resolves through the canonical
   `.agents/skills/magpie-<name>` → `../../.apache-magpie-sources/<id>/skills/<name>/`
   and its relays (same rule as check 5). Dangling / misdirected ⇒
-  ✗ with `/magpie-setup verify --auto-fix-symlinks`.
+  ✗ with `setup verify --auto-fix-symlinks`.
 - **No name collision.** No `magpie-<name>` provided by a source
   shadows a framework skill or another source's skill. Collision
   ⇒ ✗ (surface, do not auto-resolve).
@@ -764,7 +764,7 @@ uv run --project tools/sandbox-lint sandbox-lint --codex <repo-root>/.codex
 - ✗ on any invariant violation (sandbox mode, workspace network
   access, approval policy, or missing exec-policy coverage) — surface
   the violations for review. A conflicting adopter value is never
-  silently weakened; the remediation is `/magpie-setup` (adopt or
+  silently weakened; the remediation is `setup` (adopt or
   upgrade), which shows the diff and asks.
 
 When `.codex/` is absent this check is skipped — the Codex profile is
@@ -779,13 +779,13 @@ intentionally opted out of), say so explicitly and stop.
 If anything is ✗, end the report with a concrete next-step
 list, ordered most → least urgent:
 
-- ✗ on check 1 → `/magpie-setup upgrade` (re-fetches per
+- ✗ on check 1 → `setup upgrade` (re-fetches per
   the committed lock).
-- ✗ on check 3 (drift) → `/magpie-setup upgrade`.
+- ✗ on check 3 (drift) → `setup upgrade`.
 - ✗ on check 5 (dangling symlinks) →
-  `/magpie-setup verify --auto-fix-symlinks` (cheap;
+  `setup verify --auto-fix-symlinks` (cheap;
   no-op when symlinks already correct).
-- ✗ on check 6 → `/magpie-setup install` (idempotent
+- ✗ on check 6 → `setup install` (idempotent
   re-create).
 - ✗ on check 4 / SHA-512 mismatch → **investigate first**;
   do not run upgrade until you understand why the
@@ -807,7 +807,7 @@ list, ordered most → least urgent:
   the file's `permissions.allow[]` array. Print the JSON-
   pointer path so the operator can locate it. Per-machine
   `settings.local.json` writes go via
-  `/magpie-setup verify --apply-permission-audit`
+  `setup verify --apply-permission-audit`
   (interactive, atomic JSON edit, sandbox-bypass requires
   per-write authorisation). Committed `settings.json`
   writes are a regular file edit + commit; flag them
@@ -819,10 +819,10 @@ list, ordered most → least urgent:
   an adopter who skipped the `security` family will not
   see the Gmail / PonyMail entries surfaced as gaps.
 - ✗ on check 8e (ASF project, comdev MCP not registered or
-  off-`main`) → `/magpie-setup install` Step 9c to (re-)install
+  off-`main`) → `setup install` Step 9c to (re-)install
   from latest `apache/comdev` `main`. ⚠ on check 8e (PonyMail
   unauthenticated, or checkout behind `origin/main`) →
-  `mcp__ponymail__login()` and/or `/magpie-setup upgrade`
+  `mcp__ponymail__login()` and/or `setup upgrade`
   Step 6e (live fetch + `git pull --ff-only`).
 - All other ✗ / ⚠ → name the gap, give the one-line
   remediation.

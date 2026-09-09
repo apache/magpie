@@ -78,7 +78,7 @@ Start with [`setup`](setup/README.md) regardless — it is the prerequisite ever
 
 You have an open-source project with an issue tracker and/or PR queue, and you want agent assistance with the mechanical parts.
 
-→ Start with the [README](../README.md#install) (install steps) and [install recipes](setup/install-recipes.md).
+→ Start with the [quick start](quick-start.md) — install into your agent in two commands. If a marketplace is not an option, the [install recipes](setup/install-recipes.md) cover the pinned snapshot install.
 
 ### Security team members
 
@@ -128,6 +128,7 @@ from mailing lists, slack etc.
 | Pull a skill/family from a trusted external source | [skill-sources/README.md](skill-sources/README.md) |
 | Extend Magpie (project / org / individual) | [extending.md](extending.md) |
 | See what skills exist today | [modes.md](modes.md) |
+| Install it right now | [quick-start.md](quick-start.md) |
 | Install in my project | [README → Install](../README.md#install) |
 | Set up the secure agent sandbox | [setup/](setup/README.md) |
 | Understand the security workflow | [security/](security/README.md) |

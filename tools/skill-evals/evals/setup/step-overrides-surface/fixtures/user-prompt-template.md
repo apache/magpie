@@ -5,4 +5,4 @@
 
 {report}
 
-You are at Step 0b of `/magpie-setup override`. Choose the correct override surface. Return JSON only.
+You are at Step 0b of `setup override`. Choose the correct override surface. Return JSON only.

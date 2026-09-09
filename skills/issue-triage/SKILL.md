@@ -17,7 +17,7 @@ when_to_use: |
   dispositions for the unsorted queue". Also appropriate after
   a batch import or as a periodic sweep on stale candidates.
   Skip when team consensus has landed — invoke
-  `/magpie-issue-fix-workflow` for confirmed bugs or the appropriate
+  `issue-fix-workflow` for confirmed bugs or the appropriate
   closure flow directly.
 capability: capability:triage
 license: Apache-2.0
@@ -136,7 +136,7 @@ the discussion rather than starting it.
 
 | Class | When to propose | Sibling skill / action |
 |---|---|---|
-| `BUG` | Confirmed actionable bug; reproduces or has compelling evidence | [`/magpie-issue-fix-workflow`](../issue-fix-workflow/SKILL.md) |
+| `BUG` | Confirmed actionable bug; reproduces or has compelling evidence | [`issue-fix-workflow`](../issue-fix-workflow/SKILL.md) |
 | `FEATURE-REQUEST` | Valid improvement or new-feature request; not a bug | Re-type as Improvement; route to project's roadmap |
 | `NEEDS-INFO` | Missing repro steps, environment, version, or other actionable detail | Request info from reporter |
 | `DUPLICATE` | Substantive overlap with an existing tracker issue (open or closed) | Link to canonical issue |
@@ -251,7 +251,7 @@ Also at the top of every run, this skill compares the gitignored
 `.apache-magpie.local.lock` (per-machine fetch) against the
 committed `.apache-magpie.lock` (the project pin). On mismatch the
 skill surfaces the gap and proposes
-[`/magpie-setup upgrade`](../setup/upgrade.md). The proposal
+[`setup upgrade`](../setup/upgrade.md). The proposal
 is non-blocking — the user may defer if they want to run with the
 local snapshot for now. See
 [`docs/setup/install-recipes.md`](../../docs/setup/install-recipes.md#subsequent-runs-and-drift-detection)
@@ -717,7 +717,7 @@ After the post loop, print a recap with:
   NEEDS-INFO, 1 DUPLICATE, 0 INVALID, 1 ALREADY-FIXED"*).
 - Per-issue line: clickable issue link, class, comment URL.
 - The set of sibling-skill next-step recommendations, grouped:
-  - [`/magpie-issue-fix-workflow <KEY>`](../issue-fix-workflow/SKILL.md)
+  - [`issue-fix-workflow <KEY>`](../issue-fix-workflow/SKILL.md)
     for each `BUG` or `FEATURE-REQUEST` ready to draft.
   - Closure-flow recommendations for `INVALID` / `DUPLICATE` /
     `ALREADY-FIXED`.

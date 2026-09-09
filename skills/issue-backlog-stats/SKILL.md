@@ -135,7 +135,7 @@ Also at the top of every run, this skill compares the gitignored
 `.apache-magpie.local.lock` (per-machine fetch) against the committed
 `.apache-magpie.lock` (the project pin). On mismatch the skill surfaces
 the gap and proposes
-[`/magpie-setup upgrade`](../setup/upgrade.md).
+[`setup upgrade`](../setup/upgrade.md).
 The proposal is non-blocking — the user may defer if they want to run
 with the local snapshot for now. See
 [`docs/setup/install-recipes.md` § Subsequent runs and drift
@@ -250,7 +250,7 @@ No per-issue drill-in — this skill is aggregate-only.
 6. **Override consultation** — apply any adopter overrides from
    `.apache-magpie-overrides/issue-backlog-stats.md` if it exists.
 7. **Drift check** — compare `.apache-magpie.local.lock` vs
-   `.apache-magpie.lock`; surface and propose `/magpie-setup upgrade` on
+   `.apache-magpie.lock`; surface and propose `setup upgrade` on
    mismatch.
 
 A failure at step 1 or 2 is a **stop**. Steps 3–7 degrade with warnings.
@@ -363,12 +363,12 @@ Walk rules in declared order; each fired rule produces one entry with
 
 | # | Condition | Priority | Action |
 |---|---|---|---|
-| R1 | Untriaged issues > 40% of total | high | `/magpie-issue-triage` |
-| R2 | Stale candidates > 25% of total | high | `/magpie-issue-stale-sweep` |
-| R3 | Top-pressure area has > 20 untriaged issues | high | `/magpie-issue-triage component:<area>` |
-| R4 | Untriaged issues > 20% of total | medium | `/magpie-issue-triage` |
-| R5 | Stale candidates > 10% of total | medium | `/magpie-issue-stale-sweep` |
-| R6 | Issues older than 90 d > 30% of total | medium | `/magpie-issue-reassess` |
+| R1 | Untriaged issues > 40% of total | high | `issue-triage` |
+| R2 | Stale candidates > 25% of total | high | `issue-stale-sweep` |
+| R3 | Top-pressure area has > 20 untriaged issues | high | `issue-triage component:<area>` |
+| R4 | Untriaged issues > 20% of total | medium | `issue-triage` |
+| R5 | Stale candidates > 10% of total | medium | `issue-stale-sweep` |
+| R6 | Issues older than 90 d > 30% of total | medium | `issue-reassess` |
 | R7 | No rules fire | low | — (emit explicit "no urgent actions detected" panel) |
 
 If zero rules fire, surface the "no urgent actions" panel — never leave
@@ -410,7 +410,7 @@ tables-only (`--tables-only`) fallbacks are available.
      close_days`): count, oldest, recommended action.
    - *Close-threshold candidates* (`days_since_updated ≥ close_days`):
      count, oldest, recommended action.
-   Both feed the next `/magpie-issue-stale-sweep` run; the panel notes
+   Both feed the next `issue-stale-sweep` run; the panel notes
    the threshold values in use.
 8. **Detailed table** (collapsible in HTML, printed in markdown): one row
    per area with columns `Area | Total | Untriaged | Triaged | In-progress

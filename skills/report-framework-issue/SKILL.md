@@ -155,7 +155,7 @@ Also at the top of every run, this skill compares the gitignored
 `.apache-magpie.local.lock` (per-machine fetch) against the
 committed `.apache-magpie.lock` (the project pin). On mismatch the
 skill surfaces the gap and proposes
-[`/magpie-setup upgrade`](../setup/upgrade.md) — a drifted snapshot
+[`setup upgrade`](../setup/upgrade.md) — a drifted snapshot
 is itself worth mentioning in the report, since the bug may already
 be fixed upstream. The proposal is non-blocking.
 

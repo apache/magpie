@@ -42,24 +42,35 @@ friendlies. Testers welcome!
 
 ## Install
 
-You **adopt** Magpie once — the decision to bring the framework into your
-project — while **installation** is how you carry that out. There are two
-ways to install:
+**Start here → [Quick start](docs/quick-start.md)** — two commands, in the
+agent you already use.
 
-**From an agent marketplace (easiest).** Install the skills directly into your
-agent — Claude Code, Codex, Copilot, Gemini, Cursor, and more — with nothing
-committed to your repository. See
-[`docs/setup/marketplaces.md`](docs/setup/marketplaces.md).
+```text
+/plugin marketplace add apache/magpie              # Claude Code
+/plugin install magpie-setup@apache-magpie         # always take this one
+/plugin install magpie-pr-management@apache-magpie # + whichever families you need
+```
 
-**As a committed snapshot (installed into your repo).** For a project that
-adopts Magpie into its own source — pin a release and let `/magpie-setup`
-install the snapshot, overrides, and drift detection in the adopter repo:
+Install **one plugin per family you actually want** — that keeps the always-on
+context cost proportional (~0.2–2.0k tokens a family). The all-in-one
+`magpie` plugin installs all 74 skills at ~8.6k always-on tokens and is **not
+recommended** unless you genuinely need every family.
+
+Codex, VS Code / Copilot, and Gemini are one-liners too — the
+[quick start](docs/quick-start.md) has all four, plus what to run next to put
+the agent in its sandbox. Nothing is committed to your repository.
+
+**Fallback — the pinned snapshot install.** Use it when a marketplace is not
+an option or not enough: your agent has no plugin mechanism, you need the
+signed ASF source release rather than a git clone, or the project wants every
+contributor and CI job pinned to one committed version with drift detection.
 
 1. [Download / pin a release](https://magpie.apache.org/downloads/)
 2. Set up the symlinks and git-ignores — see
    [`docs/setup/install-recipes.md`](docs/setup/install-recipes.md)
 3. Ask your agent to complete the install: `/magpie-setup install`
-   (`/magpie-setup adopt` is an alias)
+
+The two are complementary, not exclusive.
 
 ## Usage
 

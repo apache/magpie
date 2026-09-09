@@ -8,7 +8,7 @@ description: |
   Walk an adopter through promoting a local
   `.apache-magpie-overrides/<skill>.md` file into a PR
   against `apache/magpie`. After the PR merges and
-  the adopter runs `/magpie-setup upgrade`, the override file
+  the adopter runs `setup upgrade`, the override file
   is no longer needed and the skill prompts for its removal.
 when_to_use: |
   Invoke when the user says "upstream my override", "promote
@@ -54,7 +54,7 @@ escape hatch: when an override stops being project-specific
 and starts looking like a missing feature, the right move
 is a PR that bakes the change into the framework's default,
 making every adopter benefit on their next
-`/magpie-setup upgrade`.
+`setup upgrade`.
 
 ## Adopter overrides
 
@@ -82,7 +82,7 @@ gitignored `.apache-magpie.local.lock` (per-machine
 fetch) against the committed `.apache-magpie.lock` (the
 project pin). On mismatch the skill surfaces the gap and
 proposes
-[`/magpie-setup upgrade`](../setup/upgrade.md).
+[`setup upgrade`](../setup/upgrade.md).
 The proposal is non-blocking — the user may defer if
 they want to run with the local snapshot for now. See
 [`docs/setup/install-recipes.md` § Subsequent runs and drift detection](../../docs/setup/install-recipes.md#subsequent-runs-and-drift-detection)
@@ -135,7 +135,7 @@ it is posted.
 Opening the framework PR is one step; deleting the now-
 redundant override file in the adopter repo is a separate
 step that happens AFTER the PR has merged AND the adopter
-has run `/magpie-setup upgrade` to pick up the framework
+has run `setup upgrade` to pick up the framework
 change. The skill ends with a clear pointer at the
 post-merge cleanup; it does not delete the override
 preemptively.
@@ -151,7 +151,7 @@ preemptively.
    override file.
 2. The snapshot is current (no drift per the section
    above). If drift exists, propose
-   `/magpie-setup upgrade` first.
+   `setup upgrade` first.
 3. Identify `<framework-clone>` — the user's local clone
    of `apache/magpie`. Common locations:
    `~/code/magpie/`, `~/work/magpie/`.
@@ -318,7 +318,7 @@ Framework PR opened: <PR URL>
 
 Next steps once it merges:
 
-  1. /magpie-setup upgrade   (in <adopter-repo>)
+  1. setup upgrade   (in <adopter-repo>)
      - Bumps the snapshot to the new framework version.
      - .apache-magpie.lock will reflect the new pin.
   2. Delete .apache-magpie-overrides/<skill>.md in <adopter-repo>
@@ -345,7 +345,7 @@ lands.
 ✓ PR opened:              <PR URL>
 
 Next: wait for the PR to merge, then in <adopter-repo>:
-  /magpie-setup upgrade
+  setup upgrade
   rm .apache-magpie-overrides/<skill>.md
   git add -A && git commit -m "Remove override <skill>: upstreamed in apache/magpie#<N>"
 ```
@@ -354,7 +354,7 @@ Next: wait for the PR to merge, then in <adopter-repo>:
 
 | Symptom | Likely cause | Remediation |
 |---|---|---|
-| `<adopter-repo>` has no `.apache-magpie-overrides/` | not adopted, or adopted without the overrides scaffold | run `/magpie-setup install` (idempotent) |
+| `<adopter-repo>` has no `.apache-magpie-overrides/` | not adopted, or adopted without the overrides scaffold | run `setup install` (idempotent) |
 | Step 1 finds zero overrides | nothing to upstream — adopter has no local modifications recorded | stop |
 | `<framework-clone>` not found | user has not cloned `apache/magpie` yet | help them clone, then resume |
 | Framework pre-commit fails after the implementation | the change does not match framework conventions | iterate with the user, re-run pre-commit, do not bypass with `--no-verify` |
@@ -366,9 +366,9 @@ Next: wait for the PR to merge, then in <adopter-repo>:
   per-skill pre-flight protocol documented in
   [`docs/setup/agentic-overrides.md`](../../docs/setup/agentic-overrides.md).
 - Not for *creating* a new override — that is
-  [`/magpie-setup override <skill>`](../setup/overrides.md).
+  [`setup override <skill>`](../setup/overrides.md).
 - Not for *upgrading* the snapshot — that is
-  [`/magpie-setup upgrade`](../setup/upgrade.md).
+  [`setup upgrade`](../setup/upgrade.md).
   Run that BEFORE this skill if drift exists.
 - Not for arbitrary framework PRs unrelated to overrides.
   This skill is specifically the override → PR flow. Other

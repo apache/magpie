@@ -67,7 +67,7 @@ Each action carries:
 - One-line title (from description.md when available, key alone
   otherwise).
 - The recommended next slash command:
-  - `/magpie-issue-fix-workflow <KEY>` for direct fixes
+  - `issue-fix-workflow <KEY>` for direct fixes
   - manual close for closure candidates
   - manual file-new-issue for new-issue candidates
   - manual re-type for tracker-hygiene

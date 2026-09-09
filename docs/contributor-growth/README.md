@@ -6,6 +6,8 @@
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
 - [Contributor-growth skill family](#contributor-growth-skill-family)
+  - [Install & first runs](#install--first-runs)
+    - [Try these first](#try-these-first)
   - [Stage coverage](#stage-coverage)
   - [Skills](#skills)
   - [Family boundary](#family-boundary)
@@ -38,6 +40,54 @@ health — lowering onboarding friction and shortening the time from first
 PR to committer status keeps the contributor pipeline healthy. These
 skills were designed independently but cover a contiguous path; grouping
 them makes the adopter configuration and the evaluation story coherent.
+
+## Install & first runs
+
+Install just this family — one plugin, 6 skills. The path-to-committer track.
+
+```text
+/plugin marketplace add apache/magpie
+/plugin install magpie-contributor-growth@apache-magpie
+```
+
+<!-- CAPTURE: assets/quickstart/README.md -->
+![Claude Code showing the magpie-contributor-growth plugin installed and enabled](../../assets/quickstart/families/contributor-growth-install.png)
+
+New to Magpie? The [quick start](../quick-start.md) covers the other agents,
+the all-in-one alternative, and the secure-isolation setup to run next.
+
+### Try these first
+
+*Illustrative shapes, not real transcripts — your output will differ. Nothing
+below sends, merges, or posts anything without you confirming it.*
+
+**Sweep recent contributor activity.**
+
+```text
+> /magpie-contributor-growth:activity-sweep
+
+  Last 180 days, 4 contributors past the review threshold
+  @kasia-w   31 PRs, 44 reviews  -> nomination-ready
+  @dmitry-p  12 PRs,  3 reviews  -> watch
+```
+
+**Draft a nomination brief.**
+
+```text
+> /magpie-contributor-growth:nomination
+
+  Brief for @kasia-w: 31 merged PRs, 44 reviews, 2 releases helped
+  Private [DISCUSS] mail drafted for the PMC list, not sent.
+```
+
+**Onboard a new committer.**
+
+```text
+> /magpie-contributor-growth:committer-onboarding
+
+  Checklist for @kasia-w: ICLA on file, account requested,
+  karma pending, welcome mail drafted. 2 items need a PMC chair.
+```
 
 ## Stage coverage
 

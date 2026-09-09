@@ -1,1 +1,1 @@
-{"status": "sync-needed", "severity": "warning", "remediation": "/magpie-setup upgrade"}
+{"status": "sync-needed", "severity": "warning", "remediation": "setup upgrade"}

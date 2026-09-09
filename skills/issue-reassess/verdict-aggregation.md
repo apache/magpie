@@ -167,7 +167,7 @@ report:
 ## Ready for fix-workflow
 
 These candidates have adapted reproducers ready as regression-test
-starting points. Invoke `/magpie-issue-fix-workflow <KEY>` to draft a fix:
+starting points. Invoke `issue-fix-workflow <KEY>` to draft a fix:
 
 - <KEY>-9999 — <one-line>; reproducer at <path>
 - ...
@@ -186,7 +186,7 @@ When the campaign completes, surface to the user:
 
 ```text
 Campaign aggregate written to <scratch>/<campaign-id>/report.md
-Dashboard view: /magpie-issue-reassess-stats <scratch>/<campaign-id>/
+Dashboard view: issue-reassess-stats <scratch>/<campaign-id>/
 ```
 
 ## Cross-references

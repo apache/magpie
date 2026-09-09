@@ -32,5 +32,5 @@ The collector emitted this dashboard:
 - **drift:** ✅ in sync · **snapshot:** present
 - **shared overrides** (`.apache-magpie-overrides/`): present (1 skill(s)) · **personal overrides** (`.apache-magpie-local/`): —
 - **hook:** installed
-- → deep check (integrity, permissions, worktrees): `/magpie-setup verify`
+- → deep check (integrity, permissions, worktrees): `setup verify`
 ```

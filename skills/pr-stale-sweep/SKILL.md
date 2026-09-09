@@ -231,7 +231,7 @@ At the top of every run, this skill compares the gitignored
 `.apache-magpie.local.lock` (per-machine fetch) against the committed
 `.apache-magpie.lock` (the project pin). On mismatch the skill surfaces
 the gap and proposes
-[`/magpie-setup upgrade`](../setup/upgrade.md). The proposal is non-blocking
+[`setup upgrade`](../setup/upgrade.md). The proposal is non-blocking
 — the user may defer if they want to run with the local snapshot for now.
 
 ---
@@ -294,7 +294,7 @@ Before reading any PR state, verify:
 5. **Validate thresholds** — hard error if `warn_days >= close_days` or
    if either value is negative.
 6. **Drift check** — compare `.apache-magpie.local.lock` vs
-   `.apache-magpie.lock`; surface and propose `/magpie-setup upgrade` on
+   `.apache-magpie.lock`; surface and propose `setup upgrade` on
    mismatch.
 7. **Override consultation** — apply any adopter overrides from
    `.apache-magpie-overrides/pr-stale-sweep.md` if it exists.

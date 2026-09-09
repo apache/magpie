@@ -549,12 +549,28 @@ prek install
 
 The hooks are described in detail under [Running the dev loop](#running-the-dev-loop).
 
+**Do not install Magpie from a marketplace to work on it.** This repo
+**self-adopts**: the committed `magpie-<skill>` symlinks point at the live
+`skills/` source, so a fresh clone already runs the skills you are editing.
+That is the default here — `/magpie-setup` detects the framework checkout and
+takes `method:local`, and a remote method against it is refused (a snapshot of
+the framework into itself would shadow the live source with a stale copy). Run
+`/magpie-setup method:local` only if the symlinks are missing or stale. A
+marketplace or snapshot install would layer a *second*, older copy of the same
+skills over your working tree.
+
+Because of that, **the skill names you type here are the single-token form** —
+`/magpie-pr-management-code-review`, not `/magpie-pr-management:code-review`.
+The colon form is the marketplace one, and it is what the user-facing docs
+show; see
+[Skill names differ by install method](docs/setup/marketplaces.md#skill-names-differ-by-install-method).
+
 If you intend to actually run framework skills against an adopter
 project (not just edit the framework), follow the
 [`setup-isolated-setup-install`](skills/setup-isolated-setup-install/SKILL.md)
 skill to install the bubblewrap sandbox and pinned tools, then
 [`setup-isolated-setup-verify`](skills/setup-isolated-setup-verify/SKILL.md)
-to confirm the install. The full adoption tutorial lives at
+to confirm the install. The install tutorial lives at
 [`docs/setup/install-recipes.md`](docs/setup/install-recipes.md).
 
 ### Lightening the agent context

@@ -89,7 +89,7 @@ heavy dashboards, the agent-emitted version is better.
 
 | Use case | Choice |
 |---|---|
-| Interactive maintainer view, one-off | Skill (`/magpie-issue-reassess-stats`) |
+| Interactive maintainer view, one-off | Skill (`issue-reassess-stats`) |
 | CI pipeline, scheduled refresh | Reference implementation |
 | Reproducible audit dashboard | Reference implementation |
 | Custom layout for one campaign | Skill (with overrides) |

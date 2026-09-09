@@ -31,18 +31,27 @@
 
 # Installing Apache Magpie from agent marketplaces
 
+> [!TIP]
+> Just want it installed? The [quick start](../quick-start.md) is the
+> two-command version of this page — the recommended path. Read on for the
+> full reference: every supported agent, per-family plugins, pinning, and
+> updates.
+
 From 0.2.0, Apache Magpie ships manifests so its skills can be installed
-through the plugin/extension mechanisms of the major AI coding agents,
-**in addition to** the canonical `/magpie-setup` snapshot adoption (see
-[`install-recipes.md`](install-recipes.md)).
+through the plugin/extension mechanisms of the major AI coding agents. This
+is the **recommended way to install Magpie**; the
+[pinned snapshot install](install-recipes.md) is the fallback for cases a
+marketplace does not cover.
 
 > [!IMPORTANT]
-> The marketplace path is a **discovery and trial** channel: it drops the
-> 74 skills into your agent so you can use them immediately. It does **not**
-> set up the full adoption machinery (the committed pin, the gitignored
-> snapshot, drift detection, agentic overrides, or the secure-agent setup).
-> For a project that adopts Magpie for real, use `/magpie-setup` — the
-> marketplace install and full adoption are complementary, not exclusive.
+> A marketplace install drops the 74 skills into your agent and is complete
+> for day-to-day use. What it does **not** set up on its own is the
+> repo-side machinery — the committed pin, the gitignored snapshot, drift
+> detection, agentic overrides — or the secure-agent setup, which you run
+> once as [`/magpie:setup-isolated-setup-install`](../quick-start.md#what-happens-next--the-secure-isolation-setup).
+> When a project wants every contributor pinned to one committed version,
+> add the [pinned snapshot install](install-recipes.md) alongside it. The
+> two are complementary, not exclusive.
 
 > [!NOTE]
 > The **canonical release** of Apache Magpie remains the signed source
@@ -60,14 +69,15 @@ through the plugin/extension mechanisms of the major AI coding agents,
 > catalog schemas, and the client-specific manifests still change between
 > releases (see [Verification status](#verification-status)).
 > If a marketplace install breaks, or your agent has no marketplace at all, the
-> **non-marketplace install is always available, universal, and portable**:
-> adopt Magpie with `/magpie-setup` from either the **signed SVN release**
+> **pinned snapshot install is always available, universal, and portable**:
+> install with `/magpie-setup` from either the **signed SVN release**
 > (`dist.apache.org`) or the **GitHub repo** (git tag or branch) — see
 > [`install-recipes.md`](install-recipes.md). That path is **harness-neutral**:
 > it wires the skills into *any* agent's directory via the universal
 > `.agents/skills/` layout, so it works on **every** agentic CLI — not only the
-> ones with a marketplace. Rule of thumb: use a marketplace for a quick trial
-> on a supported agent; use `/magpie-setup` for a stable, portable install.
+> ones with a marketplace. Rule of thumb: install from a marketplace whenever
+> your agent has one; fall back to the pinned snapshot when it does not, or
+> when the project needs one committed version pin.
 
 ## Two manifest families: Agent Plugins 1.0 and client-specific
 
@@ -110,26 +120,36 @@ is a **fatal** manifest error for an AP1 client, not an ignorable one.
 
 ## Choosing a plugin: all-in-one vs per-family
 
-The framework ships as **eleven** plugins. You can install **either** the
-all-in-one plugin **or** any number of per-family plugins — and you can mix
-several families. Pick based on the trade-off between install simplicity and
+The framework ships **eleven skill plugins** — the all-in-one plus ten
+per-family — and you can install **either** the all-in-one **or** any number of
+per-family plugins, mixing several families.
+
+Two further entries in the catalog are **substrate plugins**, which ship tooling
+rather than skills and are installed independently of the choice below:
+`magpie-agent-guard` (a `PreToolUse` hook that denies shell commands breaking a
+hard framework rule) and `magpie-vetted-ops` (a dispatcher for fixed,
+policy-scoped forge operations, so a session needs one allowlist entry instead
+of a dozen wildcard `ask` rules). Both run from the installed plugin, so no
+repository or worktree needs a local copy — and neither adds always-on skill
+context. Pick based on the trade-off between install simplicity and
 always-on token cost (each installed skill advertises a short description to
 the model on **every** turn — see ["always-on" cost](#versioning) below).
 
-**All-in-one — `magpie`**
+**All-in-one — `magpie`** *(not recommended)*
 
 - ✅ One install; all 74 skills; nothing to decide. Uses the real `skills/`
   directory, so **no symlinks** — works on Windows out of the box.
-- ⚠️ Adds **~21.7k always-on tokens to every session**, including families you
+- ⚠️ Adds **~8.6k always-on tokens to every session**, including families you
   may never use — that context (and cost) is spent whether or not you invoke a
   Magpie skill that turn.
-- Best when you genuinely want everything, or you're on Windows without symlink
-  support.
+- **Take it only when you genuinely need all ten families**, when you're on
+  Windows without symlink support, or on an agent where the per-family plugins
+  are not available (everything except Claude Code — see below).
 
 **Per-family — `magpie-<family>`** *(recommended)*
 
 - ✅ Install only the families you use, so the always-on cost is proportional
-  (`magpie-security` ≈ 3.9k, `magpie-pairing` ≈ 0.6k). Install several to mix
+  (`magpie-security` ≈ 2.0k, `magpie-pairing` ≈ 0.2k). Install several to mix
   and match.
 - ⚠️ You manage a few installs instead of one; adding a family later is a
   separate install; relies on git symlinks (see the Windows note below).
@@ -142,21 +162,30 @@ so pick one approach.
 
 | Family plugin | Skills | ~Always-on tokens |
 |---|---|---|
-| `magpie-security` | 12 | ~3.9k |
-| `magpie-release-management` | 10 | ~2.9k |
-| `magpie-setup` | 9 | ~2.6k |
-| `magpie-pr-management` | 8 | ~2.4k |
-| `magpie-issue` | 8 | ~2.4k |
-| `magpie-repo-health` | 7 | ~2.1k |
-| `magpie-contributor-growth` | 6 | ~1.8k |
-| `magpie-utilities` | 4 | ~1.4k |
-| `magpie-mentoring` | 4 | ~1.2k |
-| `magpie-pairing` | 2 | ~0.6k |
-| **`magpie`** (all) | **70** | **~21.7k** |
+| `magpie-security` | 15 | ~2.0k |
+| `magpie-setup` | 9 | ~1.1k |
+| `magpie-release-management` | 10 | ~1.0k |
+| `magpie-pr-management` | 8 | ~1.0k |
+| `magpie-issue` | 8 | ~0.8k |
+| `magpie-repo-health` | 7 | ~0.7k |
+| `magpie-utilities` | 5 | ~0.7k |
+| `magpie-contributor-growth` | 6 | ~0.6k |
+| `magpie-mentoring` | 4 | ~0.5k |
+| `magpie-pairing` | 2 | ~0.2k |
+| **`magpie`** (all) | **74** | **~8.6k** |
+
+> [!NOTE]
+> **How the token column is measured.** An installed skill advertises its
+> frontmatter `name` and `description` to the model on every turn; the body of
+> `SKILL.md` costs nothing until the skill is actually invoked. The figures
+> above are that advertised surface at ~4 characters per token. Regenerate them
+> with `python3 tools/dev/estimate-skill-tokens.py`; both the counts and the
+> token figures are enforced against the live frontmatter by
+> `tools/dev/check-doc-sync.py`, so a stale number fails the build.
 
 Skills are invoked under the installing plugin's namespace — e.g.
 `/magpie:release-vote-tally` (all-in-one) or
-`/magpie-release-management:release-vote-tally` (family plugin).
+`/magpie-release-management:vote-tally` (family plugin).
 
 Per-family plugins reference the shared `skills/` tree via symlinks (no copies),
 so there is a single source of truth for every skill.
@@ -198,8 +227,8 @@ marketplace plugins namespace with `plugin:skill` and keep the bare skill name.
 
 | Skill (directory) | Portable — `/magpie-setup` snapshot | Marketplace — all-in-one `magpie` | Marketplace — family plugin |
 |---|---|---|---|
-| `release-vote-tally` | `/magpie-release-vote-tally` | `/magpie:release-vote-tally` | `/magpie-release-management:release-vote-tally` |
-| `security-issue-triage` | `/magpie-security-issue-triage` | `/magpie:security-issue-triage` | `/magpie-security:security-issue-triage` |
+| `release-vote-tally` | `/magpie-release-vote-tally` | `/magpie:release-vote-tally` | `/magpie-release-management:vote-tally` |
+| `security-issue-triage` | `/magpie-security-issue-triage` | `/magpie:security-issue-triage` | `/magpie-security:issue-triage` |
 | `setup` | `/magpie-setup` | `/magpie:setup` | `/magpie-setup:setup` |
 
 Why the difference:
@@ -213,14 +242,28 @@ Why the difference:
   skills.
 - **Marketplace install** — the **plugin name** is the namespace, applied with a
   **colon**: `/<plugin>:<skill>`. The `magpie-` frontmatter prefix is ignored
-  (the plugin already namespaces), so the skill keeps its bare directory name.
-  With the all-in-one plugin that's `/magpie:<skill>`; with a family plugin it's
-  `/magpie-<family>:<skill>`.
+  (the plugin already namespaces). With the all-in-one plugin the skill keeps
+  its bare directory name, `/magpie:<skill>`; with a family plugin it is
+  advertised under a **de-stuttered alias**, `/magpie-<family>:<alias>`.
+- **Why the family plugins alias.** `magpie-security` + `security-issue-triage`
+  would read `/magpie-security:security-issue-triage`, saying "security" twice. <!-- allow-stutter -->
+  Each family plugin reaches its skills through symlinks, and the *symlink* name
+  is what the plugin advertises — so the family prefix comes off there, while
+  the source directory keeps it. It has to: the portable install flattens all 74
+  skills into one namespace, where that prefix is the only thing separating
+  `issue-stale-sweep` from `pr-stale-sweep`. The rule lives in `plugin_alias()`
+  in [`tools/dev/check-family-plugins.py`](../../tools/dev/check-family-plugins.py)
+  and is enforced both ways: the plugin symlinks are generated from it, and
+  `check-doc-sync.py` fails any doc that invokes a stuttering form.
 
-Throughout this repo's own docs and skills, cross-references use the
-**portable** form (`/magpie-<name>`), because that is the canonical install.
-When you install via a marketplace, translate `/magpie-<name>` to
-`/<plugin>:<name>` (drop the `magpie-` prefix, add the plugin namespace).
+**Which form the docs use.** Magpie's user-facing docs — the
+[quick start](../quick-start.md), the family READMEs, the top-level README —
+use the **family-plugin** form, because a marketplace install is the
+recommended path. The skills themselves refer to each other by **bare skill
+name** rather than any slash command, since a skill cannot know which way the
+reader installed it. If you are on the snapshot install, translate
+`/<plugin>:<alias>` to the single token `/magpie-<directory-name>` using the
+table above — note it is the **directory** name, not the alias.
 
 ## Supported agents
 
@@ -257,8 +300,8 @@ Detailed steps per agent follow.
 2. Install the all-in-one plugin, **or** just the families you use:
 
    ```text
-   /plugin install magpie@apache-magpie                    # everything (~21.7k always-on)
-   /plugin install magpie-security@apache-magpie           # one family (~3.9k always-on)
+   /plugin install magpie@apache-magpie                    # everything (~8.6k always-on)
+   /plugin install magpie-security@apache-magpie           # one family (~2.0k always-on)
    /plugin install magpie-release-management@apache-magpie
    ```
 

@@ -520,7 +520,7 @@ self-check answers.
 >
 > > **Step C.**
 > > ```text
-> > In Claude Code, press Ctrl+K and type /magpie-issue-triage to start the
+> > In Claude Code, press Ctrl+K and type /magpie-issue:triage to start the
 > > skill. You will see the output in the conversation panel on the right.
 > > ```
 >
