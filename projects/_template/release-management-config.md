@@ -96,7 +96,7 @@ publishes to `dist.apache.org`. It is an ASF-only backend and an
 alternative to `svnpubsub` for the same `dev-list-vote` /
 `announce-list` approval and announce mechanisms. See the
 [ATR release runbook](../../docs/release-management/atr-release-runbook.md)
-for the phase-by-phase flow. ATR is in alpha; until a PMC ratifies it,
+for the phase-by-phase flow. ATR is in beta; until a PMC ratifies it,
 `svnpubsub` remains the ratified default.
 
 `release_vote_backend` **decouples vote administration from artefact
@@ -109,9 +109,10 @@ letting it host or publish the release yet:
   Combine `release_vote_backend = atr` with `release_dist_backend =
   svnpubsub` for the **hybrid** flow: SVN hosts (`dist/dev`) and promotes
   (`svn mv` to `dist/release`), while ATR only checks and drives the vote
-  — ATR's Finish/publish is skipped. This is the recommended stance while
-  ATR is alpha (checks + vote automation are useful; hosting/publishing is
-  not yet trusted). `release_vote_backend` is ignored when
+  — ATR's Finish/publish is skipped. This is the recommended stance until a
+  PMC ratifies ATR as its release backend (checks + vote automation are
+  useful; whether ATR hosts and publishes is a governance decision, not
+  merely a question of the platform's maturity). `release_vote_backend` is ignored when
   `release_dist_backend = atr` (ATR already owns the vote in the full
   flow).
 
@@ -126,7 +127,7 @@ The state-change boundaries are backend-independent.
 |---|---|
 | `release_dist_url_template` | `https://dist.apache.org/repos/dist/<bucket>/airflow/<version>/` |
 | `archive_url_template` | `https://archive.apache.org/dist/airflow/` |
-| `atr_platform_url` | *(set when `release_vote_backend = atr` or `release_dist_backend = atr`; ASF alpha host `https://release-test.apache.org/`, production `https://release.apache.org/`)* |
+| `atr_platform_url` | *(set when `release_vote_backend = atr` or `release_dist_backend = atr`; ASF test host `https://release-test.apache.org/`, production `https://release.apache.org/`)* |
 | `release_publish_command_template` | *(`svnpubsub` default; non-ASF adopters override with backend-specific command, e.g. `gh release upload <version> <artefacts>` for `github-releases`, `aws s3 cp --recursive <local> s3://<bucket>/<version>/` for `s3`)* |
 
 `<bucket>` resolves to `dev` (staging) or `release` (promoted)
