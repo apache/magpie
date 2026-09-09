@@ -38,8 +38,29 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
-      - name: "Run zizmor"
-        uses: zizmorcore/zizmor-action@70fb788f84895a7701f5643d103d587e460b5c99  # v0.6.3
+      # zizmor runs from the root uv workspace's `dev` group rather than
+      # through `zizmorcore/zizmor-action`. The action's `action.sh` runs
+      # the tool with `docker pull` + `docker run` and aborts with
+      # "Cannot run this action without Docker"; `ubuntu-slim` jobs are
+      # themselves containers with no Docker daemon, so the job failed
+      # before zizmor was ever invoked. Installing the CLI from PyPI also
+      # puts its version under the root lockfile and the
+      # `[tool.uv] exclude-newer` cooldown, same as prek.
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d  # v10.0.1
         with:
-          advanced-security: false
-          config: .zizmor.yml
+          enable-cache: true
+      - name: "Install zizmor"
+        # `--no-install-workspace` — zizmor is a leaf tool that imports
+        # nothing from this repo, so building the workspace's ~34 member
+        # packages to run it would be pure cost on a 1-vCPU runner.
+        run: uv sync --group dev --no-install-workspace
+      - name: "Run zizmor"
+        # `--persona regular` matches the action's default (and its
+        # `advanced-security: false`): report findings on the console and
+        # exit non-zero, with no SARIF upload to code scanning.
+        # GH_TOKEN enables the audits that need the REST API (the
+        # `actions: read` permission above); without it zizmor skips them
+        # with a warning instead of failing.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: uv run zizmor --config .zizmor.yml --persona regular .

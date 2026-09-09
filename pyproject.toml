@@ -17,7 +17,7 @@
 
 # Root pyproject.toml — frames the framework root as a uv-managed
 # project so the `[tool.uv] exclude-newer` cooldown below actually
-# applies to the root-level tooling (currently just `prek`, declared
+# applies to the root-level tooling (`prek` and `zizmor`, declared
 # under `[dependency-groups] dev`). `uv tool install` ignores
 # pyproject.toml settings, so prek is installed into a uv-managed
 # environment via `uv sync --group dev` instead.
@@ -55,6 +55,15 @@ requires-python = ">=3.11"
 #   the three pins in every member with an instruction to keep them in
 #   lockstep, and they had already drifted into three different mypy
 #   floors, two pytest floors, and two ruff floors.
+# - `zizmor` is the GitHub Actions security analyser run by
+#   `.github/workflows/zizmor.yml`. It is declared here rather than
+#   invoked through `zizmorcore/zizmor-action` because that action runs
+#   the tool via `docker pull` + `docker run` and aborts with "Cannot
+#   run this action without Docker" — and there is no Docker daemon on
+#   the container-based `ubuntu-slim` runners this repo uses.
+#   Installing the CLI from PyPI also brings zizmor under the
+#   `exclude-newer` cooldown and the root lockfile, and makes
+#   `uv run zizmor` reproduce CI locally.
 #
 # Lower bounds mirror what individual tools needed at their last
 # bump; the upper bound is enforced implicitly by the 7-day
@@ -63,6 +72,7 @@ requires-python = ">=3.11"
 dev = [
   "prek>=0.4.12",
   "magpie-dev",
+  "zizmor>=1.30.0",
 ]
 
 [tool.uv]

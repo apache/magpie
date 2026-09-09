@@ -819,7 +819,9 @@ Separate GitHub workflows:
 
 - **`pre-commit.yml`** — runs `prek run --all-files` in CI.
 - **`zizmor.yml`** — lints GitHub Actions workflows for known-bad
-  patterns; runs on every PR.
+  patterns; runs on every PR. zizmor is declared in the root
+  `pyproject.toml` dev group, so `uv run zizmor --config .zizmor.yml .`
+  reproduces the CI run locally.
 The link check ([lychee](https://lychee.cli.rs/)) is **not** a
 separate workflow — it runs as the `lychee` hook inside
 `prek run --all-files` (the `pre-commit.yml` workflow above), and so
