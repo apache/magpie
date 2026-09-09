@@ -66,9 +66,10 @@ So the artefacts live in **two** places during a vote: the SVN `dist/dev`
 staging dir (the canonical download the `[VOTE]` points at) **and** the ATR
 candidate, which runs the policy checks and drives the vote. Promotion
 (**Finish**) is done over SVN, *not* through ATR — ATR does not host or
-publish Magpie releases while it is alpha. This flips to full ATR
-(`release_dist_backend = atr`) only after the PMC ratifies ATR and it
-leaves alpha.
+publish Magpie releases yet. This flips to full ATR
+(`release_dist_backend = atr`) only after the PMC ratifies ATR. ATR has
+since reached beta, so that maturity precondition is met and the
+ratification vote is what remains.
 
 The two non-negotiable boundaries still hold: **the RM signs every
 artefact on their own machine**, and **the RM/PMC — never the agent —
@@ -159,7 +160,8 @@ atr upload magpie "${VERSION}" "${ARTIFACT}.sha512" "${ARTIFACT}.sha512"
 atr check status magpie "${VERSION}" --verbose
 ```
 
-ATR is alpha — treat client verbs as the *shape* of the operation and
+ATR is beta and its client is not yet stable — treat client verbs as
+the *shape* of the operation and
 confirm with `atr --help`; the web UI is the stable path. Run
 [`release-verify-rc`](../../skills/release-verify-rc/SKILL.md) locally too,
 as an independent second read.
@@ -351,7 +353,7 @@ exact command and output.
 ## Caveats hit during rc1 / rc2
 
 Real friction from the `0.1.0` iterations, recorded so the next RM expects
-it. Most trace to ATR being **alpha**; none blocked the release.
+it. Most trace to ATR being **alpha at the time**; none blocked the release.
 
 - **The `[VOTE]` email was part-template, part-manual.** ATR's generated
   template was incomplete for the hybrid case, so the `rc2` body was
