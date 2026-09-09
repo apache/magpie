@@ -7,7 +7,7 @@
 
 - [ATR release runbook (Apache Trusted Releases)](#atr-release-runbook-apache-trusted-releases)
   - [Why ATR](#why-atr)
-  - [Status: alpha](#status-alpha)
+  - [Status: beta](#status-beta)
   - [The three ATR phases vs the 14-step lifecycle](#the-three-atr-phases-vs-the-14-step-lifecycle)
   - [What ATR does *not* change](#what-atr-does-not-change)
   - [State-change boundaries (unchanged from `svnpubsub`)](#state-change-boundaries-unchanged-from-svnpubsub)
@@ -81,15 +81,16 @@ This keeps the release policy-compliant by construction, which is the
 point of ATR: releases that are *trusted* because the platform, not a
 tired human at 2am, enforced the mechanics.
 
-## Status: alpha
+## Status: beta
 
 > [!IMPORTANT]
-> ATR is an **ASF Tooling** platform still in **alpha**. As of this
-> writing the platform runs at the alpha deployment
+> ATR is an **ASF Tooling** platform, now in **beta**. As of this
+> writing the platform runs at the ASF test deployment
 > **<https://release-test.apache.org/>** (the production host will be
 > **release.apache.org**), and the `atr` client and API schema are
-> explicitly **not yet stable** — do not pin unattended scripts to
-> them. Exact client subcommand names may shift; where this runbook
+> still **not stable** — beta is not a stability guarantee, so do not
+> pin unattended scripts to them. Exact client subcommand names may
+> shift; where this runbook
 > gives a command, treat it as the shape of the operation and confirm
 > the current verb with `atr --help` and the
 > [ATR user guide](https://release-test.apache.org/docs/).
@@ -102,9 +103,11 @@ tired human at 2am, enforced the mechanics.
 
 > [!IMPORTANT]
 > **Hybrid mode (Magpie's current stance): SVN hosts, ATR votes.**
-> Because ATR is still alpha, Magpie does **not** yet let it host or
-> publish releases — but it *does* use ATR's automated checks and vote
-> administration. This is expressed as two independent config keys in
+> Magpie does **not** yet let ATR host or publish releases — but it
+> *does* use ATR's automated checks and vote administration. Note that
+> this is now a **governance** question rather than a maturity one:
+> ATR reaching beta satisfies the maturity precondition, leaving the
+> PMC ratification vote as the only remaining blocker. This is expressed as two independent config keys in
 > [`release-management-config.md`](../../projects/magpie/release-management-config.md):
 > `release_dist_backend = svnpubsub` **and** `release_vote_backend = atr`.
 > Under this mode:
