@@ -541,7 +541,14 @@ below, annotated.
       "Bash(gh workflow view *)", "Bash(gh workflow list *)",
       "Bash(gh release view *)", "Bash(gh release list *)",
       "Bash(gh label list *)", "Bash(gh cache list *)",
-      "Bash(gh search *)", "Bash(gh browse *)", "Bash(gh auth status*)"
+      "Bash(gh search *)", "Bash(gh browse *)", "Bash(gh auth status*)",
+      // The vetted-ops dispatcher: ONE allow entry standing in for the write
+      // operations that would otherwise each need a wildcard `ask`. Safe to
+      // `allow` rather than `ask` because the operation catalogue is closed —
+      // a parameter can never become a command, a flag, or a different repo
+      // (see tools/vetted-ops/README.md). The version segment is globbed
+      // because the plugin cache is versioned per install.
+      "Bash(uv run --project ~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/*/tools/vetted-ops vetted-op *)"
     ],
     "deny": [
       "Read(~/.aws/**)", "Read(~/.ssh/**)", "Read(~/.netrc)",
@@ -554,7 +561,20 @@ below, annotated.
       "Bash(aws *)", "Bash(gcloud *)", "Bash(az *)", "Bash(kubectl *)",
       "Bash(docker login *)", "Bash(npm publish *)",
       "Bash(pip install --upgrade *)", "Bash(uv self update *)",
-      "Bash(gh auth token*)", "Bash(gh auth refresh*)"  // gh runs unsandboxed (excludedCommands), so deny the two subcommands that would print/rotate the token
+      "Bash(gh auth token*)", "Bash(gh auth refresh*)",  // gh runs unsandboxed (excludedCommands), so deny the two subcommands that would print/rotate the token
+      // The vetted-ops exclusion. The dispatcher is only trustworthy while the
+      // agent that calls it cannot rewrite what it may do. Two surfaces, and
+      // they are protected by different things:
+      //   - the operation catalogue, under the installed plugin. Also outside
+      //     every sandbox.filesystem.allowWrite root, so Bash cannot write it
+      //     either while the sandbox is on.
+      //   - the policy TOML, which lives INSIDE the adopter repo and is
+      //     therefore sandbox-writable. These two rules are the only thing
+      //     standing between an agent and widening its own caller grants.
+      "Edit(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)",
+      "Write(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)",
+      "Edit(.apache-magpie-overrides/tools/vetted-ops/**)",
+      "Write(.apache-magpie-overrides/tools/vetted-ops/**)"
     ],
     "ask": [
       "Bash(git push *)",                        // including --force / --force-with-lease variants
@@ -570,6 +590,19 @@ CLI, `oauth-draft-create`) need to *use* the credential, but the
 agent should never *see* it. `sandbox.filesystem.allowRead` permits
 the bash subprocess to read the file; `permissions.deny[Read(...)]`
 blocks the agent's Read tool from reading the same path.
+
+**What the vetted-ops exclusion does and does not cover.** The two
+`deny` rules block the agent's own `Edit`/`Write` tools. The
+catalogue gets a second, independent layer for free: the plugin
+cache sits outside every `sandbox.filesystem.allowWrite` root, so a
+sandboxed `Bash` call cannot write it either. The **policy TOML has
+no such second layer** — it lives inside the adopter repo, which is
+sandbox-writable by design, so a Bash-level write (`sed -i`, a
+heredoc redirect) would slip past the `Edit`/`Write` deny. Treat the
+policy file as protected against the agent's editing tools, not
+against arbitrary shell. If that gap matters for your threat model,
+keep the policy in a path the sandbox does not grant write to and
+point `--config` at it.
 
 **OpenCode parity.** OpenCode has no per-command sandbox exclusion — its
 isolation is the OS-level sandbox of the [clean-env wrapper](#the-clean-env-wrapper),
@@ -2122,6 +2155,16 @@ below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
    `[NO SANDBOX]`).
 7. Run `cat ~/.aws/credentials`, `echo $AWS_ACCESS_KEY_ID`, and
    `curl https://example.com` and confirm each is denied.
+8. The **vetted-ops exclusion** is in `permissions.deny`: `Edit`
+   and `Write` are both denied on
+   `~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**`
+   (the operation catalogue) *and* on
+   `.apache-magpie-overrides/tools/vetted-ops/**` (the policy that
+   says which caller may run which operation). Report ✗ if either
+   surface is missing a rule — a dispatcher whose catalogue or
+   policy the calling agent can edit grants exactly the authority
+   it was built to bound. If the repo has no vetted-ops policy at
+   all, report the check as n/a rather than ✗.
 ```
 
 Re-run either form after every Claude Code upgrade — the sandbox

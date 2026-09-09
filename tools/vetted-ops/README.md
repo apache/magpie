@@ -197,18 +197,40 @@ underlying command failed.
 Replace the wildcard `ask` rules with one `allow` entry, and keep an `ask` on
 anything still invoked directly:
 
-```json
+```jsonc
 "permissions": {
-  "allow": [ "Bash(uv run --project <plugin>/tools/vetted-ops vetted-op *)" ]
+  "allow": [
+    "Bash(uv run --project ~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/*/tools/vetted-ops vetted-op *)"
+  ],
+  "deny": [
+    "Edit(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)",
+    "Write(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)",
+    "Edit(.apache-magpie-overrides/tools/vetted-ops/**)",
+    "Write(.apache-magpie-overrides/tools/vetted-ops/**)"
+  ]
 }
 ```
 
 The dispatcher must live where the agent cannot rewrite it — otherwise an agent
-that edits `ops.py` has defeated the whole design. Shipping it inside the
-installed plugin tree satisfies this: the plugin install is not a path the agent
-edits. If you vendor it into a repo the agent *does* edit, add a
-`permissions.deny` on `Write`/`Edit` for that path, and understand that the
-guarantee is then only as strong as that rule.
+that edits `ops.py` has defeated the whole design. That is why it ships as the
+`magpie-vetted-ops` **substrate plugin**: the installed plugin tree is not a path
+the agent edits, and it sits outside every `sandbox.filesystem.allowWrite` root,
+so sandboxed Bash cannot write there either.
+
+The `deny` rules above are the other half, and the `allow` is not defensible
+without them. Two surfaces define what the dispatcher may do — the operation
+catalogue and the **policy**, which names the caller→operation grants. An agent
+able to edit either one can grant itself the write access the wildcard `ask`
+rules were removed for; adding an op to the catalogue and adding itself to a
+caller list reach the same place.
+
+Be clear about the asymmetry: the catalogue is protected twice (deny rules plus
+the sandbox), the policy only once. The policy lives inside the adopter repo,
+which is sandbox-writable by design, so a Bash-level write (`sed -i`, a heredoc)
+is **not** covered by an `Edit`/`Write` deny. If that gap matters, keep the
+policy outside the writable root and point `--config` at it. Vendoring the
+dispatcher itself into a repo the agent edits reduces it to the same single
+layer.
 
 ## Tests
 

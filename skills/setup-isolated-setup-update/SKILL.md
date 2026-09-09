@@ -281,6 +281,25 @@ Walk each:
    why). Report any newly-allowed call as a regression that
    warrants attention.
 
+### The vetted-ops exclusion
+
+If the adopter uses the `vetted-ops` dispatcher (a
+`.apache-magpie-overrides/tools/vetted-ops/config.toml` exists, or
+`.claude/settings.json` carries a `vetted-op` allow rule), confirm
+`permissions.deny` still covers both surfaces, each with `Edit`
+and `Write`:
+
+- `~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**`
+- `.apache-magpie-overrides/tools/vetted-ops/**`
+
+Report a missing rule as drift to repair, not a note. This is the
+check most likely to rot in practice: the plugin-cache path carries
+the plugin *name*, so a family rename or a move of the dispatcher
+to a different substrate plugin leaves a deny rule that still looks
+plausible but no longer matches anything. Resolve the glob against
+the installed tree and confirm it actually hits the catalogue,
+rather than eyeballing the string.
+
 ## After the report
 
 If everything is in sync and verification still passes, say so

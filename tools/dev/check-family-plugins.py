@@ -151,6 +151,12 @@ DESC = {
 # on every single Bash call. One dedicated owner runs it exactly once, whatever
 # else is installed.
 AGENT_GUARD_ENGINE = "tools/agent-guard/src/agent_guard/__init__.py"
+# The dispatcher's entry point. `vetted-ops` publishes no hook — it is invoked
+# from a skill's Bash call — but it is a substrate plugin for the *other* half of
+# the reason: the tool must live where the agent cannot rewrite it. An agent that
+# can edit `ops.py` has defeated the whole design, so the catalogue has to sit in
+# the installed plugin tree rather than in a consumer repository.
+VETTED_OPS_ENTRY = "tools/vetted-ops/src/vetted_ops/cli.py"
 SUBSTRATE_PLUGINS: dict[str, dict] = {
     "magpie-agent-guard": {
         "description": (
@@ -176,6 +182,18 @@ SUBSTRATE_PLUGINS: dict[str, dict] = {
                 }
             ]
         },
+    },
+    "magpie-vetted-ops": {
+        "description": (
+            "Apache Magpie \u2014 vetted-ops: a dispatcher for fixed, policy-scoped forge "
+            "operations, so a session needs one allowlist entry instead of a dozen wildcard "
+            "`ask` rules. Runs from the installed plugin, which is what keeps the operation "
+            "catalogue out of reach of the agent that calls it."
+        ),
+        "links": {"tools/vetted-ops": "vetted-ops"},
+        # The dispatcher is invoked directly by skills, so the entry point is what
+        # must resolve; there is no hook whose silence would hide a broken link.
+        "must_resolve": (VETTED_OPS_ENTRY,),
     },
 }
 
@@ -215,7 +233,13 @@ def substrate_manifest(name: str, shared: dict) -> dict:
     """The manifest `--fix` writes for a substrate plugin — the single source of
     truth `check` compares the on-disk file against."""
     spec = SUBSTRATE_PLUGINS[name]
-    return {"name": name, "description": spec["description"], **shared, "hooks": spec["hooks"]}
+    manifest = {"name": name, "description": spec["description"], **shared}
+    # A substrate plugin exists to publish a tool from the installed plugin root.
+    # Wiring a hook is one reason to need that, not the only one, so a spec
+    # without `hooks` emits a manifest without the key rather than an empty one.
+    if "hooks" in spec:
+        manifest["hooks"] = spec["hooks"]
+    return manifest
 
 
 def check_substrate(name: str, shared: dict) -> list[str]:
@@ -240,7 +264,7 @@ def check_substrate(name: str, shared: dict) -> list[str]:
         errors.append(f"{path}: missing/empty 'description'")
     if "skills" in data:
         errors.append(f"{path}: substrate plugins ship a tool, not skills — drop 'skills'")
-    if data.get("hooks") != spec["hooks"]:
+    if data.get("hooks") != spec.get("hooks"):
         errors.append(
             f"{path}: 'hooks' does not match the wiring the framework expects (regenerate with --fix)"
         )
@@ -262,10 +286,12 @@ def check_substrate(name: str, shared: dict) -> list[str]:
     # the file the command names is not reachable from the plugin root.
     for rel in spec["must_resolve"]:
         if not (pdir / rel).is_file():
-            errors.append(
-                f"{name}: {pdir / rel} does not resolve — the hook command names it, "
-                f"so the guard would silently never run"
+            consequence = (
+                "the hook command names it, so the guard would silently never run"
+                if "hooks" in spec
+                else "the tool's entry point names it, so every call would fail to start"
             )
+            errors.append(f"{name}: {pdir / rel} does not resolve — {consequence}")
     return errors
 
 

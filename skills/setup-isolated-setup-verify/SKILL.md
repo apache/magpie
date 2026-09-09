@@ -122,7 +122,7 @@ Drift severity:
   path, the version string, the command output, the
   `sandbox.enabled` value — never just "✓" or "✗" alone.
 
-## The 8 checks
+## The 9 checks
 
 The canonical list lives in
 [docs/setup/secure-agent-setup.md → Verification → Via a Claude Code prompt](../../docs/setup/secure-agent-setup.md#via-a-claude-code-prompt-1).
@@ -283,6 +283,33 @@ Walk each in order:
    operator is in **per-project** scope (the default). No further
    sub-check needed — the per-project mode is fully covered by
    the static + live-probe checks above.
+
+9. **The vetted-ops exclusion.** Only meaningful when the adopter
+   routes forge operations through the `vetted-ops` dispatcher; if
+   the repo has no `.apache-magpie-overrides/tools/vetted-ops/config.toml`
+   and no `vetted-op` allow rule, report **n/a** and move on.
+
+   When it *is* in use, the dispatcher is trustworthy only while the
+   agent calling it cannot rewrite what it is permitted to do. Check
+   `permissions.deny` covers **both** surfaces, each with `Edit` and
+   `Write`:
+
+   - `~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**` —
+     the operation catalogue.
+   - `.apache-magpie-overrides/tools/vetted-ops/**` — the policy
+     naming which caller may run which operation.
+
+   Any of the four rules missing is ✗, not ⚠: the catalogue and the
+   policy are the two halves of the bound, and either one being
+   editable dissolves it. An agent that can add an op to the
+   catalogue, or add itself to a caller list in the policy, has
+   granted itself the write access the `ask` rules were removed for.
+
+   Report as a **note**, not a failure, that the policy file's
+   protection stops at the agent's editing tools — it lives inside
+   the sandbox-writable project root, so a Bash-level write is not
+   covered. The catalogue has no equivalent gap (the plugin cache is
+   outside every `allowWrite` root).
 
 ## After the report
 

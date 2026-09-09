@@ -541,6 +541,53 @@ the same reason. The `post-checkout` git hook installed by
 worktrees added via `git worktree add` after this install pass
 inherit access automatically — no operator action needed.
 
+### Step V — The vetted-ops exclusion
+
+Only applies when the adopter routes forge operations through the
+`vetted-ops` dispatcher — i.e. the repo has
+`.apache-magpie-overrides/tools/vetted-ops/config.toml`, or the
+operator asks for the dispatcher to be wired now. If neither is
+true, skip this step and say so; do not create a policy the project
+has not asked for.
+
+The dispatcher trades a dozen wildcard `ask` rules for one `allow`.
+That trade is only sound while the agent holding the `allow` cannot
+edit the two files that define its own authority, so wiring the
+`allow` without the exclusion is strictly worse than the wildcards
+it replaced. Propose both in the same edit, never separately:
+
+```jsonc
+"permissions": {
+  "allow": [
+    "Bash(uv run --project ~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/*/tools/vetted-ops vetted-op *)"
+  ],
+  "deny": [
+    // the operation catalogue
+    "Edit(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)",
+    "Write(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)",
+    // the policy naming which caller may run which operation
+    "Edit(.apache-magpie-overrides/tools/vetted-ops/**)",
+    "Write(.apache-magpie-overrides/tools/vetted-ops/**)"
+  ]
+}
+```
+
+Tell the operator plainly what the exclusion does and does not
+buy, so they can judge it:
+
+- The catalogue is protected twice — by these rules, and by the
+  plugin cache sitting outside every `sandbox.filesystem.allowWrite`
+  root, so sandboxed Bash cannot write there either.
+- The policy TOML is protected **once**. It lives inside the
+  project root, which is sandbox-writable by design, so a
+  Bash-level write would slip past an `Edit`/`Write` deny. If that
+  matters for the project's threat model, keep the policy outside
+  the writable root and point `--config` at it.
+
+Do not claim the exclusion makes the dispatcher tamper-proof. It
+bounds the agent's editing tools, which is what the `allow` needs
+to be defensible, and nothing more.
+
 ## After the install lands
 
 Suggest two follow-up routines the user can wire later:
