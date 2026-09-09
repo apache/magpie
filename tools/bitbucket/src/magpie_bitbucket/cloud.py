@@ -30,6 +30,7 @@ from magpie_bitbucket.client import (
     post_json,
     quote_path,
     require,
+    write_request,
 )
 
 CLOUD_API_BASE = "https://api.bitbucket.org/2.0"
@@ -277,6 +278,53 @@ def get_pull_request_diff(config: BitbucketConfig, pull_request_id: str) -> dict
         "body": response["body"],
         "content_type": response["content_type"],
         "url": response["url"],
+    }
+
+
+def approve_pull_request(
+    config: BitbucketConfig,
+    pull_request_id: str,
+) -> dict[str, Any]:
+    """Approve one Bitbucket Cloud pull request as the authenticated user."""
+    workspace = quote_path(require(config.workspace, "BITBUCKET_WORKSPACE"))
+    repo_slug = quote_path(require(config.repo_slug, "BITBUCKET_REPO_SLUG"))
+    pr_id = quote_path(pull_request_id)
+    url = f"{CLOUD_API_BASE}/repositories/{workspace}/{repo_slug}/pullrequests/{pr_id}/approve"
+
+    participant = write_request(
+        url,
+        config,
+        method="POST",
+    )
+    if participant is None:
+        raise BitbucketError("Bitbucket approve response did not contain participant data")
+
+    return {
+        "pull_request_id": pull_request_id,
+        "participant": participant,
+    }
+
+
+def unapprove_pull_request(
+    config: BitbucketConfig,
+    pull_request_id: str,
+) -> dict[str, Any]:
+    """Withdraw the authenticated user's approval from a Bitbucket Cloud pull request."""
+    workspace = quote_path(require(config.workspace, "BITBUCKET_WORKSPACE"))
+    repo_slug = quote_path(require(config.repo_slug, "BITBUCKET_REPO_SLUG"))
+    pr_id = quote_path(pull_request_id)
+    url = f"{CLOUD_API_BASE}/repositories/{workspace}/{repo_slug}/pullrequests/{pr_id}/approve"
+
+    result = write_request(
+        url,
+        config,
+        method="DELETE",
+    )
+    if result is not None:
+        raise BitbucketError("Bitbucket unapprove response unexpectedly contained JSON")
+
+    return {
+        "pull_request_id": pull_request_id,
     }
 
 

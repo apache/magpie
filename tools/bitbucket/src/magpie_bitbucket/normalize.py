@@ -447,6 +447,26 @@ def pull_request_diff(kind: str, raw: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def pull_request_approval(
+    kind: str,
+    raw: dict[str, Any],
+    *,
+    approved: bool,
+) -> dict[str, Any]:
+    """Normalize a pull-request approval state mutation."""
+    participant = raw.get("participant")
+
+    return {
+        "ok": True,
+        "backend": "bitbucket-cloud" if kind == "cloud" else "bitbucket-datacenter",
+        "operation": "pull-request-approve" if approved else "pull-request-unapprove",
+        "pull_request_id": _string(raw.get("pull_request_id")),
+        "approved": approved,
+        "participant": participant if isinstance(participant, dict) else None,
+        "raw": raw,
+    }
+
+
 def pull_request_reviews(kind: str, raw: dict[str, Any]) -> dict[str, Any]:
     """Normalize pull request review-state activity from Bitbucket."""
     pull_request_raw = raw.get("pull_request")

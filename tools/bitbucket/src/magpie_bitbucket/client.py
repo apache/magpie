@@ -189,23 +189,31 @@ def get_json(url: str, config: BitbucketConfig) -> dict[str, Any]:
         raise BitbucketError(f"Failed to parse JSON response from {url}") from exc
 
 
-def post_json(
+def write_request(
     url: str,
     config: BitbucketConfig,
-    payload: dict[str, Any],
-) -> dict[str, Any]:
-    """POST JSON to a Bitbucket API URL and parse the JSON response."""
+    *,
+    method: str,
+    payload: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
+    """Execute one guarded Bitbucket mutation and parse an optional JSON response."""
     _require_https(url)
-    data = json.dumps(payload).encode("utf-8")
+
+    data = None
+    headers = {
+        "Accept": "application/json",
+        "Authorization": make_auth_header(config),
+    }
+
+    if payload is not None:
+        data = json.dumps(payload).encode("utf-8")
+        headers["Content-Type"] = "application/json"
+
     request = urllib.request.Request(
         url,
         data=data,
-        headers={
-            "Accept": "application/json",
-            "Authorization": make_auth_header(config),
-            "Content-Type": "application/json",
-        },
-        method="POST",
+        headers=headers,
+        method=method,
     )
 
     # Writes never follow redirects: repeating a mutation at a redirected
@@ -215,6 +223,9 @@ def post_json(
     try:
         with opener.open(request, timeout=DEFAULT_TIMEOUT_SECONDS) as response:
             body = response.read().decode("utf-8")
+            if not body.strip():
+                return None
+
             parsed = json.loads(body)
             if not isinstance(parsed, dict):
                 raise BitbucketError(f"Expected JSON object from {url}")
@@ -232,6 +243,23 @@ def post_json(
         ) from exc
     except json.JSONDecodeError as exc:
         raise BitbucketError(f"Failed to parse JSON response from {url}") from exc
+
+
+def post_json(
+    url: str,
+    config: BitbucketConfig,
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    """POST JSON to a Bitbucket API URL and parse the JSON response."""
+    result = write_request(
+        url,
+        config,
+        method="POST",
+        payload=payload,
+    )
+    if result is None:
+        raise BitbucketError(f"Expected JSON object from {url}")
+    return result
 
 
 def get_text(url: str, config: BitbucketConfig, accept: str = "text/plain") -> dict[str, Any]:

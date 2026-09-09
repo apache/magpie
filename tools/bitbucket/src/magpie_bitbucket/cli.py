@@ -137,6 +137,24 @@ def _build_parser() -> argparse.ArgumentParser:
     pr_reviews = pr_subparsers.add_parser("reviews", help="Fetch pull request review-state activity.")
     pr_reviews.add_argument("pull_request_id", help="Pull request ID to fetch review state for.")
 
+    pr_approve = pr_subparsers.add_parser(
+        "approve",
+        help="Approve a pull request after caller-side confirmation.",
+    )
+    pr_approve.add_argument(
+        "pull_request_id",
+        help="Pull request ID to approve.",
+    )
+
+    pr_unapprove = pr_subparsers.add_parser(
+        "unapprove",
+        help="Withdraw pull request approval after caller-side confirmation.",
+    )
+    pr_unapprove.add_argument(
+        "pull_request_id",
+        help="Pull request ID whose approval to withdraw.",
+    )
+
     pr_tasks = pr_subparsers.add_parser("tasks", help="List pull request tasks.")
     pr_tasks.add_argument("pull_request_id", help="Pull request ID whose tasks to fetch.")
 
@@ -226,6 +244,22 @@ def _dispatch(args: argparse.Namespace, config: BitbucketConfig) -> dict[str, An
     if args.subcommand == "pr" and args.pr_action == "reviews":
         raw = backend.get_pull_request_reviews(config, args.pull_request_id)
         return normalize.pull_request_reviews(config.kind, raw)
+
+    if args.subcommand == "pr" and args.pr_action == "approve":
+        raw = backend.approve_pull_request(config, args.pull_request_id)
+        return normalize.pull_request_approval(
+            config.kind,
+            raw,
+            approved=True,
+        )
+
+    if args.subcommand == "pr" and args.pr_action == "unapprove":
+        raw = backend.unapprove_pull_request(config, args.pull_request_id)
+        return normalize.pull_request_approval(
+            config.kind,
+            raw,
+            approved=False,
+        )
 
     if args.subcommand == "pr" and args.pr_action == "tasks":
         raw = backend.get_pull_request_tasks(config, args.pull_request_id)

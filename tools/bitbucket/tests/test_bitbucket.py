@@ -43,6 +43,7 @@ from magpie_bitbucket.normalize import (
     issue_comments,
     issue_list,
     pull_request,
+    pull_request_approval,
     pull_request_commits,
     pull_request_diff,
     pull_request_discussion,
@@ -3023,3 +3024,181 @@ def test_cli_pr_comment_missing_body_file_before_write(
         )
 
     mock_create_pull_request_comment.assert_not_called()
+
+
+@patch("magpie_bitbucket.client.urllib.request.build_opener")
+def test_cloud_approve_pull_request_posts_without_body(
+    mock_build_opener: MagicMock,
+    cloud_env: None,
+) -> None:
+    mock_opener(
+        mock_build_opener,
+        {
+            "user": {"display_name": "Alice"},
+            "role": "PARTICIPANT",
+            "approved": True,
+            "state": None,
+        },
+    )
+
+    result = cloud.approve_pull_request(load_config(), "7")
+
+    request = mock_build_opener.return_value.open.call_args.args[0]
+
+    assert request.full_url == (
+        "https://api.bitbucket.org/2.0/repositories/apache/magpie/pullrequests/7/approve"
+    )
+    assert request.get_method() == "POST"
+    assert request.data is None
+    assert result["pull_request_id"] == "7"
+    assert result["participant"]["approved"] is True
+
+
+@patch("magpie_bitbucket.client.urllib.request.build_opener")
+def test_cloud_unapprove_pull_request_deletes_without_body(
+    mock_build_opener: MagicMock,
+    cloud_env: None,
+) -> None:
+    response = MagicMock()
+    response.__enter__.return_value = response
+    response.read.return_value = b""
+    mock_build_opener.return_value.open.return_value = response
+
+    result = cloud.unapprove_pull_request(load_config(), "7")
+
+    request = mock_build_opener.return_value.open.call_args.args[0]
+
+    assert request.full_url == (
+        "https://api.bitbucket.org/2.0/repositories/apache/magpie/pullrequests/7/approve"
+    )
+    assert request.get_method() == "DELETE"
+    assert request.data is None
+    assert result == {"pull_request_id": "7"}
+
+
+def test_datacenter_approve_pull_request_unsupported(
+    datacenter_env: None,
+) -> None:
+    with pytest.raises(
+        BitbucketError,
+        match="Data Center pull request approval writes are not supported",
+    ):
+        datacenter.approve_pull_request(load_config(), "9")
+
+
+def test_datacenter_unapprove_pull_request_unsupported(
+    datacenter_env: None,
+) -> None:
+    with pytest.raises(
+        BitbucketError,
+        match="Data Center pull request approval writes are not supported",
+    ):
+        datacenter.unapprove_pull_request(load_config(), "9")
+
+
+def test_normalize_pull_request_approval_approved() -> None:
+    normalized = pull_request_approval(
+        "cloud",
+        {
+            "pull_request_id": "7",
+            "participant": {
+                "user": {"display_name": "Alice"},
+                "approved": True,
+            },
+        },
+        approved=True,
+    )
+
+    assert normalized["ok"] is True
+    assert normalized["backend"] == "bitbucket-cloud"
+    assert normalized["operation"] == "pull-request-approve"
+    assert normalized["pull_request_id"] == "7"
+    assert normalized["approved"] is True
+    assert normalized["participant"]["approved"] is True
+
+
+def test_normalize_pull_request_approval_unapproved() -> None:
+    normalized = pull_request_approval(
+        "cloud",
+        {
+            "pull_request_id": "7",
+        },
+        approved=False,
+    )
+
+    assert normalized["ok"] is True
+    assert normalized["backend"] == "bitbucket-cloud"
+    assert normalized["operation"] == "pull-request-unapprove"
+    assert normalized["pull_request_id"] == "7"
+    assert normalized["approved"] is False
+    assert normalized["participant"] is None
+
+
+@patch("magpie_bitbucket.cloud.approve_pull_request")
+def test_cli_pr_approve_cloud(
+    mock_approve_pull_request: MagicMock,
+    cloud_env: None,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    mock_approve_pull_request.return_value = {
+        "pull_request_id": "7",
+        "participant": {
+            "user": {"display_name": "Alice"},
+            "approved": True,
+        },
+    }
+
+    exit_code = main(["pr", "approve", "7"])
+
+    assert exit_code == 0
+    mock_approve_pull_request.assert_called_once()
+    args = mock_approve_pull_request.call_args.args
+    assert args[1:] == ("7",)
+
+    output = json.loads(capsys.readouterr().out)
+    assert output["operation"] == "pull-request-approve"
+    assert output["approved"] is True
+
+
+@patch("magpie_bitbucket.cloud.unapprove_pull_request")
+def test_cli_pr_unapprove_cloud(
+    mock_unapprove_pull_request: MagicMock,
+    cloud_env: None,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    mock_unapprove_pull_request.return_value = {
+        "pull_request_id": "7",
+    }
+
+    exit_code = main(["pr", "unapprove", "7"])
+
+    assert exit_code == 0
+    mock_unapprove_pull_request.assert_called_once()
+    args = mock_unapprove_pull_request.call_args.args
+    assert args[1:] == ("7",)
+
+    output = json.loads(capsys.readouterr().out)
+    assert output["operation"] == "pull-request-unapprove"
+    assert output["approved"] is False
+
+
+def test_write_request_rejects_redirect_for_delete(
+    cloud_env: None,
+) -> None:
+    handler = NoAuthRedirectHandler()
+    request = urllib_request(
+        "https://api.bitbucket.org/2.0/repositories/apache/magpie/pullrequests/7/approve"
+    )
+
+    with pytest.raises(
+        BitbucketError,
+        match="refusing to forward credentials",
+    ):
+        handler.redirect_request(
+            request,
+            None,
+            302,
+            "Found",
+            {},
+            "https://evil.example.test/redirect-target",
+        )
