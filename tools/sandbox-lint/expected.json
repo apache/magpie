@@ -47,7 +47,8 @@
         "cveawg.mitre.org",
         "oauth2.googleapis.com",
         "gmail.googleapis.com",
-        "*.crates.io"
+        "*.crates.io",
+        "static.rust-lang.org"
       ],
       "enableWeakerNetworkIsolation": true
     },

@@ -437,7 +437,7 @@ below, annotated.
     // cargo/brew lychee links): online link checks fail every external
     // URL with `OSStatus -26276` even though the certs are valid and
     // `enableWeakerNetworkIsolation` is set. Building lychee still
-    // needs the rust toolchain (see the `~/.rustup`/`~/.cargo` +
+    // needs the rust toolchain (see the `~/.cache/` +
     // `*.crates.io`/`static.rust-lang.org` entries below); only its
     // *runtime* network use is eliminated.
     "filesystem": {
@@ -447,25 +447,22 @@ below, annotated.
         "~/.gitconfig",               // git's user.name / user.email
         "~/.config/git/",             // git's per-host config
         "~/.config/gh/",              // gh CLI auth (token in hosts.yml)
-        "~/.cache/",                  // dev tool caches (uv HTTP cache, prek logs, ruff/mypy caches)
+        "~/.cache/",                  // dev tool caches (uv HTTP cache, prek logs, ruff/mypy caches, and prek's own rustup + CARGO_HOME for the `lychee` rust hook)
         "~/.local/share/uv/",         // uv's tool venvs (prek, etc.)
-        "~/.rustup/",                 // rustup toolchains (the `lychee` rust hook builds against them)
-        "~/.cargo/",                  // cargo registry + the lychee binary the rust hook installs
         "~/.local/bin/",              // uv-installed tool entry points
         "~/.config/apache-magpie/",  // Gmail OAuth refresh token (oauth-draft tool)
         "~/.gnupg/",                  // gpg keys (commit signing)
         "/run/user/*/gnupg/"          // gpg-agent socket dir (ssh-via-gpg-agent commit signing)
       ],
       "allowWrite": [
-        "~/.cache/",                  // uv lock files, prek log + state, ruff/mypy caches
-        "~/.local/share/uv/",         // uv's tool venvs (prek installs new hook envs here)
-        "~/.rustup/",                 // rustup writes settings.toml + downloaded toolchains (first run of the `lychee` rust hook)
-        "~/.cargo/"                   // cargo registry cache + the compiled lychee binary
+        "~/.cache/",                  // uv lock files, prek log + state, ruff/mypy caches, prek's rustup toolchains + cargo registry
+        "~/.local/share/uv/"          // uv's tool venvs (prek installs new hook envs here)
       ]
     },
     "network": {
       "allowedDomains": [          // every host the framework legitimately reaches
-        "github.com", "api.github.com", "raw.githubusercontent.com",
+        "github.com", "api.github.com", "api.bitbucket.org",
+        "raw.githubusercontent.com",
         "objects.githubusercontent.com", "codeload.github.com", "uploads.github.com",
         "pypi.org", "files.pythonhosted.org",
         "lists.apache.org", "dist.apache.org", "downloads.apache.org", "archive.apache.org",
@@ -473,8 +470,13 @@ below, annotated.
         "oauth2.googleapis.com", "gmail.googleapis.com",
         // `*.crates.io` + `static.rust-lang.org` let the `lychee` rust
         // hook bootstrap a rustup toolchain and `cargo install` lychee
-        // on first run (rustup downloads the toolchain from
-        // static.rust-lang.org; crate deps come from crates.io). These
+        // on first run: prek downloads `rustup-init` from
+        // static.rust-lang.org (see `crates/prek/src/languages/rust/rustup.rs`),
+        // installs it plus the `stable` toolchain under
+        // `~/.cache/prek/tools/rustup/`, and points CARGO_HOME at
+        // `~/.cache/prek/cache/cargo/` — so the existing `~/.cache/`
+        // entries cover it and the user's own `~/.rustup` / `~/.cargo`
+        // are never read or written. Crate deps come from crates.io. These
         // are the ONLY hosts lychee needs: it runs offline (see
         // `.lychee.toml`), so it never fetches the external URLs the
         // docs link to — the wildcard link-target hosts that used to
