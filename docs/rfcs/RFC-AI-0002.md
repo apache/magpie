@@ -98,6 +98,7 @@ The proposal in this RFC reduces the risk surface from *"anything reachable fro
 | **1. Filesystem sandbox** | Claude Code's `sandbox.enabled: true` + bubblewrap (Linux) / Seatbelt (macOS) | Bash subprocess reads outside the project tree. |
 | **2. Tool permissions** | Claude Code's `permissions.deny` for Read/Edit/Write/Bash | The agent's own tools cat-ing dotfiles or running `aws`/`curl`. |
 | **3. Forced confirmation** | Claude Code's `permissions.ask` | Visible-to-others writes (`git push`, `gh pr create`, …) without an explicit yes. |
+| **3a. Bounded operations** | `vetted-ops` split dispatcher | Prompt fatigue at Layer 3 — read traffic stops competing with writes for the operator's attention. |
 
 Layers 1, 2, and 3 are configured by the same project-scope `.claude/settings.json`. Layer 0 lives in the developer's shell. Two **visibility** mechanisms (a status-line indicator and a per-call bypass-warn hook) sit alongside the four layers; they do not enforce policy themselves but make the policy continuously legible.
 
@@ -212,6 +213,76 @@ The deny / allow split for `~/.config/gh/` and `~/.config/<project>/` is del
 ### Layer 3 — Forced confirmation
 
 The `permissions.ask` block above intercepts every write-side action whose effect is **visible to others** — a `git push`, a `gh pr create`, a `gh issue comment`, a `gh release create`. Ask-rules do not block; they make the agent surface the exact command and require explicit human approval before running it. This closes the "agent ran a `git push` for me before I noticed" class of regressions.
+
+#### Layer 3a — Bounded operations (the `vetted-ops` dispatcher)
+
+Layer 3's weakness is not its rules, it is its **volume**. A wildcard like
+`Bash(gh *)` is doing real work — every unknown `gh` subcommand prompts — but it
+prompts for `gh issue view` as loudly as for `gh issue close`. On a sweep across
+thirty trackers that is a hundred prompts, and the hundredth gets the attention
+the first deserved. Prompt fatigue is not a usability complaint here; it is the
+mechanism by which Layer 3 stops working.
+
+[`tools/vetted-ops`](https://github.com/apache/magpie/blob/main/tools/vetted-ops)
+narrows the surface so read traffic can leave the prompt stream without the
+writes following it. Every operation is a closed shape — a name, typed
+parameters, and a builder returning an argv list executed without a shell — so a
+parameter can never become a command, a flag, or a different repository.
+
+**Where the boundary sits, and why it cannot sit anywhere else.** The dispatcher
+takes a `--caller` naming the invoking skill, and the policy declares which
+operations each caller may run. It is tempting to treat that as the boundary and
+allowlist the dispatcher on the strength of a read-only caller name. **That is
+wrong, on every harness.** `--caller` is an argument, and arguments are chosen by
+whoever runs the command; an agent that can pass one caller name can pass
+another. Per-caller scoping is least-privilege hygiene for a *cooperating* skill
+— worth having, since the common failure is an honest one — but it stops nothing
+that decides to name a different caller.
+
+What every harness *can* bind is the **command**. So the dispatcher ships as two
+console scripts over one catalogue:
+
+| Entry point | Can write? | Intended disposition |
+|---|---|---|
+| `vetted-op-read` | never — refused before the policy or `--caller` is consulted | allow, unattended |
+| `vetted-op` | yes, subject to policy | confirm, per call |
+
+The read entry point's refusal is structural: it does not consult the config, so
+no policy edit and no argument can reach a mutation through it. That is what
+makes allowlisting it defensible, and it is the whole reason the split exists.
+
+Two supporting details matter enough to state. A repeated `--caller` is an error
+rather than a last-wins convenience, because argument parsers conventionally keep
+the last occurrence — so `--caller read-only … --caller privileged` would satisfy
+a rule written against the read-only form while resolving to the privileged one.
+And bodies for write operations are read **once, by the dispatcher**, from a
+workspace the operator owns that group and world cannot write, then piped to the
+forge CLI on stdin: handing the CLI a path would leave the validated file and the
+published file free to differ.
+
+##### Applicability across harnesses
+
+The split is portable because it asks each harness for the one thing they all
+have — a permission decision keyed on the command string — and asks none of them
+for the thing none of them offer, which is binding a decision to *which skill is
+calling*. That asymmetry is why `--caller` cannot be the boundary on any runtime,
+not only on Claude Code.
+
+| Harness | Mechanism | Shape |
+|---|---|---|
+| **Claude Code** | `permissions.allow` / `ask` | `allow` the `vetted-op-read` prefix; leave `vetted-op` in `ask`. Rules are prefix-matched, and `vetted-op ` — with its trailing space — does not match `vetted-op-read`, so the two do not collide. |
+| **OpenCode** | `permission` policy ([docs](https://opencode.ai/docs/permissions/)) | The same split as a per-command decision map. Evaluation is **last-match-wins**, so the `vetted-op` confirm entry must not be shadowed by a broader `allow` appearing later. |
+| **Kiro** | `allowedCommands` / `deniedCommands` ([docs](https://kiro.dev/docs/cli/reference/built-in-tools#execute-shell-commands)) | Patterns are full-string-anchored regex and deny is evaluated first, so an anchored `vetted-op-read` pattern cannot leak to `vetted-op`. Kiro prompts by default, so the write dispatcher needs no rule at all — omitting it *is* the safe state. |
+| **Codex** | exec-policy rules | `allow` the read dispatcher; the write dispatcher takes `prompt`, alongside the existing rules forcing `prompt` on `gh` mutations. |
+| **Any other runtime** | `agent-guard --exec` | Harness-neutral command gating; the two program names are what the gate keys on. |
+
+Each is a permission-config change, not a code change: the dispatcher is
+harness-agnostic, and adopting it on a new runtime means writing two rules.
+
+The invariant a reviewer checks, on any harness, is short — **the write
+dispatcher must never appear in an unattended-allow position.** A read-only
+caller name sitting next to such a rule is not a mitigating factor; it is the
+misreading that produces the rule.
 
 ### Visibility — sandbox-bypass warning hook
 
@@ -467,6 +538,22 @@ This setup substantially shrinks the credential-leakage surface, but some risks 
 
 - **Secrets in the project tree.** If a tracker issue body, a comment, or a committed file contains a secret, the agent's Read tool surfaces it to the context window. No layer above can prevent that once a Read happens. Mitigation: project-level policy that secrets never land in the tracker repo.
 - **Domain fronting / CDN abuse via allow-listed hosts.** The `sandbox.network.allowedDomains` allowlist matches by SNI; an attacker who can publish content on `*.githubusercontent.com` could in principle exfiltrate via that channel. Mitigation: keep the allowlist as tight as actual usage and audit it whenever a new tool / SKILL is added.
+- **A single agent session is one principal.** Nothing in this setup separates
+  a read-only assessor subagent from the orchestrator that dispatched it: both
+  run under the same permission rules, so any scoping expressed in *arguments*
+  (the `vetted-ops` `--caller`, a skill name, a role string) is advisory. Layer
+  3a works by giving the read path its own **command**, which the harness can
+  bind; it does not create per-skill principals, and no shipping runtime offers
+  a portable way to. Mitigation: keep unattended-allow rules to entry points
+  that cannot mutate, and treat per-caller policy as hygiene rather than
+  containment.
+- **The `vetted-ops` policy file lives in the project tree.** It is therefore
+  writable by a sandboxed shell, so an `Edit`/`Write` deny on it is only a
+  partial protection. This is survivable because the read dispatcher refuses
+  writes without consulting policy — the worst a policy rewrite buys is
+  redirecting a *read* — but the file's contents should be read as advisory
+  rather than enforced. Mitigation: for adopters who need more, keep the policy
+  outside every sandbox write root and pass `--config`.
 - **MCP servers configured at user scope.** Claude Code does not isolate user-scope MCP servers from the project session — their tokens and tools come along. Mitigation: audit `~/.claude/.mcp.json` and `~/.claude.json` quarterly; remove any MCP server you don't actively use.
 
 ## Open questions
@@ -474,6 +561,14 @@ This setup substantially shrinks the credential-leakage surface, but some risks 
 - **Should this RFC apply ASF-wide, or only to projects handling pre-disclosure / embargoed content?** The threat model is general, but the cost of adoption is non-zero, and projects whose tracker repos contain only ordinary public source code may reasonably defer.
 - **Should the framework provide a one-shot installer that abstracts the agent-guided skills behind a single command?** Trade-off: easier adoption vs. operator visibility into what is being changed.
 - **macOS network egress.** A future enhancement could wrap macOS Bash subprocesses in a `sandbox-exec` profile that also restricts outbound `network*` operations the way the current profile restricts `file-read*`. Open follow-up.
+- **Can per-skill scope ever become a real boundary?** Layer 3a binds *what may
+  be run*, not *who is running it*, because the command string is the only thing
+  every harness can key on. A genuine per-skill principal needs the runtime to
+  bind a permission set to a subagent or a plugin — plugin manifests cannot
+  declare permissions today, and the nearest primitive (a subagent with a
+  restricted tool list) is Claude Code-specific. Worth revisiting whenever a
+  second runtime ships something equivalent; until then, adding caller names to
+  a policy should not be described as isolation.
 - **Should the pinned-version manifest be a per-project artifact, or a foundation-wide canonical list?** The current per-project shape lets each project adopt at its own cadence; a foundation-wide list would centralise the cooldown discipline but add coordination overhead.
 
 ## Prior art and references
