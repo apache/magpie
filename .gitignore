@@ -42,6 +42,12 @@ logs
 __pycache__/
 *.py[cod]
 
+# uv workspace virtualenvs. uv writes a `*` .gitignore inside each one,
+# so git already skips them — but the `typos` prek hook walks the tree
+# itself (see .pre-commit-config.yaml) and an explicit entry keeps the
+# synced workspace out of every ignore-aware tool, not just git.
+.venv/
+
 # Lychee link-checker result cache. The workflow restores this from
 # Actions cache between runs; checking it in would commit machine-
 # specific resolution data.

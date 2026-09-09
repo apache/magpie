@@ -132,15 +132,35 @@ repos:
         # README.md files are NOT excluded — they are real docs.
         exclude: ^tools/skill-evals/evals/.+/fixtures/.+\.md$
   # typos — fast spell-checker. Allowlist is `.typos.toml`.
+  #
   # Override the default args (which include `--write-changes`) so
   # the hook never silently rewrites files; CI surfaces typos as
   # errors instead.
+  #
+  # `pass_filenames: false` + the trailing `.` arg → typos walks the
+  # repo itself instead of being handed the file list, the same shape
+  # as the `lychee` hook below. That is a memory requirement, not a
+  # preference: typos' peak RSS scales with the number of paths passed
+  # to one invocation (~1.2 MB per path), and prek splits the file list
+  # across roughly `cpu_count` invocations. On a 4-vCPU runner the ~4.9k
+  # tracked files arrive as ~1.2k-path chunks (~925 MB each); on the
+  # 1-vCPU `ubuntu-slim` runner they arrive as a single invocation that
+  # peaks at ~5.7 GB and is OOM-killed. prek reports that as a bare
+  # `exit code: 1` with no output — a signal-killed process has no exit
+  # code of its own — which reads like a hook failure with a missing
+  # message rather than the kill it is. Walking costs ~21 MB flat,
+  # whatever the core count.
+  #
+  # typos honours .gitignore while walking, and uv writes a `*`
+  # .gitignore inside `.venv`, so a synced workspace stays out of the
+  # walk: it covers the same files the list did.
   - repo: https://github.com/crate-ci/typos
     rev: v1.50.0
     hooks:
       - id: typos
         name: typos
-        args: [--force-exclude]
+        args: [--force-exclude, .]
+        pass_filenames: false
   # lychee — link checker (was the standalone `link-check.yml`
   # workflow; converted to this prek hook). Validates cross-file links,
   # `#anchor` fragments, and external URLs across markdown / rst /
