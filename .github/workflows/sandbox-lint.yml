@@ -42,7 +42,7 @@ permissions: {}
 jobs:
   sandbox-lint:
     name: lint .claude/settings.json against baseline
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     permissions:
       contents: read
     env:

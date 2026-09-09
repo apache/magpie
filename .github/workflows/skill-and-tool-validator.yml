@@ -38,7 +38,7 @@ permissions: {}
 jobs:
   skill-and-tool-validator:
     name: validate skills and tool contracts
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     permissions:
       contents: read
     env:

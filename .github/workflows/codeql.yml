@@ -33,7 +33,7 @@ permissions:
 jobs:
   analyze:
     name: "Analyze (${{ matrix.language }})"
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-slim
     permissions:
       # Writing security-events is required for CodeQL to upload results to
       # the repository's "Security" tab. The rest stay read-only.

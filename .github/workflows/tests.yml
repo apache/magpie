@@ -32,7 +32,7 @@ jobs:
   # picks it up automatically.
   members:
     name: list-workspace-members
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     permissions:
       contents: read
     outputs:
@@ -149,7 +149,7 @@ jobs:
   # signal — not the gate.
   pytest:
     name: "pytest (${{ matrix.project.name }})"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     needs: members
     # Guard against an empty selection. When the path filter selects no
     # members (a PR that changed no project's Python), the members output
@@ -212,7 +212,7 @@ jobs:
   # entries no longer touches `.asf.yaml`.
   tests-ok:
     name: tests-ok
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     needs: pytest
     # `always()` — without it, this job would be skipped (not
     # failed) when an upstream matrix entry fails, and a skipped
