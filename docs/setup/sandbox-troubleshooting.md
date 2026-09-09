@@ -290,6 +290,16 @@ the second means it is blocking the CLI plugins. Neither reaches the
 socket at all, so the socket allowlist below does not fix them on its
 own — see the CLI paths in the same block.
 
+A third form appears once the CLI runs but the connection is still
+refused, on every platform:
+
+```text
+permission denied while trying to connect to the docker API at unix:///var/run/docker.sock
+```
+
+That one is the missing `sandbox.network.allowUnixSockets` entry, not a
+filesystem permission — see below.
+
 ### Root cause
 
 The runtime CLI talks to its daemon via a unix-domain socket. The
@@ -312,6 +322,22 @@ leaves broken:
   builtins; they are separate binaries in `~/.docker/cli-plugins/`.
   Denied, `docker ps` works while `docker compose` reports
   `unknown command`, which breaks any compose-driven workflow.
+
+Separately, and on **every** platform: listing a socket in
+`sandbox.filesystem.allowRead` grants permission to *read the file*,
+not to *connect to it*. Socket connections are gated by their own
+`sandbox.network.allowUnixSockets` list. With the path allowed for
+reading but absent from that list, the CLI starts, finds the socket,
+and is refused at `connect(2)`:
+
+```console
+$ docker ps
+permission denied while trying to connect to the docker API at unix:///var/run/docker.sock
+```
+
+Both settings are required; neither substitutes for the other. This is
+not macOS-specific — a Linux adopter using `/var/run/docker.sock` needs
+the `allowUnixSockets` entry just the same.
 
 For Colima the socket lives under `~/.colima/...` (not currently
 covered by any allow / deny in the framework reference, so it
@@ -337,6 +363,15 @@ plugins without opening the `~/.docker/` directory generally:
         "/var/run/docker.sock",                         // Linux daemon socket (root-managed install)
         "~/.docker/bin/",                               // Docker Desktop CLI binaries (`docker` itself lives here on macOS)
         "~/.docker/cli-plugins/"                        // `docker compose`, `docker buildx` — separate plugin binaries
+      ]
+    },
+    "network": {
+      // Reading the socket file is not the same permission as connecting
+      // to it. Without these, the CLI runs but every command is refused
+      // with "permission denied while trying to connect to the docker API".
+      "allowUnixSockets": [
+        "/var/run/docker.sock",
+        "~/.docker/run/docker.sock"
       ]
     }
   },
@@ -369,6 +404,13 @@ Per-entry rationale:
 - `~/.docker/cli-plugins/` — `docker compose` and `docker buildx`
   are plugin binaries, not builtins. Without it `docker ps`
   succeeds but `docker compose` fails as `unknown command`.
+- `sandbox.network.allowUnixSockets` — the connect-side permission,
+  required on every platform. `allowRead` on the same path only
+  lets a process *open the file*; the sandbox gates socket
+  *connections* through this separate list. Verified by removing
+  it while leaving the `allowRead` entries in place: `docker
+  compose version` still ran, and `docker ps` failed with
+  `permission denied while trying to connect to the docker API`.
 - The narrowed `permissions.deny` keeps the agent's `Read` tool
   from seeing Docker auth tokens (`config.json`) and saved
   contexts (which include host IPs and credentials), while
