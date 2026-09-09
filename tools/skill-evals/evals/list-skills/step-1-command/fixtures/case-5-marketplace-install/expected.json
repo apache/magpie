@@ -1,0 +1,4 @@
+{
+  "command": "python3 ~/.claude/plugins/cache/apache-magpie/magpie-utilities/0.2.0/skills/list-skills/scripts/list_skills.py",
+  "verbose": false
+}

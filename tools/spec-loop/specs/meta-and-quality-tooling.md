@@ -89,9 +89,20 @@ trustworthy as it grows.
 
 ## Behaviour & contract
 
-- **Generated, never cached.** `list-skills` reads the live
-  `.claude/skills/*/SKILL.md` frontmatter on every run, so the index never
-  goes stale.
+- **Generated, never cached.** `list-skills` reads live `SKILL.md`
+  frontmatter on every run, so the index never goes stale.
+- **Installation-aware discovery.** `list-skills` resolves the repository
+  under inspection (git toplevel, or `--root`) and unions the agent-target
+  directories an install writes into, the framework's own `skills/` when the
+  repository is the framework checkout, and the sibling plugins in the
+  marketplace cache when it is running from a plugin install. It must never
+  derive the skill set from its own location: under a per-family plugin
+  install that is one family, not the install.
+- **Declared family, never inferred.** Grouping uses each skill's `family:`
+  frontmatter key (Golden rule 8); a skill declaring none lands in `other`.
+  Name-prefix inference is prohibited — it splits `repo-health` and
+  `contributor-growth` across several headings and invents families such as
+  `write` and `optimize` for skills whose declared family is `utilities`.
 - **Deterministic checks.** `skill-and-tool-validator`, `sandbox-lint`, and
   `symlink-lint` are heuristic/text tools with no model calls — reproducible in CI.
 - **Hard vs soft rules.** The validator fails on missing frontmatter or
@@ -120,7 +131,9 @@ trustworthy as it grows.
 ## Acceptance criteria
 
 1. `skill-and-tool-validate` enforces required frontmatter + link integrity.
-2. `list-skills` generates its index from live frontmatter.
+2. `list-skills` generates its index from live frontmatter, covering every
+   install method (snapshot, framework checkout, marketplace plugin) and
+   grouping by declared `family:`.
 3. Each meta tool ships with its own tests.
 4. Frontmatter values for `mode`, `status`, `capability`,
    `organization`, and `source` are validated against documented

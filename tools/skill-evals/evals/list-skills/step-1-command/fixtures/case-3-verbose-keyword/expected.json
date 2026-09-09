@@ -1,4 +1,4 @@
 {
-  "command": "python3 .claude/skills/magpie-list-skills/scripts/list_skills.py --verbose",
+  "command": "python3 <framework>/skills/list-skills/scripts/list_skills.py --verbose",
   "verbose": true
 }

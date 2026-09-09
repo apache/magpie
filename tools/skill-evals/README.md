@@ -32,7 +32,7 @@ Suites are currently implemented for:
 - **pr-management-mentor** — 20 cases across 2 steps (tone-checks, hand-off)
 - **pr-management-stats** — 13 cases across 2 steps (classify, pressure-weight)
 - **pr-management-triage** — 39 cases across 5 steps (pre-filter, decision-table, terminal-links, pagination-dedup, interaction-progress)
-- **list-skills** — 7 cases across 2 steps (step-1-command, step-2-present)
+- **list-skills** — 8 cases across 2 steps (step-1-command, step-2-present)
 - **setup-isolated-setup-verify** — 12 cases across 3 steps (runtime-routing, step-1-classify, step-2-recommend)
 - **setup-isolated-setup-update** — 14 cases across 4 steps (runtime-routing, step-snapshot-drift, step-tool-freshness, step-after-report)
 - **setup-isolated-setup-doctor** — 13 cases across 3 steps (runtime-routing, interpret-probes, after-report)
