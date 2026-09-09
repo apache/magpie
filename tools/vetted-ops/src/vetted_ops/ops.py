@@ -30,7 +30,9 @@ reviewed code change rather than a runtime decision.
 
 from __future__ import annotations
 
+import os
 import re
+import stat as stat_mod
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -136,23 +138,65 @@ def query_name(value: str) -> str:
     return str(path)
 
 
-def body_file(value: str, *, workspace: Path) -> str:
+def read_body(value: str, *, workspace: Path) -> bytes:
     """
-    Validate a path holding body text.
+    Validate and read body text, returning its **content**.
 
-    Content is passed to ``gh`` by *file reference*, never interpolated, so the
-    body may contain anything at all — backticks, ``$(…)``, newlines, NUL-free
-    binary. What is constrained is *which* file may be read: it must resolve
-    inside the caller's declared workspace, so an operation cannot be talked into
-    publishing ``~/.ssh/id_rsa`` or a credential file.
+    Content is never interpolated into a command, so a body may contain
+    anything at all — backticks, ``$(…)``, newlines. Two things are constrained:
+    *which* file may be read, and *when*.
+
+    The "when" is the part that is easy to get wrong. Returning a path for ``gh``
+    to open later leaves a window between validation and use: the file that was
+    checked and the file that gets published need not be the same one. So this
+    reads the content itself, from a descriptor it opened, and the caller pipes
+    those bytes to ``gh`` on stdin. There is exactly one open, and it is ours.
+
+    ``O_NOFOLLOW`` refuses a symlink as the final component, and the realpath
+    check refuses one anywhere above it, so no body can resolve out of the
+    workspace. The workspace itself must be owned by this user and closed to
+    group and world: a directory anyone can write is a directory anyone can
+    pre-seed, and these bodies become public comments.
     """
-    path = Path(value).expanduser().resolve()
     root = workspace.expanduser().resolve()
-    if not path.is_file():
-        raise ParamError(f"body file does not exist: {value!r}")
-    if root not in path.parents and path != root:
+    try:
+        root_st = os.stat(root)
+    except OSError as exc:
+        raise ParamError(f"workspace {str(root)!r} is unusable: {exc}") from None
+    if not os.path.isdir(root):
+        raise ParamError(f"workspace {str(root)!r} is not a directory")
+    if root_st.st_uid != os.getuid():
+        raise ParamError(
+            f"workspace {str(root)!r} is owned by uid {root_st.st_uid}, not by you "
+            f"(uid {os.getuid()}) — refusing to publish a body from it"
+        )
+    if root_st.st_mode & 0o022:
+        raise ParamError(
+            f"workspace {str(root)!r} is group- or world-writable (mode "
+            f"{root_st.st_mode & 0o777:04o}) — anyone who can write it can choose "
+            f"what gets posted; chmod 700 it"
+        )
+
+    candidate = Path(value).expanduser()
+    resolved = Path(os.path.realpath(candidate))
+    if root not in resolved.parents:
         raise ParamError(f"body file must live under the workspace {str(root)!r}: {value!r}")
-    return str(path)
+
+    try:
+        fd = os.open(candidate, os.O_RDONLY | os.O_NOFOLLOW)
+    except FileNotFoundError:
+        raise ParamError(f"body file does not exist: {value!r}") from None
+    except OSError as exc:
+        raise ParamError(f"body file cannot be read ({exc.strerror}): {value!r}") from None
+    try:
+        st = os.fstat(fd)
+        if not stat_mod.S_ISREG(st.st_mode):
+            raise ParamError(f"body file is not a regular file: {value!r}")
+        with os.fdopen(fd, "rb", closefd=True) as handle:
+            return handle.read()
+    except ParamError:
+        os.close(fd)
+        raise
 
 
 def enum(allowed: Sequence[str]) -> Callable[[str], str]:

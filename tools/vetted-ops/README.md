@@ -9,7 +9,7 @@
   - [Prerequisites](#prerequisites)
   - [Why](#why)
   - [What it actually guarantees](#what-it-actually-guarantees)
-    - [What it does *not* guarantee](#what-it-does-not-guarantee)
+    - [The boundary is the entry point, not `--caller`](#the-boundary-is-the-entry-point-not---caller)
   - [Configuration](#configuration)
   - [CLI](#cli)
   - [Wiring it into settings](#wiring-it-into-settings)
@@ -78,11 +78,20 @@ Being precise, because a security tool that overstates itself is worse than none
   is read from policy. An operation cannot be pointed at another repository, and
   parameters that reach an API *path* — repo paths and git refs — refuse `..`,
   so none of them can walk out of the pinned repository either.
-- **Body content is free; body *location* is not.** Comment bodies are passed by
-  file reference, so the text may contain anything — backticks, `$(…)`,
-  newlines. What is constrained is which file may be read: it must resolve inside
-  the configured workspace, so an operation cannot be talked into publishing
-  `~/.ssh/id_rsa`.
+- **Body content is free; body *location* and *timing* are not.** Comment bodies
+  may contain anything — backticks, `$(…)`, newlines — because content is never
+  interpolated into a command. What is constrained is which file may be read and
+  when. The file must resolve inside the configured workspace, that workspace
+  must be owned by you and closed to group and world, and a symlink is refused
+  (`O_NOFOLLOW`, plus a realpath check for the parents). The dispatcher then
+  **reads the bytes itself and pipes them to `gh` on stdin**, so there is exactly
+  one open. Handing `gh` a path would leave a window between the check and the
+  send in which the file could be swapped; the bytes that were validated are the
+  bytes that get published.
+- **Writes cannot be reached through the read entry point.** `vetted-op-read`
+  refuses any operation with `writes=True` *before* it consults the policy or
+  looks at `--caller`, so the refusal cannot be argued out of it by argv. This
+  is the one property that makes an unattended `allow` defensible — see below.
 - **GraphQL is named, not written.** `gh api graphql` normally takes a query as a
   string — the widest surface `gh` offers. Here a caller names one of the
   documents shipped in [`queries/`](src/vetted_ops/queries), the dispatcher
@@ -93,7 +102,7 @@ Being precise, because a security tool that overstates itself is worse than none
   [`ops.py`](src/vetted_ops/ops.py) — a reviewed code change, not a runtime
   decision.
 
-### What it does *not* guarantee
+### The boundary is the entry point, not `--caller`
 
 **Per-caller scoping is least-privilege, not a security boundary.** The policy
 declares which operations each caller may run, and `--caller` is required. But
@@ -101,16 +110,40 @@ within one agent session the agent is a single principal that chooses what to
 pass as `--caller`. This protects against *the wrong skill reaching for the wrong
 operation* — a real and common failure, especially under prompt injection, where
 a hostile issue body talks a read-only triage pass into closing something. It
-does **not** stop a determined agent.
+does **not** stop a determined agent, and a permission rule must never be
+written as though it does. Concretely: allowlisting `vetted-op *` on the strength
+of a read-only caller name grants **every** operation in the catalogue, because
+the next invocation can name a different caller.
 
-A genuine boundary needs the runtime to bind scope to permissions. Today no
-portable mechanism exists: plugin manifests cannot declare permissions, and
-`permissionMode` is unsupported for plugin-shipped agents. The closest available
-primitive is a subagent with a restricted `tools` list, which is **Claude
-Code-specific** — the only other shipping runtime adapter is Codex
-(`experimental`). See
+What *can* be bound is the **entry point**, because a permission rule keys on the
+command and argv cannot change which binary is running. Hence two console
+scripts over one catalogue:
+
+| Entry point | Can write? | Intended permission |
+|---|---|---|
+| `vetted-op-read` | never — refused before policy is consulted | `allow` |
+| `vetted-op` | yes, subject to policy | `ask` (or unlisted) |
+
+That split is what lets the read path lose its prompts without the write path
+losing its gate, and it is why `--caller` repeated twice is an error rather than
+a last-wins convenience: argparse keeps the last occurrence, so repetition would
+let a command match a rule written against a read-only prefix while resolving to
+a privileged caller.
+
+For writes, the confirmation the harness puts in front of `vetted-op` is still
+doing the work. A finer boundary — per-skill scope bound by the runtime — needs
+something no portable mechanism offers yet: plugin manifests cannot declare
+permissions, and `permissionMode` is unsupported for plugin-shipped agents. The
+closest primitive is a subagent with a restricted `tools` list, which is **Claude
+Code-specific**. See
 [`tools/spec-loop/specs/vetted-command-surface.md`](../spec-loop/specs/vetted-command-surface.md)
 for that trajectory.
+
+**The policy file is only as protected as the filesystem makes it.** Rewriting
+the policy cannot reach a write through `vetted-op-read` — that refusal ignores
+the config entirely — but it can widen which repository the *reads* point at. If
+the policy lives somewhere the agent's shell can write, treat its contents as
+advisory rather than enforced.
 
 **This is not a substitute for the sandbox.** It reduces prompt volume at Layer 3.
 Layers 0–2 are unchanged and still carry the load.
@@ -199,7 +232,12 @@ anything still invoked directly:
 
 ```jsonc
 "permissions": {
+  // Only the READ dispatcher is allowlisted. Allowlisting `vetted-op` itself
+  // would grant every write in the catalogue, since --caller is argv.
   "allow": [
+    "Bash(uv run --project ~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/*/tools/vetted-ops vetted-op-read *)"
+  ],
+  "ask": [
     "Bash(uv run --project ~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/*/tools/vetted-ops vetted-op *)"
   ],
   "deny": [

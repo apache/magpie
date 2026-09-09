@@ -51,9 +51,21 @@ board_status_field_id = "PVTSSF_field"
 
 
 @pytest.fixture()
+def policy_path(tmp_path: Path) -> Path:
+    """The policy on disk — for tests that drive `cli.main` end to end."""
+    workspace = tmp_path / "scratch"
+    workspace.mkdir()
+    workspace.chmod(0o700)
+    cfg_path = tmp_path / "config.toml"
+    cfg_path.write_text(CONFIG_TOML.format(workspace=workspace))
+    return cfg_path
+
+
+@pytest.fixture()
 def policy(tmp_path: Path) -> config.Config:
     workspace = tmp_path / "scratch"
     workspace.mkdir()
+    workspace.chmod(0o700)
     cfg_path = tmp_path / "config.toml"
     cfg_path.write_text(CONFIG_TOML.format(workspace=workspace))
     return config.load(cfg_path)
@@ -153,7 +165,7 @@ def test_label_must_be_one_of_the_configured_values(policy: config.Config) -> No
 
 def test_configured_label_is_accepted(policy: config.Config) -> None:
     op = ops.resolve("issue-add-label")
-    params = cli._validate_params(op, ["7", "cve allocated"], policy)
+    params, _body = cli._validate_params(op, ["7", "cve allocated"], policy)
     argv = cli.build_argv(op, params, policy)
     assert argv == [
         "gh",
@@ -183,9 +195,11 @@ def test_body_file_content_may_contain_anything(policy: config.Config) -> None:
     body = policy.workspace / "note.md"
     body.write_text("`id` $(whoami) && rm -rf / ; drop table\n")
     op = ops.resolve("issue-comment")
-    params = cli._validate_params(op, ["7", str(body)], policy)
+    params, sent = cli._validate_params(op, ["7", str(body)], policy)
     argv = cli.build_argv(op, params, policy)
-    assert argv[-2:] == ["--body-file", str(body.resolve())]
+    # The body reaches `gh` on stdin, not as a path it opens for itself.
+    assert argv[-2:] == ["--body-file", "-"]
+    assert sent == b"`id` $(whoami) && rm -rf / ; drop table\n"
 
 
 # --- per-caller scoping ------------------------------------------------------
@@ -196,6 +210,7 @@ def test_caller_may_not_run_an_operation_outside_its_manifest(
 ) -> None:
     workspace = tmp_path / "scratch"
     workspace.mkdir()
+    workspace.chmod(0o700)
     cfg_path = tmp_path / "config.toml"
     cfg_path.write_text(CONFIG_TOML.format(workspace=workspace))
 
@@ -207,6 +222,7 @@ def test_caller_may_not_run_an_operation_outside_its_manifest(
 def test_unknown_caller_is_refused(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     workspace = tmp_path / "scratch"
     workspace.mkdir()
+    workspace.chmod(0o700)
     cfg_path = tmp_path / "config.toml"
     cfg_path.write_text(CONFIG_TOML.format(workspace=workspace))
 
@@ -218,6 +234,7 @@ def test_unknown_caller_is_refused(tmp_path: Path, capsys: pytest.CaptureFixture
 def test_permitted_caller_reaches_dry_run(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     workspace = tmp_path / "scratch"
     workspace.mkdir()
+    workspace.chmod(0o700)
     cfg_path = tmp_path / "config.toml"
     cfg_path.write_text(CONFIG_TOML.format(workspace=workspace))
 
@@ -229,6 +246,7 @@ def test_permitted_caller_reaches_dry_run(tmp_path: Path, capsys: pytest.Capture
 def test_caller_is_required(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     workspace = tmp_path / "scratch"
     workspace.mkdir()
+    workspace.chmod(0o700)
     cfg_path = tmp_path / "config.toml"
     cfg_path.write_text(CONFIG_TOML.format(workspace=workspace))
 
@@ -242,7 +260,7 @@ def test_caller_is_required(tmp_path: Path, capsys: pytest.CaptureFixture[str]) 
 
 def test_repo_cannot_be_influenced_by_a_parameter(policy: config.Config) -> None:
     op = ops.resolve("issue-view")
-    params = cli._validate_params(op, ["7"], policy)
+    params, _body = cli._validate_params(op, ["7"], policy)
     argv = cli.build_argv(op, params, policy)
     assert argv[argv.index("--repo") + 1] == "acme/tracker"
 
@@ -427,3 +445,132 @@ def test_no_operation_interpolates_a_traversing_ref(policy: config.Config) -> No
                 params[p] = sample[p]
         for arg in op.build(policy.as_mapping(), **params):
             assert "/../" not in arg and not arg.endswith("/.."), op.name
+
+
+# --------------------------------------------------------------------------
+# The privilege boundary is the entry point, not --caller
+# --------------------------------------------------------------------------
+
+
+def test_read_dispatcher_refuses_a_write_whatever_caller_is_named(
+    policy_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """
+    The finding this split exists to close.
+
+    `--caller` is chosen by whoever runs the command, so a caller name can never
+    be the thing that stops a write. On the read dispatcher the refusal has to
+    hold even when the invoker names the *most* privileged caller in the policy.
+    """
+    rc = cli.main(
+        [
+            "--caller",
+            "security-issue-sync",
+            "issue-add-label",
+            "7",
+            "cve allocated",
+            "--config",
+            str(policy_path),
+            "--dry-run",
+        ],
+        read_only=True,
+    )
+    assert rc == cli.EXIT_POLICY
+    assert "read-only dispatcher" in capsys.readouterr().err
+
+
+def test_read_dispatcher_refuses_writes_before_consulting_policy(
+    policy_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A caller absent from the policy still gets the write refusal, not a
+    config error — proving the check does not depend on the config at all."""
+    rc = cli.main(
+        [
+            "--caller",
+            "no-such-caller",
+            "issue-close",
+            "7",
+            "completed",
+            "--config",
+            str(policy_path),
+            "--dry-run",
+        ],
+        read_only=True,
+    )
+    assert rc == cli.EXIT_POLICY
+    assert "read-only dispatcher" in capsys.readouterr().err
+
+
+def test_repeated_caller_is_refused(policy_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """
+    argparse keeps the last `--caller`, so repetition would let a command match
+    a permission rule written against a read-only prefix while resolving to a
+    privileged caller.
+    """
+    rc = cli.main(
+        [
+            "--caller",
+            "security-issue-triage",
+            "--caller",
+            "security-issue-sync",
+            "issue-add-label",
+            "7",
+            "cve allocated",
+            "--config",
+            str(policy_path),
+            "--dry-run",
+        ],
+    )
+    assert rc == cli.EXIT_POLICY
+    assert "more than once" in capsys.readouterr().err
+
+
+def test_read_dispatcher_still_runs_reads(policy_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    rc = cli.main(
+        ["--caller", "security-issue-triage", "issue-view", "7", "--config", str(policy_path), "--dry-run"],
+        read_only=True,
+    )
+    assert rc == cli.EXIT_OK
+    assert "gh issue view 7" in capsys.readouterr().out
+
+
+# --------------------------------------------------------------------------
+# Body files: single open, owned workspace, no symlinks
+# --------------------------------------------------------------------------
+
+
+def test_symlinked_body_is_refused(policy: config.Config, tmp_path: Path) -> None:
+    """O_NOFOLLOW: a symlink sitting inside the workspace cannot smuggle out a
+    file from elsewhere, even though its own path passes the containment test."""
+    secret = tmp_path / "id_rsa"
+    secret.write_text("PRIVATE KEY")
+    link = policy.workspace / "innocent.md"
+    link.symlink_to(secret)
+    op = ops.resolve("issue-comment")
+    with pytest.raises(ops.ParamError):
+        cli._validate_params(op, ["7", str(link)], policy)
+
+
+def test_group_writable_workspace_is_refused(policy: config.Config) -> None:
+    """A workspace anyone can write is a workspace anyone can pre-seed, and
+    these bodies become public comments."""
+    body = policy.workspace / "note.md"
+    body.write_text("hello")
+    policy.workspace.chmod(0o770)
+    op = ops.resolve("issue-comment")
+    try:
+        with pytest.raises(ops.ParamError, match="group- or world-writable"):
+            cli._validate_params(op, ["7", str(body)], policy)
+    finally:
+        policy.workspace.chmod(0o700)
+
+
+def test_body_is_read_once_not_reopened(policy: config.Config) -> None:
+    """Content is captured at validation time, so a swap afterwards cannot
+    change what gets published."""
+    body = policy.workspace / "note.md"
+    body.write_text("approved text")
+    op = ops.resolve("issue-comment")
+    _params, captured = cli._validate_params(op, ["7", str(body)], policy)
+    body.write_text("substituted text")
+    assert captured == b"approved text"
