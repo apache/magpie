@@ -334,6 +334,29 @@ Each step is independently surfaced as it runs (one
 `✓ Removed <path>` line per artefact), so a mid-flow abort
 leaves a clean record of what made it out.
 
+## Committed default set
+
+If `.claude/settings.json` commits the block described in
+[`install.md` § Merge rules](install.md#merge-rules), remove **only** what
+`setup` added:
+
+- Delete the three floor entries from `enabledPlugins` —
+  `magpie-setup@apache-magpie`, `magpie-utilities@apache-magpie`,
+  `magpie-agent-guard@apache-magpie`, in that order. Keep every other entry
+  untouched, whether it is a Magpie plugin outside the floor or another
+  vendor's plugin.
+- Delete the `apache-magpie` entry from `extraKnownMarketplaces`. Keep any
+  other marketplace entry untouched.
+- If removing its members leaves `enabledPlugins` or
+  `extraKnownMarketplaces` empty, remove that now-empty key too.
+- **Never delete `.claude/settings.json` itself, and never touch any
+  top-level key other than these two.** The settings file belongs to the
+  project, not to Magpie.
+
+This mirrors the existing rule that `.apache-magpie-overrides/` is preserved
+by default: uninstall reverses Magpie's own additions, not the project's
+configuration.
+
 ## Step 5 — Sanity check
 
 After the deletions, verify the post-state:

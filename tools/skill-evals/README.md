@@ -11,7 +11,7 @@ Behavioral eval harness for Apache Magpie skills. Each eval suite tests a skill 
 
 Suites are currently implemented for:
 
-- **setup** — 24 cases across 6 steps (step-verify-drift, step-overrides-surface, step-override-bypass, step-m5-repo-artefacts, step-m5-settings-merge, verify-default-set)
+- **setup** — 26 cases across 7 steps (step-verify-drift, step-overrides-surface, step-override-bypass, step-m5-repo-artefacts, step-m5-settings-merge, verify-default-set, uninstall-default-set)
 - **setup-isolated-setup-install** — 9 cases across 3 steps (runtime-routing, step-snapshot-drift, step-scope-confirm)
 - **setup-shared-config-sync** — 11 cases across 2 steps (step-3-decide-action, step-5-draft-commit)
 - **pairing-multi-agent-review** — 15 cases across 6 steps (step-1-collect-diff, step-2a-correctness-pass, step-2b-security-pass, step-2c-conventions-pass, step-3-merge-findings, step-4-compose-report)

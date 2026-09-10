@@ -5,12 +5,13 @@
 
 Behavioral evals for the `setup` skill.
 
-## Suites (24 cases total)
+## Suites (26 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
 | step-verify-drift | verify.md § Check 3 (drift) | 5 | clean, method/URL mismatch, ref mismatch, svn-zip SHA-512 mismatch, local lock missing |
 | verify-default-set | verify.md § Committed default set | 3 | no committed `enabledPlugins` block (absent, not a fault), all three floor members present (current), some but not all present (stale — the only fault this check reports) |
+| uninstall-default-set | uninstall.md § Committed default set | 2 | committed block is exactly the floor (all three removed, nothing kept), a mixed block with other Magpie and other-vendor plugins (only the floor removed, everything else kept) |
 | step-overrides-surface | overrides.md § Step 0b | 4 | adopted no flag (offer choice), --local flag (personal), not adopted (personal only), both surfaces exist |
 | step-override-bypass | agentic-overrides.md § One-shot defaults run | 3 | `--no-overrides` flag + override exists, `--no-overrides` + no override, no flag + override exists |
 | step-m5-repo-artefacts | install.md § Step M5 — Recap and what comes next | 4 | Claude Code fresh install (offer made, defaults to no), Codex (no offer), Gemini (no offer), Claude Code where the offer was already declined (still a finished install) |
@@ -44,6 +45,15 @@ uv run --directory tools/skill-evals skill-eval --cli "claude -p" \
   plain list. Case 1 (absent) is the one that matters most — it checks
   that the skill states the optionality strongly enough that `is_fault`
   comes back `false` for a block that was never committed.
+- `uninstall-default-set` cases are fully auto-comparable: `plugins_removed`,
+  `plugins_kept`, and `keys_preserved` are plain lists, and `file_deleted` is
+  a boolean. Both cases report only the raw shape of
+  `.claude/settings.json` (its top-level keys and the contents of
+  `enabledPlugins`), never which entries the answer should sort into which
+  list — the model has to apply the floor-removal rule itself. Case 2
+  (mixed) is the one that matters most — it checks that non-floor Magpie
+  plugins and other vendors' plugins both survive untouched alongside an
+  unrelated top-level key.
 - `step-overrides-surface` tests the new `--local` flag and personal-
   vs-shared surface selection introduced by the `magpie-local-convention`
   work item.  The default surface when the repo is adopted and no flag is
