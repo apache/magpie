@@ -20,7 +20,11 @@ Checks:
   makes it a real target, and vice versa — a harness with no manifest is a
   screenshot of something the framework does not ship;
 - every harness and every `family:` in the frontmatter has its screenshot at
-  the exact path the docs reference;
+  the filename convention `docs/quick-start.md` and the family READMEs
+  reference (`<harness>-install.png`, `families/<family>-install.png`) —
+  this check reads that convention, not the docs' `![…](…)` targets, so it
+  cannot catch a doc page pointing at a different path than the convention
+  implies;
 - no orphan screenshots — a file no harness or family claims is one the docs
   cannot be showing;
 - every file is a real PNG, and each one is either a *real capture* at the
@@ -51,9 +55,10 @@ QUICKSTART = Path("assets/quickstart")
 FAMILY_DIR = QUICKSTART / "families"
 
 # The canonical capture width, matching `assets/session-*.png` and the
-# `WIDTH=` the capture script resizes to. A capture narrower than this was
-# taken on a display that could not supply the pixels (the script only ever
-# shrinks), and is what makes one shot look soft beside the others.
+# `WIDTH=` the capture script resizes to. The capture script itself refuses
+# a source narrower than this rather than upscaling it, so a file that
+# lands here under width came from somewhere else — and would make one
+# shot look soft beside the others.
 CAPTURE_WIDTH = 1700
 # The generated-placeholder geometry from `assets/quickstart/README.md`.
 PLACEHOLDER_SIZE = (1200, 300)
@@ -87,11 +92,22 @@ def harnesses_from_capture_script() -> tuple[list[str], list[str]]:
     return re.findall(r'"([^"]+)"', match.group(1)), []
 
 
+def _frontmatter(path: Path) -> str:
+    """The YAML frontmatter block only — same bound as check-doc-sync.py's helper.
+
+    Keeps a `family:` mention in the body (prose, an example) from being
+    mistaken for the declared frontmatter key.
+    """
+    text = path.read_text(encoding="utf-8")
+    m = re.match(r"^---\n(.*?)\n---\n", text, re.S)
+    return m.group(1) if m else ""
+
+
 def families_from_frontmatter() -> list[str]:
     """Families come from live `family:` frontmatter, as everywhere else."""
     found = set()
     for skill in sorted(SKILLS.glob("*/SKILL.md")):
-        for line in skill.read_text().splitlines():
+        for line in _frontmatter(skill).splitlines():
             if line.startswith("family:"):
                 found.add(line.split(":", 1)[1].strip())
                 break
@@ -188,7 +204,7 @@ def main() -> int:
             errors.extend(errs)
 
     known = expected | set(OPTIONAL_SHOTS)
-    for stray in sorted(set(QUICKSTART.glob("*.png")) | set(FAMILY_DIR.glob("*.png"))):
+    for stray in sorted(QUICKSTART.rglob("*.png")):
         if stray not in known:
             errors.append(f"{stray}: orphan screenshot — no harness or skill family claims it")
 
