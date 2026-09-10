@@ -5,13 +5,14 @@
 
 Behavioral evals for the `setup` skill.
 
-## Suites (12 cases total)
+## Suites (16 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
 | step-verify-drift | verify.md § Check 3 (drift) | 5 | clean, method/URL mismatch, ref mismatch, svn-zip SHA-512 mismatch, local lock missing |
 | step-overrides-surface | overrides.md § Step 0b | 4 | adopted no flag (offer choice), --local flag (personal), not adopted (personal only), both surfaces exist |
 | step-override-bypass | agentic-overrides.md § One-shot defaults run | 3 | `--no-overrides` flag + override exists, `--no-overrides` + no override, no flag + override exists |
+| step-m5-repo-artefacts | install.md § Step M5 — Recap and what comes next | 4 | Claude Code fresh install (offer made, defaults to no), Codex (no offer), Gemini (no offer), Claude Code where the offer was already declined (still a finished install) |
 
 ## Run
 

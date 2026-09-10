@@ -219,16 +219,37 @@ Tell the user, in this order:
    - the **committed version pin** and drift detection — add the
      [pinned snapshot install](#step-0--pre-flight) when the
      project wants every contributor and CI job on one version;
-   - **project-wide agentic overrides** — a marketplace-installed
-     skill still reads `.apache-magpie-overrides/<skill>.md` from
-     the repo at run time, so if the project wants them, offer to
-     scaffold that directory now
-     ([Step 9](#step-9--scaffold-apache-magpie-overrides-fresh-only))
-     and nothing else; it is the one repo-side artefact that is
-     useful without the snapshot;
    - **personal overrides** — `.apache-magpie-local/` works in any
      repo, adopted or not, once its `.gitignore` line exists;
      offer to add that single line.
+5. **Offer the repo-side artefacts — optional, once, defaulting to no.**
+   **Claude Code only**; skip this entirely on any other client and say why
+   (Codex can only default-install all ten families; Gemini has no
+   workspace-extension mechanism), rather than writing a file that does
+   nothing.
+
+   Ask one question covering both artefacts:
+
+   - **A committed default set** — `extraKnownMarketplaces` plus an
+     `enabledPlugins` floor of `magpie-setup`, `magpie-utilities` and
+     `magpie-agent-guard` in the repo's `.claude/settings.json`, so a teammate
+     who clones and trusts the repo arrives with those three enabled.
+   - **The config store** — `.apache-magpie-overrides/`, scaffolded exactly as
+     [Step 9](#step-9--scaffold-apache-magpie-overrides-fresh-only) does, same
+     exclusions and same `project.md` pre-population.
+
+   Say in the prompt that **both are optional and neither is required to use
+   the plugins in this repo** — they are a convenience for teammates. Default
+   to **no**.
+
+   The floor is fixed. It does not grow to match what this maintainer
+   installed: a maintainer-only family such as `magpie-security` stays a
+   personal, user-scope install.
+
+   `git add` what you write. Never commit.
+
+   **Declining is a finished install.** Do not describe the result as
+   incomplete, partial, or pending in the recap or anywhere else.
 
 Then stop. Do not continue into Step 0.
 
