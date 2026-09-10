@@ -8,7 +8,8 @@
 - [How to use Magpie on a repo that has not adopted it](#how-to-use-magpie-on-a-repo-that-has-not-adopted-it)
   - [Overview](#overview)
   - [Prerequisites](#prerequisites)
-  - [Step 1 — Whole-user install: make Magpie skills available in every repo](#step-1--whole-user-install-make-magpie-skills-available-in-every-repo)
+  - [Step 1 — Marketplace install (recommended): covers every repo](#step-1--marketplace-install-recommended-covers-every-repo)
+    - [Fallback — pinned-snapshot whole-user install](#fallback--pinned-snapshot-whole-user-install)
     - [Clone the framework to a stable personal location](#clone-the-framework-to-a-stable-personal-location)
     - [Symlink framework skills to your user-scope skills directory](#symlink-framework-skills-to-your-user-scope-skills-directory)
     - [Keeping user-scope skills current](#keeping-user-scope-skills-current)
@@ -28,12 +29,13 @@
 # How to use Magpie on a repo that has not adopted it
 
 > [!IMPORTANT]
-> **Skill names differ on this install.** Installed from the pinned snapshot
-> (or self-adoption), a skill is invoked as a **single token** —
-> `/magpie-security-issue-triage` — not `/magpie-security:issue-triage`. There
-> is no plugin namespace here; the `magpie-` prefix *is* the namespace, and the
-> name is the skill's directory name. Magpie's other docs show the
-> marketplace form; see
+> **Skill names differ on this install.** This page's recommended path is a
+> **marketplace plugin install**, invoked `/<plugin>:<alias>` — e.g.
+> `/magpie-security:issue-triage`. Its fallback path is the **pinned-snapshot
+> whole-user install**, invoked as a **single token** —
+> `/magpie-security-issue-triage`, not `/magpie-security:issue-triage`. There
+> is no plugin namespace on the fallback; the `magpie-` prefix *is* the
+> namespace there, and the name is the skill's directory name. See
 > [Skill names differ by install method](marketplaces.md#skill-names-differ-by-install-method).
 
 ## Overview
@@ -43,17 +45,24 @@ with a fix, triage an issue, or run a security audit on Project X's repo
 — without waiting for the project to adopt, without committing the
 framework artefacts, and without asking teammates to change anything.
 
-This recipe covers that case. The key piece is the **`.apache-magpie-local/`**
-personal override directory (added in the framework's override surface; see
-[`agentic-overrides.md`](agentic-overrides.md)): a gitignored directory
-that lives in the target repo and provides your personal config layer.
-Because it is gitignored (and contains no binaries), adding it to a repo
-you do not own is safe and non-intrusive.
+A **marketplace plugin install already covers this**: Claude Code keeps
+plugin state in one user-scope store (`~/.claude/plugins/`), so a plugin you
+install once is available in every repo you open next, adopted or not —
+nothing project-specific is required. See
+[Step 1](#step-1--marketplace-install-recommended-covers-every-repo) below.
+The rest of this recipe is the **`.apache-magpie-local/`** personal override
+directory (added in the framework's override surface; see
+[`agentic-overrides.md`](agentic-overrides.md)): a gitignored directory that
+lives in the target repo and provides your personal config layer. Because it
+is gitignored (and contains no binaries), adding it to a repo you do not own
+is safe and non-intrusive.
 
 The recipe has four steps:
 
-1. **Whole-user install** — make Magpie skills available in every repo you
-   open, not just adopted ones.
+1. **Marketplace install** (recommended) — install the plugins you want once;
+   they are then available in every repo, adopted or not. A pinned-snapshot
+   whole-user install is the fallback, for when a marketplace is not
+   reachable.
 2. **Add one `.gitignore` line** — keep your personal config untracked.
 3. **Create `.apache-magpie-local/`** — optionally add your overrides.
 4. **Run skills** — invoke them as if the project were adopted.
@@ -69,7 +78,28 @@ The recipe has four steps:
   have already done this for another Magpie-adopted project on this machine,
   skip this sub-step — whole-user scope covers the target repo automatically.
 
-## Step 1 — Whole-user install: make Magpie skills available in every repo
+## Step 1 — Marketplace install (recommended): covers every repo
+
+Add the marketplace and install the plugins you want, exactly as in the
+[quick start](../quick-start.md):
+
+```text
+/plugin marketplace add apache/magpie
+/plugin install magpie-setup@apache-magpie
+/plugin install magpie-pr-management@apache-magpie
+```
+
+That's it — nothing else in this step. Claude Code's plugin state lives in
+one user-scope store (`~/.claude/plugins/`), so the skills are now available
+in every repo you open on this machine, Project X included, whether or not
+Project X has adopted Magpie. Skip to
+[Step 2](#step-2--in-the-target-repo-add-one-gitignore-line).
+
+### Fallback — pinned-snapshot whole-user install
+
+Use this instead of Step 1 only when a marketplace is not reachable (no
+plugin mechanism for your agent, or the project wants the signed ASF source
+release rather than a git clone).
 
 In a normal project adoption, Magpie's skills are installed as gitignored
 symlinks under `.agents/skills/` (canonical) and `.claude/skills/` (Claude
@@ -204,8 +234,18 @@ pre-empt a decision-table row).
 
 ## Step 4 — Run skills against the target repo
 
-Open the target repo's directory in Claude Code and invoke any framework
-skill by its `magpie-` name:
+Open the target repo's directory in Claude Code and invoke any installed
+skill. **On the marketplace install** (Step 1), use `/<plugin>:<alias>`:
+
+```text
+/magpie-pr-management:triage
+/magpie-issue:triage
+/magpie-security:issue-import
+/magpie-release-management:audit-report
+```
+
+**On the pinned-snapshot fallback**, use the single-token `magpie-` name
+instead:
 
 ```text
 /magpie-pr-management-triage
@@ -214,8 +254,8 @@ skill by its `magpie-` name:
 /magpie-release-audit-report
 ```
 
-Because the skills are at user scope (`~/.claude/skills/`), Claude Code
-finds them regardless of what project you are in. The skill reads
+Either way, the skills are at user scope, so Claude Code finds them
+regardless of what project you are in. The skill reads
 `.apache-magpie-local/<skill-name>.md` (if present) before applying
 framework defaults, so your personal overrides are honoured without any
 project-wide config.

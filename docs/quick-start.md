@@ -23,8 +23,9 @@
 
 # Quick start
 
-Install Apache Magpie into the agent you already use, in two commands.
-Nothing is committed to your repository, and nothing is changed in it.
+Install Apache Magpie into the agent you already use, in a couple of
+commands: one to add the marketplace, one per family you want. Nothing is
+committed to your repository, and nothing is changed in it.
 
 **This install is yours, on this machine.** It needs no decision from your
 project and no opt-in from your teammates — see
@@ -35,8 +36,6 @@ which is which.
 PR triage and review, issue triage, security-report handling, release
 management, contributor mentoring. Install only the families you need; each one
 you add costs context in every session.
-
----
 
 ---
 
@@ -120,6 +119,9 @@ package:
 https://github.com/apache/magpie
 ```
 
+This path is not yet live-installed against a running VS Code — see
+[Verification status](setup/marketplaces.md#verification-status).
+
 <!-- CAPTURE: assets/quickstart/README.md -->
 ![VS Code plugin view showing Apache Magpie installed from the repository URL](../assets/quickstart/vscode-install.png)
 
@@ -128,6 +130,9 @@ https://github.com/apache/magpie
 ```bash
 gemini extensions install https://github.com/apache/magpie
 ```
+
+This path is not yet live-installed either — see
+[Verification status](setup/marketplaces.md#verification-status).
 
 <!-- CAPTURE: assets/quickstart/README.md -->
 ![Terminal output of `gemini extensions list` showing the magpie extension installed](../assets/quickstart/gemini-install.png)

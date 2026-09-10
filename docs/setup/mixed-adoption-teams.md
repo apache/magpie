@@ -8,7 +8,8 @@
 - [How to use Magpie on a team where not everyone has adopted it](#how-to-use-magpie-on-a-team-where-not-everyone-has-adopted-it)
   - [Overview](#overview)
   - [Prerequisites](#prerequisites)
-  - [Step 1 — Install Magpie at whole-user (global) scope](#step-1--install-magpie-at-whole-user-global-scope)
+  - [Step 1 — Marketplace install (recommended): covers every repo](#step-1--marketplace-install-recommended-covers-every-repo)
+    - [Fallback — pinned-snapshot whole-user install](#fallback--pinned-snapshot-whole-user-install)
   - [Step 2 — Add one `.gitignore` line to the shared repo](#step-2--add-one-gitignore-line-to-the-shared-repo)
   - [Step 3 — Create your personal config directory](#step-3--create-your-personal-config-directory)
   - [Step 4 — Run skills as normal](#step-4--run-skills-as-normal)
@@ -26,12 +27,13 @@
 # How to use Magpie on a team where not everyone has adopted it
 
 > [!IMPORTANT]
-> **Skill names differ on this install.** Installed from the pinned snapshot
-> (or self-adoption), a skill is invoked as a **single token** —
-> `/magpie-security-issue-triage` — not `/magpie-security:issue-triage`. There
-> is no plugin namespace here; the `magpie-` prefix *is* the namespace, and the
-> name is the skill's directory name. Magpie's other docs show the
-> marketplace form; see
+> **Skill names differ on this install.** This page's recommended path is a
+> **marketplace plugin install**, invoked `/<plugin>:<alias>` — e.g.
+> `/magpie-security:issue-triage`. Its fallback path is the **pinned-snapshot
+> whole-user install**, invoked as a **single token** —
+> `/magpie-security-issue-triage`, not `/magpie-security:issue-triage`. There
+> is no plugin namespace on the fallback; the `magpie-` prefix *is* the
+> namespace there, and the name is the skill's directory name. See
 > [Skill names differ by install method](marketplaces.md#skill-names-differ-by-install-method).
 
 ## Overview
@@ -44,15 +46,20 @@ This recipe shows how to run Magpie **only for yourself** against a shared
 repo, without committing any framework artefacts, without changing the
 project's settings files, and without asking teammates to do anything.
 
-The mechanism is the same one used for unadopted repos: a **whole-user
-install** (so skills are available in every directory you work in) plus a
-**`.apache-magpie-local/`** personal directory (gitignored, so it stays
-off the repo's history). Your teammates open the same files and branches
-they always have; nothing about the repo changes from their point of view.
+A **marketplace plugin install already covers this**: Claude Code keeps
+plugin state in one user-scope store, so the plugins you install are
+available in every repo you open, this shared one included — nothing
+project-specific is required and your teammates see nothing change. The
+rest of this recipe is the **`.apache-magpie-local/`** personal directory
+(gitignored, so it stays off the repo's history) for your personal config
+layer.
 
 The recipe has four steps:
 
-1. **Whole-user install** — make Magpie skills available in any repo.
+1. **Marketplace install** (recommended) — install the plugins you want
+   once; they are then available in every repo, this one included. A
+   pinned-snapshot whole-user install is the fallback, for when a
+   marketplace is not reachable.
 2. **Add one `.gitignore` line** — keep your personal config untracked.
 3. **Create `.apache-magpie-local/`** — your personal config layer.
 4. **Run skills** — invoke them against the shared repo normally.
@@ -64,7 +71,25 @@ The recipe has four steps:
   working copy on your machine).
 - Your teammates have not (and need not) install anything.
 
-## Step 1 — Install Magpie at whole-user (global) scope
+## Step 1 — Marketplace install (recommended): covers every repo
+
+Add the marketplace and install the plugins you want, exactly as in the
+[quick start](../quick-start.md):
+
+```text
+/plugin marketplace add apache/magpie
+/plugin install magpie-setup@apache-magpie
+/plugin install magpie-pr-management@apache-magpie
+```
+
+That's it. Claude Code's plugin state lives in one user-scope store, so the
+skills are now available in every repo you open on this machine, this
+shared one included — whether or not it has adopted Magpie. Skip to
+[Step 2](#step-2--add-one-gitignore-line-to-the-shared-repo).
+
+### Fallback — pinned-snapshot whole-user install
+
+Use this instead of Step 1 only when a marketplace is not reachable.
 
 A per-project adoption wires Magpie skills as symlinks under the repo's
 `.agents/skills/`. In a mixed-adoption team you cannot commit those
@@ -170,7 +195,17 @@ syntax.
 
 ## Step 4 — Run skills as normal
 
-Open Claude Code in the shared repo's directory and invoke any skill:
+Open Claude Code in the shared repo's directory and invoke any installed
+skill. **On the marketplace install** (Step 1), use `/<plugin>:<alias>`:
+
+```text
+/magpie-issue:triage
+/magpie-pr-management:triage
+/magpie-security:issue-import
+```
+
+**On the pinned-snapshot fallback**, use the single-token `magpie-` name
+instead:
 
 ```text
 /magpie-issue-triage
@@ -178,9 +213,9 @@ Open Claude Code in the shared repo's directory and invoke any skill:
 /magpie-security-issue-import
 ```
 
-The skills find the framework via the user-scope symlinks (Step 1), read
-your personal context from `.apache-magpie-local/` (Step 3), and proceed
-exactly as they would in a fully adopted repo.
+Either way, the skills find the framework at user scope, read your personal
+context from `.apache-magpie-local/` (Step 3), and proceed exactly as they
+would in a fully adopted repo.
 
 ## What your teammates see (nothing)
 
