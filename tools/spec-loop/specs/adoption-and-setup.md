@@ -27,6 +27,39 @@ acceptance:
     layer above the committed `.apache-magpie-overrides/`, cannot weaken the
     safety baseline, and can be ignored for a single run via a one-shot
     default switch.
+  - A marketplace install on Claude Code offers once, opt-in and defaulting
+    to no, to write the committed default-set block and scaffold the
+    `.apache-magpie-overrides/` config store together in a single question
+    that states both are optional and that the plugins work in the repo
+    either way; the offer is never asked on any other client.
+  - Declining the offer, or running on a client where it is never asked,
+    leaves a complete install; neither the recap nor verify describes the
+    result as incomplete or partial.
+  - The default-set floor stays fixed at the same three plugins regardless
+    of which other families this maintainer installed; it never grows to
+    include a maintainer-only family.
+  - Writing the committed default-set block touches only
+    `extraKnownMarketplaces` and `enabledPlugins` in
+    `.claude/settings.json`, preserves every other top-level key and an
+    existing `apache-magpie` marketplace definition, adds only the floor
+    members missing from an existing `enabledPlugins` and removes nothing,
+    creates the file with just those two keys when it is absent, refuses to
+    rewrite a settings file that does not parse, and stages only the file
+    it wrote — never commits it.
+  - verify reports an absent committed default-set block through the
+    non-fault glyph with an empty `missing` list, reports all three floor
+    members present as current and equally non-faulting, reports
+    some-but-not-all floor members present as stale, the one fault this
+    check raises, naming the missing members in floor order with a repair
+    offer, and gives an entry naming a plugin the marketplace no longer
+    ships the same drift treatment.
+  - uninstall removes only the three floor entries from `enabledPlugins`
+    and the `apache-magpie` entry from `extraKnownMarketplaces`, keeps
+    every other plugin and marketplace entry untouched, drops either key
+    left empty by the removal, and never deletes `.claude/settings.json`.
+  - docs/quick-start.md and docs/setup/marketplaces.md both state that the
+    committed default-set block is optional and not a prerequisite to using
+    the plugins in the repo.
 ---
 
 # Adoption & setup
