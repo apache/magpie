@@ -268,13 +268,16 @@ there. When the user accepts the offer:
   `enabledPlugins`, and remove nothing** — not other Magpie plugins, not
   other vendors' plugins. The floor is `magpie-setup@apache-magpie`,
   `magpie-utilities@apache-magpie`, `magpie-agent-guard@apache-magpie`.
-- **If the file does not exist**, create it with those two keys and nothing
-  else.
+- **If the file does not exist**, create it with exactly those two keys:
+  `extraKnownMarketplaces` defining `apache-magpie`, and `enabledPlugins`
+  containing the floor.
 - **If the file exists but does not parse as JSON, stop and say so.** Do not
   rewrite a file you cannot read; a malformed settings file is the user's to
   fix.
 
-Then `git add .claude/settings.json`. Never commit it.
+When you write the file — creating it or merging into it — `git add
+.claude/settings.json`. Never commit it. When you refuse because the file
+doesn't parse, nothing was written; stop without staging anything.
 
 ## Step 0 — Pre-flight
 
