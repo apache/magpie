@@ -85,9 +85,24 @@ or
 
 or skill calls starting with a slash, like
 
-> /dependency-audit
+> /magpie-repo-health:dependency-audit
+
+(the family-plugin form, assuming the recommended marketplace install above —
+see [Skill names differ by install method](docs/setup/marketplaces.md#skill-names-differ-by-install-method)
+if you're on the pinned-snapshot fallback instead).
 
 ## Update / maintain
+
+**Marketplace install** (the recommended path above):
+
+- `/plugin marketplace update apache-magpie` then
+  `/plugin update <plugin>@apache-magpie` — refresh the marketplace
+  metadata, then bump the installed plugin(s) to its latest.
+- Add or drop families by installing or uninstalling their plugin —
+  there is no separate "pick families" step once you're on a
+  marketplace install.
+
+**Pinned-snapshot install** (the fallback):
 
 - `/magpie-setup upgrade` — refresh the snapshot to a newer
   framework version + reconcile any overrides against the new
@@ -101,12 +116,15 @@ or skill calls starting with a slash, like
 
 The following skill families ship in the framework, all at `experimental` or
 `stable`, and each skill declares its family in a `family:` frontmatter
-key. At install (and on every upgrade), `/magpie-setup` offers the
-**opt-in** families — and the optional **MCP servers** (`ponymail`,
-`apache-projects`, `gmail-plaintext`) — in a single install choice;
-symlinks for the picked families land in the skill directory.
-The two **always-on** families (`setup`, `utilities`) are wired
-unconditionally and never prompted for.
+key. On the recommended marketplace install, you choose families by which
+per-family plugin(s) you install (see [Install](#install) above) — install
+or uninstall a plugin at any time to add or drop a family. On the
+pinned-snapshot fallback, `/magpie-setup` offers the **opt-in** families —
+and the optional **MCP servers** (`ponymail`, `apache-projects`,
+`gmail-plaintext`) — in a single install choice, and symlinks for the picked
+families land in the skill directory. Either way, the two **always-on**
+families (`setup`, `utilities`) are wired unconditionally and never prompted
+for.
 
 The **Modes** column maps each family to the MISSION agent-assistance
 taxonomy — see [`docs/modes.md`](docs/modes.md) for what each mode

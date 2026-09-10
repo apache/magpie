@@ -361,14 +361,19 @@ Walk rules in declared order; each fired rule produces one entry with
 `priority` (high / medium / low), `icon`, `title`, `detail`, and `action`
 (exact slash command or `—`):
 
+**Skill names here are the marketplace form** (`/magpie-issue:<alias>`). On
+the pinned-snapshot install, translate to the single token
+`/magpie-issue-<skill>` — see
+[Skill names differ by install method](../../docs/setup/marketplaces.md#skill-names-differ-by-install-method).
+
 | # | Condition | Priority | Action |
 |---|---|---|---|
-| R1 | Untriaged issues > 40% of total | high | `issue-triage` |
-| R2 | Stale candidates > 25% of total | high | `issue-stale-sweep` |
-| R3 | Top-pressure area has > 20 untriaged issues | high | `issue-triage component:<area>` |
-| R4 | Untriaged issues > 20% of total | medium | `issue-triage` |
-| R5 | Stale candidates > 10% of total | medium | `issue-stale-sweep` |
-| R6 | Issues older than 90 d > 30% of total | medium | `issue-reassess` |
+| R1 | Untriaged issues > 40% of total | high | `/magpie-issue:triage` |
+| R2 | Stale candidates > 25% of total | high | `/magpie-issue:stale-sweep` |
+| R3 | Top-pressure area has > 20 untriaged issues | high | `/magpie-issue:triage component:<area>` |
+| R4 | Untriaged issues > 20% of total | medium | `/magpie-issue:triage` |
+| R5 | Stale candidates > 10% of total | medium | `/magpie-issue:stale-sweep` |
+| R6 | Issues older than 90 d > 30% of total | medium | `/magpie-issue:reassess` |
 | R7 | No rules fire | low | — (emit explicit "no urgent actions detected" panel) |
 
 If zero rules fire, surface the "no urgent actions" panel — never leave

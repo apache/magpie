@@ -98,7 +98,7 @@ submodule, not vendored copy):
   never collides with the adopter's own skills (e.g. the
   snapshot's `skills/pr-management-triage/` becomes
   `magpie-pr-management-triage`, invoked as
-  `pr-management-triage`). **`.agents/skills/` is the
+  `/magpie-pr-management-triage`). **`.agents/skills/` is the
   one canonical home**: its `magpie-*` entries link into
   `<snapshot-dir>/skills/<framework-skill>/`. Every other agent
   target (`.claude/skills/`, `.github/skills/`, …) gets a thin

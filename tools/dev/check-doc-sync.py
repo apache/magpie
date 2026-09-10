@@ -18,7 +18,7 @@
 
 """Check the documentation claims that must track the tree, and silently rot.
 
-Eight checks, all mechanical, each one written after the drift it catches was
+Ten checks, all mechanical, each one written after the drift it catches was
 found by hand:
 
 1. **Spec-index completeness.** Every ``tools/spec-loop/specs/<name>.md`` is
@@ -55,7 +55,13 @@ found by hand:
    remember; the family is read from the install command in the same file, so
    ``issue`` under ``docs/issue-management/`` resolves correctly.
 
-7. **The portable single-token form declares its install.** A doc showing
+7. **No family-plugin invocation stutters the family name.** A doc showing
+   ``/magpie-security:security-issue-triage`` says "security" twice — the
+   family plugin advertises a de-stuttered alias
+   (``/magpie-security:issue-triage``), so the stuttering form is a command
+   nobody can run.
+
+8. **The portable single-token form declares its install.** A doc showing
    ``/magpie-<skill>`` is teaching a command that exists only on a snapshot or
    self-adoption install; since the marketplace install is now the default, the
    page has to say so. ``/magpie-setup`` is exempt — it names the install
@@ -63,10 +69,13 @@ found by hand:
    several of which are ``test -f`` assertions in the spec files) is not an
    invocation.
 
-8. **Every script in ``tools/dev/`` is named in its README.** These scripts are
-   the framework's own gates, and an undocumented one is invisible to the next
-   contributor who has to decide whether it applies to their change. Naming it
-   is the minimum; the README says what each guards.
+9. **Published always-on token figures track the live frontmatter.** Delegates
+   to ``estimate-skill-tokens.py`` so the measurement lives in one place.
+
+10. **Every script in ``tools/dev/`` is named in its README.** These scripts are
+    the framework's own gates, and an undocumented one is invisible to the next
+    contributor who has to decide whether it applies to their change. Naming it
+    is the minimum; the README says what each guards.
 
 Why counting is worth a hook at all: every one of these is a number a human has
 to remember to update while thinking about something else, and none of them
@@ -132,6 +141,7 @@ PORTABLE_FORM_ALLOWED = {
     Path("CONTRIBUTING.md"),  # self-adoption section carries an inline note
     Path("tools/skill-and-tool-validator/README.md"),  # documents the name: convention
     Path("tools/dev/README.md"),  # documents these checks
+    Path("skills/setup/SKILL.md"),  # documents the portable naming convention
 }
 
 # Dev scripts must each be named in tools/dev/README.md. Suffixes rather than a

@@ -17,7 +17,11 @@ description: |
 when_to_use: |
   Invoke when a human asks *"what skills are available"*, *"list
   the skills"*, *"show me the skills in this repo"*, *"give me a
-  table of contents for the skills"*, or types `list-skills`.
+  table of contents for the skills"*, or invokes it under
+  whichever name their install method uses.
+  Skill names differ on this install:
+  `/magpie-utilities:list-skills` on a marketplace family-plugin
+  install, `/magpie-list-skills` on the pinned snapshot.
   This is a help-style overview for humans onboarding to the
   repository — agents route via the live frontmatter
   `description` field directly and do not need this index to

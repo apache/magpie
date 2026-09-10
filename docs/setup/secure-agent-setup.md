@@ -143,10 +143,13 @@ select. The end state and verification commands are documented in the
    clean-env wrapper).
 4. Run /magpie-setup:isolated-setup-verify — confirms ✓/✗/⚠ for every piece
    of the secure-agent setup.
-5. When you want to be on the framework's latest, run
-   `/magpie-setup upgrade` — pulls your local magpie
-   checkout to origin/main with --ff-only, refuses to touch a
-   dirty working tree, surfaces what arrived. Then run
+5. When you want to be on the framework's latest: on the
+   marketplace install, run `/plugin marketplace update
+   apache-magpie` then `/plugin update <plugin>@apache-magpie`; on
+   the pinned-snapshot fallback, run `/magpie-setup upgrade` instead
+   — pulls your local magpie checkout to origin/main with
+   --ff-only, refuses to touch a dirty working tree, surfaces what
+   arrived. Either way, then run
    /magpie-setup:isolated-setup-update to surface user-side drift the
    upgrade introduced (new permissions.deny entries,
    user-scope script copies older than the framework, pinned
