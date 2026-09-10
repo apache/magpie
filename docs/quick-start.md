@@ -141,6 +141,17 @@ gemini extensions install https://github.com/apache/magpie
 > without symlink support (per-family plugins rely on git symlinks; see the
 > [Windows note](setup/marketplaces.md#choosing-a-plugin-all-in-one-vs-per-family)).
 
+> [!TIP]
+> **Working in IntelliJ IDEA, PyCharm or another JetBrains IDE?** There is
+> nothing extra to install. A JetBrains IDE hosts an agent rather than
+> distributing skills itself, so you run the install above for the agent you
+> use inside it — with Claude Code's JetBrains plugin, the same
+> `/plugin marketplace add apache/magpie` from the IDE's Claude Code window.
+> And you only do it once: plugin state lives in a single user-scope store, so
+> a marketplace added in the terminal is already there in the IDE. Details, and
+> why JetBrains' own agent Junie is a separate matter, in
+> [marketplaces.md](setup/marketplaces.md#jetbrains-ides-intellij-idea-pycharm-goland-).
+
 > [!NOTE]
 > **Per-family plugins are Claude Code-only** today, for the packaging reason
 > recorded in

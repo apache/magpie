@@ -34,6 +34,18 @@ This sub-action is destructive on disk and on the index. It
 always surfaces the full removal plan first and requires one
 explicit confirmation before any write.
 
+> **Scope: the pinned snapshot install only.** A **marketplace**
+> install — the default path — put nothing in the repo, so there
+> is nothing here to reverse: it is removed with the client's own
+> verb (`/plugin uninstall <plugin>@apache-magpie` in Claude
+> Code, `codex plugin uninstall magpie`,
+> `gemini extensions uninstall magpie`). If the repo has no
+> `.apache-magpie.lock` and Magpie is plugin-installed, print
+> that command instead of a removal plan and stop. When **both**
+> installs are live, this sub-action removes only the repo-side
+> one — say so explicitly, so the user is not surprised that the
+> skills are still there afterwards.
+
 ## When to use
 
 - The project decided to stop using apache-magpie.
@@ -45,6 +57,14 @@ explicit confirmation before any write.
 If the goal is to **change install method or version**, use
 [`setup upgrade`](upgrade.md) instead — that path
 preserves overrides and re-uses the existing wiring.
+
+If the goal is to **move from the snapshot install to the
+marketplace install** (the common direction — the project no
+longer needs a committed pin), this is the right sub-action: run
+it, then install the plugins per
+[`install.md` → Marketplace install](install.md#marketplace-install--the-default-path).
+Doing it in that order avoids the double-install trap in
+[`SKILL.md` Golden rule 10](SKILL.md#golden-rules).
 
 If the goal is to **temporarily detach for debugging** (e.g.
 test what a skill looks like without overrides), edit the

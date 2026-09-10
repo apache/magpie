@@ -11,6 +11,10 @@ source: >
   Implemented by the setup family (setup and siblings) and the
   snapshot + agentic-override model.
 acceptance:
+  - The default install a fresh adopter is offered is the marketplace
+    plugin; the snapshot install below is proposed only where a marketplace
+    cannot reach (no plugin mechanism, signed artefact needed, committed pin
+    wanted).
   - An adopter commits exactly one skill (setup); everything else
     is a gitignored snapshot plus committed override + lock files.
   - The committed lock pins install method + URL + ref so a fresh clone
@@ -27,10 +31,16 @@ acceptance:
 
 ## What it does
 
-Gets the framework into an adopter repo and keeps it current using a
-**snapshot + agentic-override** model: one committed bootstrap skill, a
+Gets the framework in front of an adopter and keeps it current. The
+**default install is the marketplace plugin**
+([`marketplace-distribution.md`](marketplace-distribution.md)) — per machine,
+nothing in the repo. This surface is the **fallback and the repo-side half**:
+a **snapshot + agentic-override** model — one committed bootstrap skill, a
 gitignored framework snapshot (a build artefact, never committed),
-gitignored skill symlinks, and committed agent-readable override files.
+gitignored skill symlinks, and committed agent-readable override files —
+for agents with no plugin mechanism, adopters who need the signed ASF source
+artefact, and projects that want every contributor and CI job pinned to one
+committed version with drift detection.
 
 ## Where it lives
 
@@ -50,6 +60,13 @@ gitignored skill symlinks, and committed agent-readable override files.
 
 ## Behaviour & contract
 
+- **Marketplace first.** `setup install` with no `method:` proposes the
+  marketplace install and prints the running agent's exact commands; it
+  proposes the snapshot only for a stated reason (no plugin mechanism,
+  signed artefact, committed pin, or the framework checkout itself). Both
+  installs live on one machine at once is a supported *repo* state but a
+  double-load for that machine — the skill surfaces it rather than stacking
+  them silently.
 - **One committed skill, no submodules, no vendored framework copies.**
   The snapshot lives in a gitignored `.apache-magpie/`.
 - **`.agents/skills/` is the canonical home** for framework-skill
@@ -97,18 +114,20 @@ gitignored skill symlinks, and committed agent-readable override files.
 
 ## Acceptance criteria
 
-1. Adoption commits only the bootstrap skill + lock/override scaffold.
-2. The committed lock re-installs the same version on a fresh clone.
-3. Drift between local and committed locks is surfaced with an upgrade.
-4. Override files can be discovered and surfaced to skills without
+1. A fresh `setup install` proposes the marketplace path first, names the
+   agent's commands, and reaches the snapshot flow only with a stated reason.
+2. Adoption commits only the bootstrap skill + lock/override scaffold.
+3. The committed lock re-installs the same version on a fresh clone.
+4. Drift between local and committed locks is surfaced with an upgrade.
+5. Override files can be discovered and surfaced to skills without
    editing upstream skill bodies, and override text cannot weaken the
    safety/confidentiality baseline.
-5. A gitignored `.apache-magpie-local/` is read as a per-person override
+6. A gitignored `.apache-magpie-local/` is read as a per-person override
    surface that layers above `.apache-magpie-overrides/` (personal-local ->
    committed -> organization -> framework default, first hit wins), under the
    same additive-only guardrail, and works on a repo that has not adopted
    Magpie once its `.gitignore` line is present.
-6. A one-shot switch runs a skill against framework defaults for a single
+7. A one-shot switch runs a skill against framework defaults for a single
    session, ignoring both override surfaces without deleting them, and the
    safety baseline still applies.
 
@@ -122,9 +141,10 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
 ## Known gaps
 
 - **Marketplace distribution is a sibling surface**, specified separately in
-  [`marketplace-distribution.md`](marketplace-distribution.md). An adopter takes
-  the framework either through the snapshot install described here or through a
-  plugin from that surface; the skills delivered are the same tree.
+  [`marketplace-distribution.md`](marketplace-distribution.md). It is the
+  *default* way an adopter takes the framework; the snapshot install described
+  here is the fallback. The skills delivered are the same tree either way —
+  only the namespace of their invocation differs.
 
 - `stable`; gaps appear as new agent targets to add to the registry
   ([`agents.md`](../../../skills/setup/agents.md)) or new override

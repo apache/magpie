@@ -3,6 +3,12 @@
 
 # upgrade — refresh the gitignored snapshot per the committed lock
 
+**Scope: the pinned snapshot install.** On the default
+**marketplace** install there is no snapshot and no lock to drift
+— the agent's plugin manager owns the version, and upgrading
+means updating the plugin (see
+[Step 0](#step-0--pre-flight) item 2 for the commands).
+
 The upgrade flow is **drift-driven**. It detects mismatch
 between `<committed-lock>` (project pin) and `<local-lock>`
 (per-machine fetch), then re-installs per the committed lock,
@@ -50,8 +56,25 @@ Both paths run the same flow.
    `<main-path>` resolves to
    `$(dirname "$(cd "$(git rev-parse --git-common-dir)" && pwd)")` —
    surface it explicitly so the operator can `cd` there.
-2. Read `<committed-lock>`. If missing, the repo isn't
-   adopted — suggest `setup install` and stop.
+2. Read `<committed-lock>`. If missing, this repo is not on the
+   pinned snapshot install. Before saying "not installed",
+   check whether Magpie is **plugin-installed** (the signals in
+   [`install.md` Step M1](install.md#step-m1--is-magpie-already-plugin-installed)).
+   If it is, the upgrade the user wants is the plugin's — print
+   it and stop:
+
+   ```text
+   /plugin marketplace update apache-magpie
+   /plugin update <plugin>@apache-magpie
+   ```
+
+   (Codex: `codex plugin update magpie`; Gemini:
+   `gemini extensions update magpie`.) The marketplace update
+   comes first: `plugin update` compares **version strings**
+   against the local marketplace clone, so skipping it reports
+   "already at the latest version" however far behind the clone
+   has fallen. If neither install is present, suggest
+   `setup install` and stop.
 3. Read `<local-lock>`. If missing (gitignored, fresh
    clone), the local install hasn't been initialised yet —
    route as a recover-snapshot install per the committed

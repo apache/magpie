@@ -51,7 +51,7 @@ a worktree; direct the user to run it in the main checkout.
 ## The two source locks
 
 Sources reuse the framework's [two-lock drift
-model](SKILL.md#the-two-lock-files) verbatim, in a **separate pair
+model](locks.md) verbatim, in a **separate pair
 of files** so a source re-pin is never entangled with a framework
 upgrade:
 

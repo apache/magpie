@@ -34,9 +34,58 @@ default — surfaces gaps and remediation commands.
    instead of the snapshot checks below, then stop. A framework
    checkout with no `method: local` lock is simply not adopted
    yet — point at `setup`.
-3. If `<repo-root>/.apache-magpie.lock` is missing, the
-   repo is not adopted. Surface and stop with a pointer at
+3. If `<repo-root>/.apache-magpie.lock` is missing, the repo is
+   not on the pinned snapshot install. That is **not** the same
+   as "not installed" — the default install is the marketplace
+   one, which writes nothing to the repo. Check for it (see
+   [Marketplace-install checks](#marketplace-install-checks));
+   if Magpie is plugin-installed, run those checks and stop. If
+   neither is present, surface "not installed" and point at
    `setup install`.
+
+## Marketplace-install checks
+
+Run these (and only these) when the repo has no committed lock
+and Magpie is installed as a plugin — the default install path.
+There is no snapshot, no lock, and no symlink to check: the
+plugin *is* the install, and the agent's own plugin manager owns
+its lifecycle. Report, do not remediate.
+
+1. **Which plugins are active, and at what version.** Read the
+   client's plugin state — Claude Code:
+   `~/.claude/plugins/installed_plugins.json` plus the version in
+   the cached `…/apache-magpie/<plugin>/<version>/`; Codex:
+   `codex plugin list`; Gemini: `gemini extensions list`. Report
+   the family plugins (or the all-in-one) and the version each
+   is on.
+2. **Marketplace registered and reachable.** The `apache-magpie`
+   marketplace appears in the client's known marketplaces
+   (Claude Code: `~/.claude/plugins/known_marketplaces.json`),
+   and whether it tracks `main` or is pinned to a tag. ⚠ if it
+   is registered but no Magpie plugin is installed.
+3. **Update path.** State the two commands for this client
+   (marketplace update, then plugin update) — a plugin compares
+   **version strings**, so a stale marketplace clone reports
+   "already at the latest" indefinitely
+   ([`marketplaces.md`](../../docs/setup/marketplaces.md#automatic-upgrade-detection)).
+4. **No half-snapshot left behind.** ⚠ if `.apache-magpie/`,
+   `.apache-magpie.local.lock`, or any `magpie-*` symlink exists
+   without a committed lock — a snapshot install was started and
+   abandoned, or was removed by hand instead of with
+   `setup uninstall`. Both installs live at once is the
+   double-install trap in
+   [`SKILL.md` Golden rule 10](SKILL.md#golden-rules); name it.
+5. **Override surfaces (informational).** A plugin-installed
+   skill still reads `.apache-magpie-overrides/<skill>.md` and
+   `.apache-magpie-local/<skill>.md` from this repo at run time.
+   Report whether either directory exists, and whether
+   `.apache-magpie-local/` is gitignored — the one line that
+   makes personal overrides safe in a repo that has adopted
+   nothing.
+6. **Secure-agent setup.** Report whether it is installed
+   (`setup-isolated-setup-verify` is the full check) — a
+   marketplace install delivers skills only, and never sandboxes
+   the agent.
 
 ## Local self-adoption checks
 

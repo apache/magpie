@@ -1,12 +1,25 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/legal/release-policy.html -->
 
-# install — first-time install of apache-magpie into an adopter repo (alias: `adopt`)
+# install — first-time install of apache-magpie (alias: `adopt`)
 
-The default sub-action when the user says "adopt apache-magpie".
+The default sub-action when the user says "install magpie" or
+"adopt apache-magpie".
 
-There are two adoption shapes the skill recognises and routes
-between automatically:
+**Route first: the marketplace install is the default.** Unless
+the user named a snapshot method (`method:svn-zip` / `git-tag` /
+`git-branch`) or `method:local`, this run takes
+[Marketplace install](#marketplace-install--the-default-path) —
+the agent's own plugin mechanism, nothing written to the repo —
+and Steps 1–12 below never execute. The pinned snapshot install
+those steps describe is the **fallback**, for the cases
+[`SKILL.md` Golden rule 10](SKILL.md#golden-rules) enumerates:
+an agent with no plugin mechanism, a project that needs the
+signed ASF source artefact, or a project that wants every
+contributor and CI job on one committed version pin.
+
+On the **pinned-snapshot path** there are two adoption shapes the
+skill recognises and routes between automatically:
 
 - **Fresh adoption (no committed lock yet).** The first
   adopter on a project. Runs the full bootstrap: pick the
@@ -32,9 +45,13 @@ between automatically:
 ## Inputs
 
 - `from:<git-ref>` / `from:<version>` — explicit ref or
-  version (overrides the prompt).
-- `method:<git-branch | git-tag | svn-zip>` — explicit method
-  (overrides the prompt).
+  version (overrides the prompt). On the marketplace path it
+  pins the marketplace to that tag.
+- `method:<marketplace | git-branch | git-tag | svn-zip |
+  local>` — explicit method. **Default: `marketplace`.** The
+  three snapshot methods and `local` route into Steps 1–12;
+  `marketplace` routes into
+  [Marketplace install](#marketplace-install--the-default-path).
 - `skill-families:<list>` — comma-separated **opt-in**
   families to symlink (default: prompt). Valid values are the
   opt-in families declared by `family:` keys in the snapshot:
@@ -46,7 +63,184 @@ between automatically:
   are wired up unconditionally on every adopt run and the
   user is never asked about them.
 
+## Marketplace install — the default path
+
+The install path for every user whose agent has a plugin
+mechanism. It puts the skills into **the agent**, per machine:
+nothing committed, nothing gitignored, no snapshot fetched, no
+lock file written, no symlink created, no post-checkout hook. It
+therefore has no fresh-vs-subsequent shape, no main-checkout
+restriction, and no dependency on the repo having adopted
+anything — it runs in a worktree, and in a repo the user does not
+own.
+
+Per-agent reference (every supported client, pinning, updates):
+[`docs/setup/marketplaces.md`](../../docs/setup/marketplaces.md).
+
+### Step M1 — Is Magpie already plugin-installed?
+
+Check before proposing anything, so a second install is never
+stacked on a working one:
+
+- **This skill's own location settles it.** If the file you are
+  reading resolves under a plugin cache
+  (`~/.claude/plugins/cache/<marketplace>/<plugin>/…`), or
+  `CLAUDE_PLUGIN_ROOT` / `PLUGIN_ROOT` is set in the
+  environment, Magpie is already installed as a plugin.
+- **Claude Code** — `~/.claude/plugins/installed_plugins.json`
+  and `~/.claude/plugins/known_marketplaces.json` name the
+  installed plugins and whether the `apache-magpie` marketplace
+  is registered.
+- **Codex CLI** — `codex plugin list`. **Gemini CLI** —
+  `gemini extensions list`.
+
+If it is installed: report which plugins are active and their
+version, offer to **add** any family the user now wants (same
+`plugin install` command, different family), and give the update
+commands from [Step M5](#step-m5--recap-and-what-comes-next).
+Do not re-run the install.
+
+Also check for the *other* path already being live in this repo:
+a `.apache-magpie.lock` at the repo root means the project is on
+the pinned snapshot install. Say so, and do not add a marketplace
+install silently on top of it — the double-install trap in
+[`SKILL.md` Golden rule 10](SKILL.md#golden-rules).
+
+### Step M2 — Identify the agent
+
+| Agent | Detect it by | Marketplace |
+|---|---|---|
+| Claude Code | `~/.claude/` present; `CLAUDE_*` env; the session itself | `/plugin` |
+| OpenAI Codex CLI | `codex` on `PATH`, `~/.codex/` | `codex plugin` |
+| VS Code / GitHub Copilot | `.vscode/`, the Copilot CLI on `PATH` | repo URL or catalog |
+| Google Gemini CLI | `gemini` on `PATH`, `~/.gemini/` | `gemini extensions` |
+| Cursor, `microsoft/apm`, Kiro, OpenCode | per [`marketplaces.md`](../../docs/setup/marketplaces.md#supported-agents) | varies |
+
+When the running agent is ambiguous, ask — one structured
+question, not a guess: the commands differ per client and a wrong
+one wastes the user's turn.
+
+**If the agent has no plugin mechanism at all** — the clients
+[`marketplaces.md`](../../docs/setup/marketplaces.md#not-supported)
+lists as unsupported, Windsurf and Goose among them — say so
+plainly, name it as the reason, and hand off to the pinned
+snapshot install at [Step 0](#step-0--pre-flight). That — not a
+preference — is what the snapshot path is for.
+
+### Step M3 — Pick the families
+
+Ask which **skill families** the user wants, and install one
+plugin per family. Prefer the harness's structured-question tool
+(Claude Code's `AskUserQuestion`), multi-select, one option per
+family, each described by the problem it solves — the table in
+[`docs/quick-start.md`](../../docs/quick-start.md#what-each-family-solves)
+is the source text.
+
+Two rules for the recommendation:
+
+- **`magpie-setup` is always in the pick** — it carries the
+  secure-isolation skills of
+  [Step M5](#step-m5--recap-and-what-comes-next) and this skill
+  itself.
+- **Recommend per-family plugins over the all-in-one `magpie`.**
+  Each installed skill advertises its name and description to
+  the model on *every* turn, so the all-in-one's 74 skills cost
+  ~8.6k always-on tokens whether or not a Magpie skill is used
+  that turn; a family is ~0.2k–2.0k. Take the all-in-one only
+  when the user genuinely wants every family, is on Windows
+  without symlink support, or is on an agent where the family
+  plugins are unavailable — they are **Claude Code only**;
+  Codex, Copilot and the rest install `magpie`.
+
+If the user passed `skill-families:<list>`, use it verbatim and
+skip the prompt.
+
+### Step M4 — Emit the commands
+
+**The user runs these, not the agent.** A `/plugin …` command is
+a client command typed in the session — no tool can invoke it —
+so print the exact block and let the user fire it. Shell-based
+clients (Codex, Gemini) *can* be run for the user, with
+confirmation, but printing them is equally fine.
+
+Claude Code, one line per family the user picked:
+
+```text
+/plugin marketplace add apache/magpie
+/plugin install magpie-setup@apache-magpie
+/plugin install magpie-<family>@apache-magpie
+```
+
+Codex CLI:
+
+```bash
+codex plugin marketplace add apache/magpie
+codex plugin install magpie
+```
+
+Gemini CLI:
+
+```bash
+gemini extensions install https://github.com/apache/magpie
+```
+
+VS Code / Copilot: point the plugin install at
+`https://github.com/apache/magpie`.
+
+To pin a version instead of tracking `main`, add the marketplace
+from the tag — `/plugin marketplace add apache/magpie@<version>`
+— which is what `from:<version>` means on this path.
+
+Skills are then invoked under the plugin namespace:
+`/magpie-<family>:<skill>` (family plugin) or `/magpie:<skill>`
+(all-in-one) — **not** the `/magpie-<skill>` form the snapshot
+install produces
+([`marketplaces.md`](../../docs/setup/marketplaces.md#skill-names-differ-by-install-method)).
+
+### Step M5 — Recap and what comes next
+
+Tell the user, in this order:
+
+1. **What landed** — which plugins, which agent, tracking `main`
+   or pinned to `<version>`.
+2. **Run the secure-agent setup next** — `setup-isolated-setup-install`.
+   The marketplace install delivers skills; it does not sandbox
+   the agent, and the framework's other skills run against
+   pre-disclosure security content. This is the one follow-up
+   that is not optional.
+3. **How it updates** — Claude Code:
+   `/plugin marketplace update apache-magpie` then
+   `/plugin update <plugin>@apache-magpie`; Codex:
+   `codex plugin update magpie`; Gemini:
+   `gemini extensions update magpie`. The bundled `SessionStart`
+   hook prompts on a version change where the client runs hooks.
+4. **What this install deliberately does not set up**, each with
+   the one thing that would change the answer:
+   - the **committed version pin** and drift detection — add the
+     [pinned snapshot install](#step-0--pre-flight) when the
+     project wants every contributor and CI job on one version;
+   - **project-wide agentic overrides** — a marketplace-installed
+     skill still reads `.apache-magpie-overrides/<skill>.md` from
+     the repo at run time, so if the project wants them, offer to
+     scaffold that directory now
+     ([Step 9](#step-9--scaffold-apache-magpie-overrides-fresh-only))
+     and nothing else; it is the one repo-side artefact that is
+     useful without the snapshot;
+   - **personal overrides** — `.apache-magpie-local/` works in any
+     repo, adopted or not, once its `.gitignore` line exists;
+     offer to add that single line.
+
+Then stop. Do not continue into Step 0.
+
 ## Step 0 — Pre-flight
+
+**This pre-flight is the snapshot path's.** The marketplace path
+has its own, lighter one (it needs no git repo, and runs in a
+worktree just as well as in the main checkout) — see
+[Marketplace install](#marketplace-install--the-default-path).
+Reach Step 0 only when the user named a snapshot method, or when
+the marketplace path handed off here because the agent has no
+plugin mechanism.
 
 1. Confirm we are in a git repo (`git rev-parse
    --show-toplevel`).
@@ -233,14 +427,20 @@ else:
     → FRESH adoption
 ```
 
-## Step 2 — Pick install method (FRESH only)
+## Step 2 — Pick the snapshot fetch method (FRESH only)
+
+Reaching this step means the run is already on the fallback
+path — the user named a snapshot method, or
+[Step M2](#step-m2--identify-the-agent) handed off because the
+agent has no marketplace. What is left to choose is **where the
+snapshot comes from**, not whether to take a snapshot at all.
 
 If the user passed `method:` and `from:` flags, use those
 verbatim. Otherwise, prompt:
 
 | Method | When | Reproducibility |
 |---|---|---|
-| `svn-zip` | Production once ASF releases ship to dist | Frozen by version |
+| `svn-zip` | Production, and any adopter who needs the signed ASF source artefact | Frozen by version |
 | `git-tag` | Pin a specific tag | Frozen by tag |
 | `git-branch` | Track a branch tip (default: `main`) | Tracks tip — best during pre-release |
 
@@ -252,6 +452,17 @@ name, description = the *When* + *Reproducibility* cells
 combined, recommend `git-branch` while the framework is in
 its pre-release phase. Free-form chat is the fallback when
 the harness has no structured-Q&A tool.
+
+**One check before the fetch.** If the user landed here by
+preference rather than necessity — their agent *does* have a
+marketplace and nothing in the repo pins a version — say once
+what the snapshot buys them (a committed pin, drift detection,
+the signed artefact) and what it costs (a gitignored snapshot to
+maintain, an upgrade sub-action to run, `magpie-*` symlinks in
+every agent target dir), and confirm they want it. If they only
+wanted the skills, the marketplace install is one command and
+this whole flow is unnecessary. Take their answer either way and
+do not ask twice.
 
 The verbatim shell that fetches per each method is in
 [`docs/setup/install-recipes.md`](../../docs/setup/install-recipes.md).
@@ -1528,6 +1739,9 @@ Four passes, in this order:
 
 ## Output to the user
 
+*(Pinned-snapshot path. The marketplace path's recap is
+[Step M5](#step-m5--recap-and-what-comes-next).)*
+
 A summary of what was written:
 
 ```text
@@ -1581,3 +1795,12 @@ a PR.
   cannot reach** (e.g. svn-zip URL 404) → surface, ask the
   user whether the project has retired that release; the
   user updates `<committed-lock>` deliberately and re-runs.
+- **The user's agent has no `/plugin` or extension command** →
+  not a failure; it is the case the snapshot path exists for.
+  Name it as the reason and continue from
+  [Step 0](#step-0--pre-flight).
+- **A marketplace install is already live and the user asks for
+  the snapshot too** → surface the double-install trap
+  ([`SKILL.md` Golden rule 10](SKILL.md#golden-rules)) and
+  confirm which one the machine should keep before writing
+  anything.
