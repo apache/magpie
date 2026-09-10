@@ -3,4 +3,3 @@
 
 `.claude/settings.json` commits `enabledPlugins` with
 `magpie-setup@apache-magpie: true` and `magpie-utilities@apache-magpie: true`.
-There is no `magpie-agent-guard@apache-magpie` entry.
