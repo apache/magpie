@@ -155,6 +155,24 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Pull request ID whose approval to withdraw.",
     )
 
+    pr_request_changes = pr_subparsers.add_parser(
+        "request-changes",
+        help="Request changes on a pull request after caller-side confirmation.",
+    )
+    pr_request_changes.add_argument(
+        "pull_request_id",
+        help="Pull request ID to request changes on.",
+    )
+
+    pr_remove_request_changes = pr_subparsers.add_parser(
+        "remove-request-changes",
+        help="Remove your change request after caller-side confirmation.",
+    )
+    pr_remove_request_changes.add_argument(
+        "pull_request_id",
+        help="Pull request ID whose change request to remove.",
+    )
+
     pr_tasks = pr_subparsers.add_parser("tasks", help="List pull request tasks.")
     pr_tasks.add_argument("pull_request_id", help="Pull request ID whose tasks to fetch.")
 
@@ -259,6 +277,28 @@ def _dispatch(args: argparse.Namespace, config: BitbucketConfig) -> dict[str, An
             config.kind,
             raw,
             approved=False,
+        )
+
+    if args.subcommand == "pr" and args.pr_action == "request-changes":
+        raw = backend.request_pull_request_changes(
+            config,
+            args.pull_request_id,
+        )
+        return normalize.pull_request_change_request(
+            config.kind,
+            raw,
+            requested=True,
+        )
+
+    if args.subcommand == "pr" and args.pr_action == "remove-request-changes":
+        raw = backend.remove_pull_request_changes_request(
+            config,
+            args.pull_request_id,
+        )
+        return normalize.pull_request_change_request(
+            config.kind,
+            raw,
+            requested=False,
         )
 
     if args.subcommand == "pr" and args.pr_action == "tasks":

@@ -328,6 +328,53 @@ def unapprove_pull_request(
     }
 
 
+def request_pull_request_changes(
+    config: BitbucketConfig,
+    pull_request_id: str,
+) -> dict[str, Any]:
+    """Request changes on one Bitbucket Cloud pull request."""
+    workspace = quote_path(require(config.workspace, "BITBUCKET_WORKSPACE"))
+    repo_slug = quote_path(require(config.repo_slug, "BITBUCKET_REPO_SLUG"))
+    pr_id = quote_path(pull_request_id)
+    url = f"{CLOUD_API_BASE}/repositories/{workspace}/{repo_slug}/pullrequests/{pr_id}/request-changes"
+
+    participant = write_request(
+        url,
+        config,
+        method="POST",
+    )
+    if participant is None:
+        raise BitbucketError("Bitbucket request-changes response did not contain participant data")
+
+    return {
+        "pull_request_id": pull_request_id,
+        "participant": participant,
+    }
+
+
+def remove_pull_request_changes_request(
+    config: BitbucketConfig,
+    pull_request_id: str,
+) -> dict[str, Any]:
+    """Remove the authenticated user's change request from a Bitbucket Cloud pull request."""
+    workspace = quote_path(require(config.workspace, "BITBUCKET_WORKSPACE"))
+    repo_slug = quote_path(require(config.repo_slug, "BITBUCKET_REPO_SLUG"))
+    pr_id = quote_path(pull_request_id)
+    url = f"{CLOUD_API_BASE}/repositories/{workspace}/{repo_slug}/pullrequests/{pr_id}/request-changes"
+
+    result = write_request(
+        url,
+        config,
+        method="DELETE",
+    )
+    if result is not None:
+        raise BitbucketError("Bitbucket remove-request-changes response unexpectedly contained JSON")
+
+    return {
+        "pull_request_id": pull_request_id,
+    }
+
+
 def get_pull_request_reviews(config: BitbucketConfig, pull_request_id: str) -> dict[str, Any]:
     """Fetch review-state activity for a Bitbucket Cloud pull request."""
     pull_request = get_pull_request(config, pull_request_id)

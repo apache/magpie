@@ -44,6 +44,7 @@ from magpie_bitbucket.normalize import (
     issue_list,
     pull_request,
     pull_request_approval,
+    pull_request_change_request,
     pull_request_commits,
     pull_request_diff,
     pull_request_discussion,
@@ -3202,3 +3203,159 @@ def test_write_request_rejects_redirect_for_delete(
             {},
             "https://evil.example.test/redirect-target",
         )
+
+
+@patch("magpie_bitbucket.client.urllib.request.build_opener")
+def test_cloud_request_pull_request_changes_posts_without_body(
+    mock_build_opener: MagicMock,
+    cloud_env: None,
+) -> None:
+    mock_opener(
+        mock_build_opener,
+        {
+            "user": {"display_name": "Alice"},
+            "role": "PARTICIPANT",
+            "approved": False,
+            "state": "changes_requested",
+        },
+    )
+
+    result = cloud.request_pull_request_changes(load_config(), "7")
+
+    request = mock_build_opener.return_value.open.call_args.args[0]
+
+    assert request.full_url == (
+        "https://api.bitbucket.org/2.0/repositories/apache/magpie/pullrequests/7/request-changes"
+    )
+    assert request.get_method() == "POST"
+    assert request.data is None
+    assert result["pull_request_id"] == "7"
+    assert result["participant"]["state"] == "changes_requested"
+
+
+@patch("magpie_bitbucket.client.urllib.request.build_opener")
+def test_cloud_remove_pull_request_changes_request_deletes_without_body(
+    mock_build_opener: MagicMock,
+    cloud_env: None,
+) -> None:
+    response = MagicMock()
+    response.__enter__.return_value = response
+    response.read.return_value = b""
+    mock_build_opener.return_value.open.return_value = response
+
+    result = cloud.remove_pull_request_changes_request(load_config(), "7")
+
+    request = mock_build_opener.return_value.open.call_args.args[0]
+
+    assert request.full_url == (
+        "https://api.bitbucket.org/2.0/repositories/apache/magpie/pullrequests/7/request-changes"
+    )
+    assert request.get_method() == "DELETE"
+    assert request.data is None
+    assert result == {"pull_request_id": "7"}
+
+
+def test_datacenter_request_pull_request_changes_unsupported(
+    datacenter_env: None,
+) -> None:
+    with pytest.raises(
+        BitbucketError,
+        match="Data Center pull request change-request writes are not supported",
+    ):
+        datacenter.request_pull_request_changes(load_config(), "9")
+
+
+def test_datacenter_remove_pull_request_changes_request_unsupported(
+    datacenter_env: None,
+) -> None:
+    with pytest.raises(
+        BitbucketError,
+        match="Data Center pull request change-request writes are not supported",
+    ):
+        datacenter.remove_pull_request_changes_request(load_config(), "9")
+
+
+def test_normalize_pull_request_change_request_requested() -> None:
+    normalized = pull_request_change_request(
+        "cloud",
+        {
+            "pull_request_id": "7",
+            "participant": {
+                "user": {"display_name": "Alice"},
+                "state": "changes_requested",
+            },
+        },
+        requested=True,
+    )
+
+    assert normalized["ok"] is True
+    assert normalized["backend"] == "bitbucket-cloud"
+    assert normalized["operation"] == "pull-request-request-changes"
+    assert normalized["pull_request_id"] == "7"
+    assert normalized["changes_requested"] is True
+    assert normalized["participant"]["state"] == "changes_requested"
+
+
+def test_normalize_pull_request_change_request_removed() -> None:
+    normalized = pull_request_change_request(
+        "cloud",
+        {
+            "pull_request_id": "7",
+        },
+        requested=False,
+    )
+
+    assert normalized["ok"] is True
+    assert normalized["backend"] == "bitbucket-cloud"
+    assert normalized["operation"] == "pull-request-remove-request-changes"
+    assert normalized["pull_request_id"] == "7"
+    assert normalized["changes_requested"] is False
+    assert normalized["participant"] is None
+
+
+@patch("magpie_bitbucket.cloud.request_pull_request_changes")
+def test_cli_pr_request_changes_cloud(
+    mock_request_pull_request_changes: MagicMock,
+    cloud_env: None,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    mock_request_pull_request_changes.return_value = {
+        "pull_request_id": "7",
+        "participant": {
+            "user": {"display_name": "Alice"},
+            "state": "changes_requested",
+        },
+    }
+
+    exit_code = main(["pr", "request-changes", "7"])
+
+    assert exit_code == 0
+    mock_request_pull_request_changes.assert_called_once()
+    args = mock_request_pull_request_changes.call_args.args
+    assert args[1:] == ("7",)
+
+    output = json.loads(capsys.readouterr().out)
+    assert output["operation"] == "pull-request-request-changes"
+    assert output["changes_requested"] is True
+
+
+@patch("magpie_bitbucket.cloud.remove_pull_request_changes_request")
+def test_cli_pr_remove_request_changes_cloud(
+    mock_remove_pull_request_changes_request: MagicMock,
+    cloud_env: None,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    mock_remove_pull_request_changes_request.return_value = {
+        "pull_request_id": "7",
+    }
+
+    exit_code = main(["pr", "remove-request-changes", "7"])
+
+    assert exit_code == 0
+    mock_remove_pull_request_changes_request.assert_called_once()
+    args = mock_remove_pull_request_changes_request.call_args.args
+    assert args[1:] == ("7",)
+
+    output = json.loads(capsys.readouterr().out)
+    assert output["operation"] == "pull-request-remove-request-changes"
+    assert output["changes_requested"] is False
