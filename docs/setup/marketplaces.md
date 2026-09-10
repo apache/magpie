@@ -556,6 +556,13 @@ everyone who trusts the repo:
 }
 ```
 
+> [!TIP]
+> `/magpie-setup` offers to write this block for you at the end of a
+> marketplace install, and `/magpie-setup verify` reports it if it falls
+> behind a later release's floor. Both are opt-in: the block is a convenience
+> for teammates, never a prerequisite, and declining leaves a complete,
+> working install.
+
 Three plugins, for two different reasons.
 
 `setup` and `utilities` are the framework's two **always-on families** — the

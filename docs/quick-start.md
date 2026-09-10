@@ -99,6 +99,22 @@ command for that family and a few things to try once it is in:
 <!-- CAPTURE: assets/quickstart/README.md -->
 ![Claude Code after installing two family plugins — `magpie-setup` and `magpie-pr-management` listed as installed and enabled](../assets/quickstart/claude-code-install.png)
 
+#### Optional: commit a default set for your teammates
+
+Everything above installs Magpie for **you, on this machine** — nothing is
+written to the repository, and your teammates are unaffected.
+
+A project can go one step further and commit a small block to its
+`.claude/settings.json` naming the marketplace and three plugins, so anyone who
+clones the repo and trusts it arrives with `magpie-setup`, `magpie-utilities`
+and `magpie-agent-guard` already enabled. `/magpie-setup` offers to write it —
+see [the default set](setup/marketplaces.md#claude-code-the-default-set).
+
+**This is entirely optional.** The plugins work in the repo whether or not the
+block is committed, and a project that never commits it is not missing
+anything: the install you just did is complete. It is a convenience for
+teams — nobody has to run the install by hand — not a requirement.
+
 ### OpenAI Codex CLI
 
 ```bash
