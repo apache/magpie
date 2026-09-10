@@ -264,8 +264,10 @@ there. When the user accepts the offer:
 - **Leave an existing `apache-magpie` marketplace definition alone.** An
   adopter pinning `apache/magpie@0.2.0` has made a deliberate choice; do not
   rewrite it to track `main`.
-- **Add missing floor members to an existing `enabledPlugins`, and remove
-  nothing** — not other Magpie plugins, not other vendors' plugins.
+- **Add whichever of the floor's three entries are missing from an existing
+  `enabledPlugins`, and remove nothing** — not other Magpie plugins, not
+  other vendors' plugins. The floor is `magpie-setup@apache-magpie`,
+  `magpie-utilities@apache-magpie`, `magpie-agent-guard@apache-magpie`.
 - **If the file does not exist**, create it with those two keys and nothing
   else.
 - **If the file exists but does not parse as JSON, stop and say so.** Do not

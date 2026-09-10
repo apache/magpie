@@ -15,16 +15,20 @@ Return ONLY valid JSON with this structure:
 }
 ```
 
-`action` is one of `"create"`, `"merge"`, or `"refuse"`.
+`action` reports which operation this merge performed on
+`.claude/settings.json`: one of `"create"`, `"merge"`, or `"refuse"`.
 
-`keys_preserved` is a list of strings — top-level key names from the
-settings file, in the order they appear there.
+`keys_preserved` is a list of strings — the top-level keys the merge left
+untouched, in the order they appear in the settings file.
 
-`plugins_added` and `plugins_removed` are lists of `<plugin>@<marketplace>`
-strings. Where more than one of the floor members appears in
-`plugins_added`, list them in floor order: `magpie-setup@apache-magpie`,
-`magpie-utilities@apache-magpie`, `magpie-agent-guard@apache-magpie`.
+`plugins_added` is a list of `<plugin>@<marketplace>` strings — the entries
+the merge added to `enabledPlugins`. Where it adds more than one, list them
+in the order the merge rules give them.
 
-`marketplace_definition_changed` is a boolean.
+`plugins_removed` is a list of `<plugin>@<marketplace>` strings — the
+entries the merge removed from `enabledPlugins`.
+
+`marketplace_definition_changed` is a boolean — whether this merge added or
+changed the `apache-magpie` entry in `extraKnownMarketplaces`.
 
 Do not include any text outside the JSON object.
