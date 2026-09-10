@@ -5,11 +5,12 @@
 
 Behavioral evals for the `setup` skill.
 
-## Suites (21 cases total)
+## Suites (24 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
 | step-verify-drift | verify.md § Check 3 (drift) | 5 | clean, method/URL mismatch, ref mismatch, svn-zip SHA-512 mismatch, local lock missing |
+| verify-default-set | verify.md § Committed default set | 3 | no committed `enabledPlugins` block (absent, not a fault), all three floor members present (current), some but not all present (stale — the only fault this check reports) |
 | step-overrides-surface | overrides.md § Step 0b | 4 | adopted no flag (offer choice), --local flag (personal), not adopted (personal only), both surfaces exist |
 | step-override-bypass | agentic-overrides.md § One-shot defaults run | 3 | `--no-overrides` flag + override exists, `--no-overrides` + no override, no flag + override exists |
 | step-m5-repo-artefacts | install.md § Step M5 — Recap and what comes next | 4 | Claude Code fresh install (offer made, defaults to no), Codex (no offer), Gemini (no offer), Claude Code where the offer was already declined (still a finished install) |
@@ -38,6 +39,11 @@ uv run --directory tools/skill-evals skill-eval --cli "claude -p" \
 
 - `step-verify-drift` cases are fully auto-comparable: all three output
   fields (`status`, `severity`, `remediation`) are enumerated strings.
+- `verify-default-set` cases are fully auto-comparable: `status` and
+  `is_fault` are an enumerated string and a boolean, and `missing` is a
+  plain list. Case 1 (absent) is the one that matters most — it checks
+  that the skill states the optionality strongly enough that `is_fault`
+  comes back `false` for a block that was never committed.
 - `step-overrides-surface` tests the new `--local` flag and personal-
   vs-shared surface selection introduced by the `magpie-local-convention`
   work item.  The default surface when the repo is adopted and no flag is

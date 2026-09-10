@@ -820,6 +820,34 @@ When `.codex/` is absent this check is skipped — the Codex profile is
 opt-in per runtime; see
 [the Codex adapter](../../docs/adapters/codex.md).
 
+## Committed default set
+
+Read `.claude/settings.json` at the repo root and compare its committed
+`enabledPlugins` block against the floor of three: `magpie-setup@apache-magpie`,
+`magpie-utilities@apache-magpie`, `magpie-agent-guard@apache-magpie`. This
+block is `setup`'s opt-in offer (Claude Code only) to pin that floor in the
+repo; committing it is optional and is not required to use the plugins in
+this repo.
+
+- **No `enabledPlugins` key** — status `absent`. Report it in one line as
+  available but not in use, and move on. **This is not a fault.** A project
+  that never took the offer, or took it and later removed it, is correctly
+  configured. Do not count it as a failed check, and do not re-offer it
+  here — `setup` is where the offer lives.
+- **All three floor members present** — status `current`. Also not a fault.
+- **Some but not all of the three floor members present** — status `stale`.
+  This **is** the only fault this check reports: it is drift, typically
+  produced by a framework release that changed the floor. Name the missing
+  members — the floor entries above that are not present, listed in floor
+  order — and offer to add them under the merge rules in
+  [`install.md`](install.md#merge-rules).
+- **A member naming a plugin the marketplace no longer ships** — report it
+  the same way (as drift, i.e. a fault) and offer to drop that entry.
+
+`absent` and `current` are both correctly-configured end states and are
+reported informationally, never as a failed check; `stale` is the one status
+this check treats as a fault.
+
 ## After the report
 
 If every check is ✓ (or ⚠ on items the adopter has
