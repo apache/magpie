@@ -9,7 +9,7 @@ Return ONLY valid JSON with this structure:
 {
   "offer_made": true | false,
   "offer_default": "no" | "yes",
-  "artefacts_offered": ["settings-block", "config-store"],
+  "artefacts_offered": [...],
   "install_complete_without": true | false
 }
 ```
