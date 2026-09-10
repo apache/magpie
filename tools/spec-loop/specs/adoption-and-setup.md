@@ -15,8 +15,10 @@ acceptance:
     plugin; the snapshot install below is proposed only where a marketplace
     cannot reach (no plugin mechanism, signed artefact needed, committed pin
     wanted).
-  - An adopter commits exactly one skill (setup); everything else
-    is a gitignored snapshot plus committed override + lock files.
+  - On the pinned-snapshot fallback, an adopter commits exactly one
+    skill (setup); everything else is a gitignored snapshot plus
+    committed override + lock files. On the default marketplace
+    install, nothing is committed to the repo at all.
   - The committed lock pins install method + URL + ref so a fresh clone
     re-installs the same framework version.
   - Drift between the committed pin and the local install is detected and
