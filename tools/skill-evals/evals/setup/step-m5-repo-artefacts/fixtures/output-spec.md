@@ -14,19 +14,14 @@ Return ONLY valid JSON with this structure:
 }
 ```
 
-`offer_made` is `true` only when the detected agent is Claude Code. Codex CLI,
-Gemini CLI, VS Code / Copilot and any other client cannot express a committed
-per-family default set, so `offer_made` is `false` and `artefacts_offered` is
-`[]`.
+`offer_made` is a boolean.
 
-`offer_default` is `"no"` whenever an offer is made: the block is optional and
-is never written without the user asking for it.
+`offer_default` is one of `"no"` or `"yes"`.
 
-`artefacts_offered` lists both repo-side artefacts when an offer is made —
-`"settings-block"` and `"config-store"` — in that order.
+`artefacts_offered` is a list whose only possible members are
+`"settings-block"` and `"config-store"`; when both appear, `"settings-block"`
+comes before `"config-store"`.
 
-`install_complete_without` is always `true`. A marketplace install that writes
-nothing to the repo is a finished, working install; declining the offer, or
-being on a harness that cannot take it, never makes the install partial.
+`install_complete_without` is a boolean.
 
 Do not include any text outside the JSON object.
