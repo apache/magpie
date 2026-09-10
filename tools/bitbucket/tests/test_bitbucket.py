@@ -38,6 +38,7 @@ from magpie_bitbucket.client import (
 from magpie_bitbucket.normalize import (
     created_issue_comment,
     created_pull_request_comment,
+    declined_pull_request,
     issue,
     issue_attachments,
     issue_comments,
@@ -3359,3 +3360,87 @@ def test_cli_pr_remove_request_changes_cloud(
     output = json.loads(capsys.readouterr().out)
     assert output["operation"] == "pull-request-remove-request-changes"
     assert output["changes_requested"] is False
+
+
+@patch("magpie_bitbucket.client.urllib.request.build_opener")
+def test_cloud_decline_pull_request_posts_without_body(
+    mock_build_opener: MagicMock,
+    cloud_env: None,
+) -> None:
+    mock_opener(
+        mock_build_opener,
+        {
+            "id": 7,
+            "state": "DECLINED",
+            "title": "Example PR",
+        },
+    )
+
+    result = cloud.decline_pull_request(load_config(), "7")
+
+    request = mock_build_opener.return_value.open.call_args.args[0]
+
+    assert request.full_url == (
+        "https://api.bitbucket.org/2.0/repositories/apache/magpie/pullrequests/7/decline"
+    )
+    assert request.get_method() == "POST"
+    assert request.data is None
+    assert result["pull_request_id"] == "7"
+    assert result["pull_request"]["state"] == "DECLINED"
+
+
+def test_datacenter_decline_pull_request_unsupported(
+    datacenter_env: None,
+) -> None:
+    with pytest.raises(
+        BitbucketError,
+        match="Data Center pull request decline writes are not supported",
+    ):
+        datacenter.decline_pull_request(load_config(), "9")
+
+
+def test_normalize_declined_pull_request() -> None:
+    normalized = declined_pull_request(
+        "cloud",
+        {
+            "pull_request_id": "7",
+            "pull_request": {
+                "id": 7,
+                "state": "DECLINED",
+                "title": "Example PR",
+            },
+        },
+    )
+
+    assert normalized["ok"] is True
+    assert normalized["backend"] == "bitbucket-cloud"
+    assert normalized["operation"] == "pull-request-decline"
+    assert normalized["pull_request_id"] == "7"
+    assert normalized["pull_request"]["state"] == "DECLINED"
+
+
+@patch("magpie_bitbucket.cloud.decline_pull_request")
+def test_cli_pr_decline_cloud(
+    mock_decline_pull_request: MagicMock,
+    cloud_env: None,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    mock_decline_pull_request.return_value = {
+        "pull_request_id": "7",
+        "pull_request": {
+            "id": 7,
+            "state": "DECLINED",
+            "title": "Example PR",
+        },
+    }
+
+    exit_code = main(["pr", "decline", "7"])
+
+    assert exit_code == 0
+    mock_decline_pull_request.assert_called_once()
+    args = mock_decline_pull_request.call_args.args
+    assert args[1:] == ("7",)
+
+    output = json.loads(capsys.readouterr().out)
+    assert output["operation"] == "pull-request-decline"
+    assert output["pull_request"]["state"] == "DECLINED"

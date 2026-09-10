@@ -487,6 +487,23 @@ def pull_request_change_request(
     }
 
 
+def declined_pull_request(
+    kind: str,
+    raw: dict[str, Any],
+) -> dict[str, Any]:
+    """Normalize a pull-request decline mutation."""
+    pull_request = raw.get("pull_request")
+
+    return {
+        "ok": True,
+        "backend": "bitbucket-cloud" if kind == "cloud" else "bitbucket-datacenter",
+        "operation": "pull-request-decline",
+        "pull_request_id": _string(raw.get("pull_request_id")),
+        "pull_request": pull_request if isinstance(pull_request, dict) else None,
+        "raw": raw,
+    }
+
+
 def pull_request_reviews(kind: str, raw: dict[str, Any]) -> dict[str, Any]:
     """Normalize pull request review-state activity from Bitbucket."""
     pull_request_raw = raw.get("pull_request")

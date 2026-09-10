@@ -353,6 +353,17 @@ def remove_pull_request_changes_request(
     )
 
 
+def decline_pull_request(
+    config: BitbucketConfig,
+    pull_request_id: str,
+) -> dict[str, Any]:
+    """Reject pull-request decline writes for Data Center for now."""
+    _ = (config, pull_request_id)
+    raise BitbucketError(
+        "Bitbucket Data Center pull request decline writes are not supported by this command yet"
+    )
+
+
 def get_pull_request_reviews(config: BitbucketConfig, pull_request_id: str) -> dict[str, Any]:
     """Fetch review-state activity for a Bitbucket Data Center pull request."""
     pull_request = get_pull_request(config, pull_request_id)
