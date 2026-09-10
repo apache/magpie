@@ -18,8 +18,9 @@ Return ONLY valid JSON with this structure:
 `action` reports which operation this merge performed on
 `.claude/settings.json`: one of `"create"`, `"merge"`, or `"refuse"`.
 
-`keys_preserved` is a list of strings — the top-level keys the merge left
-untouched, in the order they appear in the settings file.
+`keys_preserved` is a list of strings — the top-level keys other than the
+ones the merge rules say this merge touches, in the order they appear in
+the settings file.
 
 `plugins_added` is a list of `<plugin>@<marketplace>` strings — the entries
 the merge added to `enabledPlugins`. Where it adds more than one, list them
