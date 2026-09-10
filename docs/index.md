@@ -133,6 +133,7 @@ from mailing lists, slack etc.
 | Set up the secure agent sandbox | [setup/](setup/README.md) |
 | Understand the security workflow | [security/](security/README.md) |
 | Know what it costs to run | [mode-economics.md](mode-economics.md) |
+| Read the design behind a change in flight | [designs/](designs/README.md) |
 | Understand the privacy model | [rfcs/RFC-AI-0003.md](rfcs/RFC-AI-0003.md) |
 | Contribute to the framework | [CONTRIBUTING.md](../CONTRIBUTING.md) |
 | Learn to build and extend skills | [education/](education/README.md) |
