@@ -5,7 +5,7 @@
 
 Behavioral evals for the `setup` skill.
 
-## Suites (16 cases total)
+## Suites (21 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
@@ -13,6 +13,7 @@ Behavioral evals for the `setup` skill.
 | step-overrides-surface | overrides.md § Step 0b | 4 | adopted no flag (offer choice), --local flag (personal), not adopted (personal only), both surfaces exist |
 | step-override-bypass | agentic-overrides.md § One-shot defaults run | 3 | `--no-overrides` flag + override exists, `--no-overrides` + no override, no flag + override exists |
 | step-m5-repo-artefacts | install.md § Step M5 — Recap and what comes next | 4 | Claude Code fresh install (offer made, defaults to no), Codex (no offer), Gemini (no offer), Claude Code where the offer was already declined (still a finished install) |
+| step-m5-settings-merge | install.md § Merge rules | 5 | no `.claude/settings.json` (create), file with unrelated keys (merge, preserve them), existing `enabledPlugins` with non-floor and non-Magpie entries (add only the missing floor members, remove nothing), existing pinned `apache-magpie` marketplace definition (left alone), malformed JSON (refuse, never rewrite) |
 
 ## Run
 

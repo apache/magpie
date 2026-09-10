@@ -1,0 +1,1 @@
+{"action": "create", "keys_preserved": [], "plugins_added": ["magpie-setup@apache-magpie", "magpie-utilities@apache-magpie", "magpie-agent-guard@apache-magpie"], "plugins_removed": [], "marketplace_definition_changed": true}

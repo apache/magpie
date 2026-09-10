@@ -253,6 +253,27 @@ Tell the user, in this order:
 
 Then stop. Do not continue into Step 0.
 
+#### Merge rules
+
+`.claude/settings.json` is not Magpie's file. This repository's own carries
+`sandbox` and `permissions` blocks; an adopter's will carry whatever they put
+there. When the user accepts the offer:
+
+- **Touch only two keys** — `extraKnownMarketplaces` and `enabledPlugins`.
+  Every other top-level key is preserved exactly as it was.
+- **Leave an existing `apache-magpie` marketplace definition alone.** An
+  adopter pinning `apache/magpie@0.2.0` has made a deliberate choice; do not
+  rewrite it to track `main`.
+- **Add missing floor members to an existing `enabledPlugins`, and remove
+  nothing** — not other Magpie plugins, not other vendors' plugins.
+- **If the file does not exist**, create it with those two keys and nothing
+  else.
+- **If the file exists but does not parse as JSON, stop and say so.** Do not
+  rewrite a file you cannot read; a malformed settings file is the user's to
+  fix.
+
+Then `git add .claude/settings.json`. Never commit it.
+
 ## Step 0 — Pre-flight
 
 **This pre-flight is the snapshot path's.** The marketplace path
