@@ -16,14 +16,19 @@
 
 # Quick-start screenshots — capture checklist
 
-The four screenshots in this directory are referenced by
-[`docs/quick-start.md`](../../docs/quick-start.md). They currently ship as
-**generated placeholders**, not real captures — the page renders and the link
-check passes, but the images say so on their face.
+This directory holds two sets of screenshots: four **harness** shots
+referenced by [`docs/quick-start.md`](../../docs/quick-start.md), and ten
+**family** shots (below, in `families/`) referenced by each family README.
+Eleven of the fourteen are now real captures; `codex-install.png`,
+`vscode-install.png`, and `gemini-install.png` still ship as **generated
+placeholders**, not real captures — the pages render and the link check
+passes, but those three images say so on their face.
+[`tools/dev/check-quickstart-screenshots.py`](../../tools/dev/check-quickstart-screenshots.py)
+reports which ones remain placeholders on every run.
 
-To finish the page, capture each shot below and overwrite the file **at the
-same path and name**. No documentation change is needed; the alt text in
-`quick-start.md` already describes what each shot must show.
+To finish the page, capture each remaining shot below and overwrite the file
+**at the same path and name**. No documentation change is needed; the alt
+text in `quick-start.md` already describes what each shot must show.
 
 | File | Agent | Capture this |
 |---|---|---|
@@ -35,8 +40,7 @@ same path and name**. No documentation change is needed; the alt text in
 ## Per-family install shots — `families/`
 
 Each family README carries an **Install & first runs** section with one
-screenshot: `families/<family>-install.png`. Same treatment as above — they
-ship as placeholders until captured.
+screenshot: `families/<family>-install.png`. All ten are now real captures.
 
 Ten files, one per family: `setup`, `utilities`, `security`, `pr-management`,
 `issue`, `release-management`, `repo-health`, `pairing`, `mentoring`,
@@ -124,8 +128,10 @@ it to them if it exists, and ignores it if it does not.
 - **Dark or light is fine**, but keep all four consistent within a set.
 - **No secrets in frame** — no tokens, no private repo names, no email
   addresses in a prompt or status line. Check the terminal title bar too.
-- **~1400px wide** is enough; the existing `assets/session-*.png` captures are
-  a good size reference.
+- **1700px wide.** That is the *source* window width — the capture helper
+  and `check-quickstart-screenshots.py` both expect it (`WIDTH=1700` /
+  `CAPTURE_WIDTH = 1700`), and a capture taken from a narrower window fails
+  pre-commit rather than being silently upscaled.
 - **PNG**, and keep each file well under 500 KB.
 
 ## Regenerating the placeholders

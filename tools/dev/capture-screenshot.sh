@@ -22,10 +22,10 @@
 # `docs/quick-start.md` (or a family README) already references, at the
 # size and cleanliness the rest of `assets/` uses.
 #
-# The screenshots ship as generated placeholders reading "screenshot
-# pending" so the pages render and the offline link check passes; this
-# script is how a real capture replaces one. Nothing in the docs changes
-# — the alt text already describes each shot.
+# Some screenshots still ship as generated placeholders reading "screenshot
+# pending" so the pages render and the offline link check passes even before
+# every shot is captured; this script is how a real capture replaces one.
+# Nothing in the docs changes — the alt text already describes each shot.
 #
 # It captures a whole window — you click the one you want and get it
 # framed to its own bounds, so every shot in a set is cropped the same way
@@ -198,7 +198,7 @@ main() {
     read -r -p "Set the window up, then press Return and click the window to capture... " _
 
     local tmp
-    tmp="$(mktemp -t magpie-shot).png"
+    tmp="$(mktemp "${TMPDIR:-/tmp}/magpie-shot.XXXXXX.png")"
     # -i interactive, -w restricted to window selection so a click grabs the
     # whole window rather than a hand-dragged region, -o drops the window
     # shadow so the image crops flush.
@@ -214,18 +214,37 @@ main() {
         exit 1
     }
 
+    # Refuse an undersized source outright rather than letting either
+    # normalisation path paper over it: magick's `-resize "WIDTHx>"` only
+    # ever shrinks, so it would silently leave a narrower capture at its
+    # original width; sips' `--resampleWidth` has no such guard and would
+    # upscale it to exactly WIDTH, passing the downstream width check while
+    # looking visibly soft. Both failure modes are worse than telling the
+    # contributor to widen the window and recapture.
+    local src_width
+    if command -v magick >/dev/null; then
+        src_width="$(magick identify -format '%w' "${tmp}")"
+    elif command -v sips >/dev/null; then
+        src_width="$(sips -g pixelWidth "${tmp}" | awk '/pixelWidth/{print $2}')"
+    else
+        echo "error: neither magick nor sips found — cannot normalise." >&2
+        rm -f "${tmp}"
+        exit 1
+    fi
+    if [[ "${src_width}" -lt "${WIDTH}" ]]; then
+        echo "error: capture is ${src_width}px wide, below the ${WIDTH}px minimum — widen the window and recapture." >&2
+        rm -f "${tmp}"
+        exit 1
+    fi
+
     # Resize to the width the other assets use and drop EXIF: a screen
     # capture carries display and device metadata that has no business in a
     # published asset.
     if command -v magick >/dev/null; then
         magick "${tmp}" -resize "${WIDTH}x>" -strip "${out}"
-    elif command -v sips >/dev/null; then
+    else
         sips --resampleWidth "${WIDTH}" "${tmp}" --out "${out}" >/dev/null
         echo "note: used sips; EXIF not stripped. Install ImageMagick for that." >&2
-    else
-        echo "error: neither magick nor sips found — cannot normalise." >&2
-        rm -f "${tmp}"
-        exit 1
     fi
     rm -f "${tmp}"
 
