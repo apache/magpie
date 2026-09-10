@@ -320,6 +320,23 @@ repos:
         entry: python3 tools/dev/check-skill-preflight.py --fix
         files: ^(skills/[^/]+/SKILL\.md|tools/dev/preflight-block\.md)$
         pass_filenames: false
+  # Quick-start screenshot set. Three lists have to agree — the harnesses
+  # `capture-screenshot.sh` offers, the ecosystem manifests that make a harness
+  # real, and the PNGs on disk — and none of the existing gates read images, so
+  # every way this drifts is silent: the page renders and the offline link check
+  # passes whether a file is a real capture, an untouched placeholder, or a shot
+  # taken at the wrong window size. Catches a family added to the frontmatter
+  # with no screenshot, a harness whose manifest was dropped, an orphan file, and
+  # a family set captured at two different window sizes. Placeholders are the
+  # documented interim state, so they are reported, not failed.
+  - repo: local
+    hooks:
+      - id: check-quickstart-screenshots
+        name: check-quickstart-screenshots (harness/family shots vs manifests)
+        language: system
+        entry: python3 tools/dev/check-quickstart-screenshots.py
+        files: ^(assets/quickstart/.*|skills/[^/]+/SKILL\.md|tools/dev/capture-screenshot\.sh|\.claude-plugin/marketplace\.json|\.agents/plugins/marketplace\.json|marketplace\.json|gemini-extension\.json)$
+        pass_filenames: false
   # Documentation claims that must track the tree. Four mechanical checks,
   # each added after the drift it catches was found by hand:
   #   - every tools/spec-loop/specs/*.md is listed in BOTH index files

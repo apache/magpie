@@ -27,15 +27,18 @@
 # script is how a real capture replaces one. Nothing in the docs changes
 # — the alt text already describes each shot.
 #
-# It prints what to frame *before* opening the capture crosshair, because
-# the framing is the part that is easy to get wrong and expensive to
-# notice later (six plugins in a shot that argues for installing one).
+# It captures a whole window — you click the one you want and get it
+# framed to its own bounds, so every shot in a set is cropped the same way
+# instead of by however steady the drag was. What is *in* that window is
+# still yours to arrange, so the brief prints before the camera opens: the
+# framing is the part that is easy to get wrong and expensive to notice
+# later (six plugins in a shot that argues for installing one).
 #
 # Usage (from the repo root):
 #
 #     tools/dev/capture-screenshot.sh security          # a family shot
 #     tools/dev/capture-screenshot.sh claude-code       # a harness shot
-#     tools/dev/capture-screenshot.sh gemini --delay 5  # 5s before the crosshair
+#     tools/dev/capture-screenshot.sh gemini --delay 5  # 5s before the camera
 #     tools/dev/capture-screenshot.sh --list
 #
 # macOS only: `screencapture` is a system binary and has no portable
@@ -53,7 +56,8 @@ HARNESS_DIR="assets/quickstart"
 HARNESSES=("claude-code" "codex" "vscode" "gemini")
 
 usage() {
-    sed -n '19,46p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+    # 19 to the first blank line: the whole header block, whatever it grows to.
+    sed -n '19,/^$/p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
     exit "${1:-0}"
 }
 
@@ -109,8 +113,23 @@ brief() {
         ;;
     esac
     echo
-    echo "Check before you click: no tokens, private repo names, or reporter"
-    echo "addresses in frame — including the terminal title bar and status line."
+    case "${target}" in
+    codex | vscode | gemini) ;;
+    *)
+        # Every Claude Code shot lists plugins, and a project that commits the
+        # auto-install block arrives with three of them already enabled — so
+        # the "only this one" framing above is unreproducible there.
+        echo "Capture this in a project WITHOUT the auto-install block in its"
+        echo ".claude/settings.json, and with no magpie-* entries in your own"
+        echo "user-scope enabledPlugins. Otherwise magpie-setup, magpie-utilities"
+        echo "and magpie-agent-guard are already in the list and the shot shows"
+        echo "four plugins where it should show one."
+        echo
+        ;;
+    esac
+    echo "The whole clicked window is captured, so check before you click: no"
+    echo "tokens, private repo names, or reporter addresses anywhere in it —"
+    echo "including the title bar, the status line, and any tab titles."
     echo "Keep light/dark consistent across all the shots in a set."
 }
 
@@ -176,16 +195,17 @@ main() {
     echo
     brief "${target}"
     echo
-    read -r -p "Set the screen up, then press Return to open the capture crosshair... " _
+    read -r -p "Set the window up, then press Return and click the window to capture... " _
 
     local tmp
     tmp="$(mktemp -t magpie-shot).png"
-    # -i interactive region (Space toggles window mode), -o drops the window
+    # -i interactive, -w restricted to window selection so a click grabs the
+    # whole window rather than a hand-dragged region, -o drops the window
     # shadow so the image crops flush.
     if [[ "${delay}" -gt 0 ]]; then
-        screencapture -T "${delay}" -i -o "${tmp}"
+        screencapture -T "${delay}" -i -w -o "${tmp}"
     else
-        screencapture -i -o "${tmp}"
+        screencapture -i -w -o "${tmp}"
     fi
 
     [[ -s "${tmp}" ]] || {

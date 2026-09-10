@@ -8,6 +8,7 @@
 - [Quick-start screenshots — capture checklist](#quick-start-screenshots--capture-checklist)
   - [Per-family install shots — `families/`](#per-family-install-shots--families)
   - [The capture helper](#the-capture-helper)
+  - [The auto-install shot — `claude-code-default-install.png` *(optional)*](#the-auto-install-shot--claude-code-default-installpng-optional)
   - [Capture conventions](#capture-conventions)
   - [Regenerating the placeholders](#regenerating-the-placeholders)
 
@@ -53,6 +54,17 @@ Frame the plugin list showing **that one family plugin** installed and enabled.
 One family per shot — the point of the section is that you install only what
 you need, so a screenshot showing six plugins undercuts the page it sits on.
 
+> [!IMPORTANT]
+> **Capture these outside a Magpie-adopting project.** Since the default set
+> landed, a project that commits the
+> [auto-install block](../../docs/setup/marketplaces.md#claude-code-the-default-set)
+> — this repository included — opens with `magpie-setup`, `magpie-utilities`
+> and `magpie-agent-guard` already enabled, so `/plugin` shows *four* entries
+> where the shot needs one. Use a scratch project with no such block, and clear
+> the `magpie-*` entries from your own user-scope `enabledPlugins` first. The
+> same applies to `claude-code-install.png`. The capture helper prints this
+> reminder for every Claude Code target.
+
 The usage examples in those sections are deliberately **text blocks, not
 screenshots**: they are illustrative shapes rather than real transcripts, and
 they are labelled as such in each README. Do not replace them with real
@@ -70,14 +82,45 @@ tools/dev/capture-screenshot.sh claude-code   # a harness shot
 tools/dev/capture-screenshot.sh --list        # every valid target
 ```
 
-It applies the conventions below for you. macOS only, and run it from your own
-terminal: Screen Recording permission is granted per calling application, so
+You click the window you want and it captures that window whole, so the crop is
+identical across a set. It applies the conventions below for you. macOS only,
+and run it from your own terminal: Screen Recording permission is granted per calling application, so
 calling it from inside an agent's shell tends to fail silently.
+
+## The auto-install shot — `claude-code-default-install.png` *(optional)*
+
+[`docs/setup/marketplaces.md`](../../docs/setup/marketplaces.md#auto-install-arriving-magpie-ready)
+describes a project that commits `enabledPlugins`, so a contributor who clones
+it finds the **default set** already installed: `magpie-setup`,
+`magpie-utilities`, and the `magpie-agent-guard` substrate plugin. This shot is
+**optional** — unlike the others it has to be *staged*, not merely captured,
+and the capture helper has no target for it.
+
+What makes it hard: the shot has to prove you installed nothing. Taken on your
+own machine it proves the opposite, because your user-scope `enabledPlugins`
+already has Magpie in it.
+
+1. Temporarily remove the `magpie-*` entries from your **user-scope**
+   `~/.claude/settings.json` `enabledPlugins` — keep a copy to restore.
+2. Open Claude Code in a project whose committed `.claude/settings.json` has
+   the `extraKnownMarketplaces` + `enabledPlugins` block, and accept the trust
+   prompt.
+3. Run `/plugin` and frame the list showing **all three default plugins
+   installed and enabled, and every opt-in family absent**. The absence is the
+   whole point — a shot that also shows `magpie-security` demonstrates nothing
+   the manual-install shots do not. Include `magpie-agent-guard`: it is the
+   least obvious member of the set and the one a reader is most likely to
+   assume they have to install by hand.
+4. Restore your own settings.
+
+Same conventions as every other shot; `check-quickstart-screenshots.py` holds
+it to them if it exists, and ignores it if it does not.
 
 ## Capture conventions
 
-- **Crop tight.** Show the command and its result — not the whole desktop, not
-  an empty scrollback. The reader is checking "did it work", nothing more.
+- **Size the window tight.** The capture is the window, so the window *is* the
+  crop: shrink it to the command and its result — no empty scrollback below.
+  The reader is checking "did it work", nothing more.
 - **Dark or light is fine**, but keep all four consistent within a set.
 - **No secrets in frame** — no tokens, no private repo names, no email
   addresses in a prompt or status line. Check the terminal title bar too.
