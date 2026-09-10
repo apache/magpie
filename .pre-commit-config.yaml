@@ -94,20 +94,26 @@ repos:
       # The next three hooks are *fixers*: they open every matched file
       # in read-write mode (to normalise it in place) before checking
       # whether a fix is even needed. The secure-agent sandbox
-      # write-denies two tracked path sets — the agent's own config
-      # (`.claude/settings.json`) and the self-adoption skill relays
-      # (`.claude/skills/*` symlinks) — because agents must never modify
-      # them. So on `prek run --all-files` (which `agent-pre-commit.sh`
-      # and the CI mirror both run) the read-write `open()` on those
-      # paths is denied and the whole run aborts, even though the files
-      # need no fix. Exclude them: `.claude/settings.json` is gated by
-      # the sandbox-lint baseline and the skill symlinks are validated by
-      # `symlink-lint`, so neither loses coverage by skipping EOF /
-      # whitespace / line-ending normalisation here. This keeps prek a
-      # single invocation that runs cleanly in-sandbox with no bypass.
+      # write-denies three tracked path sets — the agent's own config
+      # (`.claude/settings.json`), the self-adoption skill relays
+      # (`.claude/skills/*` symlinks), and the plugin hook scripts
+      # (`hooks/`) — because agents must never modify them. A hook script
+      # runs automatically on a harness event, so an agent that could
+      # rewrite one could arrange to run arbitrary code on the next
+      # session start; the deny is the point, not an oversight. So on
+      # `prek run --all-files` (which `agent-pre-commit.sh` and the CI
+      # mirror both run) the read-write `open()` on those paths is denied
+      # and the whole run aborts, even though the files need no fix.
+      # Exclude them: `.claude/settings.json` is gated by the
+      # sandbox-lint baseline, the skill symlinks are validated by
+      # `symlink-lint`, and `hooks/check-upgrade.sh` is checked for
+      # existence and correct wiring by `check-family-plugins.py`, so
+      # none of them loses coverage by skipping EOF / whitespace /
+      # line-ending normalisation here. This keeps prek a single
+      # invocation that runs cleanly in-sandbox with no bypass.
       - id: end-of-file-fixer
         name: Make sure that there is an empty line at the end
-        exclude: &sandbox_write_denied ^\.claude/(settings\.json|skills/)
+        exclude: &sandbox_write_denied ^(\.claude/(settings\.json|skills/)|hooks/)
       - id: mixed-line-ending
         name: Detect if mixed line ending is used (\r vs. \r\n)
         exclude: *sandbox_write_denied
@@ -294,6 +300,25 @@ repos:
         language: system
         entry: python3 tools/dev/check-family-plugins.py --fix
         files: ^(skills/.*/SKILL\.md|plugins/.*|\.claude-plugin/(marketplace|plugin)\.json|\.codex-plugin/plugin\.json|\.agents/plugins/marketplace\.json|(plugin|marketplace)\.json|gemini-extension\.json|apm\.yml|pyproject\.toml|hooks/check-upgrade\.sh)$
+        pass_filenames: false
+  # The shared setup pre-flight every skill runs before it acts. It cannot be
+  # a hook: on most harnesses *no code runs at all* when a plugin is installed
+  # or upgraded (AP1 defines no hook component; Claude Code's SessionStart hook
+  # is wired only into the all-in-one plugin), so the check has to be
+  # instructions the agent reads on invocation. It cannot be an include either:
+  # a family plugin symlinks `skills/<skill>` and AP1 forbids a symlink
+  # escaping the plugin root, so a shared file would be unreachable from the
+  # install shape most adopters use. That leaves one source and 65 generated
+  # copies, which is exactly the drift this hook exists to prevent — edit
+  # `tools/dev/preflight-block.md` and let `--fix` propagate it. The `setup`
+  # family is exempt: those skills perform the setup the block asks for.
+  - repo: local
+    hooks:
+      - id: check-skill-preflight
+        name: check-skill-preflight (shared pre-flight block in every SKILL.md)
+        language: system
+        entry: python3 tools/dev/check-skill-preflight.py --fix
+        files: ^(skills/[^/]+/SKILL\.md|tools/dev/preflight-block\.md)$
         pass_filenames: false
   # Documentation claims that must track the tree. Four mechanical checks,
   # each added after the drift it catches was found by hand:

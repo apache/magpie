@@ -46,6 +46,7 @@ installable for other members to depend on it.
 | Script | What it does |
 |---|---|
 | [`check-doc-sync.py`](check-doc-sync.py) | Guards the documentation claims that track the tree and rot silently: spec-index completeness (every `tools/spec-loop/specs/*.md` listed in **both** `overview.md` and `README.md`), the per-family skill counts in the root `README.md`, the per-mode counts in `docs/modes.md`'s *Modes at a glance* table, the bare catalogue totals in `docs/setup/marketplaces.md`, and that every script here is named in this file. |
+| [`check-skill-preflight.py`](check-skill-preflight.py) | Keeps the shared setup pre-flight block identical in every `skills/*/SKILL.md`, generated from the single source at [`preflight-block.md`](preflight-block.md). The check has to live in each skill body: no code runs on plugin install/upgrade on most harnesses, and a shared include would escape the family plugin root that AP1 forbids leaving — so one source, many generated copies, with `--fix` propagating and the hook preventing drift. The `setup` family is exempt (those skills *are* the setup). |
 | [`check-family-plugins.py`](check-family-plugins.py) | Validates the marketplace plugins against the skills' `family:` frontmatter — version parity across every ecosystem manifest, Agent Plugins 1.0 conformance, and one well-formed per-family plugin whose `skills/` symlinks match the family exactly. `--fix` regenerates them, which is how the prek hook runs it. |
 | [`check-placeholders.sh`](check-placeholders.sh) | Fails the build on hardcoded project references in skill and tool docs, which must use `<PROJECT>` / `<project>` / `<tracker>` / `<upstream>` instead. Carries both casings and matches spaced variants. |
 | [`check-workspace-members.py`](check-workspace-members.py) | Catches a new `tools/<name>/pyproject.toml` that was never added to `[tool.uv.workspace] members` — an omission that silently drops the tool from both the pre-commit hooks and the CI pytest matrix. Also verifies each member's tests actually run: both surfaces key off `[tool.pytest.ini_options]`, so a project can carry a full `tests/` directory and be executed by nothing. Reports tests-without-config, config-without-tests, and neither; `[tool.magpie.checks] skip = ["pytest"]` is the declared exemption. |
@@ -60,7 +61,7 @@ a human has to remember to update while thinking about something else.
 
 ## Prerequisites
 
-- **Runtime:** Bash + coreutils; `check-workspace-members.py`, `check-family-plugins.py`, `check-doc-sync.py`, and `add-license-headers.py` run under `python3` (standard library only).
+- **Runtime:** Bash + coreutils; `check-workspace-members.py`, `check-family-plugins.py`, `check-doc-sync.py`, `check-skill-preflight.py`, and `add-license-headers.py` run under `python3` (standard library only).
 - **CLIs:** `uv` (the workspace checks run `uv run`), `git`, and `prek` (or `pre-commit`) — these scripts wire up the framework's hooks.
 - **Credentials / auth:** None.
 - **Network:** Local checks; `uv` may resolve workspace dependencies from PyPI (`pypi.org`, `files.pythonhosted.org`) on first sync.

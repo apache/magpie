@@ -400,6 +400,13 @@ authoritative runtime matrix. The current state per harness:
 | JetBrains Junie | Not yet ported | [#321](https://github.com/apache/magpie/issues/321) |
 | OpenHands | Not yet ported | [#322](https://github.com/apache/magpie/issues/322) |
 
+The table lists **harnesses** — the agent that reads the skills — not the
+editors they run in. A JetBrains IDE, for instance, hosts an agent rather than
+being one: `JetBrains Junie` above is JetBrains' *own* agent and is genuinely
+not ported, but running Claude Code inside IntelliJ IDEA or PyCharm is the
+fully-supported Claude Code row, with nothing extra to install. See
+[the JetBrains section of `marketplaces.md`](docs/setup/marketplaces.md#jetbrains-ides-intellij-idea-pycharm-goland-).
+
 MCP servers used by the reference runtimes today: Slack, Gmail,
 Google Calendar, Google Drive, plus framework-internal ones for
 the ponymail / incubator-mail / incubator-reports surfaces. MCP-

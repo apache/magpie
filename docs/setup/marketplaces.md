@@ -18,7 +18,11 @@
     - [microsoft/apm (multiplexer)](#microsoftapm-multiplexer)
     - [Kiro (AWS)](#kiro-aws)
     - [OpenCode](#opencode)
+    - [JetBrains IDEs (IntelliJ IDEA, PyCharm, GoLand, …)](#jetbrains-ides-intellij-idea-pycharm-goland-)
     - [Not supported](#not-supported)
+  - [Auto-install: arriving Magpie-ready](#auto-install-arriving-magpie-ready)
+    - [What each harness supports](#what-each-harness-supports)
+    - [Claude Code: the default set](#claude-code-the-default-set)
   - [Automatic upgrade detection](#automatic-upgrade-detection)
   - [Versioning](#versioning)
   - [Verification status](#verification-status)
@@ -237,6 +241,7 @@ Quick reference:
 | **microsoft/apm** | `apm install apache/magpie` (compiles to Claude/Cursor/Codex/Copilot/Gemini) | `apm.yml` |
 | **Kiro** | install per-skill from a GitHub subdirectory, or the AP1 package | root `plugin.json` (AP1), native `skills/<name>/SKILL.md` |
 | **OpenCode** | clone skills into `.opencode/skills/`, or use a community installer | native `skills/<name>/SKILL.md` |
+| **JetBrains IDEs** (IntelliJ, PyCharm, …) | nothing of its own — install for the agent you run inside the IDE, e.g. Claude Code's `/plugin marketplace add apache/magpie` | none; a host, not a distribution target |
 
 Detailed steps per agent follow.
 
@@ -407,6 +412,44 @@ OpenCode reads native Agent Skills from `.opencode/skills/`. Either:
 - use a community installer (e.g. the `opencode-skills-collection` npm
   package) pointed at this repo.
 
+### JetBrains IDEs (IntelliJ IDEA, PyCharm, GoLand, …)
+
+A JetBrains IDE is a **host for an agent, not a distribution target of its
+own** — which is why it appears in no table above and ships no manifest in this
+repo. Nothing here needs installing *for* IntelliJ; you install for the agent
+you run inside it.
+
+With the **Claude Code plugin for JetBrains**, the install is the ordinary
+Claude Code one, run from the IDE's Claude Code window:
+
+```text
+/plugin marketplace add apache/magpie
+/plugin install magpie-setup@apache-magpie
+/plugin install magpie-utilities@apache-magpie
+```
+
+You do not have to run it twice. Claude Code keeps its plugin state in one
+user-scope store — `~/.claude/plugins/` (`known_marketplaces.json` and
+`installed_plugins.json`) — and every host that launches the same CLI reads it:
+the terminal, the VS Code extension, and the JetBrains plugin alike. Install
+from any one of them and the skills are there in the others. The same holds for
+the [auto-install](#auto-install-arriving-magpie-ready) block: it lives in the
+project's `.claude/settings.json`, so opening that project in IntelliJ picks it
+up exactly as opening it in a terminal does.
+
+Project-scope installs are keyed by the project's **path**, so a repo opened at
+the same path in the IDE and in a terminal shares them; a second clone
+elsewhere is a separate project and installs separately.
+
+> [!NOTE]
+> This is about running *Claude Code* (or another agent with a JetBrains
+> plugin) inside a JetBrains IDE. **JetBrains' own agent, Junie, is a separate
+> harness port** — tracked as
+> [#321](https://github.com/apache/magpie/issues/321) and listed *Not yet
+> ported* in [`CONTRIBUTING.md`](../../CONTRIBUTING.md) and
+> [`vendor-neutrality.md`](../vendor-neutrality.md). Junie does not read
+> Magpie's skills today.
+
 ### Not supported
 
 - **Windsurf** — has no skills/rules marketplace; project rules are plain
@@ -415,6 +458,92 @@ OpenCode reads native Agent Skills from `.opencode/skills/`. Either:
 - **Goose (Block)** — its extension registry is Model Context Protocol
   (MCP) servers, not `SKILL.md` skills. Distributing Magpie there would
   require wrapping skills behind an MCP server (a rebuild, not packaging).
+
+## Auto-install: arriving Magpie-ready
+
+Everything above is a person typing an install command. A project can instead
+commit the wiring, so a contributor who clones it and opens their agent finds
+Magpie already there. **Only Claude Code can actually do this**, and the
+difference is structural rather than a gap someone forgot to fill.
+
+### What each harness supports
+
+| Harness | Auto-install | Mechanism |
+|---|---|---|
+| **Claude Code** | ✅ per-family | `extraKnownMarketplaces` + `enabledPlugins` in the project's `.claude/settings.json` |
+| **OpenAI Codex CLI** | ⚠️ all-or-nothing | `policy.installation: "INSTALLED_BY_DEFAULT"` in `.agents/plugins/marketplace.json` — installs **all ten families**, so Magpie does not use it |
+| **VS Code / GitHub Copilot** | ❌ | No repo-side mechanism. The catalogue advertises; it cannot pre-install |
+| **Google Gemini CLI** | ❌ | Install is explicit-only. Gemini does **not** load a workspace `.gemini/extensions/` directory — verified against the CLI, which reports "No extensions installed" for a repo-local extension |
+| **JetBrains IDEs** | ✅ inherited | Whatever the agent running inside the IDE supports. With Claude Code's JetBrains plugin that is the row above — the project's `.claude/settings.json` applies unchanged, because plugin state is one user-scope store shared by every host of the same CLI |
+
+The Codex and Copilot rows are the same constraint that keeps those catalogues
+listing only the all-in-one plugin: a family plugin reaches its skills through
+symlinks that resolve outside its own root, which Agent Plugins 1.0 forbids, so
+**per-family is a Claude Code feature**. Codex can therefore only default-install
+*everything*, which contradicts the load-only-what-you-use argument this page
+makes — so the catalogue pins `installation: "AVAILABLE"`, and
+`check-family-plugins.py` fails the build if that value drifts.
+
+> [!WARNING]
+> Codex parses its catalogue strictly and its policy values are closed
+> SCREAMING_SNAKE enums (`NOT_AVAILABLE` / `AVAILABLE` /
+> `INSTALLED_BY_DEFAULT`, and `ON_INSTALL` / `ON_USE` for the optional
+> `authentication`). An unknown variant does not mis-label the plugin — it
+> makes `codex plugin marketplace add` reject the **whole file**, so nothing
+> installs. This catalogue shipped invented values (`manual`, `none`) for a
+> release before anyone ran the command.
+
+### Claude Code: the default set
+
+Add to the project's `.claude/settings.json` — committed, so it applies to
+everyone who trusts the repo:
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "apache-magpie": {
+      "source": { "source": "github", "repo": "apache/magpie" }
+    }
+  },
+  "enabledPlugins": {
+    "magpie-setup@apache-magpie": true,
+    "magpie-utilities@apache-magpie": true,
+    "magpie-agent-guard@apache-magpie": true
+  }
+}
+```
+
+Three plugins, for two different reasons.
+
+`setup` and `utilities` are the framework's two **always-on families** — the
+same pair the pinned-snapshot install wires unconditionally, with no way to ask
+for them or opt out. Between them a newcomer gets `/magpie-setup` to adopt and
+maintain the framework and `/magpie-utilities:list-skills` to discover
+everything else, at the smallest always-on cost. Every other family stays
+opt-in, which is the point.
+
+`magpie-agent-guard` is not a family at all — it is a
+[substrate plugin](#choosing-a-plugin-all-in-one-vs-per-family), a `PreToolUse`
+hook that denies shell commands which would break a hard framework rule
+(pinging maintainers, a `Co-Authored-By` trailer, marking a PR ready
+prematurely, leaking security language onto a public thread, emptying a PR via
+force-push). It is in the default set because a guard nobody remembered to
+install guards nothing: it costs no always-on context — it is a hook, not
+skills — and it is most valuable in exactly the sessions where nobody was
+thinking about it. It only ever *denies*, so the failure mode of having it on
+is a blocked command with a stated reason, not a silent action.
+
+> [!NOTE]
+> The guard runs from the installed plugin, so no repository or worktree needs
+> a local copy — and a contributor who has not enabled it is not protected by
+> it. That asymmetry is the argument for defaulting it on rather than
+> documenting it as optional.
+
+Pin the marketplace to a released tag by using `"repo": "apache/magpie@0.2.0"`
+if the project would rather not track `main`.
+
+Contributors keep the last word: a plugin enabled this way still appears in
+`/plugin`, and anyone can disable it locally.
 
 ## Automatic upgrade detection
 
@@ -502,7 +631,7 @@ documentation**; what varies is whether it has also been exercised against a
 |---|---|---|
 | root `plugin.json` | [Agent Plugins 1.0.0 spec](https://github.com/agentplugins/agent-plugins-spec/blob/main/spec/1.0.0.md) + [`plugin.schema.json`](https://agent-plugins.org/schemas/1.0.0/plugin.schema.json) | Conforms to the published closed schema; enforced by `check-family-plugins.py`. Not yet live-installed |
 | `.claude-plugin/*` | Claude Code plugins reference | Verified live — `claude plugin validate . --strict` passes with 0 warnings; a family plugin installs and loads from a local marketplace replica |
-| `.codex-plugin/plugin.json`, `.agents/plugins/marketplace.json` | Codex plugin docs (`Package your plugin`) | Matches the documented entry point, field set, and repo-marketplace path. Not yet live-installed; see the plugin-local hooks caveat above |
+| `.codex-plugin/plugin.json`, `.agents/plugins/marketplace.json` | Codex plugin docs (`Package your plugin`) + the `codex` binary's own enums | **Verified live** — `codex plugin marketplace add` + `plugin list` against codex 0.154.0. The first live run is what caught the invented `policy` values the documentation check could not; the enums are now enforced by `check-family-plugins.py`. See the plugin-local hooks caveat above |
 | root `marketplace.json` | Copilot / VS Code plugin marketplace docs | Legacy-format catalog, explicitly still supported alongside AP1. Not yet live-installed |
 | `gemini-extension.json` | Gemini CLI extensions docs | Follows the published schema. Google has joined the AP1 TSC but has published no migration for this file — keep both |
 | `apm.yml` | `microsoft/apm` schema **v0.1** | Pre-1.0 and the most likely to churn; re-check before publish |

@@ -90,10 +90,34 @@ AP1_AUTHOR_FIELDS = frozenset({"name", "email", "url"})
 # directories would mean vendored copies of every skill — PRINCIPLES §13. So
 # per-family is a Claude Code feature, and this check keeps the other catalogs
 # from drifting into advertising something their clients cannot install.
+CODEX_CATALOG = Path(".agents/plugins/marketplace.json")  # Codex CLI repo marketplace
 CLIENT_CATALOGS = (
-    Path(".agents/plugins/marketplace.json"),  # Codex CLI repo marketplace
+    CODEX_CATALOG,
     Path("marketplace.json"),  # GitHub Copilot / VS Code
 )
+
+# Codex's per-plugin `policy` block. Both enums are closed and SCREAMING_SNAKE,
+# and Codex parses the catalogue strictly: an unknown variant is not a
+# mis-labelled plugin but a rejected *file* — `codex plugin marketplace add`
+# fails with `unknown variant`, so nothing in the marketplace installs at all.
+# This catalogue shipped with the invented values `manual` / `none` for a
+# release, because every check here read names and versions and none read the
+# policy values. Verified against codex 0.154.0.
+#
+# `installation` decides whether adding the marketplace also installs the
+# plugin. It stays AVAILABLE: INSTALLED_BY_DEFAULT here would install the
+# all-in-one plugin — all ten families — on every Codex machine that adds the
+# marketplace, which is the opposite of the per-family default the framework
+# argues for, and Codex cannot express that default (see
+# `check_client_catalogs`). `authentication` is optional and names *when* a
+# plugin asks the user to authenticate; Magpie asks for no credential of its
+# own, so it is absent rather than set to a "no auth" value, which the enum
+# has no way to spell.
+CODEX_POLICY_ENUMS = {
+    "installation": frozenset({"NOT_AVAILABLE", "AVAILABLE", "INSTALLED_BY_DEFAULT"}),
+    "authentication": frozenset({"ON_INSTALL", "ON_USE"}),
+}
+CODEX_REQUIRED_INSTALLATION = "AVAILABLE"
 # `name`: 1–64 chars, lowercase alphanumeric plus `-`/`.`, no `--`/`..`,
 # alphanumeric at both ends.
 AP1_NAME_RE = re.compile(r"^(?!.*(?:--|\.\.))[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$")
@@ -451,6 +475,44 @@ def check_client_catalogs() -> list[str]:
                 f"{path}: lists per-family plugin(s) {', '.join(families)} — the family "
                 f"plugins are Claude Code-only (their skill symlinks resolve outside the "
                 f"family plugin root, which Agent Plugins 1.0 forbids)"
+            )
+        if path == CODEX_CATALOG:
+            errors.extend(check_codex_policy(path, entries))
+    return errors
+
+
+def check_codex_policy(path: Path, entries: list) -> list[str]:
+    """Codex `policy` values are closed enums; an unknown one rejects the file."""
+    errors: list[str] = []
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        name = entry.get("name", "?")
+        policy = entry.get("policy")
+        if policy is None:
+            continue
+        if not isinstance(policy, dict):
+            errors.append(f"{path}: '{name}' has a 'policy' that is not an object")
+            continue
+        for field, allowed in CODEX_POLICY_ENUMS.items():
+            if field not in policy:
+                continue
+            value = policy[field]
+            if value not in allowed:
+                errors.append(
+                    f"{path}: '{name}' policy.{field} is {value!r} — Codex accepts only "
+                    f"{', '.join(sorted(allowed))}. An unknown variant makes "
+                    f"`codex plugin marketplace add` reject the whole catalogue"
+                )
+        if unknown := sorted(set(policy) - set(CODEX_POLICY_ENUMS)):
+            errors.append(f"{path}: '{name}' policy has unknown field(s) {', '.join(unknown)}")
+        installation = policy.get("installation")
+        if installation is not None and installation != CODEX_REQUIRED_INSTALLATION:
+            errors.append(
+                f"{path}: '{name}' policy.installation is {installation!r} — the Codex "
+                f"catalogue lists only the all-in-one plugin, so anything but "
+                f"{CODEX_REQUIRED_INSTALLATION!r} would install all ten families by "
+                f"default (or hide the plugin entirely)"
             )
     return errors
 

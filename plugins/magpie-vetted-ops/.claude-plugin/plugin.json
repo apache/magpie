@@ -1,7 +1,7 @@
 {
   "name": "magpie-vetted-ops",
   "description": "Apache Magpie \u2014 vetted-ops: a dispatcher for fixed, policy-scoped forge operations, so a session needs one allowlist entry instead of a dozen wildcard `ask` rules. Runs from the installed plugin, which is what keeps the operation catalogue out of reach of the agent that calls it.",
-  "version": "0.2.0.dev202609092258",
+  "version": "0.2.0.dev202609100826",
   "author": {
     "name": "Apache Magpie",
     "url": "https://magpie.apache.org/"

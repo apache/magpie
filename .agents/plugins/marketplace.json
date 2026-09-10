@@ -1,12 +1,19 @@
 {
   "name": "apache-magpie",
-  "interface": { "displayName": "Apache Magpie" },
+  "interface": {
+    "displayName": "Apache Magpie"
+  },
   "plugins": [
     {
       "name": "magpie",
-      "source": { "source": "local", "path": "." },
+      "source": {
+        "source": "local",
+        "path": "."
+      },
       "category": "maintenance",
-      "policy": { "installation": "manual", "authentication": "none" }
+      "policy": {
+        "installation": "AVAILABLE"
+      }
     }
   ]
 }
