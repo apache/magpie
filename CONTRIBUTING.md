@@ -390,7 +390,7 @@ authoritative runtime matrix. The current state per harness:
 | OpenCode | Reference implementation, fully supported | — |
 | Claude Code | Reference implementation, fully supported | — |
 | Codex CLI | Experimental first-class adapter — reads `.agents/skills/` natively, ships in-tree sandbox + HITL rules | [#313](https://github.com/apache/magpie/issues/313) |
-| Gemini CLI | Not yet ported | [#314](https://github.com/apache/magpie/issues/314) |
+| Gemini CLI | Reads `.agents/skills/` natively; project action-guard hook and spec-loop profile — see the [runtime guide](docs/adapters/gemini.md) | [#314](https://github.com/apache/magpie/issues/314) |
 | Local LLM (Ollama / llama.cpp / vLLM) | Not yet ported | [#315](https://github.com/apache/magpie/issues/315) |
 | Cursor (Composer + Agent CLI) | Not yet ported | [#316](https://github.com/apache/magpie/issues/316) |
 | Aider | Not yet ported | [#317](https://github.com/apache/magpie/issues/317) |

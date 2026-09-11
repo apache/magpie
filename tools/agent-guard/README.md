@@ -13,6 +13,7 @@
     - [Snapshot adopters (`/magpie-setup`)](#snapshot-adopters-magpie-setup)
     - [OpenCode](#opencode)
     - [Kiro CLI](#kiro-cli)
+    - [Gemini CLI](#gemini-cli)
     - [Harness-neutral path (any runtime)](#harness-neutral-path-any-runtime)
   - [Contributing guards](#contributing-guards)
   - [Tests](#tests)
@@ -26,7 +27,7 @@
 
 **Capability:** substrate:action-guard
 
-**Harness:** Claude Code, OpenCode, Kiro
+**Harness:** Claude Code, OpenCode, Kiro, Gemini CLI
 
 A deterministic pre-execution guard dispatcher. It inspects every shell command
 **before it runs** and **denies** the ones that would break a hard framework
@@ -45,6 +46,10 @@ so every wired harness enforces an identical rule set from one source of truth:
 - **Kiro CLI** — a [`preToolUse`](https://kiro.dev/docs/cli/hooks) hook on the
   `execute_bash` matcher, which blocks a call when the hook exits `2`
   (`agent-guard.py --kiro`, reason on stderr). See [Wiring](#wiring).
+- **Gemini CLI** — a [`BeforeTool`](https://geminicli.com/docs/hooks/reference/)
+  hook on `run_shell_command`, using `--gemini` (exit `2`, reason on stderr).
+  The repository's `.gemini/settings.json` wires this hook; snapshot
+  adopters register it in their own settings. See [Gemini CLI](#gemini-cli).
 - **Any other runtime** — the `--check` and `--exec` CLI modes let any
   harness or shell wrapper enforce guard rules without a harness-specific hook
   adapter. See [Harness-neutral path (any runtime)](#harness-neutral-path-any-runtime).
@@ -222,10 +227,58 @@ Claude Code and OpenCode paths — verified end-to-end: with this hook wired,
 Kiro refuses a `Co-Authored-By` commit (quoting the `commit-trailer` reason and
 leaving the commit uncreated) while a clean commit proceeds.
 
+### Gemini CLI
+
+The repository's [`.gemini/settings.json`](../../.gemini/settings.json) wires
+the `--gemini` adapter to Gemini CLI's `BeforeTool` event.
+Start Gemini from the checkout root; the command uses `GEMINI_PROJECT_DIR`
+to resolve the engine without a machine-specific path.
+
+For a snapshot adoption, register the adapter in the adopter's
+`.gemini/settings.json` in a trusted workspace, or in the user's Gemini settings.
+`/magpie-setup` does not yet install Gemini hooks; the framework's settings
+inside `.apache-magpie/` do not configure the enclosing adopter workspace.
+Merge this entry into existing hooks and replace the example path with the
+absolute path to the framework checkout or snapshot:
+
+```json
+{
+  "hooks": {
+    "BeforeTool": [
+      {
+        "matcher": "^run_shell_command$",
+        "hooks": [
+          {
+            "name": "magpie-agent-guard",
+            "type": "command",
+            "command": "python3 \"/absolute/path/to/magpie/tools/agent-guard/src/agent_guard/__init__.py\" --gemini"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Gemini supplies `tool_input.command` and `cwd` on stdin.
+The adapter calls `dispatch()` and returns exit `2` with the denial reason on
+stderr; permitted commands return `0` silently.
+The adapter tests cover CLI routing, preservation of core decisions, workspace-aware
+Git checks, malformed input, and execution of the project settings' hook command.
+An offline probe of Gemini CLI 0.59.0 also loaded those settings through its
+native settings loader and registered and executed the hook, recognizing its
+denial even from a checkout path containing spaces.
+
+This preserves the shared engine's fail-open behavior for malformed input.
+A missing hook executable or interpreter can also leave the session running
+with a warning, so verify a known denial after installation.
+The hook covers shell commands; native file and MCP tools still need their
+own permissions, and shell execution still needs an OS sandbox.
+See the [runtime contract](../../docs/adapters/gemini.md).
+
 ### Harness-neutral path (any runtime)
 
-For runtimes that do not expose a pre-tool hook API (Codex CLI, Gemini CLI,
-Cursor, Kiro, or any other harness not yet wired above), the engine ships two
+For runtimes without a wired pre-tool hook adapter, the engine ships two
 CLI modes that allow enforcement without a harness-specific adapter:
 
 **`--check <command…>`** — inspects the command and reports allow/deny without

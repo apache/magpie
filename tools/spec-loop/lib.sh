@@ -125,6 +125,7 @@ spec_loop_launch_agent() {
         # Gemini CLI has no per-invocation effort/thinking-level flag.
         "$agent" \
             --yolo \
+            --output-format "$output_format" \
             ${model_args[@]+"${model_args[@]}"} \
             --prompt "$(cat "$prompt_file")" &
     elif [ "$harness" = "kiro" ]; then

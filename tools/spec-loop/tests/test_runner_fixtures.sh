@@ -186,9 +186,16 @@ test_harness_command_construction() {
     wait "$SPEC_LOOP_AGENT_PID"
     assert_contains "$TMPDIR_TEST/gemini.log" "<--yolo>"
     assert_contains "$TMPDIR_TEST/gemini.log" "<--prompt>"
+    assert_contains "$TMPDIR_TEST/gemini.log" "<--output-format> <text>"
     assert_not_contains "$TMPDIR_TEST/gemini.log" "<--effort>"
     assert_not_contains "$TMPDIR_TEST/gemini.log" "<--variant>"
     assert_not_contains "$TMPDIR_TEST/gemini.log" "model_reasoning_effort"
+
+    spec_loop_launch_agent gemini "$TMPDIR_TEST/gemini" /repo "$TMPDIR_TEST/prompt.md" gemini-test stream-json
+    wait "$SPEC_LOOP_AGENT_PID"
+    assert_contains "$TMPDIR_TEST/gemini.log" "<--output-format> <stream-json>"
+    assert_contains "$TMPDIR_TEST/gemini.log" "<--model> <gemini-test>"
+    assert_contains "$TMPDIR_TEST/gemini.log" "<--prompt> <PROMPT BODY>"
 }
 
 # loop.sh validates SPEC_LOOP_EFFORT at startup (reject anything other than

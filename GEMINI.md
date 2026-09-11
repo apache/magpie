@@ -12,6 +12,10 @@
 
 # Apache Magpie — Gemini CLI extension context
 
+Read the shared repository instructions:
+
+@AGENTS.md
+
 This context ships with the Apache Magpie Gemini CLI extension. Gemini has no
 plugin update/lifecycle hook (unlike Claude Code), so this file is how the
 extension prompts you to reconcile after an update.
