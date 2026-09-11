@@ -98,7 +98,7 @@ Write coverage is intentionally narrow. The bridge supports confirmed
 Bitbucket Cloud issue-comment creation, top-level pull-request comment creation,
 and pull-request approve/unapprove, request-changes/remove-request-changes, and decline actions after the calling skill has obtained
 explicit user confirmation. Other writes, such as editing/deleting comments,
-declining, merging, creating/updating issues, changing branches, or triggering
+merging, creating/updating issues, changing branches, or triggering
 builds, remain out of scope and should be added separately with narrow command
 surfaces and maintainer review.
 
