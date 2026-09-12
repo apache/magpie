@@ -1,0 +1,64 @@
+{
+  "schema": 1,
+  "description": "Synthetic issue-fix-workflow patch drafting on three distinct public bugs; no execution or publication.",
+  "common": {
+    "project": "Synthetic Widget project; independent organization; upstream_repo=example/widget; default_branch=main; issue tracker=GitHub example/widget; project-config directory exists and all manifest values are resolved.",
+    "preflight": "Captured checks: .apache-magpie.lock and .apache-magpie.local.lock match at the same pinned ref; project.md and user.md are present; no overrides; all required capabilities are available in this replay. Maintainer identity=benchmark-maintainer, authorized to request drafts and reviews, not publication. Git worktree clean except the supplied diff. No private or security reports.",
+    "conventions": "Apache-2.0; Python 3.11; pytest tests; preserve documented API; small regression tests required for behavior changes. Maintainer roster: benchmark-maintainer. No existing maintainer intervention. No agent comments yet.",
+    "mentoring_config": {
+      "mentoring_invocation_command": "mentor",
+      "maintainer_team_handle": "@example/maintainers",
+      "ai_attribution_footer": "Draft prepared with AI assistance; awaiting maintainer review.",
+      "convention_pointers": [
+        {
+          "trigger": "missing regression test",
+          "docs_link": "https://example.org/widget/contributing#tests",
+          "label": "needs-tests"
+        }
+      ],
+      "max_agent_turns": 2,
+      "out_of_scope_topics": [
+        "security",
+        "licensing",
+        "release policy"
+      ]
+    },
+    "good_first_issue_config": {
+      "good_first_issue_label": "good first issue",
+      "getting_started_link": "https://example.org/widget/contributing#tests",
+      "max_effort_hours": 4,
+      "out_of_scope_topics": [
+        "security",
+        "licensing",
+        "deprecation",
+        "architecture"
+      ],
+      "ai_attribution_footer": "Draft prepared with AI assistance; awaiting maintainer review."
+    },
+    "captured_link_check": "The synthetic getting-started URL returned HTTP 200 and contains the tests heading. This is fixture data, not an actual web check.",
+    "triage_config": "Labels available: type:bug, type:enhancement, priority:normal, needs-info, needs-tests. Reviewers use benchmark-maintainer; missing optional project rules use framework defaults. Security scope none. Existing backlog search empty unless a duplicate is supplied."
+  },
+  "cases": [
+    {
+      "id": "fix-1",
+      "mode": "Drafting",
+      "skill": "issue-fix-workflow",
+      "workload": "One-file empty-input fix plus regression tests",
+      "input": "Triaged public bug #301, confirmed BUG, no security concern. Local upstream source is fully captured below. No other callers, overrides, or relevant files. Python package src has an empty __init__.py.\nsrc/stats.py: def mean(values): return sum(values) / len(values)\nExisting tests/test_stats.py: from src.stats import mean; def test_mean(): assert mean([2, 4]) == 3\nDocumented behavior: mean([]) == 0. Captured baseline: mean([]) raises ZeroDivisionError. Fix empty input without changing nonempty behavior.\nDraft a unified diff for the minimal production fix and pytest regressions, followed by the commands needed to establish red/green and a proposed PR summary. The captured baseline failures are fixture observations. Do not claim patched tests passed or commits were made: tools are disabled. This benchmark measures patch drafting, stopping before applying changes. No actual repository mutation or publication is authorized."
+    },
+    {
+      "id": "fix-2",
+      "mode": "Drafting",
+      "skill": "issue-fix-workflow",
+      "workload": "Weighted-mean denominator fix plus regression tests",
+      "input": "Triaged public bug #302, confirmed BUG, no security concern. Local upstream source is fully captured below. No other callers, overrides, or relevant files. Python package src has an empty __init__.py.\nsrc/weighted.py: def weighted_mean(values, weights): return sum(v*w for v,w in zip(values,weights)) / len(values)\nExisting tests/test_weighted.py: from src.weighted import weighted_mean; def test_equal_weights(): assert weighted_mean([2,4],[1,1]) == 3\nAPI contract: matching nonempty lists, positive weights. Captured baseline weighted_mean([10,20],[1,3]) returns 35, expected 17.5. Correct the denominator. Input validation is out of scope.\nDraft a unified diff for the minimal production fix and pytest regressions, followed by the commands needed to establish red/green and a proposed PR summary. The captured baseline failures are fixture observations. Do not claim patched tests passed or commits were made: tools are disabled. This benchmark measures patch drafting, stopping before applying changes. No actual repository mutation or publication is authorized."
+    },
+    {
+      "id": "fix-3",
+      "mode": "Drafting",
+      "skill": "issue-fix-workflow",
+      "workload": "Two-module empty-summary fix plus regression tests",
+      "input": "Triaged public bug #303, confirmed BUG, no security concern. Local upstream source is fully captured below. No other callers, overrides, or relevant files. Python package src has an empty __init__.py.\nsrc/stats.py: def mean(values): return sum(values) / len(values)\nsrc/report.py:\nfrom src.stats import mean\ndef summary(values):\n    return {\"count\": len(values), \"mean\": mean(values), \"maximum\": max(values)}\nExisting tests/test_report.py: from src.report import summary; def test_summary(): assert summary([2,4]) == {\"count\": 2, \"mean\": 3, \"maximum\": 4}\nAPI contract: mean([]) == 0, summary([]) == {\"count\": 0, \"mean\": 0, \"maximum\": None}. Captured baseline: both empty cases raise. Fix both modules and add unit and integration regression coverage.\nDraft a unified diff for the minimal production fix and pytest regressions, followed by the commands needed to establish red/green and a proposed PR summary. The captured baseline failures are fixture observations. Do not claim patched tests passed or commits were made: tools are disabled. This benchmark measures patch drafting, stopping before applying changes. No actual repository mutation or publication is authorized."
+    }
+  ]
+}

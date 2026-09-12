@@ -1,0 +1,1773 @@
+{
+  "schema": 1,
+  "kind": "synthetic-full-entrypoint-replay",
+  "model_requested": "claude-haiku-4-5-20251001",
+  "cli_version": "2.1.268 (Claude Code)",
+  "source_commit": "68c01a34dd02aac42ae617c02cafa2a322643de8",
+  "corpus_sha256": "59158de69d9519742f37d4cc89fb75b099df3be5d16245c29de5dc12a3162d86",
+  "records": [
+    {
+      "case": "triage-1",
+      "mode": "Triage",
+      "skill": "issue-triage",
+      "workload": "Triage a public empty-input bug with 1 reproduction examples",
+      "repetition": 1,
+      "started_at": "2026-09-11T18:28:03.373407+00:00",
+      "prompt_sha256": "9f956a3869d04140084a5e3778ff98ad91528a47b6e903c74f323fe4434da2bf",
+      "sources": {
+        "skills/issue-triage/SKILL.md": "5b48347045deff8642f8a890e57f3d6f74ad8bdbde88cd616c5c422b8228edd3"
+      },
+      "status": "success",
+      "usage": {
+        "inputTokens": 11343,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 20433,
+        "outputTokens": 3186,
+        "totalTokens": 34962
+      },
+      "model_usage": {
+        "claude-haiku-4-5-20251001": {
+          "inputTokens": 11343,
+          "outputTokens": 3186,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 20433,
+          "webSearchRequests": 0,
+          "costUSD": 0.068139,
+          "contextWindow": 200000,
+          "maxOutputTokens": 32000,
+          "thinkingTokens": 2015,
+          "canonicalModel": "claude-haiku-4-5",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "conversation_usage": {
+        "input_tokens": 10,
+        "cache_creation_input_tokens": 20433,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 3171,
+        "output_tokens_details": {
+          "thinking_tokens": 2015
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 20433,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 10,
+            "output_tokens": 3171,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 20433,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 20433
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "duration_ms": 33609,
+      "turns": 1,
+      "response": "# Issue Triage Synthetic Benchmark \u2014 Execution Report\n\n## Pre-flight check \u2713\n\nCaptured preflight confirms:\n- `.apache-magpie.lock` / `.apache-magpie.local.lock` match at pinned ref\n- `project.md`, config manifests present and resolved\n- No security overrides; all capabilities available\n- Preflight passes; proceeding to Step 1\n\n---\n\n## Step 1: Selector resolution\n\n**Input:** Issue #101 (explicit key)  \n**Validation:** Matches GitHub-style format `^#?\\d+$` \u2713  \n**Resolved list:** `#101` (single issue)\n\nConfirmed: proceeding to gather state for #101.\n\n---\n\n## Step 2: Per-issue state\n\n| Field | Value |\n|-------|-------|\n| **Title** | mean([]) raises ZeroDivisionError, but docs promise 0 |\n| **File** | src/stats.py |\n| **Code** | `def mean(values): return sum(values) / len(values)` |\n| **Behavior observed** | `mean([])` \u2192 ZeroDivisionError |\n| **Expected behavior** | Documentation promises return value of `0` |\n| **Reproducer (pytest)** | \u2713 Confirms: `mean([])` raises exception; `mean([2,4])` == 3 (correct) |\n| **Component** | stats (inferred from file path) |\n| **Linked PRs** | None |\n| **Duplicates** | None (cross-reference search empty) |\n| **Recent fixes** | None (git log search empty) |\n| **Age** | Open; assume recent |\n\n---\n\n## Step 3: Classification\n\n### Security screening\nNo security signals detected. Safe to proceed.\n\n### Disposition: **BUG**\n\n**Rationale:**  \nThe reported behavior (ZeroDivisionError on empty input) contradicts the documented contract (return 0). The reproducer confirms both the bug and the correct behavior on non-empty input. Fix is implementable in-scope (null-check guard).\n\n**Confidence:** High \u2014 reproducer ground-truth confirms the mismatch.\n\n---\n\n## Step 4: Draft proposal comment\n\n```markdown\n**Triage proposal**\n\nThe `mean()` function in `src/stats.py` raises `ZeroDivisionError` when called with an empty list, but the project documentation promises a return value of `0`. The current implementation divides by `len(values)` without guarding against the empty case. The reproducer confirms `mean([])` raises an exception, while `mean([2,4])` correctly returns `3`.\n\n**Proposed disposition: BUG.**\n\nThis is a documented-behavior mismatch: the code violates the API contract. The fix is straightforward \u2014 add an early return for the empty case (e.g., `if not values: return 0` before the division) to align the implementation with the documented contract.\n\n**Action items:**\n1. Add a regression test for `mean([])` \u2192 `0` (needed per contributing conventions).\n2. Fix the implementation in `src/stats.py` to return `0` for empty input.\n\n@benchmark-maintainer \u2014 can you confirm that the documented behavior of `mean([])` returning `0` is the intended design?\n```\n\n### Coherence self-check \u2713\n- Accurately characterizes issue #101\n- Code location (`src/stats.py`) verified in captured state\n- Reproducer confirms the behavior mismatch\n- No hallucinated identifiers or unverified links\n- Issue reference would be: [#101](https://github.com/example/widget/issues/101)\n\n---\n\n## Step 5: Confirmation checkpoint\n\n**Draft proposal ready for review.** The comment above is the full text that would be posted to [#101](https://github.com/example/widget/issues/101) on your confirmation.\n\n**Options:**\n- `all` \u2014 post as drafted\n- `edit <freeform>` \u2014 request changes before posting\n- `skip` \u2014 abandon this issue\n- (other per-item controls available after Step 5 if needed)\n\n**Suggested labels (for reference):**\n- `type:bug` \u2014 established mismatch between docs and code\n- `needs-tests` \u2014 regression test required per conventions\n\n---\n\n## Recap (pending confirmation)\n\n| Issue | Class | Next step |\n|-------|-------|-----------|\n| [#101](https://github.com/example/widget/issues/101) | BUG | [`issue-fix-workflow #101`](../issue-fix-workflow/SKILL.md) once team agrees |\n\n**Disposition distribution:** 1 BUG, 0 FEATURE-REQUEST, 0 NEEDS-INFO, 0 DUPLICATE, 0 INVALID, 0 ALREADY-FIXED\n\n**Awaiting your confirmation** to post the proposal comment to the tracker."
+    },
+    {
+      "case": "mentoring-1",
+      "mode": "Mentoring",
+      "skill": "pr-management-mentor",
+      "workload": "Draft test guidance on a newcomer PR with 1 contributor messages",
+      "repetition": 1,
+      "started_at": "2026-09-11T18:28:03.374562+00:00",
+      "prompt_sha256": "8b09c9f172f25c8660d4c45288b45674c5bbb61d70d42808b6ec772e3405ff6f",
+      "sources": {
+        "skills/pr-management-mentor/SKILL.md": "fa887219033e6b9b19ce8421cefe264773049dc51df91d9b167aa1a5671201d2",
+        "skills/pr-management-mentor/comment-templates.md": "99546d9dc04d4c389dc12ece9a31fd1b3eea535dc6df9a2e71b8addb96a9d246",
+        "skills/pr-management-mentor/hand-off.md": "34fbcf32ec4af78a6a6697e8ea8c1f22ba7b1d9b0c191099395c8f7b2b695021",
+        "skills/pr-management-mentor/tone-checks.md": "539eb07f4bd9d2d0b0463cc2172410ed0547ae25330e3f52c18c2cea4c3b513b"
+      },
+      "status": "success",
+      "usage": {
+        "inputTokens": 8665,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 17755,
+        "outputTokens": 2787,
+        "totalTokens": 29207
+      },
+      "model_usage": {
+        "claude-haiku-4-5-20251001": {
+          "inputTokens": 8665,
+          "outputTokens": 2787,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 17755,
+          "webSearchRequests": 0,
+          "costUSD": 0.05811,
+          "contextWindow": 200000,
+          "maxOutputTokens": 32000,
+          "thinkingTokens": 2477,
+          "canonicalModel": "claude-haiku-4-5",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "conversation_usage": {
+        "input_tokens": 10,
+        "cache_creation_input_tokens": 17755,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 2771,
+        "output_tokens_details": {
+          "thinking_tokens": 2477
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 17755,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 10,
+            "output_tokens": 2771,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 17755,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 17755
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "duration_ms": 32966,
+      "turns": 1,
+      "response": "Preflight check complete (lock match, config resolved, no overrides, ready). Running runtime loop.\n\n**Thread analysis:**\n- PR #201, author=newcomer\n- Change: `mean()` handles empty input (return 0)\n- Missing regression test\n- Newcomer asks: \"How do I add a regression test?\"\n- Out-of-scope check: pass (no security/licensing/release-policy mention)\n- Maintainer-already-engaged: pass (no maintainer comment yet, zero agent comments)\n- Trigger match: **missing regression test** \u2192 fires exactly once\n\n**Intervention picked:** Convention pointer (template #3)\n\n**Tone check:** All hard + soft fails pass. No revisions needed.\n\n---\n\n## Drafted comment\n\n```markdown\n@newcomer \u2014 heads up, this repo has a convention for that: [needs-tests](https://example.org/widget/contributing#tests). Once you align with it a maintainer can take the next look.\n\nDraft prepared with AI assistance; awaiting maintainer review.\n```\n\n**Trigger:** missing regression test  \n**Convention link:** https://example.org/widget/contributing#tests\n\n---\n\n**Ready for maintainer confirmation.** Awaiting explicit `yes` to post via `gh pr comment 201`."
+    },
+    {
+      "case": "drafting-1",
+      "mode": "Mentoring",
+      "skill": "good-first-issue-author",
+      "workload": "Author one bounded regression-test issue with 1 edge cases",
+      "repetition": 1,
+      "started_at": "2026-09-11T18:28:03.375616+00:00",
+      "prompt_sha256": "9055a9faa7c9c193a76a892336c2561163afd22c5dec1b6d4675de833aaee287",
+      "sources": {
+        "skills/good-first-issue-author/SKILL.md": "fa2fa9c100099e85db2e6b4246599fd251d3753054a24077e4f3a4fb1b5050d8",
+        "skills/good-first-issue-author/issue-template.md": "75dcce79e2bdc9060f9b777135a54af2a246005d64e28ec380db7a60e99f4ddc",
+        "skills/good-first-issue-author/readiness-checks.md": "bbc62099513e9c455085b8691d698bf84d8ba0b12753e5476ee62c1ad91412cf"
+      },
+      "status": "success",
+      "usage": {
+        "inputTokens": 7249,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 16339,
+        "outputTokens": 2543,
+        "totalTokens": 26131
+      },
+      "model_usage": {
+        "claude-haiku-4-5-20251001": {
+          "inputTokens": 7249,
+          "outputTokens": 2543,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 16339,
+          "webSearchRequests": 0,
+          "costUSD": 0.052641999999999994,
+          "contextWindow": 200000,
+          "maxOutputTokens": 32000,
+          "thinkingTokens": 1718,
+          "canonicalModel": "claude-haiku-4-5",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "conversation_usage": {
+        "input_tokens": 10,
+        "cache_creation_input_tokens": 16339,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 2526,
+        "output_tokens_details": {
+          "thinking_tokens": 1718
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 16339,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 10,
+            "output_tokens": 2526,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 16339,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 16339
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "duration_ms": 27822,
+      "turns": 1,
+      "response": "# Suitability Gate\n\n**Decision: SUITABLE**\n\nNo Tier 1 hard stops. No Tier 2 missing inputs. Candidate is small (1-hour estimate, well under 4-hour max), self-contained, has clear acceptance criteria, named file locations, and poses no security/deprecation/architectural risk. Injection check: none detected.\n\n| Blocking factors | Count |\n|---|---|\n| Tier 1 (hard stops) | 0 |\n| Tier 2 (missing inputs) | 0 |\n\n---\n\n# Readiness Checks\n\n**Verdict: READY**\n\nDraft passes all nine rules. Ready to show maintainer.\n\n| Rule | Status | Notes |\n|---|---|---|\n| R1 | \u2713 | Title is specific imperative: \"Add test assertion for mean() with empty list\" |\n| R2 | \u2713 | Background explains *why*: edge case coverage and maintainability |\n| R3 | \u2713 | Two concrete file locations with stable links provided |\n| R4 | \u2713 | Three observable acceptance criteria in checklist form |\n| R5 | \u2713 | Effort estimated: ~1 hour |\n| R6 | \u2713 | Links absolute getting-started URL; resolves and contains target anchor |\n| R7 | \u2713 | Minimal jargon; pytest mentioned but covered by R6 link scope |\n| R8 | \u2713 | Proposes configured label: \"good first issue\" |\n| R9 | \u2713 | Footer present verbatim from config |\n\n---\n\n# Drafted Issue\n\n**Title:** Add test assertion for mean() with empty list\n\n**Body:**\n\n```markdown\n## Summary\n\nAdd a test assertion to `tests/test_stats.py` to verify that `mean([])` returns `0`.\n\n## Background\n\nThe `mean()` function in `src/stats.py` correctly handles the empty list case by returning `0`, but the test suite in `tests/test_stats.py` currently only covers the happy path (`mean([2,4]) == 3`). Adding this test improves coverage and documents the expected behavior for edge cases, making the code more maintainable for future contributors.\n\n## Where to look\n\n- [src/stats.py](https://example.org/widget/src/stats.py) \u2014 the `mean()` function implementation (handles empty input)\n- [tests/test_stats.py](https://example.org/widget/tests/test_stats.py) \u2014 where the new test assertion belongs\n\n## Acceptance criteria\n\n- [ ] Test assertion `mean([]) == 0` is added to `tests/test_stats.py`\n- [ ] The new assertion passes when run with `pytest`\n- [ ] No existing tests are broken by the change\n\n## Estimated effort\n\n~1 hour for someone new to the codebase \u2014 add one assertion to the test file and run the test suite to verify.\n\n## Getting started\n\nSee [Contributing: Tests](https://example.org/widget/contributing#tests) for guidance on where tests live and how to run them.\n\n---\n\nDraft prepared with AI assistance; awaiting maintainer review.\n```\n\n---\n\n# Proposed Label\n\n```\ngood first issue\n```\n\n---\n\n**Ready for maintainer confirmation.** No issues block filing. On `yes`, the issue will be created with the title, body, and label shown above. On `no`, the draft is discarded without filing."
+    },
+    {
+      "case": "pairing-1",
+      "mode": "Pairing",
+      "skill": "pairing-self-review",
+      "workload": "Review a 1-file diff removing empty-input guards",
+      "repetition": 1,
+      "started_at": "2026-09-11T18:28:03.374195+00:00",
+      "prompt_sha256": "b7faad2ee6a97e3d33bcbda1ac365bcd3712c5255d6f949c1d014f4e31c11267",
+      "sources": {
+        "skills/pairing-self-review/SKILL.md": "b4e805d4e09a53f55a106b901e8c77cb5128e1a6854972c2364168958dd58456"
+      },
+      "status": "success",
+      "usage": {
+        "inputTokens": 5724,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 14818,
+        "outputTokens": 1864,
+        "totalTokens": 22406
+      },
+      "model_usage": {
+        "claude-haiku-4-5-20251001": {
+          "inputTokens": 5724,
+          "outputTokens": 1864,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 14818,
+          "webSearchRequests": 0,
+          "costUSD": 0.04468,
+          "contextWindow": 200000,
+          "maxOutputTokens": 32000,
+          "thinkingTokens": 1522,
+          "canonicalModel": "claude-haiku-4-5",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "conversation_usage": {
+        "input_tokens": 10,
+        "cache_creation_input_tokens": 14818,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 1846,
+        "output_tokens_details": {
+          "thinking_tokens": 1522
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 14818,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 10,
+            "output_tokens": 1846,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 14818,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 14818
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "duration_ms": 20635,
+      "turns": 1,
+      "response": "# Pre-flight Self-Review Report\n\n## Pre-flight self-review\n\n**Base:** main (merge base)  \n**Files changed:** 1 (modified 1, added 0, deleted 0)  \n**Diff size:** 0 additions, 2 deletions\n\n---\n\n### Correctness\n\n- **blocking** `src/stats0.py:2-3` \u2014 Removes empty-list guard, breaking documented behavior; `mean([])` now raises `ZeroDivisionError` instead of returning 0\n  > ```diff\n  > -    if not values:\n  > -        return 0\n  > ```\n  Rule: Preserve documented API contracts. Behavioral changes that affect reachable inputs must either maintain the original contract or include a documented deprecation.\n\n### Security\n\nNo findings.\n\n### Conventions\n\n- **blocking** `src/stats0.py` \u2014 Missing regression test for behavior change; project requires test coverage for all behavioral modifications\n  Rule: Small regression tests required for behavior changes. See [contributing guide](https://example.org/widget/contributing#tests).\n\n---\n\n### Summary\n\nBlocking findings present\u2014address before opening a PR.\n\n**Blocking:** 2  **Advisory:** 0\n\n---\n\n*Self-review generated by `pairing-self-review`. No state was changed. Review the findings, decide what to act on, and open the PR when you are satisfied.*"
+    },
+    {
+      "case": "triage-2",
+      "mode": "Triage",
+      "skill": "issue-triage",
+      "workload": "Triage a public empty-input bug with 2 reproduction examples",
+      "repetition": 1,
+      "started_at": "2026-09-11T18:28:25.158720+00:00",
+      "prompt_sha256": "b9d6ad46f6f4bf5bb33a7e1eb4f61dd07f7f661d1be62bab8aaa22663fc0009a",
+      "sources": {
+        "skills/issue-triage/SKILL.md": "5b48347045deff8642f8a890e57f3d6f74ad8bdbde88cd616c5c422b8228edd3"
+      },
+      "status": "success",
+      "usage": {
+        "inputTokens": 11360,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 20454,
+        "outputTokens": 1963,
+        "totalTokens": 33777
+      },
+      "model_usage": {
+        "claude-haiku-4-5-20251001": {
+          "inputTokens": 11360,
+          "outputTokens": 1963,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 20454,
+          "webSearchRequests": 0,
+          "costUSD": 0.062083,
+          "contextWindow": 200000,
+          "maxOutputTokens": 32000,
+          "thinkingTokens": 1467,
+          "canonicalModel": "claude-haiku-4-5",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "conversation_usage": {
+        "input_tokens": 10,
+        "cache_creation_input_tokens": 20454,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 1946,
+        "output_tokens_details": {
+          "thinking_tokens": 1467
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 20454,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 10,
+            "output_tokens": 1946,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 20454,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 20454
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "duration_ms": 23630,
+      "turns": 1,
+      "response": "**Pre-flight passed** (lock match, config resolved).\n\n**Selector resolved:** `#102` (single issue)\n\n---\n\n## Classification\n\n**Issue #102:** `mean([])` raises `ZeroDivisionError`, docs promise 0.\n\n**Captured state:**\n- Code: src/stats.py, line 2-3 divides by zero on empty list\n- Reproducer: `mean([])` crashes; `mean([2,4]) == 3` passes \u2713\n- Docs: promise return value 0 for empty input\n- No linked PRs, no recent fixes, no duplicates\n\n**Security screening:** Clear \u2014 no signals.\n\n**Classification: BUG** (high confidence)\n\nDocumented and actual behaviour diverge. Fix shape: guard division (return 0) or clarify docs if ValueError intended. Code path reachable, one-line fix.\n\n---\n\n## Draft proposal comment\n\n```markdown\n**Triage proposal**\n\n`mean([])` crashes with ZeroDivisionError on Python 3.11, but docs promise it should return 0. Code divides without guarding empty input (src/stats.py:2\u20133). Reproducer confirms.\n\n**Proposed disposition: BUG.**\n\nDocumented expectation (0) vs actual (crash) \u2014 code path reachable, implementable fix.\n\n**Fix shape:** Guard the division \u2014 return 0 on empty input, or if docs intended ValueError, provide clearer message.\n\n**Action items:**\n1. Add regression test: `mean([]) == 0`\n2. Fix src/stats.py:mean() empty-input handling\n\n@benchmark-maintainer \u2014 intended behavior: 0 or ValueError? Once settled, fix is one line.\n```\n\n---\n\n**Ready for confirmation** \u2014 respond:\n- `all` \u2014 post as drafted\n- `1:edit <text>` \u2014 tweak before posting\n- `1:downgrade BUG` / `1:upgrade <CLASS>` \u2014 reclassify\n- `skip` \u2014 drop this one\n- `none` \u2014 cancel"
+    },
+    {
+      "case": "mentoring-2",
+      "mode": "Mentoring",
+      "skill": "pr-management-mentor",
+      "workload": "Draft test guidance on a newcomer PR with 2 contributor messages",
+      "repetition": 1,
+      "started_at": "2026-09-11T18:28:32.323529+00:00",
+      "prompt_sha256": "d53886501557b40f8b0775c705bca2a5caaf8f858e8f861a26cc82cda16e9c04",
+      "sources": {
+        "skills/pr-management-mentor/SKILL.md": "fa887219033e6b9b19ce8421cefe264773049dc51df91d9b167aa1a5671201d2",
+        "skills/pr-management-mentor/comment-templates.md": "99546d9dc04d4c389dc12ece9a31fd1b3eea535dc6df9a2e71b8addb96a9d246",
+        "skills/pr-management-mentor/hand-off.md": "34fbcf32ec4af78a6a6697e8ea8c1f22ba7b1d9b0c191099395c8f7b2b695021",
+        "skills/pr-management-mentor/tone-checks.md": "539eb07f4bd9d2d0b0463cc2172410ed0547ae25330e3f52c18c2cea4c3b513b"
+      },
+      "status": "success",
+      "usage": {
+        "inputTokens": 8682,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 17772,
+        "outputTokens": 2909,
+        "totalTokens": 29363
+      },
+      "model_usage": {
+        "claude-haiku-4-5-20251001": {
+          "inputTokens": 8682,
+          "outputTokens": 2909,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 17772,
+          "webSearchRequests": 0,
+          "costUSD": 0.058771000000000004,
+          "contextWindow": 200000,
+          "maxOutputTokens": 32000,
+          "thinkingTokens": 2670,
+          "canonicalModel": "claude-haiku-4-5",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "conversation_usage": {
+        "input_tokens": 10,
+        "cache_creation_input_tokens": 17772,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 2893,
+        "output_tokens_details": {
+          "thinking_tokens": 2670
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 17772,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 10,
+            "output_tokens": 2893,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 17772,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 17772
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "duration_ms": 34011,
+      "turns": 1,
+      "response": "Preflight pass. Config complete, no overrides, maintainer ready.\n\n**Thread:** PR #202, `newcomer` changed `src/stats.py` to handle empty input. No test added. Contrib asks: \"How do I add a regression test?\"\n\n**Trigger match:** `missing regression test` (1 exact match).\n\n**Template:** Convention pointer (#3).\n\n**Tone checks:** All pass (hard 1-10, soft 11-14).\n\n---\n\n## Draft comment\n\n```markdown\n@newcomer \u2014 heads up, this repo has a convention for that: [needs-tests](https://example.org/widget/contributing#tests). Once you align with it a maintainer can take the next look.\n\nDraft prepared with AI assistance; awaiting maintainer review.\n```\n\n---\n\n**Matched pointer:**\n- Docs: https://example.org/widget/contributing#tests\n- Label: needs-tests\n\n**Post?** (yes / no)"
+    },
+    {
+      "case": "drafting-2",
+      "mode": "Mentoring",
+      "skill": "good-first-issue-author",
+      "workload": "Author one bounded regression-test issue with 2 edge cases",
+      "repetition": 1,
+      "started_at": "2026-09-11T18:28:37.485926+00:00",
+      "prompt_sha256": "a9468f011596538502e52236cebf2fb0532e3773841765d3e482c05af549fe57",
+      "sources": {
+        "skills/good-first-issue-author/SKILL.md": "fa2fa9c100099e85db2e6b4246599fd251d3753054a24077e4f3a4fb1b5050d8",
+        "skills/good-first-issue-author/issue-template.md": "75dcce79e2bdc9060f9b777135a54af2a246005d64e28ec380db7a60e99f4ddc",
+        "skills/good-first-issue-author/readiness-checks.md": "bbc62099513e9c455085b8691d698bf84d8ba0b12753e5476ee62c1ad91412cf"
+      },
+      "status": "success",
+      "usage": {
+        "inputTokens": 7257,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 16347,
+        "outputTokens": 1914,
+        "totalTokens": 25518
+      },
+      "model_usage": {
+        "claude-haiku-4-5-20251001": {
+          "inputTokens": 7257,
+          "outputTokens": 1914,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 16347,
+          "webSearchRequests": 0,
+          "costUSD": 0.049521,
+          "contextWindow": 200000,
+          "maxOutputTokens": 32000,
+          "thinkingTokens": 1089,
+          "canonicalModel": "claude-haiku-4-5",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "conversation_usage": {
+        "input_tokens": 10,
+        "cache_creation_input_tokens": 16347,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 1897,
+        "output_tokens_details": {
+          "thinking_tokens": 1089
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 16347,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 10,
+            "output_tokens": 1897,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 16347,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 16347
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "duration_ms": 22774,
+      "turns": 1,
+      "response": "# good-first-issue-author \u2014 Benchmark Replay\n\n## Preflight\n\n\u2713 Locks match  \n\u2713 Config resolved  \n\u2713 Getting-started link validates (HTTP 200, `#tests` heading present)  \n\n---\n\n## Suitability Gate\n\n**Tier 1 (hard stops):** None  \n**Tier 2 (missing inputs):** None  \n\n**Decision: SUITABLE**\n\nCandidate is small, focused, has concrete locations, clear acceptance criteria, and safe for newcomer. No blocking factors.\n\n---\n\n## Drafted Issue\n\n**Title:**  \nAdd regression tests for mean() empty and single-value edge cases\n\n**Body:**\n\n```\n## Summary\n\nAdd test assertions for edge cases in the `mean()` function that the current test suite does not cover: empty list input and single-value input.\n\n## Background\n\nThe `mean()` implementation correctly handles both cases (empty list returns 0; single value returns itself), but only one test exercises the happy path `mean([2,4]) == 3`. Adding explicit regression tests for `mean([])` and `mean([7])` ensures these behaviors are preserved and catches accidental breakage.\n\n## Where to look\n\n- `src/stats.py` \u2014 the `mean()` function at lines 1-4\n- `tests/test_stats.py` \u2014 where new test assertions belong alongside the existing `mean()` test\n\n## Acceptance criteria\n\n- [ ] Add assertion: `assert mean([]) == 0`\n- [ ] Add assertion: `assert mean([7]) == 7`\n- [ ] Run `pytest tests/test_stats.py` locally and confirm all tests pass\n- [ ] No changes to the mean() implementation itself; this is test-only\n\n## Estimated effort\n\n~1 hour for someone new to the codebase.\n\n## Getting started\n\n[https://example.org/widget/contributing#tests](https://example.org/widget/contributing#tests)\n\n---\n\nDraft prepared with AI assistance; awaiting maintainer review.\n```\n\n---\n\n## Readiness Checks\n\n| Rule | Status |\n|------|--------|\n| R1 | \u2713 Title is specific imperative: \"Add regression tests\u2026\" |\n| R2 | \u2713 Background explains why (prevents regression) |\n| R3 | \u2713 Concrete locations: `src/stats.py` lines 1-4, `tests/test_stats.py` |\n| R4 | \u2713 Observable acceptance criteria (four checkable items) |\n| R5 | \u2713 Effort stated: ~1 hour |\n| R6 | \u2713 Real getting-started link (absolute URL, resolves) |\n| R7 | \u2713 No unexplained jargon; standard testing terms |\n| R8 | \u2713 Proposes label: \"good first issue\" |\n| R9 | \u2713 Attribution footer present verbatim |\n\n**Readiness verdict:** `ready` (all checks pass)\n\n---\n\n## Summary\n\n**Suitability:** suitable  \n**Blocking factors:** none  \n**Failed checks:** none  \n**Injection flagged:** false  \n\n**Proposed label:** `good first issue`  \n**Proposed link:** [https://example.org/widget/contributing#tests](https://example.org/widget/contributing#tests)\n\nDraft is ready. Filing via `gh` requires explicit maintainer confirmation; stopping at human boundary per task specification."
+    },
+    {
+      "case": "pairing-2",
+      "mode": "Pairing",
+      "skill": "pairing-self-review",
+      "workload": "Review a 2-file diff removing empty-input guards",
+      "repetition": 1,
+      "started_at": "2026-09-11T18:28:38.058754+00:00",
+      "prompt_sha256": "ab0be44a1481d5a7d30cf38f9ea40bf5e0a59de79dab6053e9cba449eb0f49ce",
+      "sources": {
+        "skills/pairing-self-review/SKILL.md": "b4e805d4e09a53f55a106b901e8c77cb5128e1a6854972c2364168958dd58456"
+      },
+      "status": "success",
+      "usage": {
+        "inputTokens": 5812,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 14904,
+        "outputTokens": 3710,
+        "totalTokens": 24426
+      },
+      "model_usage": {
+        "claude-haiku-4-5-20251001": {
+          "inputTokens": 5812,
+          "outputTokens": 3710,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 14904,
+          "webSearchRequests": 0,
+          "costUSD": 0.054169999999999996,
+          "contextWindow": 200000,
+          "maxOutputTokens": 32000,
+          "thinkingTokens": 3091,
+          "canonicalModel": "claude-haiku-4-5",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "conversation_usage": {
+        "input_tokens": 10,
+        "cache_creation_input_tokens": 14904,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 3697,
+        "output_tokens_details": {
+          "thinking_tokens": 3091
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 14904,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 10,
+            "output_tokens": 3697,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 14904,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 14904
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "duration_ms": 42199,
+      "turns": 1,
+      "response": "Using `magpie-pairing-self-review` to run structured pre-flight self-review on your diff.\n\n---\n\n## Pre-flight self-review\n\n**Base:** origin/main  \n**Files changed:** 2 (0 added, 2 modified, 0 deleted)  \n**Diff size:** 6 deletions, 0 additions\n\n---\n\n### Correctness\n\n- **blocking** `src/stats0.py:2-3` \u2014 Removal of empty-list guard breaks documented API contract; mean([]) now raises ZeroDivisionError instead of returning 0\n  > ```\n  > -    if not values:\n  > -        return 0\n  > ```\n  Rule: Function must not raise unhandled exceptions on valid, documented inputs. Documented contract mean([]) == 0 is violated.\n\n- **blocking** `src/stats1.py:2-3` \u2014 Removal of empty-list guard breaks documented API contract; mean([]) now raises ZeroDivisionError instead of returning 0\n  > ```\n  > -    if not values:\n  > -        return 0\n  > ```\n  Rule: Function must not raise unhandled exceptions on valid, documented inputs. Documented contract mean([]) == 0 is violated.\n\n### Security\n\nNo findings.\n\n### Conventions\n\n- **blocking** `src/stats0.py` \u2014 Behavior change lacks regression test; violates project convention \"small regression tests required for behavior changes\"\n  Rule: [https://example.org/widget/contributing#tests](https://example.org/widget/contributing#tests) \u2014 regression tests required for behavior changes\n\n- **blocking** `src/stats1.py` \u2014 Behavior change lacks regression test; violates project convention \"small regression tests required for behavior changes\"\n  Rule: [https://example.org/widget/contributing#tests](https://example.org/widget/contributing#tests) \u2014 regression tests required for behavior changes\n\n---\n\n### Summary\n\n**Blocking findings present \u2014 address before opening a PR.** Removal of empty-list handling breaks documented API contract in both modules (mean([]) crashes instead of returning 0), and no regression tests added to guard against this behavior change.\n\n**Blocking:** 4  **Advisory:** 0\n\n---\n\n*Self-review generated by `pairing-self-review`. No state was changed. Review the findings, decide what to act on, and open the PR when satisfied.*\n\n---\n\nTwo blocking correctness bugs (same root cause, two files). Empty-input guard removed but documented to return 0, now throws. Plus: no regression test. Fix both files and add test before pushing."
+    },
+    {
+      "case": "triage-3",
+      "mode": "Triage",
+      "skill": "issue-triage",
+      "workload": "Triage a public empty-input bug with 3 reproduction examples",
+      "repetition": 1,
+      "started_at": "2026-09-11T18:28:49.766209+00:00",
+      "prompt_sha256": "6535268b1ad539bfc445edc564717c554beb6ddd9a0baa28f81986a54d4ea367",
+      "sources": {
+        "skills/issue-triage/SKILL.md": "5b48347045deff8642f8a890e57f3d6f74ad8bdbde88cd616c5c422b8228edd3"
+      },
+      "status": "success",
+      "usage": {
+        "inputTokens": 11377,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 20465,
+        "outputTokens": 2257,
+        "totalTokens": 34099
+      },
+      "model_usage": {
+        "claude-haiku-4-5-20251001": {
+          "inputTokens": 11377,
+          "outputTokens": 2257,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 20465,
+          "webSearchRequests": 0,
+          "costUSD": 0.06359200000000001,
+          "contextWindow": 200000,
+          "maxOutputTokens": 32000,
+          "thinkingTokens": 1736,
+          "canonicalModel": "claude-haiku-4-5",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "conversation_usage": {
+        "input_tokens": 10,
+        "cache_creation_input_tokens": 20465,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 2238,
+        "output_tokens_details": {
+          "thinking_tokens": 1736
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 20465,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 10,
+            "output_tokens": 2238,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 20465,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 20465
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "duration_ms": 27191,
+      "turns": 1,
+      "response": "**Pre-flight check \u2014 passing.** Project config present, GitHub tracker, roster available.\n\n**Selector resolution.** Single issue: `#103`. Confirm triage scope?\n\n---\n\n**Step 2 \u2014 State gathered**\n\nIssue: `mean([])` crashes with ZeroDivisionError; docs promise 0.  \nCode: `src/stats.py:mean()`, `return sum(values) / len(values)`  \nReproduction: Confirmed \u00d7 2, Python 3.11.  \nNo linked PRs, no related issues, no prior fixes in git log.\n\n---\n\n**Step 3 \u2014 Classification**\n\n**\u2713 BUG**\n\nReported behaviour (crash) contradicts documented contract (return 0). Reachable via normal usage. Fix is straightforward: guard clause before division.\n\nConfidence: High \u2014 contradiction is explicit.\n\n---\n\n**Step 4 \u2014 Draft proposal comment**\n\n```markdown\n**Triage proposal**\n\nThe `mean()` function in `src/stats.py` raises `ZeroDivisionError` when called with an empty list, but the documentation specifies it should return `0`. Reproductions confirmed on Python 3.11 (Widget 1.0). The implementation `return sum(values) / len(values)` fails at division because `len([]) == 0`.\n\n**Proposed disposition: BUG.**\n\nThe documented contract (return 0 for empty input) conflicts with actual runtime behaviour. This is a confirmed defect reachable in normal usage.\n\nFix: Add a guard clause before division \u2014 one line to check for empty input and return 0. Also add a regression test `mean([])` to the test suite per the contributing guide.\n\n@benchmark-maintainer \u2014 is returning 0 for empty input the intended semantics for `mean()`?\n```\n\n**Suggested labels:** `type:bug`, `needs-tests`\n\n---\n\n**Step 5 \u2014 Confirm**\n\nReady to post the proposal above?\n\n- `all` \u2192 post to issue\n- `1:edit <change>` \u2192 revise and re-confirm\n- `1:skip` \u2192 drop this issue\n- `none` \u2192 cancel"
+    },
+    {
+      "case": "mentoring-3",
+      "mode": "Mentoring",
+      "skill": "pr-management-mentor",
+      "workload": "Draft test guidance on a newcomer PR with 3 contributor messages",
+      "repetition": 1,
+      "started_at": "2026-09-11T18:29:01.197493+00:00",
+      "prompt_sha256": "de02b9b7c7d6ca873570dc1dc9b5f9dbe7e539b0a87834b86634147c00a9b6cc",
+      "sources": {
+        "skills/pr-management-mentor/SKILL.md": "fa887219033e6b9b19ce8421cefe264773049dc51df91d9b167aa1a5671201d2",
+        "skills/pr-management-mentor/comment-templates.md": "99546d9dc04d4c389dc12ece9a31fd1b3eea535dc6df9a2e71b8addb96a9d246",
+        "skills/pr-management-mentor/hand-off.md": "34fbcf32ec4af78a6a6697e8ea8c1f22ba7b1d9b0c191099395c8f7b2b695021",
+        "skills/pr-management-mentor/tone-checks.md": "539eb07f4bd9d2d0b0463cc2172410ed0547ae25330e3f52c18c2cea4c3b513b"
+      },
+      "status": "success",
+      "usage": {
+        "inputTokens": 8699,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 17793,
+        "outputTokens": 2115,
+        "totalTokens": 28607
+      },
+      "model_usage": {
+        "claude-haiku-4-5-20251001": {
+          "inputTokens": 8699,
+          "outputTokens": 2115,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 17793,
+          "webSearchRequests": 0,
+          "costUSD": 0.05486,
+          "contextWindow": 200000,
+          "maxOutputTokens": 32000,
+          "thinkingTokens": 1784,
+          "canonicalModel": "claude-haiku-4-5",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "conversation_usage": {
+        "input_tokens": 10,
+        "cache_creation_input_tokens": 17793,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 2100,
+        "output_tokens_details": {
+          "thinking_tokens": 1784
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 17793,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 10,
+            "output_tokens": 2100,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 17793,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 17793
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "duration_ms": 25452,
+      "turns": 1,
+      "response": "**Preflight silent.** Lock matched, config resolved, no overrides.\n\n---\n\n## Skill Execution: pr-management-mentor\n\n**Thread:** PR #203 (newcomer)  \n**Change:** `src/stats.py` handles empty input (`return 0`), no tests added  \n**Recent comments:** Newcomer asks \"How do I add a regression test?\" (3x)\n\n**Scope checks:**\n- Out-of-scope topics (security/licensing/release): none hit \u2713\n- Maintainer already engaged: no \u2713\n- Intervention trigger: \"missing regression test\" fires exactly once \u2713\n\n**Template:** Convention pointer (Template 3, `comment-templates.md`)\n\n---\n\n## Draft Comment\n\n```markdown\n@newcomer \u2014 heads up, this repo has a convention for that: [needs-tests](https://example.org/widget/contributing#tests). Once you align with it a maintainer can take the next look.\n\nDraft prepared with AI assistance; awaiting maintainer review.\n```\n\n**Matched trigger:** missing regression test  \n**Docs link:** https://example.org/widget/contributing#tests  \n**Tone checks:** All 14 rules pass (no praise, one ask, footer verbatim, short, plain language).\n\n---\n\n**Ready for maintainer confirmation.** Post this comment on PR #203?"
+    },
+    {
+      "case": "drafting-3",
+      "mode": "Mentoring",
+      "skill": "good-first-issue-author",
+      "workload": "Author one bounded regression-test issue with 3 edge cases",
+      "repetition": 1,
+      "started_at": "2026-09-11T18:29:07.225946+00:00",
+      "prompt_sha256": "6119d08f5b906864604bee823b72cd8da98b219239ddc84765371a69b5ab01c0",
+      "sources": {
+        "skills/good-first-issue-author/SKILL.md": "fa2fa9c100099e85db2e6b4246599fd251d3753054a24077e4f3a4fb1b5050d8",
+        "skills/good-first-issue-author/issue-template.md": "75dcce79e2bdc9060f9b777135a54af2a246005d64e28ec380db7a60e99f4ddc",
+        "skills/good-first-issue-author/readiness-checks.md": "bbc62099513e9c455085b8691d698bf84d8ba0b12753e5476ee62c1ad91412cf"
+      },
+      "status": "success",
+      "usage": {
+        "inputTokens": 7268,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 16356,
+        "outputTokens": 2972,
+        "totalTokens": 26596
+      },
+      "model_usage": {
+        "claude-haiku-4-5-20251001": {
+          "inputTokens": 7268,
+          "outputTokens": 2972,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 16356,
+          "webSearchRequests": 0,
+          "costUSD": 0.05484,
+          "contextWindow": 200000,
+          "maxOutputTokens": 32000,
+          "thinkingTokens": 1738,
+          "canonicalModel": "claude-haiku-4-5",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "conversation_usage": {
+        "input_tokens": 10,
+        "cache_creation_input_tokens": 16356,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 2955,
+        "output_tokens_details": {
+          "thinking_tokens": 1738
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 16356,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 10,
+            "output_tokens": 2955,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 16356,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 16356
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "duration_ms": 21753,
+      "turns": 1,
+      "response": "# good-first-issue-author Benchmark Replay\n\n## Pre-flight\n\nChecks silent on happy path. Lock refs match, config resolved, capabilities available. Proceed.\n\n---\n\n## Config Resolved\n\n```yaml\ngood_first_issue_label: \"good first issue\"\ngetting_started_link: \"https://example.org/widget/contributing#tests\"\nmax_effort_hours: 4\nout_of_scope_topics: [\"security\", \"licensing\", \"deprecation\", \"architecture\"]\nai_attribution_footer: \"Draft prepared with AI assistance; awaiting maintainer review.\"\n```\n\nLink resolves to HTTP 200, anchor `#tests` matches target page. \u2713\n\n---\n\n## Candidate Resolved\n\n**Gap:** Add missing test cases for `src/stats.py` `mean()` function.\n\n**Implementation:** Settled, correct. Edge cases uncovered:\n- `mean([])` \u2192 0\n- `mean([7])` \u2192 7  \n- `mean([-2,2])` \u2192 0\n\n**Existing coverage:** `mean([2,4]) == 3` only.\n\n**Scope:** Two files, handful of assertions, no deps, no architecture. Estimate 1h.\n\n**Code pointers:**\n- https://example.org/widget/src/stats.py\n- https://example.org/widget/tests/test_stats.py\n\n**Backlog:** No duplicate found.\n\n---\n\n## Suitability Gate\n\n**Tier 1 (hard stops):**\n| Factor | Result |\n|--------|--------|\n| security-sensitive | No |\n| architectural-decision | No |\n| deprecation-decision | No |\n| scope-too-large | No (1h, single function) |\n\n**Tier 2 (missing inputs):**\n| Factor | Result |\n|--------|--------|\n| no-acceptance-criteria | No (4 specific assertions named) |\n| no-code-pointer | No (file paths provided) |\n| scope-unclear | No (test cases explicit) |\n\n**Decision:** `suitable` | `blocking_factors: []` | `injection_flagged: false`\n\n---\n\n## Drafted Issue\n\n**Title:**  \nAdd edge-case tests for the mean() function\n\n**Body:**\n\n```markdown\n## Summary\n\nAdd test cases for edge cases in the `mean()` function: empty list, single value, and negative numbers.\n\n## Background\n\nThe `mean()` function in `src/stats.py` is settled and correct, but the test suite in `tests/test_stats.py` currently only covers the happy path with `mean([2,4]) == 3`. Edge cases like empty lists, single-element lists, and lists with negative numbers are not tested. Adding these test cases will improve coverage and confidence in the function's behavior across boundary conditions.\n\n## Where to look\n\n- `src/stats.py` \u2014 the `mean()` function implementation (reference only; no changes needed)\n- `tests/test_stats.py` \u2014 where the new test assertions belong\n\n## Acceptance criteria\n\n- [ ] Add assertion `assert mean([]) == 0` (empty list returns 0)\n- [ ] Add assertion `assert mean([7]) == 7` (single element returns itself)\n- [ ] Add assertion `assert mean([-2,2]) == 0` (negative numbers handled correctly)\n- [ ] All assertions in `tests/test_stats.py` pass\n\n## Estimated effort\n\n~1 hour for someone new to the codebase.\n\n## Getting started\n\nSee [contributing guide: tests](https://example.org/widget/contributing#tests) for how to run and write tests in this project.\n\nDraft prepared with AI assistance; awaiting maintainer review.\n```\n\n---\n\n## Readiness Checks\n\n| Rule | Status | Note |\n|------|--------|------|\n| R1 | \u2713 PASS | Action-oriented imperative: \"Add edge-case tests\" |\n| R2 | \u2713 PASS | Background explains limited coverage and why it matters |\n| R3 | \u2713 PASS | Concrete file paths: `src/stats.py`, `tests/test_stats.py` |\n| R4 | \u2713 PASS | Explicit checklist: 4 observable done-conditions |\n| R5 | \u2713 PASS | Effort stated: \"~1 hour\" |\n| R6 | \u2713 PASS | Absolute URL (https), resolved, non-placeholder |\n| R7 | \u2713 PASS | No jargon; terms clear in Python context |\n| R8 | \u2713 PASS | Label proposed: \"good first issue\" |\n| R9 | \u2713 PASS | Footer present verbatim |\n\n**Readiness verdict:** `ready` | `failed_checks: []`\n\n---\n\n## Final Status\n\n| Aspect | Value |\n|--------|-------|\n| Suitability | **suitable** |\n| Readiness | **ready** |\n| Proposed label | **good first issue** |\n| Getting-started link | **https://example.org/widget/contributing#tests** |\n\n**Awaiting maintainer confirmation before filing via `gh issue create`.**"
+    },
+    {
+      "case": "pairing-3",
+      "mode": "Pairing",
+      "skill": "pairing-self-review",
+      "workload": "Review a 3-file diff removing empty-input guards",
+      "repetition": 1,
+      "started_at": "2026-09-11T18:29:17.932845+00:00",
+      "prompt_sha256": "bb108327bc9eb31e764312849118cd92ae3e6c988cf27eef09c2d0725c8bda8c",
+      "sources": {
+        "skills/pairing-self-review/SKILL.md": "b4e805d4e09a53f55a106b901e8c77cb5128e1a6854972c2364168958dd58456"
+      },
+      "status": "success",
+      "usage": {
+        "inputTokens": 5900,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 14990,
+        "outputTokens": 1308,
+        "totalTokens": 22198
+      },
+      "model_usage": {
+        "claude-haiku-4-5-20251001": {
+          "inputTokens": 5900,
+          "outputTokens": 1308,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 14990,
+          "webSearchRequests": 0,
+          "costUSD": 0.04242,
+          "contextWindow": 200000,
+          "maxOutputTokens": 32000,
+          "thinkingTokens": 757,
+          "canonicalModel": "claude-haiku-4-5",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "conversation_usage": {
+        "input_tokens": 10,
+        "cache_creation_input_tokens": 14990,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 1291,
+        "output_tokens_details": {
+          "thinking_tokens": 757
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 14990,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 10,
+            "output_tokens": 1291,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 14990,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 14990
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "duration_ms": 15701,
+      "turns": 1,
+      "response": "Preflight passes. Locks match, project configured. Running self-review.\n\n---\n\n## Pre-flight self-review\n\n**Base:** main  \n**Files changed:** 3 (0 added, 3 modified, 0 deleted)  \n**Diff size:** 6 deletions, 0 additions\n\n---\n\n### Correctness\n\n- **[blocking]** `src/stats0.py:2\u20133` \u2014 Removal of empty-list guard breaks documented behavior. `mean([])` now raises `ZeroDivisionError` instead of returning 0 as specified.\n  > ```\n  > -    if not values:\n  > -        return 0\n  > ```\n  Rule: System-boundary error handling must be preserved for reachable exception paths. Documented API contract cannot change without deprecation.\n\n- **[blocking]** `src/stats1.py:2\u20133` \u2014 Removal of empty-list guard breaks documented behavior. `mean([])` now raises `ZeroDivisionError` instead of returning 0 as specified.\n  > ```\n  > -    if not values:\n  > -        return 0\n  > ```\n  Rule: System-boundary error handling must be preserved for reachable exception paths. Documented API contract cannot change without deprecation.\n\n- **[blocking]** `src/stats2.py:2\u20133` \u2014 Removal of empty-list guard breaks documented behavior. `mean([])` now raises `ZeroDivisionError` instead of returning 0 as specified.\n  > ```\n  > -    if not values:\n  > -        return 0\n  > ```\n  Rule: System-boundary error handling must be preserved for reachable exception paths. Documented API contract cannot change without deprecation.\n\n### Security\n\nNo findings.\n\n### Conventions\n\nNo findings.\n\n---\n\n### Summary\n\nBlocking findings present \u2014 address before opening a PR. All three functions regress from documented behavior; empty-list case now raises unhandled exception instead of returning 0. No regression tests added to cover the removed guard.\n\n**Blocking:** 3  **Advisory:** 0\n\n---\n\n*Self-review generated by `pairing-self-review`. No state was changed. Review the findings, decide what to act on, and open the PR when you are satisfied.*"
+    },
+    {
+      "case": "triage-1",
+      "mode": "Triage",
+      "skill": "issue-triage",
+      "workload": "Triage a public empty-input bug with 1 reproduction examples",
+      "repetition": 2,
+      "started_at": "2026-09-11T18:29:21.142035+00:00",
+      "prompt_sha256": "9f956a3869d04140084a5e3778ff98ad91528a47b6e903c74f323fe4434da2bf",
+      "sources": {
+        "skills/issue-triage/SKILL.md": "5b48347045deff8642f8a890e57f3d6f74ad8bdbde88cd616c5c422b8228edd3"
+      },
+      "status": "success",
+      "usage": {
+        "inputTokens": 11343,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 20433,
+        "outputTokens": 3054,
+        "totalTokens": 34830
+      },
+      "model_usage": {
+        "claude-haiku-4-5-20251001": {
+          "inputTokens": 11343,
+          "outputTokens": 3054,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 20433,
+          "webSearchRequests": 0,
+          "costUSD": 0.067479,
+          "contextWindow": 200000,
+          "maxOutputTokens": 32000,
+          "thinkingTokens": 2542,
+          "canonicalModel": "claude-haiku-4-5",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "conversation_usage": {
+        "input_tokens": 10,
+        "cache_creation_input_tokens": 20433,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 3030,
+        "output_tokens_details": {
+          "thinking_tokens": 2542
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 20433,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 10,
+            "output_tokens": 3030,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 20433,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 20433
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "duration_ms": 35430,
+      "turns": 1,
+      "response": "**Using issue-triage to classify #101 and draft proposal comment**\n\n---\n\n## Pre-flight \u2713\n\n- Locks match; project config resolved\n- Tracker access OK (fixture)\n- All prerequisites in place\n\n## Issue #101 \u2014 State gathered\n\n**Body**: `mean([])` raises `ZeroDivisionError`; docs promise `0`  \n**Version**: Python 3.11, Widget 1.0  \n**Code**: `src/stats.py:mean()` \u2014 no guard on empty input  \n**Evidence**:\n- `mean([])` \u2192 `ZeroDivisionError` (confirmed)\n- `mean([2,4])` \u2192 `3.0` (correct)\n- No linked PRs, no duplicates, no prior fixes\n\n## Classification \u2014 BUG (high confidence)\n\n**Why**: Documented behavior (`mean([])` returns `0`) contradicts code (raises error). Empty list is valid input. Fix is straightforward.\n\n---\n\n## Proposal draft\n\n```markdown\n**Triage proposal**\n\n`mean([])` raises `ZeroDivisionError`, but docs promise return of `0`. Code at `src/stats.py:mean()` divides by `len(values)` without guarding empty input. Verified: `mean([])` fails; `mean([2,4])` == `3.0` (correct).\n\n**Proposed disposition: BUG.**\n\nDocumented API contract contradicts implementation. Empty list is valid input per docs; code crashes instead of returning `0`.\n\nFix: Guard clause at start of `mean()` to return `0` when `values` is empty. Requires regression test (`test_mean_empty_list()`) per contributing guidelines.\n\n@benchmark-maintainer \u2014 Confirm `mean([])` should return `0` per docs, or should API docs update to document error?\n```\n\n---\n\n## Awaiting confirmation\n\nConfirm to post, or edit the proposal above. Respond with:\n- `all` \u2014 post as drafted\n- `edit <text>` \u2014 revise and re-confirm\n- `skip` \u2014 cancel"
+    },
+    {
+      "case": "mentoring-1",
+      "mode": "Mentoring",
+      "skill": "pr-management-mentor",
+      "workload": "Draft test guidance on a newcomer PR with 1 contributor messages",
+      "repetition": 2,
+      "started_at": "2026-09-11T18:29:27.661721+00:00",
+      "prompt_sha256": "8b09c9f172f25c8660d4c45288b45674c5bbb61d70d42808b6ec772e3405ff6f",
+      "sources": {
+        "skills/pr-management-mentor/SKILL.md": "fa887219033e6b9b19ce8421cefe264773049dc51df91d9b167aa1a5671201d2",
+        "skills/pr-management-mentor/comment-templates.md": "99546d9dc04d4c389dc12ece9a31fd1b3eea535dc6df9a2e71b8addb96a9d246",
+        "skills/pr-management-mentor/hand-off.md": "34fbcf32ec4af78a6a6697e8ea8c1f22ba7b1d9b0c191099395c8f7b2b695021",
+        "skills/pr-management-mentor/tone-checks.md": "539eb07f4bd9d2d0b0463cc2172410ed0547ae25330e3f52c18c2cea4c3b513b"
+      },
+      "status": "success",
+      "usage": {
+        "inputTokens": 8665,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 17757,
+        "outputTokens": 3400,
+        "totalTokens": 29822
+      },
+      "model_usage": {
+        "claude-haiku-4-5-20251001": {
+          "inputTokens": 8665,
+          "outputTokens": 3400,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 17757,
+          "webSearchRequests": 0,
+          "costUSD": 0.061179,
+          "contextWindow": 200000,
+          "maxOutputTokens": 32000,
+          "thinkingTokens": 3113,
+          "canonicalModel": "claude-haiku-4-5",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "conversation_usage": {
+        "input_tokens": 10,
+        "cache_creation_input_tokens": 17757,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 3386,
+        "output_tokens_details": {
+          "thinking_tokens": 3113
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 17757,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 10,
+            "output_tokens": 3386,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 17757,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 17757
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "duration_ms": 39133,
+      "turns": 1,
+      "response": "**Pre-flight:** Checks pass. Lock files match, config present, no overrides.\n\n**Thread analysis:**\n- PR #201, author newcomer\n- Change: `mean()` returns 0 on empty input\n- Missing: test modification\n- Contributor asked: \"How do I add a regression test?\"\n\n**Scope:** In scope. Security/licensing/release policy not mentioned.\n\n**Maintainer engaged:** No.\n\n**Trigger match:** \"missing regression test\" fires exactly once. Convention pointer template (#3).\n\n---\n\n**Draft comment:**\n```markdown\n@newcomer \u2014 heads up, this repo has a convention for that: [needs-tests](https://example.org/widget/contributing#tests). Once you align with it a maintainer can take the next look.\n\nDraft prepared with AI assistance; awaiting maintainer review.\n```\n\n---\n\n**Tone checks:** All 14 pass. No revision needed.\n- No praise, no restate, no AI self-ref, no maintainer prediction, no hedging\n- One ask (imperative re: convention)\n- Footer present verbatim\n- Author tagged once\n- Plain English\n\n**Ready for maintainer confirmation to post.**"
+    },
+    {
+      "case": "drafting-1",
+      "mode": "Mentoring",
+      "skill": "good-first-issue-author",
+      "workload": "Author one bounded regression-test issue with 1 edge cases",
+      "repetition": 2,
+      "started_at": "2026-09-11T18:29:29.973680+00:00",
+      "prompt_sha256": "9055a9faa7c9c193a76a892336c2561163afd22c5dec1b6d4675de833aaee287",
+      "sources": {
+        "skills/good-first-issue-author/SKILL.md": "fa2fa9c100099e85db2e6b4246599fd251d3753054a24077e4f3a4fb1b5050d8",
+        "skills/good-first-issue-author/issue-template.md": "75dcce79e2bdc9060f9b777135a54af2a246005d64e28ec380db7a60e99f4ddc",
+        "skills/good-first-issue-author/readiness-checks.md": "bbc62099513e9c455085b8691d698bf84d8ba0b12753e5476ee62c1ad91412cf"
+      },
+      "status": "success",
+      "usage": {
+        "inputTokens": 7249,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 16341,
+        "outputTokens": 2980,
+        "totalTokens": 26570
+      },
+      "model_usage": {
+        "claude-haiku-4-5-20251001": {
+          "inputTokens": 7249,
+          "outputTokens": 2980,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 16341,
+          "webSearchRequests": 0,
+          "costUSD": 0.054831,
+          "contextWindow": 200000,
+          "maxOutputTokens": 32000,
+          "thinkingTokens": 1890,
+          "canonicalModel": "claude-haiku-4-5",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "conversation_usage": {
+        "input_tokens": 10,
+        "cache_creation_input_tokens": 16341,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 2963,
+        "output_tokens_details": {
+          "thinking_tokens": 1890
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 16341,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 10,
+            "output_tokens": 2963,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 16341,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 16341
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "duration_ms": 32363,
+      "turns": 1,
+      "response": "# good-first-issue-author benchmark execution\n\n## Preflight\n\nCaptured context: `.apache-magpie.lock` and `.apache-magpie.local.lock` match; `project.md` and config present; `good_first_issue_config` fully resolved with valid `getting_started_link` (HTTP 200, anchor exists). Project adopted. Proceeding.\n\n---\n\n## Suitability gate\n\n**Candidate:** Add missing test for `mean([])` edge case in `src/stats.py`.\n\n**Tier 1 (hard stops):**\n- `security-sensitive`: \u2717 (test addition, no auth/CVE/embargoed work)\n- `architectural-decision`: \u2717 (straightforward test, API settled)\n- `deprecation-decision`: \u2717 (no version timing involved)\n- `scope-too-large`: \u2717 (1-hour estimate, well under 4-hour max; single file touched)\n\n**Tier 2 (missing inputs):**\n- `no-acceptance-criteria`: \u2717 (clear: assert `mean([]) == 0` and verify tests pass)\n- `no-code-pointer`: \u2717 (files named: `src/stats.py`, `tests/test_stats.py`)\n- `scope-unclear`: \u2717 (edge case testing is bounded and well-described)\n\n**Blocking factors:** (none)\n\n**Decision:** `suitable` \u2713\n\n---\n\n## Issue draft\n\n```markdown\n## Summary\n\nAdd a test assertion verifying that `mean([])` returns `0`. The implementation already handles this correctly, but the test suite lacks coverage for this edge case.\n\n## Background\n\nThe `mean()` function in `src/stats.py` has settled, correct behavior: it returns `0` when given an empty list. However, `tests/test_stats.py` currently asserts only `mean([2, 4]) == 3`, leaving the empty-list edge case uncovered. Adding this test hardens the suite and signals to future contributors that the empty case is intentional, not an oversight.\n\n## Where to look\n\n- [`src/stats.py`](https://example.org/widget/src/stats.py) \u2014 the `mean()` function, which already implements the edge case correctly\n- [`tests/test_stats.py`](https://example.org/widget/tests/test_stats.py) \u2014 where the new assertion belongs\n\n## Acceptance criteria\n\n- [ ] A new assertion `assert mean([]) == 0` is added to `tests/test_stats.py`\n- [ ] `pytest tests/test_stats.py` passes with the new assertion\n- [ ] No existing tests are broken by the change\n\n## Estimated effort\n\n~1 hour for someone new to the codebase.\n\n## Getting started\n\n[Your first contribution](https://example.org/widget/contributing#tests)\n\n---\n\nDraft prepared with AI assistance; awaiting maintainer review.\n```\n\n**Issue title:** `Add test for empty-list edge case in mean()`\n\n---\n\n## Readiness checks\n\n| Rule | Status | Note |\n|------|--------|------|\n| R1 | \u2713 | Title is specific imperative: \"Add test for\u2026\", not vague topic |\n| R2 | \u2713 | Background explains why (edge case uncovered, signals intent) |\n| R3 | \u2713 | Concrete pointers: `src/stats.py` and `tests/test_stats.py` (linked) |\n| R4 | \u2713 | Observable acceptance criteria (checklist with checkable outcomes) |\n| R5 | \u2713 | Estimated effort: \"~1 hour\" |\n| R6 | \u2713 | Absolute URL to real onboarding doc; fixture confirms HTTP 200 and anchor exists |\n| R7 | \u2713 | No unexplained jargon; common terms need no explanation in Python testing context |\n| R8 | \u2713 | Proposed label: `good first issue` (from config) |\n| R9 | \u2713 | AI footer present verbatim from config |\n\n**Failed checks:** (none)\n\n**Readiness verdict:** `ready` \u2713\n\n---\n\n## Proposed output\n\n**Title:** `Add test for empty-list edge case in mean()`\n\n**Label:** `good first issue`\n\n**Getting started link:** https://example.org/widget/contributing#tests\n\n**Ready for maintainer confirmation?** Yes. Awaiting explicit `yes` or `no` before filing via `gh issue create`."
+    },
+    {
+      "case": "pairing-1",
+      "mode": "Pairing",
+      "skill": "pairing-self-review",
+      "workload": "Review a 1-file diff removing empty-input guards",
+      "repetition": 2,
+      "started_at": "2026-09-11T18:29:34.554916+00:00",
+      "prompt_sha256": "b7faad2ee6a97e3d33bcbda1ac365bcd3712c5255d6f949c1d014f4e31c11267",
+      "sources": {
+        "skills/pairing-self-review/SKILL.md": "b4e805d4e09a53f55a106b901e8c77cb5128e1a6854972c2364168958dd58456"
+      },
+      "status": "success",
+      "usage": {
+        "inputTokens": 5724,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 14814,
+        "outputTokens": 1721,
+        "totalTokens": 22259
+      },
+      "model_usage": {
+        "claude-haiku-4-5-20251001": {
+          "inputTokens": 5724,
+          "outputTokens": 1721,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 14814,
+          "webSearchRequests": 0,
+          "costUSD": 0.043956999999999996,
+          "contextWindow": 200000,
+          "maxOutputTokens": 32000,
+          "thinkingTokens": 1286,
+          "canonicalModel": "claude-haiku-4-5",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "conversation_usage": {
+        "input_tokens": 10,
+        "cache_creation_input_tokens": 14814,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 1704,
+        "output_tokens_details": {
+          "thinking_tokens": 1286
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 14814,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 10,
+            "output_tokens": 1704,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 14814,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 14814
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "duration_ms": 20717,
+      "turns": 1,
+      "response": "Using `pairing-self-review` to analyze the diff and produce a structured pre-flight report.\n\n---\n\n## Pre-flight self-review\n\n**Base:** origin/main (merge base, default)  \n**Files changed:** 1 (modified)  \n**Diff size:** 2 deletions, 0 additions\n\n---\n\n### Correctness\n\n- **[blocking]** `src/stats0.py:2-3` \u2014 Removal of empty-list guard breaks documented API; `mean([])` will raise ZeroDivisionError instead of returning 0\n  > ```\n  > -    if not values:\n  > -        return 0\n  >      return sum(values) / len(values)\n  > ```\n  > Rule: Documented API contract specifies `mean([]) == 0`; removing guard without updating contract violates correctness on reachable path (empty list input produces unhandled exception instead of documented return value).\n\n### Security\n\nNo findings.\n\n### Conventions\n\n- **[advisory]** `src/stats0.py` \u2014 Documented behavior change lacks regression test\n  > Diff removes empty-list handling but adds no test coverage for the changed behavior.\n  > Rule: Project convention requires \"small regression tests required for behavior changes.\" See [contributing guide](https://example.org/widget/contributing#tests).\n\n---\n\n### Summary\n\n**Blocking findings present \u2014 address before opening a PR.** The removal of the empty-list guard is a breaking change to the documented API. Add the guard back or update the documentation and include a regression test for the new behavior.\n\n**Blocking:** 1  **Advisory:** 1\n\n---\n\n*Self-review generated by `pairing-self-review`. No state was changed. Review the findings, decide what to act on, and open the PR when satisfied.*"
+    },
+    {
+      "case": "triage-2",
+      "mode": "Triage",
+      "skill": "issue-triage",
+      "workload": "Triage a public empty-input bug with 2 reproduction examples",
+      "repetition": 2,
+      "started_at": "2026-09-11T18:29:56.161310+00:00",
+      "prompt_sha256": "b9d6ad46f6f4bf5bb33a7e1eb4f61dd07f7f661d1be62bab8aaa22663fc0009a",
+      "sources": {
+        "skills/issue-triage/SKILL.md": "5b48347045deff8642f8a890e57f3d6f74ad8bdbde88cd616c5c422b8228edd3"
+      },
+      "status": "success",
+      "usage": {
+        "inputTokens": 11360,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 20452,
+        "outputTokens": 3008,
+        "totalTokens": 34820
+      },
+      "model_usage": {
+        "claude-haiku-4-5-20251001": {
+          "inputTokens": 11360,
+          "outputTokens": 3008,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 20452,
+          "webSearchRequests": 0,
+          "costUSD": 0.067304,
+          "contextWindow": 200000,
+          "maxOutputTokens": 32000,
+          "thinkingTokens": 2143,
+          "canonicalModel": "claude-haiku-4-5",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "conversation_usage": {
+        "input_tokens": 10,
+        "cache_creation_input_tokens": 20452,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 2992,
+        "output_tokens_details": {
+          "thinking_tokens": 2143
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 20452,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 10,
+            "output_tokens": 2992,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 20452,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 20452
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "duration_ms": 35511,
+      "turns": 1,
+      "response": "## Preflight\nChecks pass. Lock files match; project config resolved; no overrides; capabilities available.\n\n## Selector Resolution\nDefault pool \u2192 issue #102 (supplied via task).\n\n**Resolved list: `[#102]`**\n\nConfirm proceed? (yes/no)\n\n---\n\nAssuming proceed:\n\n## Step 2: Per-Issue State Gathered\n\n**#102: mean([]) raises ZeroDivisionError, but docs promise 0**\n\n| Field | Value |\n|-------|-------|\n| Title | mean([]) raises ZeroDivisionError, but docs promise 0 |\n| Component | stats (src/stats.py) |\n| Reproduction | \u2713 Confirmed: mean([]) \u2192 ZeroDivisionError; mean([2,4]) \u2192 3 on Python 3.11 |\n| Documented behavior | mean([]) should return 0 |\n| Actual behavior | sum([]) / len([]) = 0 / 0 \u2192 ZeroDivisionError |\n| Code location | src/stats.py line: `return sum(values) / len(values)` |\n| Linked PRs | None |\n| Duplicates | None found |\n| Recent fixes | None since filing |\n| Confidence | HIGH \u2014 clear reproduction, explicit docs claim, code inspection confirms discrepancy |\n\n## Step 3: Classification\n\n**Security screening:** no signals detected; not security-sensitive.\n\n**Six-class analysis:**\n- **BUG**: documented behavior (return 0) \u2260 actual behavior (raise ZeroDivisionError). Reproduction confirmed. Fix shape clear. **MATCH.**\n- FEATURE-REQUEST: no; documented contract exists\n- NEEDS-INFO: no; reproduction explicit, version specified, environment clear\n- DUPLICATE: no; fixture confirms no related issues\n- INVALID: no; bug is real\n- ALREADY-FIXED: no; no fix commit in history\n\n**Result: BUG (HIGH confidence)**\n\n---\n\n## Step 4: Proposal Draft\n\n```markdown\n**Triage proposal**\n\nThe `mean([])` function in `src/stats.py` raises `ZeroDivisionError` \nwhen called with an empty sequence, but project documentation \nspecifies it should return `0`. Reproduction confirmed on Python 3.11 \nwith Widget 1.0: `mean([])` crashes; `mean([2, 4])` correctly returns `3`.\n\n**Proposed disposition: BUG.**\n\nThe implementation `return sum(values) / len(values)` lacks a guard for \nempty sequences. When `values=[]`, division by zero occurs, violating \nthe documented contract that `mean([])` returns `0`.\n\n**Fix:** Add guard clause before division \u2014 `if not values: return 0`.\n\n**Action items:**\n1. Add the empty-list guard to `mean()` in `src/stats.py`\n2. Verify regression test exists for `mean([])` case; add if missing per [contributing#tests](https://example.org/widget/contributing#tests)\n\n@benchmark-maintainer \u2014 is documented behavior (return 0) the intended design, or should we update the spec to match the exception?\n```\n\n---\n\n## Step 5: Confirmation\n\n**Proposal 1 of 1: #102 \u2192 BUG**\n\nAccept one of:\n- `all` \u2014 post comment as drafted\n- `1:edit <changes>` \u2014 tweak and re-confirm\n- `1:downgrade <CLASS>` \u2014 change disposition\n- `1:skip` \u2014 drop from post\n- `none` / `cancel` \u2014 abort entirely\n\nYour call:"
+    },
+    {
+      "case": "mentoring-2",
+      "mode": "Mentoring",
+      "skill": "pr-management-mentor",
+      "workload": "Draft test guidance on a newcomer PR with 2 contributor messages",
+      "repetition": 2,
+      "started_at": "2026-09-11T18:29:57.436102+00:00",
+      "prompt_sha256": "d53886501557b40f8b0775c705bca2a5caaf8f858e8f861a26cc82cda16e9c04",
+      "sources": {
+        "skills/pr-management-mentor/SKILL.md": "fa887219033e6b9b19ce8421cefe264773049dc51df91d9b167aa1a5671201d2",
+        "skills/pr-management-mentor/comment-templates.md": "99546d9dc04d4c389dc12ece9a31fd1b3eea535dc6df9a2e71b8addb96a9d246",
+        "skills/pr-management-mentor/hand-off.md": "34fbcf32ec4af78a6a6697e8ea8c1f22ba7b1d9b0c191099395c8f7b2b695021",
+        "skills/pr-management-mentor/tone-checks.md": "539eb07f4bd9d2d0b0463cc2172410ed0547ae25330e3f52c18c2cea4c3b513b"
+      },
+      "status": "success",
+      "usage": {
+        "inputTokens": 8682,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 17770,
+        "outputTokens": 1895,
+        "totalTokens": 28347
+      },
+      "model_usage": {
+        "claude-haiku-4-5-20251001": {
+          "inputTokens": 8682,
+          "outputTokens": 1895,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 17770,
+          "webSearchRequests": 0,
+          "costUSD": 0.053696999999999995,
+          "contextWindow": 200000,
+          "maxOutputTokens": 32000,
+          "thinkingTokens": 1545,
+          "canonicalModel": "claude-haiku-4-5",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "conversation_usage": {
+        "input_tokens": 10,
+        "cache_creation_input_tokens": 17770,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 1879,
+        "output_tokens_details": {
+          "thinking_tokens": 1545
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 17770,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 10,
+            "output_tokens": 1879,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 17770,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 17770
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "duration_ms": 20603,
+      "turns": 1,
+      "response": "**Preflight check:** `.apache-magpie.lock` and `.apache-magpie.local.lock` match; `project.md` and user.md present; all required keys in `mentoring-config` resolved. \u2713\n\n**Runtime:**\n\n1. **Config resolved** \u2014 all keys present \u2713\n2. **Thread fetched** \u2014 PR #202, author `newcomer`, no maintainer engaged yet \u2713\n3. **Out-of-scope check** \u2014 \"How do I add a regression test?\" does not touch security/licensing/release-policy \u2713\n4. **Maintainer-engaged check** \u2014 none \u2713\n5. **Pick intervention** \u2014 Trigger: \"missing regression test\" matches convention_pointers row exactly. Template: **Convention pointer** (template 3) \u2713\n\n---\n\n## Draft\n\n```markdown\n@newcomer \u2014 heads up, this repo has a convention for that: [needs-tests](https://example.org/widget/contributing#tests). Once you align with it a maintainer can take the next look.\n\nDraft prepared with AI assistance; awaiting maintainer review.\n```\n\n**Matched trigger:** missing regression test  \n**Convention link:** [needs-tests](https://example.org/widget/contributing#tests)\n\n**Tone checks:** All 10 hard fails + 4 soft rules pass. Draft is ready.\n\n**Awaiting confirmation:** Post this comment to PR #202?"
+    },
+    {
+      "case": "drafting-2",
+      "mode": "Mentoring",
+      "skill": "good-first-issue-author",
+      "workload": "Author one bounded regression-test issue with 2 edge cases",
+      "repetition": 2,
+      "started_at": "2026-09-11T18:30:03.196371+00:00",
+      "prompt_sha256": "a9468f011596538502e52236cebf2fb0532e3773841765d3e482c05af549fe57",
+      "sources": {
+        "skills/good-first-issue-author/SKILL.md": "fa2fa9c100099e85db2e6b4246599fd251d3753054a24077e4f3a4fb1b5050d8",
+        "skills/good-first-issue-author/issue-template.md": "75dcce79e2bdc9060f9b777135a54af2a246005d64e28ec380db7a60e99f4ddc",
+        "skills/good-first-issue-author/readiness-checks.md": "bbc62099513e9c455085b8691d698bf84d8ba0b12753e5476ee62c1ad91412cf"
+      },
+      "status": "success",
+      "usage": {
+        "inputTokens": 7257,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 16347,
+        "outputTokens": 2960,
+        "totalTokens": 26564
+      },
+      "model_usage": {
+        "claude-haiku-4-5-20251001": {
+          "inputTokens": 7257,
+          "outputTokens": 2960,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 16347,
+          "webSearchRequests": 0,
+          "costUSD": 0.054751,
+          "contextWindow": 200000,
+          "maxOutputTokens": 32000,
+          "thinkingTokens": 1850,
+          "canonicalModel": "claude-haiku-4-5",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "conversation_usage": {
+        "input_tokens": 10,
+        "cache_creation_input_tokens": 16347,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 2943,
+        "output_tokens_details": {
+          "thinking_tokens": 1850
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 16347,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 10,
+            "output_tokens": 2943,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 16347,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 16347
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "duration_ms": 30587,
+      "turns": 1,
+      "response": "# good-first-issue-author benchmark replay\n\n## Preflight\n\n\u2713 Magpie snapshot locks match  \n\u2713 Project config resolved  \n\u2713 Capabilities available  \nProceeding.\n\n## Config resolution\n\n```\ngood_first_issue_label: \"good first issue\"\ngetting_started_link: \"https://example.org/widget/contributing#tests\"\n  \u2514\u2500 \u2713 HTTP 200, contains \"tests\" heading\nmax_effort_hours: 4\nout_of_scope_topics: security, licensing, deprecation, architecture\nai_attribution_footer: \"Draft prepared with AI assistance; awaiting maintainer review.\"\n```\n\n## Candidate\n\n**Task:** Add missing test cases for `mean()` function.\n\n**Files identified:**\n- `src/stats.py` \u2014 mean() implementation\n- `tests/test_stats.py` \u2014 test location\n\n**Current coverage:** `mean([2,4]) == 3` only.\n\n**Missing cases:** `mean([]) == 0`, `mean([7]) == 7`.\n\n**Implementation:** Settled, correct. No architecture change.\n\n**Estimate:** 1 hour.\n\n**Duplicates:** None found.\n\n---\n\n## Suitability gate\n\n**Tier 1 (hard stops):** No security, architectural decision, deprecation decision, or scope > 4h.\n\n**Tier 2 (missing inputs):** Acceptance criteria clear. Code pointers provided. Scope explicit.\n\n**Decision:** `suitable`  \nBlocking factors: none  \nInjection flagged: false\n\n---\n\n## Issue draft\n\n**Title:**  \nAdd regression tests for mean() edge cases\n\n**Body:**\n\n```markdown\n## Summary\n\nAdd test cases for edge conditions in the `mean()` function to improve test coverage. Currently only one case is tested; missing coverage for empty lists and single-element lists.\n\n## Background\n\nThe `mean()` function in `src/stats.py` has correct implementations for edge cases (returns 0 for empty lists, returns the single value for one-element lists), but test coverage does not verify these behaviors. Adding these regression tests will catch any future regressions and document the expected behavior for new contributors.\n\n## Where to look\n\n- [`src/stats.py`](https://example.org/widget/src/stats.py) \u2014 the `mean()` function implementation\n- [`tests/test_stats.py`](https://example.org/widget/tests/test_stats.py) \u2014 where to add new test assertions\n\n## Acceptance criteria\n\n- [ ] Add assertion for `mean([]) == 0` in `tests/test_stats.py`\n- [ ] Add assertion for `mean([7]) == 7` in `tests/test_stats.py`\n- [ ] All tests pass (run `pytest tests/test_stats.py`)\n- [ ] Existing tests remain passing\n\n## Estimated effort\n\n~1 hour for someone new to the codebase (or less if already familiar with pytest).\n\n## Getting started\n\n[Your first contribution](https://example.org/widget/contributing#tests)\n\n---\n\nDraft prepared with AI assistance; awaiting maintainer review.\n```\n\n---\n\n## Readiness checks\n\n| Rule | Result | Evidence |\n|------|--------|----------|\n| R1 | \u2713 Pass | Title: \"Add regression tests for mean() edge cases\" \u2014 specific, imperative |\n| R2 | \u2713 Pass | Background explains why test coverage matters |\n| R3 | \u2713 Pass | Two concrete file pointers: `src/stats.py`, `tests/test_stats.py` |\n| R4 | \u2713 Pass | Checklist with observable criteria (specific assertions + pytest run) |\n| R5 | \u2713 Pass | \"~1 hour\" stated |\n| R6 | \u2713 Pass | Absolute URL to getting-started link (fixture confirms 200, has \"tests\" heading) |\n| R7 | \u2713 Pass | No unexplained jargon; function names and tools are standard |\n| R8 | \u2713 Pass | Label \"good first issue\" proposed |\n| R9 | \u2713 Pass | Footer present verbatim: \"Draft prepared with AI assistance; awaiting maintainer review.\" |\n\n**All checks pass.** Draft ready.\n\n---\n\n## Summary\n\n**Suitability:** suitable  \n**Readiness:** ready (0 failed checks)  \n**Proposed label:** good first issue  \n**Status:** Awaiting maintainer confirmation to file via `gh issue create --repo example/widget --title \"Add regression tests for mean() edge cases\" --body-file <draft> --label \"good first issue\"`."
+    },
+    {
+      "case": "pairing-2",
+      "mode": "Pairing",
+      "skill": "pairing-self-review",
+      "workload": "Review a 2-file diff removing empty-input guards",
+      "repetition": 2,
+      "started_at": "2026-09-11T18:30:07.680623+00:00",
+      "prompt_sha256": "ab0be44a1481d5a7d30cf38f9ea40bf5e0a59de79dab6053e9cba449eb0f49ce",
+      "sources": {
+        "skills/pairing-self-review/SKILL.md": "b4e805d4e09a53f55a106b901e8c77cb5128e1a6854972c2364168958dd58456"
+      },
+      "status": "success",
+      "usage": {
+        "inputTokens": 5812,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 14902,
+        "outputTokens": 2830,
+        "totalTokens": 23544
+      },
+      "model_usage": {
+        "claude-haiku-4-5-20251001": {
+          "inputTokens": 5812,
+          "outputTokens": 2830,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 14902,
+          "webSearchRequests": 0,
+          "costUSD": 0.049766000000000005,
+          "contextWindow": 200000,
+          "maxOutputTokens": 32000,
+          "thinkingTokens": 2144,
+          "canonicalModel": "claude-haiku-4-5",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "conversation_usage": {
+        "input_tokens": 10,
+        "cache_creation_input_tokens": 14902,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 2813,
+        "output_tokens_details": {
+          "thinking_tokens": 2144
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 14902,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 10,
+            "output_tokens": 2813,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 14902,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 14902
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "duration_ms": 32253,
+      "turns": 1,
+      "response": "Executing `pairing-self-review` on captured diff.\n\n**Preflight:** Locks match, project-config present, no overrides. Skipping silent preflight report. Proceeding to review.\n\n**Diff collected:**\n- Base: main (merge base)\n- Files changed: 2 modified, 0 added, 0 deleted\n- Size: 0 additions, 6 deletions\n\n**Analyzing across three axes...**\n\n- **Correctness:** Guard clause removal breaks documented contract. `mean([])` documented as 0, now raises `ZeroDivisionError`. Empty list is reachable input.\n- **Security:** No injection, credentials, CVE patterns. Clean.\n- **Conventions:** Breaking change has no regression test. Project requires test coverage for behavior changes.\n\n---\n\n## Pre-flight self-review\n\n**Base:** main  \n**Files changed:** 2 (0 added, 2 modified, 0 deleted)  \n**Diff size:** 0 additions, 6 deletions\n\n---\n\n### Correctness\n\n- **blocking** `src/stats0.py:2-3` \u2014 Removed guard clause breaks documented API; `mean([])` now raises `ZeroDivisionError` instead of returning 0\n  > ```\n  > -    if not values:\n  > -        return 0\n  > ```\n  Rule: API contract requires `mean([]) == 0`; unhandled exception on empty input violates documented behavior.\n\n- **blocking** `src/stats1.py:2-3` \u2014 Removed guard clause breaks documented API; `mean([])` now raises `ZeroDivisionError` instead of returning 0\n  > ```\n  > -    if not values:\n  > -        return 0\n  > ```\n  Rule: API contract requires `mean([]) == 0`; unhandled exception on empty input violates documented behavior.\n\n### Security\n\nNo findings.\n\n### Conventions\n\n- **advisory** `src/stats0.py` and `src/stats1.py` \u2014 Behavior change lacks regression test coverage\n  > Deleted guard clause changes `mean([])` behavior (empty list no longer returns 0)\n  Rule: Project requires regression tests for behavior changes ([contributing#tests](https://example.org/widget/contributing#tests)). Add: `assert mean([]) == 0`.\n\n---\n\n### Summary\n\nBlocking findings present \u2014 address before opening a PR.\n\n**Blocking:** 2  **Advisory:** 1\n\n---\n\n*Self-review generated by `pairing-self-review`. No state was changed. Review the findings, decide what to act on, and open the PR when you are satisfied.*\n\n---\n\n**Skill execution complete.** Two blocking correctness violations (broken API contract on both modules) and one advisory test-coverage gap. Developer should restore guard clause and add regression test before opening PR."
+    },
+    {
+      "case": "triage-3",
+      "mode": "Triage",
+      "skill": "issue-triage",
+      "workload": "Triage a public empty-input bug with 3 reproduction examples",
+      "repetition": 2,
+      "started_at": "2026-09-11T18:30:19.063710+00:00",
+      "prompt_sha256": "6535268b1ad539bfc445edc564717c554beb6ddd9a0baa28f81986a54d4ea367",
+      "sources": {
+        "skills/issue-triage/SKILL.md": "5b48347045deff8642f8a890e57f3d6f74ad8bdbde88cd616c5c422b8228edd3"
+      },
+      "status": "success",
+      "usage": {
+        "inputTokens": 11377,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 20467,
+        "outputTokens": 3304,
+        "totalTokens": 35148
+      },
+      "model_usage": {
+        "claude-haiku-4-5-20251001": {
+          "inputTokens": 11377,
+          "outputTokens": 3304,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 20467,
+          "webSearchRequests": 0,
+          "costUSD": 0.068831,
+          "contextWindow": 200000,
+          "maxOutputTokens": 32000,
+          "thinkingTokens": 2646,
+          "canonicalModel": "claude-haiku-4-5",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "conversation_usage": {
+        "input_tokens": 10,
+        "cache_creation_input_tokens": 20467,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 3291,
+        "output_tokens_details": {
+          "thinking_tokens": 2646
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 20467,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 10,
+            "output_tokens": 3291,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 20467,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 20467
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "duration_ms": 35112,
+      "turns": 1,
+      "response": "# Issue Triage: #103\n\n## Preflight \u2713\n\n- Locks match\n- Project config resolved  \n- Tracker read access verified\n- GitHub auth ready\n- Routing roster loaded (benchmark-maintainer)\n\n## Step 1: Selector resolved\n\n`[#103]` \u2014 ready to proceed.\n\n## Step 2: Per-issue state\n\n| Field | Value |\n|---|---|\n| Title | mean([]) raises ZeroDivisionError, but docs promise 0 |\n| Body | Python 3.11, Widget 1.0 |\n| Code location | src/stats.py, `mean()` |\n| Reproductions | Pytest + 2 additional runs; crash confirmed on 3.11 |\n| Duplicates | None found |\n| Recent fixes | None found |\n| Component | stats |\n\n**Code snippet**:\n```python\ndef mean(values):\n    return sum(values) / len(values)\n```\n\n## Step 3: Classification\n\n**Security screening**: No RCE, auth bypass, injection, CVE, or credential exposure. Clear.\n\n**BUG decision**:\n- Reported: `mean([])` raises `ZeroDivisionError`\n- Documented: return 0  \n- Incorrect? **YES** \u2014 division by zero\n- Reachable? **YES** \u2014 empty list is normal  \n- Implementable fix? **YES**\n- Open questions? **NO** \u2014 reproductions confirm\n\n**Result**: `BUG`, high confidence.\n\n---\n\n## Step 4: Draft proposal\n\n```markdown\n**Triage proposal**\n\nThe `mean()` function in src/stats.py raises `ZeroDivisionError` when passed an empty list. The project documentation promises a return value of 0. Failure confirmed across three test runs on Python 3.11.\n\n**Proposed disposition: BUG.**\n\nThe function divides by zero without checking for empty input, contradicting documented behaviour.\n\nFix shape: Guard the division with a length check \u2014 return 0 if `len(values) == 0`, or delegate to `statistics.mean()` if available.\n\nAction items:\n1. Add regression test: `assert mean([]) == 0`\n2. Update src/stats.py to handle empty input before division\n\n@benchmark-maintainer \u2014 is there an established policy for edge-case inputs on stats functions?\n```\n\n**Suggested labels**: `type:bug`, `needs-tests`\n\n---\n\n## Step 5: Confirmation\n\n**Proposal 1 of 1**:  \n[#103] mean([]) raises ZeroDivisionError \u2014 **BUG**\n\nDraft above. Post? (`all` / `1:edit` / `1:downgrade` / `skip` / `none`)"
+    },
+    {
+      "case": "mentoring-3",
+      "mode": "Mentoring",
+      "skill": "pr-management-mentor",
+      "workload": "Draft test guidance on a newcomer PR with 3 contributor messages",
+      "repetition": 2,
+      "started_at": "2026-09-11T18:30:32.541812+00:00",
+      "prompt_sha256": "de02b9b7c7d6ca873570dc1dc9b5f9dbe7e539b0a87834b86634147c00a9b6cc",
+      "sources": {
+        "skills/pr-management-mentor/SKILL.md": "fa887219033e6b9b19ce8421cefe264773049dc51df91d9b167aa1a5671201d2",
+        "skills/pr-management-mentor/comment-templates.md": "99546d9dc04d4c389dc12ece9a31fd1b3eea535dc6df9a2e71b8addb96a9d246",
+        "skills/pr-management-mentor/hand-off.md": "34fbcf32ec4af78a6a6697e8ea8c1f22ba7b1d9b0c191099395c8f7b2b695021",
+        "skills/pr-management-mentor/tone-checks.md": "539eb07f4bd9d2d0b0463cc2172410ed0547ae25330e3f52c18c2cea4c3b513b"
+      },
+      "status": "success",
+      "usage": {
+        "inputTokens": 8699,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 17791,
+        "outputTokens": 1814,
+        "totalTokens": 28304
+      },
+      "model_usage": {
+        "claude-haiku-4-5-20251001": {
+          "inputTokens": 8699,
+          "outputTokens": 1814,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 17791,
+          "webSearchRequests": 0,
+          "costUSD": 0.053351,
+          "contextWindow": 200000,
+          "maxOutputTokens": 32000,
+          "thinkingTokens": 1551,
+          "canonicalModel": "claude-haiku-4-5",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "conversation_usage": {
+        "input_tokens": 10,
+        "cache_creation_input_tokens": 17791,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 1799,
+        "output_tokens_details": {
+          "thinking_tokens": 1551
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 17791,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 10,
+            "output_tokens": 1799,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 17791,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 17791
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "duration_ms": 21012,
+      "turns": 1,
+      "response": "**Preflight:** \u2713 config resolved, out-of-scope check passed, maintainer not engaged.\n\n**Trigger matched:** missing regression test  \n**Convention pointer:** [needs-tests](https://example.org/widget/contributing#tests)\n\n---\n\n**Draft:**\n\n```\n@newcomer \u2014 heads up, this repo has a convention for that: [needs-tests](https://example.org/widget/contributing#tests). Once you align with it a maintainer can take the next look.\n\nDraft prepared with AI assistance; awaiting maintainer review.\n```\n\n---\n\n**Tone checks:** All 14 passed (hard + soft fails).\n\n- Author tagged once \u2713\n- One ask per comment \u2713\n- No hedging, praise, or self-reference \u2713\n- Footer verbatim \u2713\n- First line states action \u2713\n\n---\n\n**Status:** Draft ready. In production, awaiting `yes` to post via `gh pr comment 203 --body-file <draft>`.\n\n*Synthetic benchmark stops here at confirmation boundary.*"
+    },
+    {
+      "case": "drafting-3",
+      "mode": "Mentoring",
+      "skill": "good-first-issue-author",
+      "workload": "Author one bounded regression-test issue with 3 edge cases",
+      "repetition": 2,
+      "started_at": "2026-09-11T18:30:34.673324+00:00",
+      "prompt_sha256": "6119d08f5b906864604bee823b72cd8da98b219239ddc84765371a69b5ab01c0",
+      "sources": {
+        "skills/good-first-issue-author/SKILL.md": "fa2fa9c100099e85db2e6b4246599fd251d3753054a24077e4f3a4fb1b5050d8",
+        "skills/good-first-issue-author/issue-template.md": "75dcce79e2bdc9060f9b777135a54af2a246005d64e28ec380db7a60e99f4ddc",
+        "skills/good-first-issue-author/readiness-checks.md": "bbc62099513e9c455085b8691d698bf84d8ba0b12753e5476ee62c1ad91412cf"
+      },
+      "status": "success",
+      "usage": {
+        "inputTokens": 7268,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 16358,
+        "outputTokens": 3084,
+        "totalTokens": 26710
+      },
+      "model_usage": {
+        "claude-haiku-4-5-20251001": {
+          "inputTokens": 7268,
+          "outputTokens": 3084,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 16358,
+          "webSearchRequests": 0,
+          "costUSD": 0.055404,
+          "contextWindow": 200000,
+          "maxOutputTokens": 32000,
+          "thinkingTokens": 1923,
+          "canonicalModel": "claude-haiku-4-5",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "conversation_usage": {
+        "input_tokens": 10,
+        "cache_creation_input_tokens": 16358,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 3069,
+        "output_tokens_details": {
+          "thinking_tokens": 1923
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 16358,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 10,
+            "output_tokens": 3069,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 16358,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 16358
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "duration_ms": 32505,
+      "turns": 1,
+      "response": "# Benchmark: good-first-issue-author\n\n## Preflight \u2713\n\n- `.apache-magpie.lock` and `.apache-magpie.local.lock` match\n- Config resolved: `good-first-issue-config` present, all keys populated\n- Getting-started link valid: https://example.org/widget/contributing#tests (HTTP 200, `#tests` heading confirmed)\n- No overrides; no config errors\n\nProceed.\n\n---\n\n## Candidate Resolution\n\n**Input:** Add missing tests for `src/stats.py` `mean()` function.\n\n**Specifics extracted:**\n- Function: `mean(values)` \u2014 returns 0 if empty, else sum/length\n- Current test: `mean([2,4]) == 3`\n- Edge cases needed: `mean([]) == 0`, `mean([7]) == 7`, `mean([-2,2]) == 0`\n- File pointers: `src/stats.py`, `tests/test_stats.py`\n- Estimate: 1 hour\n- No new dependencies, no architecture change\n- Duplicate check: none found\n\n---\n\n## Suitability Gate\n\n**Tier 1 - Hard stops:**\n- security-sensitive? No\n- architectural-decision? No (API settled, just adding test coverage)\n- deprecation-decision? No\n- scope-too-large? No (3 assertions, 1 hour, well under 4-hour max)\n\n\u2192 No Tier 1 blocks.\n\n**Tier 2 - Missing inputs:**\n- no-acceptance-criteria? No (three specific assertions named)\n- no-code-pointer? No (two files named)\n- scope-unclear? No (task well-defined)\n\n\u2192 No Tier 2 blocks.\n\n**Decision: `suitable`**\n- blocking_factors: []\n- injection_flagged: false\n\n---\n\n## Issue Draft\n\n**Title:**  \n`Add test cases for stats.mean() edge cases`\n\n**Body:**\n\n```markdown\n## Summary\n\nAdd test assertions for empty lists, single-value lists, and negative values \nto verify mean() handles edge cases correctly. The current test only covers \nthe happy path.\n\n## Background\n\nThe mean() function is core to the stats module. Currently, tests/test_stats.py \nonly asserts mean([2,4]) == 3. The implementation correctly handles edge cases \n(empty input returns 0, single values, negative numbers), but these behaviors \nare untested. Adding explicit assertions serves as regression protection and \ndocuments intended behavior.\n\n## Where to look\n\n- `src/stats.py:mean()` \u2014 the function under test.\n- `tests/test_stats.py` \u2014 where the current assertion lives and where new \n  ones belong.\n\n## Acceptance criteria\n\n- [ ] Add assertion `mean([]) == 0` to tests/test_stats.py\n- [ ] Add assertion `mean([7]) == 7` to tests/test_stats.py\n- [ ] Add assertion `mean([-2,2]) == 0` to tests/test_stats.py\n- [ ] Run `pytest tests/test_stats.py` and confirm all pass\n- [ ] No other test failures introduced\n\n## Estimated effort\n\n~1 hour for someone new to the codebase. Open the test file, add three lines, \nrun pytest.\n\n## Getting started\n\n[Your first contribution](https://example.org/widget/contributing#tests)\n\n---\n\nDraft prepared with AI assistance; awaiting maintainer review.\n```\n\n---\n\n## Readiness Checks\n\n| Rule | Outcome | Notes |\n|---|---|---|\n| R1 | PASS | Title is specific imperative, not vague topic |\n| R2 | PASS | Background explains why edge cases matter |\n| R3 | PASS | Two concrete file paths named |\n| R4 | PASS | Five-item checklist, all observable and checkable |\n| R5 | PASS | ~1 hour stated |\n| R6 | PASS | Absolute URL to getting-started doc; link valid (fixture) |\n| R7 | PASS | Minimal jargon; mean(), pytest, regression are standard |\n| R8 | PASS | Label proposed: \"good first issue\" |\n| R9 | PASS | Attribution footer present verbatim |\n\n**Status: `ready`**  \nFailed checks: none. Injection: none.\n\n---\n\n## Outcome\n\n| Field | Value |\n|---|---|\n| **Suitability** | suitable |\n| **Readiness** | ready |\n| **Proposed label** | good first issue |\n| **Getting-started link** | https://example.org/widget/contributing#tests |\n| **Ready for filing?** | Yes, awaits maintainer confirmation |\n\nBenchmark reached confirmation boundary. No `gh issue create` executed per task scope. Draft and readiness verdict complete."
+    },
+    {
+      "case": "pairing-3",
+      "mode": "Pairing",
+      "skill": "pairing-self-review",
+      "workload": "Review a 3-file diff removing empty-input guards",
+      "repetition": 2,
+      "started_at": "2026-09-11T18:30:40.807212+00:00",
+      "prompt_sha256": "bb108327bc9eb31e764312849118cd92ae3e6c988cf27eef09c2d0725c8bda8c",
+      "sources": {
+        "skills/pairing-self-review/SKILL.md": "b4e805d4e09a53f55a106b901e8c77cb5128e1a6854972c2364168958dd58456"
+      },
+      "status": "success",
+      "usage": {
+        "inputTokens": 5900,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 14992,
+        "outputTokens": 3632,
+        "totalTokens": 24524
+      },
+      "model_usage": {
+        "claude-haiku-4-5-20251001": {
+          "inputTokens": 5900,
+          "outputTokens": 3632,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 14992,
+          "webSearchRequests": 0,
+          "costUSD": 0.054044,
+          "contextWindow": 200000,
+          "maxOutputTokens": 32000,
+          "thinkingTokens": 3122,
+          "canonicalModel": "claude-haiku-4-5",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "conversation_usage": {
+        "input_tokens": 10,
+        "cache_creation_input_tokens": 14992,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 3618,
+        "output_tokens_details": {
+          "thinking_tokens": 3122
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 14992,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 10,
+            "output_tokens": 3618,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 14992,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 14992
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "duration_ms": 39154,
+      "turns": 1,
+      "response": "Executing `pairing-self-review` on captured fixture data.\n\n## Pre-flight self-review\n\n**Base:** main\n**Files changed:** 3 (3 modified)\n**Diff size:** 0 additions, 6 deletions\n\n---\n\n### Correctness\n\n- **blocking** `src/stats0.py:2-3` \u2014 Removes empty-input guard; mean([]) now raises ZeroDivisionError instead of documented behavior (return 0).\n  > ```\n  > -    if not values:\n  > -        return 0\n  > ```\n  > Rule: Removing documented behavior introduces unhandled exception on valid input without test coverage or deprecation notice. Breaks API contract.\n\n- **blocking** `src/stats1.py:2-3` \u2014 Removes empty-input guard; mean([]) now raises ZeroDivisionError instead of documented behavior (return 0).\n  > ```\n  > -    if not values:\n  > -        return 0\n  > ```\n  > Rule: Removing documented behavior introduces unhandled exception on valid input without test coverage or deprecation notice. Breaks API contract.\n\n- **blocking** `src/stats2.py:2-3` \u2014 Removes empty-input guard; mean([]) now raises ZeroDivisionError instead of documented behavior (return 0).\n  > ```\n  > -    if not values:\n  > -        return 0\n  > ```\n  > Rule: Removing documented behavior introduces unhandled exception on valid input without test coverage or deprecation notice. Breaks API contract.\n\n### Security\n\nNo findings.\n\n### Conventions\n\nNo findings.\n\n---\n\n### Summary\n\nBlocking findings present \u2014 address before opening a PR. Three identical regressions: the empty-input guard removed from each module breaks documented API contract without test updates or migration path. Captured tests confirm mean([]) now raises instead of returning 0.\n\n**Blocking:** 3  **Advisory:** 0\n\n---\n\n*Self-review generated by `pairing-self-review`. No state was changed. Review the findings, decide what to act on, and open the PR when you are satisfied.*"
+    }
+  ],
+  "metadata_correction": {
+    "reason": "good-first-issue-author declares Mentoring, not Drafting. Corrected labels only; legacy drafting-* case IDs, prompts, responses, usage and timestamps are unchanged.",
+    "original_corpus_sha256": "96ea01dd26b27d813ee342bd805eb8bf8b9d42cf6952f8de47500ad17b0854d7"
+  },
+  "corpus_file": "replay-v1.json"
+}

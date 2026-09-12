@@ -87,6 +87,10 @@ trustworthy as it grows.
   prompt-injection defences), `list-skills` (live, generated index of
   every skill, grouped by family).
 
+- `tools/skill-token-count/` measures full local skill files with pinned
+  `tiktoken` / `cl100k_base`, generates the mode-economics table, and checks
+  drift through prek and a dedicated path-filtered CI workflow.
+
 ## Behaviour & contract
 
 - **Generated, never cached.** `list-skills` reads live `SKILL.md`
@@ -121,6 +125,25 @@ trustworthy as it grows.
   points, privacy/adapter notes, and proposed spec changes.
 - **Eval trust roles stay separate.** Mock tool output in `report.md` enters the user turn as untrusted data.
   Repository policy read from a trusted revision may enter through a case-level `trusted-context.md`, which the runner appends only to the system prompt.
+
+- **Token measurement provenance.** Counts include UTF-8 file content with
+  LF-normalized line endings. A content manifest hash identifies inputs without
+  depending on Git history or commit time. A descriptive UTC date changes only
+  on regeneration after drift; checks preserve it. Vocabulary preparation is
+  explicit and checksum-verified; missing or corrupt caches block measurement
+  before a network request. Skill edits,
+  additions, removals, and renames invalidate the table. These file counts
+  are distinct from estimated session costs and runtime percentiles.
+- **Runtime evidence is scoped.** An opt-in replay benchmark captures actual
+  CLI-reported input, cache, and output usage for synthetic full-entrypoint
+  decision-to-draft/report tasks. It records prompts' source hashes, model/CLI
+  versions, failures, and responses. Sample p50/p90 use documented interpolation;
+  they are not population estimates for live workflows. CI never runs paid
+  model benchmarks automatically. Before any paid call, case modes must match
+  the selected skill frontmatter. Summaries group by both mode and skill;
+  they must not pool different skills into a mode-wide percentile. Published
+  metadata corrections preserve original usage, responses, and prompt hashes.
+  Patch-drafting replays do not certify patch application or passing tests.
 
 ## Out of scope
 

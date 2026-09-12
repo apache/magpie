@@ -93,3 +93,12 @@ rat-stderr.log
 /apache-magpie-*-source.zip
 /apache-magpie-*-source.zip.asc
 /apache-magpie-*-source.zip.sha512
+
+# Local agent artifacts
+.superpowers/
+.Codex/
+AGENTS.md
+**/settings.local.json
+**/scheduled_tasks.lock
+.apache-steward/
+docs/superpowers/

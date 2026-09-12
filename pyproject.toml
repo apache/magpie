@@ -143,6 +143,7 @@ members = [
   "tools/symlink-lint",
   "tools/vcs",
   "tools/vendor-neutrality-score",
+  "tools/skill-token-count",
   "tools/vetted-ops",
   "tools/fossil",
   "tools/sourcehut",

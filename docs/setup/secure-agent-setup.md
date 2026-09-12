@@ -261,6 +261,20 @@ being adopted.
 
 ### Install commands
 
+For development of this framework checkout, prepare the token-count vocabulary
+once from a terminal outside the isolated agent, at the repository root:
+
+```bash
+uv run --project tools/skill-token-count skill-token-count --prepare-tokenizer
+```
+
+This explicit installation step verifies the vocabulary checksum and stores it
+under `~/.cache/apache-magpie/tiktoken/`. The token-count hook then reads that
+cache without requiring a new sandbox network allowance. See the
+[tool prerequisites](../../tools/skill-token-count/README.md#prerequisites)
+for offline provisioning. Adopter snapshots that do not run the framework's
+development hooks do not need this step.
+
 The exact commands are also in `pinned-versions.toml` under each
 tool's `install.<distro>` field; below is the one-line view per
 distro. Choose whichever applies to your host.

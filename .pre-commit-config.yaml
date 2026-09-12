@@ -320,6 +320,16 @@ repos:
         entry: python3 tools/dev/check-skill-preflight.py --fix
         files: ^(skills/[^/]+/SKILL\.md|tools/dev/preflight-block\.md)$
         pass_filenames: false
+  # Deterministic full-file token measurements. Run after skill fixers.
+  # The dedicated path-filtered CI workflow also catches deleted skills.
+  - repo: local
+    hooks:
+      - id: skill-token-count
+        name: Check measured skill tokens in docs/mode-economics.md
+        language: system
+        entry: uv run --project tools/skill-token-count skill-token-count --check
+        files: ^(skills/.*/SKILL\.md|tools/dev/preflight-block\.md|tools/skill-token-count/.*|docs/mode-economics\.md|uv\.lock|\.pre-commit-config\.yaml)$
+        pass_filenames: false
   # Quick-start screenshot set. Three lists have to agree — the harnesses
   # `capture-screenshot.sh` offers, the ecosystem manifests that make a harness
   # real, and the PNGs on disk — and none of the existing gates read images, so

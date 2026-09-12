@@ -1,0 +1,127 @@
+{
+  "schema": 1,
+  "description": "Synthetic full-entrypoint decision-to-draft/report replay; captured observations replace external tools. No production workload claims.",
+  "common": {
+    "project": "Synthetic Widget project; independent organization; upstream_repo=example/widget; default_branch=main; issue tracker=GitHub example/widget; project-config directory exists and all manifest values are resolved.",
+    "preflight": "Captured checks: .apache-magpie.lock and .apache-magpie.local.lock match at the same pinned ref; project.md and user.md are present; no overrides; all required capabilities are available in this replay. Maintainer identity=benchmark-maintainer, authorized to request drafts and reviews, not publication. Git worktree clean except the supplied diff. No private or security reports.",
+    "conventions": "Apache-2.0; Python 3.11; pytest tests; preserve documented API; small regression tests required for behavior changes. Maintainer roster: benchmark-maintainer. No existing maintainer intervention. No agent comments yet.",
+    "mentoring_config": {
+      "mentoring_invocation_command": "mentor",
+      "maintainer_team_handle": "@example/maintainers",
+      "ai_attribution_footer": "Draft prepared with AI assistance; awaiting maintainer review.",
+      "convention_pointers": [
+        {
+          "trigger": "missing regression test",
+          "docs_link": "https://example.org/widget/contributing#tests",
+          "label": "needs-tests"
+        }
+      ],
+      "max_agent_turns": 2,
+      "out_of_scope_topics": [
+        "security",
+        "licensing",
+        "release policy"
+      ]
+    },
+    "good_first_issue_config": {
+      "good_first_issue_label": "good first issue",
+      "getting_started_link": "https://example.org/widget/contributing#tests",
+      "max_effort_hours": 4,
+      "out_of_scope_topics": [
+        "security",
+        "licensing",
+        "deprecation",
+        "architecture"
+      ],
+      "ai_attribution_footer": "Draft prepared with AI assistance; awaiting maintainer review."
+    },
+    "captured_link_check": "The synthetic getting-started URL returned HTTP 200 and contains the tests heading. This is fixture data, not an actual web check.",
+    "triage_config": "Labels available: type:bug, type:enhancement, priority:normal, needs-info, needs-tests. Reviewers use benchmark-maintainer; missing optional project rules use framework defaults. Security scope none. Existing backlog search empty unless a duplicate is supplied."
+  },
+  "cases": [
+    {
+      "id": "triage-1",
+      "mode": "Triage",
+      "skill": "issue-triage",
+      "workload": "Triage a public empty-input bug with 1 reproduction examples",
+      "input": "Issue #101: mean([]) raises ZeroDivisionError, but docs promise 0. Python 3.11, Widget 1.0. Source src/stats.py:\ndef mean(values):\n    return sum(values) / len(values)\n\nCaptured pytest: mean([]) raises ZeroDivisionError; mean([2,4]) == 3.\n\nCaptured history and duplicate search: no related issues or fixes. Propose triage classification, labels, and a concise comment. Stop before posting."
+    },
+    {
+      "id": "mentoring-1",
+      "mode": "Mentoring",
+      "skill": "pr-management-mentor",
+      "workload": "Draft test guidance on a newcomer PR with 1 contributor messages",
+      "input": "PR #201, author newcomer: changes src/stats.py to handle empty input:\ndef mean(values):\n    if not values:\n        return 0\n    return sum(values) / len(values)\n\nNo test file is modified. Existing tests only cover mean([2,4]).\nRecent comments: newcomer: I changed the implementation. How do I add a regression test?\nExactly one convention trigger applies: missing regression test. Draft one teaching comment and return it for approval."
+    },
+    {
+      "id": "drafting-1",
+      "mode": "Mentoring",
+      "skill": "good-first-issue-author",
+      "workload": "Author one bounded regression-test issue with 1 edge cases",
+      "input": "Candidate: add missing tests for src/stats.py mean(), whose implementation is:\ndef mean(values):\n    if not values:\n        return 0\n    return sum(values) / len(values)\n\nExisting tests/test_stats.py only asserts mean([2,4]) == 3. The API is settled and correct. Add assertions for mean([]) == 0. All source and test contents are provided. No new dependency or architecture change. Estimate 1 hour. Backlog search found no duplicate issue; stable file links are https://example.org/widget/src/stats.py and https://example.org/widget/tests/test_stats.py. Produce the full issue draft, suitability/readiness outcome, and proposed label; stop before filing."
+    },
+    {
+      "id": "pairing-1",
+      "mode": "Pairing",
+      "skill": "pairing-self-review",
+      "workload": "Review a 1-file diff removing empty-input guards",
+      "input": "Captured git diff against main:\ndiff --git a/src/stats0.py b/src/stats0.py\n--- a/src/stats0.py\n+++ b/src/stats0.py\n@@ -1,4 +1,2 @@\n def mean(values):\n-    if not values:\n-        return 0\n     return sum(values) / len(values)\n\nCaptured tests: normal nonempty inputs pass; mean([]) raises ZeroDivisionError in each changed module, contradicting documented mean([]) == 0. No untracked files, lock changes, dependencies, credentials, or security-sensitive changes. The full changed functions and convention notes are supplied. Provide the complete correctness/security/conventions review and a readiness recommendation. Do not modify files or open a PR."
+    },
+    {
+      "id": "triage-2",
+      "mode": "Triage",
+      "skill": "issue-triage",
+      "workload": "Triage a public empty-input bug with 2 reproduction examples",
+      "input": "Issue #102: mean([]) raises ZeroDivisionError, but docs promise 0. Python 3.11, Widget 1.0. Source src/stats.py:\ndef mean(values):\n    return sum(values) / len(values)\n\nCaptured pytest: mean([]) raises ZeroDivisionError; mean([2,4]) == 3.\nAdditional reproduction 0: mean([]) crashes on Python 3.11.\nCaptured history and duplicate search: no related issues or fixes. Propose triage classification, labels, and a concise comment. Stop before posting."
+    },
+    {
+      "id": "mentoring-2",
+      "mode": "Mentoring",
+      "skill": "pr-management-mentor",
+      "workload": "Draft test guidance on a newcomer PR with 2 contributor messages",
+      "input": "PR #202, author newcomer: changes src/stats.py to handle empty input:\ndef mean(values):\n    if not values:\n        return 0\n    return sum(values) / len(values)\n\nNo test file is modified. Existing tests only cover mean([2,4]).\nRecent comments: newcomer: I changed the implementation. How do I add a regression test?\nnewcomer: I changed the implementation. How do I add a regression test?\nExactly one convention trigger applies: missing regression test. Draft one teaching comment and return it for approval."
+    },
+    {
+      "id": "drafting-2",
+      "mode": "Mentoring",
+      "skill": "good-first-issue-author",
+      "workload": "Author one bounded regression-test issue with 2 edge cases",
+      "input": "Candidate: add missing tests for src/stats.py mean(), whose implementation is:\ndef mean(values):\n    if not values:\n        return 0\n    return sum(values) / len(values)\n\nExisting tests/test_stats.py only asserts mean([2,4]) == 3. The API is settled and correct. Add assertions for mean([]) == 0, mean([7]) == 7. All source and test contents are provided. No new dependency or architecture change. Estimate 1 hour. Backlog search found no duplicate issue; stable file links are https://example.org/widget/src/stats.py and https://example.org/widget/tests/test_stats.py. Produce the full issue draft, suitability/readiness outcome, and proposed label; stop before filing."
+    },
+    {
+      "id": "pairing-2",
+      "mode": "Pairing",
+      "skill": "pairing-self-review",
+      "workload": "Review a 2-file diff removing empty-input guards",
+      "input": "Captured git diff against main:\ndiff --git a/src/stats0.py b/src/stats0.py\n--- a/src/stats0.py\n+++ b/src/stats0.py\n@@ -1,4 +1,2 @@\n def mean(values):\n-    if not values:\n-        return 0\n     return sum(values) / len(values)\n\ndiff --git a/src/stats1.py b/src/stats1.py\n--- a/src/stats1.py\n+++ b/src/stats1.py\n@@ -1,4 +1,2 @@\n def mean(values):\n-    if not values:\n-        return 0\n     return sum(values) / len(values)\n\nCaptured tests: normal nonempty inputs pass; mean([]) raises ZeroDivisionError in each changed module, contradicting documented mean([]) == 0. No untracked files, lock changes, dependencies, credentials, or security-sensitive changes. The full changed functions and convention notes are supplied. Provide the complete correctness/security/conventions review and a readiness recommendation. Do not modify files or open a PR."
+    },
+    {
+      "id": "triage-3",
+      "mode": "Triage",
+      "skill": "issue-triage",
+      "workload": "Triage a public empty-input bug with 3 reproduction examples",
+      "input": "Issue #103: mean([]) raises ZeroDivisionError, but docs promise 0. Python 3.11, Widget 1.0. Source src/stats.py:\ndef mean(values):\n    return sum(values) / len(values)\n\nCaptured pytest: mean([]) raises ZeroDivisionError; mean([2,4]) == 3.\nAdditional reproduction 0: mean([]) crashes on Python 3.11.\nAdditional reproduction 1: mean([]) crashes on Python 3.11.\nCaptured history and duplicate search: no related issues or fixes. Propose triage classification, labels, and a concise comment. Stop before posting."
+    },
+    {
+      "id": "mentoring-3",
+      "mode": "Mentoring",
+      "skill": "pr-management-mentor",
+      "workload": "Draft test guidance on a newcomer PR with 3 contributor messages",
+      "input": "PR #203, author newcomer: changes src/stats.py to handle empty input:\ndef mean(values):\n    if not values:\n        return 0\n    return sum(values) / len(values)\n\nNo test file is modified. Existing tests only cover mean([2,4]).\nRecent comments: newcomer: I changed the implementation. How do I add a regression test?\nnewcomer: I changed the implementation. How do I add a regression test?\nnewcomer: I changed the implementation. How do I add a regression test?\nExactly one convention trigger applies: missing regression test. Draft one teaching comment and return it for approval."
+    },
+    {
+      "id": "drafting-3",
+      "mode": "Mentoring",
+      "skill": "good-first-issue-author",
+      "workload": "Author one bounded regression-test issue with 3 edge cases",
+      "input": "Candidate: add missing tests for src/stats.py mean(), whose implementation is:\ndef mean(values):\n    if not values:\n        return 0\n    return sum(values) / len(values)\n\nExisting tests/test_stats.py only asserts mean([2,4]) == 3. The API is settled and correct. Add assertions for mean([]) == 0, mean([7]) == 7, mean([-2,2]) == 0. All source and test contents are provided. No new dependency or architecture change. Estimate 1 hour. Backlog search found no duplicate issue; stable file links are https://example.org/widget/src/stats.py and https://example.org/widget/tests/test_stats.py. Produce the full issue draft, suitability/readiness outcome, and proposed label; stop before filing."
+    },
+    {
+      "id": "pairing-3",
+      "mode": "Pairing",
+      "skill": "pairing-self-review",
+      "workload": "Review a 3-file diff removing empty-input guards",
+      "input": "Captured git diff against main:\ndiff --git a/src/stats0.py b/src/stats0.py\n--- a/src/stats0.py\n+++ b/src/stats0.py\n@@ -1,4 +1,2 @@\n def mean(values):\n-    if not values:\n-        return 0\n     return sum(values) / len(values)\n\ndiff --git a/src/stats1.py b/src/stats1.py\n--- a/src/stats1.py\n+++ b/src/stats1.py\n@@ -1,4 +1,2 @@\n def mean(values):\n-    if not values:\n-        return 0\n     return sum(values) / len(values)\n\ndiff --git a/src/stats2.py b/src/stats2.py\n--- a/src/stats2.py\n+++ b/src/stats2.py\n@@ -1,4 +1,2 @@\n def mean(values):\n-    if not values:\n-        return 0\n     return sum(values) / len(values)\n\nCaptured tests: normal nonempty inputs pass; mean([]) raises ZeroDivisionError in each changed module, contradicting documented mean([]) == 0. No untracked files, lock changes, dependencies, credentials, or security-sensitive changes. The full changed functions and convention notes are supplied. Provide the complete correctness/security/conventions review and a readiness recommendation. Do not modify files or open a PR."
+    }
+  ]
+}
