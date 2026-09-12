@@ -35,7 +35,6 @@ from pathlib import Path
 import pytest
 
 import agent_guard
-from agent_guard import ALLOW_EXIT, DENY_EXIT, cli, dispatch, gemini_main
 
 
 @pytest.fixture(autouse=True)
@@ -75,7 +74,7 @@ def test_cli_blocks_prohibited_trailer_without_executing_command(tmp_path: Path)
         capture_output=True,
         check=False,
     )
-    assert result.returncode == DENY_EXIT
+    assert result.returncode == agent_guard.DENY_EXIT
     assert "commit-trailer" in result.stderr
     assert result.stdout == ""
     assert not marker.exists()
@@ -85,15 +84,15 @@ def test_allowed_command_is_silent(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     _feed(monkeypatch, _event("git status"))
-    assert cli(["--gemini"]) == ALLOW_EXIT
+    assert agent_guard.cli(["--gemini"]) == agent_guard.ALLOW_EXIT
     assert capsys.readouterr() == ("", "")
 
 
 @pytest.mark.parametrize(
     "command, expected, reason",
     [
-        ("git status --short", ALLOW_EXIT, ""),
-        ("git commit --dry-run --no-verify -m hook-probe", DENY_EXIT, "agent-guard[no-verify]"),
+        ("git status --short", agent_guard.ALLOW_EXIT, ""),
+        ("git commit --dry-run --no-verify -m hook-probe", agent_guard.DENY_EXIT, "agent-guard[no-verify]"),
     ],
 )
 def test_project_settings_hook_runs_from_a_checkout_path_with_spaces(
@@ -134,10 +133,10 @@ def test_project_settings_hook_runs_from_a_checkout_path_with_spaces(
 @pytest.mark.parametrize(
     "command, expected",
     [
-        ("git commit -m 'x\n\nCo-Authored-By: A <a@b.c>'", DENY_EXIT),
-        ("git commit -m 'x' --no-verify", DENY_EXIT),
-        ("git commit -m 'x\n\nGenerated-by: Gemini CLI'", ALLOW_EXIT),
-        ("ls -la && echo hi", ALLOW_EXIT),
+        ("git commit -m 'x\n\nCo-Authored-By: A <a@b.c>'", agent_guard.DENY_EXIT),
+        ("git commit -m 'x' --no-verify", agent_guard.DENY_EXIT),
+        ("git commit -m 'x\n\nGenerated-by: Gemini CLI'", agent_guard.ALLOW_EXIT),
+        ("ls -la && echo hi", agent_guard.ALLOW_EXIT),
     ],
 )
 def test_decision_and_reason_match_dispatch(
@@ -147,11 +146,11 @@ def test_decision_and_reason_match_dispatch(
     expected: int,
 ) -> None:
     # The adapter preserves the core's decision and emits its reason on stderr.
-    reason = dispatch(command, ".")
-    assert (reason is not None) == (expected == DENY_EXIT)
+    reason = agent_guard.dispatch(command, ".")
+    assert (reason is not None) == (expected == agent_guard.DENY_EXIT)
 
     _feed(monkeypatch, _event(command))
-    assert gemini_main() == expected
+    assert agent_guard.gemini_main() == expected
     gemini_output = capsys.readouterr()
     assert gemini_output.err == (reason + "\n" if reason else "")
     assert gemini_output.out == ""
@@ -175,7 +174,9 @@ def test_git_checks_use_event_workspace(
             return "base1234"
         if args[:3] == ["git", "rev-list", "--count"]:
             return "0"
-        pytest.fail(f"Unexpected Git check: {args}")
+        # pytest.fail raises Failed, a BaseException the guard's fail-open
+        # `except Exception` cannot swallow; returning it keeps every exit explicit.
+        return pytest.fail(f"Unexpected Git check: {args}")
 
     monkeypatch.setattr(agent_guard, "_run", fake_run)
     event = _event("git push --force-with-lease origin mybranch:mybranch")
@@ -186,7 +187,7 @@ def test_git_checks_use_event_workspace(
     else:
         event["cwd"] = []
     _feed(monkeypatch, event)
-    assert gemini_main() == DENY_EXIT
+    assert agent_guard.gemini_main() == agent_guard.DENY_EXIT
     assert seen == [str(tmp_path) if cwd_kind == "workspace" else None] * 3
     captured = capsys.readouterr()
     assert "empty-rebase" in captured.err
@@ -216,5 +217,5 @@ def test_irrelevant_or_malformed_event_does_not_dispatch(
 
     monkeypatch.setattr(agent_guard, "dispatch", unexpected_dispatch)
     _feed(monkeypatch, payload)
-    assert gemini_main() == ALLOW_EXIT
+    assert agent_guard.gemini_main() == agent_guard.ALLOW_EXIT
     assert capsys.readouterr() == ("", "")
