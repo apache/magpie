@@ -7,6 +7,7 @@
 
 - [Repo-health audits — family overview](#repo-health-audits--family-overview)
   - [Install & first runs](#install--first-runs)
+    - [The first run](#the-first-run)
     - [Try these first](#try-these-first)
   - [Current skills](#current-skills)
     - [`audit-finding-fix` (experimental)](#audit-finding-fix-experimental)
@@ -52,11 +53,21 @@ Install just this family — one plugin, 7 skills. Read-only repository-health a
 /plugin install magpie-repo-health@apache-magpie
 ```
 
-<!-- CAPTURE: assets/quickstart/README.md -->
-![Claude Code showing the magpie-repo-health plugin installed and enabled](../../assets/quickstart/families/repo-health-install.png)
+New to Magpie? The [quick start](../quick-start.md) walks the whole path in
+one place — install, the first `/magpie-setup` run, and a recording of it
+happening — plus the other agents and the secure-isolation setup to run next.
 
-New to Magpie? The [quick start](../quick-start.md) covers the other agents,
-the all-in-one alternative, and the secure-isolation setup to run next.
+### The first run
+
+The first time you call a skill in this family it checks whether the project is
+set up, before it does anything else. On a project that has not been adopted it
+stops right there and proposes `/magpie-setup`, rather than acting on
+placeholders it cannot resolve:
+
+![The magpie-repo-health family's first run — the skill's pre-flight finds no project config, stops and proposes /magpie-setup, then the same command succeeds on the retry](../../assets/quickstart/families/repo-health-first-run.svg)
+
+That check is silent once the project is set up: it costs three file checks and
+prints nothing.
 
 ### Try these first
 

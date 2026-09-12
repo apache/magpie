@@ -30,7 +30,7 @@
 > invokes these as `/magpie-setup:isolated-setup-install`. On a pinned-snapshot
 > or self-adoption install, use the single token instead —
 > `/magpie-setup-isolated-setup-install`. See
-> [Skill names differ by install method](marketplaces.md#skill-names-differ-by-install-method).
+> [Skill names differ by install method](marketplace.md#skill-names-differ-by-install-method).
 
 How to configure the framework's privacy-aware LLM routing for
 your adopting project. Pick a variant below; copy the matching

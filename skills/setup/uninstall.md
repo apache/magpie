@@ -346,7 +346,7 @@ leaves a clean record of what made it out.
 ## Committed default set
 
 If `.claude/settings.json` commits the block described in
-[`install.md` § Merge rules](install.md#merge-rules), remove **only** what
+[`install.md` § Merge rules](adopt.md#merge-rules), remove **only** what
 `setup` added:
 
 - Delete the three floor entries from `enabledPlugins` —

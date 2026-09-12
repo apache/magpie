@@ -9,7 +9,8 @@
   - [How it works](#how-it-works)
   - [Need help with one of these? Adopt a family of skills](#need-help-with-one-of-these-adopt-a-family-of-skills)
   - [Who is this for?](#who-is-this-for)
-    - [Maintainers wanting to adopt Magpie in their project](#maintainers-wanting-to-adopt-magpie-in-their-project)
+    - [Anyone who wants agent help on a repo](#anyone-who-wants-agent-help-on-a-repo)
+    - [Maintainers adopting Magpie for their project](#maintainers-adopting-magpie-for-their-project)
     - [Security team members](#security-team-members)
     - [Contributors to the Magpie framework itself](#contributors-to-the-magpie-framework-itself)
     - [People evaluating whether to adopt](#people-evaluating-whether-to-adopt)
@@ -74,11 +75,17 @@ Start with [`setup`](setup/README.md) regardless — it is the prerequisite ever
 
 ## Who is this for?
 
-### Maintainers wanting to adopt Magpie in their project
+### Anyone who wants agent help on a repo
 
-You have an open-source project with an issue tracker and/or PR queue, and you want agent assistance with the mechanical parts.
+You work on a project with an issue tracker and/or PR queue, and you want agent assistance with the mechanical parts. You do not need the project's permission, and nothing gets committed.
 
-→ Start with the [quick start](quick-start.md) — install into your agent in two commands. If a marketplace is not an option, the [install recipes](setup/install-recipes.md) cover the pinned snapshot install.
+→ Start with the [quick start](quick-start.md) — install into your agent in two commands — then [individual use](setup/individual-use.md). If a marketplace is not an option, the [install recipes](setup/install-recipes.md) cover the pinned snapshot install.
+
+### Maintainers adopting Magpie for their project
+
+You want contributors to arrive with a sensible set of families already enabled, and the repo's own conventions encoded where the skills will read them.
+
+→ [Team adoption](setup/team-adoption.md) — what a repo commits, how to decide it, and how to keep it current. Adoption is a recommendation to your contributors, not a requirement on them.
 
 ### Security team members
 

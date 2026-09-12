@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Licensed to the Apache Software Foundation (ASF) under one
+  or more contributor license agreements.  See the NOTICE file
+  distributed with this work for additional information
+  regarding copyright ownership.  The ASF licenses this file
+  to you under the Apache License, Version 2.0 (the
+  "License"); you may not use this file except in compliance
+  with the License.  You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing,
+  software distributed under the License is distributed on an
+  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+  KIND, either express or implied.  See the License for the
+  specific language governing permissions and limitations
+  under the License.
+
+  PLACEHOLDER — this is not the real recording.
+
+  Replace it, at this exact path, with a real animated SVG of one run of
+  /magpie-pairing:multi-agent-review on a project that is already set up:
+
+      tools/dev/record-svg.sh pairing:multi-agent-review
+
+  The recipe is in assets/examples/README.md.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300"
+     width="1000" height="300" role="img"
+     data-magpie-placeholder="recording pending"
+     aria-label="Placeholder for the /magpie-pairing:multi-agent-review example recording — not yet captured">
+  <title>/magpie-pairing:multi-agent-review — recording pending</title>
+  <desc>Placeholder standing in for the animated SVG recording of one
+  /magpie-pairing:multi-agent-review run. See assets/examples/README.md.</desc>
+
+  <rect width="1000" height="300" rx="10" fill="#1d1f21"/>
+  <rect x="0" y="0" width="1000" height="34" rx="10" fill="#2b2e31"/>
+  <rect x="0" y="24" width="1000" height="10" fill="#2b2e31"/>
+  <circle cx="22" cy="17" r="6" fill="#3f4448"/>
+  <circle cx="44" cy="17" r="6" fill="#3f4448"/>
+  <circle cx="66" cy="17" r="6" fill="#3f4448"/>
+
+  <g font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="20">
+    <text x="40" y="104" fill="#8a8f94">&gt;</text>
+    <text x="68" y="104" fill="#c5c8c6">/magpie-pairing:multi-agent-review</text>
+    <rect x="482" y="86" width="11" height="24" fill="#c5c8c6">
+      <animate attributeName="opacity" values="1;1;0;0;1"
+               dur="1.2s" repeatCount="indefinite"/>
+    </rect>
+
+    <text x="40" y="164" fill="#d8a657" font-size="22">recording pending</text>
+    <text x="40" y="204" fill="#8a8f94" font-size="17">The real take shows one run of this command and the report it returns.</text>
+    <text x="40" y="248" fill="#7f9f7f" font-size="17">To replace it:  tools/dev/record-svg.sh pairing:multi-agent-review</text>
+    <text x="40" y="274" fill="#6a6f74" font-size="15">recipe and conventions: assets/examples/README.md</text>
+  </g>
+</svg>

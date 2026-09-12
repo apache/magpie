@@ -405,7 +405,7 @@ editors they run in. A JetBrains IDE, for instance, hosts an agent rather than
 being one: `JetBrains Junie` above is JetBrains' *own* agent and is genuinely
 not ported, but running Claude Code inside IntelliJ IDEA or PyCharm is the
 fully-supported Claude Code row, with nothing extra to install. See
-[the JetBrains section of `marketplaces.md`](docs/setup/marketplaces.md#jetbrains-ides-intellij-idea-pycharm-goland-).
+[the JetBrains section of `marketplace.md`](docs/setup/marketplace.md#jetbrains-ides-intellij-idea-pycharm-goland-).
 
 MCP servers used by the reference runtimes today: Slack, Gmail,
 Google Calendar, Google Drive, plus framework-internal ones for
@@ -563,7 +563,7 @@ Because of that, **the skill names you type here are the single-token form** —
 `/magpie-pr-management-code-review`, not `/magpie-pr-management:code-review`.
 The colon form is the marketplace one, and it is what the user-facing docs
 show; see
-[Skill names differ by install method](docs/setup/marketplaces.md#skill-names-differ-by-install-method).
+[Skill names differ by install method](docs/setup/marketplace.md#skill-names-differ-by-install-method).
 
 If you intend to actually run framework skills against an adopter
 project (not just edit the framework), follow the

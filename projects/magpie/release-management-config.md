@@ -99,7 +99,7 @@ uv lock
 ```
 
 See
-[`docs/setup/marketplaces.md`](../../docs/setup/marketplaces.md) (*Versioning*).
+[`docs/setup/marketplace.md`](../../docs/setup/marketplace.md) (*Versioning*).
 
 `uv.lock` is the one entry `--fix` does **not** touch: it carries the version
 because it locks this workspace's own package, and it is refreshed by

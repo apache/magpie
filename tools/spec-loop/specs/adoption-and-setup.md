@@ -15,6 +15,16 @@ acceptance:
     plugin; the snapshot install below is proposed only where a marketplace
     cannot reach (no plugin mechanism, signed artefact needed, committed pin
     wanted).
+  - Installing and adopting are separate acts and are never conflated.
+    An install touches only the invoking user's agent and writes nothing
+    to the repo; it never proposes a repo-side artefact, on any harness,
+    and a declined-or-absent repo side is a finished install. Adoption is
+    the maintainer act of committing the repo's recommended default
+    plugin set and its overrides store for every contributor, reached
+    only through `setup adopt` and only on an explicit decision.
+  - A repo's committed default set is a floor, never a ceiling: it does
+    not limit what a contributor may install, and using Magpie on a repo
+    that has not adopted it is a first-class path, not a degraded one.
   - On the pinned-snapshot fallback, an adopter commits exactly one
     skill (setup); everything else is a gitignored snapshot plus
     committed override + lock files. On the default marketplace
@@ -57,7 +67,7 @@ acceptance:
     and the `apache-magpie` entry from `extraKnownMarketplaces`, keeps
     every other plugin and marketplace entry untouched, drops either key
     left empty by the removal, and never deletes `.claude/settings.json`.
-  - docs/quick-start.md and docs/setup/marketplaces.md both state that the
+  - docs/quick-start.md and docs/setup/marketplace.md both state that the
     committed default-set block is optional and not a prerequisite to using
     the plugins in the repo.
 ---
@@ -79,7 +89,7 @@ committed version with drift detection.
 
 ## Where it lives
 
-- Skill: `setup` (adopt, verify, upgrade, override).
+- Skill: `setup` (install, adopt/unadopt, verify, upgrade, override).
 - Skills: `setup-isolated-setup-install` / `-update` / `-verify` / `-doctor`
   (the sandbox harness; `-doctor` probes live restrictions — SSH agent /
   Yubikey reachability, localhost port binding, filesystem restrictions),
@@ -131,9 +141,9 @@ committed version with drift detection.
   Policy MCP that other members leave off), but it cannot weaken the safety,
   confidentiality, or privacy baseline. Precedence, first hit wins:
   `.apache-magpie-local/` -> `.apache-magpie-overrides/` -> organization
-  defaults -> framework default. Adoption adds the `.gitignore` entry; on a
-  repo that has not adopted Magpie, the user adds that one line by hand so
-  the directory stays untracked. This is the surface that makes hybrid
+  defaults -> framework default. Adoption scaffolds the overrides store; the
+  `.gitignore` entry for the personal directory is the user's to add,
+  wherever they prefer it, so the directory stays untracked. This is the surface that makes hybrid
   setups work: one person can run Magpie against a shared or non-adopting
   repo without committing anything or requiring teammates to opt in.
 - **One-shot default run.** A per-invocation switch runs a skill against

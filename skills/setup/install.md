@@ -75,7 +75,7 @@ anything — it runs in a worktree, and in a repo the user does not
 own.
 
 Per-agent reference (every supported client, pinning, updates):
-[`docs/setup/marketplaces.md`](../../docs/setup/marketplaces.md).
+[`docs/setup/marketplace.md`](../../docs/setup/marketplace.md).
 
 ### Step M1 — Is Magpie already plugin-installed?
 
@@ -114,14 +114,14 @@ install silently on top of it — the double-install trap in
 | OpenAI Codex CLI | `codex` on `PATH`, `~/.codex/` | `codex plugin` |
 | VS Code / GitHub Copilot | `.vscode/`, the Copilot CLI on `PATH` | repo URL or catalog |
 | Google Gemini CLI | `gemini` on `PATH`, `~/.gemini/` | `gemini extensions` |
-| Cursor, `microsoft/apm`, Kiro, OpenCode | per [`marketplaces.md`](../../docs/setup/marketplaces.md#supported-agents) | varies |
+| Cursor, `microsoft/apm`, Kiro, OpenCode | per [`marketplace.md`](../../docs/setup/marketplace.md#supported-agents) | varies |
 
 When the running agent is ambiguous, ask — one structured
 question, not a guess: the commands differ per client and a wrong
 one wastes the user's turn.
 
 **If the agent has no plugin mechanism at all** — the clients
-[`marketplaces.md`](../../docs/setup/marketplaces.md#not-supported)
+[`marketplace.md`](../../docs/setup/marketplace.md#not-supported)
 lists as unsupported, Windsurf and Goose among them — say so
 plainly, name it as the reason, and hand off to the pinned
 snapshot install at [Step 0](#step-0--pre-flight). That — not a
@@ -195,7 +195,7 @@ Skills are then invoked under the plugin namespace:
 `/magpie-<family>:<skill>` (family plugin) or `/magpie:<skill>`
 (all-in-one) — **not** the `/magpie-<skill>` form the snapshot
 install produces
-([`marketplaces.md`](../../docs/setup/marketplaces.md#skill-names-differ-by-install-method)).
+([`marketplace.md`](../../docs/setup/marketplace.md#skill-names-differ-by-install-method)).
 
 ### Step M5 — Recap and what comes next
 
@@ -220,64 +220,25 @@ Tell the user, in this order:
      [pinned snapshot install](#step-0--pre-flight) when the
      project wants every contributor and CI job on one version;
    - **personal overrides** — `.apache-magpie-local/` works in any
-     repo, adopted or not, once its `.gitignore` line exists;
-     offer to add that single line.
-5. **Offer the repo-side artefacts — optional, once, defaulting to no.**
-   **Claude Code only**; skip this entirely on any other client and say why
-   (Codex can only default-install all ten families; Gemini has no
-   workspace-extension mechanism), rather than writing a file that does
-   nothing.
+     repo, adopted or not, once a single `.gitignore` line exists.
+     Say where that line goes and leave adding it to the user: it is
+     theirs to put in the repo's `.gitignore` or in their own global
+     excludes, and that choice is not yours to make for them.
+5. **This install wrote nothing to the repo, and that is the finished
+   state.** A marketplace install touches only this machine's agent.
+   Say so plainly: there is no repo-side step left undone, and the
+   install is not partial, pending, or awaiting anything.
 
-   Ask one question covering both artefacts:
-
-   - **A committed default set** — `extraKnownMarketplaces` plus an
-     `enabledPlugins` floor of `magpie-setup`, `magpie-utilities` and
-     `magpie-agent-guard` in the repo's `.claude/settings.json`, so a teammate
-     who clones and trusts the repo arrives with those three enabled.
-   - **The config store** — `.apache-magpie-overrides/`, scaffolded exactly as
-     [Step 9](#step-9--scaffold-apache-magpie-overrides-fresh-only) does, same
-     exclusions and same `project.md` pre-population.
-
-   Say in the prompt that **both are optional and neither is required to use
-   the plugins in this repo** — they are a convenience for teammates. Default
-   to **no**.
-
-   The floor is fixed. It does not grow to match what this maintainer
-   installed: a maintainer-only family such as `magpie-security` stays a
-   personal, user-scope install.
-
-   `git add` what you write. Never commit.
-
-   **Declining is a finished install.** Do not describe the result as
-   incomplete, partial, or pending in the recap or anywhere else.
+   If the user is a maintainer who wants contributors to arrive with a
+   recommended set already enabled, that is **adoption** — a separate
+   decision that commits files for everyone — and it is
+   [`adopt.md`](adopt.md). Mention it only if they ask, or if they say
+   something that means it ("set this up for the team", "so everyone
+   gets it"). Do not offer it as a follow-up to an install: an install
+   is complete on its own, and proposing a committed change to a repo
+   the user may not maintain is not a default.
 
 Then stop. Do not continue into Step 0.
-
-#### Merge rules
-
-`.claude/settings.json` is not Magpie's file. This repository's own carries
-`sandbox` and `permissions` blocks; an adopter's will carry whatever they put
-there. When the user accepts the offer:
-
-- **Touch only two keys** — `extraKnownMarketplaces` and `enabledPlugins`.
-  Every other top-level key is preserved exactly as it was.
-- **Leave an existing `apache-magpie` marketplace definition alone.** An
-  adopter pinning `apache/magpie@0.2.0` has made a deliberate choice; do not
-  rewrite it to track `main`.
-- **Add whichever of the floor's three entries are missing from an existing
-  `enabledPlugins`, and remove nothing** — not other Magpie plugins, not
-  other vendors' plugins. The floor is `magpie-setup@apache-magpie`,
-  `magpie-utilities@apache-magpie`, `magpie-agent-guard@apache-magpie`.
-- **If the file does not exist**, create it with exactly those two keys:
-  `extraKnownMarketplaces` defining `apache-magpie`, and `enabledPlugins`
-  containing the floor.
-- **If the file exists but does not parse as JSON, stop and say so.** Do not
-  rewrite a file you cannot read; a malformed settings file is the user's to
-  fix.
-
-When you write the file — creating it or merging into it — `git add
-.claude/settings.json`. Never commit it. When you refuse because the file
-doesn't parse, nothing was written; stop without staging anything.
 
 ## Step 0 — Pre-flight
 

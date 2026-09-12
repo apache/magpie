@@ -40,7 +40,7 @@ found by hand:
    phrasing means the whole catalogue.
 
 5. **Per-family *plugin* skill counts.** The marketplace tables in
-   ``docs/setup/marketplaces.md`` and ``docs/quick-start.md`` list a bare count
+   ``docs/setup/marketplace.md`` and ``docs/quick-start.md`` list a bare count
    per ``magpie-<family>`` plugin, plus a total for the all-in-one ``magpie``
    row. Check 2 does not reach them — those cells are bare integers in a table
    column, not the "N skills" phrasing check 4 matches — so both tables sat two
@@ -103,11 +103,11 @@ SPEC_INDEX_NAMES = {p.name for p in SPEC_INDEXES}
 # an allowlist rather than a repo-wide sweep: plenty of docs legitimately count
 # a subset ("Nine skills cover the staged path"), and a greedy scan would flag
 # those as drift forever.
-TOTAL_COUNT_FILES = (Path("docs/setup/marketplaces.md"), Path("docs/quick-start.md"))
+TOTAL_COUNT_FILES = (Path("docs/setup/marketplace.md"), Path("docs/quick-start.md"))
 
 # Files carrying a per-family marketplace-plugin table: a `magpie-<family>` row
 # with a bare skill count, and an all-in-one `magpie` row counting the lot.
-FAMILY_PLUGIN_FILES = (Path("docs/setup/marketplaces.md"), Path("docs/quick-start.md"))
+FAMILY_PLUGIN_FILES = (Path("docs/setup/marketplace.md"), Path("docs/quick-start.md"))
 
 # Family README "Install & first runs" sections: the family is named by the
 # `/plugin install magpie-<family>@...` line, the count by the prose above it.
@@ -136,7 +136,7 @@ PORTABLE_FORM_NOTES = (
 # Pages that are wholly about the snapshot install and carry the note, or whose
 # subject *is* the portable naming convention.
 PORTABLE_FORM_ALLOWED = {
-    Path("docs/setup/marketplaces.md"),  # documents both forms side by side
+    Path("docs/setup/marketplace.md"),  # documents both forms side by side
     Path("docs/quick-start.md"),  # its snapshot section carries an inline note
     Path("CONTRIBUTING.md"),  # self-adoption section carries an inline note
     Path("tools/skill-and-tool-validator/README.md"),  # documents the name: convention

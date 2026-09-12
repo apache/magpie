@@ -7,6 +7,7 @@
 
 - [Agentic Pairing skill family](#agentic-pairing-skill-family)
   - [Install & first runs](#install--first-runs)
+    - [The first run](#the-first-run)
     - [Try these first](#try-these-first)
   - [Skills](#skills)
     - [When to use which](#when-to-use-which)
@@ -53,35 +54,42 @@ Install just this family — one plugin, 2 skills. Review your own change before
 /plugin install magpie-pairing@apache-magpie
 ```
 
-<!-- CAPTURE: assets/quickstart/README.md -->
-![Claude Code showing the magpie-pairing plugin installed and enabled](../../assets/quickstart/families/pairing-install.png)
+New to Magpie? The [quick start](../quick-start.md) walks the whole path in
+one place — install, the first `/magpie-setup` run, and a recording of it
+happening — plus the other agents and the secure-isolation setup to run next.
 
-New to Magpie? The [quick start](../quick-start.md) covers the other agents,
-the all-in-one alternative, and the secure-isolation setup to run next.
+### The first run
+
+The first time you call a skill in this family it checks whether the project is
+set up, before it does anything else. On a project that has not been adopted it
+stops right there and proposes `/magpie-setup`, rather than acting on
+placeholders it cannot resolve:
+
+![The magpie-pairing family's first run — the skill's pre-flight finds no project config, stops and proposes /magpie-setup, then the same command succeeds on the retry](../../assets/quickstart/families/pairing-first-run.svg)
+
+That check is silent once the project is set up: it costs three file checks and
+prints nothing.
 
 ### Try these first
 
-*Illustrative shapes, not real transcripts — your output will differ. Nothing
-below sends, merges, or posts anything without you confirming it.*
+*Real runs, recorded against a small sample change — your output will differ.
+Both skills are read-only: nothing is sent, merged, or posted.*
 
 **Self-review before you push.**
 
 ```text
-> /magpie-pairing:self-review
-
-  Reviewing 7 files, +240 -66
-  1 likely bug   cache key omits the tenant id (cache.py:44)
-  2 test gaps    no case for an empty batch
+/magpie-pairing:self-review
 ```
+
+![A `/magpie-pairing:self-review` run: the skill reading the local diff and returning one report — likely bugs, test gaps, and convention findings in a single pass](../../assets/examples/pairing-self-review.svg)
 
 **Send it through an adversarial panel.**
 
 ```text
-> /magpie-pairing:multi-agent-review
-
-  4 reviewers, 11 candidate findings, 3 survived verification
-  CONFIRMED  race between the writer and the eviction thread
+/magpie-pairing:multi-agent-review
 ```
+
+![A `/magpie-pairing:multi-agent-review` run: three independent axis-focused passes over the same diff, their candidate findings merged and verified, with only the survivors reported](../../assets/examples/pairing-multi-agent-review.svg)
 
 ## Skills
 

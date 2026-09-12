@@ -32,7 +32,7 @@ choosing between plugins, not an accounting of a specific tokenizer's output.
 It is deliberately not a live tokenizer call: the number must be reproducible
 offline, in CI, with no model dependency and no network.
 
-Published figures live in the plugin tables of ``docs/setup/marketplaces.md``
+Published figures live in the plugin tables of ``docs/setup/marketplace.md``
 and ``docs/quick-start.md``. ``--check`` compares those tables against the live
 frontmatter and fails on drift, which is how ``check-doc-sync.py`` gates them.
 
@@ -54,7 +54,7 @@ SKILLS_DIR = Path("skills")
 # Tables that publish the estimate, as `| `magpie-security` | 15 | ~2.0k |`
 # and a bolded all-in-one row. Same files the count checks in check-doc-sync.py
 # already read.
-PUBLISHED_IN = (Path("docs/setup/marketplaces.md"), Path("docs/quick-start.md"))
+PUBLISHED_IN = (Path("docs/setup/marketplace.md"), Path("docs/quick-start.md"))
 
 CHARS_PER_TOKEN = 4
 

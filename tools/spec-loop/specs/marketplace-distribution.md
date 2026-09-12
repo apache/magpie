@@ -7,7 +7,7 @@ status: experimental
 kind: feature
 mode: infra
 source: >
-  docs/setup/marketplaces.md. The manifest set at .claude-plugin/,
+  docs/setup/marketplace.md. The manifest set at .claude-plugin/,
   .codex-plugin/, .agents/plugins/, plugins/magpie-*/, and the repo-root
   plugin.json / marketplace.json / apm.yml / gemini-extension.json.
   Enforced by tools/dev/check-family-plugins.py.
@@ -54,7 +54,7 @@ the shared `skills/<skill>` tree.
 
 `tools/dev/check-family-plugins.py` is both the generator (`--fix`) and the
 CI gate — the prek hook runs it in `--fix` mode, so the gate corrects drift
-rather than only reporting it. `docs/setup/marketplaces.md` is the
+rather than only reporting it. `docs/setup/marketplace.md` is the
 adopter-facing page.
 
 ## Behaviour & contract

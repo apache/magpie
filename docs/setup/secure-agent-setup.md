@@ -73,7 +73,7 @@
 > invokes these as `/magpie-setup:isolated-setup-install`. On a pinned-snapshot
 > or self-adoption install, use the single token instead —
 > `/magpie-setup-isolated-setup-install`. See
-> [Skill names differ by install method](marketplaces.md#skill-names-differ-by-install-method).
+> [Skill names differ by install method](marketplace.md#skill-names-differ-by-install-method).
 
 **Audience: adopters.** This document walks through every install
 step for the secure agent setup — pinned tool versions, the

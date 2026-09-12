@@ -208,7 +208,7 @@ read that skill's `SKILL.md` and answer from it.
   skills layout and frontmatter convention.
 - [`../setup/agents.md`](../setup/agents.md) — the agent-target
   registry the discovery list mirrors.
-- [`../../docs/setup/marketplaces.md`](../../docs/setup/marketplaces.md)
+- [`../../docs/setup/marketplace.md`](../../docs/setup/marketplace.md)
   — why the invocation name differs between install methods.
 - [`write-skill`](../write-skill/SKILL.md) — sibling skill for
   authoring a new skill. Use it when the listing reveals a gap

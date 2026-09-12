@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Licensed to the Apache Software Foundation (ASF) under one
+  or more contributor license agreements.  See the NOTICE file
+  distributed with this work for additional information
+  regarding copyright ownership.  The ASF licenses this file
+  to you under the Apache License, Version 2.0 (the
+  "License"); you may not use this file except in compliance
+  with the License.  You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing,
+  software distributed under the License is distributed on an
+  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+  KIND, either express or implied.  See the License for the
+  specific language governing permissions and limitations
+  under the License.
+
+  PLACEHOLDER — this is not the real recording.
+
+  Replace it, at this exact path, with a real animated SVG of the
+  magpie-release-management family's FIRST run in an unadopted project:
+
+      tools/dev/record-svg.sh release-management
+
+  The recipe and what the take must show are in assets/quickstart/README.md.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 360"
+     width="1000" height="360" role="img"
+     data-magpie-placeholder="recording pending"
+     aria-label="Placeholder for the magpie-release-management first-run recording — not yet captured">
+  <title>magpie-release-management first run — recording pending</title>
+  <desc>Placeholder standing in for the animated SVG recording of the
+  magpie-release-management family's first run. See assets/quickstart/README.md.</desc>
+
+  <rect width="1000" height="360" rx="10" fill="#1d1f21"/>
+  <rect x="0" y="0" width="1000" height="34" rx="10" fill="#2b2e31"/>
+  <rect x="0" y="24" width="1000" height="10" fill="#2b2e31"/>
+  <circle cx="22" cy="17" r="6" fill="#3f4448"/>
+  <circle cx="44" cy="17" r="6" fill="#3f4448"/>
+  <circle cx="66" cy="17" r="6" fill="#3f4448"/>
+
+  <g font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="20">
+    <text x="40" y="104" fill="#8a8f94">&gt;</text>
+    <text x="68" y="104" fill="#c5c8c6">/magpie-release-management:…</text>
+    <rect x="410" y="86" width="11" height="24" fill="#c5c8c6">
+      <animate attributeName="opacity" values="1;1;0;0;1"
+               dur="1.2s" repeatCount="indefinite"/>
+    </rect>
+
+    <text x="40" y="166" fill="#d8a657" font-size="22">recording pending</text>
+    <text x="40" y="206" fill="#8a8f94" font-size="17">The real take shows the pre-flight stopping on an unadopted project,</text>
+    <text x="40" y="232" fill="#8a8f94" font-size="17">proposing /magpie-setup, and the command working on the retry.</text>
+    <text x="40" y="286" fill="#7f9f7f" font-size="17">To replace it:  tools/dev/record-svg.sh release-management</text>
+    <text x="40" y="312" fill="#6a6f74" font-size="15">recipe and conventions: assets/quickstart/README.md</text>
+  </g>
+</svg>

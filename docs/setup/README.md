@@ -7,6 +7,7 @@
 
 - [Setup skill family](#setup-skill-family)
   - [Install & first runs](#install--first-runs)
+    - [The first run](#the-first-run)
     - [Try these first](#try-these-first)
   - [Security mailing-list configuration](#security-mailing-list-configuration)
   - [Skills](#skills)
@@ -27,7 +28,7 @@
 > **Two ways to install, and they are complementary.** A **marketplace
 > install** puts the skills straight into your agent, per machine, with
 > nothing in the repo — the recommended path, see
-> [`marketplaces.md`](marketplaces.md). The **pinned snapshot install**,
+> [the **Apache Magpie Marketplace**](marketplace.md). The **pinned snapshot install**,
 > `/magpie-setup install`, sets up the gitignored snapshot, the skill
 > symlinks, and the overrides scaffold in the repo so every contributor and CI
 > job runs one committed version; reach for it when your agent has no
@@ -61,11 +62,19 @@ Install just this family — one plugin, 9 skills. Sandbox, clean environment, a
 /plugin install magpie-setup@apache-magpie
 ```
 
-<!-- CAPTURE: assets/quickstart/README.md -->
-![Claude Code showing the magpie-setup plugin installed and enabled](../../assets/quickstart/families/setup-install.png)
+New to Magpie? The [quick start](../quick-start.md) walks the whole path in
+one place — install, the first `/magpie-setup` run, and a recording of it
+happening — plus the other agents and the secure-isolation setup to run next.
 
-New to Magpie? The [quick start](../quick-start.md) covers the other agents,
-the all-in-one alternative, and the secure-isolation setup to run next.
+### The first run
+
+This family is what the other nine defer to. `/magpie-setup` works out how
+Magpie should be wired into the checkout in front of it, prints the plan, and
+waits — the same run the quick start opens with:
+
+![A `/magpie-setup` run in Claude Code: the marketplace install, then the skill detecting the checkout, printing the method and plan it intends to carry out, and waiting for approval before writing anything](../../assets/quickstart/magpie-setup.svg)
+
+Nothing is written before you approve it.
 
 ### Try these first
 
@@ -141,6 +150,10 @@ for the complete rule.
 
 ## Deep documentation
 
+- [**The Apache Magpie Marketplace**](marketplace.md) — the one marketplace
+  the project publishes, and the recommended way to install. Every agent that
+  can add it, per-family vs all-in-one plugins, pinning, updates, and
+  verification status.
 - [**`secure-agent-setup.md`**](secure-agent-setup.md) — full
   install walkthrough. The authoritative reference the
   `setup-isolated-setup-install` skill steps through.
@@ -159,12 +172,12 @@ for the complete rule.
   socket denied) with symptom → root cause → settings.json fix
   for each. The page to grep when a normal-looking operation
   fails in the sandbox in an unexpected way.
-- [**`personal-use-unadopted-repo.md`**](personal-use-unadopted-repo.md) —
-  recipe for using Magpie against a repo that has not adopted the
-  framework: whole-user skill install, one `.gitignore` line,
-  `.apache-magpie-local/` personal config, then run skills as if
-  adopted. No changes to the target repo's committed files (beyond the
-  optional `.gitignore` line) and no opt-in from teammates required.
+- [**Team adoption**](team-adoption.md) — what a repo commits so every
+  contributor arrives with a recommended set: the default plugin set, the
+  shared overrides, and keeping both current. The maintainer half of the pair.
+- [**Individual use**](individual-use.md) — using Magpie on any repo, adopted
+  or not, with nothing committed and nothing asked of teammates. The other
+  half.
 - [**`per-role-mcp-access.md`**](per-role-mcp-access.md) — how to
   enable an MCP server for yourself only (e.g. a release manager
   enabling a Policy MCP, a security triage member enabling a

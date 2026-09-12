@@ -216,12 +216,12 @@ def test_missing_glance_table_is_not_an_error(repo: Path) -> None:
 
 
 def test_matching_total_is_silent(repo: Path) -> None:
-    (repo / "docs" / "setup" / "marketplaces.md").write_text("Installs 2 skills.\n", encoding="utf-8")
+    (repo / "docs" / "setup" / "marketplace.md").write_text("Installs 2 skills.\n", encoding="utf-8")
     assert _errors(mod.check_total_counts, 2) == []
 
 
 def test_every_stale_total_is_reported_not_just_the_first(repo: Path) -> None:
-    (repo / "docs" / "setup" / "marketplaces.md").write_text(
+    (repo / "docs" / "setup" / "marketplace.md").write_text(
         "Installs 71 skills.\nAll 71 skills load.\nThe 71 skills are namespaced.\n", encoding="utf-8"
     )
     errs = _errors(mod.check_total_counts, 74)
@@ -241,7 +241,7 @@ def test_totals_check_reads_only_the_allowlist(repo: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _plugin_table(repo: Path, rows: list[str], *, path: str = "docs/setup/marketplaces.md") -> None:
+def _plugin_table(repo: Path, rows: list[str], *, path: str = "docs/setup/marketplace.md") -> None:
     target = repo / path
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(
@@ -299,7 +299,7 @@ def test_prose_mentioning_a_plugin_is_not_a_table_row(repo: Path) -> None:
     """Only a leading table cell counts — `magpie-security` named mid-sentence,
     or in a bulleted trade-off list, carries no count to check."""
     _skill(repo, "a", "security", "Triage")
-    (repo / "docs" / "setup" / "marketplaces.md").write_text(
+    (repo / "docs" / "setup" / "marketplace.md").write_text(
         "Install `magpie-security` for 12 reasons.\n"
         "- \u2705 `magpie-security` \u2248 3.9k always-on tokens.\n",
         encoding="utf-8",
@@ -417,7 +417,7 @@ def test_eval_fixtures_are_not_scanned(repo: Path) -> None:
 
 
 def test_a_marked_line_may_show_the_stutter(repo: Path) -> None:
-    """marketplaces.md documents the anti-pattern, so it has to print one."""
+    """marketplace.md documents the anti-pattern, so it has to print one."""
     _skill(repo, "security-issue-triage", "security", "Triage")
     (repo / "docs" / "guide.md").write_text(
         f"`/magpie-security:security-issue-triage` says security twice. {mod.STUTTER_ALLOW}\n",
@@ -480,7 +480,7 @@ def test_a_filesystem_path_is_not_an_invocation(repo: Path) -> None:
 def test_allowlisted_pages_may_show_both_forms(repo: Path) -> None:
     _skill(repo, "issue-triage", "issue", "Triage")
     (repo / "docs" / "setup").mkdir(parents=True, exist_ok=True)
-    (repo / "docs" / "setup" / "marketplaces.md").write_text(
+    (repo / "docs" / "setup" / "marketplace.md").write_text(
         "Portable: `/magpie-issue-triage`.\n", encoding="utf-8"
     )
     assert _errors(mod.check_portable_form_is_flagged) == []
@@ -536,7 +536,7 @@ def test_main_exits_1_and_names_every_problem(repo: Path, capsys: pytest.Capture
     _modes(repo, [("Triage", 9)])
     _specs(repo, ["adapters.md"], [], [])
     _dev(repo, ["check-x.sh"], [])
-    (repo / "docs" / "setup" / "marketplaces.md").write_text("Installs 9 skills.\n", encoding="utf-8")
+    (repo / "docs" / "setup" / "marketplace.md").write_text("Installs 9 skills.\n", encoding="utf-8")
 
     assert mod.main() == 1
     err = capsys.readouterr().err
@@ -550,7 +550,7 @@ def test_main_exits_0_on_a_consistent_tree(repo: Path, capsys: pytest.CaptureFix
     _modes(repo, [("Triage", 1)])
     _specs(repo, ["adapters.md"], ["adapters.md"], ["adapters.md"])
     _dev(repo, ["check-x.sh"], ["check-x.sh"])
-    (repo / "docs" / "setup" / "marketplaces.md").write_text("Installs 1 skills.\n", encoding="utf-8")
+    (repo / "docs" / "setup" / "marketplace.md").write_text("Installs 1 skills.\n", encoding="utf-8")
 
     assert mod.main() == 0
     assert "OK" in capsys.readouterr().out

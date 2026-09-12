@@ -81,7 +81,7 @@ behaviour specification.
 | `skills/setup/uninstall.md` (modify) | Removing only the keys setup added |
 | `tools/skill-evals/evals/setup/` (create) | The behavioural test suite for all of the above |
 | `docs/quick-start.md` (modify) | Reader-facing explanation of the optional committed set |
-| `docs/setup/marketplaces.md` (modify) | Reference-side pointer that setup can write the block |
+| `docs/setup/marketplace.md` (modify) | Reference-side pointer that setup can write the block |
 | `tools/spec-loop/specs/adoption-and-setup.md` (modify) | Acceptance criteria |
 
 ---
@@ -890,7 +890,7 @@ Generated-by: Claude Opus 5"
 
 **Files:**
 - Modify: `docs/quick-start.md` — new subsection under `### Claude Code`
-- Modify: `docs/setup/marketplaces.md` — the `### Claude Code: the default set` section
+- Modify: `docs/setup/marketplace.md` — the `### Claude Code: the default set` section
 
 **Interfaces:**
 - Consumes: the behaviour from Tasks 1–4.
@@ -910,7 +910,7 @@ A project can go one step further and commit a small block to its
 `.claude/settings.json` naming the marketplace and three plugins, so anyone who
 clones the repo and trusts it arrives with `magpie-setup`, `magpie-utilities`
 and `magpie-agent-guard` already enabled. `/magpie-setup` offers to write it —
-see [the default set](setup/marketplaces.md#claude-code-the-default-set).
+see [the default set](setup/marketplace.md#claude-code-the-default-set).
 
 **This is entirely optional.** The plugins work in the repo whether or not the
 block is committed, and a project that never commits it is not missing
@@ -918,9 +918,9 @@ anything: the install you just did is complete. It is a convenience for
 teams — nobody has to run the install by hand — not a requirement.
 ```
 
-- [ ] **Step 2: Add the marketplaces.md pointer**
+- [ ] **Step 2: Add the marketplace.md pointer**
 
-In `docs/setup/marketplaces.md`, immediately after the JSON block in
+In `docs/setup/marketplace.md`, immediately after the JSON block in
 `### Claude Code: the default set`, add:
 
 ```markdown
@@ -937,18 +937,18 @@ In `docs/setup/marketplaces.md`, immediately after the JSON block in
 Run:
 
 ```bash
-prek run --files docs/quick-start.md docs/setup/marketplaces.md
+prek run --files docs/quick-start.md docs/setup/marketplace.md
 ```
 
 Expected: all pass. `doctoc` will rewrite both TOCs to include the new
 headings — stage the result. `markdownlint` MD051 will fail if the
-`setup/marketplaces.md#claude-code-the-default-set` anchor is wrong; confirm it
+`setup/marketplace.md#claude-code-the-default-set` anchor is wrong; confirm it
 against the heading text.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add docs/quick-start.md docs/setup/marketplaces.md
+git add docs/quick-start.md docs/setup/marketplace.md
 git commit -m "docs: explain the optional committed default set
 
 Says plainly in both places that committing the block is optional and

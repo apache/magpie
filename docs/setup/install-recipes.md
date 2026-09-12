@@ -5,19 +5,71 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [Install recipes — bootstrap Magpie in an adopter repo](#install-recipes--bootstrap-magpie-in-an-adopter-repo)
-  - [Method 1 — released zip from ASF distribution](#method-1--released-zip-from-asf-distribution)
-  - [Method 2 — git tag](#method-2--git-tag)
-  - [Method 3 — git branch (defaults to `main`)](#method-3--git-branch-defaults-to-main)
-  - [After any recipe — let the skill take over](#after-any-recipe--let-the-skill-take-over)
-  - [Subsequent runs and drift detection](#subsequent-runs-and-drift-detection)
+- [Install recipes](#install-recipes)
+  - [Install from your agent's marketplace — start here](#install-from-your-agents-marketplace--start-here)
+  - [Additional install methods](#additional-install-methods)
+    - [Method 1 — released zip from ASF distribution (offline)](#method-1--released-zip-from-asf-distribution-offline)
+    - [Method 2 — git tag (one pinned version)](#method-2--git-tag-one-pinned-version)
+    - [Method 3 — git branch (development)](#method-3--git-branch-development)
+    - [After any recipe — let the skill take over](#after-any-recipe--let-the-skill-take-over)
+    - [Subsequent runs and drift detection](#subsequent-runs-and-drift-detection)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/legal/release-policy.html -->
 
-# Install recipes — bootstrap Magpie in an adopter repo
+# Install recipes
+
+**Install Magpie from your agent's marketplace.** That is the recommended
+path for almost everyone, it takes two commands, and it is complete for
+day-to-day use. The rest of this page covers the
+[additional install methods](#additional-install-methods) — a development
+path that tracks the framework's `main`, and an offline path that installs
+from the signed ASF release. Reach for those only when one of the narrow
+reasons below applies to you.
+
+---
+
+## Install from your agent's marketplace — start here
+
+```text
+/plugin marketplace add apache/magpie
+/plugin install magpie-setup@apache-magpie
+```
+
+Then add a plugin per family you want — `magpie-pr-management`,
+`magpie-security`, and so on. Nothing is written to your repository and your
+teammates are unaffected; the install is yours, on this machine.
+
+- **Two-command version, with the families explained:**
+  [`quick-start.md`](../quick-start.md).
+- **Full reference** — every agent that can add it, per-family vs
+  all-in-one, pinning, updates, and verification status:
+  [the **Apache Magpie Marketplace**](marketplace.md).
+- **Other agents:** Codex CLI, VS Code / GitHub Copilot and Gemini CLI each
+  have their own one-liner in the quick start.
+
+Skills installed this way are namespaced by the plugin that provides them —
+`/magpie-security:issue-triage`. That is the form used throughout Magpie's
+documentation.
+
+---
+
+## Additional install methods
+
+Everything below installs the framework as a **pinned snapshot in the
+repository** instead. It is more work, it commits state to the project, and
+it is the right answer in exactly three situations:
+
+| You are here because | Method |
+|---|---|
+| **Your agent has no marketplace at all.** The snapshot path is harness-neutral — it wires skills into *any* agent through the universal `.agents/skills/` layout. | any of the three |
+| **You are working on the framework, or want unreleased changes.** Track `main` directly and pick up changes as they land. | [git branch](#method-3--git-branch-development) — the development path |
+| **You need the signed ASF source release**, or you are installing somewhere without access to GitHub. | [released zip](#method-1--released-zip-from-asf-distribution-offline) — the offline path |
+| **The project wants every contributor and CI job pinned to one committed version**, with drift detection and project-specific overrides. | [git tag](#method-2--git-tag-one-pinned-version) |
+
+If none of those describe you, use the marketplace and stop reading here.
 
 > [!IMPORTANT]
 > **Skill names differ on this install.** Installed from the pinned snapshot
@@ -26,22 +78,12 @@
 > is no plugin namespace here; the `magpie-` prefix *is* the namespace, and the
 > name is the skill's directory name. Magpie's other docs show the
 > marketplace form; see
-> [Skill names differ by install method](marketplaces.md#skill-names-differ-by-install-method).
+> [Skill names differ by install method](marketplace.md#skill-names-differ-by-install-method).
 
-Three copy-pasteable shell recipes for fetching the framework
-into a new adopter project's repo. Each recipe is **the
-bootstrap that gets `setup` into the repo**; once it is
-in place, the rest of the adoption (skill-family pick, framework
-symlinks, project doc note, gitignored runtime state) runs
-through `/magpie-setup` interactively.
-
-Pick the recipe that matches your distribution preference:
-
-| Method | When to use | Reproducibility |
-|---|---|---|
-| [**svn-zip**](#method-1--released-zip-from-asf-distribution) | **Recommended for production adopters.** Signed + checksummed zip from the ASF distribution area; `0.1.0` is the current release. | Frozen by version |
-| [**git-tag**](#method-2--git-tag) | Pinning a specific framework version (e.g. for testing a release candidate, or for a cautious adopter who tracks named releases only). | Frozen by tag |
-| [**git-branch**](#method-3--git-branch-defaults-to-main) | WIP path — track the framework's `main` branch directly for the latest unreleased changes. | Tracks branch tip |
+Each recipe below is **the bootstrap that gets `setup` into the repo**; once
+it is in place, the rest of the adoption (skill-family pick, framework
+symlinks, project doc note, gitignored runtime state) runs through
+`/magpie-setup` interactively.
 
 > **Canonical layout — no per-project convention to pick.**
 > `.agents/skills/` is the one canonical home (see
@@ -60,15 +102,22 @@ Pick the recipe that matches your distribution preference:
 
 ---
 
-## Method 1 — released zip from ASF distribution
+### Method 1 — released zip from ASF distribution (offline)
 
-> **Status: recommended.** ASF release distribution
+> **Use this when you need the signed artefact, or have no GitHub access.**
+> ASF release distribution
 > (`https://dist.apache.org/repos/dist/release/magpie/`)
 > is the canonical home for ASF-blessed releases per the
 > [release-policy](https://www.apache.org/legal/release-policy.html)
 > and [infra release-distribution guidelines](https://infra.apache.org/release-distribution.html).
-> Magpie ships there from `0.1.0` onwards, so this is the path
-> production adopters should take.
+> Magpie ships there from `0.1.0` onwards. It is the only method that gives
+> you a signature and checksum to verify before anything lands, and the only
+> one that works from a machine that cannot reach `github.com` — mirror the
+> zip once and install from it anywhere.
+>
+> The **canonical release** of Magpie is this artefact. A marketplace entry
+> is a convenience layer referencing the same released tag, derived from this
+> and not a substitute for it.
 
 ```bash
 # === Magpie bootstrap — Method 1: signed zip from ASF dist ===
@@ -163,7 +212,12 @@ GITIGNORE
 
 ---
 
-## Method 2 — git tag
+### Method 2 — git tag (one pinned version)
+
+> **Use this when the project wants everyone on one committed version.**
+> The tag goes into `.apache-magpie.lock`, which is committed, so every
+> contributor and every CI job installs the same framework version and
+> drift against it is detected on each skill run.
 
 ```bash
 # === Magpie bootstrap — Method 2: pinned git tag ===
@@ -191,9 +245,13 @@ ln -sf ../../.agents/skills/magpie-setup .github/skills/magpie-setup
 
 ---
 
-## Method 3 — git branch (defaults to `main`)
+### Method 3 — git branch (development)
 
-The default WIP path while the framework is pre-release.
+> **Use this when you are working on the framework itself, or want changes
+> that are not in a release yet.** It tracks a branch tip rather than a fixed
+> point, so what you have installed moves as the branch moves — that is the
+> point of it, and the reason it is not the path for a project that wants a
+> reproducible install.
 
 ```bash
 # === Magpie bootstrap — Method 3: git branch (default: main) ===
@@ -218,7 +276,7 @@ ln -sf ../../.agents/skills/magpie-setup .github/skills/magpie-setup
 
 ---
 
-## After any recipe — let the skill take over
+### After any recipe — let the skill take over
 
 Once the recipe completes, `setup` is in your repo and
 the snapshot is on disk (gitignored). Tell your agent:
@@ -252,7 +310,7 @@ After this, adopters fresh-cloning the repo can run
 project's committed `.apache-magpie.lock` — no need to redo
 the manual recipe.
 
-## Subsequent runs and drift detection
+### Subsequent runs and drift detection
 
 Every framework skill — and `/magpie-setup verify` —
 compares the local lock against the committed lock at the top

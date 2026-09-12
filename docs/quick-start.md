@@ -6,15 +6,18 @@
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
 - [Quick start](#quick-start)
-  - [What each family solves](#what-each-family-solves)
   - [Step 1 — install from your agent's marketplace](#step-1--install-from-your-agents-marketplace)
     - [Claude Code](#claude-code)
     - [OpenAI Codex CLI](#openai-codex-cli)
     - [VS Code / GitHub Copilot](#vs-code--github-copilot)
     - [Google Gemini CLI](#google-gemini-cli)
-  - [Step 2 — use it](#step-2--use-it)
+  - [Step 2 — run `/magpie-setup`](#step-2--run-magpie-setup)
+    - [Every skill configures itself on first use](#every-skill-configures-itself-on-first-use)
+  - [Step 3 — use it](#step-3--use-it)
+  - [What each family solves](#what-each-family-solves)
   - [What happens next — the secure isolation setup](#what-happens-next--the-secure-isolation-setup)
-  - [Per user or per project](#per-user-or-per-project)
+  - [Two ways to use Magpie](#two-ways-to-use-magpie)
+    - [Install methods](#install-methods)
     - [Fallback — the pinned snapshot install](#fallback--the-pinned-snapshot-install)
     - [Working on Magpie itself — self-adoption](#working-on-magpie-itself--self-adoption)
   - [Cross-references](#cross-references)
@@ -29,33 +32,15 @@ committed to your repository, and nothing is changed in it.
 
 **This install is yours, on this machine.** It needs no decision from your
 project and no opt-in from your teammates — see
-[per user or per project](#per-user-or-per-project) if you are wondering
+[two ways to use Magpie](#two-ways-to-use-magpie) if you are wondering
 which is which.
 
 **What you get.** 74 skills your agent can run, grouped into 10 **families** —
 PR triage and review, issue triage, security-report handling, release
 management, contributor mentoring. Install only the families you need; each one
-you add costs context in every session.
-
----
-
-## What each family solves
-
-Skills ship in ten **families**. Install the ones that match a problem you have
-today — you are not meant to take all of them.
-
-| Plugin | Skills | The problem it solves | What it offers |
-|---|---|---|---|
-| `magpie-setup` | 9 | Your agent can read every credential on your machine, and you have no way to tell whether it is sandboxed right now. | A filesystem sandbox, a clean-env wrapper, a status line that shows sandbox state, and a red banner before any bypass. Plus install, upgrade, and drift checks. **Take this one.** |
-| `magpie-security` | 15 | Security reports arrive by mail and must be triaged, fixed, and disclosed on a clock — with nothing leaking early. | A 16-step lifecycle: intake from the mailbox, validity triage, canned responses, fix drafting, CVE allocation, advisory and publication. Drafts land in Gmail; nothing is ever sent for you. |
-| `magpie-release-management` | 10 | An ASF release is a long checklist where one missed step invalidates the vote. | RC cut, RC verification (signatures, hashes, LICENSE/NOTICE, no stray binaries), the `[VOTE]` thread, the tally, promotion, `[ANNOUNCE]`, archive sweep, audit log. The agent never holds your signing key and never publishes. |
-| `magpie-pr-management` | 8 | The PR queue grows faster than you can read it, and the oldest ones quietly rot. | Queue triage into ready / needs-review / waiting-on-author, deep code review with blocking vs non-blocking findings, reviewer routing, express-lane merge, stale sweep, and queue statistics. |
-| `magpie-issue` | 8 | A backlog full of duplicates, unreproducible reports, and issues nobody has read in a year. | Triage with proposed labels, duplicate clustering, reproduction attempts across versions, fix drafting, reassessment of old issues, stale sweep, and backlog stats. |
-| `magpie-repo-health` | 7 | Slow rot you only notice when it breaks: vulnerable deps, unpinned actions, licence drift, flaky tests. | Read-only audits for dependency CVEs, dependency licences, LICENSE/NOTICE compliance, Actions workflow security, obsolete runner labels, and flaky-test patterns — plus a skill that fixes what they find. |
-| `magpie-contributor-growth` | 6 | Contributors who have earned committership go unnoticed because nobody is tracking the signal. | Activity sweeps against a review threshold, readiness tracking, sentiment signals, nomination briefs for the PMC, and committer / post-vote onboarding checklists. |
-| `magpie-utilities` | 5 | You want to write your own skills, or find out what is actually installed. | Skill authoring and restructuring, a state reconciler, a live index of installed skills, and a path to report framework bugs upstream. |
-| `magpie-mentoring` | 4 | Newcomers open one PR, hit a wall of unwritten conventions, and never come back. | First-contact welcome comments, plain-language explanations of an issue for someone new, good-first-issue authoring, and a sweep that keeps that backlog honest. |
-| `magpie-pairing` | 2 | You want the obvious problems found before a reviewer spends their time on them. | A structured self-review of your own diff, and a multi-agent adversarial review that verifies its findings before reporting them. |
+you add costs context in every session —
+[what each family solves](#what-each-family-solves) lists all ten, after the
+install steps.
 
 ---
 
@@ -81,7 +66,8 @@ Add the rest to match a problem you have today; you can install more at any
 time.
 
 Pick your families from
-[What each family solves](#what-each-family-solves) above.
+[What each family solves](#what-each-family-solves) below — the ten of them,
+with the problem each one solves.
 
 Each family's README opens with an **Install & first runs** section — the one
 command for that family and a few things to try once it is in:
@@ -96,9 +82,6 @@ command for that family and a few things to try once it is in:
 [mentoring](mentoring/README.md#install--first-runs) ·
 [pairing](pairing/README.md#install--first-runs)
 
-<!-- CAPTURE: assets/quickstart/README.md -->
-![Claude Code after installing two family plugins — `magpie-setup` and `magpie-pr-management` listed as installed and enabled](../assets/quickstart/claude-code-install.png)
-
 #### Optional: commit a default set for your teammates
 
 Everything above installs Magpie for **you, on this machine** — nothing is
@@ -108,7 +91,7 @@ A project can go one step further and commit a small block to its
 `.claude/settings.json` naming the marketplace and three plugins, so anyone who
 clones the repo and trusts it arrives with `magpie-setup`, `magpie-utilities`
 and `magpie-agent-guard` already enabled. `/magpie-setup` offers to write it —
-see [the default set](setup/marketplaces.md#claude-code-the-default-set).
+see [the default set](setup/marketplace.md#claude-code-the-default-set).
 
 **This is entirely optional.** The plugins work in the repo whether or not the
 block is committed, and a project that never commits it is not missing
@@ -122,9 +105,6 @@ codex plugin marketplace add apache/magpie
 codex plugin install magpie
 ```
 
-<!-- CAPTURE: assets/quickstart/README.md -->
-![Codex CLI `/plugins` output listing magpie as an installed plugin](../assets/quickstart/codex-install.png)
-
 ### VS Code / GitHub Copilot
 
 Point VS Code's plugin install at the repository URL — it clones the repo
@@ -136,10 +116,7 @@ https://github.com/apache/magpie
 ```
 
 This path is not yet live-installed against a running VS Code — see
-[Verification status](setup/marketplaces.md#verification-status).
-
-<!-- CAPTURE: assets/quickstart/README.md -->
-![VS Code plugin view showing Apache Magpie installed from the repository URL](../assets/quickstart/vscode-install.png)
+[Verification status](setup/marketplace.md#verification-status).
 
 ### Google Gemini CLI
 
@@ -148,12 +125,7 @@ gemini extensions install https://github.com/apache/magpie
 ```
 
 This path is not yet live-installed either — see
-[Verification status](setup/marketplaces.md#verification-status).
-
-After installation, continue with the [secure isolation setup](#what-happens-next--the-secure-isolation-setup) for your runtime.
-
-<!-- CAPTURE: assets/quickstart/README.md -->
-![Terminal output of `gemini extensions list` showing the magpie extension installed](../assets/quickstart/gemini-install.png)
+[Verification status](setup/marketplace.md#verification-status).
 
 > [!IMPORTANT]
 > **The all-in-one `magpie` plugin is not recommended** unless you genuinely
@@ -162,7 +134,7 @@ After installation, continue with the [secure isolation setup](#what-happens-nex
 > skill that turn — against 0.2–2.0k for a family you picked on purpose.
 > Reach for it only when you really do need all ten families, or on Windows
 > without symlink support (per-family plugins rely on git symlinks; see the
-> [Windows note](setup/marketplaces.md#choosing-a-plugin-all-in-one-vs-per-family)).
+> [Windows note](setup/marketplace.md#choosing-a-plugin-all-in-one-vs-per-family)).
 
 > [!TIP]
 > **Working in IntelliJ IDEA, PyCharm or another JetBrains IDE?** There is
@@ -173,19 +145,69 @@ After installation, continue with the [secure isolation setup](#what-happens-nex
 > And you only do it once: plugin state lives in a single user-scope store, so
 > a marketplace added in the terminal is already there in the IDE. Details, and
 > why JetBrains' own agent Junie is a separate matter, in
-> [marketplaces.md](setup/marketplaces.md#jetbrains-ides-intellij-idea-pycharm-goland-).
+> [the Apache Magpie Marketplace](setup/marketplace.md#jetbrains-ides-intellij-idea-pycharm-goland-).
 
 > [!NOTE]
 > **Per-family plugins are Claude Code-only** today, for the packaging reason
 > recorded in
-> [marketplaces.md](setup/marketplaces.md#choosing-a-plugin-all-in-one-vs-per-family).
+> [the Apache Magpie Marketplace](setup/marketplace.md#choosing-a-plugin-all-in-one-vs-per-family).
 > The three agents above can install only the all-in-one `magpie` plugin — so
 > on those, the ~8.6k always-on cost is currently the price of entry. Cursor,
 > Kiro, OpenCode, and `microsoft/apm` are covered there too.
 
 ---
 
-## Step 2 — use it
+## Step 2 — run `/magpie-setup`
+
+The marketplace install above is complete on its own: the skills are in your
+agent and you can start using them. `/magpie-setup` is what you run next when
+you want Magpie wired into a **project** rather than only into your own agent —
+a committed version pin, project config, overrides, or the optional default set
+for your teammates.
+
+One command. It works out which method fits this checkout, prints the plan it
+intends to carry out, and waits:
+
+```text
+/magpie-setup
+```
+
+![A `/magpie-setup` run in Claude Code: the marketplace install, then the skill detecting the checkout, printing the method and plan it intends to carry out, and waiting for approval before writing anything](../assets/quickstart/magpie-setup.svg)
+
+Nothing is written before you approve it. Afterwards, `/magpie-setup verify`
+re-runs the health check and drift detection, and `/magpie-setup:status`
+prints what is currently installed.
+
+Not sure you need this step? [Two ways to use Magpie](#two-ways-to-use-magpie)
+draws the line.
+
+### Every skill configures itself on first use
+
+You do not have to remember which projects are set up, or run anything to
+prepare a family before you use it. **65 of the 74 skills open with a silent
+pre-flight** — the nine exceptions are the setup skills themselves, which are
+what you run to fix whatever it finds.
+
+The first time you call a skill in a project, that pre-flight works out how
+Magpie is installed here and whether this project is adopted. If anything is
+unresolved it **stops and proposes `/magpie-setup`** rather than guessing:
+
+- a pinned-snapshot project whose snapshot was never fetched on this machine,
+  or that is on a different framework version than the project pins;
+- a marketplace install in a project with no `<project-config>/` directory,
+  where every `<placeholder>` in the skill is unresolved.
+
+The alternative to stopping is a skill that runs against the wrong tracker, so
+it stops. Once the project is set up the check costs three file checks and
+prints nothing, on every invocation thereafter.
+
+Each family's README opens with a recording of exactly this — its own first
+run, pre-flight and all. [What each family solves](#what-each-family-solves)
+links to all ten.
+
+---
+
+## Step 3 — use it
 
 Ask in plain language:
 
@@ -207,26 +229,37 @@ everything that is installed.
 
 ---
 
+## What each family solves
+
+Skills ship in ten **families**. Install the ones that match a problem you have
+today — you are not meant to take all of them.
+
+| Plugin | Skills | The problem it solves | What it offers |
+|---|---|---|---|
+| `magpie-setup` | 9 | Your agent can read every credential on your machine, and you have no way to tell whether it is sandboxed right now. | A filesystem sandbox, a clean-env wrapper, a status line that shows sandbox state, and a red banner before any bypass. Plus install, upgrade, and drift checks. **Take this one.** |
+| `magpie-security` | 15 | Security reports arrive by mail and must be triaged, fixed, and disclosed on a clock — with nothing leaking early. | A 16-step lifecycle: intake from the mailbox, validity triage, canned responses, fix drafting, CVE allocation, advisory and publication. Drafts land in Gmail; nothing is ever sent for you. |
+| `magpie-release-management` | 10 | An ASF release is a long checklist where one missed step invalidates the vote. | RC cut, RC verification (signatures, hashes, LICENSE/NOTICE, no stray binaries), the `[VOTE]` thread, the tally, promotion, `[ANNOUNCE]`, archive sweep, audit log. The agent never holds your signing key and never publishes. |
+| `magpie-pr-management` | 8 | The PR queue grows faster than you can read it, and the oldest ones quietly rot. | Queue triage into ready / needs-review / waiting-on-author, deep code review with blocking vs non-blocking findings, reviewer routing, express-lane merge, stale sweep, and queue statistics. |
+| `magpie-issue` | 8 | A backlog full of duplicates, unreproducible reports, and issues nobody has read in a year. | Triage with proposed labels, duplicate clustering, reproduction attempts across versions, fix drafting, reassessment of old issues, stale sweep, and backlog stats. |
+| `magpie-repo-health` | 7 | Slow rot you only notice when it breaks: vulnerable deps, unpinned actions, licence drift, flaky tests. | Read-only audits for dependency CVEs, dependency licences, LICENSE/NOTICE compliance, Actions workflow security, obsolete runner labels, and flaky-test patterns — plus a skill that fixes what they find. |
+| `magpie-contributor-growth` | 6 | Contributors who have earned committership go unnoticed because nobody is tracking the signal. | Activity sweeps against a review threshold, readiness tracking, sentiment signals, nomination briefs for the PMC, and committer / post-vote onboarding checklists. |
+| `magpie-utilities` | 5 | You want to write your own skills, or find out what is actually installed. | Skill authoring and restructuring, a state reconciler, a live index of installed skills, and a path to report framework bugs upstream. |
+| `magpie-mentoring` | 4 | Newcomers open one PR, hit a wall of unwritten conventions, and never come back. | First-contact welcome comments, plain-language explanations of an issue for someone new, good-first-issue authoring, and a sweep that keeps that backlog honest. |
+| `magpie-pairing` | 2 | You want the obvious problems found before a reviewer spends their time on them. | A structured self-review of your own diff, and a multi-agent adversarial review that verifies its findings before reporting them. |
+
+---
+
 ## What happens next — the secure isolation setup
 
 Magpie's skills read issues, pre-disclosure security reports, and private
-mailing lists. After installing skills, configure the isolation and approval controls for your runtime.
-Plugin or extension installation and host security configuration are separate steps:
-
-| Runtime | Next step |
-|---|---|
-| Claude Code | Run the guided isolation install below. |
-| Codex CLI | Follow the [Codex setup lifecycle](adapters/codex.md#setup-isolated-lifecycle). |
-| Gemini CLI | Ask `Use the magpie-setup-isolated-setup-install skill.` See the [Gemini setup lifecycle](adapters/gemini.md#setup-isolated-lifecycle). |
-| Other runtimes | Check the [secure setup guide](setup/secure-agent-setup.md) and your runtime's adapter for supported controls. |
-
-For Claude Code, start the guided install:
+mailing lists. So the first skill worth running is the one that locks the
+agent down:
 
 ```text
 /magpie-setup:isolated-setup-install
 ```
 
-The Claude Code path walks you through the install interactively and surfaces every sudo,
+It walks you through the install interactively and surfaces every sudo,
 shell-rc, and settings-file change for approval before applying it. When it
 finishes, your agent runs with:
 
@@ -249,17 +282,44 @@ Why each layer exists: [`setup/secure-agent-internals.md`](setup/secure-agent-in
 
 ---
 
-## Per user or per project
+## Two ways to use Magpie
 
-The marketplace install above is the recommended path, and it is complete —
-you can stay on it indefinitely, including
-[on a repo that has not adopted Magpie](setup/personal-use-unadopted-repo.md)
-or [on a team where only some people use it](setup/mixed-adoption-teams.md).
+What you did above is **install** it: the marketplace and the plugins went into
+your agent, and nothing was written to any repository. That install is complete
+on its own, and it is all most people ever need.
+
+From here the two ways to use it differ in one thing only — whether anything is
+committed for other people.
+
+| | [**Individual use**](setup/individual-use.md) | [**Team adoption**](setup/team-adoption.md) |
+|---|---|---|
+| Who decides | You | The repo's maintainers |
+| What it commits | Nothing | The default plugin set, and the repo's shared overrides |
+| Which repos | Any — adopted or not, whether or not your teammates use Magpie | The one repo, for everyone who clones it |
+| What a teammate sees | Nothing at all | The default families already enabled on arrival |
+| Undone by | You, any time | A maintainer, via a PR |
+
+**Individual use is the default, and it is not a waiting room.** You can work
+this way indefinitely, on a repo whose maintainers have never heard of Magpie.
+Nothing on this page asks the project for permission.
+
+**Adoption is a recommendation, not a restriction.** A repo that has adopted
+Magpie gives contributors a sensible floor on clone — it never limits what
+anyone may install for themselves, and it never obliges a contributor to use
+what it recommends.
+
+Neither one is an install method. Installing is what you already did; these are
+what you do with it.
+
+### Install methods
+
+Separately from the above, the framework can *reach* your agent by more than
+one route:
 
 | | Who installs it | What it touches |
 |---|---|---|
 | **Marketplace install** (above) | You, per machine | Your agent. Nothing in the repo. |
-| **Pinned snapshot install** | The project, once | A committed version pin, project config, and overrides in the repo. |
+| **Pinned snapshot install** | The project, once | A committed version pin and a gitignored snapshot in the repo. |
 | **Self-adoption** (`method:local`) | The Magpie checkout itself | Committed symlinks onto the repo's own `skills/`. |
 
 ### Fallback — the pinned snapshot install
@@ -283,7 +343,7 @@ repo, and wires the skills into *any* agent through `.agents/skills/`:
 `/magpie-security-issue-triage`, the skill's directory name — not
 `/magpie-security:issue-triage`. There is no plugin namespace; the `magpie-`
 prefix is the namespace. See
-[Skill names differ by install method](setup/marketplaces.md#skill-names-differ-by-install-method).
+[Skill names differ by install method](setup/marketplace.md#skill-names-differ-by-install-method).
 
 → [`setup/install-recipes.md`](setup/install-recipes.md) has the
 copy-pasteable bootstrap. The two are complementary, not exclusive: pin the
@@ -313,8 +373,8 @@ Self-adoption uses the **same single-token names as the snapshot install** —
 ## Cross-references
 
 - [`docs/index.md`](index.md) — what Magpie is and which skill families exist.
-- [`docs/setup/marketplaces.md`](setup/marketplaces.md) — the full
-  marketplace reference: all agents, per-family plugins, versioning.
+- [**The Apache Magpie Marketplace**](setup/marketplace.md) — the full
+  reference: every agent that can add it, per-family plugins, versioning.
 - [`docs/prerequisites.md`](prerequisites.md) — what individual skills need
   (GitHub auth, Gmail MCP, browser).
 - [`docs/setup/README.md`](setup/README.md) — the setup skill family.

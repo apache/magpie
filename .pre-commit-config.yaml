@@ -341,11 +341,11 @@ repos:
   # documented interim state, so they are reported, not failed.
   - repo: local
     hooks:
-      - id: check-quickstart-screenshots
-        name: check-quickstart-screenshots (harness/family shots vs manifests)
+      - id: check-quickstart-recording
+        name: check-quickstart-recording (setup, first-run and example SVGs)
         language: system
-        entry: python3 tools/dev/check-quickstart-screenshots.py
-        files: ^(assets/quickstart/.*|skills/[^/]+/SKILL\.md|tools/dev/capture-screenshot\.sh|\.claude-plugin/marketplace\.json|\.agents/plugins/marketplace\.json|marketplace\.json|gemini-extension\.json)$
+        entry: python3 tools/dev/check-quickstart-recording.py
+        files: ^(assets/(quickstart|examples)/.*|docs/.*\.md|README\.md|plugins/.*|skills/[^/]+/SKILL\.md|tools/dev/record-svg\.sh)$
         pass_filenames: false
   # Documentation claims that must track the tree. Four mechanical checks,
   # each added after the drift it catches was found by hand:
@@ -358,7 +358,7 @@ repos:
   #     `mode:` frontmatter (the validator's modes-doc rule checks section
   #     membership but reads only the mode and status columns, so the counts
   #     were unguarded);
-  #   - bare "N skills" totals in docs/setup/marketplaces.md match the
+  #   - bare "N skills" totals in docs/setup/marketplace.md match the
   #     catalogue;
   #   - every script in tools/dev/ is named in tools/dev/README.md — these are
   #     the framework's own gates, and an undocumented one is invisible to the
@@ -372,7 +372,7 @@ repos:
         name: check-doc-sync (spec indexes + declared skill counts)
         language: system
         entry: python3 tools/dev/check-doc-sync.py
-        files: ^(skills/[^/]+/SKILL\.md|tools/spec-loop/specs/.*\.md|README\.md|docs/modes\.md|docs/setup/marketplaces\.md|tools/dev/.*)$
+        files: ^(skills/[^/]+/SKILL\.md|tools/spec-loop/specs/.*\.md|README\.md|docs/modes\.md|docs/setup/marketplace\.md|tools/dev/.*)$
         pass_filenames: false
   # Workspace-membership guard. The single source of truth for
   # which Python projects get pre-commit hooks + the CI pytest

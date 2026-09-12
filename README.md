@@ -88,7 +88,7 @@ or skill calls starting with a slash, like
 > /magpie-repo-health:dependency-audit
 
 (the family-plugin form, assuming the recommended marketplace install above —
-see [Skill names differ by install method](docs/setup/marketplaces.md#skill-names-differ-by-install-method)
+see [Skill names differ by install method](docs/setup/marketplace.md#skill-names-differ-by-install-method)
 if you're on the pinned-snapshot fallback instead).
 
 ## Update / maintain

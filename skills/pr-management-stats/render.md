@@ -392,7 +392,7 @@ The "What needs attention" panel is built from this fixed rule set, evaluated in
 **Skill names here are the marketplace form** (`/magpie-pr-management:<alias>`). On
 the pinned-snapshot install, translate to the single token
 `/magpie-pr-management-<skill>` — see
-[Skill names differ by install method](../../docs/setup/marketplaces.md#skill-names-differ-by-install-method).
+[Skill names differ by install method](../../docs/setup/marketplace.md#skill-names-differ-by-install-method).
 
 | # | Trigger | Priority | Icon | Title template | Detail template | Action |
 |---|---|---|---|---|---|---|

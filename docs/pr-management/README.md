@@ -7,6 +7,7 @@
 
 - [PR management skill family](#pr-management-skill-family)
   - [Install & first runs](#install--first-runs)
+    - [The first run](#the-first-run)
     - [Try these first](#try-these-first)
   - [Skills](#skills)
   - [Adopter contract](#adopter-contract)
@@ -78,11 +79,21 @@ Install just this family — one plugin, 8 skills. Maintainer-facing PR-queue ma
 /plugin install magpie-pr-management@apache-magpie
 ```
 
-<!-- CAPTURE: assets/quickstart/README.md -->
-![Claude Code showing the magpie-pr-management plugin installed and enabled](../../assets/quickstart/families/pr-management-install.png)
+New to Magpie? The [quick start](../quick-start.md) walks the whole path in
+one place — install, the first `/magpie-setup` run, and a recording of it
+happening — plus the other agents and the secure-isolation setup to run next.
 
-New to Magpie? The [quick start](../quick-start.md) covers the other agents,
-the all-in-one alternative, and the secure-isolation setup to run next.
+### The first run
+
+The first time you call a skill in this family it checks whether the project is
+set up, before it does anything else. On a project that has not been adopted it
+stops right there and proposes `/magpie-setup`, rather than acting on
+placeholders it cannot resolve:
+
+![The magpie-pr-management family's first run — the skill's pre-flight finds no project config, stops and proposes /magpie-setup, then the same command succeeds on the retry](../../assets/quickstart/families/pr-management-first-run.svg)
+
+That check is silent once the project is set up: it costs three file checks and
+prints nothing.
 
 ### Try these first
 

@@ -21,7 +21,7 @@
     - [What the wizard does](#what-the-wizard-does)
   - [Subsystem C — documentation and screenshots](#subsystem-c--documentation-and-screenshots)
     - [Prose](#prose)
-    - [The screenshot set: 14 to 25](#the-screenshot-set-14-to-25)
+    - [The screenshot set: 14 to 25 to 1 — superseded](#the-screenshot-set-14-to-25-to-1--superseded)
   - [Sequencing](#sequencing)
   - [Acceptance criteria](#acceptance-criteria)
   - [Alternatives considered](#alternatives-considered)
@@ -49,7 +49,7 @@ root cause:
 1. **The default plugin set is documentation only.** The
    `extraKnownMarketplaces` + `enabledPlugins` block that lets a contributor
    arrive Magpie-ready exists as copy-paste JSON in
-   [`docs/setup/marketplaces.md`](../setup/marketplaces.md). No code path
+   [`docs/setup/marketplace.md`](../setup/marketplace.md). No code path
    writes it, so a maintainer either transcribes it by hand or never learns it
    exists.
 2. **The config store is never created on the default path.** The 40 template
@@ -280,29 +280,49 @@ Further contract points:
   Step 1 describing the optional committed default set, led by the
   optional-not-required framing, and a first-run wizard shot in *What happens
   next*.
-- **[`docs/setup/marketplaces.md`](../setup/marketplaces.md)** — the
+- **[`docs/setup/marketplace.md`](../setup/marketplace.md)** — the
   `Claude Code: the default set` section gains a pointer that setup will write
   the block on request, with the same optionality framing, and finally carries
   `claude-code-default-install.png`.
-- **Family READMEs** each gain a wizard screenshot beside their existing
-  install shot.
+- **Family READMEs** link to the quick start's walkthrough rather than
+  carrying install or wizard shots of their own.
 
-### The screenshot set: 14 to 25
+### The screenshot set: 14 to 25 to 1 — superseded
 
-| Added | Count |
-|---|---|
-| `assets/quickstart/families/<family>-wizard.png` | 10 |
-| `assets/quickstart/first-run-wizard.png` | 1 |
-| `assets/quickstart/claude-code-default-install.png` (already documented as optional) | 1 |
+This section originally planned to grow the still set from fourteen to
+twenty-five: ten `<family>-wizard.png`, a `first-run-wizard.png`, and the
+already-optional `claude-code-default-install.png`.
 
-`tools/dev/capture-screenshot.sh` gains `<family>-wizard` targets with their own
-briefs. `tools/dev/check-quickstart-screenshots.py` extends to expect the new
-paths, and its family-geometry consistency rule applies **per set** — wizard
-shots are checked against each other, not against the install shots, since the
-two sets are captured in different sittings. `assets/quickstart/README.md`
-documents what each wizard shot must frame.
+**That plan was dropped and the existing fourteen were deleted with it.**
+Twenty-five stills of a plugin list is twenty-five things that go stale the
+next time the `/plugin` UI moves, and not one of them showed the framework
+doing anything — the wizard shots would have been the second set of stills
+standing in for a thing that moves.
 
-Wizard shots can only be captured once B ships.
+What replaced all of it: **ten animated SVGs**, one per page that needs to
+show Magpie running. `assets/quickstart/magpie-setup.svg` records a real
+`/magpie-setup` run, from the marketplace install through the plan-and-approve
+prompt, and is embedded at Step 2 of
+[`docs/quick-start.md`](../quick-start.md). The nine
+`assets/quickstart/families/<family>-first-run.svg` record each family's
+*first* run — the pre-flight finding no project config, stopping to propose
+`/magpie-setup`, and the command succeeding on the retry. The setup family
+gets none of its own: its first run *is* the quick-start recording.
+
+That arc is what the wizard shots were groping for, and it is the thing a
+still frame structurally cannot show. The quick start also gained a section
+stating the rule directly — 65 of the 74 skills open with that pre-flight.
+
+`tools/dev/capture-screenshot.sh` and
+`tools/dev/check-quickstart-screenshots.py` were retired for
+`tools/dev/record-svg.sh` (asciinema + `svg-term-cli`, with the Apache header
+prepended) and `tools/dev/check-quickstart-recording.py` (family-list drift,
+orphans, parse, licence header, size cap, embedded-by-the-docs, and a guard
+against anything referencing the retired PNG stills).
+`assets/quickstart/README.md` carries the recipe and the SVG-over-GIF
+reasoning.
+
+The recording can only be made once B ships, since it records B running.
 
 ## Sequencing
 

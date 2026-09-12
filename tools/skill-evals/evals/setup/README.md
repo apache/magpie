@@ -14,8 +14,8 @@ Behavioral evals for the `setup` skill.
 | uninstall-default-set | uninstall.md § Committed default set | 2 | committed block is exactly the floor (all three removed, nothing kept), a mixed block with other Magpie and other-vendor plugins (only the floor removed, everything else kept) |
 | step-overrides-surface | overrides.md § Step 0b | 4 | adopted no flag (offer choice), --local flag (personal), not adopted (personal only), both surfaces exist |
 | step-override-bypass | agentic-overrides.md § One-shot defaults run | 3 | `--no-overrides` flag + override exists, `--no-overrides` + no override, no flag + override exists |
-| step-m5-repo-artefacts | install.md § Step M5 — Recap and what comes next | 4 | Claude Code fresh install (offer made, defaults to no), Codex (no offer), Gemini (no offer), Claude Code where the offer was already declined (still a finished install) |
-| step-m5-settings-merge | install.md § Merge rules | 5 | no `.claude/settings.json` (create), file with unrelated keys (merge, preserve them), existing `enabledPlugins` with non-floor and non-Magpie entries (add only the missing floor members, remove nothing), existing pinned `apache-magpie` marketplace definition (left alone), malformed JSON (refuse, never rewrite) |
+| step-m5-no-repo-offer | install.md § Step M5 — Recap and what comes next | 4 | An install writes nothing repo-side on any harness and is complete as it stands: Claude Code fresh, Codex, Gemini (no offer in any of them), plus the one case where adoption legitimately comes up — the user asked for the team to get it on clone |
+| step-adopt-settings-merge | adopt.md § Merge rules | 5 | no `.claude/settings.json` (create), file with unrelated keys (merge, preserve them), existing `enabledPlugins` with non-floor and non-Magpie entries (add only the missing floor members, remove nothing), existing pinned `apache-magpie` marketplace definition (left alone), malformed JSON (refuse, never rewrite) |
 
 ## Run
 

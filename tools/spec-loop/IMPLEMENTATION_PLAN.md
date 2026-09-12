@@ -180,7 +180,7 @@ slugs, not numbers (numbering implies an order the specs don't carry).
    documented path.
    Validation:
    ```bash
-   test -f docs/setup/personal-use-unadopted-repo.md
+   test -f docs/setup/individual-use.md
    ```
    Spec: [`specs/adoption-and-setup.md`](specs/adoption-and-setup.md).
    Branch `howto-personal-use-unadopted-repo`.
@@ -205,7 +205,7 @@ slugs, not numbers (numbering implies an order the specs don't carry).
    own gap rather than papering over it in the doc.
    Validation:
    ```bash
-   test -f docs/setup/mixed-adoption-teams.md
+   test -f docs/setup/team-adoption.md
    ```
    Spec: [`specs/adoption-and-setup.md`](specs/adoption-and-setup.md).
    Branch `howto-mixed-adoption-teams`.

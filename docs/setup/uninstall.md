@@ -33,7 +33,7 @@
 > is no plugin namespace here; the `magpie-` prefix *is* the namespace, and the
 > name is the skill's directory name. Magpie's other docs show the
 > marketplace form; see
-> [Skill names differ by install method](marketplaces.md#skill-names-differ-by-install-method).
+> [Skill names differ by install method](marketplace.md#skill-names-differ-by-install-method).
 
 If your project has decided to stop using Magpie,
 or the adoption was experimental and is now over, this

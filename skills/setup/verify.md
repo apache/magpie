@@ -67,7 +67,7 @@ its lifecycle. Report, do not remediate.
    (marketplace update, then plugin update) — a plugin compares
    **version strings**, so a stale marketplace clone reports
    "already at the latest" indefinitely
-   ([`marketplaces.md`](../../docs/setup/marketplaces.md#automatic-upgrade-detection)).
+   ([`marketplace.md`](../../docs/setup/marketplace.md#automatic-upgrade-detection)).
 4. **No half-snapshot left behind.** ⚠ if `.apache-magpie/`,
    `.apache-magpie.local.lock`, or any `magpie-*` symlink exists
    without a committed lock — a snapshot install was started and
@@ -851,7 +851,7 @@ this repo.
   drift, typically produced by a framework release that changed the
   floor. Name the missing members — the floor entries above that are not
   present, listed in floor order — and offer to add them under the merge
-  rules in [`install.md`](install.md#merge-rules).
+  rules in [`install.md`](adopt.md#merge-rules).
 - **A member naming a plugin the marketplace no longer ships** — ✗, same
   treatment as drift. Offer to drop that entry.
 
