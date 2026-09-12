@@ -175,7 +175,7 @@ Codex CLI:
 
 ```bash
 codex plugin marketplace add apache/magpie
-codex plugin install magpie
+codex plugin add magpie@apache-magpie
 ```
 
 Gemini CLI:
