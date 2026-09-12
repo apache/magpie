@@ -99,6 +99,14 @@ is listed here for navigability since its domain is PR threads.
   `[E]` and `[P]NN` preserve that position and denominator across skipped,
   pending, and pulled-out rows; a changed head advances the transition to
   `re-classify → propose <action>` after live state is refreshed.
+- **Active-maintainer cooldown spans every feedback surface.**
+  `pr-management-triage` steps back from a PR whose most recent feedback —
+  a general comment, a review-thread comment, or a submitted top-level review
+  whose body is non-empty after stripping whitespace — came from a maintainer,
+  was posted after the latest author push, and is less than 72 hours old.
+  Regression cases:
+  `tools/skill-evals/evals/pr-management-triage/pre-filter/fixtures/case-11`
+  … `case-21`.
 - **Quick-merge never merges.** `pr-management-quick-merge` surfaces
   candidates and the maintainer runs the exact `gh pr merge` command
   themselves. Automated merge belongs to a future Auto-merge mode that is

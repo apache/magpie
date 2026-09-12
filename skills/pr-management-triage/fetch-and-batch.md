@@ -104,6 +104,7 @@ query(
             author { login }
             authorAssociation
             submittedAt
+            body
           }
         }
         comments(last: 10) {
@@ -154,7 +155,10 @@ pick action). Nothing here is speculative:
 - `reviewThreads` (unresolved + reviewer login) → unresolved-
   thread count + ping targets
 - `latestReviews` → stale `CHANGES_REQUESTED` detection and
-  `has_collaborator_review` flag (extended grace period)
+  `has_collaborator_review` flag (extended grace period);
+  `submittedAt` + non-whitespace `body` → F5a cooldown;
+  review replies → F5b/F5c reply detection (no body requirement);
+  non-empty review body → F6 co-drafting check.
 - `body` → the `pr-triage-fold` managed block (the body-fold
   feedback channel, default `triage_feedback_channel: pr-body`).
   Read for "already triaged" detection when the feedback lives in

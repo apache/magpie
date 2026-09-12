@@ -81,14 +81,21 @@ Note on rows 19/20: `mergeable == UNKNOWN` means GitHub has not
 finished computing mergeability. It is **not** the same as "no
 conflict" — treat it as undetermined and let row 22 handle it.
 
+Row 7b's `comment` asks the contributor to neutralise the security wording
+or confirm that CVE disclosure is complete, as specified in the production
+decision table. Identifying a security term alone does not describe this action.
+
 ## Output
 
 Return ONLY valid JSON with this structure:
 {
   "classification": "<classification string, or null for rows that produce no classification>",
   "action": "<action string from the table>",
-  "reason": "<one sentence citing the deciding row and the key condition that matched>"
+  "reason": "<one sentence citing the deciding row, the key condition and the intended effect of the action>"
 }
+
+When a prior triage marker is present but does not apply, explain why it
+does not suppress re-classification as well as why the current row matches.
 
 Use `null` for `classification` when the matched row has no classification (rows 22, 14b for `awaiting_author_confirmation` use their listed value; row 22 uses `null`).
 Do not include any text outside the JSON object.

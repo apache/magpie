@@ -140,7 +140,7 @@ Session block template (Markdown):
 | F2 bot | N |
 | F3 active draft (≤14d) | N |
 | F4 already-ready-no-regression | N |
-| F5a recent maintainer comment | N |
+| F5a recent maintainer feedback | N |
 | F5b unanswered maintainer-to-maintainer ping | N |
 | F6 maintainer co-drafted | N |
 

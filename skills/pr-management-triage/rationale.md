@@ -29,7 +29,7 @@ signal in the decision table. Three cases, same underlying
 principle: do not let the triage skill talk over — or pre-empt —
 a human conversation that needs a human's next move.
 
-### F5a — 72-hour cooldown after a collaborator comment
+### F5a — 72-hour cooldown after collaborator feedback
 
 When a maintainer just engaged with the PR, the author deserves
 at least three days to read, think, and reply before the triage
@@ -50,6 +50,14 @@ Cost asymmetry: a missed auto-action on one of these PRs is one
 extra day of queue presence. An auto-action that talks over a
 maintainer is a contributor reading the project as chaotic. Prefer
 the former.
+
+A maintainer may leave feedback in a general comment, an inline
+comment, or a submitted review body with no inline thread. All three
+need the same cooldown; omitting the last source caused
+[#78](https://github.com/apache/magpie/issues/78). The latest feedback
+across those sources decides, so a later author response releases
+the cooldown. The exact source, body and timestamp conditions are in
+[`classify-and-act.md`](classify-and-act.md#pre-filters), F5a.
 
 ### F5b — maintainer-to-maintainer ping unanswered
 
@@ -138,7 +146,8 @@ In each case the classifier wanted to emit a `deterministic_flag
 → draft` proposal whose substance a different maintainer had
 already covered on the draft. F5a does not cover this: F5a
 expires after 72 hours and only fires when the **most recent**
-comment is by a collaborator. F5b does not cover this either:
+feedback (comment, review-thread comment, or submitted review) is
+by a collaborator. F5b does not cover this either:
 the maintainer engagement here is directed at the author, not at
 other maintainers. F6 closes the gap.
 

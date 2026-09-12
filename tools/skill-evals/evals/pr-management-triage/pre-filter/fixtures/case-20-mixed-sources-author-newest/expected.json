@@ -1,0 +1,5 @@
+{
+  "action": "continue",
+  "filter": null,
+  "reason": "The most recent feedback across all three surfaces is the PR author's own comment, so F5a does not fire even though an older maintainer review is still inside the 72-hour window."
+}

@@ -380,11 +380,13 @@ enforced as pre-classification filters in
 [`classify-and-act.md#pre-filters`](classify-and-act.md) (rows F5a, F5b, F5c):
 
 - **Author-response cooldown (≥ 72 hours).** If the most recent
-  comment by a `COLLABORATOR`/`MEMBER`/`OWNER` was posted after
-  the latest author push and is < 72 hours old, skip the PR.
-  The author needs at least three days to read maintainer
-  feedback and respond — auto-drafting in <24 hours reads as
-  the bot rushing the contributor.
+  feedback across general comments, review-thread comments and
+  submitted reviews with non-whitespace bodies is by a
+  `COLLABORATOR`/`MEMBER`/`OWNER`, was posted after the latest
+  author push and is < 72 hours old, skip the PR. Select the latest
+  item before checking its author. The author needs at least three
+  days to read maintainer feedback and respond — auto-drafting in
+  <24 hours reads as the bot rushing the contributor.
 - **Maintainer-to-maintainer ping.** If the most recent
   collaborator comment `@`-mentions another maintainer (or a
   team) and that mentioned party hasn't replied yet, skip the
@@ -450,7 +452,8 @@ The helper accepts `<upstream>#NNN`, the full GitHub pull-request URL, or
 `#NNN` with `--repo <upstream>`. It preserves the visible form and always
 targets the canonical `https://github.com/<owner>/<repo>/pull/<N>` URL.
 When `TERM` is unset or `dumb`, or `NO_COLOR` is present, it falls back to
-plain text plus the URL.
+plain text plus the URL. **The presence of `NO_COLOR` is sufficient even
+when its value is empty; it takes precedence over `TERM`.**
 
 Every terminal output path goes through this helper: fetch or apply progress
 lines that name a PR, classifier proposals, group and per-PR drill-in screens,
@@ -458,13 +461,16 @@ error messages, and the Step 6 session summary. Do not build a one-off OSC 8
 wrapper in any of those paths.
 
 - **On terminal surfaces** (the group screen, the per-PR drill-in
-  screen, the Step 6 session summary): wrap the visible short form
-  `<upstream>#NNN` (or `#NNN`) in **OSC 8 hyperlink escape
-  sequences** (`\e]8;;<URL>\e\\<upstream>#NNN\e]8;;\e\\`) so modern
+  screen, the Step 6 session summary): wrap the supplied visible form
+  in **OSC 8 hyperlink escape sequences**. Short inputs stay short;
+  a full pull-request URL stays a full URL, never `<upstream>#NNN`.
+  For a short input, the sequence is
+  `\e]8;;<URL>\e\\<upstream>#NNN\e]8;;\e\\`, so modern
   terminals (iTerm2, Kitty, GNOME Terminal, WezTerm, Windows
   Terminal, …) render the number itself as clickable. Where OSC 8
   is unsupported (CI logs, dumb terminals, plain captures), fall
-  back to printing the bare URL on the same line after the number.
+  back to printing the bare URL on the same line after a short reference;
+  a full-URL input is printed once.
 
 Bare `#NNN` with no link wrapper of any kind is never acceptable —
 not in terminal output, not in posted comments.
