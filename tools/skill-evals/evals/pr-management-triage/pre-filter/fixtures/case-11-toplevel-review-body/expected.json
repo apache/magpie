@@ -1,0 +1,5 @@
+{
+  "action": "skip",
+  "filter": "F5a",
+  "reason": "The most recent feedback is a top-level review submitted by maintainer 'kaxil' (MEMBER) 2 hours ago, after the last commit and inside the 72-hour cooldown — active maintainer conversation in progress."
+}

@@ -1,0 +1,5 @@
+{
+  "action": "continue",
+  "filter": null,
+  "reason": "The maintainer review was submitted 73 hours ago, outside the 72-hour cooldown, so F5a does not fire."
+}

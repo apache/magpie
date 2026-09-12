@@ -14,5 +14,6 @@ Return ONLY valid JSON with this structure:
 ```
 
 Use `osc8` only when the supplied environment supports terminal hyperlinks.
-Use `plain` when the environment requires the fallback. Do not include any
-text outside the JSON object.
+Use `plain` when `TERM` is unset or `dumb`, or when `NO_COLOR` is present,
+even if its value is empty. `NO_COLOR` takes precedence over `TERM`. Do not
+include any text outside the JSON object.

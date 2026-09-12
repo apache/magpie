@@ -1,0 +1,5 @@
+{
+  "action": "continue",
+  "filter": null,
+  "reason": "The most recent feedback is a top-level review from 'nina-contributor' (CONTRIBUTOR), who is not a COLLABORATOR/MEMBER/OWNER, so F5a does not fire and no other pre-filter matches."
+}

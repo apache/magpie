@@ -1,0 +1,5 @@
+{
+  "action": "skip",
+  "filter": "F5a",
+  "reason": "The maintainer review was submitted 71 hours ago, after the last commit — inside the 72-hour cooldown, so F5a fires."
+}

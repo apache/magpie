@@ -1,0 +1,5 @@
+{
+  "action": "continue",
+  "filter": null,
+  "reason": "The maintainer ping from 'potiuk' was answered by 'kaxil' via a submitted review, so F5b does not fire and no other pre-filter matches."
+}

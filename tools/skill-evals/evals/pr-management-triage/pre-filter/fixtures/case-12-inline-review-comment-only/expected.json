@@ -1,0 +1,5 @@
+{
+  "action": "skip",
+  "filter": "F5a",
+  "reason": "The most recent feedback is an in-line review-thread comment from maintainer 'kaxil' (MEMBER) 20 hours ago, after the last commit and inside the 72-hour cooldown."
+}

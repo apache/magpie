@@ -1,0 +1,5 @@
+{
+  "action": "continue",
+  "filter": null,
+  "reason": "The only recent maintainer activity is a top-level review with an empty body, so it does not count as feedback and no pre-filter matches."
+}
