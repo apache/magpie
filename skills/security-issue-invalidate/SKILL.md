@@ -245,6 +245,12 @@ for the Gmail draft path.
 
 ## Step 0 — Pre-flight check
 
+**Security draft recipients.** Run the shared
+[security draft CC resolution](../../tools/mail-source/contract.md#security-draft-cc-resolution)
+before mail probes or draft proposals. Keep `security_cc` and `cc_fallback`
+in the observed-state bag; a missing address blocks drafting, while
+read-only work remains subject to its own prerequisites.
+
 Before any work, verify:
 
 1. **`gh` is authenticated and has access.** Run
@@ -668,10 +674,9 @@ the **recipient** and the **body shape**.
      policy doc — short, references the external identifier
      (GHSA ID, HackerOne URL) rather than restating the
      technical detail.
-   - `ccRecipients`: always includes `<security-list>`
-     (`<security-list>` for the adopting project) —
-     value comes from
-     [`<project-config>/project.md`](../../<project-config>/project.md#mail-sources).
+   - `ccRecipients`: includes `security_cc` from the shared
+     [security draft CC resolution](../../tools/mail-source/contract.md#security-draft-cc-resolution).
+     If no address resolves, block draft creation.
 2. **Subject:** `Re: <root subject>`. Never invent a fresh
    subject — the reply lands on the inbound thread via
    thread attachment (`replyToMessageId` for `claude_ai_mcp`,
@@ -891,13 +896,13 @@ Use the backend chosen in Step 5d:
   on `<tracker.threadId>` with `messageFormat: MINIMAL`, take
   the chronologically-last message's `id`, and call
   `mcp__claude_ai_Gmail__create_draft` with `to=<reporterEmail>`,
-  `cc=<security-list>`, `subject='Re: <root subject>'`,
+  `cc=security_cc`, `subject='Re: <root subject>'`,
   `body=<file>`, and `replyToMessageId=<that message id>`. The
   draft lands attached to the inbound thread.
 - **`oauth_curl`:** call the `oauth_curl drafts:create` script
   per [`draft-backends.md`](../../tools/gmail/draft-backends.md)
   with `threadId=<tracker.threadId>`, `to=<reporterEmail>`,
-  `cc=<security-list>`, `subject='Re: <root subject>'`,
+  `cc=security_cc`, `subject='Re: <root subject>'`,
   `body=<file>`. The draft lands attached to the inbound thread.
 
 Capture the returned `draftId`. Update the rollup entry's

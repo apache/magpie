@@ -225,6 +225,12 @@ These observations do not measure live GitHub/tool calls, follow-up discussions,
 patch application and test execution, or multi-agent pipelines. They must not be substituted
 for the broader planning ranges below or generalized to other models.
 
+Security draft pre-flight also loads the shared CC-resolution rule from
+`tools/mail-source/contract.md`: approximately 600 additional tokens once
+per run, estimated from the rule's prose and configuration identifiers.
+It reuses already-loaded project/organization configuration and adds no
+mail or tracker calls, so the per-mode ranges below remain unchanged.
+
 ### Model classes
 
 Skills are written against a capability contract, not a vendor.

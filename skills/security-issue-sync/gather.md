@@ -573,9 +573,10 @@ draft on the notification thread closes the loop:
 
 - **To:** the reviewer's address (the `From:`
   of the original notification).
-- **Cc:** `<security-list>` (so the security team thread
-  carries the round-trip), plus any broader security list the
-  original notification CC'd.
+- **Cc:** `security_cc` from the shared
+  [security draft CC resolution](../../tools/mail-source/contract.md#security-draft-cc-resolution),
+  plus any broader security list the original notification CC'd.
+  Block the draft if no security CC resolves.
 - **Subject:** `Re: <original notification subject>`
   (typically `Re: Comment added on <CVE-ID>`).
 - **Body shape:** one paragraph acknowledging what was

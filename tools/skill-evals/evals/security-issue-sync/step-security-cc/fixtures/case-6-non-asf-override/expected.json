@@ -1,0 +1,10 @@
+{
+  "security_cc": "security@acme.example",
+  "cc_fallback": "security@acme.example",
+  "warning": true,
+  "draft_blocked": false,
+  "cc": [
+    "security@acme.example"
+  ],
+  "search_list": null
+}

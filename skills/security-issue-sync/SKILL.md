@@ -289,6 +289,12 @@ in `docs/prerequisites.md` for the overall setup.
 
 ## Step 0 — Pre-flight check
 
+**Security draft recipients.** Run the shared
+[security draft CC resolution](../../tools/mail-source/contract.md#security-draft-cc-resolution)
+before mail probes or draft proposals. Keep `security_cc` and `cc_fallback`
+in the observed-state bag; a missing address blocks drafting, while
+read-only work remains subject to its own prerequisites.
+
 Before reading any tracker state, verify:
 
 1. **Mail-source backends per
@@ -435,7 +441,9 @@ Produce a single, compact summary for the user with three sections:
 
 A bullet list of the facts gathered in Step 1 — current labels, milestone,
 assignees, linked PRs, mailing-thread status, and the process step the issue is
-currently at. Keep it tight.
+currently at. Include `security_cc` and `cc_fallback` from pre-flight
+when a draft is proposed, and surface any missing-configuration warning.
+Keep it tight.
 
 ### 2b. Proposed changes
 

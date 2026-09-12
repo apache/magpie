@@ -70,7 +70,9 @@ Placeholder convention:
   `@apache.org` address; use that, not the `security@apache.org`
   list alias, so the conversation stays with the individual who
   already knows the report.
-- **`Cc:`** — `<security-list>` as always.
+- **`Cc:`**: the resolved `security_cc` per the shared
+  [security draft CC resolution](../mail-source/contract.md#security-draft-cc-resolution).
+  Block the draft if no address resolves.
 - **Body** — short, per the *"Brevity: emails state facts, not
   context"* rule in [`../../AGENTS.md`](../../AGENTS.md). The ASF
   security team knows the handling process; do **not** restate the

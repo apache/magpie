@@ -8,6 +8,7 @@
 - [Setup skill family](#setup-skill-family)
   - [Install & first runs](#install--first-runs)
     - [Try these first](#try-these-first)
+  - [Security mailing-list configuration](#security-mailing-list-configuration)
   - [Skills](#skills)
   - [Deep documentation](#deep-documentation)
   - [Typical lifecycle](#typical-lifecycle)
@@ -103,6 +104,24 @@ Apply 1-3? [y/N]
   agent targets    .agents/skills, .claude/skills
   drift            none
 ```
+
+## Security mailing-list configuration
+
+Set `security_list` in your project manifest to your project's private
+security mailing list. If it is missing, blank, or still a template TODO,
+security workflows warn and resolve draft CC from
+`security_inbox.foundation_security_address` through the normal
+project/organization/default configuration chain. For ASF adopters the
+organization supplies `security@apache.org`; other adopters use their own
+organization's configured address. If neither address is configured,
+drafting is blocked until configuration is corrected.
+
+The selected address and fallback are shown before draft confirmation.
+This does not configure subscriptions or redirect list searches to the
+organization's mailbox. Configure mail reads separately; read-only work
+can continue only when its own prerequisites are met. See the shared
+[security draft CC resolution](../../tools/mail-source/contract.md#security-draft-cc-resolution)
+for the complete rule.
 
 ## Skills
 

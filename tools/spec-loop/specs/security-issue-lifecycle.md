@@ -72,12 +72,19 @@ publication, with a human gate and an audit-log entry at every step.
 2. No public surface produced by the flow contains tracker contents or
    pre-disclosure security framing.
 3. CVE JSON is regenerated to stay in lock-step with the tracker body.
+4. Security drafts resolve CC from `security_list`, or warn and record
+   `cc_fallback` from `security_inbox.foundation_security_address` through
+   project/organization/default precedence. Missing both blocks drafting.
+   This resolution never redirects list reads or changes `<security-list>`.
+   Draft recipes fail before backend invocation if the resolved CC has not
+   been materialized or is blank; valid addresses reach the backend unchanged.
 
 ## Validation
 
 ```bash
 uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-validate
 uv run --project tools/cve-tool-vulnogram/generate-cve-json --group dev pytest
+uv run --project tools/gmail/oauth-draft pytest
 ```
 
 ## Known gaps

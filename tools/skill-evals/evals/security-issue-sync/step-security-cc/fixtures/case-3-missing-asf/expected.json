@@ -1,0 +1,10 @@
+{
+  "security_cc": "security@apache.org",
+  "cc_fallback": "security@apache.org",
+  "warning": true,
+  "draft_blocked": false,
+  "cc": [
+    "security@apache.org"
+  ],
+  "search_list": null
+}

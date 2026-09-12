@@ -1,0 +1,11 @@
+{
+  "security_cc": "security@project.example",
+  "cc_fallback": null,
+  "warning": false,
+  "draft_blocked": false,
+  "cc": [
+    "team@project.example",
+    "security@project.example"
+  ],
+  "search_list": "security@project.example"
+}

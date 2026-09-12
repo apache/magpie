@@ -45,9 +45,16 @@ Placeholder convention used below:
 
 ## Pre-flight
 
-Every skill that talks to Gmail does a one-call pre-flight in Step 0
-to confirm the MCP is reachable and the user's account subscribes to
-the project's security list:
+Resolve security draft recipients using the shared
+[security draft CC resolution](../mail-source/contract.md#security-draft-cc-resolution)
+before the list probe below. If `security_list` is unconfigured, do not
+run a blank or fallback-derived list query: skip the probe with a warning,
+or stop if that list read is mandatory. A draft-only path or a read by
+known thread ID may continue if its other prerequisites pass.
+
+When the project security list is configured, mail-reading skills do a
+one-call pre-flight in Step 0 to confirm the MCP is reachable and the
+user's account subscribes to that list:
 
 ```text
 mcp__claude_ai_Gmail__search_threads(
@@ -232,6 +239,11 @@ via the subject + `In-Reply-To` / `References` headers Gmail synthesises
 from the parent message.
 
 ```text
+# Bind security_cc to the pre-flight's resolved address before this block.
+# This is a value, not the literal string "security_cc".
+if not isinstance(security_cc, str) or not security_cc.strip():
+    raise ValueError("Resolve the security CC before calling the draft backend")
+
 # 1. Resolve the message to reply to. The skills always reply to the
 #    chronologically-last message on the inbound thread (see
 #    threading.md):
@@ -248,7 +260,7 @@ mcp__claude_ai_Gmail__get_thread(
 mcp__claude_ai_Gmail__create_draft(
   subject='Re: <root subject of the inbound message>',
   to=['<primary>'],
-  cc=['<security-list>', ...],
+  cc=[security_cc, ...],
   body='<body>',                # plain text only
   replyToMessageId='<reply-to-message-id>',
   # htmlBody=...                # DO NOT SET — would make the draft HTML
@@ -284,11 +296,23 @@ token. It sets `threadId` on the Gmail API call **and** populates
 `In-Reply-To` / `References` from the thread's last message, so every
 client threads consistently.
 
+Materialize the pre-flight's `security_cc` as a safely shell-quoted assignment
+in the **same shell invocation** as this recipe. A field in the agent's
+observed-state bag is not an environment variable, and a variable set in an
+earlier tool call may not persist. Use the exact resolved address; never
+substitute a sample address or rely on an inherited shell value.
+
 ```bash
+# Assign security_cc from the current pre-flight before running this block.
+: "${security_cc:?Assign the resolved security CC in this shell invocation}"
+if [[ -z "${security_cc//[[:space:]]/}" ]]; then
+  printf '%s\n' 'Security CC must not be blank' >&2
+  exit 1
+fi
 uv run --project <framework>/tools/gmail/oauth-draft oauth-draft-create \
   --thread-id <gmail-threadId> \
   --to reporter@example.com \
-  --cc <security-list> \
+  --cc "$security_cc" \
   --subject "Re: <root subject>" \
   --body-file /tmp/body.txt
 ```
@@ -303,6 +327,13 @@ backend too — drafts only, never send; subject is always
 `Re: <root subject>`; composition happens under user review.
 
 ### Hard rules that apply to both backends
+
+- **Resolve security CC before creating security-related drafts.** Use
+  `security_cc` from the shared
+  [security draft CC resolution](../mail-source/contract.md#security-draft-cc-resolution).
+  In the recipes above, `security_cc` (and the shell variable of the same
+  name) holds that resolved address. Do not invoke either backend while
+  it is unresolved; preserve other required CC recipients and deduplicate.
 
 - **Never send.**
 - **Plain text only — never HTML.** Every draft is a plain-text

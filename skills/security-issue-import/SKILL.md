@@ -273,6 +273,12 @@ in `docs/prerequisites.md` for the overall setup.
 
 ## Step 0 — Pre-flight check
 
+**Security draft recipients.** Run the shared
+[security draft CC resolution](../../tools/mail-source/contract.md#security-draft-cc-resolution)
+before mail probes or draft proposals. Keep `security_cc` and `cc_fallback`
+in the observed-state bag; a missing address blocks drafting, while
+read-only work remains subject to its own prerequisites.
+
 Before touching any candidate thread, verify:
 
 1. **Mail-source backends from `<project-config>/project.md →
@@ -1884,9 +1890,9 @@ For each confirmed `Report` or forwarder-relayed candidate:
 
    Never fabricate a new subject — subject is always
    `Re: <root subject>`, even when the recipient changes.
-   `ccRecipients` always includes the adopting project's `security_list`
-   (see
-   [`<project-config>/project.md`](../../<project-config>/project.md#gmail-and-ponymail)).
+   `ccRecipients` includes `security_cc` from the shared
+   [security draft CC resolution](../../tools/mail-source/contract.md#security-draft-cc-resolution).
+   If no address resolves, block draft creation.
 
    **Two variants depending on how the candidate was classified:**
 

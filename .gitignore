@@ -1,4 +1,12 @@
 /.idea/
+# Personal agent state and local planning artifacts
+.superpowers/
+.Codex/
+AGENTS.md
+**/settings.local.json
+**/scheduled_tasks.lock
+.apache-steward/
+docs/superpowers/
 /.vscode/
 *.iml
 logs

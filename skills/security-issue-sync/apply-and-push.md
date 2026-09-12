@@ -257,7 +257,9 @@ before moving on to the next item. Use:
   `updateProjectV2ItemFieldValue`). Re-fetch the option IDs via the
   introspection query in the same reference if a write mutation
   starts returning `not found`.
-- **Gmail draft:** create via the project's configured drafting
+- **Gmail draft:** include `security_cc` from the shared
+  [security draft CC resolution](../../tools/mail-source/contract.md#security-draft-cc-resolution)
+  in every draft's CC; block creation if unresolved. Create via the project's configured drafting
   backend per [`tools/gmail/draft-backends.md`](../../tools/gmail/draft-backends.md#how-the-skills-pick-a-backend).
   The **preferred** backend is `oauth_curl` — it preserves URLs in
   the body verbatim. The `claude_ai_mcp` backend is **discouraged**

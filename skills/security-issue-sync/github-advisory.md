@@ -147,8 +147,9 @@ Create a **draft** email to the org's advisory-admin security team
 (`<foundation-security-list>`) with
 `oauth-draft-create` — never send directly (SKILL Golden rule 1; and the
 Gmail MCP mangles the `security/advisories/GHSA-…` URLs into redirects, so
-use oauth-draft). **Always CC the project `<security-list>`** so the
-project security team stays looped in on what was requested. Reply on the
+use oauth-draft). **Include the resolved `security_cc`** per the shared
+[security draft CC resolution](../../tools/mail-source/contract.md#security-draft-cc-resolution);
+block the draft if no address resolves. Reply on the
 originating `<security-list>` thread when the report was relayed there
 (`--thread-id <id>`); otherwise it is a **new** message (omit `--thread-id`)
 with a self-describing subject. Do **not** post a `<tracker>` comment as the
