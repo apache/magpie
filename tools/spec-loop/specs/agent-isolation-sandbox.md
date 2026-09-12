@@ -36,7 +36,9 @@ saying "no".
   sandbox profiles).
 - `tools/agent-guard/` — deterministic pre-execution guard dispatcher
   (`stdlib`-only). Wired as a `PreToolUse` hook (Claude Code) or a
-  `tool.execute.before` plugin (OpenCode); inspects every shell command
+  `tool.execute.before` plugin (OpenCode), with a `--gemini` adapter for
+  Gemini CLI's `BeforeTool` event (wired in the repository's
+  `.gemini/settings.json`; manual registration for snapshot adopters); inspects every shell command
   before it runs and denies the ones that break a hard framework rule,
   independent of model memory. The guard decisions live in a single
   harness-agnostic `dispatch()` core so every wired harness enforces

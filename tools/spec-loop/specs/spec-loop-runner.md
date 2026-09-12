@@ -107,7 +107,7 @@ sandbox, and stop without pushing or opening a PR.
 | Claude Code | stdin to `claude -p` | launched from repo root | `--dangerously-skip-permissions` | `--model` | `--output-format` | `--disallowedTools` denies push and `gh` |
 | Codex | stdin to `codex exec -` | `--cd "$ROOT"` | `--dangerously-bypass-approvals-and-sandbox` | `--model` | `--json` for stream JSON | external sandbox and exec policy |
 | Cursor | positional prompt to `cursor agent --print` or `cursor-agent --print` | `--workspace "$ROOT"` | `--force --trust` | `--model` | `--output-format` | external sandbox and Cursor policy |
-| Gemini CLI | `--prompt "<prompt>"` | launched from repo root | `--yolo` | `--model` | default CLI output | external sandbox and Gemini policy |
+| Gemini CLI | `--prompt "<prompt>"` | launched from repo root | `--yolo` | `--model` | `--output-format` | external sandbox and Gemini policy |
 | OpenCode | positional prompt to `opencode run` | launched from repo root | `--auto` | `--model` | `--format json` for stream JSON | external sandbox and OpenCode policy |
 | Kiro | positional prompt to `kiro-cli chat` | launched from repo root | `--no-interactive` | agent config (`.kiro/agents`) | plain text only | external sandbox and the agent-guard `--kiro` hook |
 

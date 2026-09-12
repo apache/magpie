@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "BeforeTool": [
+      {
+        "matcher": "^run_shell_command$",
+        "hooks": [
+          {
+            "name": "magpie-agent-guard",
+            "type": "command",
+            "command": "python3 \"${GEMINI_PROJECT_DIR}/tools/agent-guard/src/agent_guard/__init__.py\" --gemini"
+          }
+        ]
+      }
+    ]
+  }
+}

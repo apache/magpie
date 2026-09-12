@@ -213,7 +213,7 @@ README. When your new runtime uses one of these tools, update its line:
 
 | Tool | Current harness declaration |
 |---|---|
-| `tools/agent-guard` | `**Harness:** Claude Code, OpenCode, Kiro` |
+| `tools/agent-guard` | `**Harness:** Claude Code, OpenCode, Kiro, Gemini CLI` |
 | `tools/agent-isolation` | `**Harness:** agnostic` |
 | `tools/permission-audit` | `**Harness:** agnostic` |
 | `tools/sandbox-lint` | `**Harness:** Claude Code, Codex, Cursor, Gemini CLI, OpenCode, Kiro` |

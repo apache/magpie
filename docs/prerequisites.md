@@ -52,7 +52,7 @@ the `SKILL.md` / [`AGENTS.md`](https://agents.md/) skill convention, and
 on any single vendor for either — any agent that reads the shared
 `.agents/skills/*/SKILL.md` files and follows their steps should work.
 
-**Agentic tool — two are fully supported today, one is experimental:**
+**Agentic tools:**
 
 - **[OpenCode](https://opencode.ai/)** is the **reference implementation**:
   it is open source and model-agnostic, so it can drive *every* LLM-access
@@ -66,8 +66,11 @@ on any single vendor for either — any agent that reads the shared
   profile and HITL exec-policy rules. The adapter is **experimental**
   until its minimum tested runtime version and an adopter pilot are
   recorded; see [the Codex runtime guide](adapters/codex.md).
+- **[Gemini CLI](https://geminicli.com/)** reads Magpie's canonical
+  `.agents/skills/` tree. Magpie provides a `BeforeTool` action-guard adapter
+  and a spec-loop profile; see [the Gemini runtime guide](adapters/gemini.md).
 
-Support for more runtimes (Gemini CLI, Cursor, Copilot, …) is tracked in
+Support for more runtimes (Cursor, Copilot, …) is tracked in
 the
 [open adapter issues](https://github.com/apache/magpie/issues?q=is%3Aissue%20is%3Aopen%20adapter).
 

@@ -316,7 +316,11 @@ giving every other agent directory (`.claude/skills/`,
 Magpie under several different agentic CLIs. Codex now has a
 [first-class adapter](adapters/codex.md) (experimental); adding another
 runtime is a [`family:tools`](labels-and-capabilities.md#1-family--subject)
-contribution, not a re-architecture. The remaining extension points are
+contribution, not a re-architecture.
+Gemini CLI reads Magpie's canonical `.agents/skills/` tree and has a native
+shell-hook adapter and a spec-loop profile; see the
+[Gemini runtime guide](adapters/gemini.md).
+The remaining extension points are
 already open, labelled `good first issue`:
 [Gemini CLI](https://github.com/apache/magpie/issues/314),
 [local LLM (Ollama / llama.cpp / vLLM)](https://github.com/apache/magpie/issues/315),
@@ -583,7 +587,7 @@ Organization scope (declared, orthogonal to vendor): ASF = 14, agnostic = 60.
 
 | Substrate tool | Substrate | Harness support | Verdict |
 |---|---|---|---|
-| `agent-guard` | action-guard | Claude Code, Kiro, OpenCode | ✅ portable |
+| `agent-guard` | action-guard | Claude Code, Gemini CLI, Kiro, OpenCode | ✅ portable |
 | `agent-isolation` | sandbox | any | ✅ agnostic |
 | `dashboard-generator` | analytics | any | ✅ agnostic |
 | `dev` | framework-dev | any | ✅ agnostic |
@@ -613,7 +617,7 @@ Harness → substrate tools it supports:
 - **Claude Code** (3): `agent-guard`, `sandbox-lint`, `spec-loop`
 - **Codex** (2): `sandbox-lint`, `spec-loop`
 - **Cursor** (2): `sandbox-lint`, `spec-loop`
-- **Gemini CLI** (2): `sandbox-lint`, `spec-loop`
+- **Gemini CLI** (3): `agent-guard`, `sandbox-lint`, `spec-loop`
 - **Kiro** (3): `agent-guard`, `sandbox-lint`, `spec-loop`
 - **OpenCode** (3): `agent-guard`, `sandbox-lint`, `spec-loop`
 - **any harness** (21): `agent-isolation`, `dashboard-generator`, `dev`, `egress-gateway`, `permission-audit`, `pilot-report-validator`, `pr-management-stats`, `preflight-audit`, `privacy-llm`, `probe-templates`, `security-tracker-stats-dashboard`, `skill-and-tool-validator`, `skill-evals`, `skill-reconciler-diff`, `skill-token-count`, `spec-inventory`, `spec-status-index`, `spec-validator`, `symlink-lint`, `vendor-neutrality-score`, `vetted-ops`
