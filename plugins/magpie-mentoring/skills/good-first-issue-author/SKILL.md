@@ -4,6 +4,10 @@
 name: magpie-good-first-issue-author
 family: mentoring
 mode: Mentoring
+requires_config:
+  - good-first-issue-config.md
+  - issue-tracker-config.md
+  - project.md
 description: |
   Draft a single net-new *good first issue* on the configured
   `<upstream>` repo from one supplied candidate such as a known gap

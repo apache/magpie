@@ -8,6 +8,7 @@
 - [Setup skill family](#setup-skill-family)
   - [Install & first runs](#install--first-runs)
     - [The first run](#the-first-run)
+    - [Before the first run](#before-the-first-run)
     - [Try these first](#try-these-first)
   - [Security mailing-list configuration](#security-mailing-list-configuration)
   - [Skills](#skills)
@@ -84,6 +85,24 @@ waits — the same run the quick start opens with:
 ![A `/magpie-setup` run in Claude Code: the marketplace install, then the skill detecting the checkout, printing the method and plan it intends to carry out, and waiting for approval before writing anything](../../assets/quickstart/magpie-setup.svg)
 
 Nothing is written before you approve it.
+
+### Before the first run
+
+<!-- BEGIN generated: skill-config (tools/dev/check-skill-config.py --fix) -->
+
+**Nothing here has to be configured.** These skills read the file below
+when the project has one and fall back to a documented default when it
+does not.
+
+**Optional.** Each has a documented fallback; absent, the skill still runs.
+
+| File | What it carries | Read by |
+|---|---|---|
+| [`magpie-setup.md`](../../projects/_template/magpie-setup.md) | Overrides for the setup family's own checks. Every key has a default. | `setup` |
+| [`project.md`](../../projects/_template/project.md) | Project manifest. Identity, repositories, mailing lists, tools enabled, CVE tooling, GitHub project-board + issue-template field declarations. The single file every skill reads to resolve project-scoped references. | `isolated-setup-install`, `setup` |
+| [`skill-sources.md`](../../projects/_template/skill-sources.md) | The install gate for pulling skills/families from trusted external repos. Lists the source ids this project trusts and commits each pin. `/magpie-setup` fetches only what is listed here. Leave empty to run only in-tree framework skills. See [`docs/skill-sources/`](../../docs/skill-sources/README.md). | `setup` |
+
+<!-- END generated: skill-config -->
 
 ### Try these first
 

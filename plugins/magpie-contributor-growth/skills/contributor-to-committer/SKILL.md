@@ -5,6 +5,9 @@ name: magpie-contributor-to-committer
 family: contributor-growth
 organization: ASF
 mode: Mentoring
+requires_config:
+  - committer-readiness.md
+  - project.md
 description: |
   Read-only readiness tracker that maps a contributor's GitHub activity
   against the adopter's PMC-declared committer or PMC thresholds and

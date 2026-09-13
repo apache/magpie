@@ -7,9 +7,9 @@
 
 - [PR management skill family](#pr-management-skill-family)
   - [Install & first runs](#install--first-runs)
+    - [Before the first run](#before-the-first-run)
     - [Try these first](#try-these-first)
   - [Skills](#skills)
-  - [Adopter contract](#adopter-contract)
   - [Cross-references](#cross-references)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -89,6 +89,39 @@ New to Magpie? The [quick start](../quick-start.md) walks the whole path in
 one place — install, the first `/magpie-setup` run, and a recording of it
 happening — plus the other agents and the secure-isolation setup to run next.
 
+### Before the first run
+
+<!-- BEGIN generated: skill-config (tools/dev/check-skill-config.py --fix) -->
+
+Every skill here resolves project-specific values from the adopter's
+[`<project-config>/`](../../projects/_template/) directory.
+[`/magpie-setup adopt`](../setup/team-adoption.md) scaffolds all of them from
+templates; you fill in the `TODO` fields for the skills you use.
+
+**Required.** Without these a skill would act on a guess, so it stops and
+says which file is missing.
+
+| File | What it carries | Read by |
+|---|---|---|
+| [`pr-management-code-review-criteria.md`](../../projects/_template/pr-management-code-review-criteria.md) | List of project's review-criteria source files (repo-wide AGENTS.md, code-review docs, per-area AGENTS.md), security-model calibration doc, backport-branch pattern, section-anchor URLs. | `code-review` |
+| [`pr-management-config.md`](../../projects/_template/pr-management-config.md) | Committers team handle, area-label prefix, project-specific labels (`ready for maintainer review`, etc.), grace windows. | `quick-merge`, `stale-sweep`, `stats`, `triage` |
+| [`pr-management-quick-merge-config.md`](../../projects/_template/pr-management-quick-merge-config.md) | Thresholds, path globs, and the merge-command template for the express lane. | `quick-merge` |
+| [`pr-management-triage-comment-templates.md`](../../projects/_template/pr-management-triage-comment-templates.md) | Comment-body URLs (PR quality criteria, two-stage triage rationale), AI-attribution footer wording, project display name. | `triage` |
+| [`project.md`](../../projects/_template/project.md) | Project manifest. Identity, repositories, mailing lists, tools enabled, CVE tooling, GitHub project-board + issue-template field declarations. The single file every skill reads to resolve project-scoped references. | `code-review`, `mentor`, `quick-merge`, `reviewer-routing`, `stale-sweep`, `triage` |
+| [`reviewer-roster.md`](../../projects/_template/reviewer-roster.md) | Who reviews what. | `reviewer-routing` |
+
+**Optional.** Each has a documented fallback; absent, the skill still runs.
+
+| File | What it carries | Read by |
+|---|---|---|
+| [`mentoring-config.md`](../../projects/_template/mentoring-config.md) | Tone knobs and hand-off protocol for the thread-level mentoring skill. | `mentor` |
+| [`pr-management-triage-ci-check-map.md`](../../projects/_template/pr-management-triage-ci-check-map.md) | CI-check name pattern → category name + doc-URL mapping for the violations comment. | `triage` |
+| [`privacy-llm.md`](../../projects/_template/privacy-llm.md) | Which model tier may see which class of content, for projects routing foundation-private information away from third-party models. | `reviewer-routing` |
+| [`release-trains.md`](../../projects/_template/release-trains.md) | Active release branches, release-manager attribution per cut, rotation rosters, security-team roster. | `code-review`, `reviewer-routing` |
+| [`stale-sweep-config.md`](../../projects/_template/stale-sweep-config.md) | Grace windows and exemption labels for stale sweeps. Absent, the framework defaults apply. | `stale-sweep` |
+
+<!-- END generated: skill-config -->
+
 ### Try these first
 
 *Illustrative shapes, not real transcripts — your output will differ. Nothing
@@ -133,27 +166,6 @@ below sends, merges, or posts anything without you confirming it.*
 | [`pr-stale-sweep`](../../skills/pr-stale-sweep/SKILL.md) | Sweep open PRs for inactivity past a configurable threshold; classify as `NUDGE` or `CLOSE-STALE` and post one comment per PR on confirmation. |
 | [`pre-first-pr-check`](../../skills/pre-first-pr-check/SKILL.md) | Pre-flight a contributor's first PR against project conventions before it reaches a human reviewer. |
 | [`reviewer-routing`](../../skills/reviewer-routing/SKILL.md) | Suggest the best-fit reviewer(s) for a new PR based on path ownership, recent review history, and current load. |
-
-## Adopter contract
-
-The skills resolve project-specific content from these files in
-the adopter's `<project-config>/` directory:
-
-| File | Used by |
-|---|---|
-| [`pr-management-config.md`](../../projects/_template/pr-management-config.md) | `pr-management-triage`, `pr-management-stats`, `pr-management-quick-merge` (Real-CI patterns) |
-| [`pr-management-triage-comment-templates.md`](../../projects/_template/pr-management-triage-comment-templates.md) | `pr-management-triage` |
-| [`pr-management-triage-ci-check-map.md`](../../projects/_template/pr-management-triage-ci-check-map.md) | `pr-management-triage` |
-| [`pr-management-code-review-criteria.md`](../../projects/_template/pr-management-code-review-criteria.md) | `pr-management-code-review` |
-| [`pr-management-quick-merge-config.md`](../../projects/_template/pr-management-quick-merge-config.md) | `pr-management-quick-merge` (thresholds, path globs, merge-command template) |
-| [`mentoring-config.md`](../../projects/_template/mentoring-config.md) | `pr-management-mentor` (tone knobs, hand-off protocol) |
-
-The skills read project-specific defaults from the `<project-config>/`
-files above. Adopters customise by editing their copy of each
-template; illustrative examples in skill prose may still use the
-patterns that motivated the framework (monorepo `<area>/` layout,
-`area:*` labels, etc.) — the *behaviour* is config-driven, the
-*example wording* is not.
 
 ## Cross-references
 

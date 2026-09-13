@@ -4,6 +4,8 @@
 name: magpie-security-issue-invalidate
 family: security
 mode: Triage
+requires_config:
+  - project.md
 description: |
   Close an `<tracker>` tracking issue as invalid: apply the
   `invalid` label, remove the scope label, post a short closing

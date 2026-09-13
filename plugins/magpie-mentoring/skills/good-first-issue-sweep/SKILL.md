@@ -4,6 +4,10 @@
 name: magpie-good-first-issue-sweep
 family: mentoring
 mode: Mentoring
+requires_config:
+  - good-first-issue-config.md
+  - issue-tracker-config.md
+  - project.md
 description: |
   Sweep the open `<issue-tracker>` backlog for existing issues that
   could be labelled as good first issues. Classifies each candidate as

@@ -4,6 +4,9 @@
 name: magpie-issue-fix-workflow
 family: issue
 mode: Drafting
+requires_config:
+  - fix-workflow.md
+  - runtime-invocation.md
 description: |
   For a single triaged `<issue-tracker>` issue confirmed as a
   bug or feature, draft a fix against `<upstream>` on

@@ -7,10 +7,10 @@
 
 - [Issue management skill family](#issue-management-skill-family)
   - [Install & first runs](#install--first-runs)
+    - [Before the first run](#before-the-first-run)
     - [Try these first](#try-these-first)
   - [Family boundary](#family-boundary)
   - [Skills](#skills)
-  - [Adopter contract](#adopter-contract)
   - [Status](#status)
   - [Cross-references](#cross-references)
 
@@ -82,6 +82,38 @@ New to Magpie? The [quick start](../quick-start.md) walks the whole path in
 one place — install, the first `/magpie-setup` run, and a recording of it
 happening — plus the other agents and the secure-isolation setup to run next.
 
+### Before the first run
+
+<!-- BEGIN generated: skill-config (tools/dev/check-skill-config.py --fix) -->
+
+Every skill here resolves project-specific values from the adopter's
+[`<project-config>/`](../../projects/_template/) directory.
+[`/magpie-setup adopt`](../setup/team-adoption.md) scaffolds all of them from
+templates; you fill in the `TODO` fields for the skills you use.
+
+**Required.** Without these a skill would act on a guess, so it stops and
+says which file is missing.
+
+| File | What it carries | Read by |
+|---|---|---|
+| [`fix-workflow.md`](../../projects/_template/fix-workflow.md) | Fork / clone / toolchain specifics, backport-label policy, commit-trailer wording, PR scrubbing, private-PR fallback. | `fix-workflow` |
+| [`issue-tracker-config.md`](../../projects/_template/issue-tracker-config.md) | Tracker URL, project key, auth model, default query templates. | `backlog-stats`, `deduplicate`, `reassess`, `reassess-stats`, `reproducer`, `stale-sweep`, `triage` |
+| [`project.md`](../../projects/_template/project.md) | Project manifest. Identity, repositories, mailing lists, tools enabled, CVE tooling, GitHub project-board + issue-template field declarations. The single file every skill reads to resolve project-scoped references. | `stale-sweep`, `triage` |
+| [`reassess-pool-defaults.md`](../../projects/_template/reassess-pool-defaults.md) | Named pools for reassessment sweeps (`open-eol`, `reopened`, `stale-unresolved`, project-specific). | `reassess` |
+| [`reproducer-conventions.md`](../../projects/_template/reproducer-conventions.md) | Evidence-package directory layout and frozen-copy discipline. | `reproducer` |
+| [`runtime-invocation.md`](../../projects/_template/runtime-invocation.md) | Build prerequisite, run-a-single-file recipe, stream-capture conventions, network/dependency handling. | `fix-workflow`, `reproducer` |
+
+**Optional.** Each has a documented fallback; absent, the skill still runs.
+
+| File | What it carries | Read by |
+|---|---|---|
+| [`canned-responses.md`](../../projects/_template/canned-responses.md) | Reusable reporter-facing reply templates. | `triage` |
+| [`release-trains.md`](../../projects/_template/release-trains.md) | Active release branches, release-manager attribution per cut, rotation rosters, security-team roster. | `triage` |
+| [`scope-labels.md`](../../projects/_template/scope-labels.md) | Scope label → CVE product / `packageName` / collection-URL mapping. Exactly one scope label per tracker. | `backlog-stats`, `reassess`, `triage` |
+| [`stale-sweep-config.md`](../../projects/_template/stale-sweep-config.md) | Grace windows and exemption labels for stale sweeps. Absent, the framework defaults apply. | `backlog-stats`, `stale-sweep` |
+
+<!-- END generated: skill-config -->
+
 ### Try these first
 
 *Illustrative shapes, not real transcripts — your output will differ. Nothing
@@ -145,23 +177,6 @@ configured with different trackers.
 `issue-reproducer` and `issue-reassess-stats` sit outside the MISSION
 mode taxonomy; they are mechanical / read-only, not classificatory or
 mutating.
-
-## Adopter contract
-
-The skills resolve project-specific content from these files in the
-adopter's `<project-config>/` directory:
-
-| File | Used by |
-|---|---|
-| [`project.md`](../../projects/_template/project.md) | all `issue-*` skills (identifiers, `upstream_default_branch`) |
-| [`issue-tracker-config.md`](../../projects/_template/issue-tracker-config.md) | all `issue-*` skills (URL, project key, auth, default queries) |
-| [`scope-labels.md`](../../projects/_template/scope-labels.md) | `issue-triage`, `issue-reassess`, `issue-backlog-stats` (component / area routing and area pressure ranking) |
-| [`release-trains.md`](../../projects/_template/release-trains.md) | `issue-triage` (`@`-mention routing) |
-| [`canned-responses.md`](../../projects/_template/canned-responses.md) | `issue-triage` (NEEDS-INFO templates) |
-| [`runtime-invocation.md`](../../projects/_template/runtime-invocation.md) | `issue-reproducer` (how to invoke the project's runtime on extracted code) |
-| [`reassess-pool-defaults.md`](../../projects/_template/reassess-pool-defaults.md) | `issue-reassess` (pool definitions extending the default queries in `issue-tracker-config.md`) |
-| [`reproducer-conventions.md`](../../projects/_template/reproducer-conventions.md) | `issue-reproducer` (evidence-package directory layout) |
-| [`stale-sweep-config.md`](../../projects/_template/stale-sweep-config.md) | `issue-stale-sweep`, `issue-backlog-stats` (warn / close / hard-close thresholds; omit to use framework defaults of 90 / 180 / 365 days) |
 
 ## Status
 

@@ -4,6 +4,9 @@
 name: magpie-security-issue-fix
 family: security
 mode: Drafting
+requires_config:
+  - fix-workflow.md
+  - project.md
 description: |
   Attempt to fix a security issue tracked in `<tracker>` by
   implementing the change in a public `<upstream>` PR. Runs

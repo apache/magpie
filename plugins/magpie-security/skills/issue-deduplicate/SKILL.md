@@ -4,6 +4,9 @@
 name: magpie-security-issue-deduplicate
 family: security
 mode: Triage
+requires_config:
+  - project.md
+  - scope-labels.md
 description: |
   Merge two <tracker> tracking issues that describe the same
   root-cause vulnerability, preserving every reporter's credit,

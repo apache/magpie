@@ -4,6 +4,8 @@
 name: magpie-security-model-prepare
 family: security
 mode: Drafting
+requires_config:
+  - security-model.md
 description: |
   Front door for a project that has no published security model
   yet. Opens the conversation with `<governance-body>` on the

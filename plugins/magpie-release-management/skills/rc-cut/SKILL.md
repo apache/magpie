@@ -5,6 +5,9 @@ name: magpie-release-rc-cut
 family: release-management
 organization: ASF
 mode: Drafting
+requires_config:
+  - release-build.md
+  - release-management-config.md
 description: |
   Emit the paste-ready command sequence to tag an RC, build artefacts,
   sign each artefact, generate checksums, and stage them to the adopter's

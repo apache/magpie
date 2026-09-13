@@ -4,6 +4,9 @@
 name: magpie-committer-onboarding
 family: contributor-growth
 mode: Meta
+requires_config:
+  - committer-onboarding-config.md
+  - project.md
 organization: ASF
 description: |
   Post-vote committer and PMC onboarding for Apache projects.

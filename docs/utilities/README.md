@@ -7,6 +7,7 @@
 
 - [Utilities skill family](#utilities-skill-family)
   - [Install & first runs](#install--first-runs)
+    - [Before the first run](#before-the-first-run)
     - [Try these first](#try-these-first)
   - [Skills](#skills)
   - [When to adopt this family](#when-to-adopt-this-family)
@@ -52,6 +53,22 @@ Once you have [added the marketplace](../setup/marketplace-install.md):
 New to Magpie? The [quick start](../quick-start.md) walks the whole path in
 one place — install, the first `/magpie-setup` run, and a recording of it
 happening — plus the other agents and the secure-isolation setup to run next.
+
+### Before the first run
+
+<!-- BEGIN generated: skill-config (tools/dev/check-skill-config.py --fix) -->
+
+**Nothing here has to be configured.** These skills read the file below
+when the project has one and fall back to a documented default when it
+does not.
+
+**Optional.** Each has a documented fallback; absent, the skill still runs.
+
+| File | What it carries | Read by |
+|---|---|---|
+| [`project.md`](../../projects/_template/project.md) | Project manifest. Identity, repositories, mailing lists, tools enabled, CVE tooling, GitHub project-board + issue-template field declarations. The single file every skill reads to resolve project-scoped references. | `list-skills`, `optimize-skill`, `report-framework-issue`, `skill-reconciler`, `write-skill` |
+
+<!-- END generated: skill-config -->
 
 ### Try these first
 
@@ -105,12 +122,10 @@ point instead.
 
 ## Adopter contract
 
-The utilities skills have no project-specific config files and make no state
-changes to your project's tracker, label set, or shared infrastructure.
-`list-skills` and `optimize-skill` are read-only; `write-skill` only creates or
-edits skill files under your control, which you review before committing.
-
----
+The utilities skills make no state changes to your project's tracker, label
+set, or shared infrastructure. `list-skills` and `optimize-skill` are
+read-only; `write-skill` only creates or edits skill files under your control,
+which you review before committing.
 
 ## Status
 

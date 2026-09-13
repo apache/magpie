@@ -4,6 +4,9 @@
 name: magpie-pr-stale-sweep
 family: pr-management
 mode: Triage
+requires_config:
+  - pr-management-config.md
+  - project.md
 description: |
   Sweep open pull requests on the configured `<upstream>` repo for
   inactivity past a configurable threshold and propose either a

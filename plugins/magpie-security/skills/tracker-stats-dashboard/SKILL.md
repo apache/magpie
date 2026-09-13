@@ -4,6 +4,10 @@
 name: magpie-security-tracker-stats-dashboard
 family: security
 mode: Meta
+requires_config:
+  - project.md
+  - scope-labels.md
+  - security-tracker-stats.md
 description: Generate a self-contained HTML dashboard of `<tracker>` repository statistics for security-team review.
 when_to_use: |
   Invoke when the user says "regenerate the tracker dashboard", "show

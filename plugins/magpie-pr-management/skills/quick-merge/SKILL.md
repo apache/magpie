@@ -4,6 +4,10 @@
 name: magpie-pr-management-quick-merge
 family: pr-management
 mode: Triage
+requires_config:
+  - pr-management-config.md
+  - pr-management-quick-merge-config.md
+  - project.md
 description: |
   Identify trivial, low-risk pull requests in the `ready for maintainer review`
   queue of <upstream> that pass every quality gate and touch only supplementary

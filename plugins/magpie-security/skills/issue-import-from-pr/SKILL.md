@@ -4,6 +4,9 @@
 name: magpie-security-issue-import-from-pr
 family: security
 mode: Triage
+requires_config:
+  - project.md
+  - scope-labels.md
 description: |
   Open a tracking issue in <tracker> for a security-relevant fix that
   has already been opened (or merged) as a public PR in <upstream>,

@@ -5,6 +5,9 @@ name: magpie-release-prepare
 family: release-management
 organization: ASF
 mode: Drafting
+requires_config:
+  - release-management-config.md
+  - release-trains.md
 description: |
   Draft release preparation artefacts for `<upstream>`: the planning
   issue, the version-bump and changelog prep PR, or the post-release

@@ -4,6 +4,8 @@
 name: magpie-newcomer-issue-explainer
 family: mentoring
 mode: Mentoring
+requires_config:
+  - project.md
 description: |
   Given an open good-first-issue on the configured `<upstream>` repo,
   explain it in beginner terms and sketch a concrete approach: which

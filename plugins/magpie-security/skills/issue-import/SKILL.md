@@ -4,6 +4,9 @@
 name: magpie-security-issue-import
 family: security
 mode: Triage
+requires_config:
+  - project.md
+  - security-intake-config.md
 description: |
   Scan <security-list> for reports that have not yet been
   copied into <tracker> as tracking issues, present the proposed

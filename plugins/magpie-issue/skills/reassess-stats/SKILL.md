@@ -4,6 +4,8 @@
 name: magpie-issue-reassess-stats
 family: issue
 mode: Meta
+requires_config:
+  - issue-tracker-config.md
 description: |
   Read-only dashboard over a directory of `verdict.json` files
   produced by `issue-reassess` campaigns. Surfaces a health

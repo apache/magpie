@@ -7,6 +7,7 @@
 
 - [Agentic Pairing skill family](#agentic-pairing-skill-family)
   - [Install & first runs](#install--first-runs)
+    - [Before the first run](#before-the-first-run)
     - [Try these first](#try-these-first)
   - [Skills](#skills)
     - [When to use which](#when-to-use-which)
@@ -64,6 +65,22 @@ New to Magpie? The [quick start](../quick-start.md) walks the whole path in
 one place — install, the first `/magpie-setup` run, and a recording of it
 happening — plus the other agents and the secure-isolation setup to run next.
 
+### Before the first run
+
+<!-- BEGIN generated: skill-config (tools/dev/check-skill-config.py --fix) -->
+
+**Nothing here has to be configured.** These skills read the file below
+when the project has one and fall back to a documented default when it
+does not.
+
+**Optional.** Each has a documented fallback; absent, the skill still runs.
+
+| File | What it carries | Read by |
+|---|---|---|
+| [`project.md`](../../projects/_template/project.md) | Project manifest. Identity, repositories, mailing lists, tools enabled, CVE tooling, GitHub project-board + issue-template field declarations. The single file every skill reads to resolve project-scoped references. | `multi-agent-review`, `self-review` |
+
+<!-- END generated: skill-config -->
+
 ### Try these first
 
 *Illustrative shapes, not real transcripts — your output will differ.
@@ -120,18 +137,10 @@ instead.
 
 ## Adopter contract
 
-The Agentic Pairing skills have no project-specific config files. They resolve
-two standard placeholders from the adopter's `<project-config>/`:
-
-| Placeholder | Resolved from |
-|---|---|
-| `<upstream>` | `project.md → upstream_repo` (owner/name of the public source repo) |
-| `<default-branch>` | `project.md → upstream_default_branch` (e.g. `main`) |
-
-No additional config files are required. The skills do not write to the
-project's tracker, label set, or any shared infrastructure.
-
----
+The Agentic Pairing skills read local git state and write nothing: no PR is
+opened, no comment posted, and the working tree is never mutated. They resolve
+`<upstream>` and `<project-config>` placeholders when the project defines
+them, and run without either.
 
 ## Status
 

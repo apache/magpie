@@ -4,6 +4,9 @@
 name: magpie-reviewer-routing
 family: pr-management
 mode: Triage
+requires_config:
+  - project.md
+  - reviewer-roster.md
 description: |
   Given an open issue or PR, scores the project's configured reviewer roster
   across three signals — touched-area eligibility, git-history familiarity

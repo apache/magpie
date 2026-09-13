@@ -7,6 +7,7 @@
 
 - [Agentic Mentoring skill family](#agentic-mentoring-skill-family)
   - [Install & first runs](#install--first-runs)
+    - [Before the first run](#before-the-first-run)
     - [Try these first](#try-these-first)
   - [Skills](#skills)
     - [What each skill covers](#what-each-skill-covers)
@@ -55,6 +56,33 @@ Once you have [added the marketplace](../setup/marketplace-install.md):
 New to Magpie? The [quick start](../quick-start.md) walks the whole path in
 one place — install, the first `/magpie-setup` run, and a recording of it
 happening — plus the other agents and the secure-isolation setup to run next.
+
+### Before the first run
+
+<!-- BEGIN generated: skill-config (tools/dev/check-skill-config.py --fix) -->
+
+Every skill here resolves project-specific values from the adopter's
+[`<project-config>/`](../../projects/_template/) directory.
+[`/magpie-setup adopt`](../setup/team-adoption.md) scaffolds all of them from
+templates; you fill in the `TODO` fields for the skills you use.
+
+**Required.** Without these a skill would act on a guess, so it stops and
+says which file is missing.
+
+| File | What it carries | Read by |
+|---|---|---|
+| [`good-first-issue-config.md`](../../projects/_template/good-first-issue-config.md) | What counts as a good first issue here: labels, size limits, and the areas safe to hand to a newcomer. | `good-first-issue-author`, `good-first-issue-sweep` |
+| [`issue-tracker-config.md`](../../projects/_template/issue-tracker-config.md) | Tracker URL, project key, auth model, default query templates. | `good-first-issue-author`, `good-first-issue-sweep` |
+| [`project.md`](../../projects/_template/project.md) | Project manifest. Identity, repositories, mailing lists, tools enabled, CVE tooling, GitHub project-board + issue-template field declarations. The single file every skill reads to resolve project-scoped references. | `good-first-issue-author`, `good-first-issue-sweep`, `newcomer-issue-explainer`, `welcome` |
+
+**Optional.** Each has a documented fallback; absent, the skill still runs.
+
+| File | What it carries | Read by |
+|---|---|---|
+| [`mentoring-welcome-config.md`](../../projects/_template/mentoring-welcome-config.md) | Wording and triggers for first-time-contributor welcomes. | `welcome` |
+| [`newcomer-issue-explainer-config.md`](../../projects/_template/newcomer-issue-explainer-config.md) | How much context an explanation carries, and the register it is written in. | `newcomer-issue-explainer` |
+
+<!-- END generated: skill-config -->
 
 ### Try these first
 
@@ -141,18 +169,10 @@ confirmation in-session.
 
 ## Adopter contract
 
-The skills resolve project-specific content from these files in the adopter's
-`<project-config>/` directory:
-
-| File | Used by |
-|---|---|
-| [`mentoring-config.md`](../../projects/_template/mentoring-config.md) | `pr-management-mentor` (tone knobs, hand-off team, footer, `max_agent_turns`) |
-| [`good-first-issue-config.md`](../../projects/_template/good-first-issue-config.md) | `good-first-issue-author`, `good-first-issue-sweep` (candidate-scope rules, GFI-label name, suitability rubric threshold) |
-| [`mentoring-welcome-config.md`](../../projects/_template/mentoring-welcome-config.md) | `mentoring-welcome` (welcome-comment bodies, detection rules, contributing-guide URL) |
-| [`committer-readiness.md`](../../projects/_template/committer-readiness.md) | `contributor-to-committer` (committer/PMC threshold declarations: PR count, review count, issue participation, tenure window) |
-
-See the spec's [Adopter contract section](spec.md#adopter-contract) for the
-required key documentation.
+The generated table under
+[*Before the first run*](#before-the-first-run) lists every file these skills
+read. The [spec's adopter-contract section](spec.md#adopter-contract) documents
+the keys inside each one.
 
 ## Status
 

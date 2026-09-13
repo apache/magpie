@@ -4,6 +4,8 @@
 name: magpie-mentoring-welcome
 family: mentoring
 mode: Mentoring
+requires_config:
+  - project.md
 description: |
   Draft a first-contact orientation comment for a first-time contributor
   on a newly opened issue or PR on the configured `<upstream>` repo.

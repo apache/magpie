@@ -370,6 +370,24 @@ repos:
   #     next contributor deciding whether it applies to their change.
   # None of these break anything when wrong, which is exactly why they rot:
   # they are numbers a human must remember to update while thinking about
+  # Per-family configuration table. Which `<project-config>/` files a family's
+  # skills read -- and which of them an adopter must actually create -- was
+  # carried by a hand-maintained table in nine of the ten family READMEs, and
+  # had drifted exactly as far as an unguarded table does: `security` listed
+  # none of the thirteen files its skills read. The required set is now
+  # declared per skill in `requires_config:` frontmatter, the optional set is
+  # derived from what each skill references, and the table is generated from
+  # both. Runs as `--fix`, like check-family-plugins: the block is a pure
+  # function of the frontmatter, so there is nothing for a contributor to
+  # decide when it drifts.
+  - repo: local
+    hooks:
+      - id: check-skill-config
+        name: check-skill-config (family config tables vs requires_config)
+        language: system
+        entry: python3 tools/dev/check-skill-config.py --fix
+        files: ^(skills/[^/]+/SKILL\.md|plugins/magpie-[^/]+/skills/.*|projects/_template/.*|docs/[^/]+/README\.md|tools/dev/check-skill-config\.py)$
+        pass_filenames: false
   # something else.
   - repo: local
     hooks:

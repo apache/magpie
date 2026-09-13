@@ -5,6 +5,8 @@ name: magpie-release-announce-draft
 family: release-management
 organization: ASF
 mode: Drafting
+requires_config:
+  - release-management-config.md
 description: |
   Draft the `[ANNOUNCE]` email body and open (not merge) the site-bump PR
   for a promoted release of `<upstream>`. Reads release metadata from the

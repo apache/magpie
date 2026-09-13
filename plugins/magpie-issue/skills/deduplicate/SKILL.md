@@ -4,6 +4,8 @@
 name: magpie-issue-deduplicate
 family: issue
 mode: Triage
+requires_config:
+  - issue-tracker-config.md
 description: |
   Merge two open `<issue-tracker>` issues that describe the same
   root cause, preserving both reporters' context. Proposes a

@@ -4,6 +4,8 @@
 name: magpie-security-issue-import-via-forwarder
 family: security
 mode: Triage
+requires_config:
+  - project.md
 description: |
   Optional sub-skill of `security-issue-import`,
   `security-issue-invalidate`, and `security-issue-sync` that

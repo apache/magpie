@@ -4,6 +4,9 @@
 name: magpie-security-model-verify
 family: security
 mode: Triage
+requires_config:
+  - project.md
+  - security-model.md
 description: |
   Pre-flight check on a project's published security model, run
   per repository in scope. Verifies two things — (1)

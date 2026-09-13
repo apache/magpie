@@ -7,11 +7,11 @@
 
 - [Contributor-growth skill family](#contributor-growth-skill-family)
   - [Install & first runs](#install--first-runs)
+    - [Before the first run](#before-the-first-run)
     - [Try these first](#try-these-first)
   - [Stage coverage](#stage-coverage)
   - [Skills](#skills)
   - [Family boundary](#family-boundary)
-  - [Adopter contract](#adopter-contract)
   - [Status](#status)
   - [Cross-references](#cross-references)
 
@@ -60,6 +60,36 @@ Once you have [added the marketplace](../setup/marketplace-install.md):
 New to Magpie? The [quick start](../quick-start.md) walks the whole path in
 one place — install, the first `/magpie-setup` run, and a recording of it
 happening — plus the other agents and the secure-isolation setup to run next.
+
+### Before the first run
+
+<!-- BEGIN generated: skill-config (tools/dev/check-skill-config.py --fix) -->
+
+Every skill here resolves project-specific values from the adopter's
+[`<project-config>/`](../../projects/_template/) directory.
+[`/magpie-setup adopt`](../setup/team-adoption.md) scaffolds all of them from
+templates; you fill in the `TODO` fields for the skills you use.
+
+**Required.** Without these a skill would act on a guess, so it stops and
+says which file is missing.
+
+| File | What it carries | Read by |
+|---|---|---|
+| [`committer-onboarding-config.md`](../../projects/_template/committer-onboarding-config.md) | Capability-flag vocabulary for committer intake and governance models (`icla`/`dco`/`no-cla`; `asf-pmc`/`github-codeowners`/`maintainer-roster`). | `committer-onboarding` |
+| [`committer-readiness.md`](../../projects/_template/committer-readiness.md) | The project's declared committer and PMC thresholds — what a contributor's activity is measured against. | `contributor-to-committer` |
+| [`contributor-nomination-config.md`](../../projects/_template/contributor-nomination-config.md) | Nomination-brief thresholds and assessment window. | `nomination` |
+| [`contributor-sentiment-config.md`](../../projects/_template/contributor-sentiment-config.md) | Signal thresholds for the sentiment gate. Every key has a default. | `sentiment` |
+| [`onboarding-concierge-config.md`](../../projects/_template/onboarding-concierge-config.md) | The path a new contributor is walked through, and who owns each step. | `onboarding-concierge` |
+| [`project.md`](../../projects/_template/project.md) | Project manifest. Identity, repositories, mailing lists, tools enabled, CVE tooling, GitHub project-board + issue-template field declarations. The single file every skill reads to resolve project-scoped references. | `activity-sweep`, `committer-onboarding`, `contributor-to-committer`, `nomination`, `onboarding-concierge`, `sentiment` |
+
+**Optional.** Each has a documented fallback; absent, the skill still runs.
+
+| File | What it carries | Read by |
+|---|---|---|
+| [`pmc-roster.md`](../../projects/_template/pmc-roster.md) | Who is binding. Read wherever a vote is counted or a PMC-only action is gated. | `nomination` |
+| [`privacy-llm.md`](../../projects/_template/privacy-llm.md) | Which model tier may see which class of content, for projects routing foundation-private information away from third-party models. | `committer-onboarding` |
+
+<!-- END generated: skill-config -->
 
 ### Try these first
 
@@ -148,20 +178,6 @@ nominator executes as themselves; no skill submits an ICLA form, invites
 an account, or modifies repository permissions without the nominator's
 direct action.
 
-## Adopter contract
-
-The skills resolve project-specific content from these files in the
-adopter's `<project-config>/` directory:
-
-| File | Used by |
-|---|---|
-| [`project.md`](../../projects/_template/project.md) | all skills (upstream repo slug, GitHub token context, `<tracker>` reference) |
-| [`pmc-roster.md`](../../projects/_template/pmc-roster.md) | `contributor-nomination`, `committer-onboarding` (PMC and committer rosters, ICLA-checker URL) |
-| [`contributor-nomination-config.md`](../../projects/_template/contributor-nomination-config.md) | `contributor-nomination` (activity-window length, committer / PMC thresholds, required-areas gates); also used by `contributor-to-committer` as a fallback when `committer-readiness.md` is absent |
-| [`committer-readiness.md`](../../projects/_template/committer-readiness.md) | `contributor-to-committer` (per-target threshold tables for committer/PMC readiness, assessment window; takes precedence over `contributor-nomination-config.md`) |
-| [`mentoring-welcome-config.md`](../../projects/_template/mentoring-welcome-config.md) | `mentoring-welcome` (tone knobs, contributing-doc links, AI-attribution footer wording) |
-| [`good-first-issue-config.md`](../../projects/_template/good-first-issue-config.md) | `good-first-issue-author`, `good-first-issue-sweep` (issue-tracker URL, getting-started link, GFI-label name, suitability rubric threshold) |
-
 ## Status
 
 **Experimental.** All nine skills are on main with eval suites; no
@@ -190,7 +206,7 @@ per-project policy knobs before a skill can safely propose anything):
   mode family overview, which cross-references `mentoring-welcome`,
   `good-first-issue-author`, and `good-first-issue-sweep`.
 - [`projects/_template/README.md`](../../projects/_template/README.md) —
-  adopter scaffold index, including the three contributor-growth config
-  templates listed in the Adopter contract above.
+  adopter scaffold index, with a purpose line for every file the table under
+  *Before the first run* links.
 - [`docs/setup/agentic-overrides.md`](../setup/agentic-overrides.md) —
   the override mechanism every skill in this family supports.

@@ -4,6 +4,9 @@
 name: magpie-pr-management-code-review
 family: pr-management
 mode: Triage
+requires_config:
+  - pr-management-code-review-criteria.md
+  - project.md
 description: |
   Walk a maintainer through deep, sequential code review of open pull requests on the configured `<upstream>` repo.
   Defaults to the **"my reviews"** queue (the union of five maintainer signals — see the Inputs table); selectors can

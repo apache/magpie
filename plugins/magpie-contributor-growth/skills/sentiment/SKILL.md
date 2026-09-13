@@ -4,6 +4,9 @@
 name: magpie-contributor-sentiment
 family: contributor-growth
 mode: Triage
+requires_config:
+  - contributor-sentiment-config.md
+  - project.md
 description: |
   Measures contributor-sentiment signals on <upstream> over a
   configurable window: thread tone (first-response classification),

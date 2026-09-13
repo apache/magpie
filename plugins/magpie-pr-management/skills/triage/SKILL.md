@@ -4,6 +4,10 @@
 name: magpie-pr-management-triage
 family: pr-management
 mode: Triage
+requires_config:
+  - pr-management-config.md
+  - pr-management-triage-comment-templates.md
+  - project.md
 description: |
   Sweep open pull requests on the configured `<upstream>` repo,
   classify each one against the project's quality criteria,

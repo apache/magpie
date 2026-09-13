@@ -7,6 +7,7 @@
 
 - [Repo-health audits — family overview](#repo-health-audits--family-overview)
   - [Install & first runs](#install--first-runs)
+    - [Before the first run](#before-the-first-run)
     - [Try these first](#try-these-first)
   - [Current skills](#current-skills)
     - [`audit-finding-fix` (experimental)](#audit-finding-fix-experimental)
@@ -62,6 +63,26 @@ Once you have [added the marketplace](../setup/marketplace-install.md):
 New to Magpie? The [quick start](../quick-start.md) walks the whole path in
 one place — install, the first `/magpie-setup` run, and a recording of it
 happening — plus the other agents and the secure-isolation setup to run next.
+
+### Before the first run
+
+<!-- BEGIN generated: skill-config (tools/dev/check-skill-config.py --fix) -->
+
+Every skill here resolves project-specific values from the adopter's
+[`<project-config>/`](../../projects/_template/) directory.
+[`/magpie-setup adopt`](../setup/team-adoption.md) scaffolds all of them from
+templates; you fill in the `TODO` fields for the skills you use.
+
+**Required.** Without these a skill would act on a guess, so it stops and
+says which file is missing.
+
+| File | What it carries | Read by |
+|---|---|---|
+| [`fix-workflow.md`](../../projects/_template/fix-workflow.md) | Fork / clone / toolchain specifics, backport-label policy, commit-trailer wording, PR scrubbing, private-PR fallback. | `audit-finding-fix` |
+| [`repo-health-config.md`](../../projects/_template/repo-health-config.md) | Per-skill switches: deprecated runner labels, zizmor rule classes, dependency managers, SPDX expression, flaky-test thresholds. | `dependency-audit`, `flaky-test-triage`, `license-compliance-audit`, `workflow-security-audit` |
+| [`runtime-invocation.md`](../../projects/_template/runtime-invocation.md) | Build prerequisite, run-a-single-file recipe, stream-capture conventions, network/dependency handling. | `audit-finding-fix` |
+
+<!-- END generated: skill-config -->
 
 ### Try these first
 
@@ -269,10 +290,8 @@ uv run --project tools/pilot-report-validator pilot-report-validate <your-report
 
 ## Adopter contract
 
-`projects/_template/repo-health-config.md` provides the per-project
-configuration scaffold for all repo-health skills. Copy it into your
-`<project-config>/` directory and fill in the `TODO` fields for each skill
-you enable:
+The shape of `repo-health-config.md`, which the table under
+[*Before the first run*](#before-the-first-run) links:
 
 ```yaml
 repo_health:

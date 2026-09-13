@@ -4,6 +4,10 @@
 name: magpie-issue-reproducer
 family: issue
 mode: Meta
+requires_config:
+  - issue-tracker-config.md
+  - reproducer-conventions.md
+  - runtime-invocation.md
 description: |
   For a single `<issue-tracker>` issue identifying a code-level
   bug, extract the reporter's example code from the issue body,

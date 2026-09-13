@@ -5,6 +5,8 @@ name: magpie-release-audit-report
 family: release-management
 organization: ASF
 mode: Triage
+requires_config:
+  - release-management-config.md
 description: |
   Assemble a per-release audit record from lifecycle artefacts (planning
   issue, vote thread, artefact list, promote revision, and announcement

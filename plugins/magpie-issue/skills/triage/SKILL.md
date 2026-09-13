@@ -4,6 +4,9 @@
 name: magpie-issue-triage
 family: issue
 mode: Triage
+requires_config:
+  - issue-tracker-config.md
+  - project.md
 description: |
   For each open `<issue-tracker>` issue in the configured
   candidate pool, read the issue body and comments and classify

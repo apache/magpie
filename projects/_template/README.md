@@ -17,7 +17,10 @@
     - [Contributor growth](#contributor-growth)
     - [Issue management](#issue-management)
     - [Repo-health audits](#repo-health-audits)
+    - [Mentoring](#mentoring)
     - [PR triage and review](#pr-triage-and-review)
+    - [Privacy and model routing](#privacy-and-model-routing)
+    - [Framework setup](#framework-setup)
     - [External skill sources](#external-skill-sources)
   - [Recommended setup order](#recommended-setup-order)
   - [Checklist after copying](#checklist-after-copying)
@@ -64,6 +67,9 @@ the rest.
 |---|---|
 | [`release-trains.md`](release-trains.md) | Active release branches, release-manager attribution per cut, rotation rosters, security-team roster. |
 | [`milestones.md`](milestones.md) | Milestone naming conventions + create-and-assign recipe. |
+| [`release-management-config.md`](release-management-config.md) | Vote window and pass rule, distribution backend and paths, announce/vote list addresses, retention rule. Read by every `release-*` skill. |
+| [`release-build.md`](release-build.md) | How this project builds and signs artefacts: build command, artefact names, checksum algorithm, signing-key expectations. |
+| [`pmc-roster.md`](pmc-roster.md) | Who is binding. Read wherever a vote is counted or a PMC-only action is gated. |
 
 ### Scope + product mapping
 
@@ -76,12 +82,17 @@ the rest.
 | File | Purpose |
 |---|---|
 | [`security-model.md`](security-model.md) | Authoritative URL for the project's Security Model + known-useful anchors + drafting rule. |
+| [`security-intake-config.md`](security-intake-config.md) | Capability-flag vocabulary for the intake path: how reports arrive, what counts as in scope, and what a receipt says. |
+| [`scanner-products.md`](scanner-products.md) | Private scanner product names, and the finder-anonymisation rule applied before anything is quoted publicly. |
+| [`security-tracker-stats.md`](security-tracker-stats.md) | Which tracker fields and windows the stats dashboard reads, and what it publishes. |
+| [`distributor-list.md`](distributor-list.md) | **Optional.** The embargo distributor list a pre-announcement goes to, and what it may contain. Absent, no pre-announcement is proposed. |
 
 ### CVE-allocation mechanics
 
 | File | Purpose |
 |---|---|
 | [`title-normalization.md`](title-normalization.md) | Regex cascade the `security-cve-allocate` skill applies to tracker titles before pasting them into the CVE-tool allocation form. |
+| [`cve-allocation-config.md`](cve-allocation-config.md) | Capability-flag vocabulary for CVE allocation: who may allocate, and through which tool. |
 
 ### Remediation workflow
 
@@ -95,6 +106,7 @@ the rest.
 |---|---|
 | [`naming-conventions.md`](naming-conventions.md) | Project-specific editorial rules. Keep only the ones that differ from the generic rules in `../../AGENTS.md`. |
 | [`canned-responses.md`](canned-responses.md) | Reusable reporter-facing reply templates. |
+| [`site-repo.md`](site-repo.md) | The project's website repository, and the path a release announcement bumps. |
 
 ### Contributor growth
 
@@ -107,6 +119,9 @@ these skills can delete this group.
 | [`contributor-nomination-config.md`](contributor-nomination-config.md) | Nomination-brief thresholds and assessment window. Used by `contributor-nomination`. |
 | [`committer-onboarding-config.md`](committer-onboarding-config.md) | **Capability-flag vocabulary for committer intake and governance models** (`icla`/`dco`/`no-cla`; `asf-pmc`/`github-codeowners`/`maintainer-roster`). Used by `committer-onboarding`. |
 | `committer-readiness.md` | Activity thresholds the `contributor-to-committer` readiness tracker compares against. Added by the `contributor-to-committer` skill. |
+| [`committer-readiness.md`](committer-readiness.md) | The project's declared committer and PMC thresholds — what a contributor's activity is measured against. |
+| [`onboarding-concierge-config.md`](onboarding-concierge-config.md) | The path a new contributor is walked through, and who owns each step. |
+| [`contributor-sentiment-config.md`](contributor-sentiment-config.md) | **Optional.** Signal thresholds for the sentiment gate. Every key has a default. |
 
 ### Issue management
 
@@ -135,6 +150,15 @@ delete this group.
 |---|---|
 | [`repo-health-config.md`](repo-health-config.md) | Per-skill switches: deprecated runner labels, zizmor rule classes, dependency managers, SPDX expression, flaky-test thresholds. Used by every `*-audit` and `flaky-test-triage` skill. |
 
+### Mentoring
+
+| File | Purpose |
+|---|---|
+| [`good-first-issue-config.md`](good-first-issue-config.md) | What counts as a good first issue here: labels, size limits, and the areas safe to hand to a newcomer. |
+| [`mentoring-config.md`](mentoring-config.md) | Tone knobs and hand-off protocol for the thread-level mentoring skill. |
+| [`mentoring-welcome-config.md`](mentoring-welcome-config.md) | **Optional.** Wording and triggers for first-time-contributor welcomes. |
+| [`newcomer-issue-explainer-config.md`](newcomer-issue-explainer-config.md) | **Optional.** How much context an explanation carries, and the register it is written in. |
+
 ### PR triage and review
 
 These files configure the
@@ -151,6 +175,9 @@ fill them in.
 | [`pr-management-triage-comment-templates.md`](pr-management-triage-comment-templates.md) | Comment-body URLs (PR quality criteria, two-stage triage rationale), AI-attribution footer wording, project display name. Used by `pr-management-triage`. |
 | [`pr-management-triage-ci-check-map.md`](pr-management-triage-ci-check-map.md) | CI-check name pattern → category name + doc-URL mapping for the violations comment. Used by `pr-management-triage`. |
 | [`pr-management-code-review-criteria.md`](pr-management-code-review-criteria.md) | List of project's review-criteria source files (repo-wide AGENTS.md, code-review docs, per-area AGENTS.md), security-model calibration doc, backport-branch pattern, section-anchor URLs. Used by `pr-management-code-review`. |
+| [`pr-management-quick-merge-config.md`](pr-management-quick-merge-config.md) | Thresholds, path globs, and the merge-command template for the express lane. |
+| [`reviewer-roster.md`](reviewer-roster.md) | Who reviews what. Read by `pr-management-reviewer-routing` to propose a reviewer. |
+| [`stale-sweep-config.md`](stale-sweep-config.md) | **Optional.** Grace windows and exemption labels for stale sweeps. Absent, the framework defaults apply. |
 
 > Each PR-skill reads its project-specific content exclusively
 > from the files listed below.  No defaults are baked into the
@@ -159,6 +186,18 @@ fill them in.
 > for concrete examples (filled in with the Apache Airflow project's
 > values, which new adopters can use as a reference when drafting
 > their own configuration).
+
+### Privacy and model routing
+
+| File | Purpose |
+|---|---|
+| [`privacy-llm.md`](privacy-llm.md) | **Optional.** Which model tier may see which class of content, for projects routing foundation-private information away from third-party models. |
+
+### Framework setup
+
+| File | Purpose |
+|---|---|
+| [`magpie-setup.md`](magpie-setup.md) | **Optional.** Overrides for the setup family's own checks. Every key has a default. |
 
 ### External skill sources
 

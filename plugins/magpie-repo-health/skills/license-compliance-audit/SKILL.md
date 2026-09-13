@@ -4,6 +4,8 @@
 name: magpie-license-compliance-audit
 family: repo-health
 mode: Triage
+requires_config:
+  - repo-health-config.md
 description: |
   Read-only license compliance audit for one repository or a local
   checkout. Checks that a LICENSE file exists, that a NOTICE file is

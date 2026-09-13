@@ -4,6 +4,9 @@
 name: magpie-security-issue-sync
 family: security
 mode: Triage
+requires_config:
+  - milestones.md
+  - scanner-products.md
 description: |
   Synchronize a security issue in <tracker> with the state of its
   GitHub discussion, the <security-list> mailing thread, and any

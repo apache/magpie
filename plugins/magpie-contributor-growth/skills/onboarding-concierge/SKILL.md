@@ -4,6 +4,9 @@
 name: magpie-onboarding-concierge
 family: contributor-growth
 mode: Mentoring
+requires_config:
+  - onboarding-concierge-config.md
+  - project.md
 description: |
   Answer a newcomer's "how do I contribute here" question by grounding the
   response in `CONTRIBUTING.md` and the project's own docs. Classifies the

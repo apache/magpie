@@ -4,6 +4,10 @@
 name: magpie-security-issue-triage
 family: security
 mode: Triage
+requires_config:
+  - project.md
+  - scope-labels.md
+  - security-model.md
 description: |
   For each open `<tracker>` issue carrying the `needs triage`
   label, read body + comments and classify the candidate

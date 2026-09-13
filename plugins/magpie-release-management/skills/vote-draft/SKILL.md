@@ -5,6 +5,8 @@ name: magpie-release-vote-draft
 family: release-management
 organization: ASF
 mode: Drafting
+requires_config:
+  - release-management-config.md
 description: |
   Draft the `[VOTE]` email body and planning-issue comment for an
   RC of `<upstream>`. Reads RC metadata from the planning issue and

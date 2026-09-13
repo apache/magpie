@@ -5,6 +5,9 @@ name: magpie-contributor-nomination
 family: contributor-growth
 organization: ASF
 mode: Triage
+requires_config:
+  - contributor-nomination-config.md
+  - project.md
 description: |
   Read-only nomination brief for a named GitHub contributor on
   <upstream>. Aggregates GitHub activity across all contribution

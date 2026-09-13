@@ -5,6 +5,9 @@ name: magpie-release-promote
 family: release-management
 organization: ASF
 mode: Drafting
+requires_config:
+  - pmc-roster.md
+  - release-management-config.md
 description: |
   Emit the backend-shaped promotion command set for a release that has
   passed its vote. Reads the planning issue (must carry `vote-passed`),

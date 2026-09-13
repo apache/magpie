@@ -4,6 +4,9 @@
 name: magpie-issue-stale-sweep
 family: issue
 mode: Triage
+requires_config:
+  - issue-tracker-config.md
+  - project.md
 description: |
   Sweep open `<issue-tracker>` issues for inactivity past a
   configurable threshold and propose either a closure (when the

@@ -5,6 +5,9 @@ name: magpie-release-verify-rc
 family: release-management
 organization: ASF
 mode: Triage
+requires_config:
+  - release-build.md
+  - release-management-config.md
 description: |
   Read-only pre-flight verification of a staged release candidate (RC)
   for `<upstream>`. Checks artefact integrity (GPG signatures and

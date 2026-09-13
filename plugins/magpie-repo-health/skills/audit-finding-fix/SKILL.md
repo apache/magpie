@@ -4,6 +4,9 @@
 name: magpie-audit-finding-fix
 family: repo-health
 mode: Drafting
+requires_config:
+  - fix-workflow.md
+  - runtime-invocation.md
 description: |
   For a batch of findings from a non-security audit tool
   (`<audit-tool>` — ruff / flake8 / mypy / pylint / CodeQL /

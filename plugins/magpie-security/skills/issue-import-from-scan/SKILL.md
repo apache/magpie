@@ -4,6 +4,8 @@
 name: magpie-security-issue-import-from-scan
 family: security
 mode: Triage
+requires_config:
+  - project.md
 description: |
   Triage a security scanner's multi-finding output (read via a
   pluggable scan-format adapter) and turn findings into security work

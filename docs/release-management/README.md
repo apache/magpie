@@ -7,11 +7,11 @@
 
 - [Release-management skill family](#release-management-skill-family)
   - [Install & first runs](#install--first-runs)
+    - [Before the first run](#before-the-first-run)
     - [Try these first](#try-these-first)
   - [Status](#status)
   - [Skills](#skills)
   - [Deep documentation](#deep-documentation)
-  - [Adopter contract](#adopter-contract)
   - [Mode mapping](#mode-mapping)
   - [Cross-references](#cross-references)
 
@@ -93,6 +93,33 @@ Once you have [added the marketplace](../setup/marketplace-install.md):
 New to Magpie? The [quick start](../quick-start.md) walks the whole path in
 one place — install, the first `/magpie-setup` run, and a recording of it
 happening — plus the other agents and the secure-isolation setup to run next.
+
+### Before the first run
+
+<!-- BEGIN generated: skill-config (tools/dev/check-skill-config.py --fix) -->
+
+Every skill here resolves project-specific values from the adopter's
+[`<project-config>/`](../../projects/_template/) directory.
+[`/magpie-setup adopt`](../setup/team-adoption.md) scaffolds all of them from
+templates; you fill in the `TODO` fields for the skills you use.
+
+**Required.** Without these a skill would act on a guess, so it stops and
+says which file is missing.
+
+| File | What it carries | Read by |
+|---|---|---|
+| [`pmc-roster.md`](../../projects/_template/pmc-roster.md) | Who is binding. Read wherever a vote is counted or a PMC-only action is gated. | `promote`, `vote-tally` |
+| [`release-build.md`](../../projects/_template/release-build.md) | How this project builds and signs artefacts: build command, artefact names, checksum algorithm, signing-key expectations. | `rc-cut`, `verify-rc` |
+| [`release-management-config.md`](../../projects/_template/release-management-config.md) | Vote window and pass rule, distribution backend and paths, announce/vote list addresses, retention rule. | `announce-draft`, `archive-sweep`, `audit-report`, `keys-sync`, `prepare`, `promote`, `rc-cut`, `verify-rc`, `vote-draft`, `vote-tally` |
+| [`release-trains.md`](../../projects/_template/release-trains.md) | Active release branches, release-manager attribution per cut, rotation rosters, security-team roster. | `archive-sweep`, `prepare` |
+
+**Optional.** Each has a documented fallback; absent, the skill still runs.
+
+| File | What it carries | Read by |
+|---|---|---|
+| [`canned-responses.md`](../../projects/_template/canned-responses.md) | Reusable reporter-facing reply templates. | `announce-draft`, `vote-draft` |
+
+<!-- END generated: skill-config -->
 
 ### Try these first
 
@@ -237,31 +264,6 @@ referenced from it:
   scaffold for security use; release-management reuses it).
 - [`<project-config>/release-management-config.md`](../../projects/_template/release-management-config.md)
  , the family's adopter contract (new in this PR).
-
-## Adopter contract
-
-The skills resolve project-specific content from the release-
-workflow files in
-[`<project-config>/`](../../projects/_template/), see the
-adopter scaffold's
-[`README.md`](../../projects/_template/README.md) for the
-file-by-file index. Required at minimum:
-
-- `project.md`, identity, repos, mailing lists, tools
-- `release-management-config.md`, vote window, vote-pass rule,
-  signing-key requirements, audit-log location, retention rule,
-  build command, KEYS file path
-- `release-trains.md`, release-train identity (shared with the
-  security family)
-- `release-build.md`, build invocation, digest set, binary-exclude
-  list (new in this PR; minimal scaffold)
-- `pmc-roster.md`, PMC member roster used by
-  `release-vote-tally`
-  to classify binding vs non-binding votes (new in this PR;
-  minimal scaffold)
-- `site-repo.md`, site-bump PR target for
-  `release-announce-draft`
-  (new in this PR; minimal scaffold)
 
 ## Mode mapping
 

@@ -4,6 +4,8 @@
 name: magpie-security-issue-import-from-md
 family: security
 mode: Triage
+requires_config:
+  - scope-labels.md
 description: |
   Open one or more `<tracker>` tracking issues from a markdown
   file containing a batch of security findings. Each finding

@@ -4,6 +4,8 @@
 name: magpie-pr-management-mentor
 family: pr-management
 mode: Mentoring
+requires_config:
+  - project.md
 description: |
   Draft a teaching-register comment on a single GitHub issue
   or PR thread on the configured `<upstream>` repo, aimed at a

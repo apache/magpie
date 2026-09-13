@@ -5,6 +5,9 @@ name: magpie-release-vote-tally
 family: release-management
 organization: ASF
 mode: Triage
+requires_config:
+  - pmc-roster.md
+  - release-management-config.md
 description: |
   After the approval window closes, fetch the approval signal for an RC
   of `<upstream>`, classify each reply as +1 / 0 / -1 and binding or

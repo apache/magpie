@@ -5,6 +5,9 @@ name: magpie-release-archive-sweep
 family: release-management
 organization: ASF
 mode: Triage
+requires_config:
+  - release-management-config.md
+  - release-trains.md
 description: |
   Scan the release distribution area (`dist/release/<project>/` when `release_dist_backend = svnpubsub`, or the configured distribution location),
   identify releases past the project's retention rule, and propose the

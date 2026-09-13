@@ -4,6 +4,8 @@
 name: magpie-flaky-test-triage
 family: repo-health
 mode: Triage
+requires_config:
+  - repo-health-config.md
 description: |
   Read-only flaky-test detection from GitHub Actions CI run history for one
   repository. Parses workflow run outcomes over a configurable window,

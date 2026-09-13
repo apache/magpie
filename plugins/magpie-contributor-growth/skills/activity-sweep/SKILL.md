@@ -5,6 +5,8 @@ name: magpie-contributor-activity-sweep
 family: contributor-growth
 organization: ASF
 mode: Triage
+requires_config:
+  - project.md
 description: |
   Read-only GitHub activity card for a named contributor on <upstream>.
   Fetches PR authorship, code-review activity, issues, and PR/issue

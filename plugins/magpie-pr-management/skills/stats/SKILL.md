@@ -4,6 +4,8 @@
 name: magpie-pr-management-stats
 family: pr-management
 mode: Triage
+requires_config:
+  - pr-management-config.md
 description: |
   Read-only maintainer dashboard for the open-PR backlog of <upstream>.
   Surfaces a health rating, prioritised action recommendations, weekly closure

@@ -4,6 +4,8 @@
 name: magpie-issue-backlog-stats
 family: issue
 mode: Triage
+requires_config:
+  - issue-tracker-config.md
 description: |
   Read-only maintainer dashboard for the open general-issue backlog of
   <issue-tracker>. Surfaces a health rating, prioritised recommendations,

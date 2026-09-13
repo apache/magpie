@@ -4,6 +4,9 @@
 name: magpie-issue-reassess
 family: issue
 mode: Triage
+requires_config:
+  - issue-tracker-config.md
+  - reassess-pool-defaults.md
 description: |
   Sweep a configured pool of resolved or end-of-life
   `<issue-tracker>` issues and re-assess each against the

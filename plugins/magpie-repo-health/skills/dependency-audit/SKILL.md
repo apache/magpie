@@ -4,6 +4,8 @@
 name: magpie-dependency-audit
 family: repo-health
 mode: Triage
+requires_config:
+  - repo-health-config.md
 description: |
   Read-only dependency vulnerability audit for one repository or a local
   checkout. Detects the project's dependency manager(s), runs the

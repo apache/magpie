@@ -5,6 +5,8 @@ name: magpie-release-keys-sync
 family: release-management
 organization: ASF
 mode: Drafting
+requires_config:
+  - release-management-config.md
 description: |
   Draft the diff that adds the Release Manager's public key to the
   project's KEYS file (`<keys-file-url>`), emit a paste-ready `svn`

@@ -4,6 +4,8 @@
 name: magpie-workflow-security-audit
 family: repo-health
 mode: Triage
+requires_config:
+  - repo-health-config.md
 description: |
   Read-only GitHub Actions workflow security audit for one repository,
   an explicit repository set, or a whole GitHub org. Runs `zizmor` to
