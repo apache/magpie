@@ -44,6 +44,10 @@ Checks:
   embeds at least one;
 - the one real recording exists, is embedded by the quick start, and the setup
   family's README embeds it rather than a copy;
+- the per-family wizard animations regenerate from the frontmatter they are
+  derived from, and each is embedded by its family README. These have no
+  transcript to pair with -- their source is `requires_config:` -- so the
+  pairing rule does not apply to them and the staleness rule does;
 - the first-run walkthrough's screenshots are paired and embedded by the
   chapter they exist for, in the order its steps run. A walkthrough whose
   pictures are a step out of order teaches the wrong sequence, and no link
@@ -76,6 +80,8 @@ from pathlib import Path
 QUICKSTART = Path("assets/quickstart")
 FAMILY_DIR = QUICKSTART / "families"
 WALKTHROUGH_DIR = QUICKSTART / "walkthrough"
+WIZARD_DIR = QUICKSTART / "wizard"
+WIZARD_SCRIPT = Path("tools/dev/render-config-wizard.py")
 FIRST_RUN_DOC = Path("docs/quick-start/first-run.md")
 PLUGINS = Path("plugins")
 SETUP_RECORDING = QUICKSTART / "magpie-setup.svg"
@@ -274,6 +280,34 @@ def check_walkthrough() -> list[str]:
     return errors
 
 
+def check_wizards() -> list[str]:
+    """The animated per-family config runs: regenerate, and are shown.
+
+    Derived from `requires_config:` rather than from a transcript, so the
+    check is the same in spirit and different in mechanism: re-derive and
+    compare, then confirm the family page embeds the result.
+    """
+    if not WIZARD_SCRIPT.is_file():
+        return [f"{WIZARD_SCRIPT}: missing — nothing can verify the wizard animations"]
+
+    errors: list[str] = []
+    proc = subprocess.run(["python3", str(WIZARD_SCRIPT), "--check"], capture_output=True, text=True)
+    if proc.returncode != 0:
+        errors += [line for line in proc.stderr.splitlines() if line.strip()]
+
+    if not WIZARD_DIR.is_dir():
+        return errors
+
+    for svg in sorted(WIZARD_DIR.glob("*.svg")):
+        errors += check_svg(svg)
+        readme = docs_readme(svg.stem)
+        if not readme.is_file():
+            errors.append(f"{readme}: missing — {svg} is shown by nothing")
+        elif svg.as_posix() not in readme.read_text(encoding="utf-8"):
+            errors.append(f"{readme}: does not embed {svg}")
+    return errors
+
+
 def check_regenerates() -> list[str]:
     """Every committed .svg still matches its .txt.
 
@@ -350,6 +384,7 @@ def main() -> int:
 
     errors += check_screenshots(known)
     errors += check_walkthrough()
+    errors += check_wizards()
     errors += check_regenerates()
     errors += check_no_retired_references()
 
@@ -360,8 +395,10 @@ def main() -> int:
 
     shots = len(list(FAMILY_DIR.rglob("*.svg"))) if FAMILY_DIR.is_dir() else 0
     steps = len(list(WALKTHROUGH_DIR.glob("*.svg"))) if WALKTHROUGH_DIR.is_dir() else 0
+    wizards = len(list(WIZARD_DIR.glob("*.svg"))) if WIZARD_DIR.is_dir() else 0
     print(
-        f"Recording and screenshots OK (1 recording, {shots} family screenshots, {steps} walkthrough steps)."
+        f"Recording and screenshots OK (1 recording, {shots} family screenshots, "
+        f"{steps} walkthrough steps, {wizards} wizard animations)."
     )
     return 0
 

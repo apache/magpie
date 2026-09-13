@@ -399,6 +399,15 @@ repos:
         entry: python3 tools/dev/check-skill-config.py --fix
         files: ^(skills/[^/]+/SKILL\.md|plugins/magpie-[^/]+/skills/.*|projects/_template/.*|docs/[^/]+/README\.md|tools/dev/check-skill-config\.py)$
         pass_filenames: false
+      # The animated wizard runs derive from the same frontmatter, so they move
+      # when it moves. Regenerated here rather than only checked, for the same
+      # reason as its neighbours: the output is a pure function of the source.
+      - id: render-config-wizard
+        name: render-config-wizard (animated per-family config runs)
+        language: system
+        entry: python3 tools/dev/render-config-wizard.py
+        files: ^(skills/[^/]+/SKILL\.md|plugins/magpie-[^/]+/skills/.*/SKILL\.md|projects/_template/.*|tools/dev/(render-config-wizard|check-skill-config)\.py)$
+        pass_filenames: false
   # something else.
   - repo: local
     hooks:

@@ -170,6 +170,15 @@ def render(family: str, skills: dict[str, tuple[list[str], set[str]]], desc: dic
 
     if required:
         lines += [
+            f"![An animated `/magpie-setup config` run for the {family} family: the check "
+            f"failing, the values derived from the repository, one question for the rest, "
+            f"and gitignored files written]"
+            f"(../../assets/quickstart/wizard/{family}.svg)",
+            "",
+            "*Illustrative — the real run derives more and asks better. What is true is",
+            "the shape: it runs itself, it writes only gitignored files, and it stages",
+            "nothing.*",
+            "",
             "Every skill here resolves project-specific values from the adopter's",
             f"[`<project-config>/`](../../{TEMPLATE_DIR}/) directory — which is",
             "`.apache-magpie-local/` (gitignored, yours) first, then",

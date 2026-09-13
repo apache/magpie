@@ -23,6 +23,7 @@
 | File | Embedded by | Shows |
 |---|---|---|
 | `magpie-setup.svg` | [`docs/quick-start.md`](../../docs/quick-start.md), and [`docs/setup/README.md`](../../docs/setup/README.md) | `/magpie-setup` detecting the checkout, printing its plan, and waiting for approval. A real recording of a real run. |
+| `wizard/<family>.svg` | that family's README, *Before the first run* | An **animated** `/magpie-setup config` run for that family. Generated from `requires_config:` frontmatter by [`render-config-wizard.py`](../../tools/dev/render-config-wizard.py) — there is no transcript to edit. Illustrative of the shape of a run, not a recording of one. |
 | `families/<family>/<skill>.txt` | — | The authored transcript. This is the source file. |
 | `families/<family>/<skill>.svg` | that family's README, *Try these first* | The transcript rendered. Generated; never hand-edited. |
 

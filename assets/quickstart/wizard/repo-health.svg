@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Licensed to the Apache Software Foundation (ASF) under one
+  or more contributor license agreements.  See the NOTICE file
+  distributed with this work for additional information
+  regarding copyright ownership.  The ASF licenses this file
+  to you under the Apache License, Version 2.0 (the
+  "License"); you may not use this file except in compliance
+  with the License.  You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing,
+  software distributed under the License is distributed on an
+  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+  KIND, either express or implied.  See the License for the
+  specific language governing permissions and limitations
+  under the License.
+
+  GENERATED FILE - do not edit.
+
+  Derived from the skills' requires_config: frontmatter by
+  tools/dev/render-config-wizard.py. Illustrative of the shape of a
+  /magpie-setup config run, not a recording of one.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 695 568"
+     width="695" height="568" role="img"
+     data-magpie-generated="render-config-wizard"
+     aria-label="An animated /magpie-setup config run for the repo-health family: the check failing, values derived from the repository, one question, and gitignored files written">
+  <title>/magpie-setup config — repo-health</title>
+  <desc>Illustrative animation of a configuration run for the repo-health family. Derived from the skills' declared required configuration.</desc>
+  <rect width="695" height="568" rx="10" fill="#1d1f21"/>
+  <rect x="0" y="0" width="695" height="34" rx="10" fill="#2b2e31"/>
+  <rect x="0" y="24" width="695" height="10" fill="#2b2e31"/>
+  <circle cx="22" cy="17" r="6" fill="#3f4448"/>
+  <circle cx="44" cy="17" r="6" fill="#3f4448"/>
+  <circle cx="66" cy="17" r="6" fill="#3f4448"/>
+  <g font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="17" xml:space="preserve">
+    <text x="26" y="80" fill="#8abeb7" opacity="0">&gt; /magpie-repo-health:&lt;skill&gt;<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.0000;0.0010;1" dur="12.4s" repeatCount="indefinite"/></text>
+    <text x="26" y="128" fill="#d8a657" opacity="0">  ✗ project configuration — 3 required, none found<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.0565;0.0575;1" dur="12.4s" repeatCount="indefinite"/></text>
+    <text x="26" y="176" fill="#8a8f94" opacity="0">  Configuring now. Gitignored files in this clone only.<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.1129;0.1139;1" dur="12.4s" repeatCount="indefinite"/></text>
+    <text x="26" y="248" fill="#c5c8c6" opacity="0">  One question, for what the repository cannot tell me:<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.1694;0.1704;1" dur="12.4s" repeatCount="indefinite"/></text>
+    <text x="26" y="272" fill="#c5c8c6" opacity="0">      fix-workflow.md<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.2258;0.2268;1" dur="12.4s" repeatCount="indefinite"/></text>
+    <text x="26" y="296" fill="#8a8f94" opacity="0">          Fork / clone / toolchain specifics, backport-label…<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.2823;0.2833;1" dur="12.4s" repeatCount="indefinite"/></text>
+    <text x="26" y="320" fill="#c5c8c6" opacity="0">      repo-health-config.md<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.3387;0.3397;1" dur="12.4s" repeatCount="indefinite"/></text>
+    <text x="26" y="344" fill="#8a8f94" opacity="0">          Per-skill switches: deprecated runner labels, zizmor…<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.3952;0.3962;1" dur="12.4s" repeatCount="indefinite"/></text>
+    <text x="26" y="368" fill="#c5c8c6" opacity="0">      runtime-invocation.md<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.4516;0.4526;1" dur="12.4s" repeatCount="indefinite"/></text>
+    <text x="26" y="392" fill="#8a8f94" opacity="0">          Build prerequisite, run-a-single-file recipe,…<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.5081;0.5091;1" dur="12.4s" repeatCount="indefinite"/></text>
+    <text x="26" y="440" fill="#7f9f7f" opacity="0">  Written to .apache-magpie-local/  — nothing staged, nothing<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.5645;0.5655;1" dur="12.4s" repeatCount="indefinite"/></text>
+    <text x="26" y="464" fill="#7f9f7f" opacity="0">  committed, no teammate affected.<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.6210;0.6220;1" dur="12.4s" repeatCount="indefinite"/></text>
+    <text x="26" y="512" fill="#8a8f94" opacity="0">  The project can also adopt Magpie, so contributors get this<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.6774;0.6784;1" dur="12.4s" repeatCount="indefinite"/></text>
+    <text x="26" y="536" fill="#8a8f94" opacity="0">  on clone: /magpie-setup adopt<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.7339;0.7349;1" dur="12.4s" repeatCount="indefinite"/></text>
+    <rect x="26" y="523" width="10" height="17" fill="#c5c8c6"><animate attributeName="opacity" values="1;1;0;0;1" dur="1.2s" repeatCount="indefinite"/></rect>
+  </g>
+</svg>

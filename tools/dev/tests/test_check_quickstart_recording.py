@@ -43,6 +43,7 @@ import pytest
 _HERE = Path(__file__).resolve().parents[1]
 _SCRIPT = _HERE / "check-quickstart-recording.py"
 _RENDERER = _HERE / "render-screenshot.sh"
+_WIZARD = _HERE / "render-config-wizard.py"
 
 
 def _load() -> ModuleType:
@@ -96,6 +97,12 @@ def repo(tmp_path: Path) -> Iterator[Path]:
     """
     (tmp_path / "tools" / "dev").mkdir(parents=True)
     (tmp_path / "tools" / "dev" / "render-screenshot.sh").symlink_to(_RENDERER)
+    # The wizard generator derives from frontmatter across the whole tree, which
+    # a two-file fixture cannot stand in for. Give the checker a generator that
+    # is present and agrees the (empty) wizard directory is correct, so the rest
+    # of the tree is what these tests are measuring.
+    stub = tmp_path / "tools" / "dev" / "render-config-wizard.py"
+    stub.write_text("import sys\nsys.exit(0)\n", encoding="utf-8")
 
     _skill(tmp_path, "pairing-self-review", "pairing")
     _alias(tmp_path, "pairing", "self-review")
@@ -334,3 +341,42 @@ def test_a_walkthrough_svg_with_no_transcript_is_reported(repo: Path) -> None:
 def test_a_missing_first_run_chapter_is_reported(repo: Path) -> None:
     (repo / "docs/quick-start/first-run.md").unlink()
     assert any("first-run.md" in e for e in mod.check_walkthrough())
+
+
+# ---------------------------------------------------------------------------
+# The per-family wizard animations
+# ---------------------------------------------------------------------------
+
+
+def test_a_stale_wizard_animation_is_reported(repo: Path) -> None:
+    """The generator owns the comparison; the checker must surface what it says
+    rather than swallowing a non-zero exit."""
+    (repo / "tools/dev/render-config-wizard.py").write_text(
+        "import sys\nprint('assets/quickstart/wizard/x.svg: stale', file=sys.stderr)\nsys.exit(1)\n",
+        encoding="utf-8",
+    )
+    assert any("stale" in e for e in mod.check_wizards())
+
+
+def test_a_wizard_animation_its_family_does_not_embed_is_reported(repo: Path) -> None:
+    wizard = repo / "assets/quickstart/wizard"
+    wizard.mkdir(parents=True)
+    _svg(wizard / "pairing.svg")
+    assert any("does not embed" in e for e in mod.check_wizards())
+
+
+def test_an_embedded_wizard_animation_is_silent(repo: Path) -> None:
+    wizard = repo / "assets/quickstart/wizard"
+    wizard.mkdir(parents=True)
+    _svg(wizard / "pairing.svg")
+    (repo / "docs/pairing/README.md").write_text(
+        "![run](../../assets/quickstart/wizard/pairing.svg)\n"
+        "![a](../../assets/quickstart/families/pairing/self-review.svg)\n",
+        encoding="utf-8",
+    )
+    assert mod.check_wizards() == []
+
+
+def test_a_missing_generator_is_reported(repo: Path) -> None:
+    (repo / "tools/dev/render-config-wizard.py").unlink()
+    assert any("nothing can verify" in e for e in mod.check_wizards())
