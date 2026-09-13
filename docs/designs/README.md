@@ -16,16 +16,18 @@ records what was decided and, more usefully, what was rejected and why — the
 alternatives section is the part that saves the next person the argument.
 
 A design here is not a promise that the work shipped as described. Each
-carries a status line; read that first.
+carries a status line; read that first, and take seriously any section naming
+what was designed and deliberately not built.
 
 | Design | Status |
 |---|---|
-| [Repo-committed setup: default plugin set and per-skill first-run configuration](2026-09-10-repo-committed-setup-design.md) | Subsystem A implemented; B and C not started |
-| [Subsystem A implementation plan](2026-09-10-repo-committed-setup-plan-a.md) | Complete |
-| [Install, adopt, upgrade: the adoption floor and what each page shows](2026-09-13-install-adopt-upgrade-design.md) | Design approved; implementation not started |
-| [Subsystem A implementation plan — the adoption floor](2026-09-13-install-adopt-upgrade-plan-a.md) | Complete |
-| [Subsystem B implementation plan — the install prerequisite](2026-09-13-install-adopt-upgrade-plan-b.md) | Not started |
-| [Subsystem C implementation plan — family intros](2026-09-13-install-adopt-upgrade-plan-c.md) | Not started |
+| [Install, adopt, upgrade](2026-09-13-install-adopt-upgrade.md) | Built, bar two items it names |
+
+One document per subject, describing the result rather than the phases it was
+built in. While a design is being implemented it may be split into plans; when
+the work lands, the plans are folded back in and deleted. A reader arriving
+later wants the decision and the rejected alternative, not the task list that
+got there — and git keeps the task list.
 
 These sit outside [`tools/spec-loop/specs/`](../../tools/spec-loop/specs/),
 which is the durable record of what the framework guarantees. A design argues
