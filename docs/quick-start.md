@@ -11,6 +11,7 @@
   - [Step 2 — run `/magpie-setup`](#step-2--run-magpie-setup)
   - [Step 3 — lock the agent down](#step-3--lock-the-agent-down)
   - [Step 4 — use it](#step-4--use-it)
+  - [Step 5 — consider adopting Magpie](#step-5--consider-adopting-magpie)
   - [What each family solves](#what-each-family-solves)
   - [Other installation methods](#other-installation-methods)
   - [Cross-references](#cross-references)
@@ -271,6 +272,32 @@ or call a skill by name. A marketplace install namespaces skills under the
 With the all-in-one plugin the namespace is just `/magpie:` — e.g.
 `/magpie:pr-management-triage`. `/magpie-utilities:list-skills` prints
 everything that is installed.
+
+---
+
+## Step 5 — consider adopting Magpie
+
+Everything so far was yours alone: the plugins live in your agent, and your
+repository has not changed. **Adoption is the separate act of deciding this for
+the project** — and it belongs to the repo's maintainers, together, not to
+whoever installed first.
+
+Adopting commits a **floor**: an `.apache-magpie.lock` recording what the
+project recommends, and a default plugin set in the repo's
+`.claude/settings.json` derived from it. A contributor who clones the repo and
+trusts it then arrives with those families already enabled — no install step,
+no instructions to follow. It is a floor, never a ceiling: nobody is stopped
+from installing more or running a newer Magpie, and a maintainer can reverse
+the whole thing in a PR.
+
+Worth doing once the project — not one maintainer — agrees on what it wants to
+recommend. It obliges nobody: a contributor who would rather not use Magpie at
+all is unaffected.
+
+→ [**Team adoption**](setup/team-adoption.md) is the full walkthrough: what
+gets committed, how the floor is chosen, and what a contributor sees on clone.
+Still deciding? [**Installation or Adoption?**](quick-start/two-ways.md)
+compares the two side by side.
 
 ---
 
