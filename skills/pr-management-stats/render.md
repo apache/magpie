@@ -389,10 +389,8 @@ The "What needs attention" panel is built from this fixed rule set, evaluated in
 
 `Action` and `Detail` are separate columns by design: `Action` is a literal paste-clean slash-command the maintainer runs (or `—` when no command applies); `Detail` is the prose explanation that goes in the card body. Mixing prose into `Action` would make the slash-command non-paste-clean and re-introduce the editorialising the skill is supposed to avoid.
 
-**Skill names here are the marketplace form** (`/magpie-pr-management:<alias>`). On
-the pinned-snapshot install, translate to the single token
-`/magpie-pr-management-<skill>` — see
-[Skill names differ by install method](../../docs/setup/marketplace.md#skill-names-differ-by-install-method).
+**Skill names here are the marketplace form** (`/magpie-pr-management:<alias>`) — see
+[the Apache Magpie Marketplace](../../docs/setup/marketplace.md#skill-names-differ-by-install-method).
 
 | # | Trigger | Priority | Icon | Title template | Detail template | Action |
 |---|---|---|---|---|---|---|

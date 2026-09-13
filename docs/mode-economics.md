@@ -91,7 +91,7 @@ special-token spellings counted as ordinary text.
 Coverage: **74 of 74 local `skills/**/SKILL.md` files**.
 External `source.md` redirects and harness symlinks are excluded.
 
-Measurement manifest SHA-256: `64984b0e8f073d53f4071df8c16d17ecb15b3bc2909539b9ae5644d832033423`.
+Measurement manifest SHA-256: `58892e8e0dd62b059025bae0609ca75aacf0c99fcf480c2a40ee391a7ee26213`.
 
 | Skill file | Measured tokens | Source SHA-256 (first 16 characters) |
 |---|---:|---|
@@ -107,7 +107,7 @@ Measurement manifest SHA-256: `64984b0e8f073d53f4071df8c16d17ecb15b3bc2909539b9a
 | [flaky-test-triage](../skills/flaky-test-triage/SKILL.md) | 3,396 | `2829e9ca2af209f3` |
 | [good-first-issue-author](../skills/good-first-issue-author/SKILL.md) | 3,914 | `21fe8d75556756d4` |
 | [good-first-issue-sweep](../skills/good-first-issue-sweep/SKILL.md) | 4,438 | `c4ee301653440afa` |
-| [issue-backlog-stats](../skills/issue-backlog-stats/SKILL.md) | 6,473 | `89dc33bb2f41faa4` |
+| [issue-backlog-stats](../skills/issue-backlog-stats/SKILL.md) | 6,449 | `392492468c8fb3a5` |
 | [issue-deduplicate](../skills/issue-deduplicate/SKILL.md) | 4,862 | `e42a945e1f5eb5c9` |
 | [issue-fix-workflow](../skills/issue-fix-workflow/SKILL.md) | 6,345 | `06c6d60c5636bd70` |
 | [issue-reassess](../skills/issue-reassess/SKILL.md) | 5,989 | `457cf6b09b579de7` |

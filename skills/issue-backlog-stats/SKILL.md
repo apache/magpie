@@ -396,10 +396,8 @@ Walk rules in declared order; each fired rule produces one entry with
 `priority` (high / medium / low), `icon`, `title`, `detail`, and `action`
 (exact slash command or `—`):
 
-**Skill names here are the marketplace form** (`/magpie-issue:<alias>`). On
-the pinned-snapshot install, translate to the single token
-`/magpie-issue-<skill>` — see
-[Skill names differ by install method](../../docs/setup/marketplace.md#skill-names-differ-by-install-method).
+**Skill names here are the marketplace form** (`/magpie-issue:<alias>`) — see
+[the Apache Magpie Marketplace](../../docs/setup/marketplace.md#skill-names-differ-by-install-method).
 
 | # | Condition | Priority | Action |
 |---|---|---|---|
