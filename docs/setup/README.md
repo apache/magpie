@@ -174,12 +174,13 @@ for the complete rule.
   socket denied) with symptom → root cause → settings.json fix
   for each. The page to grep when a normal-looking operation
   fails in the sandbox in an unexpected way.
-- [**Team adoption**](team-adoption.md) — what a repo commits so every
-  contributor arrives with a recommended set: the default plugin set, the
-  shared overrides, and keeping both current. The maintainer half of the pair.
 - [**Individual use**](individual-use.md) — using Magpie on any repo, adopted
-  or not, with nothing committed and nothing asked of teammates. The other
-  half.
+  or not, with nothing committed and nothing asked of teammates. The default,
+  and the half that asks no one's permission.
+- [**Team adoption**](team-adoption.md) — what a repo commits so every
+  contributor arrives with a recommended set: the floor lock, the default
+  plugin set, the shared overrides, and keeping them current. The maintainer
+  half of the pair.
 - [**`per-role-mcp-access.md`**](per-role-mcp-access.md) — how to
   enable an MCP server for yourself only (e.g. a release manager
   enabling a Policy MCP, a security triage member enabling a

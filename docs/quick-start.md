@@ -33,8 +33,7 @@ committed to your repository, and nothing is changed in it.
 **This install is yours, on this machine.** It needs no decision from your
 project and no opt-in from your teammates. Committing anything for other
 people is a separate act called **adoption** —
-[two ways to use Magpie](#two-ways-to-use-magpie), directly below, draws the
-line.
+[two ways to use Magpie](quick-start/two-ways.md) draws the line.
 
 **What you get.** 74 skills your agent can run, grouped into 10 **families** —
 PR triage and review, issue triage, security-report handling, release
@@ -48,33 +47,13 @@ install steps.
 ## Two ways to use Magpie
 
 **Installing** puts the marketplace and the plugins into your agent and writes
-nothing to any repository. That is what the steps below do, it is complete on
-its own, and it is all most people ever need.
+nothing to any repository. That is what the steps below do, and it is all most
+people ever need. **Adoption** is the separate, later act of a repo's
+maintainers committing a floor that everyone who clones it picks up.
 
-From here the two ways to use it differ in one thing only — whether anything is
-committed for other people.
-
-| | [**Individual use**](setup/individual-use.md) | [**Team adoption**](setup/team-adoption.md) |
-|---|---|---|
-| Who decides | You | The repo's maintainers |
-| What it commits | Nothing | The default plugin set, and the repo's shared overrides |
-| Which repos | Any — adopted or not, whether or not your teammates use Magpie | The one repo, for everyone who clones it |
-| What a teammate sees | Nothing at all | The default families already enabled on arrival |
-| Undone by | You, any time | A maintainer, via a PR |
-
-**Individual use is the default, and it is not a waiting room.** You can work
-this way indefinitely, on a repo whose maintainers have never heard of Magpie.
-Nothing on this page asks the project for permission.
-
-**Adoption is a recommendation, not a restriction.** A repo that has adopted
-Magpie gives contributors a sensible floor on clone — it never limits what
-anyone may install for themselves, and it never obliges a contributor to use
-what it recommends.
-
-Neither one is an install method. Installing is what the steps below do; these
-are what you then do with it. Start at Step 1 either way — **adoption**
-([`setup/team-adoption.md`](setup/team-adoption.md)) is a later, separate act by
-the repo's maintainers, and nothing in the steps below requires it.
+The two differ in one thing only — whether anything is committed for other
+people — and you do not have to choose before installing.
+[**Two ways to use Magpie**](quick-start/two-ways.md) compares them side by side.
 
 ---
 
@@ -215,7 +194,7 @@ Nothing is written before you approve it. Afterwards, `/magpie-setup verify`
 re-runs the health check and drift detection, and `/magpie-setup:status`
 prints what is currently installed.
 
-Not sure you need this step? [Two ways to use Magpie](#two-ways-to-use-magpie)
+Not sure you need this step? [Two ways to use Magpie](quick-start/two-ways.md)
 draws the line.
 
 ### Every skill configures itself on first use
