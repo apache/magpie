@@ -26,6 +26,10 @@ Apache Magpie is an AI assistant for open-source project maintainers. It handles
 
 **The agent proposes. The human decides.** Magpie never merges, never pushes, never sends mail, never flips a label without a maintainer confirming first.
 
+**Before you start**, check what the skills need to run — an agent, a mail
+backend, tracker access: [prerequisites](quick-start/prerequisites.md). The
+[quick start](quick-start.md) is two commands once those are in place.
+
 ---
 
 ## How it works
@@ -131,16 +135,18 @@ from mailing lists, slack etc.
 |---|---|
 | Understand the full vision | [MISSION.md](../MISSION.md) |
 | Understand how it stays vendor-neutral | [vendor-neutrality.md](vendor-neutrality.md) |
-| Find or author a backend adapter | [adapters/registry.md](adapters/registry.md) |
+| Find or author a backend adapter | [adapters/](adapters/README.md) |
 | Pull a skill/family from a trusted external source | [skill-sources/README.md](skill-sources/README.md) |
 | Extend Magpie (project / org / individual) | [extending.md](extending.md) |
 | See what skills exist today | [modes.md](modes.md) |
 | Install it right now | [quick-start.md](quick-start.md) |
+| Check what a skill needs before it runs | [quick-start/prerequisites.md](quick-start/prerequisites.md) |
 | Install in my project | [README → Install](../README.md#install) |
 | Set up the secure agent sandbox | [setup/](setup/README.md) |
 | Understand the security workflow | [security/](security/README.md) |
 | Know what it costs to run | [mode-economics.md](mode-economics.md) |
 | Read the design behind a change in flight | [designs/](designs/README.md) |
 | Understand the privacy model | [rfcs/RFC-AI-0003.md](rfcs/RFC-AI-0003.md) |
+| Read the RFCs behind the design | [rfcs/](rfcs/README.md) |
 | Contribute to the framework | [CONTRIBUTING.md](../CONTRIBUTING.md) |
 | Learn to build and extend skills | [education/](education/README.md) |
