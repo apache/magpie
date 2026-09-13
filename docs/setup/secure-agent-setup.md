@@ -2369,9 +2369,10 @@ setup steps written into the screenshot's caption.
 
 **1. Sandboxed session — the steady state.**
 
-![Sandboxed session: the terminal footer opening with a green `[sandbox]` tag, followed by the project, branch, PR number and model](../../assets/session-sandboxed.png)
+![A session where /sandbox reports "Sandbox enabled with auto-allow for bash commands": the terminal footer opens with a yellow `[sandbox-auto]` tag, followed by the project, the branch and the model](../../assets/session-sandboxed.png)
 
-The terminal footer opens with `[sandbox]` in green when the
+Shown here in auto-allow, which is why the tag is yellow rather
+than green. The terminal footer opens with `[sandbox]` in green when the
 active settings (project `settings.local.json` → project
 `settings.json` → user-scope) set `sandbox.enabled: true`,
 then carries the project, branch, the branch's PR and the

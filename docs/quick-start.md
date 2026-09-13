@@ -289,20 +289,25 @@ It is the mode most people want, and the one the status line flags separately �
 because "sandboxed" and "sandboxed and not asking" are not the same posture.
 
 The footer then opens with that state and says *which* session this is —
-project, branch, the branch's PR, the model — so several sessions across
-worktrees and repos stay apart:
+project, branch, the model, and the branch's PR number and title once it has
+one — so several sessions across worktrees and repos stay apart:
 
-![Sandboxed session: the terminal footer opening with a green `[sandbox]` tag, followed by the project, branch, PR number and title, and the model](../assets/session-sandboxed.png)
+![A session where /sandbox reports "Sandbox enabled with auto-allow for bash commands": the terminal footer opens with a yellow `[sandbox-auto]` tag, followed by the project, the branch and the model](../assets/session-sandboxed.png)
 
-Green `[sandbox]` is the steady state. Turn it off and the same line says so in
-bold red, on every render until you put it back:
+Yellow `[sandbox-auto]` is auto-allow: sandboxed, and not asking per command.
+Pick *regular permissions* instead and the tag is green `[sandbox]` — still
+confined, but still prompting. Turn the sandbox off and the same line says so
+in bold red, on every render until you put it back:
 
 ![A session after /sandbox reports "Sandbox disabled": the footer now opens with a bold-red `[NO SANDBOX]` tag ahead of the project, branch and model](../assets/session-no-sandbox.png)
 
-Yellow `[sandbox-auto]` sits between the two — sandboxed, but bash inside it
-skips the per-call prompt. Confirm the whole install with
-`/magpie-setup:isolated-setup-verify` — *check my agent isolation* — which
-reports ✓/✗/⚠ for every piece.
+Three postures, three colours, one line you were already looking at. That is
+the whole design: you never have to *ask* which one you are in. (Both captures
+sit on `main`, which has no PR open — on a branch that does, the PR segment
+follows the branch name.)
+
+Confirm the whole install with `/magpie-setup:isolated-setup-verify` —
+*check my agent isolation* — which reports ✓/✗/⚠ for every piece.
 
 → Full walkthrough: [`setup/secure-agent-setup.md`](setup/secure-agent-setup.md).
 Why each layer exists: [`setup/secure-agent-internals.md`](setup/secure-agent-internals.md).

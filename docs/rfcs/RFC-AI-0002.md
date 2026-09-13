@@ -490,7 +490,7 @@ The repo is **private** for three reasons:
 
 ![session-sandboxed](https://raw.githubusercontent.com/apache/magpie/main/assets/session-sandboxed.png)
 
-The terminal footer renders `<model> [sandbox]` in green when the active settings set `sandbox.enabled: true`. Bash subprocesses run inside bubblewrap (Linux) or Seatbelt (macOS) and only see paths listed in `sandbox.filesystem.allowRead`.
+The terminal footer opens with the sandbox state when the active settings set `sandbox.enabled: true` — green `[sandbox]` under regular permissions, yellow `[sandbox-auto]` (shown here) when auto-allow also skips the per-command prompt — followed by the project, branch and model. Bash subprocesses run inside bubblewrap (Linux) or Seatbelt (macOS) and only see paths listed in `sandbox.filesystem.allowRead`.
 
 **2. Unsandboxed session — the failure mode the setup exists to make obvious.**
 

@@ -614,6 +614,29 @@ different caller.
 
 ## After the install lands
 
+**Tell the operator what to look for in the footer**, and what each
+state means. This is the one piece of the install they will see on
+every render afterwards, so a wrong reading here persists:
+
+![A session where /sandbox reports "Sandbox enabled with auto-allow for bash commands": the terminal footer opens with a yellow `[sandbox-auto]` tag, followed by the project, the branch and the model](../../../../assets/session-sandboxed.png)
+
+| Tag | Means |
+|---|---|
+| `[sandbox]` green | sandboxed, and still prompting per command |
+| `[sandbox-auto]` yellow | sandboxed, **not** prompting per command — auto-allow; wider blast radius, which is why it is not green |
+| `[NO SANDBOX]` bold red | not sandboxed; the state this install exists to make impossible to miss |
+
+![A session after /sandbox reports "Sandbox disabled": the footer opens with a bold-red `[NO SANDBOX]` tag ahead of the project, branch and model](../../../../assets/session-no-sandbox.png)
+
+Two things to say explicitly, because both are counter-intuitive:
+
+- **The tag reads the settings files, not the running process.** A
+  CLI flag that disables sandboxing mid-session is not visible here.
+  Pair it with the bypass-warn hook, which fires per call.
+- **Yellow is not a warning that something is broken.** Auto-allow is
+  a deliberate, common choice; the colour distinguishes two postures
+  rather than flagging a fault.
+
 Suggest two follow-up routines the user can wire later:
 
 - `setup-isolated-setup-verify` — re-run after every Claude Code upgrade
