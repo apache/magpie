@@ -5,7 +5,6 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 
 - [What each family solves](#what-each-family-solves)
-  - [Where this fits](#where-this-fits)
 
 <!-- END doctoc -->
 
@@ -26,16 +25,3 @@ today — you are not meant to take all of them.
 | `magpie-utilities` | 5 | You want to write your own skills, or find out what is actually installed. | Skill authoring and restructuring, a state reconciler, a live index of installed skills, and a path to report framework bugs upstream. |
 | `magpie-mentoring` | 4 | Newcomers open one PR, hit a wall of unwritten conventions, and never come back. | First-contact welcome comments, plain-language explanations of an issue for someone new, good-first-issue authoring, and a sweep that keeps that backlog honest. |
 | `magpie-pairing` | 2 | You want the obvious problems found before a reviewer spends their time on them. | A structured self-review of your own diff, and a multi-agent adversarial review that verifies its findings before reporting them. |
-
----
-
-## Where this fits
-
-Pick your families here, then install them: the [quick start](../quick-start.md)
-walks the whole path, and each family's own README opens with its one install
-command and a few things to try first.
-
-- [Quick start](../quick-start.md) — install, first run, and what to do next
-- [Prerequisites](prerequisites.md) — what individual skills need to run
-- [The Apache Magpie Marketplace](../setup/marketplace.md) — every agent that
-  can install these, per-family plugins, and versioning

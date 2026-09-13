@@ -5,7 +5,6 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 
 - [Two ways to use Magpie](#two-ways-to-use-magpie)
-  - [Where this fits](#where-this-fits)
 
 <!-- END doctoc -->
 
@@ -41,14 +40,3 @@ Neither one is an install method. Installing is what the
 with it. Follow it either way — [adoption](../setup/team-adoption.md) is a
 later, separate act by the repo's maintainers, and nothing in the quick start
 requires it.
-
----
-
-## Where this fits
-
-You do not have to decide before installing. The [quick start](../quick-start.md)
-works either way, and adoption is a later act by the repo's maintainers.
-
-- [Quick start](../quick-start.md) — install, first run, and what to do next
-- [Individual use](../setup/individual-use.md) — working in any repo, adopted or not
-- [Team adoption](../setup/team-adoption.md) — committing a floor for everyone who clones
