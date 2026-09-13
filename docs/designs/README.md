@@ -23,7 +23,9 @@ carries a status line; read that first.
 | [Repo-committed setup: default plugin set and per-skill first-run configuration](2026-09-10-repo-committed-setup-design.md) | Subsystem A implemented; B and C not started |
 | [Subsystem A implementation plan](2026-09-10-repo-committed-setup-plan-a.md) | Complete |
 | [Install, adopt, upgrade: the adoption floor and what each page shows](2026-09-13-install-adopt-upgrade-design.md) | Design approved; implementation not started |
-| [Subsystem A implementation plan — the adoption floor](2026-09-13-install-adopt-upgrade-plan-a.md) | Not started |
+| [Subsystem A implementation plan — the adoption floor](2026-09-13-install-adopt-upgrade-plan-a.md) | Complete |
+| [Subsystem B implementation plan — the install prerequisite](2026-09-13-install-adopt-upgrade-plan-b.md) | Not started |
+| [Subsystem C implementation plan — family intros](2026-09-13-install-adopt-upgrade-plan-c.md) | Not started |
 
 These sit outside [`tools/spec-loop/specs/`](../../tools/spec-loop/specs/),
 which is the durable record of what the framework guarantees. A design argues

@@ -288,14 +288,27 @@ manifest families, per-family vs all-in-one, skill-name differences,
 versioning, verification status — and links to the new page for the commands
 rather than carrying them.
 
-Everything else links to it and stops repeating it. The quick start becomes:
+Everything else links to it and stops repeating it.
 
-| | Now | After |
-|---|---|---|
-| Step 1 | marketplace install × 4 harnesses | **Prerequisite** — one link |
-| Step 2 | run `/magpie-setup` | Step 1 — run `/magpie-setup` *(the recording)* |
-| Step 3 | use it | Step 2 — use it |
-| — | "optional: commit a default set", mid-page | Step 3 — **adopt it for your project**, optional, with what the floor means |
+**Amended 2026-09-13, after part of this subsystem shipped ahead of its
+plan.** The quick start was restructured directly: the two ways to use
+Magpie now open the page, the isolation and privacy setup became Step 2b
+ahead of the families table, and three sections became sub-pages
+(`docs/quick-start/{prerequisites,install-recipes,families}.md`). None of
+that was in this design, and the renumbering table it originally carried —
+Step 2 becoming Step 1, and so on — no longer describes the page. What
+remains of B is therefore smaller and differently shaped:
+
+| Remaining | State |
+|---|---|
+| `docs/setup/marketplace-install.md`, one section per harness | not started |
+| `marketplace.md` links to it instead of carrying commands | not started |
+| Quick-start Step 1 becomes a prerequisite pointer | not started — 3 `marketplace add` blocks remain |
+| The teammates block becomes a top-level adopt step | partly done — renamed and adoption named, still a `####` inside Step 1 |
+| Ten family READMEs drop the marketplace add | not started — all 10 still repeat it |
+
+Already shipped, and not to be redone: the families table extraction, the
+two-modes reordering, Step 2b, and naming adoption at its four call sites.
 
 The ten family READMEs keep exactly one install line — their own
 `/plugin install magpie-<family>@apache-magpie` — above it a one-line pointer
