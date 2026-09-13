@@ -67,6 +67,8 @@ existing sandbox grants can widen the baseline. See `docs/adapters/gemini.md`.
   `permissions` (`deny` / `ask`).
 - `.gemini/settings.json` and `.gemini/policies/magpie.toml` — Magpie's Gemini profile: tool-sandboxing and an explicitly loaded User-tier approval policy.
   Scoped shell reads are allowed; other shell calls, native edits, and MCP calls ask; listed commands and credential paths deny.
+  Credential-path denies name the canonical `grep_search`; the native probe verifies its `search_file_content` alias, canonical policy names, and search/multi-file argument schemas against the loaded runtime.
+  `google_web_search` requires approval for each query in every mode, including Plan Mode, because API-backed searches bypass shell network isolation; headless calls are refused.
   Plan Mode permits the scoped reads and denies other shell/edit/MCP operations; YOLO and remembered tool approvals are disabled.
   `sandbox-lint --gemini .gemini` checks the static profile, with opt-in pytest integration tests against native 0.59.0 APIs for settings, policies, headless refusal, and Linux enforcement.
 - Skills: `setup-isolated-setup-install`, `-update`, `-verify`,

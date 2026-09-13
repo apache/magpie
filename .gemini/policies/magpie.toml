@@ -41,6 +41,8 @@ denyMessage = "This command is restricted to protect credentials and external sy
 
 # Arguments are stable JSON, not shell-expanded or canonical filesystem paths.
 # Native tools must not expose credential files, including Gemini's own auth.
+# Gemini CLI names content search grep_search; its policy engine also
+# matches the legacy search_file_content alias. The runtime probe checks both.
 [[rule]]
 toolName = ["read_file", "read_many_files", "list_directory", "glob", "grep_search", "write_file", "replace"]
 argsPattern = '(?:/|\\\\|"|~)(?:\.aws|\.ssh|\.docker|\.kube|\.azure|\.gnupg|\.netrc|\.npmrc|\.pypirc|\.config(?:/|\\\\)(?:gh|gcloud|apache-magpie)|\.gemini(?:/|\\\\)(?:oauth_creds\.json|google_accounts\.json|settings\.json|policies))(?:/|\\\\|"|$)'
@@ -80,6 +82,13 @@ modes = ["plan"]
 decision = "deny"
 priority = 650
 denyMessage = "MCP tools are unavailable in Plan Mode. Switch to Default Mode to request approval."
+
+# Search queries leave the shell sandbox through Gemini's API. Review the text
+# before every search, including in Plan Mode; headless requests fail closed.
+[[rule]]
+toolName = "google_web_search"
+decision = "ask_user"
+priority = 600
 
 # Match complete command arguments: extra Git flags can enable external
 # helpers or file output. Other forms still ask; this is not a git-wide allow.

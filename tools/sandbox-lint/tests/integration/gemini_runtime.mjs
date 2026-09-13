@@ -33,6 +33,15 @@ process.env.GEMINI_CLI_SYSTEM_DEFAULTS_PATH = path.join(fixture, 'no-system-defa
 try {
   const core = await import(pathToFileURL(path.join(bundle, coreFile)));
   core.debugLogger.debug = () => {};
+  // Check the name exported by the loaded runtime, not just policy literals.
+  // Verified against the official v0.59.0 tag, not just package.json's version.
+  assert.equal(core.GREP_TOOL_NAME, 'grep_search');
+  assert.equal(core.TOOL_LEGACY_ALIASES.search_file_content, core.GREP_TOOL_NAME);
+  const searchTools = core.getToolAliases(core.GREP_TOOL_NAME);
+  const schemas = new Map([
+    ['grep_search', new core.GrepTool({}, {}).schema.parametersJsonSchema],
+    ['read_many_files', new core.ReadManyFilesTool({}, {}).schema.parametersJsonSchema],
+  ]);
   const settings = JSON.parse(fs.readFileSync(path.join(repo, '.gemini/settings.json'), 'utf8'));
   const workspace = path.join(fixture, 'workspace with spaces');
   fs.mkdirSync(path.join(workspace, '.gemini/policies'), { recursive: true });
@@ -53,6 +62,12 @@ try {
   const loaded = await core.loadPoliciesFromToml([policyPath], () => core.USER_POLICY_TIER);
   assert.deepEqual(loaded.errors, [], 'Gemini must accept every rule, including its safe-regex check');
   assert.ok(loaded.rules.length > 0);
+  for (const rule of loaded.rules) {
+    if (rule.toolName !== 'mcp_*') {
+      assert.ok(core.ALL_BUILTIN_TOOL_NAMES.includes(rule.toolName),
+        `Policy names a non-canonical or unknown native tool: ${rule.toolName}`);
+    }
+  }
   const manager = core.createSandboxManager(
     { enabled: settings.security.toolSandboxing },
     { workspace, modeConfig: { network: false, readonly: false, approvedTools: [], allowOverrides: true } },
@@ -94,7 +109,16 @@ try {
     ['read_file', { file_path: '/home/example/.config/apache-magpie/gmail-oauth.json' }, 'deny'],
     ['read_file', { file_path: '/home/example/.gemini/oauth_creds.json' }, 'deny'],
     ['read_file', { file_path: 'nested/deep/.env.production.local' }, 'deny'],
-    ['read_many_files', { paths: ['README.md', '.env'] }, 'deny'],
+    ['read_many_files', { include: ['README.md', '.env'] }, 'deny'],
+    ...searchTools.flatMap(name => [
+      '.env', '.env.local', '.gemini/settings.json', '.gemini/policies/override.toml',
+      '.npmrc', '.pypirc', 'nested/deep/.env.production.local',
+    ].map(searchPath => [name, {
+      pattern: 'x', dir_path: '.', include_pattern: searchPath,
+    }, 'deny'])),
+    [core.GREP_TOOL_NAME, { pattern: 'x', dir_path: 'C:\\Users\\example\\.aws' }, 'deny'],
+    [core.GREP_TOOL_NAME, { pattern: 'example', dir_path: 'src' }, 'allow'],
+    ['google_web_search', { query: 'public documentation example' }, 'ask_user'],
     ['write_file', { file_path: '.gemini/policies/override.toml', content: '' }, 'deny'],
     ['replace', { file_path: 'AGENTS.md', old_string: 'old', new_string: 'new' }, 'deny'],
     ['write_file', { file_path: 'example.txt', content: 'example' }, 'ask_user'],
@@ -109,12 +133,27 @@ try {
       }, mode, undefined, interactive);
       const engine = new core.PolicyEngine({ ...config, sandboxManager: manager });
       for (const [name, args, expected] of samples) {
+        const canonicalName = core.TOOL_LEGACY_ALIASES[name] ?? name;
+        const schema = schemas.get(canonicalName);
+        if (schema) {
+          for (const key of Object.keys(args)) {
+            assert.ok(Object.hasOwn(schema.properties, key), `Unknown ${name} argument: ${key}`);
+          }
+          assert.equal(core.SchemaValidator.validate(schema, args), null);
+        }
         const result = await engine.check({ name, args });
         const planDenied = mode === 'plan' && expected !== 'allow' && (name === 'run_shell_command' || name === 'write_file' ||
           name === 'replace' || name.startsWith('mcp_'));
         const decision = planDenied ? 'deny' : expected;
         assert.equal(result.decision, decision,
           `${mode}/${interactive}: ${name} ${JSON.stringify(args)}`);
+        if (searchTools.includes(name) && expected === 'deny') {
+          // Some runtimes normalize these aliases during matching.
+          assert.ok(searchTools.includes(result.rule?.toolName),
+            'Content search must match an explicit deny, not an unknown-tool fallback');
+          assert.equal(result.rule?.priority, core.USER_POLICY_TIER + 0.9,
+            'Credential protection must come from the shipped User-tier deny');
+        }
         if (!interactive && decision === 'ask_user') {
           await assert.rejects(core.checkPolicy({
             request: { name, args, isClientInitiated: false }, tool: { name },

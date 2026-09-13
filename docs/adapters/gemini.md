@@ -185,6 +185,7 @@ The shipped policy applies these decisions to model-requested tool calls in Defa
 | Listed inspection commands, such as `git status --short`, `git diff --stat`, or `gh pr view` | Allow; network access may still require sandbox expansion. |
 | Other shell commands, including tests, interpreters, `git push`, PR creation, and raw `gh api` calls | Ask before execution. |
 | Native file edits and MCP calls | Ask for each call, including read-only MCP operations. |
+| Google web search (`google_web_search`) | Ask before each query is sent, including in Plan Mode; headless calls are refused. |
 | Listed credential/export commands, such as `gh auth token`, `curl`, or cloud CLIs | Deny. |
 | Matching credential paths or `.env` files through native file/search tools | Deny. |
 | Native edits to `.gemini/`, `.geminiignore`, `GEMINI.md`, or `AGENTS.md` | Deny. |
@@ -193,6 +194,11 @@ The [policy file](../../.gemini/policies/magpie.toml) defines the complete comma
 Read allowances match complete command arguments; unlisted Git flags, shell operators, substitutions, and complex quoting fall back to approval.
 This follows the shared intent of the Claude Code and Codex profiles: routine inspection proceeds, mutations require confirmation, and credential disclosure is denied.
 Each runtime implements its own rule precedence.
+
+The verified [v0.59.0 tool definitions](https://github.com/google-gemini/gemini-cli/blob/fb0d535af931b27c51e87e5e6ade72905b1e8390/packages/core/src/tools/tool-names.ts) name content search `grep_search`; the policy engine also matches the legacy `search_file_content` alias.
+The native probe checks canonical policy names, alias matching, and search/multi-file argument schemas against the loaded runtime.
+Google web search sends model-selected query text through Gemini's API outside the shell sandbox, so `sandboxNetworkAccess: false` does not prevent that disclosure.
+Review the query for confidential content before approving it; see the upstream [web-search reference](https://geminicli.com/docs/tools/web-search/).
 
 Plan Mode retains scoped reads and denies other shell, edit, and MCP calls.
 YOLO and remembered tool approvals are disabled, and automatic edit mode does not override the shipped ask/deny rules.

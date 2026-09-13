@@ -90,6 +90,35 @@ def test_new_allow_needs_review(profile: tuple[dict, dict]) -> None:
     assert any("reviewed scoped reads" in e for e in check_gemini_invariants(settings, policy))
 
 
+def test_content_search_needs_credential_denies(profile: tuple[dict, dict]) -> None:
+    tool = "grep_search"
+    settings, policy = profile
+    for rule in policy["rule"]:
+        names = rule.get("toolName")
+        if isinstance(names, list) and tool in names:
+            names.remove(tool)
+    errors = check_gemini_invariants(settings, policy)
+    for protected in (".env", ".env.local", ".gemini/settings.json", ".npmrc", ".pypirc"):
+        assert f"magpie.toml: missing native {tool} deny for {protected}" in errors
+
+
+@pytest.mark.parametrize("change", ["missing", "allow", "default_only", "interactive_only", "query_only"])
+def test_web_search_requires_unconditional_approval(profile: tuple[dict, dict], change: str) -> None:
+    settings, policy = profile
+    rule = next(r for r in policy["rule"] if r.get("toolName") == "google_web_search")
+    if change == "missing":
+        policy["rule"].remove(rule)
+    elif change == "allow":
+        rule["decision"] = "allow"
+    elif change == "default_only":
+        rule["modes"] = ["default"]
+    elif change == "interactive_only":
+        rule["interactive"] = True
+    else:
+        rule["argsPattern"] = "documentation"
+    assert any("google_web_search ask_user" in e for e in check_gemini_invariants(settings, policy))
+
+
 @pytest.mark.parametrize(
     "change", ["missing", "broad_prefix", "redirection", "interactive_only", "sandbox_grant"]
 )
