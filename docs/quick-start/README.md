@@ -12,8 +12,9 @@
 # Quick start — reference pages
 
 The [quick start](../quick-start.md) is the walkthrough: decide how you want to
-use Magpie, install it, set the project up, lock the agent down, and go. These
-are the pages it sends you to when you want more than the step.
+use Magpie, install it, set the project up, then isolate the agent, guard what
+it runs and set up privacy — and go. These are the pages it sends you to when
+you want more than the step.
 
 | Page | What it answers |
 |---|---|

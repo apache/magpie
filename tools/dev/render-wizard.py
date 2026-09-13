@@ -490,14 +490,14 @@ def build() -> dict[Path, str]:
             step_install_script(),
         ),
         STEP_ISOLATION_SVG: render(
-            "Step 3 — lock the agent down",
+            "Step 3 — isolate the agent",
             "An animated secure-agent setup: three proposed changes, a confirmation, "
             "then the sandbox, the clean environment and the status line in place",
             "Illustrative animation of the secure-agent setup step. Not a recording.",
             step_isolation_script(),
         ),
         STEP_GUARD_SVG: render(
-            "Step 4 — put the guard in front of every command",
+            "Step 4 — guard every command",
             "An animated agent-guard setup: the dispatcher, the rules and the "
             "PreToolUse hook registered, then a real denial of an unwanted "
             "review ping before it was posted",
@@ -505,7 +505,7 @@ def build() -> dict[Path, str]:
             step_guard_script(),
         ),
         STEP_PRIVACY_SVG: render(
-            "Step 5 — decide what may see private mail",
+            "Step 5 — set up privacy",
             "An animated privacy-llm run: the stack detected, the variant written "
             "locally, the PII redactor proven, and the approved-LLM gate refusing "
             "an unregistered local model",

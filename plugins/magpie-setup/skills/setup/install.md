@@ -346,7 +346,7 @@ Tell the user, in this order:
    them or printed them for the user to run.
 2. **Run the secure-agent setup next** —
    `/magpie-setup:isolated-setup-install`, or in plain language
-   *lock my agent down with Magpie's secure setup*. Offer both
+   *isolate my agent with Magpie's secure setup*. Offer both
    forms: the skill is model-invoked, so the sentence works on
    every harness and the slash form only on the ones that have
    slash commands.

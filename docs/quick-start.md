@@ -10,9 +10,9 @@
   - [The walkthrough](#the-walkthrough)
     - [Step 1 — install from the Apache Magpie Marketplace](#step-1--install-from-the-apache-magpie-marketplace)
     - [Step 2 — run `/magpie-setup`](#step-2--run-magpie-setup)
-    - [Step 3 — lock the agent down](#step-3--lock-the-agent-down)
-    - [Step 4 — put the guard in front of every command](#step-4--put-the-guard-in-front-of-every-command)
-    - [Step 5 — decide what may see private mail](#step-5--decide-what-may-see-private-mail)
+    - [Step 3 — isolate the agent](#step-3--isolate-the-agent)
+    - [Step 4 — guard every command](#step-4--guard-every-command)
+    - [Step 5 — set up privacy](#step-5--set-up-privacy)
     - [Step 6 — use it](#step-6--use-it)
     - [Step 7 — consider adopting Magpie](#step-7--consider-adopting-magpie)
   - [What each family solves](#what-each-family-solves)
@@ -82,7 +82,7 @@ CLI, Cursor, `microsoft/apm`, and JetBrains IDEs.
 
 - **`magpie-setup`** — install this one first; nothing else installs, upgrades,
   configures or adopts without it, and it carries the secure-isolation skills
-  from [Step 3](#step-3--lock-the-agent-down).
+  from [Step 3](#step-3--isolate-the-agent).
 - **`magpie-agent-guard`** — the deterministic pre-execution guard, a hook that
   inspects each shell command before it runs and denies the dangerous shapes.
 - **`magpie-utilities`** — `list-skills` and the small tools you reach for when
@@ -190,7 +190,7 @@ links to all ten.
 
 ---
 
-### Step 3 — lock the agent down
+### Step 3 — isolate the agent
 
 **Strongly recommended, and part of the default setup rather than a later
 hardening pass.** Magpie's skills read issues, pre-disclosure security reports,
@@ -202,9 +202,9 @@ three:
 
 | Step | Constrains | The thing the others cannot catch |
 |---|---|---|
-| **3** — sandbox | the **process** | a command reading `~/.ssh` or `~/.aws` |
-| [**4**](#step-4--put-the-guard-in-front-of-every-command) — action guard | each **command** | a perfectly legal `gh pr comment` pinging four people who did not ask |
-| [**5**](#step-5--decide-what-may-see-private-mail) — privacy-LLM | the **data** | private-list mail reaching a model nobody approved |
+| **3 — isolate** | the **process** | a command reading `~/.ssh` or `~/.aws` |
+| [**4 — guard**](#step-4--guard-every-command) | each **command** | a perfectly legal `gh pr comment` pinging four people who did not ask |
+| [**5 — privacy**](#step-5--set-up-privacy) | the **data** | private-list mail reaching a model nobody approved |
 
 Steps 3 and 4 arrive in one run; step 5 is its own.
 
@@ -220,7 +220,7 @@ and what the second one looks like depends on the agent you run:
 
 ![The secure-agent setup: three proposed changes, a confirmation, then the sandbox, the clean environment and the status line in place](../assets/quickstart/step-isolation.svg)
 
-On Claude Code, the first skill to run is the one that locks the agent down:
+On Claude Code, the first skill to run is the one that isolates the agent:
 
 ```text
 /magpie-setup:isolated-setup-install
@@ -228,7 +228,7 @@ On Claude Code, the first skill to run is the one that locks the agent down:
 
 or, in plain language:
 
-> lock my agent down with Magpie's secure setup
+> isolate my agent with Magpie's secure setup
 
 It walks you through the install interactively and surfaces every sudo,
 shell-rc, and settings-file change for approval before applying it. Nothing is
@@ -283,12 +283,12 @@ reports ✓/✗/⚠ for every piece.
 Why each layer exists: [`setup/secure-agent-internals.md`](setup/secure-agent-internals.md).
 How your data reaches a model, and what never leaves the machine:
 [`setup/privacy-llm.md`](setup/privacy-llm.md) — and
-[Step 5](#step-5--decide-what-may-see-private-mail) is the skill that
+[Step 5](#step-5--set-up-privacy) is the skill that
 configures it.
 
 ---
 
-### Step 4 — put the guard in front of every command
+### Step 4 — guard every command
 
 **Strongly recommended, and it is not the same thing as Step 3.** The sandbox
 confines the *process*: bash sees only the paths you allow, and your `~/.ssh`
@@ -358,7 +358,7 @@ when you genuinely need to gets disabled wholesale, which is worse.
 
 ---
 
-### Step 5 — decide what may see private mail
+### Step 5 — set up privacy
 
 **Strongly recommended, and the one step that is about your project's data
 rather than your machine.** Steps 3 and 4 constrain what the agent can reach

@@ -29,7 +29,7 @@ commits as its **floor** when it adopts Magpie
 everyone who clones it is what you should have yourself.
 
 Isolation belongs here too. It is not a plugin but a run —
-[Step 3 of the quick start](../quick-start.md#step-3--lock-the-agent-down)
+[Step 3 of the quick start](../quick-start.md#step-3--isolate-the-agent)
 — and it ships inside `magpie-setup`.
 
 ## The ten families
