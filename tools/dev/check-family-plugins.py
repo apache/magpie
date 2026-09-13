@@ -10,18 +10,17 @@ Checks that every plugin is properly defined:
   (`.claude-plugin/plugin.json`, the Agent Plugins 1.0 `plugin.json`,
   `.codex-plugin/plugin.json`, `gemini-extension.json`, `apm.yml`) mirrors
   `pyproject.toml`'s `project.version` verbatim — including a `.devN` suffix;
-- the all-in-one `magpie` manifest (`.claude-plugin/plugin.json`) names itself
-  correctly, declares `skills: ./skills`, and wires the `hooks/check-upgrade.sh`
-  SessionStart hook (which must exist);
+- `magpie-setup`'s manifest wires the `hooks/check-upgrade.sh` SessionStart
+  hook (which must exist) -- it rides on the one plugin the recommended floor
+  always installs;
 - the root `plugin.json` conforms to Agent Plugins 1.0 — the pinned `$schema`,
   the name pattern, the closed ten-field set (so a Claude-only component path
   never leaks in), and the same shared metadata as the Claude manifest;
 - every `.claude-plugin/marketplace.json` entry resolves to a matching,
   uniquely-named `plugin.json` and carries the root manifest's version;
 - the Codex and Copilot catalogs (`.agents/plugins/marketplace.json`,
-  `marketplace.json`) list the all-in-one plugin and *only* that — the family
-  plugins are Claude Code-only, so advertising them there would offer those
-  clients something they cannot install;
+  `marketplace.json`) list every family plugin and no all-in-one, with
+  `magpie-setup` installed by default and the rest opt-in;
 - for every family declared in a skill's `family:` frontmatter there is a
   `plugins/magpie-<family>/` plugin whose manifest is well-formed, inherits the
   root manifest's shared metadata (version, author, homepage, repository,
@@ -54,9 +53,27 @@ from pathlib import Path
 SKILLS = Path("skills")
 PLUGINS = Path("plugins")
 MARKETPLACE = Path(".claude-plugin/marketplace.json")
-ROOT_MANIFEST = Path(".claude-plugin/plugin.json")  # the all-in-one `magpie` plugin
-HOOK_SCRIPT = Path("hooks/check-upgrade.sh")  # referenced by the all-in-one plugin hook
-SYMLINK_TARGET = "../../../skills/{skill}"  # relative to plugins/magpie-<f>/skills/
+ROOT_MANIFEST = Path(".claude-plugin/plugin.json")  # version + shared metadata anchor
+UPGRADE_HOOK = Path("plugins/magpie-setup/hooks/check-upgrade.sh")  # magpie-setup SessionStart
+# The wiring that fires it. It rides on magpie-setup because that plugin is the
+# recommended floor -- always installed -- and is the one that performs the
+# upgrade. Claude Code merges hooks from every enabled plugin, so exactly one
+# owner keeps it firing once per session however many families are enabled.
+SETUP_HOOKS = {
+    "SessionStart": [
+        {
+            "matcher": "startup",
+            "hooks": [
+                {
+                    "type": "command",
+                    "command": "${CLAUDE_PLUGIN_ROOT}/hooks/check-upgrade.sh",
+                    "timeout": 10,
+                }
+            ],
+        }
+    ]
+}
+MIRROR_TARGET = "../plugins/{plugin}/skills/{alias}"  # relative to skills/
 
 # A family plugin advertises each skill under its *symlink* name, so the symlink
 # is where the family prefix comes off: `magpie-security` + `security-issue-triage`
@@ -75,7 +92,7 @@ ALIAS_OVERRIDES = {
 }
 TOOL_SYMLINK_TARGET = "../../../tools/{tool}"  # relative to plugins/magpie-<p>/tools/
 
-# The vendor-neutral Agent Plugins 1.0 manifest for the same all-in-one plugin.
+# The vendor-neutral Agent Plugins 1.0 manifest for the repository itself.
 # It lives at the repo root (the spec permits no alternative location) and is
 # read by VS Code / Copilot, which auto-detect the format from the root manifest
 # and treat the `$schema` value as the AP1 marker. Its schema is *closed*: only
@@ -99,13 +116,13 @@ AP1_FIELDS = frozenset(
 )
 AP1_AUTHOR_FIELDS = frozenset({"name", "email", "url"})
 
-# The non-Claude catalogs. These list the all-in-one plugin *only*: the family
-# plugins reach their skills through symlinks that deliberately resolve outside
-# the family's own root, which Agent Plugins 1.0 forbids (a symlink's final
-# target must stay within the plugin root). Materialising them into real
-# directories would mean vendored copies of every skill — PRINCIPLES §13. So
-# per-family is a Claude Code feature, and this check keeps the other catalogs
-# from drifting into advertising something their clients cannot install.
+# The non-Claude catalogs list the ten family plugins. They could not, until
+# each family owned its skills as real directories: a plugin whose skills were
+# symlinks out to the flat tree installs on Codex with *zero* skills — it does
+# not fail, it silently ships nothing, which was measured, not inferred.
+# Reversing the direction fixed it without vendoring anything (PRINCIPLES §13):
+# the flat `skills/<name>` tree is now the mirror, pointing inward.
+# The all-in-one plugin is gone; installing everything was never the advice.
 CODEX_CATALOG = Path(".agents/plugins/marketplace.json")  # Codex CLI repo marketplace
 CLIENT_CATALOGS = (
     CODEX_CATALOG,
@@ -121,11 +138,11 @@ CLIENT_CATALOGS = (
 # policy values. Verified against codex 0.154.0.
 #
 # `installation` decides whether adding the marketplace also installs the
-# plugin. It stays AVAILABLE: INSTALLED_BY_DEFAULT here would install the
-# all-in-one plugin — all ten families — on every Codex machine that adds the
-# marketplace, which is the opposite of the per-family default the framework
-# argues for, and Codex cannot express that default (see
-# `check_client_catalogs`). `authentication` is optional and names *when* a
+# plugin. Every family stays AVAILABLE — a machine that adds the marketplace
+# gets the catalogue, not ten families' worth of always-on skills. The one
+# exception is `magpie-setup`, which is INSTALLED_BY_DEFAULT: it is the floor
+# the framework recommends to everyone, so arriving already installed is the
+# point. `authentication` is optional and names *when* a
 # plugin asks the user to authenticate; Magpie asks for no credential of its
 # own, so it is absent rather than set to a "no auth" value, which the enum
 # has no way to spell.
@@ -158,7 +175,7 @@ APM_VERSION_RE = re.compile(r"^(version:[ \t]*)(\S+)[ \t]*$", re.M)
 JSON_VERSION_RE = re.compile(r'("version"[ \t]*:[ \t]*")[^"]*(")')
 
 # Metadata the per-family plugins and the marketplace entries inherit verbatim
-# from the all-in-one manifest, so a release bump has exactly one edit point.
+# from the root manifest, so a release bump has exactly one edit point.
 # `version` + `author` are what `claude plugin validate --strict` warns about
 # when absent; the rest carry attribution into a marketplace listing.
 INHERITED = ("version", "author", "homepage", "repository", "license")
@@ -185,8 +202,8 @@ DESC = {
 # declares the hook wiring the framework expects and reaches its tool through a
 # narrow symlink (the whole `tools/` tree is deliberately not exposed).
 #
-# A substrate plugin is a plugin of its own rather than a hook on the all-in-one
-# `magpie` plugin because Claude Code merges hooks from *every* enabled plugin:
+# A substrate plugin is a plugin of its own rather than a hook on some shared
+# plugin because Claude Code merges hooks from *every* enabled plugin:
 # wiring the guard into each family plugin would run it once per enabled family
 # on every single Bash call. One dedicated owner runs it exactly once, whatever
 # else is installed.
@@ -339,11 +356,16 @@ def write_substrate(name: str, shared: dict) -> None:
     """(Re)generate a substrate plugin dir: manifest + tool symlinks."""
     spec = SUBSTRATE_PLUGINS[name]
     pdir = PLUGINS / name
-    (pdir / ".claude-plugin").mkdir(parents=True)
+    (pdir / ".claude-plugin").mkdir(parents=True, exist_ok=True)
     for link_path, tool in spec["links"].items():
         link = pdir / link_path
         link.parent.mkdir(parents=True, exist_ok=True)
-        link.symlink_to(TOOL_SYMLINK_TARGET.format(tool=tool))
+        want = TOOL_SYMLINK_TARGET.format(tool=tool)
+        if link.is_symlink():
+            if link.readlink() == Path(want):
+                continue
+            link.unlink()
+        link.symlink_to(want)
     (pdir / ".claude-plugin" / "plugin.json").write_text(
         json.dumps(substrate_manifest(name, shared), indent=2) + "\n", encoding="utf-8"
     )
@@ -469,7 +491,7 @@ def validate_ap1_manifest(inherited: dict | None = None) -> list[str]:
 
 
 def check_client_catalogs() -> list[str]:
-    """The Codex and Copilot catalogs list the all-in-one plugin and only that."""
+    """The Codex and Copilot catalogs list every family plugin, and no all-in-one."""
     errors: list[str] = []
     for path in CLIENT_CATALOGS:
         if not path.is_file():
@@ -484,14 +506,22 @@ def check_client_catalogs() -> list[str]:
             errors.append(f"{path}: 'plugins' is missing or not a list")
             continue
         names = [e.get("name") for e in entries if isinstance(e, dict)]
-        if "magpie" not in names:
-            errors.append(f"{path}: missing the all-in-one 'magpie' plugin entry")
-        if families := sorted(n for n in names if n and n.startswith("magpie-")):
+        if "magpie" in names:
             errors.append(
-                f"{path}: lists per-family plugin(s) {', '.join(families)} — the family "
-                f"plugins are Claude Code-only (their skill symlinks resolve outside the "
-                f"family plugin root, which Agent Plugins 1.0 forbids)"
+                f"{path}: lists an all-in-one 'magpie' plugin. There is no all-in-one: "
+                f"installing all ten families was never the advice, and the entry is what "
+                f"forced every non-Claude client to take everything or nothing."
             )
+        listed = {n for n in names if n}
+        on_disk = {
+            d.name
+            for d in PLUGINS.glob("magpie-*")
+            if d.is_dir() and d.name not in SUBSTRATE_PLUGINS and (d / "skills").is_dir()
+        }
+        for fam in sorted(on_disk - listed):
+            errors.append(f"{path}: missing family plugin entry '{fam}'")
+        for extra in sorted(listed - on_disk - {"magpie"}):
+            errors.append(f"{path}: lists '{extra}', which has no family plugin on disk")
         if path == CODEX_CATALOG:
             errors.extend(check_codex_policy(path, entries))
     return errors
@@ -522,19 +552,27 @@ def check_codex_policy(path: Path, entries: list) -> list[str]:
                 )
         if unknown := sorted(set(policy) - set(CODEX_POLICY_ENUMS)):
             errors.append(f"{path}: '{name}' policy has unknown field(s) {', '.join(unknown)}")
+        # magpie-setup is the floor every adopter gets: it carries the
+        # secure-isolation skills and the SessionStart upgrade check, so it
+        # installs by default. Every other family is opt-in -- taking all ten
+        # is the thing this framework argues against.
         installation = policy.get("installation")
-        if installation is not None and installation != CODEX_REQUIRED_INSTALLATION:
+        want = "INSTALLED_BY_DEFAULT" if name == "magpie-setup" else CODEX_REQUIRED_INSTALLATION
+        if installation is not None and installation != want:
             errors.append(
-                f"{path}: '{name}' policy.installation is {installation!r} — the Codex "
-                f"catalogue lists only the all-in-one plugin, so anything but "
-                f"{CODEX_REQUIRED_INSTALLATION!r} would install all ten families by "
-                f"default (or hide the plugin entirely)"
+                f"{path}: '{name}' policy.installation is {installation!r}, expected "
+                f"{want!r}"
+                + (
+                    " — magpie-setup is always installed"
+                    if name == "magpie-setup"
+                    else " — every other family is opt-in, one problem at a time"
+                )
             )
     return errors
 
 
 def root_metadata() -> tuple[dict, list[str]]:
-    """The subset of the all-in-one manifest that the family plugins inherit."""
+    """The subset of the root manifest that the family plugins inherit."""
     data, err = load_json(ROOT_MANIFEST)
     if err:
         return {}, [err]
@@ -606,18 +644,21 @@ def check(fam: dict[str, set[str]]) -> list[str]:
     if version is not None:
         errors += check_ecosystem_versions(version)
 
-    # 1) The all-in-one `magpie` plugin: well-formed manifest, listed, and its
-    #    SessionStart hook script is present + referenced.
-    errors += validate_manifest(ROOT_MANIFEST, "magpie")
+    # 1) The root manifest conforms to AP1, no catalogue lists an all-in-one,
+    #    and magpie-setup's SessionStart hook script is present + referenced.
     errors += validate_ap1_manifest(shared)
     errors += check_client_catalogs()
-    if "magpie" not in listed:
-        errors.append(f"{MARKETPLACE}: missing the all-in-one 'magpie' plugin entry")
-    if not HOOK_SCRIPT.is_file():
-        errors.append(f"{HOOK_SCRIPT}: missing (referenced by the all-in-one plugin's SessionStart hook)")
-    root_data, _root_err = load_json(ROOT_MANIFEST)
-    if root_data is not None and "check-upgrade.sh" not in json.dumps(root_data.get("hooks", {})):
-        errors.append(f"{ROOT_MANIFEST}: SessionStart hook does not reference hooks/check-upgrade.sh")
+    if "magpie" in listed:
+        errors.append(f"{MARKETPLACE}: lists an all-in-one 'magpie' plugin; there is no all-in-one")
+    # Upgrade detection rides on magpie-setup, which the recommended floor always
+    # installs and which is the skill that performs the upgrade. It lived on the
+    # all-in-one until that plugin was removed.
+    if not UPGRADE_HOOK.is_file():
+        errors.append(f"{UPGRADE_HOOK}: missing (magpie-setup's SessionStart upgrade check)")
+    setup_manifest = PLUGINS / "magpie-setup" / ".claude-plugin" / "plugin.json"
+    setup_data, _setup_err = load_json(setup_manifest)
+    if setup_data is not None and "check-upgrade.sh" not in json.dumps(setup_data.get("hooks", {})):
+        errors.append(f"{setup_manifest}: SessionStart hook does not reference check-upgrade.sh")
 
     # 2) Every marketplace entry resolves to a matching, uniquely-named manifest.
     seen: set[str] = set()
@@ -657,26 +698,40 @@ def check(fam: dict[str, set[str]]) -> list[str]:
             errors.append(f"{MARKETPLACE}: missing entry for '{name}'")
 
         sdir = pdir / "skills"
+        # A family plugin OWNS its skills as real directories. Anything else
+        # here is the pre-0.2 layout, where these were symlinks into the flat
+        # tree — a shape Codex silently installs with zero skills.
         have: dict[str, Path] = {}
-        for link in sorted(sdir.iterdir()) if sdir.is_dir() else []:
-            if link.is_symlink():
-                have[link.name] = link.readlink()
-            else:
-                errors.append(f"{name}: {link} is not a symlink")
+        for entry in sorted(sdir.iterdir()) if sdir.is_dir() else []:
+            if entry.is_symlink():
+                errors.append(
+                    f"{name}: {entry} is a symlink; a family plugin must contain "
+                    f"its skills as real directories"
+                )
+            elif entry.is_dir():
+                have[entry.name] = entry
+                if not (entry / "SKILL.md").is_file():
+                    errors.append(f"{name}: {entry} has no SKILL.md")
 
-        # Keyed on the advertised alias, not the skill directory: the symlink
-        # name is what the plugin invokes the skill as.
+        # Keyed on the advertised alias, not the flat name: the directory name
+        # here is what the plugin invokes the skill as.
         want_links = aliases_for(family, skills)
         for alias in sorted(set(want_links) - set(have)):
             errors.append(
-                f"{name}: missing symlink '{alias}' for skill '{want_links[alias]}' (family={family})"
+                f"{name}: missing skill directory '{alias}' for '{want_links[alias]}' (family={family})"
             )
         for alias in sorted(set(have) - set(want_links)):
-            errors.append(f"{name}: stale symlink '{alias}' — no family={family} skill aliases to it")
-        for alias in sorted(set(want_links) & set(have)):
-            want = Path(SYMLINK_TARGET.format(skill=want_links[alias]))
-            if have[alias] != want:
-                errors.append(f"{name}: {sdir / alias} -> {have[alias]} (expected {want})")
+            errors.append(f"{name}: stale skill directory '{alias}' — no family={family} skill claims it")
+
+        # The flat tree is the mirror: skills/<flat> points back in here, so
+        # every path that has always said skills/<flat> keeps resolving.
+        for alias, flat in sorted(want_links.items()):
+            mirror = SKILLS / flat
+            want = Path(f"../plugins/{name}/skills/{alias}")
+            if not mirror.is_symlink():
+                errors.append(f"{mirror}: expected a symlink to {want}")
+            elif mirror.readlink() != want:
+                errors.append(f"{mirror} -> {mirror.readlink()} (expected {want})")
 
     # 4) Substrate plugins: manifest + hook wiring + tool symlinks that resolve.
     for name in sorted(SUBSTRATE_PLUGINS):
@@ -762,14 +817,27 @@ def fix(fam: dict[str, set[str]]) -> int:
         )
         return 1
 
-    # Check every family dir *before* deleting any of them, so a stray file in
-    # the last one does not leave the first nine already destroyed.
-    stale = sorted(PLUGINS.glob("magpie-*"))
-    if rm_errs := [e for pdir in stale for e in unowned_entries(pdir)]:
+    # A plugin directory now holds the *canonical* skill directories, so the
+    # old regenerate-from-scratch pass would destroy source. `--fix` rewrites
+    # manifests and catalogue entries in place; the only directories it may
+    # delete are orphans — a `magpie-<x>` that no skill's `family:` frontmatter
+    # and no substrate spec claims any more.
+    live = {f"magpie-{family}" for family in fam} | set(SUBSTRATE_PLUGINS)
+    orphans = [p for p in sorted(PLUGINS.glob("magpie-*")) if p.name not in live]
+    # Check every orphan *before* deleting any of them, so a stray file in the
+    # last one does not leave the earlier ones already destroyed.
+    if rm_errs := [e for pdir in orphans for e in unowned_entries(pdir)]:
         for e in rm_errs:
             print(f"  - {e}", file=sys.stderr)
         return 1
-    for pdir in stale:
+    for pdir in orphans:
+        if any((pdir / "skills").glob("*/SKILL.md")):
+            print(
+                f"refusing to remove {pdir}: it contains real skills. "
+                f"Move them out first — --fix will not delete source.",
+                file=sys.stderr,
+            )
+            return 1
         shutil.rmtree(pdir)
     for name in sorted(SUBSTRATE_PLUGINS):
         write_substrate(name, shared)
@@ -777,16 +845,26 @@ def fix(fam: dict[str, set[str]]) -> int:
         name = f"magpie-{family}"
         pdir = PLUGINS / name
         sdir = pdir / "skills"
-        (pdir / ".claude-plugin").mkdir(parents=True)
-        sdir.mkdir(parents=True)
+        (pdir / ".claude-plugin").mkdir(parents=True, exist_ok=True)
+        sdir.mkdir(parents=True, exist_ok=True)
+        # Skill directories are source and are never generated: a family plugin
+        # owns them, and the flat skills/<name> tree mirrors them back. --fix
+        # regenerates manifests and catalog entries only.
         for alias, skill in sorted(aliases_for(family, skills).items()):
-            (sdir / alias).symlink_to(SYMLINK_TARGET.format(skill=skill))
+            if not (sdir / alias / "SKILL.md").is_file():
+                print(
+                    f"{name}: no skill directory '{alias}' for '{skill}'. Move "
+                    f"skills/{skill} to {sdir / alias} and leave a symlink behind.",
+                    file=sys.stderr,
+                )
         manifest = {
             "name": name,
             "description": f"Apache Magpie — {DESC.get(family, family + ' family skills')}",
             **shared,
             "skills": "./skills",
         }
+        if name == "magpie-setup":
+            manifest["hooks"] = SETUP_HOOKS
         (pdir / ".claude-plugin" / "plugin.json").write_text(
             json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
         )
@@ -795,22 +873,13 @@ def fix(fam: dict[str, set[str]]) -> int:
     if market_err:
         print(f"  - {market_err}", file=sys.stderr)
         return 1
-    # The all-in-one entry is carried over, not regenerated, so it is the one
-    # thing here that `--fix` cannot reconstruct. Bail out rather than write a
-    # marketplace containing only the families: `check` would catch that on the
-    # next run, but the destructive rewrite would already have happened.
-    entries = market.get("plugins")
-    if not isinstance(entries, list):
+    # Every entry is derived: the substrate plugins from their specs, the
+    # families from `family:` frontmatter. Nothing is carried over — with the
+    # all-in-one gone there is no entry left that `--fix` cannot reconstruct.
+    if not isinstance(market.get("plugins"), list):
         print(f"  - {MARKETPLACE}: 'plugins' is missing or not a list", file=sys.stderr)
         return 1
-    keep = [p | {"version": shared["version"]} for p in entries if p.get("name") == "magpie"]
-    if not keep:
-        print(
-            f"  - {MARKETPLACE}: no all-in-one 'magpie' entry to carry over "
-            f"(--fix regenerates only the family entries; restore it before rerunning)",
-            file=sys.stderr,
-        )
-        return 1
+    keep: list[dict] = []
     for name in sorted(SUBSTRATE_PLUGINS):
         keep.append(
             {

@@ -4,14 +4,8 @@
     "name": "Apache Magpie",
     "url": "https://magpie.apache.org/"
   },
-  "description": "Apache Magpie agentic skills for maintaining open-source projects. Install the all-in-one `magpie` plugin, or per-family plugins to load only what you use.",
+  "description": "Apache Magpie agentic skills for maintaining open-source projects. Install the per-family plugins you use, so a session loads only what you need.",
   "plugins": [
-    {
-      "name": "magpie",
-      "source": ".",
-      "version": "0.2.0.dev202609110041",
-      "description": "All Apache Magpie skills (all 10 families; ~8.6k always-on tokens)."
-    },
     {
       "name": "magpie-agent-guard",
       "source": "./plugins/magpie-agent-guard",

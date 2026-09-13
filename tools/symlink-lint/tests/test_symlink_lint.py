@@ -141,6 +141,28 @@ def test_canonical_pointing_outside_source_flagged(tmp_path: Path) -> None:
     }
 
 
+def test_canonical_reaches_past_the_mirror_to_the_plugin(tmp_path: Path) -> None:
+    # The layout the framework actually ships: the family plugin owns the
+    # skill directory and skills/x is the symlink mirroring it back. The
+    # canonical entry must name the plugin, not the mirror — pointing at the
+    # mirror builds a symlink-to-a-symlink, which the release archive's
+    # extractor rejects as resolving outside the archive.
+    (tmp_path / "plugins" / "magpie-fam" / "skills" / "x").mkdir(parents=True)
+    _symlink(tmp_path, "skills/x", "../plugins/magpie-fam/skills/x")
+    _symlink(tmp_path, ".agents/skills/magpie-x", "../../plugins/magpie-fam/skills/x")
+    assert symlink_lint.find_misdirected_relays(tmp_path) == []
+    assert symlink_lint.find_cyclic_symlinks(tmp_path) == []
+
+
+def test_canonical_pointing_at_the_mirror_is_flagged(tmp_path: Path) -> None:
+    (tmp_path / "plugins" / "magpie-fam" / "skills" / "x").mkdir(parents=True)
+    _symlink(tmp_path, "skills/x", "../plugins/magpie-fam/skills/x")
+    _symlink(tmp_path, ".agents/skills/magpie-x", "../../skills/x")
+    problems = symlink_lint.find_misdirected_relays(tmp_path)
+    assert offending_paths(problems, tmp_path) == {".agents/skills/magpie-x"}
+    assert problems[0][2] == "../../plugins/magpie-fam/skills/x"
+
+
 def test_non_magpie_symlink_ignored_by_relay_rule(tmp_path: Path) -> None:
     (tmp_path / "other").mkdir()
     _symlink(tmp_path, ".claude/skills/not-magpie", "../../other")

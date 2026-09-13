@@ -12,8 +12,9 @@ so it ran nowhere.
 
 It cannot be a hook. On most harnesses **no code executes when a plugin is
 installed or upgraded**: Agent Plugins 1.0 defines no hook component at all, and
-Claude Code's `SessionStart` hook is wired only into the all-in-one plugin, so a
-per-family or non-Claude install has no automated moment to check anything. The
+Claude Code's `SessionStart` hook is wired only into `magpie-setup`, so an
+install without it -- and every non-Claude install -- has no automated moment to
+check anything. The
 check therefore has to be *agentic* — instructions the agent reads when the
 skill is invoked — which means it has to live in the skill body.
 

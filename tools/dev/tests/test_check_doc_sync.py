@@ -255,7 +255,7 @@ def test_matching_plugin_counts_are_silent(repo: Path) -> None:
     _skill(repo, "b", "security", "Triage")
     _skill(repo, "c", "pairing", "Pairing")
     _plugin_table(repo, ["| `magpie-security` | 2 | ~0.6k |", "| `magpie-pairing` | 1 | ~0.3k |"])
-    assert _errors(mod.check_family_plugin_counts, 3) == []
+    assert _errors(mod.check_family_plugin_counts) == []
 
 
 def test_stale_plugin_count_is_reported_with_both_numbers(repo: Path) -> None:
@@ -264,17 +264,9 @@ def test_stale_plugin_count_is_reported_with_both_numbers(repo: Path) -> None:
     _skill(repo, "a", "security", "Triage")
     _skill(repo, "b", "security", "Triage")
     _plugin_table(repo, ["| `magpie-security` | 12 | ~3.9k |"])
-    errs = _errors(mod.check_family_plugin_counts, 2)
+    errs = _errors(mod.check_family_plugin_counts)
     assert len(errs) == 1
     assert "says 12 skills" in errs[0] and "has 2" in errs[0]
-
-
-def test_stale_all_in_one_row_is_reported(repo: Path) -> None:
-    _skill(repo, "a", "security", "Triage")
-    _plugin_table(repo, ["| **`magpie`** (all) | **70** | **~21.7k** |"])
-    errs = _errors(mod.check_family_plugin_counts, 1)
-    assert len(errs) == 1
-    assert "all-in-one" in errs[0] and "says 70" in errs[0]
 
 
 def test_plugin_naming_no_live_family_is_reported(repo: Path) -> None:
@@ -282,17 +274,23 @@ def test_plugin_naming_no_live_family_is_reported(repo: Path) -> None:
     there would let the table advertise an uninstallable plugin."""
     _skill(repo, "a", "security", "Triage")
     _plugin_table(repo, ["| `magpie-ghost` | 3 | ~0.9k |"])
-    errs = _errors(mod.check_family_plugin_counts, 1)
+    errs = _errors(mod.check_family_plugin_counts)
     assert len(errs) == 1
     assert "names no live family" in errs[0]
 
 
-def test_plugin_counts_are_checked_in_the_quick_start_too(repo: Path) -> None:
+def test_plugin_counts_are_checked_on_the_families_page_too(repo: Path) -> None:
+    """The families table moved out of the walkthrough into its own page; the
+    count check followed it, and this is what proves it still bites there."""
     _skill(repo, "a", "setup", "Triage")
-    _plugin_table(repo, ["| `magpie-setup` | 9 | Sandbox, install |"], path="docs/quick-start.md")
-    errs = _errors(mod.check_family_plugin_counts, 1)
+    _plugin_table(
+        repo,
+        ["| `magpie-setup` | 9 | Sandbox, install |"],
+        path="docs/quick-start/families.md",
+    )
+    errs = _errors(mod.check_family_plugin_counts)
     assert len(errs) == 1
-    assert "docs/quick-start.md" in errs[0]
+    assert "docs/quick-start/families.md" in errs[0]
 
 
 def test_prose_mentioning_a_plugin_is_not_a_table_row(repo: Path) -> None:
@@ -304,7 +302,7 @@ def test_prose_mentioning_a_plugin_is_not_a_table_row(repo: Path) -> None:
         "- \u2705 `magpie-security` \u2248 3.9k always-on tokens.\n",
         encoding="utf-8",
     )
-    assert _errors(mod.check_family_plugin_counts, 1) == []
+    assert _errors(mod.check_family_plugin_counts) == []
 
 
 # ---------------------------------------------------------------------------

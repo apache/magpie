@@ -29,6 +29,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import pathlib
 from pathlib import Path
 from types import ModuleType
 
@@ -232,11 +233,33 @@ def test_a_within_family_alias_collision_is_refused():
         mod.aliases_for("demo", {"demo-triage", "triage"})
 
 
-def test_generated_symlink_is_named_by_the_alias_and_targets_the_source(tree, monkeypatch):
-    """The whole point: the link *name* de-stutters, the *target* is untouched,
-    so the source directory (and the portable install name) never moves."""
+def test_the_family_plugin_owns_its_skills_and_the_flat_tree_mirrors_them(tree, monkeypatch):
+    """The direction that makes a family plugin installable off Claude Code.
+
+    A plugin whose skills were symlinks out to the flat tree installs on Codex
+    with zero skills -- silently, no error. So the plugin owns the real
+    directory, de-stuttered, and `skills/<flat>` points back in to keep every
+    path that has always said `skills/<flat>` resolving.
+    """
     monkeypatch.chdir(REPO_ROOT)
-    link = REPO_ROOT / "plugins" / "magpie-security" / "skills" / "issue-triage"
-    assert link.is_symlink()
-    assert link.readlink().name == "security-issue-triage"
-    assert (link / "SKILL.md").is_file()
+    owned = REPO_ROOT / "plugins" / "magpie-security" / "skills" / "issue-triage"
+    assert owned.is_dir() and not owned.is_symlink()
+    assert (owned / "SKILL.md").is_file()
+
+    mirror = REPO_ROOT / "skills" / "security-issue-triage"
+    assert mirror.is_symlink()
+    assert mirror.readlink() == pathlib.Path("../plugins/magpie-security/skills/issue-triage")
+    assert (mirror / "SKILL.md").is_file()
+
+
+def test_no_plugin_path_escapes_its_own_root(tree, monkeypatch):
+    """Agent Plugins 1.0 §4.1: a package path resolving outside the plugin root
+    must be rejected. Codex does not reject it -- it installs the plugin with
+    the offending skills silently missing, which is worse."""
+    monkeypatch.chdir(REPO_ROOT)
+    for fam in sorted((REPO_ROOT / "plugins").glob("magpie-*")):
+        skills = fam / "skills"
+        if not skills.is_dir():
+            continue
+        for entry in skills.iterdir():
+            assert not entry.is_symlink(), f"{entry} is a symlink; Codex would drop it"

@@ -154,8 +154,8 @@ for the complete rule.
 
 - [**The Apache Magpie Marketplace**](marketplace.md) — the one marketplace
   the project publishes, and the recommended way to install. Every agent that
-  can add it, per-family vs all-in-one plugins, pinning, updates, and
-  verification status.
+  can add it, which families to pick, pinning, updates, and verification
+  status.
 - [**`secure-agent-setup.md`**](secure-agent-setup.md) — full
   install walkthrough. The authoritative reference the
   `setup-isolated-setup-install` skill steps through.

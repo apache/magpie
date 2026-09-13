@@ -70,13 +70,22 @@ def offline_encoding() -> tiktoken.Encoding:
 def render(root: Path, measured_on: str = "unrecorded") -> str:
     """Measure canonical files; exclude harness symlinks and external redirects."""
     skills = root / "skills"
-    paths = sorted(skills.rglob("SKILL.md"))
+    # One level only, and through `skills/<name>/` rather than under it: each
+    # entry is a symlink into the family plugin that owns the skill, and
+    # `rglob` does not descend a symlinked directory -- it would find nothing.
+    # `is_dir()` follows the link, so this reads the same whether the entry is
+    # the mirror or (in a fixture, or an adopter's snapshot) a real directory.
+    entries = sorted(skills.iterdir()) if skills.is_dir() else []
+    paths = [e / "SKILL.md" for e in entries if e.is_dir() and (e / "SKILL.md").is_file()]
     if not paths:
-        raise ValueError("No skills/**/SKILL.md files found")
+        raise ValueError("No skills/*/SKILL.md files found")
     encoder = offline_encoding()
     rows: list[tuple[str, int, str]] = []
     for path in paths:
-        if path.is_symlink() or not path.resolve().is_relative_to(skills.resolve()):
+        # The file itself is never a link: a harness relay or an external
+        # `source.md` redirect is not a skill this measures. The *directory*
+        # may be, which is how the mirror reaches the plugin that owns it.
+        if path.is_symlink() or not path.resolve().is_relative_to(root.resolve()):
             raise ValueError(f"Skill must be a regular in-tree file: {path}")
         # Normalize CRLF/CR exactly as text-mode reading does, across platforms.
         source = path.read_text(encoding="utf-8")
@@ -97,7 +106,7 @@ def render(root: Path, measured_on: str = "unrecorded") -> str:
         f"Tokenizer: **tiktoken {tokenizer}, `{ENCODING}`**. Method: full UTF-8 file,",
         "including frontmatter and comments; line endings normalized to LF;",
         "special-token spellings counted as ordinary text.",
-        f"Coverage: **{len(rows)} of {len(paths)} local `skills/**/SKILL.md` files**.",
+        f"Coverage: **{len(rows)} of {len(paths)} local `skills/*/SKILL.md` files**.",
         "External `source.md` redirects and harness symlinks are excluded.",
         "",
         f"Measurement manifest SHA-256: `{fingerprint}`.",

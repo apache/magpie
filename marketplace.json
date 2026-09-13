@@ -1,12 +1,120 @@
 {
   "name": "apache-magpie",
-  "owner": { "name": "Apache Magpie", "url": "https://magpie.apache.org/" },
+  "owner": {
+    "name": "Apache Magpie",
+    "url": "https://magpie.apache.org/"
+  },
   "description": "Apache Magpie agentic skills for maintaining open-source projects (GitHub Copilot plugin marketplace catalog).",
   "plugins": [
     {
-      "name": "magpie",
-      "source": ".",
-      "description": "All Apache Magpie skills (release management, security, PR/issue workflows, contributor growth, repo health)."
+      "name": "magpie-contributor-growth",
+      "source": {
+        "source": "local",
+        "path": "./plugins/magpie-contributor-growth"
+      },
+      "category": "maintenance",
+      "policy": {
+        "installation": "AVAILABLE"
+      }
+    },
+    {
+      "name": "magpie-issue",
+      "source": {
+        "source": "local",
+        "path": "./plugins/magpie-issue"
+      },
+      "category": "maintenance",
+      "policy": {
+        "installation": "AVAILABLE"
+      }
+    },
+    {
+      "name": "magpie-mentoring",
+      "source": {
+        "source": "local",
+        "path": "./plugins/magpie-mentoring"
+      },
+      "category": "maintenance",
+      "policy": {
+        "installation": "AVAILABLE"
+      }
+    },
+    {
+      "name": "magpie-pairing",
+      "source": {
+        "source": "local",
+        "path": "./plugins/magpie-pairing"
+      },
+      "category": "maintenance",
+      "policy": {
+        "installation": "AVAILABLE"
+      }
+    },
+    {
+      "name": "magpie-pr-management",
+      "source": {
+        "source": "local",
+        "path": "./plugins/magpie-pr-management"
+      },
+      "category": "maintenance",
+      "policy": {
+        "installation": "AVAILABLE"
+      }
+    },
+    {
+      "name": "magpie-release-management",
+      "source": {
+        "source": "local",
+        "path": "./plugins/magpie-release-management"
+      },
+      "category": "maintenance",
+      "policy": {
+        "installation": "AVAILABLE"
+      }
+    },
+    {
+      "name": "magpie-repo-health",
+      "source": {
+        "source": "local",
+        "path": "./plugins/magpie-repo-health"
+      },
+      "category": "maintenance",
+      "policy": {
+        "installation": "AVAILABLE"
+      }
+    },
+    {
+      "name": "magpie-security",
+      "source": {
+        "source": "local",
+        "path": "./plugins/magpie-security"
+      },
+      "category": "maintenance",
+      "policy": {
+        "installation": "AVAILABLE"
+      }
+    },
+    {
+      "name": "magpie-setup",
+      "source": {
+        "source": "local",
+        "path": "./plugins/magpie-setup"
+      },
+      "category": "maintenance",
+      "policy": {
+        "installation": "INSTALLED_BY_DEFAULT"
+      }
+    },
+    {
+      "name": "magpie-utilities",
+      "source": {
+        "source": "local",
+        "path": "./plugins/magpie-utilities"
+      },
+      "category": "maintenance",
+      "policy": {
+        "installation": "AVAILABLE"
+      }
     }
   ]
 }

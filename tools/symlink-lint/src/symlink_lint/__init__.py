@@ -20,8 +20,12 @@
 1. **No cycles** — a symlink must not resolve to its own directory or an
    ancestor (that traps recursive `**/SKILL.md` scanners in looped paths).
 2. **Relay correctness** — a `magpie-<skill>` link under `.agents/skills/`
-   (canonical) points into `../../skills/`; the same link under any other
-   agent dir relays through `../../.agents/skills/magpie-<skill>`.
+   (canonical) points at the skill's real directory; the same link under any
+   other agent dir relays through `../../.agents/skills/magpie-<skill>`.
+   A family plugin owns its skills as real directories and `skills/<skill>`
+   is the symlink that mirrors one back, so the canonical link must reach
+   past that mirror: a link to a link is a chain, which the release
+   archive's extractor rejects as resolving outside the archive.
 3. **Completeness** — in the framework checkout (where `skills/` lives), every
    skill directory under `skills/` must have its canonical
    `.agents/skills/magpie-<skill>` entry, and every wired agent directory
@@ -67,6 +71,10 @@ PRUNE_DIR_NAMES = frozenset(
         ".mypy_cache",
         ".pytest_cache",
         ".hatch",
+        # A git worktree is a checkout of its own — usually of a different
+        # commit — and lints itself. Walking into one reports that branch's
+        # links against this branch's expectations.
+        "worktrees",
     }
 )
 
@@ -116,8 +124,9 @@ def find_misdirected_relays(
     """Return `(link, actual_target, expected_target)` for every
     `magpie-<skill>` symlink under an `<agent>/skills/` directory whose
     one-hop target breaks the one-directional convention: canonical links
-    under `.agents/skills/` point into `../../skills/`; every other agent
-    dir's relay points at `../../.agents/skills/magpie-<skill>`."""
+    under `.agents/skills/` point at the skill's real directory (see
+    `canonical_target`); every other agent dir's relay points at
+    `../../.agents/skills/magpie-<skill>`."""
     problems: list[tuple[Path, str, str]] = []
     for dirpath, dirnames, filenames in os.walk(root, followlinks=False):
         dirnames[:] = [d for d in dirnames if d not in prune]
@@ -131,13 +140,32 @@ def find_misdirected_relays(
             if not link.is_symlink():
                 continue
             if agent == ".agents":
-                expected = f"../../skills/{name.removeprefix('magpie-')}"
+                expected = canonical_target(root, name.removeprefix("magpie-"))
             else:
                 expected = f"../../.agents/skills/{name}"
             actual = os.readlink(link)
             if actual != expected:
                 problems.append((link, actual, expected))
     return sorted(problems)
+
+
+def canonical_target(root: Path, skill: str) -> str:
+    """Where `.agents/skills/magpie-<skill>` must point.
+
+    The skill's real directory, never the mirror. `skills/<skill>` is a
+    symlink into the family plugin that owns the skill, and a symlink whose
+    target is itself a symlink is a chain: the release archive's extractor
+    refuses it as resolving outside the archive, which is what -1'd an RC
+    upload. So follow the mirror by one hop and name what it names.
+
+    A checkout where `skills/<skill>` is a real directory — an adopter's
+    snapshot, or this repo before the family plugins owned their skills —
+    keeps the direct target.
+    """
+    mirror = root / "skills" / skill
+    if mirror.is_symlink():
+        return "../../" + os.path.normpath(os.path.join("skills", os.readlink(mirror)))
+    return f"../../skills/{skill}"
 
 
 def find_missing_relays(root: Path, prune: frozenset[str] = PRUNE_DIR_NAMES) -> list[tuple[Path, str, str]]:
@@ -150,7 +178,8 @@ def find_missing_relays(root: Path, prune: frozenset[str] = PRUNE_DIR_NAMES) -> 
 
     When in the framework checkout:
     1. Every skill directory under ``skills/`` (containing a ``SKILL.md``)
-       must have its canonical symlink under ``.agents/skills/magpie-<skill>``.
+       must have its canonical symlink under ``.agents/skills/magpie-<skill>``,
+       pointing where ``canonical_target`` says.
     2. Every wired agent directory (any direct subdirectory of ``root``
        whose name starts with ``.`` carrying a ``skills/`` folder, such as
        ``.claude/``, ``.github/``, ``.kiro/``) must relay the full canonical
@@ -175,8 +204,7 @@ def find_missing_relays(root: Path, prune: frozenset[str] = PRUNE_DIR_NAMES) -> 
     for skill in skills:
         link = canonical_dir / f"magpie-{skill}"
         if not link.is_symlink():
-            expected = f"../../skills/{skill}"
-            missing.append((link, expected, "canonical"))
+            missing.append((link, canonical_target(root, skill), "canonical"))
 
     # 2. Relay entries under every wired agent directory
     for entry in sorted(root.iterdir()):

@@ -938,7 +938,7 @@ dev = [{ name = "magpie-dev", editable = "tools/dev" }]
 [[package]]
 name = "magpie-skills"
 version = "0.1.0"
-source = { virtual = "skills" }
+source = { virtual = "plugins" }
 
 [package.dev-dependencies]
 dev = [

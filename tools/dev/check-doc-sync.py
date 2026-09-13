@@ -41,8 +41,7 @@ found by hand:
 
 5. **Per-family *plugin* skill counts.** The marketplace tables in
    ``docs/setup/marketplace.md`` and ``docs/quick-start.md`` list a bare count
-   per ``magpie-<family>`` plugin, plus a total for the all-in-one ``magpie``
-   row. Check 2 does not reach them — those cells are bare integers in a table
+   per ``magpie-<family>`` plugin. Check 2 does not reach them — those cells are bare integers in a table
    column, not the "N skills" phrasing check 4 matches — so both tables sat two
    families out of date (``security`` 12, ``utilities`` 4, total 70) while
    README.md, which *is* guarded, carried the right numbers. These counts drive
@@ -122,7 +121,7 @@ SPEC_INDEX_NAMES = {p.name for p in SPEC_INDEXES}
 TOTAL_COUNT_FILES = (Path("docs/setup/marketplace.md"), Path("docs/quick-start.md"))
 
 # Files carrying a per-family marketplace-plugin table: a `magpie-<family>` row
-# with a bare skill count, and an all-in-one `magpie` row counting the lot.
+# with a bare skill count.
 FAMILY_PLUGIN_FILES = (Path("docs/setup/marketplace.md"), Path("docs/quick-start/families.md"))
 
 # Family README "Install & first runs" sections: the family is named by the
@@ -175,8 +174,6 @@ _MODES_GLANCE_ROW = re.compile(r"^\|\s*\*\*(?P<mode>[A-Za-z ]+?)\*\*\s*\|.*\|\s*
 _BARE_TOTAL = re.compile(r"\b(?P<count>\d+) skills\b")
 # `| `magpie-security` | 15 | ~4.8k |` — the per-family plugin row.
 _PLUGIN_FAMILY_ROW = re.compile(r"^\|\s*`magpie-(?P<family>[a-z-]+)`\s*\|\s*(?P<count>\d+)\s*\|")
-# `| **`magpie`** (all) | **74** | **~21.7k** |` — the all-in-one row.
-_PLUGIN_ALL_ROW = re.compile(r"^\|\s*\*?\*?`magpie`\*?\*?\s*\(all\)\s*\|\s*\*?\*?(?P<count>\d+)\*?\*?\s*\|")
 # `Install just this family — one plugin, 15 skills.`
 _README_INSTALL_COUNT = re.compile(r"one plugin, (?P<count>\d+) skills")
 # ``/plugin install magpie-security@apache-magpie``
@@ -291,7 +288,7 @@ def check_total_counts(errors: list[str], total: int) -> None:
                     errors.append(f"{path}:{lineno}: says {declared} skills; the catalogue has {total}")
 
 
-def check_family_plugin_counts(errors: list[str], total: int) -> None:
+def check_family_plugin_counts(errors: list[str]) -> None:
     """Per-family marketplace-plugin tables against the live family frontmatter.
 
     Distinct from :func:`check_readme_family_counts`: that one reads README's
@@ -319,12 +316,6 @@ def check_family_plugin_counts(errors: list[str], total: int) -> None:
                         f"live family: frontmatter has {actual}"
                     )
                 continue
-            m = _PLUGIN_ALL_ROW.match(line)
-            if m and int(m.group("count")) != total:
-                errors.append(
-                    f"{path}:{lineno}: the all-in-one 'magpie' row says {m.group('count')} "
-                    f"skills; the catalogue has {total}"
-                )
 
 
 def check_family_readme_counts(errors: list[str]) -> None:
@@ -595,7 +586,7 @@ def main(argv: list[str] | None = None) -> int:
     check_readme_family_counts(errors)
     check_modes_glance_counts(errors)
     check_total_counts(errors, total)
-    check_family_plugin_counts(errors, total)
+    check_family_plugin_counts(errors)
     check_family_readme_counts(errors)
     check_no_plugin_name_stutter(errors)
     check_portable_form_is_flagged(errors)

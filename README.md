@@ -52,9 +52,9 @@ agent you already use.
 ```
 
 Install **one plugin per family you actually want** — that keeps the always-on
-context cost proportional (~0.2–2.0k tokens a family). The all-in-one
-`magpie` plugin installs all 74 skills at ~8.6k always-on tokens and is **not
-recommended** unless you genuinely need every family.
+context cost proportional (~0.2–2.0k tokens a family). There is no
+install-everything plugin: every installed skill costs context on every turn,
+used or not, so the framework asks you to pick.
 
 Codex, VS Code / Copilot, and Gemini are one-liners too — the
 [quick start](docs/quick-start.md) has all four, plus what to run next to put

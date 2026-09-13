@@ -7,7 +7,7 @@
 
 - [The Apache Magpie Marketplace](#the-apache-magpie-marketplace)
   - [Two manifest families: Agent Plugins 1.0 and client-specific](#two-manifest-families-agent-plugins-10-and-client-specific)
-  - [Choosing a plugin: all-in-one vs per-family](#choosing-a-plugin-all-in-one-vs-per-family)
+  - [Choosing a plugin: which families](#choosing-a-plugin-which-families)
   - [Skill names differ by install method](#skill-names-differ-by-install-method)
   - [Supported agents](#supported-agents)
     - [Claude Code](#claude-code)
@@ -129,11 +129,12 @@ is a **fatal** manifest error for an AP1 client, not an ignorable one.
 > client-specific by necessity, not by choice — see
 > [Automatic upgrade detection](#automatic-upgrade-detection).
 
-## Choosing a plugin: all-in-one vs per-family
+## Choosing a plugin: which families
 
-The framework ships **eleven skill plugins** — the all-in-one plus ten
-per-family — and you can install **either** the all-in-one **or** any number of
-per-family plugins, mixing several families.
+The framework ships **ten skill plugins**, one per family, and you install as
+many as you want. There is no all-in-one plugin: installing everything was
+never the advice, because every installed skill costs context on every turn
+whether you use it or not.
 
 Two further entries in the catalog are **substrate plugins**, which ship tooling
 rather than skills and are installed independently of the choice below:
@@ -146,30 +147,13 @@ context. Pick based on the trade-off between install simplicity and
 always-on token cost (each installed skill advertises a short description to
 the model on **every** turn — see ["always-on" cost](#versioning) below).
 
-**All-in-one — `magpie`** *(not recommended)*
+Install only the families you use, and the always-on cost stays proportional
+to them: `magpie-security` ≈ 2.0k tokens, `magpie-pairing` ≈ 0.2k. Mixing is
+the normal case — e.g. `magpie-release-management` + `magpie-security` and
+nothing else. Adding a family later is one more install.
 
-- ✅ One install; all 74 skills; nothing to decide. Uses the real `skills/`
-  directory, so **no symlinks** — works on Windows out of the box.
-- ⚠️ Adds **~8.7k always-on tokens to every session**, including families you
-  may never use — that context (and cost) is spent whether or not you invoke a
-  Magpie skill that turn.
-- **Take it only when you genuinely need all ten families**, when you're on
-  Windows without symlink support, or on an agent where the per-family plugins
-  are not available (everything except Claude Code — see below).
-
-**Per-family — `magpie-<family>`** *(recommended)*
-
-- ✅ Install only the families you use, so the always-on cost is proportional
-  (`magpie-security` ≈ 2.0k, `magpie-pairing` ≈ 0.2k). Install several to mix
-  and match.
-- ⚠️ You manage a few installs instead of one; adding a family later is a
-  separate install; relies on git symlinks (see the Windows note below).
-- Best for day-to-day use where you want a lean context window.
-
-Mixing is fine — e.g. install `magpie-release-management` + `magpie-security`
-and nothing else. The two are **not** exclusive with the all-in-one either, but
-installing both `magpie` *and* a family plugin just double-loads those skills,
-so pick one approach.
+`magpie-setup` is the exception: it installs by default wherever a catalogue
+can say so, because it is the floor everything else is managed from.
 
 | Family plugin | Skills | ~Always-on tokens |
 |---|---|---|
@@ -183,7 +167,6 @@ so pick one approach.
 | `magpie-contributor-growth` | 6 | ~0.6k |
 | `magpie-mentoring` | 4 | ~0.5k |
 | `magpie-pairing` | 2 | ~0.2k |
-| **`magpie`** (all) | **74** | **~8.7k** |
 
 > [!NOTE]
 > **How the token column is measured.** An installed skill advertises its
@@ -195,39 +178,36 @@ so pick one approach.
 > `tools/dev/check-doc-sync.py`, so a stale number fails the build.
 
 Skills are invoked under the installing plugin's namespace — e.g.
-`/magpie:release-vote-tally` (all-in-one) or
-`/magpie-release-management:vote-tally` (family plugin).
+`/magpie-release-management:vote-tally`.
 
-Per-family plugins reference the shared `skills/` tree via symlinks (no copies),
-so there is a single source of truth for every skill.
-
-> [!IMPORTANT]
-> **Windows + per-family plugins.** The per-family plugins rely on git symlinks
-> (each `plugins/magpie-<family>/skills/<skill>` links to the shared
-> `skills/<skill>`). Git for Windows does **not** materialise real symlinks
-> unless `core.symlinks` is enabled *and* the account may create them (Windows
-> Developer Mode, or an elevated shell) — otherwise the clone writes each
-> symlink as a plain text file and that family's skills won't load. On Windows,
-> either enable symlink support
-> (`git config --global core.symlinks true` + Developer Mode) **or** install the
-> **all-in-one `magpie` plugin**, which uses the real `skills/` directory and
-> needs no symlinks. macOS and Linux are unaffected. (Verified on macOS: a
-> `/plugin marketplace add` GitHub clone preserves and resolves the symlinks.)
+A family plugin owns its skills as **real directories** under
+`plugins/magpie-<family>/skills/`. The flat `skills/<skill>` tree every path in
+this repository has always used is the mirror: each entry is a symlink pointing
+back into the plugin that owns it. Nothing is vendored and no skill exists
+twice — [PRINCIPLES §13](../../PRINCIPLES.md) holds.
 
 > [!IMPORTANT]
-> **The per-family plugins are not Agent Plugins 1.0 packages.** AP1 requires a
-> symlink's final target to resolve *inside* the plugin root, and each family
-> plugin's `skills/<skill>` deliberately points out of its own root at the
-> shared `../../../skills/<skill>` tree. Materialising them as real directories
-> would mean vendored copies of every skill — which
-> [PRINCIPLES §13](../../PRINCIPLES.md) rules out, and which would leave eleven
-> divergent copies to keep in sync. So the families stay a **Claude Code**
-> feature (Claude Code resolves the symlinks, as verified above), and AP1
-> clients install the **all-in-one `magpie` plugin**, whose `skills/` *is* the
-> real tree and needs no symlink at all. If per-family granularity on AP1
-> clients turns out to be worth its cost, the way to get it is to generate
-> materialised family directories as a **release artefact** rather than commit
-> them — deliberately deferred, not overlooked.
+> **The direction matters, and it was measured, not inferred.** It used to run
+> the other way: the plugin's `skills/<skill>` was a symlink out to the shared
+> tree. Agent Plugins 1.0 §4.1 says a client must reject a path resolving
+> outside the plugin root, so the families were documented as a Claude Code
+> feature. Installing one on Codex showed something worse than a rejection:
+> Codex installs the plugin, reports success, and ships **zero skills**, with
+> no error to diagnose. It also drops symlinks *wherever* they resolve —
+> including inward ones §4.1 permits. A family plugin therefore has to be
+> self-contained, which is what reversing the direction achieves. Measured on
+> real clients: on Codex `magpie-security` installs all fifteen of its skills
+> and `magpie-setup` all nine, and Gemini resolves the mirrored flat tree.
+
+> [!IMPORTANT]
+> **Windows.** The flat `skills/<skill>` mirror relies on git symlinks. Git for
+> Windows does **not** materialise real symlinks unless `core.symlinks` is
+> enabled *and* the account may create them (Windows Developer Mode, or an
+> elevated shell) — otherwise the clone writes each one as a plain text file.
+> The **installed plugins are unaffected**, because a family plugin carries its
+> skills as real directories; only a Windows *clone of this repository* needs
+> `git config --global core.symlinks true` + Developer Mode. macOS and Linux
+> are unaffected either way.
 
 ## Skill names differ by install method
 
@@ -236,11 +216,11 @@ installed it. The portable `/magpie-setup` install bakes a `magpie-` prefix into
 each skill's name (so framework skills never collide with your own); the
 marketplace plugins namespace with `plugin:skill` and keep the bare skill name.
 
-| Skill (directory) | Portable — `/magpie-setup` snapshot | Marketplace — all-in-one `magpie` | Marketplace — family plugin |
-|---|---|---|---|
-| `release-vote-tally` | `/magpie-release-vote-tally` | `/magpie:release-vote-tally` | `/magpie-release-management:vote-tally` |
-| `security-issue-triage` | `/magpie-security-issue-triage` | `/magpie:security-issue-triage` | `/magpie-security:issue-triage` |
-| `setup` | `/magpie-setup` | `/magpie:setup` | `/magpie-setup:setup` |
+| Skill (directory) | Portable — `/magpie-setup` snapshot | Marketplace — family plugin |
+|---|---|---|
+| `release-vote-tally` | `/magpie-release-vote-tally` | `/magpie-release-management:vote-tally` |
+| `security-issue-triage` | `/magpie-security-issue-triage` | `/magpie-security:issue-triage` |
+| `setup` | `/magpie-setup` | `/magpie-setup:setup` |
 
 Why the difference:
 
@@ -253,9 +233,8 @@ Why the difference:
   skills.
 - **Marketplace install** — the **plugin name** is the namespace, applied with a
   **colon**: `/<plugin>:<skill>`. The `magpie-` frontmatter prefix is ignored
-  (the plugin already namespaces). With the all-in-one plugin the skill keeps
-  its bare directory name, `/magpie:<skill>`; with a family plugin it is
-  advertised under a **de-stuttered alias**, `/magpie-<family>:<alias>`.
+  (the plugin already namespaces), and the skill is advertised under a
+  **de-stuttered alias**: `/magpie-<family>:<alias>`.
 - **Why the family plugins alias.** `magpie-security` + `security-issue-triage`
   would read `/magpie-security:security-issue-triage`, saying "security" twice. <!-- allow-stutter -->
   Each family plugin reaches its skills through symlinks, and the *symlink* name
@@ -288,8 +267,8 @@ Quick reference:
 
 | Agent | One-liner | Manifest in this repo |
 |---|---|---|
-| **Claude Code** | `/plugin marketplace add apache/magpie` → `/plugin install magpie@apache-magpie` | `.claude-plugin/marketplace.json` + `.claude-plugin/plugin.json` |
-| **OpenAI Codex CLI** | `codex plugin marketplace add apache/magpie` → install `magpie` | `.codex-plugin/plugin.json`, `.agents/plugins/marketplace.json` |
+| **Claude Code** | `/plugin marketplace add apache/magpie` → `/plugin install magpie-setup@apache-magpie` | `.claude-plugin/marketplace.json` + `.claude-plugin/plugin.json` |
+| **OpenAI Codex CLI** | `codex plugin marketplace add apache/magpie` → install `magpie-setup` | `.codex-plugin/plugin.json`, `.agents/plugins/marketplace.json` |
 | **VS Code / GitHub Copilot** | install straight from the repo URL `https://github.com/apache/magpie`, or add it as a plugin marketplace | root `plugin.json` (AP1), `marketplace.json` (repo root) |
 | **Google Gemini CLI** | `gemini extensions install https://github.com/apache/magpie` | `gemini-extension.json` |
 | **Cursor** | add via the plugin/skill install flow pointing at the repo | root `plugin.json` (AP1) |
@@ -309,15 +288,16 @@ Detailed steps per agent follow.
    /plugin marketplace add apache/magpie
    ```
 
-2. Install the all-in-one plugin, **or** just the families you use:
+2. Install the families you use — `magpie-setup` first, since it is what
+   adopts and upgrades the framework:
 
    ```text
-   /plugin install magpie@apache-magpie                    # everything (~8.7k always-on)
+   /plugin install magpie-setup@apache-magpie              # the floor (~1.1k always-on)
    /plugin install magpie-security@apache-magpie           # one family (~2.0k always-on)
    /plugin install magpie-release-management@apache-magpie
    ```
 
-3. Confirm it is enabled (the `magpie` plugin should appear as installed):
+3. Confirm it is enabled (each installed plugin should appear as installed):
 
    ```text
    /plugin
@@ -331,7 +311,8 @@ Detailed steps per agent follow.
    ```
 
 5. **Update** later with `/plugin marketplace update apache-magpie` then
-   `/plugin update magpie@apache-magpie`. On a version change the bundled
+   `/plugin update magpie-setup@apache-magpie` (and each other family you
+   installed). On a version change the `magpie-setup` plugin's bundled
    `SessionStart` hook also prompts you to run `/magpie-setup upgrade`.
 
 To pin a specific version instead of tracking `main`, add the marketplace
@@ -354,11 +335,12 @@ from the tag: `/plugin marketplace add apache/magpie@0.2.0`.
 3. List / verify — inside Codex run `/plugins`, or from the shell
    `codex plugin list`.
 
-Only the **all-in-one** `magpie` plugin is offered here — the per-family
-plugins are Claude Code-only, for the reason recorded
-[above](#choosing-a-plugin-all-in-one-vs-per-family). The catalog is checked
-against that rule by `tools/dev/check-family-plugins.py`, so it cannot drift
-into advertising a plugin Codex could not install.
+All ten family plugins are offered here, and `magpie-setup` installs by
+default: a family plugin carries its skills as real directories, so Codex
+installs them intact (measured — `magpie-security` gives 15 of 15). The
+catalogue is checked against the live `family:` frontmatter by
+`tools/dev/check-family-plugins.py`, so it cannot drift into advertising a
+family that does not exist or omitting one that does.
 
 > Codex's plugin/marketplace verbs are still evolving. If a command name
 > differs, check `codex plugin --help`.
@@ -381,13 +363,11 @@ as an AP1 package. Two ways in:
    VS Code clones the repo and installs the plugin.
 
 2. **As a marketplace** — add `apache/magpie` as a plugin marketplace (CLI or
-   the coding-agent settings) and install `magpie` from it. That path reads the
-   root [`marketplace.json`](../../marketplace.json).
+   the coding-agent settings) and install the families you want from it. That
+   path reads the root [`marketplace.json`](../../marketplace.json).
 
-Either way the 74 skills become available to the agent under the plugin. As
-with Codex, only the **all-in-one** `magpie` plugin is offered — the per-family
-plugins are Claude Code-only, for the reason recorded
-[above](#choosing-a-plugin-all-in-one-vs-per-family).
+Either way the skills become available to the agent under the plugin that ships
+them. As with Codex, all ten families are offered.
 
 > [!NOTE]
 > VS Code **ignores client extension data and directories** in an AP1 package.
@@ -526,18 +506,17 @@ difference is structural rather than a gap someone forgot to fill.
 | Harness | Auto-install | Mechanism |
 |---|---|---|
 | **Claude Code** | ✅ per-family | `extraKnownMarketplaces` + `enabledPlugins` in the project's `.claude/settings.json` |
-| **OpenAI Codex CLI** | ⚠️ all-or-nothing | `policy.installation: "INSTALLED_BY_DEFAULT"` in `.agents/plugins/marketplace.json` — installs **all ten families**, so Magpie does not use it |
+| **OpenAI Codex CLI** | ✅ the floor | `policy.installation: "INSTALLED_BY_DEFAULT"` on `magpie-setup` in `.agents/plugins/marketplace.json`; every other family stays `AVAILABLE` |
 | **VS Code / GitHub Copilot** | ❌ | No repo-side mechanism. The catalogue advertises; it cannot pre-install |
 | **Google Gemini CLI** | ❌ | Install is explicit-only. Gemini does **not** load a workspace `.gemini/extensions/` directory — verified against the CLI, which reports "No extensions installed" for a repo-local extension |
 | **JetBrains IDEs** | ✅ inherited | Whatever the agent running inside the IDE supports. With Claude Code's JetBrains plugin that is the row above — the project's `.claude/settings.json` applies unchanged, because plugin state is one user-scope store shared by every host of the same CLI |
 
-The Codex and Copilot rows are the same constraint that keeps those catalogues
-listing only the all-in-one plugin: a family plugin reaches its skills through
-symlinks that resolve outside its own root, which Agent Plugins 1.0 forbids, so
-**per-family is a Claude Code feature**. Codex can therefore only default-install
-*everything*, which contradicts the load-only-what-you-use argument this page
-makes — so the catalogue pins `installation: "AVAILABLE"`, and
-`check-family-plugins.py` fails the build if that value drifts.
+Codex's `INSTALLED_BY_DEFAULT` is per-plugin, so it can express exactly the
+floor this page argues for: `magpie-setup` arrives installed, every other
+family stays `AVAILABLE` and opt-in. That only became possible once each family
+carried its own skills — while the all-in-one existed, defaulting it on meant
+defaulting *everything* on. `check-family-plugins.py` fails the build if either
+value drifts.
 
 > [!WARNING]
 > Codex parses its catalogue strictly and its policy values are closed
@@ -585,7 +564,7 @@ everything else, at the smallest always-on cost. Every other family stays
 opt-in, which is the point.
 
 `magpie-agent-guard` is not a family at all — it is a
-[substrate plugin](#choosing-a-plugin-all-in-one-vs-per-family), a `PreToolUse`
+[substrate plugin](#choosing-a-plugin-which-families), a `PreToolUse`
 hook that denies shell commands which would break a hard framework rule
 (pinging maintainers, a `Co-Authored-By` trailer, marking a PR ready
 prematurely, leaking security language onto a public thread, emptying a PR via
@@ -618,8 +597,8 @@ automatic while the *changes* stay confirmed.
 
 | Agent | Mechanism |
 |---|---|
-| **Claude Code** | `SessionStart` hook [`hooks/check-upgrade.sh`](../../hooks/check-upgrade.sh) compares the installed version to a marker in the plugin's persistent data dir and prompts on change. Deterministic. |
-| **Codex CLI** | The same [`hooks/check-upgrade.sh`](../../hooks/check-upgrade.sh), wired inline via the plugin's `hooks` block — Codex uses the same event schema and the same `SessionStart` event. Codex sets `PLUGIN_ROOT`/`PLUGIN_DATA` (and the `CLAUDE_*` pair for compatibility), which the script reads. See the caveat below. |
+| **Claude Code** | `SessionStart` hook [`plugins/magpie-setup/hooks/check-upgrade.sh`](../../plugins/magpie-setup/hooks/check-upgrade.sh) compares the installed version to a marker in the plugin's persistent data dir and prompts on change. Deterministic. |
+| **Codex CLI** | The same [`plugins/magpie-setup/hooks/check-upgrade.sh`](../../plugins/magpie-setup/hooks/check-upgrade.sh), wired inline via the plugin's `hooks` block — Codex uses the same event schema and the same `SessionStart` event. Codex sets `PLUGIN_ROOT`/`PLUGIN_DATA` (and the `CLAUDE_*` pair for compatibility), which the script reads. See the caveat below. |
 | **VS Code / Copilot, Cursor, Kiro (AP1)** | None. Agent Plugins 1.0 specifies no hook component and VS Code ignores client extension directories, so there is nothing to fire. Re-run `/magpie-setup upgrade` after updating. |
 | **Gemini CLI** | No lifecycle hook; the extension context file [`GEMINI.md`](../../GEMINI.md) instructs the agent to compare the extension version to a recorded marker and prompt on change (LLM-driven, advisory). |
 | Other agents | Re-run `/magpie-setup upgrade` manually after updating the package. |
@@ -673,8 +652,8 @@ bumps were actually made, and a date alone would collide whenever a day carries
 more than one.
 
 Nothing is hand-edited. `pyproject.toml` feeds the four ecosystem manifests,
-and the all-in-one [`.claude-plugin/plugin.json`](../../.claude-plugin/plugin.json)
-in turn feeds the ten per-family manifests and the marketplace entries, which
+and [`.claude-plugin/plugin.json`](../../.claude-plugin/plugin.json) — kept as
+the metadata anchor — in turn feeds the ten per-family manifests and the marketplace entries, which
 also inherit `author`, `homepage`, `repository`, and `license`. Bump
 `project.version` and run `python3 tools/dev/check-family-plugins.py --fix`; the
 same script runs as a prek hook in `--fix` mode, so a manifest left behind at

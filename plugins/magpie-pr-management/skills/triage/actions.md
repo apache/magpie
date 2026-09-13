@@ -1,0 +1,924 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
+# Actions
+
+> **Author-only folded-note model (Golden rule 12).** Under the default
+> `triage_feedback_channel: pr-body`, **every** contributor-facing action below
+> delivers its feedback as the one replace-in-place
+> [folded maintainer-triage note](comment-templates.md#the-folded-maintainer-triage-note--the-single-contributor-channel),
+> not a comment — including `ping`, `request-author-confirmation`, and the
+> stale-sweep notices, which the legacy comment mode posts separately. In
+> addition, every such action **assigns the PR author**
+> (`gh pr edit <N> --repo <repo> --add-assignee <author>`) to signal the ball is
+> in their court, and `@`-mentions **only** the author (all maintainer handles
+> backtick-quoted — no operator/reviewer ping; the reviewer-ping mutation is
+> removed). On the **ready-for-review flip** the note is replaced with the `✅`
+> variant and the author is **un-assigned** (`--remove-assignee <author>`). The
+> per-action recipes below describe the body content; this banner is the
+> cross-cutting behaviour they all share.
+
+Exact recipes for every mutation the skill can execute. Every
+action in this file assumes:
+
+- the maintainer has confirmed it,
+- the PR's `head_sha` has been re-checked against the value
+  captured in Step 1 and matches (optimistic lock — see
+  [`interaction-loop.md#optimistic-lock`](interaction-loop.md)),
+- the action's feedback body (if any) — whether it will be
+  posted as a comment or folded into the PR description per
+  [`triage_feedback_channel`](../../../../projects/_template/pr-management-config.md)
+  — has been previewed to the maintainer from the appropriate
+  template in [`comment-templates.md`](comment-templates.md). The
+  preview MUST state which channel will be used so the maintainer
+  knows whether a notification will fire.
+
+All mutations go through **`gh`**, never through raw `curl` /
+`requests`. `gh` carries the maintainer's authenticated token
+and retries transient failures correctly.
+
+---
+
+## `draft` — convert to draft and fold violations into the PR body
+
+Two mutations, **sequence matters** — convert first, then deliver
+the violations feedback. Delivering the feedback before converting
+risks a "converted to draft" note on a still-open PR if the
+conversion fails.
+
+```bash
+# 1. Convert to draft (`gh pr ready <N> --undo` is the CLI
+#    equivalent of the GraphQL `convertPullRequestToDraft` mutation).
+gh pr ready <N> --repo <repo> --undo
+
+# 2. Deliver the violations feedback — fold into the PR body (default)
+#    or post a comment, per triage_feedback_channel (see below).
+```
+
+On the `gh pr ready --undo` failing: surface the error, **do
+not** deliver the feedback. A "converted to draft" note on a
+still-open PR is a worse state than no note at all.
+
+### Delivering the feedback — `triage_feedback_channel`
+
+The body is built from the `draft` template in
+[`comment-templates.md#draft-comment`](comment-templates.md#draft-comment).
+**Which channel carries it is read from
+[`<project-config>/pr-management-config.md → triage_feedback_channel`](../../../../projects/_template/pr-management-config.md)**
+(default `pr-body`).
+
+**`pr-body` (default) — fold into the PR description, no
+notification.** Render the body wrapped per
+[`comment-templates.md#body-fold-rendering`](comment-templates.md#body-fold-rendering)
+(no `@`-mention; `<ai_attribution_footer_body>`; opening marker
+carrying `triaged=<ISO-UTC> head=<sha7> action=draft`) into
+`/tmp/pr-<N>-foldblock.md`, then read-modify-write the body:
+
+```bash
+# Read the current body.
+gh pr view <N> --repo <repo> --json body --jq '.body' > /tmp/pr-<N>-curbody.md
+
+# Strip any existing managed span (idempotent — keeps exactly one block).
+awk 'BEGIN{skip=0}
+     /<!-- pr-triage-fold:/{skip=1}
+     skip==0{print}
+     /<!-- \/pr-triage-fold -->/{skip=0}' \
+    /tmp/pr-<N>-curbody.md > /tmp/pr-<N>-stripped.md
+
+# Append the freshly rendered block (a blank line separates it from
+# the author's body) and write back. A body edit does NOT notify.
+{ cat /tmp/pr-<N>-stripped.md; printf '\n'; cat /tmp/pr-<N>-foldblock.md; } > /tmp/pr-<N>-newbody.md
+gh pr edit <N> --repo <repo> --body-file /tmp/pr-<N>-newbody.md
+rm -f /tmp/pr-<N>-curbody.md /tmp/pr-<N>-stripped.md /tmp/pr-<N>-newbody.md /tmp/pr-<N>-foldblock.md
+```
+
+The `awk` strip is the contract — any text tool that removes the
+`<!-- pr-triage-fold: … -->` … `<!-- /pr-triage-fold -->` span
+inclusively is equivalent. `gh pr edit --body` replaces the whole
+body, which is why we read → splice → write rather than append
+blindly.
+
+**`comment` — legacy behaviour, posts a comment (notifies).**
+
+```bash
+# Post the violations comment (built from the draft template, @-mention intact).
+gh pr comment <N> --repo <repo> --body-file /tmp/pr-<N>-draft-body.md
+```
+
+Build `/tmp/pr-<N>-draft-body.md` from the `draft` template, write
+the file, `gh pr comment --body-file`, then delete the temp file
+in the same turn. Body-file mode avoids shell-escape issues for
+long markdown bodies.
+
+On the body edit (or comment) failing after a successful draft
+conversion: surface the error and leave the PR as a draft — the
+draft flip is still a maintainer-visible improvement; the next
+sweep will re-deliver the feedback. Do not roll back the draft.
+
+The sub-cases below (`ready for maintainer review` label, already
+a draft, collaborator-authored) apply to **both** channels —
+"deliver the feedback" means *fold or comment per the setting*.
+
+### If the PR carries `ready for maintainer review`
+
+The PR bypassed F4 because of post-label regression (rebase /
+push re-introduced a deterministic failure — see
+[`strip-ready-on-downgrade`](classify-and-act.md#hard-rules-cross-cutting-the-table)).
+
+**Branch on the merit-discussion exception.** Before mutating,
+evaluate
+[`merit_discussion_thread_present`](classify-and-act.md#merit_discussion_thread_present)
+on the PR.
+
+**Case A — no merit discussion present** (the strip-and-draft
+default). Strip the label as the **first** mutation, before
+converting to draft, so the queue position is corrected even
+if a later step fails:
+
+```bash
+# 0. Remove the now-stale ready-for-review label (idempotent —
+#    a 422 "Label does not exist on this issue" is benign; log
+#    and continue).
+gh pr edit <N> --repo <repo> --remove-label "ready for maintainer review"
+
+# 1. Convert to draft
+gh pr ready <N> --repo <repo> --undo
+
+# 2. Deliver the violations feedback (fold into body, or comment —
+#    per triage_feedback_channel; see "Delivering the feedback" above).
+```
+
+If step 0 fails with anything other than the benign "label not
+applied" / "label not found" response, surface the error and
+proceed to the draft + feedback anyway — the label-removal
+failure is a soft signal (the maintainer may need to clean up
+manually), but stranding the PR in a half-state would be
+worse. The maintainer-facing preview should note when step 0
+will run so the proposal is honest about both state changes.
+
+**Case B — merit discussion present** (per the exception in
+[`strip-ready-on-downgrade`](classify-and-act.md#hard-rules-cross-cutting-the-table)).
+Skip step 0 (label stays) and step 1 (PR stays out of draft).
+Deliver only the violations feedback (fold into the body under
+`pr-body`, or post the comment under `comment`):
+
+```bash
+# Deliver the violations feedback only (label stays; PR stays open).
+# pr-body: read-modify-write the body block; comment: gh pr comment.
+```
+
+The maintainer-facing preview MUST surface that the merit
+discussion was detected and that the action is being
+de-escalated from `draft` to feedback-only for this reason
+— include the URLs of the maintainer-opened unresolved review
+thread(s) that triggered the exception so the maintainer can
+sanity-check the call. The feedback body is unchanged from Case
+A; it informs the author that mechanical issues remain even
+though the discussion is what's keeping the label on.
+
+### If the PR is already a draft
+
+Skip the `gh pr ready --undo` step. Deliver only the feedback
+(fold or comment per the channel). The decision table in
+[`classify-and-act.md`](classify-and-act.md) should have chosen
+`comment` instead in this case, but double-check here as a
+guard. The label-removal step (when applicable) still runs first.
+
+### Collaborator-authored PRs
+
+Do not draft a collaborator's PR. If somehow the action landed
+as `draft` for a collaborator, fall back to delivering the
+feedback only (no draft flip) — folded into the body under
+`pr-body`, or posted as a comment under `comment`. The
+label-removal step (when applicable) still runs.
+
+---
+
+## `comment` — deliver violations / stale-review / ping feedback
+
+A single mutation. The template — and **whether it folds into the
+PR body or posts a comment** — depends on the upstream
+classification:
+
+| Upstream | Body source | Channel |
+|---|---|---|
+| `deterministic_flag` with action `comment` | [`comment-templates.md#comment-only`](comment-templates.md) | **`triage_feedback_channel`** (fold under `pr-body`, comment under `comment`) |
+| `stale_review` with action `ping` | [`comment-templates.md#review-nudge`](comment-templates.md) | **always comment** (the purpose is to notify) |
+| `deterministic_flag` (explicit ping action) | [`comment-templates.md#reviewer-ping`](comment-templates.md) | **always comment** (the purpose is to notify) |
+
+**Only the `deterministic_flag` → `comment` (violations) body
+honours `triage_feedback_channel`.** Under the default `pr-body`
+it is folded into the PR description using the read-modify-write
+recipe in
+[`#draft`](#draft--convert-to-draft-and-fold-violations-into-the-pr-body)
+(opening marker `action=comment`); under `comment` it is posted
+as a PR comment. The two `ping` bodies always post a comment —
+folding a ping into the body would defeat its only purpose.
+
+```bash
+# ping bodies (and the violations body under triage_feedback_channel: comment):
+gh pr comment <N> --repo <repo> --body-file /tmp/pr-<N>-comment.md
+```
+
+For a `ping` action, `@`-mention every stale reviewer plus the
+PR author in the body — do not let the ping go without naming
+the people it's for. (The fold path, by contrast, carries no
+`@`-mention — that distinction is intentional: pings notify,
+folds don't.)
+
+### If the PR carries `ready for maintainer review` (deterministic_flag only)
+
+When the upstream classification is `deterministic_flag` and the
+PR carries the label (regression bypass of F4 — see
+[`strip-ready-on-downgrade`](classify-and-act.md#hard-rules-cross-cutting-the-table)),
+strip the label **before** delivering the feedback — **unless**
+[`merit_discussion_thread_present`](classify-and-act.md#merit_discussion_thread_present)
+holds, in which case the label stays and only the feedback is
+delivered.
+
+```bash
+# 0. Remove the now-stale ready-for-review label.
+#    SKIP this step when merit_discussion_thread_present holds.
+gh pr edit <N> --repo <repo> --remove-label "ready for maintainer review"
+
+# 1. Deliver the violations feedback (fold into body, or comment —
+#    per triage_feedback_channel).
+```
+
+A 422 "label not applied" / "label not found" is benign — log
+and continue with the feedback.
+
+This applies only to the `deterministic_flag` → `comment`
+branch (typically the collaborator-mode fallback from `draft`,
+or static-check-only failures). `stale_review` and explicit
+`ping` actions do NOT strip the label — those are transient
+signals and the ready-for-review queue position is still valid
+information for the reviewer.
+
+When the merit-discussion exception applies, the
+maintainer-facing preview MUST surface that step 0 is being
+skipped and quote the URL(s) of the maintainer-opened
+unresolved review thread(s) that triggered the exception.
+
+---
+
+## `close` — close with fold and quality-violations label
+
+Three mutations. Deliver the reasoning **first** (so the
+contributor sees why), then close, then label. Closing without
+explaining the reasoning is perceived as hostile — do not do it.
+
+**`pr-body` (default) — fold the reasoning into the description,
+then close.** The fold lands *before* the close so the description
+already explains the close when the close notification fires. The
+close event still notifies subscribers (inherent to closing); the
+fold only removes the separate comment notification.
+
+```bash
+# 1. Fold the close reasoning into the PR body (read-modify-write,
+#    opening marker action=close — recipe under `#draft`).
+gh pr edit <N> --repo <repo> --body-file /tmp/pr-<N>-newbody.md
+
+# 2. Close the PR
+gh pr close <N> --repo <repo>
+
+# 3. Add the quality-violations label (if the label exists on the repo)
+gh pr edit <N> --repo <repo> --add-label "closed because of multiple quality violations"
+```
+
+**`comment` — legacy behaviour, comment first then close.**
+
+```bash
+# 1. Post the close comment
+gh pr comment <N> --repo <repo> --body-file /tmp/pr-<N>-close.md
+
+# 2. Close the PR
+gh pr close <N> --repo <repo>
+
+# 3. Add the quality-violations label (if the label exists on the repo)
+gh pr edit <N> --repo <repo> --add-label "closed because of multiple quality violations"
+```
+
+Body template: [`comment-templates.md#close`](comment-templates.md);
+fold wrapping per
+[`comment-templates.md#body-fold-rendering`](comment-templates.md#body-fold-rendering).
+
+If the label is missing (per `prerequisites.md#3`), skip the
+label step with a one-line warning; the close + feedback is
+still valid.
+
+`close` is always a **per-PR** action, never batched. Even
+inside a `close` group, the maintainer confirms each PR
+individually — a wrongly-closed PR is the hardest mistake to
+recover from.
+
+### If the PR carries `ready for maintainer review` and a merit discussion is in flight
+
+When the PR carries `ready for maintainer review` AND
+[`merit_discussion_thread_present`](classify-and-act.md#merit_discussion_thread_present)
+holds, the
+[`strip-ready-on-downgrade`](classify-and-act.md#hard-rules-cross-cutting-the-table)
+exception applies: **skip step 2** (do not close the PR) and
+**do not strip the ready-for-maintainer-review label**. Steps
+1 and 3 still run — the close reasoning is delivered (folded
+into the body under `pr-body`, or posted as a comment under
+`comment`) and the quality-violations label records that the PR
+was flagged. The PR remains open with both labels, surfaced for
+human review.
+
+The maintainer-facing preview MUST surface that step 2 is
+being skipped and quote the URL(s) of the maintainer-opened
+unresolved review thread(s) that triggered the exception.
+Closing a PR with an active maintainer review discussion is
+strictly more destructive than the queue-pressure problem
+`close` exists to solve — a human maintainer must make that
+call, not the skill.
+
+---
+
+## `mark-ready` — add `ready for maintainer review` label
+
+**Mandatory pre-mutation check.** Before adding the label, the
+implementation MUST verify there are no GitHub Actions workflow
+runs awaiting approval for the PR's head SHA. The classifier's
+rollup-state and real-CI-context checks
+(see [`classify-and-act.md#real-ci-guard`](classify-and-act.md)) are a
+first line of defense; this REST check is the authoritative
+second line that catches the case where the classifier was
+right at fetch time but a new push or a freshly-indexed run
+appeared since.
+
+Reason: a PR whose real CI is held in `action_required` can have
+`statusCheckRollup.state == SUCCESS` from fast bot checks
+(`Mergeable`, `WIP`, `DCO`, `boring-cyborg`) while `Tests`,
+`CodeQL`, and `Check newsfragment PR number` have not run.
+Labelling such a PR "ready for maintainer review" is premature —
+the maintainer queue fills with PRs whose CI has not actually
+executed.
+
+```bash
+# Pre-check: index action_required runs at the head SHA.
+# Note: runs awaiting approval are returned as `status: "completed"`
+# with `conclusion: "action_required"`. This lookup is already scoped
+# to one head SHA, so the `conclusion` post-filter is sufficient and
+# needs no `status=` narrowing. (For the repo-wide index in
+# fetch-and-batch.md the opposite holds: filter with
+# `status=action_required` server-side, because an unfiltered listing
+# truncates long before the backlog ends.)
+# One fetch covers both guards.
+read -r head_sha merge_state <<<"$(gh api "repos/<owner>/<repo>/pulls/<N>" \
+  --jq '"\(.head.sha) \(.mergeable_state)"')"
+pending=$(gh api "repos/<owner>/<repo>/actions/runs?head_sha=${head_sha}&per_page=20" \
+  --jq '[.workflow_runs[] | select(.conclusion == "action_required")] | length')
+if [ "$pending" -gt 0 ]; then
+  echo "refuse mark-ready: <N> has ${pending} workflow run(s) awaiting approval at ${head_sha}" >&2
+  # Reclassify: this PR is really pending_workflow_approval, route accordingly.
+  exit 2
+fi
+
+# Mergeability guard — GraphQL `mergeable` is computed lazily and
+# reports UNKNOWN until a background job settles it, so a PR can
+# classify as `passing` and be conflicting by the time we mutate.
+# `mergeable_state == dirty` is the REST spelling of CONFLICTING.
+if [ "$merge_state" = "dirty" ]; then
+  echo "refuse mark-ready: <N> is conflicting — route to draft instead" >&2
+  exit 2
+fi
+if [ "$merge_state" = "unknown" ]; then
+  echo "refuse mark-ready: <N> mergeability not yet computed — retry next sweep" >&2
+  exit 2
+fi
+
+# Guards passed — apply the label.
+gh pr edit <N> --repo <repo> --add-label "ready for maintainer review"
+```
+
+When the mergeability guard refuses with `dirty`, the PR belongs
+to row 9 (`mergeable == CONFLICTING` → `draft`) — route it there
+rather than dropping it. On a full sweep of a large `<upstream>`
+this guard refused **11 of 39** `mark-ready` candidates, every one
+genuinely conflicting despite reporting `UNKNOWN` at fetch time.
+
+When the guard refuses, the implementation should **reclassify
+the PR as `pending_workflow_approval`** (see
+[`classify-and-act.md#decision-table`](classify-and-act.md), row 1) and
+route to the workflow-approval flow rather than silently dropping
+the mutation.
+
+No comment is posted — the label is the signal. If the label
+doesn't exist (per `prerequisites.md#3`), stop and surface the
+error; this is the only action of the skill whose sole purpose
+*is* the label, so there's no graceful degradation.
+
+---
+
+## `promote-bot-draft` — convert a bot-authored draft and label it ready
+
+The action behind [Step 0.5 of `SKILL.md`](SKILL.md#step-05--promote-bot-authored-draft-prs).
+Two mutations bundled per PR: convert draft → non-draft
+(`gh pr ready`) and add the `ready for maintainer review`
+label.
+
+Inherits the workflow-approval guard from
+[`mark-ready`](#mark-ready--add-ready-for-maintainer-review-label)
+verbatim — Golden rule 1b in [`SKILL.md`](SKILL.md) applies
+to every code path that adds the label, including this one.
+
+```bash
+# Pre-check: same action_required index lookup as mark-ready.
+head_sha=$(gh api "repos/<owner>/<repo>/pulls/<N>" --jq '.head.sha')
+pending=$(gh api "repos/<owner>/<repo>/actions/runs?head_sha=${head_sha}&per_page=20" \
+  --jq '[.workflow_runs[] | select(.conclusion == "action_required")] | length')
+if [ "$pending" -gt 0 ]; then
+  echo "refuse promote-bot-draft: <N> has ${pending} workflow run(s) awaiting approval at ${head_sha}" >&2
+  # Reclassify the PR as pending_workflow_approval; the maintainer
+  # handles it via the approve-workflow flow rather than promoting blind.
+  exit 2
+fi
+
+# Mutation 1 — flip draft to ready-for-review.
+gh pr ready <N> --repo <repo>
+
+# Mutation 2 — add the ready-for-maintainer-review label.
+gh pr edit <N> --repo <repo> --add-label "ready for maintainer review"
+```
+
+Order matters: `gh pr ready` first, then the label add. If
+`gh pr ready` fails (PR is no longer a draft, was closed, the
+bot pushed a new commit and the head SHA moved) the action stops
+before labelling — the PR is no longer in the bot-draft
+category and should be re-classified by the normal flow on the
+next run. If the label step fails after a successful ready
+toggle, do **not** roll back: the ready toggle is still a
+maintainer-visible improvement; log the label-add failure for
+the session summary so the maintainer can retry next sweep.
+
+No comment is posted. The bot's own commit message plus the
+`ready for maintainer review` label are sufficient signal — a
+contributor-facing footer would be misdirected for a bot author
+that won't read it.
+
+---
+
+## `request-author-confirmation` — ask the PR author whether feedback is addressed
+
+Single mutation. Used when the only `deterministic_flag` signal
+is unresolved review threads **and** the
+[`unresolved_threads_only_likely_addressed`](classify-and-act.md#unresolved_threads_only_likely_addressed)
+sub-flag is true (the author has engaged with every unresolved
+thread via a post-comment commit or an in-thread reply).
+
+The action does **not** add the `ready for maintainer review`
+label and does **not** `@`-mention the original reviewers.
+Those steps belong to the second leg of this two-sweep flow,
+gated on an explicit author confirmation
+([row 14a](classify-and-act.md#decision-table) →
+[`mark-ready`](#mark-ready--add-ready-for-maintainer-review-label)).
+
+```bash
+gh pr comment <N> --repo <repo> --body-file /tmp/pr-<N>-request-author-confirmation.md
+```
+
+Body template:
+[`comment-templates.md#request-author-confirmation`](comment-templates.md).
+
+The body `@`-mentions the PR author only, and **must** include
+the canonical marker string `ready for maintainer review
+confirmation` verbatim — that string is what
+[`viewer_confirmation_request_present`](classify-and-act.md#viewer_confirmation_request_present)
+searches for on subsequent sweeps to detect that a confirmation
+request is in flight. Do not paraphrase the marker.
+
+### Why no label, no reviewer mention
+
+The classifier's signal that fired this action is *engagement*
+(post-review commits, in-thread author replies), not
+*resolution*. A post-review commit does not guarantee the
+commit addresses the specific thread; an in-thread reply does
+not guarantee the reply resolves it. Adding the label and
+mentioning reviewers off the engagement signal alone pushes a
+notification framed as a stronger claim than the underlying
+evidence supports. The two-sweep gate — ask the author, wait
+for their reply, then promote — moves the resolution check to
+the only person who reliably knows: the author.
+
+The label is also intentionally absent at this stage so that
+the PR does not enter the maintainer review queue until after
+the author has confirmed. Reviewers are reached via the queue,
+not via direct `@`-mention from the bot — see
+[`rationale.md`](rationale.md) for the longer argument.
+
+### What happens next
+
+- Author replies → next sweep classifies the PR as
+  [`author_confirmation_received`](classify-and-act.md#author_confirmation_received)
+  and proposes [`mark-ready`](#mark-ready--add-ready-for-maintainer-review-label).
+  The triaging maintainer reads the author's reply alongside
+  the proposal and confirms (or overrides to `skip` / `ping`
+  if the reply is non-affirmative).
+- Author silent → on the cooldown sweep, the PR matches the
+  [stale author-confirm-request sweep](stale-sweeps.md#sweep-5--stale-author-confirm-request),
+  which proposes a plain `ping` (or `skip`).
+- Author pushes a new commit before replying → the
+  [`viewer_confirmation_request_present`](classify-and-act.md#viewer_confirmation_request_present)
+  precondition fails (the confirmation request now predates the
+  new head commit) and the PR drops back to row 14c / 15 for
+  re-classification against the new state.
+
+### Failure handling
+
+A failed `gh pr comment` (network blip, rate-limit) is non-
+destructive — surface the error and let the maintainer retry on
+the next sweep. No partial state to clean up.
+
+### Falling back to plain `ping`
+
+If the post-confirmation drill-in (e.g. the maintainer pulled
+the PR out of the group with `[P]ick`) reveals that the threads
+are *not* actually addressed (the author's engagement was a
+clarifying question or a partial fix), the maintainer can
+override the action to `ping`. The override posts the regular
+[`reviewer-ping`](comment-templates.md#reviewer-ping) body
+instead. See
+[`interaction-loop.md#group-action-override`](interaction-loop.md).
+
+---
+
+## `rerun` — rerun failed CI workflow runs
+
+Multi-step. We need to find the workflow runs for this PR's
+head SHA, then rerun the failed ones.
+
+```bash
+# 1. List runs for this SHA
+gh run list --repo <repo> --commit <head_sha> \
+  --limit 50 \
+  --json databaseId,name,status,conclusion
+
+# 2. For each run where conclusion == "failure", rerun failed jobs
+gh run rerun <run_id> --repo <repo> --failed
+```
+
+`--failed` reruns only the failed jobs in that run, which is
+what the original `breeze` tool does. If you use plain
+`gh run rerun` (no `--failed`) it reruns the whole workflow —
+expensive and unnecessary.
+
+### In-progress runs
+
+If every failed run has `status != completed`, there's nothing
+to rerun via `--failed`. Fall back to cancelling and restarting
+the in-progress runs:
+
+```bash
+gh run list --repo <repo> --commit <head_sha> --status in_progress \
+  --json databaseId --jq '.[].databaseId' |
+  while read run_id; do
+    gh run cancel "$run_id" --repo <repo>
+    gh run rerun "$run_id" --repo <repo>
+  done
+```
+
+Use this only when the `--failed` path turned up nothing —
+cancelling in-progress runs discards current work.
+
+### No runs found at all
+
+Surface to the maintainer: "No workflow runs found for this
+SHA — the PR may need a push or a rebase to re-trigger CI".
+Fall through to suggesting `rebase` for next time.
+
+---
+
+## `rebase` — update the PR branch with base
+
+**Never attempt this action when `mergeable == CONFLICTING`.**
+GitHub's update-branch endpoint does a side-merge of the base
+branch into the PR head; the merge fails deterministically
+when the conflicts can't be auto-resolved, returns `422`, and
+burns a round-trip. The skill empirically hit this on every
+conflicting PR it tried during testing on `<upstream>`.
+The decision table in [`classify-and-act.md`](classify-and-act.md)
+routes CONFLICTING PRs to `draft` (row 9) instead — if a `rebase`
+action arrives here despite that, treat the conflict state itself
+as a hard refuse.
+
+Pre-flight guard:
+
+```bash
+merg=$(gh api graphql -F n=<N> -f query='
+  query($n: Int!) {
+    repository(owner:"<owner>",name:"<repo>") {
+      pullRequest(number: $n) { mergeable }
+    }
+  }' --jq '.data.repository.pullRequest.mergeable')
+if [ "$merg" = "CONFLICTING" ]; then
+  echo "refuse: CONFLICTING — route to draft instead" >&2
+  exit 2
+fi
+# Same lazy-computation caveat as the mark-ready guard: this live
+# re-query can itself return UNKNOWN, and UNKNOWN is not "no
+# conflict". Proceeding spends a round-trip that 422s on exactly the
+# PRs this guard exists to catch.
+if [ "$merg" = "UNKNOWN" ]; then
+  echo "refuse: mergeability not yet computed — retry next sweep" >&2
+  exit 2
+fi
+```
+
+When the guard passes, single mutation via `gh`:
+
+```bash
+gh pr update-branch <N> --repo <repo>
+```
+
+This requires `gh` 2.20+. On older `gh`, fall back to:
+
+```bash
+gh api -X PUT repos/<owner>/<repo>/pulls/<N>/update-branch
+```
+
+GitHub replies with `202 Accepted` for a successful update — it
+merges (or rebases, per repo settings) the base into the PR
+branch. If the call still 422s despite a non-CONFLICTING
+`mergeable` state (rare — usually means GitHub recomputed the
+mergeable state between our guard and the call), surface the
+error and **do not retry**; route to `draft` with the merge-
+conflicts violation. Never burn successive round-trips on the
+same PR in one session.
+
+No comment is posted for `rebase` by default. The contributor
+will see the merge commit (or rebased branch) in their PR.
+
+---
+
+## `ping` — nudge stale review / unresolved thread
+
+Alias for `comment` with the `review-nudge` or `reviewer-ping`
+body template, but distinct as an action so the maintainer can
+confirm it separately from the generic `comment` action.
+
+```bash
+gh pr comment <N> --repo <repo> --body-file /tmp/pr-<N>-ping.md
+```
+
+**Pick the body variant deliberately — default to pinging the
+author.** The skill has two body families:
+
+- [`comment-templates.md#review-nudge`](comment-templates.md) —
+  for `stale_review` (a `CHANGES_REQUESTED` review with newer
+  author commits and no follow-up).
+- [`comment-templates.md#reviewer-ping`](comment-templates.md) —
+  for `deterministic_flag` → `ping` (unresolved review thread
+  from a collaborator).
+
+Each family has an **author-primary** variant (the default) and
+a **reviewer-re-review** variant. Before drafting, inspect the
+review thread + the post-review diff using the decision rule in
+[`comment-templates.md#review-nudge`](comment-templates.md). Use
+the reviewer-re-review variant **only** when that inspection
+confirms the feedback has been addressed in a post-review
+commit or resolved with an author reply in-thread; otherwise
+stay with the author-primary variant so the to-do stays on the
+correct desk.
+
+The template **must** include `@`-mentions of every stale
+reviewer *and* the PR author when using the reviewer-re-review
+variant. In the author-primary variant, mention the author
+first (they're the one who needs to act) and list the reviewers
+as `<reviewers>` so they see the notification but the
+responsibility is clearly on the author.
+
+---
+
+## `approve-workflow` — approve pending CI runs for first-time contributor
+
+Two steps. **Inspect the diff first** — see
+[`workflow-approval.md`](workflow-approval.md) for the safety
+protocol. Only after the maintainer confirms the diff looks
+non-malicious, **re-list the pending runs at action time** (the
+per-page `action_required` index built during fetch may be stale
+— another maintainer may have approved between fetch and now —
+and the optimistic-lock pattern below catches the no-op race
+without burning a useless mutation):
+
+```bash
+# Re-list pending workflow runs for this PR at action time.
+# Runs awaiting approval are returned as `status: "completed"` with
+# `conclusion: "action_required"`. Scoped to one head SHA, so the
+# `conclusion` post-filter enumerates the real set on its own.
+ids=$(gh api "repos/<owner>/<repo>/actions/runs?head_sha=<head_sha>&per_page=20" \
+        --jq '.workflow_runs[] | select(.conclusion == "action_required") | .id')
+
+if [ -z "$ids" ]; then
+  # Race: pending runs were approved between fetch and now (another
+  # maintainer, or auto-approval). Skip silently — the desired state
+  # ("CI is allowed to run for this contributor") is already true.
+  # Surface a one-line note to the maintainer so the no-op is visible.
+  echo "approve-workflow: no pending runs found at <head_sha> — already approved by someone else" >&2
+  exit 0
+fi
+
+while read -r run_id; do
+  [ -z "$run_id" ] && continue
+  gh api -X POST "repos/<owner>/<repo>/actions/runs/${run_id}/approve"
+done <<< "$ids"
+```
+
+The optimistic-lock pattern is the same one
+[`mark-ready`](#mark-ready--add-ready-for-maintainer-review-label)
+uses (Golden rule 1b in [`SKILL.md`](SKILL.md)) — read the
+authoritative state immediately before mutating, exit cleanly
+if the desired state is already in place. Without it, a sweep
+that classified at T0 and acts at T0 + minutes (after the
+maintainer reviewed the diff) silently surfaces "exit=0, out=
+empty" with no guidance on whether the approval landed or
+nothing was there to approve in the first place.
+
+No comment is posted for `approve-workflow`. Approval is
+invisible to the contributor except for CI now running, which
+is what they wanted.
+
+### If the maintainer flagged suspicious
+
+Route to `flag-suspicious` below — do **not** approve.
+
+---
+
+## `flag-suspicious` — close all open PRs by the author
+
+The heaviest action in the skill. Reserved for PRs whose diff
+contains clear tampering indicators (secret exfiltration, CI
+pipeline modifications, `.env` writes, curl-to-shell patterns
+introduced outside legitimate tool updates). See
+[`workflow-approval.md#what-counts-as-suspicious`](workflow-approval.md)
+for the signal list.
+
+Scope: close **all** currently-open PRs authored by the
+suspicious author, attach the `suspicious changes detected`
+label, post a short explanatory comment. This is the action the
+original `breeze` tool performed on the "flag as suspicious"
+path.
+
+```bash
+# 1. List open PRs by the author
+gh pr list --repo <repo> --author <author_login> --state open \
+  --limit 100 \
+  --json number --jq '.[].number'
+
+# 2. For each PR, in parallel — close + label + comment
+for pr in $PR_NUMBERS; do
+  gh pr comment "$pr" --repo <repo> --body-file /tmp/pr-<pr>-suspicious.md
+  gh pr close "$pr" --repo <repo>
+  gh pr edit "$pr" --repo <repo> --add-label "suspicious changes detected"
+done
+```
+
+If the result count equals the limit, note that there may be additional results not shown.
+
+Body template: [`comment-templates.md#suspicious-changes`](comment-templates.md).
+
+The comment is deliberately short and non-accusatory — the
+action is the message, the comment is just the receipt.
+
+**Require per-author confirmation**, not per-PR: the maintainer
+confirms once for "close all N PRs by @<author>", then the
+skill executes the whole set. This is the one time batch
+execution is appropriate for destructive actions, because the
+whole point is "this author's activity is being treated as a
+unit". Sending N individual confirm prompts would dilute the
+decision.
+
+---
+
+## `strip-ready-label` — remove the ready-for-review label + audit marker
+
+Used by [Sweep 4 Step B](stale-sweeps.md#step-b--court-disposition) for
+**author-court** strips — when the next move to make the PR mergeable is
+the author's (a conflict to rebase, a code / static failure to fix,
+unresolved threads to address, readiness to confirm). A maintainer-court
+stale PR keeps its label and is never passed to this action.
+
+Two coupled steps, **in one pass**: post the author-facing follow-up,
+then remove the label. The strip is **never** silent.
+
+```bash
+# 1. Post the audit marker — and fold in the author-facing action when
+#    it is itself a comment (ping / request-author-confirmation).
+#    Template: comment-templates.md#stale-ready-label-strip
+gh pr comment <N> --repo <repo> --body-file <marker>
+# 2. Remove the now-handed-back label (idempotent — a 422 "Label does
+#    not exist on this issue" is benign; log and continue).
+gh pr edit <N> --repo <repo> --remove-label "ready for maintainer review"
+```
+
+The label string is read from
+[`<project-config>/pr-management-config.md → ready_for_maintainer_review_label`](../../../../projects/_template/pr-management-config.md);
+do not hard-code it. The same `gh pr edit --remove-label` recipe backs
+the "strip-on-downgrade" hook inside `draft` and `comment`
+(`actions.md` §[draft](#draft--convert-to-draft-and-fold-violations-into-the-pr-body) /
+§[comment](#comment--deliver-violations--stale-review--ping-feedback));
+there the draft-conversion / violation feedback **is** the author-facing
+follow-up, so those flows do not additionally post the
+`stale-ready-label-strip` marker.
+
+### Why an audit marker (no longer silent)
+
+`ready for maintainer review` is a public signal; removing it silently
+reads as an unexplained yank and confuses contributors — a silent strip
+once drew a public *"why was this removed?"* with no trace to answer it.
+The marker records *what* was stripped, the *author-court reason*, and
+the *next move*, so the strip is always auditable and the author knows
+exactly what gets the PR back into the queue. Because the label only
+comes off when the ball is genuinely the author's, the follow-up is
+never a duplicate of an existing maintainer ask — it *is* the ask.
+
+### Failure handling
+
+- 422 "Label does not exist on this issue" — benign, log and
+  treat the action as successful (the desired end state is
+  already in place).
+- 404 / network error — surface to the maintainer with the PR
+  number, do not retry silently. The next sweep run will
+  re-evaluate.
+- Anything else — surface and stop the batch (consistent with
+  the `gh pr edit --remove-label` failure handling in `draft`).
+
+### Order-of-operations
+
+Post the audit marker / folded author action **before** removing the
+label — the same "comment before the state change that hides it" rule
+`draft` and `close` follow.
+
+---
+
+## Order-of-operations recap for destructive actions
+
+"Deliver feedback" below means *fold into the PR body or post a
+comment per `triage_feedback_channel`* for the three actions that
+honour it (`draft`, `comment` deterministic-flag, `close`); the
+rest always post a comment. For every action that posts a comment,
+post it **before** the state change that hides it:
+
+| Action | Order |
+|---|---|
+| `draft` | (*if F4-regression: remove ready-for-review label*) → convert to draft → deliver feedback (fold/comment) |
+| `comment` | (*if F4-regression on `deterministic_flag`: remove ready-for-review label*) → deliver feedback (fold/comment for deterministic-flag; comment for pings) |
+| `close` | deliver feedback (fold→close, or comment→close) → close → label |
+| `flag-suspicious` | post comment → close → label *(per PR in the batch)* |
+| `mark-ready` | label only |
+| `request-author-confirmation` | post comment only (no label) |
+| `strip-ready-label` | post audit marker (+ folded author action) → remove-label |
+| `rerun` | rerun (no comment) |
+| `rebase` | update-branch (no comment) |
+| `ping` | post comment |
+| `approve-workflow` | approve (no comment) |
+
+The `draft` case is the exception to "comment before state
+change" because drafts still show comments (and the folded body)
+fine. The `close` case sequences the feedback first because a
+closed-PR comment is visible but the "PR closed" notification
+beats it otherwise — and under `pr-body` the fold must land
+before the close so the description already explains it. Under
+`pr-body`, the `draft` / `comment` / `close` feedback is a silent
+body edit (no `@`-mention) and produces no notification at all —
+only `close`'s own close event notifies.
+
+---
+
+## Batching execution
+
+When the maintainer accepts `[A]ll` on a group:
+
+- Issue the mutations **in parallel** across PRs using parallel
+  tool calls. `gh` is thread-safe from separate processes and
+  the rate limit for mutations is per-request, not per-second
+  batch.
+- Cap parallelism at **5 concurrent mutations** to keep
+  spurious errors from swamping the maintainer's screen.
+- For `close` groups, the cap is **1** (sequential) even on
+  `[A]ll` — we still walk them one-at-a-time, just without the
+  per-PR confirm.
+
+Update the session cache after each batch completes, not after
+each mutation — a half-completed cache is a confusing debugging
+artifact.
+
+---
+
+## Error handling
+
+Mutations can fail for a handful of reasons. Handle them
+specifically, not generically:
+
+| Error | Handling |
+|---|---|
+| `HTTP 401/403` on a previously-working token | Stop the session, surface "token expired or permissions changed" |
+| `HTTP 422` with "PR is already closed" | Log and continue (someone else closed it between our fetch and mutate) |
+| `HTTP 422` with "label already applied" | Log and continue (idempotent) |
+| `HTTP 404` on a PR number | Log and continue (PR was deleted — rare) |
+| `HTTP 5xx` | Retry once after 2 seconds; on second failure, surface and continue with next PR |
+| GraphQL error with `RATE_LIMITED` / `X-RateLimit-Remaining: 0` | Stop, surface remaining-quota info, let the maintainer decide whether to continue |
+
+Do not wrap the entire session in a blanket `except`. Let
+bugs surface.

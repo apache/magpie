@@ -113,7 +113,7 @@ magpie-dev = { workspace = true }
 [tool.uv.workspace]
 members = [
   "ai-tutors",
-  "skills",
+  "plugins",
   "tools/agent-guard",
   "tools/dev",
   "tools/agent-isolation",

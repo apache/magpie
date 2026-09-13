@@ -144,13 +144,12 @@ This path is not yet live-installed either — see
 [Verification status](setup/marketplace.md#verification-status).
 
 > [!IMPORTANT]
-> **The all-in-one `magpie` plugin is not recommended** unless you genuinely
-> want every family. It installs all 74 skills and adds **~8.6k always-on
-> tokens to every session** — context spent whether or not you invoke a Magpie
-> skill that turn — against 0.2–2.0k for a family you picked on purpose.
-> Reach for it only when you really do need all ten families, or on Windows
-> without symlink support (per-family plugins rely on git symlinks; see the
-> [Windows note](setup/marketplace.md#choosing-a-plugin-all-in-one-vs-per-family)).
+> **There is no install-everything plugin, by design.** Every installed skill
+> advertises itself to the model on every turn, used or not — all ten families
+> at once would be ~8.6k always-on tokens against 0.2–2.0k for a family you
+> picked on purpose. Install `magpie-setup` plus the families you actually
+> want; adding another later is one more install. See
+> [Choosing a plugin](setup/marketplace.md#choosing-a-plugin-which-families).
 
 > [!TIP]
 > **Working in IntelliJ IDEA, PyCharm or another JetBrains IDE?** There is
@@ -164,12 +163,11 @@ This path is not yet live-installed either — see
 > [the Apache Magpie Marketplace](setup/marketplace.md#jetbrains-ides-intellij-idea-pycharm-goland-).
 
 > [!NOTE]
-> **Per-family plugins are Claude Code-only** today, for the packaging reason
-> recorded in
-> [the Apache Magpie Marketplace](setup/marketplace.md#choosing-a-plugin-all-in-one-vs-per-family).
-> The three agents above can install only the all-in-one `magpie` plugin — so
-> on those, the ~8.6k always-on cost is currently the price of entry. Cursor,
-> Kiro, OpenCode, and `microsoft/apm` are covered there too.
+> **Per-family works on every agent above.** A family plugin carries its skills
+> as real directories, so nothing depends on a client following a symlink —
+> measured on Codex and Gemini, not assumed. Cursor, Kiro, OpenCode, and
+> `microsoft/apm` are covered in
+> [the Apache Magpie Marketplace](setup/marketplace.md#choosing-a-plugin-which-families).
 
 ---
 
@@ -275,9 +273,7 @@ or call a skill by name. A marketplace install namespaces skills under the
 /magpie-security:issue-triage
 ```
 
-With the all-in-one plugin the namespace is just `/magpie:` — e.g.
-`/magpie:pr-management-triage`. `/magpie-utilities:list-skills` prints
-everything that is installed.
+`/magpie-utilities:list-skills` prints everything that is installed.
 
 ---
 

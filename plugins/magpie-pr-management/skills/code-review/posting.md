@@ -1,0 +1,528 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
+# Posting reviews — `gh pr review` recipes and templates
+
+This file is the canonical reference for how the skill turns the
+combined findings list (after [`review-flow.md`](review-flow.md)
+Step 5 / 6) into an actual GitHub review submission, and the
+verbatim review-body templates the skill uses.
+
+---
+
+## Mention policy
+
+> **This section is normative and applies to every character this
+> skill posts** — the review body, every inline review comment,
+> findings folded in from an adversarial reviewer, and any
+> contributor text quoted inside a finding. It is the review-side
+> counterpart of the author-only notification rule in
+> [`pr-management-triage`](../triage/comment-templates.md).
+
+Submitting a review already notifies the PR author and every
+subscriber — that is all the notification a review needs. A live
+`@`-mention additionally summons the named person, without their
+consent, onto a thread where nothing is being asked of them.
+
+- **Nothing this skill posts ever live-`@`-mentions anyone** —
+  not suggested reviewers, not `CODEOWNERS` owners or teams, not
+  the PR author, not the operator. When a handle must appear
+  (a suggested reviewer, the author of a prior review being
+  referenced), render it **backtick-quoted** — `` `@login` `` /
+  `` `@org/team` `` — which reads as a handle without producing
+  a notification.
+- **Quoted contributor text is escaped too.** Commit messages,
+  PR-body excerpts, and code comments quoted into a finding may
+  carry `@handle` tokens; keep such quotes inside code spans or
+  fenced blocks so GitHub never processes the mentions.
+- **Adversarial fold-in is covered.** Findings imported from a
+  second reviewer (Step 5 of [`review-flow.md`](review-flow.md))
+  get the same escaping before composition — the other tool's
+  output is not exempt.
+- **A deliberate ping is still possible — never silent.** The
+  mention scan in Step 8 of
+  [`review-flow.md`](review-flow.md) flags any live mention that
+  survives drafting and posts it only on the maintainer's
+  explicit `[K]eep`. Formally requesting a reviewer remains a
+  separate action
+  ([`reviewer-routing`](../reviewer-routing/SKILL.md)).
+
+---
+
+## Disposition
+
+The disposition is one of three GitHub review submissions:
+
+| Disposition | `gh pr review` flag | When |
+|---|---|---|
+| `APPROVE` | `--approve` | green CI, no unresolved threads, no maintainer conflicts (Golden rule 7), zero `blocking`/`major` findings, only `nit`/`minor` left, all author questions answered |
+| `REQUEST_CHANGES` | `--request-changes` | ≥ 1 `blocking`, OR ≥ 2 `major`, OR `major` + unanswered author question, OR a finding the maintainer wants to gate the merge on |
+| `COMMENT` | `--comment` | everything else: mixed `minor` findings, CI pending, threads open, maintainer wants observations without gating |
+
+Auto-pick uses these rules and shows reasoning to the
+maintainer (Step 6 of [`review-flow.md`](review-flow.md)).
+Maintainer can override with `[A]`/`[R]`/`[C]`.
+
+Golden rule 7 (`SKILL.md`) downgrades any auto-`APPROVE` if
+unresolved threads / pending other-maintainer reviews exist.
+Golden rule 8 downgrades any auto-`APPROVE` if CI is failing.
+
+### Conflicts are always stated in the body
+
+A PR whose `mergeStateStatus` is `DIRTY` (or whose `mergeable` is
+`CONFLICTING`) **must say so in the review body**, whatever the
+disposition. One sentence naming the state and asking for a rebase
+onto the base branch is enough:
+
+> The branch currently conflicts with `main` and needs a rebase
+> before this can merge.
+
+Conflicts do **not** by themselves force `REQUEST_CHANGES`. A PR can
+be entirely correct and still trail its base, and gating an otherwise
+finished review behind a mechanical rebase wastes a round trip. But
+saying nothing is worse: the author sees an approving review, assumes
+the PR is done, and only discovers the conflict when a maintainer
+reaches the merge button — by which point the reviewer has moved on.
+Approving a branch that cannot merge, without mentioning it, is the
+failure this rule exists to prevent.
+
+Where the conflict state is `UNKNOWN` after a re-read (see
+[`review-flow.md` § Step 2](review-flow.md)), say that instead of
+claiming the branch is clean.
+
+Rebasing the branch is a triage action, not a review action — point
+the maintainer at `pr-management-triage pr:<N>` rather than
+doing it here (Golden rule 9).
+
+---
+
+## `gh pr review` invocation
+
+### Approve
+
+```bash
+# Write tool: file_path: /tmp/review-body-<n>.md, content: <review body>
+gh pr review <N> --repo <repo> --approve --body-file /tmp/review-body-<n>.md
+```
+
+### Request changes
+
+```bash
+# Write tool: file_path: /tmp/review-body-<n>.md, content: <review body>
+gh pr review <N> --repo <repo> --request-changes --body-file /tmp/review-body-<n>.md
+```
+
+### Comment
+
+```bash
+# Write tool: file_path: /tmp/review-body-<n>.md, content: <review body>
+gh pr review <N> --repo <repo> --comment --body-file /tmp/review-body-<n>.md
+```
+
+The skill always uses **`--body-file <path>`** (never `--body "$STRING"` inline)
+to avoid shell-escape mishaps with PR content that may contain backticks,
+dollar signs, or quotes.
+
+### Self-review guard
+
+GitHub rejects `gh pr review` from the PR's own author. The
+skill checks `gh pr view <N> --json author --jq .author.login`
+against `gh api user --jq .login` before posting. On match:
+
+> *PR #N is authored by `<viewer>`. GitHub doesn't allow
+> self-review. Skipping.*
+
+…and moves to the next PR.
+
+### Inline / line-level comments — default on, maintainer picks
+
+For every finding with a `file:line` anchor, the skill **always
+proposes an inline review comment** by default. Inline
+comments sit next to the offending line in the PR's "Files
+changed" view, where the contributor encounters them in
+context; a body-only `file.py:142` reference goes stale the
+moment the line moves and forces the contributor to scroll back
+and forth. The skill draws the inline comments from the same
+findings list that backs the body, so nothing has to be
+authored twice.
+
+After the disposition pick (Step 6 of [`review-flow.md`](review-flow.md))
+and before the final body is composed, the skill renders a
+**picker** listing every drafted inline comment with an index
+and a checkbox-style enabled flag:
+
+```text
+Proposed inline comments (all enabled by default):
+
+  [x] 1. providers/foo/hook.py:142 — major
+        > Imports inside function bodies should move to the top.
+  [x] 2. providers/foo/hook.py:189 — minor
+        > `ti.operator` could be None here; either guard
+        >  explicitly or skip the metric.
+  [x] 3. providers/foo/tests/test_hook.py:33 — nit
+        > AGENTS.md asks for `spec=`/`autospec=` when mocking.
+
+Pick which to post:
+  [A]ll              (default — keep all inline)
+  [N]one             (post body-only; findings fold into "Smaller observations")
+  [<list>]           comma-separated indices to keep, e.g. `1,3`
+  [<-list>]          comma-separated indices to drop, e.g. `-2,-3`
+  [E <i>]            edit comment <i>'s body before posting
+  [Q]uit
+```
+
+Default is `[A]ll`. Picking is one prompt — the maintainer is
+not asked to confirm every comment individually, only the
+subset they want. Comments the maintainer drops do not vanish:
+their substance folds into the body's *Smaller observations*
+block so the review still says everything it would have said,
+just in fewer places.
+
+The picker is skipped automatically when the findings list is
+empty (an `APPROVE` with zero anchored findings); for
+pure-body reviews the legacy `gh pr review` path runs.
+
+Behind the scenes the skill submits a single
+`addPullRequestReview` mutation carrying the picked-in
+comments:
+
+```graphql
+mutation AddPullRequestReview(
+  $pullRequestId: ID!,
+  $event: PullRequestReviewEvent!,
+  $body: String,
+  $comments: [DraftPullRequestReviewComment!]!
+) {
+  addPullRequestReview(input: {
+    pullRequestId: $pullRequestId,
+    event: $event,
+    body: $body,
+    comments: $comments
+  }) {
+    pullRequestReview { id }
+  }
+}
+```
+
+Each `comments[]` entry carries `path`, `position` (the diff
+position, not the file line), and `body`. The skill computes
+diff position from the cached unified diff captured at Step 2.
+
+#### Stale positions
+
+Inline-comment positions are valid only against the SHA that
+was diffed. If the SHA-recheck at Step 8 fires (the contributor
+pushed during review), inline positions are stale and the
+mutation will be rejected by GitHub. The skill surfaces the
+drift:
+
+> *PR pushed since I drafted. Inline positions stale.
+> `[R]efresh` (re-run Steps 2–7 against the new SHA — usually a
+> few seconds), `[B]ody-only-now` (post the existing draft as
+> body-only), `[Q]uit`.*
+
+Default is `[R]efresh`. `[B]ody-only-now` is a one-PR override;
+it does not flip the default off for the rest of the session.
+
+#### Disabling inline globally for a session
+
+A maintainer who knows they want body-only reviews this
+session can pass `inline:off` (alias `body-only`) at invocation
+time. The picker is then skipped on every PR and reviews go
+through `gh pr review` directly. This is rarely the right
+default; the skill announces the choice once at session start
+so it isn't forgotten halfway through a queue.
+
+---
+
+## Review body — template structure
+
+A review body has up to five sections, in this order. Sections
+with no content are omitted (don't render an empty
+"Smaller observations" header).
+
+```markdown
+[summary line]
+
+[blocking findings — if any]
+
+[major findings — if any]
+
+[smaller observations — minor + nit]
+
+[suggested additional reviewers — if any (see review-flow.md Step 4.5)]
+
+[ai_attribution_footer]
+```
+
+### Summary line
+
+One sentence that names the disposition's reason. Examples:
+
+- `APPROVE`: *"LGTM — clean N+1 fix with regression test, CI
+  green."*
+- `REQUEST_CHANGES`: *"Found 1 blocking issue (potential SQL
+  injection in `where` clause) that needs to land before this
+  can merge."*
+- `COMMENT`: *"Approach looks reasonable; a few observations
+  inline that I'd like resolved before merging — none
+  blocking."*
+
+The summary line is **never** boilerplate. It's the one piece
+of the review body the contributor reads first; it has to
+say something specific.
+
+### Blocking findings
+
+For each `blocking` finding:
+
+````markdown
+### Blocking — [short rule name] (`file.py:142`)
+
+> [verbatim quote of the rule from one of the source files declared in `<project-config>/pr-management-code-review-criteria.md`]
+
+```text
+[5–10 lines of context from the diff, with a `# ←` arrow at the offending line]
+```
+
+[1–3 sentences explaining why this is blocking, with a
+concrete suggestion. If the suggestion is small enough,
+include a GitHub `suggestion` block:]
+
+```suggestion
+[the proposed replacement]
+```
+````
+
+### Major findings
+
+Same shape as blocking, header `### [short rule name]`. Drop
+the "Blocking — " prefix. No `suggestion` block unless the
+suggestion fits in <10 lines.
+
+### Smaller observations
+
+Minor + nit findings folded together as a bulleted list:
+
+```markdown
+### Smaller observations
+
+- `file.py:89` — *narrating comment* (`# Add the item to the
+  list` before `list.append(item)`). Drop the comment; the
+  code already says what it does.
+- `tests/test_foo.py:42` — `@pytest.fixture` is `autouse=True`
+  but never `yield`-only; converting to `return` would be
+  clearer (style nit, not blocking).
+- `tests/test_bar.py:115` — `Mock()` without `spec`. AGENTS.md
+  asks for `spec`/`autospec` when mocking.
+```
+
+Group by file when there are >5 observations on the same file.
+
+### Suggested additional reviewers
+
+Rendered only when Step 4.5 (see
+[`review-flow.md`](review-flow.md)) surfaced at least one
+grounded handle. Up to three, each with a one-clause reason
+tracing to the evidence that produced it (a `CODEOWNERS` rule,
+recent commits on a touched path, or a prior review on a
+touched path). Never render a handle Step 4.5 could not ground
+— omit the whole section rather than pad it or guess. Handles
+render backtick-quoted per the
+[mention policy](#mention-policy) — naming someone here must
+not notify them.
+
+```markdown
+### Worth a second look from
+
+This change touches `scheduler/`; folks with the most context here:
+
+- `@alice` — `CODEOWNERS` owner for `scheduler/` (committer)
+- `@bob` — authored 6 of the last 20 commits under `scheduler/job_runner.py`
+- `@carol` — reviewed the two most recent merged PRs touching these files
+
+None of them have been notified — asking any of them for an
+extra pass is the maintainer's call, and optional.
+```
+
+The handles are **suggestions to the maintainer**, not pings
+and not auto-requests: this skill never live-`@`-mentions
+them, never calls `gh pr edit --add-reviewer`, and never uses
+the `requestReviews` mutation. If the maintainer wants someone
+formally requested (or actually notified), that is a separate,
+explicit action they take (or route through
+[`reviewer-routing`](../reviewer-routing/SKILL.md)).
+
+### AI-attribution footer
+
+Every review body ends with one of the verbatim blocks below.
+Do not paraphrase, do not omit. The variant differs slightly by
+disposition (the contributor-facing tone shifts from
+"a maintainer will follow up with merge" on `APPROVE` to
+"a maintainer will follow up after you address the points" on
+the others).
+
+`APPROVE` and `REQUEST_CHANGES` only ever post when GitHub has
+already confirmed write access on the account (a non-collaborator's
+`--approve`/`--request-changes` call is rejected outright), so the
+maintainer-confirmed wording below is always accurate for those
+two. `COMMENT` has no such GitHub-side gate: any account can post
+one on a public PR regardless of permission, so its footer
+instead depends on the collaborator-permission result from
+[`prerequisites.md#1`](prerequisites.md): render the
+maintainer-confirmed variant when that check returned `admin`,
+`maintain`, or `write`, and the role-neutral variant otherwise
+(including a `COMMENT` posted after that check's dry-run
+warning). Picking between the two is a selection, not a
+paraphrase; render the matching block verbatim.
+
+#### `<ai_attribution_footer>` for `APPROVE`
+
+```markdown
+---
+
+> *This review was drafted by an AI-assisted tool and
+> confirmed by an <PROJECT> maintainer. The maintainer
+> approving this PR has read the findings and signed off. If
+> something feels off, please reply on the PR and a maintainer
+> will follow up.*
+>
+> *More on how <PROJECT> handles maintainer review:*
+> [contributing-docs/05_pull_requests.rst](https://github.com/<upstream>/blob/main/contributing-docs/05_pull_requests.rst).
+```
+
+#### `<ai_attribution_footer>` for `REQUEST_CHANGES`
+
+```markdown
+---
+
+> *This review was drafted by an AI-assisted tool and
+> confirmed by an <PROJECT> maintainer. After you've
+> addressed the points above and pushed an update, an <PROJECT>
+> maintainer — a real person — will take the next look
+> at the PR. The findings cite the project's review criteria;
+> if you think one of them is mis-applied, please reply on the
+> PR and a maintainer will weigh in.*
+>
+> *More on how <PROJECT> handles maintainer review:*
+> [contributing-docs/05_pull_requests.rst](https://github.com/<upstream>/blob/main/contributing-docs/05_pull_requests.rst).
+```
+
+#### `<ai_attribution_footer>` for `COMMENT`, maintainer-confirmed
+
+Use when [`prerequisites.md#1`](prerequisites.md) returned
+`admin`, `maintain`, or `write`.
+
+```markdown
+---
+
+> *This review was drafted by an AI-assisted tool and
+> confirmed by an <PROJECT> maintainer. The findings
+> below are observations, not blockers; an <PROJECT>
+> maintainer — a real person — will take the next look at the
+> PR. If you think a finding is mis-applied, please reply on
+> the PR and a maintainer will weigh in.*
+>
+> *More on how <PROJECT> handles maintainer review:*
+> [contributing-docs/05_pull_requests.rst](https://github.com/<upstream>/blob/main/contributing-docs/05_pull_requests.rst).
+```
+
+#### `<ai_attribution_footer>` for `COMMENT`, role-neutral
+
+Use when [`prerequisites.md#1`](prerequisites.md) returned
+anything else (`triage`, `read`, or no collaborator access at
+all), i.e. whenever the posting account's maintainer status is
+not confirmed.
+
+```markdown
+---
+
+> *This review was drafted by an AI-assisted tool and posted by
+> a contributor who does not have confirmed <PROJECT> maintainer
+> access. The findings below are this tool's analysis only, not
+> a maintainer sign-off; an <PROJECT> maintainer will still need
+> to look at the PR before it moves forward. If you think a
+> finding is mis-applied, please reply on the PR.*
+>
+> *More on how <PROJECT> handles maintainer review:*
+> [contributing-docs/05_pull_requests.rst](https://github.com/<upstream>/blob/main/contributing-docs/05_pull_requests.rst).
+```
+
+---
+
+## Adversarial-reviewer attribution
+
+When a finding came from the adversarial reviewer, mark it
+inline:
+
+```markdown
+### Blocking — Race condition on lock release (`scheduler.py:312`)
+
+[…]
+
+*Flagged by the adversarial reviewer; cross-checked.*
+```
+
+When two reviewers landed on the same finding:
+
+```markdown
+*Flagged by both the primary and adversarial reviewers.*
+```
+
+This makes the contributor's mental model accurate — they're
+not arguing with one tool; they're arguing with two
+independently-trained reviewers and a human maintainer who
+agreed.
+
+---
+
+## Confirm-before-post
+
+The maintainer's harness-level instructions (`AGENTS.md`,
+`~/.claude/CLAUDE.md`) typically include a "confirm before
+sending" rule for any message authored on their behalf. The
+post step is **always** preceded by:
+
+> *Drafted review (disposition: `<DISP>`):*
+>
+> ```markdown
+> [full body here]
+> ```
+>
+> *Post as-is, or want any edits?*
+
+Wait for explicit confirmation (`yes`, `post`, `go ahead`, or
+similar). If the maintainer replies with edits, **re-render
+the new body and re-confirm** — earlier `yes` only covers the
+exact text it approved.
+
+---
+
+## Per-tone overrides
+
+If the maintainer's harness-level instructions (`AGENTS.md`,
+`~/.claude/CLAUDE.md`) define **per-contributor tone overrides**
+— e.g. one contributor expects a sharper register, another
+gets a more measured tone — the **summary line** and body
+wording for the affected PR shift accordingly. The findings
+themselves don't change; the framing does.
+
+If a tone override applies, surface it before the maintainer
+confirms the body:
+
+> *Tone override active for `<author>` per harness instructions
+> (`<override-summary>`). Drafted body reflects that — please
+> double-check.*
+
+---
+
+## `dry-run` mode
+
+When the `dry-run` selector is in effect (see
+[`selectors.md`](selectors.md)), the post step is replaced with:
+
+> *Dry-run mode: would post `<DISP>` review to PR #N. Move on?
+> `[Y]es` (default), `[E]dit`, `[S]kip`, `[Q]uit`.*
+
+`gh pr review` is **not invoked**. The session summary lists
+the would-have-been dispositions and counts.
