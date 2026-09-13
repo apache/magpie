@@ -22,30 +22,32 @@
   Written by tools/dev/render-wizard.py. Illustrative of the shape of a
   run, not a recording of one.
 -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 620 472"
-     width="620" height="472" role="img"
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 675 520"
+     width="675" height="520" role="img"
      data-magpie-generated="render-wizard"
      aria-label="An animated first look: three install commands, then a triage run returning 38 open PRs with a proposed action for each and a confirmation prompt">
   <title>Install Magpie, and use it</title>
   <desc>Illustrative animation of installing Magpie and running one skill. Not a recording.</desc>
-  <rect width="620" height="472" rx="10" fill="#1d1f21"/>
-  <rect x="0" y="0" width="620" height="34" rx="10" fill="#2b2e31"/>
-  <rect x="0" y="24" width="620" height="10" fill="#2b2e31"/>
+  <rect width="675" height="520" rx="10" fill="#1d1f21"/>
+  <rect x="0" y="0" width="675" height="34" rx="10" fill="#2b2e31"/>
+  <rect x="0" y="24" width="675" height="10" fill="#2b2e31"/>
   <circle cx="22" cy="17" r="6" fill="#3f4448"/>
   <circle cx="44" cy="17" r="6" fill="#3f4448"/>
   <circle cx="66" cy="17" r="6" fill="#3f4448"/>
   <g font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="17" xml:space="preserve">
-    <text x="26" y="80" fill="#8abeb7" opacity="0">&gt; /plugin marketplace add apache/magpie<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.0000;0.0010;1" dur="6.4s" repeatCount="indefinite"/></text>
-    <text x="26" y="104" fill="#8abeb7" opacity="0">&gt; /plugin install magpie-setup@apache-magpie<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.0596;0.0606;1" dur="6.4s" repeatCount="indefinite"/></text>
-    <text x="26" y="128" fill="#8abeb7" opacity="0">&gt; /plugin install magpie-pr-management@apache-magpie<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.1191;0.1201;1" dur="6.4s" repeatCount="indefinite"/></text>
-    <text x="26" y="176" fill="#7f9f7f" opacity="0">  ✓ installed - nothing written to the repository<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.1787;0.1797;1" dur="6.4s" repeatCount="indefinite"/></text>
-    <text x="26" y="224" fill="#8abeb7" opacity="0">&gt; /magpie-pr-management:triage<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.2382;0.2392;1" dur="6.4s" repeatCount="indefinite"/></text>
-    <text x="26" y="272" fill="#c5c8c6" opacity="0">  38 open PRs, 12 untriaged<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.2978;0.2988;1" dur="6.4s" repeatCount="indefinite"/></text>
-    <text x="26" y="320" fill="#c5c8c6" opacity="0">  #1421  first contribution, CI green, no reviewer<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.3574;0.3584;1" dur="6.4s" repeatCount="indefinite"/></text>
-    <text x="26" y="344" fill="#8a8f94" opacity="0">         -&gt; mark ready for maintainer review<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.4169;0.4179;1" dur="6.4s" repeatCount="indefinite"/></text>
-    <text x="26" y="368" fill="#c5c8c6" opacity="0">  #1388  draft 3 weeks, no commits since<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.4765;0.4775;1" dur="6.4s" repeatCount="indefinite"/></text>
-    <text x="26" y="392" fill="#8a8f94" opacity="0">         -&gt; ask the author if it is still active<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.5361;0.5371;1" dur="6.4s" repeatCount="indefinite"/></text>
-    <text x="26" y="440" fill="#8a8f94" opacity="0">  Each action needs your confirmation. [Y/n]<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.5956;0.5966;1" dur="6.4s" repeatCount="indefinite"/></text>
-    <rect x="26" y="427" width="10" height="17" fill="#c5c8c6"><animate attributeName="opacity" values="1;1;0;0;1" dur="1.2s" repeatCount="indefinite"/></rect>
+    <text x="26" y="80" fill="#8abeb7" opacity="0">&gt; /plugin marketplace add apache/magpie<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.0000;0.0010;1" dur="7.1s" repeatCount="indefinite"/></text>
+    <text x="26" y="104" fill="#8abeb7" opacity="0">&gt; /plugin install magpie-setup@apache-magpie<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.0532;0.0542;1" dur="7.1s" repeatCount="indefinite"/></text>
+    <text x="26" y="128" fill="#8abeb7" opacity="0">&gt; /plugin install magpie-agent-guard@apache-magpie<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.1064;0.1074;1" dur="7.1s" repeatCount="indefinite"/></text>
+    <text x="26" y="152" fill="#8abeb7" opacity="0">&gt; /plugin install magpie-utilities@apache-magpie<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.1597;0.1607;1" dur="7.1s" repeatCount="indefinite"/></text>
+    <text x="26" y="176" fill="#8abeb7" opacity="0">&gt; /plugin install magpie-pr-management@apache-magpie<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.2129;0.2139;1" dur="7.1s" repeatCount="indefinite"/></text>
+    <text x="26" y="224" fill="#7f9f7f" opacity="0">  ✓ baseline + one family - nothing written to the repository<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.2661;0.2671;1" dur="7.1s" repeatCount="indefinite"/></text>
+    <text x="26" y="272" fill="#8abeb7" opacity="0">&gt; /magpie-pr-management:triage<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.3193;0.3203;1" dur="7.1s" repeatCount="indefinite"/></text>
+    <text x="26" y="320" fill="#c5c8c6" opacity="0">  38 open PRs, 12 untriaged<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.3725;0.3735;1" dur="7.1s" repeatCount="indefinite"/></text>
+    <text x="26" y="368" fill="#c5c8c6" opacity="0">  #1421  first contribution, CI green, no reviewer<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.4258;0.4268;1" dur="7.1s" repeatCount="indefinite"/></text>
+    <text x="26" y="392" fill="#8a8f94" opacity="0">         -&gt; mark ready for maintainer review<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.4790;0.4800;1" dur="7.1s" repeatCount="indefinite"/></text>
+    <text x="26" y="416" fill="#c5c8c6" opacity="0">  #1388  draft 3 weeks, no commits since<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.5322;0.5332;1" dur="7.1s" repeatCount="indefinite"/></text>
+    <text x="26" y="440" fill="#8a8f94" opacity="0">         -&gt; ask the author if it is still active<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.5854;0.5864;1" dur="7.1s" repeatCount="indefinite"/></text>
+    <text x="26" y="488" fill="#8a8f94" opacity="0">  Each action needs your confirmation. [Y/n]<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.6387;0.6397;1" dur="7.1s" repeatCount="indefinite"/></text>
+    <rect x="26" y="475" width="10" height="17" fill="#c5c8c6"><animate attributeName="opacity" values="1;1;0;0;1" dur="1.2s" repeatCount="indefinite"/></rect>
   </g>
 </svg>

@@ -120,6 +120,16 @@ Each of these settled a fork, and each shapes what follows.
    installs another family.** No per-install hook is needed — which is
    fortunate, since on most harnesses no code runs on plugin install at all.
 
+   **The same three are the install baseline**, pre-ticked in the picker and
+   recommended on every page that shows an install command. A set worth
+   committing for every contributor is a set worth having yourself, and one
+   recommendation is easier to hold than two. `magpie-setup` alone is
+   unremovable — it is the skill doing the installing; the other two are
+   strongly recommended and can be un-ticked, with what is given up said once.
+   Agent isolation belongs to this baseline as a *run* rather than a plugin:
+   it ships inside `magpie-setup`, and the install is not described as finished
+   until it has been offered.
+
 3. **One committed file for every install method.** `.apache-magpie.lock` gains
    `method: marketplace` alongside `svn-zip` / `git-tag` / `git-branch`, rather
    than a second adoption file with overlapping meaning. Every adopted project
@@ -177,6 +187,14 @@ Each of these settled a fork, and each shapes what follows.
 
 8. **The install is a prerequisite with one page**, not a step repeated in
    every flow that assumes it.
+
+   Every step that page documents carries **both** forms: the slash command and
+   the plain-language sentence. Skills are model-invoked, so the sentence is the
+   general case and the slash command the shortcut — and harnesses without slash
+   commands have only the sentence. The one exception is the first install
+   itself, which must be a client command because nothing is installed yet to
+   hear the request; every later install can be asked for in words, now that the
+   install step runs the CLI (decision 6).
 
 9. **Configuration has a gitignored home and a committed one, and the same
    lookup chain as overrides.** `<project-config>` resolves per file, local

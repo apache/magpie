@@ -192,12 +192,24 @@ family, each described by the problem it solves — the table in
 [`docs/quick-start.md`](../../../../docs/quick-start/families.md)
 is the source text.
 
-Two rules for the recommendation:
+Three rules for the recommendation:
 
-- **`magpie-setup` is always in the pick** — it carries the
+- **The baseline is pre-ticked: `magpie-setup`,
+  `magpie-agent-guard`, `magpie-utilities`.** That is the same
+  set a project commits as its floor when it adopts
+  ([`adopt.md`](adopt.md)), and the reason is the same on one
+  machine as on a project: `magpie-setup` installs, upgrades,
+  configures and adopts everything else and carries the
   secure-isolation skills of
-  [Step M5](#step-m5--recap-and-what-comes-next) and this skill
-  itself.
+  [Step M5](#step-m5--recap-and-what-comes-next);
+  `magpie-agent-guard` denies dangerous shell shapes before they
+  run; `magpie-utilities` is how anyone finds out what is
+  actually installed. Say why each is ticked.
+
+  **`magpie-setup` is not optional** — it is this skill, and
+  nothing else installs or upgrades without it. The other two
+  are *strongly* recommended and can be unticked; say what is
+  given up rather than arguing, and move on.
 - **Install a family at a time; there is no everything plugin.**
   Each installed skill advertises its name and description to
   the model on *every* turn, so all ten families at once would
@@ -208,7 +220,12 @@ Two rules for the recommendation:
   a symlink.
 
 If the user passed `skill-families:<list>`, use it verbatim and
-skip the prompt.
+skip the prompt — with `magpie-setup` added if it is absent,
+because the list names families to install and this skill is
+what installs them. Do not add the other two baseline plugins to
+an explicit list; naming families is a choice, and quietly
+enlarging it is not. Say in one line that the baseline exists
+and what is missing from it.
 
 ### Step M4 — Install what the user picked
 
@@ -327,11 +344,20 @@ Tell the user, in this order:
    or pinned to `<version>`, at which scope, and whether
    [Step M4](#step-m4--install-what-the-user-picked) installed
    them or printed them for the user to run.
-2. **Run the secure-agent setup next** — `setup-isolated-setup-install`.
+2. **Run the secure-agent setup next** —
+   `/magpie-setup:isolated-setup-install`, or in plain language
+   *lock my agent down with Magpie's secure setup*. Offer both
+   forms: the skill is model-invoked, so the sentence works on
+   every harness and the slash form only on the ones that have
+   slash commands.
+
    The marketplace install delivers skills; it does not sandbox
    the agent, and the framework's other skills run against
    pre-disclosure security content. This is the one follow-up
-   that is not optional.
+   that is not optional — treat it as the last step of the
+   install rather than a later hardening pass, and say so.
+   `magpie-agent-guard` from the baseline guards each command;
+   this is what sandboxes the process around it.
 3. **How it updates** — Claude Code:
    `/plugin marketplace update apache-magpie` then
    `/plugin update <plugin>@apache-magpie`; Codex:

@@ -6,6 +6,7 @@
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
 - [Prerequisite: install Magpie from your agent's marketplace](#prerequisite-install-magpie-from-your-agents-marketplace)
+  - [The recommended baseline](#the-recommended-baseline)
   - [Claude Code](#claude-code)
   - [OpenAI Codex CLI](#openai-codex-cli)
   - [VS Code / GitHub Copilot](#vs-code--github-copilot)
@@ -31,18 +32,32 @@ Every path below uses the [`apache/magpie`](https://github.com/apache/magpie)
 repository directly as the marketplace. No vendor directory, no account, no
 registry sits in between.
 
-`magpie-setup` is the one plugin to always take — it installs, upgrades and
-adopts the framework, and it carries the secure-isolation skills. Add families
-to match a problem you have today; you can install more at any time, and
-[What each family solves](../quick-start/families.md) is the menu.
+## The recommended baseline
+
+Take these three on every machine, whichever agent you use:
+
+| Plugin | Why |
+|---|---|
+| `magpie-setup` | **Install this one first — nothing else installs without it.** It installs, upgrades, configures and adopts the framework, and carries the secure-isolation skills that sandbox your agent. |
+| `magpie-agent-guard` | The deterministic pre-execution guard — a hook that inspects each shell command before it runs and denies the dangerous shapes outright. Not a family; a safety net under everything else. |
+| `magpie-utilities` | `list-skills` and the rest of the small tools you reach for when you want to know what is actually installed. |
+
+These three are exactly the **floor** a project commits when it adopts Magpie,
+so taking them yourself is taking what a project would recommend to every
+contributor. Then add families against a problem you have today —
+[What each family solves](../quick-start/families.md) is the menu — and run the
+[secure-agent setup](../quick-start.md#step-3--lock-the-agent-down), which is
+part of setting up rather than a later hardening pass.
 
 ## Claude Code
 
-Add the marketplace, then install the families you want:
+Add the marketplace, then install the baseline and whichever families you want:
 
 ```text
 /plugin marketplace add apache/magpie
 /plugin install magpie-setup@apache-magpie
+/plugin install magpie-agent-guard@apache-magpie
+/plugin install magpie-utilities@apache-magpie
 /plugin install magpie-pr-management@apache-magpie
 ```
 
@@ -52,16 +67,31 @@ landed with `/plugin`.
 To track a released version instead of `main`, add the marketplace from a tag:
 `/plugin marketplace add apache/magpie@0.2.0`.
 
+**After `magpie-setup` is in, you never have to type these again.** Ask for
+the rest in plain language and the setup skill runs the installs for you:
+
+> install the Magpie families for PR review and release management
+
+or call it by name — `/magpie-setup:install`. Both take you through the same
+picker and the same install. The commands above are the bootstrap, needed only
+because nothing is installed yet to hear the request.
+
 ## OpenAI Codex CLI
 
 ```bash
 codex plugin marketplace add apache/magpie
 codex plugin install magpie-setup
+codex plugin install magpie-agent-guard
+codex plugin install magpie-utilities
 ```
 
-`magpie-setup` installs by default when you add the marketplace, so the second
-command is only needed if you removed it. Add further families the same way.
-Verify with `/plugins` inside Codex, or `codex plugin list` from the shell.
+`magpie-setup` installs by default when you add the marketplace, so its line is
+only needed if you removed it; the other two baseline plugins are not, so take
+them here. Add further families the same way. Verify with `/plugins` inside
+Codex, or `codex plugin list` from the shell.
+
+Once the baseline is in, ask for the rest in plain language — *install the
+Magpie families for PR review* — or invoke the skill by name.
 
 ## VS Code / GitHub Copilot
 
@@ -82,8 +112,12 @@ individual families from it.
 gemini extensions install https://github.com/apache/magpie
 ```
 
-Verify with `gemini extensions list`; update with
-`gemini extensions update magpie`.
+Gemini installs Magpie as one extension rather than per-plugin, so the
+baseline arrives with it and there is nothing further to pick. Verify with
+`gemini extensions list`; update with `gemini extensions update magpie`.
+
+From then on, ask in plain language — *set up Magpie for this project* — or
+name the skill: `Use the magpie-setup skill.`
 
 ## Cursor
 

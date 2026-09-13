@@ -22,29 +22,34 @@
   Written by tools/dev/render-wizard.py. Illustrative of the shape of a
   run, not a recording of one.
 -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 664 424"
-     width="664" height="424" role="img"
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 685 592"
+     width="685" height="592" role="img"
      data-magpie-generated="render-wizard"
      aria-label="An animated marketplace install: adding apache-magpie, then installing magpie-setup and one family, with nothing written to the repository">
   <title>Step 1 — install from the marketplace</title>
   <desc>Illustrative animation of the marketplace install step. Not a recording.</desc>
-  <rect width="664" height="424" rx="10" fill="#1d1f21"/>
-  <rect x="0" y="0" width="664" height="34" rx="10" fill="#2b2e31"/>
-  <rect x="0" y="24" width="664" height="10" fill="#2b2e31"/>
+  <rect width="685" height="592" rx="10" fill="#1d1f21"/>
+  <rect x="0" y="0" width="685" height="34" rx="10" fill="#2b2e31"/>
+  <rect x="0" y="24" width="685" height="10" fill="#2b2e31"/>
   <circle cx="22" cy="17" r="6" fill="#3f4448"/>
   <circle cx="44" cy="17" r="6" fill="#3f4448"/>
   <circle cx="66" cy="17" r="6" fill="#3f4448"/>
   <g font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="17" xml:space="preserve">
-    <text x="26" y="80" fill="#8abeb7" opacity="0">&gt; /plugin marketplace add apache/magpie<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.0000;0.0010;1" dur="6.0s" repeatCount="indefinite"/></text>
-    <text x="26" y="128" fill="#7f9f7f" opacity="0">  ✓ apache-magpie added<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.0633;0.0643;1" dur="6.0s" repeatCount="indefinite"/></text>
-    <text x="26" y="176" fill="#8abeb7" opacity="0">&gt; /plugin install magpie-setup@apache-magpie<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.1267;0.1277;1" dur="6.0s" repeatCount="indefinite"/></text>
-    <text x="26" y="200" fill="#7f9f7f" opacity="0">  ✓ magpie-setup        install this one first - nothing<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.1900;0.1910;1" dur="6.0s" repeatCount="indefinite"/></text>
-    <text x="26" y="224" fill="#8a8f94" opacity="0">                        else installs or upgrades without it<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.2533;0.2543;1" dur="6.0s" repeatCount="indefinite"/></text>
-    <text x="26" y="272" fill="#8abeb7" opacity="0">&gt; /plugin install magpie-pr-management@apache-magpie<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.3167;0.3177;1" dur="6.0s" repeatCount="indefinite"/></text>
-    <text x="26" y="296" fill="#7f9f7f" opacity="0">  ✓ magpie-pr-management   the family you picked<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.3800;0.3810;1" dur="6.0s" repeatCount="indefinite"/></text>
-    <text x="26" y="344" fill="#8a8f94" opacity="0">  Nothing was written to this repository, and your teammates<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.4433;0.4443;1" dur="6.0s" repeatCount="indefinite"/></text>
-    <text x="26" y="368" fill="#8a8f94" opacity="0">  are unaffected. On another agent it is one command each -<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.5067;0.5077;1" dur="6.0s" repeatCount="indefinite"/></text>
-    <text x="26" y="392" fill="#8a8f94" opacity="0">  see the prerequisite page.<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.5700;0.5710;1" dur="6.0s" repeatCount="indefinite"/></text>
-    <rect x="26" y="379" width="10" height="17" fill="#c5c8c6"><animate attributeName="opacity" values="1;1;0;0;1" dur="1.2s" repeatCount="indefinite"/></rect>
+    <text x="26" y="80" fill="#8abeb7" opacity="0">&gt; /plugin marketplace add apache/magpie<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.0000;0.0010;1" dur="7.9s" repeatCount="indefinite"/></text>
+    <text x="26" y="128" fill="#7f9f7f" opacity="0">  ✓ apache-magpie added<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.0481;0.0491;1" dur="7.9s" repeatCount="indefinite"/></text>
+    <text x="26" y="176" fill="#8abeb7" opacity="0">&gt; /plugin install magpie-setup@apache-magpie<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.0962;0.0972;1" dur="7.9s" repeatCount="indefinite"/></text>
+    <text x="26" y="200" fill="#7f9f7f" opacity="0">  ✓ magpie-setup          install this one first - nothing<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.1443;0.1453;1" dur="7.9s" repeatCount="indefinite"/></text>
+    <text x="26" y="224" fill="#8a8f94" opacity="0">                          else installs or upgrades without it<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.1924;0.1934;1" dur="7.9s" repeatCount="indefinite"/></text>
+    <text x="26" y="272" fill="#8abeb7" opacity="0">&gt; /plugin install magpie-agent-guard@apache-magpie<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.2405;0.2415;1" dur="7.9s" repeatCount="indefinite"/></text>
+    <text x="26" y="296" fill="#7f9f7f" opacity="0">  ✓ magpie-agent-guard    denies dangerous shell shapes before<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.2886;0.2896;1" dur="7.9s" repeatCount="indefinite"/></text>
+    <text x="26" y="320" fill="#8a8f94" opacity="0">                          they run<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.3367;0.3377;1" dur="7.9s" repeatCount="indefinite"/></text>
+    <text x="26" y="368" fill="#8abeb7" opacity="0">&gt; /plugin install magpie-utilities@apache-magpie<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.3848;0.3858;1" dur="7.9s" repeatCount="indefinite"/></text>
+    <text x="26" y="392" fill="#7f9f7f" opacity="0">  ✓ magpie-utilities      list-skills, and the small tools<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.4329;0.4339;1" dur="7.9s" repeatCount="indefinite"/></text>
+    <text x="26" y="440" fill="#8abeb7" opacity="0">&gt; /plugin install magpie-pr-management@apache-magpie<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.4810;0.4820;1" dur="7.9s" repeatCount="indefinite"/></text>
+    <text x="26" y="464" fill="#7f9f7f" opacity="0">  ✓ magpie-pr-management  the family you picked<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.5291;0.5301;1" dur="7.9s" repeatCount="indefinite"/></text>
+    <text x="26" y="512" fill="#8a8f94" opacity="0">  The first three are the baseline - the same set a project<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.5772;0.5782;1" dur="7.9s" repeatCount="indefinite"/></text>
+    <text x="26" y="536" fill="#8a8f94" opacity="0">  commits when it adopts. Nothing was written to this<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.6253;0.6263;1" dur="7.9s" repeatCount="indefinite"/></text>
+    <text x="26" y="560" fill="#8a8f94" opacity="0">  repository, and your teammates are unaffected.<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.6734;0.6744;1" dur="7.9s" repeatCount="indefinite"/></text>
+    <rect x="26" y="547" width="10" height="17" fill="#c5c8c6"><animate attributeName="opacity" values="1;1;0;0;1" dur="1.2s" repeatCount="indefinite"/></rect>
   </g>
 </svg>

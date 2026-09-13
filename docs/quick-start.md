@@ -21,7 +21,7 @@
 
 # Quick start
 
-![Three install commands, then a triage run: 38 open PRs, 12 untriaged, with a proposed action for each and a confirmation prompt](../assets/quickstart/install.svg)
+![The baseline three plugins and one family installed, then a triage run: 38 open PRs, 12 untriaged, with a proposed action for each and a confirmation prompt](../assets/quickstart/install.svg)
 
 *Illustrative. The whole of it: install, run a skill, get an answer you confirm.*
 
@@ -67,20 +67,30 @@ with it.
 Installing is a **one-time, per-machine** step for whichever agent you use. It
 writes nothing to any repository and your teammates are unaffected.
 
-![Adding the apache-magpie marketplace, then installing magpie-setup and one family, with nothing written to the repository](../assets/quickstart/step-install.svg)
+![Adding the apache-magpie marketplace, then installing the baseline — magpie-setup, magpie-agent-guard, magpie-utilities — and one family, with nothing written to the repository](../assets/quickstart/step-install.svg)
 
 → [**Prerequisite: install Magpie from your agent's
 marketplace**](setup/marketplace-install.md) has the commands, one section per
 agent: Claude Code, OpenAI Codex CLI, VS Code / GitHub Copilot, Google Gemini
 CLI, Cursor, `microsoft/apm`, and JetBrains IDEs.
 
-Take **`magpie-setup`** always — it carries the secure-isolation skills from
-[Step 3](#step-3--lock-the-agent-down) and is what adopts and upgrades the
-framework. Then add **one plugin per family you actually want**, against a
-problem you have today; you can install more at any time.
+**Take the baseline — three plugins, strongly recommended on every machine:**
 
-Pick them from [What each family solves](quick-start/families.md) — the ten
-families, with the problem each one solves.
+- **`magpie-setup`** — install this one first; nothing else installs, upgrades,
+  configures or adopts without it, and it carries the secure-isolation skills
+  from [Step 3](#step-3--lock-the-agent-down).
+- **`magpie-agent-guard`** — the deterministic pre-execution guard, a hook that
+  inspects each shell command before it runs and denies the dangerous shapes.
+- **`magpie-utilities`** — `list-skills` and the small tools you reach for when
+  you want to know what is actually installed.
+
+Those three are exactly the **floor** a project commits when it adopts Magpie,
+so taking them is taking what a project would recommend to every contributor.
+
+Then add **one plugin per family you actually want**, against a problem you
+have today; you can install more at any time. Pick them from
+[What each family solves](quick-start/families.md) — the ten families, with the
+problem each one solves.
 
 Each family's README opens with an **Install & first runs** section — the one
 command for that family and a few things to try once it is in:
@@ -131,11 +141,23 @@ intends to carry out, and waits:
 /magpie-setup
 ```
 
-![A `/magpie-setup` run in Claude Code: the marketplace install, then the skill detecting the checkout, printing the method and plan it intends to carry out, and waiting for approval before writing anything](../assets/quickstart/magpie-setup.svg)
+**Or just ask for it.** Magpie's skills are model-invoked, so the slash form is
+a shortcut, never the only way in — every step on this page has a plain-language
+equivalent that works on every harness, including the ones with no slash
+commands at all:
+
+> set Magpie up for this project
+
+Both reach the same skill. Use whichever you prefer; this page shows the slash
+form first because it is unambiguous, and the sentence beside it because that
+is what most people actually type.
+
+![A `/magpie-setup` run in Claude Code: the picker with the baseline three already ticked, the plugins installed for the user, then the secure-agent setup proposing its changes and waiting for approval before writing anything](../assets/quickstart/magpie-setup.svg)
 
 Nothing is written before you approve it. Afterwards, `/magpie-setup verify`
-re-runs the health check and drift detection, and `/magpie-setup:status`
-prints what is currently installed.
+(*check that Magpie is set up correctly here*) re-runs the health check and
+drift detection, and `/magpie-setup:status` (*what Magpie do I have
+installed?*) prints what is currently installed.
 
 Not sure you need this step? [Installation or Adoption?](quick-start/two-ways.md)
 draws the line.
@@ -166,9 +188,13 @@ links to all ten.
 
 ### Step 3 — lock the agent down
 
-Part of setting up, not an afterthought. Magpie's skills read issues,
-pre-disclosure security reports, and private mailing lists, so the isolation
-and privacy layers belong in place before you point a skill at anything real.
+**Part of the default setup, not a later hardening pass.** Magpie's skills read
+issues, pre-disclosure security reports, and private mailing lists, so the
+isolation and privacy layers belong in place before you point a skill at
+anything real. Treat this step as finishing the install: `magpie-agent-guard`
+from [Step 1](#step-1--install-from-the-apache-magpie-marketplace) guards each
+command deterministically, and this step is what sandboxes the process around
+it.
 
 Installing skills and configuring your host's isolation are separate steps,
 and what the second one looks like depends on the agent you run:
@@ -182,12 +208,15 @@ and what the second one looks like depends on the agent you run:
 
 ![The secure-agent setup: three proposed changes, a confirmation, then the sandbox, the clean environment and the status line in place](../assets/quickstart/step-isolation.svg)
 
-On Claude Code, the first skill worth running is the one that locks the agent
-down:
+On Claude Code, the first skill to run is the one that locks the agent down:
 
 ```text
 /magpie-setup:isolated-setup-install
 ```
+
+or, in plain language:
+
+> lock my agent down with Magpie's secure setup
 
 It walks you through the install interactively and surfaces every sudo,
 shell-rc, and settings-file change for approval before applying it. When it
@@ -204,8 +233,8 @@ finishes, your agent runs with:
 ![Sandboxed session: status-line prefix `[sandbox]` rendered green](../assets/session-sandboxed.png)
 
 Green `[sandbox]` in the footer is the steady state. Confirm the whole
-install with `/magpie-setup:isolated-setup-verify`, which reports ✓/✗/⚠
-for every piece.
+install with `/magpie-setup:isolated-setup-verify` — *check my agent isolation*
+— which reports ✓/✗/⚠ for every piece.
 
 → Full walkthrough: [`setup/secure-agent-setup.md`](setup/secure-agent-setup.md).
 Why each layer exists: [`setup/secure-agent-internals.md`](setup/secure-agent-internals.md).
@@ -232,7 +261,8 @@ or call a skill by name. A marketplace install namespaces skills under the
 /magpie-security:issue-triage
 ```
 
-`/magpie-utilities:list-skills` prints everything that is installed.
+`/magpie-utilities:list-skills` — *what Magpie skills do I have?* — prints
+everything that is installed.
 
 ---
 
@@ -256,6 +286,10 @@ the whole thing in a PR.
 Worth doing once the project — not one maintainer — agrees on what it wants to
 recommend. It obliges nobody: a contributor who would rather not use Magpie at
 all is unaffected.
+
+The command is `/magpie-setup adopt`, or ask for it — *adopt Magpie for this
+repository so everyone gets it on clone*. Nothing runs it for you: unlike
+configuration, adoption is never automatic.
 
 → [**Team adoption**](setup/team-adoption.md) is the full walkthrough: what
 gets committed, how the floor is chosen, and what a contributor sees on clone.

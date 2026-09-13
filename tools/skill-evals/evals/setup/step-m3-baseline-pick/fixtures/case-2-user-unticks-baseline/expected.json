@@ -1,0 +1,1 @@
+{"pre_ticked": ["magpie-setup", "magpie-agent-guard", "magpie-utilities", "magpie-release-management"], "install_set": ["magpie-setup", "magpie-release-management"], "prompted": true, "unremovable": ["magpie-setup"]}

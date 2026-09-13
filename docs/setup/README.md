@@ -69,7 +69,7 @@ This family is what the other nine defer to. `/magpie-setup` works out how
 Magpie should be wired into the checkout in front of it, prints the plan, and
 waits — the same run the quick start opens with:
 
-![A `/magpie-setup` run in Claude Code: the marketplace install, then the skill detecting the checkout, printing the method and plan it intends to carry out, and waiting for approval before writing anything](../../assets/quickstart/magpie-setup.svg)
+![A `/magpie-setup` run in Claude Code: the picker with the baseline three already ticked, the plugins installed for the user, then the secure-agent setup proposing its changes and waiting for approval before writing anything](../../assets/quickstart/magpie-setup.svg)
 
 Nothing is written before you approve it.
 
