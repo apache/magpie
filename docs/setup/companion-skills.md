@@ -88,15 +88,30 @@ Ships a plugin manifest per harness and one shared skills/ tree, the same shape 
 
 **Claude Code**
 
+First point Claude Code at the marketplace this package is published in. It is **not** Magpie's — adding it is a trust decision, so it is a step of its own:
+
 ```text
 /plugin marketplace add obra/superpowers-marketplace
+```
+
+Then:
+
+```text
 /plugin install superpowers@superpowers-marketplace
 ```
 
 **OpenAI Codex CLI**
 
+First point OpenAI Codex CLI at the marketplace this package is published in. It is **not** Magpie's — adding it is a trust decision, so it is a step of its own:
+
 ```text
 codex plugin marketplace add obra/superpowers-marketplace
+```
+
+Then:
+
+```text
+codex plugin install superpowers
 ```
 
 **VS Code / GitHub Copilot**

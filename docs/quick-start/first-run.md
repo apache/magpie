@@ -182,6 +182,13 @@ The install flow offers them, **never pre-ticked**, and only the ones
 available on the agent you are running: a package that exists for Claude Code
 alone is not offered to a Codex user with a command they cannot run.
 
+Some of them live in a marketplace that is **not** Magpie's — Superpowers is
+published in `obra/superpowers-marketplace`. Taking one of those means adding
+that catalogue to your agent, for everything in it and not only the package
+you wanted, so the offer says so and the marketplace add is a step of its own.
+Magpie never adds one for you: these are commands you run, exactly like the
+Magpie install lines.
+
 None of them is a dependency. Every family works with none installed, Magpie
 bundles none and fetches none automatically, and each entry says whose it is
 so the choice stays yours.

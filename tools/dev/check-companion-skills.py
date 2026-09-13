@@ -63,6 +63,14 @@ HARNESSES = {
     "opencode": "OpenCode",
 }
 
+# How each harness is pointed at a catalogue it does not already have. A
+# harness absent from this map has no marketplace concept -- it installs
+# straight from a URL -- so an entry naming one for it is a mistake.
+MARKETPLACE_ADD = {
+    "claude-code": "/plugin marketplace add {src}",
+    "codex": "codex plugin marketplace add {src}",
+}
+
 REQUIRED_FIELDS = {"id", "title", "vendor", "url", "what", "why", "harnesses"}
 
 
@@ -107,12 +115,28 @@ def load() -> tuple[list[dict], list[str]]:
         if not isinstance(entry["harnesses"], dict) or not entry["harnesses"]:
             errors.append(f"{REGISTRY}: '{cid}' names no harness it is available on")
             continue
-        for harness in entry["harnesses"]:
+        for harness, spec in entry["harnesses"].items():
             if harness not in HARNESSES:
                 errors.append(
                     f"{REGISTRY}: '{cid}' names harness '{harness}', which is not one "
                     f"Magpie documents an install for ({', '.join(sorted(HARNESSES))})"
                 )
+                continue
+            if not isinstance(spec, dict) or "install" not in spec or "marketplace" not in spec:
+                errors.append(
+                    f"{REGISTRY}: '{cid}' on '{harness}' must carry both 'install' and "
+                    f"'marketplace' (null when there is none to add) — the install flow "
+                    f"asks about the marketplace separately"
+                )
+                continue
+            src = spec["marketplace"]
+            if src is not None and harness not in MARKETPLACE_ADD:
+                errors.append(
+                    f"{REGISTRY}: '{cid}' names a marketplace for '{harness}', which has "
+                    f"no marketplace to add — it installs from a URL"
+                )
+            if src is not None and "/" not in str(src):
+                errors.append(f"{REGISTRY}: '{cid}' marketplace {src!r} is not an owner/repo source")
         if not str(entry["url"]).startswith("https://"):
             errors.append(f"{REGISTRY}: '{cid}' url is not https")
     return entries, errors
@@ -148,6 +172,14 @@ def render(family: str, entries: list[dict]) -> str:
             lines += [f"Available on **{available[0]}** only.", ""]
         else:
             lines += [f"Available on {', '.join(f'**{a}**' for a in available)}.", ""]
+        third_party = sorted({s["marketplace"] for s in entry["harnesses"].values() if s.get("marketplace")})
+        if third_party:
+            lines += [
+                f"Installing it means first adding a marketplace Magpie does not "
+                f"publish — `{third_party[0]}`. The install flow asks before it does, "
+                f"and names whose it is.",
+                "",
+            ]
         if note := entry.get("note"):
             lines += [f"{note}", ""]
 
@@ -218,7 +250,23 @@ def reference_page(entries: list[dict]) -> str:
         for key, label in HARNESSES.items():
             if key not in entry["harnesses"]:
                 continue
-            lines += [f"**{label}**", "", "```text", entry["harnesses"][key], "```", ""]
+            spec = entry["harnesses"][key]
+            lines += [f"**{label}**", ""]
+            src = spec.get("marketplace")
+            if src:
+                lines += [
+                    f"First point {label} at the marketplace this package is published "
+                    f"in. It is **not** Magpie's — adding it is a trust decision, so it "
+                    f"is a step of its own:",
+                    "",
+                    "```text",
+                    MARKETPLACE_ADD[key].format(src=src),
+                    "```",
+                    "",
+                    "Then:",
+                    "",
+                ]
+            lines += ["```text", spec["install"], "```", ""]
         missing = [HARNESSES[k] for k in HARNESSES if k not in entry["harnesses"]]
         if missing:
             lines += [

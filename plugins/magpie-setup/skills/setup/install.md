@@ -814,20 +814,60 @@ detail; install is walked in [Step 9c](#step-9c--comdev-mcp-prerequisites-asf-pr
 
 **Companion skill packages** (third-party, none required —
 [`docs/setup/companion-skills.md`](../../../../docs/setup/companion-skills.md)
-carries the per-agent install commands):
+is the registry, with an `install` and a `marketplace` per
+harness):
 
-- Read that page's entries for the families the operator just
+- Read the entries whose `why` names a family the operator just
   picked, and offer only the ones whose `harnesses` include the
   agent detected in Step M2. Naming a package the operator
   cannot install on their agent is worse than naming none.
-- Say what each adds **to that family**, and that Magpie
-  bundles none of them, fetches none automatically, and works
-  without all of them. This is the one group where the framework
-  is pointing at someone else's tool, so it points rather than
-  recommends.
+- Say what each adds **to that family**, whose it is, and that
+  Magpie bundles none of them, fetches none automatically, and
+  works without all of them. This is the one group where the
+  framework points at someone else's tool, so it points rather
+  than recommends.
+- **Name the marketplace in the offer itself** when the entry
+  carries a non-null `marketplace`. Installing that package
+  means adding a catalogue Magpie does not publish, and an
+  operator who ticks a box labelled only with a package name has
+  not agreed to that. Word it as what it is — *"this one lives
+  in `<owner/repo>`, which is not Magpie's; taking it adds that
+  marketplace to your agent"*.
 - Pre-tick **nothing**. The families and MCP servers above are
   what the operator asked for; these are a suggestion, and a
   pre-ticked suggestion is an install nobody chose.
+
+**For each companion the operator accepted**, emit the commands
+in this order, as two labelled steps rather than one block:
+
+1. **Add the marketplace** — only when `marketplace` is non-null,
+   and only once per marketplace however many packages come from
+   it. Say whose it is on the line above the command.
+2. **Install the package** — that harness's `install` value,
+   verbatim from the registry.
+
+```text
+# superpowers is published in obra/superpowers-marketplace, which is
+# not Magpie's marketplace. Adding it points your agent at that
+# catalogue for everything in it, not only this package.
+/plugin marketplace add obra/superpowers-marketplace
+
+/plugin install superpowers@superpowers-marketplace
+```
+
+A companion whose `marketplace` is null needs no first step: it
+is either in a catalogue the agent already has — Claude Code adds
+the official one on first run — or that harness installs straight
+from a URL. Say which, in one clause, rather than leaving the
+absence unexplained.
+
+**Never run any of these.** They are commands for the operator to
+run in their own session, exactly like the Magpie install lines
+above. The framework does not add a third-party marketplace on
+anybody's behalf, and the rule that auto-install stays inside
+`apache/magpie`
+([`locks.md`](locks.md#url-is-a-security-boundary)) is the same
+rule reaching this surface.
 
 **Prefer structured Q&A.** When the harness offers a
 structured-question tool, use **one** *multi-select* prompt with
@@ -851,7 +891,10 @@ exclusive. Pre-selection:
   `release-management`). For a non-ASF project, pre-tick nothing.
 - *Companion skills* — pre-tick nothing, ever. List only the
   packages available on the detected agent, each with one line
-  saying what it adds to a family the operator selected.
+  saying what it adds to a family the operator selected and,
+  where the entry names a `marketplace`, that taking it adds
+  that third-party catalogue to their agent. A tick here is
+  consent to both; a label that mentions only the package is not.
 
 SUBSEQUENT adoption: re-use the opt-in families recorded in
 `<committed-lock>` / `<local-lock>` and the already-registered

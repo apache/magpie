@@ -89,6 +89,8 @@ A skills library and development methodology: brainstorming, plan writing, subag
 
 Available on **Claude Code**, **OpenAI Codex CLI**, **VS Code / GitHub Copilot**, **Google Gemini CLI**, **Cursor**, **OpenCode**.
 
+Installing it means first adding a marketplace Magpie does not publish — `obra/superpowers-marketplace`. The install flow asks before it does, and names whose it is.
+
 Ships a plugin manifest per harness and one shared skills/ tree, the same shape Magpie uses, so it is not a Claude Code-only package.
 
 Install commands per agent are in
