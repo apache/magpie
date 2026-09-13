@@ -6,6 +6,7 @@
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
 - [Quick start](#quick-start)
+  - [Two ways to use Magpie](#two-ways-to-use-magpie)
   - [Step 1 — install from your agent's marketplace](#step-1--install-from-your-agents-marketplace)
     - [Claude Code](#claude-code)
     - [OpenAI Codex CLI](#openai-codex-cli)
@@ -16,8 +17,7 @@
   - [Step 2b — lock the agent down](#step-2b--lock-the-agent-down)
   - [Step 3 — use it](#step-3--use-it)
   - [What each family solves](#what-each-family-solves)
-  - [Two ways to use Magpie](#two-ways-to-use-magpie)
-    - [Install methods](#install-methods)
+  - [Install methods](#install-methods)
     - [Fallback — the pinned snapshot install](#fallback--the-pinned-snapshot-install)
     - [Working on Magpie itself — self-adoption](#working-on-magpie-itself--self-adoption)
   - [Cross-references](#cross-references)
@@ -31,9 +31,10 @@ commands: one to add the marketplace, one per family you want. Nothing is
 committed to your repository, and nothing is changed in it.
 
 **This install is yours, on this machine.** It needs no decision from your
-project and no opt-in from your teammates — see
-[two ways to use Magpie](#two-ways-to-use-magpie) if you are wondering
-which is which.
+project and no opt-in from your teammates. Committing anything for other
+people is a separate act called **adoption** —
+[two ways to use Magpie](#two-ways-to-use-magpie), directly below, draws the
+line.
 
 **What you get.** 74 skills your agent can run, grouped into 10 **families** —
 PR triage and review, issue triage, security-report handling, release
@@ -41,6 +42,39 @@ management, contributor mentoring. Install only the families you need; each one
 you add costs context in every session —
 [what each family solves](quick-start/families.md) lists all ten, after the
 install steps.
+
+---
+
+## Two ways to use Magpie
+
+**Installing** puts the marketplace and the plugins into your agent and writes
+nothing to any repository. That is what the steps below do, it is complete on
+its own, and it is all most people ever need.
+
+From here the two ways to use it differ in one thing only — whether anything is
+committed for other people.
+
+| | [**Individual use**](setup/individual-use.md) | [**Team adoption**](setup/team-adoption.md) |
+|---|---|---|
+| Who decides | You | The repo's maintainers |
+| What it commits | Nothing | The default plugin set, and the repo's shared overrides |
+| Which repos | Any — adopted or not, whether or not your teammates use Magpie | The one repo, for everyone who clones it |
+| What a teammate sees | Nothing at all | The default families already enabled on arrival |
+| Undone by | You, any time | A maintainer, via a PR |
+
+**Individual use is the default, and it is not a waiting room.** You can work
+this way indefinitely, on a repo whose maintainers have never heard of Magpie.
+Nothing on this page asks the project for permission.
+
+**Adoption is a recommendation, not a restriction.** A repo that has adopted
+Magpie gives contributors a sensible floor on clone — it never limits what
+anyone may install for themselves, and it never obliges a contributor to use
+what it recommends.
+
+Neither one is an install method. Installing is what the steps below do; these
+are what you then do with it. Start at Step 1 either way — **adoption**
+([`setup/team-adoption.md`](setup/team-adoption.md)) is a later, separate act by
+the repo's maintainers, and nothing in the steps below requires it.
 
 ---
 
@@ -82,7 +116,7 @@ command for that family and a few things to try once it is in:
 [mentoring](mentoring/README.md#install--first-runs) ·
 [pairing](pairing/README.md#install--first-runs)
 
-#### Optional: commit a default set for your teammates
+#### Optional: adopt Magpie for your teammates
 
 Everything above installs Magpie for **you, on this machine** — nothing is
 written to the repository, and your teammates are unaffected.
@@ -90,8 +124,10 @@ written to the repository, and your teammates are unaffected.
 A project can go one step further and commit a small block to its
 `.claude/settings.json` naming the marketplace and three plugins, so anyone who
 clones the repo and trusts it arrives with `magpie-setup`, `magpie-utilities`
-and `magpie-agent-guard` already enabled. `/magpie-setup` offers to write it —
-see [the default set](setup/marketplace.md#claude-code-the-default-set).
+and `magpie-agent-guard` already enabled. Committing that block is **adoption**:
+[`/magpie-setup adopt`](setup/team-adoption.md) writes it, alongside the
+committed floor and the repo's shared overrides — see
+[the default set](setup/marketplace.md#claude-code-the-default-set).
 
 **This is entirely optional.** The plugins work in the repo whether or not the
 block is committed, and a project that never commits it is not missing
@@ -162,8 +198,9 @@ This path is not yet live-installed either — see
 The marketplace install above is complete on its own: the skills are in your
 agent and you can start using them. `/magpie-setup` is what you run next when
 you want Magpie wired into a **project** rather than only into your own agent —
-a committed version pin, project config, overrides, or the optional default set
-for your teammates.
+a committed floor, project config, or overrides. Committing those for everyone
+who clones the repo is **adoption** —
+[`setup/team-adoption.md`](setup/team-adoption.md).
 
 One command. It works out which method fits this checkout, prints the plan it
 intends to carry out, and waits:
@@ -275,36 +312,7 @@ have today.
 
 ---
 
-## Two ways to use Magpie
-
-What you did above is **install** it: the marketplace and the plugins went into
-your agent, and nothing was written to any repository. That install is complete
-on its own, and it is all most people ever need.
-
-From here the two ways to use it differ in one thing only — whether anything is
-committed for other people.
-
-| | [**Individual use**](setup/individual-use.md) | [**Team adoption**](setup/team-adoption.md) |
-|---|---|---|
-| Who decides | You | The repo's maintainers |
-| What it commits | Nothing | The default plugin set, and the repo's shared overrides |
-| Which repos | Any — adopted or not, whether or not your teammates use Magpie | The one repo, for everyone who clones it |
-| What a teammate sees | Nothing at all | The default families already enabled on arrival |
-| Undone by | You, any time | A maintainer, via a PR |
-
-**Individual use is the default, and it is not a waiting room.** You can work
-this way indefinitely, on a repo whose maintainers have never heard of Magpie.
-Nothing on this page asks the project for permission.
-
-**Adoption is a recommendation, not a restriction.** A repo that has adopted
-Magpie gives contributors a sensible floor on clone — it never limits what
-anyone may install for themselves, and it never obliges a contributor to use
-what it recommends.
-
-Neither one is an install method. Installing is what you already did; these are
-what you do with it.
-
-### Install methods
+## Install methods
 
 Separately from the above, the framework can *reach* your agent by more than
 one route:
