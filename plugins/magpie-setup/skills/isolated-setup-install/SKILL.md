@@ -618,15 +618,15 @@ different caller.
 state means. This is the one piece of the install they will see on
 every render afterwards, so a wrong reading here persists:
 
-![A session where /sandbox reports "Sandbox enabled with auto-allow for bash commands": the terminal footer opens with a yellow `[sandbox-auto]` tag, followed by the project, the branch and the model](../../../../assets/session-sandboxed.png)
-
 | Tag | Means |
 |---|---|
 | `[sandbox]` green | sandboxed, and still prompting per command |
 | `[sandbox-auto]` yellow | sandboxed, **not** prompting per command — auto-allow; wider blast radius, which is why it is not green |
 | `[NO SANDBOX]` bold red | not sandboxed; the state this install exists to make impossible to miss |
 
-![A session after /sandbox reports "Sandbox disabled": the footer opens with a bold-red `[NO SANDBOX]` tag ahead of the project, branch and model](../../../../assets/session-no-sandbox.png)
+Captures of each are in
+[*What a session looks like*](../../../../docs/setup/secure-agent-setup.md#what-a-session-looks-like);
+point the operator there rather than describing the colours twice.
 
 Two things to say explicitly, because both are counter-intuitive:
 
