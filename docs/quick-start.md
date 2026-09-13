@@ -7,15 +7,15 @@
 
 - [Quick start](#quick-start)
   - [Two ways to use Magpie](#two-ways-to-use-magpie)
-  - [Step 1 — install from the Apache Magpie Marketplace](#step-1--install-from-the-apache-magpie-marketplace)
+  - [Install from the Apache Magpie Marketplace](#install-from-the-apache-magpie-marketplace)
     - [Claude Code](#claude-code)
     - [OpenAI Codex CLI](#openai-codex-cli)
     - [VS Code / GitHub Copilot](#vs-code--github-copilot)
     - [Google Gemini CLI](#google-gemini-cli)
-  - [Step 2 — run `/magpie-setup`](#step-2--run-magpie-setup)
+  - [Run `/magpie-setup`](#run-magpie-setup)
     - [Every skill configures itself on first use](#every-skill-configures-itself-on-first-use)
-  - [Step 2b — lock the agent down](#step-2b--lock-the-agent-down)
-  - [Step 3 — use it](#step-3--use-it)
+  - [Lock the agent down](#lock-the-agent-down)
+  - [Use it](#use-it)
   - [What each family solves](#what-each-family-solves)
   - [Install methods](#install-methods)
     - [Fallback — the pinned snapshot install](#fallback--the-pinned-snapshot-install)
@@ -58,7 +58,7 @@ people — and you do not have to choose before installing.
 
 ---
 
-## Step 1 — install from the Apache Magpie Marketplace
+## Install from the Apache Magpie Marketplace
 
 Pick your agent. Every path uses the
 [`apache/magpie`](https://github.com/apache/magpie) repository directly as
@@ -75,7 +75,7 @@ Add the marketplace, then install **one plugin per family you actually want**:
 ```
 
 `magpie-setup` is the one to always take — it carries the secure-isolation
-skills from [Step 2b](#step-2b--lock-the-agent-down).
+skills from [Lock the agent down](#lock-the-agent-down).
 Add the rest to match a problem you have today; you can install more at any
 time.
 
@@ -173,7 +173,7 @@ This path is not yet live-installed either — see
 
 ---
 
-## Step 2 — run `/magpie-setup`
+## Run `/magpie-setup`
 
 The marketplace install above is complete on its own: the skills are in your
 agent and you can start using them. `/magpie-setup` is what you run next when
@@ -224,7 +224,7 @@ links to all ten.
 
 ---
 
-## Step 2b — lock the agent down
+## Lock the agent down
 
 Part of setting up, not an afterthought. Magpie's skills read issues,
 pre-disclosure security reports, and private mailing lists, so the isolation
@@ -261,7 +261,7 @@ How your data reaches a model, and what never leaves the machine:
 
 ---
 
-## Step 3 — use it
+## Use it
 
 Ask in plain language:
 

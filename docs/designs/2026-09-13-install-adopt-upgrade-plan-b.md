@@ -160,7 +160,7 @@ Generated-by: Claude Opus 5"
 
 - [ ] **Step 1: Replace Step 1's command blocks with a pointer**
 
-`## Step 1 — install from the Apache Magpie Marketplace` currently carries three
+`## Install from the Apache Magpie Marketplace` currently carries three
 `marketplace add` blocks across four harness subsections. Replace the whole
 section body with a short pointer to
 `setup/marketplace-install.md`, keeping:
@@ -171,22 +171,21 @@ section body with a short pointer to
   note **only if** they are not already on the new page. If they are, drop them
   here and link.
 
-Retitle to `## Step 1 — install it` so the heading no longer promises commands
-the section no longer carries. Check for inbound anchor references to
-`#step-1--install-from-the-apache-magpie-marketplace` across the repo first and
+Retitle so the heading no longer promises commands the section no longer
+carries. Check for inbound anchor references to
+`#install-from-the-apache-magpie-marketplace` across the repo first and
 rewrite them.
 
 - [ ] **Step 2: Promote the teammates block to a step**
 
 `#### Optional: adopt Magpie for your teammates` is a fourth-level heading
-inside Step 1. Promote it to `## Step 3 — adopt it for your project
-(optional)`, placed after `## Step 2b` and before the families pointer, and
+inside Step 1. Promote it to `## Adopt it for your project (optional)`, placed after
+`## Lock the agent down` and before the families pointer, and
 extend it with what the floor means — a minimum, never a ceiling, and what a
 contributor gets on clone. Link `setup/team-adoption.md` for the full walk.
 
-Renumber the remaining steps so the sequence reads 1, 2, 2b, 3, 4 — or
-renumber 2b to 3 and shift the rest, whichever leaves fewer inbound anchors
-broken. Check the anchors before choosing, and say which you chose and why.
+The walkthrough headings carry no step numbers, so nothing renumbers when a
+section is added or moved. Keep it that way.
 
 - [ ] **Step 3: Verify no marketplace add remains**
 

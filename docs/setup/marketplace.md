@@ -59,7 +59,7 @@ for the cases it does not cover.
 > for day-to-day use. What it does **not** set up on its own is the
 > repo-side machinery — the committed pin, the gitignored snapshot, drift
 > detection, agentic overrides — or the secure-agent setup, which you run
-> once as [`/magpie:setup-isolated-setup-install`](../quick-start.md#step-2b--lock-the-agent-down).
+> once as [`/magpie:setup-isolated-setup-install`](../quick-start.md#lock-the-agent-down).
 > When a project wants every contributor pinned to one committed version,
 > add the [pinned snapshot install](../quick-start/install-recipes.md) alongside it. The
 > two are complementary, not exclusive.
