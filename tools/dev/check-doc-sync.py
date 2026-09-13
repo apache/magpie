@@ -123,7 +123,7 @@ TOTAL_COUNT_FILES = (Path("docs/setup/marketplace.md"), Path("docs/quick-start.m
 
 # Files carrying a per-family marketplace-plugin table: a `magpie-<family>` row
 # with a bare skill count, and an all-in-one `magpie` row counting the lot.
-FAMILY_PLUGIN_FILES = (Path("docs/setup/marketplace.md"), Path("docs/quick-start.md"))
+FAMILY_PLUGIN_FILES = (Path("docs/setup/marketplace.md"), Path("docs/quick-start/families.md"))
 
 # Family README "Install & first runs" sections: the family is named by the
 # `/plugin install magpie-<family>@...` line, the count by the prose above it.

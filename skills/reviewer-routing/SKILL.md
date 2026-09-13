@@ -245,7 +245,7 @@ may defer.
   [`projects/_template/privacy-llm.md`](../../projects/_template/privacy-llm.md).
 
 See
-[Prerequisites for running the agent skills](../../docs/prerequisites.md#prerequisites-for-running-the-agent-skills)
+[Prerequisites for running the agent skills](../../docs/quick-start/prerequisites.md#prerequisites-for-running-the-agent-skills)
 for the overall setup.
 
 ---

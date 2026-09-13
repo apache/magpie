@@ -242,7 +242,7 @@ gap and proposes
 [`setup upgrade`](../setup/upgrade.md).
 The proposal is non-blocking — the user may defer if
 they want to run with the local snapshot for now. See
-[`docs/setup/install-recipes.md` § Subsequent runs and drift detection](../../docs/setup/install-recipes.md#subsequent-runs-and-drift-detection)
+[`docs/setup/install-recipes.md` § Subsequent runs and drift detection](../../docs/quick-start/install-recipes.md#subsequent-runs-and-drift-detection)
 for the full flow.
 
 Drift severity:
@@ -271,7 +271,7 @@ Before running, the skill needs:
   surfaces the missing draft as a follow-up the user must do
   manually before the close is fully complete.
 
-See [Prerequisites for running the agent skills](../../docs/prerequisites.md#prerequisites-for-running-the-agent-skills)
+See [Prerequisites for running the agent skills](../../docs/quick-start/prerequisites.md#prerequisites-for-running-the-agent-skills)
 in `docs/prerequisites.md` for overall setup and the
 [`claude_ai_mcp` (default) vs `oauth_curl` (opt-in) backend rule](../../tools/gmail/draft-backends.md#how-the-skills-pick-a-backend)
 for the Gmail draft path.

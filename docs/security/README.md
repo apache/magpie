@@ -211,6 +211,6 @@ Optional but commonly needed:
 ## Cross-references
 
 - [Top-level README — Install](../../README.md#install) — 3-step bootstrap.
-- [`docs/prerequisites.md`](../prerequisites.md) — what a security
+- [`docs/prerequisites.md`](../quick-start/prerequisites.md) — what a security
   triager / remediation developer / release manager needs
   installed before invoking any skill.

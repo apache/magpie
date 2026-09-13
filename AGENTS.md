@@ -62,7 +62,7 @@ and a project-template scaffold — and **no project-specific
 content**. Adopting projects fetch this repository as a gitignored
 **snapshot** at `<adopter-tracker>/.apache-magpie/` (managed by
 the [`setup`](skills/setup/SKILL.md) skill —
-see [`docs/setup/install-recipes.md`](docs/setup/install-recipes.md))
+see [`docs/setup/install-recipes.md`](docs/quick-start/install-recipes.md))
 and configure their project-specific bits alongside the snapshot
 in their adopter repo. The framework refers to that adopter-side
 configuration as `<project-config>`.

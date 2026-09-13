@@ -379,7 +379,7 @@ source of truth; this table mirrors it for a one-glance overview.
 
 Non-MCP backends fulfil the same contracts: JIRA is reached over REST
 and `gh` is the CLI fallback, both `contract:tracker`. See
-[`docs/prerequisites.md`](prerequisites.md) for connection setup.
+[`docs/prerequisites.md`](quick-start/prerequisites.md) for connection setup.
 
 **MCP servers are installed for the user, not the project.** They are
 registered at **user scope** (`claude mcp add … -s user`), so a single

@@ -151,7 +151,7 @@ plus `organization:`, `skill_path:`, and `evals_path:`. Full format in
 `/magpie-setup skill-sources` (and the source pass folded into adoption)
 reads `<project-config>/skill-sources.md`, then for each trusted source
 fetches into `.apache-magpie-sources/<source-id>/` (gitignored) reusing the
-framework [install recipes](../setup/install-recipes.md) verbatim — `git
+framework [install recipes](../quick-start/install-recipes.md) verbatim — `git
 clone --depth=1 --branch <ref>` for git methods, download + `sha512sum -c` +
 optional `gpg --verify` for `svn-zip`. Two locks record the result, exactly
 as for the framework snapshot:
@@ -257,4 +257,4 @@ sources and the adapter/organization indexes stay discovery-only.
 - [`docs/skill-sources/registry.md`](../skill-sources/registry.md) — the discovery index.
 - [`docs/extending.md`](../extending.md) — the extension model this generalizes.
 - [`skills/setup/SKILL.md`](../../skills/setup/SKILL.md) — the adopt/upgrade/verify flow and the framework snapshot lock model.
-- [`docs/setup/install-recipes.md`](../setup/install-recipes.md) — the fetch/verify recipes reused per source.
+- [`docs/setup/install-recipes.md`](../quick-start/install-recipes.md) — the fetch/verify recipes reused per source.

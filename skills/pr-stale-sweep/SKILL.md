@@ -284,7 +284,7 @@ the gap and proposes
   reads `ready_for_maintainer_review_label` and `committers_team`.
 
 See
-[Prerequisites for running the agent skills](../../docs/prerequisites.md#prerequisites-for-running-the-agent-skills)
+[Prerequisites for running the agent skills](../../docs/quick-start/prerequisites.md#prerequisites-for-running-the-agent-skills)
 in `docs/prerequisites.md` for the overall setup.
 
 ---

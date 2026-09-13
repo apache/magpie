@@ -13,9 +13,9 @@
     - [Google Gemini CLI](#google-gemini-cli)
   - [Step 2 — run `/magpie-setup`](#step-2--run-magpie-setup)
     - [Every skill configures itself on first use](#every-skill-configures-itself-on-first-use)
+  - [Step 2b — lock the agent down](#step-2b--lock-the-agent-down)
   - [Step 3 — use it](#step-3--use-it)
   - [What each family solves](#what-each-family-solves)
-  - [What happens next — the secure isolation setup](#what-happens-next--the-secure-isolation-setup)
   - [Two ways to use Magpie](#two-ways-to-use-magpie)
     - [Install methods](#install-methods)
     - [Fallback — the pinned snapshot install](#fallback--the-pinned-snapshot-install)
@@ -39,7 +39,7 @@ which is which.
 PR triage and review, issue triage, security-report handling, release
 management, contributor mentoring. Install only the families you need; each one
 you add costs context in every session —
-[what each family solves](#what-each-family-solves) lists all ten, after the
+[what each family solves](quick-start/families.md) lists all ten, after the
 install steps.
 
 ---
@@ -61,12 +61,12 @@ Add the marketplace, then install **one plugin per family you actually want**:
 ```
 
 `magpie-setup` is the one to always take — it carries the secure-isolation
-skills from [the next section](#what-happens-next--the-secure-isolation-setup).
+skills from [Step 2b](#step-2b--lock-the-agent-down).
 Add the rest to match a problem you have today; you can install more at any
 time.
 
 Pick your families from
-[What each family solves](#what-each-family-solves) below — the ten of them,
+[What each family solves](quick-start/families.md) below — the ten of them,
 with the problem each one solves.
 
 Each family's README opens with an **Install & first runs** section — the one
@@ -202,8 +202,45 @@ it stops. Once the project is set up the check costs three file checks and
 prints nothing, on every invocation thereafter.
 
 Each family's README opens with a recording of exactly this — its own first
-run, pre-flight and all. [What each family solves](#what-each-family-solves)
+run, pre-flight and all. [What each family solves](quick-start/families.md)
 links to all ten.
+
+---
+
+## Step 2b — lock the agent down
+
+Part of setting up, not an afterthought. Magpie's skills read issues,
+pre-disclosure security reports, and private mailing lists, so the isolation
+and privacy layers belong in place before you point a skill at anything real.
+
+The first skill worth running is the one that locks the agent down:
+
+```text
+/magpie-setup:isolated-setup-install
+```
+
+It walks you through the install interactively and surfaces every sudo,
+shell-rc, and settings-file change for approval before applying it. When it
+finishes, your agent runs with:
+
+- **A filesystem sandbox** — Bash subprocesses run under Seatbelt (macOS) or
+  bubblewrap (Linux) and see only the paths you allow. Your `~/.ssh`,
+  `~/.aws`, and tokens are out of reach.
+- **A clean environment** — the `claude-iso` wrapper strips host environment
+  variables before the agent starts.
+- **Visible state** — the status line says whether the sandbox is on, and a
+  bold red banner fires before any bypass prompt.
+
+![Sandboxed session: status-line prefix `[sandbox]` rendered green](../assets/session-sandboxed.png)
+
+Green `[sandbox]` in the footer is the steady state. Confirm the whole
+install with `/magpie-setup:isolated-setup-verify`, which reports ✓/✗/⚠
+for every piece.
+
+→ Full walkthrough: [`setup/secure-agent-setup.md`](setup/secure-agent-setup.md).
+Why each layer exists: [`setup/secure-agent-internals.md`](setup/secure-agent-internals.md).
+How your data reaches a model, and what never leaves the machine:
+[`setup/privacy-llm.md`](setup/privacy-llm.md).
 
 ---
 
@@ -231,54 +268,10 @@ everything that is installed.
 
 ## What each family solves
 
-Skills ship in ten **families**. Install the ones that match a problem you have
-today — you are not meant to take all of them.
-
-| Plugin | Skills | The problem it solves | What it offers |
-|---|---|---|---|
-| `magpie-setup` | 9 | Your agent can read every credential on your machine, and you have no way to tell whether it is sandboxed right now. | A filesystem sandbox, a clean-env wrapper, a status line that shows sandbox state, and a red banner before any bypass. Plus install, upgrade, and drift checks. **Take this one.** |
-| `magpie-security` | 15 | Security reports arrive by mail and must be triaged, fixed, and disclosed on a clock — with nothing leaking early. | A 16-step lifecycle: intake from the mailbox, validity triage, canned responses, fix drafting, CVE allocation, advisory and publication. Drafts land in Gmail; nothing is ever sent for you. |
-| `magpie-release-management` | 10 | An ASF release is a long checklist where one missed step invalidates the vote. | RC cut, RC verification (signatures, hashes, LICENSE/NOTICE, no stray binaries), the `[VOTE]` thread, the tally, promotion, `[ANNOUNCE]`, archive sweep, audit log. The agent never holds your signing key and never publishes. |
-| `magpie-pr-management` | 8 | The PR queue grows faster than you can read it, and the oldest ones quietly rot. | Queue triage into ready / needs-review / waiting-on-author, deep code review with blocking vs non-blocking findings, reviewer routing, express-lane merge, stale sweep, and queue statistics. |
-| `magpie-issue` | 8 | A backlog full of duplicates, unreproducible reports, and issues nobody has read in a year. | Triage with proposed labels, duplicate clustering, reproduction attempts across versions, fix drafting, reassessment of old issues, stale sweep, and backlog stats. |
-| `magpie-repo-health` | 7 | Slow rot you only notice when it breaks: vulnerable deps, unpinned actions, licence drift, flaky tests. | Read-only audits for dependency CVEs, dependency licences, LICENSE/NOTICE compliance, Actions workflow security, obsolete runner labels, and flaky-test patterns — plus a skill that fixes what they find. |
-| `magpie-contributor-growth` | 6 | Contributors who have earned committership go unnoticed because nobody is tracking the signal. | Activity sweeps against a review threshold, readiness tracking, sentiment signals, nomination briefs for the PMC, and committer / post-vote onboarding checklists. |
-| `magpie-utilities` | 5 | You want to write your own skills, or find out what is actually installed. | Skill authoring and restructuring, a state reconciler, a live index of installed skills, and a path to report framework bugs upstream. |
-| `magpie-mentoring` | 4 | Newcomers open one PR, hit a wall of unwritten conventions, and never come back. | First-contact welcome comments, plain-language explanations of an issue for someone new, good-first-issue authoring, and a sweep that keeps that backlog honest. |
-| `magpie-pairing` | 2 | You want the obvious problems found before a reviewer spends their time on them. | A structured self-review of your own diff, and a multi-agent adversarial review that verifies its findings before reporting them. |
-
----
-
-## What happens next — the secure isolation setup
-
-Magpie's skills read issues, pre-disclosure security reports, and private
-mailing lists. So the first skill worth running is the one that locks the
-agent down:
-
-```text
-/magpie-setup:isolated-setup-install
-```
-
-It walks you through the install interactively and surfaces every sudo,
-shell-rc, and settings-file change for approval before applying it. When it
-finishes, your agent runs with:
-
-- **A filesystem sandbox** — Bash subprocesses run under Seatbelt (macOS) or
-  bubblewrap (Linux) and see only the paths you allow. Your `~/.ssh`,
-  `~/.aws`, and tokens are out of reach.
-- **A clean environment** — the `claude-iso` wrapper strips host environment
-  variables before the agent starts.
-- **Visible state** — the status line says whether the sandbox is on, and a
-  bold red banner fires before any bypass prompt.
-
-![Sandboxed session: status-line prefix `[sandbox]` rendered green](../assets/session-sandboxed.png)
-
-Green `[sandbox]` in the footer is the steady state. Confirm the whole
-install with `/magpie-setup:isolated-setup-verify`, which reports ✓/✗/⚠
-for every piece.
-
-→ Full walkthrough: [`setup/secure-agent-setup.md`](setup/secure-agent-setup.md).
-Why each layer exists: [`setup/secure-agent-internals.md`](setup/secure-agent-internals.md).
+Skills ship in ten **families**, and you are not meant to take all of them.
+[**What each family solves**](quick-start/families.md) lists every one with the
+problem it solves and what it offers, so you can pick against a problem you
+have today.
 
 ---
 
@@ -345,7 +338,7 @@ repo, and wires the skills into *any* agent through `.agents/skills/`:
 prefix is the namespace. See
 [Skill names differ by install method](setup/marketplace.md#skill-names-differ-by-install-method).
 
-→ [`setup/install-recipes.md`](setup/install-recipes.md) has the
+→ [`setup/install-recipes.md`](quick-start/install-recipes.md) has the
 copy-pasteable bootstrap. The two are complementary, not exclusive: pin the
 snapshot for the project and keep the marketplace plugin for yourself if you
 prefer.
@@ -375,6 +368,6 @@ Self-adoption uses the **same single-token names as the snapshot install** —
 - [`docs/index.md`](index.md) — what Magpie is and which skill families exist.
 - [**The Apache Magpie Marketplace**](setup/marketplace.md) — the full
   reference: every agent that can add it, per-family plugins, versioning.
-- [`docs/prerequisites.md`](prerequisites.md) — what individual skills need
+- [`docs/prerequisites.md`](quick-start/prerequisites.md) — what individual skills need
   (GitHub auth, Gmail MCP, browser).
 - [`docs/setup/README.md`](setup/README.md) — the setup skill family.

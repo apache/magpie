@@ -162,7 +162,7 @@ for the complete rule.
 - [**`secure-agent-internals.md`**](secure-agent-internals.md) —
   how the layered defence works (sandbox + permission rules +
   clean-env wrapper) and why each layer exists.
-- [**`install-recipes.md`**](install-recipes.md) — copy-pasteable
+- [**`install-recipes.md`**](../quick-start/install-recipes.md) — copy-pasteable
   shell recipes (svn-zip / git-tag / git-branch) for bootstrapping
   `setup` into a new adopter repo.
 - [**`uninstall.md`**](uninstall.md) — counterpart to `install-recipes.md`:
@@ -209,5 +209,5 @@ file under `~/.claude-config/`).
 ## Cross-references
 
 - [Top-level README — Install](../../README.md#install) — 3-step bootstrap.
-- [`docs/prerequisites.md`](../prerequisites.md) — what each framework
+- [`docs/prerequisites.md`](../quick-start/prerequisites.md) — what each framework
   skill needs (Claude Code, Gmail MCP, GitHub auth, browser, etc.).

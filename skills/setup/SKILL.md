@@ -44,7 +44,7 @@ license: Apache-2.0
      <upstream>                 → adopter's public source repo (the repo this skill is being run in)
      <framework-source>         → the apache-magpie source we download a snapshot from
                                    — one of: signed zip from ASF dist, git tag, git branch.
-                                   See [`docs/setup/install-recipes.md`](../../docs/setup/install-recipes.md). -->
+                                   See [`docs/setup/install-recipes.md`](../../docs/quick-start/install-recipes.md). -->
 
 # setup
 
@@ -85,7 +85,7 @@ submodule, not vendored copy):
   **gitignored** in the adopter repo. The snapshot is a build
   artefact, not source.
 - Three snapshot fetch methods are supported (see
-  [`docs/setup/install-recipes.md`](../../docs/setup/install-recipes.md)
+  [`docs/setup/install-recipes.md`](../../docs/quick-start/install-recipes.md)
   for verbatim copy-pasteable recipes):
   - **svn-zip** — released, signed zip from ASF distribution
     (recommended for production once releases ship).
@@ -461,7 +461,7 @@ first, then continue.
 | `setup verify` reports drift between committed and local locks | Project lead bumped `<committed-lock>` since this machine last fetched, or local snapshot is stale on a `main`-tracking adopter | `setup upgrade` |
 | Snapshot present but symlinks dangle | Adopter ran `git clone` but not `setup` after — symlinks are gitignored but persist in their target's absence on disk | `setup verify --auto-fix-symlinks` (or `setup install`, idempotent) |
 | Worktree off the adopter repo can't find framework skills | Worktrees off the adopter don't auto-inherit the gitignored snapshot | The `adopt` sub-action installs a `post-checkout` git hook that re-runs the snapshot install on worktree creation; verify the hook is present (`setup verify`) |
-| The agent offers no `/plugin` (or equivalent) command | That agent has no marketplace — the one case the pinned snapshot install exists for | `setup install method:git-branch` (or `svn-zip` for the signed release) — see [`docs/setup/install-recipes.md`](../../docs/setup/install-recipes.md) |
+| The agent offers no `/plugin` (or equivalent) command | That agent has no marketplace — the one case the pinned snapshot install exists for | `setup install method:git-branch` (or `svn-zip` for the signed release) — see [`docs/setup/install-recipes.md`](../../docs/quick-start/install-recipes.md) |
 | Every Magpie skill appears twice, under both `/magpie-<skill>` and `/magpie-<family>:<skill>` | Both install paths are live on this machine — a snapshot install underneath a marketplace one | Keep one ([Golden rule 10](#golden-rules)): `setup uninstall` to drop the repo-side snapshot, or uninstall the plugins if the project needs the committed pin |
 | `git clone` of an upstream PR sees no framework skills | Expected — the snapshot is gitignored, so a fresh clone has no `<snapshot-dir>`. The clone needs `setup` once before any framework skill is invocable | `setup` |
 | Project decided to stop using apache-magpie | Two separate reversals. Withdraw the repo's recommendation — the committed floor lock `.apache-magpie.lock` and the `.claude/settings.json` wiring derived from it — with `setup unadopt`. Remove the install itself — snapshot, local lock, symlinks, hook, doc sections, the `setup` skill, but **not** `.apache-magpie.lock` — with `setup uninstall`. Both preserve `.apache-magpie-overrides/` unless `--purge-overrides` is passed | `setup unadopt`, then `setup uninstall` |

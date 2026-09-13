@@ -336,7 +336,7 @@ pointing at a deleted snapshot.
    source. Future invocations of `setup` will
    resolve to nothing — the adopter has to re-run the
    install recipe in
-   [`docs/setup/install-recipes.md`](../../docs/setup/install-recipes.md)
+   [`docs/setup/install-recipes.md`](../../docs/quick-start/install-recipes.md)
    to set the framework back up. **The committed lock is untouched
    by any of this** — see [Committed default set](#committed-default-set)
    below.
@@ -518,5 +518,5 @@ need a human re-read.
 - **`setup` skill resolution fails after self-
   removal** → expected. Setting the framework back up goes via
   the install recipe in
-  [`docs/setup/install-recipes.md`](../../docs/setup/install-recipes.md),
+  [`docs/setup/install-recipes.md`](../../docs/quick-start/install-recipes.md),
   not via the now-deleted skill.

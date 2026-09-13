@@ -268,7 +268,7 @@ the gap and proposes
   reads the tracker URL, project key, and auth model.
 
 See
-[Prerequisites for running the agent skills](../../docs/prerequisites.md#prerequisites-for-running-the-agent-skills)
+[Prerequisites for running the agent skills](../../docs/quick-start/prerequisites.md#prerequisites-for-running-the-agent-skills)
 in `docs/prerequisites.md` for the overall setup.
 
 ---

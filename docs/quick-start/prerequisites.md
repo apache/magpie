@@ -65,11 +65,13 @@ on any single vendor for either — any agent that reads the shared
   canonical `.agents/skills/` tree natively and ships an in-tree sandbox
   profile and HITL exec-policy rules. The adapter is **experimental**
   until its minimum tested runtime version and an adopter pilot are
-  recorded; see [the Codex runtime guide](adapters/codex.md).
-- **[Gemini CLI](https://geminicli.com/)** reads Magpie's canonical `.agents/skills/` tree natively, with a `BeforeTool` action-guard adapter, a spec-loop profile, tool sandboxing, and policies. The adapter is **experimental** until its minimum tested runtime version and an adopter pilot are recorded; see [the Gemini runtime guide](adapters/gemini.md).
+  recorded; see [the Codex runtime guide](../adapters/codex.md).
+- **[Gemini CLI](https://geminicli.com/)** reads Magpie's canonical
+  `.agents/skills/` tree. Magpie provides a `BeforeTool` action-guard adapter
+  and a spec-loop profile; see [the Gemini runtime guide](../adapters/gemini.md).
 - **[Cursor](https://cursor.com/)** (Composer + `cursor-agent` CLI) reads Magpie's
   canonical `.agents/skills/` tree natively and supports per-action confirmation
-  and clean-environment isolation; see [the Cursor runtime guide](adapters/cursor.md).
+  and clean-environment isolation; see [the Cursor runtime guide](../adapters/cursor.md).
 
 Support for more runtimes (Copilot, …) is tracked in
 the
@@ -84,7 +86,7 @@ the
   [`llm.apache.org`](https://llm.apache.org) endpoint for ASF projects;
 - an **open-weight model** — hosted on a provider of your choice, or run
   **locally** (Ollama, llama.cpp, vLLM) for sovereign or air-gapped use;
-  see [the Local LLM runtime guide](adapters/local-llm.md).
+  see [the Local LLM runtime guide](../adapters/local-llm.md).
 
 Because **OpenCode is model-agnostic it is the reference tool — it allows
 all of the above**; Claude Code is the complete alternative for the
@@ -96,7 +98,7 @@ paths above.
 The agent runs against pre-disclosure CVE content (private mail
 threads, draft advisories, in-flight tracker discussions). Run it
 with the credential-isolation setup documented in
-[`docs/setup/secure-agent-setup.md`](setup/secure-agent-setup.md) — a layered
+[`docs/setup/secure-agent-setup.md`](../setup/secure-agent-setup.md) — a layered
 defence built around the agent's filesystem sandbox, tool-level
 permission rules, and a harness-neutral clean-env wrapper
 (`agent-iso.sh`, exposing `claude-iso`, `opencode-iso`, and
@@ -129,7 +131,7 @@ backend, not a requirement:**
   (a security-team member's Gmail subscribed to the list), the ASF
   **PonyMail** MCP (below), or a **local mbox / Maildir archive** for
   offline / forensic triage
-  ([`tools/mail-source/mbox`](../tools/mail-source/mbox/README.md)).
+  ([`tools/mail-source/mbox`](../../tools/mail-source/mbox/README.md)).
 - **Draft** backends: Gmail, or the offline local **Maildir** backend
   (below).
 
@@ -145,13 +147,13 @@ private-list restrictions layered in upstream) supports ASF LDAP
 OAuth and can read private ASF lists. Individual triagers can wire
 it up to read inbound `security@<project>.apache.org` threads
 without subscribing a personal Gmail account — see
-[`tools/ponymail/tool.md`](../tools/ponymail/tool.md) for the
+[`tools/ponymail/tool.md`](../../tools/ponymail/tool.md) for the
 setup. (PonyMail MCP is read-only — it has no `create_draft`
 equivalent — so it covers the archive **read** side only.)
 
 On the **draft (reply)** side, Gmail is no longer the only option.
 Alongside the Gmail backend, Magpie now ships a local
-[**Maildir** draft backend](../tools/maildir/) (`contract:mail-create`,
+[**Maildir** draft backend](../../tools/maildir/) (`contract:mail-create`,
 vendor `Maildir`): it composes an editable RFC 5322 message into a
 local Maildir with **no cloud account, no credentials and no
 network**, and any Maildir-aware mail client (Thunderbird, mutt,
@@ -175,7 +177,7 @@ only read a single Gmail thread opportunistically, such as
 `security-cve-allocate`, do not hard-gate on it.) Install it from the **latest `main`** of `apache/comdev`
 (the MCP servers ship as in-repo source with no tagged releases —
 `main` is the only channel; see
-[`tools/ponymail/tool.md → Keeping the checkout current`](../tools/ponymail/tool.md#keeping-the-checkout-current)).
+[`tools/ponymail/tool.md → Keeping the checkout current`](../../tools/ponymail/tool.md#keeping-the-checkout-current)).
 A non-ASF adopter with no `lists.apache.org` archive sets that row
 to `mandatory: no`.
 
@@ -276,7 +278,7 @@ Step 0 / Step 1 pre-flight rather than degrading to hand-scraping
 `committer.cgi` / `committee.html`. Install it from the **latest
 `main`** of `apache/comdev` — the same checkout that hosts the
 PonyMail MCP (both live under `mcp/` in that repo) — per
-[`tools/apache-projects/tool.md`](../tools/apache-projects/tool.md).
+[`tools/apache-projects/tool.md`](../../tools/apache-projects/tool.md).
 
 **Without this connection:** `contributor-nomination` cannot verify
 an Apache ID or cross-check committee affiliation and will stop with

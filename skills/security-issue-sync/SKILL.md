@@ -239,7 +239,7 @@ gap and proposes
 [`setup upgrade`](../setup/upgrade.md).
 The proposal is non-blocking — the user may defer if
 they want to run with the local snapshot for now. See
-[`docs/setup/install-recipes.md` § Subsequent runs and drift detection](../../docs/setup/install-recipes.md#subsequent-runs-and-drift-detection)
+[`docs/setup/install-recipes.md` § Subsequent runs and drift detection](../../docs/quick-start/install-recipes.md#subsequent-runs-and-drift-detection)
 for the full flow.
 
 Drift severity:
@@ -317,7 +317,7 @@ The skill needs:
   versions and to find advisory archive URLs.
 
 See
-[Prerequisites for running the agent skills](../../docs/prerequisites.md#prerequisites-for-running-the-agent-skills)
+[Prerequisites for running the agent skills](../../docs/quick-start/prerequisites.md#prerequisites-for-running-the-agent-skills)
 in `docs/prerequisites.md` for the overall setup.
 
 ---

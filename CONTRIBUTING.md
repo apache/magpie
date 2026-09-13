@@ -381,7 +381,7 @@ HITL exec-policy rules; its adapter is **experimental** — see the
 [Codex runtime guide](docs/adapters/codex.md).
 
 RFC-AI-0004 §3 commits the framework to **vendor neutrality across
-LLM backends** — [`docs/prerequisites.md`](docs/prerequisites.md) and
+LLM backends** — [`docs/prerequisites.md`](docs/quick-start/prerequisites.md) and
 [`docs/vendor-neutrality.md`](docs/vendor-neutrality.md) carry the
 authoritative runtime matrix. The current state per harness:
 
@@ -571,7 +571,7 @@ project (not just edit the framework), follow the
 skill to install the bubblewrap sandbox and pinned tools, then
 [`setup-isolated-setup-verify`](skills/setup-isolated-setup-verify/SKILL.md)
 to confirm the install. The install tutorial lives at
-[`docs/setup/install-recipes.md`](docs/setup/install-recipes.md).
+[`docs/setup/install-recipes.md`](docs/quick-start/install-recipes.md).
 
 ### Lightening the agent context
 

@@ -79,7 +79,7 @@ Start with [`setup`](setup/README.md) regardless — it is the prerequisite ever
 
 You work on a project with an issue tracker and/or PR queue, and you want agent assistance with the mechanical parts. You do not need the project's permission, and nothing gets committed.
 
-→ Start with the [quick start](quick-start.md) — install into your agent in two commands — then [individual use](setup/individual-use.md). If a marketplace is not an option, the [install recipes](setup/install-recipes.md) cover the pinned snapshot install.
+→ Start with the [quick start](quick-start.md) — install into your agent in two commands — then [individual use](setup/individual-use.md). If a marketplace is not an option, the [install recipes](quick-start/install-recipes.md) cover the pinned snapshot install.
 
 ### Maintainers adopting Magpie for their project
 

@@ -174,7 +174,7 @@ the gap and proposes
 The proposal is non-blocking — the user may defer if they want to run
 with the local snapshot for now. See
 [`docs/setup/install-recipes.md` § Subsequent runs and drift
-detection](../../docs/setup/install-recipes.md#subsequent-runs-and-drift-detection)
+detection](../../docs/quick-start/install-recipes.md#subsequent-runs-and-drift-detection)
 for the full flow.
 
 Drift severity:

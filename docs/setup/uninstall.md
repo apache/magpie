@@ -38,7 +38,7 @@
 If your project has decided to stop using Magpie,
 or the adoption was experimental and is now over, this
 page walks through the removal. It reverses everything an
-install recipe in [`install-recipes.md`](install-recipes.md)
+install recipe in [`install-recipes.md`](../quick-start/install-recipes.md)
 and the subsequent `/magpie-setup` interactive flow put
 into your repo.
 
@@ -243,7 +243,7 @@ also retiring Magpie from this machine entirely:
 Because uninstalling deletes the `setup` skill
 itself, future `/magpie-setup` invocations resolve to
 nothing. To set the framework back up, re-run an install recipe in
-[`install-recipes.md`](install-recipes.md) — the same path
+[`install-recipes.md`](../quick-start/install-recipes.md) — the same path
 a first-time adopter takes.
 
 ## See also
@@ -252,7 +252,7 @@ a first-time adopter takes.
   family overview (verify, upgrade, shared-config sync).
 - [Top-level README — Install](../../README.md#install)
   — the original 3-step bootstrap.
-- [`install-recipes.md`](install-recipes.md) — the
+- [`install-recipes.md`](../quick-start/install-recipes.md) — the
   counterpart to this page.
 - Report issues against the framework repo at
   [apache/magpie](https://github.com/apache/magpie/issues).

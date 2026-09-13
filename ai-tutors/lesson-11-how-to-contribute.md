@@ -242,7 +242,7 @@ Apache-2.0 licensed.
 >
 > 1. **Get set up.** Clone the framework repository and confirm you can run `uv`
 >    and the validators. See `CONTRIBUTING.md` (../../CONTRIBUTING.md) and
->    `docs/prerequisites.md` (../prerequisites.md).
+>    `docs/prerequisites.md` (../quick-start/prerequisites.md).
 > 2. **Make the smallest change that stands on its own.** One skill, one fix, one
 >    page. Small changes are reviewed and merged faster.
 > 3. **Update the spec if behaviour changes.** For anything beyond a wording fix,

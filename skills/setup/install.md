@@ -41,7 +41,7 @@ skill recognises and routes between automatically:
 > **Note on the bootstrap recipe.** `setup` is **the
 > only framework artefact an adopter commits**. Getting it
 > *into* a fresh adopter repo is the chicken-and-egg the
-> [install-recipes](../../docs/setup/install-recipes.md)
+> [install-recipes](../../docs/quick-start/install-recipes.md)
 > doc resolves: copy-pasteable shell recipes per install
 > method that fetch the snapshot + place the `setup`
 > skill content + add `.gitignore` entries. Once that
@@ -185,7 +185,7 @@ Ask which **skill families** the user wants, and install one
 plugin per family. Prefer the harness's structured-question tool
 (Claude Code's `AskUserQuestion`), multi-select, one option per
 family, each described by the problem it solves — the table in
-[`docs/quick-start.md`](../../docs/quick-start.md#what-each-family-solves)
+[`docs/quick-start.md`](../../docs/quick-start/families.md)
 is the source text.
 
 Two rules for the recommendation:
@@ -530,7 +530,7 @@ this whole flow is unnecessary. Take their answer either way and
 do not ask twice.
 
 The verbatim shell that fetches per each method is in
-[`docs/setup/install-recipes.md`](../../docs/setup/install-recipes.md).
+[`docs/setup/install-recipes.md`](../../docs/quick-start/install-recipes.md).
 The skill at this point can either:
 
 - Tell the user "your manual recipe already ran — please

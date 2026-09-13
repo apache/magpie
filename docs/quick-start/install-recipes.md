@@ -46,7 +46,7 @@ teammates are unaffected; the install is yours, on this machine.
   [`quick-start.md`](../quick-start.md).
 - **Full reference** — every agent that can add it, per-family vs
   all-in-one, pinning, updates, and verification status:
-  [the **Apache Magpie Marketplace**](marketplace.md).
+  [the **Apache Magpie Marketplace**](../setup/marketplace.md).
 - **Other agents:** Codex CLI, VS Code / GitHub Copilot and Gemini CLI each
   have their own one-liner in the quick start.
 
@@ -78,7 +78,7 @@ If none of those describe you, use the marketplace and stop reading here.
 > is no plugin namespace here; the `magpie-` prefix *is* the namespace, and the
 > name is the skill's directory name. Magpie's other docs show the
 > marketplace form; see
-> [Skill names differ by install method](marketplace.md#skill-names-differ-by-install-method).
+> [Skill names differ by install method](../setup/marketplace.md#skill-names-differ-by-install-method).
 
 Each recipe below is **the bootstrap that gets `setup` into the repo**; once
 it is in place, the rest of the adoption (skill-family pick, framework
