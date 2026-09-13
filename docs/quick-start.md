@@ -13,7 +13,6 @@
     - [VS Code / GitHub Copilot](#vs-code--github-copilot)
     - [Google Gemini CLI](#google-gemini-cli)
   - [Run `/magpie-setup`](#run-magpie-setup)
-    - [Every skill configures itself on first use](#every-skill-configures-itself-on-first-use)
   - [Lock the agent down](#lock-the-agent-down)
   - [Use it](#use-it)
   - [What each family solves](#what-each-family-solves)
@@ -198,12 +197,10 @@ prints what is currently installed.
 Not sure you need this step? [Two ways to use Magpie](quick-start/two-ways.md)
 draws the line.
 
-### Every skill configures itself on first use
-
-You do not have to remember which projects are set up, or run anything to
-prepare a family before you use it. **65 of the 74 skills open with a silent
-pre-flight** — the nine exceptions are the setup skills themselves, which are
-what you run to fix whatever it finds.
+**Every skill configures itself on first use.** You do not have to remember
+which projects are set up, or run anything to prepare a family before you use
+it: 65 of the 74 skills open with a silent pre-flight — the nine exceptions are
+the setup skills themselves, which are what you run to fix whatever it finds.
 
 The first time you call a skill in a project, that pre-flight works out how
 Magpie is installed here and whether this project is adopted. If anything is
