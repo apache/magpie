@@ -6,6 +6,7 @@
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
 - [Apache Magpie](#apache-magpie)
+  - [See it in action](#see-it-in-action)
   - [Install](#install)
   - [Usage](#usage)
   - [Update / maintain](#update--maintain)
@@ -23,15 +24,40 @@
 
 [![Magpie](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/apache/magpie/main/assets/badge.json)](https://magpie.apache.org/)
 
-**Adopt a Magpie.** Apache Magpie provides high-quality recipes for
-agent-assisted software project maintenance.
+**Adopt a Magpie.** Magpie is a curated set of skills for the AI agent you
+already use — Claude Code, Codex, Gemini CLI, Copilot and others — that take
+on the repetitive parts of running an open-source project: triaging issues and
+pull requests, reviewing code, mentoring contributors, drafting fixes, and
+handling security reports end to end.
 
-These recipes allow human maintainers working with AIs to efficiently handle
-the repetitive parts of running an open-source project: issue triage, PR
-review, mentoring contributors, managing security reports, and more.
+**Three things make it different from a folder of prompts:**
+
+- **Nothing is sent in your name.** Every comment, email, label and PR is
+  *drafted* by the agent and posted by a person. There is no autonomous mode.
+- **The agent is confined before it reads anything real.** A filesystem and
+  network sandbox, a credential-stripped environment, and a deterministic
+  guard that inspects each shell command *before* it runs and denies the ones
+  that break a hard rule — not a prompt asking it nicely.
+- **It is an Apache project, not a product.** Apache-2.0, vendor-neutral
+  across agents, no account and no service in the middle. Telemetry is opt-in
+  per project and off by default — install it and never run a skill, and it
+  generates no outbound traffic at all.
 
 Magpie is currently in development for ASF projects + Python Core team
 friendlies. Testers welcome!
+
+## See it in action
+
+One security report, start to finish — installed from the marketplace, the
+agent sandboxed and guarded, then the report imported, triaged against the
+project's history, fixed, and published as a CVE:
+
+![Installing Magpie from the marketplace, running the secure-agent and privacy setup, then importing two security reports, triaging one as a high-severity path traversal and the other as not a vulnerability, drafting the fix as a scrubbed public PR, and publishing the CVE](assets/quickstart/demo.svg)
+
+*Illustrative — a written transcript, rendered deterministically, not a
+recording.* The [**interactive version**](https://magpie.apache.org/#see-it-in-action)
+on the project site steps through the same story with the full output of each
+command.
 
 > [!IMPORTANT]
 > The motivation, scope, and design commitments behind this work
@@ -42,19 +68,27 @@ friendlies. Testers welcome!
 
 ## Install
 
-**Start here → [Quick start](docs/quick-start.md)** — two commands, in the
-agent you already use.
+**Start here → [Quick start](docs/quick-start.md)** — a handful of commands,
+in the agent you already use. Nothing is written to your repository.
 
 ```text
-/plugin marketplace add apache/magpie              # Claude Code
-/plugin install magpie-setup@apache-magpie         # always take this one
-/plugin install magpie-pr-management@apache-magpie # + whichever families you need
+/plugin marketplace add apache/magpie                # Claude Code
+/plugin install magpie-setup@apache-magpie           # install this one first
+/plugin install magpie-agent-guard@apache-magpie     # the baseline:
+/plugin install magpie-utilities@apache-magpie       #   take all three
+/plugin install magpie-pr-management@apache-magpie   # + the families you need
 ```
 
-Install **one plugin per family you actually want** — that keeps the always-on
-context cost proportional (~0.2–2.0k tokens a family). There is no
-install-everything plugin: every installed skill costs context on every turn,
-used or not, so the framework asks you to pick.
+Those first three are the **baseline** — and the same set a project commits as
+its floor when it adopts Magpie, so taking them is taking what a project would
+recommend to every contributor. After that, install **one plugin per family you
+actually want**: every installed skill costs context on every turn, used or
+not (~0.2–2.0k tokens a family), so there is deliberately no
+install-everything plugin.
+
+Once `magpie-setup` is in, you never type these again — ask in plain language
+(*"install the Magpie families for PR review"*) and the setup skill runs the
+installs for you.
 
 Codex, VS Code / Copilot, and Gemini are one-liners too — the
 [quick start](docs/quick-start.md) has all four, plus what to run next to put

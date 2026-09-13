@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Licensed to the Apache Software Foundation (ASF) under one
+  or more contributor license agreements.  See the NOTICE file
+  distributed with this work for additional information
+  regarding copyright ownership.  The ASF licenses this file
+  to you under the Apache License, Version 2.0 (the
+  "License"); you may not use this file except in compliance
+  with the License.  You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing,
+  software distributed under the License is distributed on an
+  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+  KIND, either express or implied.  See the License for the
+  specific language governing permissions and limitations
+  under the License.
+
+  GENERATED FILE - do not edit.
+
+  Written by tools/dev/render-wizard.py. Illustrative of the shape of a
+  run, not a recording of one.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 705 760"
+     width="705" height="760" role="img"
+     data-magpie-generated="render-wizard"
+     aria-label="An animated walk-through: Magpie installed from the marketplace, the agent sandboxed and guarded, privacy configured, then a security report imported, triaged, fixed and published as a CVE">
+  <title>One security report, start to finish</title>
+  <desc>Illustrative animation of the security lifecycle end to end. Not a recording.</desc>
+  <rect width="705" height="760" rx="10" fill="#1d1f21"/>
+  <rect x="0" y="0" width="705" height="34" rx="10" fill="#2b2e31"/>
+  <rect x="0" y="24" width="705" height="10" fill="#2b2e31"/>
+  <circle cx="22" cy="17" r="6" fill="#3f4448"/>
+  <circle cx="44" cy="17" r="6" fill="#3f4448"/>
+  <circle cx="66" cy="17" r="6" fill="#3f4448"/>
+  <g font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="17" xml:space="preserve">
+    <text x="26" y="80" fill="#8abeb7" opacity="0">&gt; /plugin marketplace add apache/magpie<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.0000;0.0010;1" dur="9.8s" repeatCount="indefinite"/></text>
+    <text x="26" y="104" fill="#7f9f7f" opacity="0">  ✓ apache-magpie added - 12 plugins<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.0388;0.0398;1" dur="9.8s" repeatCount="indefinite"/></text>
+    <text x="26" y="152" fill="#8abeb7" opacity="0">&gt; /magpie-setup<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.0776;0.0786;1" dur="9.8s" repeatCount="indefinite"/></text>
+    <text x="26" y="176" fill="#7f9f7f" opacity="0">  ✓ detected example-org/example-app - configuration written<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.1163;0.1173;1" dur="9.8s" repeatCount="indefinite"/></text>
+    <text x="26" y="224" fill="#8abeb7" opacity="0">&gt; /magpie-setup:isolated-setup-install<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.1551;0.1561;1" dur="9.8s" repeatCount="indefinite"/></text>
+    <text x="26" y="248" fill="#7f9f7f" opacity="0">  ✓ sandbox, clean env, guard hook - 3 settings changes, 1 sudo<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.1939;0.1949;1" dur="9.8s" repeatCount="indefinite"/></text>
+    <text x="26" y="296" fill="#8abeb7" opacity="0">&gt; /magpie-setup:privacy-llm<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.2327;0.2337;1" dur="9.8s" repeatCount="indefinite"/></text>
+    <text x="26" y="320" fill="#7f9f7f" opacity="0">  ✓ gate passed - third-party names redacted: N-a3f9d2, E-7c1b04<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.2714;0.2724;1" dur="9.8s" repeatCount="indefinite"/></text>
+    <text x="26" y="368" fill="#8abeb7" opacity="0">&gt; /magpie-security:issue-import<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.3102;0.3112;1" dur="9.8s" repeatCount="indefinite"/></text>
+    <text x="26" y="392" fill="#c5c8c6" opacity="0">  Opened #41 and #42 in example-app-security<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.3490;0.3500;1" dur="9.8s" repeatCount="indefinite"/></text>
+    <text x="26" y="440" fill="#8abeb7" opacity="0">&gt; /magpie-security:issue-triage<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.3878;0.3888;1" dur="9.8s" repeatCount="indefinite"/></text>
+    <text x="26" y="464" fill="#c5c8c6" opacity="0">  #41  path traversal in archive extraction      high<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.4265;0.4275;1" dur="9.8s" repeatCount="indefinite"/></text>
+    <text x="26" y="488" fill="#8a8f94" opacity="0">  #42  not a vulnerability - reported behaviour is intended<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.4653;0.4663;1" dur="9.8s" repeatCount="indefinite"/></text>
+    <text x="26" y="536" fill="#8abeb7" opacity="0">&gt; /magpie-security:issue-fix 41<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.5041;0.5051;1" dur="9.8s" repeatCount="indefinite"/></text>
+    <text x="26" y="560" fill="#c5c8c6" opacity="0">  Fix drafted, PR opened - title and body carry no CVE,<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.5429;0.5439;1" dur="9.8s" repeatCount="indefinite"/></text>
+    <text x="26" y="584" fill="#8a8f94" opacity="0">  no security wording, and no link back to the tracker.<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.5816;0.5826;1" dur="9.8s" repeatCount="indefinite"/></text>
+    <text x="26" y="632" fill="#8abeb7" opacity="0">&gt; /magpie-security:cve-allocate 41<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.6204;0.6214;1" dur="9.8s" repeatCount="indefinite"/></text>
+    <text x="26" y="656" fill="#7f9f7f" opacity="0">  ✓ CVE-2026-XXXXX published, advisory drafted<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.6592;0.6602;1" dur="9.8s" repeatCount="indefinite"/></text>
+    <text x="26" y="704" fill="#d8a657" opacity="0">  Every message that leaves the project was drafted here<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.6980;0.6990;1" dur="9.8s" repeatCount="indefinite"/></text>
+    <text x="26" y="728" fill="#d8a657" opacity="0">  and sent by a person. Nothing was posted unattended.<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.7367;0.7377;1" dur="9.8s" repeatCount="indefinite"/></text>
+    <rect x="26" y="715" width="10" height="17" fill="#c5c8c6"><animate attributeName="opacity" values="1;1;0;0;1" dur="1.2s" repeatCount="indefinite"/></rect>
+  </g>
+</svg>

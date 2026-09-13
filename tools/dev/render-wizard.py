@@ -61,6 +61,7 @@ from xml.sax.saxutils import escape
 OUT_DIR = Path("assets/quickstart/wizard")
 SETUP_SVG = Path("assets/quickstart/magpie-setup.svg")
 HERO_SVG = Path("assets/quickstart/install.svg")
+DEMO_SVG = Path("assets/quickstart/demo.svg")
 STEP_INSTALL_SVG = Path("assets/quickstart/step-install.svg")
 STEP_ISOLATION_SVG = Path("assets/quickstart/step-isolation.svg")
 STEP_GUARD_SVG = Path("assets/quickstart/step-guard.svg")
@@ -245,6 +246,46 @@ def hero_script() -> list[tuple[str, str]]:
         (MUTED, "         -> ask the author if it is still active"),
         (FG, ""),
         (MUTED, "  Each action needs your confirmation. [Y/n]"),
+    ]
+
+
+def demo_script() -> list[tuple[str, str]]:
+    """The README demo: one security report, install to published CVE.
+
+    The same arc the site's interactive replay walks, in the one form a
+    GitHub README can actually show -- the site component is JavaScript and
+    markdown strips it. Ten steps compressed to the line each needs: what
+    was run, and the one fact that proves something happened.
+    """
+    return [
+        (CMD, "> /plugin marketplace add apache/magpie"),
+        (OK, "  ✓ apache-magpie added - 12 plugins"),
+        (FG, ""),
+        (CMD, "> /magpie-setup"),
+        (OK, "  ✓ detected example-org/example-app - configuration written"),
+        (FG, ""),
+        (CMD, "> /magpie-setup:isolated-setup-install"),
+        (OK, "  ✓ sandbox, clean env, guard hook - 3 settings changes, 1 sudo"),
+        (FG, ""),
+        (CMD, "> /magpie-setup:privacy-llm"),
+        (OK, "  ✓ gate passed - third-party names redacted: N-a3f9d2, E-7c1b04"),
+        (FG, ""),
+        (CMD, "> /magpie-security:issue-import"),
+        (FG, "  Opened #41 and #42 in example-app-security"),
+        (FG, ""),
+        (CMD, "> /magpie-security:issue-triage"),
+        (FG, "  #41  path traversal in archive extraction      high"),
+        (MUTED, "  #42  not a vulnerability - reported behaviour is intended"),
+        (FG, ""),
+        (CMD, "> /magpie-security:issue-fix 41"),
+        (FG, "  Fix drafted, PR opened - title and body carry no CVE,"),
+        (MUTED, "  no security wording, and no link back to the tracker."),
+        (FG, ""),
+        (CMD, "> /magpie-security:cve-allocate 41"),
+        (OK, "  ✓ CVE-2026-XXXXX published, advisory drafted"),
+        (FG, ""),
+        (WARN, "  Every message that leaves the project was drafted here"),
+        (WARN, "  and sent by a person. Nothing was posted unattended."),
     ]
 
 
@@ -474,6 +515,14 @@ def build() -> dict[Path, str]:
     cfg = _load("check_skill_config", Path("tools/dev/check-skill-config.py"))
     desc = cfg.descriptions()
     out: dict[Path, str] = {
+        DEMO_SVG: render(
+            "One security report, start to finish",
+            "An animated walk-through: Magpie installed from the marketplace, the "
+            "agent sandboxed and guarded, privacy configured, then a security report "
+            "imported, triaged, fixed and published as a CVE",
+            "Illustrative animation of the security lifecycle end to end. Not a recording.",
+            demo_script(),
+        ),
         HERO_SVG: render(
             "Install Magpie, and use it",
             "An animated first look: three install commands, then a triage run "
