@@ -35,22 +35,22 @@
   <circle cx="44" cy="17" r="6" fill="#3f4448"/>
   <circle cx="66" cy="17" r="6" fill="#3f4448"/>
   <g font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="17" xml:space="preserve">
-    <text x="26" y="80" fill="#8abeb7" opacity="0">&gt; /magpie-release-management:&lt;skill&gt;<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.0000;0.0010;1" dur="13.8s" repeatCount="indefinite"/></text>
-    <text x="26" y="128" fill="#d8a657" opacity="0">  ✗ project configuration — 4 required, none found<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.0507;0.0517;1" dur="13.8s" repeatCount="indefinite"/></text>
-    <text x="26" y="176" fill="#8a8f94" opacity="0">  Configuring now. Gitignored files in this clone only.<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.1014;0.1024;1" dur="13.8s" repeatCount="indefinite"/></text>
-    <text x="26" y="248" fill="#c5c8c6" opacity="0">  One question, for what the repository cannot tell me:<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.1522;0.1532;1" dur="13.8s" repeatCount="indefinite"/></text>
-    <text x="26" y="272" fill="#c5c8c6" opacity="0">      pmc-roster.md<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.2029;0.2039;1" dur="13.8s" repeatCount="indefinite"/></text>
-    <text x="26" y="296" fill="#8a8f94" opacity="0">          Who is binding<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.2536;0.2546;1" dur="13.8s" repeatCount="indefinite"/></text>
-    <text x="26" y="320" fill="#c5c8c6" opacity="0">      release-build.md<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.3043;0.3053;1" dur="13.8s" repeatCount="indefinite"/></text>
-    <text x="26" y="344" fill="#8a8f94" opacity="0">          How this project builds and signs artefacts: build…<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.3551;0.3561;1" dur="13.8s" repeatCount="indefinite"/></text>
-    <text x="26" y="368" fill="#c5c8c6" opacity="0">      release-management-config.md<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.4058;0.4068;1" dur="13.8s" repeatCount="indefinite"/></text>
-    <text x="26" y="392" fill="#8a8f94" opacity="0">          Vote window and pass rule, distribution backend and…<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.4565;0.4575;1" dur="13.8s" repeatCount="indefinite"/></text>
-    <text x="26" y="416" fill="#c5c8c6" opacity="0">      release-trains.md<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.5072;0.5082;1" dur="13.8s" repeatCount="indefinite"/></text>
-    <text x="26" y="440" fill="#8a8f94" opacity="0">          Active release branches, release-manager attribution…<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.5580;0.5590;1" dur="13.8s" repeatCount="indefinite"/></text>
-    <text x="26" y="488" fill="#7f9f7f" opacity="0">  Written to .apache-magpie-local/  — nothing staged, nothing<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.6087;0.6097;1" dur="13.8s" repeatCount="indefinite"/></text>
-    <text x="26" y="512" fill="#7f9f7f" opacity="0">  committed, no teammate affected.<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.6594;0.6604;1" dur="13.8s" repeatCount="indefinite"/></text>
-    <text x="26" y="560" fill="#8a8f94" opacity="0">  The project can also adopt Magpie, so contributors get this<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.7101;0.7111;1" dur="13.8s" repeatCount="indefinite"/></text>
-    <text x="26" y="584" fill="#8a8f94" opacity="0">  on clone: /magpie-setup adopt<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.7609;0.7619;1" dur="13.8s" repeatCount="indefinite"/></text>
+    <text x="26" y="80" fill="#8abeb7" opacity="0">&gt; /magpie-release-management:&lt;skill&gt;<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.0000;0.0010;1" dur="8.3s" repeatCount="indefinite"/></text>
+    <text x="26" y="128" fill="#d8a657" opacity="0">  ✗ project configuration — 4 required, none found<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.0459;0.0469;1" dur="8.3s" repeatCount="indefinite"/></text>
+    <text x="26" y="176" fill="#8a8f94" opacity="0">  Configuring now. Gitignored files in this clone only.<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.0918;0.0928;1" dur="8.3s" repeatCount="indefinite"/></text>
+    <text x="26" y="248" fill="#c5c8c6" opacity="0">  One question, for what the repository cannot tell me:<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.1377;0.1387;1" dur="8.3s" repeatCount="indefinite"/></text>
+    <text x="26" y="272" fill="#c5c8c6" opacity="0">      pmc-roster.md<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.1836;0.1846;1" dur="8.3s" repeatCount="indefinite"/></text>
+    <text x="26" y="296" fill="#8a8f94" opacity="0">          Who is binding<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.2295;0.2305;1" dur="8.3s" repeatCount="indefinite"/></text>
+    <text x="26" y="320" fill="#c5c8c6" opacity="0">      release-build.md<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.2754;0.2764;1" dur="8.3s" repeatCount="indefinite"/></text>
+    <text x="26" y="344" fill="#8a8f94" opacity="0">          How this project builds and signs artefacts: build…<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.3213;0.3223;1" dur="8.3s" repeatCount="indefinite"/></text>
+    <text x="26" y="368" fill="#c5c8c6" opacity="0">      release-management-config.md<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.3671;0.3681;1" dur="8.3s" repeatCount="indefinite"/></text>
+    <text x="26" y="392" fill="#8a8f94" opacity="0">          Vote window and pass rule, distribution backend and…<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.4130;0.4140;1" dur="8.3s" repeatCount="indefinite"/></text>
+    <text x="26" y="416" fill="#c5c8c6" opacity="0">      release-trains.md<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.4589;0.4599;1" dur="8.3s" repeatCount="indefinite"/></text>
+    <text x="26" y="440" fill="#8a8f94" opacity="0">          Active release branches, release-manager attribution…<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.5048;0.5058;1" dur="8.3s" repeatCount="indefinite"/></text>
+    <text x="26" y="488" fill="#7f9f7f" opacity="0">  Written to .apache-magpie-local/  — nothing staged, nothing<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.5507;0.5517;1" dur="8.3s" repeatCount="indefinite"/></text>
+    <text x="26" y="512" fill="#7f9f7f" opacity="0">  committed, no teammate affected.<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.5966;0.5976;1" dur="8.3s" repeatCount="indefinite"/></text>
+    <text x="26" y="560" fill="#8a8f94" opacity="0">  The project can also adopt Magpie, so contributors get this<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.6425;0.6435;1" dur="8.3s" repeatCount="indefinite"/></text>
+    <text x="26" y="584" fill="#8a8f94" opacity="0">  on clone: /magpie-setup adopt<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.6884;0.6894;1" dur="8.3s" repeatCount="indefinite"/></text>
     <rect x="26" y="571" width="10" height="17" fill="#c5c8c6"><animate attributeName="opacity" values="1;1;0;0;1" dur="1.2s" repeatCount="indefinite"/></rect>
   </g>
 </svg>

@@ -12,6 +12,7 @@
   - [Google Gemini CLI](#google-gemini-cli)
   - [Cursor](#cursor)
   - [microsoft/apm](#microsoftapm)
+  - [Kiro CLI](#kiro-cli)
   - [JetBrains IDEs](#jetbrains-ides)
   - [Where to go next](#where-to-go-next)
 
@@ -101,6 +102,21 @@ apm install apache/magpie
 `apm` deploys the skills into each supported agent's directory and writes an
 `apm.lock.yaml`; commit it to pin the resolved commit.
 
+## Kiro CLI
+
+Kiro has **no marketplace**: it installs skills one at a time from a GitHub
+subdirectory. Point its *install from GitHub* at the skill you want, on a
+pinned tag:
+
+```text
+https://github.com/apache/magpie/tree/0.2.0/skills/setup
+```
+
+Pin a tag rather than tracking `main` — without a marketplace there is no
+update command later, so what you install is what you keep until you install
+again. [The Kiro harness guide](../adapters/kiro.md) covers the guard hook and
+the rest of the wiring.
+
 ## JetBrains IDEs
 
 Nothing extra to install. A JetBrains IDE hosts an agent rather than
@@ -116,9 +132,8 @@ store, so a marketplace added in the terminal is already there in the IDE.
 - [**Quick start**](../quick-start.md) — what to run once the plugins are in.
 - [**The Apache Magpie Marketplace**](marketplace.md) — the reference behind
   these commands: which families to pick, how the manifests work, versioning,
-  what is verified against a live client and what is not, and the Kiro and
-  OpenCode paths, which install skills directly rather than through a
-  marketplace.
+  what is verified against a live client and what is not, and the OpenCode
+  path, which installs skills directly rather than through a marketplace.
 - [**Prerequisites for running framework skills**](../quick-start/prerequisites.md)
   — what individual skills need at run time (a tracker, a mail backend, and so
   on). Separate from this page, and needed only for the skills that use them.

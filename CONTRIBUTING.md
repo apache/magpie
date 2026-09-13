@@ -339,7 +339,7 @@ skills and all tools.
    would go, use the placeholders `<PROJECT>` / `<tracker>` /
    `<upstream>` / `<security-list>` / `<private-list>` /
    `<default-branch>` — the `check-placeholders` prek hook
-   catches violations. Per-CLI runtime ports are tracked at
+   catches violations. Per-CLI harness ports are tracked at
    issues [#313](https://github.com/apache/magpie/issues/313)–[#322](https://github.com/apache/magpie/issues/322).
 4. **Conversational, correctable.** A maintainer override
    (`.apache-magpie-overrides/<skill>.md` in the adopter repo)
@@ -378,7 +378,7 @@ apply the sandbox from `setup-isolated-setup-install`. A third runtime,
 [OpenAI Codex](https://github.com/openai/codex), reads the
 `.agents/skills/` tree natively and ships an in-tree sandbox profile and
 HITL exec-policy rules; its adapter is **experimental** — see the
-[Codex runtime guide](docs/adapters/codex.md).
+[Codex harness guide](docs/adapters/codex.md).
 
 RFC-AI-0004 §3 commits the framework to **vendor neutrality across
 LLM backends** — [`docs/prerequisites.md`](docs/quick-start/prerequisites.md) and
@@ -390,9 +390,9 @@ authoritative runtime matrix. The current state per harness:
 | OpenCode | Reference implementation, fully supported | — |
 | Claude Code | Reference implementation, fully supported | — |
 | Codex CLI | Experimental first-class adapter — reads `.agents/skills/` natively, ships in-tree sandbox + HITL rules | [#313](https://github.com/apache/magpie/issues/313) |
-| Gemini CLI | Experimental adapter reads `.agents/skills/` natively, with an action-guard, tool sandboxing and policies — see the [runtime guide](docs/adapters/gemini.md) | [#314](https://github.com/apache/magpie/issues/314) |
-| Local LLM (Ollama / llama.cpp / vLLM) | OpenAI-compatible endpoints with calibrated model floors (70B+ / 8B–14B) — see the [runtime guide](docs/adapters/local-llm.md) | [#315](https://github.com/apache/magpie/issues/315) |
-| Cursor (Composer + Agent CLI) | Reads `.agents/skills/` natively; per-action confirmation and Composer/Agent CLI — see the [runtime guide](docs/adapters/cursor.md) | [#316](https://github.com/apache/magpie/issues/316) |
+| Gemini CLI | Experimental adapter reads `.agents/skills/` natively, with an action-guard, tool sandboxing and policies — see the [harness guide](docs/adapters/gemini.md) | [#314](https://github.com/apache/magpie/issues/314) |
+| Local LLM (Ollama / llama.cpp / vLLM) | OpenAI-compatible endpoints with calibrated model floors (70B+ / 8B–14B) — see the [harness guide](docs/adapters/local-llm.md) | [#315](https://github.com/apache/magpie/issues/315) |
+| Cursor (Composer + Agent CLI) | Reads `.agents/skills/` natively; per-action confirmation and Composer/Agent CLI — see the [harness guide](docs/adapters/cursor.md) | [#316](https://github.com/apache/magpie/issues/316) |
 | Aider | Not yet ported | [#317](https://github.com/apache/magpie/issues/317) |
 | GitHub Copilot CLI + Coding Agent | Not yet ported | [#318](https://github.com/apache/magpie/issues/318) |
 | Goose (Block) | Not yet ported | [#319](https://github.com/apache/magpie/issues/319) |
@@ -931,7 +931,7 @@ Good entry points, in rough order of ramp-up cost:
    - **Tool / adapter bridges** — JIRA write path, Bugzilla, IMAP / mbox
      concrete wiring, GitLab, Mailman 3 / Hyperkitty, Discourse, Zulip,
      Matrix, Forgejo, OSV.dev, Pagure.
-   - **Agent-CLI runtime adapters** — Codex, Gemini, local-LLM, Cursor,
+   - **Agent-CLI harness adapters** — Codex, Gemini, local-LLM, Cursor,
      Aider, gh-copilot, Goose, Amazon Q, Junie, OpenHands.
 
    Before you start work, please leave a comment on the issue so a

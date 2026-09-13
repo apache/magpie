@@ -13,10 +13,10 @@ description: |
 when_to_use: |
   Invoke when the user says "update secure setup", "check for
   secure-config drift", "is my setup at the framework's latest?",
-  "should I bump the pinned tools?", or after an agent runtime
+  "should I bump the pinned tools?", or after an agent harness
   upgrade / a substantial tracker-repo merge / when a previously
   blocked Bash call now appears to succeed. Recommended cadence
-  per the doc: once per agent runtime upgrade or once a month,
+  per the doc: once per agent harness upgrade or once a month,
   whichever comes first. Cheap to re-run; never destructive.
 capability: capability:platform
 license: Apache-2.0
@@ -123,7 +123,7 @@ Drift severity:
   bump is not a foregone conclusion — the framework's policy for
   the **pinned sandbox primitives** (`bubblewrap`, `socat`) is
   "wait for a feature you actually want or a security fix", not
-  "always run latest". The **agent runtime** (`claude-code`) is
+  "always run latest". The **agent harness** (`claude-code`) is
   the deliberate exception: it is unpinned and *should* always run
   the latest — recommend `npm install -g --no-save
   @anthropic-ai/claude-code@latest` whenever a newer build exists,

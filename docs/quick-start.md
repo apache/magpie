@@ -21,6 +21,10 @@
 
 # Quick start
 
+![Three install commands, then a triage run: 38 open PRs, 12 untriaged, with a proposed action for each and a confirmation prompt](../assets/quickstart/install.svg)
+
+*Illustrative. The whole of it: install, run a skill, get an answer you confirm.*
+
 Install Apache Magpie into the agent you already use, in a couple of
 commands: one to add the **Apache Magpie Marketplace**, one per family you
 want. Nothing is
@@ -62,6 +66,8 @@ with it.
 
 Installing is a **one-time, per-machine** step for whichever agent you use. It
 writes nothing to any repository and your teammates are unaffected.
+
+![Adding the apache-magpie marketplace, then installing magpie-setup and one family, with nothing written to the repository](../assets/quickstart/step-install.svg)
 
 → [**Prerequisite: install Magpie from your agent's
 marketplace**](setup/marketplace-install.md) has the commands, one section per
@@ -167,12 +173,14 @@ and privacy layers belong in place before you point a skill at anything real.
 Installing skills and configuring your host's isolation are separate steps,
 and what the second one looks like depends on the agent you run:
 
-| Runtime | Next step |
+| Harness | Next step |
 |---|---|
 | **Claude Code** | The guided install below. |
 | **OpenAI Codex CLI** | [Codex setup lifecycle](adapters/codex.md#setup-isolated-lifecycle). |
 | **Google Gemini CLI** | Ask `Use the magpie-setup-isolated-setup-install skill.` — tool sandboxing and policies, per the [Gemini setup lifecycle](adapters/gemini.md#setup-isolated-lifecycle). |
 | **Anything else** | The [secure setup guide](setup/secure-agent-setup.md) and your runtime's adapter, for what it supports. |
+
+![The secure-agent setup: three proposed changes, a confirmation, then the sandbox, the clean environment and the status line in place](../assets/quickstart/step-isolation.svg)
 
 On Claude Code, the first skill worth running is the one that locks the agent
 down:
@@ -208,6 +216,8 @@ How your data reaches a model, and what never leaves the machine:
 
 ### Step 4 — use it
 
+![Listing the installed skills, then a triage pass returning 38 open PRs with a proposed action for each and nothing posted](../assets/quickstart/step-use.svg)
+
 Ask in plain language:
 
 > review PR #5193
@@ -227,6 +237,8 @@ or call a skill by name. A marketplace install namespaces skills under the
 ---
 
 ### Step 5 — consider adopting Magpie
+
+![An adopt run: three paths staged and not committed, what a contributor gets on clone, and what it does not restrict](../assets/quickstart/step-adopt.svg)
 
 Everything so far was yours alone: the plugins live in your agent, and your
 repository has not changed. **Adoption is the separate act of deciding this for

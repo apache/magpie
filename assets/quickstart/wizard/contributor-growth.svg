@@ -35,26 +35,26 @@
   <circle cx="44" cy="17" r="6" fill="#3f4448"/>
   <circle cx="66" cy="17" r="6" fill="#3f4448"/>
   <g font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="17" xml:space="preserve">
-    <text x="26" y="80" fill="#8abeb7" opacity="0">&gt; /magpie-contributor-growth:&lt;skill&gt;<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.0000;0.0010;1" dur="16.6s" repeatCount="indefinite"/></text>
-    <text x="26" y="128" fill="#d8a657" opacity="0">  ✗ project configuration — 6 required, none found<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.0422;0.0432;1" dur="16.6s" repeatCount="indefinite"/></text>
-    <text x="26" y="176" fill="#8a8f94" opacity="0">  Configuring now. Gitignored files in this clone only.<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.0843;0.0853;1" dur="16.6s" repeatCount="indefinite"/></text>
-    <text x="26" y="224" fill="#7f9f7f" opacity="0">  ✓ project.md<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.1265;0.1275;1" dur="16.6s" repeatCount="indefinite"/></text>
-    <text x="26" y="248" fill="#8a8f94" opacity="0">      upstream_repo   acme/toolkit   from the origin remote<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.1687;0.1697;1" dur="16.6s" repeatCount="indefinite"/></text>
-    <text x="26" y="296" fill="#c5c8c6" opacity="0">  One question, for what the repository cannot tell me:<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.2108;0.2118;1" dur="16.6s" repeatCount="indefinite"/></text>
-    <text x="26" y="320" fill="#c5c8c6" opacity="0">      committer-onboarding-config.md<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.2530;0.2540;1" dur="16.6s" repeatCount="indefinite"/></text>
-    <text x="26" y="344" fill="#8a8f94" opacity="0">          Capability-flag vocabulary for committer intake and…<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.2952;0.2962;1" dur="16.6s" repeatCount="indefinite"/></text>
-    <text x="26" y="368" fill="#c5c8c6" opacity="0">      committer-readiness.md<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.3373;0.3383;1" dur="16.6s" repeatCount="indefinite"/></text>
-    <text x="26" y="392" fill="#8a8f94" opacity="0">          The project's declared committer and PMC thresholds —…<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.3795;0.3805;1" dur="16.6s" repeatCount="indefinite"/></text>
-    <text x="26" y="416" fill="#c5c8c6" opacity="0">      contributor-nomination-config.md<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.4217;0.4227;1" dur="16.6s" repeatCount="indefinite"/></text>
-    <text x="26" y="440" fill="#8a8f94" opacity="0">          Nomination-brief thresholds and assessment window<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.4639;0.4649;1" dur="16.6s" repeatCount="indefinite"/></text>
-    <text x="26" y="464" fill="#c5c8c6" opacity="0">      contributor-sentiment-config.md<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.5060;0.5070;1" dur="16.6s" repeatCount="indefinite"/></text>
-    <text x="26" y="488" fill="#8a8f94" opacity="0">          Signal thresholds for the sentiment gate<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.5482;0.5492;1" dur="16.6s" repeatCount="indefinite"/></text>
-    <text x="26" y="512" fill="#c5c8c6" opacity="0">      onboarding-concierge-config.md<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.5904;0.5914;1" dur="16.6s" repeatCount="indefinite"/></text>
-    <text x="26" y="536" fill="#8a8f94" opacity="0">          The path a new contributor is walked through, and who…<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.6325;0.6335;1" dur="16.6s" repeatCount="indefinite"/></text>
-    <text x="26" y="584" fill="#7f9f7f" opacity="0">  Written to .apache-magpie-local/  — nothing staged, nothing<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.6747;0.6757;1" dur="16.6s" repeatCount="indefinite"/></text>
-    <text x="26" y="608" fill="#7f9f7f" opacity="0">  committed, no teammate affected.<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.7169;0.7179;1" dur="16.6s" repeatCount="indefinite"/></text>
-    <text x="26" y="656" fill="#8a8f94" opacity="0">  The project can also adopt Magpie, so contributors get this<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.7590;0.7600;1" dur="16.6s" repeatCount="indefinite"/></text>
-    <text x="26" y="680" fill="#8a8f94" opacity="0">  on clone: /magpie-setup adopt<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.8012;0.8022;1" dur="16.6s" repeatCount="indefinite"/></text>
+    <text x="26" y="80" fill="#8abeb7" opacity="0">&gt; /magpie-contributor-growth:&lt;skill&gt;<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.0000;0.0010;1" dur="9.8s" repeatCount="indefinite"/></text>
+    <text x="26" y="128" fill="#d8a657" opacity="0">  ✗ project configuration — 6 required, none found<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.0388;0.0398;1" dur="9.8s" repeatCount="indefinite"/></text>
+    <text x="26" y="176" fill="#8a8f94" opacity="0">  Configuring now. Gitignored files in this clone only.<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.0776;0.0786;1" dur="9.8s" repeatCount="indefinite"/></text>
+    <text x="26" y="224" fill="#7f9f7f" opacity="0">  ✓ project.md<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.1163;0.1173;1" dur="9.8s" repeatCount="indefinite"/></text>
+    <text x="26" y="248" fill="#8a8f94" opacity="0">      upstream_repo   acme/toolkit   from the origin remote<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.1551;0.1561;1" dur="9.8s" repeatCount="indefinite"/></text>
+    <text x="26" y="296" fill="#c5c8c6" opacity="0">  One question, for what the repository cannot tell me:<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.1939;0.1949;1" dur="9.8s" repeatCount="indefinite"/></text>
+    <text x="26" y="320" fill="#c5c8c6" opacity="0">      committer-onboarding-config.md<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.2327;0.2337;1" dur="9.8s" repeatCount="indefinite"/></text>
+    <text x="26" y="344" fill="#8a8f94" opacity="0">          Capability-flag vocabulary for committer intake and…<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.2714;0.2724;1" dur="9.8s" repeatCount="indefinite"/></text>
+    <text x="26" y="368" fill="#c5c8c6" opacity="0">      committer-readiness.md<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.3102;0.3112;1" dur="9.8s" repeatCount="indefinite"/></text>
+    <text x="26" y="392" fill="#8a8f94" opacity="0">          The project's declared committer and PMC thresholds —…<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.3490;0.3500;1" dur="9.8s" repeatCount="indefinite"/></text>
+    <text x="26" y="416" fill="#c5c8c6" opacity="0">      contributor-nomination-config.md<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.3878;0.3888;1" dur="9.8s" repeatCount="indefinite"/></text>
+    <text x="26" y="440" fill="#8a8f94" opacity="0">          Nomination-brief thresholds and assessment window<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.4265;0.4275;1" dur="9.8s" repeatCount="indefinite"/></text>
+    <text x="26" y="464" fill="#c5c8c6" opacity="0">      contributor-sentiment-config.md<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.4653;0.4663;1" dur="9.8s" repeatCount="indefinite"/></text>
+    <text x="26" y="488" fill="#8a8f94" opacity="0">          Signal thresholds for the sentiment gate<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.5041;0.5051;1" dur="9.8s" repeatCount="indefinite"/></text>
+    <text x="26" y="512" fill="#c5c8c6" opacity="0">      onboarding-concierge-config.md<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.5429;0.5439;1" dur="9.8s" repeatCount="indefinite"/></text>
+    <text x="26" y="536" fill="#8a8f94" opacity="0">          The path a new contributor is walked through, and who…<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.5816;0.5826;1" dur="9.8s" repeatCount="indefinite"/></text>
+    <text x="26" y="584" fill="#7f9f7f" opacity="0">  Written to .apache-magpie-local/  — nothing staged, nothing<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.6204;0.6214;1" dur="9.8s" repeatCount="indefinite"/></text>
+    <text x="26" y="608" fill="#7f9f7f" opacity="0">  committed, no teammate affected.<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.6592;0.6602;1" dur="9.8s" repeatCount="indefinite"/></text>
+    <text x="26" y="656" fill="#8a8f94" opacity="0">  The project can also adopt Magpie, so contributors get this<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.6980;0.6990;1" dur="9.8s" repeatCount="indefinite"/></text>
+    <text x="26" y="680" fill="#8a8f94" opacity="0">  on clone: /magpie-setup adopt<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.7367;0.7377;1" dur="9.8s" repeatCount="indefinite"/></text>
     <rect x="26" y="667" width="10" height="17" fill="#c5c8c6"><animate attributeName="opacity" values="1;1;0;0;1" dur="1.2s" repeatCount="indefinite"/></rect>
   </g>
 </svg>

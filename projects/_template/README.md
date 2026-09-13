@@ -259,4 +259,4 @@ skills):
   framework"* view + bootstrap walk-through.
 - [`../../AGENTS.md`](../../AGENTS.md#placeholder-convention-used-in-skill-files) —
   the placeholder convention that lets skills resolve `<project-config>/`
-  to the adopter's path at agent runtime.
+  to the adopter's path at agent harness.

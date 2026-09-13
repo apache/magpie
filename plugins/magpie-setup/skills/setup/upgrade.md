@@ -70,7 +70,7 @@ Both paths run the same flow.
 
    (Codex: `codex plugin update magpie`; Gemini:
    `gemini extensions update magpie`.) After the plugin refresh,
-   run `setup-isolated-setup-update` for any installed runtime profile;
+   run `setup-isolated-setup-update` for any installed harness profile;
    plugin updates do not merge workspace configuration.
    The marketplace update
    comes first: `plugin update` compares **version strings**

@@ -7,7 +7,7 @@ Return ONLY valid JSON with this structure:
 
 ```json
 {
-  "action": "silent" | "install" | "update" | "print-command" | "ask-first" | "propose-setup",
+  "action": "silent" | "install" | "update" | "print-command" | "ask-first" | "configure",
   "commands": [...],
   "commands_shown": [...],
   "blocks": true | false,
@@ -17,6 +17,13 @@ Return ONLY valid JSON with this structure:
 
 `action` reports what the pre-flight does about the state described.
 `silent` means it prints nothing and the skill proceeds.
+
+`configure` means the skill's required project configuration did not resolve
+and the pre-flight ran `/magpie-setup config` itself. That one **does not
+block**: it writes gitignored files and the skill continues in the same turn,
+unlike a plugin install, which needs a session restart before the new version
+is live. Adoption is never run — at most it is mentioned once, which
+`mention_adopt` reports.
 
 `commands` is the list of install/update commands the pre-flight actually
 **runs**, in the order it runs them. Reading installed state — `claude plugin
@@ -29,6 +36,9 @@ run, and when it declines to act and asks first.
 run themselves, empty when it prints none.
 
 `blocks` reports whether the skill stops rather than continuing this turn.
+
+`mention_adopt` reports whether the output names `/magpie-setup adopt`. It is
+mentioned at most once, as information, and never run.
 
 `reason` is one sentence saying why.
 

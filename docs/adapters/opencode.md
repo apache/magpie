@@ -5,8 +5,8 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [OpenCode runtime](#opencode-runtime)
-  - [Runtime contract](#runtime-contract)
+- [OpenCode harness](#opencode-harness)
+  - [Harness contract](#harness-contract)
   - [Deterministic guard rules](#deterministic-guard-rules)
   - [Spec-loop runner](#spec-loop-runner)
   - [Clean-environment wrapper](#clean-environment-wrapper)
@@ -17,7 +17,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
-# OpenCode runtime
+# OpenCode harness
 
 **Capability:** capability:platform
 
@@ -28,7 +28,7 @@ runner, and clean-environment wrapper. Nothing about a Magpie skill or a guard
 rule is harness-aware: the same files that serve Claude Code serve OpenCode,
 through a different registration mechanism.
 
-## Runtime contract
+## Harness contract
 
 | Magpie requirement | OpenCode implementation |
 |---|---|

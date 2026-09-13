@@ -46,7 +46,7 @@ SAST, secrets and infrastructure-as-code scanning surfaced in the session.
 /plugin install aikido
 ```
 
-Not available on OpenAI Codex CLI, VS Code / GitHub Copilot, Google Gemini CLI, Cursor, OpenCode.
+Not available on OpenAI Codex CLI, VS Code / GitHub Copilot, Google Gemini CLI, Cursor, OpenCode, Kiro CLI.
 
 ## [Claude Security](https://code.claude.com/docs/en/claude-security)
 
@@ -62,7 +62,7 @@ Claude Code only: it drives subagents and a scan workflow that Agent Plugins 1.0
 /plugin install claude-security
 ```
 
-Not available on OpenAI Codex CLI, VS Code / GitHub Copilot, Google Gemini CLI, Cursor, OpenCode.
+Not available on OpenAI Codex CLI, VS Code / GitHub Copilot, Google Gemini CLI, Cursor, OpenCode, Kiro CLI.
 
 ## [Code Review](https://github.com/anthropics/claude-plugins-official/tree/main/plugins/code-review)
 
@@ -76,7 +76,7 @@ Automated pull-request review through several specialised agents, scored by conf
 /plugin install code-review
 ```
 
-Not available on OpenAI Codex CLI, VS Code / GitHub Copilot, Google Gemini CLI, Cursor, OpenCode.
+Not available on OpenAI Codex CLI, VS Code / GitHub Copilot, Google Gemini CLI, Cursor, OpenCode, Kiro CLI.
 
 ## [Superpowers](https://github.com/obra/superpowers)
 
@@ -137,6 +137,8 @@ install from github.com/obra/superpowers through Cursor's plugin flow
 ```text
 clone the skills you want into .opencode/skills/ from github.com/obra/superpowers
 ```
+
+Not available on Kiro CLI.
 
 ## Adding to this page
 

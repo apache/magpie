@@ -278,7 +278,7 @@ A missing hook executable or interpreter can also leave the session running
 with a warning, so verify a known denial after installation.
 The hook covers shell commands; native file and MCP tools still need their
 own permissions, and shell execution still needs an OS sandbox.
-See the [runtime contract](../../docs/adapters/gemini.md).
+See the [harness contract](../../docs/adapters/gemini.md).
 
 ### Harness-neutral path (any runtime)
 

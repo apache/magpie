@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Licensed to the Apache Software Foundation (ASF) under one
+  or more contributor license agreements.  See the NOTICE file
+  distributed with this work for additional information
+  regarding copyright ownership.  The ASF licenses this file
+  to you under the Apache License, Version 2.0 (the
+  "License"); you may not use this file except in compliance
+  with the License.  You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing,
+  software distributed under the License is distributed on an
+  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+  KIND, either express or implied.  See the License for the
+  specific language governing permissions and limitations
+  under the License.
+
+  GENERATED FILE - do not edit.
+
+  Written by tools/dev/render-wizard.py. Illustrative of the shape of a
+  run, not a recording of one.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 664 424"
+     width="664" height="424" role="img"
+     data-magpie-generated="render-wizard"
+     aria-label="An animated marketplace install: adding apache-magpie, then installing magpie-setup and one family, with nothing written to the repository">
+  <title>Step 1 — install from the marketplace</title>
+  <desc>Illustrative animation of the marketplace install step. Not a recording.</desc>
+  <rect width="664" height="424" rx="10" fill="#1d1f21"/>
+  <rect x="0" y="0" width="664" height="34" rx="10" fill="#2b2e31"/>
+  <rect x="0" y="24" width="664" height="10" fill="#2b2e31"/>
+  <circle cx="22" cy="17" r="6" fill="#3f4448"/>
+  <circle cx="44" cy="17" r="6" fill="#3f4448"/>
+  <circle cx="66" cy="17" r="6" fill="#3f4448"/>
+  <g font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="17" xml:space="preserve">
+    <text x="26" y="80" fill="#8abeb7" opacity="0">&gt; /plugin marketplace add apache/magpie<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.0000;0.0010;1" dur="6.0s" repeatCount="indefinite"/></text>
+    <text x="26" y="128" fill="#7f9f7f" opacity="0">  ✓ apache-magpie added<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.0633;0.0643;1" dur="6.0s" repeatCount="indefinite"/></text>
+    <text x="26" y="176" fill="#8abeb7" opacity="0">&gt; /plugin install magpie-setup@apache-magpie<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.1267;0.1277;1" dur="6.0s" repeatCount="indefinite"/></text>
+    <text x="26" y="200" fill="#7f9f7f" opacity="0">  ✓ magpie-setup        install this one first - nothing<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.1900;0.1910;1" dur="6.0s" repeatCount="indefinite"/></text>
+    <text x="26" y="224" fill="#8a8f94" opacity="0">                        else installs or upgrades without it<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.2533;0.2543;1" dur="6.0s" repeatCount="indefinite"/></text>
+    <text x="26" y="272" fill="#8abeb7" opacity="0">&gt; /plugin install magpie-pr-management@apache-magpie<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.3167;0.3177;1" dur="6.0s" repeatCount="indefinite"/></text>
+    <text x="26" y="296" fill="#7f9f7f" opacity="0">  ✓ magpie-pr-management   the family you picked<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.3800;0.3810;1" dur="6.0s" repeatCount="indefinite"/></text>
+    <text x="26" y="344" fill="#8a8f94" opacity="0">  Nothing was written to this repository, and your teammates<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.4433;0.4443;1" dur="6.0s" repeatCount="indefinite"/></text>
+    <text x="26" y="368" fill="#8a8f94" opacity="0">  are unaffected. On another agent it is one command each -<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.5067;0.5077;1" dur="6.0s" repeatCount="indefinite"/></text>
+    <text x="26" y="392" fill="#8a8f94" opacity="0">  see the prerequisite page.<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.5700;0.5710;1" dur="6.0s" repeatCount="indefinite"/></text>
+    <rect x="26" y="379" width="10" height="17" fill="#c5c8c6"><animate attributeName="opacity" values="1;1;0;0;1" dur="1.2s" repeatCount="indefinite"/></rect>
+  </g>
+</svg>

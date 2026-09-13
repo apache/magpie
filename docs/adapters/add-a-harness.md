@@ -21,12 +21,12 @@
 
 # Adding a new agent harness
 
-This recipe names every step to wire a new agentic runtime into
+This recipe names every step to wire a new agentic harness into
 Magpie so it loads skills, enforces the action guard, and runs
 the spec-loop. It is the counterpart to the
 [tool-adapter authoring guide](authoring.md) — that guide adds a
 new *backend* (forge, VCS, mail system); this guide adds a new
-*agent runtime*.
+*agent harness*.
 
 The framework's skills are plain
 [`AGENTS.md`](https://agents.md/)-standard Markdown. No runtime
@@ -260,7 +260,7 @@ Steps 2 and 4 are what turn "skills load" into "skills run safely."
 The recommended order for a community contribution:
 
 1. **Open a tracking issue** (or claim the existing one for your
-   runtime — see `docs/vendor-neutrality.md` § Agentic runtime for the
+   runtime — see `docs/vendor-neutrality.md` § Agentic harness for the
    issue list).
 2. **Land the registry row + relay symlinks** (step 1) — small PR,
    unblocks users immediately.

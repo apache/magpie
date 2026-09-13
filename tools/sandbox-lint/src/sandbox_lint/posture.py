@@ -17,7 +17,7 @@
 
 """Harness-neutral security-posture check for sandbox-lint.
 
-For agentic runtimes that do not have a dedicated sandbox configuration file
+For agentic harnesses that do not have a dedicated sandbox configuration file
 (Cursor, Gemini CLI, and others), the security posture comes from
 OS-level enforcement components shared across all harnesses. This module
 validates that those components are present in the framework tree so the

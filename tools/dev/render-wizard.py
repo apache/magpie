@@ -60,6 +60,11 @@ from xml.sax.saxutils import escape
 
 OUT_DIR = Path("assets/quickstart/wizard")
 SETUP_SVG = Path("assets/quickstart/magpie-setup.svg")
+HERO_SVG = Path("assets/quickstart/install.svg")
+STEP_INSTALL_SVG = Path("assets/quickstart/step-install.svg")
+STEP_ISOLATION_SVG = Path("assets/quickstart/step-isolation.svg")
+STEP_USE_SVG = Path("assets/quickstart/step-use.svg")
+STEP_ADOPT_SVG = Path("assets/quickstart/step-adopt.svg")
 
 # The recorder's palette, so this reads as the same terminal as everything else.
 BG, BAR, DOT = "#1d1f21", "#2b2e31", "#3f4448"
@@ -72,8 +77,8 @@ ADVANCE_TENTHS = 102  # 0.6em at 17px, in tenths, so the geometry stays integer
 LINE_H = 24
 PAD_X, PAD_TOP, BAR_H = 26, 28, 34
 
-STEP_MS = 700  # one revealed line
-HOLD_MS = 2600  # the pause on the finished frame before it loops
+STEP_MS = 380  # one revealed line
+HOLD_MS = 2200  # the pause on the finished frame before it loops
 
 LICENCE = """<?xml version="1.0" encoding="UTF-8"?>
 <!--
@@ -210,6 +215,137 @@ def render(title: str, alt: str, desc_text: str, frames: list[tuple[str, str]]) 
     return LICENCE + "\n".join(lines)
 
 
+def hero_script() -> list[tuple[str, str]]:
+    """The shortest true story: install it, run something, get an answer.
+
+    This is the first thing on the quick start, so it answers the only
+    question a reader has before they have decided anything -- what does
+    using this look like. No agent detection, no family picker, no secure
+    setup: those are the page, and `magpie-setup.svg` further down shows
+    them. A hero that tries to show everything shows nothing.
+    """
+    return [
+        (CMD, "> /plugin marketplace add apache/magpie"),
+        (CMD, "> /plugin install magpie-setup@apache-magpie"),
+        (CMD, "> /plugin install magpie-pr-management@apache-magpie"),
+        (FG, ""),
+        (OK, "  ✓ installed - nothing written to the repository"),
+        (FG, ""),
+        (CMD, "> /magpie-pr-management:triage"),
+        (FG, ""),
+        (FG, "  38 open PRs, 12 untriaged"),
+        (FG, ""),
+        (FG, "  #1421  first contribution, CI green, no reviewer"),
+        (MUTED, "         -> mark ready for maintainer review"),
+        (FG, "  #1388  draft 3 weeks, no commits since"),
+        (MUTED, "         -> ask the author if it is still active"),
+        (FG, ""),
+        (MUTED, "  Each action needs your confirmation. [Y/n]"),
+    ]
+
+
+def step_install_script() -> list[tuple[str, str]]:
+    """Walkthrough step 1: the marketplace install, on one agent.
+
+    Deliberately narrower than the hero, which runs a skill afterwards. This
+    one answers what step 1 alone does and where it stops -- no numbers a
+    release would move, because nothing regenerates this from the tree.
+    """
+    return [
+        (CMD, "> /plugin marketplace add apache/magpie"),
+        (FG, ""),
+        (OK, "  ✓ apache-magpie added"),
+        (FG, ""),
+        (CMD, "> /plugin install magpie-setup@apache-magpie"),
+        (OK, "  ✓ magpie-setup        install this one first - nothing"),
+        (MUTED, "                        else installs or upgrades without it"),
+        (FG, ""),
+        (CMD, "> /plugin install magpie-pr-management@apache-magpie"),
+        (OK, "  ✓ magpie-pr-management   the family you picked"),
+        (FG, ""),
+        (MUTED, "  Nothing was written to this repository, and your teammates"),
+        (MUTED, "  are unaffected. On another agent it is one command each -"),
+        (MUTED, "  see the prerequisite page."),
+    ]
+
+
+def step_isolation_script() -> list[tuple[str, str]]:
+    """Walkthrough step 3: the secure-agent setup, on Claude Code.
+
+    The step other harnesses reach differently, which the page says in a
+    table above this. What the animation shows is the shape every one of
+    them shares: propose, confirm, then three things that are true after.
+    """
+    return [
+        (CMD, "> /magpie-setup:isolated-setup-install"),
+        (FG, ""),
+        (FG, "  Proposed - nothing applied yet:"),
+        (FG, "    1  .claude/settings.json   sandbox on, credential denies"),
+        (FG, "    2  ~/.claude/scripts/      hooks and the status line"),
+        (FG, "    3  ~/.zshrc                source agent-iso.sh"),
+        (FG, ""),
+        (FG, "  Apply 1-3? [y/N] y"),
+        (FG, ""),
+        (OK, "  ✓ sandbox      bash sees only the paths you allow"),
+        (OK, "  ✓ clean env    credentials stripped before the agent starts"),
+        (OK, "  ✓ status line  [sandbox] in the footer, green when it is on"),
+        (FG, ""),
+        (MUTED, "  Your ~/.ssh, ~/.aws and tokens are out of reach. Every sudo,"),
+        (MUTED, "  shell-rc and settings change was shown before it ran."),
+    ]
+
+
+def step_use_script() -> list[tuple[str, str]]:
+    """Walkthrough step 4: invoking a skill, and what comes back.
+
+    The first three steps are preparation. This is the one that shows why
+    any of it was worth doing, so it ends on the thing every skill in the
+    framework has in common: a proposal, not an action.
+    """
+    return [
+        (CMD, "> /magpie-utilities:list-skills"),
+        (FG, ""),
+        (FG, "  magpie-setup           install, upgrade, adopt, sandbox"),
+        (FG, "  magpie-utilities       author and index your own skills"),
+        (FG, "  magpie-pr-management   triage, review, stats, quick-merge"),
+        (FG, ""),
+        (CMD, "> /magpie-pr-management:triage"),
+        (FG, ""),
+        (FG, "  38 open PRs, 12 untriaged"),
+        (FG, ""),
+        (FG, "  #1421  first contribution, CI green, no reviewer"),
+        (MUTED, "         -> mark ready for maintainer review"),
+        (FG, "  #1402  branch 200 commits behind, conflicts"),
+        (MUTED, "         -> ask the author to rebase"),
+        (FG, ""),
+        (OK, "  Nothing has been posted. Every action waits for you."),
+    ]
+
+
+def step_adopt_script() -> list[tuple[str, str]]:
+    """Walkthrough step 5: adoption, which most readers will never run.
+
+    So the animation leads with who it is for and ends on what it does not
+    do, rather than selling it.
+    """
+    return [
+        (WARN, "  Only if you are a maintainer, deciding with the others."),
+        (FG, ""),
+        (CMD, "> /magpie-setup adopt"),
+        (FG, ""),
+        (FG, "  Staged, not committed:"),
+        (FG, "    .apache-magpie.lock       the floor - a minimum, not a pin"),
+        (FG, "    .claude/settings.json     derived from it"),
+        (FG, "    .apache-magpie-overrides/ the project's configuration"),
+        (FG, ""),
+        (OK, "  ✓ a contributor who clones this arrives with the floor"),
+        (OK, "  ✓ review it and commit it like any other change"),
+        (FG, ""),
+        (MUTED, "  It limits nobody: anyone may install more, run a newer"),
+        (MUTED, "  Magpie, or ignore the recommendation entirely."),
+    ]
+
+
 def setup_script() -> list[tuple[str, str]]:
     """The first run, end to end: install, then the secure-agent setup.
 
@@ -262,6 +398,42 @@ def build() -> dict[Path, str]:
     cfg = _load("check_skill_config", Path("tools/dev/check-skill-config.py"))
     desc = cfg.descriptions()
     out: dict[Path, str] = {
+        HERO_SVG: render(
+            "Install Magpie, and use it",
+            "An animated first look: three install commands, then a triage run "
+            "returning 38 open PRs with a proposed action for each and a confirmation "
+            "prompt",
+            "Illustrative animation of installing Magpie and running one skill. Not a recording.",
+            hero_script(),
+        ),
+        STEP_INSTALL_SVG: render(
+            "Step 1 — install from the marketplace",
+            "An animated marketplace install: adding apache-magpie, then installing "
+            "magpie-setup and one family, with nothing written to the repository",
+            "Illustrative animation of the marketplace install step. Not a recording.",
+            step_install_script(),
+        ),
+        STEP_ISOLATION_SVG: render(
+            "Step 3 — lock the agent down",
+            "An animated secure-agent setup: three proposed changes, a confirmation, "
+            "then the sandbox, the clean environment and the status line in place",
+            "Illustrative animation of the secure-agent setup step. Not a recording.",
+            step_isolation_script(),
+        ),
+        STEP_USE_SVG: render(
+            "Step 4 — use it",
+            "An animated skill run: listing what is installed, then a triage pass "
+            "returning 38 open PRs with a proposed action each and nothing posted",
+            "Illustrative animation of running a skill. Not a recording.",
+            step_use_script(),
+        ),
+        STEP_ADOPT_SVG: render(
+            "Step 5 — adopt it for the project",
+            "An animated adopt run: three paths staged and not committed, what a "
+            "contributor gets on clone, and what it does not restrict",
+            "Illustrative animation of adopting Magpie for a project. Not a recording.",
+            step_adopt_script(),
+        ),
         SETUP_SVG: render(
             "/magpie-setup — the first run",
             "An animated first run of /magpie-setup: the agent detected, the skill families "
@@ -270,7 +442,7 @@ def build() -> dict[Path, str]:
             "Illustrative animation of a first /magpie-setup run and the secure-agent setup "
             "that follows it. Not a recording.",
             setup_script(),
-        )
+        ),
     }
     for family, skills in sorted(cfg.families().items()):
         required = sorted({name for need, _ in skills.values() for name in need})
@@ -314,7 +486,11 @@ def main(argv: list[str] | None = None) -> int:
     for path in sorted(OUT_DIR.glob("*.svg")):
         if path not in wanted:
             path.unlink()
-    print(f"render-wizard: wrote {len(wanted)} animated runs ({SETUP_SVG} + {len(wanted) - 1} families)")
+    fams = sum(1 for path in wanted if path.parent == OUT_DIR)
+    print(
+        f"render-wizard: wrote {len(wanted)} animated runs "
+        f"({len(wanted) - fams} top-level, {fams} per-family)"
+    )
     return 0
 
 

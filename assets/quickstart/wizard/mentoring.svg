@@ -35,20 +35,20 @@
   <circle cx="44" cy="17" r="6" fill="#3f4448"/>
   <circle cx="66" cy="17" r="6" fill="#3f4448"/>
   <g font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="17" xml:space="preserve">
-    <text x="26" y="80" fill="#8abeb7" opacity="0">&gt; /magpie-mentoring:&lt;skill&gt;<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.0000;0.0010;1" dur="12.4s" repeatCount="indefinite"/></text>
-    <text x="26" y="128" fill="#d8a657" opacity="0">  ✗ project configuration — 3 required, none found<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.0565;0.0575;1" dur="12.4s" repeatCount="indefinite"/></text>
-    <text x="26" y="176" fill="#8a8f94" opacity="0">  Configuring now. Gitignored files in this clone only.<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.1129;0.1139;1" dur="12.4s" repeatCount="indefinite"/></text>
-    <text x="26" y="224" fill="#7f9f7f" opacity="0">  ✓ project.md<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.1694;0.1704;1" dur="12.4s" repeatCount="indefinite"/></text>
-    <text x="26" y="248" fill="#8a8f94" opacity="0">      upstream_repo   acme/toolkit   from the origin remote<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.2258;0.2268;1" dur="12.4s" repeatCount="indefinite"/></text>
-    <text x="26" y="296" fill="#c5c8c6" opacity="0">  One question, for what the repository cannot tell me:<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.2823;0.2833;1" dur="12.4s" repeatCount="indefinite"/></text>
-    <text x="26" y="320" fill="#c5c8c6" opacity="0">      good-first-issue-config.md<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.3387;0.3397;1" dur="12.4s" repeatCount="indefinite"/></text>
-    <text x="26" y="344" fill="#8a8f94" opacity="0">          What counts as a good first issue here: labels, size…<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.3952;0.3962;1" dur="12.4s" repeatCount="indefinite"/></text>
-    <text x="26" y="368" fill="#c5c8c6" opacity="0">      issue-tracker-config.md<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.4516;0.4526;1" dur="12.4s" repeatCount="indefinite"/></text>
-    <text x="26" y="392" fill="#8a8f94" opacity="0">          Tracker URL, project key, auth model, default query…<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.5081;0.5091;1" dur="12.4s" repeatCount="indefinite"/></text>
-    <text x="26" y="440" fill="#7f9f7f" opacity="0">  Written to .apache-magpie-local/  — nothing staged, nothing<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.5645;0.5655;1" dur="12.4s" repeatCount="indefinite"/></text>
-    <text x="26" y="464" fill="#7f9f7f" opacity="0">  committed, no teammate affected.<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.6210;0.6220;1" dur="12.4s" repeatCount="indefinite"/></text>
-    <text x="26" y="512" fill="#8a8f94" opacity="0">  The project can also adopt Magpie, so contributors get this<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.6774;0.6784;1" dur="12.4s" repeatCount="indefinite"/></text>
-    <text x="26" y="536" fill="#8a8f94" opacity="0">  on clone: /magpie-setup adopt<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.7339;0.7349;1" dur="12.4s" repeatCount="indefinite"/></text>
+    <text x="26" y="80" fill="#8abeb7" opacity="0">&gt; /magpie-mentoring:&lt;skill&gt;<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.0000;0.0010;1" dur="7.5s" repeatCount="indefinite"/></text>
+    <text x="26" y="128" fill="#d8a657" opacity="0">  ✗ project configuration — 3 required, none found<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.0505;0.0515;1" dur="7.5s" repeatCount="indefinite"/></text>
+    <text x="26" y="176" fill="#8a8f94" opacity="0">  Configuring now. Gitignored files in this clone only.<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.1011;0.1021;1" dur="7.5s" repeatCount="indefinite"/></text>
+    <text x="26" y="224" fill="#7f9f7f" opacity="0">  ✓ project.md<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.1516;0.1526;1" dur="7.5s" repeatCount="indefinite"/></text>
+    <text x="26" y="248" fill="#8a8f94" opacity="0">      upstream_repo   acme/toolkit   from the origin remote<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.2021;0.2031;1" dur="7.5s" repeatCount="indefinite"/></text>
+    <text x="26" y="296" fill="#c5c8c6" opacity="0">  One question, for what the repository cannot tell me:<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.2527;0.2537;1" dur="7.5s" repeatCount="indefinite"/></text>
+    <text x="26" y="320" fill="#c5c8c6" opacity="0">      good-first-issue-config.md<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.3032;0.3042;1" dur="7.5s" repeatCount="indefinite"/></text>
+    <text x="26" y="344" fill="#8a8f94" opacity="0">          What counts as a good first issue here: labels, size…<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.3537;0.3547;1" dur="7.5s" repeatCount="indefinite"/></text>
+    <text x="26" y="368" fill="#c5c8c6" opacity="0">      issue-tracker-config.md<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.4043;0.4053;1" dur="7.5s" repeatCount="indefinite"/></text>
+    <text x="26" y="392" fill="#8a8f94" opacity="0">          Tracker URL, project key, auth model, default query…<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.4548;0.4558;1" dur="7.5s" repeatCount="indefinite"/></text>
+    <text x="26" y="440" fill="#7f9f7f" opacity="0">  Written to .apache-magpie-local/  — nothing staged, nothing<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.5053;0.5063;1" dur="7.5s" repeatCount="indefinite"/></text>
+    <text x="26" y="464" fill="#7f9f7f" opacity="0">  committed, no teammate affected.<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.5559;0.5569;1" dur="7.5s" repeatCount="indefinite"/></text>
+    <text x="26" y="512" fill="#8a8f94" opacity="0">  The project can also adopt Magpie, so contributors get this<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.6064;0.6074;1" dur="7.5s" repeatCount="indefinite"/></text>
+    <text x="26" y="536" fill="#8a8f94" opacity="0">  on clone: /magpie-setup adopt<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.6569;0.6579;1" dur="7.5s" repeatCount="indefinite"/></text>
     <rect x="26" y="523" width="10" height="17" fill="#c5c8c6"><animate attributeName="opacity" values="1;1;0;0;1" dur="1.2s" repeatCount="indefinite"/></rect>
   </g>
 </svg>

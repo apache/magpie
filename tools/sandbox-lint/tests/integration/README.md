@@ -55,4 +55,4 @@ A namespace failure fails the test and does not count as successful isolation.
 
 Without these opt-ins, pytest skips the integration tests.
 Normal CI requires neither Gemini nor Node for the sandbox-lint suite and does not certify live enforcement.
-Authenticated UI, skill activation, and hook checks remain in the [runtime guide](../../../../docs/adapters/gemini.md#verify).
+Authenticated UI, skill activation, and hook checks remain in the [harness guide](../../../../docs/adapters/gemini.md#verify).

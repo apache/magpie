@@ -5,8 +5,8 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [Gemini CLI runtime](#gemini-cli-runtime)
-  - [Runtime contract](#runtime-contract)
+- [Gemini CLI harness](#gemini-cli-harness)
+  - [Harness contract](#harness-contract)
   - [Invoke a Magpie skill](#invoke-a-magpie-skill)
   - [Install](#install)
     - [Authentication with the clean-environment wrapper](#authentication-with-the-clean-environment-wrapper)
@@ -30,7 +30,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
-# Gemini CLI runtime
+# Gemini CLI harness
 
 **Capability:** capability:platform
 
@@ -38,10 +38,10 @@
 
 Gemini CLI runs Magpie's shared skills with repository instructions, an action guard, tool sandboxing, and per-action approval policies.
 The adapter is **experimental**: its Linux sandbox does not provide the Claude Code reference setup's home-directory read isolation or domain allowlist.
-The integration follows the runtime contract in [add-a-harness](add-a-harness.md)
+The integration follows the harness contract in [add-a-harness](add-a-harness.md)
 and [RFC-AI-0004](../rfcs/RFC-AI-0004.md).
 
-## Runtime contract
+## Harness contract
 
 | Magpie requirement | Gemini CLI implementation |
 |---|---|

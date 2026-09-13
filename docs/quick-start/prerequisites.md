@@ -7,7 +7,7 @@
 
 - [Prerequisites for running framework skills](#prerequisites-for-running-framework-skills)
   - [Prerequisites for running the agent skills](#prerequisites-for-running-the-agent-skills)
-    - [1. An agentic tool + access to an LLM](#1-an-agentic-tool--access-to-an-llm)
+    - [1. An agentic harness + access to an LLM](#1-an-agentic-harness--access-to-an-llm)
     - [2. A mail backend (read + draft — Gmail is one option, not the only one)](#2-a-mail-backend-read--draft--gmail-is-one-option-not-the-only-one)
     - [3. A tracker + change-request backend (GitHub by default — not required)](#3-a-tracker--change-request-backend-github-by-default--not-required)
     - [4. PMC membership (only for CVE allocation)](#4-pmc-membership-only-for-cve-allocation)
@@ -44,15 +44,16 @@ runs a short Step 0 pre-flight against the same list and stops with a
 clear message if something is missing, so you do not discover a
 missing piece half-way through a workflow.
 
-### 1. An agentic tool + access to an LLM
+### 1. An agentic harness + access to an LLM
 
-Running Magpie needs two things: an **agentic coding tool** that speaks
+Running Magpie needs two things: an **agentic harness** — the coding agent
+that runs the skill — that speaks
 the `SKILL.md` / [`AGENTS.md`](https://agents.md/) skill convention, and
-**access to an LLM** for that tool to drive. There is no hard dependency
+**access to an LLM** for it to drive. There is no hard dependency
 on any single vendor for either — any agent that reads the shared
 `.agents/skills/*/SKILL.md` files and follows their steps should work.
 
-**Agentic tools:**
+**Agentic harnesses:**
 
 - **[OpenCode](https://opencode.ai/)** is the **reference implementation**:
   it is open source and model-agnostic, so it can drive *every* LLM-access
@@ -64,16 +65,16 @@ on any single vendor for either — any agent that reads the shared
 - **[OpenAI Codex](https://github.com/openai/codex)** reads Magpie's
   canonical `.agents/skills/` tree natively and ships an in-tree sandbox
   profile and HITL exec-policy rules. The adapter is **experimental**
-  until its minimum tested runtime version and an adopter pilot are
-  recorded; see [the Codex runtime guide](../adapters/codex.md).
+  until its minimum tested harness version and an adopter pilot are
+  recorded; see [the Codex harness guide](../adapters/codex.md).
 - **[Gemini CLI](https://geminicli.com/)** reads Magpie's canonical
   `.agents/skills/` tree natively, with a `BeforeTool` action-guard adapter, a
   spec-loop profile, tool sandboxing, and policies. The adapter is
-  **experimental** until its minimum tested runtime version and an adopter
-  pilot are recorded; see [the Gemini runtime guide](../adapters/gemini.md).
+  **experimental** until its minimum tested harness version and an adopter
+  pilot are recorded; see [the Gemini harness guide](../adapters/gemini.md).
 - **[Cursor](https://cursor.com/)** (Composer + `cursor-agent` CLI) reads Magpie's
   canonical `.agents/skills/` tree natively and supports per-action confirmation
-  and clean-environment isolation; see [the Cursor runtime guide](../adapters/cursor.md).
+  and clean-environment isolation; see [the Cursor harness guide](../adapters/cursor.md).
 
 Support for more runtimes (Copilot, …) is tracked in
 the
@@ -88,7 +89,7 @@ the
   [`llm.apache.org`](https://llm.apache.org) endpoint for ASF projects;
 - an **open-weight model** — hosted on a provider of your choice, or run
   **locally** (Ollama, llama.cpp, vLLM) for sovereign or air-gapped use;
-  see [the Local LLM runtime guide](../adapters/local-llm.md).
+  see [the Local LLM harness guide](../adapters/local-llm.md).
 
 Because **OpenCode is model-agnostic it is the reference tool — it allows
 all of the above**; Claude Code is the complete alternative for the

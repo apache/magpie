@@ -91,7 +91,7 @@ special-token spellings counted as ordinary text.
 Coverage: **74 of 74 local `skills/*/SKILL.md` files**.
 External `source.md` redirects and harness symlinks are excluded.
 
-Measurement manifest SHA-256: `ce3ac3b0ef428663ecb364edc8635d81306531d4480ae7ca2d17f269d9996144`.
+Measurement manifest SHA-256: `b9932dfb84f29864750b585a537b098c9eb03d6653f9c82a2556e10e69db440f`.
 
 | Skill file | Measured tokens | Source SHA-256 (first 16 characters) |
 |---|---:|---|
@@ -158,10 +158,10 @@ Measurement manifest SHA-256: `ce3ac3b0ef428663ecb364edc8635d81306531d4480ae7ca2
 | [security-model-verify](../skills/security-model-verify/SKILL.md) | 6,204 | `858952f16ee6208d` |
 | [security-tracker-stats-dashboard](../skills/security-tracker-stats-dashboard/SKILL.md) | 4,476 | `42e1f09070b00cac` |
 | [setup](../skills/setup/SKILL.md) | 8,534 | `3d267588860920a3` |
-| [setup-isolated-setup-doctor](../skills/setup-isolated-setup-doctor/SKILL.md) | 3,376 | `ab6abdd93ace3372` |
-| [setup-isolated-setup-install](../skills/setup-isolated-setup-install/SKILL.md) | 7,746 | `b3c73db944f3b5d2` |
-| [setup-isolated-setup-update](../skills/setup-isolated-setup-update/SKILL.md) | 4,598 | `7e6f06bffc04e043` |
-| [setup-isolated-setup-verify](../skills/setup-isolated-setup-verify/SKILL.md) | 4,537 | `b8ba61337b96a5d4` |
+| [setup-isolated-setup-doctor](../skills/setup-isolated-setup-doctor/SKILL.md) | 3,376 | `d0d7c6398c4a9186` |
+| [setup-isolated-setup-install](../skills/setup-isolated-setup-install/SKILL.md) | 7,746 | `2f58ce8ace670ec2` |
+| [setup-isolated-setup-update](../skills/setup-isolated-setup-update/SKILL.md) | 4,598 | `19b7707579055299` |
+| [setup-isolated-setup-verify](../skills/setup-isolated-setup-verify/SKILL.md) | 4,537 | `fb98bbeb136b9212` |
 | [setup-override-upstream](../skills/setup-override-upstream/SKILL.md) | 4,012 | `fb583feb56b7f77c` |
 | [setup-shared-config-sync](../skills/setup-shared-config-sync/SKILL.md) | 4,274 | `4b787b01a2d11602` |
 | [setup-status](../skills/setup-status/SKILL.md) | 2,401 | `790c0a0e61b1e8a4` |

@@ -89,7 +89,18 @@ WIZARD_SCRIPT = Path("tools/dev/render-wizard.py")
 FIRST_RUN_DOC = Path("docs/quick-start/first-run.md")
 PLUGINS = Path("plugins")
 SETUP_RECORDING = QUICKSTART / "magpie-setup.svg"
+HERO = QUICKSTART / "install.svg"
 QUICK_START_DOC = Path("docs/quick-start.md")
+
+# Every top-level generated animation, and the page that must show it.
+TOP_LEVEL = {
+    HERO: QUICK_START_DOC,
+    QUICKSTART / "step-install.svg": QUICK_START_DOC,
+    QUICKSTART / "step-isolation.svg": QUICK_START_DOC,
+    QUICKSTART / "step-use.svg": QUICK_START_DOC,
+    QUICKSTART / "step-adopt.svg": QUICK_START_DOC,
+    SETUP_RECORDING: QUICK_START_DOC,
+}
 RENDER_SCRIPT = Path("tools/dev/render-screenshot.sh")
 SKILLS = Path("skills")
 
@@ -376,8 +387,9 @@ def main() -> int:
 
     # The first-run animation. The setup family's first run *is* that run, so
     # its README embeds it rather than a copy.
-    errors += check_svg(SETUP_RECORDING)
-    errors += check_embedded(QUICK_START_DOC, SETUP_RECORDING)
+    for svg, doc in TOP_LEVEL.items():
+        errors += check_svg(svg)
+        errors += check_embedded(doc, svg)
     if "setup" in known:
         errors += check_embedded(docs_readme("setup"), SETUP_RECORDING)
 
@@ -397,7 +409,7 @@ def main() -> int:
     wizards = len(list(WIZARD_DIR.glob("*.svg"))) if WIZARD_DIR.is_dir() else 0
     print(
         f"Screenshots OK ({shots} family screenshots, {steps} walkthrough steps, "
-        f"{wizards + 1} generated animations). Nothing is captured."
+        f"{wizards + len(TOP_LEVEL)} generated animations). Nothing is captured."
     )
     return 0
 

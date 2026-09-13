@@ -157,7 +157,7 @@ No system packages need pinning on macOS — Seatbelt ships with
 the OS. The framework's
 [`pinned-versions.toml`](../../tools/agent-isolation/pinned-versions.toml)
 only pins the sandbox primitives `bubblewrap` and `socat`; the
-agent runtime `claude-code` is unpinned (tracks `@latest`, with a
+agent harness `claude-code` is unpinned (tracks `@latest`, with a
 `min_version` floor enforced by verify), and Seatbelt does not
 appear because its version *is* the OS version.
 

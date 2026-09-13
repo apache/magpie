@@ -249,8 +249,10 @@ main() {
             # but it is exactly the state --check exists to refuse.
             local svg
             while IFS= read -r svg; do
-                [[ "${svg}" == "${RECORDING}" ]] && continue
-                [[ "${svg}" == "${WIZARD_DIR}"/* ]] && continue
+                # Everything render-wizard.py generates: the top-level
+                # animations and the per-family wizard directory. Those derive
+                # from frontmatter, not from a transcript beside them.
+                [[ "${svg}" != */families/* && "${svg}" != */walkthrough/* ]] && continue
                 [[ -f "${svg%.svg}.txt" ]] || { echo "${svg}: no transcript beside it" >&2; rc=1; }
             done < <(find "${SHOTS_DIR}" -name '*.svg' -type f | LC_ALL=C sort)
             return "${rc}"

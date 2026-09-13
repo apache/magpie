@@ -6,7 +6,7 @@
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
 - [Cursor runtime (Composer + Agent CLI)](#cursor-runtime-composer--agent-cli)
-  - [Runtime contract](#runtime-contract)
+  - [Harness contract](#harness-contract)
   - [Invoke a Magpie skill](#invoke-a-magpie-skill)
     - [Inside Cursor Composer (IDE)](#inside-cursor-composer-ide)
     - [Headless or CLI invocation (`cursor-agent`)](#headless-or-cli-invocation-cursor-agent)
@@ -34,7 +34,7 @@ This guide documents how Cursor operates as a first-class Apache Magpie skill ru
 Cursor integrates with Magpie without requiring custom skill copies, translation passes, or proprietary prompt wrappers.
 The integration follows [RFC-AI-0004 Principle 3 (Vendor Neutrality)](../rfcs/RFC-AI-0004.md) and [Adding a new agent harness](add-a-harness.md).
 
-## Runtime contract
+## Harness contract
 
 | Magpie requirement | Cursor implementation |
 |---|---|

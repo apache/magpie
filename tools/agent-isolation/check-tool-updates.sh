@@ -26,7 +26,7 @@
 # carry a `cooldown_days = N` override of the 7-day default.
 #
 # `claude-code` is in the manifest with a `min_version` floor, not an
-# exact `version` pin: the agent runtime installs at `@latest` (see
+# exact `version` pin: the agent harness installs at `@latest` (see
 # pinned-versions.toml), so there is no pin to drift and nothing to
 # age past a cooldown, and it is not reported here. Its floor is
 # enforced (hard-fail) by `setup-isolated-setup-verify`, not by this
@@ -39,7 +39,7 @@
 # the framework.
 #
 # Recommended cadence: run weekly. The README in this directory
-# suggests wiring it to `/schedule weekly` so the agent runtime
+# suggests wiring it to `/schedule weekly` so the agent harness
 # surfaces candidates without manual prompting.
 
 set -euo pipefail
@@ -146,7 +146,7 @@ PY
 # ---------------------------------------------------------------------
 # Manifest parsing. Each `[tools.<name>]` table that carries an exact
 # `version` pin contributes one pinned (version, released) tuple.
-# Tables that carry only a `min_version` floor (the agent runtime,
+# Tables that carry only a `min_version` floor (the agent harness,
 # `claude-code`, which tracks `@latest`) are NOT bump candidates and
 # are skipped here — the floor is enforced by
 # `setup-isolated-setup-verify`, not by this update-check.
@@ -229,7 +229,7 @@ to upgrade — the framework maintainer is welcome to defer a bump
 indefinitely if the new version doesn't add value. The default
 cooldown is 7 days; tools can override via `cooldown_days = N` in
 the manifest. `claude-code` is not pinned or reported here — the
-agent runtime tracks `@latest` for the newest security fixes and
+agent harness tracks `@latest` for the newest security fixes and
 carries a `min_version` floor that setup-isolated-setup-verify
 enforces (hard-fail) instead.
 EOF

@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Licensed to the Apache Software Foundation (ASF) under one
+  or more contributor license agreements.  See the NOTICE file
+  distributed with this work for additional information
+  regarding copyright ownership.  The ASF licenses this file
+  to you under the Apache License, Version 2.0 (the
+  "License"); you may not use this file except in compliance
+  with the License.  You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing,
+  software distributed under the License is distributed on an
+  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+  KIND, either express or implied.  See the License for the
+  specific language governing permissions and limitations
+  under the License.
+
+  GENERATED FILE - do not edit.
+
+  Written by tools/dev/render-wizard.py. Illustrative of the shape of a
+  run, not a recording of one.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 685 448"
+     width="685" height="448" role="img"
+     data-magpie-generated="render-wizard"
+     aria-label="An animated secure-agent setup: three proposed changes, a confirmation, then the sandbox, the clean environment and the status line in place">
+  <title>Step 3 — lock the agent down</title>
+  <desc>Illustrative animation of the secure-agent setup step. Not a recording.</desc>
+  <rect width="685" height="448" rx="10" fill="#1d1f21"/>
+  <rect x="0" y="0" width="685" height="34" rx="10" fill="#2b2e31"/>
+  <rect x="0" y="24" width="685" height="10" fill="#2b2e31"/>
+  <circle cx="22" cy="17" r="6" fill="#3f4448"/>
+  <circle cx="44" cy="17" r="6" fill="#3f4448"/>
+  <circle cx="66" cy="17" r="6" fill="#3f4448"/>
+  <g font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="17" xml:space="preserve">
+    <text x="26" y="80" fill="#8abeb7" opacity="0">&gt; /magpie-setup:isolated-setup-install<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.0000;0.0010;1" dur="6.4s" repeatCount="indefinite"/></text>
+    <text x="26" y="128" fill="#c5c8c6" opacity="0">  Proposed - nothing applied yet:<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.0596;0.0606;1" dur="6.4s" repeatCount="indefinite"/></text>
+    <text x="26" y="152" fill="#c5c8c6" opacity="0">    1  .claude/settings.json   sandbox on, credential denies<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.1191;0.1201;1" dur="6.4s" repeatCount="indefinite"/></text>
+    <text x="26" y="176" fill="#c5c8c6" opacity="0">    2  ~/.claude/scripts/      hooks and the status line<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.1787;0.1797;1" dur="6.4s" repeatCount="indefinite"/></text>
+    <text x="26" y="200" fill="#c5c8c6" opacity="0">    3  ~/.zshrc                source agent-iso.sh<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.2382;0.2392;1" dur="6.4s" repeatCount="indefinite"/></text>
+    <text x="26" y="248" fill="#c5c8c6" opacity="0">  Apply 1-3? [y/N] y<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.2978;0.2988;1" dur="6.4s" repeatCount="indefinite"/></text>
+    <text x="26" y="296" fill="#7f9f7f" opacity="0">  ✓ sandbox      bash sees only the paths you allow<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.3574;0.3584;1" dur="6.4s" repeatCount="indefinite"/></text>
+    <text x="26" y="320" fill="#7f9f7f" opacity="0">  ✓ clean env    credentials stripped before the agent starts<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.4169;0.4179;1" dur="6.4s" repeatCount="indefinite"/></text>
+    <text x="26" y="344" fill="#7f9f7f" opacity="0">  ✓ status line  [sandbox] in the footer, green when it is on<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.4765;0.4775;1" dur="6.4s" repeatCount="indefinite"/></text>
+    <text x="26" y="392" fill="#8a8f94" opacity="0">  Your ~/.ssh, ~/.aws and tokens are out of reach. Every sudo,<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.5361;0.5371;1" dur="6.4s" repeatCount="indefinite"/></text>
+    <text x="26" y="416" fill="#8a8f94" opacity="0">  shell-rc and settings change was shown before it ran.<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.5956;0.5966;1" dur="6.4s" repeatCount="indefinite"/></text>
+    <rect x="26" y="403" width="10" height="17" fill="#c5c8c6"><animate attributeName="opacity" values="1;1;0;0;1" dur="1.2s" repeatCount="indefinite"/></rect>
+  </g>
+</svg>

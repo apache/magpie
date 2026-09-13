@@ -180,7 +180,7 @@ For the verification step at the end, hand off to the
 `setup-isolated-setup-verify` skill rather than re-walking the checklist
 inline.
 
-### Agent runtime — install `@latest`, enforce the floor
+### Agent harness — install `@latest`, enforce the floor
 
 `claude-code` is **not** pinned to an exact version. Install it with
 `npm install -g --no-save @anthropic-ai/claude-code@latest` (the

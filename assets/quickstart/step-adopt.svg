@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Licensed to the Apache Software Foundation (ASF) under one
+  or more contributor license agreements.  See the NOTICE file
+  distributed with this work for additional information
+  regarding copyright ownership.  The ASF licenses this file
+  to you under the Apache License, Version 2.0 (the
+  "License"); you may not use this file except in compliance
+  with the License.  You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing,
+  software distributed under the License is distributed on an
+  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+  KIND, either express or implied.  See the License for the
+  specific language governing permissions and limitations
+  under the License.
+
+  GENERATED FILE - do not edit.
+
+  Written by tools/dev/render-wizard.py. Illustrative of the shape of a
+  run, not a recording of one.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 685 424"
+     width="685" height="424" role="img"
+     data-magpie-generated="render-wizard"
+     aria-label="An animated adopt run: three paths staged and not committed, what a contributor gets on clone, and what it does not restrict">
+  <title>Step 5 — adopt it for the project</title>
+  <desc>Illustrative animation of adopting Magpie for a project. Not a recording.</desc>
+  <rect width="685" height="424" rx="10" fill="#1d1f21"/>
+  <rect x="0" y="0" width="685" height="34" rx="10" fill="#2b2e31"/>
+  <rect x="0" y="24" width="685" height="10" fill="#2b2e31"/>
+  <circle cx="22" cy="17" r="6" fill="#3f4448"/>
+  <circle cx="44" cy="17" r="6" fill="#3f4448"/>
+  <circle cx="66" cy="17" r="6" fill="#3f4448"/>
+  <g font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="17" xml:space="preserve">
+    <text x="26" y="80" fill="#d8a657" opacity="0">  Only if you are a maintainer, deciding with the others.<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.0000;0.0010;1" dur="6.0s" repeatCount="indefinite"/></text>
+    <text x="26" y="128" fill="#8abeb7" opacity="0">&gt; /magpie-setup adopt<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.0633;0.0643;1" dur="6.0s" repeatCount="indefinite"/></text>
+    <text x="26" y="176" fill="#c5c8c6" opacity="0">  Staged, not committed:<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.1267;0.1277;1" dur="6.0s" repeatCount="indefinite"/></text>
+    <text x="26" y="200" fill="#c5c8c6" opacity="0">    .apache-magpie.lock       the floor - a minimum, not a pin<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.1900;0.1910;1" dur="6.0s" repeatCount="indefinite"/></text>
+    <text x="26" y="224" fill="#c5c8c6" opacity="0">    .claude/settings.json     derived from it<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.2533;0.2543;1" dur="6.0s" repeatCount="indefinite"/></text>
+    <text x="26" y="248" fill="#c5c8c6" opacity="0">    .apache-magpie-overrides/ the project's configuration<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.3167;0.3177;1" dur="6.0s" repeatCount="indefinite"/></text>
+    <text x="26" y="296" fill="#7f9f7f" opacity="0">  ✓ a contributor who clones this arrives with the floor<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.3800;0.3810;1" dur="6.0s" repeatCount="indefinite"/></text>
+    <text x="26" y="320" fill="#7f9f7f" opacity="0">  ✓ review it and commit it like any other change<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.4433;0.4443;1" dur="6.0s" repeatCount="indefinite"/></text>
+    <text x="26" y="368" fill="#8a8f94" opacity="0">  It limits nobody: anyone may install more, run a newer<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.5067;0.5077;1" dur="6.0s" repeatCount="indefinite"/></text>
+    <text x="26" y="392" fill="#8a8f94" opacity="0">  Magpie, or ignore the recommendation entirely.<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.5700;0.5710;1" dur="6.0s" repeatCount="indefinite"/></text>
+    <rect x="26" y="379" width="10" height="17" fill="#c5c8c6"><animate attributeName="opacity" values="1;1;0;0;1" dur="1.2s" repeatCount="indefinite"/></rect>
+  </g>
+</svg>

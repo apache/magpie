@@ -310,7 +310,7 @@ claude_iso_main() { agent_iso_run "${AGENT_ISO_AGENT:-claude}" "$@"; }
 # Generic entry point:
 #   agent-iso() / `bash agent-iso.sh agent-iso <cli> [args]` takes the
 #   harness CLI name as its first positional argument and works for ANY
-#   agentic runtime — Codex, Cursor, Gemini CLI, Aider, or any future CLI.
+#   agentic harness — Codex, Cursor, Gemini CLI, Aider, or any future CLI.
 #   The credential-strip and clean-env launch are harness-agnostic; only the
 #   `--settings` sandbox allowRead injection is skipped (it is Claude-specific
 #   and already guarded by `if [[ "$agent" == "claude" ]]`).

@@ -212,7 +212,7 @@ The reference implementation (see [`docs/setup/secure-agent-internals.md`](http
 
 ### Two axes of neutrality
 
-**Axis A — LLM backend neutrality.** Skills are markdown-with-YAML, not vendor-specific prompts. The agentic host (Claude Code, Codex, Gemini CLI, a local-Ollama wrapper, a future Apache-aligned agent runtime) consumes the same skill file and behaves comparably. The reference implementation documents this explicitly: skills are "language-independent, since SKILLs are English; standard Python ecosystem dependencies for the deterministic-output scripts; no AI SDK integration needed".
+**Axis A — LLM backend neutrality.** Skills are markdown-with-YAML, not vendor-specific prompts. The agentic host (Claude Code, Codex, Gemini CLI, a local-Ollama wrapper, a future Apache-aligned agent harness) consumes the same skill file and behaves comparably. The reference implementation documents this explicitly: skills are "language-independent, since SKILLs are English; standard Python ecosystem dependencies for the deterministic-output scripts; no AI SDK integration needed".
 
 **Axis B — Project-governance neutrality.** ASF integrations (private mailing lists, Vulnogram CVE flows, PMC roles, ASF release process) are configurable, not hardcoded. A non-ASF adopter swaps in a private GitHub repo, GitHub Security Advisories, a maintainer roster, their own release process — and the same skill executes. The reference implementation's placeholder convention (`<tracker>`, `<upstream>`, `<security-list>`, `<private-list>`) and the `<project-config>/` adapter dir are how this is operationalised.
 
@@ -226,7 +226,7 @@ The reference implementation (see [`docs/setup/secure-agent-internals.md`](http
 
 ### Anti-patterns to avoid
 
-- **"Cloud-only"-shaped skills.** A skill whose flow assumes a remote model with internet round-trip is a skill that locks the project to a vendor *and* breaks for offline / sovereign / air-gapped pilots. Skill flows assume the agent runtime exists; they do not assume what's behind it.
+- **"Cloud-only"-shaped skills.** A skill whose flow assumes a remote model with internet round-trip is a skill that locks the project to a vendor *and* breaks for offline / sovereign / air-gapped pilots. Skill flows assume the agent harness exists; they do not assume what's behind it.
 - **Vendor-named tools.** A skill called `claude-pr-review` is a skill that ages out the day a maintainer wants to use another agent. Tools are named for what they do, not what runs them.
 - **Hardcoded ASF assumptions.** `apache/<project>` strings hardcoded into a skill make the skill ASF-only by accident. Placeholder discipline (`<upstream>`, `<tracker>`, `<security-list>`) is the cheapest way to keep the option open.
 

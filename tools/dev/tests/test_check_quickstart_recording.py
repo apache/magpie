@@ -111,7 +111,15 @@ def repo(tmp_path: Path) -> Iterator[Path]:
     shots.mkdir(parents=True)
     (shots / "self-review.txt").write_text(TRANSCRIPT, encoding="utf-8")
 
-    _svg(tmp_path / "assets" / "quickstart" / "magpie-setup.svg")
+    for top in (
+        "magpie-setup.svg",
+        "install.svg",
+        "step-install.svg",
+        "step-isolation.svg",
+        "step-use.svg",
+        "step-adopt.svg",
+    ):
+        _svg(tmp_path / "assets" / "quickstart" / top)
 
     (tmp_path / "docs" / "pairing").mkdir(parents=True)
     (tmp_path / "docs" / "pairing" / "README.md").write_text(
@@ -119,7 +127,18 @@ def repo(tmp_path: Path) -> Iterator[Path]:
         encoding="utf-8",
     )
     (tmp_path / "docs" / "quick-start.md").write_text(
-        "![setup](assets/quickstart/magpie-setup.svg)\n", encoding="utf-8"
+        "".join(
+            f"![x](assets/quickstart/{n})\\n"
+            for n in (
+                "install.svg",
+                "step-install.svg",
+                "step-isolation.svg",
+                "step-use.svg",
+                "step-adopt.svg",
+                "magpie-setup.svg",
+            )
+        ),
+        encoding="utf-8",
     )
 
     walk = tmp_path / "assets" / "quickstart" / "walkthrough"
@@ -380,3 +399,13 @@ def test_an_embedded_wizard_animation_is_silent(repo: Path) -> None:
 def test_a_missing_generator_is_reported(repo: Path) -> None:
     (repo / "tools/dev/render-wizard.py").unlink()
     assert any("nothing can verify" in e for e in mod.check_wizards())
+
+
+def test_the_quick_start_must_open_with_the_hero(repo: Path) -> None:
+    """The hero exists to be the first thing on the page. A quick start that
+    merely contains it somewhere has lost the point of generating it."""
+    (repo / "docs/quick-start.md").write_text(
+        "![setup](assets/quickstart/magpie-setup.svg)\n", encoding="utf-8"
+    )
+    errs = mod.check_embedded(Path("docs/quick-start.md"), mod.HERO)
+    assert any("does not embed" in e for e in errs)

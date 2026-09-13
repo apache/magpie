@@ -160,7 +160,7 @@ security?" by filtering on `capability:triage` alone, without
 enumerating per-area queries.
 
 **Agent-harness support (substrate tools only).** A substrate tool that
-integrates with the agent runtime (a hook, a settings file, a launcher)
+integrates with the agent harness (a hook, a settings file, a launcher)
 declares a `**Harness:**` field naming the harness(es) it supports, or
 `agnostic` when it depends on none. This is the *agent-harness* axis of
 LLM-integration neutrality and is scored by

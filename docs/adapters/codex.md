@@ -5,8 +5,8 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [Codex first-class runtime](#codex-first-class-runtime)
-  - [Runtime contract](#runtime-contract)
+- [Codex first-class harness](#codex-first-class-harness)
+  - [Harness contract](#harness-contract)
   - [Invoke a Magpie skill](#invoke-a-magpie-skill)
   - [Install](#install)
   - [Security model](#security-model)
@@ -24,7 +24,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
-# Codex first-class runtime
+# Codex first-class harness
 
 **Capability:** capability:platform
 
@@ -39,7 +39,7 @@ The implementation follows
 and per-action human confirmation through Codex's own approval and exec-policy
 layers.
 
-## Runtime contract
+## Harness contract
 
 | Magpie requirement | Codex implementation |
 |---|---|

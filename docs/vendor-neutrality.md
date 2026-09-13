@@ -17,7 +17,7 @@
   - [Authoring your own adapter](#authoring-your-own-adapter)
   - [How each axis is delivered](#how-each-axis-is-delivered)
     - [1. LLM backend](#1-llm-backend)
-    - [2. Agentic runtime](#2-agentic-runtime)
+    - [2. Agentic harness](#2-agentic-harness)
     - [3. Forge and tracker](#3-forge-and-tracker)
     - [4. Communication channels](#4-communication-channels)
     - [5. Source control (VCS)](#5-source-control-vcs)
@@ -92,7 +92,7 @@ axes, and a backend choice on one axis never constrains the others:
 | Axis | The "vendor" | Neutral by… |
 |---|---|---|
 | **LLM backend** | Anthropic, OpenAI, Google, Bedrock, local Ollama/vLLM, a future ASF endpoint | Skills written against a model *contract* (capability floor), not a client; a privacy gate that keys on endpoint identity, not on who hosts it |
-| **Agentic runtime** | Claude Code, Codex, Cursor, Gemini CLI, Copilot, OpenCode, Kiro, … | Skills are [`AGENTS.md`](https://agents.md/)-standard markdown under a shared `.agents/skills/` home that every runtime reads |
+| **Agentic harness** | Claude Code, Codex, Cursor, Gemini CLI, Copilot, OpenCode, Kiro, … | Skills are [`AGENTS.md`](https://agents.md/)-standard markdown under a shared `.agents/skills/` home that every runtime reads |
 | **Forge / tracker** | GitHub, GitLab, Gitea, Forgejo, Pagure, Bitbucket, Jira, Bugzilla | Per-interface **tools** behind capability contracts; many tools are pure adapter *specs* with pluggable backends |
 | **Communication channels** | Mailing lists, GitHub Discussions, Discourse, Zulip, Matrix, IRC | Mail-archive / mail-source adapter contracts; chat and forum bridges as sibling tools |
 | **Source control (VCS)** | Git, Mercurial, Subversion, Jujutsu, Fossil, Perforce, … | A single `VCSBackend` contract; skills call the abstract operation, the backend is detected from the working copy |
@@ -304,7 +304,7 @@ single developer machine** (variants 2 and 3), even if individual
 skills run at reduced quality there. A maintainer for whom a frontier
 subscription is out of reach still gets the full skill catalogue.
 
-### 2. Agentic runtime
+### 2. Agentic harness
 
 Magpie skills are not a Claude Code feature. They are
 [`AGENTS.md`](https://agents.md/)-standard markdown, installed under a
@@ -320,10 +320,10 @@ contribution, not a re-architecture.
 Gemini CLI also has an [experimental runtime adapter](adapters/gemini.md) that reads Magpie's canonical `.agents/skills/` tree. Its guide documents setup, supported controls, and remaining gaps from the reference configuration.
 Cursor reads Magpie's canonical `.agents/skills/` tree and supports per-action
 confirmation in Composer and the `cursor-agent` CLI; see the
-[Cursor runtime guide](adapters/cursor.md).
+[Cursor harness guide](adapters/cursor.md).
 Local LLMs (Ollama, llama.cpp, vLLM) serve open-weight models via
 OpenAI-compatible endpoints with calibrated capability floors; see the
-[Local LLM runtime guide](adapters/local-llm.md).
+[Local LLM harness guide](adapters/local-llm.md).
 The remaining extension points are
 already open, labelled `good first issue`:
 [Aider](https://github.com/apache/magpie/issues/317),
@@ -479,7 +479,7 @@ implementations, and to make filling a gap an easy contribution.
   tool or skill against the contracts.
 - The built-in [eval harness](../tools/skill-evals/) lets a contributor
   test their backend the same way the core team tests theirs.
-- With any capable agentic runtime, the practical path to a new backend
+- With any capable agentic harness, the practical path to a new backend
   is a conversation: point an agent at the tracking issue
   ("implement the SVN source-control backend") and iterate, test, and
   submit. Every tool and skill in Magpie was authored this way.
@@ -495,7 +495,7 @@ coverage without pretending one team can implement an open-ended set.
 | Axis | Architecture neutral? | Reference backends working today | Extension points |
 |---|---|---|---|
 | LLM backend | ✅ by construction | Claude Code, Ollama, vLLM, Apache-hosted, Bedrock, direct Anthropic | Any endpoint meeting the capability floor + privacy gate |
-| Agentic runtime | ✅ by construction (`AGENTS.md` standard) | Claude Code; OpenCode; [Codex adapter](adapters/codex.md) (experimental); [Gemini adapter](adapters/gemini.md) (experimental); community use under Cursor, Copilot, Kiro | Remaining runtime adapters [#314–#322](https://github.com/apache/magpie/issues?q=is%3Aissue+state%3Aopen+adapter+in%3Atitle) |
+| Agentic harness | ✅ by construction (`AGENTS.md` standard) | Claude Code; OpenCode; [Codex adapter](adapters/codex.md) (experimental); [Gemini adapter](adapters/gemini.md) (experimental); community use under Cursor, Copilot, Kiro | Remaining runtime adapters [#314–#322](https://github.com/apache/magpie/issues?q=is%3Aissue+state%3Aopen+adapter+in%3Atitle) |
 | Forge / tracker | ✅ by construction | GitHub, Jira, SourceHut; Bitbucket `partial-read-only` foundation excluded from complete-backend counts; CVE/scan/relay via adapter contracts | GitLab [#305](https://github.com/apache/magpie/issues/305), Forgejo/Gitea [#310](https://github.com/apache/magpie/issues/310), Pagure [#312](https://github.com/apache/magpie/issues/312), full Bitbucket tracker/change-request/Jira coverage [#606](https://github.com/apache/magpie/issues/606), Bugzilla [#302](https://github.com/apache/magpie/issues/302) |
 | Communication channels | ✅ by construction | PonyMail / mail-archive reads | mbox [#304](https://github.com/apache/magpie/issues/304), IMAP [#303](https://github.com/apache/magpie/issues/303), Mailman 3 [#306](https://github.com/apache/magpie/issues/306); Discourse [#307](https://github.com/apache/magpie/issues/307), Zulip [#308](https://github.com/apache/magpie/issues/308), Matrix [#309](https://github.com/apache/magpie/issues/309) |
 | Source control (VCS) | ✅ by construction | **Git (complete)**, **Mercurial (complete)**; ASF SVN surface ([`tools/asf-svn`](../tools/asf-svn/): source control + dist.apache.org + authorization) | Subversion generic VCS binding [\#602](https://github.com/apache/magpie/issues/602) (detected); Jujutsu [\#603](https://github.com/apache/magpie/issues/603), Fossil [\#604](https://github.com/apache/magpie/issues/604), Perforce [\#605](https://github.com/apache/magpie/issues/605) (tracked) |

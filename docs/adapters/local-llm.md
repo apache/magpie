@@ -6,7 +6,7 @@
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
 - [Local LLM runtime (Ollama, llama.cpp, vLLM)](#local-llm-runtime-ollama-llamacpp-vllm)
-  - [Runtime contract](#runtime-contract)
+  - [Harness contract](#harness-contract)
   - [Serving engines and endpoints](#serving-engines-and-endpoints)
     - [Ollama](#ollama)
     - [llama.cpp server](#llamacpp-server)
@@ -44,7 +44,7 @@ Local LLM runtimes serve three primary operational requirements:
 2. **Air-gapped triage:** Security teams operating within isolated networks that triage `<security-list>` traffic with zero external internet connectivity.
 3. **Predictable cost ceilings:** Deployments running open-weight foundation models on shared local or cluster hardware without variable per-token cloud billing.
 
-## Runtime contract
+## Harness contract
 
 | Magpie requirement | Local LLM implementation |
 |---|---|

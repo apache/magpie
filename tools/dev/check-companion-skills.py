@@ -61,6 +61,7 @@ HARNESSES = {
     "gemini": "Google Gemini CLI",
     "cursor": "Cursor",
     "opencode": "OpenCode",
+    "kiro": "Kiro CLI",
 }
 
 # How each harness is pointed at a catalogue it does not already have. A

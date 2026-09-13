@@ -45,7 +45,7 @@ implementations.
 ```text
 tools/probe-templates/
 ├── README.md                        (this file)
-└── <runtime>/                       (one subdirectory per supported runtime)
+└── <runtime>/                       (one subdirectory per supported harness)
     └── *.template                   (probe template files with placeholders)
 ```
 

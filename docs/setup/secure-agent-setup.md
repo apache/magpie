@@ -111,7 +111,7 @@ each layer, see
 [`secure-agent-internals.md`](secure-agent-internals.md).
 
 Codex has a harness-native project policy and rules contract. Read the
-[Codex first-class runtime adapter](../adapters/codex.md) for that
+[Codex first-class harness adapter](../adapters/codex.md) for that
 runtime's exact install, sandbox, HITL, verification, and Windows
 mapping. The long-form sections below remain the canonical Claude Code
 setup; the four `setup-isolated-*` skills route Codex to the adapter
@@ -240,7 +240,7 @@ warrants it. These are low-level sandbox building blocks where
 reproducibility and settle-time matter more than chasing the newest
 build.
 
-The **agent runtime** (`claude-code`) is deliberately **not** pinned.
+The **agent harness** (`claude-code`) is deliberately **not** pinned.
 The secure setup installs `@anthropic-ai/claude-code@latest` because
 each release carries the newest permission-rule, sandbox, and
 prompt-injection fixes — pinning the runtime to an older build would
@@ -254,7 +254,7 @@ The current pins live in machine-readable form in
 |---|---|---|---|---|
 | `bubblewrap` | 0.11.2 | 2026-04-23 | 7d (default) | Linux user-namespace sandbox (filesystem layer). Required on Linux; macOS uses Seatbelt instead. |
 | `socat` | 1.8.1.3 | 2026-06-26 | 7d (default) | TCP relay for the sandbox network allowlist. Linux only. |
-| `claude-code` | *(unpinned — `@latest`)* | — | none | Agent runtime. Installed at the latest release so it always carries the newest permission-rule / sandbox / prompt-injection fixes; not in the pin manifest. |
+| `claude-code` | *(unpinned — `@latest`)* | — | none | Agent harness. Installed at the latest release so it always carries the newest permission-rule / sandbox / prompt-injection fixes; not in the pin manifest. |
 
 The pin date floor (`pinned_at` in the manifest) is the day the
 manifest was last touched; it is the framework's promise that every
@@ -2185,7 +2185,7 @@ below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
 5. The pinned sandbox primitives from
    `tools/agent-isolation/pinned-versions.toml` are installed at
    the pinned versions: `bubblewrap` (Linux only), `socat`
-   (Linux only). For the agent runtime `claude-code` (unpinned,
+   (Linux only). For the agent harness `claude-code` (unpinned,
    `@latest`), instead compare my running `claude --version`
    against the `[tools.claude-code]` `min_version` floor —
    **hard-fail** if below it (running under Claude Code), else ✓.
@@ -2218,7 +2218,7 @@ different schedules: the framework checkout (`.claude/settings.json`,
 the wrapper / hook / status-line scripts under
 `tools/agent-isolation/`, the pinned-versions manifest), the
 pinned sandbox primitives (`bubblewrap`, `socat`) plus the unpinned
-agent runtime (`claude-code`, tracked at `@latest`), and
+agent harness (`claude-code`, tracked at `@latest`), and
 any user-scope copies of helper scripts you installed under
 `~/.claude/scripts/` or `~/.claude/agent-isolation/`. Keeping them
 synchronised is a periodic operation, not a one-time install.

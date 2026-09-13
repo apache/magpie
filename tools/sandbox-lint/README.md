@@ -169,7 +169,7 @@ baseline drift.
 ## Harness-neutral posture check (any runtime)
 
 For runtimes that do not expose a per-harness sandbox configuration file
-(Cursor and any other agent runtime not listed under
+(Cursor and any other agent harness not listed under
 `--settings`, `--opencode`, `--kiro`, `--codex`, or `--gemini`), the security posture
 is enforced at the OS level by two harness-agnostic components:
 

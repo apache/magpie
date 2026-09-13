@@ -15,7 +15,7 @@ when_to_use: |
   secure config done?", "check that the secure agent setup is
   installed", "did setup work?", or after running
   `setup-isolated-setup-install` to confirm the install landed completely.
-  Also appropriate as a routine — after every agent runtime upgrade,
+  Also appropriate as a routine — after every agent harness upgrade,
   after every project / user-scope `settings.json` edit, and any
   time a previously-blocked Bash call appears to have succeeded
   (the "did a denial silently turn into an allow?" canary). Cheap
@@ -173,7 +173,7 @@ Walk each in order:
      either direction — newer-than-pin or older-than-pin — as ⚠. On
      macOS, skip both (Seatbelt is built-in), leaving nothing to
      check on this sub-rule.
-   - **Agent runtime (`claude-code`) — `min_version` floor, NOT a
+   - **Agent harness (`claude-code`) — `min_version` floor, NOT a
      pin.** The runtime tracks `@latest`, so there is no exact
      version to match; instead the manifest's `[tools.claude-code]`
      table declares a `min_version` floor. Determine the running

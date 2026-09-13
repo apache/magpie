@@ -1,1 +1,1 @@
-{"action": "propose-setup", "commands": [], "blocks": true}
+{"action": "configure", "commands": ["/magpie-setup config"], "blocks": false, "mention_adopt": true}

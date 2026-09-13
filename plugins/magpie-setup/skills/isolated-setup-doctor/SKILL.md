@@ -20,7 +20,7 @@ when_to_use: |
   or after the user reports a workflow failure that smells
   sandbox-shaped (agent unreachable, socket errors, port
   permission errors). Also a good periodic check after every
-  agent runtime upgrade — the sandbox profile evolves and a
+  agent harness upgrade — the sandbox profile evolves and a
   previously-working call may have moved into deny.
 capability:
   - capability:platform
