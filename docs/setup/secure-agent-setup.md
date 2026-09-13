@@ -1448,11 +1448,37 @@ unnoticed for hours.
 
 The framework ships
 [`tools/agent-isolation/sandbox-status-line.sh`](../../tools/agent-isolation/sandbox-status-line.sh)
-to render exactly that:
+to render exactly that, leading with the sandbox tag:
 
-- `<model> [sandbox]` in green when the active settings set
-  `"sandbox": { "enabled": true }`, OR
-- `<model> [NO SANDBOX]` in bold red when they do not.
+- `[sandbox]` in green when the active settings set
+  `"sandbox": { "enabled": true }`;
+- `[sandbox-auto]` in yellow when they *also* set
+  `autoAllowBashIfSandboxed` — sandboxed, but bash inside the sandbox
+  skips the per-call allow prompt, which is a wider blast radius and
+  worth distinguishing at a glance;
+- `[NO SANDBOX]` in bold red when they do not.
+
+After the tag comes the context that tells one session apart from
+another when several are open across worktrees and repos:
+
+```text
+[sandbox] magpie | feat/status-line * +2 | #1211 Add the agent-guard walkthrough step | Opus 5
+```
+
+- **the project folder**, colour-coded by a stable hash of its name, so
+  a repo keeps the same colour across sessions — and a Claude Code
+  worktree renders as `<source>/<worktree>` with each half hashed
+  independently;
+- **the git branch**, with a dirty marker and ahead/behind against the
+  upstream — read from local refs only, no network;
+- **the PR**, number and title, from one cached `gh pr view` per
+  branch;
+- **the model**.
+
+Every segment degrades to silence on its own: no `gh`, no PR segment;
+not a git repo, no branch segment. Nothing errors and nothing blocks —
+a hung `gh` call is killed by a portable three-second timeout so the
+footer cannot stall.
 
 The script walks the same precedence Claude Code itself uses for
 `sandbox.enabled` — project `settings.local.json` first, then
@@ -1495,21 +1521,19 @@ Wire it into `~/.claude/settings.json` under the `statusLine` key:
 }
 ```
 
-If you already maintain a richer custom statusLine, the helper is
-intentionally one-line — call it as one segment of your own
+If you already maintain your own statusLine, the script writes one
+line to stdout and nothing else — call it as one segment of your own
 renderer rather than replacing it.
 
-For adopters who want a richer variant out of the box, the framework
-also ships
-[`tools/agent-isolation/sandbox-status-line-rich.sh`](../../tools/agent-isolation/sandbox-status-line-rich.sh).
-Same sandbox-state detection, plus folder name (hash-coloured for a
-stable per-repo identity), git branch + dirty marker + ahead/behind,
-per-branch PR title (cached for 5 min, silent when `gh` is missing or
-unauthenticated), and a yellow `[sandbox-auto]` tag for the
-`autoAllowBashIfSandboxed` setting. Install steps are identical —
-copy the `-rich` file in place of the minimal one and point
-`statusLine.command` at it. The minimal variant remains the
-documented default; the rich one is opt-in.
+> [!NOTE]
+> **There used to be two.** Until 0.2.0 the framework shipped a minimal
+> `sandbox-status-line.sh` alongside a `-rich` variant, and documented
+> the minimal one as the default. The rich one is now the only one:
+> every segment it adds is already silent when its input is missing, so
+> the minimal script was the same file with less to say and a second
+> copy of the sandbox-precedence logic to keep correct. Wiring that
+> points at `~/.claude/scripts/sandbox-status-line.sh` keeps working —
+> re-run the setup skill to pick up the new script at that path.
 
 **Verify.**
 
@@ -1521,11 +1545,11 @@ echo '{"model":{"display_name":"Sonnet 4.6"},"workspace":{"current_dir":"'"$PWD"
 Expected output, *inside* this repo (its
 [`.claude/settings.json`](../../.claude/settings.json) sets
 `sandbox.enabled: true`, and assuming `.claude/settings.local.json`
-either does not exist or does not override the key):
-`Sonnet 4.6 [sandbox]` with `[sandbox]` rendered in green. From a
-directory whose project and user settings files do **not** enable
-the sandbox (or do not exist), the output is `[NO SANDBOX]` in
-bold red.
+either does not exist or does not override the key): a line opening
+with `[sandbox]` in green, then `magpie`, the current branch, the PR
+for it if there is one, and `Sonnet 4.6`. From a directory whose
+project and user settings files do **not** enable the sandbox (or do
+not exist), the line opens with `[NO SANDBOX]` in bold red instead.
 
 **Trade-offs.**
 
@@ -2345,14 +2369,15 @@ setup steps written into the screenshot's caption.
 
 **1. Sandboxed session — the steady state.**
 
-![Sandboxed session: status-line prefix `[sandbox]` rendered green](../../assets/session-sandboxed.png)
+![Sandboxed session: the terminal footer opening with a green `[sandbox]` tag, followed by the project, branch, PR number and model](../../assets/session-sandboxed.png)
 
-The terminal footer renders `<model> [sandbox]` in green when
-the active settings (project `settings.local.json` →
-project `settings.json` → user-scope) set
-`sandbox.enabled: true`. Bash subprocesses run inside
-bubblewrap (Linux) or Seatbelt (macOS) and only see paths
-listed in `sandbox.filesystem.allowRead`.
+The terminal footer opens with `[sandbox]` in green when the
+active settings (project `settings.local.json` → project
+`settings.json` → user-scope) set `sandbox.enabled: true`,
+then carries the project, branch, the branch's PR and the
+model. Bash subprocesses run inside bubblewrap (Linux) or
+Seatbelt (macOS) and only see paths listed in
+`sandbox.filesystem.allowRead`.
 
 **2. Unsandboxed session — the failure mode this setup exists
 to make obvious.**

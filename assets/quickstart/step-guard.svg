@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Licensed to the Apache Software Foundation (ASF) under one
+  or more contributor license agreements.  See the NOTICE file
+  distributed with this work for additional information
+  regarding copyright ownership.  The ASF licenses this file
+  to you under the Apache License, Version 2.0 (the
+  "License"); you may not use this file except in compliance
+  with the License.  You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing,
+  software distributed under the License is distributed on an
+  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+  KIND, either express or implied.  See the License for the
+  specific language governing permissions and limitations
+  under the License.
+
+  GENERATED FILE - do not edit.
+
+  Written by tools/dev/render-wizard.py. Illustrative of the shape of a
+  run, not a recording of one.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 777 592"
+     width="777" height="592" role="img"
+     data-magpie-generated="render-wizard"
+     aria-label="An animated agent-guard setup: the dispatcher, the rules and the PreToolUse hook registered, then a real denial of an unwanted review ping before it was posted">
+  <title>Step 4 — put the guard in front of every command</title>
+  <desc>Illustrative animation of the deterministic action guard. Not a recording.</desc>
+  <rect width="777" height="592" rx="10" fill="#1d1f21"/>
+  <rect x="0" y="0" width="777" height="34" rx="10" fill="#2b2e31"/>
+  <rect x="0" y="24" width="777" height="10" fill="#2b2e31"/>
+  <circle cx="22" cy="17" r="6" fill="#3f4448"/>
+  <circle cx="44" cy="17" r="6" fill="#3f4448"/>
+  <circle cx="66" cy="17" r="6" fill="#3f4448"/>
+  <g font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="17" xml:space="preserve">
+    <text x="26" y="80" fill="#8abeb7" opacity="0">&gt; /magpie-setup:isolated-setup-install<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.0000;0.0010;1" dur="7.5s" repeatCount="indefinite"/></text>
+    <text x="26" y="128" fill="#c5c8c6" opacity="0">  Registering the deterministic guard:<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.0505;0.0515;1" dur="7.5s" repeatCount="indefinite"/></text>
+    <text x="26" y="152" fill="#c5c8c6" opacity="0">    ~/.claude/scripts/agent-guard.py     the dispatcher<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.1011;0.1021;1" dur="7.5s" repeatCount="indefinite"/></text>
+    <text x="26" y="176" fill="#c5c8c6" opacity="0">    ~/.claude/scripts/guards.d/          5 rules, bundled + skill-owned<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.1516;0.1526;1" dur="7.5s" repeatCount="indefinite"/></text>
+    <text x="26" y="200" fill="#c5c8c6" opacity="0">    .claude/settings.json                PreToolUse hook on Bash<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.2021;0.2031;1" dur="7.5s" repeatCount="indefinite"/></text>
+    <text x="26" y="248" fill="#7f9f7f" opacity="0">  ✓ every shell command is inspected before it runs<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.2527;0.2537;1" dur="7.5s" repeatCount="indefinite"/></text>
+    <text x="26" y="296" fill="#8a8f94" opacity="0">  Later that session -<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.3032;0.3042;1" dur="7.5s" repeatCount="indefinite"/></text>
+    <text x="26" y="344" fill="#8abeb7" opacity="0">&gt; gh pr comment 1421 --body "@alice @bob please take a look"<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.3537;0.3547;1" dur="7.5s" repeatCount="indefinite"/></text>
+    <text x="26" y="392" fill="#d8a657" opacity="0">  ⚠ agent-guard[mention] denied this before it ran<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.4043;0.4053;1" dur="7.5s" repeatCount="indefinite"/></text>
+    <text x="26" y="440" fill="#c5c8c6" opacity="0">    A review ping to two maintainers who did not ask for it.<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.4548;0.4558;1" dur="7.5s" repeatCount="indefinite"/></text>
+    <text x="26" y="464" fill="#c5c8c6" opacity="0">    The author is @carol - anyone else is noise.<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.5053;0.5063;1" dur="7.5s" repeatCount="indefinite"/></text>
+    <text x="26" y="488" fill="#8a8f94" opacity="0">    Fix: write `alice` in backticks, or MAGPIE_ALLOW_MENTIONS=1.<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.5559;0.5569;1" dur="7.5s" repeatCount="indefinite"/></text>
+    <text x="26" y="536" fill="#8a8f94" opacity="0">  Nothing was posted. The rule is code, not a line in a SKILL.md<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.6064;0.6074;1" dur="7.5s" repeatCount="indefinite"/></text>
+    <text x="26" y="560" fill="#8a8f94" opacity="0">  the model has to remember - so it holds on the turn it matters.<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.6569;0.6579;1" dur="7.5s" repeatCount="indefinite"/></text>
+    <rect x="26" y="547" width="10" height="17" fill="#c5c8c6"><animate attributeName="opacity" values="1;1;0;0;1" dur="1.2s" repeatCount="indefinite"/></rect>
+  </g>
+</svg>

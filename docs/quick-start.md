@@ -11,8 +11,9 @@
     - [Step 1 — install from the Apache Magpie Marketplace](#step-1--install-from-the-apache-magpie-marketplace)
     - [Step 2 — run `/magpie-setup`](#step-2--run-magpie-setup)
     - [Step 3 — lock the agent down](#step-3--lock-the-agent-down)
-    - [Step 4 — use it](#step-4--use-it)
-    - [Step 5 — consider adopting Magpie](#step-5--consider-adopting-magpie)
+    - [Step 4 — put the guard in front of every command](#step-4--put-the-guard-in-front-of-every-command)
+    - [Step 5 — use it](#step-5--use-it)
+    - [Step 6 — consider adopting Magpie](#step-6--consider-adopting-magpie)
   - [What each family solves](#what-each-family-solves)
   - [Other installation methods](#other-installation-methods)
   - [Cross-references](#cross-references)
@@ -59,8 +60,10 @@ people — and you do not have to choose before installing.
 
 ## The walkthrough
 
-Five steps, in order. One and two are the install; the rest are what you do
-with it.
+Six steps, in order. One and two are the install; three and four are the two
+safety layers, and **both are strongly recommended** — Magpie's skills read
+issues, pre-disclosure security reports and private mailing lists, so neither
+is a nice-to-have. Five and six are what you do with it.
 
 ### Step 1 — install from the Apache Magpie Marketplace
 
@@ -188,13 +191,17 @@ links to all ten.
 
 ### Step 3 — lock the agent down
 
-**Part of the default setup, not a later hardening pass.** Magpie's skills read
-issues, pre-disclosure security reports, and private mailing lists, so the
-isolation and privacy layers belong in place before you point a skill at
-anything real. Treat this step as finishing the install: `magpie-agent-guard`
-from [Step 1](#step-1--install-from-the-apache-magpie-marketplace) guards each
-command deterministically, and this step is what sandboxes the process around
-it.
+**Strongly recommended, and part of the default setup rather than a later
+hardening pass.** Magpie's skills read issues, pre-disclosure security reports,
+and private mailing lists, so the isolation and privacy layers belong in place
+before you point a skill at anything real.
+
+This step and [Step 4](#step-4--put-the-guard-in-front-of-every-command) are
+two different layers and you want both: this one confines the **process** —
+what bash can see and reach — and the next one inspects each **command** before
+it runs. A sandbox will not stop a perfectly legal `gh pr comment` from pinging
+four people; a guard will not stop a command from reading `~/.ssh`. One run
+installs both.
 
 Installing skills and configuring your host's isolation are separate steps,
 and what the second one looks like depends on the agent you run:
@@ -230,11 +237,15 @@ finishes, your agent runs with:
 - **Visible state** — the status line says whether the sandbox is on, and a
   bold red banner fires before any bypass prompt.
 
-![Sandboxed session: status-line prefix `[sandbox]` rendered green](../assets/session-sandboxed.png)
+![Sandboxed session: the terminal footer opening with a green `[sandbox]` tag, followed by the project, branch, PR number and model](../assets/session-sandboxed.png)
 
-Green `[sandbox]` in the footer is the steady state. Confirm the whole
-install with `/magpie-setup:isolated-setup-verify` — *check my agent isolation*
-— which reports ✓/✗/⚠ for every piece.
+The footer opens with the sandbox state and then says *which* session this
+is — project, branch, the branch's PR, the model — so several sessions across
+worktrees and repos stay apart. Green `[sandbox]` is the steady state; yellow
+`[sandbox-auto]` means bash inside the sandbox skips the per-call prompt, and
+bold-red `[NO SANDBOX]` is impossible to miss. Confirm the whole install with
+`/magpie-setup:isolated-setup-verify` — *check my agent isolation* — which
+reports ✓/✗/⚠ for every piece.
 
 → Full walkthrough: [`setup/secure-agent-setup.md`](setup/secure-agent-setup.md).
 Why each layer exists: [`setup/secure-agent-internals.md`](setup/secure-agent-internals.md).
@@ -243,7 +254,60 @@ How your data reaches a model, and what never leaves the machine:
 
 ---
 
-### Step 4 — use it
+### Step 4 — put the guard in front of every command
+
+**Strongly recommended, and it is not the same thing as Step 3.** The sandbox
+confines the *process*: bash sees only the paths you allow, and your `~/.ssh`
+is out of reach. It has nothing to say about a command that is entirely within
+its rights — a `gh pr comment` that pings four maintainers who did not ask to
+be pinged, a `git push --force` onto a branch with nothing on it, a CVE
+identifier in a public PR title before the embargo lifts. Those are legitimate
+commands with the wrong consequences.
+
+`magpie-agent-guard` from [Step 1](#step-1--install-from-the-apache-magpie-marketplace)
+is the layer that catches them. It is a **deterministic pre-execution guard**:
+a hook that inspects every shell command *before* it runs and denies the ones
+that break a hard rule, showing the model the reason and the fix.
+
+![The agent-guard setup: the dispatcher, its rules and the PreToolUse hook registered, then a real denial of an unwanted review ping before it was posted](../assets/quickstart/step-guard.svg)
+
+Deterministic is the whole point. These are protections that **must not depend
+on the model remembering an instruction** three thousand tokens into a session
+— so they are not written in a `SKILL.md` at all. They are code that runs on
+every command, and a denied command is not run, not posted, and not retried
+behind your back.
+
+The guards that ship:
+
+| Guard | Denies | Because |
+|---|---|---|
+| `commit-trailer` | a `git commit` message carrying `Co-Authored-By:` | agents record themselves with `Generated-by:`; co-authorship is a claim about a person |
+| `empty-rebase` | `git push --force` of a branch with no commits over its base | an empty force-push to a PR head auto-closes it *and* revokes write |
+| `mention` | an `@`-mention of anyone but the author in a PR/issue comment | author-directed feedback should not ping maintainers who did not ask |
+| `mark-ready` | marking a PR ready while its head SHA has workflows awaiting approval | "ready for review" has to mean CI actually ran |
+| `security-language` | a CVE id or fix language in a **public** PR title or body | pre-disclosure content stays pre-disclosure |
+
+It arrives with the same run as Step 3 — `/magpie-setup:isolated-setup-install`
+registers the dispatcher, populates `~/.claude/scripts/guards.d/` from both the
+bundled rules and every skill that owns one, and wires the `PreToolUse` hook.
+Skills you install later contribute their own guards to the same directory.
+
+The rule set is one harness-agnostic core with a thin adapter per harness, so
+Claude Code, OpenCode, Kiro and Gemini CLI all enforce byte-for-byte identical
+decisions. **Codex and Cursor have no action guard today** — the sandbox from
+Step 3 still applies there, this layer does not; the
+[adapters matrix](adapters/README.md) tracks which harness has what.
+
+Per-command escape hatches exist and are explicit — `MAGPIE_ALLOW_MENTIONS=1`
+for the one case where you do mean to ping someone. A guard you cannot get past
+when you genuinely need to gets disabled wholesale, which is worse.
+
+→ Full reference, including how to contribute a guard:
+[`tools/agent-guard/README.md`](../tools/agent-guard/README.md).
+
+---
+
+### Step 5 — use it
 
 ![Listing the installed skills, then a triage pass returning 38 open PRs with a proposed action for each and nothing posted](../assets/quickstart/step-use.svg)
 
@@ -266,7 +330,7 @@ everything that is installed.
 
 ---
 
-### Step 5 — consider adopting Magpie
+### Step 6 — consider adopting Magpie
 
 ![An adopt run: three paths staged and not committed, what a contributor gets on clone, and what it does not restrict](../assets/quickstart/step-adopt.svg)
 

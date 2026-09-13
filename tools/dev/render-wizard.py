@@ -63,6 +63,7 @@ SETUP_SVG = Path("assets/quickstart/magpie-setup.svg")
 HERO_SVG = Path("assets/quickstart/install.svg")
 STEP_INSTALL_SVG = Path("assets/quickstart/step-install.svg")
 STEP_ISOLATION_SVG = Path("assets/quickstart/step-isolation.svg")
+STEP_GUARD_SVG = Path("assets/quickstart/step-guard.svg")
 STEP_USE_SVG = Path("assets/quickstart/step-use.svg")
 STEP_ADOPT_SVG = Path("assets/quickstart/step-adopt.svg")
 
@@ -304,6 +305,39 @@ def step_isolation_script() -> list[tuple[str, str]]:
     ]
 
 
+def step_guard_script() -> list[tuple[str, str]]:
+    """Walkthrough step 4: the deterministic action guard.
+
+    The isolation step sandboxes the process; this one guards the command.
+    What it has to show is the distinction, so it ends on a real denial
+    rather than on a list of things that were installed: a guard nobody
+    has watched say no reads as one more checkbox.
+    """
+    return [
+        (CMD, "> /magpie-setup:isolated-setup-install"),
+        (FG, ""),
+        (FG, "  Registering the deterministic guard:"),
+        (FG, "    ~/.claude/scripts/agent-guard.py     the dispatcher"),
+        (FG, "    ~/.claude/scripts/guards.d/          5 rules, bundled + skill-owned"),
+        (FG, "    .claude/settings.json                PreToolUse hook on Bash"),
+        (FG, ""),
+        (OK, "  ✓ every shell command is inspected before it runs"),
+        (FG, ""),
+        (MUTED, "  Later that session -"),
+        (FG, ""),
+        (CMD, "> gh pr comment 1421 --body \"@alice @bob please take a look\""),
+        (FG, ""),
+        (WARN, "  ⚠ agent-guard[mention] denied this before it ran"),
+        (FG, ""),
+        (FG, "    A review ping to two maintainers who did not ask for it."),
+        (FG, "    The author is @carol - anyone else is noise."),
+        (MUTED, "    Fix: write `alice` in backticks, or MAGPIE_ALLOW_MENTIONS=1."),
+        (FG, ""),
+        (MUTED, "  Nothing was posted. The rule is code, not a line in a SKILL.md"),
+        (MUTED, "  the model has to remember - so it holds on the turn it matters."),
+    ]
+
+
 def step_use_script() -> list[tuple[str, str]]:
     """Walkthrough step 4: invoking a skill, and what comes back.
 
@@ -431,15 +465,23 @@ def build() -> dict[Path, str]:
             "Illustrative animation of the secure-agent setup step. Not a recording.",
             step_isolation_script(),
         ),
+        STEP_GUARD_SVG: render(
+            "Step 4 — put the guard in front of every command",
+            "An animated agent-guard setup: the dispatcher, the rules and the "
+            "PreToolUse hook registered, then a real denial of an unwanted "
+            "review ping before it was posted",
+            "Illustrative animation of the deterministic action guard. Not a recording.",
+            step_guard_script(),
+        ),
         STEP_USE_SVG: render(
-            "Step 4 — use it",
+            "Step 5 — use it",
             "An animated skill run: listing what is installed, then a triage pass "
             "returning 38 open PRs with a proposed action each and nothing posted",
             "Illustrative animation of running a skill. Not a recording.",
             step_use_script(),
         ),
         STEP_ADOPT_SVG: render(
-            "Step 5 — adopt it for the project",
+            "Step 6 — adopt it for the project",
             "An animated adopt run: three paths staged and not committed, what a "
             "contributor gets on clone, and what it does not restrict",
             "Illustrative animation of adopting Magpie for a project. Not a recording.",
