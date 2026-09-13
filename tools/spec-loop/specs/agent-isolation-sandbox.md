@@ -13,8 +13,9 @@ source: >
   tools/agent-guard/, tools/permission-audit/, tools/egress-gateway/,
   the setup-isolated-setup-* skills, and .claude/settings.json.
 acceptance:
-  - Every agent subprocess runs inside an OS-level sandbox with default-
-    deny filesystem reads and network egress.
+  - The reference setup uses an OS-level sandbox with default-deny
+    filesystem reads and network egress; runtime-specific exceptions
+    are documented in the adapter and this spec.
   - Credential-shaped env vars are stripped before the agent execs.
   - State-mutating shell calls (git push, and every gh command except
     allow-listed read-only ones) require a confirmation prompt;
@@ -25,10 +26,17 @@ acceptance:
 
 ## What it does
 
-Runs every agent invocation inside a layered sandbox so that even a
+Runs reference agent invocations inside a layered sandbox so that even a
 successful prompt injection cannot read credentials or reach a
 non-allowed host. The fallback when prompt engineering fails is the OS
 saying "no".
+
+Gemini CLI uses tool sandboxing rather than whole-process isolation.
+Its native file tools restrict reads to allowed directories, but the tested
+Linux backend exposes host files broadly read-only to approved shell commands.
+Native credential-path policy denies do not block equivalent shell reads.
+Tool network restrictions do not cover the CLI, hooks, or MCP servers;
+existing sandbox grants can widen the baseline. See `docs/adapters/gemini.md`.
 
 ## Where it lives
 
@@ -101,7 +109,8 @@ cooldown window; bumps are PRs, not silent updates.
 
 ## Acceptance criteria
 
-1. Filesystem and network default-deny with explicit allow-lists.
+1. Filesystem and network default-deny with explicit allow-lists in the
+   reference setup; Gemini's different boundaries are documented above.
 2. The clean-env wrapper strips credential-shaped vars before exec.
 3. `git push` and `Bash(gh *)` are in `permissions.ask` (read-only `gh`
    exempted via `allow`); secret/cred files are in `permissions.deny`.
