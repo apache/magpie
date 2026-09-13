@@ -56,17 +56,17 @@ Nothing in this directory duplicates the reference material; it only frames it.
 
 | Lesson | Source page | Learning time |
 |---|---|---|
-| [Lesson 1 — What agents are](lesson-01-what-agents-are.md) | [What agents are](../what-agents-are.md) | ~30 min |
-| [Lesson 2 — Working with agents](lesson-02-working-with-agents.md) | [Working with agents](../working-with-agents.md) | ~30 min |
-| [Lesson 3 — Choosing models](lesson-03-choosing-models.md) | [Choosing models](../choosing-models.md) | ~35 min |
-| [Lesson 4 — Your first skill](lesson-04-your-first-skill.md) | [Your first skill](../your-first-skill.md) | ~60 min |
-| [Lesson 5 — Writing safe skills](lesson-05-writing-safe-skills.md) | [Writing safe skills](../writing-safe-skills.md) | ~45 min |
-| [Lesson 6 — Debugging a skill](lesson-06-debugging-a-skill.md) | [Debugging a skill](../debugging-skills.md) | ~50 min |
-| [Lesson 7 — Writing portable skills](lesson-07-writing-portable-skills.md) | [Writing portable skills](../portable-skills.md) | ~35 min |
-| [Lesson 8 — Eval-driven development](lesson-08-eval-driven-development.md) | [Eval-driven development](../eval-driven-development.md) | ~60 min |
-| [Lesson 9 — Agentic and autonomous work](lesson-09-agentic-and-autonomous-work.md) | [Agentic and autonomous work](../agentic-work.md) | ~45 min |
-| [Lesson 10 — English as a programming language](lesson-10-english-as-a-programming-language.md) | [English as a programming language](../english-as-code.md) | ~30 min |
-| [Lesson 11 — How to contribute](lesson-11-how-to-contribute.md) | [How to contribute](../contributing.md) | ~30 min |
+| [01 - What agents are](lesson-01-what-agents-are.md) | [What agents are](../what-agents-are.md) | ~30 min |
+| [02 - Working with agents](lesson-02-working-with-agents.md) | [Working with agents](../working-with-agents.md) | ~30 min |
+| [03 - Choosing models](lesson-03-choosing-models.md) | [Choosing models](../choosing-models.md) | ~35 min |
+| [04 - Your first skill](lesson-04-your-first-skill.md) | [Your first skill](../your-first-skill.md) | ~60 min |
+| [05 - Writing safe skills](lesson-05-writing-safe-skills.md) | [Writing safe skills](../writing-safe-skills.md) | ~45 min |
+| [06 - Debugging a skill](lesson-06-debugging-a-skill.md) | [Debugging a skill](../debugging-skills.md) | ~50 min |
+| [07 - Writing portable skills](lesson-07-writing-portable-skills.md) | [Writing portable skills](../portable-skills.md) | ~35 min |
+| [08 - Eval-driven development](lesson-08-eval-driven-development.md) | [Eval-driven development](../eval-driven-development.md) | ~60 min |
+| [09 - Agentic and autonomous work](lesson-09-agentic-and-autonomous-work.md) | [Agentic and autonomous work](../agentic-work.md) | ~45 min |
+| [10 - English as a programming language](lesson-10-english-as-a-programming-language.md) | [English as a programming language](../english-as-code.md) | ~30 min |
+| [11 - How to contribute](lesson-11-how-to-contribute.md) | [How to contribute](../contributing.md) | ~30 min |
 | [Hands-on lab](lesson-lab-tutorials.md) | [Tutorial: build and evaluate a skill](../tutorials.md) | ~90 min |
 
 ## Delivery formats

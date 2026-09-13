@@ -5,7 +5,7 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [Lesson 9 — Agentic and autonomous work](#lesson-9--agentic-and-autonomous-work)
+- [Lesson 09: Agentic and autonomous work](#lesson-09-agentic-and-autonomous-work)
   - [Learning objectives](#learning-objectives)
   - [Prerequisite knowledge](#prerequisite-knowledge)
   - [Before the lesson](#before-the-lesson)
@@ -24,7 +24,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
-# Lesson 9 — Agentic and autonomous work
+# Lesson 09: Agentic and autonomous work
 
 **Source page:** [Agentic and autonomous work](../agentic-work.md)
 **Estimated time:** 45 minutes (15 min reading + 30 min exercises and self-check)

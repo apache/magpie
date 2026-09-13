@@ -603,7 +603,7 @@ This is the full `docs/education/training/lesson-08-eval-driven-development.md` 
 learning objectives, learner-facing self-check questions, and embedded
 self-check answers.
 
-> # Lesson 8 — Eval-driven development
+> # Lesson 08: Eval-driven development
 >
 > **Source page:** Eval-driven development (../eval-driven-development.md)
 > **Estimated time:** 60 minutes (20 min reading + 40 min exercises and self-check)

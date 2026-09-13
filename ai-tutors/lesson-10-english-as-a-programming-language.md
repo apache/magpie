@@ -293,7 +293,7 @@ This is the full `docs/education/training/lesson-10-english-as-a-programming-lan
 learning objectives, learner-facing self-check questions, and embedded
 self-check answers.
 
-> # Lesson 10 — English as a programming language
+> # Lesson 10: English as a programming language
 >
 > **Source page:** English as a programming language (../english-as-code.md)
 > **Estimated time:** 30 minutes (10 min reading + 20 min exercises and self-check)

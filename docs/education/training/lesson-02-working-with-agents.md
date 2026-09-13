@@ -5,7 +5,7 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [Lesson 2 — Working with agents](#lesson-2--working-with-agents)
+- [Lesson 02: Working with agents](#lesson-02-working-with-agents)
   - [Learning objectives](#learning-objectives)
   - [Prerequisite knowledge](#prerequisite-knowledge)
   - [Before the lesson](#before-the-lesson)
@@ -21,7 +21,7 @@
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
-# Lesson 2 — Working with agents
+# Lesson 02: Working with agents
 
 **Source page:** [How to work with agents](../working-with-agents.md)
 **Estimated time:** 30 minutes (15 min reading + 15 min exercises and self-check)

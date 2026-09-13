@@ -295,7 +295,7 @@ This is the full `docs/education/training/lesson-11-how-to-contribute.md` lesson
 learning objectives, learner-facing self-check questions, and embedded
 self-check answers.
 
-> # Lesson 11 — How to contribute
+> # Lesson 11: How to contribute
 >
 > **Source page:** How to contribute (../contributing.md)
 > **Estimated time:** 30 minutes (10 min reading + 20 min exercises and self-check)

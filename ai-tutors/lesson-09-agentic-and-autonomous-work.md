@@ -306,7 +306,7 @@ This is the full `docs/education/training/lesson-09-agentic-and-autonomous-work.
 learning objectives, learner-facing self-check questions, and embedded
 self-check answers.
 
-> # Lesson 9 — Agentic and autonomous work
+> # Lesson 09: Agentic and autonomous work
 >
 > **Source page:** Agentic and autonomous work (../agentic-work.md)
 > **Estimated time:** 45 minutes (15 min reading + 30 min exercises and self-check)

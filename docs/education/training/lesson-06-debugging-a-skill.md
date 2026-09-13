@@ -5,7 +5,7 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [Lesson 6 — Debugging a skill](#lesson-6--debugging-a-skill)
+- [Lesson 06: Debugging a skill](#lesson-06-debugging-a-skill)
   - [Learning objectives](#learning-objectives)
   - [Prerequisite knowledge](#prerequisite-knowledge)
   - [Before the lesson](#before-the-lesson)
@@ -25,7 +25,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
-# Lesson 6 — Debugging a skill
+# Lesson 06: Debugging a skill
 
 **Source page:** [Debugging a skill](../debugging-skills.md)
 **Estimated time:** 50 minutes (30 min reading + 20 min exercises and self-check)

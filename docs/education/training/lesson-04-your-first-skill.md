@@ -5,7 +5,7 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [Lesson 4 — Your first skill](#lesson-4--your-first-skill)
+- [Lesson 04: Your first skill](#lesson-04-your-first-skill)
   - [Learning objectives](#learning-objectives)
   - [Prerequisite knowledge](#prerequisite-knowledge)
   - [Before the lesson](#before-the-lesson)
@@ -21,7 +21,7 @@
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
-# Lesson 4 — Your first skill
+# Lesson 04: Your first skill
 
 **Source page:** [Your first skill](../your-first-skill.md)
 **Estimated time:** 60 minutes (40 min reading + 20 min exercises and self-check)

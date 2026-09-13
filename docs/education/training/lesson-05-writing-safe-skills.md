@@ -5,7 +5,7 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [Lesson 5 — Writing safe skills](#lesson-5--writing-safe-skills)
+- [Lesson 05: Writing safe skills](#lesson-05-writing-safe-skills)
   - [Learning objectives](#learning-objectives)
   - [Prerequisite knowledge](#prerequisite-knowledge)
   - [Before the lesson](#before-the-lesson)
@@ -24,7 +24,7 @@
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
-# Lesson 5 — Writing safe skills
+# Lesson 05: Writing safe skills
 
 **Source page:** [Writing safe skills](../writing-safe-skills.md)
 **Estimated time:** 65 minutes (30 min reading + 35 min exercises and self-check)

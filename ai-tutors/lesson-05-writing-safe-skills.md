@@ -458,7 +458,7 @@ This is the full `docs/education/training/lesson-05-writing-safe-skills.md` less
 learning objectives, learner-facing self-check questions, and embedded
 self-check answers.
 
-> # Lesson 5 — Writing safe skills
+> # Lesson 05: Writing safe skills
 >
 > **Source page:** Writing safe skills (../writing-safe-skills.md)
 > **Estimated time:** 65 minutes (30 min reading + 35 min exercises and self-check)

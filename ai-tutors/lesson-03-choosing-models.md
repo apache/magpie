@@ -275,7 +275,7 @@ This is the full `docs/education/training/lesson-03-choosing-models.md` lesson w
 learning objectives, learner-facing self-check questions, and embedded
 self-check answers.
 
-> # Lesson 3 — Choosing models
+> # Lesson 03: Choosing models
 >
 > **Source page:** How to use different models (../choosing-models.md)
 > **Estimated time:** 35 minutes (20 min reading + 15 min exercises and self-check)

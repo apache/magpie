@@ -527,7 +527,7 @@ This is the full `docs/education/training/lesson-04-your-first-skill.md` lesson 
 learning objectives, learner-facing self-check questions, and embedded
 self-check answers.
 
-> # Lesson 4 — Your first skill
+> # Lesson 04: Your first skill
 >
 > **Source page:** Your first skill (../your-first-skill.md)
 > **Estimated time:** 60 minutes (40 min reading + 20 min exercises and self-check)

@@ -296,7 +296,7 @@ This is the full `docs/education/training/lesson-01-what-agents-are.md` lesson w
 learning objectives, learner-facing self-check questions, and embedded
 self-check answers.
 
-> # Lesson 1 — What agents are
+> # Lesson 01: What agents are
 >
 > **Source page:** What agents are (../what-agents-are.md)
 > **Estimated time:** 30 minutes (15 min reading + 15 min exercises and self-check)

@@ -5,7 +5,7 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [Lesson 11 — How to contribute](#lesson-11--how-to-contribute)
+- [Lesson 11: How to contribute](#lesson-11-how-to-contribute)
   - [Learning objectives](#learning-objectives)
   - [Prerequisite knowledge](#prerequisite-knowledge)
   - [Before the lesson](#before-the-lesson)
@@ -24,7 +24,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
-# Lesson 11 — How to contribute
+# Lesson 11: How to contribute
 
 **Source page:** [How to contribute](../contributing.md)
 **Estimated time:** 30 minutes (10 min reading + 20 min exercises and self-check)

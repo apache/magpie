@@ -406,7 +406,7 @@ This is the full `docs/education/training/lesson-06-debugging-a-skill.md` lesson
 learning objectives, learner-facing self-check questions, and embedded
 self-check answers.
 
-> # Lesson 6 — Debugging a skill
+> # Lesson 06: Debugging a skill
 >
 > **Source page:** Debugging a skill (../debugging-skills.md)
 > **Estimated time:** 50 minutes (30 min reading + 20 min exercises and self-check)

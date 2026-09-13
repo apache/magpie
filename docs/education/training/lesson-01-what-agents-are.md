@@ -5,7 +5,7 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [Lesson 1 — What agents are](#lesson-1--what-agents-are)
+- [Lesson 01: What agents are](#lesson-01-what-agents-are)
   - [Learning objectives](#learning-objectives)
   - [Prerequisite knowledge](#prerequisite-knowledge)
   - [Before the lesson](#before-the-lesson)
@@ -21,7 +21,7 @@
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
-# Lesson 1 — What agents are
+# Lesson 01: What agents are
 
 **Source page:** [What agents are](../what-agents-are.md)
 **Estimated time:** 30 minutes (15 min reading + 15 min exercises and self-check)

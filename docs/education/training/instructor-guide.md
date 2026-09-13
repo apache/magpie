@@ -21,17 +21,17 @@
     - [Two-session intensive](#two-session-intensive-1)
     - [Weekly reading group (~11 weeks)](#weekly-reading-group-11-weeks)
   - [Per-lesson facilitator notes](#per-lesson-facilitator-notes)
-    - [Lesson 1 — What agents are](#lesson-1--what-agents-are)
-    - [Lesson 2 — Working with agents](#lesson-2--working-with-agents)
-    - [Lesson 3 — Choosing models](#lesson-3--choosing-models)
-    - [Lesson 4 — Your first skill](#lesson-4--your-first-skill)
-    - [Lesson 5 — Writing safe skills](#lesson-5--writing-safe-skills)
-    - [Lesson 6 — Debugging a skill](#lesson-6--debugging-a-skill)
-    - [Lesson 7 — Writing portable skills](#lesson-7--writing-portable-skills)
-    - [Lesson 8 — Eval-driven development](#lesson-8--eval-driven-development)
-    - [Lesson 9 — Agentic and autonomous work](#lesson-9--agentic-and-autonomous-work)
-    - [Lesson 10 — English as a programming language](#lesson-10--english-as-a-programming-language)
-    - [Lesson 11 — How to contribute](#lesson-11--how-to-contribute)
+    - [Lesson 01: What agents are](#lesson-01-what-agents-are)
+    - [Lesson 02: Working with agents](#lesson-02-working-with-agents)
+    - [Lesson 03: Choosing models](#lesson-03-choosing-models)
+    - [Lesson 04: Your first skill](#lesson-04-your-first-skill)
+    - [Lesson 05: Writing safe skills](#lesson-05-writing-safe-skills)
+    - [Lesson 06: Debugging a skill](#lesson-06-debugging-a-skill)
+    - [Lesson 07: Writing portable skills](#lesson-07-writing-portable-skills)
+    - [Lesson 08: Eval-driven development](#lesson-08-eval-driven-development)
+    - [Lesson 09: Agentic and autonomous work](#lesson-09-agentic-and-autonomous-work)
+    - [Lesson 10: English as a programming language](#lesson-10-english-as-a-programming-language)
+    - [Lesson 11: How to contribute](#lesson-11-how-to-contribute)
   - [Customising for your project](#customising-for-your-project)
     - [Replacing placeholders](#replacing-placeholders)
     - [Adapting examples](#adapting-examples)
@@ -223,7 +223,7 @@ on reading the source page aloud.
 
 ---
 
-### Lesson 1 — What agents are
+### Lesson 01: What agents are
 
 **Core idea.** An agent is a loop: model, tools, loop, context. Every other
 idea in the module is a consequence of this structure.
@@ -252,7 +252,7 @@ idea in the module is a consequence of this structure.
 
 ---
 
-### Lesson 2 — Working with agents
+### Lesson 02: Working with agents
 
 **Core idea.** An agent is a collaborator, not a command-runner. The quality
 of what you get out depends on the quality of what you put in.
@@ -281,7 +281,7 @@ of what you get out depends on the quality of what you put in.
 
 ---
 
-### Lesson 3 — Choosing models
+### Lesson 03: Choosing models
 
 **Core idea.** There is no single best model for every task; there is a
 best model for a given capability, speed, and cost combination, and the
@@ -310,7 +310,7 @@ eval suite is what decides.
 
 ---
 
-### Lesson 4 — Your first skill
+### Lesson 04: Your first skill
 
 **Core idea.** A skill is a plain Markdown file with YAML frontmatter. Writing
 one is within reach of any contributor who can open a pull request.
@@ -340,7 +340,7 @@ takes longer), 10 min debrief.
 
 ---
 
-### Lesson 5 — Writing safe skills
+### Lesson 05: Writing safe skills
 
 **Core idea.** Safety is not a review gate at the end; it is three properties
 built into the skill as you write it: propose-confirm-act, data-not-instructions,
@@ -374,7 +374,7 @@ classification exercise is dense), 5 min debrief.
 
 ---
 
-### Lesson 6 — Debugging a skill
+### Lesson 06: Debugging a skill
 
 **Core idea.** Debugging an agent is diagnostic work: isolate the failing
 step, read the transcript, find the moment the agent diverged, and adjust the
@@ -405,7 +405,7 @@ prompt or context — not the retry count.
 
 ---
 
-### Lesson 7 — Writing portable skills
+### Lesson 07: Writing portable skills
 
 **Core idea.** A skill that hard-codes project names, tool paths, or hosting
 assumptions only works in one place. Portability comes from placeholders and
@@ -435,7 +435,7 @@ config-resolution, not from "making it generic."
 
 ---
 
-### Lesson 8 — Eval-driven development
+### Lesson 08: Eval-driven development
 
 **Core idea.** Correctness for an agent is not a binary; it is a distribution
 over many inputs. An eval suite is how you measure that distribution and track
@@ -466,7 +466,7 @@ exercise takes longer), 10 min debrief.
 
 ---
 
-### Lesson 9 — Agentic and autonomous work
+### Lesson 09: Agentic and autonomous work
 
 **Core idea.** Autonomy is not an on/off switch; it is a dial with four
 rungs. Moving up the dial is only safe once you have the guardrails and evals
@@ -498,7 +498,7 @@ that make it safe — not before.
 
 ---
 
-### Lesson 10 — English as a programming language
+### Lesson 10: English as a programming language
 
 **Core idea.** The words in a skill are the program. Ambiguity is a bug
 class. The four disambiguating moves — define terms, say what done looks
@@ -531,7 +531,7 @@ like, state boundaries, name edge cases — are the tools for closing gaps.
 
 ---
 
-### Lesson 11 — How to contribute
+### Lesson 11: How to contribute
 
 **Core idea.** Most of Magpie is prose the agent executes, so contributing is
 within reach of anyone who can write precisely. The four first contributions —

@@ -429,7 +429,7 @@ This is the full `docs/education/training/lesson-07-writing-portable-skills.md` 
 learning objectives, learner-facing self-check questions, and embedded
 self-check answers.
 
-> # Lesson 7 — Writing portable skills
+> # Lesson 07: Writing portable skills
 >
 > **Source page:** Writing portable skills (../portable-skills.md)
 > **Estimated time:** 35 minutes (20 min reading + 15 min exercises and self-check)

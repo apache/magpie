@@ -5,7 +5,7 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [Lesson 7 — Writing portable skills](#lesson-7--writing-portable-skills)
+- [Lesson 07: Writing portable skills](#lesson-07-writing-portable-skills)
   - [Learning objectives](#learning-objectives)
   - [Prerequisite knowledge](#prerequisite-knowledge)
   - [Before the lesson](#before-the-lesson)
@@ -25,7 +25,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
-# Lesson 7 — Writing portable skills
+# Lesson 07: Writing portable skills
 
 **Source page:** [Writing portable skills](../portable-skills.md)
 **Estimated time:** 35 minutes (20 min reading + 15 min exercises and self-check)

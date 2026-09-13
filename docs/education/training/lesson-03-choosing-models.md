@@ -5,7 +5,7 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [Lesson 3 — Choosing models](#lesson-3--choosing-models)
+- [Lesson 03: Choosing models](#lesson-03-choosing-models)
   - [Learning objectives](#learning-objectives)
   - [Prerequisite knowledge](#prerequisite-knowledge)
   - [Before the lesson](#before-the-lesson)
@@ -21,7 +21,7 @@
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
-# Lesson 3 — Choosing models
+# Lesson 03: Choosing models
 
 **Source page:** [How to use different models](../choosing-models.md)
 **Estimated time:** 35 minutes (20 min reading + 15 min exercises and self-check)

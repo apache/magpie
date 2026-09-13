@@ -5,7 +5,7 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [Lesson 8 — Eval-driven development](#lesson-8--eval-driven-development)
+- [Lesson 08: Eval-driven development](#lesson-08-eval-driven-development)
   - [Learning objectives](#learning-objectives)
   - [Prerequisite knowledge](#prerequisite-knowledge)
   - [Before the lesson](#before-the-lesson)
@@ -24,7 +24,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
-# Lesson 8 — Eval-driven development
+# Lesson 08: Eval-driven development
 
 **Source page:** [Eval-driven development](../eval-driven-development.md)
 **Estimated time:** 60 minutes (20 min reading + 40 min exercises and self-check)

@@ -294,7 +294,7 @@ This is the full `docs/education/training/lesson-02-working-with-agents.md` less
 learning objectives, learner-facing self-check questions, and embedded
 self-check answers.
 
-> # Lesson 2 — Working with agents
+> # Lesson 02: Working with agents
 >
 > **Source page:** How to work with agents (../working-with-agents.md)
 > **Estimated time:** 30 minutes (15 min reading + 15 min exercises and self-check)

@@ -5,7 +5,7 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [Lesson 10 — English as a programming language](#lesson-10--english-as-a-programming-language)
+- [Lesson 10: English as a programming language](#lesson-10-english-as-a-programming-language)
   - [Learning objectives](#learning-objectives)
   - [Prerequisite knowledge](#prerequisite-knowledge)
   - [Before the lesson](#before-the-lesson)
@@ -24,7 +24,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
-# Lesson 10 — English as a programming language
+# Lesson 10: English as a programming language
 
 **Source page:** [English as a programming language](../english-as-code.md)
 **Estimated time:** 30 minutes (10 min reading + 20 min exercises and self-check)
