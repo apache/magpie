@@ -38,7 +38,7 @@ saying "no".
   (`stdlib`-only). Wired as a `PreToolUse` hook (Claude Code) or a
   `tool.execute.before` plugin (OpenCode), with a `--gemini` adapter for
   Gemini CLI's `BeforeTool` event (wired in the repository's
-  `.gemini/settings.json`; manual registration for snapshot adopters); inspects every shell command
+  `.gemini/settings.json`; registration for snapshot adopters); inspects every shell command
   before it runs and denies the ones that break a hard framework rule,
   independent of model memory. The guard decisions live in a single
   harness-agnostic `dispatch()` core so every wired harness enforces
@@ -57,6 +57,10 @@ saying "no".
 - `.claude/settings.json` — the `sandbox` block (filesystem
   allow/deny, network `allowedDomains`, `excludedCommands`) and
   `permissions` (`deny` / `ask`).
+- `.gemini/settings.json` and `.gemini/policies/magpie.toml` — Magpie's Gemini profile: tool-sandboxing and an explicitly loaded User-tier approval policy.
+  Scoped shell reads are allowed; other shell calls, native edits, and MCP calls ask; listed commands and credential paths deny.
+  Plan Mode permits the scoped reads and denies other shell/edit/MCP operations; YOLO and remembered tool approvals are disabled.
+  `sandbox-lint --gemini .gemini` checks the static profile, with opt-in pytest integration tests against native 0.59.0 APIs for settings, policies, headless refusal, and Linux enforcement.
 - Skills: `setup-isolated-setup-install`, `-update`, `-verify`,
   `-doctor` (probes live sandbox restrictions — SSH-agent reachability,
   localhost port binding, docker/podman socket — and maps each to a
@@ -70,6 +74,9 @@ The reference model is four layers, layered:
 1. **Clean environment** — a wrapper strips the process env to a
    project-declared whitelist before exec (no `$GH_TOKEN`, `$AWS_*`,
    `$ANTHROPIC_API_KEY` leakage).
+   `AGENT_ISO_ALLOW` explicitly names additional variables required by runtime authentication or tooling.
+   It replaces `CLAUDE_ISO_ALLOW` when set, including an empty value; the legacy name remains supported otherwise.
+   Unlisted variables stay stripped and values are never printed by the wrapper.
 2. **Filesystem + network sandbox** — Linux `bubblewrap` + `socat` SNI
    proxy; macOS `sandbox-exec`. Default-deny reads outside the tree and
    egress to non-allowed hosts. `sandbox.excludedCommands` carves out

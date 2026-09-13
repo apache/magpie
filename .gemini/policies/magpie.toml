@@ -1,0 +1,100 @@
+# SPDX-License-Identifier: Apache-2.0
+# https://www.apache.org/licenses/LICENSE-2.0
+
+# Load explicitly through settings.json policyPaths; directory discovery alone
+# is not the contract. Higher priorities win within Gemini's User policy tier.
+# These rules apply in every approval mode, including headless execution where
+# ask_user is refused. Scoped reads are allowed; other shell calls ask per call.
+
+[[rule]]
+toolName = "run_shell_command"
+# Keep an argument matcher: Gemini's native sandbox heuristics can otherwise
+# upgrade an unconditional ask_user to allow for commands it considers safe.
+argsPattern = '"command":'
+decision = "ask_user"
+priority = 600
+
+[[rule]]
+toolName = ["write_file", "replace"]
+decision = "ask_user"
+priority = 600
+
+[[rule]]
+mcpName = "*"
+toolName = "*"
+decision = "ask_user"
+priority = 600
+
+# Deny the credential/export commands from Magpie's reference permissions.
+# Prefix rules are a friction layer, not a shell parser or filesystem boundary.
+# Wrappers and unknown commands still meet the fallback shell ask above.
+[[rule]]
+toolName = "run_shell_command"
+commandPrefix = [
+  "curl", "wget", "aws", "gcloud", "az", "kubectl",
+  "docker login", "npm publish", "pip install --upgrade", "uv self update",
+  "gh auth token", "gh auth refresh",
+]
+decision = "deny"
+priority = 900
+denyMessage = "This command is restricted to protect credentials and external systems. Run it from your own terminal if needed."
+
+# Arguments are stable JSON, not shell-expanded or canonical filesystem paths.
+# Native tools must not expose credential files, including Gemini's own auth.
+[[rule]]
+toolName = ["read_file", "read_many_files", "list_directory", "glob", "grep_search", "write_file", "replace"]
+argsPattern = '(?:/|\\\\|"|~)(?:\.aws|\.ssh|\.docker|\.kube|\.azure|\.gnupg|\.netrc|\.npmrc|\.pypirc|\.config(?:/|\\\\)(?:gh|gcloud|apache-magpie)|\.gemini(?:/|\\\\)(?:oauth_creds\.json|google_accounts\.json|settings\.json|policies))(?:/|\\\\|"|$)'
+decision = "deny"
+priority = 900
+denyMessage = "Credential files and agent security settings cannot be accessed with file or search tools."
+
+[[rule]]
+toolName = ["read_file", "read_many_files", "list_directory", "glob", "grep_search", "write_file", "replace"]
+argsPattern = '(?:/|\\\\|")\.env(?:\.|/|\\\\|"|$)'
+decision = "deny"
+priority = 900
+denyMessage = "Files named .env or .env.* can contain credentials and cannot be accessed with file or search tools."
+
+# Protect project policy/hook configuration from native editing tools.
+# Shell writes require approval; this rule is not an OS-level write deny.
+[[rule]]
+toolName = ["write_file", "replace"]
+argsPattern = '(?:/|\\\\|")(?:\.gemini(?:/|\\\\)|\.geminiignore(?:"|$)|GEMINI\.md(?:"|$)|AGENTS\.md(?:"|$))'
+decision = "deny"
+priority = 900
+denyMessage = "Agent security settings and repository instructions must be edited from your own terminal or editor."
+
+# User-tier asks outrank the built-in Plan Mode rules. Deny other operations
+# in Plan Mode while retaining the scoped read allows below (priority 700).
+[[rule]]
+toolName = ["run_shell_command", "write_file", "replace"]
+modes = ["plan"]
+decision = "deny"
+priority = 650
+denyMessage = "This operation is unavailable in Plan Mode. Switch to Default Mode to request approval."
+
+[[rule]]
+mcpName = "*"
+toolName = "*"
+modes = ["plan"]
+decision = "deny"
+priority = 650
+denyMessage = "MCP tools are unavailable in Plan Mode. Switch to Default Mode to request approval."
+
+# Match complete command arguments: extra Git flags can enable external
+# helpers or file output. Other forms still ask; this is not a git-wide allow.
+[[rule]]
+toolName = "run_shell_command"
+argsPattern = '"command":"(?:git status|git status --short|git status --porcelain|git status -sb|git diff --stat|git log --oneline|git ls-files|gh auth status)"'
+decision = "allow"
+priority = 700
+
+# The read operations shared with .codex/rules/magpie.rules and the Claude
+# reference allow list. Raw gh api calls still ask because they can mutate.
+# Exclude shell syntax and JSON escapes from the complete command argument.
+# Native redirection checks alone do not prompt in every approval mode.
+[[rule]]
+toolName = "run_shell_command"
+argsPattern = '"command":"(?:gh pr view|gh pr list|gh pr diff|gh pr checks|gh pr status|gh issue view|gh issue list|gh issue status|gh repo view|gh repo list|gh run view|gh run list|gh run watch|gh workflow view|gh workflow list|gh release view|gh release list|gh label list|gh cache list|gh search)(?:"| [^"\\<>;&|`$]*")'
+decision = "allow"
+priority = 700

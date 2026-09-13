@@ -28,12 +28,14 @@ on:  # yamllint disable-line rule:truthy
   pull_request:
     paths:
       - ".claude/settings.json"
+      - ".gemini/**"
       - "tools/sandbox-lint/**"
       - ".github/workflows/sandbox-lint.yml"
   push:
     branches: [main]
     paths:
       - ".claude/settings.json"
+      - ".gemini/**"
       - "tools/sandbox-lint/**"
       - ".github/workflows/sandbox-lint.yml"
 
@@ -69,3 +71,5 @@ jobs:
       # resolve relative to cwd.
       - name: Run sandbox-lint
         run: uv run sandbox-lint
+      - name: Check Gemini sandbox and policy profile
+        run: uv run sandbox-lint --gemini .gemini

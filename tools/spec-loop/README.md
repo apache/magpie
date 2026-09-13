@@ -24,7 +24,7 @@ picks its run convention:
   prompt on stdin.
 - `cursor` — `cursor agent --print --force --trust --workspace … "<prompt>"`
   or `cursor-agent --print --force --trust --workspace … "<prompt>"`.
-- `gemini` — `gemini --yolo --prompt "<prompt>"`.
+- `gemini` — `gemini --approval-mode default --prompt "<prompt>"`.
 - `opencode` — `opencode run --auto --model … "<prompt>"`, prompt as a
   positional argument.
 
@@ -42,16 +42,16 @@ SPEC_LOOP_AGENT=cursor-agent tools/spec-loop/loop.sh build 5
 ```
 
 ```bash
-SPEC_LOOP_AGENT=gemini tools/spec-loop/loop.sh build 5
-```
-
-```bash
 SPEC_LOOP_AGENT=opencode SPEC_LOOP_MODEL=anthropic/claude-sonnet-4-5 \
   tools/spec-loop/loop.sh build 5
 ```
 
-All conventions run the agent non-interactively with permissions
-auto-approved; the loop's safety rails (never push, never open a PR) come from
+**Gemini CLI:** the launcher uses `--approval-mode default` instead of `--yolo`.
+With the shipped profile, calls requiring confirmation are refused headlessly, so unattended build iterations that need edits cannot complete.
+See the [Gemini runner notes](../../docs/adapters/gemini.md#spec-loop-runner) for supported use and upgrade impact.
+
+All conventions run the agent non-interactively.
+The profiles other than Gemini request automatic approval; their safety rails (never push, never open a PR) come from
 the OS sandbox, missing push/write credentials, repo hooks, and the loop's own
 guards. Claude also gets per-invocation `--disallowedTools` hard-deny flags;
 the other harnesses rely on their own policy/config plus the external sandbox.

@@ -184,7 +184,8 @@ test_harness_command_construction() {
     make_fake_agent "$TMPDIR_TEST/gemini" "$TMPDIR_TEST/gemini.log"
     spec_loop_launch_agent gemini "$TMPDIR_TEST/gemini" /repo "$TMPDIR_TEST/prompt.md" "" text high
     wait "$SPEC_LOOP_AGENT_PID"
-    assert_contains "$TMPDIR_TEST/gemini.log" "<--yolo>"
+    assert_contains "$TMPDIR_TEST/gemini.log" "<--approval-mode> <default>"
+    assert_not_contains "$TMPDIR_TEST/gemini.log" "<--yolo>"
     assert_contains "$TMPDIR_TEST/gemini.log" "<--prompt>"
     assert_contains "$TMPDIR_TEST/gemini.log" "<--output-format> <text>"
     assert_not_contains "$TMPDIR_TEST/gemini.log" "<--effort>"

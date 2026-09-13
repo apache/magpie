@@ -1,4 +1,24 @@
 {
+  "policyPaths": [
+    "~/.gemini/policies",
+    "./.gemini/policies/magpie.toml"
+  ],
+  "general": {
+    "defaultApprovalMode": "default"
+  },
+  "security": {
+    "toolSandboxing": true,
+    "disableYoloMode": true,
+    "disableAlwaysAllow": true,
+    "enablePermanentToolApproval": false,
+    "environmentVariableRedaction": {
+      "enabled": true
+    }
+  },
+  "tools": {
+    "sandboxAllowedPaths": [],
+    "sandboxNetworkAccess": false
+  },
   "hooks": {
     "BeforeTool": [
       {

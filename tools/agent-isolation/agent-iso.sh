@@ -47,8 +47,8 @@
 #     `opencode-iso`.
 #
 # To inject a single credential explicitly for one session:
-#   GH_TOKEN="$(gh auth token)" claude-iso
-#   AWS_PROFILE=read-only claude-iso
+#   AGENT_ISO_ALLOW=GH_TOKEN claude-iso       # token already set in the shell
+#   AGENT_ISO_ALLOW=AWS_PROFILE AWS_PROFILE=read-only claude-iso
 #
 # Current-repo auto-allow:
 #   Whenever the wrapper is invoked from inside a git working
@@ -144,41 +144,33 @@ agent_iso_run() {
     fi
   done
 
-  # Explicit single-credential injection: any env var that the user
-  # set on the *invocation* line of `claude-iso` is preserved. We
-  # detect this by comparing the inherited env to the parent shell's
-  # via the documented contract: the user puts `KEY=value` on the
-  # same line as `claude-iso`, so the variable is present in our env
-  # exactly when it was passed explicitly.
-  #
-  # NB: this preserves *any* variable named in CLAUDE_ISO_ALLOW
-  # (space-separated), so the user can route additional credentials
-  # in for one session via:
-  #     CLAUDE_ISO_ALLOW="GH_TOKEN AWS_PROFILE" GH_TOKEN=... claude-iso
-  if [[ -n "${CLAUDE_ISO_ALLOW-}" ]]; then
+  # Explicit opt-in for runtime authentication and other required variables.
+  # Only named variables pass through; setting KEY=value alone is insufficient.
+  # The neutral name takes precedence, including an explicitly empty value.
+  # CLAUDE_ISO_ALLOW remains the backwards-compatible fallback for every CLI.
+  # Example (key already set): AGENT_ISO_ALLOW=GEMINI_API_KEY agent-iso gemini
+  local allowed_env_vars="${AGENT_ISO_ALLOW-${CLAUDE_ISO_ALLOW-}}"
+  if [[ -n "$allowed_env_vars" ]]; then
     # Word-split portably: zsh doesn't split unquoted parameters by default
     # (it needs ${=var}), whereas bash does. Build an array either way.
     local -a allow_list
     if [[ -n "${ZSH_VERSION-}" ]]; then
-      allow_list=(${=CLAUDE_ISO_ALLOW})
+      allow_list=(${=allowed_env_vars})
     else
       # shellcheck disable=SC2206
-      allow_list=($CLAUDE_ISO_ALLOW)
+      allow_list=($allowed_env_vars)
     fi
     for var in "${allow_list[@]}"; do
+      if [[ ! "$var" =~ ^[a-zA-Z_][a-zA-Z0-9_]*$ ]]; then
+        echo "${agent}-iso: invalid variable name in environment allow list" >&2
+        return 2
+      fi
       eval "val=\${$var-}"
       if [[ -n "$val" ]]; then
         env_args+=("${var}=${val}")
       fi
     done
   fi
-
-  # Common one-off injections that don't need CLAUDE_ISO_ALLOW: if
-  # the user explicitly set GH_TOKEN/ANTHROPIC_API_KEY on the
-  # invocation line we honour it. (We can tell because the parent
-  # shell didn't have it — well, actually we can't reliably tell
-  # without a shadow. The conservative read: include these only when
-  # the user named them in CLAUDE_ISO_ALLOW.)
 
   # Sandbox auto-allow injection. See the "Current-repo auto-allow"
   # and "Worktree mode" sections in the file header for the full

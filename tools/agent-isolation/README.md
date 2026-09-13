@@ -9,6 +9,7 @@
   - [Prerequisites](#prerequisites)
   - [Files](#files)
   - [Usage at a glance](#usage-at-a-glance)
+  - [Explicit environment opt-in](#explicit-environment-opt-in)
   - [Referenced by](#referenced-by)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -51,7 +52,7 @@ the same `env -i` credential-strip core:
   gating git push is a separate Layer 3 concern wired per-harness (see
   [`docs/adapters/add-a-harness.md`](../../docs/adapters/add-a-harness.md)).
 
-All three paths enforce layer 0 of the secure-agent posture regardless of
+All entry points enforce layer 0 of the secure-agent posture regardless of
 which harness drives the session. Harness-specific layers (the in-process
 action guard, the `permissions.ask` confirmation list) are wired separately
 per runtime — see [`docs/adapters/add-a-harness.md`](../../docs/adapters/add-a-harness.md).
@@ -69,7 +70,7 @@ per runtime — see [`docs/adapters/add-a-harness.md`](../../docs/adapters/add-a
 
 - **Runtime:** Bash + coreutils — this directory is plain shell scripts plus a TOML manifest, not a Python project (the `pyproject.toml` ships only the test harness, which runs under Python 3.11+ via `uv`). `claude-term-bg.sh` uses `python3` / `python` for one heuristic and falls back to calm when absent.
 - **CLIs:** `jq` (required by `check-tool-updates.sh` and the status-line scripts), `curl` (the update check), `git` (status line / git hooks), and `gh` (optional — status-line PR title). The secure setup itself installs the pinned `bubblewrap` and `socat` (via `apt-get`) and `@anthropic-ai/claude-code@latest` (via `npm` — the agent runtime is intentionally unpinned; see [`pinned-versions.toml`](pinned-versions.toml)).
-- **Credentials / auth:** None for these helpers; the wrapped `claude` session authenticates on its own (and `agent-iso.sh` deliberately strips credential-shaped env vars).
+- **Credentials / auth:** None for these helpers; the wrapped runtime authenticates separately. For authentication requiring environment variables, use the explicit opt-in below.
 - **Network:** `api.github.com` and `www.dest-unreach.org` (the release checks in `check-tool-updates.sh`); the install step also reaches the apt and npm registries.
 
 ## Files
@@ -118,6 +119,26 @@ bash /path/to/magpie/tools/agent-isolation/agent-iso.sh agent-iso codex [codex-a
 # Periodically (or via /schedule weekly), check for upgrade candidates:
 bash /path/to/magpie/tools/agent-isolation/check-tool-updates.sh
 ```
+
+## Explicit environment opt-in
+
+`AGENT_ISO_ALLOW` names the additional variables the launcher may pass through, separated by spaces.
+Values must already be set in the invoking shell or on the invocation line; naming a variable does not obtain a credential.
+For example, with `GH_TOKEN` already set for a workflow that needs GitHub authentication:
+
+```bash
+AGENT_ISO_ALLOW=GH_TOKEN agent-iso <your-runtime-cli>
+```
+
+The same mechanism supports non-secret configuration such as a project ID or region.
+Consult your runtime's adapter for required variables; the [Gemini authentication recipes](../../docs/adapters/gemini.md#authentication-with-the-clean-environment-wrapper) show one mapping.
+Credentials intentionally passed through are available to the runtime; this is an explicit exception to environment stripping, not a separate secret store.
+Store persistent credentials under the runtime's home-directory convention, never in a project `.env` file.
+
+`CLAUDE_ISO_ALLOW` remains supported for existing installations and all harnesses.
+When `AGENT_ISO_ALLOW` is set, it replaces that legacy list; an explicitly empty value permits no additional variables.
+Setting `KEY=value` alone does not bypass the strip.
+The wrapper does not print values, and rejects invalid variable names before launching the runtime.
 
 ## Referenced by
 

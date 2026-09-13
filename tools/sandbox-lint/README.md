@@ -83,7 +83,17 @@ configuration in the same files.
 uv run --project tools/sandbox-lint sandbox-lint --codex .codex
 ```
 
-**Any other harness (Cursor, Gemini CLI, …).** `--any-harness`
+**Gemini CLI profile.** `--gemini .gemini` checks `settings.json` and `policies/magpie.toml` for the shipped sandbox settings, explicit policy loading, per-call approvals, scoped reads, and representative deny coverage.
+These are static checks of project files; user/admin policies, saved grants, workspace trust, and live enforcement require [runtime verification](../../docs/adapters/gemini.md#verify).
+
+```bash
+uv run --project tools/sandbox-lint sandbox-lint --gemini .gemini
+```
+
+The ordinary regression suite needs no Gemini or Node installation.
+Optional [runtime integration tests](tests/integration/README.md) exercise Gemini's policy engine and Linux sandbox without a model.
+
+**Any other harness (Cursor, …).** `--any-harness`
 validates the harness-neutral OS-level security posture: checks that the
 two enforcement components shared across all runtimes —
 `tools/agent-isolation/agent-iso.sh` (layer 0, clean-env credential strip)
@@ -159,8 +169,8 @@ baseline drift.
 ## Harness-neutral posture check (any runtime)
 
 For runtimes that do not expose a per-harness sandbox configuration file
-(Cursor, Gemini CLI, and any other agent runtime not listed under
-`--settings`, `--opencode`, `--kiro`, or `--codex`), the security posture
+(Cursor and any other agent runtime not listed under
+`--settings`, `--opencode`, `--kiro`, `--codex`, or `--gemini`), the security posture
 is enforced at the OS level by two harness-agnostic components:
 
 Layer numbers follow the

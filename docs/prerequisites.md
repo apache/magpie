@@ -66,9 +66,7 @@ on any single vendor for either — any agent that reads the shared
   profile and HITL exec-policy rules. The adapter is **experimental**
   until its minimum tested runtime version and an adopter pilot are
   recorded; see [the Codex runtime guide](adapters/codex.md).
-- **[Gemini CLI](https://geminicli.com/)** reads Magpie's canonical
-  `.agents/skills/` tree. Magpie provides a `BeforeTool` action-guard adapter
-  and a spec-loop profile; see [the Gemini runtime guide](adapters/gemini.md).
+- **[Gemini CLI](https://geminicli.com/)** reads Magpie's canonical `.agents/skills/` tree natively, with a `BeforeTool` action-guard adapter, a spec-loop profile, tool sandboxing, and policies. The adapter is **experimental** until its minimum tested runtime version and an adopter pilot are recorded; see [the Gemini runtime guide](adapters/gemini.md).
 - **[Cursor](https://cursor.com/)** (Composer + `cursor-agent` CLI) reads Magpie's
   canonical `.agents/skills/` tree natively and supports per-action confirmation
   and clean-environment isolation; see [the Cursor runtime guide](adapters/cursor.md).

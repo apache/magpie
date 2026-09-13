@@ -8,10 +8,20 @@
 - [Gemini CLI runtime](#gemini-cli-runtime)
   - [Runtime contract](#runtime-contract)
   - [Invoke a Magpie skill](#invoke-a-magpie-skill)
-  - [Deterministic guard rules](#deterministic-guard-rules)
+  - [Install](#install)
+    - [Authentication with the clean-environment wrapper](#authentication-with-the-clean-environment-wrapper)
+  - [Security model](#security-model)
+    - [Tool-sandboxing boundaries](#tool-sandboxing-boundaries)
+    - [What asks and what denies](#what-asks-and-what-denies)
+    - [Policy loading and precedence](#policy-loading-and-precedence)
+    - [Deterministic guard rules](#deterministic-guard-rules)
+  - [Reuse framework MCP servers](#reuse-framework-mcp-servers)
   - [Spec-loop runner](#spec-loop-runner)
-  - [Clean-environment wrapper](#clean-environment-wrapper)
   - [Verify](#verify)
+  - [setup-isolated lifecycle](#setup-isolated-lifecycle)
+  - [Known limitations](#known-limitations)
+  - [Developer checks](#developer-checks)
+  - [Upstream references](#upstream-references)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -24,11 +34,10 @@
 
 **Harness:** Gemini CLI
 
-Gemini CLI uses Magpie's skill sources, repository instructions, action guard,
-and spec-loop runner.
-This guide documents those integrations for
-[#314](https://github.com/apache/magpie/issues/314).
-The CLI checks described here used Gemini CLI **0.59.0** on Linux.
+Gemini CLI runs Magpie's shared skills with repository instructions, an action guard, tool sandboxing, and per-action approval policies.
+The adapter is **experimental**: its Linux sandbox does not provide the Claude Code reference setup's home-directory read isolation or domain allowlist.
+The integration follows the runtime contract in [add-a-harness](add-a-harness.md)
+and [RFC-AI-0004](../rfcs/RFC-AI-0004.md).
 
 ## Runtime contract
 
@@ -39,125 +48,272 @@ The CLI checks described here used Gemini CLI **0.59.0** on Linux.
 | Deterministic guard | Project `.gemini/settings.json` wires `agent_guard/__init__.py --gemini` to `BeforeTool` shell events, which call the harness-neutral `dispatch()` core. Snapshot adopters register the hook using the recipe below. |
 | Spec-loop | The `gemini` profile forwards the prompt, model, and output format. |
 | Credential isolation | `agent-iso gemini` launches the CLI through the generic clean-environment wrapper, which filters inherited environment variables. |
-
-The integration follows [add-a-harness](add-a-harness.md):
-Gemini uses the existing skill registry and runner profile, with a thin
-guard adapter and matching harness declarations.
+| Filesystem and network | `security.toolSandboxing: true` enables Gemini's tool sandboxing. The shipped profile adds no extra writable directories or network grant. See [Tool-sandboxing boundaries](#tool-sandboxing-boundaries) for the difference between native file tools and shell access. |
+| Tool approval | Explicit `policyPaths` loads `policies/magpie.toml`: scoped reads are allowed, other shell calls and native edits require confirmation, and selected commands and credential paths are denied. MCP calls require confirmation. |
+| MCP servers | Register the same server commands in Gemini's user settings; see [Reuse framework MCP servers](#reuse-framework-mcp-servers). No servers or credentials are installed by this profile. |
 
 ## Invoke a Magpie skill
 
-After [setup](../../skills/setup/SKILL.md) creates the canonical links,
-Gemini discovers the same skill sources used by the other runtimes.
-The framework also provides `gemini-extension.json` for extension installation,
-with the workflows under `skills/` and context in `GEMINI.md`.
-
-Gemini's [skill discovery](https://geminicli.com/docs/cli/using-agent-skills/)
-supports `.agents/skills/`.
-No skill conversion or separate Gemini copy is required.
-The framework's `GEMINI.md` uses a
-[context import](https://geminicli.com/docs/cli/gemini-md/) to load `AGENTS.md`.
-Adopters retain their own project instructions alongside the framework context.
+After [setup](../../skills/setup/SKILL.md) creates the canonical `.agents/skills/` links, Gemini discovers the same skill sources used by the other runtimes.
+The [extension installation recipe](../quick-start.md#google-gemini-cli) provides another distribution path.
+The framework's [`GEMINI.md`](../../GEMINI.md) imports `AGENTS.md`; adopters retain their own project instructions alongside that context.
 
 From the adopter repository root:
 
-1. Start Gemini with `gemini --approval-mode default`.
-2. Use `/memory show` to inspect the effective repository instructions.
-3. Use `/skills list` to see the available skills.
-4. Ask `Use the magpie-list-skills skill.` and review the activation request.
+1. Complete [installation](#install) and launch Gemini through the clean-environment wrapper.
+2. Use `/memory show` to inspect repository instructions and `/skills list` to check discovery.
+3. Ask `Use the magpie-list-skills skill.` and review the activation request.
+4. Approve the skill's catalogue script when prompted; interpreter commands require tool approval even for a read-only workflow.
 
-Skills use the framework's existing `tools/*` adapters.
-Each tool's README declares its runtime, authentication, and network prerequisites.
-Skill activation consent is separate from approval to execute a tool.
+Skill activation consent and tool approval are separate decisions.
+Skills use the existing `tools/*` adapters, whose READMEs declare their prerequisites.
 
-## Deterministic guard rules
+## Install
 
-The repository's [`.gemini/settings.json`](../../.gemini/settings.json) wires the
-`magpie-agent-guard` hook for `run_shell_command`.
-Start Gemini from the checkout root; the command resolves the engine through
-`GEMINI_PROJECT_DIR`, so it works without a machine-specific path.
+Use Gemini CLI **0.59.0 or later**.
+The validation baseline is 0.59.0 on Linux; later versions require [verification](#verify) before use.
+The tested Linux backend requires `bwrap` (bubblewrap), usable user namespaces, and ordinary shell utilities.
+Use the framework's [sandbox primitive versions](../../tools/agent-isolation/pinned-versions.toml) when installing bubblewrap.
+Python 3 is also required for the existing action guard.
 
-Snapshot adopters register the hook in their own settings using the
-[agent-guard Gemini recipe](../../tools/agent-guard/README.md#gemini-cli).
-The repository's settings are not loaded from inside an adopter's
-`.apache-magpie/` snapshot, and `/magpie-setup` does not yet install Gemini hooks.
+In this framework checkout, [`.gemini/settings.json`](../../.gemini/settings.json) already enables the profile.
+From the checkout root, source the updated wrapper:
 
-The adapter:
+```bash
+source tools/agent-isolation/agent-iso.sh
+```
 
-1. Reads the `BeforeTool` event from stdin.
-2. Matches `run_shell_command` and passes `tool_input.command` and `cwd`
-   to `dispatch()`.
-3. Returns exit `2` with the denial reason on stderr when a guard denies the call.
-4. Returns exit `0` silently for permitted commands and malformed or non-shell events.
+Then use the [authentication recipe](#authentication-with-the-clean-environment-wrapper) for your selected method to launch Gemini.
 
-The adapter follows the existing guard's fail-open contract.
-It covers shell calls; native file and MCP tools use Gemini's own permissions.
-Project-hook execution depends on the workspace's
-[trust state](https://geminicli.com/docs/cli/trusted-folders/).
+For a snapshot adopter, configure the adopter workspace as follows.
+Extension installation supplies skills and context; the workspace profile and action guard still need to be configured separately.
+The hook recipe below assumes a framework snapshot at `.apache-magpie/`; provision that snapshot through [setup](../../skills/setup/SKILL.md) if you only installed the extension.
+Run these steps in a normal terminal or editor:
+
+1. Copy [the policy file](../../.gemini/policies/magpie.toml) into the adopter's `.gemini/policies/magpie.toml`.
+2. Merge `policyPaths`, `general`, `security`, and `tools` from the framework's settings into the adopter's `.gemini/settings.json`.
+   Retain unrelated settings and existing policy paths; review conflicting security values instead of overwriting the whole file.
+3. Register the action guard using the [snapshot hook recipe](../../tools/agent-guard/README.md#gemini-cli), which points at `.apache-magpie/tools/agent-guard/`.
+   The framework checkout's hook path does not work unchanged inside a snapshot adopter.
+4. Run `sandbox-lint --gemini .gemini` from the adopter root using the framework's tool environment, then launch through `agent-iso gemini` and [verify](#verify) the live behavior.
+
+For a snapshot at `.apache-magpie/`, source its wrapper and validate from the adopter root:
+
+```bash
+source .apache-magpie/tools/agent-isolation/agent-iso.sh
+uv run --project .apache-magpie/tools/sandbox-lint sandbox-lint --gemini .gemini
+```
+
+The [committed settings](../../.gemini/settings.json) are the profile's source of truth; avoid maintaining a second copy of the settings recipe.
+Start each session from the directory containing `.gemini/`, because the policy path is relative to the launch directory.
+Review Gemini's [workspace trust request](https://geminicli.com/docs/cli/trusted-folders/) if shown; project settings and hooks depend on that decision.
+Restart Gemini after changing settings or policies.
+
+### Authentication with the clean-environment wrapper
+
+The [clean-environment wrapper](../../tools/agent-isolation/README.md#explicit-environment-opt-in) strips inherited credentials and non-essential configuration variables.
+Use `AGENT_ISO_ALLOW` to pass only the variables needed by your selected [authentication method](https://geminicli.com/docs/get-started/authentication/):
+
+| Method | Variables to pass through |
+|---|---|
+| Gemini API key from Google AI Studio | `GEMINI_API_KEY` |
+| Vertex AI with Application Default Credentials (ADC) | `GOOGLE_CLOUD_PROJECT GOOGLE_CLOUD_LOCATION`; add `GOOGLE_APPLICATION_CREDENTIALS` for a custom credential-file path. |
+| Vertex AI with a Google Cloud API key | `GOOGLE_API_KEY GOOGLE_CLOUD_PROJECT GOOGLE_CLOUD_LOCATION` |
+| Sign in with Google | Usually none; pass `GOOGLE_CLOUD_PROJECT` if the account requires it. |
+
+Configure authentication in a normal terminal first, then select the matching method in Gemini.
+For an AI Studio key already set in your shell:
+
+```bash
+AGENT_ISO_ALLOW=GEMINI_API_KEY agent-iso gemini --approval-mode default
+```
+
+For Vertex with ADC and project/location already set:
+
+```bash
+AGENT_ISO_ALLOW="GOOGLE_CLOUD_PROJECT GOOGLE_CLOUD_LOCATION" \
+  agent-iso gemini --approval-mode default
+```
+
+For Google sign-in without additional variables, use `agent-iso gemini --approval-mode default`.
+Naming a variable does not obtain credentials; a later wrapped session must pass the required variables again.
+Keep persistent credentials in the runtime's home-directory storage or your secret manager, never in a project `.env` file.
+Explicitly passed credentials are available to the CLI; environment redaction for tools is a separate runtime control.
+
+## Security model
+
+### Tool-sandboxing boundaries
+
+`security.toolSandboxing: true` enables Gemini's tool sandboxing.
+On Linux, bubblewrap permits writes in the workspace and temporary areas; Magpie's profile starts without tool network access or additional allowed paths.
+Gemini's `--sandbox` flag selects a separate full-process sandbox and is not needed for this profile.
+See the upstream [sandbox guide](https://geminicli.com/docs/cli/sandbox/).
+
+**Native file tools and shell commands have different read boundaries.**
+Native file tools check paths against allowed workspace directories.
+The Linux backend mounts host files broadly read-only, so an approved shell command can read files outside the workspace that the backend has not masked.
+Magpie's credential-path policies deny matching native file-tool arguments; they do not prevent an approved shell from reading the same files.
+The upstream [bubblewrap argument builder](https://github.com/google-gemini/gemini-cli/blob/v0.59.0/packages/core/src/sandbox/linux/bwrapArgsBuilder.ts) defines these mounts.
+
+Tool approval authorizes an operation.
+**Sandbox expansion** separately grants network access or additional filesystem access when needed.
+Review the paths and duration of each grant: filesystem expansion can cover entire directories, and network expansion grants general network access rather than a domain allowlist.
+Existing session grants and `~/.gemini/policies/sandbox.toml` can widen the baseline; disabling remembered tool approvals does not remove saved sandbox grants.
+
+### What asks and what denies
+
+The shipped policy applies these decisions to model-requested tool calls in Default Mode:
+
+| Requested action | Result |
+|---|---|
+| Ordinary native workspace read | Allow under Gemini's built-in read policy. |
+| Listed inspection commands, such as `git status --short`, `git diff --stat`, or `gh pr view` | Allow; network access may still require sandbox expansion. |
+| Other shell commands, including tests, interpreters, `git push`, PR creation, and raw `gh api` calls | Ask before execution. |
+| Native file edits and MCP calls | Ask for each call, including read-only MCP operations. |
+| Listed credential/export commands, such as `gh auth token`, `curl`, or cloud CLIs | Deny. |
+| Matching credential paths or `.env` files through native file/search tools | Deny. |
+| Native edits to `.gemini/`, `.geminiignore`, `GEMINI.md`, or `AGENTS.md` | Deny. |
+
+The [policy file](../../.gemini/policies/magpie.toml) defines the complete command and path lists.
+Read allowances match complete command arguments; unlisted Git flags, shell operators, substitutions, and complex quoting fall back to approval.
+This follows the shared intent of the Claude Code and Codex profiles: routine inspection proceeds, mutations require confirmation, and credential disclosure is denied.
+Each runtime implements its own rule precedence.
+
+Plan Mode retains scoped reads and denies other shell, edit, and MCP calls.
+YOLO and remembered tool approvals are disabled, and automatic edit mode does not override the shipped ask/deny rules.
+These settings preserve [per-proposal confirmation](../rfcs/RFC-AI-0004.md#principle-1--human-in-the-loop-on-every-state-change).
+Commands typed directly through Gemini's shell interface have different confirmation semantics from model-requested calls.
+
+### Policy loading and precedence
+
+Gemini 0.59.0 requires explicit `policyPaths` to load the workspace policy at **User** tier.
+The profile also retains `~/.gemini/policies`, because specifying paths replaces the default user-policy search path.
+See the upstream [policy reference](https://geminicli.com/docs/reference/policy-engine/).
+
+Within Magpie's policy, scoped read allows outrank fallback asks, while credential and configuration denies outrank both.
+Plan Mode rules preserve read-only behavior despite the higher tier of the workspace policy.
+Other user policies, administrative policies, command-line overrides, and sandbox grants can change the effective behavior.
+The static linter checks the project profile; [live verification](#verify) checks that it is active in your installation.
+
+### Deterministic guard rules
+
+The project `BeforeTool` hook passes shell commands to Magpie's shared [action guard](../../tools/agent-guard/README.md#gemini-cli).
+The guard enforces framework rules independently of model memory and returns Gemini's blocking exit code when a rule denies the command.
+It retains the shared guard's fail-open behavior for malformed events and covers shell calls; native file and MCP calls use the policy engine.
+
+The framework checkout registers the hook in `.gemini/settings.json` using `GEMINI_PROJECT_DIR`.
+Snapshot adopters must register it in their own workspace settings using the linked recipe; `/magpie-setup` does not yet install Gemini hooks.
+
+## Reuse framework MCP servers
+
+Register the servers selected by the adopter's tool configuration in Gemini's user-scoped [`mcpServers` settings](https://geminicli.com/docs/tools/mcp-server/).
+Reuse each adapter's server command, prerequisites, and home-directory credential storage; registrations in another runtime are not imported automatically.
+For example, the [Apache Projects](../../tools/apache-projects/tool.md#1-install-the-mcp-server) and [PonyMail](../../tools/ponymail/tool.md#1-install-the-mcp-server) adapters provide compatible server commands.
+Set `trust: false` and register only the servers the workflow needs.
+
+Restart Gemini and use `/mcp` to inspect connections and discovered operations.
+Tool names can differ from the Claude-oriented examples; select the equivalent server operation.
+Magpie's policy asks for every MCP call and denies them in Plan Mode.
+Tool sandboxing does not confine MCP server processes or their network connections.
+Live MCP connections and authenticated archive access have not been verified for this profile.
 
 ## Spec-loop runner
 
 The existing `gemini` profile in
 [`tools/spec-loop/lib.sh`](../../tools/spec-loop/lib.sh) invokes the CLI with
-`--yolo`, `--prompt`, and `--output-format`.
+`--approval-mode default`, `--prompt`, and `--output-format`.
 It forwards `--model` when one is supplied.
 Gemini has no per-invocation effort flag in the inspected CLI, so the runner
 omits that option.
 
-The runner uses automatic approval for headless execution.
+**Upgrade behavior:** the earlier Gemini launcher used `--yolo`; it now preserves this profile's approval boundary with `--approval-mode default`.
+In headless mode, an action that needs confirmation is refused because there is no interactive approver.
+Native reads and the scoped shell reads can run, but a build iteration needing edits or other approval-required calls cannot complete unattended under this profile.
+Use an interactive session for those operations; the runner does not silently bypass the policy.
 See the [spec-loop guide](../../tools/spec-loop/README.md) for its operating
 environment and invocation options.
 
-## Clean-environment wrapper
-
-The generic [agent-isolation wrapper](../../tools/agent-isolation/README.md)
-supports Gemini:
-
-```bash
-source /path/to/magpie/tools/agent-isolation/agent-iso.sh
-agent-iso gemini --approval-mode default
-```
-
-The wrapper filters inherited environment variables before launching the CLI.
-Filesystem sandboxing, network restrictions, and tool approval are separate
-controls described in the [secure-agent setup](../setup/secure-agent-setup.md).
-
 ## Verify
 
-The following checks cover the implemented wiring:
+From the framework checkout root, check the installed version and static profile:
 
 ```bash
-uv run --project tools/symlink-lint symlink-lint
-uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-validate
-uv run --directory tools/agent-guard --project . python -m pytest
-bash tools/spec-loop/tests/test_runner_fixtures.sh
-bash -n tools/spec-loop/loop.sh
-bash -n tools/spec-loop/lib.sh
+gemini --version
+bwrap --version
+uv run --project tools/sandbox-lint sandbox-lint --gemini .gemini
 ```
 
-With an isolated user configuration and a trusted framework checkout,
-`gemini skills list` discovered 75 Magpie skills.
+Snapshot adopters use the command in [Install](#install).
+The linter must report `OK`; it does not certify a running session.
 
-An offline probe of Gemini 0.59.0's settings loader, hook registry, and native
-hook runner loaded the project settings and registered `magpie-agent-guard`.
-It recognized the adapter's exit `2` and `no-verify` denial, and accepted a
-`git status --short` hook event silently, including from a checkout path
-containing spaces.
-Only the hook dispatcher ran; neither guarded command was executed.
+Launch through the wrapper and check `/settings` with **Workspace Settings** selected: **Tool Sandboxing** must be enabled.
+Check `/skills list` and confirm `magpie-agent-guard` is enabled in `/hooks panel`.
+Then make these requests to the model, rather than using Gemini's `!` shell interface:
 
-The adapter tests cover command-line routing, the exit-code and stderr
-protocol, preservation of core decisions, workspace-aware Git checks,
-and malformed or non-shell input. They also execute the hook command from
-the project settings, including a checkout path containing spaces.
-The runner fixtures verify prompt, model, and output-format forwarding.
+| Request | Expected result |
+|---|---|
+| Read `README.md` with `read_file`. | Read succeeds. |
+| Run exactly `git status --short`. | Runs without tool approval. |
+| Run exactly `python3 -c "print('magpie-probe')"`. | Asks on every invocation; decline once and retry to check this. |
+| Run `gh auth token --help`. | Policy denial; the help flag keeps a failed check harmless. |
+| Read the nonexistent path `.aws/magpie-policy-probe`. | Policy denial, rather than a file-not-found error. |
+| Create or edit an ordinary scratch file with native tools. | Asks before each edit. |
+| Run `git commit --dry-run --no-verify -m hook-probe`. | `agent-guard[no-verify]` denial; the dry run prevents a commit if the hook is missing. |
 
-To verify the registration in a live session, start Gemini at the framework
-checkout root with `gemini --approval-mode default`, review the project trust
-prompt if shown, and open `/hooks panel`.
-Confirm that `magpie-agent-guard` is enabled for `BeforeTool`.
-Ask Gemini to run `git status --short`; it should pass the guard.
-For a harmless denial probe, ask it to run
-`git commit --dry-run --no-verify -m hook-probe`.
-The expected result is an `agent-guard[no-verify]` denial before Git starts.
-If Git instead reports its dry-run status, the guard did not block the call.
-The `--dry-run` flag prevents this probe from creating a commit even if the
-hook is missing.
+Inspect actual tool results; a verbal refusal by the model does not establish enforcement.
+Repeat the read and edit checks in a new session launched with `--approval-mode plan`: scoped reads should work, while edits and unlisted shell commands are denied.
+For a filesystem check, create a harmless file outside the workspace in a normal terminal, then compare a native read with an approved shell `cat` of that path.
+On the tested Linux backend, the native read is refused while the shell can return the file's contents without expansion.
+Decline expansion requests during this comparison and remove the scratch files afterward.
+
+## setup-isolated lifecycle
+
+For Gemini, follow the lifecycle steps below.
+The `setup-isolated-*` skills do not yet route to this adapter.
+
+- **Install:** follow [Install](#install) to merge the workspace settings and policy, register the guard, and launch with `agent-iso gemini`.
+- **Verify:** follow [Verify](#verify) to check the configuration, live approvals, filesystem behavior, skill discovery, and guard registration.
+- **Update:** compare your wrapper, workspace settings, policy, and hook with the current framework.
+  Merge changes while retaining unrelated configuration, restart Gemini, and repeat verification after runtime upgrades.
+- **Doctor:** inspect `/settings`, `/hooks panel`, and the actual tool denial.
+  Use the checks above to distinguish a policy denial, a file-tool path rejection, and a sandbox expansion request.
+
+Installing the extension provides skills and context; the workspace profile supplies tool sandboxing and approval policies.
+The Claude-specific lifecycle probes do not verify Gemini's configuration.
+
+## Known limitations
+
+- **Host reads:** the [Linux read boundary](#tool-sandboxing-boundaries) differs from the Claude Code reference setup.
+  Workflows requiring credentials to remain unreadable after shell approval need a separately provisioned environment containing only the required files and credentials.
+- **Execution scope:** model requests, built-in web tools, hooks, and MCP servers use separate execution paths.
+  Tool network restrictions are not a firewall for the whole runtime.
+- **Policy coverage:** argument patterns do not resolve every symlink or encoded path.
+  An approved shell can modify policy or hook files in the writable workspace; native editing-tool denies do not make them immutable.
+- **Platform and version:** runtime validation covers Gemini 0.59.0 on Linux.
+  macOS and Windows backends have not been verified, and the clean-environment wrapper requires a POSIX shell.
+  Repeat verification after upgrades.
+
+## Developer checks
+
+Run the affected package suites from the framework checkout:
+
+```bash
+uv run --directory tools/sandbox-lint --group dev pytest
+uv run --directory tools/agent-isolation --group dev pytest tests/test_generic_iso.py
+uv run --directory tools/agent-guard --group dev pytest
+bash tools/spec-loop/tests/test_runner_fixtures.sh
+```
+
+The sandbox-lint suite checks profile regressions without Gemini or Node.
+The optional [runtime integration tests](../../tools/sandbox-lint/tests/integration/README.md) additionally exercise Gemini's own policy engine and Linux sandbox using synthetic files, without a model or authentication.
+Use them when changing policy semantics or validating a runtime upgrade; normal CI runs the static checks only.
+Complete the shared [harness validation](add-a-harness.md#step-5--validate-the-full-wiring) before submitting adapter changes.
+
+## Upstream references
+
+- [Gemini skills](https://geminicli.com/docs/cli/using-agent-skills/)
+- [Gemini configuration](https://geminicli.com/docs/reference/configuration/)
+- [Gemini authentication](https://geminicli.com/docs/get-started/authentication/)
+- [Gemini tool sandboxing and sandbox expansion](https://geminicli.com/docs/cli/sandbox/#tool-sandboxing)
+- [Gemini policy engine](https://geminicli.com/docs/reference/policy-engine/)
+- [Gemini CLI source](https://github.com/google-gemini/gemini-cli)

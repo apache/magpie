@@ -150,6 +150,8 @@ gemini extensions install https://github.com/apache/magpie
 This path is not yet live-installed either — see
 [Verification status](setup/marketplaces.md#verification-status).
 
+After installation, continue with the [secure isolation setup](#what-happens-next--the-secure-isolation-setup) for your runtime.
+
 <!-- CAPTURE: assets/quickstart/README.md -->
 ![Terminal output of `gemini extensions list` showing the magpie extension installed](../assets/quickstart/gemini-install.png)
 
@@ -208,14 +210,23 @@ everything that is installed.
 ## What happens next — the secure isolation setup
 
 Magpie's skills read issues, pre-disclosure security reports, and private
-mailing lists. So the first skill worth running is the one that locks the
-agent down:
+mailing lists. After installing skills, configure the isolation and approval controls for your runtime.
+Plugin or extension installation and host security configuration are separate steps:
+
+| Runtime | Next step |
+|---|---|
+| Claude Code | Run the guided isolation install below. |
+| Codex CLI | Follow the [Codex setup lifecycle](adapters/codex.md#setup-isolated-lifecycle). |
+| Gemini CLI | Follow the [Gemini setup lifecycle](adapters/gemini.md#setup-isolated-lifecycle). |
+| Other runtimes | Check the [secure setup guide](setup/secure-agent-setup.md) and your runtime's adapter for supported controls. |
+
+For Claude Code, start the guided install:
 
 ```text
 /magpie-setup:isolated-setup-install
 ```
 
-It walks you through the install interactively and surfaces every sudo,
+The Claude Code path walks you through the install interactively and surfaces every sudo,
 shell-rc, and settings-file change for approval before applying it. When it
 finishes, your agent runs with:
 

@@ -144,9 +144,9 @@ once support lands.
 ## Step 3 — add a spec-loop runner profile
 
 The spec-loop (`tools/spec-loop/loop.sh`) runs the build/plan/update/
-consolidate beats headlessly. Each runtime has a different flag for
-"accept all permissions and run non-interactively." Add your runtime's
-convention in two places.
+consolidate beats headlessly.
+Each runtime has its own non-interactive invocation and approval behavior.
+Add your runtime's convention in two places.
 
 **`tools/spec-loop/loop.sh` — harness detection:**
 
@@ -166,7 +166,9 @@ esac
 
 Add a branch inside `spec_loop_launch_agent()` following the existing
 patterns. Each branch runs the agent in the background (`&`) with:
-- the auto-approve / skip-permissions flag for that runtime;
+
+- the runtime's documented headless flags, consistent with its security profile;
+  document any change to approval or sandbox behavior, including upgrade impact, in the runtime adapter and PR description;
 - `--model "$model"` forwarded when non-empty;
 - `SPEC_LOOP_EFFORT` mapped when the CLI has a reasoning-effort knob
   (see the effort table in

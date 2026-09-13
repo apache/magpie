@@ -123,8 +123,10 @@ spec_loop_launch_agent() {
             "$(cat "$prompt_file")" &
     elif [ "$harness" = "gemini" ]; then
         # Gemini CLI has no per-invocation effort/thinking-level flag.
+        # Keep the native sandbox and Magpie policies active. In headless mode,
+        # operations requiring approval are denied, not silently approved.
         "$agent" \
-            --yolo \
+            --approval-mode default \
             --output-format "$output_format" \
             ${model_args[@]+"${model_args[@]}"} \
             --prompt "$(cat "$prompt_file")" &

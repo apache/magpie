@@ -41,6 +41,8 @@ import stat
 import subprocess
 from pathlib import Path
 
+import pytest
+
 SCRIPT = Path(__file__).parent.parent / "agent-iso.sh"
 BASH = shutil.which("bash") or "/bin/bash"
 
@@ -92,6 +94,68 @@ def _parse_env(stdout: str) -> dict[str, str]:
 
 def _argv(stdout: str) -> list[str]:
     return [line[len("ARG:"):] for line in stdout.splitlines() if line.startswith("ARG:")]
+
+
+@pytest.mark.parametrize("entry", ["direct", "sourced"])
+@pytest.mark.parametrize(
+    "allowed",
+    [
+        "",
+        "GEMINI_API_KEY",
+        "GOOGLE_API_KEY",
+        "GOOGLE_CLOUD_PROJECT GOOGLE_CLOUD_LOCATION GOOGLE_APPLICATION_CREDENTIALS",
+    ],
+)
+def test_gemini_auth_environment_is_explicit(
+    tmp_path: Path, entry: str, allowed: str
+) -> None:
+    values = {
+        "GEMINI_API_KEY": "synthetic-gemini-key",
+        "GOOGLE_API_KEY": "synthetic-vertex-key",
+        "GOOGLE_CLOUD_PROJECT": "synthetic-project",
+        "GOOGLE_CLOUD_LOCATION": "us-central1",
+        "GOOGLE_APPLICATION_CREDENTIALS": "/home/testuser/credentials.json",
+        "GH_TOKEN": "synthetic-unrelated-token",
+        "AWS_SECRET_ACCESS_KEY": "synthetic-unrelated-secret",
+    }
+    launch = _run_direct if entry == "direct" else TestGenericIsoSourced()._run_sourced
+    result = launch(
+        tmp_path, cli_name="gemini", extra_env={**values, "AGENT_ISO_ALLOW": allowed}
+    )
+    assert result.returncode == 0, result.stderr
+    actual = _parse_env(result.stdout)
+    for name, value in values.items():
+        if name in allowed.split():
+            assert actual[name] == value
+        else:
+            assert name not in actual
+        assert value not in result.stderr
+    assert "AGENT_ISO_ALLOW" not in actual
+
+
+@pytest.mark.parametrize("neutral", [None, "", "GEMINI_API_KEY"])
+def test_environment_allow_alias_precedence(
+    tmp_path: Path, neutral: str | None
+) -> None:
+    env = {
+        "CLAUDE_ISO_ALLOW": "GH_TOKEN",
+        "GH_TOKEN": "legacy-key",
+        "GEMINI_API_KEY": "gemini-key",
+    }
+    if neutral is not None:
+        env["AGENT_ISO_ALLOW"] = neutral
+    result = _run_direct(tmp_path, extra_env=env)
+    assert result.returncode == 0, result.stderr
+    actual = _parse_env(result.stdout)
+    assert ("GH_TOKEN" in actual) == (neutral is None)
+    assert ("GEMINI_API_KEY" in actual) == (neutral == "GEMINI_API_KEY")
+
+
+def test_environment_allow_rejects_invalid_names(tmp_path: Path) -> None:
+    result = _run_direct(tmp_path, extra_env={"AGENT_ISO_ALLOW": "INVALID-NAME"})
+    assert result.returncode == 2
+    assert "invalid variable name" in result.stderr
+    assert not result.stdout
 
 
 class TestGenericIsoDirectExec:
