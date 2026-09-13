@@ -26,19 +26,6 @@
 > **Scope.** Works on any project, ASF or not — no
 > Apache-Software-Foundation-specific assumptions baked in.
 
-> **Two ways to install, and they are complementary.** A **marketplace
-> install** puts the skills straight into your agent, per machine, with
-> nothing in the repo — the recommended path, see
-> [the **Apache Magpie Marketplace**](marketplace.md). The **pinned snapshot install**,
-> `/magpie-setup install`, sets up the gitignored snapshot, the skill
-> symlinks, and the overrides scaffold in the repo so every contributor and CI
-> job runs one committed version; reach for it when your agent has no
-> marketplace, when you need the signed ASF source release, or when the
-> project wants that pin. **Adopting is a third, separate act** —
-> `/magpie-setup adopt` commits a floor for every contributor and installs
-> nothing; `unadopt` reverses it. `uninstall` reverses an *install*, and
-> leaves the committed floor alone.
-
 The **setup** skill family is the prerequisite for running any
 framework skill. It walks a new adopter (or a fresh dev machine on
 an existing adopter) through the secure-agent install — pinned
