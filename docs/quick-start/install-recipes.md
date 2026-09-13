@@ -21,7 +21,8 @@
 
 # Install recipes
 
-**Install Magpie from your agent's marketplace.** That is the recommended
+**Install Magpie from the [Apache Magpie Marketplace](../setup/marketplace.md).**
+That is the recommended
 path for almost everyone, it takes two commands, and it is complete for
 day-to-day use. The rest of this page covers the
 [additional install methods](#additional-install-methods) — a development

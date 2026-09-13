@@ -11,7 +11,8 @@
 
 # Two ways to use Magpie
 
-**Installing** puts the marketplace and the plugins into your agent and writes
+**Installing** puts the **Apache Magpie Marketplace** and the plugins into
+your agent and writes
 nothing to any repository. That is what the steps below do, it is complete on
 its own, and it is all most people ever need.
 

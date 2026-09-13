@@ -2,7 +2,8 @@
      https://www.apache.org/legal/release-policy.html -->
 # adopt — commit the repo's recommended defaults for every contributor
 
-Adoption is **not** an install. Installing puts the marketplace and
+Adoption is **not** an install. Installing puts the Apache Magpie
+Marketplace and
 plugins into *this machine's* agent and writes nothing to the
 repository. Adopting is the separate, deliberate act of a repo's
 maintainers committing a recommendation that every contributor picks

@@ -7,7 +7,7 @@
 
 - [Quick start](#quick-start)
   - [Two ways to use Magpie](#two-ways-to-use-magpie)
-  - [Step 1 — install from your agent's marketplace](#step-1--install-from-your-agents-marketplace)
+  - [Step 1 — install from the Apache Magpie Marketplace](#step-1--install-from-the-apache-magpie-marketplace)
     - [Claude Code](#claude-code)
     - [OpenAI Codex CLI](#openai-codex-cli)
     - [VS Code / GitHub Copilot](#vs-code--github-copilot)
@@ -27,7 +27,8 @@
 # Quick start
 
 Install Apache Magpie into the agent you already use, in a couple of
-commands: one to add the marketplace, one per family you want. Nothing is
+commands: one to add the **Apache Magpie Marketplace**, one per family you
+want. Nothing is
 committed to your repository, and nothing is changed in it.
 
 **This install is yours, on this machine.** It needs no decision from your
@@ -57,7 +58,7 @@ people — and you do not have to choose before installing.
 
 ---
 
-## Step 1 — install from your agent's marketplace
+## Step 1 — install from the Apache Magpie Marketplace
 
 Pick your agent. Every path uses the
 [`apache/magpie`](https://github.com/apache/magpie) repository directly as

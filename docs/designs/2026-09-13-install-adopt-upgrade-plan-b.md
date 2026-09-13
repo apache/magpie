@@ -160,7 +160,7 @@ Generated-by: Claude Opus 5"
 
 - [ ] **Step 1: Replace Step 1's command blocks with a pointer**
 
-`## Step 1 — install from your agent's marketplace` currently carries three
+`## Step 1 — install from the Apache Magpie Marketplace` currently carries three
 `marketplace add` blocks across four harness subsections. Replace the whole
 section body with a short pointer to
 `setup/marketplace-install.md`, keeping:
@@ -173,7 +173,7 @@ section body with a short pointer to
 
 Retitle to `## Step 1 — install it` so the heading no longer promises commands
 the section no longer carries. Check for inbound anchor references to
-`#step-1--install-from-your-agents-marketplace` across the repo first and
+`#step-1--install-from-the-apache-magpie-marketplace` across the repo first and
 rewrite them.
 
 - [ ] **Step 2: Promote the teammates block to a step**
