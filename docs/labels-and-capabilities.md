@@ -269,6 +269,7 @@ Capabilities for every skill currently in
 | `committer-onboarding` | `capability:resolve` + `capability:triage` *(post-vote onboarding close-out — resolve — after validating the vote result in pre-flight — triage)* |
 | `list-skills` | `capability:stats` |
 | `release-audit-report` | `capability:stats` *(assembles the per-release audit record from the planning issue, vote thread, artefact list, and announce archive URL)* |
+| `setup-privacy-llm` | `capability:platform` *(configures which LLMs may see the project's private foundation content, and verifies the gate and the PII redactor — framework plumbing, not an act on any issue or PR)* |
 | `setup-status` | `capability:stats` + `capability:platform` *(reports the adoption configuration — stats — and delegates reconfiguration to the setup skill)* |
 | `setup` | `capability:platform` |
 | `setup-isolated-setup-install` | `capability:platform` |

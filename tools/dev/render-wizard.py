@@ -326,7 +326,7 @@ def step_guard_script() -> list[tuple[str, str]]:
         (FG, ""),
         (MUTED, "  Later that session -"),
         (FG, ""),
-        (CMD, "> gh pr comment 1421 --body \"@alice @bob please take a look\""),
+        (CMD, '> gh pr comment 1421 --body "@alice @bob please take a look"'),
         (FG, ""),
         (WARN, "  ⚠ agent-guard[mention] denied this before it ran"),
         (FG, ""),
