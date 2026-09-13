@@ -47,7 +47,7 @@ Codex failure. After completing the Codex branch, stop; the remainder of this
 skill is the Claude Code branch.
 
 When the selected runtime is Gemini CLI, follow
-[docs/adapters/gemini.md](../../docs/adapters/gemini.md#install): resolve the existing extension, snapshot, or framework checkout; propose the workspace profile and guard merge; then guide the wrapper launch and verification.
+[docs/adapters/gemini.md](../../../../docs/adapters/gemini.md#install): resolve the existing extension, snapshot, or framework checkout; propose the workspace profile and guard merge; then guide the wrapper launch and verification.
 Do not require or write Claude configuration.
 After completing the Gemini branch, stop before the Claude-specific procedure below.
 

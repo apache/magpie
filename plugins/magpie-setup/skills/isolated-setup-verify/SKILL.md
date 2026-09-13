@@ -42,7 +42,7 @@ bridge preflights. Report every Codex check and then stop. Do not interpret
 the Claude settings checks below as Codex requirements.
 
 When the selected runtime is Gemini CLI, follow
-[docs/adapters/gemini.md](../../docs/adapters/gemini.md#verify): check the workspace profile, guard registration, skill discovery, and actual runtime behavior.
+[docs/adapters/gemini.md](../../../../docs/adapters/gemini.md#verify): check the workspace profile, guard registration, skill discovery, and actual runtime behavior.
 Report static and live checks separately, including any checks not run and the documented isolation limits.
 Do not require Claude configuration; then stop before the Claude-specific checks below.
 

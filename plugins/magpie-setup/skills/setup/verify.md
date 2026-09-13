@@ -841,7 +841,7 @@ opt-in per runtime; see
 ### 8h. Gemini project profile (if present)
 
 When the workspace has a Magpie Gemini policy or guard registration, run the static checks in
-[the Gemini verification contract](../../docs/adapters/gemini.md#verify).
+[the Gemini verification contract](../../../../docs/adapters/gemini.md#verify).
 Report missing components and configuration drift without modifying files.
 An absent profile is skipped unless Gemini secure setup was requested; in that case, point to `setup-isolated-setup-install`.
 A static pass does not replace live verification in Gemini.

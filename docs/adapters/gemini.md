@@ -56,7 +56,7 @@ and [RFC-AI-0004](../rfcs/RFC-AI-0004.md).
 
 ## Invoke a Magpie skill
 
-Install the [Gemini extension](../quick-start.md#google-gemini-cli) through [setup](../../skills/setup/SKILL.md), or use the canonical `.agents/skills/` links with a pinned snapshot.
+Install the [Gemini extension](../setup/marketplace-install.md#google-gemini-cli) through [setup](../../skills/setup/SKILL.md), or use the canonical `.agents/skills/` links with a pinned snapshot.
 Both methods expose the same skill sources.
 The framework's [`GEMINI.md`](../../GEMINI.md) imports `AGENTS.md`; adopters retain their own project instructions alongside that context.
 

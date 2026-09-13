@@ -45,7 +45,7 @@ explicit confirmation before any write.
 > `.apache-magpie.lock` and Magpie is plugin-installed, print
 > that command instead of a snapshot removal plan.
 > If Gemini secure setup was installed separately, first follow the
-> [Gemini cleanup contract](../../docs/adapters/gemini.md#setup-isolated-lifecycle)
+> [Gemini cleanup contract](../../../../docs/adapters/gemini.md#setup-isolated-lifecycle)
 > to propose removing its references to the extension before uninstalling it.
 > Then stop. When **both**
 > installs are live, this sub-action removes only the repo-side
@@ -133,7 +133,7 @@ every artefact).
 | Framework-skill symlinks | **Every active target dir** ([`agents.md`](agents.md)): the canonical `.agents/skills/` (always present), the `.claude/skills/` + `.github/skills/` relay pair, and any present holdout (`.windsurf/skills/`, `.goose/skills/`) | each `magpie-*` symlink — canonical entries resolving into `<snapshot-dir>/skills/`, relays resolving into `.agents/skills/magpie-*` — in **each** target dir |
 | Post-checkout hook | `<repo-root>/.git/hooks/post-checkout` | exists + invokes `~/.claude/scripts/sandbox-add-project-root.sh` (older hooks additionally seeded `.claude/hooks/agent-guard.py`) |
 | agent-guard wiring | the `hooks.PreToolUse` entry in `<repo-root>/.claude/settings.local.json`, plus any leftover `<repo-root>/.claude/hooks/agent-guard.py` + `guards.d/` | exist (gitignored, per-machine). Unlike the committed `settings.json`, `settings.local.json` is agent-writable, so remove the entry directly rather than surfacing it for manual removal. The `magpie-agent-guard` **plugin**, if installed, is outside this repo — uninstalling the framework from a repo does not touch it; say so rather than silently leaving the guard active. |
-| Gemini profile | `.gemini/settings.json`, `.gemini/policies/magpie.toml` | inventory Magpie-owned values and guard references; preserve unrelated configuration per [the adapter](../../docs/adapters/gemini.md#setup-isolated-lifecycle) |
+| Gemini profile | `.gemini/settings.json`, `.gemini/policies/magpie.toml` | inventory Magpie-owned values and guard references; preserve unrelated configuration per [the adapter](../../../../docs/adapters/gemini.md#setup-isolated-lifecycle) |
 | Codex policy | `.codex/config.toml`, `.codex/rules/magpie.rules` | identify Magpie-owned values separately from unrelated adopter Codex configuration |
 | Doc section: `README.md` | `<repo-root>/README.md` | contains the `## Agent-assisted contribution (apache-magpie)` heading |
 | Doc section: `AGENTS.md` | `<repo-root>/AGENTS.md` | contains the `## apache-magpie framework` heading |
@@ -302,7 +302,7 @@ pointing at a deleted snapshot.
    Magpie values and ask before applying it. Never alter Codex project
    trust.
    For an installed Gemini profile, follow
-   [the Gemini cleanup contract](../../docs/adapters/gemini.md#setup-isolated-lifecycle)
+   [the Gemini cleanup contract](../../../../docs/adapters/gemini.md#setup-isolated-lifecycle)
    before deleting the snapshot, including guard references in linked worktrees.
    Preserve unrelated configuration and show hand-edited policy values for review.
 4. **Snapshot directory.** `rm -rf <snapshot-dir>/`.

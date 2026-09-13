@@ -41,7 +41,7 @@ silently overwrite a hand-edited policy. Then stop. The remainder of this
 skill is the Claude Code update branch.
 
 When the selected runtime is Gemini CLI, follow
-[docs/adapters/gemini.md](../../docs/adapters/gemini.md#update): compare the workspace profile, guard path, wrapper, and runtime version with the existing installation's sources.
+[docs/adapters/gemini.md](../../../../docs/adapters/gemini.md#update): compare the workspace profile, guard path, wrapper, and runtime version with the existing installation's sources.
 Report drift and proposed changes only; do not apply changes or require Claude configuration.
 Then stop before the Claude-specific drift report below.
 

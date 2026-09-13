@@ -12,7 +12,7 @@ Behavioral eval harness for Apache Magpie skills. Each eval suite tests a skill 
 Suites are currently implemented for:
 
 - **setup** — 56 cases across 13 steps (step-verify-drift, step-overrides-surface, step-override-bypass, step-m5-no-repo-offer, step-adopt-settings-merge, verify-default-set, uninstall-default-set, lock-marketplace-parse, adopt-write-floor, setup-prefill-from-floor, preflight-floor, upgrade-adoption-split, verify-floor)
-- **setup-isolated-setup-install** — 9 cases across 3 steps (runtime-routing, step-snapshot-drift, step-scope-confirm)
+- **setup-isolated-setup-install** — 10 cases across 3 steps (runtime-routing, step-snapshot-drift, step-scope-confirm)
 - **setup-shared-config-sync** — 12 cases across 2 steps (step-3-decide-action, step-5-draft-commit)
 - **pairing-multi-agent-review** — 15 cases across 6 steps (step-1-collect-diff, step-2a-correctness-pass, step-2b-security-pass, step-2c-conventions-pass, step-3-merge-findings, step-4-compose-report)
 - **pairing-self-review** — 20 cases across 2 steps (step-2-classify-findings, step-3-compose-report)
@@ -34,9 +34,9 @@ Suites are currently implemented for:
 - **pr-management-stats** — 13 cases across 2 steps (classify, pressure-weight)
 - **pr-management-triage** — 51 cases across 5 steps (pre-filter, decision-table, terminal-links, pagination-dedup, interaction-progress)
 - **list-skills** — 8 cases across 2 steps (step-1-command, step-2-present)
-- **setup-isolated-setup-verify** — 12 cases across 3 steps (runtime-routing, step-1-classify, step-2-recommend)
-- **setup-isolated-setup-update** — 14 cases across 4 steps (runtime-routing, step-snapshot-drift, step-tool-freshness, step-after-report)
-- **setup-isolated-setup-doctor** — 13 cases across 3 steps (runtime-routing, interpret-probes, after-report)
+- **setup-isolated-setup-verify** — 13 cases across 3 steps (runtime-routing, step-1-classify, step-2-recommend)
+- **setup-isolated-setup-update** — 15 cases across 4 steps (runtime-routing, step-snapshot-drift, step-tool-freshness, step-after-report)
+- **setup-isolated-setup-doctor** — 14 cases across 3 steps (runtime-routing, interpret-probes, after-report)
 - **contributor-activity-sweep** — 12 cases across 3 steps (step-0-resolve-inputs, step-1-classify-reviews, step-2-render)
 - **optimize-skill** — 5 cases across 1 step (step-diagnose)
 - **committer-onboarding** — 27 cases across 4 steps (step-0-validate-vote, step-1-icla-comms, step-2-checklist, step-3-completion-summary)

@@ -47,7 +47,7 @@ the POSIX agent-iso layer. Do not prescribe a `.claude` settings change for
 a Codex failure. Then stop before the Claude-specific branch below.
 
 When the selected runtime is Gemini CLI, follow
-[docs/adapters/gemini.md](../../docs/adapters/gemini.md#doctor): verify the profile first, then diagnose the actual tool result in the active Gemini session.
+[docs/adapters/gemini.md](../../../../docs/adapters/gemini.md#doctor): verify the profile first, then diagnose the actual tool result in the active Gemini session.
 Distinguish policy refusal, sandbox expansion, hook or trust failures, and wrapper or authentication problems.
 Do not require Claude configuration or prescribe Claude settings changes; then stop before the Claude-specific probes below.
 

@@ -164,7 +164,18 @@ Part of setting up, not an afterthought. Magpie's skills read issues,
 pre-disclosure security reports, and private mailing lists, so the isolation
 and privacy layers belong in place before you point a skill at anything real.
 
-The first skill worth running is the one that locks the agent down:
+Installing skills and configuring your host's isolation are separate steps,
+and what the second one looks like depends on the agent you run:
+
+| Runtime | Next step |
+|---|---|
+| **Claude Code** | The guided install below. |
+| **OpenAI Codex CLI** | [Codex setup lifecycle](adapters/codex.md#setup-isolated-lifecycle). |
+| **Google Gemini CLI** | Ask `Use the magpie-setup-isolated-setup-install skill.` — tool sandboxing and policies, per the [Gemini setup lifecycle](adapters/gemini.md#setup-isolated-lifecycle). |
+| **Anything else** | The [secure setup guide](setup/secure-agent-setup.md) and your runtime's adapter, for what it supports. |
+
+On Claude Code, the first skill worth running is the one that locks the agent
+down:
 
 ```text
 /magpie-setup:isolated-setup-install

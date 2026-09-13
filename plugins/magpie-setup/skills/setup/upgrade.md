@@ -486,7 +486,7 @@ rather than pulls in via symlink. Examples:
   overwriting them. Run `sandbox-lint --codex .codex` after the merge
   and never modify Codex project trust.
 - An installed Gemini workspace profile and guard registration:
-  follow [the Gemini update lifecycle](../../docs/adapters/gemini.md#update) to report drift, then use its install merge for approved repairs.
+  follow [the Gemini update lifecycle](../../../../docs/adapters/gemini.md#update) to report drift, then use its install merge for approved repairs.
   Preserve unrelated configuration and hand edits, and verify after restarting the runtime.
 - Any future hook or local config the framework adds.
 
