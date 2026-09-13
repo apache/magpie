@@ -7,7 +7,8 @@ Return ONLY valid JSON with this structure:
 
 ```json
 {
-  "action": "install" | "print",
+  "action": "install" | "print" | "hand-off",
+  "scope": null | "user" | "local" | "project",
   "commands_run": [...],
   "commands_shown": [...],
   "yes_flag_used": true | false,
@@ -15,8 +16,15 @@ Return ONLY valid JSON with this structure:
 }
 ```
 
-`action` is `install` when the step runs the installs itself and `print` when
-it hands the commands to the user instead.
+`action` is `install` when the step runs the installs itself, `print` when it
+hands the commands to the user instead, and `hand-off` when what was asked for
+is not this step's to do at all.
+
+`scope` is the `--scope` value the step installs or shows at, and `null` when
+the harness has no scopes or the step installs nothing. `user` is the default:
+per-machine, writing nothing to the repository. `local` is this repository
+only, gitignored. `project` is the committed file every contributor gets — the
+step never passes it, because that is adoption.
 
 `commands_run` lists the commands the step executes, in order, and is empty
 when it runs none. A command that was attempted and failed does not count as

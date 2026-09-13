@@ -261,12 +261,30 @@ claude plugin install magpie-setup@apache-magpie --scope user
 claude plugin install magpie-<family>@apache-magpie --scope user
 ```
 
-`--scope user` is deliberate. A marketplace install is a
-per-machine act that writes nothing to the repository;
-`--scope project` writes a file every contributor then gets,
-which is [adoption](adopt.md) — a maintainer's decision taken
-with the other maintainers, not a side effect of one person
-installing.
+**Claude Code has three scopes; say which one and why rather
+than defaulting past it.** `--scope` decides who gets the
+plugins, not which plugins arrive:
+
+| `--scope` | Recorded in | Who gets it |
+|---|---|---|
+| `user` (default here) | `~/.claude/` | you, in every repository on this machine |
+| `local` | `.claude/settings.local.json`, gitignored | you, in this repository only |
+| `project` | `.claude/settings.json`, committed | everyone who clones this repository |
+
+`user` is the default because installing for yourself is what
+almost everyone running this step means, and it writes nothing
+to the repository at all. Offer `local` to someone who wants
+Magpie in *this* repo and not in the others they work on — it is
+still their own machine only, and still gitignored.
+
+**`--scope project` is adoption, so do not pass it here.** A
+committed file recommending these plugins to every contributor
+is the thing [`/magpie-setup adopt`](adopt.md) exists to write,
+and adopt writes more than the plugin list: a version floor
+beside it, staged rather than committed, so the recommendation
+lands through the project's normal review. A user who asks for
+the whole project to get Magpie is asking to adopt — say so, and
+hand off to that command instead of setting the flag.
 
 Codex CLI:
 
@@ -306,7 +324,7 @@ the snapshot install produces
 Tell the user, in this order:
 
 1. **What landed** — which plugins, which agent, tracking `main`
-   or pinned to `<version>`, and whether
+   or pinned to `<version>`, at which scope, and whether
    [Step M4](#step-m4--install-what-the-user-picked) installed
    them or printed them for the user to run.
 2. **Run the secure-agent setup next** — `setup-isolated-setup-install`.

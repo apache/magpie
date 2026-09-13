@@ -131,6 +131,17 @@ Each of these settled a fork, and each shapes what follows.
    is what lets a Codex or Gemini adopter have a meaningful adoption record at
    all.
 
+   On Claude Code that file is also the store behind `--scope project`, which
+   settles who writes it: the install step names all three scopes rather than
+   defaulting past them — `user` (this machine, every repo), `local`
+   (`.claude/settings.local.json`, this repo, gitignored) and `project` (this
+   file, committed, everyone) — installs at `user` or `local`, and **never
+   passes `project`**. A request for the whole project to get Magpie is a
+   request to adopt, and hands off to `adopt`, which runs those same commands
+   at `--scope project` and writes the floor the flag alone would leave
+   missing. Adoption is a maintainer's act with a record, not a flag on one
+   person's install.
+
 5. **Adopting is optional and never a prerequisite.** Plugins work in a
    repository with or without the committed record. A maintainer who declines
    has a supported end state, not a partial install, and setup must not

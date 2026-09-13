@@ -116,6 +116,28 @@ authored here: `extraKnownMarketplaces` names `url`, and
 The lock is the source of truth; this file is how Claude Code acts on
 it.
 
+**On Claude Code, let the client write it.** `--scope project` is the
+scope whose store *is* this file, so the install commands do the whole
+of this step:
+
+```bash
+claude plugin marketplace add apache/magpie --scope project
+claude plugin install <plugin>@apache-magpie --scope project
+```
+
+— the second once per plugin in the floor. That is why
+[`install.md`](install.md#step-m4--install-what-the-user-picked)
+refuses the flag and sends people here: run alone it hands a project
+the plugin list with no floor beside it, and no `.apache-magpie.lock`
+to say what the list was derived from.
+
+Run the commands, then read the result against the **merge rules**
+below before staging. Those rules are the contract however the file
+got written: the CLI is not Magpie's code, and a settings file it
+changed in a way they forbid is a finding rather than a fait accompli.
+Where the CLI is absent, or its result breaks a rule, write the file
+yourself to the same rules.
+
 **Write the marketplace entry untagged** — `"repo": "apache/magpie"`,
 with no `@version`. The floor is a minimum, and tagging the marketplace
 would convert it into a ceiling that stops contributors receiving any
@@ -126,9 +148,10 @@ all ten families, Gemini has no workspace-extension mechanism — skip
 this step and say so. The lock from Step 2 still stands and is still
 the project's record; what is missing is only the automatic wiring.
 
-Show the exact diff you intend to write, then write it. **`git add`
-what you write. Never commit** — the change lands through the
-project's normal review process, like any other committed file.
+Show the maintainer the exact diff — the one you intend to write, or
+the one the CLI just made — before anything is staged. **`git add` it.
+Never commit** — the change lands through the project's normal review
+process, like any other committed file.
 
 ### Merge rules
 
