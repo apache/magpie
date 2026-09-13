@@ -7,11 +7,12 @@
 
 - [Quick start](#quick-start)
   - [Installation or Adoption?](#installation-or-adoption)
-  - [Step 1 — install from the Apache Magpie Marketplace](#step-1--install-from-the-apache-magpie-marketplace)
-  - [Step 2 — run `/magpie-setup`](#step-2--run-magpie-setup)
-  - [Step 3 — lock the agent down](#step-3--lock-the-agent-down)
-  - [Step 4 — use it](#step-4--use-it)
-  - [Step 5 — consider adopting Magpie](#step-5--consider-adopting-magpie)
+  - [The walkthrough](#the-walkthrough)
+    - [Step 1 — install from the Apache Magpie Marketplace](#step-1--install-from-the-apache-magpie-marketplace)
+    - [Step 2 — run `/magpie-setup`](#step-2--run-magpie-setup)
+    - [Step 3 — lock the agent down](#step-3--lock-the-agent-down)
+    - [Step 4 — use it](#step-4--use-it)
+    - [Step 5 — consider adopting Magpie](#step-5--consider-adopting-magpie)
   - [What each family solves](#what-each-family-solves)
   - [Other installation methods](#other-installation-methods)
   - [Cross-references](#cross-references)
@@ -52,7 +53,12 @@ people — and you do not have to choose before installing.
 
 ---
 
-## Step 1 — install from the Apache Magpie Marketplace
+## The walkthrough
+
+Five steps, in order. One and two are the install; the rest are what you do
+with it.
+
+### Step 1 — install from the Apache Magpie Marketplace
 
 Pick your agent. Every path uses the
 [`apache/magpie`](https://github.com/apache/magpie) repository directly as
@@ -167,7 +173,7 @@ This path is not yet live-installed either — see
 
 ---
 
-## Step 2 — run `/magpie-setup`
+### Step 2 — run `/magpie-setup`
 
 The marketplace install above is complete on its own: the skills are in your
 agent and you can start using them. `/magpie-setup` is what you run next when
@@ -216,7 +222,7 @@ links to all ten.
 
 ---
 
-## Step 3 — lock the agent down
+### Step 3 — lock the agent down
 
 Part of setting up, not an afterthought. Magpie's skills read issues,
 pre-disclosure security reports, and private mailing lists, so the isolation
@@ -253,7 +259,7 @@ How your data reaches a model, and what never leaves the machine:
 
 ---
 
-## Step 4 — use it
+### Step 4 — use it
 
 Ask in plain language:
 
@@ -275,7 +281,7 @@ everything that is installed.
 
 ---
 
-## Step 5 — consider adopting Magpie
+### Step 5 — consider adopting Magpie
 
 Everything so far was yours alone: the plugins live in your agent, and your
 repository has not changed. **Adoption is the separate act of deciding this for
