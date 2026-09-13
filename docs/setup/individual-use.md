@@ -357,7 +357,7 @@ has adopted, anything in there that everyone would want is worth moving into
 the committed `.apache-magpie-overrides/` — and anything genuinely personal
 should stay where it is.
 
-If the project also takes the [pinned snapshot install](../quick-start/install-recipes.md) —
+If the project also takes the [pinned snapshot install](../quick-start/other-install-methods.md) —
 a separate decision from adopting — its project-scope skills will shadow any
 user-scope symlinks you set up under the fallback path in Step 1.
 
@@ -372,7 +372,7 @@ user-scope symlinks you set up under the fallback path in Step 1.
   shapes and hard rules.
 - [`secure-agent-setup.md`](secure-agent-setup.md) — the secure-agent harness,
   worth running whether or not any repo has adopted Magpie.
-- [`install-recipes.md`](../quick-start/install-recipes.md) — install methods, if you need the
+- [`install-recipes.md`](../quick-start/other-install-methods.md) — install methods, if you need the
   pinned snapshot rather than the marketplace.
 - [`setup-status` skill](../../skills/setup-status/SKILL.md) — reports what is
   installed and wired here, including whether `.apache-magpie-local/` is present.

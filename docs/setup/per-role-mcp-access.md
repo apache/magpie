@@ -56,7 +56,7 @@ directory is untouched. The committed lock is untouched.
   date (`/magpie-setup verify`).
 - You have credentials for the MCP server you want to add.
 - Your `.apache-magpie-local/` directory exists (created by `/magpie-setup
-  adopt`; see [`install-recipes.md`](../quick-start/install-recipes.md)) or create it:
+  adopt`; see [`install-recipes.md`](../quick-start/other-install-methods.md)) or create it:
 
   ```bash
   mkdir -p /path/to/project-repo/.apache-magpie-local
@@ -284,7 +284,7 @@ These apply to personal override files in the same way as shared ones:
 - [`setup-override-upstream`](../../skills/setup-override-upstream/SKILL.md)
   — promote a personal or project override into a framework PR once it
   proves its value.
-- [`install-recipes.md`](../quick-start/install-recipes.md) — bootstrap Magpie in a
+- [`install-recipes.md`](../quick-start/other-install-methods.md) — bootstrap Magpie in a
   project repo if you have not adopted yet.
 - [`secure-agent-setup.md`](secure-agent-setup.md) — the full install
   walkthrough; covers `~/.claude/settings.json` sandbox allowlist entries

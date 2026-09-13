@@ -111,7 +111,7 @@ The descriptor's `organization:` must name a directory under
 | **`git-branch`** | `ref: <branch>` (no anchor) | WIP / preview only — no frozen anchor, tip-tracking. |
 
 The fetch reuses the framework
-[install recipes](../quick-start/install-recipes.md) verbatim, so these are the
+[install recipes](../quick-start/other-install-methods.md) verbatim, so these are the
 same three methods and anchors the framework snapshot uses for itself.
 
 ## Step 6 — Write your source descriptor

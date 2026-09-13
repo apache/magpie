@@ -50,7 +50,8 @@ hooked into prek); `prek` for doctoc / markdownlint / lychee.
   all-in-one token cost). The prerequisite page is commands; the reference is
   why.
 - **Already shipped — do not redo:** the families sub-page, the two-modes
-  reordering, Step 2b, and the four adoption mentions. See the design's amended
+  reordering, the isolation step, and the four adoption mentions. See the
+design's amended
   B section.
 - Every markdown file needs the SPDX header, doctoc markers, language tags on
   fenced code (MD040), and links that resolve (lychee runs on commit).
@@ -160,7 +161,7 @@ Generated-by: Claude Opus 5"
 
 - [ ] **Step 1: Replace Step 1's command blocks with a pointer**
 
-`## Install from the Apache Magpie Marketplace` currently carries three
+`## Step 1 — install from the Apache Magpie Marketplace` currently carries three
 `marketplace add` blocks across four harness subsections. Replace the whole
 section body with a short pointer to
 `setup/marketplace-install.md`, keeping:
@@ -173,19 +174,20 @@ section body with a short pointer to
 
 Retitle so the heading no longer promises commands the section no longer
 carries. Check for inbound anchor references to
-`#install-from-the-apache-magpie-marketplace` across the repo first and
+`#step-1--install-from-the-apache-magpie-marketplace` across the repo first and
 rewrite them.
 
 - [ ] **Step 2: Promote the teammates block to a step**
 
 `#### Optional: adopt Magpie for your teammates` is a fourth-level heading
-inside Step 1. Promote it to `## Adopt it for your project (optional)`, placed after
-`## Lock the agent down` and before the families pointer, and
+inside Step 1. Promote it to `## Step 5 — adopt it for your project (optional)`, placed
+after `## Step 4 — use it` and before the families pointer, and
 extend it with what the floor means — a minimum, never a ceiling, and what a
 contributor gets on clone. Link `setup/team-adoption.md` for the full walk.
 
-The walkthrough headings carry no step numbers, so nothing renumbers when a
-section is added or moved. Keep it that way.
+The walkthrough is numbered Step 1 through Step 4; a new step appends as
+Step 5 rather than forcing a renumber. Check inbound anchors before changing
+any existing number.
 
 - [ ] **Step 3: Verify no marketplace add remains**
 

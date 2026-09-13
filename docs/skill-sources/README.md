@@ -61,7 +61,7 @@ model uses (see [`AGENTS.md`](../../AGENTS.md#configuration-resolution-order)).
 A **descriptor** identifies one source and enumerates what it `provides`.
 It appears in the org-curated file and/or the adopter opt-in file; the
 [registry](registry.md) links to the canonical one. Fields reuse the
-[install-method](../quick-start/install-recipes.md) and lock vocabulary the
+[install-method](../quick-start/other-install-methods.md) and lock vocabulary the
 framework snapshot already uses, so resolution is mechanical.
 
 ```yaml
@@ -136,7 +136,7 @@ The [`setup`](../../skills/setup/SKILL.md) skill drives the fetch — the
    listed there are never fetched.
 2. For each trusted source, **fetch + verify** into
    `.apache-magpie-sources/<source-id>/` (gitignored) reusing the framework
-   [install recipes](../quick-start/install-recipes.md) verbatim — `git clone
+   [install recipes](../quick-start/other-install-methods.md) verbatim — `git clone
    --depth=1 --branch <ref>` for git methods; download + `sha512sum -c` +
    optional `gpg --verify` for `svn-zip`.
 3. Record the pins: committed `.apache-magpie.sources.lock` (per-source

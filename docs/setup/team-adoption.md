@@ -87,7 +87,7 @@ what an override may contain is in
 A third thing is **not** part of adoption, though it is often wanted alongside
 it: pinning every contributor and CI job to one framework version. That is an
 *install method* — the pinned snapshot — and it lives in
-[`install-recipes.md`](../quick-start/install-recipes.md#additional-install-methods).
+[other installation methods](../quick-start/other-install-methods.md#which-one-and-when).
 
 ## The committed lock — what a floor means
 
@@ -212,6 +212,6 @@ operation with a different blast radius.
   in the first place.
 - [`agentic-overrides.md`](agentic-overrides.md) — the full contract for what
   an override file may contain and how a skill applies it.
-- [`install-recipes.md`](../quick-start/install-recipes.md) — install methods, including the
+- [`install-recipes.md`](../quick-start/other-install-methods.md) — install methods, including the
   pinned snapshot when the project needs one committed framework version.
 - [Setup skill family](README.md) — every setup skill and its deep docs.

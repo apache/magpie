@@ -145,7 +145,7 @@ will recognise the workflow shape:
   Snapshot-drift preamble, placeholder convention, SPDX header).
 - **Step 5 (packaging)** is dropped entirely — the framework
   distributes skills via the snapshot model documented in
-  [`docs/setup/install-recipes.md`](../../docs/quick-start/install-recipes.md),
+  [`docs/setup/install-recipes.md`](../../docs/quick-start/other-install-methods.md),
   not as zip artefacts. The upstream's `package_skill.py` is not
   included; **validation** is performed by the existing
   [`tools/skill-and-tool-validator`](../../tools/skill-and-tool-validator/),
@@ -490,7 +490,7 @@ for the override → upstream loop.
   declares its capability.
 - [`docs/setup/agentic-overrides.md`](../../docs/setup/agentic-overrides.md)
   — the `Adopter overrides` contract every skill consults.
-- [`docs/setup/install-recipes.md`](../../docs/quick-start/install-recipes.md)
+- [`docs/setup/install-recipes.md`](../../docs/quick-start/other-install-methods.md)
   — the snapshot model that distributes skills (no zip
   packaging — Step 5 of the upstream's flow is dropped).
 - [`tools/skill-and-tool-validator/`](../../tools/skill-and-tool-validator/) —

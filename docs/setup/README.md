@@ -162,7 +162,7 @@ for the complete rule.
 - [**`secure-agent-internals.md`**](secure-agent-internals.md) —
   how the layered defence works (sandbox + permission rules +
   clean-env wrapper) and why each layer exists.
-- [**`install-recipes.md`**](../quick-start/install-recipes.md) — copy-pasteable
+- [**`install-recipes.md`**](../quick-start/other-install-methods.md) — copy-pasteable
   shell recipes (svn-zip / git-tag / git-branch) for bootstrapping
   `setup` into a new adopter repo.
 - [**`uninstall.md`**](uninstall.md) — counterpart to `install-recipes.md`:

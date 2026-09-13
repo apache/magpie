@@ -7,18 +7,12 @@
 
 - [Quick start](#quick-start)
   - [Two ways to use Magpie](#two-ways-to-use-magpie)
-  - [Install from the Apache Magpie Marketplace](#install-from-the-apache-magpie-marketplace)
-    - [Claude Code](#claude-code)
-    - [OpenAI Codex CLI](#openai-codex-cli)
-    - [VS Code / GitHub Copilot](#vs-code--github-copilot)
-    - [Google Gemini CLI](#google-gemini-cli)
-  - [Run `/magpie-setup`](#run-magpie-setup)
-  - [Lock the agent down](#lock-the-agent-down)
-  - [Use it](#use-it)
+  - [Step 1 — install from the Apache Magpie Marketplace](#step-1--install-from-the-apache-magpie-marketplace)
+  - [Step 2 — run `/magpie-setup`](#step-2--run-magpie-setup)
+  - [Step 3 — lock the agent down](#step-3--lock-the-agent-down)
+  - [Step 4 — use it](#step-4--use-it)
   - [What each family solves](#what-each-family-solves)
-  - [Install methods](#install-methods)
-    - [Fallback — the pinned snapshot install](#fallback--the-pinned-snapshot-install)
-    - [Working on Magpie itself — self-adoption](#working-on-magpie-itself--self-adoption)
+  - [Other installation methods](#other-installation-methods)
   - [Cross-references](#cross-references)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -57,13 +51,13 @@ people — and you do not have to choose before installing.
 
 ---
 
-## Install from the Apache Magpie Marketplace
+## Step 1 — install from the Apache Magpie Marketplace
 
 Pick your agent. Every path uses the
 [`apache/magpie`](https://github.com/apache/magpie) repository directly as
 the marketplace; no vendor directory or account is involved.
 
-### Claude Code
+**Claude Code**
 
 Add the marketplace, then install **one plugin per family you actually want**:
 
@@ -74,7 +68,7 @@ Add the marketplace, then install **one plugin per family you actually want**:
 ```
 
 `magpie-setup` is the one to always take — it carries the secure-isolation
-skills from [Lock the agent down](#lock-the-agent-down).
+skills from [Step 3](#step-3--lock-the-agent-down).
 Add the rest to match a problem you have today; you can install more at any
 time.
 
@@ -95,7 +89,7 @@ command for that family and a few things to try once it is in:
 [mentoring](mentoring/README.md#install--first-runs) ·
 [pairing](pairing/README.md#install--first-runs)
 
-#### Optional: adopt Magpie for your teammates
+**Optional: adopt Magpie for your teammates.**
 
 Everything above installs Magpie for **you, on this machine** — nothing is
 written to the repository, and your teammates are unaffected.
@@ -113,14 +107,14 @@ block is committed, and a project that never commits it is not missing
 anything: the install you just did is complete. It is a convenience for
 teams — nobody has to run the install by hand — not a requirement.
 
-### OpenAI Codex CLI
+**OpenAI Codex CLI**
 
 ```bash
 codex plugin marketplace add apache/magpie
 codex plugin install magpie
 ```
 
-### VS Code / GitHub Copilot
+**VS Code / GitHub Copilot**
 
 Point VS Code's plugin install at the repository URL — it clones the repo
 and loads Magpie as an [Agent Plugins 1.0](https://agent-plugins.org/specification)
@@ -133,7 +127,7 @@ https://github.com/apache/magpie
 This path is not yet live-installed against a running VS Code — see
 [Verification status](setup/marketplace.md#verification-status).
 
-### Google Gemini CLI
+**Google Gemini CLI**
 
 ```bash
 gemini extensions install https://github.com/apache/magpie
@@ -172,7 +166,7 @@ This path is not yet live-installed either — see
 
 ---
 
-## Run `/magpie-setup`
+## Step 2 — run `/magpie-setup`
 
 The marketplace install above is complete on its own: the skills are in your
 agent and you can start using them. `/magpie-setup` is what you run next when
@@ -221,7 +215,7 @@ links to all ten.
 
 ---
 
-## Lock the agent down
+## Step 3 — lock the agent down
 
 Part of setting up, not an afterthought. Magpie's skills read issues,
 pre-disclosure security reports, and private mailing lists, so the isolation
@@ -258,7 +252,7 @@ How your data reaches a model, and what never leaves the machine:
 
 ---
 
-## Use it
+## Step 4 — use it
 
 Ask in plain language:
 
@@ -289,64 +283,20 @@ have today.
 
 ---
 
-## Install methods
+## Other installation methods
 
-Separately from the above, the framework can *reach* your agent by more than
-one route:
+The marketplace is not the only route. A project can install the framework as a
+**pinned snapshot** committed to the repo — the answer when an agent has no
+marketplace at all, when you need the signed ASF source release, or when every
+contributor and CI job should sit on one committed version. A clone of the
+framework itself takes a third route and **self-adopts**.
 
-| | Who installs it | What it touches |
-|---|---|---|
-| **Marketplace install** (above) | You, per machine | Your agent. Nothing in the repo. |
-| **Pinned snapshot install** | The project, once | A committed version pin and a gitignored snapshot in the repo. |
-| **Self-adoption** (`method:local`) | The Magpie checkout itself | Committed symlinks onto the repo's own `skills/`. |
+→ [**Other installation methods**](quick-start/other-install-methods.md) covers
+all three, with the copy-pasteable bootstrap for each. They are complementary, not exclusive:
+pin the snapshot for the project and keep the marketplace plugin for yourself
+if you prefer.
 
-### Fallback — the pinned snapshot install
-
-Use the snapshot install when a marketplace is not an option or not enough:
-
-- your agent has no plugin or marketplace mechanism at all;
-- you need the **signed ASF source release** from `dist.apache.org` rather
-  than a git clone;
-- the project wants every contributor and CI job pinned to **one committed
-  version**, with drift detection and project-specific overrides.
-
-It puts a gitignored snapshot plus a committed `.apache-magpie.lock` in the
-repo, and wires the skills into *any* agent through `.agents/skills/`:
-
-```text
-/magpie-setup install
-```
-
-**Skill names differ here.** On the snapshot install a skill is one token —
-`/magpie-security-issue-triage`, the skill's directory name — not
-`/magpie-security:issue-triage`. There is no plugin namespace; the `magpie-`
-prefix is the namespace. See
-[Skill names differ by install method](setup/marketplace.md#skill-names-differ-by-install-method).
-
-→ [`setup/install-recipes.md`](quick-start/install-recipes.md) has the
-copy-pasteable bootstrap. The two are complementary, not exclusive: pin the
-snapshot for the project and keep the marketplace plugin for yourself if you
-prefer.
-
-### Working on Magpie itself — self-adoption
-
-Inside a clone of [`apache/magpie`](https://github.com/apache/magpie), the
-default is neither of the above: the framework **self-adopts**, linking its own
-live `skills/` source so the skills you are editing are the skills that run.
-
-```text
-/magpie-setup method:local
-```
-
-`/magpie-setup` detects the framework checkout and takes this path by default —
-a remote method against it is refused, because snapshotting the framework into
-itself would shadow the live source with a stale copy. It fetches nothing: the
-`magpie-<skill>` symlinks point at in-repo paths and are **committed**, and
-`.apache-magpie.lock` records `method: local` with no URL or ref. Contributors
-get it on a fresh clone with no install step at all.
-
-Self-adoption uses the **same single-token names as the snapshot install** —
-`/magpie-pairing-self-review`, not `/magpie-pairing:self-review`.
+---
 
 ## Cross-references
 

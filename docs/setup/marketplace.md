@@ -51,7 +51,7 @@ the project publishes its own marketplace and you install straight from it.
 From 0.2.0 it ships the manifests each major AI coding agent needs to read
 it, so the same one marketplace serves all of them; only the command to add
 it differs per agent. Installing from it is the **recommended way to install
-Magpie**. The [pinned snapshot install](../quick-start/install-recipes.md) is the fallback
+Magpie**. The [pinned snapshot install](../quick-start/other-install-methods.md) is the fallback
 for the cases it does not cover.
 
 > [!IMPORTANT]
@@ -59,9 +59,9 @@ for the cases it does not cover.
 > for day-to-day use. What it does **not** set up on its own is the
 > repo-side machinery — the committed pin, the gitignored snapshot, drift
 > detection, agentic overrides — or the secure-agent setup, which you run
-> once as [`/magpie:setup-isolated-setup-install`](../quick-start.md#lock-the-agent-down).
+> once as [`/magpie:setup-isolated-setup-install`](../quick-start.md#step-3--lock-the-agent-down).
 > When a project wants every contributor pinned to one committed version,
-> add the [pinned snapshot install](../quick-start/install-recipes.md) alongside it. The
+> add the [pinned snapshot install](../quick-start/other-install-methods.md) alongside it. The
 > two are complementary, not exclusive.
 
 > [!NOTE]
@@ -83,7 +83,7 @@ for the cases it does not cover.
 > **pinned snapshot install is always available, universal, and portable**:
 > install with `/magpie-setup` from either the **signed SVN release**
 > (`dist.apache.org`) or the **GitHub repo** (git tag or branch) — see
-> [`install-recipes.md`](../quick-start/install-recipes.md). That path is **harness-neutral**:
+> [`install-recipes.md`](../quick-start/other-install-methods.md). That path is **harness-neutral**:
 > it wires the skills into *any* agent's directory via the universal
 > `.agents/skills/` layout, so it works on **every** agentic CLI — not only the
 > ones with a marketplace. Rule of thumb: install from a marketplace whenever

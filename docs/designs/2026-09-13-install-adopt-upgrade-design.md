@@ -292,7 +292,7 @@ Everything else links to it and stops repeating it.
 
 **Amended 2026-09-13, after part of this subsystem shipped ahead of its
 plan.** The quick start was restructured directly: the two ways to use
-Magpie now open the page, the isolation and privacy setup became Step 2b
+Magpie now open the page, the isolation and privacy setup became Step 3
 ahead of the families table, and three sections became sub-pages
 (`docs/quick-start/{prerequisites,install-recipes,families}.md`). None of
 that was in this design, and the renumbering table it originally carried —
@@ -308,7 +308,8 @@ remains of B is therefore smaller and differently shaped:
 | Ten family READMEs drop the marketplace add | not started — all 10 still repeat it |
 
 Already shipped, and not to be redone: the families table extraction, the
-two-modes reordering, Step 2b, and naming adoption at its four call sites.
+two-modes reordering, the isolation step, and naming adoption at its four
+call sites.
 
 The ten family READMEs keep exactly one install line — their own
 `/plugin install magpie-<family>@apache-magpie` — above it a one-line pointer

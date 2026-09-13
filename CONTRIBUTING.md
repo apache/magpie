@@ -571,7 +571,7 @@ project (not just edit the framework), follow the
 skill to install the bubblewrap sandbox and pinned tools, then
 [`setup-isolated-setup-verify`](skills/setup-isolated-setup-verify/SKILL.md)
 to confirm the install. The install tutorial lives at
-[`docs/setup/install-recipes.md`](docs/quick-start/install-recipes.md).
+[`docs/setup/install-recipes.md`](docs/quick-start/other-install-methods.md).
 
 ### Lightening the agent context
 

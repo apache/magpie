@@ -41,7 +41,7 @@ skill recognises and routes between automatically:
 > **Note on the bootstrap recipe.** `setup` is **the
 > only framework artefact an adopter commits**. Getting it
 > *into* a fresh adopter repo is the chicken-and-egg the
-> [install-recipes](../../docs/quick-start/install-recipes.md)
+> [install-recipes](../../docs/quick-start/other-install-methods.md)
 > doc resolves: copy-pasteable shell recipes per install
 > method that fetch the snapshot + place the `setup`
 > skill content + add `.gitignore` entries. Once that
@@ -530,7 +530,7 @@ this whole flow is unnecessary. Take their answer either way and
 do not ask twice.
 
 The verbatim shell that fetches per each method is in
-[`docs/setup/install-recipes.md`](../../docs/quick-start/install-recipes.md).
+[`docs/setup/install-recipes.md`](../../docs/quick-start/other-install-methods.md).
 The skill at this point can either:
 
 - Tell the user "your manual recipe already ran — please

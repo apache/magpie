@@ -158,7 +158,7 @@ Into **`.apache-magpie-sources/<source-id>/`** (gitignored,
 sibling to `<snapshot-dir>` — kept separate on purpose so a
 framework `upgrade`, which deletes `<snapshot-dir>` outright, does
 **not** wipe the source snapshots). Reuse the framework [install
-recipes](../../docs/quick-start/install-recipes.md) **verbatim**,
+recipes](../../docs/quick-start/other-install-methods.md) **verbatim**,
 parameterized by the source `url`/`ref`:
 
 - **`git-tag` / `git-branch`** — `git clone --depth=1 --branch <ref>
