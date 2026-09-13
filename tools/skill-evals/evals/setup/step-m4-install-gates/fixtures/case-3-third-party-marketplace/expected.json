@@ -1,1 +1,1 @@
-{"action": "print", "scope": "user", "commands_run": [], "commands_shown": ["claude plugin marketplace add acme-corp/magpie-fork", "claude plugin install magpie-setup@magpie-fork --scope user", "claude plugin install magpie-pr-management@magpie-fork --scope user"], "yes_flag_used": false, "blocked_by": "marketplace"}
+{"action": "print", "scope": null, "commands_run": [], "commands_shown": ["claude plugin marketplace add acme-corp/magpie-fork"], "declared_command_surfaced": false, "hands_off_to": null, "yes_flag_used": false, "blocked_by": "marketplace"}

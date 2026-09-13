@@ -1,1 +1,1 @@
-{"action": "hand-off", "scope": null, "commands_run": [], "commands_shown": ["/magpie-setup adopt"], "yes_flag_used": false, "blocked_by": null}
+{"action": "hand-off", "scope": null, "commands_run": [], "commands_shown": [], "declared_command_surfaced": false, "hands_off_to": "/magpie-setup adopt", "yes_flag_used": false, "blocked_by": null}

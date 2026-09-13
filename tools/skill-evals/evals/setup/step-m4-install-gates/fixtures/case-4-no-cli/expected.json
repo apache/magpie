@@ -1,1 +1,1 @@
-{"action": "print", "scope": null, "commands_run": [], "commands_shown": ["https://github.com/apache/magpie"], "yes_flag_used": false, "blocked_by": "no-cli"}
+{"action": "print", "scope": null, "commands_run": [], "commands_shown": [], "declared_command_surfaced": false, "hands_off_to": null, "yes_flag_used": false, "blocked_by": "no-cli"}

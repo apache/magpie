@@ -249,6 +249,15 @@ printed block.
    `from:<owner>/<repo>` naming anything else is printed, never
    run — as are the third-party companion packages further down,
    under that same rule.
+
+   When you print commands for another marketplace, print the
+   **`marketplace add` only**, then say to install from the name
+   `claude plugin marketplace list` reports. A marketplace's name
+   comes from its own manifest, not from its `owner/repo` — the
+   two happen to line up for `apache/magpie` and need not for
+   anyone else. Do not guess a `plugin@marketplace` suffix: a
+   guessed name produces a command that looks authoritative and
+   does not work.
 2. **The CLI is there.** The binary is absent, or
    `claude plugin --help` (or the harness's equivalent) exits
    non-zero → print.
