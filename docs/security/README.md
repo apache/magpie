@@ -170,11 +170,12 @@ referenced by URL; Magpie keeps no local copy.
   conventions every role observes (keeping the reporter informed,
   recording status transitions, confidentiality), and the
   role-by-role workflow walkthroughs.
-- [**`how-to-fix-a-security-issue.md`**](how-to-fix-a-security-issue.md) —
+- [**`fixing-security-issues.md`**](fixing-security-issues.md) —
   hands-on guide for a remediation developer picking up a
   CVE-allocated tracker and shipping the fix.
-- [**`new-members-onboarding.md`**](new-members-onboarding.md) —
-  onboarding for a new security-team member: tracker access, mail
+- [**`how-the-security-team-works.md`**](how-the-security-team-works.md) —
+  how the team operates and how a new member lands: the triager
+  rotation that runs the skills and delegates, tracker access, mail
   list subscription, expected reading, first triage shadow.
 - [**`threat-model.md`**](threat-model.md) — release-blocking
   threat model for the security skill family: trust boundaries,

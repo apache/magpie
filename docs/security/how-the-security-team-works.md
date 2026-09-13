@@ -5,7 +5,7 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [Welcome](#welcome)
+- [How the security team works](#how-the-security-team-works)
 - [How the team is composed](#how-the-team-is-composed)
 - [Where things happen](#where-things-happen)
 - [Your first week](#your-first-week)
@@ -15,7 +15,7 @@
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
-# Welcome
+# How the security team works
 
 Hello, new member of the adopting project's security team. This
 repository hosts a project-agnostic framework for handling security
@@ -25,6 +25,15 @@ the root of the adopter's tracker repo). This document
 is the soft-landing guide — it tells you how the team works, where
 the action happens, and what is expected of you in the first few
 weeks.
+
+**Day to day, the work is run by one triager — or a few, on a
+rotation — not by the whole team at once.** The triager on duty is the
+one running the skills: they work the incoming reports, make the calls
+that keep an issue moving (valid or not, how severe, whether it needs a
+CVE), and then *delegate* what belongs to someone else — the fix to a
+maintainer who knows that code, the release to a release manager.
+Everyone else on the team is there to be delegated to, to review a
+judgement call, and to take their own turn on the rotation.
 
 Read this end-to-end once, then use [`roles.md`](roles.md) as the
 operational reference when you start actually handling issues. The
@@ -251,9 +260,9 @@ shape the team are small enough to read in one sitting:
   (roster, release trains, security model, scope labels, milestones,
   canned responses, fix-workflow specifics) — lives in the adopter's
   tracker repo.
-- [`how-to-fix-a-security-issue.md`](how-to-fix-a-security-issue.md) —
+- [`fixing-security-issues.md`](fixing-security-issues.md) —
   high-level fix workflow.
-- [`new-members-onboarding.md`](new-members-onboarding.md) — this
+- [`how-the-security-team-works.md`](how-the-security-team-works.md) — this
   document.
 
 **That's about it. Welcome to the team!**

@@ -91,7 +91,7 @@ You want contributors to arrive with a sensible set of families already enabled,
 
 You handle CVE reports and want agent help with the 16-step lifecycle — import, triage, fix, allocate, publish.
 
-→ Start with [security workflow overview](security/README.md), then [new member onboarding](security/new-members-onboarding.md).
+→ Start with [security workflow overview](security/README.md), then [how the security team works](security/how-the-security-team-works.md).
 
 ### Contributors to the Magpie framework itself
 
