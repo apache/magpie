@@ -26,7 +26,7 @@
      width="777" height="592" role="img"
      data-magpie-generated="render-wizard"
      aria-label="An animated agent-guard setup: the dispatcher, the rules and the PreToolUse hook registered, then a real denial of an unwanted review ping before it was posted">
-  <title>Step 4 — guard every command</title>
+  <title>Step 3 — isolate &amp; guard: the action guard</title>
   <desc>Illustrative animation of the deterministic action guard. Not a recording.</desc>
   <rect width="777" height="592" rx="10" fill="#1d1f21"/>
   <rect x="0" y="0" width="777" height="34" rx="10" fill="#2b2e31"/>

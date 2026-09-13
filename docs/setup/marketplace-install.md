@@ -46,7 +46,7 @@ These three are exactly the **floor** a project commits when it adopts Magpie,
 so taking them yourself is taking what a project would recommend to every
 contributor. Then add families against a problem you have today —
 [What each family solves](../quick-start/families.md) is the menu — and run the
-[secure-agent setup](../quick-start.md#step-3--isolate-the-agent), which is
+[secure-agent setup](../quick-start.md#step-3--isolate--guard), which is
 part of setting up rather than a later hardening pass.
 
 ## Claude Code

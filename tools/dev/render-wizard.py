@@ -490,14 +490,14 @@ def build() -> dict[Path, str]:
             step_install_script(),
         ),
         STEP_ISOLATION_SVG: render(
-            "Step 3 — isolate the agent",
+            "Step 3 — isolate & guard: the sandbox",
             "An animated secure-agent setup: three proposed changes, a confirmation, "
             "then the sandbox, the clean environment and the status line in place",
             "Illustrative animation of the secure-agent setup step. Not a recording.",
             step_isolation_script(),
         ),
         STEP_GUARD_SVG: render(
-            "Step 4 — guard every command",
+            "Step 3 — isolate & guard: the action guard",
             "An animated agent-guard setup: the dispatcher, the rules and the "
             "PreToolUse hook registered, then a real denial of an unwanted "
             "review ping before it was posted",
@@ -505,7 +505,7 @@ def build() -> dict[Path, str]:
             step_guard_script(),
         ),
         STEP_PRIVACY_SVG: render(
-            "Step 5 — set up privacy",
+            "Step 4 — set up privacy",
             "An animated privacy-llm run: the stack detected, the variant written "
             "locally, the PII redactor proven, and the approved-LLM gate refusing "
             "an unregistered local model",
@@ -513,14 +513,14 @@ def build() -> dict[Path, str]:
             step_privacy_script(),
         ),
         STEP_USE_SVG: render(
-            "Step 6 — use it",
+            "Step 5 — use it",
             "An animated skill run: listing what is installed, then a triage pass "
             "returning 38 open PRs with a proposed action each and nothing posted",
             "Illustrative animation of running a skill. Not a recording.",
             step_use_script(),
         ),
         STEP_ADOPT_SVG: render(
-            "Step 7 — adopt it for the project",
+            "Step 6 — adopt it for the project",
             "An animated adopt run: three paths staged and not committed, what a "
             "contributor gets on clone, and what it does not restrict",
             "Illustrative animation of adopting Magpie for a project. Not a recording.",

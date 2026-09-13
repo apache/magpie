@@ -26,7 +26,7 @@
      width="675" height="544" role="img"
      data-magpie-generated="render-wizard"
      aria-label="An animated privacy-llm run: the stack detected, the variant written locally, the PII redactor proven, and the approved-LLM gate refusing an unregistered local model">
-  <title>Step 5 — set up privacy</title>
+  <title>Step 4 — set up privacy</title>
   <desc>Illustrative animation of the privacy-LLM setup. Not a recording.</desc>
   <rect width="675" height="544" rx="10" fill="#1d1f21"/>
   <rect x="0" y="0" width="675" height="34" rx="10" fill="#2b2e31"/>

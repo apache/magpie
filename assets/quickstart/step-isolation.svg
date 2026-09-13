@@ -26,7 +26,7 @@
      width="685" height="448" role="img"
      data-magpie-generated="render-wizard"
      aria-label="An animated secure-agent setup: three proposed changes, a confirmation, then the sandbox, the clean environment and the status line in place">
-  <title>Step 3 — isolate the agent</title>
+  <title>Step 3 — isolate &amp; guard: the sandbox</title>
   <desc>Illustrative animation of the secure-agent setup step. Not a recording.</desc>
   <rect width="685" height="448" rx="10" fill="#1d1f21"/>
   <rect x="0" y="0" width="685" height="34" rx="10" fill="#2b2e31"/>

@@ -10,11 +10,10 @@
   - [The walkthrough](#the-walkthrough)
     - [Step 1 — install from the Apache Magpie Marketplace](#step-1--install-from-the-apache-magpie-marketplace)
     - [Step 2 — run `/magpie-setup`](#step-2--run-magpie-setup)
-    - [Step 3 — isolate the agent](#step-3--isolate-the-agent)
-    - [Step 4 — guard every command](#step-4--guard-every-command)
-    - [Step 5 — set up privacy](#step-5--set-up-privacy)
-    - [Step 6 — use it](#step-6--use-it)
-    - [Step 7 — consider adopting Magpie](#step-7--consider-adopting-magpie)
+    - [Step 3 — isolate & guard](#step-3--isolate--guard)
+    - [Step 4 — set up privacy](#step-4--set-up-privacy)
+    - [Step 5 — use it](#step-5--use-it)
+    - [Step 6 — consider adopting Magpie](#step-6--consider-adopting-magpie)
   - [What each family solves](#what-each-family-solves)
   - [Other installation methods](#other-installation-methods)
   - [Cross-references](#cross-references)
@@ -61,10 +60,10 @@ people — and you do not have to choose before installing.
 
 ## The walkthrough
 
-Seven steps, in order. One and two are the install. Three, four and five are
-the safety layers, and **all three are strongly recommended** — Magpie's skills
-read issues, pre-disclosure security reports and private mailing lists, so none
-of them is a nice-to-have. Six and seven are what you do with it.
+Six steps, in order. One and two are the install. Three and four are the
+safety layers, and **both are strongly recommended** — Magpie's skills read
+issues, pre-disclosure security reports and private mailing lists, so neither
+is a nice-to-have. Five and six are what you do with it.
 
 ### Step 1 — install from the Apache Magpie Marketplace
 
@@ -82,7 +81,7 @@ CLI, Cursor, `microsoft/apm`, and JetBrains IDEs.
 
 - **`magpie-setup`** — install this one first; nothing else installs, upgrades,
   configures or adopts without it, and it carries the secure-isolation skills
-  from [Step 3](#step-3--isolate-the-agent).
+  from [Step 3](#step-3--isolate--guard).
 - **`magpie-agent-guard`** — the deterministic pre-execution guard, a hook that
   inspects each shell command before it runs and denies the dangerous shapes.
 - **`magpie-utilities`** — `list-skills` and the small tools you reach for when
@@ -190,23 +189,26 @@ links to all ten.
 
 ---
 
-### Step 3 — isolate the agent
+### Step 3 — isolate & guard
 
 **Strongly recommended, and part of the default setup rather than a later
 hardening pass.** Magpie's skills read issues, pre-disclosure security reports,
 and private mailing lists, so this belongs in place before you point a skill at
 anything real.
 
-This is the first of three layers that do different jobs, and you want all
-three:
+**Three layers, two steps.** Isolation and the guard are two different
+protections that arrive in the same run, which is why they share this step;
+privacy is its own decision and its own skill.
 
-| Step | Constrains | The thing the others cannot catch |
-|---|---|---|
-| **3 — isolate** | the **process** | a command reading `~/.ssh` or `~/.aws` |
-| [**4 — guard**](#step-4--guard-every-command) | each **command** | a perfectly legal `gh pr comment` pinging four people who did not ask |
-| [**5 — privacy**](#step-5--set-up-privacy) | the **data** | private-list mail reaching a model nobody approved |
+| Layer | Step | Constrains | The thing the others cannot catch |
+|---|---|---|---|
+| **isolate** | 3 | the **process** | a command reading `~/.ssh` or `~/.aws` |
+| **guard** | 3 | each **command** | a perfectly legal `gh pr comment` pinging four people who did not ask |
+| **privacy** | [4](#step-4--set-up-privacy) | the **data** | private-list mail reaching a model nobody approved |
 
-Steps 3 and 4 arrive in one run; step 5 is its own.
+Do not read "same run" as "same thing": one confines what a command can
+*reach*, the other decides whether it *runs at all*. The half of this step
+below is the second.
 
 Installing skills and configuring your host's isolation are separate steps,
 and what the second one looks like depends on the agent you run:
@@ -283,20 +285,18 @@ reports ✓/✗/⚠ for every piece.
 Why each layer exists: [`setup/secure-agent-internals.md`](setup/secure-agent-internals.md).
 How your data reaches a model, and what never leaves the machine:
 [`setup/privacy-llm.md`](setup/privacy-llm.md) — and
-[Step 5](#step-5--set-up-privacy) is the skill that
+[Step 4](#step-4--set-up-privacy) is the skill that
 configures it.
 
----
+#### The other half of this step — the guard
 
-### Step 4 — guard every command
-
-**Strongly recommended, and it is not the same thing as Step 3.** The sandbox
-confines the *process*: bash sees only the paths you allow, and your `~/.ssh`
-is out of reach. It has nothing to say about a command that is entirely within
-its rights — a `gh pr comment` that pings four maintainers who did not ask to
-be pinged, a `git push --force` onto a branch with nothing on it, a CVE
-identifier in a public PR title before the embargo lifts. Those are legitimate
-commands with the wrong consequences.
+The sandbox above confines the *process*: bash sees only the paths you allow,
+and your `~/.ssh` is out of reach. It has nothing to say about a command that
+is entirely within its rights — a `gh pr comment` that pings four maintainers
+who did not ask to be pinged, a `git push --force` onto a branch with nothing
+on it, a CVE identifier in a public PR title before the embargo lifts. Those
+are legitimate commands with the wrong consequences, and no amount of
+confinement makes them wrong to the operating system.
 
 `magpie-agent-guard` from [Step 1](#step-1--install-from-the-apache-magpie-marketplace)
 is the layer that catches them. Where the sandbox asks *can this command reach
@@ -338,15 +338,18 @@ The guards that ship:
 | `mark-ready` | marking a PR ready while its head SHA has workflows awaiting approval | "ready for review" has to mean CI actually ran |
 | `security-language` | a CVE id or fix language in a **public** PR title or body | pre-disclosure content stays pre-disclosure |
 
-It arrives with the same run as Step 3 — `/magpie-setup:isolated-setup-install`
-registers the dispatcher, populates `~/.claude/scripts/guards.d/` from both the
-bundled rules and every skill that owns one, and wires the `PreToolUse` hook.
-Skills you install later contribute their own guards to the same directory.
+**This is why the two halves are one step.** The same
+`/magpie-setup:isolated-setup-install` run registers the dispatcher, populates
+`~/.claude/scripts/guards.d/` from both the bundled rules and every skill that
+owns one, and wires the `PreToolUse` hook. You do not run anything extra here.
+Skills you install later contribute their own guards to the same directory, so
+the rule set grows with what you installed rather than with what you
+remembered to re-run.
 
 The rule set is one harness-agnostic core with a thin adapter per harness, so
 Claude Code, OpenCode, Kiro and Gemini CLI all enforce byte-for-byte identical
-decisions. **Codex and Cursor have no action guard today** — the sandbox from
-Step 3 still applies there, this layer does not; the
+decisions. **Codex and Cursor have no action guard today** — the sandbox half
+of this step still applies there, this half does not; the
 [adapters matrix](adapters/README.md) tracks which harness has what.
 
 Per-command escape hatches exist and are explicit — `MAGPIE_ALLOW_MENTIONS=1`
@@ -358,13 +361,13 @@ when you genuinely need to gets disabled wholesale, which is worse.
 
 ---
 
-### Step 5 — set up privacy
+### Step 4 — set up privacy
 
 **Strongly recommended, and the one step that is about your project's data
-rather than your machine.** Steps 3 and 4 constrain what the agent can reach
-and what it can run. Neither has an opinion about the thing Magpie is actually
-for: reading a PMC's private list, or a security report that is still under
-embargo, and sending it to a model.
+rather than your machine.** Step 3 constrains what the agent can reach and what
+it is allowed to run. Neither half of it has an opinion about the thing Magpie
+is actually for: reading a PMC's private list, or a security report that is
+still under embargo, and sending it to a model.
 
 ```text
 /magpie-setup:privacy-llm
@@ -433,7 +436,7 @@ narrow between versions, and the gate is where you find out.
 
 ---
 
-### Step 6 — use it
+### Step 5 — use it
 
 ![Listing the installed skills, then a triage pass returning 38 open PRs with a proposed action for each and nothing posted](../assets/quickstart/step-use.svg)
 
@@ -456,7 +459,7 @@ everything that is installed.
 
 ---
 
-### Step 7 — consider adopting Magpie
+### Step 6 — consider adopting Magpie
 
 ![An adopt run: three paths staged and not committed, what a contributor gets on clone, and what it does not restrict](../assets/quickstart/step-adopt.svg)
 
