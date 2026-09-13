@@ -18,7 +18,7 @@
 
 """Check the documentation claims that must track the tree, and silently rot.
 
-Ten checks, all mechanical, each one written after the drift it catches was
+Eleven checks, all mechanical, each one written after the drift it catches was
 found by hand:
 
 1. **Spec-index completeness.** Every ``tools/spec-loop/specs/<name>.md`` is
@@ -77,6 +77,18 @@ found by hand:
     contributor who has to decide whether it applies to their change. Naming it
     is the minimum; the README says what each guards.
 
+11. **Eval-case counts, and eval-index completeness.** Three numbers per
+    family were maintained by hand and drifted independently: the headline
+    total in ``tools/skill-evals/evals/<family>/README.md``, its per-suite
+    rows, and the family's line in ``tools/skill-evals/README.md``. One was
+    wrong in three successive commits, including the one that corrected it,
+    and 34 families with eval suites had no index entry at all. All three are
+    now derived from the ``fixtures/case-*/`` directories the runner walks.
+    ``--fix`` rewrites the numbers and generates a missing entry; the
+    suite-name list inside the parenthetical is deliberately left alone,
+    because entries like ``step-4-* checks`` are legitimate shorthand and
+    rewriting prose to satisfy a counter costs more than it catches.
+
 Why counting is worth a hook at all: every one of these is a number a human has
 to remember to update while thinking about something else, and none of them
 breaks anything when wrong. They just quietly mislead the next reader.
@@ -84,16 +96,20 @@ breaks anything when wrong. They just quietly mislead the next reader.
 Run from the repo root:
 
     python3 tools/dev/check-doc-sync.py
+    python3 tools/dev/check-doc-sync.py --fix
 """
 
 from __future__ import annotations
 
+import argparse
 import importlib.util
 import re
 import sys
 from pathlib import Path
 
 SKILLS_DIR = Path("skills")
+EVALS_DIR = Path("tools/skill-evals/evals")
+EVALS_README = Path("tools/skill-evals/README.md")
 SPECS_DIR = Path("tools/spec-loop/specs")
 SPEC_INDEXES = (SPECS_DIR / "overview.md", SPECS_DIR / "README.md")
 # The index files themselves are not specs.
@@ -165,6 +181,21 @@ _PLUGIN_ALL_ROW = re.compile(r"^\|\s*\*?\*?`magpie`\*?\*?\s*\(all\)\s*\|\s*\*?\*
 _README_INSTALL_COUNT = re.compile(r"one plugin, (?P<count>\d+) skills")
 # ``/plugin install magpie-security@apache-magpie``
 _README_INSTALL_PLUGIN = re.compile(r"/plugin install magpie-(?P<family>[a-z-]+)@")
+
+# `## Suites (56 cases total)` — the per-family eval README's headline total.
+# `[ \t]*$` rather than `\s*$`: with re.M, `\s` matches the newline too, so a
+# rewrite would swallow the blank line the table below needs (MD058).
+_EVAL_SUITES_HEADING = re.compile(r"^## Suites \((?P<count>\d+) cases? total\)[ \t]*$", re.M)
+# `| preflight-floor | preflight-block.md § Pre-flight | 7 | at floor (silent), … |`
+_EVAL_SUITE_ROW = re.compile(r"^\|\s*(?P<suite>[a-z0-9][a-z0-9.-]*)\s*\|[^|]*\|\s*(?P<count>\d+)\s*\|", re.M)
+# `- **setup** — 56 cases across 13 steps (…)`. The separator is an em dash on
+# every line but one, which uses a colon; both are accepted rather than
+# rewritten, because the wording is prose and only the numbers are derived.
+_EVAL_FAMILY_LINE = re.compile(
+    r"^- \*\*(?P<family>[a-z0-9-]+)\*\*(?P<sep>\s*[—:]\s*)(?P<cases>\d+) cases? "
+    r"across (?P<suites>\d+) (?P<noun>steps?|suites?)(?P<rest>.*)$",
+    re.M,
+)
 
 
 def _frontmatter(path: Path) -> str:
@@ -405,6 +436,130 @@ def check_token_figures(errors: list[str]) -> None:
     module.check(errors)
 
 
+def _eval_counts() -> dict[str, dict[str, int]]:
+    """Count eval cases on disk: ``{family: {suite: case_count}}``.
+
+    A *suite* is any directory under a family that has a ``fixtures/`` child; a
+    *case* is a ``fixtures/case-*/`` directory. Both are the shapes the runner
+    itself walks, so the count here is the count that runs.
+    """
+    tree: dict[str, dict[str, int]] = {}
+    if not EVALS_DIR.is_dir():
+        return tree
+    for family_dir in sorted(p for p in EVALS_DIR.iterdir() if p.is_dir()):
+        suites: dict[str, int] = {}
+        for suite_dir in sorted(p for p in family_dir.iterdir() if p.is_dir()):
+            fixtures = suite_dir / "fixtures"
+            if not fixtures.is_dir():
+                continue
+            suites[suite_dir.name] = len([c for c in fixtures.glob("case-*") if c.is_dir()])
+        if suites:
+            tree[family_dir.name] = suites
+    return tree
+
+
+def check_eval_counts(errors: list[str], fix: bool = False) -> None:
+    """Declared eval-case counts against the cases on disk.
+
+    Three numbers were maintained by hand and drifted independently: each
+    family README's headline total, its per-suite rows, and the family's line
+    in the harness README. One of them was wrong in three successive commits,
+    including the commit that corrected it. The suite-name list inside the
+    parenthetical is deliberately *not* derived — entries like ``step-4-*
+    checks`` are legitimate shorthand, and rewriting prose to satisfy a counter
+    costs more than the drift it would catch.
+    """
+    tree = _eval_counts()
+    if not tree:
+        return
+
+    for family, suites in tree.items():
+        total = sum(suites.values())
+        readme = EVALS_DIR / family / "README.md"
+        if not readme.is_file():
+            errors.append(f"{readme}: missing — every eval family needs a README declaring its suites")
+            continue
+        text = original = readme.read_text(encoding="utf-8")
+
+        # A README that declares no total has no claim to drift; the harness
+        # index below is where completeness is enforced, not here.
+        m = _EVAL_SUITES_HEADING.search(text)
+        if m and int(m.group("count")) != total:
+            if fix:
+                text = _EVAL_SUITES_HEADING.sub(f"## Suites ({total} cases total)", text, count=1)
+            else:
+                errors.append(f"{readme}: heading says {m.group('count')} cases, {total} on disk")
+
+        for row in _EVAL_SUITE_ROW.finditer(text):
+            suite, declared = row.group("suite"), int(row.group("count"))
+            if suite not in suites:
+                continue
+            if declared != suites[suite]:
+                if fix:
+                    fixed = row.group(0).replace(f"| {declared} |", f"| {suites[suite]} |", 1)
+                    text = text.replace(row.group(0), fixed, 1)
+                else:
+                    errors.append(
+                        f"{readme}: suite '{suite}' declares {declared} cases, {suites[suite]} on disk"
+                    )
+
+        if fix and text != original:
+            readme.write_text(text, encoding="utf-8")
+
+    if not EVALS_README.is_file():
+        return
+    index = original_index = EVALS_README.read_text(encoding="utf-8")
+    listed = {m.group("family"): m for m in _EVAL_FAMILY_LINE.finditer(index)}
+    missing: list[str] = []
+
+    for family, suites in tree.items():
+        total, n_suites = sum(suites.values()), len(suites)
+        m = listed.get(family)
+        if m is None:
+            if fix:
+                missing.append(
+                    f"- **{family}** — {total} cases across {n_suites} "
+                    f"{'suite' if n_suites == 1 else 'suites'} "
+                    f"({', '.join(sorted(suites))})"
+                )
+            else:
+                errors.append(
+                    f"{EVALS_README}: family '{family}' has {total} cases across {n_suites} "
+                    f"suite(s) on disk but no entry — every eval family belongs in the index"
+                )
+            continue
+        if int(m.group("cases")) == total and int(m.group("suites")) == n_suites:
+            continue
+        if fix:
+            rebuilt = (
+                f"- **{family}**{m.group('sep')}{total} cases across "
+                f"{n_suites} {m.group('noun')}{m.group('rest')}"
+            )
+            index = index.replace(m.group(0), rebuilt, 1)
+        else:
+            errors.append(
+                f"{EVALS_README}: family '{family}' says {m.group('cases')} cases across "
+                f"{m.group('suites')} {m.group('noun')}, disk has {total} across {n_suites}"
+            )
+
+    for family in listed:
+        if family not in tree:
+            errors.append(f"{EVALS_README}: family '{family}' is listed but has no eval suites on disk")
+
+    if fix and missing:
+        tail = max(_EVAL_FAMILY_LINE.finditer(index), key=lambda m: m.end(), default=None)
+        if tail is None:
+            errors.append(
+                f"{EVALS_README}: no family list to extend — add one entry by hand first, "
+                "so --fix has a place to put the rest"
+            )
+        else:
+            index = index[: tail.end()] + "\n" + "\n".join(sorted(missing)) + index[tail.end() :]
+
+    if fix and index != original_index:
+        EVALS_README.write_text(index, encoding="utf-8")
+
+
 def check_dev_scripts_documented(errors: list[str]) -> None:
     readme = DEV_DIR / "README.md"
     if not DEV_DIR.is_dir() or not readme.is_file():
@@ -420,7 +575,17 @@ def check_dev_scripts_documented(errors: list[str]) -> None:
             )
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--fix",
+        action="store_true",
+        help="rewrite the derivable eval-case counts from the tree, and generate an "
+        "index entry for any eval family that has none. Generated entries are "
+        "mechanical; reword them freely — only the numbers are re-derived.",
+    )
+    args = parser.parse_args([] if argv is None else argv)
+
     if not SKILLS_DIR.is_dir():
         print("check-doc-sync: run from the repository root", file=sys.stderr)
         return 2
@@ -436,6 +601,7 @@ def main() -> int:
     check_portable_form_is_flagged(errors)
     check_token_figures(errors)
     check_dev_scripts_documented(errors)
+    check_eval_counts(errors, fix=args.fix)
 
     if errors:
         print("check-doc-sync: documentation is out of step with the tree.\n", file=sys.stderr)
@@ -447,9 +613,13 @@ def main() -> int:
             file=sys.stderr,
         )
         return 1
-    print(f"check-doc-sync: OK ({total} skills; spec indexes, declared counts, and dev-script docs agree).")
+    cases = sum(sum(s.values()) for s in _eval_counts().values())
+    print(
+        f"check-doc-sync: OK ({total} skills; {cases} eval cases; spec indexes, "
+        "declared counts, and dev-script docs agree)."
+    )
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(sys.argv[1:]))

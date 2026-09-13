@@ -554,3 +554,141 @@ def test_main_exits_0_on_a_consistent_tree(repo: Path, capsys: pytest.CaptureFix
 
     assert mod.main() == 0
     assert "OK" in capsys.readouterr().out
+
+
+# ---------------------------------------------------------------------------
+# 11. Eval-case counts
+# ---------------------------------------------------------------------------
+
+
+def _evals(repo: Path, tree: dict[str, dict[str, int]]) -> None:
+    """Build `evals/<family>/<suite>/fixtures/case-N/` dirs matching *tree*."""
+    for family, suites in tree.items():
+        for suite, n in suites.items():
+            fixtures = repo / "tools" / "skill-evals" / "evals" / family / suite / "fixtures"
+            fixtures.mkdir(parents=True)
+            for i in range(n):
+                (fixtures / f"case-{i + 1}-x").mkdir()
+
+
+def _eval_family_readme(repo: Path, family: str, text: str) -> Path:
+    path = repo / "tools" / "skill-evals" / "evals" / family / "README.md"
+    path.write_text(text, encoding="utf-8")
+    return path
+
+
+def _eval_index(repo: Path, text: str) -> Path:
+    path = repo / "tools" / "skill-evals" / "README.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+    return path
+
+
+def test_eval_counts_clean(repo: Path) -> None:
+    _evals(repo, {"setup": {"alpha": 2, "beta": 3}})
+    _eval_family_readme(repo, "setup", "## Suites (5 cases total)\n\n| alpha | x | 2 |\n| beta | x | 3 |\n")
+    _eval_index(repo, "- **setup** — 5 cases across 2 steps (alpha, beta)\n")
+    assert _errors(mod.check_eval_counts) == []
+
+
+def test_eval_counts_flags_stale_total(repo: Path) -> None:
+    _evals(repo, {"setup": {"alpha": 2, "beta": 3}})
+    _eval_family_readme(repo, "setup", "## Suites (4 cases total)\n\n| alpha | x | 2 |\n| beta | x | 3 |\n")
+    _eval_index(repo, "- **setup** — 5 cases across 2 steps (alpha, beta)\n")
+    errs = _errors(mod.check_eval_counts)
+    assert any("heading says 4 cases, 5 on disk" in e for e in errs)
+
+
+def test_eval_counts_flags_stale_suite_row(repo: Path) -> None:
+    _evals(repo, {"setup": {"alpha": 2, "beta": 3}})
+    _eval_family_readme(repo, "setup", "## Suites (5 cases total)\n\n| alpha | x | 9 |\n| beta | x | 3 |\n")
+    _eval_index(repo, "- **setup** — 5 cases across 2 steps (alpha, beta)\n")
+    errs = _errors(mod.check_eval_counts)
+    assert any("suite 'alpha' declares 9 cases, 2 on disk" in e for e in errs)
+
+
+def test_eval_counts_flags_stale_index_line(repo: Path) -> None:
+    """The exact drift this check was written for: a hand-maintained total."""
+    _evals(repo, {"setup": {"alpha": 2, "beta": 3}})
+    _eval_family_readme(repo, "setup", "## Suites (5 cases total)\n")
+    _eval_index(repo, "- **setup** — 49 cases across 2 steps (alpha, beta)\n")
+    errs = _errors(mod.check_eval_counts)
+    assert any("says 49 cases across 2 steps, disk has 5 across 2" in e for e in errs)
+
+
+def test_eval_counts_flags_unlisted_family(repo: Path) -> None:
+    _evals(repo, {"setup": {"alpha": 1}, "issue-triage": {"beta": 2}})
+    _eval_family_readme(repo, "setup", "## Suites (1 cases total)\n")
+    _eval_family_readme(repo, "issue-triage", "## Suites (2 cases total)\n")
+    _eval_index(repo, "- **setup** — 1 cases across 1 steps (alpha)\n")
+    errs = _errors(mod.check_eval_counts)
+    assert any("'issue-triage'" in e and "no entry" in e for e in errs)
+
+
+def test_eval_counts_flags_listed_family_with_no_suites(repo: Path) -> None:
+    _evals(repo, {"setup": {"alpha": 1}})
+    _eval_family_readme(repo, "setup", "## Suites (1 cases total)\n")
+    _eval_index(
+        repo, "- **setup** — 1 cases across 1 steps (alpha)\n- **ghost** — 3 cases across 1 steps (x)\n"
+    )
+    errs = _errors(mod.check_eval_counts)
+    assert any("'ghost' is listed but has no eval suites on disk" in e for e in errs)
+
+
+def test_eval_counts_readme_without_a_total_is_not_drift(repo: Path) -> None:
+    """A README that declares no total makes no claim that can go stale."""
+    _evals(repo, {"setup": {"alpha": 2}})
+    _eval_family_readme(repo, "setup", "# setup evals\n\nProse, no headline total.\n")
+    _eval_index(repo, "- **setup** — 2 cases across 1 steps (alpha)\n")
+    assert _errors(mod.check_eval_counts) == []
+
+
+def test_eval_counts_fix_rewrites_numbers(repo: Path) -> None:
+    _evals(repo, {"setup": {"alpha": 2, "beta": 3}})
+    readme = _eval_family_readme(
+        repo, "setup", "## Suites (4 cases total)\n\n| alpha | x | 9 |\n| beta | x | 3 |\n"
+    )
+    index = _eval_index(repo, "- **setup** — 49 cases across 7 steps (alpha, beta)\n")
+    errs = _errors(mod.check_eval_counts, True)
+    assert errs == []
+    assert "## Suites (5 cases total)" in readme.read_text()
+    assert "| alpha | x | 2 |" in readme.read_text()
+    assert "- **setup** — 5 cases across 2 steps (alpha, beta)" in index.read_text()
+    assert _errors(mod.check_eval_counts) == []
+
+
+def test_eval_counts_fix_generates_missing_entry(repo: Path) -> None:
+    _evals(repo, {"setup": {"alpha": 1}, "issue-triage": {"beta": 2, "gamma": 1}})
+    _eval_family_readme(repo, "setup", "## Suites (1 cases total)\n")
+    _eval_family_readme(repo, "issue-triage", "## Suites (3 cases total)\n")
+    index = _eval_index(repo, "- **setup** — 1 cases across 1 steps (alpha)\n")
+    assert _errors(mod.check_eval_counts, True) == []
+    assert "- **issue-triage** — 3 cases across 2 suites (beta, gamma)" in index.read_text()
+    assert _errors(mod.check_eval_counts) == []
+
+
+def test_eval_counts_fix_preserves_colon_separator(repo: Path) -> None:
+    """One line uses ':' and 'suites'; --fix re-derives numbers, not wording."""
+    _evals(repo, {"pr-management-code-review": {"alpha": 2}})
+    _eval_family_readme(repo, "pr-management-code-review", "## Suites (2 cases total)\n")
+    index = _eval_index(
+        repo, "- **pr-management-code-review**: 99 cases across 27 suites (step-4-* checks)\n"
+    )
+    assert _errors(mod.check_eval_counts, True) == []
+    assert "- **pr-management-code-review**: 2 cases across 1 suites (step-4-* checks)" in index.read_text()
+
+
+def test_eval_counts_fix_keeps_the_blank_line_below_the_heading(repo: Path) -> None:
+    """Rewriting the heading must not eat the blank line the table needs.
+
+    With ``re.M``, a trailing ``\\s*$`` in the heading pattern also matches the
+    newlines after it, so the substitution silently joined the heading to the
+    table and tripped markdownlint's MD058.
+    """
+    _evals(repo, {"setup": {"alpha": 2}})
+    readme = _eval_family_readme(
+        repo, "setup", "# setup evals\n\n## Suites (9 cases total)\n\n| alpha | x | 2 |\n"
+    )
+    _eval_index(repo, "- **setup** — 2 cases across 1 steps (alpha)\n")
+    assert _errors(mod.check_eval_counts, True) == []
+    assert "## Suites (2 cases total)\n\n| alpha" in readme.read_text()

@@ -5,7 +5,7 @@
 
 Behavioral evals for the `issue-stale-sweep` skill.
 
-## Suites (22 cases total)
+## Suites (19 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|

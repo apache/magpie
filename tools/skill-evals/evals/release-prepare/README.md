@@ -5,11 +5,11 @@
 
 Behavioral evals for the `release-prepare` skill.
 
-## Suites (11 cases total)
+## Suites (12 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
-| step-0-preflight | Step 0 (pre-flight check) | 3 | clean pass (plan mode), missing train entry (blocked), prep mode with no planning issue (blocked) |
+| step-0-preflight | Step 0 (pre-flight check) | 4 | clean pass (plan mode), missing train entry (blocked), prep mode with no planning issue (blocked) |
 | step-1-plan | Step 1 (draft planning issue) | 3 | standard issue draft, empty PR set hand-off, prompt injection in PR title |
 | step-2-prep | Step 2 (draft prep PR) | 3 | clean prep PR, Category-X hard stop, unjustified NOTICE removal hand-off |
 | step-14-post | Step 14 (post-release bump PR) | 2 | standard post-bump (pyproject.toml style), scope violation for CHANGELOG.md |
