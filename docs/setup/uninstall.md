@@ -5,18 +5,18 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [Removing Magpie from an adopter repo (unadopt)](#removing-magpie-from-an-adopter-repo-unadopt)
+- [Removing Magpie from an adopter repo (uninstall)](#removing-magpie-from-an-adopter-repo-uninstall)
   - [Quick removal](#quick-removal)
   - [Invocation](#invocation)
   - [What you'll be asked to confirm](#what-youll-be-asked-to-confirm)
   - [Verifying the removal](#verifying-the-removal)
-  - [What remains after unadopt — and how to remove it](#what-remains-after-unadopt--and-how-to-remove-it)
+  - [What remains after uninstall — and how to remove it](#what-remains-after-uninstall--and-how-to-remove-it)
     - [`.apache-magpie-overrides/`](#apache-magpie-overrides)
     - [Symlinks pointing outside the snapshot](#symlinks-pointing-outside-the-snapshot)
     - [`post-checkout` hook with extra logic](#post-checkout-hook-with-extra-logic)
     - [Overlapping `.gitignore` entries](#overlapping-gitignore-entries)
     - [Outside-the-repo state](#outside-the-repo-state)
-  - [Re-adopting later](#re-adopting-later)
+  - [Setting the framework back up later](#setting-the-framework-back-up-later)
   - [See also](#see-also)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -24,7 +24,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/legal/release-policy.html -->
 
-# Removing Magpie from an adopter repo (unadopt)
+# Removing Magpie from an adopter repo (uninstall)
 
 > [!IMPORTANT]
 > **Skill names differ on this install.** Installed from the pinned snapshot
@@ -56,19 +56,19 @@ If you've already decided and want to act fast — from the
 main checkout of the adopter repo:
 
 ```bash
-/magpie-setup unadopt    # surfaces a plan, asks for confirmation, then removes
+/magpie-setup uninstall    # surfaces a plan, asks for confirmation, then removes
 ```
 
 Read on for prerequisites, what the confirmation prompt
 looks like, how to verify, and how to clean up what
-`unadopt` deliberately leaves behind.
+`uninstall` deliberately leaves behind.
 
 ## Invocation
 
 ```bash
-/magpie-setup unadopt              # default: preserves .apache-magpie-overrides/
-/magpie-setup unadopt --purge-overrides
-/magpie-setup unadopt dry-run      # print the plan; no writes, no confirmation
+/magpie-setup uninstall              # default: preserves .apache-magpie-overrides/
+/magpie-setup uninstall --purge-overrides
+/magpie-setup uninstall dry-run      # print the plan; no writes, no confirmation
 ```
 
 The flow refuses to run inside `apache/magpie`
@@ -93,7 +93,6 @@ The following will be REMOVED:
     .git/hooks/post-checkout                  (if it contains the Magpie recipe)
 
   Committed (will show in `git status`):
-    .apache-magpie.lock                      (your project's pin)
     .gitignore                                (the Magpie entries)
     README.md                                 (the adoption section, if present)
     AGENTS.md                                 (the Magpie framework section, if present)
@@ -104,6 +103,7 @@ The following will be REMOVED:
 
 The following will be PRESERVED:
 
+    .apache-magpie.lock                      (the project's committed floor; belongs to `unadopt`, not `uninstall`)
     .apache-magpie-overrides/                (pass `--purge-overrides` to remove)
 ```
 
@@ -111,7 +111,7 @@ The framework wires every skills dir the same way per the
 [agent-target registry](../../skills/setup/agents.md):
 `.agents/skills/` holds the canonical `magpie-*` links into the
 snapshot; `.claude/skills/` and `.github/skills/` (and any
-holdout) hold relays into `.agents/skills/`. unadopt removes the
+holdout) hold relays into `.agents/skills/`. `uninstall` removes the
 `magpie-*` entries from every one of them. The skills
 directories themselves are adopter-owned and are **not** removed.
 
@@ -132,25 +132,29 @@ git diff --cached                # review patches before committing
 ls .apache-magpie 2>/dev/null   # should print nothing — directory gone
 ```
 
-You should see staged deletions for `.apache-magpie.lock`,
+You should see staged deletions for
 your `setup/` skill directory, and modifications
 to `.gitignore` plus any of `README.md` / `AGENTS.md` /
 `CONTRIBUTING.md` that had adoption sections. Pay extra
 attention to the `.gitignore` and doc patches — those are
 the lines most likely to need a human re-read before
 committing. On disk, `.apache-magpie/` and
-`.apache-magpie.local.lock` should no longer exist.
+`.apache-magpie.local.lock` should no longer exist, but
+`.apache-magpie.lock` should still be there, unchanged: this flow
+leaves the project's committed floor alone. Removing the floor
+itself is [`unadopt`](../../skills/setup/adopt.md#unadopt), a
+different operation with a different blast radius.
 
 If anything is missing or unexpected — or if removal failed
 partway through — the canonical per-step plan, including
 failure modes, lives in
 [`.claude/skills/magpie-setup/uninstall.md`](../../skills/setup/uninstall.md).
 That's the procedure the agent steps through when you
-invoke `/magpie-setup unadopt`.
+invoke `/magpie-setup uninstall`.
 
-## What remains after unadopt — and how to remove it
+## What remains after uninstall — and how to remove it
 
-`unadopt` only deletes content the install flow itself
+`uninstall` only deletes content the install flow itself
 installed. Anything you authored, or anything that
 overlapped with the framework's footprint but predates the
 adoption, is preserved on purpose.
@@ -169,12 +173,12 @@ framework's. Remove with:
 git rm -r .apache-magpie-overrides/
 ```
 
-Or use `/magpie-setup unadopt --purge-overrides` to do
+Or use `/magpie-setup uninstall --purge-overrides` to do
 this in one step.
 
 ### Symlinks pointing outside the snapshot
 
-If `unadopt` flagged a symlink under your skills directory
+If `uninstall` flagged a symlink under your skills directory
 that resolved **outside** the framework snapshot — i.e.
 you wired up something extra at the same name post-
 adoption — it was left in place. Inspect and remove if no
@@ -189,7 +193,7 @@ rm .claude/skills/<name>
 
 If your `.git/hooks/post-checkout` contained anything
 beyond the Magpie `verify --auto-fix-symlinks` recipe,
-`unadopt` left the entire hook in place and told you which
+`uninstall` left the entire hook in place and told you which
 line to delete. Edit it by hand:
 
 ```bash
@@ -198,7 +202,7 @@ $EDITOR .git/hooks/post-checkout
 
 ### Overlapping `.gitignore` entries
 
-`unadopt` removes only the exact lines from the adopt
+`uninstall` removes only the exact lines from the install
 template. If you had unrelated rules referencing
 `.apache-magpie/` (e.g. a custom path under the snapshot
 dir), they remain. Audit and clean manually:
@@ -209,7 +213,7 @@ grep apache-magpie .gitignore
 
 ### Outside-the-repo state
 
-`unadopt` only touches your adopter repo. None of the
+`uninstall` only touches your adopter repo. None of the
 following are removed — retire each one only if you are
 also retiring Magpie from this machine entirely:
 
@@ -234,11 +238,11 @@ also retiring Magpie from this machine entirely:
 - **Per-user state from skills that wrote outside this
   repo** — consult each skill's docs.
 
-## Re-adopting later
+## Setting the framework back up later
 
-Because unadoption deletes the `setup` skill
+Because uninstalling deletes the `setup` skill
 itself, future `/magpie-setup` invocations resolve to
-nothing. To re-adopt, re-run an install recipe in
+nothing. To set the framework back up, re-run an install recipe in
 [`install-recipes.md`](install-recipes.md) — the same path
 a first-time adopter takes.
 

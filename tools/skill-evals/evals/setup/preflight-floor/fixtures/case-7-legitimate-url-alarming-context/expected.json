@@ -1,0 +1,9 @@
+{
+ "action": "update",
+ "commands": [
+  "claude plugin update magpie-setup@apache-magpie",
+  "claude plugin update magpie-quorum-watch@apache-magpie",
+  "claude plugin update magpie-lockstep-audit@apache-magpie"
+ ],
+ "blocks": true
+}

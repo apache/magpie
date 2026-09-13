@@ -98,7 +98,7 @@ Adding targets/families is additive and safe. **Dropping** a
 target or family removes committed/gitignored symlinks and may
 strand overrides, so do not auto-propose it. If the user asks to
 drop one, restate it as a `setup install` run with the
-reduced set (or [`setup unadopt`](../setup/uninstall.md) to
+reduced set (or [`setup unadopt`](../setup/adopt.md#unadopt) to
 remove adoption entirely), describe what disappears, and let the
 setup skill carry it out under its own confirmation.
 

@@ -1,0 +1,4 @@
+{"wrote_lock": true, "min_version": "0.3.0",
+ "plugins": ["magpie-setup", "magpie-utilities", "magpie-agent-guard",
+             "magpie-pr-management"],
+ "marketplace_tagged": false}

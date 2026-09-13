@@ -11,8 +11,8 @@ description: |
   overrides for every contributor. Marketplace install by default;
   the pinned snapshot is the fallback. Sub-actions:
     `setup` - first-time install, marketplace-first. Writes nothing to the repo.
-    `setup adopt` - commit the repo's default plugin set + overrides store
-    `setup unadopt` - remove them; leaves every install untouched
+    `setup adopt` - commit the floor lock, default set + overrides store
+    `setup unadopt` - remove the lock + its wiring; keeps overrides, installs
     `setup upgrade` - refresh the snapshot per the committed lock (main-checkout only)
     `setup worktree-init` - symlink a worktree's snapshot to the main's
     `setup verify` - health check + drift detection
@@ -55,7 +55,8 @@ with nothing committed to the repo, no snapshot, no lock files,
 no symlinks. `setup` with no arguments proposes that path; every
 other method is **optional**, for where a marketplace cannot
 reach. Walk-through:
-[`install.md` → Marketplace install](install.md#marketplace-install--the-default-path).
+[`install.md` → Step M0b](install.md#step-m0b--pre-fill-from-the-committed-floor),
+which reads any committed floor before walking through the install itself.
 Per-agent reference:
 [`docs/setup/marketplace.md`](../../docs/setup/marketplace.md).
 
@@ -64,6 +65,7 @@ Per-agent reference:
 | Path | What it sets up | Take it when |
 |---|---|---|
 | **`marketplace`** *(default)* | The agent's own plugin mechanism installs the skills, per machine. Nothing in the repo; updates arrive through the agent's plugin update. | The agent has a plugin / extension mechanism — Claude Code, Codex CLI, VS Code + Copilot, Gemini CLI, Cursor, `microsoft/apm`. The normal case. |
+| **`marketplace` + an adopted floor** | The same per-machine install, plus a committed `.apache-magpie.lock` recording the project's minimum version and plugin set. Contributors are brought up to it by any skill's pre-flight. | The project wants a floor every contributor meets, without pinning anyone to one version. Written by [`adopt`](adopt.md). |
 | **`svn-zip` / `git-tag` / `git-branch`** — the **pinned snapshot install** *(fallback)* | The gitignored snapshot at `<snapshot-dir>`, both lock files, gitignored `magpie-*` symlinks, the overrides scaffold, the post-checkout hook. | Only where a marketplace cannot reach: the agent has no plugin mechanism, the project needs the signed ASF source artefact, or it wants every contributor and CI job pinned to one committed framework version with drift detection. |
 | **`local`** | Committed symlinks into the in-repo `skills/` source. No fetch, no snapshot. | The Apache Magpie framework checkout itself (see below). |
 
@@ -161,9 +163,9 @@ semantics. Formats, fields, and drift rules:
 | [`skill-sources.md`](skill-sources.md) | Fetch/verify skills from trusted external sources listed in `<project-config>/skill-sources.md`, pin them in the committed `.apache-magpie.sources.lock`, and symlink the provided skills in exactly like framework skills. The runnable half of [trusted external skill sources](../../docs/skill-sources/README.md); the install gate is the adopter trust list. |
 | [`locks.md`](locks.md) | The two lock files of the pinned-snapshot path — `<committed-lock>` (the project's pin) and `<local-lock>` (this machine's fetch), their formats, and the per-source pair used by trusted external sources. |
 | [`agents.md`](agents.md) | The agent-target registry — *which* directories framework-skill symlinks land in across vendors, and the **canonical-plus-relay** model: `.agents/skills/` is the one canonical home (links into the snapshot/source); every other target (`claude-code`, `github`, holdout natives like Windsurf / Goose) gets a per-skill relay symlink into `.agents/skills/`. Defines active-target selection, SKILL.md format portability, and the Claude-Code-only layer (sandbox/hooks). The source of truth every sub-action consults for the target set. |
-| [`adopt.md`](adopt.md) | Adoption — the maintainer act of committing a recommended default plugin set and the repo's overrides store for every contributor, and removing them again. Distinct from installing, which touches only this machine's agent. |
+| [`adopt.md`](adopt.md) | Adoption — the maintainer act of committing the floor lock `.apache-magpie.lock`, the default plugin set derived from it, and the repo's overrides store, for every contributor. `unadopt` withdraws the lock and that derived wiring; `.apache-magpie-overrides/` is preserved unless `--purge-overrides` is passed. Distinct from installing, which touches only this machine's agent. |
 | [`overrides.md`](overrides.md) | Agentic-override file management — open / scaffold an override for a framework skill, list existing overrides, help reconcile when the framework changes the underlying skill's structure on upgrade. |
-| [`uninstall.md`](uninstall.md) | Reverse the install — remove snapshot, locks, symlinks, post-checkout hook, `.gitignore` entries, the framework sections in `README.md` / `AGENTS.md` / `CONTRIBUTING.md`, and the committed `setup` skill itself. Preserves `.apache-magpie-overrides/` by default; `--purge-overrides` removes it too. Surfaces the full removal plan before any write. |
+| [`uninstall.md`](uninstall.md) | Reverse the install — remove snapshot, the local lock, symlinks, post-checkout hook, `.gitignore` entries, the framework sections in `README.md` / `AGENTS.md` / `CONTRIBUTING.md`, and the committed `setup` skill itself, but leave the committed `.apache-magpie.lock` — that is `unadopt`'s job. Preserves `.apache-magpie-overrides/` by default; `--purge-overrides` removes it too. Surfaces the full removal plan before any write. |
 
 ## Golden rules
 
@@ -383,7 +385,7 @@ The skill dispatches by the first positional argument:
 |---|---|---|
 | `setup` (no args) | [`install.md`](install.md) | First-time install. Proposes the **marketplace** install first and falls back to the snapshot only per [Golden rule 10](#golden-rules) — the **main-checkout-only** restriction below applies to that fallback, not to the marketplace path. Idempotent — re-running on an already-installed repo behaves like `verify`. |
 | `setup install` | [`install.md`](install.md) | Same as no-arg — explicit form. Main-checkout only. |
-| `setup install method:marketplace` | [`install.md` → Marketplace install](install.md#marketplace-install--the-default-path) | The default path, named explicitly. Prints the agent's `marketplace add` + `plugin install` commands; writes nothing to the repo. Works in a worktree, and in a repo that has not adopted anything. |
+| `setup install method:marketplace` | [`install.md` → Step M0b](install.md#step-m0b--pre-fill-from-the-committed-floor) | The default path, named explicitly. Prints the agent's `marketplace add` + `plugin install` commands; writes nothing to the repo. Works in a worktree, and in a repo that has not adopted anything. |
 | `setup install method:svn-zip\|git-tag\|git-branch` | [`install.md`](install.md) | The pinned snapshot install — the fallback path. Main-checkout only. |
 | `setup adopt` | [`adopt.md`](adopt.md) | **Not an install.** Commit the repo's recommended default plugin set and scaffold its overrides store, so every contributor arrives with them. Requires an explicit maintainer decision; stages, never commits. Claude Code only for the default set. |
 | `setup upgrade` | [`upgrade.md`](upgrade.md) | Refresh snapshot per `<committed-lock>` + reconcile overrides + refresh symlinks. **Main-checkout only** — worktrees pick up upgrades automatically via the symlink installed by `worktree-init`. |
@@ -391,8 +393,8 @@ The skill dispatches by the first positional argument:
 | `setup verify` | [`verify.md`](verify.md) | Read-only health check + drift status report. Works in both main and worktrees. |
 | `setup skill-sources` (aka `skill-sources add <id>`) | [`skill-sources.md`](skill-sources.md) | Fetch/verify/pin/symlink skills from the trusted external sources the adopter listed in `<project-config>/skill-sources.md`. **Main-checkout only** — worktrees share the source snapshots via `worktree-init`. |
 | `setup override <skill>` | [`overrides.md`](overrides.md) | Open / scaffold an override file. |
-| `setup uninstall` | [`uninstall.md`](uninstall.md) | Reverse the install. Removes snapshot, locks, symlinks, hook, doc sections, and this skill itself. Preserves `.apache-magpie-overrides/` unless `--purge-overrides` is passed. **Main-checkout only.** |
-| `setup unadopt` | [`adopt.md` → Unadopt](adopt.md#unadopt) | Remove the committed default set and the overrides store. Leaves every install — yours and everyone else's — untouched. |
+| `setup uninstall` | [`uninstall.md`](uninstall.md) | Reverse the install. Removes snapshot, the local lock, symlinks, hook, doc sections, and this skill itself. Leaves `.apache-magpie.lock` — that is `unadopt`. Preserves `.apache-magpie-overrides/` unless `--purge-overrides` is passed. **Main-checkout only.** |
+| `setup unadopt` | [`adopt.md` → Unadopt](adopt.md#unadopt) | Remove the committed floor lock `.apache-magpie.lock` and the `.claude/settings.json` wiring derived from it. **Preserves `.apache-magpie-overrides/`** unless `--purge-overrides` is passed. Leaves every install — yours and everyone else's — untouched. |
 
 **Main-checkout-only sub-actions** (`upgrade`, and the
 pinned-snapshot fallback of `install`/`uninstall` — all of them
@@ -430,10 +432,10 @@ first, then continue.
 | Flag | Effect |
 |---|---|
 | `from:<git-ref>` / `from:<version>` | Install or upgrade from a specific framework ref or version. Used during `install` (overrides the user prompt; on `method:marketplace` it pins the marketplace to that tag — `/plugin marketplace add apache/magpie@<version>`) and `upgrade` (overrides the committed lock for *this run only* — does NOT update the committed lock). |
-| `method:<marketplace\|git-branch\|git-tag\|svn-zip\|local>` | Pick the install method explicitly. **Default during `install`: `marketplace`** — the other methods are the fallback for what a marketplace cannot cover ([Golden rule 10](#golden-rules)), so the agent proposes the marketplace path and names the fallback rather than opening with a three-way method prompt. **`marketplace`** writes nothing to the repo (see [`install.md` → Marketplace install](install.md#marketplace-install--the-default-path)). **`local`** is **framework-checkout only** — it self-adopts by linking the in-repo `skills/` source directly instead of fetching a snapshot (see [`install.md` → Local self-adoption](install.md#local-self-adoption-methodlocal)). |
+| `method:<marketplace\|git-branch\|git-tag\|svn-zip\|local>` | Pick the install method explicitly. **Default during `install`: `marketplace`** — the other methods are the fallback for what a marketplace cannot cover ([Golden rule 10](#golden-rules)), so the agent proposes the marketplace path and names the fallback rather than opening with a three-way method prompt. **`marketplace`** writes nothing to the repo (see [`install.md` → Step M0b](install.md#step-m0b--pre-fill-from-the-committed-floor)). **`local`** is **framework-checkout only** — it self-adopts by linking the in-repo `skills/` source directly instead of fetching a snapshot (see [`install.md` → Local self-adoption](install.md#local-self-adoption-methodlocal)). |
 | `agents:<list>` | Comma-separated **agent targets** to wire symlinks into ([`agents.md`](agents.md) registry ids: `universal`, `claude-code`, `github`, `windsurf`, `goose`, …). Default on `adopt`/`upgrade`: auto — the always-on neutral set (`universal` + `claude-code` + `github`) plus any other registry dir already present in the repo. When passed, **replaces** the auto-detected set for that run, except `universal` (`.agents/skills/`) which is always retained because it is the canonical home every other target relays into — dropping it would leave the relays dangling. |
 | `skill-families:<list>` | Comma-separated **opt-in** families — the set to symlink on the snapshot path, the set of `magpie-<family>` plugins to install on the marketplace path — any of the opt-in families declared by a `family:` frontmatter key in the snapshot (today: `security`, `pr-management`, `issue`, `release-management`, `repo-health`, `pairing`, `mentoring`, `contributor-growth`). Default on `adopt`: prompt (see [`install.md` Step 5](install.md#step-5--pick-the-skill-families-and-mcp-servers)). Default on `upgrade`: read the families list from `<committed-lock>` / `<local-lock>`, **auto-include any opt-in family the framework has introduced since the lock was written** (recorded back into the lock), and **ensure every framework skill in the effective family set has a valid symlink** — create or repair missing / broken symlinks, not just add new ones. The flag never accepts the always-on families (`setup`, `utilities`); per [Golden rule 8](#golden-rules) those are wired up unconditionally on every run and there is no way to ask for them or opt out. |
-| `--purge-overrides` | *(unadopt only)* Also `git rm -r` `.apache-magpie-overrides/`. Default: preserve. |
+| `--purge-overrides` | *(`unadopt` and `uninstall`)* Also `git rm -r` `.apache-magpie-overrides/`. Default on both: preserve. |
 | `--no-overrides` | *(any framework skill)* Skip override-file lookup for this single invocation. Runs the skill against framework defaults; override files on disk are not read, modified, or deleted. The safety baseline (confidentiality, privacy, security) still applies. See [One-shot defaults run](../../docs/setup/agentic-overrides.md#one-shot-defaults-run). |
 | `dry-run` | Show what the skill would do without writing anything. |
 
@@ -462,4 +464,4 @@ first, then continue.
 | The agent offers no `/plugin` (or equivalent) command | That agent has no marketplace — the one case the pinned snapshot install exists for | `setup install method:git-branch` (or `svn-zip` for the signed release) — see [`docs/setup/install-recipes.md`](../../docs/setup/install-recipes.md) |
 | Every Magpie skill appears twice, under both `/magpie-<skill>` and `/magpie-<family>:<skill>` | Both install paths are live on this machine — a snapshot install underneath a marketplace one | Keep one ([Golden rule 10](#golden-rules)): `setup uninstall` to drop the repo-side snapshot, or uninstall the plugins if the project needs the committed pin |
 | `git clone` of an upstream PR sees no framework skills | Expected — the snapshot is gitignored, so a fresh clone has no `<snapshot-dir>`. The clone needs `setup` once before any framework skill is invocable | `setup` |
-| Project decided to stop using apache-magpie | Two separate reversals. Withdraw the repo's recommendation — the committed default set and overrides store — with `setup unadopt`. Remove the install itself — snapshot, locks, symlinks, hook, doc sections, the `setup` skill — with `setup uninstall`; it preserves `.apache-magpie-overrides/` unless `--purge-overrides` is passed | `setup unadopt`, then `setup uninstall` |
+| Project decided to stop using apache-magpie | Two separate reversals. Withdraw the repo's recommendation — the committed floor lock `.apache-magpie.lock` and the `.claude/settings.json` wiring derived from it — with `setup unadopt`. Remove the install itself — snapshot, local lock, symlinks, hook, doc sections, the `setup` skill, but **not** `.apache-magpie.lock` — with `setup uninstall`. Both preserve `.apache-magpie-overrides/` unless `--purge-overrides` is passed | `setup unadopt`, then `setup uninstall` |

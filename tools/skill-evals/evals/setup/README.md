@@ -5,17 +5,23 @@
 
 Behavioral evals for the `setup` skill.
 
-## Suites (26 cases total)
+## Suites (56 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
 | step-verify-drift | verify.md § Check 3 (drift) | 5 | clean, method/URL mismatch, ref mismatch, svn-zip SHA-512 mismatch, local lock missing |
-| verify-default-set | verify.md § Committed default set | 3 | no committed `enabledPlugins` block (absent, not a fault), all three floor members present (current), some but not all present (stale — the only fault this check reports) |
-| uninstall-default-set | uninstall.md § Committed default set | 2 | committed block is exactly the floor (all three removed, nothing kept), a mixed block with other Magpie and other-vendor plugins (only the floor removed, everything else kept) |
+| verify-default-set | verify.md § Committed default set | 4 | no committed `enabledPlugins` block (absent, not a fault), every floor member present (current), some but not all present (stale — the only fault this check reports), a lock whose floor was enlarged to four (stale, naming the fourth) |
+| uninstall-default-set | uninstall.md § Committed default set | 3 | committed block is exactly the floor (all three removed, nothing kept), a mixed block with other Magpie and other-vendor plugins (only the floor removed, everything else kept), a lock whose floor was enlarged to four (all four removed — no entry orphaned behind a deleted marketplace) |
 | step-overrides-surface | overrides.md § Step 0b | 4 | adopted no flag (offer choice), --local flag (personal), not adopted (personal only), both surfaces exist |
 | step-override-bypass | agentic-overrides.md § One-shot defaults run | 3 | `--no-overrides` flag + override exists, `--no-overrides` + no override, no flag + override exists |
 | step-m5-no-repo-offer | install.md § Step M5 — Recap and what comes next | 4 | An install writes nothing repo-side on any harness and is complete as it stands: Claude Code fresh, Codex, Gemini (no offer in any of them), plus the one case where adoption legitimately comes up — the user asked for the team to get it on clone |
 | step-adopt-settings-merge | adopt.md § Merge rules | 5 | no `.claude/settings.json` (create), file with unrelated keys (merge, preserve them), existing `enabledPlugins` with non-floor and non-Magpie entries (add only the missing floor members, remove nothing), existing pinned `apache-magpie` marketplace definition (left alone), malformed JSON (refuse, never rewrite) |
+| lock-marketplace-parse | locks.md § `method: marketplace` | 5 | ahead of floor, a .dev floor met by the release after it, 0.9.0 against a 0.10.0 floor (the string-ordering trap), a missing floor plugin, and a git-tag lock that still pins |
+| adopt-write-floor | adopt.md § Step 2 | 4 | a fresh adopt with an extra family installed that stays out of the floor, a maintainer adding one deliberately, a .dev version recorded verbatim, and Gemini still getting a lock with no derived wiring |
+| setup-prefill-from-floor | install.md § Step M0b | 4 | adopted (propose the floor), unadopted (framework defaults), a foreign marketplace called out, and a snapshot lock falling through |
+| preflight-floor | preflight-block.md § Pre-flight | 7 | at floor (silent), below floor (update), plugin missing (install), foreign marketplace (ask first, run nothing), no `claude` CLI (print), unadopted (propose setup), `apache/magpie` in an alarming context (update anyway, unasked) |
+| upgrade-adoption-split | upgrade.md § Step 0b | 4 | not adopted (nothing staged), adopted (floor raised and staged), already ahead (floor unchanged), snapshot method (falls through) |
+| verify-floor | verify.md § Adoption floor | 4 | no lock (not a fault), ahead of floor with extra plugins (not a fault), a shortfall (a fault), a floor plugin the marketplace no longer ships (a fault, not installed around) |
 
 ## Run
 
@@ -71,3 +77,39 @@ uv run --directory tools/skill-evals skill-eval --cli "claude -p" \
   rejects the opposing phrasing. When editing them, check both
   directions — that a right answer still passes *and* that a reason
   arguing the other decision fails.
+- `preflight-floor` cases 4 and 7 are the security pair, and 7 is the
+  half that makes the pair discriminating. Case 4 alone cannot prove the
+  prose drives the answer: a safety-tuned grader derives "a non-standard
+  marketplace deserves flagging" from the fixture, so deleting the `url`
+  rule leaves it green. Case 7 tests the **permissive** half of the same
+  boundary — a freshly cloned repo the user does not own, unfamiliar
+  plugin names, but `url: apache/magpie` — where the rule entails
+  `update`, run unasked, and commonsense argues for `ask-first`. No
+  grader reaches `update` there by commonsense, so the prose is the only
+  possible source of the answer. Mutation check: delete the `url`
+  paragraph from step 3 of `tools/dev/preflight-block.md` and case 7
+  flips to `ask-first`. Neither case may regress.
+- `preflight-floor`'s `commands` field is what the pre-flight **runs**,
+  not what it displays; `commands_shown` is what it prints. Cases 4 and 5
+  therefore assert `"commands": []` — "nothing ran" is asserted directly
+  rather than riding on the `action` enum alone.
+- `preflight-floor` cases 2 and 3 grade their free-text `reason` with
+  the `mention_restart` regex predicate in `assertions.json` rather than
+  by string match. The `mention_` prefix is load-bearing:
+  `runner.py`'s `is_structural_expected` recognises only keys prefixed
+  `has_` or `mention_`, so a plural `mentions_restart` would fall
+  through to key-intersection comparison and the predicate would
+  silently never fire.
+- `verify-default-set` case 4 and `uninstall-default-set` case 3 are the
+  enlarged-floor pair. Both name a lock carrying four plugins rather than
+  the three `adopt` seeds, because every one of these checks reads the
+  lock's `plugins` list, in floor order, and not a fixed count. A
+  regression to a hard-coded three shows up as a fourth entry left behind
+  in `enabledPlugins` after its marketplace definition was removed — a
+  broken committed file for every contributor. Their reports state the
+  lock explicitly: the lock is the input to these checks, so a fixture
+  that omitted it would leave the floor to be guessed.
+- `verify-floor` cases 1 and 2 are the pair that keeps the floor a
+  recommendation: a repo that never adopted, and a contributor ahead of
+  the floor with extra families installed, must both come back
+  `is_fault: false`.

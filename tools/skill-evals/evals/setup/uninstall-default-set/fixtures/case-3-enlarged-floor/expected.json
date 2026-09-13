@@ -1,0 +1,1 @@
+{"plugins_removed": ["magpie-setup@apache-magpie", "magpie-utilities@apache-magpie", "magpie-agent-guard@apache-magpie", "magpie-pr-management@apache-magpie"], "plugins_kept": ["some-other-plugin@vendor-marketplace"], "keys_preserved": ["sandbox"], "file_deleted": false}

@@ -33,7 +33,7 @@
 
 | | |
 |---|---|
-| **Status** | Design approved; implementation not started |
+| **Status** | Subsystem A implemented; B not started. **Subsystem C superseded** by [2026-09-13 install/adopt/upgrade](2026-09-13-install-adopt-upgrade-design.md), which also moves A's default-set writing from an install-time offer into `adopt` and gives it a version floor. |
 | **Created** | 2026-09-10 |
 | **Supersedes** | Nothing. Extends the marketplace install path added for 0.2.0 and the shared pre-flight from #1193 |
 | **Spec surface** | [`tools/spec-loop/specs/adoption-and-setup.md`](../../tools/spec-loop/specs/adoption-and-setup.md) |

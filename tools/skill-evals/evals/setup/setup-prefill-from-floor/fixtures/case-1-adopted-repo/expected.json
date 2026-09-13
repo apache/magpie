@@ -1,0 +1,5 @@
+{"source": "committed-floor",
+ "proposed_plugins": ["magpie-setup", "magpie-utilities", "magpie-agent-guard",
+                      "magpie-pr-management"],
+ "writes_to_repo": false, "asks_first": true,
+ "foreign_marketplace_flagged": false}

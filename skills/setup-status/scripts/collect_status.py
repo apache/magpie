@@ -157,19 +157,46 @@ def repo_root(explicit: str | None) -> Path:
         return Path.cwd().resolve()
 
 
-def parse_lock(path: Path) -> dict | None:
-    """Parse a ``key: value`` lock file, dropping comments/blanks."""
+def parse_lock(path: Path) -> dict[str, Any] | None:
+    """Parse a ``key: value`` lock file, dropping comments/blanks.
+
+    One shape needs more than a flat key/value pair: a
+    ``method: marketplace`` lock's ``plugins:`` key has no inline
+    value and is instead followed by a ``- name`` list (the floor).
+    A bare ``key:`` line is looked ahead for such a block and, when
+    found, stored as a list; every other key stays a plain string.
+    """
     if not path.is_file():
         return None
-    data: dict[str, str] = {}
-    for raw in path.read_text(encoding="utf-8").splitlines():
-        line = raw.strip()
+    lines = path.read_text(encoding="utf-8").splitlines()
+    data: dict[str, Any] = {}
+    i = 0
+    n = len(lines)
+    while i < n:
+        line = lines[i].strip()
+        i += 1
         if not line or line.startswith("#"):
             continue
         if ":" not in line:
             continue
         key, _, value = line.partition(":")
-        data[key.strip()] = value.strip()
+        key = key.strip()
+        value = value.strip()
+        if value:
+            data[key] = value
+            continue
+        items: list[str] = []
+        while i < n:
+            nxt = lines[i].strip()
+            if nxt.startswith("- "):
+                items.append(nxt[2:].strip())
+                i += 1
+                continue
+            if not nxt or nxt.startswith("#"):
+                i += 1
+                continue
+            break
+        data[key] = items if items else value
     return data
 
 
@@ -275,6 +302,12 @@ def compute_drift(committed: dict | None, local: dict | None) -> dict:
         return {"checked": False, "reason": "not adopted (no committed lock)"}
     if committed.get("method") == "local":
         return {"checked": False, "reason": "method:local — no remote snapshot to drift against"}
+    if committed.get("method") == "marketplace":
+        return {
+            "checked": False,
+            "reason": "method:marketplace — installed via the plugin manager, "
+            "no snapshot or local lock to drift against",
+        }
     if local is None:
         return {"checked": False, "reason": "local lock absent — snapshot not fetched on this machine"}
     pairs = [
@@ -382,7 +415,12 @@ def render_markdown(d: dict) -> str:
     is what stops the table from wrapping and breaking."""
     repo = os.path.basename(d["repo"].rstrip("/")) or d["repo"]
     cl = d["committed_lock"] or {}
-    pin = cl.get("ref") or cl.get("source") or cl.get("url") or "—"
+    if d["mode"] == "marketplace":
+        # A marketplace lock is a floor, never a pin (locks.md) — do not
+        # label its `url` as "pinned".
+        pin = f"floor ≥{cl.get('min_version', '—')}"
+    else:
+        pin = cl.get("ref") or cl.get("source") or cl.get("url") or "—"
     mode = d["mode"] or "—"
     if d["self_adopted"]:
         mode += " (self-adopted)"
@@ -392,6 +430,38 @@ def render_markdown(d: dict) -> str:
     out.append("")
     out.append(f"**mode:** {mode} · **pinned:** {pin} · **verdict:** {verdict(d)}")
     out.append("")
+
+    # Adoption floor (method: marketplace only) — offline-safe: this
+    # collector never calls `claude plugin list`, so it can report the
+    # committed floor but never what is actually installed. That
+    # comparison is `setup verify`'s job, not this dashboard's.
+    if d["mode"] == "marketplace":
+        # A hand-edited lock can carry `plugins` as an inline scalar rather
+        # than a list; iterating that would walk its characters and render a
+        # garbage table with no error, so anything but a list is no floor.
+        raw_plugins = cl.get("plugins")
+        plugins = raw_plugins if isinstance(raw_plugins, list) else []
+        out.append(f"### Adoption floor (`min_version` {cl.get('min_version', '—')})")
+        out.append("")
+        # `url` is a security boundary (locks.md) — the pre-flight only acts
+        # unasked when it is `apache/magpie`, so the one read-only "what did
+        # this repo adopt" surface has to show it.
+        out.append(f"**marketplace `url`:** `{cl.get('url', '—')}`")
+        out.append("")
+        out.append("| Floor |")
+        out.append("|---|")
+        for p in plugins:
+            out.append(f"| {p} |")
+        if raw_plugins is not None and not isinstance(raw_plugins, list):
+            out.append("| ⚠️ `plugins` in the lock is not a list — fix the lock |")
+        out.append("")
+        out.append(
+            "`status` does not know what is installed on this machine — "
+            "that needs `claude plugin list`, which this offline check "
+            "never runs. Run `/magpie-setup verify` for the "
+            "floor-vs-installed comparison."
+        )
+        out.append("")
 
     # Agent targets — a Markdown pipe table (narrow columns); the
     # wide agents-served text goes in the bullet legend below.
@@ -443,6 +513,8 @@ def render_markdown(d: dict) -> str:
         drift_line = "⚠️ drift → `setup upgrade`"
     if d["self_adopted"]:
         snap = "in-repo source (local)"
+    elif d["mode"] == "marketplace":
+        snap = "n/a (installed via the plugin manager)"
     elif d["snapshot"]["present"]:
         snap = "present"
     else:

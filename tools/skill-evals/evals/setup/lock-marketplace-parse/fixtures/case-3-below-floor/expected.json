@@ -1,0 +1,2 @@
+{"verdict": "below-floor", "is_pin": false,
+ "needs": ["magpie-setup", "magpie-utilities", "magpie-agent-guard"]}

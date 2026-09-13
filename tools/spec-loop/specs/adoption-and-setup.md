@@ -29,25 +29,32 @@ acceptance:
     skill (setup); everything else is a gitignored snapshot plus
     committed override + lock files. On the default marketplace
     install, nothing is committed to the repo at all.
-  - The committed lock pins install method + URL + ref so a fresh clone
-    re-installs the same framework version.
+  - The committed lock records the install method, and what it records is
+    method-dependent. On the three snapshot methods it is a pin — URL + ref —
+    so a fresh clone re-installs the same framework version. On
+    `method: marketplace` it is a floor, not a pin: URL, `min_version` and a
+    plugin list, with no `ref`, and a fresh clone is brought up to that
+    minimum and never held down to it.
   - Drift between the committed pin and the local install is detected and
     surfaced with an upgrade proposal.
   - A gitignored `.apache-magpie-local/` supplies per-person overrides that
     layer above the committed `.apache-magpie-overrides/`, cannot weaken the
     safety baseline, and can be ignored for a single run via a one-shot
     default switch.
-  - A marketplace install on Claude Code offers once, opt-in and defaulting
-    to no, to write the committed default-set block and scaffold the
-    `.apache-magpie-overrides/` config store together in a single question
-    that states both are optional and that the plugins work in the repo
-    either way; the offer is never asked on any other client.
-  - Declining the offer, or running on a client where it is never asked,
-    leaves a complete install; neither the recap nor verify describes the
-    result as incomplete or partial.
-  - The default-set floor stays fixed at the same three plugins regardless
-    of which other families this maintainer installed; it never grows to
-    include a maintainer-only family.
+  - A marketplace install never writes the committed default-set block or
+    scaffolds `.apache-magpie-overrides/`, and never offers to: those are
+    adoption, reached only through `setup adopt`. The install recap names
+    `/magpie-setup adopt` once, and only when the user asks or says something
+    that means it.
+  - A marketplace install that wrote nothing to the repo is a complete
+    install; neither the recap nor verify describes the result as incomplete
+    or partial.
+  - The default-set floor is seeded with three plugins and never grows
+    automatically — not to match which other families this maintainer
+    installed, and never to include a maintainer-only family. It is enlarged
+    only when the maintainer explicitly asks, and every surface that reads
+    it — the derived wiring, verify, uninstall, unadopt — reads the lock's
+    `plugins` list in floor order rather than a fixed count.
   - Writing the committed default-set block touches only
     `extraKnownMarketplaces` and `enabledPlugins` in
     `.claude/settings.json`, preserves every other top-level key and an
@@ -57,16 +64,18 @@ acceptance:
     rewrite a settings file that does not parse, and stages only the file
     it wrote — never commits it.
   - verify reports an absent committed default-set block through the
-    non-fault glyph with an empty `missing` list, reports all three floor
-    members present as current and equally non-faulting, reports
+    non-fault glyph with an empty `missing` list, reports every floor
+    member present as current and equally non-faulting, reports
     some-but-not-all floor members present as stale, the one fault this
     check raises, naming the missing members in floor order with a repair
     offer, and gives an entry naming a plugin the marketplace no longer
     ships the same drift treatment.
-  - uninstall removes only the three floor entries from `enabledPlugins`
-    and the `apache-magpie` entry from `extraKnownMarketplaces`, keeps
-    every other plugin and marketplace entry untouched, drops either key
-    left empty by the removal, and never deletes `.claude/settings.json`.
+  - uninstall removes only the floor entries named by the lock's `plugins`
+    list from `enabledPlugins` and the `apache-magpie` entry from
+    `extraKnownMarketplaces`, keeps every other plugin and marketplace entry
+    untouched, drops either key left empty by the removal, and never deletes
+    `.claude/settings.json` — nor `.apache-magpie.lock`, which only unadopt
+    removes.
   - docs/quick-start.md and docs/setup/marketplace.md both state that the
     committed default-set block is optional and not a prerequisite to using
     the plugins in the repo.
@@ -100,7 +109,8 @@ committed version with drift detection.
   are wired in the current repo.
 - Docs: `docs/setup/` (install recipes, agentic-overrides contract,
   prerequisites).
-- Lock files: `.apache-magpie.lock` (committed pin) and
+- Lock files: `.apache-magpie.lock` (committed — a pin on the snapshot
+  methods, a floor on `method: marketplace`) and
   `.apache-magpie.local.lock` (gitignored, what this machine fetched).
 
 ## Behaviour & contract
@@ -120,7 +130,8 @@ committed version with drift detection.
   gets per-skill relay symlinks into it. This is uniform — there is no
   per-project skills-dir convention to detect.
 - **Committed lock is the source of truth.** A fresh contributor runs
-  `/magpie-setup` and re-installs to the project's pinned version.
+  `/magpie-setup` and re-installs to the project's pinned version on the
+  snapshot methods, or is brought up to its floor on `method: marketplace`.
 - **Drift detection** at the top of every framework skill: if the
   gitignored local lock has drifted from the committed pin, the skill
   proposes `/magpie-setup upgrade`.
@@ -150,6 +161,22 @@ committed version with drift detection.
   framework defaults for that session only, ignoring both
   `.apache-magpie-local/` and `.apache-magpie-overrides/`, without editing or
   removing either file. The safety baseline still applies.
+- **Adoption records a floor, not a pin.** On the marketplace path,
+  `adopt` writes `.apache-magpie.lock` with `method: marketplace`, a
+  `min_version` equal to the version installed at adopt time, and a
+  plugin list seeded with the framework's three. Both are minimums:
+  contributors may run newer versions and more plugins, and nothing is
+  ever downgraded, removed, or pinned. The derived
+  `extraKnownMarketplaces` entry is written untagged.
+- **The lock is harness-neutral; the wiring is not.** The lock is
+  written on every client. `.claude/settings.json` is derived from it
+  and written only where the harness can express it.
+- **Every skill's pre-flight brings the machine up to the floor** and
+  then stops for a restart, and does so without asking only when the
+  lock's `url` is `apache/magpie`.
+- **`upgrade` splits on adoption:** nothing repo-side when the project
+  has not adopted; `min_version` raised — never lowered — and staged
+  when it has.
 
 ## Out of scope
 
@@ -162,7 +189,9 @@ committed version with drift detection.
 1. A fresh `setup install` proposes the marketplace path first, names the
    agent's commands, and reaches the snapshot flow only with a stated reason.
 2. Adoption commits only the bootstrap skill + lock/override scaffold.
-3. The committed lock re-installs the same version on a fresh clone.
+3. The committed lock re-installs the same version on a fresh clone on the
+   snapshot methods, and on `method: marketplace` brings a fresh clone up to
+   the recorded floor without capping it there.
 4. Drift between local and committed locks is surfaced with an upgrade.
 5. Override files can be discovered and surfaced to skills without
    editing upstream skill bodies, and override text cannot weaken the
@@ -175,6 +204,21 @@ committed version with drift detection.
 7. A one-shot switch runs a skill against framework defaults for a single
    session, ignoring both override surfaces without deleting them, and the
    safety baseline still applies.
+8. `adopt` on a marketplace install writes a `method: marketplace` lock
+   carrying the installed version and the seeded floor, stages it, and
+   commits nothing; the derived marketplace entry carries no version tag.
+9. A pre-flight on a machine at or ahead of the floor prints nothing; one
+   below it installs or updates only floor plugins, reports what ran, and
+   stops for a restart without removing, downgrading or pinning anything.
+10. A pre-flight whose lock names a `url` other than `apache/magpie` runs
+    nothing and asks first.
+11. Version comparison is PEP 440: `0.10.0` satisfies a `0.9.0` floor, and
+    `0.2.0` satisfies a `0.2.0.dev202609110041` floor.
+12. `upgrade` writes nothing to the repo when the project has not adopted,
+    and raises — never lowers — `min_version` when it has.
+13. `verify` reports a missing lock and an ahead-of-floor machine as not
+    faults, and a shortfall as one.
+14. `unadopt` removes the lock; `uninstall` leaves it; each says which.
 
 ## Validation
 

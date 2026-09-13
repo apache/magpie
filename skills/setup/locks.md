@@ -1,12 +1,20 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/legal/release-policy.html -->
 
-# locks — the two lock files (pinned-snapshot path only)
+# locks — the committed record and the local fingerprint
 
-Lock files exist only on the **pinned snapshot install**. The
-default marketplace install has none: the agent's plugin manager
-owns the version, and pinning there means adding the marketplace
-from a tag (`/plugin marketplace add apache/magpie@<version>`).
+Every **adopted** project has one committed lock, whatever install
+method it uses. What the lock means depends on the method:
+
+| Method | The committed lock is | A newer local version is |
+|---|---|---|
+| `marketplace` | a **floor** — the minimum the project expects | fine, and reported as nothing |
+| `svn-zip` / `git-tag` / `git-branch` | a **pin** — the exact version to re-fetch | **drift**, to be reconciled |
+
+The second lock, `<local-lock>`, exists only on the three snapshot
+methods: it fingerprints what this machine fetched. A marketplace
+install has no local lock, because the agent's plugin manager already
+knows what is installed and `claude plugin list --json` reports it.
 
 The framework's lock-file model splits **what the project pins
 to** (committed) from **what this machine actually fetched**
@@ -40,6 +48,73 @@ The next adopter who runs `setup install` reads this
 file and re-installs to the **same version** the project
 declared. This is the core of the "adopt once, all subsequent
 users get the same thing" promise.
+
+## `method: marketplace` — the adoption floor
+
+```text
+# .apache-magpie.lock — committed; the project's floor.
+
+method:       marketplace
+url:          apache/magpie
+min_version:  0.2.0
+
+plugins:
+  - magpie-setup
+  - magpie-utilities
+  - magpie-agent-guard
+```
+
+Read it as: *this project expects at least Magpie `min_version`, and
+expects at least these plugins to be available.*
+
+**Neither line is a ceiling.** A contributor running 0.4.0 with seven
+families installed satisfies this lock completely and is told nothing.
+Nothing downgrades a plugin, removes one, or pins the marketplace to
+`min_version` — the `extraKnownMarketplaces` entry derived from this
+lock is written **untagged**, so contributors track the tip and meet
+the floor by default.
+
+`min_version` rather than `ref` is deliberate. On `git-tag` and
+`svn-zip`, `ref` **is** a pin and re-fetching that exact version is the
+point; reusing the key here would put two opposite meanings under one
+name in one file.
+
+### Deciding how a machine stands
+
+1. **`method` is not `marketplace`** → `not-marketplace`. The three
+   snapshot methods pin; their rules are above, not here.
+2. **`method`, `url`, `min_version` or `plugins` is missing or
+   unparsable** → `malformed`. Do not guess at a lock you cannot read.
+3. **A plugin in `plugins` is not installed** → `plugin-missing`, and
+   it goes in `needs`.
+4. **An installed plugin's version is below `min_version`** →
+   `below-floor`, and it goes in `needs`.
+5. **Otherwise** → `satisfied`, `needs` empty.
+
+`plugin-missing` wins over `below-floor` when both are true: a plugin
+that is absent has no version to be behind.
+
+**Compare versions as PEP 440, never as strings.** `0.10.0` is *newer*
+than `0.9.0`, and `0.2.0` is newer than `0.2.0.dev202609110041` — a
+maintainer who adopted mid-cycle against a `.dev` build is correctly
+satisfied by the release that follows it. String ordering gets both of
+these backwards.
+
+**One version, not per-plugin.** Every Magpie plugin's version tracks
+the framework's `pyproject.toml`, so `min_version` is a single
+framework version rather than a per-plugin constraint.
+
+### `url` is a security boundary
+
+`url` names the marketplace the floor's plugins come from. Any
+automated action taken on this lock's behalf — see the pre-flight in
+every skill — runs **without asking only when `url` is
+`apache/magpie`**. Any other value is reported and explicitly
+confirmed first.
+
+A lock is a committed file in whatever repository the user happened to
+open. Treating it as authority to install from an arbitrary marketplace
+would make opening a repository enough to install an attacker's code.
 
 ## `<local-lock>` — `.apache-magpie.local.lock`
 

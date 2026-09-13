@@ -1,0 +1,4 @@
+{"action": "install",
+ "commands": ["claude plugin install magpie-agent-guard@apache-magpie"],
+ "blocks": true,
+ "mention_restart": true}

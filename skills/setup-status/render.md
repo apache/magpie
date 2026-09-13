@@ -96,21 +96,69 @@ Notes on the format:
   paths (`~/.codex/skills/`, …) are out of scope — project-scope
   adoption only.
 
+### The adoption floor (`method: marketplace`)
+
+When `.apache-magpie.lock` carries `method: marketplace`, the
+collector reads the floor straight out of the committed lock — it is
+on disk, so this stays offline — and the renderer prints it right
+after the headline:
+
+```markdown
+### Adoption floor (`min_version` 0.3.0)
+
+**marketplace `url`:** `apache/magpie`
+
+| Floor |
+|---|
+| magpie-setup |
+| magpie-utilities |
+| magpie-agent-guard |
+
+`status` does not know what is installed on this machine — that needs `claude plugin list`, which this offline check never runs. Run `/magpie-setup verify` for the floor-vs-installed comparison.
+```
+
+The `url` line is not decoration: it is the marketplace every
+contributor's pre-flight would install from, and the pre-flight only
+acts without asking when it is `apache/magpie`
+([`locks.md`](../setup/locks.md#url-is-a-security-boundary)). This is
+the one read-only "what did this repo adopt" surface, so it shows the
+field that decides that.
+
+**There is no "Installed" column.** What versions are actually
+installed needs `claude plugin list`, and `status` must not be
+dragged online to answer that — the collector never emits it, so the
+renderer never has it to show. That comparison is `/magpie-setup
+verify`'s job, stated plainly rather than faked with a column this
+skill cannot fill honestly.
+
+`mode: marketplace` also changes two of the existing lines you would
+otherwise expect from a normal adopter: **pinned** reads `floor
+≥<min_version>` (a floor is never a pin — see
+[`../setup/locks.md`](../setup/locks.md)), and **snapshot** in "Drift
+& integrity" reads `n/a (installed via the plugin manager)` rather
+than `❌ missing` — there is no snapshot to fetch under this method,
+so its absence is not a fault. See
+[Mode-aware interpretation](#mode-aware-interpretation).
+
 ## Mode-aware interpretation
 
 The same field means opposite things across adoption modes. Apply
 this before assigning health:
 
-| Signal | `method:local` (self-adoption) | normal adopter (git/svn) |
-|---|---|---|
-| `snapshot.present == false` | ✅ expected — links go to in-repo `skills/` | ❌ snapshot missing → `setup upgrade` |
-| `local_lock == null` | ✅ expected — no per-machine fetch | ⚠️ snapshot not fetched here → `setup upgrade` |
-| `gitignore.targets[].all_unignored` | ✅ expected — symlinks are committed | not the pattern used; ignore |
-| `gitignore.targets[].glob_ignored` + `setup_unignored` | not used | ✅ expected — symlinks gitignored, bootstrap tracked |
-| `drift.checked == false` | ✅ nothing to drift against | depends on `reason` (see [`collect.md`](collect.md#drift)) |
-| `local_overrides.present == false` | ✅ optional personal surface — not required | ✅ same — `.apache-magpie-local/` is always optional |
-| `gitignore.local_overrides_ignored == false` | advisory: add `/.apache-magpie-local/` to `.gitignore` | same advisory |
+| Signal | `method:local` (self-adoption) | `method:marketplace` | normal adopter (git/svn) |
+|---|---|---|---|
+| `snapshot.present == false` | ✅ expected — links go to in-repo `skills/` | ✅ expected — installed via the plugin manager, nothing is fetched into the repo | ❌ snapshot missing → `setup upgrade` |
+| `local_lock == null` | ✅ expected — no per-machine fetch | ✅ expected — the plugin manager tracks its own installed state; there is nothing to lock | ⚠️ snapshot not fetched here → `setup upgrade` |
+| `gitignore.targets[].all_unignored` | ✅ expected — symlinks are committed | not applicable — no framework symlinks exist under this method | not the pattern used; ignore |
+| `gitignore.targets[].glob_ignored` + `setup_unignored` | not used | not applicable — no framework symlinks exist under this method | ✅ expected — symlinks gitignored, bootstrap tracked |
+| `drift.checked == false` | ✅ nothing to drift against | ✅ nothing to drift against — see `committed_lock.plugins` / `min_version` instead, via [`/magpie-setup verify`](../setup/verify.md#adoption-floor) | depends on `reason` (see [`collect.md`](collect.md#drift)) |
+| `local_overrides.present == false` | ✅ optional personal surface — not required | ✅ same — `.apache-magpie-local/` is always optional | ✅ same — `.apache-magpie-local/` is always optional |
+| `gitignore.local_overrides_ignored == false` | advisory: add `/.apache-magpie-local/` to `.gitignore` | same advisory | same advisory |
 
-Never report a self-adopted framework checkout as unhealthy merely
-for lacking a snapshot, a local lock, or ignored symlinks — those
-absences are correct there.
+Never report a self-adopted framework checkout, or a `method:marketplace`
+adopter, as unhealthy merely for lacking a snapshot, a local lock, or
+committed symlinks — those absences are correct in both cases. A
+marketplace adopter has **no repo-side install footprint at all** by
+design; the only thing this dashboard can honestly check for one is the
+committed floor (above). Whether the floor is actually met is
+`/magpie-setup verify`'s job, not this one's.

@@ -25,11 +25,11 @@ python3 <framework>/skills/setup-status/scripts/collect_status.py --format json 
 |---|---|
 | `repo` | Absolute path of the inspected repo root. |
 | `adopted` | `true` when `<committed-lock>` (`.apache-magpie.lock`) exists. `false` → not adopted; [Step 0](SKILL.md#step-0--pre-flight-check) already stopped. |
-| `mode` | Install method from the committed lock: `local`, `git-branch`, `git-tag`, `svn-zip`, or `null`. |
+| `mode` | Install method from the committed lock: `local`, `git-branch`, `git-tag`, `svn-zip`, `marketplace`, or `null`. |
 | `self_adopted` | `true` when `mode == local` — the framework checkout linking its own `skills/` source. |
-| `committed_lock` | Parsed `<committed-lock>` (the project pin), or `null`. |
-| `local_lock` | Parsed `<local-lock>` (per-machine fetch), or `null`. Always `null` under `method:local`. |
-| `snapshot` | `{present, is_symlink}` for `.apache-magpie/`. |
+| `committed_lock` | Parsed `<committed-lock>`, or `null`. Under `mode: marketplace` this is the project's **floor**, not a pin — `min_version` (string) and `plugins` (list of plugin names, floor order); every other mode's lock is a pin (`ref` etc., see [`../setup/locks.md`](../setup/locks.md)). |
+| `local_lock` | Parsed `<local-lock>` (per-machine fetch), or `null`. Always `null` under `method:local` and `method:marketplace` — a marketplace install has no local lock; the agent's own plugin manager already knows what is installed ([`../setup/locks.md`](../setup/locks.md)). |
+| `snapshot` | `{present, is_symlink}` for `.apache-magpie/`. Always `present: false` under `method:marketplace` — plugins are loaded by the plugin manager, not fetched into the repo. |
 | `drift` | The committed-vs-local comparison (see below). |
 | `registry_source` | `agents.md` when the agent-target list was parsed live from [`../setup/agents.md`](../setup/agents.md) (the normal case), or `fallback` when that file could not be read and the script's built-in mirror was used. |
 | `agent_targets` | One record per registry target (see below). |
@@ -101,6 +101,7 @@ for the *intended* set, and use the on-disk read for the
 | `checked` | Then |
 |---|---|
 | `false`, reason `method:local …` | Self-adoption has no remote snapshot to drift against. |
+| `false`, reason `method:marketplace …` | Installed via the plugin manager — there is no snapshot or local lock to drift against, by design. This is **not** a fault; do not propose `setup upgrade`. |
 | `false`, reason `local lock absent …` | The snapshot was never fetched on this machine. Propose [`setup upgrade`](../setup/upgrade.md). |
 | `true` | `in_sync` plus any `mismatches[]` over `method` / `url` / `ref`. The `git-branch` upstream-tip comparison needs network and is **not** done here — `note` names `setup verify` as the skill that does it. |
 

@@ -1,14 +1,20 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/legal/release-policy.html -->
 
-# install — first-time install of apache-magpie (alias: `adopt`)
+# install — first-time install of apache-magpie
 
-The default sub-action when the user says "install magpie" or
-"adopt apache-magpie".
+The default sub-action when the user says "install magpie". An install
+touches only this machine's agent and writes nothing to the repo.
+
+**`adopt` is not an alias of this.** `setup adopt` is the separate,
+maintainer-only act of committing a floor for every contributor — see
+[`adopt.md`](adopt.md). If the user typed `adopt` from memory or an old
+runbook, ask which they meant rather than doing either.
 
 **Route first: the marketplace install is the default.** Unless
 the user named a snapshot method (`method:svn-zip` / `git-tag` /
 `git-branch`) or `method:local`, this run takes
+[Step M0b](#step-m0b--pre-fill-from-the-committed-floor) into
 [Marketplace install](#marketplace-install--the-default-path) —
 the agent's own plugin mechanism, nothing written to the repo —
 and Steps 1–12 below never execute. The pinned snapshot install
@@ -51,7 +57,7 @@ skill recognises and routes between automatically:
   local>` — explicit method. **Default: `marketplace`.** The
   three snapshot methods and `local` route into Steps 1–12;
   `marketplace` routes into
-  [Marketplace install](#marketplace-install--the-default-path).
+  [Step M0b](#step-m0b--pre-fill-from-the-committed-floor).
 - `skill-families:<list>` — comma-separated **opt-in**
   families to symlink (default: prompt). Valid values are the
   opt-in families declared by `family:` keys in the snapshot:
@@ -62,6 +68,49 @@ skill recognises and routes between automatically:
   [`SKILL.md` Golden rule 8](SKILL.md#golden-rules) those
   are wired up unconditionally on every adopt run and the
   user is never asked about them.
+
+## Step M0b — Pre-fill from the committed floor
+
+Before proposing anything, read `.apache-magpie.lock` at the repo root.
+
+**No lock** → this repo has not adopted a floor. The source is
+**framework-defaults**: propose the framework's three defaults —
+`magpie-setup`, `magpie-utilities`, `magpie-agent-guard`.
+
+**A lock whose `method` is one of the three snapshot methods** → the
+source is still **framework-defaults**, but this step itself proposes
+**no plugins at all** (an empty list). That lock belongs to the
+pinned-snapshot flow, which picks its own defaults on its own steps;
+this marketplace pre-fill step contributes nothing on that path.
+
+**`method: marketplace`** → the project has adopted Magpie and this
+lock is its floor. Propose **exactly the floor's `plugins`, in the
+order the lock gives them**, rather than the framework's three
+defaults. Say where the proposal came from:
+
+```text
+This project has adopted Magpie (.apache-magpie.lock).
+Its floor: magpie-setup, magpie-utilities, magpie-agent-guard,
+           magpie-pr-management — Magpie 0.3.0 or newer.
+
+Proposing to install those four. You can change this — the floor is
+what the project recommends, not a restriction on what you may run.
+```
+
+Two rules hold regardless of what the lock says:
+
+- **This step writes nothing to the repository.** Reading the floor is
+  not adopting, re-adopting, or amending it. Changing the committed
+  floor is [`adopt`](adopt.md), and only `adopt`.
+- **Ask before running any install command.** The floor is a
+  recommendation from the project; acting on it is still the user's
+  decision, and they may add to or subtract from the proposal.
+
+**If `url` is not `apache/magpie`**, say so prominently before the
+proposal and name the marketplace the floor points at. See
+[`locks.md`](locks.md#url-is-a-security-boundary): a lock is a
+committed file in whatever repository the user happened to open, and
+this is the moment they get to notice it.
 
 ## Marketplace install — the default path
 
@@ -100,11 +149,14 @@ version, offer to **add** any family the user now wants (same
 commands from [Step M5](#step-m5--recap-and-what-comes-next).
 Do not re-run the install.
 
-Also check for the *other* path already being live in this repo:
-a `.apache-magpie.lock` at the repo root means the project is on
-the pinned snapshot install. Say so, and do not add a marketplace
-install silently on top of it — the double-install trap in
-[`SKILL.md` Golden rule 10](SKILL.md#golden-rules).
+Also check for the *other* path already being live in this repo: a
+`.apache-magpie.lock` at the repo root whose `method` is one of the
+three snapshot methods means the project is on the pinned snapshot
+install. Say so, and do not add a marketplace install silently on top
+of it — the double-install trap in
+[`SKILL.md` Golden rule 10](SKILL.md#golden-rules). A lock whose
+`method` is `marketplace` is not this case — that is the adoption
+floor [Step M0b](#step-m0b--pre-fill-from-the-committed-floor) reads.
 
 ### Step M2 — Identify the agent
 
@@ -229,14 +281,19 @@ Tell the user, in this order:
    Say so plainly: there is no repo-side step left undone, and the
    install is not partial, pending, or awaiting anything.
 
-   If the user is a maintainer who wants contributors to arrive with a
-   recommended set already enabled, that is **adoption** — a separate
-   decision that commits files for everyone — and it is
-   [`adopt.md`](adopt.md). Mention it only if they ask, or if they say
+   **Adopting is a separate, deliberate act.** If this repo has no
+   `.apache-magpie.lock`, mention it only if the user asks or says
    something that means it ("set this up for the team", "so everyone
-   gets it"). Do not offer it as a follow-up to an install: an install
-   is complete on its own, and proposing a committed change to a repo
-   the user may not maintain is not a default.
+   gets it") — an unprompted install recap does not raise it. When they
+   do, say once that the project can commit a floor — a minimum version
+   and plugin set every contributor picks up on clone — and name
+   [`/magpie-setup adopt`](adopt.md) as the way to do it. Do not write it
+   here.
+
+   One writer of the floor keeps the lock, the derived wiring, and the
+   overrides store from drifting apart, and keeps a maintainer's decision
+   to commit files for every contributor out of an install flow someone
+   may have reached just to try Magpie out.
 
 Then stop. Do not continue into Step 0.
 

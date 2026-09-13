@@ -1,0 +1,8 @@
+{
+  "mention_restart": {
+    "type": "regex",
+    "field": "reason",
+    "pattern": "restart|new session|reload|session start",
+    "flags": "is"
+  }
+}

@@ -1,0 +1,4 @@
+{"source": "framework-defaults",
+ "proposed_plugins": ["magpie-setup", "magpie-utilities", "magpie-agent-guard"],
+ "writes_to_repo": false, "asks_first": true,
+ "foreign_marketplace_flagged": false}

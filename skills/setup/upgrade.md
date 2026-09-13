@@ -83,6 +83,67 @@ Both paths run the same flow.
    route as a recover-snapshot install per the committed
    lock, not as an upgrade. Continue at Step 3.
 
+## Step 0b — Marketplace method: the floor split
+
+Read `.apache-magpie.lock`. **If `method` is one of the three snapshot
+methods, skip this step entirely** and continue at Step 1 — the
+snapshot flow below owns those, unchanged. No lock at all is not a skip
+condition: it is the "No lock" column of the split below, handled by
+this step.
+
+For `method: marketplace`, this step *is* the upgrade, and Steps 1–9
+below do not apply: there is no snapshot to delete, no symlink to
+refresh and no local lock to rewrite.
+
+**Update the machine either way.** Run the agent's plugin update for
+every installed Magpie plugin and report the versions before and after.
+Where there is no such CLI, print the commands instead. When every
+installed plugin is already at the latest available version, that run
+changes nothing — say so plainly instead of claiming an update
+happened.
+
+Then split on whether the project has adopted Magpie:
+
+| | No lock | `method: marketplace` |
+|---|---|---|
+| Updates the plugins | yes | yes |
+| Writes to the repo | **nothing** | raises `min_version`, regenerates the derived wiring |
+| Commits | — | **never**; `git add` only |
+
+**Not adopted** → report the new versions and stop. Do not offer to
+write a lock here: adopting is
+[`adopt`](adopt.md), a deliberate act with a different blast radius,
+and an upgrade is not the moment to slip it in.
+
+**Adopted** → after the update, set `min_version` to the version now
+installed and regenerate `.claude/settings.json` from the lock, under
+the merge rules in [`adopt.md`](adopt.md#merge-rules). Show the diff,
+`git add` both, and say plainly that the bump lands through the
+project's normal review like any other committed file.
+
+**Before you regenerate that wiring, check the lock's `url`.** The regenerated
+`extraKnownMarketplaces` entry names it, and on Claude Code that file
+*is* the auto-install mechanism for every contributor who clones this
+repo. So if `url` is anything other than `apache/magpie`, do **not**
+regenerate the wiring on your own: show the entry you would write, name
+the marketplace it points at, and get an explicit confirmation first.
+The lock is a committed file in whatever repository happened to be
+opened, and staging a settings change from it unasked would make
+opening a repository enough to propose someone else's code to the whole
+project. Same boundary as the pre-flight's, through a different door —
+[`locks.md`](locks.md#url-is-a-security-boundary). The `min_version`
+bump is not gated; only the derived wiring is.
+
+**`min_version` only ever rises.** If the installed version is somehow
+*below* the committed floor — an update that could not reach the latest,
+a machine pinned by other means — leave the floor where it is and say
+so. A floor going backwards would silently withdraw a requirement the
+project already made.
+
+**If nothing moved, stage nothing.** An upgrade that finds everything
+already current is a no-op with a one-line report, not an empty diff to
+review.
+
 ## Step 1 — Compute drift
 
 Compare `<committed-lock>` to `<local-lock>` and to upstream

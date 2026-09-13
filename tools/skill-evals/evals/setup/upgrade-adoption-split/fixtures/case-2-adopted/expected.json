@@ -1,0 +1,3 @@
+{"updates_plugins": true, "new_min_version": "0.4.0",
+ "stages_files": [".apache-magpie.lock", ".claude/settings.json"],
+ "commits": false}

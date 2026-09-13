@@ -33,8 +33,10 @@
 > symlinks, and the overrides scaffold in the repo so every contributor and CI
 > job runs one committed version; reach for it when your agent has no
 > marketplace, when you need the signed ASF source release, or when the
-> project wants that pin. (`adopt` remains an accepted alias of `install`;
-> `uninstall` / `unadopt` reverse it.)
+> project wants that pin. **Adopting is a third, separate act** —
+> `/magpie-setup adopt` commits a floor for every contributor and installs
+> nothing; `unadopt` reverses it. `uninstall` reverses an *install*, and
+> leaves the committed floor alone.
 
 The **setup** skill family is the prerequisite for running any
 framework skill. It walks a new adopter (or a fresh dev machine on

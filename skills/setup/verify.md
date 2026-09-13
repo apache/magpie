@@ -831,33 +831,75 @@ A static pass does not replace live verification in Gemini.
 ## Committed default set
 
 Read `.claude/settings.json` at the repo root and compare its committed
-`enabledPlugins` block against the floor of three: `magpie-setup@apache-magpie`,
-`magpie-utilities@apache-magpie`, `magpie-agent-guard@apache-magpie`. This
-block is `setup`'s opt-in offer (Claude Code only) to pin that floor in the
-repo; committing it is optional and is not required to use the plugins in
-this repo.
+`enabledPlugins` block against the floor — the `plugins` list in
+`.apache-magpie.lock`, in floor order, each as `<plugin>@apache-magpie`.
+`adopt` *seeds* that list with `magpie-setup`, `magpie-utilities` and
+`magpie-agent-guard`, and a project whose maintainers enlarged the floor
+carries more, so read the lock rather than assuming a count; with no lock in
+evidence, the seeded three stand. This block is written by
+[`adopt`](adopt.md) (Claude Code only) to record that floor in the repo;
+committing it is optional and is not required to use the plugins in this repo.
 
 - **No `enabledPlugins` key** — ✓, status `absent`. Report it in one line
   as available but not in use, and move on. **This is not a fault.** A
   project that never took the offer, or took it and later removed it, is
   correctly configured. Do not count it as a failed check, and do not
-  re-offer it here — `setup` is where the offer lives. There is no block
-  to diff the floor against, so `missing` is empty: the floor's entries
-  are not "missing" from a block that does not exist.
-- **All three floor members present** — ✓, status `current`. Also not a
+  offer to write it here — `/magpie-setup adopt` is where the floor is
+  recorded. There is no block to diff the floor against, so `missing` is
+  empty: the floor's entries are not "missing" from a block that does not
+  exist.
+- **Every floor member present** — ✓, status `current`. Also not a
   fault.
-- **Some but not all of the three floor members present** — ✗, status
+- **Some but not all of the floor members present** — ✗, status
   `stale`. This is the only case this check treats as a fault: it is
   drift, typically produced by a framework release that changed the
   floor. Name the missing members — the floor entries above that are not
   present, listed in floor order — and offer to add them under the merge
-  rules in [`install.md`](adopt.md#merge-rules).
+  rules in [`adopt.md`](adopt.md#merge-rules).
 - **A member naming a plugin the marketplace no longer ships** — ✗, same
   treatment as drift. Offer to drop that entry.
 
 The glyph carries the fault rule: ✓ covers both correctly-configured end
 states, absent and current alike; ✗ is reserved for the one state this
 check treats as a fault, stale (and the retired-plugin case above it).
+
+## Adoption floor
+
+Read `.apache-magpie.lock`. This check applies only to
+`method: marketplace`; the three snapshot methods are covered by the
+drift check above.
+
+- **No lock** → `not-adopted`. **This is not a fault.** A project that
+  has not adopted Magpie is a supported end state, and every *install*
+  in it works exactly as it does anywhere else. What an unadopted repo
+  does not have is a committed project config, so a skill that needs one
+  will still stop and ask — that is a missing configuration, not a
+  broken install. Report it in one line and move on.
+- **A floor plugin the marketplace no longer ships** →
+  `unshippable-plugin`, a fault. Check this first, before absence or
+  version: a plugin the marketplace has dropped has no install state to
+  evaluate, so it is never also counted as `below`. List it in the
+  shortfall, in floor order, the same as a `below` finding. Do **not**
+  offer to install around it. The project's floor names something that
+  no longer exists, which is a fact for a maintainer to fix in a PR
+  against this repo — say so, and name `setup adopt` as where the
+  floor is edited.
+- **A still-shipped floor plugin absent, or below `min_version`** →
+  `below`, a fault. List the shortfall in floor order and offer the
+  repair: the same install/update the pre-flight would run. **If the
+  lock's `url` is anything other than `apache/magpie`, say in the offer
+  which marketplace the repair would install from**, naming it — an
+  offer the user cannot see the source of is not a report, and the lock
+  is a committed file in whatever repository they happened to open. See
+  [`locks.md`](locks.md#url-is-a-security-boundary).
+- **Every floor plugin still shipped, installed at or above
+  `min_version`** → `met`, not a fault. Being *ahead* of the floor is
+  the normal case, and extra plugins beyond the floor are the
+  contributor's business — neither is reported as a finding.
+
+Compare versions as PEP 440
+([`locks.md`](locks.md#method-marketplace--the-adoption-floor)), never
+as strings.
 
 ## After the report
 

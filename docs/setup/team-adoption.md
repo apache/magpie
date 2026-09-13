@@ -7,6 +7,7 @@
 - [Team adoption — what a repo commits for everyone](#team-adoption--what-a-repo-commits-for-everyone)
   - [Adoption is not an install](#adoption-is-not-an-install)
   - [What adoption commits](#what-adoption-commits)
+  - [The committed lock — what a floor means](#the-committed-lock--what-a-floor-means)
   - [Step 1 — Decide which families to recommend](#step-1--decide-which-families-to-recommend)
   - [Step 2 — Commit the default set](#step-2--commit-the-default-set)
   - [Step 3 — Configure the repo's overrides](#step-3--configure-the-repos-overrides)
@@ -43,18 +44,30 @@ install what it recommends.
 
 ## What adoption commits
 
-Two things, both committed, both optional on their own:
+Three things, all committed, all optional on their own:
 
-**1. The default plugin set** — `extraKnownMarketplaces` plus an
-`enabledPlugins` floor in the repo's `.claude/settings.json`. A contributor who
-clones the repo and trusts it arrives with `magpie-setup`, `magpie-utilities`
-and `magpie-agent-guard` already enabled — no install step, no instructions to
-follow.
+**1. The floor lock — `.apache-magpie.lock`.** The project's adoption record,
+written on every client: `method: marketplace`, the `url` the plugins come
+from, a `min_version`, and the `plugins` list that *is* the floor. Item 2
+below is derived from it, and it is the headline artefact `unadopt` removes —
+`uninstall` leaves it alone. See
+[The committed lock](#the-committed-lock--what-a-floor-means) below.
 
-The floor is deliberately small and fixed. It does **not** grow to match what
-the adopting maintainer happens to use: a maintainer-only family such as
-`magpie-security` stays a personal, user-scope install. The committed set is
-the floor everyone benefits from, not a roster of one person's preferences.
+**2. The default plugin set — a floor, never a ceiling.** `extraKnownMarketplaces`
+plus an `enabledPlugins` block in the repo's `.claude/settings.json`, derived
+from the lock. A contributor who clones the repo and trusts it arrives with
+`magpie-setup`, `magpie-utilities` and `magpie-agent-guard` already enabled —
+no install step, no instructions to follow — and it never blocks or limits
+installing more, or running a newer Magpie.
+
+The floor's membership is deliberately small: it is **seeded** with those
+three and stays there unless the maintainers explicitly ask for more. That is
+a statement about what the repo recommends, not a cap on what any contributor
+may run. It **never grows automatically** to match what the adopting
+maintainer happens to use: a maintainer-only family such as `magpie-security`
+stays a personal, user-scope install, so every contributor isn't paying its
+always-on context cost for work only one person does. The committed set is the
+floor everyone benefits from, not a roster of one person's preferences.
 
 > [!NOTE]
 > The committed default set is **Claude Code only** today. Codex can only
@@ -63,7 +76,7 @@ the floor everyone benefits from, not a roster of one person's preferences.
 > those agents install the families they want themselves; everything else on
 > this page still applies.
 
-**2. Repo-wide overrides** — `.apache-magpie-overrides/<skill>.md`, committed.
+**3. Repo-wide overrides** — `.apache-magpie-overrides/<skill>.md`, committed.
 This is how a project changes a framework skill's behaviour without forking the
 framework: the skill reads the override file at run-time, before its own default
 behaviour. Use it for the rules that are genuinely this project's — its review
@@ -75,6 +88,37 @@ A third thing is **not** part of adoption, though it is often wanted alongside
 it: pinning every contributor and CI job to one framework version. That is an
 *install method* — the pinned snapshot — and it lives in
 [`install-recipes.md`](install-recipes.md#additional-install-methods).
+
+## The committed lock — what a floor means
+
+**A floor is a minimum, never a ceiling or a pin.** `setup adopt` records what
+it commits in `.apache-magpie.lock` — `method: marketplace`, the `url` the
+plugins come from, a `min_version` set to whatever Magpie version is
+installed on the maintainer's machine at adopt time, and a `plugins` list
+seeded with the default set from the previous section. Both `min_version`
+and `plugins` are floors: a contributor running a newer Magpie, or one with
+more families installed, satisfies the lock completely and is told nothing.
+Nothing the lock records is ever used to downgrade a plugin, remove one, or
+pin the marketplace to a version — the `extraKnownMarketplaces` entry
+derived from it is written **untagged**, so a contributor tracks the tip of
+the marketplace and simply needs to meet the floor.
+
+The lock itself is written on every client — it is the harness-neutral
+record of what the project committed. The derived `.claude/settings.json`
+wiring that acts on it is Claude-Code-specific and is written only where the
+harness can express it; on Codex or Gemini the lock is still written and
+still stands as the project's record, there is just no settings file for
+either agent to derive the wiring into.
+
+Every framework skill's pre-flight compares the machine it runs on against
+this floor before doing anything else, and brings a machine that falls short
+up to it — installing or updating only what the floor names, then stopping
+for a restart — but only acts without asking when the lock's `url` is
+`apache/magpie`; a lock naming any other marketplace is shown to the user
+first. `setup upgrade` can raise the floor as the project's own Magpie moves
+forward, but never lowers it. None of this ever limits what a contributor
+may install for themselves — see
+[What a contributor gets on clone](#what-a-contributor-gets-on-clone) below.
 
 ## Step 1 — Decide which families to recommend
 
@@ -150,9 +194,12 @@ ceiling or an allowlist:
 /magpie-setup unadopt
 ```
 
-Removes the committed default set and the overrides store, and leaves every
-install alone — yours and everyone else's. Un-adopting is the repo withdrawing
-a recommendation; it does not uninstall Magpie from anybody's agent.
+Removes the committed floor lock `.apache-magpie.lock` and the
+`.claude/settings.json` wiring derived from it. It **preserves**
+`.apache-magpie-overrides/` — the project's hand-written override files are
+not the framework's to delete — unless you pass `--purge-overrides`. It leaves
+every install alone, yours and everyone else's: un-adopting is the repo
+withdrawing a recommendation, not an uninstall from anybody's agent.
 
 To remove an *install*, that is [`uninstall.md`](uninstall.md) — a different
 operation with a different blast radius.

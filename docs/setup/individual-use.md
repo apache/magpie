@@ -300,12 +300,17 @@ from a configured roster, sending onboarding mail, checking reviewer load — an
 those degrade gracefully when run this way: they work from the data available
 to you, and cannot read teammate configuration they cannot reach.
 
-If a skill instead fails outright with something like "no `<project-config>/`
-found", it is trying to read a committed project config that this repo does not
-have. Either add a minimal `project.md` to your `.apache-magpie-local/` to
-satisfy the lookup, or
-[report it](../../skills/report-framework-issue/SKILL.md) so the skill is fixed
-to degrade gracefully instead.
+If a skill instead stops with something like "no `<project-config>/` found"
+and proposes `/magpie-setup`, that is its pre-flight: it is looking for a
+committed project config — `.apache-magpie-overrides/` — that this repo does
+not have, and it stops rather than guess at every unresolved placeholder in
+its body. **A personal `.apache-magpie-local/` does not satisfy that check
+today**; the pre-flight does not read it. So on an unadopted repo the honest
+options are to ask the project to adopt, to add a minimal
+`.apache-magpie-overrides/project.md` yourself if you may commit to the repo,
+or to
+[report it](../../skills/report-framework-issue/SKILL.md) so the skill is
+fixed to degrade gracefully instead.
 
 Skills that write to shared project state — labels, PR assignments, roster
 files — are the ones that benefit most from the project having
@@ -316,9 +321,10 @@ the agent may touch.
 
 | Works | Does not work |
 |---|---|
-| All workflow skills — `security-*`, `pr-management-*`, `issue-*`, `release-*`, `mentoring-*`, `pairing-*`, `repo-health-*` | `/magpie-setup install` / `verify` / `upgrade` — these manage the committed lock and snapshot, which do not exist here |
+| Every **install** — marketplace or snapshot — works exactly as it does on an adopted repo | A workflow skill run with no project config at all: its pre-flight stops and proposes `/magpie-setup` rather than guessing. The install is fine; what is missing is the repo's configuration |
+| All workflow skills — `security-*`, `pr-management-*`, `issue-*`, `release-*`, `mentoring-*`, `pairing-*`, `repo-health-*` — once the repo has a `.apache-magpie-overrides/` for them to read | `/magpie-setup verify` / `upgrade` — these read the committed lock and snapshot, which do not exist here |
 | Personal overrides via `.apache-magpie-local/` | Shared overrides (`.apache-magpie-overrides/`) — the committed override directory requires the project to have adopted |
-| `setup-isolated-setup-install` / `-verify` / `-doctor` (the secure-setup skills are user-scope artefacts, not per-project) | Drift detection (the skill checks for `.apache-magpie.lock`; finding none, it proceeds without it rather than erroring) |
+| `setup-isolated-setup-install` / `-verify` / `-doctor` (the secure-setup skills are user-scope artefacts, not per-project) | Drift and floor detection — there is no `.apache-magpie.lock` to compare against, so the pre-flight falls through to the project-config check above |
 | The full safety, confidentiality, and privacy baseline (always applied regardless of adoption state) | — |
 
 If a skill raises an unexpected "adoption required" message on a step that
@@ -328,6 +334,15 @@ issue tracker so the step can be made adoption-optional.
 ## If the project later adopts Magpie
 
 Nothing you did here is undone by that, and you do not have to switch paths.
+
+**A floor is a minimum, never a ceiling.** Once the repo has adopted, the
+pre-flight at the top of every framework skill you run there compares your
+machine against the project's `.apache-magpie.lock` and brings you up to the
+floor it names if you fall short — installing or updating only the plugins
+the floor lists, then stopping so you can restart — and nothing more. If you
+are already at or ahead of the floor, a newer Magpie release, extra families
+installed, or both, the pre-flight changes nothing and says nothing: your
+own installs and versions are always left alone.
 
 [Adoption](team-adoption.md) commits a recommendation: a default set of
 families that a contributor gets on clone, plus the repo's shared overrides. If

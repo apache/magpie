@@ -1,0 +1,4 @@
+{"action": "update",
+ "commands": ["claude plugin update magpie-pr-management@apache-magpie"],
+ "blocks": true,
+ "mention_restart": true}

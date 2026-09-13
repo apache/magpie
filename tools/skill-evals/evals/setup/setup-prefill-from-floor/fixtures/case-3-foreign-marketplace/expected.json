@@ -1,0 +1,4 @@
+{"source": "committed-floor",
+ "proposed_plugins": ["magpie-setup", "magpie-utilities"],
+ "writes_to_repo": false, "asks_first": true,
+ "foreign_marketplace_flagged": true}
