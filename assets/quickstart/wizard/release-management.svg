@@ -19,13 +19,12 @@
 
   GENERATED FILE - do not edit.
 
-  Derived from the skills' requires_config: frontmatter by
-  tools/dev/render-config-wizard.py. Illustrative of the shape of a
-  /magpie-setup config run, not a recording of one.
+  Written by tools/dev/render-wizard.py. Illustrative of the shape of a
+  run, not a recording of one.
 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 695 616"
      width="695" height="616" role="img"
-     data-magpie-generated="render-config-wizard"
+     data-magpie-generated="render-wizard"
      aria-label="An animated /magpie-setup config run for the release-management family: the check failing, values derived from the repository, one question, and gitignored files written">
   <title>/magpie-setup config — release-management</title>
   <desc>Illustrative animation of a configuration run for the release-management family. Derived from the skills' declared required configuration.</desc>

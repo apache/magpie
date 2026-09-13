@@ -10,7 +10,7 @@
   - [What the check can prove, and what it cannot](#what-the-check-can-prove-and-what-it-cannot)
   - [Adding a screenshot](#adding-a-screenshot)
   - [Conventions](#conventions)
-  - [Recording the one recording](#recording-the-one-recording)
+  - [The animated runs](#the-animated-runs)
   - [Why SVG](#why-svg)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -23,7 +23,7 @@
 | File | Embedded by | Shows |
 |---|---|---|
 | `magpie-setup.svg` | [`docs/quick-start.md`](../../docs/quick-start.md), and [`docs/setup/README.md`](../../docs/setup/README.md) | `/magpie-setup` detecting the checkout, printing its plan, and waiting for approval. A real recording of a real run. |
-| `wizard/<family>.svg` | that family's README, *Before the first run* | An **animated** `/magpie-setup config` run for that family. Generated from `requires_config:` frontmatter by [`render-config-wizard.py`](../../tools/dev/render-config-wizard.py) — there is no transcript to edit. Illustrative of the shape of a run, not a recording of one. |
+| `wizard/<family>.svg` | that family's README, *Before the first run* | An **animated** `/magpie-setup config` run for that family. Generated from `requires_config:` frontmatter by [`render-wizard.py`](../../tools/dev/render-wizard.py) — there is no transcript to edit. Illustrative of the shape of a run, not a recording of one. |
 | `families/<family>/<skill>.txt` | — | The authored transcript. This is the source file. |
 | `families/<family>/<skill>.svg` | that family's README, *Try these first* | The transcript rendered. Generated; never hand-edited. |
 
@@ -108,44 +108,41 @@ a terminal rather than as markup:
   reader can see. Several transcripts end on it.
 - **Never hand-edit an `.svg`.** It is generated. Edit the `.txt` and
   re-render.
-- **Under 1536 KB**, enforced on commit — which an authored screenshot will
-  never approach, but the recording could.
+- **Under 1536 KB**, enforced on commit. Nothing generated here comes close;
+  the cap catches a transcript that grew without anyone noticing.
 
-## Recording the one recording
+## The animated runs
 
-[`tools/dev/record-svg.sh`](../../tools/dev/record-svg.sh) does the whole job —
-brief, record, convert, prepend the licence header, check the size:
-
-```bash
-tools/dev/record-svg.sh setup
-```
-
-It needs two things:
+[`tools/dev/render-wizard.py`](../../tools/dev/render-wizard.py) writes them
+all:
 
 ```bash
-brew install asciinema     # or: pipx install asciinema
-# svg-term-cli is fetched on demand via npx — Node is the only other requirement
+python3 tools/dev/render-wizard.py           # write
+python3 tools/dev/render-wizard.py --check   # fail on drift
 ```
 
-asciinema 2 and 3 both work. asciinema 3 records the newer asciicast **v3**,
-which `svg-term-cli` cannot open — it reads v1 and v2 only — so the script
-converts the take to v2 first, and pins the 145x35 frame with whichever size
-flag the installed asciinema takes (`--window-size`, or the older
-`--cols`/`--rows`). Getting that second one wrong is silent: asciinema 3
-accepts `--cols`/`--rows` and ignores them.
+`magpie-setup.svg` is one fixed arc — the agent detected, the families picked,
+the install commands, then the secure-agent setup applying the sandbox, the
+clean-environment wrapper, the hooks and the status line. Edit
+`setup_script()` to change it. The per-family runs under `wizard/` have no
+script to edit: they are derived from each family's skills' `requires_config:`
+frontmatter, so a family that gains a required file gains a frame by itself.
 
-Record **in a scratch project, from your own terminal.** Not in a Magpie
-checkout: this repo commits the auto-install block and is already adopted, so
-there is no pre-flight failure to show and the install step records as a no-op.
+Animation is SMIL — one `<animate>` on opacity per line, all sharing one
+duration so the sequence loops as a unit. A viewer that does not animate SVG
+shows the first frame, which is the command about to be typed.
 
-**Start at `/magpie-setup`.** Adding the marketplace is a one-time
-prerequisite with [its own page](../../docs/setup/marketplace-install.md), so
-the recording should not open with it — it should open where the reader is.
+**Nothing in this repository is captured.** `magpie-setup.svg` was the last
+recording, made with `asciinema` and `svg-term-cli`. It was also wrong: it
+opened with the marketplace install, which became a prerequisite with its own
+page, and fixing that needed a terminal, a scratch project and a human — which
+is why it stayed wrong for as long as it did. The recorder is retired and the
+Node dependency with it.
 
-Keep it short: every redraw of the TUI becomes frames in the SVG, and a
-spinner left spinning is pure weight. Thirty seconds is plenty. If a good take
-ran long, trim it rather than re-recording — pass `--keep-cast`, then
-`tools/dev/record-svg.sh setup --cast <cast> --from 3000 --to 25000`.
+What that costs is the same thing the authored screenshots cost, and it is
+worth restating here: a generated animation cannot prove the program still
+behaves the way the picture says. It shows the *shape* of a run — what is
+asked, in what order, and what is written where — and every embed says so.
 
 ## Why SVG
 

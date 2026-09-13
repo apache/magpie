@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
 # https://www.apache.org/licenses/LICENSE-2.0
-"""Generate one animated SVG per family: `/magpie-setup config`, playing through.
+"""Generate the animated SVGs of Magpie's wizards: setup, and config per family.
 
 The family screenshots show a skill's *output*. They cannot show the thing a
 first-time reader most needs to see, which is the shape of a conversation —
@@ -9,12 +9,21 @@ the command being typed, the values the wizard works out on its own, the one
 question it asks, and the files that appear. A still frame of a wizard is a
 wizard with the interesting part removed.
 
-So this animates it. Every frame is derived, not written: the files a family's
-wizard would create come from that family's skills' `requires_config:`
-frontmatter, and the one-line description of each comes from the adopter
-scaffold's index — the same two sources `check-skill-config.py` reads. A
-family that gains a required file gets a new frame in its animation on the
-next `--fix`, with nobody editing a transcript.
+So this animates them. Two subjects:
+
+- **`magpie-setup.svg`** — the whole first run: the agent detected, the
+  families picked, the install commands emitted, then the secure-agent setup
+  that follows it (sandbox, clean-environment wrapper, hooks, status line).
+  This used to be the repository's one real recording, and it was wrong: it
+  opened with the marketplace install, which became a prerequisite with its
+  own page, and re-cutting it needed a terminal, a scratch project and a
+  human. Generating it fixes the content and removes the human.
+- **`wizard/<family>.svg`** — `/magpie-setup config` for one family. Every
+  frame is derived, not written: the files that family's wizard would create
+  come from its skills' `requires_config:` frontmatter, and the one-line
+  description of each from the adopter scaffold's index — the same two sources
+  `check-skill-config.py` reads. A family that gains a required file gets a
+  new frame with nobody editing a transcript.
 
 **Illustrative, not a recording.** The real run derives more, asks better
 questions, and looks like whatever the harness renders. What this shows
@@ -25,8 +34,8 @@ reader will meet it.
 Why SMIL rather than a capture: the same reason the static screenshots are
 authored. A capture needs a terminal, a human and asciinema, and needs all
 three again whenever the wizard's wording moves. SMIL `<animate>` is plain
-XML, deterministic, and needs no Node — `record-svg.sh` is the one place
-svg-term-cli is a dependency, and this is not it. GitHub animates inline SVG;
+XML, deterministic, and needs no Node at all — the recorder that did is
+retired, and this is what replaced it. GitHub animates inline SVG;
 a renderer that does not falls back to the first frame, which is the command
 about to be typed.
 
@@ -36,8 +45,8 @@ only.
 
 Run from the repo root:
 
-    python3 tools/dev/render-config-wizard.py           # write them
-    python3 tools/dev/render-config-wizard.py --check   # fail on drift
+    python3 tools/dev/render-wizard.py           # write them
+    python3 tools/dev/render-wizard.py --check   # fail on drift
 """
 
 from __future__ import annotations
@@ -50,6 +59,7 @@ from types import ModuleType
 from xml.sax.saxutils import escape
 
 OUT_DIR = Path("assets/quickstart/wizard")
+SETUP_SVG = Path("assets/quickstart/magpie-setup.svg")
 
 # The recorder's palette, so this reads as the same terminal as everything else.
 BG, BAR, DOT = "#1d1f21", "#2b2e31", "#3f4448"
@@ -86,9 +96,8 @@ LICENCE = """<?xml version="1.0" encoding="UTF-8"?>
 
   GENERATED FILE - do not edit.
 
-  Derived from the skills' requires_config: frontmatter by
-  tools/dev/render-config-wizard.py. Illustrative of the shape of a
-  /magpie-setup config run, not a recording of one.
+  Written by tools/dev/render-wizard.py. Illustrative of the shape of a
+  run, not a recording of one.
 -->
 """
 
@@ -147,7 +156,7 @@ def script(family: str, required: list[str], desc: dict[str, str]) -> list[tuple
     return out
 
 
-def render(family: str, frames: list[tuple[str, str]]) -> str:
+def render(title: str, alt: str, desc_text: str, frames: list[tuple[str, str]]) -> str:
     cols = max((len(text) for _, text in frames), default=0)
     width = 2 * PAD_X + (cols * ADVANCE_TENTHS + 9) // 10
     width = max(width, 620)
@@ -160,13 +169,10 @@ def render(family: str, frames: list[tuple[str, str]]) -> str:
     lines = [
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}"',
         f'     width="{width}" height="{height}" role="img"',
-        '     data-magpie-generated="render-config-wizard"',
-        f'     aria-label="An animated /magpie-setup config run for the {family} family:'
-        f" the check failing, values derived from the repository, one question, and"
-        f' gitignored files written">',
-        f"  <title>/magpie-setup config — {family}</title>",
-        f"  <desc>Illustrative animation of a configuration run for the {family}"
-        f" family. Derived from the skills' declared required configuration.</desc>",
+        '     data-magpie-generated="render-wizard"',
+        f'     aria-label="{escape(alt)}">',
+        f"  <title>{escape(title)}</title>",
+        f"  <desc>{escape(desc_text)}</desc>",
         f'  <rect width="{width}" height="{height}" rx="10" fill="{BG}"/>',
         f'  <rect x="0" y="0" width="{width}" height="{BAR_H}" rx="10" fill="{BAR}"/>',
         f'  <rect x="0" y="{BAR_H - 10}" width="{width}" height="10" fill="{BAR}"/>',
@@ -204,15 +210,80 @@ def render(family: str, frames: list[tuple[str, str]]) -> str:
     return LICENCE + "\n".join(lines)
 
 
+def setup_script() -> list[tuple[str, str]]:
+    """The first run, end to end: install, then the secure-agent setup.
+
+    Fixed rather than derived, because it is one arc rather than a per-family
+    projection — but it tracks what install.md and isolated-setup-install.md
+    actually do, and the eval suites for both are what keep those honest.
+    """
+    return [
+        (CMD, "> /magpie-setup"),
+        (FG, ""),
+        (MUTED, "  Agent      Claude Code"),
+        (MUTED, "  Installed  nothing yet"),
+        (MUTED, "  Repo       github.com/acme/toolkit, not adopted"),
+        (FG, ""),
+        (FG, "  Which families? setup and utilities are always in."),
+        (OK, "    [x] setup            install, upgrade, adopt, sandbox"),
+        (OK, "    [x] utilities        author and index your own skills"),
+        (OK, '    [x] pr-management    you said "triage"'),
+        (MUTED, "    [ ] security  [ ] issue  [ ] release-management  [ ] …"),
+        (FG, ""),
+        (FG, "  Run these:"),
+        (CMD, "    /plugin marketplace add apache/magpie"),
+        (CMD, "    /plugin install magpie-setup@apache-magpie"),
+        (CMD, "    /plugin install magpie-pr-management@apache-magpie"),
+        (FG, ""),
+        (MUTED, "  Nothing was written to the repository. That is the finished state."),
+        (FG, ""),
+        (WARN, "  One follow-up that is not optional - these skills read"),
+        (WARN, "  pre-disclosure security content, so sandbox the agent:"),
+        (FG, ""),
+        (CMD, "> /magpie-setup:isolated-setup-install"),
+        (FG, ""),
+        (FG, "  Proposed - nothing applied yet:"),
+        (FG, "    1  .claude/settings.json   sandbox on, 14 deny rules"),
+        (FG, "    2  ~/.claude/scripts/      3 hooks and the status line"),
+        (FG, "    3  ~/.zshrc                source agent-iso.sh"),
+        (FG, ""),
+        (FG, "  Apply 1-3? [y/N] y"),
+        (FG, ""),
+        (OK, "  ✓ sandbox        filesystem and network confined to this repo"),
+        (OK, "  ✓ clean env      credentials stripped before the agent starts"),
+        (OK, "  ✓ status line    shows the sandbox state and the Magpie version"),
+        (FG, ""),
+        (MUTED, "  Run a skill when you are ready. The first one that needs project"),
+        (MUTED, "  configuration writes it itself, into gitignored files."),
+    ]
+
+
 def build() -> dict[Path, str]:
     cfg = _load("check_skill_config", Path("tools/dev/check-skill-config.py"))
     desc = cfg.descriptions()
-    out: dict[Path, str] = {}
+    out: dict[Path, str] = {
+        SETUP_SVG: render(
+            "/magpie-setup — the first run",
+            "An animated first run of /magpie-setup: the agent detected, the skill families "
+            "picked, the install commands emitted, then the secure-agent setup applying the "
+            "sandbox, the clean-environment wrapper, the hooks and the status line",
+            "Illustrative animation of a first /magpie-setup run and the secure-agent setup "
+            "that follows it. Not a recording.",
+            setup_script(),
+        )
+    }
     for family, skills in sorted(cfg.families().items()):
         required = sorted({name for need, _ in skills.values() for name in need})
         if not required:
             continue  # nothing to configure, so nothing to animate
-        out[OUT_DIR / f"{family}.svg"] = render(family, script(family, required, desc))
+        out[OUT_DIR / f"{family}.svg"] = render(
+            f"/magpie-setup config — {family}",
+            f"An animated /magpie-setup config run for the {family} family: the check failing, "
+            f"values derived from the repository, one question, and gitignored files written",
+            f"Illustrative animation of a configuration run for the {family} family. Derived "
+            f"from the skills' declared required configuration.",
+            script(family, required, desc),
+        )
     return out
 
 
@@ -223,7 +294,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args([] if argv is None else argv)
 
     if not Path("plugins").is_dir():
-        print("render-config-wizard: run from the repository root", file=sys.stderr)
+        print("render-wizard: run from the repository root", file=sys.stderr)
         return 2
 
     wanted = build()
@@ -231,18 +302,19 @@ def main(argv: list[str] | None = None) -> int:
         stale = [p for p, body in wanted.items() if not p.is_file() or p.read_text("utf-8") != body]
         extra = [p for p in sorted(OUT_DIR.glob("*.svg")) if p not in wanted] if OUT_DIR.is_dir() else []
         for path in stale:
-            print(f"{path}: stale — run python3 tools/dev/render-config-wizard.py", file=sys.stderr)
+            print(f"{path}: stale — run python3 tools/dev/render-wizard.py", file=sys.stderr)
         for path in extra:
             print(f"{path}: no family requires configuration — delete it", file=sys.stderr)
         return 1 if (stale or extra) else 0
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     for path, body in wanted.items():
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(body, encoding="utf-8")
     for path in sorted(OUT_DIR.glob("*.svg")):
         if path not in wanted:
             path.unlink()
-    print(f"render-config-wizard: wrote {len(wanted)} animated wizard runs to {OUT_DIR}/")
+    print(f"render-wizard: wrote {len(wanted)} animated runs ({SETUP_SVG} + {len(wanted) - 1} families)")
     return 0
 
 

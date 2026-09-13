@@ -350,7 +350,7 @@ repos:
         name: check-quickstart-recording (setup, first-run and example SVGs)
         language: system
         entry: python3 tools/dev/check-quickstart-recording.py
-        files: ^(assets/(quickstart|examples)/.*|docs/.*\.md|README\.md|plugins/.*|skills/[^/]+/SKILL\.md|tools/dev/record-svg\.sh)$
+        files: ^(assets/(quickstart|examples)/.*|docs/.*\.md|README\.md|plugins/.*|skills/[^/]+/SKILL\.md|tools/dev/render-wizard\.py)$
         pass_filenames: false
   # Documentation claims that must track the tree. Four mechanical checks,
   # each added after the drift it catches was found by hand:
@@ -402,11 +402,11 @@ repos:
       # The animated wizard runs derive from the same frontmatter, so they move
       # when it moves. Regenerated here rather than only checked, for the same
       # reason as its neighbours: the output is a pure function of the source.
-      - id: render-config-wizard
-        name: render-config-wizard (animated per-family config runs)
+      - id: render-wizard
+        name: render-wizard (animated setup + per-family config runs)
         language: system
-        entry: python3 tools/dev/render-config-wizard.py
-        files: ^(skills/[^/]+/SKILL\.md|plugins/magpie-[^/]+/skills/.*/SKILL\.md|projects/_template/.*|tools/dev/(render-config-wizard|check-skill-config)\.py)$
+        entry: python3 tools/dev/render-wizard.py
+        files: ^(skills/[^/]+/SKILL\.md|plugins/magpie-[^/]+/skills/.*/SKILL\.md|projects/_template/.*|tools/dev/(render-wizard|check-skill-config)\.py)$
         pass_filenames: false
   # something else.
   - repo: local

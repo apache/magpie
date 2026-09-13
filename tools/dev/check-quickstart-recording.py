@@ -42,8 +42,13 @@ Checks:
   `.svg` still regenerates byte-identically from its source;
 - every screenshot is embedded by its family README, and every family README
   embeds at least one;
-- the one real recording exists, is embedded by the quick start, and the setup
-  family's README embeds it rather than a copy;
+- `magpie-setup.svg` — the whole first run, including the secure-agent setup
+  that follows it — regenerates from `render-wizard.py`, is embedded by the
+  quick start, and the setup family's README embeds it rather than a copy.
+  It used to be the repository's one *recording*, and it was wrong: it opened
+  with the marketplace install, which became a prerequisite with its own page,
+  and re-cutting it needed a terminal, a scratch project and a human. Nothing
+  here is captured any more;
 - the per-family wizard animations regenerate from the frontmatter they are
   derived from, and each is embedded by its family README. These have no
   transcript to pair with -- their source is `requires_config:` -- so the
@@ -54,9 +59,8 @@ Checks:
   check can see it;
 - every SVG parses as XML with an `<svg>` root, carries the Apache licence
   header, and is under the size cap. These are *text*: one that fails to parse
-  still "exists", a hand-regenerated file loses the header `svg-term-cli` does
-  not write, and a long take balloons to megabytes that ship in every source
-  release. None of it shows up in review, because the diff of a generated SVG
+  still "exists", a hand-edited file loses the licence header its generator
+  writes, and one that grows unnoticed ships in every source release. None of it shows up in review, because the diff of a generated SVG
   is unreadable by design;
 - nothing still points at anything retired — the fourteen PNG stills, the nine
   `*-first-run.svg` recordings, or the `assets/examples/` set the authored
@@ -81,18 +85,17 @@ QUICKSTART = Path("assets/quickstart")
 FAMILY_DIR = QUICKSTART / "families"
 WALKTHROUGH_DIR = QUICKSTART / "walkthrough"
 WIZARD_DIR = QUICKSTART / "wizard"
-WIZARD_SCRIPT = Path("tools/dev/render-config-wizard.py")
+WIZARD_SCRIPT = Path("tools/dev/render-wizard.py")
 FIRST_RUN_DOC = Path("docs/quick-start/first-run.md")
 PLUGINS = Path("plugins")
 SETUP_RECORDING = QUICKSTART / "magpie-setup.svg"
 QUICK_START_DOC = Path("docs/quick-start.md")
-RECORD_SCRIPT = Path("tools/dev/record-svg.sh")
 RENDER_SCRIPT = Path("tools/dev/render-screenshot.sh")
 SKILLS = Path("skills")
 
 # Generous next to a terminal GIF and still small enough to not be felt in a
-# source release. `record-svg.sh` warns at 1024 KB so a take that is drifting
-# long is caught while the cast is still on disk to retrim.
+# source release. Nothing generated here comes close; the cap is the guard
+# against a transcript that grew without anyone noticing.
 MAX_BYTES = 1536 * 1024
 
 LICENCE_MARKER = "Licensed to the Apache Software Foundation"
@@ -146,8 +149,7 @@ def check_svg(path: Path) -> list[str]:
     if (n := len(raw)) > MAX_BYTES:
         errors.append(
             f"{path}: {n // 1024} KB exceeds the {MAX_BYTES // 1024} KB cap — "
-            f"shorten the transcript, or for the recording re-cut it: "
-            f"{RECORD_SCRIPT} <target> --cast <cast> --from <ms> --to <ms>"
+            f"shorten the transcript it renders from"
         )
 
     text = raw.decode("utf-8", errors="replace")
@@ -164,10 +166,7 @@ def check_svg(path: Path) -> list[str]:
         )
 
     if LICENCE_MARKER not in text:
-        errors.append(
-            f"{path}: no Apache licence header. Regenerate it — both "
-            f"{RENDER_SCRIPT} and {RECORD_SCRIPT} prepend one"
-        )
+        errors.append(f"{path}: no Apache licence header. Regenerate it — every generator here prepends one")
 
     return errors
 
@@ -375,8 +374,8 @@ def main() -> int:
     known = families()
     errors: list[str] = []
 
-    # The one real recording: the quick start's /magpie-setup run. The setup
-    # family's first run *is* that run, so its README embeds it rather than a copy.
+    # The first-run animation. The setup family's first run *is* that run, so
+    # its README embeds it rather than a copy.
     errors += check_svg(SETUP_RECORDING)
     errors += check_embedded(QUICK_START_DOC, SETUP_RECORDING)
     if "setup" in known:
@@ -397,8 +396,8 @@ def main() -> int:
     steps = len(list(WALKTHROUGH_DIR.glob("*.svg"))) if WALKTHROUGH_DIR.is_dir() else 0
     wizards = len(list(WIZARD_DIR.glob("*.svg"))) if WIZARD_DIR.is_dir() else 0
     print(
-        f"Recording and screenshots OK (1 recording, {shots} family screenshots, "
-        f"{steps} walkthrough steps, {wizards} wizard animations)."
+        f"Screenshots OK ({shots} family screenshots, {steps} walkthrough steps, "
+        f"{wizards + 1} generated animations). Nothing is captured."
     )
     return 0
 
