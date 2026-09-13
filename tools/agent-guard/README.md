@@ -61,7 +61,7 @@ few milliseconds for any command that is not a guarded `gh` / `git commit` /
 
 ## Prerequisites
 
-- **Runtime:** Python stdlib only — the hook runs as `python3 .../agent_guard/__init__.py` (3.11+), never via `uv`, so it needs no built/installed environment. The test suite runs under `uv run --project tools/agent-guard pytest`.
+- **Runtime:** Python stdlib only — the hook runs as `python3 .../agent_guard/__init__.py` (3.11+), never via `uv`, so it needs no built/installed environment. The test suite runs under `uv run --directory tools/agent-guard --group dev pytest`.
 - **CLIs:** `git` and `gh` — the guards shell out (via `ctx.run`) to inspect commits, branch state, and GitHub Actions runs. None otherwise.
 - **Credentials / auth:** None. The guards read local `git` / `gh` state; `gh` must be on `PATH` for the `mark-ready` guard's Actions lookup.
 - **Network:** None in the hot path; the `mark-ready` guard reaches `api.github.com` (via `gh`) when it checks for awaiting-approval Actions runs.
@@ -234,12 +234,16 @@ the `--gemini` adapter to Gemini CLI's `BeforeTool` event.
 Start Gemini from the checkout root; the command uses `GEMINI_PROJECT_DIR`
 to resolve the engine without a machine-specific path.
 
-For a snapshot adoption, register the adapter in the adopter's
-`.gemini/settings.json` in a trusted workspace, or in the user's Gemini settings.
-`/magpie-setup` does not yet install Gemini hooks; the framework's settings
-inside `.apache-magpie/` do not configure the enclosing adopter workspace.
-Merge this entry into existing hooks and replace the example path with the
-absolute path to the framework checkout or snapshot:
+The [`setup-isolated-setup-install`](../../skills/setup-isolated-setup-install/SKILL.md)
+skill registers the adapter in the adopter's workspace `.gemini/settings.json`.
+It resolves the existing extension, snapshot, or framework checkout and merges
+one `magpie-agent-guard` entry while preserving unrelated hooks.
+See [the Gemini install lifecycle](../../docs/adapters/gemini.md#install)
+for path selection, trust, and verification.
+
+For manual registration, merge this entry into existing hooks and replace the
+example path with the resolved framework directory, quoted for the shell and
+encoded as JSON:
 
 ```json
 {
@@ -358,7 +362,7 @@ the shell). See `guards.d/no_verify_commit.py` for the template, and
 ## Tests
 
 ```bash
-uv run --project tools/agent-guard pytest
+uv run --directory tools/agent-guard --group dev pytest
 ```
 
 Table-driven tests feed synthetic `PreToolUse` events to `dispatch()` and assert

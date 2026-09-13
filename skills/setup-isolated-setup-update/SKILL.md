@@ -13,10 +13,10 @@ description: |
 when_to_use: |
   Invoke when the user says "update secure setup", "check for
   secure-config drift", "is my setup at the framework's latest?",
-  "should I bump the pinned tools?", or after a Claude Code
+  "should I bump the pinned tools?", or after an agent runtime
   upgrade / a substantial tracker-repo merge / when a previously
   blocked Bash call now appears to succeed. Recommended cadence
-  per the doc: once per Claude Code upgrade or once a month,
+  per the doc: once per agent runtime upgrade or once a month,
   whichever comes first. Cheap to re-run; never destructive.
 capability: capability:platform
 license: Apache-2.0
@@ -29,12 +29,21 @@ license: Apache-2.0
 
 ## Runtime routing (run before the Claude-specific drift report)
 
+Use the operator's explicitly requested runtime when supplied; otherwise use the active session's runtime.
+An installed executable or configuration directory alone does not select a runtime.
+For the routing below, treat that selection as the active harness.
+
 When the active harness is Codex, compare the installed `.codex` policy with
 the framework sources described in
 [docs/adapters/codex.md](../../docs/adapters/codex.md#setup-isolated-lifecycle).
 Surface policy, rules, and tested-version drift; never auto-weaken or
 silently overwrite a hand-edited policy. Then stop. The remainder of this
 skill is the Claude Code update branch.
+
+When the selected runtime is Gemini CLI, follow
+[docs/adapters/gemini.md](../../docs/adapters/gemini.md#update): compare the workspace profile, guard path, wrapper, and runtime version with the existing installation's sources.
+Report drift and proposed changes only; do not apply changes or require Claude configuration.
+Then stop before the Claude-specific drift report below.
 
 When the harness is Claude Code, continue below. If the harness cannot be
 determined, ask once.

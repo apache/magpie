@@ -217,7 +217,7 @@ Plugin or extension installation and host security configuration are separate st
 |---|---|
 | Claude Code | Run the guided isolation install below. |
 | Codex CLI | Follow the [Codex setup lifecycle](adapters/codex.md#setup-isolated-lifecycle). |
-| Gemini CLI | Follow the [Gemini setup lifecycle](adapters/gemini.md#setup-isolated-lifecycle). |
+| Gemini CLI | Ask `Use the magpie-setup-isolated-setup-install skill.` See the [Gemini setup lifecycle](adapters/gemini.md#setup-isolated-lifecycle). |
 | Other runtimes | Check the [secure setup guide](setup/secure-agent-setup.md) and your runtime's adapter for supported controls. |
 
 For Claude Code, start the guided install:

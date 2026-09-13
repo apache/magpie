@@ -5,11 +5,11 @@
 
 Behavioral evals for the `setup-isolated-setup-verify` skill.
 
-## Suites (12 cases total)
+## Suites (13 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
-| runtime-routing | Runtime routing | 1 | Codex routes to its native adapter and never requires Claude files |
+| runtime-routing | Runtime routing | 2 | Codex and Gemini route to their native adapters and never require Claude files |
 | step-1-classify | The 8 checks | 6 | all-pass, sandbox disabled, missing scripts, version drift, project root missing, injection attempt |
 | step-2-recommend | After the report | 5 | all-pass, install needed, update needed, project-root missing, multiple gaps |
 

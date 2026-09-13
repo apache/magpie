@@ -110,7 +110,7 @@ cooldown window; bumps are PRs, not silent updates.
 
 ```bash
 uv run --project tools/agent-isolation --group dev pytest
-uv run --project tools/agent-guard --group dev pytest
+uv run --directory tools/agent-guard --group dev pytest
 uv run --project tools/permission-audit --group dev pytest
 uv run --project tools/egress-gateway --group dev pytest
 python3 -c "import json,sys; s=json.load(open('.claude/settings.json')); \
@@ -125,3 +125,16 @@ python3 -c "import json,sys; s=json.load(open('.claude/settings.json')); \
 - **`tools/agent-guard/` and `tools/egress-gateway/` are new additions**
   since the last pilot cycle; end-to-end integration with a real adopter
   session has not yet been exercised.
+
+## Gemini setup lifecycle
+
+The four `setup-isolated-setup-*` skills route Gemini requests to
+`docs/adapters/gemini.md` and stop before the Claude-specific procedure.
+The install route merges the workspace profile and a single guard registration
+from the existing extension, snapshot, or framework checkout, preserving
+unrelated settings and requiring review of conflicts.
+Extension setup must not introduce a second snapshot installation.
+Verification distinguishes static configuration from live enforcement;
+update and doctor report drift or diagnoses without applying changes.
+Generic setup reconciles installed profiles and removes their guard references
+before uninstalling the source.

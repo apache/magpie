@@ -1678,6 +1678,12 @@ Four passes, in this order:
    gitignored. See
    [the Codex adapter](../../docs/adapters/codex.md).
 
+   **Gemini project profile (when Gemini is the selected runtime).**
+   Follow [the Gemini install lifecycle](../../docs/adapters/gemini.md#install) to propose and merge its workspace profile and guard registration from this snapshot.
+   Preserve unrelated configuration and review conflicts before applying changes.
+   Validate the merged profile and hand off live verification to Gemini.
+   Other selected runtimes do not install this profile.
+
 2. **Propagate to every worktree (run `worktree-init`
    unconditionally).** The main is now adopted; any
    pre-existing linked worktree of this repo still lacks

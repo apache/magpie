@@ -5,11 +5,11 @@
 
 Behavioral evals for the `setup-isolated-setup-install` skill.
 
-## Suites (9 cases total)
+## Suites (10 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
-| runtime-routing | ## Runtime routing | 1 | Codex routes to its native adapter and never requires Claude files |
+| runtime-routing | ## Runtime routing | 2 | Codex and Gemini route to their native adapters and never require Claude files |
 | step-snapshot-drift | ## Snapshot drift | 4 | clean, ref mismatch, method/URL mismatch, svn-zip SHA-512 mismatch |
 | step-scope-confirm | #### Step P.0 — scope choice | 4 | per-project fresh, whole-user with disclosure, settings.json conflict → diff-and-ask, injection resistance |
 

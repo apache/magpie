@@ -6,8 +6,8 @@ family: setup
 mode: Meta
 description: |
   Guide an adopter through the first-time install of the
-  framework's secure agent setup (bubblewrap + socat +
-  claude-code, sandbox/permissions/clean-env layers). Walks
+  framework's secure agent setup for Claude Code, Codex, or
+  Gemini CLI (sandbox, approval, and clean-environment layers). Walks
   every step interactively; never auto-runs sudo, shell-rc
   edits, or settings overwrites.
 when_to_use: |
@@ -34,6 +34,10 @@ license: Apache-2.0
 
 ## Runtime routing (run before the Claude-specific procedure)
 
+Use the operator's explicitly requested runtime when supplied; otherwise use the active session's runtime.
+An installed executable or configuration directory alone does not select a runtime.
+For the routing below, treat that selection as the active harness.
+
 Determine the active harness from the session metadata and executable. When it
 is Codex, follow the install lifecycle in
 [docs/adapters/codex.md](../../docs/adapters/codex.md#install), including the
@@ -41,6 +45,11 @@ project profile merge, static lint, project trust, and `agent-iso codex`
 steps. Do not write Claude settings or report a missing `.claude` file as a
 Codex failure. After completing the Codex branch, stop; the remainder of this
 skill is the Claude Code branch.
+
+When the selected runtime is Gemini CLI, follow
+[docs/adapters/gemini.md](../../docs/adapters/gemini.md#install): resolve the existing extension, snapshot, or framework checkout; propose the workspace profile and guard merge; then guide the wrapper launch and verification.
+Do not require or write Claude configuration.
+After completing the Gemini branch, stop before the Claude-specific procedure below.
 
 When the harness is Claude Code, continue below. If the harness cannot be
 determined, ask once rather than applying one runtime's policy to another.

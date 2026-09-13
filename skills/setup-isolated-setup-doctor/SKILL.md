@@ -6,7 +6,8 @@ family: setup
 mode: Meta
 description: |
   Probe the secure-agent setup for in-session functional
-  restrictions that block legitimate workflows. Three live
+  restrictions that block legitimate workflows in Claude Code,
+  Codex, or Gemini CLI. Runtime-specific diagnostics; Claude has three live
   probes — SSH agent / Yubikey reachability, localhost port
   binding, docker / podman runtime socket — each pointing the
   user at the matching numbered troubleshooting entry and its
@@ -19,7 +20,7 @@ when_to_use: |
   or after the user reports a workflow failure that smells
   sandbox-shaped (agent unreachable, socket errors, port
   permission errors). Also a good periodic check after every
-  Claude Code upgrade — the sandbox profile evolves and a
+  agent runtime upgrade — the sandbox profile evolves and a
   previously-working call may have moved into deny.
 capability:
   - capability:platform
@@ -34,12 +35,21 @@ license: Apache-2.0
 
 ## Runtime routing (run before the Claude-specific probes)
 
+Use the operator's explicitly requested runtime when supplied; otherwise use the active session's runtime.
+An installed executable or configuration directory alone does not select a runtime.
+For the routing below, treat that selection as the active harness.
+
 When the active harness is Codex, first require the static verification in
 [docs/adapters/codex.md](../../docs/adapters/codex.md#verify), then run the
 shared live environment probes inside the active Codex sandbox. Attribute
 failures separately to native sandbox/network denial, approval policy, or
 the POSIX agent-iso layer. Do not prescribe a `.claude` settings change for
 a Codex failure. Then stop before the Claude-specific branch below.
+
+When the selected runtime is Gemini CLI, follow
+[docs/adapters/gemini.md](../../docs/adapters/gemini.md#doctor): verify the profile first, then diagnose the actual tool result in the active Gemini session.
+Distinguish policy refusal, sandbox expansion, hook or trust failures, and wrapper or authentication problems.
+Do not require Claude configuration or prescribe Claude settings changes; then stop before the Claude-specific probes below.
 
 When the harness is Claude Code, continue below. If the harness cannot be
 determined, ask once.

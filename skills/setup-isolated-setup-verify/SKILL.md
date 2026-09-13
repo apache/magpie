@@ -8,15 +8,14 @@ description: |
   Walk the verification checklist for the framework's secure
   agent setup and report ✓ done / ✗ missing / ⚠ partial for
   each check, with concrete evidence (file paths, command
-  output, version strings). Covers eight checks across
-  settings wiring, installed tool versions, and sandbox
-  configuration. Read-only — never modifies anything.
+  output, version strings). Routes Claude Code, Codex, and Gemini CLI
+  to their settings, installed-version, and sandbox checks. Read-only — never modifies anything.
 when_to_use: |
   Invoke when the user says "verify my secure setup", "is my
   secure config done?", "check that the secure agent setup is
   installed", "did setup work?", or after running
   `setup-isolated-setup-install` to confirm the install landed completely.
-  Also appropriate as a routine — after every Claude Code upgrade,
+  Also appropriate as a routine — after every agent runtime upgrade,
   after every project / user-scope `settings.json` edit, and any
   time a previously-blocked Bash call appears to have succeeded
   (the "did a denial silently turn into an allow?" canary). Cheap
@@ -32,11 +31,20 @@ license: Apache-2.0
 
 ## Runtime routing (run before the Claude-specific checks)
 
+Use the operator's explicitly requested runtime when supplied; otherwise use the active session's runtime.
+An installed executable or configuration directory alone does not select a runtime.
+For the routing below, treat that selection as the active harness.
+
 When the active harness is Codex, run the verification contract in
 [docs/adapters/codex.md](../../docs/adapters/codex.md#verify): static profile
 lint, native rule classification, project trust, `/skills` visibility, and
 bridge preflights. Report every Codex check and then stop. Do not interpret
 the Claude settings checks below as Codex requirements.
+
+When the selected runtime is Gemini CLI, follow
+[docs/adapters/gemini.md](../../docs/adapters/gemini.md#verify): check the workspace profile, guard registration, skill discovery, and actual runtime behavior.
+Report static and live checks separately, including any checks not run and the documented isolation limits.
+Do not require Claude configuration; then stop before the Claude-specific checks below.
 
 When the harness is Claude Code, continue with the existing checks below. If
 the harness cannot be determined, ask once.

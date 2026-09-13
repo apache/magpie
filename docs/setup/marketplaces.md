@@ -139,7 +139,7 @@ the model on **every** turn — see ["always-on" cost](#versioning) below).
 
 - ✅ One install; all 74 skills; nothing to decide. Uses the real `skills/`
   directory, so **no symlinks** — works on Windows out of the box.
-- ⚠️ Adds **~8.6k always-on tokens to every session**, including families you
+- ⚠️ Adds **~8.7k always-on tokens to every session**, including families you
   may never use — that context (and cost) is spent whether or not you invoke a
   Magpie skill that turn.
 - **Take it only when you genuinely need all ten families**, when you're on
@@ -172,7 +172,7 @@ so pick one approach.
 | `magpie-contributor-growth` | 6 | ~0.6k |
 | `magpie-mentoring` | 4 | ~0.5k |
 | `magpie-pairing` | 2 | ~0.2k |
-| **`magpie`** (all) | **74** | **~8.6k** |
+| **`magpie`** (all) | **74** | **~8.7k** |
 
 > [!NOTE]
 > **How the token column is measured.** An installed skill advertises its
@@ -300,7 +300,7 @@ Detailed steps per agent follow.
 2. Install the all-in-one plugin, **or** just the families you use:
 
    ```text
-   /plugin install magpie@apache-magpie                    # everything (~8.6k always-on)
+   /plugin install magpie@apache-magpie                    # everything (~8.7k always-on)
    /plugin install magpie-security@apache-magpie           # one family (~2.0k always-on)
    /plugin install magpie-release-management@apache-magpie
    ```

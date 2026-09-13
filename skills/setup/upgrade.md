@@ -69,7 +69,10 @@ Both paths run the same flow.
    ```
 
    (Codex: `codex plugin update magpie`; Gemini:
-   `gemini extensions update magpie`.) The marketplace update
+   `gemini extensions update magpie`.) After the plugin refresh,
+   run `setup-isolated-setup-update` for any installed runtime profile;
+   plugin updates do not merge workspace configuration.
+   The marketplace update
    comes first: `plugin update` compares **version strings**
    against the local marketplace clone, so skipping it reports
    "already at the latest version" however far behind the clone
@@ -421,6 +424,9 @@ rather than pulls in via symlink. Examples:
   Codex settings; surface conflicts and hand edits rather than
   overwriting them. Run `sandbox-lint --codex .codex` after the merge
   and never modify Codex project trust.
+- An installed Gemini workspace profile and guard registration:
+  follow [the Gemini update lifecycle](../../docs/adapters/gemini.md#update) to report drift, then use its install merge for approved repairs.
+  Preserve unrelated configuration and hand edits, and verify after restarting the runtime.
 - Any future hook or local config the framework adds.
 
 These can drift independently of the snapshot — an
