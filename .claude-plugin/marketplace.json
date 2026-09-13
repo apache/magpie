@@ -70,7 +70,7 @@
       "name": "magpie-setup",
       "source": "./plugins/magpie-setup",
       "version": "0.2.0.dev202609110041",
-      "description": "Apache Magpie setup family (9 skills)."
+      "description": "Apache Magpie setup family (10 skills)."
     },
     {
       "name": "magpie-utilities",

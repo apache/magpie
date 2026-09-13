@@ -64,6 +64,7 @@ HERO_SVG = Path("assets/quickstart/install.svg")
 STEP_INSTALL_SVG = Path("assets/quickstart/step-install.svg")
 STEP_ISOLATION_SVG = Path("assets/quickstart/step-isolation.svg")
 STEP_GUARD_SVG = Path("assets/quickstart/step-guard.svg")
+STEP_PRIVACY_SVG = Path("assets/quickstart/step-privacy.svg")
 STEP_USE_SVG = Path("assets/quickstart/step-use.svg")
 STEP_ADOPT_SVG = Path("assets/quickstart/step-adopt.svg")
 
@@ -338,6 +339,36 @@ def step_guard_script() -> list[tuple[str, str]]:
     ]
 
 
+def step_privacy_script() -> list[tuple[str, str]]:
+    """Walkthrough step 5: the privacy-LLM gate and the PII redactor.
+
+    Ends on the gate saying no, for the same reason the guard animation
+    ends on a denial: a control nobody has watched refuse something reads
+    as configuration rather than as a control.
+    """
+    return [
+        (CMD, "> /magpie-setup:privacy-llm"),
+        (FG, ""),
+        (FG, "  Detected, not asked:"),
+        (FG, "    agent            Claude Code"),
+        (FG, "    local inference  ollama, llama3.1:70b on :11434"),
+        (FG, "    private lists    private@acme.apache.org"),
+        (FG, ""),
+        (FG, "  That is variant 2 - local inference. Written to"),
+        (FG, "  .apache-magpie-local/privacy-llm.md  (gitignored, yours)"),
+        (FG, ""),
+        (OK, "  ✓ PII redactor    Other Researcher -> N-a3f9d2"),
+        (OK, "                    other@example.com -> E-7c1b04"),
+        (FG, ""),
+        (WARN, "  ⚠ approved-LLM gate: llama3.1:70b is not in the registry"),
+        (FG, ""),
+        (FG, "    Until it is, skills will refuse to fetch private@ mail."),
+        (MUTED, "    Drop it from the stack, or take the opt-in recipe for it."),
+        (MUTED, "    Nothing was widened to make this pass - the gate failing"),
+        (MUTED, "    is the answer, not an obstacle."),
+    ]
+
+
 def step_use_script() -> list[tuple[str, str]]:
     """Walkthrough step 4: invoking a skill, and what comes back.
 
@@ -473,15 +504,23 @@ def build() -> dict[Path, str]:
             "Illustrative animation of the deterministic action guard. Not a recording.",
             step_guard_script(),
         ),
+        STEP_PRIVACY_SVG: render(
+            "Step 5 — decide what may see private mail",
+            "An animated privacy-llm run: the stack detected, the variant written "
+            "locally, the PII redactor proven, and the approved-LLM gate refusing "
+            "an unregistered local model",
+            "Illustrative animation of the privacy-LLM setup. Not a recording.",
+            step_privacy_script(),
+        ),
         STEP_USE_SVG: render(
-            "Step 5 — use it",
+            "Step 6 — use it",
             "An animated skill run: listing what is installed, then a triage pass "
             "returning 38 open PRs with a proposed action each and nothing posted",
             "Illustrative animation of running a skill. Not a recording.",
             step_use_script(),
         ),
         STEP_ADOPT_SVG: render(
-            "Step 6 — adopt it for the project",
+            "Step 7 — adopt it for the project",
             "An animated adopt run: three paths staged and not committed, what a "
             "contributor gets on clone, and what it does not restrict",
             "Illustrative animation of adopting Magpie for a project. Not a recording.",

@@ -12,8 +12,9 @@
     - [Step 2 — run `/magpie-setup`](#step-2--run-magpie-setup)
     - [Step 3 — lock the agent down](#step-3--lock-the-agent-down)
     - [Step 4 — put the guard in front of every command](#step-4--put-the-guard-in-front-of-every-command)
-    - [Step 5 — use it](#step-5--use-it)
-    - [Step 6 — consider adopting Magpie](#step-6--consider-adopting-magpie)
+    - [Step 5 — decide what may see private mail](#step-5--decide-what-may-see-private-mail)
+    - [Step 6 — use it](#step-6--use-it)
+    - [Step 7 — consider adopting Magpie](#step-7--consider-adopting-magpie)
   - [What each family solves](#what-each-family-solves)
   - [Other installation methods](#other-installation-methods)
   - [Cross-references](#cross-references)
@@ -36,7 +37,7 @@ project and no opt-in from your teammates. Committing anything for other
 people is a separate act called **adoption** —
 [Installation or Adoption?](quick-start/two-ways.md) draws the line.
 
-**What you get.** 74 skills your agent can run, grouped into 10 **families** —
+**What you get.** 75 skills your agent can run, grouped into 10 **families** —
 PR triage and review, issue triage, security-report handling, release
 management, contributor mentoring. Install only the families you need; each one
 you add costs context in every session —
@@ -60,10 +61,10 @@ people — and you do not have to choose before installing.
 
 ## The walkthrough
 
-Six steps, in order. One and two are the install; three and four are the two
-safety layers, and **both are strongly recommended** — Magpie's skills read
-issues, pre-disclosure security reports and private mailing lists, so neither
-is a nice-to-have. Five and six are what you do with it.
+Seven steps, in order. One and two are the install. Three, four and five are
+the safety layers, and **all three are strongly recommended** — Magpie's skills
+read issues, pre-disclosure security reports and private mailing lists, so none
+of them is a nice-to-have. Six and seven are what you do with it.
 
 ### Step 1 — install from the Apache Magpie Marketplace
 
@@ -167,7 +168,7 @@ draws the line.
 
 **Every skill configures itself on first use.** You do not have to remember
 which projects are set up, or run anything to prepare a family before you use
-it: 65 of the 74 skills open with a silent pre-flight — the nine exceptions are
+it: 65 of the 75 skills open with a silent pre-flight — the ten exceptions are
 the setup skills themselves, which are what you run to fix whatever it finds.
 
 The first time you call a skill in a project, that pre-flight works out how
@@ -193,15 +194,19 @@ links to all ten.
 
 **Strongly recommended, and part of the default setup rather than a later
 hardening pass.** Magpie's skills read issues, pre-disclosure security reports,
-and private mailing lists, so the isolation and privacy layers belong in place
-before you point a skill at anything real.
+and private mailing lists, so this belongs in place before you point a skill at
+anything real.
 
-This step and [Step 4](#step-4--put-the-guard-in-front-of-every-command) are
-two different layers and you want both: this one confines the **process** —
-what bash can see and reach — and the next one inspects each **command** before
-it runs. A sandbox will not stop a perfectly legal `gh pr comment` from pinging
-four people; a guard will not stop a command from reading `~/.ssh`. One run
-installs both.
+This is the first of three layers that do different jobs, and you want all
+three:
+
+| Step | Constrains | The thing the others cannot catch |
+|---|---|---|
+| **3** — sandbox | the **process** | a command reading `~/.ssh` or `~/.aws` |
+| [**4**](#step-4--put-the-guard-in-front-of-every-command) — action guard | each **command** | a perfectly legal `gh pr comment` pinging four people who did not ask |
+| [**5**](#step-5--decide-what-may-see-private-mail) — privacy-LLM | the **data** | private-list mail reaching a model nobody approved |
+
+Steps 3 and 4 arrive in one run; step 5 is its own.
 
 Installing skills and configuring your host's isolation are separate steps,
 and what the second one looks like depends on the agent you run:
@@ -250,7 +255,9 @@ reports ✓/✗/⚠ for every piece.
 → Full walkthrough: [`setup/secure-agent-setup.md`](setup/secure-agent-setup.md).
 Why each layer exists: [`setup/secure-agent-internals.md`](setup/secure-agent-internals.md).
 How your data reaches a model, and what never leaves the machine:
-[`setup/privacy-llm.md`](setup/privacy-llm.md).
+[`setup/privacy-llm.md`](setup/privacy-llm.md) — and
+[Step 5](#step-5--decide-what-may-see-private-mail) is the skill that
+configures it.
 
 ---
 
@@ -307,7 +314,55 @@ when you genuinely need to gets disabled wholesale, which is worse.
 
 ---
 
-### Step 5 — use it
+### Step 5 — decide what may see private mail
+
+**Strongly recommended, and the one step that is about your project's data
+rather than your machine.** Steps 3 and 4 constrain what the agent can reach
+and what it can run. Neither has an opinion about the thing Magpie is actually
+for: reading a PMC's private list, or a security report that is still under
+embargo, and sending it to a model.
+
+```text
+/magpie-setup:privacy-llm
+```
+
+> set up privacy for this project
+
+![A privacy-llm run: the LLM stack detected, the matching variant written to the gitignored local directory, the PII redactor proven end to end, and the approved-LLM gate refusing an unregistered local model](../assets/quickstart/step-privacy.svg)
+
+Two mechanisms, and they are separate on purpose:
+
+- **The approved-LLM gate** covers private foundation lists. A skill refuses to
+  fetch unless *every* model in the active stack is in the approved registry.
+  Adding a local Ollama model to your setup silently widens who sees that mail
+  — the gate is what makes it not silent.
+- **PII redaction** covers security-report mail. Third parties the reporter
+  names — other researchers, victims, anyone who did not choose to be in that
+  thread — are replaced with hash-prefixed identifiers before any model sees
+  them. The mapping stays on your machine. This runs under **every** variant,
+  including the plain one where the agent is the only model in the stack.
+
+The skill detects the stack rather than interviewing you about it, proposes the
+matching variant from
+[the privacy-LLM recipes](setup/privacy-llm.md), writes it to the gitignored
+`.apache-magpie-local/`, and then **proves it**: it runs the gate and a redactor
+round-trip rather than declaring the configuration correct. A gate that says no
+is the useful output — it names which model is unapproved and leaves the file
+alone until you decide.
+
+Re-run it after `/magpie-setup upgrade`: what counts as default-approved can
+narrow between versions, and the gate is where you find out.
+
+> [!NOTE]
+> **The registry is provisional.** It reflects the framework maintainers'
+> working position in the absence of a ratified ASF Legal policy for
+> AI-assisted handling of foundation private data.
+> [`setup/privacy-llm.md`](setup/privacy-llm.md) carries the full caveat, and
+> the skill repeats it when asked whether a variant is "allowed".
+
+---
+
+### Step 6 — use it
 
 ![Listing the installed skills, then a triage pass returning 38 open PRs with a proposed action for each and nothing posted](../assets/quickstart/step-use.svg)
 
@@ -330,7 +385,7 @@ everything that is installed.
 
 ---
 
-### Step 6 — consider adopting Magpie
+### Step 7 — consider adopting Magpie
 
 ![An adopt run: three paths staged and not committed, what a contributor gets on clone, and what it does not restrict](../assets/quickstart/step-adopt.svg)
 

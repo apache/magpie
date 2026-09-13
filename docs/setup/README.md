@@ -51,7 +51,7 @@ framework safe to use.
 
 ## Install & first runs
 
-Install just this family — one plugin, 9 skills. Sandbox, clean environment, and the framework's own install/upgrade.
+Install just this family — one plugin, 10 skills. Sandbox, clean environment, and the framework's own install/upgrade.
 
 Once you have [added the marketplace](../setup/marketplace-install.md):
 
@@ -87,6 +87,7 @@ it does not.
 | File | What it carries | Read by |
 |---|---|---|
 | [`magpie-setup.md`](../../projects/_template/magpie-setup.md) | Overrides for the setup family's own checks. Every key has a default. | `setup` |
+| [`privacy-llm.md`](../../projects/_template/privacy-llm.md) | Which model tier may see which class of content, for projects routing foundation-private information away from third-party models. | `privacy-llm` |
 | [`project.md`](../../projects/_template/project.md) | Project manifest. Identity, repositories, mailing lists, tools enabled, CVE tooling, GitHub project-board + issue-template field declarations. The single file every skill reads to resolve project-scoped references. | `isolated-setup-install`, `setup` |
 | [`skill-sources.md`](../../projects/_template/skill-sources.md) | The install gate for pulling skills/families from trusted external repos. Lists the source ids this project trusts and commits each pin. `/magpie-setup` fetches only what is listed here. Leave empty to run only in-tree framework skills. See [`docs/skill-sources/`](../../docs/skill-sources/README.md). | `setup` |
 
@@ -147,6 +148,7 @@ for the complete rule.
 | [`setup-isolated-setup-verify`](../../skills/setup-isolated-setup-verify/SKILL.md) | Verify the secure setup landed correctly (static checks on settings.json, hooks, pinned versions). |
 | [`setup-isolated-setup-doctor`](../../skills/setup-isolated-setup-doctor/SKILL.md) | Diagnose in-session sandbox friction (SSH agent, port bind, docker/podman socket) and map each fail to a catalog entry. |
 | [`setup-isolated-setup-update`](../../skills/setup-isolated-setup-update/SKILL.md) | Surface drift between the installed setup and the framework's latest. |
+| [`setup-privacy-llm`](../../skills/setup-privacy-llm/SKILL.md) | Configure which LLMs may see this project's private foundation mail, then prove it: detect the stack, write `privacy-llm.md` from the matching variant, and run the approved-LLM gate and the PII redactor end to end. |
 | [`setup`](../../skills/setup/SKILL.md) | Adopt and maintain the framework in a project repo through installation, verification, updates, overrides, and unadoption. |
 | [`setup upgrade`](../../skills/setup/upgrade.md) | Pull the framework checkout to latest `origin/main`. |
 | [`setup verify`](../../skills/setup/verify.md) | Verify the framework is integrated correctly into an adopter tracker. |

@@ -88,10 +88,10 @@ Measured on (UTC): 2026-09-13.
 Tokenizer: **tiktoken 0.12.0, `cl100k_base`**. Method: full UTF-8 file,
 including frontmatter and comments; line endings normalized to LF;
 special-token spellings counted as ordinary text.
-Coverage: **74 of 74 local `skills/*/SKILL.md` files**.
+Coverage: **75 of 75 local `skills/*/SKILL.md` files**.
 External `source.md` redirects and harness symlinks are excluded.
 
-Measurement manifest SHA-256: `b9932dfb84f29864750b585a537b098c9eb03d6653f9c82a2556e10e69db440f`.
+Measurement manifest SHA-256: `0bff5a43836462cd94007d8538c2c604aae6f65983162d4c9f510962cfb0dccb`.
 
 | Skill file | Measured tokens | Source SHA-256 (first 16 characters) |
 |---|---:|---|
@@ -163,6 +163,7 @@ Measurement manifest SHA-256: `b9932dfb84f29864750b585a537b098c9eb03d6653f9c82a2
 | [setup-isolated-setup-update](../skills/setup-isolated-setup-update/SKILL.md) | 4,598 | `19b7707579055299` |
 | [setup-isolated-setup-verify](../skills/setup-isolated-setup-verify/SKILL.md) | 4,537 | `fb98bbeb136b9212` |
 | [setup-override-upstream](../skills/setup-override-upstream/SKILL.md) | 4,012 | `fb583feb56b7f77c` |
+| [setup-privacy-llm](../skills/setup-privacy-llm/SKILL.md) | 2,145 | `0e27b542a1656846` |
 | [setup-shared-config-sync](../skills/setup-shared-config-sync/SKILL.md) | 4,274 | `4b787b01a2d11602` |
 | [setup-status](../skills/setup-status/SKILL.md) | 2,401 | `790c0a0e61b1e8a4` |
 | [setup-upstream-fix](../skills/setup-upstream-fix/SKILL.md) | 4,607 | `984f3deae625f19f` |
