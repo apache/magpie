@@ -1501,6 +1501,18 @@ on the host, not only sessions inside a tracker repo whose
 project-level `.claude/settings.json` would otherwise have to wire
 it itself.
 
+**The mode the tag reflects.** `/sandbox` is where the mode lives, and the
+panel offers three:
+
+![The Claude Code /sandbox mode panel: three modes — sandbox with auto-allow (selected), sandbox with regular permissions, and no sandbox — with auto-allow explained as commands running in the sandbox automatically and falling back to regular permissions outside it](../../assets/sandbox-modes.png)
+
+*Auto-allow* runs commands in the sandbox without asking each time and falls
+back to the normal permission prompt for anything that has to run outside it.
+It is the mode most operators want, and the reason the status line gives it its
+own colour rather than folding it into `[sandbox]`: sandboxed and
+sandboxed-and-not-asking are different postures, and only one of them is still
+asking before each command.
+
 **Install (user-scope).**
 
 ```bash

@@ -200,202 +200,72 @@ links to all ten.
 ### Step 3 — isolate & guard
 
 **Strongly recommended, and part of the default setup rather than a later
-hardening pass.** Magpie's skills read issues, pre-disclosure security reports,
+hardening pass.** Magpie's skills read issues, pre-disclosure security reports
 and private mailing lists, so this belongs in place before you point a skill at
 anything real.
 
-**Three layers, two steps.** Isolation and the guard are two different
-protections that arrive in the same run, which is why they share this step;
-privacy is its own decision and its own skill.
+One run installs two different protections: a **sandbox**, which confines what
+a command can reach, and the **action guard**, which decides whether a command
+runs at all. A sandbox will not stop a legal `gh pr comment` from pinging four
+maintainers who did not ask; a guard will not stop a command from reading
+`~/.ssh`.
 
-| Layer | Step | Constrains | The thing the others cannot catch |
-|---|---|---|---|
-| **isolate** | 3 | the **process** | a command reading `~/.ssh` or `~/.aws` |
-| **guard** | 3 | each **command** | a perfectly legal `gh pr comment` pinging four people who did not ask |
-| **privacy** | [4](#step-4--set-up-privacy) | the **data** | private-list mail reaching a model nobody approved |
-
-Do not read "same run" as "same thing": one confines what a command can
-*reach*, the other decides whether it *runs at all*. The half of this step
-below is the second.
-
-Installing skills and configuring your host's isolation are separate steps,
-and what the second one looks like depends on the agent you run:
-
-| Harness | Next step |
+| Harness | What to run |
 |---|---|
-| **Claude Code** | The guided install below. |
+| **Claude Code** | `/magpie-setup:isolated-setup-install` — the guided install below. |
 | **OpenAI Codex CLI** | [Codex setup lifecycle](adapters/codex.md#setup-isolated-lifecycle). |
-| **Google Gemini CLI** | Ask `Use the magpie-setup-isolated-setup-install skill.` — tool sandboxing and policies, per the [Gemini setup lifecycle](adapters/gemini.md#setup-isolated-lifecycle). |
-| **Anything else** | The [secure setup guide](setup/secure-agent-setup.md) and your runtime's adapter, for what it supports. |
-
-![The secure-agent setup: three proposed changes, a confirmation, then the sandbox, the clean environment and the status line in place](../assets/quickstart/step-isolation.svg)
-
-On Claude Code, the first skill to run is the one that isolates the agent:
+| **Google Gemini CLI** | [Gemini setup lifecycle](adapters/gemini.md#setup-isolated-lifecycle). |
+| **Anything else** | The [secure setup guide](setup/secure-agent-setup.md) and your runtime's adapter. |
 
 ```text
 /magpie-setup:isolated-setup-install
 ```
 
-or, in plain language:
-
 > isolate my agent with Magpie's secure setup
 
-It walks you through the install interactively and surfaces every sudo,
-shell-rc, and settings-file change for approval before applying it. Nothing is
-applied without you seeing it first.
+![The secure-agent setup: three proposed changes, a confirmation, then the sandbox, the clean environment and the status line in place](../assets/quickstart/step-isolation.svg)
 
-**What you are actually protecting against.** An agent runs shell commands on
-your behalf, and your home directory is full of things it has no business
-reading: SSH private keys, cloud credentials, `~/.aws`, `~/.kube`, browser
-session tokens, `.env` files belonging to every other project you have checked
-out. None of that is needed to triage a PR. The risk is not only a mistake —
-an agent that reads issues and mailing lists is reading text written by
-strangers, and that text can contain instructions aimed at the agent. If the
-worst a poisoned issue body can do is make the agent read a file it cannot
-reach, it can do nothing.
+It surfaces every sudo, shell-rc and settings-file change for approval before
+applying it. When it finishes you have a filesystem and network sandbox, a
+clean environment with your credentials stripped, the status line below, and
+the guard wired in front of every shell command.
 
-Three things go in, and they do different jobs:
-
-- **A filesystem and network sandbox.** Every Bash subprocess runs under
-  Seatbelt (macOS) or bubblewrap (Linux) and can see only the paths you
-  allowed — normally this repository and little else. A command that tries to
-  read `~/.ssh/id_ed25519` does not get a redacted answer; it gets "no such
-  file". Network egress goes through the same confinement, so a command cannot
-  quietly post what it read to somewhere else. This is enforced by the
-  operating system, not by the agent agreeing to behave.
-- **A clean environment.** The sandbox governs what a command can *reach*;
-  it says nothing about what is already sitting in the environment it starts
-  with. A shell that has `AWS_SECRET_ACCESS_KEY`, `GITHUB_TOKEN` and an API
-  key exported has handed all three to every process it spawns, sandbox or
-  not. The `claude-iso` wrapper starts the agent from `env -i` with a short
-  passthrough list, so those variables are simply not there.
-- **Visible state, because silent protection rots.** A sandbox you cannot see
-  is a sandbox you stop noticing has turned itself off. The status line says
-  which state you are in on every render, and a bold red banner fires before
-  any bypass prompt — so the moment a session stops being protected is a
-  moment you see, not one you discover later.
-
-What it deliberately does **not** do: hold your signing key, push on your
-behalf, or decide anything about which commands are reasonable. That last one
-is the next step's job.
-
-`/sandbox` is where the mode lives, and there are three:
-
-![The Claude Code /sandbox mode panel: three modes — sandbox with auto-allow (selected), sandbox with regular permissions, and no sandbox — with auto-allow explained as commands running in the sandbox automatically and falling back to regular permissions outside it](../assets/sandbox-modes.png)
-
-*Auto-allow* runs commands in the sandbox without asking each time and falls
-back to the normal permission prompt for anything that has to run outside it.
-It is the mode most people want, and the one the status line flags separately —
-because "sandboxed" and "sandboxed and not asking" are not the same posture.
-
-The footer then opens with that state and says *which* session this is —
-project, branch, the model, and the branch's PR number and title once it has
-one — so several sessions across worktrees and repos stay apart:
+**The footer tells you which posture you are in, on every render:**
 
 ![A session where /sandbox reports "Sandbox enabled with auto-allow for bash commands": the terminal footer opens with a yellow `[sandbox-auto]` tag, followed by the project, the branch and the model](../assets/session-sandboxed.png)
 
-Yellow `[sandbox-auto]` is auto-allow: sandboxed, and not asking per command.
-Pick *regular permissions* instead and the tag is green `[sandbox]` — still
-confined, but still prompting. Turn the sandbox off and the same line says so
-in bold red, on every render until you put it back:
+| Tag | Means |
+|---|---|
+| `[sandbox]` green | sandboxed, still prompting per command |
+| `[sandbox-auto]` yellow | sandboxed, not prompting — auto-allow |
+| `[NO SANDBOX]` bold red | not sandboxed |
 
-![A session after /sandbox reports "Sandbox disabled": the footer now opens with a bold-red `[NO SANDBOX]` tag ahead of the project, branch and model](../assets/session-no-sandbox.png)
+![A session after /sandbox reports "Sandbox disabled": the footer opens with a bold-red `[NO SANDBOX]` tag ahead of the project, branch and model](../assets/session-no-sandbox.png)
 
-Three postures, three colours, one line you were already looking at. That is
-the whole design: you never have to *ask* which one you are in. (Both captures
-sit on `main`, which has no PR open — on a branch that does, the PR segment
-follows the branch name.)
+After the tag comes the project, branch, model, and the branch's PR once it has
+one — so several sessions across worktrees stay apart.
 
-Confirm the whole install with `/magpie-setup:isolated-setup-verify` —
-*check my agent isolation* — which reports ✓/✗/⚠ for every piece.
+Confirm the install with `/magpie-setup:isolated-setup-verify` — *check my
+agent isolation* — which reports ✓/✗/⚠ for every piece.
 
-→ Full walkthrough: [`setup/secure-agent-setup.md`](setup/secure-agent-setup.md).
-Why each layer exists: [`setup/secure-agent-internals.md`](setup/secure-agent-internals.md).
-How your data reaches a model, and what never leaves the machine:
-[`setup/privacy-llm.md`](setup/privacy-llm.md) — and
-[Step 4](#step-4--set-up-privacy) is the skill that
-configures it.
-
-#### The other half of this step — the guard
-
-The sandbox above confines the *process*: bash sees only the paths you allow,
-and your `~/.ssh` is out of reach. It has nothing to say about a command that
-is entirely within its rights — a `gh pr comment` that pings four maintainers
-who did not ask to be pinged, a `git push --force` onto a branch with nothing
-on it, a CVE identifier in a public PR title before the embargo lifts. Those
-are legitimate commands with the wrong consequences, and no amount of
-confinement makes them wrong to the operating system.
-
-`magpie-agent-guard` from [Step 1](#step-1--install-from-the-apache-magpie-marketplace)
-is the layer that catches them. Where the sandbox asks *can this command reach
-that file*, the guard asks *should this particular command run at all* — and it
-asks it in the gap between the model deciding to run something and the shell
-actually running it.
-
-![The agent-guard setup: the dispatcher, its rules and the PreToolUse hook registered, then a real denial of an unwanted review ping before it was posted](../assets/quickstart/step-guard.svg)
-
-**Deterministic is the whole point.** A rule written in a `SKILL.md` is a
-sentence the model reads at the start of a session and is *asked* to keep in
-mind — through forty tool calls, a compaction, and an issue body that says
-something the model finds persuasive. Most of the time it does. "Most of the
-time" is fine for a style preference and useless for a rule whose violation
-posts something to a public repository under your name, because the cost is
-not evenly spread: one slip on a quiet Tuesday is a notification to four
-maintainers, or a CVE identifier visible before the embargo lifts.
-
-So these rules are not written in a `SKILL.md` at all. They are Python, in a
-hook the harness calls before the Bash tool runs, and they get a veto. The
-guard sees the exact command, decides, and either lets it through or refuses:
-a refused command is **not run** — not posted, not retried, and not worked
-around by rephrasing. The model is shown the reason and the deterministic fix
-(*"use a backtick `` `login` `` instead of `@login`"*), so it corrects rather
-than guesses.
-
-This is also the layer that does not care why the command was issued. A
-prompt-injected instruction in an issue body and an honest mistake produce the
-same `gh pr comment`, and the guard treats them identically — which is exactly
-what you want from something whose job is to be unpersuadable.
-
-The guards that ship:
-
-| Guard | Denies | Because |
-|---|---|---|
-| `commit-trailer` | a `git commit` message carrying `Co-Authored-By:` | agents record themselves with `Generated-by:`; co-authorship is a claim about a person |
-| `empty-rebase` | `git push --force` of a branch with no commits over its base | an empty force-push to a PR head auto-closes it *and* revokes write |
-| `mention` | an `@`-mention of anyone but the author in a PR/issue comment | author-directed feedback should not ping maintainers who did not ask |
-| `mark-ready` | marking a PR ready while its head SHA has workflows awaiting approval | "ready for review" has to mean CI actually ran |
-| `security-language` | a CVE id or fix language in a **public** PR title or body | pre-disclosure content stays pre-disclosure |
-
-**This is why the two halves are one step.** The same
-`/magpie-setup:isolated-setup-install` run registers the dispatcher, populates
-`~/.claude/scripts/guards.d/` from both the bundled rules and every skill that
-owns one, and wires the `PreToolUse` hook. You do not run anything extra here.
-Skills you install later contribute their own guards to the same directory, so
-the rule set grows with what you installed rather than with what you
-remembered to re-run.
-
-The rule set is one harness-agnostic core with a thin adapter per harness, so
-Claude Code, OpenCode, Kiro and Gemini CLI all enforce byte-for-byte identical
-decisions. **Codex and Cursor have no action guard today** — the sandbox half
-of this step still applies there, this half does not; the
-[adapters matrix](adapters/README.md) tracks which harness has what.
-
-Per-command escape hatches exist and are explicit — `MAGPIE_ALLOW_MENTIONS=1`
-for the one case where you do mean to ping someone. A guard you cannot get past
-when you genuinely need to gets disabled wholesale, which is worse.
-
-→ Full reference, including how to contribute a guard:
-[`tools/agent-guard/README.md`](../tools/agent-guard/README.md).
+→ **Why each layer exists, and what it does not stop:**
+[`setup/secure-agent-internals.md`](setup/secure-agent-internals.md) ·
+**full install walkthrough:** [`setup/secure-agent-setup.md`](setup/secure-agent-setup.md) ·
+**what the guard denies and why it is a hook rather than a rule:**
+[`tools/agent-guard/README.md`](../tools/agent-guard/README.md) ·
+**harness coverage:** [adapters matrix](adapters/README.md) — Codex and Cursor
+have no action guard today.
 
 ---
 
 ### Step 4 — set up privacy
 
-**Strongly recommended, and the one step that is about your project's data
-rather than your machine.** Step 3 constrains what the agent can reach and what
-it is allowed to run. Neither half of it has an opinion about the thing Magpie
-is actually for: reading a PMC's private list, or a security report that is
-still under embargo, and sending it to a model.
+**Strongly recommended, and the one step about your project's data rather than
+your machine.** Step 3 constrains what the agent can reach and what it may run.
+Neither half has an opinion about the thing Magpie is actually for: reading a
+PMC's private list, or a security report still under embargo, and sending it to
+a model. That is a command that *should* run, doing exactly what it was asked —
+and exporting somebody else's confidential text while it does.
 
 ```text
 /magpie-setup:privacy-llm
@@ -405,62 +275,25 @@ still under embargo, and sending it to a model.
 
 ![A privacy-llm run: the LLM stack detected, the matching variant written to the gitignored local directory, the PII redactor proven end to end, and the approved-LLM gate refusing an unregistered local model](../assets/quickstart/step-privacy.svg)
 
-**What makes this different from the other two.** Steps 3 and 4 are about a
-command that should not run. This one is about a command that *should* run, and
-does exactly what it was asked, and in doing so sends somebody else's
-confidential text to a third party. Summarising a private@ thread is a
-legitimate, useful thing for a skill to do. It is also an export — of mail that
-a PMC sent on the understanding that it stayed inside the PMC, or of a security
-report whose reporter is waiting on an embargo. Nobody on those threads agreed
-to a model provider being in the room. That is not a bug you can sandbox away;
-it is a decision, and it needs to have been made on purpose, by the project,
-before the skill runs.
+Two mechanisms, separate because they protect different people:
 
-Two mechanisms, separate on purpose because they protect different people:
+- **the approved-LLM gate** protects the *project* — a skill refuses to fetch
+  private-list mail unless every model in the active stack is approved;
+- **PII redaction** protects the *third parties a reporter names*, swapping
+  them for hash-prefixed identifiers before any model sees the text.
 
-- **The approved-LLM gate** protects *the project*. It covers private
-  foundation lists: a skill refuses to fetch unless **every** model in the
-  active stack is in the approved registry. The failure it exists to prevent is
-  a quiet one — you add a local Ollama model to speed something up, or your
-  harness starts routing through a different endpoint, and the set of parties
-  who can see private@ mail has changed without anyone deciding that. The gate
-  turns that from a silent change into a refusal with a name attached.
+The skill detects your stack rather than interviewing you, writes the matching
+variant to the gitignored `.apache-magpie-local/`, then **proves it** by running
+both. A gate that says no is the useful output: it names the unapproved model
+and leaves your configuration alone until you decide.
 
-  It is a gate, not a filter: it blocks the fetch rather than sanitising the
-  content, because there is no way to partially send an email.
+Re-run it after `/magpie-setup upgrade` — what counts as approved can narrow
+between versions.
 
-- **PII redaction** protects *third parties*. It covers security-report mail,
-  where the problem is not the reporter — they wrote to you and the security
-  team knows who they are — but the people they mention. A report frequently
-  names a co-researcher, a downstream maintainer, or the person whose account
-  was compromised. None of them chose to be in that thread. Before any model
-  sees the text, those names and addresses are swapped for hash-prefixed
-  identifiers (`N-a3f9d2`, `E-7c1b04`); the mapping that reverses it stays on
-  your machine and is never sent anywhere. People already public as
-  collaborators on the repo are left alone — redacting a name the tracker
-  already shows buys nothing.
-
-  This runs under **every** variant, including the plain one where the agent is
-  the only model in the stack. "We only use one provider" is not a reason to
-  hand it a bystander's email address.
-
-The skill detects the stack rather than interviewing you about it, proposes the
-matching variant from
-[the privacy-LLM recipes](setup/privacy-llm.md), writes it to the gitignored
-`.apache-magpie-local/`, and then **proves it**: it runs the gate and a redactor
-round-trip rather than declaring the configuration correct. A gate that says no
-is the useful output — it names which model is unapproved and leaves the file
-alone until you decide.
-
-Re-run it after `/magpie-setup upgrade`: what counts as default-approved can
-narrow between versions, and the gate is where you find out.
-
-> [!NOTE]
-> **The registry is provisional.** It reflects the framework maintainers'
-> working position in the absence of a ratified ASF Legal policy for
-> AI-assisted handling of foundation private data.
-> [`setup/privacy-llm.md`](setup/privacy-llm.md) carries the full caveat, and
-> the skill repeats it when asked whether a variant is "allowed".
+→ **The recipes, the variants, and what each mechanism does:**
+[`setup/privacy-llm.md`](setup/privacy-llm.md). The approved registry is
+**provisional**, pending a ratified ASF Legal policy for AI-assisted handling
+of foundation private data; that page carries the full caveat.
 
 ---
 

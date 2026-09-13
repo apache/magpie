@@ -7,6 +7,7 @@
 
 - [agent-guard](#agent-guard)
   - [Prerequisites](#prerequisites)
+  - [Why a hook, not a rule in a SKILL.md](#why-a-hook-not-a-rule-in-a-skillmd)
   - [Guards](#guards)
   - [Per-command overrides](#per-command-overrides)
   - [Wiring](#wiring)
@@ -65,6 +66,35 @@ few milliseconds for any command that is not a guarded `gh` / `git commit` /
 - **CLIs:** `git` and `gh` — the guards shell out (via `ctx.run`) to inspect commits, branch state, and GitHub Actions runs. None otherwise.
 - **Credentials / auth:** None. The guards read local `git` / `gh` state; `gh` must be on `PATH` for the `mark-ready` guard's Actions lookup.
 - **Network:** None in the hot path; the `mark-ready` guard reaches `api.github.com` (via `gh`) when it checks for awaiting-approval Actions runs.
+
+## Why a hook, not a rule in a SKILL.md
+
+A rule written in a `SKILL.md` is a sentence the model reads at the start of a
+session and is *asked* to keep in mind — through forty tool calls, a
+compaction, and an issue body that says something the model finds persuasive.
+Most of the time it does. "Most of the time" is fine for a style preference and
+useless for a rule whose violation posts to a public repository under the
+operator's name, because the cost is not evenly spread: one slip is a
+notification to four maintainers who did not ask for it, or a CVE identifier
+visible before the embargo lifts.
+
+So these rules are not prose. They are Python, in a hook the harness calls
+before the shell tool runs, and they get a veto. The guard sees the exact
+command, decides, and either lets it through or refuses — a refused command is
+**not run**: not posted, not retried, and not worked around by rephrasing. The
+model is shown the reason and the deterministic fix (*"use a backtick
+`` `login` `` instead of `@login`"*), so it corrects rather than guesses.
+
+This is also the layer that does not care *why* a command was issued. A
+prompt-injected instruction in an issue body and an honest mistake produce the
+same `gh pr comment`, and the guard treats them identically — which is what you
+want from something whose job is to be unpersuadable.
+
+It is not a substitute for the sandbox and does not overlap with it. The
+sandbox confines what a command can *reach*; the guard decides whether it
+*runs at all*. A sandbox has nothing to say about a command that is entirely
+within its rights, and a guard has nothing to say about a command reading
+`~/.ssh`.
 
 ## Guards
 

@@ -66,6 +66,22 @@ The framework treats two distinct privacy concerns separately:
    The skill refuses to fetch unless every LLM in the active
    stack is in the approved-model registry.
 
+**They are separate because they protect different people.** The gate protects
+*the project*: the failure it exists to prevent is a quiet one — you add a
+local model to speed something up, or the harness starts routing through a
+different endpoint, and the set of parties who can see private@ mail has
+changed without anyone deciding that. The gate turns a silent change into a
+refusal with a name attached. It blocks the fetch rather than sanitising the
+content, because there is no way to partially send an email.
+
+Redaction protects *the third parties a reporter names* — a co-researcher, a
+downstream maintainer, the person whose account was compromised. None of them
+chose to be in that thread. People already public as collaborators on the
+tracker are left alone: redacting a name the tracker already shows buys
+nothing. This runs under every variant, including the plain one where the agent
+is the only model in the stack — "we only use one provider" is not a reason to
+hand it a bystander's email address.
+
 Picking a variant below configures the **gate** (the LLM stack).
 The redactor (mechanism 1) runs regardless and needs no
 per-variant config beyond the home-dir storage path.
