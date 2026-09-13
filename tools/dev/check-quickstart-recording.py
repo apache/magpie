@@ -44,6 +44,10 @@ Checks:
   embeds at least one;
 - the one real recording exists, is embedded by the quick start, and the setup
   family's README embeds it rather than a copy;
+- the first-run walkthrough's screenshots are paired and embedded by the
+  chapter they exist for, in the order its steps run. A walkthrough whose
+  pictures are a step out of order teaches the wrong sequence, and no link
+  check can see it;
 - every SVG parses as XML with an `<svg>` root, carries the Apache licence
   header, and is under the size cap. These are *text*: one that fails to parse
   still "exists", a hand-regenerated file loses the header `svg-term-cli` does
@@ -71,6 +75,8 @@ from pathlib import Path
 
 QUICKSTART = Path("assets/quickstart")
 FAMILY_DIR = QUICKSTART / "families"
+WALKTHROUGH_DIR = QUICKSTART / "walkthrough"
+FIRST_RUN_DOC = Path("docs/quick-start/first-run.md")
 PLUGINS = Path("plugins")
 SETUP_RECORDING = QUICKSTART / "magpie-setup.svg"
 QUICK_START_DOC = Path("docs/quick-start.md")
@@ -222,6 +228,52 @@ def check_screenshots(known: list[str]) -> list[str]:
     return errors
 
 
+def check_walkthrough() -> list[str]:
+    """The first-run chapter: every step pictured, and pictured in order.
+
+    Separate from the family screenshots because the constraint is different.
+    A family screenshot has to name a skill that family ships; a walkthrough
+    screenshot has to be step N of a sequence the reader follows top to
+    bottom, so the check that matters is that the chapter embeds them all, in
+    the order their filenames number them.
+    """
+    if not WALKTHROUGH_DIR.is_dir():
+        return [f"{WALKTHROUGH_DIR}: missing — the first-run chapter has no screenshots"]
+
+    errors: list[str] = []
+    steps = sorted(WALKTHROUGH_DIR.glob("*.txt"))
+    if not steps:
+        return [f"{WALKTHROUGH_DIR}: no transcripts"]
+
+    if not FIRST_RUN_DOC.is_file():
+        return [f"{FIRST_RUN_DOC}: missing — the walkthrough screenshots are shown by nothing"]
+    body = FIRST_RUN_DOC.read_text(encoding="utf-8")
+
+    seen_at: list[tuple[int, str]] = []
+    for txt in steps:
+        svg = txt.with_suffix(".svg")
+        if not svg.is_file():
+            errors.append(f"{svg}: missing — render it with {RENDER_SCRIPT} {txt}")
+            continue
+        errors += check_svg(svg)
+        at = body.find(svg.as_posix())
+        if at == -1:
+            errors.append(f"{FIRST_RUN_DOC}: does not embed {svg}")
+        else:
+            seen_at.append((at, txt.stem))
+
+    for svg in sorted(WALKTHROUGH_DIR.glob("*.svg")):
+        if not svg.with_suffix(".txt").is_file():
+            errors.append(f"{svg}: no transcript beside it — generated, never hand-written")
+
+    if [name for _, name in sorted(seen_at)] != [name for _, name in seen_at]:
+        errors.append(
+            f"{FIRST_RUN_DOC}: embeds the walkthrough screenshots out of order — "
+            f"they are numbered steps and the page is read top to bottom"
+        )
+    return errors
+
+
 def check_regenerates() -> list[str]:
     """Every committed .svg still matches its .txt.
 
@@ -297,6 +349,7 @@ def main() -> int:
         errors += check_embedded(docs_readme("setup"), SETUP_RECORDING)
 
     errors += check_screenshots(known)
+    errors += check_walkthrough()
     errors += check_regenerates()
     errors += check_no_retired_references()
 
@@ -306,7 +359,10 @@ def main() -> int:
         return 1
 
     shots = len(list(FAMILY_DIR.rglob("*.svg"))) if FAMILY_DIR.is_dir() else 0
-    print(f"Recording and screenshots OK (1 recording, {shots} authored screenshots).")
+    steps = len(list(WALKTHROUGH_DIR.glob("*.svg"))) if WALKTHROUGH_DIR.is_dir() else 0
+    print(
+        f"Recording and screenshots OK (1 recording, {shots} family screenshots, {steps} walkthrough steps)."
+    )
     return 0
 
 

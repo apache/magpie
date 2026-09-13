@@ -160,6 +160,9 @@ for the complete rule.
   the project publishes, and the recommended way to install. Every agent that
   can add it, which families to pick, pinning, updates, and verification
   status.
+- [**Your first run with a family**](../quick-start/first-run.md) — the
+  configuration walkthrough in terminal steps: what stops, what the wizard
+  scaffolds, and which files a family needs before it will run.
 - [**Companion skill packages**](companion-skills.md) — third-party skill
   packages that pair with a Magpie family, and the install command for each
   agent that has one. None is a dependency.

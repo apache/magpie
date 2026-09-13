@@ -101,6 +101,12 @@ command for that family and a few things to try once it is in:
 > skills as real directories, so nothing depends on a client following a
 > symlink — measured on Codex and Gemini, not assumed.
 
+> [!TIP]
+> **Installed a family and want to use it now?**
+> [Your first run with a family](quick-start/first-run.md) walks the whole
+> thing in terminal steps — the pre-flight stopping, the setup wizard, the
+> configuration it scaffolds, and the same command working on the retry.
+
 ---
 
 ### Step 2 — run `/magpie-setup`

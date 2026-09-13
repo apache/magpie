@@ -1,0 +1,12 @@
+> /magpie-pr-management:triage
+
+  Pre-flight
+
+  ✓ plugin installed        magpie-pr-management
+  ✗ project configuration   no .apache-magpie-overrides/ in this repo
+
+  Stopping here rather than guessing. Triage needs to know this project's
+  committer team, its area-label prefix, and which labels mean "ready" -
+  none of which I can infer from the repository.
+
+  Run /magpie-setup adopt to set it up, then re-run this command.

@@ -19,6 +19,7 @@ are the pages it sends you to when you want more than the step.
 |---|---|
 | [Installation or Adoption?](two-ways.md) | Whether anything gets committed for other people — and who has to agree before you start |
 | [Prerequisites](prerequisites.md) | What individual skills need before they will run: agent, mail backend, tracker access, and the few skills with extra requirements |
+| [Your first run with a family](first-run.md) | What happens the first time you invoke a family's skill: the pre-flight stopping, the setup wizard, the configuration it scaffolds, and which files that family actually needs |
 | [What each family solves](families.md) | All ten families, the problem each one solves, and what it offers |
 | [Other installation methods](other-install-methods.md) | The pinned snapshot in three flavours, and the self-adoption path a clone of the framework takes |
 

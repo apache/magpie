@@ -1,0 +1,17 @@
+> /magpie-setup adopt
+
+  Staged, not committed:
+
+    .apache-magpie.lock              method: marketplace, floor 0.2.0
+    .claude/settings.json            marketplace + 3 plugins, merged
+    .apache-magpie-overrides/        configuration templates
+
+  pr-management needs three of those filled in before triage will run:
+
+    project.md                            upstream repo, tracker, mail lists
+    pr-management-config.md               committers team, label prefix
+    pr-management-triage-comment-templates.md   comment bodies, footer
+
+  Each carries TODO markers where a value is missing. Review the diff and
+  commit when you are happy - the floor is a recommendation for everyone
+  who clones this repo.

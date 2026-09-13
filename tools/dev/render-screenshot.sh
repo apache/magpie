@@ -41,7 +41,11 @@
 #   tools/dev/render-screenshot.sh --check      # fail if any .svg is stale
 set -euo pipefail
 
-FAMILIES_DIR="assets/quickstart/families"
+# Every authored transcript lives under here: the per-family screenshots and
+# the first-run walkthrough. The one real recording, magpie-setup.svg, sits at
+# the top of this tree with no transcript -- it is captured, not written.
+SHOTS_DIR="assets/quickstart"
+RECORDING="assets/quickstart/magpie-setup.svg"
 
 # The recorder's palette, so the authored set and the one real recording read
 # as one thing rather than two.
@@ -186,7 +190,7 @@ render() {
 }
 
 transcripts() {
-    find "${FAMILIES_DIR}" -name '*.txt' -type f | LC_ALL=C sort
+    find "${SHOTS_DIR}" -name '*.txt' -type f | LC_ALL=C sort
 }
 
 write_one() {
@@ -232,8 +236,9 @@ main() {
             # but it is exactly the state --check exists to refuse.
             local svg
             while IFS= read -r svg; do
+                [[ "${svg}" == "${RECORDING}" ]] && continue
                 [[ -f "${svg%.svg}.txt" ]] || { echo "${svg}: no transcript beside it" >&2; rc=1; }
-            done < <(find "${FAMILIES_DIR}" -name '*.svg' -type f | LC_ALL=C sort)
+            done < <(find "${SHOTS_DIR}" -name '*.svg' -type f | LC_ALL=C sort)
             return "${rc}"
             ;;
         -*)

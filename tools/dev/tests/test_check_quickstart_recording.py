@@ -115,10 +115,23 @@ def repo(tmp_path: Path) -> Iterator[Path]:
         "![setup](assets/quickstart/magpie-setup.svg)\n", encoding="utf-8"
     )
 
+    walk = tmp_path / "assets" / "quickstart" / "walkthrough"
+    walk.mkdir(parents=True)
+    for step in ("1-stops", "2-wizard"):
+        (walk / f"{step}.txt").write_text(f"> step {step}\n", encoding="utf-8")
+    (tmp_path / "docs" / "quick-start").mkdir(parents=True)
+    (tmp_path / "docs" / "quick-start" / "first-run.md").write_text(
+        "![a](../../assets/quickstart/walkthrough/1-stops.svg)\n"
+        "![b](../../assets/quickstart/walkthrough/2-wizard.svg)\n",
+        encoding="utf-8",
+    )
+
     cwd = Path.cwd()
     os.chdir(tmp_path)
     try:
         _render(tmp_path, shots / "self-review.txt")
+        for step in ("1-stops", "2-wizard"):
+            _render(tmp_path, walk / f"{step}.txt")
         yield tmp_path
     finally:
         os.chdir(cwd)
@@ -283,3 +296,41 @@ def test_a_missing_recording_is_an_error_not_a_note(repo: Path) -> None:
     person does once."""
     (repo / "assets/quickstart/magpie-setup.svg").unlink()
     assert any("missing" in e for e in mod.check_svg(mod.SETUP_RECORDING))
+
+
+# ---------------------------------------------------------------------------
+# The first-run walkthrough: every step pictured, in the order it runs
+# ---------------------------------------------------------------------------
+
+
+def test_a_walkthrough_step_the_chapter_does_not_embed_is_reported(repo: Path) -> None:
+    (repo / "docs/quick-start/first-run.md").write_text(
+        "![a](../../assets/quickstart/walkthrough/1-stops.svg)\n", encoding="utf-8"
+    )
+    assert any("2-wizard.svg" in e and "does not embed" in e for e in mod.check_walkthrough())
+
+
+def test_walkthrough_steps_embedded_out_of_order_are_reported(repo: Path) -> None:
+    """The one thing no link check can see: every image resolves, and the page
+    still teaches the wrong sequence."""
+    (repo / "docs/quick-start/first-run.md").write_text(
+        "![b](../../assets/quickstart/walkthrough/2-wizard.svg)\n"
+        "![a](../../assets/quickstart/walkthrough/1-stops.svg)\n",
+        encoding="utf-8",
+    )
+    assert any("out of order" in e for e in mod.check_walkthrough())
+
+
+def test_a_walkthrough_transcript_with_no_svg_is_reported(repo: Path) -> None:
+    (repo / "assets/quickstart/walkthrough/2-wizard.svg").unlink()
+    assert any("2-wizard.svg" in e and "missing" in e for e in mod.check_walkthrough())
+
+
+def test_a_walkthrough_svg_with_no_transcript_is_reported(repo: Path) -> None:
+    _svg(repo / "assets/quickstart/walkthrough/3-orphan.svg")
+    assert any("3-orphan.svg" in e and "no transcript" in e for e in mod.check_walkthrough())
+
+
+def test_a_missing_first_run_chapter_is_reported(repo: Path) -> None:
+    (repo / "docs/quick-start/first-run.md").unlink()
+    assert any("first-run.md" in e for e in mod.check_walkthrough())

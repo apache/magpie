@@ -1,0 +1,12 @@
+> /magpie-pr-management:triage
+
+  Pre-flight  ✓ plugin installed   ✓ project configuration
+
+  38 open PRs, 12 untriaged
+
+  #1421  first-time contributor, CI green, no reviewer
+         -> mark ready for maintainer review
+  #1388  draft for 3 weeks, no commits since
+         -> comment asking whether it is still active
+
+  Each action needs your confirmation. Walk them one at a time? [Y/n]

@@ -1,0 +1,22 @@
+> /magpie-setup adopt
+
+  Detected  github.com/acme/toolkit, Claude Code, no existing Magpie config
+
+  Pick what this project should recommend. Nothing is committed yet.
+
+  SKILL FAMILIES
+    [x] pr-management        you asked for triage
+    [x] setup                always included
+    [x] utilities            always included
+    [ ] issue   [ ] security   [ ] release-management   [ ] repo-health
+    [ ] mentoring   [ ] contributor-growth   [ ] pairing
+
+  MCP SERVERS
+    [ ] ponymail          read ASF mailing-list archives
+    [ ] apache-projects   read ASF rosters and releases
+    [ ] gmail-plaintext   plain-text Gmail drafts, no tracking
+
+  COMPANION SKILLS - third party, none required, nothing pre-ticked
+    [ ] code-review       a broad automated PR pass your review can weigh
+
+  Confirm? [Y/n]

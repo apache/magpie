@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Licensed to the Apache Software Foundation (ASF) under one
+  or more contributor license agreements.  See the NOTICE file
+  distributed with this work for additional information
+  regarding copyright ownership.  The ASF licenses this file
+  to you under the Apache License, Version 2.0 (the
+  "License"); you may not use this file except in compliance
+  with the License.  You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing,
+  software distributed under the License is distributed on an
+  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+  KIND, either express or implied.  See the License for the
+  specific language governing permissions and limitations
+  under the License.
+
+  GENERATED FILE — do not edit.
+
+  Rendered from the .txt beside it by tools/dev/render-screenshot.sh.
+  Edit the transcript and re-render; check-quickstart-recording.py fails
+  the build when this file no longer matches its source.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 845 404"
+     width="845" height="404" role="img"
+     data-magpie-rendered="render-screenshot"
+     aria-label="Terminal transcript: 1-preflight-stops">
+  <title>1-preflight-stops</title>
+  <rect width="845" height="404" rx="10" fill="#1d1f21"/>
+  <rect x="0" y="0" width="845" height="34" rx="10" fill="#2b2e31"/>
+  <rect x="0" y="24" width="845" height="10" fill="#2b2e31"/>
+  <circle cx="22" cy="17" r="6" fill="#3f4448"/>
+  <circle cx="44" cy="17" r="6" fill="#3f4448"/>
+  <circle cx="66" cy="17" r="6" fill="#3f4448"/>
+  <g font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="18" xml:space="preserve">
+    <text x="28" y="84" fill="#8abeb7">&gt; /magpie-pr-management:triage</text>
+    <text x="28" y="136" fill="#c5c8c6">  Pre-flight</text>
+    <text x="28" y="188" fill="#7f9f7f">  ✓ plugin installed        magpie-pr-management</text>
+    <text x="28" y="214" fill="#cc6666">  ✗ project configuration   no .apache-magpie-overrides/ in this repo</text>
+    <text x="28" y="266" fill="#c5c8c6">  Stopping here rather than guessing. Triage needs to know this project's</text>
+    <text x="28" y="292" fill="#c5c8c6">  committer team, its area-label prefix, and which labels mean "ready" -</text>
+    <text x="28" y="318" fill="#c5c8c6">  none of which I can infer from the repository.</text>
+    <text x="28" y="370" fill="#c5c8c6">  Run /magpie-setup adopt to set it up, then re-run this command.</text>
+  </g>
+</svg>

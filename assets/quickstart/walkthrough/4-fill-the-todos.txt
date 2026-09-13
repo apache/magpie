@@ -1,0 +1,9 @@
+> grep -rn TODO .apache-magpie-overrides/project.md
+
+  9:  upstream_repo: TODO
+  14: tracker_url: TODO
+  21: dev_list: TODO
+
+  Fill in the ones your project has. A TODO you leave is not an error -
+  the skill that needs it says so by name when it needs it, and the
+  skills that do not need it never look.
