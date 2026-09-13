@@ -106,6 +106,11 @@ a terminal rather than as markup:
 - **Say what the skill does not do.** Most of these skills are read-only or
   draft-then-confirm, and that is the single most reassuring thing a first-time
   reader can see. Several transcripts end on it.
+- **Keep the ASF header.** Every `.txt` opens with the licence header as a
+  block of `#` comments, exactly like any other authored file here, and the
+  renderer strips it before drawing — so it satisfies Apache RAT without being
+  rendered into the picture and without needing a `.rat-excludes` entry. The
+  one constraint it buys: a transcript cannot open with a literal `#` line.
 - **Never hand-edit an `.svg`.** It is generated. Edit the `.txt` and
   re-render.
 - **Under 1536 KB**, enforced on commit. Nothing generated here comes close;

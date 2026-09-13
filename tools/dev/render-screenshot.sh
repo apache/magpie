@@ -155,9 +155,19 @@ render() {
     # The cost is that a line carrying a multi-byte glyph measures a little
     # wide and the frame gains a few pixels of right-hand padding. Padding is
     # invisible; a false staleness failure is not.
-    { line[NR] = $0; if (length($0) > cols) cols = length($0) }
+    # A transcript is authored source, so it carries the ASF licence header
+    # like every other authored file here -- as a leading block of # comments,
+    # which is stripped before anything is drawn. Without this the header would
+    # be rendered into the picture; with it, RAT is satisfied and no transcript
+    # needs a .rat-excludes entry. The cost is that a transcript cannot open
+    # with a literal # line, which no terminal transcript in this repository
+    # does.
+    BEGIN { inhdr = 1 }
+    inhdr && /^#/ { next }
+    inhdr && /^[ \t]*$/ { next }
+    { inhdr = 0; n++; line[n] = $0; if (length($0) > cols) cols = length($0) }
     END {
-        if (NR == 0) exit 1
+        if (n == 0) exit 1
         pad_x = ENVIRON["PAD_X"] + 0
         bar_h = ENVIRON["BAR_H"] + 0
         pad_top = ENVIRON["PAD_TOP"] + 0
@@ -165,7 +175,7 @@ render() {
         adv = ENVIRON["ADVANCE_TENTHS"] + 0
         w = 2 * pad_x + int((cols * adv + 9) / 10)
         if (w < ENVIRON["MIN_WIDTH"] + 0) w = ENVIRON["MIN_WIDTH"] + 0
-        h = bar_h + pad_top + NR * lh + pad_x
+        h = bar_h + pad_top + n * lh + pad_x
 
         printf "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 %d %d\"\n", w, h
         printf "     width=\"%d\" height=\"%d\" role=\"img\"\n", w, h
@@ -180,7 +190,7 @@ render() {
         printf "  <circle cx=\"66\" cy=\"17\" r=\"6\" fill=\"%s\"/>\n", ENVIRON["DOT"]
         printf "  <g font-family=\"ui-monospace,SFMono-Regular,Menlo,Consolas,monospace\""
         printf " font-size=\"%s\" xml:space=\"preserve\">\n", ENVIRON["FONT_SIZE"]
-        for (i = 1; i <= NR; i++) {
+        for (i = 1; i <= n; i++) {
             y = bar_h + pad_top + i * lh - 6
             if (line[i] ~ /^[ \t]*$/) continue
             printf "    <text x=\"%d\" y=\"%d\" fill=\"%s\">%s</text>\n", \
