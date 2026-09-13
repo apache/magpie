@@ -60,13 +60,22 @@ currently pins a **hybrid**:
   canonical download, hosted on `dist.apache.org` over SVN.
 - `release_vote_backend = atr` — the mandatory `dev@` `[VOTE]` is composed
   and tabulated by the [Apache Trusted Releases](atr-release-runbook.md)
-  platform (alpha, at `https://release-test.apache.org/`).
+  platform (beta, at `https://releases.apache.org/`).
 
 So the artefacts live in **two** places during a vote: the SVN `dist/dev`
 staging dir (the canonical download the `[VOTE]` points at) **and** the ATR
 candidate, which runs the policy checks and drives the vote. Promotion
-(**Finish**) is done over SVN, *not* through ATR — ATR does not host or
-publish Magpie releases yet. This flips to full ATR
+(**Finish**) is done over SVN by the RM, *not* through ATR.
+
+Note that ATR's Finish would also publish to SVN — it commits the
+approved artefacts to `dist/release` in the same distribution
+repository, rather than hosting them itself. The hybrid's difference is
+therefore who performs the commit, not where the artefacts end up. ATR's
+documentation also now states that `dist/dev` is unnecessary when using
+ATR, and discourages pointing a `[VOTE]` at a second copy of the
+artefacts; see the warning in the
+[ATR runbook](atr-release-runbook.md#status-beta) and
+[#1182](https://github.com/apache/magpie/issues/1182). This flips to full ATR
 (`release_dist_backend = atr`) only after the PMC ratifies ATR. ATR has
 since reached beta, so that maturity precondition is met and the
 ratification vote is what remains.
@@ -175,7 +184,7 @@ downloads (the canonical location in hybrid mode). For `0.1.0-rc2` the
 
 | Field | Value |
 |---|---|
-| Candidate page (ATR) | `https://release-test.apache.org/vote/magpie/0.1.0` |
+| Candidate page (ATR) | `https://release-test.apache.org/vote/magpie/0.1.0` (host now redirects to `releases.apache.org`) |
 | Artefacts / downloads (SVN) | `https://dist.apache.org/repos/dist/dev/magpie/0.1.0-rc2/` |
 | Tag | `https://github.com/apache/magpie/releases/tag/0.1.0-rc2` |
 | Changelog | `https://github.com/apache/magpie/blob/0.1.0-rc2/CHANGELOG.md` |
