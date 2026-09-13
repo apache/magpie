@@ -8,6 +8,7 @@
 - [Agentic Pairing skill family](#agentic-pairing-skill-family)
   - [Install & first runs](#install--first-runs)
     - [Before the first run](#before-the-first-run)
+    - [Works well with](#works-well-with)
     - [Try these first](#try-these-first)
   - [Skills](#skills)
     - [When to use which](#when-to-use-which)
@@ -80,6 +81,38 @@ does not.
 | [`project.md`](../../projects/_template/project.md) | Project manifest. Identity, repositories, mailing lists, tools enabled, CVE tooling, GitHub project-board + issue-template field declarations. The single file every skill reads to resolve project-scoped references. | `multi-agent-review`, `self-review` |
 
 <!-- END generated: skill-config -->
+
+<!-- BEGIN generated: companion-skills (tools/dev/check-companion-skills.py --fix) -->
+
+### Works well with
+
+Third-party packages, none of them required: this family works with none of
+them installed, and Magpie neither bundles nor depends on any. They are named
+because they are what a maintainer goes looking for next, and because the
+answer differs by agent.
+
+**[Code Review](https://github.com/anthropics/claude-plugins-official/tree/main/plugins/code-review)** — Anthropic
+
+Automated pull-request review through several specialised agents, scored by confidence.
+
+*With this family:* Runs the same kind of pass over a PR that self-review runs over your local diff.
+
+Available on **Claude Code** only.
+
+**[Superpowers](https://github.com/obra/superpowers)** — obra (community)
+
+A skills library and development methodology: brainstorming, plan writing, subagent-driven execution, systematic debugging.
+
+*With this family:* self-review and multi-agent-review are pre-flight reads of your own diff; Superpowers adds the test-first and systematic-debugging habits upstream of them.
+
+Available on **Claude Code**, **OpenAI Codex CLI**, **VS Code / GitHub Copilot**, **Google Gemini CLI**, **Cursor**, **OpenCode**.
+
+Ships a plugin manifest per harness and one shared skills/ tree, the same shape Magpie uses, so it is not a Claude Code-only package.
+
+Install commands per agent are in
+[**Companion skill packages**](../setup/companion-skills.md).
+
+<!-- END generated: companion-skills -->
 
 ### Try these first
 

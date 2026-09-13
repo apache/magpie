@@ -798,10 +798,28 @@ detail; install is walked in [Step 9c](#step-9c--comdev-mcp-prerequisites-asf-pr
   tracking redirects (for operators who draft mail from the
   agent). Optional; not ASF-gated.
 
+**Companion skill packages** (third-party, none required —
+[`docs/setup/companion-skills.md`](../../../../docs/setup/companion-skills.md)
+carries the per-agent install commands):
+
+- Read that page's entries for the families the operator just
+  picked, and offer only the ones whose `harnesses` include the
+  agent detected in Step M2. Naming a package the operator
+  cannot install on their agent is worse than naming none.
+- Say what each adds **to that family**, and that Magpie
+  bundles none of them, fetches none automatically, and works
+  without all of them. This is the one group where the framework
+  is pointing at someone else's tool, so it points rather than
+  recommends.
+- Pre-tick **nothing**. The families and MCP servers above are
+  what the operator asked for; these are a suggestion, and a
+  pre-ticked suggestion is an install nobody chose.
+
 **Prefer structured Q&A.** When the harness offers a
 structured-question tool, use **one** *multi-select* prompt with
-two labelled groups — "Skill families" (the opt-in families
-above) and "MCP servers" (the three above). None are mutually
+three labelled groups — "Skill families" (the opt-in families
+above), "MCP servers" (the three above), and "Companion skills"
+(the third-party packages above). None are mutually
 exclusive. Pre-selection:
 
 - *Families* — pre-tick the **union** of (a) families the user
@@ -817,6 +835,9 @@ exclusive. Pre-selection:
   **required**; pre-tick `gmail-plaintext` only if the operator
   selected a mail-drafting family (`security` or
   `release-management`). For a non-ASF project, pre-tick nothing.
+- *Companion skills* — pre-tick nothing, ever. List only the
+  packages available on the detected agent, each with one line
+  saying what it adds to a family the operator selected.
 
 SUBSEQUENT adoption: re-use the opt-in families recorded in
 `<committed-lock>` / `<local-lock>` and the already-registered

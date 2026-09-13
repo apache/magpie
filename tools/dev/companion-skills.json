@@ -1,0 +1,88 @@
+{
+  "_comment": [
+    "Third-party skill packages that pair well with a Magpie family, and where to get",
+    "them for the harness you actually use.",
+    "",
+    "Magpie recommends none of these as a dependency: every family works with none of",
+    "them installed. They are named because a maintainer who has just installed, say,",
+    "the security family is about to go looking for exactly this, and the answer",
+    "differs per harness in a way no single install line can express.",
+    "",
+    "Rules for an entry, enforced by tools/dev/check-companion-skills.py:",
+    "  - `harnesses` names every harness the package is actually available on, with",
+    "    that harness's own install command. A package present on one harness only",
+    "    says so; the generated block then tells a Codex user it is not for them",
+    "    rather than printing a command that cannot work.",
+    "  - `url` points at the package's own documentation, never at a directory site,",
+    "    so the link survives a directory going away.",
+    "  - `why` says what it adds *to that family*. An entry that cannot say this is",
+    "    an advert, not a recommendation, and does not belong here.",
+    "  - `vendor` is recorded because docs/vendor-neutrality.md is a live metric and",
+    "    a reader deserves to see whose tool they are being pointed at."
+  ],
+  "companions": [
+    {
+      "id": "superpowers",
+      "title": "Superpowers",
+      "vendor": "obra (community)",
+      "url": "https://github.com/obra/superpowers",
+      "what": "A skills library and development methodology: brainstorming, plan writing, subagent-driven execution, systematic debugging.",
+      "why": {
+        "utilities": "write-skill and optimize-skill author Magpie skills; Superpowers' brainstorming and plan-writing skills are the discipline for deciding what a skill should do before writing it.",
+        "pairing": "self-review and multi-agent-review are pre-flight reads of your own diff; Superpowers adds the test-first and systematic-debugging habits upstream of them."
+      },
+      "harnesses": {
+        "claude-code": "/plugin marketplace add obra/superpowers-marketplace\n/plugin install superpowers@superpowers-marketplace",
+        "codex": "codex plugin marketplace add obra/superpowers-marketplace",
+        "cursor": "install from github.com/obra/superpowers through Cursor's plugin flow",
+        "gemini": "gemini extensions install https://github.com/obra/superpowers",
+        "copilot": "install from github.com/obra/superpowers",
+        "opencode": "clone the skills you want into .opencode/skills/ from github.com/obra/superpowers"
+      },
+      "note": "Ships a plugin manifest per harness and one shared skills/ tree, the same shape Magpie uses, so it is not a Claude Code-only package."
+    },
+    {
+      "id": "claude-security",
+      "title": "Claude Security",
+      "vendor": "Anthropic",
+      "url": "https://code.claude.com/docs/en/claude-security",
+      "what": "A multi-agent vulnerability scan of your own repository, run inside the session; each finding carries a severity, a CWE category and reproduction steps, and the ones you pick become patch files you review before applying.",
+      "why": {
+        "security": "This family handles reports that arrive — intake, triage, CVE, advisory. Scanning finds the ones nobody reported. The two meet at security-issue-import-from-scan, which imports scanner output as trackers.",
+        "repo-health": "The audits here read dependencies, workflows and licences. This reads the project's own code, which none of them do."
+      },
+      "harnesses": {
+        "claude-code": "/plugin install claude-security"
+      },
+      "note": "Claude Code only: it drives subagents and a scan workflow that Agent Plugins 1.0 has no component for. Listed with its harness named rather than presented as the answer for everyone."
+    },
+    {
+      "id": "aikido",
+      "title": "Aikido Security",
+      "vendor": "Aikido",
+      "url": "https://www.aikido.dev/",
+      "what": "SAST, secrets and infrastructure-as-code scanning surfaced in the session.",
+      "why": {
+        "security": "A second opinion from a conventional scanner, and a different class of finding — committed secrets — from the ones a code-reading scan surfaces.",
+        "repo-health": "Covers the infrastructure-as-code surface that workflow-security-audit does not read."
+      },
+      "harnesses": {
+        "claude-code": "/plugin install aikido"
+      }
+    },
+    {
+      "id": "code-review",
+      "title": "Code Review",
+      "vendor": "Anthropic",
+      "url": "https://github.com/anthropics/claude-plugins-official/tree/main/plugins/code-review",
+      "what": "Automated pull-request review through several specialised agents, scored by confidence.",
+      "why": {
+        "pr-management": "pr-management-code-review walks a maintainer through reviewing one PR at a time and drafts the review they post. This is the other half — a broad automated pass whose findings that review can weigh.",
+        "pairing": "Runs the same kind of pass over a PR that self-review runs over your local diff."
+      },
+      "harnesses": {
+        "claude-code": "/plugin install code-review"
+      }
+    }
+  ]
+}

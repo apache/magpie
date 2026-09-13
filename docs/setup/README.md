@@ -173,6 +173,9 @@ for the complete rule.
   the project publishes, and the recommended way to install. Every agent that
   can add it, which families to pick, pinning, updates, and verification
   status.
+- [**Companion skill packages**](companion-skills.md) — third-party skill
+  packages that pair with a Magpie family, and the install command for each
+  agent that has one. None is a dependency.
 - [**`secure-agent-setup.md`**](secure-agent-setup.md) — full
   install walkthrough. The authoritative reference the
   `setup-isolated-setup-install` skill steps through.

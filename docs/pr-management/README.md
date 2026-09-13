@@ -8,6 +8,7 @@
 - [PR management skill family](#pr-management-skill-family)
   - [Install & first runs](#install--first-runs)
     - [Before the first run](#before-the-first-run)
+    - [Works well with](#works-well-with)
     - [Try these first](#try-these-first)
   - [Skills](#skills)
   - [Cross-references](#cross-references)
@@ -121,6 +122,28 @@ says which file is missing.
 | [`stale-sweep-config.md`](../../projects/_template/stale-sweep-config.md) | Grace windows and exemption labels for stale sweeps. Absent, the framework defaults apply. | `stale-sweep` |
 
 <!-- END generated: skill-config -->
+
+<!-- BEGIN generated: companion-skills (tools/dev/check-companion-skills.py --fix) -->
+
+### Works well with
+
+Third-party packages, none of them required: this family works with none of
+them installed, and Magpie neither bundles nor depends on any. They are named
+because they are what a maintainer goes looking for next, and because the
+answer differs by agent.
+
+**[Code Review](https://github.com/anthropics/claude-plugins-official/tree/main/plugins/code-review)** — Anthropic
+
+Automated pull-request review through several specialised agents, scored by confidence.
+
+*With this family:* pr-management-code-review walks a maintainer through reviewing one PR at a time and drafts the review they post. This is the other half — a broad automated pass whose findings that review can weigh.
+
+Available on **Claude Code** only.
+
+Install commands per agent are in
+[**Companion skill packages**](../setup/companion-skills.md).
+
+<!-- END generated: companion-skills -->
 
 ### Try these first
 

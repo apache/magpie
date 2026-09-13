@@ -380,6 +380,17 @@ repos:
   # both. Runs as `--fix`, like check-family-plugins: the block is a pure
   # function of the frontmatter, so there is nothing for a contributor to
   # decide when it drifts.
+  # Companion skill packages. Third-party, per family AND per harness, and never
+  # a dependency -- the generated block is what keeps all three of those true in
+  # ten READMEs at once. Runs as `--fix` for the same reason its neighbours do.
+  - repo: local
+    hooks:
+      - id: check-companion-skills
+        name: check-companion-skills (companion registry vs family READMEs)
+        language: system
+        entry: python3 tools/dev/check-companion-skills.py --fix
+        files: ^(tools/dev/(companion-skills\.json|check-companion-skills\.py)|docs/[^/]+/README\.md|docs/setup/companion-skills\.md|plugins/magpie-[^/]+/skills/.*)$
+        pass_filenames: false
   - repo: local
     hooks:
       - id: check-skill-config

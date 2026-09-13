@@ -8,6 +8,7 @@
 - [Utilities skill family](#utilities-skill-family)
   - [Install & first runs](#install--first-runs)
     - [Before the first run](#before-the-first-run)
+    - [Works well with](#works-well-with)
     - [Try these first](#try-these-first)
   - [Skills](#skills)
   - [When to adopt this family](#when-to-adopt-this-family)
@@ -69,6 +70,30 @@ does not.
 | [`project.md`](../../projects/_template/project.md) | Project manifest. Identity, repositories, mailing lists, tools enabled, CVE tooling, GitHub project-board + issue-template field declarations. The single file every skill reads to resolve project-scoped references. | `list-skills`, `optimize-skill`, `report-framework-issue`, `skill-reconciler`, `write-skill` |
 
 <!-- END generated: skill-config -->
+
+<!-- BEGIN generated: companion-skills (tools/dev/check-companion-skills.py --fix) -->
+
+### Works well with
+
+Third-party packages, none of them required: this family works with none of
+them installed, and Magpie neither bundles nor depends on any. They are named
+because they are what a maintainer goes looking for next, and because the
+answer differs by agent.
+
+**[Superpowers](https://github.com/obra/superpowers)** — obra (community)
+
+A skills library and development methodology: brainstorming, plan writing, subagent-driven execution, systematic debugging.
+
+*With this family:* write-skill and optimize-skill author Magpie skills; Superpowers' brainstorming and plan-writing skills are the discipline for deciding what a skill should do before writing it.
+
+Available on **Claude Code**, **OpenAI Codex CLI**, **VS Code / GitHub Copilot**, **Google Gemini CLI**, **Cursor**, **OpenCode**.
+
+Ships a plugin manifest per harness and one shared skills/ tree, the same shape Magpie uses, so it is not a Claude Code-only package.
+
+Install commands per agent are in
+[**Companion skill packages**](../setup/companion-skills.md).
+
+<!-- END generated: companion-skills -->
 
 ### Try these first
 

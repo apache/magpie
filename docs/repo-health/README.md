@@ -8,6 +8,7 @@
 - [Repo-health audits — family overview](#repo-health-audits--family-overview)
   - [Install & first runs](#install--first-runs)
     - [Before the first run](#before-the-first-run)
+    - [Works well with](#works-well-with)
     - [Try these first](#try-these-first)
   - [Current skills](#current-skills)
     - [`audit-finding-fix` (experimental)](#audit-finding-fix-experimental)
@@ -83,6 +84,38 @@ says which file is missing.
 | [`runtime-invocation.md`](../../projects/_template/runtime-invocation.md) | Build prerequisite, run-a-single-file recipe, stream-capture conventions, network/dependency handling. | `audit-finding-fix` |
 
 <!-- END generated: skill-config -->
+
+<!-- BEGIN generated: companion-skills (tools/dev/check-companion-skills.py --fix) -->
+
+### Works well with
+
+Third-party packages, none of them required: this family works with none of
+them installed, and Magpie neither bundles nor depends on any. They are named
+because they are what a maintainer goes looking for next, and because the
+answer differs by agent.
+
+**[Aikido Security](https://www.aikido.dev/)** — Aikido
+
+SAST, secrets and infrastructure-as-code scanning surfaced in the session.
+
+*With this family:* Covers the infrastructure-as-code surface that workflow-security-audit does not read.
+
+Available on **Claude Code** only.
+
+**[Claude Security](https://code.claude.com/docs/en/claude-security)** — Anthropic
+
+A multi-agent vulnerability scan of your own repository, run inside the session; each finding carries a severity, a CWE category and reproduction steps, and the ones you pick become patch files you review before applying.
+
+*With this family:* The audits here read dependencies, workflows and licences. This reads the project's own code, which none of them do.
+
+Available on **Claude Code** only.
+
+Claude Code only: it drives subagents and a scan workflow that Agent Plugins 1.0 has no component for. Listed with its harness named rather than presented as the answer for everyone.
+
+Install commands per agent are in
+[**Companion skill packages**](../setup/companion-skills.md).
+
+<!-- END generated: companion-skills -->
 
 ### Try these first
 

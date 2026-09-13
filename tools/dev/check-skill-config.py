@@ -190,11 +190,8 @@ def render(family: str, skills: dict[str, tuple[list[str], set[str]]], desc: dic
         block = [header, "", "| File | What it carries | Read by |", "|---|---|---|"]
         for name in sorted(rows):
             users = ", ".join(f"`{a}`" for a in rows[name])
-            block.append(
-                f"| [`{name}`](../../{TEMPLATE_DIR}/{name}) "
-                f"| {desc.get(name, '—')} | {users} |"
-            )
-        return block + [""]
+            block.append(f"| [`{name}`](../../{TEMPLATE_DIR}/{name}) | {desc.get(name, '—')} | {users} |")
+        return [*block, ""]
 
     if required:
         lines += table(

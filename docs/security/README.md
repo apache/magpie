@@ -8,6 +8,7 @@
 - [Security workflow skill family](#security-workflow-skill-family)
   - [Install & first runs](#install--first-runs)
     - [Before the first run](#before-the-first-run)
+    - [Works well with](#works-well-with)
     - [Try these first](#try-these-first)
   - [Skills](#skills)
     - [Lifecycle skills](#lifecycle-skills)
@@ -98,6 +99,38 @@ says which file is missing.
 | [`release-trains.md`](../../projects/_template/release-trains.md) | Active release branches, release-manager attribution per cut, rotation rosters, security-team roster. | `cve-allocate`, `issue-fix`, `issue-import`, `issue-import-from-pr`, `issue-sync`, `issue-triage` |
 
 <!-- END generated: skill-config -->
+
+<!-- BEGIN generated: companion-skills (tools/dev/check-companion-skills.py --fix) -->
+
+### Works well with
+
+Third-party packages, none of them required: this family works with none of
+them installed, and Magpie neither bundles nor depends on any. They are named
+because they are what a maintainer goes looking for next, and because the
+answer differs by agent.
+
+**[Aikido Security](https://www.aikido.dev/)** — Aikido
+
+SAST, secrets and infrastructure-as-code scanning surfaced in the session.
+
+*With this family:* A second opinion from a conventional scanner, and a different class of finding — committed secrets — from the ones a code-reading scan surfaces.
+
+Available on **Claude Code** only.
+
+**[Claude Security](https://code.claude.com/docs/en/claude-security)** — Anthropic
+
+A multi-agent vulnerability scan of your own repository, run inside the session; each finding carries a severity, a CWE category and reproduction steps, and the ones you pick become patch files you review before applying.
+
+*With this family:* This family handles reports that arrive — intake, triage, CVE, advisory. Scanning finds the ones nobody reported. The two meet at security-issue-import-from-scan, which imports scanner output as trackers.
+
+Available on **Claude Code** only.
+
+Claude Code only: it drives subagents and a scan workflow that Agent Plugins 1.0 has no component for. Listed with its harness named rather than presented as the answer for everyone.
+
+Install commands per agent are in
+[**Companion skill packages**](../setup/companion-skills.md).
+
+<!-- END generated: companion-skills -->
 
 ### Try these first
 
