@@ -7,7 +7,6 @@
 
 - [Contributor-growth skill family](#contributor-growth-skill-family)
   - [Install & first runs](#install--first-runs)
-    - [The first run](#the-first-run)
     - [Try these first](#try-these-first)
   - [Stage coverage](#stage-coverage)
   - [Skills](#skills)
@@ -42,6 +41,12 @@ PR to committer status keeps the contributor pipeline healthy. These
 skills were designed independently but cover a contiguous path; grouping
 them makes the adopter configuration and the evaluation story coherent.
 
+> [!TIP]
+> **Why this family**
+> - A nomination brief built from a year of evidence rather than a recent impression
+> - The post-vote checklist, from ICLA to welcome mail, with the steps that need a PMC chair marked
+> - It names what GitHub cannot see — mailing lists, release votes, mentoring — instead of quietly scoring without them
+
 ## Install & first runs
 
 Install just this family — one plugin, 6 skills. The path-to-committer track.
@@ -56,18 +61,6 @@ New to Magpie? The [quick start](../quick-start.md) walks the whole path in
 one place — install, the first `/magpie-setup` run, and a recording of it
 happening — plus the other agents and the secure-isolation setup to run next.
 
-### The first run
-
-The first time you call a skill in this family it checks whether the project is
-set up, before it does anything else. On a project that has not been adopted it
-stops right there and proposes `/magpie-setup`, rather than acting on
-placeholders it cannot resolve:
-
-![The magpie-contributor-growth family's first run — the skill's pre-flight finds no project config, stops and proposes /magpie-setup, then the same command succeeds on the retry](../../assets/quickstart/families/contributor-growth-first-run.svg)
-
-That check is silent once the project is set up: it costs three file checks and
-prints nothing.
-
 ### Try these first
 
 *Illustrative shapes, not real transcripts — your output will differ. Nothing
@@ -76,30 +69,26 @@ below sends, merges, or posts anything without you confirming it.*
 **Sweep recent contributor activity.**
 
 ```text
-> /magpie-contributor-growth:activity-sweep
-
-  Last 180 days, 4 contributors past the review threshold
-  @kasia-w   31 PRs, 44 reviews  -> nomination-ready
-  @dmitry-p  12 PRs,  3 reviews  -> watch
+/magpie-contributor-growth:activity-sweep
 ```
+
+![An activity-sweep run: ninety days of authored PRs, reviews, issues and comments for one contributor, with a note that mailing lists and release votes are not in the total](../../assets/quickstart/families/contributor-growth/activity-sweep.svg)
 
 **Draft a nomination brief.**
 
 ```text
-> /magpie-contributor-growth:nomination
-
-  Brief for @kasia-w: 31 merged PRs, 44 reviews, 2 releases helped
-  Private [DISCUSS] mail drafted for the PMC list, not sent.
+/magpie-contributor-growth:nomination
 ```
+
+![A nomination run summarising a year of GitHub activity, naming the off-GitHub evidence it cannot see, and drafting the discussion thread without sending it](../../assets/quickstart/families/contributor-growth/nomination.svg)
 
 **Onboard a new committer.**
 
 ```text
-> /magpie-contributor-growth:committer-onboarding
-
-  Checklist for @kasia-w: ICLA on file, account requested,
-  karma pending, welcome mail drafted. 2 items need a PMC chair.
+/magpie-contributor-growth:committer-onboarding
 ```
+
+![A committer-onboarding run: two steps done, two waiting on a PMC chair, and the welcome announcement drafted but not sent](../../assets/quickstart/families/contributor-growth/committer-onboarding.svg)
 
 ## Stage coverage
 

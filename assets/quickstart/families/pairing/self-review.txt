@@ -1,0 +1,12 @@
+> /magpie-pairing:self-review
+
+  Reviewing 4 changed files against origin/main
+
+  BLOCKING
+    src/cache.py:88   unchecked dict access on a caller-supplied key
+
+  NON-BLOCKING
+    src/cache.py:12   module docstring omits the eviction policy
+    tests/test_cache.py:40   asserts the mock, not the behaviour
+
+  Nothing was sent, posted, or merged - the report is the output.

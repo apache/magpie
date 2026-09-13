@@ -1,0 +1,12 @@
+> /magpie-setup:status
+
+  Install        marketplace (apache-magpie), tracking main
+  Plugins        magpie-setup, magpie-utilities, magpie-agent-guard,
+                 magpie-pr-management
+  Project floor  .apache-magpie.lock - method: marketplace
+
+  ✓ every floor plugin is installed and at or above the floor
+  ✓ no drift between the committed floor and this machine
+
+  Ahead of the floor is not drift: magpie-pr-management is yours, not
+  the project's, and nothing will remove it.

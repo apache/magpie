@@ -7,7 +7,6 @@
 
 - [Agentic Mentoring skill family](#agentic-mentoring-skill-family)
   - [Install & first runs](#install--first-runs)
-    - [The first run](#the-first-run)
     - [Try these first](#try-these-first)
   - [Skills](#skills)
     - [What each skill covers](#what-each-skill-covers)
@@ -37,6 +36,12 @@ hand-off protocol, adopter contract — and the skill implementations together,
 so the project's tone choices are reviewable independently of runtime
 behaviour and can be evolved without editing the skill body.
 
+> [!TIP]
+> **Why this family**
+> - First-time contributors get a real welcome that names what their PR changed, not a template
+> - An issue explained to a newcomer in a teaching register — what breaks, where, and how to check
+> - Good first issues that are actually finishable, and the ones that only need a sentence to become so
+
 ## Install & first runs
 
 Install just this family — one plugin, 4 skills. Newcomer-facing mentoring — welcome, explain, and curate first issues.
@@ -51,18 +56,6 @@ New to Magpie? The [quick start](../quick-start.md) walks the whole path in
 one place — install, the first `/magpie-setup` run, and a recording of it
 happening — plus the other agents and the secure-isolation setup to run next.
 
-### The first run
-
-The first time you call a skill in this family it checks whether the project is
-set up, before it does anything else. On a project that has not been adopted it
-stops right there and proposes `/magpie-setup`, rather than acting on
-placeholders it cannot resolve:
-
-![The magpie-mentoring family's first run — the skill's pre-flight finds no project config, stops and proposes /magpie-setup, then the same command succeeds on the retry](../../assets/quickstart/families/mentoring-first-run.svg)
-
-That check is silent once the project is set up: it costs three file checks and
-prints nothing.
-
 ### Try these first
 
 *Illustrative shapes, not real transcripts — your output will differ. Nothing
@@ -71,30 +64,26 @@ below sends, merges, or posts anything without you confirming it.*
 **Welcome a first-time contributor.**
 
 ```text
-> /magpie-mentoring:welcome
-
-  PR #5210 is @kasia-w's first contribution
-  Welcome comment drafted: CI hints + the DCO step they missed
+/magpie-mentoring:welcome
 ```
+
+![A welcome run drafting a distinct greeting for each of three first-time contributors, naming what each PR actually changed](../../assets/quickstart/families/mentoring/welcome.svg)
 
 **Curate the good-first-issue backlog.**
 
 ```text
-> /magpie-mentoring:good-first-issue-sweep
-
-  23 labelled good-first-issue
-   9 stale (>180d, no claim)   4 not actually beginner-sized
-  10 healthy
+/magpie-mentoring:good-first-issue-sweep
 ```
+
+![A good-first-issue-sweep run: two issues ready for a newcomer, two that are close but missing context or need a design decision](../../assets/quickstart/families/mentoring/good-first-issue-sweep.svg)
 
 **Explain an issue to a newcomer.**
 
 ```text
-> /magpie-mentoring:newcomer-issue-explainer
-
-  #8144 explained: what breaks, the 2 files to touch,
-  how to run just that test. Comment drafted.
+/magpie-mentoring:newcomer-issue-explainer
 ```
+
+![A newcomer-issue-explainer run: what breaks, the two files to touch, the one test to run, and a comment drafted in a teaching register](../../assets/quickstart/families/mentoring/newcomer-issue-explainer.svg)
 
 ## Skills
 

@@ -1,0 +1,13 @@
+> /magpie-issue:reproducer 3312
+
+  Extracting a runnable case from the report
+
+  Found      config snippet, stack trace, version pin
+  Missing    the platform - assuming linux from the traceback paths
+
+  Wrote a probe: 11 lines, stdlib only, no network
+
+  ✓ reproduced - the same KeyError on line 88
+
+  The report is actionable. The probe is attached to the issue as a
+  comment for you to review before anything is posted.

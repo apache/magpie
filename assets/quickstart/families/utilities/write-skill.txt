@@ -1,0 +1,14 @@
+> /magpie-utilities:write-skill
+
+  What should the skill do?  Sweep stale release branches
+
+  Drafting against the framework's conventions
+
+  ✓ frontmatter      name, description, family, mode, status
+  ✓ pre-flight       the shared block every skill runs first
+  ✓ hard rules       read-only by default; every state change confirmed
+  ⚠ eval suite       none yet - a skill without one is unverifiable
+
+  Wrote the draft to skills/release-branch-sweep/SKILL.md.
+
+  Next: the eval suite. It is the part that stops a rewrite breaking it.

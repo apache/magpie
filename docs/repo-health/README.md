@@ -7,7 +7,6 @@
 
 - [Repo-health audits — family overview](#repo-health-audits--family-overview)
   - [Install & first runs](#install--first-runs)
-    - [The first run](#the-first-run)
     - [Try these first](#try-these-first)
   - [Current skills](#current-skills)
     - [`audit-finding-fix` (experimental)](#audit-finding-fix-experimental)
@@ -44,6 +43,12 @@ follow. See [`docs/modes.md` § Triage](../modes.md#triage).
 
 ---
 
+> [!TIP]
+> **Why this family**
+> - Read-only audits that find what CI does not: unmaintained dependencies, unsafe workflow triggers, licence gaps
+> - Flakes separated from real regressions, so the regression hiding among them gets found
+> - Findings first, fixes second — the audit never edits a workflow or opens a PR on its own
+
 ## Install & first runs
 
 Install just this family — one plugin, 7 skills. Read-only repository-health audits, plus fixes for what they find.
@@ -58,18 +63,6 @@ New to Magpie? The [quick start](../quick-start.md) walks the whole path in
 one place — install, the first `/magpie-setup` run, and a recording of it
 happening — plus the other agents and the secure-isolation setup to run next.
 
-### The first run
-
-The first time you call a skill in this family it checks whether the project is
-set up, before it does anything else. On a project that has not been adopted it
-stops right there and proposes `/magpie-setup`, rather than acting on
-placeholders it cannot resolve:
-
-![The magpie-repo-health family's first run — the skill's pre-flight finds no project config, stops and proposes /magpie-setup, then the same command succeeds on the retry](../../assets/quickstart/families/repo-health-first-run.svg)
-
-That check is silent once the project is set up: it costs three file checks and
-prints nothing.
-
 ### Try these first
 
 *Illustrative shapes, not real transcripts — your output will differ. Nothing
@@ -78,31 +71,26 @@ below sends, merges, or posts anything without you confirming it.*
 **Audit dependencies for CVEs.**
 
 ```text
-> /magpie-repo-health:dependency-audit
-
-  312 deps, 4 advisories
-  HIGH  urllib3 1.26.5  -> 1.26.19  (CVE-2024-37891)
-  LOW   idna 3.4        -> 3.7
+/magpie-repo-health:dependency-audit
 ```
+
+![A dependency-audit run grouping findings into outdated-with-a-fix, unmaintained, and pinned-but-unused, having upgraded nothing](../../assets/quickstart/families/repo-health/dependency-audit.svg)
 
 **Audit the Actions workflows.**
 
 ```text
-> /magpie-repo-health:workflow-security-audit
-
-  9 workflows
-  HIGH  release.yml:31  pull_request_target + checkout of PR head
-  MED   ci.yml:88       3 actions pinned by tag, not SHA
+/magpie-repo-health:workflow-security-audit
 ```
+
+![A workflow-security-audit run: one failure where a workflow runs untrusted code with write permissions, two warnings about pinning and permissions, and nine clean files](../../assets/quickstart/families/repo-health/workflow-security-audit.svg)
 
 **Find the flaky tests.**
 
 ```text
-> /magpie-repo-health:flaky-test-triage
-
-  200 runs: 6 tests failed non-deterministically
-  test_scheduler_timing  11 fails / 200 — all on the 4-core runner
+/magpie-repo-health:flaky-test-triage
 ```
+
+![A flaky-test-triage run separating two genuine flakes from a real regression that had been hiding among them](../../assets/quickstart/families/repo-health/flaky-test-triage.svg)
 
 ## Current skills
 

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Licensed to the Apache Software Foundation (ASF) under one
+  or more contributor license agreements.  See the NOTICE file
+  distributed with this work for additional information
+  regarding copyright ownership.  The ASF licenses this file
+  to you under the Apache License, Version 2.0 (the
+  "License"); you may not use this file except in compliance
+  with the License.  You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing,
+  software distributed under the License is distributed on an
+  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+  KIND, either express or implied.  See the License for the
+  specific language governing permissions and limitations
+  under the License.
+
+  GENERATED FILE — do not edit.
+
+  Rendered from the .txt beside it by tools/dev/render-screenshot.sh.
+  Edit the transcript and re-render; check-quickstart-recording.py fails
+  the build when this file no longer matches its source.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 834 430"
+     width="834" height="430" role="img"
+     data-magpie-rendered="render-screenshot"
+     aria-label="Terminal transcript: welcome">
+  <title>welcome</title>
+  <rect width="834" height="430" rx="10" fill="#1d1f21"/>
+  <rect x="0" y="0" width="834" height="34" rx="10" fill="#2b2e31"/>
+  <rect x="0" y="24" width="834" height="10" fill="#2b2e31"/>
+  <circle cx="22" cy="17" r="6" fill="#3f4448"/>
+  <circle cx="44" cy="17" r="6" fill="#3f4448"/>
+  <circle cx="66" cy="17" r="6" fill="#3f4448"/>
+  <g font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="18" xml:space="preserve">
+    <text x="28" y="84" fill="#8abeb7">&gt; /magpie-mentoring:welcome</text>
+    <text x="28" y="136" fill="#c5c8c6">  3 first-time contributors opened a PR today</text>
+    <text x="28" y="188" fill="#c5c8c6">  #1421  alex-dev      first PR to this project</text>
+    <text x="28" y="214" fill="#c5c8c6">  #1425  sam-builds    first PR to this project</text>
+    <text x="28" y="240" fill="#c5c8c6">  #1427  jo-writes     first PR, docs only</text>
+    <text x="28" y="292" fill="#c5c8c6">  Drafted a welcome for each: what happens next, roughly how long review</text>
+    <text x="28" y="318" fill="#c5c8c6">  takes, and who to ask if it stalls. No template stamping - each one</text>
+    <text x="28" y="344" fill="#c5c8c6">  names what the PR actually changed.</text>
+    <text x="28" y="396" fill="#c5c8c6">  Review the three drafts before anything is posted? [Y/n]</text>
+  </g>
+</svg>

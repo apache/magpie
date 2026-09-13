@@ -1,0 +1,12 @@
+> /magpie-security:model-verify
+
+  Verifying the threat model against the repository
+
+  ✓ every trust boundary in the model has a component that implements it
+  ✓ every entry point in the code appears in the model
+  ✗ model names an "admin API" surface that no route serves any more
+
+  One stale assertion. The model is a document that rots like any other;
+  this is the check that notices.
+
+  Nothing was edited - use model-update to propose the change.

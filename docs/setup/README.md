@@ -55,6 +55,12 @@ pre-disclosure content into the model provider's training data or
 into a public PR. The setup family is what makes the rest of the
 framework safe to use.
 
+> [!TIP]
+> **Why this family**
+> - Install, upgrade and adopt the framework without hand-editing a settings file
+> - A sandboxed agent with a clean environment, walked through step by step — nothing runs with sudo behind your back
+> - One command tells you what is installed, what the project expects, and whether the two agree
+
 ## Install & first runs
 
 Install just this family — one plugin, 9 skills. Sandbox, clean environment, and the framework's own install/upgrade.
@@ -87,35 +93,26 @@ below sends, merges, or posts anything without you confirming it.*
 **Put the agent in its sandbox.**
 
 ```text
-> /magpie-setup:isolated-setup-install
-
-Proposed changes (nothing applied yet):
-  1. .claude/settings.json   sandbox.enabled: true, 14 deny rules
-  2. ~/.claude/scripts/      3 hooks + status line
-  3. ~/.zshrc                source agent-iso.sh
-Apply 1-3? [y/N]
+/magpie-setup:isolated-setup-install
 ```
+
+![An isolated-setup-install run listing three proposed changes — settings.json, the user scripts directory, and the shell rc — and waiting for confirmation before any of them](../../assets/quickstart/families/setup/isolated-setup-install.svg)
 
 **Check it landed.**
 
 ```text
-> /magpie-setup:isolated-setup-verify
-
-  OK   sandbox.enabled           true
-  OK   permissions.deny          14 rules
-  WARN pinned tools              bubblewrap 0.11.1 (want 0.11.2)
-  OK   status line               wired
+/magpie-setup:isolated-setup-verify
 ```
+
+![An isolated-setup-verify run: four green checks across the settings wiring and pinned tools, and one warning that the docker socket is not exposed inside the sandbox](../../assets/quickstart/families/setup/isolated-setup-verify.svg)
 
 **See what is wired up.**
 
 ```text
-> /magpie-setup:status
-
-  install method   marketplace (magpie-setup, magpie-pr-management)
-  agent targets    .agents/skills, .claude/skills
-  drift            none
+/magpie-setup:status
 ```
+
+![A status run: the install method, the installed plugins, the project's committed floor, and two green checks saying this machine is at or above it](../../assets/quickstart/families/setup/status.svg)
 
 ## Security mailing-list configuration
 

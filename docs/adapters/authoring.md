@@ -29,9 +29,9 @@ your adapter supplies the concrete backend. This guide is the how-to; the
 
 | | In-tree (upstream) | In your adopter repo | External (another repo) |
 |---|---|---|---|
-| **Where it lives** | a PR into `apache/magpie` | `<project-config>/.apache-magpie-overrides/` | a repo you/the community maintain |
+| **Where it lives** | a PR into `apache/magpie` | `<project-config>/.apache-magpie-overrides/` | a repo you/the community maintain |
 | **License** | Apache-2.0 ([§17](../../PRINCIPLES.md#17-contributions-land-under-apache-license-20)) | yours | the author's |
-| **Who reuses it** | every adopter on that backend | your project | anyone who wires it in |
+| **Who reuses it** | every adopter on that backend | your project | anyone who wires it in |
 | **Discovery** | shipped in-tree | committed in your repo | optionally listed in the [registry](registry.md) |
 | **Install** | part of the snapshot | committed override | you wire it in deliberately — never auto-fetched ([§13](../../PRINCIPLES.md#13-snapshot-plus-override-never-vendored-copies)) |
 

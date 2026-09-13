@@ -1,0 +1,17 @@
+> /magpie-pr-management:stats
+
+  Open PR backlog
+
+  Health        FAIR - the queue is growing slowly
+
+  This week     opened 19   closed 14   net +5
+  Last week     opened 15   closed 21   net -6
+
+  Where the pressure is
+    scheduler     11 open, oldest 62 days
+    providers      9 open, oldest 21 days
+    docs           4 open, oldest  6 days
+
+  Triage funnel   12 untriaged -> 17 ready for review -> 9 in review
+
+  Start with the scheduler queue: it is both the largest and the oldest.

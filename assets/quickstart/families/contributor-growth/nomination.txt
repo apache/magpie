@@ -1,0 +1,14 @@
+> /magpie-contributor-growth:nomination
+
+  Building the nomination brief
+
+  On GitHub, last 12 months
+    24 merged PRs across 4 areas, 61 reviews given, 38 issues triaged
+    steady since the spring, not a single burst
+
+  Not visible from here - you fill these in
+    mailing-list participation, release verification, mentoring
+
+  Drafted the [DISCUSS] thread and the private nomination summary.
+
+  Neither is sent. A nomination is the PMC's decision, not a score.

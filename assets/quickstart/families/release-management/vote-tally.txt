@@ -1,0 +1,15 @@
+> /magpie-release-management:vote-tally 1.4.0-rc2
+
+  Vote window closed 6 hours ago
+
+  BINDING
+    +1  three PMC members
+     0  one PMC member (did not verify)
+
+  NON-BINDING
+    +1  two contributors
+
+  3 binding +1, no -1: the vote passes.
+
+  Drafted the [RESULT][VOTE] email and the vote-passed label change.
+  Neither is sent or applied until you confirm.

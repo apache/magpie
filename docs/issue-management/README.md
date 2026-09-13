@@ -7,7 +7,6 @@
 
 - [Issue management skill family](#issue-management-skill-family)
   - [Install & first runs](#install--first-runs)
-    - [The first run](#the-first-run)
     - [Try these first](#try-these-first)
   - [Family boundary](#family-boundary)
   - [Skills](#skills)
@@ -63,6 +62,12 @@ read-only reporting:
    age and staleness breakdowns, area pressure ranking, and a
    triage-funnel summary without modifying any tracker state.
 
+> [!TIP]
+> **Why this family**
+> - A triage pass over the backlog that proposes a disposition per issue instead of a label per issue
+> - A runnable reproducer extracted from a bug report, so "cannot reproduce" stops being the first reply
+> - Duplicates merged without losing the second reporter's detail, or their credit
+
 ## Install & first runs
 
 Install just this family — one plugin, 8 skills. General-issue lifecycle: triage, reproduction, dedup, backlog.
@@ -77,18 +82,6 @@ New to Magpie? The [quick start](../quick-start.md) walks the whole path in
 one place — install, the first `/magpie-setup` run, and a recording of it
 happening — plus the other agents and the secure-isolation setup to run next.
 
-### The first run
-
-The first time you call a skill in this family it checks whether the project is
-set up, before it does anything else. On a project that has not been adopted it
-stops right there and proposes `/magpie-setup`, rather than acting on
-placeholders it cannot resolve:
-
-![The magpie-issue family's first run — the skill's pre-flight finds no project config, stops and proposes /magpie-setup, then the same command succeeds on the retry](../../assets/quickstart/families/issue-first-run.svg)
-
-That check is silent once the project is set up: it costs three file checks and
-prints nothing.
-
 ### Try these first
 
 *Illustrative shapes, not real transcripts — your output will differ. Nothing
@@ -97,31 +90,26 @@ below sends, merges, or posts anything without you confirming it.*
 **Triage the new issues.**
 
 ```text
-> /magpie-issue:triage
-
-  #9021  bug, needs-repro     -> labels proposed
-  #9022  duplicate of #8877   -> close comment drafted
-  #9023  question             -> discussions, reply drafted
+/magpie-issue:triage
 ```
+
+![A triage run sorting four needs-triage issues into a reproducible bug, a feature request routed to discussion, one needing more information, and a duplicate](../../assets/quickstart/families/issue/triage.svg)
 
 **Find the duplicates.**
 
 ```text
-> /magpie-issue:deduplicate
-
-  4 clusters in 312 open issues
-  'OOM on large parquet' -> #7712 (keep) + #8109, #8330, #8901
+/magpie-issue:deduplicate
 ```
+
+![A deduplicate run: one strong duplicate match proposed for merging, keeping the second reporter's detail, and one weaker pair flagged for a human to look at](../../assets/quickstart/families/issue/deduplicate.svg)
 
 **Try to reproduce one.**
 
 ```text
-> /magpie-issue:reproducer
-
-  #9021 on 3.2.1: reproduced (traceback matches)
-         on main:  not reproduced -> fixed by #8990?
-  Repro script written to /tmp/repro-9021.py
+/magpie-issue:reproducer
 ```
+
+![A reproducer run that extracted an eleven-line stdlib probe from a bug report and reproduced the same error](../../assets/quickstart/families/issue/reproducer.svg)
 
 ## Family boundary
 

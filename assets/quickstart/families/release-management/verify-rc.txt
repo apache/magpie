@@ -1,0 +1,14 @@
+> /magpie-release-management:verify-rc 1.4.0-rc2
+
+  Pre-flight on the staged candidate
+
+  ✓ signatures       every artefact verifies against the KEYS file
+  ✓ checksums        sha512 matches for all 6 artefacts
+  ✓ licence headers  Apache RAT reports no unapproved file
+  ✓ NOTICE/LICENSE   present, and NOTICE names every bundled dependency
+  ✓ no binaries      no .pyc, no __pycache__, no jar in the source archive
+  ⚠ version strings  docs/conf.py still reads 1.3.0
+
+  PASS WITH WARNINGS
+
+  Read-only. Nothing was posted to the planning issue.

@@ -1,0 +1,15 @@
+> /magpie-issue:deduplicate
+
+  Scanning 140 open issues for duplicate root causes
+
+  STRONG
+    #3324 and #3298   same traceback, same config key
+
+  WORTH A LOOK
+    #3201 and #3155   both describe a hang on shutdown, different paths
+
+  Proposed for the strong match: keep #3298, close #3324 as a duplicate,
+  and carry the second reporter's extra detail into the kept issue so no
+  one loses credit.
+
+  Apply? [y/N]

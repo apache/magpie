@@ -1,0 +1,14 @@
+> /magpie-pr-management:triage
+
+  38 open PRs, 12 untriaged
+
+  #1421  first-time contributor, CI green, no reviewer
+         -> mark ready for maintainer review
+  #1388  draft for 3 weeks, no commits since
+         -> comment asking whether it is still active
+  #1402  branch 200 commits behind, conflicts
+         -> ask the author to rebase
+  #1377  bot-authored dependency bump, CI green
+         -> promote out of draft
+
+  Each action needs your confirmation. Walk them one at a time? [Y/n]

@@ -1,0 +1,13 @@
+> /magpie-repo-health:workflow-security-audit
+
+  12 workflow files
+
+  ✗ release.yml     pull_request_target with a checkout of the PR head
+                    - runs untrusted code with write permissions
+  ⚠ ci.yml          actions/checkout pinned to a tag, not a SHA
+  ⚠ docs.yml        no explicit permissions block - inherits write-all
+  ✓ nine others     no finding
+
+  The first one is the one to fix today.
+
+  Read-only. No workflow was edited.

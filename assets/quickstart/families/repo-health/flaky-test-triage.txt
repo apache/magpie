@@ -1,0 +1,15 @@
+> /magpie-repo-health:flaky-test-triage
+
+  Reading the last 200 CI runs on main
+
+  FLAKY
+    test_scheduler_timeout    fails 1 run in 9, always on the slow runner
+    test_upload_retry         fails 1 run in 30, no pattern in the runner
+
+  FAILING, NOT FLAKY
+    test_config_defaults      fails every run since the config change
+
+  The last one is a real regression wearing a flake's clothes - it is in
+  the same file as two genuine flakes, which is why nobody looked.
+
+  Read-only.

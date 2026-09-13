@@ -1,0 +1,14 @@
+> /magpie-security:issue-triage
+
+  4 trackers carry needs triage
+
+  #218  path traversal in the archive extractor        VALID
+  #221  missing rate limit on the public status page   DEFENSE-IN-DEPTH
+  #223  "your TLS certificate expires soon"            INFO-ONLY
+  #224  same extractor bug, reported independently     PROBABLE-DUP of #218
+
+  Proposed dispositions are comments, not decisions. Posting one invites
+  the security team to react; no label is flipped, nothing is closed, and
+  no CVE is allocated here.
+
+  Post all four? [y/N]

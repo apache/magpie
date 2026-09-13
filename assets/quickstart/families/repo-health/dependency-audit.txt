@@ -1,0 +1,15 @@
+> /magpie-repo-health:dependency-audit
+
+  Resolving the dependency tree
+
+  OUTDATED WITH A FIX AVAILABLE
+    requests      2 minor versions behind
+    cryptography  1 major behind - the upgrade has a breaking API change
+
+  UNMAINTAINED
+    parsedatetime no release in 4 years, 2 open security reports
+
+  PINNED BUT UNUSED
+    six           no import anywhere in the tree
+
+  Read-only. Nothing was upgraded and no PR was opened.

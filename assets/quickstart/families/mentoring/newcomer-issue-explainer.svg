@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Licensed to the Apache Software Foundation (ASF) under one
+  or more contributor license agreements.  See the NOTICE file
+  distributed with this work for additional information
+  regarding copyright ownership.  The ASF licenses this file
+  to you under the Apache License, Version 2.0 (the
+  "License"); you may not use this file except in compliance
+  with the License.  You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing,
+  software distributed under the License is distributed on an
+  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+  KIND, either express or implied.  See the License for the
+  specific language governing permissions and limitations
+  under the License.
+
+  GENERATED FILE — do not edit.
+
+  Rendered from the .txt beside it by tools/dev/render-screenshot.sh.
+  Edit the transcript and re-render; check-quickstart-recording.py fails
+  the build when this file no longer matches its source.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 834 404"
+     width="834" height="404" role="img"
+     data-magpie-rendered="render-screenshot"
+     aria-label="Terminal transcript: newcomer-issue-explainer">
+  <title>newcomer-issue-explainer</title>
+  <rect width="834" height="404" rx="10" fill="#1d1f21"/>
+  <rect x="0" y="0" width="834" height="34" rx="10" fill="#2b2e31"/>
+  <rect x="0" y="24" width="834" height="10" fill="#2b2e31"/>
+  <circle cx="22" cy="17" r="6" fill="#3f4448"/>
+  <circle cx="44" cy="17" r="6" fill="#3f4448"/>
+  <circle cx="66" cy="17" r="6" fill="#3f4448"/>
+  <g font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="18" xml:space="preserve">
+    <text x="28" y="84" fill="#8abeb7">&gt; /magpie-mentoring:newcomer-issue-explainer 8144</text>
+    <text x="28" y="136" fill="#c5c8c6">  Reading the issue, then the code it points at</text>
+    <text x="28" y="188" fill="#c5c8c6">  What breaks     the parser drops the last field on a trailing comma</text>
+    <text x="28" y="214" fill="#c5c8c6">  Where           two files - the tokenizer and one test</text>
+    <text x="28" y="240" fill="#c5c8c6">  How to check    one test, named in the comment, runs in under a second</text>
+    <text x="28" y="292" fill="#c5c8c6">  Drafted a comment in a teaching register: what to change and why, not</text>
+    <text x="28" y="318" fill="#c5c8c6">  what to type. It asks nothing of the newcomer they cannot answer.</text>
+    <text x="28" y="370" fill="#c5c8c6">  Post it? [y/N]</text>
+  </g>
+</svg>

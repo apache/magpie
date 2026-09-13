@@ -7,7 +7,6 @@
 
 - [Utilities skill family](#utilities-skill-family)
   - [Install & first runs](#install--first-runs)
-    - [The first run](#the-first-run)
     - [Try these first](#try-these-first)
   - [Skills](#skills)
   - [When to adopt this family](#when-to-adopt-this-family)
@@ -34,6 +33,12 @@ They are for skill authors and framework contributors.
 
 ---
 
+> [!TIP]
+> **Why this family**
+> - See what is installed here and what the marketplace has that you have not taken
+> - Author a new skill against the framework's conventions, including the eval suite that keeps it working
+> - Report a framework bug from where you hit it, after checking nobody has already filed it
+
 ## Install & first runs
 
 Install just this family — one plugin, 5 skills. Framework meta-skills: author, restructure, and index your own skills.
@@ -48,18 +53,6 @@ New to Magpie? The [quick start](../quick-start.md) walks the whole path in
 one place — install, the first `/magpie-setup` run, and a recording of it
 happening — plus the other agents and the secure-isolation setup to run next.
 
-### The first run
-
-The first time you call a skill in this family it checks whether the project is
-set up, before it does anything else. On a project that has not been adopted it
-stops right there and proposes `/magpie-setup`, rather than acting on
-placeholders it cannot resolve:
-
-![The magpie-utilities family's first run — the skill's pre-flight finds no project config, stops and proposes /magpie-setup, then the same command succeeds on the retry](../../assets/quickstart/families/utilities-first-run.svg)
-
-That check is silent once the project is set up: it costs three file checks and
-prints nothing.
-
 ### Try these first
 
 *Illustrative shapes, not real transcripts — your output will differ. Nothing
@@ -68,31 +61,26 @@ below sends, merges, or posts anything without you confirming it.*
 **List everything installed.**
 
 ```text
-> /magpie-utilities:list-skills
-
-  magpie-setup            9 skills
-  magpie-pr-management    8 skills
-  17 skills, ~5.0k always-on tokens
+/magpie-utilities:list-skills
 ```
+
+![A list-skills run showing the three plugins installed here and the seven families available in the marketplace but not installed](../../assets/quickstart/families/utilities/list-skills.svg)
 
 **Author a new skill.**
 
 ```text
-> /magpie-utilities:write-skill
-
-  What should the skill do? > sweep our Jira for stale triage
-  Scaffolded skills/jira-stale-sweep/SKILL.md (frontmatter, 6 steps)
+/magpie-utilities:write-skill
 ```
+
+![A write-skill run that drafted a new skill with conforming frontmatter, pre-flight and hard rules, and flagged the missing eval suite](../../assets/quickstart/families/utilities/write-skill.svg)
 
 **Report a framework bug upstream.**
 
 ```text
-> /magpie-utilities:report-framework-issue
-
-  Searched apache/magpie: no existing issue matches
-  Drafted issue 'setup-status misreports drift on a fork'
-  Open it? [y/N]
+/magpie-utilities:report-framework-issue
 ```
+
+![A report-framework-issue run that searched the framework repository for an existing report, found none, and drafted one](../../assets/quickstart/families/utilities/report-framework-issue.svg)
 
 ## Skills
 

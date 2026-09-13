@@ -7,7 +7,6 @@
 
 - [Security workflow skill family](#security-workflow-skill-family)
   - [Install & first runs](#install--first-runs)
-    - [The first run](#the-first-run)
     - [Try these first](#try-these-first)
   - [Skills](#skills)
     - [Lifecycle skills](#lifecycle-skills)
@@ -45,6 +44,12 @@ the workflow into a project-agnostic framework lets each adopter
 plug their specifics into [`<project-config>/`](../../projects/_template/)
 and reuse the skills verbatim.
 
+> [!TIP]
+> **Why this family**
+> - Every report that lands on security@ becomes a tracked issue, with a receipt drafted to the reporter
+> - The whole lifecycle in one place — triage, CVE allocation, the fix PR that does not leak the embargo, and the advisory
+> - Read-only until you confirm: no label flips, no closes, and no CVE allocated without you saying so
+
 ## Install & first runs
 
 Install just this family — one plugin, 15 skills. The security-report lifecycle, from intake through CVE publication.
@@ -59,18 +64,6 @@ New to Magpie? The [quick start](../quick-start.md) walks the whole path in
 one place — install, the first `/magpie-setup` run, and a recording of it
 happening — plus the other agents and the secure-isolation setup to run next.
 
-### The first run
-
-The first time you call a skill in this family it checks whether the project is
-set up, before it does anything else. On a project that has not been adopted it
-stops right there and proposes `/magpie-setup`, rather than acting on
-placeholders it cannot resolve:
-
-![The magpie-security family's first run — the skill's pre-flight finds no project config, stops and proposes /magpie-setup, then the same command succeeds on the retry](../../assets/quickstart/families/security-first-run.svg)
-
-That check is silent once the project is set up: it costs three file checks and
-prints nothing.
-
 ### Try these first
 
 *Illustrative shapes, not real transcripts — your output will differ. Nothing
@@ -79,32 +72,26 @@ below sends, merges, or posts anything without you confirming it.*
 **Pull new reports out of the mailbox.**
 
 ```text
-> /magpie-security:issue-import
-
-  3 candidate reports on security@
-  #4412 buffer overflow in parser   -> new tracking issue
-  #4413 'is PHP 5 supported?'       -> not a report, skip
-  Create 1 tracking issue? [y/N]
+/magpie-security:issue-import
 ```
+
+![An issue-import run: two security@ threads with no tracker yet, each becoming a Needs-triage issue with a receipt drafted to the reporter, pending confirmation](../../assets/quickstart/families/security/issue-import.svg)
 
 **Triage what came in.**
 
 ```text
-> /magpie-security:issue-triage
-
-  #4412  valid    high     -> reply drafted, CVE candidate
-  #4415  invalid  n/a      -> canned response 'out of scope'
-  Drafts are in Gmail; nothing sent.
+/magpie-security:issue-triage
 ```
+
+![An issue-triage run classifying four trackers as valid, defence-in-depth, info-only and a probable duplicate, with every disposition still a proposal](../../assets/quickstart/families/security/issue-triage.svg)
 
 **Check the security model still matches reality.**
 
 ```text
-> /magpie-security:model-verify
-
-  6 chapters checked against the published model
-  GAP: no chapter covers dependency-only reports (4 this quarter)
+/magpie-security:model-verify
 ```
+
+![A model-verify run: two green checks that the threat model and the code agree, and one failure where the model still names a surface no route serves](../../assets/quickstart/families/security/model-verify.svg)
 
 ## Skills
 

@@ -1,0 +1,13 @@
+> /magpie-mentoring:welcome
+
+  3 first-time contributors opened a PR today
+
+  #1421  alex-dev      first PR to this project
+  #1425  sam-builds    first PR to this project
+  #1427  jo-writes     first PR, docs only
+
+  Drafted a welcome for each: what happens next, roughly how long review
+  takes, and who to ask if it stalls. No template stamping - each one
+  names what the PR actually changed.
+
+  Review the three drafts before anything is posted? [Y/n]

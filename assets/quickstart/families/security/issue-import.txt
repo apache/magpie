@@ -1,0 +1,13 @@
+> /magpie-security:issue-import
+
+  Scanning security@ for reports with no tracker (last 14 days)
+
+  2 threads to import, 3 already tracked, 1 already answered and closed
+
+  "Extractor writes outside the destination directory"
+    -> new tracker, status Needs triage, receipt drafted to the reporter
+
+  "Stack trace on malformed input"
+    -> new tracker, status Needs triage, receipt drafted to the reporter
+
+  Import both and draft the receipts? [Y/n]

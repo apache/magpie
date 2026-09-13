@@ -1,0 +1,14 @@
+> /magpie-mentoring:good-first-issue-sweep
+
+  Looking for issues a newcomer could actually finish
+
+  READY
+    #2890  add a unit test for the retry helper
+           scoped, has a pointer to the file, no design decision left
+    #2912  fix a broken link in the install docs
+
+  NOT READY, BUT CLOSE
+    #2877  needs one sentence saying where the code lives
+    #2901  labelled good first issue, but the fix needs a schema change
+
+  Drafted the label changes and the missing-context comments. Confirm?

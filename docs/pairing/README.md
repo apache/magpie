@@ -7,7 +7,6 @@
 
 - [Agentic Pairing skill family](#agentic-pairing-skill-family)
   - [Install & first runs](#install--first-runs)
-    - [The first run](#the-first-run)
     - [Try these first](#try-these-first)
   - [Skills](#skills)
     - [When to use which](#when-to-use-which)
@@ -45,6 +44,12 @@ happens, no comment is posted, and the working tree is never mutated.
 
 ---
 
+> [!TIP]
+> **Why this family**
+> - Review your own diff before a maintainer spends their time on it
+> - Findings split into blocking and non-blocking, so the nits do not drown the real problems
+> - Nothing is sent, posted, or merged — the report is the output
+
 ## Install & first runs
 
 Install just this family — one plugin, 2 skills. Review your own change before anyone else has to.
@@ -59,21 +64,9 @@ New to Magpie? The [quick start](../quick-start.md) walks the whole path in
 one place — install, the first `/magpie-setup` run, and a recording of it
 happening — plus the other agents and the secure-isolation setup to run next.
 
-### The first run
-
-The first time you call a skill in this family it checks whether the project is
-set up, before it does anything else. On a project that has not been adopted it
-stops right there and proposes `/magpie-setup`, rather than acting on
-placeholders it cannot resolve:
-
-![The magpie-pairing family's first run — the skill's pre-flight finds no project config, stops and proposes /magpie-setup, then the same command succeeds on the retry](../../assets/quickstart/families/pairing-first-run.svg)
-
-That check is silent once the project is set up: it costs three file checks and
-prints nothing.
-
 ### Try these first
 
-*Real runs, recorded against a small sample change — your output will differ.
+*Illustrative shapes, not real transcripts — your output will differ.
 Both skills are read-only: nothing is sent, merged, or posted.*
 
 **Self-review before you push.**
@@ -82,7 +75,7 @@ Both skills are read-only: nothing is sent, merged, or posted.*
 /magpie-pairing:self-review
 ```
 
-![A `/magpie-pairing:self-review` run: the skill reading the local diff and returning one report — likely bugs, test gaps, and convention findings in a single pass](../../assets/examples/pairing-self-review.svg)
+![A self-review run over four changed files: one blocking finding and two non-blocking ones, with nothing sent, posted or merged](../../assets/quickstart/families/pairing/self-review.svg)
 
 **Send it through an adversarial panel.**
 
@@ -90,7 +83,7 @@ Both skills are read-only: nothing is sent, merged, or posted.*
 /magpie-pairing:multi-agent-review
 ```
 
-![A `/magpie-pairing:multi-agent-review` run: three independent axis-focused passes over the same diff, their candidate findings merged and verified, with only the survivors reported](../../assets/examples/pairing-multi-agent-review.svg)
+![A multi-agent-review run showing what two independent reads of the same diff each found, and what only one of them found](../../assets/quickstart/families/pairing/multi-agent-review.svg)
 
 ## Skills
 

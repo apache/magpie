@@ -1,0 +1,13 @@
+> /magpie-issue:triage
+
+  23 issues carry needs-triage
+
+  #3312  crash on startup with an empty config file
+         bug - reproducible from the report, has a stack trace
+  #3319  "add a dark mode"
+         feature request - no design, routing to discussion
+  #3321  "it does not work"
+         needs info - drafted a reply asking for version and steps
+  #3324  duplicate of #3298, same root cause
+
+  Labels, replies and closes are all proposals. Confirm each? [Y/n]

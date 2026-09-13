@@ -1,0 +1,12 @@
+> /magpie-utilities:report-framework-issue
+
+  You hit: setup-status misreports drift on a fork
+
+  Searched apache/magpie
+    no open issue matches
+    no open PR matches
+
+  Drafted an issue: what you were doing, what happened, what you expected,
+  and the one command that reproduces it.
+
+  This goes to the framework, not to your project. Open it? [y/N]

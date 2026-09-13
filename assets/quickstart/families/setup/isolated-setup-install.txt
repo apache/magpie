@@ -1,0 +1,13 @@
+> /magpie-setup:isolated-setup-install
+
+  Proposed changes - nothing applied yet
+
+  1  .claude/settings.json   sandbox on, 14 deny rules
+  2  ~/.claude/scripts/      3 hooks and the status line
+  3  ~/.zshrc                source agent-iso.sh
+
+  Every step is shown before it runs. Nothing is written with sudo, no
+  shell rc file is edited behind your back, and an existing settings.json
+  is merged, never replaced.
+
+  Apply 1-3? [y/N]

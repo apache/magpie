@@ -7,7 +7,6 @@
 
 - [PR management skill family](#pr-management-skill-family)
   - [Install & first runs](#install--first-runs)
-    - [The first run](#the-first-run)
     - [Try these first](#try-these-first)
   - [Skills](#skills)
   - [Adopter contract](#adopter-contract)
@@ -70,6 +69,12 @@ framework lets other adopters reuse the playbook with their own
 knobs (committers team handle, area-label prefix, comment-template
 wording, CI-check → doc-URL map, review-criteria source files).
 
+> [!TIP]
+> **Why this family**
+> - A maintainer's review queue, sorted by what actually needs you today
+> - Deep, sequential review of one PR at a time, with the draft review shown before it is posted
+> - Nothing is posted, merged or closed without your explicit confirmation on that PR
+
 ## Install & first runs
 
 Install just this family — one plugin, 8 skills. Maintainer-facing PR-queue management.
@@ -83,18 +88,6 @@ Once you have [added the marketplace](../setup/marketplace-install.md):
 New to Magpie? The [quick start](../quick-start.md) walks the whole path in
 one place — install, the first `/magpie-setup` run, and a recording of it
 happening — plus the other agents and the secure-isolation setup to run next.
-
-### The first run
-
-The first time you call a skill in this family it checks whether the project is
-set up, before it does anything else. On a project that has not been adopted it
-stops right there and proposes `/magpie-setup`, rather than acting on
-placeholders it cannot resolve:
-
-![The magpie-pr-management family's first run — the skill's pre-flight finds no project config, stops and proposes /magpie-setup, then the same command succeeds on the retry](../../assets/quickstart/families/pr-management-first-run.svg)
-
-That check is silent once the project is set up: it costs three file checks and
-prints nothing.
 
 ### Try these first
 
@@ -115,21 +108,18 @@ below sends, merges, or posts anything without you confirming it.*
 **Triage the whole queue.**
 
 ```text
-> /magpie-pr-management:triage
-
-  41 open PRs
-  12 ready to merge     9 need review     14 waiting on author
-   6 stale > 90 days -> stale-sweep candidates
+/magpie-pr-management:triage
 ```
+
+![A triage run proposing one action each for four PRs — mark ready, ask if still active, ask for a rebase, promote out of draft — each needing confirmation](../../assets/quickstart/families/pr-management/triage.svg)
 
 **See where the queue is stuck.**
 
 ```text
-> /magpie-pr-management:stats
-
-  median time-to-first-review   6.1 days (was 4.2 last quarter)
-  oldest unreviewed             #4871, 143 days
+/magpie-pr-management:stats
 ```
+
+![A stats run: a FAIR health rating, this week's and last week's open/close counts, the three areas under most pressure, and the triage funnel](../../assets/quickstart/families/pr-management/stats.svg)
 
 ## Skills
 

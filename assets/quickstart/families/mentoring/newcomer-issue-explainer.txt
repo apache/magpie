@@ -1,0 +1,12 @@
+> /magpie-mentoring:newcomer-issue-explainer 8144
+
+  Reading the issue, then the code it points at
+
+  What breaks     the parser drops the last field on a trailing comma
+  Where           two files - the tokenizer and one test
+  How to check    one test, named in the comment, runs in under a second
+
+  Drafted a comment in a teaching register: what to change and why, not
+  what to type. It asks nothing of the newcomer they cannot answer.
+
+  Post it? [y/N]

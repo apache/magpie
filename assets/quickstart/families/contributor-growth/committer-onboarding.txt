@@ -1,0 +1,14 @@
+> /magpie-contributor-growth:committer-onboarding
+
+  The vote on @kasia-w passed. 8 steps to close it out.
+
+  ✓ ICLA on file
+  ✓ Apache account requested
+  ⚠ karma grant           needs a PMC chair
+  ⚠ private@ notification  needs a PMC chair
+    welcome announcement   drafted, not sent
+
+  Podling or TLP changes two of these steps; this project is a TLP, so
+  the secretary request is skipped.
+
+  Walk the remaining steps one at a time? [Y/n]

@@ -29,8 +29,9 @@ One page per supported agentic runtime, each declaring
 
 - [**Codex**](codex.md) — first-class runtime.
 - [**Cursor**](cursor.md) — Composer and the Agent CLI.
-- [**Gemini CLI**](gemini.md).
+- [**Gemini CLI**](gemini.md) — installs as a Gemini extension; the guard runs on `BeforeTool`.
 - [**Local LLM**](local-llm.md) — Ollama, llama.cpp, vLLM.
+- [**OpenCode**](opencode.md) — guard plugin on `tool.execute.before`.
 
 Running something else? [**Adding a new agent harness**](add-a-harness.md)
 names every step to wire a new runtime in so it loads skills and enforces

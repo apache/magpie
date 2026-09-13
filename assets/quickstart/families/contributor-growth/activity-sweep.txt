@@ -1,0 +1,13 @@
+> /magpie-contributor-growth:activity-sweep alex-dev 90d
+
+  GitHub activity, last 90 days
+
+  Authored      7 PRs, 6 merged, 1 open
+  Reviewed      19 PRs, 14 with substantive comments
+  Issues        11 triaged, 3 reproduced
+  Comments      52 across issues and PRs
+
+  Busiest area  providers/aws
+
+  This is what GitHub can see. Mailing lists, release votes and mentoring
+  are not in here, and for most candidates they are half the picture.

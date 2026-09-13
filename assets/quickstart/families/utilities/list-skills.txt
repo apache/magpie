@@ -1,0 +1,15 @@
+> /magpie-utilities:list-skills
+
+  Installed here
+
+  magpie-setup             9 skills   install, upgrade, adopt, sandbox
+  magpie-pr-management     8 skills   triage, review, stats, quick-merge
+  magpie-utilities         5 skills   author and index your own skills
+
+  Available in the marketplace, not installed
+
+  magpie-security, magpie-release-management, magpie-issue,
+  magpie-repo-health, magpie-contributor-growth, magpie-mentoring,
+  magpie-pairing
+
+  Ask about any of them by name and I will read that skill and answer.

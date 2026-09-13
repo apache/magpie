@@ -1,0 +1,13 @@
+> /magpie-release-management:prepare 1.4.0
+
+  Reading the release train and the release-management config
+
+  Drafted, nothing filed:
+
+  Planning issue   "Release 1.4.0" - the 14-step checklist, the RM named,
+                   the target date from the train
+  Prep PR          version bump across 4 files, changelog assembled from
+                   the merged PRs since 1.3.0
+
+  Review both, then say the word. The agent never marks a PR ready and
+  never merges one.

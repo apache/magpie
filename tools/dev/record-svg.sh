@@ -18,21 +18,23 @@
 
 # record-svg.sh
 #
-# Record one Magpie run and write it to the animated SVG the docs embed.
-#
-# Eleven recordings, one per target:
+# Record the one Magpie run the docs show as a recording.
 #
 #   setup      -> assets/quickstart/magpie-setup.svg
-#                 embedded by docs/quick-start.md, Step 2
-#   <family>   -> assets/quickstart/families/<family>-first-run.svg
-#                 embedded by that family's README, Install & first runs
+#                 embedded by docs/quick-start.md and docs/setup/README.md
 #
-# These replaced fourteen still screenshots of a plugin list. A still could
-# only ever show that a plugin was installed; what a reader actually needs to
-# see is the thing running — and for a family, the first run is the
-# interesting one, because 65 of the 74 skills open with a silent pre-flight
-# that stops and proposes `/magpie-setup` when the project is not adopted.
-# That is the moment the recording is for.
+# One target, and that is deliberate. This script used to record eleven: a
+# first-run take per family, plus example takes of individual commands. The
+# nine family recordings all showed the same thing — a pre-flight stopping on
+# an unadopted repo, which is setup's arc, not the family's — and they sat as
+# placeholders for months, because a capture needs a terminal, a scratch
+# project and a human, and needs all three again whenever output moves. They
+# are retired; what a family page shows now is an authored transcript rendered
+# by render-screenshot.sh, which a contributor can fix in a pull request.
+#
+# `/magpie-setup` is the exception worth the price: it is the run a reader has
+# not done yet, and seeing it happen at the pace it happens is worth more than
+# a description of it.
 #
 # Why SVG and not a GIF: the output is text. It goes through review as a
 # diff, it carries its own Apache licence header, it loops natively in a
@@ -41,12 +43,10 @@
 #
 # Usage (from the repo root):
 #
-#     tools/dev/record-svg.sh setup            # the quick-start recording
-#     tools/dev/record-svg.sh security         # a family first-run recording
-#     tools/dev/record-svg.sh --list           # every valid target
-#     tools/dev/record-svg.sh security --from 2000   # drop the first 2s
-#     tools/dev/record-svg.sh security --cast run.cast  # convert a cast
-#     tools/dev/record-svg.sh security --keep-cast   # keep it for retrims
+#     tools/dev/record-svg.sh setup                  # record it
+#     tools/dev/record-svg.sh setup --from 2000      # drop the first 2s
+#     tools/dev/record-svg.sh setup --cast run.cast  # convert a cast
+#     tools/dev/record-svg.sh setup --keep-cast      # keep it for retrims
 #
 # Run it from your own terminal, in a scratch project — not in this repo and
 # not inside an agent's shell.
@@ -55,8 +55,6 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SETUP_OUT="assets/quickstart/magpie-setup.svg"
-FAMILY_DIR="assets/quickstart/families"
-EXAMPLE_DIR="assets/examples"
 COLS=145
 ROWS=35
 # The checker's hard cap. Warn here first, so you find out before committing.
@@ -72,129 +70,35 @@ usage() {
 }
 
 # Families come from the live `family:` frontmatter, so this cannot drift from
-# the set the plugins are generated from.
-families() {
-    grep -h '^family:' "${REPO_ROOT}"/skills/*/SKILL.md |
-        sed 's/family: *//' | sort -u
-}
-
-# The skills a family plugin actually ships, from the generated symlinks —
-# so an example target cannot name a command that does not exist.
-family_skills() {
-    local family="$1"
-    [[ -d "${REPO_ROOT}/plugins/magpie-${family}/skills" ]] || return 0
-    ls "${REPO_ROOT}/plugins/magpie-${family}/skills"
-}
-
-# One family's docs directory is not named after the family.
-family_docs_dir() {
-    case "$1" in
-    issue) echo "docs/issue-management" ;;
-    *) echo "docs/$1" ;;
-    esac
-}
-
 list_targets() {
-    printf 'The quick-start recording:\n'
+    printf 'The one recording:\n'
     printf '  %-20s -> %s\n' "setup" "${SETUP_OUT}"
-    printf '\nFamily first-run recordings:\n'
-    local family
-    while read -r family; do
-        [[ "${family}" == "setup" ]] && continue
-        printf '  %-20s -> %s\n' "${family}" "${FAMILY_DIR}/${family}-first-run.svg"
-    done < <(families)
-    printf '\nThe setup family has no first-run recording of its own: its first run\n'
-    printf 'IS the quick-start recording above, so docs/setup/README.md embeds that.\n'
-    printf '\nExample-command recordings:\n'
-    printf '  <family>:<skill>     -> %s/<family>-<skill>.svg\n' "${EXAMPLE_DIR}"
-    printf '  spelled exactly like the slash command, e.g. pairing:self-review\n'
-    printf '  Any skill a family plugin ships is a valid target; only the ones a\n'
-    printf '  README embeds are expected to exist. Currently recorded:\n'
-    local existing
-    existing="$(ls "${REPO_ROOT}/${EXAMPLE_DIR}" 2>/dev/null || true)"
-    if [[ -z "${existing}" ]]; then
-        printf '    (none yet)\n'
-    else
-        printf '    %s\n' ${existing}
-    fi
+    printf '\nThat is the whole list. A family page shows authored screenshots, not\n'
+    printf 'recordings: write the transcript and render it.\n'
+    printf '  tools/dev/render-screenshot.sh assets/quickstart/families/<family>/<skill>.txt\n'
 }
 
 resolve_output() {
-    local target="$1"
-
-    # <family>:<skill> — an example recording of one command. The target is
-    # spelled exactly like the slash command it records.
-    if [[ "${target}" == *:* ]]; then
-        local family="${target%%:*}" skill="${target#*:}"
-        families | grep -qx "${family}" || return 1
-        family_skills "${family}" | grep -qx "${skill}" || return 1
-        echo "${EXAMPLE_DIR}/${family}-${skill}.svg"
-        return 0
-    fi
-
-    if [[ "${target}" == "setup" ]]; then
-        echo "${SETUP_OUT}"
-        return 0
-    fi
-    if families | grep -qx "${target}"; then
-        echo "${FAMILY_DIR}/${target}-first-run.svg"
-        return 0
-    fi
-    # `setup` is handled above: it is a family, but its first run is the
-    # quick-start recording, so there is no families/setup-first-run.svg.
-    return 1
+    [[ "$1" == "setup" ]] || return 1
+    echo "${SETUP_OUT}"
 }
 
 # What to record, per target. Kept here rather than only in
 # assets/quickstart/README.md so it is in front of you at recording time.
 brief() {
-    local target="$1"
+    cat <<'BRIEF'
+Record ONE run, on a project that is already set up:
 
-    if [[ "${target}" == *:* ]]; then
-        local family="${target%%:*}" skill="${target#*:}"
-        cat <<BRIEF
-Record ONE run of a single command, on a project that is already set up:
-
-    /magpie-${family}:${skill}
-
-This is an example of what the command does, not a first-run recording — no
-pre-flight failure, no setup. Show the command and its result, and stop.
-
-Frame a result a reader can learn the shape of: the summary line and the
-findings, not a wall of scrollback. Use a small, made-up change as the
-subject — a real one puts real code in a public repository forever.
-BRIEF
-    elif [[ "${target}" == "setup" ]]; then
-        cat <<'BRIEF'
-Record the quick start's two steps, in one take:
-
-    /plugin marketplace add apache/magpie
-    /plugin install magpie-setup@apache-magpie
     /magpie-setup
 
-Let `/magpie-setup` run far enough to show it working: the method it picks,
-the plan it prints, and the approval prompt. Stop at the first prompt — the
-recording shows the shape of a run, not a whole install.
+Start at the command. Adding the marketplace is a one-time prerequisite with
+its own page (docs/setup/marketplace-install.md), so the recording must not
+open with it — it opens where the reader is.
+
+Let it run far enough to show it working: the method it picks, the plan it
+prints, and the approval prompt. Stop at the first prompt — the recording
+shows the shape of a run, not a whole install.
 BRIEF
-    else
-        cat <<BRIEF
-Record this family's FIRST run in a project that has not been adopted yet.
-The pre-flight is the point of the shot:
-
-    /plugin install magpie-${target}@apache-magpie
-    <the first command from $(family_docs_dir "${target}")/README.md, "Try these first">
-
-What the take must show, in order:
-
-  1. the skill starting and its silent pre-flight finding no <project-config>;
-  2. it STOPPING and proposing \`/magpie-setup\` rather than guessing;
-  3. setup running;
-  4. the same command again, now working.
-
-That arc is why this recording exists. A take that skips straight to a
-working run shows the one thing a reader can already assume.
-BRIEF
-    fi
 
     cat <<'COMMON'
 
@@ -210,7 +114,7 @@ Before you start:
   * KEEP IT SHORT. Every redraw of the TUI is frames in the SVG, and a
     spinner left running is pure weight. Thirty seconds is plenty; a couple
     of minutes will blow the size cap.
-  * Dark theme, to match the other recordings.
+  * Dark theme, to match the authored screenshots.
 COMMON
 }
 
@@ -335,7 +239,7 @@ main() {
         cast="${workdir}/${slug}.cast"
         echo "Target : ${out}"
         echo
-        brief "${target}"
+        brief
         echo
         read -r -p "Press Return to start recording (Ctrl-D to stop)... " _
         local -a rec_flags=()

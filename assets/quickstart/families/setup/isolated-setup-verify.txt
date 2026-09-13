@@ -1,0 +1,14 @@
+> /magpie-setup:isolated-setup-verify
+
+  Checking the secure-agent setup
+
+  ✓ settings wiring      sandbox, permissions and clean-env layers present
+  ✓ bubblewrap           installed, version recorded in the pin file
+  ✓ socat                installed
+  ✓ agent socket         reachable from inside the sandbox
+  ⚠ docker socket        not exposed - container work will fail in-session
+
+  One warning. Entry 4 of the troubleshooting guide has the settings.json
+  change that exposes the runtime socket, if you need it.
+
+  Nothing was modified: this check is read-only.

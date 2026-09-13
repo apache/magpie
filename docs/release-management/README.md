@@ -7,7 +7,6 @@
 
 - [Release-management skill family](#release-management-skill-family)
   - [Install & first runs](#install--first-runs)
-    - [The first run](#the-first-run)
     - [Try these first](#try-these-first)
   - [Status](#status)
   - [Skills](#skills)
@@ -75,6 +74,12 @@ stay identical too. See
 [`process.md` § Adopter backends](process.md#adopter-backends)
 for the full backend table and per-step mapping.
 
+> [!TIP]
+> **Why this family**
+> - The 14-step ASF release lifecycle as a walkthrough, not a wiki page you re-read every six months
+> - Pre-flight on a staged candidate before the vote — signatures, checksums, RAT, NOTICE, stray binaries
+> - The agent never holds your signing key: every command that signs or publishes is one you run yourself
+
 ## Install & first runs
 
 Install just this family — one plugin, 10 skills. The 14-step ASF release lifecycle. The agent never holds your signing key.
@@ -89,18 +94,6 @@ New to Magpie? The [quick start](../quick-start.md) walks the whole path in
 one place — install, the first `/magpie-setup` run, and a recording of it
 happening — plus the other agents and the secure-isolation setup to run next.
 
-### The first run
-
-The first time you call a skill in this family it checks whether the project is
-set up, before it does anything else. On a project that has not been adopted it
-stops right there and proposes `/magpie-setup`, rather than acting on
-placeholders it cannot resolve:
-
-![The magpie-release-management family's first run — the skill's pre-flight finds no project config, stops and proposes /magpie-setup, then the same command succeeds on the retry](../../assets/quickstart/families/release-management-first-run.svg)
-
-That check is silent once the project is set up: it costs three file checks and
-prints nothing.
-
 ### Try these first
 
 *Illustrative shapes, not real transcripts — your output will differ. Nothing
@@ -109,32 +102,26 @@ below sends, merges, or posts anything without you confirming it.*
 **Open the release plan.**
 
 ```text
-> /magpie-release-management:prepare
-
-  Target 2.9.0, branch release-2.9
-  14 steps, 3 need you: sign the RC, cast the VOTE, publish
-  Planning issue drafted.
+/magpie-release-management:prepare
 ```
+
+![A prepare run that drafted a planning issue and a version-bump PR for 1.4.0 and filed neither](../../assets/quickstart/families/release-management/prepare.svg)
 
 **Check an RC before you vote.**
 
 ```text
-> /magpie-release-management:verify-rc
-
-  signature      OK (key in KEYS)
-  sha512         OK
-  LICENSE/NOTICE OK
-  binaries       FAIL: 2 .jar files under src/vendor/
+/magpie-release-management:verify-rc
 ```
+
+![A verify-rc run: five green checks across signatures, checksums, licence headers, NOTICE and prohibited binaries, one warning about a stale version string, and a PASS WITH WARNINGS verdict](../../assets/quickstart/families/release-management/verify-rc.svg)
 
 **Tally the vote thread.**
 
 ```text
-> /magpie-release-management:vote-tally
-
-  +1 binding 4   +1 non-binding 2   0: 0   -1: 0
-  72h elapsed -> passes. [RESULT] mail drafted, not sent.
+/magpie-release-management:vote-tally
 ```
+
+![A vote-tally run counting three binding +1s and no -1s, and drafting the RESULT email without sending it](../../assets/quickstart/families/release-management/vote-tally.svg)
 
 ## Status
 
