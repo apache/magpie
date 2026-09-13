@@ -3,10 +3,10 @@
   Pre-flight
 
   ✓ plugin installed        magpie-pr-management
-  ✗ project configuration   no .apache-magpie-overrides/ in this repo
+  ✗ project configuration   3 required files, none found
 
-  Stopping here rather than guessing. Triage needs to know this project's
-  committer team, its area-label prefix, and which labels mean "ready" -
-  none of which I can infer from the repository.
+  Triage needs to know this project's committer team, its area-label
+  prefix, and which labels mean "ready" - none of which I can infer.
 
-  Run /magpie-setup adopt to set it up, then re-run this command.
+  Configuring now. This writes gitignored files in your clone only:
+  nothing staged, nothing committed, nobody else affected.

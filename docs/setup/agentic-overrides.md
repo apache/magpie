@@ -6,8 +6,8 @@
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
 - [Agentic overrides — modifying framework workflows in an adopter](#agentic-overrides--modifying-framework-workflows-in-an-adopter)
-  - [Override surfaces — two directories, one lookup chain](#override-surfaces--two-directories-one-lookup-chain)
-    - [Adoption and `.gitignore`](#adoption-and-gitignore)
+  - [Two directories, one lookup chain — for overrides *and* configuration](#two-directories-one-lookup-chain--for-overrides-and-configuration)
+    - [`.gitignore`, and the case where there is none](#gitignore-and-the-case-where-there-is-none)
   - [What an override file may contain](#what-an-override-file-may-contain)
     - [Skip a step](#skip-a-step)
     - [Replace a step](#replace-a-step)
@@ -42,48 +42,77 @@ run-time and applies before executing default behaviour.
 This document is the **contract** between adopter authors of
 override files and framework authors of skills that read them.
 
-## Override surfaces — two directories, one lookup chain
+## Two directories, one lookup chain — for overrides *and* configuration
 
-Framework skills consult **two** override directories in precedence
-order, first hit wins:
+Framework skills consult **two** directories in precedence order,
+**per file, first hit wins**. The same two directories, and the same
+rule, carry both kinds of adopter-side content:
 
-1. **`.apache-magpie-local/<skill>.md`** — personal, gitignored.
-   Per-developer preferences (local clone paths, a release manager
-   enabling an extra MCP, wording adjustments) that should not be
-   committed to the shared repo.  Never committed; never pushed.
-   Works on a repo that has not yet adopted Magpie — the user adds
-   one `.gitignore` line by hand so the directory stays untracked,
-   then drops their overrides there.  The same additive-only
-   guardrail applies: it cannot weaken the safety, confidentiality,
-   or privacy baseline.
+- **Configuration** — facts about the project a skill reads: the
+  upstream repo, the tracker, the committers team, the release
+  trains. Scaffolded from
+  [`projects/_template/`](../../projects/_template/README.md), and
+  what `<project-config>` resolves to.
+- **Overrides** — deliberate changes to how a skill behaves,
+  named after the skill they modify.
 
-2. **`.apache-magpie-overrides/<skill>.md`** — committed,
-   project-wide.  Shared modifications every contributor on the
-   project sees (custom steps, project-specific defaults, integrations
-   with project tooling).
+The two directories:
+
+1. **`.apache-magpie-local/`** — personal, gitignored, never
+   committed and never pushed. Written by
+   [`/magpie-setup config`](../../skills/setup/config.md). This is
+   where an individual configures Magpie for themselves, and it
+   **works on a repo that has not adopted Magpie** — which is the
+   point of it. Nothing here asks the project for permission, and
+   nothing here is visible to anyone else.
+
+2. **`.apache-magpie-overrides/`** — committed, project-wide.
+   Written by [`/magpie-setup adopt`](../../skills/setup/adopt.md),
+   either scaffolded directly or promoted from (1). Every contributor
+   who clones the repo gets these.
 
 ```text
 <adopter-repo>/
 ├── .apache-magpie-local/                (gitignored, per-person)
-│   └── <framework-skill-name>.md       (e.g. pr-management-triage.md)
+│   ├── project.md                       config — yours
+│   ├── pr-management-config.md          config — yours
+│   └── <framework-skill-name>.md        override — yours
 ├── .apache-magpie-overrides/            (committed, project-wide)
-│   ├── README.md                        (scaffolded by /magpie-setup install)
-│   ├── <framework-skill-name>.md
-│   └── <other-framework-skill-name>.md
+│   ├── README.md
+│   ├── project.md                       config — the project's
+│   └── <framework-skill-name>.md        override — the project's
 ```
 
-When both directories contain a file for the same skill, the
-personal-local file wins — its instructions are applied first,
-then (by default) the committed file's instructions are also applied
-unless the personal file explicitly says to skip it.  Neither file
-is required to exist; a skill that finds neither proceeds with
-framework defaults.
+**Local wins, per file.** A skill reading `project.md` takes the local
+copy if there is one and the committed copy otherwise; it makes that
+decision file by file, so you can hold one file locally and take every
+other from the project. For an override, the local file's instructions
+are applied first and the committed file's are also applied unless the
+local one says to skip it. Neither directory is required to exist; a
+skill that finds neither proceeds with framework defaults.
 
-### Adoption and `.gitignore`
+The consequence worth knowing: **once the project commits a file you
+also hold locally, yours keeps winning.** `/magpie-setup verify`
+reports every local file that shadows a committed one, and
+`/magpie-setup adopt` offers to drop the redundant ones as it
+promotes. That is the cost of the rule being the same for
+configuration as for overrides, and it is reported rather than
+silent.
 
-`/magpie-setup install` adds `/.apache-magpie-local/` to the adopter
-repo's `.gitignore` automatically.  On a repo that has not adopted
-Magpie, add the line manually:
+### `.gitignore`, and the case where there is none
+
+`/magpie-setup install` and `/magpie-setup adopt` add
+`/.apache-magpie-local/` to the adopter repo's `.gitignore`.
+
+`/magpie-setup config` does **not**: `.gitignore` is a committed
+file, and a sub-action whose whole promise is that it writes nothing
+anyone else will see must not start by editing one. It writes the
+same exclusion to **`.git/info/exclude`** instead — per-clone, never
+committed, needs nobody's permission. On a repo that has already
+adopted, the `.gitignore` line is there and the exclude entry is
+harmless duplication.
+
+To do it by hand:
 
 ```text
 /.apache-magpie-local/

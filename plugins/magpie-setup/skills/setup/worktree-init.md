@@ -3,6 +3,32 @@
 
 # worktree-init — share the main checkout's snapshot from a worktree
 
+> **On the recommended path, a worktree needs nothing.** A marketplace
+> install keeps its plugin state in one user-scope store, and everything
+> `adopt` writes — the floor lock, the derived wiring, the project's
+> configuration — is **committed**, so git checks it out into every
+> worktree by itself.
+>
+> This sub-action exists for what is **gitignored**, and therefore exists
+> per working directory rather than arriving with the checkout:
+>
+> | You have | A worktree needs |
+> |---|---|
+> | Marketplace install, repo adopted | nothing from the framework — the plugins are user-scope and everything `adopt` commits is checked out by git |
+> | Marketplace install, configured with [`config`](config.md) | the `.apache-magpie-local/` link — Step 0b |
+> | Pinned snapshot install, adopted or not | the snapshot link *and* the per-worktree skill symlinks — Steps 1 and 1b. Both are gitignored, so git brings neither |
+> | Self-adoption in the framework checkout | neither of those: here `skills/` and its relays are committed, so the checkout already has them |
+> | **Any of the above, under the secure sandbox** | this worktree's absolute path in its own gitignored `.claude/settings.local.json` — Step 1c |
+>
+> Two consequences worth stating plainly. **Adoption needs nothing here:**
+> the floor lock, the derived wiring and the project's configuration are
+> all committed, so a worktree of an adopted repo has them already. And
+> the last row applies whatever you installed — which is why running this
+> in a new worktree is worth it even when the first four rows say no.
+>
+> Run it when unsure: it reports what it found and changes nothing it
+> does not have to.
+
 `adopt` and `upgrade` are **main-checkout-only**. A new git
 worktree of an already-adopted tracker repo gets the framework
 state by **symlinking** its `.apache-magpie/` directory to the
@@ -56,6 +82,53 @@ has the right symlink is a no-op.
    | Symlink to `<main>/.apache-magpie/` | No-op. Surface "already wired" and stop. |
    | Symlink to **something else** | Step 1 with a move-aside warning. The skill backs the existing link up, names what it pointed at, and asks the user to confirm before replacing. |
    | Regular directory (per-worktree snapshot from before this convention) | Step 1 with a move-aside warning. Back up the directory to `.apache-magpie.bak.<timestamp>` and create the symlink. **Do not** `rm -rf` without confirmation — the directory may hold uncommitted local edits the operator wants to preserve before the framework standardised on snapshot-from-main. |
+
+## Step 0a — Is there anything to do at all?
+
+Before either link, work out whether this worktree needs one:
+
+- **No `.apache-magpie/` in the main checkout** → no snapshot to share;
+  this is a marketplace install. Skip Step 1.
+- **No `.apache-magpie-local/` in the main checkout** → nothing
+  configured locally; either the repo is adopted (so the configuration
+  is committed and git already put it here) or nothing is configured
+  yet. Skip Step 0b.
+
+If both are true there is nothing to link — say so:
+*"nothing to link: the plugins are user-scope and the project's
+configuration is committed."* That is the expected outcome on the
+recommended path, and reporting it as a finished state is the point. Do
+not treat it as a failed run, and do not go looking for something to
+create.
+
+**Then carry on to Step 1c anyway.** The sandbox allowlist is
+per-worktree whatever the install method is, and it is the one thing a
+marketplace-installed, fully adopted repo still needs here. Skipping to
+the end because the links were unnecessary is how a worktree ends up
+unable to read its own files.
+
+## Step 0b — Link the local configuration
+
+`.apache-magpie-local/` is a working-directory directory, so a fresh
+worktree has none — and a contributor who configured Magpie for
+themselves in the main checkout would have to do it again in every
+worktree, then keep the copies in step by hand.
+
+Link it the same way as the snapshot, for the same reason: one local
+configuration on disk, every worktree reading it.
+
+- **Main checkout has `.apache-magpie-local/`, worktree has nothing** →
+  create the symlink.
+- **Worktree already has a symlink to it** → no-op.
+- **Worktree has a real directory** → do *not* replace it. Say so and
+  stop at this step: a per-worktree configuration is unusual but it is
+  someone's deliberate choice, and it may hold the only copy of a value
+  they filled in. Offer the move-aside, do not perform it.
+- **Main checkout has none** → nothing to link. Say so in one line and
+  carry on; `/magpie-setup config` creates it when the user wants it.
+
+The snapshot steps below are the same shape and run whether or not this
+one did anything.
 
 ## Step 1 — Create the snapshot symlink
 

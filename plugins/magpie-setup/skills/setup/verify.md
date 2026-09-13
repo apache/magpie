@@ -291,6 +291,25 @@ classes in place — in **every active target dir** — without
 prompting; the ⚠ class needs an explicit `setup install`
 re-run with the family added to the pick.
 
+### 5d. Local configuration, and what it shadows
+
+Read `.apache-magpie-local/`. For each file in it, report:
+
+- **fills a gap** — the project commits no file of that name. This is
+  the ordinary case for an unadopted repo and for anything the project
+  chose not to publish. ✓
+- **shadows a committed file, identically** — byte-for-byte the same as
+  `.apache-magpie-overrides/<file>`. ⚠, with the one-line consequence:
+  it wins under the local-first rule, so a later correction the project
+  commits will never reach this clone. Offer to remove it.
+- **shadows a committed file, and differs** — ⚠, with the difference
+  shown. Never offer to remove this one: it may be the only copy of a
+  deliberate local decision. Report it and let the operator decide.
+
+Being shadowed is not a fault and must not be counted as one. It is
+reported because the alternative is a contributor wondering for a
+month why the project's value is not taking effect.
+
 ### 6. `.apache-magpie-overrides/` exists + has the README
 
 `<repo-root>/.apache-magpie-overrides/` is a directory

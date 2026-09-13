@@ -171,9 +171,17 @@ def render(family: str, skills: dict[str, tuple[list[str], set[str]]], desc: dic
     if required:
         lines += [
             "Every skill here resolves project-specific values from the adopter's",
-            f"[`<project-config>/`](../../{TEMPLATE_DIR}/) directory.",
-            "[`/magpie-setup adopt`](../setup/team-adoption.md) scaffolds all of them from",
-            "templates; you fill in the `TODO` fields for the skills you use.",
+            f"[`<project-config>/`](../../{TEMPLATE_DIR}/) directory — which is",
+            "`.apache-magpie-local/` (gitignored, yours) first, then",
+            "`.apache-magpie-overrides/` (committed, the project's).",
+            "",
+            "**For yourself:** `/magpie-setup config` scaffolds and fills these locally.",
+            "Nothing is staged, nothing is committed, and it works on a repository that",
+            "has never adopted Magpie.",
+            "",
+            "**For the project:** [`/magpie-setup adopt`](../setup/team-adoption.md)",
+            "commits them for every contributor, either scaffolded directly or promoted",
+            "from what you configured locally.",
             "",
         ]
     else:
@@ -181,8 +189,9 @@ def render(family: str, skills: dict[str, tuple[list[str], set[str]]], desc: dic
         # is how a family that asks nothing of an adopter reads as one that does.
         lines += [
             "**Nothing here has to be configured.** These skills read the file below",
-            "when the project has one and fall back to a documented default when it",
-            "does not.",
+            "when it exists — yours in `.apache-magpie-local/` or the project's in",
+            "`.apache-magpie-overrides/` — and fall back to a documented default when",
+            "it does not.",
             "",
         ]
 

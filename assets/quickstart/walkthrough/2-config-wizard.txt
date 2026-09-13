@@ -1,0 +1,12 @@
+  Derived from the repository:
+
+    project.md              upstream_repo  acme/toolkit   (origin remote)
+    pr-management-config.md area_prefix    area:          (17 labels use it)
+
+  Three values left. One question:
+
+    tracker_url        ?
+    committers team    ?
+    comment footer     ?
+
+  Answer, or skip any of them - a TODO left in place is not an error.

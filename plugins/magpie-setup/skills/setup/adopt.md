@@ -157,21 +157,79 @@ whatever they put there.
   Do not rewrite a file you cannot read; a malformed settings file is
   the user's to fix. Nothing was written — stop without staging.
 
-## Step 4 — Scaffold the overrides store
+## Step 4 — The project's configuration store
 
-Scaffold `.apache-magpie-overrides/` exactly as
+`.apache-magpie-overrides/` is the committed half of the lookup chain
+in [`docs/setup/agentic-overrides.md`](../../../../docs/setup/agentic-overrides.md).
+There are two ways to fill it, and the maintainer may well need both
+in one run.
+
+### 4a — Promote what is already configured locally
+
+Look for `.apache-magpie-local/`. Anything a maintainer configured for
+themselves with [`config`](config.md) is, by definition, a set of
+answers that already works on this project — which makes it the best
+starting point for what the project should publish.
+
+If the directory holds configuration files:
+
+1. **List them, and say what each would become.** Promoting is
+   publishing: a value that was private to one clone becomes a fact
+   every contributor reads. Name any that look personal rather than
+   project-wide — a local clone path, a personal mail address — and
+   recommend leaving those behind.
+2. **Ask which to promote.** One structured multi-select, everything
+   pre-ticked *except* what step 1 flagged.
+3. **Copy** each selected file into `.apache-magpie-overrides/`.
+   If a file of that name is already committed and differs, show the
+   difference and ask before overwriting — you are editing something
+   the project already decided.
+4. **Drop the redundant local copies.** After copying, remove every
+   local file that is now **byte-identical** to its committed twin.
+   They would otherwise shadow it forever under the local-wins rule,
+   so that the project's later corrections would never reach the
+   maintainer who adopted it.
+5. **Name what still differs.** Any local file left behind — because
+   it was not promoted, or because it differs from what was committed
+   — is reported, by path, with one line saying it still shadows the
+   project's copy for this clone only. That is a legitimate end state;
+   it is just never a silent one.
+
+Never delete a local file that differs, and never delete one the user
+declined to promote. The rule is: redundant copies go, deliberate ones
+stay and are named.
+
+### 4b — Scaffold whatever is still missing
+
+For the required configuration no skill can find in either directory,
+scaffold from `<snapshot-dir>/projects/_template/` exactly as
 [`install.md` Step 9](install.md#step-9--scaffold-apache-magpie-overrides-fresh-only)
-does — same exclusions, same `project.md` pre-population. `git add`
-it; do not commit.
+does — same exclusions, same `project.md` pre-population, same
+auto-detect-before-asking discipline `config` uses.
 
-If it already exists, say so and leave it alone.
+A maintainer who knows they are adopting can arrive here directly,
+without having run `config` first; this step is what makes that work.
+
+`git add` the store; do not commit.
+
+### `.gitignore`
+
+Add `/.apache-magpie-local/` to the adopter repo's `.gitignore` if it
+is not there, and stage it. `adopt` is already writing committed
+files, so this is the sub-action that may do it — `config`
+deliberately does not, and uses `.git/info/exclude` instead.
 
 ## Step 5 — Recap
 
 Tell the user, in this order:
 
-1. **What is staged** — the three paths (the lock, the derived wiring,
-   the overrides store), and that nothing is committed.
+1. **What is staged** — the paths (the lock, the derived wiring, the
+   configuration store, and `.gitignore` if it changed), and that
+   nothing is committed.
+1b. **What was promoted and what was dropped** — which local files
+   became the project's, which redundant local copies were removed,
+   and which local files remain and still shadow a committed one for
+   this clone.
 2. **What the floor means** — a minimum, not a pin. Contributors on a
    newer Magpie are fine and will be told nothing; contributors behind
    it are brought up to it by the pre-flight in any skill they run.

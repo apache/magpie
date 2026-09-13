@@ -1,0 +1,20 @@
+> /magpie-setup adopt
+
+  You configured three files locally. Adopting publishes them.
+
+  PROMOTE TO THE PROJECT
+    [x] project.md                   upstream repo, tracker, mail lists
+    [x] pr-management-config.md      committers team, label prefix
+    [ ] pr-management-triage-comment-templates.md
+          still has 4 TODOs - promote it once it says something
+
+  Staged, not committed:
+    .apache-magpie.lock              method: marketplace, floor 0.2.0
+    .claude/settings.json            marketplace + 3 plugins, merged
+    .apache-magpie-overrides/        the 2 files above
+    .gitignore                       /.apache-magpie-local/
+
+  Local copies now identical to the project's: removed, so the project
+  can correct them later and you will get the correction.
+
+  Nothing else in .apache-magpie-local/ changed. It is still yours.

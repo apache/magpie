@@ -6,10 +6,13 @@
 The default sub-action when the user says "install magpie". An install
 touches only this machine's agent and writes nothing to the repo.
 
-**`adopt` is not an alias of this.** `setup adopt` is the separate,
-maintainer-only act of committing a floor for every contributor — see
-[`adopt.md`](adopt.md). If the user typed `adopt` from memory or an old
-runbook, ask which they meant rather than doing either.
+**Three distinct acts, and this is only the first.** Installing puts
+skills in *this machine's* agent. [`config`](config.md) tells those
+skills about *this project*, in gitignored files only this clone sees.
+[`adopt`](adopt.md) is the maintainer act of committing a floor and the
+project's configuration for *every contributor*. If the user typed
+`adopt` from memory or an old runbook, ask which they meant rather than
+doing any of them.
 
 **Route first: the marketplace install is the default.** Unless
 the user named a snapshot method (`method:svn-zip` / `git-tag` /
@@ -264,17 +267,23 @@ Tell the user, in this order:
    `codex plugin update magpie`; Gemini:
    `gemini extensions update magpie`. The bundled `SessionStart`
    hook prompts on a version change where the client runs hooks.
-4. **What this install deliberately does not set up**, each with
-   the one thing that would change the answer:
-   - the **committed version pin** and drift detection — add the
-     [pinned snapshot install](#step-0--pre-flight) when the
-     project wants every contributor and CI job on one version;
-   - **personal overrides** — `.apache-magpie-local/` works in any
-     repo, adopted or not, once a single `.gitignore` line exists.
-     Say where that line goes and leave adding it to the user: it is
-     theirs to put in the repo's `.gitignore` or in their own global
-     excludes, and that choice is not yours to make for them.
-5. **This install wrote nothing to the repo, and that is the finished
+4. **Configure it for yourself when a skill asks.** A marketplace
+   install delivers skills; it tells them nothing about this project.
+   The first skill that needs project configuration stops and names
+   what it needs, and [`/magpie-setup config`](config.md) supplies it
+   in gitignored `.apache-magpie-local/` — no `.gitignore` line to
+   negotiate, nothing staged, nobody's permission required, and it
+   works on a repo that has never adopted Magpie.
+
+   Name it here; do not run it. There is nothing to configure until
+   the user picks a skill to run, and configuring every installed
+   family up front is an interview nobody asked for.
+5. **What this install deliberately does not set up**, with the one
+   thing that would change the answer: the **committed version pin**
+   and drift detection — add the
+   [pinned snapshot install](#step-0--pre-flight) when the project
+   wants every contributor and CI job on one version.
+6. **This install wrote nothing to the repo, and that is the finished
    state.** A marketplace install touches only this machine's agent.
    Say so plainly: there is no repo-side step left undone, and the
    install is not partial, pending, or awaiting anything.
@@ -289,9 +298,14 @@ Tell the user, in this order:
    here.
 
    One writer of the floor keeps the lock, the derived wiring, and the
-   overrides store from drifting apart, and keeps a maintainer's decision
-   to commit files for every contributor out of an install flow someone
-   may have reached just to try Magpie out.
+   project's configuration store from drifting apart, and keeps a
+   maintainer's decision to commit files for every contributor out of an
+   install flow someone may have reached just to try Magpie out.
+
+   **`config` is not a lesser `adopt`.** Configuring locally is a
+   finished state for one person, not a step on the way to adopting.
+   Most people who install Magpie should never run `adopt`, and the
+   recap must not imply otherwise.
 
 Then stop. Do not continue into Step 0.
 

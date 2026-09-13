@@ -66,9 +66,17 @@ happening — plus the other agents and the secure-isolation setup to run next.
 <!-- BEGIN generated: skill-config (tools/dev/check-skill-config.py --fix) -->
 
 Every skill here resolves project-specific values from the adopter's
-[`<project-config>/`](../../projects/_template/) directory.
-[`/magpie-setup adopt`](../setup/team-adoption.md) scaffolds all of them from
-templates; you fill in the `TODO` fields for the skills you use.
+[`<project-config>/`](../../projects/_template/) directory — which is
+`.apache-magpie-local/` (gitignored, yours) first, then
+`.apache-magpie-overrides/` (committed, the project's).
+
+**For yourself:** `/magpie-setup config` scaffolds and fills these locally.
+Nothing is staged, nothing is committed, and it works on a repository that
+has never adopted Magpie.
+
+**For the project:** [`/magpie-setup adopt`](../setup/team-adoption.md)
+commits them for every contributor, either scaffolded directly or promoted
+from what you configured locally.
 
 **Required.** Without these a skill would act on a guess, so it stops and
 says which file is missing.

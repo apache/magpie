@@ -40,18 +40,30 @@
 | **Replaces** | The two designs and four implementation plans this was split across while it was being built (`2026-09-10-repo-committed-setup-*`, `2026-09-13-install-adopt-upgrade-design`, `-plan-a/b/c`). They described phases; this describes the result. |
 | **Spec surface** | [`tools/spec-loop/specs/adoption-and-setup.md`](../../tools/spec-loop/specs/adoption-and-setup.md) |
 
-There are exactly two things a person can do with Magpie, and the whole design
-follows from keeping them apart:
+There are exactly three things a person can do with Magpie, and the whole
+design follows from keeping them apart:
 
 - **Install it** — put the plugins in your agent. One command per agent, once
-  per machine. Writes nothing to any repository. Complete on its own, and all
-  most people ever need.
-- **Adopt it** — commit, for one repository, a record of what that project
-  expects. A decision its maintainers make together, reversible in a pull
-  request, and never a prerequisite for installing.
+  per machine. Writes nothing to any repository.
+- **Configure it** — tell those skills about this project, in
+  `.apache-magpie-local/`: gitignored, this clone only, nobody's permission
+  required. A skill whose configuration is missing runs this itself. Complete
+  on its own, and all most people ever need.
+- **Adopt it** — commit, for one repository, the floor and the project's
+  configuration. A decision its maintainers make together, reversible in a
+  pull request, never run automatically, and never a prerequisite for the
+  first two.
 
-Everything below is either one of those two, or the consequence of a reader
+Everything below is either one of those three, or the consequence of a reader
 being able to tell which one they are looking at.
+
+**Configuring is not a lesser adopting.** It is the finished state for
+individual use, which the framework's own docs call "not a waiting room". The
+original design had no such step, so the only route to a configured skill was
+`adopt` — which stages committed files for every contributor. A solo
+contributor on a repository whose maintainers have never heard of Magpie had
+to commit something for the team in order to work alone. That was the defect
+this split closes.
 
 ## What was wrong
 
@@ -135,7 +147,27 @@ Each of these settled a fork, and each shapes what follows.
 8. **The install is a prerequisite with one page**, not a step repeated in
    every flow that assumes it.
 
-9. **A family page shows that family working, and those pictures are written
+9. **Configuration has a gitignored home and a committed one, and the same
+   lookup chain as overrides.** `<project-config>` resolves per file, local
+   first: `.apache-magpie-local/` then `.apache-magpie-overrides/`. One rule
+   for everything an adopter writes, rather than one rule for configuration
+   and another for overrides.
+
+   The cost is real and is accepted: after a project commits a file you also
+   hold locally, yours keeps winning. It is reported rather than silent —
+   `verify` lists every shadowing file, and `adopt` drops the copies that are
+   byte-identical as it promotes, so the project's later corrections reach
+   you.
+
+10. **A skill runs `config` for you; nothing ever runs `adopt` for you.** The
+   pre-flight that finds missing configuration invokes `config` unasked,
+   because what it touches is gitignored, invisible to everyone else and
+   undone by deleting a directory — and unlike a plugin install it needs no
+   session restart, so the skill continues in the same turn. Adoption commits
+   a recommendation for every contributor; it is mentioned in one line and
+   never offered.
+
+11. **A family page shows that family working, and those pictures are written
    rather than captured.** `magpie-setup.svg` stays a real recording — it is
    the one run a reader has not done yet. Everything else is a committed
    transcript rendered deterministically.

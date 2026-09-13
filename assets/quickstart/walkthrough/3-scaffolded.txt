@@ -1,17 +1,17 @@
-> /magpie-setup adopt
+> /magpie-setup config
 
-  Staged, not committed:
+  Written to .apache-magpie-local/  - gitignored, this clone only
 
-    .apache-magpie.lock              method: marketplace, floor 0.2.0
-    .claude/settings.json            marketplace + 3 plugins, merged
-    .apache-magpie-overrides/        configuration templates
+    project.md                                   2 values, 1 TODO
+    pr-management-config.md                      2 values, 1 TODO
+    pr-management-triage-comment-templates.md    0 values, 4 TODO
 
-  pr-management needs three of those filled in before triage will run:
+  Added /.apache-magpie-local/ to .git/info/exclude, not to .gitignore -
+  .gitignore is committed, and nothing here should be.
 
-    project.md                            upstream repo, tracker, mail lists
-    pr-management-config.md               committers team, label prefix
-    pr-management-triage-comment-templates.md   comment bodies, footer
+  Nothing staged. Nothing committed. No teammate sees any of this.
 
-  Each carries TODO markers where a value is missing. Review the diff and
-  commit when you are happy - the floor is a recommendation for everyone
-  who clones this repo.
+  ✓ magpie-pr-management:triage can run now
+
+  A TODO left in place is not an error: the skill that needs one names
+  it when it needs it, and the skills that do not never look.

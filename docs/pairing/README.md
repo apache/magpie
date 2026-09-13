@@ -71,8 +71,9 @@ happening — plus the other agents and the secure-isolation setup to run next.
 <!-- BEGIN generated: skill-config (tools/dev/check-skill-config.py --fix) -->
 
 **Nothing here has to be configured.** These skills read the file below
-when the project has one and fall back to a documented default when it
-does not.
+when it exists — yours in `.apache-magpie-local/` or the project's in
+`.apache-magpie-overrides/` — and fall back to a documented default when
+it does not.
 
 **Optional.** Each has a documented fallback; absent, the skill still runs.
 

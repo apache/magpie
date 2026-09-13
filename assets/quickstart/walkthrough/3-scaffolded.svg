@@ -23,29 +23,28 @@
   Edit the transcript and re-render; check-quickstart-recording.py fails
   the build when this file no longer matches its source.
 -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 877 534"
-     width="877" height="534" role="img"
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 834 534"
+     width="834" height="534" role="img"
      data-magpie-rendered="render-screenshot"
      aria-label="Terminal transcript: 3-scaffolded">
   <title>3-scaffolded</title>
-  <rect width="877" height="534" rx="10" fill="#1d1f21"/>
-  <rect x="0" y="0" width="877" height="34" rx="10" fill="#2b2e31"/>
-  <rect x="0" y="24" width="877" height="10" fill="#2b2e31"/>
+  <rect width="834" height="534" rx="10" fill="#1d1f21"/>
+  <rect x="0" y="0" width="834" height="34" rx="10" fill="#2b2e31"/>
+  <rect x="0" y="24" width="834" height="10" fill="#2b2e31"/>
   <circle cx="22" cy="17" r="6" fill="#3f4448"/>
   <circle cx="44" cy="17" r="6" fill="#3f4448"/>
   <circle cx="66" cy="17" r="6" fill="#3f4448"/>
   <g font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="18" xml:space="preserve">
-    <text x="28" y="84" fill="#8abeb7">&gt; /magpie-setup adopt</text>
-    <text x="28" y="136" fill="#c5c8c6">  Staged, not committed:</text>
-    <text x="28" y="188" fill="#c5c8c6">    .apache-magpie.lock              method: marketplace, floor 0.2.0</text>
-    <text x="28" y="214" fill="#c5c8c6">    .claude/settings.json            marketplace + 3 plugins, merged</text>
-    <text x="28" y="240" fill="#c5c8c6">    .apache-magpie-overrides/        configuration templates</text>
-    <text x="28" y="292" fill="#c5c8c6">  pr-management needs three of those filled in before triage will run:</text>
-    <text x="28" y="344" fill="#c5c8c6">    project.md                            upstream repo, tracker, mail lists</text>
-    <text x="28" y="370" fill="#c5c8c6">    pr-management-config.md               committers team, label prefix</text>
-    <text x="28" y="396" fill="#c5c8c6">    pr-management-triage-comment-templates.md   comment bodies, footer</text>
-    <text x="28" y="448" fill="#c5c8c6">  Each carries TODO markers where a value is missing. Review the diff and</text>
-    <text x="28" y="474" fill="#c5c8c6">  commit when you are happy - the floor is a recommendation for everyone</text>
-    <text x="28" y="500" fill="#c5c8c6">  who clones this repo.</text>
+    <text x="28" y="84" fill="#8abeb7">&gt; /magpie-setup config</text>
+    <text x="28" y="136" fill="#c5c8c6">  Written to .apache-magpie-local/  - gitignored, this clone only</text>
+    <text x="28" y="188" fill="#c5c8c6">    project.md                                   2 values, 1 TODO</text>
+    <text x="28" y="214" fill="#c5c8c6">    pr-management-config.md                      2 values, 1 TODO</text>
+    <text x="28" y="240" fill="#c5c8c6">    pr-management-triage-comment-templates.md    0 values, 4 TODO</text>
+    <text x="28" y="292" fill="#c5c8c6">  Added /.apache-magpie-local/ to .git/info/exclude, not to .gitignore -</text>
+    <text x="28" y="318" fill="#c5c8c6">  .gitignore is committed, and nothing here should be.</text>
+    <text x="28" y="370" fill="#c5c8c6">  Nothing staged. Nothing committed. No teammate sees any of this.</text>
+    <text x="28" y="422" fill="#7f9f7f">  ✓ magpie-pr-management:triage can run now</text>
+    <text x="28" y="474" fill="#c5c8c6">  A TODO left in place is not an error: the skill that needs one names</text>
+    <text x="28" y="500" fill="#c5c8c6">  it when it needs it, and the skills that do not never look.</text>
   </g>
 </svg>

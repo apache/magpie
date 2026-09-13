@@ -5,13 +5,15 @@ name: magpie-setup
 family: setup
 mode: Meta
 description: |
-  Install and maintain the apache-magpie framework, and adopt it
-  for a repo. Installing touches only this machine's agent;
-  adopting commits a recommended default set and the repo's
-  overrides for every contributor. Marketplace install by default;
-  the pinned snapshot is the fallback. Sub-actions:
+  Install and maintain the apache-magpie framework, configure it
+  for yourself, and adopt it for a repo. Installing touches only
+  this machine's agent; configuring writes only gitignored local
+  files; adopting commits a recommended floor and the project's
+  configuration for every contributor. Marketplace install by
+  default; the pinned snapshot is the fallback. Sub-actions:
     `setup` - first-time install, marketplace-first. Writes nothing to the repo.
-    `setup adopt` - commit the floor lock, default set + overrides store
+    `setup config` - configure for yourself, in gitignored .apache-magpie-local/
+    `setup adopt` - commit the floor lock, project config + wiring (scaffold, or promote from config)
     `setup unadopt` - remove the lock + its wiring; keeps overrides, installs
     `setup upgrade` - refresh the snapshot per the committed lock (main-checkout only)
     `setup worktree-init` - symlink a worktree's snapshot to the main's
@@ -24,11 +26,15 @@ when_to_use: |
   "install magpie", "follow .claude/skills/magpie-setup", or
   follows the framework's README install instructions. Also
   "upgrade magpie", "verify magpie setup", "check magpie drift".
+  For "configure magpie for me", "set up the config so this skill
+  works", or a skill's pre-flight asking for project configuration,
+  route to the `config` sub-action - it writes gitignored local
+  files only and needs nobody's permission.
   For "adopt apache-magpie", "adopt apache/magpie", "adopt magpie
   for this repo", or "commit a default set for the team", route to
   the `adopt` sub-action - it commits files for every contributor
   and is not an install.
-argument-hint: "[install|adopt|unadopt|upgrade|worktree-init|verify|override skill-name|uninstall]"
+argument-hint: "[install|config|adopt|unadopt|upgrade|worktree-init|verify|override skill-name|uninstall]"
 capability: capability:platform
 license: Apache-2.0
 ---
@@ -37,7 +43,9 @@ license: Apache-2.0
      https://www.apache.org/legal/release-policy.html -->
 
 <!-- Placeholder convention (see ../../AGENTS.md#placeholder-convention-used-in-skill-files):
-     <project-config>           → adopter's `.apache-magpie-overrides/` directory
+     <project-config>           → per file, first hit wins: adopter's
+                                  `.apache-magpie-local/` (gitignored, personal) then
+                                  `.apache-magpie-overrides/` (committed, project-wide)
      <snapshot-dir>             → `.apache-magpie/` (gitignored snapshot of the framework)
      <committed-lock>           → `.apache-magpie.lock` (committed — project's pin)
      <local-lock>               → `.apache-magpie.local.lock` (gitignored — per-machine record)
@@ -163,7 +171,8 @@ semantics. Formats, fields, and drift rules:
 | [`skill-sources.md`](skill-sources.md) | Fetch/verify skills from trusted external sources listed in `<project-config>/skill-sources.md`, pin them in the committed `.apache-magpie.sources.lock`, and symlink the provided skills in exactly like framework skills. The runnable half of [trusted external skill sources](../../../../docs/skill-sources/README.md); the install gate is the adopter trust list. |
 | [`locks.md`](locks.md) | The two lock files of the pinned-snapshot path — `<committed-lock>` (the project's pin) and `<local-lock>` (this machine's fetch), their formats, and the per-source pair used by trusted external sources. |
 | [`agents.md`](agents.md) | The agent-target registry — *which* directories framework-skill symlinks land in across vendors, and the **canonical-plus-relay** model: `.agents/skills/` is the one canonical home (links into the snapshot/source); every other target (`claude-code`, `github`, holdout natives like Windsurf / Goose) gets a per-skill relay symlink into `.agents/skills/`. Defines active-target selection, SKILL.md format portability, and the Claude-Code-only layer (sandbox/hooks). The source of truth every sub-action consults for the target set. |
-| [`adopt.md`](adopt.md) | Adoption — the maintainer act of committing the floor lock `.apache-magpie.lock`, the default plugin set derived from it, and the repo's overrides store, for every contributor. `unadopt` withdraws the lock and that derived wiring; `.apache-magpie-overrides/` is preserved unless `--purge-overrides` is passed. Distinct from installing, which touches only this machine's agent. |
+| [`config.md`](config.md) | **Configuration, for the person running it.** Scaffold and fill what a skill needs into gitignored `.apache-magpie-local/`, working on a repo that has never adopted Magpie and asking the project for nothing. Writes no committable file — not even a `.gitignore` line; it uses `.git/info/exclude` instead. The individual half of what `adopt` does for a project. |
+| [`adopt.md`](adopt.md) | Adoption — the maintainer act of committing the floor lock `.apache-magpie.lock`, the default plugin set derived from it, and the project's configuration store, for every contributor. Configuration is either scaffolded here directly or **promoted from `.apache-magpie-local/`**, in which case the now-redundant local copies are dropped and any that differ are named. `unadopt` withdraws the lock and that derived wiring; `.apache-magpie-overrides/` is preserved unless `--purge-overrides` is passed. Distinct from installing, which touches only this machine's agent. |
 | [`overrides.md`](overrides.md) | Agentic-override file management — open / scaffold an override for a framework skill, list existing overrides, help reconcile when the framework changes the underlying skill's structure on upgrade. |
 | [`uninstall.md`](uninstall.md) | Reverse the install — remove snapshot, the local lock, symlinks, post-checkout hook, `.gitignore` entries, the framework sections in `README.md` / `AGENTS.md` / `CONTRIBUTING.md`, and the committed `setup` skill itself, but leave the committed `.apache-magpie.lock` — that is `unadopt`'s job. Preserves `.apache-magpie-overrides/` by default; `--purge-overrides` removes it too. Surfaces the full removal plan before any write. |
 
@@ -387,6 +396,8 @@ The skill dispatches by the first positional argument:
 | `setup install` | [`install.md`](install.md) | Same as no-arg — explicit form. Main-checkout only. |
 | `setup install method:marketplace` | [`install.md` → Step M0b](install.md#step-m0b--pre-fill-from-the-committed-floor) | The default path, named explicitly. Prints the agent's `marketplace add` + `plugin install` commands; writes nothing to the repo. Works in a worktree, and in a repo that has not adopted anything. |
 | `setup install method:svn-zip\|git-tag\|git-branch` | [`install.md`](install.md) | The pinned snapshot install — the fallback path. Main-checkout only. |
+| `setup config` | [`config.md`](config.md) | **Not an install, and not adoption.** Configure the installed skills for *you*, in gitignored `.apache-magpie-local/`. Works on any repo, adopted or not, with nobody's permission. Writes nothing committable and stages nothing. |
+| `setup config <skill>` | [`config.md`](config.md) | The same, narrowed to one skill's required configuration. |
 | `setup adopt` | [`adopt.md`](adopt.md) | **Not an install.** Commit the repo's recommended default plugin set and scaffold its overrides store, so every contributor arrives with them. Requires an explicit maintainer decision; stages, never commits. Claude Code only for the default set. |
 | `setup upgrade` | [`upgrade.md`](upgrade.md) | Refresh snapshot per `<committed-lock>` + reconcile overrides + refresh symlinks. **Main-checkout only** — worktrees pick up upgrades automatically via the symlink installed by `worktree-init`. |
 | `setup worktree-init` | [`worktree-init.md`](worktree-init.md) | **Worktree-only.** Symlink the worktree's `<snapshot-dir>` to the main checkout's so this worktree shares one framework state. No fetch, no lock files written; idempotent. |

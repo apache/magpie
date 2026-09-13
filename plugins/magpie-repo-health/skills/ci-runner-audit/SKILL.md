@@ -103,12 +103,39 @@ couple of file checks, or one CLI call for a marketplace install.
    re-running this command.
 
 5. **No lock?** Then this is the marketplace install without adoption,
-   or nothing at all. Look for a `<project-config>/` directory. If there
-   is none, the project has not been adopted and every `<placeholder>`
-   in this skill is unresolved → **stop and propose `/magpie-setup`**.
-   Do **not** run setup unattended and do **not** continue on a guess: a
-   skill that proceeds against an unadopted repo writes to the wrong
-   tracker.
+   or nothing at all. That is a supported end state, not a fault — what
+   matters is whether *this skill's* configuration resolves.
+
+6. **Resolve this skill's `requires_config:` frontmatter.** Each file,
+   per the lookup chain: `.apache-magpie-local/<file>` (gitignored,
+   personal) first, then `.apache-magpie-overrides/<file>` (committed).
+   All present → **silent**, carry on.
+
+   Any required file missing → **run `/magpie-setup config` for this
+   skill now**, say that you are doing it and why, then continue into
+   the work the user actually asked for.
+
+   Running it is safe to do unasked because of what it touches: only
+   `.apache-magpie-local/` and `.git/info/exclude`, both gitignored,
+   both invisible to every other person and every other clone, and both
+   undone by deleting a directory. It stages nothing, commits nothing,
+   and changes nothing about the repository anyone else sees.
+
+   Two things it still may not do: **fabricate a value** — anything it
+   cannot derive from the repository is a question it asks or a `TODO`
+   it leaves — and **continue past a value it needs but does not have**.
+
+   Unlike a plugin below the floor, this needs no restart: the files
+   are written and read in the same turn, so the interruption ends and
+   the command proceeds.
+
+7. **Never run `/magpie-setup adopt` unattended.** Adoption commits a
+   recommendation for every contributor and is a maintainer's decision
+   taken with the other maintainers. When configuration was just
+   written locally, add **one line** saying the project can also adopt
+   Magpie so contributors get this on clone, and name the command.
+   Then drop it. Do not ask, do not offer to run it, and do not repeat
+   it on later invocations.
 
 Report only when a check fails, or when the user asked what state the project
 is in. `/magpie-setup verify` is the full diagnostic.

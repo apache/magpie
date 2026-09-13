@@ -76,7 +76,13 @@ The framework has two layers:
    release trains, canned responses, security-model references, and
    milestone conventions. Lives in the adopter's
    `<project-config>/` directory and is **not** shipped with this
-   framework. The
+   framework. `<project-config>` resolves **per file, local first**:
+   `.apache-magpie-local/<file>` (personal, gitignored, written by
+   `/magpie-setup config`) if it exists, else
+   `.apache-magpie-overrides/<file>` (committed, project-wide,
+   written by `/magpie-setup adopt`). See
+   [`docs/setup/agentic-overrides.md`](docs/setup/agentic-overrides.md).
+   The
    [`projects/_template/`](projects/_template/) directory in this
    repo is the bootstrap scaffold a new adopter copies into their
    `<project-config>/` to get started.

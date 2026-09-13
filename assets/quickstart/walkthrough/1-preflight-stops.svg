@@ -23,14 +23,14 @@
   Edit the transcript and re-render; check-quickstart-recording.py fails
   the build when this file no longer matches its source.
 -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 845 404"
-     width="845" height="404" role="img"
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 791 404"
+     width="791" height="404" role="img"
      data-magpie-rendered="render-screenshot"
      aria-label="Terminal transcript: 1-preflight-stops">
   <title>1-preflight-stops</title>
-  <rect width="845" height="404" rx="10" fill="#1d1f21"/>
-  <rect x="0" y="0" width="845" height="34" rx="10" fill="#2b2e31"/>
-  <rect x="0" y="24" width="845" height="10" fill="#2b2e31"/>
+  <rect width="791" height="404" rx="10" fill="#1d1f21"/>
+  <rect x="0" y="0" width="791" height="34" rx="10" fill="#2b2e31"/>
+  <rect x="0" y="24" width="791" height="10" fill="#2b2e31"/>
   <circle cx="22" cy="17" r="6" fill="#3f4448"/>
   <circle cx="44" cy="17" r="6" fill="#3f4448"/>
   <circle cx="66" cy="17" r="6" fill="#3f4448"/>
@@ -38,10 +38,10 @@
     <text x="28" y="84" fill="#8abeb7">&gt; /magpie-pr-management:triage</text>
     <text x="28" y="136" fill="#c5c8c6">  Pre-flight</text>
     <text x="28" y="188" fill="#7f9f7f">  ✓ plugin installed        magpie-pr-management</text>
-    <text x="28" y="214" fill="#cc6666">  ✗ project configuration   no .apache-magpie-overrides/ in this repo</text>
-    <text x="28" y="266" fill="#c5c8c6">  Stopping here rather than guessing. Triage needs to know this project's</text>
-    <text x="28" y="292" fill="#c5c8c6">  committer team, its area-label prefix, and which labels mean "ready" -</text>
-    <text x="28" y="318" fill="#c5c8c6">  none of which I can infer from the repository.</text>
-    <text x="28" y="370" fill="#c5c8c6">  Run /magpie-setup adopt to set it up, then re-run this command.</text>
+    <text x="28" y="214" fill="#cc6666">  ✗ project configuration   3 required files, none found</text>
+    <text x="28" y="266" fill="#c5c8c6">  Triage needs to know this project's committer team, its area-label</text>
+    <text x="28" y="292" fill="#c5c8c6">  prefix, and which labels mean "ready" - none of which I can infer.</text>
+    <text x="28" y="344" fill="#c5c8c6">  Configuring now. This writes gitignored files in your clone only:</text>
+    <text x="28" y="370" fill="#c5c8c6">  nothing staged, nothing committed, nobody else affected.</text>
   </g>
 </svg>

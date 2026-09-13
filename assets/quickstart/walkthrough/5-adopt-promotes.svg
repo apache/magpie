@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Licensed to the Apache Software Foundation (ASF) under one
+  or more contributor license agreements.  See the NOTICE file
+  distributed with this work for additional information
+  regarding copyright ownership.  The ASF licenses this file
+  to you under the Apache License, Version 2.0 (the
+  "License"); you may not use this file except in compliance
+  with the License.  You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing,
+  software distributed under the License is distributed on an
+  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+  KIND, either express or implied.  See the License for the
+  specific language governing permissions and limitations
+  under the License.
+
+  GENERATED FILE — do not edit.
+
+  Rendered from the .txt beside it by tools/dev/render-screenshot.sh.
+  Edit the transcript and re-render; check-quickstart-recording.py fails
+  the build when this file no longer matches its source.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 823 612"
+     width="823" height="612" role="img"
+     data-magpie-rendered="render-screenshot"
+     aria-label="Terminal transcript: 5-adopt-promotes">
+  <title>5-adopt-promotes</title>
+  <rect width="823" height="612" rx="10" fill="#1d1f21"/>
+  <rect x="0" y="0" width="823" height="34" rx="10" fill="#2b2e31"/>
+  <rect x="0" y="24" width="823" height="10" fill="#2b2e31"/>
+  <circle cx="22" cy="17" r="6" fill="#3f4448"/>
+  <circle cx="44" cy="17" r="6" fill="#3f4448"/>
+  <circle cx="66" cy="17" r="6" fill="#3f4448"/>
+  <g font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="18" xml:space="preserve">
+    <text x="28" y="84" fill="#8abeb7">&gt; /magpie-setup adopt</text>
+    <text x="28" y="136" fill="#c5c8c6">  You configured three files locally. Adopting publishes them.</text>
+    <text x="28" y="188" fill="#d8a657">  PROMOTE TO THE PROJECT</text>
+    <text x="28" y="214" fill="#c5c8c6">    [x] project.md                   upstream repo, tracker, mail lists</text>
+    <text x="28" y="240" fill="#c5c8c6">    [x] pr-management-config.md      committers team, label prefix</text>
+    <text x="28" y="266" fill="#c5c8c6">    [ ] pr-management-triage-comment-templates.md</text>
+    <text x="28" y="292" fill="#c5c8c6">          still has 4 TODOs - promote it once it says something</text>
+    <text x="28" y="344" fill="#c5c8c6">  Staged, not committed:</text>
+    <text x="28" y="370" fill="#c5c8c6">    .apache-magpie.lock              method: marketplace, floor 0.2.0</text>
+    <text x="28" y="396" fill="#c5c8c6">    .claude/settings.json            marketplace + 3 plugins, merged</text>
+    <text x="28" y="422" fill="#c5c8c6">    .apache-magpie-overrides/        the 2 files above</text>
+    <text x="28" y="448" fill="#c5c8c6">    .gitignore                       /.apache-magpie-local/</text>
+    <text x="28" y="500" fill="#c5c8c6">  Local copies now identical to the project's: removed, so the project</text>
+    <text x="28" y="526" fill="#c5c8c6">  can correct them later and you will get the correction.</text>
+    <text x="28" y="578" fill="#c5c8c6">  Nothing else in .apache-magpie-local/ changed. It is still yours.</text>
+  </g>
+</svg>
