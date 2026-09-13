@@ -70,8 +70,9 @@ retry_wait_time = 2
 max_retries = 3
 
 # Cache successful results for 7 days. Mirrors the framework-wide
-# 7-day `[tool.uv] exclude-newer` cooldown convention. CI restores
-# this cache between runs to keep the link check fast.
+# 7-day `[tool.uv] exclude-newer` cooldown convention. Dormant while
+# `offline = true` — nothing is fetched, so nothing is cached, and CI
+# carries no `.lycheecache` cache step. Both would come back together.
 cache = true
 max_cache_age = "7d"
 

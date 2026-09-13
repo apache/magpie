@@ -27,7 +27,29 @@ permissions: {}
 
 jobs:
   prek:
-    runs-on: ubuntu-slim
+    # The one job that runs on a 4-vCPU runner. #1190 moved every job
+    # here to `ubuntu-slim` (1 vCPU, container-based, 5 GB, killed at
+    # 15 minutes) on the argument that nothing this repo runs in CI is
+    # heavy — correct for the other ten, which land between 3s and 99s.
+    # prek is the exception: it splits each hook's file list across
+    # roughly `cpu_count` invocations, so on one core all ~40 hooks over
+    # ~4.9k files run strictly serial. Measured, `Run prek` is 131s on
+    # 4 vCPUs and 183-211s on slim, and it is ~80% of the job either
+    # way. That is the whole trade — three cores for ~60-80s on the job
+    # every push and every PR waits for. The rest of #1190's reasoning
+    # still holds and the other ten jobs stay put.
+    #
+    # Nothing in this job needs a Docker daemon, so the constraint that
+    # keeps zizmor off the `zizmor-action` (see `pyproject.toml`) is not
+    # what pins it here. Note that `ubuntu-slim`'s 15-minute container
+    # kill does not apply on `ubuntu-latest`, and no workflow here sets
+    # `timeout-minutes`, so leaving this job bare would swap that
+    # implicit ceiling for the 6-hour default. The explicit
+    # `timeout-minutes` below keeps the property #1190 relied on rather
+    # than dropping it as a side effect: 15 minutes is ~4x the slowest
+    # run observed, including a 674s outlier on a throttled host.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
     steps:
@@ -74,15 +96,14 @@ jobs:
           key: prek-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
           restore-keys: |
             prek-${{ runner.os }}-
-      # Restore the lychee result cache so external-URL checks reuse
-      # results across runs (`.lychee.toml` sets `max_cache_age = "7d"`).
-      - name: Cache lychee link-check results
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
-        with:
-          path: .lycheecache
-          key: cache-lychee-${{ github.sha }}
-          restore-keys: |
-            cache-lychee-
+      # There is deliberately no lychee result cache here. `.lychee.toml`
+      # sets `offline = true`, so the hook resolves only in-repo paths and
+      # anchors and never fetches a URL — there are no results to cache.
+      # The `actions/cache` step that used to sit here restored and saved
+      # a 185-byte `.lycheecache` on every run, and because its key was
+      # `cache-lychee-${{ github.sha }}` it wrote a fresh entry per commit,
+      # evicting the 251 MB prek hook-env cache above that much sooner.
+      # Reinstate it only together with turning `offline` back off.
       # Install prek via uv (rather than via the `j178/prek-action`
       # action) so the `[tool.uv] exclude-newer` cooldown in the
       # root `pyproject.toml` applies to the prek install as well.

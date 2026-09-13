@@ -151,14 +151,14 @@ repos:
   # as the `lychee` hook below. That is a memory requirement, not a
   # preference: typos' peak RSS scales with the number of paths passed
   # to one invocation (~1.2 MB per path), and prek splits the file list
-  # across roughly `cpu_count` invocations. On a 4-vCPU runner the ~4.9k
-  # tracked files arrive as ~1.2k-path chunks (~925 MB each); on the
-  # 1-vCPU `ubuntu-slim` runner they arrive as a single invocation that
-  # peaks at ~5.7 GB and is OOM-killed. prek reports that as a bare
-  # `exit code: 1` with no output — a signal-killed process has no exit
-  # code of its own — which reads like a hook failure with a missing
-  # message rather than the kill it is. Walking costs ~21 MB flat,
-  # whatever the core count.
+  # across roughly `cpu_count` invocations. On the 4-vCPU runner the
+  # prek workflow now uses, the ~4.9k tracked files arrive as ~1.2k-path
+  # chunks (~925 MB each); on a 1-vCPU runner they arrive as a single
+  # invocation that peaks at ~5.7 GB and is OOM-killed. prek reports
+  # that as a bare `exit code: 1` with no output — a signal-killed
+  # process has no exit code of its own — which reads like a hook
+  # failure with a missing message rather than the kill it is. Walking
+  # costs ~21 MB flat, whatever the core count.
   #
   # typos honours .gitignore while walking, and uv writes a `*`
   # .gitignore inside `.venv`, so a synced workspace stays out of the
@@ -189,8 +189,9 @@ repos:
   # whole repo (so a renamed link target is caught no matter which
   # file references it); `files:` only gates *whether* the whole-repo
   # scan fires, i.e. it runs when any doc file changes and always on
-  # `prek run --all-files` (CI). External-URL results are cached for
-  # 7 days (`.lycheecache`, gitignored).
+  # `prek run --all-files` (CI). `.lychee.toml` sets `offline = true`, so
+  # no external URL is fetched and the `.lycheecache` result cache stays
+  # empty — CI carries no cache step for it.
   - repo: local
     hooks:
       - id: lychee
