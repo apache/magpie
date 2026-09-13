@@ -108,6 +108,14 @@ command for that family and a few things to try once it is in:
 [mentoring](mentoring/README.md#install--first-runs) ·
 [pairing](pairing/README.md#install--first-runs)
 
+**Check what landed** with `/plugin` → *Installed*, filtered to `magpie`:
+
+![The Claude Code /plugin Installed tab filtered to magpie: eleven plugins from the apache-magpie marketplace, each marked enabled, with its skill count and how many times its skills have been used](../assets/installed-plugins.png)
+
+Every row names the marketplace it came from, whether it is enabled, and how
+many of its skills you have actually used — which is the honest way to decide
+whether a family is earning its always-on context.
+
 > [!IMPORTANT]
 > **There is no install-everything plugin, by design.** Every installed skill
 > advertises itself to the model on every turn, used or not — all ten families
@@ -271,13 +279,28 @@ What it deliberately does **not** do: hold your signing key, push on your
 behalf, or decide anything about which commands are reasonable. That last one
 is the next step's job.
 
-![Sandboxed session: the terminal footer opening with a green `[sandbox]` tag, followed by the project, branch, PR number and model](../assets/session-sandboxed.png)
+`/sandbox` is where the mode lives, and there are three:
 
-The footer opens with the sandbox state and then says *which* session this
-is — project, branch, the branch's PR, the model — so several sessions across
-worktrees and repos stay apart. Green `[sandbox]` is the steady state; yellow
-`[sandbox-auto]` means bash inside the sandbox skips the per-call prompt, and
-bold-red `[NO SANDBOX]` is impossible to miss. Confirm the whole install with
+![The Claude Code /sandbox mode panel: three modes — sandbox with auto-allow (selected), sandbox with regular permissions, and no sandbox — with auto-allow explained as commands running in the sandbox automatically and falling back to regular permissions outside it](../assets/sandbox-modes.png)
+
+*Auto-allow* runs commands in the sandbox without asking each time and falls
+back to the normal permission prompt for anything that has to run outside it.
+It is the mode most people want, and the one the status line flags separately —
+because "sandboxed" and "sandboxed and not asking" are not the same posture.
+
+The footer then opens with that state and says *which* session this is —
+project, branch, the branch's PR, the model — so several sessions across
+worktrees and repos stay apart:
+
+![Sandboxed session: the terminal footer opening with a green `[sandbox]` tag, followed by the project, branch, PR number and title, and the model](../assets/session-sandboxed.png)
+
+Green `[sandbox]` is the steady state. Turn it off and the same line says so in
+bold red, on every render until you put it back:
+
+![A session after /sandbox reports "Sandbox disabled": the footer now opens with a bold-red `[NO SANDBOX]` tag ahead of the project, branch and model](../assets/session-no-sandbox.png)
+
+Yellow `[sandbox-auto]` sits between the two — sandboxed, but bash inside it
+skips the per-call prompt. Confirm the whole install with
 `/magpie-setup:isolated-setup-verify` — *check my agent isolation* — which
 reports ✓/✗/⚠ for every piece.
 
