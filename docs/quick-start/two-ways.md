@@ -4,11 +4,11 @@
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 
-- [Two ways to use Magpie](#two-ways-to-use-magpie)
+- [Installation or Adoption?](#installation-or-adoption)
 
 <!-- END doctoc -->
 
-# Two ways to use Magpie
+# Installation or Adoption?
 
 **Installing** puts the **Apache Magpie Marketplace** and the plugins into
 your agent and writes

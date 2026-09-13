@@ -6,7 +6,7 @@
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
 - [Quick start](#quick-start)
-  - [Two ways to use Magpie](#two-ways-to-use-magpie)
+  - [Installation or Adoption?](#installation-or-adoption)
   - [Step 1 — install from the Apache Magpie Marketplace](#step-1--install-from-the-apache-magpie-marketplace)
   - [Step 2 — run `/magpie-setup`](#step-2--run-magpie-setup)
   - [Step 3 — lock the agent down](#step-3--lock-the-agent-down)
@@ -27,7 +27,7 @@ committed to your repository, and nothing is changed in it.
 **This install is yours, on this machine.** It needs no decision from your
 project and no opt-in from your teammates. Committing anything for other
 people is a separate act called **adoption** —
-[two ways to use Magpie](quick-start/two-ways.md) draws the line.
+[Installation or Adoption?](quick-start/two-ways.md) draws the line.
 
 **What you get.** 74 skills your agent can run, grouped into 10 **families** —
 PR triage and review, issue triage, security-report handling, release
@@ -38,7 +38,7 @@ install steps.
 
 ---
 
-## Two ways to use Magpie
+## Installation or Adoption?
 
 **Installing** puts the marketplace and the plugins into your agent and writes
 nothing to any repository. That is what the steps below do, and it is all most
@@ -47,7 +47,7 @@ maintainers committing a floor that everyone who clones it picks up.
 
 The two differ in one thing only — whether anything is committed for other
 people — and you do not have to choose before installing.
-[**Two ways to use Magpie**](quick-start/two-ways.md) compares them side by side.
+[**Installation or Adoption?**](quick-start/two-ways.md) compares them side by side.
 
 ---
 
@@ -188,7 +188,7 @@ Nothing is written before you approve it. Afterwards, `/magpie-setup verify`
 re-runs the health check and drift detection, and `/magpie-setup:status`
 prints what is currently installed.
 
-Not sure you need this step? [Two ways to use Magpie](quick-start/two-ways.md)
+Not sure you need this step? [Installation or Adoption?](quick-start/two-ways.md)
 draws the line.
 
 **Every skill configures itself on first use.** You do not have to remember
