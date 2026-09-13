@@ -690,3 +690,57 @@ def test_eval_counts_fix_keeps_the_blank_line_below_the_heading(repo: Path) -> N
     _eval_index(repo, "- **setup** — 2 cases across 1 steps (alpha)\n")
     assert _errors(mod.check_eval_counts, True) == []
     assert "## Suites (2 cases total)\n\n| alpha" in readme.read_text()
+
+
+# ---------------------------------------------------------------------------
+# 12. The marketplace add lives on one page
+# ---------------------------------------------------------------------------
+
+
+def test_marketplace_add_outside_the_allowed_pages_is_reported(repo: Path) -> None:
+    setup = repo / "docs" / "setup"
+    setup.mkdir(parents=True, exist_ok=True)
+    (setup / "marketplace-install.md").write_text("/plugin marketplace add apache/magpie\n", encoding="utf-8")
+    (repo / "docs" / "pairing").mkdir(parents=True)
+    (repo / "docs" / "pairing" / "README.md").write_text(
+        "```text\n/plugin marketplace add apache/magpie\n```\n", encoding="utf-8"
+    )
+    errs = _errors(mod.check_marketplace_add_is_not_repeated)
+    assert len(errs) == 1
+    assert "docs/pairing/README.md" in errs[0]
+
+
+def test_marketplace_add_in_the_allowed_pages_is_silent(repo: Path) -> None:
+    setup = repo / "docs" / "setup"
+    setup.mkdir(parents=True, exist_ok=True)
+    for name in ("marketplace-install.md", "marketplace.md"):
+        (setup / name).write_text("/plugin marketplace add apache/magpie\n", encoding="utf-8")
+    assert _errors(mod.check_marketplace_add_is_not_repeated) == []
+
+
+def test_the_other_harnesses_add_commands_are_caught_too(repo: Path) -> None:
+    """Claude Code is not the only one that repeats: Codex, Gemini and apm each
+    have their own one-time add, and each was carried on several pages."""
+    setup = repo / "docs" / "setup"
+    setup.mkdir(parents=True, exist_ok=True)
+    (repo / "docs" / "utilities").mkdir(parents=True)
+    (repo / "docs" / "utilities" / "README.md").write_text(
+        "```bash\ncodex plugin marketplace add apache/magpie\n"
+        "gemini extensions install https://github.com/apache/magpie\n"
+        "apm install apache/magpie\n```\n",
+        encoding="utf-8",
+    )
+    errs = _errors(mod.check_marketplace_add_is_not_repeated)
+    assert len(errs) == 3
+
+
+def test_a_design_document_may_quote_the_command(repo: Path) -> None:
+    """docs/designs/ records what was decided, including the commands a plan
+    told an implementer to write. Rewriting history to satisfy a linter would
+    make the record wrong."""
+    designs = repo / "docs" / "designs"
+    designs.mkdir(parents=True)
+    (designs / "2026-01-01-something.md").write_text(
+        "/plugin marketplace add apache/magpie\n", encoding="utf-8"
+    )
+    assert _errors(mod.check_marketplace_add_is_not_repeated) == []

@@ -46,8 +46,9 @@ them makes the adopter configuration and the evaluation story coherent.
 
 Install just this family — one plugin, 6 skills. The path-to-committer track.
 
+Once you have [added the marketplace](../setup/marketplace-install.md):
+
 ```text
-/plugin marketplace add apache/magpie
 /plugin install magpie-contributor-growth@apache-magpie
 ```
 

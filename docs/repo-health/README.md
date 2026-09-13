@@ -48,8 +48,9 @@ follow. See [`docs/modes.md` § Triage](../modes.md#triage).
 
 Install just this family — one plugin, 7 skills. Read-only repository-health audits, plus fixes for what they find.
 
+Once you have [added the marketplace](../setup/marketplace-install.md):
+
 ```text
-/plugin marketplace add apache/magpie
 /plugin install magpie-repo-health@apache-magpie
 ```
 

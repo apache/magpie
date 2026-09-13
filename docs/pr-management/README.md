@@ -74,8 +74,9 @@ wording, CI-check → doc-URL map, review-criteria source files).
 
 Install just this family — one plugin, 8 skills. Maintainer-facing PR-queue management.
 
+Once you have [added the marketplace](../setup/marketplace-install.md):
+
 ```text
-/plugin marketplace add apache/magpie
 /plugin install magpie-pr-management@apache-magpie
 ```
 

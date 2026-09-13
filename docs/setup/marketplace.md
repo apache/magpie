@@ -32,18 +32,15 @@
 # The Apache Magpie Marketplace
 
 > [!TIP]
-> Just want it installed? The [quick start](../quick-start.md) is the
-> two-command version of this page — the recommended path. Read on for the
-> full reference: every supported agent, per-family plugins, pinning, and
-> updates.
+> Just want the commands? They are on one page:
+> [**Prerequisite: install Magpie from your agent's marketplace**](marketplace-install.md).
+> Read on for the full reference — every supported agent, which families to
+> pick, pinning, and updates.
 
 There is **one Apache Magpie Marketplace**, and it is the
 [`apache/magpie`](https://github.com/apache/magpie) repository itself. You
-add it to your agent, and install plugins from it:
-
-```text
-/plugin marketplace add apache/magpie
-```
+add it to your agent, and install plugins from it — one command per agent,
+[all of them on the prerequisite page](marketplace-install.md).
 
 No third-party directory, no vendor "official" catalogue, and no account —
 the project publishes its own marketplace and you install straight from it.
@@ -281,59 +278,26 @@ Detailed steps per agent follow.
 
 ### Claude Code
 
-1. In a Claude Code session, add the marketplace from GitHub — this clones
-   the repo and reads `.claude-plugin/marketplace.json`:
+Commands: [**Prerequisite → Claude Code**](marketplace-install.md#claude-code).
 
-   ```text
-   /plugin marketplace add apache/magpie
-   ```
+Adding the marketplace clones the repo and reads
+`.claude-plugin/marketplace.json`; installing a family reads that family's
+`plugin.json`. Skills then arrive under the plugin namespace, e.g.
+`/magpie-release-management:vote-tally`.
 
-2. Install the families you use — `magpie-setup` first, since it is what
-   adopts and upgrades the framework:
+**Updating** is `/plugin marketplace update apache-magpie` followed by
+`/plugin update magpie-<family>@apache-magpie` for each family you installed.
+On a version change the `magpie-setup` plugin's bundled `SessionStart` hook
+also prompts you to run `/magpie-setup upgrade`.
 
-   ```text
-   /plugin install magpie-setup@apache-magpie              # the floor (~1.1k always-on)
-   /plugin install magpie-security@apache-magpie           # one family (~2.0k always-on)
-   /plugin install magpie-release-management@apache-magpie
-   ```
-
-3. Confirm it is enabled (each installed plugin should appear as installed):
-
-   ```text
-   /plugin
-   ```
-
-4. Invoke any skill under the plugin namespace, e.g.:
-
-   ```text
-   /magpie:release-vote-tally
-   /magpie:security-issue-triage
-   ```
-
-5. **Update** later with `/plugin marketplace update apache-magpie` then
-   `/plugin update magpie-setup@apache-magpie` (and each other family you
-   installed). On a version change the `magpie-setup` plugin's bundled
-   `SessionStart` hook also prompts you to run `/magpie-setup upgrade`.
-
-To pin a specific version instead of tracking `main`, add the marketplace
-from the tag: `/plugin marketplace add apache/magpie@0.2.0`.
+Adding the marketplace from a tag rather than untagged pins which version the
+install tracks — see [Versioning](#versioning).
 
 ### OpenAI Codex CLI
 
-1. Add the marketplace (reads `.agents/plugins/marketplace.json`):
+Commands: [**Prerequisite → OpenAI Codex CLI**](marketplace-install.md#openai-codex-cli).
 
-   ```bash
-   codex plugin marketplace add apache/magpie
-   ```
-
-2. Install the plugin:
-
-   ```bash
-   codex plugin install magpie
-   ```
-
-3. List / verify — inside Codex run `/plugins`, or from the shell
-   `codex plugin list`.
+Adding the marketplace reads `.agents/plugins/marketplace.json`.
 
 All ten family plugins are offered here, and `magpie-setup` installs by
 default: a family plugin carries its skills as real directories, so Codex
@@ -353,18 +317,11 @@ plugin format from the root manifest, and Magpie's root
 [`plugin.json`](../../plugin.json) declares the AP1 `$schema`, so it is loaded
 as an AP1 package. Two ways in:
 
-1. **Straight from the repo URL** — no marketplace needed. Point VS Code's
-   plugin install at:
+Commands: [**Prerequisite → VS Code / GitHub Copilot**](marketplace-install.md#vs-code--github-copilot).
 
-   ```text
-   https://github.com/apache/magpie
-   ```
-
-   VS Code clones the repo and installs the plugin.
-
-2. **As a marketplace** — add `apache/magpie` as a plugin marketplace (CLI or
-   the coding-agent settings) and install the families you want from it. That
-   path reads the root [`marketplace.json`](../../marketplace.json).
+Two ways in, and they read different files: installing straight from the repo
+URL needs no marketplace at all, while adding `apache/magpie` as a plugin
+marketplace reads the root [`marketplace.json`](../../marketplace.json).
 
 Either way the skills become available to the agent under the plugin that ships
 them. As with Codex, all ten families are offered.
@@ -379,31 +336,22 @@ them. As with Codex, all ten families are offered.
 
 ### Google Gemini CLI
 
-1. Install the extension straight from GitHub (reads `gemini-extension.json`
-   and auto-discovers the skills under `skills/`):
+Commands: [**Prerequisite → Google Gemini CLI**](marketplace-install.md#google-gemini-cli).
 
-   ```bash
-   gemini extensions install https://github.com/apache/magpie
-   ```
+The install reads `gemini-extension.json` and auto-discovers the skills under
+`skills/`. Invoke them by asking the agent in natural language or by skill
+name.
 
-2. Verify:
-
-   ```bash
-   gemini extensions list
-   ```
-
-3. Use the skills by asking the agent in natural language or by skill name.
-
-4. **Update** with `gemini extensions update magpie`. Gemini has no lifecycle
-   hook, so the shipped [`GEMINI.md`](../../GEMINI.md) reminds you to run
-   `/magpie-setup upgrade` when the version changes.
+Gemini has no lifecycle hook, so the shipped
+[`GEMINI.md`](../../GEMINI.md) reminds you to run `/magpie-setup upgrade` when
+the version changes.
 
 ### Cursor
 
+Commands: [**Prerequisite → Cursor**](marketplace-install.md#cursor).
+
 Cursor is one of the Agent Plugins 1.0 launch clients (and sits on the spec's
-TSC), so it reads the root [`plugin.json`](../../plugin.json). Add Magpie
-through Cursor's plugin/skill install flow (Customize → Plugins/Skills)
-pointing at `github.com/apache/magpie`.
+TSC), so it reads the root [`plugin.json`](../../plugin.json).
 
 > Confirm the exact add flow in Cursor's current docs — its self-serve
 > marketplace surface is evolving.
@@ -413,16 +361,11 @@ pointing at `github.com/apache/magpie`.
 `apm` compiles one package to several agents at once (Claude, Cursor, Codex,
 Copilot, Gemini).
 
-1. From your project root:
+Commands: [**Prerequisite → microsoft/apm**](marketplace-install.md#microsoftapm).
 
-   ```bash
-   apm install apache/magpie
-   ```
-
-   (reads `apm.yml`, `type: skill`).
-
-2. `apm` deploys the skills into each supported agent's directory and writes
-   an `apm.lock.yaml` — commit it to pin the exact resolved commit.
+The install reads `apm.yml` (`type: skill`), deploys the skills into each
+supported agent's directory, and writes an `apm.lock.yaml` — commit it to pin
+the exact resolved commit.
 
 > `apm` schema is **v0.1** and may change; verify verbs with `apm --help`.
 
@@ -455,13 +398,8 @@ repo. Nothing here needs installing *for* IntelliJ; you install for the agent
 you run inside it.
 
 With the **Claude Code plugin for JetBrains**, the install is the ordinary
-Claude Code one, run from the IDE's Claude Code window:
-
-```text
-/plugin marketplace add apache/magpie
-/plugin install magpie-setup@apache-magpie
-/plugin install magpie-utilities@apache-magpie
-```
+Claude Code one, run from the IDE's Claude Code window —
+[**Prerequisite → JetBrains IDEs**](marketplace-install.md#jetbrains-ides).
 
 You do not have to run it twice. Claude Code keeps its plugin state in one
 user-scope store — `~/.claude/plugins/` (`known_marketplaces.json` and

@@ -60,28 +60,21 @@ with it.
 
 ### Step 1 — install from the Apache Magpie Marketplace
 
-Pick your agent. Every path uses the
-[`apache/magpie`](https://github.com/apache/magpie) repository directly as
-the marketplace; no vendor directory or account is involved.
+Installing is a **one-time, per-machine** step for whichever agent you use. It
+writes nothing to any repository and your teammates are unaffected.
 
-**Claude Code**
+→ [**Prerequisite: install Magpie from your agent's
+marketplace**](setup/marketplace-install.md) has the commands, one section per
+agent: Claude Code, OpenAI Codex CLI, VS Code / GitHub Copilot, Google Gemini
+CLI, Cursor, `microsoft/apm`, and JetBrains IDEs.
 
-Add the marketplace, then install **one plugin per family you actually want**:
+Take **`magpie-setup`** always — it carries the secure-isolation skills from
+[Step 3](#step-3--lock-the-agent-down) and is what adopts and upgrades the
+framework. Then add **one plugin per family you actually want**, against a
+problem you have today; you can install more at any time.
 
-```text
-/plugin marketplace add apache/magpie
-/plugin install magpie-setup@apache-magpie
-/plugin install magpie-pr-management@apache-magpie
-```
-
-`magpie-setup` is the one to always take — it carries the secure-isolation
-skills from [Step 3](#step-3--lock-the-agent-down).
-Add the rest to match a problem you have today; you can install more at any
-time.
-
-Pick your families from
-[What each family solves](quick-start/families.md) below — the ten of them,
-with the problem each one solves.
+Pick them from [What each family solves](quick-start/families.md) — the ten
+families, with the problem each one solves.
 
 Each family's README opens with an **Install & first runs** section — the one
 command for that family and a few things to try once it is in:
@@ -96,78 +89,17 @@ command for that family and a few things to try once it is in:
 [mentoring](mentoring/README.md#install--first-runs) ·
 [pairing](pairing/README.md#install--first-runs)
 
-**Optional: adopt Magpie for your teammates.**
-
-Everything above installs Magpie for **you, on this machine** — nothing is
-written to the repository, and your teammates are unaffected.
-
-A project can go one step further and commit a small block to its
-`.claude/settings.json` naming the marketplace and three plugins, so anyone who
-clones the repo and trusts it arrives with `magpie-setup`, `magpie-utilities`
-and `magpie-agent-guard` already enabled. Committing that block is **adoption**:
-[`/magpie-setup adopt`](setup/team-adoption.md) writes it, alongside the
-committed floor and the repo's shared overrides — see
-[the default set](setup/marketplace.md#claude-code-the-default-set).
-
-**This is entirely optional.** The plugins work in the repo whether or not the
-block is committed, and a project that never commits it is not missing
-anything: the install you just did is complete. It is a convenience for
-teams — nobody has to run the install by hand — not a requirement.
-
-**OpenAI Codex CLI**
-
-```bash
-codex plugin marketplace add apache/magpie
-codex plugin install magpie
-```
-
-**VS Code / GitHub Copilot**
-
-Point VS Code's plugin install at the repository URL — it clones the repo
-and loads Magpie as an [Agent Plugins 1.0](https://agent-plugins.org/specification)
-package:
-
-```text
-https://github.com/apache/magpie
-```
-
-This path is not yet live-installed against a running VS Code — see
-[Verification status](setup/marketplace.md#verification-status).
-
-**Google Gemini CLI**
-
-```bash
-gemini extensions install https://github.com/apache/magpie
-```
-
-This path is not yet live-installed either — see
-[Verification status](setup/marketplace.md#verification-status).
-
 > [!IMPORTANT]
 > **There is no install-everything plugin, by design.** Every installed skill
 > advertises itself to the model on every turn, used or not — all ten families
 > at once would be ~8.6k always-on tokens against 0.2–2.0k for a family you
-> picked on purpose. Install `magpie-setup` plus the families you actually
-> want; adding another later is one more install. See
+> picked on purpose. See
 > [Choosing a plugin](setup/marketplace.md#choosing-a-plugin-which-families).
 
-> [!TIP]
-> **Working in IntelliJ IDEA, PyCharm or another JetBrains IDE?** There is
-> nothing extra to install. A JetBrains IDE hosts an agent rather than
-> distributing skills itself, so you run the install above for the agent you
-> use inside it — with Claude Code's JetBrains plugin, the same
-> `/plugin marketplace add apache/magpie` from the IDE's Claude Code window.
-> And you only do it once: plugin state lives in a single user-scope store, so
-> a marketplace added in the terminal is already there in the IDE. Details, and
-> why JetBrains' own agent Junie is a separate matter, in
-> [the Apache Magpie Marketplace](setup/marketplace.md#jetbrains-ides-intellij-idea-pycharm-goland-).
-
 > [!NOTE]
-> **Per-family works on every agent above.** A family plugin carries its skills
-> as real directories, so nothing depends on a client following a symlink —
-> measured on Codex and Gemini, not assumed. Cursor, Kiro, OpenCode, and
-> `microsoft/apm` are covered in
-> [the Apache Magpie Marketplace](setup/marketplace.md#choosing-a-plugin-which-families).
+> **Per-family works on every agent listed.** A family plugin carries its
+> skills as real directories, so nothing depends on a client following a
+> symlink — measured on Codex and Gemini, not assumed.
 
 ---
 

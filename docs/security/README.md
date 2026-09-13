@@ -49,8 +49,9 @@ and reuse the skills verbatim.
 
 Install just this family — one plugin, 15 skills. The security-report lifecycle, from intake through CVE publication.
 
+Once you have [added the marketplace](../setup/marketplace-install.md):
+
 ```text
-/plugin marketplace add apache/magpie
 /plugin install magpie-security@apache-magpie
 ```
 

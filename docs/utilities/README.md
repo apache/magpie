@@ -38,8 +38,9 @@ They are for skill authors and framework contributors.
 
 Install just this family — one plugin, 5 skills. Framework meta-skills: author, restructure, and index your own skills.
 
+Once you have [added the marketplace](../setup/marketplace-install.md):
+
 ```text
-/plugin marketplace add apache/magpie
 /plugin install magpie-utilities@apache-magpie
 ```
 

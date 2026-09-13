@@ -79,8 +79,9 @@ for the full backend table and per-step mapping.
 
 Install just this family — one plugin, 10 skills. The 14-step ASF release lifecycle. The agent never holds your signing key.
 
+Once you have [added the marketplace](../setup/marketplace-install.md):
+
 ```text
-/plugin marketplace add apache/magpie
 /plugin install magpie-release-management@apache-magpie
 ```
 

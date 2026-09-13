@@ -59,8 +59,9 @@ framework safe to use.
 
 Install just this family — one plugin, 9 skills. Sandbox, clean environment, and the framework's own install/upgrade.
 
+Once you have [added the marketplace](../setup/marketplace-install.md):
+
 ```text
-/plugin marketplace add apache/magpie
 /plugin install magpie-setup@apache-magpie
 ```
 

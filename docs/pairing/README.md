@@ -49,8 +49,9 @@ happens, no comment is posted, and the working tree is never mutated.
 
 Install just this family — one plugin, 2 skills. Review your own change before anyone else has to.
 
+Once you have [added the marketplace](../setup/marketplace-install.md):
+
 ```text
-/plugin marketplace add apache/magpie
 /plugin install magpie-pairing@apache-magpie
 ```
 

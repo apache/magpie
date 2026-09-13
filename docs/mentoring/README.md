@@ -41,8 +41,9 @@ behaviour and can be evolved without editing the skill body.
 
 Install just this family — one plugin, 4 skills. Newcomer-facing mentoring — welcome, explain, and curate first issues.
 
+Once you have [added the marketplace](../setup/marketplace-install.md):
+
 ```text
-/plugin marketplace add apache/magpie
 /plugin install magpie-mentoring@apache-magpie
 ```
 

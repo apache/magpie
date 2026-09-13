@@ -96,11 +96,10 @@ The recipe has four steps:
 
 ## Step 1 — Marketplace install (recommended): covers every repo
 
-Add the marketplace and install the plugins you want, exactly as in the
-[quick start](../quick-start.md):
+[Add the marketplace](marketplace-install.md) for your agent if you have not
+already, then install the families you want:
 
 ```text
-/plugin marketplace add apache/magpie
 /plugin install magpie-setup@apache-magpie
 /plugin install magpie-pr-management@apache-magpie
 ```

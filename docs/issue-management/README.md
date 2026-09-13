@@ -67,8 +67,9 @@ read-only reporting:
 
 Install just this family — one plugin, 8 skills. General-issue lifecycle: triage, reproduction, dedup, backlog.
 
+Once you have [added the marketplace](../setup/marketplace-install.md):
+
 ```text
-/plugin marketplace add apache/magpie
 /plugin install magpie-issue@apache-magpie
 ```
 

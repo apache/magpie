@@ -18,7 +18,7 @@
 
 """Check the documentation claims that must track the tree, and silently rot.
 
-Eleven checks, all mechanical, each one written after the drift it catches was
+Twelve checks, all mechanical, each one written after the drift it catches was
 found by hand:
 
 1. **Spec-index completeness.** Every ``tools/spec-loop/specs/<name>.md`` is
@@ -87,6 +87,20 @@ found by hand:
     suite-name list inside the parenthetical is deliberately left alone,
     because entries like ``step-4-* checks`` are legitimate shorthand and
     rewriting prose to satisfy a counter costs more than it catches.
+
+12. **The marketplace add appears on one page.** Adding the marketplace is a
+    one-time, per-machine prerequisite, and it was carried by the marketplace
+    reference, the quick start and all ten family READMEs — so a reader met it
+    four times before installing anything, and a maintainer had twelve copies
+    to keep correct. It may now appear in ``docs/setup/marketplace-install.md``
+    (the commands) and ``docs/setup/marketplace.md`` (the reference, where it
+    is the subject), and nowhere else under ``docs/``. ``docs/designs/`` is
+    exempt: those record what was decided, and rewriting the record to satisfy
+    a linter would make it wrong. The repository README is outside this
+    check's scope on purpose — the front page shows the shortest path in,
+    not a link to it. Only the *add* is guarded; the per-family
+    ``/plugin install magpie-<family>@apache-magpie`` line differs per page
+    and is not duplication.
 
 Why counting is worth a hook at all: every one of these is a number a human has
 to remember to update while thinking about something else, and none of them
@@ -178,6 +192,20 @@ _PLUGIN_FAMILY_ROW = re.compile(r"^\|\s*`magpie-(?P<family>[a-z-]+)`\s*\|\s*(?P<
 _README_INSTALL_COUNT = re.compile(r"one plugin, (?P<count>\d+) skills")
 # ``/plugin install magpie-security@apache-magpie``
 _README_INSTALL_PLUGIN = re.compile(r"/plugin install magpie-(?P<family>[a-z-]+)@")
+
+# The one-time "point my agent at the marketplace" command, per harness. Each
+# has its own spelling and each was repeated; the per-family *install* line is
+# deliberately absent, because that one differs per page.
+MARKETPLACE_ADD_ALLOWED = (
+    Path("docs/setup/marketplace-install.md"),
+    Path("docs/setup/marketplace.md"),
+)
+MARKETPLACE_ADD_EXEMPT_DIRS = (Path("docs/designs"),)
+_MARKETPLACE_ADD = re.compile(
+    r"plugin marketplace add apache/magpie"
+    r"|gemini extensions install https://github\.com/apache/magpie"
+    r"|apm install apache/magpie"
+)
 
 # `## Suites (56 cases total)` — the per-family eval README's headline total.
 # `[ \t]*$` rather than `\s*$`: with re.M, `\s` matches the newline too, so a
@@ -316,6 +344,25 @@ def check_family_plugin_counts(errors: list[str]) -> None:
                         f"live family: frontmatter has {actual}"
                     )
                 continue
+
+
+def check_marketplace_add_is_not_repeated(errors: list[str]) -> None:
+    """The one-time prerequisite belongs on one page.
+
+    Twelve copies is what the previous state looked like, and nothing would
+    have noticed a thirteenth.
+    """
+    for md in sorted(Path("docs").rglob("*.md")):
+        if md in MARKETPLACE_ADD_ALLOWED:
+            continue
+        if any(d in md.parents for d in MARKETPLACE_ADD_EXEMPT_DIRS):
+            continue
+        for lineno, line in enumerate(md.read_text(encoding="utf-8").splitlines(), 1):
+            if _MARKETPLACE_ADD.search(line):
+                errors.append(
+                    f"{md}:{lineno}: adding the marketplace is a one-time prerequisite and "
+                    f"belongs on {MARKETPLACE_ADD_ALLOWED[0]}; link to it instead of repeating it"
+                )
 
 
 def check_family_readme_counts(errors: list[str]) -> None:
@@ -588,6 +635,7 @@ def main(argv: list[str] | None = None) -> int:
     check_total_counts(errors, total)
     check_family_plugin_counts(errors)
     check_family_readme_counts(errors)
+    check_marketplace_add_is_not_repeated(errors)
     check_no_plugin_name_stutter(errors)
     check_portable_form_is_flagged(errors)
     check_token_figures(errors)
