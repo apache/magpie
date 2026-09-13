@@ -1,0 +1,1 @@
+{"action": "install", "commands_run": ["claude plugin marketplace add apache/magpie", "claude plugin install magpie-setup@apache-magpie --scope user", "claude plugin install magpie-pr-management@apache-magpie --scope user"], "commands_shown": [], "yes_flag_used": false, "blocked_by": null}

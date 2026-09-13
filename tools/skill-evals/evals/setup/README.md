@@ -5,7 +5,7 @@
 
 Behavioral evals for the `setup` skill.
 
-## Suites (56 cases total)
+## Suites (61 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
@@ -14,6 +14,7 @@ Behavioral evals for the `setup` skill.
 | uninstall-default-set | uninstall.md § Committed default set | 3 | committed block is exactly the floor (all three removed, nothing kept), a mixed block with other Magpie and other-vendor plugins (only the floor removed, everything else kept), a lock whose floor was enlarged to four (all four removed — no entry orphaned behind a deleted marketplace) |
 | step-overrides-surface | overrides.md § Step 0b | 4 | adopted no flag (offer choice), --local flag (personal), not adopted (personal only), both surfaces exist |
 | step-override-bypass | agentic-overrides.md § One-shot defaults run | 3 | `--no-overrides` flag + override exists, `--no-overrides` + no override, no flag + override exists |
+| step-m4-install-gates | install.md § Step M4 — Install what the user picked | 5 | the CLI runs the picked installs (`--scope user`, no `-y`), plus each of the four gates that sends the step to printing: a sandboxed plugin store rejecting the write, a `from:` naming someone else's marketplace, a harness with no install CLI, and an install stopping for a marketplace-declared command |
 | step-m5-no-repo-offer | install.md § Step M5 — Recap and what comes next | 4 | An install writes nothing repo-side on any harness and is complete as it stands: Claude Code fresh, Codex, Gemini (no offer in any of them), plus the one case where adoption legitimately comes up — the user asked for the team to get it on clone |
 | step-adopt-settings-merge | adopt.md § Merge rules | 5 | no `.claude/settings.json` (create), file with unrelated keys (merge, preserve them), existing `enabledPlugins` with non-floor and non-Magpie entries (add only the missing floor members, remove nothing), existing pinned `apache-magpie` marketplace definition (left alone), malformed JSON (refuse, never rewrite) |
 | lock-marketplace-parse | locks.md § `method: marketplace` | 5 | ahead of floor, a .dev floor met by the release after it, 0.9.0 against a 0.10.0 floor (the string-ordering trap), a missing floor plugin, and a git-tag lock that still pins |

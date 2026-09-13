@@ -136,15 +136,33 @@ Each of these settled a fork, and each shapes what follows.
    has a supported end state, not a partial install, and setup must not
    describe the result as incomplete.
 
-6. **The pre-flight installs, then reports, on Claude Code; elsewhere it prints
-   the command.** `claude plugin list --json`, `claude plugin install` and
-   `claude plugin update` are CLI commands the agent can run. Where no such CLI
-   exists the same check runs and the same message prints, minus the action.
+6. **The agent runs the install; it does not dictate commands to type.**
+   `claude plugin list --json`, `claude plugin install`, `claude plugin update`
+   and `claude plugin marketplace add` are CLI commands the agent can run —
+   the `/plugin …` slash form is not, and conflating the two is what kept the
+   install a transcription exercise for the user. Both surfaces that install
+   use the CLI: the pre-flight bringing a machine up to a project's floor, and
+   the install skill installing the families the user just picked. Where no
+   such CLI exists the same decision is made and the same commands print,
+   minus the action.
 
-7. **Auto-install is restricted to the framework's own marketplace.** The
-   pre-flight acts without asking *only* when the lock's `url` is
-   `apache/magpie`. Any other value is reported and requires explicit
-   confirmation — see [Risks](#risks).
+   Three other conditions send it back to printing, and each is reported with
+   the reason rather than silently swallowed: a **plugin store the process
+   cannot write to** — a sandboxed agent is the common case, and Claude Code's
+   own default sandbox denies `~/.claude/plugins/` — a **marketplace other
+   than `apache/magpie`** (decision 7), and an **install that stops for a
+   marketplace-declared command**. That last one is why `--yes` is never
+   passed: the flag exists to accept such a command sight unseen, Magpie's
+   catalogue declares none, so an install that demands the flag is not the
+   catalogue this step assumed it was talking to.
+
+7. **Auto-install is restricted to the framework's own marketplace.** Both
+   surfaces act without asking *only* when the source is `apache/magpie` —
+   the lock's `url` for the pre-flight, the `from:` argument for the install
+   skill. Any other value is reported and requires explicit confirmation — see
+   [Risks](#risks). The third-party companion packages the install offers sit
+   on the far side of the same line: their commands are always printed, never
+   run.
 
 8. **The install is a prerequisite with one page**, not a step repeated in
    every flow that assumes it.
