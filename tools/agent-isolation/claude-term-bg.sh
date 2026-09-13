@@ -88,11 +88,17 @@
 #      understands win. VTE terminals (terminator, gnome-terminal) DO honour
 #      OSC 111, so on Linux the default reset works without CLAUDE_RESET_BG; the
 #      iTerm2-proprietary escape they don't recognise is harmlessly ignored.
+#      Ghostty behaves like the VTE case rather than the iTerm2 one on BOTH
+#      macOS and Linux: it implements OSC 11 and OSC 111, so the default reset
+#      comes back clean with no CLAUDE_RESET_BG, and it ignores the
+#      iTerm2-proprietary escape.
 #
-# Tested on iTerm2 + macOS and terminator (VTE) + Linux. The only OS-specific
-# part is locating the pty device: find_tty_dev() matches both macOS "ttysNNN"
-# and Linux "pts/N" names. Terminals that ignore OSC 11 entirely simply see no
-# change (fail-soft). For a guaranteed reset anywhere, set CLAUDE_RESET_BG.
+# Tested on iTerm2 + macOS, ghostty + macOS, and terminator (VTE) + Linux.
+# Nothing here is terminal-specific — the only OS-specific part is locating the
+# pty device: find_tty_dev() matches both macOS "ttysNNN" and Linux "pts/N"
+# names, which covers ghostty on either OS unchanged. Terminals that ignore OSC
+# 11 entirely simply see no change (fail-soft). For a guaranteed reset anywhere,
+# set CLAUDE_RESET_BG.
 set -u
 WAIT_BG="${CLAUDE_WAIT_BG:-#2a1a3a}"
 RESET_BG="${CLAUDE_RESET_BG:-}"
