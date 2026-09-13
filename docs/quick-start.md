@@ -231,16 +231,43 @@ or, in plain language:
 > lock my agent down with Magpie's secure setup
 
 It walks you through the install interactively and surfaces every sudo,
-shell-rc, and settings-file change for approval before applying it. When it
-finishes, your agent runs with:
+shell-rc, and settings-file change for approval before applying it. Nothing is
+applied without you seeing it first.
 
-- **A filesystem sandbox** — Bash subprocesses run under Seatbelt (macOS) or
-  bubblewrap (Linux) and see only the paths you allow. Your `~/.ssh`,
-  `~/.aws`, and tokens are out of reach.
-- **A clean environment** — the `claude-iso` wrapper strips host environment
-  variables before the agent starts.
-- **Visible state** — the status line says whether the sandbox is on, and a
-  bold red banner fires before any bypass prompt.
+**What you are actually protecting against.** An agent runs shell commands on
+your behalf, and your home directory is full of things it has no business
+reading: SSH private keys, cloud credentials, `~/.aws`, `~/.kube`, browser
+session tokens, `.env` files belonging to every other project you have checked
+out. None of that is needed to triage a PR. The risk is not only a mistake —
+an agent that reads issues and mailing lists is reading text written by
+strangers, and that text can contain instructions aimed at the agent. If the
+worst a poisoned issue body can do is make the agent read a file it cannot
+reach, it can do nothing.
+
+Three things go in, and they do different jobs:
+
+- **A filesystem and network sandbox.** Every Bash subprocess runs under
+  Seatbelt (macOS) or bubblewrap (Linux) and can see only the paths you
+  allowed — normally this repository and little else. A command that tries to
+  read `~/.ssh/id_ed25519` does not get a redacted answer; it gets "no such
+  file". Network egress goes through the same confinement, so a command cannot
+  quietly post what it read to somewhere else. This is enforced by the
+  operating system, not by the agent agreeing to behave.
+- **A clean environment.** The sandbox governs what a command can *reach*;
+  it says nothing about what is already sitting in the environment it starts
+  with. A shell that has `AWS_SECRET_ACCESS_KEY`, `GITHUB_TOKEN` and an API
+  key exported has handed all three to every process it spawns, sandbox or
+  not. The `claude-iso` wrapper starts the agent from `env -i` with a short
+  passthrough list, so those variables are simply not there.
+- **Visible state, because silent protection rots.** A sandbox you cannot see
+  is a sandbox you stop noticing has turned itself off. The status line says
+  which state you are in on every render, and a bold red banner fires before
+  any bypass prompt — so the moment a session stops being protected is a
+  moment you see, not one you discover later.
+
+What it deliberately does **not** do: hold your signing key, push on your
+behalf, or decide anything about which commands are reasonable. That last one
+is the next step's job.
 
 ![Sandboxed session: the terminal footer opening with a green `[sandbox]` tag, followed by the project, branch, PR number and model](../assets/session-sandboxed.png)
 
@@ -272,17 +299,34 @@ identifier in a public PR title before the embargo lifts. Those are legitimate
 commands with the wrong consequences.
 
 `magpie-agent-guard` from [Step 1](#step-1--install-from-the-apache-magpie-marketplace)
-is the layer that catches them. It is a **deterministic pre-execution guard**:
-a hook that inspects every shell command *before* it runs and denies the ones
-that break a hard rule, showing the model the reason and the fix.
+is the layer that catches them. Where the sandbox asks *can this command reach
+that file*, the guard asks *should this particular command run at all* — and it
+asks it in the gap between the model deciding to run something and the shell
+actually running it.
 
 ![The agent-guard setup: the dispatcher, its rules and the PreToolUse hook registered, then a real denial of an unwanted review ping before it was posted](../assets/quickstart/step-guard.svg)
 
-Deterministic is the whole point. These are protections that **must not depend
-on the model remembering an instruction** three thousand tokens into a session
-— so they are not written in a `SKILL.md` at all. They are code that runs on
-every command, and a denied command is not run, not posted, and not retried
-behind your back.
+**Deterministic is the whole point.** A rule written in a `SKILL.md` is a
+sentence the model reads at the start of a session and is *asked* to keep in
+mind — through forty tool calls, a compaction, and an issue body that says
+something the model finds persuasive. Most of the time it does. "Most of the
+time" is fine for a style preference and useless for a rule whose violation
+posts something to a public repository under your name, because the cost is
+not evenly spread: one slip on a quiet Tuesday is a notification to four
+maintainers, or a CVE identifier visible before the embargo lifts.
+
+So these rules are not written in a `SKILL.md` at all. They are Python, in a
+hook the harness calls before the Bash tool runs, and they get a veto. The
+guard sees the exact command, decides, and either lets it through or refuses:
+a refused command is **not run** — not posted, not retried, and not worked
+around by rephrasing. The model is shown the reason and the deterministic fix
+(*"use a backtick `` `login` `` instead of `@login`"*), so it corrects rather
+than guesses.
+
+This is also the layer that does not care why the command was issued. A
+prompt-injected instruction in an issue body and an honest mistake produce the
+same `gh pr comment`, and the guard treats them identically — which is exactly
+what you want from something whose job is to be unpersuadable.
 
 The guards that ship:
 
@@ -330,17 +374,44 @@ embargo, and sending it to a model.
 
 ![A privacy-llm run: the LLM stack detected, the matching variant written to the gitignored local directory, the PII redactor proven end to end, and the approved-LLM gate refusing an unregistered local model](../assets/quickstart/step-privacy.svg)
 
-Two mechanisms, and they are separate on purpose:
+**What makes this different from the other two.** Steps 3 and 4 are about a
+command that should not run. This one is about a command that *should* run, and
+does exactly what it was asked, and in doing so sends somebody else's
+confidential text to a third party. Summarising a private@ thread is a
+legitimate, useful thing for a skill to do. It is also an export — of mail that
+a PMC sent on the understanding that it stayed inside the PMC, or of a security
+report whose reporter is waiting on an embargo. Nobody on those threads agreed
+to a model provider being in the room. That is not a bug you can sandbox away;
+it is a decision, and it needs to have been made on purpose, by the project,
+before the skill runs.
 
-- **The approved-LLM gate** covers private foundation lists. A skill refuses to
-  fetch unless *every* model in the active stack is in the approved registry.
-  Adding a local Ollama model to your setup silently widens who sees that mail
-  — the gate is what makes it not silent.
-- **PII redaction** covers security-report mail. Third parties the reporter
-  names — other researchers, victims, anyone who did not choose to be in that
-  thread — are replaced with hash-prefixed identifiers before any model sees
-  them. The mapping stays on your machine. This runs under **every** variant,
-  including the plain one where the agent is the only model in the stack.
+Two mechanisms, separate on purpose because they protect different people:
+
+- **The approved-LLM gate** protects *the project*. It covers private
+  foundation lists: a skill refuses to fetch unless **every** model in the
+  active stack is in the approved registry. The failure it exists to prevent is
+  a quiet one — you add a local Ollama model to speed something up, or your
+  harness starts routing through a different endpoint, and the set of parties
+  who can see private@ mail has changed without anyone deciding that. The gate
+  turns that from a silent change into a refusal with a name attached.
+
+  It is a gate, not a filter: it blocks the fetch rather than sanitising the
+  content, because there is no way to partially send an email.
+
+- **PII redaction** protects *third parties*. It covers security-report mail,
+  where the problem is not the reporter — they wrote to you and the security
+  team knows who they are — but the people they mention. A report frequently
+  names a co-researcher, a downstream maintainer, or the person whose account
+  was compromised. None of them chose to be in that thread. Before any model
+  sees the text, those names and addresses are swapped for hash-prefixed
+  identifiers (`N-a3f9d2`, `E-7c1b04`); the mapping that reverses it stays on
+  your machine and is never sent anywhere. People already public as
+  collaborators on the repo are left alone — redacting a name the tracker
+  already shows buys nothing.
+
+  This runs under **every** variant, including the plain one where the agent is
+  the only model in the stack. "We only use one provider" is not a reason to
+  hand it a bystander's email address.
 
 The skill detects the stack rather than interviewing you about it, proposes the
 matching variant from
