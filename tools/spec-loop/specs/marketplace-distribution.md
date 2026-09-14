@@ -49,9 +49,20 @@ Two manifest families, because the ecosystems have not converged:
   the root `marketplace.json` (Copilot / VS Code legacy catalog),
   `gemini-extension.json`, and `apm.yml` (`microsoft/apm`, schema v0.1).
 
-Plus `plugins/magpie-<family>/` — ten Claude-Code-only plugins, one per skill
-family, each a manifest and a `skills/` directory of single-hop symlinks into
-the shared `skills/<skill>` tree.
+`.codex-plugin/plugin.json` is **not** the manifest Codex reads for a root that
+also has an AP1 `plugin.json`. Codex takes the root `plugin.json` first when it
+is a regular file carrying an `agent-plugins.org` `$schema`, and merges
+`.codex-plugin/plugin.json` over it as an overlay; only when the root manifest
+is absent does it fall back through `.codex-plugin/plugin.json`,
+`.claude-plugin/plugin.json`, `.cursor-plugin/plugin.json`. A root `plugin.json`
+that is a symlink yields no manifest at all, with no fallback. See
+`docs/setup/marketplace.md` (*Which manifest Codex reads*).
+
+Plus `plugins/magpie-<family>/` — ten per-family plugins, one per skill family,
+each a manifest and a `skills/` directory of single-hop symlinks into the
+shared `skills/<skill>` tree. Their manifest is Claude Code's
+`.claude-plugin/plugin.json`, but they are not Claude-Code-only: Codex installs
+them by falling through to that same file.
 
 `tools/dev/check-family-plugins.py` is both the generator (`--fix`) and the
 CI gate — the prek hook runs it in `--fix` mode, so the gate corrects drift

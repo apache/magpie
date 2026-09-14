@@ -265,7 +265,7 @@ Quick reference:
 | Agent | One-liner | Manifest in this repo |
 |---|---|---|
 | **Claude Code** | `/plugin marketplace add apache/magpie` → `/plugin install magpie-setup@apache-magpie` | `.claude-plugin/marketplace.json` + `.claude-plugin/plugin.json` |
-| **OpenAI Codex CLI** | `codex plugin marketplace add apache/magpie` → install `magpie-setup` | `.codex-plugin/plugin.json`, `.agents/plugins/marketplace.json` |
+| **OpenAI Codex CLI** | `codex plugin marketplace add apache/magpie` → install `magpie-setup` | `.agents/plugins/marketplace.json`; per plugin root, whichever manifest [resolution](#which-manifest-codex-reads) picks |
 | **VS Code / GitHub Copilot** | install straight from the repo URL `https://github.com/apache/magpie`, or add it as a plugin marketplace | root `plugin.json` (AP1), `marketplace.json` (repo root) |
 | **Google Gemini CLI** | `gemini extensions install https://github.com/apache/magpie` | `gemini-extension.json` |
 | **Cursor** | add via the plugin/skill install flow pointing at the repo | root `plugin.json` (AP1) |
@@ -298,6 +298,50 @@ install tracks — see [Versioning](#versioning).
 Commands: [**Prerequisite → OpenAI Codex CLI**](marketplace-install.md#openai-codex-cli).
 
 Adding the marketplace reads `.agents/plugins/marketplace.json`.
+
+#### Which manifest Codex reads
+
+Not `.codex-plugin/plugin.json` by default, which is what this page used to
+say. Codex resolves a manifest **per plugin root**, in this order:
+
+1. The plugin root's own `plugin.json`, taken when it is a **regular file**
+   whose `$schema` sits under `https://agent-plugins.org/schemas/`.
+2. Otherwise, the first of `.codex-plugin/plugin.json`,
+   `.claude-plugin/plugin.json`, `.cursor-plugin/plugin.json` that exists.
+
+When step 1 wins, `.codex-plugin/plugin.json` is not ignored — it is merged
+over the root manifest as an **overlay**, so it carries Codex-specific fields
+rather than the whole manifest.
+
+For this repo that resolves two different ways:
+
+| Installed root | Manifest Codex actually reads |
+|---|---|
+| the repo root | root [`plugin.json`](../../plugin.json) — its AP1 `$schema` matches — with `.codex-plugin/plugin.json` merged over it |
+| `plugins/magpie-<family>/` | `.claude-plugin/plugin.json`, reached by fallback: those roots carry neither a `plugin.json` nor a `.codex-plugin/` |
+
+The second row is why the ten family plugins install into Codex at all despite
+carrying only a Claude-Code manifest.
+
+> [!WARNING]
+> A plugin root's `plugin.json` must be a regular file. If it is a **symlink**,
+> Codex's resolver returns no manifest at all — it does *not* fall back to
+> `.codex-plugin/` or `.claude-plugin/`, and the plugin silently fails to load.
+> Keep the root manifest a real file when restructuring the tree.
+
+Verified against Codex's source rather than its prose docs, which carry no
+plugins page: `find_plugin_manifest_path` in
+[`codex-rs/utils/plugins/src/plugin_namespace.rs`][codex-resolve],
+`DISCOVERABLE_PLUGIN_MANIFEST_PATHS` in
+[`codex-rs/exec-server-protocol/src/protocol.rs`][codex-paths], and the overlay
+merge in [`codex-rs/core-plugins/src/manifest.rs`][codex-overlay]. The
+plugin-authoring reference now ships inside the CLI as skill assets under
+[`codex-rs/skills/src/assets/samples/plugin-creator/references/`][codex-refs].
+
+[codex-resolve]: https://github.com/openai/codex/blob/main/codex-rs/utils/plugins/src/plugin_namespace.rs
+[codex-paths]: https://github.com/openai/codex/blob/main/codex-rs/exec-server-protocol/src/protocol.rs
+[codex-overlay]: https://github.com/openai/codex/blob/main/codex-rs/core-plugins/src/manifest.rs
+[codex-refs]: https://github.com/openai/codex/tree/main/codex-rs/skills/src/assets/samples/plugin-creator/references
 
 All ten family plugins are offered here, and `magpie-setup` installs by
 default: a family plugin carries its skills as real directories, so Codex
@@ -608,9 +652,9 @@ documentation**; what varies is whether it has also been exercised against a
 
 | Manifest | Schema source | Status |
 |---|---|---|
-| root `plugin.json` | [Agent Plugins 1.0.0 spec](https://github.com/agentplugins/agent-plugins-spec/blob/main/spec/1.0.0.md) + [`plugin.schema.json`](https://agent-plugins.org/schemas/1.0.0/plugin.schema.json) | Conforms to the published closed schema; enforced by `check-family-plugins.py`. Not yet live-installed |
+| root `plugin.json` | [Agent Plugins 1.0.0 spec](https://github.com/agentplugins/agent-plugins-spec/blob/main/spec/1.0.0.md) + [`plugin.schema.json`](https://agent-plugins.org/schemas/1.0.0/plugin.schema.json) | Conforms to the published closed schema; enforced by `check-family-plugins.py`. Also the manifest Codex resolves first for the repo root — see [Which manifest Codex reads](#which-manifest-codex-reads) |
 | `.claude-plugin/*` | Claude Code plugins reference | Verified live — `claude plugin validate . --strict` passes with 0 warnings; a family plugin installs and loads from a local marketplace replica |
-| `.codex-plugin/plugin.json`, `.agents/plugins/marketplace.json` | Codex plugin docs (`Package your plugin`) + the `codex` binary's own enums | **Verified live** — `codex plugin marketplace add` + `plugin list` against codex 0.154.0. The first live run is what caught the invented `policy` values the documentation check could not; the enums are now enforced by `check-family-plugins.py`. See the plugin-local hooks caveat above |
+| `.codex-plugin/plugin.json`, `.agents/plugins/marketplace.json` | The `codex` binary's own source and enums — Codex no longer publishes a plugins page under `docs/`, so the manifest-resolution order is read from [`plugin_namespace.rs`][codex-resolve] and [`protocol.rs`][codex-paths] | **Verified live** — `codex plugin marketplace add` + `plugin list` against codex 0.154.0. The first live run is what caught the invented `policy` values the documentation check could not; the enums are now enforced by `check-family-plugins.py`. Note `.codex-plugin/plugin.json` is an **overlay** on the root manifest, not the manifest itself. See the plugin-local hooks caveat above |
 | root `marketplace.json` | Copilot / VS Code plugin marketplace docs | Legacy-format catalog, explicitly still supported alongside AP1. Not yet live-installed |
 | `gemini-extension.json` | Gemini CLI extensions docs | Follows the published schema. Google has joined the AP1 TSC but has published no migration for this file — keep both |
 | `apm.yml` | `microsoft/apm` schema **v0.1** | Pre-1.0 and the most likely to churn; re-check before publish |
