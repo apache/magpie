@@ -52,7 +52,7 @@
 | **Reference implementation** | [`apache/magpie`](https://github.com/apache/magpie) |
 | **Related documents** | [`secure-agent-setup.md`](https://github.com/apache/magpie/blob/main/docs/setup/secure-agent-setup.md), [`secure-agent-internals.md`](https://github.com/apache/magpie/blob/main/docs/setup/secure-agent-internals.md) |
 
-> **Note for Confluence editors.** This page combines two source documents (`secure-agent-setup.md` — the adopter install path, and `secure-agent-internals.md` — the threat model and mechanism). Image references (`assets/session-*.png`, `assets/sandbox-*.png`) point at PNG files in the source repo. Upload them as Confluence attachments and re-link from this page when publishing — the alt-text in each `![…]` reference is enough to reproduce the screenshot if needed.
+> **Note for Confluence editors.** This page combines two source documents (`secure-agent-setup.md` — the adopter install path, and `secure-agent-internals.md` — the threat model and mechanism). The screenshots below are absolute `raw.githubusercontent.com` URLs and render as-is; no Confluence attachments are needed.
 
 ## Abstract
 
@@ -483,8 +483,6 @@ The repo is **private** for three reasons:
 3. **Audit surface for prompt-injection.** A public dotfile repo writable by anyone with a PR is a vector for landing a malicious script that every host pulling the repo will then execute on the next sync. A private repo with branch protection (or single-author push policy) closes that.
 
 ## What a session looks like
-
-> The five PNG files referenced below live in the [`apache/magpie`](https://github.com/apache/magpie) repo under `assets/`. Upload them as Confluence attachments when publishing this RFC.
 
 **1. Sandboxed session — the steady state.**
 
