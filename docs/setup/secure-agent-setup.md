@@ -41,6 +41,10 @@
     - [Trade-offs](#trade-offs-1)
   - [Sandbox-state status line](#sandbox-state-status-line)
   - [Waiting-for-input terminal tint](#waiting-for-input-terminal-tint)
+  - [Hardware-key touch overlay](#hardware-key-touch-overlay)
+    - [Install (user-scope)](#install-user-scope-3)
+    - [Verify](#verify-3)
+    - [Trade-offs](#trade-offs-2)
   - [Syncing user-scope config across machines](#syncing-user-scope-config-across-machines)
     - [What to track, what not to track](#what-to-track-what-not-to-track)
     - [Layout](#layout)
@@ -204,7 +208,8 @@ npm install -g --no-save @anthropic-ai/claude-code@latest
 #    under `PreToolUse`, `PostToolUse`, and `statusLine`.
 #    Sections: "Sandbox-bypass visibility hook",
 #    "Sandbox-error hint hook", and "Sandbox-state status line"
-#    below.
+#    below. Add `gpg-touch-overlay.sh` too if your signing key
+#    asks for a touch — section "Hardware-key touch overlay".
 
 # 5. Verify the install actually denies what it claims to —
 #    section "Verification" below has both a three-line Bash
@@ -1745,6 +1750,111 @@ shell's pty via `$PPID` and writes there.)
   pair it with the [Sandbox-state status line](#sandbox-state-status-line)
   and [Sandbox-bypass visibility hook](#sandbox-bypass-visibility-hook)
   for the security-relevant signals.
+
+## Hardware-key touch overlay
+
+**Linux/X11.** A signing key on a YubiKey, Nitrokey, or any OpenPGP
+card can carry a *touch policy* on its signature slot. With
+`on` or `cached`, the key will not sign until somebody physically
+touches it.
+
+gpg surfaces the PIN and the touch very differently. The PIN gets a
+pinentry window. The touch gets **nothing at all** — gpg simply blocks.
+From the outside there is no way to tell a key waiting to be touched
+from a hung command, so the commit sits until somebody happens to touch
+the key or gpg gives up with `gpg: signing failed: Timeout`, leaving no
+commit behind.
+
+Check whether this applies to you:
+
+```bash
+ykman openpgp info | grep -A2 'Touch policies'
+#   Signature key:      Cached      <- needs a touch; this hook helps
+#   Signature key:      Off         <- never waits for a touch; skip this
+```
+
+This is the operator-facing half of the hardware-key rule in
+[`AGENTS.md`](../../AGENTS.md) → *Commit and PR conventions*. That rule
+has the agent probe gpg-agent's cache and warn **before** committing.
+The probe reads `keyinfo`, which reports the **PIN** cache only — a key
+whose PIN is warm but whose touch has expired reports `cached=1` and
+still blocks, with no prompt of any kind. The two fit together: the
+probe catches the prompt you would not see, and this catches the touch
+that never prompts.
+
+`gpg-touch-overlay.sh` puts a window on screen for the touch, the way
+pinentry does for the PIN: the desktop dims and a pulsing contact ring
+says which key is waiting. It closes itself the moment the touch lands.
+
+### Install (user-scope)
+
+```sh
+mkdir -p ~/.claude/scripts
+cp tools/agent-isolation/gpg-touch-overlay.sh \
+   tools/agent-isolation/gpg-touch-overlay-window.py \
+   ~/.claude/scripts/
+chmod +x ~/.claude/scripts/gpg-touch-overlay*.sh ~/.claude/scripts/gpg-touch-overlay-window.py
+```
+
+Both files go in the same directory — the shell script finds the window
+next to itself. Then wire the two modes into `~/.claude/settings.json`,
+in the `Bash` matcher groups you already have:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      { "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "~/.claude/scripts/gpg-touch-overlay.sh arm" }
+        ] }
+    ],
+    "PostToolUse": [
+      { "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "~/.claude/scripts/gpg-touch-overlay.sh disarm" }
+        ] }
+    ]
+  }
+}
+```
+
+Needs `python3` with PyGObject for the dimmed overlay; where that is
+missing it falls back to a `zenity` dialog. `pgrep`, from `procps`, is
+the only other requirement.
+
+### Verify
+
+With the PIN already cached — so the next signature needs the touch and
+nothing else — start a signature and leave it waiting:
+
+```sh
+echo probe | gpg --status-fd=2 -bsau "$(git config --get user.signingkey)" >/dev/null &
+sleep 3 && pgrep -x zenity >/dev/null || pgrep -f gpg-touch-overlay-window >/dev/null \
+  && echo "overlay is up"
+pkill -x gpg
+```
+
+The window should appear about a second and a half in, and disappear
+when the gpg process ends. `MAGPIE_GPG_TOUCH_DEBUG=1` makes the watcher
+log to `$XDG_RUNTIME_DIR/magpie-gpg-touch/watcher.log`.
+
+### Trade-offs
+
+- **X11 only.** Placement and stacking use EWMH hints. Under Wayland the
+  overlay still draws, but the compositor decides where it lands.
+- **Nothing is shown while pinentry is up.** Two dialogs competing for
+  focus would make the PIN impossible to type, so the overlay waits for
+  pinentry to go away.
+- **Nothing is shown for a fast signature.** A still-warm touch signs in
+  well under a second; the overlay only appears once gpg has blocked
+  longer than that, so ordinary commits stay silent.
+- **The window is dismissible.** Esc or a click closes it. The key still
+  has to be touched for the commit to go through, so trapping the screen
+  would buy nothing.
+- **It watches the whole host, not just the agent.** The watcher keys off
+  any signing `gpg` process, so a commit you make yourself in another
+  terminal raises the window too.
 
 ## Syncing user-scope config across machines
 

@@ -571,6 +571,14 @@ to a home-dir path and update the tool to read from there.
 
   `type=T` is a token-backed key; `type=D` is an on-disk key, which
   prompts for a passphrase rather than a touch but blocks the same way.
+
+  `cached` reports the **PIN** cache, which is not the same thing as the
+  key's *touch policy*. A token whose signature slot is set to `on` or
+  `cached` (`ykman openpgp info`) needs a physical touch per signature,
+  and gpg raises no prompt at all for it — so `cached=1` still blocks,
+  silently, once the touch has expired. The probe cannot see that;
+  `tools/agent-isolation/gpg-touch-overlay.sh` covers it from the other
+  side by putting a window on screen while gpg waits.
   On `cached=-`, surface a dialogue naming the key and telling the
   operator to expect the prompt, or hand them the `git commit` line to run
   in their own terminal — do not run it and hope. On `cached=1`, commit
