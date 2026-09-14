@@ -137,6 +137,27 @@ try to `connect(2)` the unix-domain socket — but the userland
 error surfaces as the "agent unreachable" / "Permission denied"
 strings above, which is what makes the cause non-obvious.
 
+**On Linux, path access is necessary but not sufficient.** Recent
+Claude Code builds sandbox Bash with a seccomp filter that rejects
+`socket(AF_UNIX, ...)` outright, before any path is consulted, so no
+`allowRead` / `allowWrite` entry can make an agent reachable:
+
+```text
+$ python3 -c 'import socket; socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)'
+PermissionError: [Errno 1] Operation not permitted
+# the same call with AF_INET succeeds, so this is not a path problem
+```
+
+Verified under bubblewrap with `~/.gnupg/` and `/run/user/<uid>/gnupg/`
+in **both** `allowRead` and `allowWrite`: a signed `git commit` still
+fails with `No agent running`, and `gpg-connect-agent` cannot start one
+(`exit status 2`). Where that filter is active, an agent-dependent
+command — a signed `git commit`, `git tag -s`, `ssh-add -l` — must run
+with a per-call sandbox bypass, or outside the agent session entirely.
+The allowlist entries below remain correct and still matter (gpg reads
+the keyring through them); they simply do not restore the agent channel
+on their own. This measurement does not cover macOS/Seatbelt.
+
 ### Fix
 
 Add the SSH agent socket directories to `sandbox.filesystem.allowRead`:
@@ -175,7 +196,10 @@ Per-entry rationale:
   `~/.gnupg/gpg-agent.conf`), no extra entry is needed — the
   framework reference already includes `~/.gnupg/` and
   `/run/user/*/gnupg/`, which cover the gpg-agent SSH socket
-  (`S.gpg-agent.ssh`) on both platforms.
+  (`S.gpg-agent.ssh`) on both platforms. On Linux, see the
+  `AF_UNIX` caveat under *Root cause*: those entries let gpg read
+  the keyring, but do not by themselves make the agent socket
+  reachable.
 - If you use **Secretive** (an alternative macOS Yubikey
   agent), the socket lives under
   `~/Library/Group Containers/<bundle>/socket.ssh`; add that

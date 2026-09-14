@@ -477,8 +477,8 @@ below, annotated.
         "~/.local/share/uv/",         // uv's tool venvs (prek, etc.)
         "~/.local/bin/",              // uv-installed tool entry points
         "~/.config/apache-magpie/",  // Gmail OAuth refresh token (oauth-draft tool)
-        "~/.gnupg/",                  // gpg keys (commit signing)
-        "/run/user/*/gnupg/"          // gpg-agent socket dir (ssh-via-gpg-agent commit signing)
+        "~/.gnupg/",                  // gpg keyring reads (needed for signing, not sufficient on Linux — see sandbox-troubleshooting.md)
+        "/run/user/*/gnupg/"          // gpg-agent socket dir (see "agent appears unreachable" in sandbox-troubleshooting.md)
       ],
       "allowWrite": [
         "~/.cache/",                  // uv lock files, prek log + state, ruff/mypy caches, prek's rustup toolchains + cargo registry
