@@ -15,11 +15,13 @@ default — surfaces gaps and remediation commands.
   snapshot is present but symlinks are missing or dangling
   in **any active target dir** ([`agents.md`](agents.md) —
   `.agents/skills/`, `.claude/skills/`, `.github/skills/`, plus
-  any present holdout), recreate them across all of them. Used
-  by the post-checkout hook
-  ([`install.md` Step 10](install.md)) on a fresh worktree
-  where the gitignored symlinks didn't follow the
-  checkout.
+  any present holdout), recreate them across all of them. For
+  a fresh worktree whose gitignored symlinks didn't follow the
+  checkout, prefer [`worktree-init`](worktree-init.md), which
+  shares the main checkout's snapshot as well as relinking. The
+  `post-checkout` hook does **not** call this — a slash command
+  is not shell-callable (check 8 below rejects a hook that
+  carries the long-removed `--auto-fix-symlinks` line).
 
 ## Pre-flight
 

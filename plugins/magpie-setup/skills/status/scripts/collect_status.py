@@ -379,7 +379,12 @@ def hook_status(root: Path) -> dict:
     return {
         "present": True,
         "executable": os.access(hook, os.X_OK),
-        "has_verify_recipe": "magpie-setup verify" in content,
+        "has_sandbox_helper": "sandbox-add-project-root.sh" in content,
+        # The hook template dropped `<slash-command> verify --auto-fix-symlinks`
+        # long ago (a slash command is not shell-callable, so it errored on
+        # every checkout). A hook still carrying it is stale — `setup upgrade`
+        # re-installs the current template.
+        "has_stale_verify_line": "--auto-fix-symlinks" in content,
     }
 
 

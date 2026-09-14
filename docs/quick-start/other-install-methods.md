@@ -284,8 +284,10 @@ the rest:
    (gitignored — they target the gitignored snapshot).
 4. **Scaffold `.apache-magpie-overrides/`** (committed) for
    any local workflow modifications.
-5. **Install a `post-checkout` git hook** so worktrees
-   re-create the gitignored runtime state.
+5. **Install a `post-checkout` git hook** so each new
+   worktree adds itself to the sandbox allowlist. It does
+   *not* re-create the gitignored runtime state — a new
+   worktree gets that from `/magpie-setup worktree-init`.
 6. **Update your project documentation** with a brief mention
    of the framework adoption.
 

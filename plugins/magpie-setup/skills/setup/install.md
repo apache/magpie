@@ -1582,8 +1582,8 @@ Same hands-off contract as 9c — **surface, do not run**:
 
 Install `<repo-root>/.git/hooks/post-checkout` — a best-effort
 per-worktree reconciler that fires on `git checkout` and on
-`git worktree add`. It carries **two** responsibilities, each
-guarded independently so neither can gate the git operation:
+`git worktree add`. It carries exactly **one** responsibility,
+guarded so it cannot gate the git operation:
 
 1. **Sandbox allowlist.** Chain into the sandbox-allowlist helper
    installed by `setup-isolated-setup-install`, so the new
@@ -1705,7 +1705,10 @@ framework before they hit a "skill not found" error:
    (or follow [`.agents/skills/magpie-setup/`](.agents/skills/magpie-setup/))
    to fetch the snapshot per the committed lock, scaffold the
    gitignored symlinks, and install the post-checkout hook
-   that re-creates them on each worktree checkout.
+   that adds each new worktree to the sandbox allowlist.
+   In a worktree, run `setup worktree-init` instead — it
+   shares the main checkout's snapshot rather than fetching
+   a second one.
 
    Adopter-specific modifications to framework workflows live
    in [`.apache-magpie-overrides/`](.apache-magpie-overrides/)

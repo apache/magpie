@@ -535,9 +535,10 @@ even when the worktree looks "already wired", because
 `worktree-init` is idempotent (a no-op when state is
 correct) and the cost of running it unnecessarily is
 trivially small. Conversely, *not* running it leaves worktree
-state inconsistent with the new framework version. The
-post-checkout hook covers the "next checkout" case, but
-upgrade re-aligns the existing worktrees **now**.
+state inconsistent with the new framework version. Nothing
+else covers it: the `post-checkout` hook only syncs the sandbox
+allowlist and never touches symlinks, so upgrade re-aligning
+the existing worktrees **now** is the only thing that does.
 
 Procedure:
 

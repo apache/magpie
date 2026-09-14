@@ -37,7 +37,7 @@ python3 <framework>/skills/setup-status/scripts/collect_status.py --format json 
 | `families` | The installed-skill roster grouped by family (see below). |
 | `overrides` | `{present, has_readme, skill_count}` for `.apache-magpie-overrides/` (committed, shared). |
 | `local_overrides` | `{present, has_readme, skill_count}` for `.apache-magpie-local/` (gitignored, personal). Always reported; `present: false` when the directory does not exist. |
-| `post_checkout_hook` | `{present, executable, has_verify_recipe}`. |
+| `post_checkout_hook` | `{present, executable, has_sandbox_helper, has_stale_verify_line}`. `has_stale_verify_line` true means the hook still carries the long-removed `--auto-fix-symlinks` line — remediation is `setup upgrade`. |
 | `gitignore` | Coverage flags (see below). |
 
 ## `agent_targets[]`

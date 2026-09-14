@@ -545,10 +545,14 @@ have no business in a file shared across contributors).
 
 The helper is also invoked by `setup install`,
 `setup upgrade`, and `setup worktree-init` for
-the same reason. The `post-checkout` git hook installed by
-`setup install` chains into the helper too, so new
-worktrees added via `git worktree add` after this install pass
-inherit access automatically — no operator action needed.
+the same reason. The repo-local `post-checkout` git hook chains
+into the helper too, so new worktrees added via `git worktree add`
+inherit access automatically — but `setup install` writes that hook
+**only on the pinned snapshot install**; the marketplace path
+writes no hook. On a marketplace install under per-project scope,
+a new worktree therefore needs `setup worktree-init` to get its
+path written. Whole-user scope closes that gap for every repo on
+the host.
 
 ### Step V — The vetted-ops split and exclusion
 
