@@ -328,6 +328,12 @@ contains — on a brand-new scaffold there may be nothing under
      per AGENTS.md — the actual agent and model you are
      running as, not a hardcoded value.
 
+   Probe the gpg-agent cache first when `commit.gpgsign` is
+   true: a token-backed key with a cold cache stalls this
+   commit until `gpg: signing failed: Timeout`. Surface a
+   dialogue, or hand the user the command — see
+   [`AGENTS.md` → *Commit and PR conventions*](../../../../AGENTS.md#commit-and-pr-conventions).
+
 6. **Push.** `git push` to the upstream branch. No `--force`.
    If push is rejected (non-fast-forward) it means another
    machine pushed concurrently after our `git fetch` in step 2;

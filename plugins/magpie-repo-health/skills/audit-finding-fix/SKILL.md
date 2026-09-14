@@ -466,6 +466,17 @@ Write the commit message per the project's convention:
 Show the commit message to the user; ask for confirmation before
 running `git commit`.
 
+**Signing pre-flight.** If `commit.gpgsign` is true, probe the
+gpg-agent cache before running `git commit` — a token-backed
+signing key with a cold cache blocks on a pinentry prompt the
+agent cannot see, and the commit dies with
+`gpg: signing failed: Timeout` after a long stall. On a cold
+cache, surface a dialogue telling the user to expect the prompt
+(or hand them the command to run in their own terminal); on a
+warm cache, commit without interrupting them. The probe and the
+rationale are in
+[`AGENTS.md` → *Commit and PR conventions*](../../../../AGENTS.md#commit-and-pr-conventions).
+
 Return ONLY valid JSON with this structure:
 
 ```json
