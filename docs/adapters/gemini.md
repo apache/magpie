@@ -184,8 +184,9 @@ The shipped policy applies these decisions to model-requested tool calls in Defa
 | Ordinary native workspace read | Allow under Gemini's built-in read policy. |
 | Listed inspection commands, such as `git status --short`, `git diff --stat`, or `gh pr view` | Allow; network access may still require sandbox expansion. |
 | Other shell commands, including tests, interpreters, `git push`, PR creation, and raw `gh api` calls | Ask before execution. |
-| Native file edits and MCP calls | Ask for each call, including read-only MCP operations. |
+| Native file edits and MCP server tools | Ask for each call, including read-only MCP tools. |
 | Google web search (`google_web_search`) | Ask before each query is sent, including in Plan Mode; headless calls are refused. |
+| URL fetching (`web_fetch`) and MCP resource reads (`read_mcp_resource`) | Ask for each call, including in auto-edit and Plan Mode; headless calls are refused. |
 | Listed credential/export commands, such as `gh auth token`, `curl`, or cloud CLIs | Deny. |
 | Matching credential paths or `.env` files through native file/search tools | Deny. |
 | Native edits to `.gemini/`, `.geminiignore`, `GEMINI.md`, or `AGENTS.md` | Deny. |
@@ -199,8 +200,13 @@ The verified [v0.59.0 tool definitions](https://github.com/google-gemini/gemini-
 The native probe checks canonical policy names, alias matching, and search/multi-file argument schemas against the loaded runtime.
 Google web search sends model-selected query text through Gemini's API outside the shell sandbox, so `sandboxNetworkAccess: false` does not prevent that disclosure.
 Review the query for confidential content before approving it; see the upstream [web-search reference](https://geminicli.com/docs/tools/web-search/).
+URL fetching also uses Gemini's API or a direct-fetch fallback outside the shell sandbox.
+The profile overrides Gemini's built-in auto-edit allowance for `web_fetch`; review the requested URLs before approving a fetch.
+The native `read_mcp_resource` tool retrieves content from an already configured MCP server and needs its own approval rule because the MCP server-tool wildcard does not match it.
+`list_mcp_resources` remains allowed: it lists the cached resource registry without making a resource-read request.
 
-Plan Mode retains scoped reads and denies other shell, edit, and MCP calls.
+Plan Mode retains scoped reads and denies other shell calls, file edits, and MCP server tools.
+Web search, URL fetching, and native MCP resource reads remain available with approval so they can supply context for planning.
 YOLO and remembered tool approvals are disabled, and automatic edit mode does not override the shipped ask/deny rules.
 These settings preserve [per-proposal confirmation](../rfcs/RFC-AI-0004.md#principle-1--human-in-the-loop-on-every-state-change).
 Commands typed directly through Gemini's shell interface have different confirmation semantics from model-requested calls.
@@ -234,7 +240,8 @@ Set `trust: false` and register only the servers the workflow needs.
 
 Restart Gemini and use `/mcp` to inspect connections and discovered operations.
 Tool names can differ from the Claude-oriented examples; select the equivalent server operation.
-Magpie's policy asks for every MCP call and denies them in Plan Mode.
+Magpie's policy asks for every MCP server-tool call and denies those tools in Plan Mode.
+Native `read_mcp_resource` calls require approval in every mode, including Plan Mode; cached resource listing remains allowed.
 Tool sandboxing does not confine MCP server processes or their network connections.
 Live MCP connections and authenticated archive access have not been verified for this profile.
 

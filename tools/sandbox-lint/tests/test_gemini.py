@@ -102,10 +102,13 @@ def test_content_search_needs_credential_denies(profile: tuple[dict, dict]) -> N
         assert f"magpie.toml: missing native {tool} deny for {protected}" in errors
 
 
-@pytest.mark.parametrize("change", ["missing", "allow", "default_only", "interactive_only", "query_only"])
-def test_web_search_requires_unconditional_approval(profile: tuple[dict, dict], change: str) -> None:
+@pytest.mark.parametrize("tool", ["google_web_search", "web_fetch", "read_mcp_resource"])
+@pytest.mark.parametrize("change", ["missing", "allow", "default_only", "interactive_only", "args_only"])
+def test_external_reads_require_unconditional_approval(
+    profile: tuple[dict, dict], tool: str, change: str
+) -> None:
     settings, policy = profile
-    rule = next(r for r in policy["rule"] if r.get("toolName") == "google_web_search")
+    rule = next(r for r in policy["rule"] if r.get("toolName") == tool)
     if change == "missing":
         policy["rule"].remove(rule)
     elif change == "allow":
@@ -116,7 +119,7 @@ def test_web_search_requires_unconditional_approval(profile: tuple[dict, dict], 
         rule["interactive"] = True
     else:
         rule["argsPattern"] = "documentation"
-    assert any("google_web_search ask_user" in e for e in check_gemini_invariants(settings, policy))
+    assert any(f"{tool} ask_user" in e for e in check_gemini_invariants(settings, policy))
 
 
 @pytest.mark.parametrize(

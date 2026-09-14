@@ -119,6 +119,9 @@ try {
     [core.GREP_TOOL_NAME, { pattern: 'x', dir_path: 'C:\\Users\\example\\.aws' }, 'deny'],
     [core.GREP_TOOL_NAME, { pattern: 'example', dir_path: 'src' }, 'allow'],
     ['google_web_search', { query: 'public documentation example' }, 'ask_user'],
+    ['web_fetch', { prompt: 'Read https://example.com/ and summarize its heading.' }, 'ask_user'],
+    ['read_mcp_resource', { uri: 'demo://approval-check' }, 'ask_user'],
+    ['list_mcp_resources', {}, 'allow'],
     ['write_file', { file_path: '.gemini/policies/override.toml', content: '' }, 'deny'],
     ['replace', { file_path: 'AGENTS.md', old_string: 'old', new_string: 'new' }, 'deny'],
     ['write_file', { file_path: 'example.txt', content: 'example' }, 'ask_user'],
@@ -147,6 +150,12 @@ try {
         const decision = planDenied ? 'deny' : expected;
         assert.equal(result.decision, decision,
           `${mode}/${interactive}: ${name} ${JSON.stringify(args)}`);
+        if (['google_web_search', 'web_fetch', 'read_mcp_resource'].includes(name)) {
+          assert.equal(result.rule?.toolName, name,
+            'External reads must match their explicit approval rule');
+          assert.equal(result.rule?.priority, core.USER_POLICY_TIER + 0.6,
+            'External read approval must come from the shipped User-tier rule');
+        }
         if (searchTools.includes(name) && expected === 'deny') {
           // Some runtimes normalize these aliases during matching.
           assert.ok(searchTools.includes(result.rule?.toolName),

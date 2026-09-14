@@ -90,6 +90,20 @@ toolName = "google_web_search"
 decision = "ask_user"
 priority = 600
 
+# URL fetching uses Gemini's API or direct fetch outside the shell sandbox.
+# Override the built-in autoEdit allow; approved reads remain available in Plan Mode.
+[[rule]]
+toolName = "web_fetch"
+decision = "ask_user"
+priority = 600
+
+# This native tool reads from configured MCP servers but does not match mcpName.
+# Ask in every mode, including Plan Mode; cached list_mcp_resources stays allowed.
+[[rule]]
+toolName = "read_mcp_resource"
+decision = "ask_user"
+priority = 600
+
 # Match complete command arguments: extra Git flags can enable external
 # helpers or file output. Other forms still ask; this is not a git-wide allow.
 [[rule]]

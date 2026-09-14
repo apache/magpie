@@ -191,7 +191,14 @@ def check_gemini_invariants(settings: dict[str, Any], policy: dict[str, Any]) ->
                 return True
         return False
 
-    for tool in ("run_shell_command", "write_file", "replace", "google_web_search"):
+    for tool in (
+        "run_shell_command",
+        "write_file",
+        "replace",
+        "google_web_search",
+        "web_fetch",
+        "read_mcp_resource",
+    ):
         if not asks(tool):
             errors.append(
                 f"magpie.toml: missing all-mode {tool} ask_user rule (shell requires the command argument matcher)"
