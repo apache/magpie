@@ -628,7 +628,7 @@ Harness → substrate tools it supports:
 | Default-approved endpoint class | Examples |
 |---|---|
 | Claude Code itself | The agent invoking the skill |
-| *.apache.org-hosted endpoints | A future ASF-hosted inference endpoint at e.g. `inference.apache.org`; an in-tracker endpoint at `<project>.apache.org/llm/` |
+| *.apache.org-hosted endpoints | An ASF-hosted inference endpoint at e.g. `inference.apache.org`; an in-tracker endpoint at `<project>.apache.org/llm/`. **Not** `llm.apache.org` — see carve-outs |
 | Local-only inference | Ollama serving a local model, vLLM on the user's workstation, llama.cpp embedded in a CLI helper |
 | Air-gapped on-prem | A PMC-hosted inference appliance on a private VLAN |
 

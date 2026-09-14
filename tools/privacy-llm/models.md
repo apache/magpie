@@ -7,6 +7,7 @@
 
 - [Approved-LLM registry](#approved-llm-registry)
   - [The default-approved entries](#the-default-approved-entries)
+  - [Carve-outs from the `*.apache.org` rule](#carve-outs-from-the-apacheorg-rule)
   - [The opt-in entries — adopter declares explicitly](#the-opt-in-entries--adopter-declares-explicitly)
   - [The pre-flight check](#the-pre-flight-check)
   - [Adopter config — `<project-config>/privacy-llm.md`](#adopter-config--project-configprivacy-llmmd)
@@ -42,7 +43,7 @@ default-approved Claude Code instance and passes).
 | Class | Rationale | Examples |
 |---|---|---|
 | **Claude Code itself** | The Claude-Code instance running framework skills is treated as an approved privacy model for the data it directly processes. See [`docs/setup/privacy-llm.md` — Claude Code trust boundary](../../docs/setup/privacy-llm.md#claude-code-trust-boundary) for the rationale and the limits of this default. | The agent invoking the skill |
-| **`*.apache.org`-hosted endpoints** | Anything served from an Apache Software Foundation domain runs on infra under ASF governance — data residency, retention, and access are bounded by the ASF infra agreement. | A future ASF-hosted inference endpoint at e.g. `inference.apache.org`; an in-tracker endpoint at `<project>.apache.org/llm/` |
+| **`*.apache.org`-hosted endpoints** | Anything served from an Apache Software Foundation domain *and running on infra under ASF governance* — data residency, retention, and access bounded by the ASF infra agreement. An apache.org endpoint that does not meet that assumption is carved out by name below. | An ASF-hosted inference endpoint at e.g. `inference.apache.org`; an in-tracker endpoint at `<project>.apache.org/llm/`. **Not** `llm.apache.org` — see carve-outs |
 | **Local-only inference** | The data never leaves the user's machine. No external party (cloud LLM operator, network operator, log aggregator) can observe it. | Ollama serving a local model, vLLM on the user's workstation, llama.cpp embedded in a CLI helper |
 | **Air-gapped on-prem** | Same rationale as local inference, scaled to a contributor's organisation. The model server runs on infra the adopter operationally controls and which has no path to a third-party LLM operator. | A PMC-hosted inference appliance on a private VLAN |
 
@@ -53,6 +54,39 @@ here is the source-of-truth for what those rules implement, and
 the
 [`<project-config>/privacy-llm.md`](#adopter-config--project-configprivacy-llmmd)
 declaration shape is what the checker parses.
+
+## Carve-outs from the `*.apache.org` rule
+
+An apache.org host listed here matches the domain rule above but is
+**not** default-approved for foundation private data, because it does
+not meet the infra-governance assumption that rule rests on. The
+checker rejects these by exact host before the domain rule is applied.
+
+| Host | Why it is carved out | Revisit when |
+|---|---|---|
+| `llm.apache.org` (LLMAO) | Serves self-hosted models from **rented third-party GPU hardware** (Vast.ai, RunPod), not ASF-operated infra. The service's own pilot guidance is that traffic must be treated as *visible to llmao admins* — public and project-internal material is fine, credentials and embargoed work are not. | The pilot ends, the hardware moves under ASF operation, or the ASF publishes a retention-and-access model for it |
+
+**Scope of this carve-out.** It governs the privacy-LLM gate only —
+that is, the question *"may this endpoint receive `<private-list>` or
+`<security-list>` content?"*. It says nothing about using LLMAO for
+public work: a skill operating on public issues, public PRs, or
+published releases may route through `llm.apache.org` freely, because
+that content is not what this gate protects.
+
+What the service currently retains, per its operators: token counts,
+model, latency, and a hashed key for attribution. The columns that
+could hold prompt and completion text exist and are switched off —
+stated explicitly as *a current state rather than a principle*, with
+prompt history flagged as something the ASF will likely want later,
+"a deliberate decision with retention limits and an access model, made
+openly rather than arrived at by default". Both GPU providers are on
+secure tiers (ISO 27001 datacentre partners, signed DPAs, SOC 2 Type
+II), and host-operator inspection of a live request is contractually
+prohibited — but that is a live window on rented hardware, not an
+ASF-governed boundary, which is what the blanket rule assumes.
+
+Source: Andrew Musselman, *"llmao progress Sep 14"*,
+`discuss@rai.apache.org`, 2026-09-14.
 
 ## The opt-in entries — adopter declares explicitly
 
@@ -92,6 +126,7 @@ reporter's own identity intact) run this check at Step 0:
        "currently configured"
 3. For every entry in the stack, decide approved? per:
      - Claude Code → ✓ default-approved
+     - Host in the apache.org carve-out list → ✗ (see below)
      - URL ending in .apache.org → ✓ default-approved
      - Hostname ∈ {localhost, 127.0.0.1, ::1} → ✓ default-approved
      - Listed under "approved third-party" with a complete
@@ -198,9 +233,12 @@ the framework adopts until such a policy lands. Specifically:
   data, the framework will narrow the default and bump the
   registry version.
 - The `*.apache.org` blanket approval assumes infra-level
-  governance; if a future ASF endpoint runs at `*.apache.org` but
-  proxies to a third-party LLM, that endpoint may need
-  re-classification.
+  governance; an ASF endpoint at `*.apache.org` that proxies to a
+  third-party LLM, or runs on hardware the ASF rents rather than
+  operates, needs re-classification. This has already happened once:
+  see *Carve-outs from the `*.apache.org` rule* for `llm.apache.org`.
+  Treat the blanket rule as a default that each new ASF inference
+  endpoint must be checked against, not a guarantee.
 
 When ASF Legal does ratify a list, this file becomes the
 *pointer* to that list rather than the list itself, and the

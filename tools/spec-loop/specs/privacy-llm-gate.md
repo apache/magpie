@@ -47,6 +47,13 @@ artefact for leakage before emission.
 - **Policy is the PMC's; the gate is the framework's.** The approved-LLM
   list is per-PMC. The default: agent host trusted, `*.apache.org`
   auto-approved, `localhost` for local inference, everything else opt-in.
+- **The `*.apache.org` default is rebuttable.** It assumes the endpoint
+  runs on infra under ASF governance. An apache.org host that does not
+  meet that assumption is carved out by exact host and rejected before
+  the domain rule applies — `llm.apache.org` (LLMAO) is the first, since
+  it serves from rented third-party GPU hardware and its pilot traffic is
+  visible to gateway admins. The carve-out binds the private-data gate
+  only; public-content skills may use such an endpoint freely.
 - **Redact before read; reveal locally.** Skills operate on hashed
   identifiers; the reverse map never goes to an LLM and is never committed.
 - **Reporter credit is preserved** (CVE `credits[]`) only after the

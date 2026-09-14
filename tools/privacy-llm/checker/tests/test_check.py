@@ -97,6 +97,35 @@ def test_subdomain_apache_org_is_approved():
     assert v.approved is True
 
 
+def test_llmao_gateway_is_carved_out_of_apache_org_approval():
+    """``llm.apache.org`` matches the apache.org rule but must NOT be approved.
+
+    The LLMAO pilot serves self-hosted models from rented third-party GPU
+    hardware and its operators state pilot traffic is visible to llmao
+    admins, so it fails the infra-governance assumption the blanket
+    apache.org approval rests on.
+    """
+    [v] = check.check_stack(
+        _cfg(
+            [
+                LLMEntry(
+                    raw="ASF LLMAO gateway at https://llm.apache.org/",
+                    url="https://llm.apache.org/",
+                )
+            ]
+        )
+    )
+    assert v.approved is False
+    assert "carved out" in v.reason
+
+
+def test_llmao_carve_out_does_not_affect_other_apache_hosts():
+    """The carve-out is by exact host, not a prefix or suffix match."""
+    for url in ("https://llm.airflow.apache.org/", "https://inference.apache.org/v1/"):
+        [v] = check.check_stack(_cfg([LLMEntry(raw=f"ASF at {url}", url=url)]))
+        assert v.approved is True, f"expected {url} to stay approved, got {v.reason}"
+
+
 def test_apache_org_lookalike_is_not_approved():
     """``apache.org-attacker.example.com`` must NOT match the apache.org rule."""
     [v] = check.check_stack(

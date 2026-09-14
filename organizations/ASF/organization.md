@@ -14,6 +14,7 @@
   - [Forwarders](#forwarders)
   - [Mail provider](#mail-provider)
   - [Archive system](#archive-system)
+  - [Inference endpoint](#inference-endpoint)
   - [Project metadata](#project-metadata)
   - [Release process](#release-process)
   - [Roster](#roster)
@@ -150,6 +151,81 @@ archive_system:
   # Resolves the <mail-archive-url> placeholder used in agnostic skills:
   mail_archive_url: https://lists.apache.org
 ```
+
+## Inference endpoint
+
+The Foundation-wide sanctioned-inference gateway, **LLMAO**
+(`llm.apache.org`), live since September 2026. A committer authenticates
+with a personal access token; spend is attributed per key. Projects
+inherit this as the ASF-hosted option for the vendor-neutrality
+requirement in
+[RFC-AI-0004 § Principle 3](../../docs/rfcs/RFC-AI-0004.md); it does not
+displace whatever agent harness a maintainer already runs.
+
+```yaml
+inference:
+  gateway: https://llm.apache.org
+  auth: pat                            # committer personal access token
+  status: pilot                        # not GA — see privacy_class and limitations
+  # Privacy classification for the approved-LLM gate. LLMAO is NOT
+  # default-approved for foundation private data: it serves from rented
+  # third-party GPU hardware and pilot traffic is visible to llmao admins.
+  # See tools/privacy-llm/models.md — "Carve-outs from the *.apache.org rule".
+  privacy_class: project-internal      # public + project-internal only
+  recommended_model: gemma4-26b        # reasoning off by default — see note below
+  models:
+    - id: gemma4-26b
+      context_tokens: 131072
+      modalities: [text, vision]
+      tools: true
+      reasoning_on_by_default: false
+    - id: qwen3.8-27b
+      context_tokens: 131072
+      modalities: [text, vision]
+      tools: true
+      reasoning_on_by_default: true
+    - id: qwen3-8b
+      context_tokens: 40960
+      modalities: [text]
+      tools: true
+      reasoning_on_by_default: true
+  known_limitations:
+    # Tool use over the Anthropic-compatible path is broken upstream:
+    # LiteLLM routes it to vLLM's /v1/responses with a tool_choice shape
+    # vLLM rejects. Plain conversation is unaffected. Magpie skills are
+    # tool-driven, so they cannot run against this gateway until it lands.
+    - anthropic_tool_use_broken
+    # spend_usd reports 0.00 for self-hosted models — no cost map yet, so
+    # budget-based routing decisions cannot be made from gateway data.
+    - budgets_do_not_meter_self_hosted
+    # No automatic restart: a host restart leaves the box up, model down.
+    - no_automatic_model_restart
+```
+
+**Pick a model whose reasoning is off by default.** A reasoning model
+emits nothing while it thinks; agent clients abandon the stream and
+retry, so the box runs the same generation twice for a response nobody
+reads. `gemma4-26b` is the default for that reason.
+
+**Connecting an agent.** Claude Code talks to the gateway with
+environment variables alone — LiteLLM exposes `/v1/messages`, so no shim
+is needed:
+
+```bash
+export ANTHROPIC_BASE_URL=https://llm.apache.org
+export ANTHROPIC_AUTH_TOKEN=<your PAT>
+export ANTHROPIC_MODEL=gemma4-26b
+```
+
+Throughput is single-stream and memory-bandwidth bound, so the models sit
+closer together than their parameter counts suggest (~128 tok/s for
+`gemma4-26b`, ~46–54 tok/s for the others). The difference shows up under
+concurrency, where `qwen3.8-27b` reaches 20+ simultaneous requests and
+`gemma4-26b` reaches 4. All published figures come from synthetic load;
+recorded real usage is still only a few hundred requests.
+
+Source: Andrew Musselman, *"llmao progress Sep 14"*,
+`discuss@rai.apache.org`, 2026-09-14.
 
 ## Project metadata
 

@@ -49,6 +49,20 @@ from checker.config import (
 # Hosts that resolve to "local-only inference" — not over the wire.
 _LOCAL_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
 
+# ``*.apache.org`` hosts that are explicitly NOT default-approved for
+# foundation private data, despite matching the apache.org rule below.
+# The blanket apache.org approval assumes infra-level ASF governance;
+# these endpoints do not meet it and are carved out by name. See
+# ``tools/privacy-llm/models.md`` — "Carve-outs from the apache.org rule".
+_APACHE_ORG_CARVE_OUTS = {
+    "llm.apache.org": (
+        "LLMAO pilot: serves self-hosted models from rented third-party GPU "
+        "hardware (Vast.ai, RunPod), and its operators state that pilot traffic "
+        "must be treated as visible to llmao admins — public and "
+        "project-internal material only, no credentials or embargoed work"
+    ),
+}
+
 # Free-text matches for the always-approved Claude Code entry.
 # Case-insensitive, matched as a substring of the bullet's raw
 # text. Adopters may write "Claude Code (the agent ...)" or
@@ -76,6 +90,14 @@ def _approve_by_default_rules(entry: LLMEntry) -> Verdict | None:
             return Verdict(entry, False, f"unparsable URL host in {entry.url!r}")
         if host in _LOCAL_HOSTS:
             return Verdict(entry, True, f"local-only inference at {host} (default-approved)")
+        if host in _APACHE_ORG_CARVE_OUTS:
+            return Verdict(
+                entry,
+                False,
+                f"{host} is carved out of the *.apache.org default approval "
+                f"({_APACHE_ORG_CARVE_OUTS[host]}); declare it as an opt-in "
+                f"entry if the PMC accepts the residency terms",
+            )
         if host.endswith(".apache.org") or host == "apache.org":
             return Verdict(entry, True, f"*.apache.org-hosted endpoint at {host} (default-approved)")
     return None
