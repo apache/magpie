@@ -1,0 +1,137 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
+# Moves the dev stamp on `main`, on request.
+#
+# The marketplace is served straight from `main`, and `claude plugin update`
+# compares version strings rather than commit SHAs. While the stamp sits still,
+# an adopter running that command is told they are already current no matter how
+# far behind they are — see docs/setup/marketplace.md.
+#
+# Run from the Actions tab: **bump dev version** -> *Run workflow*. It is
+# deliberately manual rather than on-merge, because the judgement of *when a
+# bump is wanted* is not mechanical — it is wanted before pointing anyone at
+# `claude plugin update`, before announcing a change adopters should take, or
+# when merged work has piled up behind a stale stamp, and not on the merges in
+# between.
+#
+# Who can run it: `workflow_dispatch` is restricted by GitHub to accounts with
+# write access to the repository, so this is committers-only without the
+# workflow having to check anything. The run is attributed to whoever pressed
+# the button — they are named as `Co-Authored-By` on the commit, and the
+# Actions run records them as the actor.
+#
+# `main` must permit the commit. It is created through GitHub's API, which
+# enforces branch protection exactly as a push would: a rule requiring a pull
+# request, or a linear-history rule, makes this job fail rather than bypass
+# anything. If it fails on first run, that is the rule talking.
+---
+name: bump dev version
+
+on:  # yamllint disable-line rule:truthy
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  bump:
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    permissions:
+      # Committing the stamp onto `main`.
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          # The commit is created through GitHub's API rather than `git push`,
+          # so the job never needs the checkout's credentials on disk.
+          persist-credentials: false
+          # The bump reads and rewrites the tip; no history is needed.
+          fetch-depth: 1
+
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d  # v10.0.1
+        with:
+          enable-cache: true
+
+      # The documented steps, unchanged: edit `project.version`, then let
+      # check-family-plugins propagate it to every manifest and `uv lock`
+      # restamp the lockfile. `uv run` supplies the Python; `ubuntu-slim` is
+      # minimal and a system interpreter is not worth assuming.
+      - name: Bump the stamp and regenerate the manifests
+        id: bump
+        run: |
+          set -euo pipefail
+          uv run --project tools/dev python tools/dev/bump-dev-version.py
+          version=$(uv run --project tools/dev python tools/dev/bump-dev-version.py --print)
+          uv run --project tools/dev python tools/dev/check-family-plugins.py --fix
+          uv lock
+          if [[ -z "$(git status --porcelain)" ]]; then
+            echo "Stamp is already current; nothing to commit."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=$version" >> "$GITHUB_OUTPUT"
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit the stamp onto main
+        if: steps.bump.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          VERSION: ${{ steps.bump.outputs.version }}
+          HEAD_SHA: ${{ github.sha }}
+          ACTOR: ${{ github.actor }}
+          ACTOR_ID: ${{ github.actor_id }}
+        run: |
+          set -euo pipefail
+          # Attribute the bump to the maintainer who ran the workflow. The
+          # commit's *author* is whoever the token authenticates as — with
+          # GITHUB_TOKEN that is the Actions bot, and the mutation offers no way
+          # to set it — so the credit goes in a trailer instead. The address is
+          # GitHub's noreply form, which is stable and does not publish an
+          # address the account has chosen to keep private.
+          actor_name=$(gh api "users/$ACTOR" --jq '.name // .login')
+          coauthor="$actor_name <${ACTOR_ID}+${ACTOR}@users.noreply.github.com>"
+
+          {
+            echo "chore: bump dev version to $VERSION"
+            echo
+            echo "Move the dev stamp so adopters' \`claude plugin update\` picks up the"
+            echo "work merged since the previous stamp. The marketplace is served from"
+            echo "\`main\` and the update check compares version strings, so a frozen"
+            echo "suffix is a silent no-op: an adopter running that command is told they"
+            echo "are already current while sitting behind."
+            echo
+            echo "Run from the Actions tab by @${ACTOR}. Generated by"
+            echo ".github/workflows/bump-dev-version.yml with the documented steps: bump"
+            echo "\`project.version\` in \`pyproject.toml\`, then"
+            echo "\`tools/dev/check-family-plugins.py --fix\` and \`uv lock\` to propagate"
+            echo "to every manifest. The stamp is UTC at minute resolution."
+            echo
+            echo "Co-Authored-By: $coauthor"
+          } > "$RUNNER_TEMP/bump-message.txt"
+
+          # Committed through GitHub's API, not `git commit`: the commit comes
+          # back signed by GitHub and shows as Verified, with no key material in
+          # CI. `expectedHeadOid` is the tip this run checked out, so a merge
+          # landing while the job was working makes this fail rather than
+          # overwrite it.
+          uv run --project tools/dev python tools/dev/gh-signed-commit.py \
+            --branch main \
+            --expected-head-oid "$HEAD_SHA" \
+            --message-file "$RUNNER_TEMP/bump-message.txt" \
+            --repo "$REPO"

@@ -624,9 +624,20 @@ every plugin, which nobody discovers on their own.
 with every other over one line, for no gain on changes nobody is waiting for.
 Bump when the work needs to reach installed copies: before pointing anyone at
 `claude plugin update`, before announcing a change adopters should take, or
-when a batch of merged work has piled up behind a stale stamp. A bump is a
-one-line edit plus a regeneration, so it costs little whenever it is actually
-wanted.
+when a batch of merged work has piled up behind a stale stamp.
+
+**How to bump.** From the Actions tab: **bump dev version** -> *Run workflow*.
+[`bump-dev-version.yml`](../../.github/workflows/bump-dev-version.yml) runs the
+three steps below on `main`, commits through GitHub's API so the result shows as
+**Verified**, and credits whoever pressed the button as `Co-Authored-By`.
+`workflow_dispatch` is restricted by GitHub to accounts with write access, so
+the button is committers-only.
+
+It is manual on purpose: *when* a bump is wanted is the judgement above, not
+something a merge trigger can make. The same three steps still work by hand for
+a release or a local experiment —
+[`bump-dev-version.py`](../../tools/dev/bump-dev-version.py), then
+`check-family-plugins.py --fix` and `uv lock`.
 
 The stamp is minute-resolution and **UTC**, not local time: a repo with
 contributors in several timezones needs the string to sort in the order the
