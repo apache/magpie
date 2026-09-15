@@ -63,6 +63,13 @@
 # `tests.yml`, `rat.yml` and `zizmor.yml` each grew a `workflow_call` trigger
 # and a `ref` input for this; that input is empty on every other trigger.
 #
+# Those `uses:` are `./…`, with zizmor's `self-repository` audit suppressed on
+# each. That audit prefers GitHub's `$/…` form and offers an auto-fix; taking it
+# made this workflow fail to start at all — run 35000731127 is a
+# `startup_failure` with no jobs, from the `$/` form and nothing else. `./` is
+# the documented syntax for a reusable workflow in the same repository and is
+# what actually parses, so the lint is the thing that gives way here.
+#
 # WHY THE PULL REQUEST IS A DRAFT. GitHub raises no `pull_request` events for
 # anything done with `GITHUB_TOKEN`, so a PR opened from here starts no checks
 # of its own, and the checks this workflow ran are attached to the run's own
@@ -194,28 +201,28 @@ jobs:
   prek:
     needs: prepare
     if: needs.prepare.outputs.changed == 'true'
-    uses: $/.github/workflows/pre-commit.yml
+    uses: ./.github/workflows/pre-commit.yml  # zizmor: ignore[self-repository] `$/` is a startup failure here — see header
     with:
       ref: ${{ needs.prepare.outputs.branch }}
 
   tests:
     needs: prepare
     if: needs.prepare.outputs.changed == 'true'
-    uses: $/.github/workflows/tests.yml
+    uses: ./.github/workflows/tests.yml  # zizmor: ignore[self-repository] `$/` is a startup failure here — see header
     with:
       ref: ${{ needs.prepare.outputs.branch }}
 
   rat:
     needs: prepare
     if: needs.prepare.outputs.changed == 'true'
-    uses: $/.github/workflows/rat.yml
+    uses: ./.github/workflows/rat.yml  # zizmor: ignore[self-repository] `$/` is a startup failure here — see header
     with:
       ref: ${{ needs.prepare.outputs.branch }}
 
   zizmor:
     needs: prepare
     if: needs.prepare.outputs.changed == 'true'
-    uses: $/.github/workflows/zizmor.yml
+    uses: ./.github/workflows/zizmor.yml  # zizmor: ignore[self-repository] `$/` is a startup failure here — see header
     with:
       ref: ${{ needs.prepare.outputs.branch }}
 
