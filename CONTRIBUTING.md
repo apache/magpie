@@ -933,6 +933,19 @@ A bump is not "only a version string" — it also regenerates fourteen
 manifests and the lockfile, any of which can come out wrong. That is why
 the candidate is checked before it is offered.
 
+A pull request is also the only thing that works. The first version of
+this workflow committed straight to `main`, and its first run was
+refused:
+
+```text
+gh: protected branch 'main' check failed:
+  3 of 3 required status checks are expected.
+```
+
+`main` requires three status checks and a commit arriving by API has
+none — GitHub's API enforces branch protection exactly as a push would.
+Nothing about a bump is special enough to route around that.
+
 ### Why the PR is a draft
 
 GitHub raises no `pull_request` events for anything done with

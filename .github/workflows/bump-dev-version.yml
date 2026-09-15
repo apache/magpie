@@ -47,6 +47,17 @@
 # is checked before it becomes a pull request, and a failed check deletes the
 # branch instead of leaving a broken PR for someone to work out.
 #
+# A pull request is also the only thing that works. The first version of this
+# workflow committed straight to `main` and run #1 was refused outright:
+#
+#     gh: protected branch 'main' check failed:
+#       3 of 3 required status checks are expected.
+#
+# `main` requires three status checks, and a commit arriving by API has none —
+# the API enforces protection exactly as a push would. Nothing about a bump is
+# special enough to route around that, so the bump goes through review like
+# every other change.
+#
 # The checks are `uses:` of the workflows themselves, not copies of their
 # steps, so they cannot drift from what a PR gets. `pre-commit.yml`,
 # `tests.yml`, `rat.yml` and `zizmor.yml` each grew a `workflow_call` trigger
