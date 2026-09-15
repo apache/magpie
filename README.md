@@ -24,106 +24,82 @@
 
 [![Magpie](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/apache/magpie/main/assets/badge.json)](https://magpie.apache.org/)
 
-**Adopt a Magpie.** Magpie is a curated set of skills for the AI agent you
-already use — Claude Code, Codex, Gemini CLI, Copilot and others — that take
-on the repetitive parts of running an open-source project: triaging issues and
-pull requests, reviewing code, mentoring contributors, drafting fixes, and
-handling security reports end to end.
+Apache Magpie provides skills for AI agents that assist with open-source project maintenance.
+The skills cover issue and pull-request triage, code review, contributor mentoring, fix drafting, and security-report handling.
+They work with Claude Code, Codex, Gemini CLI, Copilot, and other agents; support varies by [adapter](docs/adapters/README.md).
 
-**Three things make it different from a folder of prompts:**
+Skills propose actions for human review.
+Posting comments, changing labels, and other shared-state changes require explicit confirmation.
+Autonomous operation is disabled.
 
-- **Nothing is sent in your name.** Every comment, email, label and PR is
-  *drafted* by the agent and posted by a person. There is no autonomous mode.
-- **The agent is confined before it reads anything real.** A filesystem and
-  network sandbox, a credential-stripped environment, and a deterministic
-  guard that inspects each shell command *before* it runs and denies the ones
-  that break a hard rule — not a prompt asking it nicely.
-- **It is an Apache project, not a product.** Apache-2.0, vendor-neutral
-  across agents, no account and no service in the middle. Telemetry is opt-in
-  per project and off by default — install it and never run a skill, and it
-  generates no outbound traffic at all.
+The [secure setup](docs/setup/secure-agent-setup.md) provides filesystem and network isolation, a credential-stripped environment, and command guards where the agent supports them.
+These protections require setup; installing a skill family alone does not enable them.
 
-Magpie is currently in development for ASF projects + Python Core team
-friendlies. Testers welcome!
+Magpie is licensed under Apache-2.0 and requires no Magpie account or hosted service.
+Project telemetry is opt-in and disabled by default.
+The framework is under development, with current testing focused on ASF projects and Python Core contributors.
 
 ## See it in action
 
-One security report, start to finish — installed from the marketplace, the
-agent sandboxed and guarded, then the report imported, triaged against the
-project's history, fixed, and published as a CVE:
+This example follows a security report from installation and secure setup through intake, triage, fix drafting, and CVE publication.
 
 ![Installing Magpie from the marketplace, running the secure-agent and privacy setup, then importing two security reports, triaging one as a high-severity path traversal and the other as not a vulnerability, drafting the fix as a scrubbed public PR, and publishing the CVE](assets/quickstart/demo.svg)
 
-*Illustrative — a written transcript, rendered deterministically, not a
-recording.* The [**interactive version**](https://magpie.apache.org/#see-it-in-action)
-on the project site steps through the same story with the full output of each
-command.
-
-> [!IMPORTANT]
-> The motivation, scope, and design commitments behind this work
-> live in [`MISSION.md`](MISSION.md) — the founding mission of the
-> Apache Magpie Top-Level Project, originally filed as its
-> establishment proposal. Read that for the *why*; this README is
-> the *how* once you've decided to install.
+*Illustrative transcript, not a recording.*
+The [interactive version](https://magpie.apache.org/#see-it-in-action) lets you step through each command and its output.
+For the project's scope and design commitments, see [`MISSION.md`](MISSION.md).
 
 ## Install
 
-**Start here → [Quick start](docs/quick-start.md)** — a handful of commands,
-in the agent you already use. Nothing is written to your repository.
+Follow the [quick start](docs/quick-start.md) for your agent.
+For example, in Claude Code:
 
 ```text
 /plugin marketplace add apache/magpie                # Claude Code
-/plugin install magpie-setup@apache-magpie           # install this one first
-/plugin install magpie-agent-guard@apache-magpie     # the baseline:
-/plugin install magpie-utilities@apache-magpie       #   take all three
-/plugin install magpie-pr-management@apache-magpie   # + the families you need
+/plugin install magpie-setup@apache-magpie           # install first
+/plugin install magpie-agent-guard@apache-magpie     # command guard
+/plugin install magpie-utilities@apache-magpie       # skill index and authoring tools
+/plugin install magpie-pr-management@apache-magpie   # PR triage and review
 ```
 
-Those first three are the **baseline** — and the same set a project commits as
-its floor when it adopts Magpie, so taking them is taking what a project would
-recommend to every contributor. After that, install **one plugin per family you
-actually want**: every installed skill costs context on every turn, used or
-not (~0.2–2.0k tokens a family), so there is deliberately no
-install-everything plugin.
+The first three plugins are the recommended baseline.
+Add a plugin for each family you need.
+Installed skill descriptions consume context even when unused, approximately 0.2–2.0k tokens per family; there is no combined install-everything plugin.
 
-Once `magpie-setup` is in, you never type these again — ask in plain language
-(*"install the Magpie families for PR review"*) and the setup skill runs the
-installs for you.
+After installing `magpie-setup`, you can also request families in plain language:
 
-Codex, VS Code / Copilot, and Gemini are one-liners too — the
-[quick start](docs/quick-start.md) has all four, plus what to run next to put
-the agent in its sandbox. Nothing is committed to your repository.
+> Install the Magpie families for PR review.
 
-**Fallback — the pinned snapshot install.** Use it when a marketplace is not
-an option or not enough: your agent has no plugin mechanism, you need the
-signed ASF source release rather than a git clone, or the project wants every
-contributor and CI job pinned to one committed version with drift detection.
+Plugin installation is per-user and does not modify your repository.
+Project configuration, isolation, and privacy setup are separate steps covered in the quick start.
+
+**Pinned-snapshot alternative.** Use a snapshot if your agent has no plugin mechanism, you need a signed ASF source release, or contributors and CI jobs must use a committed version pin with drift detection.
 
 1. [Download / pin a release](https://magpie.apache.org/downloads/)
 2. Set up the symlinks and git-ignores — see
-   [`docs/setup/install-recipes.md`](docs/quick-start/other-install-methods.md)
+   [other installation methods](docs/quick-start/other-install-methods.md)
 3. Ask your agent to complete the install: `/magpie-setup install`
 
-The two are complementary, not exclusive.
+You can use personal marketplace plugins alongside a project's pinned snapshot.
 
 ## Usage
 
-Magpie is used by interacting with your AI agents. You'll use plain-language
-prompts like
+Ask your agent for a task, including the repository and scope when needed:
 
-> review PR #5193
+> Summarize the open PR backlog for this repository. Do not post comments or change labels.
 
-or
+For a named skill, use the command supplied by your install method.
+For example, a marketplace install provides:
 
-> triage the latest security reports
+```text
+/magpie-repo-health:dependency-audit
+```
 
-or skill calls starting with a slash, like
+This audit reports dependency vulnerabilities and proposed upgrades without changing manifests or lock files.
+Review the report before deciding which upgrades to make.
+If project configuration is missing, the skill starts the setup flow before running the audit.
 
-> /magpie-repo-health:dependency-audit
-
-(the family-plugin form, assuming the recommended marketplace install above —
-see [Skill names differ by install method](docs/setup/marketplace.md#skill-names-differ-by-install-method)
-if you're on the pinned-snapshot fallback instead).
+See [skill names by install method](docs/setup/marketplace.md#skill-names-differ-by-install-method) for pinned-snapshot commands.
 
 ## Update / maintain
 
@@ -148,21 +124,12 @@ if you're on the pinned-snapshot fallback instead).
 
 ## Skill families
 
-The following skill families ship in the framework, all at `experimental` or
-`stable`, and each skill declares its family in a `family:` frontmatter
-key. On the recommended marketplace install, you choose families by which
-per-family plugin(s) you install (see [Install](#install) above) — install
-or uninstall a plugin at any time to add or drop a family. On the
-pinned-snapshot fallback, `/magpie-setup` offers the **opt-in** families —
-and the optional **MCP servers** (`ponymail`, `apache-projects`,
-`gmail-plaintext`) — in a single install choice, and symlinks for the picked
-families land in the skill directory. Either way, the two **always-on**
-families (`setup`, `utilities`) are wired unconditionally and never prompted
-for.
+Marketplace installs select families by plugin; pinned-snapshot installs select them through `/magpie-setup`.
+The `setup` and `utilities` families are included in the baseline.
+The snapshot setup also offers optional MCP servers: `ponymail`, `apache-projects`, and `gmail-plaintext`.
 
-The **Modes** column maps each family to the MISSION agent-assistance
-taxonomy — see [`docs/modes.md`](docs/modes.md) for what each mode
-means and which modes are still proposed vs. shipping today.
+The **Modes** column uses the [agent-assistance taxonomy](docs/modes.md).
+Family guides document each skill's maturity and requirements.
 
 | Family | Type | Modes | Purpose | Detail |
 |---|---|---|---|---|

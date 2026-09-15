@@ -14,38 +14,33 @@
 
 ## Start with the baseline
 
-Three plugins are the **strongly recommended** starting set. Take all three,
-then add families against a problem you have today:
+Install these three recommended plugins, then add the families needed for your tasks:
 
 | Plugin | Why it is in the baseline |
 |---|---|
-| `magpie-setup` | **Install this one first — nothing else works without it.** It is what installs, upgrades, configures and adopts everything else, and it carries the secure-isolation skills that sandbox your agent. |
-| `magpie-agent-guard` | The deterministic pre-execution guard: a hook that inspects each shell command *before* it runs and denies the dangerous shapes outright. It is not a family and has no skills of its own — it is a safety net under whatever else you install. |
-| `magpie-utilities` | `list-skills`, so you can see what is actually installed, plus skill authoring and a path to report framework bugs upstream. Small, and the thing you reach for when something is not behaving. |
+| `magpie-setup` | Install first. Provides installation, upgrades, local configuration, team adoption, and agent-isolation setup. |
+| `magpie-agent-guard` | Inspects shell commands before execution and blocks prohibited patterns on supported agents. It is a hook plugin, not a skill family. |
+| `magpie-utilities` | Lists installed skills, supports skill authoring, and prepares framework bug reports. |
 
-This is not an arbitrary recommendation: it is exactly the set a project
-commits as its **floor** when it adopts Magpie
-([Installation or Adoption?](two-ways.md)). What a project recommends to
-everyone who clones it is what you should have yourself.
-
-Isolation belongs here too. It is not a plugin but a run —
-[Step 3 of the quick start](../quick-start.md#step-3--isolate--guard)
-— and it ships inside `magpie-setup`.
+Team adoption uses the same baseline as its shared recommendation.
+See [installation and adoption](two-ways.md) for the distinction.
+Installing `magpie-setup` makes the isolation skills available; run [isolation setup](../quick-start.md#step-3--isolate--guard) to enable the protections.
 
 ## The ten families
 
-Skills ship in ten **families**. Install the ones that match a problem you have
-today — you are not meant to take all of them.
+Choose by the task and output you need.
+For example, `pr-management` reviews an open PR, while `pairing` reviews a local diff before you submit it.
+`repo-health` audits the repository's dependencies and CI configuration rather than reviewing one change.
 
-| Plugin | Skills | The problem it solves | What it offers |
+| Plugin | Skills | Use for | Output or action boundary |
 |---|---|---|---|
-| `magpie-setup` | 10 | Your agent can read every credential on your machine, and you have no way to tell whether it is sandboxed right now. | A filesystem sandbox, a clean-env wrapper, a status line that shows sandbox state, and a red banner before any bypass. Plus install, upgrade, and drift checks. **You must install this one first** — it is what installs everything else. |
-| `magpie-security` | 15 | Security reports arrive by mail and must be triaged, fixed, and disclosed on a clock — with nothing leaking early. | A 16-step lifecycle: intake from the mailbox, validity triage, canned responses, fix drafting, CVE allocation, advisory and publication. Drafts land in Gmail; nothing is ever sent for you. |
-| `magpie-release-management` | 10 | An ASF release is a long checklist where one missed step invalidates the vote. | RC cut, RC verification (signatures, hashes, LICENSE/NOTICE, no stray binaries), the `[VOTE]` thread, the tally, promotion, `[ANNOUNCE]`, archive sweep, audit log. The agent never holds your signing key and never publishes. |
-| `magpie-pr-management` | 8 | The PR queue grows faster than you can read it, and the oldest ones quietly rot. | Queue triage into ready / needs-review / waiting-on-author, deep code review with blocking vs non-blocking findings, reviewer routing, express-lane merge, stale sweep, and queue statistics. |
-| `magpie-issue` | 8 | A backlog full of duplicates, unreproducible reports, and issues nobody has read in a year. | Triage with proposed labels, duplicate clustering, reproduction attempts across versions, fix drafting, reassessment of old issues, stale sweep, and backlog stats. |
-| `magpie-repo-health` | 7 | Slow rot you only notice when it breaks: vulnerable deps, unpinned actions, licence drift, flaky tests. | Read-only audits for dependency CVEs, dependency licences, LICENSE/NOTICE compliance, Actions workflow security, obsolete runner labels, and flaky-test patterns — plus a skill that fixes what they find. |
-| `magpie-contributor-growth` | 6 | Contributors who have earned committership go unnoticed because nobody is tracking the signal. | Activity sweeps against a review threshold, readiness tracking, sentiment signals, nomination briefs for the PMC, and committer / post-vote onboarding checklists. |
-| `magpie-utilities` | 5 | You want to write your own skills, or find out what is actually installed. | Skill authoring and restructuring, a state reconciler, a live index of installed skills, and a path to report framework bugs upstream. **In the baseline.** |
-| `magpie-mentoring` | 4 | Newcomers open one PR, hit a wall of unwritten conventions, and never come back. | First-contact welcome comments, plain-language explanations of an issue for someone new, good-first-issue authoring, and a sweep that keeps that backlog honest. |
-| `magpie-pairing` | 2 | You want the obvious problems found before a reviewer spends their time on them. | A structured self-review of your own diff, and a multi-agent adversarial review that verifies its findings before reporting them. |
+| [`magpie-setup`](../setup/README.md) | 10 | Installation, configuration, isolation, and upgrades | Proposed setup changes, installation status, and drift reports. |
+| [`magpie-security`](../security/README.md) | 15 | Security-report intake through CVE publication | Triage assessments, tracker updates, fix drafts, and advisory drafts. Outbound messages require review. |
+| [`magpie-release-management`](../release-management/README.md) | 10 | ASF release candidates, votes, and announcements | RC checks, vote drafts and tallies, promotion instructions, and audit records. The agent does not hold signing keys or publish releases. |
+| [`magpie-pr-management`](../pr-management/README.md) | 8 | Open-PR triage, code review, and queue maintenance | Draft reviews, proposed routing and stale-PR actions, merge proposals, and queue statistics. |
+| [`magpie-issue`](../issue-management/README.md) | 8 | Issue triage, reproduction, fixes, and reassessment | Disposition proposals, reproduction evidence, draft fixes, deduplication proposals, and backlog reports. |
+| [`magpie-repo-health`](../repo-health/README.md) | 7 | Dependencies, licences, CI workflows, runners, and flaky tests | Read-only audit reports. A separate fix skill handles supplied non-security audit findings. |
+| [`magpie-contributor-growth`](../contributor-growth/README.md) | 6 | Contributor activity, nominations, and onboarding | Activity reports, threshold-based readiness tracking, sentiment reports, nomination briefs, and onboarding checklists. |
+| [`magpie-utilities`](../utilities/README.md) | 5 | Skill discovery, authoring, and maintenance | Installed-skill index, new or restructured skills, reconciliation, and framework issue reports. |
+| [`magpie-mentoring`](../mentoring/README.md) | 4 | Newcomer orientation and good-first-issue preparation | Draft welcome comments, issue explanations, new issue drafts, and backlog suitability assessments. |
+| [`magpie-pairing`](../pairing/README.md) | 2 | Local diff review | Structured self-review or independent multi-agent review findings, without posting or modifying code. |
