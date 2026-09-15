@@ -72,7 +72,7 @@ on any single vendor for either — any agent that reads the shared
   spec-loop profile, tool sandboxing, and policies. The adapter is
   **experimental**: Gemini 0.59.0 has native API checks and a Linux adopter pilot,
   but host-read isolation, domain-restricted egress, and further validation remain open;
-  see [the harness guide’s known limitations](../adapters/gemini.md#known-limitations).
+  see [the harness guide's known limitations](../adapters/gemini.md#known-limitations).
 - **[Cursor](https://cursor.com/)** (Composer + `cursor-agent` CLI) reads Magpie's
   canonical `.agents/skills/` tree natively and supports per-action confirmation
   and clean-environment isolation; see [the Cursor harness guide](../adapters/cursor.md).
