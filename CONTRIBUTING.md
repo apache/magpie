@@ -900,51 +900,33 @@ not something a merge can decide. `workflow_dispatch` is restricted by
 GitHub to accounts with write access, so the button is committers-only
 without the workflow checking anything itself.
 
-One run is six jobs:
+One run is three jobs:
 
 ```text
-prepare ──┬─> prek    (pre-commit.yml) ──┐
-          ├─> tests   (tests.yml)      ──┤
-          ├─> rat     (rat.yml)        ──┼─> open-pr   draft PR
-          └─> zizmor  (zizmor.yml)     ──┘
-                                          └─> cleanup  (on failure only)
+prepare ──> open-pr   draft PR
+        └─> cleanup   (on failure only)
 ```
 
 - **`prepare`** runs the three documented steps —
   [`bump-dev-version.py`](tools/dev/bump-dev-version.py), then
   `check-family-plugins.py --fix` and `uv lock` — and commits the result
-  onto a throwaway branch. The commit is made through GitHub's
+  onto a branch. The commit is made through GitHub's
   `createCommitOnBranch` API by
   [`gh-signed-commit.py`](tools/dev/gh-signed-commit.py) rather than
   `git commit`, so it comes back signed by GitHub and shows as
   **Verified** with no key material anywhere in CI. Whoever pressed the
   button is credited as `Co-Authored-By`.
-- **`prek` / `tests` / `rat` / `zizmor`** are `uses:` of the real check
-  workflows, called with a `ref` pointing at that branch. They are
-  called, not copied, so they cannot drift from what a pull request
-  gets. Those four workflows each carry a `workflow_call` trigger and an
-  optional `ref` input for this; the input is empty on every other
-  trigger.
-- **`open-pr`** opens the pull request once they pass. **`cleanup`**
-  deletes the branch if anything failed, so a bad bump leaves nothing
-  behind rather than a broken PR for someone to work out.
+- **`open-pr`** opens that branch as a draft pull request.
+- **`cleanup`** deletes the branch if either failed, so a bad run leaves
+  nothing behind.
 
-A bump is not "only a version string" — it also regenerates fourteen
-manifests and the lockfile, any of which can come out wrong. That is why
-the candidate is checked before it is offered.
-
-A pull request is also the only thing that works. The first version of
-this workflow committed straight to `main`, and its first run was
-refused:
-
-```text
-gh: protected branch 'main' check failed:
-  3 of 3 required status checks are expected.
-```
-
-`main` requires three status checks and a commit arriving by API has
-none — GitHub's API enforces branch protection exactly as a push would.
-Nothing about a bump is special enough to route around that.
+**The workflow runs no checks of its own.** It briefly called
+`pre-commit.yml`, `tests.yml`, `rat.yml` and `zizmor.yml` against the
+candidate before opening the PR, which was a second copy of the suite the
+pull request already runs the moment it is marked ready. One run of the
+gate is enough, and the run worth having is the one attached to the
+commit being merged — the checks a reviewer sees on the PR, not checks
+buried in a dispatch log.
 
 ### Why the PR is a draft
 
@@ -964,7 +946,8 @@ review* starts the required checks against the PR head exactly as an
 ordinary PR gets them.
 
 That also means **any** draft PR in this repo starts its checks when it
-is marked ready, which is the behaviour most people already expect.
+is marked ready, which is the behaviour most people already expect — and
+it is what lets the bump workflow carry no check jobs of its own.
 
 Reviewing a bump PR is quick: every changed line should be the version
 string and nothing else.
