@@ -202,6 +202,11 @@ jobs:
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d  # v10.0.1
         with:
           enable-cache: true
+        # One slot per matrix leg, not merely per job: these run in parallel
+        # with each other and each installs a different workspace member, so a
+        # shared key both races and stores the wrong contents. See the note in
+        # pre-commit.yml.
+          cache-suffix: "tests-${{ matrix.project }}"
       - name: Sync workspace (installs ruff / mypy / pytest from root dev group)
         # Dev-group deps live in the root pyproject (`[dependency-groups]
         # dev`) and only land in the shared workspace `.venv` when an
