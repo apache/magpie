@@ -90,6 +90,7 @@ def test_every_op_declares_validators_for_all_its_params() -> None:
         "prefix",
         "path",
         "login",
+        "team",
         "ghsa",
         "item_id",
     }
@@ -112,6 +113,7 @@ def test_every_builder_produces_a_gh_argv(policy: config.Config) -> None:
         "prefix": "v1",
         "path": "a/b.py",
         "login": "alice",
+        "team": "maintainers",
         "ghsa": "GHSA-aaaa-bbbb-cccc",
         "item_id": "PVTI_abc",
         "label": "needs triage",
@@ -360,6 +362,7 @@ def test_tracker_and_upstream_operations_never_cross(policy: config.Config) -> N
         "prefix": "v1",
         "path": "a/b.py",
         "login": "alice",
+        "team": "maintainers",
         "ghsa": "GHSA-aaaa-bbbb-cccc",
         "item_id": "PVTI_abc",
         "label": "needs triage",
@@ -428,6 +431,7 @@ def test_no_operation_interpolates_a_traversing_ref(policy: config.Config) -> No
         "prefix": "v1",
         "path": "a/b.py",
         "login": "alice",
+        "team": "maintainers",
         "ghsa": "GHSA-aaaa-bbbb-cccc",
         "item_id": "PVTI_abc",
         "body": "unused",
@@ -574,3 +578,63 @@ def test_body_is_read_once_not_reopened(policy: config.Config) -> None:
     _params, captured = cli._validate_params(op, ["7", str(body)], policy)
     body.write_text("substituted text")
     assert captured == b"approved text"
+
+
+# --- the code-review read surface -------------------------------------------
+
+
+def test_pr_searches_are_a_fixed_qualifier_not_a_query(policy: config.Config) -> None:
+    """A search op picks whose queue to read; it can never supply a query."""
+    for name, qualifier in (
+        ("pr-search-review-requested", "--review-requested"),
+        ("pr-search-mentions", "--mentions"),
+        ("pr-search-reviewed-by", "--reviewed-by"),
+    ):
+        argv = ops.OPS[name].build(policy.as_mapping(), login="alice")
+        assert argv[:3] == ["gh", "search", "prs"], name
+        assert argv[argv.index(qualifier) + 1] == "alice", name
+        # The repo is pinned by policy and the state is fixed open.
+        assert argv[argv.index("--repo") + 1] == "acme/product", name
+        assert argv[argv.index("--state") + 1] == "open", name
+        # No free-text qualifier reached the argv.
+        assert not any(a.startswith("--query") or a == "-q" for a in argv), name
+
+
+def test_team_search_cannot_leave_the_upstream_org(policy: config.Config) -> None:
+    argv = ops.OPS["pr-search-team-review-requested"].build(policy.as_mapping(), team="reviewers")
+    assert argv[argv.index("--review-requested") + 1] == "acme/reviewers"
+
+
+@pytest.mark.parametrize(
+    "hostile",
+    ["other-org/team", "../../etc", "a b", "team$(id)", "", "-x"],
+)
+def test_a_team_slug_may_not_carry_an_organisation_or_metacharacters(hostile: str) -> None:
+    with pytest.raises(ops.ParamError):
+        ops.team(hostile)
+
+
+def test_every_code_review_operation_is_a_read() -> None:
+    """The caller in the shipped policy example must reach nothing that writes."""
+    read_only = {
+        "viewer",
+        "upstream-permission",
+        "pr-review-context",
+        "pr-files",
+        "pr-diff",
+        "pr-comments",
+        "pr-reviews",
+        "pr-checks",
+        "pr-list",
+        "pr-list-label",
+        "pr-search-review-requested",
+        "pr-search-mentions",
+        "pr-search-reviewed-by",
+        "pr-search-team-review-requested",
+        "commits-by-path",
+        "repo-file",
+        "label-list",
+        "gql-pr-review-threads",
+    }
+    for name in read_only:
+        assert not ops.OPS[name].writes, f"{name} must be a read"

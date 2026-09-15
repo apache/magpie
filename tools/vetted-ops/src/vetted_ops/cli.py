@@ -98,6 +98,8 @@ def _validate_params(
             resolved[name] = ops_mod.repo_path(raw)
         elif name == "login":
             resolved[name] = ops_mod.login(raw)
+        elif name == "team":
+            resolved[name] = ops_mod.team(raw)
         elif name == "ghsa":
             resolved[name] = ops_mod.ghsa(raw)
         elif name == "item_id":

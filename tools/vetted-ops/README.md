@@ -185,7 +185,12 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
                            "pr-add-label", "pr-remove-label", "pr-draft", "pr-ready",
                            "pr-comment", "pr-update-branch", "run-rerun-failed",
                            "workflow-approve"]
-"pr-management-code-review" = ["pr-view", "pr-diff", "pr-comments", "pr-reviews",
+"pr-management-code-review" = ["viewer", "upstream-permission", "pr-review-context",
+                               "pr-files", "pr-diff", "pr-comments", "pr-reviews",
+                               "pr-checks", "pr-list", "pr-list-label",
+                               "pr-search-review-requested", "pr-search-mentions",
+                               "pr-search-reviewed-by", "pr-search-team-review-requested",
+                               "commits-by-path", "repo-file", "label-list",
                                "gql-pr-review-threads", "pr-review-approve",
                                "pr-review-request-changes", "pr-review-comment"]
 "pr-management-stats"   = ["pr-list", "pr-view", "gql-pr-review-threads"]

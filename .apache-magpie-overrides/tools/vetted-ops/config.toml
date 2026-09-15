@@ -1,0 +1,67 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+# Magpie's own vetted-ops policy. Magpie self-adopts the framework, so this is
+# the live policy the dispatcher reads — see tools/vetted-ops/README.md.
+#
+# Nothing here widens what an operation can do; it decides which repository the
+# fixed operations point at and which caller may run which of them.
+
+# Body files for comment/review operations must resolve inside this directory,
+# which must be owned by you and mode 700.
+workspace = "~/.cache/apache-magpie/vetted-ops-workspace"
+
+[repos]
+# TODO(maintainer): the private security tracker, as "owner/name". Left unset
+# deliberately rather than guessed — the value is not derivable from this
+# repository, and pointing tracker operations at a *public* repo would publish
+# embargoed content. The dispatcher refuses to load until this is filled in.
+# tracker = "apache/<tracker>"
+upstream = "apache/magpie"
+
+[values]
+issue_states = ["open", "closed", "all"]
+pr_states = ["open", "closed", "merged", "all"]
+upstream_labels = ["ready for maintainer review"]
+close_reasons = ["completed", "not planned"]
+
+[callers]
+# Read-only by construction: every operation below has writes=False, so this
+# caller runs entirely through `vetted-op-read`, which refuses writes before it
+# consults this file at all. The three review *submissions*
+# (pr-review-approve / -request-changes / -comment) are deliberately absent —
+# posting a review stays a confirmed action through `vetted-op`.
+"pr-management-code-review" = [
+    "viewer",
+    "upstream-permission",
+    "pr-review-context",
+    "pr-files",
+    "pr-diff",
+    "pr-comments",
+    "pr-reviews",
+    "pr-checks",
+    "pr-list",
+    "pr-list-label",
+    "pr-search-review-requested",
+    "pr-search-mentions",
+    "pr-search-reviewed-by",
+    "pr-search-team-review-requested",
+    "commits-by-path",
+    "repo-file",
+    "label-list",
+    "gql-pr-review-threads",
+]

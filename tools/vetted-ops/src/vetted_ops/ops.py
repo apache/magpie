@@ -55,6 +55,11 @@ _REPO_PATH = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,300}$")
 #: A GitHub login.
 _LOGIN = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$")
 
+#: A GitHub team *slug*, without its organisation. The org half is never a
+#: parameter — it is read from the policy-pinned upstream repo — so a team
+#: search cannot be aimed at another organisation.
+_TEAM = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,99})$")
+
 #: A GHSA identifier.
 _GHSA = re.compile(r"^GHSA-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}$")
 
@@ -105,6 +110,17 @@ def repo_path(value: str) -> str:
 
 def login(value: str) -> str:
     return _check(_LOGIN, value, "login")
+
+
+def team(value: str) -> str:
+    """
+    Validate a team *slug*. Only the slug: the organisation is supplied by the
+    builder from the pinned upstream repo, so ``--team-review-requested`` can
+    never be pointed at a team outside it.
+    """
+    if "/" in value:
+        raise ParamError(f"team must be a slug without its organisation (that comes from policy): {value!r}")
+    return _check(_TEAM, value, "team slug")
 
 
 def ghsa(value: str) -> str:
@@ -696,6 +712,216 @@ _register(
     )
 )
 
+# ---- code-review reads -----------------------------------------------------
+#
+# What `pr-management-code-review` needs before it can draft anything. Every
+# operation here is a read; the three review *submissions* it ends with
+# (`pr-review-approve` / `-request-changes` / `-comment`) are writes and stay
+# behind `vetted-op`'s confirmation, below.
+#
+# The searches are the interesting case. Free-text `gh search prs` stays out of
+# the catalogue for the reason given at the foot of this file — a query with no
+# fixed shape is the surface this dispatcher exists to remove. These three are
+# not that: the qualifier is baked into the builder, the repository comes from
+# policy, and the only parameter is a login or a team slug. A caller chooses
+# *whose* queue to read, never *what* to ask.
+
+_register(
+    Op(
+        name="viewer",
+        params=(),
+        summary="Read the authenticated login (whose review queue to resolve).",
+        build=lambda cfg: ["gh", "api", "user", "--jq", ".login"],
+    )
+)
+
+_register(
+    Op(
+        name="upstream-permission",
+        params=("login",),
+        summary="Read one user's permission level on the upstream repo.",
+        build=lambda cfg, login: [
+            "gh",
+            "api",
+            f"repos/{_upstream(cfg)}/collaborators/{login}/permission",
+            "--jq",
+            ".permission",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="pr-review-context",
+        params=("number",),
+        summary="Read everything the review pass needs about one upstream PR, as JSON.",
+        build=lambda cfg, number: [
+            "gh",
+            "pr",
+            "view",
+            number,
+            "--repo",
+            _upstream(cfg),
+            "--json",
+            "number,title,url,state,isDraft,body,author,createdAt,updatedAt,"
+            "baseRefName,headRefName,headRefOid,labels,milestone,files,commits,"
+            "additions,deletions,changedFiles,reviewDecision,reviewRequests,"
+            "reviews,comments,mergeable,mergeStateStatus,statusCheckRollup",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="pr-files",
+        params=("number",),
+        summary="List the paths one upstream PR touches (the touching-mine intersection).",
+        build=lambda cfg, number: [
+            "gh",
+            "pr",
+            "view",
+            number,
+            "--repo",
+            _upstream(cfg),
+            "--json",
+            "files",
+            "--jq",
+            ".files[].path",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="pr-list-label",
+        params=("label",),
+        summary="List open upstream PRs carrying one configured label (the `ready` queue).",
+        enums={"label": "upstream_labels"},
+        build=lambda cfg, label: [
+            "gh",
+            "pr",
+            "list",
+            "--repo",
+            _upstream(cfg),
+            "--state",
+            "open",
+            "--label",
+            label,
+            "--limit",
+            "100",
+            "--json",
+            "number,title,state,isDraft,author,labels,updatedAt,createdAt,"
+            "reviewDecision,reviewRequests,baseRefName",
+        ],
+    )
+)
+
+#: Search qualifier -> the summary for the operation built around it. The
+#: qualifier is fixed per operation; only its value is a parameter.
+_PR_SEARCHES: dict[str, tuple[str, str]] = {
+    "review-requested": (
+        "pr-search-review-requested",
+        "Open upstream PRs with a review requested from one user.",
+    ),
+    "mentions": (
+        "pr-search-mentions",
+        "Open upstream PRs mentioning one user.",
+    ),
+    "reviewed-by": (
+        "pr-search-reviewed-by",
+        "Open upstream PRs one user has already reviewed.",
+    ),
+}
+
+_SEARCH_FIELDS = "number,title,author,authorAssociation,labels,url,updatedAt,createdAt,isDraft,state"
+
+
+def _pr_search_builder(qualifier: str) -> Callable[..., list[str]]:
+    def build(cfg: dict[str, str], login: str) -> list[str]:
+        return [
+            "gh",
+            "search",
+            "prs",
+            "--repo",
+            _upstream(cfg),
+            "--state",
+            "open",
+            f"--{qualifier}",
+            login,
+            "--sort",
+            "updated",
+            "--order",
+            "desc",
+            "--limit",
+            "50",
+            "--json",
+            _SEARCH_FIELDS,
+        ]
+
+    return build
+
+
+for _qualifier, (_op_name, _summary) in _PR_SEARCHES.items():
+    _register(
+        Op(
+            name=_op_name,
+            params=("login",),
+            summary=_summary,
+            build=_pr_search_builder(_qualifier),
+        )
+    )
+
+_register(
+    Op(
+        name="pr-search-team-review-requested",
+        params=("team",),
+        summary="Open upstream PRs with a review requested from one team in the upstream org.",
+        build=lambda cfg, team: [
+            "gh",
+            "search",
+            "prs",
+            "--repo",
+            _upstream(cfg),
+            "--state",
+            "open",
+            # `gh search prs` has no --team-review-requested; --review-requested
+            # accepts a user *or* an "<org>/<team>" slug.
+            "--review-requested",
+            f"{_owner_name(_upstream(cfg))[0]}/{team}",
+            "--sort",
+            "updated",
+            "--order",
+            "desc",
+            "--limit",
+            "50",
+            "--json",
+            _SEARCH_FIELDS,
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="commits-by-path",
+        params=("path",),
+        summary="Read the recent commit authors for one upstream path (reviewer suggestions).",
+        build=lambda cfg, path: [
+            "gh",
+            "api",
+            f"repos/{_upstream(cfg)}/commits",
+            "-X",
+            "GET",
+            "-F",
+            f"path={path}",
+            "-F",
+            "per_page=30",
+            "--jq",
+            ".[].author.login",
+        ],
+    )
+)
+
+
 _register(
     Op(
         name="pr-comment",
@@ -1196,8 +1422,13 @@ _register(
 #     framework; a vetted delete would hand the agent an irreversible action the
 #     surrounding process deliberately keeps in human hands. Same reasoning as
 #     the absent `pr-merge`.
-#   * `gh search issues` / `prs`, and the GraphQL `search(...)` connection that
-#     contributor-growth leans on — the query is free text with no fixed shape.
+#   * *Free-text* `gh search issues` / `prs`, and the GraphQL `search(...)`
+#     connection that contributor-growth leans on — a query with no fixed shape
+#     is exactly the surface this dispatcher exists to remove. The four
+#     `pr-search-*` operations above are not an exception to that: each one
+#     hard-codes its qualifier in the builder and takes a single validated
+#     login or team slug, so a caller picks *whose* queue to read and never
+#     what to ask.
 #   * `gh run download` — writes artifacts to local disk rather than to the
 #     forge. That is a different risk class (filesystem paths, archive
 #     extraction) and does not belong behind a forge dispatcher.
