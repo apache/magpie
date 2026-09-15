@@ -1459,7 +1459,22 @@ unnoticed for hours.
 
 The framework ships
 [`tools/agent-isolation/sandbox-status-line.sh`](../../tools/agent-isolation/sandbox-status-line.sh)
-to render exactly that, leading with the sandbox tag:
+to render exactly that, leading with the sandbox tag.
+
+**Claude Code only**, unlike the harness-agnostic helpers beside it:
+the script is wired through Claude Code's `statusLine` setting, is fed
+Claude Code's statusLine payload on stdin, and reads Claude Code's
+`sandbox.enabled` schema. No other harness the framework supports has a
+status-line hook of that shape — Codex, Gemini, OpenCode and Kiro carry
+their sandbox posture in their own config and surface it, where they
+surface it at all, through their own UI. A harness that grows one gets
+its own helper; see
+[`docs/adapters/add-a-harness.md`](../adapters/add-a-harness.md). The
+harness-agnostic half of sandbox visibility is the
+[bypass-warning hook](#sandbox-bypass-visibility-hook), which fires on
+the tool call rather than in the footer.
+
+The tag and the segments that follow it:
 
 - `[sandbox]` in green when the active settings set
   `"sandbox": { "enabled": true }`;
