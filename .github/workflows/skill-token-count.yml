@@ -44,6 +44,14 @@ jobs:
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d
         with:
           enable-cache: true
+        # A distinct cache slot per job. `setup-uv` derives its key from the
+        # runner, arch and Python version only, so every job that enables the
+        # cache computes the *same* key and they race when they run
+        # concurrently — "Unable to reserve cache with key …, another job may be
+        # creating this cache", and the loser saves nothing. `cache-suffix`
+        # splits them, which also keeps each slot scoped to the dependency set
+        # that job actually installs.
+          cache-suffix: "skill-token-count"
       - name: Prepare verified tokenizer vocabulary
         run: uv run --locked --project tools/skill-token-count skill-token-count --prepare-tokenizer
       - name: Check committed token measurements
