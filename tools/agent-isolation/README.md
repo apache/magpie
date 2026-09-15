@@ -21,8 +21,11 @@
 
 **Capability:** substrate:sandbox
 
-**Harness:** agnostic, except
-[`sandbox-status-line.sh`](sandbox-status-line.sh) — Claude Code only
+**Harness:** agnostic
+
+One exception to that tag:
+[`sandbox-status-line.sh`](sandbox-status-line.sh) is Claude Code only.
+Every other script here is harness-agnostic.
 
 This directory ships the moving pieces the framework's
 [`docs/setup/secure-agent-setup.md`](../../docs/setup/secure-agent-setup.md) document
