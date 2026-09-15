@@ -35,10 +35,36 @@
 # the button — they are named as `Co-Authored-By` on the commit, and the
 # Actions run records them as the actor.
 #
-# `main` must permit the commit. It is created through GitHub's API, which
-# enforces branch protection exactly as a push would: a rule requiring a pull
-# request, or a linear-history rule, makes this job fail rather than bypass
-# anything. If it fails on first run, that is the rule talking.
+# SHAPE — why this is six jobs rather than one.
+#
+#   prepare  ->  branch carrying the signed candidate commit
+#   prek / tests / rat / zizmor  ->  the real workflows, called with `ref`
+#   open-pr  ->  open the pull request once those pass
+#   cleanup  ->  delete the branch when anything above failed
+#
+# The bump is not "only a version string": it also regenerates fourteen
+# manifests and the lockfile, any of which can come out wrong. So the candidate
+# is checked before it becomes a pull request, and a failed check deletes the
+# branch instead of leaving a broken PR for someone to work out.
+#
+# The checks are `uses:` of the workflows themselves, not copies of their
+# steps, so they cannot drift from what a PR gets. `pre-commit.yml`,
+# `tests.yml`, `rat.yml` and `zizmor.yml` each grew a `workflow_call` trigger
+# and a `ref` input for this; that input is empty on every other trigger.
+#
+# WHY THE PULL REQUEST IS A DRAFT. GitHub raises no `pull_request` events for
+# anything done with `GITHUB_TOKEN`, so a PR opened from here starts no checks
+# of its own, and the checks this workflow ran are attached to the run's own
+# commit rather than to the PR head — evidence in the run log, not green ticks
+# on the PR. Left as a ready PR it would sit forever on "N of N required status
+# checks are expected".
+#
+# Opening it as a draft turns that into a normal gesture: marking a draft ready
+# raises `pull_request: ready_for_review`, which *is* a real event because a
+# human does it. `pre-commit.yml`, `tests.yml`, `rat.yml` and `zizmor.yml` list
+# that type explicitly — it is not in the default set — so pressing *Ready for
+# review* starts the required checks against the PR head, exactly as an ordinary
+# PR gets them. Review the diff, mark it ready, let the checks run, merge.
 ---
 name: bump dev version
 
@@ -48,12 +74,17 @@ on:  # yamllint disable-line rule:truthy
 permissions: {}
 
 jobs:
-  bump:
+  prepare:
+    name: Build the candidate commit
     runs-on: ubuntu-slim
     timeout-minutes: 10
     permissions:
-      # Committing the stamp onto `main`.
+      # Creating the temporary branch and committing the candidate onto it.
       contents: write
+    outputs:
+      branch: ${{ steps.candidate.outputs.branch }}
+      version: ${{ steps.candidate.outputs.version }}
+      changed: ${{ steps.bump.outputs.changed }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -87,8 +118,9 @@ jobs:
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Commit the stamp onto main
+      - name: Commit the candidate onto a temporary branch
         if: steps.bump.outputs.changed == 'true'
+        id: candidate
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -96,8 +128,11 @@ jobs:
           HEAD_SHA: ${{ github.sha }}
           ACTOR: ${{ github.actor }}
           ACTOR_ID: ${{ github.actor_id }}
+          RUN_ID: ${{ github.run_id }}
         run: |
           set -euo pipefail
+          branch="chore/bump-dev-version-${RUN_ID}"
+
           # Attribute the bump to the maintainer who ran the workflow. The
           # commit's *author* is whoever the token authenticates as — with
           # GITHUB_TOKEN that is the Actions bot, and the mutation offers no way
@@ -125,13 +160,120 @@ jobs:
             echo "Co-Authored-By: $coauthor"
           } > "$RUNNER_TEMP/bump-message.txt"
 
+          # The branch has to exist before the mutation can commit onto it. It
+          # is a throwaway: `promote` fast-forwards `main` onto it and deletes
+          # it, `cleanup` deletes it if anything fails.
+          gh api "repos/$REPO/git/refs" \
+            -f "ref=refs/heads/$branch" -f "sha=$HEAD_SHA" >/dev/null
+
           # Committed through GitHub's API, not `git commit`: the commit comes
           # back signed by GitHub and shows as Verified, with no key material in
-          # CI. `expectedHeadOid` is the tip this run checked out, so a merge
-          # landing while the job was working makes this fail rather than
-          # overwrite it.
+          # CI.
           uv run --project tools/dev python tools/dev/gh-signed-commit.py \
-            --branch main \
+            --branch "$branch" \
             --expected-head-oid "$HEAD_SHA" \
             --message-file "$RUNNER_TEMP/bump-message.txt" \
             --repo "$REPO"
+
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+  # The same four workflows a pull request runs, against the candidate. Called
+  # rather than copied, so they cannot drift from what a PR gets.
+  prek:
+    needs: prepare
+    if: needs.prepare.outputs.changed == 'true'
+    uses: $/.github/workflows/pre-commit.yml
+    with:
+      ref: ${{ needs.prepare.outputs.branch }}
+
+  tests:
+    needs: prepare
+    if: needs.prepare.outputs.changed == 'true'
+    uses: $/.github/workflows/tests.yml
+    with:
+      ref: ${{ needs.prepare.outputs.branch }}
+
+  rat:
+    needs: prepare
+    if: needs.prepare.outputs.changed == 'true'
+    uses: $/.github/workflows/rat.yml
+    with:
+      ref: ${{ needs.prepare.outputs.branch }}
+
+  zizmor:
+    needs: prepare
+    if: needs.prepare.outputs.changed == 'true'
+    uses: $/.github/workflows/zizmor.yml
+    with:
+      ref: ${{ needs.prepare.outputs.branch }}
+
+  open-pr:
+    name: Open the bump pull request
+    needs: [prepare, prek, tests, rat, zizmor]
+    if: needs.prepare.outputs.changed == 'true'
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Create the pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          BRANCH: ${{ needs.prepare.outputs.branch }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+          ACTOR: ${{ github.actor }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          body=$(cat <<EOF
+          Moves the dev stamp to \`$VERSION\` so adopters' \`claude plugin update\` picks
+          up the work merged since the previous stamp. The marketplace is served from
+          \`main\` and the update check compares version strings, so a frozen suffix is a
+          silent no-op — see [\`docs/setup/marketplace.md\`](docs/setup/marketplace.md).
+
+          Requested from the Actions tab by @$ACTOR, who is credited on the commit. The
+          commit is signed by GitHub and the candidate was checked before this PR was
+          opened — prek, tests, rat and zizmor all passed in [the run that produced it]($RUN_URL).
+
+          Those runs are attached to that workflow run rather than to this PR, so the
+          required checks here start out unstarted: GitHub raises no events for anything
+          \`GITHUB_TOKEN\` does. **Press *Ready for review* to start them** — that raises
+          a real event, and the check workflows listen for it.
+
+          Opened by [\`bump-dev-version.yml\`](.github/workflows/bump-dev-version.yml).
+          EOF
+          )
+          # Draft on purpose — see the note at the top of this file. Marking it
+          # ready is what starts the required checks.
+          url=$(gh pr create --repo "$REPO" --base main --head "$BRANCH" --draft \
+            --title "chore: bump dev version to $VERSION" \
+            --body "$body")
+          echo "Opened $url" >> "$GITHUB_STEP_SUMMARY"
+
+  cleanup:
+    name: Drop the temporary branch
+    needs: [prepare, prek, tests, rat, zizmor, open-pr]
+    # Only when something above did not succeed. On the happy path the branch
+    # is the pull request's head and must stay. Without this a failed check
+    # leaves an orphan candidate branch behind on every run.
+    if: always() && needs.prepare.outputs.changed == 'true' && contains(needs.*.result, 'failure')
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - name: Delete the candidate branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          BRANCH: ${{ needs.prepare.outputs.branch }}
+        run: |
+          set -euo pipefail
+          if [[ -n "$BRANCH" ]]; then
+            gh api "repos/$REPO/git/refs/heads/$BRANCH" -X DELETE || true
+            echo "Checks failed; candidate branch $BRANCH deleted and no PR opened." \
+              >> "$GITHUB_STEP_SUMMARY"
+          fi

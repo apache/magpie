@@ -20,8 +20,24 @@ name: prek
 
 on:  # yamllint disable-line rule:truthy
   pull_request:
+    # `ready_for_review` is not in the default set (opened / synchronize /
+    # reopened). It is here so that marking a draft ready starts the checks —
+    # which is what makes the draft PR from `bump-dev-version.yml` usable, since
+    # GitHub raises no events for anything `GITHUB_TOKEN` opens.
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches: [main]
+  workflow_call:
+    inputs:
+      ref:
+        description: >-
+          Commit or branch to check instead of the caller's default. Set by
+          `bump-dev-version.yml`, which verifies its candidate commit on a
+          temporary branch before promoting it to `main`; empty everywhere else,
+          which leaves `actions/checkout` on its normal behaviour.
+        type: string
+        required: false
+        default: ""
 
 permissions: {}
 
@@ -55,6 +71,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
+          ref: ${{ inputs.ref }}
           persist-credentials: false
       # `uv` brings its own Python and is required by both:
       #  - the four `workspace-*` prek hooks in
