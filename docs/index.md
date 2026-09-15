@@ -7,36 +7,42 @@
 
 - [What is Apache Magpie?](#what-is-apache-magpie)
   - [How it works](#how-it-works)
-  - [Need help with one of these? Adopt a family of skills](#need-help-with-one-of-these-adopt-a-family-of-skills)
+  - [Skill families](#skill-families)
   - [Who is this for?](#who-is-this-for)
     - [Anyone who wants agent help on a repo](#anyone-who-wants-agent-help-on-a-repo)
     - [Maintainers adopting Magpie for their project](#maintainers-adopting-magpie-for-their-project)
     - [Security team members](#security-team-members)
     - [Contributors to the Magpie framework itself](#contributors-to-the-magpie-framework-itself)
     - [People evaluating whether to adopt](#people-evaluating-whether-to-adopt)
-    - [People who are concerned for security and privacy when using their agents](#people-who-are-concerned-for-security-and-privacy-when-using-their-agents)
-  - [Key concepts in 60 seconds](#key-concepts-in-60-seconds)
+    - [Security and privacy setup](#security-and-privacy-setup)
+  - [Key concepts](#key-concepts)
   - [Where to go next](#where-to-go-next)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
 # What is Apache Magpie?
 
-Apache Magpie is an AI assistant for open-source project maintainers. It handles the repetitive parts of running a project — triaging issues, reviewing PRs, onboarding contributors, managing security reports, cutting releases — so maintainers can spend their time on design, relationships, and the work that actually requires a human.
+Apache Magpie is a set of skills for AI agents, used to triage issues, review pull requests, mentor contributors, handle security reports, and prepare releases.
+Each skill defines a workflow and the points where a person must review or approve its output.
+Shared-state changes, such as posting a comment or applying a label, require explicit confirmation.
 
-**The agent proposes. The human decides.** Magpie never merges, never pushes, never sends mail, never flips a label without a maintainer confirming first.
-
-**Before you start**, check what the skills need to run — an agent, a mail
-backend, tracker access: [prerequisites](quick-start/prerequisites.md). The
-[quick start](quick-start.md) is two commands once those are in place.
-
----
+Start with the [quick start](quick-start.md) to install Magpie and configure it for a repository.
+The [prerequisites](quick-start/prerequisites.md) list access requirements, including GitHub authentication and mail backends for skills that use them.
 
 ## How it works
 
-Magpie provides **skills** — step-by-step workflows an AI agent follows. You pick which skills your project uses. The agent reads your issues, PRs, or security reports, does the analysis, and drafts a response. You review it and hit "go" (or don't).
+You install a skill family, configure the repository it will work against, and ask your agent to run a task.
+The skill reads the relevant data and produces a report, draft, or proposed change.
+You can correct the proposal, approve permitted actions, or stop without applying them.
 
-Five **modes** describe what the agent can do, from low-risk to high:
+For example, ask:
+
+> Summarize this repository's open PR backlog. Do not post comments or change labels.
+
+Use the summary to decide which PRs need review.
+Request a review of a specific PR as a separate task.
+
+Five [modes](modes.md) describe the kinds of assistance:
 
 | Mode | What it does | Status |
 |---|---|---|
@@ -44,90 +50,81 @@ Five **modes** describe what the agent can do, from low-risk to high:
 | **Agentic Mentoring** | Help contributors with conventions, point to examples | Experimental |
 | **Agentic Drafting** | Write a code fix or a PR for you to review | Stable (security) |
 | **Agentic Pairing** | Self-review your own code before submitting | Experimental |
-| **Agentic Autonomous** | Merge trivial changes without human review | Off (deliberately) |
+| **Agentic Autonomous** | Merge trivial changes without human review | Disabled |
 
-Each project picks the modes that fit. You can run just Agentic Triage and nothing else.
+Projects opt into the modes they need; using triage does not require enabling drafting or pairing.
 
----
+<a id="need-help-with-one-of-these-adopt-a-family-of-skills"></a>
 
-## Need help with one of these? Adopt a family of skills
+## Skill families
 
-Magpie's skills ship in **families**. You don't adopt all of them — you pick the ones that match a problem you actually have today. Each family page explains what it does, which skills it includes, and how to turn it on.
+Install families by task.
+Each family guide lists its skills, configuration requirements, and first-run examples.
 
-Most families work on **any** project, inside or outside the Apache Software
-Foundation. The ones marked **🪶 ASF-specific** encode Foundation processes —
-the release lifecycle and the contributor-to-committer path — and assume an ASF
-adopter profile by default; a non-ASF project can still adopt them through the
-adapter/config layer, but they carry ASF assumptions the generic families do not.
+Most families are organization-independent.
+Families marked **ASF-specific** use Foundation processes by default; other organizations need configuration or adapters for their own release and governance processes.
 
-| If you're dealing with… | Adopt the family | Scope |
+| Task | Family | Scope |
 |---|---|---|
-| Setting up agents safely — sandbox, clean environment, privacy routing | [setup](setup/README.md) | Any project |
-| Security reports that need careful, audited handling | [security](security/README.md) | Any project |
-| A pull-request queue that's out of control | [pr-management](pr-management/README.md) | Any project |
-| Catching implementation-detail nits before you open a PR | [pairing](pairing/README.md) | Any project |
-| An issue backlog full of duplicates and stale reports | [issue-management](issue-management/README.md) | Any project |
-| Repo hygiene slipping — CI runners, dependencies, licenses, flaky tests | [repo-health](repo-health/README.md) | Any project |
-| Releases that are a manual, error-prone slog | [release-management](release-management/README.md) | 🪶 ASF-specific |
-| New contributors getting stuck and drifting away | [mentoring](mentoring/README.md) | Any project |
-| Growing contributors into committers | [contributor-growth](contributor-growth/README.md) | 🪶 ASF-specific |
-| Building or maintaining your own skills | [utilities](utilities/README.md) | Any project |
+| Installation, sandboxing, and privacy configuration | [setup](setup/README.md) | Any project |
+| Security-report intake, triage, and disclosure | [security](security/README.md) | Any project |
+| PR triage, code review, and queue reports | [pr-management](pr-management/README.md) | Any project |
+| Local diff review before submitting a PR | [pairing](pairing/README.md) | Any project |
+| Issue triage, reproduction, and backlog maintenance | [issue-management](issue-management/README.md) | Any project |
+| CI, dependency, licence, and flaky-test audits | [repo-health](repo-health/README.md) | Any project |
+| Release candidates, votes, and announcements | [release-management](release-management/README.md) | ASF-specific |
+| Newcomer guidance and good-first-issue preparation | [mentoring](mentoring/README.md) | Any project |
+| Contributor activity, nominations, and onboarding | [contributor-growth](contributor-growth/README.md) | ASF-specific |
+| Skill discovery, authoring, and maintenance | [utilities](utilities/README.md) | Any project |
 
-Start with [`setup`](setup/README.md) regardless — it is the prerequisite every adopter installs first — then add the families above as you need them.
-
----
+Install [`setup`](setup/README.md) first.
+The [baseline plugins](quick-start/families.md#start-with-the-baseline) also include `magpie-agent-guard` and `magpie-utilities`.
 
 ## Who is this for?
 
 ### Anyone who wants agent help on a repo
 
-You work on a project with an issue tracker and/or PR queue, and you want agent assistance with the mechanical parts. You do not need the project's permission, and nothing gets committed.
-
-→ Start with the [quick start](quick-start.md) — install into your agent in two commands — then [individual use](setup/individual-use.md). If a marketplace is not an option, [other installation methods](quick-start/other-install-methods.md) cover the pinned snapshot install.
+Install Magpie for your own use without committing shared configuration.
+See the [quick start](quick-start.md) and [individual use](setup/individual-use.md).
+If your agent has no marketplace, use one of the [other installation methods](quick-start/other-install-methods.md).
 
 ### Maintainers adopting Magpie for their project
 
-You want contributors to arrive with a sensible set of families already enabled, and the repo's own conventions encoded where the skills will read them.
-
-→ [Team adoption](setup/team-adoption.md) — what a repo commits, how to decide it, and how to keep it current. Adoption is a recommendation to your contributors, not a requirement on them.
+Commit a recommended plugin set and shared project configuration.
+[Team adoption](setup/team-adoption.md) describes the files involved and how contributors receive updates.
+Adoption does not require contributors to use Magpie.
 
 ### Security team members
 
-You handle CVE reports and want agent help with the 16-step lifecycle — import, triage, fix, allocate, publish.
-
-→ Start with [security workflow overview](security/README.md), then [how the security team works](security/how-the-security-team-works.md).
+Use the [security workflow overview](security/README.md) for the report-to-publication lifecycle.
+[How the security team works](security/how-the-security-team-works.md) covers team responsibilities and onboarding.
+Configure privacy controls before loading private reports.
 
 ### Contributors to the Magpie framework itself
 
-You want to improve the skills, add tools, or fix bugs in the framework.
-
-→ Start with [CONTRIBUTING.md](../CONTRIBUTING.md) and the [spec-driven development](spec-driven-development.md) loop.
+Start with [CONTRIBUTING.md](../CONTRIBUTING.md) for repository layout, local setup, and requirements for patches.
+The [spec-driven development](spec-driven-development.md) guide describes the specification workflow.
 
 ### People evaluating whether to adopt
 
-You want to understand the trust model, cost, and governance commitments before deciding.
+Read [MISSION.md](../MISSION.md) for scope, [PRINCIPLES.md](../PRINCIPLES.md) for design requirements, and [mode economics](mode-economics.md) for token-cost estimates.
 
-→ Read [MISSION.md](../MISSION.md) (the why), [PRINCIPLES.md](../PRINCIPLES.md) (the rules), and [mode economics](mode-economics.md) (what it costs in tokens).
+### Security and privacy setup
 
-### People who are concerned for security and privacy when using their agents
+Use [secure agent setup](setup/secure-agent-setup.md) to configure filesystem access, network access, and command guards.
+Use [privacy setup](setup/privacy-llm.md) to configure which models may receive private content and how third-party personal information is redacted.
+Available isolation and guard mechanisms vary by [adapter](adapters/README.md).
 
-You would like to use agentic AI but you are concerned about security and privacy - when LLMs / Agent
-might get access to your credentials and poison your workstation, or have access to private information
-from mailing lists, slack etc.
+## Key concepts
 
-→ When you setup Magpie, it will setup your workstation with security guardrail layers that will run your agents in containerized sandbox, and it will setup privacy gateways for the tools your agentic setup will use. Read more details in [Secure agent setup RFC](../docs/rfcs/RFC-AI-0002.md) and [Privacy-aware LLM routing for foundation private information](../docs/rfcs/RFC-AI-0003.md).
-
----
-
-## Key concepts in 60 seconds
-
-- **Skill** — A markdown file describing one workflow (e.g., "triage a PR"). The agent reads it and follows the steps.
-- **Mode** — A risk level (Agentic Triage → Agentic Mentoring → Agentic Drafting → Agentic Pairing → Agentic Autonomous). Projects opt in per-mode.
-- **Adopter config** — Your project-specific settings (mailing lists, label schemes, canned responses) in a `<project-config>/` directory.
-- **Sandbox** — The agent runs in a locked-down environment. It can't read your credentials, can't access the network freely, and can't push code.
-- **Human-in-the-loop** — Every action visible to others requires explicit maintainer confirmation. No exceptions until Agentic Autonomous (which is off).
-
----
+| Term | Meaning | Example |
+|---|---|---|
+| Skill | A Markdown workflow the agent follows. | Triage an open issue and propose a disposition. |
+| Family | A group of related skills installed together. | `pr-management` includes triage, review, and queue statistics. |
+| Mode | A category of assistance that a project opts into. | Drafting produces a proposed fix for review. |
+| Project configuration | Repository-specific settings resolved through `<project-config>`. | The upstream repository, label scheme, and canned responses. |
+| Sandbox | Restrictions on an agent process's filesystem and network access. | Preventing reads of home-directory credential files. |
+| Human-in-the-loop | Explicit approval before a proposed shared-state change. | Reviewing a drafted comment before it is posted. |
 
 ## Where to go next
 

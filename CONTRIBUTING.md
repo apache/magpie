@@ -36,96 +36,36 @@
 
 # Contributing
 
-Thanks for helping improve this repository. It is the **generic,
-project-agnostic framework** for agent-assisted repository
-maintainership across ASF projects (and equally for any non-ASF
-open-source community that wants in). The framework is named
-**Apache Magpie** — see [`MISSION.md`](MISSION.md) for the
-project's motivation, scope, and design commitments.
+Apache Magpie contains reusable skills, tool adapters, and documentation for agent-assisted project maintenance.
+Project-specific configuration belongs in the adopting project's repository, not in the framework.
 
-Before sending a patch, please skim this file end-to-end: it lays
-out the layering the repository depends on, the cross-cutting
-concerns every change must respect, and the dev loop CI enforces.
-A patch that ignores any of these is hard to land no matter how
-correct it is in isolation.
+For a first patch, start with [Getting set up](#getting-set-up) and [Making changes](#making-changes).
+The sections below describe the repository layout, requirements for skill and tool changes, and the checks CI runs.
+See [`MISSION.md`](MISSION.md) for the project's scope and design commitments.
 
 ## English as code
 
-The most important thing to understand about this repository,
-before you make any change, is that **English is the primary
-programming language here**. Not as metaphor — as engineering.
+Agents read `skills/<name>/SKILL.md` and tool contracts such as `tools/<adapter>/tool.md` at runtime.
+Changing these files can change which inputs an agent accepts, how it classifies a report, or when it asks for confirmation.
+Treat behavioural edits as code changes, even though the files are Markdown.
 
-Sixty-some years ago, COBOL was designed around an ambitious idea:
-let programmers write business logic in something close to plain
-English (`MULTIPLY HOURS-WORKED BY HOURLY-RATE GIVING GROSS-PAY`),
-on the theory that the compiler should meet humans halfway. The
-idea was sound; the implementation wasn't. Compilers of the 1960s
-could parse the syntax but not the meaning, so COBOL ended up
-verbose, brittle, and still requiring programmer discipline to
-write code the compiler could actually run. The full-English
-vision was abandoned, and for the next half-century, programming
-languages drifted in the *opposite* direction — more terse, more
-rigorous, more demanding of the human, on the assumption that the
-human would always be the one meeting the machine halfway.
+For example, changing a triage instruction from "propose a label" to "apply a label" changes a write boundary.
+It needs the same review as a code change that replaces a preview with an API write.
+A link correction in a reader-facing guide does not change that boundary.
 
-**We have come full circle.** Today's interpreters can read
-English. A modern coding agent — Claude Code, Codex, Gemini CLI,
-any of the runtimes listed in
-[Agent harnesses](#agent-harnesses) — reads a plain-English
-description of a workflow (*"sweep the inbox since last week,
-classify each message against the six triage classes, draft a
-confirmation reply for each one that needs one"*) and executes
-it. The compiler is now sophisticated enough that the
-English-as-code vision actually works. COBOL was right about
-where things should go; it was sixty years early on the question
-of what would interpret it.
+| Change | Required follow-through |
+|---|---|
+| Skill behaviour | Run the affected [eval suite](tools/skill-evals/README.md); add a regression fixture for a bug fix. |
+| Tool contract loaded by skills | Check the callers and run their affected eval suites. |
+| Python or Groovy implementation | Run the relevant package's tests and configured static checks. |
+| Reader-facing prose with no behavioural effect | Check accuracy, links, and formatting. |
 
-This repository is built on that observation. The skill files
-under `skills/<name>/SKILL.md` are **programs**. They are
-written in English. They are executed by an agent. They have
-inputs, outputs, control flow, error handling, edge cases, and
-unit tests (the eval suite under [`tools/skill-evals/`](tools/skill-evals/)).
-A `SKILL.md` is no less code than a `.py` file — it is code at a
-**higher abstraction level**, interpreted by a more capable
-interpreter.
+Python and Groovy tools implement deterministic operations such as CVE JSON generation, OAuth authentication, archive parsing, and dashboard rendering.
+Skills describe workflows that require interpretation, such as assessing a report or drafting a response.
 
-Traditional programming languages (Python and Groovy in this
-repo) still have their place. They handle the deterministic
-pieces where bit-exact output matters more than judgement — CVE
-JSON emission, OAuth dance, archive parsing, dashboard rendering.
-Those live under [`tools/`](tools/) as ordinary code with
-ordinary tests. But they are the *minority* of the surface area.
-The bulk of what this project does — assess a security report,
-classify a PR, mentor a contributor, allocate a CVE — is encoded
-in English-language skill files. That is the project's bet, and
-it is the bet you need to internalise before contributing.
-
-Four practical consequences:
-
-- **A change to a skill file is a code change.** Treat it like
-  one. Run the eval suite. Think about boundary conditions. Add
-  the equivalent of a regression test (an eval fixture) for the
-  bug you fixed. The fact that the file ends in `.md` does not
-  make it a doc — it makes it a program with a markdown syntax.
-- **A change to a tool's `tool.md` is a code change.** Tool
-  contracts in markdown are read by the skills at runtime;
-  rewording the contract is rewording the API.
-- **English code uses semantic line breaks ([SemBr](https://sembr.org)).**
-  Most programming language styles format one statement per line.
-  Because Magpie skills and documents are programs written in English, they follow the same convention: lines break at natural linguistic boundaries (one sentence per line, or at clause boundaries where appropriate).
-  This makes single-sentence edits produce single-line git diffs without rewrapping entire paragraphs.
-- **You author both layers agentically** — see
-  [Authoring with an agent](#authoring-with-an-agent) below. The
-  loop is the same whether the artefact is an English skill file
-  or a Python bridge, because the meta-level operation (state
-  intent, iterate, probe edges, test) is the same. Only the
-  feedback signal differs — eval suite for the English layer,
-  `pytest` / `mypy` / `ruff` for the traditional-language layer.
-
-Read the rest of this guide with that frame in mind. When
-something looks like "just documentation", check whether it
-sits under `skills/` or `tools/<system>/tool.md`. If it
-does, it's code — and the rules for changing code apply.
+Use [semantic line breaks](https://sembr.org) in both skills and documentation: one sentence per line, or a break at a clause boundary when useful.
+This keeps a sentence edit from rewrapping the surrounding paragraph.
+See [Authoring with an agent](#authoring-with-an-agent) for the development workflow for both layers.
 
 ## What this framework is
 

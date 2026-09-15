@@ -10,36 +10,29 @@
 
 # Installation or Adoption?
 
-**Installing** puts the **Apache Magpie Marketplace** and the plugins into
-your agent and writes
-nothing to any repository. That is what the steps below do, it is complete on
-its own, and it is all most people ever need.
-
-From here the two ways to use it differ in one thing only — whether anything is
-committed for other people.
+**Installation** adds the Magpie marketplace and plugins to your agent.
+It does not write to a repository.
+Once installed, skills need repository-specific configuration, which can be local to your clone or shared through team adoption.
 
 | | [**Individual use**](../setup/individual-use.md) | [**Team adoption**](../setup/team-adoption.md) |
 |---|---|---|
-| Who decides | You | The repo's maintainers |
-| What it commits | Nothing — configuration lives in gitignored `.apache-magpie-local/` | The floor, and the project's configuration in `.apache-magpie-overrides/` |
-| Which repos | Any — adopted or not, whether or not your teammates use Magpie | The one repo, for everyone who clones it |
-| What a teammate sees | Nothing at all | The default families already enabled on arrival |
-| Undone by | You, any time | A maintainer, via a PR |
+| Who decides | You | The repository's maintainers |
+| Configuration | Gitignored `.apache-magpie-local/` | Committed `.apache-magpie-overrides/` |
+| Shared files | None | Recommended version and families, agent settings, and project configuration |
+| Scope | Your clone, whether or not the project has adopted Magpie | Contributors who clone the repository |
+| Effect on teammates | No shared configuration changes | Recommended families enabled on supported agents after repository trust |
+| How to undo | Remove your local configuration or uninstall your plugins | Change the shared configuration through a PR |
 
-**Individual use is the default, and it is not a waiting room.** You can work
-this way indefinitely, on a repo whose maintainers have never heard of Magpie.
-Nothing on this page asks the project for permission — including the
-configuration a skill needs, which `/magpie-setup config` writes into a
-gitignored directory only your clone sees. A skill that finds it missing runs
-that itself.
+**Example: reviewing PRs on your own.**
+Install `magpie-pr-management` and run `/magpie-pr-management:triage`.
+If required configuration is missing, the skill invokes `/magpie-setup config`.
+The resulting files stay in your clone.
+You can keep using this setup without adopting Magpie for the project.
 
-**Adoption is a recommendation, not a restriction.** A repo that has adopted
-Magpie gives contributors a sensible floor on clone — it never limits what
-anyone may install for themselves, and it never obliges a contributor to use
-what it recommends.
+**Example: sharing a working setup.**
+After the maintainers agree on the recommended families and configuration, run `/magpie-setup adopt`.
+Review the local files it proposes to promote into shared configuration.
+Personal values and unresolved `TODO` entries should not be promoted.
 
-Neither one is an install method. Installing is what the
-[quick start](../quick-start.md) walks you through; these are what you then do
-with it. Follow it either way — [adoption](../setup/team-adoption.md) is a
-later, separate act by the repo's maintainers, and nothing in the quick start
-requires it.
+Adoption does not prevent contributors from installing more families, using a newer version, or choosing not to use Magpie.
+Start with the [quick start](../quick-start.md) for installation, or see [team adoption](../setup/team-adoption.md) for the shared-file workflow.

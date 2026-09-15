@@ -24,191 +24,91 @@
 
 ![The baseline three plugins and one family installed, then a triage run: 38 open PRs, 12 untriaged, with a proposed action for each and a confirmation prompt](../assets/quickstart/install.svg)
 
-*Illustrative. The whole of it: install, run a skill, get an answer you confirm.*
+*Illustrative transcript: installation followed by a triage proposal.*
 
-Install Apache Magpie into the agent you already use, in a couple of
-commands: one to add the **Apache Magpie Marketplace**, one per family you
-want. Nothing is
-committed to your repository, and nothing is changed in it.
-
-**This install is yours, on this machine.** It needs no decision from your
-project and no opt-in from your teammates. Committing anything for other
-people is a separate act called **adoption** —
-[Installation or Adoption?](quick-start/two-ways.md) draws the line.
-
-**What you get.** 75 skills your agent can run, grouped into 10 **families** —
-PR triage and review, issue triage, security-report handling, release
-management, contributor mentoring. Install only the families you need; each one
-you add costs context in every session —
-[what each family solves](quick-start/families.md) lists all ten, after the
-install steps.
-
----
+This guide covers plugin installation, project configuration, agent isolation, and privacy setup.
+You need a supported agent and access to the systems your chosen skills use; see [prerequisites](quick-start/prerequisites.md).
+Install only the [families](quick-start/families.md) you need, such as PR management or repository-health audits.
 
 ## Installation or Adoption?
 
-**Installing** puts the marketplace and the plugins into your agent and writes
-nothing to any repository. That is what the steps below do, and it is all most
-people ever need. **Adoption** is the separate, later act of a repo's
-maintainers committing a floor that everyone who clones it picks up.
+**Installation** adds plugins to your agent on this machine.
+**Configuration** supplies the repository-specific values those skills need, using gitignored files for individual use.
+**Adoption** commits shared configuration and a recommended plugin set for the project.
 
-The two differ in one thing only — whether anything is committed for other
-people — and you do not have to choose before installing.
-[**Installation or Adoption?**](quick-start/two-ways.md) compares them side by side.
-
----
+For example, you can install PR-management skills and configure them locally to review a repository without changing your teammates' setup.
+Only use adoption if the maintainers want to share that configuration.
+See the [comparison](quick-start/two-ways.md) for file locations and ownership.
 
 ## The walkthrough
 
-Six steps, in order. One and two are the install. Three and four are the
-safety layers, and **both are strongly recommended** — Magpie's skills read
-issues, pre-disclosure security reports and private mailing lists, so neither
-is a nice-to-have. Five and six are what you do with it.
+Follow steps 1–5 for individual use.
+Step 6 is optional team adoption.
+Set up isolation and privacy controls before running skills against external reports or private data.
 
 ### Step 1 — install from the Apache Magpie Marketplace
 
-Installing is a **one-time, per-machine** step for whichever agent you use. It
-writes nothing to any repository and your teammates are unaffected.
+Add the marketplace and install plugins at user scope.
+This step does not write to the repository.
 
 ![Adding the apache-magpie marketplace, then installing the baseline — magpie-setup, magpie-agent-guard, magpie-utilities — and one family, with nothing written to the repository](../assets/quickstart/step-install.svg)
 
-→ [**Prerequisite: install Magpie from your agent's
-marketplace**](setup/marketplace-install.md) has the commands, one section per
-agent: Claude Code, OpenAI Codex CLI, VS Code / GitHub Copilot, Google Gemini
-CLI, Cursor, `microsoft/apm`, and JetBrains IDEs.
+The [marketplace installation reference](setup/marketplace-install.md) has commands for Claude Code, Codex CLI, VS Code / GitHub Copilot, Gemini CLI, Cursor, `microsoft/apm`, and JetBrains IDEs.
 
-**Take the baseline — three plugins, strongly recommended on every machine:**
+Install the three recommended baseline plugins, then add the families you need:
 
-- **`magpie-setup`** — install this one first; nothing else installs, upgrades,
-  configures or adopts without it, and it carries the secure-isolation skills
-  from [Step 3](#step-3--isolate--guard).
-- **`magpie-agent-guard`** — the deterministic pre-execution guard, a hook that
-  inspects each shell command before it runs and denies the dangerous shapes.
-- **`magpie-utilities`** — `list-skills` and the small tools you reach for when
-  you want to know what is actually installed.
+| Plugin | Purpose |
+|---|---|
+| `magpie-setup` | Install first. Provides installation, configuration, upgrades, adoption, and isolation setup. |
+| `magpie-agent-guard` | Inspects shell commands before execution and blocks prohibited command patterns on supported agents. |
+| `magpie-utilities` | Lists installed skills and provides skill-authoring and framework-maintenance tools. |
 
-Those three are exactly the **floor** a project commits when it adopts Magpie,
-so taking them is taking what a project would recommend to every contributor.
+For PR triage and review, add `magpie-pr-management`.
+The [family reference](quick-start/families.md) lists the other choices and links to their first-run examples.
 
-Then add **one plugin per family you actually want**, against a problem you
-have today; you can install more at any time. Pick them from
-[What each family solves](quick-start/families.md) — the ten families, with the
-problem each one solves.
-
-Each family's README opens with an **Install & first runs** section — the one
-command for that family and a few things to try once it is in:
-[setup](setup/README.md#install--first-runs) ·
-[security](security/README.md#install--first-runs) ·
-[release-management](release-management/README.md#install--first-runs) ·
-[pr-management](pr-management/README.md#install--first-runs) ·
-[issue](issue-management/README.md#install--first-runs) ·
-[repo-health](repo-health/README.md#install--first-runs) ·
-[contributor-growth](contributor-growth/README.md#install--first-runs) ·
-[utilities](utilities/README.md#install--first-runs) ·
-[mentoring](mentoring/README.md#install--first-runs) ·
-[pairing](pairing/README.md#install--first-runs)
-
-**Check what landed** with `/plugin` → *Installed*, filtered to `magpie`:
+In Claude Code, open `/plugin`, select *Installed*, and filter to `magpie`:
 
 ![The Claude Code /plugin Installed tab filtered to magpie: eleven plugins from the apache-magpie marketplace, each marked enabled, with its skill count and how many times its skills have been used](../assets/installed-plugins.png)
 
-Every row names the marketplace it came from, whether it is enabled, and how
-many of its skills you have actually used — which is the honest way to decide
-whether a family is earning its always-on context.
-
-> [!IMPORTANT]
-> **There is no install-everything plugin, by design.** Every installed skill
-> advertises itself to the model on every turn, used or not — all ten families
-> at once would be ~8.6k always-on tokens against 0.2–2.0k for a family you
-> picked on purpose. See
-> [Choosing a plugin](setup/marketplace.md#choosing-a-plugin-which-families).
-
-> [!NOTE]
-> **Per-family works on every agent listed.** A family plugin carries its
-> skills as real directories, so nothing depends on a client following a
-> symlink — measured on Codex and Gemini, not assumed.
-
-> [!TIP]
-> **Installed a family and want to use it now?**
-> [Your first run with a family](quick-start/first-run.md) walks the whole
-> thing in terminal steps — the pre-flight stopping, the setup wizard, the
-> configuration it scaffolds, and the same command working on the retry.
-
----
+Check that the selected plugins are enabled and come from `apache-magpie`.
+Installed skill descriptions consume model context even when unused: approximately 0.2–2.0k tokens per family, or 8.6k for all ten.
+See [choosing a plugin](setup/marketplace.md#choosing-a-plugin-which-families) for details.
 
 ### Step 2 — run `/magpie-setup`
 
-The marketplace install above is complete on its own: the skills are in your
-agent and you can start using them. `/magpie-setup` is what you run next when
-you want Magpie wired into a **project** rather than only into your own agent —
-a committed floor, project config, or overrides. Committing those for everyone
-who clones the repo is **adoption** —
-[`setup/team-adoption.md`](setup/team-adoption.md).
-
-One command. It works out which method fits this checkout, prints the plan it
-intends to carry out, and waits:
+From the target repository, run setup to inspect the checkout and select the appropriate configuration path:
 
 ```text
 /magpie-setup
 ```
 
-**Or just ask for it.** Magpie's skills are model-invoked, so the slash form is
-a shortcut, never the only way in — every step on this page has a plain-language
-equivalent that works on every harness, including the ones with no slash
-commands at all:
+You can also ask in plain language:
 
 > set Magpie up for this project
 
-Both reach the same skill. Use whichever you prefer; this page shows the slash
-form first because it is unambiguous, and the sentence beside it because that
-is what most people actually type.
+Use plain language if your agent does not support slash commands.
 
 ![A `/magpie-setup` run in Claude Code: the picker with the baseline three already ticked, the plugins installed for the user, then the secure-agent setup proposing its changes and waiting for approval before writing anything](../assets/quickstart/magpie-setup.svg)
 
-Nothing is written before you approve it. Afterwards, `/magpie-setup verify`
-(*check that Magpie is set up correctly here*) re-runs the health check and
-drift detection, and `/magpie-setup:status` (*what Magpie do I have
-installed?*) prints what is currently installed.
+Review the proposed setup before approving changes.
+For individual use, `/magpie-setup config` writes gitignored configuration to `.apache-magpie-local/`; adoption is a separate command.
+After setup, `/magpie-setup verify` checks installation health and drift, and `/magpie-setup:status` lists the installed components.
 
-Not sure you need this step? [Installation or Adoption?](quick-start/two-ways.md)
-draws the line.
+Skills also check configuration on first use.
+If required project files are missing, they invoke the local configuration flow before continuing.
+If a pinned snapshot is missing or differs from the project's pin, they stop for setup or upgrade.
+They do not guess the target repository or tracker.
 
-**Every skill configures itself on first use.** You do not have to remember
-which projects are set up, or run anything to prepare a family before you use
-it: 65 of the 75 skills open with a silent pre-flight — the ten exceptions are
-the setup skills themselves, which are what you run to fix whatever it finds.
-
-The first time you call a skill in a project, that pre-flight works out how
-Magpie is installed here and whether this project is adopted. If anything is
-unresolved it **stops and proposes `/magpie-setup`** rather than guessing:
-
-- a pinned-snapshot project whose snapshot was never fetched on this machine,
-  or that is on a different framework version than the project pins;
-- a marketplace install in a project with no `<project-config>/` directory,
-  where every `<placeholder>` in the skill is unresolved.
-
-The alternative to stopping is a skill that runs against the wrong tracker, so
-it stops. Once the project is set up the check costs three file checks and
-prints nothing, on every invocation thereafter.
-
-Each family's README opens with a recording of exactly this — its own first
-run, pre-flight and all. [What each family solves](quick-start/families.md)
-links to all ten.
-
----
+See [your first run with a family](quick-start/first-run.md) for a worked PR-triage example, including the files created and the retry.
 
 ### Step 3 — isolate & guard
 
-**Strongly recommended, and part of the default setup rather than a later
-hardening pass.** Magpie's skills read issues, pre-disclosure security reports
-and private mailing lists, so this belongs in place before you point a skill at
-anything real.
+Configure isolation before reading external issues or private reports.
+The **sandbox** restricts filesystem and network access.
+The **action guard** inspects commands and rejects prohibited actions where the agent supports it.
 
-One run installs two different protections: a **sandbox**, which confines what
-a command can reach, and the **action guard**, which decides whether a command
-runs at all. A sandbox will not stop a legal `gh pr comment` from pinging four
-maintainers who did not ask; a guard will not stop a command from reading
-`~/.ssh`.
+For example, a filesystem restriction can prevent a command from reading `~/.ssh`.
+It does not decide whether posting a review comment is appropriate; command guards and human approval address that separately.
 
 | Harness | What to run |
 |---|---|
@@ -225,12 +125,10 @@ maintainers who did not ask; a guard will not stop a command from reading
 
 ![The secure-agent setup: three proposed changes, a confirmation, then the sandbox, the clean environment and the status line in place](../assets/quickstart/step-isolation.svg)
 
-It surfaces every sudo, shell-rc and settings-file change for approval before
-applying it. When it finishes you have a filesystem and network sandbox, a
-clean environment with your credentials stripped, the status line below, and
-the guard wired in front of every shell command.
+The installer asks for approval before privileged operations or changes to shell startup and settings files.
+On the Claude Code setup shown here, it configures the sandbox, credential-stripped environment, action guard, and status line.
 
-**The footer tells you which posture you are in, on every render:**
+The status line reports the current sandbox state:
 
 ![A session where /sandbox reports "Sandbox enabled with auto-allow for bash commands": the terminal footer opens with a yellow `[sandbox-auto]` tag, followed by the project, the branch and the model](../assets/session-sandboxed.png)
 
@@ -242,30 +140,16 @@ the guard wired in front of every shell command.
 
 ![A session after /sandbox reports "Sandbox disabled": the footer opens with a bold-red `[NO SANDBOX]` tag ahead of the project, branch and model](../assets/session-no-sandbox.png)
 
-After the tag comes the project, branch, model, and the branch's PR once it has
-one — so several sessions across worktrees stay apart.
+The footer also identifies the project, branch, model, and PR when available.
+Run `/magpie-setup:isolated-setup-verify`, or ask *check my agent isolation*, to check each component.
 
-Confirm the install with `/magpie-setup:isolated-setup-verify` — *check my
-agent isolation* — which reports ✓/✗/⚠ for every piece.
-
-→ **Why each layer exists, and what it does not stop:**
-[`setup/secure-agent-internals.md`](setup/secure-agent-internals.md) ·
-**full install walkthrough:** [`setup/secure-agent-setup.md`](setup/secure-agent-setup.md) ·
-**what the guard denies and why it is a hook rather than a rule:**
-[`tools/agent-guard/README.md`](../tools/agent-guard/README.md) ·
-**harness coverage:** [adapters matrix](adapters/README.md) — Codex and Cursor
-have no action guard today.
-
----
+See [secure-agent internals](setup/secure-agent-internals.md) for the limits of each layer and the [action-guard reference](../tools/agent-guard/README.md) for blocked commands.
+The [adapters matrix](adapters/README.md) lists agent-specific coverage; Codex and Cursor do not currently have an action guard.
 
 ### Step 4 — set up privacy
 
-**Strongly recommended, and the one step about your project's data rather than
-your machine.** Step 3 constrains what the agent can reach and what it may run.
-Neither half has an opinion about the thing Magpie is actually for: reading a
-PMC's private list, or a security report still under embargo, and sending it to
-a model. That is a command that *should* run, doing exactly what it was asked —
-and exporting somebody else's confidential text while it does.
+Configure privacy controls before fetching private reports or mailing-list content.
+A sandbox restricts access to data, but does not determine which model may receive data once it has been read.
 
 ```text
 /magpie-setup:privacy-llm
@@ -275,112 +159,79 @@ and exporting somebody else's confidential text while it does.
 
 ![A privacy-llm run: the LLM stack detected, the matching variant written to the gitignored local directory, the PII redactor proven end to end, and the approved-LLM gate refusing an unregistered local model](../assets/quickstart/step-privacy.svg)
 
-Two mechanisms, separate because they protect different people:
+| Mechanism | Behaviour |
+|---|---|
+| Approved-LLM gate | Refuses to fetch private-list mail unless every model in the active stack is approved. |
+| PII redaction | Replaces third-party personal information in reports with hash-prefixed identifiers before model processing. The reporter's own identity and tracker collaborators are exempt. |
 
-- **the approved-LLM gate** protects the *project* — a skill refuses to fetch
-  private-list mail unless every model in the active stack is approved;
-- **PII redaction** protects the *third parties a reporter names*, swapping
-  them for hash-prefixed identifiers before any model sees the text.
+The skill detects the active stack, configures the appropriate variant in gitignored `.apache-magpie-local/`, and exercises both mechanisms.
+If it reports an unapproved model, resolve the approval or routing issue before retrying the private-data task.
+For example, access to a mailbox does not itself authorize sending its private-list messages to a newly configured model.
 
-The skill detects your stack rather than interviewing you, writes the matching
-variant to the gitignored `.apache-magpie-local/`, then **proves it** by running
-both. A gate that says no is the useful output: it names the unapproved model
-and leaves your configuration alone until you decide.
-
-Re-run it after `/magpie-setup upgrade` — what counts as approved can narrow
-between versions.
-
-→ **The recipes, the variants, and what each mechanism does:**
-[`setup/privacy-llm.md`](setup/privacy-llm.md). The approved registry is
-**provisional**, pending a ratified ASF Legal policy for AI-assisted handling
-of foundation private data; that page carries the full caveat.
-
----
+Re-run privacy setup after `/magpie-setup upgrade`, because the approval policy may change.
+See [privacy setup](setup/privacy-llm.md) for recipes and exceptions.
+The approval registry is provisional pending a ratified ASF Legal policy for AI-assisted handling of Foundation private data.
 
 ### Step 5 — use it
 
 ![Listing the installed skills, then a triage pass returning 38 open PRs with a proposed action for each and nothing posted](../assets/quickstart/step-use.svg)
 
-Ask in plain language:
+Start with a bounded task:
 
-> review PR #5193
+> Summarize the open PR backlog for this repository. Do not post comments or change labels.
 
-> triage the latest security reports
-
-or call a skill by name. A marketplace install namespaces skills under the
-**plugin** that provides them, as `/<plugin>:<skill>`:
+Or invoke a skill by name.
+Marketplace commands use `/<plugin>:<skill>`:
 
 ```text
 /magpie-pr-management:triage
 /magpie-security:issue-triage
 ```
 
-`/magpie-utilities:list-skills` — *what Magpie skills do I have?* — prints
-everything that is installed.
+For triage, expect an assessment and proposed actions, not immediate tracker changes.
+You can narrow the next request:
 
----
+> Review the oldest PR that is waiting for a reviewer. Show me the draft review before posting it.
+
+Use `/magpie-utilities:list-skills`, or ask *what Magpie skills do I have?*, to list the installed skills.
+See [skill names by install method](setup/marketplace.md#skill-names-differ-by-install-method) if you use a pinned snapshot.
 
 ### Step 6 — consider adopting Magpie
 
 ![An adopt run: three paths staged and not committed, what a contributor gets on clone, and what it does not restrict](../assets/quickstart/step-adopt.svg)
 
-Everything so far was yours alone: the plugins live in your agent, and your
-repository has not changed. **Adoption is the separate act of deciding this for
-the project** — and it belongs to the repo's maintainers, together, not to
-whoever installed first.
+Skip this step for individual use.
+The preceding setup may have written local configuration, but has not committed a recommendation for your teammates.
 
-Adopting commits a **floor**: an `.apache-magpie.lock` recording what the
-project recommends, and a default plugin set in the repo's
-`.claude/settings.json` derived from it. A contributor who clones the repo and
-trusts it then arrives with those families already enabled — no install step,
-no instructions to follow. It is a floor, never a ceiling: nobody is stopped
-from installing more or running a newer Magpie, and a maintainer can reverse
-the whole thing in a PR.
+When the maintainers agree to adopt Magpie, run `/magpie-setup adopt`.
+It prepares a shared configuration directory, an `.apache-magpie.lock` recording the recommended version and families, and agent settings derived from that recommendation.
+For Claude Code, those settings live in `.claude/settings.json`.
+Review the prepared changes before committing them.
 
-Worth doing once the project — not one maintainer — agrees on what it wants to
-recommend. It obliges nobody: a contributor who would rather not use Magpie at
-all is unaffected.
-
-The command is `/magpie-setup adopt`, or ask for it — *adopt Magpie for this
-repository so everyone gets it on clone*. Nothing runs it for you: unlike
-configuration, adoption is never automatic.
-
-→ [**Team adoption**](setup/team-adoption.md) is the full walkthrough: what
-gets committed, how the floor is chosen, and what a contributor sees on clone.
-Still deciding? [**Installation or Adoption?**](quick-start/two-ways.md)
-compares the two side by side.
-
----
+Contributors using the supported plugin setup receive the recommended families when they clone and trust the repository.
+They may install additional families, use a newer version, or choose not to use Magpie.
+Adoption is never automatic.
+See [team adoption](setup/team-adoption.md) for the file layout and contributor experience.
 
 ## What each family solves
 
-Skills ship in ten **families**, and you are not meant to take all of them.
-[**What each family solves**](quick-start/families.md) lists every one with the
-problem it solves and what it offers, so you can pick against a problem you
-have today.
-
----
+The [family reference](quick-start/families.md) lists the ten families, their tasks, and their outputs.
+For example, choose `repo-health` for a dependency audit and `pr-management` for PR review.
 
 ## Other installation methods
 
-The marketplace is not the only route. A project can install the framework as a
-**pinned snapshot** committed to the repo — the answer when an agent has no
-marketplace at all, when you need the signed ASF source release, or when every
-contributor and CI job should sit on one committed version. A clone of the
-framework itself takes a third route and **self-adopts**.
+Use a **pinned snapshot** if your agent has no marketplace, you need a signed ASF source release, or contributors and CI jobs must use the same version.
+The version pin is committed; the downloaded snapshot is gitignored.
+A framework development checkout uses local self-adoption instead.
 
-→ [**Other installation methods**](quick-start/other-install-methods.md) covers
-all three, with the copy-pasteable bootstrap for each. They are complementary, not exclusive:
-pin the snapshot for the project and keep the marketplace plugin for yourself
-if you prefer.
-
----
+[Other installation methods](quick-start/other-install-methods.md) provides the commands for each route.
+A personal marketplace install can coexist with a project's pinned snapshot.
 
 ## Cross-references
 
 - [`docs/index.md`](index.md) — what Magpie is and which skill families exist.
 - [**The Apache Magpie Marketplace**](setup/marketplace.md) — the full
   reference: every agent that can add it, per-family plugins, versioning.
-- [`docs/prerequisites.md`](quick-start/prerequisites.md) — what individual skills need
+- [Prerequisites](quick-start/prerequisites.md) — what individual skills need
   (GitHub auth, Gmail MCP, browser).
 - [`docs/setup/README.md`](setup/README.md) — the setup skill family.
