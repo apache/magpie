@@ -628,10 +628,13 @@ when a batch of merged work has piled up behind a stale stamp.
 
 **How to bump.** From the Actions tab: **bump dev version** -> *Run workflow*.
 [`bump-dev-version.yml`](../../.github/workflows/bump-dev-version.yml) runs the
-three steps below on `main`, commits through GitHub's API so the result shows as
-**Verified**, and credits whoever pressed the button as `Co-Authored-By`.
+three steps below, puts the result through the same checks a pull request gets,
+and opens it as a **draft PR** crediting whoever pressed the button. Review the
+diff, press *Ready for review* to start the required checks, then merge.
 `workflow_dispatch` is restricted by GitHub to accounts with write access, so
-the button is committers-only.
+the button is committers-only. See
+[Running the dev loop](../../CONTRIBUTING.md#running-the-dev-loop) for why it is
+a draft and what each job does.
 
 It is manual on purpose: *when* a bump is wanted is the judgement above, not
 something a merge trigger can make. The same three steps still work by hand for

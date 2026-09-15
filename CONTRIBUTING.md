@@ -24,6 +24,8 @@
   - [Making changes](#making-changes)
   - [Authoring with an agent](#authoring-with-an-agent)
   - [Running the dev loop](#running-the-dev-loop)
+  - [Bumping the dev version](#bumping-the-dev-version)
+    - [Why the PR is a draft](#why-the-pr-is-a-draft)
   - [Opening a pull request](#opening-a-pull-request)
   - [Your first contribution](#your-first-contribution)
   - [Confidentiality](#confidentiality)
@@ -845,6 +847,9 @@ Separate GitHub workflows:
   patterns; runs on every PR. zizmor is declared in the root
   `pyproject.toml` dev group, so `uv run zizmor --config .zizmor.yml .`
   reproduces the CI run locally.
+- **`bump-dev-version.yml`** — the one workflow a human starts by
+  hand, and the only one that writes to the repository. See
+  [Bumping the dev version](#bumping-the-dev-version) below.
 The link check ([lychee](https://lychee.cli.rs/)) is **not** a
 separate workflow — it runs as the `lychee` hook inside
 `prek run --all-files` (the `pre-commit.yml` workflow above), and so
@@ -878,6 +883,84 @@ PYTHONPATH=tools/skill-evals/src python3 -m skill_evals.runner \
 See [`tools/skill-evals/README.md`](tools/skill-evals/README.md)
 for the full eval invocation surface (single step, single case,
 agent self-eval mode).
+
+## Bumping the dev version
+
+Between releases every manifest carries `0.2.0.dev<YYYYMMDDHHMM>`, and
+that stamp has to **move** for anything to reach adopters: the
+marketplace is served straight from `main`, and `claude plugin update`
+compares version strings rather than commit SHAs. While the suffix sits
+still, an adopter running that command is told they are already current
+however far behind they are. `docs/setup/marketplace.md` covers *when*
+a bump is wanted; this section covers the machinery.
+
+Start it from the Actions tab — **bump dev version** -> *Run workflow*.
+There is no automatic trigger: whether a bump is wanted is a judgement,
+not something a merge can decide. `workflow_dispatch` is restricted by
+GitHub to accounts with write access, so the button is committers-only
+without the workflow checking anything itself.
+
+One run is six jobs:
+
+```text
+prepare ──┬─> prek    (pre-commit.yml) ──┐
+          ├─> tests   (tests.yml)      ──┤
+          ├─> rat     (rat.yml)        ──┼─> open-pr   draft PR
+          └─> zizmor  (zizmor.yml)     ──┘
+                                          └─> cleanup  (on failure only)
+```
+
+- **`prepare`** runs the three documented steps —
+  [`bump-dev-version.py`](tools/dev/bump-dev-version.py), then
+  `check-family-plugins.py --fix` and `uv lock` — and commits the result
+  onto a throwaway branch. The commit is made through GitHub's
+  `createCommitOnBranch` API by
+  [`gh-signed-commit.py`](tools/dev/gh-signed-commit.py) rather than
+  `git commit`, so it comes back signed by GitHub and shows as
+  **Verified** with no key material anywhere in CI. Whoever pressed the
+  button is credited as `Co-Authored-By`.
+- **`prek` / `tests` / `rat` / `zizmor`** are `uses:` of the real check
+  workflows, called with a `ref` pointing at that branch. They are
+  called, not copied, so they cannot drift from what a pull request
+  gets. Those four workflows each carry a `workflow_call` trigger and an
+  optional `ref` input for this; the input is empty on every other
+  trigger.
+- **`open-pr`** opens the pull request once they pass. **`cleanup`**
+  deletes the branch if anything failed, so a bad bump leaves nothing
+  behind rather than a broken PR for someone to work out.
+
+A bump is not "only a version string" — it also regenerates fourteen
+manifests and the lockfile, any of which can come out wrong. That is why
+the candidate is checked before it is offered.
+
+### Why the PR is a draft
+
+GitHub raises no `pull_request` events for anything done with
+`GITHUB_TOKEN`. A pull request opened by a workflow therefore starts no
+checks of its own, and the checks the workflow *did* run are attached to
+its own run rather than to the PR head — they are evidence in the run
+log, not green ticks on the PR. Left as a ready PR it would sit forever
+on *"N of N required status checks are expected"*.
+
+Opening it as a draft turns that into a normal gesture. Marking a draft
+ready raises `pull_request: ready_for_review`, which **is** a real event
+because a human does it, so `pre-commit.yml`, `tests.yml`, `rat.yml` and
+`zizmor.yml` list that activity type explicitly — it is not in the
+default `opened` / `synchronize` / `reopened` set. Pressing *Ready for
+review* starts the required checks against the PR head exactly as an
+ordinary PR gets them.
+
+That also means **any** draft PR in this repo starts its checks when it
+is marked ready, which is the behaviour most people already expect.
+
+Reviewing a bump PR is quick: every changed line should be the version
+string and nothing else.
+
+```bash
+git fetch origin && git diff --stat main..<branch>
+git diff main..<branch> | grep '^[-+]' | grep -v '^[-+][-+][-+]' \
+    | grep -v 'dev[0-9]\{12\}'    # should print nothing
+```
 
 ## Opening a pull request
 
