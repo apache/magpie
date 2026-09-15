@@ -121,7 +121,7 @@ wheels = [
 
 [[package]]
 name = "apache-magpie"
-version = "0.2.0.dev202609141352"
+version = "0.2.0.dev202609152034"
 source = { virtual = "." }
 
 [package.dev-dependencies]
