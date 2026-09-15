@@ -324,11 +324,13 @@ confirmation in Composer and the `cursor-agent` CLI; see the
 Local LLMs (Ollama, llama.cpp, vLLM) serve open-weight models via
 OpenAI-compatible endpoints with calibrated capability floors; see the
 [Local LLM harness guide](adapters/local-llm.md).
+Goose is an open-source agent CLI that reads `.agents/skills/` natively and supports
+recipe workflows and developer tool execution; see the
+[Goose harness guide](adapters/goose.md).
 The remaining extension points are
 already open, labelled `good first issue`:
 [Aider](https://github.com/apache/magpie/issues/317),
 [GitHub Copilot](https://github.com/apache/magpie/issues/318),
-[Goose](https://github.com/apache/magpie/issues/319),
 [Amazon Q](https://github.com/apache/magpie/issues/320),
 [JetBrains Junie](https://github.com/apache/magpie/issues/321),
 [OpenHands](https://github.com/apache/magpie/issues/322).

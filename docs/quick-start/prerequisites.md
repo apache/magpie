@@ -75,6 +75,9 @@ on any single vendor for either — any agent that reads the shared
 - **[Cursor](https://cursor.com/)** (Composer + `cursor-agent` CLI) reads Magpie's
   canonical `.agents/skills/` tree natively and supports per-action confirmation
   and clean-environment isolation; see [the Cursor harness guide](../adapters/cursor.md).
+- **[Goose](https://github.com/block/goose)** is an open-source agent CLI that reads
+  Magpie's canonical `.agents/skills/` tree natively and supports recipe workflows;
+  see [the Goose harness guide](../adapters/goose.md).
 
 Support for more runtimes (Copilot, …) is tracked in
 the
