@@ -413,8 +413,6 @@ the ponymail / incubator-mail / incubator-reports surfaces. MCP-
 compatible harnesses (Goose, Copilot CLI) should pick
 these up directly once the skill-format adapter lands for that
 harness.
-Gemini CLI already has a [server registration procedure](docs/adapters/gemini.md#reuse-framework-mcp-servers) that reuses the existing adapter commands.
-Registrations from other harnesses are not imported automatically; authenticated MCP access remains unverified for the Gemini profile.
 
 ## Code in this repo
 
