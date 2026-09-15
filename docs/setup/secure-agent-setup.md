@@ -1477,9 +1477,12 @@ another when several are open across worktrees and repos:
 ```
 
 - **the project folder**, colour-coded by a stable hash of its name, so
-  a repo keeps the same colour across sessions — and a Claude Code
+  a repo keeps the same colour across sessions — and a linked git
   worktree renders as `<source>/<worktree>` with each half hashed
-  independently;
+  independently, whatever the layout: worktrunk's sibling
+  `<repo>.<branch>/` directories (the repeated `<repo>.` prefix is
+  stripped, so `cpython.gh-156021` reads `cpython/gh-156021`), Claude
+  Code's own `.claude/worktrees/<name>`, or a plain `git worktree add`;
 - **the git branch**, with a dirty marker and ahead/behind against the
   upstream — read from local refs only, no network;
 - **the PR**, number and title, from one cached `gh pr view` per
@@ -1499,6 +1502,40 @@ that sets the key (to `true` *or* `false`). The `/sandbox`
 slash-command toggle persists to project `settings.local.json`,
 so flipping it mid-session is reflected in the prefix on the
 next render.
+
+**Linked worktrees.** Claude Code scopes the project of a linked
+git worktree to the **main checkout**: that is where `/sandbox`
+writes `enabled` and where `.claude/.cc-writes` lands, while
+`<cwd>` is the worktree's own directory. A worktree's
+`.claude/settings.local.json` normally carries only the
+per-worktree filesystem allowlist that
+[`sandbox-add-project-root.sh`](#sandbox-add-project-rootsh)
+writes — no `enabled` key at all. Walking `<cwd>` alone therefore
+falls straight through to user scope, and a session the operator
+deliberately switched *out* of the sandbox keeps rendering a green
+`[sandbox]` — the exact silent drift this line exists to prevent.
+So the walk inserts the working-tree root and the main checkout
+between `<cwd>` and user scope:
+
+```text
+<cwd>/.claude/settings.local.json
+<cwd>/.claude/settings.json
+<worktree-root>/.claude/settings.local.json
+<worktree-root>/.claude/settings.json
+<main-checkout>/.claude/settings.local.json
+<main-checkout>/.claude/settings.json
+~/.claude/settings.local.json
+~/.claude/settings.json
+```
+
+The main checkout is found by comparing `git rev-parse --git-dir`
+with `--git-common-dir` — they differ in a linked worktree and
+nowhere else. That is a property of git, not of a directory
+naming scheme, so it holds for every worktree manager without the
+script having to enumerate them: worktrunk's sibling
+`<repo>.<branch>/` directories, Claude Code's own
+`<source>/.claude/worktrees/<name>`, and a plain `git worktree
+add` anywhere on disk.
 
 Like the [Sandbox-bypass visibility hook](#sandbox-bypass-visibility-hook),
 this is **complementary**, not authoritative — see Trade-offs
