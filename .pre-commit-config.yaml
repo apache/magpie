@@ -164,7 +164,7 @@ repos:
   # .gitignore inside `.venv`, so a synced workspace stays out of the
   # walk: it covers the same files the list did.
   - repo: https://github.com/crate-ci/typos
-    rev: v1.50.0
+    rev: v1.50.1
     hooks:
       - id: typos
         name: typos
