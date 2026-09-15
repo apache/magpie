@@ -200,9 +200,8 @@ def check_gemini_invariants(settings: dict[str, Any], policy: dict[str, Any]) ->
         "read_mcp_resource",
     ):
         if not asks(tool):
-            errors.append(
-                f"magpie.toml: missing all-mode {tool} ask_user rule (shell requires the command argument matcher)"
-            )
+            hint = " (shell requires the command argument matcher)" if tool == "run_shell_command" else ""
+            errors.append(f"magpie.toml: missing all-mode {tool} ask_user rule{hint}")
     if not asks("*", mcp=True):
         errors.append("magpie.toml: missing all-server MCP ask_user rule")
 

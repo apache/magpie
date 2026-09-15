@@ -31,10 +31,12 @@
 #     iteration and rebuild it forever (an endless loop).
 #
 # SECURITY — read before running:
-#   This loop runs the agent in each harness's unattended / auto-approval mode
+#   Most profiles run the agent in unattended / auto-approval mode
 #   (for example Claude's `--dangerously-skip-permissions`, Codex's
-#   `--dangerously-bypass-approvals-and-sandbox`, Cursor's `--force`, or
-#   Gemini's `--yolo`). That bypasses the agent permission layer but NOT the
+#   `--dangerously-bypass-approvals-and-sandbox`, or Cursor's `--force`).
+#   Gemini instead uses `--approval-mode default`; headless calls needing
+#   approval are refused. See docs/adapters/gemini.md#spec-loop-runner.
+#   Auto-approval bypasses the agent permission layer but NOT the
 #   external OS sandbox (clean-env + filesystem/network). Per the project's
 #   security model it MUST be launched inside the sandbox harness, with no
 #   push/write credentials in the environment. Full rationale:

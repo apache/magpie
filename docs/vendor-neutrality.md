@@ -317,7 +317,8 @@ Magpie under several different agentic CLIs. Codex now has a
 [first-class adapter](adapters/codex.md) (experimental); adding another
 runtime is a [`family:tools`](labels-and-capabilities.md#1-family--subject)
 contribution, not a re-architecture.
-Gemini CLI also has an [experimental runtime adapter](adapters/gemini.md) that reads Magpie's canonical `.agents/skills/` tree. Its guide documents setup, supported controls, and remaining gaps from the reference configuration.
+Gemini CLI also has an [experimental agent harness integration](adapters/gemini.md) that reads Magpie's canonical `.agents/skills/` tree.
+Its guide covers setup, approval policies, verification, and [known limitations](adapters/gemini.md#known-limitations), including the remaining sandbox parity gaps.
 Cursor reads Magpie's canonical `.agents/skills/` tree and supports per-action
 confirmation in Composer and the `cursor-agent` CLI; see the
 [Cursor harness guide](adapters/cursor.md).

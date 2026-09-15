@@ -385,14 +385,14 @@ HITL exec-policy rules; its adapter is **experimental** — see the
 RFC-AI-0004 §3 commits the framework to **vendor neutrality across
 LLM backends** — [`docs/prerequisites.md`](docs/quick-start/prerequisites.md) and
 [`docs/vendor-neutrality.md`](docs/vendor-neutrality.md) carry the
-authoritative runtime matrix. The current state per harness:
+authoritative agent harness matrix. The current state per harness:
 
 | Harness | State | Tracking |
 |---|---|---|
 | OpenCode | Reference implementation, fully supported | — |
 | Claude Code | Reference implementation, fully supported | — |
 | Codex CLI | Experimental first-class adapter — reads `.agents/skills/` natively, ships in-tree sandbox + HITL rules | [#313](https://github.com/apache/magpie/issues/313) |
-| Gemini CLI | Experimental adapter reads `.agents/skills/` natively, with an action-guard, tool sandboxing and policies — see the [harness guide](docs/adapters/gemini.md) | [#314](https://github.com/apache/magpie/issues/314) |
+| Gemini CLI | Experimental agent harness: native skills, action guard, runner, tool sandboxing and approval policies; sandbox parity gaps remain — see the [harness guide](docs/adapters/gemini.md) | [#314](https://github.com/apache/magpie/issues/314) |
 | Local LLM (Ollama / llama.cpp / vLLM) | OpenAI-compatible endpoints with calibrated model floors (70B+ / 8B–14B) — see the [harness guide](docs/adapters/local-llm.md) | [#315](https://github.com/apache/magpie/issues/315) |
 | Cursor (Composer + Agent CLI) | Reads `.agents/skills/` natively; per-action confirmation and Composer/Agent CLI — see the [harness guide](docs/adapters/cursor.md) | [#316](https://github.com/apache/magpie/issues/316) |
 | Aider | Not yet ported | [#317](https://github.com/apache/magpie/issues/317) |
@@ -412,7 +412,7 @@ fully-supported Claude Code row, with nothing extra to install. See
 MCP servers used by the reference runtimes today: Slack, Gmail,
 Google Calendar, Google Drive, plus framework-internal ones for
 the ponymail / incubator-mail / incubator-reports surfaces. MCP-
-compatible harnesses (Gemini CLI, Goose, Copilot CLI) should pick
+compatible harnesses (Goose, Copilot CLI) should pick
 these up directly once the skill-format adapter lands for that
 harness.
 

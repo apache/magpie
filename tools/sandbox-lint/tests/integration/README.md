@@ -15,7 +15,7 @@
 
 The ordinary [sandbox-lint tests](../test_gemini.py) validate Magpie's committed profile with Python.
 These optional tests check how Gemini actually loads and enforces that profile.
-They catch failures that static matching cannot establish: upstream TOML validation, policy precedence, approval-mode behavior, headless refusal, and native versus shell filesystem access.
+They catch failures that static matching cannot establish: upstream TOML validation, policy precedence, approval-mode behavior, headless refusal, native argument-schema drift, cached MCP resource listing, and native versus shell filesystem access.
 
 Pytest owns discovery, skips, timeouts, and failure reporting in [`test_gemini_runtime.py`](test_gemini_runtime.py).
 The adjacent [`gemini_runtime.mjs`](gemini_runtime.mjs) helper calls Gemini's JavaScript APIs and asserts their results.
@@ -30,6 +30,8 @@ The tests use a temporary workspace and synthetic home files without authenticat
 
 The helper imports private bundle APIs and checks the package version before using them.
 Revalidate those imports and expected behavior on upgrades; do not downgrade an installed runtime to satisfy this test.
+Run the native policy probe for every Gemini upgrade before reporting that version as verified.
+Static CI success or a skipped probe does not establish that Magpie's rules outrank that version's built-in policies.
 It resolves modules through the installed CLI entry point so leftover bundle files cannot select a different runtime.
 
 ## Run
@@ -42,6 +44,8 @@ uv run --directory tools/sandbox-lint --group dev pytest tests/integration/test_
 ```
 
 This checks the settings loader, policy parser, and actual allow/ask/deny decisions across approval modes and interactive/headless execution.
+It validates the search, multi-file read, web-search, web-fetch, and MCP resource argument samples against native schemas.
+It also executes native resource listing with a synthetic cached registry, verifies which metadata reaches the model, and rejects any access to an MCP client.
 To also exercise the Linux filesystem and network boundaries:
 
 ```bash

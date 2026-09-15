@@ -38,10 +38,54 @@ try {
   assert.equal(core.GREP_TOOL_NAME, 'grep_search');
   assert.equal(core.TOOL_LEGACY_ALIASES.search_file_content, core.GREP_TOOL_NAME);
   const searchTools = core.getToolAliases(core.GREP_TOOL_NAME);
+  // The MCP resource classes are not public exports. Use the native registry
+  // factory with only these built-ins enabled and no discovery command.
+  const cachedResources = [{
+    serverName: 'synthetic-server', uri: 'demo://cached-resource',
+    name: 'Synthetic resource', description: 'Synthetic registry description',
+  }];
+  let registryReads = 0;
+  const mcpManager = new Proxy({}, {
+    get(_target, name) {
+      assert.equal(name, 'getAllResources', 'Resource listing must only read the cached registry');
+      return () => { registryReads++; return cachedResources; };
+    },
+  });
+  const externalTools = ['google_web_search', 'web_fetch', 'read_mcp_resource', 'list_mcp_resources'];
+  const registry = await core.Config.prototype.createToolRegistry.call({
+    messageBus: {},
+    getCoreTools: () => externalTools,
+    getExcludeTools: () => new Set(),
+    getApprovalMode: () => 'default',
+    getMcpClientManager: () => mcpManager,
+    getUseRipgrep: () => false,
+    getUseWriteTodos: () => false,
+    isPlanEnabled: () => false,
+    isTrackerEnabled: () => false,
+    getToolDiscoveryCommand: () => undefined,
+    config: { getMcpClientManager: () => mcpManager, getDirectWebFetch: () => false },
+  });
   const schemas = new Map([
     ['grep_search', new core.GrepTool({}, {}).schema.parametersJsonSchema],
     ['read_many_files', new core.ReadManyFilesTool({}, {}).schema.parametersJsonSchema],
+    ...externalTools.map(name => {
+      const tool = registry.getTool(name);
+      assert.ok(tool, `Native tool missing from registry: ${name}`);
+      assert.ok(tool.schema.parametersJsonSchema, `Native schema missing: ${name}`);
+      return [name, tool.schema.parametersJsonSchema];
+    }),
   ]);
+  const listTool = registry.getTool('list_mcp_resources');
+  registryReads = 0;
+  const listing = await listTool.build({}).execute({
+    abortSignal: new AbortController().signal,
+  });
+  assert.equal(listing.error, undefined);
+  assert.equal(registryReads, 1);
+  for (const value of Object.values(cachedResources[0])) {
+    assert.ok(listing.llmContent.includes(value), `Cached metadata must be visible to the model: ${value}`);
+  }
+  console.log('Native resource listing returns cached metadata without contacting an MCP client.');
   const settings = JSON.parse(fs.readFileSync(path.join(repo, '.gemini/settings.json'), 'utf8'));
   const workspace = path.join(fixture, 'workspace with spaces');
   fs.mkdirSync(path.join(workspace, '.gemini/policies'), { recursive: true });
