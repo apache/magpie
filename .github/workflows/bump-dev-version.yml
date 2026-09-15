@@ -35,19 +35,19 @@
 # the button — they are named as `Co-Authored-By` on the commit, and the
 # Actions run records them as the actor.
 #
-# SHAPE — why this is six jobs rather than one.
+# SHAPE.
 #
 #   prepare  ->  branch carrying the signed candidate commit
-#   prek / tests / rat / zizmor  ->  the real workflows, called with `ref`
-#   open-pr  ->  open the pull request once those pass
-#   cleanup  ->  delete the branch when anything above failed
+#   open-pr  ->  open the pull request as a draft
+#   cleanup  ->  delete the branch when something failed
 #
-# The bump is not "only a version string": it also regenerates fourteen
-# manifests and the lockfile, any of which can come out wrong. So the candidate
-# is checked before it becomes a pull request, and a failed check deletes the
-# branch instead of leaving a broken PR for someone to work out.
+# This workflow runs no checks of its own. It used to call `pre-commit.yml`,
+# `tests.yml`, `rat.yml` and `zizmor.yml` against the candidate before opening
+# the PR, which was a second copy of a suite the pull request already runs the
+# moment it is marked ready — see below. One run of the gate is enough, and the
+# run that matters is the one attached to the commit being merged.
 #
-# A pull request is also the only thing that works. The first version of this
+# A pull request is also the only shape that works. The first version of this
 # workflow committed straight to `main` and run #1 was refused outright:
 #
 #     gh: protected branch 'main' check failed:
@@ -57,25 +57,6 @@
 # the API enforces protection exactly as a push would. Nothing about a bump is
 # special enough to route around that, so the bump goes through review like
 # every other change.
-#
-# The checks are `uses:` of the workflows themselves, not copies of their
-# steps, so they cannot drift from what a PR gets. `pre-commit.yml`,
-# `tests.yml`, `rat.yml` and `zizmor.yml` each grew a `workflow_call` trigger
-# and a `ref` input for this; that input is empty on every other trigger.
-#
-# Each of those calling jobs carries its own `permissions:`. A called workflow's
-# jobs may request at most what the calling job was granted, and the
-# `permissions: {}` above grants nothing — so without this the run does not
-# start: "The nested job 'prek' is requesting 'contents: read', but is only
-# allowed 'contents: none'." Each block mirrors what its callee's jobs declare;
-# widening one here would silently widen what a called check can reach.
-#
-# Those `uses:` are `./…`, with zizmor's `self-repository` audit suppressed on
-# each. That audit prefers GitHub's `$/…` form and offers an auto-fix; taking it
-# made this workflow fail to start at all — run 35000731127 is a
-# `startup_failure` with no jobs, from the `$/` form and nothing else. `./` is
-# the documented syntax for a reusable workflow in the same repository and is
-# what actually parses, so the lint is the thing that gives way here.
 #
 # WHY THE PULL REQUEST IS A DRAFT. GitHub raises no `pull_request` events for
 # anything done with `GITHUB_TOKEN`, so a PR opened from here starts no checks
@@ -89,7 +70,8 @@
 # human does it. `pre-commit.yml`, `tests.yml`, `rat.yml` and `zizmor.yml` list
 # that type explicitly — it is not in the default set — so pressing *Ready for
 # review* starts the required checks against the PR head, exactly as an ordinary
-# PR gets them. Review the diff, mark it ready, let the checks run, merge.
+# PR gets them. That is also why this workflow needs to run none of them itself.
+# Review the diff, mark it ready, let the checks run, merge.
 ---
 name: bump dev version
 
@@ -185,9 +167,9 @@ jobs:
             echo "Co-Authored-By: $coauthor"
           } > "$RUNNER_TEMP/bump-message.txt"
 
-          # The branch has to exist before the mutation can commit onto it. It
-          # is a throwaway: `promote` fast-forwards `main` onto it and deletes
-          # it, `cleanup` deletes it if anything fails.
+          # The branch has to exist before the mutation can commit onto it.
+          # It becomes the pull request's head; `cleanup` deletes it if the
+          # commit or the PR never happens.
           gh api "repos/$REPO/git/refs" \
             -f "ref=refs/heads/$branch" -f "sha=$HEAD_SHA" >/dev/null
 
@@ -208,53 +190,9 @@ jobs:
 
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-  # The same four workflows a pull request runs, against the candidate. Called
-  # rather than copied, so they cannot drift from what a PR gets.
-  prek:
-    needs: prepare
-    if: needs.prepare.outputs.changed == 'true'
-    uses: ./.github/workflows/pre-commit.yml  # zizmor: ignore[self-repository] `$/` is a startup failure here — see header
-    permissions:
-      # `prek` declares `contents: read`.
-      contents: read
-    with:
-      ref: ${{ needs.prepare.outputs.branch }}
-
-  tests:
-    needs: prepare
-    if: needs.prepare.outputs.changed == 'true'
-    uses: ./.github/workflows/tests.yml  # zizmor: ignore[self-repository] `$/` is a startup failure here — see header
-    permissions:
-      # `members` and `pytest` both declare `contents: read`.
-      contents: read
-    with:
-      ref: ${{ needs.prepare.outputs.branch }}
-
-  rat:
-    needs: prepare
-    if: needs.prepare.outputs.changed == 'true'
-    uses: ./.github/workflows/rat.yml  # zizmor: ignore[self-repository] `$/` is a startup failure here — see header
-    permissions:
-      # `rat` declares `contents: read`.
-      contents: read
-    with:
-      ref: ${{ needs.prepare.outputs.branch }}
-
-  zizmor:
-    needs: prepare
-    if: needs.prepare.outputs.changed == 'true'
-    uses: ./.github/workflows/zizmor.yml  # zizmor: ignore[self-repository] `$/` is a startup failure here — see header
-    permissions:
-      # `zizmor` declares `contents: read` *and* `actions: read`;
-      # the API-backed audits need the latter.
-      actions: read
-      contents: read
-    with:
-      ref: ${{ needs.prepare.outputs.branch }}
-
   open-pr:
     name: Open the bump pull request
-    needs: [prepare, prek, tests, rat, zizmor]
+    needs: prepare
     if: needs.prepare.outputs.changed == 'true'
     runs-on: ubuntu-slim
     timeout-minutes: 5
@@ -299,10 +237,10 @@ jobs:
 
   cleanup:
     name: Drop the temporary branch
-    needs: [prepare, prek, tests, rat, zizmor, open-pr]
+    needs: [prepare, open-pr]
     # Only when something above did not succeed. On the happy path the branch
-    # is the pull request's head and must stay. Without this a failed check
-    # leaves an orphan candidate branch behind on every run.
+    # is the pull request's head and must stay. Without this a failed `prepare`
+    # or `open-pr` leaves an orphan candidate branch behind.
     if: always() && needs.prepare.outputs.changed == 'true' && contains(needs.*.result, 'failure')
     runs-on: ubuntu-slim
     timeout-minutes: 5
@@ -318,6 +256,6 @@ jobs:
           set -euo pipefail
           if [[ -n "$BRANCH" ]]; then
             gh api "repos/$REPO/git/refs/heads/$BRANCH" -X DELETE || true
-            echo "Checks failed; candidate branch $BRANCH deleted and no PR opened." \
+            echo "Run failed; candidate branch $BRANCH deleted and no PR opened." \
               >> "$GITHUB_STEP_SUMMARY"
           fi
