@@ -83,15 +83,15 @@ history separately provides its publication revision and date.
 
 <!-- BEGIN GENERATED SKILL TOKEN COUNTS -->
 
-Measured on (UTC): 2026-09-14.
+Measured on (UTC): 2026-09-15.
 
-Tokenizer: **tiktoken 0.12.0, `cl100k_base`**. Method: full UTF-8 file,
+Tokenizer: **tiktoken 0.14.0, `cl100k_base`**. Method: full UTF-8 file,
 including frontmatter and comments; line endings normalized to LF;
 special-token spellings counted as ordinary text.
 Coverage: **75 of 75 local `skills/*/SKILL.md` files**.
 External `source.md` redirects and harness symlinks are excluded.
 
-Measurement manifest SHA-256: `8ddd2e7de086ac9d986236f730f5acdf68a1130d0c245b6cd6d91ca70a50ea1d`.
+Measurement manifest SHA-256: `820180ee456ba87ce1a5d51a85bcd35030a83c6379f1d81fa464da273027f9cc`.
 
 | Skill file | Measured tokens | Source SHA-256 (first 16 characters) |
 |---|---:|---|
