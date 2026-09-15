@@ -23,6 +23,16 @@ model. The cases that matter here are the sandbox tag (it must never
 claim a sandbox the session does not have) and the folder segment
 inside a linked git worktree, where the project settings that decide
 the tag live in the *main* checkout rather than in <cwd>.
+
+Claude-Code-specific by construction, so `.claude/` is the only
+settings directory under test: the script is wired through Claude
+Code's `statusLine` setting, is fed Claude Code's statusLine payload on
+stdin, and reads Claude Code's `sandbox.enabled` schema. No other
+harness the framework supports has a status-line hook of that shape —
+Codex, Gemini, OpenCode and Kiro carry their sandbox posture in their
+own config files and surface it (when they surface it at all) through
+their own UI. A harness that grows one gets its own helper and its own
+tests; see `docs/adapters/add-a-harness.md`.
 """
 
 from __future__ import annotations
@@ -31,6 +41,7 @@ import json
 import os
 import re
 import subprocess
+from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
@@ -38,12 +49,6 @@ import pytest
 SCRIPT = Path(__file__).parent.parent / "sandbox-status-line.sh"
 
 ANSI = re.compile(r"\x1b\[[0-9;]*m")
-
-
-# ---------------------------------------------------------------------------
-# helpers
-# ---------------------------------------------------------------------------
-
 
 # Ignore the operator's own git config: a global `commit.gpgsign` (or a
 # signing key this process cannot read) would fail every fixture commit.
@@ -56,6 +61,13 @@ GIT_ENV = {
     "GIT_COMMITTER_NAME": "T",
     "GIT_COMMITTER_EMAIL": "t@example.invalid",
 }
+
+BRANCH = "feature-x"
+
+
+# ---------------------------------------------------------------------------
+# fixture builders
+# ---------------------------------------------------------------------------
 
 
 def _git(cwd: Path, *args: str) -> None:
@@ -133,118 +145,156 @@ def home(tmp_path: Path) -> Path:
 
 
 # ---------------------------------------------------------------------------
-# sandbox tag — plain (non-worktree) checkout
+# the cases
 # ---------------------------------------------------------------------------
 
 
-class TestSandboxTag:
-    def test_project_scope_true_renders_sandbox(self, tmp_path: Path, home: Path) -> None:
-        repo = _init_repo(tmp_path / "repo")
-        _settings(repo, {"enabled": True})
-        assert _run(repo, home, tmp_path).startswith("[sandbox] ")
+@dataclass(frozen=True)
+class Case:
+    """One layout on disk plus the line it must produce.
 
-    def test_project_scope_false_beats_user_scope_true(self, tmp_path: Path, home: Path) -> None:
-        repo = _init_repo(tmp_path / "repo")
-        _settings(repo, {"enabled": False})
-        assert _run(repo, home, tmp_path).startswith("[NO SANDBOX] ")
+    `worktree` is a path relative to tmp_path, so a sibling layout and a
+    nested one differ only in that string. `main` and `worktree_settings`
+    are the `sandbox` blocks written to each checkout's
+    `.claude/settings.local.json`; `None` means no file at all.
+    """
 
-    def test_auto_allow_gets_its_own_tag(self, tmp_path: Path, home: Path) -> None:
-        repo = _init_repo(tmp_path / "repo")
-        _settings(repo, {"enabled": True, "autoAllowBashIfSandboxed": True})
-        assert _run(repo, home, tmp_path).startswith("[sandbox-auto] ")
-
-    def test_falls_through_to_user_scope(self, tmp_path: Path, home: Path) -> None:
-        repo = _init_repo(tmp_path / "repo")
-        assert _run(repo, home, tmp_path).startswith("[sandbox] ")
-
-    def test_non_git_directory_still_renders(self, tmp_path: Path, home: Path) -> None:
-        plain = tmp_path / "plain"
-        plain.mkdir()
-        out = _run(plain, home, tmp_path)
-        assert out.startswith("[sandbox] ")
-        assert "plain" in out
+    id: str
+    tag: str
+    folder: str
+    main: dict | None = None
+    worktree: str | None = None
+    worktree_settings: dict | None = None
+    subdir: str | None = None
+    git: bool = True
 
 
-# ---------------------------------------------------------------------------
-# sandbox tag — linked worktrees
-#
-# Claude Code scopes a linked worktree's project settings to the main
-# checkout: `/sandbox` writes `enabled` there, and the worktree's own
-# .claude/settings.local.json usually holds only the per-worktree
-# filesystem allowlist. Reading <cwd> alone falls through to user scope
-# and claims a sandbox the session does not have.
-# ---------------------------------------------------------------------------
+def _build(tmp_path: Path, case: Case) -> Path:
+    """Materialise *case* under tmp_path and return the <cwd> to report."""
+    if not case.git:
+        cwd = tmp_path / case.folder
+        cwd.mkdir(parents=True)
+        return cwd
+
+    repo = _init_repo(tmp_path / "repo")
+    if case.main is not None:
+        _settings(repo, case.main)
+
+    cwd = repo
+    if case.worktree is not None:
+        cwd = tmp_path / case.worktree
+        _git(repo, "worktree", "add", "-q", "-b", BRANCH, str(cwd))
+        if case.worktree_settings is not None:
+            _settings(cwd, case.worktree_settings)
+
+    if case.subdir is not None:
+        cwd = cwd / case.subdir
+        cwd.mkdir(parents=True)
+    return cwd
 
 
-class TestLinkedWorktreeSandboxTag:
-    def test_worktrunk_worktree_reads_main_checkout(self, tmp_path: Path, home: Path) -> None:
-        repo = _init_repo(tmp_path / "repo")
-        _settings(repo, {"enabled": False})
-        wt = tmp_path / "repo.feature-x"
-        _git(repo, "worktree", "add", "-q", "-b", "feature-x", str(wt))
+CASES = [
+    # --- sandbox tag, plain (non-worktree) checkout ------------------------
+    Case(
+        id="project-scope-true",
+        main={"enabled": True},
+        tag="[sandbox]",
+        folder="repo",
+    ),
+    Case(
+        id="project-scope-false-beats-user-scope-true",
+        main={"enabled": False},
+        tag="[NO SANDBOX]",
+        folder="repo",
+    ),
+    Case(
+        id="auto-allow-gets-its-own-tag",
+        main={"enabled": True, "autoAllowBashIfSandboxed": True},
+        tag="[sandbox-auto]",
+        folder="repo",
+    ),
+    Case(
+        id="no-project-scope-falls-through-to-user-scope",
+        tag="[sandbox]",
+        folder="repo",
+    ),
+    Case(
+        id="non-git-directory-still-renders",
+        git=False,
+        tag="[sandbox]",
+        folder="plain",
+    ),
+    Case(
+        # A subdirectory of a plain checkout is not a linked worktree, so
+        # the folder segment stays the plain basename it has always been.
+        id="main-checkout-subdirectory-is-not-a-worktree",
+        main={"enabled": False},
+        subdir="src",
+        tag="[NO SANDBOX]",
+        folder="src",
+    ),
+    # --- sandbox tag, linked worktrees -------------------------------------
+    #
+    # Claude Code scopes a linked worktree's project settings to the main
+    # checkout: `/sandbox` writes `enabled` there, and the worktree's own
+    # .claude/settings.local.json usually holds only the per-worktree
+    # filesystem allowlist. Reading <cwd> alone falls through to user scope
+    # and claims a sandbox the session does not have.
+    Case(
+        id="worktree-reads-main-checkout",
+        main={"enabled": False},
+        worktree="repo.feature-x",
         # What the post-checkout hook writes: filesystem only, no `enabled`.
-        _settings(wt, {"filesystem": {"allowRead": [str(wt)]}})
-        assert _run(wt, home, tmp_path).startswith("[NO SANDBOX] ")
+        worktree_settings={"filesystem": {"allowRead": ["."]}},
+        tag="[NO SANDBOX]",
+        folder="repo/feature-x",
+    ),
+    Case(
+        id="worktree-subdirectory-reads-main-checkout",
+        main={"enabled": False},
+        worktree="repo.feature-x",
+        subdir="src/deep",
+        tag="[NO SANDBOX]",
+        folder="repo/feature-x",
+    ),
+    Case(
+        id="worktree-own-settings-win-over-main",
+        main={"enabled": False},
+        worktree="repo.feature-x",
+        worktree_settings={"enabled": True},
+        tag="[sandbox]",
+        folder="repo/feature-x",
+    ),
+    # --- folder segment, per worktree layout -------------------------------
+    Case(
+        id="folder-worktrunk-dot-separator",
+        worktree="repo.feature-x",
+        tag="[sandbox]",
+        folder="repo/feature-x",
+    ),
+    Case(
+        id="folder-worktrunk-dash-separator",
+        worktree="repo-feature-x",
+        tag="[sandbox]",
+        folder="repo/feature-x",
+    ),
+    Case(
+        id="folder-claude-code-worktrees-layout",
+        worktree="repo/.claude/worktrees/feature-x",
+        tag="[sandbox]",
+        folder="repo/feature-x",
+    ),
+    Case(
+        id="folder-unrelated-worktree-name-left-alone",
+        worktree="elsewhere",
+        tag="[sandbox]",
+        folder="repo/elsewhere",
+    ),
+]
 
-    def test_worktree_subdirectory_reads_main_checkout(self, tmp_path: Path, home: Path) -> None:
-        repo = _init_repo(tmp_path / "repo")
-        _settings(repo, {"enabled": False})
-        wt = tmp_path / "repo.feature-x"
-        _git(repo, "worktree", "add", "-q", "-b", "feature-x", str(wt))
-        sub = wt / "src" / "deep"
-        sub.mkdir(parents=True)
-        assert _run(sub, home, tmp_path).startswith("[NO SANDBOX] ")
 
-    def test_worktree_own_settings_win_over_main(self, tmp_path: Path, home: Path) -> None:
-        repo = _init_repo(tmp_path / "repo")
-        _settings(repo, {"enabled": False})
-        wt = tmp_path / "repo.feature-x"
-        _git(repo, "worktree", "add", "-q", "-b", "feature-x", str(wt))
-        _settings(wt, {"enabled": True})
-        assert _run(wt, home, tmp_path).startswith("[sandbox] ")
-
-    def test_main_checkout_subdirectory_is_not_a_worktree(self, tmp_path: Path, home: Path) -> None:
-        repo = _init_repo(tmp_path / "repo")
-        _settings(repo, {"enabled": False})
-        sub = repo / "src"
-        sub.mkdir()
-        out = _run(sub, home, tmp_path)
-        assert out.startswith("[NO SANDBOX] ")
-        # Not a linked worktree, so no "<source>/<worktree>" split — the
-        # folder segment stays the plain basename it has always been.
-        assert _folder(out) == "src"
-
-
-# ---------------------------------------------------------------------------
-# folder segment
-# ---------------------------------------------------------------------------
-
-
-class TestFolderSegment:
-    def test_worktrunk_layout_strips_the_repeated_repo_name(self, tmp_path: Path, home: Path) -> None:
-        repo = _init_repo(tmp_path / "repo")
-        wt = tmp_path / "repo.feature-x"
-        _git(repo, "worktree", "add", "-q", "-b", "feature-x", str(wt))
-        assert _folder(_run(wt, home, tmp_path)) == "repo/feature-x"
-
-    def test_worktrunk_dash_separator(self, tmp_path: Path, home: Path) -> None:
-        repo = _init_repo(tmp_path / "repo")
-        wt = tmp_path / "repo-feature-x"
-        _git(repo, "worktree", "add", "-q", "-b", "feature-x", str(wt))
-        assert _folder(_run(wt, home, tmp_path)) == "repo/feature-x"
-
-    def test_claude_code_worktree_layout(self, tmp_path: Path, home: Path) -> None:
-        repo = _init_repo(tmp_path / "repo")
-        wt = repo / ".claude" / "worktrees" / "feature-x"
-        _git(repo, "worktree", "add", "-q", "-b", "feature-x", str(wt))
-        assert _folder(_run(wt, home, tmp_path)) == "repo/feature-x"
-
-    def test_unrelated_worktree_name_is_left_alone(self, tmp_path: Path, home: Path) -> None:
-        repo = _init_repo(tmp_path / "repo")
-        wt = tmp_path / "elsewhere"
-        _git(repo, "worktree", "add", "-q", "-b", "feature-x", str(wt))
-        assert _folder(_run(wt, home, tmp_path)) == "repo/elsewhere"
-
-    def test_main_checkout_renders_one_segment(self, tmp_path: Path, home: Path) -> None:
-        repo = _init_repo(tmp_path / "repo")
-        assert _folder(_run(repo, home, tmp_path)) == "repo"
+@pytest.mark.parametrize("case", CASES, ids=lambda c: c.id)
+def test_status_line(tmp_path: Path, home: Path, case: Case) -> None:
+    out = _run(_build(tmp_path, case), home, tmp_path)
+    assert out.startswith(f"{case.tag} "), out
+    assert _folder(out) == case.folder, out
