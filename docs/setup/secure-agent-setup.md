@@ -1529,19 +1529,27 @@ writes — no `enabled` key at all. Walking `<cwd>` alone therefore
 falls straight through to user scope, and a session the operator
 deliberately switched *out* of the sandbox keeps rendering a green
 `[sandbox]` — the exact silent drift this line exists to prevent.
-So the walk inserts the working-tree root and the main checkout
-between `<cwd>` and user scope:
+So the walk leads with the main checkout and keeps the working-tree
+root ahead of user scope:
 
 ```text
+<main-checkout>/.claude/settings.local.json   (linked worktree only)
+<main-checkout>/.claude/settings.json         (linked worktree only)
 <cwd>/.claude/settings.local.json
 <cwd>/.claude/settings.json
 <worktree-root>/.claude/settings.local.json
 <worktree-root>/.claude/settings.json
-<main-checkout>/.claude/settings.local.json
-<main-checkout>/.claude/settings.json
 ~/.claude/settings.local.json
 ~/.claude/settings.json
 ```
+
+The main checkout leads rather than follows because it is the file the
+harness itself reads, so it is the only one that can describe the
+session. An `enabled` written by hand into a worktree's own settings is
+not read by Claude Code at all; preferring it for being "more specific"
+would let the line paint a green `[sandbox]` over a session that has
+none — the one thing it exists to prevent. This helper may say nothing;
+it may not say the wrong thing.
 
 The main checkout is found by comparing `git rev-parse --git-dir`
 with `--git-common-dir` — they differ in a linked worktree and
@@ -1551,6 +1559,13 @@ script having to enumerate them: worktrunk's sibling
 `<repo>.<branch>/` directories, Claude Code's own
 `<source>/.claude/worktrees/<name>`, and a plain `git worktree
 add` anywhere on disk.
+
+One layout has no main checkout to find: `git clone --bare` plus
+`git worktree add`, where the common dir is `<repo>.git` rather than
+`<main>/.git`. Its parent is simply whatever directory happens to
+contain the bare repo, so it is not read as project scope — the walk
+falls through to user scope, which is the honest answer. The folder
+segment still names the repository, taken from the bare directory.
 
 Like the [Sandbox-bypass visibility hook](#sandbox-bypass-visibility-hook),
 this is **complementary**, not authoritative — see Trade-offs

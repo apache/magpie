@@ -205,13 +205,52 @@ class TestLinkedWorktreeSandboxTag:
         sub.mkdir(parents=True)
         assert _run(sub, home, tmp_path).startswith("[NO SANDBOX] ")
 
-    def test_worktree_own_settings_win_over_main(self, tmp_path: Path, home: Path) -> None:
+    def test_main_checkout_beats_a_hand_written_worktree_setting(
+        self, tmp_path: Path, home: Path
+    ) -> None:
+        """The main checkout is the file the harness reads, so it wins.
+
+        A worktree-local `enabled` is not read by Claude Code at all.
+        Preferring it because it is "more specific" would paint a green
+        [sandbox] over a session that has none -- the one thing this line
+        must never do.
+        """
         repo = _init_repo(tmp_path / "repo")
         _settings(repo, {"enabled": False})
         wt = tmp_path / "repo.feature-x"
         _git(repo, "worktree", "add", "-q", "-b", "feature-x", str(wt))
         _settings(wt, {"enabled": True})
-        assert _run(wt, home, tmp_path).startswith("[sandbox] ")
+        assert _run(wt, home, tmp_path).startswith("[NO SANDBOX] ")
+
+    def test_bare_repo_worktree_does_not_read_the_bare_dir_s_parent(
+        self, tmp_path: Path, home: Path
+    ) -> None:
+        """`clone --bare` + worktrees has no main checkout to read.
+
+        The common dir is `<repo>.git`, so its parent is whatever directory
+        happens to contain it -- an unrelated project's settings, or none.
+        Falling through to user scope is the honest answer.
+        """
+        container = tmp_path / "container"
+        container.mkdir()
+        # The trap: a `.claude` belonging to the containing directory.
+        _settings(container, {"enabled": False})
+        bare = container / "proj.git"
+        seed = _init_repo(tmp_path / "seed")
+        subprocess.run(
+            ["git", "clone", "-q", "--bare", str(seed), str(bare)],
+            check=True,
+            capture_output=True,
+            text=True,
+            env=GIT_ENV,
+        )
+        wt = container / "feature-x"
+        _git(bare, "worktree", "add", "-q", "-b", "feature-x", str(wt))
+        out = _run(wt, home, tmp_path)
+        # User scope says on, and nothing legitimate overrides it.
+        assert out.startswith("[sandbox] ")
+        # The repo name comes from the bare dir, not from its parent.
+        assert _folder(out) == "proj/feature-x"
 
     def test_main_checkout_subdirectory_is_not_a_worktree(self, tmp_path: Path, home: Path) -> None:
         repo = _init_repo(tmp_path / "repo")
