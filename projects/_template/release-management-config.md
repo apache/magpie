@@ -88,7 +88,7 @@ and `announce-list` (mandatory per
 ASF TLP release against any other value.
 
 `release_dist_backend = atr` selects the
-**[Apache Trusted Releases](https://release-test.apache.org/)** platform
+**[Apache Trusted Releases](https://releases.apache.org/)** platform
 for the *whole* flow: the RM composes a signed candidate in ATR (which
 runs the signature/checksum/license/notice/source-header checks on
 upload), ATR drives the `dev@` `[VOTE]` and tabulation, and *finishing*
@@ -96,24 +96,37 @@ publishes to `dist.apache.org`. It is an ASF-only backend and an
 alternative to `svnpubsub` for the same `dev-list-vote` /
 `announce-list` approval and announce mechanisms. See the
 [ATR release runbook](../../docs/release-management/atr-release-runbook.md)
-for the phase-by-phase flow. ATR is in alpha; until a PMC ratifies it,
+for the phase-by-phase flow. ATR is in beta; until a PMC ratifies it,
 `svnpubsub` remains the ratified default.
 
-`release_vote_backend` **decouples vote administration from artefact
-hosting**, so an adopter can use ATR's automated checks + vote *without*
-letting it host or publish the release yet:
+`release_vote_backend` **decouples vote administration from the publish
+step**, so an adopter can use ATR's automated checks + vote while the RM
+still performs the promotion by hand:
 - `manual` (default) — the RM sends the `[VOTE]` email and tallies
   replies from the mail archive by hand (the classic `svnpubsub` flow).
 - `atr` — the signed artefacts are *also* uploaded to ATR (Compose) so
   it runs the policy checks and then **sends and tabulates** the `[VOTE]`.
   Combine `release_vote_backend = atr` with `release_dist_backend =
-  svnpubsub` for the **hybrid** flow: SVN hosts (`dist/dev`) and promotes
-  (`svn mv` to `dist/release`), while ATR only checks and drives the vote
-  — ATR's Finish/publish is skipped. This is the recommended stance while
-  ATR is alpha (checks + vote automation are useful; hosting/publishing is
-  not yet trusted). `release_vote_backend` is ignored when
+  svnpubsub` for the **hybrid** flow: SVN stages (`dist/dev`) and the RM
+  promotes (`svn mv` to `dist/release`), while ATR only checks and drives
+  the vote — ATR's Finish/publish is skipped. Whether to hand the publish
+  step to ATR is a governance decision, not merely a question of the
+  platform's maturity. `release_vote_backend` is ignored when
   `release_dist_backend = atr` (ATR already owns the vote in the full
   flow).
+
+  **Before adopting the hybrid, read this.** Under `atr`, Finish does
+  not host the artefacts — it *commits* them to `dist/release` in the
+  same distribution SVN repository the `svnpubsub` flow promotes into,
+  with no manual SVN step. And ATR's own documentation now states that
+  `dist/dev` is unnecessary when using ATR, and that its vote template
+  deliberately links only the ATR candidate page, because a vote on two
+  copies of the artefacts risks voters "voting on different bytes to one
+  another". The hybrid keeps both copies and points the `[VOTE]` at the
+  SVN one, so an adopter choosing it should do so deliberately. See
+  [Staging and voting](https://releases.apache.org/docs/staging-and-voting)
+  and
+  [Promoting to release](https://releases.apache.org/docs/promoting-to-release).
 
 Non-ASF adopters set the values their workflow uses; the skills
 emit backend-shaped paste-ready commands per
@@ -126,7 +139,7 @@ The state-change boundaries are backend-independent.
 |---|---|
 | `release_dist_url_template` | `https://dist.apache.org/repos/dist/<bucket>/airflow/<version>/` |
 | `archive_url_template` | `https://archive.apache.org/dist/airflow/` |
-| `atr_platform_url` | *(set when `release_vote_backend = atr` or `release_dist_backend = atr`; ASF alpha host `https://release-test.apache.org/`, production `https://release.apache.org/`)* |
+| `atr_platform_url` | *(set when `release_vote_backend = atr` or `release_dist_backend = atr`; `https://releases.apache.org/` — the former `release-test.apache.org` redirects there. Static catalogue: `https://release-catalog.apache.org/`)* |
 | `release_publish_command_template` | *(`svnpubsub` default; non-ASF adopters override with backend-specific command, e.g. `gh release upload <version> <artefacts>` for `github-releases`, `aws s3 cp --recursive <local> s3://<bucket>/<version>/` for `s3`)* |
 
 `<bucket>` resolves to `dev` (staging) or `release` (promoted)

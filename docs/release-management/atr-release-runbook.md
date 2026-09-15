@@ -7,7 +7,7 @@
 
 - [ATR release runbook (Apache Trusted Releases)](#atr-release-runbook-apache-trusted-releases)
   - [Why ATR](#why-atr)
-  - [Status: alpha](#status-alpha)
+  - [Status: beta](#status-beta)
   - [The three ATR phases vs the 14-step lifecycle](#the-three-atr-phases-vs-the-14-step-lifecycle)
   - [What ATR does *not* change](#what-atr-does-not-change)
   - [State-change boundaries (unchanged from `svnpubsub`)](#state-change-boundaries-unchanged-from-svnpubsub)
@@ -81,18 +81,23 @@ This keeps the release policy-compliant by construction, which is the
 point of ATR: releases that are *trusted* because the platform, not a
 tired human at 2am, enforced the mechanics.
 
-## Status: alpha
+## Status: beta
 
 > [!IMPORTANT]
-> ATR is an **ASF Tooling** platform still in **alpha**. As of this
-> writing the platform runs at the alpha deployment
-> **<https://release-test.apache.org/>** (the production host will be
-> **release.apache.org**), and the `atr` client and API schema are
-> explicitly **not yet stable** — do not pin unattended scripts to
-> them. Exact client subcommand names may shift; where this runbook
-> gives a command, treat it as the shape of the operation and confirm
-> the current verb with `atr --help` and the
-> [ATR user guide](https://release-test.apache.org/docs/).
+> ATR is an **ASF Tooling** platform, now in **beta**. The platform
+> runs at **<https://releases.apache.org/>**; the older
+> `release-test.apache.org` now redirects there. A static release
+> catalogue is served separately at
+> **<https://release-catalog.apache.org/>**.
+>
+> The `atr` client and API schema are still **not stable** — beta is
+> not a stability guarantee, so do not pin unattended scripts to them.
+> The client repository carries no tags and no releases and is
+> installed straight from `main`, so there is no version to pin to even
+> if you wanted one. Exact client subcommand names may shift; where
+> this runbook gives a command, treat it as the shape of the operation
+> and confirm the current verb with `atr --help` and the
+> [ATR user guide](https://releases.apache.org/docs/).
 >
 > Until Magpie's PMC ratifies ATR as the project's release backend,
 > the [`svnpubsub` runbook](svn-release-runbook.md) remains the
@@ -102,9 +107,11 @@ tired human at 2am, enforced the mechanics.
 
 > [!IMPORTANT]
 > **Hybrid mode (Magpie's current stance): SVN hosts, ATR votes.**
-> Because ATR is still alpha, Magpie does **not** yet let it host or
-> publish releases — but it *does* use ATR's automated checks and vote
-> administration. This is expressed as two independent config keys in
+> Magpie keeps promotion on SVN and uses ATR only for its automated
+> checks and vote administration. This is a **governance** question
+> rather than a maturity one:
+> ATR reaching beta satisfies the maturity precondition, leaving the
+> PMC ratification vote as the only remaining blocker. This is expressed as two independent config keys in
 > [`release-management-config.md`](../../projects/magpie/release-management-config.md):
 > `release_dist_backend = svnpubsub` **and** `release_vote_backend = atr`.
 > Under this mode:
@@ -123,6 +130,39 @@ tired human at 2am, enforced the mechanics.
 > apply, but **Finish** falls back to the SVN runbook. The rest of this
 > document describes the *full* ATR flow (`release_dist_backend = atr`),
 > which is the post-ratification target.
+
+> [!WARNING]
+> **ATR's own documentation now advises against this hybrid's shape.**
+> Two points from the ATR user guide bear directly on it, and the PMC
+> should weigh them before the ratification vote.
+>
+> - **`dist/dev` is no longer needed.** "That workflow still works, but
+>   it is no longer necessary, because ATR now publishes the approved
+>   artifacts itself, directly to `dist/release`, after the vote passes.
+>   Unless you have a specific reason to keep using `dist/dev`, you do
+>   not need it when using ATR."
+>   ([Staging and voting](https://releases.apache.org/docs/staging-and-voting))
+> - **Linking a second copy from the `[VOTE]` is discouraged.** ATR's
+>   default vote template links only the ATR candidate page and the
+>   committee `KEYS` file, and "deliberately does not link to any other
+>   source of the same artifacts", because a vote is a vote on one
+>   identified set of bytes — with two copies in play, "voters may then
+>   be voting on different bytes to one another". Magpie's hybrid does
+>   exactly that, which is also why the `0.1.0` `[VOTE]` body had to be
+>   hand-assembled rather than generated: the template is not missing
+>   the hybrid case, it declines it.
+>
+> Note also that full adoption does **not** make ATR the host. ATR's
+> Finish *commits* the approved artefacts to `dist/release` in the same
+> Apache distribution SVN repository the `svnpubsub` flow promotes into,
+> and "No manual SVN step is needed to publish a release"
+> ([Promoting to release](https://releases.apache.org/docs/promoting-to-release)).
+> The artefacts end up in the same place either way; what changes is
+> whether the RM runs `svn mv` or ATR commits on the project's behalf.
+>
+> Resolving this is a PMC decision, tracked in
+> [#1182](https://github.com/apache/magpie/issues/1182). The policy is
+> unchanged until that resolves.
 
 ## The three ATR phases vs the 14-step lifecycle
 
@@ -230,7 +270,7 @@ atr jwt refresh          # exchanges the PAT for a short-lived JWT
 > Everything the client does is also doable in the ATR **web UI**.
 > The web UI is the stable path while the client matures; use the
 > client when you want a scriptable/CI-driven release. Both hit the
-> same [ATR API](https://release-test.apache.org/api/docs) (e.g.
+> same [ATR API](https://releases.apache.org/api/docs) (e.g.
 > `POST /api/release/create`, `POST /api/release/upload`,
 > `GET /api/checks/list/...`, `POST /api/release/announce`).
 
@@ -425,7 +465,13 @@ Off-platform and unchanged from `svnpubsub`:
   [`release-archive-sweep`](../../skills/release-archive-sweep/SKILL.md)
   applies the retention rule
   ([`release-management-config.md` § Archive](../../projects/_template/release-management-config.md#archive));
-  superseded versions move to `archive.apache.org`.
+  superseded versions move to `archive.apache.org`. This stays manual
+  under **full ATR too**: releases committed to `dist/release` are
+  picked up by the archive automatically, but ATR does not delete the
+  superseded ones — "Archiving a release in ATR records the archival in
+  the release catalog, but does not currently remove the files from
+  `/dist/release/`, so this step remains manual"
+  ([Promoting to release](https://releases.apache.org/docs/promoting-to-release)).
 - **Audit log** (Step 13) —
   [`release-audit-report`](../../skills/release-audit-report/SKILL.md)
   appends the per-release record (RM, binding voters, artefacts +
@@ -488,9 +534,10 @@ repository for a worked GitHub Actions example.
 - [`release-management-config.md`](../../projects/_template/release-management-config.md)
   — where the `atr` distribution backend is selected.
 - **ATR platform** —
-  [alpha deployment](https://release-test.apache.org/) ·
-  [user docs](https://release-test.apache.org/docs/) ·
-  [API docs](https://release-test.apache.org/api/docs) ·
+  [beta deployment](https://releases.apache.org/) ·
+  [release catalogue](https://release-catalog.apache.org/) ·
+  [user docs](https://releases.apache.org/docs/) ·
+  [API docs](https://releases.apache.org/api/docs) ·
   [platform source](https://github.com/apache/tooling-trusted-releases) ·
   [`atr` client](https://github.com/apache/tooling-releases-client) ·
   [GitHub Actions](https://github.com/apache/tooling-actions) ·

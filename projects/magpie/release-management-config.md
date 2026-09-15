@@ -36,8 +36,8 @@ mandatory ASF approval + announce mechanisms (`dev-list-vote`,
 `announce-list`).
 
 > [!IMPORTANT]
-> **Hybrid backend while ATR is in alpha: SVN for artefacts, ATR for the
-> vote.** The two concerns are decoupled:
+> **Hybrid backend pending PMC ratification: SVN for artefacts, ATR for
+> the vote.** The two concerns are decoupled:
 > - **`release_dist_backend = svnpubsub`** — the signed artefacts are
 >   staged to `dist/dev/` and promoted to `dist/release/` on
 >   `dist.apache.org` by `svn mv`, per the
@@ -52,14 +52,36 @@ mandatory ASF approval + announce mechanisms (`dev-list-vote`,
 >   **sends and tabulates** the `[VOTE]`. This is why artefacts land in
 >   **both** places during the RC.
 >
-> **Why the split:** ATR is in **alpha**, so we do not yet trust it to
-> *host or publish* the release (that stays on SVN, ratified). But its
-> automated checks and vote administration are useful now. Full adoption
-> (flipping `release_dist_backend` to `atr`, so ATR also hosts/publishes
-> via Finish) is **pending a PMC ratification vote on `dev@`** and a move
-> of ATR from alpha to beta/GA. After that, set `release_dist_backend =
-> atr` and drop the SVN staging/promote steps; the approval and announce
-> mechanisms are backend-independent and need no change.
+> **Why the split:** the promotion step stays with the RM on SVN, while
+> ATR's automated checks and vote administration are used now. Full
+> adoption (flipping `release_dist_backend` to `atr`) had **two**
+> preconditions: a PMC ratification vote on `dev@`, and ATR moving
+> beyond alpha.
+>
+> **ATR has since reached beta, so the second precondition is met.** The
+> ratification vote on `dev@` is now the only remaining blocker — full
+> adoption is a governance decision, not a wait on the platform. After
+> that vote, set `release_dist_backend = atr` and drop the SVN
+> staging/promote steps; the approval and announce mechanisms are
+> backend-independent and need no change.
+>
+> **What full adoption actually changes.** Not where the artefacts live.
+> ATR's Finish *commits* the approved artefacts to `dist/release` in the
+> same distribution SVN repository this hybrid promotes into, and no
+> manual SVN step is needed to publish. What changes is who performs the
+> commit — the RM running `svn mv`, or ATR committing on the project's
+> behalf once the vote resolves. Superseded-release cleanup stays a
+> manual `svn rm` either way.
+>
+> **Open tension, for the ratification discussion.** ATR's documentation
+> now says `dist/dev` is unnecessary when using ATR, and its vote
+> template deliberately links only the ATR candidate page, because a
+> vote pointing at two copies of the artefacts risks voters "voting on
+> different bytes to one another". This hybrid keeps both copies and
+> points the `[VOTE]` at the SVN one — which is also why the `0.1.0`
+> `[VOTE]` body had to be hand-assembled. Tracked in
+> [#1182](https://github.com/apache/magpie/issues/1182); the policy is
+> unchanged until the PMC resolves it.
 
 ## Identifiers
 
@@ -166,7 +188,7 @@ ATR platform; see the [ATR release runbook](../../docs/release-management/atr-re
 |---|---|
 | `release_dist_url_template` | `https://dist.apache.org/repos/dist/<bucket>/magpie/<version>/` |
 | `archive_url_template` | `https://archive.apache.org/dist/magpie/` |
-| `atr_platform_url` | `https://release-test.apache.org/` *(used whenever `release_vote_backend = atr` or `release_dist_backend = atr`; alpha host, production will be `release.apache.org`)* |
+| `atr_platform_url` | `https://releases.apache.org/` *(used whenever `release_vote_backend = atr` or `release_dist_backend = atr`; the former `release-test.apache.org` redirects here. Static catalogue: `https://release-catalog.apache.org/`)* |
 
 On the `svnpubsub` dist backend, `<bucket>` resolves to `dev` while the
 RC is staged for the vote and `release` after promotion. Under the
