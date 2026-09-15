@@ -63,6 +63,13 @@
 # `tests.yml`, `rat.yml` and `zizmor.yml` each grew a `workflow_call` trigger
 # and a `ref` input for this; that input is empty on every other trigger.
 #
+# Each of those calling jobs carries its own `permissions:`. A called workflow's
+# jobs may request at most what the calling job was granted, and the
+# `permissions: {}` above grants nothing — so without this the run does not
+# start: "The nested job 'prek' is requesting 'contents: read', but is only
+# allowed 'contents: none'." Each block mirrors what its callee's jobs declare;
+# widening one here would silently widen what a called check can reach.
+#
 # Those `uses:` are `./…`, with zizmor's `self-repository` audit suppressed on
 # each. That audit prefers GitHub's `$/…` form and offers an auto-fix; taking it
 # made this workflow fail to start at all — run 35000731127 is a
@@ -184,6 +191,12 @@ jobs:
           gh api "repos/$REPO/git/refs" \
             -f "ref=refs/heads/$branch" -f "sha=$HEAD_SHA" >/dev/null
 
+          # Published here, not after the commit below: the branch exists from
+          # this line onward, so if the mutation fails `cleanup` still needs the
+          # name to delete it. Emitting it at the end of the step would leak the
+          # branch on exactly the failure that creates one.
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+
           # Committed through GitHub's API, not `git commit`: the commit comes
           # back signed by GitHub and shows as Verified, with no key material in
           # CI.
@@ -193,7 +206,6 @@ jobs:
             --message-file "$RUNNER_TEMP/bump-message.txt" \
             --repo "$REPO"
 
-          echo "branch=$branch" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
   # The same four workflows a pull request runs, against the candidate. Called
@@ -202,6 +214,9 @@ jobs:
     needs: prepare
     if: needs.prepare.outputs.changed == 'true'
     uses: ./.github/workflows/pre-commit.yml  # zizmor: ignore[self-repository] `$/` is a startup failure here — see header
+    permissions:
+      # `prek` declares `contents: read`.
+      contents: read
     with:
       ref: ${{ needs.prepare.outputs.branch }}
 
@@ -209,6 +224,9 @@ jobs:
     needs: prepare
     if: needs.prepare.outputs.changed == 'true'
     uses: ./.github/workflows/tests.yml  # zizmor: ignore[self-repository] `$/` is a startup failure here — see header
+    permissions:
+      # `members` and `pytest` both declare `contents: read`.
+      contents: read
     with:
       ref: ${{ needs.prepare.outputs.branch }}
 
@@ -216,6 +234,9 @@ jobs:
     needs: prepare
     if: needs.prepare.outputs.changed == 'true'
     uses: ./.github/workflows/rat.yml  # zizmor: ignore[self-repository] `$/` is a startup failure here — see header
+    permissions:
+      # `rat` declares `contents: read`.
+      contents: read
     with:
       ref: ${{ needs.prepare.outputs.branch }}
 
@@ -223,6 +244,11 @@ jobs:
     needs: prepare
     if: needs.prepare.outputs.changed == 'true'
     uses: ./.github/workflows/zizmor.yml  # zizmor: ignore[self-repository] `$/` is a startup failure here — see header
+    permissions:
+      # `zizmor` declares `contents: read` *and* `actions: read`;
+      # the API-backed audits need the latter.
+      actions: read
+      contents: read
     with:
       ref: ${{ needs.prepare.outputs.branch }}
 
