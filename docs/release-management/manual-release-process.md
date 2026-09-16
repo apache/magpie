@@ -32,6 +32,17 @@
 
 # Manual release process — the 0.1.0 hybrid path (SVN-dist + ATR-vote)
 
+> [!NOTE]
+> **Historical record — this path is retired.** It documents what the
+> `0.1.0` release actually did, hybrid and all, and is kept because the
+> rc1/rc2 detail is the evidence behind several decisions. It is **not**
+> the current procedure: Magpie now runs the full ATR flow
+> (`release_dist_backend = atr`), with one staging location and no
+> `dist/dev`. Start from the
+> [ATR release runbook](atr-release-runbook.md). The reasoning that
+> retired the hybrid is in
+> [#1182](https://github.com/apache/magpie/issues/1182).
+
 A concrete, **as-executed** record of how Apache Magpie `0.1.0` was cut
 by hand, kept as a practical runbook for the next Release Manager (RM).
 

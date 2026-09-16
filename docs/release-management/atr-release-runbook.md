@@ -106,58 +106,44 @@ tired human at 2am, enforced the mechanics.
 > on ASF Slack before cutting a *real* release through ATR.
 
 > [!IMPORTANT]
-> **Hybrid mode (Magpie's current stance): SVN hosts, ATR votes.**
-> Magpie keeps promotion on SVN and uses ATR only for its automated
-> checks and vote administration. This is a **governance** question
-> rather than a maturity one:
-> ATR reaching beta satisfies the maturity precondition, leaving the
-> PMC ratification vote as the only remaining blocker. This is expressed as two independent config keys in
-> [`release-management-config.md`](../../projects/magpie/release-management-config.md):
-> `release_dist_backend = svnpubsub` **and** `release_vote_backend = atr`.
-> Under this mode:
-> - **Compose** — the signed artefacts are staged to SVN `dist/dev`
->   (canonical download location) **and** uploaded to ATR so it runs the
->   policy checks. Artefacts live in both places.
-> - **Vote** — ATR sends the `[VOTE]` to `dev@` and tabulates, exactly as
->   the *Vote* rows below describe. The `[VOTE]` body points voters at the
->   SVN `dist/dev` URL for downloads.
-> - **Finish** — **not done through ATR.** Promotion is `svn mv dist/dev →
->   dist/release` per the [`svnpubsub` runbook](svn-release-runbook.md);
->   ATR's Finish/publish is skipped until `release_dist_backend` itself
->   becomes `atr`.
+> **Magpie runs the full ATR flow. There is no hybrid mode.**
+> Both config keys in
+> [`release-management-config.md`](../../projects/magpie/release-management-config.md)
+> are `atr`: `release_dist_backend = atr` **and**
+> `release_vote_backend = atr`. Every row of the table below applies —
+> Compose, Vote **and Finish**.
 >
-> So in hybrid mode the **Compose** and **Vote** rows of the table below
-> apply, but **Finish** falls back to the SVN runbook. The rest of this
-> document describes the *full* ATR flow (`release_dist_backend = atr`),
-> which is the post-ratification target.
-
-> [!WARNING]
-> **ATR's own documentation now advises against this hybrid's shape.**
-> Two points from the ATR user guide bear directly on it, and the PMC
-> should weigh them before the ratification vote.
+> - **Compose** — the signed artefacts are staged in ATR, and only there.
+>   Nothing is written to SVN `dist/dev`.
+> - **Vote** — ATR sends the `[VOTE]` to `dev@` and tabulates it. The
+>   default template links the ATR candidate page and the committee
+>   `KEYS` file, which is what voters download from.
+> - **Finish** — ATR commits the approved artefacts to `dist/release`.
+>   No manual `svn mv`.
 >
-> - **`dist/dev` is no longer needed.** "That workflow still works, but
->   it is no longer necessary, because ATR now publishes the approved
->   artifacts itself, directly to `dist/release`, after the vote passes.
->   Unless you have a specific reason to keep using `dist/dev`, you do
->   not need it when using ATR."
->   ([Staging and voting](https://releases.apache.org/docs/staging-and-voting))
-> - **Linking a second copy from the `[VOTE]` is discouraged.** ATR's
->   default vote template links only the ATR candidate page and the
->   committee `KEYS` file, and "deliberately does not link to any other
->   source of the same artifacts", because a vote is a vote on one
->   identified set of bytes — with two copies in play, "voters may then
->   be voting on different bytes to one another". Magpie's hybrid does
->   exactly that, which is also why the `0.1.0` `[VOTE]` body had to be
->   hand-assembled rather than generated: the template is not missing
->   the hybrid case, it declines it.
+> This supersedes the earlier hybrid (`release_dist_backend = svnpubsub`
+> with `release_vote_backend = atr`), under which artefacts lived in two
+> places and the `[VOTE]` pointed at the SVN copy while the checks ran
+> against the ATR one. That shape is retired; see
+> [#1182](https://github.com/apache/magpie/issues/1182) for the
+> discussion that settled it, and
+> [`manual-release-process.md`](manual-release-process.md) for what the
+> `0.1.0` release actually did under it.
 >
-> Note also that full adoption does **not** make ATR the host. ATR's
-> Finish *commits* the approved artefacts to `dist/release` in the same
-> Apache distribution SVN repository the `svnpubsub` flow promotes into,
-> and "No manual SVN step is needed to publish a release"
+> **One staging location is the point, not a detail.** ATR's default vote
+> template "deliberately does not link to any other source of the same
+> artifacts", because with two copies in play "voters may then be voting
+> on different bytes to one another"
+> ([Staging and voting](https://releases.apache.org/docs/staging-and-voting)).
+> Under the full flow the bytes voted on are the bytes Finish commits,
+> with the checksum recorded alongside and no human step between — which
+> is precisely the provenance property the hybrid could not offer.
+>
+> **Finish does not make ATR the host.** It commits into the same Apache
+> distribution SVN repository the `svnpubsub` flow promotes into, and
+> "No manual SVN step is needed to publish a release"
 > ([Promoting to release](https://releases.apache.org/docs/promoting-to-release)).
-> The artefacts end up in the same place either way; what changes is
+> What changes is
 > whether the RM runs `svn mv` or ATR commits on the project's behalf.
 >
 > Resolving this is a PMC decision, tracked in

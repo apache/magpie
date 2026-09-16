@@ -99,34 +99,36 @@ alternative to `svnpubsub` for the same `dev-list-vote` /
 for the phase-by-phase flow. ATR is in beta; until a PMC ratifies it,
 `svnpubsub` remains the ratified default.
 
-`release_vote_backend` **decouples vote administration from the publish
-step**, so an adopter can use ATR's automated checks + vote while the RM
-still performs the promotion by hand:
+`release_vote_backend` selects how the mandatory vote is *administered*:
 - `manual` (default) — the RM sends the `[VOTE]` email and tallies
   replies from the mail archive by hand (the classic `svnpubsub` flow).
-- `atr` — the signed artefacts are *also* uploaded to ATR (Compose) so
-  it runs the policy checks and then **sends and tabulates** the `[VOTE]`.
-  Combine `release_vote_backend = atr` with `release_dist_backend =
-  svnpubsub` for the **hybrid** flow: SVN stages (`dist/dev`) and the RM
-  promotes (`svn mv` to `dist/release`), while ATR only checks and drives
-  the vote — ATR's Finish/publish is skipped. Whether to hand the publish
-  step to ATR is a governance decision, not merely a question of the
-  platform's maturity. `release_vote_backend` is ignored when
-  `release_dist_backend = atr` (ATR already owns the vote in the full
-  flow).
+- `atr` — the signed artefacts are staged in ATR (Compose) so it runs the
+  policy checks and then **sends and tabulates** the `[VOTE]`.
+  `release_vote_backend` is ignored when `release_dist_backend = atr`,
+  because ATR already owns the vote in the full flow.
 
-  **Before adopting the hybrid, read this.** Under `atr`, Finish does
-  not host the artefacts — it *commits* them to `dist/release` in the
-  same distribution SVN repository the `svnpubsub` flow promotes into,
-  with no manual SVN step. And ATR's own documentation now states that
-  `dist/dev` is unnecessary when using ATR, and that its vote template
-  deliberately links only the ATR candidate page, because a vote on two
-  copies of the artefacts risks voters "voting on different bytes to one
-  another". The hybrid keeps both copies and points the `[VOTE]` at the
-  SVN one, so an adopter choosing it should do so deliberately. See
-  [Staging and voting](https://releases.apache.org/docs/staging-and-voting)
-  and
-  [Promoting to release](https://releases.apache.org/docs/promoting-to-release).
+> [!IMPORTANT]
+> **Do not combine `release_vote_backend = atr` with
+> `release_dist_backend = svnpubsub`.** It looks like a cautious middle
+> step and is not one. It puts the artefacts in two places during the
+> vote — SVN `dist/dev` and the ATR candidate — with nothing tying them
+> together, so voters can be "voting on different bytes to one another"
+> ([Staging and voting](https://releases.apache.org/docs/staging-and-voting)).
+> ATR's vote template deliberately links only the ATR candidate for that
+> reason, which means this combination also forces a hand-assembled
+> `[VOTE]` body.
+>
+> Magpie ran that split for `0.1.0` and has retired it. Pick one: either
+> the full ATR flow, or `svnpubsub` end to end with a `manual` vote.
+>
+> **Choosing ATR does not hand your artefacts to a new host.** Finish
+> *commits* the approved artefacts to `dist/release` in the same Apache
+> distribution SVN repository `svnpubsub` promotes into, with no manual
+> SVN step
+> ([Promoting to release](https://releases.apache.org/docs/promoting-to-release)).
+> What changes is who performs the commit, and that the bytes voted on
+> are provably the bytes published. Note also that Infra intends to
+> deprecate `dist/dev`.
 
 Non-ASF adopters set the values their workflow uses; the skills
 emit backend-shaped paste-ready commands per

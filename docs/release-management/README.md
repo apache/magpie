@@ -260,15 +260,15 @@ Two non-negotiable boundaries cross every Agentic Drafting skill above:
   backend: compose a signed candidate in ATR, let the platform run
   the policy checks and drive the `[VOTE]`, then *finish* to publish
   and announce. Same 14-step lifecycle and same skills as the
-  `svnpubsub` runbook; ATR replaces the mechanics of Steps 5–11. ATR
-  is in alpha — the forward-looking backend, tracked against the
-  [MISSION § first-release commitment](../../MISSION.md#initial-goals).
+  `svnpubsub` runbook; ATR replaces the mechanics of Steps 5–11. ATR is
+  in beta and is **Magpie's release backend** — start here.
 - [**`manual-release-process.md`**](manual-release-process.md), the
-  concrete **as-executed** record of the `0.1.0` release on the current
-  hybrid backend (`release_dist_backend = svnpubsub` +
+  concrete **as-executed** record of the `0.1.0` release on the
+  now-retired hybrid backend (`release_dist_backend = svnpubsub` +
   `release_vote_backend = atr`): the exact command sequence run, the real
-  URLs, and the `rc1`/`rc2` rough edges — a practical companion to the two
-  abstract per-backend runbooks above.
+  URLs, and the `rc1`/`rc2` rough edges. Kept as history — the hybrid was
+  retired in [#1182](https://github.com/apache/magpie/issues/1182) — not
+  as the procedure to follow.
 
 Two documents that **do not** ship in this family but are
 referenced from it:
