@@ -158,7 +158,7 @@ Adopter-owned, at
 workspace = "/tmp/agent-scratch"
 
 [repos]
-tracker  = "acme/tracker"
+tracker  = "acme/tracker"   # optional — see below
 upstream = "acme/product"
 
 [values]
@@ -217,6 +217,24 @@ prompt-injection payload in a PR title cannot talk it into one.
 
 The policy is never supplied on the command line: a caller cannot widen its own
 policy.
+
+`upstream` is required; **`tracker` is optional**. A project whose skills only
+touch public work has no tracker to name, and requiring one would fail every
+operation at load time over a value most of them never read — including
+upstream-only reads like `viewer` and `pr-diff`. Omit it and those keep working;
+an operation that addresses the tracker refuses by name instead:
+
+```text
+vetted-op: refused: this operation addresses the tracker, which the policy
+does not configure. Declare `tracker` under [repos] to enable it;
+upstream-only operations are unaffected.
+```
+
+The refusal happens in the builder, before any argv exists, so a tracker
+operation can never fall back to `upstream` — which is the outcome that would
+matter, since it would publish embargoed content to a public repository.
+*Absent* is allowed; *present but malformed* is still a load error, because a
+typo'd repo points operations somewhere unintended.
 
 ## CLI
 

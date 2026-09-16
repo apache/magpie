@@ -46,7 +46,12 @@ class ConfigError(RuntimeError):
 class Config:
     """Resolved, validated policy."""
 
-    tracker_repo: str
+    #: The private tracker, when the policy declares one. Optional: an adopter
+    #: whose skills only touch public work has no tracker to name, and requiring
+    #: one would make every operation — including upstream-only reads — fail at
+    #: load time over a value they never use. Operations that address the tracker
+    #: refuse individually instead; see `_tracker` in ops.py.
+    tracker_repo: str | None
     upstream_repo: str
     workspace: Path
     #: Enum name -> permitted values. Board columns map name -> option id.
@@ -88,6 +93,18 @@ def _require_repo(raw: dict[str, object], key: str) -> str:
     return value
 
 
+def _optional_repo(raw: dict[str, object], key: str) -> str | None:
+    """Validate a repo that the policy may legitimately omit.
+
+    Absent is allowed; present-but-malformed is not. Silently ignoring a
+    typo'd repo would point operations somewhere unintended, which is the one
+    outcome this dispatcher exists to prevent.
+    """
+    if key not in raw:
+        return None
+    return _require_repo(raw, key)
+
+
 def load(path: Path | None = None, *, cwd: Path | None = None) -> Config:
     """Load and validate the policy."""
     base = (cwd or Path.cwd()).resolve()
@@ -100,7 +117,7 @@ def load(path: Path | None = None, *, cwd: Path | None = None) -> Config:
 
     repos = raw.get("repos")
     if not isinstance(repos, dict):
-        raise ConfigError("config needs a [repos] table with tracker and upstream")
+        raise ConfigError("config needs a [repos] table declaring at least 'upstream'")
 
     workspace_raw = raw.get("workspace")
     if not isinstance(workspace_raw, str) or not workspace_raw:
@@ -124,7 +141,7 @@ def load(path: Path | None = None, *, cwd: Path | None = None) -> Config:
         callers[name] = frozenset(ops)
 
     return Config(
-        tracker_repo=_require_repo(repos, "tracker"),
+        tracker_repo=_optional_repo(repos, "tracker"),
         upstream_repo=_require_repo(repos, "upstream"),
         workspace=workspace,
         values=dict(values_raw),

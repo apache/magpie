@@ -638,3 +638,131 @@ def test_every_code_review_operation_is_a_read() -> None:
     }
     for name in read_only:
         assert not ops.OPS[name].writes, f"{name} must be a read"
+
+
+# --- an optional tracker ------------------------------------------------------
+#
+# A policy may legitimately name no tracker: an adopter whose skills only touch
+# public work has none. Requiring one made *every* operation fail at load time
+# over a value most of them never read.
+
+
+CONFIG_NO_TRACKER = """
+workspace = "{workspace}"
+
+[repos]
+upstream = "acme/product"
+
+[values]
+labels = ["needs triage"]
+issue_states = ["open", "closed", "all"]
+pr_states = ["open", "closed", "merged", "all"]
+
+[callers]
+"pr-management-code-review" = ["viewer", "pr-diff", "pr-list"]
+"security-issue-sync" = ["issue-view"]
+"""
+
+
+@pytest.fixture()
+def trackerless(tmp_path: Path) -> config.Config:
+    # Its own directory: this fixture is used alongside `policy` in one test,
+    # and both would otherwise claim `tmp_path / "scratch"`.
+    root = tmp_path / "no-tracker"
+    workspace = root / "scratch"
+    workspace.mkdir(parents=True)
+    workspace.chmod(0o700)
+    cfg_path = root / "config.toml"
+    cfg_path.write_text(CONFIG_NO_TRACKER.format(workspace=workspace))
+    return config.load(cfg_path)
+
+
+def test_a_policy_without_a_tracker_loads(trackerless: config.Config) -> None:
+    assert trackerless.tracker_repo is None
+    assert trackerless.upstream_repo == "acme/product"
+
+
+def test_upstream_operations_work_without_a_tracker(trackerless: config.Config) -> None:
+    """The regression: these died at load time over a value they never read."""
+    assert ops.OPS["viewer"].build(trackerless.as_mapping()) == ["gh", "api", "user", "--jq", ".login"]
+    argv = ops.OPS["pr-diff"].build(trackerless.as_mapping(), number="1")
+    assert argv[argv.index("--repo") + 1] == "acme/product"
+
+
+def test_a_tracker_operation_is_refused_when_no_tracker_is_configured(
+    trackerless: config.Config,
+) -> None:
+    with pytest.raises(ops.ParamError, match="does not configure"):
+        ops.OPS["issue-view"].build(trackerless.as_mapping(), number="1")
+
+
+def test_every_tracker_operation_refuses_rather_than_retargeting(
+    policy: config.Config, trackerless: config.Config
+) -> None:
+    """The failure worth guarding: embargoed content published to a public repo.
+
+    Determined by construction rather than by a hand-kept list — any operation
+    whose argv names the tracker when one *is* configured must raise when one is
+    not, instead of quietly building an argv aimed somewhere else.
+    """
+
+    def args_for(op: ops.Op) -> dict[str, str]:
+        sample = {
+            "number": "1",
+            "comment_id": "1",
+            "run_id": "1",
+            "ref": "main",
+            "base": "main",
+            "head": "v1",
+            "prefix": "v1",
+            "path": "a/b.py",
+            "login": "alice",
+            "team": "maintainers",
+            "ghsa": "GHSA-aaaa-bbbb-cccc",
+            "item_id": "PVTI_abc",
+        }
+        out = {}
+        for name in op.params:
+            if name in op.body_files:
+                return {}
+            out[name] = policy.enum_values(op.enums[name])[0] if name in op.enums else sample[name]
+        return out
+
+    checked = 0
+    for name, op in ops.OPS.items():
+        args = args_for(op)
+        if not args and op.params:
+            continue
+        with_tracker = " ".join(op.build(policy.as_mapping(), **args))
+        if "acme/tracker" not in with_tracker:
+            continue
+        checked += 1
+        with pytest.raises(ops.ParamError, match="does not configure"):
+            op.build(trackerless.as_mapping(), **args)
+    # A guard that matched nothing would pass silently and prove nothing.
+    assert checked > 5, f"only {checked} tracker operations exercised"
+
+
+def test_upstream_is_still_required(tmp_path: Path) -> None:
+    workspace = tmp_path / "scratch"
+    workspace.mkdir(exist_ok=True)
+    workspace.chmod(0o700)
+    cfg_path = tmp_path / "config.toml"
+    cfg_path.write_text(
+        CONFIG_NO_TRACKER.format(workspace=workspace).replace('upstream = "acme/product"', "")
+    )
+    with pytest.raises(config.ConfigError):
+        config.load(cfg_path)
+
+
+def test_a_malformed_tracker_is_still_refused(tmp_path: Path) -> None:
+    """Absent is allowed; a typo is not — it would point operations elsewhere."""
+    workspace = tmp_path / "scratch"
+    workspace.mkdir(exist_ok=True)
+    workspace.chmod(0o700)
+    cfg_path = tmp_path / "config.toml"
+    cfg_path.write_text(
+        CONFIG_NO_TRACKER.format(workspace=workspace).replace("[repos]", '[repos]\ntracker = "not-a-repo"')
+    )
+    with pytest.raises(config.ConfigError):
+        config.load(cfg_path)

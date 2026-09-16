@@ -253,7 +253,24 @@ class Op:
 
 
 def _tracker(cfg: dict[str, str]) -> str:
-    return cfg["tracker_repo"]
+    """
+    The tracker repo, or a refusal.
+
+    `tracker` is optional in the policy — see `Config.tracker_repo`. Everything
+    that reaches here addresses the tracker, so an unset value fails closed: the
+    operation is refused by name, at build time, before any argv exists. The
+    alternative failure mode is the dangerous one, since a tracker operation
+    silently retargeted at the *upstream* repo would publish embargoed content
+    to a public one.
+    """
+    repo = cfg.get("tracker_repo")
+    if not repo:
+        raise ParamError(
+            "this operation addresses the tracker, which the policy does not configure. "
+            "Declare `tracker` under [repos] to enable it; upstream-only operations are "
+            "unaffected."
+        )
+    return repo
 
 
 def _upstream(cfg: dict[str, str]) -> str:

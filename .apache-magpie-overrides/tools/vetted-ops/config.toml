@@ -26,11 +26,14 @@
 workspace = "~/.cache/apache-magpie/vetted-ops-workspace"
 
 [repos]
-# TODO(maintainer): the private security tracker, as "owner/name". Left unset
-# deliberately rather than guessed — the value is not derivable from this
-# repository, and pointing tracker operations at a *public* repo would publish
-# embargoed content. The dispatcher refuses to load until this is filled in.
-# tracker = "apache/<tracker>"
+# `tracker` is optional and deliberately unset. The value is not derivable from
+# this repository, and pointing tracker operations at a *public* repo would
+# publish embargoed content, so it is not guessed. Leaving it out costs nothing
+# here: no caller below runs a tracker operation, and the ones that address the
+# tracker refuse by name if they are ever granted without it.
+#
+# To enable them, declare it:
+#     tracker = "apache/<tracker>"
 upstream = "apache/magpie"
 
 [values]
