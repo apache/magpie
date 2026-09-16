@@ -190,11 +190,21 @@ where `<bucket>` is `dev` during the vote and `release` after `svn mv`.
 | `keyserver` | `keys.openpgp.org` |
 | `rm_key_fingerprint` | *(per-RM; lives in the RM's `user.md` under `release_manager.gpg_fingerprint`)* |
 
-The RM signs each artefact and the public key must be in `KEYS` (and,
-whenever `release_vote_backend = atr` or `release_dist_backend = atr`,
-also registered in the ATR platform, which validates candidate signatures
-during Compose — see the ATR runbook, Step B). The agent never holds the
+The RM signs each artefact and the public key must be in `KEYS` and
+registered in the ATR platform, which validates candidate signatures
+during Compose — see the ATR runbook, Step B. The agent never holds the
 private key half.
+
+`keys_file_url` resolves under `dist/release/`, which is where it belongs:
+`KEYS` is long-lived project metadata rather than a release artefact, and
+it must never be staged under `dist/dev/`.
+
+ATR can also manage the committee `KEYS` file itself once the RM loads
+their key into ATR — an opt-in on the committee configuration page. Magpie
+has not enabled it; the RM commits `KEYS` to SVN via
+[`release-keys-sync`](../../skills/release-keys-sync/SKILL.md). Worth
+revisiting now that `release_dist_backend = atr`, since it would remove
+the last hand-run `svn commit` from the release flow.
 
 ## Vote
 

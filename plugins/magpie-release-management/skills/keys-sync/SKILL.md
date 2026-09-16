@@ -386,11 +386,27 @@ Using the public key block from Step 1, compose:
      -m "Add <rm-uid> to KEYS (fingerprint: <fingerprint>)"
    ```
 
+   **When `release_dist_backend = atr`, offer the ATR path first.** ATR
+   can hold the committee `KEYS` file and manage it for the project once
+   the RM loads their own key into ATR — an opt-in on the committee
+   configuration page. Where that is enabled, the RM adds the key in ATR
+   rather than committing `KEYS` by hand, and the `svn` sequence above is
+   not used. Ask which the project has configured rather than assuming;
+   both remain valid, and a project that has not opted in still commits to
+   SVN exactly as above.
+
    For non-ASF adopters where `keys_file_url` points to a GitHub
    repository (URL contains `github.com`), emit equivalent `git`
    commands (clone the relevant file, append, open a PR). For other
    non-ASF backends, provide generic instructions tailored to the URL
    scheme in `keys_file_url`.
+
+   **`KEYS` belongs in `dist/release`, never `dist/dev`.** The file is
+   long-lived project metadata, not a release artefact, and voters and
+   future verifiers fetch it from the released location. `keys_file_url`
+   should always resolve under `dist/release/<project>/KEYS`. If a
+   project's config points at `dist/dev`, treat that as a configuration
+   error and say so rather than emitting a command against it.
 
 3. **Keyserver upload reminder** — if the key was found on the
    configured keyserver, remind the RM to also upload to
