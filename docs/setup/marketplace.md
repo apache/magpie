@@ -620,6 +620,13 @@ installed copy has fallen. Their only recovery is
 `claude plugin marketplace update` followed by a full uninstall + reinstall of
 every plugin, which nobody discovers on their own.
 
+The adopter's half of this is auto-update, and it is **off by default** for
+`apache-magpie` because Claude Code disables it for third-party marketplaces.
+A stamp that moves reaches nobody whose client never refreshes the catalogue, so
+[the install guide](marketplace-install.md#claude-code) tells adopters to turn it
+on, and the same page covers the equivalent for Gemini (`--auto-update`), Codex
+(manual `marketplace upgrade`) and `apm` (lockfile by design).
+
 **When to bump.** Not every PR — that would put every contributor in conflict
 with every other over one line, for no gain on changes nobody is waiting for.
 Bump when the work needs to reach installed copies: before pointing anyone at

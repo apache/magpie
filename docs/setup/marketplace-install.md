@@ -67,6 +67,32 @@ landed with `/plugin`.
 To track a released version instead of `main`, add the marketplace from a tag:
 `/plugin marketplace add apache/magpie@0.2.0`.
 
+**Turn auto-update on — it is off by default here.** Claude Code enables
+auto-update for its own official marketplaces, but *third-party* marketplaces,
+which `apache-magpie` is, start with it **disabled**. Left alone, your installed
+copy never moves: `claude plugin update` answers *"already at the latest
+version"* however far ahead `main` has gone, because the check compares version
+strings and nothing refreshed the catalogue. Enable it once:
+
+1. run `/plugin`
+2. go to **Marketplaces**
+3. select **apache-magpie**
+4. choose **Enable auto-update**
+
+Claude Code then refreshes the catalogue and updates installed plugins in the
+background shortly after each session starts, and tells you to run
+`/reload-plugins` if anything moved. Administrators can turn it on for everyone
+by setting `"autoUpdate": true` on the marketplace's `extraKnownMarketplaces`
+entry in managed settings.
+
+If you would rather stay manual, the equivalent is two commands, and the first
+is the one people forget:
+
+```bash
+claude plugin marketplace update apache-magpie
+claude plugin update magpie-setup@apache-magpie
+```
+
 **After `magpie-setup` is in, you never have to type these again.** Ask for
 the rest in plain language and the setup skill runs the installs for you:
 
@@ -90,6 +116,10 @@ only needed if you removed it; the other two baseline plugins are not, so take
 them here. Add further families the same way. Verify with `/plugins` inside
 Codex, or `codex plugin list` from the shell.
 
+Codex has no auto-update setting for marketplaces, so refreshing is a manual
+step — `codex plugin marketplace upgrade` re-pulls the configured Git snapshots.
+Run it when you want the newer skills; nothing moves on its own.
+
 Once the baseline is in, ask for the rest in plain language — *install the
 Magpie families for PR review* — or invoke the skill by name.
 
@@ -109,12 +139,17 @@ individual families from it.
 ## Google Gemini CLI
 
 ```bash
-gemini extensions install https://github.com/apache/magpie
+gemini extensions install https://github.com/apache/magpie --auto-update
 ```
+
+`--auto-update` is worth taking at install time: without it the extension stays
+at the commit you installed and only moves when you run
+`gemini extensions update magpie` yourself.
 
 Gemini installs Magpie as one extension rather than per-plugin, so the
 baseline arrives with it and there is nothing further to pick. Verify with
-`gemini extensions list`; update with `gemini extensions update magpie`.
+`gemini extensions list`; update manually at any time with
+`gemini extensions update magpie`.
 
 From then on, ask in plain language — *set up Magpie for this project* — or
 name the skill: `Use the magpie-setup skill.`
@@ -134,7 +169,9 @@ apm install apache/magpie
 ```
 
 `apm` deploys the skills into each supported agent's directory and writes an
-`apm.lock.yaml`; commit it to pin the resolved commit.
+`apm.lock.yaml`; commit it to pin the resolved commit. There is no auto-update
+here by design — the lockfile is the point. Move deliberately by re-running
+`apm install` and committing the changed lockfile.
 
 ## Kiro CLI
 
