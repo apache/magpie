@@ -255,6 +255,13 @@ Default per
 [`release-distribution`](https://infra.apache.org/release-distribution.html):
 only the latest version of each supported release line stays on
 `dist/release/`; older versions move to `archive.apache.org`.
+
+How that removal happens depends on the backend. Under `svnpubsub` the RM
+runs `svn mv`. Under `atr` the RM archives the release in ATR, which
+updates the release catalog and removes the files from `dist/release`
+itself — so no manual `svn` step, and none should be run alongside it.
+Projects that enable *Auto archive prior release* have the previous
+release archived in the same cycle the new one is announced.
 Projects with longer support windows can name additional lines
 to retain (e.g. `2.x-stable`), but cannot remove the latest-of-
 each-line floor.

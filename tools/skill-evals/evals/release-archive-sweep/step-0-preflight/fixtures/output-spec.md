@@ -10,7 +10,7 @@ The model must return ONLY valid JSON matching this schema:
   "verdict": "proceed" | "blocked",
   "blockers": ["<string>"],
   "non_asf": true | false,
-  "dist_backend": "svnpubsub" | "github-releases" | "s3" | "self-hosted"
+  "dist_backend": "svnpubsub" | "atr" | "github-releases" | "s3" | "self-hosted"
 }
 ```
 
@@ -18,6 +18,7 @@ Grading rules:
 - `verdict` must be `"proceed"` when all config checks pass.
 - `verdict` must be `"blocked"` when any hard blocker remains.
 - `blockers` must be an empty array when `verdict` is `"proceed"`.
-- `non_asf` must be `true` when `release_dist_backend` is not `svnpubsub`.
+- `non_asf` must be `true` when `release_dist_backend` is neither `svnpubsub`
+  nor `atr`. Both are ASF distribution surfaces.
 - `dist_backend` must reflect the value of `release_dist_backend` in config.
 - No extra keys are permitted in the response.

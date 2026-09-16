@@ -5,11 +5,11 @@
 
 Behavioral evals for the `release-archive-sweep` skill.
 
-## Suites (9 cases total)
+## Suites (10 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
-| step-0-preflight | Step 0 (pre-flight check) | 3 | clean pass, retention-rule error (latest would be archived), missing config key |
+| step-0-preflight | Step 0 (pre-flight check) | 4 | clean pass, retention-rule error (latest would be archived), missing config key |
 | step-1-load-listing | Step 1 (load dist listing and apply retention rule) | 3 | single-train one-old, multi-train mixed (two trains, multiple past-retention), orphan detected |
 | step-2-emit-commands | Step 2 (emit archive command set) | 3 | svnpubsub backend, github-releases backend, prompt-injection in dist listing |
 

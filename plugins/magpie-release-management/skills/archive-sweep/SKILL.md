@@ -256,7 +256,7 @@ non-blocking.
    `release_dist_backend`, and `release_dist_url_template`.
 2. **Release trains readable.** `<project-config>/release-trains.md` is
    accessible and lists at least one supported release line.
-3. **Backend known.** `release_dist_backend` is one of `svnpubsub`,
+3. **Backend known.** `release_dist_backend` is one of `svnpubsub`, `atr`,
    `github-releases`, `s3`, `self-hosted`.
 4. **Archive destination known.** The archive URL or bucket path for the
    chosen backend is derivable from the config (for `svnpubsub`, the
@@ -274,12 +274,16 @@ Return ONLY valid JSON with this structure:
   "verdict": "proceed" | "blocked",
   "blockers": ["<string describing each hard blocker>"],
   "non_asf": true | false,
-  "dist_backend": "svnpubsub" | "github-releases" | "s3" | "self-hosted"
+  "dist_backend": "svnpubsub" | "atr" | "github-releases" | "s3" | "self-hosted"
 }
 ```
 
 `verdict` is `"proceed"` only when all hard blockers resolve.
-`non_asf` is `true` when `release_dist_backend` is not `svnpubsub`.
+`non_asf` is `true` when the distribution surface is not an ASF one — that is,
+when `release_dist_backend` is neither `svnpubsub` nor `atr`. Both are ASF
+platforms publishing to `dist.apache.org`; the flag marks adopters whose
+releases live somewhere else entirely, so keying it on "not `svnpubsub`"
+would mislabel every ASF project using ATR.
 
 ---
 
@@ -289,6 +293,10 @@ Return ONLY valid JSON with this structure:
    the distribution surface:
    - `svnpubsub`: `svn list <dist-release-url>` — each directory entry is
      a version or a version-suffix directory.
+   - `atr`: the project's release list in ATR, which is also the
+     authoritative record of what has already been archived. The
+     distribution area itself is still `dist/release/<project>/`, since
+     ATR's Finish commits there.
    - `github-releases`: `gh release list --repo <upstream>` — each
      published (non-draft) release tag is a candidate.
    - `s3`: `aws s3 ls s3://<bucket>/<project>/` — each key prefix is a
@@ -361,6 +369,28 @@ svn mv \  # release_dist_backend=svnpubsub
 One `svn mv` (for `release_dist_backend = svnpubsub`) per past-retention version, in ascending version order (oldest
 first). Include the commit message inline.
 
+**`atr`.**
+There is no command to emit. Archiving happens in ATR, which updates the
+release catalog and removes the files from `dist/release` in the
+background — so the RM performs it in the ATR UI, not in a shell, and the
+usual "paste-ready command set" output is replaced by the instruction to
+archive each past-retention version there.
+
+Two consequences worth stating in the proposal:
+
+- **Do not also run `svn mv` or `svn rm`.** ATR removes the files itself;
+  a manual removal on top races with it.
+- **The prior release may already be handled.** If the project enables
+  *Auto archive prior release* in its ATR settings, the previous release is
+  archived in the same cycle when the new one is announced — so it may not
+  be past-retention by the time this sweep runs. Check ATR's record before
+  proposing anything.
+
+Releases committed to `dist/release` are copied to `archive.apache.org`
+automatically, so archiving removes the distribution copy rather than
+moving it. See
+[Promoting to release](https://releases.apache.org/docs/promoting-to-release).
+
 **`github-releases`.**
 For each past-retention version `<ver>`:
 
@@ -395,7 +425,7 @@ Return ONLY valid JSON with this structure:
 {
   "archive_count": <integer>,
   "commands": "<backend-shaped command block as a markdown code block>",
-  "backend": "svnpubsub" | "github-releases" | "s3" | "self-hosted",
+  "backend": "svnpubsub" | "atr" | "github-releases" | "s3" | "self-hosted",
   "proposed": true
 }
 ```

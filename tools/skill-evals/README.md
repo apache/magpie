@@ -69,7 +69,7 @@ Suites are currently implemented for:
 - **mentoring-welcome** — 20 cases across 2 suites (tone-checks, welcome-decision)
 - **pr-management-quick-merge** — 21 cases across 3 suites (stage-1-quality-gate, stage-2-triviality, stage-3-merge-readiness)
 - **release-announce-draft** — 9 cases across 3 suites (step-0-preflight, step-2-announce-draft, step-3-site-bump)
-- **release-archive-sweep** — 9 cases across 3 suites (step-0-preflight, step-1-load-listing, step-2-emit-commands)
+- **release-archive-sweep** — 10 cases across 3 suites (step-0-preflight, step-1-load-listing, step-2-emit-commands)
 - **release-audit-report** — 9 cases across 3 suites (step-0-preflight, step-1-gather-record, step-2-assemble-record)
 - **release-keys-sync** — 9 cases across 3 suites (step-0-preflight, step-1-key-fetch, step-2-svn-commands)
 - **release-prepare** — 12 cases across 4 suites (step-0-preflight, step-1-plan, step-14-post, step-2-prep)

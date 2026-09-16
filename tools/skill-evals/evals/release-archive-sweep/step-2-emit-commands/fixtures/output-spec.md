@@ -9,7 +9,7 @@ The model must return ONLY valid JSON matching this schema:
 {
   "archive_count": <integer>,
   "commands": "<backend-shaped command block as a markdown code block>",
-  "backend": "svnpubsub" | "github-releases" | "s3" | "self-hosted",
+  "backend": "svnpubsub" | "atr" | "github-releases" | "s3" | "self-hosted",
   "proposed": true
 }
 ```
