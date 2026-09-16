@@ -900,6 +900,21 @@ not something a merge can decide. `workflow_dispatch` is restricted by
 GitHub to accounts with write access, so the button is committers-only
 without the workflow checking anything itself.
 
+![The repository's Actions tab with "bump dev version" selected in the
+workflow sidebar. The run list is headed "This workflow has a
+workflow_dispatch event trigger", and a red arrow points to the **Run
+workflow** button at its right. The button's dropdown is open, showing
+"Use workflow from" with **Branch: main** selected; a second red arrow
+points to the green **Run workflow** button that confirms it. Below, a
+completed run — "bump dev version #4: Manually run by potiuk" on `main`
+— carries a green tick and a duration of 5m
+37s.](assets/bump-dev-version-run.png)
+
+Leave *Use workflow from* on `main`. The candidate branch is cut from
+whatever ref you dispatch, and the pull request is always opened against
+`main` — so dispatching from a feature branch produces a PR carrying
+that whole branch, not just the bump.
+
 One run is three jobs:
 
 ```text
