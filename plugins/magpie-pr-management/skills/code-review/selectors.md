@@ -464,17 +464,24 @@ collaborator PRs out.
 ## `team:<NAME>` — team review-request
 
 When the maintainer wants the team queue, not just their own
-direct review-requests. Resolves via GitHub's
-`team-review-requested:<org>/<team>` qualifier:
+direct review-requests.
+
+`gh search prs` has **no** `--team-review-requested` flag. Its
+`--review-requested` flag accepts a user *or* a team, given as
+`<org>/<team>`:
 
 ```bash
 gh search prs \
   --repo <repo> \
   --state open \
-  --team-review-requested "<org>/<NAME>" \
+  --review-requested "<org>/<NAME>" \
   --sort updated --order desc \
   --limit 50
 ```
+
+(The underlying GitHub search qualifier is
+`team-review-requested:<org>/<team>`, which is where the flag name
+that does not exist came from.)
 
 Useful for committers who have multiple team-level review
 requests across `<upstream>` (e.g. `<upstream>-providers-amazon`,
