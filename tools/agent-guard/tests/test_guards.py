@@ -290,3 +290,45 @@ def test_relative_path_git_commit_coauthor_denied():
 
 def test_abs_path_plain_commit_still_allowed():
     assert dispatch('/usr/bin/git commit -m "ordinary commit"') is None
+
+
+# ---------------------------------------------------------------------------
+# gh argv parsing
+#
+# ``gh`` parses flags interspersed, so a flag may legitimately precede the
+# command group. A parser that only drops tokens starting with ``-`` keeps
+# their values, turning ``gh --repo apache/airflow pr create`` into
+# ``("apache/airflow", "pr")`` — every guard keyed on ``("pr", "create")``
+# then silently stops running.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "argv, expected",
+    [
+        # Conventional ordering.
+        (["gh", "pr", "create", "--title", "x"], ("pr", "create")),
+        (["gh", "pr", "edit", "123", "--repo", "o/r"], ("pr", "edit")),
+        (["gh", "issue", "comment", "5", "--body", "hi"], ("issue", "comment")),
+        # Flag before the command group — the regression.
+        (["gh", "--repo", "o/r", "pr", "create", "--title", "x"], ("pr", "create")),
+        (["gh", "-R", "o/r", "pr", "create", "--title", "x"], ("pr", "create")),
+        (["gh", "--repo", "o/r", "pr", "edit", "1"], ("pr", "edit")),
+        (["gh", "--repo", "o/r", "issue", "comment", "5"], ("issue", "comment")),
+        (["gh", "-R", "o/r", "pr", "comment", "7"], ("pr", "comment")),
+        # ``--flag=value`` keeps its value in one token.
+        (["gh", "--repo=o/r", "pr", "create"], ("pr", "create")),
+        # A repo whose name collides with a command group must not win.
+        (["gh", "--repo", "acme/pr", "pr", "create"], ("pr", "create")),
+        (["gh", "--repo", "acme/issue", "issue", "edit", "3"], ("issue", "edit")),
+        # Several pre-command flags.
+        (["gh", "-R", "o/r", "--hostname", "git.example", "pr", "create"], ("pr", "create")),
+        # Non-gh and malformed input.
+        (["git", "commit", "-m", "x"], None),
+        (["gh"], None),
+        (["gh", "pr"], None),
+        ([], None),
+    ],
+)
+def test_gh_subcommand_consumes_flag_values(argv, expected):
+    assert agent_guard.gh_subcommand(argv) == expected

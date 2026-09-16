@@ -200,14 +200,87 @@ def _opt_value(argv: list[str], short: str, long: str) -> str | None:
     return None
 
 
+# ``gh`` command groups, used to anchor subcommand detection. Matching against
+# this set means a flag VALUE can never be mistaken for the command group.
+GH_COMMAND_GROUPS = frozenset(
+    {
+        "alias",
+        "api",
+        "attestation",
+        "auth",
+        "browse",
+        "cache",
+        "codespace",
+        "completion",
+        "config",
+        "extension",
+        "gist",
+        "gpg-key",
+        "issue",
+        "label",
+        "org",
+        "pr",
+        "project",
+        "release",
+        "repo",
+        "ruleset",
+        "run",
+        "search",
+        "secret",
+        "ssh-key",
+        "status",
+        "variable",
+        "workflow",
+    }
+)
+
+# Flags taking a separate value that may appear BEFORE the command group.
+# ``gh`` parses flags interspersed, so ``gh --repo OWNER/REPO pr create`` is
+# accepted and runs normally; the value must be consumed or it is mistaken for
+# the group.
+GH_VALUE_FLAGS = frozenset({"-R", "--repo", "-H", "--hostname"})
+
+
 def gh_subcommand(argv: list[str]) -> tuple[str, str] | None:
     """For an argv whose first token is ``gh``, return ``(group, sub)`` skipping
-    global flags, e.g. ``(\"pr\", \"comment\")``. None if not a ``gh`` call."""
+    global flags and their values, e.g. ``(\"pr\", \"comment\")``. None if not a
+    ``gh`` call, or if no command group can be identified.
+
+    Flag values are *consumed*, not merely filtered out. Dropping only the
+    tokens that start with ``-`` leaves their values behind, so
+    ``gh --repo apache/airflow pr create`` reads as
+    ``("apache/airflow", "pr")`` and every guard keyed on ``("pr", "create")``
+    silently stops running — a fail-open bypass reachable by ordinary flag
+    ordering rather than by anything adversarial.
+    """
     if not argv or argv[0] != "gh":
         return None
-    rest = [t for t in argv[1:] if not t.startswith("-")]
-    if len(rest) >= 2:
-        return rest[0], rest[1]
+
+    positional: list[str] = []
+    i = 1
+    while i < len(argv):
+        tok = argv[i]
+        if tok == "--":
+            positional.extend(argv[i + 1 :])
+            break
+        if tok.startswith("-") and tok != "-":
+            # ``--flag=value`` carries its value in the same token.
+            if "=" not in tok and tok in GH_VALUE_FLAGS:
+                i += 2
+                continue
+            i += 1
+            continue
+        positional.append(tok)
+        i += 1
+
+    # Anchor on the first known command group so an unrecognised value-taking
+    # flag before the group cannot shift the result.
+    for n, tok in enumerate(positional):
+        if tok in GH_COMMAND_GROUPS:
+            return (tok, positional[n + 1]) if n + 1 < len(positional) else None
+
+    if len(positional) >= 2:
+        return positional[0], positional[1]
     return None
 
 
