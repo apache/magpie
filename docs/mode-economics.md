@@ -83,7 +83,7 @@ history separately provides its publication revision and date.
 
 <!-- BEGIN GENERATED SKILL TOKEN COUNTS -->
 
-Measured on (UTC): 2026-09-15.
+Measured on (UTC): 2026-09-16.
 
 Tokenizer: **tiktoken 0.14.0, `cl100k_base`**. Method: full UTF-8 file,
 including frontmatter and comments; line endings normalized to LF;
@@ -91,7 +91,7 @@ special-token spellings counted as ordinary text.
 Coverage: **75 of 75 local `skills/*/SKILL.md` files**.
 External `source.md` redirects and harness symlinks are excluded.
 
-Measurement manifest SHA-256: `820180ee456ba87ce1a5d51a85bcd35030a83c6379f1d81fa464da273027f9cc`.
+Measurement manifest SHA-256: `1543f373434c0a259282026ebf5a597686fdb83c75a6bf0c0e1833302f04b885`.
 
 | Skill file | Measured tokens | Source SHA-256 (first 16 characters) |
 |---|---:|---|
@@ -152,7 +152,7 @@ Measurement manifest SHA-256: `820180ee456ba87ce1a5d51a85bcd35030a83c6379f1d81fa
 | [security-issue-import-via-forwarder](../skills/security-issue-import-via-forwarder/SKILL.md) | 8,611 | `d7a8a0422ed7936c` |
 | [security-issue-invalidate](../skills/security-issue-invalidate/SKILL.md) | 13,035 | `e4ab6b31ff8facea` |
 | [security-issue-sync](../skills/security-issue-sync/SKILL.md) | 10,391 | `1c4b149b2eb701a5` |
-| [security-issue-triage](../skills/security-issue-triage/SKILL.md) | 13,786 | `eb52ab10890607e0` |
+| [security-issue-triage](../skills/security-issue-triage/SKILL.md) | 13,816 | `767d69a96c31c648` |
 | [security-model-prepare](../skills/security-model-prepare/SKILL.md) | 4,312 | `ef1d88bf5ba6ced7` |
 | [security-model-update](../skills/security-model-update/SKILL.md) | 5,503 | `2e9eace1ff380c52` |
 | [security-model-verify](../skills/security-model-verify/SKILL.md) | 6,204 | `858952f16ee6208d` |
@@ -166,7 +166,7 @@ Measurement manifest SHA-256: `820180ee456ba87ce1a5d51a85bcd35030a83c6379f1d81fa
 | [setup-privacy-llm](../skills/setup-privacy-llm/SKILL.md) | 2,145 | `0e27b542a1656846` |
 | [setup-shared-config-sync](../skills/setup-shared-config-sync/SKILL.md) | 4,357 | `d1dfcd7cdeb5f5a6` |
 | [setup-status](../skills/setup-status/SKILL.md) | 2,401 | `790c0a0e61b1e8a4` |
-| [setup-upstream-fix](../skills/setup-upstream-fix/SKILL.md) | 4,607 | `984f3deae625f19f` |
+| [setup-upstream-fix](../skills/setup-upstream-fix/SKILL.md) | 4,690 | `08468be536d6b54b` |
 | [skill-reconciler](../skills/skill-reconciler/SKILL.md) | 5,095 | `acf9baf2b289e2cf` |
 | [workflow-security-audit](../skills/workflow-security-audit/SKILL.md) | 3,835 | `276cd10be9e308a7` |
 | [write-skill](../skills/write-skill/SKILL.md) | 6,173 | `c0b7c47d3c5c44e2` |

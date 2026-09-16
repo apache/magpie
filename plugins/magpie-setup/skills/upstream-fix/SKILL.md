@@ -208,9 +208,15 @@ error string — and run both issue and PR searches, open and
 recently-closed:
 
 ```bash
-gh search issues --repo apache/magpie --state all "<distinctive token>" --limit 20
-gh search prs    --repo apache/magpie --state all "<distinctive token>" --limit 20
+gh search issues --repo apache/magpie "<distinctive token>" --limit 20
+gh search prs    --repo apache/magpie "<distinctive token>" --limit 20
 ```
+
+`gh search` takes `--state open` or `--state closed` only — unlike
+`gh issue list`, it has no `all`. Passing `--state all` fails the call
+outright (*"invalid argument \"all\" for --state flag"*), so the dedup
+step returns nothing and every quirk looks novel. Omitting `--state`
+searches both, which is what this step wants.
 
 Classify the best match and act:
 

@@ -3,6 +3,6 @@
 
 Quirk: a helper in `tools/foo-adapter` mishandles empty input and raises.
 Searches run:
-- `gh search issues --repo apache/magpie --state all "foo-adapter empty input"` → 0 results.
-- `gh search prs --repo apache/magpie --state all "foo-adapter empty"` → 0 results.
+- `gh search issues --repo apache/magpie "foo-adapter empty input"` → 0 results.
+- `gh search prs --repo apache/magpie "foo-adapter empty"` → 0 results.
 No open or closed issue or PR mentions this defect.

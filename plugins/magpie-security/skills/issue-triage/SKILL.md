@@ -665,7 +665,9 @@ with similar shape — via (substitute the literal label from
 [`<project-config>/project.md`](../../../../<project-config>/project.md)):
 
 ```bash
-gh search issues "<key>" --repo <tracker> --state all \
+# `gh search` has no `--state all` (that is `gh issue list`); omitting
+# the flag searches open and closed alike.
+gh search issues "<key>" --repo <tracker> \
   --label "cve allocated" --json number,title,labels --jq '.[]'
 ```
 
