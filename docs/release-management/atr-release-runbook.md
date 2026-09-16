@@ -163,11 +163,10 @@ own each step — like this:
 | **Compose** | 4 Cut RC · 5 Stage · 6 Verify | [`release-rc-cut`](../../skills/release-rc-cut/SKILL.md), [`release-verify-rc`](../../skills/release-verify-rc/SKILL.md) | Build the source artefact, sign it, upload it to ATR as a draft; ATR runs signature/checksum/license/notice/source-header checks automatically. |
 | **Vote** | 7 `[VOTE]` · 8 Window · 9 Tally | [`release-vote-draft`](../../skills/release-vote-draft/SKILL.md), [`release-vote-tally`](../../skills/release-vote-tally/SKILL.md) | ATR sends the `[VOTE]` to `dev@` and tabulates replies over ≥72h. The skills draft the body and cross-check the tally against the PMC roster. |
 | **Finish** | 10 Promote · 11 Announce | [`release-promote`](../../skills/release-promote/SKILL.md), [`release-announce-draft`](../../skills/release-announce-draft/SKILL.md) | ATR strips `-rcN`, rearranges the tree, publishes to `dist.apache.org`, and assists the `[ANNOUNCE]`. Records downstream distributions (PyPI, Maven Central). |
-| *(post-phase)* | 12 Archive · 13 Audit · 14 Post-bump | [`release-archive-sweep`](../../skills/release-archive-sweep/SKILL.md), [`release-audit-report`](../../skills/release-audit-report/SKILL.md), [`release-prepare`](../../skills/release-prepare/SKILL.md) | Retention sweep, audit-log record, `-SNAPSHOT`/`.dev` bump. Off-platform; unchanged. |
+| *(post-phase)* | 12 Archive · 13 Audit · 14 Post-bump | [`release-archive-sweep`](../../skills/release-archive-sweep/SKILL.md), [`release-audit-report`](../../skills/release-audit-report/SKILL.md), [`release-prepare`](../../skills/release-prepare/SKILL.md) | Archiving in ATR, audit-log record, `-SNAPSHOT`/`.dev` bump. |
 
-The takeaway: **ATR replaces the mechanics of Steps 5–11**, the
-error-prone middle. Steps 1–4 (plan, changelog, keys, *build*) and
-12–14 (archive, audit, post-bump) are the same regardless of backend,
+The takeaway: **ATR replaces the mechanics of Steps 5–12**, including archiving.
+Steps 1–4 (plan, changelog, keys, *build*) and 13–14 (audit, post-bump) are the same regardless of backend,
 and the same skills drive them.
 
 ## What ATR does *not* change
@@ -445,19 +444,12 @@ release.**
 
 ## Step F: Archive, audit, post-release bump (Steps 12-14)
 
-Off-platform and unchanged from `svnpubsub`:
-
-- **Archive sweep** (Step 12) —
-  [`release-archive-sweep`](../../skills/release-archive-sweep/SKILL.md)
-  applies the retention rule
-  ([`release-management-config.md` § Archive](../../projects/_template/release-management-config.md#archive));
-  superseded versions move to `archive.apache.org`. This stays manual
-  under **full ATR too**: releases committed to `dist/release` are
-  picked up by the archive automatically, but ATR does not delete the
-  superseded ones — "Archiving a release in ATR records the archival in
-  the release catalog, but does not currently remove the files from
-  `/dist/release/`, so this step remains manual"
-  ([Promoting to release](https://releases.apache.org/docs/promoting-to-release)).
+- **Archive sweep** (Step 12): follow the retention rule in
+  [`release-management-config.md` § Archive](../../projects/_template/release-management-config.md#archive).
+  Releases committed to `dist/release` are copied to `archive.apache.org` automatically.
+  Archiving a release in ATR updates the release catalog and removes its files from `dist/release` in the background.
+  If enabled in the project settings, select "Auto archive prior release" to archive the previous release in the same cycle when announcing the new release.
+  See [Promoting to release](https://releases.apache.org/docs/promoting-to-release).
 - **Audit log** (Step 13) —
   [`release-audit-report`](../../skills/release-audit-report/SKILL.md)
   appends the per-release record (RM, binding voters, artefacts +
