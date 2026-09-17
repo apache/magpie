@@ -4,6 +4,7 @@
 
 - [Apache Software Foundation — curated skill sources](#apache-software-foundation--curated-skill-sources)
   - [Curated sources](#curated-sources)
+    - [Apache Incubator](#apache-incubator)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -20,10 +21,35 @@ installation. The project still opts each one in by committing its pin to
 
 ## Curated sources
 
-*(none listed yet)* — the ASF organization curates no external skill
-sources at this time. Every skill an ASF project runs today ships in-tree
-in `apache/magpie`. When the ASF vouches for a source (for example a
-sub-project or incubating-podling skill repo), add its
-[descriptor](../../docs/skill-sources/README.md#source-descriptor) here and
-a row to the *Org-curated sources* table in
-[`docs/skill-sources/registry.md`](../../docs/skill-sources/registry.md).
+Each entry is a [source descriptor](../../docs/skill-sources/README.md#source-descriptor).
+To add another, declare it here and add a row to the *Org-curated sources*
+table in [`docs/skill-sources/registry.md`](../../docs/skill-sources/registry.md).
+
+### Apache Incubator
+
+Skills the Incubator PMC maintains in
+[`apache/incubator`](https://github.com/apache/incubator) for podlings,
+mentors and the IPMC. The first is `releasecheck`, which checks a podling
+release candidate before or during its vote. The same repo is also a plugin
+marketplace, so the skills install without Magpie too:
+`claude plugin marketplace add apache/incubator`.
+
+The source is pinned to a tag, because the rest of the Incubator repo
+changes often. A new skill version gets a new `releasecheck-<version>` tag,
+and this pin moves only when the tag is updated here.
+
+```yaml
+- id: apache-incubator
+  organization: ASF
+  name: "Apache Incubator skills"
+  maintainer: "Apache Incubator PMC"
+  method: git-tag
+  url: https://github.com/apache/incubator
+  ref: releasecheck-0.5
+  commit: 6540f4f848ad070436668202b6c8b9771ca7359a
+  layout:
+    skills_root: tools/skills
+    evals_root: tools/skills/evals
+  provides:
+    - skill: releasecheck
+```

@@ -40,7 +40,7 @@ opts each one in.
 
 | Organization | Curated sources | File |
 |---|---|---|
-| Apache Software Foundation | *(none listed yet)* | [`organizations/ASF/skill-sources.md`](../../organizations/ASF/skill-sources.md) |
+| Apache Software Foundation | `apache-incubator`: [`apache/incubator`](https://github.com/apache/incubator) (`releasecheck`) | [`organizations/ASF/skill-sources.md`](../../organizations/ASF/skill-sources.md) |
 | Independent (no formal governing body) | *(none listed yet)* | [`organizations/independent/skill-sources.md`](../../organizations/independent/skill-sources.md) |
 
 ## Community / external sources
