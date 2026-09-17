@@ -558,6 +558,43 @@ _register(
 
 _register(
     Op(
+        name="issue-edit-body",
+        params=("number", "body"),
+        writes=True,
+        summary="Replace a tracker issue's body from a body file.",
+        body_files=("body",),
+        build=lambda cfg, number, body: [
+            "gh",
+            "issue",
+            "edit",
+            number,
+            "--repo",
+            _tracker(cfg),
+            "--body-file",
+            body,
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="milestone-create",
+        params=("milestone",),
+        writes=True,
+        summary="Create a configured milestone on the tracker.",
+        enums={"milestone": "milestones"},
+        build=lambda cfg, milestone: [
+            "gh",
+            "api",
+            f"repos/{_tracker(cfg)}/milestones",
+            "-f",
+            f"title={milestone}",
+        ],
+    )
+)
+
+_register(
+    Op(
         name="issue-close",
         params=("number", "reason"),
         writes=True,

@@ -202,6 +202,45 @@ def test_body_file_content_may_contain_anything(policy: config.Config) -> None:
     assert sent == b"`id` $(whoami) && rm -rf / ; drop table\n"
 
 
+def test_issue_edit_body_sends_the_body_on_stdin(policy: config.Config) -> None:
+    """
+    Editing a body replaces the whole issue text, so it takes the same
+    read-once path as a comment: `gh` is handed "-" and the bytes we validated
+    are the bytes that get published.
+    """
+    body = policy.workspace / "new-body.md"
+    body.write_text("### Affected versions\n\napache-airflow `< NEXT VERSION`\n")
+    op = ops.resolve("issue-edit-body")
+    params, sent = cli._validate_params(op, ["611", str(body)], policy)
+    argv = cli.build_argv(op, params, policy)
+    assert argv[:5] == ["gh", "issue", "edit", "611", "--repo"]
+    assert argv[-2:] == ["--body-file", "-"]
+    assert sent == b"### Affected versions\n\napache-airflow `< NEXT VERSION`\n"
+
+
+def test_issue_edit_body_refuses_a_body_outside_the_workspace(policy: config.Config, tmp_path: Path) -> None:
+    stray = tmp_path / "elsewhere.md"
+    stray.write_text("not mine")
+    op = ops.resolve("issue-edit-body")
+    with pytest.raises(ops.ParamError, match="must live under the workspace"):
+        cli._validate_params(op, ["611", str(stray)], policy)
+
+
+def test_milestone_create_is_gated_on_the_configured_milestones(policy: config.Config) -> None:
+    """
+    Creating a milestone is enum-gated on the same list that gates assigning
+    one. The policy file stays the authority: a new milestone is a reviewed
+    edit there first, and only then can it be created or assigned.
+    """
+    op = ops.resolve("milestone-create")
+    with pytest.raises(ops.ParamError, match="not one of the configured values"):
+        cli._validate_params(op, ["Providers 2026-10-06"], policy)
+
+    params, _ = cli._validate_params(op, ["1.2.3"], policy)
+    argv = cli.build_argv(op, params, policy)
+    assert argv == ["gh", "api", "repos/acme/tracker/milestones", "-f", "title=1.2.3"]
+
+
 # --- per-caller scoping ------------------------------------------------------
 
 
@@ -385,7 +424,12 @@ def test_tracker_and_upstream_operations_never_cross(policy: config.Config) -> N
         argv = " ".join(op.build(policy.as_mapping(), **params))
         if name.startswith("repo-issue-") or name.startswith("pr-") or name.startswith("gql-"):
             assert tracker not in argv, f"{name} reached the tracker"
-        elif name.startswith("issue-") or name in {"label-list", "milestone-list", "collaborators"}:
+        elif name.startswith("issue-") or name in {
+            "label-list",
+            "milestone-list",
+            "milestone-create",
+            "collaborators",
+        }:
             assert upstream not in argv, f"{name} reached the upstream repo"
 
 
