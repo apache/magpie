@@ -45,8 +45,8 @@ and this pin moves only when the tag is updated here.
   maintainer: "Apache Incubator PMC"
   method: git-tag
   url: https://github.com/apache/incubator
-  ref: releasecheck-0.5
-  commit: 6540f4f848ad070436668202b6c8b9771ca7359a
+  ref: releasecheck-0.5.1
+  commit: 876cf205869a9e12aa55ad070efae65658c8a34e
   layout:
     skills_root: tools/skills
     evals_root: tools/skills/evals
