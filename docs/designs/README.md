@@ -22,6 +22,7 @@ what was designed and deliberately not built.
 | Design | Status |
 |---|---|
 | [Install, adopt, upgrade](2026-09-13-install-adopt-upgrade.md) | Built, bar two items it names |
+| [Body-owned configuration layers](2026-09-17-body-owned-config-layers.md) | Proposed — depends on the Incubator PMC and ComDev |
 
 One document per subject, describing the result rather than the phases it was
 built in. While a design is being implemented it may be split into plans; when
