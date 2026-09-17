@@ -9,6 +9,7 @@
   - [What is wrong](#what-is-wrong)
   - [Decisions](#decisions)
     - [What a stage overlay contains](#what-a-stage-overlay-contains)
+    - [When values are not enough: body-owned overrides](#when-values-are-not-enough-body-owned-overrides)
     - [Graduation](#graduation)
   - [What has to be built](#what-has-to-be-built)
   - [Alternatives considered](#alternatives-considered)
@@ -84,8 +85,9 @@ ownership of TLP onboarding, which is not their domain. Splitting it produces
 two skills that are ~80% identical and will diverge, in a procedure where
 divergence means a committer is onboarded wrongly.
 
-**Each body edits only its own file, in its own repository.** This is the
-property that makes the design worth building at all. It follows
+**Each body edits only its own file, in its own repository** — both the
+values it owns and, where values are not enough, an override of the shared
+procedure. This is the property that makes the design worth building at all. It follows
 [`MISSION.md`](../../MISSION.md) — *"Those teams choose whether to contribute
 a skill into Magpie or keep it in their own repository and let Magpie install
 it by reference — Magpie does not reach into another team's domain on its own
@@ -116,6 +118,50 @@ ComDev-owned, for the other stage: the same keys with TLP values.
 Note what is *not* in there: no procedure, no prose, no steps. An overlay is a
 value set. That boundary is what stops the layers becoming two forks of the
 same document.
+
+### When values are not enough: body-owned overrides
+
+A value set covers the differences that *are* values. It will not cover
+everything, and a design that pretends otherwise pushes a body into forking
+the skill the moment it stops fitting — which is the outcome this whole
+document exists to avoid.
+
+So the same tier carries an **override** as well as a value set. The framework
+already has the mechanism and its premise is exactly right:
+
+> An adopter project that needs to modify a framework workflow's behaviour —
+> different defaults, an extra step, a skipped step, a different tone — does
+> **not** fork the framework […] Instead, they write an **override file**:
+> agent-readable markdown that the framework skill consults at run-time.
+>
+> — [`docs/setup/agentic-overrides.md`](../setup/agentic-overrides.md)
+
+A body-owned override is that file, owned by a body rather than a project, and
+resolved in the same chain. If the Incubator concludes that podling onboarding
+needs a step Magpie's procedure does not have — an IPMC notification, a
+graduation-readiness check, a different sequence around the PPMC vote — they
+add it in their own repository, in a file they own, and every podling picks it
+up on the next pin. Nobody opens a pull request against Magpie, and nobody
+maintains a second copy of the eighty percent that never diverged.
+
+The lookup chain grows one tier:
+
+```text
+project override   .apache-magpie-overrides/<skill>.md
+stage override     sourced from the owning body, pinned      <- new
+framework default  the skill as Magpie ships it
+```
+
+Most specific wins, as it already does. The existing hard rules carry over
+unchanged — an override may not weaken a confirmation gate, and it may not
+reach into the framework snapshot.
+
+The important property is that divergence becomes **incremental**. A body that
+needs one step changed writes one step, not a skill. If their override grows
+until it is effectively a different procedure, that is a strong, visible signal
+that the skill should genuinely split — and at that point the split is an
+informed decision with evidence behind it, rather than the guess this design
+started by rejecting.
 
 ### Graduation
 
@@ -211,3 +257,7 @@ edit a cross-PMC negotiation, which is the thing being avoided.
 - **Two overlays invite a third.** The tier should stay narrow —
   organizational *stage*, not arbitrary grouping — or it becomes a second
   project-config layer with no owner.
+- **A body override can drift from the skill it overrides.** An override
+  written against one version of a procedure may quietly stop matching it, and
+  the framework's existing reconciliation-on-upgrade flow will have to cover
+  the new tier, not only the project one.
