@@ -91,7 +91,7 @@ special-token spellings counted as ordinary text.
 Coverage: **75 of 75 local `skills/*/SKILL.md` files**.
 External `source.md` redirects and harness symlinks are excluded.
 
-Measurement manifest SHA-256: `e8997787aa1ca9e0f08c573c788c7ce170cdcb240bb1ae6cf784536132cebde5`.
+Measurement manifest SHA-256: `048d2a55a532d3a4bfdde2b2b3c0ce9910d857185875aefb7a2e812e09705b3c`.
 
 | Skill file | Measured tokens | Source SHA-256 (first 16 characters) |
 |---|---:|---|
@@ -151,7 +151,7 @@ Measurement manifest SHA-256: `e8997787aa1ca9e0f08c573c788c7ce170cdcb240bb1ae6cf
 | [security-issue-import-from-scan](../skills/security-issue-import-from-scan/SKILL.md) | 5,583 | `adf53cdd4cecd2d4` |
 | [security-issue-import-via-forwarder](../skills/security-issue-import-via-forwarder/SKILL.md) | 9,032 | `96afb33d8f95ce36` |
 | [security-issue-invalidate](../skills/security-issue-invalidate/SKILL.md) | 13,456 | `2756d4dd57a183e5` |
-| [security-issue-sync](../skills/security-issue-sync/SKILL.md) | 10,812 | `6fcb74455b638870` |
+| [security-issue-sync](../skills/security-issue-sync/SKILL.md) | 10,812 | `b57620ab5908195e` |
 | [security-issue-triage](../skills/security-issue-triage/SKILL.md) | 14,237 | `7b12a44773cb5b62` |
 | [security-model-prepare](../skills/security-model-prepare/SKILL.md) | 4,733 | `eef552bcf65390d4` |
 | [security-model-update](../skills/security-model-update/SKILL.md) | 5,924 | `fb9e2f157965940e` |

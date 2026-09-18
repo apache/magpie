@@ -46,6 +46,26 @@ before moving on to the next item. Use:
   `Rahul Vats`, `Aritra Basu`, `Pierre Jeambrun`, `Kaxil Naik`,
   `Amogh Desai`, plus any name that appears in a `Reporter credited
   as` field without a confirmed external-credit decision.
+- **CVE-reviewer-comment ledger:** when this run acted on any
+  reviewer comment found in
+  [Step 1e](gather.md#1e-check-the-cve-record-for-reviewer-comments) —
+  including comments that were pure acknowledgements and needed no
+  other change — append the ledger marker to the same rollup entry
+  the rest of the run's changes land in:
+
+  ```markdown
+  <!-- magpie: cve-review-comments-processed <CVE-ID> slug1,slug2 -->
+  ```
+
+  One marker per CVE ID, slugs comma-separated with no spaces. This
+  is what makes Step 1e idempotent, so it must land **in the same
+  PATCH** as the changes it records — writing the ledger in a
+  separate later call risks a run that applies the body update and
+  then fails before ledgering it, which re-proposes the same comment
+  on the next sync. Conversely, never ledger a slug whose
+  accompanying body update was *not* confirmed: an unprocessed
+  comment recorded as processed disappears from every future run.
+
 - **Fold-legacy deletes:** after the rollup PATCH succeeds and
   carries the folded entries, delete each original legacy bot
   comment with `gh api -X DELETE

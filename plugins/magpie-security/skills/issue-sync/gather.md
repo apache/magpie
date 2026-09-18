@@ -7,7 +7,7 @@
 > this slice can load just this file. Loaded automatically when the
 > orchestrator (or a subagent) is in the matching step.
 
-This subdoc carries Step 1 sub-steps — read the GitHub issue (1a), find referenced PRs (1b), find the real reporter and read the mailing-list thread (1c), mine comments + mail for actionable signals (1d), check Gmail for CVE-reviewer comments (1e), locate the process step (1f), check cve.org publication state on recently-closed trackers (1g), detect active release-vote threads (1h).
+This subdoc carries Step 1 sub-steps — read the GitHub issue (1a), find referenced PRs (1b), find the real reporter and read the mailing-list thread (1c), mine comments + mail for actionable signals (1d), check the CVE record (and the list archive) for CVE-reviewer comments (1e), locate the process step (1f), check cve.org publication state on recently-closed trackers (1g), detect active release-vote threads (1h).
 
 ---
 
@@ -362,7 +362,7 @@ update, label change, or next-step recommendation in Step 2:
 | Advisory message sent to `<announce-list>` / `<users-list>` but archive URL not yet visible | No-op transition; **do not** flip the `fix released → announced` labels here. The label flip is part of the combined "archive URL captured" apply above and only fires when the archive URL is confirmed live on `<mail-archive-url>` (this is the load-bearing real-world signal that the advisory actually shipped — a `[VOTE]/[ANNOUNCE]` mail thread in flight without an archived URL is ambiguous). |
 | Project-board column drifted from the issue's label-derived state (e.g. a tracker carries `pr merged` but is still in the `PR created` column on Project 2 (`<project-board-url>`), or `announced` + *Public advisory URL* body field populated but the column is still `Fix released`) | Propose moving the project item to the correct column per the mapping table in Step 2b. The board is the primary security-team overview surface; a stale column hides ownership handoffs from the team at a glance. |
 | `announced` label set and CVE record on `<cve-tool-url>` now reports state PUBLISHED (checked via `curl -s <cve-tool-url>/cve5/<CVE-ID>.json` / the CVE tool API, or an explicit release-manager comment on the issue stating the CVE-tool push is done) | Propose closing the issue. Do not update any labels. This is the terminal transition. |
-| CVE record has open **review comments / reviewer proposals** (detected via the Gmail-search path in Step 1e — reviewer-comment notifications from the CVE tool land on `<security-list>` with the CVE ID in the subject line; the `<cve-tool-url>/cve5/<CVE-ID>.json` endpoint is behind OAuth and is not readable from this skill's context, so Gmail is the load-bearing signal source). | Surface each open review comment in Step 2a with **clickable links** to the Gmail thread and to the CVE record on `<cve-tool-url>` (the reader can authenticate in-browser to see live state), verbatim-quoted; then for each one that maps cleanly to a tracking-issue body field (CWE, Affected versions, Reporter credited as, Public advisory URL, Short public summary), **propose the matching body-field update** as a numbered item in Step 2b. The body is the source of truth for the CVE JSON — regeneration in Step 5 will pull the update back into the paste-ready attachment, and the release manager's only remaining action is the Vulnogram paste + comment-resolution click. Comments that do not map to a body field (severity/CVSS, out-of-scope challenges, free-form rewrites) are surfaced verbatim and flagged for human decision. See Step 1e for the full Gmail-search recipe, the reviewer-comment-to-field mapping table, and the courtesy-reply pattern. |
+| CVE record has open **review comments / reviewer proposals** (detected in Step 1e by reading the record's own `comments[]` through the CVE-tool adapter's authenticated record fetch — for the ASF default, `vulnogram-api-record-fetch --comments-only`; the mailing-list notification on `<security-list>` is the fallback signal source and the place the courtesy reply lands). Which of those comments count as *open* is computed by slug against the processed-ledger markers in the tracker's status rollup — see Step 1e. | Surface each open review comment in Step 2a with **clickable links** to the Gmail thread and to the CVE record on `<cve-tool-url>` (the reader can authenticate in-browser to see live state), verbatim-quoted; then for each one that maps cleanly to a tracking-issue body field (CWE, Affected versions, Reporter credited as, Public advisory URL, Short public summary), **propose the matching body-field update** as a numbered item in Step 2b. The body is the source of truth for the CVE JSON — regeneration in Step 5 will pull the update back into the paste-ready attachment, and the release manager's only remaining action is the Vulnogram paste + comment-resolution click. Comments that do not map to a body field (severity/CVSS, out-of-scope challenges, free-form rewrites) are surfaced verbatim and flagged for human decision. See Step 1e for the full Gmail-search recipe, the reviewer-comment-to-field mapping table, and the courtesy-reply pattern. |
 | The referenced `<upstream>` PR has been opened but is still in `open` state | Propose `pr created` label; update the *"PR with the fix"* body field with the PR URL. |
 | The referenced `<upstream>` PR moved to `merged` | Propose swapping `pr created` → `pr merged`; update milestone to the shipping release if now known. **Also**: check whether all six mandatory CVE body fields are populated (*CWE*, *Affected versions*, *Severity*, *Reporter credited as*, *Short public summary for publish*, *PR with the fix*). If any is empty / `_No response_`, propose posting (or PATCH-updating) the *Remediation-developer fill-fields comment* per [the dedicated bullet in Step 2b](SKILL.md#step-2--build-a-proposal-do-not-apply-anything-yet) — the remediation developer is best-positioned to fill these in, and the tracker stays assigned to them until the fields are complete. This is the **first** of two firing points for the fill-fields comment; the second is the `pr merged` → `fix released` row below. |
 | The *"PR with the fix"* body field has at least one PR URL **and** the *"Remediation developer"* body field is missing the PR author's name (or is `_No response_`) | Propose appending the PR author's display name (`gh pr view <N> --repo <upstream> --json author --jq '.author.name // .author.login'`) to the *"Remediation developer"* body field. **Append, never overwrite** — manual edits (co-authors added by the triager, name spelling corrections, "Anonymous" overrides) must survive subsequent syncs. Run once per fresh PR URL added to the field; skip if the resolved name is already present (case-insensitive substring match). **Apply the [bot/AI credit policy](../../../../tools/cve-tool-vulnogram/bot-credits-policy.md) to the resolved name + handle before proposing the append** — if the PR author matches the bot detection rule (`*[bot]` suffix, known-bot list, `*-bot`/`*-ai`/`*-agent`/`*-gpt` suffix patterns), do **not** propose the append; surface *"skipped credit: `<handle>` (matches bot policy — `<rule>`)"* in Step 2 instead. The user can override per the policy doc. The CVE JSON generator reads the field on its next regeneration and emits one `type: "remediation developer"` credit per line, so this hand-off keeps the credit attached even if Vulnogram drops the CLI flag. See the *"Auto-resolve --remediation-developer"* note in Step 5 for the historical CLI-flag fallback. |
@@ -412,23 +412,89 @@ Do **not** act on signals automatically; as always, each one becomes a
 numbered proposal item in Step 2 and only applies after user
 confirmation.
 
-### 1e. Check Gmail for CVE review comments sent to `<security-list>`
+### 1e. Check the CVE record for reviewer comments
 
 Whenever the tracking issue has a CVE ID allocated (the *CVE tool link*
-body field is populated, or the `cve allocated` label is set), look for
-reviewer comments on the CVE record in Gmail.
+body field is populated, or the `cve allocated` label is set), check
+whether a CVE reviewer has left comments on the record.
 
-**Why Gmail and not the CVE tool.** The CVE-record JSON on
-`<cve-tool-url>/cve5/<CVE-ID>.json` is gated behind
-OAuth and returns an HTML login page to anonymous `curl` or `gh api`,
-so an automated read from this skill's context is not viable. The CVE tool
-instead notifies the CNA mailing list
-(`<security-list>`) by email whenever a reviewer leaves a
-comment / TODO on the record, and those emails are readable from Gmail
-through the normal `mcp__claude_ai_Gmail__*` tools the skill already
-uses for reporter threads. That is the load-bearing signal path.
+**Read the record's comments directly.** When the CVE-tool adapter
+exposes an authenticated record read — for the ASF default that is
+[`vulnogram-api-record-fetch`](../../../../tools/cve-tool-vulnogram/oauth-api/README.md),
+running against the session established by `vulnogram-api-setup` —
+the reviewer comments are a **first-class field on the record** and
+that read is the primary signal path:
 
-**Backend selection.** When PonyMail MCP is enabled and
+```bash
+uv run --project <framework>/tools/<cve-tool>/oauth-api \
+  vulnogram-api-record-fetch --cve-id <CVE-ID> --comments-only
+```
+
+It prints a JSON array — `[]` when the record has no comments, else one
+object per comment:
+
+```json
+[{"createdAt":"2026-09-18T07:54:24.359Z","updatedAt":"2026-09-18T07:54:24.359Z",
+  "author":"engelen","slug":"Z-W0dqqdM7EfxmNnyg--",
+  "hypertext":"… I think it would be good if the title mentioned the impact …"}]
+```
+
+This is authoritative in a way the mail path is not: it is the record's
+own state, it carries every comment regardless of which notification
+reached which inbox, and `hypertext` is the reviewer's text verbatim
+with no quoting or MIME mangling to strip. Run it for **every** tracker
+with an allocated CVE, not only those in `REVIEW` — reviewers do leave
+comments on records that have already moved on, and a comment on a
+`PUBLIC` record still needs an answer.
+
+> **Which records to poll.** One fetch per tracker with an allocated
+> CVE. The call is cheap and read-only, but it does need a live
+> session: if it exits non-zero with a session error, re-run
+> `vulnogram-api-setup` before continuing, and if that is not
+> possible this run, fall back to the mail path below and flag the
+> gap in Step 2c rather than reporting *"no reviewer comments"* —
+> a failed read is not an empty result.
+
+**Which comments are unprocessed.** Comments have no resolved/unresolved
+flag on the record, so sync tracks what it has already acted on by
+**`slug`** — the stable per-comment id in the array above. On every run:
+
+1. Read the tracker's status-rollup comment and collect every slug from
+   its processed-ledger markers, which have the fixed form:
+
+   ```markdown
+   <!-- magpie: cve-review-comments-processed <CVE-ID> slug1,slug2 -->
+   ```
+
+2. `unprocessed = {slugs on the record} - {slugs in the ledger}`.
+3. Surface and act on the unprocessed set only. Anything already in the
+   ledger is steady state and must not be re-proposed — re-proposing a
+   comment the team already answered is how a sync run turns into noise
+   the maintainer learns to skim past.
+
+A comment whose `updatedAt` is newer than its `createdAt` was **edited
+after** it was first left. Treat an edited comment as unprocessed again
+even when its slug is in the ledger, and say so explicitly in the
+proposal (*"reviewer edited this comment after we processed it"*) so
+the reader knows why it is back.
+
+**Acknowledgement-only comments still get ledgered.** A bare *"LGTM"* /
+*"looks good"* / *"approved"* needs no body change and no reply — but it
+does need to be recorded as processed, or every subsequent sync
+re-surfaces it forever. Propose the ledger line with no accompanying
+action, and note in Step 2a that the reviewer signed off (which is also
+the signal the release manager needs for the `REVIEW` → `READY` move).
+
+**The mail path is the complement, not the duplicate.** The CVE tool
+also notifies the CNA mailing list (`<security-list>`) by email when a
+reviewer comments. That mail is still worth finding, for two reasons:
+it is the **only** path available to an adopter whose CVE-tool adapter
+has no authenticated read, and its thread is where the courtesy reply
+below has to land — the reviewer watches their notification thread, not
+the record. Use it as the signal source only when the record read is
+unavailable.
+
+**Backend selection for the mail path.** When PonyMail MCP is enabled and
 authenticated (Step 0) **and** `<security-list>` is
 in `.apache-magpie-overrides/user.md` → `tools.ponymail.private_lists`, **PonyMail
 MCP is the primary path** for reviewer-comment archive queries:
@@ -442,8 +508,8 @@ mcp__ponymail__search_list(
 )
 ```
 
-The archive query is authoritative — it returns every reviewer
-notification that reached the list, independent of any single
+The archive query is authoritative across inboxes — it returns every
+reviewer notification that reached the list, independent of any single
 triager's Gmail subscription or inbox window. Gmail is the
 fallback when (a) PonyMail is not enabled / not authenticated,
 (b) the private list is not in the allowlist for this user, or
@@ -459,9 +525,12 @@ and run via `search_threads` per
 
 Stay inside the skill's Gmail budget: **≤ 2 extra searches per issue**
 for the CVE-review path (on top of the Step 1c reporter-thread search
-budget).
+budget). When the record read already produced the comment set, the
+mail search narrows to *finding the notification thread to reply on*
+for comments that earned a courtesy reply — skip it entirely for
+comments that did not.
 
-**Filtering the results.** Not every hit is a reviewer comment. Discard:
+**Filtering the mail results.** Not every hit is a reviewer comment. Discard:
 
 - The GitHub-notifications mirror of the tracking issue (already
   excluded by the `-from:` filters above, but double-check the `From:`
@@ -484,6 +553,13 @@ reviewers, `cve@mitre.org`, or an individual security
 update the CWE to CWE-NNN"*, *"The affected range should be `< X.Y.Z`"*,
 *"Credits are missing a remediation-developer entry"*, etc.
 
+> **Identify the reviewer from the mail, not from the record.** The
+> record's `author` field is the CVE tool's account handle (e.g.
+> `engelen`), which is not an address and does not always map to the
+> name the person signs with. Resolve the handle to a person through
+> the notification thread's `From:` before naming them in a proposal or
+> addressing a reply to them.
+
 Read each matching thread **once** with
 `mcp__claude_ai_Gmail__get_thread(threadId, messageFormat='FULL_CONTENT')`
 to extract the comment bodies verbatim. This is one of the few
@@ -494,14 +570,11 @@ every other `get_thread` call in this skill defaults to
 `MINIMAL` (state probes, anchor-point lookups, draft-presence
 checks) and only escalates when body parsing is required.
 
-**Fallback when no CVE-review emails are found.** Absence of signal is
-the common case — most CVEs go through REVIEW and PUBLISHED with no
-reviewer pushback. Just record `cve_review_comments: []` and move on;
-do **not** retry the `<cve-tool-url>` curl from this skill.
-
-If a reader wants to double-check against the live CVE-tool record,
-link to it in the proposal (`<cve-tool-url>/cve5/<CVE-ID>`)
-and note that the human can open it in a browser with their own login.
+**Absence of signal is the common case.** Most CVEs go through REVIEW
+and PUBLISHED with no reviewer pushback. When the record read returns
+`[]` and the mail search is empty, record `cve_review_comments: []` and
+move on. Record that as an empty result **only** when a read actually
+succeeded — see the session-error rule above.
 
 For every actionable review comment found, include the following in
 the **observed state** in Step 2a:
@@ -536,6 +609,7 @@ Map common review comments to body fields like this:
 | *"Missing `vendor-advisory` reference"* / *"No public advisory URL in references"* | Propose populating the issue's **Public advisory URL** body field, using the Step 1d users@-archive-scan path (regeneration will automatically pick it up as a `vendor-advisory` reference — no manual edit of `references[]` needed). |
 | *"Credit line `X` is missing"* / *"Move `X` from `finder` to `reporter`"* / *"`Y` asked to be credited as `Z` — please update"* | Propose updating the **Reporter credited as** body field for `finder` credits or the **Remediation developer** body field for `remediation developer` credits (one line per credit in either; the generator preserves order, regeneration in Step 5 picks the change up automatically). |
 | *"Severity score should be `<X>` / CVSS vector is wrong"* | Surface the comment in the observed state but **do not** auto-propose a body change. Severity/CVSS is a judgement call that requires independent scoring by a security-team member — per the "Reporter-supplied CVSS scores are informational only" rule in [`AGENTS.md`](../../../../AGENTS.md), and the same rule extends to third-party reviewer asks. Flag it as *"needs security-team scoring before addressing"* in Step 2c. |
+| *"The title should mention the impact"* / *"the title leaves me asking 'so what?'"* / *"title is too vague / too implementation-focused"* | Propose updating the **tracker issue title**, not just the CVE record — the issue title ships verbatim into the CVE record's `title` field, so editing one without the other re-opens the same comment on the next regeneration. Re-run the [title strip cascade](../cve-allocate/SKILL.md) over the proposed wording before offering it, so the reviewer's ask does not smuggle back a project-name prefix or a `[Security Report]` tag the cascade exists to remove. A reviewer asking for *impact* wants the consequence in the title (what the attacker achieves), not the mechanism (which code path is wrong) — the CWE already on the tracker is usually the shortest correct name for that impact. |
 | *"Fix the description wording — it should say …"* | Propose updating the **Short public summary for publish** body field with the reviewer's suggested text verbatim; flag explicitly in the proposal that it is a paste-as-is and the user should re-read before confirming. |
 | *"Mark this as duplicate of CVE-YYYY-NNNN"* / *"This is actually `out of scope` per the Security Model"* | Do **not** auto-propose closing / rejecting. Surface as a blocker requiring a human decision and link the security-team members who last commented on the issue. |
 | *"Please re-open for review — I've updated the …"* | No issue-body change; include in Step 2c as *"go back to Vulnogram and click Re-request Review"*. |
@@ -599,23 +673,48 @@ update"* contract is complete from sync's side but
 operationally incomplete from the reviewer's side; the
 courtesy reply is what makes the round-trip visible.
 
-**Do not try to edit the CVE record from this skill.** Writes to
-the CVE tool (`<cve-tool-url>`) itself stay with the release manager.
+**Answer a reviewer through the tracker body, never by hand-editing
+the record.** Sync does push the regenerated JSON (Step 5b, via
+[`vulnogram-api-record-update`](../../../../tools/cve-tool-vulnogram/oauth-api/README.md)),
+so the record does get written in this run — but only ever as the
+*output* of regenerating from the tracker body. Never edit a record
+field directly to satisfy a comment: the tracker body is the source of
+truth, and a field changed only on the record is silently reverted by
+the next regeneration, which reads the body and overwrites it.
+
 Reviewer proposals that cannot be expressed as a body-field
 change (wholesale re-descriptions, duplicate-declarations,
 out-of-scope challenges) frequently require a judgement call
 that belongs with the security team member owning the issue.
-Sync's responsibility ends at surfacing the open comments **and**
-pre-staging any mechanical body updates so the RM's remaining
-work is one Vulnogram paste plus one comment-resolution click
-per reviewer ask.
+Sync's responsibility ends at surfacing the open comments, landing
+the body updates that answer the mechanical ones, and re-pushing —
+leaving the RM one comment-resolution click per reviewer ask.
+
+**Always propose the ledger line.** Every comment this run acts on —
+including the acknowledgement-only ones that need no other action —
+gets its slug appended to the processed-ledger marker in the Step 4
+status-rollup entry:
+
+```markdown
+<!-- magpie: cve-review-comments-processed <CVE-ID> slug1,slug2 -->
+```
+
+One marker per CVE ID per entry; slugs comma-separated, no spaces. The
+ledger is what makes this sub-step idempotent, so it lands in the same
+confirmed batch as the actions it records — never as a follow-up the
+next run is expected to remember.
 
 If no CVE ID is allocated yet (the *CVE tool link* body field is
 `_No response_` and `cve allocated` is not set), skip this
-subsection entirely — there is no record to review-check yet. If
-Gmail search 500s or times out, skip this subsection for this sync
-run and flag it as a retry in Step 2c; do not hold up the whole
-proposal for a transient Gmail error.
+subsection entirely — there is no record to review-check yet.
+
+If **both** read paths fail (the record fetch errors *and* the mail
+search 500s or times out), skip this subsection for this sync run and
+flag it as a retry in Step 2c; do not hold up the whole proposal for a
+transient error, and do not report the empty result as *"no reviewer
+comments"* — distinguishing *"nothing there"* from *"could not look"*
+is the whole point, because the first is steady state and the second is
+an unanswered reviewer.
 
 ### 1f. Locate the process step
 

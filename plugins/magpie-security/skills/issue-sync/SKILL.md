@@ -509,7 +509,7 @@ proposals downstream would be junk.
 
 Read the GitHub issue, find referenced PRs, find the real reporter
 and the original mailing-list thread, mine comments + mail for
-actionable signals, check Gmail for CVE-reviewer comments, locate
+actionable signals, check the CVE record for reviewer comments, locate
 the process step, and (on recently-closed trackers) check the
 cve.org publication state. (For ASF projects with release-vote
 gating, also detect active release-vote threads.)
