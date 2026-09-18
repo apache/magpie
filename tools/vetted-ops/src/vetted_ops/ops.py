@@ -1650,7 +1650,14 @@ _register(
             "-f",
             "recursive=1",
             "--jq",
-            ".tree[].path",
+            # A recursive tree over a large repository comes back with
+            # `truncated: true` and a partial `tree`. Projecting straight to
+            # paths drops that flag, so a caller cannot tell a complete listing
+            # from a partial one and reads the gap as "those paths do not
+            # exist". Fail loudly instead of answering with half a tree.
+            'if .truncated then error("repo-tree: the GitHub API truncated '
+            "this tree; the listing is incomplete. Walk the tree level by "
+            'level instead of relying on recursive=1.") else .tree[].path end',
         ],
     )
 )

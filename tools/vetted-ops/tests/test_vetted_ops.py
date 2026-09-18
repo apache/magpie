@@ -372,6 +372,29 @@ def test_no_read_operation_sends_fields_without_an_explicit_get(policy: config.C
             assert argv[argv.index("-X") + 1] == "GET", f"{name} sends fields with a non-GET method"
 
 
+def test_repo_tree_refuses_to_report_a_truncated_listing(policy: config.Config) -> None:
+    """
+    `gh api .../git/trees/<ref>?recursive=1` answers a large repository with
+    `truncated: true` and a *partial* `tree`. Projecting straight to
+    `.tree[].path` discards that flag, so the caller receives a short listing
+    that is indistinguishable from a complete one — and concludes that whole
+    directories do not exist.
+
+    That is the worst shape a read operation can fail in: silently, with
+    plausible output. The builder must surface the truncation as an error so the
+    dispatcher exits non-zero (code 4) instead of answering with half a tree.
+    """
+    op = ops.resolve("repo-tree")
+    params, _ = cli._validate_params(op, ["main"], policy)
+    argv = cli.build_argv(op, params, policy)
+
+    jq = argv[argv.index("--jq") + 1]
+    assert ".truncated" in jq, "repo-tree drops the API's truncation flag"
+    assert "error(" in jq, "repo-tree must fail loudly on a truncated tree"
+    # The complete-tree path still projects to plain paths.
+    assert ".tree[].path" in jq
+
+
 def test_board_add_item_takes_a_content_node_id(policy: config.Config) -> None:
     """
     Adding an issue to the board keys on the *content* node id, not a project
