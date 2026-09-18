@@ -93,6 +93,7 @@ def test_every_op_declares_validators_for_all_its_params() -> None:
         "team",
         "ghsa",
         "item_id",
+        "content_id",
     }
     for op in ops.OPS.values():
         for param in op.params:
@@ -116,6 +117,7 @@ def test_every_builder_produces_a_gh_argv(policy: config.Config) -> None:
         "team": "maintainers",
         "ghsa": "GHSA-aaaa-bbbb-cccc",
         "item_id": "PVTI_abc",
+        "content_id": "I_abc",
         "label": "needs triage",
         "milestone": "1.2.3",
         "state": "open",
@@ -323,6 +325,59 @@ def test_no_read_operation_sends_fields_without_an_explicit_get(policy: config.C
             assert argv[argv.index("-X") + 1] == "GET", f"{name} sends fields with a non-GET method"
 
 
+def test_board_add_item_takes_a_content_node_id(policy: config.Config) -> None:
+    """
+    Adding an issue to the board keys on the *content* node id, not a project
+    item id — the item does not exist yet. GitHub returns the existing item when
+    one is already present, so the operation is safely idempotent.
+    """
+    op = ops.resolve("board-add-item")
+    params, _ = cli._validate_params(op, ["I_kwDOabc123"], policy)
+    argv = cli.build_argv(op, params, policy)
+    assert argv[:3] == ["gh", "api", "graphql"]
+    assert "content=I_kwDOabc123" in argv
+    assert "project=PVT_proj" in argv
+    assert "addProjectV2ItemById" in argv[-1]
+
+
+def test_board_add_item_refuses_a_non_node_id(policy: config.Config) -> None:
+    op = ops.resolve("board-add-item")
+    with pytest.raises(ops.ParamError):
+        cli._validate_params(op, ["../../etc/passwd"], policy)
+
+
+def test_board_archive_item_targets_the_configured_project(policy: config.Config) -> None:
+    op = ops.resolve("board-archive-item")
+    params, _ = cli._validate_params(op, ["PVTI_kwDOabc"], policy)
+    argv = cli.build_argv(op, params, policy)
+    assert "item=PVTI_kwDOabc" in argv
+    assert "project=PVT_proj" in argv
+    assert "archiveProjectV2Item" in argv[-1]
+
+
+def test_milestone_close_is_by_number_and_hits_the_tracker(policy: config.Config) -> None:
+    """
+    Closing is by number because the REST endpoint is number-addressed; there is
+    no title-keyed route. The number validator still refuses anything that is
+    not a plain integer, so no path can be smuggled into the URL.
+    """
+    op = ops.resolve("milestone-close")
+    params, _ = cli._validate_params(op, ["64"], policy)
+    argv = cli.build_argv(op, params, policy)
+    assert argv == [
+        "gh",
+        "api",
+        "repos/acme/tracker/milestones/64",
+        "-X",
+        "PATCH",
+        "-f",
+        "state=closed",
+    ]
+
+    with pytest.raises(ops.ParamError):
+        cli._validate_params(op, ["64/../../secrets"], policy)
+
+
 # --- per-caller scoping ------------------------------------------------------
 
 
@@ -484,6 +539,7 @@ def test_tracker_and_upstream_operations_never_cross(policy: config.Config) -> N
         "team": "maintainers",
         "ghsa": "GHSA-aaaa-bbbb-cccc",
         "item_id": "PVTI_abc",
+        "content_id": "I_abc",
         "label": "needs triage",
         "milestone": "1.2.3",
         "state": "open",
@@ -511,6 +567,7 @@ def test_tracker_and_upstream_operations_never_cross(policy: config.Config) -> N
             "label-list",
             "milestone-list",
             "milestone-create",
+            "milestone-close",
             "collaborators",
         }:
             assert upstream not in argv, f"{name} reached the upstream repo"
@@ -558,6 +615,7 @@ def test_no_operation_interpolates_a_traversing_ref(policy: config.Config) -> No
         "team": "maintainers",
         "ghsa": "GHSA-aaaa-bbbb-cccc",
         "item_id": "PVTI_abc",
+        "content_id": "I_abc",
         "body": "unused",
     }
     body = policy.workspace / "ref.md"
@@ -844,6 +902,7 @@ def test_every_tracker_operation_refuses_rather_than_retargeting(
             "team": "maintainers",
             "ghsa": "GHSA-aaaa-bbbb-cccc",
             "item_id": "PVTI_abc",
+            "content_id": "I_abc",
         }
         out = {}
         for name in op.params:

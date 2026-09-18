@@ -102,7 +102,7 @@ def _validate_params(
             resolved[name] = ops_mod.team(raw)
         elif name == "ghsa":
             resolved[name] = ops_mod.ghsa(raw)
-        elif name == "item_id":
+        elif name in {"item_id", "content_id"}:
             resolved[name] = ops_mod.node_id(raw)
         else:  # pragma: no cover - guarded by the catalogue test
             raise ops_mod.ParamError(f"operation {op.name!r} declares unknown parameter {name!r}")

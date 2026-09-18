@@ -692,6 +692,68 @@ _register(
 
 _register(
     Op(
+        name="board-add-item",
+        params=("content_id",),
+        writes=True,
+        summary="Add an issue or PR to the project board, returning its item id.",
+        build=lambda cfg, content_id: [
+            "gh",
+            "api",
+            "graphql",
+            "-F",
+            f"project={cfg['board_project_id']}",
+            "-F",
+            f"content={content_id}",
+            "-f",
+            "query=mutation($project:ID!,$content:ID!)"
+            "{addProjectV2ItemById(input:{projectId:$project,contentId:$content})"
+            "{item{id}}}",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="board-archive-item",
+        params=("item_id",),
+        writes=True,
+        summary="Archive a project-board item, removing it from the board view.",
+        build=lambda cfg, item_id: [
+            "gh",
+            "api",
+            "graphql",
+            "-F",
+            f"project={cfg['board_project_id']}",
+            "-F",
+            f"item={item_id}",
+            "-f",
+            "query=mutation($project:ID!,$item:ID!)"
+            "{archiveProjectV2Item(input:{projectId:$project,itemId:$item})"
+            "{item{id}}}",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="milestone-close",
+        params=("number",),
+        writes=True,
+        summary="Close a tracker milestone by number.",
+        build=lambda cfg, number: [
+            "gh",
+            "api",
+            f"repos/{_tracker(cfg)}/milestones/{number}",
+            "-X",
+            "PATCH",
+            "-f",
+            "state=closed",
+        ],
+    )
+)
+
+_register(
+    Op(
         name="board-set-status",
         params=("item_id", "column"),
         writes=True,
