@@ -20,7 +20,18 @@ name: Skill token counts
 on:
   pull_request:
     paths: &measurement_paths
+      # Both spellings, because `skills/<name>` is a symlink into the family
+      # plugin that owns the skill. A path filter matches the paths git reports
+      # as changed, and editing a skill changes the plugin file -- the mirror
+      # entry is an unchanged symlink blob. `skills/**/SKILL.md` therefore
+      # matches nothing in this repository today (it is kept for an adopter's
+      # snapshot, where the entries are real directories), so without the
+      # `plugins/` spelling below this workflow never fired on a skill edit and
+      # the committed measurements drifted silently. Keep in step with the
+      # `skill-token-count` hook's `files:` in `.pre-commit-config.yaml`, which
+      # already carries both.
       - 'skills/**/SKILL.md'
+      - 'plugins/magpie-*/skills/**/SKILL.md'
       - 'tools/dev/preflight-block.md'
       - 'tools/skill-token-count/**'
       - 'docs/mode-economics.md'

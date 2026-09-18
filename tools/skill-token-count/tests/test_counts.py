@@ -187,3 +187,61 @@ def test_measurement_date_is_preserved_until_content_changes(repo: Path) -> None
     (repo / "skills/hello/SKILL.md").write_text("changed content", encoding="utf-8")
     assert main(["--root", str(repo), "--write"]) == 0
     assert "2020-01-01" not in target.read_text()
+
+
+def test_ci_path_filter_covers_every_measured_skill() -> None:
+    """A filter that matches nothing fails open: the job simply never runs.
+
+    `skills/<name>` is a symlink into the family plugin that owns the skill, so
+    a skill edit changes `plugins/magpie-<family>/skills/<name>/SKILL.md` and
+    the mirror entry stays an unchanged symlink blob. A `paths:` filter written
+    against the mirror therefore matches no changed path, the `measure` job
+    never fires, and the committed measurements drift until some unrelated
+    branch touching `uv.lock` inherits the red check.
+    """
+    import re
+
+    root = Path(__file__).resolve().parents[3]
+    workflow = root / ".github/workflows/skill-token-count.yml"
+    if not workflow.is_file():
+        pytest.skip("Not the framework checkout; an adopter's snapshot has no CI workflow")
+
+    # Read the anchor's own list rather than parsing YAML: this project depends
+    # on tiktoken alone, and a parser is not worth a dependency here.
+    tail = workflow.read_text(encoding="utf-8").split("paths: &measurement_paths", 1)[1]
+    globs = []
+    for line in tail.splitlines()[1:]:
+        entry = line.strip()
+        if not entry or entry.startswith("#"):
+            continue
+        if not entry.startswith("- "):
+            break
+        globs.append(entry[2:].strip().strip("'\""))
+    assert globs, "No path filter entries found under the measurement_paths anchor"
+
+    def translate(glob: str) -> re.Pattern[str]:
+        # GitHub's filter globs: `**` spans separators, a lone `*` does not.
+        parts, index = [], 0
+        while index < len(glob):
+            if glob.startswith("**", index):
+                parts.append(".*")
+                index += 2
+            elif glob[index] == "*":
+                parts.append("[^/]*")
+                index += 1
+            else:
+                parts.append(re.escape(glob[index]))
+                index += 1
+        return re.compile("^" + "".join(parts) + "$")
+
+    patterns = [translate(glob) for glob in globs]
+    entries = sorted((root / "skills").iterdir())
+    measured = [e / "SKILL.md" for e in entries if e.is_dir() and (e / "SKILL.md").is_file()]
+    assert measured, "No skills to measure"
+    for path in measured:
+        # The path git reports as changed is the real file, not the mirror.
+        changed = path.resolve().relative_to(root).as_posix()
+        assert any(pattern.match(changed) for pattern in patterns), (
+            f"No `paths:` entry in skill-token-count.yml matches {changed}; "
+            "editing that skill would not run the measurement job"
+        )
