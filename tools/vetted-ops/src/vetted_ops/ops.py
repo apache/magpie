@@ -123,6 +123,28 @@ def team(value: str) -> str:
     return _check(_TEAM, value, "team slug")
 
 
+def title(value: str) -> str:
+    """
+    Validate an issue title: one non-empty line, within GitHub's 256-character
+    cap.
+
+    Titles are free text — a reviewer may legitimately ask for quotes, colons
+    or backticks — so this deliberately does not pattern-match the content. It
+    rides in argv and never reaches a shell, so punctuation is inert. What it
+    does refuse is the shape that is never a title: embedded newlines, which
+    would silently turn the tail into an invisible second line, and the empty
+    string, which would blank the title rather than change it.
+    """
+    stripped = value.strip()
+    if not stripped:
+        raise ParamError("title may not be empty or whitespace-only")
+    if "\n" in value or "\r" in value:
+        raise ParamError(f"title must be a single line, with no newline: {value!r}")
+    if len(stripped) > 256:
+        raise ParamError(f"title is {len(stripped)} characters; GitHub caps a title at 256")
+    return stripped
+
+
 def ghsa(value: str) -> str:
     return _check(_GHSA, value, "GHSA id")
 
@@ -630,6 +652,25 @@ _register(
             _tracker(cfg),
             "--body-file",
             body,
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="issue-edit-title",
+        params=("number", "title"),
+        writes=True,
+        summary="Replace a tracker issue's title.",
+        build=lambda cfg, number, title: [
+            "gh",
+            "issue",
+            "edit",
+            number,
+            "--repo",
+            _tracker(cfg),
+            "--title",
+            title,
         ],
     )
 )

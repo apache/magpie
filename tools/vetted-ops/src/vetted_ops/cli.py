@@ -100,6 +100,8 @@ def _validate_params(
             resolved[name] = ops_mod.login(raw)
         elif name == "team":
             resolved[name] = ops_mod.team(raw)
+        elif name == "title":
+            resolved[name] = ops_mod.title(raw)
         elif name == "ghsa":
             resolved[name] = ops_mod.ghsa(raw)
         elif name in {"item_id", "content_id"}:

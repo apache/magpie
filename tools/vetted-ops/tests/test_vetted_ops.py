@@ -94,6 +94,7 @@ def test_every_op_declares_validators_for_all_its_params() -> None:
         "ghsa",
         "item_id",
         "content_id",
+        "title",
     }
     for op in ops.OPS.values():
         for param in op.params:
@@ -118,6 +119,7 @@ def test_every_builder_produces_a_gh_argv(policy: config.Config) -> None:
         "ghsa": "GHSA-aaaa-bbbb-cccc",
         "item_id": "PVTI_abc",
         "content_id": "I_abc",
+        "title": "A tracker title",
         "label": "needs triage",
         "milestone": "1.2.3",
         "state": "open",
@@ -230,6 +232,50 @@ def test_issue_edit_body_refuses_a_body_outside_the_workspace(policy: config.Con
         cli._validate_params(op, ["611", str(stray)], policy)
 
 
+def test_issue_edit_title_passes_the_title_as_one_argv_element(policy: config.Config) -> None:
+    """
+    A title is a single line, so unlike a body it rides in argv rather than on
+    stdin. It still never reaches a shell — punctuation a reviewer asks for
+    (quotes, semicolons, backticks) has to survive to `gh` intact and inert.
+    """
+    op = ops.resolve("issue-edit-title")
+    title = 'Session cookie overrides `Authorization`; enables "session fixation"'
+    params, sent = cli._validate_params(op, ["555", title], policy)
+    argv = cli.build_argv(op, params, policy)
+    assert argv[:5] == ["gh", "issue", "edit", "555", "--repo"]
+    assert argv[-2:] == ["--title", title]
+    assert sent is None
+
+
+@pytest.mark.parametrize(
+    "bad, match",
+    [
+        ("", "empty"),
+        ("   ", "empty"),
+        ("Real title\nsecond line", "single line"),
+        ("Real title\rsecond line", "single line"),
+        ("x" * 257, "caps a title at 256"),
+    ],
+)
+def test_issue_edit_title_refuses_shapes_that_are_never_a_title(
+    policy: config.Config, bad: str, match: str
+) -> None:
+    """
+    An empty title would blank the issue rather than retitle it, and a newline
+    would hide everything after it — both are silent corruption, so they are
+    refused rather than trimmed.
+    """
+    op = ops.resolve("issue-edit-title")
+    with pytest.raises(ops.ParamError, match=match):
+        cli._validate_params(op, ["555", bad], policy)
+
+
+def test_issue_edit_title_strips_surrounding_whitespace(policy: config.Config) -> None:
+    op = ops.resolve("issue-edit-title")
+    params, _ = cli._validate_params(op, ["555", "  Padded title  "], policy)
+    assert params["title"] == "Padded title"
+
+
 def test_milestone_create_is_gated_on_the_configured_milestones(policy: config.Config) -> None:
     """
     Creating a milestone is enum-gated on the same list that gates assigning
@@ -293,6 +339,7 @@ def test_no_read_operation_sends_fields_without_an_explicit_get(policy: config.C
         "team": "sec",
         "ghsa": "GHSA-aaaa-bbbb-cccc",
         "item_id": "PVTI_abc",
+        "title": "A tracker title",
         "label": "needs triage",
         "milestone": "1.2.3",
         "state": "open",
@@ -540,6 +587,7 @@ def test_tracker_and_upstream_operations_never_cross(policy: config.Config) -> N
         "ghsa": "GHSA-aaaa-bbbb-cccc",
         "item_id": "PVTI_abc",
         "content_id": "I_abc",
+        "title": "A tracker title",
         "label": "needs triage",
         "milestone": "1.2.3",
         "state": "open",
@@ -616,6 +664,7 @@ def test_no_operation_interpolates_a_traversing_ref(policy: config.Config) -> No
         "ghsa": "GHSA-aaaa-bbbb-cccc",
         "item_id": "PVTI_abc",
         "content_id": "I_abc",
+        "title": "A tracker title",
         "body": "unused",
     }
     body = policy.workspace / "ref.md"
@@ -903,6 +952,7 @@ def test_every_tracker_operation_refuses_rather_than_retargeting(
             "ghsa": "GHSA-aaaa-bbbb-cccc",
             "item_id": "PVTI_abc",
             "content_id": "I_abc",
+            "title": "A tracker title",
         }
         out = {}
         for name in op.params:
