@@ -94,7 +94,7 @@ readonly SIGNING_SUBCOMMANDS='commit|tag|merge|rebase|revert|cherry-pick|am|push
 arm() {
     if [[ -z ${MAGPIE_GPG_TOUCH_DRY_RUN:-} ]]; then
         [[ -n ${DISPLAY:-}${WAYLAND_DISPLAY:-} ]] || return 0
-        command -v zenity >/dev/null 2>&1 || python3 -c 'import gi' >/dev/null 2>&1 || return 0
+        command -v zenity >/dev/null 2>&1 || _gi_python >/dev/null || return 0
     fi
 
     local payload command_text
@@ -208,6 +208,25 @@ _watch() {
     done
 }
 
+# Resolve an interpreter that can actually import gi, printing it on
+# stdout. `python3` alone is not a reliable probe: a Homebrew, pyenv or
+# asdf python ahead of the system one on PATH has no PyGObject, while a
+# distro's python3-gi is bound to /usr/bin/python3. Probing only the
+# PATH python on such a machine reports "no PyGObject" while a perfectly
+# good gi sits one path away, and the full-screen overlay silently
+# degrades to the zenity box.
+_gi_python() {
+    local py
+    for py in python3 /usr/bin/python3; do
+        command -v "$py" >/dev/null 2>&1 || continue
+        if "$py" -c 'import gi' >/dev/null 2>&1; then
+            printf '%s\n' "$py"
+            return 0
+        fi
+    done
+    return 1
+}
+
 # The window is exec'd so this pid *is* the window: one kill closes it,
 # with no orphaned child left drawing on the screen.
 #
@@ -215,8 +234,9 @@ _watch() {
 # does. zenity is the fallback for a machine without PyGObject — a small
 # dialog, but better than a silent block.
 _overlay() {
-    if python3 -c 'import gi' >/dev/null 2>&1; then
-        exec python3 "$OVERLAY_WINDOW" >/dev/null 2>&1
+    local py
+    if py="$(_gi_python)"; then
+        exec "$py" "$OVERLAY_WINDOW" >/dev/null 2>&1
     fi
     exec zenity --warning --title="$TITLE" --width=560 --text="$BODY" >/dev/null 2>&1
 }
@@ -226,6 +246,7 @@ case "${1:-}" in
     disarm)   disarm ;;
     _watch)   _watch ;;
     _overlay) _overlay ;;
+    _gi_python) _gi_python ;;
     *)
         printf '%s: expected arm|disarm, got "%s"\n' "${0##*/}" "${1:-}" >&2
         exit 2

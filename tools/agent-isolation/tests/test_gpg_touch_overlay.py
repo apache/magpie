@@ -110,3 +110,25 @@ def test_unknown_mode_is_rejected() -> None:
     )
     assert result.returncode == 2
     assert "arm|disarm" in result.stderr
+
+
+def test_gi_python_only_reports_an_interpreter_that_can_import_gi() -> None:
+    """Whatever the resolver picks must actually be able to import gi.
+
+    `python3` alone is not a reliable probe: a Homebrew, pyenv or asdf
+    python ahead of the system one on PATH has no PyGObject, while a
+    distro's python3-gi is bound to /usr/bin/python3. Probing only the
+    PATH python there reports "no PyGObject" while a working gi sits one
+    path away, and the overlay silently degrades to the zenity box.
+    """
+    result = subprocess.run(
+        ["bash", str(SCRIPT), "_gi_python"], capture_output=True, text=True
+    )
+    if result.returncode != 0:
+        assert result.stdout.strip() == ""
+        pytest.skip("no interpreter on this machine can import gi")
+
+    interpreter = result.stdout.strip()
+    assert interpreter
+    probe = subprocess.run([interpreter, "-c", "import gi"], capture_output=True)
+    assert probe.returncode == 0, f"{interpreter} was selected but cannot import gi"
