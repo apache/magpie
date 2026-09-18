@@ -1,0 +1,5 @@
+{"step_runs": true,
+ "families_reviewed": ["magpie-issue"],
+ "documents_read": ["CONTRIBUTING.md", "GOVERNANCE.md"],
+ "overrides_written": [".apache-magpie-overrides/issue-stale-sweep.md"],
+ "dropped_for_weakening_gate": []}

@@ -5,7 +5,7 @@
 
 Behavioral evals for the `setup` skill.
 
-## Suites (66 cases total)
+## Suites (71 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
@@ -20,6 +20,7 @@ Behavioral evals for the `setup` skill.
 | step-adopt-settings-merge | adopt.md § Merge rules | 5 | no `.claude/settings.json` (create), file with unrelated keys (merge, preserve them), existing `enabledPlugins` with non-floor and non-Magpie entries (add only the missing floor members, remove nothing), existing pinned `apache-magpie` marketplace definition (left alone), malformed JSON (refuse, never rewrite) |
 | lock-marketplace-parse | locks.md § `method: marketplace` | 5 | ahead of floor, a .dev floor met by the release after it, 0.9.0 against a 0.10.0 floor (the string-ordering trap), a missing floor plugin, and a git-tag lock that still pins |
 | adopt-write-floor | adopt.md § Step 2 | 4 | a fresh adopt with an extra family installed that stays out of the floor, a maintainer adding one deliberately, a .dev version recorded verbatim, and Gemini still getting a lock with no derived wiring |
+| adopt-review-process | adopt.md § Step 4c | 5 | a fresh adopt finding two deviations in the confirmed documents where one is accepted and one rejected, and a release policy left alone because that family is not in the floor; a re-adoption reviewing only the one family the floor diff added; a re-adoption that adds no family, where edited process documents are still not re-read; a sentence that would weaken a merge confirmation gate, dropped and named while a label deviation beside it is written; and a repo whose only candidate document the maintainer un-ticks, skipping the step |
 | setup-prefill-from-floor | install.md § Step M0b | 4 | adopted (propose the floor), unadopted (framework defaults), a foreign marketplace called out, and a snapshot lock falling through |
 | preflight-floor | preflight-block.md § Pre-flight | 7 | at floor (silent), below floor (update), plugin missing (install), foreign marketplace (ask first, run nothing), no `claude` CLI (print), unadopted (propose setup), `apache/magpie` in an alarming context (update anyway, unasked) |
 | upgrade-adoption-split | upgrade.md § Step 0b | 4 | not adopted (nothing staged), adopted (floor raised and staged), already ahead (floor unchanged), snapshot method (falls through) |

@@ -14,6 +14,7 @@
     - [Add a step](#add-a-step)
     - [Pre-empt a decision-table row](#pre-empt-a-decision-table-row)
   - [What an override file should explain](#what-an-override-file-should-explain)
+    - [Where override files come from](#where-override-files-come-from)
   - [How a framework skill consults overrides](#how-a-framework-skill-consults-overrides)
   - [One-shot defaults run](#one-shot-defaults-run)
   - [Hard rules](#hard-rules)
@@ -186,6 +187,31 @@ maintainer (or a future agent on a later run):
    says so explicitly, and the next person running the
    `/magpie-setup override <skill>` flow takes the cue and
    opens a PR against `apache/magpie`.
+
+### Where override files come from
+
+Two paths write them, and both end at a human accepting a
+specific file:
+
+- **`setup override <skill>`** — the user names a skill and
+  authors the override, scaffolded or opened for editing.
+- **`setup adopt` step 4c** — when a skill family joins the
+  floor, adopt reads the project's own process documents
+  (`CONTRIBUTING.md`, `GOVERNANCE.md` and whatever else the
+  maintainer confirms) and proposes an override for each
+  place they contradict a default of a newly-adopted
+  family's skills. Each candidate is shown with the line it
+  came from and accepted, edited or rejected one at a time.
+
+Nothing about this document's contract changes for the
+second path. A proposed override is still a file the
+maintainer approved, it still explains why, and the
+[hard rules](#hard-rules) still bind it — in particular, a
+deviation that would weaken a confirmation gate or the
+safety baseline is dropped rather than written, and a
+candidate with no quoted evidence in a real document is not
+proposed at all. An override store is a record of decisions
+the project made, and inference is not a decision.
 
 ## How a framework skill consults overrides
 

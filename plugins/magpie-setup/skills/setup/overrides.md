@@ -14,6 +14,14 @@ applies the agent-readable instructions in it.
 This sub-action helps the user manage those override files —
 list them, scaffold a new one, or open an existing one.
 
+It is not the only way one gets written. [`adopt`](adopt.md#4c--review-the-projects-existing-process)
+step 4c reads the project's own process documents when a skill
+family joins the floor and proposes an override for each place
+they contradict a framework default. The two paths produce the
+same artefact under the same rules: this one starts from a skill
+the user names, 4c starts from a document the project already
+wrote.
+
 The full *contract* (what an override file may contain, how
 the framework skill applies it, the hard rules that bound the
 mechanism) lives in

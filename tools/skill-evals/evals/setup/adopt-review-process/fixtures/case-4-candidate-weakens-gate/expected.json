@@ -1,0 +1,5 @@
+{"step_runs": true,
+ "families_reviewed": ["magpie-pr-management"],
+ "documents_read": ["CONTRIBUTING.md"],
+ "overrides_written": [".apache-magpie-overrides/pr-management-triage.md"],
+ "dropped_for_weakening_gate": ["pr-management-quick-merge"]}

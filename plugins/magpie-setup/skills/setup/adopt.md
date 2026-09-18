@@ -235,6 +235,105 @@ without having run `config` first; this step is what makes that work.
 
 `git add` the store; do not commit.
 
+### 4c — Review the project's existing process
+
+Configuration says what the project *is*. This step asks a different
+question: where does the project already do something **differently**
+from the framework's defaults, and should that difference be written
+down as an override rather than discovered later by a contributor
+whose PR got triaged against a rule the project does not follow?
+
+**Scope: families new to the floor.** This step reviews only the
+families that Step 1 added to the floor on *this* run:
+
+- **First adoption** — every family in the floor.
+- **Re-adoption** — only the families Step 2's floor diff *adds*. A
+  family reviewed on an earlier run is not re-reviewed, including one
+  whose deviations the maintainer rejected: rejecting is a decision,
+  and re-asking would relitigate it.
+- **No families added** — say so in one line and go to Step 5. Do not
+  read anything.
+
+There is no state file for this. `.apache-magpie.lock`'s `plugins:`
+list is the record of what has been reviewed, and Step 2 has already
+computed the diff.
+
+#### 4c-i — Find the documents, then confirm them
+
+Glob for the places a project's process is usually written:
+
+```text
+CONTRIBUTING*        GOVERNANCE*        MAINTAINERS*
+docs/process/*       docs/contributing/*
+.github/PULL_REQUEST_TEMPLATE*          .github/ISSUE_TEMPLATE/*
+README*
+```
+
+**List what was found and let the maintainer correct the list** — one
+structured multi-select, everything pre-ticked, plus the option to add
+a path the glob missed. Projects keep this material in places no glob
+predicts: a wiki export, `docs/dev/`, a `RELEASE_POLICY.md`.
+
+Read **only** the confirmed set. If the maintainer confirms an empty
+set — no such documents, or none worth reading — say the step is
+skipped and go to Step 5.
+
+#### 4c-ii — Compare against the new families' defaults only
+
+For each family from the scope above, compare the confirmed documents
+against the defaults of **that family's** skills. Nothing else. A
+project adopting `magpie-pr-management` and `magpie-issue` is never
+asked about release policy, because it did not adopt the release
+family and will never run those skills.
+
+#### 4c-iii — Propose one deviation at a time
+
+For each candidate, show three things and nothing more:
+
+1. **The evidence** — `<path>:<line>` and the sentence, quoted.
+2. **The framework default it contradicts** — named skill, named
+   behaviour.
+3. **The override that would be written** — the actual text.
+
+Then: **accept** / **edit** / **reject** / **skip the rest**.
+
+**No evidence, no proposal.** A deviation must quote a line from a
+confirmed document. Something that is merely plausible for a project
+of this kind — "most Apache projects require two approvals" — is not a
+deviation, it is a guess, and a guess written into an override store
+becomes a rule the project never agreed to. If the documents do not
+say it, do not raise it.
+
+**Drop anything that would weaken a gate.** A document sentence that
+would, as an override, weaken a confirmation gate or the safety,
+confidentiality or privacy baseline is **not** proposed. Name it, say
+which baseline it would have crossed, and move on. This is the
+[hard rule](../../../../docs/setup/agentic-overrides.md#hard-rules)
+every override surface already carries; this step is the first one that
+*generates* override content, so it states the rule rather than
+inheriting it silently.
+
+#### 4c-iv — Write the accepted ones
+
+Each accepted deviation becomes an override file at
+`.apache-magpie-overrides/<framework-skill>.md`, in the forms the
+contract allows — skip a step, replace a step, add a step, pre-empt a
+decision-table row. It must also say *why*, citing the document it came
+from, exactly as
+[`docs/setup/agentic-overrides.md`](../../../../docs/setup/agentic-overrides.md#what-an-override-file-should-explain)
+requires: an override whose reason is "adopt proposed it" is
+unmaintainable the moment the project's policy changes.
+
+If a file for that skill is already committed and differs, show the
+difference and ask before overwriting — you are editing something the
+project already decided, the same rule as
+[4a](#4a--promote-what-is-already-configured-locally) step 3.
+
+`git add` each file. **Never commit** — these land through the
+project's normal review process like every other file this sub-action
+writes. Never write to `.apache-magpie-local/` here: a deviation read
+out of a committed document is the project's, not this maintainer's.
+
 ### `.gitignore`
 
 Add `/.apache-magpie-local/` to the adopter repo's `.gitignore` if it
@@ -253,6 +352,13 @@ Tell the user, in this order:
    became the project's, which redundant local copies were removed,
    and which local files remain and still shadow a committed one for
    this clone.
+1c. **What the process review found** — the override files written and
+   the family each came from; the documents read that yielded nothing,
+   by path, so a maintainer expecting a deviation from one of them
+   knows it was read and not skipped; and any candidate dropped for
+   weakening a gate, with the baseline it would have crossed. If the
+   step was out of scope — no families added — say that instead, in
+   one line.
 2. **What the floor means** — a minimum, not a pin. Contributors on a
    newer Magpie are fine and will be told nothing; contributors behind
    it are brought up to it by the pre-flight in any skill they run.

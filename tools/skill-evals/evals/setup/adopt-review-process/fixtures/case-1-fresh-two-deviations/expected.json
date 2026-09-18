@@ -1,0 +1,6 @@
+{"step_runs": true,
+ "families_reviewed": ["magpie-setup", "magpie-utilities", "magpie-agent-guard",
+                       "magpie-pr-management"],
+ "documents_read": ["CONTRIBUTING.md", ".github/PULL_REQUEST_TEMPLATE.md"],
+ "overrides_written": [".apache-magpie-overrides/pr-management-triage.md"],
+ "dropped_for_weakening_gate": []}
