@@ -243,6 +243,30 @@ def test_milestone_create_is_gated_on_the_configured_milestones(policy: config.C
     assert argv == ["gh", "api", "repos/acme/tracker/milestones", "-f", "title=1.2.3"]
 
 
+def test_issue_remove_assignee_is_gated_on_the_roster(policy: config.Config) -> None:
+    """
+    Unassigning is how the release-manager hand-off retires the remediation
+    developer. It is enum-gated on the same roster as assigning, so a typo
+    cannot quietly unassign nobody and report success.
+    """
+    op = ops.resolve("issue-remove-assignee")
+    with pytest.raises(ops.ParamError, match="not one of the configured values"):
+        cli._validate_params(op, ["611", "not-on-the-roster"], policy)
+
+    params, _ = cli._validate_params(op, ["611", "alice"], policy)
+    argv = cli.build_argv(op, params, policy)
+    assert argv == [
+        "gh",
+        "issue",
+        "edit",
+        "611",
+        "--repo",
+        "acme/tracker",
+        "--remove-assignee",
+        "alice",
+    ]
+
+
 # --- per-caller scoping ------------------------------------------------------
 
 

@@ -571,6 +571,26 @@ _register(
 
 _register(
     Op(
+        name="issue-remove-assignee",
+        params=("number", "login"),
+        writes=True,
+        summary="Unassign a roster member from a tracker issue.",
+        enums={"login": "assignees"},
+        build=lambda cfg, number, login: [
+            "gh",
+            "issue",
+            "edit",
+            number,
+            "--repo",
+            _tracker(cfg),
+            "--remove-assignee",
+            login,
+        ],
+    )
+)
+
+_register(
+    Op(
         name="issue-comment",
         params=("number", "body"),
         writes=True,
