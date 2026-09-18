@@ -215,8 +215,22 @@ Grant the narrowest set that lets a skill finish its job: `pr-management-stats`
 is a read-only dashboard, so it gets no write operation at all, and a
 prompt-injection payload in a PR title cannot talk it into one.
 
-The policy is never supplied on the command line: a caller cannot widen its own
-policy.
+The policy *contents* are never supplied on the command line: no flag adds a
+repo, a caller, or an operation. What `--config` selects is *which policy file*
+applies, so a caller's reach is bounded by the policy files that already exist
+on disk and by who may write them — not by the absence of a flag. The `deny`
+rules and the file's location are what close that surface; see
+[Wiring it into settings](#wiring-it-into-settings), which points `--config` at
+a policy outside the sandbox-writable root on purpose.
+
+When a repo holds more than one policy, bind the flag in the permission rule so
+the grant names the policy it was reasoned about:
+
+```jsonc
+"allow": [
+  "Bash(… vetted-op-read --config .apache-magpie-overrides/tools/vetted-ops/config.toml *)"
+]
+```
 
 `upstream` is required; **`tracker` is optional**. A project whose skills only
 touch public work has no tracker to name, and requiring one would fail every
