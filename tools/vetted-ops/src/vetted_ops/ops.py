@@ -436,7 +436,12 @@ _register(
             "gh",
             "api",
             f"repos/{_upstream(cfg)}/contents/{path}",
-            "-F",
+            # `gh api` switches to POST as soon as any -f/-F field is present,
+            # so a read that passes one must say GET explicitly or the request
+            # is sent to a route that does not exist and comes back 404.
+            "-X",
+            "GET",
+            "-f",
             f"ref={ref}",
             "--jq",
             ".content",
@@ -1535,7 +1540,11 @@ _register(
             "gh",
             "api",
             f"repos/{_upstream(cfg)}/git/trees/{ref}",
-            "-F",
+            # See the note on `repo-file`: fields without an explicit -X make
+            # `gh api` POST.
+            "-X",
+            "GET",
+            "-f",
             "recursive=1",
             "--jq",
             ".tree[].path",

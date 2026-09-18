@@ -267,6 +267,62 @@ def test_issue_remove_assignee_is_gated_on_the_roster(policy: config.Config) -> 
     ]
 
 
+def test_no_read_operation_sends_fields_without_an_explicit_get(policy: config.Config) -> None:
+    """
+    `gh api` switches to POST the moment any -f/-F field is present. A read that
+    passes one without saying `-X GET` is therefore sent to a route that does not
+    exist, and comes back 404 — which reads like "the ref is wrong" rather than
+    "the request was malformed", so it can sit unnoticed for a long time.
+
+    Both `repo-file` and `repo-tree` shipped that way. This asserts the shape for
+    every read in the catalogue rather than for those two, so the next operation
+    that passes a field cannot reintroduce it.
+    """
+    sample = {
+        "number": "1",
+        "comment_id": "1",
+        "run_id": "42",
+        "ref": "main",
+        "base": "main",
+        "head": "v1",
+        "prefix": "v1",
+        "path": "a/b.py",
+        "login": "alice",
+        "team": "sec",
+        "ghsa": "GHSA-aaaa-bbbb-cccc",
+        "item_id": "PVTI_abc",
+        "label": "needs triage",
+        "milestone": "1.2.3",
+        "state": "open",
+        "reason": "completed",
+        "column": "Assessed",
+        "query": "pr-liveness",
+        "body": "unused",
+    }
+    body = policy.workspace / "shape.md"
+    body.write_text("x")
+
+    for name, op in ops.OPS.items():
+        if op.writes:
+            continue
+        params = {}
+        for p in op.params:
+            if p in op.body_files:
+                params[p] = str(body)
+            elif p in op.enums:
+                params[p] = policy.enum_values(op.enums[p])[0]
+            else:
+                params[p] = sample[p]
+        argv = op.build(policy.as_mapping(), **params)
+        if "graphql" in argv:
+            continue
+        if any(a in ("-f", "-F") for a in argv):
+            assert "-X" in argv, (
+                f"{name} passes a -f/-F field without an explicit method; gh api will POST it"
+            )
+            assert argv[argv.index("-X") + 1] == "GET", f"{name} sends fields with a non-GET method"
+
+
 # --- per-caller scoping ------------------------------------------------------
 
 
