@@ -26,6 +26,7 @@
 |---|---|
 | **Status** | Proposed. Nothing built. Depends on agreement from the Incubator PMC and ComDev, who would own two of the layers. |
 | **Created** | 2026-09-17 |
+| **Revised** | 2026-09-18, after IPMC feedback on the proposal thread. The podling value set below was wrong in four places; see [Bodies are per-action, not per-project](#bodies-are-per-action-not-per-project). |
 | **Origin** | The question "should podling onboarding move to `apache/incubator`?" — and the discovery that the answer is no, because the thing that should move is not a skill. |
 
 A skill that serves two governance stages does not want splitting. What wants
@@ -47,10 +48,14 @@ committer_governance_asf_pmc:
 The procedure is one procedure. The branch is data. That much is right.
 
 What is wrong is where the data comes from. `whimsy_roster_url: TODO` is
-filled in per project, by hand. So is the PPMC vote bar, and
-`private@<podling>.incubator.apache.org`, and every other value that follows
-from *being a podling*. This is knowledge the Incubator PMC holds centrally
-and every podling copies separately.
+filled in per project, by hand. So is the PPMC vote bar, and the podling's
+private list, and every other value that follows from *being a podling*. This
+is knowledge the Incubator PMC holds centrally and every podling copies
+separately.
+
+This document's own first draft is the argument for it: writing these values
+out from memory produced four wrong ones, including a private-list form the
+Incubator stopped using. The corrections are recorded below.
 
 Three consequences, in increasing order of seriousness:
 
@@ -106,18 +111,63 @@ Incubator-owned, illustrative:
 ```yaml
 # organizations/ASF/stages/podling.md — sourced from apache/incubator
 stage: podling
-governing_body: PPMC
+pmc_of_record: IPMC       # holds the authority
+delegated_body: PPMC      # exercises it day to day
 whimsy_roster_url: https://whimsy.apache.org/roster/ppmc/<project>
-private_list: private@<project>.incubator.apache.org
-vote_rule: 3 binding PPMC +1s, no binding veto
-binding_voters: current PPMC members
+private_list: private@<project>.apache.org
+
+votes:
+  committer:
+    list: private@<project>.apache.org
+    binding_voters: PPMC members
+    rule: at least three +1s, and more +1s than -1s
+  release:
+    # Two stages. The second one is what publishes.
+    - list: dev@<project>.apache.org
+      binding_voters: PPMC members
+      rule: at least three +1s, and more +1s than -1s
+    - list: general@incubator.apache.org
+      binding_voters: IPMC members
+      rule: at least three +1s, and more +1s than -1s
+      publishes: true
 ```
 
-ComDev-owned, for the other stage: the same keys with TLP values.
+ComDev-owned, for the other stage: the same keys with TLP values — one PMC,
+one vote, `pmc_of_record` and `delegated_body` collapsing to the same body.
 
 Note what is *not* in there: no procedure, no prose, no steps. An overlay is a
 value set. That boundary is what stops the layers becoming two forks of the
 same document.
+
+#### Bodies are per-action, not per-project
+
+The first draft of this design wrote `governing_body: PPMC` and
+`binding_voters: current PPMC members` — one governing body and one set of
+binding voters per podling. That is wrong, and not only in its values:
+
+| First draft | Corrected |
+|---|---|
+| `governing_body: PPMC` | The IPMC is the PMC of record; a PPMC is delegated and is not a PMC |
+| `binding_voters: current PPMC members` | Depends on the vote — PPMC members on the podling's own list, IPMC members on `general@` |
+| `private_list: private@<project>.incubator.apache.org` | `private@<project>.apache.org` |
+| `vote_rule: 3 binding PPMC +1s, no binding veto` | At least three +1s **and** more +1s than -1s |
+
+The first two are a modelling error rather than a typo. A podling has a body
+that *holds* authority and a body that *exercises* it, and which one binds
+depends on which list the vote is on. A single key per project cannot express
+that, so the overlay names the body per action.
+
+This has a consequence for consumers. A skill must ask "who binds *this*
+vote?", not "who governs this project?" — `committer-onboarding` reads
+`votes.committer`, and the release skills read `votes.release`. A flat
+`binding_voters` key would have let a release skill tally a podling's PPMC
+votes as binding to publish, which they are not.
+
+The corrections came from Justin Mclean on the proposal thread
+(`dev@community.apache.org`, 2026-09-18). They are recorded here rather than
+silently applied, because *this design existing at all* is the argument that
+values written out from memory by someone outside the owning body go stale or
+start wrong — and these started wrong.
 
 ### When values are not enough: body-owned overrides
 
@@ -162,6 +212,45 @@ until it is effectively a different procedure, that is a strong, visible signal
 that the skill should genuinely split — and at that point the split is an
 informed decision with evidence behind it, rather than the guess this design
 started by rejecting.
+
+#### Worked example: the podling release procedure
+
+The proposal thread asked a second question — whether the Incubator or ComDev
+would rather own Magpie's ten `release-*` skills outright. The answer from the
+IPMC side was no, and the reasoning is a better fit for this design than the
+question was.
+
+Most of the release procedure is identical for podlings and TLPs: cutting the
+RC, KEYS, the planning issue, the archive sweep, the audit record. The podling
+deltas are narrow and land on five skills:
+
+| Skill | Podling delta |
+|---|---|
+| `release-vote-draft` | Two-stage vote: PPMC on `dev@`, then IPMC on `general@` |
+| `release-vote-tally` | Only IPMC votes bind to publish |
+| `release-verify-rc` | `incubating` in archive names; `DISCLAIMER` present |
+| `release-promote` | Publishes to `dist/release/incubator/<podling>` |
+| `release-announce-draft` | Incubation disclaimer in the announcement |
+
+Moving ten skills to fix five narrow deltas would duplicate the eighty percent
+that does not differ — the failure this design rejects for `committer-onboarding`,
+restated at family scale.
+
+Two mechanisms already in this document cover it instead:
+
+- **`release-verify-rc`** — the Incubator already publishes `releasecheck`,
+  and Magpie already curates it as a pinned ASF source
+  (`organizations/ASF/skill-sources.md`, `ref: releasecheck-0.5.1`). A podling
+  can install it directly, with or without Magpie. Recommending it in place of
+  `release-verify-rc` needs no new mechanism, only documentation.
+- **The other four** — body-owned overrides, as above. The Incubator writes
+  the podling deltas in its own repository, on its own cadence, and every
+  podling picks them up on the next pin.
+
+Note that the release deltas are the per-action bodies again: "PPMC on `dev@`,
+IPMC on `general@`, only the second publishes" is `votes.release` doing its
+job. The same correction that fixed onboarding is what makes the release
+overrides expressible.
 
 ### Graduation
 

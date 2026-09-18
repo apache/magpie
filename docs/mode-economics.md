@@ -22,6 +22,7 @@
   - [Local and self-hosted inference](#local-and-self-hosted-inference)
   - [Reducing costs](#reducing-costs)
   - [Long-term: the ASF inference endpoint](#long-term-the-asf-inference-endpoint)
+    - [Planned: measuring the modes against LLMAO](#planned-measuring-the-modes-against-llmao)
   - [Cross-references](#cross-references)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -459,17 +460,62 @@ paths use identical skill code to hosted paths.
 ## Long-term: the ASF inference endpoint
 
 [MISSION.md § Affordability](../MISSION.md#affordability-and-vendor-neutrality--the-public-good-commitment)
-names an ASF-hosted inference endpoint (`inference.apache.org`, name
-TBD) as a long-term roadmap item: a community-affordable,
-foundation-governed, audit-logged inference layer any open-source
-maintainer — ASF or otherwise — can use without paying a vendor or
+names an ASF-hosted inference endpoint as a long-term roadmap item: a
+community-affordable, foundation-governed, audit-logged inference layer any
+open-source maintainer — ASF or otherwise — can use without paying a vendor or
 accepting a vendor's gift.
 
+Part of that now exists. **LLMAO** (`llm.apache.org`) went live in September
+2026 as the Foundation's sanctioned-inference gateway: a committer
+authenticates with a personal access token, and it serves three self-hosted
+models. The gateway's defaults, model list and known limitations are recorded
+in [`organizations/ASF/organization.md`](../organizations/ASF/organization.md#inference-endpoint).
+
+| Model | Context | Reasoning on by default |
+|---|---:|---|
+| `gemma4-26b` (recommended) | 131,072 | No |
+| `qwen3.8-27b` | 131,072 | Yes |
+| `qwen3-8b` | 40,960 | Yes |
+
+Two caveats that matter for this page specifically:
+
+- **It is a pilot, and its privacy class is `project-internal`.** LLMAO serves
+  from rented third-party GPU hardware rather than ASF-operated infra, and
+  pilot traffic must be treated as visible to gateway admins. It is carved out
+  of the `*.apache.org` default approval, so it is **not** approved for
+  `<private-list>` or `<security-list>` content. See
+  [`tools/privacy-llm/models.md`](../tools/privacy-llm/models.md).
+- **Tool use over the Anthropic-compatible path is currently broken upstream.**
+  LiteLLM routes it to vLLM's `/v1/responses` with a `tool_choice` shape vLLM
+  rejects. Every Magpie skill is tool-driven, so the replay benchmark above
+  cannot run against the gateway until that lands. Plain conversation is
+  unaffected.
+
+### Planned: measuring the modes against LLMAO
+
+No LLMAO figures appear on this page yet, and none should be inferred from the
+throughput numbers the gateway publishes — those come from synthetic load, not
+from skill workloads.
+
+The intended run reuses the harness that produced the replay sample above, so
+the results are comparable rather than a separate methodology: the same corpus
+and scenarios, `--model` pointed at each of the three gateway models, with
+`ANTHROPIC_BASE_URL` and a committer PAT in the environment. What it would add
+to this page is the thing the model-class table currently asserts from
+capability reasoning rather than measurement — whether a ~26B self-hosted model
+actually carries the mid-tier workloads, and which modes degrade first when it
+does not.
+
+It is gated on the tool-use limitation above; that is the first thing to
+re-test, because it decides whether the measurement is possible at all.
+Tracked in [issue 1260](https://github.com/apache/magpie/issues/1260).
+
 The file counts and bounded replays on this page are initial evidence for
-the capacity planning and cost models that endpoint will need. The planning
-estimates are not validated capacity requirements. As pilot adopters accumulate real usage data, this
-page will be updated with observed ranges rather than theoretical
-estimates, so the endpoint sizing argument rests on evidence.
+the capacity planning and cost models a foundation-governed endpoint will need.
+The planning estimates are not validated capacity requirements. As pilot
+adopters accumulate real usage data, this page will be updated with observed
+ranges rather than theoretical estimates, so the endpoint sizing argument rests
+on evidence.
 
 ---
 

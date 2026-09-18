@@ -38,6 +38,17 @@ The source is pinned to a tag, because the rest of the Incubator repo
 changes often. A new skill version gets a new `releasecheck-<version>` tag,
 and this pin moves only when the tag is updated here.
 
+**Podlings: prefer `releasecheck` over `release-verify-rc`.** Magpie's
+`release-verify-rc` does not distinguish a podling release from a TLP one, so
+it does not check the things that make a podling RC valid — `incubating` in
+the archive names, a present `DISCLAIMER`, the two-stage PPMC-then-IPMC vote.
+`releasecheck` is the IPMC's own check, maintained by the body that sets those
+rules. A podling verifying an RC should run it instead; a TLP has no reason to.
+This is a recommendation, not wiring — nothing resolves it automatically today.
+Making the choice follow from `stage: podling` is part of
+[body-owned configuration layers](../../docs/designs/2026-09-17-body-owned-config-layers.md#worked-example-the-podling-release-procedure),
+which is proposed and not built.
+
 ```yaml
 - id: apache-incubator
   organization: ASF
