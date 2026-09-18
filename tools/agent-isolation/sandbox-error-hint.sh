@@ -108,6 +108,8 @@ elif match 'Cannot connect to the Docker daemon|open /var/run/docker\.sock: oper
   hint="Docker / Podman runtime socket denied by the sandbox. See ${doc_path}#docker--podman-command-fails-with-a-socket-error"
 elif match '127\.0\.0\.1.*[Pp]ermission denied|[Oo]peration not permitted.*bind|Errno 49.*assign requested address|HTTP.*Connection refused.*127\.0\.0\.1'; then
   hint="Localhost port-bind or loopback HTTP may be sandbox-blocked. See ${doc_path}#test-cannot-bind-to-a-localhost-port"
+elif match "/tmp/[^ ]*'?: Read-only file system|Read-only file system: '/tmp/|mktemp: failed to create"; then
+  hint="Temp files under /tmp are sandbox-blocked; TMPDIR may be unset or outside the writable tree. See ${doc_path}#temp-files-fail-with-read-only-file-system-under-tmp"
 fi
 
 [ -n "$hint" ] || exit 0
@@ -117,6 +119,6 @@ yellow="${esc}[1;33m"
 reset="${esc}[0m"
 
 printf '%s[sandbox-hint]%s %s\n' "$yellow" "$reset" "$hint" >&2
-printf '%s              %s Run %s/setup-isolated-setup-doctor%s for a structured probe of all three failure modes.\n' "$yellow" "$reset" "${esc}[1m" "${esc}[0m" >&2
+printf '%s              %s Run %s/setup-isolated-setup-doctor%s for a structured probe of all four failure modes.\n' "$yellow" "$reset" "${esc}[1m" "${esc}[0m" >&2
 
 exit 1

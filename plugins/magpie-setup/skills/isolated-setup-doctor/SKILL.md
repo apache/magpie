@@ -68,7 +68,8 @@ the existing setup skills:
 - **`setup-isolated-setup-doctor` (this skill)** answers *"are
   common workflows **functionally** blocked by the current
   sandbox?"* — live probes of SSH agent, port binding, docker /
-  podman socket. Catches over-restrictive allowlists.
+  podman socket, per-project scratch dir. Catches
+  over-restrictive allowlists.
 
 Run `verify` first when the install is in question (fresh
 machine, recent framework upgrade, sandbox-state surprise). Run
@@ -108,9 +109,9 @@ catalog's *Adding a new entry* section.
   Do not paraphrase the remediation — the catalog is the single
   source of truth.
 
-## The 3 probes
+## The 4 probes
 
-The current set covers the three failure modes the catalog
+The current set covers the four failure modes the catalog
 documents. New probes are added when new entries land in the
 catalog; the two stay in lock-step.
 
@@ -247,11 +248,55 @@ done
 **On ✗ → remediation:**
 [`docs/setup/sandbox-troubleshooting.md` — Docker / Podman command fails with a socket error](../../../../docs/setup/sandbox-troubleshooting.md#docker--podman-command-fails-with-a-socket-error).
 
+### Probe 4 — Per-project scratch directory (`TMPDIR`)
+
+Tests whether the session has a **writable, per-project** scratch
+directory. The sandbox mounts the host `/tmp` read-only and punches
+only specific subpaths writable, so a session whose `TMPDIR` falls
+back to `/tmp` gets no scratch area at all, and one whose `TMPDIR`
+points at the shared session root gets an area that collides with
+every other project on the machine.
+
+**Command:**
+
+```bash
+if [ -z "$TMPDIR" ]; then
+  echo "PROBE: project-scratch → ✗ (TMPDIR not set)"
+elif [ ! -d "$TMPDIR" ]; then
+  echo "PROBE: project-scratch → ✗ (TMPDIR set but directory missing: $TMPDIR)"
+elif ! touch "$TMPDIR/.doctor-probe" 2>/dev/null; then
+  echo "PROBE: project-scratch → ✗ (TMPDIR not writable inside sandbox: $TMPDIR)"
+else
+  rm -f "$TMPDIR/.doctor-probe"
+  slug=$(pwd | sed 's|/|-|g')
+  case "$TMPDIR" in
+    *"$slug"*) echo "PROBE: project-scratch → ✓ (per-project + writable: $TMPDIR)" ;;
+    *)         echo "PROBE: project-scratch → ⚠ (writable but shared across projects: $TMPDIR)" ;;
+  esac
+fi
+```
+
+**Interpretation:**
+
+| Result | Status | Meaning |
+|---|---|---|
+| `✓ per-project + writable` | Pass | `TMPDIR` resolves under this project's path slug and accepts writes. |
+| `⚠ writable but shared across projects` | Warn | Scratch works, but every project on this machine shares it; concurrent sessions can collide on identical temp filenames. |
+| `✗ TMPDIR not set` | Fail | Tooling falls back to `/tmp`, which is read-only inside the sandbox. |
+| `✗ directory missing` | Fail | `env.TMPDIR` names a path nothing has created yet. |
+| `✗ not writable inside sandbox` | Fail | `TMPDIR` points outside `sandbox.filesystem.allowWrite`. |
+
+**On ✗ / ⚠ → remediation:**
+[`docs/setup/sandbox-troubleshooting.md` — Temp files fail with "Read-only file system" under `/tmp`](../../../../docs/setup/sandbox-troubleshooting.md#temp-files-fail-with-read-only-file-system-under-tmp).
+
+Note that `env` is applied at session start, so a fix does not take
+effect in the session that makes it — restart before re-probing.
+
 ## After the report
 
 If every probe is ✓ or ⊘:
 
-> All three probes pass (or are not applicable). The sandbox is
+> All four probes pass (or are not applicable). The sandbox is
 > not currently blocking the known failure modes catalogued in
 > `docs/setup/sandbox-troubleshooting.md`. If you hit a different
 > sandbox-shaped failure, follow the catalog's *Adding a new

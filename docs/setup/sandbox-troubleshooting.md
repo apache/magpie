@@ -22,6 +22,11 @@
     - [Root cause](#root-cause-2)
     - [Fix](#fix-2)
     - [Notes](#notes-2)
+  - [Temp files fail with "Read-only file system" under `/tmp`](#temp-files-fail-with-read-only-file-system-under-tmp)
+    - [Symptom](#symptom-3)
+    - [Root cause](#root-cause-3)
+    - [Fix](#fix-3)
+    - [Notes](#notes-3)
   - [Adding a new entry](#adding-a-new-entry)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -458,6 +463,103 @@ Per-entry rationale:
   holds auth tokens and saved contexts; the whole point of the
   framework's `Read(~/.docker/**)` denial is to keep those out of
   the agent's reach.
+
+---
+
+## Temp files fail with "Read-only file system" under `/tmp`
+
+### Symptom
+
+```console
+$ mktemp -d
+mktemp: failed to create directory via template '/tmp/tmp.XXXXXXXXXX': Read-only file system
+
+$ touch /tmp/scratch
+touch: cannot touch '/tmp/scratch': Read-only file system
+```
+
+Python and other runtimes surface the same restriction through
+`tempfile`:
+
+```text
+OSError: [Errno 30] Read-only file system: '/tmp/tmpXXXXXXXX'
+```
+
+### Root cause
+
+The sandbox mounts the host `/tmp` **read-only** and punches only
+specific subpaths writable — Claude Code's own scratch tree under
+`/tmp/claude-<uid>/` plus anything listed in
+`sandbox.filesystem.allowWrite`. Anything writing to `/tmp`
+directly is refused.
+
+Most tooling honours `$TMPDIR` and therefore lands inside the
+writable tree without noticing. The failure shows up when either:
+
+- `TMPDIR` is unset or has been overwritten (a login shell, an
+  `env -i` wrapper, a Makefile that clears the environment), so the
+  runtime falls back to the hardcoded `/tmp`; or
+- `TMPDIR` names a path outside `sandbox.filesystem.allowWrite`.
+
+A second, quieter failure mode: `TMPDIR` points at the shared
+session root rather than a per-project directory, so concurrent
+sessions in different repos write temp files into the same
+directory and can collide on identical filenames.
+
+### Fix
+
+Point `TMPDIR` at a per-project directory inside the writable tree,
+in the **project's** `.claude/settings.local.json` — that file is
+per-project, so the value is per-project by construction:
+
+```jsonc
+// <adopter-repo>/.claude/settings.local.json
+{
+  "env": {
+    // <uid> is your numeric uid; <path-slug> is the project's
+    // absolute path with "/" replaced by "-".
+    "TMPDIR": "/tmp/claude-<uid>/<path-slug>/shared"
+  }
+}
+```
+
+Per-entry rationale:
+
+- `/tmp/claude-<uid>/` is already inside the sandbox's writable
+  set, so no `allowWrite` widening is needed — this entry costs
+  nothing in sandbox surface.
+- `<path-slug>` matches the convention Claude Code already uses for
+  its own scratch tree, so the directory sits alongside the
+  session's existing state instead of introducing a second
+  location.
+- Scoping to `settings.local.json` rather than user-scope
+  `settings.json` is what makes the value per-project. A
+  user-scope `TMPDIR` would be shared by every repo and would
+  reintroduce the collision mode.
+
+Create the directory before first use — a `TMPDIR` naming a
+non-existent path fails the same way.
+
+### Notes
+
+- **`env` is applied at session start.** The change does not take
+  effect in the session that makes it; restart, then confirm with
+  the doctor skill's *project-scratch* probe.
+- The scratch directory **cannot** be remapped onto literal `/tmp`
+  inside the sandbox. `sandbox.filesystem.*` accepts allow / deny
+  path lists only — there is no bind-mount or path-remap key.
+  `sandbox.bwrapPath` swaps the bwrap *binary*, not its flags, so
+  it cannot inject `--bind`, and it is honored only from
+  admin-controlled managed settings. Seatbelt exposes no
+  profile-injection surface either. `TMPDIR` is the supported
+  lever.
+- Independently of that ceiling, mounting over `/tmp` would hide
+  Claude Code's own IPC endpoints that live there
+  (`cc-daemon-<uid>`, `claude-http-*.sock`) and would likely break
+  the session.
+- Do **not** widen `allowWrite` to `/tmp` as a whole — that opens
+  the entire system temp directory, which other processes use for
+  arbitrary files including credentials.
 
 ---
 
