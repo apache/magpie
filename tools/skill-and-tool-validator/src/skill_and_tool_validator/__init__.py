@@ -3611,7 +3611,7 @@ def validate_skill_line_limit(path: Path, text: str) -> Iterable[Violation]:
             path,
             SKILL_LINE_LIMIT,
             f"skill-line-limit: SKILL.md is {line_count} lines, exceeding the "
-            f"{SKILL_LINE_LIMIT}-line limit (PRINCIPLES.md §14) — move reference "
+            f"{SKILL_LINE_LIMIT}-line limit (PRINCIPLES.md §15) — move reference "
             f"material into sibling markdown files linked one level deep; "
             f"no unreferenced siblings",
             category=SKILL_LINE_LIMIT_CATEGORY,

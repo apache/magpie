@@ -220,7 +220,7 @@ Apache-2.0 licensed.
 > applies, and Magpie leans into exactly this:
 >
 > - **Review it.** Skills and prompts are read and critiqued by another person
->   before they land, the same as any code (PRINCIPLE 14). A reviewer reads the
+>   before they land, the same as any code (PRINCIPLE 15). A reviewer reads the
 >   *words* for ambiguity and missing cases, not just for typos.
 > - **Version it.** Prompts live in the repository, in git, with a history. A change
 >   in wording is a change in behaviour, and the history tells you when behaviour
@@ -228,7 +228,7 @@ Apache-2.0 licensed.
 > - **Test it.** You cannot compile a prompt, but you can run it against examples.
 >   That is what an eval suite (eval-driven-development.md) is: the test suite for
 >   code written in English. It is required precisely because the "compiler" here
->   never rejects a bad instruction for you (PRINCIPLE 8).
+>   never rejects a bad instruction for you (PRINCIPLE 9).
 > - **Keep it DRY and composable.** One skill, one job; shared rules live in one
 >   place and are pointed to, not copied. Duplicated prose drifts apart exactly the
 >   way duplicated code does.
@@ -283,7 +283,7 @@ Apache-2.0 licensed.
 >
 > ## Licence
 >
-> Everything in `docs/education/` is under the Apache License 2.0 (PRINCIPLE 17).
+> Everything in `docs/education/` is under the Apache License 2.0 (PRINCIPLE 18).
 > Pages written with help from AI carry a `Generated-by:` note in their commit
 > message, following ASF Generative Tooling Guidance.
 
@@ -682,7 +682,7 @@ self-check answers.
 >
 > ## Licence
 >
-> Apache License 2.0 (PRINCIPLE 17). Pages written with help from AI carry a
+> Apache License 2.0 (PRINCIPLE 18). Pages written with help from AI carry a
 > `Generated-by:` note in their commit message following ASF Generative Tooling
 > Guidance.
 

@@ -30,10 +30,10 @@ your adapter supplies the concrete backend. This guide is the how-to; the
 | | In-tree (upstream) | In your adopter repo | External (another repo) |
 |---|---|---|---|
 | **Where it lives** | a PR into `apache/magpie` | `<project-config>/.apache-magpie-overrides/` | a repo you/the community maintain |
-| **License** | Apache-2.0 ([§17](../../PRINCIPLES.md#17-contributions-land-under-apache-license-20)) | yours | the author's |
+| **License** | Apache-2.0 ([§18](../../PRINCIPLES.md#18-contributions-land-under-apache-license-20)) | yours | the author's |
 | **Who reuses it** | every adopter on that backend | your project | anyone who wires it in |
 | **Discovery** | shipped in-tree | committed in your repo | optionally listed in the [registry](registry.md) |
-| **Install** | part of the snapshot | committed override | you wire it in deliberately — never auto-fetched ([§13](../../PRINCIPLES.md#13-snapshot-plus-override-never-vendored-copies)) |
+| **Install** | part of the snapshot | committed override | you wire it in deliberately — never auto-fetched ([§14](../../PRINCIPLES.md#14-snapshot-plus-override-never-vendored-copies)) |
 
 All three are first-class. Contribute upstream when the backend is one
 other projects share; keep it in your adopter repo when it is specific to
@@ -63,7 +63,7 @@ A tool adapter fulfils a capability *contract* for one backend.
 4. **Wire it in.** Point your `<project-config>/project.md` *Tools
    enabled* manifest (or the relevant capability key, e.g.
    `cve_authority.tool`) at the adapter. Skill bodies never change.
-5. **Add an eval** ([§8](../../PRINCIPLES.md#8-eval-is-a-release-blocking-discipline))
+5. **Add an eval** ([§9](../../PRINCIPLES.md#9-eval-is-a-release-blocking-discipline))
    under `tools/skill-evals/evals/` so the adapter's behaviour is graded,
    not just demoed.
 

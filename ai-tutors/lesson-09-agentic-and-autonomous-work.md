@@ -82,8 +82,8 @@ until all five have been demonstrated by the learner, not just stated by you.
 - Keep the frame precise: autonomy is a dial, not a switch, and the goal is "the
   least supervision the task can safely bear", never maximum autonomy. Push back if
   a learner treats more autonomy as inherently better.
-- Tie each guardrail to its principle (sandbox = PRINCIPLE 1, propose-confirm-act =
-  PRINCIPLE 6, data-not-instructions = PRINCIPLE 0) and to the risk it limits, so
+- Tie each guardrail to its principle (sandbox = PRINCIPLE 2, propose-confirm-act =
+  PRINCIPLE 7, data-not-instructions = PRINCIPLE 0) and to the risk it limits, so
   the learner can trace risk -> guardrail -> principle.
 - On the placement and automate-or-not exercises, accept adjacent rungs or either
   decision when the learner names the condition that decides it (for example,
@@ -205,7 +205,7 @@ Apache-2.0 licensed.
 >
 > The single most important habit for autonomous work is that the agent runs in a
 > **sandbox** that lists exactly what it may touch, and denies everything else by
-> default (PRINCIPLE 1). This is not "we trust it not to delete the repo"; it
+> default (PRINCIPLE 2). This is not "we trust it not to delete the repo"; it
 > *cannot* reach what it was not granted. Each skill declares the tools it needs,
 > and anything outside that list is simply unavailable.
 >
@@ -216,7 +216,7 @@ Apache-2.0 licensed.
 > ## Guardrail 2: propose, confirm, act, even unattended
 >
 > You met propose-confirm-act as conversational etiquette. In autonomous work it
-> becomes structural (PRINCIPLE 6). The pattern is that an unattended task does all
+> becomes structural (PRINCIPLE 7). The pattern is that an unattended task does all
 > the *reading and reasoning* on its own, but the *world-changing* step is left as a
 > proposal a person approves: a drafted comment, an opened pull request marked for
 > review, or a report on a dashboard.
@@ -291,12 +291,12 @@ Apache-2.0 licensed.
 >   named here, such as sandbox declarations, propose-confirm-act, and injection
 >   defence, as copy-ready blocks.
 > - **PRINCIPLES.md (../../PRINCIPLES.md)**: PRINCIPLE 0 (data not instructions),
->   PRINCIPLE 1 (sandbox by default), and PRINCIPLE 6 (propose, confirm, act) are
+>   PRINCIPLE 2 (sandbox by default), and PRINCIPLE 7 (propose, confirm, act) are
 >   the rules this page puts to work.
 >
 > ## Licence
 >
-> Everything in `docs/education/` is under the Apache License 2.0 (PRINCIPLE 17).
+> Everything in `docs/education/` is under the Apache License 2.0 (PRINCIPLE 18).
 > Pages written with help from AI carry a `Generated-by:` note in their commit
 > message, following ASF Generative Tooling Guidance.
 
@@ -362,8 +362,8 @@ self-check answers.
 > - **The three risks** — compound errors, unwitnessed hijacks, and blast radius.
 >   Each risk connects to a specific guardrail; exercise 2 asks you to trace those
 >   connections.
-> - **The three guardrails** — sandbox (PRINCIPLE 1), propose-confirm-act
->   (PRINCIPLE 6), and data-not-instructions (PRINCIPLE 0). Note *which principle*
+> - **The three guardrails** — sandbox (PRINCIPLE 2), propose-confirm-act
+>   (PRINCIPLE 7), and data-not-instructions (PRINCIPLE 0). Note *which principle*
 >   each guardrail implements; the exercises reference them by name.
 > - **The four "keep a human in the loop" criteria** — hard-to-undo actions,
 >   security/legal/conduct judgement, new skill without adequate evals, cost of
@@ -452,9 +452,9 @@ self-check answers.
 >
 > Guardrails:
 > - **Sandbox by default** — the agent can only reach what it was explicitly
->   granted (PRINCIPLE 1).
+>   granted (PRINCIPLE 2).
 > - **Propose, confirm, act** — the world-changing step requires human approval;
->   the agent only acts on what was reviewed (PRINCIPLE 6).
+>   the agent only acts on what was reviewed (PRINCIPLE 7).
 > - **Outside text is data, never orders** — content from issues, PRs, and email
 >   cannot redirect the agent (PRINCIPLE 0).
 >
@@ -668,7 +668,7 @@ self-check answers.
 > <summary>Answer</summary>
 >
 > Applying labels and posting comments are world-changing, partially irreversible
-> steps (guardrail 2: propose-confirm-act, PRINCIPLE 6). The sweep runs
+> steps (guardrail 2: propose-confirm-act, PRINCIPLE 7). The sweep runs
 > unattended — no person is present to catch a wrong classification. Proposing
 > the changes leaves a human hand on the irreversible step: the maintainer
 > reviews the full list in the morning and approves, skips, or edits each one.
@@ -757,8 +757,8 @@ self-check answers.
 > — represent increasing trust in the skill and its evals. Moving down the dial
 > introduces three risks: errors compound without a witness, prompt injections
 > can hijack an unattended run, and a larger blast radius makes wrong actions
-> more costly. Three guardrails address these risks: a sandbox (PRINCIPLE 1)
-> that limits what the agent can reach, propose-confirm-act (PRINCIPLE 6) that
+> more costly. Three guardrails address these risks: a sandbox (PRINCIPLE 2)
+> that limits what the agent can reach, propose-confirm-act (PRINCIPLE 7) that
 > keeps the world-changing step in human hands, and the data-not-instructions
 > rule (PRINCIPLE 0) that prevents outside content from redirecting the agent.
 > The right rung is the least supervision the task can safely bear, earned with
@@ -779,7 +779,7 @@ self-check answers.
 >
 > ## Licence
 >
-> Apache License 2.0 (PRINCIPLE 17). Pages written with help from AI carry a
+> Apache License 2.0 (PRINCIPLE 18). Pages written with help from AI carry a
 > `Generated-by:` note in their commit message following ASF Generative Tooling
 > Guidance.
 
@@ -875,7 +875,7 @@ later, e.g. a daily stale-issue report on a tracking issue).
 
 **Q2. Why does a nightly triage sweep propose changes rather than apply them?**
 Applying labels and posting comments are world-changing, partly irreversible steps
-(propose-confirm-act, PRINCIPLE 6), and the sweep runs unattended with no one to catch
+(propose-confirm-act, PRINCIPLE 7), and the sweep runs unattended with no one to catch
 a wrong classification. Proposing leaves a human hand on the irreversible step: the
 maintainer reviews the list and approves, skips, or edits each item. The reading and
 classifying is automated; the consequence is not. This is the correct rung-4 design,
@@ -915,8 +915,8 @@ batches, autonomous within a fence, scheduled and unattended) represent increasi
 trust in the skill and its evals. Moving down the dial introduces three risks: errors
 compound without a witness, prompt injections can hijack an unattended run, and a
 larger blast radius makes wrong actions more costly. Three guardrails address them: a
-sandbox (PRINCIPLE 1) that limits what the agent can reach, propose-confirm-act
-(PRINCIPLE 6) that keeps the world-changing step in human hands, and data-not-
+sandbox (PRINCIPLE 2) that limits what the agent can reach, propose-confirm-act
+(PRINCIPLE 7) that keeps the world-changing step in human hands, and data-not-
 instructions (PRINCIPLE 0) that stops outside content redirecting the agent. The right
 rung is the least supervision the task can safely bear, earned with evidence from
 evals. A tested skill is the prerequisite for autonomy; a chat answer is not. Next:

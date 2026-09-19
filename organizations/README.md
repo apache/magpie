@@ -62,7 +62,7 @@ rejects a declared organization that has no directory here.
 Skills are vendor- and project-agnostic: they target *capabilities* and
 resolve concrete values from configuration (see
 [`docs/vendor-neutrality.md`](../docs/vendor-neutrality.md) and
-[`PRINCIPLES.md` §12](../PRINCIPLES.md#12-the-framework-is-project-agnostic-concrete-names-live-in-adopter-config)).
+[`PRINCIPLES.md` §13](../PRINCIPLES.md#13-the-framework-is-project-agnostic-concrete-names-live-in-adopter-config)).
 Most of those concrete values are **the same for every project under one
 organization** — every ASF project allocates CVEs through the same
 Vulnogram instance, reads the same `lists.apache.org` archive, and gates
@@ -105,7 +105,7 @@ source in by committing its pin to `<project-config>/skill-sources.md`, the
 [install gate](../docs/skill-sources/README.md#the-trust-model--three-layers).
 The full mechanism — descriptor format, pointer files, and the pinned +
 verified fetch — lives in [`docs/skill-sources/`](../docs/skill-sources/README.md)
-([`PRINCIPLES.md` §13](../PRINCIPLES.md#13-snapshot-plus-override-never-vendored-copies),
+([`PRINCIPLES.md` §14](../PRINCIPLES.md#14-snapshot-plus-override-never-vendored-copies),
 [`RFC-AI-0006`](../docs/rfcs/RFC-AI-0006.md)).
 
 ## Authoring a new organization
@@ -125,7 +125,7 @@ An organization can live in any of three homes (see
   in-tree.
 - **In the organization's own repo** — maintained externally and vendored
   into the adopter's override location; discovery, never auto-fetch
-  ([`PRINCIPLES.md` §13](../PRINCIPLES.md#13-snapshot-plus-override-never-vendored-copies)).
+  ([`PRINCIPLES.md` §14](../PRINCIPLES.md#14-snapshot-plus-override-never-vendored-copies)).
 
 `organization: <org>` resolves in-tree first, then the adopter-local
 copy. See

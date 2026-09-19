@@ -426,7 +426,7 @@ broken always-the-same model fails at least half the suite.
 
 ## Evals are required to release
 
-PRINCIPLE 8 makes evals a release requirement: a skill that ships without an
+PRINCIPLE 9 makes evals a release requirement: a skill that ships without an
 eval suite is not releasable, however well it does in manual testing. Every
 Magpie release ships the eval suites alongside the skills they test.
 
@@ -472,5 +472,5 @@ In practice this means:
   format.
 - **[`pattern-catalogue.md`](pattern-catalogue.md)** includes a "test your skill
   with an eval before shipping it" pattern as a ready-to-copy recipe.
-- **[PRINCIPLES.md](../../PRINCIPLES.md)**: PRINCIPLE 8 is the release rule;
+- **[PRINCIPLES.md](../../PRINCIPLES.md)**: PRINCIPLE 9 is the release rule;
   PRINCIPLE 0 is the data-not-instructions rule that the injection cases check.

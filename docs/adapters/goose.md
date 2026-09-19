@@ -85,7 +85,7 @@ goose run -t "Run the magpie-list-skills skill and summarize available workflows
 ### Declarative recipe integration
 
 Goose supports [recipes](https://block.github.io/goose/docs/guides/recipes/) — declarative YAML or Markdown workflows that define parameters, system instructions, and required extensions.
-Per [PRINCIPLES.md §13](../../PRINCIPLES.md#13-snapshot-plus-override-never-vendored-copies), Magpie avoids duplicating its 70+ skills into per-harness formats.
+Per [PRINCIPLES.md §14](../../PRINCIPLES.md#14-snapshot-plus-override-never-vendored-copies), Magpie avoids duplicating its 70+ skills into per-harness formats.
 Instead, a Goose recipe wraps and invokes the underlying Magpie skill and tool bridges:
 
 ```yaml

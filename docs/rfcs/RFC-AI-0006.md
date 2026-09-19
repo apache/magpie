@@ -38,7 +38,7 @@ committed lock, and symlinks the selected skills into agent dirs. There is
 no way to pull an individual skill or skill-family from a **different**
 repository or organization. The "External (another repo)" home in
 [`docs/extending.md`](../extending.md) exists only as a "vendor it in by
-hand" note, and [`PRINCIPLES.md` §13](../../PRINCIPLES.md#13-snapshot-plus-override-never-vendored-copies)
+hand" note, and [`PRINCIPLES.md` §14](../../PRINCIPLES.md#14-snapshot-plus-override-never-vendored-copies)
 forbade installation from anything but the one framework snapshot.
 
 This RFC introduces **trusted external skill sources**: a "redirect"
@@ -55,7 +55,7 @@ repository/organization of every source is explicit.
 
 **Partially Implemented.** The design checkpoint for **Phase A** is implemented and verified:
 - The formats and documentation under [`docs/skill-sources/`](../skill-sources/README.md) (README, registry, and authoring guide) exist.
-- The Principle §13 amendment has landed in [`PRINCIPLES.md`](../../PRINCIPLES.md#13-snapshot-plus-override-never-vendored-copies).
+- The Principle §14 amendment has landed in [`PRINCIPLES.md`](../../PRINCIPLES.md#14-snapshot-plus-override-never-vendored-copies).
 - The organization `skill-sources.md` files are created.
 - The `setup` skill has its [`skill-sources.md`](../../skills/setup/skill-sources.md) action documentation.
 - The `skill-and-tool-validator` support is complete.
@@ -65,7 +65,7 @@ repository/organization of every source is explicit.
 ## Motivation
 
 The framework is deliberately one skill-authorship boundary
-([§14](../../PRINCIPLES.md#14-skills-are-the-unit-of-authorship)) with one
+([§15](../../PRINCIPLES.md#15-skills-are-the-unit-of-authorship)) with one
 distribution channel. That is right for the core, but it blocks three real
 needs already visible in the extension model:
 
@@ -252,7 +252,7 @@ sources and the adapter/organization indexes stay discovery-only.
 
 ## References
 
-- [`PRINCIPLES.md` §13](../../PRINCIPLES.md#13-snapshot-plus-override-never-vendored-copies) — the amended principle.
+- [`PRINCIPLES.md` §14](../../PRINCIPLES.md#14-snapshot-plus-override-never-vendored-copies) — the amended principle.
 - [`docs/skill-sources/README.md`](../skill-sources/README.md) — the trust model, descriptor, and pointer formats.
 - [`docs/skill-sources/registry.md`](../skill-sources/registry.md) — the discovery index.
 - [`docs/extending.md`](../extending.md) — the extension model this generalizes.

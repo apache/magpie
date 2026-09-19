@@ -39,8 +39,8 @@
 # How Magpie achieves vendor neutrality
 
 Vendor neutrality is one of Magpie's non-negotiable design principles
-([`PRINCIPLES.md` §9](../PRINCIPLES.md#9-vendor-neutrality-is-non-negotiable),
-[§3](../PRINCIPLES.md#3-project-autonomy-is-the-structural-starting-point))
+([`PRINCIPLES.md` §10](../PRINCIPLES.md#10-vendor-neutrality-is-non-negotiable),
+[§4](../PRINCIPLES.md#4-project-autonomy-is-the-structural-starting-point))
 and a top-to-bottom mission commitment
 ([`MISSION.md` § Affordability and vendor neutrality](../MISSION.md#affordability-and-vendor-neutrality--the-public-good-commitment)).
 Those documents state *that* the framework is vendor-neutral and *why*.
@@ -96,7 +96,7 @@ axes, and a backend choice on one axis never constrains the others:
 | **Forge / tracker** | GitHub, GitLab, Gitea, Forgejo, Pagure, Bitbucket, Jira, Bugzilla | Per-interface **tools** behind capability contracts; many tools are pure adapter *specs* with pluggable backends |
 | **Communication channels** | Mailing lists, GitHub Discussions, Discourse, Zulip, Matrix, IRC | Mail-archive / mail-source adapter contracts; chat and forum bridges as sibling tools |
 | **Source control (VCS)** | Git, Mercurial, Subversion, Jujutsu, Fossil, Perforce, … | A single `VCSBackend` contract; skills call the abstract operation, the backend is detected from the working copy |
-| **Project governance** | ASF PMC, foundation-hosted, single-vendor, informal maintainer group | Modes and thresholds are adopter config; non-ASF adopters are first-class ([`PRINCIPLES.md` §3](../PRINCIPLES.md#3-project-autonomy-is-the-structural-starting-point)) |
+| **Project governance** | ASF PMC, foundation-hosted, single-vendor, informal maintainer group | Modes and thresholds are adopter config; non-ASF adopters are first-class ([`PRINCIPLES.md` §4](../PRINCIPLES.md#4-project-autonomy-is-the-structural-starting-point)) |
 
 The rest of this page walks the mechanism that makes all six true,
 then states exactly where each axis stands today.
@@ -122,13 +122,13 @@ neutrality mechanism.
 ### Skills target the abstraction, never a vendor's client
 
 A skill is a step-by-step workflow in markdown. By
-[`PRINCIPLES.md` §9](../PRINCIPLES.md#9-vendor-neutrality-is-non-negotiable),
+[`PRINCIPLES.md` §10](../PRINCIPLES.md#10-vendor-neutrality-is-non-negotiable),
 **a skill hard-coded to one vendor or model family is broken, not
 specialized.** Skills name *capabilities* they need ("read the mail
 archive", "open a change for review", "allocate a CVE"), never a
 vendor's API. A concrete name (`apache/airflow`, a real CVE ID, a
 mailing-list address, `git push`) inside a skill is a refactor bug, not
-a shortcut ([`PRINCIPLES.md` §12](../PRINCIPLES.md#12-the-framework-is-project-agnostic-concrete-names-live-in-adopter-config)).
+a shortcut ([`PRINCIPLES.md` §13](../PRINCIPLES.md#13-the-framework-is-project-agnostic-concrete-names-live-in-adopter-config)).
 
 This is also why the workflows are portable across *runtimes*: a skill
 is plain English with a tool contract, which is exactly what the
@@ -250,7 +250,7 @@ organization profile — you author one, and you have two supported paths:
   [`organizations/_template/`](../organizations/_template/) for an
   organization) and open a PR. Accepted adapters ship under
   Apache-2.0 like the rest of the framework
-  ([`PRINCIPLES.md` §17](../PRINCIPLES.md#17-contributions-land-under-apache-license-20)),
+  ([`PRINCIPLES.md` §18](../PRINCIPLES.md#18-contributions-land-under-apache-license-20)),
   so every other adopter on that backend reuses your work. The
   [`write-skill`](../skills/write-skill/SKILL.md) flow and
   [`CONTRIBUTING.md`](../CONTRIBUTING.md) walk you through the conventions
@@ -261,7 +261,7 @@ organization profile — you author one, and you have two supported paths:
   organization config at it. The framework curates a
   [discovery index](adapters/registry.md) of in-tree and
   community-maintained adapters — but, per
-  [`PRINCIPLES.md` §13](../PRINCIPLES.md#13-snapshot-plus-override-never-vendored-copies),
+  [`PRINCIPLES.md` §14](../PRINCIPLES.md#14-snapshot-plus-override-never-vendored-copies),
   the adapter index is **for discovery, never for installation**: nothing is
   auto-fetched, and you wire an external adapter in deliberately, exactly
   as you would a built-in one. (Trusted external *skill* sources are the
@@ -283,7 +283,7 @@ window, tool use, vision, sustained reasoning) — never against a
 provider's SDK. Any backend that meets the floor is a valid backend,
 and the floor itself must be justified and minimised so it cannot
 become a vendor lock-in by proxy
-([`PRINCIPLES.md` §9](../PRINCIPLES.md#9-vendor-neutrality-is-non-negotiable)).
+([`PRINCIPLES.md` §10](../PRINCIPLES.md#10-vendor-neutrality-is-non-negotiable)).
 
 The privacy-aware routing layer is the concrete proof: it ships
 end-to-end recipes for six LLM-stack variants and keys approval on the
@@ -446,7 +446,7 @@ automation fits its culture, whatever its governance — ASF PMC,
 foundation-hosted, single-vendor, or an informal maintainer group. The
 framework offers a range, never mandates a level, and **non-ASF
 adopters are first-class adopters, not a compatibility afterthought**
-([`PRINCIPLES.md` §3](../PRINCIPLES.md#3-project-autonomy-is-the-structural-starting-point)).
+([`PRINCIPLES.md` §4](../PRINCIPLES.md#4-project-autonomy-is-the-structural-starting-point)).
 
 ## What keeps it neutral over time
 
@@ -454,12 +454,12 @@ Neutrality is enforced, not just intended:
 
 - **No vendor-specific workflows, ever.** A skill that only works
   against one vendor is blockable on principle grounds
-  ([`PRINCIPLES.md` §9](../PRINCIPLES.md#9-vendor-neutrality-is-non-negotiable))
+  ([`PRINCIPLES.md` §10](../PRINCIPLES.md#10-vendor-neutrality-is-non-negotiable))
   — any committer may block it and the block holds until it complies.
 - **Capability floors are justified and minimised** so the floor does
   not become a back-door lock-in.
 - **Eval is a release-blocking discipline**
-  ([`PRINCIPLES.md` §8](../PRINCIPLES.md#8-eval-is-a-release-blocking-discipline)).
+  ([`PRINCIPLES.md` §9](../PRINCIPLES.md#9-eval-is-a-release-blocking-discipline)).
   Skill behaviour is graded against eval cases, including the
   abstraction layer it targets, so a regression toward a vendor-coupled
   shortcut is caught before release.
@@ -688,8 +688,8 @@ labelled.
 
 ## See also
 
-- [`PRINCIPLES.md` §9 — Vendor neutrality is non-negotiable](../PRINCIPLES.md#9-vendor-neutrality-is-non-negotiable)
-- [`PRINCIPLES.md` §3 — Project autonomy is the structural starting point](../PRINCIPLES.md#3-project-autonomy-is-the-structural-starting-point)
+- [`PRINCIPLES.md` §10 — Vendor neutrality is non-negotiable](../PRINCIPLES.md#10-vendor-neutrality-is-non-negotiable)
+- [`PRINCIPLES.md` §4 — Project autonomy is the structural starting point](../PRINCIPLES.md#4-project-autonomy-is-the-structural-starting-point)
 - [`MISSION.md` § Affordability and vendor neutrality](../MISSION.md#affordability-and-vendor-neutrality--the-public-good-commitment)
 - [`docs/labels-and-capabilities.md`](labels-and-capabilities.md) — the skill / tool / capability taxonomy this page reads as the neutrality mechanism
 - [`docs/setup/privacy-llm.md`](setup/privacy-llm.md) — the six LLM-stack variants

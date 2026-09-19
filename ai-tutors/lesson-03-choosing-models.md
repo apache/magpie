@@ -217,7 +217,7 @@ Apache-2.0 licensed.
 > (for example `ollama run …`) is a change of that command, not a rewrite of your
 > skills. And whichever you pick, the privacy posture still holds: text that may
 > carry personal data is cleaned *before* it reaches any model, local or hosted
-> (PRINCIPLE 1). See the
+> (PRINCIPLE 2). See the
 > privacy routing pattern (pattern-catalogue.md#pattern-5--privacy-routing-clean-the-text-before-the-model-sees-it).
 >
 > ## Bigger context is not automatically better
@@ -236,7 +236,7 @@ Apache-2.0 licensed.
 > the reliable way to choose is:
 >
 > 1. Write the eval suite for your skill first (it is required anyway, per
->    PRINCIPLE 8).
+>    PRINCIPLE 9).
 > 2. Run it against two or three candidate models with `--cli`.
 > 3. Compare: which ones pass, how fast, at what cost.
 > 4. Pick the cheapest, fastest model that clears your bar, and re-check when a
@@ -260,12 +260,12 @@ Apache-2.0 licensed.
 >   can write a skill, the model choice attaches to a concrete piece of work.
 > - **Eval-driven development (eval-driven-development.md)** is how you actually
 >   compare models, including the judge model that grades prose output.
-> - **PRINCIPLES.md (../../PRINCIPLES.md)**: PRINCIPLE 1 (privacy and sandbox by
+> - **PRINCIPLES.md (../../PRINCIPLES.md)**: PRINCIPLE 2 (privacy and sandbox by
 >   default) governs what any model, local or hosted, is allowed to see.
 >
 > ## Licence
 >
-> Everything in `docs/education/` is under the Apache License 2.0 (PRINCIPLE 17).
+> Everything in `docs/education/` is under the Apache License 2.0 (PRINCIPLE 18).
 > Pages written with help from AI carry a `Generated-by:` note in their commit
 > message, following ASF Generative Tooling Guidance.
 
@@ -505,7 +505,7 @@ self-check answers.
 >
 > ## Licence
 >
-> Apache License 2.0 (PRINCIPLE 17). Pages written with help from AI carry a
+> Apache License 2.0 (PRINCIPLE 18). Pages written with help from AI carry a
 > `Generated-by:` note in their commit message following ASF Generative Tooling
 > Guidance.
 
@@ -563,7 +563,7 @@ so a smaller, cheaper judge usually suffices.
    capable, which can matter for hard reasoning about a vulnerability report. The
    safeguard required regardless of choice is the privacy posture: text that may
    carry personal data is cleaned or redacted before it reaches any model, local
-   or hosted (PRINCIPLE 1). Accept "PII redaction / privacy routing before the
+   or hosted (PRINCIPLE 2). Accept "PII redaction / privacy routing before the
    model sees it" as the required safeguard.
 
 ### Self-check answer keys

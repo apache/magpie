@@ -19,7 +19,7 @@ independently revertible.
 
 ## 1. Split — slim an oversized `SKILL.md` into linked siblings
 
-**Smell.** `SKILL.md` exceeds the 500-line P14 cap, or one section
+**Smell.** `SKILL.md` exceeds the 500-line P15 cap, or one section
 dominates the body. Diagnostic: `wc -l SKILL.md`; flag `> 500`, and
 note the largest `##` sections as split seams.
 
@@ -86,7 +86,7 @@ body reads them through placeholders.
 resolved value is identical to the literal it replaced. The skill
 does the same thing; it now reads the value from config instead of
 carrying it. Swapping projects becomes a config change, not a code
-change (Principle 12).
+change (Principle 13).
 
 **Validation.** Placeholder linter green; the reference adopter's
 manifest supplies every newly-referenced knob; validator green.
@@ -163,7 +163,7 @@ items processed; fewer calls.
 **Smell.** The skill spends an LLM pass per item even though a cheap
 deterministic check could classify many of them as obvious no-ops
 (idle, already-handled, out-of-window) up front. Probabilistic effort
-is spent on what executable code already decides (Principle 5).
+is spent on what executable code already decides (Principle 6).
 
 **Exemplar.** `feat(security-issue-sync): pre-flight no-op classifier
 skips obvious-idle trackers in bulk mode` (#414) and `tune pre-flight

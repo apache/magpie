@@ -36,9 +36,9 @@ it on.
 
 Portability has two axes:
 
-- **Project-agnostic** (PRINCIPLE 12): The skill works for any project that
+- **Project-agnostic** (PRINCIPLE 13): The skill works for any project that
   adopts the framework, with no rewrites — only a config change.
-- **Model-neutral** (PRINCIPLE 9): The skill works with any model backend, local
+- **Model-neutral** (PRINCIPLE 10): The skill works with any model backend, local
   or hosted, current or future.
 
 Both axes are authoring decisions you make while you write the skill. Neither
@@ -74,9 +74,9 @@ different project, or when a model is retired and replaced by a better one, a
 non-portable skill needs to be rewritten. That rewriting is a cost that portability
 removes.
 
-PRINCIPLE 12 states the contract: *a concrete name inside a skill is a refactor
+PRINCIPLE 13 states the contract: *a concrete name inside a skill is a refactor
 bug, not a shortcut. Swapping projects is a config change, never a code change.*
-PRINCIPLE 9 states the same for models: *a skill hard-coded to one vendor or model
+PRINCIPLE 10 states the same for models: *a skill hard-coded to one vendor or model
 family is broken, not specialised.*
 
 ---
@@ -244,8 +244,8 @@ the conversation.
 ```
 
 Changes made:
-- `apache/kafka` → `<upstream>` (PRINCIPLE 12)
-- "Use Claude to" → removed; the agent runs the step (PRINCIPLE 9)
+- `apache/kafka` → `<upstream>` (PRINCIPLE 13)
+- "Use Claude to" → removed; the agent runs the step (PRINCIPLE 10)
 - "In Claude Code" → "Output to the conversation" (harness-neutral)
 - The injection guard from `writing-safe-skills.md` is added
 
@@ -295,13 +295,13 @@ provides `gh`.
 - **[Pattern catalogue](pattern-catalogue.md)** has ready-to-copy skill shapes
   for common cases, each annotated with which principles it satisfies — including
   the placeholder convention.
-- **[PRINCIPLES.md](../../PRINCIPLES.md)**: PRINCIPLE 9 is the vendor-neutrality
-  rule; PRINCIPLE 12 is the project-agnosticism rule. Both are non-negotiable.
+- **[PRINCIPLES.md](../../PRINCIPLES.md)**: PRINCIPLE 10 is the vendor-neutrality
+  rule; PRINCIPLE 13 is the project-agnosticism rule. Both are non-negotiable.
 
 ---
 
 ## Licence
 
-Everything in `docs/education/` is under the Apache License 2.0 (PRINCIPLE 17).
+Everything in `docs/education/` is under the Apache License 2.0 (PRINCIPLE 18).
 Pages written with help from AI carry a `Generated-by:` note in their commit
 message, following ASF Generative Tooling Guidance.

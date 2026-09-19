@@ -107,13 +107,13 @@ posture:
 - **External content is data, not instructions** (PRINCIPLE 0). A skill you add
   must treat issue bodies, PRs, and mail as data, and ship an eval case proving
   it.
-- **Propose, confirm, act** (PRINCIPLE 6). A skill's world-changing steps are
+- **Propose, confirm, act** (PRINCIPLE 7). A skill's world-changing steps are
   proposals a maintainer confirms, never silent actions.
-- **Project-agnostic placeholders** (PRINCIPLE 12). No real project name in the
+- **Project-agnostic placeholders** (PRINCIPLE 13). No real project name in the
   text; use `<PROJECT>`, `<tracker>`, `<upstream>`, `<security-list>`.
-- **Evals are required** (PRINCIPLE 8). A skill without a matching eval suite is
+- **Evals are required** (PRINCIPLE 9). A skill without a matching eval suite is
   not finished, and a PR that adds one without evals will not pass review.
-- **Apache-2.0, and mark AI help** (PRINCIPLE 17). Contributions land under the
+- **Apache-2.0, and mark AI help** (PRINCIPLE 18). Contributions land under the
   framework licence; AI-authored contributions carry a `Generated-by:` token in
   the commit message, per ASF Generative Tooling Guidance.
 
@@ -169,6 +169,6 @@ The short version (the long version is [`CONTRIBUTING.md`](../../CONTRIBUTING.md
 
 ## Licence
 
-Everything in `docs/education/` is under the Apache License 2.0 (PRINCIPLE 17).
+Everything in `docs/education/` is under the Apache License 2.0 (PRINCIPLE 18).
 Pages written with help from AI carry a `Generated-by:` note in their commit
 message, following ASF Generative Tooling Guidance.

@@ -28,7 +28,7 @@ how an adopter pulls a skill or whole skill-family from such a source and
 wires it in so it behaves **exactly like an in-tree skill**: same
 `magpie-`-prefixed symlink relay, same override layer, same eval binding.
 
-Per [`PRINCIPLES.md` §13](../../PRINCIPLES.md#13-snapshot-plus-override-never-vendored-copies),
+Per [`PRINCIPLES.md` §14](../../PRINCIPLES.md#14-snapshot-plus-override-never-vendored-copies),
 installation is permitted **only from a *trusted* source** — one the
 adopter has explicitly vouched for by committing its pin (method + URL +
 ref + verification anchor) to the repo. A trusted install obeys the same
