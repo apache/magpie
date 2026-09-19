@@ -126,6 +126,7 @@ LIBPOD_TOP_KEYS = frozenset(
         "userns",
         "cgroupns",
         "netns",
+        "networks",
         "selinux_opts",
         "apparmor_profile",
         "seccomp_policy",
@@ -147,6 +148,18 @@ LIBPOD_TOP_KEYS = frozenset(
 LIBPOD_MOUNT_KEYS = frozenset({"type", "source", "destination", "options"})
 
 LIBPOD_PORTMAPPING_KEYS = frozenset({"host_ip", "host_port", "container_port", "protocol", "range"})
+
+# The six libpod namespace objects (``{"nsmode": "...", "value": "..."}``):
+# NetworkMode's libpod sibling ``netns`` is namespace-shaped too, so it is
+# inspected the same way even though the network check itself lives in
+# policy.py.
+NAMESPACE_OBJECT_FIELDS = ("pidns", "ipcns", "utsns", "userns", "cgroupns", "netns")
+NAMESPACE_OBJECT_KEYS = frozenset({"nsmode", "value"})
+
+# libpod's top-level named-volume list: ``volumes: [{"Name": ..., "Dest": ...}]``.
+# Mixed-case keys inside an otherwise snake_case body — that is podman's own
+# SpecGenerator shape, not a spelling choice made here.
+LIBPOD_VOLUME_KEYS = frozenset({"Name", "Dest", "Options"})
 
 
 def _spelling_violation_in(obj: dict[str, Any], known: frozenset[str]) -> Deny | None:
@@ -183,8 +196,11 @@ def canonical_spelling_violation(body: dict[str, Any], libpod: bool) -> Deny | N
 
     Inspected objects: the top-level body, ``HostConfig`` (compat only),
     every entry of ``Mounts`` / ``mounts``, every entry of the
-    ``PortBindings`` value lists / ``portmappings``, and ``NetworkingConfig``
-    if present (collision-only there; the API does not fix its own key set).
+    ``PortBindings`` value lists / ``portmappings``, every libpod namespace
+    object (``pidns``/``ipcns``/``utsns``/``userns``/``cgroupns``/``netns``),
+    every entry of libpod ``volumes``, libpod ``networks``, and
+    ``NetworkingConfig`` / its ``EndpointsConfig`` if present
+    (collision-only for both of those — the API does not fix their key set).
     """
     if libpod:
         violation = _spelling_violation_in(body, LIBPOD_TOP_KEYS)
@@ -200,6 +216,22 @@ def canonical_spelling_violation(body: dict[str, Any], libpod: bool) -> Deny | N
                 violation = _spelling_violation_in(mapping, LIBPOD_PORTMAPPING_KEYS)
                 if violation is not None:
                     return violation
+        for volume in body.get("volumes") or []:
+            if isinstance(volume, dict):
+                violation = _spelling_violation_in(volume, LIBPOD_VOLUME_KEYS)
+                if violation is not None:
+                    return violation
+        for field in NAMESPACE_OBJECT_FIELDS:
+            namespace_obj = body.get(field)
+            if isinstance(namespace_obj, dict):
+                violation = _spelling_violation_in(namespace_obj, NAMESPACE_OBJECT_KEYS)
+                if violation is not None:
+                    return violation
+        networks = body.get("networks")
+        if isinstance(networks, dict):
+            violation = _spelling_violation_in(networks, frozenset())
+            if violation is not None:
+                return violation
         return None
 
     violation = _spelling_violation_in(body, COMPAT_TOP_KEYS)
@@ -230,5 +262,10 @@ def canonical_spelling_violation(body: dict[str, Any], libpod: bool) -> Deny | N
         violation = _spelling_violation_in(networking_config, frozenset())
         if violation is not None:
             return violation
+        endpoints_config = networking_config.get("EndpointsConfig")
+        if isinstance(endpoints_config, dict):
+            violation = _spelling_violation_in(endpoints_config, frozenset())
+            if violation is not None:
+                return violation
 
     return None

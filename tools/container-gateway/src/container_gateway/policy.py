@@ -22,6 +22,17 @@ symlinks to decide whether a bind source resolves under a bind root).
 Nothing here talks to the backend; the label pre-check that needs
 backend I/O lives in relay.py. Canonical-spelling enforcement (case and
 duplicate-key ambiguity) lives in ``policy_shape.py``, imported below.
+
+``check_create`` is defensively layered: a total shape guard denies a
+non-dict body outright, ``_malformed_shape`` type-guards every field the
+rest of the checks read (in both shapes, regardless of which one the URL
+says — several checks below read both spellings unconditionally, so the
+guard must too), the spelling check then runs, and a final
+``try/except`` backstop denies with a generic reason rather than letting
+any residual exception cross this function. ``apply_create_rewrites`` is
+not similarly hardened: its contract is that the relay calls it only
+after ``check_create`` returned ``None`` for the same body and ``libpod``
+flag, and it does not re-validate what ``check_create`` already accepted.
 """
 
 from __future__ import annotations
@@ -41,7 +52,7 @@ __all__ = [
     "PolicyContext",
     "apply_create_rewrites",
     "check_create",
-    "named_network",
+    "named_networks",
     "named_volumes",
     "resolve_bind_source",
 ]
@@ -55,12 +66,27 @@ _PROXY_VARS_CASEFOLD = frozenset(v.casefold() for v in PROXY_VARS)
 # attempt at obfuscation) is refused rather than silently passed through.
 _NAMESPACE_ALLOWED_MODES = frozenset({"", "private", "pod", "auto", "keep-id", "nomap"})
 
-# NetworkMode / netns: a fixed set of safe keywords is allowed outright; a
-# named network (any other value) is allowed here and left to the relay's
-# label check (Task 9); anything that looks like it targets a host or
-# foreign namespace is refused regardless of spelling case.
-_NETWORK_MODE_KEYWORDS = frozenset({"", "default", "bridge", "none", "private", "slirp4netns", "pasta"})
-_NETWORK_HOST_LIKE_PREFIXES = ("host", "container:", "ns:", "path")
+# A dict-shaped namespace mode (``{"nsmode": ..., "value": ...}``) whose keys
+# are not a subset of this set is not a namespace object the policy
+# recognises; `_nsmode()` maps it to a sentinel that is in no allow-list, so
+# the namespace/network rule denies it even if the spelling check (which
+# would normally catch a case-variant or extra key first) were skipped.
+_NSMODE_OBJECT_KEYS = frozenset({"nsmode", "value"})
+_NSMODE_MALFORMED_SENTINEL = "<malformed>"
+
+# NetworkMode / netns: a fixed set of safe keywords is allowed outright
+# (exact match, casefolded); anything that casefold-starts with one of these
+# prefixes targets a host, foreign, or otherwise unsafe namespace and is
+# refused regardless of spelling case; everything else is a named network,
+# allowed here and left to the relay's label check (Task 9).
+_NETWORK_MODE_KEYWORDS = frozenset(
+    {"", "default", "bridge", "none", "private", "slirp4netns", "pasta", "pod"}
+)
+_NETWORK_DENIED_PREFIXES = ("host", "container", "ns", "path", "from-")
+
+# Built-in network names every project can already reach; never treated as a
+# *named* (foreign) network the relay needs to label-check.
+_BUILTIN_NETWORK_NAMES = frozenset({"bridge", "podman", "host", "none"})
 
 # SecurityOpt keys the policy recognises at all; every other key (including
 # unmask, proc-opts) is refused outright.
@@ -68,6 +94,55 @@ _SECCOMP_ALLOWED_VALUES = frozenset({"", "default"})
 
 _MOUNT_PASSTHROUGH_TYPES = frozenset({"tmpfs"})
 _MOUNT_REFUSED_TYPES = frozenset({"image", "devpts", "npipe"})
+
+# --- _malformed_shape's field tables -----------------------------------
+# Checked via `host.get(name)`: for compat this is HostConfig, for libpod
+# this is the body itself, so a single unconditional check per name covers
+# both shapes' real location for that field (and harmlessly looks in the
+# "wrong" object for the other shape's spelling, which is never read from
+# there anyway).
+_LIST_OR_NONE_HOST_FIELDS = (
+    "Binds",
+    "CapAdd",
+    "cap_add",
+    "CapDrop",
+    "cap_drop",
+    "SecurityOpt",
+    "selinux_opts",
+    "Devices",
+    "DeviceRequests",
+    "DeviceCgroupRules",
+    "device_cgroup_rule",
+    "MaskedPaths",
+    "ReadonlyPaths",
+    "mask",
+    "unmask",
+    "VolumesFrom",
+    "volumes_from",
+)
+_MOUNT_LIST_HOST_FIELDS = ("Mounts", "mounts", "portmappings", "volumes")
+_DICT_OR_NONE_HOST_FIELDS = ("Sysctls", "sysctl")
+_NAMESPACE_HOST_FIELDS = (
+    "PidMode",
+    "IpcMode",
+    "UTSMode",
+    "UsernsMode",
+    "CgroupnsMode",
+    "pidns",
+    "ipcns",
+    "utsns",
+    "userns",
+    "cgroupns",
+    "NetworkMode",
+    "netns",
+)
+# Checked via `body.get(name)`: these are always at the top of the body
+# (Env/Labels/NetworkingConfig for compat, env/labels/networks for libpod —
+# and for libpod the body *is* `host`, so this is equivalent to host.get()
+# there too).
+_DICT_OR_NONE_BODY_FIELDS = ("NetworkingConfig", "networks")
+_STR_LIST_BODY_FIELDS = ("Env",)
+_STR_DICT_BODY_FIELDS = ("env", "Labels", "labels")
 
 
 @dataclass(frozen=True)
@@ -87,8 +162,16 @@ def _host(body: dict[str, Any], libpod: bool) -> dict[str, Any]:
 
 
 def _nsmode(value: Any) -> str:
-    """Namespace mode as a string for both shapes: ``"host"`` or ``{"nsmode": "host"}``."""
+    """Namespace mode as a string for both shapes: ``"host"`` or ``{"nsmode": "host"}``.
+
+    A dict whose keys are not a subset of ``{"nsmode", "value"}`` is not a
+    namespace object the policy recognises and fails closed to a sentinel
+    (see ``_NSMODE_MALFORMED_SENTINEL``) rather than reading ``nsmode`` out
+    of it anyway.
+    """
     if isinstance(value, dict):
+        if not set(value).issubset(_NSMODE_OBJECT_KEYS):
+            return _NSMODE_MALFORMED_SENTINEL
         return str(value.get("nsmode", ""))
     return str(value or "")
 
@@ -106,62 +189,79 @@ def resolve_bind_source(src: str, ctx: PolicyContext) -> bool:
     return any(real == root.resolve() or root.resolve() in real.parents for root in ctx.bind_roots)
 
 
-def _malformed_shape(body: dict[str, Any], libpod: bool) -> Deny | None:
-    """Type-guard every field the rest of ``check_create`` iterates over.
+def _list_of_dicts_deny(name: str, value: Any) -> Deny | None:
+    if value is None:
+        return None
+    if not isinstance(value, list):
+        return Deny(f"malformed: {name} has the wrong type")
+    for entry in value:
+        if not isinstance(entry, dict):
+            return Deny(f"malformed: {name} entries must be objects")
+    return None
 
-    Never lets a wrongly-typed field reach an iteration or ``.get()`` call
-    that would raise; every such shape is refused as ``malformed`` instead.
+
+def _malformed_shape(body: dict[str, Any], libpod: bool) -> Deny | None:
+    """Type-guard every field the rest of ``check_create`` reads, in both shapes.
+
+    Never lets a wrongly-typed field reach an iteration, ``.items()``, or
+    ``.get()`` call that would raise; every such shape is refused as
+    ``malformed`` instead. Runs before the spelling check, which itself
+    assumes these types are already sound.
     """
-    if not libpod:
-        host_config = body.get("HostConfig")
-        if host_config is not None and not isinstance(host_config, dict):
-            return Deny("malformed: HostConfig has the wrong type")
+    host_config = body.get("HostConfig")
+    if host_config is not None and not isinstance(host_config, dict):
+        return Deny("malformed: HostConfig has the wrong type")
 
     host = _host(body, libpod)
 
-    list_fields: list[tuple[str, Any]] = []
-    if libpod:
-        list_fields.append(("cap_add", host.get("cap_add")))
-        list_fields.append(("selinux_opts", host.get("selinux_opts")))
-        mounts_field, mounts = "mounts", body.get("mounts")
-        port_field, ports = "portmappings", body.get("portmappings")
-    else:
-        list_fields.append(("CapAdd", host.get("CapAdd")))
-        list_fields.append(("SecurityOpt", host.get("SecurityOpt")))
-        list_fields.append(("Binds", host.get("Binds")))
-        mounts_field, mounts = "Mounts", host.get("Mounts")
-        port_field, ports = None, None
-
-    for name, value in list_fields:
+    for name in _LIST_OR_NONE_HOST_FIELDS:
+        value = host.get(name)
         if value is not None and not isinstance(value, list):
             return Deny(f"malformed: {name} has the wrong type")
 
-    if mounts is not None:
-        if not isinstance(mounts, list):
-            return Deny(f"malformed: {mounts_field} has the wrong type")
-        for entry in mounts:
-            if not isinstance(entry, dict):
-                return Deny(f"malformed: {mounts_field} entries must be objects")
+    for name in _NAMESPACE_HOST_FIELDS:
+        value = host.get(name)
+        if value is not None and not isinstance(value, dict | str):
+            return Deny(f"malformed: {name} has the wrong type")
 
-    if not libpod:
-        port_bindings = host.get("PortBindings")
-        if port_bindings is not None:
-            if not isinstance(port_bindings, dict):
-                return Deny("malformed: PortBindings has the wrong type")
-            for bindings in port_bindings.values():
-                if bindings is None:
-                    continue
-                if not isinstance(bindings, list):
-                    return Deny("malformed: PortBindings has the wrong type")
-                for entry in bindings:
-                    if not isinstance(entry, dict):
-                        return Deny("malformed: PortBindings entries must be objects")
-    elif ports is not None:
-        if not isinstance(ports, list):
-            return Deny(f"malformed: {port_field} has the wrong type")
-        for entry in ports:
-            if not isinstance(entry, dict):
-                return Deny(f"malformed: {port_field} entries must be objects")
+    for name in _DICT_OR_NONE_HOST_FIELDS:
+        value = host.get(name)
+        if value is not None and not isinstance(value, dict):
+            return Deny(f"malformed: {name} has the wrong type")
+
+    for name in _DICT_OR_NONE_BODY_FIELDS:
+        value = body.get(name)
+        if value is not None and not isinstance(value, dict):
+            return Deny(f"malformed: {name} has the wrong type")
+
+    for name in _MOUNT_LIST_HOST_FIELDS:
+        denial = _list_of_dicts_deny(name, host.get(name))
+        if denial is not None:
+            return denial
+
+    port_bindings = host.get("PortBindings")
+    if port_bindings is not None:
+        if not isinstance(port_bindings, dict):
+            return Deny("malformed: PortBindings has the wrong type")
+        for bindings in port_bindings.values():
+            denial = _list_of_dicts_deny("PortBindings", bindings)
+            if denial is not None:
+                return denial
+
+    for name in _STR_LIST_BODY_FIELDS:
+        value = body.get(name)
+        if value is not None and (
+            not isinstance(value, list) or not all(isinstance(item, str) for item in value)
+        ):
+            return Deny(f"malformed: {name} has the wrong type")
+
+    for name in _STR_DICT_BODY_FIELDS:
+        value = body.get(name)
+        if value is not None and (
+            not isinstance(value, dict)
+            or not all(isinstance(k, str) and isinstance(v, str) for k, v in value.items())
+        ):
+            return Deny(f"malformed: {name} has the wrong type")
 
     return None
 
@@ -253,6 +353,14 @@ def _mounts_deny(
     return None
 
 
+def _named_network_candidate(host: dict[str, Any], libpod: bool) -> str | None:
+    net = _nsmode(host.get("netns") if libpod else host.get("NetworkMode"))
+    net_cf = net.casefold()
+    if net_cf in _NETWORK_MODE_KEYWORDS or net_cf.startswith(_NETWORK_DENIED_PREFIXES):
+        return None
+    return net
+
+
 def named_volumes(body: dict[str, Any], libpod: bool) -> list[str]:
     """Named volumes this create body references: the relay label-checks each one (Task 9)."""
     host = _host(body, libpod)
@@ -267,32 +375,68 @@ def named_volumes(body: dict[str, Any], libpod: bool) -> list[str]:
     for entry in mounts or []:
         if isinstance(entry, dict) and str(entry.get(type_key, "")).casefold() == "volume":
             names.append(str(entry.get(source_key, "")))
+    if libpod:
+        for entry in body.get("volumes") or []:
+            if isinstance(entry, dict) and entry.get("Name"):
+                names.append(str(entry["Name"]))
     return names
 
 
-def named_network(body: dict[str, Any], libpod: bool) -> str | None:
-    """The named network this create body attaches to, if any (the relay label-checks it, Task 9).
+def named_networks(body: dict[str, Any], libpod: bool) -> list[str]:
+    """Named (foreign) networks this create body attaches to: the relay label-checks each one (Task 9).
 
-    Returns ``None`` for the fixed keywords and for the host/foreign-namespace
-    forms that ``check_create`` refuses outright — only an actual named
-    network is returned.
+    Covers the ``NetworkMode``/``netns`` named-network value, compat
+    ``NetworkingConfig.EndpointsConfig`` keys, and libpod top-level
+    ``networks`` keys. Built-in network names (``bridge``, ``podman``,
+    ``host``, ``none``) are excluded — ``host``/``none`` are refused
+    outright by ``check_create`` anyway, and ``bridge``/``podman`` are
+    reachable by every project already. Deduplicated, first-seen order.
     """
     host = _host(body, libpod)
-    net = _nsmode(host.get("netns") if libpod else host.get("NetworkMode"))
-    net_cf = net.casefold()
-    if net_cf in _NETWORK_MODE_KEYWORDS or net_cf.startswith(_NETWORK_HOST_LIKE_PREFIXES):
-        return None
-    return net
+    candidates: list[str] = []
+
+    network_mode = _named_network_candidate(host, libpod)
+    if network_mode is not None:
+        candidates.append(network_mode)
+
+    if libpod:
+        networks = body.get("networks")
+        if isinstance(networks, dict):
+            candidates.extend(str(k) for k in networks)
+    else:
+        networking_config = body.get("NetworkingConfig")
+        if isinstance(networking_config, dict):
+            endpoints_config = networking_config.get("EndpointsConfig")
+            if isinstance(endpoints_config, dict):
+                candidates.extend(str(k) for k in endpoints_config)
+
+    seen: set[str] = set()
+    result: list[str] = []
+    for name in candidates:
+        if name.casefold() in _BUILTIN_NETWORK_NAMES or name in seen:
+            continue
+        seen.add(name)
+        result.append(name)
+    return result
 
 
 def check_create(body: dict[str, Any], ctx: PolicyContext, *, libpod: bool) -> Deny | None:
-    spelling_violation = canonical_spelling_violation(body, libpod)
-    if spelling_violation is not None:
-        return spelling_violation
+    if not isinstance(body, dict):
+        return Deny("malformed: request body must be a JSON object")
+    try:
+        return _check_create(body, ctx, libpod=libpod)
+    except (TypeError, AttributeError, ValueError, KeyError):
+        return Deny("malformed: unexpected request shape")
 
+
+def _check_create(body: dict[str, Any], ctx: PolicyContext, *, libpod: bool) -> Deny | None:
     malformed = _malformed_shape(body, libpod)
     if malformed is not None:
         return malformed
+
+    spelling_violation = canonical_spelling_violation(body, libpod)
+    if spelling_violation is not None:
+        return spelling_violation
 
     host = _host(body, libpod)
 
@@ -327,7 +471,7 @@ def check_create(body: dict[str, Any], ctx: PolicyContext, *, libpod: bool) -> D
     for key in ("NetworkMode", "netns"):
         net = _nsmode(host.get(key))
         net_cf = net.casefold()
-        if net_cf not in _NETWORK_MODE_KEYWORDS and net_cf.startswith(_NETWORK_HOST_LIKE_PREFIXES):
+        if net_cf not in _NETWORK_MODE_KEYWORDS and net_cf.startswith(_NETWORK_DENIED_PREFIXES):
             return Deny(f"network: {key}={net} is refused; use a bridge network created through the gateway")
 
     security_opt_deny = _security_opt_deny(host)
@@ -342,13 +486,13 @@ def check_create(body: dict[str, Any], ctx: PolicyContext, *, libpod: bool) -> D
         return Deny("runtime: alternative OCI runtimes are refused")
     if host.get("Isolation"):
         return Deny("isolation: the Isolation field is refused")
-    if "MaskedPaths" in host:
+    if host.get("MaskedPaths") is not None:
         return Deny("masked-paths: MaskedPaths is refused")
-    if "mask" in host:
+    if host.get("mask") is not None:
         return Deny("masked-paths: mask is refused")
-    if "ReadonlyPaths" in host:
+    if host.get("ReadonlyPaths") is not None:
         return Deny("readonly-paths: ReadonlyPaths is refused")
-    if host.get("unmask"):
+    if host.get("unmask") is not None:
         return Deny("security-opt: unmask is refused")
 
     if host.get("PublishAllPorts") or host.get("publish_image_ports"):
@@ -369,6 +513,13 @@ def check_create(body: dict[str, Any], ctx: PolicyContext, *, libpod: bool) -> D
 
 
 def apply_create_rewrites(body: dict[str, Any], ctx: PolicyContext, *, libpod: bool) -> dict[str, Any]:
+    """Apply the label / HostIp / proxy-env rewrites.
+
+    Precondition: ``check_create(body, ctx, libpod=libpod)`` must already
+    have returned ``None`` for this exact body — the relay always calls the
+    two in that order. This function does not re-validate shapes
+    ``check_create`` already rejected (e.g. a non-dict ``Env``/``Labels``).
+    """
     out = copy.deepcopy(body)
     if libpod:
         out["labels"] = with_label(out.get("labels"), ctx.slug)

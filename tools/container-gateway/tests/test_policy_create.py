@@ -29,7 +29,7 @@ from container_gateway.policy import (
     PolicyContext,
     apply_create_rewrites,
     check_create,
-    named_network,
+    named_networks,
     named_volumes,
 )
 
@@ -132,6 +132,12 @@ def libpod(**top: Any) -> dict[str, Any]:
         (compat(Mounts=[{"Source": "/", "Target": "/h"}]), "mount-type"),
         (libpod(mounts=[{"source": "/etc", "destination": "/etc"}]), "mount-type"),
         (compat(Mounts=[{"Type": "devpts", "Source": "/dev/pts", "Target": "/dev/pts"}]), "mount-type"),
+        # --- Fix round 2 additions below ---
+        # R2: libpod bare-word netns modes escape the prefix list; exact allow-list now
+        (libpod(netns={"nsmode": "container", "value": "deadbeef"}), "network"),
+        (libpod(netns={"nsmode": "ns", "value": "/proc/1/ns/net"}), "network"),
+        (libpod(netns={"nsmode": "from-container", "value": "deadbeef"}), "network"),
+        (libpod(netns={"nsmode": "from-pod"}), "network"),
     ],
 )
 def test_denied_shapes(ctx: PolicyContext, body: dict[str, Any], rule: str) -> None:
@@ -224,12 +230,13 @@ def test_egress_off_injects_nothing(ctx: PolicyContext) -> None:
         (compat(PRIVILEGED=True), False),
         # C1: Labels/labels both present - the daemon could take either
         ({"Image": "alpine", "HostConfig": {}, "Labels": {"a": "b"}, "labels": {"a": "b"}}, False),
-        # C1: Env/env both present
-        ({"Image": "alpine", "HostConfig": {}, "Env": ["A=1"], "env": ["A=1"]}, False),
+        # C1: Env/env both present (Env must be a list, env must be a dict - each
+        # individually well-typed, so only the spelling collision denies this)
+        ({"Image": "alpine", "HostConfig": {}, "Env": ["A=1"], "env": {"A": "1"}}, False),
         # C1: libpod duplicate labels
         ({"image": "alpine", "labels": {"a": "b"}, "Labels": {"a": "b"}}, True),
-        # C1: libpod duplicate env
-        ({"image": "alpine", "env": {}, "Env": {}}, True),
+        # C1: libpod duplicate env (Env list / env dict, each individually well-typed)
+        ({"image": "alpine", "env": {"A": "1"}, "Env": ["A=1"]}, True),
         # C1: libpod case-variant top-level key
         ({"image": "alpine", "Privileged": True}, True),
         # C1/C2: type and Type collide inside one Mounts entry
@@ -240,6 +247,11 @@ def test_egress_off_injects_nothing(ctx: PolicyContext) -> None:
             },
             False,
         ),
+        # R1: the six libpod namespace objects were outside the spelling check
+        (libpod(pidns={"NSMode": "host"}), True),
+        (libpod(userns={"NSMode": "host"}), True),
+        (libpod(netns={"NSMode": "host"}), True),
+        (libpod(pidns={"nsmode": "private", "Value": "x"}), True),
     ],
 )
 def test_canonical_spelling_violation_is_denied(
@@ -257,13 +269,14 @@ def test_security_opt_allowed_values_pass(ctx: PolicyContext) -> None:
 
 def test_named_network_is_allowed_and_deferred_to_relay(ctx: PolicyContext) -> None:
     # A named network is not one of the fixed keywords and does not start with
-    # host / container: / ns: / path, so check_create allows it; the relay
-    # label-checks the network by name (Task 9).
+    # host / container / ns / path / from-, so check_create allows it; the
+    # relay label-checks the network by name (Task 9).
     assert check_create(compat(NetworkMode="mynet"), ctx, libpod=False) is None
-    assert named_network(compat(NetworkMode="mynet"), False) == "mynet"
-    assert named_network(compat(NetworkMode="host"), False) is None
-    assert named_network(compat(NetworkMode="container:deadbeef"), False) is None
-    assert named_network(libpod(netns={"nsmode": "bridge"}), True) is None
+    assert named_networks(compat(NetworkMode="mynet"), False) == ["mynet"]
+    assert named_networks(compat(NetworkMode="host"), False) == []
+    assert named_networks(compat(NetworkMode="container:deadbeef"), False) == []
+    assert check_create(libpod(netns={"nsmode": "bridge"}), ctx, libpod=True) is None
+    assert named_networks(libpod(netns={"nsmode": "bridge"}), True) == []
 
 
 def test_named_volumes_helper(ctx: PolicyContext) -> None:
@@ -283,3 +296,84 @@ def test_proxy_env_filtered_case_insensitively(ctx: PolicyContext) -> None:
     assert "Http_Proxy=http://evil:1" not in out["Env"]
     assert "HTTP_PROXY=http://host.containers.internal:8899" in out["Env"]
     assert "FOO=1" in out["Env"]
+
+
+# --- Fix round 2 additions below ---
+
+
+def test_masked_and_readonly_paths_null_passes(ctx: PolicyContext) -> None:
+    # moby's HostConfig serialises MaskedPaths/ReadonlyPaths: null on every
+    # create (no omitempty); the gateway must not refuse an ordinary create.
+    body = compat(MaskedPaths=None, ReadonlyPaths=None)
+    assert check_create(body, ctx, libpod=False) is None
+
+
+def test_mask_and_unmask_null_passes(ctx: PolicyContext) -> None:
+    assert check_create(libpod(mask=None, unmask=None), ctx, libpod=True) is None
+
+
+def test_named_volumes_includes_libpod_top_level_volumes(ctx: PolicyContext) -> None:
+    body = libpod(volumes=[{"Name": "myvol4", "Dest": "/d"}])
+    assert check_create(body, ctx, libpod=True) is None
+    assert named_volumes(body, True) == ["myvol4"]
+
+
+def test_named_networks_from_endpoints_config_and_libpod_networks(ctx: PolicyContext) -> None:
+    compat_body = compat()
+    compat_body["NetworkingConfig"] = {"EndpointsConfig": {"other-net": {}}}
+    assert check_create(compat_body, ctx, libpod=False) is None
+    assert named_networks(compat_body, False) == ["other-net"]
+
+    libpod_body = libpod(networks={"n1": {}})
+    assert check_create(libpod_body, ctx, libpod=True) is None
+    assert named_networks(libpod_body, True) == ["n1"]
+
+
+def test_named_networks_excludes_builtin_names(ctx: PolicyContext) -> None:
+    compat_body = compat()
+    compat_body["NetworkingConfig"] = {"EndpointsConfig": {"bridge": {}, "podman": {}}}
+    assert named_networks(compat_body, False) == []
+    assert named_networks(compat(NetworkMode="host"), False) == []
+    assert named_networks(compat(NetworkMode="none"), False) == []
+
+
+@pytest.mark.parametrize(
+    ("body", "libpod"),
+    [
+        # R3: TypeError in policy_shape.py before _malformed_shape ran
+        (compat(Mounts=5), False),
+        (libpod(mounts=5), True),
+        (libpod(portmappings=5), True),
+        (compat(PortBindings={"80/tcp": 5}), False),
+        # R3: type-guarded in one shape only - the "wrong" shape's spelling slipped through
+        (libpod(SecurityOpt=5), True),
+        (compat(selinux_opts=5), False),
+        # R3: a non-dict body (AttributeError)
+        ("not-a-dict", False),
+        # R3: apply_create_rewrites crashes downstream if check_create does not catch these first
+        (libpod(env=["A=1"]), True),
+        ({"Image": "alpine", "Labels": ["a"], "HostConfig": {}}, False),
+    ],
+)
+def test_malformed_bodies_never_raise(ctx: PolicyContext, body: Any, libpod: bool) -> None:
+    result = check_create(body, ctx, libpod=libpod)
+    assert isinstance(result, Deny), body
+
+
+@pytest.mark.parametrize(
+    ("body", "libpod"),
+    [
+        (compat(), False),
+        (compat(CapDrop=["ALL"], Tmpfs={"/run": "rw"}, Mounts=[{"Type": "tmpfs", "Target": "/t"}]), False),
+        (compat(Binds=["myvol:/data"]), False),
+        (compat(SecurityOpt=["apparmor=docker-default"]), False),
+        (compat(NetworkMode="mynet"), False),
+        (libpod(netns={"nsmode": "bridge"}), True),
+        (libpod(portmappings=[{"container_port": 80, "host_port": 8080}], env={"HTTP_PROXY": "x"}), True),
+    ],
+)
+def test_apply_create_rewrites_succeeds_on_every_allowed_body(
+    ctx: PolicyContext, body: dict[str, Any], libpod: bool
+) -> None:
+    assert check_create(body, ctx, libpod=libpod) is None
+    apply_create_rewrites(body, ctx, libpod=libpod)  # must not raise
