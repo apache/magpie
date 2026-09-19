@@ -27,7 +27,9 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
+import time
 from pathlib import Path
 
 import pytest
@@ -132,3 +134,98 @@ def test_gi_python_only_reports_an_interpreter_that_can_import_gi() -> None:
     assert interpreter
     probe = subprocess.run([interpreter, "-c", "import gi"], capture_output=True)
     assert probe.returncode == 0, f"{interpreter} was selected but cannot import gi"
+
+
+def _run(*args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["bash", str(SCRIPT), *args], capture_output=True, text=True
+    )
+
+
+@pytest.fixture
+def process_named(tmp_path):
+    """Start a sleeping process under a chosen name, and clean it up.
+
+    The detector matches on the process name, so the only way to exercise
+    it is to give a harmless process the name it looks for.
+    """
+    started = []
+
+    def start(name: str) -> None:
+        # A symlink, not a copy: the process name follows the path it was
+        # exec'd under either way, and copying a system binary out of its
+        # place gets the copy killed on a code-signing platform.
+        binary = tmp_path / name
+        binary.symlink_to(shutil.which("sleep"))
+        started.append(subprocess.Popen([str(binary), "30"]))
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            if subprocess.run(["pgrep", "-x", name]).returncode == 0:
+                return
+            time.sleep(0.05)
+        pytest.skip(f"pgrep never saw {name}")
+
+    yield start
+
+    for proc in started:
+        proc.kill()
+        proc.wait()
+
+
+@pytest.mark.skipif(shutil.which("pgrep") is None, reason="needs pgrep")
+def test_signing_in_flight_sees_an_ssh_keygen_signature(process_named) -> None:
+    """`gpg.format=ssh` signs through gpg-agent without ever running gpg."""
+    process_named("ssh-keygen")
+    assert _run("_signing_in_flight").returncode == 0
+
+
+@pytest.mark.skipif(shutil.which("pgrep") is None, reason="needs pgrep")
+def test_signing_in_flight_matches_the_whole_process_name(process_named) -> None:
+    process_named("ssh-keygenx")
+    assert _run("_signing_in_flight").returncode != 0
+
+
+def test_spawn_session_makes_the_backgrounded_pid_the_group_leader() -> None:
+    """arm records `$!` as the group disarm later kills.
+
+    So the backgrounded command has to *become* the session leader under
+    that same pid. Anything that leaves a shell in between — a wrapper
+    function, say — records a pid that leads no group, and disarm then
+    kills nothing and leaves the window on screen.
+    """
+    result = subprocess.run(
+        [
+            "bash",
+            "-c",
+            f'"{SCRIPT}" _spawn_session sleep 5 & '
+            'pid=$!; sleep 0.3; echo "$pid $(ps -o pgid= -p "$pid")"; '
+            "kill -- -\"$pid\" 2>/dev/null",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    pid, pgid = result.stdout.split()
+    assert pid == pgid
+
+
+def test_tk_python_reports_an_interpreter_that_can_start_tk() -> None:
+    """Importing tkinter is not enough — the macOS window calls Tk().
+
+    A uv or pyenv python ships the module without the Tcl/Tk framework
+    behind it, so an import-only probe hands back an interpreter that
+    dies the moment it tries to draw.
+    """
+    result = _run("_tk_python")
+    if result.returncode != 0:
+        pytest.skip("no python that can start Tk on this host")
+    interpreter = result.stdout.strip()
+    started = subprocess.run(
+        [
+            interpreter,
+            "-c",
+            "import tkinter; t = tkinter.Tk(); t.withdraw(); t.destroy()",
+        ],
+        capture_output=True,
+    )
+    assert started.returncode == 0, started.stderr

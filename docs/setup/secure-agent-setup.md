@@ -1840,6 +1840,11 @@ ykman openpgp info | grep -A2 'Touch policies'
 #   Signature key:      Off         <- never waits for a touch; skip this
 ```
 
+It applies just as much with `git config gpg.format ssh`, where the
+signature is made by `ssh-keygen -Y sign` over gpg-agent's ssh socket
+rather than by gpg. The same key waits for the same touch, so the
+watcher looks for either command.
+
 This is the operator-facing half of the hardware-key rule in
 [`AGENTS.md`](../../AGENTS.md) → *Commit and PR conventions*. That rule
 has the agent probe gpg-agent's cache and warn **before** committing.
@@ -1859,8 +1864,9 @@ says which key is waiting. It closes itself the moment the touch lands.
 mkdir -p ~/.claude/scripts
 cp tools/agent-isolation/gpg-touch-overlay.sh \
    tools/agent-isolation/gpg-touch-overlay-window.py \
+   tools/agent-isolation/gpg-touch-overlay-window-macos.py \
    ~/.claude/scripts/
-chmod +x ~/.claude/scripts/gpg-touch-overlay*.sh ~/.claude/scripts/gpg-touch-overlay-window.py
+chmod +x ~/.claude/scripts/gpg-touch-overlay*
 ```
 
 Both files go in the same directory — the shell script finds the window
@@ -1886,9 +1892,14 @@ in the `Bash` matcher groups you already have:
 }
 ```
 
-Needs `python3` with PyGObject for the dimmed overlay; where that is
-missing it falls back to a `zenity` dialog. `pgrep`, from `procps`, is
-the only other requirement.
+On Linux this needs `python3` with PyGObject for the dimmed overlay;
+where that is missing it falls back to a `zenity` dialog. On macOS it
+needs a `python3` that can start Tk — the one in the Command Line Tools
+can, while a uv, pyenv or Homebrew python usually ships the `tkinter`
+module without the Tcl/Tk framework behind it, so the hook probes for an
+interpreter that actually starts before it promises a window. `pgrep` is
+the only other requirement, and `perl` on macOS, which has no
+`setsid(1)`; both are part of the base system there.
 
 ### Verify
 
@@ -1902,14 +1913,27 @@ sleep 3 && pgrep -x zenity >/dev/null || pgrep -f gpg-touch-overlay-window >/dev
 pkill -x gpg
 ```
 
+With `gpg.format=ssh`, sign with the key git would use instead:
+
+```sh
+ssh-keygen -Y sign -f "$(git config --get user.signingkey)" -n git /etc/hostname &
+```
+
 The window should appear about a second and a half in, and disappear
-when the gpg process ends. `MAGPIE_GPG_TOUCH_DEBUG=1` makes the watcher
-log to `$XDG_RUNTIME_DIR/magpie-gpg-touch/watcher.log`.
+when the signing process ends. `MAGPIE_GPG_TOUCH_DEBUG=1` makes the
+watcher log to `$XDG_RUNTIME_DIR/magpie-gpg-touch/watcher.log`
+(`/tmp/magpie-gpg-touch/` on macOS, which sets no `XDG_RUNTIME_DIR`).
 
 ### Trade-offs
 
-- **X11 only.** Placement and stacking use EWMH hints. Under Wayland the
-  overlay still draws, but the compositor decides where it lands.
+- **Placement is X11's to give.** On Linux the overlay places and stacks
+  itself with EWMH hints. Under Wayland it still draws, but the
+  compositor decides where it lands.
+- **One display on macOS.** Aqua Tk reports a single screen geometry, so
+  the overlay covers the main display rather than every monitor the way
+  the GTK version does. It is a borderless window rather than a native
+  fullscreen one on purpose: fullscreen would move macOS to a new Space
+  and pull the terminal you are watching off screen.
 - **Nothing is shown while pinentry is up.** Two dialogs competing for
   focus would make the PIN impossible to type, so the overlay waits for
   pinentry to go away.
