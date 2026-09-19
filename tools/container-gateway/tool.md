@@ -18,7 +18,7 @@
 
 # Tool: container-gateway
 
-This directory documents the **container-gateway** tool — a per-project policy
+This directory documents the **container-gateway** tool: a per-project policy
 proxy in front of the podman / docker daemon socket, so sandboxed shell
 commands can drive containers without reaching the daemon, the machine
 identity, or the host filesystem.
@@ -46,7 +46,8 @@ policy:
 
 ## Why this is its own tool
 
-Container access is cross-cutting — it is not specific to one skill, so it
+Container access is cross-cutting.
+It is not specific to one skill, so it
 does not belong under any single skill's directory (which would create N
 drifting copies of the same policy). It is also not an adapter for an
 external system in the `contract:*` sense: it has no upstream API of its own
@@ -55,7 +56,7 @@ to speak on a skill's behalf, it is framework substrate that makes an
 family as [`tools/egress-gateway`](../egress-gateway/).
 
 It depends on nothing beyond the Python standard library, so it stays a
-policy proxy rather than growing a container-orchestration dependency —
+policy proxy rather than growing a container-orchestration dependency.
 `podman` and `docker` remain external CLIs the gateway forwards to, never a
 library it imports.
 
@@ -67,7 +68,7 @@ treats the raw internet: a capability the agent needs occasionally, gated
 behind a chokepoint the agent cannot bypass from inside the sandbox. Today
 the only ways to reach `podman` / `docker` from the sandbox are to exclude
 the CLI from sandboxing entirely, or to allow the daemon socket directly in
-`sandbox.network.allowUnixSockets` — both hand the agent a root-equivalent
+`sandbox.network.allowUnixSockets`. Both hand the agent a root-equivalent
 socket, since the daemon can mount arbitrary host paths.
 
 The container gateway closes that gap the same way
@@ -79,10 +80,10 @@ gateways together as the *socket gateways* row.
 
 ## How adopters consume this tool
 
-1. Run the gateway (outside the sandbox — it needs the real daemon socket,
+1. Run the gateway (outside the sandbox: it needs the real daemon socket,
    which the sandbox denies by design). See [`README.md`](README.md).
 2. Point `CONTAINER_HOST` / `DOCKER_HOST` at its two sockets, and allow
-   those two sockets — never the real daemon socket — in
+   those two sockets (never the real daemon socket) in
    `sandbox.network.allowUnixSockets`.
 3. Optionally wire `tools/agent-isolation/container-gateway-hook.sh` as a
    Claude Code `SessionStart` / `SessionEnd` hook so the gateway starts and
@@ -113,7 +114,8 @@ listens on for the sandboxed CLIs, and the backend's own daemon socket it
 forwards to. It makes no outbound network call of its own, which is why the
 `no-telemetry-import` check in
 [`tools/skill-and-tool-validator/`](../skill-and-tool-validator/) exempts it
-the same way it exempts `egress-gateway` — both tools' network-shaped
+the same way it exempts `egress-gateway`.
+Both tools' network-shaped
 imports (`socket`) are the mechanism, not an egress surface, per
 [`tools/egress-gateway/tool.md`](../egress-gateway/tool.md#declared-egress-surfaces).
 
@@ -123,5 +125,5 @@ imports (`socket`) are the mechanism, not an egress surface, per
 |---|---|---|
 | CLI reports `502` from the gateway | Backend (Podman machine / Docker Desktop / dockerd) is down | Start the backend, then retry; see [`docs/setup/sandbox-troubleshooting.md`](../../docs/setup/sandbox-troubleshooting.md#docker--podman-command-fails-with-a-socket-error) |
 | CLI gets a connect error, no `502` | Gateway is not running for this project | Run the `SessionStart` hook or start the gateway by hand (see [`README.md`](README.md)) |
-| CLI gets `Operation not permitted` reaching the socket | The gateway's socket is not in `sandbox.network.allowUnixSockets` | Add the two gateway sockets — never the real daemon socket — per [`docs/setup/sandbox-troubleshooting.md`](../../docs/setup/sandbox-troubleshooting.md#docker--podman-command-fails-with-a-socket-error) |
+| CLI gets `Operation not permitted` reaching the socket | The gateway's socket is not in `sandbox.network.allowUnixSockets` | Add the two gateway sockets (never the real daemon socket) per [`docs/setup/sandbox-troubleshooting.md`](../../docs/setup/sandbox-troubleshooting.md#docker--podman-command-fails-with-a-socket-error) |
 | Container create returns `403` | A create-time request violated the policy (see `README.md` § What the policy refuses) | Read the one-line reason in the response and adjust the request; it names the rule and what to change |

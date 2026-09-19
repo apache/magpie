@@ -39,7 +39,8 @@ The contract (what / why) is in [`tool.md`](tool.md); this file is the how-to.
 ## Run it
 
 One gateway process per project, keyed by the project root.
-It must run **outside** the sandbox — it connects to the real daemon socket, which the sandbox denies by design.
+It must run **outside** the sandbox.
+It connects to the real daemon socket, which the sandbox denies by design.
 
 ```bash
 uv run --project tools/container-gateway container-gateway --project .
@@ -59,7 +60,7 @@ export DOCKER_HOST=unix://./.apache-magpie-local/run/docker.sock
 
 The podman CLI needs the libpod API and therefore only ever talks to a podman backend.
 The docker CLI talks to a docker backend when one exists, otherwise to podman's compat API.
-Persist these per-machine in `.claude/settings.local.json`'s `env` block, and allow the two sockets in `sandbox.network.allowUnixSockets` — never the real daemon socket.
+Persist these per-machine in `.claude/settings.local.json`'s `env` block, and allow the two sockets in `sandbox.network.allowUnixSockets`, never the real daemon socket.
 
 ## What the policy refuses
 
@@ -91,7 +92,8 @@ At start the gateway resolves the egress gateway address for each backend and pr
 `inject-if-available` (the default) injects `HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY` into every container it creates when the probe succeeded, and logs one warning per session otherwise.
 `require` refuses container creation with `403` while the egress gateway is unreachable.
 `off` never injects, for adopters who run their own filtering.
-This is the extent of the network control — `--network host` is denied above, but a raw socket or custom DNS from inside a container is not intercepted.
+This is the extent of the network control.
+`--network host` is denied above, but a raw socket or custom DNS from inside a container is not intercepted.
 
 ## Socket paths
 
@@ -110,5 +112,6 @@ Integration tests (`-m integration`) exercise whichever real backend is installe
 ## Caveat — containers only, not a container security boundary
 
 The gateway keeps the agent off the daemon socket and off resources outside its own project's label; it does not harden the container runtime itself.
-The runtime remains the real boundary between a container and the VM or host kernel — a malicious image that escapes its container is not this gateway's problem to solve.
+The runtime remains the real boundary between a container and the VM or host kernel.
+A malicious image that escapes its container is not this gateway's problem to solve.
 Network filtering is limited to the proxy-variable injection above; raw sockets and DNS from inside a container are not intercepted.
