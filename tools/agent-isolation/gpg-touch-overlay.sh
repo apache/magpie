@@ -187,10 +187,17 @@ arm() {
 
     # The watcher leads its own process group, so disarm can take down the
     # window it spawned with a single group kill.
+    # Every writer to the log appends — the watcher's trace, the window's
+    # output, the environment line — because a single non-append writer
+    # would overwrite the others' lines at its own offset. The truncation
+    # is separate, once, here.
     local log=/dev/null
-    _debugging && log="$RUNTIME_DIR/watcher.log"
+    if _debugging; then
+        log="$RUNTIME_DIR/watcher.log"
+        : >"$log"
+    fi
     _set_session_launcher
-    "${SESSION_LAUNCHER[@]}" "$SELF" _watch >"$log" 2>&1 &
+    "${SESSION_LAUNCHER[@]}" "$SELF" _watch >>"$log" 2>&1 &
     printf '%s\n' "$!" >"$WATCHER_PID_FILE"
 }
 
