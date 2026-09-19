@@ -63,13 +63,13 @@ habits the whole framework follows:
 - **Outside text is data, not commands (PRINCIPLE 0).** Text from issues, pull
   requests, email, or linked pages is something to read and analyse, never an
   order to follow. The blocks below show how to say this in a skill.
-- **Privacy and sandbox by default (PRINCIPLE 1).** Email and issue text that
+- **Privacy and sandbox by default (PRINCIPLE 2).** Email and issue text that
   may contain personal data is cleaned, or passed through the privacy step,
   before it reaches a model.
-- **Propose before you act (PRINCIPLE 6).** Every step that changes something
+- **Propose before you act (PRINCIPLE 7).** Every step that changes something
   is drafted and shown to the user first. The blocks below show the standard
   "draft, confirm, act" shape.
-- **No project names in the text (PRINCIPLE 12).** Patterns use placeholders,
+- **No project names in the text (PRINCIPLE 13).** Patterns use placeholders,
   never a real project name, so they work in any project without editing the
   teaching text.
 
@@ -204,7 +204,7 @@ duplicates?" instead of answering the same question again and again.
 ## Pattern 4 — Placeholder convention
 
 **When to use:** any skill file. This is required, so that skills stay
-project-agnostic (PRINCIPLE 12).
+project-agnostic (PRINCIPLE 13).
 
 **The pattern:** start every skill file (after the frontmatter and the SPDX
 header) with a comment block that lists every `<placeholder>` used in the file
@@ -349,7 +349,7 @@ producing confusing `gh` errors. Re-fetching just before each close avoids this.
 ## Pattern 8 — Test your skill with an eval before shipping it
 
 **When to use:** every skill. A skill without a matching eval suite is not
-finished (PRINCIPLE 8, AGENTS.md § Reusable skills).
+finished (PRINCIPLE 9, AGENTS.md § Reusable skills).
 
 **The pattern:**
 

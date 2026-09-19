@@ -128,7 +128,7 @@ uv run --project <framework>/tools/vetted-ops vetted-op-read --caller <caller> o
 OSV.dev is a **public, external third-party service**.
 Queries sent to `api.osv.dev` are received by external infrastructure and can be logged.
 
-The following strict confidentiality rules apply per [`AGENTS.md`](../../AGENTS.md) and [`PRINCIPLES.md §15`](../../PRINCIPLES.md#15-tracker-identifiers-are-public-safe-tracker-contents-are-not):
+The following strict confidentiality rules apply per [`AGENTS.md`](../../AGENTS.md) and [`PRINCIPLES.md §16`](../../PRINCIPLES.md#16-tracker-identifiers-are-public-safe-tracker-contents-are-not):
 
 - **Safe to query:**
   - Public upstream release package names and version numbers (e.g. released dependencies).

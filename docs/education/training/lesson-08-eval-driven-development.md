@@ -456,7 +456,7 @@ should they do instead?
 <details>
 <summary>Answer</summary>
 
-A skill without an eval suite is not finished (PRINCIPLE 8 and AGENTS.md
+A skill without an eval suite is not finished (PRINCIPLE 9 and AGENTS.md
 § Reusable skills). The PR will not pass review without the eval suite, and
 "finish it later" means the skill is in an unverifiable state in the
 interim — anyone who adopts it in that window has no way to check that it
@@ -561,6 +561,6 @@ autonomy is earned incrementally.
 
 ## Licence
 
-Apache License 2.0 (PRINCIPLE 17). Pages written with help from AI carry a
+Apache License 2.0 (PRINCIPLE 18). Pages written with help from AI carry a
 `Generated-by:` note in their commit message following ASF Generative Tooling
 Guidance.

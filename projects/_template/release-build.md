@@ -194,7 +194,7 @@ Example shape:
 Optional checks that `release-rc-cut` (Step 2b, RM self-check) and
 `release-verify-rc` (Step 9, any voter) run to confirm the staged
 artefacts are a function of the tag alone. Per
-[`PRINCIPLES.md` § 11](../../PRINCIPLES.md#11-releases-are-reproducible-from-signed-source),
+[`PRINCIPLES.md` § 12](../../PRINCIPLES.md#12-releases-are-reproducible-from-signed-source),
 byte-identical output is required where the toolchain permits it and
 a documented verification path is required where it does not.
 
@@ -207,7 +207,7 @@ A project with convenience artefacts should run them at
 `byte-identical` wherever the toolchain allows, and at
 `documented-divergence` — with the divergences written down — where
 it does not; `off` means the artefacts are published on trust, which
-[`PRINCIPLES.md` § 11](../../PRINCIPLES.md#11-releases-are-reproducible-from-signed-source)
+[`PRINCIPLES.md` § 12](../../PRINCIPLES.md#12-releases-are-reproducible-from-signed-source)
 does not accept as a steady state.
 
 An ASF adopter that wants

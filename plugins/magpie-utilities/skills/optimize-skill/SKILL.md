@@ -120,7 +120,7 @@ tokens there beats cutting 2,000 from a body nobody triggers this week.
 
 For reference when this was set: 75 skills, median body 4,614 tokens,
 p90 10,613, largest 28,346; median always-on 200, largest 398.
-`PRINCIPLES.md` P14's 500-line cap still applies as the structural
+`PRINCIPLES.md` P15's 500-line cap still applies as the structural
 limit — these are the context budgets underneath it.
 
 Report both numbers in Step 5 whether or not the pass moved them.
@@ -131,7 +131,7 @@ Report both numbers in Step 5 whether or not the pass moved them.
 
 **`--all`** or **`over:<N>`** — diagnose every skill instead, ranking
 candidates without touching anything. The default threshold is 500
-lines, the `PRINCIPLES.md` P14 cap.
+lines, the `PRINCIPLES.md` P15 cap.
 
 **`pass:<name>`** — restrict to named passes. Default is to propose
 every applicable one.

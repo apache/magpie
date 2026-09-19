@@ -187,7 +187,7 @@ pinned, verified source the adopter has vouched for; `/magpie-setup` fetches
 it into the gitignored snapshot and wires it in exactly like a framework
 skill. Nothing is fetched unless the adopter commits the pin — see
 [`docs/skill-sources/`](docs/skill-sources/README.md),
-[`PRINCIPLES.md` §13](PRINCIPLES.md#13-snapshot-plus-override-never-vendored-copies),
+[`PRINCIPLES.md` §14](PRINCIPLES.md#14-snapshot-plus-override-never-vendored-copies),
 and [`RFC-AI-0006`](docs/rfcs/RFC-AI-0006.md).
 
 ## Acknowledgements

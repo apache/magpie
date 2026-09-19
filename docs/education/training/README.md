@@ -115,5 +115,5 @@ source pages or in-person instruction.
 
 ## Licence
 
-Apache License 2.0 (PRINCIPLE 17). Contributions carry a `Generated-by:` note
+Apache License 2.0 (PRINCIPLE 18). Contributions carry a `Generated-by:` note
 in their commit message following ASF Generative Tooling Guidance.

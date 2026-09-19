@@ -232,7 +232,7 @@ write the corrected step.
 
 The problem is a **project-specific name** — `apache/kafka` is hardcoded
 instead of using a placeholder. This violates the project-agnostic axis
-(PRINCIPLE 12). The step names the *issue tracker*, so the correct placeholder
+(PRINCIPLE 13). The step names the *issue tracker*, so the correct placeholder
 is `<tracker>`, and the corrected step is: *"Post this comment on
 `<tracker>#NNN`."* (This mirrors the Pattern 1 example on the source page.)
 The related placeholder `<upstream>` stands for the repository identifier
@@ -349,6 +349,6 @@ harnesses you just wrote it to support.
 
 ## Licence
 
-Apache License 2.0 (PRINCIPLE 17). Pages written with help from AI carry a
+Apache License 2.0 (PRINCIPLE 18). Pages written with help from AI carry a
 `Generated-by:` note in their commit message following ASF Generative Tooling
 Guidance.

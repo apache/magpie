@@ -118,7 +118,7 @@ An agent works by reading files and running tools. Two habits keep that honest:
 - **Approve actions deliberately.** Anything that changes the world, such as
   writing a file, running a command, or posting a comment, is a moment to look,
   not to wave through. In Magpie this is not just etiquette; it is the framework's
-  posture: the agent **proposes, you confirm, then it acts** (PRINCIPLE 6).
+  posture: the agent **proposes, you confirm, then it acts** (PRINCIPLE 7).
   Invoking a skill is never blanket permission for everything it might do next.
 
 ## Treat outside text as data, not orders
@@ -187,6 +187,6 @@ sign the tool is broken. What to do:
 
 ## Licence
 
-Everything in `docs/education/` is under the Apache License 2.0 (PRINCIPLE 17).
+Everything in `docs/education/` is under the Apache License 2.0 (PRINCIPLE 18).
 Pages written with help from AI carry a `Generated-by:` note in their commit
 message, following ASF Generative Tooling Guidance.

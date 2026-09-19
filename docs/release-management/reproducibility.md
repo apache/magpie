@@ -44,7 +44,7 @@ The tool that does the mechanical work is
 
 ## Why
 
-[`PRINCIPLES.md` § 11](../../PRINCIPLES.md#11-releases-are-reproducible-from-signed-source):
+[`PRINCIPLES.md` § 12](../../PRINCIPLES.md#12-releases-are-reproducible-from-signed-source):
 releases are reproducible from signed source to the extent the toolchain permits;
 where byte-identical output is achievable it is required,
 and where it is not, the process documents the divergence and provides a verification path a contributor can run locally.
@@ -194,7 +194,7 @@ An artefact that reproduces bit-for-bit is known-good; one whose every differenc
 | `documented-divergence` | the rebuild, then the entry's `verification_command` (for example [`diffoscope`](https://diffoscope.org/)) against the staged artefact | differences that match the entry's `known_divergences` are `WARN` and listed; anything else is `FAIL` |
 
 `documented-divergence` is the honest mode for toolchains that cannot yet produce identical bytes (a JIT-compiled bundle, a signed installer, a platform that embeds the build host).
-The known divergences are part of the release documentation, which is exactly what `PRINCIPLES.md § 11` asks for.
+The known divergences are part of the release documentation, which is exactly what `PRINCIPLES.md § 12` asks for.
 Typical levers for getting to `byte-identical`: honour `SOURCE_DATE_EPOCH` (most build tools do), pin the toolchain, `ARFLAGS=Dcvr` / `ranlib -D` for static libraries, `gzip -n`, sorted inputs, and no absolute build paths.
 
 ### Where the checks run

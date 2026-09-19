@@ -25,7 +25,7 @@ the ones that ship in-tree, the open extension points, and links to
 **community-maintained adapters defined elsewhere**.
 
 > **Discovery, never installation.** Per
-> [`PRINCIPLES.md` §13](../../PRINCIPLES.md#13-snapshot-plus-override-never-vendored-copies),
+> [`PRINCIPLES.md` §14](../../PRINCIPLES.md#14-snapshot-plus-override-never-vendored-copies),
 > this page is an index, not a package manager. Nothing here is
 > auto-fetched. To use an adapter you wire it in deliberately — point
 > your `<project-config>/project.md` (or `organizations/<org>/`) at it,

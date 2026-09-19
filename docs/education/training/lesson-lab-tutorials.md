@@ -322,7 +322,7 @@ what is the shortest correct response?
 <details>
 <summary>Answer</summary>
 
-PRINCIPLE 8: a skill without a matching eval suite is not finished, and a PR
+PRINCIPLE 9: a skill without a matching eval suite is not finished, and a PR
 that adds a skill without evals will not pass review. The shortest correct
 response: "The validator checks the frontmatter and step structure; it does
 not grade the skill's output. The evals are what prove the skill behaves
@@ -408,6 +408,6 @@ With the full module complete, you are ready to contribute.
 
 ## Licence
 
-Apache License 2.0 (PRINCIPLE 17). Pages written with help from AI carry a
+Apache License 2.0 (PRINCIPLE 18). Pages written with help from AI carry a
 `Generated-by:` note in their commit message following ASF Generative Tooling
 Guidance.

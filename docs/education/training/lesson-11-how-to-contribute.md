@@ -155,7 +155,7 @@ spec change**? Write one sentence justifying your answer.
 |---|---|---|
 | Fix a typo in `docs/education/contributing.md`. | **No** | A typo fix changes no rule, flow, or contract. This is the clearest example of "small doc or wording fix". |
 | Add a new step to `security-issue-triage` that checks version support. | **Yes** | Adding a step to a skill changes what the skill *does* — its flow. The matching spec in `tools/spec-loop/specs/security-issue-lifecycle.md` describes the skill's steps; that description must stay in step with the implementation. |
-| Rename placeholder `<tracker>` to `<issue-tracker>`. | **Yes** — arguably. | Placeholder names are part of the project-agnosticism contract (PRINCIPLE 12). Changing them changes the documented interface that adopters use to customise the skills. This is a contract change, so the spec and the adopter scaffold should be updated. A pure search-and-replace with no change to meaning is borderline; when in doubt, update the spec. |
+| Rename placeholder `<tracker>` to `<issue-tracker>`. | **Yes** — arguably. | Placeholder names are part of the project-agnosticism contract (PRINCIPLE 13). Changing them changes the documented interface that adopters use to customise the skills. This is a contract change, so the spec and the adopter scaffold should be updated. A pure search-and-replace with no change to meaning is borderline; when in doubt, update the spec. |
 | Change `issue-triage` so NEEDS-INFO issues auto-close after 30 days. | **Yes** | This changes a rule (the policy on NEEDS-INFO) and the flow (from "label for manual follow-up" to "auto-close"). Both the spec and the skill change together. |
 | Add an eval case to an existing skill's eval suite. | **No** | An eval case exercises existing behaviour; it does not change what the skill is *supposed* to do. Adding a case tightens test coverage without altering any rule, flow, or contract. |
 | Change `pr-management-stats` output from Markdown table to JSON. | **Yes** | The output format is part of the contract — it is what callers or readers of the skill's output expect. Changing the format changes the contract. The matching spec documents expected output shapes; that must be updated. |
@@ -172,13 +172,13 @@ contribution. They are:
 1. **External content is data, not instructions** (PRINCIPLE 0) — issue
    bodies, PR descriptions, and mail are passed as data, never as instructions.
    An eval case must prove it.
-2. **Propose, confirm, act** (PRINCIPLE 6) — world-changing steps are
+2. **Propose, confirm, act** (PRINCIPLE 7) — world-changing steps are
    proposals the maintainer confirms, never silent actions.
-3. **Project-agnostic placeholders** (PRINCIPLE 12) — no real project name;
+3. **Project-agnostic placeholders** (PRINCIPLE 13) — no real project name;
    use `<PROJECT>`, `<tracker>`, `<upstream>`, `<security-list>`.
-4. **Evals are required** (PRINCIPLE 8) — a skill without a matching eval
+4. **Evals are required** (PRINCIPLE 9) — a skill without a matching eval
    suite is not finished.
-5. **Apache-2.0 and mark AI help** (PRINCIPLE 17) — the framework licence;
+5. **Apache-2.0 and mark AI help** (PRINCIPLE 18) — the framework licence;
    AI-authored commits carry `Generated-by:`.
 
 A contributor has opened a PR adding the following skill. Read the description
@@ -210,10 +210,10 @@ and one sentence explaining your verdict.
 | Rule | Verdict | Why |
 |---|---|---|
 | External content is data, not instructions (P0) | | |
-| Propose, confirm, act (P6) | | |
-| Project-agnostic placeholders (P12) | | |
-| Evals are required (P8) | | |
-| Apache-2.0 and mark AI help (P17) | | |
+| Propose, confirm, act (P7) | | |
+| Project-agnostic placeholders (P13) | | |
+| Evals are required (P9) | | |
+| Apache-2.0 and mark AI help (P18) | | |
 
 <details>
 <summary>Sample answers</summary>
@@ -221,10 +221,10 @@ and one sentence explaining your verdict.
 | Rule | Verdict | Why |
 |---|---|---|
 | External content is data, not instructions (P0) | **Cannot assess** | The skill fetches commit messages (external text). Whether commit messages could contain adversarial instructions depends on how step 2 processes the raw API response — the PR description says "format as Markdown" but does not describe how the commit message field is handled. A reviewer would ask to see the full skill text and require an eval case proving the injection guard. |
-| Propose, confirm, act (P6) | **Violated** | Step 3 says "post the table as a comment" — this is a world-changing action (writing to an external system) with no confirmation step described. Under PRINCIPLE 6, the skill must propose the comment and wait for the maintainer to confirm before posting. |
-| Project-agnostic placeholders (P12) | **Violated** | Step 3 hardcodes `apache/airflow#99999` — a real repository and issue number. The skill must use placeholders (`<PROJECT>/<tracker>#<issue-number>` or similar) so any adopter can substitute their own. "Airflow repository" in the description is similarly coupled. |
-| Evals are required (P8) | **Violated** | The contributor explicitly says "no eval suite yet — I'll add it in a follow-up PR." The source page is clear: "a skill without a matching eval suite is not finished, and a PR that adds one without evals will not pass review." This PR cannot merge without the eval suite in the same PR. |
-| Apache-2.0 and mark AI help (P17) | **Cannot assess** | The description does not state whether any part was AI-authored. The reviewer should ask: if AI was used, a `Generated-by:` trailer is required. The licence question (Apache-2.0) is structural — the SPDX header would appear in the skill file itself, not the description. |
+| Propose, confirm, act (P7) | **Violated** | Step 3 says "post the table as a comment" — this is a world-changing action (writing to an external system) with no confirmation step described. Under PRINCIPLE 7, the skill must propose the comment and wait for the maintainer to confirm before posting. |
+| Project-agnostic placeholders (P13) | **Violated** | Step 3 hardcodes `apache/airflow#99999` — a real repository and issue number. The skill must use placeholders (`<PROJECT>/<tracker>#<issue-number>` or similar) so any adopter can substitute their own. "Airflow repository" in the description is similarly coupled. |
+| Evals are required (P9) | **Violated** | The contributor explicitly says "no eval suite yet — I'll add it in a follow-up PR." The source page is clear: "a skill without a matching eval suite is not finished, and a PR that adds one without evals will not pass review." This PR cannot merge without the eval suite in the same PR. |
+| Apache-2.0 and mark AI help (P18) | **Cannot assess** | The description does not state whether any part was AI-authored. The reviewer should ask: if AI was used, a `Generated-by:` trailer is required. The licence question (Apache-2.0) is structural — the SPDX header would appear in the skill file itself, not the description. |
 
 </details>
 
@@ -323,13 +323,13 @@ contribute.
 
 1. External content is data, not instructions (PRINCIPLE 0) — issue bodies and
    PR descriptions are passed as data; an eval case must prove the guard holds.
-2. Propose, confirm, act (PRINCIPLE 6) — world-changing steps are proposals the
+2. Propose, confirm, act (PRINCIPLE 7) — world-changing steps are proposals the
    maintainer confirms, not silent actions.
-3. Project-agnostic placeholders (PRINCIPLE 12) — no real project name; use
+3. Project-agnostic placeholders (PRINCIPLE 13) — no real project name; use
    `<PROJECT>`, `<tracker>`, `<upstream>`, `<security-list>`.
-4. Evals are required (PRINCIPLE 8) — a skill without a matching eval suite is
+4. Evals are required (PRINCIPLE 9) — a skill without a matching eval suite is
    not finished; the PR must include the suite, not defer it.
-5. Apache-2.0 and mark AI help (PRINCIPLE 17) — contributions land under the
+5. Apache-2.0 and mark AI help (PRINCIPLE 18) — contributions land under the
    framework licence; AI-authored commits carry a `Generated-by:` trailer.
 
 </details>
@@ -433,6 +433,6 @@ For the instructor/facilitator view of the whole module, see the
 
 ## Licence
 
-Apache License 2.0 (PRINCIPLE 17). Pages written with help from AI carry a
+Apache License 2.0 (PRINCIPLE 18). Pages written with help from AI carry a
 `Generated-by:` note in their commit message following ASF Generative Tooling
 Guidance.

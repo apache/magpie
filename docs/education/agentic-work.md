@@ -94,7 +94,7 @@ rest of this page is those guardrails.
 
 The single most important habit for autonomous work is that the agent runs in a
 **sandbox** that lists exactly what it may touch, and denies everything else by
-default (PRINCIPLE 1). This is not "we trust it not to delete the repo"; it
+default (PRINCIPLE 2). This is not "we trust it not to delete the repo"; it
 *cannot* reach what it was not granted. Each skill declares the tools it needs,
 and anything outside that list is simply unavailable.
 
@@ -105,7 +105,7 @@ production change.
 ## Guardrail 2: propose, confirm, act, even unattended
 
 You met propose-confirm-act as conversational etiquette. In autonomous work it
-becomes structural (PRINCIPLE 6). The pattern is that an unattended task does all
+becomes structural (PRINCIPLE 7). The pattern is that an unattended task does all
 the *reading and reasoning* on its own, but the *world-changing* step is left as a
 proposal a person approves: a drafted comment, an opened pull request marked for
 review, or a report on a dashboard.
@@ -180,11 +180,11 @@ evals.
   named here, such as sandbox declarations, propose-confirm-act, and injection
   defence, as copy-ready blocks.
 - **[PRINCIPLES.md](../../PRINCIPLES.md)**: PRINCIPLE 0 (data not instructions),
-  PRINCIPLE 1 (sandbox by default), and PRINCIPLE 6 (propose, confirm, act) are
+  PRINCIPLE 2 (sandbox by default), and PRINCIPLE 7 (propose, confirm, act) are
   the rules this page puts to work.
 
 ## Licence
 
-Everything in `docs/education/` is under the Apache License 2.0 (PRINCIPLE 17).
+Everything in `docs/education/` is under the Apache License 2.0 (PRINCIPLE 18).
 Pages written with help from AI carry a `Generated-by:` note in their commit
 message, following ASF Generative Tooling Guidance.

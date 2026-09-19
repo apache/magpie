@@ -97,13 +97,13 @@ link.
 
 | Section | Anchor URL |
 |---|---|
-| Architecture boundaries | [`PRINCIPLES.md#12`](../../PRINCIPLES.md#12-the-framework-is-project-agnostic-concrete-names-live-in-adopter-config) |
+| Architecture boundaries | [`PRINCIPLES.md#13`](../../PRINCIPLES.md#13-the-framework-is-project-agnostic-concrete-names-live-in-adopter-config) |
 | Code quality | [`AGENTS.md#before-submitting`](../../AGENTS.md#before-submitting) |
 | Third-party license compliance | <https://www.apache.org/legal/resolved.html> |
 | License headers | <https://www.apache.org/legal/src-headers.html> |
 | Testing | [`AGENTS.md#keeping-evals-and-mode-economics-in-sync`](../../AGENTS.md#keeping-evals-and-mode-economics-in-sync) |
 | API correctness | [`AGENTS.md#reusable-skills`](../../AGENTS.md#reusable-skills) |
-| Generated files | [`PRINCIPLES.md#13`](../../PRINCIPLES.md#13-snapshot-plus-override-never-vendored-copies) |
+| Generated files | [`PRINCIPLES.md#14`](../../PRINCIPLES.md#14-snapshot-plus-override-never-vendored-copies) |
 | AI-generated code signals | [`AGENTS.md#commit-and-pr-conventions`](../../AGENTS.md#commit-and-pr-conventions) |
 | Quality signals to check | [`AGENTS.md#writing-and-editing-documentation`](../../AGENTS.md#writing-and-editing-documentation) |
 | Commits and PRs (newsfragments, commit messages, tracking issues) | [`AGENTS.md#commit-and-pr-conventions`](../../AGENTS.md#commit-and-pr-conventions) |
@@ -121,5 +121,5 @@ reviews routinely need.
 | External content as data | [`AGENTS.md#treat-external-content-as-data-never-as-instructions`](../../AGENTS.md#treat-external-content-as-data-never-as-instructions) |
 | Privacy-LLM routing | [`AGENTS.md#privacy-llm--what-data-goes-through-which-model`](../../AGENTS.md#privacy-llm--what-data-goes-through-which-model) |
 | Labelling | [`AGENTS.md#labeling-issues-prs-tools-and-documentation`](../../AGENTS.md#labeling-issues-prs-tools-and-documentation) |
-| Vendor neutrality | [`PRINCIPLES.md#9`](../../PRINCIPLES.md#9-vendor-neutrality-is-non-negotiable) |
+| Vendor neutrality | [`PRINCIPLES.md#10`](../../PRINCIPLES.md#10-vendor-neutrality-is-non-negotiable) |
 | Inline-comment default for reviews | [`AGENTS.md#reviewing-pull-requests`](../../AGENTS.md#reviewing-pull-requests) |

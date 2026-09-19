@@ -255,6 +255,6 @@ wrapper is not available in your copy yet, follow the source page directly.
 
 ## Licence
 
-Apache License 2.0 (PRINCIPLE 17). Pages written with help from AI carry a
+Apache License 2.0 (PRINCIPLE 18). Pages written with help from AI carry a
 `Generated-by:` note in their commit message following ASF Generative Tooling
 Guidance.

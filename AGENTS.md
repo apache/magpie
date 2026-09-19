@@ -353,7 +353,7 @@ but an organization Magpie does not ship is resolved from an
 adopter-local copy under `.apache-magpie-overrides/organizations/<org>/`
 — maintained in the adopter's repo or vendored from the organization's
 own repo (discovery, never auto-fetch, per
-[`PRINCIPLES.md` §13](PRINCIPLES.md#13-snapshot-plus-override-never-vendored-copies)).
+[`PRINCIPLES.md` §14](PRINCIPLES.md#14-snapshot-plus-override-never-vendored-copies)).
 See [`docs/extending.md`](docs/extending.md) for the full extension model.
 
 A project declares only what differs from its organization; an
@@ -372,7 +372,7 @@ lists the source ids the adopter trusts and commits each pin (method + URL
 `skills/<name>/source.md` redirect (frontmatter `source:` / `organization:`
 / `skill_path:` / `evals_path:`, **not** a `SKILL.md`) names the source;
 `/magpie-setup` fetches it into the gitignored snapshot and wires it in like
-a framework skill. Per [`PRINCIPLES.md` §13](PRINCIPLES.md#13-snapshot-plus-override-never-vendored-copies)
+a framework skill. Per [`PRINCIPLES.md` §14](PRINCIPLES.md#14-snapshot-plus-override-never-vendored-copies)
 this is the one external home that *installs* rather than being merely
 referenced — pinned, verified, and adopter-vouched. See
 [`docs/skill-sources/`](docs/skill-sources/README.md).

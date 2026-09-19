@@ -39,7 +39,7 @@ which fetches a **verified, gitignored snapshot** of your repo and symlinks
 your skills in so they run exactly like in-tree Magpie skills. Your job is
 to lay the repo out the way Magpie expects and to publish a descriptor plus
 a verifiable release. Per
-[`PRINCIPLES.md` §13](../../PRINCIPLES.md#13-snapshot-plus-override-never-vendored-copies)
+[`PRINCIPLES.md` §14](../../PRINCIPLES.md#14-snapshot-plus-override-never-vendored-copies)
 nothing installs until an adopter vouches for you — being listed is
 discovery, never installation.
 

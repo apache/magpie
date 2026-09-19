@@ -297,6 +297,6 @@ If any answer is no, go back to the exercise that covers it.
 
 ## Licence
 
-Content in `docs/education/` is Apache License 2.0 (PRINCIPLE 17).
+Content in `docs/education/` is Apache License 2.0 (PRINCIPLE 18).
 AI-authored contributions carry a `Generated-by:` token in the commit message,
 per ASF Generative Tooling Guidance.

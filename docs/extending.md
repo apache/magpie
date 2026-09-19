@@ -29,14 +29,14 @@ typically owns each kind.
 
 If you only remember one rule: extensions are **discovered and wired in
 deliberately, never auto-installed** — per
-[`PRINCIPLES.md` §13](../PRINCIPLES.md#13-snapshot-plus-override-never-vendored-copies),
+[`PRINCIPLES.md` §14](../PRINCIPLES.md#14-snapshot-plus-override-never-vendored-copies),
 indexes and catalogs exist for discovery, not installation.
 
 ## What you can extend
 
 | Entity | What it is | Reference |
 |---|---|---|
-| **Skill** | a workflow the agent follows | [`PRINCIPLES.md` §14](../PRINCIPLES.md#14-skills-are-the-unit-of-authorship), [`write-skill`](../skills/write-skill/SKILL.md) |
+| **Skill** | a workflow the agent follows | [`PRINCIPLES.md` §15](../PRINCIPLES.md#15-skills-are-the-unit-of-authorship), [`write-skill`](../skills/write-skill/SKILL.md) |
 | **Skill source** | a trusted external repo a skill/family is *pulled* from | [`docs/skill-sources/`](skill-sources/README.md), [`RFC-AI-0006`](rfcs/RFC-AI-0006.md) |
 | **Tool / tool adapter** | the only layer that knows a vendor — a backend behind a capability contract | [vendor-neutrality § Tool adapters](vendor-neutrality.md#tool-adapters), [`adapters/authoring.md`](adapters/authoring.md) |
 | **Capability contract** | the stable verb set a skill depends on; the seam adapters plug into | [`tools/cve-tool/`](../tools/cve-tool/) and siblings |
@@ -52,12 +52,12 @@ upstream later.
 
 | Home | Where | Travels with | Licence | Best when |
 |---|---|---|---|---|
-| **In-tree** (upstream) | a PR into `apache/magpie` | the framework, to every adopter | Apache-2.0 ([§17](../PRINCIPLES.md#17-contributions-land-under-apache-license-20)) | the extension is broadly useful — other projects share the backend/org |
+| **In-tree** (upstream) | a PR into `apache/magpie` | the framework, to every adopter | Apache-2.0 ([§18](../PRINCIPLES.md#18-contributions-land-under-apache-license-20)) | the extension is broadly useful — other projects share the backend/org |
 | **In your adopter repo** | `<project-config>/` + `<project-config>/.apache-magpie-overrides/` (committed) | your repo | yours | it is specific to your project, or not ready to upstream |
 | **External** (another repo) | a repo you (or a community) maintain, **referenced** from config | nothing automatically — you vendor/clone it in deliberately | the author's | a third party maintains it, or it is shared across your repos but not in Magpie |
 
 The middle home is the framework's **snapshot + override** model
-([§13](../PRINCIPLES.md#13-snapshot-plus-override-never-vendored-copies)):
+([§14](../PRINCIPLES.md#14-snapshot-plus-override-never-vendored-copies)):
 the framework is a gitignored snapshot; your additions and tweaks are
 committed agent-readable markdown alongside it. The external home is the
 same act of wiring-in as the middle one — you just keep the source in
@@ -74,7 +74,7 @@ discovery.
   redirect that names a pinned, verified source the adopter has vouched
   for, fetched into the snapshot and wired in like a framework skill. This
   is the one external home that *installs* rather than merely being
-  referenced (see [`PRINCIPLES.md` §13](../PRINCIPLES.md#13-snapshot-plus-override-never-vendored-copies)
+  referenced (see [`PRINCIPLES.md` §14](../PRINCIPLES.md#14-snapshot-plus-override-never-vendored-copies)
   and [`docs/skill-sources/`](skill-sources/README.md)).
 - **Tools / adapters** — selected per capability in
   `<project-config>/project.md` *Tools enabled*. The selected adapter may

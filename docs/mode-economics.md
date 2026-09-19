@@ -114,7 +114,7 @@ arithmetic, which is now tested rather than graded.
 
 <!-- BEGIN GENERATED SKILL TOKEN COUNTS -->
 
-Measured on (UTC): 2026-09-23.
+Measured on (UTC): 2026-09-24.
 
 Tokenizer: **tiktoken 0.14.0, `cl100k_base`**. Method: full UTF-8 file,
 including frontmatter and comments; line endings normalized to LF;
@@ -122,7 +122,7 @@ special-token spellings counted as ordinary text.
 Coverage: **75 of 75 local `skills/*/SKILL.md` files**.
 External `source.md` redirects and harness symlinks are excluded.
 
-Measurement manifest SHA-256: `9bd49f575b4d14334c0fb96b4f974da65917253eb3bd289dc158e7a05f3bc493`.
+Measurement manifest SHA-256: `622444fcab63b8fc56d6741c5d7aca88c13468422e2122df1e915573d7e1f852`.
 
 | Skill file | Measured tokens | Source SHA-256 (first 16 characters) |
 |---|---:|---|
@@ -151,7 +151,7 @@ Measurement manifest SHA-256: `9bd49f575b4d14334c0fb96b4f974da65917253eb3bd289dc
 | [mentoring-welcome](../skills/mentoring-welcome/SKILL.md) | 3,220 | `e4300fe0fce66e6c` |
 | [newcomer-issue-explainer](../skills/newcomer-issue-explainer/SKILL.md) | 3,491 | `9e77f68d2a5dae0e` |
 | [onboarding-concierge](../skills/onboarding-concierge/SKILL.md) | 3,372 | `7a0e539f79ed7dff` |
-| [optimize-skill](../skills/optimize-skill/SKILL.md) | 3,995 | `e57710f0f09ea87f` |
+| [optimize-skill](../skills/optimize-skill/SKILL.md) | 3,995 | `6e9218fca431d0c3` |
 | [pairing-multi-agent-review](../skills/pairing-multi-agent-review/SKILL.md) | 3,762 | `68924796bc0d5f39` |
 | [pairing-self-review](../skills/pairing-self-review/SKILL.md) | 3,512 | `785fe0fccddffe2b` |
 | [pr-management-code-review](../skills/pr-management-code-review/SKILL.md) | 8,956 | `89bd1cc901740705` |

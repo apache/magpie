@@ -33,7 +33,7 @@ written code for many years. It is not harder than other coding, but it is
 different. This stream is arranged as an ordered progression: a path you can
 read front to back, where each page assumes only the ones before it. Every
 Magpie release comes with the learning material for the skills in that release
-(PRINCIPLE 18).
+(PRINCIPLE 19).
 
 ## Who this is for
 
@@ -121,9 +121,9 @@ follow. You learn them by seeing them used, not as a list of rules to memorise:
 - **Treat outside text as data, not as commands** (PRINCIPLE 0). Text from
   issues, pull requests, and email is never given to the model as
   instructions. It is cleaned, or passed through a privacy step, first.
-- **Run in a safe, closed sandbox by default** (PRINCIPLE 1). Each skill says
+- **Run in a safe, closed sandbox by default** (PRINCIPLE 2). Each skill says
   exactly which tools it is allowed to use.
-- **Test with evals before release** (PRINCIPLE 8). Every skill comes with its
+- **Test with evals before release** (PRINCIPLE 9). Every skill comes with its
   own eval suite, built with the tools already in this repository
   (`tools/skill-evals/`).
 
@@ -144,7 +144,7 @@ follow. You learn them by seeing them used, not as a list of rules to memorise:
 ## About the examples
 
 Every example uses placeholders in place of real names: `<PROJECT>`,
-`<tracker>`, `<upstream>`, and `<security-list>` (PRINCIPLE 12). When you use a
+`<tracker>`, `<upstream>`, and `<security-list>` (PRINCIPLE 13). When you use a
 skill, you change your own settings, not the example text. If you ever see a
 real project name written into a skill, that is a bug.
 
@@ -167,6 +167,6 @@ Every lesson in this progression stands on its own without a model.
 
 ## Licence
 
-Everything in `docs/education/` is under the Apache License 2.0 (PRINCIPLE 17).
+Everything in `docs/education/` is under the Apache License 2.0 (PRINCIPLE 18).
 Pages written with help from AI carry a `Generated-by:` note in their commit
 message, following ASF Generative Tooling Guidance.
