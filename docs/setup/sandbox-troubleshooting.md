@@ -822,6 +822,15 @@ Two parts:
 - Do not work around this by dumping the token (`gh auth token`) into
   `GH_TOKEN`; the framework reference keeps that command in
   `permissions.deny` on purpose.
+- A different symptom with a similar smell — the excluded `gh` *works*
+  but *prompts* on every call, `gh pr view` included — is a
+  permissions problem, not a sandbox one: a catch-all `Bash(gh *)` in
+  `permissions.ask` (any scope; ask rules merge from every settings
+  file). Claude Code evaluates deny, then ask, then allow, and a
+  matching ask rule prompts even when a more specific allow rule also
+  matches. Replace the catch-all with the explicit write-subcommand
+  list from the reference `.claude/settings.json`; the verify skill's
+  check 11b fails on it and the doctor's gh probe warns.
 - Linux / bubblewrap is not measured here. Go uses its own root store
   on Linux, so the TLS half does not apply; the keyring half depends
   on which credential helper `gh` is configured with.

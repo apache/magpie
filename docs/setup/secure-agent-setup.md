@@ -620,7 +620,108 @@ below, annotated.
     "ask": [
       "Bash(git push *)",                        // including --force / --force-with-lease variants
       "Bash(uv run --project ~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/*/tools/vetted-ops vetted-op *)",  // the vetted-ops WRITE dispatcher: bounded in shape, but still a remote mutation, so it keeps a confirmation
-      "Bash(gh *)"                               // safe-by-default: EVERY gh command prompts unless it matches a more-specific read-only allow rule above. Guarantees every destructive / unknown gh subcommand (gh pr close, gh run delete, gh label delete, gh repo archive, gh variable set, gh project item-delete, …) is confirmed. `gh auth token`/`refresh` are denied above (deny > ask).
+      // gh WRITE subcommands, listed one by one. Claude Code evaluates deny,
+      // then ask, then allow, and "a matching ask rule prompts even when a
+      // more specific allow rule also matches the same call" — so a catch-all
+      // `Bash(gh *)` here would force a prompt on `gh pr view` exactly as on
+      // `gh pr merge`, and the read-only allow rules above would never fire.
+      // A gh subcommand that appears in neither list falls through to the
+      // mode's default (a prompt in default mode, the classifier in auto).
+      // `gh auth token` / `refresh` are denied above (deny > ask).
+      "Bash(gh api *)",                          // GET and POST look the same to a pattern; keep the whole thing on ask (vetted-ops carries the bounded reads)
+      "Bash(gh pr create *)",
+      "Bash(gh pr comment *)",
+      "Bash(gh pr review *)",
+      "Bash(gh pr merge *)",
+      "Bash(gh pr close *)",
+      "Bash(gh pr reopen *)",
+      "Bash(gh pr edit *)",
+      "Bash(gh pr ready *)",
+      "Bash(gh pr lock *)",
+      "Bash(gh pr unlock *)",
+      "Bash(gh pr revert *)",
+      "Bash(gh pr update-branch *)",
+      "Bash(gh issue create *)",
+      "Bash(gh issue comment *)",
+      "Bash(gh issue close *)",
+      "Bash(gh issue reopen *)",
+      "Bash(gh issue edit *)",
+      "Bash(gh issue delete *)",
+      "Bash(gh issue lock *)",
+      "Bash(gh issue unlock *)",
+      "Bash(gh issue pin *)",
+      "Bash(gh issue unpin *)",
+      "Bash(gh issue transfer *)",
+      "Bash(gh issue develop *)",
+      "Bash(gh release create *)",
+      "Bash(gh release upload *)",
+      "Bash(gh release delete *)",
+      "Bash(gh release delete-asset *)",
+      "Bash(gh release edit *)",
+      "Bash(gh workflow run *)",
+      "Bash(gh workflow enable *)",
+      "Bash(gh workflow disable *)",
+      "Bash(gh run rerun *)",
+      "Bash(gh run cancel *)",
+      "Bash(gh run delete *)",
+      "Bash(gh repo create *)",
+      "Bash(gh repo delete *)",
+      "Bash(gh repo edit *)",
+      "Bash(gh repo fork *)",
+      "Bash(gh repo sync *)",
+      "Bash(gh repo archive *)",
+      "Bash(gh repo unarchive *)",
+      "Bash(gh repo rename *)",
+      "Bash(gh repo set-default *)",
+      "Bash(gh repo deploy-key add *)",
+      "Bash(gh repo deploy-key delete *)",
+      "Bash(gh repo autolink create *)",
+      "Bash(gh repo autolink delete *)",
+      "Bash(gh label create *)",
+      "Bash(gh label delete *)",
+      "Bash(gh label edit *)",
+      "Bash(gh label clone *)",
+      "Bash(gh cache delete *)",
+      "Bash(gh secret set *)",
+      "Bash(gh secret delete *)",
+      "Bash(gh variable set *)",
+      "Bash(gh variable delete *)",
+      "Bash(gh gist create *)",
+      "Bash(gh gist edit *)",
+      "Bash(gh gist delete *)",
+      "Bash(gh gist rename *)",
+      "Bash(gh auth login *)",
+      "Bash(gh auth logout *)",
+      "Bash(gh auth setup-git *)",
+      "Bash(gh auth switch *)",
+      "Bash(gh alias set *)",
+      "Bash(gh alias import *)",
+      "Bash(gh alias delete *)",
+      "Bash(gh extension install *)",
+      "Bash(gh extension remove *)",
+      "Bash(gh extension upgrade *)",
+      "Bash(gh extension exec *)",
+      "Bash(gh ssh-key add *)",
+      "Bash(gh ssh-key delete *)",
+      "Bash(gh gpg-key add *)",
+      "Bash(gh gpg-key delete *)",
+      "Bash(gh config set *)",
+      "Bash(gh project create *)",
+      "Bash(gh project edit *)",
+      "Bash(gh project delete *)",
+      "Bash(gh project close *)",
+      "Bash(gh project copy *)",
+      "Bash(gh project link *)",
+      "Bash(gh project unlink *)",
+      "Bash(gh project mark-template *)",
+      "Bash(gh project field-create *)",
+      "Bash(gh project field-delete *)",
+      "Bash(gh project item-add *)",
+      "Bash(gh project item-create *)",
+      "Bash(gh project item-delete *)",
+      "Bash(gh project item-edit *)",
+      "Bash(gh project item-archive *)",
+      "Bash(gh codespace *)"
     ]
   }
 }
@@ -2491,7 +2592,11 @@ below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
    the command to run myself: it cannot see the display from
    inside the sandbox.
 10. `sandbox.excludedCommands` contains `"gh *"` (project or
-    user scope). Note, without failing, that the exclusion only
+    user scope), and `permissions.ask` lists the gh write
+    subcommands one by one — a catch-all `Bash(gh *)` in `ask`
+    (any scope) is ✗: ask beats allow regardless of specificity,
+    so it forces a prompt on every read-only gh call the allow
+    rules were meant to exempt. Note, without failing, that the exclusion only
     applies when every part of a Bash invocation is `cd …` or
     `gh …` — a pipe, `$(…)`, a loop, or any file redirection puts
     `gh` back in the sandbox (anthropics/claude-code#95532; see

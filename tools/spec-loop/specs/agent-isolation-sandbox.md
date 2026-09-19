@@ -17,9 +17,9 @@ acceptance:
     filesystem reads and network egress; runtime-specific exceptions
     are documented in the adapter and this spec.
   - Credential-shaped env vars are stripped before the agent execs.
-  - State-mutating shell calls (git push, and every gh command except
-    allow-listed read-only ones) require a confirmation prompt;
-    secrets/cred files are deny-read.
+  - State-mutating shell calls (git push and every gh write subcommand,
+    each listed explicitly) require a confirmation prompt; read-only gh
+    subcommands do not; secrets/cred files are deny-read.
 ---
 
 # Agent isolation / layered sandbox
@@ -105,9 +105,14 @@ The reference model is four layers, layered:
 3. **Tool permissions** — the host's `permissions.deny` blocks denied
    paths/binaries (`Read(~/.ssh/**)`, `Bash(curl *)`, …).
 4. **Forced confirmation** — `permissions.ask` on `git push` and,
-   safe-by-default, on `Bash(gh *)`: every `gh` command prompts unless a
-   more-specific read-only `allow` rule (`gh pr view`, `gh * list`, …)
-   exempts it, so every destructive or unknown `gh` subcommand confirms.
+   on every `gh` **write** subcommand, listed one by one (`gh pr merge`,
+   `gh issue close`, `gh release delete`, `gh api`, …). Not on a
+   catch-all `Bash(gh *)`: Claude Code evaluates deny, then ask, then
+   allow, and a matching ask rule prompts even when a more specific
+   allow rule also matches, so a catch-all would silently defeat the
+   read-only allows (`gh pr view`, `gh * list`, …) and prompt on every
+   read. A subcommand in neither list falls through to the mode's
+   default (prompt in default mode, classifier in auto).
 
 Pinned system tools (`bubblewrap`, `socat`, agent CLI) are aged through a
 cooldown window; bumps are PRs, not silent updates.
@@ -123,8 +128,9 @@ cooldown window; bumps are PRs, not silent updates.
 1. Filesystem and network default-deny with explicit allow-lists in the
    reference setup; Gemini's different boundaries are documented above.
 2. The clean-env wrapper strips credential-shaped vars before exec.
-3. `git push` and `Bash(gh *)` are in `permissions.ask` (read-only `gh`
-   exempted via `allow`); secret/cred files are in `permissions.deny`.
+3. `git push` and every `gh` write subcommand are in `permissions.ask`,
+   the read-only `gh` subcommands are in `allow`, and no catch-all
+   `Bash(gh *)` sits in `ask`; secret/cred files are in `permissions.deny`.
 
 ## Validation
 
@@ -134,8 +140,9 @@ uv run --directory tools/agent-guard --group dev pytest
 uv run --project tools/permission-audit --group dev pytest
 uv run --project tools/egress-gateway --group dev pytest
 python3 -c "import json,sys; s=json.load(open('.claude/settings.json')); \
-  asks=' '.join(s['permissions']['ask']); \
-  sys.exit(0 if 'git push' in asks and 'gh *' in asks else 1)"
+  ask=s['permissions']['ask']; \
+  sys.exit(0 if any(a.startswith('Bash(git push') for a in ask) \
+    and 'Bash(gh pr merge *)' in ask and 'Bash(gh *)' not in ask else 1)"
 ```
 
 ## Known gaps

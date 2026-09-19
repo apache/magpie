@@ -380,6 +380,16 @@ Walk each in order:
     Missing on macOS is ✗; missing on Linux is ⚠ (a sandboxed `gh`
     may work there, but the reference config expects the exclusion).
 
+    **11b — no catch-all `gh` ask rule.** `permissions.ask` (project,
+    local and user scope alike — ask rules merge from every source)
+    must not contain `Bash(gh *)`. Claude Code evaluates deny, then
+    ask, then allow, and "a matching ask rule prompts even when a more
+    specific allow rule also matches", so the catch-all forces a prompt
+    on every read-only `gh` call that the `allow` rules were meant to
+    exempt — the reference config lists the write subcommands one by
+    one instead. A catch-all in any scope is ✗, and the report should
+    say which file carries it.
+
     Report as a **note**, not a failure: the exclusion applies only
     when every part of a Bash invocation is `cd …` or `gh …`. A pipe,
     a `$(…)` substitution, a loop, or any file redirection (even
@@ -424,10 +434,12 @@ without invoking it:
 - ✗ on check 10c → the one-file `allowRead` widening in the
   troubleshooting entry, applied by the user — never from this
   skill — then re-verify.
-- ✗ on check 11 (`"gh *"` missing from `sandbox.excludedCommands`)
-  → the operator adds it themselves (settings.json widenings are
-  never applied from a skill), following the catalog entry linked
-  in the check; then re-run `setup-isolated-setup-verify`.
+- ✗ on check 11 (`"gh *"` missing from `sandbox.excludedCommands`,
+  or a catch-all `Bash(gh *)` in `permissions.ask`) → the operator
+  edits settings themselves (settings.json changes are never applied
+  from a skill): add the exclusion, or replace the catch-all with the
+  explicit write-subcommand list from the reference
+  `.claude/settings.json`; then re-run `setup-isolated-setup-verify`.
 - The user-scope script copies live under `~/.claude-config/`
   for users who maintain that sync repo; uncommitted local edits
   there → `setup-shared-config-sync`.

@@ -76,11 +76,29 @@ def test_baseline_excludes_gh_from_sandbox(baseline: dict[str, Any]) -> None:
     assert "gh *" in baseline["sandbox"].get("excludedCommands", [])
 
 
-def test_baseline_asks_on_all_gh_by_default(baseline: dict[str, Any]) -> None:
-    # Safe-by-default: every gh command prompts unless a more-specific
-    # read-only allow rule exempts it, so destructive/unknown gh always asks.
-    assert "Bash(gh *)" in baseline["permissions"]["ask"]
+def test_baseline_asks_on_gh_writes_not_on_reads(baseline: dict[str, Any]) -> None:
+    # Claude Code evaluates deny, then ask, then allow, and "a matching ask
+    # rule prompts even when a more specific allow rule also matches", so a
+    # catch-all `Bash(gh *)` in ask would silently defeat every read-only
+    # allow below it. The write subcommands are listed one by one instead.
+    ask = baseline["permissions"]["ask"]
+    assert "Bash(gh *)" not in ask
+    for rule in (
+        "Bash(gh api *)",
+        "Bash(gh pr merge *)",
+        "Bash(gh issue close *)",
+        "Bash(gh release delete *)",
+        "Bash(gh repo delete *)",
+    ):
+        assert rule in ask, rule
     assert "Bash(gh pr view *)" in baseline["permissions"]["allow"]
+
+
+def test_catch_all_gh_ask_rule_is_an_invariant_error(baseline: dict[str, Any]) -> None:
+    weakened = copy.deepcopy(baseline)
+    weakened["permissions"]["ask"].append("Bash(gh *)")
+    errors = check_invariants(weakened)
+    assert any("Bash(gh *)" in e for e in errors), errors
 
 
 def test_main_exits_zero_on_repo(monkeypatch: pytest.MonkeyPatch) -> None:

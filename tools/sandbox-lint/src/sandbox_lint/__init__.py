@@ -241,6 +241,18 @@ def check_invariants(settings: dict[str, Any]) -> list[str]:
         for required in REQUIRED_PERMISSIONS_DENY:
             if required not in deny:
                 errors.append(f"permissions.deny: must contain {required!r}")
+        # Claude Code evaluates deny, then ask, then allow, and a matching ask
+        # rule prompts even when a more specific allow rule also matches. A
+        # catch-all gh ask rule therefore prompts on every read-only gh call
+        # and silently defeats the read-only allow list; writes are listed
+        # subcommand by subcommand instead.
+        ask = set(perms.get("ask", []) or [])
+        if "Bash(gh *)" in ask:
+            errors.append(
+                "permissions.ask: must not contain 'Bash(gh *)' (ask beats allow "
+                "regardless of specificity, so it prompts on every read-only gh call; "
+                "list the gh write subcommands one by one)"
+            )
 
     return errors
 

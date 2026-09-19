@@ -201,8 +201,7 @@ The reference implementation's project-scope `.claude/settings.json`, annotated
       "Bash(gh issue create *)", "Bash(gh issue edit *)",
       "Bash(gh issue close *)", "Bash(gh issue comment *)",
       "Bash(gh release create *)",
-      "Bash(gh api * -X *)",                     // any non-default-method API call
-      "Bash(gh api * -f *)", "Bash(gh api * -F *)"  // any payload-bearing API call
+      "Bash(gh api *)"                           // GET and POST look the same to a prefix rule, so the whole thing asks; vetted-ops carries the bounded reads
     ]
   }
 }
@@ -216,12 +215,19 @@ The `permissions.ask` block above intercepts every write-side action whose eff
 
 #### Layer 3a — Bounded operations (the `vetted-ops` dispatcher)
 
-Layer 3's weakness is not its rules, it is its **volume**. A wildcard like
-`Bash(gh *)` is doing real work — every unknown `gh` subcommand prompts — but it
-prompts for `gh issue view` as loudly as for `gh issue close`. On a sweep across
-thirty trackers that is a hundred prompts, and the hundredth gets the attention
-the first deserved. Prompt fatigue is not a usability complaint here; it is the
-mechanism by which Layer 3 stops working.
+Layer 3's weakness is not its rules, it is its **volume**. The reference
+config once carried a wildcard `Bash(gh *)` in `ask`, on the assumption that a
+more specific read-only `allow` rule would exempt `gh issue view`. It does not:
+Claude Code evaluates deny, then ask, then allow, and a matching ask rule
+prompts even when a more specific allow rule also matches, so the wildcard
+prompted for `gh issue view` as loudly as for `gh issue close`. The reference
+now lists the write subcommands one by one, but the shape of the problem
+survives wherever a prefix rule cannot tell a read from a write — `gh api`
+above all, where a GET and a POST look identical, so the whole command stays on
+`ask` and every read through it prompts. On a sweep across thirty trackers that
+is a hundred prompts, and the hundredth gets the attention the first deserved.
+Prompt fatigue is not a usability complaint here; it is the mechanism by which
+Layer 3 stops working.
 
 [`tools/vetted-ops`](https://github.com/apache/magpie/blob/main/tools/vetted-ops)
 narrows the surface so read traffic can leave the prompt stream without the

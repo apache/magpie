@@ -378,6 +378,13 @@ else
       *) echo "PROBE: gh-sandbox → ⚠ (gh failed for another reason, rc=$rc: $(echo "$out" | head -1))" ;;
     esac
   fi
+  # A catch-all ask rule prompts on every gh call, reads included:
+  # Claude Code evaluates deny, then ask, then allow, regardless of
+  # how specific the allow rules are.
+  if cat .claude/settings.json .claude/settings.local.json ~/.claude/settings.json 2>/dev/null \
+      | grep -q '"Bash(gh \*)"'; then
+    echo "PROBE: gh-sandbox → ⚠ (catch-all \"Bash(gh *)\" in permissions.ask — every gh call prompts, read-only allow rules never fire)"
+  fi
 fi
 ```
 
@@ -389,6 +396,7 @@ fi
 | `✓ … "gh *" is in excludedCommands` | Pass | The known macOS shape, and the framework's exclusion is present. Calls still fail if they are not `cd`/`gh`-only invocations — see the catalog entry. |
 | `✗ … NOT found in excludedCommands` | Fail | `gh` cannot work inside the sandbox on this machine and nothing runs it outside. |
 | `⚠ gh failed for another reason` | Warn | Not the catalogued shape (network down, not logged in, …); inspect the message. |
+| `⚠ catch-all "Bash(gh *)" in permissions.ask` | Warn | Ask beats allow regardless of specificity, so this rule prompts on every read-only `gh` call. Replace it with the explicit write-subcommand list from the reference `.claude/settings.json`. Extra line, printed after the main result. |
 | `⊘ gh not on PATH` | Skip | `gh` not installed; not a sandbox restriction. |
 
 `~/.claude/settings.json` is usually unreadable from inside the

@@ -109,6 +109,13 @@ error, and two skills that probe or verify the setup on demand.
   inside `gh` (guarded to `$PWD` and the Claude scratch tree, because
   the alias runs unsandboxed), and the upstream report
   anthropics/claude-code#95532 for the redirection regression.
+- **The `gh` ask-rule rule.** `permissions.ask` names gh write
+  subcommands one by one and never a catch-all `Bash(gh *)`: Claude
+  Code evaluates deny, then ask, then allow, and a matching ask rule
+  prompts even when a more specific allow rule also matches, so the
+  catch-all would turn every read-only gh call into a prompt. The verify
+  skill fails on a catch-all in any scope; the doctor's gh probe warns
+  on it.
 - **User-scope install.** The hook is meant for `~/.claude/settings.json`
   so it fires in every project on the host; the framework's own
   `.claude/settings.json` does not wire it.
