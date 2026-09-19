@@ -57,6 +57,12 @@ def libpod(**top: Any) -> dict[str, Any]:
     return {"image": "alpine", **top}
 
 
+def compat_with_endpoints(endpoints: dict[str, Any]) -> dict[str, Any]:
+    body = compat()
+    body["NetworkingConfig"] = {"EndpointsConfig": endpoints}
+    return body
+
+
 @pytest.mark.parametrize(
     ("body", "rule"),
     [
@@ -138,6 +144,19 @@ def libpod(**top: Any) -> dict[str, Any]:
         (libpod(netns={"nsmode": "ns", "value": "/proc/1/ns/net"}), "network"),
         (libpod(netns={"nsmode": "from-container", "value": "deadbeef"}), "network"),
         (libpod(netns={"nsmode": "from-pod"}), "network"),
+        # --- Fix round 3 additions below ---
+        # S1: the `_nsmode` malformed sentinel was not fail-closed for the network rule
+        (libpod(netns={"nsmode": "host", "extra": 1}), "network"),
+        (libpod(netns={"nsmode": "container", "value": "x", "extra": 1}), "network"),
+        (libpod(netns={"nsmode": "host", "Extra": 1}), "network"),
+        (compat(NetworkMode="<malformed>"), "network"),
+        # S2: `host`/`none` attached through the endpoint maps
+        (compat_with_endpoints({"host": {}}), "network"),
+        (compat_with_endpoints({"HOST": {}}), "network"),
+        (compat_with_endpoints({"none": {}}), "network"),
+        (libpod(networks={"host": {}}), "network"),
+        (libpod(networks={"HOST": {}}), "network"),
+        (libpod(networks={"none": {}}), "network"),
     ],
 )
 def test_denied_shapes(ctx: PolicyContext, body: dict[str, Any], rule: str) -> None:
@@ -370,6 +389,10 @@ def test_malformed_bodies_never_raise(ctx: PolicyContext, body: Any, libpod: boo
         (compat(NetworkMode="mynet"), False),
         (libpod(netns={"nsmode": "bridge"}), True),
         (libpod(portmappings=[{"container_port": 80, "host_port": 8080}], env={"HTTP_PROXY": "x"}), True),
+        # S3: `"HostConfig": null` is a request check_create allows (see
+        # _malformed_shape) but the old `out.setdefault("HostConfig", {})`
+        # left it as None and crashed on `.get()`.
+        ({"Image": "alpine", "HostConfig": None}, False),
     ],
 )
 def test_apply_create_rewrites_succeeds_on_every_allowed_body(
@@ -377,3 +400,23 @@ def test_apply_create_rewrites_succeeds_on_every_allowed_body(
 ) -> None:
     assert check_create(body, ctx, libpod=libpod) is None
     apply_create_rewrites(body, ctx, libpod=libpod)  # must not raise
+
+
+# --- Fix round 3 additions below ---
+
+
+def test_ipcns_shareable_is_allowed(ctx: PolicyContext) -> None:
+    # podman's containers.conf default for the IPC namespace: private with
+    # opt-in sharing, not host - must not be denied.
+    assert check_create(libpod(ipcns={"nsmode": "shareable"}), ctx, libpod=True) is None
+    d = check_create(libpod(ipcns={"nsmode": "host"}), ctx, libpod=True)
+    assert isinstance(d, Deny) and d.reason.startswith("namespace")
+
+
+def test_endpoints_config_and_networks_still_allow_real_names(ctx: PolicyContext) -> None:
+    # S2 must not regress the R6 "a real named network is allowed and
+    # returned" behaviour while closing the host/none escape.
+    assert check_create(compat_with_endpoints({"mynet": {}}), ctx, libpod=False) is None
+    assert named_networks(compat_with_endpoints({"mynet": {}}), False) == ["mynet"]
+    assert check_create(libpod(networks={"mynet": {}}), ctx, libpod=True) is None
+    assert named_networks(libpod(networks={"mynet": {}}), True) == ["mynet"]

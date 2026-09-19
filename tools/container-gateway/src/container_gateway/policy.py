@@ -38,6 +38,7 @@ flag, and it does not re-validate what ``check_create`` already accepted.
 from __future__ import annotations
 
 import copy
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -64,7 +65,7 @@ _PROXY_VARS_CASEFOLD = frozenset(v.casefold() for v in PROXY_VARS)
 # equivalents (pidns / ipcns / utsns / userns / cgroupns): an allow-list, not
 # a deny-list, so an unrecognised mode (a new backend feature, a typo, an
 # attempt at obfuscation) is refused rather than silently passed through.
-_NAMESPACE_ALLOWED_MODES = frozenset({"", "private", "pod", "auto", "keep-id", "nomap"})
+_NAMESPACE_ALLOWED_MODES = frozenset({"", "private", "pod", "auto", "keep-id", "nomap", "shareable"})
 
 # A dict-shaped namespace mode (``{"nsmode": ..., "value": ...}``) whose keys
 # are not a subset of this set is not a namespace object the policy
@@ -77,16 +78,30 @@ _NSMODE_MALFORMED_SENTINEL = "<malformed>"
 # NetworkMode / netns: a fixed set of safe keywords is allowed outright
 # (exact match, casefolded); anything that casefold-starts with one of these
 # prefixes targets a host, foreign, or otherwise unsafe namespace and is
-# refused regardless of spelling case; everything else is a named network,
-# allowed here and left to the relay's label check (Task 9).
+# refused regardless of spelling case; everything else must look like a
+# real network name (see ``_NETWORK_NAME_RE``) to be treated as a named
+# network, allowed here and left to the relay's label check (Task 9).
 _NETWORK_MODE_KEYWORDS = frozenset(
     {"", "default", "bridge", "none", "private", "slirp4netns", "pasta", "pod"}
 )
 _NETWORK_DENIED_PREFIXES = ("host", "container", "ns", "path", "from-")
 
+# The docker/podman network-name grammar: an unrecognised value that does not
+# even look like a network name is refused rather than treated as one.
+_NETWORK_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
+
+# NetworkingConfig.EndpointsConfig / libpod networks keys: `host`/`none` (any
+# case) are not real networks a project could create — moby promotes a lone
+# EndpointsConfig entry to the effective network mode, so attaching to a
+# network literally named `host`/`none` is the same host/no-network escape
+# NetworkMode itself refuses. `bridge`/`podman`/`default` are real built-in
+# networks every project can already reach without a label check.
+_NETWORK_HOST_LIKE_KEY_NAMES = frozenset({"host", "none"})
+_ENDPOINT_KEY_ALLOWED_KEYWORDS = frozenset({"bridge", "podman", "default"})
+
 # Built-in network names every project can already reach; never treated as a
 # *named* (foreign) network the relay needs to label-check.
-_BUILTIN_NETWORK_NAMES = frozenset({"bridge", "podman", "host", "none"})
+_BUILTIN_NETWORK_NAMES = frozenset({"bridge", "podman", "default", "host", "none"})
 
 # SecurityOpt keys the policy recognises at all; every other key (including
 # unmask, proc-opts) is refused outright.
@@ -353,10 +368,64 @@ def _mounts_deny(
     return None
 
 
+def _network_mode_deny(key: str, net: str) -> Deny | None:
+    """Exact classifier for a ``NetworkMode``/``netns`` value.
+
+    keyword -> allow; the ``_nsmode`` malformed sentinel -> deny; a
+    host/foreign-namespace prefix -> deny; otherwise the value must look
+    like a real network name (see ``_NETWORK_NAME_RE``) to be treated as a
+    named network, allowed here and left to the relay's label check
+    (Task 9) — anything else is refused rather than passed through.
+    """
+    net_cf = net.casefold()
+    if net_cf in _NETWORK_MODE_KEYWORDS:
+        return None
+    if net == _NSMODE_MALFORMED_SENTINEL:
+        return Deny(f"network: {key} netns object has unexpected keys")
+    if net_cf.startswith(_NETWORK_DENIED_PREFIXES):
+        return Deny(f"network: {key}={net} is refused; use a bridge network created through the gateway")
+    if not _NETWORK_NAME_RE.match(net):
+        return Deny(f"network: {net} is not a valid network name")
+    return None
+
+
+def _network_key_deny(source: str, name: str) -> Deny | None:
+    """Exact classifier for one ``NetworkingConfig.EndpointsConfig`` / libpod ``networks`` key.
+
+    Mirrors ``_network_mode_deny`` but with a key-shaped allow-list: real
+    built-in networks (``bridge``/``podman``/``default``) allow, ``host``/
+    ``none`` deny (moby promotes a lone ``EndpointsConfig`` entry to the
+    effective network mode, so this is the same escape ``NetworkMode``
+    itself refuses), and the same malformed-sentinel / denied-prefix /
+    name-grammar checks apply to everything else.
+    """
+    name_cf = name.casefold()
+    if name_cf in _ENDPOINT_KEY_ALLOWED_KEYWORDS:
+        return None
+    if name == _NSMODE_MALFORMED_SENTINEL:
+        return Deny(f"network: {source} netns object has unexpected keys")
+    if name_cf in _NETWORK_HOST_LIKE_KEY_NAMES or name_cf.startswith(_NETWORK_DENIED_PREFIXES):
+        return Deny(f"network: {source}={name} is refused; use a bridge network created through the gateway")
+    if not _NETWORK_NAME_RE.match(name):
+        return Deny(f"network: {name} is not a valid network name")
+    return None
+
+
 def _named_network_candidate(host: dict[str, Any], libpod: bool) -> str | None:
+    """The named-network value of ``NetworkMode``/``netns``, if any.
+
+    Deliberately distinct from ``_network_mode_deny`` returning ``None``: a
+    fixed keyword (``""``, ``bridge``, ...) is *allowed* by the policy but is
+    not a *named* network to report — only a value that clears every check
+    and matches the network-name grammar is a genuine candidate.
+    """
     net = _nsmode(host.get("netns") if libpod else host.get("NetworkMode"))
     net_cf = net.casefold()
-    if net_cf in _NETWORK_MODE_KEYWORDS or net_cf.startswith(_NETWORK_DENIED_PREFIXES):
+    if net_cf in _NETWORK_MODE_KEYWORDS or net == _NSMODE_MALFORMED_SENTINEL:
+        return None
+    if net_cf.startswith(_NETWORK_DENIED_PREFIXES):
+        return None
+    if not _NETWORK_NAME_RE.match(net):
         return None
     return net
 
@@ -388,9 +457,15 @@ def named_networks(body: dict[str, Any], libpod: bool) -> list[str]:
     Covers the ``NetworkMode``/``netns`` named-network value, compat
     ``NetworkingConfig.EndpointsConfig`` keys, and libpod top-level
     ``networks`` keys. Built-in network names (``bridge``, ``podman``,
-    ``host``, ``none``) are excluded — ``host``/``none`` are refused
-    outright by ``check_create`` anyway, and ``bridge``/``podman`` are
-    reachable by every project already. Deduplicated, first-seen order.
+    ``default``, ``host``, ``none``) are excluded — ``check_create`` already
+    refuses ``host``/``none`` outright, whether as a ``NetworkMode``/``netns``
+    value or as an ``EndpointsConfig``/``networks`` key (moby promotes a lone
+    ``EndpointsConfig`` entry to the effective network mode, so a `host`/
+    `none` key is the same escape), and ``bridge``/``podman``/``default`` are
+    real built-in networks every project can already reach without a label
+    check. This helper assumes the same precondition as
+    ``apply_create_rewrites``: it is only meaningful on a body ``check_create``
+    already accepted. Deduplicated, first-seen order.
     """
     host = _host(body, libpod)
     candidates: list[str] = []
@@ -465,14 +540,31 @@ def _check_create(body: dict[str, Any], ctx: PolicyContext, *, libpod: bool) -> 
         mode = _nsmode(host.get(key))
         if mode.casefold() not in _NAMESPACE_ALLOWED_MODES:
             return Deny(
-                f"namespace: {key}={mode} is refused; only private, pod, auto, keep-id and nomap are allowed"
+                f"namespace: {key}={mode} is refused; "
+                "only private, pod, auto, keep-id, nomap and shareable are allowed"
             )
 
     for key in ("NetworkMode", "netns"):
-        net = _nsmode(host.get(key))
-        net_cf = net.casefold()
-        if net_cf not in _NETWORK_MODE_KEYWORDS and net_cf.startswith(_NETWORK_DENIED_PREFIXES):
-            return Deny(f"network: {key}={net} is refused; use a bridge network created through the gateway")
+        net_deny = _network_mode_deny(key, _nsmode(host.get(key)))
+        if net_deny is not None:
+            return net_deny
+
+    if libpod:
+        networks = body.get("networks")
+        if isinstance(networks, dict):
+            for network_key in networks:
+                key_deny = _network_key_deny("networks", str(network_key))
+                if key_deny is not None:
+                    return key_deny
+    else:
+        networking_config = body.get("NetworkingConfig")
+        if isinstance(networking_config, dict):
+            endpoints_config = networking_config.get("EndpointsConfig")
+            if isinstance(endpoints_config, dict):
+                for network_key in endpoints_config:
+                    key_deny = _network_key_deny("NetworkingConfig.EndpointsConfig", str(network_key))
+                    if key_deny is not None:
+                        return key_deny
 
     security_opt_deny = _security_opt_deny(host)
     if security_opt_deny is not None:
@@ -534,7 +626,12 @@ def apply_create_rewrites(body: dict[str, Any], ctx: PolicyContext, *, libpod: b
             out["env"] = env
     else:
         out["Labels"] = with_label(out.get("Labels"), ctx.slug)
-        hc = out.setdefault("HostConfig", {})
+        # `out.setdefault` only fills in an *absent* key; an explicit
+        # `"HostConfig": null` (which check_create allows - see
+        # `_malformed_shape`) leaves `hc` as `None` and the `.get()` below
+        # raises. `or {}` normalises both "absent" and "explicit null".
+        hc = out.get("HostConfig") or {}
+        out["HostConfig"] = hc
         for bindings in (hc.get("PortBindings") or {}).values():
             for b in bindings or []:
                 if not b.get("HostIp"):
