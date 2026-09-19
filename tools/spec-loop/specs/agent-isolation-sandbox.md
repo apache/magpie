@@ -76,9 +76,10 @@ existing sandbox grants can widen the baseline. See `docs/adapters/gemini.md`.
   `sandbox-lint --gemini .gemini` checks the static profile, with opt-in pytest integration tests against native 0.59.0 APIs for settings, policies, headless refusal, and Linux enforcement.
   Every Gemini upgrade requires revalidating the native probe against that version; static CI checks alone do not establish effective policy precedence.
 - Skills: `setup-isolated-setup-install`, `-update`, `-verify`,
-  `-doctor` (probes live sandbox restrictions — SSH-agent reachability,
-  localhost port binding, docker/podman socket — and maps each to a
-  numbered troubleshooting entry; read-only, never modifies settings).
+  `-doctor`. The diagnostic side — the failure catalog in
+  `docs/setup/sandbox-troubleshooting.md`, the `sandbox-error-hint.sh`
+  hook, the doctor's live probes and the verify checks — is specified
+  in [`sandbox-diagnostics.md`](sandbox-diagnostics.md).
 - `docs/setup/secure-agent-internals.md` — the three-layer model.
 
 ## Behaviour & contract
@@ -94,9 +95,13 @@ The reference model is four layers, layered:
 2. **Filesystem + network sandbox** — Linux `bubblewrap` + `socat` SNI
    proxy; macOS `sandbox-exec`. Default-deny reads outside the tree and
    egress to non-allowed hosts. `sandbox.excludedCommands` carves out
-   commands that need host auth the sandbox blocks — `gh` (OS keyring);
-   the blast radius is held by layers 3 (`gh auth token` / `gh auth
-   refresh` denied) and 4 (`gh` writes gated by `ask`).
+   commands that need host auth the sandbox blocks — `gh` (OS keyring
+   and, on macOS, Security.framework TLS verification); the blast
+   radius is held by layers 3 (`gh auth token` / `gh auth refresh`
+   denied) and 4 (`gh` writes gated by `ask`). The exemption applies
+   only to invocations made of `cd …` / `gh …` parts; the shape rule
+   and its failure signature are in
+   [`sandbox-diagnostics.md`](sandbox-diagnostics.md).
 3. **Tool permissions** — the host's `permissions.deny` blocks denied
    paths/binaries (`Read(~/.ssh/**)`, `Bash(curl *)`, …).
 4. **Forced confirmation** — `permissions.ask` on `git push` and,

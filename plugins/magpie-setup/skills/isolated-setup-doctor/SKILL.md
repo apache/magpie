@@ -7,10 +7,11 @@ mode: Meta
 description: |
   Probe the secure-agent setup for in-session functional
   restrictions that block legitimate workflows in Claude Code,
-  Codex, or Gemini CLI. Runtime-specific diagnostics; Claude has five live
+  Codex, or Gemini CLI. Runtime-specific diagnostics; Claude has six live
   probes — SSH agent / Yubikey reachability, localhost port
   binding, docker / podman runtime socket, per-project scratch
-  directory, and the ssh signing key's readability — each pointing the
+  directory, the ssh signing key's readability, and `gh` running
+  outside the sandbox — each pointing the
   user at the matching numbered troubleshooting entry and its
   settings.json remediation (see body). Read-only — never
   modifies settings.json, never invokes the sandbox bypass.
@@ -94,8 +95,8 @@ catalog's *Adding a new entry* section.
   and point at the catalog entry; do not auto-fix.
 - **Run every probe, even on early failure.** Do not stop at the
   first ✗. The value of the report is in the full picture — a
-  user may have one of three independent restrictions, or all
-  three, and discovering them one re-run at a time is annoying.
+  user may have one of six independent restrictions, or all
+  six, and discovering them one re-run at a time is annoying.
 - **Distinguish ✗ (failing) from ⊘ (not applicable).** ✗ means
   the probe ran and the sandbox blocked it. ⊘ means the probe
   was skipped because the prerequisite is absent (e.g. no
@@ -110,9 +111,9 @@ catalog's *Adding a new entry* section.
   Do not paraphrase the remediation — the catalog is the single
   source of truth.
 
-## The 5 probes
+## The 6 probes
 
-The current set covers the five failure modes the catalog
+The current set covers the six failure modes the catalog
 documents. New probes are added when new entries land in the
 catalog; the two stay in lock-step.
 
@@ -341,11 +342,79 @@ fi
 **On ✗ → remediation:**
 [`docs/setup/sandbox-troubleshooting.md` — Signed commit fails before any touch when git signs with ssh](../../../../docs/setup/sandbox-troubleshooting.md#signed-commit-fails-before-any-touch-when-git-signs-with-ssh).
 
+### Probe 6 — `gh` runs outside the sandbox
+
+Tests whether `gh` can reach GitHub from a sandboxed Bash call, and
+if not, whether the `sandbox.excludedCommands: ["gh *"]` exclusion
+that the framework reference relies on is in place. On macOS a
+sandboxed `gh` cannot verify TLS or read the keychain
+(`x509: OSStatus -26276` / `HTTP 401`), so the exclusion is the only
+thing that makes it work — and the exclusion applies only when
+every segment of a Bash invocation is `cd …` or `gh …`.
+
+The probe deliberately runs `gh` through `sh -c` so that the
+exclusion cannot apply to the probe itself: that shows what an
+*un-excluded* `gh` does on this machine.
+
+**Command:**
+
+```bash
+if ! command -v gh > /dev/null 2>&1; then
+  echo "PROBE: gh-sandbox → ⊘ (gh not on PATH)"
+else
+  out=$(sh -c 'gh api user --jq .login' 2>&1); rc=$?
+  if [ $rc -eq 0 ]; then
+    echo "PROBE: gh-sandbox → ✓ (gh works inside the sandbox; exclusion not needed on this platform)"
+  else
+    excl=$(cat .claude/settings.json .claude/settings.local.json ~/.claude/settings.json 2>/dev/null \
+      | grep -c '"gh \*"')
+    case "$out" in
+      *"OSStatus -26276"*|*"HTTP 401"*)
+        if [ "$excl" -gt 0 ]; then
+          echo "PROBE: gh-sandbox → ✓ (sandboxed gh fails as expected; \"gh *\" is in excludedCommands — keep gh calls to cd/gh-only segments)"
+        else
+          echo "PROBE: gh-sandbox → ✗ (sandboxed gh fails: $(echo "$out" | head -1); \"gh *\" NOT found in excludedCommands)"
+        fi ;;
+      *) echo "PROBE: gh-sandbox → ⚠ (gh failed for another reason, rc=$rc: $(echo "$out" | head -1))" ;;
+    esac
+  fi
+fi
+```
+
+**Interpretation:**
+
+| Result | Status | Meaning |
+|---|---|---|
+| `✓ gh works inside the sandbox` | Pass | Platform lets `gh` verify TLS and read its token inside the sandbox (typical on Linux). |
+| `✓ … "gh *" is in excludedCommands` | Pass | The known macOS shape, and the framework's exclusion is present. Calls still fail if they are not `cd`/`gh`-only invocations — see the catalog entry. |
+| `✗ … NOT found in excludedCommands` | Fail | `gh` cannot work inside the sandbox on this machine and nothing runs it outside. |
+| `⚠ gh failed for another reason` | Warn | Not the catalogued shape (network down, not logged in, …); inspect the message. |
+| `⊘ gh not on PATH` | Skip | `gh` not installed; not a sandbox restriction. |
+
+`~/.claude/settings.json` is usually unreadable from inside the
+sandbox, so the exclusion check may only see the project-scope
+files; if the user keeps the exclusion at user scope, a ✗ here is
+a false alarm — say so when reporting.
+
+Even with the exclusion present, a `gh` call is only excluded when
+every part of the Bash invocation is `cd …` or `gh …`: a pipe, a
+`$(…)` substitution, a loop, or any file redirection (`> file`,
+even `> /dev/null`) puts it back in the sandbox. The redirection
+case is a Claude Code regression tracked in
+[anthropics/claude-code#95532](https://github.com/anthropics/claude-code/issues/95532);
+the catalog entry shows the `gh tofile` alias that works around it.
+When the user reports a `gh` failure that this probe does not
+reproduce, ask for the exact command line — the shape is usually
+the answer.
+
+**On ✗ → remediation:**
+[`docs/setup/sandbox-troubleshooting.md` — `gh` fails with TLS `OSStatus -26276` or `HTTP 401` inside the sandbox](../../../../docs/setup/sandbox-troubleshooting.md#gh-fails-with-tls-osstatus--26276-or-http-401-inside-the-sandbox).
+
 ## After the report
 
 If every probe is ✓ or ⊘:
 
-> All five probes pass (or are not applicable). The sandbox is
+> All six probes pass (or are not applicable). The sandbox is
 > not currently blocking the known failure modes catalogued in
 > `docs/setup/sandbox-troubleshooting.md`. If you hit a different
 > sandbox-shaped failure, follow the catalog's *Adding a new

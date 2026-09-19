@@ -12,6 +12,7 @@ Return ONLY valid JSON with this structure:
   "docker_status": "pass" | "fail" | "skip",
   "scratch_status": "pass" | "warn" | "fail" | "skip",
   "signing_key_status": "pass" | "fail" | "skip",
+  "gh_sandbox_status": "pass" | "warn" | "fail" | "skip",
   "has_failures": true | false
 }
 ```
@@ -29,6 +30,8 @@ Definitions:
   `"fail"` if `✗`; `"skip"` if no `project-scratch` probe line is present.
 - `signing_key_status`: `"pass"` if `PROBE: signing-key → ✓`; `"fail"` if `✗`;
   `"skip"` if `⊘` or if no `signing-key` probe line is present.
+- `gh_sandbox_status`: `"pass"` if `PROBE: gh-sandbox → ✓`; `"warn"` if `⚠`;
+  `"fail"` if `✗`; `"skip"` if `⊘` or if no `gh-sandbox` probe line is present.
 - `has_failures`: `true` if any status is `"fail"`; `false` otherwise.
 
 Ignore any lines that are not `PROBE:` output lines.

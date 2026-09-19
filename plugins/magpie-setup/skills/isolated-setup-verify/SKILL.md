@@ -130,7 +130,7 @@ Drift severity:
   path, the version string, the command output, the
   `sandbox.enabled` value — never just "✓" or "✗" alone.
 
-## The 10 checks
+## The 11 checks
 
 The canonical list lives in
 [docs/setup/secure-agent-setup.md → Verification → Via a Claude Code prompt](../../../../docs/setup/secure-agent-setup.md#via-a-claude-code-prompt-1).
@@ -370,6 +370,29 @@ Walk each in order:
     nothing to show. Remediation:
     [`docs/setup/sandbox-troubleshooting.md` → Signed commit fails before any touch when git signs with ssh](../../../../docs/setup/sandbox-troubleshooting.md#signed-commit-fails-before-any-touch-when-git-signs-with-ssh).
 
+11. **`gh` runs outside the sandbox.** `sandbox.excludedCommands`
+    must contain `"gh *"` in the project `.claude/settings.json` or
+    the user-scope `~/.claude/settings.json`. On macOS a sandboxed
+    `gh` cannot verify TLS or read the keychain
+    (`x509: OSStatus -26276` / `HTTP 401`), so without the exclusion
+    every skill that talks to GitHub fails; the exclusion is what the
+    "`gh` is sandbox-bypassed" note under `credentials` relies on.
+    Missing on macOS is ✗; missing on Linux is ⚠ (a sandboxed `gh`
+    may work there, but the reference config expects the exclusion).
+
+    Report as a **note**, not a failure: the exclusion applies only
+    when every part of a Bash invocation is `cd …` or `gh …`. A pipe,
+    a `$(…)` substitution, a loop, or any file redirection (even
+    `> /dev/null`) puts `gh` back in the sandbox. The redirection
+    case is a Claude Code regression tracked in
+    [anthropics/claude-code#95532](https://github.com/anthropics/claude-code/issues/95532);
+    the catalog entry
+    [`gh` fails with TLS `OSStatus -26276` or `HTTP 401` inside the sandbox](../../../../docs/setup/sandbox-troubleshooting.md#gh-fails-with-tls-osstatus--26276-or-http-401-inside-the-sandbox)
+    carries the measured shape table and the optional `gh tofile`
+    alias that moves a redirection inside `gh`. If the operator has
+    that alias installed, say so; it is a convenience, not a
+    requirement.
+
 ## After the report
 
 If every check is ✓, say so explicitly and stop — no further
@@ -401,6 +424,10 @@ without invoking it:
 - ✗ on check 10c → the one-file `allowRead` widening in the
   troubleshooting entry, applied by the user — never from this
   skill — then re-verify.
+- ✗ on check 11 (`"gh *"` missing from `sandbox.excludedCommands`)
+  → the operator adds it themselves (settings.json widenings are
+  never applied from a skill), following the catalog entry linked
+  in the check; then re-run `setup-isolated-setup-verify`.
 - The user-scope script copies live under `~/.claude-config/`
   for users who maintain that sync repo; uncommitted local edits
   there → `setup-shared-config-sync`.

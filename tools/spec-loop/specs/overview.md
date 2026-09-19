@@ -48,6 +48,7 @@ Each mode is an independently toggleable set of skills. Maturity mirrors
 | Release-management lifecycle (experimental — all 10 skills shipped) | [release-management-lifecycle.md](release-management-lifecycle.md) |
 | Privacy-LLM gate + PII redaction | [privacy-llm-gate.md](privacy-llm-gate.md) |
 | Agent isolation / layered sandbox | [agent-isolation-sandbox.md](agent-isolation-sandbox.md) |
+| Sandbox diagnostics — catalog, hint hook, doctor, verify | [sandbox-diagnostics.md](sandbox-diagnostics.md) |
 | CVE tooling | [cve-tooling.md](cve-tooling.md) |
 | Security reporting & dashboards | [security-reporting.md](security-reporting.md) |
 | Adoption & setup | [adoption-and-setup.md](adoption-and-setup.md) |

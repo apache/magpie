@@ -54,7 +54,8 @@ Start with [`overview.md`](overview.md), then:
   [`codex-runtime.md`](codex-runtime.md),
   [`maintainer-education.md`](maintainer-education.md),
   [`spec-gap-staleness.md`](spec-gap-staleness.md),
-  [`vetted-command-surface.md`](vetted-command-surface.md).
+  [`vetted-command-surface.md`](vetted-command-surface.md),
+  [`sandbox-diagnostics.md`](sandbox-diagnostics.md).
 
 (Agentic Autonomous, the fifth MISSION mode, is deliberately off and has no
 spec — see the note in [`overview.md`](overview.md).)

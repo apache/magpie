@@ -32,6 +32,11 @@
     - [Root cause](#root-cause-4)
     - [Fix](#fix-4)
     - [Notes](#notes-4)
+  - [`gh` fails with TLS `OSStatus -26276` or `HTTP 401` inside the sandbox](#gh-fails-with-tls-osstatus--26276-or-http-401-inside-the-sandbox)
+    - [Symptom](#symptom-5)
+    - [Root cause](#root-cause-5)
+    - [Fix](#fix-5)
+    - [Notes](#notes-5)
   - [Adding a new entry](#adding-a-new-entry)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -682,6 +687,144 @@ non-existent path fails the same way.
 - Do **not** widen `allowWrite` to `/tmp` as a whole — that opens
   the entire system temp directory, which other processes use for
   arbitrary files including credentials.
+
+---
+
+## `gh` fails with TLS `OSStatus -26276` or `HTTP 401` inside the sandbox
+
+### Symptom
+
+Either of:
+
+```text
+Get "https://api.github.com/user": tls: failed to verify certificate: x509: OSStatus -26276
+HTTP 401: Requires authentication (https://api.github.com/graphql)
+```
+
+…from a `gh` call made through the Bash tool, while `gh auth status`
+reports a healthy login and the very same command succeeds in a
+terminal. Which of the two appears depends on the call: on macOS the
+TLS variant is the common one; the 401 is the keyring token read
+failing silently, so `gh` sends the request unauthenticated.
+
+### Root cause
+
+`gh` is a Go binary. On macOS Go hands TLS certificate verification
+to Security.framework, and `gh` reads its token from the keychain
+through the same framework. Both go over mach services (`trustd`,
+`securityd`) that the Seatbelt profile does not expose, so
+verification fails with `errSecServiceNotAvailable` (`-26276`) and
+the token read returns nothing. The CONNECT proxy and the certificates
+are fine — Python's `urllib` through the same proxy returns 200 — and
+nothing on the Go side can route around the framework: the Homebrew
+`gh` does not embed Go's fallback root store, so
+`GODEBUG=x509usefallbackroots=1` is inert, and Go ignores
+`SSL_CERT_FILE` on darwin. Claude Code exposes no setting for mach
+services (`enableWeakerNetworkIsolation` is about the proxy, not the
+trust store).
+
+That is why the framework reference runs `gh` **outside** the sandbox
+with `sandbox.excludedCommands: ["gh *"]`
+([`secure-agent-setup.md`](secure-agent-setup.md#the-frameworks-own-claudesettingsjson)).
+The symptom above means *this particular* `gh` did not get excluded.
+The exclusion is decided **per Bash invocation**, and it holds only
+when **every segment** of the command is `cd …` or `gh …`. Measured on
+macOS 26 with Claude Code 2.1.278:
+
+| Command shape | Runs outside the sandbox? |
+|---|---|
+| `gh api user --jq .login` | yes |
+| `cd /repo && gh pr view 12 --json title` | yes |
+| `gh pr view 12 --json title && gh pr diff 12` | yes |
+| `gh api … \| head -1` | no |
+| `gh api … > "$TMPDIR/out.json"` (any redirection, even alone) | no |
+| `x=$(gh api …)` | no |
+| `for n in 1 2; do gh pr view "$n"; done` | no |
+| `sh -c 'gh …'`, `uv run … vetted-op-read …` (`gh` as a child process) | no |
+
+Claude Code's documentation says the exclusion list is matched
+against each `&&` / `|` / `;` segment independently; in practice a
+single non-`gh` segment, or any redirection, keeps the whole
+invocation inside the sandbox.
+
+### Fix
+
+This one is not a settings widening — there is nothing to widen.
+Two parts:
+
+1. Keep `gh` on the exclusion list (already in the framework
+   reference):
+
+   ```jsonc
+   // ~/.claude/settings.json (or the adopter's .claude/settings.json)
+   {
+     "sandbox": {
+       "excludedCommands": ["gh *"]   // gh needs the keychain + Security.framework; run it outside
+     }
+   }
+   ```
+
+2. Shape every `gh` invocation so the exclusion applies:
+
+   - make `gh` the only kind of command in the invocation — `cd … &&
+     gh …`, or several `gh … && gh …`;
+   - do the post-processing with `gh`'s own `--jq` / `--template`
+     instead of a pipe into `jq`, `head`, or `python3`;
+   - batch many reads into **one** GraphQL query with aliased fields
+     (`a: pullRequest(number: 1){…} b: pullRequest(number: 2){…}`)
+     rather than a loop;
+   - for writes that need a JSON body, write the file in a separate
+     non-`gh` call and pass it with `--input file.json` — *reading* a
+     file is fine, only shell redirection breaks the match;
+   - to capture a large payload to a file, move the redirection
+     *inside* `gh` with a shell alias, so the Bash command stays a
+     single `gh …` part. Import once from a YAML file
+     (`gh alias import aliases.yml`):
+
+     ```yaml
+     tofile: |-
+       !out="$1"; shift
+       case "$out" in
+         *..*) echo "gh tofile: refusing a path containing ..: $out" >&2; exit 2 ;;
+         /private/tmp/claude*|/tmp/claude*|"$PWD"/*|[!/]*) ;;
+         *) echo "gh tofile: refusing to write outside the working directory or the Claude scratch tree: $out" >&2; exit 2 ;;
+       esac
+       exec gh "$@" > "$out"
+     ```
+
+     then `gh tofile "$TMPDIR/pr.json" pr view 12 --json title,body`
+     runs excluded and a separate non-`gh` call reads the file. The
+     path guard matters: the alias runs *outside* the sandbox, so
+     without it any `gh tofile` could overwrite any file the user can
+     write. This is tracked upstream as
+     [anthropics/claude-code#95532](https://github.com/anthropics/claude-code/issues/95532);
+     drop the alias once a fixed release no longer treats a
+     redirection as a non-matching part;
+   - for a loop or pipeline that genuinely cannot be reshaped, run
+     that one call with the per-call sandbox bypass and say so (the
+     [bypass-visibility hook](secure-agent-setup.md#sandbox-bypass-visibility-hook)
+     makes it loud).
+
+### Notes
+
+- The same `-26276` hits every other tool that verifies TLS through
+  Security.framework; the framework runs `lychee` in offline mode for
+  exactly this reason (see the annotated `.claude/settings.json` in
+  [`secure-agent-setup.md`](secure-agent-setup.md#the-frameworks-own-claudesettingsjson)).
+- Any wrapper that spawns `gh` as a child — `sh -c`, a Makefile
+  target, the `vetted-ops` dispatcher — is matched on *its* command
+  string, not on `gh`. Add the wrapper's invocation to
+  `excludedCommands` too, alongside its `permissions.allow` rule; the
+  two gates are independent and both key on the command string.
+- The `Monitor` tool runs its command sandboxed and has no bypass
+  flag, so a `gh`-based CI poll loop is blind. Use the Bash tool with
+  `run_in_background` plus the per-call bypass instead.
+- Do not work around this by dumping the token (`gh auth token`) into
+  `GH_TOKEN`; the framework reference keeps that command in
+  `permissions.deny` on purpose.
+- Linux / bubblewrap is not measured here. Go uses its own root store
+  on Linux, so the TLS half does not apply; the keyring half depends
+  on which credential helper `gh` is configured with.
 
 ---
 

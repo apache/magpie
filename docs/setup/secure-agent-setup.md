@@ -457,7 +457,12 @@ below, annotated.
     // `permissions.ask` rules below, and `gh auth token` / `gh auth refresh`
     // stay in `permissions.deny` so the token can never be dumped. This is
     // what makes the "`gh` is sandbox-bypassed" note under `credentials`
-    // below actually hold.
+    // below actually hold. The exclusion only applies when every part of
+    // a Bash invocation is `cd …` or `gh …` — a pipe, `$(…)`, a loop, or
+    // any file redirection puts `gh` back in the sandbox, where it fails
+    // with `x509: OSStatus -26276`. Details, the `gh tofile` alias
+    // workaround, and the upstream report (anthropics/claude-code#95532)
+    // are in sandbox-troubleshooting.md → "`gh` fails with TLS …".
     "excludedCommands": ["gh *"],
     // The `lychee` link-check hook runs in OFFLINE mode (`offline =
     // true` in `.lychee.toml`): it validates only local cross-file and
@@ -1357,17 +1362,19 @@ The catalog (PR #291) and the diagnostic skill
 recall — *"my SSH push failed; let me check the catalog"* or
 *"let me run the doctor"*. The hint hook closes the loop by
 making the catalog reference appear next to the error
-automatically. Three classes of failure are recognised today:
+automatically. Five classes of failure are recognised today:
 
 | Error signature | Catalog anchor |
 |---|---|
 | `Could not open a connection to your authentication agent` / `agent refused operation` / `ssh-add: error fetching identities` / `Permission denied (publickey)` | [SSH agent / Yubikey unreachable](sandbox-troubleshooting.md#ssh-agent--yubikey-appears-unreachable-from-inside-the-sandbox) |
 | `Cannot connect to the Docker daemon` / `open /var/run/docker.sock: operation not permitted` / `Cannot connect to Podman` / podman `connect: permission denied` | [Docker / Podman socket denied](sandbox-troubleshooting.md#docker--podman-command-fails-with-a-socket-error) |
 | `127.0.0.1 … Permission denied` / `Operation not permitted … bind` / `Errno 49 … assign requested address` / `Connection refused … 127.0.0.1` | [Localhost port-bind blocked](sandbox-troubleshooting.md#test-cannot-bind-to-a-localhost-port) |
+| `/tmp/…: Read-only file system` / `mktemp: failed to create` | [Temp files fail under `/tmp`](sandbox-troubleshooting.md#temp-files-fail-with-read-only-file-system-under-tmp) |
+| `x509: OSStatus -26276` / `HTTP 401: Requires authentication (https://api.github.com…` | [`gh` ran inside the sandbox](sandbox-troubleshooting.md#gh-fails-with-tls-osstatus--26276-or-http-401-inside-the-sandbox) |
 
 The hint also tells the user to run
 `/magpie-setup:isolated-setup-doctor` for a structured probe of all
-three failure modes, so a single mid-flow failure can lead to a
+six failure modes, so a single mid-flow failure can lead to a
 broader sandbox health-check.
 
 ### Why install it user-scope, not project-scope
@@ -2483,6 +2490,13 @@ below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
    toolkit probe (`gpg-touch-overlay.sh _gui_available`) hand me
    the command to run myself: it cannot see the display from
    inside the sandbox.
+10. `sandbox.excludedCommands` contains `"gh *"` (project or
+    user scope). Note, without failing, that the exclusion only
+    applies when every part of a Bash invocation is `cd …` or
+    `gh …` — a pipe, `$(…)`, a loop, or any file redirection puts
+    `gh` back in the sandbox (anthropics/claude-code#95532; see
+    `docs/setup/sandbox-troubleshooting.md` for the shape table
+    and the `gh tofile` alias workaround).
 ```
 
 Re-run either form after every Claude Code upgrade — the sandbox

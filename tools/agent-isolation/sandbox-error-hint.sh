@@ -21,7 +21,8 @@
 # After every Bash tool call, scan stdout + stderr for the literal
 # error strings the sandbox produces when it blocks a legitimate
 # workflow (SSH agent socket unreachable, loopback port blocked,
-# docker / podman socket denied). On a match, emit a one-line
+# docker / podman socket denied, /tmp read-only, `gh` running
+# inside the sandbox). On a match, emit a one-line
 # `[sandbox-hint] …` to stderr pointing at the matching entry in
 # `docs/setup/sandbox-troubleshooting.md` — so the agent (and the
 # user) sees the catalog reference at the moment of failure,
@@ -110,6 +111,8 @@ elif match '127\.0\.0\.1.*[Pp]ermission denied|[Oo]peration not permitted.*bind|
   hint="Localhost port-bind or loopback HTTP may be sandbox-blocked. See ${doc_path}#test-cannot-bind-to-a-localhost-port"
 elif match "/tmp/[^ ]*'?: Read-only file system|Read-only file system: '/tmp/|mktemp: failed to create"; then
   hint="Temp files under /tmp are sandbox-blocked; TMPDIR may be unset or outside the writable tree. See ${doc_path}#temp-files-fail-with-read-only-file-system-under-tmp"
+elif match 'x509: OSStatus -26276|HTTP 401: Requires authentication \(https://api\.github\.com'; then
+  hint="gh ran INSIDE the sandbox (TLS / keychain unreachable). The \"gh *\" exclusion only applies when every segment of the invocation is cd/gh — no pipe, redirect, \$(...) or loop. See ${doc_path}#gh-fails-with-tls-osstatus--26276-or-http-401-inside-the-sandbox"
 fi
 
 [ -n "$hint" ] || exit 0
@@ -119,6 +122,6 @@ yellow="${esc}[1;33m"
 reset="${esc}[0m"
 
 printf '%s[sandbox-hint]%s %s\n' "$yellow" "$reset" "$hint" >&2
-printf '%s              %s Run %s/setup-isolated-setup-doctor%s for a structured probe of all four failure modes.\n' "$yellow" "$reset" "${esc}[1m" "${esc}[0m" >&2
+printf '%s              %s Run %s/setup-isolated-setup-doctor%s for a structured probe of all six failure modes.\n' "$yellow" "$reset" "${esc}[1m" "${esc}[0m" >&2
 
 exit 1
