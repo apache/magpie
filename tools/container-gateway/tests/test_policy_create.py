@@ -468,3 +468,18 @@ def test_network_deny_wording_per_position(ctx: PolicyContext) -> None:
     netns_object = check_create(libpod(netns={"nsmode": "host", "extra": 1}), ctx, libpod=True)
     assert isinstance(netns_object, Deny)
     assert netns_object.reason == "network: netns netns object has unexpected keys"
+
+
+# --- Fix round 1 additions below (review findings round 1) ---
+
+
+def test_named_networks_reads_both_endpoint_shapes_regardless_of_libpod_flag(ctx: PolicyContext) -> None:
+    # I7: named_networks must read both NetworkingConfig.EndpointsConfig and
+    # libpod networks unconditionally, like check_create's own classifier
+    # (fix round 4, I3/S2) already does.
+    compat_body_with_libpod_field = compat()
+    compat_body_with_libpod_field["networks"] = {"mynet": {}}
+    assert named_networks(compat_body_with_libpod_field, False) == ["mynet"]
+
+    libpod_body_with_compat_field = libpod(NetworkingConfig={"EndpointsConfig": {"othernet": {}}})
+    assert named_networks(libpod_body_with_compat_field, True) == ["othernet"]

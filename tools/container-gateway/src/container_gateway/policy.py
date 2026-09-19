@@ -44,21 +44,24 @@ from pathlib import Path
 from typing import Any
 
 from .labels import with_label
-from .policy_shape import CATALOG_ANCHOR, Deny, canonical_spelling_violation
+from .policy_shape import (
+    CATALOG_ANCHOR,
+    Deny,
+    canonical_spelling_violation,
+    resource_create_spelling_violation,
+)
 
 __all__ = [
     "CATALOG_ANCHOR",
     "PROXY_VARS",
-    "Allow",
     "Deny",
     "PolicyContext",
-    "Request",
     "apply_create_rewrites",
     "check_create",
-    "decide",
     "named_networks",
     "named_volumes",
     "resolve_bind_source",
+    "resource_create_spelling_violation",
 ]
 
 PROXY_VARS = ("HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "http_proxy", "https_proxy", "no_proxy")
@@ -470,16 +473,21 @@ def named_networks(body: dict[str, Any], libpod: bool) -> list[str]:
 
     Covers the ``NetworkMode``/``netns`` named-network value, compat
     ``NetworkingConfig.EndpointsConfig`` keys, and libpod top-level
-    ``networks`` keys. Built-in network names (``bridge``, ``podman``,
-    ``default``, ``host``, ``none``) are excluded — ``check_create`` already
+    ``networks`` keys — reading both endpoint-map shapes unconditionally,
+    regardless of which URL flavour this request came in on, exactly like
+    ``check_create``'s equivalent check. Built-in network names (``bridge``,
+    ``podman``, ``host``, ``none``) are excluded — ``check_create`` already
     refuses ``host``/``none`` outright, whether as a ``NetworkMode``/``netns``
     value or as an ``EndpointsConfig``/``networks`` key (moby promotes a lone
     ``EndpointsConfig`` entry to the effective network mode, so a `host`/
-    `none` key is the same escape), and ``bridge``/``podman``/``default`` are
-    real built-in networks every project can already reach without a label
-    check. This helper assumes the same precondition as
-    ``apply_create_rewrites``: it is only meaningful on a body ``check_create``
-    already accepted. Deduplicated, first-seen order.
+    `none` key is the same escape), and ``bridge``/``podman`` are real
+    built-in networks every project can already reach without a label check.
+    A network literally named ``default`` is a normal named (foreign) network
+    like any other — not a built-in — so it is deliberately not excluded here
+    and does get a label check; see ``_ENDPOINT_KEY_ALLOWED_KEYWORDS``. This
+    helper assumes the same precondition as ``apply_create_rewrites``: it is
+    only meaningful on a body ``check_create`` already accepted. Deduplicated,
+    first-seen order.
     """
     host = _host(body, libpod)
     candidates: list[str] = []
@@ -488,16 +496,15 @@ def named_networks(body: dict[str, Any], libpod: bool) -> list[str]:
     if network_mode is not None:
         candidates.append(network_mode)
 
-    if libpod:
-        networks = body.get("networks")
-        if isinstance(networks, dict):
-            candidates.extend(str(k) for k in networks)
-    else:
-        networking_config = body.get("NetworkingConfig")
-        if isinstance(networking_config, dict):
-            endpoints_config = networking_config.get("EndpointsConfig")
-            if isinstance(endpoints_config, dict):
-                candidates.extend(str(k) for k in endpoints_config)
+    networks = body.get("networks")
+    if isinstance(networks, dict):
+        candidates.extend(str(k) for k in networks)
+
+    networking_config = body.get("NetworkingConfig")
+    if isinstance(networking_config, dict):
+        endpoints_config = networking_config.get("EndpointsConfig")
+        if isinstance(endpoints_config, dict):
+            candidates.extend(str(k) for k in endpoints_config)
 
     seen: set[str] = set()
     result: list[str] = []
@@ -509,7 +516,15 @@ def named_networks(body: dict[str, Any], libpod: bool) -> list[str]:
     return result
 
 
-def check_create(body: dict[str, Any], ctx: PolicyContext, *, libpod: bool) -> Deny | None:
+def check_create(body: Any, ctx: PolicyContext, *, libpod: bool) -> Deny | None:
+    """Entry point: accepts whatever the client sent, unnarrowed.
+
+    ``body`` is typed ``Any`` (not ``dict[str, Any]``) deliberately: callers
+    (``decide()`` in ``decisions.py``) pass the request body through exactly
+    as received, including a non-dict JSON value, and rely on the
+    ``isinstance`` guard below to deny it rather than pre-filtering it
+    themselves. ``_check_create`` below is the narrowed, dict-only worker.
+    """
     if not isinstance(body, dict):
         return Deny("malformed: request body must be a JSON object")
     try:
@@ -660,12 +675,3 @@ def apply_create_rewrites(body: dict[str, Any], ctx: PolicyContext, *, libpod: b
             env_list.extend(f"{k}={v}" for k, v in ctx.proxy_env.items())
             out["Env"] = env_list
     return out
-
-
-# Deliberately not at the top of the file: decisions.py imports Deny,
-# PolicyContext, check_create and apply_create_rewrites from this module, so
-# this import must run after all four are defined above, or the circular
-# import between the two modules deadlocks. Re-exported (see __all__) so
-# `from container_gateway.policy import Allow, Request, decide` — the shape
-# every caller and test in this package uses — keeps working.
-from .decisions import Allow, Request, decide  # noqa: E402

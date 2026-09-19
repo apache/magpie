@@ -23,8 +23,9 @@ from pathlib import Path
 
 import pytest
 
+from container_gateway.decisions import Allow, Request, decide
 from container_gateway.labels import LABEL_KEY
-from container_gateway.policy import Allow, Deny, PolicyContext, Request, decide
+from container_gateway.policy import Deny, PolicyContext
 
 
 @pytest.fixture

@@ -161,6 +161,11 @@ NAMESPACE_OBJECT_KEYS = frozenset({"nsmode", "value"})
 # SpecGenerator shape, not a spelling choice made here.
 LIBPOD_VOLUME_KEYS = frozenset({"Name", "Dest", "Options"})
 
+# The (much smaller) volume/network create body shape: every key the gateway
+# reads or rewrites there, by shape.
+VOLUME_NETWORK_COMPAT_KEYS = frozenset({"Name", "Labels", "Driver", "DriverOpts"})
+VOLUME_NETWORK_LIBPOD_KEYS = frozenset({"name", "labels", "driver", "options"})
+
 
 def _spelling_violation_in(obj: dict[str, Any], known: frozenset[str]) -> Deny | None:
     """Ambiguous-spelling check for one object's own keys.
@@ -269,3 +274,19 @@ def canonical_spelling_violation(body: dict[str, Any], libpod: bool) -> Deny | N
                 return violation
 
     return None
+
+
+def resource_create_spelling_violation(body: dict[str, Any], libpod: bool) -> Deny | None:
+    """Ambiguous-spelling check for a volume/network create body.
+
+    Mirrors ``canonical_spelling_violation`` for containers/pods, but for the
+    much smaller volume/network create shape (``Name``/``Labels``/``Driver``/
+    ``DriverOpts`` compat, ``name``/``labels``/``driver``/``options`` libpod).
+    Without this, a second spelling of the label field (``labels`` *and*
+    ``Labels`` both present, or ``LABELS``) would let a client's value
+    collide with the gateway's injected project label under the daemon's
+    case-insensitive JSON decode — the same escape
+    ``canonical_spelling_violation`` already closes for container/pod create.
+    """
+    known = VOLUME_NETWORK_LIBPOD_KEYS if libpod else VOLUME_NETWORK_COMPAT_KEYS
+    return _spelling_violation_in(body, known)

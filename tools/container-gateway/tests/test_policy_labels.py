@@ -23,8 +23,10 @@ from pathlib import Path
 
 import pytest
 
+from container_gateway.decisions import Allow, Request, decide
 from container_gateway.labels import LABEL_KEY
-from container_gateway.policy import Allow, Deny, PolicyContext, Request, decide
+from container_gateway.policy import Deny, PolicyContext
+from container_gateway.routes import _VERBS, Family
 
 
 @pytest.fixture
@@ -107,3 +109,110 @@ def test_ping_and_version_pass_through(ctx: PolicyContext) -> None:
 def test_raw_target_round_trips_query() -> None:
     r = Request("GET", "/v1.45/containers/json", {"all": ["1"], "filters": ['{"label":["a=b"]}']}, {}, None)
     assert r.raw_target() == "/v1.45/containers/json?all=1&filters=%7B%22label%22%3A%5B%22a%3Db%22%5D%7D"
+
+
+def test_raw_target_with_empty_query_value_list_is_bare_path() -> None:
+    # A query dict like {"a": []} is a non-empty dict with nothing to
+    # render; raw_target() must not append a bare "?".
+    r = Request("GET", "/v1.45/info", {"a": []}, {}, None)
+    assert r.raw_target() == "/v1.45/info"
+
+
+# --- Fix round 1 additions below (review findings) ---
+
+
+@pytest.mark.parametrize(
+    ("path", "body"),
+    [
+        # C1: second spelling of the label field lets a foreign slug win
+        ("/v1.45/volumes/create", {"Name": "v", "labels": {}, "Labels": {LABEL_KEY: "-other"}}),
+        ("/v1.45/volumes/create", {"Labels": {"a": "b"}, "LABELS": {LABEL_KEY: "-other"}}),
+        ("/v5.0.0/libpod/networks/create", {"name": "n", "Labels": {}, "labels": {LABEL_KEY: "-other"}}),
+        ("/v5.0.0/libpod/networks/create", {"name": "n", "labels": {"a": "b"}, "LABELS": {"a": "c"}}),
+    ],
+)
+def test_resource_create_label_spelling_collision_is_denied(
+    ctx: PolicyContext, path: str, body: dict[str, object]
+) -> None:
+    d = decide(req("POST", path, body=body), ctx)
+    assert isinstance(d, Deny) and d.reason.startswith("ambiguous-field")
+
+
+def test_resource_create_non_dict_body_is_denied(ctx: PolicyContext) -> None:
+    v = decide(req("POST", "/v1.45/volumes/create", body=["x"]), ctx)
+    n = decide(req("POST", "/v5.0.0/libpod/networks/create", body="not-a-dict"), ctx)
+    assert isinstance(v, Deny) and v.reason.startswith("malformed")
+    assert isinstance(n, Deny) and n.reason.startswith("malformed")
+
+
+@pytest.mark.parametrize(
+    ("path", "query"),
+    [
+        ("/v1.45/containers/json", {"filters": ["notjson"]}),
+        ("/v1.45/containers/json", {"filters": ["[1,2]"]}),
+        ("/v1.45/build", {"labels": ["notjson"]}),
+        ("/v1.45/build", {"labels": ["[1,2]"]}),
+        ("/v1.45/build", {"labels": ["5"]}),
+    ],
+)
+def test_malformed_query_values_deny_instead_of_raising(
+    ctx: PolicyContext, path: str, query: dict[str, list[str]]
+) -> None:
+    d = decide(req("POST" if "build" in path else "GET", path, query), ctx)
+    assert isinstance(d, Deny) and d.reason.startswith("malformed")
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/v1.45/images/../swarm/init",
+        "//v1.45/info",
+        "/v1.45/images/alpine%2f..%2fswarm/init",
+        "/v1.45/images/alpine/..\\swarm",
+        "/v1.45/images/\x00json",
+    ],
+)
+def test_unnormalised_paths_are_denied_before_routing(ctx: PolicyContext, path: str) -> None:
+    d = decide(req("POST", path), ctx)
+    assert isinstance(d, Deny) and d.reason.startswith("malformed")
+
+
+def test_container_create_non_dict_body_is_denied(ctx: PolicyContext) -> None:
+    d = decide(req("POST", "/v1.45/containers/create", body=["x"]), ctx)
+    assert isinstance(d, Deny) and d.reason.startswith("malformed")
+
+
+@pytest.mark.parametrize("verb", sorted(_VERBS - {"push"}))
+@pytest.mark.parametrize(
+    ("path_prefix", "name"),
+    [("/v1.45/containers/web1", "web1"), ("/v5.2.0/libpod/pods/p1", "p1")],
+)
+def test_every_named_verb_route_carries_a_label_check(
+    ctx: PolicyContext, path_prefix: str, name: str, verb: str
+) -> None:
+    a = decide(req("POST", f"{path_prefix}/{verb}"), ctx)
+    assert isinstance(a, Allow), (path_prefix, verb)
+    assert a.label_check == name
+
+
+@pytest.mark.parametrize(
+    ("method", "path"),
+    [
+        ("POST", "/v1.45/containers/web1/checkpoint"),
+        ("POST", "/v1.45/containers/web1/restore"),
+        ("POST", "/v5.2.0/libpod/pods/p1/init"),
+        ("GET", "/v1.45/containers/web1/get"),
+        ("POST", "/v1.45/networks/n1/exists"),
+        ("GET", "/v1.45/volumes/myvol"),
+        ("POST", "/v1.45/exec/abc123/resize"),
+        ("GET", "/v1.45/images/alpine:3/json"),
+        ("GET", "/v1.45/images/alpine:3/history"),
+    ],
+)
+def test_no_named_route_is_fail_open_except_image_reads(ctx: PolicyContext, method: str, path: str) -> None:
+    a = decide(req(method, path), ctx)
+    assert isinstance(a, Allow), (method, path)
+    if a.route.family is Family.IMAGES and a.route.action in ("inspect", "history"):
+        return  # image reads are explicitly exempt from the label check
+    assert a.route.name is not None
+    assert a.label_check == a.route.name
