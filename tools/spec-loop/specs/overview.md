@@ -49,6 +49,7 @@ Each mode is an independently toggleable set of skills. Maturity mirrors
 | Privacy-LLM gate + PII redaction | [privacy-llm-gate.md](privacy-llm-gate.md) |
 | Agent isolation / layered sandbox | [agent-isolation-sandbox.md](agent-isolation-sandbox.md) |
 | Sandbox diagnostics — catalog, hint hook, doctor, verify | [sandbox-diagnostics.md](sandbox-diagnostics.md) |
+| Container gateway — podman / docker inside the sandbox (proposed) | [container-gateway.md](container-gateway.md) |
 | CVE tooling | [cve-tooling.md](cve-tooling.md) |
 | Security reporting & dashboards | [security-reporting.md](security-reporting.md) |
 | Adoption & setup | [adoption-and-setup.md](adoption-and-setup.md) |
