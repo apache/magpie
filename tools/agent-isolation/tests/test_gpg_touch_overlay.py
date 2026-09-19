@@ -303,8 +303,8 @@ def test_spawn_session_makes_the_backgrounded_pid_the_group_leader() -> None:
             "bash",
             "-c",
             f'"{SCRIPT}" _spawn_session sleep 5 & '
-            'pid=$!; sleep 0.3; echo "$pid $(ps -o pgid= -p "$pid")"; '
-            "kill -- -\"$pid\" 2>/dev/null",
+            'pid=$!; sleep 0.3; echo "$pid $(ps -o pgid= -p "$pid" 2>/dev/null)"; '
+            "kill -- -\"$pid\" 2>/dev/null; true",
         ],
         capture_output=True,
         text=True,
