@@ -36,10 +36,18 @@ Three differences are the platform's rather than choices:
     same value. The text is sized and coloured to stay legible through
     it.
 
+It also takes the keyboard while it is up. A touch that lands before the
+key is asking for one fires the key's OTP slot, which types a burst of
+characters and a Return into whatever has focus; while the overlay is
+showing that should be the overlay, which ignores them — see
+``take_focus``.
+
 Closes on Esc or a click — the key must still be touched for the commit
 to go through, so trapping the screen would buy nothing.
 """
 
+import ctypes
+import ctypes.util
 import signal
 import sys
 import tkinter as tk
@@ -144,6 +152,50 @@ class Pulse(tk.Canvas):
         self.circle(cx, cy, dot, fill="#%02x%02x%02x" % CORE, outline="")
 
 
+def take_focus(root):
+    """Make this process the active application, then focus the window.
+
+    Tk's ``focus_force`` cannot take the keyboard from another
+    application on macOS by itself: a bare python process has no
+    activation policy, so AppKit never considers it for activation.
+    Giving it one and activating it through the Objective-C runtime is
+    all it takes — done over ctypes so PyObjC is not needed. If AppKit
+    is not there to talk to, the window still shows, just without the
+    keyboard.
+    """
+    try:
+        objc = ctypes.cdll.LoadLibrary(ctypes.util.find_library("objc"))
+        ctypes.cdll.LoadLibrary(
+            "/System/Library/Frameworks/AppKit.framework/AppKit"
+        )
+        objc.objc_getClass.restype = ctypes.c_void_p
+        objc.objc_getClass.argtypes = [ctypes.c_char_p]
+        objc.sel_registerName.restype = ctypes.c_void_p
+        objc.sel_registerName.argtypes = [ctypes.c_char_p]
+
+        def send(ret, *argtypes):
+            return ctypes.cast(
+                objc.objc_msgSend,
+                ctypes.CFUNCTYPE(ret, ctypes.c_void_p, ctypes.c_void_p, *argtypes),
+            )
+
+        app = send(ctypes.c_void_p)(
+            objc.objc_getClass(b"NSApplication"),
+            objc.sel_registerName(b"sharedApplication"),
+        )
+        # NSApplicationActivationPolicyRegular
+        send(ctypes.c_bool, ctypes.c_long)(
+            app, objc.sel_registerName(b"setActivationPolicy:"), 0
+        )
+        send(None, ctypes.c_bool)(
+            app, objc.sel_registerName(b"activateIgnoringOtherApps:"), True
+        )
+    except (OSError, AttributeError, TypeError):
+        pass
+    root.lift()
+    root.focus_force()
+
+
 def build_window():
     root = tk.Tk()
     root.title(TITLE)
@@ -172,10 +224,10 @@ def build_window():
     root.bind("<Escape>", lambda _event: root.destroy())
     root.bind("<Button-1>", lambda _event: root.destroy())
 
-    # A borderless window is not given focus by the window server, and
-    # without focus Esc never reaches the binding.
-    root.lift()
-    root.focus_force()
+    # The window has to exist before the application can be activated
+    # around it.
+    root.update()
+    take_focus(root)
     return root
 
 

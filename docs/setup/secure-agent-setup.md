@@ -1894,10 +1894,14 @@ in the `Bash` matcher groups you already have:
 
 On Linux this needs `python3` with PyGObject for the dimmed overlay;
 where that is missing it falls back to a `zenity` dialog. On macOS it
-needs a `python3` that can start Tk — the one in the Command Line Tools
-can, while a uv, pyenv or Homebrew python usually ships the `tkinter`
-module without the Tcl/Tk framework behind it, so the hook probes for an
-interpreter that actually starts before it promises a window. `pgrep` is
+needs a `python3` with Tk 8.6 or newer — a uv-managed python or
+Homebrew's `python-tk` has one, while the python in the Command Line
+Tools carries Apple's Tk 8.5, which starts and then draws nothing for
+the overlay. The hook probes each candidate by its resolved path and
+settles on the first that actually starts a current Tk before it
+promises a window; the resolved path matters because Tcl finds its own
+library relative to the executable and does not follow the `python3`
+symlink uv or pyenv puts on PATH. `pgrep` is
 the only other requirement, and `perl` on macOS, which has no
 `setsid(1)`; both are part of the base system there.
 
@@ -1920,7 +1924,10 @@ ssh-keygen -Y sign -f "$(git config --get user.signingkey)" -n git /etc/hostname
 ```
 
 The window should appear about a second and a half in, and disappear
-when the signing process ends. `MAGPIE_GPG_TOUCH_DEBUG=1` makes the
+when the signing process ends. The watcher itself stays until the
+hook's `disarm`, so a second signature in the same command — a rebase
+replaying several commits, a real signature after a hook ran something
+that merely looked like one — raises the window again. `MAGPIE_GPG_TOUCH_DEBUG=1` makes the
 watcher log to `$XDG_RUNTIME_DIR/magpie-gpg-touch/watcher.log`
 (`/tmp/magpie-gpg-touch/` on macOS, which sets no `XDG_RUNTIME_DIR`).
 
@@ -1943,6 +1950,11 @@ watcher log to `$XDG_RUNTIME_DIR/magpie-gpg-touch/watcher.log`
 - **The window is dismissible.** Esc or a click closes it. The key still
   has to be touched for the commit to go through, so trapping the screen
   would buy nothing.
+- **It takes the keyboard on macOS.** A touch that lands before the key
+  is asking for one fires the key's OTP slot, which types a burst of
+  characters and a Return into whatever has focus. While the overlay is
+  up that is the overlay, which ignores them, rather than the browser or
+  editor that happened to be in front.
 - **It watches the whole host, not just the agent.** The watcher keys off
   any signing `gpg` process, so a commit you make yourself in another
   terminal raises the window too.

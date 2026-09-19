@@ -61,7 +61,12 @@
 #     than that, so ordinary commits stay silent.
 #
 # So arming is cheap and deliberately over-broad: it costs one background
-# process that exits on its own when no signature materialises.
+# process that disarm tears down when the command ends. The watcher lives
+# for the whole command, not for one signature: a rebase signs every
+# commit it replays, and a hook may run a look-alike before git signs at
+# all — a test suite that starts a process named ssh-keygen, say. A
+# watcher that left with the first one would be gone when the real
+# signature blocked.
 #
 # Dismissing the window with its button is honoured — it is a prompt, not
 # a trap, and gpg keeps waiting either way. It is not re-shown for the
@@ -84,7 +89,6 @@ Touch the key's contact now — the commit is blocked until you do.
 This window closes by itself once the touch registers."
 
 readonly SHOW_DELAY=8     # polls a signature must block before showing (0.2s each)
-readonly APPEAR_GRACE=45  # seconds to wait for gpg to appear at all
 readonly MAX_WAIT=600     # seconds the watcher may live, whatever happens
 readonly POLL=0.2
 
@@ -237,26 +241,25 @@ hide_overlay() {
 }
 
 _watch() {
-    trap 'hide_overlay' EXIT INT TERM
+    # A trapped signal alone does not end a bash loop — the handler runs
+    # and the loop goes on — so disarm's kill has to be turned into an
+    # exit here, or the watcher would live out MAX_WAIT after the command
+    # it was armed for is long done.
+    trap 'hide_overlay' EXIT
+    trap 'hide_overlay; exit 0' INT TERM
 
     local i blocked=0
 
-    # Nothing signs instantly; git may run hooks first. Wait for gpg to
-    # show up, and stop caring if it never does.
-    for (( i = 0; i < APPEAR_GRACE * 5; i++ )); do
-        signing_in_flight && break
-        sleep "$POLL"
-    done
-    signing_in_flight || return 0
-
+    # Live until disarm, or MAX_WAIT if that never comes. A signature
+    # ending is not the end of the watch — see the header. Between
+    # signatures the window comes down and the block count starts over.
     for (( i = 0; i < MAX_WAIT * 5; i++ )); do
-        signing_in_flight || break
-        if pinentry_up; then
-            blocked=0
-            hide_overlay
-        else
+        if signing_in_flight && ! pinentry_up; then
             blocked=$(( blocked + 1 ))
             (( blocked >= SHOW_DELAY )) && show_overlay
+        else
+            blocked=0
+            hide_overlay
         fi
         sleep "$POLL"
     done
@@ -281,19 +284,31 @@ _gi_python() {
     return 1
 }
 
-# The same probe for the macOS window's toolkit, and it has to go one
-# step further than importing: a uv, pyenv or Homebrew python earlier on
-# PATH commonly ships the tkinter module while the Tcl/Tk framework it
-# binds to is missing, so the import succeeds and the first Tk() call
-# dies with "Tcl wasn't installed properly". Starting a Tk instance is
-# the only thing that tells the two apart — withdrawn and destroyed at
-# once, so the probe never puts anything on screen.
+# The same probe for the macOS window's toolkit, and it has to go two
+# steps further than importing. A uv, pyenv or Homebrew python commonly
+# ships the tkinter module while the Tcl/Tk behind it is missing or
+# unfindable, so the import succeeds and the first Tk() call dies with
+# "Tcl wasn't installed properly"; only starting a Tk instance tells the
+# two apart — withdrawn and destroyed at once, so the probe never puts
+# anything on screen. And Tk 8.5, which is what the python in Apple's
+# Command Line Tools carries, starts fine and then does not reliably
+# show a borderless translucent window at all — or hangs setting it
+# up — so the probe also insists on 8.6.
+#
+# Each candidate is probed and reported by its resolved path. Tcl looks
+# for init.tcl relative to the executable it was started as and does not
+# follow symlinks, so the `python3` symlink uv or pyenv puts on PATH fails
+# the probe while the interpreter it points at passes it.
 _tk_python() {
-    local py
-    for py in python3 /usr/bin/python3; do
-        command -v "$py" >/dev/null 2>&1 || continue
-        if "$py" -c 'import tkinter; t = tkinter.Tk(); t.withdraw(); t.destroy()' >/dev/null 2>&1; then
-            printf '%s\n' "$py"
+    local py real
+    for py in python3 /opt/homebrew/bin/python3 /usr/local/bin/python3 /usr/bin/python3; do
+        real="$(readlink -f "$(command -v "$py" 2>/dev/null)" 2>/dev/null)" || continue
+        [[ -n $real ]] || continue
+        if "$real" -c 'import sys, tkinter
+t = tkinter.Tk(); t.withdraw()
+ok = tuple(int(p) for p in t.tk.call("info", "patchlevel").split(".")[:2]) >= (8, 6)
+t.destroy(); sys.exit(0 if ok else 1)' >/dev/null 2>&1; then
+            printf '%s\n' "$real"
             return 0
         fi
     done
