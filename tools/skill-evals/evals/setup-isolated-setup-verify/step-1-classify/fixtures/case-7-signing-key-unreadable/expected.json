@@ -1,0 +1,55 @@
+{
+  "snapshot_drift": "none",
+  "checks": [
+    {
+      "n": 1,
+      "status": "✓",
+      "evidence": "sandbox.enabled: true; deny and ask lists present; network and filesystem allowlists configured"
+    },
+    {
+      "n": 2,
+      "status": "✓",
+      "evidence": "PreToolUse Bash → sandbox-bypass-warn.sh; PostToolUse Bash → sandbox-error-hint.sh; statusLine → sandbox-status-line.sh"
+    },
+    {
+      "n": 3,
+      "status": "✓",
+      "evidence": "sandbox-bypass-warn.sh, sandbox-error-hint.sh, sandbox-status-line.sh all present and executable"
+    },
+    {
+      "n": 4,
+      "status": "✓",
+      "evidence": "source ~/.claude/agent-isolation/agent-iso.sh in ~/.zshrc; alias claude='claude-iso' not set (optional)"
+    },
+    {
+      "n": 5,
+      "status": "✓",
+      "evidence": "macOS: primitives n/a; claude-code 2.1.150 at min_version floor 2.1.150"
+    },
+    {
+      "n": 6,
+      "status": "✓",
+      "evidence": "status line shows [sandbox]"
+    },
+    {
+      "n": 7,
+      "status": "✓",
+      "evidence": "cat ~/.aws/credentials → Operation not permitted; $AWS_ACCESS_KEY_ID empty; curl denied at permission layer"
+    },
+    {
+      "n": 8,
+      "status": "✓",
+      "evidence": "/Users/alice/tracker in allowRead and allowWrite; live read of .git/HEAD OK; write probe OK"
+    },
+    {
+      "n": 9,
+      "status": "✓",
+      "evidence": "only vetted-op-read in allow, vetted-op in ask; Edit+Write denied on catalogue and policy"
+    },
+    {
+      "n": 10,
+      "status": "✗",
+      "evidence": "10a ✓ hooks wired, scripts executable and identical to framework; 10b ✓ _gui_available rc=0; 10c ✗ head /Users/alice/.ssh/id_ed25519_sk.pub → Operation not permitted, no allowRead entry for the signing key"
+    }
+  ]
+}

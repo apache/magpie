@@ -483,7 +483,8 @@ below, annotated.
         "~/.local/bin/",              // uv-installed tool entry points
         "~/.config/apache-magpie/",  // Gmail OAuth refresh token (oauth-draft tool)
         "~/.gnupg/",                  // gpg keyring reads (needed for signing, not sufficient on Linux — see sandbox-troubleshooting.md)
-        "/run/user/*/gnupg/"          // gpg-agent socket dir (see "agent appears unreachable" in sandbox-troubleshooting.md)
+        "/run/user/*/gnupg/",         // gpg-agent socket dir (see "agent appears unreachable" in sandbox-troubleshooting.md)
+        "~/.ssh/id_ed25519_sk.pub"    // ONLY with `gpg.format=ssh`: the public half git hands to `ssh-keygen -Y sign`. Use the file `git config user.signingkey` names (see sandbox-troubleshooting.md)
       ],
       "allowWrite": [
         "~/.cache/",                  // uv lock files, prek log + state, ruff/mypy caches, prek's rustup toolchains + cargo registry
@@ -491,6 +492,9 @@ below, annotated.
       ]
     },
     "network": {
+      "allowUnixSockets": [        // macOS only (ignored on Linux): sockets a sandboxed Bash may connect(2) to. A read entry alone lets it stat the file, not talk to it.
+        "/Users/<you>/.gnupg/S.gpg-agent.ssh"   // gpg-agent's ssh socket — needed for signed commits and pushes over ssh; absolute path (see "SSH agent / Yubikey appears unreachable" in sandbox-troubleshooting.md)
+      ],
       "allowedDomains": [          // every host the framework legitimately reaches
         "github.com", "api.github.com", "api.bitbucket.org",
         "raw.githubusercontent.com",
@@ -1843,7 +1847,11 @@ ykman openpgp info | grep -A2 'Touch policies'
 It applies just as much with `git config gpg.format ssh`, where the
 signature is made by `ssh-keygen -Y sign` over gpg-agent's ssh socket
 rather than by gpg. The same key waits for the same touch, so the
-watcher looks for either command.
+watcher looks for either command. Under the sandbox that setup needs
+one more `allowRead` entry — the public key file git hands to
+`ssh-keygen` — or the commit fails before the key is ever asked for a
+touch; see
+[`sandbox-troubleshooting.md` → Signed commit fails before any touch when git signs with ssh](sandbox-troubleshooting.md#signed-commit-fails-before-any-touch-when-git-signs-with-ssh).
 
 This is the operator-facing half of the hardware-key rule in
 [`AGENTS.md`](../../AGENTS.md) → *Commit and PR conventions*. That rule
@@ -1930,6 +1938,11 @@ replaying several commits, a real signature after a hook ran something
 that merely looked like one — raises the window again. `MAGPIE_GPG_TOUCH_DEBUG=1` makes the
 watcher log to `$XDG_RUNTIME_DIR/magpie-gpg-touch/watcher.log`
 (`/tmp/magpie-gpg-touch/` on macOS, which sets no `XDG_RUNTIME_DIR`).
+So does a marker file, `touch $XDG_RUNTIME_DIR/magpie-gpg-touch/debug`
+— the way to get a log out of the watcher the *hook* spawns, whose
+environment is the harness's own and takes no variable from your
+terminal. Export `SHELLOPTS=xtrace` alongside the variable (terminal
+runs only) for a full trace.
 
 ### Trade-offs
 
@@ -2460,6 +2473,16 @@ below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
      (the catalogue) and
      `.apache-magpie-overrides/tools/vetted-ops/**` (the policy).
    If the repo has no vetted-ops policy at all, report n/a.
+9. If my commits are signed with a hardware key: the touch overlay
+   is wired (`PreToolUse` / `PostToolUse` `Bash` →
+   `~/.claude/scripts/gpg-touch-overlay.sh arm` / `disarm`), its
+   scripts match the framework's `tools/agent-isolation/` copies,
+   and — with `gpg.format=ssh` — the file `git config
+   user.signingkey` names is readable from a sandboxed Bash (it
+   needs its own `sandbox.filesystem.allowRead` entry). For the
+   toolkit probe (`gpg-touch-overlay.sh _gui_available`) hand me
+   the command to run myself: it cannot see the display from
+   inside the sandbox.
 ```
 
 Re-run either form after every Claude Code upgrade — the sandbox

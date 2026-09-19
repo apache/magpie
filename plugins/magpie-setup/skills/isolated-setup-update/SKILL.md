@@ -179,7 +179,11 @@ Walk each:
    `~/.claude/agent-isolation/agent-iso.sh` for the global
    wrapper install,
    `~/.claude/scripts/sandbox-add-project-root.sh` for the
-   issue-#197 project-root helper, **and** —
+   issue-#197 project-root helper,
+   `~/.claude/scripts/gpg-touch-overlay.sh` with its window scripts
+   `gpg-touch-overlay-window.py` and
+   `gpg-touch-overlay-window-macos.py` for the hardware-key touch
+   overlay where that is installed, **and** —
    *only when whole-user scope is in effect, detected via
    `git config --global --get core.hooksPath` resolving to
    `~/.claude/git-hooks`* —

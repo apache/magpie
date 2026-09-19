@@ -95,6 +95,12 @@ readonly POLL=0.2
 RUNTIME_DIR="${XDG_RUNTIME_DIR:-/tmp}/magpie-gpg-touch"
 readonly WATCHER_PID_FILE="$RUNTIME_DIR/watcher.pid"
 
+# Logging is switched on by the environment or by a marker file. The
+# file is for the case that matters most: a hook runs with the
+# harness's environment, which nobody can set a variable in from a
+# terminal, but anyone can `touch` the marker there.
+_debugging() { [[ -n ${MAGPIE_GPG_TOUCH_DEBUG:-} || -e $RUNTIME_DIR/debug ]]; }
+
 # A signature is in flight: gpg itself, or the `ssh-keygen -Y sign` git
 # runs under `gpg.format=ssh`. That one signs through gpg-agent's ssh
 # socket without ever starting gpg, so watching for gpg alone is blind to
@@ -109,7 +115,10 @@ pinentry_up() { pgrep -x 'pinentry.*' >/dev/null 2>&1; }
 
 # Subcommands that can produce a signature under this config. Broad on
 # purpose: a false positive costs one short-lived watcher, a false
-# negative costs a silent block with no window.
+# negative costs a silent block with no window. The subcommand may be
+# followed by whitespace, the end of the command, or whatever ends a
+# shell word — `git commit;`, `git commit)` and `git commit | tee` sign
+# just as much as `git commit -m`.
 readonly SIGNING_SUBCOMMANDS='commit|tag|merge|rebase|revert|cherry-pick|am|push'
 
 # A screen to draw on, and something to draw the window with.
@@ -157,7 +166,7 @@ arm() {
     [[ -n $command_text ]] || return 0
 
     printf '%s' "$command_text" |
-        grep -Eq "(^|[;&|(]|[[:space:]])git([[:space:]]+-[A-Za-z-]+([[:space:]]+[^[:space:]]+)?)*[[:space:]]+($SIGNING_SUBCOMMANDS)([[:space:]]|$)" ||
+        grep -Eq "(^|[;&|(]|[[:space:]])git([[:space:]]+-[A-Za-z-]+([[:space:]]+[^[:space:]]+)?)*[[:space:]]+($SIGNING_SUBCOMMANDS)([[:space:];&|)]|$)" ||
         return 0
 
     # Test seam: report the decision instead of spawning a watcher, so
@@ -179,7 +188,7 @@ arm() {
     # The watcher leads its own process group, so disarm can take down the
     # window it spawned with a single group kill.
     local log=/dev/null
-    [[ -n ${MAGPIE_GPG_TOUCH_DEBUG:-} ]] && log="$RUNTIME_DIR/watcher.log"
+    _debugging && log="$RUNTIME_DIR/watcher.log"
     _set_session_launcher
     "${SESSION_LAUNCHER[@]}" "$SELF" _watch >"$log" 2>&1 &
     printf '%s\n' "$!" >"$WATCHER_PID_FILE"
@@ -248,6 +257,9 @@ _watch() {
     trap 'hide_overlay' EXIT
     trap 'hide_overlay; exit 0' INT TERM
 
+    # The loop itself is silent, so a log is only worth having as a trace.
+    _debugging && set -x
+
     local i blocked=0
 
     # Live until disarm, or MAX_WAIT if that never comes. A signature
@@ -299,9 +311,16 @@ _gi_python() {
 # for init.tcl relative to the executable it was started as and does not
 # follow symlinks, so the `python3` symlink uv or pyenv puts on PATH fails
 # the probe while the interpreter it points at passes it.
+#
+# The usual homes are listed by absolute path as well as `python3` on
+# PATH: this runs from a Claude Code hook, whose environment is the
+# harness's own and need not carry the shell's PATH — a uv python only
+# reachable through `~/.local/bin` on PATH would otherwise be invisible
+# here, and the probe would settle on the system python that cannot draw.
 _tk_python() {
     local py real
-    for py in python3 /opt/homebrew/bin/python3 /usr/local/bin/python3 /usr/bin/python3; do
+    for py in python3 "$HOME/.local/bin/python3" "$HOME/.pyenv/shims/python3" \
+              /opt/homebrew/bin/python3 /usr/local/bin/python3 /usr/bin/python3; do
         real="$(readlink -f "$(command -v "$py" 2>/dev/null)" 2>/dev/null)" || continue
         [[ -n $real ]] || continue
         if "$real" -c 'import sys, tkinter
@@ -322,15 +341,28 @@ t.destroy(); sys.exit(0 if ok else 1)' >/dev/null 2>&1; then
 # does. zenity is the fallback for a machine without PyGObject — a small
 # dialog, but better than a silent block.
 _overlay() {
-    local py
+    local py out=/dev/null
+    # The window's own complaints — a toolkit that cannot reach the
+    # display, say — are the one thing a log is for.
+    if _debugging; then
+        out="$RUNTIME_DIR/watcher.log"
+        # The environment the window is drawn from — a hook's, not the
+        # terminal's — is usually the whole question. A safe subset only:
+        # no tokens or keys land in a world-readable log.
+        {
+            printf 'overlay env: '
+            env | grep -E '^(PATH|HOME|USER|SHELL|TERM|LANG|TMPDIR|DISPLAY|WAYLAND_DISPLAY|SSH_AUTH_SOCK|XPC_SERVICE_NAME|__CFBundleIdentifier|CLAUDE[A-Z_]*)=' | sort | tr '\n' ' '
+            printf '\n'
+        } >>"$out" 2>&1
+    fi
     if [[ $PLATFORM == Darwin ]]; then
         py="$(_tk_python)" || return 0
-        exec "$py" "$OVERLAY_WINDOW_MACOS" >/dev/null 2>&1
+        exec "$py" "$OVERLAY_WINDOW_MACOS" >>"$out" 2>&1
     fi
     if py="$(_gi_python)"; then
-        exec "$py" "$OVERLAY_WINDOW" >/dev/null 2>&1
+        exec "$py" "$OVERLAY_WINDOW" >>"$out" 2>&1
     fi
-    exec zenity --warning --title="$TITLE" --width=560 --text="$BODY" >/dev/null 2>&1
+    exec zenity --warning --title="$TITLE" --width=560 --text="$BODY" >>"$out" 2>&1
 }
 
 # A PreToolUse hook's exit status is a verdict on the command about to

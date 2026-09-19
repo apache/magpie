@@ -12,21 +12,26 @@
     - [Root cause](#root-cause)
     - [Fix](#fix)
     - [Notes](#notes)
-  - [Test cannot bind to a localhost port](#test-cannot-bind-to-a-localhost-port)
+  - [Signed commit fails before any touch when git signs with ssh](#signed-commit-fails-before-any-touch-when-git-signs-with-ssh)
     - [Symptom](#symptom-1)
     - [Root cause](#root-cause-1)
     - [Fix](#fix-1)
     - [Notes](#notes-1)
-  - [Docker / Podman command fails with a socket error](#docker--podman-command-fails-with-a-socket-error)
+  - [Test cannot bind to a localhost port](#test-cannot-bind-to-a-localhost-port)
     - [Symptom](#symptom-2)
     - [Root cause](#root-cause-2)
     - [Fix](#fix-2)
     - [Notes](#notes-2)
-  - [Temp files fail with "Read-only file system" under `/tmp`](#temp-files-fail-with-read-only-file-system-under-tmp)
+  - [Docker / Podman command fails with a socket error](#docker--podman-command-fails-with-a-socket-error)
     - [Symptom](#symptom-3)
     - [Root cause](#root-cause-3)
     - [Fix](#fix-3)
     - [Notes](#notes-3)
+  - [Temp files fail with "Read-only file system" under `/tmp`](#temp-files-fail-with-read-only-file-system-under-tmp)
+    - [Symptom](#symptom-4)
+    - [Root cause](#root-cause-4)
+    - [Fix](#fix-4)
+    - [Notes](#notes-4)
   - [Adding a new entry](#adding-a-new-entry)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -161,11 +166,34 @@ command — a signed `git commit`, `git tag -s`, `ssh-add -l` — must run
 with a per-call sandbox bypass, or outside the agent session entirely.
 The allowlist entries below remain correct and still matter (gpg reads
 the keyring through them); they simply do not restore the agent channel
-on their own. This measurement does not cover macOS/Seatbelt.
+on their own.
+
+**On macOS, path access is likewise necessary but not sufficient.**
+Seatbelt lets a sandboxed process `stat(2)` a socket whose path is in
+`allowRead`, but `connect(2)` to a Unix socket is a separate grant:
+`sandbox.network.allowUnixSockets`. With only the read entry the
+symptom is exactly the one above — the socket file is visible and
+the agent is "unreachable":
+
+```text
+$ ssh-add -l
+Error connecting to agent: Operation not permitted
+$ git commit …
+error: No private key found for public key "~/.ssh/<key>.pub"?
+fatal: failed to write commit object
+```
+
+(`ssh-keygen -Y sign` reports the unreachable agent as a missing
+private key — it found the public half, asked the agent for the
+private half, and got no answer.)
 
 ### Fix
 
-Add the SSH agent socket directories to `sandbox.filesystem.allowRead`:
+Two entries on macOS — the socket path has to be both readable and
+connectable — and one on Linux (see the `AF_UNIX` caveat above for
+what the read entry can and cannot do there). Add the socket to
+`sandbox.filesystem.allowRead` and, on macOS, to
+`sandbox.network.allowUnixSockets`:
 
 ```jsonc
 // ~/.claude/settings.json
@@ -178,6 +206,12 @@ Add the SSH agent socket directories to `sandbox.filesystem.allowRead`:
         "/private/tmp/ssh-*/agent.*"                    // macOS: openssh-portable variant (rare)
         // Linux: `~/.gnupg/` and `/run/user/*/gnupg/` are already in the framework reference;
         // add `/run/user/*/keyring/` here if you use gnome-keyring or seahorse for SSH.
+      ]
+    },
+    "network": {
+      "allowUnixSockets": [                             // macOS only — ignored on Linux
+        "/Users/<you>/.gnupg/S.gpg-agent.ssh"           // gpg-agent's ssh socket (enable-ssh-support); absolute path
+        // "/private/tmp/com.apple.launchd.*/Listeners"   // instead, for the system ssh-agent
       ]
     }
   }
@@ -198,13 +232,15 @@ Per-entry rationale:
 ### Notes
 
 - If you use **gpg-agent for SSH** (`enable-ssh-support` in
-  `~/.gnupg/gpg-agent.conf`), no extra entry is needed — the
-  framework reference already includes `~/.gnupg/` and
-  `/run/user/*/gnupg/`, which cover the gpg-agent SSH socket
-  (`S.gpg-agent.ssh`) on both platforms. On Linux, see the
-  `AF_UNIX` caveat under *Root cause*: those entries let gpg read
-  the keyring, but do not by themselves make the agent socket
-  reachable.
+  `~/.gnupg/gpg-agent.conf`), the read side is already covered —
+  the framework reference includes `~/.gnupg/` and
+  `/run/user/*/gnupg/`, where `S.gpg-agent.ssh` lives. That is
+  **not enough on macOS**: the socket also has to be listed in
+  `sandbox.network.allowUnixSockets`, or `connect(2)` is denied and
+  `ssh-add -l` reports the agent unreachable while the file is
+  plainly there. On Linux, see the `AF_UNIX` caveat under *Root
+  cause*: the read entries let gpg read the keyring, but do not by
+  themselves make the agent socket reachable.
 - If you use **Secretive** (an alternative macOS Yubikey
   agent), the socket lives under
   `~/Library/Group Containers/<bundle>/socket.ssh`; add that
@@ -212,8 +248,86 @@ Per-entry rationale:
 - Do **not** widen `allowRead` to `/private/tmp/**` — that opens
   the entire system temp directory, which other processes use for
   arbitrary files including credentials. Stay specific.
+- If git signs with **`gpg.format=ssh`**, the agent socket is only
+  half of it: git also has to *read* the public key file, which the
+  sandbox denies along with the rest of `~/.ssh/`. That is its own
+  entry — [Signed commit fails before any touch when git signs with ssh](#signed-commit-fails-before-any-touch-when-git-signs-with-ssh).
 
 ---
+
+## Signed commit fails before any touch when git signs with ssh
+
+### Symptom
+
+`git commit` with `commit.gpgsign=true` and `gpg.format=ssh` fails
+at once — no touch is requested, the hardware-key touch overlay
+never appears — and git reports:
+
+```text
+Couldn't load public key /Users/<you>/.ssh/<key>.pub: No such file or directory
+fatal: failed to write commit object
+```
+
+The tell is the timing. A signature the key is actually waiting on
+takes the key's full touch window (~15 s) before it gives up with
+`agent refused operation`; this fails in well under a second. The
+same deny reads differently from a plain `head -c 1 <that file>` in
+a sandboxed Bash — `Operation not permitted` — which is what the
+doctor probe and verify check report; `ssh-keygen` sees the hidden
+path as missing.
+
+### Root cause
+
+Filesystem allowlist. With `gpg.format=ssh`, git does not sign
+through gpg at all: it runs
+`ssh-keygen -Y sign -f <user.signingkey> -n git`, and
+`user.signingkey` names the **public** key file under `~/.ssh/`.
+The framework's `permissions.deny` carries `Read(~/.ssh/**)`, which
+the sandbox mirrors as a read deny on the whole directory, so
+`ssh-keygen` cannot open the file. The agent socket (the entry
+above) is the separate requirement that lets the *private* half
+sign; this entry is about the public half git must read first.
+
+### Fix
+
+Allow that one file — and only that file — for reads:
+
+```jsonc
+// ~/.claude/settings.json
+{
+  "sandbox": {
+    "filesystem": {
+      "allowRead": [
+        // ...existing entries...
+        "~/.ssh/id_ed25519_sk.pub"   // the file `git config --get user.signingkey` prints
+      ]
+    }
+  }
+}
+```
+
+Per-entry rationale: it is the public key, which is not a secret
+by definition; the private key stays on the token or in the agent.
+Never widen this to `~/.ssh/` — that directory also holds private
+keys, `config` and `known_hosts`.
+
+### Notes
+
+- Find the exact path with `git config --get user.signingkey`.
+  With a hardware key that is the `.pub` file; the agent holds the
+  private half.
+- `permissions.deny`'s `Read(~/.ssh/**)` stays as it is. That rule
+  governs the agent's own Read tool, which has no business in
+  `~/.ssh/`; `sandbox.filesystem.allowRead` only widens what Bash
+  subprocesses may open.
+- The hardware-key touch overlay
+  ([`secure-agent-setup.md` → Hardware-key touch overlay](secure-agent-setup.md#hardware-key-touch-overlay))
+  cannot flag this: it watches for `ssh-keygen` *blocking* on the
+  key, and here `ssh-keygen` exits before it ever blocks. If the
+  overlay never shows for a commit that fails instantly, check this
+  entry before suspecting the overlay.
+- Linux: the `AF_UNIX` caveat in the entry above still applies on
+  top of this one.
 
 ## Test cannot bind to a localhost port
 

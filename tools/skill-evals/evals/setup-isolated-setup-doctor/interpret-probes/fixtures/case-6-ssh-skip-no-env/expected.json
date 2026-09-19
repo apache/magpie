@@ -1,1 +1,1 @@
-{"ssh_status": "skip", "localhost_status": "pass", "docker_status": "pass", "has_failures": false}
+{"ssh_status": "skip", "localhost_status": "pass", "docker_status": "pass", "scratch_status": "skip", "signing_key_status": "skip", "has_failures": false}

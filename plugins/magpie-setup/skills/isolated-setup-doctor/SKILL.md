@@ -7,9 +7,10 @@ mode: Meta
 description: |
   Probe the secure-agent setup for in-session functional
   restrictions that block legitimate workflows in Claude Code,
-  Codex, or Gemini CLI. Runtime-specific diagnostics; Claude has three live
+  Codex, or Gemini CLI. Runtime-specific diagnostics; Claude has five live
   probes — SSH agent / Yubikey reachability, localhost port
-  binding, docker / podman runtime socket — each pointing the
+  binding, docker / podman runtime socket, per-project scratch
+  directory, and the ssh signing key's readability — each pointing the
   user at the matching numbered troubleshooting entry and its
   settings.json remediation (see body). Read-only — never
   modifies settings.json, never invokes the sandbox bypass.
@@ -109,19 +110,24 @@ catalog's *Adding a new entry* section.
   Do not paraphrase the remediation — the catalog is the single
   source of truth.
 
-## The 4 probes
+## The 5 probes
 
-The current set covers the four failure modes the catalog
+The current set covers the five failure modes the catalog
 documents. New probes are added when new entries land in the
 catalog; the two stay in lock-step.
 
 ### Probe 1 — SSH agent / Yubikey reachable
 
 Tests whether `ssh-agent` is reachable from inside the sandbox.
-Failure mode: `SSH_AUTH_SOCK` is passed through `claude-iso`'s
+Failure modes: `SSH_AUTH_SOCK` is passed through `claude-iso`'s
 env whitelist but the socket file is not in
 `sandbox.filesystem.allowRead`, so the agent's `ssh` /
-`git push` subprocesses cannot `connect(2)` to the socket.
+`git push` subprocesses cannot even `stat(2)` it; or — on macOS —
+the file is readable but its path is missing from
+`sandbox.network.allowUnixSockets`, so `connect(2)` is denied and
+the agent reports as unreachable while the socket is plainly
+there. The second is the one a signed commit hits as
+`No private key found for public key`.
 
 **Command:**
 
@@ -292,15 +298,58 @@ fi
 Note that `env` is applied at session start, so a fix does not take
 effect in the session that makes it — restart before re-probing.
 
+### Probe 5 — Signing key readable (`gpg.format=ssh`)
+
+Tests whether the public key git hands to `ssh-keygen -Y sign` can
+be opened from inside the sandbox. Failure mode: the framework
+denies `~/.ssh/` wholesale, so with `gpg.format=ssh` every signed
+commit fails before the hardware key is asked for a touch — and the
+touch overlay, which waits for `ssh-keygen` to block, never sees it
+block.
+
+**Command:**
+
+```bash
+if [ "$(git config --get gpg.format)" != "ssh" ]; then
+  echo "PROBE: signing-key → ⊘ (gpg.format is not ssh)"
+else
+  key="$(git config --get user.signingkey)"
+  case "$key" in
+    "")    echo "PROBE: signing-key → ⊘ (gpg.format=ssh but user.signingkey unset)" ;;
+    ssh-*) echo "PROBE: signing-key → ✓ (user.signingkey is a literal key, nothing to read)" ;;
+    *)
+      key="${key/#\~/$HOME}"
+      if head -c 1 "$key" >/dev/null 2>"${TMPDIR:-/tmp}/signing-key.err"; then
+        echo "PROBE: signing-key → ✓ ($key readable inside sandbox)"
+      else
+        echo "PROBE: signing-key → ✗ ($key not readable inside sandbox: $(head -1 "${TMPDIR:-/tmp}/signing-key.err"))"
+      fi ;;
+  esac
+fi
+```
+
+**Interpretation:**
+
+| Result | Status | Meaning |
+|---|---|---|
+| `✓ readable inside sandbox` | Pass | `ssh-keygen` will be able to open the public key. |
+| `✓ literal key` | Pass | `user.signingkey` holds the key text itself; no file is involved. |
+| `✗ not readable inside sandbox` | Fail | The sandbox's `~/.ssh/` read deny covers the public key; add that one file to `allowRead`. |
+| `⊘ gpg.format is not ssh` | Skip | Signing goes through gpg (or is off); the previous entry's socket rules are what matter. |
+| `⊘ user.signingkey unset` | Skip | Misconfigured signing, not a sandbox problem — mention it, do not fail the probe. |
+
+**On ✗ → remediation:**
+[`docs/setup/sandbox-troubleshooting.md` — Signed commit fails before any touch when git signs with ssh](../../../../docs/setup/sandbox-troubleshooting.md#signed-commit-fails-before-any-touch-when-git-signs-with-ssh).
+
 ## After the report
 
 If every probe is ✓ or ⊘:
 
-> All four probes pass (or are not applicable). The sandbox is
+> All five probes pass (or are not applicable). The sandbox is
 > not currently blocking the known failure modes catalogued in
 > `docs/setup/sandbox-troubleshooting.md`. If you hit a different
 > sandbox-shaped failure, follow the catalog's *Adding a new
-> entry* section and (optionally) extend this skill with a fourth
+> entry* section and (optionally) extend this skill with another
 > probe so future runs catch the same shape automatically.
 
 If any probe is ✗:

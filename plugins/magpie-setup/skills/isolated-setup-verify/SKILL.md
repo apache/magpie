@@ -130,7 +130,7 @@ Drift severity:
   path, the version string, the command output, the
   `sandbox.enabled` value — never just "✓" or "✗" alone.
 
-## The 9 checks
+## The 10 checks
 
 The canonical list lives in
 [docs/setup/secure-agent-setup.md → Verification → Via a Claude Code prompt](../../../../docs/setup/secure-agent-setup.md#via-a-claude-code-prompt-1).
@@ -330,6 +330,46 @@ Walk each in order:
    a boundary, correct that, because it is the misreading that
    produces a `vetted-op` `allow` in the first place.
 
+10. **Hardware-key touch overlay and the signing key.** Only when
+    commits are signed (`git config --get commit.gpgsign` is
+    `true`); otherwise report **n/a**. Three sub-checks:
+
+    **10a — wiring and scripts.** User-scope `~/.claude/settings.json`
+    has a `PreToolUse` `Bash` hook running
+    `gpg-touch-overlay.sh arm` and a `PostToolUse` `Bash` hook running
+    `gpg-touch-overlay.sh disarm`, and the scripts are present and
+    executable: `~/.claude/scripts/gpg-touch-overlay.sh`, plus
+    `gpg-touch-overlay-window.py` (Linux) or
+    `gpg-touch-overlay-window-macos.py` (macOS) beside it. Compare
+    each against `tools/agent-isolation/` in the framework checkout:
+    a copy that differs is ⚠ (stale — the watcher's behaviour has
+    changed more than once, and a stale copy fails silently), a
+    missing file or hook is ✗. Install steps and rationale:
+    [`docs/setup/secure-agent-setup.md` → Hardware-key touch overlay](../../../../docs/setup/secure-agent-setup.md#hardware-key-touch-overlay).
+
+    **10b — the window can draw.** The window needs a toolkit —
+    PyGObject or `zenity` on Linux, a python with Tk 8.6 or newer
+    on macOS — and the script carries its own probe:
+    `~/.claude/scripts/gpg-touch-overlay.sh _gui_available` (exit 0
+    means a window can be shown). It must run **outside the
+    sandbox**, where the hook itself runs: from inside the sandbox
+    no display or window server is reachable, so an in-sandbox run
+    says nothing. Do not reach for the bypass; surface the command
+    for the user to run with the `!` prefix and read the exit code
+    back. Non-zero is ✗, naming the platform's toolkit.
+
+    **10c — the signing key is readable in the sandbox.** Only with
+    `git config --get gpg.format` = `ssh`; otherwise n/a. The file
+    `git config --get user.signingkey` names must open from a
+    sandboxed Bash: `head -c 1 "$(git config --get user.signingkey)"
+    >/dev/null`. `Operation not permitted` / `Permission denied` is
+    ✗: the sandbox denies `~/.ssh/` wholesale and that one public
+    key needs its own `sandbox.filesystem.allowRead` entry. Without
+    it every commit fails before the key is asked for a touch, and
+    the overlay — which waits for `ssh-keygen` to block — has
+    nothing to show. Remediation:
+    [`docs/setup/sandbox-troubleshooting.md` → Signed commit fails before any touch when git signs with ssh](../../../../docs/setup/sandbox-troubleshooting.md#signed-commit-fails-before-any-touch-when-git-signs-with-ssh).
+
 ## After the report
 
 If every check is ✓, say so explicitly and stop — no further
@@ -354,6 +394,13 @@ without invoking it:
   is installed, re-run it with `--all-worktrees`; otherwise
   re-run `setup-isolated-setup-install` to install the helper
   and add the paths in one pass.
+- ✗ on check 10a (hook or script missing) → the overlay is installed
+  by hand, not by `setup-isolated-setup-install`; surface
+  [`docs/setup/secure-agent-setup.md` → Hardware-key touch overlay](../../../../docs/setup/secure-agent-setup.md#hardware-key-touch-overlay)
+  and stop. ⚠ on 10a (stale copy) → `setup-isolated-setup-update`.
+- ✗ on check 10c → the one-file `allowRead` widening in the
+  troubleshooting entry, applied by the user — never from this
+  skill — then re-verify.
 - The user-scope script copies live under `~/.claude-config/`
   for users who maintain that sync repo; uncommitted local edits
   there → `setup-shared-config-sync`.

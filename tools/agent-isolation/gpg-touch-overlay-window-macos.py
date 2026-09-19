@@ -190,10 +190,24 @@ def take_focus(root):
         send(None, ctypes.c_bool)(
             app, objc.sel_registerName(b"activateIgnoringOtherApps:"), True
         )
-    except (OSError, AttributeError, TypeError):
-        pass
-    root.lift()
-    root.focus_force()
+        root.lift()
+        root.focus_force()
+        root.update()
+        active = send(ctypes.c_bool)(app, objc.sel_registerName(b"isActive"))
+        key = send(ctypes.c_void_p)(app, objc.sel_registerName(b"keyWindow"))
+    except (OSError, AttributeError, TypeError) as exc:
+        root.lift()
+        root.focus_force()
+        active, key = f"unknown ({exc})", None
+    # Stderr is /dev/null unless the watcher is logging, in which case
+    # this is the line that says whether anything reached the screen.
+    print(
+        f"overlay: viewable={root.winfo_viewable()} geometry={root.winfo_geometry()}"
+        f" app_active={active} key_window={bool(key)}"
+        f" tk_focus={root.focus_displayof() is root}",
+        file=sys.stderr,
+        flush=True,
+    )
 
 
 def build_window():

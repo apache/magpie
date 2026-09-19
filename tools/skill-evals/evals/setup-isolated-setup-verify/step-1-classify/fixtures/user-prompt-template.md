@@ -5,4 +5,4 @@
 
 {report}
 
-Classify all 8 checks and return JSON only.
+Classify every check the report covers and return JSON only.

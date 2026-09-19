@@ -10,6 +10,8 @@ Return ONLY valid JSON with this structure:
   "ssh_status": "pass" | "fail" | "skip",
   "localhost_status": "pass" | "fail",
   "docker_status": "pass" | "fail" | "skip",
+  "scratch_status": "pass" | "warn" | "fail" | "skip",
+  "signing_key_status": "pass" | "fail" | "skip",
   "has_failures": true | false
 }
 ```
@@ -23,6 +25,10 @@ Definitions:
 - `docker_status`: `"pass"` if `PROBE: docker-runtime → ✓` or `PROBE: podman-runtime → ✓`;
   `"fail"` if `PROBE: docker-runtime → ✗` or `PROBE: podman-runtime → ✗`;
   `"skip"` if all runtime probes are `⊘` (not on PATH) or no runtime is installed.
+- `scratch_status`: `"pass"` if `PROBE: project-scratch → ✓`; `"warn"` if `⚠`;
+  `"fail"` if `✗`; `"skip"` if no `project-scratch` probe line is present.
+- `signing_key_status`: `"pass"` if `PROBE: signing-key → ✓`; `"fail"` if `✗`;
+  `"skip"` if `⊘` or if no `signing-key` probe line is present.
 - `has_failures`: `true` if any status is `"fail"`; `false` otherwise.
 
 Ignore any lines that are not `PROBE:` output lines.
