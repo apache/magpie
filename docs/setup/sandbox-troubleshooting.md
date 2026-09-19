@@ -248,6 +248,14 @@ Per-entry rationale:
 - Do **not** widen `allowRead` to `/private/tmp/**` — that opens
   the entire system temp directory, which other processes use for
   arbitrary files including credentials. Stay specific.
+- The socket grant makes **signing** work. It does not make
+  `git push` / `git fetch` over ssh work from inside the sandbox:
+  the sandbox routes network through its HTTP proxy only, so an ssh
+  transport gets no DNS and no TCP —
+  `ssh: Could not resolve hostname github.com` — before any key is
+  consulted. Push from your own terminal (the `!` prefix in Claude
+  Code runs a command there), or use an https remote, which does go
+  through the proxy.
 - If git signs with **`gpg.format=ssh`**, the agent socket is only
   half of it: git also has to *read* the public key file, which the
   sandbox denies along with the rest of `~/.ssh/`. That is its own
