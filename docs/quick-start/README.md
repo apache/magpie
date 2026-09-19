@@ -11,18 +11,13 @@
 
 # Quick start — reference pages
 
-The [quick start](../quick-start.md) is the walkthrough: decide how you want to
-use Magpie, install it, set the project up, then isolate the agent, guard what
-it runs and set up privacy — and go. These are the pages it sends you to when
-you want more than the step.
+The [quick start](../quick-start.md) covers installation, project configuration, isolation, and privacy setup in order.
+Use these reference pages for details on a particular step.
 
 | Page | What it answers |
 |---|---|
-| [Installation or Adoption?](two-ways.md) | Whether anything gets committed for other people — and who has to agree before you start |
-| [Prerequisites](prerequisites.md) | What individual skills need before they will run: agent, mail backend, tracker access, and the few skills with extra requirements |
-| [Your first run with a family](first-run.md) | What happens the first time you invoke a family's skill: the pre-flight stopping, the setup wizard, the configuration it scaffolds, and which files that family actually needs |
-| [What each family solves](families.md) | All ten families, the problem each one solves, and what it offers |
-| [Other installation methods](other-install-methods.md) | The pinned snapshot in three flavours, and the self-adoption path a clone of the framework takes |
-
-Start at the [quick start](../quick-start.md); come back here when a step
-raises a question.
+| [Installation or Adoption?](two-ways.md) | Which files stay local, which are shared, and who decides |
+| [Prerequisites](prerequisites.md) | Agent, mail-backend, tracker-access, and skill-specific requirements |
+| [Your first run with a family](first-run.md) | A PR-triage example with missing configuration, local setup, and a retry |
+| [What each family solves](families.md) | The ten families, their tasks, and their outputs |
+| [Other installation methods](other-install-methods.md) | Pinned-snapshot installation and framework self-adoption |
