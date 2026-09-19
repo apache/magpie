@@ -87,21 +87,29 @@ _NETWORK_MODE_KEYWORDS = frozenset(
 _NETWORK_DENIED_PREFIXES = ("host", "container", "ns", "path", "from-")
 
 # The docker/podman network-name grammar: an unrecognised value that does not
-# even look like a network name is refused rather than treated as one.
-_NETWORK_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
+# even look like a network name is refused rather than treated as one. Always
+# matched with `.fullmatch()` (never `.match()`): in a non-MULTILINE regex `$`
+# matches just before a trailing newline, so `.match()` would let a value like
+# "mynet\n" through.
+_NETWORK_NAME_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*")
 
 # NetworkingConfig.EndpointsConfig / libpod networks keys: `host`/`none` (any
 # case) are not real networks a project could create — moby promotes a lone
 # EndpointsConfig entry to the effective network mode, so attaching to a
 # network literally named `host`/`none` is the same host/no-network escape
-# NetworkMode itself refuses. `bridge`/`podman`/`default` are real built-in
-# networks every project can already reach without a label check.
+# NetworkMode itself refuses. `bridge`/`podman` are real built-in networks
+# every project can already reach without a label check; a project-created
+# network literally named `default` is not the built-in default network and
+# must reach the relay's label check like any other named network, so it is
+# deliberately absent from this allow-list (unlike `_NETWORK_MODE_KEYWORDS`,
+# where a bare `NetworkMode: "default"` genuinely means the built-in one).
 _NETWORK_HOST_LIKE_KEY_NAMES = frozenset({"host", "none"})
-_ENDPOINT_KEY_ALLOWED_KEYWORDS = frozenset({"bridge", "podman", "default"})
+_ENDPOINT_KEY_ALLOWED_KEYWORDS = frozenset({"bridge", "podman"})
 
 # Built-in network names every project can already reach; never treated as a
-# *named* (foreign) network the relay needs to label-check.
-_BUILTIN_NETWORK_NAMES = frozenset({"bridge", "podman", "default", "host", "none"})
+# *named* (foreign) network the relay needs to label-check. `default` is
+# deliberately absent — see `_ENDPOINT_KEY_ALLOWED_KEYWORDS` above.
+_BUILTIN_NETWORK_NAMES = frozenset({"bridge", "podman", "host", "none"})
 
 # SecurityOpt keys the policy recognises at all; every other key (including
 # unmask, proc-opts) is refused outright.
@@ -371,11 +379,13 @@ def _mounts_deny(
 def _network_mode_deny(key: str, net: str) -> Deny | None:
     """Exact classifier for a ``NetworkMode``/``netns`` value.
 
-    keyword -> allow; the ``_nsmode`` malformed sentinel -> deny; a
-    host/foreign-namespace prefix -> deny; otherwise the value must look
-    like a real network name (see ``_NETWORK_NAME_RE``) to be treated as a
-    named network, allowed here and left to the relay's label check
-    (Task 9) — anything else is refused rather than passed through.
+    keyword -> allow; the ``_nsmode`` malformed sentinel -> deny (the netns
+    object itself is malformed, not merely a bad name, so this message names
+    the object rather than a value); a host/foreign-namespace prefix -> deny;
+    otherwise the value must look like a real network name (see
+    ``_NETWORK_NAME_RE``) to be treated as a named network, allowed here and
+    left to the relay's label check (Task 9) — anything else is refused
+    rather than passed through.
     """
     net_cf = net.casefold()
     if net_cf in _NETWORK_MODE_KEYWORDS:
@@ -383,30 +393,31 @@ def _network_mode_deny(key: str, net: str) -> Deny | None:
     if net == _NSMODE_MALFORMED_SENTINEL:
         return Deny(f"network: {key} netns object has unexpected keys")
     if net_cf.startswith(_NETWORK_DENIED_PREFIXES):
-        return Deny(f"network: {key}={net} is refused; use a bridge network created through the gateway")
-    if not _NETWORK_NAME_RE.match(net):
+        return Deny(f"network: {key}={net} is refused")
+    if not _NETWORK_NAME_RE.fullmatch(net):
         return Deny(f"network: {net} is not a valid network name")
     return None
 
 
-def _network_key_deny(source: str, name: str) -> Deny | None:
+def _network_key_deny(name: str) -> Deny | None:
     """Exact classifier for one ``NetworkingConfig.EndpointsConfig`` / libpod ``networks`` key.
 
     Mirrors ``_network_mode_deny`` but with a key-shaped allow-list: real
-    built-in networks (``bridge``/``podman``/``default``) allow, ``host``/
-    ``none`` deny (moby promotes a lone ``EndpointsConfig`` entry to the
-    effective network mode, so this is the same escape ``NetworkMode``
-    itself refuses), and the same malformed-sentinel / denied-prefix /
-    name-grammar checks apply to everything else.
+    built-in networks (``bridge``/``podman``) allow, ``host``/``none`` deny
+    (moby promotes a lone ``EndpointsConfig`` entry to the effective network
+    mode, so this is the same escape ``NetworkMode`` itself refuses), and the
+    same denied-prefix / name-grammar checks apply to everything else. Unlike
+    ``_network_mode_deny``, a key is always a plain string (a JSON object
+    key), never a netns object, so there is no malformed-sentinel branch here
+    — a key that happened to equal the sentinel text would fail the grammar
+    check below anyway.
     """
     name_cf = name.casefold()
     if name_cf in _ENDPOINT_KEY_ALLOWED_KEYWORDS:
         return None
-    if name == _NSMODE_MALFORMED_SENTINEL:
-        return Deny(f"network: {source} netns object has unexpected keys")
     if name_cf in _NETWORK_HOST_LIKE_KEY_NAMES or name_cf.startswith(_NETWORK_DENIED_PREFIXES):
-        return Deny(f"network: {source}={name} is refused; use a bridge network created through the gateway")
-    if not _NETWORK_NAME_RE.match(name):
+        return Deny(f"network: network name {name} is refused")
+    if not _NETWORK_NAME_RE.fullmatch(name):
         return Deny(f"network: {name} is not a valid network name")
     return None
 
@@ -425,7 +436,7 @@ def _named_network_candidate(host: dict[str, Any], libpod: bool) -> str | None:
         return None
     if net_cf.startswith(_NETWORK_DENIED_PREFIXES):
         return None
-    if not _NETWORK_NAME_RE.match(net):
+    if not _NETWORK_NAME_RE.fullmatch(net):
         return None
     return net
 
@@ -549,22 +560,25 @@ def _check_create(body: dict[str, Any], ctx: PolicyContext, *, libpod: bool) -> 
         if net_deny is not None:
             return net_deny
 
-    if libpod:
-        networks = body.get("networks")
-        if isinstance(networks, dict):
-            for network_key in networks:
-                key_deny = _network_key_deny("networks", str(network_key))
+    # Read both the libpod and compat endpoint-map shapes unconditionally,
+    # regardless of which URL flavour this request came in on — like every
+    # other rule in this function (see the module docstring): a client could
+    # smuggle the "other" shape's field past a check gated on `libpod`.
+    networks = body.get("networks")
+    if isinstance(networks, dict):
+        for network_key in networks:
+            key_deny = _network_key_deny(str(network_key))
+            if key_deny is not None:
+                return key_deny
+
+    networking_config = body.get("NetworkingConfig")
+    if isinstance(networking_config, dict):
+        endpoints_config = networking_config.get("EndpointsConfig")
+        if isinstance(endpoints_config, dict):
+            for network_key in endpoints_config:
+                key_deny = _network_key_deny(str(network_key))
                 if key_deny is not None:
                     return key_deny
-    else:
-        networking_config = body.get("NetworkingConfig")
-        if isinstance(networking_config, dict):
-            endpoints_config = networking_config.get("EndpointsConfig")
-            if isinstance(endpoints_config, dict):
-                for network_key in endpoints_config:
-                    key_deny = _network_key_deny("NetworkingConfig.EndpointsConfig", str(network_key))
-                    if key_deny is not None:
-                        return key_deny
 
     security_opt_deny = _security_opt_deny(host)
     if security_opt_deny is not None:

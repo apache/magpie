@@ -420,3 +420,51 @@ def test_endpoints_config_and_networks_still_allow_real_names(ctx: PolicyContext
     assert named_networks(compat_with_endpoints({"mynet": {}}), False) == ["mynet"]
     assert check_create(libpod(networks={"mynet": {}}), ctx, libpod=True) is None
     assert named_networks(libpod(networks={"mynet": {}}), True) == ["mynet"]
+
+
+# --- Fix round 4 additions below (Task 6 addendum carry-overs) ---
+
+
+def test_network_name_grammar_rejects_trailing_newline(ctx: PolicyContext) -> None:
+    # `$` in a non-MULTILINE regex matches just before a trailing newline, so
+    # `.match()` let "mynet\n" through; the grammar check must fullmatch.
+    d = check_create(compat(NetworkMode="mynet\n"), ctx, libpod=False)
+    assert isinstance(d, Deny) and d.reason.startswith("network")
+    d2 = check_create(compat_with_endpoints({"mynet\n": {}}), ctx, libpod=False)
+    assert isinstance(d2, Deny) and d2.reason.startswith("network")
+
+
+def test_default_named_network_reaches_label_check(ctx: PolicyContext) -> None:
+    # A user-created network literally named "default" is not the built-in
+    # default network; it must reach the relay's label check like any other
+    # named network, not be silently treated as always-reachable.
+    body = compat_with_endpoints({"default": {}})
+    assert check_create(body, ctx, libpod=False) is None
+    assert named_networks(body, False) == ["default"]
+
+
+def test_endpoint_map_checked_regardless_of_libpod_flag(ctx: PolicyContext) -> None:
+    # The endpoint-map classifier must read both NetworkingConfig.EndpointsConfig
+    # and libpod networks unconditionally, like every other rule in this module.
+    libpod_body_with_compat_field = libpod(NetworkingConfig={"EndpointsConfig": {"host": {}}})
+    d = check_create(libpod_body_with_compat_field, ctx, libpod=True)
+    assert isinstance(d, Deny) and d.reason.startswith("network")
+
+    compat_body_with_libpod_field = compat()
+    compat_body_with_libpod_field["networks"] = {"host": {}}
+    d2 = check_create(compat_body_with_libpod_field, ctx, libpod=False)
+    assert isinstance(d2, Deny) and d2.reason.startswith("network")
+
+
+def test_network_deny_wording_per_position(ctx: PolicyContext) -> None:
+    network_mode = check_create(compat(NetworkMode="host"), ctx, libpod=False)
+    assert isinstance(network_mode, Deny)
+    assert network_mode.reason == "network: NetworkMode=host is refused"
+
+    endpoint_key = check_create(compat_with_endpoints({"host": {}}), ctx, libpod=False)
+    assert isinstance(endpoint_key, Deny)
+    assert endpoint_key.reason == "network: network name host is refused"
+
+    netns_object = check_create(libpod(netns={"nsmode": "host", "extra": 1}), ctx, libpod=True)
+    assert isinstance(netns_object, Deny)
+    assert netns_object.reason == "network: netns netns object has unexpected keys"
