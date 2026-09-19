@@ -130,8 +130,9 @@ skills/:
 20. No-default-telemetry import check (SOFT) — PRINCIPLE 10 guarantees
     zero outbound calls from the framework unless a skill's adapter
     action explicitly makes them.  Only ``contract:*`` adapter tools and
-    the ``egress-gateway`` proxy are declared egress surfaces; all other
-    tools (``substrate:*``) must stay network-free.  Flags Python source
+    the ``egress-gateway`` proxy and the ``container-gateway`` are declared
+    egress surfaces; all other tools (``substrate:*``) must stay network-free.
+    Flags Python source
     files under ``tools/<name>/src/`` that import ``requests``,
     ``httpx``, ``aiohttp``, ``urllib.request``, ``http.client``, or
     ``socket`` in tools that do not declare a ``contract:*`` capability.
@@ -392,9 +393,9 @@ TOOL_CAPABILITIES = {
 # No-default-telemetry check constants (aspect #21, SOFT)
 # ---------------------------------------------------------------------------
 
-# The egress-gateway tool is a network proxy by design — it is the one
-# substrate tool permitted to make outbound connections.
-_EGRESS_TOOL_NAME = "egress-gateway"
+# Declared egress surfaces: the egress proxy by design, and the container
+# gateway, whose only connections are local unix sockets to the daemon.
+_EGRESS_TOOL_NAMES = frozenset({"egress-gateway", "container-gateway"})
 
 # Network-calling import patterns that must not appear in substrate tool source.
 # Each entry is (compiled line-level regex, human-readable library name).
@@ -3624,8 +3625,9 @@ def validate_no_telemetry_imports(root: Path | None = None) -> Iterable[Violatio
 
     The framework guarantees zero outbound calls unless a skill's adapter
     action explicitly makes them (PRINCIPLE 10).  Only ``contract:*`` adapter
-    tools and the ``egress-gateway`` proxy are declared egress surfaces; all
-    other tools (``substrate:*``) must stay network-free.
+    tools and the ``egress-gateway`` proxy and the ``container-gateway`` are
+    declared egress surfaces; all other tools (``substrate:*``) must stay
+    network-free.
 
     Flags Python source files under ``tools/<name>/src/`` that import
     ``requests``, ``httpx``, ``aiohttp``, ``urllib.request``, ``http.client``,
@@ -3635,7 +3637,7 @@ def validate_no_telemetry_imports(root: Path | None = None) -> Iterable[Violatio
     See ``tools/egress-gateway/tool.md`` § Declared egress surfaces.
     """
     for tool_dir in collect_tool_dirs(root):
-        if tool_dir.name == _EGRESS_TOOL_NAME:
+        if tool_dir.name in _EGRESS_TOOL_NAMES:
             continue  # the proxy itself makes network calls by design
 
         readme = tool_dir / "README.md"

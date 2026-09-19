@@ -5211,6 +5211,26 @@ class TestValidateNoTelemetryImports:
         violations = [v for v in validate_no_telemetry_imports(root) if v.category == NO_TELEMETRY_CATEGORY]
         assert violations == []
 
+    def test_container_gateway_not_flagged(self, tmp_path: Path) -> None:
+        root = self._make_tool(
+            tmp_path,
+            name="container-gateway",
+            readme=(
+                "# container-gateway\n\n"
+                "**Capability:** substrate:sandbox\n\n"
+                "## Prerequisites\n\n"
+                "- **Runtime:** Python 3.11+\n"
+                "- **CLIs:** podman and/or docker.\n"
+                "- **Credentials / auth:** None.\n"
+                "- **Network:** local unix sockets only.\n"
+            ),
+            src_files={
+                "container_gateway/__init__.py": ("# SPDX-License-Identifier: Apache-2.0\nimport socket\n")
+            },
+        )
+        violations = [v for v in validate_no_telemetry_imports(root) if v.category == NO_TELEMETRY_CATEGORY]
+        assert violations == []
+
     def test_no_src_directory_skipped(self, tmp_path: Path) -> None:
         root = _make_tools_root(tmp_path)
         tool_dir = root / "tools" / "metadata-only"
