@@ -548,7 +548,7 @@ Apache-2.0 licensed.
 >
 > ## Evals are required to release
 >
-> PRINCIPLE 8 makes evals a release requirement: a skill that ships without an
+> PRINCIPLE 9 makes evals a release requirement: a skill that ships without an
 > eval suite is not releasable, however well it does in manual testing. Every
 > Magpie release ships the eval suites alongside the skills they test.
 >
@@ -594,7 +594,7 @@ Apache-2.0 licensed.
 >   format.
 > - **`pattern-catalogue.md` (pattern-catalogue.md)** includes a "test your skill
 >   with an eval before shipping it" pattern as a ready-to-copy recipe.
-> - **PRINCIPLES.md (../../PRINCIPLES.md)**: PRINCIPLE 8 is the release rule;
+> - **PRINCIPLES.md (../../PRINCIPLES.md)**: PRINCIPLE 9 is the release rule;
 >   PRINCIPLE 0 is the data-not-instructions rule that the injection cases check.
 
 ### Lesson wrapper (exercises and self-check)
@@ -1035,7 +1035,7 @@ self-check answers.
 > <details>
 > <summary>Answer</summary>
 >
-> A skill without an eval suite is not finished (PRINCIPLE 8 and AGENTS.md
+> A skill without an eval suite is not finished (PRINCIPLE 9 and AGENTS.md
 > § Reusable skills). The PR will not pass review without the eval suite, and
 > "finish it later" means the skill is in an unverifiable state in the
 > interim — anyone who adopts it in that window has no way to check that it
@@ -1140,7 +1140,7 @@ self-check answers.
 >
 > ## Licence
 >
-> Apache License 2.0 (PRINCIPLE 17). Pages written with help from AI carry a
+> Apache License 2.0 (PRINCIPLE 18). Pages written with help from AI carry a
 > `Generated-by:` note in their commit message following ASF Generative Tooling
 > Guidance.
 
@@ -1227,7 +1227,7 @@ non-empty, but not the exact wording; they run locally with no model, so they ar
 faster and cheaper.
 
 **Q3. Write the suite in the same PR as the skill.** A skill without an eval suite is
-not finished (PRINCIPLE 8; AGENTS.md, Reusable skills). The PR will not pass review
+not finished (PRINCIPLE 9; AGENTS.md, Reusable skills). The PR will not pass review
 without it, and "finish it later" leaves the skill unverifiable in the interim, so any
 adopter in that window cannot check it works. The harness runs in print mode with no
 credentials, so writing cases needs no live model.

@@ -227,7 +227,9 @@ above all, where a GET and a POST look identical, so the whole command stays on
 `ask` and every read through it prompts. On a sweep across thirty trackers that
 is a hundred prompts, and the hundredth gets the attention the first deserved.
 Prompt fatigue is not a usability complaint here; it is the mechanism by which
-Layer 3 stops working.
+Layer 3 stops working — which is why
+[`PRINCIPLES.md` §1](../../PRINCIPLES.md#1-avoiding-prompt-fatigue) ranks avoiding it
+ahead of the security principle whose confirmations it protects.
 
 [`tools/vetted-ops`](https://github.com/apache/magpie/blob/main/tools/vetted-ops)
 narrows the surface so read traffic can leave the prompt stream without the

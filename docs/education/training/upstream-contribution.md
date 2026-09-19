@@ -113,7 +113,7 @@ contribution guidelines apply from the first upstream commit onward.
 
 The module uses `<PROJECT>` wherever a concrete project name would appear in
 an exercise or self-check. This is the framework's project-agnosticism
-convention (PRINCIPLE 12): substituting `<PROJECT>` with a real name is a
+convention (PRINCIPLE 13): substituting `<PROJECT>` with a real name is a
 learner or facilitator step, not a file-editing step.
 
 When submitting upstream, leave `<PROJECT>` as-is — it is the upstream

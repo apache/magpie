@@ -51,7 +51,7 @@ Healthier means:
 These four dimensions are deliberately measurable with data that is
 already public and freely accessible — no new instrumentation, no
 surveys, no contributor PII beyond what the project's public GitHub
-activity already exposes (PRINCIPLE 10).
+activity already exposes (PRINCIPLE 11).
 
 > **A community is not just numbers.** These four signals are indicators,
 > not a verdict. The gate produces evidence for a human to weigh; it does

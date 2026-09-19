@@ -20,7 +20,7 @@ when_to_use: |
   Invoke when a maintainer says "optimize <skill>", "slim down
   <skill>'s SKILL.md", "this SKILL.md is too long", "split <skill>
   into subdocs", "lift the hardcoded values out of <skill>", "make
-  <skill> read less into context", or "sweep the skills for P14
+  <skill> read less into context", or "sweep the skills for P15
   violations". Also a natural follow-up to a principles/validator
   audit that flags an over-500-line SKILL.md, concrete-name
   leakage, or a heavy in-context read. Skip for net-new skills —
@@ -248,7 +248,7 @@ they want to run with the local snapshot for now.
   under `.claude/skills/` and rank optimization candidates without
   applying anything, or `over:<N>` to scope the sweep to SKILL.md
   files longer than `<N>` lines (default threshold: **500**, the
-  `PRINCIPLES.md` P14 cap).
+  `PRINCIPLES.md` P15 cap).
 - **Pass filter** (optional) — restrict to named passes from
   [`patterns.md`](patterns.md), e.g. `pass:split` or
   `pass:config-lift,out-of-context`. Default: propose every
@@ -306,7 +306,7 @@ Diagnosis is **read-only**; it never edits.
 
 The five smells, in the order the passes below apply them:
 
-1. **Oversized body** — `SKILL.md` over the 500-line P14 cap, or a
+1. **Oversized body** — `SKILL.md` over the 500-line P15 cap, or a
    single section that dominates the body. → *split* pass.
 2. **Concrete-name leakage** — adopter-specific values (a concrete
    `<upstream>` repo slug, real list addresses, real IDs) baked into
@@ -412,12 +412,12 @@ the maintainer can queue the next one.
   paraphrases the moved instructions is a behavior change in
   disguise. Move verbatim; only the surrounding pointer is new.
 - **Propose before applying.** Every pass is a proposal the
-  maintainer confirms (framework Principle 6). Never batch-apply a
+  maintainer confirms (framework Principle 7). Never batch-apply a
   sweep.
 - **The validator is the gate.** Green before, green after, every
   pass. A pass that needs the validator relaxed is not an
   optimization.
-- **The optimized SKILL.md still obeys P14** — under 500 lines, with
+- **The optimized SKILL.md still obeys P15** — under 500 lines, with
   every sibling linked exactly one level deep and no unreferenced
   siblings.
 - **Never touch the snapshot** (`<adopter-repo>/.apache-magpie/`).
@@ -438,5 +438,5 @@ the maintainer can queue the next one.
   and [`tools/github-rollup`](../../../../tools/github-rollup/README.md)
   — out-of-context read/PATCH tools the rewire passes route through.
 - [`docs/labels-and-capabilities.md`](../../../../docs/labels-and-capabilities.md)
-  — the `capability:*` taxonomy and the P14 authorship rule this
+  — the `capability:*` taxonomy and the P15 authorship rule this
   skill enforces.

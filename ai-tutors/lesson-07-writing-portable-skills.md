@@ -89,8 +89,8 @@ until all five have been demonstrated by the learner, not just stated by you.
 - Teach one idea at a time. Never dump the whole lesson in one message. After each
   idea, ask a short question that checks the learner actually followed, and wait
   for their reply before moving on.
-- Keep the two axes distinct: project-agnostic (PRINCIPLE 12, no real project
-  names or hardcoded config) and model-neutral (PRINCIPLE 9, no vendor names or
+- Keep the two axes distinct: project-agnostic (PRINCIPLE 13, no real project
+  names or hardcoded config) and model-neutral (PRINCIPLE 10, no vendor names or
   harness commands) are independent. A skill can be safe but not portable, or
   portable on one axis and not the other. Do not let the learner collapse them.
 - Teach the `<upstream>` vs `<tracker>` distinction explicitly: `<upstream>` is
@@ -153,9 +153,9 @@ Apache-2.0 licensed.
 >
 > Portability has two axes:
 >
-> - **Project-agnostic** (PRINCIPLE 12): The skill works for any project that
+> - **Project-agnostic** (PRINCIPLE 13): The skill works for any project that
 >   adopts the framework, with no rewrites — only a config change.
-> - **Model-neutral** (PRINCIPLE 9): The skill works with any model backend, local
+> - **Model-neutral** (PRINCIPLE 10): The skill works with any model backend, local
 >   or hosted, current or future.
 >
 > Both axes are authoring decisions you make while you write the skill. Neither
@@ -191,9 +191,9 @@ Apache-2.0 licensed.
 > non-portable skill needs to be rewritten. That rewriting is a cost that portability
 > removes.
 >
-> PRINCIPLE 12 states the contract: *a concrete name inside a skill is a refactor
+> PRINCIPLE 13 states the contract: *a concrete name inside a skill is a refactor
 > bug, not a shortcut. Swapping projects is a config change, never a code change.*
-> PRINCIPLE 9 states the same for models: *a skill hard-coded to one vendor or model
+> PRINCIPLE 10 states the same for models: *a skill hard-coded to one vendor or model
 > family is broken, not specialised.*
 >
 > ---
@@ -361,8 +361,8 @@ Apache-2.0 licensed.
 > ```
 >
 > Changes made:
-> - `apache/kafka` → `<upstream>` (PRINCIPLE 12)
-> - "Use Claude to" → removed; the agent runs the step (PRINCIPLE 9)
+> - `apache/kafka` → `<upstream>` (PRINCIPLE 13)
+> - "Use Claude to" → removed; the agent runs the step (PRINCIPLE 10)
 > - "In Claude Code" → "Output to the conversation" (harness-neutral)
 > - The injection guard from `writing-safe-skills.md` is added
 >
@@ -412,14 +412,14 @@ Apache-2.0 licensed.
 > - **Pattern catalogue (pattern-catalogue.md)** has ready-to-copy skill shapes
 >   for common cases, each annotated with which principles it satisfies — including
 >   the placeholder convention.
-> - **PRINCIPLES.md (../../PRINCIPLES.md)**: PRINCIPLE 9 is the vendor-neutrality
->   rule; PRINCIPLE 12 is the project-agnosticism rule. Both are non-negotiable.
+> - **PRINCIPLES.md (../../PRINCIPLES.md)**: PRINCIPLE 10 is the vendor-neutrality
+>   rule; PRINCIPLE 13 is the project-agnosticism rule. Both are non-negotiable.
 >
 > ---
 >
 > ## Licence
 >
-> Everything in `docs/education/` is under the Apache License 2.0 (PRINCIPLE 17).
+> Everything in `docs/education/` is under the Apache License 2.0 (PRINCIPLE 18).
 > Pages written with help from AI carry a `Generated-by:` note in their commit
 > message, following ASF Generative Tooling Guidance.
 
@@ -636,7 +636,7 @@ self-check answers.
 >
 > The problem is a **project-specific name** — `apache/kafka` is hardcoded
 > instead of using a placeholder. This violates the project-agnostic axis
-> (PRINCIPLE 12). The step names the *issue tracker*, so the correct placeholder
+> (PRINCIPLE 13). The step names the *issue tracker*, so the correct placeholder
 > is `<tracker>`, and the corrected step is: *"Post this comment on
 > `<tracker>#NNN`."* (This mirrors the Pattern 1 example on the source page.)
 > The related placeholder `<upstream>` stands for the repository identifier
@@ -753,7 +753,7 @@ self-check answers.
 >
 > ## Licence
 >
-> Apache License 2.0 (PRINCIPLE 17). Pages written with help from AI carry a
+> Apache License 2.0 (PRINCIPLE 18). Pages written with help from AI carry a
 > `Generated-by:` note in their commit message following ASF Generative Tooling
 > Guidance.
 
@@ -762,8 +762,8 @@ self-check answers.
 **Exercise 1 - Spot the portability problems.** For each step: the non-portable
 element, the axis, and the fixing pattern.
 - Step A: `apache/kafka` in the `--repo` argument. Axis: project-agnostic
-  (PRINCIPLE 12). Fix: Pattern 1, replace with `<upstream>`.
-- Step B: "Ask GPT-4o to read the issue body". Axis: model-neutral (PRINCIPLE 9).
+  (PRINCIPLE 13). Fix: Pattern 1, replace with `<upstream>`.
+- Step B: "Ask GPT-4o to read the issue body". Axis: model-neutral (PRINCIPLE 10).
   Fix: Pattern 4, drop the vendor and just state the task ("Read the issue body and
   decide...").
 - Step C: "In Claude Code, press Ctrl+K and type /magpie-issue-triage ... output
@@ -814,7 +814,7 @@ Credit answers that (a) read the label from config, (b) replace the hardcoded
 
 **Q1. "Post this comment to the apache/kafka issue tracker."** The problem is a
 project-specific name (`apache/kafka`) hardcoded instead of a placeholder,
-violating the project-agnostic axis (PRINCIPLE 12). Corrected: "Post this comment
+violating the project-agnostic axis (PRINCIPLE 13). Corrected: "Post this comment
 on `<tracker>#NNN`." (Accept `<upstream>` if framed as the repository identifier;
 the key point is that no real repository name appears in the skill body. `<tracker>`
 is the issue tracker used in a `#NNN` reference; `<upstream>` is the `org/repo`
@@ -855,8 +855,8 @@ evidence.
 ### Summary (use at close)
 
 Portability is an authoring discipline, not a post-hoc fix. Two axes matter:
-project-agnostic (no real project names, no hardcoded config values; PRINCIPLE 12)
-and model-neutral (no vendor names, no harness commands; PRINCIPLE 9). Six patterns
+project-agnostic (no real project names, no hardcoded config values; PRINCIPLE 13)
+and model-neutral (no vendor names, no harness commands; PRINCIPLE 10). Six patterns
 cover almost every non-portable element a skill can contain: substitute
 placeholders for project names (Pattern 1), read variable values from adopter config
 (Pattern 2), run the validator before opening a pull request (Pattern 3), name

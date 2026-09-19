@@ -26,7 +26,7 @@ the trust model, and the §13 carve-out are defined there and in
 does the fetch, the pin, and the symlink.
 
 **The rule that governs everything here:** per
-[`PRINCIPLES.md` §13](../../../../PRINCIPLES.md#13-snapshot-plus-override-never-vendored-copies),
+[`PRINCIPLES.md` §14](../../../../PRINCIPLES.md#14-snapshot-plus-override-never-vendored-copies),
 a source is fetched **only if the adopter has listed it in
 `<trust-list>` and committed its pin.** An org curating a source,
 or the [registry](../../../../docs/skill-sources/registry.md) listing

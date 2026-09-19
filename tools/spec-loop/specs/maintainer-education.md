@@ -9,7 +9,7 @@ mode: infra
 source: >
   MISSION.md § Maintainer education — building agentic projects is a
   different craft; MISSION.md § Initial Goals ("Ship the
-  maintainer-education stream alongside v1"); PRINCIPLES.md § 18
+  maintainer-education stream alongside v1"); PRINCIPLES.md §19
   (maintainer education ships with the platform, release-blocking).
   Referenced but not yet delivered by docs/rfcs/RFC-AI-0004.md
   (§ "the maintainer-education stream").

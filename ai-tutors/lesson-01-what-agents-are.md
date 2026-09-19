@@ -282,11 +282,11 @@ Apache-2.0 licensed.
 >   raised above, that the words you give an agent are the real program.
 > - **MISSION.md (../../MISSION.md)** and **PRINCIPLES.md (../../PRINCIPLES.md)**
 >   explain why Magpie treats building with agents as a first-class craft worth
->   teaching (PRINCIPLE 18).
+>   teaching (PRINCIPLE 19).
 >
 > ## Licence
 >
-> Everything in `docs/education/` is under the Apache License 2.0 (PRINCIPLE 17).
+> Everything in `docs/education/` is under the Apache License 2.0 (PRINCIPLE 18).
 > Pages written with help from AI carry a `Generated-by:` note in their commit
 > message, following ASF Generative Tooling Guidance.
 
@@ -503,7 +503,7 @@ self-check answers.
 >
 > ## Licence
 >
-> Apache License 2.0 (PRINCIPLE 17). Pages written with help from AI carry a
+> Apache License 2.0 (PRINCIPLE 18). Pages written with help from AI carry a
 > `Generated-by:` note in their commit message following ASF Generative Tooling
 > Guidance.
 

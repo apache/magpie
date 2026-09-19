@@ -25,7 +25,7 @@ Magpie-shaped skills. It is the skills counterpart to the
 
 > **Discovery, then adopter-vouched install.** Listing a source here is
 > **editorial only** — it makes no guarantee about the source and triggers
-> no install. Per [`PRINCIPLES.md` §13](../../PRINCIPLES.md#13-snapshot-plus-override-never-vendored-copies),
+> no install. Per [`PRINCIPLES.md` §14](../../PRINCIPLES.md#14-snapshot-plus-override-never-vendored-copies),
 > a source is installed only after the *adopter* trusts it explicitly by
 > committing its pin to `<project-config>/skill-sources.md`. An entry here
 > is a pointer for humans to evaluate, not a supply-chain hook. See
