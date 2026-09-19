@@ -32,6 +32,17 @@
 # `gpg.format=ssh` — that one signs over gpg-agent's ssh socket and
 # starts no gpg at all.
 #
+# The key's *authentication* slot can carry a touch policy of its own,
+# and then every ssh transport — `git pull`, `fetch`, `push`, `clone`
+# over an ssh remote — waits for a touch before a byte moves. That wait
+# has no process name to match: the ssh git spawns looks the same
+# blocked on the key as it does busy transferring for a minute. What it
+# does have is an open connection to the agent's socket. ssh opens one,
+# sends the sign request, and closes it as soon as the answer is back;
+# while a transfer runs there is none. The kernel lists the agent's end
+# of every such connection under the socket's path, so the watcher
+# counts those rows against the number it saw when the watch began.
+#
 # This is the other half of the hardware-key rule in AGENTS.md
 # ("Commit and PR conventions"). That rule has the agent probe the PIN
 # cache and warn *before* committing; gpg-agent's `keyinfo` reports the
@@ -53,6 +64,9 @@
 #   * `pgrep -x gpg` — a signing gpg is in flight. Matching on the exact
 #     process name matters: `pgrep -f` would match the hook's own command
 #     line and report a signature that is not happening.
+#   * the agent socket has more connections than it had at arm time —
+#     ssh, or `ssh-keygen -Y sign`, has a request out to the agent and
+#     is waiting on the key's answer. See above.
 #   * `pgrep -x 'pinentry.*'` — pinentry is up, so the PIN is being asked
 #     for. The window stays hidden then; two dialogs competing for focus
 #     would make the PIN impossible to type.
@@ -83,9 +97,9 @@ PLATFORM="$(uname -s)"
 readonly PLATFORM
 
 readonly TITLE="Touch your security key"
-readonly BODY="<b>gpg is waiting for a touch to sign.</b>
+readonly BODY="<b>Your security key is waiting for a touch.</b>
 
-Touch the key's contact now — the commit is blocked until you do.
+Touch the key's contact now — the git command is blocked until you do.
 This window closes by itself once the touch registers."
 
 readonly SHOW_DELAY=8     # polls a signature must block before showing (0.2s each)
@@ -111,15 +125,45 @@ signing_in_flight() { pgrep -x 'gpg|gpg2|ssh-keygen' >/dev/null 2>&1; }
 # pinentry is asking for the PIN and owns the screen.
 pinentry_up() { pgrep -x 'pinentry.*' >/dev/null 2>&1; }
 
+# The ssh agent sockets a request to the key can arrive through: gpg-agent's
+# (ssh transport and `ssh-keygen -Y sign` under `enable-ssh-support`) and
+# whatever SSH_AUTH_SOCK names, which is usually the same file and
+# otherwise the system ssh-agent. One path per line, deduplicated.
+agent_sockets() {
+    {
+        gpgconf --list-dirs agent-ssh-socket 2>/dev/null
+        [[ -n ${SSH_AUTH_SOCK:-} ]] && printf '%s\n' "$SSH_AUTH_SOCK"
+    } | sed '/^$/d' | sort -u
+}
+
+# Rows the kernel's unix-socket table holds for the sockets in $1 (one
+# path per line): the listener, plus one for each connection the agent
+# has accepted and not yet closed. Linux keeps the table in /proc and
+# lists an accepted socket under the path it was accepted on; macOS has
+# no /proc, and lsof's unix-socket listing shows the same rows there.
+# The absolute number means little — what the watcher reads is the
+# change against its baseline.
+agent_socket_rows() {
+    local sockets=$1 rows
+    [[ -n $sockets ]] || { printf '0\n'; return 0; }
+    if [[ -r /proc/net/unix ]]; then
+        rows="$(grep -cF -f <(printf '%s\n' "$sockets") /proc/net/unix 2>/dev/null)"
+    else
+        rows="$(lsof -U -n 2>/dev/null | grep -cF -f <(printf '%s\n' "$sockets"))"
+    fi
+    printf '%s\n' "${rows:-0}"
+}
+
 # ---------------------------------------------------------------- arm ---
 
-# Subcommands that can produce a signature under this config. Broad on
-# purpose: a false positive costs one short-lived watcher, a false
-# negative costs a silent block with no window. The subcommand may be
-# followed by whitespace, the end of the command, or whatever ends a
-# shell word — `git commit;`, `git commit)` and `git commit | tee` sign
-# just as much as `git commit -m`.
-readonly SIGNING_SUBCOMMANDS='commit|tag|merge|rebase|revert|cherry-pick|am|push'
+# Subcommands that can reach the key: the ones that sign under this
+# config, and the ones that talk to a remote and so authenticate over
+# ssh. Broad on purpose: a false positive costs one short-lived watcher,
+# a false negative costs a silent block with no window. The subcommand
+# may be followed by whitespace, the end of the command, or whatever
+# ends a shell word — `git commit;`, `git commit)` and `git commit | tee`
+# sign just as much as `git commit -m`.
+readonly KEY_SUBCOMMANDS='commit|tag|merge|rebase|revert|cherry-pick|am|push|pull|fetch|clone|ls-remote|remote|submodule'
 
 # A screen to draw on, and something to draw the window with.
 #
@@ -166,7 +210,7 @@ arm() {
     [[ -n $command_text ]] || return 0
 
     printf '%s' "$command_text" |
-        grep -Eq "(^|[;&|(]|[[:space:]])git([[:space:]]+-[A-Za-z-]+([[:space:]]+[^[:space:]]+)?)*[[:space:]]+($SIGNING_SUBCOMMANDS)([[:space:];&|)]|$)" ||
+        grep -Eq "(^|[;&|(]|[[:space:]])git([[:space:]]+-[A-Za-z-]+([[:space:]]+[^[:space:]]+)?)*[[:space:]]+($KEY_SUBCOMMANDS)([[:space:];&|)]|$)" ||
         return 0
 
     # Test seam: report the decision instead of spawning a watcher, so
@@ -267,13 +311,21 @@ _watch() {
     # The loop itself is silent, so a log is only worth having as a trace.
     _debugging && set -x
 
-    local i blocked=0
+    local i blocked=0 sockets baseline rows
+
+    # Connections to the agent that already exist are somebody else's —
+    # a stuck client, a session in another terminal — and are not what
+    # this command is waiting for. Only ones that appear from here on
+    # count.
+    sockets="$(agent_sockets)"
+    baseline="$(agent_socket_rows "$sockets")"
 
     # Live until disarm, or MAX_WAIT if that never comes. A signature
     # ending is not the end of the watch — see the header. Between
     # signatures the window comes down and the block count starts over.
     for (( i = 0; i < MAX_WAIT * 5; i++ )); do
-        if signing_in_flight && ! pinentry_up; then
+        rows="$(agent_socket_rows "$sockets")"
+        if { signing_in_flight || (( rows > baseline )); } && ! pinentry_up; then
             blocked=$(( blocked + 1 ))
             (( blocked >= SHOW_DELAY )) && show_overlay
         else
@@ -386,6 +438,8 @@ case "${1:-}" in
     _tk_python) _tk_python ;;
     _gui_available) _gui_available ;;
     _signing_in_flight) signing_in_flight ;;
+    _agent_sockets) agent_sockets ;;
+    _agent_socket_rows) agent_socket_rows "$(printf '%s\n' "${@:2}")" ;;
     _spawn_session) shift; _set_session_launcher; exec "${SESSION_LAUNCHER[@]}" "$@" ;;
     *)
         printf '%s: expected arm|disarm, got "%s"\n' "${0##*/}" "${1:-}" >&2

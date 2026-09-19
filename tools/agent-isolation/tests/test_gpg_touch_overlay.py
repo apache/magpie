@@ -28,7 +28,9 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import socket
 import subprocess
+import tempfile
 import time
 from pathlib import Path
 
@@ -66,9 +68,19 @@ def _arm(command: str) -> str:
         "(git commit)",
         "git commit|tee log",
         "git commit&&echo done",
+        # Transport over an ssh remote asks the key for its authentication
+        # touch before anything is transferred.
+        "git pull",
+        "git pull --rebase upstream main",
+        "git fetch --all --prune",
+        "git push origin HEAD",
+        "git clone git@github.com:apache/magpie.git",
+        "git ls-remote origin",
+        "git remote update",
+        "git submodule update --init",
     ],
 )
-def test_arms_for_commands_that_can_sign(command: str) -> None:
+def test_arms_for_commands_that_can_reach_the_key(command: str) -> None:
     assert _arm(command) == "arm"
 
 
@@ -85,6 +97,73 @@ def test_arms_for_commands_that_can_sign(command: str) -> None:
 )
 def test_stays_quiet_for_commands_that_cannot_sign(command: str) -> None:
     assert _arm(command) == ""
+
+
+def test_agent_sockets_include_ssh_auth_sock() -> None:
+    """The system ssh-agent counts too, not only gpg-agent's socket."""
+    result = subprocess.run(
+        ["bash", str(SCRIPT), "_agent_sockets"],
+        capture_output=True,
+        text=True,
+        env={**os.environ, "SSH_AUTH_SOCK": "/nonexistent/agent.sock"},
+    )
+    assert result.returncode == 0
+    listed = result.stdout.split()
+    assert "/nonexistent/agent.sock" in listed
+    assert len(listed) == len(set(listed)), "socket paths are listed once each"
+
+
+def _agent_socket_rows(path: str) -> int:
+    result = subprocess.run(
+        ["bash", str(SCRIPT), "_agent_socket_rows", path],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    return int(result.stdout.strip())
+
+
+def test_agent_socket_rows_follow_the_connections_held_open() -> None:
+    """A request that waits on the key holds its agent connection open.
+
+    ssh and `ssh-keygen -Y sign` connect to the agent, ask, and close
+    once answered; while the key waits for a touch the connection stays.
+    The watcher reads that as rows in the kernel's socket table for the
+    agent's path, one per accepted connection, against a baseline.
+    """
+    # A short directory: sun_path is 104 bytes on macOS and pytest's
+    # tmp_path can be longer than that.
+    with tempfile.TemporaryDirectory() as tmp:
+        path = os.path.join(tmp, "agent.sock")
+        server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        try:
+            server.bind(path)
+        except PermissionError:
+            # The sandbox lets a command connect to the listed agent
+            # sockets and nothing else; it cannot listen on one of its own.
+            server.close()
+            pytest.skip("cannot create a unix socket here")
+        server.listen(1)
+        try:
+            baseline = _agent_socket_rows(path)
+            client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            client.connect(path)
+            accepted, _ = server.accept()
+            try:
+                assert _agent_socket_rows(path) > baseline
+            finally:
+                client.close()
+                accepted.close()
+            deadline = time.monotonic() + 5
+            while time.monotonic() < deadline and _agent_socket_rows(path) > baseline:
+                time.sleep(0.1)
+            assert _agent_socket_rows(path) == baseline
+        finally:
+            server.close()
+
+
+def test_agent_socket_rows_without_sockets_is_zero() -> None:
+    assert _agent_socket_rows("") == 0
 
 
 def test_payload_without_a_command_is_ignored() -> None:

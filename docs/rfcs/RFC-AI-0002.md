@@ -47,7 +47,7 @@
 |---|---|
 | **Author** | Jarek Potiuk ([@potiuk](https://github.com/potiuk)) |
 | **Created** | 2026-05-02 |
-| **Last updated** | 2026-09-08 |
+| **Last updated** | 2026-09-19 |
 | **Discussion** | *TBD — link to mailing list thread once posted* |
 | **Reference implementation** | [`apache/magpie`](https://github.com/apache/magpie) |
 | **Related documents** | [`secure-agent-setup.md`](https://github.com/apache/magpie/blob/main/docs/setup/secure-agent-setup.md), [`secure-agent-internals.md`](https://github.com/apache/magpie/blob/main/docs/setup/secure-agent-internals.md) |
@@ -289,6 +289,22 @@ The invariant a reviewer checks, on any harness, is short — **the write
 dispatcher must never appear in an unattended-allow position.** A read-only
 caller name sitting next to such a rule is not a mitigating factor; it is the
 misreading that produces the rule.
+
+#### Layer 3b — Hardware-key touch: physical confirmation of signatures and remote access
+
+Two operations an agent performs carry the operator's identity beyond the workstation: a **signature** on a commit or tag, and an **authenticated push** (or pull, or fetch) to the forge. Every layer above bounds *which* commands run and asks the operator to confirm them, but a confirmation prompt is software, read by a human who has been reading prompts all afternoon. Layer 3b moves that confirmation into hardware for exactly these two operations.
+
+The reference setup supports keeping both secrets on a **hardware security key** — a YubiKey, Nitrokey, or any OpenPGP card — with a **touch policy** on the slots git reaches: the signature slot, and the authentication slot ssh uses. With a touch policy set, the key does not sign and does not authenticate until it is physically touched. A prompt injection that talks the agent into committing and pushing in the operator's name — the outcome every layer above exists to prevent — then ends at a key waiting for a finger that never comes, whatever the model was convinced of. The private keys never exist as files, so nothing the sandbox could leak reproduces them elsewhere.
+
+This layer is **fully optional** and additive. It is aimed at operators who want a physical check on the two irreversible operations, and at the many who already carry a security key because their employer issues one for SSO and ssh — the same key serves here at no extra cost. It covers every transport the framework supports: with an **https** remote the transport is the forge CLI's credential helper and the key only signs; with an **ssh** remote the key also authenticates the transport; and signing can be OpenPGP through gpg or an **ssh signature made by the same card** (`gpg.format=ssh`) that the forge verifies from a single uploaded key.
+
+Three pieces make it usable in an agent session rather than merely possible:
+
+- **The key's own cache.** The recommended policy is `cached`: a touch is required and then honoured for 15 seconds on that slot. One touch covers a rebase that replays a dozen signed commits, a pull followed by a push, or the burst of fetches an IDE fires. The cache lives in the key, not in any host software, so no configuration on the host can extend it. (`ykman openpgp keys set-touch sig cached` / `aut cached`.)
+- **The sandbox grants.** Layer 1 denies `~/.ssh/` and `~/.gnupg/` wholesale; the setup opens exactly two things — gpg-agent's ssh socket, so a sandboxed git can ask the key to sign and to authenticate, and the one public-key file git hands to `ssh-keygen` when signing with an ssh key. The private material stays on the card.
+- **The touch overlay.** A key waiting for a touch is indistinguishable from a hung command: gpg puts a pinentry window up for the PIN and nothing at all for the touch, and ssh simply blocks. The reference implementation ships a `PreToolUse` / `PostToolUse` hook, [`tools/agent-isolation/gpg-touch-overlay.sh`](https://github.com/apache/magpie/blob/main/tools/agent-isolation/gpg-touch-overlay.sh), that arms a watcher before any git command that can reach the key and puts a full-screen window on the desktop once the key has actually blocked — for a signature, by seeing the signing process wait; for ssh transport, by seeing a connection to the agent's socket stay open, since the ssh git spawns looks the same blocked on the key as it does transferring. The window dims the desktop the way pinentry does, closes itself when the touch lands, and stays hidden for the sub-second signatures a cached touch allows.
+
+Like the visibility hooks, this layer changes nothing about what the agent may do; it changes who can complete the two operations that matter most. Install steps: [`secure-agent-setup.md` → Hardware security keys](https://github.com/apache/magpie/blob/main/docs/setup/secure-agent-setup.md#hardware-security-keys--signing-and-authentication) and [→ Hardware-key touch overlay](https://github.com/apache/magpie/blob/main/docs/setup/secure-agent-setup.md#hardware-key-touch-overlay).
 
 ### Visibility — sandbox-bypass warning hook
 
@@ -558,6 +574,7 @@ This setup substantially shrinks the credential-leakage surface, but some risks 
   redirecting a *read* — but the file's contents should be read as advisory
   rather than enforced. Mitigation: for adopters who need more, keep the policy
   outside every sandbox write root and pass `--config`.
+- **A cached touch is a 15-second window.** Layer 3b's `cached` policy honours one touch for 15 seconds on that slot, so a second signature or push issued inside that window — by the agent, by a hook, by an injected instruction — goes through without a further touch. The window is the price of an agent session that does not ask for a touch every few seconds; an operator who wants a touch per operation sets the policy to `on` and accepts the cost. The overlay does not close it: it shows a wait, not a signature that did not wait.
 - **MCP servers configured at user scope.** Claude Code does not isolate user-scope MCP servers from the project session — their tokens and tools come along. Mitigation: audit `~/.claude/.mcp.json` and `~/.claude.json` quarterly; remove any MCP server you don't actively use.
 
 ## Open questions

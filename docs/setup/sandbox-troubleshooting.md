@@ -253,14 +253,23 @@ Per-entry rationale:
 - Do **not** widen `allowRead` to `/private/tmp/**` — that opens
   the entire system temp directory, which other processes use for
   arbitrary files including credentials. Stay specific.
-- The socket grant makes **signing** work. It does not make
-  `git push` / `git fetch` over ssh work from inside the sandbox:
-  the sandbox routes network through its HTTP proxy only, so an ssh
-  transport gets no DNS and no TCP —
+- The socket grant makes **signing** work. Whether it also makes
+  `git push` / `git fetch` over ssh work from inside the sandbox
+  depends on the harness. A sandbox that routes network through its
+  HTTP proxy only gives an ssh transport no DNS and no TCP —
   `ssh: Could not resolve hostname github.com` — before any key is
-  consulted. Push from your own terminal (the `!` prefix in Claude
+  consulted; push from your own terminal (the `!` prefix in Claude
   Code runs a command there), or use an https remote, which does go
-  through the proxy.
+  through the proxy. A harness that exports a `GIT_SSH_COMMAND` whose
+  `ProxyCommand` points ssh at its SOCKS proxy changes the symptom,
+  not the outcome, as long as that proxy wants credentials `nc`
+  cannot offer — `This proxy requires authentication, and this
+  client did not offer an authentication method` (Claude Code on
+  macOS, 2026-09). Where the transport *does* get through, it then
+  asks the key for its *authentication* touch — a `git pull` that
+  hangs with no error is usually that, and the
+  [touch overlay](secure-agent-setup.md#hardware-key-touch-overlay)
+  covers it.
 - If git signs with **`gpg.format=ssh`**, the agent socket is only
   half of it: git also has to *read* the public key file, which the
   sandbox denies along with the rest of `~/.ssh/`. That is its own

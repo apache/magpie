@@ -332,7 +332,14 @@ Walk each in order:
 
 10. **Hardware-key touch overlay and the signing key.** Only when
     commits are signed (`git config --get commit.gpgsign` is
-    `true`); otherwise report **n/a**. Three sub-checks:
+    `true`) or a remote is reached over ssh through gpg-agent
+    (`SSH_AUTH_SOCK` names its socket); otherwise report **n/a**.
+    Three sub-checks, plus a note: the key's own touch policies
+    (`ykman openpgp info`, run by the user — the sandbox does not
+    see the device) are what make the overlay matter; report them
+    as seen, and suggest `cached` on the `sig` and `aut` slots
+    where either is `Off`, per
+    [`docs/setup/secure-agent-setup.md` → Hardware security keys](../../../../docs/setup/secure-agent-setup.md#hardware-security-keys--signing-and-authentication).
 
     **10a — wiring and scripts.** User-scope `~/.claude/settings.json`
     has a `PreToolUse` `Bash` hook running
@@ -366,8 +373,8 @@ Walk each in order:
     ✗: the sandbox denies `~/.ssh/` wholesale and that one public
     key needs its own `sandbox.filesystem.allowRead` entry. Without
     it every commit fails before the key is asked for a touch, and
-    the overlay — which waits for `ssh-keygen` to block — has
-    nothing to show. Remediation:
+    the overlay — which shows once `ssh-keygen` has blocked on the
+    key — has nothing to show. Remediation:
     [`docs/setup/sandbox-troubleshooting.md` → Signed commit fails before any touch when git signs with ssh](../../../../docs/setup/sandbox-troubleshooting.md#signed-commit-fails-before-any-touch-when-git-signs-with-ssh).
 
 11. **`gh` runs outside the sandbox.** `sandbox.excludedCommands`

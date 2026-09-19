@@ -27,7 +27,7 @@ drawn large enough to read from across the room. The contact ring pulses
 because a still image reads as "an error happened", while motion reads as
 "something is waiting for you".
 
-Closes on Esc or a click — the key must still be touched for the commit
+Closes on Esc or a click — the key must still be touched for the command
 to go through, so trapping the screen would buy nothing.
 """
 
@@ -41,8 +41,8 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gdk, Gtk  # noqa: E402
 
 TITLE = "Touch your security key"
-SUBTITLE = "gpg is waiting for a touch to sign"
-HINT = "The commit stays blocked until you touch the key   ·   Esc to dismiss"
+SUBTITLE = "Your security key is waiting for a touch"
+HINT = "The git command stays blocked until you touch the key   ·   Esc to dismiss"
 
 DIM = (0.0, 0.0, 0.0, 0.76)
 ACCENT = (0.96, 0.76, 0.16)  # amber, the colour these keys blink

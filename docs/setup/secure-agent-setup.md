@@ -41,6 +41,9 @@
     - [Trade-offs](#trade-offs-1)
   - [Sandbox-state status line](#sandbox-state-status-line)
   - [Waiting-for-input terminal tint](#waiting-for-input-terminal-tint)
+  - [Hardware security keys — signing and authentication](#hardware-security-keys--signing-and-authentication)
+    - [Configure the key to require a touch](#configure-the-key-to-require-a-touch)
+    - [Point git and ssh at the key](#point-git-and-ssh-at-the-key)
   - [Hardware-key touch overlay](#hardware-key-touch-overlay)
     - [Install (user-scope)](#install-user-scope-3)
     - [Verify](#verify-3)
@@ -83,7 +86,9 @@
 step for the secure agent setup — pinned tool versions, the
 framework's Claude Code and Codex runtime policies, the clean-env
 wrapper, the sandbox-bypass-warn hook, the sandbox-state status
-line, multi-host syncing, the agent-guided install / verify /
+line, hardware security keys for signing and authentication with
+a touch policy and the full-screen touch overlay that goes with it,
+multi-host syncing, the agent-guided install / verify /
 keep-updated prompts, and the five session screenshots that show
 what a working setup looks like in action. Read this end-to-end
 and you will have the secure setup running.
@@ -146,7 +151,8 @@ select. The end state and verification commands are documented in the
    surfaces gaps, never auto-fixes.
 3. Run /magpie-setup:isolated-setup-install — guided first-time install of
    the secure-agent setup (sandbox, hooks, status line,
-   clean-env wrapper).
+   clean-env wrapper, and — if you sign and authenticate with a
+   hardware key — its touch policy and the touch overlay).
 4. Run /magpie-setup:isolated-setup-verify — confirms ✓/✗/⚠ for every piece
    of the secure-agent setup.
 5. When you want to be on the framework's latest: on the
@@ -209,7 +215,9 @@ npm install -g --no-save @anthropic-ai/claude-code@latest
 #    Sections: "Sandbox-bypass visibility hook",
 #    "Sandbox-error hint hook", and "Sandbox-state status line"
 #    below. Add `gpg-touch-overlay.sh` too if your signing key
-#    asks for a touch — section "Hardware-key touch overlay".
+#    asks for a touch — section "Hardware-key touch overlay" —
+#    and set that touch policy on the key's signature and
+#    authentication slots per "Hardware security keys".
 
 # 5. Verify the install actually denies what it claims to —
 #    section "Verification" below has both a three-line Bash
@@ -1930,6 +1938,138 @@ shell's pty via `$PPID` and writes there.)
   and [Sandbox-bypass visibility hook](#sandbox-bypass-visibility-hook)
   for the security-relevant signals.
 
+## Hardware security keys — signing and authentication
+
+The secure setup supports — and recommends — keeping the two secrets
+git uses in your name on a **hardware security key**: the key that
+signs your commits and tags, and the key that authenticates you to
+GitHub over ssh. A YubiKey, Nitrokey, or any OpenPGP card holds both;
+neither private key ever exists as a file the agent, or anything else
+on the host, could read. What the sandbox grants the agent is a
+*socket* to the agent — gpg-agent's, so a sandboxed `git commit` can
+sign and a sandboxed `git pull` / `git push` can authenticate — and
+that grant is exactly why the next step matters.
+
+This part of the setup is **fully optional**. The sandbox, the
+permission rules and the hooks stand on their own; a hardware key
+adds a physical check on top, for people who want one — and for the
+many who already carry one, because their employer issues security
+keys for SSO and ssh access, it costs nothing extra: the same key
+works here. It fits every transport the framework supports. With an
+**https** remote the transport is `gh`'s credential helper and the
+key only signs; with an **ssh** remote the key authenticates the
+transport as well; and commit signing can be either OpenPGP (the
+card's signature slot through gpg) or an **ssh signature made by
+the same card** (`gpg.format=ssh`, `ssh-keygen -Y sign` over
+gpg-agent's ssh socket), which GitHub verifies from one uploaded
+key. The rationale — what the touch adds to the layered defence
+and what it does not — is in
+[RFC-AI-0002 → Layer 3b](../rfcs/RFC-AI-0002.md#layer-3b--hardware-key-touch-physical-confirmation-of-signatures-and-remote-access).
+
+A key with a **touch policy** will not sign, and will not
+authenticate, until somebody physically touches it. That turns every
+signature and every push into a human-in-the-loop check that no
+software gate can fake: a prompt injection that talks the agent into
+pushing a commit still ends at a key waiting for a finger that never
+comes. The touch is the physical form of
+[Layer 3 — Forced confirmation](secure-agent-internals.md), and the
+[touch overlay](#hardware-key-touch-overlay) below is what makes the
+wait visible instead of looking like a hung command.
+
+### Configure the key to require a touch
+
+Touch policies are set per slot with
+[`ykman`](https://docs.yubico.com/software/yubikey/tools/ykman/) on a
+YubiKey (the OpenPGP applet; other cards have their own tool). Read
+the current state first:
+
+```sh
+ykman openpgp info | grep -A4 'Touch policies'
+#   Signature key:      Off
+#   Decryption key:     Off
+#   Authentication key: Off
+#   Attestation key:    Off
+```
+
+Then set the two slots git reaches — `sig` for commits and tags,
+`aut` for ssh — to `cached`. `ykman` asks for the key's admin PIN:
+
+```sh
+ykman openpgp keys set-touch sig cached
+ykman openpgp keys set-touch aut cached
+ykman openpgp info | grep -A4 'Touch policies'
+#   Signature key:      Cached
+#   Authentication key: Cached
+```
+
+`cached` is the policy to want, not `on`: a touch is required, and
+then **honoured for 15 seconds** on that slot. One touch covers a
+rebase that replays a dozen commits, a `git pull` followed by a
+`git push`, the several fetches a `prek` hook or an IDE fires in a
+row. `on` asks for every single operation, which in an agent session
+means a touch every few seconds and a hand that stops reading what it
+is approving. The cache is a property of the key itself, not of any
+software on the host, so it needs no agent configuration and cannot
+be extended by one.
+
+Two policies to avoid: `fixed` and `cached-fixed` behave the same but
+cannot be turned off again without deleting the private key — fine on
+a key you will never repurpose, a trap otherwise. And the attestation
+slot's policy is irreversible in every form; leave it alone.
+
+### Point git and ssh at the key
+
+Signing and authentication both go through gpg-agent, which serves
+the OpenPGP card to ssh as well when told to:
+
+```sh
+# ~/.gnupg/gpg-agent.conf
+enable-ssh-support
+
+# shell rc — gpg-agent's ssh socket replaces the system ssh-agent
+export SSH_AUTH_SOCK="$(gpgconf --list-dirs agent-ssh-socket)"
+gpgconf --launch gpg-agent
+```
+
+```sh
+ssh-add -L          # the authentication key's public half, as ssh sees it
+```
+
+Add that public key to your GitHub account **twice** — once as an
+*Authentication key* (ssh transport) and once as a *Signing key*
+(verified badge on commits signed with it). Then tell git to sign
+with it:
+
+```sh
+ssh-add -L > ~/.ssh/id_yubikey.pub
+git config --global gpg.format ssh
+git config --global user.signingkey ~/.ssh/id_yubikey.pub
+git config --global commit.gpgsign true
+git config --global tag.gpgSign true
+```
+
+(Signing with the OpenPGP `sig` slot instead — `gpg.format openpgp`,
+`user.signingkey <key id>` — works the same way and uses the same
+touch policy; the ssh form is shown because one key then serves both
+purposes and GitHub verifies it with one upload.)
+
+Under the sandbox, two grants make this reachable from an agent
+session, and the install skill proposes both:
+
+- `sandbox.network.allowUnixSockets` names gpg-agent's ssh socket
+  (`gpgconf --list-dirs agent-ssh-socket`, absolute path) — without it
+  signing and ssh transport report the agent as unreachable, per
+  [`sandbox-troubleshooting.md` → SSH agent / Yubikey appears unreachable](sandbox-troubleshooting.md#ssh-agent--yubikey-appears-unreachable-from-inside-the-sandbox);
+- `sandbox.filesystem.allowRead` names the one public-key file git
+  hands to `ssh-keygen`, since the sandbox denies the rest of `~/.ssh/`,
+  per
+  [`sandbox-troubleshooting.md` → Signed commit fails before any touch when git signs with ssh](sandbox-troubleshooting.md#signed-commit-fails-before-any-touch-when-git-signs-with-ssh).
+
+With both in place every `git commit`, `git tag -s`, `git pull`,
+`git fetch` and `git push` the agent runs stops at the key until you
+touch it — once per 15-second burst — and the overlay below tells you
+when it is waiting.
+
 ## Hardware-key touch overlay
 
 **Linux/X11.** A signing key on a YubiKey, Nitrokey, or any OpenPGP
@@ -1960,6 +2100,18 @@ one more `allowRead` entry — the public key file git hands to
 `ssh-keygen` — or the commit fails before the key is ever asked for a
 touch; see
 [`sandbox-troubleshooting.md` → Signed commit fails before any touch when git signs with ssh](sandbox-troubleshooting.md#signed-commit-fails-before-any-touch-when-git-signs-with-ssh).
+
+The key's *authentication* slot can carry a touch policy of its own
+(`ykman openpgp info` lists it under the same heading), and then every
+ssh transport — `git pull`, `git fetch`, `git push`, `git clone` against
+an ssh remote — waits for a touch before a byte moves. The hook arms for
+those commands too, and looks for the wait somewhere other than a
+process name: the ssh git spawns looks the same blocked on the key as
+it does busy transferring for a minute, so matching on it would put the
+window up for every long fetch. What only the wait has is an open
+connection to the agent's socket — ssh opens one, asks, and closes it as
+soon as the answer is back — so the watcher counts the agent's
+connections against the number it saw when the command started.
 
 This is the operator-facing half of the hardware-key rule in
 [`AGENTS.md`](../../AGENTS.md) → *Commit and PR conventions*. That rule
@@ -2039,6 +2191,13 @@ With `gpg.format=ssh`, sign with the key git would use instead:
 ssh-keygen -Y sign -f "$(git config --get user.signingkey)" -n git /etc/hostname &
 ```
 
+For the transport touch, with the authentication slot's touch policy on,
+authenticate to the remote without transferring anything:
+
+```sh
+ssh -T git@github.com &
+```
+
 The window should appear about a second and a half in, and disappear
 when the signing process ends. The watcher itself stays until the
 hook's `disarm`, so a second signature in the same command — a rebase
@@ -2077,8 +2236,9 @@ runs only) for a full trace.
   up that is the overlay, which ignores them, rather than the browser or
   editor that happened to be in front.
 - **It watches the whole host, not just the agent.** The watcher keys off
-  any signing `gpg` process, so a commit you make yourself in another
-  terminal raises the window too.
+  any signing `gpg` process and any connection to the ssh agent that
+  stays open, so a commit — or an ssh login — you make yourself in
+  another terminal raises the window too.
 
 ## Syncing user-scope config across machines
 
@@ -2490,12 +2650,32 @@ Then walk through:
    default. See
    [Waiting-for-input terminal tint](#waiting-for-input-terminal-tint).
 
-7. **Verify.** After everything is in place, walk through the
+7. **(Optional) Hardware security key.** Ask whether I sign
+   commits or authenticate to GitHub with a hardware key (YubiKey,
+   Nitrokey, any OpenPGP card). **Default no.** Only if I say yes:
+   hand me `ykman openpgp info` to run myself and read back the
+   touch policies; if the signature or authentication slot is
+   `Off`, surface `ykman openpgp keys set-touch sig cached` and
+   `ykman openpgp keys set-touch aut cached` for me to run (they
+   ask for the admin PIN — never run them yourself, and never
+   propose `fixed`). Then copy
+   `<magpie>/tools/agent-isolation/gpg-touch-overlay.sh` and both
+   `gpg-touch-overlay-window*.py` into `~/.claude/scripts/`,
+   `chmod +x` them, add the `PreToolUse` / `PostToolUse` `Bash`
+   hooks running `gpg-touch-overlay.sh arm` / `disarm` (merge
+   diff and ask, as in step 5), and propose the two sandbox
+   grants the key needs: gpg-agent's ssh socket under
+   `sandbox.network.allowUnixSockets` and, with
+   `git config gpg.format` = `ssh`, the public-key file under
+   `sandbox.filesystem.allowRead`. See
+   [Hardware security keys](#hardware-security-keys--signing-and-authentication).
+
+8. **Verify.** After everything is in place, walk through the
    Verification checks from the next section of this document
    ("Verification — Via a Claude Code prompt") and report
    ✓ done / ✗ missing / ⚠ partial for each piece.
 
-8. **Offer shared-config sync.** Once the install lands, propose
+9. **Offer shared-config sync.** Once the install lands, propose
    running `setup-shared-config-sync` to commit + push the
    user-scope config this install just wired up to my private
    `~/.claude-config` dotfile repo, so my other machines pick it
@@ -2581,10 +2761,13 @@ below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
      (the catalogue) and
      `.apache-magpie-overrides/tools/vetted-ops/**` (the policy).
    If the repo has no vetted-ops policy at all, report n/a.
-9. If my commits are signed with a hardware key: the touch overlay
-   is wired (`PreToolUse` / `PostToolUse` `Bash` →
+9. If a hardware key signs my commits or authenticates my git
+   remotes: the touch overlay is wired (`PreToolUse` /
+   `PostToolUse` `Bash` →
    `~/.claude/scripts/gpg-touch-overlay.sh arm` / `disarm`), its
    scripts match the framework's `tools/agent-isolation/` copies,
+   the key's signature and authentication slots carry a touch
+   policy (`ykman openpgp info`, which I run myself),
    and — with `gpg.format=ssh` — the file `git config
    user.signingkey` names is readable from a sandboxed Bash (it
    needs its own `sandbox.filesystem.allowRead` entry). For the

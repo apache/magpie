@@ -42,7 +42,7 @@ characters and a Return into whatever has focus; while the overlay is
 showing that should be the overlay, which ignores them — see
 ``take_focus``.
 
-Closes on Esc or a click — the key must still be touched for the commit
+Closes on Esc or a click — the key must still be touched for the command
 to go through, so trapping the screen would buy nothing.
 """
 
@@ -53,8 +53,8 @@ import sys
 import tkinter as tk
 
 TITLE = "Touch your security key"
-SUBTITLE = "gpg is waiting for a touch to sign"
-HINT = "The commit stays blocked until you touch the key   ·   Esc to dismiss"
+SUBTITLE = "Your security key is waiting for a touch"
+HINT = "The git command stays blocked until you touch the key   ·   Esc to dismiss"
 
 BG = (0, 0, 0)
 BG_HEX = "#000000"
