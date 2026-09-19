@@ -366,6 +366,18 @@ OSError: [Errno 98] Address already in use   # red herring when sandbox-related
 local HTTP listener, a webhook fixture). The same test passes
 outside the sandbox.
 
+A second shape fails one step earlier, on the `bind(2)` call
+itself, before any client connects:
+
+```text
+OSError: [Errno 1] Operation not permitted
+```
+
+…on every address (`127.0.0.1`, `localhost`, `0.0.0.0`, `::1`),
+with no `allowedDomains` change making any difference. The doctor
+skill's *localhost-bind* probe reports it as `✗ (bind: [Errno 1]
+Operation not permitted)`.
+
 ### Root cause
 
 Claude Code's `sandbox.network` block is allowlist-based on
@@ -385,9 +397,39 @@ The "Permission denied" / "Address already in use" texts the test
 runner surfaces are *its own framework's* generic error strings,
 not the sandbox's — which makes the root cause hard to spot.
 
+The **`bind(2)` refusal** is a different gate. Newer Claude Code
+sandbox profiles deny listening sockets outright unless
+`sandbox.network.allowLocalBinding` is `true`; the framework
+reference `.claude/settings.json` does not set it, so a listener
+is refused before the egress proxy is ever involved. Adding
+`localhost` / `127.0.0.1` to `allowedDomains` does not help this
+shape, because no outbound connection is being attempted yet.
+
 ### Fix
 
-Add `localhost` and `127.0.0.1` to the network allowlist:
+For the `bind(2)` refusal, enable local binding. It is a boolean,
+so the last settings file that sets it wins; the per-project
+`.claude/settings.local.json` is the right place when only some
+repos run fixture servers:
+
+```jsonc
+// <adopter-repo>/.claude/settings.local.json
+{
+  "sandbox": {
+    "network": {
+      "allowLocalBinding": true                         // let sandboxed processes listen on a port
+    }
+  }
+}
+```
+
+`allowLocalBinding` permits `listen(2)` on the host's interfaces;
+it does not add any outbound destination, so the egress allowlist
+is unchanged. Once binding works, the loopback GET below may still
+fail — apply both fixes when the probe reports both.
+
+For the loopback-GET failure, add `localhost` and `127.0.0.1` to
+the network allowlist:
 
 ```jsonc
 // ~/.claude/settings.json
@@ -599,6 +641,34 @@ Per-entry rationale:
   holds auth tokens and saved contexts; the whole point of the
   framework's `Read(~/.docker/**)` denial is to keep those out of
   the agent's reach.
+- **Podman on macOS** has two failure modes that look alike. With
+  no machine created (`podman machine list` is empty) `podman info`
+  fails with `unable to connect to Podman socket … no such file or
+  directory` — that is a missing VM, not a sandbox denial; run
+  `podman machine init` / `start` outside the agent. Separately,
+  `podman system connection list` fails with
+  `open ~/.config/containers/podman-connections.json: operation not
+  permitted` because the framework's `~/` read denial covers
+  Podman's config directory. Allow that **one file**, not the
+  directory — `~/.config/containers/auth.json` next to it holds
+  registry credentials:
+
+  ```jsonc
+  // <adopter-repo>/.claude/settings.local.json
+  {
+    "sandbox": {
+      "filesystem": {
+        "allowRead": [
+          "~/.config/containers/podman-connections.json"  // machine connection table; auth.json stays denied
+        ]
+      }
+    }
+  }
+  ```
+
+  Once a machine exists, its API socket lives under
+  `~/.local/share/containers/podman/machine/` and needs the same
+  `allowRead` + `allowUnixSockets` pair as the Docker socket above.
 
 ---
 

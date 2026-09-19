@@ -210,7 +210,8 @@ PY
 | Result | Status | Meaning |
 |---|---|---|
 | `✓ bound + loopback GET → HTTP 200` | Pass | Both bind and loopback HTTP work. |
-| `✗ bind: ...` | Fail | The sandbox blocks `bind(2)` on `127.0.0.1`. Rare. |
+| `✗ bind: [Errno 1] Operation not permitted` | Fail | The sandbox refuses listening sockets outright; `sandbox.network.allowLocalBinding` is unset. Fails before any egress rule is consulted, so `allowedDomains` changes do not help. |
+| `✗ bind: ...` (other errno) | Fail | The sandbox blocks `bind(2)` on `127.0.0.1` for another reason. Rare; report the literal error. |
 | `✗ bind ok, loopback GET: ...` | Fail | Bind works but the sandbox egress proxy refuses `127.0.0.1` as a destination. Common shape. |
 
 **On ✗ → remediation:**
@@ -250,6 +251,7 @@ done
 | `✓ <rt> info returned` | Pass | The CLI reached the daemon successfully. |
 | `✗ fail:1: Cannot connect to the Docker daemon …` | Fail | Daemon socket not readable from inside the sandbox. |
 | `✗ fail:1: connect: permission denied` | Fail | Same root cause, different stderr (Linux variant). |
+| `✗ fail:125: … podman.sock: connect: no such file or directory` | Warn | Podman on macOS with no machine created (`podman machine list` is empty). Not a sandbox restriction — report it as ⚠, and check `podman system connection list` for the separate `~/.config/containers/podman-connections.json` read denial the catalog's Podman note covers. |
 | `⊘ <rt> not on PATH` | Skip | Runtime not installed; not a sandbox restriction. |
 
 **On ✗ → remediation:**
