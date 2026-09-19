@@ -49,10 +49,13 @@ from .policy_shape import CATALOG_ANCHOR, Deny, canonical_spelling_violation
 __all__ = [
     "CATALOG_ANCHOR",
     "PROXY_VARS",
+    "Allow",
     "Deny",
     "PolicyContext",
+    "Request",
     "apply_create_rewrites",
     "check_create",
+    "decide",
     "named_networks",
     "named_volumes",
     "resolve_bind_source",
@@ -657,3 +660,12 @@ def apply_create_rewrites(body: dict[str, Any], ctx: PolicyContext, *, libpod: b
             env_list.extend(f"{k}={v}" for k, v in ctx.proxy_env.items())
             out["Env"] = env_list
     return out
+
+
+# Deliberately not at the top of the file: decisions.py imports Deny,
+# PolicyContext, check_create and apply_create_rewrites from this module, so
+# this import must run after all four are defined above, or the circular
+# import between the two modules deadlocks. Re-exported (see __all__) so
+# `from container_gateway.policy import Allow, Request, decide` — the shape
+# every caller and test in this package uses — keeps working.
+from .decisions import Allow, Request, decide  # noqa: E402
