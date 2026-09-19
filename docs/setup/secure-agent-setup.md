@@ -2257,6 +2257,7 @@ Allow the two wrapper files, and nothing wider:
 }
 ```
 
+If those two entries are symlinks into your sync repository (the layout [Syncing user-scope config across machines](#syncing-user-scope-config-across-machines) recommends), grant the real files too — `readlink -f` prints them — because the sandbox checks the resolved path.
 The install skill proposes it with the other two grants; the failure mode and its rationale are catalogued in
 [`sandbox-troubleshooting.md` → Signed commit fails with "cannot exec" of the touch-overlay wrapper](sandbox-troubleshooting.md#signed-commit-fails-with-cannot-exec-of-the-touch-overlay-wrapper).
 

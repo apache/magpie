@@ -99,6 +99,18 @@ class TestKnownSignatures:
         assert result.returncode == 1
         assert f"{DOC}#signed-commit-fails-with-cannot-exec-of-the-touch-overlay-wrapper" in result.stderr
 
+    def test_touch_overlay_wrapper_symlinked_script_signature(self) -> None:
+        # The wrapper started but the script behind the symlink is what
+        # the sandbox denies: bash, not git, reports it.
+        result = _run(
+            _bash(
+                stderr="error: bash: /Users/alice/.claude/scripts/gpg-touch-wrap-ssh-keygen: "
+                "Operation not permitted\nfatal: failed to write commit object"
+            )
+        )
+        assert result.returncode == 1
+        assert f"{DOC}#signed-commit-fails-with-cannot-exec-of-the-touch-overlay-wrapper" in result.stderr
+
     def test_docker_signature(self) -> None:
         result = _run(_bash(stderr="Cannot connect to the Docker daemon at unix:///var/run/docker.sock"))
         assert result.returncode == 1

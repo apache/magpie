@@ -371,6 +371,14 @@ error:
 fatal: failed to write commit object
 ```
 
+Or, when the wrapper itself could be started but the script behind
+it could not be read (see the symlink note under *Fix*):
+
+```text
+error: bash: /Users/<you>/.claude/scripts/gpg-touch-wrap-ssh-keygen: Operation not permitted
+fatal: failed to write commit object
+```
+
 The same commit from your own terminal works, and signs with the
 window up. A `git pull` or `git push` over ssh fails the same way when
 `core.sshCommand` names the wrapper: `fatal: cannot exec
@@ -415,6 +423,18 @@ The symlink and its target are both listed because the sandbox
 resolves the path git opens and the path the interpreter then reads
 separately. The window scripts next to them need no entry: the
 wrapper never reaches them from inside the sandbox.
+
+**If your `~/.claude/scripts/` entries are themselves symlinks** —
+into a dotfile sync repository, the layout
+[`secure-agent-setup.md` → Syncing user-scope config across machines](secure-agent-setup.md#syncing-user-scope-config-across-machines)
+recommends — the grant must name the **real** file, because the
+sandbox checks the resolved path: with
+`~/.claude/scripts/gpg-touch-overlay.sh -> ~/.claude-config/scripts/gpg-touch-overlay.sh`,
+list `~/.claude-config/scripts/gpg-touch-overlay.sh` as well. The
+tell is the second form of the symptom: git starts the wrapper, and
+it is `bash:` that reports `Operation not permitted` on the script.
+`readlink -f ~/.claude/scripts/gpg-touch-wrap-ssh-keygen` prints the
+path to grant.
 
 Per-entry rationale: these are two framework-authored scripts the
 operator installed by hand; no credential, no configuration of the

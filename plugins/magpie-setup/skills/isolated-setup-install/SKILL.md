@@ -695,7 +695,9 @@ because the git the agent runs reads the same global config and the
 sandbox denies `~/.claude/` wholesale: without this grant every
 sandboxed signed commit fails at once with `cannot exec`
 ([`docs/setup/sandbox-troubleshooting.md` → Signed commit fails with "cannot exec" of the touch-overlay wrapper](../../../../docs/setup/sandbox-troubleshooting.md#signed-commit-fails-with-cannot-exec-of-the-touch-overlay-wrapper)).
-Nothing wider: not `~/.ssh/`, not `~/.gnupg/`, not `~/.claude/scripts/`.
+Resolve both with `readlink -f` first and grant the real files as
+well when they are symlinks into a sync repository — the sandbox
+checks the resolved path. Nothing wider: not `~/.ssh/`, not `~/.gnupg/`, not `~/.claude/scripts/`.
 
 Verification of all four is check 10 of
 `setup-isolated-setup-verify`; hand off rather than re-checking here.
