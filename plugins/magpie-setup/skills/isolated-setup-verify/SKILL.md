@@ -334,7 +334,7 @@ Walk each in order:
     commits are signed (`git config --get commit.gpgsign` is
     `true`) or a remote is reached over ssh through gpg-agent
     (`SSH_AUTH_SOCK` names its socket); otherwise report **n/a**.
-    Three sub-checks, plus a note: the key's own touch policies
+    Four sub-checks, plus a note: the key's own touch policies
     (`ykman openpgp info`, run by the user — the sandbox does not
     see the device) are what make the overlay matter; report them
     as seen, and suggest `cached` on the `sig` and `aut` slots
@@ -376,6 +376,34 @@ Walk each in order:
     the overlay — which shows once `ssh-keygen` has blocked on the
     key — has nothing to show. Remediation:
     [`docs/setup/sandbox-troubleshooting.md` → Signed commit fails before any touch when git signs with ssh](../../../../docs/setup/sandbox-troubleshooting.md#signed-commit-fails-before-any-touch-when-git-signs-with-ssh).
+
+    **10d — git's own programs point at the wrapper.** The hook
+    covers only git commands the agent runs; for the commits and
+    pushes the user makes from a terminal, git itself has to be
+    pointed at the script's `wrap` mode.
+    `git config --global --get gpg.ssh.program` (or `gpg.program`,
+    when `git config --get gpg.format` is not `ssh`) must name a
+    `gpg-touch-wrap-<program>` symlink that resolves to
+    `~/.claude/scripts/gpg-touch-overlay.sh`, and
+    `git config --global --get core.sshCommand` must end in
+    `gpg-touch-overlay.sh wrap ssh`. Either missing is ⚠, not ✗:
+    the hook still covers the agent's own commands, and only the
+    user's terminal commits and pushes go without a window. A value
+    that names something else entirely (a company ssh wrapper, say)
+    is ⚠ with the current value shown — the user decides. Rationale
+    and the two lines to set:
+    [`docs/setup/secure-agent-setup.md` → From your own terminal](../../../../docs/setup/secure-agent-setup.md#from-your-own-terminal--gits-program-config).
+
+    When git *does* name the wrapper, both of its files must also
+    open from a sandboxed Bash —
+    `head -c 1 ~/.claude/scripts/gpg-touch-overlay.sh` and the same
+    for the `gpg-touch-wrap-*` symlink git names. `Operation not
+    permitted` is ✗, not ⚠: the git the agent runs reads the same
+    global config, and every sandboxed signed commit then fails at
+    once with `cannot exec`. The two files belong in
+    `sandbox.filesystem.allowRead`, and nothing wider under
+    `~/.claude/`:
+    [`docs/setup/sandbox-troubleshooting.md` → Signed commit fails with "cannot exec" of the touch-overlay wrapper](../../../../docs/setup/sandbox-troubleshooting.md#signed-commit-fails-with-cannot-exec-of-the-touch-overlay-wrapper).
 
 11. **`gh` runs outside the sandbox.** `sandbox.excludedCommands`
     must contain `"gh *"` in the project `.claude/settings.json` or
@@ -441,6 +469,14 @@ without invoking it:
 - ✗ on check 10c → the one-file `allowRead` widening in the
   troubleshooting entry, applied by the user — never from this
   skill — then re-verify.
+- ⚠ on check 10d → the symlink and the two `git config --global`
+  lines in
+  [`docs/setup/secure-agent-setup.md` → From your own terminal](../../../../docs/setup/secure-agent-setup.md#from-your-own-terminal--gits-program-config),
+  run by the user (global git config is theirs); `setup-isolated-setup-install`
+  Step K.3 walks them through it. ✗ on 10d (wrapper named but
+  unreadable in the sandbox) → the two-file `allowRead` widening in
+  [`docs/setup/sandbox-troubleshooting.md` → Signed commit fails with "cannot exec" of the touch-overlay wrapper](../../../../docs/setup/sandbox-troubleshooting.md#signed-commit-fails-with-cannot-exec-of-the-touch-overlay-wrapper),
+  applied by the user, then re-verify.
 - ✗ on check 11 (`"gh *"` missing from `sandbox.excludedCommands`,
   or a catch-all `Bash(gh *)` in `permissions.ask`) → the operator
   edits settings themselves (settings.json changes are never applied

@@ -58,6 +58,13 @@
 #                         start a watcher that shows the window if and
 #                         when signing actually blocks.
 #   disarm  PostToolUse — the command is done; tear the watcher down.
+#   wrap    git config  — not a hook at all: git runs this *as* its
+#                         signing program (`gpg.ssh.program`,
+#                         `gpg.program`) or its ssh command
+#                         (`core.sshCommand`), and it runs the real one
+#                         with a watcher alive for exactly that long.
+#                         What covers a commit or push made from a
+#                         terminal, where no hook of the agent's runs.
 #
 # The watcher, not the hook, decides whether anything is shown:
 #
@@ -120,7 +127,14 @@ _debugging() { [[ -n ${MAGPIE_GPG_TOUCH_DEBUG:-} || -e $RUNTIME_DIR/debug ]]; }
 # socket without ever starting gpg, so watching for gpg alone is blind to
 # an ssh-signed commit — the same key, the same touch, no window.
 # Exact-name match only — see the header.
-signing_in_flight() { pgrep -x 'gpg|gpg2|ssh-keygen' >/dev/null 2>&1; }
+signing_in_flight() {
+    # Under `wrap` around a signing program the watcher lives exactly as
+    # long as that program does, so its being alive *is* the signature
+    # in flight -- no process-name probe needed (and none possible from
+    # a sandbox that denies pgrep).
+    [[ -n ${MAGPIE_GPG_TOUCH_WRAPPED_SIGNER:-} ]] && return 0
+    pgrep -x 'gpg|gpg2|ssh-keygen' >/dev/null 2>&1
+}
 
 # pinentry is asking for the PIN and owns the screen.
 pinentry_up() { pgrep -x 'pinentry.*' >/dev/null 2>&1; }
@@ -251,8 +265,99 @@ disarm() {
     local pid
     pid="$(cat "$WATCHER_PID_FILE" 2>/dev/null || true)"
     [[ -n ${pid:-} ]] || return 0
-    kill -- -"$pid" 2>/dev/null || true
+    # The group, for the window the watcher may have spawned — and the
+    # pid itself, for a watcher so young it has not called setsid yet
+    # and leads no group of its own.
+    kill -- -"$pid" "$pid" 2>/dev/null || true
     rm -f "$WATCHER_PID_FILE"
+}
+
+# --------------------------------------------------------------- wrap ---
+
+# `wrap PROGRAM [ARGS...]` runs PROGRAM with a watcher alive for exactly as
+# long as it runs, and exits with PROGRAM's status. This is the entry point
+# for git itself rather than for a Claude Code hook: git names the program
+# it signs with (`gpg.program`, `gpg.ssh.program`) and the one it reaches
+# an ssh remote with (`core.sshCommand`), so pointing those at this
+# wrapper covers every commit, tag, rebase, pull and push from any
+# terminal -- no git hook type sits at the right moment for either
+# (commit-msg/post-commit bracket only `git commit`; pre-push runs after
+# ssh has already authenticated).
+#
+#   git config --global gpg.ssh.program  ~/.claude/scripts/gpg-touch-wrap-ssh-keygen
+#   git config --global core.sshCommand "~/.claude/scripts/gpg-touch-overlay.sh wrap ssh"
+#
+# `gpg.ssh.program` is exec'd as one path, not shell-split, so it needs an
+# argument-free entry: a symlink named `gpg-touch-wrap-<program>` to this
+# script wraps <program> (see the basename dispatch at the bottom).
+#
+# Never two windows for one signature. Inside an agent session (Claude
+# Code sets CLAUDECODE=1) the hook has armed a watcher already and the
+# wrapper only runs the program; outside one, a watcher somebody else
+# armed -- the pid file says so -- is left alone and not torn down here.
+wrap() {
+    local program=$1; shift
+    local real="" candidate
+    # The real program: first match on PATH that is not this script under
+    # another name.
+    while IFS= read -r candidate; do
+        [[ "$(readlink -f "$candidate" 2>/dev/null)" == "$SELF" ]] && continue
+        real=$candidate; break
+    done < <(command -v -a "$program" 2>/dev/null || true)
+    [[ -n $real ]] || real=$program
+
+    # Which invocations reach the key. A signing program is also git's
+    # verifier (`git log --show-signature` runs `ssh-keygen -Y verify`
+    # per commit, `gpg --verify` likewise), and those never touch the
+    # key: straight through, no watcher, no display probe.
+    local signer=""
+    case "${program##*/}" in
+        ssh-keygen) [[ ${1:-} == -Y && ${2:-} == sign ]] && signer=1 || exec "$real" "$@" ;;
+        gpg|gpg2)   [[ " $* " == *" -bsau "* ]] && signer=1 || exec "$real" "$@" ;;
+    esac
+
+    # Inside an agent session the hook is in charge: it armed a watcher
+    # outside the sandbox before this command started, and it will tear
+    # that one down. The wrapper stands aside there whatever it could
+    # see -- one watcher, one window, decided by the environment rather
+    # than by a race on the pid file. Claude Code marks its Bash with
+    # CLAUDECODE=1.
+    [[ -n ${CLAUDECODE:-} ]] && exec "$real" "$@"
+
+    # Test seam, as in arm: no display, but the watcher's trace is
+    # still worth having.
+    if [[ -z ${MAGPIE_GPG_TOUCH_DRY_RUN:-} ]]; then
+        _gui_available || exec "$real" "$@"
+    fi
+    mkdir -p "$RUNTIME_DIR" 2>/dev/null || exec "$real" "$@"
+
+    local old own=0
+    old="$(cat "$WATCHER_PID_FILE" 2>/dev/null || true)"
+    if [[ -z ${old:-} ]] || ! kill -0 "$old" 2>/dev/null; then
+        local log=/dev/null
+        if _debugging; then
+            log="$RUNTIME_DIR/watcher.log"
+            : >"$log"
+        fi
+        _set_session_launcher
+        # The watcher is told whose it is, and leaves on its own once
+        # this wrapper is gone -- however that happened. The kill in the
+        # trap below is the fast path; the parent check is the one that
+        # cannot be raced or skipped.
+        MAGPIE_GPG_TOUCH_WRAPPED_SIGNER=$signer MAGPIE_GPG_TOUCH_PARENT=$$ \
+            "${SESSION_LAUNCHER[@]}" "$SELF" _watch >>"$log" 2>&1 &
+        own=$!
+        printf '%s\n' "$own" >"$WATCHER_PID_FILE"
+        # Whatever ends this wrapper -- the program returning, or a signal
+        # from git or the terminal -- takes the watcher down with it: the
+        # group for any window it spawned, the pid itself for a watcher
+        # too young to have called setsid (a signature that returns in
+        # milliseconds ends before it has).
+        trap 'kill -- -'"$own"' '"$own"' 2>/dev/null; rm -f "$WATCHER_PID_FILE"' EXIT
+    fi
+
+    "$real" "$@"
+    return $?
 }
 
 # ------------------------------------------------------------ watcher ---
@@ -324,6 +429,11 @@ _watch() {
     # ending is not the end of the watch — see the header. Between
     # signatures the window comes down and the block count starts over.
     for (( i = 0; i < MAX_WAIT * 5; i++ )); do
+        # Spawned by `wrap`: the wrapper's exit is the end of the watch,
+        # whether or not its trap got to send a signal.
+        if [[ -n ${MAGPIE_GPG_TOUCH_PARENT:-} ]] && ! kill -0 "$MAGPIE_GPG_TOUCH_PARENT" 2>/dev/null; then
+            break
+        fi
         rows="$(agent_socket_rows "$sockets")"
         if { signing_in_flight || (( rows > baseline )); } && ! pinentry_up; then
             blocked=$(( blocked + 1 ))
@@ -429,8 +539,17 @@ _overlay() {
 # python or an unwritable runtime dir must never block a commit. The
 # probes below are internal and report their real status, which is what
 # the callers above and the tests read them for.
+# A symlink named `gpg-touch-wrap-<program>` is the argument-free form of
+# `wrap <program>` that `gpg.ssh.program` / `gpg.program` need.
+_name="${0##*/}"
+if [[ $_name == gpg-touch-wrap-?* ]]; then
+    wrap "${_name#gpg-touch-wrap-}" "$@"
+    exit $?
+fi
+
 case "${1:-}" in
     arm)      arm; exit 0 ;;
+    wrap)     shift; wrap "$@"; exit $? ;;
     disarm)   disarm; exit 0 ;;
     _watch)   _watch; exit 0 ;;
     _overlay) _overlay ;;
@@ -442,7 +561,7 @@ case "${1:-}" in
     _agent_socket_rows) agent_socket_rows "$(printf '%s\n' "${@:2}")" ;;
     _spawn_session) shift; _set_session_launcher; exec "${SESSION_LAUNCHER[@]}" "$@" ;;
     *)
-        printf '%s: expected arm|disarm, got "%s"\n' "${0##*/}" "${1:-}" >&2
+        printf '%s: expected arm|disarm|wrap, got "%s"\n' "${0##*/}" "${1:-}" >&2
         exit 2
         ;;
 esac

@@ -42,6 +42,25 @@ existing sandbox grants can widen the baseline. See `docs/adapters/gemini.md`.
 
 - `tools/agent-isolation/` — the harness (clean-env wrapper +
   sandbox profiles).
+- `tools/agent-isolation/gpg-touch-overlay.sh` (+ the two window
+  scripts) — the hardware-key touch overlay: a window on screen while a
+  signing key or ssh authentication key with a touch policy blocks
+  waiting for a touch. Two entry points to one watcher: `arm` /
+  `disarm` as a `PreToolUse` / `PostToolUse` `Bash` hook around the
+  agent's git commands, and `wrap` as git's own signing program and ssh
+  command (`gpg.ssh.program` / `gpg.program` through an argument-free
+  `gpg-touch-wrap-<program>` symlink, `core.sshCommand … wrap ssh`) for
+  the commits and pushes the operator makes by hand — no git hook type
+  sits at the right moment for those. Never two windows for one
+  signature: inside an agent session (`CLAUDECODE=1`) the wrapper only
+  runs the program and the hook's watcher shows the window; outside
+  one, a watcher already recorded in the pid file is left alone. The
+  git the agent runs reads the same global config, so the wrapper's
+  two files are a `sandbox.filesystem.allowRead` grant of their own
+  (nothing wider under `~/.claude/`), or every sandboxed signed commit
+  fails with `cannot exec`. Installed by `setup-isolated-setup-install` Step K,
+  checked by `setup-isolated-setup-verify` check 10. Capability:
+  `substrate:sandbox`.
 - `tools/agent-guard/` — deterministic pre-execution guard dispatcher
   (`stdlib`-only). Wired as a `PreToolUse` hook (Claude Code) or a
   `tool.execute.before` plugin (OpenCode), with a `--gemini` adapter for

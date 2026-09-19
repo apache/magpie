@@ -578,7 +578,10 @@ to a home-dir path and update the tool to read from there.
   and gpg raises no prompt at all for it — so `cached=1` still blocks,
   silently, once the touch has expired. The probe cannot see that;
   `tools/agent-isolation/gpg-touch-overlay.sh` covers it from the other
-  side by putting a window on screen while gpg waits.
+  side by putting a window on screen while gpg waits — from a hook
+  around the agent's git commands, and as git's own signing program
+  and ssh command (`gpg.ssh.program` / `gpg.program`,
+  `core.sshCommand`) for the ones the operator runs by hand.
   On `cached=-`, surface a dialogue naming the key and telling the
   operator to expect the prompt, or hand them the `git commit` line to run
   in their own terminal — do not run it and hope. On `cached=1`, commit

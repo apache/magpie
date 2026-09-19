@@ -105,6 +105,8 @@ match() { printf '%s' "$output" | grep -qE "$1"; }
 
 if match 'Could not open a connection to your authentication agent|agent refused operation|ssh-add: error fetching identities for protocol|Permission denied \(publickey\)'; then
   hint="SSH agent / Yubikey appears unreachable from inside the sandbox. See ${doc_path}#ssh-agent--yubikey-appears-unreachable-from-inside-the-sandbox"
+elif match "cannot exec '[^']*gpg-touch-(wrap-[^']*|overlay\.sh wrap [^']*)': Operation not permitted"; then
+  hint="git cannot start the touch-overlay wrapper from inside the sandbox (~/.claude/scripts/ is read-denied). See ${doc_path}#signed-commit-fails-with-cannot-exec-of-the-touch-overlay-wrapper"
 elif match 'Cannot connect to the Docker daemon|open /var/run/docker\.sock: operation not permitted|Cannot connect to Podman|connect: permission denied.*podman\.sock'; then
   hint="Docker / Podman runtime socket denied by the sandbox. See ${doc_path}#docker--podman-command-fails-with-a-socket-error"
 elif match '127\.0\.0\.1.*[Pp]ermission denied|[Oo]peration not permitted.*bind|Errno 49.*assign requested address|HTTP.*Connection refused.*127\.0\.0\.1'; then

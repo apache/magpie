@@ -621,7 +621,7 @@ different caller.
 Fully optional, **default no**. Ask once whether the operator signs
 commits or authenticates to the forge with a hardware security key
 (YubiKey, Nitrokey, any OpenPGP card) or wants to start. On no, skip
-the step and say so. On yes, three sub-steps, each surfaced for the
+the step and say so. On yes, four sub-steps, each surfaced for the
 operator to run or approve; the rationale they should hear once is
 in
 [docs/setup/secure-agent-setup.md → Hardware security keys](../../../../docs/setup/secure-agent-setup.md#hardware-security-keys--signing-and-authentication)
@@ -658,16 +658,46 @@ the operator approves, exactly as for the bypass-warn hook. Install
 detail:
 [docs/setup/secure-agent-setup.md → Hardware-key touch overlay](../../../../docs/setup/secure-agent-setup.md#hardware-key-touch-overlay).
 
-**K.3 — Sandbox grants.** Two, both surfaced as a settings diff:
+**K.3 — Git from the operator's own terminal.** The hook covers only
+the git commands the agent runs; a commit or push the operator makes
+in a terminal or an IDE waits for the same touch with nothing on
+screen. Point git's own programs at the script's `wrap` mode instead
+of at any git hook (none sits at the right moment — `pre-push` runs
+after ssh has authenticated, and only `git commit` has hooks around
+its signature). Create the argument-free entry beside the script —
+`ln -s gpg-touch-overlay.sh ~/.claude/scripts/gpg-touch-wrap-ssh-keygen`
+(`gpg-touch-wrap-gpg` when `git config --get gpg.format` is not
+`ssh`) — and hand the operator the two settings to run themselves,
+since global git config is theirs to write:
+
+```sh
+git config --global gpg.ssh.program "$HOME/.claude/scripts/gpg-touch-wrap-ssh-keygen"
+git config --global core.sshCommand "$HOME/.claude/scripts/gpg-touch-overlay.sh wrap ssh"
+```
+
+(`gpg.program` and `gpg-touch-wrap-gpg` for OpenPGP signing.) If either
+setting already names something else — a company ssh wrapper, say —
+show the current value and let the operator decide; do not overwrite
+it. Why a symlink, what it covers, what it costs:
+[docs/setup/secure-agent-setup.md → From your own terminal](../../../../docs/setup/secure-agent-setup.md#from-your-own-terminal--gits-program-config).
+
+**K.4 — Sandbox grants.** Three, all surfaced as one settings diff:
 gpg-agent's ssh socket (`gpgconf --list-dirs agent-ssh-socket`,
 absolute path) under `sandbox.network.allowUnixSockets`, so a sandboxed
-git can sign and authenticate; and, only when
+git can sign and authenticate; only when
 `git config --get gpg.format` is `ssh`, the file
 `git config --get user.signingkey` names under
 `sandbox.filesystem.allowRead`, since the sandbox denies the rest of
-`~/.ssh/`. Nothing wider: not `~/.ssh/`, not `~/.gnupg/`.
+`~/.ssh/`; and, once K.3 points git at the wrapper, the wrapper's two
+files — `~/.claude/scripts/gpg-touch-overlay.sh` and the
+`gpg-touch-wrap-*` symlink — under `sandbox.filesystem.allowRead`,
+because the git the agent runs reads the same global config and the
+sandbox denies `~/.claude/` wholesale: without this grant every
+sandboxed signed commit fails at once with `cannot exec`
+([`docs/setup/sandbox-troubleshooting.md` → Signed commit fails with "cannot exec" of the touch-overlay wrapper](../../../../docs/setup/sandbox-troubleshooting.md#signed-commit-fails-with-cannot-exec-of-the-touch-overlay-wrapper)).
+Nothing wider: not `~/.ssh/`, not `~/.gnupg/`, not `~/.claude/scripts/`.
 
-Verification of all three is check 10 of
+Verification of all four is check 10 of
 `setup-isolated-setup-verify`; hand off rather than re-checking here.
 
 ## After the install lands

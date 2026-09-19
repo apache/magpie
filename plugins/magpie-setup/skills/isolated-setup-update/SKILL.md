@@ -183,7 +183,11 @@ Walk each:
    `~/.claude/scripts/gpg-touch-overlay.sh` with its window scripts
    `gpg-touch-overlay-window.py` and
    `gpg-touch-overlay-window-macos.py` for the hardware-key touch
-   overlay where that is installed, **and** —
+   overlay where that is installed (the `gpg-touch-wrap-*` entry
+   beside them is a symlink to the script, not a copy — nothing to
+   diff, but report it missing when git's `gpg.ssh.program` /
+   `gpg.program` or `core.sshCommand` names it and it is gone),
+   **and** —
    *only when whole-user scope is in effect, detected via
    `git config --global --get core.hooksPath` resolving to
    `~/.claude/git-hooks`* —

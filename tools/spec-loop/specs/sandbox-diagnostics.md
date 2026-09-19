@@ -47,10 +47,12 @@ error, and two skills that probe or verify the setup on demand.
   **Root cause** (which sandbox layer blocks it and why), **Fix** (a
   settings widening with per-entry rationale, or — for the `gh` entry —
   an invocation-shape rule, because there is nothing to widen), and
-  **Notes**. Six entries today: SSH agent / Yubikey, signed commit
-  failing before any touch (`gpg.format=ssh` key unreadable), localhost
-  port bind, Docker / Podman socket, `/tmp` read-only, and `gh` inside
-  the sandbox (TLS `OSStatus -26276` / `HTTP 401`).
+  **Notes**. Seven entries today: SSH agent / Yubikey, signed commit
+  failing before any touch (`gpg.format=ssh` key unreadable), signed
+  commit failing with `cannot exec` of the touch-overlay wrapper
+  (`gpg.ssh.program` under the read-denied `~/.claude/scripts/`),
+  localhost port bind, Docker / Podman socket, `/tmp` read-only, and
+  `gh` inside the sandbox (TLS `OSStatus -26276` / `HTTP 401`).
 - `tools/agent-isolation/sandbox-error-hint.sh` — a Claude Code
   `PostToolUse` hook on the `Bash` matcher. Scans the tool's stdout +
   stderr for the catalogued symptom strings and, on a match, prints

@@ -17,26 +17,31 @@
     - [Root cause](#root-cause-1)
     - [Fix](#fix-1)
     - [Notes](#notes-1)
-  - [Test cannot bind to a localhost port](#test-cannot-bind-to-a-localhost-port)
+  - [Signed commit fails with "cannot exec" of the touch-overlay wrapper](#signed-commit-fails-with-cannot-exec-of-the-touch-overlay-wrapper)
     - [Symptom](#symptom-2)
     - [Root cause](#root-cause-2)
     - [Fix](#fix-2)
     - [Notes](#notes-2)
-  - [Docker / Podman command fails with a socket error](#docker--podman-command-fails-with-a-socket-error)
+  - [Test cannot bind to a localhost port](#test-cannot-bind-to-a-localhost-port)
     - [Symptom](#symptom-3)
     - [Root cause](#root-cause-3)
     - [Fix](#fix-3)
     - [Notes](#notes-3)
-  - [Temp files fail with "Read-only file system" under `/tmp`](#temp-files-fail-with-read-only-file-system-under-tmp)
+  - [Docker / Podman command fails with a socket error](#docker--podman-command-fails-with-a-socket-error)
     - [Symptom](#symptom-4)
     - [Root cause](#root-cause-4)
     - [Fix](#fix-4)
     - [Notes](#notes-4)
-  - [`gh` fails with TLS `OSStatus -26276` or `HTTP 401` inside the sandbox](#gh-fails-with-tls-osstatus--26276-or-http-401-inside-the-sandbox)
+  - [Temp files fail with "Read-only file system" under `/tmp`](#temp-files-fail-with-read-only-file-system-under-tmp)
     - [Symptom](#symptom-5)
     - [Root cause](#root-cause-5)
     - [Fix](#fix-5)
     - [Notes](#notes-5)
+  - [`gh` fails with TLS `OSStatus -26276` or `HTTP 401` inside the sandbox](#gh-fails-with-tls-osstatus--26276-or-http-401-inside-the-sandbox)
+    - [Symptom](#symptom-6)
+    - [Root cause](#root-cause-6)
+    - [Fix](#fix-6)
+    - [Notes](#notes-6)
   - [Adding a new entry](#adding-a-new-entry)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -350,6 +355,83 @@ keys, `config` and `known_hosts`.
   entry before suspecting the overlay.
 - Linux: the `AF_UNIX` caveat in the entry above still applies on
   top of this one.
+
+## Signed commit fails with "cannot exec" of the touch-overlay wrapper
+
+### Symptom
+
+Every `git commit` the agent runs fails at the signature, instantly,
+after the touch overlay's wrapper has been installed as git's signing
+program
+([`secure-agent-setup.md` → From your own terminal](secure-agent-setup.md#from-your-own-terminal--gits-program-config)):
+
+```text
+fatal: cannot exec '/Users/<you>/.claude/scripts/gpg-touch-wrap-ssh-keygen': Operation not permitted
+error:
+fatal: failed to write commit object
+```
+
+The same commit from your own terminal works, and signs with the
+window up. A `git pull` or `git push` over ssh fails the same way when
+`core.sshCommand` names the wrapper: `fatal: cannot exec
+'…/gpg-touch-overlay.sh wrap ssh'` or a bare `Permission denied`
+from the shell that tries to start it.
+
+### Root cause
+
+Filesystem allowlist. `gpg.ssh.program` (`gpg.program`,
+`core.sshCommand`) is global git config, so the git the agent runs
+inside the sandbox reads it too and tries to start the wrapper. The
+wrapper lives in `~/.claude/scripts/`, and the sandbox denies reads
+under `~/.claude/` wholesale — the interpreter cannot open the script,
+and git reports the exec failure. Nothing about the key or the agent
+socket is involved: the failure is one directory earlier.
+
+Inside the sandbox the wrapper would do nothing anyway — it stands
+aside in an agent session (`CLAUDECODE=1`) and only runs the real
+program — but it has to be readable to get that far.
+
+### Fix
+
+Allow the two wrapper files — the script and the symlink git names —
+for reads, and nothing else under `~/.claude/`:
+
+```jsonc
+// ~/.claude/settings.json
+{
+  "sandbox": {
+    "filesystem": {
+      "allowRead": [
+        // ...existing entries...
+        "~/.claude/scripts/gpg-touch-overlay.sh",
+        "~/.claude/scripts/gpg-touch-wrap-ssh-keygen"   // or gpg-touch-wrap-gpg with OpenPGP signing
+      ]
+    }
+  }
+}
+```
+
+The symlink and its target are both listed because the sandbox
+resolves the path git opens and the path the interpreter then reads
+separately. The window scripts next to them need no entry: the
+wrapper never reaches them from inside the sandbox.
+
+Per-entry rationale: these are two framework-authored scripts the
+operator installed by hand; no credential, no configuration of the
+agent's own lives in them. Never widen this to `~/.claude/scripts/`
+or `~/.claude/` — the latter holds the agent's settings, hooks and
+session state.
+
+### Notes
+
+- The verify skill's check 10d and the doctor's signing-key probe
+  both report the wrapper unreadable before a commit trips over it.
+- Until the grant is in place, a one-off `git -c
+  gpg.ssh.program=/usr/bin/ssh-keygen commit …` signs without the
+  wrapper; the hook still arms the window for the agent's commit.
+- The failure is the mirror image of the previous entry: there git
+  could not read the key file, here it cannot read the program. Both
+  fail in well under a second, before the key is asked for anything.
 
 ## Test cannot bind to a localhost port
 

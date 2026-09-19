@@ -89,6 +89,16 @@ class TestKnownSignatures:
         assert "[sandbox-hint]" in result.stderr
         assert f"{DOC}#ssh-agent--yubikey-appears-unreachable-from-inside-the-sandbox" in result.stderr
 
+    def test_touch_overlay_wrapper_signature(self) -> None:
+        result = _run(
+            _bash(
+                stderr="fatal: cannot exec '/Users/alice/.claude/scripts/gpg-touch-wrap-ssh-keygen': "
+                "Operation not permitted\nerror: \nfatal: failed to write commit object"
+            )
+        )
+        assert result.returncode == 1
+        assert f"{DOC}#signed-commit-fails-with-cannot-exec-of-the-touch-overlay-wrapper" in result.stderr
+
     def test_docker_signature(self) -> None:
         result = _run(_bash(stderr="Cannot connect to the Docker daemon at unix:///var/run/docker.sock"))
         assert result.returncode == 1

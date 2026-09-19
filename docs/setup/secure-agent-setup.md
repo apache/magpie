@@ -47,6 +47,7 @@
   - [Hardware-key touch overlay](#hardware-key-touch-overlay)
     - [Install (user-scope)](#install-user-scope-3)
     - [Verify](#verify-3)
+    - [From your own terminal — git's program config](#from-your-own-terminal--gits-program-config)
     - [Trade-offs](#trade-offs-2)
   - [Syncing user-scope config across machines](#syncing-user-scope-config-across-machines)
     - [What to track, what not to track](#what-to-track-what-not-to-track)
@@ -2211,6 +2212,56 @@ environment is the harness's own and takes no variable from your
 terminal. Export `SHELLOPTS=xtrace` alongside the variable (terminal
 runs only) for a full trace.
 
+### From your own terminal — git's program config
+
+The hook sees only the git commands the agent runs.
+A commit or push you make yourself, in a terminal or an IDE, goes through the same key and waits for the same touch — with nothing on screen, unless an agent command happened to be armed at that moment.
+
+No git *hook* sits at the right point for that.
+`commit-msg` and `post-commit` bracket the signature for `git commit` alone: `git tag -s` runs no hook, and a rebase re-signs every replayed commit with no hook between them.
+`pre-push` runs *after* ssh has connected and authenticated, so the transport touch is over before it fires.
+What does sit at the right point is git's own choice of program — the one it signs with (`gpg.ssh.program`, or `gpg.program` for OpenPGP) and the one it opens ssh remotes with (`core.sshCommand`).
+The script's `wrap` mode runs that program with a watcher alive for exactly as long as it runs:
+
+```sh
+ln -s gpg-touch-overlay.sh ~/.claude/scripts/gpg-touch-wrap-ssh-keygen
+git config --global gpg.ssh.program "$HOME/.claude/scripts/gpg-touch-wrap-ssh-keygen"
+git config --global core.sshCommand "$HOME/.claude/scripts/gpg-touch-overlay.sh wrap ssh"
+```
+
+(With OpenPGP signing, the symlink is `gpg-touch-wrap-gpg` and the setting is `gpg.program`.)
+
+The symlink is there because git execs `gpg.ssh.program` as one path, not through a shell — a value of `… wrap ssh-keygen` is looked up as a program of that whole name — so the script reads the program to wrap from its own name when that name is `gpg-touch-wrap-<program>`.
+`core.sshCommand` is shell-split and takes the plain form.
+
+What this covers, and what it costs:
+
+- Every signature — a commit, a tag, each commit a rebase replays — and every ssh transport, from any terminal, IDE or agent, with the same window after the same grace.
+- Verify-only calls pass straight through: `git log --show-signature` runs `ssh-keygen -Y verify` once per commit, and none of those gets a watcher or a display probe.
+- The toolkit probe runs once per signature or ssh connection, about a third of a second.
+- One signature, one window. Inside an agent session (Claude Code marks its Bash with `CLAUDECODE=1`) the wrapper only runs the program: the hook armed a watcher outside the sandbox before the command started, and that one shows the window for the agent's commits. Outside a session the wrapper's watcher is the one, and a watcher anyone else has already started — the pid file says so — is left alone. So the hook stays necessary for the agent's own git commands, and the wrapper never doubles it.
+
+**Under the sandbox this needs one more grant.** Global git config is read by the git the agent runs too, and the sandbox denies reads under `~/.claude/` wholesale — so without it every sandboxed `git commit` fails at once with `fatal: cannot exec '…/gpg-touch-wrap-ssh-keygen': Operation not permitted`, before the key is asked for anything.
+Allow the two wrapper files, and nothing wider:
+
+```json
+{
+  "sandbox": {
+    "filesystem": {
+      "allowRead": [
+        "~/.claude/scripts/gpg-touch-overlay.sh",
+        "~/.claude/scripts/gpg-touch-wrap-ssh-keygen"
+      ]
+    }
+  }
+}
+```
+
+The install skill proposes it with the other two grants; the failure mode and its rationale are catalogued in
+[`sandbox-troubleshooting.md` → Signed commit fails with "cannot exec" of the touch-overlay wrapper](sandbox-troubleshooting.md#signed-commit-fails-with-cannot-exec-of-the-touch-overlay-wrapper).
+
+To undo it: `git config --global --unset gpg.ssh.program` and `git config --global --unset core.sshCommand`.
+
 ### Trade-offs
 
 - **Placement is X11's to give.** On Linux the overlay places and stacks
@@ -2237,8 +2288,11 @@ runs only) for a full trace.
   editor that happened to be in front.
 - **It watches the whole host, not just the agent.** The watcher keys off
   any signing `gpg` process and any connection to the ssh agent that
-  stays open, so a commit — or an ssh login — you make yourself in
-  another terminal raises the window too.
+  stays open, so while an agent command has it armed, a commit — or an
+  ssh login — you make yourself in another terminal raises the window
+  too. For the rest of the time, the
+  [program config above](#from-your-own-terminal--gits-program-config)
+  is what covers your own git commands.
 
 ## Syncing user-scope config across machines
 
@@ -2663,11 +2717,20 @@ Then walk through:
    `gpg-touch-overlay-window*.py` into `~/.claude/scripts/`,
    `chmod +x` them, add the `PreToolUse` / `PostToolUse` `Bash`
    hooks running `gpg-touch-overlay.sh arm` / `disarm` (merge
-   diff and ask, as in step 5), and propose the two sandbox
-   grants the key needs: gpg-agent's ssh socket under
-   `sandbox.network.allowUnixSockets` and, with
+   diff and ask, as in step 5), symlink `gpg-touch-wrap-ssh-keygen`
+   (or `gpg-touch-wrap-gpg`) to the script beside it and hand me
+   the two `git config --global` lines — `gpg.ssh.program` (or
+   `gpg.program`) and `core.sshCommand` — that point git's own
+   signing and ssh programs at the wrapper, so the overlay also
+   covers the commits and pushes I make from my own terminal
+   (global git config is mine to write, not yours), and propose
+   the three sandbox grants this needs: gpg-agent's ssh socket under
+   `sandbox.network.allowUnixSockets`; with
    `git config gpg.format` = `ssh`, the public-key file under
-   `sandbox.filesystem.allowRead`. See
+   `sandbox.filesystem.allowRead`; and the wrapper's two files
+   (`gpg-touch-overlay.sh` and the `gpg-touch-wrap-*` symlink)
+   under `sandbox.filesystem.allowRead`, without which every
+   sandboxed signed commit fails with `cannot exec`. See
    [Hardware security keys](#hardware-security-keys--signing-and-authentication).
 
 8. **Verify.** After everything is in place, walk through the
@@ -2766,6 +2829,14 @@ below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
    `PostToolUse` `Bash` →
    `~/.claude/scripts/gpg-touch-overlay.sh arm` / `disarm`), its
    scripts match the framework's `tools/agent-isolation/` copies,
+   git's own programs point at the wrapper for commands I run
+   from a terminal (`git config --global --get gpg.ssh.program`
+   or `gpg.program` names a `gpg-touch-wrap-*` symlink to the
+   script, `core.sshCommand` is `… gpg-touch-overlay.sh wrap ssh`;
+   ⚠ if not, since the hook still covers the agent's own git
+   commands — but ✗ when git names the wrapper and the wrapper's
+   two files are not in `sandbox.filesystem.allowRead`, because
+   then every sandboxed signed commit fails with `cannot exec`),
    the key's signature and authentication slots carry a touch
    policy (`ykman openpgp info`, which I run myself),
    and — with `gpg.format=ssh` — the file `git config

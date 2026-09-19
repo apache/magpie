@@ -329,6 +329,17 @@ else
       fi ;;
   esac
 fi
+# The touch overlay's wrapper, when git is pointed at it: git inside the
+# sandbox reads the same global config and has to be able to start it.
+prog="$(git config --get gpg.ssh.program || git config --get gpg.program)"
+if [ -n "$prog" ]; then
+  prog="${prog/#\~/$HOME}"
+  if head -c 1 "$prog" >/dev/null 2>&1; then
+    echo "PROBE: signing-program → ✓ ($prog readable inside sandbox)"
+  else
+    echo "PROBE: signing-program → ✗ ($prog not readable inside sandbox — every sandboxed signed commit fails with 'cannot exec')"
+  fi
+fi
 ```
 
 **Interpretation:**
@@ -340,9 +351,14 @@ fi
 | `✗ not readable inside sandbox` | Fail | The sandbox's `~/.ssh/` read deny covers the public key; add that one file to `allowRead`. |
 | `⊘ gpg.format is not ssh` | Skip | Signing goes through gpg (or is off); the previous entry's socket rules are what matter. |
 | `⊘ user.signingkey unset` | Skip | Misconfigured signing, not a sandbox problem — mention it, do not fail the probe. |
+| `signing-program → ✓` | Pass | git's signing program (the touch overlay's `gpg-touch-wrap-*` wrapper, or whatever `gpg.ssh.program` / `gpg.program` names) can be started from inside the sandbox. Nothing printed when neither key is set: git uses its default `ssh-keygen` / `gpg` from `PATH`. |
+| `signing-program → ✗` | Fail | The program git is configured to sign with is read-denied inside the sandbox — for the overlay wrapper, `~/.claude/scripts/` is. Every sandboxed signed commit fails at once with `cannot exec`; add the wrapper's two files to `allowRead`. |
 
 **On ✗ → remediation:**
-[`docs/setup/sandbox-troubleshooting.md` — Signed commit fails before any touch when git signs with ssh](../../../../docs/setup/sandbox-troubleshooting.md#signed-commit-fails-before-any-touch-when-git-signs-with-ssh).
+[`docs/setup/sandbox-troubleshooting.md` — Signed commit fails before any touch when git signs with ssh](../../../../docs/setup/sandbox-troubleshooting.md#signed-commit-fails-before-any-touch-when-git-signs-with-ssh)
+for the key, and
+[`docs/setup/sandbox-troubleshooting.md` — Signed commit fails with "cannot exec" of the touch-overlay wrapper](../../../../docs/setup/sandbox-troubleshooting.md#signed-commit-fails-with-cannot-exec-of-the-touch-overlay-wrapper)
+for the program.
 
 ### Probe 6 — `gh` runs outside the sandbox
 

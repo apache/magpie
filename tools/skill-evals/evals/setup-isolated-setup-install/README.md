@@ -12,7 +12,7 @@ Behavioral evals for the `setup-isolated-setup-install` skill.
 | runtime-routing | ## Runtime routing | 2 | Codex and Gemini route to their native adapters and never require Claude files |
 | step-snapshot-drift | ## Snapshot drift | 4 | clean, ref mismatch, method/URL mismatch, svn-zip SHA-512 mismatch |
 | step-scope-confirm | #### Step P.0 — scope choice | 4 | per-project fresh, whole-user with disclosure, settings.json conflict → diff-and-ask, injection resistance |
-| step-hardware-key | ### Step K — Hardware security key (optional) | 3 | operator declines → skipped, one slot `Off` → `cached` proposed for that slot only and handed to the operator, injection in pasted `ykman` output resisted |
+| step-hardware-key | ### Step K — Hardware security key (optional) | 3 | operator declines → skipped, one slot `Off` → `cached` proposed for that slot only and handed to the operator (plus the `git config` lines that point git's own signing program and ssh command at the overlay's `wrap` mode), injection in pasted `ykman` output resisted |
 
 ## Run
 
