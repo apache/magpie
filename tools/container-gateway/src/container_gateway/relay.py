@@ -51,7 +51,7 @@ from .decisions import Allow, Request, decide
 from .http import Head, HttpError, error_response, parse_request_line, pipe, pump, read_body, read_head
 from .labels import LABEL_KEY, has_label
 from .policy import Deny, PolicyContext, named_networks, named_volumes
-from .routes import Family, Route
+from .routes import Family, Route, name_span
 from .routes import route as route_of
 
 log = logging.getLogger("container-gateway")
@@ -86,6 +86,11 @@ _IDENT_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.:@-]{0,254}")
 # client-controlled, and `decide()` does not validate body-borne resource
 # names the way it validates the request path).
 _RESOURCE_NAME_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,254}")
+
+# Hop-by-hop headers belong to the client <-> gateway connection and must
+# not be copied onto the gateway <-> daemon one (RFC 7230 6.1). `Connection`
+# is dropped too unless it names the upgrade the relay is about to hijack.
+_HOP_BY_HOP = ("Keep-Alive", "TE", "Trailer", "Proxy-Authorization", "Proxy-Connection")
 
 Connector = Callable[[], Awaitable[tuple[asyncio.StreamReader, asyncio.StreamWriter]]]
 Handler = Callable[[asyncio.StreamReader, asyncio.StreamWriter], Awaitable[None]]
@@ -189,38 +194,55 @@ class Relay:
         body = allow.request.body
         if not isinstance(body, dict):
             return None
-        for name in named_volumes(body, route.libpod):
-            denial = await self._volume_denial(name, route.libpod)
-            if denial is not None:
-                return denial
+        # Networks first: they are never auto-created, so checking them
+        # before the volume pass means a request that is going to be refused
+        # leaves no freshly-created volume behind.
         for name in named_networks(body, route.libpod):
             denial = await self._network_denial(name, route.libpod)
             if denial is not None:
                 return denial
+        for name in named_volumes(body, route.libpod):
+            denial = await self._volume_denial(name, route.libpod)
+            if denial is not None:
+                return denial
         return None
+
+    def _owned(self, status: int | None, info: Any) -> bool:
+        """A 2xx inspect payload carrying this project's label. Anything else is not ours."""
+        return status is not None and 200 <= status < 300 and has_label(_labels_of(info), self.ctx.slug)
 
     async def _volume_denial(self, name: str, libpod: bool) -> bytes | None:
         """An unknown volume is created labelled; a foreign one is refused."""
         if not _RESOURCE_NAME_RE.fullmatch(name):
             return _label_denial("volume", name)
         status, info = await self._request_json("GET", _inspect_target(Family.VOLUMES, name, libpod))
-        if status == 404:
-            await self._precreate_volume(name, libpod)
+        if self._owned(status, info):
             return None
-        if status is not None and 200 <= status < 300 and has_label(_labels_of(info), self.ctx.slug):
-            return None
-        return _label_denial("volume", name)
+        if status != 404:
+            return _label_denial("volume", name)
+        return await self._precreate_volume(name, libpod)
 
-    async def _precreate_volume(self, name: str, libpod: bool) -> None:
-        """Create the volume with this project's label before the daemon creates it without one."""
+    async def _precreate_volume(self, name: str, libpod: bool) -> bytes | None:
+        """Create the volume labelled, so the daemon cannot create it unlabelled.
+
+        Fails closed: anything but a successful create refuses the request
+        that referenced the volume. A 409 means somebody won the race
+        between the inspect above and this create -- possibly another
+        project -- so the label test is re-run against whatever now exists
+        rather than assuming the winner was us.
+        """
         target = "/libpod/volumes/create" if libpod else "/volumes/create"
         label = {LABEL_KEY: self.ctx.slug}
         payload = {"name": name, "labels": label} if libpod else {"Name": name, "Labels": label}
         status, _ = await self._request_json("POST", target, payload)
-        if status is None or not (200 <= status < 300 or status == 409):
-            log.warning(
-                "pre-creating volume %s returned %s; the daemon may create it unlabelled", name, status
-            )
+        if status is not None and 200 <= status < 300:
+            return None
+        if status == 409:
+            log.info("volume %s was created concurrently; re-checking its label", name)
+            again = await self._request_json("GET", _inspect_target(Family.VOLUMES, name, libpod))
+            return None if self._owned(*again) else _label_denial("volume", name)
+        log.warning("pre-creating volume %s returned %s; refusing the request", name, status)
+        return _denial(f"label-check: volume {name} could not be prepared")
 
     async def _network_denial(self, name: str, libpod: bool) -> bytes | None:
         """Networks are never auto-created, so an unknown one is refused too."""
@@ -229,9 +251,7 @@ class Relay:
         status, info = await self._request_json("GET", _inspect_target(Family.NETWORKS, name, libpod))
         if status == 404:
             return _denial(f"label-check: network {name} does not exist")
-        if status is not None and 200 <= status < 300 and has_label(_labels_of(info), self.ctx.slug):
-            return None
-        return _label_denial("network", name)
+        return None if self._owned(status, info) else _label_denial("network", name)
 
     # ------------------------------------------------------------- client
     async def handle(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
@@ -254,8 +274,11 @@ class Relay:
         """Serve one request. Returns False when the connection must not be reused."""
         method, path, query = parse_request_line(head.start_line)
         req = Request(method, path, query, {k.lower(): v for k, v in head.headers}, None)
-        buffered = self._should_buffer(req, head)
-        raw_body = await read_body(reader, head, self.json_limit) if buffered else b""
+        buffered = self._should_buffer(req)
+        raw_body = b""
+        if buffered:
+            await _continue_if_expected(head, writer)
+            raw_body = await read_body(reader, head, self.json_limit)
         if buffered and raw_body and _content_type(head) == "application/json":
             try:
                 req.body = json.loads(raw_body)
@@ -268,12 +291,14 @@ class Relay:
             return await _refuse(writer, error_response(verdict.status, verdict.message))
         return await self._forward(verdict, head, raw_body, buffered, reader, writer)
 
-    def _should_buffer(self, req: Request, head: Head) -> bool:
-        """Whether the policy needs the whole body in hand before anything is forwarded."""
-        if route_of(req.method, req.path).action in _BUFFERED_ACTIONS:
-            return True
-        length = head.content_length
-        return _content_type(head) == "application/json" and length is not None and length <= self.json_limit
+    def _should_buffer(self, req: Request) -> bool:
+        """Whether the policy needs the whole body in hand before anything is forwarded.
+
+        The action decides, never the Content-Type: a client that labels a
+        build context or a tar archive ``application/json`` would otherwise
+        have it buffered (and re-encoded) on its say-so.
+        """
+        return route_of(req.method, req.path).action in _BUFFERED_ACTIONS
 
     async def _forward(
         self,
@@ -291,7 +316,7 @@ class Relay:
                 name = allow.label_check
                 log.info("deny %s %s: label-check on %s", req.method, req.path, name)
                 return await _refuse(writer, _denial(f"label-check: {name} does not belong to this project"))
-            req.path = _rewrite_name(req.path, allow.label_check, ident)
+            req.path = _rewrite_name(req.method, req.path, allow.label_check, ident)
         denial = await self._resource_denial(allow)
         if denial is not None:
             log.info("deny %s %s: label-check on a named resource", req.method, req.path)
@@ -325,6 +350,11 @@ class Relay:
         """Write the approved request to the backend and relay the response back."""
         out_head = Head(f"{req.method} {req.raw_target()} HTTP/1.1", list(head.headers))
         out_head.set("Host", "docker")
+        _strip_hop_by_hop(out_head)
+        # The relay answers the client's 100-continue handshake itself (see
+        # `_continue_if_expected`), so the daemon must not be asked for a
+        # second interim head that nobody is waiting for.
+        out_head.remove("Expect")
         if buffered:
             body = json.dumps(req.body).encode() if req.body is not None else raw_body
             out_head.remove("Transfer-Encoding")
@@ -335,12 +365,17 @@ class Relay:
             backend_writer.write(out_head.encode())
             await backend_writer.drain()
             if head.chunked or head.content_length:
+                await _continue_if_expected(head, writer)
                 # On a truncated client body this raises HttpError; the
                 # `finally` in _forward closes the half-written backend
                 # connection rather than leaving the daemon mid-request.
                 await pump(reader, backend_writer, head)
 
         resp = await read_head(backend_reader)
+        while resp is not None and _is_interim(resp):
+            # 100 Continue and friends are bookkeeping between the gateway
+            # and the daemon; the client is sent the final head only.
+            resp = await read_head(backend_reader)
         if resp is None:
             return await _refuse(
                 writer, error_response(502, "container-gateway: backend closed without a response")
@@ -355,7 +390,8 @@ class Relay:
             except HttpError as exc:
                 log.debug("hijacked connection ended: %s", exc)
             return False
-        if not (status.startswith("1") or status in ("204", "304") or req.method == "HEAD"):
+        # Every other 1xx has been consumed by the interim loop above.
+        if status not in ("204", "304") and req.method != "HEAD":
             # Neither Content-Length nor chunked means the body is delimited
             # by EOF, so nothing can follow it on this connection.
             eof_framed = resp.content_length is None and not resp.chunked
@@ -394,21 +430,61 @@ def _labels_of(inspect: Any) -> dict[str, str] | None:
     return labels if isinstance(labels, dict) else None
 
 
-def _rewrite_name(path: str, name: str, ident: str) -> str:
+def _rewrite_name(method: str, path: str, name: str, ident: str) -> str:
     """Point the forwarded path at the resolved ID instead of the client's name.
 
     Closes the window between the label check and the forwarded request in
     which the client could rename the resource or recreate it under another
-    project's ownership.
+    project's ownership. The ID is spliced over exactly the segments
+    ``routes.name_span`` reports, never over the first textual occurrence of
+    the name: a container legally named ``containers``, ``libpod`` or
+    ``v1.45`` appears earlier in its own request target than the position
+    the daemon acts on. When the span does not spell the name the policy
+    checked, nothing is rewritten and the request goes on exactly as the
+    policy read it.
     """
     if ident == name:
         return path
-    needle = f"/{name}/"
-    if needle in path:
-        return path.replace(needle, f"/{ident}/", 1)
-    if path.endswith(f"/{name}"):
-        return f"{path[: -len(name)]}{ident}"
-    return path
+    span = name_span(method, path)
+    if span is None:
+        return path
+    start, end = span
+    segments = [s for s in path.split("/") if s]
+    if "/".join(segments[start:end]) != name:
+        return path
+    segments[start:end] = [ident]
+    return "/" + "/".join(segments)
+
+
+async def _continue_if_expected(head: Head, writer: asyncio.StreamWriter) -> None:
+    """Answer a client's ``Expect: 100-continue`` before its body is read.
+
+    The relay -- not the daemon -- is this client's HTTP peer, and nothing
+    downstream reads the body until the relay has read it, so the handshake
+    has to be completed here or the client waits for an interim head that
+    never arrives (curl sends ``Expect`` by default for bodies over 1 KiB,
+    which is every real build context or archive upload). Sending 100 and
+    then a final status -- including a 403 for a request the policy refuses
+    -- is exactly what RFC 7231 5.1.1 allows.
+    """
+    if "100-continue" in (head.get("expect") or "").lower():
+        writer.write(b"HTTP/1.1 100 Continue\r\n\r\n")
+        await writer.drain()
+
+
+def _strip_hop_by_hop(head: Head) -> None:
+    """Drop the headers that belong to the client's own connection, not the daemon's."""
+    connection = (head.get("connection") or "").lower()
+    for name in _HOP_BY_HOP:
+        head.remove(name)
+    if "upgrade" not in connection:
+        head.remove("Connection")
+
+
+def _is_interim(head: Head) -> bool:
+    """A 1xx response head the relay consumes itself -- everything but the 101 hijack."""
+    status = head.start_line.split(" ")[1]
+    return status.startswith("1") and status != "101"
 
 
 def _content_type(head: Head) -> str:

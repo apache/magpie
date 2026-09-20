@@ -306,6 +306,9 @@ def test_named_volumes_helper(ctx: PolicyContext) -> None:
     assert named_volumes(
         libpod(mounts=[{"type": "volume", "source": "myvol3", "destination": "/d"}]), True
     ) == ["myvol3"]
+    # An anonymous volume has no name for the relay to label-check.
+    assert named_volumes(compat(Mounts=[{"Type": "volume", "Target": "/d"}]), False) == []
+    assert named_volumes(libpod(mounts=[{"type": "volume", "destination": "/d"}]), True) == []
 
 
 def test_proxy_env_filtered_case_insensitively(ctx: PolicyContext) -> None:

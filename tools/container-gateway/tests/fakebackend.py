@@ -34,6 +34,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from container_gateway.http import Head, error_response, parse_request_line, read_body, read_head
+from container_gateway.labels import LABEL_KEY
 
 _BODY_LIMIT = 10_000_000
 
@@ -43,15 +44,25 @@ class FakeBackend:
     """Daemon state plus a log of everything the relay actually forwarded."""
 
     containers: dict[str, dict[str, Any]] = field(default_factory=dict)  # id -> inspect payload
+    images: dict[str, dict[str, Any]] = field(default_factory=dict)  # name -> inspect payload
     volumes: dict[str, dict[str, Any]] = field(default_factory=dict)  # name -> inspect payload
     networks: dict[str, dict[str, Any]] = field(default_factory=dict)  # name -> inspect payload
     execs: dict[str, str] = field(default_factory=dict)  # exec id -> container id
     seen: list[tuple[str, str, Any]] = field(default_factory=list)  # method, raw target, JSON body
+    heads: list[Head] = field(default_factory=list)  # every request head as received
+    bodies: list[bytes] = field(default_factory=list)  # every request body, unparsed
     transports: list[asyncio.BaseTransport] = field(default_factory=list)
+    # Knobs for the failure paths the volume pre-create has to survive.
+    volume_create_status: int | None = None  # force this status instead of creating
+    volume_create_conflict: str | None = None  # 409, and the volume now belongs to this slug
+    interim_continue: bool = False  # emit a 100 Continue head before the real one
 
     # ------------------------------------------------------------- fixtures
     def add_container(self, cid: str, name: str, labels: dict[str, str]) -> None:
         self.containers[cid] = {"Id": cid, "Name": f"/{name}", "Config": {"Labels": dict(labels)}}
+
+    def add_image(self, name: str, image_id: str, labels: dict[str, str]) -> None:
+        self.images[name] = {"Id": image_id, "RepoTags": [name], "Labels": dict(labels)}
 
     def add_volume(self, name: str, labels: dict[str, str]) -> None:
         self.volumes[name] = {"Name": name, "Labels": dict(labels)}
@@ -90,8 +101,10 @@ class FakeBackend:
                 method, path, query = parse_request_line(head.start_line)
                 body = await read_body(reader, head, _BODY_LIMIT)
                 is_json = (head.get("content-type") or "").startswith("application/json")
-                parsed = json.loads(body) if body and is_json else None
+                parsed = _try_json(body) if body and is_json else None
                 self.seen.append((method, head.start_line.split(" ")[1], parsed))
+                self.heads.append(head)
+                self.bodies.append(body)
                 await self._respond(method, path, query, parsed, reader, writer)
                 if head.upgrade:
                     return
@@ -107,7 +120,12 @@ class FakeBackend:
         reader: asyncio.StreamReader,
         writer: asyncio.StreamWriter,
     ) -> None:
-        parts = [p for p in path.split("/") if p and not p.startswith("v1.")]
+        parts = [p for p in path.split("/") if p]
+        if parts and parts[0].startswith("v1."):
+            # Only a *leading* segment is the API version: a resource may
+            # legally be named "v1.45", and the daemon would not mistake it
+            # for one either.
+            parts = parts[1:]
         if parts == ["_ping"]:
             writer.write(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nOK")
         elif parts[:1] == ["containers"] and parts[-1] == "json" and len(parts) == 3:
@@ -135,16 +153,32 @@ class FakeBackend:
             await writer.drain()
             data = await reader.read(64)
             writer.write(b"echo:" + data)
+        elif parts[:1] == ["containers"] and parts[-1] == "archive":
+            writer.write(b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n")
         elif parts == ["containers", "create"]:
+            if self.interim_continue:
+                writer.write(b"HTTP/1.1 100 Continue\r\n\r\n")
+                await writer.drain()
             writer.write(_json(201, {"Id": "newid", "Warnings": []}))
         elif parts == ["volumes", "create"]:
             name = str((body or {}).get("Name") or (body or {}).get("name") or "")
             labels = (body or {}).get("Labels") or (body or {}).get("labels") or {}
-            self.add_volume(name, labels)
-            writer.write(_json(201, self.volumes[name]))
+            if self.volume_create_conflict is not None:
+                self.add_volume(name, {LABEL_KEY: self.volume_create_conflict})
+                writer.write(error_response(409, "volume already exists"))
+            elif self.volume_create_status is not None:
+                writer.write(error_response(self.volume_create_status, "volume create failed"))
+            else:
+                self.add_volume(name, labels)
+                writer.write(_json(201, self.volumes[name]))
         elif parts[:1] == ["volumes"] and method == "GET" and len(parts) == 2:
             volume = self.volumes.get(parts[1])
             writer.write(_json(200, volume) if volume else error_response(404, "no such volume"))
+        elif parts[:1] == ["images"] and parts[-1] == "json":
+            image = self.images.get("/".join(parts[1:-1]))
+            writer.write(_json(200, image) if image else error_response(404, "no such image"))
+        elif parts[:1] == ["images"] and method == "DELETE":
+            writer.write(_json(200, [{"Deleted": "/".join(parts[1:])}]))
         elif parts[:1] == ["networks"] and method == "GET" and len(parts) == 2:
             network = self.networks.get(parts[1])
             writer.write(_json(200, network) if network else error_response(404, "no such network"))
@@ -177,6 +211,13 @@ async def socket_pair() -> tuple[
         return reader, asyncio.StreamWriter(transport, protocol, reader, loop)
 
     return await wrap(sock_a), await wrap(sock_b)
+
+
+def _try_json(body: bytes) -> Any:
+    try:
+        return json.loads(body)
+    except json.JSONDecodeError:
+        return None
 
 
 def _no_exec() -> bytes:

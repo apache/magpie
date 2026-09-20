@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import pytest
 
-from container_gateway.routes import ACT_BY_NAME, LIST_LIKE, Family, route, strip_version
+from container_gateway.routes import ACT_BY_NAME, LIST_LIKE, Family, name_span, route, strip_version
 
 
 @pytest.mark.parametrize(
@@ -91,3 +91,30 @@ def test_act_by_name_and_list_like_sets() -> None:
     assert (Family.CONTAINERS, "list") in LIST_LIKE
     assert (Family.SYSTEM, "events") in LIST_LIKE
     assert (Family.VOLUMES, "prune") in LIST_LIKE
+
+
+# --- Fix round 1 additions below ---
+
+
+@pytest.mark.parametrize(
+    ("method", "path", "span"),
+    [
+        ("POST", "/v1.45/containers/mine/start", (2, 3)),
+        ("POST", "/containers/mine/start", (1, 2)),
+        ("POST", "/v1.45/containers/containers/start", (2, 3)),
+        ("POST", "/v1.45/containers/v1.45/start", (2, 3)),
+        ("POST", "/v1.45/containers/libpod/start", (2, 3)),
+        ("POST", "/v1.45/libpod/containers/mine/start", (3, 4)),
+        ("POST", "/libpod/containers/mine/start", (2, 3)),
+        ("DELETE", "/v1.45/images/quay.io/podman/hello:latest", (2, 5)),
+        ("POST", "/v1.45/exec/ex1/start", (2, 3)),
+        ("GET", "/v1.45/containers/json", None),
+        ("GET", "/_ping", None),
+        ("POST", "/v1.45/containers/create", None),
+    ],
+)
+def test_name_span_matches_the_route_name(method: str, path: str, span: tuple[int, int] | None) -> None:
+    assert name_span(method, path) == span
+    segments = [s for s in path.split("/") if s]
+    expected = route(method, path).name
+    assert (None if span is None else "/".join(segments[span[0] : span[1]])) == expected

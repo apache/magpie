@@ -183,6 +183,36 @@ def route(method: str, path: str) -> Route:
     return Route(family, action, name, libpod, version)
 
 
+def name_span(method: str, path: str) -> tuple[int, int] | None:
+    """The segment range ``route()``'s ``name`` occupies in ``path``.
+
+    Indices are into ``[s for s in path.split("/") if s]`` -- the same
+    filtered segment list ``route()`` itself classifies -- shifted past the
+    version and ``/libpod`` prefixes ``strip_version`` removes and past the
+    family segment. ``None`` when the route carries no name.
+
+    The relay splices a resolved ID over exactly this range. Replacing the
+    first textual ``/<name>/`` instead would rewrite the wrong segment for a
+    resource legally named ``containers``, ``libpod`` or ``v1.45``:
+    ``/v1.45/containers/containers/start`` would become
+    ``/v1.45/aaa111/containers/start``, leaving the client's own name at the
+    position the daemon acts on.
+    """
+    named = route(method, path)
+    if named.name is None:
+        return None
+    clean, version, libpod = strip_version(path)
+    head, rest = _split(clean)
+    if not rest:
+        return None
+    offset = (1 if version else 0) + (1 if libpod else 0) + 1
+    if head == "exec":
+        # `route()` takes only rest[0] as the exec id, whatever follows it.
+        return offset, offset + 1
+    end = len(rest) - 1 if rest[-1] in _VERBS else len(rest)
+    return (offset, offset + end) if end > 0 else None
+
+
 ACT_BY_NAME: frozenset[tuple[Family, str]] = frozenset(
     {
         (Family.CONTAINERS, a)

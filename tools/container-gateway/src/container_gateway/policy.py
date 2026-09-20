@@ -460,7 +460,12 @@ def named_volumes(body: dict[str, Any], libpod: bool) -> list[str]:
     mounts = body.get("mounts") if libpod else host.get("Mounts")
     for entry in mounts or []:
         if isinstance(entry, dict) and str(entry.get(type_key, "")).casefold() == "volume":
-            names.append(str(entry.get(source_key, "")))
+            source = str(entry.get(source_key, ""))
+            if source:
+                # An empty source is an *anonymous* volume: the daemon
+                # invents a fresh name for it, so there is nothing for the
+                # relay to label-check and no name to inspect.
+                names.append(source)
     if libpod:
         for entry in body.get("volumes") or []:
             if isinstance(entry, dict) and entry.get("Name"):
