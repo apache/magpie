@@ -203,7 +203,10 @@ def git_archive_tar(ref: str, repo: Path, prefix: str, worktree_attributes: bool
 
 def normalize_mode(mode: int, kind: str) -> int:
     """`a=rX,u+w`: directories and anything executable become 0755,
-    everything else 0644. Setuid/setgid/sticky bits are dropped."""
+    everything else 0644. Setuid/setgid/sticky bits are dropped. A
+    symlink is always 0777: `lstat` reports 0755 on macOS and 0777 on
+    Linux, and neither is meaningful, so the packer's platform must
+    not leak into the bytes."""
     if kind == "dir":
         return _DIR_MODE
     if kind == "symlink":
@@ -684,6 +687,8 @@ def recipe(ref: str, fmt: str, prefix: str, out: str) -> str:
     if fmt == "tar.gz":
         lines += [
             "# 2. sorted names  3. uid/gid 0  4. a=rX,u+w  5. no atime/ctime PAX headers  6. gzip -n",
+            "#    (symlink modes differ per OS — macOS lstat says 0755, Linux 0777 — and not every",
+            "#     tar's --mode rewrites them; the Python `build` path always packs symlinks as 0777)",
             'tar --sort=name --mtime="@${SOURCE_DATE_EPOCH}" --owner=0 --group=0 --numeric-owner \\',
             "    --mode=a=rX,u+w \\",
             "    --pax-option=exthdr.name=%d/PaxHeaders/%f,delete=atime,delete=ctime \\",

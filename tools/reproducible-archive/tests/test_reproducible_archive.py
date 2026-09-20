@@ -186,6 +186,20 @@ def test_zip_rejects_pre_1980_epoch(repo: Path) -> None:
         ra.build("1.0.0-rc1", repo, "zip", "p", epoch=1)
 
 
+@pytest.mark.parametrize("fmt", ra.FORMATS)
+def test_symlink_mode_is_platform_independent(fmt: str) -> None:
+    """`lstat` reports a symlink as 0755 on macOS and 0777 on Linux; the
+    packed mode, the SWHID and `compare` must not see the difference."""
+    base = [ra.Entry("p/", "dir", 0o755), ra.Entry("p/target", "file", 0o644, data=b"x\n")]
+    macos = [*base, ra.Entry("p/link", "symlink", 0o755, linkname="target")]
+    linux = [*base, ra.Entry("p/link", "symlink", 0o777, linkname="target")]
+    write = ra.write_zip if fmt == "zip" else ra.write_tar_gz
+    assert write(macos, EPOCH) == write(linux, EPOCH)
+    assert ra.swhid_dir_of_entries(macos, "p") == ra.swhid_dir_of_entries(linux, "p")
+    packed = ra.read_zip_entries(write(macos, EPOCH)) if fmt == "zip" else ra.read_tar_entries(write(macos, EPOCH))
+    assert [e.mode for e in packed if e.kind == "symlink"] == [0o777]
+
+
 def test_normalize_mode() -> None:
     assert ra.normalize_mode(0o600, "file") == 0o644
     assert ra.normalize_mode(0o700, "file") == 0o755

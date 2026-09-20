@@ -43,7 +43,7 @@ See [`docs/release-management/reproducibility.md`](../../docs/release-management
 | 1 | File modification times | `tar --mtime="@${SOURCE_DATE_EPOCH}"`, `touch --date="@${SOURCE_DATE_EPOCH}"` | Every member gets one mtime: `SOURCE_DATE_EPOCH`, defaulting to the committer timestamp of the ref (`git log -1 --format=%ct`), the one value every builder of the same tag agrees on. |
 | 2 | File ordering | `tar --sort=name`, or `find … \| LC_ALL=C sort -z` | Members are emitted in per-directory byte order, independent of the packer's locale and filesystem. |
 | 3 | Ownership | `--owner=0 --group=0 --numeric-owner` | uid/gid `0`, empty user and group names. |
-| 4 | Permissions / umask | `--mode=a=rX,u+w` | Files `0644`, executables and directories `0755`, setuid/setgid/sticky dropped. |
+| 4 | Permissions / umask | `--mode=a=rX,u+w` | Files `0644`, executables and directories `0755`, setuid/setgid/sticky dropped. Symlinks are always packed as `0777`: `lstat` reports them as `0755` on macOS and `0777` on Linux, and the SWHID uses git's fixed `120000` for them, so the platform that packed the archive leaves no trace. |
 | 5 | PAX headers | `--pax-option=exthdr.name=%d/PaxHeaders/%f,delete=atime,delete=ctime` | No `atime` / `ctime` headers; `check` also catches the PID-bearing `PaxHeaders.<pid>` names GNU tar emits under `POSIXLY_CORRECT`. |
 | 6 | gzip | `gzip -n` | gzip header mtime `0`, no embedded filename, no extra field, no comment. |
 | 7 | zip extra attributes | `zip -X`, unzip with `TZ=UTC` | No "extra field" per member, no comments, DOS timestamps computed in UTC from `SOURCE_DATE_EPOCH`, Unix create-system so the normalised modes round-trip. |
