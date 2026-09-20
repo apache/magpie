@@ -649,6 +649,8 @@ Adjust the request rather than widening the sandbox: a `403` from the gateway is
   Verify the result from outside the sandbox too: per the Symptom note above, `podman machine list` run inside the sandbox reports an empty table regardless of the machine's real state.
 - When only Podman is installed, the gateway still serves the `docker` CLI.
   `DOCKER_HOST` points at the gateway's `docker.sock`, which relays to whichever backend it found, so `docker ps` and friends work through Podman's Docker-compatible API alone.
+- For CI / image-build workflows that run inside an adopter repo and need a wider gateway configuration than the reference default (e.g. `--extra-bind-root` on `container-gateway serve`, or any other project-specific sandbox allowance), prefer project scope (`.claude/settings.local.json` in the adopter) over user scope.
+  That keeps the framework's user-scope reference minimal and makes the widening visible to whoever audits the adopter's repo — a rule that holds for any workflow-specific sandbox widening, not just this one.
 
 ---
 

@@ -2935,10 +2935,17 @@ below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
    `sandbox.network.allowedDomains` block, and the
    `sandbox.filesystem` allowlist (`allowRead`/`allowWrite`).
 2. User-scope `~/.claude/settings.json` has the `PreToolUse`
-   `Bash` matcher wired to a `sandbox-bypass-warn.sh` command
-   and the `statusLine` command set to `sandbox-status-line.sh`.
-3. Both hook scripts exist and are executable
+   `Bash` matcher wired to a `sandbox-bypass-warn.sh` command, a
+   `PostToolUse` `Bash` matcher wired to a `sandbox-error-hint.sh`
+   command, and the `statusLine` command set to
+   `sandbox-status-line.sh`. A missing `sandbox-error-hint.sh`
+   wiring is ⚠, not ✗ — it is a discoverability aid for the
+   failure modes catalogued in
+   `docs/setup/sandbox-troubleshooting.md`, and its absence does
+   not break anything on its own.
+3. All three hook scripts exist and are executable
    (`~/.claude/scripts/sandbox-bypass-warn.sh`,
+   `~/.claude/scripts/sandbox-error-hint.sh`,
    `~/.claude/scripts/sandbox-status-line.sh`).
 4. The `claude-iso` shell function is sourced in `~/.bashrc` or
    `~/.zshrc`. Note whether `alias claude='claude-iso'` is set.
@@ -2953,7 +2960,19 @@ below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
    `[NO SANDBOX]`).
 7. Run `cat ~/.aws/credentials`, `echo $AWS_ACCESS_KEY_ID`, and
    `curl https://example.com` and confirm each is denied.
-8. The **vetted-ops split and exclusion**. Two things, and the
+8. **Project-root coverage in the sandbox allowlists.** For this
+   worktree and every other one `git worktree list --porcelain`
+   names, confirm the worktree's own absolute path is in that
+   worktree's own `.claude/settings.local.json`
+   `sandbox.filesystem.allowRead` and `allowWrite` (per
+   [apache/magpie#197](https://github.com/apache/magpie/issues/197),
+   `allowRead: ["."]` does not cover the cwd once the harness
+   pre-resolves it at session start). Then probe live: a
+   sandboxed read of `.git/HEAD` and a sandboxed write of a temp
+   file inside the current worktree's root should both succeed —
+   the read is the one that actually exercises the bug this check
+   exists for.
+9. **The vetted-ops split and exclusion.** Two things, and the
    first matters more:
    - Only `vetted-op-read` is in `permissions.allow`. If
      `vetted-op` (the write dispatcher) appears in `allow`, that
@@ -2965,38 +2984,59 @@ below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
      (the catalogue) and
      `.apache-magpie-overrides/tools/vetted-ops/**` (the policy).
    If the repo has no vetted-ops policy at all, report n/a.
-9. If a hardware key signs my commits or authenticates my git
-   remotes: the touch overlay is wired (`PreToolUse` /
-   `PostToolUse` `Bash` →
-   `~/.claude/scripts/gpg-touch-overlay.sh arm` / `disarm`), its
-   scripts match the framework's `tools/agent-isolation/` copies,
-   git's own programs point at the wrapper for commands I run
-   from a terminal (`git config --global --get gpg.ssh.program`
-   or `gpg.program` names a `gpg-touch-wrap-*` symlink to the
-   script, `core.sshCommand` is `… gpg-touch-overlay.sh wrap ssh`;
-   ⚠ if not, since the hook still covers the agent's own git
-   commands — but ✗ when git names the wrapper and the wrapper's
-   two files are not in `sandbox.filesystem.allowRead`, because
-   then every sandboxed signed commit fails with `cannot exec`),
-   the key's signature and authentication slots carry a touch
-   policy (`ykman openpgp info`, which I run myself),
-   and — with `gpg.format=ssh` — the file `git config
-   user.signingkey` names is readable from a sandboxed Bash (it
-   needs its own `sandbox.filesystem.allowRead` entry). For the
-   toolkit probe (`gpg-touch-overlay.sh _gui_available`) hand me
-   the command to run myself: it cannot see the display from
-   inside the sandbox.
-10. `sandbox.excludedCommands` contains `"gh *"` (project or
-    user scope), and `permissions.ask` lists the gh write
-    subcommands one by one — a catch-all `Bash(gh *)` in `ask`
-    (any scope) is ✗: ask beats allow regardless of specificity,
-    so it forces a prompt on every read-only gh call the allow
-    rules were meant to exempt. Note, without failing, that the exclusion only
+10. If a hardware key signs my commits or authenticates my git
+    remotes: the touch overlay is wired (`PreToolUse` /
+    `PostToolUse` `Bash` →
+    `~/.claude/scripts/gpg-touch-overlay.sh arm` / `disarm`), its
+    scripts match the framework's `tools/agent-isolation/` copies,
+    git's own programs point at the wrapper for commands I run
+    from a terminal (`git config --global --get gpg.ssh.program`
+    or `gpg.program` names a `gpg-touch-wrap-*` symlink to the
+    script, `core.sshCommand` is `… gpg-touch-overlay.sh wrap ssh`;
+    ⚠ if not, since the hook still covers the agent's own git
+    commands — but ✗ when git names the wrapper and the wrapper's
+    two files are not in `sandbox.filesystem.allowRead`, because
+    then every sandboxed signed commit fails with `cannot exec`),
+    the key's signature and authentication slots carry a touch
+    policy (`ykman openpgp info`, which I run myself),
+    and — with `gpg.format=ssh` — the file `git config
+    user.signingkey` names is readable from a sandboxed Bash (it
+    needs its own `sandbox.filesystem.allowRead` entry). For the
+    toolkit probe (`gpg-touch-overlay.sh _gui_available`) hand me
+    the command to run myself: it cannot see the display from
+    inside the sandbox.
+11. `sandbox.excludedCommands` contains `"gh *"` (project or
+    user scope), and `permissions.ask` (project, local, and user
+    scope alike) lists the gh write subcommands one by one — a
+    catch-all `Bash(gh *)` in `ask` (any scope) is ✗: ask beats
+    allow regardless of specificity, so it forces a prompt on
+    every read-only gh call the allow rules were meant to exempt.
+    Note, without failing, that the exclusion only
     applies when every part of a Bash invocation is `cd …` or
     `gh …` — a pipe, `$(…)`, a loop, or any file redirection puts
     `gh` back in the sandbox (anthropics/claude-code#95532; see
     `docs/setup/sandbox-troubleshooting.md` for the shape table
     and the `gh tofile` alias workaround).
+12. **Container gateway wired.** Only meaningful when `podman` or
+    `docker` is on `PATH`; report n/a otherwise. Four things:
+    - User-scope `~/.claude/settings.json` has a `SessionStart`
+      hook running `container-gateway-hook.sh start` and a
+      `SessionEnd` hook running `container-gateway-hook.sh stop`,
+      and `~/.claude/scripts/container-gateway-hook.sh` exists and
+      is executable.
+    - The project `.claude/settings.json` or
+      `.claude/settings.local.json` has `env.CONTAINER_HOST` and
+      `env.DOCKER_HOST`, and both gateway sockets appear in
+      `sandbox.network.allowUnixSockets`.
+    - No scope (project, project-local, or user) lists a raw
+      daemon socket in `allowUnixSockets` — an entry whose
+      basename is `docker.sock`, `podman.sock`, or ends in
+      `-api.sock`, unless its parent directory is
+      `.apache-magpie-local/run`, is ✗: it is the same invariant
+      `tools/sandbox-lint` enforces.
+    On any ✗, point at
+    [`docs/setup/sandbox-troubleshooting.md` → Docker / Podman command fails with a socket error](sandbox-troubleshooting.md#docker--podman-command-fails-with-a-socket-error)
+    rather than re-explaining the fix.
 ```
 
 Re-run either form after every Claude Code upgrade — the sandbox

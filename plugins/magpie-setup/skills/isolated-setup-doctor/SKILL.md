@@ -231,6 +231,12 @@ is missing, in the order a fresh install would hit them.
 **Command:**
 
 ```bash
+# Two candidates, not the hook's three-way order (which also checks
+# $MAGPIE_CONTAINER_GATEWAY_SRC and $HOME/.claude/scripts/container-gateway/src
+# for an operator install): this probe only ever needs to run the read-only
+# `status` subcommand against a source already reachable from this doctor
+# session, so it deliberately omits the operator-install path rather than
+# widen what the probe depends on being readable.
 gw_src=".apache-magpie/tools/container-gateway/src"
 [ -d "$gw_src/container_gateway" ] || gw_src="tools/container-gateway/src"
 status_json=$(PYTHONPATH="$gw_src" python3 -m container_gateway status --project "$PWD" 2>/dev/null)
@@ -249,6 +255,26 @@ elif '$1' in d.get('serving', []):
 else:
     print('not-serving')
 " 2>/dev/null
+}
+
+_probe_timeout() {  # seconds cmd...; portable across GNU timeout, macOS Homebrew's gtimeout, or neither
+  local secs="$1"
+  shift
+  if command -v timeout > /dev/null 2>&1; then
+    timeout "$secs" "$@"
+  elif command -v gtimeout > /dev/null 2>&1; then
+    gtimeout "$secs" "$@"
+  else
+    "$@" &
+    local cmd_pid=$!
+    (sleep "$secs" && kill "$cmd_pid" 2> /dev/null) &
+    local watchdog_pid=$!
+    wait "$cmd_pid" 2> /dev/null
+    local rc=$?
+    kill "$watchdog_pid" 2> /dev/null
+    wait "$watchdog_pid" 2> /dev/null
+    return "$rc"
+  fi
 }
 
 for rt in podman docker; do
@@ -278,7 +304,7 @@ for rt in podman docker; do
     echo "PROBE: ${rt}-runtime → ✗ (gateway socket missing at $sock — container gateway not running)"
     continue
   fi
-  if "$rt" info > /dev/null 2>"${TMPDIR:-/tmp}/$rt-probe.err"; then
+  if _probe_timeout 15 "$rt" info > /dev/null 2>"${TMPDIR:-/tmp}/$rt-probe.err"; then
     echo "PROBE: ${rt}-runtime → ✓ ($rt reaches the container gateway at $sock)"
   else
     rc=$?

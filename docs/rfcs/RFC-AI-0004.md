@@ -185,9 +185,9 @@ The reference implementation (see [`docs/setup/secure-agent-internals.md`](http
 |---|---|---|
 | **0. Clean environment** | Inherited credential-shaped env vars (`$AWS_*`, `$GH_TOKEN`, `$ANTHROPIC_API_KEY`, …). | A shell wrapper (`claude-iso`) that strips the agent's process env to a project-declared whitelist before exec. |
 | **1. Filesystem + network sandbox** | Bash subprocess reads outside the project tree; outbound HTTPS to non-allowed hosts. | Linux: `bubblewrap` user-namespace + `socat` SNI proxy. macOS: `sandbox-exec`. |
+| **1b. Socket gateways** | Daemon sockets that are root-equivalent over their mounts (container runtimes), and container network egress the sandbox proxy never sees. | Per-project policy proxies running outside the sandbox: `tools/egress-gateway` (host allow-list, RFC-AI-0003 § 4.4) and `tools/container-gateway` (label-scoped, mount- and privilege-checked container API, egress-gateway injected as the containers' proxy). The sandbox may reach only the gateways' own sockets, never the daemon socket. |
 | **2. Tool permissions** | The agent's own Read/Edit/Write/Bash tools touching denied paths or binaries. | The agent host's permission system (e.g., Claude Code's `permissions.deny`). |
 | **3. Forced confirmation** | Visible-to-others writes that haven't been seen by a human. | `permissions.ask` for every state-mutating shell call (e.g., `gh pr create`, `gh issue edit`, `gh gist *`, `gh secret *`). Implements Principle 1 at the OS layer. |
-| **1b. Socket gateways** | Daemon sockets that are root-equivalent over their mounts (container runtimes), and container network egress the sandbox proxy never sees. | Per-project policy proxies running outside the sandbox: `tools/egress-gateway` (host allow-list, RFC-AI-0003 § 4.4) and `tools/container-gateway` (label-scoped, mount- and privilege-checked container API, egress-gateway injected as the containers' proxy). The sandbox may reach only the gateways' own sockets, never the daemon socket. |
 
 ### Five concrete consequences
 

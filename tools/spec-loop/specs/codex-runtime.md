@@ -83,7 +83,7 @@ tool adapters, and uses its own sandbox, rules, and approvals.
 
 ```bash
 uv run --directory tools/sandbox-lint --group dev pytest
-uv run --directory tools/sandbox-lint --group dev sandbox-lint --codex .codex
+uv run --project tools/sandbox-lint --group dev sandbox-lint --codex .codex
 
 codex execpolicy check --pretty \
   --rules .codex/rules/magpie.rules -- gh pr view 313

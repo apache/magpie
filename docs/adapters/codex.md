@@ -170,7 +170,7 @@ replaces — code review.
 Run the static validator from the framework or snapshot:
 
 ~~~bash
-uv run --directory tools/sandbox-lint --group dev sandbox-lint --codex .codex
+uv run --project tools/sandbox-lint --group dev sandbox-lint --codex .codex
 ~~~
 
 Then test native rule classification:

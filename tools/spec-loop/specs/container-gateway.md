@@ -3,7 +3,7 @@
 
 ---
 title: Container gateway (podman / docker inside the sandbox)
-status: proposed
+status: experimental
 kind: feature
 mode: infra
 source: >
@@ -115,7 +115,11 @@ config` writes the absolute paths into the gitignored
 a socket path is checked at start and reported.
 
 The gateway must run **outside** the sandbox: it connects to the real
-daemon socket, which the sandbox denies by design. Start-up order:
+daemon socket, which the sandbox denies by design, and it also has to
+`bind()` its own two gateway sockets, an operation the sandbox refuses
+unconditionally regardless of the destination path — there is no sandbox
+configuration under which the gateway process itself could run inside the
+sandbox it exists to let other processes reach through. Start-up order:
 discover backends, refuse to start when the run directory is
 world-writable, bind the gateway sockets with mode `0600`, write a pid
 file, serve. It exits on `SessionEnd`, on `SIGTERM`, or after an idle
@@ -124,6 +128,12 @@ hook firing. A second start for the same project is a no-op when the
 pid file names a live process.
 
 ### Backends
+
+Discovery runs once, at start, not on a timer or per-request: a backend
+that appears (a Podman machine started, Docker Desktop launched) after the
+gateway is already serving is not picked up until the next restart. The
+hook's `SessionStart` / `SessionEnd` lifecycle means this is normally a new
+session away, not a standalone daemon adopters manage by hand.
 
 Discovery, in order, all optional:
 
@@ -151,6 +161,15 @@ The policy is a pure function `decide(request) -> Allow | Rewrite |
 Deny(reason)` over the parsed request (method, normalised path with the
 `/v1.NN` or `/v5.x.y/libpod` prefix stripped, query, JSON body). It is
 applied identically to the compat and libpod path families.
+
+`Request`, `Allow`, and `decide` live in `decisions.py`, the single entry
+point the relay calls per request; `decisions.py` imports from `policy.py`
+(the create-time and label rules), which in turn imports from
+`policy_shape.py` (the compat/libpod field tables and malformed-shape
+detection). Imports are one-way only — `policy.py` never imports back from
+`decisions.py`, and `policy_shape.py` never imports from either of the
+other two — so the three modules form a strict layering rather than a
+cycle.
 
 **Allowed endpoint families** (each with the label rule below):
 containers and pods (create, start, stop, kill, restart, pause,
@@ -194,15 +213,27 @@ tree) and:
 | `Privileged` | deny |
 | `CapAdd` | deny any; `CapDrop` allowed |
 | `Devices`, `DeviceRequests`, `DeviceCgroupRules` | deny |
-| `PidMode`, `IpcMode`, `UTSMode`, `UsernsMode`, `CgroupnsMode` | deny `host` and `container:<id>` unless `<id>` carries the label |
-| `NetworkMode` | deny `host`; `container:<id>` only with the label; named networks must carry the label |
-| `SecurityOpt` | deny `seccomp=unconfined`, `apparmor=unconfined`, `label=disable`, `no-new-privileges=false`, `systempaths=unconfined` |
+| `PidMode`, `IpcMode`, `UTSMode`, `UsernsMode`, `CgroupnsMode` | allow-list of safe values (`private`, `pod`, `auto`, `keep-id`, `nomap`, `shareable`, or unset) plus `container:<id>` when `<id>` carries the label; every other value, including `host` and any value the allow-list does not recognise, is denied |
+| `NetworkMode` | allow-list of safe keywords (`bridge`, `podman`, `none`, `slirp4netns`, `pasta`, `pod`, or unset) plus a named network that looks like a real network name and carries the label, checked by the relay; `host`, `container:<id>` without the label, and anything else are denied |
+| `SecurityOpt` | allow-list per key: `seccomp` only `""` / `default`; every other recognised key (`apparmor`, `label`, `no-new-privileges`, `systempaths`) has its unsafe value (`unconfined`, `disable`, `false`, `unconfined`) denied; an unrecognised key (including `unmask`, `proc-opts`) is denied outright |
 | `Sysctls`, `CgroupParent`, `Runtime`, `Isolation` | deny |
 | `MaskedPaths`, `ReadonlyPaths` | deny when set to an empty list |
 | `Binds`, `Mounts[type=bind]`, libpod `mounts` | source must resolve (symlinks followed, on the host) under the project root or the project scratch tree; anything else denied. `tmpfs` allowed |
-| `Mounts[type=volume]`, named volumes in `Binds`, `VolumesFrom` | the volume / container must carry the label |
+| `Mounts[type=volume]`, named volumes in `Binds` | the named volume must carry the label, checked (and, for an unknown name, pre-created labelled) by the relay before the backend ever sees the create call |
+| `VolumesFrom` | refused outright — sharing another container's mounts would need the same by-id label check the relay does for named volumes/networks, and the common case is already covered by a named volume |
 | `PortBindings` / `publish` | allowed; an empty `HostIp` is rewritten to `127.0.0.1` |
 | `Env` | proxy variables injected per the egress rule below; a client-supplied value for the same names is replaced |
+
+Named volumes and named networks are the two by-name references the pure
+`decide()` function cannot fully resolve on its own — it can validate shape
+and queue the label check, but only the relay has a live connection to the
+backend to actually perform it. The relay therefore inspects (and, for an
+unrecognised **volume** name only, pre-creates labelled) every named volume
+and network a create request references before forwarding the request, and
+refuses with the same `label-check` reason a by-name act call uses when the
+resource exists but does not carry the label. A named **network** that does
+not already exist is refused outright — the relay never creates a network on
+the caller's behalf, unlike volumes.
 
 Rewrites are logged at debug level; denials are returned as
 `403 {"message": "container-gateway: <rule> — <what to change>; see
@@ -335,7 +366,7 @@ See the frontmatter `acceptance:` list. Additionally:
 # Integration against whichever backend is installed
 (cd tools/container-gateway && uv run --group dev pytest -m integration)
 # Reference settings still lint clean with the gateway entries
-uv run --directory tools/sandbox-lint --group dev sandbox-lint
+uv run --project tools/sandbox-lint --group dev sandbox-lint
 # Doctor fixtures for the new probe-3 shapes
 PYTHONPATH=tools/skill-evals/src python3 -m skill_evals.runner \
     tools/skill-evals/evals/setup-isolated-setup-doctor/
