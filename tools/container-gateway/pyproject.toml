@@ -50,6 +50,10 @@ strict = true
 
 [tool.pytest.ini_options]
 minversion = "8.0"
+# A wedged test must dump every thread's stack and fail the run in a
+# minute, not sit there until CI's job limit cancels the job with no
+# output at all. pytest built-in; no extra dependency.
+faulthandler_timeout = 60
 addopts = "-ra -q -m 'not integration'"
 testpaths = ["tests"]
 markers = ["integration: needs a real podman or docker backend; run with -m integration"]

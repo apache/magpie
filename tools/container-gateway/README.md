@@ -134,6 +134,9 @@ Known and accepted, in the order you are likely to meet them:
 
 - **An unknown field is refused, so a new daemon feature is unavailable until the gateway learns it.**
   That is the allow-list working as designed; the `403` names the field, which is the signal to add it to `policy_shape.py` (create / exec / update) or to `decisions.py` (build query) with a test.
+- **The run directory's trust anchor is `--project` (resolved), or a custom `--run-dir`'s own parent (resolved).**
+  A symlink in the ancestor chain above that anchor is the host's own layout — `/tmp` and `/var` are symlinks on macOS, a home directory can sit on a linked volume — and is followed, not refused.
+  Below the anchor, every component the gateway itself creates is checked with `lstat`: a symlink, a foreign owner or a group- or world-writable mode there is refused, and the pid file and the daemon log are opened `O_NOFOLLOW` regardless.
 - **A bind source is checked on the host at decision time and re-resolved by the daemon at mount time.**
   A symlink swapped between those two moments is not caught — the check and the mount are two separate resolutions of the same path, and the gateway holds no lock on the filesystem in between.
 - **Images are shared across projects by design.**

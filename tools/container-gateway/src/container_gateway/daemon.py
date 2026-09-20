@@ -107,22 +107,6 @@ def _refuse_if_symlink(path: Path, label: str) -> None:
         _refuse(f"{label} ({path}) is a symlink; refusing")
 
 
-def _refuse_if_parent_missing_or_symlink(path: Path, label: str) -> None:
-    """An ancestor this module never creates on its own: it must already exist.
-
-    Used for a custom ``--run-dir``'s parent, which may sit anywhere
-    outside the project tree -- "create it for the operator" would be
-    presumptuous, and letting a missing parent surface as a bare
-    ``FileNotFoundError`` out of a later ``mkdir()`` is not an error
-    message worth shipping.
-    """
-    st = _lstat_or_none(path)
-    if st is None:
-        _refuse(f"{label} ({path}) does not exist")
-    if stat.S_ISLNK(st.st_mode):
-        _refuse(f"{label} ({path}) is a symlink; refusing")
-
-
 def _resolved_existing_project_root(project_root: Path) -> Path:
     resolved = project_root.resolve()
     if not resolved.is_dir():
@@ -174,20 +158,90 @@ def _ensure_owned_private_dir(path: Path, label: str) -> None:
             _refuse(f"{label} ({path}) could not be created or inspected")
 
 
+def _project_relative_parts(run_dir: Path, resolved_root: Path, project_root: Path) -> tuple[str, ...] | None:
+    """``run_dir``'s components below the project root, or ``None`` when it sits outside it.
+
+    Both spellings of the root are tried -- the resolved one and the one
+    the caller passed -- because a caller may have derived ``run_dir``
+    from an unresolved ``--project`` value, in which case the two share
+    no common prefix even though they name the same directory. The parts
+    come back relative either way, to be rebuilt under the *resolved*
+    root so the walk below never starts from an unresolved path.
+
+    A ``..`` among the parts gives up on the component-by-component walk
+    and reports "outside": ``lstat`` resolves ``..`` in the kernel, so a
+    path built one component at a time out of them would not be checking
+    what it appears to be checking. Such a ``--run-dir`` is handled by
+    the outside branch instead, which resolves the whole parent chain
+    once and then ``lstat``s a single final component.
+    """
+    for base in (resolved_root, project_root):
+        try:
+            parts = run_dir.relative_to(base).parts
+        except ValueError:
+            continue
+        if parts and ".." not in parts:
+            return parts
+    return None
+
+
+def _owned_components(
+    run_dir: Path, resolved_root: Path, project_root: Path
+) -> list[tuple[Path, str]] | None:
+    """Every path component the gateway itself creates and opens, top-down.
+
+    The trust anchor is the operator's own ``--project`` value, resolved
+    once. A symlink anywhere in the ancestor chain *above* that anchor is
+    the operating system's or the operator's own layout -- ``/tmp`` and
+    ``/var`` are symlinks on macOS, a home directory can sit on a linked
+    volume -- and is followed, not treated as hostile. What the sandboxed
+    agent can actually plant is a component the gateway creates *below*
+    the anchor, and each of those is checked one at a time with ``lstat``.
+
+    Inside the project tree the components are every step from the
+    resolved project root down to the run directory --
+    ``.apache-magpie-local`` then ``run`` in the default layout. For a
+    custom ``--run-dir`` outside the project tree the anchor is that
+    directory's own parent, which this module never creates and which is
+    resolved rather than refused; the run directory itself is then the
+    only owned component. Either way the pid file and the sockets inside
+    the run directory are guarded separately, by ``check_socket_type``
+    and the ``O_NOFOLLOW`` opens.
+
+    ``None`` means an ancestor the gateway does not own is simply absent:
+    a refusal for ``check_run_dir``, "nothing has ever been served here"
+    for ``validate_run_dir``.
+    """
+    parts = _project_relative_parts(run_dir, resolved_root, project_root)
+    if parts is not None:
+        components: list[tuple[Path, str]] = []
+        current = resolved_root
+        for part in parts[:-1]:
+            current = current / part
+            components.append((current, f"the project's {part} directory"))
+        components.append((current / parts[-1], "the run directory"))
+        return components
+    parent = run_dir.parent
+    if _lstat_or_none(parent) is None:
+        return None
+    resolved_parent = parent.resolve()
+    if not resolved_parent.is_dir():
+        _refuse(f"the run directory's parent ({parent}) is not a directory; refusing")
+    return [(resolved_parent / run_dir.name, "the run directory")]
+
+
 def check_run_dir(run_dir: Path, project_root: Path) -> None:
     """Guarantee ``run_dir`` is a real, owned, non-symlinked, private directory
     at the moment this check runs.
 
-    ``project_root`` is resolved once -- a symlinked *project root* is a
-    legitimate thing the operator pointed ``--project`` at, and it must
-    already exist (this function creates directories below it, never the
-    root itself). Everything strictly below it is walked top-down with
+    ``project_root`` is resolved once -- a symlinked *project root*, or a
+    symlink anywhere above it, is the operator's or the host's own
+    layout, and it must already exist (this function creates directories
+    below the anchor, never the anchor itself). Every component the
+    gateway owns below that anchor is then walked top-down with
     ``lstat``, refusing a symlink, a non-directory, a foreign owner or a
-    group/world-writable mode on each component before creating or
-    trusting the next one: first ``.apache-magpie-local``, then ``run``,
-    in the default layout. A custom ``--run-dir`` outside the project
-    tree must have an existing, non-symlinked parent, then gets the same
-    ownership/mode check on itself.
+    group/world-writable mode on each one before creating or trusting the
+    next: see ``_owned_components`` for which components those are.
 
     This closes the symlink-plant attack *at check time*; it does not by
     itself pin the directory components against a race between this
@@ -200,15 +254,11 @@ def check_run_dir(run_dir: Path, project_root: Path) -> None:
     independent of whatever this function saw a moment earlier.
     """
     resolved_root = _resolved_existing_project_root(project_root)
-    default_run_dir = resolved_root / ".apache-magpie-local" / "run"
-    if run_dir == default_run_dir:
-        _ensure_owned_private_dir(
-            resolved_root / ".apache-magpie-local", "the project's .apache-magpie-local directory"
-        )
-        _ensure_owned_private_dir(run_dir, "the run directory")
-    else:
-        _refuse_if_parent_missing_or_symlink(run_dir.parent, "the run directory's parent")
-        _ensure_owned_private_dir(run_dir, "the run directory")
+    components = _owned_components(run_dir, resolved_root, project_root)
+    if components is None:
+        _refuse(f"the run directory's parent ({run_dir.parent}) does not exist")
+    for path, label in components:
+        _ensure_owned_private_dir(path, label)
 
 
 def validate_run_dir(run_dir: Path, project_root: Path) -> bool:
@@ -226,19 +276,12 @@ def validate_run_dir(run_dir: Path, project_root: Path) -> bool:
     resolved_root = project_root.resolve()
     if not resolved_root.is_dir():
         return False  # nothing has ever been served from a project that is not there
-    default_run_dir = resolved_root / ".apache-magpie-local" / "run"
-    if run_dir == default_run_dir:
-        if not _owned_private_dir_status(
-            resolved_root / ".apache-magpie-local", "the project's .apache-magpie-local directory"
-        ):
-            return False
-    else:
-        st = _lstat_or_none(run_dir.parent)
-        if st is None:
-            return False
-        if stat.S_ISLNK(st.st_mode):
-            _refuse(f"the run directory's parent ({run_dir.parent}) is a symlink; refusing")
-    return _owned_private_dir_status(run_dir, "the run directory")
+    components = _owned_components(run_dir, resolved_root, project_root)
+    if components is None:
+        return False
+    # `all` short-circuits, so the first missing component stops the walk
+    # rather than reporting on paths below one that is not there yet.
+    return all(_owned_private_dir_status(path, label) for path, label in components)
 
 
 def check_socket_type(p: Path) -> None:

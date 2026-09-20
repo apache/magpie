@@ -330,6 +330,13 @@ def _try_write_eof(writer: asyncio.StreamWriter) -> None:
         if writer.can_write_eof():
             writer.write_eof()
     except (OSError, RuntimeError, NotImplementedError):
+        # Best effort by construction: half-closing is a courtesy to the
+        # peer, not part of the relay's contract. The transport may
+        # already be gone (OSError), the writer already closing
+        # (RuntimeError), or the transport may not implement EOF at all
+        # (NotImplementedError) -- in every one of those the connection
+        # is over anyway, and raising here would mask the real error the
+        # caller's `finally` is unwinding from.
         pass
 
 

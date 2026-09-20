@@ -30,7 +30,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
-from collections.abc import Coroutine
+from collections.abc import Awaitable, Callable, Coroutine
 from pathlib import Path
 from typing import Any, TypeVar
 
@@ -49,6 +49,16 @@ _T = TypeVar("_T")
 def run(coro: Coroutine[Any, Any, _T]) -> _T:
     """Drive a coroutine to completion without pytest-asyncio."""
     return asyncio.run(coro)
+
+
+async def _serve_unix_or_skip(
+    sock: Path, handler: Callable[[asyncio.StreamReader, asyncio.StreamWriter], Awaitable[None]]
+) -> asyncio.AbstractServer:
+    """Bind ``sock``, skipping the caller where the sandbox refuses ``bind()``."""
+    try:
+        return await serve_unix(sock, handler)
+    except PermissionError:
+        pytest.skip("sandbox denies unix bind; runs in CI")
 
 
 def stack(root: Path) -> tuple[FakeBackend, Relay]:
@@ -129,10 +139,9 @@ def test_serve_unix_binds_owner_only(tmp_path: Path) -> None:
             writer.close()
 
         sock = tmp_path / "gw.sock"
-        try:
-            server = await serve_unix(sock, handler)
-        except PermissionError:
-            pytest.skip("sandbox denies unix bind; runs in CI")
+        # Bound outside the try that owns the close, so the `finally`
+        # below can never reference a name the bind failed to assign.
+        server = await _serve_unix_or_skip(sock, handler)
         try:
             assert sock.stat().st_mode & 0o777 == 0o600
         finally:
