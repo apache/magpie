@@ -83,11 +83,34 @@ async def _tcp_listener_or_skip() -> asyncio.AbstractServer:
     Returning the server rather than binding inside the caller's ``try``
     keeps the caller's ``finally`` from ever referencing a name that was
     never assigned.
+
+    The connection callback closes its side immediately. A callback that
+    leaves the accepted transport open makes ``Server.wait_closed()`` block
+    forever once anything has connected -- ``StreamReaderProtocol`` keeps the
+    transport alive after the peer's EOF, and since Python 3.12.1
+    ``wait_closed()`` waits for every accepted connection, not just the
+    listening socket. That is what hung this file's teardown on CI.
     """
+
+    def _close_immediately(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        writer.close()
+
     try:
-        return await asyncio.start_server(lambda r, w: None, host="127.0.0.1", port=0)
+        return await asyncio.start_server(_close_immediately, host="127.0.0.1", port=0)
     except PermissionError:
         pytest.skip("sandbox denies TCP bind; runs in CI")
+
+
+async def _close_server(server: asyncio.AbstractServer) -> None:
+    """Close a listener and wait for it, bounded.
+
+    Teardown must never be the thing that hangs a test: an unbounded
+    ``wait_closed()`` turns one stuck connection into a whole-job timeout
+    with no failing test to point at.
+    """
+    server.close()
+    with contextlib.suppress(TimeoutError):
+        await asyncio.wait_for(server.wait_closed(), 5)
 
 
 def _ns(project: Path, run_dir: Path, **extra: Any) -> argparse.Namespace:
@@ -1083,8 +1106,7 @@ def test_probe_egress_true_when_something_listens() -> None:
             port = server.sockets[0].getsockname()[1]
             assert await daemon.probe_egress("host.containers.internal", port) is True
         finally:
-            server.close()
-            await server.wait_closed()
+            await _close_server(server)
 
     run(scenario())
 
@@ -1093,8 +1115,7 @@ def test_probe_egress_false_when_nothing_listens() -> None:
     async def scenario() -> None:
         server = await _tcp_listener_or_skip()
         port = server.sockets[0].getsockname()[1]
-        server.close()
-        await server.wait_closed()
+        await _close_server(server)
         assert await daemon.probe_egress("host.containers.internal", port) is False
 
     run(scenario())
