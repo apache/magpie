@@ -66,6 +66,24 @@
 #                         What covers a commit or push made from a
 #                         terminal, where no hook of the agent's runs.
 #
+# Each of those is a *signing context*, and a context owns its watcher:
+# an agent session, keyed by the session id both of its hooks carry, and
+# a wrapped git, keyed by the wrapper's own pid. A context may take down
+# the watcher it started and no other. That ownership is the whole point
+# of the registry under `owners/`: two sessions signing at once, or a
+# terminal git signing beside one, used to share a single pid file, and
+# sharing it meant either could kill a watcher it did not start (a touch
+# that blocks with no window) or overwrite the only record of one (a
+# window that nothing is left to close). A context whose owner process
+# is gone is swept by the next one to arm, so a session that crashed
+# without disarming costs nothing rather than a window that stays up
+# until MAX_WAIT.
+#
+# What stays shared is the window, because one touch should draw one
+# window however many watchers can see it. It is leased, not owned:
+# whichever watcher creates the lock directory first shows it, and the
+# lease is reclaimed if that watcher dies holding it.
+#
 # The watcher, not the hook, decides whether anything is shown:
 #
 #   * `pgrep -x gpg` — a signing gpg is in flight. Matching on the exact
@@ -91,7 +109,9 @@
 #
 # Dismissing the window with its button is honoured — it is a prompt, not
 # a trap, and gpg keeps waiting either way. It is not re-shown for the
-# same signature.
+# same signature, by the watcher that drew it or by any other: the
+# dismissal is recorded where every watcher can see it, and cleared once
+# the last context has disarmed.
 
 set -uo pipefail
 
@@ -114,7 +134,22 @@ readonly MAX_WAIT=600     # seconds the watcher may live, whatever happens
 readonly POLL=0.2
 
 RUNTIME_DIR="${XDG_RUNTIME_DIR:-/tmp}/magpie-gpg-touch"
-readonly WATCHER_PID_FILE="$RUNTIME_DIR/watcher.pid"
+
+# One registration per signing context, never one pid file for all of
+# them. Two agent sessions sign at the same time often enough, and a
+# terminal git signs beside them, and a single shared file gave every
+# one of them the power to kill a watcher it did not start: whoever
+# disarmed first took down whatever was in the file, and two arms that
+# raced both wrote to it, so the loser's watcher became unreachable and
+# ran on with its window up. A file per owner removes the sharing, so
+# the question "is this mine to kill?" always has an answer.
+readonly OWNERS_DIR="$RUNTIME_DIR/owners"
+
+# The window is the one thing that must stay single across owners, so it
+# is leased rather than owned: an atomic directory create, which is the
+# one primitive both macOS and Linux have without flock(1).
+readonly WINDOW_LOCK="$RUNTIME_DIR/window.lock"
+readonly DISMISSED_MARKER="$RUNTIME_DIR/dismissed"
 
 # Logging is switched on by the environment or by a marker file. The
 # file is for the case that matters most: a hook runs with the
@@ -186,6 +221,9 @@ readonly KEY_SUBCOMMANDS='commit|tag|merge|rebase|revert|cherry-pick|am|push|pul
 # Linux side leans on do not exist there, so the only thing left to ask is
 # whether a python that can import tkinter is around.
 _gui_available() {
+    # Test seam: the ownership tests need arm to really spawn a watcher,
+    # which the dry-run seam cannot do -- it reports and returns.
+    [[ -n ${MAGPIE_GPG_TOUCH_ASSUME_GUI:-} ]] && return 0
     if [[ $PLATFORM == Darwin ]]; then
         _tk_python >/dev/null
     else
@@ -213,15 +251,130 @@ _set_session_launcher() {
     fi
 }
 
+# ---------------------------------------------------------- ownership ---
+
+# The key a signing context is known by, stable from its arm to its
+# disarm and distinct from every other context's. An agent session is
+# identified by the session id the harness puts in both hook payloads;
+# a wrapped git by the wrapper's own pid. The fallback covers a harness
+# that sends no session id: the hook's parent is the harness process,
+# which is the same for that session's arm and its disarm.
+_owner_id() {
+    local session=${1:-}
+    [[ -z $session ]] && session=${CLAUDE_SESSION_ID:-}
+    if [[ -n $session ]]; then
+        printf 's-%s\n' "${session//[^A-Za-z0-9_-]/_}"
+        return 0
+    fi
+    printf 'h-%s\n' "$PPID"
+}
+
+# A registration records two pids: the owner, whose death means the
+# context is gone however it went, and the watcher, which is the only
+# process this owner may kill. Written through a temporary file so a
+# reader never sees half a line.
+_register() {
+    local id=$1 owner=$2 watcher=$3 tmp="$OWNERS_DIR/.$1.$$"
+    printf '%s %s\n' "$owner" "$watcher" >"$tmp" 2>/dev/null &&
+        mv -f "$tmp" "$OWNERS_DIR/$id" 2>/dev/null
+}
+
+# Sets _owner_pid / _watcher_pid from a registration, or fails.
+_owner_pid=""
+_watcher_pid=""
+_read_registration() {
+    local id=$1 reg="$OWNERS_DIR/$id"
+    _owner_pid=""
+    _watcher_pid=""
+    # Tested before the redirection, not around it: a `<` on a file that
+    # is not there fails before any `2>` on the same command applies, and
+    # the shell's complaint would land on the hook's stderr.
+    [[ -r $reg ]] || return 1
+    read -r _owner_pid _watcher_pid <"$reg" || return 1
+    [[ -n $_owner_pid && -n $_watcher_pid ]]
+}
+
+# Take down one owner's watcher: the group, for the window it may have
+# spawned, and the pid itself for a watcher too young to have called
+# setsid and leading no group of its own.
+_kill_watcher() {
+    kill -- -"$1" "$1" 2>/dev/null || true
+}
+
+# A context whose owner is gone left its watcher behind, and a watcher
+# nobody will disarm holds its window until MAX_WAIT. This is what turns
+# a crashed session from a ten-minute stuck overlay into nothing at all.
+_sweep_owners() {
+    local reg id
+    for reg in "$OWNERS_DIR"/*; do
+        [[ -e $reg ]] || continue
+        id=${reg##*/}
+        if ! _read_registration "$id"; then
+            rm -f "$reg" 2>/dev/null
+            continue
+        fi
+        if ! kill -0 "$_owner_pid" 2>/dev/null; then
+            _kill_watcher "$_watcher_pid"
+            rm -f "$reg" 2>/dev/null
+        fi
+    done
+}
+
+# Nothing is signing anywhere: drop the shared state, so the next touch
+# starts from a clean slate rather than inheriting a dismissal or a lock
+# left by a holder that is no longer around.
+_cleanup_if_idle() {
+    local reg
+    for reg in "$OWNERS_DIR"/*; do
+        [[ -e $reg ]] && return 0
+    done
+    rm -f "$DISMISSED_MARKER" 2>/dev/null
+    [[ -n ${WINDOW_LOCK:-} ]] && rm -rf "$WINDOW_LOCK" 2>/dev/null
+    return 0
+}
+
+# ------------------------------------------------------- window lease ---
+
+# mkdir either creates the directory or it does not, and only one caller
+# can be the one that did -- no lock file, no flock(1), nothing to leave
+# half-written. The holder writes its pid inside so a lease left by a
+# watcher that died can be told from one in use, and reclaimed.
+_lease_acquire() {
+    if mkdir "$WINDOW_LOCK" 2>/dev/null; then
+        printf '%s\n' "$$" >"$WINDOW_LOCK/holder" 2>/dev/null
+        return 0
+    fi
+    local holder
+    holder="$(cat "$WINDOW_LOCK/holder" 2>/dev/null || true)"
+    if [[ -z $holder ]] || ! kill -0 "$holder" 2>/dev/null; then
+        rm -rf "$WINDOW_LOCK" 2>/dev/null
+        if mkdir "$WINDOW_LOCK" 2>/dev/null; then
+            printf '%s\n' "$$" >"$WINDOW_LOCK/holder" 2>/dev/null
+            return 0
+        fi
+    fi
+    return 1
+}
+
+_lease_held() {
+    [[ "$(cat "$WINDOW_LOCK/holder" 2>/dev/null || true)" == "$$" ]]
+}
+
+_lease_release() {
+    _lease_held || return 0
+    rm -rf "$WINDOW_LOCK" 2>/dev/null
+}
+
 arm() {
     if [[ -z ${MAGPIE_GPG_TOUCH_DRY_RUN:-} ]]; then
         _gui_available || return 0
     fi
 
-    local payload command_text
+    local payload command_text session
     payload="$(cat)"
     command_text="$(printf '%s' "$payload" | jq -r '.tool_input.command // empty' 2>/dev/null)"
     [[ -n $command_text ]] || return 0
+    session="$(printf '%s' "$payload" | jq -r '.session_id // empty' 2>/dev/null)"
 
     printf '%s' "$command_text" |
         grep -Eq "(^|[;&|(]|[[:space:]])git([[:space:]]+-[A-Za-z-]+([[:space:]]+[^[:space:]]+)?)*[[:space:]]+($KEY_SUBCOMMANDS)([[:space:];&|)]|$)" ||
@@ -234,12 +387,15 @@ arm() {
         return 0
     fi
 
-    mkdir -p "$RUNTIME_DIR" 2>/dev/null || return 0
+    mkdir -p "$OWNERS_DIR" 2>/dev/null || return 0
+    _sweep_owners
 
-    # One watcher covers whatever is in flight; a live one needs no second.
-    local old
-    old="$(cat "$WATCHER_PID_FILE" 2>/dev/null || true)"
-    if [[ -n ${old:-} ]] && kill -0 "$old" 2>/dev/null; then
+    # One watcher per session, not one per command: a session that is
+    # already armed is signing under a watcher it owns, and a second
+    # command in the same session rides along with it.
+    local id
+    id="$(_owner_id "$session")"
+    if _read_registration "$id" && kill -0 "$_watcher_pid" 2>/dev/null; then
         return 0
     fi
 
@@ -255,21 +411,37 @@ arm() {
         : >"$log"
     fi
     _set_session_launcher
-    "${SESSION_LAUNCHER[@]}" "$SELF" _watch >>"$log" 2>&1 &
-    printf '%s\n' "$!" >"$WATCHER_PID_FILE"
+    # The watcher is told whose it is. A hook exits the moment it has
+    # spawned, so the process worth watching for is the harness itself:
+    # if that goes, the disarm is never coming, and the watcher should
+    # not wait out MAX_WAIT to find that out.
+    MAGPIE_GPG_TOUCH_PARENT=$PPID \
+        "${SESSION_LAUNCHER[@]}" "$SELF" _watch >>"$log" 2>&1 &
+    _register "$id" "$PPID" "$!"
 }
 
 # ------------------------------------------------------------- disarm ---
 
 disarm() {
-    local pid
-    pid="$(cat "$WATCHER_PID_FILE" 2>/dev/null || true)"
-    [[ -n ${pid:-} ]] || return 0
-    # The group, for the window the watcher may have spawned — and the
-    # pid itself, for a watcher so young it has not called setsid yet
-    # and leads no group of its own.
-    kill -- -"$pid" "$pid" 2>/dev/null || true
-    rm -f "$WATCHER_PID_FILE"
+    # The same payload the arm hook was given, read for the same session
+    # id. Only when something is actually piped in: run by hand from a
+    # terminal there is nobody to send EOF, and a disarm that hangs would
+    # hang the tool call it belongs to.
+    local payload="" session=""
+    if [[ ! -t 0 ]]; then
+        payload="$(cat)"
+        session="$(printf '%s' "$payload" | jq -r '.session_id // empty' 2>/dev/null)"
+    fi
+
+    local id
+    id="$(_owner_id "$session")"
+    if _read_registration "$id"; then
+        _kill_watcher "$_watcher_pid"
+        rm -f "$OWNERS_DIR/$id" 2>/dev/null
+    fi
+    # Somebody else's crashed session is nobody's to wait for.
+    _sweep_owners
+    _cleanup_if_idle
 }
 
 # --------------------------------------------------------------- wrap ---
@@ -329,32 +501,41 @@ wrap() {
     if [[ -z ${MAGPIE_GPG_TOUCH_DRY_RUN:-} ]]; then
         _gui_available || exec "$real" "$@"
     fi
-    mkdir -p "$RUNTIME_DIR" 2>/dev/null || exec "$real" "$@"
+    mkdir -p "$OWNERS_DIR" 2>/dev/null || exec "$real" "$@"
+    _sweep_owners
 
-    local old own=0
-    old="$(cat "$WATCHER_PID_FILE" 2>/dev/null || true)"
-    if [[ -z ${old:-} ]] || ! kill -0 "$old" 2>/dev/null; then
-        local log=/dev/null
-        if _debugging; then
-            log="$RUNTIME_DIR/watcher.log"
-            : >"$log"
-        fi
-        _set_session_launcher
-        # The watcher is told whose it is, and leaves on its own once
-        # this wrapper is gone -- however that happened. The kill in the
-        # trap below is the fast path; the parent check is the one that
-        # cannot be raced or skipped.
-        MAGPIE_GPG_TOUCH_WRAPPED_SIGNER=$signer MAGPIE_GPG_TOUCH_PARENT=$$ \
-            "${SESSION_LAUNCHER[@]}" "$SELF" _watch >>"$log" 2>&1 &
-        own=$!
-        printf '%s\n' "$own" >"$WATCHER_PID_FILE"
-        # Whatever ends this wrapper -- the program returning, or a signal
-        # from git or the terminal -- takes the watcher down with it: the
-        # group for any window it spawned, the pid itself for a watcher
-        # too young to have called setsid (a signature that returns in
-        # milliseconds ends before it has).
-        trap 'kill -- -'"$own"' '"$own"' 2>/dev/null; rm -f "$WATCHER_PID_FILE"' EXIT
+    # This wrapper is its own signing context and gets its own watcher,
+    # whatever else is running. Reusing a watcher somebody else started
+    # was the old behaviour, and it made a terminal signature's window
+    # depend on an unrelated session's disarm: when that session's
+    # command ended, the window this signature needed went with it.
+    # Keyed by this wrapper's own pid: it is the owner, and it is alive
+    # for exactly as long as the signature it is wrapping.
+    local own log=/dev/null id="p-$$"
+    if _debugging; then
+        log="$RUNTIME_DIR/watcher.log"
+        : >"$log"
     fi
+    _set_session_launcher
+    # The watcher is told whose it is, and leaves on its own once this
+    # wrapper is gone -- however that happened. The kill in the trap
+    # below is the fast path; the parent check is the one that cannot be
+    # raced or skipped.
+    MAGPIE_GPG_TOUCH_WRAPPED_SIGNER=$signer MAGPIE_GPG_TOUCH_PARENT=$$ \
+        "${SESSION_LAUNCHER[@]}" "$SELF" _watch >>"$log" 2>&1 &
+    own=$!
+    _register "$id" "$$" "$own"
+    # The wrapped program is handed its own registration, so a signing
+    # program that wants to know what is watching it -- and the tests --
+    # can read it without guessing at pids.
+    export MAGPIE_GPG_TOUCH_REGISTRATION="$OWNERS_DIR/$id"
+    # Whatever ends this wrapper -- the program returning, or a signal
+    # from git or the terminal -- takes down this wrapper's own watcher
+    # and its own registration, and nobody else's: the group for any
+    # window it spawned, the pid itself for a watcher too young to have
+    # called setsid (a signature that returns in milliseconds ends
+    # before it has).
+    trap 'kill -- -'"$own"' '"$own"' 2>/dev/null; rm -f "'"$OWNERS_DIR/$id"'" 2>/dev/null; _cleanup_if_idle' EXIT
 
     "$real" "$@"
     return $?
@@ -384,6 +565,13 @@ raise_overlay() {
 
 show_overlay() {
     (( overlay_dismissed )) && return 0
+    # Dismissed under another watcher: one touch, one decision. The
+    # marker goes when the last owner disarms, so the next signature
+    # asks again.
+    if [[ -e $DISMISSED_MARKER ]]; then
+        overlay_dismissed=1
+        return 0
+    fi
     if [[ -n $overlay_pid ]]; then
         # Still up: nothing to do. Gone without us killing it: the button
         # was pressed, so respect that and stop re-showing.
@@ -392,17 +580,27 @@ show_overlay() {
         fi
         overlay_pid=""
         overlay_dismissed=1
+        : >"$DISMISSED_MARKER" 2>/dev/null
+        _lease_release
         return 0
     fi
+    # Watchers are per owner, so without the lease two of them would
+    # draw two windows for the same touch. Losing it is the normal case
+    # and means somebody else's window is already up.
+    _lease_acquire || return 0
     "$SELF" _overlay &
     overlay_pid=$!
     raise_overlay &
 }
 
 hide_overlay() {
-    [[ -n $overlay_pid ]] || return 0
+    if [[ -z $overlay_pid ]]; then
+        _lease_release
+        return 0
+    fi
     kill "$overlay_pid" 2>/dev/null || true
     overlay_pid=""
+    _lease_release
 }
 
 _watch() {
@@ -560,6 +758,17 @@ case "${1:-}" in
     _agent_sockets) agent_sockets ;;
     _agent_socket_rows) agent_socket_rows "$(printf '%s\n' "${@:2}")" ;;
     _spawn_session) shift; _set_session_launcher; exec "${SESSION_LAUNCHER[@]}" "$@" ;;
+    # Test seam: race two of these and exactly one may print "held".
+    _lease-probe)
+        if _lease_acquire; then
+            printf 'held\n'
+            sleep "${2:-0}"
+            _lease_release
+        else
+            printf 'taken\n'
+        fi
+        exit 0
+        ;;
     *)
         printf '%s: expected arm|disarm|wrap, got "%s"\n' "${0##*/}" "${1:-}" >&2
         exit 2

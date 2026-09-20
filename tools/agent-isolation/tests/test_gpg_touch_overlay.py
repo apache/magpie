@@ -384,8 +384,10 @@ def _wrap_env(runtime_root: Path) -> dict[str, str]:
     }
 
 
-def _pid_file(runtime_root: Path) -> Path:
-    return runtime_root / "magpie-gpg-touch" / "watcher.pid"
+def _no_registrations(runtime_root: Path) -> bool:
+    """Every signing context cleaned up after itself."""
+    owners = runtime_root / "magpie-gpg-touch" / "owners"
+    return not owners.exists() or not any(owners.iterdir())
 
 
 def _alive(pid: int) -> bool:
@@ -415,19 +417,19 @@ def test_wrap_tears_the_watcher_down_with_the_program(tmp_path: Path) -> None:
             "wrap",
             "sh",
             "-c",
-            'cat "$XDG_RUNTIME_DIR/magpie-gpg-touch/watcher.pid"',
+            'cat "$MAGPIE_GPG_TOUCH_REGISTRATION"',
         ],
         capture_output=True,
         text=True,
         env=_wrap_env(tmp_path),
     )
     assert result.returncode == 0, result.stderr
-    watcher = int(result.stdout.strip())
+    watcher = int(result.stdout.split()[1])
     deadline = time.monotonic() + 5
     while time.monotonic() < deadline and _alive(watcher):
         time.sleep(0.05)
     assert not _alive(watcher), "the watcher outlived the program it was wrapping"
-    assert not _pid_file(tmp_path).exists()
+    assert _no_registrations(tmp_path)
 
 
 def test_wrap_symlink_name_selects_the_program(tmp_path: Path) -> None:
@@ -443,33 +445,7 @@ def test_wrap_symlink_name_selects_the_program(tmp_path: Path) -> None:
         [str(link)], capture_output=True, text=True, env=_wrap_env(tmp_path)
     )
     assert result.returncode == 0, result.stderr
-    assert not _pid_file(tmp_path).exists()
-
-
-def test_wrap_leaves_a_watcher_somebody_else_armed_alone(tmp_path: Path) -> None:
-    """A hook's watcher for the enclosing command is not this wrapper's to kill.
-
-    An agent-run `git commit` has the PreToolUse hook's watcher up already
-    when git reaches the signing program; the wrapper neither starts a
-    second one nor tears that one down when the signature is done.
-    """
-    other = subprocess.Popen(["sleep", "30"])
-    try:
-        pid_file = _pid_file(tmp_path)
-        pid_file.parent.mkdir(parents=True)
-        pid_file.write_text(f"{other.pid}\n")
-        result = subprocess.run(
-            ["bash", str(SCRIPT), "wrap", "true"],
-            capture_output=True,
-            text=True,
-            env=_wrap_env(tmp_path),
-        )
-        assert result.returncode == 0, result.stderr
-        assert pid_file.read_text().strip() == str(other.pid)
-        assert other.poll() is None, "the other watcher was killed"
-    finally:
-        other.kill()
-        other.wait()
+    assert _no_registrations(tmp_path)
 
 
 def test_wrap_stands_aside_inside_an_agent_session(tmp_path: Path) -> None:
@@ -573,7 +549,229 @@ def test_git_signs_a_commit_through_the_wrapper(tmp_path: Path) -> None:
     shown = git("cat-file", "-p", "HEAD")
     assert "gpgsig " in shown.stdout, "the commit was not signed"
 
-    assert not _pid_file(tmp_path).exists()
+    assert _no_registrations(tmp_path)
     log = tmp_path / "magpie-gpg-touch" / "watcher.log"
     assert log.exists(), "no watcher ran for the signature"
     assert "signing_in_flight" in log.read_text()
+
+
+# --------------------------------------------------------- ownership ---
+#
+# Every signing context owns its own watcher and can only ever tear down
+# that one. The tests below are the concurrency the single shared
+# `watcher.pid` could not survive: two agent sessions signing at once, a
+# terminal git signing next to one, and a session that died without
+# disarming.
+
+
+def _hook_env(runtime_root: Path) -> dict[str, str]:
+    """A hook's environment with the display probe short-circuited.
+
+    ``MAGPIE_GPG_TOUCH_DRY_RUN`` is no use here: it makes ``arm`` report
+    its decision instead of spawning, and what these tests exercise is
+    the spawning.
+    """
+    env = {
+        k: v
+        for k, v in os.environ.items()
+        if k != "CLAUDECODE" and not k.startswith("GIT_")
+    }
+    return {
+        **env,
+        "XDG_RUNTIME_DIR": str(runtime_root),
+        "MAGPIE_GPG_TOUCH_ASSUME_GUI": "1",
+    }
+
+
+def _owners_dir(runtime_root: Path) -> Path:
+    return runtime_root / "magpie-gpg-touch" / "owners"
+
+
+def _registration(runtime_root: Path, session: str) -> Path:
+    return _owners_dir(runtime_root) / f"s-{session}"
+
+
+def _read_registration(runtime_root: Path, session: str) -> tuple[int, int]:
+    owner, watcher = _registration(runtime_root, session).read_text().split()
+    return int(owner), int(watcher)
+
+
+def _arm_session(runtime_root: Path, session: str, command: str = "git commit -m x"):
+    result = subprocess.run(
+        ["bash", str(SCRIPT), "arm"],
+        input=json.dumps({"session_id": session, "tool_input": {"command": command}}),
+        capture_output=True,
+        text=True,
+        env=_hook_env(runtime_root),
+    )
+    assert result.returncode == 0, result.stderr
+    return result
+
+
+def _disarm_session(runtime_root: Path, session: str):
+    result = subprocess.run(
+        ["bash", str(SCRIPT), "disarm"],
+        input=json.dumps({"session_id": session}),
+        capture_output=True,
+        text=True,
+        env=_hook_env(runtime_root),
+    )
+    assert result.returncode == 0, result.stderr
+    return result
+
+
+def _wait_gone(pid: int, timeout: float = 5) -> bool:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline and _alive(pid):
+        time.sleep(0.05)
+    return not _alive(pid)
+
+
+def test_two_sessions_get_their_own_watchers(tmp_path: Path) -> None:
+    """Arming twice registers two owners, not one that overwrote the other.
+
+    The single pid file this replaces kept one pid, so the watcher armed
+    first became unreachable the moment the second one registered -- and
+    an unreachable watcher is one nothing can take down.
+    """
+    _arm_session(tmp_path, "aaa")
+    _arm_session(tmp_path, "bbb")
+    try:
+        _, first = _read_registration(tmp_path, "aaa")
+        _, second = _read_registration(tmp_path, "bbb")
+        assert first != second
+        assert _alive(first) and _alive(second)
+    finally:
+        _disarm_session(tmp_path, "aaa")
+        _disarm_session(tmp_path, "bbb")
+
+
+def test_disarm_leaves_another_sessions_watcher_alone(tmp_path: Path) -> None:
+    """One session finishing a command must not blind another mid-signature."""
+    _arm_session(tmp_path, "aaa")
+    _arm_session(tmp_path, "bbb")
+    _, mine = _read_registration(tmp_path, "aaa")
+    _, theirs = _read_registration(tmp_path, "bbb")
+    try:
+        _disarm_session(tmp_path, "bbb")
+        assert _wait_gone(theirs), "disarm left its own watcher running"
+        assert _alive(mine), "another session's disarm killed this session's watcher"
+        assert _registration(tmp_path, "aaa").exists()
+        assert not _registration(tmp_path, "bbb").exists()
+    finally:
+        _disarm_session(tmp_path, "aaa")
+
+
+def test_rearming_the_same_session_keeps_one_watcher(tmp_path: Path) -> None:
+    """A second command in the same session reuses that session's watcher."""
+    _arm_session(tmp_path, "aaa")
+    _, first = _read_registration(tmp_path, "aaa")
+    try:
+        _arm_session(tmp_path, "aaa")
+        _, second = _read_registration(tmp_path, "aaa")
+        assert first == second
+        assert _alive(first)
+    finally:
+        _disarm_session(tmp_path, "aaa")
+
+
+def test_a_dead_owners_watcher_is_swept(tmp_path: Path) -> None:
+    """A session that died without disarming leaves nothing behind.
+
+    Without the sweep the watcher stays up to MAX_WAIT, and so does any
+    window it had raised -- the overlay that will not go away.
+    """
+    dead = subprocess.Popen(["true"])
+    dead.wait()
+    orphan = subprocess.Popen(["sleep", "30"])
+    owners = _owners_dir(tmp_path)
+    owners.mkdir(parents=True)
+    (owners / "s-ghost").write_text(f"{dead.pid} {orphan.pid}\n")
+    try:
+        _arm_session(tmp_path, "live")
+        assert not (owners / "s-ghost").exists(), "the dead owner was not swept"
+        # Reaped rather than signalled: a zombie child still answers
+        # kill(pid, 0), so only wait() tells us it is really gone.
+        try:
+            orphan.wait(timeout=5)
+        except subprocess.TimeoutExpired:  # pragma: no cover - failure path
+            pytest.fail("the orphaned watcher was left running")
+    finally:
+        _disarm_session(tmp_path, "live")
+        if orphan.poll() is None:
+            orphan.kill()
+        orphan.wait()
+
+
+def test_only_one_watcher_holds_the_window_lease(tmp_path: Path) -> None:
+    """The window is the one thing that must stay single.
+
+    Watchers are per owner, so the lease is what keeps two of them from
+    drawing two windows for the same touch. Two probes race for it; the
+    atomic directory create means exactly one can win.
+    """
+    (tmp_path / "magpie-gpg-touch").mkdir(parents=True)
+    probes = [
+        subprocess.Popen(
+            ["bash", str(SCRIPT), "_lease-probe", "1"],
+            stdout=subprocess.PIPE,
+            text=True,
+            env=_hook_env(tmp_path),
+        )
+        for _ in range(2)
+    ]
+    verdicts = sorted(p.communicate()[0].strip() for p in probes)
+    assert verdicts == ["held", "taken"], verdicts
+
+
+def test_the_lease_is_reclaimed_from_a_dead_holder(tmp_path: Path) -> None:
+    """A holder that died mid-touch must not lock the window out for good."""
+    lock = tmp_path / "magpie-gpg-touch" / "window.lock"
+    lock.mkdir(parents=True)
+    dead = subprocess.Popen(["true"])
+    dead.wait()
+    (lock / "holder").write_text(f"{dead.pid}\n")
+    result = subprocess.run(
+        ["bash", str(SCRIPT), "_lease-probe", "0"],
+        capture_output=True,
+        text=True,
+        env=_hook_env(tmp_path),
+    )
+    assert result.stdout.strip() == "held", result.stderr
+
+
+def test_wrap_registers_itself_and_leaves_other_owners_alone(tmp_path: Path) -> None:
+    """A terminal git gets its own watcher beside any session's.
+
+    It used to reuse whatever watcher happened to be up, which made a
+    terminal signature's window depend on an unrelated agent session's
+    disarm timing.
+    """
+    other = subprocess.Popen(["sleep", "30"])
+    alive_owner = os.getpid()
+    owners = _owners_dir(tmp_path)
+    owners.mkdir(parents=True)
+    (owners / "s-elsewhere").write_text(f"{alive_owner} {other.pid}\n")
+    try:
+        result = subprocess.run(
+            [
+                "bash",
+                str(SCRIPT),
+                "wrap",
+                "sh",
+                "-c",
+                'cat "$MAGPIE_GPG_TOUCH_REGISTRATION"',
+            ],
+            capture_output=True,
+            text=True,
+            env=_wrap_env(tmp_path),
+        )
+        assert result.returncode == 0, result.stderr
+        mine = int(result.stdout.split()[1])
+        assert mine != other.pid, "the wrapper reused somebody else's watcher"
+        assert _wait_gone(mine), "the wrapper's own watcher outlived it"
+        assert (owners / "s-elsewhere").read_text().split()[1] == str(other.pid)
+        assert other.poll() is None, "the other owner's watcher was killed"
+    finally:
+        other.kill()
+        other.wait()

@@ -45,16 +45,22 @@ existing sandbox grants can widen the baseline. See `docs/adapters/gemini.md`.
 - `tools/agent-isolation/gpg-touch-overlay.sh` (+ the two window
   scripts) — the hardware-key touch overlay: a window on screen while a
   signing key or ssh authentication key with a touch policy blocks
-  waiting for a touch. Two entry points to one watcher: `arm` /
+  waiting for a touch. Two entry points: `arm` /
   `disarm` as a `PreToolUse` / `PostToolUse` `Bash` hook around the
   agent's git commands, and `wrap` as git's own signing program and ssh
   command (`gpg.ssh.program` / `gpg.program` through an argument-free
   `gpg-touch-wrap-<program>` symlink, `core.sshCommand … wrap ssh`) for
   the commits and pushes the operator makes by hand — no git hook type
-  sits at the right moment for those. Never two windows for one
-  signature: inside an agent session (`CLAUDECODE=1`) the wrapper only
-  runs the program and the hook's watcher shows the window; outside
-  one, a watcher already recorded in the pid file is left alone. The
+  sits at the right moment for those. Each is a signing context that
+  owns its own watcher, registered under `owners/` and keyed by the
+  harness session id the hooks carry or by the wrapper's pid, so a
+  context can only ever tear down the watcher it started; a context
+  whose owner process is gone is swept by the next `arm`. Never two
+  windows for one signature: inside an agent session (`CLAUDECODE=1`)
+  the wrapper only runs the program and the hook's watcher shows the
+  window, and across contexts the window is leased by atomic directory
+  create, so only one watcher draws it and a lease left by a watcher
+  that died is reclaimed. The
   git the agent runs reads the same global config, so the wrapper's
   two files are a `sandbox.filesystem.allowRead` grant of their own
   (nothing wider under `~/.claude/`), or every sandboxed signed commit
