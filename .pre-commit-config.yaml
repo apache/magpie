@@ -416,7 +416,7 @@ repos:
         name: check-doc-sync (spec indexes + declared skill counts)
         language: system
         entry: python3 tools/dev/check-doc-sync.py
-        files: ^(skills/[^/]+/SKILL\.md|plugins/magpie-[^/]+/skills/[^/]+/SKILL\.md|tools/spec-loop/specs/.*\.md|README\.md|docs/modes\.md|docs/setup/marketplace\.md|tools/dev/.*)$
+        files: ^(skills/[^/]+/SKILL\.md|plugins/magpie-[^/]+/skills/[^/]+/SKILL\.md|tools/spec-loop/specs/.*\.md|tools/skill-evals/.*|README\.md|docs/modes\.md|docs/setup/marketplace\.md|tools/dev/.*)$
         pass_filenames: false
   # Workspace-membership guard. The single source of truth for
   # which Python projects get pre-commit hooks + the CI pytest
