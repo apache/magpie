@@ -59,6 +59,10 @@ async def _serve_unix_or_skip(
         return await serve_unix(sock, handler)
     except PermissionError:
         pytest.skip("sandbox denies unix bind; runs in CI")
+        # Unreachable: pytest.skip() raises. The bare re-raise is what tells
+        # a static analyser the except branch never falls through -- without
+        # it, CodeQL reads the code below as running with nothing assigned.
+        raise
 
 
 def stack(root: Path) -> tuple[FakeBackend, Relay]:

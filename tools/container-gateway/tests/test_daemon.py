@@ -99,6 +99,10 @@ async def _tcp_listener_or_skip() -> asyncio.AbstractServer:
         return await asyncio.start_server(_close_immediately, host="127.0.0.1", port=0)
     except PermissionError:
         pytest.skip("sandbox denies TCP bind; runs in CI")
+        # Unreachable: pytest.skip() raises. The bare re-raise is what tells
+        # a static analyser the except branch never falls through -- without
+        # it, CodeQL reads the code below as running with nothing assigned.
+        raise
 
 
 async def _close_server(server: asyncio.AbstractServer) -> None:
@@ -225,6 +229,10 @@ async def _gateway(
         await asyncio.wait_for(backend.start(), 5)
     except PermissionError:
         pytest.skip("sandbox denies unix bind; runs in CI")
+        # Unreachable: pytest.skip() raises. The bare re-raise is what tells
+        # a static analyser the except branch never falls through -- without
+        # it, CodeQL reads the code below as running with nothing assigned.
+        raise
     try:
         cfg = daemon.Config(
             project_root,
@@ -272,6 +280,10 @@ async def _ping(sock_path: Path) -> tuple[asyncio.StreamReader, asyncio.StreamWr
         r, w = await asyncio.wait_for(asyncio.open_unix_connection(str(sock_path)), 5)
     except PermissionError:
         pytest.skip("sandbox denies unix socket connections; runs in CI")
+        # Unreachable: pytest.skip() raises. The bare re-raise is what tells
+        # a static analyser the except branch never falls through -- without
+        # it, CodeQL reads the code below as running with nothing assigned.
+        raise
     w.write(b"GET /_ping HTTP/1.1\r\nHost: x\r\n\r\n")
     await asyncio.wait_for(w.drain(), 5)
     # Every await here is bounded: a gateway that accepts the connection
@@ -1190,6 +1202,10 @@ def test_handlers_cancel_all_lets_wait_closed_return() -> None:
             server = await asyncio.start_server(handlers.track(blocked), host="127.0.0.1", port=0)
         except PermissionError:
             pytest.skip("sandbox denies TCP bind; runs in CI")
+            # Unreachable: pytest.skip() raises. The bare re-raise is what tells
+            # a static analyser the except branch never falls through -- without
+            # it, CodeQL reads the code below as running with nothing assigned.
+            raise
         try:
             port = server.sockets[0].getsockname()[1]
             _, w = await asyncio.wait_for(asyncio.open_connection("127.0.0.1", port), 5)
