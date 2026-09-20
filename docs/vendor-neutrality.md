@@ -591,7 +591,7 @@ Organization scope (declared, orthogonal to vendor): ASF = 14, agnostic = 61.
 
 **LLM / agent-integration neutrality**
 
-**Agent harness: 25/25 substrate tools run under any harness unchanged (100%).** Substrate tools are Magpie's own machinery; each declares the agent harness it integrates with (`**Harness:**`), or `agnostic`. A tool is neutral when it is harness-agnostic or supports two or more harnesses; *coupled* when it targets a single harness.
+**Agent harness: 26/26 substrate tools run under any harness unchanged (100%).** Substrate tools are Magpie's own machinery; each declares the agent harness it integrates with (`**Harness:**`), or `agnostic`. A tool is neutral when it is harness-agnostic or supports two or more harnesses; *coupled* when it targets a single harness.
 
 | Substrate tool | Substrate | Harness support | Verdict |
 |---|---|---|---|
