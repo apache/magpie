@@ -9,8 +9,8 @@ mode: infra
 source: >
   MISSION.md § Privacy, security and supply-chain integrity ("Layered
   sandbox by default"); RFC-AI-0004 Principle 2 (secure sandbox by
-  default) and RFC-AI-0003 § 4.4 (egress-allowlist gateway). To be
-  implemented in tools/container-gateway/, a SessionStart/SessionEnd
+  default) and RFC-AI-0003 § 4.4 (egress-allowlist gateway).
+  Implemented in tools/container-gateway/, a SessionStart/SessionEnd
   hook in tools/agent-isolation/, the reference .claude/settings.json,
   tools/sandbox-lint/expected.json, the setup-isolated-setup-doctor /
   -verify / -install skills, docs/setup/secure-agent-setup.md and
@@ -106,13 +106,18 @@ CLIs speak. Three properties fall out of the policy:
 One gateway process per project, keyed by the project root. It listens
 on `<project>/.apache-magpie-local/run/podman.sock` (libpod + compat
 API, for the podman CLI) and `<project>/.apache-magpie-local/run/docker.sock`
-(compat API, for the docker CLI). Both files sit inside the project tree
-so the committed reference settings can name them with the
-project-relative prefix the sandbox's path syntax supports; if
-`allowUnixSockets` turns out not to honour that prefix, `/magpie-setup
-config` writes the absolute paths into the gitignored
-`.claude/settings.local.json` instead. The macOS limit of 104 bytes on
-a socket path is checked at start and reported.
+(compat API, for the docker CLI). Both files sit inside the project tree.
+What shipped: `CONTAINER_HOST` / `DOCKER_HOST` do honour a
+project-relative `unix://./…` value, so the committed reference
+`env` block (below) names both sockets that way and needs no
+per-project edit. `sandbox.network.allowUnixSockets` is a separate
+setting with no such relative form in practice; the committed
+baseline carries no gateway-socket entry in it at all, and
+`/magpie-setup config` writes the two sockets' **absolute** paths into
+the gitignored, per-project `.claude/settings.local.json` instead —
+see [Container gateway](../../../docs/setup/secure-agent-setup.md#container-gateway)
+in the setup guide. The macOS limit of 104 bytes on a socket path is
+checked at start and reported.
 
 The gateway must run **outside** the sandbox: it connects to the real
 daemon socket, which the sandbox denies by design, and it also has to
@@ -214,8 +219,8 @@ tree) and:
 | `CapAdd` | deny any; `CapDrop` allowed |
 | `Devices`, `DeviceRequests`, `DeviceCgroupRules` | deny |
 | `PidMode`, `IpcMode`, `UTSMode`, `UsernsMode`, `CgroupnsMode` | allow-list of safe values (`private`, `pod`, `auto`, `keep-id`, `nomap`, `shareable`, or unset) plus `container:<id>` when `<id>` carries the label; every other value, including `host` and any value the allow-list does not recognise, is denied |
-| `NetworkMode` | allow-list of safe keywords (`bridge`, `podman`, `none`, `slirp4netns`, `pasta`, `pod`, or unset) plus a named network that looks like a real network name and carries the label, checked by the relay; `host`, `container:<id>` without the label, and anything else are denied |
-| `SecurityOpt` | allow-list per key: `seccomp` only `""` / `default`; every other recognised key (`apparmor`, `label`, `no-new-privileges`, `systempaths`) has its unsafe value (`unconfined`, `disable`, `false`, `unconfined`) denied; an unrecognised key (including `unmask`, `proc-opts`) is denied outright |
+| `NetworkMode` | allow-list of safe keywords (`default`, `bridge`, `none`, `private`, `slirp4netns`, `pasta`, `pod`, or unset) plus a named network that looks like a real network name and carries the label, checked by the relay; `host`, `container:<id>` without the label, and anything else are denied |
+| `SecurityOpt` | allow-list per key: `seccomp` only `""` / `default`; `apparmor` denies only `unconfined` (any other value, including a custom profile, is allowed); `label` denies only `disable`; `no-new-privileges` allows only `""` / `true` (any other value, including `false`, is denied); `systempaths` allows only `""` (any non-empty value is denied); an unrecognised key (including `unmask`, `proc-opts`) is denied outright |
 | `Sysctls`, `CgroupParent`, `Runtime`, `Isolation` | deny |
 | `MaskedPaths`, `ReadonlyPaths` | deny when set to an empty list |
 | `Binds`, `Mounts[type=bind]`, libpod `mounts` | source must resolve (symlinks followed, on the host) under the project root or the project scratch tree; anything else denied. `tmpfs` allowed |
@@ -293,14 +298,6 @@ Reference settings (committed, project-agnostic):
     "CONTAINER_HOST": "unix://./.apache-magpie-local/run/podman.sock",
     "DOCKER_HOST":    "unix://./.apache-magpie-local/run/docker.sock"
   },
-  "sandbox": {
-    "network": {
-      "allowUnixSockets": [
-        "./.apache-magpie-local/run/podman.sock",
-        "./.apache-magpie-local/run/docker.sock"
-      ]
-    }
-  },
   "hooks": {
     "SessionStart": [{ "hooks": [{ "type": "command",
       "command": "~/.claude/scripts/container-gateway-hook.sh start" }] }],
@@ -310,13 +307,30 @@ Reference settings (committed, project-agnostic):
 }
 ```
 
-`CONTAINER_HOST` / `DOCKER_HOST` are resolved by the CLIs relative to
-the cwd only if the CLI does so; if either CLI rejects a relative unix
-path, the hook exports the absolute form through the same env block in
-`.claude/settings.local.json` written by `/magpie-setup config`. The
-implementation plan starts with a spike that settles both questions
-(relative `allowUnixSockets` entries; relative `unix://` URLs in the
-two CLIs) before any settings text is written.
+Both open questions this section used to flag are resolved, and this is
+what shipped: `podman` and `docker` both resolve a project-relative
+`unix://./…` value in `CONTAINER_HOST` / `DOCKER_HOST` against the cwd,
+so the committed `env` block above works unedited in every adopting
+project and carries no `allowUnixSockets` entry at all.
+`sandbox.network.allowUnixSockets` has no equivalent relative-path
+support, so the two gateway sockets are added there as **absolute**
+per-project paths — written into the gitignored
+`.claude/settings.local.json` by `/magpie-setup config`, never into the
+committed baseline:
+
+```jsonc
+// <project>/.claude/settings.local.json
+{
+  "sandbox": {
+    "network": {
+      "allowUnixSockets": [
+        "/absolute/path/to/<project>/.apache-magpie-local/run/podman.sock",
+        "/absolute/path/to/<project>/.apache-magpie-local/run/docker.sock"
+      ]
+    }
+  }
+}
+```
 
 ### Binaries inside the sandbox
 

@@ -500,6 +500,40 @@ def test_cli_stop_signals_when_process_is_the_console_script(
     assert (our_pid, signal.SIGTERM) in calls
 
 
+@pytest.mark.parametrize(
+    "command_line",
+    [
+        "python3 -u -m container_gateway serve --project /x",
+        "uv run python -m container_gateway serve --project /x",
+    ],
+)
+def test_cli_stop_signals_a_python_dash_m_invocation_with_extra_argv(
+    tmp_path: Path, short_run_dir: Path, monkeypatch: pytest.MonkeyPatch, command_line: str
+) -> None:
+    """Interpreter flags (``-u``) and a runner prefix (``uv run``) do not defeat the argv-shape match."""
+    pid_file = short_run_dir / "container-gateway.pid"
+    fd = daemon.acquire_pid_lock(pid_file)
+    assert fd is not None
+    our_pid = os.getpid()
+    calls: list[tuple[int, int]] = []
+    terminated = False
+
+    def fake_kill(pid: int, sig: int) -> None:
+        nonlocal terminated
+        calls.append((pid, sig))
+        if sig == signal.SIGTERM:
+            terminated = True
+            os.close(fd)  # simulate the daemon exiting: release the flock
+        elif terminated:
+            raise ProcessLookupError
+
+    monkeypatch.setattr(os, "kill", fake_kill)
+    monkeypatch.setattr("container_gateway.backends.default_runner", lambda argv: command_line)
+    rc = cli.cmd_stop(_ns(tmp_path, short_run_dir))
+    assert rc == 0
+    assert (our_pid, signal.SIGTERM) in calls
+
+
 def test_cli_stop_refuses_when_ps_is_unavailable(
     tmp_path: Path, short_run_dir: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -670,13 +704,26 @@ def test_cli_stop_when_lock_never_held_is_a_noop(tmp_path: Path, short_run_dir: 
     assert cli.cmd_stop(_ns(tmp_path, short_run_dir)) == 0
 
 
-def test_cli_stop_prints_a_message_when_no_run_directory_ever_existed(
+def test_cli_stop_prints_a_message_when_project_root_does_not_exist(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """A project that was never served must not look identical to "stopped successfully"."""
+    """A --project value that names nothing gets its own message, not the run-directory one."""
     missing_root = tmp_path / "never-served"
     run_dir = missing_root / ".apache-magpie-local" / "run"
     rc = cli.cmd_stop(_ns(missing_root, run_dir))
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert f"no project root at {missing_root}: nothing to stop" in out
+
+
+def test_cli_stop_prints_a_message_when_no_run_directory_ever_existed(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A project that exists but was never served must not look identical to "stopped successfully"."""
+    project_root = tmp_path / "served-project"
+    project_root.mkdir()
+    run_dir = project_root / ".apache-magpie-local" / "run"
+    rc = cli.cmd_stop(_ns(project_root, run_dir))
     out = capsys.readouterr().out
     assert rc == 0
     assert f"no run directory at {run_dir}: nothing to stop" in out

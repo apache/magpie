@@ -206,6 +206,16 @@ def check_invariants(settings: dict[str, Any], project_root: Path | None = None)
     in ``tools/sandbox-lint/README.md`` under Residual risk. The CLI entry
     point always knows the project root and passes it; only a caller that
     invokes this function directly without one inherits the residual.
+
+    The anchored comparison itself is lexical (``os.path.normpath`` on the
+    two path strings), not a filesystem-resolved one: it never calls
+    ``Path.resolve()`` or otherwise touches disk. A ``project_root`` (or an
+    ``allowUnixSockets`` entry) reached through a symlink can therefore make
+    a legitimate absolute entry compare as off-root and get flagged even
+    though it is fine on disk. This fails closed -- a false positive here is
+    a lint the maintainer has to explain, not a bypassed daemon-socket
+    check -- so it is an accepted trade-off, not a bug to silence with
+    ``resolve()``.
     """
     errors: list[str] = []
 

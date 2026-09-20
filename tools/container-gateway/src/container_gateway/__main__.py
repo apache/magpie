@@ -124,13 +124,16 @@ def cmd_serve(ns: argparse.Namespace) -> int:
 
 
 # Matches only the argv shapes `cmd_serve`/the hook actually invoke: a
-# python interpreter running the `container_gateway` module, or a
-# `container-gateway` console-script executable, each optionally through a
-# path prefix and followed by more argv (or end of line). A plain substring
-# check (`"container_gateway" in line`) would also match an editor opened on
-# a file named `container_gateway.py`, which is not this gateway.
+# python interpreter -- optionally through a runner like `uv run` and/or
+# interpreter flags such as `-u` -- running the `container_gateway` module,
+# or a `container-gateway` console-script executable, each optionally
+# through a path prefix and followed by more argv (or end of line). A plain
+# substring check (`"container_gateway" in line`) would also match an
+# editor opened on a file named `container_gateway.py`, which is not this
+# gateway.
 _GATEWAY_ARGV_RE = re.compile(
-    r"^(?:\S*/)?python\d*(?:\.\d+)?\s+-m\s+container_gateway(?:\s|$)|^(?:\S*/)?container-gateway(?:\s|$)"
+    r"^(?:\S*/)?(?:uv\s+run\s+)?(?:\S*/)?python\d*(?:\.\d+)?(?:\s+-\S+)*\s+-m\s+container_gateway(?:\s|$)"
+    r"|^(?:\S*/)?container-gateway(?:\s|$)"
 )
 
 
@@ -145,9 +148,12 @@ def _looks_like_a_gateway_process(pid: int) -> bool:
     ``container-gateway serve`` later happens to reuse after the agent
     wrote it into a (by then legitimately 0600) pid file through a prior
     run's cleanup race. Checking the live process's own command line
-    before ever signalling it closes that last gap; an unreadable
-    command line (``ps`` unavailable, the process already gone) refuses
-    rather than guesses.
+    before ever signalling it guards against that accidental reuse; an
+    unreadable command line (``ps`` unavailable, the process already
+    gone) refuses rather than guesses. This is a guard, not a security
+    boundary: a process's command line (``argv[0]`` included) is
+    attacker-settable, so it cannot stop a deliberate adversary already
+    running arbitrary code from shaping its own command line to match.
 
     The check is an argv-shape match against the first line of ``ps``
     output only, not a substring search: a substring match would also
@@ -163,6 +169,12 @@ def _looks_like_a_gateway_process(pid: int) -> bool:
 
 def cmd_stop(ns: argparse.Namespace) -> int:
     cfg = _config(ns)
+    if not cfg.project_root.is_dir():
+        # A missing project root and a missing run directory both make
+        # validate_run_dir return False, but they are different situations
+        # to report: this one means the --project value itself is wrong.
+        print(f"container-gateway: no project root at {cfg.project_root}: nothing to stop")
+        return 0
     if not daemon.validate_run_dir(cfg.run_dir, cfg.project_root):
         # Never served, or the run directory itself no longer exists. Not an
         # error -- but silent success here reads identically to "stopped it

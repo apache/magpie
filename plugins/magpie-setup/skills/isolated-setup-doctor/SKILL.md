@@ -309,12 +309,21 @@ for rt in podman docker; do
   else
     rc=$?
     err=$(head -1 "${TMPDIR:-/tmp}/$rt-probe.err")
-    case "$err" in
-      *"operation not permitted"*|*"Operation not permitted"*)
-        echo "PROBE: ${rt}-runtime → ✗ (connect to $sock denied — add it to sandbox.network.allowUnixSockets)" ;;
-      *"502"*|*"unreachable"*)
-        echo "PROBE: ${rt}-runtime → ✗ (gateway up, backend down: $err)" ;;
-      *) echo "PROBE: ${rt}-runtime → ✗ (rc=$rc: $err)" ;;
+    case "$rc" in
+      137|143)
+        # The shell-fallback branch of _probe_timeout kills the child with
+        # SIGTERM (rc 143) or, if it does not respond, SIGKILL (rc 137);
+        # `$err` is typically empty in this case, so name the hang instead
+        # of falling through to an uninformative "rc=143: ".
+        echo "PROBE: ${rt}-runtime → ✗ (no response in 15s — $rt info hung; is the backend daemon stuck?)" ;;
+      *)
+        case "$err" in
+          *"operation not permitted"*|*"Operation not permitted"*)
+            echo "PROBE: ${rt}-runtime → ✗ (connect to $sock denied — add it to sandbox.network.allowUnixSockets)" ;;
+          *"502"*|*"unreachable"*)
+            echo "PROBE: ${rt}-runtime → ✗ (gateway up, backend down: $err)" ;;
+          *) echo "PROBE: ${rt}-runtime → ✗ (rc=$rc: $err)" ;;
+        esac ;;
     esac
   fi
 done
@@ -345,6 +354,7 @@ backend whose socket vanished mid-probe, not the primary check.
 | `✗ gateway running without a <rt> backend` | Fail | `status` reports the gateway up but `serving` does not list this CLI's backend — the Podman machine or Docker daemon behind it is not running. Start it from outside the sandbox, then restart the gateway. |
 | `✗ connect … denied` | Fail | The gateway socket is not in `sandbox.network.allowUnixSockets`. |
 | `✗ gateway up, backend down` | Fail | Podman machine / Docker not running on the host; start it from your own terminal. |
+| `✗ no response in 15s — <rt> info hung` | Fail | `_probe_timeout` killed a stalled `<rt> info` call; the backend daemon behind the gateway is likely wedged — restart it from outside the sandbox. |
 | `⊘ <rt> not on PATH` | Skip | Runtime not installed; not a sandbox restriction. |
 
 An empty `podman machine list` from inside the sandbox is a read
