@@ -18,3 +18,5 @@ release-management-config.md:
   release_dist_backend: svnpubsub
   release_dist_url_template: https://dist.apache.org/repos/dist/dev/airflow/<version>-<rcN>/
   rm_key_fingerprint: ABCD1234EF5678901234ABCD1234EF5678901234
+  source_archive_method: custom
+  export_ignore_reviewed: 2.11.0 (source-archive contents review completed in the 2.11.0 prep PR)

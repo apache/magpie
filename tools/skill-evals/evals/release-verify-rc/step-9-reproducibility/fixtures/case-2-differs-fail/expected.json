@@ -1,0 +1,25 @@
+{
+  "step": "reproducibility",
+  "status": "FAIL",
+  "mandatory": false,
+  "source": {
+    "enabled": true,
+    "verdict": "differs",
+    "recorded_commit": "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678",
+    "source_date_epoch": 1758400000,
+    "rule_failures": ["modification-times", "zip-extra-fields"],
+    "metadata_differences": [],
+    "content_differences": [
+      "added apache-foo-2.4.0/src/foo/__pycache__/core.cpython-312.pyc",
+      "added apache-foo-2.4.0/.env.local",
+      "changed apache-foo-2.4.0/src/foo/version.py"
+    ]
+  },
+  "binaries": {
+    "mode": "off",
+    "identical": [],
+    "differs": [],
+    "known_divergences_hit": []
+  },
+  "trusted_hardware_asserted": false
+}

@@ -84,7 +84,7 @@ history separately provides its publication revision and date.
 
 <!-- BEGIN GENERATED SKILL TOKEN COUNTS -->
 
-Measured on (UTC): 2026-09-19.
+Measured on (UTC): 2026-09-20.
 
 Tokenizer: **tiktoken 0.14.0, `cl100k_base`**. Method: full UTF-8 file,
 including frontmatter and comments; line endings normalized to LF;
@@ -92,7 +92,7 @@ special-token spellings counted as ordinary text.
 Coverage: **75 of 75 local `skills/*/SKILL.md` files**.
 External `source.md` redirects and harness symlinks are excluded.
 
-Measurement manifest SHA-256: `316bec2ddc04557527ec9ab4010987220709ccced9df8acc2f3e7a27dcaf439d`.
+Measurement manifest SHA-256: `b9d7fe65a1a0958f527f883b18a8c01f5d9f6f5da92e5baae7ea4d46cf65eb8e`.
 
 | Skill file | Measured tokens | Source SHA-256 (first 16 characters) |
 |---|---:|---|
@@ -135,11 +135,11 @@ Measurement manifest SHA-256: `316bec2ddc04557527ec9ab4010987220709ccced9df8acc2
 | [release-archive-sweep](../skills/release-archive-sweep/SKILL.md) | 5,604 | `6e30100ea5a633dd` |
 | [release-audit-report](../skills/release-audit-report/SKILL.md) | 6,774 | `ce849ac8e2a217d1` |
 | [release-keys-sync](../skills/release-keys-sync/SKILL.md) | 5,945 | `3c11551de0e1e5f9` |
-| [release-prepare](../skills/release-prepare/SKILL.md) | 7,960 | `5b76de4222c13166` |
-| [release-promote](../skills/release-promote/SKILL.md) | 7,174 | `6f6bff9d291fab91` |
-| [release-rc-cut](../skills/release-rc-cut/SKILL.md) | 7,614 | `e557be43124d9c5b` |
-| [release-verify-rc](../skills/release-verify-rc/SKILL.md) | 8,777 | `1561f8f82f15a5eb` |
-| [release-vote-draft](../skills/release-vote-draft/SKILL.md) | 6,327 | `73c6490d4351da9e` |
+| [release-prepare](../skills/release-prepare/SKILL.md) | 11,986 | `78f302ca28e1aa40` |
+| [release-promote](../skills/release-promote/SKILL.md) | 7,401 | `dcc27bcfff9dfdfb` |
+| [release-rc-cut](../skills/release-rc-cut/SKILL.md) | 12,049 | `076b167ed373eef1` |
+| [release-verify-rc](../skills/release-verify-rc/SKILL.md) | 11,348 | `7bbe650a9b982ed8` |
+| [release-vote-draft](../skills/release-vote-draft/SKILL.md) | 7,469 | `b9860e0743bc64cf` |
 | [release-vote-tally](../skills/release-vote-tally/SKILL.md) | 6,696 | `c848e809e2d877cd` |
 | [report-framework-issue](../skills/report-framework-issue/SKILL.md) | 5,703 | `30b2ce8b774ea68c` |
 | [reviewer-routing](../skills/reviewer-routing/SKILL.md) | 6,272 | `dcd75b720d42af34` |

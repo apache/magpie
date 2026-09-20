@@ -11,6 +11,30 @@
     "pattern": "git push",
     "flags": ""
   },
+  "has_configured_build_command": {
+    "type": "judge",
+    "field": "section_2_build_command",
+    "rubric": "The block ends in a real build-tool invocation taken verbatim from the project's configured build command (for example `python -m build --sdist` or an `mvn -Papache-release ...` command), preceded by an export of SOURCE_DATE_EPOCH derived from the release tag's committer timestamp. Preparatory lines the skill prescribes — a run-at-the-tag comment, a git checkout of the tag, gitignoring the RC artefacts — are acceptable and never make the property false. The property is false if the build command is missing, altered, replaced by an archive of a working directory (zip -r, tar czf <dir>), or if SOURCE_DATE_EPOCH is not exported."
+  },
+  "has_source_date_epoch_export": {
+    "field": "section_2_build_command",
+    "type": "regex",
+    "pattern": "SOURCE_DATE_EPOCH",
+    "flags": ""
+  },
+  "has_repro_archive_build": {
+    "field": "section_2_build_command",
+    "type": "regex",
+    "pattern": "repro-archive build",
+    "flags": ""
+  },
+  "has_no_working_tree_pack": {
+    "field": "section_2_build_command",
+    "type": "regex",
+    "pattern": "zip -r|tar czf|tar -czf|tar cz",
+    "flags": "",
+    "negate": true
+  },
   "has_gpg_detach_sign": {
     "field": "section_3_sign_commands",
     "type": "regex",

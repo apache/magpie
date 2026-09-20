@@ -13,3 +13,7 @@ backend: svnpubsub
 staging_url: https://dist.apache.org/repos/dist/dev/myproject/2.12.0-rc1/
 signing_key_fingerprint: ABCD1234EF5678901234ABCD1234EF5678901234
 release_branch: main
+source_archive_method: custom (the source artefact comes out of build_command)
+reproducibility_source: off
+reproducibility_binaries: off
+signing_mode: rm-key

@@ -154,10 +154,31 @@ build output. The `--prefix` puts everything under a versioned top
 folder so the unpacked tree is `apache-magpie-<version>/`.
 
 ```bash
-git archive --format=zip \
-  --prefix="apache-magpie-${VERSION}/" \
-  -o "${ARTIFACT}" \
-  "${RC_TAG}"
+# Preferred: git archive wrapped by the framework's reproducible-archive
+# tool, which applies every https://reproducible-builds.org/docs/archives/
+# rule so the bytes do not depend on your git version. Prints the commit,
+# SOURCE_DATE_EPOCH and sha512 to record on the planning issue.
+uv run --project tools/reproducible-archive repro-archive build \
+  --ref "${RC_TAG}" --format zip \
+  --prefix "apache-magpie-${VERSION}" \
+  -o "${ARTIFACT}"
+
+# Plain git archive gives the same *contents* (a voter's `repro-archive
+# compare` reports `content-identical`), but not the same bytes across
+# git versions:
+#   git archive --format=zip --prefix="apache-magpie-${VERSION}/" -o "${ARTIFACT}" "${RC_TAG}"
+```
+
+Self-check that the archive is reproducible before signing it
+([reproducibility.md](reproducibility.md)):
+
+```bash
+uv run --project tools/reproducible-archive repro-archive check "${ARTIFACT}"
+mkdir -p rebuild
+uv run --project tools/reproducible-archive repro-archive build \
+  --ref "${RC_TAG}" --format zip --prefix "apache-magpie-${VERSION}" -o "rebuild/${ARTIFACT}"
+uv run --project tools/reproducible-archive repro-archive compare --require-identical \
+  "${ARTIFACT}" "rebuild/${ARTIFACT}"
 ```
 
 Quick sanity check that `LICENSE` and `NOTICE` are present at the

@@ -374,7 +374,19 @@ the binding votes.
    It produces the subject
    (`[VOTE] Release Apache Magpie <version> from <version>-rcN`) and
    body — pointing voters at the ATR candidate page and its check
-   results.
+   results, and carrying the **How to verify this candidate** section
+   every Magpie `[VOTE]` has: the reproducibility record (source
+   commit, `SOURCE_DATE_EPOCH`, sha512 from the planning issue), the
+   agentic one-liner
+   (`/magpie-release-management:verify-rc <version>-rcN`), the
+   human-readable page
+   ([`manual-release-process.md` § Manual verification](manual-release-process.md#manual-verification--what-a-voter-runs-before-1)
+   at the RC tag), the [reproducibility background](reproducibility.md),
+   and the voter-obligation sentence. ATR's default vote text links
+   only the candidate page, so **the drafted body is what the RM
+   supplies to ATR** (the client's body option or the vote form on the
+   candidate page; confirm with `atr vote start --help`) — do not let
+   the default stand.
 2. **Start the vote in ATR.** The RM triggers the vote for the
    composed candidate; ATR sends the `[VOTE]` email to
    `dev@magpie.apache.org` and opens the tabulation. Starting the
@@ -393,6 +405,22 @@ the binding votes.
    [release-policy § release approval](https://www.apache.org/legal/release-policy.html#release-approval);
    the Magpie config may lengthen but not shorten it
    ([`release-management-config.md` § Vote](../../projects/_template/release-management-config.md#vote)).
+   What a PMC member does during the window, in either order:
+   - **Agentic:** `/magpie-release-management:verify-rc <version>-rcN`
+     from any Magpie-enabled agent — read-only; it fetches the staged
+     artefacts, checks signature / checksum / RAT / LICENSE-NOTICE /
+     binaries / links / version strings, rebuilds the source archive
+     from the tag and reports `identical`, `content-identical` or
+     `differs`.
+   - **Manual:** the linked
+     [verification page](manual-release-process.md#manual-verification--what-a-voter-runs-before-1)
+     at the RC tag — the same checks longhand, ending with a build and
+     test run from the unpacked source.
+   - **Reply** on the thread using the
+     [reply template](manual-release-process.md#reply-template--what-to-put-in-your-vote):
+     the commit you verified, the `compare` verdict, and what you built
+     and tested on. A binding `+1` is the voter's own statement, not the
+     tool's.
 4. **Tally** (Step 9). ATR tabulates the replies; cross-check with
    [`release-vote-tally`](../../skills/release-vote-tally/SKILL.md),
    which classifies each reply binding-vs-non-binding against the
@@ -473,7 +501,13 @@ This does **not** move the signing key into CI unless the project has
 adopted a reproducible-build + trusted-publishing model the PMC has
 explicitly signed off on. For Magpie's first releases, prefer the
 local `atr` client path above (Step C); revisit CI-driven compose once
-the build is demonstrably reproducible. See the
+the build is demonstrably reproducible. When it is, `release-prepare
+automated-signing` drafts the Infra key request, the Security Team
+notification and the workflow PR (template:
+[`projects/_template/workflows/release-candidate.yml`](../../projects/_template/workflows/release-candidate.yml))
+under the conditions in
+[Infra § Automated release signing](https://infra.apache.org/release-signing.html#automated-release-signing);
+see [`reproducibility.md`](reproducibility.md#automated-release-signing--asf-specific-optional). See the
 [`tooling-asf-example`](https://github.com/apache/tooling-asf-example)
 repository for a worked GitHub Actions example.
 

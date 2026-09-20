@@ -1,0 +1,19 @@
+{
+  "step": "reproducibility",
+  "status": "FAIL",
+  "mandatory": true,
+  "source": {
+    "enabled": true,
+    "verdict": "content-identical",
+    "recorded_commit": "9988776655443322110000ffeeddccbbaa998877",
+    "source_date_epoch": 1758412800,
+    "content_differences": []
+  },
+  "binaries": {
+    "mode": "byte-identical",
+    "identical": ["apache-foo-3.2.0-bin.tar.gz"],
+    "differs": [],
+    "known_divergences_hit": []
+  },
+  "trusted_hardware_asserted": true
+}

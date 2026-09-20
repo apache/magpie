@@ -5,6 +5,12 @@
     "pattern": "2\\.11\\.0",
     "flags": ""
   },
+  "has_version_in_pr_title_1_0_0": {
+    "field": "pr_title",
+    "type": "regex",
+    "pattern": "1\\.0\\.0",
+    "flags": ""
+  },
   "has_version_bump_mention": {
     "field": "pr_body",
     "type": "regex",
@@ -21,6 +27,24 @@
     "field": "pr_body",
     "type": "regex",
     "pattern": "NOTICE|LICENSE",
+    "flags": ""
+  },
+  "has_gitattributes_in_scope": {
+    "field": "files_in_scope",
+    "type": "regex",
+    "pattern": "\\.gitattributes",
+    "flags": ""
+  },
+  "has_export_ignore_reviewed_marker": {
+    "field": "pr_body",
+    "type": "regex",
+    "pattern": "export_ignore_reviewed",
+    "flags": ""
+  },
+  "has_source_archive_section": {
+    "field": "pr_body",
+    "type": "regex",
+    "pattern": "export-ignore",
     "flags": ""
   },
   "has_proposed_only": {

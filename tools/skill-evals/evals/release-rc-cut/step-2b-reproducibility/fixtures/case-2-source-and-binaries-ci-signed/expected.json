@@ -1,0 +1,14 @@
+{
+  "source_check_enabled": true,
+  "binary_check_mode": "byte-identical",
+  "mandatory": true,
+  "proposed": true,
+  "has_repro_check": true,
+  "has_repro_rebuild": true,
+  "has_repro_compare": true,
+  "has_no_working_tree_pack": true,
+  "has_source_date_epoch_export": true,
+  "has_binary_compare": true,
+  "stops_on_differs": true,
+  "proposed_true": true
+}

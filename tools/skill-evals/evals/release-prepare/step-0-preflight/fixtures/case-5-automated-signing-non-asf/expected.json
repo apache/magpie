@@ -1,0 +1,6 @@
+{
+  "verdict": "blocked",
+  "sub_command": "automated-signing",
+  "version": null,
+  "release_branch_base": "main"
+}

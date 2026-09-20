@@ -16,8 +16,9 @@ Behavioural eval suite for the
 | `step-5-notice-license` | Step 5 — NOTICE/LICENSE presence | 2 | File presence (PASS/WARN/FAIL), diff-lines count, diff summary |
 | `step-6-binary-exclusion` | Step 6 — Binary exclusion check | 2 | Prohibited-binary detection (PASS/FAIL), expected-binary classification |
 | `step-8-version-consistency` | Step 8 — Version string consistency | 2 | Exact version match across manifest files (PASS/FAIL) |
+| `step-9-reproducibility` | Step 9 — Reproducibility checks | 4 | `repro-archive compare` verdict → status (`identical` PASS, `differs` FAIL, `content-identical` WARN in RM-key mode / FAIL under automated signing), `mandatory` under `automated_release_signing: enabled` with `--skip-repro` ignored, `trusted_hardware_asserted` mirrors the flag |
 
-Total: **13 cases** across 6 step suites.
+Total: **17 cases** across 7 step suites.
 
 ## Run
 
@@ -34,14 +35,15 @@ uv run --project tools/skill-evals skill-eval --cli tools/skill-evals/evals/rele
 
 ## Grading methodology
 
-Steps 0, 2, 3, 5, 6, and 8 all emit structured JSON. Cases use
+Steps 0, 2, 3, 5, 6, 8 and 9 all emit structured JSON. Cases use
 `expected.json` for exact-field grading and `output-spec.md` to
 document the allowed schema.
 
 The grader extracts JSON from the model's output and compares the
 fields in `expected.json` exactly. Fields not present in `expected.json`
 are ignored; fields present in `expected.json` must match exactly
-(including `null` vs omitted).
+(including `null` vs omitted). `paste_recipe` fields are graded
+semantically (see each suite's `grading-schema.json`).
 
 `PASS` — all fields in `expected.json` match the model output.
 `FAIL` — any field mismatch.
@@ -63,3 +65,9 @@ are ignored; fields present in `expected.json` must match exactly
   non-empty.
 - **Step 8**: `status` must be `"FAIL"` for any `match: false` or
   `extracted: null`; dev/snapshot suffixes are always `match: false`.
+- **Step 9**: `differs` and `tag-moved` are always `"FAIL"`;
+  `content-identical` is `"WARN"` in RM-key mode and `"FAIL"` when the
+  report says `automated_release_signing: enabled`; `mandatory` is
+  `true` only in that mode and `--skip-repro` is then ignored;
+  `trusted_hardware_asserted` is `true` only when the report says the
+  committer passed `--trusted-hardware` (case-4), never inferred.

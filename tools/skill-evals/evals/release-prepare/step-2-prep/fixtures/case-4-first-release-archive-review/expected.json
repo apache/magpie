@@ -1,0 +1,15 @@
+{
+  "pr_title": "chore: prepare 1.0.0 release",
+  "scope_violations": [],
+  "category_x_hit": false,
+  "notice_removal_unjustified": false,
+  "changelog_coverage_pct": 100,
+  "archive_review": "proposed",
+  "proposed": true,
+  "has_version_in_pr_title_1_0_0": true,
+  "has_gitattributes_in_scope": true,
+  "has_export_ignore_reviewed_marker": true,
+  "has_source_archive_section": true,
+  "has_proposed_only": true,
+  "scope_violations_empty": true
+}

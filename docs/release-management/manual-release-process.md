@@ -24,6 +24,7 @@
     - [5. Confirm the source matches the tagged commit](#5-confirm-the-source-matches-the-tagged-commit)
     - [6. License headers (Apache RAT)](#6-license-headers-apache-rat)
     - [7. Optional — reproduce the project's own checks from pristine source](#7-optional--reproduce-the-projects-own-checks-from-pristine-source)
+    - [Reply template — what to put in your vote](#reply-template--what-to-put-in-your-vote)
   - [Caveats hit during rc1 / rc2](#caveats-hit-during-rc1--rc2)
   - [Release Manager checklist](#release-manager-checklist)
   - [Cross-references](#cross-references)
@@ -339,6 +340,19 @@ the `diff` output. (If your `git` version happens to produce byte-identical
 but the tree `diff` is the version-independent check.) If the tag is signed,
 `git tag -v "${VERSION}-${RC}"` also confirms it has not moved.
 
+The framework's `repro-archive` tool does the same check in one step and
+tells the two cases apart — `identical` (same bytes), `content-identical`
+(same tree, archive metadata differs) or `differs` — using the
+`SOURCE_DATE_EPOCH` the RM recorded on the planning issue
+([reproducibility.md](reproducibility.md)):
+
+```bash
+uv run --project tools/reproducible-archive repro-archive build \
+  --ref "${VERSION}-${RC}" --format zip --prefix "apache-magpie-${VERSION}" \
+  --epoch "<SOURCE_DATE_EPOCH from the planning issue>" -o /tmp/rebuilt.zip
+uv run --project tools/reproducible-archive repro-archive compare "../${ARTIFACT}" /tmp/rebuilt.zip
+```
+
 ### 6. License headers (Apache RAT)
 
 Run [Apache RAT](https://creadur.apache.org/rat/) over the unpacked tree
@@ -369,6 +383,34 @@ alone.
 Only after these pass should a voter post `+1` (binding voters: your `+1`
 carries the release). Report any failure on the `[VOTE]` thread with the
 exact command and output.
+
+The whole sequence above is what
+[`release-verify-rc`](../../skills/release-verify-rc/SKILL.md) runs for
+you (`/magpie-release-management:verify-rc <version>-rcN` from any
+Magpie-enabled agent): it emits each command, records the results, and
+adds the source rebuild-and-compare from
+[`reproducibility.md`](reproducibility.md). Use whichever path you
+prefer; the `[VOTE]` email links both.
+
+### Reply template — what to put in your vote
+
+State what you verified, so the tally reads as evidence rather than a
+count:
+
+```text
++1 (binding)
+
+Verified apache-magpie-<version>-source.zip from dist/dev at r<svn-rev>:
+- signature OK against KEYS (<key fingerprint>), sha512 matches
+- tag <version>-rcN = commit <sha>; rebuilt with repro-archive at
+  SOURCE_DATE_EPOCH <epoch>: identical   (or: content-identical / differs — say which)
+- RAT clean; LICENSE + NOTICE present; no binaries, no dangling links
+- built and ran the test suite from the unpacked source on <OS / Python / hardware>
+```
+
+Under automated release signing add *"rebuilt on my own hardware"* —
+that line is the trusted-hardware validation the policy requires
+([`reproducibility.md` § Automated release signing](reproducibility.md#automated-release-signing--asf-specific-optional)).
 
 ## Caveats hit during rc1 / rc2
 

@@ -18,3 +18,7 @@ Note: The build config does NOT include md5 or sha1 in digest_set.
 The two artefacts (source release + binary) must each receive a gpg
 sign command and a sha512sum command in the output. No passphrase
 argument must appear in any gpg command.
+source_archive_method: custom (the source artefact comes out of build_command)
+reproducibility_source: off
+reproducibility_binaries: off
+signing_mode: rm-key

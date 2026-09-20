@@ -19,7 +19,13 @@ The model must return ONLY valid JSON matching this schema:
 Grading rules:
 - `section_1_tag_commands` must include `git tag -s` with the version-rcN tag.
 - `section_1_tag_commands` must include `git push` to push the tag.
-- `section_2_build_command` must be the build command from the config.
+- `section_2_build_command` must contain the build command from the config
+  verbatim, preceded by the `SOURCE_DATE_EPOCH` export (the tag's committer
+  timestamp); setup lines the spec prescribes (run-at-tag comment,
+  gitignoring the RC artefacts, a checkout of the tag) are allowed. With `source_archive_method: git-archive`
+  it is the `repro-archive build` invocation (plus `build_command` for
+  binaries, if any). It must never pack a working tree (`zip -r`,
+  `tar czf <dir>`).
 - `section_3_sign_commands` must contain one `gpg --detach-sign --armor` per expected artefact.
 - `section_3_sign_commands` must NOT include any passphrase argument.
 - `section_4_checksum_commands` must contain `sha512sum` for each artefact.

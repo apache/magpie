@@ -1,0 +1,45 @@
+{
+  "has_verification_section": {
+    "field": "body",
+    "type": "regex",
+    "pattern": "How to verify this candidate",
+    "flags": "i"
+  },
+  "has_agentic_one_liner": {
+    "field": "body",
+    "type": "regex",
+    "pattern": "magpie-release-management:verify-rc",
+    "flags": ""
+  },
+  "has_manual_doc_link": {
+    "field": "body",
+    "type": "regex",
+    "pattern": "verifying-a-release-candidate\\.md",
+    "flags": ""
+  },
+  "has_reproducibility_doc_link": {
+    "field": "body",
+    "type": "regex",
+    "pattern": "reproducibility\\.md",
+    "flags": ""
+  },
+  "has_repro_record": {
+    "field": "body",
+    "type": "regex",
+    "pattern": "SOURCE_DATE_EPOCH",
+    "flags": ""
+  },
+  "has_no_repro_record": {
+    "field": "body",
+    "type": "regex",
+    "pattern": "SOURCE_DATE_EPOCH",
+    "flags": "",
+    "negate": true
+  },
+  "has_voter_obligation": {
+    "field": "body",
+    "type": "regex",
+    "pattern": "release-approval",
+    "flags": ""
+  }
+}

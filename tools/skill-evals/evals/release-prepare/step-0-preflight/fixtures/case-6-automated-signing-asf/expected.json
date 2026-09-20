@@ -1,0 +1,7 @@
+{
+  "verdict": "proceed",
+  "sub_command": "automated-signing",
+  "version": null,
+  "blockers": [],
+  "release_branch_base": "main"
+}

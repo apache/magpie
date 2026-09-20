@@ -359,6 +359,12 @@ Read the following from the planning issue body and
 | `atr_platform_url` | `release-management-config.md` | `atr_platform_url` (only when `vote_backend = atr`) |
 | `atr_revision` | *(optional)* | Specific ATR revision to vote on; omit to use the latest uploaded revision (`atr vote start --revision` defaults to latest — do not hard-depend on a `revisions` lookup) |
 | `canned_body` | `<project-config>/canned-responses.md` | `[VOTE]` template block, if present |
+| `repro_record` | planning issue body | the reproducibility record `release-rc-cut` posted: source commit, `SOURCE_DATE_EPOCH`, sha512 of the source artefact (see [`reproducibility.md`](../../../../docs/release-management/reproducibility.md)); if absent, say so and leave the lines out — never invent them |
+| `atr_candidate_url` | planning issue body | URL of the candidate's ATR page with its check results (only when `vote_backend = atr`) |
+| `verification_doc_url` | `release-management-config.md` | `vote_verification_doc_url` — the human-readable "how to verify this RC" page, rendered with `<version>-<rcN>` so voters read the page at the tree under vote |
+| `reproducibility_doc_url` | `release-management-config.md` | `reproducibility_doc_url` — background on the reproducible source archive; rendered the same way |
+| `verification_skill` | `release-management-config.md` | `vote_verification_skill` (default `magpie-release-management:verify-rc`) — the agentic one-liner a voter can run |
+| `signing_mode` | `release-management-config.md` | `ci-automated` when `automated_release_signing: enabled` under `organization: ASF`, else `rm-key` |
 
 Surface the loaded metadata to the RM for confirmation before
 proceeding to Step 2.
@@ -401,6 +407,37 @@ The changelog for this release:
 Keys to verify artifact signatures:
   <keys_url>
 
+How to verify this candidate before voting
+------------------------------------------
+Reproducibility record (from the planning issue):  ← include the three lines only when repro_record is present
+  source commit:     <commit>
+  SOURCE_DATE_EPOCH: <epoch>
+  sha512:            <sha512 of the source artefact>
+
+Agentic path (any Magpie-enabled agent, read-only):
+  /<verification_skill> <version>-rcN
+  It checks the signature against KEYS, the checksum, licence headers
+  (RAT), LICENSE/NOTICE, prohibited binaries, dangling links, version
+  strings, and rebuilds the source artefact from the tag to confirm it
+  is byte-identical to what is staged.
+
+Manual path (the same checks, longhand):
+  <verification_doc_url>
+  Reproducibility background: <reproducibility_doc_url>
+
+ATR check results for this candidate:  ← include only when vote_backend = atr
+  <atr_candidate_url>
+
+[This candidate was signed by CI under the project's automated
+release signing. Policy requires a committer's byte-identical rebuild
+on their own hardware before promotion: run the verification with
+--trusted-hardware --post-to <planning-issue-url> and say so in your
+vote.] ← include only when signing_mode = ci-automated
+
+A binding +1 means you downloaded the artefact, verified it, and built
+and tested it on your own hardware; the tools above are an aid, not a
+substitute (https://www.apache.org/legal/release-policy.html#release-approval).
+
 Please vote to release:
   [ ] +1  Release <Product Name> <version>
   [ ] +0
@@ -418,6 +455,14 @@ Thanks,
 <RM name>
 ```
 
+The *How to verify* section is part of every `[VOTE]`, whichever
+backend sends it and whether the body came from the default above or
+from `canned_body`: a PMC member reading the thread on their phone
+must find the agentic one-liner, the human-readable page, and the
+reproducibility record without opening the tracker. When
+`canned_body` lacks the section, append it and tell the RM the
+project's canned block should gain it.
+
 Present the draft subject + body to the RM. Ask for confirmation
 before proceeding to Step 3. Allow the RM to edit the body before
 confirming.
@@ -434,7 +479,11 @@ confirming.
   credentials. The `<staging_url>` in the body must still point at the
   dist backend's download location (e.g. `dist/dev/<project>/…` under the
   hybrid) so voters fetch the canonical artefacts, even though ATR drives
-  the thread. Emit:
+  the thread. ATR's own default vote text links only the candidate
+  page, so the drafted body — with its *How to verify* section — is
+  what the RM supplies to ATR (the client's body option, or the vote
+  form on the candidate page; confirm with `atr vote start --help`).
+  Emit:
 
   ```text
   # ATR sends the [VOTE] to <vote_list> and tabulates replies.
@@ -555,8 +604,14 @@ The AI-driven part ends with a hand-back artefact containing:
 - **Never draft a `[VOTE]` when verify-rc FAIL** without an explicit
   `--skip-verify-check <reason>` override.
 - **Never invent metadata.** All staging URLs, tag URLs, keys URLs,
-  and changelog URLs must come from the planning issue body or the
-  project config. Do not derive or guess paths.
+  changelog URLs, and the reproducibility record (commit,
+  `SOURCE_DATE_EPOCH`, sha512) must come from the planning issue body
+  or the project config. Do not derive or guess paths or digests; omit
+  the record lines when the planning issue has none.
+- **Never omit the *How to verify* section.** Every `[VOTE]` carries
+  the agentic one-liner, the human-readable verification page, and
+  the voter-obligation sentence, under either backend and with or
+  without a canned body.
 
 ---
 
@@ -568,6 +623,8 @@ The AI-driven part ends with a hand-back artefact containing:
 | Pre-flight blocked — expedited window | `vote_window_hours` < 72 and no `--expedited` | Pass `--expedited <reason>` or raise `vote_window_hours` |
 | Metadata field missing | Planning issue lacks staging URL, tag URL, etc. | Provide the missing URL in the planning issue body |
 | Subject template renders incorrectly | `vote_subject_template` has unsubstituted placeholders | Check `<project-config>/release-management-config.md` |
+| `vote_verification_doc_url` unset | Config predates the *How to verify* section | Add the key (`release-management-config.md § Vote`); until then the body links the framework's `docs/release-management/reproducibility.md` and says the project page is missing |
+| Reproducibility record missing from the planning issue | `release-rc-cut` ran before the record was added, or the RM did not paste `repro-archive build`'s output back | Add the commit / `SOURCE_DATE_EPOCH` / sha512 to the planning issue; the body omits the three lines rather than guessing |
 
 ---
 
@@ -578,9 +635,16 @@ The AI-driven part ends with a hand-back artefact containing:
 - [`docs/release-management/spec.md`](../../../../docs/release-management/spec.md) —
   `release-vote-draft` per-skill specification.
 - [`<project-config>/release-management-config.md`](../../../../projects/_template/release-management-config.md) —
-  adopter keys this skill reads.
+  adopter keys this skill reads (`vote_*`, `vote_verification_doc_url`,
+  `reproducibility_doc_url`, `vote_verification_skill`).
+- [`docs/release-management/reproducibility.md`](../../../../docs/release-management/reproducibility.md) —
+  what the reproducibility record in the body means and how a voter
+  uses it.
+- [`docs/release-management/manual-release-process.md` § Manual verification](../../../../docs/release-management/manual-release-process.md#manual-verification--what-a-voter-runs-before-1) —
+  the longhand voter path the framework's own `[VOTE]` links to.
 - `release-verify-rc` (proposed) —
-  upstream step; PASS is a prerequisite.
+  upstream step; PASS is a prerequisite, and the agentic path the body
+  offers voters.
 - `release-vote-tally` (proposed) —
   downstream step; runs after the vote window closes.
 - [ASF release policy § release approval](https://www.apache.org/legal/release-policy.html#release-approval) —

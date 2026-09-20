@@ -1,9 +1,11 @@
 {
-  "section_2_build_command": "mvn -Papache-release clean install",
   "prohibited_digests_omitted": true,
   "proposed": true,
   "has_git_tag_signed": true,
   "has_git_push_tag": true,
+  "has_configured_build_command": true,
+  "has_source_date_epoch_export": true,
+  "has_no_working_tree_pack": true,
   "has_gpg_detach_sign": true,
   "has_no_passphrase_arg": true,
   "has_sha512sum": true,

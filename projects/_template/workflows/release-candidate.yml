@@ -1,0 +1,178 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
+# TEMPLATE — ASF-specific (organization: ASF) automated release signing.
+#
+# Copy to `.github/workflows/release-candidate.yml` in the upstream repo
+# ONLY after `release-prepare automated-signing` has walked you through
+# the policy at
+#   https://infra.apache.org/release-signing.html#automated-release-signing
+# and the Apache Security Team has approved the workflow. Until then keep
+# `automated_release_signing: off` in release-management-config.md.
+#
+# What this workflow does: on an RC tag push it builds the source archive
+# reproducibly (every rule from https://reproducible-builds.org/docs/archives/,
+# via the embedded `repro-archive` script), builds any convenience binaries
+# under the tag's SOURCE_DATE_EPOCH, proves the build is reproducible by
+# building twice and comparing, generates sha512 checksums, and uploads
+# everything to the Apache Trusted Release platform (ATR) with OIDC —
+# a STAGING target. It publishes nothing.
+#
+# What it does NOT do: hold or use any signing key. The RM signs the tag
+# with their own key before pushing it. Artefact signing with the
+# infra-provisioned CI key happens through the mechanism Infra agreed on
+# your INFRA ticket (for ATR trusted publishing, ATR applies the project's
+# CI key on upload). Policy still requires a committer to rebuild every
+# artefact on trusted hardware and confirm it bit-by-bit identical
+# (`release-verify-rc` Step 9, `repro-archive compare --require-identical`)
+# before `release-promote` will promote.
+#
+# Replace every <PLACEHOLDER>. Pin every action to a commit SHA
+# (apache/tooling-actions requires it; so does zizmor).
+
+name: Release candidate (reproducible build + ATR staging)
+
+on:
+  push:
+    tags:
+      - "*-rc[0-9]*"   # <version>-rcN, the tag release-rc-cut has the RM push
+
+permissions: {}
+
+env:
+  PROJECT: <project>                       # ASF project slug, e.g. foo
+  ARTEFACT_PREFIX: apache-<project>        # apache-<project>-<version>-source.<fmt>
+  SOURCE_FORMAT: tar.gz                    # release-build.md → source_archive_format
+
+jobs:
+  build:
+    name: Reproducible build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      source_date_epoch: ${{ steps.meta.outputs.source_date_epoch }}
+    steps:
+      - name: Checkout at the RC tag (full history so the tag's commit time resolves)
+        uses: actions/checkout@<COMMIT_SHA>  # vX.Y.Z
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python (repro-archive is stdlib-only)
+        uses: actions/setup-python@<COMMIT_SHA>  # vX.Y.Z
+        with:
+          python-version: "3.12"
+
+      - name: Resolve version and SOURCE_DATE_EPOCH from the tag
+        id: meta
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          version="${TAG%-rc*}"
+          # Embedded copy of tools/reproducible-archive/src/reproducible_archive/__init__.py
+          epoch="$(python3 release/reproducible_archive.py epoch --ref "$TAG")"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "source_date_epoch=$epoch" >> "$GITHUB_OUTPUT"
+
+      - name: Build the source archive (git archive + .gitattributes export-ignore, reproducible)
+        env:
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          python3 release/reproducible_archive.py build \
+            --ref "$TAG" --format "$SOURCE_FORMAT" \
+            --prefix "${ARTEFACT_PREFIX}-${VERSION}" \
+            -o "dist/${ARTEFACT_PREFIX}-${VERSION}-source.${SOURCE_FORMAT}"
+          python3 release/reproducible_archive.py check \
+            "dist/${ARTEFACT_PREFIX}-${VERSION}-source.${SOURCE_FORMAT}" \
+            --epoch "${{ steps.meta.outputs.source_date_epoch }}"
+
+      - name: Build convenience binaries under SOURCE_DATE_EPOCH (delete if source-only)
+        env:
+          SOURCE_DATE_EPOCH: ${{ steps.meta.outputs.source_date_epoch }}
+        run: |
+          set -euo pipefail
+          # release-build.md → build_command, verbatim. Must be reproducible:
+          # pinned toolchain, SOURCE_DATE_EPOCH honoured, ARFLAGS=Dcvr for .a.
+          <BUILD_COMMAND>
+          # copy the binaries listed in expected_artefacts into dist/
+
+      - name: Prove reproducibility — build again into a scratch dir and compare
+        env:
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ steps.meta.outputs.version }}
+          SOURCE_DATE_EPOCH: ${{ steps.meta.outputs.source_date_epoch }}
+        run: |
+          set -euo pipefail
+          mkdir -p rebuild
+          python3 release/reproducible_archive.py build \
+            --ref "$TAG" --format "$SOURCE_FORMAT" \
+            --prefix "${ARTEFACT_PREFIX}-${VERSION}" \
+            -o "rebuild/${ARTEFACT_PREFIX}-${VERSION}-source.${SOURCE_FORMAT}"
+          python3 release/reproducible_archive.py compare --require-identical \
+            "dist/${ARTEFACT_PREFIX}-${VERSION}-source.${SOURCE_FORMAT}" \
+            "rebuild/${ARTEFACT_PREFIX}-${VERSION}-source.${SOURCE_FORMAT}"
+          # For binaries: re-run <BUILD_COMMAND> into rebuild/ and compare sha512.
+          # A CI self-comparison is a smoke test only; the policy's validation
+          # happens on a committer's trusted hardware in release-verify-rc.
+
+      - name: Checksums (sha512 only; md5 and sha1 are prohibited)
+        working-directory: dist
+        run: |
+          set -euo pipefail
+          for f in *; do
+            case "$f" in *.sha512) continue ;; esac
+            sha512sum "$f" > "$f.sha512"
+          done
+
+      - name: Keep the artefacts for the upload job
+        uses: actions/upload-artifact@<COMMIT_SHA>  # vX.Y.Z
+        with:
+          name: rc-artefacts
+          path: dist/
+          if-no-files-found: error
+
+  stage:
+    name: Upload to ATR (staging only)
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # OIDC → ATR trusted publishing; no long-lived token
+      contents: read
+    steps:
+      - name: Fetch the artefacts
+        uses: actions/download-artifact@<COMMIT_SHA>  # vX.Y.Z
+        with:
+          name: rc-artefacts
+          path: dist/
+
+      - name: Upload to the Apache Trusted Release platform
+        # https://github.com/apache/tooling-actions — pin by commit SHA.
+        uses: apache/tooling-actions/upload-to-atr@<COMMIT_SHA>
+        with:
+          project: ${{ env.PROJECT }}
+          version: ${{ needs.build.outputs.version }}
+          # files: dist/*   # confirm the current input names with the action's README
+
+      # No `atr release finish`, no `svn` to dist/release, no GitHub Release:
+      # publication is release-promote's job, after the [VOTE] passes and the
+      # trusted-hardware validation is recorded on the planning issue.

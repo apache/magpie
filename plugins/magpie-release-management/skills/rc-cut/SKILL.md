@@ -9,12 +9,18 @@ requires_config:
   - release-build.md
   - release-management-config.md
 description: |
-  Emit the paste-ready command sequence to tag an RC, build artefacts,
-  sign each artefact, generate checksums, and stage them to the adopter's
-  distribution backend. Covers Steps 4–5 of the release-management
-  lifecycle. Never runs any command locally — all sequences are emitted
-  for the Release Manager to execute on their own machine with their own
-  key and ASF credentials.
+  Emit the paste-ready command sequence to tag an RC, build artefacts
+  (the source archive reproducibly, via `git archive` + `.gitattributes`
+  `export-ignore` + the framework's `repro-archive` tool), optionally
+  self-check reproducibility, sign each artefact, generate checksums, and
+  stage them to the adopter's distribution backend. Covers Steps 4–5 of
+  the release-management lifecycle. Never runs any command locally — all
+  sequences are emitted for the Release Manager to execute on their own
+  machine with their own key and ASF credentials. Blocks while the
+  first-release `.gitattributes` review (`release-prepare prep`) is
+  outstanding. For ASF projects with `automated_release_signing: enabled`,
+  emits the tag push that triggers the CI build instead of local
+  sign/stage commands.
 when_to_use: |
   Invoke when a Release Manager says "cut rc1 for <version>", "prepare
   rc<N> for <version>", "tag the release candidate", "stage the RC to
@@ -257,6 +263,30 @@ Any path that includes `dist/release/` is on a hard denylist (when `release_dist
 skill refuses to emit a command that stages to `dist/release/` (`release_dist_backend = svnpubsub`)
 regardless of input. Promotion is `release-promote`'s responsibility.
 
+**Golden rule 6 — the source artefact is an export of the tag, never
+an archive of a working tree.**
+With `source_archive_method: git-archive` (the default) the source
+artefact is `repro-archive build --ref <version>-<rcN>` — `git archive`
+(tracked files at the tag only, `.gitattributes` `export-ignore`
+honoured) with every
+[reproducible-builds.org archive rule](https://reproducible-builds.org/docs/archives/)
+applied (one `SOURCE_DATE_EPOCH` mtime, sorted members, uid/gid 0,
+`a=rX,u+w`, no PAX `atime`/`ctime`, `gzip -n`, `zip -X`). The skill
+never emits `zip -r`, `tar czf <dir>`, or any command that packs a
+working directory; a working tree carries `__pycache__`, editor state
+and untracked files, and no voter can regenerate it. Rationale and the
+rule-by-rule mapping:
+[`docs/release-management/reproducibility.md`](../../../../docs/release-management/reproducibility.md).
+
+**Golden rule 7 — an unreviewed `.gitattributes` blocks the cut.**
+`git archive` reads `export-ignore` from the tree it archives, so the
+first-release review of what ships (`release-prepare prep` Step 2f)
+must have landed *before* the RC tag exists. While
+`export_ignore_reviewed` is unset in `release-build.md` and
+`source_archive_method` is `git-archive`, Step 0 blocks and points at
+`release-prepare prep <version>`; `--allow-unreviewed-archive` is the
+explicit, logged override.
+
 ---
 
 ## Adopter overrides
@@ -295,10 +325,20 @@ non-blocking.
   already exist on the remote; if it does, the skill blocks and the
   RM decides whether to bump RC or delete the existing tag.
 - **`<project-config>/release-build.md` readable** — `build_command`,
-  `expected_artefacts`, `digest_set`, optional `binary_exclude_list`.
+  `expected_artefacts`, `digest_set`, optional `binary_exclude_list`;
+  `§ Source archive` (`source_archive_method`, `source_archive_format`,
+  `source_archive_prefix`, `export_ignore_reviewed`) and
+  `§ Reproducibility checks` (`reproducibility_source`,
+  `reproducibility_binaries`, `binary_rebuild_command`).
 - **`<project-config>/release-management-config.md` readable** —
   `release_dist_backend`, `release_dist_url_template`,
-  optional `release_publish_command_template`.
+  optional `release_publish_command_template`; `§ Signing ›
+  automated_release_signing` (🪶 ASF-specific; read only when
+  `project.md` declares `organization: ASF`).
+- **`.gitattributes` reviewed** — when `source_archive_method` is
+  `git-archive`, `export_ignore_reviewed` is set (the first-release
+  review in `release-prepare prep` Step 2f has landed and is in the
+  tree the tag will point at).
 
 ---
 
@@ -311,6 +351,8 @@ non-blocking.
 | `--planning-issue <url>` | Explicit planning issue URL (auto-detected if omitted) |
 | `--release-branch <branch>` | Override release branch (default from `release_branch_base` in config) |
 | `--remote <name>` | Override the git remote name pointing at the upstream repo (default from `git_upstream_remote` in config, else `origin`) |
+| `--allow-unreviewed-archive` | Cut the RC although `export_ignore_reviewed` is unset; the override is recorded in the Step 4 planning-issue comment |
+| `--skip-repro-check` | Do not emit Step 2b's optional reproducibility self-check (has no effect when `automated_release_signing: enabled`, where the check is mandatory) |
 
 ---
 
@@ -333,8 +375,26 @@ non-blocking.
    (`release_dist_backend`, `release_dist_url_template`) are present.
 7. **Digest set valid.** `digest_set` in `release-build.md` contains at
    least `sha512` and does not contain `md5` or `sha1`.
-8. **Drift check** — see *Snapshot drift* above.
-9. **Override consultation** — see *Adopter overrides* above.
+8. **Source-archive contents reviewed.** When `source_archive_method`
+   is `git-archive` (or unset — that is the default), `release-build.md
+   § Source archive` must set `export_ignore_reviewed`. If it is unset
+   and `--allow-unreviewed-archive` was not passed, block with
+   `archive_reviewed: false` and the remediation *"run
+   `release-prepare prep <version>` — its Step 2f walks you through
+   what ships in the source archive and lands `.gitattributes` in the
+   prep PR"*. With the override, proceed with `archive_reviewed: false`
+   and carry the override into Step 4. With `source_archive_method:
+   custom` the check does not apply (`archive_reviewed: true`).
+9. **Signing mode consistent** (🪶 ASF-specific). When
+   `automated_release_signing` is `enabled`, `project.md` must declare
+   `organization: ASF`, `reproducibility_source` must be `on`, and
+   `reproducibility_binaries` must be `byte-identical` for every
+   convenience binary in `expected_artefacts` — the policy conditions in
+   [Infra § Automated release signing](https://infra.apache.org/release-signing.html#automated-release-signing).
+   Any other combination blocks. For a non-ASF project the key is
+   ignored and never mentioned.
+10. **Drift check** — see *Snapshot drift* above.
+11. **Override consultation** — see *Adopter overrides* above.
 
 If any check fails (and is not overridable), stop and surface what is
 missing with the exact key name or API path that failed.
@@ -346,11 +406,15 @@ Return ONLY valid JSON with this structure:
   "verdict": "proceed" | "blocked",
   "blockers": ["<string describing each hard blocker>"],
   "rc_tag_exists": true | false,
-  "prep_pr_merged": true | false
+  "prep_pr_merged": true | false,
+  "archive_reviewed": true | false
 }
 ```
 
 `verdict` is `"proceed"` only when all hard blockers resolve.
+`archive_reviewed` is `true` when `export_ignore_reviewed` is set or the
+check does not apply; `false` when the review is outstanding (blocked,
+or overridden with `--allow-unreviewed-archive`).
 
 ---
 
@@ -370,6 +434,12 @@ Read the following from `<project-config>/release-build.md` and
 | `signing_key_fingerprint` | user.md or `release-management-config.md` | `rm_key_fingerprint` |
 | `release_branch` | `release-management-config.md` | `release_branch_base` (or `--release-branch` override) |
 | `git_upstream_remote` | `release-management-config.md` | `git_upstream_remote` — git remote name pointing at the upstream repo (default `origin`, or `--remote` override) |
+| `source_archive_method` | `release-build.md § Source archive` | `git-archive` (default) or `custom` |
+| `source_archive_format` | `release-build.md § Source archive` | `tar.gz` or `zip` |
+| `source_archive_prefix` | `release-build.md § Source archive` | top-level directory inside the archive, rendered with `<version>` |
+| `reproducibility_source` | `release-build.md § Reproducibility checks` | `on` (default with `git-archive`) or `off` |
+| `reproducibility_binaries` | `release-build.md § Reproducibility checks` | `off` (default), `byte-identical`, `documented-divergence`; with `binary_rebuild_command` |
+| `signing_mode` | `release-management-config.md § Signing` | `rm-key` (default) or `ci-automated` when `automated_release_signing: enabled` **and** `project.md` → `organization: ASF`; non-ASF projects always resolve to `rm-key` |
 
 Surface the loaded configuration to the RM for confirmation before
 proceeding to Step 2.
@@ -388,7 +458,13 @@ Return ONLY valid JSON with this structure:
   "staging_url": "<URL>",
   "signing_key_fingerprint": "<fingerprint or empty string>",
   "release_branch": "<branch>",
-  "git_upstream_remote": "<remote>"
+  "git_upstream_remote": "<remote>",
+  "source_archive_method": "git-archive" | "custom",
+  "source_archive_format": "tar.gz" | "zip",
+  "source_archive_prefix": "<prefix>",
+  "reproducibility_source": "on" | "off",
+  "reproducibility_binaries": "off" | "byte-identical" | "documented-divergence",
+  "signing_mode": "rm-key" | "ci-automated"
 }
 ```
 
@@ -414,15 +490,51 @@ git push <git-upstream-remote> <version>-<rcN>
 
 **Section 2 — Build command.**
 
-The exact `build_command` from `release-build.md`, emitted verbatim (run at
-the tag). First **gitignore the RC artefacts** (`<artefact>` + `.asc`/`.sha512`,
+First **gitignore the RC artefacts** (`<artefact>` + `.asc`/`.sha512`,
 e.g. a committed glob like `*-source.zip*`) so a stray `git add` never commits
-an RC build:
+an RC build. Then, depending on `source_archive_method`:
+
+*`git-archive` (default).* The source artefact is exported from the tag
+with the framework's
+[`reproducible-archive`](../../../../tools/reproducible-archive/README.md)
+tool (`<framework>` is `.apache-magpie` in an adopting project, `.` in
+the framework checkout; `python3 <framework>/tools/reproducible-archive/src/reproducible_archive/__init__.py`
+is the no-`uv` equivalent). It packs only tracked files at the tag,
+honours `.gitattributes` `export-ignore`, and applies every
+reproducible-builds.org archive rule, so the bytes are a function of
+the tag alone. It prints the commit, the `SOURCE_DATE_EPOCH` it used
+(the tag's committer timestamp) and the sha512 — the RM pastes all
+three back for the Step 4 comment. `build_command` (if any) follows,
+for convenience binaries only, with the same `SOURCE_DATE_EPOCH`
+exported so embedded timestamps are fixed:
 
 ```text
 # Run at the release tag <version>-<rcN>
+uv run --project <framework>/tools/reproducible-archive repro-archive build \
+  --ref "<version>-<rcN>" --format <source_archive_format> \
+  --prefix "<source_archive_prefix>" \
+  -o "<source-artefact-filename>"
+# → prints: commit <sha>, SOURCE_DATE_EPOCH <epoch>, sha512 <digest>
+
+# Convenience binaries (only when build_command is set):
+export SOURCE_DATE_EPOCH="$(uv run --project <framework>/tools/reproducible-archive repro-archive epoch --ref "<version>-<rcN>")"
 <build_command>
 ```
+
+`<source-artefact-filename>` is the canonical source artefact from
+`expected_artefacts`; its extension must match `source_archive_format`.
+
+*`custom`.* The exact `build_command` from `release-build.md`, emitted
+verbatim (run at the tag), with `SOURCE_DATE_EPOCH` exported first:
+
+```text
+# Run at the release tag <version>-<rcN>
+export SOURCE_DATE_EPOCH="$(git log -1 --format=%ct "<version>-<rcN>")"
+<build_command>
+```
+
+Under either method, never emit `zip -r`, `tar czf <directory>` or any
+other command that packs a working directory (Golden rule 6).
 
 **Section 3 — Sign commands.**
 
@@ -466,9 +578,144 @@ Return ONLY valid JSON with this structure:
 or `sha1` digest command was emitted. `proposed` is always `true` at the
 point this JSON is returned — the RM has not yet confirmed execution.
 
+When `signing_mode` is `ci-automated`, Sections 3 and 4 are **not**
+emitted (CI signs and checksums); return them as empty lists and
+continue with Step 2c instead of Step 3.
+
+---
+
+## Step 2b — Emit reproducibility self-check commands (optional)
+
+Skipped when `reproducibility_source` is `off` **and**
+`reproducibility_binaries` is `off`, or when `--skip-repro-check` was
+passed and `signing_mode` is `rm-key`. Mandatory (the flag is ignored)
+when `signing_mode` is `ci-automated`. Run **after** the build and
+**before** signing: a non-reproducible build found here costs a rebuild,
+found by a voter it costs an RC.
+
+**Source (`reproducibility_source: on`).** Lint the artefact against
+the reproducible-builds.org checklist, rebuild it into a scratch
+directory from the same tag, and compare:
+
+```text
+# 1. every archive rule holds (single SOURCE_DATE_EPOCH mtime, sorted, uid/gid 0, a=rX,u+w, no PAX atime/ctime, gzip -n / zip -X)
+uv run --project <framework>/tools/reproducible-archive repro-archive check \
+  "<source-artefact-filename>" --epoch "<SOURCE_DATE_EPOCH>"
+# 2. rebuild from the tag and require byte-identical output
+mkdir -p rebuild
+uv run --project <framework>/tools/reproducible-archive repro-archive build \
+  --ref "<version>-<rcN>" --format <source_archive_format> \
+  --prefix "<source_archive_prefix>" -o "rebuild/<source-artefact-filename>"
+uv run --project <framework>/tools/reproducible-archive repro-archive compare --require-identical \
+  "<source-artefact-filename>" "rebuild/<source-artefact-filename>"
+```
+
+With `source_archive_method: custom` the `check` still runs (it lints
+any `.tar`, `.tar.gz` or `.zip`); the rebuild step re-runs
+`build_command` into `rebuild/` and compares with
+`repro-archive compare`. `content-identical` is then a warning to
+switch the build to `repro-archive build` or `repro-archive recipe`;
+`differs` is a stop.
+
+**Binaries.** `reproducibility_binaries: byte-identical` — re-run
+`binary_rebuild_command` into `rebuild/` under the same
+`SOURCE_DATE_EPOCH` and compare digests:
+
+```text
+export SOURCE_DATE_EPOCH="<SOURCE_DATE_EPOCH>"
+( cd rebuild && <binary_rebuild_command> )
+for a in <binary-artefact-1> <binary-artefact-2>; do
+  cmp "$a" "rebuild/$a" && echo "identical: $a" || echo "DIFFERS: $a"
+done
+```
+
+`documented-divergence` — the same rebuild, then
+`<binary_verification_command>` per artefact (for example `diffoscope
+<artefact> rebuild/<artefact>`); any difference not listed under
+`known_divergences` in `release-build.md` is a stop, listed ones are
+reported. `off` — state `SKIP` explicitly.
+
+The RM runs the block and reports the outcome. Any `differs` /
+`DIFFERS` stops the cut: the RM fixes the build (or documents the
+divergence) and rebuilds before signing anything.
+
+Return ONLY valid JSON with this structure:
+
+```json
+{
+  "source_check_enabled": true | false,
+  "binary_check_mode": "off" | "byte-identical" | "documented-divergence",
+  "mandatory": true | false,
+  "source_check_commands": ["<repro-archive check …>", "<repro-archive build … rebuild/…>", "<repro-archive compare --require-identical …>"],
+  "binary_check_commands": ["<command>"],
+  "stop_on": ["differs", "DIFFERS"],
+  "proposed": true
+}
+```
+
+`mandatory` is `true` only when `signing_mode` is `ci-automated`.
+`source_check_commands` is empty when `source_check_enabled` is
+`false`; `binary_check_commands` is empty when `binary_check_mode` is
+`off`. `stop_on` always lists the verdicts that halt the cut.
+`proposed` is always `true`.
+
+---
+
+## Step 2c — CI-signed flow (🪶 ASF-specific, `signing_mode: ci-automated`)
+
+Only for a project whose `project.md` declares `organization: ASF` and
+whose `release-management-config.md` sets `automated_release_signing:
+enabled` after the one-time setup in `release-prepare automated-signing`
+(Infra-provisioned key, Security Team approval, workflow merged). For
+every other project this step does not exist and is never mentioned.
+
+Under
+[Infra § Automated release signing](https://infra.apache.org/release-signing.html#automated-release-signing)
+CI builds, signs and **stages** the artefacts; a committer re-validates
+them bit-by-bit on trusted hardware before anything is published. The
+RM still signs the **tag** with their own key (Section 1). Instead of
+Sections 3–4 and Step 3, emit:
+
+```text
+# 1. Push the signed tag — this triggers <ci_release_workflow>
+git push <git-upstream-remote> <version>-<rcN>
+# 2. Watch the run; it builds reproducibly (repro-archive), self-compares,
+#    checksums, and uploads to ATR (OIDC trusted publishing). It publishes nothing.
+gh run list --repo <upstream> --workflow <ci_release_workflow> --branch <version>-<rcN>
+gh run watch --repo <upstream> <run-id>
+# 3. Confirm the staged candidate and its checks in ATR
+atr check status <project> <version> --verbose
+# 4. Record the run URL and the SOURCE_DATE_EPOCH from the run log for Step 4
+```
+
+Then hand off: *"Before this RC can be promoted, a committer must run
+`release-verify-rc <version>-<rcN>` on their own hardware; its Step 9
+rebuilds every artefact and requires `identical`. `release-promote`
+refuses to promote without that attestation on the planning issue."*
+
+Return ONLY valid JSON with this structure:
+
+```json
+{
+  "signing_mode": "ci-automated",
+  "organization": "ASF",
+  "ci_release_workflow": "<path>",
+  "trigger_commands": ["git push <remote> <version>-<rcN>", "gh run list …", "gh run watch …"],
+  "local_sign_commands_omitted": true,
+  "trusted_hardware_validation_required": true,
+  "proposed": true
+}
+```
+
+`local_sign_commands_omitted` and `trusted_hardware_validation_required`
+are always `true` in this mode.
+
 ---
 
 ## Step 3 — Emit staging commands
+
+Skipped when `signing_mode` is `ci-automated` (CI stages; Step 2c
+recorded the run). Otherwise:
 
 Compose the backend-shaped staging command sequence based on
 `release_dist_backend`.
@@ -582,6 +829,14 @@ The comment must include:
 - The staging URL (where verifiers can download artefacts).
 - The expected artefact list with filenames (not yet public checksums —
   those are confirmed once the RM has run the commands).
+- **Reproducibility record** — the source commit hash, the
+  `SOURCE_DATE_EPOCH` and the sha512 that `repro-archive build`
+  printed, the `source_archive_format` and `source_archive_prefix`, and
+  the outcome of Step 2b (or `skipped`). A voter needs the first two to
+  rebuild in `release-verify-rc` Step 9 and the third to compare. Under
+  `ci-automated` also the workflow run URL.
+- If `--allow-unreviewed-archive` was used: a line saying the source
+  archive contents were **not** reviewed and why.
 - The proposed next label: `rc-staging`.
 
 Present the proposed comment to the RM. Ask for confirmation before
@@ -612,14 +867,22 @@ The AI-driven part ends with a hand-back artefact containing:
 
 - **RC identifier** — `<version>-<rcN>`.
 - **Tag command** — the `git tag -s` + `git push` sequence to copy and run.
-- **Build command** — the `build_command` to run after the tag.
-- **Sign commands** — one `gpg --detach-sign --armor` per expected artefact.
+- **Build command** — `repro-archive build` for the source artefact
+  (or `build_command` under `custom`), plus `build_command` for any
+  convenience binaries under `SOURCE_DATE_EPOCH`.
+- **Reproducibility self-check** — Step 2b's `check` / rebuild /
+  `compare` block, or the explicit reason it was skipped.
+- **Sign commands** — one `gpg --detach-sign --armor` per expected artefact
+  (omitted under `ci-automated`, where Step 2c's tag push replaces them).
 - **Checksum commands** — sha512 (and sha256 where configured) per artefact.
 - **Staging commands** — backend-shaped `svn import` / `gh release` / `aws s3 cp`.
-- **Planning-issue comment** — the proposed comment body (pending RM confirmation).
+- **Planning-issue comment** — the proposed comment body (pending RM
+  confirmation), including the reproducibility record.
 - **Next step** — run `release-verify-rc <version>-<rcN>` against the
-  staging URL to verify signatures, checksums, license headers, and
-  artefact completeness before opening the `[VOTE]` thread.
+  staging URL to verify signatures, checksums, license headers,
+  artefact completeness and reproducibility before opening the `[VOTE]`
+  thread. Under `ci-automated` that run is the policy-required
+  validation on trusted hardware and must report `identical`.
 
 ---
 
@@ -637,6 +900,18 @@ The AI-driven part ends with a hand-back artefact containing:
   RC tag already exists.
 - **Never invent artefact names.** All artefact filenames must come from
   `<project-config>/release-build.md`; do not derive or guess.
+- **Never pack a working tree.** No `zip -r`, no `tar czf <dir>`; the
+  source artefact is `repro-archive build` at the tag (or the adopter's
+  `custom` build command), never an archive of the checkout.
+- **Never cut past an unreviewed `.gitattributes` silently.** Block, or
+  proceed only on `--allow-unreviewed-archive` and say so in the Step 4
+  comment.
+- **Never offer automated release signing to a non-ASF project**, and
+  never emit the CI-signed flow unless `automated_release_signing` is
+  `enabled` *and* the reproducibility conditions in Step 0 check 9 hold.
+- **Never add key material or a signing step to the CI workflow.** The
+  agent holds neither the RM's key nor the CI key; the workflow template
+  contains no `gpg` invocation.
 
 ---
 
@@ -650,6 +925,11 @@ The AI-driven part ends with a hand-back artefact containing:
 | Staging command uses `dist/release/` (`release_dist_backend = svnpubsub`) | Config error in `release_dist_url_template` | Correct the template; staging target must be `dist/dev/` |
 | `release-build.md` missing or incomplete | Adopter has not filled out the template | Complete `<project-config>/release-build.md` before running this skill |
 | `signing_key_fingerprint` empty | `rm_key_fingerprint` not set in user.md or config | Add `rm_key_fingerprint` to user.md (preferred) or `release-management-config.md` |
+| Pre-flight blocked — `archive_reviewed: false` | `export_ignore_reviewed` unset in `release-build.md § Source archive` | Run `release-prepare prep <version>`; its Step 2f reviews what ships and lands `.gitattributes` in the prep PR. `--allow-unreviewed-archive` is the logged override |
+| Pre-flight blocked — signing mode inconsistent | `automated_release_signing: enabled` without `organization: ASF`, or without `reproducibility_source: on` / `reproducibility_binaries: byte-identical` | Set `automated_release_signing: off` (or `requested`) until the conditions hold; see `release-prepare automated-signing` |
+| Step 2b `compare` → `content-identical` | Source artefact built with a plain `git archive` or another tool version, not `repro-archive build` | Rebuild with `repro-archive build` (or `repro-archive recipe`); under `ci-automated` this is a stop |
+| Step 2b `compare` → `differs` | The artefact is not the tagged tree (built from a dirty checkout, wrong ref, or a non-deterministic `custom` build) | Rebuild at the tag from a clean checkout; fix the build; do not sign |
+| Step 2b binary `DIFFERS` | Build embeds timestamps, paths or a non-pinned toolchain | Honour `SOURCE_DATE_EPOCH`, pin the toolchain, `ARFLAGS=Dcvr`; or switch to `documented-divergence` and list the divergence in `release-build.md` |
 
 ---
 
@@ -661,7 +941,17 @@ The AI-driven part ends with a hand-back artefact containing:
   `release-rc-cut` per-skill specification.
 - [`<project-config>/release-build.md`](../../../../projects/_template/release-build.md) —
   adopter keys this skill reads (`build_command`, `expected_artefacts`,
-  `digest_set`, `binary_exclude_list`).
+  `digest_set`, `binary_exclude_list`, `source_archive_*`,
+  `export_ignore_reviewed`, `reproducibility_*`).
+- [`docs/release-management/reproducibility.md`](../../../../docs/release-management/reproducibility.md) —
+  the source-archive contract, the reproducible-builds.org rule mapping,
+  the reproducibility checks, and the ASF automated-signing option.
+- [`tools/reproducible-archive`](../../../../tools/reproducible-archive/README.md) —
+  `repro-archive build` / `check` / `compare` / `recipe` / `epoch`.
+- [reproducible-builds.org § Archive metadata](https://reproducible-builds.org/docs/archives/) —
+  the archive rules the source artefact satisfies.
+- [Infra § Automated release signing](https://infra.apache.org/release-signing.html#automated-release-signing) —
+  🪶 ASF-specific policy behind Step 2c.
 - [`<project-config>/release-management-config.md`](../../../../projects/_template/release-management-config.md) —
   adopter keys this skill reads (`release_dist_backend`,
   `release_dist_url_template`, `release_publish_command_template`,

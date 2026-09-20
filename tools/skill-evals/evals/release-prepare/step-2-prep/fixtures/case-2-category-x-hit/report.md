@@ -18,3 +18,7 @@ Dependency scan of setup.cfg found:
   the denylist.
 
 Do not open a prep PR. Surface the Category-X violation to the RM.
+
+release-build.md § Source archive: source_archive_method default (tag export),
+  export_ignore_reviewed: 2.10.0 (review done). Drift check: no new top-level
+  paths since 2.10.3 — the source-archive review is not due.

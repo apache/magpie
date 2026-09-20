@@ -23,3 +23,7 @@ Changelog: 12 PRs, all categorised by label (3 features, 4 bug-fixes,
   2 documentation, 3 chore/improvement). Coverage: 100%.
 
 Draft the prep PR. Propose it to the RM — do not open the PR yet.
+
+release-build.md § Source archive: source_archive_method default (tag export),
+  export_ignore_reviewed: 2.10.0 (review done). Drift check: no new top-level
+  paths since 2.10.3 — the source-archive review is not due.

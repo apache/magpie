@@ -342,8 +342,21 @@ non-blocking.
    the roster. If the RM is a committer but not a PMC member, set
    `rm_is_pmc = false`; the skill continues to emit non-command outputs but
    replaces the svn command set with a hand-off note.
-6. **Drift check** — see *Snapshot drift* above.
-7. **Override consultation** — see *Adopter overrides* above.
+6. **Trusted-hardware validation recorded** (🪶 ASF-specific; only when
+   `release-management-config.md` sets `automated_release_signing:
+   enabled` under `organization: ASF`). The planning issue must carry a
+   `release-verify-rc` comment with the **Reproducibility validated on
+   trusted hardware** attestation for *this* `<version>-rc<N>` (every
+   artefact `identical`, `--trusted-hardware` asserted by the committer).
+   Absent → hard blocker: *"automated release signing requires every
+   artefact to be rebuilt bit-by-bit identical on trusted hardware before
+   publication ([Infra § Automated release signing](https://infra.apache.org/release-signing.html#automated-release-signing));
+   run `release-verify-rc <version>-rc<N> --trusted-hardware --post-to
+   <planning-issue>` on your own machine first"*. Not applicable (and
+   never mentioned) when the key is `off`, `requested`, or the project
+   is not ASF.
+7. **Drift check** — see *Snapshot drift* above.
+8. **Override consultation** — see *Adopter overrides* above.
 
 If any check fails (except the PMC gate, which downgrades to hand-off),
 stop and surface what is missing.

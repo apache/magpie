@@ -14,6 +14,7 @@ The model must return ONLY valid JSON matching this schema (clean path):
   "category_x_hit": false,
   "notice_removal_unjustified": false,
   "changelog_coverage_pct": <integer 0-100>,
+  "archive_review": "proposed" | "confirmed-existing" | "skipped",
   "proposed": true
 }
 ```
@@ -51,3 +52,11 @@ Grading rules:
   at minimum.
 - `scope_violations` must be an empty array when no out-of-scope files
   are proposed.
+- `archive_review` is `"proposed"` when Step 2e proposed `.gitattributes`
+  `export-ignore` entries (then `.gitattributes` must appear in
+  `files_in_scope` and the PR body must describe the entries and the
+  `export_ignore_reviewed` marker), `"confirmed-existing"` when the RM
+  confirmed the existing entries unchanged, and `"skipped"` when the
+  report states the review was already done and no top-level paths
+  drifted, or `source_archive_method` is `custom`.
+- `.gitattributes` in `files_in_scope` is never a scope violation.

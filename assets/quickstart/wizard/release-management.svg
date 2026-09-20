@@ -42,7 +42,7 @@
     <text x="26" y="272" fill="#c5c8c6" opacity="0">      pmc-roster.md<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.1836;0.1846;1" dur="8.3s" repeatCount="indefinite"/></text>
     <text x="26" y="296" fill="#8a8f94" opacity="0">          Who is binding<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.2295;0.2305;1" dur="8.3s" repeatCount="indefinite"/></text>
     <text x="26" y="320" fill="#c5c8c6" opacity="0">      release-build.md<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.2754;0.2764;1" dur="8.3s" repeatCount="indefinite"/></text>
-    <text x="26" y="344" fill="#8a8f94" opacity="0">          How this project builds and signs artefacts: build…<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.3213;0.3223;1" dur="8.3s" repeatCount="indefinite"/></text>
+    <text x="26" y="344" fill="#8a8f94" opacity="0">          How this project builds and signs artefacts:…<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.3213;0.3223;1" dur="8.3s" repeatCount="indefinite"/></text>
     <text x="26" y="368" fill="#c5c8c6" opacity="0">      release-management-config.md<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.3671;0.3681;1" dur="8.3s" repeatCount="indefinite"/></text>
     <text x="26" y="392" fill="#8a8f94" opacity="0">          Vote window and pass rule, distribution backend and…<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.4130;0.4140;1" dur="8.3s" repeatCount="indefinite"/></text>
     <text x="26" y="416" fill="#c5c8c6" opacity="0">      release-trains.md<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.4589;0.4599;1" dur="8.3s" repeatCount="indefinite"/></text>

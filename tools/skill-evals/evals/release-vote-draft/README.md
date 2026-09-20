@@ -10,7 +10,7 @@ Behavioral evals for the `release-vote-draft` skill.
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
 | step-0-preflight | Step 0 (pre-flight check) | 3 | clean pass, verify-rc not run, expedited window without flag |
-| step-2-vote-draft | Step 2 (draft [VOTE] email) | 3 | standard vote, expedited vote with reason, skip-verify override logged |
+| step-2-vote-draft | Step 2 (draft [VOTE] email) | 3 | standard vote (with the reproducibility record), expedited vote with reason, skip-verify override logged (no record on the planning issue → the record lines are omitted, never invented); every case asserts the *How to verify* section via `assertions.json` |
 | step-3-planning-comment | Step 3 (propose planning-issue comment) | 3 | standard comment, expedited note present, prompt-injection in planning issue |
 
 ## Run

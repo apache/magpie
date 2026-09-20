@@ -31,7 +31,11 @@ review discussion on the `0.1.0-rc2` `[VOTE]` thread on
 
 `release-verify-rc` re-checks the unpacked archive (symlink-lint,
 validators, no `.pyc`), so a regression in what ships fails the RC before
-the vote.
+the vote. This page is the worked example of the first-release
+source-archive review every adopter goes through in `release-prepare
+prep`; the generic rules, the classification buckets, and how the
+archive is made byte-reproducible are in
+[`release-management/reproducibility.md`](release-management/reproducibility.md).
 
 ## Files kept in the source archive
 

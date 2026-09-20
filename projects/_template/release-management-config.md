@@ -10,6 +10,7 @@
   - [Backends](#backends)
   - [Distribution URLs](#distribution-urls)
   - [Signing](#signing)
+    - [Automated release signing (🪶 ASF-specific, optional)](#automated-release-signing--asf-specific-optional)
   - [Vote](#vote)
     - [Approval, non-list variants](#approval-non-list-variants)
   - [Announce](#announce)
@@ -171,6 +172,34 @@ appears in `KEYS` (or draft a `KEYS` diff to add it via
 See
 [spec § Boundary 1](../../docs/release-management/spec.md#boundary-1-agent-never-holds-the-rms-signing-key).
 
+### Automated release signing (🪶 ASF-specific, optional)
+
+Offered only when `project.md` declares `organization: ASF`; the
+skills do not mention it to other adopters. Under
+[release-signing § Automated release signing](https://infra.apache.org/release-signing.html#automated-release-signing)
+an ASF project may let CI (GitHub Actions) sign the artefacts it
+builds with an **Infra-provisioned key** (4096-bit RSA, signing-only,
+private half never leaves infra-root) *provided that* every signed
+artefact is built reproducibly, CI deploys only to a staging area, and
+the release process re-validates every artefact **bit-by-bit
+identical on trusted hardware** before publication. The Apache
+Security Team must approve the workflow before use, and the key is
+requested through an Infra Jira ticket. `release-prepare
+automated-signing` walks the RM through that one-time setup (drafts
+only; nothing is filed or sent by the agent).
+
+| Key | Value | Allowed values |
+|---|---|---|
+| `automated_release_signing` | `off` | `off` (default; the RM signs locally), `requested` (Infra ticket open, workflow not yet approved — skills keep the local-signing flow), `enabled` (CI signs; `release-rc-cut` emits the tag push that triggers the workflow instead of local sign/stage commands, `release-verify-rc` Step 9 becomes mandatory with `--require-identical`, `release-promote` blocks without the recorded trusted-hardware validation) |
+| `ci_signing_key_fingerprint` | *(unset)* | fingerprint of the Infra-provisioned public key, once it is in `KEYS` |
+| `ci_release_workflow` | `.github/workflows/release-candidate.yml` | the workflow that builds, uploads to ATR (OIDC trusted publishing) and stages; template at [`projects/_template/workflows/release-candidate.yml`](workflows/release-candidate.yml) |
+| `ci_signing_infra_ticket` | *(unset)* | the `INFRA-` Jira ticket that provisioned the key, for the audit log |
+
+The agent boundary is unchanged: it holds neither the RM's key nor
+the CI key, and the RM still signs the **tag** with their own key. The
+`[VOTE]` is still cast on the source artefact rebuilt and compared on
+a committer's own hardware.
+
 ## Vote
 
 Applies when `release_approval_mechanism = dev-list-vote`. Other
@@ -187,6 +216,21 @@ variants* below).
 | `vote_subject_template` | `[VOTE] Release <Product Name> <version> from <version>-rcN` |
 | `result_subject_template` | `[RESULT] [VOTE] Release <Product Name> <version> from <version>-rcN` |
 | `release_approver_roster_path` | `<project-config>/pmc-roster.md` *(ASF default); non-ASF: e.g. `<project-config>/release-approvers.md`)* |
+| `vote_verification_doc_url` | `https://github.com/<upstream>/blob/<version>-rcN/docs/verifying-a-release-candidate.md` — the human-readable "how to verify this RC" page; `<version>-rcN` is rendered so voters read the page at the tree under vote |
+| `reproducibility_doc_url` | `https://github.com/<upstream>/blob/<version>-rcN/.apache-magpie/docs/release-management/reproducibility.md` — or the framework copy on `apache/magpie` |
+| `vote_verification_skill` | `magpie-release-management:verify-rc` — the agentic one-liner the `[VOTE]` body offers voters |
+
+Every `[VOTE]` body `release-vote-draft` produces carries a *How to
+verify this candidate* section: the reproducibility record
+(commit, `SOURCE_DATE_EPOCH`, sha512), the agentic one-liner
+(`/<vote_verification_skill> <version>-rcN`), the two pages above,
+the ATR candidate page when ATR runs the vote, and the voter-obligation
+sentence from
+[`release-policy.html § release approval`](https://www.apache.org/legal/release-policy.html#release-approval).
+Point `vote_verification_doc_url` at a page that walks a PMC member
+through fetch, signature, checksum, unpack, rebuild-and-compare, RAT and
+build-and-test — the framework's own is
+[`docs/release-management/manual-release-process.md` § Manual verification](../../docs/release-management/manual-release-process.md#manual-verification--what-a-voter-runs-before-1).
 
 The configured `vote_window_hours` is a floor per
 [`release-policy.html § release approval`](https://www.apache.org/legal/release-policy.html#release-approval).

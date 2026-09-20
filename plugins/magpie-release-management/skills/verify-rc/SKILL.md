@@ -14,10 +14,15 @@ description: |
   checksums), Apache RAT licence headers, NOTICE/LICENSE completeness,
   prohibited-binary absence (including `.pyc` / `__pycache__`),
   source-tree integrity (no dangling symlinks or broken internal
-  references), and version-string consistency. Emits a
-  structured PASS / PASS-WITH-WARNINGS / FAIL report. Makes no state
-  change; a `--post-to <planning-issue>` flag proposes a comment for
-  explicit RM confirmation before any posting.
+  references), version-string consistency, and — optionally, per
+  `release-build.md § Reproducibility checks` — reproducibility: the
+  source archive is rebuilt from the tag with `repro-archive` and
+  compared byte-for-byte with the staged artefact, and convenience
+  binaries are rebuilt and compared (mandatory for ASF projects with
+  automated release signing, as the policy's validation on trusted
+  hardware). Emits a structured PASS / PASS-WITH-WARNINGS / FAIL report.
+  Makes no state change; a `--post-to <planning-issue>` flag proposes a
+  comment for explicit RM confirmation before any posting.
 when_to_use: |
   Invoke when a Release Manager or voter says "verify rc N for
   <version>", "run pre-flight on <version>-rcN", "check the RC
@@ -25,7 +30,7 @@ when_to_use: |
   pre-flight phase — before the `[VOTE]` thread is opened (RM's
   self-check) or during the vote window (any voter's dev loop). Can be
   run standalone with no other release-* skill in the session.
-argument-hint: "<version>-rcN [--post-to <planning-issue-url>]"
+argument-hint: "<version>-rcN [--post-to <planning-issue-url>] [--skip-repro] [--trusted-hardware]"
 capability: capability:triage
 license: Apache-2.0
 ---
@@ -287,10 +292,15 @@ non-blocking.
   `version_manifest_files`.
 - **`<project-config>/release-build.md` readable** — expected
   artefact list, digest set, binary-exclude list, RAT configuration
-  path.
+  path; `§ Source archive` and `§ Reproducibility checks` for Step 9
+  (both optional — absent keys mean the defaults `git-archive` /
+  `reproducibility_source: on` / `reproducibility_binaries: off`).
 - **Network reachable** — the staging URL and the `KEYS` file URL
   must be fetchable. If either is unreachable, the skill stops at
   the inventory step and reports `FAIL` with the URL that failed.
+- **A clone of `<upstream>` reachable** for Step 9 — the resolved
+  `user.md` local clone path, or a fresh `git clone` the recipe emits.
+  The rebuild happens in the voter's checkout, on the voter's machine.
 
 ---
 
@@ -300,6 +310,8 @@ non-blocking.
 |---|---|
 | `<version>-rcN` (positional) | RC identifier to verify (e.g. `2.11.0-rc1`) |
 | `--post-to <url>` | Planning issue URL; if present, draft a comment for RM confirmation (never auto-posts) |
+| `--skip-repro` | Skip Step 9 even when `reproducibility_source` is `on`; ignored (Step 9 stays mandatory) when the project has `automated_release_signing: enabled` |
+| `--trusted-hardware` | The committer asserts this run executes on hardware they control, not on CI. 🪶 ASF-specific: required for the trusted-hardware attestation the `--post-to` comment carries under `automated_release_signing: enabled`; the skill can state the assertion, never make it |
 
 ---
 
@@ -740,7 +752,118 @@ Return ONLY valid JSON with this structure:
 
 ---
 
-## Step 9 — Hand-back verification report
+## Step 9 — Reproducibility checks (optional)
+
+Confirm the staged artefacts are a function of the tag alone. Read
+`release-build.md § Source archive` and `§ Reproducibility checks`,
+and the reproducibility record `release-rc-cut` left on the planning
+issue (source commit, `SOURCE_DATE_EPOCH`, sha512, format, prefix).
+Background and the rule-by-rule mapping:
+[`docs/release-management/reproducibility.md`](../../../../docs/release-management/reproducibility.md).
+
+**When it runs.** `reproducibility_source: on` (the default with
+`source_archive_method: git-archive`) or `reproducibility_binaries`
+not `off`. `--skip-repro` skips it and the report says so. 🪶
+ASF-specific: when `release-management-config.md` sets
+`automated_release_signing: enabled` (only meaningful under
+`organization: ASF`) the step is **mandatory** and `--skip-repro` is
+ignored — this run *is* the validation on trusted hardware that
+[Infra § Automated release signing](https://infra.apache.org/release-signing.html#automated-release-signing)
+requires before publication, and the bar is byte-identical.
+
+**Source.** Emit the paste-ready recipe (`<framework>` is
+`.apache-magpie` in an adopting project, `.` in the framework checkout;
+`python3 <framework>/tools/reproducible-archive/src/reproducible_archive/__init__.py`
+works without `uv`):
+
+```bash
+# 1. The tag resolves to the commit recorded on the planning issue
+git -C <upstream-clone> fetch --tags <remote>
+git -C <upstream-clone> rev-parse "<rc-tag>^{commit}"          # expect: <recorded commit>
+git -C <upstream-clone> tag -v "<rc-tag>"                       # signed tag verifies against KEYS
+
+# 2. The staged archive satisfies every reproducible-builds.org rule
+uv run --project <framework>/tools/reproducible-archive repro-archive check \
+  "<staged-source-artefact>" --epoch "<recorded SOURCE_DATE_EPOCH>"
+
+# 3. Rebuild from the tag with the recorded epoch, prefix and format, then compare
+uv run --project <framework>/tools/reproducible-archive repro-archive build \
+  --repo <upstream-clone> --ref "<rc-tag>" --format <source_archive_format> \
+  --prefix "<source_archive_prefix>" --epoch "<recorded SOURCE_DATE_EPOCH>" \
+  -o rebuilt/<source-artefact-filename>
+uv run --project <framework>/tools/reproducible-archive repro-archive compare \
+  "<staged-source-artefact>" rebuilt/<source-artefact-filename>   # add --require-identical under automated signing
+```
+
+With `source_archive_method: custom`, step 3 re-runs the adopter's
+`build_command` at the tag under the recorded `SOURCE_DATE_EPOCH` and
+compares its output the same way.
+
+Classify the source result:
+
+| `compare` verdict | RM-key mode | `automated_release_signing: enabled` |
+|---|---|---|
+| `identical` | `PASS` | `PASS` |
+| `content-identical` (same members and bytes, archive metadata differs) | `WARN` — the RM did not build with `repro-archive build`; note the metadata differences | `FAIL` — the policy requires bit-by-bit identity |
+| `differs` (members added / removed / changed) | `FAIL` — the artefact is not the tagged tree | `FAIL` |
+| tag commit ≠ recorded commit | `FAIL` — the tag moved | `FAIL` |
+| `check` reports a rule `FAIL` | `WARN`, listed | `FAIL` |
+
+**Binaries.** `byte-identical`: rebuild under the recorded
+`SOURCE_DATE_EPOCH` with `binary_rebuild_command` and compare each
+artefact with `cmp`; any difference is `FAIL`. `documented-divergence`:
+rebuild, run `binary_verification_command` per artefact, and classify
+differences listed under `known_divergences` as `WARN` (listed) and any
+other difference as `FAIL`. `off`: `SKIP`, stated explicitly.
+
+```bash
+export SOURCE_DATE_EPOCH="<recorded SOURCE_DATE_EPOCH>"
+git -C <upstream-clone> checkout "<rc-tag>"
+( cd <upstream-clone> && <binary_rebuild_command> )
+for a in <binary-artefact-1> <binary-artefact-2>; do
+  cmp "<staged-dir>/$a" "<upstream-clone>/<build-output>/$a" && echo "identical: $a" || echo "DIFFERS: $a"
+done
+```
+
+Do not post-filter any output; the voter sees every difference. Never
+report a verdict the commands did not produce.
+
+Return ONLY valid JSON with this structure:
+
+```json
+{
+  "step": "reproducibility",
+  "status": "PASS" | "WARN" | "FAIL" | "SKIP",
+  "mandatory": true | false,
+  "source": {
+    "enabled": true | false,
+    "verdict": "identical" | "content-identical" | "differs" | "tag-moved" | null,
+    "recorded_commit": "<sha or null>",
+    "source_date_epoch": <integer or null>,
+    "rule_failures": ["<check name>"],
+    "metadata_differences": ["<string>"],
+    "content_differences": ["<added/removed/changed path>"]
+  },
+  "binaries": {
+    "mode": "off" | "byte-identical" | "documented-divergence",
+    "identical": ["<artefact>"],
+    "differs": ["<artefact>"],
+    "known_divergences_hit": ["<artefact>: <pattern>"]
+  },
+  "trusted_hardware_asserted": true | false,
+  "paste_recipe": "<multi-line shell commands>"
+}
+```
+
+`status` is `"FAIL"` per the table above, `"WARN"` when only warnings
+occurred, `"SKIP"` when nothing was enabled or `--skip-repro` applied,
+else `"PASS"`. `mandatory` is `true` only under
+`automated_release_signing: enabled`. `trusted_hardware_asserted`
+mirrors `--trusted-hardware`; the skill never sets it on its own.
+
+---
+
+## Step 10 — Hand-back verification report
 
 Aggregate the per-step results into a final report.
 
@@ -768,9 +891,25 @@ Aggregate the per-step results into a final report.
 5. **WARN detail** — for each warning step, the observation and the
    RM review requirement.
 6. **Overall verdict** — `PASS`, `PASS-WITH-WARNINGS`, or `FAIL`.
-7. **`--post-to` proposal** (only when `--post-to` was supplied) —
+7. **Reproducibility record** — Step 9's verdict, the commit and
+   `SOURCE_DATE_EPOCH` it rebuilt with, and the sha512 of the rebuilt
+   source artefact, so another voter can cross-check without rerunning.
+8. **`--post-to` proposal** (only when `--post-to` was supplied) —
    a formatted comment suitable for posting to the planning issue,
-   pending RM confirmation.
+   pending RM confirmation. 🪶 ASF-specific: under
+   `automated_release_signing: enabled`, when Step 9 is `PASS` with
+   every artefact `identical` **and** `--trusted-hardware` was passed,
+   the comment carries the attestation block `release-promote` Step 0
+   looks for:
+
+   > **Reproducibility validated on trusted hardware** — `<rc-tag>` at
+   > commit `<sha>`, `SOURCE_DATE_EPOCH <epoch>`; every staged artefact
+   > rebuilt on `@<committer>`'s own hardware and confirmed bit-by-bit
+   > identical (`repro-archive compare --require-identical`). Per
+   > [Infra § Automated release signing](https://infra.apache.org/release-signing.html#automated-release-signing).
+
+   Without `--trusted-hardware`, or with any non-`identical` result, the
+   comment carries no attestation and says why.
 
 Return ONLY valid JSON with this structure:
 
@@ -790,13 +929,16 @@ Return ONLY valid JSON with this structure:
   ],
   "fail_details": ["<string>"],
   "warn_details": ["<string>"],
+  "reproducibility_attestation": true | false,
   "post_to_comment": "<formatted comment for planning issue or null>"
 }
 ```
 
 `voter_obligation_reminder` is always `true`; it confirms the reminder
-was included. `post_to_comment` is non-null only when `--post-to` was
-supplied and the RM has not yet confirmed posting.
+was included. `reproducibility_attestation` is `true` only when the
+attestation block above is included in `post_to_comment`.
+`post_to_comment` is non-null only when `--post-to` was supplied and
+the RM has not yet confirmed posting.
 
 ---
 
@@ -817,6 +959,15 @@ supplied and the RM has not yet confirmed posting.
 - **Never invent check results.** All step outputs must reflect what
   is actually returned by the commands shown in the paste recipes, not
   assumed or predicted outcomes.
+- **Never treat a `differs` rebuild as a warning.** A source artefact
+  whose members differ from the tagged tree is always `FAIL`; so is a
+  tag that no longer resolves to the recorded commit.
+- **Never assert trusted hardware on the committer's behalf.** The
+  attestation block appears only with `--trusted-hardware`, passed by
+  the person running the skill; the skill cannot know where it runs.
+- **Never downgrade a mandatory reproducibility check.** Under
+  `automated_release_signing: enabled` `--skip-repro` is ignored and
+  `content-identical` is `FAIL`.
 
 ---
 
@@ -838,6 +989,11 @@ supplied and the RM has not yet confirmed posting.
 | Step 7 FAIL — dangling symlink | A committed symlink's target was stripped by `export-ignore` (or is otherwise absent) | RM fixes `.gitattributes` to ship the target (or drops the symlink), cuts new RC |
 | Step 7 FAIL — broken internal reference | A shipped file links to a path stripped from the artefact | RM stops stripping the referenced path, or repoints the reference at shipped content, cuts new RC |
 | Step 8 FAIL — version mismatch | Version bump missed one manifest file | RM fixes the manifest and cuts a new RC |
+| Step 9 WARN — `content-identical` | RM built with a plain `git archive` or a different tool version instead of `repro-archive build` | Accept for this RC in RM-key mode; RM switches to `repro-archive build` for the next one. Under automated signing this is `FAIL` |
+| Step 9 FAIL — `differs` | Artefact built from a dirty checkout, a different ref, or a non-deterministic `custom` build | `-1`; RM rebuilds at the tag from a clean checkout (`release-rc-cut` Step 2b catches this before signing) |
+| Step 9 FAIL — tag moved | `<rc-tag>` no longer points at the commit recorded on the planning issue | `-1`; the RM explains and cuts a new RC number — never re-point an RC tag |
+| Step 9 FAIL — binary `DIFFERS` | Build embeds timestamps, host paths or an unpinned toolchain | RM honours `SOURCE_DATE_EPOCH`, pins the toolchain (`ARFLAGS=Dcvr`, `ranlib -D`), or documents the divergence under `known_divergences` |
+| Step 9 SKIP but `automated_release_signing: enabled` | Misconfiguration — the check cannot be skipped in that mode | Re-run without `--skip-repro`; the report refuses to carry an attestation |
 
 ---
 
@@ -851,7 +1007,15 @@ supplied and the RM has not yet confirmed posting.
   adopter keys this skill reads (`keys_file_url`, `keyserver`,
   `release_dist_url_template`, `version_manifest_files`).
 - [`<project-config>/release-build.md`](../../../../projects/_template/release-build.md) —
-  expected artefact list, digest set, binary-exclude list, RAT config.
+  expected artefact list, digest set, binary-exclude list, RAT config,
+  `§ Source archive`, `§ Reproducibility checks`.
+- [`docs/release-management/reproducibility.md`](../../../../docs/release-management/reproducibility.md) —
+  Step 9 background: the source-archive contract, the reproducibility
+  checks, and the 🪶 ASF-specific automated-signing validation.
+- [`tools/reproducible-archive`](../../../../tools/reproducible-archive/README.md) —
+  `repro-archive check` / `build` / `compare`.
+- [reproducible-builds.org § Archive metadata](https://reproducible-builds.org/docs/archives/) —
+  the rules `repro-archive check` verifies.
 - `release-keys-sync` (proposed) — remediation path when a signing
   key is not yet in the project `KEYS` file.
 - `release-vote-draft` (proposed) — downstream step; opens the

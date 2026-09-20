@@ -252,6 +252,17 @@ release_process:
   release_dist: https://dist.apache.org/repos/dist          # <release-dist>
   project_wiki: https://cwiki.apache.org/confluence/display/<PROJECT>   # <project-wiki>
   announce_list: announce@apache.org                         # <announce-list>
+  # Automated (CI) release signing — ASF-specific option, offered by
+  # `release-prepare automated-signing` only under this organization.
+  # Policy: https://infra.apache.org/release-signing.html#automated-release-signing
+  automated_signing:
+    policy_url: https://infra.apache.org/release-signing.html#automated-release-signing
+    key_request_channel: infra-jira            # https://issues.apache.org/jira/projects/INFRA
+    key_request_background: INFRA-23996
+    approval_body: security@apache.org        # Security Team approves the workflow before use
+    key_spec: "4096-bit RSA, signing-only, private half held by infra-root only"
+    trusted_publishing_action: apache/tooling-actions/upload-to-atr   # pin by commit SHA
+    validation: "every signed artefact rebuilt bit-by-bit identical on trusted hardware before publication"
 ```
 
 ## Roster

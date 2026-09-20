@@ -156,7 +156,7 @@ can say so, because it is the floor everything else is managed from.
 |---|---|---|
 | `magpie-security` | 15 | ~2.0k |
 | `magpie-setup` | 10 | ~1.3k |
-| `magpie-release-management` | 10 | ~1.0k |
+| `magpie-release-management` | 10 | ~1.3k |
 | `magpie-pr-management` | 8 | ~1.0k |
 | `magpie-issue` | 8 | ~0.8k |
 | `magpie-repo-health` | 7 | ~0.7k |

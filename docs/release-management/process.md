@@ -189,6 +189,19 @@ clears.
 Output: a single PR proposed against the release branch, RM merges
 after their own review.
 
+On a project's **first release** (or whenever
+`release-build.md § Source archive` has no `export_ignore_reviewed`
+marker) the same prep PR carries the **source-archive contents
+review**: a guided walk through every top-level path of the
+repository that classifies what the `git archive` source artefact
+ships, proposes the `.gitattributes` `export-ignore` entries that keep
+VCS / CI / editor metadata out (never `LICENSE`, `NOTICE`, build
+inputs, or a path a shipped file references), and records the
+decision. The attributes must be committed before the RC tag exists,
+which is why the review lives here and why Step 4 blocks while it is
+outstanding. See
+[`reproducibility.md` § The first-release `.gitattributes` review](reproducibility.md#the-first-release-gitattributes-review).
+
 > [!NOTE]
 > The Step 2 `LICENSE` / `NOTICE` draft is *provisional*. It is
 > drafted before the build, so it covers only content the skill can
@@ -226,18 +239,43 @@ Agentic Drafting.
 The skill emits a paste-ready command sequence:
 
 1. `git tag -s <version>-rcN -m "..."` (signed tag, RM's key).
-2. Build invocation, project-specific
+2. Build invocation. The **source artefact** is, by default, a
+   reproducible export of the tag — `repro-archive build`, which is
+   `git archive` (tracked files only, `.gitattributes` `export-ignore`
+   honoured) with every
+   [reproducible-builds.org archive rule](https://reproducible-builds.org/docs/archives/)
+   applied, so a voter rebuilding from the tag gets byte-identical
+   bytes. Convenience binaries follow from the project-specific
+   `build_command` under the tag's `SOURCE_DATE_EPOCH`
    (`<project-config>/release-build.md`).
-3. `gpg --detach-sign --armor <artefact>` for each artefact.
-4. `sha512sum <artefact> > <artefact>.sha512` for each artefact.
+3. *Optional* reproducibility self-check (`release-build.md
+   § Reproducibility checks`): lint the archive, rebuild it, compare;
+   rebuild binaries and compare. A `differs` stops the cut before
+   anything is signed.
+4. `gpg --detach-sign --armor <artefact>` for each artefact.
+5. `sha512sum <artefact> > <artefact>.sha512` for each artefact.
 
 The skill writes nothing to disk and runs nothing locally. The RM
 runs every command on their own machine, with their own key, in
 their own checkout. The skill's output is the *recipe*; correctness
 of the recipe is reviewable independently from execution. After the
-RM reports back the artefact list + checksums + sig filenames, the
-skill records them in the planning issue's audit-trail comment for
-Step 13.
+RM reports back the artefact list + checksums + sig filenames — plus
+the source commit, `SOURCE_DATE_EPOCH` and sha512 that make the
+artefact reproducible — the skill records them in the planning
+issue's audit-trail comment for Step 13.
+
+> [!NOTE]
+> **🪶 ASF-specific option — automated release signing.** An ASF
+> project may, after the one-time setup in `release-prepare
+> automated-signing` (Infra-provisioned key, Security Team approval,
+> reproducible-build workflow), let CI sign and stage the artefacts
+> ([Infra § Automated release signing](https://infra.apache.org/release-signing.html#automated-release-signing)).
+> Step 4 then reduces to pushing the RM-signed tag; steps 3 and 5 run
+> in CI; Step 6's reproducibility check becomes mandatory as the
+> policy's validation on trusted hardware; and Step 10 refuses to
+> promote without it. See
+> [`reproducibility.md` § Automated release signing](reproducibility.md#automated-release-signing--asf-specific-optional).
+> The option is offered only under `organization: ASF`.
 
 > [!NOTE]
 > Detached `.asc` signatures and `.sha512` checksums are the ASF
@@ -292,6 +330,15 @@ Read-only. The skill fetches the staged artefacts from
   binary-exclusion list).
 - **Version string consistency** between artefact filename, embedded
   manifests, and tag.
+- **Reproducibility** (optional, per
+  [`<project-config>/release-build.md` § Reproducibility checks](../../projects/_template/release-build.md);
+  mandatory under automated release signing): the source artefact is
+  rebuilt from the tag with `repro-archive build` at the recorded
+  `SOURCE_DATE_EPOCH` and compared with the staged one —
+  `identical`, `content-identical` (only archive metadata differs) or
+  `differs` (not the tagged tree, a `-1`); convenience binaries are
+  rebuilt and compared byte-for-byte, or against the project's
+  documented divergences. See [`reproducibility.md`](reproducibility.md).
 
 The skill emits a pass/fail report to the planning issue. A failure
 does not auto-flip any label; the RM decides whether to roll a new
@@ -379,6 +426,13 @@ commit` under their own ASF credentials.
 
 This is **the moment of release**. The skill writes nothing and
 runs nothing; the human commit is the act.
+
+🪶 ASF-specific: under `automated_release_signing: enabled` the skill
+additionally requires the planning issue to carry a `release-verify-rc`
+attestation that every artefact was rebuilt bit-by-bit identical on a
+committer's own hardware — the validation step
+[Infra § Automated release signing](https://infra.apache.org/release-signing.html#automated-release-signing)
+mandates before publication — and blocks without it.
 
 The `dist/release/` tree is PMC-write-only by default
 ([release-policy.html](https://www.apache.org/legal/release-policy.html)).
@@ -531,6 +585,12 @@ state machine participant.
 - [`spec.md`](spec.md), per-skill scope, state-change boundary,
   hand-off protocol, adopter knobs.
 - [`projects/_template/release-management-config.md`](../../projects/_template/release-management-config.md), adopter contract scaffold.
+- [`reproducibility.md`](reproducibility.md), the reproducible source
+  archive (`git archive` + `.gitattributes` + the reproducible-builds.org
+  rules), the optional reproducibility checks for source and binaries,
+  and the 🪶 ASF-specific automated-release-signing option.
+- [`tools/reproducible-archive`](../../tools/reproducible-archive/README.md),
+  the `repro-archive` tool Steps 4 and 6 use.
 - [`docs/modes.md` § Drafting](../modes.md#drafting),
   [`§ Triage`](../modes.md#triage), the modes the skills inhabit.
 - [`MISSION.md` § Initial Goals](../../MISSION.md#initial-goals),

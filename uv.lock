@@ -37,6 +37,7 @@ members = [
     "pr-management-stats",
     "preflight-audit",
     "redactor",
+    "reproducible-archive",
     "sandbox-lint",
     "security-tracker-stats-dashboard",
     "skill-and-tool-validator",
@@ -1617,6 +1618,21 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/d2/82/dc0e76842ccddc8756471adff38c140d130c6b601b9ae5724274f1881e7a/regex-2026.9.3-cp315-cp315t-win_amd64.whl", hash = "sha256:2c71da070224baf426850d9eab23ac797d9859b1841dbda43012c01b69697803", size = 283692, upload-time = "2026-09-01T00:53:38.951Z" },
     { url = "https://files.pythonhosted.org/packages/da/3d/e0677f590f3473a3defb63ef6e3469154382a2a15ebafb364482d7ed3b01/regex-2026.9.3-cp315-cp315t-win_arm64.whl", hash = "sha256:ecc27adda0d1e1bc39793b41fdd562d2f4bc4dcee6ee0e3c733d519c332183b2", size = 283421, upload-time = "2026-09-01T00:53:41.393Z" },
 ]
+
+[[package]]
+name = "reproducible-archive"
+version = "0.1.0"
+source = { editable = "tools/reproducible-archive" }
+
+[package.dev-dependencies]
+dev = [
+    { name = "magpie-dev" },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [{ name = "magpie-dev", editable = "tools/dev" }]
 
 [[package]]
 name = "requests"

@@ -16,3 +16,9 @@ canned_body: none
 expedited: false
 skip_verify_logged: true
 skip_verify_reason: "rc3 is identical to rc2 except for a KEYS fix; RM confirmed all artefact checksums match rc2 which passed verify."
+repro_record: (none on the planning issue — rc3 was cut before the record was added)
+verification_doc_url: https://github.com/apache/airflow/blob/2.11.0-rc3/docs/verifying-a-release-candidate.md
+reproducibility_doc_url: https://github.com/apache/magpie/blob/main/docs/release-management/reproducibility.md
+verification_skill: magpie-release-management:verify-rc
+vote_backend: manual
+signing_mode: rm-key

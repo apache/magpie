@@ -1,0 +1,21 @@
+{
+  "step": "reproducibility",
+  "status": "PASS",
+  "mandatory": false,
+  "source": {
+    "enabled": true,
+    "verdict": "identical",
+    "recorded_commit": "1890a13d2c4e6f8a0b1c2d3e4f5a6b7c8d9e0f12",
+    "source_date_epoch": 1758326400,
+    "rule_failures": [],
+    "metadata_differences": [],
+    "content_differences": []
+  },
+  "binaries": {
+    "mode": "off",
+    "identical": [],
+    "differs": [],
+    "known_divergences_hit": []
+  },
+  "trusted_hardware_asserted": false
+}

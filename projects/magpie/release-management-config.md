@@ -218,6 +218,9 @@ the last hand-run `svn commit` from the release flow.
 | `vote_subject_template` | `[VOTE] Release Apache Magpie <version> from <version>-rcN` |
 | `result_subject_template` | `[RESULT] [VOTE] Release Apache Magpie <version> from <version>-rcN` |
 | `release_approver_roster_path` | `projects/magpie/pmc-roster.md` |
+| `vote_verification_doc_url` | `https://github.com/apache/magpie/blob/<version>-rcN/docs/release-management/manual-release-process.md#manual-verification--what-a-voter-runs-before-1` |
+| `reproducibility_doc_url` | `https://github.com/apache/magpie/blob/<version>-rcN/docs/release-management/reproducibility.md` |
+| `vote_verification_skill` | `magpie-release-management:verify-rc` |
 
 `vote_window_hours` is a floor per
 [release-policy § release approval](https://www.apache.org/legal/release-policy.html#release-approval).

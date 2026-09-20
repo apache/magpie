@@ -10,23 +10,33 @@ requires_config:
   - release-trains.md
 description: |
   Draft release preparation artefacts for `<upstream>`: the planning
-  issue, the version-bump and changelog prep PR, or the post-release
-  development-version bump PR. Reads release metadata from
-  `<project-config>/release-trains.md` and
+  issue, the version-bump and changelog prep PR (which, on a project's
+  first release, includes a guided review of what the `git archive`
+  source artefact ships and the `.gitattributes` `export-ignore`
+  entries that keep VCS/CI/editor metadata out), or the post-release
+  development-version bump PR. For ASF projects, the one-time
+  `automated-signing` setup drafts the Infra key request, the Security
+  Team notification and the reproducible-build workflow PR. Reads
+  release metadata from `<project-config>/release-trains.md` and
   `<project-config>/release-management-config.md`. Every output is a
   draft confirmed by the Release Manager before filing; the agent never
-  marks a PR ready, never merges, and never closes any artefact.
+  marks a PR ready, never merges, never closes any artefact, never files
+  a ticket and never sends mail.
 when_to_use: |
   Invoke when a Release Manager says "prepare the <version> release",
   "draft the planning issue for <version>", "open the prep PR for
   <version>", "write the version bump for <version>", "draft the
-  post-release bump for <version>", or similar. Covers three lifecycle
-  moments: planning-issue creation (`/release-prepare <version>`),
-  version-bump prep PR (`/release-prepare prep <version>`), and
-  post-release dev-version bump (`/release-prepare post <version>`).
-  Requires `<project-config>/release-management-config.md` and
+  post-release bump for <version>", "review what goes into the source
+  release", "set up CI release signing", or similar. Covers three
+  lifecycle moments: planning-issue creation (`/release-prepare
+  <version>`), version-bump prep PR (`/release-prepare prep <version>`,
+  which also runs the first-release source-archive review), and
+  post-release dev-version bump (`/release-prepare post <version>`);
+  plus the version-less, 🪶 ASF-only `/release-prepare
+  automated-signing` setup. Requires
+  `<project-config>/release-management-config.md` and
   `<project-config>/release-trains.md` to exist.
-argument-hint: "[prep | post] <version>"
+argument-hint: "[prep | post] <version> [--review-archive] | automated-signing"
 capability: capability:resolve
 license: Apache-2.0
 ---
@@ -311,25 +321,46 @@ For Step 14 (`post`):
 - **Planning issue labelled `announced`** — confirms Steps 10–11
   completed. Accepted via `--planning-issue <url>`.
 
+For Step 2's source-archive review (`prep`, Step 2f) — optional:
+- **`<project-config>/release-build.md § Source archive`** —
+  `source_archive_method` (default `git-archive`) and
+  `export_ignore_reviewed`. Absent file or key = the review has not
+  happened yet, which is exactly when the sub-step runs.
+- **A local clone of `<upstream>`** at the release branch tip (the
+  resolved `user.md` clone path) — the review lists what `git archive`
+  would ship from *that* tree.
+
+For Step A (`automated-signing`, 🪶 ASF-specific):
+- **`project.md` declares `organization: ASF`.** The sub-command is
+  not offered otherwise; see [`organizations/ASF/organization.md`](../../../../organizations/ASF/organization.md)
+  → `release_process.automated_signing`.
+- **`release-build.md § Reproducibility checks`** — `reproducibility_source: on`
+  and `reproducibility_binaries: byte-identical` (or no binaries).
+
 ---
 
 ## Inputs
 
 | Selector | Resolves to |
 |---|---|
-| `[prep \| post]` (optional first argument) | Sub-command: `prep` = Step 2, `post` = Step 14, omit = Step 1 |
+| `[prep \| post \| automated-signing]` (optional first argument) | Sub-command: `prep` = Step 2, `post` = Step 14, `automated-signing` = Step A (🪶 ASF-only, no `<version>`), omit = Step 1 |
 | `<version>` (positional) | Target release version string |
 | `--planning-issue <url>` | Explicit planning issue URL (auto-detected if omitted) |
 | `--release-branch <branch>` | Override the base branch for the prep or post PR |
 | `--previous-tag <tag>` | Override the previous release tag for the merged-PR query |
 | `--skip-empty-check` | Allow Step 1 with an empty merged-PR set; reason logged on planning issue |
+| `--review-archive` | Force the full Step 2f source-archive review even when `export_ignore_reviewed` is already set |
 
 ---
 
 ## Step 0 — Pre-flight check
 
 1. **Sub-command parsed.** Argument is one of: `<version>` (Step 1),
-   `prep <version>` (Step 2), `post <version>` (Step 14).
+   `prep <version>` (Step 2), `post <version>` (Step 14), or
+   `automated-signing` (Step A; 🪶 ASF-specific — if `project.md` does
+   not declare `organization: ASF`, block with *"automated release
+   signing is an ASF Infra offering; this project's organization does
+   not provide one"* and do not describe the flow further).
 2. **Version argument parseable.** `<version>` matches a semver-ish
    pattern (`X.Y.Z`, `X.Y.Z.post0`, or similar).
 3. **`release-management-config.md` readable.** Required keys present:
@@ -354,8 +385,8 @@ Return ONLY valid JSON with this structure:
 ```json
 {
   "verdict": "proceed" | "blocked",
-  "sub_command": "plan" | "prep" | "post",
-  "version": "<version string>",
+  "sub_command": "plan" | "prep" | "post" | "automated-signing",
+  "version": "<version string or null for automated-signing>",
   "blockers": ["<string describing each hard blocker>"],
   "release_branch_base": "<branch>",
   "previous_tag": "<tag or null>"
@@ -577,7 +608,100 @@ Changelog coverage must be ≥ 90% of the merged-PR set. If fewer than
 90% of PRs can be categorised, surface the uncategorised set and ask
 the RM to classify before the PR is opened.
 
-### 2e — Compose the prep PR
+### 2e — Source-archive contents review (first release, or on drift)
+
+With `source_archive_method: git-archive` (the default in
+`release-build.md § Source archive`) the source artefact is an export
+of the tagged tree that honours `.gitattributes` `export-ignore`. The
+attributes are read from the tree being archived, so they have to be
+committed **before** the RC tag — which is why this review lands in
+the prep PR and why `release-rc-cut` blocks while it is outstanding.
+Full rationale and the classification buckets:
+[`docs/release-management/reproducibility.md` § The first-release `.gitattributes` review](../../../../docs/release-management/reproducibility.md#the-first-release-gitattributes-review).
+
+**When the full review runs:** `export_ignore_reviewed` is unset in
+`release-build.md`, or `--review-archive` was passed, or
+`source_archive_method` is `git-archive` and the file has no
+`§ Source archive` at all. **Otherwise** run only the drift check
+(below). With `source_archive_method: custom` skip the sub-step and
+say so (`archive_review: "skipped"`).
+
+This is an **education step**: the operator ends up knowing why every
+top-level path ships or does not. Do not guess; show, classify,
+explain, and ask.
+
+1. **List what would ship today** from the local clone at the release
+   branch tip, and what is tracked:
+
+   ```bash
+   git archive --format=tar HEAD | tar -tf - | sort > /tmp/would-ship.txt
+   git ls-files | cut -d/ -f1 | sort -u          # top-level tracked entries
+   cat .gitattributes 2>/dev/null | grep export-ignore   # what is already excluded
+   ```
+
+2. **Classify every top-level entry** into one bucket and say which —
+   *ship* (source, docs, build descriptors, lock files, `README*`),
+   *ship, never excludable* (`LICENSE`, `NOTICE`, `DISCLAIMER`,
+   `licenses/`), *ship, input to voter checks* (RAT excludes, in-tree
+   validators), *project's call* (`.asf.yaml`, `doap_*.rdf`,
+   `.gitignore`, large assets), *exclude: VCS metadata*
+   (`.gitattributes`, `.gitmodules`, `.mailmap`), *exclude: CI / bot
+   config* (`.github/workflows/`, `.github/dependabot.yml`,
+   `.gitlab-ci.yml`, `.travis.yml`, `.circleci/`,
+   `.pre-commit-config.yaml`), *exclude: editor / IDE* (`.idea/`,
+   `.vscode/`, `.devcontainer/`), *exclude: lint config not needed to
+   build* (`.lychee.toml`, `.markdownlint.json`, `.typos.toml`,
+   `.zizmor.yml`, `.yamllint`, `.codespellrc`), *agent-view dirs*
+   (`.claude/`, `.agents/`, `.kiro/`, `.cursor/` — exclude relay
+   symlink dirs, keep a single-hop canonical view if shipped files link
+   into it), *exclude: release-tooling scratch*
+   (`.apache-magpie.session-state.json`, `.apache-magpie.local.lock`).
+   Look inside `.github/` and the agent-view dirs; part of a directory
+   may ship (issue templates a shipped skill links to) while the rest
+   is excluded.
+
+3. **Check references before proposing any exclusion**:
+   `git grep -l -- '<path>'` over tracked files. A path that a shipped
+   file links to must not be excluded or `release-verify-rc` Step 7
+   fails the RC on a dangling reference; name the referrers and offer
+   the alternative (keep it, or repoint the reference). Flag every
+   committed symlink whose target would be stripped, and every symlink
+   that points at another symlink (safe extractors reject chains).
+
+4. **Propose the entries** — root-anchored (`/.pre-commit-config.yaml`)
+   for root-only files, directory form (`.idea/`) for directories, one
+   rationale comment per entry — and show the before/after listing
+   diff:
+
+   ```bash
+   # "before": the attributes committed at HEAD
+   uv run --project <framework>/tools/reproducible-archive repro-archive build \
+     --ref HEAD --prefix p --format tar.gz -o "$TMPDIR/before.tar.gz"
+   # "after": the proposed .gitattributes as edited in the working tree
+   uv run --project <framework>/tools/reproducible-archive repro-archive build \
+     --ref HEAD --prefix p --format tar.gz --worktree-attributes -o "$TMPDIR/after.tar.gz"
+   uv run --project <framework>/tools/reproducible-archive repro-archive compare \
+     "$TMPDIR/before.tar.gz" "$TMPDIR/after.tar.gz"   # 'removed' = exactly what the review strips
+   ```
+
+   Walk the RM through each proposed entry; each one is confirmed or
+   dropped individually. Never exclude `LICENSE`, `NOTICE`,
+   `DISCLAIMER`, a build descriptor, the RAT excludes, or a referenced
+   path, even if asked — say why and keep it.
+
+5. **Record the decision.** `.gitattributes` joins the prep PR file set
+   (2f), and the prep PR sets `export_ignore_reviewed: <version>` in
+   `release-build.md § Source archive` so the full review does not
+   repeat. If the RM confirms an existing `.gitattributes` unchanged,
+   still set the marker (`archive_review: "confirmed-existing"`).
+
+**Drift check (later releases).** Top-level entries added since the
+last reviewed tag — `git diff --name-only <previous-tag> HEAD | cut -d/
+-f1 | sort -u` — that fall in an *exclude* bucket are surfaced as
+candidates with the same confirm-each flow; nothing new → `archive_review:
+"skipped"` with the note *"no new top-level paths since `<previous-tag>`"*.
+
+### 2f — Compose the prep PR
 
 The prep PR touches:
 1. Each file in `version_manifest_files` — replace current dev
@@ -587,6 +711,9 @@ The prep PR touches:
 3. `NOTICE` — apply the justified attribution changes (if any).
 4. `LICENSE` — apply any required Category-B attribution additions
    (if any).
+5. `.gitattributes` and `<project-config>/release-build.md`
+   (`export_ignore_reviewed`) — only when 2e proposed or confirmed the
+   review.
 
 Present the full set of file diffs to the RM for confirmation before
 opening the PR.
@@ -614,11 +741,15 @@ Entry added for <version> covering <N> merged PRs since <previous-tag>.
 ### NOTICE/LICENSE
 <Summary of attribution changes, or "No changes required.">
 
+### Source archive contents
+<Only when 2e ran: the export-ignore entries added or confirmed, one line each with its reason, and "release-build.md: export_ignore_reviewed set to <version>". Otherwise omit this section.>
+
 ## Checklist (RM)
 - [ ] Version bump is correct in all manifest files
 - [ ] Changelog entry covers the intended scope
 - [ ] NOTICE attribution changes are justified
 - [ ] No Category-X dependency appears in the diff
+- [ ] (first release) every `export-ignore` entry was reviewed; LICENSE / NOTICE / build inputs still ship
 
 Generated by `release-prepare` (magpie-release-prepare).
 ```
@@ -637,6 +768,7 @@ Return ONLY valid JSON with this structure:
   "category_x_hit": false,
   "notice_removal_unjustified": false,
   "changelog_coverage_pct": <integer 0-100>,
+  "archive_review": "proposed" | "confirmed-existing" | "skipped",
   "proposed": true
 }
 ```
@@ -644,6 +776,11 @@ Return ONLY valid JSON with this structure:
 `proposed` is always `true` at the point this JSON is returned.
 `category_x_hit` and `notice_removal_unjustified` are `false` because
 the skill would have stopped in 2b or 2c if they were `true`.
+`archive_review` is `"proposed"` when 2e proposed `.gitattributes`
+entries (and `.gitattributes` appears in `files_in_scope`),
+`"confirmed-existing"` when the RM confirmed the existing entries
+unchanged (only `release-build.md` joins the file set), `"skipped"`
+when the review was not due or `source_archive_method` is `custom`.
 
 ---
 
@@ -712,6 +849,113 @@ Return ONLY valid JSON with this structure:
 
 ---
 
+## Step A — Automated release signing setup (sub-command: `automated-signing`, 🪶 ASF-specific)
+
+> **Scope.** Only for a project whose `project.md` declares
+> `organization: ASF`. The option is an ASF Infra offering
+> ([Infra § Automated release signing](https://infra.apache.org/release-signing.html#automated-release-signing))
+> and is resolved from
+> [`organizations/ASF/organization.md`](../../../../organizations/ASF/organization.md)
+> → `release_process.automated_signing`; for any other organization
+> the value is `null`, Step 0 blocks, and the flow is not described.
+> Non-ASF adopters keep the RM-key flow.
+
+A one-time, version-less **drafting** step. Under the policy an ASF
+project may let CI sign the artefacts it builds with an
+Infra-provisioned key **provided that** every signed artefact is built
+reproducibly, CI deploys to staging only, and a committer re-validates
+every artefact **bit-by-bit identical on trusted hardware** before
+publication; the Apache Security Team approves the workflow before use.
+Background:
+[`docs/release-management/reproducibility.md` § Automated release signing](../../../../docs/release-management/reproducibility.md#automated-release-signing--asf-specific-optional).
+
+### A1 — Eligibility gate
+
+All of the following, else stop and list what is missing:
+
+- `project.md` → `organization: ASF`.
+- `release-build.md` → `source_archive_method: git-archive`,
+  `reproducibility_source: on`, and `reproducibility_binaries:
+  byte-identical` for every convenience binary in `expected_artefacts`
+  (or none).
+- The most recent RC's `release-verify-rc` report on its planning issue
+  shows Step 9 `PASS` with every artefact `identical`. If no such report
+  exists the build is not *demonstrably* reproducible yet: tell the RM
+  to cut and verify one RC with the checks on first.
+- `release_vote_backend: atr` or `release_dist_backend: atr` — ATR
+  trusted publishing is the staging target the workflow template uses.
+
+### A2 — Draft the Infra Jira ticket
+
+Draft (never file) an `INFRA` ticket titled *"CI release signing key
+for Apache <PROJECT>"* that: requests the key per the policy (4096-bit
+RSA, signing-only, private half held by infra-root, public block to
+`KEYS`, encrypted revocation certificate to the project's private
+repo); names the workflow (`ci_release_workflow`) and the staging
+target (ATR via `apache/tooling-actions/upload-to-atr`, pinned by
+commit SHA); **highlights the trusted-hardware validation step** —
+`release-verify-rc` Step 9 with `--trusted-hardware`, `repro-archive
+compare --require-identical` for every artefact, recorded on the
+planning issue, gating `release-promote`; and references the
+background ticket in
+`release_process.automated_signing.key_request_background`.
+
+### A3 — Draft the Security Team notification
+
+Draft (never send — [spec § Boundary 3](../../../../docs/release-management/spec.md#boundary-3-agent-never-sends-mail-to-dev-users-announce))
+a mail to `release_process.automated_signing.approval_body`
+(`security@apache.org`) from the RM, pointing at the ticket, the
+workflow PR and the validation step, asking for the approval the
+policy requires before the workflow is used. Plain text, real links,
+per the repository's email rules.
+
+### A4 — Propose the workflow PR
+
+From
+[`projects/_template/workflows/release-candidate.yml`](../../../../projects/_template/workflows/release-candidate.yml),
+rendered with the project's slug, artefact prefix, source format and
+`build_command`, placed at `ci_release_workflow`. The template builds
+the source archive with the embedded `repro-archive` script (copy
+`tools/reproducible-archive/src/reproducible_archive/__init__.py` to
+`release/reproducible_archive.py` in the upstream repo), builds
+binaries under `SOURCE_DATE_EPOCH`, builds twice and compares,
+checksums with sha512 only, and uploads to ATR with OIDC. It contains
+**no key material and no signing step**; the signing mechanism is what
+Infra agrees on the ticket. Pin every action to a commit SHA. Open as a
+draft PR via `gh pr create --web` after RM confirmation.
+
+### A5 — Propose the config diff
+
+`release-management-config.md § Signing`: `automated_release_signing:
+requested`, `ci_release_workflow`, `ci_signing_infra_ticket` (once the
+ticket exists). Tell the RM that `enabled` is set only after Infra has
+provisioned the key, its public block is in `KEYS`
+(`release-keys-sync`), the Security Team has approved, and the workflow
+PR is merged — and that from then on `release-rc-cut` emits the tag
+push instead of local signing, `release-verify-rc` Step 9 is mandatory,
+and `release-promote` blocks without the attestation.
+
+Return ONLY valid JSON with this structure:
+
+```json
+{
+  "organization": "ASF",
+  "eligible": true | false,
+  "missing_conditions": ["<string>"],
+  "infra_ticket_draft": "<text or null>",
+  "security_notification_draft": "<text or null>",
+  "workflow_pr": {"path": "<ci_release_workflow>", "title": "<string>", "proposed": true} | null,
+  "config_diff": ["<key: value>"],
+  "filed_or_sent": false,
+  "proposed": true
+}
+```
+
+`filed_or_sent` is always `false`: the skill drafts the ticket and the
+mail and proposes the PR; the RM files, sends and marks ready.
+
+---
+
 ## Step N+1 — Hand-back artefact
 
 The AI-driven part ends with a hand-back artefact containing:
@@ -733,6 +977,10 @@ The AI-driven part ends with a hand-back artefact containing:
 - **NOTICE/LICENSE summary** — confirmed clean (or the removals that
   required justification).
 - **Changelog coverage** — percentage and any uncategorised PRs.
+- **Source-archive review** — the `export-ignore` entries proposed or
+  confirmed with their reasons, the paths kept because shipped files
+  reference them, and the `export_ignore_reviewed` marker; or the
+  one-line reason the review was skipped.
 - **Label to apply** — `prep-pr-open` on the planning issue after the
   RM merges the prep PR.
 - **Next steps** — `release-keys-sync` (Step 3), then `release-rc-cut
@@ -743,6 +991,15 @@ The AI-driven part ends with a hand-back artefact containing:
 - **Post-release bump PR** — URL if opened, or proposed diff and body.
 - **Next development version** — restated for clarity.
 - **Scope** — confirmed only `version_manifest_files` were modified.
+
+**For Step A (`automated-signing`, 🪶 ASF-specific):**
+
+- **Eligibility** — met, or the conditions still missing.
+- **Infra ticket draft** and **Security Team notification draft** —
+  for the RM to file and send.
+- **Workflow PR** — URL if opened as a draft, or the rendered file.
+- **Config diff** — the `release-management-config.md § Signing`
+  changes, and what has to happen before `enabled`.
 
 ---
 
@@ -763,6 +1020,17 @@ The AI-driven part ends with a hand-back artefact containing:
 - **Never emit signing commands.** `gpg`, `git tag -s`, and `svn`
   commands belong to other skills (`release-keys-sync`,
   `release-rc-cut`).
+- **Never edit `.gitattributes` without per-entry confirmation**, and
+  never propose excluding `LICENSE`, `NOTICE`, `DISCLAIMER`, a build
+  descriptor, the RAT excludes, or a path a shipped file references.
+- **Never mark the archive review done on the skill's own authority.**
+  `export_ignore_reviewed` is set only in a prep PR the RM confirmed.
+- **Never file the Infra ticket, never send the Security Team mail,
+  never add key material to the workflow.** Step A drafts; the RM
+  files and sends.
+- **Never offer automated release signing outside `organization:
+  ASF`.** The option is an ASF Infra offering; for other organizations
+  it does not exist in this skill.
 
 ---
 
@@ -779,6 +1047,11 @@ The AI-driven part ends with a hand-back artefact containing:
 | Changelog coverage low | Many PRs lack standard labels | RM classifies uncategorised PRs before the prep PR opens |
 | Scope violation (prep) | A proposed file is outside the expected set | Confirm the extra file explicitly or remove it from the diff |
 | Scope violation (post) | A proposed file is outside `version_manifest_files` | Confirm the extra file explicitly or remove it |
+| 2e: proposed exclusion is referenced | A shipped file links to the path (`git grep` hit) | Keep the path, or repoint the reference; never exclude it as-is |
+| 2e: symlink chain | A committed symlink points at another symlink | Exclude the relay dir, keep the single-hop canonical link, or replace the relay with a real link |
+| 2e: no local clone | `user.md` names no `<upstream>` clone | Set the clone path in `user.md`, or clone and rerun `prep` |
+| Step A blocked — not ASF | `project.md` organization is not `ASF` | No action; automated signing is an ASF Infra offering |
+| Step A blocked — not demonstrably reproducible | No `release-verify-rc` report with every artefact `identical`, or `reproducibility_*` not set as required | Enable the checks in `release-build.md`, cut and verify an RC, then rerun |
 
 ---
 
@@ -788,6 +1061,16 @@ The AI-driven part ends with a hand-back artefact containing:
   Steps 1, 2, and 14 context.
 - [`docs/release-management/spec.md`](../../../../docs/release-management/spec.md) —
   `release-prepare` per-skill specification.
+- [`docs/release-management/reproducibility.md`](../../../../docs/release-management/reproducibility.md) —
+  the source-archive review (2e) buckets and rationale, and the 🪶
+  ASF-specific automated-signing setup (Step A).
+- [`<project-config>/release-build.md`](../../../../projects/_template/release-build.md) —
+  `§ Source archive` (`source_archive_method`, `export_ignore_reviewed`)
+  and `§ Reproducibility checks`.
+- [`projects/_template/workflows/release-candidate.yml`](../../../../projects/_template/workflows/release-candidate.yml) —
+  the workflow template Step A renders.
+- [`tools/reproducible-archive`](../../../../tools/reproducible-archive/README.md) —
+  `repro-archive build` / `compare` used for the before/after listing.
 - [`<project-config>/release-management-config.md`](../../../../projects/_template/release-management-config.md) —
   adopter keys this skill reads (`release_branch_base`,
   `version_manifest_files`, `category_x_dependencies`,

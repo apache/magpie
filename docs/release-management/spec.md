@@ -89,6 +89,15 @@ Practical consequences:
   from, ASF-owned infrastructure
   ([release-policy.html](https://www.apache.org/legal/release-policy.html)).
   The skill states this in its hand-off text; it cannot enforce it.
+- 🪶 ASF-specific automated release signing does not move the
+  boundary. When an ASF project enables it
+  ([Infra § Automated release signing](https://infra.apache.org/release-signing.html#automated-release-signing)),
+  the CI key is provisioned and held by Infra, never by the agent or
+  the project; the workflow template the skills propose contains no
+  key material and no signing step; the RM still signs the tag; and
+  the policy's bit-by-bit validation on trusted hardware is a
+  committer's `release-verify-rc` run, not the agent's. See
+  [`reproducibility.md`](reproducibility.md#automated-release-signing--asf-specific-optional).
 
 ### Boundary 2: Agent never publishes the release
 
@@ -180,12 +189,29 @@ PR.
 **Outputs.**
 
 - A planning-issue body (markdown), labelled `release-planning`.
-- A prep PR (separate invocation), labelled `prep-pr-open`.
+- A prep PR (separate invocation), labelled `prep-pr-open`. On the
+  first release (no `export_ignore_reviewed` in `release-build.md`)
+  the prep PR also carries the **source-archive contents review**:
+  `.gitattributes` `export-ignore` entries proposed per top-level
+  path with a rationale each, after a reference check so nothing a
+  shipped file links to is stripped, plus the
+  `export_ignore_reviewed: <version>` marker. Later releases get a
+  drift check only. See
+  [`reproducibility.md`](reproducibility.md#the-first-release-gitattributes-review).
 - A post-release bump PR (third invocation), unlabelled.
+- 🪶 ASF-specific, `automated-signing` sub-command (version-less,
+  offered only under `organization: ASF`): an Infra Jira ticket
+  draft requesting the CI signing key, a Security Team notification
+  draft, a reproducible-build workflow PR rendered from
+  [`projects/_template/workflows/release-candidate.yml`](../../projects/_template/workflows/release-candidate.yml),
+  and the `release-management-config.md § Signing` diff — gated on the
+  build being demonstrably reproducible. Nothing is filed or sent.
 
 **State-change boundary.** The skill opens the planning issue and
 opens the PRs *as drafts*. The RM marks them ready and merges. The
-skill never marks ready, never merges, never closes.
+skill never marks ready, never merges, never closes, never edits
+`.gitattributes` without per-entry confirmation, never files a
+ticket and never sends mail.
 
 **Hand-off conditions.**
 
@@ -281,15 +307,39 @@ to the adopter's distribution backend (default `svn import` to
 **Inputs.**
 
 - `<project-config>/release-build.md`, build invocation, digest
-  set (`sha512`, optionally `sha256`), binary-exclude list.
+  set (`sha512`, optionally `sha256`), binary-exclude list; `§ Source
+  archive` (`source_archive_method`, format, prefix,
+  `export_ignore_reviewed`) and `§ Reproducibility checks`.
 - Current HEAD of the configured release branch.
 - The RC number (from the trigger).
 
 **Outputs.**
 
 - A four-section markdown block: (1) `git tag -s` command,
-  (2) build command, (3) `gpg --detach-sign` for each expected
+  (2) build command — for the source artefact, by default,
+  `repro-archive build --ref <version>-rcN` (a `git archive` export
+  honouring `.gitattributes` `export-ignore`, with every
+  [reproducible-builds.org archive rule](https://reproducible-builds.org/docs/archives/)
+  applied; never an archive of a working tree), then the adopter's
+  `build_command` for convenience binaries under the tag's
+  `SOURCE_DATE_EPOCH`; (3) `gpg --detach-sign` for each expected
   artefact, (4) `sha512sum > artefact.sha512` for each artefact.
+- An optional reproducibility self-check block (Step 2b): lint,
+  rebuild, `repro-archive compare`; binaries rebuilt and compared
+  per `reproducibility_binaries`. A `differs` stops the cut.
+- The planning-issue record of source commit, `SOURCE_DATE_EPOCH` and
+  sha512, so voters can rebuild.
+- 🪶 ASF-specific, under `automated_release_signing: enabled` only
+  (`organization: ASF`): sections (3) and (4) and the staging block
+  are replaced by the RM-signed tag push that triggers the CI
+  workflow, plus the commands to watch the run; the hand-off states
+  that a committer must validate on trusted hardware before
+  promotion.
+
+The skill blocks while the first-release `.gitattributes` review is
+outstanding (`export_ignore_reviewed` unset with
+`source_archive_method: git-archive`); `--allow-unreviewed-archive`
+is the logged override.
 - A second markdown block with the backend-shaped staging command
   sequence. For `svnpubsub` (ASF default): `svn import` into
   `dist/dev/<project>/<version>-rcN/`. For `github-releases`:
@@ -352,9 +402,19 @@ loop before posting `+1`.
 
 - A pass/fail report per check (signatures, checksums, license
   headers via Apache RAT, NOTICE / LICENSE presence + diff vs
-  previous release, no prohibited binaries, version-string
-  consistency).
+  previous release, no prohibited binaries, source-tree integrity,
+  version-string consistency, and — optional per
+  `release-build.md § Reproducibility checks` — reproducibility: the
+  source artefact rebuilt from the tag with `repro-archive build` at
+  the recorded `SOURCE_DATE_EPOCH` and compared (`identical` /
+  `content-identical` / `differs`), binaries rebuilt and compared
+  byte-for-byte or against documented divergences).
 - A summary classification: `PASS`, `PASS-WITH-WARNINGS`, `FAIL`.
+- 🪶 ASF-specific, under `automated_release_signing: enabled`: the
+  reproducibility check is mandatory with a byte-identical bar, and
+  the `--post-to` comment carries the *validated on trusted hardware*
+  attestation (only with the committer's `--trusted-hardware`
+  assertion) that `release-promote` requires.
 
 The report is a mechanical aid, not a vote. A `PASS` does not
 discharge a voter's own ASF obligation to download, build, and
@@ -568,6 +628,11 @@ hard skill-side denylist; removing it requires a skill PR.
   ([release-policy.html](https://www.apache.org/legal/release-policy.html));
   the skill emits an "ask a PMC member to publish" hand-off
   instead of the `svn mv` command set.
+- 🪶 ASF-specific: `automated_release_signing: enabled` and the
+  planning issue carries no `release-verify-rc` trusted-hardware
+  attestation for this RC → hard blocker; the policy's validation
+  step has not happened
+  ([Infra § Automated release signing](https://infra.apache.org/release-signing.html#automated-release-signing)).
 
 ### `release-announce-draft`
 

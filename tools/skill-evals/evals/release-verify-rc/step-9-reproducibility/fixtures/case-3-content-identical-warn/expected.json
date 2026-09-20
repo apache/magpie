@@ -1,0 +1,20 @@
+{
+  "step": "reproducibility",
+  "status": "WARN",
+  "mandatory": false,
+  "source": {
+    "enabled": true,
+    "verdict": "content-identical",
+    "recorded_commit": "0f1e2d3c4b5a69788796a5b4c3d2e1f0aabbccdd",
+    "source_date_epoch": 1758500000,
+    "rule_failures": ["zip-extra-fields"],
+    "content_differences": []
+  },
+  "binaries": {
+    "mode": "off",
+    "identical": [],
+    "differs": [],
+    "known_divergences_hit": []
+  },
+  "trusted_hardware_asserted": false
+}

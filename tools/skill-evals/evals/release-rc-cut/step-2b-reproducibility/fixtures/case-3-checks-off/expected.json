@@ -1,0 +1,9 @@
+{
+  "source_check_enabled": false,
+  "binary_check_mode": "off",
+  "mandatory": false,
+  "proposed": true,
+  "source_commands_empty": true,
+  "binary_commands_empty": true,
+  "proposed_true": true
+}

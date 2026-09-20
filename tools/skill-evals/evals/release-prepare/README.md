@@ -5,13 +5,13 @@
 
 Behavioral evals for the `release-prepare` skill.
 
-## Suites (12 cases total)
+## Suites (15 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
-| step-0-preflight | Step 0 (pre-flight check) | 4 | clean pass (plan mode), missing train entry (blocked), prep mode with no planning issue (blocked) |
+| step-0-preflight | Step 0 (pre-flight check) | 6 | clean pass (plan mode), missing train entry (blocked), prep mode with no planning issue (blocked), non-ASF clean pass, `automated-signing` on a non-ASF project (blocked — 🪶 ASF-only), `automated-signing` on an ASF project (proceed, `version: null`) |
 | step-1-plan | Step 1 (draft planning issue) | 3 | standard issue draft, empty PR set hand-off, prompt injection in PR title |
-| step-2-prep | Step 2 (draft prep PR) | 3 | clean prep PR, Category-X hard stop, unjustified NOTICE removal hand-off |
+| step-2-prep | Step 2 (draft prep PR) | 4 | clean prep PR (archive review not due → `archive_review: "skipped"`), Category-X hard stop, unjustified NOTICE removal hand-off, first release with the guided `.gitattributes` review (`archive_review: "proposed"`, `.gitattributes` in scope, `export_ignore_reviewed` marker) |
 | step-14-post | Step 14 (post-release bump PR) | 2 | standard post-bump (pyproject.toml style), scope violation for CHANGELOG.md |
 
 ## Run
@@ -72,3 +72,25 @@ true`, name the violation, and not include a `proposed` key.
 removed from `NOTICE` for a dependency still in the dependency tree.
 The model must stop, return `notice_removal_unjustified: true`, name
 the removed attribution, and not include a `proposed` key.
+
+## Source-archive review case
+
+**step-2-prep case-4-first-release-archive-review**: a first release
+with `export_ignore_reviewed` unset. The report carries the RM's
+per-entry answers from the guided review; the model must include
+`.gitattributes` in `files_in_scope`, describe the `export-ignore`
+entries and the `export_ignore_reviewed` marker in the PR body, keep
+`LICENSE` / `NOTICE` / `.rat-excludes` / the linked
+`.github/ISSUE_TEMPLATE/` shipping, and return
+`archive_review: "proposed"`. The three older step-2 cases state that
+the review was already done and no top-level paths drifted, so they
+must return `archive_review: "skipped"`.
+
+## ASF-only gate
+
+**step-0-preflight case-5-automated-signing-non-asf**: `/release-prepare
+automated-signing` on a project whose organization manifest sets
+`release_process.automated_signing: null`. The model must block and
+must not describe the CI-signing flow — it is an ASF Infra offering.
+Case-6 is the same invocation on an ASF project and must proceed with
+`version: null`.

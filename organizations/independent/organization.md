@@ -121,6 +121,7 @@ release_process:
   release_dist: null                  # GitHub Releases (no svn dist area)
   project_wiki: null
   announce_list: null                 # announcements via GitHub Releases / Discussions
+  automated_signing: null             # ASF-specific option; not offered here
 ```
 
 ## Roster / tracker

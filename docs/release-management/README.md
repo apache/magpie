@@ -123,7 +123,7 @@ says which file is missing.
 | File | What it carries | Read by |
 |---|---|---|
 | [`pmc-roster.md`](../../projects/_template/pmc-roster.md) | Who is binding. Read wherever a vote is counted or a PMC-only action is gated. | `promote`, `vote-tally` |
-| [`release-build.md`](../../projects/_template/release-build.md) | How this project builds and signs artefacts: build command, artefact names, checksum algorithm, signing-key expectations. | `rc-cut`, `verify-rc` |
+| [`release-build.md`](../../projects/_template/release-build.md) | How this project builds and signs artefacts: reproducible source-archive recipe (`git archive` + `.gitattributes`), build command, artefact names, checksum algorithm, optional reproducibility checks for source and binaries. | `rc-cut`, `verify-rc` |
 | [`release-management-config.md`](../../projects/_template/release-management-config.md) | Vote window and pass rule, distribution backend and paths, announce/vote list addresses, retention rule. | `announce-draft`, `archive-sweep`, `audit-report`, `keys-sync`, `prepare`, `promote`, `rc-cut`, `verify-rc`, `vote-draft`, `vote-tally` |
 | [`release-trains.md`](../../projects/_template/release-trains.md) | Active release branches, release-manager attribution per cut, rotation rosters, security-team roster. | `archive-sweep`, `prepare` |
 

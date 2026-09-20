@@ -1,0 +1,57 @@
+{
+  "has_repro_check": {
+    "field": "source_check_commands",
+    "type": "regex",
+    "pattern": "repro-archive check",
+    "flags": ""
+  },
+  "has_repro_rebuild": {
+    "field": "source_check_commands",
+    "type": "regex",
+    "pattern": "repro-archive build",
+    "flags": ""
+  },
+  "has_repro_compare": {
+    "field": "source_check_commands",
+    "type": "regex",
+    "pattern": "repro-archive compare",
+    "flags": ""
+  },
+  "has_no_working_tree_pack": {
+    "field": "source_check_commands",
+    "type": "regex",
+    "pattern": "zip -r|tar czf|tar -czf",
+    "flags": "",
+    "negate": true
+  },
+  "source_commands_empty": {
+    "field": "source_check_commands",
+    "type": "empty"
+  },
+  "has_source_date_epoch_export": {
+    "field": "binary_check_commands",
+    "type": "regex",
+    "pattern": "SOURCE_DATE_EPOCH",
+    "flags": ""
+  },
+  "has_binary_compare": {
+    "field": "binary_check_commands",
+    "type": "regex",
+    "pattern": "cmp |sha512sum|diffoscope",
+    "flags": ""
+  },
+  "binary_commands_empty": {
+    "field": "binary_check_commands",
+    "type": "empty"
+  },
+  "stops_on_differs": {
+    "field": "stop_on",
+    "type": "regex",
+    "pattern": "differs",
+    "flags": "i"
+  },
+  "proposed_true": {
+    "field": "proposed",
+    "type": "field_true"
+  }
+}
