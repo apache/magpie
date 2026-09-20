@@ -28,6 +28,7 @@ import sys
 import time
 from pathlib import Path
 
+from . import backends as _backends
 from . import daemon
 
 
@@ -121,8 +122,40 @@ def cmd_serve(ns: argparse.Namespace) -> int:
     return asyncio.run(daemon.run(cfg))
 
 
+def _looks_like_a_gateway_process(pid: int) -> bool:
+    """Refuse to signal anything that does not look like this gateway.
+
+    ``stop`` reads its target pid out of a file under a run directory the
+    sandboxed agent can otherwise only plant, not forge (D1's validation
+    plus a pid file that must be a regular, euid-owned, mode-0600 file
+    closes every forging route) -- but the agent could still start some
+    other long-lived process of its own, of a pid the operator's own
+    ``container-gateway serve`` later happens to reuse after the agent
+    wrote it into a (by then legitimately 0600) pid file through a prior
+    run's cleanup race. Checking the live process's own command line
+    before ever signalling it closes that last gap; an unreadable
+    command line (``ps`` unavailable, the process already gone) refuses
+    rather than guesses.
+    """
+    line = _backends.default_runner(["ps", "-o", "command=", "-p", str(pid)])
+    if line is None:
+        return False
+    return "container_gateway" in line or "container-gateway" in line
+
+
 def cmd_stop(ns: argparse.Namespace) -> int:
     cfg = _config(ns)
+    if not daemon.validate_run_dir(cfg.run_dir, cfg.project_root):
+        return 0  # never served, or the run directory itself no longer exists
+    trust = daemon.pid_file_is_trustworthy(cfg.pid_file)
+    if trust is None:
+        return 0  # no pid file yet: nothing to stop
+    if trust is False:
+        print(
+            f"container-gateway: {cfg.pid_file} is not a plain, owned, 0600 pid file; refusing",
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
     running, pid = daemon.probe_pid_lock(cfg.pid_file)
     if not running:
         return 0
@@ -130,27 +163,51 @@ def cmd_stop(ns: argparse.Namespace) -> int:
         # Something holds the lock but the pid file's content is missing
         # or unsafe to trust -- there is nothing we can safely signal.
         return 1
+    if not _looks_like_a_gateway_process(pid):
+        print(
+            f"container-gateway: pid {pid} does not look like a container-gateway process; refusing to signal",
+            file=sys.stderr,
+        )
+        return 1
     os.kill(pid, signal.SIGTERM)
     deadline = time.monotonic() + 5
     while time.monotonic() < deadline:
-        if not daemon.pid_alive(pid):
-            break  # cheap fast-path; the lock probe below is authoritative
+        running, _ = daemon.probe_pid_lock(cfg.pid_file)
+        if not running:
+            return 0
         time.sleep(0.1)
     running, _ = daemon.probe_pid_lock(cfg.pid_file)
+    if running:
+        # pid_alive is a fallback log detail here, never the decision --
+        # the lock probe just above is what running/not-running means.
+        print(
+            f"container-gateway: pid {pid} still holds the lock 5s after SIGTERM (pid_alive={daemon.pid_alive(pid)})",
+            file=sys.stderr,
+        )
     return 0 if not running else 1
+
+
+def _status_payload(running: bool, pid: int | None, run_dir: Path) -> dict[str, object]:
+    p = daemon.paths(run_dir)
+    serving = [k for k in ("podman", "docker") if running and p[k].exists()]
+    sockets = {k: (str(p[k]) if k in serving else None) for k in ("podman", "docker")}
+    return {"running": running, "pid": pid if running else None, "sockets": sockets, "serving": serving}
 
 
 def cmd_status(ns: argparse.Namespace) -> int:
     cfg = _config(ns)
+    if not daemon.validate_run_dir(cfg.run_dir, cfg.project_root):
+        print(json.dumps(_status_payload(False, None, cfg.run_dir)))
+        return 3
+    trust = daemon.pid_file_is_trustworthy(cfg.pid_file)
+    if trust is not True:
+        # Missing: never served. Untrustworthy: report not-running without
+        # touching a file that failed the ownership/type/mode check --
+        # `status` never deletes something it does not trust.
+        print(json.dumps(_status_payload(False, None, cfg.run_dir)))
+        return 3
     running, pid = daemon.probe_pid_lock(cfg.pid_file)
-    p = daemon.paths(cfg.run_dir)
-    serving = [k for k in ("podman", "docker") if running and p[k].exists()]
-    sockets = {k: (str(p[k]) if k in serving else None) for k in ("podman", "docker")}
-    print(
-        json.dumps(
-            {"running": running, "pid": pid if running else None, "sockets": sockets, "serving": serving}
-        )
-    )
+    print(json.dumps(_status_payload(running, pid, cfg.run_dir)))
     return 0 if running else 3
 
 

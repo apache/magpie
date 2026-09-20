@@ -107,44 +107,99 @@ def _refuse_if_symlink(path: Path, label: str) -> None:
         _refuse(f"{label} ({path}) is a symlink; refusing")
 
 
-def _ensure_owned_private_dir(path: Path, label: str) -> None:
-    """``path`` must not be a symlink.
+def _refuse_if_parent_missing_or_symlink(path: Path, label: str) -> None:
+    """An ancestor this module never creates on its own: it must already exist.
 
-    Created 0700 when absent (an explicit ``mkdir()``, never
-    ``parents=True`` -- each component is checked and created one at a
-    time by the caller so a symlink planted at an intermediate component
-    is never silently traversed). When it already exists it must be a
-    directory owned by the current effective user and not group- or
-    world-writable.
+    Used for a custom ``--run-dir``'s parent, which may sit anywhere
+    outside the project tree -- "create it for the operator" would be
+    presumptuous, and letting a missing parent surface as a bare
+    ``FileNotFoundError`` out of a later ``mkdir()`` is not an error
+    message worth shipping.
+    """
+    st = _lstat_or_none(path)
+    if st is None:
+        _refuse(f"{label} ({path}) does not exist")
+    if stat.S_ISLNK(st.st_mode):
+        _refuse(f"{label} ({path}) is a symlink; refusing")
+
+
+def _resolved_existing_project_root(project_root: Path) -> Path:
+    resolved = project_root.resolve()
+    if not resolved.is_dir():
+        _refuse(f"project root ({resolved}) does not exist")
+    return resolved
+
+
+def _owned_private_dir_status(path: Path, label: str) -> bool:
+    """Whether ``path`` exists and is a safe, private directory -- without creating it.
+
+    ``True``: exists, is a directory, owned by the current effective
+    user, not group- or world-writable. ``False``: does not exist yet
+    (not an attack -- just "nothing here"). Refuses (``SystemExit(2)``)
+    for every other shape a present path could have: a symlink, a
+    regular file, a foreign owner, a group/world-writable mode.
     """
     _refuse_if_symlink(path, label)
     st = _lstat_or_none(path)
     if st is None:
-        path.mkdir(mode=0o700)
-        return
+        return False
     if not stat.S_ISDIR(st.st_mode):
         _refuse(f"{label} ({path}) is not a directory; refusing")
     if st.st_uid != os.geteuid():
         _refuse(f"{label} ({path}) is not owned by the current user; refusing")
     if st.st_mode & (stat.S_IWGRP | stat.S_IWOTH):
         _refuse(f"{label} ({path}) is group- or world-writable; refusing")
+    return True
+
+
+def _ensure_owned_private_dir(path: Path, label: str) -> None:
+    """``path`` must not be a symlink; created 0700 when absent.
+
+    An explicit ``mkdir()``, never ``parents=True`` -- each component is
+    checked and created one at a time by the caller so a symlink planted
+    at an intermediate component is never silently traversed. When it
+    already exists it must be a directory owned by the current effective
+    user and not group- or world-writable (``_owned_private_dir_status``).
+    A ``FileExistsError`` from the ``mkdir`` itself (something else
+    created -- or planted -- this path between our check and this call)
+    re-runs that same check against whatever is actually there now,
+    rather than trusting the race's winner.
+    """
+    if _owned_private_dir_status(path, label):
+        return
+    try:
+        path.mkdir(mode=0o700)
+    except FileExistsError:
+        if not _owned_private_dir_status(path, label):
+            _refuse(f"{label} ({path}) could not be created or inspected")
 
 
 def check_run_dir(run_dir: Path, project_root: Path) -> None:
-    """Guarantee ``run_dir`` is a real, owned, non-symlinked, private directory.
+    """Guarantee ``run_dir`` is a real, owned, non-symlinked, private directory
+    at the moment this check runs.
 
     ``project_root`` is resolved once -- a symlinked *project root* is a
-    legitimate thing the operator pointed ``--project`` at. Everything
-    strictly below it is then walked top-down with ``lstat`` before being
-    trusted, one component at a time, so each check's parent is already
-    known-safe by the time the next one runs (the same discipline
-    ``openat(2)``-style code uses to refuse a symlink race): first
-    ``.apache-magpie-local``, then ``run``, in the default layout. A
-    custom ``--run-dir`` outside the project tree gets the same
-    symlink refusal on its own parent, then the ownership/mode check on
-    itself.
+    legitimate thing the operator pointed ``--project`` at, and it must
+    already exist (this function creates directories below it, never the
+    root itself). Everything strictly below it is walked top-down with
+    ``lstat``, refusing a symlink, a non-directory, a foreign owner or a
+    group/world-writable mode on each component before creating or
+    trusting the next one: first ``.apache-magpie-local``, then ``run``,
+    in the default layout. A custom ``--run-dir`` outside the project
+    tree must have an existing, non-symlinked parent, then gets the same
+    ownership/mode check on itself.
+
+    This closes the symlink-plant attack *at check time*; it does not by
+    itself pin the directory components against a race between this
+    check and a later operation inside them -- an attacker who can still
+    write to a checked-safe parent after this call returns could still
+    swap a directory for a symlink before the next thing that touches it.
+    What IS pinned across that gap is the *file* opens downstream of this
+    check: the pid file and the daemon log are opened with ``O_NOFOLLOW``,
+    which atomically refuses a symlink at the exact moment of that open,
+    independent of whatever this function saw a moment earlier.
     """
-    resolved_root = project_root.resolve()
+    resolved_root = _resolved_existing_project_root(project_root)
     default_run_dir = resolved_root / ".apache-magpie-local" / "run"
     if run_dir == default_run_dir:
         _ensure_owned_private_dir(
@@ -152,16 +207,47 @@ def check_run_dir(run_dir: Path, project_root: Path) -> None:
         )
         _ensure_owned_private_dir(run_dir, "the run directory")
     else:
-        _refuse_if_symlink(run_dir.parent, "the run directory's parent")
+        _refuse_if_parent_missing_or_symlink(run_dir.parent, "the run directory's parent")
         _ensure_owned_private_dir(run_dir, "the run directory")
+
+
+def validate_run_dir(run_dir: Path, project_root: Path) -> bool:
+    """Read-only counterpart to ``check_run_dir``, for ``status``/``stop``.
+
+    Those commands must never create anything -- inspecting a project
+    that has never been served should have no side effects -- but they
+    must not silently walk *through* a planted symlink just because they
+    only read. Returns ``True`` when every relevant component exists and
+    passes the same checks ``check_run_dir`` enforces; ``False`` when a
+    component is simply missing, which callers read as "not running", not
+    as an attack. A symlink, wrong owner, wrong type or wrong mode on a
+    component that DOES exist still refuses with ``SystemExit(2)``.
+    """
+    resolved_root = project_root.resolve()
+    if not resolved_root.is_dir():
+        return False  # nothing has ever been served from a project that is not there
+    default_run_dir = resolved_root / ".apache-magpie-local" / "run"
+    if run_dir == default_run_dir:
+        if not _owned_private_dir_status(
+            resolved_root / ".apache-magpie-local", "the project's .apache-magpie-local directory"
+        ):
+            return False
+    else:
+        st = _lstat_or_none(run_dir.parent)
+        if st is None:
+            return False
+        if stat.S_ISLNK(st.st_mode):
+            _refuse(f"the run directory's parent ({run_dir.parent}) is a symlink; refusing")
+    return _owned_private_dir_status(run_dir, "the run directory")
 
 
 def check_socket_type(p: Path) -> None:
     """Refuse to bind over anything but a stale unix socket or nothing at all.
 
     A symlink, a regular file or a directory sitting at a gateway socket
-    path is not something ``serve_unix``'s ``unlink(missing_ok=True)``
-    should ever silently remove and replace.
+    path is not something ``run()`` should ever silently remove and
+    replace -- it only unlinks a path after this check has confirmed
+    whatever is there really is a stale socket (or nothing).
     """
     st = _lstat_or_none(p)
     if st is not None and not stat.S_ISSOCK(st.st_mode):
@@ -186,6 +272,32 @@ def read_pid(pid_file: Path) -> int | None:
         return None
     pid = int(text)
     return pid if pid > 1 else None
+
+
+def pid_file_is_trustworthy(pid_file: Path) -> bool | None:
+    """Whether ``pid_file`` is safe for ``status``/``stop`` to act on.
+
+    ``None``: does not exist yet -- nothing has been distrusted, there is
+    simply nothing there. ``True``: exists, is a regular file (not a
+    symlink), owned by the current effective user, mode exactly ``0600``
+    -- exactly the shape ``acquire_pid_lock`` creates. ``False``: exists
+    but fails one of those checks -- a symlink, someone else's file, or a
+    mode the agent (or anything else) widened or narrowed after the fact.
+    Callers never signal or otherwise trust a file this returns ``False``
+    for, and never need to distinguish "doesn't exist" from "exists but
+    is fine" for their own decision -- both are handled by the ``bool()``
+    of this return value except where the caller needs to tell "never
+    served" apart from "untrustworthy", which is why this returns
+    ``None`` rather than folding that case into ``False``.
+    """
+    st = _lstat_or_none(pid_file)
+    if st is None:
+        return None
+    if stat.S_ISLNK(st.st_mode) or not stat.S_ISREG(st.st_mode):
+        return False
+    if st.st_uid != os.geteuid():
+        return False
+    return st.st_mode & 0o777 == 0o600
 
 
 def pid_alive(pid: int) -> bool:
@@ -218,15 +330,15 @@ def acquire_pid_lock(pid_file: Path) -> int | None:
     it, or letting it be garbage collected, drops the lock. Returns
     ``None`` when another live instance already holds the lock.
 
-    The fd is opened ``O_TRUNC`` regardless of whether the lock turns out
-    to be free, so a losing caller's content is clobbered even though it
-    never got to write; that is fine because the lock, never the file's
-    content, is what ``serve``/``status``/``stop`` treat as the liveness
-    signal. Only display (``status``'s reported pid) can go briefly stale
-    in that race, and only until the winner's own write lands.
+    The fd is opened WITHOUT ``O_TRUNC`` -- truncating unconditionally at
+    open time would blank a live daemon's pid file the instant a second,
+    losing ``serve`` invocation merely probes it, even though that
+    second invocation never wins the lock. The file's content is only
+    ever rewritten *after* the lock is actually won, so a contended probe
+    leaves the live instance's displayed pid untouched.
     """
     try:
-        fd = _open_pid_fd(pid_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC)
+        fd = _open_pid_fd(pid_file, os.O_WRONLY | os.O_CREAT)
     except OSError as exc:
         _refuse(f"{pid_file} could not be opened safely (symlink?): {exc}")
     try:
@@ -234,7 +346,10 @@ def acquire_pid_lock(pid_file: Path) -> int | None:
     except BlockingIOError:
         os.close(fd)
         return None
+    os.ftruncate(fd, 0)
+    os.lseek(fd, 0, 0)
     os.write(fd, f"{os.getpid()}\n".encode())
+    os.fsync(fd)
     return fd
 
 
@@ -383,6 +498,12 @@ async def run(
                 )
                 sock_path = p[key]
                 check_socket_type(sock_path)
+                # The lock is already held (we would not be here
+                # otherwise) and `check_socket_type` just confirmed
+                # anything present really is a stale socket -- only now
+                # is it safe to remove it. `serve_unix` itself performs
+                # no unlink of its own.
+                sock_path.unlink(missing_ok=True)
                 server = await serve_unix(sock_path, activity.wrap(relay))
                 servers.append(server)
                 bound_sockets.append(sock_path)
@@ -411,6 +532,12 @@ async def run(
             for sock_path in bound_sockets:
                 sock_path.unlink(missing_ok=True)
     finally:
-        os.close(pid_fd)
+        # Unlink FIRST, while the lock is still held (the fd is still
+        # open): once the fd is closed the lock is gone, and any window
+        # between that and the unlink is a window where a racing `serve`
+        # could win the lock on a *new* inode while this pid file is
+        # still the old one on disk. Unlinking before closing removes
+        # that window instead of merely narrowing it.
         cfg.pid_file.unlink(missing_ok=True)
+        os.close(pid_fd)
     return 0

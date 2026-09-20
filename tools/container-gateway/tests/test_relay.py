@@ -28,6 +28,7 @@ only piece that binds) gets its own smoke test below.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 from collections.abc import Coroutine
 from pathlib import Path
@@ -137,6 +138,32 @@ def test_serve_unix_binds_owner_only(tmp_path: Path) -> None:
         finally:
             server.close()
             await server.wait_closed()
+
+    run(scenario())
+
+
+def test_serve_unix_does_not_unlink_a_pre_existing_file(tmp_path: Path) -> None:
+    """``serve_unix`` never removes what was there before it -- the daemon does, and only
+
+    after ``check_socket_type`` has confirmed it is safe to. This drives
+    ``serve_unix`` straight at a pre-existing regular file with no such
+    check in front of it and asserts the file survives regardless of
+    whether the bind itself got far enough to fail on "already in use"
+    or was refused outright by the sandbox.
+    """
+
+    async def scenario() -> None:
+        async def handler(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+            writer.close()
+
+        sock = tmp_path / "gw.sock"
+        sock.write_text("not a socket")
+        with contextlib.suppress(OSError):
+            server = await serve_unix(sock, handler)
+            server.close()
+            await server.wait_closed()
+        assert sock.exists()
+        assert sock.read_text() == "not a socket"
 
     run(scenario())
 

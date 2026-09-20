@@ -185,6 +185,60 @@ def test_check_run_dir_refuses_symlinked_custom_run_dir(tmp_path: Path) -> None:
     assert exc.value.code == 2
 
 
+# ------------------------------------------- D5: missing ancestors refuse
+
+
+def test_check_run_dir_refuses_missing_project_root(tmp_path: Path) -> None:
+    missing_root = tmp_path / "does-not-exist"
+    with pytest.raises(SystemExit) as exc:
+        daemon.check_run_dir(missing_root / ".apache-magpie-local" / "run", missing_root)
+    assert exc.value.code == 2
+
+
+def test_check_run_dir_refuses_missing_custom_run_dir_parent(tmp_path: Path) -> None:
+    project_root = tmp_path / "proj"
+    project_root.mkdir()
+    missing_parent_run_dir = tmp_path / "does-not-exist" / "run"
+    with pytest.raises(SystemExit) as exc:
+        daemon.check_run_dir(missing_parent_run_dir, project_root)
+    assert exc.value.code == 2
+
+
+def test_validate_run_dir_false_when_project_root_missing(tmp_path: Path) -> None:
+    missing_root = tmp_path / "does-not-exist"
+    assert daemon.validate_run_dir(missing_root / ".apache-magpie-local" / "run", missing_root) is False
+
+
+def test_validate_run_dir_false_when_custom_parent_missing(tmp_path: Path) -> None:
+    project_root = tmp_path / "proj"
+    project_root.mkdir()
+    missing_parent_run_dir = tmp_path / "does-not-exist" / "run"
+    assert daemon.validate_run_dir(missing_parent_run_dir, project_root) is False
+
+
+# --------------------------------------- D6: lstat-then-mkdir race safety
+
+
+def test_ensure_owned_private_dir_handles_mkdir_race_with_planted_symlink(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "custom-run"
+    evil = tmp_path / "evil"
+    evil.mkdir()
+    real_mkdir = Path.mkdir
+
+    def racy_mkdir(self: Path, mode: int = 0o777, parents: bool = False, exist_ok: bool = False) -> None:
+        if self == target:
+            target.symlink_to(evil)  # someone (or something) won the race and planted a symlink
+            raise FileExistsError(f"[Errno 17] File exists: '{target}'")
+        real_mkdir(self, mode, parents=parents, exist_ok=exist_ok)
+
+    monkeypatch.setattr(Path, "mkdir", racy_mkdir)
+    with pytest.raises(SystemExit) as exc:
+        daemon.check_run_dir(target, tmp_path)
+    assert exc.value.code == 2
+
+
 # --------------------------------------------------- C2: socket guards
 
 
@@ -238,6 +292,152 @@ def test_open_log_fd_refuses_symlink(tmp_path: Path) -> None:
     assert exc.value.code == 2
 
 
+# --------------------- D2: acquire_pid_lock never blanks a live pid file
+
+
+def test_acquire_pid_lock_does_not_blank_a_live_daemons_pid_file(tmp_path: Path) -> None:
+    pid_file = tmp_path / "container-gateway.pid"
+    fd = daemon.acquire_pid_lock(pid_file)
+    assert fd is not None
+    try:
+        os.ftruncate(fd, 0)
+        os.lseek(fd, 0, 0)
+        os.write(fd, b"4242\n")
+        os.fsync(fd)
+        second = daemon.acquire_pid_lock(pid_file)
+        assert second is None
+        assert pid_file.read_text() == "4242\n"
+    finally:
+        os.close(fd)
+
+
+# ------------------------------------- D1: status/stop bypassed check_run_dir
+
+
+def test_pid_file_is_trustworthy_none_when_missing(tmp_path: Path) -> None:
+    assert daemon.pid_file_is_trustworthy(tmp_path / "container-gateway.pid") is None
+
+
+def test_pid_file_is_trustworthy_true_for_a_lock_created_file(tmp_path: Path) -> None:
+    pid_file = tmp_path / "container-gateway.pid"
+    fd = daemon.acquire_pid_lock(pid_file)
+    assert fd is not None
+    try:
+        assert daemon.pid_file_is_trustworthy(pid_file) is True
+    finally:
+        os.close(fd)
+
+
+def test_pid_file_is_trustworthy_false_for_symlink(tmp_path: Path) -> None:
+    target = tmp_path / "elsewhere.pid"
+    target.write_text("4242\n")
+    target.chmod(0o600)
+    link = tmp_path / "container-gateway.pid"
+    link.symlink_to(target)
+    assert daemon.pid_file_is_trustworthy(link) is False
+
+
+def test_pid_file_is_trustworthy_false_for_wrong_mode(tmp_path: Path) -> None:
+    pid_file = tmp_path / "container-gateway.pid"
+    pid_file.write_text("4242\n")
+    pid_file.chmod(0o644)
+    assert daemon.pid_file_is_trustworthy(pid_file) is False
+
+
+def test_cli_status_refuses_symlinked_run_dir(tmp_path: Path) -> None:
+    project_root = tmp_path / "proj"
+    magpie_local = project_root / ".apache-magpie-local"
+    magpie_local.mkdir(parents=True, mode=0o700)
+    evil = tmp_path / "evil"
+    evil.mkdir()
+    (magpie_local / "run").symlink_to(evil)
+    with pytest.raises(SystemExit) as exc:
+        cli.cmd_status(_ns(project_root, magpie_local / "run"))
+    assert exc.value.code == 2
+
+
+def test_cli_stop_refuses_symlinked_run_dir_without_signalling(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project_root = tmp_path / "proj"
+    magpie_local = project_root / ".apache-magpie-local"
+    magpie_local.mkdir(parents=True, mode=0o700)
+    evil = tmp_path / "evil"
+    evil.mkdir()
+    (magpie_local / "run").symlink_to(evil)
+    calls: list[tuple[int, int]] = []
+    monkeypatch.setattr(os, "kill", lambda pid, sig: calls.append((pid, sig)))
+    with pytest.raises(SystemExit) as exc:
+        cli.cmd_stop(_ns(project_root, magpie_local / "run"))
+    assert exc.value.code == 2
+    assert calls == []
+
+
+def test_cli_stop_refuses_pid_file_with_wrong_mode(
+    tmp_path: Path, short_run_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pid_file = short_run_dir / "container-gateway.pid"
+    pid_file.write_text("4242\n")
+    pid_file.chmod(0o644)
+    calls: list[tuple[int, int]] = []
+    monkeypatch.setattr(os, "kill", lambda pid, sig: calls.append((pid, sig)))
+    with pytest.raises(SystemExit) as exc:
+        cli.cmd_stop(_ns(tmp_path, short_run_dir))
+    assert exc.value.code == 2
+    assert calls == []
+
+
+def test_cli_status_treats_wrong_mode_pid_file_as_not_running(
+    tmp_path: Path, short_run_dir: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    pid_file = short_run_dir / "container-gateway.pid"
+    pid_file.write_text("4242\n")
+    pid_file.chmod(0o644)
+    rc = cli.cmd_status(_ns(tmp_path, short_run_dir))
+    out = json.loads(capsys.readouterr().out)
+    assert rc == 3
+    assert out["running"] is False
+    # Untrustworthy content is left alone, not deleted, by `status`.
+    assert pid_file.exists()
+
+
+# -------------------------------- D4: stop verifies the signalled process
+
+
+def test_cli_stop_refuses_when_process_does_not_look_like_gateway(
+    tmp_path: Path, short_run_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pid_file = short_run_dir / "container-gateway.pid"
+    fd = daemon.acquire_pid_lock(pid_file)
+    assert fd is not None
+    try:
+        monkeypatch.setattr("container_gateway.backends.default_runner", lambda argv: "bash -c sleep 100")
+        calls: list[tuple[int, int]] = []
+        monkeypatch.setattr(os, "kill", lambda pid, sig: calls.append((pid, sig)))
+        rc = cli.cmd_stop(_ns(tmp_path, short_run_dir))
+        assert calls == []
+        assert rc == 1
+    finally:
+        os.close(fd)
+
+
+def test_cli_stop_refuses_when_ps_is_unavailable(
+    tmp_path: Path, short_run_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pid_file = short_run_dir / "container-gateway.pid"
+    fd = daemon.acquire_pid_lock(pid_file)
+    assert fd is not None
+    try:
+        monkeypatch.setattr("container_gateway.backends.default_runner", lambda argv: None)
+        calls: list[tuple[int, int]] = []
+        monkeypatch.setattr(os, "kill", lambda pid, sig: calls.append((pid, sig)))
+        rc = cli.cmd_stop(_ns(tmp_path, short_run_dir))
+        assert calls == []
+        assert rc == 1
+    finally:
+        os.close(fd)
+
+
 # --------------------------------------------------------------- C1: pid
 
 
@@ -266,6 +466,7 @@ def test_cli_stop_with_unsafe_pid_file_does_not_signal(
 ) -> None:
     pid_file = short_run_dir / "container-gateway.pid"
     pid_file.write_text(content)
+    pid_file.chmod(0o600)  # a trustworthy *file*; the *content* is what's unsafe here
     calls: list[tuple[int, int]] = []
     monkeypatch.setattr(os, "kill", lambda pid, sig: calls.append((pid, sig)))
     rc = cli.cmd_stop(_ns(tmp_path, short_run_dir))
@@ -348,6 +549,7 @@ def test_cli_status_removes_stale_pid_file_when_no_lock_held(
 ) -> None:
     pid_file = short_run_dir / "container-gateway.pid"
     pid_file.write_text("424242\n")  # a stale pid; nobody holds its lock
+    pid_file.chmod(0o600)  # a trustworthy, well-formed pid file -- just stale
     rc = cli.cmd_status(_ns(tmp_path, short_run_dir))
     out = json.loads(capsys.readouterr().out)
     assert rc == 3
@@ -376,6 +578,10 @@ def test_cli_stop_signals_the_pid_and_reports_stopped(
             raise ProcessLookupError
 
     monkeypatch.setattr(os, "kill", fake_kill)
+    monkeypatch.setattr(
+        "container_gateway.backends.default_runner",
+        lambda argv: "python3 -m container_gateway serve --project /x",
+    )
     rc = cli.cmd_stop(_ns(tmp_path, short_run_dir))
     assert rc == 0
     assert (our_pid, signal.SIGTERM) in calls
@@ -383,6 +589,43 @@ def test_cli_stop_signals_the_pid_and_reports_stopped(
 
 def test_cli_stop_when_lock_never_held_is_a_noop(tmp_path: Path, short_run_dir: Path) -> None:
     assert cli.cmd_stop(_ns(tmp_path, short_run_dir)) == 0
+
+
+# ------------------------- D3: unlink the pid file before closing its fd
+
+
+def test_run_unlinks_pid_file_before_closing_the_lock_fd(
+    tmp_path: Path, short_run_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    events: list[str] = []
+    real_unlink = Path.unlink
+    real_close = os.close
+    pid_file = short_run_dir / "pid"
+
+    def recording_unlink(self: Path, missing_ok: bool = False) -> None:
+        if self == pid_file:
+            events.append("unlink")
+        real_unlink(self, missing_ok=missing_ok)
+
+    def recording_close(fd: int) -> None:
+        events.append("close")
+        real_close(fd)
+
+    monkeypatch.setattr(Path, "unlink", recording_unlink)
+    monkeypatch.setattr(os, "close", recording_close)
+
+    cfg = daemon.Config(
+        tmp_path, short_run_dir, ("podman", "docker"), "off", 8899, None, (), 5.0, "INFO", pid_file
+    )
+
+    async def scenario() -> None:
+        rc = await daemon.run(cfg, discover_fn=lambda *a, **k: [], platform="Darwin")
+        assert rc == 0
+
+    run(scenario())
+    assert "unlink" in events
+    assert "close" in events
+    assert events.index("unlink") < events.index("close")
 
 
 # ---------------------------------------------------------------- I5

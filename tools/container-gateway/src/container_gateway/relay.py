@@ -588,9 +588,12 @@ async def serve_unix(path: Path, handler: Handler) -> asyncio.AbstractServer:
     The caller (the daemon) guarantees ``path.parent`` already exists as a
     checked, owned, non-symlinked directory -- this function does not
     create it, so it never has to decide what to do about a parent that
-    does not yet exist or is something other than a plain directory.
+    does not yet exist or is something other than a plain directory. It
+    also does not unlink a pre-existing ``path`` itself: the daemon does
+    that (via ``check_socket_type`` first, then the unlink) only once the
+    pid-file lock is held, so nothing here silently removes a file the
+    caller had not already decided was safe to remove.
     """
-    path.unlink(missing_ok=True)
     old_umask = os.umask(0o177)
     try:
         server = await asyncio.start_unix_server(handler, path=str(path))
