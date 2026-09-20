@@ -14,6 +14,7 @@
   - [Socket paths](#socket-paths)
   - [Test](#test)
   - [Caveat — containers only, not a container security boundary](#caveat--containers-only-not-a-container-security-boundary)
+  - [Limits and residual risks](#limits-and-residual-risks)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -66,6 +67,11 @@ Persist these per-machine in `.claude/settings.local.json`'s `env` block, and al
 
 The policy is a pure function over the parsed request (method, normalised path, query, JSON body), applied identically to the compat and libpod path families.
 Every container and pod is labelled with the project slug, and every list / act call is filtered to that label.
+
+**The create body, the exec body, the update body and the build query are allow-lists.**
+A create body may carry only the fields the gateway has learned — the ones it reasons about, plus the inert ones a real `docker run` / `podman run` sends — and any other key, at the top level or under `HostConfig`, comes back as `unknown-field`.
+The fields that turn a container into host access on their own (`rootfs`, `overlay_volumes`, `env_host`, `log_configuration`, `secret_env` / `secrets`, `cni_networks`, compat `Links` / `Cgroup` / `ContainerIDFile` / `VolumeDriver`) are refused with a reason of their own, and only when they carry a value: both CLIs send the zero value of every field on every create.
+
 The create-time rules below apply to containers and pods (the same fields under `HostConfig` in compat and at top level in libpod):
 
 | Field | Rule |
@@ -78,13 +84,18 @@ The create-time rules below apply to containers and pods (the same fields under 
 | `SecurityOpt` | deny `seccomp=unconfined`, `apparmor=unconfined`, `label=disable`, `no-new-privileges=false`, `systempaths=unconfined` |
 | `Sysctls`, `CgroupParent`, `Runtime`, `Isolation` | deny |
 | `MaskedPaths`, `ReadonlyPaths` | deny when set to an empty list |
-| `Binds`, `Mounts[type=bind]`, libpod `mounts` | source must resolve (symlinks followed, on the host) under the project root or the project scratch tree; anything else denied. `tmpfs` allowed |
+| `Binds`, `Mounts[type=bind]`, libpod `mounts` | source must resolve (symlinks followed, on the host) under the project root or a `--extra-bind-root`; anything else denied. `tmpfs` allowed |
 | `Mounts[type=volume]`, named volumes in `Binds`, `VolumesFrom` | the volume / container must carry the label |
 | `PortBindings` / `publish` | allowed; an empty `HostIp` is rewritten to `127.0.0.1` |
 | `Env` | proxy variables injected per the egress rule below; a client-supplied value for the same names is replaced |
 
+`POST /build` gets the same treatment: `volume`, `remote`, `securityopt`, `cgroupparent`, `ulimits`, `devices`, `secrets`, `ssh`, `session`, podman's `addcaps` / `labelopts` / `extrahosts`, a `networkmode` outside the keyword set above, an `nsoptions` entry joining a host namespace other than `user`, and an `output` naming a filesystem destination are all refused, as is any parameter the gateway has not learned.
+A build also gets the egress proxy merged into its `buildargs`, so `RUN` obeys the same allow-list a container does.
+An exec body is allow-listed to the exec fields, with `Privileged: true` refused; an update body to resource limits and the restart policy.
+
 A denial comes back as `403` with a one-line reason both CLIs print verbatim.
 `auth` (registry login), image push, swarm, services, tasks, nodes, plugins, secrets, configs, distribution, session and `system/dial-stdio` are denied outright, along with any path not in the allowed families.
+So are `checkpoint`, `restore`, `generate` and `play` (the first two write a host path daemon-side, the last two hand the daemon a Kubernetes manifest), and `export` / `import` as query parameters on any route.
 
 ## Egress modes
 
@@ -115,3 +126,19 @@ The gateway keeps the agent off the daemon socket and off resources outside its 
 The runtime remains the real boundary between a container and the VM or host kernel.
 A malicious image that escapes its container is not this gateway's problem to solve.
 Network filtering is limited to the proxy-variable injection above; raw sockets and DNS from inside a container are not intercepted.
+
+## Limits and residual risks
+
+Known and accepted, in the order you are likely to meet them:
+
+- **An unknown field is refused, so a new daemon feature is unavailable until the gateway learns it.**
+  That is the allow-list working as designed; the `403` names the field, which is the signal to add it to `policy_shape.py` (create / exec / update) or to `decisions.py` (build query) with a test.
+- **A bind source is checked on the host at decision time and re-resolved by the daemon at mount time.**
+  A symlink swapped between those two moments is not caught — the check and the mount are two separate resolutions of the same path, and the gateway holds no lock on the filesystem in between.
+- **Images are shared across projects by design.**
+  Pull, list, inspect, history, save and build are allowed on any image on the host; only remove and tag are label-checked. A project can therefore see, and run, an image another project pulled.
+- **`/info`, `/version` and `/_ping` return host-level daemon facts** — the daemon's version, its storage driver, the number of containers on the whole host — not a per-project view.
+- **Container egress is a friction layer, not a wall.**
+  The gateway injects proxy variables; a tool that ignores them, or a raw socket, or DNS, goes straight out. RFC-AI-0004 says the same of the permission layer.
+- **Backend discovery happens at start.**
+  A Podman machine or Docker Desktop started after the gateway is not picked up until the gateway restarts, which normally means the next session.

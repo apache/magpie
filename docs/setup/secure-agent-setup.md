@@ -523,9 +523,9 @@ below, annotated.
       "allowUnixSockets": [        // macOS only (ignored on Linux): sockets a sandboxed Bash may connect(2) to. A read entry alone lets it stat the file, not talk to it.
         "/Users/<you>/.gnupg/S.gpg-agent.ssh"   // gpg-agent's ssh socket — needed for signed commits and pushes over ssh; absolute path (see "SSH agent / Yubikey appears unreachable" in sandbox-troubleshooting.md)
         // Per project, local settings (`.claude/settings.local.json`,
-        // written by `/magpie-setup config`) add the container gateway's
-        // own sockets here as absolute paths, so a sandboxed podman /
-        // docker CLI can connect(2) to them:
+        // added by hand — see "Container gateway" below) carry the
+        // container gateway's own sockets here as absolute paths, so a
+        // sandboxed podman / docker CLI can connect(2) to them:
         //   "<project>/.apache-magpie-local/run/podman.sock",
         //   "<project>/.apache-magpie-local/run/docker.sock"
         // never the daemon socket itself: that is host access, see sandbox-troubleshooting.md
@@ -2381,7 +2381,9 @@ The framework's own `.claude/settings.json` already carries the `env` half of th
 }
 ```
 
-`allowUnixSockets` entries need an absolute path, which is per-machine, so they belong in the gitignored `.claude/settings.local.json` instead (written by `/magpie-setup config`, or by hand):
+`allowUnixSockets` entries need an absolute path, which is per-machine, so they belong in the gitignored `.claude/settings.local.json` instead.
+Add the block by hand, substituting your own project's absolute path for `<project>` — nothing writes it for you.
+(`setup-isolated-setup-install` Step L proposes the same block as a settings diff; `/magpie-setup config` does **not** write it, and automating it there is a recorded follow-up.)
 
 ```jsonc
 // .claude/settings.local.json (gitignored, per machine)
@@ -2421,7 +2423,7 @@ podman run --rm -v "$HOME/.ssh:/x" alpine true # expected: 403 container-gateway
 
 `status` prints a JSON object (`running`, `pid`, `sockets`, `serving`) and exits 0 when the gateway is up for this project, 3 otherwise.
 The `podman info` call should succeed from inside the sandbox once the hook has started the gateway and the two `allowUnixSockets` entries are in place.
-The `podman run` call is expected to fail: a bind mount outside the project root or its scratch tree is exactly what the policy refuses, and the `403` message is the gateway working as intended.
+The `podman run` call is expected to fail: a bind mount outside the project root (and any `--extra-bind-root`) is exactly what the policy refuses, and the `403` message is the gateway working as intended.
 
 ### Trade-offs
 

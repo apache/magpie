@@ -27,8 +27,12 @@ acceptance:
   - A create request that asks for privileged mode, extra
     capabilities, devices, a host or foreign namespace, an
     unconfined security option, or a bind mount outside the project
-    root and the project scratch tree is refused with HTTP 403 and a
+    root and any `--extra-bind-root` is refused with HTTP 403 and a
     one-line reason.
+  - A create, exec, update or build request carrying a field or query
+    parameter the gateway has not learned is refused with HTTP 403;
+    the create body, the exec body, the update body and the build
+    query are all allow-lists.
   - Containers created through the gateway receive `HTTP_PROXY` /
     `HTTPS_PROXY` / `NO_PROXY` pointing at the egress gateway when it
     is reachable; the `require` mode refuses creation when it is not.
@@ -112,11 +116,12 @@ project-relative `unix://./…` value, so the committed reference
 `env` block (below) names both sockets that way and needs no
 per-project edit. `sandbox.network.allowUnixSockets` is a separate
 setting with no such relative form in practice; the committed
-baseline carries no gateway-socket entry in it at all, and
-`/magpie-setup config` writes the two sockets' **absolute** paths into
-the gitignored, per-project `.claude/settings.local.json` instead —
-see [Container gateway](../../../docs/setup/secure-agent-setup.md#container-gateway)
-in the setup guide. The macOS limit of 104 bytes on a socket path is
+baseline carries no gateway-socket entry in it at all. The operator
+adds the two sockets' **absolute** paths to the gitignored, per-project
+`.claude/settings.local.json` by hand (the block is in
+[Container gateway](../../../docs/setup/secure-agent-setup.md#container-gateway)
+in the setup guide, and `setup-isolated-setup-install` Step L proposes
+it as a settings diff); `/magpie-setup config` does not write it. The macOS limit of 104 bytes on a socket path is
 checked at start and reported.
 
 The gateway must run **outside** the sandbox: it connects to the real
@@ -210,6 +215,41 @@ tree) and:
   gateway); image prune is restricted to dangling images carrying the
   label; load is allowed and the loaded image is not labelled.
 
+**The create body is an allow-list.** A container or pod create body
+may carry only the fields the gateway has learned — the ones it reasons
+about, plus the inert ones real `docker run` / `podman run` bodies send —
+and any other key, at the top level or under `HostConfig`, is refused
+with `unknown-field`. A deny-list over an unbounded JSON body cannot be
+right by construction: libpod's `rootfs`, `overlay_volumes`, `env_host`,
+`log_configuration` and `secret_env` each turn a container into host
+access on their own, and each was an `Allow` while the policy enumerated
+what was forbidden. Those fields keep reasons of their own, and are
+refused on a *set* value rather than on mere presence, because both CLIs
+serialise the zero value of every member of their create struct on every
+request. The exec body and the update body are allow-lists in the same
+way. The cost of the posture — a field the gateway has not learned is
+unavailable through it — is recorded under *Limits and residual risks*
+in [`tools/container-gateway/tool.md`](../../container-gateway/tool.md).
+
+**The build query is an allow-list too.** `POST /build` is a create in
+disguise: its `RUN` steps execute with whatever the query asks for.
+Parameters that reach the host — `volume`, `remote`, `securityopt`,
+`cgroupparent`, `ulimits`, `devices`, `secrets`, `ssh`, `session`,
+podman's `addcaps` / `labelopts` / `extrahosts`, a `networkmode` outside
+the create path's keyword set, an `nsoptions` entry joining a host
+namespace other than `user`, an `output` naming a filesystem
+destination — are refused, and anything not enumerated is refused as
+`denied-build-parameter`. When the egress mode is not `off` and a proxy
+is resolved, `HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY` are merged into
+`buildargs` (client-supplied values for those names dropped first) and
+podman's own `httpproxy` is turned off, so property 3 covers builds.
+
+**Denied outright by action**: `checkpoint`, `restore`, `generate` and
+`play` on containers and pods — the first two name a host path for the
+daemon to write, the last two hand the daemon a Kubernetes YAML it acts
+on wholesale. `export` and `import` are refused as query parameters on
+every route, as a backstop for a verb this policy has not enumerated.
+
 **Create-time rules** (containers and pods; the same fields under
 `HostConfig` in compat and at top level in libpod):
 
@@ -223,7 +263,7 @@ tree) and:
 | `SecurityOpt` | allow-list per key: `seccomp` only `""` / `default`; `apparmor` denies only `unconfined` (any other value, including a custom profile, is allowed); `label` denies only `disable`; `no-new-privileges` allows only `""` / `true` (any other value, including `false`, is denied); `systempaths` allows only `""` (any non-empty value is denied); an unrecognised key (including `unmask`, `proc-opts`) is denied outright |
 | `Sysctls`, `CgroupParent`, `Runtime`, `Isolation` | deny |
 | `MaskedPaths`, `ReadonlyPaths` | deny when set to an empty list |
-| `Binds`, `Mounts[type=bind]`, libpod `mounts` | source must resolve (symlinks followed, on the host) under the project root or the project scratch tree; anything else denied. `tmpfs` allowed |
+| `Binds`, `Mounts[type=bind]`, libpod `mounts` | source must resolve (symlinks followed, on the host) under the project root or a `--extra-bind-root`; anything else denied. `tmpfs` allowed |
 | `Mounts[type=volume]`, named volumes in `Binds` | the named volume must carry the label, checked (and, for an unknown name, pre-created labelled) by the relay before the backend ever sees the create call |
 | `VolumesFrom` | refused outright — sharing another container's mounts would need the same by-id label check the relay does for named volumes/networks, and the common case is already covered by a named volume |
 | `PortBindings` / `publish` | allowed; an empty `HostIp` is rewritten to `127.0.0.1` |
@@ -314,9 +354,9 @@ so the committed `env` block above works unedited in every adopting
 project and carries no `allowUnixSockets` entry at all.
 `sandbox.network.allowUnixSockets` has no equivalent relative-path
 support, so the two gateway sockets are added there as **absolute**
-per-project paths — written into the gitignored
-`.claude/settings.local.json` by `/magpie-setup config`, never into the
-committed baseline:
+per-project paths — in the gitignored `.claude/settings.local.json`,
+never in the committed baseline, added by the operator (see *Known
+gaps*):
 
 ```jsonc
 // <project>/.claude/settings.local.json
@@ -388,8 +428,10 @@ PYTHONPATH=tools/skill-evals/src python3 -m skill_evals.runner \
 
 - Unit tests: one table-driven test module per policy family
   (`test_policy_create.py`, `test_policy_labels.py`,
-  `test_policy_paths.py`, `test_policy_images.py`) over request dicts,
-  covering compat and libpod shapes for every row in the tables above.
+  `test_policy_build.py`, `test_policy_images.py`) over request dicts,
+  covering compat and libpod shapes for every row in the tables above,
+  plus the bodies a real `docker run`, `podman run`, `podman pod
+  create`, `podman exec` and `podman build` actually send.
 - Relay tests against an in-process fake backend on a unix socket:
   plain JSON round trip, chunked streaming, raw-stream upgrade for exec
   and attach, streamed request bodies, backend-down → 502, unknown path
@@ -404,6 +446,16 @@ PYTHONPATH=tools/skill-evals/src python3 -m skill_evals.runner \
 
 ## Known gaps
 
+- `/magpie-setup config` does not write the two gateway sockets into
+  `.claude/settings.local.json`'s `sandbox.network.allowUnixSockets`,
+  although the setup guide used to say it did. The operator adds the
+  block by hand, or takes the settings diff
+  `setup-isolated-setup-install` Step L proposes. Automating it in
+  `/magpie-setup config` is the follow-up.
+- A create, exec or build field the gateway has not learned is refused,
+  so a daemon feature that arrives after this table is unavailable
+  through the gateway until the allow-list learns it. The refusal names
+  the field, which is the signal to add it.
 - The egress alias for Linux depends on the backend's bridge
   configuration and on the egress gateway listening on a non-loopback
   address; until the egress gateway grows a `--bind` option, Linux

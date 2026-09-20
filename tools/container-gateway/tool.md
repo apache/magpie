@@ -11,6 +11,7 @@
   - [Relationship to RFC-AI-0004 and RFC-AI-0003](#relationship-to-rfc-ai-0004-and-rfc-ai-0003)
   - [How adopters consume this tool](#how-adopters-consume-this-tool)
   - [What this tool is NOT for](#what-this-tool-is-not-for)
+  - [Limits and residual risks](#limits-and-residual-risks)
   - [Declared egress surfaces](#declared-egress-surfaces)
   - [Failure modes](#failure-modes)
 
@@ -35,7 +36,10 @@ policy:
 
 1. **Containers only.** The agent reaches the daemon exclusively through the
    API surface the gateway forwards, and every request shape that would turn
-   a container into host access is stripped or refused.
+   a container into host access is stripped or refused. The create body, the
+   exec body, the update body and the build query are **allow-lists**: a
+   field or parameter the gateway has not learned is refused, rather than
+   forwarded because no rule happened to name it.
 2. **This project's containers only.** Every resource the gateway creates is
    labelled with the project slug; every read or act call is filtered to
    that label. Two projects on one machine share a daemon and see disjoint
@@ -106,6 +110,34 @@ gateways together as the *socket gateways* row.
 - **Not** per-project daemon isolation. Isolation is by label on a daemon
   shared across every project on the machine, not by running a separate
   daemon per project.
+
+## Limits and residual risks
+
+The gateway is a policy boundary, not a sandbox for the daemon. What it
+does not cover, and what the design accepts:
+
+- **An unknown field is refused.** The allow-list posture means a daemon
+  feature the gateway has not learned is unavailable through it until the
+  table learns it. The refusal names the field, so the fix is a table entry
+  plus a test, not a debugging session.
+- **Bind sources are checked on the host at decision time and re-resolved by
+  the daemon at mount time.** A symlink swapped between those two moments is
+  not caught: they are two independent resolutions of the same path, and the
+  gateway holds no lock on the filesystem in between.
+- **Images are shared across projects by design.** Pull, list, inspect,
+  history, save and build are allowed on any image the host holds; only
+  remove and tag are label-checked. One project can see and run an image
+  another pulled.
+- **`/info`, `/version` and `/_ping` return host-level daemon facts** — the
+  daemon's version and storage driver, the host's container counts — not a
+  per-project view.
+- **Container egress is a friction layer, not a wall.** Proxy variables bind
+  the tools that honour them; a raw socket, a tool that ignores the
+  variables, and DNS all go straight out, exactly as RFC-AI-0004 says of the
+  permission layer.
+- **Backend discovery happens at start.** A Podman machine or Docker Desktop
+  started later is not picked up until the gateway restarts, which normally
+  means the next session.
 
 ## Declared egress surfaces
 
