@@ -115,15 +115,37 @@ class Relay:
         *,
         backend_label: str = "",
         json_limit: int = 8 * 1024 * 1024,
+        backend_timeout: float | None = None,
     ) -> None:
         self.connect = connect
         self.ctx = ctx
         self.backend_label = backend_label
         self.json_limit = json_limit
+        # Bounds every short request/response round trip the relay makes on
+        # its own behalf (label-check inspects, volume/network pre-creates)
+        # and the connect + first response head of a forwarded request.
+        # Streaming bodies and hijacked pipes are deliberately NOT bounded
+        # by this: a long ``logs -f`` or an attached shell is legitimate.
+        self.backend_timeout = backend_timeout
 
     # ------------------------------------------------------------ backend
     async def _connect(self) -> tuple[asyncio.StreamReader, asyncio.StreamWriter]:
-        return await self.connect()
+        if self.backend_timeout is None:
+            return await self.connect()
+        return await asyncio.wait_for(self.connect(), self.backend_timeout)
+
+    async def _read_first_head(self, backend_reader: asyncio.StreamReader) -> Head | None:
+        """Read the backend's first response head, bounded by ``backend_timeout``.
+
+        Only the *first* head is bounded here -- a chatty backend sending
+        several interim (1xx) heads before its final one is read by the
+        unbounded loop in ``_exchange`` below, on the theory that a backend
+        that answered at all within the timeout is unlikely to then stall
+        indefinitely between interim heads.
+        """
+        if self.backend_timeout is None:
+            return await read_head(backend_reader)
+        return await asyncio.wait_for(read_head(backend_reader), self.backend_timeout)
 
     async def _request_json(
         self, method: str, target: str, payload: Any | None = None
@@ -132,9 +154,11 @@ class Relay:
 
         Returns ``(status, parsed body)``. ``status`` is ``None`` when the
         call could not be completed at all -- the connector refused, the
-        response was unframable, the connection died mid-body -- and the
-        body is ``None`` when it was absent or not JSON. Every caller treats
-        an unknown status as a failure.
+        response was unframable, the connection died mid-body, or the
+        round trip timed out -- and the body is ``None`` when it was absent
+        or not JSON. Every caller treats an unknown status as a failure,
+        which is what makes a timeout here fail closed the same way a
+        connection refusal does.
         """
         try:
             reader, writer = await self._connect()
@@ -142,7 +166,9 @@ class Relay:
             log.debug("backend call %s %s could not connect: %s", method, target, exc)
             return None, None
         status: int | None = None
-        try:
+
+        async def _round_trip() -> tuple[int | None, Any]:
+            nonlocal status
             head = Head(f"{method} {target} HTTP/1.1", [("Host", "docker"), ("Connection", "close")])
             body = b""
             if payload is not None:
@@ -158,7 +184,15 @@ class Relay:
             framed = resp.content_length is not None or resp.chunked
             raw = await read_body(reader, resp, self.json_limit) if framed else await reader.read()
             return status, (json.loads(raw) if raw else None)
+
+        try:
+            if self.backend_timeout is None:
+                return await _round_trip()
+            return await asyncio.wait_for(_round_trip(), self.backend_timeout)
         except (HttpError, OSError, ValueError, asyncio.IncompleteReadError) as exc:
+            # TimeoutError is a subclass of OSError (since Python 3.11 it is
+            # also what ``asyncio.wait_for`` raises), so it is caught here
+            # too and folded into the same "call did not complete" outcome.
             log.debug("backend call %s %s failed: %s", method, target, exc)
             return status, None
         finally:
@@ -352,6 +386,8 @@ class Relay:
 
         try:
             backend_reader, backend_writer = await self._connect()
+        except TimeoutError:
+            return await _refuse(writer, error_response(502, "container-gateway: backend timed out"))
         except OSError as exc:
             where = f" {self.backend_label}" if self.backend_label else ""
             return await _refuse(
@@ -399,7 +435,10 @@ class Relay:
                 # connection rather than leaving the daemon mid-request.
                 await pump(reader, backend_writer, head)
 
-        resp = await read_head(backend_reader)
+        try:
+            resp = await self._read_first_head(backend_reader)
+        except TimeoutError:
+            return await _refuse(writer, error_response(502, "container-gateway: backend timed out"))
         interim = 0
         while resp is not None and _is_interim(resp):
             # 100 Continue and friends are bookkeeping between the gateway

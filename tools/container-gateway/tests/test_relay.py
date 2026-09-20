@@ -652,3 +652,38 @@ def test_an_unrewritable_target_is_refused_not_forwarded(
         assert all(not t.endswith("/start") for _, t, _ in backend.seen)
 
     run(scenario())
+
+
+def test_backend_timeout_on_connect_is_502(tmp_path: Path) -> None:
+    """A connector that never returns times out rather than hanging the client."""
+
+    async def scenario() -> None:
+        async def never_connects() -> tuple[asyncio.StreamReader, asyncio.StreamWriter]:
+            await asyncio.sleep(10)
+            raise AssertionError("backend_timeout should have fired first")
+
+        ctx = PolicyContext("-p", tmp_path, (tmp_path,), None, "off")
+        relay = Relay(never_connects, ctx, backend_timeout=0.05)
+        status, _, body = await call(relay, b"GET /_ping HTTP/1.1\r\nHost: x\r\n\r\n")
+        assert status == 502 and b"backend timed out" in body
+
+    run(scenario())
+
+
+def test_backend_timeout_on_response_head_is_502(tmp_path: Path) -> None:
+    """A backend that accepts the connection but never answers times out too."""
+
+    async def scenario() -> None:
+        held: list[Any] = []
+
+        async def connect_and_go_silent() -> tuple[asyncio.StreamReader, asyncio.StreamWriter]:
+            client, server = await socket_pair()
+            held.append(server)  # keep the backend's end open but never write to it
+            return client
+
+        ctx = PolicyContext("-p", tmp_path, (tmp_path,), None, "off")
+        relay = Relay(connect_and_go_silent, ctx, backend_timeout=0.05)
+        status, _, body = await call(relay, b"GET /_ping HTTP/1.1\r\nHost: x\r\n\r\n")
+        assert status == 502 and b"backend timed out" in body
+
+    run(scenario())
