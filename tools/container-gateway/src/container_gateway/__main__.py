@@ -36,12 +36,29 @@ def _common(p: argparse.ArgumentParser) -> None:
     p.add_argument(
         "--run-dir", type=Path, help="socket + pid directory (default: <project>/.apache-magpie-local/run)"
     )
-    p.add_argument("--pid-file", type=Path, help="pid file (default: <run-dir>/container-gateway.pid)")
+    p.add_argument(
+        "--pid-file",
+        type=Path,
+        help="pid file (default: <run-dir>/container-gateway.pid); must not be a symlink; created 0600 with O_NOFOLLOW",
+    )
+
+
+def _absolute(path: Path) -> Path:
+    """Make ``path`` absolute without resolving symlinks (unlike ``Path.resolve()``).
+
+    Every path this module hands to ``daemon``'s guards must still show
+    every symlink a path component might be, so those guards can refuse
+    one; lexical normalisation (joining onto the cwd) is safe, chasing
+    symlinks to find out where they really point is exactly what must
+    not happen before the guard runs.
+    """
+    return path if path.is_absolute() else Path.cwd() / path
 
 
 def _config(ns: argparse.Namespace) -> daemon.Config:
-    root = ns.project.resolve()
-    run_dir = (ns.run_dir or root / ".apache-magpie-local" / "run").resolve()
+    root = ns.project.resolve()  # the trust anchor: the operator's own --project value
+    run_dir = _absolute(ns.run_dir) if ns.run_dir is not None else root / ".apache-magpie-local" / "run"
+    pid_file = _absolute(ns.pid_file) if ns.pid_file is not None else run_dir / "container-gateway.pid"
     return daemon.Config(
         project_root=root,
         run_dir=run_dir,
@@ -52,9 +69,18 @@ def _config(ns: argparse.Namespace) -> daemon.Config:
         extra_bind_roots=tuple(getattr(ns, "extra_bind_root", None) or ()),
         idle_timeout=getattr(ns, "idle_timeout", 4 * 3600.0),
         log_level=getattr(ns, "log_level", "INFO"),
-        pid_file=(ns.pid_file or run_dir / "container-gateway.pid").resolve(),
+        pid_file=pid_file,
         backend_timeout=getattr(ns, "backend_timeout", 60.0),
     )
+
+
+def _open_log_fd(log_path: Path) -> int:
+    """Open the daemon log, never following a symlink at that exact path."""
+    try:
+        return os.open(log_path, os.O_WRONLY | os.O_CREAT | os.O_APPEND | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
+    except OSError as exc:
+        print(f"container-gateway: {log_path} could not be opened safely (symlink?): {exc}", file=sys.stderr)
+        raise SystemExit(2) from exc
 
 
 def _daemonize(log_path: Path) -> None:
@@ -64,52 +90,65 @@ def _daemonize(log_path: Path) -> None:
     ``bind()`` a real ``serve()`` needs downstream of this anyway, and a
     ``fork()`` that then races the test process's own event loop and file
     descriptors is not something a unit test can observe safely. Covered
-    by the Task 15 integration run instead.
+    by the Task 15 integration run instead. ``_open_log_fd`` above, the
+    one part of this that can raise on a hostile input, is unit-tested
+    directly.
     """
     if os.fork():
         os._exit(0)
     os.setsid()
     if os.fork():
         os._exit(0)
-    fd = os.open(log_path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
-    for target in (1, 2):
-        os.dup2(fd, target)
-    os.dup2(os.open(os.devnull, os.O_RDONLY), 0)
+    os.chdir("/")
+    os.umask(0o077)
+    log_fd = _open_log_fd(log_path)
+    devnull_fd = os.open(os.devnull, os.O_RDONLY)
+    os.dup2(devnull_fd, 0)
+    os.dup2(log_fd, 1)
+    os.dup2(log_fd, 2)
+    os.close(log_fd)
+    os.close(devnull_fd)
 
 
 def cmd_serve(ns: argparse.Namespace) -> int:
     cfg = _config(ns)
-    pid = daemon.read_pid(cfg.pid_file)
-    if pid and daemon.pid_alive(pid):
+    daemon.check_run_dir(cfg.run_dir, cfg.project_root)
+    running, _ = daemon.probe_pid_lock(cfg.pid_file)
+    if running:
         return 0  # already running for this project
     if ns.daemon:
-        daemon.check_run_dir(cfg.run_dir)
         _daemonize(cfg.run_dir / "container-gateway.log")  # Task 15 integration run covers this path
     return asyncio.run(daemon.run(cfg))
 
 
 def cmd_stop(ns: argparse.Namespace) -> int:
     cfg = _config(ns)
-    pid = daemon.read_pid(cfg.pid_file)
-    if not pid or not daemon.pid_alive(pid):
+    running, pid = daemon.probe_pid_lock(cfg.pid_file)
+    if not running:
         return 0
+    if pid is None:
+        # Something holds the lock but the pid file's content is missing
+        # or unsafe to trust -- there is nothing we can safely signal.
+        return 1
     os.kill(pid, signal.SIGTERM)
     deadline = time.monotonic() + 5
-    while time.monotonic() < deadline and daemon.pid_alive(pid):
+    while time.monotonic() < deadline:
+        if not daemon.pid_alive(pid):
+            break  # cheap fast-path; the lock probe below is authoritative
         time.sleep(0.1)
-    return 0 if not daemon.pid_alive(pid) else 1
+    running, _ = daemon.probe_pid_lock(cfg.pid_file)
+    return 0 if not running else 1
 
 
 def cmd_status(ns: argparse.Namespace) -> int:
     cfg = _config(ns)
+    running, pid = daemon.probe_pid_lock(cfg.pid_file)
     p = daemon.paths(cfg.run_dir)
-    pid = daemon.read_pid(cfg.pid_file)
-    running = bool(pid and daemon.pid_alive(pid))
-    sockets = {k: (str(p[k]) if running and p[k].exists() else None) for k in ("podman", "docker")}
-    backends = [k for k, v in sockets.items() if v is not None]
+    serving = [k for k in ("podman", "docker") if running and p[k].exists()]
+    sockets = {k: (str(p[k]) if k in serving else None) for k in ("podman", "docker")}
     print(
         json.dumps(
-            {"running": running, "pid": pid if running else None, "sockets": sockets, "backends": backends}
+            {"running": running, "pid": pid if running else None, "sockets": sockets, "serving": serving}
         )
     )
     return 0 if running else 3

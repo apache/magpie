@@ -583,8 +583,13 @@ async def _refuse(writer: asyncio.StreamWriter, payload: bytes) -> bool:
 
 
 async def serve_unix(path: Path, handler: Handler) -> asyncio.AbstractServer:
-    """Bind ``path`` with mode 0600 and serve ``handler`` on it."""
-    path.parent.mkdir(parents=True, exist_ok=True)
+    """Bind ``path`` with mode 0600 and serve ``handler`` on it.
+
+    The caller (the daemon) guarantees ``path.parent`` already exists as a
+    checked, owned, non-symlinked directory -- this function does not
+    create it, so it never has to decide what to do about a parent that
+    does not yet exist or is something other than a plain directory.
+    """
     path.unlink(missing_ok=True)
     old_umask = os.umask(0o177)
     try:

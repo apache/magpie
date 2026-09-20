@@ -17,6 +17,13 @@
 
 """Daemon plumbing: paths, guards, idle exit, status and stop.
 
+Threat model exercised throughout this file: the daemon runs OUTSIDE the
+sandbox with the operator's own privileges, while the sandboxed agent
+can create, delete and symlink anything under the project tree,
+including ``.apache-magpie-local/run/``. Every guard test below plants
+exactly the kind of hostile filesystem state that threat model implies
+and checks the guard refuses it -- no bind needed for any of them.
+
 No ``pytest-asyncio`` in the ``magpie-dev`` dependency group, so each
 async scenario is a plain ``def`` test driving its coroutine through the
 ``run()`` helper, exactly as ``test_http.py`` and ``test_relay.py`` do.
@@ -24,10 +31,12 @@ async scenario is a plain ``def`` test driving its coroutine through the
 
 from __future__ import annotations
 
+import argparse
 import asyncio
 import json
 import os
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -37,6 +46,7 @@ from typing import Any, TypeVar
 
 import pytest
 
+from container_gateway import __main__ as cli
 from container_gateway import daemon
 from container_gateway.backends import Backend
 
@@ -52,6 +62,13 @@ def run(coro: Coroutine[Any, Any, _T]) -> _T:
     return asyncio.run(coro)
 
 
+def _ns(project: Path, run_dir: Path, **extra: Any) -> argparse.Namespace:
+    """A minimal argparse.Namespace for calling cmd_serve/cmd_stop/cmd_status directly."""
+    base = {"project": project, "run_dir": run_dir, "pid_file": None}
+    base.update(extra)
+    return argparse.Namespace(**base)
+
+
 @pytest.fixture
 def short_run_dir() -> Iterator[Path]:
     """A run directory short enough to hold a unix-socket path.
@@ -62,7 +79,8 @@ def short_run_dir() -> Iterator[Path]:
     to blow the ~103-byte ``sun_path`` limit before ``run_dir`` even adds
     ``podman.sock``. ``tempfile.mkdtemp()`` sits directly under
     ``$TMPDIR`` with none of that nesting, so it stays short everywhere
-    ``tmp_path`` might not.
+    ``tmp_path`` might not. It is also already 0700 and owned by us, so
+    it satisfies ``check_run_dir``'s "custom run-dir" branch as-is.
     """
     d = Path(tempfile.mkdtemp(prefix="cg-"))
     try:
@@ -97,6 +115,9 @@ class _RealSocketBackend:
             await self._server.wait_closed()
 
 
+# --------------------------------------------------------------- paths
+
+
 def test_paths_and_socket_length(tmp_path: Path) -> None:
     p = daemon.paths(tmp_path)
     assert p["podman"].name == "podman.sock" and p["docker"].name == "docker.sock"
@@ -106,13 +127,346 @@ def test_paths_and_socket_length(tmp_path: Path) -> None:
     assert exc.value.code == 2
 
 
-def test_run_dir_must_not_be_group_or_world_writable(tmp_path: Path) -> None:
-    run_dir = tmp_path / "run"
-    daemon.check_run_dir(run_dir)
+# ------------------------------------------------ C2: run dir / symlinks
+
+
+def test_check_run_dir_default_layout_creates_both_dirs_0700(tmp_path: Path) -> None:
+    project_root = tmp_path / "proj"
+    project_root.mkdir()
+    run_dir = project_root / ".apache-magpie-local" / "run"
+    daemon.check_run_dir(run_dir, project_root)
+    assert (project_root / ".apache-magpie-local").stat().st_mode & 0o777 == 0o700
+    assert run_dir.stat().st_mode & 0o777 == 0o700
+
+
+def test_check_run_dir_refuses_world_writable_existing_dir(tmp_path: Path) -> None:
+    project_root = tmp_path
+    run_dir = tmp_path / "custom-run"
+    daemon.check_run_dir(run_dir, project_root)
     assert run_dir.stat().st_mode & 0o777 == 0o700
     run_dir.chmod(0o777)
-    with pytest.raises(SystemExit):
-        daemon.check_run_dir(run_dir)
+    with pytest.raises(SystemExit) as exc:
+        daemon.check_run_dir(run_dir, project_root)
+    assert exc.value.code == 2
+
+
+def test_check_run_dir_refuses_symlinked_run(tmp_path: Path) -> None:
+    project_root = tmp_path / "proj"
+    magpie_local = project_root / ".apache-magpie-local"
+    magpie_local.mkdir(parents=True, mode=0o700)
+    evil = tmp_path / "evil"
+    evil.mkdir()
+    (magpie_local / "run").symlink_to(evil)
+    with pytest.raises(SystemExit) as exc:
+        daemon.check_run_dir(magpie_local / "run", project_root)
+    assert exc.value.code == 2
+
+
+def test_check_run_dir_refuses_symlinked_apache_magpie_local(tmp_path: Path) -> None:
+    project_root = tmp_path / "proj"
+    project_root.mkdir()
+    evil = tmp_path / "evil"
+    evil.mkdir()
+    (project_root / ".apache-magpie-local").symlink_to(evil)
+    with pytest.raises(SystemExit) as exc:
+        daemon.check_run_dir(project_root / ".apache-magpie-local" / "run", project_root)
+    assert exc.value.code == 2
+
+
+def test_check_run_dir_refuses_symlinked_custom_run_dir(tmp_path: Path) -> None:
+    project_root = tmp_path / "proj"
+    project_root.mkdir()
+    evil = tmp_path / "evil"
+    evil.mkdir()
+    custom = tmp_path / "custom-run"
+    custom.symlink_to(evil)
+    with pytest.raises(SystemExit) as exc:
+        daemon.check_run_dir(custom, project_root)
+    assert exc.value.code == 2
+
+
+# --------------------------------------------------- C2: socket guards
+
+
+def test_check_socket_type_refuses_non_socket(tmp_path: Path) -> None:
+    p = tmp_path / "podman.sock"
+    p.write_text("not a socket")
+    with pytest.raises(SystemExit) as exc:
+        daemon.check_socket_type(p)
+    assert exc.value.code == 2
+
+
+def test_check_socket_type_allows_missing_path(tmp_path: Path) -> None:
+    daemon.check_socket_type(tmp_path / "missing.sock")  # nothing there yet: fine
+
+
+# ------------------------------------------------------ C2: pid / log fd
+
+
+def test_acquire_pid_lock_refuses_symlink(tmp_path: Path) -> None:
+    target = tmp_path / "elsewhere.pid"
+    target.write_text("")
+    link = tmp_path / "container-gateway.pid"
+    link.symlink_to(target)
+    with pytest.raises(SystemExit) as exc:
+        daemon.acquire_pid_lock(link)
+    assert exc.value.code == 2
+
+
+def test_probe_pid_lock_refuses_symlink(tmp_path: Path) -> None:
+    target = tmp_path / "elsewhere.pid"
+    target.write_text("")
+    link = tmp_path / "container-gateway.pid"
+    link.symlink_to(target)
+    with pytest.raises(SystemExit) as exc:
+        daemon.probe_pid_lock(link)
+    assert exc.value.code == 2
+
+
+def test_probe_pid_lock_not_running_when_run_dir_absent(tmp_path: Path) -> None:
+    never_created = tmp_path / "never" / "container-gateway.pid"
+    assert daemon.probe_pid_lock(never_created) == (False, None)
+
+
+def test_open_log_fd_refuses_symlink(tmp_path: Path) -> None:
+    target = tmp_path / "elsewhere.log"
+    target.write_text("")
+    link = tmp_path / "container-gateway.log"
+    link.symlink_to(target)
+    with pytest.raises(SystemExit) as exc:
+        cli._open_log_fd(link)
+    assert exc.value.code == 2
+
+
+# --------------------------------------------------------------- C1: pid
+
+
+@pytest.mark.parametrize("content", ["-1", "0", "1", "abc", "12 34", "99999999999", ""])
+def test_read_pid_rejects_unsafe_content(tmp_path: Path, content: str) -> None:
+    pid_file = tmp_path / "container-gateway.pid"
+    pid_file.write_text(content)
+    assert daemon.read_pid(pid_file) is None
+
+
+def test_read_pid_accepts_a_real_pid(tmp_path: Path) -> None:
+    pid_file = tmp_path / "container-gateway.pid"
+    pid_file.write_text("42\n")
+    assert daemon.read_pid(pid_file) == 42
+
+
+def test_pid_alive_false_for_pid_le_1() -> None:
+    assert daemon.pid_alive(0) is False
+    assert daemon.pid_alive(1) is False
+    assert daemon.pid_alive(-1) is False
+
+
+@pytest.mark.parametrize("content", ["-1", "0", "1", "abc", "12 34"])
+def test_cli_stop_with_unsafe_pid_file_does_not_signal(
+    tmp_path: Path, short_run_dir: Path, content: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pid_file = short_run_dir / "container-gateway.pid"
+    pid_file.write_text(content)
+    calls: list[tuple[int, int]] = []
+    monkeypatch.setattr(os, "kill", lambda pid, sig: calls.append((pid, sig)))
+    rc = cli.cmd_stop(_ns(tmp_path, short_run_dir))
+    assert calls == []
+    assert rc == 0
+
+
+def test_cli_stop_does_not_signal_when_lock_held_but_pid_content_poisoned(
+    tmp_path: Path, short_run_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A live, lock-holding instance whose pid-file *content* was overwritten afterwards.
+
+    ``stop`` must refuse to guess: something is clearly running (the
+    lock says so), but nothing safe to signal can be read back out of
+    the file.
+    """
+    pid_file = short_run_dir / "container-gateway.pid"
+    fd = daemon.acquire_pid_lock(pid_file)
+    assert fd is not None
+    try:
+        os.ftruncate(fd, 0)
+        os.lseek(fd, 0, 0)
+        os.write(fd, b"-1\n")
+        calls: list[tuple[int, int]] = []
+        monkeypatch.setattr(os, "kill", lambda pid, sig: calls.append((pid, sig)))
+        rc = cli.cmd_stop(_ns(tmp_path, short_run_dir))
+        assert calls == []
+        assert rc == 1
+    finally:
+        os.close(fd)
+
+
+# --------------------------------------------- I3+I4: flock single instance
+
+
+def test_cli_serve_short_circuits_when_lock_already_held(tmp_path: Path, short_run_dir: Path) -> None:
+    pid_file = short_run_dir / "container-gateway.pid"
+    fd = daemon.acquire_pid_lock(pid_file)
+    assert fd is not None
+    try:
+        ns = _ns(
+            tmp_path,
+            short_run_dir,
+            daemon=False,
+            backend=None,
+            egress="off",
+            egress_port=8899,
+            egress_host=None,
+            extra_bind_root=None,
+            idle_timeout=5.0,
+            backend_timeout=60.0,
+            log_level="INFO",
+        )
+        assert cli.cmd_serve(ns) == 0
+        assert not (short_run_dir / "podman.sock").exists()
+        assert not (short_run_dir / "docker.sock").exists()
+    finally:
+        os.close(fd)
+
+
+def test_cli_status_reports_running_when_lock_held(
+    tmp_path: Path, short_run_dir: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    pid_file = short_run_dir / "container-gateway.pid"
+    fd = daemon.acquire_pid_lock(pid_file)
+    assert fd is not None
+    try:
+        rc = cli.cmd_status(_ns(tmp_path, short_run_dir))
+        out = json.loads(capsys.readouterr().out)
+    finally:
+        os.close(fd)
+    assert rc == 0
+    assert out["running"] is True
+    assert out["pid"] == os.getpid()
+    assert out["serving"] == []  # no sockets actually bound in this test
+
+
+def test_cli_status_removes_stale_pid_file_when_no_lock_held(
+    tmp_path: Path, short_run_dir: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    pid_file = short_run_dir / "container-gateway.pid"
+    pid_file.write_text("424242\n")  # a stale pid; nobody holds its lock
+    rc = cli.cmd_status(_ns(tmp_path, short_run_dir))
+    out = json.loads(capsys.readouterr().out)
+    assert rc == 3
+    assert out["running"] is False
+    assert out["pid"] is None
+    assert not pid_file.exists()
+
+
+def test_cli_stop_signals_the_pid_and_reports_stopped(
+    tmp_path: Path, short_run_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pid_file = short_run_dir / "container-gateway.pid"
+    fd = daemon.acquire_pid_lock(pid_file)
+    assert fd is not None
+    our_pid = os.getpid()
+    calls: list[tuple[int, int]] = []
+    terminated = False
+
+    def fake_kill(pid: int, sig: int) -> None:
+        nonlocal terminated
+        calls.append((pid, sig))
+        if sig == signal.SIGTERM:
+            terminated = True
+            os.close(fd)  # simulate the daemon exiting: release the flock
+        elif terminated:
+            raise ProcessLookupError
+
+    monkeypatch.setattr(os, "kill", fake_kill)
+    rc = cli.cmd_stop(_ns(tmp_path, short_run_dir))
+    assert rc == 0
+    assert (our_pid, signal.SIGTERM) in calls
+
+
+def test_cli_stop_when_lock_never_held_is_a_noop(tmp_path: Path, short_run_dir: Path) -> None:
+    assert cli.cmd_stop(_ns(tmp_path, short_run_dir)) == 0
+
+
+# ---------------------------------------------------------------- I5
+
+
+def test_partial_bind_failure_cleans_up_first_socket_and_server(
+    tmp_path: Path, short_run_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[Path] = []
+    closed: list[bool] = []
+
+    class _FakeServer:
+        def close(self) -> None:
+            closed.append(True)
+
+        async def wait_closed(self) -> None:
+            return None
+
+    async def fake_serve_unix(path: Path, handler: Any) -> _FakeServer:
+        calls.append(path)
+        if len(calls) == 2:
+            raise OSError("simulated bind failure")
+        path.write_text("")  # stand in for "a socket file now exists here"
+        return _FakeServer()
+
+    monkeypatch.setattr(daemon, "serve_unix", fake_serve_unix)
+    cfg = daemon.Config(
+        tmp_path,
+        short_run_dir,
+        ("podman", "docker"),
+        "off",
+        8899,
+        None,
+        (),
+        5.0,
+        "INFO",
+        short_run_dir / "pid",
+    )
+    found = [Backend("podman", short_run_dir / "upstream.sock", "host.containers.internal")]
+
+    async def scenario() -> None:
+        with pytest.raises(OSError, match="simulated bind failure"):
+            await daemon.run(cfg, discover_fn=lambda *a, **k: found, platform="Darwin")
+
+    run(scenario())
+    assert closed == [True]
+    assert not (short_run_dir / "podman.sock").exists()
+    assert not cfg.pid_file.exists()
+
+
+# ------------------------------------------------------- M9: probe_egress
+
+
+def test_probe_egress_true_when_something_listens() -> None:
+    async def scenario() -> None:
+        try:
+            server = await asyncio.start_server(lambda r, w: None, host="127.0.0.1", port=0)
+        except PermissionError:
+            pytest.skip("sandbox denies TCP bind; runs in CI")
+        try:
+            port = server.sockets[0].getsockname()[1]
+            assert await daemon.probe_egress("host.containers.internal", port) is True
+        finally:
+            server.close()
+            await server.wait_closed()
+
+    run(scenario())
+
+
+def test_probe_egress_false_when_nothing_listens() -> None:
+    async def scenario() -> None:
+        try:
+            server = await asyncio.start_server(lambda r, w: None, host="127.0.0.1", port=0)
+        except PermissionError:
+            pytest.skip("sandbox denies TCP bind; runs in CI")
+        port = server.sockets[0].getsockname()[1]
+        server.close()
+        await server.wait_closed()
+        assert await daemon.probe_egress("host.containers.internal", port) is False
+
+    run(scenario())
+
+
+# ------------------------------------------------------------ full run()
 
 
 def test_run_without_backends_exits_zero(tmp_path: Path, short_run_dir: Path) -> None:
@@ -184,6 +538,9 @@ def test_run_serves_both_sockets_from_podman_only_and_idles_out(tmp_path: Path, 
     run(scenario())
 
 
+# --------------------------------------------------------------- CLI e2e
+
+
 def test_cli_status_when_not_running(tmp_path: Path) -> None:
     done = subprocess.run(
         [sys.executable, "-m", "container_gateway", "status", "--project", str(tmp_path)],
@@ -193,7 +550,10 @@ def test_cli_status_when_not_running(tmp_path: Path) -> None:
         check=False,
     )
     assert done.returncode == 3
-    assert json.loads(done.stdout)["running"] is False
+    out = json.loads(done.stdout)
+    assert out["running"] is False
+    assert out["serving"] == []
+    assert "backends" not in out
 
 
 def test_cli_stop_when_not_running_is_quiet(tmp_path: Path) -> None:
