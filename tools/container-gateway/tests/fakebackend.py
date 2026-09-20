@@ -55,7 +55,9 @@ class FakeBackend:
     # Knobs for the failure paths the volume pre-create has to survive.
     volume_create_status: int | None = None  # force this status instead of creating
     volume_create_conflict: str | None = None  # 409, and the volume now belongs to this slug
-    interim_continue: bool = False  # emit a 100 Continue head before the real one
+    volume_create_idempotent: str | None = None  # 201, but the volume belongs to this slug
+    volume_create_bare: bool = False  # 201 whose body carries no label map
+    interim_heads: int = 0  # how many 100 Continue heads to emit before the real one
 
     # ------------------------------------------------------------- fixtures
     def add_container(self, cid: str, name: str, labels: dict[str, str]) -> None:
@@ -156,7 +158,7 @@ class FakeBackend:
         elif parts[:1] == ["containers"] and parts[-1] == "archive":
             writer.write(b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n")
         elif parts == ["containers", "create"]:
-            if self.interim_continue:
+            for _ in range(self.interim_heads):
                 writer.write(b"HTTP/1.1 100 Continue\r\n\r\n")
                 await writer.drain()
             writer.write(_json(201, {"Id": "newid", "Warnings": []}))
@@ -169,8 +171,14 @@ class FakeBackend:
             elif self.volume_create_status is not None:
                 writer.write(error_response(self.volume_create_status, "volume create failed"))
             else:
-                self.add_volume(name, labels)
-                writer.write(_json(201, self.volumes[name]))
+                # docker-compat's create is idempotent: an existing volume
+                # comes back as a 201 carrying its own labels.
+                owner = self.volume_create_idempotent
+                self.add_volume(name, {LABEL_KEY: owner} if owner else labels)
+                payload = dict(self.volumes[name])
+                if self.volume_create_bare:
+                    payload.pop("Labels")
+                writer.write(_json(201, payload))
         elif parts[:1] == ["volumes"] and method == "GET" and len(parts) == 2:
             volume = self.volumes.get(parts[1])
             writer.write(_json(200, volume) if volume else error_response(404, "no such volume"))

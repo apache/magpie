@@ -92,6 +92,12 @@ _RESOURCE_NAME_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,254}")
 # is dropped too unless it names the upgrade the relay is about to hijack.
 _HOP_BY_HOP = ("Keep-Alive", "TE", "Trailer", "Proxy-Authorization", "Proxy-Connection")
 
+# How many interim (1xx) heads the relay will consume before deciding the
+# backend is never going to produce a final one. A real daemon sends at
+# most one 100 Continue; the cap keeps a misbehaving or hostile one from
+# holding a client connection open indefinitely.
+_MAX_INTERIM_HEADS = 8
+
 Connector = Callable[[], Awaitable[tuple[asyncio.StreamReader, asyncio.StreamWriter]]]
 Handler = Callable[[asyncio.StreamReader, asyncio.StreamWriter], Awaitable[None]]
 
@@ -234,15 +240,28 @@ class Relay:
         target = "/libpod/volumes/create" if libpod else "/volumes/create"
         label = {LABEL_KEY: self.ctx.slug}
         payload = {"name": name, "labels": label} if libpod else {"Name": name, "Labels": label}
-        status, _ = await self._request_json("POST", target, payload)
+        status, created = await self._request_json("POST", target, payload)
         if status is not None and 200 <= status < 300:
-            return None
+            # A 201 is not proof the volume is ours: docker-compat's create
+            # is idempotent and answers 201 with the *existing* volume, so
+            # a name another project created between the inspect above and
+            # this call comes back looking like a success. Test the labels
+            # the daemon actually returned.
+            if self._owned(status, created):
+                return None
+            if _labels_of(created) is None:
+                return await self._recheck_volume(name, libpod)
+            return _label_denial("volume", name)
         if status == 409:
             log.info("volume %s was created concurrently; re-checking its label", name)
-            again = await self._request_json("GET", _inspect_target(Family.VOLUMES, name, libpod))
-            return None if self._owned(*again) else _label_denial("volume", name)
+            return await self._recheck_volume(name, libpod)
         log.warning("pre-creating volume %s returned %s; refusing the request", name, status)
         return _denial(f"label-check: volume {name} could not be prepared")
+
+    async def _recheck_volume(self, name: str, libpod: bool) -> bytes | None:
+        """Re-inspect a volume whose create response did not settle ownership."""
+        again = await self._request_json("GET", _inspect_target(Family.VOLUMES, name, libpod))
+        return None if self._owned(*again) else _label_denial("volume", name)
 
     async def _network_denial(self, name: str, libpod: bool) -> bytes | None:
         """Networks are never auto-created, so an unknown one is refused too."""
@@ -311,12 +330,21 @@ class Relay:
     ) -> bool:
         req = allow.request
         if allow.label_check is not None:
-            ident = await self.resource_id_if_labelled(allow.route, allow.label_check)
+            name = allow.label_check
+            if not name:
+                # `/containers/start` and friends: a verb with no name in
+                # front of it. Nothing to inspect, so nothing to authorise.
+                log.info("deny %s %s: empty resource name", req.method, req.path)
+                return await _refuse(writer, _denial("label-check: empty resource name"))
+            ident = await self.resource_id_if_labelled(allow.route, name)
             if ident is None:
-                name = allow.label_check
                 log.info("deny %s %s: label-check on %s", req.method, req.path, name)
                 return await _refuse(writer, _denial(f"label-check: {name} does not belong to this project"))
-            req.path = _rewrite_name(req.method, req.path, allow.label_check, ident)
+            rewritten = _rewrite_name(req.method, req.path, name, ident)
+            if rewritten is None:
+                log.info("deny %s %s: target cannot be rewritten to the resolved id", req.method, req.path)
+                return await _refuse(writer, _denial("label-check: cannot rewrite request target"))
+            req.path = rewritten
         denial = await self._resource_denial(allow)
         if denial is not None:
             log.info("deny %s %s: label-check on a named resource", req.method, req.path)
@@ -372,9 +400,16 @@ class Relay:
                 await pump(reader, backend_writer, head)
 
         resp = await read_head(backend_reader)
+        interim = 0
         while resp is not None and _is_interim(resp):
             # 100 Continue and friends are bookkeeping between the gateway
             # and the daemon; the client is sent the final head only.
+            interim += 1
+            if interim > _MAX_INTERIM_HEADS:
+                return await _refuse(
+                    writer,
+                    error_response(502, "container-gateway: backend sent too many interim responses"),
+                )
             resp = await read_head(backend_reader)
         if resp is None:
             return await _refuse(
@@ -430,7 +465,7 @@ def _labels_of(inspect: Any) -> dict[str, str] | None:
     return labels if isinstance(labels, dict) else None
 
 
-def _rewrite_name(method: str, path: str, name: str, ident: str) -> str:
+def _rewrite_name(method: str, path: str, name: str, ident: str) -> str | None:
     """Point the forwarded path at the resolved ID instead of the client's name.
 
     Closes the window between the label check and the forwarded request in
@@ -439,19 +474,21 @@ def _rewrite_name(method: str, path: str, name: str, ident: str) -> str:
     ``routes.name_span`` reports, never over the first textual occurrence of
     the name: a container legally named ``containers``, ``libpod`` or
     ``v1.45`` appears earlier in its own request target than the position
-    the daemon acts on. When the span does not spell the name the policy
-    checked, nothing is rewritten and the request goes on exactly as the
-    policy read it.
+    the daemon acts on. Returns ``None`` -- and the caller refuses the
+    request -- when the span is missing or does not spell the name the
+    policy checked: the route and the policy disagreeing about which
+    segments are the name is exactly the situation in which forwarding the
+    client's own name would act on something nobody authorised.
     """
     if ident == name:
         return path
     span = name_span(method, path)
     if span is None:
-        return path
+        return None
     start, end = span
     segments = [s for s in path.split("/") if s]
     if "/".join(segments[start:end]) != name:
-        return path
+        return None
     segments[start:end] = [ident]
     return "/" + "/".join(segments)
 

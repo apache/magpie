@@ -35,9 +35,10 @@ from typing import Any, TypeVar
 
 import pytest
 
+from container_gateway import relay as relay_module
 from container_gateway.labels import LABEL_KEY
 from container_gateway.policy import PolicyContext
-from container_gateway.relay import Relay, serve_unix
+from container_gateway.relay import Relay, _rewrite_name, serve_unix
 
 from .fakebackend import FakeBackend, socket_pair
 
@@ -425,7 +426,7 @@ def test_anonymous_volume_mount_needs_no_check(tmp_path: Path) -> None:
 def test_interim_head_from_the_backend_is_consumed(tmp_path: Path) -> None:
     async def scenario() -> None:
         backend, relay = stack(tmp_path)
-        backend.interim_continue = True
+        backend.interim_heads = 1
         data = await call_raw(relay, create_request({"Image": "alpine"}))
         assert data.startswith(b"HTTP/1.1 201 Created")
         assert b"100 Continue" not in data
@@ -529,5 +530,125 @@ def test_archive_body_streams_verbatim(tmp_path: Path) -> None:
         assert status == 200
         assert backend.bodies[-1] == blob
         assert backend.seen[-1][:2] == ("PUT", "/v1.45/containers/aaa111/archive?path=%2Ftmp")
+
+    run(scenario())
+
+
+# --- Fix round 2 additions below ---
+
+
+def test_idempotent_precreate_of_a_foreign_volume_is_403(tmp_path: Path) -> None:
+    """A 201 from docker-compat's idempotent create may hand back someone else's volume."""
+
+    async def scenario() -> None:
+        backend, relay = stack(tmp_path)
+        backend.volume_create_idempotent = "-q"
+        payload = {"Image": "alpine", "HostConfig": {"Binds": ["racevol:/data"]}}
+        status, _, body = await call(relay, create_request(payload))
+        assert status == 403
+        assert "label-check: volume racevol" in json.loads(body)["message"]
+        assert all(t != "/v1.45/containers/create" for _, t, _ in backend.seen)
+
+    run(scenario())
+
+
+def test_idempotent_precreate_of_our_own_volume_passes(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        backend, relay = stack(tmp_path)
+        backend.volume_create_idempotent = "-p"
+        payload = {"Image": "alpine", "HostConfig": {"Binds": ["racevol:/data"]}}
+        status, _, _ = await call(relay, create_request(payload))
+        assert status == 201
+        assert backend.seen[-1][1] == "/v1.45/containers/create"
+
+    run(scenario())
+
+
+def test_precreate_response_without_labels_is_reinspected(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        backend, relay = stack(tmp_path)
+        backend.volume_create_bare = True
+        payload = {"Image": "alpine", "HostConfig": {"Binds": ["newvol:/data"]}}
+        status, _, _ = await call(relay, create_request(payload))
+        assert status == 201
+        assert [t for _, t, _ in backend.seen].count("/volumes/newvol") == 2
+        assert backend.seen[-1][1] == "/v1.45/containers/create"
+
+    run(scenario())
+
+
+def test_precreate_response_without_labels_on_a_foreign_volume_is_403(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        backend, relay = stack(tmp_path)
+        backend.volume_create_bare = True
+        backend.volume_create_idempotent = "-q"
+        payload = {"Image": "alpine", "HostConfig": {"Binds": ["newvol:/data"]}}
+        status, _, body = await call(relay, create_request(payload))
+        assert status == 403
+        assert "label-check: volume newvol" in json.loads(body)["message"]
+        assert all(t != "/v1.45/containers/create" for _, t, _ in backend.seen)
+
+    run(scenario())
+
+
+def test_a_flood_of_interim_heads_is_502(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        backend, relay = stack(tmp_path)
+        backend.interim_heads = 10
+        status, _, body = await call(relay, create_request({"Image": "alpine"}))
+        assert status == 502
+        assert "too many interim responses" in json.loads(body)["message"]
+
+    run(scenario())
+
+
+def test_eight_interim_heads_are_still_relayed(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        backend, relay = stack(tmp_path)
+        backend.interim_heads = 8
+        status, _, _ = await call(relay, create_request({"Image": "alpine"}))
+        assert status == 201
+
+    run(scenario())
+
+
+def test_empty_resource_name_is_403_without_a_backend_call(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        backend, relay = stack(tmp_path)
+        status, _, body = await call(relay, b"POST /v1.45/containers/start HTTP/1.1\r\nHost: x\r\n\r\n")
+        assert status == 403
+        assert "label-check: empty resource name" in json.loads(body)["message"]
+        assert backend.seen == []
+        # The doubled-slash spelling of the same thing never even routes.
+        status, _, _ = await call(relay, b"GET /v1.45/containers//json HTTP/1.1\r\nHost: x\r\n\r\n")
+        assert status == 403
+        assert backend.seen == []
+
+    run(scenario())
+
+
+def test_rewrite_refuses_a_span_that_does_not_spell_the_name() -> None:
+    assert _rewrite_name("POST", "/v1.45/containers/mine/start", "mine", "aaa111") == (
+        "/v1.45/containers/aaa111/start"
+    )
+    assert _rewrite_name("POST", "/v1.45/containers/mine/start", "other", "aaa111") is None
+    assert _rewrite_name("GET", "/_ping", "mine", "aaa111") is None
+    # An unchanged identifier (the exec case) is not a rewrite at all.
+    assert _rewrite_name("POST", "/v1.45/exec/ex1/start", "ex1", "ex1") == "/v1.45/exec/ex1/start"
+
+
+def test_an_unrewritable_target_is_refused_not_forwarded(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The caller refuses rather than forwarding the client's own name."""
+
+    async def scenario() -> None:
+        backend, relay = stack(tmp_path)
+        monkeypatch.setattr(relay_module, "_rewrite_name", lambda *_: None)
+        raw = b"POST /v1.45/containers/mine/start HTTP/1.1\r\nHost: x\r\n\r\n"
+        status, _, body = await call(relay, raw)
+        assert status == 403
+        assert "label-check: cannot rewrite request target" in json.loads(body)["message"]
+        assert all(not t.endswith("/start") for _, t, _ in backend.seen)
 
     run(scenario())
