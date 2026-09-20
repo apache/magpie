@@ -141,7 +141,9 @@ skill checks the PR's status-check rollup state. This is
 already in the per-PR `gh pr view` payload — it does not require
 a separate call. The state is one of:
 
-- `SUCCESS` — proceed normally; `APPROVE` is on the table.
+- `SUCCESS` — **run the Real-CI guard below before treating this
+  as green.** If the guard passes, proceed normally and `APPROVE`
+  is on the table.
 - `PENDING` — proceed but flag in the headline ("CI still
   running"); the maintainer may want to defer the approve and
   use `[S]kip-for-now`.
@@ -152,6 +154,45 @@ a separate call. The state is one of:
   and recommend `pr-management-triage pr:<N>` for the workflow-approval
   flow first; do not attempt to review the PR until CI has
   actually run.
+
+### Real-CI guard
+
+**Mandatory whenever the rollup reads `SUCCESS`.** A rollup state
+of `SUCCESS` does not mean the project's CI ran. The rollup
+aggregates only completed check-runs, and fast bot checks
+(`Mergeable`, `WIP`, `DCO`, `boring-cyborg`) succeed
+unconditionally — so on a PR whose real workflows are held in
+`action_required` awaiting first-time-contributor approval, the
+bots alone pull the rollup to `SUCCESS` while nothing has been
+built, linted or tested. The `EXPECTED` branch above never fires
+in that case, because the state is not `EXPECTED`.
+
+Walk `statusCheckRollup` and confirm at least one context comes
+from the project's own CI rather than an external bot. If none
+does, the PR's merge-readiness is **unknown**, not green:
+
+- Say so in the headline (`CI: no real CI has run`) rather than
+  reporting it as passing.
+- `APPROVE` is off the table. Golden rule 8 covers a PR whose
+  real CI never ran exactly as it covers one that fails.
+- Rank it **below** every PR with a real run when ordering a
+  queue, however small the diff. A change nothing has verified is
+  not a cheap review: static checks, type checks and the test
+  matrix routinely fail on diffs that read as obviously correct,
+  and clearing it costs a workflow approval plus a full CI cycle
+  before anything can move.
+- Report what reading the code established, and say plainly that
+  CI is unverified. Do not predict the outcome — "approvable once
+  CI runs" claims knowledge the reviewer does not have.
+
+Releasing the held workflow runs is a triage action: point the
+maintainer at `pr-management-triage pr:<N>` rather than doing it
+inside this skill.
+
+This mirrors the
+[Real-CI guard](../triage/classify-and-act.md#real-ci-guard) that
+`pr-management-triage` already applies before classifying any PR
+as `passing`; the same rollup behaviour applies here.
 
 ---
 

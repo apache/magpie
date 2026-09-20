@@ -92,7 +92,7 @@ special-token spellings counted as ordinary text.
 Coverage: **75 of 75 local `skills/*/SKILL.md` files**.
 External `source.md` redirects and harness symlinks are excluded.
 
-Measurement manifest SHA-256: `5ab15771b5022fff4f3fc54bba6ba3302719af5c333aa7651121cb1b9380d0db`.
+Measurement manifest SHA-256: `f44def0e67cfebd4dceadc4b3253f16215740b0f611736356b3f0f300bb3b2f3`.
 
 | Skill file | Measured tokens | Source SHA-256 (first 16 characters) |
 |---|---:|---|
@@ -124,7 +124,7 @@ Measurement manifest SHA-256: `5ab15771b5022fff4f3fc54bba6ba3302719af5c333aa7651
 | [optimize-skill](../skills/optimize-skill/SKILL.md) | 4,878 | `4776d08e6104f526` |
 | [pairing-multi-agent-review](../skills/pairing-multi-agent-review/SKILL.md) | 4,845 | `86c9f62b5ea0d10b` |
 | [pairing-self-review](../skills/pairing-self-review/SKILL.md) | 4,595 | `bc479e73e8df5271` |
-| [pr-management-code-review](../skills/pr-management-code-review/SKILL.md) | 9,949 | `b131de7146ece96c` |
+| [pr-management-code-review](../skills/pr-management-code-review/SKILL.md) | 10,038 | `7384c8930b8d5710` |
 | [pr-management-mentor](../skills/pr-management-mentor/SKILL.md) | 4,055 | `510fc611500b03ac` |
 | [pr-management-quick-merge](../skills/pr-management-quick-merge/SKILL.md) | 8,430 | `b43b04f75a9f8341` |
 | [pr-management-stats](../skills/pr-management-stats/SKILL.md) | 8,290 | `9a32cfd4bb89c9bc` |

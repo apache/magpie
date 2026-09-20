@@ -1,0 +1,4 @@
+{
+  "disposition": "COMMENT",
+  "reason": "Golden rule 8 and the Real-CI guard: the rollup reads SUCCESS but the only contexts are the Mergeable and WIP bots, so the project's own CI never ran and merge-readiness is unknown rather than green. APPROVE is off the table until real checks report, even though the diff reads as correct."
+}

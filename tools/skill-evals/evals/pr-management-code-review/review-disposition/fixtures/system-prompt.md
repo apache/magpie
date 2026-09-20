@@ -14,8 +14,9 @@ Before drafting an APPROVE review, verify:
 - No unanswered maintainer questions in the PR conversation
 If any are present, downgrade to COMMENT (with a note) or REQUEST_CHANGES if the unresolved item is material.
 
-**Golden rule 8 — never approve a PR that fails CI.**
+**Golden rule 8 — never approve a PR that fails CI, or whose real CI never ran.**
 If required CI checks are failing, the disposition is COMMENT or REQUEST_CHANGES (if the failure is diff-caused), never APPROVE.
+A rollup state of SUCCESS is not by itself evidence that CI ran: fast bot checks (Mergeable, WIP, DCO, boring-cyborg) succeed unconditionally and pull the rollup green while the project's real workflows sit unapproved. If no reported context comes from the project's own CI, merge-readiness is unknown, not green, and APPROVE is equally off the table.
 
 ## Disposition options
 

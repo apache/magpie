@@ -372,13 +372,19 @@ unresolved item) or `REQUEST_CHANGES` if the unresolved item is
 material. Do not silently approve "around" another maintainer's
 concern.
 
-**Golden rule 8 — never approve a PR that fails CI.** Failing
-required checks block the merge anyway, and approving on top of
-red CI clutters the review history. If CI is failing, the
-proposal is `COMMENT` (or `REQUEST_CHANGES` if the failure is
-clearly diff-caused), with a quoted snippet of the failing check
-and a pointer to the relevant log. The pre-flight pulls the
-check rollup; see [`prerequisites.md#ci-precheck`](prerequisites.md).
+**Golden rule 8 — never approve a PR that fails CI, or whose
+real CI never ran.** Failing required checks block the merge
+anyway, and approving on top of red CI clutters the review
+history. If CI is failing, the proposal is `COMMENT` (or
+`REQUEST_CHANGES` if the failure is clearly diff-caused), with a
+quoted snippet of the failing check and a pointer to the relevant
+log. A rollup reading `SUCCESS` is not by itself evidence that CI
+ran: bot-only checks pull it green while the real workflows sit
+unapproved, so the pre-flight's
+[Real-CI guard](prerequisites.md#real-ci-guard) has to pass too.
+Where it does not, merge-readiness is unknown and `APPROVE` is
+equally off the table. The pre-flight pulls the check rollup; see
+[`prerequisites.md#ci-precheck`](prerequisites.md).
 
 **Golden rule 9 — out of scope: triage actions.** This skill
 does not convert PRs to draft, close them, rebase them, ping
