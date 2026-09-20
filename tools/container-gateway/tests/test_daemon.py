@@ -121,7 +121,11 @@ class _RealSocketBackend:
 def test_paths_and_socket_length(tmp_path: Path) -> None:
     p = daemon.paths(tmp_path)
     assert p["podman"].name == "podman.sock" and p["docker"].name == "docker.sock"
-    daemon.check_socket_path(tmp_path / "ok.sock")
+    # A literal short path, not tmp_path: with TMPDIR unset, tmp_path's
+    # pytest-of-<user>/pytest-<n>/<test-name>/ nesting is already long
+    # enough to exceed the ~103-byte sun_path limit on its own, and
+    # check_socket_path only measures byte length.
+    daemon.check_socket_path(Path("/tmp/ok.sock"))
     with pytest.raises(SystemExit) as exc:
         daemon.check_socket_path(Path("/" + "x" * 120 + "/podman.sock"))
     assert exc.value.code == 2
