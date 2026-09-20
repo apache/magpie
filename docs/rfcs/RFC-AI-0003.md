@@ -255,6 +255,12 @@ The gateway runs **outside the sandbox** — it must bind a listener and make un
 
 This mechanism is **optional and provisional**: it ships as a tool with a documented contract and unit-tested allowlist policy, but it is not yet wired into a setup skill or the `privacy-llm-check` gate. See §10.6.
 
+The same pattern, a per-project policy proxy outside the sandbox whose socket is the only one the sandbox may reach,
+is reused by [`tools/container-gateway/`](../../tools/container-gateway/) for the container daemon socket.
+That gateway also hands every container it creates this egress gateway as its HTTP proxy,
+so container traffic that honours proxy variables is bound by the same host allow-list.
+RFC-AI-0004 Principle 2 lists both as the *socket gateways* layer.
+
 ## 5. Data flow
 
 ```text

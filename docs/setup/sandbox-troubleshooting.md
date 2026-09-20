@@ -580,197 +580,75 @@ Per-entry rationale:
 Cannot connect to the Docker daemon at unix:///Users/<user>/.docker/run/docker.sock. Is the docker daemon running?
 ERRO[0000] error connecting to /var/run/docker.sock: open /var/run/docker.sock: operation not permitted
 Cannot connect to Podman. Please verify your connection to the Linux system using `podman system connection list`
+Error: unable to connect to Podman socket: failed to read identity "/Users/<you>/.local/share/containers/podman/machine/machine": operation not permitted
+dial unix ./.apache-magpie-local/run/podman.sock: connect: no such file or directory
+dial unix ./.apache-magpie-local/run/podman.sock: connect: operation not permitted
 ```
 
-…on any `docker` / `podman` / `nerdctl` invocation. The CLI is
-installed and the runtime is running on the host — the sandbox is
-just blocking access to its socket.
+…on any `docker` / `podman` / `nerdctl` invocation.
+The first three lines are the CLI reaching straight for the real daemon socket or the podman machine's ssh identity, both denied by design.
+The last two are the CLI reaching the container gateway's own socket instead.
+`no such file or directory` means the gateway is not running for this project.
+`operation not permitted` means its socket is not in `sandbox.network.allowUnixSockets`.
 
-On macOS with Docker Desktop the failure usually arrives *earlier*
-than that, as one of:
-
-```text
-zsh: operation not permitted: docker
-docker: unknown command: docker compose
-```
-
-The first means the sandbox is blocking the `docker` binary itself;
-the second means it is blocking the CLI plugins. Neither reaches the
-socket at all, so the socket allowlist below does not fix them on its
-own — see the CLI paths in the same block.
-
-A third form appears once the CLI runs but the connection is still
-refused, on every platform:
-
-```text
-permission denied while trying to connect to the docker API at unix:///var/run/docker.sock
-```
-
-That one is the missing `sandbox.network.allowUnixSockets` entry, not a
-filesystem permission — see below.
+Inside the sandbox, `podman machine list` prints an empty table even when the machine is running, because the machine directory under `~/.local/share/containers/podman/machine/` is unreadable.
+An empty list from inside the sandbox is therefore not evidence that no machine exists.
+Check the machine's real state from **outside** the sandbox (a `!`-prefixed shell command, or your own terminal) before assuming it needs `podman machine init`.
 
 ### Root cause
 
-The runtime CLI talks to its daemon via a unix-domain socket. The
-framework's reference `~/.claude/settings.json` has
-`Read(~/.docker/**)` in `permissions.deny` (to keep the agent
-from reading Docker credentials stored under `~/.docker/config.json`)
-and lists `~/.docker` in the broader filesystem `denyRead` set.
-Both block the socket file under `~/.docker/run/docker.sock`,
-which is where Docker.app for Mac drops its socket.
+The container daemon socket is root-equivalent over whatever the daemon mounts: a default Podman machine mounts `/Users`, `/private`, and `/var/folders` read-write, and Docker Desktop's daemon is no narrower.
+Neither excluding `docker` / `podman` from the sandbox with `sandbox.excludedCommands`, which some upstream guidance suggests, nor listing the daemon socket itself in `sandbox.network.allowUnixSockets` is acceptable for that reason: both hand the agent unrestricted host access through the daemon.
+The framework's `sandbox-lint` tool enforces the second half of that.
+It rejects any `allowUnixSockets` entry whose basename is `docker.sock`, `podman.sock`, or ends in `-api.sock`, unless the entry's parent directory is `.apache-magpie-local/run`.
 
-On macOS the same `~/.docker` denial also blocks two things that
-are not the socket, and that a socket-only allowlist therefore
-leaves broken:
+On macOS, the podman CLI's default connection to a Podman machine goes over `ssh://`, using an identity file under `~/.local/share/containers/podman/machine/`, a path the framework's blanket `~/` read denial already covers.
+The machine's actual API socket lives elsewhere, under `$TMPDIR/podman/<machine>-api.sock` (`podman machine inspect --format '{{.ConnectionInfo.PodmanSocket.Path}}'` prints the exact path), not under `~/.local/share` as the ssh identity path might suggest.
 
-- **The CLI binary.** Docker Desktop installs it *inside* the denied
-  directory — `docker` on `PATH` is `~/.docker/bin/docker`, a symlink
-  into `/Applications/Docker.app`. Denied, the shell cannot execute it
-  at all (`operation not permitted: docker`).
-- **The CLI plugins.** `docker compose` and `docker buildx` are not
-  builtins; they are separate binaries in `~/.docker/cli-plugins/`.
-  Denied, `docker ps` works while `docker compose` reports
-  `unknown command`, which breaks any compose-driven workflow.
-
-Separately, and on **every** platform: listing a socket in
-`sandbox.filesystem.allowRead` grants permission to *read the file*,
-not to *connect to it*. Socket connections are gated by their own
-`sandbox.network.allowUnixSockets` list. With the path allowed for
-reading but absent from that list, the CLI starts, finds the socket,
-and is refused at `connect(2)`:
-
-```console
-$ docker ps
-permission denied while trying to connect to the docker API at unix:///var/run/docker.sock
-```
-
-Both settings are required; neither substitutes for the other. This is
-not macOS-specific — a Linux adopter using `/var/run/docker.sock` needs
-the `allowUnixSockets` entry just the same.
-
-For Colima the socket lives under `~/.colima/...` (not currently
-covered by any allow / deny in the framework reference, so it
-works by default), and for rootless Podman it lives under
-`$XDG_RUNTIME_DIR/podman/...` (also not covered → works). The
-case that fails is specifically Docker.app on macOS plus the
-generic `~/.docker` denial.
+The supported route is the [container gateway](../../tools/container-gateway/README.md).
+It runs outside the sandbox, holds the only connection to the real daemon socket, and exposes two policy-checked sockets of its own under `<project>/.apache-magpie-local/run/`.
+`CONTAINER_HOST` and `DOCKER_HOST` point at `podman.sock` and `docker.sock` in that directory, only those two sockets are ever added to `allowUnixSockets`, and a `SessionStart` hook starts the gateway when a session begins.
+See [Container gateway](secure-agent-setup.md#container-gateway) in the setup guide for the full install.
 
 ### Fix
 
-Allow Bash subprocesses to read the *socket file*, the CLI, and its
-plugins without opening the `~/.docker/` directory generally:
+| Error line | Cause | Action |
+|---|---|---|
+| `failed to read identity "…/machine/machine": operation not permitted` | `CONTAINER_HOST` / `DOCKER_HOST` are unset, so the CLI fell back to its default connection instead of the gateway | Add the reference `env` block below to `.claude/settings.json` / `settings.local.json` |
+| `dial unix ./.apache-magpie-local/run/podman.sock: connect: no such file or directory` | The gateway is not running for this project | Run `~/.claude/scripts/container-gateway-hook.sh start` from a terminal, or check `<project>/.apache-magpie-local/run/container-gateway.log` for why it did not start |
+| `dial unix ./.apache-magpie-local/run/podman.sock: connect: operation not permitted` | The gateway is running but its socket is missing from `sandbox.network.allowUnixSockets` | Add both gateway sockets as absolute paths, per [Container gateway](secure-agent-setup.md#container-gateway) |
 
 ```jsonc
-// ~/.claude/settings.json
+// .claude/settings.json (already the framework's committed default on this branch)
 {
-  "sandbox": {
-    "filesystem": {
-      "allowRead": [
-        // ...existing entries...
-        "~/.docker/run/docker.sock",                    // Docker.app for Mac socket
-        "~/.colima/default/docker.sock",                // Colima default socket (defensive; usually not blocked)
-        "/var/run/docker.sock",                         // Linux daemon socket (root-managed install)
-        "~/.docker/bin/",                               // Docker Desktop CLI binaries (`docker` itself lives here on macOS)
-        "~/.docker/cli-plugins/"                        // `docker compose`, `docker buildx` — separate plugin binaries
-      ]
-    },
-    "network": {
-      // Reading the socket file is not the same permission as connecting
-      // to it. Without these, the CLI runs but every command is refused
-      // with "permission denied while trying to connect to the docker API".
-      "allowUnixSockets": [
-        "/var/run/docker.sock",
-        "~/.docker/run/docker.sock"
-      ]
-    }
-  },
-  "permissions": {
-    "deny": [
-      // ...existing entries...
-      "Read(~/.docker/config.json)",                    // keep this denial — credentials live here
-      "Read(~/.docker/contexts/**)"                     // keep this denial — saved contexts
-      // (Replace the broad `Read(~/.docker/**)` with these two specific paths.)
-    ]
+  "env": {
+    "CONTAINER_HOST": "unix://./.apache-magpie-local/run/podman.sock",
+    "DOCKER_HOST": "unix://./.apache-magpie-local/run/docker.sock"
   }
 }
 ```
 
-Per-entry rationale:
+#### `403 container-gateway: …`
 
-- `~/.docker/run/docker.sock` — Docker.app for Mac's socket
-  location. Read access on the socket file is what the docker CLI
-  needs to `connect(2)` to the daemon.
-- `~/.colima/default/docker.sock` — Colima's default; explicit
-  even though it works today, to anticipate a future widening of
-  the generic `~/.` denial.
-- `/var/run/docker.sock` — Linux systems with daemon Docker;
-  socket is root-managed but world-readable by convention.
-- `~/.docker/bin/` — Docker Desktop for Mac installs the `docker`
-  CLI here (as a symlink into `/Applications/Docker.app`), so
-  without it the binary cannot be executed and no socket entry
-  matters. Not needed for Homebrew or Linux installs, where the
-  CLI lives on a normal `PATH` directory outside `~/.docker`.
-- `~/.docker/cli-plugins/` — `docker compose` and `docker buildx`
-  are plugin binaries, not builtins. Without it `docker ps`
-  succeeds but `docker compose` fails as `unknown command`.
-- `sandbox.network.allowUnixSockets` — the connect-side permission,
-  required on every platform. `allowRead` on the same path only
-  lets a process *open the file*; the sandbox gates socket
-  *connections* through this separate list. Verified by removing
-  it while leaving the `allowRead` entries in place: `docker
-  compose version` still ran, and `docker ps` failed with
-  `permission denied while trying to connect to the docker API`.
-- The narrowed `permissions.deny` keeps the agent's `Read` tool
-  from seeing Docker auth tokens (`config.json`) and saved
-  contexts (which include host IPs and credentials), while
-  allowing the Bash subprocess to use the socket.
+A request that reaches the gateway but fails its policy comes back as `403`, and the CLI prints the message verbatim, for example `container-gateway: bind-mount: /Users/you/.ssh is outside the allowed roots (…); see docs/setup/sandbox-troubleshooting.md#docker--podman-command-fails-with-a-socket-error`.
+The message names the rule that refused the request, and it points back at this very catalog entry.
+The full create-time refusal table lives in [`tools/container-gateway/README.md` → What the policy refuses](../../tools/container-gateway/README.md#what-the-policy-refuses).
+Adjust the request rather than widening the sandbox: a `403` from the gateway is the policy working as intended, not a sandbox misconfiguration.
 
 ### Notes
 
-- For **rootless Podman**, the socket is at
-  `$XDG_RUNTIME_DIR/podman/podman.sock` (typically
-  `/run/user/<uid>/podman/podman.sock`). Currently allowed by
-  default because the framework reference does not deny
-  `/run/user/<uid>/`; if a future widening adds such a denial,
-  add `/run/user/*/podman/` to `allowRead`.
-- For **CI / image-build workflows** that run inside an adopter
-  repo, prefer adding the socket allow at project scope
-  (`.claude/settings.local.json` in the adopter) rather than user
-  scope — that keeps the framework's user-scope reference minimal
-  and makes the widening visible to whoever audits the adopter's
-  repo.
-- Do **not** widen `allowRead` to `~/.docker/**` — the directory
-  holds auth tokens and saved contexts; the whole point of the
-  framework's `Read(~/.docker/**)` denial is to keep those out of
-  the agent's reach.
-- **Podman on macOS** has two failure modes that look alike. With
-  no machine created (`podman machine list` is empty) `podman info`
-  fails with `unable to connect to Podman socket … no such file or
-  directory` — that is a missing VM, not a sandbox denial; run
-  `podman machine init` / `start` outside the agent. Separately,
-  `podman system connection list` fails with
-  `open ~/.config/containers/podman-connections.json: operation not
-  permitted` because the framework's `~/` read denial covers
-  Podman's config directory. Allow that **one file**, not the
-  directory — `~/.config/containers/auth.json` next to it holds
-  registry credentials:
-
-  ```jsonc
-  // <adopter-repo>/.claude/settings.local.json
-  {
-    "sandbox": {
-      "filesystem": {
-        "allowRead": [
-          "~/.config/containers/podman-connections.json"  // machine connection table; auth.json stays denied
-        ]
-      }
-    }
-  }
-  ```
-
-  Once a machine exists, its API socket lives under
-  `~/.local/share/containers/podman/machine/` and needs the same
-  `allowRead` + `allowUnixSockets` pair as the Docker socket above.
+- The gateway's `docker`-backend discovery on macOS reads the current `docker context`.
+  Colima's socket lives under `~/.colima/<profile>/docker.sock`, and a Colima context already set as active is picked up the same way as Docker Desktop's, with no Colima-specific configuration.
+- The gateway's `podman`-backend discovery on Linux reads `$XDG_RUNTIME_DIR/podman/podman.sock` directly, which is rootless Podman's default socket location, again with no separate configuration.
+- Do **not** widen `allowRead` to `~/.docker/**`.
+  The directory holds auth tokens and saved contexts, and the whole point of the framework's `Read(~/.docker/**)` denial is to keep those out of the agent's reach.
+- Docker Desktop's CLI binary and plugins still need explicit read access, independently of which socket the CLI talks to.
+  `docker` on `PATH` is `~/.docker/bin/docker`, a symlink into `/Applications/Docker.app`, and `docker compose` / `docker buildx` are separate binaries under `~/.docker/cli-plugins/`.
+  Add `~/.docker/bin/` and `~/.docker/cli-plugins/` to `sandbox.filesystem.allowRead` as exact paths rather than the broader `~/.docker/**`, or install `docker` via Homebrew, whose CLI lives on a normal `PATH` directory outside `~/.docker` and needs no extra allow.
+- If no Podman machine exists, or it is stopped, run `podman machine init` / `podman machine start` from your own terminal, outside the sandbox.
+  Verify the result from outside the sandbox too: per the Symptom note above, `podman machine list` run inside the sandbox reports an empty table regardless of the machine's real state.
+- When only Podman is installed, the gateway still serves the `docker` CLI.
+  `DOCKER_HOST` points at the gateway's `docker.sock`, which relays to whichever backend it found, so `docker ps` and friends work through Podman's Docker-compatible API alone.
 
 ---
 

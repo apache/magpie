@@ -49,6 +49,12 @@
     - [Verify](#verify-3)
     - [From your own terminal — git's program config](#from-your-own-terminal--gits-program-config)
     - [Trade-offs](#trade-offs-2)
+  - [Container gateway](#container-gateway)
+    - [Why install it](#why-install-it-1)
+    - [Install (user-scope)](#install-user-scope-4)
+    - [Egress](#egress)
+    - [Verify](#verify-4)
+    - [Trade-offs](#trade-offs-3)
   - [Syncing user-scope config across machines](#syncing-user-scope-config-across-machines)
     - [What to track, what not to track](#what-to-track-what-not-to-track)
     - [Layout](#layout)
@@ -2309,6 +2315,112 @@ To undo it: `git config --global --unset gpg.ssh.program` and `git config --glob
   too. For the rest of the time, the
   [program config above](#from-your-own-terminal--gits-program-config)
   is what covers your own git commands.
+
+## Container gateway
+
+Sandboxed Bash subprocesses cannot reach a container runtime's daemon socket directly: the daemon is root-equivalent over whatever it mounts, so allowing that socket in `sandbox.network.allowUnixSockets` would hand the agent unrestricted host access.
+The [container gateway](../../tools/container-gateway/README.md) is a per-project policy proxy that sits in front of the real `podman` / `docker` daemon socket, runs **outside** the sandbox where it can hold that connection, and exposes two policy-checked sockets of its own for the sandboxed CLI to talk to instead.
+Every request the gateway forwards is filtered to this project's own resources and stripped of anything that would turn a container into host access.
+The full refusal table is in the tool's README.
+This is the same *socket gateways* layer [RFC-AI-0004](../rfcs/RFC-AI-0004.md) Principle 2 names alongside the [egress gateway](../../tools/egress-gateway/tool.md), and the container gateway hands that egress gateway to every container it starts as its HTTP proxy, so container traffic is bound by the same host allow-list as the sandboxed shell.
+
+### Why install it
+
+- **Containers only.**
+  The agent reaches the daemon exclusively through the API surface the gateway forwards, and every request shape that would turn a container into host access is stripped or refused.
+- **This project's containers only.**
+  Every resource the gateway creates is labelled with the project slug, and every read or act call is filtered to that label, so two projects sharing one daemon see disjoint worlds.
+- **Same egress policy as the shell.**
+  Containers get the egress gateway as their HTTP proxy, so tools inside them that honour proxy variables are bound by the same host allow-list as sandboxed commands.
+
+### Install (user-scope)
+
+```bash
+mkdir -p ~/.claude/scripts
+cp /path/to/magpie/tools/agent-isolation/container-gateway-hook.sh ~/.claude/scripts/
+chmod +x ~/.claude/scripts/container-gateway-hook.sh
+```
+
+Wire it as a `SessionStart` / `SessionEnd` pair in `~/.claude/settings.json`, alongside any other hooks already there:
+
+```jsonc
+{
+  "hooks": {
+    "SessionStart": [
+      { "hooks": [ { "type": "command", "command": "~/.claude/scripts/container-gateway-hook.sh start" } ] }
+    ],
+    "SessionEnd": [
+      { "hooks": [ { "type": "command", "command": "~/.claude/scripts/container-gateway-hook.sh stop" } ] }
+    ]
+  }
+}
+```
+
+The framework's own `.claude/settings.json` already carries the `env` half of the project-settings block, using project-relative `unix://` URLs so the same file works in every worktree:
+
+```jsonc
+// .claude/settings.json (committed, project-wide)
+{
+  "env": {
+    "CONTAINER_HOST": "unix://./.apache-magpie-local/run/podman.sock",
+    "DOCKER_HOST": "unix://./.apache-magpie-local/run/docker.sock"
+  }
+}
+```
+
+`allowUnixSockets` entries need an absolute path, which is per-machine, so they belong in the gitignored `.claude/settings.local.json` instead (written by `/magpie-setup config`, or by hand):
+
+```jsonc
+// .claude/settings.local.json (gitignored, per machine)
+{
+  "sandbox": {
+    "network": {
+      "allowUnixSockets": [
+        "<project>/.apache-magpie-local/run/podman.sock",
+        "<project>/.apache-magpie-local/run/docker.sock"
+      ]
+    }
+  }
+}
+```
+
+Never add the real daemon socket to `allowUnixSockets` under any name: the framework's `sandbox-lint` tool rejects an entry whose basename is `docker.sock`, `podman.sock`, or ends in `-api.sock`, unless its parent directory is `.apache-magpie-local/run`.
+
+### Egress
+
+At start, the gateway resolves the egress gateway's address for each backend and probes it once.
+`inject-if-available` (the default) injects `HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY` into every container it creates when that probe succeeds, and logs a warning instead of failing when it does not.
+`require` refuses container creation with `403` while the egress gateway is unreachable, for adopters who want a hard failure rather than a silent gap.
+`off` never injects, for adopters running their own container-level filtering.
+Set the mode with `MAGPIE_CONTAINER_GATEWAY_ARGS="--egress require"` (or `off`) before the `SessionStart` hook runs.
+
+On Linux, the address the gateway hands a container for the egress gateway is a fixed guess: `172.17.0.1` for dockerd's default bridge, `10.88.0.1` for rootless Podman.
+Neither is guaranteed to match every Linux install's actual bridge address.
+Override it with `--egress-host <address>` in `MAGPIE_CONTAINER_GATEWAY_ARGS` if the default guess is wrong for your host.
+
+### Verify
+
+```bash
+PYTHONPATH=tools/container-gateway/src python3 -m container_gateway status --project "$PWD"
+podman info --format '{{.Host.Hostname}}'      # from a sandboxed Bash tool call
+podman run --rm -v "$HOME/.ssh:/x" alpine true # expected: 403 container-gateway: bind-mount …
+```
+
+`status` prints a JSON object (`running`, `pid`, `sockets`, `serving`) and exits 0 when the gateway is up for this project, 3 otherwise.
+The `podman info` call should succeed from inside the sandbox once the hook has started the gateway and the two `allowUnixSockets` entries are in place.
+The `podman run` call is expected to fail: a bind mount outside the project root or its scratch tree is exactly what the policy refuses, and the `403` message is the gateway working as intended.
+
+### Trade-offs
+
+- **Not a container security boundary.**
+  The gateway keeps the agent off the daemon socket and off other projects' resources, but it does not harden the container runtime itself.
+  A malicious image that escapes its container remains the runtime's problem, not this gateway's.
+- **Raw sockets bypass the proxy.**
+  Egress filtering is limited to the proxy-variable injection above, so a raw socket or custom DNS resolution from inside a container is not intercepted.
+- **Images are shared across projects.**
+  Isolation is by label on a daemon and image store shared across every project on the machine, not by a separate daemon or image cache per project.
+- **`--volumes-from` is refused.**
+  A named volume or container must carry this project's label before it can be mounted or referenced, so borrowing another container's volumes across projects does not work through the gateway.
 
 ## Syncing user-scope config across machines
 
