@@ -434,3 +434,88 @@ def test_gateway_sockets_pass_the_invariant(baseline: dict[str, Any]) -> None:
         "/Users/x/proj/.apache-magpie-local/run/docker.sock",
     ]
     assert not [e for e in check_invariants(settings) if "daemon socket" in e]
+
+
+@pytest.mark.parametrize(
+    "entry", ["/var/run/Docker.sock", "~/.docker/run/DOCKER.SOCK", "/run/podman/PODMAN.SOCK"]
+)
+def test_daemon_socket_names_are_matched_case_insensitively(baseline: dict[str, Any], entry: str) -> None:
+    # macOS's filesystem is case-insensitive, so the check must not miss a
+    # daemon socket entry just because its case differs from the canonical
+    # "docker.sock" / "podman.sock" spelling.
+    settings = copy.deepcopy(baseline)
+    settings["sandbox"]["network"].setdefault("allowUnixSockets", []).append(entry)
+    errors = check_invariants(settings)
+    assert any("names a container daemon socket" in e and entry in e for e in errors), errors
+
+
+def test_bare_socket_name_entry_is_rejected(baseline: dict[str, Any]) -> None:
+    # An entry with no directory component at all cannot possibly sit under
+    # .apache-magpie-local/run, so it must never be exempted.
+    settings = copy.deepcopy(baseline)
+    settings["sandbox"]["network"]["allowUnixSockets"] = ["podman.sock"]
+    errors = check_invariants(settings)
+    assert any("names a container daemon socket" in e for e in errors), errors
+
+
+def test_decoy_apache_magpie_local_run_path_is_rejected_with_a_project_root(
+    baseline: dict[str, Any], tmp_path: Path
+) -> None:
+    # The bare suffix match ("parent.endswith('.apache-magpie-local/run')")
+    # cannot tell a legitimate project-scoped socket from a decoy sitting
+    # under an unrelated directory that happens to end the same way -- both
+    # end in ".apache-magpie-local/run". Passing project_root closes that:
+    # the decoy is outside it and must be rejected.
+    project_root = tmp_path / "real-project"
+    settings = copy.deepcopy(baseline)
+    settings["sandbox"]["network"]["allowUnixSockets"] = [
+        str(tmp_path / "evil" / ".apache-magpie-local" / "run" / "podman.sock")
+    ]
+    errors = check_invariants(settings, project_root=project_root)
+    assert any("names a container daemon socket" in e for e in errors), errors
+
+
+def test_gateway_socket_under_the_given_project_root_passes(baseline: dict[str, Any], tmp_path: Path) -> None:
+    project_root = tmp_path / "real-project"
+    settings = copy.deepcopy(baseline)
+    settings["sandbox"]["network"]["allowUnixSockets"] = [
+        str(project_root / ".apache-magpie-local" / "run" / "podman.sock"),
+        "./.apache-magpie-local/run/docker.sock",  # relative to project_root, per the committed convention
+    ]
+    errors = check_invariants(settings, project_root=project_root)
+    assert not [e for e in errors if "daemon socket" in e], errors
+
+
+def test_infer_project_root_from_dot_claude_settings_path(tmp_path: Path) -> None:
+    from sandbox_lint import _infer_project_root
+
+    settings_path = tmp_path / "proj" / ".claude" / "settings.json"
+    settings_path.parent.mkdir(parents=True)
+    settings_path.write_text("{}")
+    assert _infer_project_root(settings_path) == (tmp_path / "proj").resolve()
+
+
+def test_infer_project_root_is_none_outside_a_dot_claude_directory(tmp_path: Path) -> None:
+    from sandbox_lint import _infer_project_root
+
+    settings_path = tmp_path / "settings.json"
+    settings_path.write_text("{}")
+    assert _infer_project_root(settings_path) is None
+
+
+def test_cli_rejects_a_decoy_daemon_socket_using_the_inferred_project_root(
+    tmp_path: Path, baseline: dict[str, Any]
+) -> None:
+    project_dir = tmp_path / "proj"
+    dot_claude = project_dir / ".claude"
+    dot_claude.mkdir(parents=True)
+    settings = copy.deepcopy(baseline)
+    settings["sandbox"]["network"]["allowUnixSockets"] = [
+        str(tmp_path / "evil" / ".apache-magpie-local" / "run" / "podman.sock")
+    ]
+    settings_path = dot_claude / "settings.json"
+    _write_json(settings_path, settings)
+    expected_path = tmp_path / "expected.json"
+    _write_json(expected_path, baseline)
+    rc = main(["--settings", str(settings_path), "--expected", str(expected_path)])
+    assert rc == 1

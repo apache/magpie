@@ -23,6 +23,7 @@ import argparse
 import asyncio
 import json
 import os
+import re
 import signal
 import sys
 import time
@@ -122,6 +123,17 @@ def cmd_serve(ns: argparse.Namespace) -> int:
     return asyncio.run(daemon.run(cfg))
 
 
+# Matches only the argv shapes `cmd_serve`/the hook actually invoke: a
+# python interpreter running the `container_gateway` module, or a
+# `container-gateway` console-script executable, each optionally through a
+# path prefix and followed by more argv (or end of line). A plain substring
+# check (`"container_gateway" in line`) would also match an editor opened on
+# a file named `container_gateway.py`, which is not this gateway.
+_GATEWAY_ARGV_RE = re.compile(
+    r"^(?:\S*/)?python\d*(?:\.\d+)?\s+-m\s+container_gateway(?:\s|$)|^(?:\S*/)?container-gateway(?:\s|$)"
+)
+
+
 def _looks_like_a_gateway_process(pid: int) -> bool:
     """Refuse to signal anything that does not look like this gateway.
 
@@ -136,17 +148,27 @@ def _looks_like_a_gateway_process(pid: int) -> bool:
     before ever signalling it closes that last gap; an unreadable
     command line (``ps`` unavailable, the process already gone) refuses
     rather than guesses.
+
+    The check is an argv-shape match against the first line of ``ps``
+    output only, not a substring search: a substring match would also
+    treat ``vim container_gateway.py`` (an editor opened on a source
+    file) as the gateway.
     """
     line = _backends.default_runner(["ps", "-o", "command=", "-p", str(pid)])
-    if line is None:
+    if not line:
         return False
-    return "container_gateway" in line or "container-gateway" in line
+    first_line = line.splitlines()[0].strip()
+    return _GATEWAY_ARGV_RE.match(first_line) is not None
 
 
 def cmd_stop(ns: argparse.Namespace) -> int:
     cfg = _config(ns)
     if not daemon.validate_run_dir(cfg.run_dir, cfg.project_root):
-        return 0  # never served, or the run directory itself no longer exists
+        # Never served, or the run directory itself no longer exists. Not an
+        # error -- but silent success here reads identically to "stopped it
+        # successfully", which is misleading when nothing was ever running.
+        print(f"container-gateway: no run directory at {cfg.run_dir}: nothing to stop")
+        return 0
     trust = daemon.pid_file_is_trustworthy(cfg.pid_file)
     if trust is None:
         return 0  # no pid file yet: nothing to stop

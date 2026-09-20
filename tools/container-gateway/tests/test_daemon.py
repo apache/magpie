@@ -425,6 +425,81 @@ def test_cli_stop_refuses_when_process_does_not_look_like_gateway(
         os.close(fd)
 
 
+def test_cli_stop_refuses_a_process_that_merely_mentions_the_module_name(
+    tmp_path: Path, short_run_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An editor opened on a file named ``container_gateway.py`` is not the gateway.
+
+    A substring check on the ``ps`` line would wrongly treat this as a
+    match; the argv-shape check must not.
+    """
+    pid_file = short_run_dir / "container-gateway.pid"
+    fd = daemon.acquire_pid_lock(pid_file)
+    assert fd is not None
+    try:
+        monkeypatch.setattr(
+            "container_gateway.backends.default_runner", lambda argv: "vim container_gateway.py"
+        )
+        calls: list[tuple[int, int]] = []
+        monkeypatch.setattr(os, "kill", lambda pid, sig: calls.append((pid, sig)))
+        rc = cli.cmd_stop(_ns(tmp_path, short_run_dir))
+        assert calls == []
+        assert rc == 1
+    finally:
+        os.close(fd)
+
+
+def test_cli_stop_checks_only_the_first_line_of_ps_output(
+    tmp_path: Path, short_run_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A gateway-shaped second line must not rescue a non-gateway first line."""
+    pid_file = short_run_dir / "container-gateway.pid"
+    fd = daemon.acquire_pid_lock(pid_file)
+    assert fd is not None
+    try:
+        monkeypatch.setattr(
+            "container_gateway.backends.default_runner",
+            lambda argv: "bash -c sleep 100\npython3 -m container_gateway serve --project /x",
+        )
+        calls: list[tuple[int, int]] = []
+        monkeypatch.setattr(os, "kill", lambda pid, sig: calls.append((pid, sig)))
+        rc = cli.cmd_stop(_ns(tmp_path, short_run_dir))
+        assert calls == []
+        assert rc == 1
+    finally:
+        os.close(fd)
+
+
+def test_cli_stop_signals_when_process_is_the_console_script(
+    tmp_path: Path, short_run_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The installed ``container-gateway`` console script is also recognised, not just ``python -m``."""
+    pid_file = short_run_dir / "container-gateway.pid"
+    fd = daemon.acquire_pid_lock(pid_file)
+    assert fd is not None
+    our_pid = os.getpid()
+    calls: list[tuple[int, int]] = []
+    terminated = False
+
+    def fake_kill(pid: int, sig: int) -> None:
+        nonlocal terminated
+        calls.append((pid, sig))
+        if sig == signal.SIGTERM:
+            terminated = True
+            os.close(fd)  # simulate the daemon exiting: release the flock
+        elif terminated:
+            raise ProcessLookupError
+
+    monkeypatch.setattr(os, "kill", fake_kill)
+    monkeypatch.setattr(
+        "container_gateway.backends.default_runner",
+        lambda argv: "/usr/local/bin/container-gateway serve --project /x",
+    )
+    rc = cli.cmd_stop(_ns(tmp_path, short_run_dir))
+    assert rc == 0
+    assert (our_pid, signal.SIGTERM) in calls
+
+
 def test_cli_stop_refuses_when_ps_is_unavailable(
     tmp_path: Path, short_run_dir: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -593,6 +668,18 @@ def test_cli_stop_signals_the_pid_and_reports_stopped(
 
 def test_cli_stop_when_lock_never_held_is_a_noop(tmp_path: Path, short_run_dir: Path) -> None:
     assert cli.cmd_stop(_ns(tmp_path, short_run_dir)) == 0
+
+
+def test_cli_stop_prints_a_message_when_no_run_directory_ever_existed(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A project that was never served must not look identical to "stopped successfully"."""
+    missing_root = tmp_path / "never-served"
+    run_dir = missing_root / ".apache-magpie-local" / "run"
+    rc = cli.cmd_stop(_ns(missing_root, run_dir))
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert f"no run directory at {run_dir}: nothing to stop" in out
 
 
 # ------------------------- D3: unlink the pid file before closing its fd
@@ -803,7 +890,13 @@ def test_cli_status_when_not_running(tmp_path: Path) -> None:
     assert "backends" not in out
 
 
-def test_cli_stop_when_not_running_is_quiet(tmp_path: Path) -> None:
+def test_cli_stop_when_never_served_reports_no_run_directory(tmp_path: Path) -> None:
+    """A project with no ``.apache-magpie-local/run`` at all gets a message, not silence.
+
+    ``tmp_path`` itself has no run directory under it, so this exercises
+    ``validate_run_dir`` returning ``False`` end to end through the real
+    subprocess entry point, not just the unit-level ``cmd_stop`` call.
+    """
     done = subprocess.run(
         [sys.executable, "-m", "container_gateway", "stop", "--project", str(tmp_path)],
         capture_output=True,
@@ -811,7 +904,8 @@ def test_cli_stop_when_not_running_is_quiet(tmp_path: Path) -> None:
         env={**os.environ, "PYTHONPATH": str(SRC)},
         check=False,
     )
-    assert done.returncode == 0 and done.stdout.strip() == ""
+    assert done.returncode == 0
+    assert "nothing to stop" in done.stdout
 
 
 def test_cli_serve_help_lists_flags() -> None:

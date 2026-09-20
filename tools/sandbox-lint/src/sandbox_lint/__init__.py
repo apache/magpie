@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import tomllib
 from pathlib import Path
@@ -190,8 +191,22 @@ def deep_diff(actual: Any, expected: Any, path: str = "$") -> list[str]:
 # ---------------------------------------------------------------------------
 
 
-def check_invariants(settings: dict[str, Any]) -> list[str]:
-    """Return list of invariant violations; empty list means OK."""
+def check_invariants(settings: dict[str, Any], project_root: Path | None = None) -> list[str]:
+    """Return list of invariant violations; empty list means OK.
+
+    ``project_root``, when given, anchors the ``.apache-magpie-local/run``
+    exemption for daemon-socket entries in ``allowUnixSockets``: an entry is
+    exempt only when it resolves to exactly
+    ``<project_root>/.apache-magpie-local/run/<name>``. Without a
+    ``project_root`` (the default), the exemption falls back to an
+    unanchored suffix match on the parent directory string, and a decoy
+    path such as ``/tmp/evil/.apache-magpie-local/run/podman.sock`` is
+    indistinguishable from a legitimate project-scoped socket -- both end
+    in the same suffix -- so it is accepted. This residual is documented
+    in ``tools/sandbox-lint/README.md`` under Residual risk. The CLI entry
+    point always knows the project root and passes it; only a caller that
+    invokes this function directly without one inherits the residual.
+    """
     errors: list[str] = []
 
     sandbox = settings.get("sandbox")
@@ -262,10 +277,24 @@ def check_invariants(settings: dict[str, Any]) -> list[str]:
     # socket, and its sockets live under .apache-magpie-local/run/, never
     # the daemon's own well-known path.
     for entry in settings.get("sandbox", {}).get("network", {}).get("allowUnixSockets", []):
-        name = entry.rstrip("/").rsplit("/", 1)[-1]
-        parent = entry.rstrip("/").rsplit("/", 1)[0] if "/" in entry else ""
-        is_daemon = name in ("docker.sock", "podman.sock") or name.endswith("-api.sock")
-        if is_daemon and not parent.endswith(".apache-magpie-local/run"):
+        stripped = entry.rstrip("/")
+        name = stripped.rsplit("/", 1)[-1]
+        parent = stripped.rsplit("/", 1)[0] if "/" in stripped else ""
+        # macOS's filesystem is case-insensitive, so the sandbox treats
+        # "Docker.sock" the same as "docker.sock"; match names the same way.
+        name_cf = name.casefold()
+        is_daemon = name_cf in ("docker.sock", "podman.sock") or name_cf.endswith("-api.sock")
+        if not is_daemon:
+            continue
+        if project_root is not None:
+            parent_path = Path(parent) if parent else Path()
+            if not parent_path.is_absolute():
+                parent_path = project_root / parent_path
+            expected_parent = project_root / ".apache-magpie-local" / "run"
+            is_exempt = os.path.normpath(str(parent_path)) == os.path.normpath(str(expected_parent))
+        else:
+            is_exempt = parent.endswith(".apache-magpie-local/run")
+        if not is_exempt:
             errors.append(
                 f"sandbox.network.allowUnixSockets: {entry} names a container daemon socket; "
                 "route through the container gateway (<project>/.apache-magpie-local/run/*.sock) instead"
@@ -406,6 +435,24 @@ def _lint_any_harness(framework_root: Path | None) -> int:
     return 1
 
 
+def _infer_project_root(settings_path: Path) -> Path | None:
+    """The project root implied by ``settings_path``, when it is recoverable.
+
+    The convention this repository and every adopter follow is
+    ``<project_root>/.claude/settings.json``; when ``settings_path`` fits
+    that shape, its grandparent is the project root ``check_invariants``
+    needs to anchor the ``allowUnixSockets`` daemon-socket exemption. A
+    ``--settings`` path that does not sit under a ``.claude/`` directory
+    (e.g. an ad-hoc fixture in a test) yields ``None``, and
+    ``check_invariants`` falls back to its documented unanchored-suffix
+    residual for that call.
+    """
+    resolved = settings_path.resolve()
+    if resolved.parent.name != ".claude":
+        return None
+    return resolved.parent.parent
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="sandbox-lint",
@@ -507,11 +554,12 @@ def main(argv: list[str] | None = None) -> int:
     settings = _load_json(args.settings)
     expected = _load_json(args.expected)
 
-    invariant_errors = check_invariants(settings)
+    project_root = _infer_project_root(args.settings)
+    invariant_errors = check_invariants(settings, project_root=project_root)
     diff_errors = deep_diff(settings, expected)
     # Run invariants on the baseline too: if a future PR weakens both
     # files in lockstep, the baseline must still pass on its own.
-    baseline_invariant_errors = check_invariants(expected)
+    baseline_invariant_errors = check_invariants(expected, project_root=project_root)
 
     if not invariant_errors and not diff_errors and not baseline_invariant_errors:
         print(f"sandbox-lint: OK ({args.settings} matches {args.expected})")

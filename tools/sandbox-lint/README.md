@@ -137,6 +137,11 @@ uv run --project tools/sandbox-lint sandbox-lint --any-harness /path/to/magpie
    - `permissions.deny` contains the verbatim entries listed in
      [`src/sandbox_lint/__init__.py`](src/sandbox_lint/__init__.py)
      (`REQUIRED_PERMISSIONS_DENY`).
+   - `sandbox.network.allowUnixSockets` contains no entry that names a
+     container daemon socket (`docker.sock`, `podman.sock`, or anything
+     ending in `-api.sock`, matched case-insensitively) unless it sits under
+     `.apache-magpie-local/run` — see [Residual risk](#residual-risk) for
+     the one case this cannot fully verify.
 3. **Baseline self-check.** The same invariants are applied to
    `expected.json` itself, so a PR cannot weaken the baseline in
    lockstep with the live settings without the lint catching the
@@ -149,16 +154,21 @@ uv run --project tools/sandbox-lint sandbox-lint --any-harness /path/to/magpie
 
 ## How to use
 
-Run from the repository root:
+Run from the repository root, with `--project` rather than `--directory` —
+`--directory` changes the process's working directory before it runs, so the
+tool would then look for `.claude/settings.json` inside
+`tools/sandbox-lint/` instead of at the repository root; `--project` only
+tells `uv` where to find this tool's `pyproject.toml` and leaves the working
+directory alone:
 
 ```sh
-uv run --directory tools/sandbox-lint --group dev sandbox-lint
+uv run --project tools/sandbox-lint --group dev sandbox-lint
 ```
 
 Run with explicit paths (useful for tests):
 
 ```sh
-uv run --directory tools/sandbox-lint --group dev sandbox-lint \
+uv run --project tools/sandbox-lint --group dev sandbox-lint \
   --settings .claude/settings.json \
   --expected tools/sandbox-lint/expected.json
 ```
@@ -241,3 +251,17 @@ the *shipped* configuration but not local overrides during a single
 agent run. The companion threat-model document records this under
 section *X3, Sandbox bypass via developer override* and *Residual
 risk #4*; consult that document once it lands on `main`.
+
+The container-daemon-socket check in `check_invariants` accepts a
+`project_root` argument to anchor its `.apache-magpie-local/run`
+exemption: an `allowUnixSockets` entry is exempt only when it resolves to
+exactly `<project_root>/.apache-magpie-local/run/<name>`. The CLI entry
+point always infers `project_root` from `--settings` (when the path ends
+in `.claude/settings.json`) and passes it, so `sandbox-lint` itself is not
+exposed to the gap below. A caller that invokes `check_invariants` directly
+without a `project_root` — including this lint's own invariant self-check
+on a `--settings` path that does not sit under a `.claude/` directory —
+falls back to an unanchored suffix match on the parent directory string,
+under which a decoy path such as `/tmp/evil/.apache-magpie-local/run/podman.sock`
+is indistinguishable from a legitimate project-scoped socket, since both
+end in the same suffix.
