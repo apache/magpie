@@ -978,3 +978,36 @@ def test_cli_serve_help_lists_flags() -> None:
         "--daemon",
     ):
         assert flag in done.stdout, flag
+
+
+# ------------------------------------------- I7: TMPDIR is not a bind root
+
+
+def test_bind_roots_are_the_project_and_the_extra_roots_only(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # $TMPDIR used to be a bind root. On macOS it is per-user, not
+    # per-project, so it let every project on the machine bind-mount every
+    # other project's scratch tree (and the agent's own).
+    project = tmp_path / "proj"
+    project.mkdir()
+    extra = tmp_path / "data"
+    extra.mkdir()
+    scratch = tmp_path / "scratch"
+    scratch.mkdir()
+    monkeypatch.setenv("TMPDIR", str(scratch))
+    cfg = daemon.Config(
+        project_root=project,
+        run_dir=project / "run",
+        backends=(),
+        egress_mode="off",
+        egress_port=8899,
+        egress_host=None,
+        extra_bind_roots=(extra,),
+        idle_timeout=5.0,
+        log_level="INFO",
+        pid_file=project / "run" / "container-gateway.pid",
+    )
+    ctx = daemon.build_context(cfg, Backend("podman", Path("/x.sock"), "host.containers.internal"), None)
+    assert ctx.bind_roots == (project.resolve(), extra.resolve())
+    assert scratch.resolve() not in ctx.bind_roots

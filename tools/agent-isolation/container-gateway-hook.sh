@@ -32,7 +32,19 @@
 # (development override), $HOME/.claude/scripts/container-gateway/src (operator
 # install), <root>/.apache-magpie/tools/container-gateway/src (pinned snapshot).
 #
-# Extra serve flags: $MAGPIE_CONTAINER_GATEWAY_ARGS (e.g. "--egress require").
+# Two inherited variables are part of that trust model, because a repository can
+# set both through project settings:
+#
+#   PYTHONPATH is *replaced*, never extended. An inherited entry ahead of (or
+#   behind) the gateway's own source directory can shadow a stdlib module the
+#   package imports, which would run repository code inside the gateway process.
+#
+#   $MAGPIE_CONTAINER_GATEWAY_ARGS is allow-listed, token by token, against the
+#   flags below (e.g. "--egress require"). Anything else -- notably
+#   --extra-bind-root, which widens the bind-mount roots -- makes the hook ignore
+#   the whole variable and log one line to stderr rather than start a gateway
+#   with a policy the repository chose.
+#
 # MAGPIE_CONTAINER_GATEWAY_DRY_RUN=1 prints the command instead of running it.
 
 set -uo pipefail
@@ -60,9 +72,35 @@ for candidate in "${MAGPIE_CONTAINER_GATEWAY_SRC:-}" \
 done
 [[ -n $src ]] || exit 0
 
+# The only serve flags the hook will pass on from the environment. A value
+# may be attached (--egress=require) or follow as the next token
+# (--egress require); nothing else is accepted, and one bad token drops the
+# whole variable.
+allowed_flag='^--(egress|egress-port|egress-host|backend|backend-timeout|idle-timeout|log-level)(=.*)?$'
+
+vet_extra_args() {
+    # Echoes the vetted tokens; returns 1 when the variable must be ignored.
+    local expecting=0 token
+    for token in "$@"; do
+        if (( expecting )); then
+            expecting=0
+            continue
+        fi
+        [[ $token =~ $allowed_flag ]] || return 1
+        [[ $token == *=* ]] || expecting=1
+    done
+    (( expecting == 0 )) || return 1
+    printf '%s\n' "$@"
+}
+
 if [[ $action == start ]]; then
     # shellcheck disable=SC2206  # word-splitting the extra args is the point
     extra=(${MAGPIE_CONTAINER_GATEWAY_ARGS:-})
+    if (( ${#extra[@]} )) && ! vet_extra_args "${extra[@]}" >/dev/null; then
+        printf '%s: ignoring MAGPIE_CONTAINER_GATEWAY_ARGS: %s is not an accepted serve flag\n' \
+            "${0##*/}" "${MAGPIE_CONTAINER_GATEWAY_ARGS}" >&2
+        extra=()
+    fi
     cmd=(python3 -m container_gateway serve --project="$root" --daemon "${extra[@]}")
 else
     cmd=(python3 -m container_gateway stop --project="$root")
@@ -72,5 +110,6 @@ if [[ -n ${MAGPIE_CONTAINER_GATEWAY_DRY_RUN:-} ]]; then
     printf 'PYTHONPATH=%s %s\n' "$src" "${cmd[*]}"
     exit 0
 fi
-PYTHONPATH="$src${PYTHONPATH:+:$PYTHONPATH}" "${cmd[@]}" >/dev/null 2>&1 || true
+# PYTHONPATH is replaced, not extended: see the trust-model note above.
+PYTHONPATH="$src" "${cmd[@]}" >/dev/null 2>&1 || true
 exit 0

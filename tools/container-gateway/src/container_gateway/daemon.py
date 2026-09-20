@@ -403,16 +403,16 @@ async def probe_egress(host: str, port: int) -> bool:
 def build_context(cfg: Config, backend: _backends.Backend, proxy_env: dict[str, str] | None) -> PolicyContext:
     """The policy context for one backend's relay.
 
-    The scratch root comes from ``TMPDIR`` only when it is actually set --
-    never a hardcoded ``/tmp`` fallback, which would let every project on
-    the machine bind-mount out of the same shared, world-writable
-    directory. An unset ``TMPDIR`` means the project root and any
-    ``--extra-bind-root`` entries are the only allowed bind-mount roots.
+    The project root and whatever ``--extra-bind-root`` names are the only
+    bind-mount roots. ``TMPDIR`` was one too and is not any more: on macOS
+    it is per-*user*, not per-project (``/var/folders/<..>/T/``), so every
+    project on the machine shared one bind root and could mount another
+    project's scratch tree -- and the agent's own scratch directory sits
+    inside it. An adopter whose tests need a directory outside the project
+    tree names it explicitly with ``--extra-bind-root``, which is logged at
+    start.
     """
     roots = [cfg.project_root.resolve()]
-    tmpdir = os.environ.get("TMPDIR")
-    if tmpdir:
-        roots.append(Path(tmpdir).resolve())
     roots.extend(root.resolve() for root in cfg.extra_bind_roots)
     return PolicyContext(
         project_slug(cfg.project_root), cfg.project_root.resolve(), tuple(roots), proxy_env, cfg.egress_mode

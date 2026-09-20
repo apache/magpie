@@ -24,6 +24,8 @@ import os
 import subprocess
 from pathlib import Path
 
+import pytest
+
 SCRIPT = Path(__file__).parent.parent / "container-gateway-hook.sh"
 
 
@@ -127,3 +129,67 @@ def test_bad_action_exits_zero_with_message(tmp_path: Path) -> None:
     fake_home.mkdir()
     done = run("frobnicate", tmp_path, home=fake_home)
     assert done.returncode == 0 and "expected start|stop" in done.stderr
+
+
+# --- I5: the inherited environment is not part of the trust model ---
+
+
+def _project_with_snapshot(tmp_path: Path) -> tuple[Path, Path, Path]:
+    tmp_path = tmp_path.resolve()
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+    src = tmp_path / ".apache-magpie" / "tools" / "container-gateway" / "src"
+    (src / "container_gateway").mkdir(parents=True)
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    return tmp_path, fake_home, src
+
+
+def test_inherited_pythonpath_is_replaced_not_extended(tmp_path: Path) -> None:
+    """A repo-settable PYTHONPATH could shadow a stdlib module the package imports."""
+    project, fake_home, src = _project_with_snapshot(tmp_path)
+    shadow = project / "evil"
+    shadow.mkdir()
+    done = run("start", project, {"PYTHONPATH": str(shadow)}, home=fake_home)
+    assert done.returncode == 0, done.stderr
+    assert done.stdout.startswith(f"PYTHONPATH={src} ")
+    assert str(shadow) not in done.stdout
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        "--extra-bind-root /",
+        "--extra-bind-root=/Users",
+        "--project /elsewhere",
+        "--run-dir /tmp/x",
+        "--egress require --extra-bind-root /",
+        "--pid-file /tmp/x.pid",
+        "not-a-flag",
+        "--egress",  # a flag whose value never arrives
+    ],
+)
+def test_unvetted_extra_args_are_ignored_whole(tmp_path: Path, args: str) -> None:
+    project, fake_home, _ = _project_with_snapshot(tmp_path)
+    done = run("start", project, {"MAGPIE_CONTAINER_GATEWAY_ARGS": args}, home=fake_home)
+    assert done.returncode == 0, done.stderr
+    assert done.stdout.strip().endswith(f"serve --project={project} --daemon")
+    assert "ignoring MAGPIE_CONTAINER_GATEWAY_ARGS" in done.stderr
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        "--egress require",
+        "--egress=require",
+        "--egress-port 8899",
+        "--egress-host 10.88.0.1",
+        "--backend podman --log-level DEBUG",
+        "--idle-timeout 60 --backend-timeout 30",
+    ],
+)
+def test_vetted_extra_args_are_passed_through(tmp_path: Path, args: str) -> None:
+    project, fake_home, _ = _project_with_snapshot(tmp_path)
+    done = run("start", project, {"MAGPIE_CONTAINER_GATEWAY_ARGS": args}, home=fake_home)
+    assert done.returncode == 0, done.stderr
+    assert done.stdout.strip().endswith(f"--daemon {args}")
+    assert done.stderr == ""
