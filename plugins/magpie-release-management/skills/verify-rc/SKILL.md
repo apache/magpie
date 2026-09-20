@@ -781,9 +781,12 @@ git -C <upstream-clone> fetch --tags <remote>
 git -C <upstream-clone> rev-parse "<rc-tag>^{commit}"          # expect: <recorded commit>
 git -C <upstream-clone> tag -v "<rc-tag>"                       # signed tag verifies against KEYS
 
-# 2. The staged archive satisfies every reproducible-builds.org rule
+# 2. The staged archive satisfies every reproducible-builds.org rule, and its
+#    content is the recorded tree (the swh:1:dir: on the planning issue — and,
+#    under ATR, the SWHID the candidate page shows)
 uv run --project <framework>/tools/reproducible-archive repro-archive check \
-  "<staged-source-artefact>" --epoch "<recorded SOURCE_DATE_EPOCH>"
+  "<staged-source-artefact>" --epoch "<recorded SOURCE_DATE_EPOCH>" \
+  --swhid "<recorded swh:1:dir:…>"
 
 # 3. Rebuild from the tag with the recorded epoch, prefix and format, then compare
 uv run --project <framework>/tools/reproducible-archive repro-archive build \
@@ -806,7 +809,8 @@ Classify the source result:
 | `content-identical` (same members and bytes, archive metadata differs) | `WARN` — the RM did not build with `repro-archive build`; note the metadata differences | `FAIL` — the policy requires bit-by-bit identity |
 | `differs` (members added / removed / changed) | `FAIL` — the artefact is not the tagged tree | `FAIL` |
 | tag commit ≠ recorded commit | `FAIL` — the tag moved | `FAIL` |
-| `check` reports a rule `FAIL` | `WARN`, listed | `FAIL` |
+| content `swh:1:dir:` ≠ recorded (or ≠ ATR's) | `FAIL` — the staged tree is not the recorded one, whatever the bytes | `FAIL` |
+| `check` reports another rule `FAIL` | `WARN`, listed | `FAIL` |
 
 **Convenience artefacts.** Read `convenience_artefacts` from
 `release-build.md § Convenience artefacts` (project-specific; an empty
@@ -858,6 +862,8 @@ Return ONLY valid JSON with this structure:
     "verdict": "identical" | "content-identical" | "differs" | "tag-moved" | null,
     "recorded_commit": "<sha or null>",
     "source_date_epoch": <integer or null>,
+    "swhid_dir": "<swh:1:dir:… computed from the staged archive, or null>",
+    "swhid_matches": true | false | null,
     "rule_failures": ["<check name>"],
     "metadata_differences": ["<string>"],
     "content_differences": ["<added/removed/changed path>"]
@@ -881,7 +887,11 @@ mirrors `--trusted-hardware`; the skill never sets it on its own.
 `binaries.mode` is the mode applied (when entries differ, the
 strictest one in use); `binaries.differs` names every convenience
 artefact that did not reproduce — `release-promote` reads this list
-and withholds the publish command for each of them.
+and withholds the publish command for each of them. `swhid_matches`
+is `true` when the staged archive's `swh:1:dir:` equals the recorded
+one (qualifiers ignored), `false` when it does not (a `FAIL`), `null`
+when the planning issue recorded no SWHID — then the report states
+the computed value so the RM can add it.
 
 ---
 

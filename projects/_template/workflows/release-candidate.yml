@@ -98,10 +98,16 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist
+          # Prints the record: commit, SOURCE_DATE_EPOCH, sha512, swhid_rev,
+          # swhid_dir (the SWHID of the expanded content, the value ATR
+          # computes at compose time) and the origin. Keep it in the job
+          # summary so a voter can compare without the planning issue.
           python3 release/reproducible_archive.py build \
             --ref "$TAG" --format "$SOURCE_FORMAT" \
             --prefix "${ARTEFACT_PREFIX}-${VERSION}" \
-            -o "dist/${ARTEFACT_PREFIX}-${VERSION}-source.${SOURCE_FORMAT}"
+            --origin "https://github.com/${GITHUB_REPOSITORY}" \
+            -o "dist/${ARTEFACT_PREFIX}-${VERSION}-source.${SOURCE_FORMAT}" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
           python3 release/reproducible_archive.py check \
             "dist/${ARTEFACT_PREFIX}-${VERSION}-source.${SOURCE_FORMAT}" \
             --epoch "${{ steps.meta.outputs.source_date_epoch }}"

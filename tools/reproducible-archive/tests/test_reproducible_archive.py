@@ -169,7 +169,7 @@ def test_zip_applies_every_rule(repo: Path) -> None:
     data, _ = ra.build("1.0.0-rc1", repo, "zip", "p")
     with zipfile.ZipFile(io.BytesIO(data)) as zf:
         infos = zf.infolist()
-        assert zf.comment == b""
+        assert zf.comment == ra.commit_of("1.0.0-rc1", repo).encode()  # provenance, as git archive writes it
         link = zf.read("p/link")
     assert link == b"src/a.txt"
     for info in infos:
@@ -356,6 +356,88 @@ def test_recipe_carries_every_reproducible_builds_flag() -> None:
     assert "LC_ALL=C sort" in zip_recipe and "zip -X" in zip_recipe and "TZ=UTC" in zip_recipe
     with pytest.raises(ra.ReproError):
         ra.recipe("x", "7z", "p", "o")
+
+
+# ---------------------------------------------------------------- SWHID (Software Heritage identifiers)
+
+
+def _git_write_tree(directory: Path) -> str:
+    """git's own tree id of a directory's content — the reference our
+    in-memory computation must match."""
+    _git(directory, "init", "-q")
+    _git(directory, "-c", "core.autocrlf=false", "add", "-A")
+    return _git(directory, "write-tree").strip()
+
+
+def test_swhid_equals_git_tree_when_nothing_is_export_ignored(repo: Path) -> None:
+    (repo / ".gitattributes").unlink()
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "no attributes")
+    data, _ = ra.build("HEAD", repo, "tar.gz", "p")
+    out = repo.parent / "plain.tar.gz"
+    out.write_bytes(data)
+    assert ra.swhid_of_archive(out) == "swh:1:dir:" + _git(repo, "rev-parse", "HEAD^{tree}").strip()
+    assert ra.swhid_of_archive(out) == ra.swhid_repo_dir("HEAD", repo)
+
+
+def test_swhid_of_export_ignored_archive_matches_git_over_the_extracted_tree(repo: Path, tmp_path: Path) -> None:
+    data, _ = ra.build("1.0.0-rc1", repo, "tar.gz", "p")
+    out = tmp_path / "a.tar.gz"
+    out.write_bytes(data)
+    with tarfile.open(out) as tf:
+        tf.extractall(tmp_path / "x", filter="data")
+    expected = "swh:1:dir:" + _git_write_tree(tmp_path / "x" / "p")
+    assert ra.swhid_of_archive(out) == expected
+    # export-ignore stripped .ci.yml, so this is NOT the repository tree
+    assert ra.swhid_of_archive(out) != ra.swhid_repo_dir("1.0.0-rc1", repo)
+
+
+def test_swhid_is_format_independent_and_identical_across_formats(repo: Path, tmp_path: Path) -> None:
+    tgz, _ = ra.build("1.0.0-rc1", repo, "tar.gz", "p")
+    zipped, _ = ra.build("1.0.0-rc1", repo, "zip", "other-prefix")
+    a, b = tmp_path / "a.tar.gz", tmp_path / "b.zip"
+    a.write_bytes(tgz)
+    b.write_bytes(zipped)
+    assert ra.swhid_of_archive(a) == ra.swhid_of_archive(b)  # prefix and container play no part
+    result = ra.compare(a, b)
+    assert result.verdict == "differs"  # the prefix differs, so the member names do
+    assert result.swhid_a == result.swhid_b  # …but the content identifiers agree
+
+
+def test_swhid_rev_and_qualifiers(repo: Path) -> None:
+    rev = ra.swhid_rev("1.0.0-rc1", repo)
+    assert rev == "swh:1:rev:" + ra.commit_of("1.0.0-rc1", repo)
+    q = ra.qualified_swhid("swh:1:dir:" + "0" * 40, "https://github.com/apache/foo", rev)
+    assert q == f"swh:1:dir:{'0' * 40};origin=https://github.com/apache/foo;anchor={rev}"
+
+
+def test_tar_carries_commit_as_global_pax_comment(repo: Path) -> None:
+    data, _ = ra.build("1.0.0-rc1", repo, "tar.gz", "p")
+    with tarfile.open(fileobj=io.BytesIO(data)) as tf:
+        assert tf.pax_headers.get("comment") == ra.commit_of("1.0.0-rc1", repo)
+    assert not [r for r in ra.check_tar(data, EPOCH) if r.status == "FAIL"]
+
+
+def test_check_swhid_assertion(repo: Path, tmp_path: Path) -> None:
+    data, _ = ra.build("1.0.0-rc1", repo, "zip", "p")
+    out = tmp_path / "a.zip"
+    out.write_bytes(data)
+    good = ra.swhid_of_archive(out)
+    assert [r.status for r in ra.check(out, EPOCH, good + ";origin=https://example.org/r") if r.name == "swhid"] == ["PASS"]
+    assert [r.status for r in ra.check(out, EPOCH, "swh:1:dir:" + "f" * 40) if r.name == "swhid"] == ["FAIL"]
+
+
+def test_cli_swhid_and_build_output(repo: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    out = tmp_path / "s.tar.gz"
+    assert ra.main(["build", "--ref", "1.0.0-rc1", "--repo", str(repo), "--prefix", "p", "-o", str(out), "--origin", "https://github.com/apache/foo"]) == 0
+    stdout = capsys.readouterr().out
+    assert "swhid_rev swh:1:rev:" in stdout and ";origin=https://github.com/apache/foo" in stdout
+    assert "swhid_dir swh:1:dir:" in stdout and ";anchor=swh:1:rev:" in stdout
+    assert "swhid_dir_note differs from the repository tree" in stdout  # .ci.yml is export-ignored
+    assert ra.main(["swhid", str(out), "--ref", "1.0.0-rc1", "--repo", str(repo)]) == 0
+    stdout = capsys.readouterr().out
+    assert "swhid_rev " in stdout and "swhid_repo_dir " in stdout and "swhid_dir " in stdout
+    assert ra.main(["swhid"]) == 2
 
 
 def test_cli_round_trip(repo: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

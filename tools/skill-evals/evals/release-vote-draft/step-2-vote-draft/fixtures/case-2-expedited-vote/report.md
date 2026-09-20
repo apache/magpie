@@ -22,3 +22,4 @@ reproducibility_doc_url: https://github.com/apache/magpie/blob/main/docs/release
 verification_skill: magpie-release-management:verify-rc
 vote_backend: manual
 signing_mode: rm-key
+repro_record (cont.): repository https://github.com/apache/airflow; swhid_dir swh:1:dir:9d8c7b6a5f4e3d2c1b0a9f8e7d6c5b4a3f2e1d0c;origin=https://github.com/apache/airflow;anchor=swh:1:rev:a1b2c3d4e5f60718293a4b5c6d7e8f9012345678

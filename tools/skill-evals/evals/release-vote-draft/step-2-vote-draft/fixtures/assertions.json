@@ -29,6 +29,12 @@
     "pattern": "SOURCE_DATE_EPOCH",
     "flags": ""
   },
+  "has_swhid": {
+    "field": "body",
+    "type": "regex",
+    "pattern": "swh:1:dir:[0-9a-f]{40}",
+    "flags": ""
+  },
   "has_no_repro_record": {
     "field": "body",
     "type": "regex",

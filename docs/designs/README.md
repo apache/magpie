@@ -23,6 +23,7 @@ what was designed and deliberately not built.
 |---|---|
 | [Install, adopt, upgrade](2026-09-13-install-adopt-upgrade.md) | Built, bar two items it names |
 | [Body-owned configuration layers](2026-09-17-body-owned-config-layers.md) | Proposed — depends on the Incubator PMC and ComDev |
+| [Reproducible releases](2026-09-20-reproducible-releases.md) | Built (apache/magpie#1296); the ASF automated-signing path and the ATR SWHID comparison await first use |
 
 One document per subject, describing the result rather than the phases it was
 built in. While a design is being implemented it may be split into plans; when

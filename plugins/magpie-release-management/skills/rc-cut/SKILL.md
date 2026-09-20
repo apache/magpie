@@ -503,19 +503,27 @@ the framework checkout; `python3 <framework>/tools/reproducible-archive/src/repr
 is the no-`uv` equivalent). It packs only tracked files at the tag,
 honours `.gitattributes` `export-ignore`, and applies every
 reproducible-builds.org archive rule, so the bytes are a function of
-the tag alone. It prints the commit, the `SOURCE_DATE_EPOCH` it used
-(the tag's committer timestamp) and the sha512 — the RM pastes all
-three back for the Step 4 comment. `build_command` (if any) follows,
-for convenience binaries only, with the same `SOURCE_DATE_EPOCH`
-exported so embedded timestamps are fixed:
+the tag alone. It prints the **record** the RM pastes back for the
+Step 4 comment: the commit, the `SOURCE_DATE_EPOCH` it used (the tag's
+committer timestamp), the sha512, and the
+[Software Heritage identifiers](https://swhid.org/) — `swh:1:rev:` of
+the commit and `swh:1:dir:` of the archive's expanded content, both
+qualified with the repository URL (`--origin`, rendered from
+`<upstream>`) — plus a note saying whether the content SWHID equals
+the repository tree at the commit (nothing `export-ignore`d) or not.
+`build_command` (if any) follows, for convenience binaries only, with
+the same `SOURCE_DATE_EPOCH` exported so embedded timestamps are fixed:
 
 ```text
 # Run at the release tag <version>-<rcN>
 uv run --project <framework>/tools/reproducible-archive repro-archive build \
   --ref "<version>-<rcN>" --format <source_archive_format> \
   --prefix "<source_archive_prefix>" \
+  --origin "https://github.com/<upstream>" \
   -o "<source-artefact-filename>"
-# → prints: commit <sha>, SOURCE_DATE_EPOCH <epoch>, sha512 <digest>
+# → prints: commit <sha>, SOURCE_DATE_EPOCH <epoch>, sha512 <digest>,
+#           swhid_rev swh:1:rev:<sha>;origin=…, swhid_dir swh:1:dir:<tree>;origin=…;anchor=…,
+#           swhid_dir_note <identical to | differs from> the repository tree
 
 # Convenience binaries (only when build_command is set):
 export SOURCE_DATE_EPOCH="$(uv run --project <framework>/tools/reproducible-archive repro-archive epoch --ref "<version>-<rcN>")"
@@ -861,15 +869,22 @@ The comment must include:
 - The staging URL (where verifiers can download artefacts).
 - The expected artefact list with filenames (not yet public checksums —
   those are confirmed once the RM has run the commands).
-- **Reproducibility record** — the source commit hash, the
-  `SOURCE_DATE_EPOCH` and the sha512 that `repro-archive build`
-  printed, the `source_archive_format` and `source_archive_prefix`, and
-  the outcome of Step 2b (or `skipped`). A voter needs the first two to
-  rebuild in `release-verify-rc` Step 9 and the third to compare. Under
+- **Reproducibility record** — everything `repro-archive build`
+  printed: the source commit hash, the repository URL
+  (`https://github.com/<upstream>`), the SWHIDs (`swh:1:rev:` of the
+  commit and `swh:1:dir:` of the archive content, with their `origin`
+  and `anchor` qualifiers) and the note on whether the content SWHID
+  equals the repository tree, the `SOURCE_DATE_EPOCH`, the sha512, the
+  `source_archive_format` and `source_archive_prefix`, and the outcome
+  of Step 2b (or `skipped`). A voter needs the commit and epoch to
+  rebuild in `release-verify-rc` Step 9, the sha512 to compare bytes,
+  and the `swh:1:dir:` to compare trees — with their own recomputation
+  and with the value ATR computes for the candidate. Under
   `ci-automated` also the workflow run URL.
 - **Convenience artefacts** (when declared) — one line each: name,
   kind, where it is staged, its `reproducibility` mode and Step 2b
-  outcome, and whether it is `vote_included`.
+  outcome, whether it is `vote_included`, and the source `swh:1:dir:`
+  it was built from.
 - If `--allow-unreviewed-archive` was used: a line saying the source
   archive contents were **not** reviewed and why.
 - The proposed next label: `rc-staging`.

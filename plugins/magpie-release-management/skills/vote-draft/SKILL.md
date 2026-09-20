@@ -359,7 +359,7 @@ Read the following from the planning issue body and
 | `atr_platform_url` | `release-management-config.md` | `atr_platform_url` (only when `vote_backend = atr`) |
 | `atr_revision` | *(optional)* | Specific ATR revision to vote on; omit to use the latest uploaded revision (`atr vote start --revision` defaults to latest — do not hard-depend on a `revisions` lookup) |
 | `canned_body` | `<project-config>/canned-responses.md` | `[VOTE]` template block, if present |
-| `repro_record` | planning issue body | the reproducibility record `release-rc-cut` posted: source commit, `SOURCE_DATE_EPOCH`, sha512 of the source artefact (see [`reproducibility.md`](../../../../docs/release-management/reproducibility.md)); if absent, say so and leave the lines out — never invent them |
+| `repro_record` | planning issue body | the reproducibility record `release-rc-cut` posted: source commit, repository URL, the `swh:1:dir:` SWHID of the archive content (with its `origin` / `anchor` qualifiers), `SOURCE_DATE_EPOCH`, sha512 of the source artefact (see [`reproducibility.md`](../../../../docs/release-management/reproducibility.md)); if absent, say so and leave the lines out — never invent them; if only some fields are present, include those |
 | `atr_candidate_url` | planning issue body | URL of the candidate's ATR page with its check results (only when `vote_backend = atr`) |
 | `verification_doc_url` | `release-management-config.md` | `vote_verification_doc_url` — the human-readable "how to verify this RC" page, rendered with `<version>-<rcN>` so voters read the page at the tree under vote |
 | `reproducibility_doc_url` | `release-management-config.md` | `reproducibility_doc_url` — background on the reproducible source archive; rendered the same way |
@@ -416,8 +416,10 @@ Convenience artefacts (built from the source above; not the release itself):  �
 
 How to verify this candidate before voting
 ------------------------------------------
-Reproducibility record (from the planning issue):  ← include the three lines only when repro_record is present
+Reproducibility record (from the planning issue):  ← include only the lines repro_record provides; omit the block when it has none
+  repository:        <repository URL>
   source commit:     <commit>
+  SWHID (content):   <swh:1:dir:…;origin=…;anchor=swh:1:rev:…>
   SOURCE_DATE_EPOCH: <epoch>
   sha512:            <sha512 of the source artefact>
 
@@ -426,8 +428,8 @@ Agentic path (any agent with the Magpie release skills, read-only):
   It checks the signature against KEYS, the checksum, licence headers
   (RAT), LICENSE/NOTICE, prohibited binaries, dangling links, version
   strings, rebuilds the source artefact from the tag to confirm it is
-  byte-identical to what is staged, and rebuilds and compares every
-  convenience artefact.
+  byte-identical to what is staged and that its SWHID is the recorded
+  one, and rebuilds and compares every convenience artefact.
 
 Manual path (the same checks, longhand):
   <verification_doc_url>
@@ -469,7 +471,12 @@ from `canned_body`: a PMC member reading the thread on their phone
 must find the agentic one-liner, the human-readable page, and the
 reproducibility record without opening the tracker. When
 `canned_body` lacks the section, append it and tell the RM the
-project's canned block should gain it.
+project's canned block should gain it. The *Agentic path* paragraph
+is fixed text describing what `verify-rc` does — keep it verbatim,
+including the SWHID and convenience-artefact clauses, even when the
+planning issue recorded no SWHID or the project declares no
+convenience artefacts; only the *Reproducibility record* lines and the
+*Convenience artefacts* block vary with what the report provides.
 
 Present the draft subject + body to the RM. Ask for confirmation
 before proceeding to Step 3. Allow the RM to edit the body before

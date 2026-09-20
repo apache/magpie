@@ -92,7 +92,7 @@ special-token spellings counted as ordinary text.
 Coverage: **75 of 75 local `skills/*/SKILL.md` files**.
 External `source.md` redirects and harness symlinks are excluded.
 
-Measurement manifest SHA-256: `b69ce323564a27ad20b2e76ae655400637054b58e2cb27f1a960629f9808d735`.
+Measurement manifest SHA-256: `0ef06f4874382739a4738d35ec92e689f0483db6e99292c4accc72836d0619ad`.
 
 | Skill file | Measured tokens | Source SHA-256 (first 16 characters) |
 |---|---:|---|
@@ -137,9 +137,9 @@ Measurement manifest SHA-256: `b69ce323564a27ad20b2e76ae655400637054b58e2cb27f1a
 | [release-keys-sync](../skills/release-keys-sync/SKILL.md) | 5,945 | `3c11551de0e1e5f9` |
 | [release-prepare](../skills/release-prepare/SKILL.md) | 11,986 | `78f302ca28e1aa40` |
 | [release-promote](../skills/release-promote/SKILL.md) | 8,044 | `c17053e63005b55b` |
-| [release-rc-cut](../skills/release-rc-cut/SKILL.md) | 12,646 | `e2d7ea66ec5daa4b` |
-| [release-verify-rc](../skills/release-verify-rc/SKILL.md) | 11,669 | `012412e1f24139b8` |
-| [release-vote-draft](../skills/release-vote-draft/SKILL.md) | 7,638 | `755b930fea273d5b` |
+| [release-rc-cut](../skills/release-rc-cut/SKILL.md) | 12,942 | `25d4f5d7b6d5a1ab` |
+| [release-verify-rc](../skills/release-verify-rc/SKILL.md) | 11,881 | `07eb370e2462f1b5` |
+| [release-vote-draft](../skills/release-vote-draft/SKILL.md) | 7,821 | `d0bc0fd3c11914a9` |
 | [release-vote-tally](../skills/release-vote-tally/SKILL.md) | 6,696 | `c848e809e2d877cd` |
 | [report-framework-issue](../skills/report-framework-issue/SKILL.md) | 5,703 | `30b2ce8b774ea68c` |
 | [reviewer-routing](../skills/reviewer-routing/SKILL.md) | 6,272 | `dcd75b720d42af34` |

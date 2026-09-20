@@ -15,6 +15,8 @@ The model must return ONLY valid JSON matching this schema:
     "verdict": "identical" | "content-identical" | "differs" | "tag-moved" | null,
     "recorded_commit": "<sha or null>",
     "source_date_epoch": <integer or null>,
+    "swhid_dir": "<swh:1:dir:… computed from the staged archive, or null>",
+    "swhid_matches": true | false | null,
     "rule_failures": ["<check name>"],
     "metadata_differences": ["<string>"],
     "content_differences": ["<added/removed/changed path>"]
@@ -45,6 +47,11 @@ Grading rules:
   RM-key mode.
 - `trusted_hardware_asserted` mirrors `--trusted-hardware` exactly; it
   is never `true` unless the report says the flag was passed.
+- `swhid_dir` is the `swh:1:dir:` the report shows for the staged
+  archive (core form, no qualifiers) or `null` when none was computed;
+  `swhid_matches` is `true` when it equals the recorded one, `false`
+  when it does not (then `status` is `"FAIL"`), `null` when the
+  planning issue recorded no SWHID.
 - `paste_recipe` must be non-empty whenever `status` is not `"SKIP"`
   and must contain `repro-archive build` and `repro-archive compare`.
 - No extra keys are permitted in the response.

@@ -11,6 +11,7 @@
     - [The first-release `.gitattributes` review](#the-first-release-gitattributes-review)
     - [Later releases: drift](#later-releases-drift)
   - [The archive rules from reproducible-builds.org](#the-archive-rules-from-reproducible-buildsorg)
+    - [The record: commit, SWHID, origin](#the-record-commit-swhid-origin)
   - [Reproducibility checks](#reproducibility-checks)
     - [Source (`reproducibility_source`)](#source-reproducibility_source)
     - [Convenience artefacts (`reproducibility_binaries`, per-artefact `reproducibility`)](#convenience-artefacts-reproducibility_binaries-per-artefact-reproducibility)
@@ -138,6 +139,24 @@ lists what has to be pinned for an archive to be reproducible.
 
 `SOURCE_DATE_EPOCH` is the one input two builders must agree on.
 Deriving it from the ref's committer timestamp makes it a property of the tag, which is why `release-rc-cut` records it on the planning issue alongside the commit hash and the sha512.
+Two inputs the page does not list are pinned as well: the builder's `core.autocrlf` / `core.eol` (which `git archive` would apply to `text` files, so a Windows-configured builder exports different bytes) and the archive writer itself (the tool, not the local `tar` / `zip` / `git` version).
+
+### The record: commit, SWHID, origin
+
+Every RC carries a record on the planning issue and in the `[VOTE]`, printed by `repro-archive build` and pasted back by the RM:
+
+| Line | What it is for |
+|---|---|
+| `commit <sha>` and the repository URL | Where the tree comes from. A voter rebuilds from this. |
+| `swhid_dir swh:1:dir:<sha1>;origin=<repo URL>;anchor=swh:1:rev:<commit>` | The [Software Heritage identifier](https://swhid.org/) (ISO/IEC 18670:2025) of the archive's **expanded content**. Computed from names, modes and contents alone, exactly as git computes a tree id, so it does not depend on the archive format, the compression or who packed it: a voter recomputes it from the staged bytes with `repro-archive swhid <archive>` (or `asfswhid` / `swh identify` after extracting), ATR computes the same value for the candidate at compose time, and a `.tar.gz` and a `.zip` of the same tree carry the same value. |
+| `swhid_rev swh:1:rev:<commit>;origin=<repo URL>` | The commit as a SWHID, the `anchor` of the content identifier. |
+| `swhid_dir_note` | Whether the content SWHID equals `git rev-parse <tag>^{tree}`. It does unless `.gitattributes` altered the export (`export-ignore`, `export-subst`, `text` / `eol`); when it differs, the difference is itself the record that something was left out, and `release-prepare`'s review is where that was decided. |
+| `SOURCE_DATE_EPOCH <epoch>` | The one input to feed back into a rebuild. |
+| `sha512 <digest>` | Byte-level comparison; `identical` in `compare` terms. |
+
+Why the SWHID and not just the commit: a commit id names a repository object; the content SWHID names what shipped, survives a repository move, is the same across archive formats, and is what ATR computes — so it is the value to compare, with a voter's own recomputation and with the platform.
+It also gives a convenience artefact something precise to point at: each one records the source `swh:1:dir:` it was built from.
+`release-verify-rc` checks the staged archive against the recorded SWHID (`repro-archive check --swhid …`) and reports `swhid_matches`.
 
 ## Reproducibility checks
 

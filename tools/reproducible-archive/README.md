@@ -12,6 +12,7 @@
     - [`check` — lint an archive against the checklist](#check--lint-an-archive-against-the-checklist)
     - [`compare` — did the voter get the same bytes?](#compare--did-the-voter-get-the-same-bytes)
     - [`recipe` — the same steps with GNU tar / Info-ZIP](#recipe--the-same-steps-with-gnu-tar--info-zip)
+    - [`swhid` — the Software Heritage identifier of what shipped](#swhid--the-software-heritage-identifier-of-what-shipped)
     - [`epoch` — the `SOURCE_DATE_EPOCH` of a ref](#epoch--the-source_date_epoch-of-a-ref)
   - [Embedding the script](#embedding-the-script)
   - [Wiring](#wiring)
@@ -47,7 +48,17 @@ See [`docs/release-management/reproducibility.md`](../../docs/release-management
 | 6 | gzip | `gzip -n` | gzip header mtime `0`, no embedded filename, no extra field, no comment. |
 | 7 | zip extra attributes | `zip -X`, unzip with `TZ=UTC` | No "extra field" per member, no comments, DOS timestamps computed in UTC from `SOURCE_DATE_EPOCH`, Unix create-system so the normalised modes round-trip. |
 
-`ar` deterministic mode (`ARFLAGS=Dcvr`, `ranlib -D`) and `cpio` are the same page's rules for *binary* artefacts; they belong in the adopter's build command, not here — `release-build.md § Reproducibility checks` records how the project applies them.
+`ar` deterministic mode (`ARFLAGS=Dcvr`, `ranlib -D`) and `cpio` are the same page's rules for *binary* artefacts; they belong in the adopter's build command, not here — `release-build.md § Convenience artefacts` records how the project applies them.
+
+Three more fixes the page does not list but that vary between machines and would otherwise leak into the bytes:
+
+| Fix | Why |
+|---|---|
+| `git -c core.autocrlf=false -c core.eol=lf archive` | `git archive` applies the same conversions as a checkout, so a builder with `core.autocrlf=true` exports different bytes for `text` files. The repository's committed `.gitattributes` (`export-ignore`, `export-subst`, `text`, `eol`) stay in force; only the builder's personal config is neutralised. |
+| The archive writer is this module, not the local `tar` / `zip` / `git` | `git archive`'s zip and tar output changed between git versions (compression, PAX handling); two voters on different versions get different bytes from the same tag. Python's `tarfile` / `zipfile` output is a function of the inputs above. |
+| The commit id travels with the archive | As `git archive` does it: a global PAX header `comment=<commit>` in tar, the archive comment in zip. Provenance a reader can extract without the planning issue; `check` accepts exactly that comment and flags any other. |
+
+And one identifier the page does not cover, which turns "same bytes" into "same tree": the **SWHID** (below).
 
 ## Prerequisites
 
@@ -74,16 +85,21 @@ python3 <framework>/tools/reproducible-archive/src/reproducible_archive/__init__
 
 ```bash
 repro-archive build --ref 2.11.0-rc1 --format tar.gz \
-    --prefix apache-foo-2.11.0 -o apache-foo-2.11.0-source.tar.gz
+    --prefix apache-foo-2.11.0 -o apache-foo-2.11.0-source.tar.gz \
+    --origin https://github.com/apache/foo
 # wrote apache-foo-2.11.0-source.tar.gz
 # commit 1890a13d…
 # SOURCE_DATE_EPOCH 1758326400
 # sha512 …
+# swhid_rev swh:1:rev:1890a13d…;origin=https://github.com/apache/foo
+# swhid_dir swh:1:dir:3b9f…;origin=https://github.com/apache/foo;anchor=swh:1:rev:1890a13d…
+# swhid_dir_note differs from the repository tree swh:1:dir:7c1e… (export-ignore / export-subst / eol attributes applied)
+# origin https://github.com/apache/foo
 ```
 
-`--format zip` produces the ZIP equivalent. `--epoch N` overrides `SOURCE_DATE_EPOCH` (the environment variable is honoured too); the default is the committer timestamp of `--ref`. The command refuses to run outside a git repository, refuses a ref it cannot resolve, and refuses a ZIP for an epoch before 1980 (the DOS timestamp cannot encode it).
+`--format zip` produces the ZIP equivalent. `--epoch N` overrides `SOURCE_DATE_EPOCH` (the environment variable is honoured too); the default is the committer timestamp of `--ref`. `--origin` is the repository URL recorded as the SWHID origin qualifier. The command refuses to run outside a git repository, refuses a ref it cannot resolve, and refuses a ZIP for an epoch before 1980 (the DOS timestamp cannot encode it).
 
-Record the printed `commit`, `SOURCE_DATE_EPOCH` and `sha512` in the planning issue: a voter needs the first two to rebuild and the third to compare.
+Record every printed line on the planning issue: a voter needs the commit and epoch to rebuild, the sha512 to compare bytes, and the SWHID to compare trees — with each other and with what ATR computed.
 
 ### `check` — lint an archive against the checklist
 
@@ -123,6 +139,19 @@ repro-archive recipe --ref 2.11.0-rc1 --format tar.gz --prefix apache-foo-2.11.0
 ```
 
 Prints the shell recipe from reproducible-builds.org (GNU tar ≥ 1.28 and `gzip -n`, or `LC_ALL=C sort` + `zip -X` under `TZ=UTC`) adapted to a `git archive` input, for a Release Manager who prefers to run the standard tools. It ends with the `check` invocation that verifies the result. The Python path and the shell path apply the same rules; only the Python path is guaranteed byte-identical across tool versions.
+
+### `swhid` — the Software Heritage identifier of what shipped
+
+```bash
+repro-archive swhid apache-foo-2.11.0-source.tar.gz --ref 2.11.0-rc1 --origin https://github.com/apache/foo
+# swhid_rev      swh:1:rev:1890a13d…;origin=https://github.com/apache/foo
+# swhid_repo_dir swh:1:dir:7c1e…;origin=https://github.com/apache/foo;anchor=swh:1:rev:1890a13d…
+# swhid_dir      swh:1:dir:3b9f…;origin=https://github.com/apache/foo;anchor=swh:1:rev:1890a13d…
+```
+
+A [SWHID](https://swhid.org/) (ISO/IEC 18670:2025) directory identifier is computed from names, modes and contents alone, exactly as git computes a tree id, so it is intrinsic to the files: timestamps, ownership, compression and the archive format play no part, a `.tar.gz` and a `.zip` of the same tree carry the same `swh:1:dir:`, and a voter recomputes it from the staged bytes without git. ATR computes the same value for a candidate at compose time, and it equals `git rev-parse <ref>^{tree}` (`swhid_repo_dir`) unless `.gitattributes` altered the export (`export-ignore`, `export-subst`, `text` / `eol`) — in which case the difference is itself the record of what was left out. `build` prints all three plus a one-line note saying which case applies; the `origin` and `anchor` qualifiers follow the SWH specification. The identifier is computed in memory from the archive members and is tested against `git write-tree` over the extracted tree, so it agrees with `asfswhid` / `swh identify` by construction.
+
+`check --swhid swh:1:dir:…` asserts the archive content against a recorded value (qualifiers are ignored), and `compare` reports both archives' SWHIDs so "different bytes, same tree" is visible at a glance. Record `swhid_dir`, `swhid_rev` and the origin next to the commit on the planning issue: `release-vote-draft` puts them in the `[VOTE]`, `release-verify-rc` checks them, and a convenience artefact can name the source SWHID it was built from.
 
 ### `epoch` — the `SOURCE_DATE_EPOCH` of a ref
 

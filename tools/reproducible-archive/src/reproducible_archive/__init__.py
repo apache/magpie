@@ -39,12 +39,27 @@ byte-identical output from the same tag regardless of their `git`, `tar`,
 
 The input is always `git archive --format=tar <ref>`, so only tracked
 files at the ref are ever packed and the repository's `.gitattributes`
-`export-ignore` rules decide what is left out. The module is
-stdlib-only on purpose: it can be run as `python3 <this file>` from any
-checkout, embedded in a CI workflow, or invoked via `uv run`.
+`export-ignore` rules decide what is left out. Two more inputs that
+vary between machines are pinned as well: the builder's
+`core.autocrlf` / `core.eol` (which `git archive` would otherwise apply
+to `text` files) and the archive tool itself (this module, not the
+local `tar` / `zip` / `git` version). The commit id is carried as
+provenance the way `git archive` carries it — a global PAX header
+`comment` in tar, the archive comment in zip.
 
-Sub-commands: `build`, `check`, `compare`, `recipe`, `epoch`. See
-`tools/reproducible-archive/README.md` for the contract each one keeps.
+Every archive also gets a **Software Heritage identifier** (SWHID,
+ISO/IEC 18670): `swh:1:dir:<sha1>` of the expanded content, computed
+as git computes a tree id, so it is intrinsic to the files — a voter
+recomputes it from the staged bytes, ATR computes the same value at
+compose time, and it equals `git rev-parse <ref>^{tree}` unless
+`.gitattributes` altered the export — plus `swh:1:rev:<commit>` and
+the origin URL as qualifiers.
+
+The module is stdlib-only on purpose: it can be run as `python3 <this
+file>` from any checkout, embedded in a CI workflow, or invoked via
+`uv run`. Sub-commands: `build`, `check`, `compare`, `swhid`, `recipe`,
+`epoch`. See `tools/reproducible-archive/README.md` for the contract
+each one keeps.
 """
 
 from __future__ import annotations
@@ -114,6 +129,8 @@ class Comparison:
     verdict: str  # "identical" | "content-identical" | "differs"
     sha512_a: str
     sha512_b: str
+    swhid_a: str = ""
+    swhid_b: str = ""
     added: list[str] = field(default_factory=list)
     removed: list[str] = field(default_factory=list)
     changed: list[str] = field(default_factory=list)
@@ -167,7 +184,12 @@ def git_archive_tar(ref: str, repo: Path, prefix: str, worktree_attributes: bool
     committed `.gitattributes` edit is applied: what the first-release
     review uses to preview an exclusion set before committing it. A
     release build never sets it."""
-    args = ["archive", "--format=tar"]
+    # `git archive` applies the same conversions as a checkout: committed
+    # `.gitattributes` (`export-ignore`, `export-subst`, `text` / `eol`)
+    # are the project's intent and stay in force, but the *builder's* own
+    # `core.autocrlf` / `core.eol` must not leak into the export, so both
+    # are pinned to the values a fresh clone on Linux would use.
+    args = ["-c", "core.autocrlf=false", "-c", "core.eol=lf", "archive", "--format=tar"]
     if worktree_attributes:
         args.append("--worktree-attributes")
     if prefix:
@@ -235,12 +257,16 @@ def read_entries(path: Path) -> list[Entry]:
 # --------------------------------------------------------------------------- writers
 
 
-def write_tar_gz(entries: Iterable[Entry], epoch: int, level: int = 6) -> bytes:
+def write_tar_gz(entries: Iterable[Entry], epoch: int, level: int = 6, commit: str | None = None) -> bytes:
     """Deterministic `.tar.gz`: sorted members, one mtime, uid/gid 0, no
     names, normalised modes, no atime/ctime PAX headers, and a gzip
-    wrapper with mtime 0 and no filename (`gzip -n`)."""
+    wrapper with mtime 0 and no filename (`gzip -n`). With `commit`, a
+    global PAX header carries `comment=<commit>` — the provenance note
+    `git archive` itself writes, readable with `tar --pax-option` aware
+    tools and harmless to the rest."""
     tar_buf = io.BytesIO()
-    with tarfile.open(fileobj=tar_buf, mode="w", format=tarfile.PAX_FORMAT) as tf:
+    global_headers = {"comment": commit} if commit else {}
+    with tarfile.open(fileobj=tar_buf, mode="w", format=tarfile.PAX_FORMAT, pax_headers=global_headers) as tf:
         for entry in sort_entries(entries):
             info = tarfile.TarInfo(entry.name.rstrip("/") if entry.kind == "dir" else entry.name)
             info.mtime = epoch
@@ -269,12 +295,16 @@ def _dos_time(epoch: int) -> tuple[int, int, int, int, int, int]:
     return (dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second - dt.second % 2)
 
 
-def write_zip(entries: Iterable[Entry], epoch: int, level: int = 6) -> bytes:
+def write_zip(entries: Iterable[Entry], epoch: int, level: int = 6, commit: str | None = None) -> bytes:
     """Deterministic `.zip`: sorted members, one UTC DOS timestamp, no
     extra-field attributes (`zip -X`), Unix create-system so the
-    normalised modes survive the round trip, no comments."""
+    normalised modes survive the round trip, no member comments. With
+    `commit`, the archive comment is the commit id — what `git archive
+    --format=zip` writes there."""
     out = io.BytesIO()
     with zipfile.ZipFile(out, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=level) as zf:
+        if commit:
+            zf.comment = commit.encode()
         for entry in sort_entries(entries):
             info = zipfile.ZipInfo(entry.name, date_time=_dos_time(epoch))
             info.create_system = 3
@@ -308,14 +338,15 @@ def build(
     if fmt not in FORMATS:
         raise ReproError(f"unsupported format {fmt!r}; expected one of {', '.join(FORMATS)}")
     resolved_epoch = source_date_epoch(ref, repo, epoch)
+    commit = commit_of(ref, repo)
     entries = read_tar_entries(git_archive_tar(ref, repo, prefix, worktree_attributes))
     if not entries:
         raise ReproError(f"git archive {ref} produced no entries")
     if fmt == "zip":
         if resolved_epoch < ZIP_EPOCH_MIN:
             raise ReproError(f"SOURCE_DATE_EPOCH {resolved_epoch} predates 1980; ZIP cannot encode it")
-        return write_zip(entries, resolved_epoch), resolved_epoch
-    return write_tar_gz(entries, resolved_epoch), resolved_epoch
+        return write_zip(entries, resolved_epoch, commit=commit), resolved_epoch
+    return write_tar_gz(entries, resolved_epoch, commit=commit), resolved_epoch
 
 
 # --------------------------------------------------------------------------- check
@@ -428,8 +459,8 @@ def check_zip(data: bytes, epoch: int | None = None) -> list[CheckResult]:
     extras: list[str] = []
     owners: list[str] = []
     with zipfile.ZipFile(io.BytesIO(data)) as zf:
-        if zf.comment:
-            extras.append("archive comment present")
+        if zf.comment and not re.fullmatch(rb"[0-9a-f]{40}", zf.comment):
+            extras.append("archive comment present (only a commit id, as git archive writes, is expected)")
         for info in zf.infolist():
             names.append(info.filename)
             unix_type = (info.external_attr >> 16) & 0o170000
@@ -463,11 +494,20 @@ def check_zip(data: bytes, epoch: int | None = None) -> list[CheckResult]:
     return results
 
 
-def check(path: Path, epoch: int | None = None) -> list[CheckResult]:
+def check(path: Path, epoch: int | None = None, swhid: str | None = None) -> list[CheckResult]:
+    """Lint `path` against the checklist; with `swhid`, also require the
+    archive content's `swh:1:dir:` to equal it (the value recorded on the
+    planning issue, or the one ATR shows for the candidate)."""
     data = path.read_bytes()
-    if zipfile.is_zipfile(io.BytesIO(data)):
-        return check_zip(data, epoch)
-    return check_tar(data, epoch)
+    results = check_zip(data, epoch) if zipfile.is_zipfile(io.BytesIO(data)) else check_tar(data, epoch)
+    if swhid:
+        actual = swhid_of_archive(path)
+        results.append(
+            CheckResult("swhid", "PASS", f"content is {actual}")
+            if actual == swhid.split(";", 1)[0]
+            else CheckResult("swhid", "FAIL", f"content is {actual}, expected {swhid.split(';', 1)[0]}")
+        )
+    return results
 
 
 # --------------------------------------------------------------------------- compare
@@ -490,15 +530,16 @@ def compare(path_a: Path, path_b: Path) -> Comparison:
     """
     data_a, data_b = path_a.read_bytes(), path_b.read_bytes()
     sha_a, sha_b = _sha512(data_a), _sha512(data_b)
+    swh_a, swh_b = swhid_of_archive(path_a), swhid_of_archive(path_b)
     if data_a == data_b:
-        return Comparison("identical", sha_a, sha_b)
+        return Comparison("identical", sha_a, sha_b, swh_a, swh_b)
     ents_a = {e.name.rstrip("/"): e for e in read_entries(path_a)}
     ents_b = {e.name.rstrip("/"): e for e in read_entries(path_b)}
     added = sorted(set(ents_b) - set(ents_a))
     removed = sorted(set(ents_a) - set(ents_b))
     changed = sorted(n for n in set(ents_a) & set(ents_b) if _member_digest(ents_a[n]) != _member_digest(ents_b[n]))
     if added or removed or changed:
-        return Comparison("differs", sha_a, sha_b, added, removed, changed)
+        return Comparison("differs", sha_a, sha_b, swh_a, swh_b, added, removed, changed)
     meta: list[str] = []
     if [e.name for e in read_entries(path_a)] != [e.name for e in read_entries(path_b)]:
         meta.append("member order differs")
@@ -508,7 +549,117 @@ def compare(path_a: Path, path_b: Path) -> Comparison:
         meta.append(f"reproducibility check {name} fails on {'both' if name in fails_a and name in fails_b else 'A' if name in fails_a else 'B'}")
     if not meta:
         meta.append("compression or container bytes differ (same members, same modes)")
-    return Comparison("content-identical", sha_a, sha_b, metadata_differences=meta)
+    return Comparison("content-identical", sha_a, sha_b, swh_a, swh_b, metadata_differences=meta)
+
+
+# --------------------------------------------------------------------------- SWHID
+
+
+def _git_object_sha1(kind: str, payload: bytes) -> bytes:
+    # git and SWH object ids are SHA-1 by definition; this is an identifier, not a security hash.
+    return hashlib.sha1(f"{kind} {len(payload)}\0".encode() + payload).digest()
+
+
+def _tree_sort_key(name: bytes, is_dir: bool) -> bytes:
+    # git orders tree entries by name, comparing a directory as if its name
+    # ended in "/", so "a" (dir) sorts after "a-b" (file) but before "a.c".
+    return name + b"/" if is_dir else name
+
+
+def swhid_dir_of_entries(entries: Iterable[Entry], strip_prefix: str | None = None) -> str:
+    """The Software Heritage directory identifier (`swh:1:dir:<sha1>`) of
+    the content in `entries`.
+
+    SWH computes a directory identifier exactly as git computes a tree
+    object id — blob objects for files (`100644` / `100755`) and symlinks
+    (`120000`, the link target as content), tree objects for directories
+    (`40000`), entries sorted by name with git's directory rule — so the
+    value is intrinsic to the bytes: a voter recomputes it from the
+    staged archive without git, ATR computes it at compose time, and it
+    equals `git rev-parse <ref>^{tree}` unless `export-ignore` altered
+    the export. Reference: https://docs.softwareheritage.org/devel/swh-model/persistent-identifiers.html
+    """
+    root: dict[str, object] = {}
+    prefix = (strip_prefix or "").rstrip("/")
+    for entry in entries:
+        name = entry.name.rstrip("/")
+        if prefix:
+            if name == prefix:
+                continue
+            if not name.startswith(prefix + "/"):
+                raise ReproError(f"entry {entry.name!r} is outside the prefix {prefix!r}")
+            name = name[len(prefix) + 1 :]
+        if not name:
+            continue
+        parts = name.split("/")
+        node = root
+        for part in parts[:-1]:
+            child = node.setdefault(part, {})
+            if not isinstance(child, dict):
+                raise ReproError(f"{name!r}: {part!r} is both a file and a directory")
+            node = child
+        if entry.kind == "dir":
+            node.setdefault(parts[-1], {})
+        else:
+            node[parts[-1]] = entry
+
+    def tree_id(node: dict[str, object]) -> bytes:
+        rows: list[tuple[bytes, bytes]] = []
+        for name, child in node.items():
+            bname = name.encode("utf-8", "surrogateescape")
+            if isinstance(child, dict):
+                rows.append((_tree_sort_key(bname, True), b"40000 " + bname + b"\0" + tree_id(child)))
+            else:
+                assert isinstance(child, Entry)
+                if child.kind == "symlink":
+                    mode, blob = b"120000", child.linkname.encode("utf-8", "surrogateescape")
+                else:
+                    mode, blob = (b"100755" if child.mode & 0o111 else b"100644"), child.data
+                rows.append((_tree_sort_key(bname, False), mode + b" " + bname + b"\0" + _git_object_sha1("blob", blob)))
+        rows.sort(key=lambda r: r[0])
+        return _git_object_sha1("tree", b"".join(r[1] for r in rows))
+
+    return "swh:1:dir:" + tree_id(root).hex()
+
+
+def archive_top_level_prefix(entries: Sequence[Entry]) -> str | None:
+    """The single top-level directory every entry lives under (a `git
+    archive --prefix` archive), or None when entries sit at the root."""
+    tops = {e.name.rstrip("/").split("/", 1)[0] for e in entries if e.name.rstrip("/")}
+    if len(tops) != 1:
+        return None
+    top = tops.pop()
+    return top if all(e.name.rstrip("/") == top or e.name.startswith(top + "/") for e in entries) else None
+
+
+def swhid_of_archive(path: Path) -> str:
+    """`swh:1:dir:` of an archive's content, with a single top-level
+    prefix directory (e.g. `apache-foo-1.0.0/`) stripped, so the value
+    describes the tree a voter unpacks and ATR expands."""
+    entries = read_entries(path)
+    return swhid_dir_of_entries(entries, archive_top_level_prefix(entries))
+
+
+def swhid_rev(ref: str, repo: Path) -> str:
+    return "swh:1:rev:" + commit_of(ref, repo)
+
+
+def swhid_repo_dir(ref: str, repo: Path) -> str:
+    """`swh:1:dir:` of the *whole* repository tree at the ref (`git
+    rev-parse <ref>^{tree}`); equals the archive's only when nothing is
+    `export-ignore`d."""
+    return "swh:1:dir:" + _git(["rev-parse", f"{ref}^{{tree}}"], repo).decode().strip()
+
+
+def qualified_swhid(core: str, origin: str | None = None, anchor: str | None = None) -> str:
+    """Add the contextual qualifiers SWH defines: the origin URL the tree
+    was archived from and the revision it is anchored to."""
+    out = core
+    if origin:
+        out += f";origin={origin}"
+    if anchor:
+        out += f";anchor={anchor}"
+    return out
 
 
 # --------------------------------------------------------------------------- recipe
@@ -546,8 +697,9 @@ def recipe(ref: str, fmt: str, prefix: str, out: str) -> str:
             f"   | TZ=UTC zip -X -q -@ '../{out}')",
         ]
     lines += [
-        "# Verify the result against the checklist:",
+        "# Verify the result against the checklist, and record its SWHID next to the commit:",
         f"python3 tools/reproducible-archive/src/reproducible_archive/__init__.py check '{out}' --epoch \"${{SOURCE_DATE_EPOCH}}\"",
+        f"python3 tools/reproducible-archive/src/reproducible_archive/__init__.py swhid '{out}' --ref '{ref}'",
     ]
     return "\n".join(lines) + "\n"
 
@@ -576,6 +728,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     p_build.add_argument("--prefix", required=True, help="top-level directory inside the archive")
     p_build.add_argument("-o", "--output", required=True, help="output file")
     p_build.add_argument("--epoch", type=int, default=None, help="SOURCE_DATE_EPOCH override")
+    p_build.add_argument("--origin", default=None, help="URL of the git repository, recorded as the SWHID origin qualifier")
     p_build.add_argument(
         "--worktree-attributes",
         action="store_true",
@@ -585,7 +738,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     p_check = sub.add_parser("check", help="lint an archive against the reproducible-builds.org checklist")
     p_check.add_argument("archive")
     p_check.add_argument("--epoch", type=int, default=None, help="expected SOURCE_DATE_EPOCH")
+    p_check.add_argument("--swhid", default=None, help="expected swh:1:dir:… of the archive content (qualifiers are ignored)")
     p_check.add_argument("--json", action="store_true")
+
+    p_swh = sub.add_parser("swhid", help="print Software Heritage identifiers for an archive's content or a git ref")
+    p_swh.add_argument("archive", nargs="?", help="archive whose content swh:1:dir: to compute")
+    p_swh.add_argument("--ref", default=None, help="git ref: print swh:1:rev: and the repository tree's swh:1:dir:")
+    p_swh.add_argument("--repo", default=".")
+    p_swh.add_argument("--origin", default=None, help="repository URL for the origin qualifier")
 
     p_cmp = sub.add_parser("compare", help="compare two archives (identical / content-identical / differs)")
     p_cmp.add_argument("archive_a")
@@ -608,14 +768,37 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.cmd == "build":
             repo = Path(args.repo)
             data, epoch = build(args.ref, repo, args.fmt, args.prefix, args.epoch, args.worktree_attributes)
-            Path(args.output).write_bytes(data)
+            out_path = Path(args.output)
+            out_path.write_bytes(data)
+            commit = commit_of(args.ref, repo)
+            rev = swhid_rev(args.ref, repo)
+            archive_dir = swhid_of_archive(out_path)
+            repo_dir = swhid_repo_dir(args.ref, repo)
             print(f"wrote {args.output}")
-            print(f"commit {commit_of(args.ref, repo)}")
+            print(f"commit {commit}")
             print(f"SOURCE_DATE_EPOCH {epoch}")
             print(f"sha512 {_sha512(data)}")
+            print(f"swhid_rev {qualified_swhid(rev, args.origin)}")
+            print(f"swhid_dir {qualified_swhid(archive_dir, args.origin, rev)}")
+            if archive_dir == repo_dir:
+                print("swhid_dir_note identical to the repository tree at the commit (nothing export-ignored)")
+            else:
+                print(f"swhid_dir_note differs from the repository tree {repo_dir} (export-ignore / export-subst / eol attributes applied)")
+            if args.origin:
+                print(f"origin {args.origin}")
             return 0
         if args.cmd == "check":
-            return _print_checks(check(Path(args.archive), args.epoch), args.json)
+            return _print_checks(check(Path(args.archive), args.epoch, args.swhid), args.json)
+        if args.cmd == "swhid":
+            if not args.archive and not args.ref:
+                raise ReproError("give an archive, --ref, or both")
+            anchor: str | None = swhid_rev(args.ref, Path(args.repo)) if args.ref else None
+            if anchor:
+                print(f"swhid_rev {qualified_swhid(anchor, args.origin)}")
+                print(f"swhid_repo_dir {qualified_swhid(swhid_repo_dir(args.ref, Path(args.repo)), args.origin, anchor)}")
+            if args.archive:
+                print(f"swhid_dir {qualified_swhid(swhid_of_archive(Path(args.archive)), args.origin, anchor)}")
+            return 0
         if args.cmd == "compare":
             result = compare(Path(args.archive_a), Path(args.archive_b))
             if args.json:
@@ -624,6 +807,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 print(f"verdict {result.verdict}")
                 print(f"sha512 A {result.sha512_a}")
                 print(f"sha512 B {result.sha512_b}")
+                print(f"swhid  A {result.swhid_a}")
+                print(f"swhid  B {result.swhid_b}")
                 for label, items in (
                     ("added", result.added),
                     ("removed", result.removed),
