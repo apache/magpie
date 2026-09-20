@@ -235,6 +235,22 @@ gw_src=".apache-magpie/tools/container-gateway/src"
 [ -d "$gw_src/container_gateway" ] || gw_src="tools/container-gateway/src"
 status_json=$(PYTHONPATH="$gw_src" python3 -m container_gateway status --project "$PWD" 2>/dev/null)
 
+gw_state() {  # $1=backend -> serving | not-serving | not-running
+  printf '%s' "$status_json" | python3 -c "
+import json, sys
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    print('not-running'); sys.exit()
+if not d.get('running'):
+    print('not-running')
+elif '$1' in d.get('serving', []):
+    print('serving')
+else:
+    print('not-serving')
+" 2>/dev/null
+}
+
 for rt in podman docker; do
   if ! command -v "$rt" > /dev/null 2>&1; then
     echo "PROBE: ${rt}-runtime → ⊘ ($rt not on PATH)"
@@ -246,17 +262,20 @@ for rt in podman docker; do
     continue
   fi
   sock="${url#unix://}"
+  case "$(gw_state "$rt")" in
+    not-running)
+      echo "PROBE: ${rt}-runtime → ✗ (gateway socket missing at $sock — container gateway not running)"
+      continue ;;
+    not-serving)
+      case "$rt" in
+        podman) hint="is the Podman machine started" ;;
+        docker) hint="is Docker Desktop (or the docker daemon) started" ;;
+      esac
+      echo "PROBE: ${rt}-runtime → ✗ (gateway running without a $rt backend — $hint? start it, then restart the gateway)"
+      continue ;;
+  esac
   if [ ! -S "$sock" ]; then
     echo "PROBE: ${rt}-runtime → ✗ (gateway socket missing at $sock — container gateway not running)"
-    continue
-  fi
-  if ! printf '%s' "$status_json" \
-      | python3 -c "import json,sys; d=json.load(sys.stdin); sys.exit(0 if '$rt' in d.get('serving', []) else 1)" 2>/dev/null; then
-    case "$rt" in
-      podman) hint="is the Podman machine started" ;;
-      docker) hint="is Docker Desktop (or the docker daemon) started" ;;
-    esac
-    echo "PROBE: ${rt}-runtime → ✗ (gateway running without a $rt backend — $hint? start it, then restart the gateway)"
     continue
   fi
   if "$rt" info > /dev/null 2>"${TMPDIR:-/tmp}/$rt-probe.err"; then
@@ -282,7 +301,13 @@ picks the adopter's pinned snapshot
 (`.apache-magpie/tools/container-gateway/src`) when present, else
 the framework repo's own tree (`tools/container-gateway/src`), so
 the same probe runs in both an adopter checkout and this
-framework's own worktree.
+framework's own worktree. The `gw_state` check runs **before** the
+raw socket-file test: a backend `status` does not list under
+`serving` never gets a socket file in the first place, so testing
+`-S "$sock"` first would misreport "gateway not running" for the
+"running, but this backend's machine/daemon is down" case — the
+`-S` test below is a defensive fallback for an already-serving
+backend whose socket vanished mid-probe, not the primary check.
 
 **Interpretation:**
 
