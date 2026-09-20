@@ -142,6 +142,11 @@ LIBPOD_TOP_KEYS = frozenset(
         "volumes_from",
         "portmappings",
         "publish_image_ports",
+        "security_opt",
+        # podman's SpecGenerator spells the per-network map ``Networks``
+        # (capital N, the Go field name); older clients send ``networks``.
+        # Both are canonical -- see ``_spelling_violation_in``.
+        "Networks",
     }
 )
 
@@ -176,7 +181,14 @@ def _spelling_violation_in(obj: dict[str, Any], known: frozenset[str]) -> Deny |
     1. Two present keys casefold to the same value (a duplicate the
        daemon's decoder would silently resolve one way or the other).
     2. A present key casefolds to a key in ``known`` but is not spelled
-       exactly like it (an aliased field the policy would not recognise).
+       exactly like one of the accepted spellings for it (an aliased field
+       the policy would not recognise).
+
+    ``known`` may carry more than one accepted spelling for the same
+    casefolded name (``networks`` and ``Networks``): podman's own
+    SpecGenerator renamed that field's JSON tag between releases, so both
+    spellings are canonical for some client the gateway must serve. Rule 1
+    still refuses a body carrying *both* at once.
     """
     by_casefold: dict[str, list[str]] = {}
     for key in obj:
@@ -188,12 +200,25 @@ def _spelling_violation_in(obj: dict[str, Any], known: frozenset[str]) -> Deny |
             a, b = sorted(keys)[:2]
             return Deny(f"ambiguous-field: {a} and {b} name the same field")
 
-    known_by_casefold = {k.casefold(): k for k in known}
+    known_by_casefold: dict[str, set[str]] = {}
+    for k in known:
+        known_by_casefold.setdefault(k.casefold(), set()).add(k)
     for cf, keys in by_casefold.items():
-        canonical = known_by_casefold.get(cf)
-        if canonical is not None and keys[0] != canonical:
+        accepted = known_by_casefold.get(cf)
+        if accepted is not None and keys[0] not in accepted:
+            canonical = "/".join(sorted(accepted))
             return Deny(f"ambiguous-field: {keys[0]} is not the canonical spelling of {canonical}")
     return None
+
+
+def object_spelling_violation(obj: dict[str, Any], known: frozenset[str]) -> Deny | None:
+    """``_spelling_violation_in`` for callers outside this module.
+
+    Used by the exec / update body checks in ``policy.py``, whose bodies
+    are a single flat object rather than the nested create shape
+    ``canonical_spelling_violation`` walks.
+    """
+    return _spelling_violation_in(obj, known)
 
 
 def canonical_spelling_violation(body: dict[str, Any], libpod: bool) -> Deny | None:
@@ -232,11 +257,12 @@ def canonical_spelling_violation(body: dict[str, Any], libpod: bool) -> Deny | N
                 violation = _spelling_violation_in(namespace_obj, NAMESPACE_OBJECT_KEYS)
                 if violation is not None:
                     return violation
-        networks = body.get("networks")
-        if isinstance(networks, dict):
-            violation = _spelling_violation_in(networks, frozenset())
-            if violation is not None:
-                return violation
+        for key in ("networks", "Networks"):
+            networks = body.get(key)
+            if isinstance(networks, dict):
+                violation = _spelling_violation_in(networks, frozenset())
+                if violation is not None:
+                    return violation
         return None
 
     violation = _spelling_violation_in(body, COMPAT_TOP_KEYS)
@@ -290,3 +316,381 @@ def resource_create_spelling_violation(body: dict[str, Any], libpod: bool) -> De
     """
     known = VOLUME_NETWORK_LIBPOD_KEYS if libpod else VOLUME_NETWORK_COMPAT_KEYS
     return _spelling_violation_in(body, known)
+
+
+# --- The create-body allow-list ----------------------------------------
+#
+# The posture is an allow-list, not a deny-list: a create body may carry
+# only the fields enumerated here, and every other key is refused as
+# ``unknown-field``. A deny-list over an unbounded JSON body cannot be
+# right by construction -- both daemons grow fields faster than this
+# policy can learn them, and several of the ones already shipped (libpod
+# ``rootfs``, ``overlay_volumes``, ``env_host``, ``log_configuration``)
+# turn a container into host access on their own.
+#
+# The cost of the posture is that a field the gateway has not learned is
+# unavailable through it until it is added here; that is deliberate and
+# documented in the tool's "Limits and residual risks" section.
+#
+# The three sets below are merged into one casefolded allow-list applied
+# to the top level of both shapes and to compat's ``HostConfig``. They are
+# not kept apart per position because the policy already reads both
+# shapes' spellings out of both positions unconditionally (see the module
+# docstring in policy.py): a field in the "wrong" position is inert for
+# the daemon, which decodes into one struct or the other, and splitting
+# the tables would only add a way for the two halves to disagree.
+
+# moby's container.Config plus the create request's own keys. Every one of
+# these is sent (at its Go zero value) by a plain ``docker run``.
+COMPAT_TOP_ALLOWED = frozenset(
+    {
+        "ArgsEscaped",
+        "AttachStderr",
+        "AttachStdin",
+        "AttachStdout",
+        "Cmd",
+        "Domainname",
+        "Entrypoint",
+        "Env",
+        "ExposedPorts",
+        "Healthcheck",
+        "HostConfig",
+        "Hostname",
+        "Image",
+        "Labels",
+        "MacAddress",
+        "NetworkDisabled",
+        "NetworkingConfig",
+        "OnBuild",
+        "OpenStdin",
+        "Platform",
+        "Shell",
+        "StdinOnce",
+        "StopSignal",
+        "StopTimeout",
+        "Tty",
+        "User",
+        "Volumes",
+        "WorkingDir",
+        "name",
+    }
+)
+
+# moby's container.HostConfig. The dangerous members are in the table
+# above's company only by name: they stay in this set because a real
+# ``docker run`` sends every one of them at its zero value, and the
+# value-level rules in policy.py are what actually refuse them.
+COMPAT_HOSTCONFIG_ALLOWED = frozenset(
+    {
+        "Annotations",
+        "AutoRemove",
+        "Binds",
+        "BlkioDeviceReadBps",
+        "BlkioDeviceReadIOps",
+        "BlkioDeviceWriteBps",
+        "BlkioDeviceWriteIOps",
+        "BlkioWeight",
+        "BlkioWeightDevice",
+        "CapAdd",
+        "CapDrop",
+        "Capabilities",
+        "Cgroup",
+        "CgroupParent",
+        "CgroupnsMode",
+        "ConsoleSize",
+        "ContainerIDFile",
+        "CpuCount",
+        "CpuPercent",
+        "CpuPeriod",
+        "CpuQuota",
+        "CpuRealtimePeriod",
+        "CpuRealtimeRuntime",
+        "CpuShares",
+        "CpusetCpus",
+        "CpusetMems",
+        "DeviceCgroupRules",
+        "DeviceRequests",
+        "Devices",
+        "Dns",
+        "DnsOptions",
+        "DnsSearch",
+        "ExtraHosts",
+        "GroupAdd",
+        "IOMaximumBandwidth",
+        "IOMaximumIOps",
+        "Init",
+        "IpcMode",
+        "Isolation",
+        "KernelMemory",
+        "KernelMemoryTCP",
+        "Links",
+        "LogConfig",
+        "MaskedPaths",
+        "Memory",
+        "MemoryReservation",
+        "MemorySwap",
+        "MemorySwappiness",
+        "Mounts",
+        "NanoCpus",
+        "NetworkMode",
+        "OomKillDisable",
+        "OomScoreAdj",
+        "PidMode",
+        "PidsLimit",
+        "PortBindings",
+        "Privileged",
+        "PublishAllPorts",
+        "ReadonlyPaths",
+        "ReadonlyRootfs",
+        "RestartPolicy",
+        "Runtime",
+        "SecurityOpt",
+        "ShmSize",
+        "StorageOpt",
+        "Sysctls",
+        "Tmpfs",
+        "UTSMode",
+        "Ulimits",
+        "UsernsMode",
+        "VolumeDriver",
+        "VolumesFrom",
+    }
+)
+
+# podman's SpecGenerator (container create) and PodSpecGenerator (pod
+# create). Taken from the bodies podman 6.1's remote client actually
+# sends, plus the SpecGenerator members a flag can set.
+LIBPOD_TOP_ALLOWED = frozenset(
+    {
+        "Networks",
+        "annotations",
+        "apparmor_profile",
+        "cap_add",
+        "cap_drop",
+        "cgroup_parent",
+        "cgroupns",
+        "cgroups_mode",
+        "command",
+        "conmon_pid_file",
+        "containerCreateCommand",
+        "dependencyContainers",
+        "device_cgroup_rule",
+        "devices",
+        "dns_option",
+        "dns_search",
+        "dns_server",
+        "entrypoint",
+        "env",
+        "env_merge",
+        "expose",
+        "groups",
+        "healthLogDestination",
+        "healthMaxLogCount",
+        "healthMaxLogSize",
+        "health_check_on_failure_action",
+        "health_config",
+        "healthconfig",
+        "startupHealthConfig",
+        "base_hosts_file",
+        "hostadd",
+        "hostname",
+        "hostusers",
+        "httpproxy",
+        "idmappings",
+        "image",
+        "image_arch",
+        "image_os",
+        "image_variant",
+        "image_volume_mode",
+        "image_volumes",
+        "init",
+        "init_container_type",
+        "ipcns",
+        "labels",
+        "manage_password",
+        "mask",
+        "mounts",
+        "name",
+        "netns",
+        "networkOrder",
+        "networks",
+        "no_hosts",
+        "no_new_privileges",
+        "oci_runtime",
+        "oom_score_adj",
+        "passwd_entry",
+        "pidns",
+        "pod",
+        "portmappings",
+        "privileged",
+        "publish_image_ports",
+        "raw_image_name",
+        "read_only_filesystem",
+        "read_write_tmpfs",
+        "remove",
+        "remove_image",
+        "resource_limits",
+        "restart_policy",
+        "restart_tries",
+        "sdnotifyMode",
+        "seccomp_policy",
+        "seccomp_profile_path",
+        "security_opt",
+        "selinux_opts",
+        "shm_size",
+        "shm_size_systemd",
+        "static_ip",
+        "static_ipv6",
+        "static_mac",
+        "stdin",
+        "stop_signal",
+        "stop_timeout",
+        "sysctl",
+        "systemd",
+        "terminal",
+        "timeout",
+        "timezone",
+        "umask",
+        "unified",
+        "unmask",
+        "unsetenv",
+        "unsetenvall",
+        "use_image_hostname",
+        "use_image_hosts",
+        "use_image_resolve_conf",
+        "user",
+        "userns",
+        "utsns",
+        "volatile",
+        "volumes",
+        "volumes_from",
+        "weight_device",
+        "work_dir",
+        # PodSpecGenerator's own members (pod create shares this policy).
+        "exit_policy",
+        "infra_command",
+        "infra_image",
+        "infra_name",
+        "no_infra",
+        "no_manage_hostname",
+        "no_manage_hosts",
+        "no_manage_resolv_conf",
+        "pid",
+        "pod_create_command",
+        "serviceContainerID",
+        "share_parent",
+        "shared_namespaces",
+    }
+)
+
+# Fields refused with a reason of their own rather than a bare
+# ``unknown-field``. Each is refused only when it carries a *set* value:
+# both CLIs serialise the zero value of every member of their create
+# struct on every request (``"env_host": false``, ``"log_configuration":
+# {}``), so refusing on mere presence would refuse every create.
+DENIED_CREATE_FIELDS: dict[str, str] = {
+    "rootfs": "rootfs: a host path as the container root filesystem is refused",
+    "rootfs_overlay": "rootfs: an overlay over a host root filesystem is refused",
+    "overlay_volumes": "overlay-volumes: overlay mounts of host paths are refused",
+    "env_host": "env-host: exporting the host environment into the container is refused",
+    "log_configuration": "log-configuration: a custom log driver can write to a host path and is refused",
+    "secret_env": "secrets: daemon secrets are refused",
+    "secrets": "secrets: daemon secrets are refused",
+    "cni_networks": "network: cni_networks is refused; attach networks through networks",
+    "chroot_directories": "chroot-directories: host directories to chroot into are refused",
+    "init_path": "init-path: a host path as the container init binary is refused",
+    "conmon_pid_file": "pid-file: writing a pid file on the host is refused",
+    "infra_conmon_pid_file": "pid-file: writing a pid file on the host is refused",
+    "ContainerIDFile": "container-id-file: writing a container id file on the host is refused",
+    "Links": "links: --link reaches another project's container and is refused",
+    "Cgroup": "cgroup-parent: joining another container's cgroup is refused",
+    "VolumeDriver": "volume-driver: a custom volume driver is refused",
+}
+
+CREATE_ALLOWED_FIELDS = frozenset(
+    name.casefold()
+    for name in (
+        COMPAT_TOP_ALLOWED | COMPAT_HOSTCONFIG_ALLOWED | LIBPOD_TOP_ALLOWED | frozenset(DENIED_CREATE_FIELDS)
+    )
+)
+
+# ``POST /containers/<id>/exec``: the whole body, in the one shape both
+# APIs use (libpod's exec endpoint takes moby's spelling).
+EXEC_KNOWN_KEYS = frozenset(
+    {
+        "AttachStderr",
+        "AttachStdin",
+        "AttachStdout",
+        "Cmd",
+        "ConsoleSize",
+        "DetachKeys",
+        "Env",
+        "Privileged",
+        "Tty",
+        "User",
+        "WorkingDir",
+    }
+)
+EXEC_ALLOWED_FIELDS = frozenset(name.casefold() for name in EXEC_KNOWN_KEYS)
+
+# ``POST /containers/<id>/update``: moby's UpdateConfig, which is
+# container.Resources plus RestartPolicy. Nothing here can reach the host;
+# everything else in an update body can.
+UPDATE_KNOWN_KEYS = frozenset(
+    {
+        "BlkioDeviceReadBps",
+        "BlkioDeviceReadIOps",
+        "BlkioDeviceWriteBps",
+        "BlkioDeviceWriteIOps",
+        "BlkioWeight",
+        "BlkioWeightDevice",
+        "CpuCount",
+        "CpuPercent",
+        "CpuPeriod",
+        "CpuQuota",
+        "CpuRealtimePeriod",
+        "CpuRealtimeRuntime",
+        "CpuShares",
+        "CpusetCpus",
+        "CpusetMems",
+        "IOMaximumBandwidth",
+        "IOMaximumIOps",
+        "KernelMemory",
+        "KernelMemoryTCP",
+        "Memory",
+        "MemoryReservation",
+        "MemorySwap",
+        "MemorySwappiness",
+        "NanoCpus",
+        "OomKillDisable",
+        "PidsLimit",
+        "RestartPolicy",
+        "Ulimits",
+    }
+)
+UPDATE_ALLOWED_FIELDS = frozenset(name.casefold() for name in UPDATE_KNOWN_KEYS)
+
+
+def allow_list_violation(
+    obj: dict[str, Any], allowed: frozenset[str], *, denied: dict[str, str] | None = None
+) -> Deny | None:
+    """Refuse a key that is not in ``allowed``, or a ``denied`` one that is set.
+
+    Keys are compared casefolded, because that is how both daemons' JSON
+    decoders bind an object key to a struct field: a deny keyed on the
+    exact spelling would be sidestepped by ``ROOTFS``. The canonical-
+    spelling check runs first and refuses a case variant of a field the
+    policy reasons about; this check is what refuses everything the policy
+    has never heard of.
+    """
+    denied_fields = DENIED_CREATE_FIELDS if denied is None else denied
+    for key, value in obj.items():
+        if not isinstance(key, str):
+            return Deny("malformed: object keys must be strings")
+        casefolded = key.casefold()
+        reason = denied_fields.get(casefolded) or denied_fields.get(key)
+        if reason is not None and value:
+            return Deny(reason)
+        if casefolded not in allowed:
+            return Deny(f"unknown-field: {key} is not accepted by the gateway")
+    return None

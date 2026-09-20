@@ -437,13 +437,19 @@ def test_network_name_grammar_rejects_trailing_newline(ctx: PolicyContext) -> No
     assert isinstance(d2, Deny) and d2.reason.startswith("network")
 
 
-def test_default_named_network_reaches_label_check(ctx: PolicyContext) -> None:
-    # A user-created network literally named "default" is not the built-in
-    # default network; it must reach the relay's label check like any other
-    # named network, not be silently treated as always-reachable.
+def test_default_endpoint_key_is_not_a_named_network(ctx: PolicyContext) -> None:
+    # C5: `default` is the docker CLI's sentinel for the default bridge --
+    # every plain `docker run` sends EndpointsConfig: {"default": {}}. It is
+    # not a network the relay can inspect, so treating it as a named one
+    # refused every create. The body below is the shape a real `docker run`
+    # sends; a genuinely named network must still be label-checked.
     body = compat_with_endpoints({"default": {}})
     assert check_create(body, ctx, libpod=False) is None
-    assert named_networks(body, False) == ["default"]
+    assert named_networks(body, False) == []
+
+    named = compat_with_endpoints({"mynet": {}})
+    assert check_create(named, ctx, libpod=False) is None
+    assert named_networks(named, False) == ["mynet"]
 
 
 def test_endpoint_map_checked_regardless_of_libpod_flag(ctx: PolicyContext) -> None:
@@ -486,3 +492,282 @@ def test_named_networks_reads_both_endpoint_shapes_regardless_of_libpod_flag(ctx
 
     libpod_body_with_compat_field = libpod(NetworkingConfig={"EndpointsConfig": {"othernet": {}}})
     assert named_networks(libpod_body_with_compat_field, True) == ["othernet"]
+
+
+# --- Final fix wave: the create body is an allow-list (C1, C5, C6) ---
+
+
+@pytest.mark.parametrize(
+    ("body", "libpod_shape", "rule"),
+    [
+        # C1: the host-access fields a deny-list had never heard of. Each is
+        # refused with a reason of its own rather than a bare unknown-field.
+        (libpod(rootfs="/Users"), True, "rootfs"),
+        (libpod(rootfs_overlay=True, rootfs="/Users"), True, "rootfs"),
+        (libpod(overlay_volumes=[{"source": "/Users/me", "destination": "/d"}]), True, "overlay-volumes"),
+        (libpod(env_host=True), True, "env-host"),
+        (
+            libpod(log_configuration={"driver": "k8s-file", "path": "/Users/me/x.log"}),
+            True,
+            "log-configuration",
+        ),
+        (libpod(secret_env={"A": "s"}), True, "secrets"),
+        (libpod(secrets=[{"source": "s"}]), True, "secrets"),
+        (libpod(cni_networks=["host"]), True, "network"),
+        (libpod(chroot_directories=["/Users"]), True, "chroot-directories"),
+        (libpod(init_path="/Users/me/init"), True, "init-path"),
+        (libpod(conmon_pid_file="/Users/me/pid"), True, "pid-file"),
+        (compat(ContainerIDFile="/Users/me/cid"), False, "container-id-file"),
+        (compat(Links=["other:db"]), False, "links"),
+        (compat(Cgroup="container:deadbeef"), False, "cgroup-parent"),
+        (compat(VolumeDriver="evil-plugin"), False, "volume-driver"),
+        # C1: anything the gateway has never heard of, in either position.
+        ({"Image": "alpine", "HostConfig": {}, "Frobnicate": 1}, False, "unknown-field"),
+        (compat(Frobnicate=1), False, "unknown-field"),
+        (libpod(frobnicate=1), True, "unknown-field"),
+        # ... including a case variant of a denied field, which the daemon's
+        # case-insensitive decoder would bind to the real one.
+        (libpod(ROOTFS="/Users"), True, "rootfs"),
+        # Compat's LogConfig is libpod's log_configuration by another name.
+        (
+            compat(LogConfig={"Type": "k8s-file", "Config": {"path": "/Users/me/x"}}),
+            False,
+            "log-configuration",
+        ),
+        (
+            compat(LogConfig={"Type": "json-file", "Config": {"path": "/Users/me/x"}}),
+            False,
+            "log-configuration",
+        ),
+        # podman's own annotation namespace records the flags this policy refuses.
+        (libpod(annotations={"io.podman.annotations.privileged": "TRUE"}), True, "annotations"),
+        # A pod create body spells SecurityOpt `security_opt`.
+        (libpod(security_opt=["seccomp=unconfined"]), True, "security-opt"),
+        # C6: a host-like network through podman's own `Networks` spelling.
+        (libpod(Networks={"host": {}}), True, "network"),
+    ],
+)
+def test_allow_list_refuses_host_access_fields(
+    ctx: PolicyContext, body: dict[str, Any], libpod_shape: bool, rule: str
+) -> None:
+    d = check_create(body, ctx, libpod=libpod_shape)
+    assert isinstance(d, Deny), body
+    assert d.reason.startswith(rule), d.reason
+
+
+@pytest.mark.parametrize(
+    ("body", "libpod_shape"),
+    [
+        # Both CLIs serialise the zero value of every field on every create,
+        # so a denied field at its zero value must still pass.
+        (libpod(env_host=False, log_configuration={}, httpproxy=True), True),
+        (compat(ContainerIDFile="", Links=None, Cgroup="", VolumeDriver=""), False),
+        (compat(LogConfig={"Type": "", "Config": {}}), False),
+    ],
+)
+def test_denied_fields_at_their_zero_value_pass(
+    ctx: PolicyContext, body: dict[str, Any], libpod_shape: bool
+) -> None:
+    assert check_create(body, ctx, libpod=libpod_shape) is None
+
+
+def _docker_run_body() -> dict[str, Any]:
+    """What `docker run -v <root>/data:/x -p 8080:80 alpine echo hi` sends.
+
+    The docker CLI marshals the whole Config / HostConfig struct, zero
+    values included, so this is the body the allow-list has to admit.
+    """
+    return {
+        "Hostname": "",
+        "Domainname": "",
+        "User": "",
+        "AttachStdin": False,
+        "AttachStdout": True,
+        "AttachStderr": True,
+        "ExposedPorts": {"80/tcp": {}},
+        "Tty": False,
+        "OpenStdin": False,
+        "StdinOnce": False,
+        "Env": [],
+        "Cmd": ["echo", "hi"],
+        "Image": "alpine",
+        "Volumes": {},
+        "WorkingDir": "",
+        "Entrypoint": None,
+        "OnBuild": None,
+        "Labels": {},
+        "ArgsEscaped": False,
+        "NetworkDisabled": False,
+        "MacAddress": "",
+        "StopSignal": "",
+        "StopTimeout": None,
+        "Shell": None,
+        "Healthcheck": None,
+        "HostConfig": {
+            "Binds": [],
+            "ContainerIDFile": "",
+            "LogConfig": {"Type": "", "Config": {}},
+            "NetworkMode": "default",
+            "PortBindings": {"80/tcp": [{"HostIp": "", "HostPort": "8080"}]},
+            "RestartPolicy": {"Name": "no", "MaximumRetryCount": 0},
+            "AutoRemove": True,
+            "VolumeDriver": "",
+            "VolumesFrom": None,
+            "ConsoleSize": [40, 158],
+            "CapAdd": None,
+            "CapDrop": None,
+            "CgroupnsMode": "private",
+            "Dns": [],
+            "DnsOptions": [],
+            "DnsSearch": [],
+            "ExtraHosts": None,
+            "GroupAdd": None,
+            "IpcMode": "private",
+            "Cgroup": "",
+            "Links": None,
+            "OomScoreAdj": 0,
+            "PidMode": "",
+            "Privileged": False,
+            "PublishAllPorts": False,
+            "ReadonlyRootfs": False,
+            "SecurityOpt": None,
+            "StorageOpt": None,
+            "Tmpfs": None,
+            "UTSMode": "",
+            "UsernsMode": "",
+            "ShmSize": 0,
+            "Sysctls": None,
+            "Runtime": "",
+            "Isolation": "",
+            "CpuShares": 0,
+            "Memory": 0,
+            "NanoCpus": 0,
+            "CgroupParent": "",
+            "BlkioWeight": 0,
+            "BlkioWeightDevice": [],
+            "BlkioDeviceReadBps": [],
+            "BlkioDeviceWriteBps": [],
+            "BlkioDeviceReadIOps": [],
+            "BlkioDeviceWriteIOps": [],
+            "CpuPeriod": 0,
+            "CpuQuota": 0,
+            "CpuRealtimePeriod": 0,
+            "CpuRealtimeRuntime": 0,
+            "CpusetCpus": "",
+            "CpusetMems": "",
+            "Devices": [],
+            "DeviceCgroupRules": None,
+            "DeviceRequests": None,
+            "MemoryReservation": 0,
+            "MemorySwap": 0,
+            "MemorySwappiness": None,
+            "OomKillDisable": None,
+            "PidsLimit": None,
+            "Ulimits": [],
+            "CpuCount": 0,
+            "CpuPercent": 0,
+            "IOMaximumIOps": 0,
+            "IOMaximumBandwidth": 0,
+            "MaskedPaths": None,
+            "ReadonlyPaths": None,
+            "Mounts": None,
+            "Init": None,
+            "Annotations": None,
+        },
+        "NetworkingConfig": {"EndpointsConfig": {"default": {}}},
+    }
+
+
+def _podman_run_body() -> dict[str, Any]:
+    """What podman 6.1's `podman run --rm -v ... -p 8080:80 alpine echo hi` sends.
+
+    Captured from the remote client, trimmed only of the container's own
+    command line. Note `Networks` (capital N): that is podman's spelling.
+    """
+    return {
+        "name": "foo",
+        "command": ["echo", "hi"],
+        "env_host": False,
+        "httpproxy": True,
+        "env": {"FOO": "1"},
+        "terminal": False,
+        "stdin": False,
+        "stop_timeout": 10,
+        "log_configuration": {},
+        "systemd": "true",
+        "sdnotifyMode": "container",
+        "pidns": {},
+        "utsns": {},
+        "remove": True,
+        "containerCreateCommand": ["podman", "run"],
+        "init_container_type": "",
+        "unsetenvall": False,
+        "manage_password": True,
+        "image": "docker.io/library/alpine",
+        "raw_image_name": "docker.io/library/alpine",
+        "image_volume_mode": "anonymous",
+        "init": False,
+        "mounts": [{"destination": "/x", "type": "tmpfs", "source": "tmpfs"}],
+        "ipcns": {},
+        "volatile": True,
+        "privileged": False,
+        "seccomp_policy": "default",
+        "userns": {},
+        "idmappings": {"HostUIDMapping": True, "HostGIDMapping": True, "UIDMap": None, "GIDMap": None},
+        "read_only_filesystem": False,
+        "read_write_tmpfs": False,
+        "umask": "0022",
+        "cgroupns": {},
+        "netns": {},
+        "portmappings": [{"host_ip": "", "container_port": 80, "host_port": 8080}],
+        "publish_image_ports": False,
+        "Networks": None,
+        "use_image_resolve_conf": False,
+        "use_image_hostname": False,
+        "use_image_hosts": False,
+        "healthconfig": {},
+        "healthLogDestination": "local",
+        "healthMaxLogCount": 5,
+        "healthMaxLogSize": 500,
+    }
+
+
+def test_a_real_docker_run_body_still_passes(ctx: PolicyContext) -> None:
+    body = _docker_run_body()
+    body["HostConfig"]["Binds"] = [f"{ctx.project_root}:/x"]
+    assert check_create(body, ctx, libpod=False) is None
+    assert named_networks(body, False) == []
+    apply_create_rewrites(body, ctx, libpod=False)  # must not raise
+
+
+def test_a_real_podman_run_body_still_passes(ctx: PolicyContext) -> None:
+    body = _podman_run_body()
+    assert check_create(body, ctx, libpod=True) is None
+    assert named_networks(body, True) == []
+
+
+def test_podman_networks_spelling_is_read_and_label_checked(ctx: PolicyContext) -> None:
+    # C6: podman's SpecGenerator spells the per-network map `Networks`. The
+    # old canonical-spelling table only knew `networks`, so every podman
+    # create was refused as ambiguous-field -- and the named network in it
+    # was never label-checked.
+    body = _podman_run_body()
+    body["Networks"] = {"mynet": {"interface_name": ""}}
+    body["networkOrder"] = ["mynet"]
+    assert check_create(body, ctx, libpod=True) is None
+    assert named_networks(body, True) == ["mynet"]
+
+
+def test_both_network_spellings_at_once_is_ambiguous(ctx: PolicyContext) -> None:
+    body = libpod(networks={"a": {}}, Networks={"b": {}})
+    d = check_create(body, ctx, libpod=True)
+    assert isinstance(d, Deny) and d.reason.startswith("ambiguous-field")
+
+
+def test_httpproxy_is_turned_off_when_the_gateway_injects_its_own(ctx: PolicyContext) -> None:
+    out = apply_create_rewrites(libpod(httpproxy=True), ctx, libpod=True)
+    assert out["httpproxy"] is False
+    assert out["env"]["HTTP_PROXY"] == "http://host.containers.internal:8899"
+    # With egress off the daemon's own setting is left exactly as sent.
+    off = PolicyContext(ctx.slug, ctx.project_root, ctx.bind_roots, None, "off")
+    assert apply_create_rewrites(libpod(httpproxy=True), off, libpod=True)["httpproxy"] is True

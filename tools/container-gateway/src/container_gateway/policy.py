@@ -46,18 +46,28 @@ from typing import Any
 from .labels import with_label
 from .policy_shape import (
     CATALOG_ANCHOR,
+    CREATE_ALLOWED_FIELDS,
+    EXEC_ALLOWED_FIELDS,
+    EXEC_KNOWN_KEYS,
+    UPDATE_ALLOWED_FIELDS,
+    UPDATE_KNOWN_KEYS,
     Deny,
+    allow_list_violation,
     canonical_spelling_violation,
+    object_spelling_violation,
     resource_create_spelling_violation,
 )
 
 __all__ = [
     "CATALOG_ANCHOR",
+    "NETWORK_MODE_KEYWORDS",
     "PROXY_VARS",
     "Deny",
     "PolicyContext",
     "apply_create_rewrites",
     "check_create",
+    "check_exec_create",
+    "check_update",
     "named_networks",
     "named_volumes",
     "resolve_bind_source",
@@ -90,6 +100,10 @@ _NSMODE_MALFORMED_SENTINEL = "<malformed>"
 _NETWORK_MODE_KEYWORDS = frozenset(
     {"", "default", "bridge", "none", "private", "slirp4netns", "pasta", "pod"}
 )
+# The same set under a public name: the build-query check in decisions.py
+# allows exactly these (minus ``host``, which is not in the set to begin
+# with) as a build's ``networkmode``.
+NETWORK_MODE_KEYWORDS = _NETWORK_MODE_KEYWORDS
 _NETWORK_DENIED_PREFIXES = ("host", "container", "ns", "path", "from-")
 
 # The docker/podman network-name grammar: an unrecognised value that does not
@@ -110,12 +124,19 @@ _NETWORK_NAME_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*")
 # deliberately absent from this allow-list (unlike `_NETWORK_MODE_KEYWORDS`,
 # where a bare `NetworkMode: "default"` genuinely means the built-in one).
 _NETWORK_HOST_LIKE_KEY_NAMES = frozenset({"host", "none"})
-_ENDPOINT_KEY_ALLOWED_KEYWORDS = frozenset({"bridge", "podman"})
+# `default` is the docker CLI's sentinel for "the default bridge", not a
+# user-creatable network: a plain `docker run` sends
+# `EndpointsConfig: {"default": {}}` on every create. Treating it as a named
+# network made the relay inspect a network that does not exist and refuse
+# every create. A project-created network literally named `default` therefore
+# goes unchecked here; that is the accepted trade, and such a network is
+# still only reachable by a container this project created.
+_ENDPOINT_KEY_ALLOWED_KEYWORDS = frozenset({"bridge", "podman", "default"})
 
 # Built-in network names every project can already reach; never treated as a
-# *named* (foreign) network the relay needs to label-check. `default` is
-# deliberately absent — see `_ENDPOINT_KEY_ALLOWED_KEYWORDS` above.
-_BUILTIN_NETWORK_NAMES = frozenset({"bridge", "podman", "host", "none"})
+# *named* (foreign) network the relay needs to label-check. `default` is here
+# for the reason given above.
+_BUILTIN_NETWORK_NAMES = frozenset({"bridge", "podman", "host", "none", "default"})
 
 # SecurityOpt keys the policy recognises at all; every other key (including
 # unmask, proc-opts) is refused outright.
@@ -137,6 +158,7 @@ _LIST_OR_NONE_HOST_FIELDS = (
     "CapDrop",
     "cap_drop",
     "SecurityOpt",
+    "security_opt",
     "selinux_opts",
     "Devices",
     "DeviceRequests",
@@ -150,7 +172,7 @@ _LIST_OR_NONE_HOST_FIELDS = (
     "volumes_from",
 )
 _MOUNT_LIST_HOST_FIELDS = ("Mounts", "mounts", "portmappings", "volumes")
-_DICT_OR_NONE_HOST_FIELDS = ("Sysctls", "sysctl")
+_DICT_OR_NONE_HOST_FIELDS = ("Sysctls", "sysctl", "LogConfig", "log_configuration")
 _NAMESPACE_HOST_FIELDS = (
     "PidMode",
     "IpcMode",
@@ -169,7 +191,7 @@ _NAMESPACE_HOST_FIELDS = (
 # (Env/Labels/NetworkingConfig for compat, env/labels/networks for libpod —
 # and for libpod the body *is* `host`, so this is equivalent to host.get()
 # there too).
-_DICT_OR_NONE_BODY_FIELDS = ("NetworkingConfig", "networks")
+_DICT_OR_NONE_BODY_FIELDS = ("NetworkingConfig", "networks", "Networks")
 _STR_LIST_BODY_FIELDS = ("Env",)
 _STR_DICT_BODY_FIELDS = ("env", "Labels", "labels")
 
@@ -322,8 +344,73 @@ def _security_opt_denied(opt: str) -> bool:
     return True
 
 
+def _endpoint_maps(body: dict[str, Any]) -> list[dict[str, Any]]:
+    """Every per-network map in this body, in either shape.
+
+    Three positions carry one: libpod ``Networks`` (podman's own spelling
+    since the new network stack), libpod ``networks`` (the older spelling,
+    still accepted -- see ``policy_shape.LIBPOD_TOP_KEYS``), and compat
+    ``NetworkingConfig.EndpointsConfig``. All three are read regardless of
+    which URL flavour the request came in on, like every other rule here.
+    """
+    maps: list[dict[str, Any]] = []
+    for key in ("networks", "Networks"):
+        value = body.get(key)
+        if isinstance(value, dict):
+            maps.append(value)
+    networking_config = body.get("NetworkingConfig")
+    if isinstance(networking_config, dict):
+        endpoints_config = networking_config.get("EndpointsConfig")
+        if isinstance(endpoints_config, dict):
+            maps.append(endpoints_config)
+    return maps
+
+
+# Compat ``LogConfig.Type`` values that cannot name a host path. Everything
+# else (``k8s-file``, ``journald`` with a path option, a plugin driver) is
+# the same escape libpod's ``log_configuration`` is refused for.
+_LOG_DRIVER_ALLOWED = frozenset({"", "json-file", "local", "none"})
+
+
+def _log_config_deny(host: dict[str, Any]) -> Deny | None:
+    """Compat ``LogConfig``: the empty one every ``docker run`` sends, nothing more.
+
+    libpod's ``log_configuration`` is refused by name (it carries a
+    ``path``); compat's ``LogConfig`` is the same capability spelled with a
+    driver plus an options map, and podman's compat endpoint maps it onto
+    the same libpod field. It cannot be refused by name, because the docker
+    CLI sends ``{"Type": "", "Config": {}}`` on every create.
+    """
+    log_config = host.get("LogConfig")
+    if not isinstance(log_config, dict):
+        return None
+    driver = str(log_config.get("Type") or "").casefold()
+    if driver not in _LOG_DRIVER_ALLOWED:
+        return Deny(f"log-configuration: log driver {log_config.get('Type')} is refused")
+    if log_config.get("Config"):
+        return Deny("log-configuration: log-driver options are refused")
+    return None
+
+
+# podman's own annotation namespace: `io.podman.annotations.privileged`
+# and its siblings are how podman records (and, on some paths, restores)
+# the very flags this policy refuses, so an annotation in that namespace
+# is refused whatever its value.
+_PODMAN_ANNOTATION_PREFIX = "io.podman.annotations."
+
+
+def _annotations_deny(body: dict[str, Any], host: dict[str, Any]) -> Deny | None:
+    for source in (body.get("annotations"), host.get("Annotations")):
+        if not isinstance(source, dict):
+            continue
+        for key in source:
+            if str(key).casefold().startswith(_PODMAN_ANNOTATION_PREFIX):
+                return Deny(f"annotations: {key} is podman's own control namespace and is refused")
+    return None
+
+
 def _security_opt_deny(host: dict[str, Any]) -> Deny | None:
-    for opt in host.get("SecurityOpt") or []:
+    for opt in (host.get("SecurityOpt") or []) + (host.get("security_opt") or []):
         opt_str = str(opt)
         if _security_opt_denied(opt_str):
             return Deny(f"security-opt: {opt_str} is refused")
@@ -501,15 +588,8 @@ def named_networks(body: dict[str, Any], libpod: bool) -> list[str]:
     if network_mode is not None:
         candidates.append(network_mode)
 
-    networks = body.get("networks")
-    if isinstance(networks, dict):
-        candidates.extend(str(k) for k in networks)
-
-    networking_config = body.get("NetworkingConfig")
-    if isinstance(networking_config, dict):
-        endpoints_config = networking_config.get("EndpointsConfig")
-        if isinstance(endpoints_config, dict):
-            candidates.extend(str(k) for k in endpoints_config)
+    for endpoint_map in _endpoint_maps(body):
+        candidates.extend(str(k) for k in endpoint_map)
 
     seen: set[str] = set()
     result: list[str] = []
@@ -547,6 +627,19 @@ def _check_create(body: dict[str, Any], ctx: PolicyContext, *, libpod: bool) -> 
     if spelling_violation is not None:
         return spelling_violation
 
+    # The allow-list (C1): every key the gateway has not learned is refused
+    # here, so the value rules below are a second layer over a bounded set
+    # of fields rather than the only thing standing between a client and a
+    # field nobody thought of.
+    field_violation = allow_list_violation(body, CREATE_ALLOWED_FIELDS)
+    if field_violation is not None:
+        return field_violation
+    host_config = body.get("HostConfig")
+    if isinstance(host_config, dict):
+        field_violation = allow_list_violation(host_config, CREATE_ALLOWED_FIELDS)
+        if field_violation is not None:
+            return field_violation
+
     host = _host(body, libpod)
 
     if host.get("Privileged") or host.get("privileged"):
@@ -583,29 +676,27 @@ def _check_create(body: dict[str, Any], ctx: PolicyContext, *, libpod: bool) -> 
         if net_deny is not None:
             return net_deny
 
-    # Read both the libpod and compat endpoint-map shapes unconditionally,
-    # regardless of which URL flavour this request came in on — like every
-    # other rule in this function (see the module docstring): a client could
-    # smuggle the "other" shape's field past a check gated on `libpod`.
-    networks = body.get("networks")
-    if isinstance(networks, dict):
-        for network_key in networks:
+    # Read every endpoint-map shape unconditionally, regardless of which URL
+    # flavour this request came in on — like every other rule in this
+    # function (see the module docstring): a client could smuggle the
+    # "other" shape's field past a check gated on `libpod`.
+    for endpoint_map in _endpoint_maps(body):
+        for network_key in endpoint_map:
             key_deny = _network_key_deny(str(network_key))
             if key_deny is not None:
                 return key_deny
 
-    networking_config = body.get("NetworkingConfig")
-    if isinstance(networking_config, dict):
-        endpoints_config = networking_config.get("EndpointsConfig")
-        if isinstance(endpoints_config, dict):
-            for network_key in endpoints_config:
-                key_deny = _network_key_deny(str(network_key))
-                if key_deny is not None:
-                    return key_deny
-
     security_opt_deny = _security_opt_deny(host)
     if security_opt_deny is not None:
         return security_opt_deny
+
+    log_config_deny = _log_config_deny(host)
+    if log_config_deny is not None:
+        return log_config_deny
+
+    annotations_deny = _annotations_deny(body, host)
+    if annotations_deny is not None:
+        return annotations_deny
 
     if host.get("Sysctls") or host.get("sysctl"):
         return Deny("sysctls: kernel parameters are refused")
@@ -641,6 +732,79 @@ def _check_create(body: dict[str, Any], ctx: PolicyContext, *, libpod: bool) -> 
     return None
 
 
+# Fields an exec / update body may not carry, with the same slugs the
+# create rules use, so a client sees one vocabulary across endpoints.
+_EXEC_DENIED_FIELDS: dict[str, str] = {
+    "capadd": "cap-add: added capabilities are refused; run without --cap-add",
+    "cap_add": "cap-add: added capabilities are refused; run without --cap-add",
+    "capdrop": "cap-drop: capability changes are not accepted on exec",
+    "cap_drop": "cap-drop: capability changes are not accepted on exec",
+    "devices": "devices: host devices are refused; run without --device / --gpus",
+    "devicerequests": "devices: host devices are refused; run without --device / --gpus",
+    "devicecgrouprules": "devices: host devices are refused; run without --device / --gpus",
+    "device_cgroup_rule": "devices: host devices are refused; run without --device / --gpus",
+    "pidmode": "namespace: a namespace change is not accepted on exec",
+    "ipcmode": "namespace: a namespace change is not accepted on exec",
+    "utsmode": "namespace: a namespace change is not accepted on exec",
+    "usernsmode": "namespace: a namespace change is not accepted on exec",
+    "cgroupnsmode": "namespace: a namespace change is not accepted on exec",
+    "networkmode": "network: a network change is not accepted on exec",
+    "pidns": "namespace: a namespace change is not accepted on exec",
+    "ipcns": "namespace: a namespace change is not accepted on exec",
+    "utsns": "namespace: a namespace change is not accepted on exec",
+    "userns": "namespace: a namespace change is not accepted on exec",
+    "cgroupns": "namespace: a namespace change is not accepted on exec",
+    "netns": "network: a network change is not accepted on exec",
+    "securityopt": "security-opt: security options are not accepted on exec",
+    "security_opt": "security-opt: security options are not accepted on exec",
+    "unmask": "security-opt: unmask is refused",
+}
+
+
+def check_exec_create(body: Any) -> Deny | None:
+    """``POST /containers/<id>/exec``: an allow-list over the exec body.
+
+    The exec body is a second create surface — ``{"Privileged": true}``
+    grants the exec process everything a privileged container would have —
+    and was forwarded unexamined. Both APIs use moby's spelling here
+    (libpod's exec endpoint decodes the same struct), so one table covers
+    both.
+    """
+    if not isinstance(body, dict):
+        return Deny("malformed: request body must be a JSON object")
+    try:
+        spelling = object_spelling_violation(body, EXEC_KNOWN_KEYS)
+        if spelling is not None:
+            return spelling
+        denial = allow_list_violation(body, EXEC_ALLOWED_FIELDS, denied=_EXEC_DENIED_FIELDS)
+        if denial is not None:
+            return denial
+        if body.get("Privileged"):
+            return Deny("privileged: drop --privileged; the gateway never grants it")
+    except (TypeError, AttributeError, ValueError, KeyError):
+        return Deny("malformed: unexpected request shape")
+    return None
+
+
+def check_update(body: Any) -> Deny | None:
+    """``POST /containers/<id>/update``: resource limits and restart policy only.
+
+    moby's ``UpdateConfig`` is ``Resources`` plus ``RestartPolicy``; a
+    daemon that accepted more from this endpoint would let a client raise
+    limits the create policy bounded, so anything outside that set is
+    refused rather than forwarded.
+    """
+    if not isinstance(body, dict):
+        return Deny("malformed: request body must be a JSON object")
+    try:
+        spelling = object_spelling_violation(body, UPDATE_KNOWN_KEYS)
+        if spelling is not None:
+            return spelling
+        return allow_list_violation(body, UPDATE_ALLOWED_FIELDS, denied=_EXEC_DENIED_FIELDS)
+    except (TypeError, AttributeError, ValueError, KeyError):
+        return Deny("malformed: unexpected request shape")
+
+
 def apply_create_rewrites(body: dict[str, Any], ctx: PolicyContext, *, libpod: bool) -> dict[str, Any]:
     """Apply the label / HostIp / proxy-env rewrites.
 
@@ -661,6 +825,11 @@ def apply_create_rewrites(body: dict[str, Any], ctx: PolicyContext, *, libpod: b
             }
             env.update(ctx.proxy_env)
             out["env"] = env
+            # podman's CLI sets `httpproxy: true` on every run, which asks
+            # the *daemon* to add its own proxy variables to the container.
+            # The gateway is the one deciding the container's egress, so
+            # the daemon's copy is turned off whenever ours goes in.
+            out["httpproxy"] = False
     else:
         out["Labels"] = with_label(out.get("Labels"), ctx.slug)
         # `out.setdefault` only fills in an *absent* key; an explicit
