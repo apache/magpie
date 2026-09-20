@@ -371,15 +371,46 @@ def _endpoint_maps(body: dict[str, Any]) -> list[dict[str, Any]]:
 # the same escape libpod's ``log_configuration`` is refused for.
 _LOG_DRIVER_ALLOWED = frozenset({"", "json-file", "local", "none"})
 
+# The drivers whose options are worth reading at all: the two that write
+# into the daemon's own log store, plus the unset one. ``none`` discards
+# the stream, so an option on it asks for nothing this policy can honour
+# and is refused with the rest.
+_LOG_OPTION_DRIVERS = frozenset({"", "json-file", "local"})
+
+# The rotation / formatting options ``docker run --log-opt`` and compose's
+# ``logging.options`` carry. An allow-list, not a deny-list, for the reason
+# the create body is one: the option map is the one place a log driver takes
+# a host path. ``path`` is deliberately absent -- podman's compat endpoint
+# maps a ``path`` option straight onto libpod's ``log_configuration.path``,
+# which this policy refuses by name.
+_LOG_OPTION_ALLOWED_KEYS = frozenset(
+    {
+        "compress",
+        "env",
+        "env-regex",
+        "labels",
+        "labels-regex",
+        "max-buffer-size",
+        "max-file",
+        "max-size",
+        "mode",
+        "size",
+        "tag",
+    }
+)
+
 
 def _log_config_deny(host: dict[str, Any]) -> Deny | None:
-    """Compat ``LogConfig``: the empty one every ``docker run`` sends, nothing more.
+    """Compat ``LogConfig``: a safe driver, and only rotation-shaped options.
 
     libpod's ``log_configuration`` is refused by name (it carries a
     ``path``); compat's ``LogConfig`` is the same capability spelled with a
     driver plus an options map, and podman's compat endpoint maps it onto
     the same libpod field. It cannot be refused by name, because the docker
-    CLI sends ``{"Type": "", "Config": {}}`` on every create.
+    CLI sends ``{"Type": "", "Config": {}}`` on every create -- and refusing
+    a set ``Config`` outright refuses ``docker run --log-opt max-size=10m``
+    and every compose service with a ``logging.options`` block, which is a
+    lot of day-one breakage for a field whose danger is one option key.
     """
     log_config = host.get("LogConfig")
     if not isinstance(log_config, dict):
@@ -387,8 +418,16 @@ def _log_config_deny(host: dict[str, Any]) -> Deny | None:
     driver = str(log_config.get("Type") or "").casefold()
     if driver not in _LOG_DRIVER_ALLOWED:
         return Deny(f"log-configuration: log driver {log_config.get('Type')} is refused")
-    if log_config.get("Config"):
+    options = log_config.get("Config")
+    if not options:
+        return None
+    if driver not in _LOG_OPTION_DRIVERS:
         return Deny("log-configuration: log-driver options are refused")
+    if not isinstance(options, dict):
+        return Deny("malformed: LogConfig.Config has the wrong type")
+    for key in options:
+        if str(key).strip().casefold() not in _LOG_OPTION_ALLOWED_KEYS:
+            return Deny(f"log-configuration: log-driver option {key} is refused")
     return None
 
 
@@ -429,6 +468,47 @@ def _security_opt_deny(host: dict[str, Any]) -> Deny | None:
     return None
 
 
+# A volume driver configuration is the ``VolumeDriver`` capability reached
+# by another name: ``{"type": "none", "device": "/", "o": "bind"}`` handed to
+# the stock ``local`` driver is a host-root bind mount, and an anonymous
+# volume carrying it has no name for the relay to label-check. Refused
+# whatever the driver and whatever the options, since any driver
+# configuration is a reference to a host resource.
+_VOLUME_DRIVER_DENY_REASON = "volume-driver: a volume driver configuration is refused; use a named volume"
+
+# libpod passes a driver configuration as option strings on the mount (or on
+# the named volume): ``volume-opt=device=/``.
+_VOLUME_DRIVER_OPTION_KEYS = frozenset({"volume-opt", "volume-driver", "driver"})
+
+
+def _volume_driver_options(options: Any) -> bool:
+    """True when a libpod option list carries a volume driver configuration."""
+    if not isinstance(options, list):
+        return False
+    return any(
+        str(option).split("=", 1)[0].strip().casefold() in _VOLUME_DRIVER_OPTION_KEYS for option in options
+    )
+
+
+def _volume_driver_config(entry: dict[str, Any]) -> bool:
+    """True when a volume mount entry carries a driver configuration, in either shape.
+
+    compat spells it ``VolumeOptions.DriverConfig``; libpod spells it as
+    ``volume-opt=`` entries in the mount's ``options`` list. Both are read
+    unconditionally, regardless of which URL flavour the request came in on,
+    like every other rule here. ``VolumeOptions``'s own inner keys are not
+    covered by the canonical-spelling check (only the mount's own keys are),
+    so the inner lookup is casefolded.
+    """
+    for key, value in entry.items():
+        if str(key).casefold() != "volumeoptions" or not isinstance(value, dict):
+            continue
+        for inner_key, inner_value in value.items():
+            if str(inner_key).casefold() == "driverconfig" and inner_value:
+                return True
+    return _volume_driver_options(entry.get("options"))
+
+
 def _mount_type_deny(
     entry: dict[str, Any], type_key: str, source_key: str, ctx: PolicyContext
 ) -> Deny | None:
@@ -441,6 +521,8 @@ def _mount_type_deny(
             return Deny(f"bind-mount: {source} is outside the allowed roots ({roots})")
         return None
     if mtype == "volume":
+        if _volume_driver_config(entry):
+            return Deny(_VOLUME_DRIVER_DENY_REASON)
         return None  # a named volume; the relay label-checks it (Task 9)
     if mtype in _MOUNT_PASSTHROUGH_TYPES:
         return None
@@ -466,6 +548,12 @@ def _mounts_deny(
         denial = _mount_type_deny(entry, type_key, source_key, ctx)
         if denial is not None:
             return denial
+    # libpod's top-level named-volume list carries the same driver
+    # configuration under its own key, and an entry with no ``Name`` is
+    # invisible to the relay's label check.
+    for volume in body.get("volumes") or []:
+        if isinstance(volume, dict) and _volume_driver_options(volume.get("Options")):
+            return Deny(_VOLUME_DRIVER_DENY_REASON)
     return None
 
 

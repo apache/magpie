@@ -566,6 +566,16 @@ LIBPOD_TOP_ALLOWED = frozenset(
         "volumes_from",
         "weight_device",
         "work_dir",
+        # ``podman run --ulimit`` (and every run at all when containers.conf
+        # sets ``default_ulimits``); the camelCase device-limit members of
+        # podman's resource spec, which the snake_case spellings above miss.
+        "r_limits",
+        "weightDevice",
+        "throttleReadBpsDevice",
+        "throttleWriteBpsDevice",
+        "throttleReadIOPSDevice",
+        "throttleWriteIOPSDevice",
+        "personality",
         # PodSpecGenerator's own members (pod create shares this policy).
         "exit_policy",
         "infra_command",
@@ -588,6 +598,12 @@ LIBPOD_TOP_ALLOWED = frozenset(
 # both CLIs serialise the zero value of every member of their create
 # struct on every request (``"env_host": false``, ``"log_configuration":
 # {}``), so refusing on mere presence would refuse every create.
+#
+# Keys are casefolded, because that is the only form ``allow_list_violation``
+# looks them up by: a mixed-case key here would be reachable only by a
+# client that spelled the field exactly that way, and ``LINKS`` -- which
+# Go's decoder binds to the same struct field -- would walk past the table
+# into the allow-list and be forwarded.
 DENIED_CREATE_FIELDS: dict[str, str] = {
     "rootfs": "rootfs: a host path as the container root filesystem is refused",
     "rootfs_overlay": "rootfs: an overlay over a host root filesystem is refused",
@@ -601,10 +617,10 @@ DENIED_CREATE_FIELDS: dict[str, str] = {
     "init_path": "init-path: a host path as the container init binary is refused",
     "conmon_pid_file": "pid-file: writing a pid file on the host is refused",
     "infra_conmon_pid_file": "pid-file: writing a pid file on the host is refused",
-    "ContainerIDFile": "container-id-file: writing a container id file on the host is refused",
-    "Links": "links: --link reaches another project's container and is refused",
-    "Cgroup": "cgroup-parent: joining another container's cgroup is refused",
-    "VolumeDriver": "volume-driver: a custom volume driver is refused",
+    "containeridfile": "container-id-file: writing a container id file on the host is refused",
+    "links": "links: --link reaches another project's container and is refused",
+    "cgroup": "cgroup-parent: joining another container's cgroup is refused",
+    "volumedriver": "volume-driver: a custom volume driver is refused",
 }
 
 CREATE_ALLOWED_FIELDS = frozenset(
@@ -678,17 +694,18 @@ def allow_list_violation(
 
     Keys are compared casefolded, because that is how both daemons' JSON
     decoders bind an object key to a struct field: a deny keyed on the
-    exact spelling would be sidestepped by ``ROOTFS``. The canonical-
-    spelling check runs first and refuses a case variant of a field the
-    policy reasons about; this check is what refuses everything the policy
-    has never heard of.
+    exact spelling would be sidestepped by ``ROOTFS``. Every ``denied``
+    table is therefore keyed casefolded too, and is looked up only that
+    way. The canonical-spelling check runs first and refuses a case
+    variant of a field the policy reasons about; this check is what
+    refuses everything the policy has never heard of.
     """
     denied_fields = DENIED_CREATE_FIELDS if denied is None else denied
     for key, value in obj.items():
         if not isinstance(key, str):
             return Deny("malformed: object keys must be strings")
         casefolded = key.casefold()
-        reason = denied_fields.get(casefolded) or denied_fields.get(key)
+        reason = denied_fields.get(casefolded)
         if reason is not None and value:
             return Deny(reason)
         if casefolded not in allowed:

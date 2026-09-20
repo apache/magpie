@@ -85,11 +85,12 @@ The create-time rules below apply to containers and pods (the same fields under 
 | `Sysctls`, `CgroupParent`, `Runtime`, `Isolation` | deny |
 | `MaskedPaths`, `ReadonlyPaths` | deny when set to an empty list |
 | `Binds`, `Mounts[type=bind]`, libpod `mounts` | source must resolve (symlinks followed, on the host) under the project root or a `--extra-bind-root`; anything else denied. `tmpfs` allowed |
-| `Mounts[type=volume]`, named volumes in `Binds`, `VolumesFrom` | the volume / container must carry the label |
+| `Mounts[type=volume]`, named volumes in `Binds`, `VolumesFrom` | the volume / container must carry the label; a volume driver configuration (compat `VolumeOptions.DriverConfig`, libpod `volume-opt=`) is refused whatever the driver, since `local` with `type=none,device=/,o=bind` is a host-root bind |
 | `PortBindings` / `publish` | allowed; an empty `HostIp` is rewritten to `127.0.0.1` |
+| `LogConfig` | deny any driver but `json-file`, `local`, `none` or unset; options (`--log-opt`, compose `logging.options`) only on `json-file` / `local`, and only rotation-shaped keys — `path` is refused |
 | `Env` | proxy variables injected per the egress rule below; a client-supplied value for the same names is replaced |
 
-`POST /build` gets the same treatment: `volume`, `remote`, `securityopt`, `cgroupparent`, `ulimits`, `devices`, `secrets`, `ssh`, `session`, podman's `addcaps` / `labelopts` / `extrahosts`, a `networkmode` outside the keyword set above, an `nsoptions` entry joining a host namespace other than `user`, and an `output` naming a filesystem destination are all refused, as is any parameter the gateway has not learned.
+`POST /build` gets the same treatment: `volume`, `remote`, `securityopt`, `cgroupparent`, `ulimits`, `devices`, `secrets`, `ssh`, `session`, podman's `addcaps` / `labelopts` / `extrahosts`, a `networkmode` outside the keyword set above, an `nsoptions` entry joining a host namespace other than `user`, and an `output` / `outputs` that names a filesystem destination — a path-shaped bare value, a `local` / `tar` / `oci` exporter, any `dest=` attribute, anything but `type=image` / `type=registry` in the JSON or comma form — are all refused, as is any parameter the gateway has not learned.
 A build also gets the egress proxy merged into its `buildargs`, so `RUN` obeys the same allow-list a container does.
 An exec body is allow-listed to the exec fields, with `Privileged: true` refused; an update body to resource limits and the restart policy.
 

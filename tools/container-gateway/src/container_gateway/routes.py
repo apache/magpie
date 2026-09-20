@@ -147,9 +147,15 @@ def route(method: str, path: str) -> Route:
         return Route(Family.CONTAINERS, "commit", None, libpod, version)
     if head == "exec" and rest:
         exec_verb = rest[-1] if len(rest) > 1 else ""
-        action = {"start": "exec_start", "json": "exec_inspect", "resize": "exec_resize"}.get(
-            exec_verb, "unknown"
-        )
+        action = {
+            "start": "exec_start",
+            "json": "exec_inspect",
+            "resize": "exec_resize",
+            # podman ends every `podman exec` with `POST
+            # /libpod/exec/<id>/remove`; without this the instance is left
+            # behind and the client prints a 403 on an otherwise clean run.
+            "remove": "exec_remove",
+        }.get(exec_verb, "unknown")
         return Route(Family.EXEC, action, rest[0], libpod, version)
 
     family = {
@@ -266,7 +272,7 @@ ACT_BY_NAME: frozenset[tuple[Family, str]] = frozenset(
             "exists",
         )
     }
-    | {(Family.EXEC, a) for a in ("exec_start", "exec_inspect", "exec_resize")}
+    | {(Family.EXEC, a) for a in ("exec_start", "exec_inspect", "exec_resize", "exec_remove")}
     | {(Family.IMAGES, a) for a in ("remove", "tag")}
     | {(Family.VOLUMES, a) for a in ("inspect", "remove", "exists")}
     | {(Family.NETWORKS, a) for a in ("inspect", "remove", "connect", "disconnect", "exists")}

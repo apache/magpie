@@ -771,3 +771,147 @@ def test_httpproxy_is_turned_off_when_the_gateway_injects_its_own(ctx: PolicyCon
     # With egress off the daemon's own setting is left exactly as sent.
     off = PolicyContext(ctx.slug, ctx.project_root, ctx.bind_roots, None, "off")
     assert apply_create_rewrites(libpod(httpproxy=True), off, libpod=True)["httpproxy"] is True
+
+
+# --- Polish round: P1 volume drivers, P2 case bypasses, P4 over-denials ---
+
+
+@pytest.mark.parametrize(
+    ("body", "libpod_shape"),
+    [
+        # P1: the `local` driver with `type=none,device=/,o=bind` is a
+        # host-root bind mount, and an anonymous volume carrying it has no
+        # name for the relay to label-check.
+        (
+            compat(
+                Mounts=[
+                    {
+                        "Type": "volume",
+                        "Target": "/h",
+                        "VolumeOptions": {
+                            "DriverConfig": {
+                                "Name": "local",
+                                "Options": {"type": "none", "device": "/", "o": "bind"},
+                            }
+                        },
+                    }
+                ]
+            ),
+            False,
+        ),
+        # The inner keys of VolumeOptions are not covered by the canonical-
+        # spelling check, so the DriverConfig lookup is casefolded too.
+        (
+            compat(
+                Mounts=[
+                    {
+                        "Type": "volume",
+                        "Target": "/h",
+                        "VolumeOptions": {"driverconfig": {"Name": "sshfs"}},
+                    }
+                ]
+            ),
+            False,
+        ),
+        # The libpod mount shape spells the same thing as options.
+        (
+            libpod(
+                mounts=[
+                    {
+                        "type": "volume",
+                        "destination": "/h",
+                        "options": ["volume-opt=type=none", "volume-opt=device=/", "volume-opt=o=bind"],
+                    }
+                ]
+            ),
+            True,
+        ),
+        # ... and so does libpod's top-level named-volume list.
+        (libpod(volumes=[{"Dest": "/h", "Options": ["volume-opt=device=/"]}]), True),
+    ],
+)
+def test_a_volume_driver_configuration_is_refused(
+    ctx: PolicyContext, body: dict[str, Any], libpod_shape: bool
+) -> None:
+    d = check_create(body, ctx, libpod=libpod_shape)
+    assert isinstance(d, Deny), body
+    assert d.reason.startswith("volume-driver"), d.reason
+
+
+@pytest.mark.parametrize(
+    ("body", "libpod_shape"),
+    [
+        (compat(Mounts=[{"Type": "volume", "Source": "data", "Target": "/h"}]), False),
+        (libpod(mounts=[{"type": "volume", "source": "data", "destination": "/h"}]), True),
+        (libpod(volumes=[{"Name": "data", "Dest": "/h", "Options": ["rw", "z"]}]), True),
+    ],
+)
+def test_a_plain_named_volume_is_still_allowed(
+    ctx: PolicyContext, body: dict[str, Any], libpod_shape: bool
+) -> None:
+    assert check_create(body, ctx, libpod=libpod_shape) is None
+
+
+@pytest.mark.parametrize(
+    ("body", "rule"),
+    [
+        # P2: Go's decoder binds these to the same struct field, so the
+        # denied-field table has to be looked up casefolded.
+        (compat(CONTAINERIDFILE="/Users/me/cid"), "container-id-file"),
+        (compat(LINKS=["other:db"]), "links"),
+        (compat(CGROUP="container:deadbeef"), "cgroup-parent"),
+        (compat(volumedriver="evil-plugin"), "volume-driver"),
+    ],
+)
+def test_denied_create_fields_are_refused_in_any_case(
+    ctx: PolicyContext, body: dict[str, Any], rule: str
+) -> None:
+    d = check_create(body, ctx, libpod=False)
+    assert isinstance(d, Deny), body
+    assert d.reason.startswith(rule), d.reason
+
+
+@pytest.mark.parametrize(
+    ("body", "libpod_shape"),
+    [
+        # P4: `podman run --ulimit`, and every run at all once
+        # containers.conf sets `default_ulimits`.
+        (libpod(r_limits=[{"type": "RLIMIT_NOFILE", "hard": 1024, "soft": 1024}]), True),
+        # P4: the camelCase device-limit members of podman's resource spec.
+        (libpod(weightDevice=[{"Path": "/dev/sda", "Weight": 100}]), True),
+        (libpod(throttleReadBpsDevice={"/dev/sda": {"Rate": 1}}), True),
+        (libpod(throttleWriteBpsDevice={"/dev/sda": {"Rate": 1}}), True),
+        (libpod(throttleReadIOPSDevice={"/dev/sda": {"Rate": 1}}), True),
+        (libpod(throttleWriteIOPSDevice={"/dev/sda": {"Rate": 1}}), True),
+        (libpod(personality={"domain": "LINUX"}), True),
+        # P4: `docker run --log-opt max-size=10m`, and compose's
+        # `logging.options` block.
+        (compat(LogConfig={"Type": "json-file", "Config": {"max-size": "10m", "max-file": "3"}}), False),
+        (compat(LogConfig={"Type": "local", "Config": {"max-size": "10m", "compress": "true"}}), False),
+        (compat(LogConfig={"Type": "", "Config": {"max-size": "10m"}}), False),
+    ],
+)
+def test_common_invocations_are_no_longer_refused(
+    ctx: PolicyContext, body: dict[str, Any], libpod_shape: bool
+) -> None:
+    assert check_create(body, ctx, libpod=libpod_shape) is None
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        # A driver that is not one of the safe two still refuses its options.
+        compat(LogConfig={"Type": "none", "Config": {"max-size": "10m"}}),
+        # ... and the option that names a host path is refused on the safe
+        # drivers too: podman's compat endpoint maps it onto libpod's
+        # `log_configuration.path`.
+        compat(LogConfig={"Type": "json-file", "Config": {"path": "/Users/me/x"}}),
+        compat(LogConfig={"Type": "local", "Config": {"path": "/Users/me/x"}}),
+    ],
+)
+def test_log_driver_options_that_can_name_a_host_path_stay_refused(
+    ctx: PolicyContext, body: dict[str, Any]
+) -> None:
+    d = check_create(body, ctx, libpod=False)
+    assert isinstance(d, Deny), body
+    assert d.reason.startswith("log-configuration"), d.reason

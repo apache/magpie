@@ -118,3 +118,12 @@ def test_name_span_matches_the_route_name(method: str, path: str, span: tuple[in
     segments = [s for s in path.split("/") if s]
     expected = route(method, path).name
     assert (None if span is None else "/".join(segments[span[0] : span[1]])) == expected
+
+
+# --- Polish round: podman's exec cleanup call (P5) ---
+
+
+def test_exec_remove_is_routed_and_label_checked() -> None:
+    r = route("POST", "/v5.2.0/libpod/exec/ex1/remove")
+    assert (r.family, r.action, r.name) == (Family.EXEC, "exec_remove", "ex1")
+    assert (Family.EXEC, "exec_remove") in ACT_BY_NAME

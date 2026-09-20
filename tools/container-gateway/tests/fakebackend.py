@@ -141,6 +141,8 @@ class FakeBackend:
             writer.write(_json(200, {"ID": parts[1], "ContainerID": cid}) if cid else _no_exec())
         elif parts[:1] == ["exec"] and parts[-1] == "start":
             writer.write(_json(200, {"started": parts[1]}))
+        elif parts[:1] == ["exec"] and parts[-1] == "remove":
+            writer.write(b"HTTP/1.1 204 No Content\r\nContent-Length: 0\r\n\r\n")
         elif parts[:1] == ["containers"] and parts[-1] == "logs":
             writer.write(
                 b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n"

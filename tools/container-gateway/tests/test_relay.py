@@ -714,3 +714,17 @@ def test_backend_timeout_on_response_head_is_502(tmp_path: Path) -> None:
         assert status == 502 and b"backend timed out" in body
 
     run(scenario())
+
+
+# --- Polish round: podman's exec cleanup call (P5) ---
+
+
+def test_exec_remove_checks_owning_container(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        _, relay = stack(tmp_path)
+        suffix = b"HTTP/1.1\r\nHost: x\r\n\r\n"
+        ok, _, _ = await call(relay, b"POST /v1.45/exec/ex1/remove " + suffix)
+        bad, _, _ = await call(relay, b"POST /v1.45/exec/ex2/remove " + suffix)
+        assert ok == 204 and bad == 403
+
+    run(scenario())

@@ -155,6 +155,7 @@ _BUILD_ALLOWED_PARAMS = frozenset(
         "allplatforms",
         "annotations",
         "buildargs",
+        "buildid",
         "buildkit",
         "cachefrom",
         "cacheto",
@@ -258,6 +259,18 @@ _BUILD_NETWORKMODE_KEYWORDS = frozenset(k for k in NETWORK_MODE_KEYWORDS if k !=
 # host-joined namespace, and any namespace joined by path, is refused.
 _NSOPTION_HOST_ALLOWED = frozenset({"user"})
 
+# The only build outputs that stay inside the daemon. Everything else --
+# buildkit's `local` / `tar` / `oci` exporters, buildah's `-o <path>` -- is
+# a write to a host path the daemon performs on the client's behalf.
+_BUILD_OUTPUT_SAFE_TYPES = frozenset({"image", "registry"})
+
+# A bare `output` value that names a place on the host rather than an image.
+# podman puts the *image name* in `output` on every `podman build -t x`, so a
+# bare value is refused only when it is path-shaped: absolute, home- or
+# dot-relative, a Windows path, or `-` (stdout). An image reference can carry
+# slashes (`quay.io/me/img`) but never starts with one.
+_BUILD_OUTPUT_PATH_PREFIXES = ("/", "~", ".", "\\")
+
 
 def _first(query: dict[str, list[str]], key: str) -> str | None:
     """The first value of a (possibly absent, possibly empty) query parameter."""
@@ -309,6 +322,55 @@ def _nsoptions_deny(raw: str) -> Deny | None:
     return None
 
 
+def _build_output_deny(value: str) -> Deny | None:
+    """Refuse a build ``output`` / ``outputs`` that names anywhere but an image.
+
+    Three spellings reach these parameters: buildkit's JSON array
+    (``[{"Type":"local","Attrs":{"dest":"/Users/me"}}]``), the comma form
+    (``type=local,dest=/Users/me``), and a bare value (``-o
+    /Users/me/out``). The first two are allowed only when they ask
+    exclusively for ``type=image`` / ``type=registry`` -- another exporter,
+    any attribute, a value that does not parse, all name or can name a
+    destination. A bare value is podman's image name on every ``podman
+    build -t x`` and is refused only when it is path-shaped (see
+    ``_BUILD_OUTPUT_PATH_PREFIXES``).
+    """
+    if _is_empty_value(value):
+        return None
+    refused = Deny(f"denied-build-parameter: writing build output to {value} is refused")
+    stripped = value.strip()
+    if stripped.startswith(("[", "{")):
+        try:
+            parsed = _json.loads(stripped)
+        except _json.JSONDecodeError:
+            return refused
+        entries = parsed if isinstance(parsed, list) else [parsed]
+        for entry in entries:
+            if not isinstance(entry, dict):
+                return refused
+            keys = {str(k).strip().casefold() for k in entry}
+            if keys - {"type", "attrs"} or entry.get("Attrs") or entry.get("attrs"):
+                return refused
+            entry_type = str(entry.get("Type") or entry.get("type") or "").strip().casefold()
+            if entry_type not in _BUILD_OUTPUT_SAFE_TYPES:
+                return refused
+        return None
+    if "=" not in stripped:
+        if stripped == "-" or stripped.startswith(_BUILD_OUTPUT_PATH_PREFIXES):
+            return refused
+        return None
+    for directive in stripped.split(","):
+        item = directive.strip()
+        if not item:
+            continue
+        name, sep, attr_value = item.partition("=")
+        if not sep or name.strip().casefold() != "type":
+            return refused
+        if attr_value.strip().casefold() not in _BUILD_OUTPUT_SAFE_TYPES:
+            return refused
+    return None
+
+
 def _build_query_deny(query: dict[str, list[str]]) -> Deny | None:
     """Allow-list the build query: anything not enumerated is refused."""
     for key, values in query.items():
@@ -333,11 +395,10 @@ def _build_query_deny(query: dict[str, list[str]]) -> Deny | None:
                     return denial
             continue
         if casefolded in ("output", "outputs"):
-            # buildah's `--output` and buildkit's `--output` both write to
-            # a filesystem path when the value names a destination.
             for value in values:
-                if "dest=" in value.casefold():
-                    return Deny(f"denied-build-parameter: writing build output to {value} is refused")
+                denial = _build_output_deny(value)
+                if denial is not None:
+                    return denial
             continue
         if casefolded not in _BUILD_ALLOWED_PARAMS:
             return Deny(f"denied-build-parameter: {key} is not accepted by the gateway")

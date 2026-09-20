@@ -195,3 +195,51 @@ def test_malformed_build_values_deny_instead_of_raising(
 ) -> None:
     d = decide(build(query), proxied)
     assert isinstance(d, Deny) and d.reason.startswith("malformed"), d
+
+
+# --- Polish round: the output check covers every spelling (P3), buildid (P4) ---
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        # P3: buildkit's JSON array names the destination in Attrs, which the
+        # old literal `dest=` substring check never saw.
+        {"outputs": ['[{"Type":"local","Attrs":{"dest":"/Users/me"}}]']},
+        {"output": ['[{"Type":"tar","Attrs":{"dest":"/Users/me/out.tar"}}]']},
+        # P3: a bare path -- podman's `-o <path>`.
+        {"output": ["/Users/me/out"]},
+        {"output": ["./out"]},
+        {"output": ["~/out"]},
+        {"output": ["-"]},
+        # The comma form, with and without an explicit destination.
+        {"output": ["type=local,dest=/Users/me"]},
+        {"output": ["type=tar"]},
+        {"output": ["type=image,dest=/Users/me"]},
+        # Anything that does not parse as one of the two safe shapes.
+        {"outputs": ["[{"]},
+        {"outputs": ['["local"]']},
+    ],
+)
+def test_denied_build_outputs(ctx: PolicyContext, query: dict[str, list[str]]) -> None:
+    d = decide(build(query), ctx)
+    assert isinstance(d, Deny), query
+    assert d.reason.startswith("denied-build-parameter"), d.reason
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        # podman puts the image name in `output` on every `podman build -t`.
+        {"output": ["x"]},
+        {"output": ["quay.io/me/img:1"]},
+        {"output": [""]},
+        {"output": ["type=image"]},
+        {"outputs": ['[{"Type":"registry"}]']},
+        # P4: the classic builder's inert build id.
+        {"buildid": ["abc123"]},
+    ],
+)
+def test_allowed_build_outputs_and_buildid(ctx: PolicyContext, query: dict[str, list[str]]) -> None:
+    a = decide(build(query), ctx)
+    assert isinstance(a, Allow), query

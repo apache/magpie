@@ -317,3 +317,13 @@ def test_path_spelling_of_commit_still_label_checks_the_path(ctx: PolicyContext)
 def test_compat_commit_without_a_container_is_denied(ctx: PolicyContext) -> None:
     d = decide(req("POST", "/v1.45/commit", {"repo": ["img"]}), ctx)
     assert isinstance(d, Deny) and d.reason.startswith("malformed")
+
+
+# --- Polish round: podman's exec cleanup call (P5) ---
+
+
+def test_exec_remove_carries_a_label_check(ctx: PolicyContext) -> None:
+    a = decide(req("POST", "/v5.2.0/libpod/exec/abc123/remove"), ctx)
+    assert isinstance(a, Allow)
+    assert (a.route.family, a.route.action) == (Family.EXEC, "exec_remove")
+    assert a.label_check == "abc123"

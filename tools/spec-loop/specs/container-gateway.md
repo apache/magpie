@@ -184,7 +184,7 @@ cycle.
 **Allowed endpoint families** (each with the label rule below):
 containers and pods (create, start, stop, kill, restart, pause,
 unpause, wait, remove, inspect, list, logs, top, stats, exec create /
-start / inspect / resize, attach, archive get / put, commit, export,
+start / inspect / resize / remove, attach, archive get / put, commit, export,
 rename, update, prune); images (list, inspect, history, pull / create,
 build, tag, remove, prune, load, save, search); volumes and networks
 (list, inspect, create, remove, connect, disconnect, prune); system
