@@ -92,7 +92,7 @@ special-token spellings counted as ordinary text.
 Coverage: **75 of 75 local `skills/*/SKILL.md` files**.
 External `source.md` redirects and harness symlinks are excluded.
 
-Measurement manifest SHA-256: `0ef06f4874382739a4738d35ec92e689f0483db6e99292c4accc72836d0619ad`.
+Measurement manifest SHA-256: `42d189314b6a297691e2f536ecd506ada2b4fc9e19416a6e3e47a71948876def`.
 
 | Skill file | Measured tokens | Source SHA-256 (first 16 characters) |
 |---|---:|---|
@@ -159,10 +159,10 @@ Measurement manifest SHA-256: `0ef06f4874382739a4738d35ec92e689f0483db6e99292c4a
 | [security-model-verify](../skills/security-model-verify/SKILL.md) | 6,625 | `cde155672857b33c` |
 | [security-tracker-stats-dashboard](../skills/security-tracker-stats-dashboard/SKILL.md) | 4,897 | `b52154deb8557ba4` |
 | [setup](../skills/setup/SKILL.md) | 8,724 | `82788542bb240309` |
-| [setup-isolated-setup-doctor](../skills/setup-isolated-setup-doctor/SKILL.md) | 6,287 | `a39955c3ae92e306` |
-| [setup-isolated-setup-install](../skills/setup-isolated-setup-install/SKILL.md) | 9,313 | `867d0becf43bd736` |
-| [setup-isolated-setup-update](../skills/setup-isolated-setup-update/SKILL.md) | 4,717 | `5afb01aaf8bbac99` |
-| [setup-isolated-setup-verify](../skills/setup-isolated-setup-verify/SKILL.md) | 6,718 | `e6a10ad7f569db31` |
+| [setup-isolated-setup-doctor](../skills/setup-isolated-setup-doctor/SKILL.md) | 6,563 | `856d95582da69e3b` |
+| [setup-isolated-setup-install](../skills/setup-isolated-setup-install/SKILL.md) | 9,543 | `ab1ebf4531c2741c` |
+| [setup-isolated-setup-update](../skills/setup-isolated-setup-update/SKILL.md) | 4,778 | `90f5b1418c16ea0a` |
+| [setup-isolated-setup-verify](../skills/setup-isolated-setup-verify/SKILL.md) | 6,774 | `58e4c0785717bb05` |
 | [setup-override-upstream](../skills/setup-override-upstream/SKILL.md) | 4,012 | `fb583feb56b7f77c` |
 | [setup-privacy-llm](../skills/setup-privacy-llm/SKILL.md) | 2,145 | `0e27b542a1656846` |
 | [setup-shared-config-sync](../skills/setup-shared-config-sync/SKILL.md) | 4,357 | `d1dfcd7cdeb5f5a6` |

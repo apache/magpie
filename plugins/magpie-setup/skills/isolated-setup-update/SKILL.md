@@ -187,6 +187,14 @@ Walk each:
    beside them is a symlink to the script, not a copy — nothing to
    diff, but report it missing when git's `gpg.ssh.program` /
    `gpg.program` or `core.sshCommand` names it and it is gone),
+   `~/.claude/scripts/container-gateway-hook.sh` for the container
+   gateway's `SessionStart` / `SessionEnd` hook (diff against
+   `tools/agent-isolation/container-gateway-hook.sh`), and the
+   package it runs, `~/.claude/scripts/container-gateway/src/container_gateway/`
+   (diff file-by-file against
+   `tools/container-gateway/src/container_gateway/` — a stale copy
+   here is a silent behaviour drift, not the no-op a missing copy
+   is, so it is worth the same drift check as any other script),
    **and** —
    *only when whole-user scope is in effect, detected via
    `git config --global --get core.hooksPath` resolving to

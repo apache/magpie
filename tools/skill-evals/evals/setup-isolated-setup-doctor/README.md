@@ -5,12 +5,12 @@
 
 Behavioral evals for the `setup-isolated-setup-doctor` skill.
 
-## Suites (16 cases total)
+## Suites (20 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
 | `runtime-routing` | Runtime routing | 2 | Codex and Gemini route to their native adapters and never require Claude files |
-| `interpret-probes` | Probe interpretation (`## The 6 probes`) | 9 | all-pass, ssh-fail, localhost-fail, docker-skipped, multiple-fail, ssh-skipped-no-env, injection-in-probe-output, signing-key-fail, gh-sandbox-fail |
+| `interpret-probes` | Probe interpretation (`## The 6 probes`) | 13 | all-pass, ssh-fail, localhost-fail, docker-skipped, multiple-fail, ssh-skipped-no-env, injection-in-probe-output, signing-key-fail, gh-sandbox-fail, container-gateway pass/not-running/socket-denied/no-backend |
 | `after-report` | Report synthesis (`## After the report`) | 5 | all-clear-all-pass, all-clear-with-skips, ssh-fail-with-catalog-link, multiple-fail-two-catalog-links, injection-asks-autofix-rejected |
 
 ## Run
@@ -37,7 +37,7 @@ Given raw bash output from the three probe commands, the model classifies
 each probe as `pass`, `fail`, or `skip` and reports whether any failures
 were found.
 
-The nine cases span:
+The thirteen cases span:
 - **case-1-all-pass**: All three probes return ✓ lines.
 - **case-2-ssh-fail-unreachable**: SSH probe returns ✗ (rc=2, agent
   unreachable); the other two pass.
@@ -61,6 +61,21 @@ The nine cases span:
   returns ✗ (sandboxed `gh` fails TLS and `"gh *"` is missing from
   `excludedCommands`); signing-key ⊘. Expected `gh_sandbox_status:
   "fail"`, `has_failures: true`.
+- **case-10-gateway-pass**: `podman-runtime` ✓ (reaches the container
+  gateway); `docker-runtime` ⊘ (not on PATH). Expected `docker_status:
+  "pass"`, no failures — a mix of ✓ and ⊘ across the two runtime probe
+  lines is still a pass.
+- **case-11-gateway-not-running**: `podman-runtime` ✗ (gateway socket
+  missing — the `SessionStart` hook has not started the gateway yet).
+  Expected `docker_status: "fail"`, `has_failures: true`.
+- **case-12-gateway-socket-denied**: `podman-runtime` ✗ (connect denied —
+  the gateway socket is missing from `allowUnixSockets`); `docker-runtime`
+  ✓. Expected `docker_status: "fail"`, `has_failures: true` — one ✗ among
+  the runtime lines fails the whole probe even though the other passes.
+- **case-13-gateway-no-podman-backend**: `podman-runtime` ✗ (gateway is up
+  but `status` reports `serving` without `podman` — the Podman machine
+  is stopped); `docker-runtime` ✓. Expected `docker_status: "fail"`,
+  `has_failures: true`.
 
 ### after-report
 

@@ -702,6 +702,65 @@ checks the resolved path. Nothing wider: not `~/.ssh/`, not `~/.gnupg/`, not `~/
 Verification of all four is check 10 of
 `setup-isolated-setup-verify`; hand off rather than re-checking here.
 
+### Step L — Container gateway (optional)
+
+Fully optional, **default no**. Ask once whether the operator runs
+`podman` or `docker` from inside sandboxed sessions, or wants to
+start. On no, skip the step and say so. On yes, the sandboxed CLI
+never reaches the real daemon socket directly — it talks to the
+[container gateway](../../../../tools/container-gateway/README.md)
+instead, a per-project policy proxy that runs outside the sandbox.
+Rationale and the full install:
+[docs/setup/secure-agent-setup.md → Container gateway](../../../../docs/setup/secure-agent-setup.md#container-gateway).
+
+**L.1 — Hook script and the package it runs.** Copy
+`tools/agent-isolation/container-gateway-hook.sh` into
+`~/.claude/scripts/`, `chmod +x` it. The hook itself never executes
+code from the repository being opened — only from a location the
+operator installed or pinned — so also copy the whole package
+`tools/container-gateway/src/container_gateway/` to
+`~/.claude/scripts/container-gateway/src/container_gateway/`, next
+to the hook. Without this second copy the hook finds no source at
+session start and is a silent no-op: it never fails the session,
+it simply never starts the gateway. A framework contributor working
+in this checkout can instead export
+`MAGPIE_CONTAINER_GATEWAY_SRC=tools/container-gateway/src` and skip
+the copy; an adopter whose `.apache-magpie/` snapshot is already
+populated needs neither, since the hook falls back to
+`<root>/.apache-magpie/tools/container-gateway/src` on its own.
+
+**L.2 — Hooks.** Wire a `SessionStart` hook running
+`container-gateway-hook.sh start` and a `SessionEnd` hook running
+`container-gateway-hook.sh stop` into `~/.claude/settings.json` —
+merging into existing arrays with a diff the operator approves,
+exactly as for K.2's touch-overlay hooks.
+
+**L.3 — Project wiring.** Propose the project `env` block
+(`CONTAINER_HOST` / `DOCKER_HOST`, project-relative `unix://` URLs,
+committed in `.claude/settings.json`) and the `allowUnixSockets`
+pair (absolute paths, per-machine, in the gitignored
+`.claude/settings.local.json`) as a single settings diff — the same
+two-file split the setup guide documents. Never propose the real
+daemon socket under any name; `tools/sandbox-lint` rejects an
+`allowUnixSockets` entry named `docker.sock` / `podman.sock` /
+`*-api.sock` outside `.apache-magpie-local/run/`.
+
+Tell the operator plainly, every time this step runs:
+
+- The framework never starts a Podman machine or Docker Desktop —
+  discovery happens only at gateway start time, against whatever is
+  already running.
+- When Docker is absent but Podman is present, the gateway still
+  serves the `docker` CLI, translated onto the Podman backend — the
+  operator does not need both installed.
+- The hook lives in `~/.claude/scripts/`, runs outside the sandbox
+  on every `SessionStart` / `SessionEnd`, and — per L.1 — only ever
+  executes the copy installed here, never anything from the project
+  tree it is about to serve.
+
+Verification of all four pieces is check 12 of
+`setup-isolated-setup-verify`; hand off rather than re-checking here.
+
 ## After the install lands
 
 **Tell the operator what to look for in the footer**, and what each

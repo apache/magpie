@@ -2339,7 +2339,20 @@ This is the same *socket gateways* layer [RFC-AI-0004](../rfcs/RFC-AI-0004.md) P
 mkdir -p ~/.claude/scripts
 cp /path/to/magpie/tools/agent-isolation/container-gateway-hook.sh ~/.claude/scripts/
 chmod +x ~/.claude/scripts/container-gateway-hook.sh
+mkdir -p ~/.claude/scripts/container-gateway/src
+cp -r /path/to/magpie/tools/container-gateway/src/container_gateway \
+    ~/.claude/scripts/container-gateway/src/container_gateway
 ```
+
+The hook executes only code from a location the operator installed or
+pinned, never from the repository being opened, so the second copy is
+not optional: without it the hook finds no source at session start and
+is a silent no-op — it never fails the session, it simply never starts
+the gateway. A framework contributor working inside this checkout can
+instead export `MAGPIE_CONTAINER_GATEWAY_SRC=tools/container-gateway/src`
+and skip the copy; an adopter whose `.apache-magpie/` snapshot is
+already populated needs neither, since the hook falls back to
+`<root>/.apache-magpie/tools/container-gateway/src` on its own.
 
 Wire it as a `SessionStart` / `SessionEnd` pair in `~/.claude/settings.json`, alongside any other hooks already there:
 

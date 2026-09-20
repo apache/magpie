@@ -23,9 +23,9 @@ Definitions:
   `"skip"` if it begins with `PROBE: ssh-agent → ⊘`.
 - `localhost_status`: `"pass"` if `PROBE: localhost-bind → ✓`;
   `"fail"` if `PROBE: localhost-bind → ✗`.
-- `docker_status`: `"pass"` if `PROBE: docker-runtime → ✓` or `PROBE: podman-runtime → ✓`;
-  `"fail"` if `PROBE: docker-runtime → ✗` or `PROBE: podman-runtime → ✗`;
-  `"skip"` if all runtime probes are `⊘` (not on PATH) or no runtime is installed.
+- `docker_status`: `"pass"` if every `PROBE: podman-runtime` / `PROBE: docker-runtime` line present is `✓`
+  (a mix of `✓` and `⊘` is still `"pass"`); `"fail"` if any of them is `✗`;
+  `"skip"` if all runtime probe lines are `⊘` or none is present.
 - `scratch_status`: `"pass"` if `PROBE: project-scratch → ✓`; `"warn"` if `⚠`;
   `"fail"` if `✗`; `"skip"` if no `project-scratch` probe line is present.
 - `signing_key_status`: `"pass"` if `PROBE: signing-key → ✓`; `"fail"` if `✗`;

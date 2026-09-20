@@ -130,7 +130,7 @@ Drift severity:
   path, the version string, the command output, the
   `sandbox.enabled` value — never just "✓" or "✗" alone.
 
-## The 11 checks
+## The 12 checks
 
 The canonical list lives in
 [docs/setup/secure-agent-setup.md → Verification → Via a Claude Code prompt](../../../../docs/setup/secure-agent-setup.md#via-a-claude-code-prompt-1).
@@ -438,6 +438,45 @@ Walk each in order:
     that alias installed, say so; it is a convenience, not a
     requirement.
 
+12. **Container gateway wired.** Only meaningful when `podman` or
+    `docker` is on `PATH`; if neither is installed, report **n/a**
+    for the whole check. Four sub-checks:
+
+    - **12a — hooks wired.** User-scope `~/.claude/settings.json`
+      has a `SessionStart` hook running
+      `container-gateway-hook.sh start` and a `SessionEnd` hook
+      running `container-gateway-hook.sh stop`. Either missing is
+      ✗.
+    - **12b — hook script present.** `~/.claude/scripts/container-gateway-hook.sh`
+      exists and is executable. Missing or non-executable is ✗.
+    - **12c — project wiring.** The project `.claude/settings.json`
+      or `.claude/settings.local.json` (check both — which file
+      carries the gateway entries depends on which install variant
+      the adopter chose) has `env.CONTAINER_HOST` and
+      `env.DOCKER_HOST`, and both gateway sockets appear in
+      `sandbox.network.allowUnixSockets`. Either half missing
+      (the `env` pair or the socket allow-list pair) is ✗; report
+      which half.
+    - **12d — no raw daemon socket in any scope's `allowUnixSockets`.**
+      Scan project, project-local, and user scope
+      (`.claude/settings.json`, `.claude/settings.local.json`,
+      `~/.claude/settings.json`) for an entry whose basename is
+      `docker.sock`, `podman.sock`, or ends in `-api.sock`, unless
+      its parent directory is `.apache-magpie-local/run`. Any hit
+      is ✗, quoting the offending entry, with this exact note —
+      it is the same invariant `tools/sandbox-lint` enforces:
+
+      > `sandbox.network.allowUnixSockets: <entry> names a
+      > container daemon socket; route through the container
+      > gateway (<project>/.apache-magpie-local/run/*.sock)
+      > instead`
+
+    Install detail:
+    [`docs/setup/secure-agent-setup.md` → Container gateway](../../../../docs/setup/secure-agent-setup.md#container-gateway).
+    On any ✗, point at
+    [`docs/setup/sandbox-troubleshooting.md` → Docker / Podman command fails with a socket error](../../../../docs/setup/sandbox-troubleshooting.md#docker--podman-command-fails-with-a-socket-error)
+    rather than re-explaining the fix.
+
 ## After the report
 
 If every check is ✓, say so explicitly and stop — no further
@@ -483,6 +522,16 @@ without invoking it:
   from a skill): add the exclusion, or replace the catch-all with the
   explicit write-subcommand list from the reference
   `.claude/settings.json`; then re-run `setup-isolated-setup-verify`.
+- ✗ on check 12a / 12b (hooks or the hook script missing) →
+  `setup-isolated-setup-install` Step L.
+- ✗ on check 12c (project `env` or `allowUnixSockets` half missing) →
+  `setup-isolated-setup-install` Step L to propose the missing
+  block as a settings diff for the operator to approve.
+- ✗ on check 12d (a raw daemon socket in `allowUnixSockets`) →
+  the operator removes that entry themselves (settings.json changes
+  are never applied from a skill) and, if they need the daemon
+  reachable, follows Step L instead; then re-run
+  `setup-isolated-setup-verify`.
 - The user-scope script copies live under `~/.claude-config/`
   for users who maintain that sync repo; uncommitted local edits
   there → `setup-shared-config-sync`.
