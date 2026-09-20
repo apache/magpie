@@ -123,6 +123,38 @@ The skill always uses **`--body-file <path>`** (never `--body "$STRING"` inline)
 to avoid shell-escape mishaps with PR content that may contain backticks,
 dollar signs, or quotes.
 
+### Confirm the review posted — never re-run on empty output
+
+`gh pr review` **prints nothing on success.** Empty output is the
+expected result, not a failure, and re-running the command because it
+"looked like nothing happened" submits the review a second time.
+
+That second review cannot be taken back. GitHub's API deletes only
+*pending* reviews: `DELETE /repos/{owner}/{repo}/pulls/{n}/reviews/{id}`
+answers `422 Can not delete a non-pending pull request review` for
+anything already submitted. The best available repair is to `PUT` the
+duplicate's body down to a one-line pointer at the real one, which
+leaves a visibly confused thread on a contributor's PR.
+
+So verify the post-condition instead of retrying. After the call, read
+the reviews back and confirm exactly one new review from the posting
+account:
+
+```bash
+gh api "repos/<repo>/pulls/<N>/reviews" \
+  --jq '[.[] | select(.user.login == "<viewer>")] | length'
+```
+
+Treat a non-zero exit from `gh pr review` as the only failure signal. If
+the command exits zero, the review is posted — whatever it printed. If
+the exit status is genuinely non-zero, re-check with the query above
+before any retry, because a partial failure (for example the review
+landing but an inline comment being rejected) can still leave a review
+behind.
+
+The same applies to `gh pr comment` and to the `addPullRequestReview`
+mutation below.
+
 ### Self-review guard
 
 GitHub rejects `gh pr review` from the PR's own author. The
