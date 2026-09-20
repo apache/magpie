@@ -44,7 +44,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import NoReturn
+from typing import Any, NoReturn
 
 from . import backends as _backends
 from .labels import project_slug
@@ -54,6 +54,11 @@ from .relay import Handler, Relay, serve_unix, unix_connector
 log = logging.getLogger("container-gateway")
 MAX_SUN_PATH = 103
 _PID_RE = re.compile(r"^[0-9]{1,10}$")
+# How long shutdown waits for a listening socket to finish closing once
+# its handlers have been cancelled. Nothing should reach it: the wait is
+# a backstop against an unexpected straggler holding the process open,
+# not part of the normal path.
+_CLOSE_TIMEOUT = 5.0
 
 
 @dataclass
@@ -477,6 +482,57 @@ class _Activity:
         return handler
 
 
+class _Handlers:
+    """Every live connection handler, so shutdown can end them itself.
+
+    Since Python 3.12.1 ``asyncio.Server.wait_closed()`` returns only
+    once every accepted connection's handler has finished, and the
+    relay's handler sits reading the next request for as long as a
+    keep-alive client keeps its connection open.
+    A gateway that closed its listening sockets and then waited would
+    therefore never exit while any client is connected -- not on its
+    idle timeout, not on SIGTERM -- so ``container-gateway stop`` would
+    wait out its timeout and the session hook would leave a daemon
+    behind.
+    Shutting down means ending the handlers, not waiting for clients to
+    go away on their own: the gateway exits promptly whatever a client
+    is doing, and an in-flight request losing its connection at that
+    moment is the correct outcome.
+    """
+
+    def __init__(self) -> None:
+        self._tasks: set[asyncio.Task[Any]] = set()
+
+    def track(self, handler: Handler) -> Handler:
+        """``handler``, with each invocation's own task registered while it runs."""
+
+        async def tracked(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+            task = asyncio.current_task()
+            if task is not None:
+                self._tasks.add(task)
+            try:
+                await handler(reader, writer)
+            finally:
+                if task is not None:
+                    self._tasks.discard(task)
+
+        return tracked
+
+    async def cancel_all(self) -> None:
+        """Cancel every live handler and wait for it to unwind.
+
+        A cancelled handler discards itself as it unwinds, so a second
+        pass can only ever see a connection accepted while the first
+        pass was running -- which the caller has already made impossible
+        by closing the listening sockets before calling this.
+        """
+        while self._tasks:
+            pending = list(self._tasks)
+            for task in pending:
+                task.cancel()
+            await asyncio.gather(*pending, return_exceptions=True)
+
+
 async def run(
     cfg: Config,
     *,
@@ -508,6 +564,7 @@ async def run(
         servers: list[asyncio.AbstractServer] = []
         bound_sockets: list[Path] = []
         activity = _Activity()
+        handlers = _Handlers()
         signal_handlers_installed: list[signal.Signals] = []
         loop = asyncio.get_running_loop()
         try:
@@ -547,7 +604,7 @@ async def run(
                 # is it safe to remove it. `serve_unix` itself performs
                 # no unlink of its own.
                 sock_path.unlink(missing_ok=True)
-                server = await serve_unix(sock_path, activity.wrap(relay))
+                server = await serve_unix(sock_path, handlers.track(activity.wrap(relay)))
                 servers.append(server)
                 bound_sockets.append(sock_path)
                 log.info("%s CLI -> %s (backend %s at %s)", key, sock_path, backend.kind, backend.socket)
@@ -568,7 +625,18 @@ async def run(
                 loop.remove_signal_handler(sig)
             for s in servers:
                 s.close()
-                await s.wait_closed()
+            # Only once nothing new can be accepted are the handlers
+            # ended; `wait_closed` waits for them, so cancelling them
+            # first is what lets that wait return at all.
+            await handlers.cancel_all()
+            for s in servers:
+                try:
+                    await asyncio.wait_for(s.wait_closed(), _CLOSE_TIMEOUT)
+                except TimeoutError:
+                    log.warning(
+                        "a listening socket did not finish closing within %.0fs; exiting anyway",
+                        _CLOSE_TIMEOUT,
+                    )
             # Only the sockets *this process* bound -- a partial bind
             # failure must not delete a sibling socket another (already
             # running) instance might still be serving from.

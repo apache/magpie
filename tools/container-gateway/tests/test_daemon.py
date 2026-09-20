@@ -41,7 +41,7 @@ import signal
 import subprocess
 import sys
 import tempfile
-from collections.abc import Coroutine, Iterator
+from collections.abc import AsyncIterator, Coroutine, Iterator
 from pathlib import Path
 from typing import Any, TypeVar
 
@@ -172,9 +172,102 @@ class _RealSocketBackend:
         self._server = await asyncio.start_unix_server(self._fake._handle, path=str(self.socket))
 
     async def stop(self) -> None:
+        """Stop serving, without waiting on a connection nobody will close.
+
+        ``wait_closed`` waits for every accepted connection's handler
+        too (Python 3.12.1 and later), and the fake's handler sits
+        reading the next request on a keep-alive connection the gateway
+        has not closed yet. Teardown is bounded so a test that leaves
+        one open fails on its own assertion rather than wedging the run.
+        """
         if self._server is not None:
             self._server.close()
-            await self._server.wait_closed()
+            with contextlib.suppress(TimeoutError):
+                await asyncio.wait_for(self._server.wait_closed(), 5)
+
+
+@contextlib.asynccontextmanager
+async def _gateway(
+    project_root: Path, run_dir: Path, idle_timeout: float
+) -> AsyncIterator[tuple[daemon.Config, asyncio.Task[int]]]:
+    """A running ``daemon.run()`` task with a real backend socket behind it.
+
+    Skips the caller wherever the sandbox refuses the binds this needs,
+    exactly like every other bind-touching test in this suite: the
+    backend's own listener up front, the gateway's two sockets via the
+    task's early exception.
+    """
+    backend = _RealSocketBackend(run_dir / "d.sock")
+    try:
+        await asyncio.wait_for(backend.start(), 5)
+    except PermissionError:
+        pytest.skip("sandbox denies unix bind; runs in CI")
+    try:
+        cfg = daemon.Config(
+            project_root,
+            run_dir,
+            ("podman", "docker"),
+            "off",
+            8899,
+            None,
+            (),
+            idle_timeout,
+            "INFO",
+            run_dir / "pid",
+        )
+        found = [Backend("podman", backend.socket, "host.containers.internal")]
+        task = asyncio.create_task(daemon.run(cfg, discover_fn=lambda *a, **k: found, platform="Darwin"))
+        await asyncio.sleep(0.3)
+        if task.done():
+            exc = task.exception()
+            if isinstance(exc, PermissionError):
+                pytest.skip("sandbox denies unix bind; runs in CI")
+            if exc is not None:
+                raise exc
+        try:
+            yield cfg, task
+        finally:
+            # Only reached when the body did not get the daemon to exit
+            # on its own -- the failure is the body's to report, so the
+            # teardown just makes sure nothing is left running behind it.
+            if not task.done():
+                task.cancel()
+                await asyncio.wait([task], timeout=5)
+    finally:
+        await asyncio.wait_for(backend.stop(), 5)
+
+
+async def _ping(sock_path: Path) -> tuple[asyncio.StreamReader, asyncio.StreamWriter]:
+    """Ping the gateway over a fresh client connection, and leave it open.
+
+    The response is read by its framing rather than to EOF: the gateway
+    keeps the connection alive after a ``/_ping``, so a read to EOF
+    would only return once the daemon tore the connection down, which
+    is the very thing the callers below are measuring.
+    """
+    try:
+        r, w = await asyncio.wait_for(asyncio.open_unix_connection(str(sock_path)), 5)
+    except PermissionError:
+        pytest.skip("sandbox denies unix socket connections; runs in CI")
+    w.write(b"GET /_ping HTTP/1.1\r\nHost: x\r\n\r\n")
+    await asyncio.wait_for(w.drain(), 5)
+    # Every await here is bounded: a gateway that accepts the connection
+    # and then never answers must fail the test, not wedge the run.
+    assert b"200 OK" in await asyncio.wait_for(r.readuntil(b"\r\n\r\n"), 5)
+    assert await asyncio.wait_for(r.readexactly(2), 5) == b"OK"
+    return r, w
+
+
+async def _close_client(w: asyncio.StreamWriter) -> None:
+    """Close a client connection and wait for the close to land.
+
+    Guarded twice over: the peer may already be gone (``OSError``), and
+    a close that does not complete must not wedge a test that has
+    finished with the connection anyway.
+    """
+    w.close()
+    with contextlib.suppress(OSError, TimeoutError):
+        await asyncio.wait_for(w.wait_closed(), 5)
 
 
 # --------------------------------------------------------------- paths
@@ -1033,51 +1126,94 @@ def test_run_without_backends_exits_zero(tmp_path: Path, short_run_dir: Path) ->
 
 def test_run_serves_both_sockets_from_podman_only_and_idles_out(tmp_path: Path, short_run_dir: Path) -> None:
     async def scenario() -> None:
-        backend = _RealSocketBackend(short_run_dir / "d.sock")
-        try:
-            await asyncio.wait_for(backend.start(), 5)
-        except PermissionError:
-            pytest.skip("sandbox denies unix bind; runs in CI")
-        try:
-            cfg = daemon.Config(
-                tmp_path,
-                short_run_dir,
-                ("podman", "docker"),
-                "off",
-                8899,
-                None,
-                (),
-                1.5,
-                "INFO",
-                short_run_dir / "pid",
-            )
-            found = [Backend("podman", backend.socket, "host.containers.internal")]
-            task = asyncio.create_task(daemon.run(cfg, discover_fn=lambda *a, **k: found, platform="Darwin"))
-            await asyncio.sleep(0.3)
-            if task.done():
-                exc = task.exception()
-                if isinstance(exc, PermissionError):
-                    pytest.skip("sandbox denies unix bind; runs in CI")
-                if exc is not None:
-                    raise exc
-            try:
-                for name in ("podman.sock", "docker.sock"):
-                    # Every await here is bounded: a gateway that accepts
-                    # the connection and then never answers must fail the
-                    # test, not wedge the run.
-                    r, w = await asyncio.wait_for(asyncio.open_unix_connection(str(short_run_dir / name)), 5)
-                    w.write(b"GET /_ping HTTP/1.1\r\nHost: x\r\n\r\n")
-                    await asyncio.wait_for(w.drain(), 5)
-                    assert b"200 OK" in await asyncio.wait_for(r.read(), 5)
-                    w.close()
-            except PermissionError:
-                pytest.skip("sandbox denies unix bind; runs in CI")
+        async with _gateway(tmp_path, short_run_dir, 1.5) as (cfg, task):
+            clients = [await _ping(short_run_dir / name) for name in ("podman.sock", "docker.sock")]
             assert daemon.read_pid(cfg.pid_file) == os.getpid()
-            rc = await asyncio.wait_for(task, 5)  # idle timeout fires after 1.5s
+            # What is being measured below is the daemon's own exit, so
+            # the test's connections go first and the idle clock runs
+            # against nothing but the daemon. The test after this one is
+            # the one that leaves a connection open on purpose.
+            for _, w in clients:
+                await _close_client(w)
+            rc = await asyncio.wait_for(task, 10)  # idle timeout fires 1.5s after the last close
             assert rc == 0
             assert not cfg.pid_file.exists()
+
+    run(scenario())
+
+
+def test_handlers_cancel_all_lets_wait_closed_return() -> None:
+    """The one mechanism the two idle-exit tests around this one rest on.
+
+    Since Python 3.12.1 ``Server.wait_closed()`` returns only once every
+    accepted connection's handler has finished, so a handler parked on a
+    client that sends nothing more holds the server -- and the process
+    -- open indefinitely. The loopback listener here stands in for the
+    gateway's unix sockets: the same ``asyncio.Server``, over a bind
+    this sandbox allows where it refuses a unix one.
+    """
+
+    async def scenario() -> None:
+        handlers = daemon._Handlers()
+        started = asyncio.Event()
+        unwound = asyncio.Event()
+
+        async def blocked(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+            started.set()
+            try:
+                await reader.read()  # the next keep-alive request, which never comes
+            finally:
+                unwound.set()
+
+        try:
+            server = await asyncio.start_server(handlers.track(blocked), host="127.0.0.1", port=0)
+        except PermissionError:
+            pytest.skip("sandbox denies TCP bind; runs in CI")
+        try:
+            port = server.sockets[0].getsockname()[1]
+            _, w = await asyncio.wait_for(asyncio.open_connection("127.0.0.1", port), 5)
+            try:
+                await asyncio.wait_for(started.wait(), 5)
+                server.close()
+                await asyncio.wait_for(handlers.cancel_all(), 5)
+                assert unwound.is_set()
+                await asyncio.wait_for(server.wait_closed(), 5)
+                # Every handler deregistered as it unwound, so a second
+                # shutdown pass has nothing left to do.
+                await asyncio.wait_for(handlers.cancel_all(), 5)
+            finally:
+                await _close_client(w)
         finally:
-            await asyncio.wait_for(backend.stop(), 5)
+            server.close()
+
+    run(scenario())
+
+
+def test_run_idles_out_with_a_client_still_connected(tmp_path: Path, short_run_dir: Path) -> None:
+    """A connected client must not be able to hold the gateway open.
+
+    ``Server.wait_closed()`` waits for every accepted connection's
+    handler as well (Python 3.12.1 and later), and the relay's handler
+    blocks reading the next request on a keep-alive connection, so a
+    daemon that closed its listening sockets and waited would never
+    reach its idle exit while anything was connected -- and would not
+    answer SIGTERM either. It ends its own handlers instead, so the
+    client's connection dies with the daemon rather than outliving it.
+    """
+
+    async def scenario() -> None:
+        async with _gateway(tmp_path, short_run_dir, 1.5) as (cfg, task):
+            reader, writer = await _ping(short_run_dir / "podman.sock")
+            try:
+                rc = await asyncio.wait_for(task, 10)  # 1.5s idle plus the 1s poll, with margin
+                assert rc == 0
+                assert not cfg.pid_file.exists()
+                assert not (short_run_dir / "podman.sock").exists()
+                # The connection was closed on the way out, not left
+                # dangling into a daemon that is no longer there.
+                assert await asyncio.wait_for(reader.read(), 5) == b""
+            finally:
+                await _close_client(writer)
 
     run(scenario())
 
