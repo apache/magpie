@@ -254,6 +254,23 @@ def check_invariants(settings: dict[str, Any]) -> list[str]:
                 "list the gh write subcommands one by one)"
             )
 
+    # A daemon socket (docker.sock, podman.sock, or a podman API socket such
+    # as podman-machine-default-api.sock) grants the sandboxed agent direct
+    # control of the container runtime -- equivalent to host root on most
+    # setups. The container gateway (tools/container-gateway) is the only
+    # sanctioned path: it enforces its own policy in front of the real
+    # socket, and its sockets live under .apache-magpie-local/run/, never
+    # the daemon's own well-known path.
+    for entry in settings.get("sandbox", {}).get("network", {}).get("allowUnixSockets", []):
+        name = entry.rstrip("/").rsplit("/", 1)[-1]
+        parent = entry.rstrip("/").rsplit("/", 1)[0] if "/" in entry else ""
+        is_daemon = name in ("docker.sock", "podman.sock") or name.endswith("-api.sock")
+        if is_daemon and not parent.endswith(".apache-magpie-local/run"):
+            errors.append(
+                f"sandbox.network.allowUnixSockets: {entry} names a container daemon socket; "
+                "route through the container gateway (<project>/.apache-magpie-local/run/*.sock) instead"
+            )
+
     return errors
 
 

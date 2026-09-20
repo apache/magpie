@@ -385,3 +385,52 @@ def test_cli_exits_when_top_level_value_is_not_object(tmp_path: Path, baseline: 
     _write_json(expected_path, baseline)
     with pytest.raises(SystemExit):
         main(["--settings", str(settings_path), "--expected", str(expected_path)])
+
+
+# ---------------------------------------------------------------------------
+# Container gateway: env vars route CONTAINER_HOST / DOCKER_HOST through the
+# gateway; absolute allowUnixSockets entries for the gateway sockets are
+# per-project, local settings (RELATIVE_SOCKETS=no), not committed here.
+# ---------------------------------------------------------------------------
+
+
+def test_baseline_routes_containers_through_the_gateway(baseline: dict[str, Any]) -> None:
+    env = baseline.get("env", {})
+    assert env.get("CONTAINER_HOST") == "unix://./.apache-magpie-local/run/podman.sock"
+    assert env.get("DOCKER_HOST") == "unix://./.apache-magpie-local/run/docker.sock"
+
+
+def test_baseline_has_no_gateway_socket_entries(baseline: dict[str, Any]) -> None:
+    # The committed reference (RELATIVE_SOCKETS=no) routes podman/docker
+    # through the project-relative env vars above only. The absolute
+    # allowUnixSockets entries a sandboxed Bash needs to connect(2) to the
+    # gateway sockets are per-project, local settings -- written into
+    # .claude/settings.local.json by `/magpie-setup config`, never into this
+    # committed baseline (see docs/setup/secure-agent-setup.md).
+    sockets = baseline["sandbox"]["network"].get("allowUnixSockets", [])
+    assert not any(s.endswith("podman.sock") or s.endswith("docker.sock") for s in sockets)
+
+
+@pytest.mark.parametrize(
+    "entry",
+    [
+        "/var/run/docker.sock",
+        "~/.docker/run/docker.sock",
+        "/run/user/1000/podman/podman.sock",
+        "/var/folders/ab/T/podman/podman-machine-default-api.sock",
+    ],
+)
+def test_daemon_sockets_in_allow_unix_sockets_are_rejected(baseline: dict[str, Any], entry: str) -> None:
+    settings = copy.deepcopy(baseline)
+    settings["sandbox"]["network"].setdefault("allowUnixSockets", []).append(entry)
+    errors = check_invariants(settings)
+    assert any("names a container daemon socket" in e and entry in e for e in errors), errors
+
+
+def test_gateway_sockets_pass_the_invariant(baseline: dict[str, Any]) -> None:
+    settings = copy.deepcopy(baseline)
+    settings["sandbox"]["network"]["allowUnixSockets"] = [
+        "./.apache-magpie-local/run/podman.sock",
+        "/Users/x/proj/.apache-magpie-local/run/docker.sock",
+    ]
+    assert not [e for e in check_invariants(settings) if "daemon socket" in e]

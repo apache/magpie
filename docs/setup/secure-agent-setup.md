@@ -456,6 +456,14 @@ below, annotated.
 
 ```jsonc
 {
+  // The container gateway (tools/container-gateway) is where sandboxed
+  // podman / docker calls go. Both CLIs honour these variables; the
+  // sockets are project-relative, so this block is the same for every
+  // adopter. The gateway is started by the SessionStart hook below.
+  "env": {
+    "CONTAINER_HOST": "unix://./.apache-magpie-local/run/podman.sock",
+    "DOCKER_HOST": "unix://./.apache-magpie-local/run/docker.sock"
+  },
   "sandbox": {
     "enabled": true,
     // `excludedCommands` runs the listed commands OUTSIDE the sandbox.
@@ -508,6 +516,13 @@ below, annotated.
     "network": {
       "allowUnixSockets": [        // macOS only (ignored on Linux): sockets a sandboxed Bash may connect(2) to. A read entry alone lets it stat the file, not talk to it.
         "/Users/<you>/.gnupg/S.gpg-agent.ssh"   // gpg-agent's ssh socket — needed for signed commits and pushes over ssh; absolute path (see "SSH agent / Yubikey appears unreachable" in sandbox-troubleshooting.md)
+        // Per project, local settings (`.claude/settings.local.json`,
+        // written by `/magpie-setup config`) add the container gateway's
+        // own sockets here as absolute paths, so a sandboxed podman /
+        // docker CLI can connect(2) to them:
+        //   "<project>/.apache-magpie-local/run/podman.sock",
+        //   "<project>/.apache-magpie-local/run/docker.sock"
+        // never the daemon socket itself: that is host access, see sandbox-troubleshooting.md
       ],
       "allowedDomains": [          // every host the framework legitimately reaches
         "github.com", "api.github.com", "api.bitbucket.org",
