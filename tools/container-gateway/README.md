@@ -143,3 +143,4 @@ Known and accepted, in the order you are likely to meet them:
   The gateway injects proxy variables; a tool that ignores them, or a raw socket, or DNS, goes straight out. RFC-AI-0004 says the same of the permission layer.
 - **Backend discovery happens at start.**
   A Podman machine or Docker Desktop started after the gateway is not picked up until the gateway restarts, which normally means the next session.
+- **A bare relative build-output value with no leading `.`, `~` or `/` (`-o outdir`) is indistinguishable from an image reference and passes**, since it is resolved against the daemon's own working directory, not a path the agent chose.

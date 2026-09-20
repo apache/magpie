@@ -138,6 +138,10 @@ does not cover, and what the design accepts:
 - **Backend discovery happens at start.** A Podman machine or Docker Desktop
   started later is not picked up until the gateway restarts, which normally
   means the next session.
+- **A bare relative build-output value with no leading `.`, `~` or `/` (`-o
+  outdir`) is indistinguishable from an image reference and passes**, since
+  it is resolved against the daemon's own working directory, not a path the
+  agent chose.
 
 ## Declared egress surfaces
 

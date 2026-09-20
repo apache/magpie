@@ -219,6 +219,15 @@ def test_malformed_build_values_deny_instead_of_raising(
         # Anything that does not parse as one of the two safe shapes.
         {"outputs": ["[{"]},
         {"outputs": ['["local"]']},
+        # A filesystem type is refused regardless of other attributes, and a
+        # `dest`/`output` attribute is refused regardless of type, including
+        # with no `type` given at all.
+        {"output": ["type=local,dest=/x"]},
+        {"output": ["type=tar,dest=/x"]},
+        {"output": ["dest=/x"]},
+        {"outputs": ['[{"Type":"local","Attrs":{"dest":"/x"}}]']},
+        {"outputs": ['[{"Type":"tar","Attrs":{"dest":"/x"}}]']},
+        {"outputs": ['[{"Attrs":{"dest":"/x"}}]']},
     ],
 )
 def test_denied_build_outputs(ctx: PolicyContext, query: dict[str, list[str]]) -> None:
@@ -238,6 +247,14 @@ def test_denied_build_outputs(ctx: PolicyContext, query: dict[str, list[str]]) -
         {"outputs": ['[{"Type":"registry"}]']},
         # P4: the classic builder's inert build id.
         {"buildid": ["abc123"]},
+        # A safe type stays allowed alongside any non-destination attribute
+        # -- a normal `buildx --output type=image,name=x` invocation.
+        {"output": ["type=image,name=x"]},
+        {"output": ["type=image,push=true"]},
+        {"output": ["type=registry,name=x"]},
+        {"outputs": ['[{"Type":"image","Attrs":{"name":"x"}}]']},
+        {"outputs": ['[{"Type":"image","Attrs":{"push":"true"}}]']},
+        {"outputs": ['[{"Type":"registry","Attrs":{"name":"x"}}]']},
     ],
 )
 def test_allowed_build_outputs_and_buildid(ctx: PolicyContext, query: dict[str, list[str]]) -> None:

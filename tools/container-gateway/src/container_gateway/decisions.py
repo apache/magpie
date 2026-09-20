@@ -259,10 +259,17 @@ _BUILD_NETWORKMODE_KEYWORDS = frozenset(k for k in NETWORK_MODE_KEYWORDS if k !=
 # host-joined namespace, and any namespace joined by path, is refused.
 _NSOPTION_HOST_ALLOWED = frozenset({"user"})
 
-# The only build outputs that stay inside the daemon. Everything else --
-# buildkit's `local` / `tar` / `oci` exporters, buildah's `-o <path>` -- is
-# a write to a host path the daemon performs on the client's behalf.
-_BUILD_OUTPUT_SAFE_TYPES = frozenset({"image", "registry"})
+# Exporter types that always write to a host path, regardless of what other
+# attributes accompany them -- buildkit's `local` and `tar` exporters. `image`
+# and `registry` (and anything else not in this set) stay inside the daemon
+# unless an explicit destination attribute says otherwise (see
+# `_BUILD_OUTPUT_DEST_KEYS`).
+_BUILD_OUTPUT_FS_TYPES = frozenset({"local", "tar"})
+
+# Attribute keys that name a host destination on any exporter type -- present
+# alongside `type=image` this is still a write to a host path (buildah's
+# `-o <path>` behaves this way), so it is refused independent of the type.
+_BUILD_OUTPUT_DEST_KEYS = frozenset({"dest", "output"})
 
 # A bare `output` value that names a place on the host rather than an image.
 # podman puts the *image name* in `output` on every `podman build -t x`, so a
@@ -323,16 +330,21 @@ def _nsoptions_deny(raw: str) -> Deny | None:
 
 
 def _build_output_deny(value: str) -> Deny | None:
-    """Refuse a build ``output`` / ``outputs`` that names anywhere but an image.
+    """Refuse a build ``output`` / ``outputs`` that names a host destination.
 
     Three spellings reach these parameters: buildkit's JSON array
     (``[{"Type":"local","Attrs":{"dest":"/Users/me"}}]``), the comma form
     (``type=local,dest=/Users/me``), and a bare value (``-o
-    /Users/me/out``). The first two are allowed only when they ask
-    exclusively for ``type=image`` / ``type=registry`` -- another exporter,
-    any attribute, a value that does not parse, all name or can name a
-    destination. A bare value is podman's image name on every ``podman
-    build -t x`` and is refused only when it is path-shaped (see
+    /Users/me/out``). The first two are judged on the destination, not on
+    the attribute set: refused when the exporter type itself always writes
+    to the host (``local``, ``tar`` -- see ``_BUILD_OUTPUT_FS_TYPES``), or
+    when any attribute names a destination (``dest``, ``output`` -- see
+    ``_BUILD_OUTPUT_DEST_KEYS``), including when no ``type`` is given at
+    all. Any other attribute (``name``, ``push``, ``compression``,
+    ``oci-mediatypes``, ...) alongside a safe type such as ``image`` or
+    ``registry`` is a normal ``buildx`` invocation and is allowed. A bare
+    value is podman's image name on every ``podman build -t x`` and is
+    refused only when it is path-shaped (see
     ``_BUILD_OUTPUT_PATH_PREFIXES``).
     """
     if _is_empty_value(value):
@@ -348,26 +360,44 @@ def _build_output_deny(value: str) -> Deny | None:
         for entry in entries:
             if not isinstance(entry, dict):
                 return refused
-            keys = {str(k).strip().casefold() for k in entry}
-            if keys - {"type", "attrs"} or entry.get("Attrs") or entry.get("attrs"):
-                return refused
             entry_type = str(entry.get("Type") or entry.get("type") or "").strip().casefold()
-            if entry_type not in _BUILD_OUTPUT_SAFE_TYPES:
+            attr_keys = {str(k).strip().casefold() for k in entry} - {"type", "attrs"}
+            attrs = entry.get("Attrs")
+            if attrs is None:
+                attrs = entry.get("attrs")
+            if isinstance(attrs, dict):
+                attr_keys |= {str(k).strip().casefold() for k in attrs}
+            elif attrs:
+                # Attrs present but not an object this parser can inspect --
+                # refuse rather than guess whether it names a destination.
+                return refused
+            if attr_keys & _BUILD_OUTPUT_DEST_KEYS:
+                return refused
+            if entry_type in _BUILD_OUTPUT_FS_TYPES:
                 return refused
         return None
     if "=" not in stripped:
         if stripped == "-" or stripped.startswith(_BUILD_OUTPUT_PATH_PREFIXES):
             return refused
         return None
+    seen_type = ""
+    attr_keys = set()
     for directive in stripped.split(","):
         item = directive.strip()
         if not item:
             continue
         name, sep, attr_value = item.partition("=")
-        if not sep or name.strip().casefold() != "type":
+        key = name.strip().casefold()
+        if not sep or not key:
             return refused
-        if attr_value.strip().casefold() not in _BUILD_OUTPUT_SAFE_TYPES:
-            return refused
+        if key == "type":
+            seen_type = attr_value.strip().casefold()
+        else:
+            attr_keys.add(key)
+    if attr_keys & _BUILD_OUTPUT_DEST_KEYS:
+        return refused
+    if seen_type in _BUILD_OUTPUT_FS_TYPES:
+        return refused
     return None
 
 
