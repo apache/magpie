@@ -406,3 +406,71 @@ def test_all_framing_failures_surface_as_http_error() -> None:
             await read_body(reader_of(b"5\r\nab"), head, 100)  # early EOF mid-chunk
 
     run(scenario())
+
+
+def test_t1_status_lines_with_multiword_reason_parse() -> None:
+    async def scenario() -> None:
+        for raw_status in (
+            "HTTP/1.1 404 Not Found",
+            "HTTP/1.1 204 No Content",
+            "HTTP/1.1 500 Internal Server Error",
+            "HTTP/1.1 304 Not Modified",
+            "HTTP/1.1 101 Switching Protocols",
+        ):
+            head = await read_head(reader_of(f"{raw_status}\r\n\r\n".encode()))
+            assert head is not None
+            assert head.start_line == raw_status
+
+        # A status line with no reason phrase at all is also valid.
+        head = await read_head(reader_of(b"HTTP/1.1 200\r\n\r\n"))
+        assert head is not None
+        assert head.start_line == "HTTP/1.1 200"
+
+    run(scenario())
+
+
+def test_t1_bad_status_codes_rejected() -> None:
+    async def scenario() -> None:
+        with pytest.raises(HttpError):
+            await read_head(reader_of(b"HTTP/1.1 20 OK\r\n\r\n"))  # too few digits
+        with pytest.raises(HttpError):
+            await read_head(reader_of(b"HTTP/1.1 6000 X\r\n\r\n"))  # not a valid status class
+
+    run(scenario())
+
+
+def test_t1_request_line_with_space_in_target_still_rejected() -> None:
+    async def scenario() -> None:
+        with pytest.raises(HttpError):
+            await read_head(reader_of(b"GET /a b HTTP/1.1\r\n\r\n"))
+
+    run(scenario())
+
+
+def test_t1_read_head_round_trips_its_own_error_response() -> None:
+    async def scenario() -> None:
+        raw = error_response(500, "x")
+        head = await read_head(reader_of(raw))
+        assert head is not None
+        assert head.start_line == "HTTP/1.1 500 Internal Server Error"
+
+    run(scenario())
+
+
+def test_t2_encode_rejects_control_char_in_start_line() -> None:
+    head = Head("GET /a\nb HTTP/1.1")
+    with pytest.raises(HttpError):
+        head.encode()
+
+
+def test_t3_chunk_trailer_wraps_limit_overrun() -> None:
+    async def scenario() -> None:
+        head = await read_head(reader_of(b"POST / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n"))
+        assert head is not None
+        r = asyncio.StreamReader(limit=16)
+        r.feed_data(b"0\r\n" + b"X-Trailer: " + b"a" * 100 + b"\r\n\r\n")
+        r.feed_eof()
+        with pytest.raises(HttpError):
+            await read_body(r, head, 1000)
+
+    run(scenario())

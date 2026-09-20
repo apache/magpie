@@ -55,7 +55,7 @@ _CTL = frozenset(chr(c) for c in (*range(0x00, 0x20), 0x7F))
 
 _METHOD_RE = re.compile(r"[A-Z]+")
 _VERSION_RE = re.compile(r"HTTP/1\.[01]")
-_STATUS_RE = re.compile(r"[0-9]{3}")
+_STATUS_RE = re.compile(r"[1-5][0-9]{2}")
 _CONTENT_LENGTH_RE = re.compile(r"[0-9]{1,18}")
 _CHUNK_SIZE_RE = re.compile(rb"[0-9A-Fa-f]{1,8}")
 
@@ -89,23 +89,30 @@ def _validate_head_start_line(line: str) -> None:
     """Validate a request- or status-line the way the daemon would parse it.
 
     ``read_head`` parses both requests (sent to the daemon) and responses
-    (received back from it), so this accepts either shape: ``METHOD SP
-    target SP HTTP/1.x`` or ``HTTP/1.x SP status SP reason``. Exactly three
-    space-separated tokens, no control characters anywhere (this also
-    rejects a tab or an extra space that would otherwise silently shift
-    which token is which).
+    (received back from it), so this accepts either shape. The shape is
+    detected from the *first* token: if it looks like an HTTP version, this
+    is a status line (``HTTP/1.x SP status [SP reason]``), whose reason
+    phrase is free-form -- it may be empty or contain further spaces
+    (``404 Not Found``, `` 500 Internal Server Error``) -- so it is split
+    with ``maxsplit=2`` rather than demanding exactly three tokens. Anything
+    else is a request line (``METHOD SP target SP HTTP/1.x``), which keeps
+    the strict exactly-three-tokens rule: a request target legitimately
+    never contains an unencoded space, so a fourth token there is always a
+    smuggling shape, not a value the gateway should tolerate. Control
+    characters are rejected in either shape, over the whole line up front,
+    so a tab or bogus extra space cannot silently shift which token is
+    which.
     """
     _check_no_control_chars(line, "start line")
-    parts = line.split(" ")
-    if len(parts) != 3:
-        raise HttpError(f"bad start line: {line!r}")
-    if _VERSION_RE.fullmatch(parts[0]):
-        if not _STATUS_RE.fullmatch(parts[1]):
+    head_token = line.split(" ", 1)[0]
+    if _VERSION_RE.fullmatch(head_token):
+        parts = line.split(" ", 2)
+        if len(parts) < 2 or not _STATUS_RE.fullmatch(parts[1]):
             raise HttpError(f"bad status line: {line!r}")
         return
-    if _VERSION_RE.fullmatch(parts[2]) and _METHOD_RE.fullmatch(parts[0]):
-        return
-    raise HttpError(f"bad start line: {line!r}")
+    parts = line.split(" ")
+    if len(parts) != 3 or not _METHOD_RE.fullmatch(parts[0]) or not _VERSION_RE.fullmatch(parts[2]):
+        raise HttpError(f"bad start line: {line!r}")
 
 
 @dataclass
@@ -169,10 +176,12 @@ class Head:
             raise HttpError("Content-Length and Transfer-Encoding both present")
 
     def encode(self) -> bytes:
-        # Defence in depth: re-check headers even though `set()` and `read_head`
-        # already validate on the way in, so a `Head` built by appending to
-        # `.headers` directly (bypassing `set()`) still cannot smuggle a
-        # control character or a non-latin-1 value out onto the wire.
+        # Defence in depth: re-check the start line and headers even though
+        # `set()` and `read_head` already validate on the way in, so a `Head`
+        # built by setting `.start_line`/appending to `.headers` directly
+        # (bypassing both) still cannot smuggle a control character or a
+        # non-latin-1 value out onto the wire.
+        _check_no_control_chars(self.start_line, "start line")
         for k, v in self.headers:
             _check_header_name(k)
             _check_header_value(v)
@@ -271,8 +280,8 @@ async def _read_chunked(reader: asyncio.StreamReader, sink: asyncio.StreamWriter
             while True:
                 try:
                     line = await reader.readuntil(b"\r\n")
-                except asyncio.IncompleteReadError as exc:
-                    raise HttpError("truncated trailer") from exc
+                except (asyncio.IncompleteReadError, asyncio.LimitOverrunError) as exc:
+                    raise HttpError("bad chunk trailer") from exc
                 if sink is not None:
                     sink.write(line)
                 if line == b"\r\n":
@@ -350,6 +359,7 @@ async def pipe(
     log and close instead of silently swallowing it.
     """
     tasks = [asyncio.create_task(_copy(a_reader, b_writer)), asyncio.create_task(_copy(b_reader, a_writer))]
+    results: list[object] = []
     try:
         await asyncio.wait(tasks, return_when=asyncio.FIRST_EXCEPTION)
     finally:
