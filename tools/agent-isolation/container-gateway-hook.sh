@@ -22,12 +22,16 @@
 # socket to talk to. Runs outside the sandbox, like every hook. Never fails
 # the session: every exit is 0, and a missing gateway is silently a no-op.
 #
-#   start   SessionStart — python3 -m container_gateway serve --project <root> --daemon
-#   stop    SessionEnd   — python3 -m container_gateway stop  --project <root>
+#   start   SessionStart — python3 -m container_gateway serve --project=<root> --daemon
+#   stop    SessionEnd   — python3 -m container_gateway stop  --project=<root>
 #
-# Sources are looked up in order: $MAGPIE_CONTAINER_GATEWAY_SRC,
-# <root>/.apache-magpie/tools/container-gateway/src (snapshot adopters),
-# <root>/tools/container-gateway/src (the framework repo itself).
+# Trust model: the hook executes only code from locations the operator installed
+# or pinned, never from the repository being opened. This prevents a malicious repo
+# from shipping a gateway binary executed with the operator's privileges on
+# SessionStart. Sources are looked up in order: $MAGPIE_CONTAINER_GATEWAY_SRC
+# (development override), $HOME/.claude/scripts/container-gateway/src (operator
+# install), <root>/.apache-magpie/tools/container-gateway/src (pinned snapshot).
+#
 # Extra serve flags: $MAGPIE_CONTAINER_GATEWAY_ARGS (e.g. "--egress require").
 # MAGPIE_CONTAINER_GATEWAY_DRY_RUN=1 prints the command instead of running it.
 
@@ -47,8 +51,8 @@ root="$(cd "$root" 2>/dev/null && pwd -P)" || exit 0
 
 src=""
 for candidate in "${MAGPIE_CONTAINER_GATEWAY_SRC:-}" \
-                 "$root/.apache-magpie/tools/container-gateway/src" \
-                 "$root/tools/container-gateway/src"; do
+                 "$HOME/.claude/scripts/container-gateway/src" \
+                 "$root/.apache-magpie/tools/container-gateway/src"; do
     if [[ -n $candidate && -d $candidate/container_gateway ]]; then
         src="$candidate"
         break
@@ -59,9 +63,9 @@ done
 if [[ $action == start ]]; then
     # shellcheck disable=SC2206  # word-splitting the extra args is the point
     extra=(${MAGPIE_CONTAINER_GATEWAY_ARGS:-})
-    cmd=(python3 -m container_gateway serve --project "$root" --daemon "${extra[@]}")
+    cmd=(python3 -m container_gateway serve --project="$root" --daemon "${extra[@]}")
 else
-    cmd=(python3 -m container_gateway stop --project "$root")
+    cmd=(python3 -m container_gateway stop --project="$root")
 fi
 
 if [[ -n ${MAGPIE_CONTAINER_GATEWAY_DRY_RUN:-} ]]; then

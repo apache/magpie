@@ -40,21 +40,22 @@ def test_start_uses_snapshot_sources(tmp_path: Path) -> None:
     subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
     done = run("start", tmp_path)
     assert done.returncode == 0, done.stderr
-    assert done.stdout.strip() == f"PYTHONPATH={src.parent} python3 -m container_gateway serve --project {tmp_path} --daemon"
+    assert done.stdout.strip() == f"PYTHONPATH={src.parent} python3 -m container_gateway serve --project={tmp_path} --daemon"
 
 
 def test_start_prefers_env_override_and_appends_args(tmp_path: Path) -> None:
     alt = tmp_path / "alt-src"
     (alt / "container_gateway").mkdir(parents=True)
     done = run("start", tmp_path, {"MAGPIE_CONTAINER_GATEWAY_SRC": str(alt), "MAGPIE_CONTAINER_GATEWAY_ARGS": "--egress require"})
-    assert done.stdout.strip().endswith(f"serve --project {tmp_path.resolve()} --daemon --egress require")
+    assert done.stdout.strip().endswith(f"serve --project={tmp_path.resolve()} --daemon --egress require")
     assert f"PYTHONPATH={alt}" in done.stdout
 
 
 def test_stop_command(tmp_path: Path) -> None:
-    (tmp_path / "tools" / "container-gateway" / "src" / "container_gateway").mkdir(parents=True)
+    src = tmp_path / ".apache-magpie" / "tools" / "container-gateway" / "src" / "container_gateway"
+    src.mkdir(parents=True)
     done = run("stop", tmp_path)
-    assert done.stdout.strip().endswith(f"stop --project {tmp_path.resolve()}")
+    assert done.stdout.strip().endswith(f"stop --project={tmp_path.resolve()}")
 
 
 def test_no_sources_is_silent_success(tmp_path: Path) -> None:
@@ -62,11 +63,32 @@ def test_no_sources_is_silent_success(tmp_path: Path) -> None:
     assert done.returncode == 0 and done.stdout == ""
 
 
-def test_cwd_from_payload_wins_over_pwd(tmp_path: Path) -> None:
+def test_in_repo_sources_are_ignored(tmp_path: Path) -> None:
+    """In-repo sources are never trusted, even when present."""
+    (tmp_path / "tools" / "container-gateway" / "src" / "container_gateway").mkdir(parents=True)
+    done = run("start", tmp_path)
+    assert done.returncode == 0 and done.stdout == ""
+
+
+def test_user_scope_copy_is_preferred_over_snapshot(tmp_path: Path) -> None:
+    """Operator-installed copy in $HOME/.claude/scripts takes precedence over snapshot."""
+    tmp_path = tmp_path.resolve()
+    # Create both user-scope and snapshot copies
+    user_src = tmp_path / ".claude" / "scripts" / "container-gateway" / "src" / "container_gateway"
+    user_src.mkdir(parents=True)
+    snap_src = tmp_path / ".apache-magpie" / "tools" / "container-gateway" / "src" / "container_gateway"
+    snap_src.mkdir(parents=True)
+    # Use a fake HOME pointing to tmp_path/.claude/..
+    fake_home = tmp_path / ".fake-home"
+    fake_home.mkdir()
+    (fake_home / ".claude" / "scripts" / "container-gateway" / "src" / "container_gateway").mkdir(parents=True)
     proj = tmp_path / "proj"
-    (proj / "tools" / "container-gateway" / "src" / "container_gateway").mkdir(parents=True)
-    done = run("start", tmp_path, payload={"cwd": str(proj)})
-    assert f"--project {proj.resolve()}" in done.stdout
+    proj.mkdir()
+    subprocess.run(["git", "init", "-q", str(proj)], check=True)
+    done = run("start", proj, {"HOME": str(fake_home)})
+    assert done.returncode == 0, done.stderr
+    # Should use the user-scope path, not the snapshot
+    assert f"PYTHONPATH={fake_home}/.claude/scripts/container-gateway/src" in done.stdout
 
 
 def test_bad_action_exits_zero_with_message(tmp_path: Path) -> None:
