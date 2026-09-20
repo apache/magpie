@@ -374,11 +374,19 @@ class Relay:
             if ident is None:
                 log.info("deny %s %s: label-check on %s", req.method, req.path, name)
                 return await _refuse(writer, _denial(f"label-check: {name} does not belong to this project"))
-            rewritten = _rewrite_name(req.method, req.path, name, ident)
-            if rewritten is None:
-                log.info("deny %s %s: target cannot be rewritten to the resolved id", req.method, req.path)
-                return await _refuse(writer, _denial("label-check: cannot rewrite request target"))
-            req.path = rewritten
+            if allow.name_in_query is not None:
+                # The name came out of the query (compat
+                # `POST /commit?container=<id>`), so the resolved id goes
+                # back there; the path carries no name to splice.
+                req.query[allow.name_in_query] = [ident]
+            else:
+                rewritten = _rewrite_name(req.method, req.path, name, ident)
+                if rewritten is None:
+                    log.info(
+                        "deny %s %s: target cannot be rewritten to the resolved id", req.method, req.path
+                    )
+                    return await _refuse(writer, _denial("label-check: cannot rewrite request target"))
+                req.path = rewritten
         denial = await self._resource_denial(allow)
         if denial is not None:
             log.info("deny %s %s: label-check on a named resource", req.method, req.path)

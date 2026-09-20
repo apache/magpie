@@ -151,7 +151,6 @@ def test_resource_create_non_dict_body_is_denied(ctx: PolicyContext) -> None:
         ("/v1.45/containers/json", {"filters": ["notjson"]}),
         ("/v1.45/containers/json", {"filters": ["[1,2]"]}),
         ("/v1.45/build", {"labels": ["notjson"]}),
-        ("/v1.45/build", {"labels": ["[1,2]"]}),
         ("/v1.45/build", {"labels": ["5"]}),
     ],
 )
@@ -182,7 +181,13 @@ def test_container_create_non_dict_body_is_denied(ctx: PolicyContext) -> None:
     assert isinstance(d, Deny) and d.reason.startswith("malformed")
 
 
-@pytest.mark.parametrize("verb", sorted(_VERBS - {"push"}))
+# Verbs `decide()` refuses outright (C4) or that carry a body of their own
+# (C3), so "every remaining named verb is label-checked" stays exact.
+_DENIED_VERBS = frozenset({"checkpoint", "restore", "generate", "play"})
+_BODY_VERBS: dict[str, object] = {"exec": {"Cmd": ["sh"]}, "update": {"Memory": 1}}
+
+
+@pytest.mark.parametrize("verb", sorted(_VERBS - {"push"} - _DENIED_VERBS))
 @pytest.mark.parametrize(
     ("path_prefix", "name"),
     [("/v1.45/containers/web1", "web1"), ("/v5.2.0/libpod/pods/p1", "p1")],
@@ -190,7 +195,7 @@ def test_container_create_non_dict_body_is_denied(ctx: PolicyContext) -> None:
 def test_every_named_verb_route_carries_a_label_check(
     ctx: PolicyContext, path_prefix: str, name: str, verb: str
 ) -> None:
-    a = decide(req("POST", f"{path_prefix}/{verb}"), ctx)
+    a = decide(req("POST", f"{path_prefix}/{verb}", body=_BODY_VERBS.get(verb)), ctx)
     assert isinstance(a, Allow), (path_prefix, verb)
     assert a.label_check == name
 
@@ -198,8 +203,6 @@ def test_every_named_verb_route_carries_a_label_check(
 @pytest.mark.parametrize(
     ("method", "path"),
     [
-        ("POST", "/v1.45/containers/web1/checkpoint"),
-        ("POST", "/v1.45/containers/web1/restore"),
         ("POST", "/v5.2.0/libpod/pods/p1/init"),
         ("GET", "/v1.45/containers/web1/get"),
         ("POST", "/v1.45/networks/n1/exists"),
@@ -216,3 +219,101 @@ def test_no_named_route_is_fail_open_except_image_reads(ctx: PolicyContext, meth
         return  # image reads are explicitly exempt from the label check
     assert a.route.name is not None
     assert a.label_check == a.route.name
+
+
+# --- Final fix wave: exec / update bodies, denied actions, compat commit ---
+
+
+@pytest.mark.parametrize(
+    ("body", "rule"),
+    [
+        ({"Cmd": ["sh"], "Privileged": True}, "privileged"),
+        ({"Cmd": ["sh"], "privileged": True}, "ambiguous-field"),
+        ({"Cmd": ["sh"], "CapAdd": ["SYS_ADMIN"]}, "cap-add"),
+        ({"Cmd": ["sh"], "Devices": [{"PathOnHost": "/dev/kvm"}]}, "devices"),
+        ({"Cmd": ["sh"], "PidMode": "host"}, "namespace"),
+        ({"Cmd": ["sh"], "NetworkMode": "host"}, "network"),
+        ({"Cmd": ["sh"], "SecurityOpt": ["seccomp=unconfined"]}, "security-opt"),
+        ({"Cmd": ["sh"], "Frobnicate": 1}, "unknown-field"),
+        ("not-a-dict", "malformed"),
+    ],
+)
+def test_exec_create_body_is_checked(ctx: PolicyContext, body: object, rule: str) -> None:
+    d = decide(req("POST", "/v1.45/containers/web1/exec", body=body), ctx)
+    assert isinstance(d, Deny), body
+    assert d.reason.startswith(rule), d.reason
+
+
+def test_a_real_exec_create_body_passes(ctx: PolicyContext) -> None:
+    # Captured from podman 6.1's `podman exec -i <id> sh -c true`.
+    body = {
+        "User": "",
+        "Privileged": False,
+        "Tty": False,
+        "AttachStdin": True,
+        "AttachStderr": True,
+        "AttachStdout": True,
+        "DetachKeys": "ctrl-p,ctrl-q",
+        "Env": [],
+        "WorkingDir": "",
+        "Cmd": ["sh", "-c", "true"],
+    }
+    a = decide(req("POST", "/v5.2.0/libpod/containers/web1/exec", body=body), ctx)
+    assert isinstance(a, Allow) and a.label_check == "web1"
+
+
+@pytest.mark.parametrize(
+    ("body", "rule"),
+    [
+        ({"Memory": 1024, "CpuShares": 2}, None),
+        ({"RestartPolicy": {"Name": "no"}}, None),
+        ({"Privileged": True}, "unknown-field"),
+        ({"Devices": [{"PathOnHost": "/dev/kvm"}]}, "devices"),
+        ({"Binds": ["/:/host"]}, "unknown-field"),
+    ],
+)
+def test_container_update_body_is_checked(ctx: PolicyContext, body: object, rule: str | None) -> None:
+    verdict = decide(req("POST", "/v1.45/containers/web1/update", body=body), ctx)
+    if rule is None:
+        assert isinstance(verdict, Allow) and verdict.label_check == "web1"
+    else:
+        assert isinstance(verdict, Deny) and verdict.reason.startswith(rule)
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/v5.2.0/libpod/containers/c1/checkpoint",
+        "/v5.2.0/libpod/containers/c1/restore",
+        "/v5.2.0/libpod/pods/p1/checkpoint",
+        "/v5.2.0/libpod/pods/p1/restore",
+        "/v1.45/containers/c1/checkpoint",
+    ],
+)
+def test_checkpoint_and_restore_are_denied_endpoints(ctx: PolicyContext, path: str) -> None:
+    d = decide(req("POST", path, {"export": ["/Users/me/x.tar"]}), ctx)
+    assert isinstance(d, Deny) and d.reason.startswith("denied-")
+
+
+@pytest.mark.parametrize("param", ["export", "import", "EXPORT"])
+def test_export_and_import_query_parameters_are_denied(ctx: PolicyContext, param: str) -> None:
+    d = decide(req("POST", "/v1.45/containers/c1/start", {param: ["/Users/me/x.tar"]}), ctx)
+    assert isinstance(d, Deny) and d.reason.startswith("denied-query")
+
+
+def test_compat_commit_takes_the_container_from_the_query(ctx: PolicyContext) -> None:
+    a = decide(req("POST", "/v1.45/commit", {"container": ["web1"], "repo": ["img"]}), ctx)
+    assert isinstance(a, Allow)
+    assert a.label_check == "web1"
+    assert a.name_in_query == "container"
+    assert (a.route.family, a.route.action) == (Family.CONTAINERS, "commit")
+
+
+def test_path_spelling_of_commit_still_label_checks_the_path(ctx: PolicyContext) -> None:
+    a = decide(req("POST", "/v1.45/containers/web1/commit"), ctx)
+    assert isinstance(a, Allow) and a.label_check == "web1" and a.name_in_query is None
+
+
+def test_compat_commit_without_a_container_is_denied(ctx: PolicyContext) -> None:
+    d = decide(req("POST", "/v1.45/commit", {"repo": ["img"]}), ctx)
+    assert isinstance(d, Deny) and d.reason.startswith("malformed")

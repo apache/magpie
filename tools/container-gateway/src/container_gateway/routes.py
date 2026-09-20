@@ -139,6 +139,12 @@ def route(method: str, path: str) -> Route:
         return Route(Family.DENIED, head if head != "system" else rest[0], None, libpod, version)
     if head == "build":
         return Route(Family.BUILD, "build", None, libpod, version)
+    if head == "commit" and not rest:
+        # The compat spelling of commit: `POST /commit?container=<id>`,
+        # with the container in the query rather than the path. It is the
+        # same act-by-name call as `/containers/<id>/commit`; `decide()`
+        # reads the name out of the query and label-checks it there.
+        return Route(Family.CONTAINERS, "commit", None, libpod, version)
     if head == "exec" and rest:
         exec_verb = rest[-1] if len(rest) > 1 else ""
         action = {"start": "exec_start", "json": "exec_inspect", "resize": "exec_resize"}.get(
@@ -178,7 +184,6 @@ def route(method: str, path: str) -> Route:
     elif verb == "push":
         return Route(Family.DENIED, "push", name, libpod, version)
     else:
-        assert verb is not None
         action = verb
     return Route(family, action, name, libpod, version)
 
