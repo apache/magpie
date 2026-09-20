@@ -68,7 +68,7 @@ the rest.
 | [`release-trains.md`](release-trains.md) | Active release branches, release-manager attribution per cut, rotation rosters, security-team roster. |
 | [`milestones.md`](milestones.md) | Milestone naming conventions + create-and-assign recipe. |
 | [`release-management-config.md`](release-management-config.md) | Vote window and pass rule, distribution backend and paths, announce/vote list addresses, retention rule. Read by every `release-*` skill. |
-| [`release-build.md`](release-build.md) | How this project builds and signs artefacts: reproducible source-archive recipe (`git archive` + `.gitattributes`), build command, artefact names, checksum algorithm, optional reproducibility checks for source and binaries. |
+| [`release-build.md`](release-build.md) | How this project builds and signs artefacts: reproducible source-archive recipe (`git archive` + `.gitattributes`), build command, the project's optional convenience artefacts (each with its own build, staging, reproducibility mode, vote scope and publish channel), artefact names, checksum algorithm, optional reproducibility checks. |
 | [`pmc-roster.md`](pmc-roster.md) | Who is binding. Read wherever a vote is counted or a PMC-only action is gated. |
 
 ### Scope + product mapping

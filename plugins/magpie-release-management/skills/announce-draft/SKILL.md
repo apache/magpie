@@ -434,6 +434,9 @@ Release notes / changelog for <version>:
 Keys used to sign the release artifacts:
   <keys_url>
 
+Convenience artefacts, built from the released source, are also available:  ← include only when release-build.md § Convenience artefacts declares any that release-promote published
+  <artefact.kind>: <publish_channel location, e.g. https://pypi.org/project/<name>/<version>/>
+
 Questions, feedback, and contributions are welcome on the
 <dev-list>. General user support is available on <users-list>.
 

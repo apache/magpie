@@ -1,0 +1,19 @@
+{
+  "step": "reproducibility",
+  "status": "FAIL",
+  "mandatory": false,
+  "source": {
+    "enabled": true,
+    "verdict": "identical",
+    "recorded_commit": "9988776655443322110000ffeeddccbbaa998877",
+    "source_date_epoch": 1758412800,
+    "content_differences": []
+  },
+  "binaries": {
+    "mode": "byte-identical",
+    "identical": ["apache-foo-4.1.0-bin.tar.gz"],
+    "differs": ["registry.example.org/apache/foo:4.1.0-rc2"],
+    "known_divergences_hit": []
+  },
+  "trusted_hardware_asserted": false
+}

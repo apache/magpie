@@ -16,9 +16,9 @@ Behavioural eval suite for the
 | `step-5-notice-license` | Step 5 — NOTICE/LICENSE presence | 2 | File presence (PASS/WARN/FAIL), diff-lines count, diff summary |
 | `step-6-binary-exclusion` | Step 6 — Binary exclusion check | 2 | Prohibited-binary detection (PASS/FAIL), expected-binary classification |
 | `step-8-version-consistency` | Step 8 — Version string consistency | 2 | Exact version match across manifest files (PASS/FAIL) |
-| `step-9-reproducibility` | Step 9 — Reproducibility checks | 4 | `repro-archive compare` verdict → status (`identical` PASS, `differs` FAIL, `content-identical` WARN in RM-key mode / FAIL under automated signing), `mandatory` under `automated_release_signing: enabled` with `--skip-repro` ignored, `trusted_hardware_asserted` mirrors the flag |
+| `step-9-reproducibility` | Step 9 — Reproducibility checks | 5 | `repro-archive compare` verdict → status (`identical` PASS, `differs` FAIL, `content-identical` WARN in RM-key mode / FAIL under automated signing), `mandatory` under `automated_release_signing: enabled` with `--skip-repro` ignored, `trusted_hardware_asserted` mirrors the flag, a project-specific convenience artefact whose rebuild differs (source identical, artefact `FAIL`, named in `binaries.differs`) |
 
-Total: **17 cases** across 7 step suites.
+Total: **18 cases** across 7 step suites.
 
 ## Run
 
@@ -70,4 +70,8 @@ semantically (see each suite's `grading-schema.json`).
   report says `automated_release_signing: enabled`; `mandatory` is
   `true` only in that mode and `--skip-repro` is then ignored;
   `trusted_hardware_asserted` is `true` only when the report says the
-  committer passed `--trusted-hardware` (case-4), never inferred.
+  committer passed `--trusted-hardware` (case-4), never inferred. A
+  convenience artefact that does not reproduce (case-5) is `"FAIL"`
+  and is named in `binaries.differs` even when the source is
+  `identical` — reproducibility is the check that decides whether a
+  binary is good, and `release-promote` reads that list.

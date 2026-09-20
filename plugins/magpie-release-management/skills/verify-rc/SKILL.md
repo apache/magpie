@@ -656,32 +656,30 @@ tarball was not exported clean from the tag.
 
 ## Step 7 — Source-tree integrity (dangling symlinks + broken references)
 
-The rc1 `-1` came from this class of defect, not from signatures or
-RAT: committed agent-view symlinks (`.claude/skills/*`, `.kiro/skills/*`,
-`.github/skills/*`) relayed into a directory (`.agents/`) that the
-release stripped, so **every relay dangled**; and shipped files linked
-to other stripped paths (`.github/` templates, `projects/_template/.gitignore`,
-`.claude/skills/magpie-*/SKILL.md`), so the framework's own validators
-failed. This step runs the same checks the framework applies to its own
-tree, but **against the unpacked tarball**, so a packaging regression
-(an `export-ignore` that strips a still-referenced path) fails the RC
-before the `[VOTE]` rather than during it.
+A source archive can be signed, checksummed and licence-clean and
+still be broken: a committed symlink whose target was stripped by
+`export-ignore`, or a shipped file that links to a path the release
+no longer contains. The framework's own first RC failed on exactly
+this (relay symlinks into a stripped directory, docs linking stripped
+templates), so this step runs the project's own integrity checks
+**against the unpacked archive**, where a packaging regression fails
+the RC before the `[VOTE]` rather than during it.
 
-Emit the paste-ready recipe (run from the unpacked dir; adapt tool
-paths to the project — for Magpie the tools ship in-tree under
-`tools/`):
+Read `source_tree_validators` from
+`<project-config>/release-build.md § Source-tree validators` — the
+project's own commands, run from the unpacked directory (the adopter
+chooses them; the framework does not assume any). Emit:
 
 ```bash
 cd <unpacked-dir>
 
-# 1. Dangling symlinks — every symlink must resolve inside the tarball.
+# 1. Dangling symlinks — every symlink must resolve inside the archive.
 find . -type l ! -exec test -e {} \; -print        # any output = FAIL
 
-# 2. Internal reference / link integrity — run the project's own
-#    validators against the unpacked source (Magpie ships these):
-uv run --project tools/symlink-lint symlink-lint .
-uv run --project tools/skill-and-tool-validator skill-and-tool-validate
-uv run --project tools/spec-validator spec-validate   # if the project ships specs
+# 2. Internal reference / link integrity — the project's own validators
+#    from release-build.md § Source-tree validators, one per line:
+<source_tree_validators[0]>
+<source_tree_validators[1]>
 ```
 
 Classify:
@@ -691,8 +689,9 @@ Classify:
   internal link / missing referenced file. This is a hard `FAIL`:
   a release whose own files reference content that was stripped from
   the artefact is incomplete.
-- `SKIP` — the project ships no symlinks and no in-tree validators
-  (state this explicitly; do not silently pass).
+- `SKIP` — the project ships no symlinks and declares no validators
+  (state this explicitly; do not silently pass — the dangling-symlink
+  scan still runs whenever the archive contains a symlink).
 
 Do **not** post-filter the `find`; surface every dangling link so the
 voter sees the full set. When a validator is not shippable in the
@@ -809,21 +808,40 @@ Classify the source result:
 | tag commit ≠ recorded commit | `FAIL` — the tag moved | `FAIL` |
 | `check` reports a rule `FAIL` | `WARN`, listed | `FAIL` |
 
-**Binaries.** `byte-identical`: rebuild under the recorded
-`SOURCE_DATE_EPOCH` with `binary_rebuild_command` and compare each
-artefact with `cmp`; any difference is `FAIL`. `documented-divergence`:
-rebuild, run `binary_verification_command` per artefact, and classify
-differences listed under `known_divergences` as `WARN` (listed) and any
-other difference as `FAIL`. `off`: `SKIP`, stated explicitly.
+**Convenience artefacts.** Read `convenience_artefacts` from
+`release-build.md § Convenience artefacts` (project-specific; an empty
+list means `SKIP`, stated explicitly). For a voter this is the check
+that decides whether a convenience artefact is *good*: a binary cannot
+be reviewed, so the only way to establish that it is what the voted
+source produces is to rebuild it from the tag and compare. Per
+artefact, using its own `reproducibility` mode (default
+`reproducibility_binaries`):
+
+- `byte-identical` — rebuild with the entry's `build_command` under
+  the recorded `SOURCE_DATE_EPOCH`, compare with `cmp`; any difference
+  is `FAIL`.
+- `documented-divergence` — rebuild, run the entry's
+  `verification_command` (for example `diffoscope`); differences that
+  match its `known_divergences` are `WARN` and listed, any other
+  difference is `FAIL`.
+- `off` — `SKIP` for that artefact, stated explicitly with the note
+  that it is being published on trust.
 
 ```bash
 export SOURCE_DATE_EPOCH="<recorded SOURCE_DATE_EPOCH>"
 git -C <upstream-clone> checkout "<rc-tag>"
-( cd <upstream-clone> && <binary_rebuild_command> )
-for a in <binary-artefact-1> <binary-artefact-2>; do
-  cmp "<staged-dir>/$a" "<upstream-clone>/<build-output>/$a" && echo "identical: $a" || echo "DIFFERS: $a"
-done
+# one block per convenience artefact, its build_command verbatim:
+( cd <upstream-clone> && <artefact.build_command> )
+cmp "<staged-dir>/<artefact.name>" "<upstream-clone>/<build-output>/<artefact.name>" \
+  && echo "identical: <artefact.name>" || echo "DIFFERS: <artefact.name>"
+# documented-divergence entries instead:
+<artefact.verification_command> "<staged-dir>/<artefact.name>" "<upstream-clone>/<build-output>/<artefact.name>"
 ```
+
+Container images and other registry-staged kinds (`staging:
+registry-staging`) are pulled by digest from the staging registry and
+compared the same way against the local rebuild; say which digest was
+pulled.
 
 Do not post-filter any output; the voter sees every difference. Never
 report a verdict the commands did not produce.
@@ -860,6 +878,10 @@ occurred, `"SKIP"` when nothing was enabled or `--skip-repro` applied,
 else `"PASS"`. `mandatory` is `true` only under
 `automated_release_signing: enabled`. `trusted_hardware_asserted`
 mirrors `--trusted-hardware`; the skill never sets it on its own.
+`binaries.mode` is the mode applied (when entries differ, the
+strictest one in use); `binaries.differs` names every convenience
+artefact that did not reproduce — `release-promote` reads this list
+and withholds the publish command for each of them.
 
 ---
 
@@ -992,7 +1014,8 @@ the RM has not yet confirmed posting.
 | Step 9 WARN — `content-identical` | RM built with a plain `git archive` or a different tool version instead of `repro-archive build` | Accept for this RC in RM-key mode; RM switches to `repro-archive build` for the next one. Under automated signing this is `FAIL` |
 | Step 9 FAIL — `differs` | Artefact built from a dirty checkout, a different ref, or a non-deterministic `custom` build | `-1`; RM rebuilds at the tag from a clean checkout (`release-rc-cut` Step 2b catches this before signing) |
 | Step 9 FAIL — tag moved | `<rc-tag>` no longer points at the commit recorded on the planning issue | `-1`; the RM explains and cuts a new RC number — never re-point an RC tag |
-| Step 9 FAIL — binary `DIFFERS` | Build embeds timestamps, host paths or an unpinned toolchain | RM honours `SOURCE_DATE_EPOCH`, pins the toolchain (`ARFLAGS=Dcvr`, `ranlib -D`), or documents the divergence under `known_divergences` |
+| Step 9 FAIL — convenience artefact `DIFFERS` | The artefact is not what the voted source produces: the build embeds timestamps, host paths or an unpinned toolchain, or was built from a different tree | The artefact is not good to publish. RM honours `SOURCE_DATE_EPOCH`, pins the toolchain (`ARFLAGS=Dcvr`, `ranlib -D`), or documents the divergence under the entry's `known_divergences`; `release-promote` withholds its publish command until a verify-rc run reproduces it |
+| Step 7 SKIP — no validators declared | `release-build.md § Source-tree validators` is empty | Fine for a project with no in-tree link or symlink checks; declare the project's own validators if it has them |
 | Step 9 SKIP but `automated_release_signing: enabled` | Misconfiguration — the check cannot be skipped in that mode | Re-run without `--skip-repro`; the report refuses to carry an attestation |
 
 ---

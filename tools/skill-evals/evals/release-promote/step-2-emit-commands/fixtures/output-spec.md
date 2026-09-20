@@ -14,11 +14,20 @@ The model must return ONLY valid JSON matching this schema:
   "rm_is_pmc": true | false,
   "handoff_note": "<hand-off prose when rm_is_pmc is false, else null>",
   "proposed_label": "promoted",
-  "mirror_note_present": true
+  "mirror_note_present": true,
+  "convenience_publish_commands": ["<artefact.name>: <publish_command or 'promoted with the source'>"],
+  "convenience_held": ["<artefact.name>: <differs | not checked>"]
 }
 ```
 
 Grading rules:
+- `convenience_publish_commands` lists, for every declared convenience
+  artefact that the recorded `release-verify-rc` run reproduced, the
+  entry's own `publish_command` verbatim (or "promoted with the source"
+  for `publish_channel: dist-release`); `convenience_held` lists every
+  artefact whose rebuild reported `differs` or was not checked, and no
+  publish command for it may appear anywhere. Both are empty for a
+  source-only project.
 - `staging_url` must contain the RC-suffixed staging location.
 - `target_url` must NOT contain the RC suffix and must contain `dist/release/`
   for `svnpubsub`, or the backend-appropriate release location.

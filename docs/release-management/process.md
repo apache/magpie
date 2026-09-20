@@ -245,13 +245,19 @@ The skill emits a paste-ready command sequence:
    honoured) with every
    [reproducible-builds.org archive rule](https://reproducible-builds.org/docs/archives/)
    applied, so a voter rebuilding from the tag gets byte-identical
-   bytes. Convenience binaries follow from the project-specific
-   `build_command` under the tag's `SOURCE_DATE_EPOCH`
-   (`<project-config>/release-build.md`).
+   bytes. **Convenience artefacts** — whatever the project ships
+   besides the source (binary tarball, wheels, jars, a container
+   image, a chart) — are project-specific by nature and are declared
+   one by one in
+   [`<project-config>/release-build.md` § Convenience artefacts](../../projects/_template/release-build.md);
+   each entry's own `build_command` follows, under the same
+   `SOURCE_DATE_EPOCH`. A source-only project declares none.
 3. *Optional* reproducibility self-check (`release-build.md
    § Reproducibility checks`): lint the archive, rebuild it, compare;
-   rebuild binaries and compare. A `differs` stops the cut before
-   anything is signed.
+   rebuild every convenience artefact and compare. A `differs` stops
+   the cut before anything is signed — a convenience artefact that
+   cannot be rebuilt from the tag is not known to be what the source
+   produces.
 4. `gpg --detach-sign --armor <artefact>` for each artefact.
 5. `sha512sum <artefact> > <artefact>.sha512` for each artefact.
 
@@ -336,9 +342,13 @@ Read-only. The skill fetches the staged artefacts from
   rebuilt from the tag with `repro-archive build` at the recorded
   `SOURCE_DATE_EPOCH` and compared with the staged one —
   `identical`, `content-identical` (only archive metadata differs) or
-  `differs` (not the tagged tree, a `-1`); convenience binaries are
-  rebuilt and compared byte-for-byte, or against the project's
-  documented divergences. See [`reproducibility.md`](reproducibility.md).
+  `differs` (not the tagged tree, a `-1`); every convenience artefact
+  is rebuilt and compared byte-for-byte, or against the project's
+  documented divergences. For a convenience artefact this is the
+  check that decides whether it is *good*: a binary cannot be
+  reviewed, only rebuilt, and one that does not reproduce from the
+  voted source is withheld from publication in Step 10. See
+  [`reproducibility.md`](reproducibility.md).
 
 The skill emits a pass/fail report to the planning issue. A failure
 does not auto-flip any label; the RM decides whether to roll a new
@@ -426,6 +436,17 @@ commit` under their own ASF credentials.
 
 This is **the moment of release**. The skill writes nothing and
 runs nothing; the human commit is the act.
+
+When the project declares **convenience artefacts**
+([`release-build.md` § Convenience artefacts](../../projects/_template/release-build.md)),
+the skill follows the source promotion with each artefact's own
+`publish_command` to its declared channel (PyPI, Maven Central, a
+container registry, a chart repository, …) — project-specific
+commands the config supplies, never invented. It emits a publish
+command only for an artefact that `release-verify-rc` reproduced from
+the voted tag (`identical`, or documented divergence only); an
+artefact that did not reproduce gets a HOLD note instead. The source
+promotion is never held back by a convenience artefact.
 
 🪶 ASF-specific: under `automated_release_signing: enabled` the skill
 additionally requires the planning issue to carry a `release-verify-rc`

@@ -1,0 +1,15 @@
+{
+  "staging_url": "https://dist.apache.org/repos/dist/dev/foo/4.1.0-rc2/",
+  "target_url": "https://dist.apache.org/repos/dist/release/foo/4.1.0/",
+  "dist_backend": "svnpubsub",
+  "rm_is_pmc": true,
+  "handoff_note": null,
+  "proposed_label": "promoted",
+  "mirror_note_present": true,
+  "has_svn_mv_command": true,
+  "has_no_direct_dist_release_write": true,
+  "has_wheel_publish_command": true,
+  "has_image_held": true,
+  "has_no_publish_for_held_artefact": true,
+  "has_no_auto_run": true
+}

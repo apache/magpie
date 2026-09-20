@@ -401,6 +401,8 @@ Read the following from the planning issue and
 | `rc_commit_sha` | git / planning issue body | commit the `<version>-rc<N>` tag points to; the final `<version>` tag is cut on this SAME commit (no rebuild). `git rev-list -n1 <version>-rc<N>` |
 | `rm_gpg_fingerprint` | RM `user.md` | `release_manager.gpg_fingerprint`; the release key the final `<version>` tag is signed with |
 | `git_upstream_remote` | `release-management-config.md` | `git_upstream_remote`; the remote the final `<version>` tag is pushed to |
+| `convenience_artefacts` | `release-build.md § Convenience artefacts` | the project's optional, project-specific artefacts with their `publish_channel` / `publish_command`; empty for a source-only project |
+| `verify_rc_binaries` | planning issue body | the `release-verify-rc` Step 9 result for this RC: which convenience artefacts reproduced (`identical` / documented `WARN`) and which `differs` |
 
 Surface the loaded metadata to the RM for a brief sanity check before
 proceeding to Step 2.
@@ -497,6 +499,44 @@ stop.
 
 ---
 
+### Convenience artefacts (optional, project-specific)
+
+Only when `convenience_artefacts` is non-empty. The source promotion
+above is the release; this block publishes what the project ships
+*besides* the source, to wherever the project declared. Emit it
+**after** the dist promotion and the final tag, as its own section,
+one entry per artefact:
+
+- `publish_channel: dist-release` — nothing to emit: the artefact
+  moved with the source in the promotion above; say so.
+- any other channel — render the entry's `publish_command` verbatim,
+  with `<version>` substituted (for example `twine upload
+  dist/apache_<project>-<version>*`, `mvn nexus-staging:release
+  -DstagingRepositoryId=<id>`, `docker push
+  <registry>/<image>:<version>`, `helm push …`). These are the
+  project's own commands; the skill never invents a channel or a
+  command the config does not declare.
+
+**Reproducibility gate — the artefact must be good before it is
+published.** A convenience artefact is publishable only if the
+`release-verify-rc` run recorded on the planning issue rebuilt it from
+the voted tag and it reproduced: `identical`, or `WARN` with every
+difference matched by its `known_divergences`. For an artefact that
+reported `DIFFERS`, or that no verify-rc run covered, emit a **HOLD**
+note in place of its publish command:
+
+```text
+HOLD: <artefact.name> — not published. release-verify-rc Step 9 did not
+reproduce it from <version>-rc<N> (<differs | not checked>). A binary that
+cannot be rebuilt from the voted source is not known to be what the vote
+approved. Fix the build or document the divergence in release-build.md,
+re-run `release-verify-rc <version>-rc<N>`, then re-run this skill.
+```
+
+The source promotion is not held back by a convenience artefact; the
+source is the release, the artefact is a courtesy, and a courtesy that
+cannot be verified is withheld, not shipped.
+
 ### Mirror note (required for all backends)
 
 After the backend command block, always include:
@@ -527,13 +567,17 @@ Return ONLY valid JSON with this structure:
   "rm_is_pmc": true | false,
   "handoff_note": "<hand-off prose when rm_is_pmc is false, else null>",
   "proposed_label": "promoted",
-  "mirror_note_present": true
+  "mirror_note_present": true,
+  "convenience_publish_commands": ["<artefact.name>: <publish_command or 'promoted with the source'>"],
+  "convenience_held": ["<artefact.name>: <differs | not checked>"]
 }
 ```
 
 `handoff_note` is non-null only when `rm_is_pmc = false`; the command block
 is still populated (a PMC member can copy and run it). `mirror_note_present`
 is always `true` — the mirror and timing note is never omitted.
+`convenience_publish_commands` and `convenience_held` are both empty for a
+source-only project; every declared artefact appears in exactly one of them.
 
 ---
 

@@ -8,6 +8,8 @@
 - [Apache Magpie: release build configuration](#apache-magpie-release-build-configuration)
   - [Source archive](#source-archive)
   - [Build invocation](#build-invocation)
+  - [Convenience artefacts](#convenience-artefacts)
+  - [Source-tree validators](#source-tree-validators)
   - [Expected artefact list](#expected-artefact-list)
   - [Digest set](#digest-set)
   - [Reproducibility checks](#reproducibility-checks)
@@ -67,8 +69,30 @@ extend the `export-ignore` set if RAT flags anything on the first RC.
 
 ## Build invocation
 
-None. Magpie ships no convenience binaries, so the source archive above
-is the whole build.
+None. The source archive above is the whole build.
+
+## Convenience artefacts
+
+```yaml
+convenience_artefacts: []
+```
+
+Magpie ships no convenience artefacts; the skills state that instead of
+emitting build, stage or publish commands for any.
+
+## Source-tree validators
+
+The checks the framework applies to its own tree, run by
+`release-verify-rc` Step 7 against the unpacked archive so an
+`export-ignore` that strips a still-referenced path fails the RC before
+the vote (the `0.1.0-rc1` `-1` was exactly that):
+
+```yaml
+source_tree_validators:
+  - "uv run --project tools/symlink-lint symlink-lint ."
+  - "uv run --project tools/skill-and-tool-validator skill-and-tool-validate"
+  - "uv run --project tools/spec-validator spec-validate"
+```
 
 ## Expected artefact list
 
@@ -89,7 +113,7 @@ and are never emitted.
 | Key | Value |
 |---|---|
 | `reproducibility_source` | `on` — `release-verify-rc` Step 9 rebuilds with `repro-archive build` at the tag and `repro-archive compare`s against the staged `.zip`; anything but `identical` is a `-1` |
-| `reproducibility_binaries` | `off` — no binaries |
+| `reproducibility_binaries` | `off` — no convenience artefacts |
 
 Automated (CI) release signing is not enabled for Magpie
 (`automated_release_signing: off` in

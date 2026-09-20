@@ -13,7 +13,7 @@
   - [The archive rules from reproducible-builds.org](#the-archive-rules-from-reproducible-buildsorg)
   - [Reproducibility checks](#reproducibility-checks)
     - [Source (`reproducibility_source`)](#source-reproducibility_source)
-    - [Binaries (`reproducibility_binaries`)](#binaries-reproducibility_binaries)
+    - [Convenience artefacts (`reproducibility_binaries`, per-artefact `reproducibility`)](#convenience-artefacts-reproducibility_binaries-per-artefact-reproducibility)
     - [Where the checks run](#where-the-checks-run)
   - [Automated release signing (🪶 ASF-specific, optional)](#automated-release-signing--asf-specific-optional)
     - [What the policy requires](#what-the-policy-requires)
@@ -157,16 +157,26 @@ They become **mandatory** under automated release signing (below).
 
 `repro-archive check --epoch <SOURCE_DATE_EPOCH>` on the staged artefact runs alongside and reports any rule the staged archive violates.
 
-### Binaries (`reproducibility_binaries`)
+### Convenience artefacts (`reproducibility_binaries`, per-artefact `reproducibility`)
 
-| Mode | What runs | Outcome |
+What a project ships besides the source — a binary tarball, wheels, jars, a container image, a Helm chart — is **project-specific by nature**, so the framework does not assume any.
+Each one is declared in `release-build.md § Convenience artefacts` with its own build command, staging target, reproducibility mode, vote scope and publish channel, and every `release-*` skill reads that list: `release-rc-cut` builds and stages them, `release-verify-rc` rebuilds and compares them, `release-vote-draft` lists them, `release-promote` publishes them.
+A source-only project leaves the list empty and the skills say so.
+
+**Reproducibility is what makes a convenience artefact "good".**
+The source is the release, and a voter can read it; a binary cannot be read, only rebuilt.
+The single check that establishes that a convenience artefact is what the voted source produces is to rebuild it from the tag, under the same `SOURCE_DATE_EPOCH`, and compare.
+An artefact that reproduces bit-for-bit is known-good; one whose every difference is written down and explained is acceptably good; one that cannot be reproduced either way is of unknown provenance, whatever the vote said about the source, and `release-promote` withholds its publish command until a `release-verify-rc` run reproduces it.
+
+| Mode (per artefact; default `reproducibility_binaries`) | What runs | Outcome |
 |---|---|---|
-| `off` | nothing | `SKIP`, stated explicitly in the report |
-| `byte-identical` | `export SOURCE_DATE_EPOCH=…` then `binary_rebuild_command` at the tag; `sha512sum` of each rebuilt binary against the staged `.sha512` | any mismatch is `FAIL` |
-| `documented-divergence` | the rebuild, then `binary_verification_command` (for example [`diffoscope`](https://diffoscope.org/)) against the staged binary | differences that match `known_divergences` are `WARN` and listed; anything else is `FAIL` |
+| `off` | nothing | `SKIP`, stated explicitly in the report, with the note that the artefact is published on trust |
+| `byte-identical` | `export SOURCE_DATE_EPOCH=…` then the entry's `build_command` at the tag; the rebuilt artefact compared byte-for-byte with the staged one | any mismatch is `FAIL` and the artefact is held back from publication |
+| `documented-divergence` | the rebuild, then the entry's `verification_command` (for example [`diffoscope`](https://diffoscope.org/)) against the staged artefact | differences that match the entry's `known_divergences` are `WARN` and listed; anything else is `FAIL` |
 
 `documented-divergence` is the honest mode for toolchains that cannot yet produce identical bytes (a JIT-compiled bundle, a signed installer, a platform that embeds the build host).
 The known divergences are part of the release documentation, which is exactly what `PRINCIPLES.md § 11` asks for.
+Typical levers for getting to `byte-identical`: honour `SOURCE_DATE_EPOCH` (most build tools do), pin the toolchain, `ARFLAGS=Dcvr` / `ranlib -D` for static libraries, `gzip -n`, sorted inputs, and no absolute build paths.
 
 ### Where the checks run
 

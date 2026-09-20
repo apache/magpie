@@ -133,9 +133,20 @@ code lands.
 - **Reproducibility checks are optional, and mandatory under automated
   signing.** `release-build.md § Reproducibility checks` enables the
   source rebuild-and-compare (`identical` / `content-identical` /
-  `differs`) and the binary rebuild (`byte-identical` or
+  `differs`) and the per-artefact convenience rebuild (`byte-identical` or
   `documented-divergence`) in `release-rc-cut` Step 2b and
   `release-verify-rc` Step 9.
+- **Convenience artefacts are project-specific and config-declared.** The
+  framework assumes none; `release-build.md § Convenience artefacts` lists
+  each one with its own `build_command`, `staging` / `stage_command`,
+  `reproducibility` mode, `vote_included` flag and `publish_channel` /
+  `publish_command`. `release-rc-cut` builds and stages them under the
+  tag's `SOURCE_DATE_EPOCH`, `release-verify-rc` rebuilds and compares
+  them (the check that decides whether a binary is good, since it cannot
+  be reviewed), `release-vote-draft` lists them, `release-promote`
+  publishes only those that reproduced and emits a HOLD for the rest, and
+  `release-announce-draft` names their channels. `release-verify-rc` Step 7
+  runs the project's own `source_tree_validators`, none assumed.
 - **🪶 ASF-specific automated release signing.** Offered only under
   `organization: ASF` (`release_process.automated_signing` in the ASF
   organization manifest; `null` elsewhere). `release-prepare

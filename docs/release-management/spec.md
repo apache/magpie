@@ -374,7 +374,13 @@ own ASF credentials.
 **Adopter knobs.** Inherits `<project-config>/release-build.md`
 verbatim, see the
 [`projects/_template/release-build.md`](../../projects/_template/release-build.md)
-scaffold.
+scaffold. Convenience artefacts — anything the project ships besides
+the source — are project-specific by nature and are declared one by
+one under `§ Convenience artefacts` (`build_command`, `staging` /
+`stage_command`, `reproducibility`, `vote_included`,
+`publish_channel` / `publish_command`); the skill emits each entry's
+own build and staging commands under the tag's `SOURCE_DATE_EPOCH`
+and never assumes an artefact the config does not declare.
 
 ### `release-verify-rc`
 
@@ -434,8 +440,17 @@ posting.
 - A binary appears that the binary-exclude list neither permits
   nor names, the skill reports `FAIL` and points at the file;
   the RM decides whether to exclude or pull the binary.
+- A convenience artefact does not reproduce from the voted tag
+  (`DIFFERS`, or differences outside its documented set), the skill
+  reports `FAIL` for that artefact and names it in
+  `binaries.differs`; `release-promote` withholds its publication.
+  Reproducibility is the check that decides whether a convenience
+  artefact is good, since a binary cannot be reviewed, only rebuilt.
 
-**Adopter knobs.** Inherits `<project-config>/release-build.md`.
+**Adopter knobs.** Inherits `<project-config>/release-build.md`,
+including `§ Convenience artefacts` (per-artefact `build_command`
+and `reproducibility` mode) and `§ Source-tree validators` (the
+project's own integrity checks Step 7 runs; none are assumed).
 
 ### `release-vote-draft`
 
@@ -602,6 +617,13 @@ For `self-hosted`: the promote half of `release_publish_command_template`.
 
 - A markdown block with the `svn` command sequence (`svn mv`,
   `svn commit -m`, expected mirror-propagation note).
+- When `<project-config>/release-build.md § Convenience artefacts`
+  declares any: a second block with each artefact's own
+  `publish_command` to its declared channel (project-specific; PyPI,
+  Maven Central, a container registry, …), emitted only for artefacts
+  the recorded `release-verify-rc` run reproduced from the voted tag;
+  a `HOLD` note for any that did not. The source promotion is never
+  held back by a convenience artefact.
 - A proposed next label: `promoted`.
 
 The mirror-propagation note also records the earliest time the

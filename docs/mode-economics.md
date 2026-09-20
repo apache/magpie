@@ -92,7 +92,7 @@ special-token spellings counted as ordinary text.
 Coverage: **75 of 75 local `skills/*/SKILL.md` files**.
 External `source.md` redirects and harness symlinks are excluded.
 
-Measurement manifest SHA-256: `b9d7fe65a1a0958f527f883b18a8c01f5d9f6f5da92e5baae7ea4d46cf65eb8e`.
+Measurement manifest SHA-256: `b69ce323564a27ad20b2e76ae655400637054b58e2cb27f1a960629f9808d735`.
 
 | Skill file | Measured tokens | Source SHA-256 (first 16 characters) |
 |---|---:|---|
@@ -131,15 +131,15 @@ Measurement manifest SHA-256: `b9d7fe65a1a0958f527f883b18a8c01f5d9f6f5da92e5baae
 | [pr-management-triage](../skills/pr-management-triage/SKILL.md) | 12,685 | `bdd0cae06e589165` |
 | [pr-stale-sweep](../skills/pr-stale-sweep/SKILL.md) | 7,804 | `c63539a5c0662d52` |
 | [pre-first-pr-check](../skills/pre-first-pr-check/SKILL.md) | 4,525 | `1a901a80838e83b0` |
-| [release-announce-draft](../skills/release-announce-draft/SKILL.md) | 6,991 | `7fd2b0720eaae5ca` |
+| [release-announce-draft](../skills/release-announce-draft/SKILL.md) | 7,053 | `dfd3058bc1b8034f` |
 | [release-archive-sweep](../skills/release-archive-sweep/SKILL.md) | 5,604 | `6e30100ea5a633dd` |
 | [release-audit-report](../skills/release-audit-report/SKILL.md) | 6,774 | `ce849ac8e2a217d1` |
 | [release-keys-sync](../skills/release-keys-sync/SKILL.md) | 5,945 | `3c11551de0e1e5f9` |
 | [release-prepare](../skills/release-prepare/SKILL.md) | 11,986 | `78f302ca28e1aa40` |
-| [release-promote](../skills/release-promote/SKILL.md) | 7,401 | `dcc27bcfff9dfdfb` |
-| [release-rc-cut](../skills/release-rc-cut/SKILL.md) | 12,049 | `076b167ed373eef1` |
-| [release-verify-rc](../skills/release-verify-rc/SKILL.md) | 11,348 | `7bbe650a9b982ed8` |
-| [release-vote-draft](../skills/release-vote-draft/SKILL.md) | 7,469 | `b9860e0743bc64cf` |
+| [release-promote](../skills/release-promote/SKILL.md) | 8,044 | `c17053e63005b55b` |
+| [release-rc-cut](../skills/release-rc-cut/SKILL.md) | 12,646 | `e2d7ea66ec5daa4b` |
+| [release-verify-rc](../skills/release-verify-rc/SKILL.md) | 11,669 | `012412e1f24139b8` |
+| [release-vote-draft](../skills/release-vote-draft/SKILL.md) | 7,638 | `755b930fea273d5b` |
 | [release-vote-tally](../skills/release-vote-tally/SKILL.md) | 6,696 | `c848e809e2d877cd` |
 | [report-framework-issue](../skills/report-framework-issue/SKILL.md) | 5,703 | `30b2ce8b774ea68c` |
 | [reviewer-routing](../skills/reviewer-routing/SKILL.md) | 6,272 | `dcd75b720d42af34` |

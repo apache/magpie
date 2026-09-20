@@ -71,6 +71,25 @@
     "pattern": "s3://releases-example-org/3\\.2\\.0/",
     "flags": "i"
   },
+  "has_wheel_publish_command": {
+    "field": "convenience_publish_commands",
+    "type": "regex",
+    "pattern": "twine upload dist/apache_foo-4\\.1\\.0-py3-none-any\\.whl",
+    "flags": ""
+  },
+  "has_image_held": {
+    "field": "convenience_held",
+    "type": "regex",
+    "pattern": "registry\\.example\\.org/apache/foo:4\\.1\\.0",
+    "flags": ""
+  },
+  "has_no_publish_for_held_artefact": {
+    "field": "convenience_publish_commands",
+    "type": "regex",
+    "pattern": "docker push",
+    "flags": "",
+    "negate": true
+  },
   "has_no_auto_run": {
     "field": "command_block",
     "type": "judge",

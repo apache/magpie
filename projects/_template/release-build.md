@@ -8,6 +8,8 @@
 - [TODO: `<Project Name>`: release-build configuration](#todo-project-name-release-build-configuration)
   - [Source archive](#source-archive)
   - [Build invocation](#build-invocation)
+  - [Convenience artefacts](#convenience-artefacts)
+  - [Source-tree validators](#source-tree-validators)
   - [Expected artefact list](#expected-artefact-list)
   - [Digest set](#digest-set)
   - [Reproducibility checks](#reproducibility-checks)
@@ -64,18 +66,17 @@ fails the RC if an exclusion strips a still-referenced path.
 
 ## Build invocation
 
-TODO: name the canonical build command that produces any
-**convenience binary** artefacts the project publishes (and the
-source artefact too, when `source_archive_method: custom`). For
-Maven projects this is typically `mvn -Papache-release clean install`;
-for Python projects `python -m build`; for Cargo projects
-`cargo package`; etc. Leave it empty for a source-only project.
+TODO: name the build command that produces the **source artefact**
+when `source_archive_method: custom` (a project whose source release is
+assembled by its build tool rather than exported from the tag, e.g.
+`mvn -Papache-release clean install` with the assembly plugin). Leave
+it empty when the source archive comes from `git-archive` (the
+default) — the convenience artefacts, if any, are declared per
+artefact under § Convenience artefacts, not here.
 
-For a reproducible binary build, pass the tag's `SOURCE_DATE_EPOCH`
-through (`repro-archive epoch --ref <tag>`) so embedded timestamps
-are fixed, and apply the build-tool equivalents of the archive rules
-(`ARFLAGS=Dcvr` / `ranlib -D` for static libraries, `gzip -n`, a
-pinned toolchain). See § Reproducibility checks below.
+Whatever runs here runs at the release tag with the tag's
+`SOURCE_DATE_EPOCH` exported (`repro-archive epoch --ref <tag>`), so
+embedded timestamps are fixed.
 
 Example shape:
 
@@ -83,6 +84,80 @@ Example shape:
 > # From the release branch tip, at the release tag:
 > export SOURCE_DATE_EPOCH="$(git log -1 --format=%ct <version>-<rcN>)"
 > mvn -Papache-release -Dproject.build.outputTimestamp="${SOURCE_DATE_EPOCH}" clean install
+> ```
+
+## Convenience artefacts
+
+Optional, and **project-specific by nature**: the framework knows how
+to export, sign, verify and promote a source archive, but what a
+project ships *besides* the source — a binary tarball, wheels, jars,
+a container image, a Helm chart, an npm package — and where that goes
+is the project's own decision. Declare each one here; every
+`release-*` skill reads the list and emits the project's own
+commands at the right lifecycle step. Leave the list empty for a
+source-only project and the skills say so instead of guessing.
+
+Per [release-policy § what must every ASF release contain](https://www.apache.org/legal/release-policy.html#what-must-every-release-contain)
+the **source package is the release**; convenience artefacts are
+compiled from it for users who will not build from source, are
+signed and checksummed under the same regime, and are published only
+after the source vote passes. **A convenience artefact is "good" only
+if it is demonstrably built from the voted source**: a voter cannot
+review a binary, so the one check that establishes what it contains
+is rebuilding it from the tag and comparing — bit-for-bit
+(`byte-identical`) or with every difference explained
+(`documented-divergence`). An artefact that cannot be reproduced
+either way is not ready to publish, whatever the vote said about the
+source. That is why each entry carries its own reproducibility mode
+and why `release-promote` refuses to emit a publish command for an
+artefact whose `release-verify-rc` rebuild did not reproduce.
+
+One entry per artefact:
+
+```yaml
+convenience_artefacts:
+  - name: apache-<project>-<version>-bin.tar.gz     # filename as staged; <version> is rendered
+    kind: binary-tarball          # binary-tarball | wheel | sdist | jar | container-image | helm-chart | npm-package | other
+    build_command: |              # run at the release tag, SOURCE_DATE_EPOCH exported; must be deterministic
+      mvn -Papache-release -Dproject.build.outputTimestamp="${SOURCE_DATE_EPOCH}" -DskipTests clean package
+    staging: dist-dev             # dist-dev (alongside the source, default) | atr | registry-staging
+    stage_command: null           # registry-staging only, e.g. `twine upload -r testpypi …`, `mvn nexus-staging:deploy`, `docker push <registry>/<image>:<version>-rcN`
+    reproducibility: byte-identical   # byte-identical | documented-divergence (default: reproducibility_binaries)
+    verification_command: null    # documented-divergence only, e.g. `diffoscope <staged> <rebuilt>`
+    known_divergences: []         # documented-divergence only: path/pattern + reason, one per line
+    vote_included: false          # true = the [VOTE] explicitly covers this artefact too (the source is always voted on)
+    publish_channel: dist-release # dist-release | pypi | maven-central | container-registry | helm-repo | npm | github-release | other
+    publish_command: null         # run by the RM after the vote, e.g. `twine upload dist/*`, `mvn nexus-staging:release`, `docker push …`; dist-release needs none (promoted with the source)
+```
+
+How each skill uses the list:
+
+| Skill | Uses |
+|---|---|
+| `release-rc-cut` | Step 2 emits each `build_command` after the source archive, under the same `SOURCE_DATE_EPOCH`; Step 2b emits the per-artefact rebuild-and-compare self-check; Sections 3–4 sign and checksum every artefact; Step 3 emits `stage_command` for `registry-staging` entries |
+| `release-verify-rc` | Step 9 rebuilds every artefact and compares per its `reproducibility` mode — the check that decides whether the artefact is good |
+| `release-vote-draft` | Lists the artefacts, where each is staged, which are `vote_included`, and how to rebuild-and-compare them |
+| `release-promote` | After the source promotion and the final tag, emits each `publish_command` — only for artefacts whose verify-rc rebuild reproduced |
+| `release-announce-draft` | Names the channels the artefacts were published to |
+
+Keep `expected_artefacts` (below) in sync: it is the flat list of
+filenames the RC stages (source + every convenience artefact whose
+`staging` is `dist-dev` or `atr`).
+
+## Source-tree validators
+
+Optional. Commands `release-verify-rc` Step 7 runs from the unpacked
+source archive to confirm that every internal reference resolves
+(links, symlink targets, generated indexes) after `export-ignore`
+stripped what it strips. Leave empty when the project ships no such
+checks; Step 7 then runs only the dangling-symlink scan.
+
+Example shape:
+
+> ```yaml
+> source_tree_validators:
+>   - "uv run --project tools/symlink-lint symlink-lint ."
+>   - "uv run --project tools/skill-and-tool-validator skill-and-tool-validate"
 > ```
 
 ## Expected artefact list
@@ -126,10 +201,14 @@ a documented verification path is required where it does not.
 | Key | Value | Allowed values |
 |---|---|---|
 | `reproducibility_source` | `on` | `on` (default when `source_archive_method: git-archive`) — rebuild from the tag with `repro-archive build`, `repro-archive compare` against the staged artefact; `off` |
-| `reproducibility_binaries` | `off` | `off` (default; source-only projects), `byte-identical` (rebuild with `binary_rebuild_command`, sha512 must match), `documented-divergence` (run `binary_verification_command`; differences outside `known_divergences` fail) |
-| `binary_rebuild_command` | *(unset)* | command that rebuilds every convenience binary from the tag; `SOURCE_DATE_EPOCH` is exported before it runs |
-| `binary_verification_command` | *(unset)* | for `documented-divergence`: a command that compares a rebuilt binary with the staged one and prints the differing paths (e.g. `diffoscope`) |
-| `known_divergences` | *(empty)* | for `documented-divergence`: paths or patterns that are expected to differ, one per line, each with the reason |
+| `reproducibility_binaries` | `off` | the default `reproducibility` mode for entries under § Convenience artefacts that do not set their own: `off` (no convenience artefacts, or checks disabled), `byte-identical` (rebuild with the entry's `build_command`, bytes must match), `documented-divergence` (run the entry's `verification_command`; differences outside its `known_divergences` fail) |
+
+A project with convenience artefacts should run them at
+`byte-identical` wherever the toolchain allows, and at
+`documented-divergence` — with the divergences written down — where
+it does not; `off` means the artefacts are published on trust, which
+[`PRINCIPLES.md` § 11](../../PRINCIPLES.md#11-releases-are-reproducible-from-signed-source)
+does not accept as a steady state.
 
 An ASF adopter that wants
 [automated release signing](https://infra.apache.org/release-signing.html#automated-release-signing)

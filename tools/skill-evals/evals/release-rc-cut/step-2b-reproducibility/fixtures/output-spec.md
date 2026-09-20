@@ -26,9 +26,10 @@ Grading rules:
   scratch directory, and a `repro-archive compare`; it must be empty
   when `false`.
 - When `binary_check_mode` is `byte-identical`, `binary_check_commands`
-  must export `SOURCE_DATE_EPOCH`, run `binary_rebuild_command`, and
-  compare each binary (`cmp` or a digest comparison); it must be empty
-  when `off`.
+  must export `SOURCE_DATE_EPOCH`, run each declared convenience
+  artefact's own `build_command` into a scratch directory, and compare
+  each artefact (`cmp` or a digest comparison); it must be empty when
+  `off` or when no convenience artefacts are declared.
 - No command may pack a working tree (`zip -r`, `tar czf <dir>`).
 - `stop_on` always lists the verdicts that halt the cut.
 - `proposed` must be `true`.

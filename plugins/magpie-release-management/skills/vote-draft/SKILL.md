@@ -365,6 +365,7 @@ Read the following from the planning issue body and
 | `reproducibility_doc_url` | `release-management-config.md` | `reproducibility_doc_url` — background on the reproducible source archive; rendered the same way |
 | `verification_skill` | `release-management-config.md` | `vote_verification_skill` (default `magpie-release-management:verify-rc`) — the agentic one-liner a voter can run |
 | `signing_mode` | `release-management-config.md` | `ci-automated` when `automated_release_signing: enabled` under `organization: ASF`, else `rm-key` |
+| `convenience_artefacts` | `release-build.md § Convenience artefacts` | the project's optional artefacts besides the source: name, `staging`, `vote_included`, `reproducibility`; empty for a source-only project |
 
 Surface the loaded metadata to the RM for confirmation before
 proceeding to Step 2.
@@ -407,6 +408,12 @@ The changelog for this release:
 Keys to verify artifact signatures:
   <keys_url>
 
+Convenience artefacts (built from the source above; not the release itself):  ← include only when convenience_artefacts is non-empty
+  <artefact.name>  —  staged at <staging location>  <"— included in this vote" when vote_included>
+  Each one is verified by rebuilding it from the tag and comparing
+  (<reproducibility mode>); a convenience artefact that does not
+  reproduce from the voted source will be withheld from publication.
+
 How to verify this candidate before voting
 ------------------------------------------
 Reproducibility record (from the planning issue):  ← include the three lines only when repro_record is present
@@ -414,12 +421,13 @@ Reproducibility record (from the planning issue):  ← include the three lines o
   SOURCE_DATE_EPOCH: <epoch>
   sha512:            <sha512 of the source artefact>
 
-Agentic path (any Magpie-enabled agent, read-only):
+Agentic path (any agent with the Magpie release skills, read-only):
   /<verification_skill> <version>-rcN
   It checks the signature against KEYS, the checksum, licence headers
   (RAT), LICENSE/NOTICE, prohibited binaries, dangling links, version
-  strings, and rebuilds the source artefact from the tag to confirm it
-  is byte-identical to what is staged.
+  strings, rebuilds the source artefact from the tag to confirm it is
+  byte-identical to what is staged, and rebuilds and compares every
+  convenience artefact.
 
 Manual path (the same checks, longhand):
   <verification_doc_url>

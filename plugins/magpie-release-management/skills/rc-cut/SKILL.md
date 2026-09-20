@@ -440,6 +440,7 @@ Read the following from `<project-config>/release-build.md` and
 | `reproducibility_source` | `release-build.md § Reproducibility checks` | `on` (default with `git-archive`) or `off` |
 | `reproducibility_binaries` | `release-build.md § Reproducibility checks` | `off` (default), `byte-identical`, `documented-divergence`; with `binary_rebuild_command` |
 | `signing_mode` | `release-management-config.md § Signing` | `rm-key` (default) or `ci-automated` when `automated_release_signing: enabled` **and** `project.md` → `organization: ASF`; non-ASF projects always resolve to `rm-key` |
+| `convenience_artefacts` | `release-build.md § Convenience artefacts` | the project's optional, project-specific artefacts besides the source — each with `build_command`, `staging` / `stage_command`, `reproducibility`, `vote_included`; empty for a source-only project |
 
 Surface the loaded configuration to the RM for confirmation before
 proceeding to Step 2.
@@ -536,6 +537,23 @@ export SOURCE_DATE_EPOCH="$(git log -1 --format=%ct "<version>-<rcN>")"
 Under either method, never emit `zip -r`, `tar czf <directory>` or any
 other command that packs a working directory (Golden rule 6).
 
+*Convenience artefacts (optional, project-specific).* When
+`convenience_artefacts` is non-empty, follow the source archive with
+one block per entry — the entry's own `build_command` verbatim, under
+the same `SOURCE_DATE_EPOCH`, so the artefact is a function of the tag
+and a voter can rebuild it in `release-verify-rc` Step 9 (the check
+that decides whether a binary is good). The framework does not know
+how a project builds its wheels, jars or images; the config does:
+
+```text
+# Convenience artefact: <artefact.name> (<artefact.kind>) — built from the tagged source
+export SOURCE_DATE_EPOCH="$(uv run --project <framework>/tools/reproducible-archive repro-archive epoch --ref "<version>-<rcN>")"
+<artefact.build_command>
+```
+
+For a source-only project say *"no convenience artefacts declared"*
+rather than emitting a build block.
+
 **Section 3 — Sign commands.**
 
 For each artefact in `expected_artefacts`:
@@ -617,23 +635,27 @@ any `.tar`, `.tar.gz` or `.zip`); the rebuild step re-runs
 switch the build to `repro-archive build` or `repro-archive recipe`;
 `differs` is a stop.
 
-**Binaries.** `reproducibility_binaries: byte-identical` — re-run
-`binary_rebuild_command` into `rebuild/` under the same
-`SOURCE_DATE_EPOCH` and compare digests:
+**Convenience artefacts.** One block per entry in
+`convenience_artefacts`, using the entry's `reproducibility` mode
+(default `reproducibility_binaries`). `byte-identical` — re-run the
+entry's `build_command` into `rebuild/` under the same
+`SOURCE_DATE_EPOCH` and compare bytes:
 
 ```text
 export SOURCE_DATE_EPOCH="<SOURCE_DATE_EPOCH>"
-( cd rebuild && <binary_rebuild_command> )
-for a in <binary-artefact-1> <binary-artefact-2>; do
-  cmp "$a" "rebuild/$a" && echo "identical: $a" || echo "DIFFERS: $a"
-done
+( cd rebuild && <artefact.build_command> )
+cmp "<artefact.name>" "rebuild/<artefact.name>" \
+  && echo "identical: <artefact.name>" || echo "DIFFERS: <artefact.name>"
 ```
 
-`documented-divergence` — the same rebuild, then
-`<binary_verification_command>` per artefact (for example `diffoscope
-<artefact> rebuild/<artefact>`); any difference not listed under
-`known_divergences` in `release-build.md` is a stop, listed ones are
-reported. `off` — state `SKIP` explicitly.
+`documented-divergence` — the same rebuild, then the entry's
+`verification_command` (for example `diffoscope <artefact.name>
+rebuild/<artefact.name>`); any difference not listed under the
+entry's `known_divergences` is a stop, listed ones are reported.
+`off` — state `SKIP` explicitly for that artefact. An artefact that
+does not reproduce here is not good to sign: it is not known to be
+what the tagged source produces, and `release-promote` will withhold
+its publication until a verify-rc run reproduces it.
 
 The RM runs the block and reports the outcome. Any `differs` /
 `DIFFERS` stops the cut: the RM fixes the build (or documents the
@@ -788,6 +810,16 @@ This block is a proposal like the rest; the RM runs it on their machine
 under their own ATR credentials. `atr_platform_url` from
 `release-management-config.md` is the target platform.
 
+**Convenience artefacts with `staging: registry-staging`** (optional,
+project-specific) get one more block after the dist-backend staging:
+the entry's `stage_command` verbatim (for example `twine upload -r
+testpypi …`, `mvn nexus-staging:deploy`, `docker push
+<registry>/<image>:<version>-<rcN>`). Entries staged as `dist-dev` or
+`atr` travel with the source in the blocks above and need nothing
+extra; say so. Never emit a command that publishes to the artefact's
+final `publish_channel` here — publication is `release-promote`'s
+step, after the vote.
+
 Present the staging command block to the RM and ask for confirmation
 before proceeding to Step 4.
 
@@ -835,6 +867,9 @@ The comment must include:
   the outcome of Step 2b (or `skipped`). A voter needs the first two to
   rebuild in `release-verify-rc` Step 9 and the third to compare. Under
   `ci-automated` also the workflow run URL.
+- **Convenience artefacts** (when declared) — one line each: name,
+  kind, where it is staged, its `reproducibility` mode and Step 2b
+  outcome, and whether it is `vote_included`.
 - If `--allow-unreviewed-archive` was used: a line saying the source
   archive contents were **not** reviewed and why.
 - The proposed next label: `rc-staging`.
@@ -912,6 +947,10 @@ The AI-driven part ends with a hand-back artefact containing:
 - **Never add key material or a signing step to the CI workflow.** The
   agent holds neither the RM's key nor the CI key; the workflow template
   contains no `gpg` invocation.
+- **Never invent a convenience artefact, its build, or its channel.**
+  Everything about an artefact besides the source comes from
+  `release-build.md § Convenience artefacts`; a project that declares
+  none gets none, and no build command runs outside `SOURCE_DATE_EPOCH`.
 
 ---
 
