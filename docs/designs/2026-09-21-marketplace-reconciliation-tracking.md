@@ -11,6 +11,7 @@
   - [The stamp](#the-stamp)
   - [What the fingerprint covers](#what-the-fingerprint-covers)
   - [The pre-flight check](#the-pre-flight-check)
+  - [When nothing is stamped](#when-nothing-is-stamped)
   - [The three numbers, and where each comes from](#the-three-numbers-and-where-each-comes-from)
   - [Who writes the stamp](#who-writes-the-stamp)
   - [Suggesting `verify`](#suggesting-verify)
@@ -73,7 +74,9 @@ the thing that goes stale.
 4. **The check a skill performs on itself is the always-on one.** It costs
    nothing and works inside the sandbox. The project-wide sweep lives in
    `verify` and a new `reconcile`.
-5. **Absence is silence.** No stamp entry means "unknown", never "stale".
+5. **Absence is a sweep, not silence.** No stamp means the project has never
+   been reconciled, which is resolved once — by a full sweep with a
+   best-effort baseline — rather than carried indefinitely.
 6. **A declined prompt stays declined** until the fingerprint moves again.
 
 ## The stamp
@@ -137,15 +140,51 @@ all of them free:
 2. read this skill's entry from the stamp — the lock is already open;
 3. compare.
 
-Equal → silent. Missing → silent. Different → say which of the two inputs
-moved and propose the matching fix: `/magpie-setup config` for a
-`requires_config` change, override re-anchoring for an anchor change.
+Equal → silent. Different → say which of the two inputs moved and propose
+the matching fix: `/magpie-setup config` for a `requires_config` change,
+override re-anchoring for an anchor change. Missing → the sweep below.
 
-**Why a missing entry is silent.** Every project adopted before this ships
-has no stamp. Treating that as staleness would greet each of them with a
-prompt whose question they cannot answer — nothing is known to have drifted,
-only that nothing is known. The sweep in `verify` reports it; the next
-`config` or `adopt` writes it.
+## When nothing is stamped
+
+Every project adopted before this ships has no stamp, and so does every
+project whose configuration predates it. That state is resolved once, by
+proposing a **full sweep reconciliation** — not carried as a permanent
+blind spot.
+
+**The sweep needs no baseline, because it validates the present rather than
+a delta.** With no stamp there is nothing to diff against, but the useful
+questions do not require one:
+
+- does every override file's anchor still resolve in the skill it targets?
+- does every `requires_config` entry of every configured skill resolve
+  through the lookup chain?
+
+Both are answered from the current tree alone. A missing baseline costs
+precision in the *report*, not the check.
+
+**The baseline is a best guess, used only for wording.** In order: the
+lock's `min_version`; else the date of the last commit touching
+`.apache-magpie.lock` or `.apache-magpie-overrides/`, mapped to a version
+through the marketplace clone's own git history; else the mtimes of
+`.apache-magpie-local/`; else nothing, and the report says so rather than
+inventing a number. It is phrased as an estimate — *"your configuration
+looks like it was written around 0.1.x"* — because that is what it is.
+
+**Sandboxed sessions sweep what they can reach and say what they could
+not.** Reading another skill's `SKILL.md` to resolve its anchors needs the
+plugin cache, which the sandbox denies. There the sweep covers the
+repository side — which overrides exist, which skills they name, whether
+the config files they need are present — reports that the anchor
+resolution could not be checked here, and names `/magpie-setup reconcile`
+outside the sandbox as the way to finish it. A partial answer with its
+limits stated beats silence.
+
+**It is proposed once, and a decline is remembered.** On confirmation the
+sweep runs, re-anchors what moved, and writes the stamp — after which the
+cheap per-skill comparison takes over and this path never runs again for
+that project. On a decline, `acknowledged` is written to local state and
+the proposal does not return until the configuration or the plugin set
+changes. This is a one-time cost per project, not a recurring prompt.
 
 **Why a decline is remembered.** The prompt is worth showing once per change.
 Showing it on every invocation until acted on is precisely the failure the
@@ -253,7 +292,16 @@ file mixes two owners in one place.
 **Sweep the whole project on every pre-flight.** One run would report
 everything stale at once. Rejected because it must read every plugin
 manifest and override on every skill invocation — denied in the sandbox, and
-paid for on every run whether or not anything changed.
+paid for on every run whether or not anything changed. The sweep runs once,
+when there is no stamp, and then never again for that project.
+
+**Treat a missing stamp as silence.** The first draft of this design did:
+nothing is known to have drifted, only that nothing is known, so say
+nothing. Rejected because it makes the blind spot permanent — every project
+adopted before this ships would keep exactly the gap the design exists to
+close, and the one population certain to need reconciling is the one that
+would never be offered it. Sweeping once is a bounded cost that ends with a
+stamp; silence has no end.
 
 ## Risks
 
