@@ -186,7 +186,9 @@ Walk each:
    overlay where that is installed (the `gpg-touch-wrap-*` entry
    beside them is a symlink to the script, not a copy — nothing to
    diff, but report it missing when git's `gpg.ssh.program` /
-   `gpg.program` or `core.sshCommand` names it and it is gone),
+   `gpg.program` or `core.sshCommand` names it and it is gone; the
+   same for any link under `~/.claude/scripts/shims/`, which is a
+   symlink whose target is compared, not its contents),
    `~/.claude/scripts/container-gateway-hook.sh` for the container
    gateway's `SessionStart` / `SessionEnd` hook (diff against
    `tools/agent-isolation/container-gateway-hook.sh`), and the

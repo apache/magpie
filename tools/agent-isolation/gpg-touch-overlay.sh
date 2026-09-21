@@ -238,6 +238,17 @@ agent_socket_rows() {
 # sign just as much as `git commit -m`.
 readonly KEY_SUBCOMMANDS='commit|tag|merge|rebase|revert|cherry-pick|am|push|pull|fetch|clone|ls-remote|remote|submodule'
 
+# The same reach, without git in front of it. An ssh transport asks the
+# key for its authentication touch before anything moves, and gpg asks
+# for the signing touch straight through the OpenPGP card, so a bare
+# `scp`, `rsync -e ssh` or `gpg --detach-sign` blocks exactly as a
+# `git push` does — and, until these were listed, blocked with no
+# window. The word has to end where a shell word ends, which is what
+# keeps `ssh-agent` (starts one, never asks the key) and `sshuttle` out
+# while leaving `ssh-keygen -Y sign` and `ssh-add -l` in. Longer names
+# lead the alternation so the match cannot stop short at `ssh`.
+readonly KEY_COMMANDS='ssh-keygen|ssh-add|ssh|scp|sftp|sshfs|rsync|svn|gpg2|gpg'
+
 # A screen to draw on, and something to draw the window with.
 #
 # On macOS both questions collapse into one: a logged-in user always has
@@ -401,7 +412,7 @@ arm() {
     session="$(printf '%s' "$payload" | jq -r '.session_id // empty' 2>/dev/null)"
 
     printf '%s' "$command_text" |
-        grep -Eq "(^|[;&|(]|[[:space:]])git([[:space:]]+-[A-Za-z-]+([[:space:]]+[^[:space:]]+)?)*[[:space:]]+($KEY_SUBCOMMANDS)([[:space:];&|)]|$)" ||
+        grep -Eq "(^|[;&|(]|[[:space:]])(git([[:space:]]+-[A-Za-z-]+([[:space:]]+[^[:space:]]+)?)*[[:space:]]+($KEY_SUBCOMMANDS)|($KEY_COMMANDS))([[:space:];&|)]|$)" ||
         return 0
 
     # Test seam: report the decision instead of spawning a watcher, so
@@ -495,12 +506,24 @@ wrap() {
     local program=$1; shift
     local real="" candidate
     # The real program: first match on PATH that is not this script under
-    # another name.
+    # another name. `type -aP` and not `command -v -a`: bash's `command`
+    # has no -a, so that spelling only ever printed a usage error, left
+    # every candidate unseen and fell through to the name-only fallback
+    # below -- harmless while this script was never on PATH, fatal once
+    # a shim puts it there.
     while IFS= read -r candidate; do
         [[ "$(readlink -f "$candidate" 2>/dev/null)" == "$SELF" ]] && continue
         real=$candidate; break
-    done < <(command -v -a "$program" 2>/dev/null || true)
-    [[ -n $real ]] || real=$program
+    done < <(type -aP "$program" 2>/dev/null || true)
+    # No fallback to the bare name. A shim is on PATH *as* that name, so
+    # exec'ing it re-enters this script forever: a hung terminal, no
+    # window, no message, and a load average that climbs until someone
+    # goes looking. 127 is what a missing program exits with anyway.
+    if [[ -z $real ]]; then
+        printf '%s: no %s found on PATH behind this wrapper\n' \
+            "${0##*/}" "$program" >&2
+        exit 127
+    fi
 
     # Which invocations reach the key. A signing program is also git's
     # verifier (`git log --show-signature` runs `ssh-keygen -Y verify`
@@ -772,6 +795,21 @@ _overlay() {
 _name="${0##*/}"
 if [[ $_name == gpg-touch-wrap-?* ]]; then
     wrap "${_name#gpg-touch-wrap-}" "$@"
+    exit $?
+fi
+
+# The same dispatch under the program's own name, which is what a bare
+# `ssh` typed in a terminal needs: git can be told to call a wrapper
+# (`gpg.ssh.program`, `core.sshCommand`), a person cannot, so the only
+# thing that can put the wrapper in front of them is PATH. A shim
+# directory early on PATH holds symlinks named `ssh`, `scp`, `sftp`,
+# `rsync`; `wrap` skips any PATH candidate that resolves back to this
+# script, so the shim finds the real program behind itself. Restricted
+# to the key commands on purpose -- a symlink named anything else is a
+# mistake, and exec'ing what is behind it would hide that mistake for
+# as long as the link lived.
+if [[ $_name =~ ^(${KEY_COMMANDS})$ ]]; then
+    wrap "$_name" "$@"
     exit $?
 fi
 

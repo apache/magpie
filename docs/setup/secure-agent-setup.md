@@ -48,6 +48,7 @@
     - [Install (user-scope)](#install-user-scope-3)
     - [Verify](#verify-3)
     - [From your own terminal — git's program config](#from-your-own-terminal--gits-program-config)
+    - [Beyond git — ssh, scp, sftp and rsync you type yourself](#beyond-git--ssh-scp-sftp-and-rsync-you-type-yourself)
     - [Trade-offs](#trade-offs-2)
   - [Container gateway](#container-gateway)
     - [Why install it](#why-install-it-1)
@@ -2266,6 +2267,7 @@ What this covers, and what it costs:
 - Verify-only calls pass straight through: `git log --show-signature` runs `ssh-keygen -Y verify` once per commit, and none of those gets a watcher or a display probe.
 - The toolkit probe runs once per signature or ssh connection, about a third of a second.
 - One signature, one window. Inside an agent session (Claude Code marks its Bash with `CLAUDECODE=1`) the wrapper only runs the program: the hook armed a watcher outside the sandbox before the command started, and that one shows the window for the agent's commits. Outside a session the wrapper starts a watcher of its own. Every signing context — each agent session, each wrapped git — owns the watcher it started and can tear down no other, so two sessions signing at once, or a terminal commit beside one, cannot blind each other. What they share is the window, leased by whichever watcher reaches it first, so one touch still draws exactly one. So the hook stays necessary for the agent's own git commands, and the wrapper never doubles it.
+The shim directory below does not double it either: the lookup that finds the real program skips every `PATH` entry resolving back to this script, so a wrapped git reaches `/usr/bin/ssh` and not the shim.
 
 **Under the sandbox this needs one more grant.** Global git config is read by the git the agent runs too, and the sandbox denies reads under `~/.claude/` wholesale — so without it every sandboxed `git commit` fails at once with `fatal: cannot exec '…/gpg-touch-wrap-ssh-keygen': Operation not permitted`, before the key is asked for anything.
 Allow the two wrapper files, and nothing wider:
@@ -2288,6 +2290,41 @@ The install skill proposes it with the other two grants; the failure mode and it
 [`sandbox-troubleshooting.md` → Signed commit fails with "cannot exec" of the touch-overlay wrapper](sandbox-troubleshooting.md#signed-commit-fails-with-cannot-exec-of-the-touch-overlay-wrapper).
 
 To undo it: `git config --global --unset gpg.ssh.program` and `git config --global --unset core.sshCommand`.
+
+### Beyond git — ssh, scp, sftp and rsync you type yourself
+
+Git can be told which program to call.
+A bare `ssh` cannot: nothing sits between the word you type and `/usr/bin/ssh` except `PATH`.
+So an `ssh host`, an `scp`, an `sftp` or an `rsync -e ssh` run straight from a terminal asks the key for its authentication touch with nothing on screen — the same silence `core.sshCommand` removed for git.
+
+A shim directory early on `PATH` closes that gap.
+It holds symlinks named for the programs themselves, all pointing at the same script:
+
+```sh
+mkdir -p ~/.claude/scripts/shims
+for p in ssh scp sftp rsync; do
+  ln -sfn ~/.claude/scripts/gpg-touch-overlay.sh ~/.claude/scripts/shims/"$p"
+done
+```
+
+Then put that directory ahead of the real ones, in the rc your shells read:
+
+```sh
+export PATH="$HOME/.claude/scripts/shims:$PATH"
+```
+
+The script answers to a key command's own name the way it already answers to `gpg-touch-wrap-<program>`, and finds the real program behind itself: the lookup walks every `PATH` match and skips the one that resolves back to the script.
+Only the commands that can reach the key dispatch this way, so a symlink named anything else is refused rather than silently exec'd.
+When the lookup finds nothing but the script, it exits 127 and says so — it never falls back to the bare name, which on a `PATH` holding the shim would re-exec the script forever, with the terminal hung and nothing on screen to say why.
+
+What it costs, and what it does not double:
+
+- Nothing extra under the sandbox. The shims resolve to `gpg-touch-overlay.sh`, which the grant above already allows, and the sandbox checks the resolved path.
+- No second window when git is wrapped too, per the self-skip described above: one connection, one wrapper.
+- Nothing at all inside an agent session — `CLAUDECODE=1` makes the wrapper stand aside, because the hook armed a watcher for the whole command before it started.
+- A wider reach than a shell alias, deliberately. A `PATH` entry is seen by scripts and Makefiles, which is where an unattended `rsync` would otherwise block with no window. It is seen by everything else you run as well, which is the trade.
+
+To undo it: drop the `PATH` line and delete the directory.
 
 ### Trade-offs
 

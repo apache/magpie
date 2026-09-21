@@ -93,10 +93,48 @@ def test_arms_for_commands_that_can_reach_the_key(command: str) -> None:
         "ls -la",
         "echo 'committing to the plan'",
         "grep -r commit .",
+        # A path component, not a command: the character before the name
+        # is not one that can end a shell word.
+        "cat ~/.ssh/config",
+        "ls -la ~/.ssh",
+        # Longer names that merely start with one of the key commands.
+        "sshuttle --dns -r host 0/0",
+        # Starting an agent is not a request to the key.
+        "ssh-agent -s",
     ],
 )
 def test_stays_quiet_for_commands_that_cannot_sign(command: str) -> None:
     assert _arm(command) == ""
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        # ssh transports reach the key for the authentication touch
+        # without git ever being involved.
+        "ssh git@github.com",
+        "ssh -T git@github.com",
+        "scp report.txt host:/tmp/",
+        "sftp host",
+        "rsync -avz -e ssh src/ host:/dst",
+        "sshfs host:/remote /mnt",
+        "svn commit -m 'release'",
+        # Signing and decryption straight through the OpenPGP card.
+        "gpg --detach-sign --armor apache-magpie-0.2.0.tar.gz",
+        "gpg2 --clearsign message.txt",
+        "gpg --decrypt secrets.asc",
+        # The ssh-format signer and the agent query, invoked directly.
+        "ssh-keygen -Y sign -f ~/.ssh/id_rsa_yubikey.pub -n file x",
+        "ssh-add -l",
+        # The same shell-word rule the git matcher follows.
+        "cd /tmp && scp file host:/path",
+        "ssh host; echo done",
+        "(ssh host)",
+        "git fetch && ssh host",
+    ],
+)
+def test_arms_for_non_git_commands_that_can_reach_the_key(command: str) -> None:
+    assert _arm(command) == "arm"
 
 
 def test_agent_sockets_include_ssh_auth_sock() -> None:
@@ -484,6 +522,120 @@ def test_wrap_symlink_name_selects_the_program(tmp_path: Path) -> None:
     )
     assert result.returncode == 0, result.stderr
     assert _no_registrations(tmp_path)
+
+
+def _shim(tmp_path: Path, name: str) -> tuple[Path, dict[str, str]]:
+    """A shim directory ahead of a directory holding the real program.
+
+    This is the PATH layout the native wrapper installs into: a symlink
+    named for the program itself, early on PATH, with the real binary
+    behind it.
+    """
+    shims = tmp_path / "shims"
+    shims.mkdir()
+    (shims / name).symlink_to(SCRIPT)
+    real_dir = tmp_path / "bin"
+    real_dir.mkdir()
+    real = real_dir / name
+    real.write_text(f'#!/bin/sh\necho "real-{name} $*"\n')
+    real.chmod(0o755)
+    env = {
+        **_wrap_env(tmp_path),
+        "PATH": f"{shims}:{real_dir}:/usr/bin:/bin",
+        # The hook owns the watcher inside an agent session; this test is
+        # about which program the shim resolves to, not about watchers.
+        "CLAUDECODE": "1",
+    }
+    return shims / name, env
+
+
+@pytest.mark.parametrize("name", ["ssh", "scp", "sftp", "rsync"])
+def test_a_shim_named_for_a_key_command_runs_the_real_program(
+    tmp_path: Path, name: str
+) -> None:
+    """A bare `ssh` typed in a terminal has to reach `wrap`.
+
+    `gpg.ssh.program` can name `gpg-touch-wrap-<program>`, but nothing
+    names the ssh a person types — only PATH does. So the script also
+    answers to a key command's own name, and must find the real program
+    behind its own shim rather than itself.
+    """
+    shim, env = _shim(tmp_path, name)
+    result = subprocess.run(
+        [str(shim), "-T", "host"],
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == f"real-{name} -T host"
+
+
+def test_wrap_fails_rather_than_exec_the_name_it_could_not_resolve(
+    tmp_path: Path,
+) -> None:
+    """Falling back to the bare name is what recursion is made of.
+
+    A shim puts this script on PATH under the real program's name, so
+    `exec "$program"` finds the shim again and the process re-execs
+    itself forever with the terminal hung and nothing on screen. When
+    no real program can be found, say so and stop.
+    """
+    result = subprocess.run(
+        ["bash", str(SCRIPT), "wrap", "magpie-no-such-program", "--version"],
+        capture_output=True,
+        text=True,
+        env=_wrap_env(tmp_path),
+        timeout=30,
+    )
+    assert result.returncode == 127
+    assert "magpie-no-such-program" in result.stderr
+
+
+def test_a_wrapper_does_not_chain_into_a_shim(tmp_path: Path) -> None:
+    """One connection, one wrapper, one window.
+
+    `core.sshCommand` already names `wrap ssh`, and a shim directory
+    puts another wrapper on PATH under the name `ssh`. If `wrap`
+    resolved to the shim, git would get two nested wrapping contexts
+    for a single connection -- two watchers, and a second window the
+    moment the lease changed hands. The self-skip in the lookup is what
+    keeps that from happening, so the real program has to run exactly
+    once.
+    """
+    shim, env = _shim(tmp_path, "ssh")
+    result = subprocess.run(
+        ["bash", str(SCRIPT), "wrap", "ssh", "-T", "host"],
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "real-ssh -T host"
+    assert result.stdout.count("real-ssh") == 1, "the real program ran more than once"
+    assert shim.exists()
+
+
+def test_a_shim_named_for_an_unrelated_command_is_refused(tmp_path: Path) -> None:
+    """Only the commands that can reach the key dispatch by name.
+
+    A symlink named for anything else is a mistake, and exec'ing the
+    thing behind it would hide that mistake for as long as the link
+    lived.
+    """
+    shim, env = _shim(tmp_path, "curl")
+    result = subprocess.run(
+        [str(shim), "--version"],
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=30,
+    )
+    assert result.returncode == 2
+    assert "real-curl" not in result.stdout
+    assert "expected arm|disarm|wrap" in result.stderr
 
 
 def test_wrap_stands_aside_inside_an_agent_session(tmp_path: Path) -> None:

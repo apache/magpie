@@ -410,6 +410,20 @@ Walk each in order:
     `~/.claude/`:
     [`docs/setup/sandbox-troubleshooting.md` → Signed commit fails with "cannot exec" of the touch-overlay wrapper](../../../../docs/setup/sandbox-troubleshooting.md#signed-commit-fails-with-cannot-exec-of-the-touch-overlay-wrapper).
 
+    **10e — the ssh shim directory, if the user wants one.** `ssh`,
+    `scp`, `sftp` and `rsync` typed into a terminal have no program
+    setting to point anywhere, so only a `PATH` shim puts the wrapper
+    in front of them. Absent entirely is **n/a**, not a gap — it is
+    opt-in. When `~/.claude/scripts/shims/` exists, every link in it
+    must resolve to `~/.claude/scripts/gpg-touch-overlay.sh`
+    (`readlink -f`) and be named for a command the script dispatches
+    on — a link named anything else never wraps and is ⚠ with the
+    name shown. The directory must also appear in `PATH` ahead of
+    `/usr/bin`: compare `command -v ssh` against the shim path, and
+    report ⚠ with both paths when the real binary wins, since the
+    links are then inert. Rationale and the `PATH` line:
+    [`docs/setup/secure-agent-setup.md` → Beyond git](../../../../docs/setup/secure-agent-setup.md#beyond-git--ssh-scp-sftp-and-rsync-you-type-yourself).
+
 11. **`gh` runs outside the sandbox.** `sandbox.excludedCommands`
     must contain `"gh *"` in the project `.claude/settings.json` or
     the user-scope `~/.claude/settings.json`. On macOS a sandboxed

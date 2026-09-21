@@ -684,6 +684,23 @@ show the current value and let the operator decide; do not overwrite
 it. Why a symlink, what it covers, what it costs:
 [docs/setup/secure-agent-setup.md → From your own terminal](../../../../docs/setup/secure-agent-setup.md#from-your-own-terminal--gits-program-config).
 
+**Optional, beyond git.** `ssh`, `scp`, `sftp` and `rsync` typed
+straight into a terminal reach the key with no program setting to
+point anywhere — only `PATH` sits in front of them. Offer a shim
+directory: `mkdir -p ~/.claude/scripts/shims` and, for each of
+`ssh scp sftp rsync`, `ln -sfn ~/.claude/scripts/gpg-touch-overlay.sh
+~/.claude/scripts/shims/<name>`. The script dispatches on its own
+basename for those names and skips any `PATH` entry resolving back to
+itself, so a shim finds the real program and a wrapped git does not
+chain into a shim. Create the directory and the links, then **print
+the `PATH` line and let the operator add it themselves** — a shell rc
+is never edited for them:
+`export PATH="$HOME/.claude/scripts/shims:$PATH"`. No sandbox grant
+is needed beyond K.4's: the links resolve to the script already
+allowed there. Skip the offer when the operator has no touch-required
+key. Rationale and the undo:
+[docs/setup/secure-agent-setup.md → Beyond git](../../../../docs/setup/secure-agent-setup.md#beyond-git--ssh-scp-sftp-and-rsync-you-type-yourself).
+
 **K.4 — Sandbox grants.** Three, all surfaced as one settings diff:
 gpg-agent's ssh socket (`gpgconf --list-dirs agent-ssh-socket`,
 absolute path) under `sandbox.network.allowUnixSockets`, so a sandboxed

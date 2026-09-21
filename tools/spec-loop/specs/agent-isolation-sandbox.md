@@ -51,7 +51,23 @@ existing sandbox grants can widen the baseline. See `docs/adapters/gemini.md`.
   command (`gpg.ssh.program` / `gpg.program` through an argument-free
   `gpg-touch-wrap-<program>` symlink, `core.sshCommand … wrap ssh`) for
   the commits and pushes the operator makes by hand — no git hook type
-  sits at the right moment for those. Each is a signing context that
+  sits at the right moment for those. The hook arms on any command that
+  can reach the key, which is broader than signing: every git
+  subcommand that signs or opens an ssh remote, and the key consumers
+  git never sees — `ssh`, `scp`, `sftp`, `rsync`, `gpg` and the ssh
+  signer invoked directly. Arming is deliberately over-broad because
+  the *window* is what a false positive would cost, and the watcher
+  shows none until something has actually blocked on the key for
+  longer than the grace. `wrap` reaches those same non-git consumers
+  through an optional shim directory on `PATH`: the script dispatches
+  on its own basename for a key command's name, not only for
+  `gpg-touch-wrap-<program>`, and resolves the real program by walking
+  every `PATH` match and skipping the one that resolves back to
+  itself. That self-skip is load-bearing twice over — it is why a
+  wrapped git does not chain into a shim, and why the lookup must fail
+  with 127 rather than fall back to the bare name, which on a `PATH`
+  holding the shim re-execs the script indefinitely. Each is a signing
+  context that
   owns its own watcher, registered under `owners/` and keyed by the
   harness session id the hooks carry or by the wrapper's pid, so a
   context can only ever tear down the watcher it started; a context
