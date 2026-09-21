@@ -224,7 +224,23 @@ Walk each:
    [`setup-isolated-setup-install`](../isolated-setup-install/SKILL.md)
    re-run on the affected Step P sub-step.
 
-   Also diff the agent-guard hook the same way:
+   **The agent-guard hook — establish which wiring is in use before
+   diffing anything.** Read `enabledPlugins` in
+   `~/.claude/settings.json`: when it lists
+   `magpie-agent-guard@apache-magpie`, the guard runs **from the
+   installed plugin**, whose manifest registers the `PreToolUse`
+   hook and resolves the engine and every skill-owned guard under
+   `${CLAUDE_PLUGIN_ROOT}`. There is then no user-scope copy to diff
+   and no `guards.d` to sync: an absent
+   `~/.claude/scripts/agent-guard.py` is the expected shape, **not
+   drift**, and reporting it as missing sends the user installing a
+   second copy of a guard that is already running. What is worth
+   surfacing for a plugin install is the plugin's own version
+   against the framework's (a refresh is `/plugin`), and any
+   leftover user-scope copy from an earlier hand-wiring.
+
+   Only when the plugin is **not** enabled does the user-scope
+   wiring apply, and then diff it the same way as the other scripts:
    `~/.claude/scripts/agent-guard.py` against the framework's
    `tools/agent-guard/src/agent_guard/__init__.py`, and the
    `~/.claude/scripts/guards.d/` directory against the union of the
@@ -233,9 +249,15 @@ Walk each:
    locally-added `*.py` are expected; flag only missing
    framework/skill guards or stale copies). A new skill guard (or a
    skill newly adding one) appearing in the framework but absent
-   from the user's `guards.d` is the most common drift once the hook
-   is wired — re-syncing `guards.d` activates it with **no
+   from the user's `guards.d` is the most common drift on that
+   wiring — re-syncing `guards.d` activates it with **no
    `settings.json` change**.
+
+   Either way, confirm the guard actually denies. A `git commit`
+   whose message carries a `Co-Authored-By:` trailer is the cheap
+   canary: the bundled `commit-trailer` guard blocks it before the
+   commit runs, so a command that goes through means the hook is
+   not firing, whatever the files and settings say.
 
    **Rename migration — `claude-iso.sh` → `agent-iso.sh`.** The
    clean-env launcher was renamed (it now isolates **OpenCode** as
@@ -261,8 +283,11 @@ Walk each:
    `allowedDomains` entries, new `permissions.deny` patterns
    for newly-discovered exfiltration paths, **or the agent-guard
    `hooks.PreToolUse` entry** (matcher `Bash`) if the user wired
-   the secure setup before the guard shipped. Report new entries
-   the user does not have; do not auto-merge.
+   the secure setup before the guard shipped and does not have the
+   `magpie-agent-guard` plugin enabled — with the plugin, that hook
+   comes from the plugin manifest and its absence from
+   `settings.json` is correct. Report new entries the user does not
+   have; do not auto-merge.
 
    Two `sandbox.network.*` settings are worth a look while diffing
    — but neither is a "missing default" to re-add:
