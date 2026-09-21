@@ -19,6 +19,7 @@ when_to_use: |
   Skip when a PR is already open — use `pr-management-code-review` for that.
 argument-hint: "[base:<ref>] [staged] [path:<glob>]"
 capability: capability:review
+surface_hash: sha256:1e8492cb42c4aa65
 license: Apache-2.0
 ---
 <!-- SPDX-License-Identifier: Apache-2.0

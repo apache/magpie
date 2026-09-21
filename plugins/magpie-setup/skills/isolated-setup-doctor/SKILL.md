@@ -27,6 +27,7 @@ when_to_use: |
 capability:
   - capability:platform
   - capability:reassess
+surface_hash: sha256:aa2f973a5b88e5c1
 license: Apache-2.0
 ---
 

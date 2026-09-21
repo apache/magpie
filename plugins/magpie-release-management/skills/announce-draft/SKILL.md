@@ -23,6 +23,7 @@ when_to_use: |
   the same session — only that the release was promoted.
 argument-hint: "<version> [--planning-issue <url>]"
 capability: capability:resolve
+surface_hash: sha256:1b0ebe953b9fa334
 license: Apache-2.0
 ---
 

@@ -23,6 +23,7 @@ when_to_use: |
   separate patch.
 argument-hint: "[--repo owner/name | --repo-file repos.txt | --owner org]"
 capability: capability:triage
+surface_hash: sha256:e50eafff464d131a
 license: Apache-2.0
 ---
 

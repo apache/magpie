@@ -23,6 +23,7 @@ when_to_use: |
   open trackers describing the same bug from different angles.
 argument-hint: "[kept-issue] [duplicate-issue]"
 capability: capability:resolve
+surface_hash: sha256:06ecbd667b34b12b
 license: Apache-2.0
 ---
 

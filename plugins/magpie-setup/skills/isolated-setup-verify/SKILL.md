@@ -21,6 +21,7 @@ when_to_use: |
   (the "did a denial silently turn into an allow?" canary). Cheap
   to re-run; never destructive.
 capability: capability:platform
+surface_hash: sha256:bda5d0cc6087b0fd
 license: Apache-2.0
 ---
 

@@ -24,6 +24,7 @@ when_to_use: |
   automated stale bot configured and the maintainer wants to manage it
   through that instead.
 capability: capability:triage
+surface_hash: sha256:d2a78aaabcc57f26
 license: Apache-2.0
 ---
 

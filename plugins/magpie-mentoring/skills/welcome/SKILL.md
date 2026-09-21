@@ -23,6 +23,7 @@ when_to_use: |
   replied.
 argument-hint: "[issue-or-pr-number]"
 capability: capability:review
+surface_hash: sha256:8c1c6f20aae0af6e
 license: Apache-2.0
 ---
 <!-- SPDX-License-Identifier: Apache-2.0

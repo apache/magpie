@@ -29,6 +29,7 @@ when_to_use: |
   sweep when genuinely warranted.
 argument-hint: "[import] [last Nd|all] [skip threadId]"
 capability: capability:intake
+surface_hash: sha256:fd9f58cb77807aca
 license: Apache-2.0
 ---
 

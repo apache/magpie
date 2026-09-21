@@ -27,6 +27,7 @@ when_to_use: |
   `description` field directly and do not need this index to
   choose a skill.
 capability: capability:stats
+surface_hash: sha256:5b9c9751b398f81b
 license: Apache-2.0
 ---
 

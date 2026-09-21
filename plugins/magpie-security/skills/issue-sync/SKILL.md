@@ -23,6 +23,7 @@ when_to_use: |
   current state of the world.
 argument-hint: "[issue-number]"
 capability: capability:intake
+surface_hash: sha256:f307500722f9590d
 license: Apache-2.0
 ---
 

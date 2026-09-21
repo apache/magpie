@@ -29,6 +29,7 @@ argument-hint: "[issue-number]"
 capability:
   - capability:fix
   - capability:resolve
+surface_hash: sha256:ef74710af6dd3278
 license: Apache-2.0
 ---
 

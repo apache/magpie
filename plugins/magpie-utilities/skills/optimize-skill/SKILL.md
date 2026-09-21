@@ -28,6 +28,7 @@ when_to_use: |
   change dressed up as an optimization; route those through normal
   skill editing + review.
 capability: capability:authoring
+surface_hash: sha256:cd4e3794a67b84f9
 license: Apache-2.0
 ---
 

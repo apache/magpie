@@ -22,6 +22,7 @@ when_to_use: |
   confirm completeness) or `setup-isolated-setup-update` (to
   refresh against the framework's latest) instead.
 capability: capability:platform
+surface_hash: sha256:4a0f0ebfb1b52870
 license: Apache-2.0
 ---
 

@@ -23,6 +23,7 @@ when_to_use: |
   FEATURE-REQUEST. Skip when the fix is non-trivial enough to
   need design discussion — those go through an RFC first.
 capability: capability:fix
+surface_hash: sha256:3ccf080bbb094dad
 license: Apache-2.0
 ---
 

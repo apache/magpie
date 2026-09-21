@@ -27,6 +27,7 @@ when_to_use: |
   `<security-list>`, use `security-issue-import`.
 argument-hint: "[pr-number] [repo:owner/name]"
 capability: capability:intake
+surface_hash: sha256:cccaf9dcf399c5eb
 license: Apache-2.0
 ---
 

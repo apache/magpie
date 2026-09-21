@@ -31,6 +31,7 @@ when_to_use: |
   `security-issue-invalidate` (INFO-ONLY / INVALID), or
   `security-issue-deduplicate` (PROBABLE-DUP) directly.
 capability: capability:triage
+surface_hash: sha256:f4050980e99e977e
 license: Apache-2.0
 ---
 

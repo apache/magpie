@@ -23,6 +23,7 @@ when_to_use: |
   `license-compliance-audit` for that instead.
 argument-hint: "[--manager pip|npm|cargo|maven|gradle|trivy] [--policy asf|allowlist] [--repo owner/name | --path /path/to/checkout]"
 capability: capability:triage
+surface_hash: sha256:a04e73ccb6484b03
 license: Apache-2.0
 ---
 

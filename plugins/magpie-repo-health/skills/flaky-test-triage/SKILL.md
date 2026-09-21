@@ -23,6 +23,7 @@ when_to_use: |
   patch.
 argument-hint: "[--repo owner/name] [--window-days N] [--threshold F]"
 capability: capability:triage
+surface_hash: sha256:eda3c3891897f08d
 license: Apache-2.0
 ---
 

@@ -20,6 +20,7 @@ when_to_use: |
   worth contributing back.
 argument-hint: "[skill-name]"
 capability: capability:platform
+surface_hash: sha256:33f740e1edbcdfda
 license: Apache-2.0
 ---
 

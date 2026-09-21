@@ -25,6 +25,7 @@ when_to_use: |
   list", "check the PII redactor".
 capability:
   - capability:platform
+surface_hash: sha256:49a65c36a0dc49ab
 license: Apache-2.0
 ---
 

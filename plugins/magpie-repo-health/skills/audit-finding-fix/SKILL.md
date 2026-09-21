@@ -26,6 +26,7 @@ when_to_use: |
   discussion.
 argument-hint: "[--tool <name>] [--report <path>] [--finding <id>]"
 capability: capability:fix
+surface_hash: sha256:9e749aa429ac8777
 license: Apache-2.0
 ---
 

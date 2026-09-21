@@ -25,6 +25,7 @@ when_to_use: |
   carry runnable example code — use `issue-triage` to assess
   instead.
 capability: capability:reassess
+surface_hash: sha256:2822d43b19c791e0
 license: Apache-2.0
 ---
 

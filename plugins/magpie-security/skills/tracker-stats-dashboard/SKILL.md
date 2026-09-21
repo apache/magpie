@@ -16,6 +16,7 @@ when_to_use: |
   path is stale (older than ~24 h) and the user is reviewing tracker
   health. Read-only — the skill never modifies any tracker state.
 capability: capability:stats
+surface_hash: sha256:114e9edce736c86b
 license: Apache-2.0
 ---
 

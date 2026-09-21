@@ -32,6 +32,7 @@ when_to_use: |
   `security-issue-triage`.
 argument-hint: "[repo-or-model-path]"
 capability: capability:review
+surface_hash: sha256:e54146731464c571
 license: Apache-2.0
 ---
 

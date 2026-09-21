@@ -23,6 +23,7 @@ when_to_use: |
   for defects in the Magpie framework itself.
 argument-hint: "[quirk description]"
 capability: capability:platform
+surface_hash: sha256:30b1a0e51c6e8fa9
 license: Apache-2.0
 ---
 

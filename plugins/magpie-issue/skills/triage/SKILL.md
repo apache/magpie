@@ -23,6 +23,7 @@ when_to_use: |
   `issue-fix-workflow` for confirmed bugs or the appropriate
   closure flow directly.
 capability: capability:triage
+surface_hash: sha256:f584e86608b5f544
 license: Apache-2.0
 ---
 

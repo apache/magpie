@@ -32,6 +32,7 @@ when_to_use: |
 capability:
   - capability:intake
   - capability:platform
+surface_hash: sha256:ca51fa0c9ac2a8ce
 license: Apache-2.0
 ---
 

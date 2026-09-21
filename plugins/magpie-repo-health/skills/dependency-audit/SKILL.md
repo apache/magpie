@@ -22,6 +22,7 @@ when_to_use: |
   first, then hand off findings for a separate patch.
 argument-hint: "[--manager pip|npm|cargo|trivy] [--repo owner/name | --path /path/to/checkout]"
 capability: capability:triage
+surface_hash: sha256:19ba62ec34a55604
 license: Apache-2.0
 ---
 

@@ -21,6 +21,7 @@ when_to_use: |
   pr-management-code-review for in-flight PR review.
 argument-hint: "[base:<ref>] [path:<glob>]"
 capability: capability:review
+surface_hash: sha256:589722b02a203996
 license: Apache-2.0
 ---
 <!-- SPDX-License-Identifier: Apache-2.0

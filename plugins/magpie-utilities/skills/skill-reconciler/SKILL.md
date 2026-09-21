@@ -23,6 +23,7 @@ when_to_use: |
   write-skill or optimize-skill after the reconciler has surfaced the
   proposal.
 capability: capability:reconciliation
+surface_hash: sha256:f8bdf745c3e6976b
 license: Apache-2.0
 ---
 

@@ -26,6 +26,7 @@ when_to_use: |
   (`security-issue-import-from-pr`).
 argument-hint: "[scan-source ...]  (one or more GitHub issues and/or report folders)"
 capability: capability:intake
+surface_hash: sha256:3aa895ba2115c1d9
 license: Apache-2.0
 ---
 

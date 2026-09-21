@@ -24,6 +24,7 @@ when_to_use: |
   UID.
 argument-hint: "[--fingerprint <fp>] [--keys-url <url>] [--keyserver <host>]"
 capability: capability:resolve
+surface_hash: sha256:bc9f77e9dcb305da
 license: Apache-2.0
 ---
 

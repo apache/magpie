@@ -29,7 +29,12 @@
 # Ignore git commit hashes (backtick-wrapped hex, 7-40 chars) — they
 # routinely contain letter runs typos reads as words (e.g. `9331fb2ba`
 # → `ba`). Matches the `In-flight` table's `Implemented by` column.
-extend-ignore-re = ["`[0-9a-f]{7,40}`"]
+#
+# Ignore the generated `surface_hash:` frontmatter field for the same
+# reason — a truncated sha256 hex digest routinely contains letter runs
+# typos reads as words (e.g. `19ba62ec34a55604` → `ba`). The value is
+# written only by `tools/dev/skill-surface-hash.py`, never hand-edited.
+extend-ignore-re = ["`[0-9a-f]{7,40}`", "surface_hash: sha256:[0-9a-f]+"]
 
 [default.extend-words]
 # Domain terms typos' default dictionary flags as misspellings.

@@ -27,6 +27,7 @@ when_to_use: |
   `<upstream>` have their own skills, not this one.
 argument-hint: "[what broke, or a problem description]"
 capability: capability:platform
+surface_hash: sha256:b99d3a8e3221a0cc
 license: Apache-2.0
 ---
 

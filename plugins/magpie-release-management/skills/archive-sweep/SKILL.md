@@ -24,6 +24,7 @@ argument-hint: "[--planning-issue <url>]"
 capability:
   - capability:resolve
   - capability:triage
+surface_hash: sha256:7cb626368f367e76
 license: Apache-2.0
 ---
 

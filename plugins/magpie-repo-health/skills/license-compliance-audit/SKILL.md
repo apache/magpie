@@ -23,6 +23,7 @@ when_to_use: |
   patch.
 argument-hint: "[--repo owner/name | --path /path/to/checkout] [--declared-spdx Apache-2.0]"
 capability: capability:triage
+surface_hash: sha256:b40b2993e5f18f54
 license: Apache-2.0
 ---
 

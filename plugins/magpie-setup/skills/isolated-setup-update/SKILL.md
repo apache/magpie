@@ -19,6 +19,7 @@ when_to_use: |
   per the doc: once per agent harness upgrade or once a month,
   whichever comes first. Cheap to re-run; never destructive.
 capability: capability:platform
+surface_hash: sha256:6721ab56e11f79e8
 license: Apache-2.0
 ---
 

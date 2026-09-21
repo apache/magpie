@@ -26,6 +26,7 @@ argument-hint: "<version>-rcN [--force-close <reason>]"
 capability:
   - capability:triage
   - capability:resolve
+surface_hash: sha256:b0b69aea022307a5
 license: Apache-2.0
 ---
 

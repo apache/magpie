@@ -29,6 +29,7 @@ when_to_use: |
   RC number already exists on the remote.
 argument-hint: "<version> rc<N>"
 capability: capability:resolve
+surface_hash: sha256:3bbf726eae07fe4e
 license: Apache-2.0
 ---
 

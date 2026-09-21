@@ -24,6 +24,7 @@ when_to_use: |
   when the goal is per-PR triage — that is `pr-management-triage`
   — or when the issues are still in active triage flow.
 capability: capability:reassess
+surface_hash: sha256:b69888bd3ed2f82f
 license: Apache-2.0
 ---
 

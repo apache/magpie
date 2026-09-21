@@ -30,6 +30,7 @@ when_to_use: |
   `forwarders.enabled` is empty or the inbound message is
   obviously from the direct reporter.
 capability: capability:intake
+surface_hash: sha256:7be6fd9a774bbde5
 license: Apache-2.0
 ---
 

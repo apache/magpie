@@ -22,6 +22,7 @@ when_to_use: |
   `pr-management-stats` for that.
 argument-hint: "[repo:owner/name] [since:date] [--markdown] [--tables-only] [clear-cache]"
 capability: capability:stats
+surface_hash: sha256:34d5f05ebb5ee5b3
 license: Apache-2.0
 ---
 

@@ -24,6 +24,7 @@ when_to_use: |
   already closed, or too vague to explain without scope-setting.
 argument-hint: "[issue-number or issue-URL]"
 capability: capability:review
+surface_hash: sha256:8cfe453a3113abe2
 license: Apache-2.0
 ---
 <!-- SPDX-License-Identifier: Apache-2.0

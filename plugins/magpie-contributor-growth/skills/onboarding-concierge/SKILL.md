@@ -28,6 +28,7 @@ when_to_use: |
   those routes trigger the hand-off path.
 argument-hint: "[newcomer question or issue/PR URL]"
 capability: capability:review
+surface_hash: sha256:4105a6571bcb70c2
 license: Apache-2.0
 ---
 <!-- SPDX-License-Identifier: Apache-2.0

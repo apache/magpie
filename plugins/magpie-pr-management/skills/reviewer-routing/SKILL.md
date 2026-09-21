@@ -26,6 +26,7 @@ when_to_use: |
   not asked for a second opinion.
 argument-hint: "[pr:<N> | issue:<N>] [--repo owner/name]"
 capability: capability:triage
+surface_hash: sha256:c9b9669a27ceaad7
 license: Apache-2.0
 ---
 

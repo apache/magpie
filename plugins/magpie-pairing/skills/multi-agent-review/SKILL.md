@@ -23,6 +23,7 @@ when_to_use: |
   instead.
 argument-hint: "[base:<ref>] [staged] [path:<glob>]"
 capability: capability:review
+surface_hash: sha256:f73064201c168039
 license: Apache-2.0
 ---
 <!-- SPDX-License-Identifier: Apache-2.0

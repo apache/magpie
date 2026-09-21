@@ -33,6 +33,7 @@ argument-hint: "[since-date | last-N | tracker-range]"
 capability:
   - capability:reassess
   - capability:authoring
+surface_hash: sha256:70cc9d9595998186
 license: Apache-2.0
 ---
 

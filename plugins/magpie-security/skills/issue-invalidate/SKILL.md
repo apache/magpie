@@ -27,6 +27,7 @@ when_to_use: |
   public consequences and warrants explicit team escalation.
 argument-hint: "[issue-number]"
 capability: capability:resolve
+surface_hash: sha256:af16fa7d6f65328a
 license: Apache-2.0
 ---
 

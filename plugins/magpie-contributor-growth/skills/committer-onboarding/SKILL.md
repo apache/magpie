@@ -25,6 +25,7 @@ when_to_use: |
 capability:
   - capability:resolve
   - capability:triage
+surface_hash: sha256:071ddc1ea4611c76
 license: Apache-2.0
 ---
 

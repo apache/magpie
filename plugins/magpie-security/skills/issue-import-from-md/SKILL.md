@@ -24,6 +24,7 @@ when_to_use: |
   anchor the import on (`security-issue-import-from-pr`).
 argument-hint: "[path-to-markdown-file]"
 capability: capability:intake
+surface_hash: sha256:1b9464815ffad903
 license: Apache-2.0
 ---
 

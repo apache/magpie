@@ -23,6 +23,7 @@ when_to_use: |
   `security-issue-deduplicate` for those).
 argument-hint: "[kept-issue] [duplicate-issue]"
 capability: capability:resolve
+surface_hash: sha256:cee70e29c6fadb04
 license: Apache-2.0
 ---
 

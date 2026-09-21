@@ -30,6 +30,7 @@ when_to_use: |
   if the candidate's scope is unclear.
 argument-hint: "[candidate-gap-or-task]"
 capability: capability:review
+surface_hash: sha256:f3621db6f89750f9
 license: Apache-2.0
 ---
 <!-- SPDX-License-Identifier: Apache-2.0

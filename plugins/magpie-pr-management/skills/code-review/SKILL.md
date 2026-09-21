@@ -20,6 +20,7 @@ when_to_use: |
   has not yet engaged the PR.
 argument-hint: "[pr:N] [area:LBL] [collab:true|false] [team:NAME] [ready] [dry-run]"
 capability: capability:review
+surface_hash: sha256:1d0038ec4fde60bf
 license: Apache-2.0
 ---
 <!-- SPDX-License-Identifier: Apache-2.0

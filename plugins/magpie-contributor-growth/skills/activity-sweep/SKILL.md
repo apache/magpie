@@ -24,6 +24,7 @@ when_to_use: |
   readiness — use contributor-nomination instead.
 argument-hint: "<github-handle> [window:Nm]"
 capability: capability:stats
+surface_hash: sha256:748187f2d78d9991
 license: Apache-2.0
 ---
 

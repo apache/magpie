@@ -27,6 +27,7 @@ when_to_use: |
   proceed with snapshot-only output.
 argument-hint: "[window:Nm] [baseline:YYYY-MM-DD..YYYY-MM-DD]"
 capability: capability:stats
+surface_hash: sha256:c325db1d99634a51
 license: Apache-2.0
 ---
 

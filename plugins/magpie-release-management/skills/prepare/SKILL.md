@@ -38,6 +38,7 @@ when_to_use: |
   `<project-config>/release-trains.md` to exist.
 argument-hint: "[prep | post] <version> [--review-archive] | automated-signing"
 capability: capability:resolve
+surface_hash: sha256:5cfba199f4348e98
 license: Apache-2.0
 ---
 
