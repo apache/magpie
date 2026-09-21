@@ -310,9 +310,15 @@ For each file in `<repo-root>/.apache-magpie-overrides/`:
    - Surface as conflict.
    - The user updates the override's target skill name OR
      deletes the override.
-2. **Anchor check** — if the override references framework
-   structure (step numbers, golden rules, decision-table
-   rows) that has changed in the new framework version:
+2. **Anchor check** — read the target skill's `SKILL.md` **and every
+   sibling `*.md` detail file directly inside that skill's directory**
+   (a multi-file skill such as `setup` or `pr-management-triage` keeps
+   steps and golden rules in those detail files, not only in
+   `SKILL.md` — the same anchor-resolution surface
+   [`reconcile.md`](reconcile.md#the-sweep) check 2 defines). If the
+   override references framework structure (step numbers, golden
+   rules, decision-table rows) that has changed anywhere in that set
+   in the new framework version:
    - Surface as conflict, with the specific anchors that
      have moved.
    - The user re-anchors the override against the new

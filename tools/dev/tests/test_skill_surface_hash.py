@@ -148,6 +148,25 @@ def test_adding_a_detail_file_moves_the_hash(tmp_path: Path) -> None:
     assert MOD.surface_hash(with_detail) != MOD.surface_hash(without)
 
 
+def test_swapping_anchors_between_detail_files_moves_the_hash(tmp_path: Path) -> None:
+    """Same combined anchor text, split the opposite way across two detail
+    files, must hash differently — the file an anchor came from is part of
+    the payload, not just the anchor text. Rename-within-a-file and
+    add-a-file coverage would not catch a regression that dropped the
+    per-file tagging; this is the property that would."""
+    swapped_a = _make_skill(
+        tmp_path / "swapped-a",
+        SKILL,
+        **{"alpha.md": "## Heading One\n", "beta.md": "## Heading Two\n"},
+    )
+    swapped_b = _make_skill(
+        tmp_path / "swapped-b",
+        SKILL,
+        **{"alpha.md": "## Heading Two\n", "beta.md": "## Heading One\n"},
+    )
+    assert MOD.surface_hash(swapped_a) != MOD.surface_hash(swapped_b)
+
+
 def test_hash_does_not_depend_on_file_creation_order(tmp_path: Path) -> None:
     forward = tmp_path / "forward"
     forward.mkdir()
