@@ -1180,3 +1180,40 @@ def test_the_two_windows_share_one_copy_of_the_context_helpers() -> None:
         assert set(found) == set(wanted), f"{window.name} is missing {wanted}"
         helpers.append([found[name] for name in wanted])
     assert helpers[0] == helpers[1], "the two windows' context helpers have drifted"
+
+
+def test_the_aqua_window_closes_when_it_loses_the_keyboard() -> None:
+    """An overlay that is no longer listening must not stay on screen.
+
+    ``take_focus`` takes the keyboard once, on the way up, and the window
+    is ``-topmost``. Anything that takes the keyboard afterwards leaves it
+    painted over the screen with Esc going elsewhere and nothing but a
+    kill to get rid of it — which is what this binding exists to prevent.
+
+    It has to be ``<Deactivate>``: Tk's focus events track the keyboard
+    moving between widgets inside one application, and nothing moves
+    between widgets here. ``<FocusOut>`` does not fire when a different
+    application takes over, so binding it instead reads correct and does
+    nothing.
+    """
+    window = SCRIPT.parent / "gpg-touch-overlay-window-macos.py"
+    tree = ast.parse(window.read_text())
+    build = next(
+        node
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef) and node.name == "build_window"
+    )
+    bound = {
+        node.args[0].value
+        for node in ast.walk(build)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "bind"
+        and node.args
+        and isinstance(node.args[0], ast.Constant)
+    }
+    assert "<Deactivate>" in bound, (
+        "the Aqua overlay does not close when another application takes the "
+        f"keyboard; it binds only {sorted(bound)}"
+    )
+    assert "<Escape>" in bound, "the Aqua overlay no longer closes on Esc"

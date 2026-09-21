@@ -42,8 +42,11 @@ characters and a Return into whatever has focus; while the overlay is
 showing that should be the overlay, which ignores them — see
 ``take_focus``.
 
-Closes on Esc or a click — the key must still be touched for the command
-to go through, so trapping the screen would buy nothing.
+Closes on Esc, on a click, or as soon as it loses focus — the key must
+still be touched for the command to go through, so trapping the screen
+would buy nothing. Closing on focus loss is what makes that last part
+safe: the keyboard is taken once, on the way up, and never grabbed back,
+so a window that is no longer listening is never left on screen.
 """
 
 import ctypes
@@ -77,6 +80,9 @@ RIPPLES = 3
 PULSE_MS = 33
 PULSE_PERIOD = 1.9  # seconds, one ripple's whole travel
 STOP_POLL_MS = 60
+# Long enough to cover the focus churn of activating the application, short
+# enough that a window losing focus to something else is still caught.
+FOCUS_GRACE_MS = 750
 
 FONT = "Helvetica Neue"
 MONO = "Menlo"
@@ -302,6 +308,27 @@ def build_window():
     # around it.
     root.update()
     take_focus(root)
+
+    # ``take_focus`` runs once, and the window is ``-topmost``: anything
+    # that takes the keyboard afterwards — a notification, another app
+    # activating, the terminal being clicked — leaves it painted over the
+    # screen with Esc going somewhere else, and nothing but a kill to get
+    # rid of it. Closing on focus loss is what keeps that state
+    # unreachable. Re-grabbing the keyboard instead would trap the screen,
+    # which this window deliberately does not do.
+    #
+    # ``<Deactivate>``, not ``<FocusOut>``: Tk's focus events track the
+    # keyboard moving between widgets inside one application, and nothing
+    # moves between widgets here. Losing the keyboard to a *different*
+    # application is what has to be caught, and on Aqua that arrives as
+    # ``<Deactivate>`` on the toplevel.
+    #
+    # The binding is deferred because activation itself churns focus: bound
+    # immediately, the window closes on its own way up.
+    root.after(
+        FOCUS_GRACE_MS,
+        lambda: root.bind("<Deactivate>", lambda _event: root.destroy()),
+    )
     return root
 
 
