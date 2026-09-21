@@ -14,7 +14,7 @@ cat .apache-magpie.lock:
   method: marketplace
   url: apache/magpie
   floor:
-    magpie-pr-management: 0.9.0
+    magpie-pr-management: 0.1.0
   reconciled:
     version: 0.2.0.dev202609180100
     at:      2026-09-18
@@ -34,3 +34,5 @@ cat .apache-magpie-local/reconciled.json:
 
 claude plugin list --json (readable in this session):
   [{"name": "magpie-pr-management", "version": "0.2.0.dev202609180100"}]
+  (satisfies the 0.1.0 floor, so step 3 of the pre-flight passes
+  silently and does not skip step 4)
