@@ -286,6 +286,27 @@ anything still invoked directly:
 }
 ```
 
+The read dispatcher also needs a `sandbox.excludedCommands` entry, or the
+`allow` rule above buys nothing. The framework already excludes bare `gh *`
+because a sandboxed `gh` cannot verify TLS — on macOS it fails with
+`x509: OSStatus -26276`. A `gh` spawned *inside* `uv run … vetted-op-read` is
+not a bare `gh` invocation, so it stays sandboxed and every read operation
+fails the same way:
+
+```jsonc
+"sandbox": {
+  "excludedCommands": [
+    "gh *",
+    "uv run --project ~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/*/tools/vetted-ops vetted-op-read *"
+  ]
+}
+```
+
+Only `vetted-op-read` is excluded, never `vetted-op` — the same reasoning as the
+`allow` rule. The read dispatcher refuses writes before it consults the policy
+at all, so running it outside the sandbox exposes only the fixed read
+operations; excluding the write dispatcher would run the whole catalogue there.
+
 The dispatcher must live where the agent cannot rewrite it — otherwise an agent
 that edits `ops.py` has defeated the whole design. That is why it ships as the
 `magpie-vetted-ops` **substrate plugin**: the installed plugin tree is not a path

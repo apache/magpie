@@ -3,7 +3,9 @@
   "sandbox": {
     "enabled": true,
     "excludedCommands": [
-      "gh *"
+      "gh *",
+      "uv run --project tools/vetted-ops vetted-op-read *",
+      "uv run --project ~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/*/tools/vetted-ops vetted-op-read *"
     ],
     "filesystem": {
       "denyRead": [
