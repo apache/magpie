@@ -25,6 +25,7 @@ matcher is exercisable with no X display and nothing left running.
 
 from __future__ import annotations
 
+import ast
 import json
 import os
 import shutil
@@ -965,3 +966,217 @@ def test_wrap_registers_itself_and_leaves_other_owners_alone(tmp_path: Path) -> 
     finally:
         other.kill()
         other.wait()
+
+
+# ---------------------------------------------------------------- context ---
+#
+# What the window says the touch is *for*. The window scripts themselves
+# are display code this package does not import (see the pyproject note);
+# what is tested here is the shell half — what gets recorded, when it is
+# refreshed, and that it is gone once nothing is signing.
+
+
+def _context_file(runtime_root: Path, session: str) -> Path:
+    return runtime_root / "magpie-gpg-touch" / "context" / f"s-{session}"
+
+
+def _context(runtime_root: Path, session: str) -> tuple[str, str]:
+    """The recorded (cwd, command) for a session."""
+    cwd, command = _context_file(runtime_root, session).read_text().split("\n")[:2]
+    return cwd, command
+
+
+def _arm_session_in(
+    runtime_root: Path, session: str, cwd: str, command: str = "git commit -m x"
+):
+    result = subprocess.run(
+        ["bash", str(SCRIPT), "arm"],
+        input=json.dumps(
+            {"session_id": session, "cwd": cwd, "tool_input": {"command": command}}
+        ),
+        capture_output=True,
+        text=True,
+        env=_hook_env(runtime_root),
+    )
+    assert result.returncode == 0, result.stderr
+    return result
+
+
+def _transform(mode: str, text: str) -> str:
+    result = subprocess.run(
+        ["bash", str(SCRIPT), mode, text],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    return result.stdout.rstrip("\n")
+
+
+def test_arm_records_the_directory_and_command(tmp_path: Path) -> None:
+    _arm_session_in(tmp_path, "ctx", "/srv/checkout", "git commit -m hello")
+    try:
+        assert _context(tmp_path, "ctx") == ("/srv/checkout", "git commit -m hello")
+    finally:
+        _disarm_session(tmp_path, "ctx")
+
+
+def test_a_payload_without_a_cwd_still_records_the_command(tmp_path: Path) -> None:
+    """A harness that sends no cwd loses the line, not the window.
+
+    The hook's own directory is not a stand-in: it is the harness's,
+    which is not where the blocked command runs.
+    """
+    _arm_session(tmp_path, "nocwd", command="git push origin main")
+    try:
+        assert _context(tmp_path, "nocwd") == ("", "git push origin main")
+    finally:
+        _disarm_session(tmp_path, "nocwd")
+
+
+def test_a_rider_refreshes_the_context_under_the_same_watcher(tmp_path: Path) -> None:
+    """The second command in a session is the one the window should name.
+
+    It arms into a watcher that already exists and returns early, so the
+    context has to be written before that return — and read by the
+    watcher from the file rather than held in its environment.
+    """
+    _arm_session_in(tmp_path, "ride", "/first", "git commit -m one")
+    first_watcher = _read_registration(tmp_path, "ride")[1]
+    try:
+        _arm_session_in(tmp_path, "ride", "/second", "git push origin main")
+        assert _read_registration(tmp_path, "ride")[1] == first_watcher
+        assert _context(tmp_path, "ride") == ("/second", "git push origin main")
+    finally:
+        _disarm_session(tmp_path, "ride")
+
+
+def test_disarm_forgets_the_context(tmp_path: Path) -> None:
+    _arm_session_in(tmp_path, "gone", "/srv/checkout")
+    _disarm_session(tmp_path, "gone")
+    assert not _context_file(tmp_path, "gone").exists()
+
+
+def test_the_context_of_a_dead_owner_is_swept(tmp_path: Path) -> None:
+    """A crashed session leaves no stale command behind for the next window."""
+    dead = subprocess.Popen(["sh", "-c", "exit 0"])
+    dead.wait()
+    owners = _owners_dir(tmp_path)
+    owners.mkdir(parents=True)
+    (owners / "s-crashed").write_text(f"{dead.pid} {dead.pid}\n")
+    context = _context_file(tmp_path, "crashed")
+    context.parent.mkdir(parents=True, exist_ok=True)
+    context.write_text("/gone\ngit commit -m stale\n")
+
+    _arm_session_in(tmp_path, "live", "/srv/checkout")
+    try:
+        assert not context.exists()
+    finally:
+        _disarm_session(tmp_path, "live")
+
+
+def test_wrap_records_its_own_directory_and_command(tmp_path: Path) -> None:
+    """The wrapper is the command's own process, so `$PWD` is the answer."""
+    workdir = tmp_path / "work"
+    workdir.mkdir()
+    runtime = tmp_path / "run"
+    result = subprocess.run(
+        ["bash", str(SCRIPT), "wrap", "sh", "-c", "exit 0"],
+        capture_output=True,
+        text=True,
+        cwd=workdir,
+        env={**_wrap_env(runtime), "MAGPIE_GPG_TOUCH_ASSUME_GUI": "1"},
+    )
+    assert result.returncode == 0, result.stderr
+    # The wrapper cleans up on exit, so the file is read back from the
+    # wrapped program rather than after the fact.
+    probe = subprocess.run(
+        [
+            "bash",
+            str(SCRIPT),
+            "wrap",
+            "sh",
+            "-c",
+            'cat "${MAGPIE_GPG_TOUCH_REGISTRATION%/owners/*}/context/${MAGPIE_GPG_TOUCH_REGISTRATION##*/}"',
+        ],
+        capture_output=True,
+        text=True,
+        cwd=workdir,
+        env={**_wrap_env(runtime), "MAGPIE_GPG_TOUCH_ASSUME_GUI": "1"},
+    )
+    assert probe.returncode == 0, probe.stderr
+    recorded_cwd, recorded_command = probe.stdout.split("\n")[:2]
+    assert Path(recorded_cwd).resolve() == workdir.resolve()
+    assert recorded_command.startswith("sh -c ")
+
+
+@pytest.mark.parametrize(
+    "raw,flattened",
+    [
+        ("git commit -F -\nbody line\n", "git commit -F - body line"),
+        ("git commit\t-m\tx", "git commit -m x"),
+        ("git   commit    -m  x", "git commit -m x"),
+        ("  git commit  ", "git commit"),
+    ],
+)
+def test_a_command_is_recorded_as_one_line(raw: str, flattened: str) -> None:
+    """A two-line file cannot hold a command that carries newlines itself.
+
+    An agent's `git commit -F -` heredoc is the everyday case.
+    """
+    assert _transform("_flatten", raw) == flattened
+
+
+def test_a_long_command_is_capped_before_it_is_written() -> None:
+    assert len(_transform("_flatten", "git commit -m " + "x" * 5000)) == 400
+
+
+@pytest.mark.parametrize(
+    "raw,scrubbed",
+    [
+        (
+            "git push https://jarek:ghp_secret@github.com/apache/magpie main",
+            "git push https://jarek:***@github.com/apache/magpie main",
+        ),
+        (
+            "git clone ssh://user:pw@host:22/repo.git",
+            "git clone ssh://user:***@host:22/repo.git",
+        ),
+        # No password, nothing to do — and `ssh git@host` has no scheme
+        # for the pattern to anchor on in the first place.
+        (
+            "git push https://github.com/apache/magpie main",
+            "git push https://github.com/apache/magpie main",
+        ),
+        ("ssh git@github.com", "ssh git@github.com"),
+    ],
+)
+def test_a_password_in_a_url_is_not_put_on_screen(raw: str, scrubbed: str) -> None:
+    """The overlay covers the whole screen at the moment most likely to be shared."""
+    assert _transform("_scrub", raw) == scrubbed
+
+
+def test_the_two_windows_share_one_copy_of_the_context_helpers() -> None:
+    """The GTK and Aqua windows are twins by design — these parts must not drift.
+
+    They are different toolkits and duplicate their drawing on purpose,
+    but `elide` and `context` are toolkit-independent and are meant to be
+    the same text in both files. Neither is imported by this package (see
+    the pyproject note), so nothing else would notice them diverging.
+    """
+    windows = [
+        SCRIPT.parent / "gpg-touch-overlay-window.py",
+        SCRIPT.parent / "gpg-touch-overlay-window-macos.py",
+    ]
+    wanted = ("elide", "context")
+    helpers = []
+    for window in windows:
+        source = window.read_text()
+        tree = ast.parse(source)
+        found = {
+            node.name: ast.get_source_segment(source, node)
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef) and node.name in wanted
+        }
+        assert set(found) == set(wanted), f"{window.name} is missing {wanted}"
+        helpers.append([found[name] for name in wanted])
+    assert helpers[0] == helpers[1], "the two windows' context helpers have drifted"

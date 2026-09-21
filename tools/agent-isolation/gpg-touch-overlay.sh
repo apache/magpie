@@ -169,6 +169,21 @@ fi
 # the question "is this mine to kill?" always has an answer.
 readonly OWNERS_DIR="$RUNTIME_DIR/owners"
 
+# What the window says the touch is *for*: one file per owner, keyed by
+# the same id as its registration, holding the working directory on the
+# first line and the command on the second.
+#
+# A separate directory rather than a suffix inside `owners/`, because
+# `_sweep_owners` reads every entry there as a registration — a
+# `s-abc.ctx` sitting beside `s-abc` would be parsed as one, fail, and be
+# swept away on the next arm.
+#
+# Keying by owner id is what makes the ride-along case work: an arm that
+# finds its session already watched writes the file anyway and returns,
+# and the running watcher — which holds this path, not the text — shows
+# the newer command the next time it raises the window.
+readonly CONTEXT_DIR="$RUNTIME_DIR/context"
+
 # The window is the one thing that must stay single across owners, so it
 # is leased rather than owned: an atomic directory create, which is the
 # one primitive both macOS and Linux have without flock(1).
@@ -336,6 +351,53 @@ _kill_watcher() {
     kill -- -"$1" "$1" 2>/dev/null || true
 }
 
+# ----------------------------------------------------------- context ---
+
+#: Longest command kept on disk. The window truncates again for its own
+#: width; this only stops a multi-kilobyte heredoc — the shape of an
+#: agent's `git commit -F -` — from being written out on every arm.
+readonly CONTEXT_COMMAND_MAX=400
+
+# One line, no control characters. A command reaches here straight from
+# a hook payload or a terminal argv, and both routinely carry newlines
+# (a heredoc, a quoted commit message); a second line in a two-line file
+# would be read back as neither the directory nor the command.
+_flatten() {
+    printf '%s' "$1" |
+        tr '\n\r\t\v\f\0' '      ' |
+        sed -e 's/  */ /g' -e 's/^ //' -e 's/ $//' |
+        cut -c "1-$CONTEXT_COMMAND_MAX"
+}
+
+# Passwords in a URL are the one secret that routinely rides in an argv
+# this script matches: `git push https://user:token@host/repo` is a
+# documented git spelling, and the overlay puts what it is given across
+# the whole screen — the moment somebody is most likely to be sharing it.
+# Nothing else is scrubbed; this is not a general redactor, and a command
+# that carries a secret anywhere else still shows it.
+_scrub() {
+    printf '%s' "$1" | sed -E 's#(://[^/@:[:space:]]+):[^/@[:space:]]+@#\1:***@#g'
+}
+
+# Record what this owner's touch is for. Best-effort throughout: a
+# window with no context is the old behaviour, and never a reason to
+# fail the commit the hook is standing in front of.
+_write_context() {
+    local id=$1 cwd=$2 command=$3 tmp
+    mkdir -p "$CONTEXT_DIR" 2>/dev/null || return 0
+    tmp="$CONTEXT_DIR/.$id.$$"
+    {
+        printf '%s\n' "$(_flatten "$cwd")"
+        printf '%s\n' "$(_scrub "$(_flatten "$command")")"
+    } >"$tmp" 2>/dev/null &&
+        mv -f "$tmp" "$CONTEXT_DIR/$id" 2>/dev/null
+    return 0
+}
+
+_forget_context() {
+    rm -f "$CONTEXT_DIR/$1" 2>/dev/null || true
+}
+
 # A context whose owner is gone left its watcher behind, and a watcher
 # nobody will disarm holds its window until MAX_WAIT. This is what turns
 # a crashed session from a ten-minute stuck overlay into nothing at all.
@@ -346,11 +408,13 @@ _sweep_owners() {
         id=${reg##*/}
         if ! _read_registration "$id"; then
             rm -f "$reg" 2>/dev/null
+            _forget_context "$id"
             continue
         fi
         if ! kill -0 "$_owner_pid" 2>/dev/null; then
             _kill_watcher "$_watcher_pid"
             rm -f "$reg" 2>/dev/null
+            _forget_context "$id"
         fi
     done
 }
@@ -365,6 +429,9 @@ _cleanup_if_idle() {
     done
     rm -f "$DISMISSED_MARKER" 2>/dev/null
     [[ -n ${WINDOW_LOCK:-} ]] && rm -rf "$WINDOW_LOCK" 2>/dev/null
+    # No owner left means no context belongs to anybody, including the
+    # temporary files of a writer that died mid-write.
+    [[ -n ${CONTEXT_DIR:-} ]] && rm -rf "$CONTEXT_DIR" 2>/dev/null
     return 0
 }
 
@@ -405,11 +472,16 @@ arm() {
         _gui_available || return 0
     fi
 
-    local payload command_text session
+    local payload command_text session cwd
     payload="$(cat)"
     command_text="$(printf '%s' "$payload" | jq -r '.tool_input.command // empty' 2>/dev/null)"
     [[ -n $command_text ]] || return 0
     session="$(printf '%s' "$payload" | jq -r '.session_id // empty' 2>/dev/null)"
+    # Where the blocked command runs, for the window to name. The
+    # harness sends it; a payload without one leaves the line off rather
+    # than substituting this hook's own directory, which is the
+    # harness's and not the command's.
+    cwd="$(printf '%s' "$payload" | jq -r '.cwd // empty' 2>/dev/null)"
 
     printf '%s' "$command_text" |
         grep -Eq "(^|[;&|(]|[[:space:]])(git([[:space:]]+-[A-Za-z-]+([[:space:]]+[^[:space:]]+)?)*[[:space:]]+($KEY_SUBCOMMANDS)|($KEY_COMMANDS))([[:space:];&|)]|$)" ||
@@ -430,6 +502,11 @@ arm() {
     # command in the same session rides along with it.
     local id
     id="$(_owner_id "$session")"
+    # Written before that early return, not after it. The rider is the
+    # command actually about to block, so it is the one the window
+    # should name; the watcher already holds this path and reads it
+    # afresh each time it raises the window.
+    _write_context "$id" "$cwd" "$command_text"
     if _read_registration "$id" && kill -0 "$_watcher_pid" 2>/dev/null; then
         return 0
     fi
@@ -451,6 +528,7 @@ arm() {
     # if that goes, the disarm is never coming, and the watcher should
     # not wait out MAX_WAIT to find that out.
     MAGPIE_GPG_TOUCH_PARENT=$PPID \
+    MAGPIE_GPG_TOUCH_CONTEXT="$CONTEXT_DIR/$id" \
         "${SESSION_LAUNCHER[@]}" "$SELF" _watch >>"$log" 2>&1 &
     _register "$id" "$PPID" "$!"
 }
@@ -474,6 +552,10 @@ disarm() {
         _kill_watcher "$_watcher_pid"
         rm -f "$OWNERS_DIR/$id" 2>/dev/null
     fi
+    # Unconditionally: an arm that wrote the context and then found the
+    # session already watched left a file behind with no registration of
+    # its own to hang it off.
+    _forget_context "$id"
     # Somebody else's crashed session is nobody's to wait for.
     _sweep_owners
     _cleanup_if_idle
@@ -564,11 +646,17 @@ wrap() {
         : >"$log"
     fi
     _set_session_launcher
+    # What the window will name. `$PWD` is the right directory here and
+    # not in `arm`: this wrapper *is* the command's process, sitting in
+    # the shell's own directory, whereas the hook runs beside the
+    # command rather than in it.
+    _write_context "$id" "$PWD" "$program${*:+ $*}"
     # The watcher is told whose it is, and leaves on its own once this
     # wrapper is gone -- however that happened. The kill in the trap
     # below is the fast path; the parent check is the one that cannot be
     # raced or skipped.
     MAGPIE_GPG_TOUCH_WRAPPED_SIGNER=$signer MAGPIE_GPG_TOUCH_PARENT=$$ \
+    MAGPIE_GPG_TOUCH_CONTEXT="$CONTEXT_DIR/$id" \
         "${SESSION_LAUNCHER[@]}" "$SELF" _watch >>"$log" 2>&1 &
     own=$!
     _register "$id" "$$" "$own"
@@ -582,7 +670,7 @@ wrap() {
     # window it spawned, the pid itself for a watcher too young to have
     # called setsid (a signature that returns in milliseconds ends
     # before it has).
-    trap 'kill -- -'"$own"' '"$own"' 2>/dev/null; rm -f "'"$OWNERS_DIR/$id"'" 2>/dev/null; _cleanup_if_idle' EXIT
+    trap 'kill -- -'"$own"' '"$own"' 2>/dev/null; rm -f "'"$OWNERS_DIR/$id"'" "'"$CONTEXT_DIR/$id"'" 2>/dev/null; _cleanup_if_idle' EXIT
 
     "$real" "$@"
     return $?
@@ -635,7 +723,16 @@ show_overlay() {
     # draw two windows for the same touch. Losing it is the normal case
     # and means somebody else's window is already up.
     _lease_acquire || return 0
-    "$SELF" _overlay &
+    # Read here rather than at arm time: the file is what carries a
+    # second command in the same session, and this is the last moment
+    # before the window is drawn. A missing or unreadable file leaves
+    # both empty and the window drops the two lines.
+    local cwd="" command=""
+    if [[ -n ${MAGPIE_GPG_TOUCH_CONTEXT:-} && -r ${MAGPIE_GPG_TOUCH_CONTEXT:-} ]]; then
+        { read -r cwd; read -r command; } <"$MAGPIE_GPG_TOUCH_CONTEXT" || true
+    fi
+    MAGPIE_GPG_TOUCH_CWD="$cwd" MAGPIE_GPG_TOUCH_COMMAND="$command" \
+        "$SELF" _overlay &
     overlay_pid=$!
     raise_overlay &
 }
@@ -771,10 +868,13 @@ _overlay() {
         # no tokens or keys land in a world-readable log.
         {
             printf 'overlay env: '
-            env | grep -E '^(PATH|HOME|USER|SHELL|TERM|LANG|TMPDIR|DISPLAY|WAYLAND_DISPLAY|SSH_AUTH_SOCK|XPC_SERVICE_NAME|__CFBundleIdentifier|CLAUDE[A-Z_]*)=' | sort | tr '\n' ' '
+            env | grep -E '^(PATH|HOME|USER|SHELL|TERM|LANG|TMPDIR|DISPLAY|WAYLAND_DISPLAY|SSH_AUTH_SOCK|XPC_SERVICE_NAME|__CFBundleIdentifier|MAGPIE_GPG_TOUCH_(CWD|COMMAND)|CLAUDE[A-Z_]*)=' | sort | tr '\n' ' '
             printf '\n'
         } >>"$out" 2>&1
     fi
+    # The two toolkit windows read MAGPIE_GPG_TOUCH_CWD / _COMMAND from
+    # the environment they are exec'd with; only zenity, which takes one
+    # string, has to have them spliced into its text here.
     if [[ $PLATFORM == Darwin ]]; then
         py="$(_tk_python)" || return 0
         exec "$py" "$OVERLAY_WINDOW_MACOS" >>"$out" 2>&1
@@ -782,7 +882,17 @@ _overlay() {
     if py="$(_gi_python)"; then
         exec "$py" "$OVERLAY_WINDOW" >>"$out" 2>&1
     fi
-    exec zenity --warning --title="$TITLE" --width=560 --text="$BODY" >>"$out" 2>&1
+    local body="$BODY"
+    if [[ -n ${MAGPIE_GPG_TOUCH_COMMAND:-} ]]; then
+        # Pango markup, as the rest of BODY is, so the command has to be
+        # escaped: a `&&` chain or a `2>&1` is otherwise an unterminated
+        # entity and zenity renders the raw markup instead of the text.
+        body+=$'\n\n'"<tt>$(printf '%s' "$MAGPIE_GPG_TOUCH_COMMAND" |
+            sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g')</tt>"
+        [[ -n ${MAGPIE_GPG_TOUCH_CWD:-} ]] &&
+            body+=$'\n'"in ${MAGPIE_GPG_TOUCH_CWD/#$HOME/\~}"
+    fi
+    exec zenity --warning --title="$TITLE" --width=560 --text="$body" >>"$out" 2>&1
 }
 
 # A PreToolUse hook's exit status is a verdict on the command about to
@@ -825,6 +935,10 @@ case "${1:-}" in
     # Test seam: report where state would be kept, so the fallback can be
     # asserted against the script's own value rather than a copy of it.
     _runtime_dir) printf '%s\n' "$RUNTIME_DIR"; exit 0 ;;
+    # Test seams: the two transformations every command goes through
+    # before it can be put on screen, exercised without a display.
+    _flatten) _flatten "${2:-}"; printf '\n'; exit 0 ;;
+    _scrub)   _scrub "${2:-}"; printf '\n'; exit 0 ;;
     _signing_in_flight) signing_in_flight ;;
     _agent_sockets) agent_sockets ;;
     _agent_socket_rows) agent_socket_rows "$(printf '%s\n' "${@:2}")" ;;

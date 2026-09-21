@@ -80,7 +80,16 @@ existing sandbox grants can widen the baseline. See `docs/adapters/gemini.md`.
   the wrapper only runs the program and the hook's watcher shows the
   window, and across contexts the window is leased by atomic directory
   create, so only one watcher draws it and a lease left by a watcher
-  that died is reclaimed. That registry, the lease, and the watcher's
+  that died is reclaimed. The window names the blocked command and the
+  directory it runs in, so a touch is never given to the wrong one of
+  two waiting contexts: `arm` records them from the hook payload and
+  `wrap` from its own `$PWD` and argv, into a per-owner file under
+  `context/` keyed like the registration. The watcher holds the path
+  and re-reads it each time it raises the window, which is what lets a
+  second command arming into an already-watched session replace the
+  text without a second watcher. A password in a URL is masked before
+  it is written; nothing else is, and the window is full-screen. That
+  registry, the context files, the lease, and the watcher's
   pid and log files live in `$XDG_RUNTIME_DIR/magpie-gpg-touch`, else
   `${XDG_CACHE_HOME:-$HOME/.cache}/magpie-gpg-touch` on a platform that
   sets no `XDG_RUNTIME_DIR`. The fallback has to be per-user rather than

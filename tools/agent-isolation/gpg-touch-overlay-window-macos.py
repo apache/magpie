@@ -48,6 +48,7 @@ to go through, so trapping the screen would buy nothing.
 
 import ctypes
 import ctypes.util
+import os
 import signal
 import sys
 import tkinter as tk
@@ -55,6 +56,12 @@ import tkinter as tk
 TITLE = "Touch your security key"
 SUBTITLE = "Your security key is waiting for a touch"
 HINT = "The git command stays blocked until you touch the key   ·   Esc to dismiss"
+
+# How much of the context the window will show. The watcher has already
+# capped what it writes; these are display widths, chosen so a line stays
+# on one row at the font sizes below rather than wrapping the layout.
+COMMAND_MAX = 96
+CWD_MAX = 72
 
 BG = (0, 0, 0)
 BG_HEX = "#000000"
@@ -72,6 +79,48 @@ PULSE_PERIOD = 1.9  # seconds, one ripple's whole travel
 STOP_POLL_MS = 60
 
 FONT = "Helvetica Neue"
+MONO = "Menlo"
+
+
+def elide(text, limit, keep="head"):
+    """Cut *text* to *limit*, marking where it was cut.
+
+    Which end survives is not the same question for the two lines. A
+    command is identified by how it starts — ``git commit``, ``git
+    push`` — so the head is kept; a path is identified by where it ends,
+    since the leading components are the ones every checkout on the
+    machine shares.
+    """
+    if len(text) <= limit:
+        return text
+    if keep == "tail":
+        return "…" + text[-(limit - 1):]
+    return text[: limit - 1] + "…"
+
+
+def context():
+    """The command this touch is blocking and the directory it runs in.
+
+    Both come from the watcher, which read them from the file the arming
+    hook wrote. Either being absent is normal and not an error: a
+    wrapped signature outside an agent session has no hook payload
+    behind it, and an older watcher passes nothing at all. The window
+    simply drops the lines it has no text for.
+
+    Control characters are stripped again here even though the watcher
+    already flattened them. This process is handed its text through the
+    environment, and a window that renders whatever is in a variable is
+    worth one defensive pass.
+    """
+    raw_command = os.environ.get("MAGPIE_GPG_TOUCH_COMMAND", "")
+    raw_cwd = os.environ.get("MAGPIE_GPG_TOUCH_CWD", "")
+    command, cwd = (
+        " ".join(value.split()) for value in (raw_command, raw_cwd)
+    )
+    home = os.path.expanduser("~")
+    if home and (cwd == home or cwd.startswith(home + os.sep)):
+        cwd = "~" + cwd[len(home):]
+    return elide(command, COMMAND_MAX), elide(cwd, CWD_MAX, keep="tail")
 
 
 def blend(fg, bg, alpha):
@@ -226,11 +275,22 @@ def build_window():
     frame.place(relx=0.5, rely=0.5, anchor="center")
 
     Pulse(frame).pack()
-    for text, font, colour, pad in (
+    command, cwd = context()
+    # The context sits between the subtitle and the hint, and only when
+    # there is any: the lines are what distinguishes two windows raised
+    # minutes apart, and an empty row where a command should be reads as
+    # a window that failed to load one.
+    lines = [
         (TITLE, (FONT, 64, "bold"), "#ffffff", (14, 0)),
         (SUBTITLE, (FONT, 28), "#dfe4ec", (18, 0)),
-        (HINT, (FONT, 16), "#8d96a4", (34, 0)),
-    ):
+    ]
+    if command:
+        lines.append((command, (MONO, 20), "#f5c229", (26, 0)))
+    if cwd:
+        lines.append((f"in {cwd}", (MONO, 16), "#8d96a4", (6, 0)))
+    lines.append((HINT, (FONT, 16), "#8d96a4", (34, 0)))
+
+    for text, font, colour, pad in lines:
         tk.Label(
             frame, text=text, font=font, fg=colour, bg=BG_HEX
         ).pack(pady=pad)

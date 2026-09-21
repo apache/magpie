@@ -2153,6 +2153,34 @@ that never prompts.
 pinentry does for the PIN: the desktop dims and a pulsing contact ring
 says which key is waiting. It closes itself the moment the touch lands.
 
+The window also names **what** the touch is for — the command that is
+blocked and the directory it runs in:
+
+```text
+                     Touch your security key
+             Your security key is waiting for a touch
+
+                  git commit -m 'fix the parser'
+                        in ~/code/magpie
+```
+
+That is the difference between a prompt you can answer and one you have
+to go and investigate. An agent session and a terminal can both be
+waiting on the same key, several worktrees of the same repository look
+alike from the outside, and a touch given to the wrong one is not
+recoverable — the key fires its OTP slot into whatever has focus. The
+two lines come from the hook payload of the command about to run
+(`arm`), or from the wrapper's own `$PWD` and argv when git calls it
+directly (`wrap`); a second command arming into a session that is
+already watched replaces them, so the window always names the command
+actually blocked rather than the one that started the watcher.
+
+A password embedded in a URL — `git push https://user:token@host/repo`
+— is masked to `user:***@` before it is recorded. Nothing else is
+scrubbed: this is a full-screen window raised at an unpredictable
+moment, so treat what it shows as visible to anyone who can see the
+screen.
+
 ### Install (user-scope)
 
 ```sh
