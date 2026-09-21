@@ -61,6 +61,13 @@ the one mechanism for both shapes:
   root `skill-surface-hash.py` walks) — a region discovered outside it is
   rejected rather than filled, so the mechanism cannot be used to
   propagate prose into arbitrary documentation by accident.
+
+The two marker shapes are a deliberate, documented asymmetry — not a gap to
+close reflexively. Unifying them (moving `preflight-block.md` under
+`tools/dev/blocks/` and reformatting its delimiter) is worth doing
+opportunistically, the day a later task's own churn already touches all 65
+propagated copies for an unrelated reason, rather than as a standalone
+change whose entire diff would be that rewrite.
 """
 
 from __future__ import annotations
@@ -179,6 +186,26 @@ def declared_block_text(name: str, blocks_dir: Path = BLOCKS_DIR) -> str:
     begin = f"<!-- BEGIN MAGPIE BLOCK: {name} — generated from {source.as_posix()} -->"
     end = f"<!-- END MAGPIE BLOCK: {name} -->"
     return f"{begin}\n\n{body.strip()}\n\n{end}\n"
+
+
+def strip_generated_regions(text: str) -> str:
+    """Remove every generated region — the auto preflight block *and* any
+    declared block — from `text`.
+
+    This is the one place both marker shapes are combined for exclusion.
+    `skill-surface-hash.py` loads this module and calls this exact
+    function rather than keeping a second, driftable copy of what "a
+    generated region" looks like: a `PREFLIGHT_RE`-only strip was correct
+    only while zero declared blocks existed, and the moment one lands in a
+    shared detail file, its headings must disappear from the fingerprint
+    the same way the pre-flight block's always have — editing shared
+    framework text is a framework change, not a project-specific
+    reconciliation event. See `skill-surface-hash.py`'s module docstring
+    for the stated consequence of that exclusion.
+    """
+    text = PREFLIGHT_RE.sub("", text)
+    text = DECLARED_RE.sub("", text)
+    return text
 
 
 def fill_declared(text: str, blocks_dir: Path = BLOCKS_DIR) -> tuple[str, list[str]]:
@@ -312,8 +339,14 @@ def main() -> int:
     declared_seen = 0
     declared_changed: list[Path] = []
     for path in declared_targets:
+        # Counted whenever the file actually carries a declared-block
+        # marker, regardless of whether it turned out to be already in
+        # sync — `process_declared` returns `(False, [])` both for "no
+        # marker at all" and for "marker present, nothing to do", so that
+        # return value alone cannot tell the two apart.
+        carries_declared_block = DECLARED_RE.search(path.read_text()) is not None
         did_change, target_errors = process_declared(path, fix=args.fix)
-        if target_errors or did_change:
+        if carries_declared_block:
             declared_seen += 1
         errors.extend(target_errors)
         if did_change and args.fix:

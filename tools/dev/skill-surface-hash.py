@@ -61,21 +61,61 @@ that *perform* setup and would otherwise ask users to set up before setting
 up — but a `setup` skill's own configuration surface (its `requires_config:`
 list, its steps) can drift just like any other skill's, and a project can
 fall out of sync with it the same way. Every skill gets a hash.
+
+**Stated consequence of the exclusion.** A heading that lives *inside* a
+generated region — the auto pre-flight block, or any declared block — is
+never a structural anchor, on purpose: editing shared framework prose is a
+framework change, not a project-specific reconciliation event, and it must
+not tell every adopter their own configuration drifted. The trade this
+buys is real and deliberate, not an accident of a regex: an override
+anchored to a heading that happens to live inside shared text will **not**
+be detected as drift by this fingerprint. That is correct for the same
+reason the exclusion exists — the shared text is framework-owned, not
+project-owned — but it means `surface_hash` alone cannot catch every stale
+override; an override anchored inside a shared block relies on the shared
+block itself staying stable, not on this fingerprint.
+
+This script does not keep its own copy of what "a generated region" looks
+like. It loads `check-shared-blocks.py` — the script that actually writes
+every generated region — and reuses its `PREFLIGHT_RE`, `DECLARED_RE`, and
+`strip_generated_regions()` directly, so the two scripts' notion of
+"generated" cannot drift apart: a `check-shared-blocks.py` marker-format
+change is automatically picked up here, rather than requiring a matching
+edit to a second regex that happened to also know about markers.
 """
 
 from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import re
 import sys
 from pathlib import Path
+from types import ModuleType
+
+
+def _load_shared_blocks() -> ModuleType:
+    """Load `check-shared-blocks.py` as a module so this script can reuse
+    its marker regexes and `strip_generated_regions()` directly, instead of
+    keeping a second, driftable definition of "a generated region" here."""
+    path = Path(__file__).resolve().parent / "check-shared-blocks.py"
+    spec = importlib.util.spec_from_file_location("check_shared_blocks", path)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+_SHARED_BLOCKS = _load_shared_blocks()
+# Re-exported, not redefined: the exact regex objects `check-shared-blocks.py`
+# compiles, so a marker-format change there is automatically reflected here.
+PREFLIGHT_RE = _SHARED_BLOCKS.PREFLIGHT_RE
+DECLARED_RE = _SHARED_BLOCKS.DECLARED_RE
+strip_generated_regions = _SHARED_BLOCKS.strip_generated_regions
 
 SKILLS = Path("skills")
 
-BEGIN = "<!-- BEGIN MAGPIE PREFLIGHT — generated from tools/dev/preflight-block.md -->"
-END = "<!-- END MAGPIE PREFLIGHT -->"
-PREFLIGHT_RE = re.compile(re.escape(BEGIN) + r".*?" + re.escape(END), re.S)
 FRONTMATTER_RE = re.compile(r"^---\n(.*?)\n---\n", re.S)
 REQUIRES_RE = re.compile(r"^requires_config:\n((?:[ \t]+-[ \t]*\S+\n)+)", re.M)
 ITEM_RE = re.compile(r"^[ \t]+-[ \t]*(\S+)[ \t]*$", re.M)
@@ -114,7 +154,7 @@ def surface_inputs(skill_dir: Path) -> tuple[list[str], list[str]]:
     text = (skill_dir / "SKILL.md").read_text()
     front = FRONTMATTER_RE.match(text)
     body = text[front.end() :] if front else text
-    body = PREFLIGHT_RE.sub("", body)
+    body = strip_generated_regions(body)
 
     requires: list[str] = []
     block = REQUIRES_RE.search(front.group(1) + "\n") if front else None
@@ -128,7 +168,7 @@ def surface_inputs(skill_dir: Path) -> tuple[list[str], list[str]]:
         key=lambda p: p.name,
     )
     for detail in detail_files:
-        detail_body = PREFLIGHT_RE.sub("", detail.read_text())
+        detail_body = strip_generated_regions(detail.read_text())
         for anchor in sorted(_anchors_in(detail_body)):
             anchors.append(f"{detail.name}: {anchor}")
 
