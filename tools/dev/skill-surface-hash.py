@@ -13,6 +13,21 @@ golden-rule headings that name the contract the skill executes). A reworded
 paragraph is not a surface change; a renamed step or an added config
 dependency is.
 
+A skill's anchors are not confined to its own `SKILL.md`. A multi-file
+skill (`setup`, `pr-management-triage`, `security-issue-sync`, …) keeps
+steps and golden rules in sibling detail files, and an adopter override can
+anchor to a heading there just as easily as to one in `SKILL.md` itself. So
+the fingerprint spans the skill's whole **directory**: `SKILL.md` plus every
+`*.md` file directly inside it (no recursion into subdirectories such as
+`guards/` or `fixtures/`), each with the generated pre-flight region
+stripped. The file a heading came from is folded into the hashed payload
+alongside the heading text — otherwise a heading moving from one detail
+file to another, or between `SKILL.md` and a detail file, would leave the
+digest unchanged, which is exactly the class of silent drift this
+fingerprint exists to catch. `requires_config:` still comes from
+`SKILL.md`'s frontmatter alone; detail files carry no frontmatter of their
+own.
+
 The skill cannot compute this itself at invocation time. An agent reads a
 `SKILL.md` as static instructions — there is no code execution hook on most
 harnesses (the same constraint `check-skill-preflight.py` documents), so the
@@ -21,11 +36,12 @@ adopter last reconciled against. The fingerprint has to be computed once,
 here, deterministically, and carried in the frontmatter where the skill (or
 a future reconciliation check) can read it as plain data.
 
-So: **one generator, one derived field per skill.** `surface_hash(text)`
+So: **one generator, one derived field per skill.** `surface_hash(skill_dir)`
 folds `requires_config:` (order-independent — a re-sorted list is not a
-change) and the sorted set of structural anchors (`##`/`###` headings and
-`**Golden rule ...**` callouts, markdown decoration stripped so `**Step
-1**` and `Step 1` hash the same) into a short `sha256:` digest, deliberately
+change) and the sorted set of structural anchors, tagged with the file each
+came from (`##`/`###` headings and `**Golden rule ...**` callouts, markdown
+decoration stripped so `**Step 1**` and `Step 1` hash the same) into a
+short `sha256:` digest, deliberately
 excluding the shared pre-flight block that `check-skill-preflight.py`
 manages — that block is identical everywhere and moving it is a framework
 change, not a project-specific reconciliation event — and deliberately
@@ -67,8 +83,28 @@ def _normalise(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
-def surface_inputs(text: str) -> tuple[list[str], list[str]]:
-    """Return `(requires_config, anchors)` — the two inputs the hash folds in."""
+def _anchors_in(body: str) -> set[str]:
+    """Structural anchors (headings + golden-rule callouts) in one file's body."""
+    return {_normalise(m) for m in HEADING_RE.findall(body)} | {
+        _normalise(m) for m in GOLDEN_RE.findall(body)
+    }
+
+
+def surface_inputs(skill_dir: Path) -> tuple[list[str], list[str]]:
+    """Return `(requires_config, anchors)` — the two inputs the hash folds in.
+
+    `requires_config` comes from `SKILL.md`'s frontmatter alone.
+    `anchors` spans `SKILL.md` and every sibling `*.md` file directly inside
+    `skill_dir` (sorted by filename; no recursion into subdirectories).
+    `SKILL.md`'s own anchors stay bare, exactly as the pre-widening
+    algorithm recorded them, so a skill directory with no detail files
+    hashes identically to before. Each detail file's anchors are recorded
+    as `"<filename>: <anchor>"`, appended in sorted-filename order after
+    `SKILL.md`'s — the file an anchor came from is part of the payload, so
+    a heading moving between files (including into or out of `SKILL.md`)
+    changes the hash even though the heading text itself did not.
+    """
+    text = (skill_dir / "SKILL.md").read_text()
     front = FRONTMATTER_RE.match(text)
     body = text[front.end() :] if front else text
     body = PREFLIGHT_RE.sub("", body)
@@ -78,15 +114,23 @@ def surface_inputs(text: str) -> tuple[list[str], list[str]]:
     if block:
         requires = sorted(ITEM_RE.findall(block.group(1)))
 
-    anchors = sorted(
-        {_normalise(m) for m in HEADING_RE.findall(body)} | {_normalise(m) for m in GOLDEN_RE.findall(body)}
+    anchors = sorted(_anchors_in(body))
+
+    detail_files = sorted(
+        (p for p in skill_dir.iterdir() if p.is_file() and p.suffix == ".md" and p.name != "SKILL.md"),
+        key=lambda p: p.name,
     )
+    for detail in detail_files:
+        detail_body = PREFLIGHT_RE.sub("", detail.read_text())
+        for anchor in sorted(_anchors_in(detail_body)):
+            anchors.append(f"{detail.name}: {anchor}")
+
     return requires, anchors
 
 
-def surface_hash(text: str) -> str:
+def surface_hash(skill_dir: Path) -> str:
     """The reconciliation fingerprint: `sha256:` plus the first 16 hex characters."""
-    requires, anchors = surface_inputs(text)
+    requires, anchors = surface_inputs(skill_dir)
     payload = "\n".join(["requires_config:", *requires, "anchors:", *anchors])
     return "sha256:" + hashlib.sha256(payload.encode()).hexdigest()[:16]
 
@@ -135,7 +179,7 @@ def main() -> int:
     changed: list[Path] = []
     for path in skills:
         text = path.read_text()
-        digest = surface_hash(text)
+        digest = surface_hash(path.parent)
         if args.fix:
             did, err = apply(path, digest)
             if err:

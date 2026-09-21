@@ -96,11 +96,19 @@ baseline required.
 2. **Anchor resolution.** For every override file
    (`.apache-magpie-overrides/<skill>.md` or
    `.apache-magpie-local/<skill>.md`), read the target skill's
-   `SKILL.md` and confirm every structural anchor the override
-   references — a step heading, a golden-rule name — still exists,
-   markdown-decoration-stripped, the same way
+   `SKILL.md` **and every sibling `*.md` detail file directly inside
+   that skill's directory** (a multi-file skill such as `setup` or
+   `pr-management-triage` keeps steps and golden rules in those detail
+   files, not only in `SKILL.md`) and confirm every structural anchor
+   the override references — a step heading, a golden-rule name — still
+   exists somewhere in that set, markdown-decoration-stripped, the same
+   way
    [`tools/dev/skill-surface-hash.py`](../../../../tools/dev/skill-surface-hash.py)
-   defines an anchor. A moved or renamed anchor is a finding:
+   defines an anchor and resolves it across the skill's directory, not
+   just `SKILL.md`. An override anchored to a detail-file heading that
+   resolves only against `SKILL.md` would read as broken when it is not
+   — check the whole directory before reporting a finding. A moved or
+   renamed anchor is a finding:
    *"`<override file>` anchors to `<old heading text>`, which is now
    `<new heading text>`"* — name the override file and the heading that
    moved, the same shape
@@ -115,21 +123,22 @@ baseline required.
    `/magpie-setup config <skill>` for it.
 
 4. **Sandboxed sessions cover what they can reach.** Resolving a
-   skill's anchors (check 2) needs that skill's `SKILL.md`. On a
-   pinned-snapshot install it sits inside the project tree at
-   `.apache-magpie/skills/<name>/SKILL.md` and is readable under the
-   sandbox like any other project file. On a **marketplace** install it
-   sits in the agent's plugin cache
+   skill's anchors (check 2) needs that skill's `SKILL.md` **and its
+   sibling detail files**. On a pinned-snapshot install they sit inside
+   the project tree at `.apache-magpie/skills/<name>/` and are readable
+   under the sandbox like any other project file. On a **marketplace**
+   install they sit in the agent's plugin cache
    (`~/.claude/plugins/cache/apache-magpie/<plugin>/<version>/skills/<name>/`),
-   which the sandbox denies reads on. When a skill's `SKILL.md` cannot
-   be read, do **not** report that skill's anchors as clean — name it
-   in an `unchecked` list instead, and say plainly that anchor
-   resolution could not be performed for those skills here, and that
-   `/magpie-setup reconcile` run outside the sandbox is how to finish
-   the check for them. Check 3 (`requires_config` resolution) needs
-   only files already in the repository, so it always completes, sandbox
-   or not. A partial answer with its limits stated beats a clean report
-   this session did not actually produce.
+   which the sandbox denies reads on. When a skill's `SKILL.md` or any
+   of its detail files cannot be read, do **not** report that skill's
+   anchors as clean — name it in an `unchecked` list instead, and say
+   plainly that anchor resolution could not be performed for those
+   skills here, and that `/magpie-setup reconcile` run outside the
+   sandbox is how to finish the check for them. Check 3
+   (`requires_config` resolution) needs only files already in the
+   repository, so it always completes, sandbox or not. A partial answer
+   with its limits stated beats a clean report this session did not
+   actually produce.
 
 5. **The baseline is a best guess, used only for wording, never for the
    pass/fail of a check.** In order: the lock's `min_version`; else the
