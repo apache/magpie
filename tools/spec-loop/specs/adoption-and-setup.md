@@ -93,21 +93,23 @@ acceptance:
     configured nor adopted anything carries no stamp at all.
   - A skill whose own hash differs from its stamped entry says whether a
     `requires_config` entry stopped resolving or a structural anchor moved,
-    and proposes `/magpie-setup config` or a re-anchor accordingly; a skill
-    named in neither store at all is offered the one-time
-    `/magpie-setup reconcile` sweep instead of a per-skill fix.
+    and proposes `/magpie-setup config` or a re-anchor accordingly; the
+    one-time `/magpie-setup reconcile` sweep is offered only when no
+    `reconciled:` block exists in either store, never merely because a
+    stamp that does exist fails to name this skill.
   - A declined per-skill finding or a declined whole-project sweep is
     recorded the moment it is shown, not on a decline the always-on
     pre-flight check never waits for, and does not return until the hash
-    (or, for the sweep, the installed plugin version) moves again.
-    `/magpie-setup reconcile` and `/magpie-setup upgrade`'s override walk,
-    which do block for a real confirmation, record on decline instead.
+    (or, for the sweep, the version) moves again. `/magpie-setup
+    reconcile`, which does block for a real confirmation, records on
+    decline instead.
   - `/magpie-setup config` never writes a `skills` entry into the committed
     lock; on an adopted project it records only the per-machine
     `acknowledged.skills` fact, and only for a skill whose missing
     configuration that run actually wrote. `/magpie-setup adopt` migrates
-    an existing local stamp's `skills` map into the lock instead of leaving
-    the same skill named in both stores. `/magpie-setup upgrade` runs the
+    an existing local stamp's `skills` map into the lock, and
+    `/magpie-setup unadopt` migrates it back before removing the lock.
+    `/magpie-setup upgrade` runs the
     `requires_config` check before writing the stamp, so it never stamps a
     false clean.
   - The shared pre-flight block never reads the marketplace clone on any
@@ -284,13 +286,19 @@ committed version with drift detection.
     the committed lock's `reconciled:` block; a configured-but-unadopted
     project's identical stamp is `.apache-magpie-local/reconciled.json`; a
     project with neither has no stamp and the pre-flight check is silent.
-    A skill named in both stores at once is drift, not a state the
-    framework ever writes, and `reconcile`/`verify` report it as such.
+    A skill named in both stores at once is an expected transitional
+    state — `config` on one machine, `adopt` on another — reported by
+    `reconcile`/`verify` with the local entry winning, and offered for
+    cleanup by `reconcile`.
 17. A skill whose current hash differs from its stamped entry names
     whether a `requires_config` entry stopped resolving or a structural
     anchor moved, and proposes `/magpie-setup config` or a re-anchor
-    accordingly; a skill named in neither store proposes the one-time
-    `/magpie-setup reconcile` sweep instead. This check itself runs
+    accordingly. The one-time `/magpie-setup reconcile` sweep is
+    proposed only when **no `reconciled:` block exists in either
+    store**; a block that exists but does not name this skill is
+    silent, because the project does not configure this skill and the
+    `requires_config` step already covers the case where it does.
+    This check itself runs
     unless there is nothing to reconcile, or the floor check (criteria
     9–10) is stopping the session for a restart — a plugin installed or
     updated, commands only printed for lack of a CLI, or nothing run
@@ -301,14 +309,19 @@ committed version with drift detection.
 18. A per-skill finding the always-on pre-flight check shows is recorded
     (`acknowledged.skills`) the moment it is shown and does not repeat
     until that skill's hash moves again; a project-wide sweep declined
-    outright is recorded (`acknowledged.sweep`) against the installed
-    plugin version and does not repeat until that version changes.
-19. `/magpie-setup reconcile` walks every skill named by a configuration
-    file or an override in scope, resolves anchors and `requires_config`
+    outright is recorded (`acknowledged.sweep`) against the version the
+    stamp itself records — the installed plugin version on a
+    marketplace install, the framework version otherwise — and does not
+    repeat until that version changes. `/magpie-setup upgrade` records
+    no decline at all.
+19. `/magpie-setup reconcile` walks every skill an override file names
+    **or** whose `requires_config:` entries resolve from the project's
+    own config directories, resolves anchors and `requires_config`
     entries, reports sandboxed-session `unchecked` skills rather than
-    claiming them clean, and — on confirmation — writes the stamp; a
-    project with no adoption or configuration evidence at all reports
-    nothing to reconcile and stops.
+    claiming them clean, offers to drop a redundant local `skills`
+    entry when both stores name the same skill, and — on confirmation —
+    writes the stamp; a project with no adoption or configuration
+    evidence at all reports nothing to reconcile and stops.
 20. `/magpie-setup upgrade` reconciles the overrides its walk covers and
     writes the stamp only for one that passes the target-skill, anchor,
     and `requires_config` checks — an override with an unresolved
@@ -319,7 +332,9 @@ committed version with drift detection.
     configuration that run actually wrote. `/magpie-setup adopt` migrates
     an existing local stamp's `skills` map into the lock and leaves only
     the three always-local keys (`verified_at`, `verify_suggested_at`,
-    `acknowledged`) behind in the local file.
+    `acknowledged`) behind in the local file; `/magpie-setup unadopt`
+    migrates `version`/`at`/`skills` back into the local file before
+    removing the lock, so the stamp is not stranded with it.
 22. `/magpie-setup verify` runs the reconciliation sweep read-only and is
     the only surface that compares installed plugin versions against the
     marketplace clone — dev segment included — reporting an unreadable

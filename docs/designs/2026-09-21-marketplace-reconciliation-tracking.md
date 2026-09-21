@@ -28,7 +28,7 @@
 
 | | |
 |---|---|
-| **Status** | Built. [Where the build departed from the design](#where-the-build-departed-from-the-design) records seven places it did. |
+| **Status** | Built. [Where the build departed from the design](#where-the-build-departed-from-the-design) records nine places it did. |
 | **Scope** | The `setup` family, the shared pre-flight block, and one generated frontmatter field on every skill. |
 
 ## What is wrong
@@ -75,9 +75,12 @@ the thing that goes stale.
 4. **The check a skill performs on itself is the always-on one.** It costs
    nothing and works inside the sandbox. The project-wide sweep lives in
    `verify` and a new `reconcile`.
-5. **Absence is a sweep, not silence.** No stamp means the project has never
+5. **Absence of the whole stamp is a sweep; a stamp that simply does not
+   name a skill is silence.** No stamp anywhere means the project has never
    been reconciled, which is resolved once — by a full sweep with a
-   best-effort baseline — rather than carried indefinitely.
+   best-effort baseline — rather than carried indefinitely. A stamp that
+   exists and omits this skill says the project does not configure it, and
+   is not a prompt.
 6. **A declined prompt stays declined** until the fingerprint moves again.
 7. **A dev build is a version like any other.** Nothing strips `.devN`,
    rounds to the release segment, or treats a dev-to-dev move as a
@@ -102,8 +105,15 @@ Keyed by the skill's frontmatter `name:`, not `<plugin>/<skill>` — the shape
 above was the design's original guess, and the build revised it (see
 [Where the build departed from the design](#where-the-build-departed-from-the-design)).
 
-It lists only the skills the project actually configures or overrides — a
-handful, not the ~75 that exist.
+It lists only the skills the project actually configures or overrides: a
+skill is in scope when an override file names it, **or** when its
+`requires_config:` entries resolve from the project's own config
+directories — supplying a skill's configuration is configuring that skill.
+How many that is follows from how much the project configures, and can be
+anything from two to most of the catalogue; the pre-flight check's own
+prompting does not depend on the breadth, because it proposes the sweep
+only when there is no stamp at all (see
+[Where the build departed from the design](#where-the-build-departed-from-the-design)).
 
 **Adopted** → the block goes in `.apache-magpie.lock`, beside the floor it
 already records. Pre-flight opens that file as its first step, so reading
@@ -166,7 +176,9 @@ all of them free:
 
 Equal → silent. Different → say which of the two inputs moved and propose
 the matching fix: `/magpie-setup config` for a `requires_config` change,
-override re-anchoring for an anchor change. Missing → the sweep below.
+override re-anchoring for an anchor change. Missing, **and no stamp exists
+in either store at all** → the sweep below; missing from a stamp that does
+exist → silent.
 
 ## When nothing is stamped
 
@@ -269,7 +281,7 @@ answers, not a suppression of the first.
 | `setup config` | **Not adopted** — writes the skill's entry into the local `skills` map, whether or not this run had to do anything for it. **Already adopted** — never touches the committed lock's `skills` map; only for a skill whose missing configuration this run actually wrote does it record the per-machine `acknowledged.skills` fact, so an unattended pre-flight-triggered run never stages a committed-file write. |
 | `setup adopt` | writes the block into the committed lock for every skill its own configuration/override scope covers, and first migrates any pre-existing local stamp's `skills` map into the lock so the same skill is never named in both stores at once. |
 | `setup upgrade` | reconciles the narrower slice `.apache-magpie-overrides/` names (not every configured skill), and writes the stamp only for an override that passes its target-skill, anchor, and `requires_config` checks — never a false clean. |
-| `setup reconcile` (new) | the project-wide pass: walks every configured skill and override, re-anchors what moved, rewrites the block. This is what the shared pre-flight check proposes when a skill is named in neither store at all. |
+| `setup reconcile` (new) | the project-wide pass: walks every configured skill and override, re-anchors what moved, rewrites the block. This is what the shared pre-flight check proposes when no `reconciled:` block exists in either store at all. |
 | `setup verify` | reports the same sweep read-only, and is the one surface that also compares against the marketplace clone — the pre-flight check never does, on any branch. |
 
 ## Suggesting `verify`
@@ -343,14 +355,15 @@ have bought nothing: a snapshot adopter simply carries a stamp that stays
 silent, which is inert rather than harmful.
 
 **A per-skill pre-flight finding is recorded when shown, not when
-declined; a `reconcile` or `upgrade` finding still records on decline.**
+declined; a `reconcile` finding still records on decline.**
 The design's "Why a decline is remembered" section assumed one rule for
 both surfaces. The shared pre-flight check never blocks for an answer — it
 prints its proposal and continues into the work the user asked for in the
 same turn — so there is no decline event to hook, and recording on show is
-the only way the suppression can fire at all. `reconcile` and `upgrade`
-genuinely block for a real per-item and whole-sweep confirmation, so their
-decline event is real and is what they record against.
+the only way the suppression can fire at all. `reconcile` genuinely blocks
+for a real per-item and whole-sweep confirmation, so its decline event is
+real and is what it records against. `upgrade` records no decline at all —
+it writes stamp entries for what its walk reconciled and nothing else.
 
 **`config` never writes the committed lock's `skills` map, on any branch.**
 The design's summary table said `config` "writes the entries for the skills
@@ -380,6 +393,31 @@ such a stop — it says nothing about the project's own configuration,
 and everything this check needs (the skill's own `surface_hash`, the
 lock, the local file) is readable whether or not the plugin manager
 is — so the check still runs through that case, exactly as designed.
+
+**The sweep is proposed only when there is no stamp at all, not whenever a
+stamp fails to name the running skill.** The design read "missing entry" as
+one case. It is two, and the difference is the feature's whole prompt
+budget: eleven shipped skills declare no `requires_config:` and carry no
+override, so nothing a project can do will ever put them in a stamp. Under
+the first reading every adopted project would get a sweep proposal from
+each of them on the first invocation after every plugin update, forever,
+having already swept. The shipped check proposes the sweep only when no
+`reconciled:` block exists in either store; a stamp that exists and omits
+this skill is silent, because a project that does not configure a skill has
+nothing to reconcile for it, and the `requires_config` step later in the
+same block already covers the case where it does configure it and a file is
+missing.
+
+**A `skills` entry in both stores is an expected transitional state, not a
+broken invariant.** The build's first wording called it "not a
+configuration this framework ever writes". It is one the framework reaches
+routinely: a contributor runs `config` on their machine before the project
+adopts, a maintainer runs `adopt` on another, and `adopt` can only migrate
+the local stamp on the machine it ran from. The local entry wins, and
+`reconcile` offers to drop the redundant local one. `unadopt` closes the
+mirror-image gap by migrating the committed map back into the local file
+before it removes the lock, rather than stranding a configured project with
+no baseline.
 
 ## Alternatives considered
 
@@ -452,9 +490,16 @@ stamp; silence has no end.
   path, the check degrades to unknown-and-silent rather than breaking.
 - **The per-skill check is not free at the token level, even though it is
   free at the read level.** The rule text the shared pre-flight block carries
-  for it is roughly +1,100 tokens (measured, ~+34% on the smallest skills) on
+  for it grew that block from 1,679 to 3,271 tokens — **+1,592 tokens of
+  rules, +1,608 per skill** once the `surface_hash:` frontmatter line is
+  counted (measured across the 65 skills that carry the block; range
+  1,607–1,611). Relative to what each skill cost before, that is **+49.0% on
+  the smallest** (`ci-runner-audit`, 3,281 → 4,889 tokens) and +5.4% on the
+  largest (`security-issue-import`, 30,010 → 31,617). It is paid on
   every invocation of every non-`setup` skill in every adopting project — an
-  accepted, ongoing cost, not a rounding error. The one real lever — moving
+  accepted, ongoing cost, not a rounding error, and at half again the size of
+  the smallest skill in the catalogue it is the figure the feature has to be
+  worth. The one real lever — moving
   the rule text behind a pointer into `locks.md` — was rejected: that file
   lives in the framework snapshot or the plugin cache, which a sandboxed
   session cannot read, and would silently disable the check on exactly the
