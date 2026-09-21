@@ -155,6 +155,21 @@ The reference model is four layers, layered:
    `.pre-commit-config.yaml` or the three whitespace hooks abort the
    run (#1309).
 
+   A second, independent deny protects the vetted-ops **policy** — the
+   file the dispatcher consults to decide which caller may run which
+   operation — on both surfaces it can resolve to: the
+   `magpie-vetted-ops` plugin-cache install and the committed
+   `.apache-magpie-overrides/tools/vetted-ops/**` override. An agent
+   able to rewrite the policy grants itself the whole write catalogue
+   regardless of which dispatcher binary handles the call, so this
+   deny applies even though the write dispatcher (`vetted-op`) is
+   never excluded from the sandbox. The override is the in-repo case
+   described above, `sandbox_write_denied` entry included (#1308,
+   #1309). The framework's own dispatcher source at
+   `tools/vetted-ops/` is deliberately left un-denied — it is PR-gated
+   code, and a write-deny there would make the whole tree read-only to
+   every sandboxed subprocess, `prek`'s fixers included.
+
    The `gh` exemption applies only to invocations made of `cd …` /
    `gh …` parts; the same whole-command shape rule governs the other
    entries. The rule and its failure signature are in

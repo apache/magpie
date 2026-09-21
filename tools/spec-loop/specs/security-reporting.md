@@ -46,7 +46,10 @@ health without navigating the tracker issue-by-issue.
 - **Self-contained output.** The rendered HTML embeds all data; no
   external service is needed to view it.
 - **Incremental by default.** Resume behaviour extends an existing dataset
-  without re-fetching all history; a full rebuild is an opt-in flag.
+  without re-fetching all history; a full rebuild is an opt-in flag. The
+  per-issue event cache is trusted only when it was written after that
+  issue's `updatedAt`; an issue relabelled since the cache was written is
+  refetched rather than silently served its stale label history.
 - **Config-driven.** Lifecycle category bands, time-to-triage signal,
   milestone vertical annotations, and the null-`upstream_repo` path are
   declared in the tool's `default-config.yaml` and overridden per-adopter.

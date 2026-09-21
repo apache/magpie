@@ -47,12 +47,16 @@ error, and two skills that probe or verify the setup on demand.
   **Root cause** (which sandbox layer blocks it and why), **Fix** (a
   settings widening with per-entry rationale, or — for the `gh` entry —
   an invocation-shape rule, because there is nothing to widen), and
-  **Notes**. Seven entries today: SSH agent / Yubikey, signed commit
+  **Notes**. Eight entries today: SSH agent / Yubikey, signed commit
   failing before any touch (`gpg.format=ssh` key unreadable), signed
   commit failing with `cannot exec` of the touch-overlay wrapper
   (`gpg.ssh.program` under the read-denied `~/.claude/scripts/`),
-  localhost port bind, Docker / Podman socket, `/tmp` read-only, and
-  `gh` inside the sandbox (TLS `OSStatus -26276` / `HTTP 401`).
+  signed commit failing with the agent refusing and the overlay never
+  appearing (the touch overlay's runtime-state directory denied —
+  `/tmp` on a platform with no `$XDG_RUNTIME_DIR`, before the
+  per-user cache-dir fallback), localhost port bind, Docker / Podman
+  socket, `/tmp` read-only, and `gh` inside the sandbox (TLS
+  `OSStatus -26276` / `HTTP 401`).
 - `tools/agent-isolation/sandbox-error-hint.sh` — a Claude Code
   `PostToolUse` hook on the `Bash` matcher. Scans the tool's stdout +
   stderr for the catalogued symptom strings and, on a match, prints
@@ -88,6 +92,11 @@ error, and two skills that probe or verify the setup on demand.
   so a grep into the catalog finds them; the hook matches those same
   strings with anchored, specific regexes. False-positive hints are
   noise, so the pattern set errs on the side of missing a variant.
+  Branch order matters when two entries' error text overlaps: the
+  touch-overlay runtime-state branch is checked before the SSH-agent
+  branch because both end in `agent refused operation`, and the more
+  specific pattern has to win or the reader is sent to the entry about
+  an unreachable key when the key was never the problem.
 - **The hook never changes the outcome.** It exits 0 silently on no
   match, on a non-`Bash` tool, on unparsable JSON, or on any unexpected
   envelope shape (fail-open), and exits 1 — never 2 — on a match, so
