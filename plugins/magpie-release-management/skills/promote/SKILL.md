@@ -88,13 +88,9 @@ couple of file checks, or one CLI call for a marketplace install.
    the running agent's equivalent — and compare **as PEP 440, not as
    strings**: `0.10.0` is newer than `0.9.0`, and `0.2.0` is newer than
    `0.2.0.dev202609110041`. A dev build is a version like any other —
-   nothing strips the `.devN` segment or rounds to the release segment,
-   so `0.2.0.dev202609211315` compares as newer than
-   `0.2.0.dev202609180100`. That comparison is a different axis from the
-   reconciliation check in step 4 below: version comparison answers "is
-   there something newer", dev builds included, while the reconciliation
-   prompt is gated on the fingerprint match, never on the version delta
-   by itself.
+   nothing strips the `.devN` segment or rounds to the release segment.
+   The reconciliation check below is gated on the fingerprint, never on
+   this version delta.
 
    **An empty or unreadable result is unknown, never absent.** Inside a
    sandboxed session the plugin cache is read-denied and `claude plugin
@@ -118,53 +114,53 @@ couple of file checks, or one CLI call for a marketplace install.
    instead.
 
 4. **Compare this skill's fingerprint against the reconciliation
-   stamp.** This skill's own `surface_hash:` is already in context — no
-   extra read. Its stamped counterpart travels with the rest of the
-   project's reconciliation record: `.apache-magpie.lock`'s
-   `reconciled.skills` map when step 1 found a lock, and always
-   `.apache-magpie-local/reconciled.json` too — three of its keys
-   (`verified_at`, `verify_suggested_at`, `acknowledged`) are never
-   committed even for an adopted project, so that file exists alongside
-   the committed stamp, not instead of it. This check runs the same way
-   regardless of `method`, or whether there is a lock at all — it is not
-   install-method-specific, unlike step 3 above.
+   stamp.** Skip this step entirely — silent, no reads — when there is
+   no `.apache-magpie.lock`, no `.apache-magpie-local/`, and no
+   `.apache-magpie-overrides/`: nothing has ever been configured or
+   adopted, so there is nothing to reconcile. This check runs the same
+   way regardless of `method`, or whether there is a lock at all — it
+   is not install-method-specific, unlike step 3 above.
 
-   Look up this skill (`<plugin>/<skill>`) in whichever `skills:` map
-   holds it:
+   This skill's own `surface_hash` is already in context, keyed by its
+   own frontmatter `name:` (e.g. `magpie-security-issue-triage`). When
+   a lock exists, look that name up in its `reconciled.skills` map —
+   already open from step 1, no extra read.
 
-   - **Hash matches** → **silent**. Continue.
-   - **Hash differs** → say which surface moved, then propose the
-     matching fix. Check this skill's `requires_config:` entries against
-     the lookup chain (step 7 below does this fully; here, only whether
-     each entry resolves matters): anything that does not resolve means
-     `requires_config` gained something since the stamp was written —
-     propose `/magpie-setup config` for this skill. Every entry still
-     resolves → a structural anchor moved instead — a step heading or
-     golden-rule name an override may anchor to — propose re-anchoring,
-     per *Reconciliation on framework upgrade*
-     (`docs/setup/agentic-overrides.md`): the user re-anchors, and until
-     then the skill applies what it can interpret from the override and
-     reports what it skipped.
-   - **No entry for this skill** — whether the whole `reconciled:` block
-     is absent or it exists but never covered this skill — → there is no
-     baseline to diff against. Propose the one-time full sweep instead
-     of a per-skill fix: reconcile every configured skill and override
-     against the current framework, then write the stamp.
+   - **Found, hash matches** → **silent**. Continue — nothing else in
+     this step needs a read.
+   - **Found, hash differs**, **not found in the lock's map**, or
+     **no lock at all** → read `.apache-magpie-local/reconciled.json`
+     now (reuse this read in step 10 below instead of reading it
+     twice). It carries the identical `version` / `at` / `skills`
+     shape for a configured-but-unadopted project, plus the
+     always-local `verified_at`, `verify_suggested_at`, `acknowledged`.
+     **Its `skills` entry wins whenever both stores name this skill**
+     — same precedence as everywhere else in this framework.
 
-   **Before proposing either of the last two, check `acknowledged` in
-   `.apache-magpie-local/reconciled.json` for this skill.** If it
-   already equals this skill's *current* `surface_hash`, the user
-   already declined this exact change on this machine — stay silent
-   instead of proposing again. If the user declines when asked, write
-   `acknowledged.<plugin>/<skill>: <this skill's current surface_hash>`
-   there (create the file if it does not exist yet). A decline is
-   remembered only for the hash it was shown against — the prompt
-   returns the moment that hash moves again, whether from a fresh
-   `requires_config` entry, another anchor move, or a `/magpie-setup
-   reconcile` on a sibling skill that leaves this one still unstamped.
-
-   Nothing above writes the stamp itself. Confirmation and the actual
-   reconciliation happen through the command proposed, not this check.
+     Resolve against whichever store actually names this skill:
+     - **Match** → silent.
+     - **Differ** → check this skill's `requires_config:` entries
+       against the lookup chain (step 7 below does the full
+       resolution; here only whether each entry resolves matters). An
+       entry that does not resolve is the actionable half → propose
+       `/magpie-setup config` for this skill. Every entry resolves →
+       the change is in the anchors instead — a step heading or
+       golden-rule name an override may anchor to → propose
+       re-anchoring per *Reconciliation on framework upgrade*
+       (`docs/setup/agentic-overrides.md`). Propose both when both
+       apply. Before proposing: `acknowledged.skills["<name>"]` in the
+       local file already equal to the current hash → silent, this
+       exact change was already shown. Otherwise show the proposal and
+       write `acknowledged.skills["<name>"]: <current hash>` —
+       recorded the moment it is shown, not on a decline this step
+       never waits for.
+     - **Neither store names this skill** → propose the one-time
+       `/magpie-setup reconcile` sweep instead of a per-skill fix.
+       Before proposing: `acknowledged.sweep` in the local file already
+       equal to this skill's plugin's currently-installed version →
+       silent. Otherwise show it and write `acknowledged.sweep:
+       <installed version>` — suppressed until that version changes,
+       which is exactly when new drift can have arrived.
 
 5. **Unless step 3 passed silently or came back unknown, stop.**
    Whichever branch you took — plugins installed or updated, commands
@@ -212,9 +208,9 @@ couple of file checks, or one CLI call for a marketplace install.
    Then drop it. Do not ask, do not offer to run it, and do not repeat
    it on later invocations.
 
-9. **Note what needed confirming, and propose vetting the reads.** This
-   step is the one thing here that is not a pre-flight — it is settled at
-   the *end* of the run. It lives in this block because this block is the
+9. **Note what needed confirming, and propose vetting the reads.** Like
+   step 10 below, this is not a pre-flight check — it is settled at the
+   *end* of the run. It lives in this block because this block is the
    only thing every skill carries.
 
    While you work, keep note of each operation that stopped for a
@@ -251,9 +247,10 @@ couple of file checks, or one CLI call for a marketplace install.
     every skill carries.
 
     Compare today against `verified_at` in
-    `.apache-magpie-local/reconciled.json` if present, else the stamp's
-    `at:` — a project just configured or adopted needs no reminder to
-    verify what it was just checked against. Older than
+    `.apache-magpie-local/reconciled.json` (already read in step 4
+    above if that step read it; read it now otherwise) if present, else
+    the stamp's `at:` — a project just configured or adopted needs no
+    reminder to verify what it was just checked against. Older than
     `setup.verify_interval_days` (default 14, `0` disables) → suggest
     it, once, and say why it is worth taking: `verify` is the only place
     a sandboxed session's own latest-version comparison happens, because

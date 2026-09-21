@@ -261,10 +261,10 @@ to be suggested, and suggested rarely.
   if present, else the stamp's `at:`, so a project configured yesterday is
   not told to verify today.
 - **Surfaced at the end of the run, not in pre-flight**, following the
-  precedent of the shared block's step 8: an end-of-run item that lives in
-  the pre-flight block only because that block is the one thing every skill
-  carries. Interrupting the work the user asked for to propose a health
-  check is the wrong trade.
+  precedent of the shared block's step 9 (the vetted-ops-read proposal):
+  an end-of-run item that lives in the pre-flight block only because that
+  block is the one thing every skill carries. Interrupting the work the
+  user asked for to propose a health check is the wrong trade.
 - **Shown at most once per interval, whether or not it is taken** —
   displaying it writes `verify_suggested_at`, re-arming the clock. Someone
   who ignores it sees it twenty-six times a year rather than twenty-six

@@ -136,8 +136,8 @@ reconciled:
   version: 0.2.0.dev202609211315     # what setup last ran against
   at:      2026-09-21
   skills:
-    magpie-pr-management/code-review:  sha256:9f1c4e…
-    magpie-security/issue-triage:      sha256:4ab70d…
+    magpie-pr-management-code-review:  sha256:9f1c4e…
+    magpie-security-issue-triage:      sha256:4ab70d…
 ```
 
 - `version` — the framework version `setup` was running the last time
@@ -145,10 +145,16 @@ reconciled:
   this file, `.devN` segment included.
 - `at` — the date that write happened.
 - `skills` — one entry per skill this project's configuration actually
-  touches (configures or overrides), `<plugin>/<skill>` mapped to the
+  touches (configures or overrides), keyed by that skill's frontmatter
+  `name:` (e.g. `magpie-pr-management-code-review`) and mapped to the
   `surface_hash` that skill's `SKILL.md` frontmatter carried at the
-  time. Not the whole catalogue — a handful, not the ~75 skills that
-  exist.
+  time. `name:` rather than `<plugin>/<skill>`, deliberately: it is
+  already in the running skill's context (its own pre-flight reads it
+  for free), it is unique across the framework, and — unlike
+  `<plugin>/<skill>` — it is identical under every install shape,
+  including a snapshot install, which wires `skills/<name>/` with no
+  plugin component to derive at all. Not the whole catalogue — a
+  handful, not the ~75 skills that exist.
 
 **Written only by `setup`** (`config`, `adopt`, `reconcile`), never
 hand-edited: a hand-written `sha256:` value is indistinguishable from
@@ -161,27 +167,75 @@ floor or snapshot pin alike — carries it in `.apache-magpie.lock`,
 beside whatever that method already records: the lock already states
 what the project expects, and this states what state its configuration
 is in. A project that has run `setup config` but never `setup adopt`
-has no committed lock to hold it, so the identical shape lives in
-`.apache-magpie-local/reconciled.json` instead, next to the personal
-configuration it describes. Neither configured nor adopted → no block,
-because there is no configuration to have gone stale.
+has no committed lock to hold it, so the identical `version`/`at`/
+`skills` shape lives in `.apache-magpie-local/reconciled.json`
+instead, next to the personal configuration it describes. **Neither
+configured nor adopted — no `.apache-magpie.lock`, no
+`.apache-magpie-local/`, no `.apache-magpie-overrides/` — → no block
+anywhere**, because there is no configuration to have gone stale. A
+skill's own pre-flight treats that absence as nothing-to-reconcile,
+silently, not as a sweep to propose.
 
-**Three more keys travel with this block and are never committed, even
-inside an adopted project's `.apache-magpie.lock`:** `verified_at`,
-`verify_suggested_at`, and `acknowledged` always live in
-`.apache-magpie-local/reconciled.json`, on every project regardless of
-adoption state. Running `/magpie-setup verify` and declining a
-reconciliation sweep are both per-machine acts — one contributor's
-health check, one contributor's yes/no on a prompt they happened to be
-shown — and neither is a fact about the project's committed
-configuration the way `version`/`at`/`skills` are. Committing
-`verified_at` would rewrite the lock every time anyone on the team ran
-`verify`, turning a periodic health check into commit noise on a
-roughly fortnightly cycle; committing `acknowledged` would bind every
-other contributor to one person's decline of a prompt they never saw.
-This is the same committed/local split the rest of this file draws
-everywhere else: what the project agreed to is shared, what one person
-just did on one machine is not.
+**`.apache-magpie-local/reconciled.json` is a plain JSON object, never
+wrapped in a `reconciled:` key** — the filename already says what it
+is:
+
+```json
+{
+  "version": "0.2.0.dev202609211315",
+  "at": "2026-09-21",
+  "skills": {
+    "magpie-pr-management-code-review": "sha256:9f1c4e…"
+  },
+  "verified_at": "2026-09-21",
+  "verify_suggested_at": "2026-09-07",
+  "acknowledged": {
+    "skills": {
+      "magpie-security-issue-triage": "sha256:4ab70d…"
+    },
+    "sweep": "0.2.0.dev202609180100"
+  }
+}
+```
+
+Its top level carries the same `version` / `at` / `skills` shape the
+committed block carries, for a configured-but-unadopted project that
+has nowhere else to put them, **plus three keys that are never
+committed even inside an adopted project's `.apache-magpie.lock`:**
+`verified_at`, `verify_suggested_at`, and `acknowledged`, always here,
+on every project regardless of adoption state. Running
+`/magpie-setup verify` and being shown a reconciliation proposal are
+both per-machine acts — one contributor's health check, one
+contributor's own prompt history — and neither is a fact about the
+project's committed configuration the way `version`/`at`/`skills` are.
+Committing `verified_at` would rewrite the lock every time anyone on
+the team ran `verify`, turning a periodic health check into commit
+noise on a roughly fortnightly cycle; committing `acknowledged` would
+bind every other contributor to one person's prompt history. This is
+the same committed/local split the rest of this file draws everywhere
+else: what the project agreed to is shared, what one person's machine
+has seen is not.
+
+**When an adopted project's committed lock and this local file both
+carry a `skills` entry for the same skill, the local file wins.** Same
+precedence as every other committed/local split in this framework: the
+local file is the more recent, per-machine truth, e.g. someone ran
+`setup config` again locally after the project was last adopted. The
+committed entry is the fallback, not the override.
+
+`acknowledged.skills` and `acknowledged.sweep` record when a
+reconciliation proposal was **shown**, not when it was declined — the
+pre-flight check prints its proposal and continues into the work the
+user asked for in the same turn; it never blocks waiting for an
+answer, so there is no decline event to write on. `acknowledged.skills`
+maps a skill's `name:` to the `surface_hash` it was shown against, and
+is re-armed the moment that skill's hash moves again.
+`acknowledged.sweep` records the installed plugin version at the time
+the project-wide sweep proposal was shown, and is re-armed only when
+that version changes — project-scoped, because the sweep itself is:
+keying it per skill would mean the sweep gets proposed once for every
+skill the user happens to invoke, rather than once per project, which
+is what makes it a one-time cost rather than a recurring one.
 
 ## `<local-lock>` — `.apache-magpie.local.lock`
 

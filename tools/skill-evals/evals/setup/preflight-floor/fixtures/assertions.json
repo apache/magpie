@@ -4,5 +4,11 @@
     "field": "reason",
     "pattern": "restart|new session|reload|session start",
     "flags": "is"
+  },
+  "mention_unknown": {
+    "type": "regex",
+    "field": "reason",
+    "pattern": "unknown",
+    "flags": "is"
   }
 }
