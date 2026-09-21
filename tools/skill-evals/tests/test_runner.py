@@ -440,6 +440,94 @@ def test_load_case_loads_optional_trusted_context(tmp_path: Path):
     assert trusted_context == "Policy from the trusted base."
 
 
+# ---------------------------------------------------------------------------
+# fixture containment
+# ---------------------------------------------------------------------------
+
+
+def test_load_case_refuses_a_fixture_symlinked_outside_the_eval_tree(tmp_path: Path):
+    """A fixture read must not escape the eval tree.
+
+    `magpie-run-evals.sh` is excluded from the sandbox, so the reads this
+    runner performs are not subject to the sandbox's deny list. Fixtures are
+    left agent-writable on the stated grounds that doing so can only route
+    *repository* text to the model, which the session could send anyway. A
+    symlink breaks exactly that scoping: it turns a fixture read into a read
+    of any file the host can see -- `~/.ssh/id_rsa`, a token file -- which
+    the sandboxed session itself is denied.
+    """
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    secret = outside / "id_rsa"
+    secret.write_text("PRIVATE KEY MATERIAL")
+
+    fixtures_dir = _make_fixtures_dir(tmp_path / "step")
+    case_dir = _make_case(fixtures_dir, "case-1")
+    report = case_dir / "report.md"
+    report.unlink()
+    report.symlink_to(secret)
+
+    with pytest.raises(ValueError) as excinfo:
+        load_case(case_dir)
+    message = str(excinfo.value)
+    assert "report.md" in message
+    assert "PRIVATE KEY MATERIAL" not in message
+
+
+def test_load_case_allows_a_symlink_that_stays_inside_the_eval_tree(tmp_path: Path):
+    """Containment is about where the link points, not that it is a link.
+
+    Shared fixtures are a normal thing to factor out, so the rule has to be
+    resolved-path containment rather than a blanket refusal of symlinks.
+    """
+    fixtures_dir = _make_fixtures_dir(tmp_path / "step")
+    shared = fixtures_dir / "shared-report.md"
+    shared.write_text("shared report text")
+    case_dir = _make_case(fixtures_dir, "case-1")
+    report = case_dir / "report.md"
+    report.unlink()
+    report.symlink_to(shared)
+
+    _, _, report_text, _, _ = load_case(case_dir)
+    assert report_text == "shared report text"
+
+
+def test_load_step_config_refuses_a_prompt_symlinked_outside_the_eval_tree(tmp_path: Path):
+    """Same containment rule for the step-level fixtures, not just case files."""
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    secret = outside / "token"
+    secret.write_text("ghp_SECRET_TOKEN_VALUE")
+
+    fixtures_dir = _make_fixtures_dir(tmp_path / "step")
+    (fixtures_dir / "system-prompt.md").symlink_to(secret)
+
+    with pytest.raises(ValueError) as excinfo:
+        load_step_config(fixtures_dir)
+    assert "ghp_SECRET_TOKEN_VALUE" not in str(excinfo.value)
+
+
+def test_load_step_config_refuses_a_skill_md_path_escaping_the_repo(tmp_path: Path):
+    """`skill_md` is a fixture-controlled path string joined to the repo root.
+
+    It needs no symlink to escape -- a relative path with enough `..` in it
+    walks straight out of the repository, into any file the unsandboxed
+    wrapper can read.
+    """
+    repo = _make_repo(tmp_path)
+    outside = tmp_path.parent / "outside-skill.md"
+    outside.write_text("## Step\n\nsecret content\n")
+
+    fixtures_dir = _make_fixtures_dir(
+        repo / "tools" / "skill-evals" / "evals" / "s" / "step",
+        step_config={"skill_md": f"../{outside.name}", "step_heading": "## Step"},
+    )
+
+    with pytest.raises(ValueError) as excinfo:
+        load_step_config(fixtures_dir)
+    assert "secret content" not in str(excinfo.value)
+
+
 def test_load_case_tags_missing_meta_returns_empty_set(tmp_path: Path):
     fixtures_dir = tmp_path / "fixtures"
     fixtures_dir.mkdir()

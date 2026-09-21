@@ -66,6 +66,16 @@
 # — but cannot run code outside the sandbox. It can route repository
 # text to the model, which the session's own API access already allows.
 #
+# That last sentence holds only while a fixture read cannot leave the
+# repository, and nothing about a fixture being "data" guarantees it: a
+# symlink, or a `skill_md` path with enough `..` in it, turns a fixture
+# read into a read of any file the host can see — including the
+# credential paths the sandbox denies the session directly. So it is
+# enforced rather than assumed. The gate below resolves the target, and
+# `skill_evals.runner` resolves every fixture path it reads; each refuses
+# anything landing outside the tree. Containment is by resolved path
+# rather than a ban on symlinks, so shared fixtures still work.
+#
 # Usage, from the repository root:
 #
 #   ~/.claude/scripts/magpie-run-evals.sh tools/skill-evals/evals/<skill>/
@@ -128,6 +138,28 @@ esac
   echo "  run from the repository root; paths are relative to it" >&2
   exit 2
 }
+
+# The case above constrains how the argument is spelled, not where it
+# leads. A symlink under evals/ satisfies it and still points anywhere,
+# and `-d` follows one — so an argument that passes the spelling check
+# can hand the runner a directory outside the repository, which this
+# script would then read *unsandboxed*. Resolve both sides and require
+# containment. The runner enforces the same rule per fixture read, since
+# a file symlink inside a real case escapes without the target ever
+# leaving the tree.
+evals_root="$(cd -- "$EVALS_REL" 2>/dev/null && pwd -P)" || {
+  echo "magpie-run-evals.sh: $EVALS_REL not found — run from the repository root" >&2
+  exit 2
+}
+target_real="$(cd -- "$target" && pwd -P)"
+case "$target_real" in
+  "$evals_root" | "$evals_root"/*) ;;
+  *)
+    echo "magpie-run-evals.sh: $target resolves outside $evals_root" >&2
+    echo "  (to $target_real) — refusing to run it unsandboxed" >&2
+    exit 2
+    ;;
+esac
 
 export PYTHONPATH="$pythonpath"
 exec python3 -m skill_evals.runner --cli "claude -p" -- "$target"

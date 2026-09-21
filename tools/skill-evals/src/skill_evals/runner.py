@@ -184,24 +184,28 @@ def load_step_config(fixtures_dir: Path) -> tuple[str, str]:
     Raises FileNotFoundError if neither file is present.
     """
     user_tmpl_path = fixtures_dir / "user-prompt-template.md"
-    user_prompt_template = user_tmpl_path.read_text() if user_tmpl_path.exists() else USER_PROMPT_TEMPLATE
+    user_prompt_template = (
+        read_contained(user_tmpl_path, fixtures_dir) if user_tmpl_path.exists() else USER_PROMPT_TEMPLATE
+    )
 
     # 1. step-config.json → live extraction from SKILL.md
     config_path = fixtures_dir / "step-config.json"
     if config_path.exists():
-        config = json.loads(config_path.read_text())
+        config = json.loads(read_contained(config_path, fixtures_dir))
         repo_root = find_repo_root(fixtures_dir)
-        skill_md_path = repo_root / config["skill_md"]
+        # `skill_md` comes out of the fixture, so it is contained against the
+        # repository rather than trusted as written.
+        skill_md_path = resolve_contained(repo_root / config["skill_md"], repo_root)
         section = extract_skill_section(skill_md_path, config["step_heading"])
         output_spec_path = fixtures_dir / "output-spec.md"
         if output_spec_path.exists():
-            section += "\n\n" + output_spec_path.read_text()
+            section += "\n\n" + read_contained(output_spec_path, fixtures_dir)
         return section, user_prompt_template
 
     # 2. system-prompt.md → manually maintained (triage steps)
     sys_prompt_path = fixtures_dir / "system-prompt.md"
     if sys_prompt_path.exists():
-        return sys_prompt_path.read_text(), user_prompt_template
+        return read_contained(sys_prompt_path, fixtures_dir), user_prompt_template
 
     raise FileNotFoundError(
         f"{fixtures_dir} has neither step-config.json nor system-prompt.md. "
@@ -212,6 +216,39 @@ def load_step_config(fixtures_dir: Path) -> tuple[str, str]:
 # ---------------------------------------------------------------------------
 # Case loading
 # ---------------------------------------------------------------------------
+
+
+def read_contained(path: Path, root: Path) -> str:
+    """Read ``path``, refusing anything whose real path escapes ``root``.
+
+    ``magpie-run-evals.sh`` is excluded from the sandbox, so the reads below
+    are not subject to the sandbox's deny list. Fixtures are deliberately
+    left agent-writable, on the grounds that a fixture can only route
+    *repository* text to the model — text the session could send anyway. A
+    symlink is what breaks that scoping: it turns a fixture read into a read
+    of any file the host can see, including the credential paths the
+    sandboxed session is explicitly denied. Containment is by resolved path
+    rather than a blanket refusal of symlinks, so shared fixtures factored
+    out inside the eval tree keep working.
+    """
+    return resolve_contained(path, root).read_text()
+
+
+def resolve_contained(path: Path, root: Path) -> Path:
+    """Resolve ``path``, refusing anything whose real path escapes ``root``.
+
+    Two ways a fixture reaches outside the tree, and this closes both: a
+    symlink whose target is elsewhere, and a path *string* a fixture
+    supplies (``step-config.json`` → ``skill_md``) with enough ``..`` in it
+    to walk out of the repository.
+    """
+    resolved = path.resolve()
+    root_resolved = root.resolve()
+    if not resolved.is_relative_to(root_resolved):
+        raise ValueError(
+            f"{path.name}: resolves outside {root_resolved} (to {resolved}); refusing to read it"
+        )
+    return resolved
 
 
 def load_case(case_dir: Path) -> tuple[list[dict], dict, str, str, dict]:
@@ -232,11 +269,13 @@ def load_case(case_dir: Path) -> tuple[list[dict], dict, str, str, dict]:
     roster_path = _resolve("reporter-roster.json")
     trusted_context_path = _resolve("trusted-context.md")
 
-    corpus = json.loads(corpus_path.read_text()) if corpus_path.exists() else []
-    roster = json.loads(roster_path.read_text()) if roster_path.exists() else {}
-    report = (case_dir / "report.md").read_text()
-    trusted_context = trusted_context_path.read_text() if trusted_context_path.exists() else ""
-    expected = json.loads((case_dir / "expected.json").read_text())
+    corpus = json.loads(read_contained(corpus_path, fixtures_dir)) if corpus_path.exists() else []
+    roster = json.loads(read_contained(roster_path, fixtures_dir)) if roster_path.exists() else {}
+    report = read_contained(case_dir / "report.md", fixtures_dir)
+    trusted_context = (
+        read_contained(trusted_context_path, fixtures_dir) if trusted_context_path.exists() else ""
+    )
+    expected = json.loads(read_contained(case_dir / "expected.json", fixtures_dir))
     return corpus, roster, report, trusted_context, expected
 
 
@@ -249,7 +288,7 @@ def load_case_tags(case_dir: Path) -> set[str]:
     meta_path = case_dir / "case-meta.json"
     if not meta_path.exists():
         return set()
-    meta = json.loads(meta_path.read_text())
+    meta = json.loads(read_contained(meta_path, case_dir.parent))
     tags = meta.get("tags", [])
     if not isinstance(tags, list) or not all(isinstance(tag, str) for tag in tags):
         raise ValueError(f"{meta_path} must contain a string-list 'tags' field")
