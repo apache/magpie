@@ -128,21 +128,23 @@ Never commit.
 ## Step 3b — Record what this run reconciled
 
 For every skill in scope (Step 1) whose `requires_config:` set now fully
-resolves — because Step 3 just filled the last missing file, or because
-it already resolved and this run touched nothing for it — record that
-fact, keyed by that skill's frontmatter `name:` (e.g.
-`magpie-pr-management-code-review`). **Everything this step writes stays
-inside `.apache-magpie-local/reconciled.json` — never the committed
-lock, adopted project or not.**
+resolves, record that fact, keyed by that skill's frontmatter `name:`
+(e.g. `magpie-pr-management-code-review`). **Everything this step writes
+stays inside `.apache-magpie-local/reconciled.json` — never the
+committed lock, adopted project or not.** The two branches below trigger
+on **different** conditions — read the "not adopted" one's scope as
+looser than the "already adopted" one's; they are not the same rule
+applied to two stores.
 
 - **Not adopted** (no `<committed-lock>`, per this skill's own [Step 0
   item 2](#step-0--pre-flight)) → write that skill's current
   `surface_hash`, today's date, and the version this run is running,
   into `reconciled.json`'s `skills` map (a flat JSON object, no
-  `reconciled:` wrapper). Read the version from the running plugin's own
-  base-directory path
-  (`…/plugins/cache/apache-magpie/<plugin>/<version>/skills/<name>`) on a
-  marketplace install — no CLI call needed, and it works inside the
+  `reconciled:` wrapper) — whether Step 3 just filled the last missing
+  file for it, **or** it already resolved and this run touched nothing
+  for it. Read the version from the running plugin's own base-directory
+  path (`…/plugins/cache/apache-magpie/<plugin>/<version>/skills/<name>`)
+  on a marketplace install — no CLI call needed, and it works inside the
   sandbox where `claude plugin list --json` returns `[]` — or from
   `<local-lock>`'s fetched version on a pinned snapshot. This is the same
   `version`/`at`/`skills` shape the committed block carries, and it
@@ -150,38 +152,51 @@ lock, adopted project or not.**
   [`adopt.md` 4d](adopt.md#4d--write-the-reconciliation-stamp), the only
   surface that migrates it there.
 - **Already adopted** (`<committed-lock>` exists) → write **no**
-  `version`, `at`, or `skills` entry anywhere. The committed stamp is
-  `adopt`'s, `reconcile`'s, and `upgrade`'s to write — never `config`'s,
-  because staging into a committed file from an unattended pre-flight
-  run is exactly what this sub-action must never do (see [Hard rule
-  1](#hard-rules)), and this skill's own [Step 0](#step-0--pre-flight)
-  carries none of the main-checkout gate
+  `version`, `at`, or `skills` entry anywhere, ever. The committed stamp
+  is `adopt`'s, `reconcile`'s, and `upgrade`'s to write — never
+  `config`'s, because staging into a committed file from an unattended
+  pre-flight run is exactly what this sub-action must never do (see
+  [Hard rule 1](#hard-rules)), and this skill's own
+  [Step 0](#step-0--pre-flight) carries none of the main-checkout gate
   [`reconcile.md`'s Step 0](reconcile.md#step-0--pre-flight) requires
-  before it touches that same file. Instead record the per-machine fact
-  in the always-local key
+  before it touches that same file. **Only for a skill whose missing
+  configuration this run actually wrote** — Step 3 produced the file
+  that made its `requires_config:` set resolve for the first time this
+  run — record the per-machine fact in the always-local key
   [`locks.md`](locks.md#the-reconciled-block--what-was-checked-not-what-to-install)
-  already reserves for exactly this:
-  `acknowledged.skills["<skill name>"] = <that skill's current
-  surface_hash>`, in `.apache-magpie-local/reconciled.json`. That is the
-  same field the shared pre-flight block writes when it shows a
-  per-skill finding and nothing is done about it — recording it here
-  means the next invocation of this skill for this project does not
-  re-propose a finding this run already resolved.
+  already reserves for exactly this: `acknowledged.skills["<skill
+  name>"] = <that skill's current surface_hash>`, in
+  `.apache-magpie-local/reconciled.json`.
+
+  **A skill that already resolved before this run, and that Step 3
+  touched nothing for, gets no entry here at all.**
+  `acknowledged.skills` is a generic gate in
+  [`tools/dev/preflight-block.md`](../../../../tools/dev/preflight-block.md#pre-flight--is-this-project-set-up)
+  step 4: it covers *both* a stale `requires_config` finding and a
+  stale-anchor finding, without distinguishing which — and `config`
+  only ever investigates (and fixes) the former. Writing the key for an
+  untouched skill would silence a live anchor-drift finding on a skill
+  this run never looked at and did no work for; the narrower trigger
+  keeps the anti-nag benefit exactly where `config` actually did
+  something. The entry it does write means the next invocation of this
+  skill for this project does not re-propose the specific
+  `requires_config` finding this run just resolved.
 
 **Skip this step entirely when nothing has ever been configured or
 adopted here** — no `<committed-lock>`, no `.apache-magpie-local/`, and
 no `.apache-magpie-overrides/` anywhere in the repo, the same
 nothing-to-reconcile gate
 [`reconcile.md`](reconcile.md#step-0--pre-flight) uses. That is the only
-case with nothing to record: once any one of the three already exists —
-this run wrote to `.apache-magpie-local/`, an earlier run did, or the
-project carries a lock or an overrides store — every skill in this run's
-scope is recorded per the rule above, whether or not *this* run had a
-new config file to write for it.
+case with nothing to *possibly* record. Once any one of the three
+already exists, the **not-adopted** branch above records every skill in
+scope regardless of whether this run touched it; the **already-adopted**
+branch records only the skill(s) this run actually wrote a config file
+for — nothing for the rest, per the narrower trigger above.
 
 This is per-skill, not a project-wide sweep: only the skill(s) actually
-in this run's scope are touched. Existing entries for other skills, in
-either store, are left exactly as they are —
+in this run's scope are candidates, and — on an adopted project — only
+the ones this run did work for actually get written. Existing entries
+for other skills, in either store, are left exactly as they are —
 [`reconcile.md`](reconcile.md) is the project-wide pass.
 
 ## Step 4 — Recap
@@ -193,11 +208,16 @@ Tell the user, in this order:
 1b. **What the reconciliation stamp recorded** (Step 3b), all of it in
    the gitignored `.apache-magpie-local/reconciled.json` — on an
    unadopted project, the skill(s) whose `skills` entry was just
-   written there; on an already-adopted project, the skill(s) whose
-   `acknowledged.skills` entry was recorded there instead, and that the
-   committed stamp is untouched — `adopt`, `reconcile`, or `upgrade`
-   write that. Say plainly when nothing was recorded because this
-   project has never configured or adopted anything (Step 3b's gate).
+   written there, whether or not this run touched a file for them; on
+   an already-adopted project, only the skill(s) whose missing
+   configuration **this run actually wrote**, each recorded as an
+   `acknowledged.skills` entry instead, and that the committed stamp is
+   untouched — `adopt`, `reconcile`, or `upgrade` write that. A skill
+   that was already fully configured before this run gets nothing here
+   on an adopted project, even though it is in scope — say so plainly
+   rather than letting silence read as an oversight. Say plainly, too,
+   when nothing was recorded at all because this project has never
+   configured or adopted anything (Step 3b's gate).
 2. **What is still `TODO`**, by file, and which skill will ask for each
    one.
 3. **What now works** — the skills whose required set is complete.
