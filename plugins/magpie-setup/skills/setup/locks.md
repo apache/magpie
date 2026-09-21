@@ -116,6 +116,74 @@ A lock is a committed file in whatever repository the user happened to
 open. Treating it as authority to install from an arbitrary marketplace
 would make opening a repository enough to install an attacker's code.
 
+## The `reconciled:` block — what was checked, not what to install
+
+The floor above says what the project expects to have installed. It
+says nothing about whether the project's own configuration — its
+answers to `requires_config`, the overrides it wrote against a
+specific skill's steps — was last checked against a build that still
+matches those skills' current shape. A plugin can satisfy
+`min_version` completely and still carry a configuration written
+against a step heading, or a `requires_config` entry, that a later
+version renamed or dropped. `setup` closes that gap with a second,
+generated block:
+
+```text
+# .apache-magpie.lock — committed; the project's floor plus its
+# reconciliation state.
+
+reconciled:
+  version: 0.2.0.dev202609211315     # what setup last ran against
+  at:      2026-09-21
+  skills:
+    magpie-pr-management/code-review:  sha256:9f1c4e…
+    magpie-security/issue-triage:      sha256:4ab70d…
+```
+
+- `version` — the framework version `setup` was running the last time
+  it wrote this block. Compared as PEP 440 like every other version in
+  this file, `.devN` segment included.
+- `at` — the date that write happened.
+- `skills` — one entry per skill this project's configuration actually
+  touches (configures or overrides), `<plugin>/<skill>` mapped to the
+  `surface_hash` that skill's `SKILL.md` frontmatter carried at the
+  time. Not the whole catalogue — a handful, not the ~75 skills that
+  exist.
+
+**Written only by `setup`** (`config`, `adopt`, `reconcile`), never
+hand-edited — for the same reason `min_version` isn't: a hand-written
+`sha256:` value is indistinguishable from a real one right up until
+the comparison it is supposed to gate silently agrees with a hash
+nobody actually computed.
+
+**Where the block lives tracks where the configuration it describes
+lives, not the install method.** An **adopted** project — `marketplace`
+floor or snapshot pin alike — carries it in `.apache-magpie.lock`,
+beside whatever that method already records: the lock already states
+what the project expects, and this states what state its configuration
+is in. A project that has run `setup config` but never `setup adopt`
+has no committed lock to hold it, so the identical shape lives in
+`.apache-magpie-local/reconciled.json` instead, next to the personal
+configuration it describes. Neither configured nor adopted → no block,
+because there is no configuration to have gone stale.
+
+**Three more keys travel with this block and are never committed, even
+inside an adopted project's `.apache-magpie.lock`:** `verified_at`,
+`verify_suggested_at`, and `acknowledged` always live in
+`.apache-magpie-local/reconciled.json`, on every project regardless of
+adoption state. Running `/magpie-setup verify` and declining a
+reconciliation sweep are both per-machine acts — one contributor's
+health check, one contributor's yes/no on a prompt they happened to be
+shown — and neither is a fact about the project's committed
+configuration the way `version`/`at`/`skills` are. Committing
+`verified_at` would rewrite the lock every time anyone on the team ran
+`verify`, turning a periodic health check into commit noise on a
+roughly fortnightly cycle; committing `acknowledged` would bind every
+other contributor to one person's decline of a prompt they never saw.
+This is the same committed/local split the rest of this file draws
+everywhere else: what the project agreed to is shared, what one person
+just did on one machine is not.
+
 ## `<local-lock>` — `.apache-magpie.local.lock`
 
 Gitignored at the adopter repo root. The **local snapshot's

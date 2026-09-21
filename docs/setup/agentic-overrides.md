@@ -335,6 +335,24 @@ before relying on it again. Until re-anchored, the framework
 skill applies what it can interpret from the override and
 reports anything it skipped.
 
+**The trigger differs by install method; the checks and the two ⚠
+outcomes above do not.** Snapshot adopters (`git-branch`, `git-tag`,
+`svn-zip`) reach this walk by running `/magpie-setup upgrade`, which
+refreshes the snapshot and then performs it. Marketplace adopters
+have no snapshot to refresh — the plugin manager updates on its own
+schedule, decoupled from when the project's configuration was
+written — so they reach the same walk through the `reconciled:`
+stamp instead: every skill's own pre-flight compares its shipped
+`surface_hash` against the entry recorded for it (see
+[`locks.md`](../../plugins/magpie-setup/skills/setup/locks.md#the-reconciled-block--what-was-checked-not-what-to-install)),
+and a mismatch on either input it covers — a `requires_config`
+change or a moved anchor — surfaces the matching ⚠ inline, on that
+skill's own run, at no extra cost. A project with no stamp yet, or
+whose overrides and configuration need a full pass, gets it from
+`/magpie-setup reconcile` — the marketplace equivalent of
+`upgrade`'s walk, run on demand rather than tied to a snapshot
+refresh that marketplace installs do not have.
+
 ## Upstreaming an override
 
 If an adopter project's override is widely useful (e.g. a
