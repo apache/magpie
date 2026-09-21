@@ -1,6 +1,6 @@
 {
   "name": "magpie",
-  "version": "0.2.0.dev202609210104",
+  "version": "0.2.0.dev202609211315",
   "description": "Apache Magpie — agentic skills for maintaining open-source projects.",
   "skills": "./skills",
   "hooks": {
