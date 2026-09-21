@@ -111,6 +111,25 @@ class TestKnownSignatures:
         assert result.returncode == 1
         assert f"{DOC}#signed-commit-fails-with-cannot-exec-of-the-touch-overlay-wrapper" in result.stderr
 
+    def test_overlay_runtime_dir_denied_beats_the_ssh_agent_branch(self) -> None:
+        # This failure also ends in "agent refused operation", which the
+        # ssh-agent branch matches. The reader must land on the overlay
+        # entry instead: the key is fine, the watcher never started.
+        result = _run(
+            _bash(
+                stderr="error: /Users/alice/.claude/scripts/gpg-touch-wrap-ssh-keygen: "
+                "line 340: /tmp/magpie-gpg-touch/watcher.pid: Operation not permitted\n"
+                "Couldn't sign message (signer): agent refused operation?\n"
+                "fatal: failed to write commit object"
+            )
+        )
+        assert result.returncode == 1
+        assert (
+            f"{DOC}#signed-commit-fails-with-the-agent-refusing-and-the-overlay-never-appeared"
+            in result.stderr
+        )
+        assert "ssh-agent--yubikey" not in result.stderr
+
     def test_docker_signature(self) -> None:
         result = _run(_bash(stderr="Cannot connect to the Docker daemon at unix:///var/run/docker.sock"))
         assert result.returncode == 1

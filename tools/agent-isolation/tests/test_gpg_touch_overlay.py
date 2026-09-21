@@ -190,6 +190,44 @@ def test_disarm_is_silent_when_nothing_is_armed(tmp_path: Path) -> None:
     assert result.stderr == ""
 
 
+def _runtime_dir(env_overrides: dict[str, str]) -> str:
+    """Where the script itself says it keeps its state."""
+    env = {k: v for k, v in os.environ.items() if not k.startswith("XDG_")}
+    env.update(env_overrides)
+    result = subprocess.run(
+        ["bash", str(SCRIPT), "_runtime_dir"],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert result.returncode == 0, result.stderr
+    return result.stdout.strip()
+
+
+def test_runtime_dir_prefers_xdg_runtime_dir(tmp_path: Path) -> None:
+    assert _runtime_dir({"XDG_RUNTIME_DIR": str(tmp_path)}) == (
+        f"{tmp_path}/magpie-gpg-touch"
+    )
+
+
+def test_runtime_dir_never_falls_back_to_world_writable_tmp(tmp_path: Path) -> None:
+    # /tmp is world-writable, so another local user can pre-create the
+    # directory and sit on the pid files and the window lease. It is also
+    # outside the write set of the sandbox the framework ships, which made
+    # a signed commit die at `watcher.pid: Operation not permitted` before
+    # the watcher ever started -- no window, no touch, refused signature.
+    resolved = _runtime_dir({"HOME": str(tmp_path)})
+    assert resolved == f"{tmp_path}/.cache/magpie-gpg-touch"
+    assert resolved not in ("/tmp/magpie-gpg-touch", "/private/tmp/magpie-gpg-touch")
+
+
+def test_runtime_dir_honours_xdg_cache_home(tmp_path: Path) -> None:
+    cache = tmp_path / "elsewhere"
+    assert _runtime_dir({"HOME": str(tmp_path), "XDG_CACHE_HOME": str(cache)}) == (
+        f"{cache}/magpie-gpg-touch"
+    )
+
+
 def test_unknown_mode_is_rejected() -> None:
     result = subprocess.run(
         ["bash", str(SCRIPT), "wibble"], capture_output=True, text=True

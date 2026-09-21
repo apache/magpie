@@ -60,7 +60,16 @@ existing sandbox grants can widen the baseline. See `docs/adapters/gemini.md`.
   the wrapper only runs the program and the hook's watcher shows the
   window, and across contexts the window is leased by atomic directory
   create, so only one watcher draws it and a lease left by a watcher
-  that died is reclaimed. The
+  that died is reclaimed. That registry, the lease, and the watcher's
+  pid and log files live in `$XDG_RUNTIME_DIR/magpie-gpg-touch`, else
+  `${XDG_CACHE_HOME:-$HOME/.cache}/magpie-gpg-touch` on a platform that
+  sets no `XDG_RUNTIME_DIR`. The fallback has to be per-user rather than
+  `/tmp`, which is world-writable and outside the reference
+  `allowWrite` — a sandboxed signed commit died there at
+  `watcher.pid: Operation not permitted` before any watcher started —
+  and it has to be stable across contexts rather than `$TMPDIR`, which
+  differs between the agent's hooks and a terminal `git` and would give
+  two contexts two registries that cannot see each other. The
   git the agent runs reads the same global config, so the wrapper's
   two files are a `sandbox.filesystem.allowRead` grant of their own
   (nothing wider under `~/.claude/`), or every sandboxed signed commit

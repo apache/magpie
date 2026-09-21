@@ -103,7 +103,12 @@ doc_path="docs/setup/sandbox-troubleshooting.md"
 
 match() { printf '%s' "$output" | grep -qE "$1"; }
 
-if match 'Could not open a connection to your authentication agent|agent refused operation|ssh-add: error fetching identities for protocol|Permission denied \(publickey\)'; then
+# Must precede the ssh-agent branch: this failure ends in "agent refused
+# operation" too, and that branch would claim it and send the reader to
+# the wrong entry. The write error names the watcher, not the key.
+if match 'magpie-gpg-touch/[^ ]*: Operation not permitted'; then
+  hint="The touch overlay could not write its runtime state, so no watcher started and the key was never prompted for a touch. See ${doc_path}#signed-commit-fails-with-the-agent-refusing-and-the-overlay-never-appeared"
+elif match 'Could not open a connection to your authentication agent|agent refused operation|ssh-add: error fetching identities for protocol|Permission denied \(publickey\)'; then
   hint="SSH agent / Yubikey appears unreachable from inside the sandbox. See ${doc_path}#ssh-agent--yubikey-appears-unreachable-from-inside-the-sandbox"
 elif match "cannot exec '[^']*gpg-touch-(wrap-[^']*|overlay\.sh wrap [^']*)': Operation not permitted|bash: [^ ]*gpg-touch-(wrap-[^ :]*|overlay\.sh): Operation not permitted"; then
   hint="git cannot start the touch-overlay wrapper from inside the sandbox (~/.claude/scripts/ is read-denied). See ${doc_path}#signed-commit-fails-with-cannot-exec-of-the-touch-overlay-wrapper"

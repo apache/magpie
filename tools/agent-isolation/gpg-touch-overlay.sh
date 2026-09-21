@@ -133,7 +133,31 @@ readonly SHOW_DELAY=8     # polls a signature must block before showing (0.2s ea
 readonly MAX_WAIT=600     # seconds the watcher may live, whatever happens
 readonly POLL=0.2
 
-RUNTIME_DIR="${XDG_RUNTIME_DIR:-/tmp}/magpie-gpg-touch"
+# Where the owners registry, the window lease and the watcher's pid and
+# log files live. `XDG_RUNTIME_DIR` is the right home and is what Linux
+# provides: per-user, 0700, tmpfs-backed, cleared at logout.
+#
+# macOS sets no `XDG_RUNTIME_DIR`, and the fallback used to be `/tmp`,
+# which is wrong twice over. It is world-writable, so another local user
+# can pre-create the directory and sit on the pid files and the lock the
+# window is leased through. And it is outside the write set of the
+# sandbox the framework ships, so a signed commit from a sandboxed agent
+# dies at `watcher.pid: Operation not permitted` before the watcher ever
+# starts -- no window, no touch, and gpg-agent refuses the signature.
+#
+# `$TMPDIR` is not the answer despite being per-user and writable: it
+# differs between the signing contexts that have to find each other. The
+# agent's hooks see the harness's scratch dir, a terminal `git` sees the
+# login one. Two contexts computing two runtime dirs cannot share an
+# owners registry or a window lease, which is the whole design. The
+# cache directory is stable for a user whatever spawned the process, and
+# everything kept here is regenerable -- pid files swept by the next arm,
+# a lock reclaimed when its holder dies.
+if [[ -n ${XDG_RUNTIME_DIR:-} ]]; then
+    RUNTIME_DIR="$XDG_RUNTIME_DIR/magpie-gpg-touch"
+else
+    RUNTIME_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/magpie-gpg-touch"
+fi
 
 # One registration per signing context, never one pid file for all of
 # them. Two agent sessions sign at the same time often enough, and a
@@ -760,6 +784,9 @@ case "${1:-}" in
     _gi_python) _gi_python ;;
     _tk_python) _tk_python ;;
     _gui_available) _gui_available ;;
+    # Test seam: report where state would be kept, so the fallback can be
+    # asserted against the script's own value rather than a copy of it.
+    _runtime_dir) printf '%s\n' "$RUNTIME_DIR"; exit 0 ;;
     _signing_in_flight) signing_in_flight ;;
     _agent_sockets) agent_sockets ;;
     _agent_socket_rows) agent_socket_rows "$(printf '%s\n' "${@:2}")" ;;

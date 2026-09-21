@@ -22,26 +22,31 @@
     - [Root cause](#root-cause-2)
     - [Fix](#fix-2)
     - [Notes](#notes-2)
-  - [Test cannot bind to a localhost port](#test-cannot-bind-to-a-localhost-port)
+  - [Signed commit fails with the agent refusing, and the overlay never appeared](#signed-commit-fails-with-the-agent-refusing-and-the-overlay-never-appeared)
     - [Symptom](#symptom-3)
     - [Root cause](#root-cause-3)
     - [Fix](#fix-3)
     - [Notes](#notes-3)
-  - [Docker / Podman command fails with a socket error](#docker--podman-command-fails-with-a-socket-error)
+  - [Test cannot bind to a localhost port](#test-cannot-bind-to-a-localhost-port)
     - [Symptom](#symptom-4)
     - [Root cause](#root-cause-4)
     - [Fix](#fix-4)
     - [Notes](#notes-4)
-  - [Temp files fail with "Read-only file system" under `/tmp`](#temp-files-fail-with-read-only-file-system-under-tmp)
+  - [Docker / Podman command fails with a socket error](#docker--podman-command-fails-with-a-socket-error)
     - [Symptom](#symptom-5)
     - [Root cause](#root-cause-5)
     - [Fix](#fix-5)
     - [Notes](#notes-5)
-  - [`gh` fails with TLS `OSStatus -26276` or `HTTP 401` inside the sandbox](#gh-fails-with-tls-osstatus--26276-or-http-401-inside-the-sandbox)
+  - [Temp files fail with "Read-only file system" under `/tmp`](#temp-files-fail-with-read-only-file-system-under-tmp)
     - [Symptom](#symptom-6)
     - [Root cause](#root-cause-6)
     - [Fix](#fix-6)
     - [Notes](#notes-6)
+  - [`gh` fails with TLS `OSStatus -26276` or `HTTP 401` inside the sandbox](#gh-fails-with-tls-osstatus--26276-or-http-401-inside-the-sandbox)
+    - [Symptom](#symptom-7)
+    - [Root cause](#root-cause-7)
+    - [Fix](#fix-7)
+    - [Notes](#notes-7)
   - [Adding a new entry](#adding-a-new-entry)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -452,6 +457,64 @@ session state.
 - The failure is the mirror image of the previous entry: there git
   could not read the key file, here it cannot read the program. Both
   fail in well under a second, before the key is asked for anything.
+
+## Signed commit fails with the agent refusing, and the overlay never appeared
+
+### Symptom
+
+A `git commit` the agent runs gets through every pre-commit hook and
+then dies at the signature, with a write error from the wrapper
+immediately before it and no touch window at any point:
+
+```text
+error: /Users/<you>/.claude/scripts/gpg-touch-wrap-ssh-keygen: line 340: /tmp/magpie-gpg-touch/watcher.pid: Operation not permitted
+Signing file /tmp/claude-<uid>/.git_signing_buffer_tmpXXXXXX
+Couldn't sign message (signer): agent refused operation?
+fatal: failed to write commit object
+```
+
+The same commit succeeds when run outside the sandbox, or from your own
+terminal.
+
+### Root cause
+
+The overlay keeps its owners registry, window lease, pid and log files
+in `$XDG_RUNTIME_DIR/magpie-gpg-touch`. macOS sets no
+`XDG_RUNTIME_DIR`, and the fallback used to be `/tmp`, which is outside
+the sandbox's write set. The wrapper cannot create its pid file, so no
+watcher starts; nothing puts a window on screen; the key is never
+touched; and gpg-agent gives up with `agent refused operation`.
+
+The error names the *watcher*, not the key, which is what makes this
+read like a broken signing setup rather than a sandbox denial.
+
+### Fix
+
+Update the framework. The fallback is now
+`${XDG_CACHE_HOME:-$HOME/.cache}/magpie-gpg-touch`, which is per-user,
+not world-writable, and inside the reference `allowWrite`, so the
+watcher starts under the sandbox with no widening.
+
+A stale `/tmp/magpie-gpg-touch/` left by an older version is harmless
+and can be removed.
+
+Do **not** point the overlay at `$TMPDIR` instead. It differs between
+the signing contexts that have to find one another — the agent's hooks
+see the harness's scratch directory, a terminal `git` sees the login
+one — and two contexts computing two runtime directories cannot share
+an owners registry or a window lease.
+
+### Notes
+
+- The `/tmp` fallback was also a local-security weakness independent of
+  the sandbox: `/tmp` is world-writable, so another user on the machine
+  could pre-create the directory and sit on the pid files and the lock
+  the window is leased through.
+- Distinct from the two entries above: there git could not read the key
+  or could not exec the wrapper, and both failed instantly. Here the
+  wrapper runs, the signature is genuinely attempted, and the failure
+  arrives only once the agent stops waiting for a touch that was never
+  prompted for.
 
 ## Test cannot bind to a localhost port
 

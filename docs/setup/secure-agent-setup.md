@@ -2225,7 +2225,8 @@ hook's `disarm`, so a second signature in the same command — a rebase
 replaying several commits, a real signature after a hook ran something
 that merely looked like one — raises the window again. `MAGPIE_GPG_TOUCH_DEBUG=1` makes the
 watcher log to `$XDG_RUNTIME_DIR/magpie-gpg-touch/watcher.log`
-(`/tmp/magpie-gpg-touch/` on macOS, which sets no `XDG_RUNTIME_DIR`).
+(`~/.cache/magpie-gpg-touch/` on macOS, which sets no
+`XDG_RUNTIME_DIR`; `$XDG_CACHE_HOME` is honoured when set).
 So does a marker file, `touch $XDG_RUNTIME_DIR/magpie-gpg-touch/debug`
 — the way to get a log out of the watcher the *hook* spawns, whose
 environment is the harness's own and takes no variable from your
