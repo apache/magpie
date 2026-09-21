@@ -19,7 +19,7 @@ when_to_use: |
   session.
 argument-hint: "[repo:owner/name] [since:date] [clear-cache]"
 capability: capability:stats
-surface_hash: sha256:f2976ae20b5377d3
+surface_hash: sha256:733410d3a8b9a18b
 license: Apache-2.0
 ---
 

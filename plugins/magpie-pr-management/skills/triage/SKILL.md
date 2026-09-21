@@ -28,7 +28,7 @@ when_to_use: |
   inside its grace window.
 argument-hint: "[pr:N] [label:LBL] [author:LOGIN] [review-for-me] [stale] [repo:owner/name]"
 capability: capability:triage
-surface_hash: sha256:676d20558f8c3e17
+surface_hash: sha256:00baef4a4ac4a401
 license: Apache-2.0
 ---
 <!-- SPDX-License-Identifier: Apache-2.0

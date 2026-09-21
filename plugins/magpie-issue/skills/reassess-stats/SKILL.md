@@ -20,7 +20,7 @@ when_to_use: |
   pre-release check on whether the EOL pool has dropped, and
   as a periodic health-of-the-backlog view.
 capability: capability:stats
-surface_hash: sha256:38940515805de0b9
+surface_hash: sha256:17acede01fa2f929
 license: Apache-2.0
 ---
 

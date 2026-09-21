@@ -21,7 +21,7 @@ when_to_use: |
   periodically to refresh existing audit entries from updated source data.
 argument-hint: "<version> [--planning-issue <url>]"
 capability: capability:stats
-surface_hash: sha256:1d20c12dbf65a1cd
+surface_hash: sha256:bed8d4c39f43581d
 license: Apache-2.0
 ---
 

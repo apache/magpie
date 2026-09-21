@@ -23,7 +23,7 @@ when_to_use: |
 capability:
   - capability:stats
   - capability:platform
-surface_hash: sha256:61e6f607df459953
+surface_hash: sha256:85dfb8b48739fc11
 license: Apache-2.0
 ---
 

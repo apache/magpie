@@ -25,7 +25,7 @@ when_to_use: |
   a contributor.
 argument-hint: "<github-handle> [window:Nm] [target:committer|pmc]"
 capability: capability:stats
-surface_hash: sha256:a997fde17c7ae9f4
+surface_hash: sha256:c4cdfe4477057b94
 license: Apache-2.0
 ---
 

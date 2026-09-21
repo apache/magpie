@@ -19,7 +19,7 @@ when_to_use: |
   existing skill that should pick up the framework's current
   conventions (e.g. the prompt-injection-defence patterns).
 capability: capability:authoring
-surface_hash: sha256:d85fdd9248aeaa2b
+surface_hash: sha256:604a5145ad6c00b6
 license: Apache-2.0
 ---
 

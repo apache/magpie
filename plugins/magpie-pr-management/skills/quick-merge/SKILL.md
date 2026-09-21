@@ -32,7 +32,7 @@ argument-hint: "[repo:owner/name] [tier:A|B] [max-churn:N] [clear-cache]"
 capability:
   - capability:triage
   - capability:review
-surface_hash: sha256:e5ed03ced3468740
+surface_hash: sha256:e595586446c4bc73
 license: Apache-2.0
 ---
 

@@ -27,7 +27,7 @@ when_to_use: |
   *deliberately* not replied yet — ask before invoking.
 argument-hint: "[issue-or-pr-number]"
 capability: capability:review
-surface_hash: sha256:8c1c6f20aae0af6e
+surface_hash: sha256:3c380e6ecb0fb4c8
 license: Apache-2.0
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
