@@ -41,7 +41,11 @@ r = subprocess.run(
         "--limit",
         "1000",
         "--json",
-        "number,title,state,stateReason,createdAt,closedAt,labels,comments",
+        # `updatedAt` is consumed by fetch_events.py, which refuses to trust a cached
+        # events file older than the issue's last update. Dropping it here silently
+        # disables that guard, because the check falls back to "no timestamp -> trust
+        # the cache" and every relabelled issue keeps its stale event history.
+        "number,title,state,stateReason,createdAt,closedAt,updatedAt,labels,comments",
     ],
     capture_output=True,
     text=True,
