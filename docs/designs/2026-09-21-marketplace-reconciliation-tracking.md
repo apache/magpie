@@ -78,6 +78,11 @@ the thing that goes stale.
    been reconciled, which is resolved once — by a full sweep with a
    best-effort baseline — rather than carried indefinitely.
 6. **A declined prompt stays declined** until the fingerprint moves again.
+7. **A dev build is a version like any other.** Nothing strips `.devN`,
+   rounds to the release segment, or treats a dev-to-dev move as a
+   non-event. Running a dev version is accepting that it changes often;
+   the design owes that user accurate comparisons, not protection from
+   their own choice.
 
 ## The stamp
 
@@ -217,6 +222,21 @@ exists, the fact is mentioned **only if the reconciliation check is already
 speaking**; there is no standalone "an update is available" line. Where it is
 unreadable, nothing is said at all.
 
+All three are compared as PEP 440, dev segment included — the rule the
+current pre-flight block already states, where `0.2.0` is newer than
+`0.2.0.dev202609110041`. A newer dev build *is* a newer version:
+`0.2.0.dev202609211315` over `0.2.0.dev202609180100` is an available update
+and is reported as one by `verify`, and the stamp records whatever version
+`setup` actually ran against, dev or not, verbatim.
+
+**This is a different axis from the reconciliation gate, and the two must
+not be confused.** Version comparison answers *is there something newer*,
+and dev builds count. The fingerprint answers *does it affect this
+project's configuration*, and gates the **prompt**. A newer dev build with
+no surface change is an update that `verify` will report and that no
+pre-flight will interrupt anyone about — which is the correct pair of
+answers, not a suppression of the first.
+
 ## Who writes the stamp
 
 | Action | Does |
@@ -258,18 +278,25 @@ which a sandboxed session cannot."*
 
 ## Alternatives considered
 
-**Compare versions, not surfaces.** Simplest, and what the literal
-description of the problem suggests: installed newer than reconciled →
-propose. Rejected because this repository ships `0.2.0.devYYYYMMDDHHMM`
-most days, so anyone tracking the tip would be prompted after every update,
-almost always about changes to skills they do not use. A feature that cries
-wolf daily is uninstalled mentally in a week.
+**Prompt on any version delta, not on surface change.** Simplest, and what
+the literal description of the problem suggests: installed newer than
+reconciled → propose reconciling. Rejected for what it does to the
+*prompt*, not for what it says about the versions: this repository ships
+`0.2.0.devYYYYMMDDHHMM` most days, so anyone tracking the tip would be
+interrupted after every update, almost always about skills they do not
+configure. A feature that cries wolf daily is mentally uninstalled in a
+week. The delta is still real and still reported — by `verify`, which
+answers *what is newer*, rather than by a prompt that claims *you need to
+act*.
 
 **Ignore the `.devN` suffix and react only to release-segment bumps.** Quiet
-by construction and needs no fingerprint. Rejected because this project
-ships real behaviour in dev builds — the renamed step that strands an
-override arrives in one — so the check would stay silent through exactly the
-events it exists to catch.
+by construction and needs no fingerprint. Rejected twice over. It would stay
+silent through exactly the events the check exists to catch, because this
+project ships real behaviour in dev builds — the renamed step that strands
+an override arrives in one. And it would lie to the dev-build user about
+what they are running: choosing a dev version is choosing frequent change,
+and the design owes that user an honest comparison rather than a rounded
+one.
 
 **Diff the two plugin trees at check time.** Precise, and needs no shipped
 hash. Rejected because the old tree is gone: the plugin manager replaces it
