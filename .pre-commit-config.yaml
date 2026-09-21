@@ -109,14 +109,20 @@ repos:
       # and the whole run aborts, even though the files need no fix.
       # Exclude them: `.claude/settings.json` is gated by the
       # sandbox-lint baseline, the skill symlinks are validated by
-      # `symlink-lint`, and the upgrade hook script is checked for
-      # existence and correct wiring by `check-family-plugins.py`, so
-      # none of them loses coverage by skipping EOF / whitespace /
-      # line-ending normalisation here. This keeps prek a single
-      # invocation that runs cleanly in-sandbox with no bypass.
+      # `symlink-lint`, the upgrade hook script is checked for
+      # existence and correct wiring by `check-family-plugins.py`, and
+      # the vetted-ops policy is parsed by `vetted_ops.config` on every
+      # dispatch (a malformed file fails the call), so none of them
+      # loses coverage by skipping EOF / whitespace / line-ending
+      # normalisation here. This keeps prek a single invocation that
+      # runs cleanly in-sandbox with no bypass.
+      #
+      # Adding a `permissions.deny` rule on an in-repo path means adding
+      # that path here too — the deny becomes a sandbox write-deny, and
+      # every one of these three hooks aborts the run without it.
       - id: end-of-file-fixer
         name: Make sure that there is an empty line at the end
-        exclude: &sandbox_write_denied ^(\.claude/(settings\.json|skills/)|plugins/magpie-setup/hooks/)
+        exclude: &sandbox_write_denied ^(\.claude/(settings\.json|skills/)|plugins/magpie-setup/hooks/|\.apache-magpie-overrides/tools/vetted-ops/)
       - id: mixed-line-ending
         name: Detect if mixed line ending is used (\r vs. \r\n)
         exclude: *sandbox_write_denied
