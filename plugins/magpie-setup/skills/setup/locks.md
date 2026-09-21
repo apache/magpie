@@ -151,10 +151,9 @@ reconciled:
   exist.
 
 **Written only by `setup`** (`config`, `adopt`, `reconcile`), never
-hand-edited — for the same reason `min_version` isn't: a hand-written
-`sha256:` value is indistinguishable from a real one right up until
-the comparison it is supposed to gate silently agrees with a hash
-nobody actually computed.
+hand-edited: a hand-written `sha256:` value is indistinguishable from
+a real one right up until the comparison it is supposed to gate
+silently agrees with a hash nobody actually computed.
 
 **Where the block lives tracks where the configuration it describes
 lives, not the install method.** An **adopted** project — `marketplace`
