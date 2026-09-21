@@ -100,12 +100,15 @@ Suites are currently implemented for:
   grading adds a judge CLI (default `claude -p --model haiku`).
 - **Credentials / auth:** None in print mode; in `--cli` mode whatever
   the chosen model CLI requires (e.g. a Claude / API key, or a local
-  Ollama install). **Run `--cli` mode outside any sandbox that denies
-  the CLI its credentials.** An agent sandbox typically blocks the
-  keychain and `~/.claude.json`, so `claude -p` returns `Not logged in`;
-  every case then reports ERROR with "nothing was graded" (see *JSON
-  extraction* below). Before that guard existed the same situation
-  reported a green run.
+  Ollama install). **`--cli` mode needs to run outside any sandbox that
+  denies the CLI its credentials.** An agent sandbox typically blocks
+  the keychain and `~/.claude.json`, so `claude -p` returns
+  `Not logged in`; every case then reports ERROR with "nothing was
+  graded" (see *JSON extraction* below). Before that guard existed the
+  same situation reported a green run. Two ways out: run the command
+  yourself with the `!` prefix, or — for the `claude -p` case only —
+  use [`run-evals.sh`](#running-from-inside-the-sandbox), which the
+  framework's own sandbox config excludes.
 - **Network:** Evals mock all external tool calls, so the harness itself
   makes no network calls; any network use comes from the model CLI you
   point `--cli` / `--grader-cli` at.
@@ -169,6 +172,91 @@ PYTHONPATH=tools/skill-evals/src python3 -m skill_evals.runner --tag local-smoke
     tools/skill-evals/evals/
 # (or --cli "ollama run llama3.1:8b --nowordwrap --format json")
 ```
+
+### Running from inside the sandbox
+
+Everything above assumes a shell with the model CLI's credentials. An
+agent running under the framework's [secure
+setup](../../docs/setup/secure-agent-setup.md) does not have them, so
+an agent that types one of those command lines gets one `ERROR` per
+case. [`magpie-run-evals.sh`](magpie-run-evals.sh) is the one shape it
+can run itself:
+
+```bash
+~/.claude/scripts/magpie-run-evals.sh tools/skill-evals/evals/<skill>/
+~/.claude/scripts/magpie-run-evals.sh tools/skill-evals/evals/<skill>/<step>/fixtures/<case>
+```
+
+The framework's `.claude/settings.json` lists
+`~/.claude/scripts/magpie-run-evals.sh *` in
+`sandbox.excludedCommands`, so that call runs outside the sandbox and
+the nested `claude -p` reaches the keychain. Paths are relative to the
+current directory — run it from the repository root.
+
+**It is a user-scope copy, like the touch overlay.** The file in this
+directory is the source of truth; installing it copies both the
+wrapper and the runner package to `~/.claude/scripts/`:
+
+```text
+~/.claude/scripts/magpie-run-evals.sh        <- tools/skill-evals/magpie-run-evals.sh
+~/.claude/scripts/skill-evals/src/skill_evals/  <- tools/skill-evals/src/skill_evals/
+```
+
+The package keeps its `src/` shape under a named directory, matching
+how `container-gateway` is installed.
+
+`setup-isolated-setup-install` performs the copy,
+`setup-isolated-setup-verify` hash-compares it, and
+`setup-isolated-setup-update` reports drift — the same treatment
+`tools/agent-isolation/gpg-touch-overlay.sh` gets. **Re-run the copy
+after changing the runner**, or the evals you run from inside the
+sandbox are the old ones.
+
+**Why the executed code lives outside the repository.** Excluding a
+command makes whatever it executes run unsandboxed, so that code must
+not be writable by the thing being sandboxed. Two simpler shapes fail
+that test:
+
+- *Excluding the runner directly.* `--cli` is an arbitrary shell
+  command, so the exclusion would not carve out the eval harness — it
+  would carve out `--cli "curl …"`. Pinning `--cli` inside the
+  exclusion *pattern* does not help: argparse is last-wins, so a
+  second `--cli` later on the line still matches the prefix.
+- *Excluding an in-repo wrapper and denying edits to it.* A deny stops
+  the agent's editing tools, but the wrapper is only half the story —
+  it `exec`s the runner, so `tools/skill-evals/src/**` would need
+  denying too, and that is a tree under active development in this
+  repository. (The mechanical side of an in-repo deny is already
+  solved and is not the objection: `Edit(path)` denies merge into
+  `sandbox.filesystem.denyWrite`, so such a path must also join the
+  `sandbox_write_denied` anchor in `.pre-commit-config.yaml`, or
+  `end-of-file-fixer` and its two siblings abort `prek run
+  --all-files` — see #1309. Those three hooks then stop covering the
+  file.)
+
+`~/.claude/scripts/` sits outside every `allowWrite` root, so the
+copies are unwritable from sandboxed Bash without any deny rule
+touching a tracked path; `Edit(~/.claude/scripts/**)` closes the
+agent's editing tools over the same directory.
+
+**What is still in reach.** The fixtures stay in the repository and
+stay agent-writable. They are data — the runner reads them, renders
+prompts, and pipes text to `claude -p`; nothing under `evals/` is
+executed. Editing a fixture can change what a case asserts, which is a
+review problem visible in the diff, not a sandbox escape.
+
+Two gotchas, both shared with the `gh *` exclusion:
+
+- Call it by that exact path, alone on the line. `bash ~/…`, a
+  relative spelling, or any pipe, redirect or `$(…)` in the same
+  command stops the invocation matching the exclusion, and it runs
+  sandboxed again — reported, confusingly, as `Not logged in`.
+- A full suite takes minutes. Run it in the background rather than
+  wrapping it in `| tail`, which would break the match.
+
+For any other shape — `--verbose`, `--tag`, a non-Claude `--cli`, a
+different `--grader-cli` — run the runner directly with the `!`
+prefix, outside the sandbox.
 
 **JSON extraction** tries three strategies in order: parse the whole
 stdout as JSON, look for the first ```` ```json ```` fenced block, then

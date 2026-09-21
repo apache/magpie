@@ -312,14 +312,19 @@ Walk each in order:
    `vetted-op` in `ask` (or absent) is correct.
 
    **9b — the exclusion.** `permissions.deny` covers both surfaces,
-   each with `Edit` and `Write`:
+   each with an `Edit` rule:
 
    - `~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**` —
      the operation catalogue. The read dispatcher's `allow` rests on
      its shape, so an editable catalogue dissolves that `allow`.
    - `.apache-magpie-overrides/tools/vetted-ops/**` — the policy.
 
-   Any of the four missing is ✗.
+   Either one missing is ✗. One `Edit` rule per surface is the whole
+   coverage — in `permissions`, `Edit(path)` binds every file-editing
+   tool, and a `Write(path)` rule is not matched by the file
+   permission check at all. A `Write(…)` line beside an `Edit(…)` is
+   therefore a note, not a pass: it protects nothing and reads as a
+   second layer that is not there.
 
    Report two things as **notes**, not failures. The policy's
    protection stops at the agent's editing tools — it sits in the
@@ -480,6 +485,46 @@ Walk each in order:
     On any ✗, point at
     [`docs/setup/sandbox-troubleshooting.md` → Docker / Podman command fails with a socket error](../../../../docs/setup/sandbox-troubleshooting.md#docker--podman-command-fails-with-a-socket-error)
     rather than re-explaining the fix.
+
+13. **Eval-harness exclusion, if installed.** Optional (step M of
+    `setup-isolated-setup-install`): report **n/a** when
+    `sandbox.excludedCommands` has no
+    `~/.claude/scripts/magpie-run-evals.sh *` entry *and*
+    `~/.claude/scripts/magpie-run-evals.sh` is absent. Not running
+    eval suites is a normal posture, not a gap.
+
+    When either is present, all of it must be:
+
+    - **13a — both halves, or neither.** The exclusion entry and the
+      installed wrapper must agree. An exclusion naming a script that
+      is not there is dead config; an installed script with no
+      exclusion silently runs sandboxed and reports `Not logged in`
+      for every case. Either alone is ✗, naming which half is missing.
+    - **13b — the package is beside the wrapper.**
+      `~/.claude/scripts/skill-evals/src/skill_evals/` exists.
+      Missing is ✗: the wrapper exits 2 without it, so no suite can
+      run.
+    - **13c — the copies match the repository.** Hash-compare
+      `~/.claude/scripts/magpie-run-evals.sh` against
+      `tools/skill-evals/magpie-run-evals.sh`, and every `*.py` under
+      `~/.claude/scripts/skill-evals/src/skill_evals/` against
+      `tools/skill-evals/src/skill_evals/` (ignore `__pycache__`).
+      Any difference is ⚠, not ✗, and names the drifted files: the
+      harness still runs, it just runs an older grader than the one
+      in the tree. Remedy is re-running install step M.1.
+    - **13d — the deny is present.** `permissions.deny` contains
+      `Edit(~/.claude/scripts/**)`. Missing is ✗ — without it the
+      agent can edit the very code the exclusion runs outside the
+      sandbox, which is the whole bargain of the step.
+
+    Report as a **note**, not a failure: the eval *fixtures* stay
+    agent-writable in the repository by design. They are data the
+    runner reads, never code it executes, so a fixture edit is a
+    review problem visible in the diff rather than a sandbox escape.
+    If a report describes the fixtures as protected, correct it.
+
+    Rationale:
+    [`tools/skill-evals/README.md` → Running from inside the sandbox](../../../../tools/skill-evals/README.md#running-from-inside-the-sandbox).
 
 ## After the report
 

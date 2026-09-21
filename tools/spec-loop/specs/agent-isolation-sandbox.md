@@ -129,12 +129,35 @@ The reference model is four layers, layered:
 2. **Filesystem + network sandbox** — Linux `bubblewrap` + `socat` SNI
    proxy; macOS `sandbox-exec`. Default-deny reads outside the tree and
    egress to non-allowed hosts. `sandbox.excludedCommands` carves out
-   commands that need host auth the sandbox blocks — `gh` (OS keyring
-   and, on macOS, Security.framework TLS verification); the blast
-   radius is held by layers 3 (`gh auth token` / `gh auth refresh`
-   denied) and 4 (`gh` writes gated by `ask`). The exemption applies
-   only to invocations made of `cd …` / `gh …` parts; the shape rule
-   and its failure signature are in
+   commands that need host auth the sandbox blocks:
+   - `gh` (OS keyring and, on macOS, Security.framework TLS
+     verification); the blast radius is held by layers 3 (`gh auth
+     token` / `gh auth refresh` denied) and 4 (`gh` writes gated by
+     `ask`).
+   - the vetted-ops **read** dispatcher, which spawns `gh` and so
+     inherits the same need; only the read dispatcher, never
+     `vetted-op` itself, because `--caller` is argv.
+   - `~/.claude/scripts/magpie-run-evals.sh` (optional), so a suite
+     can be graded by `claude -p` from inside the sandbox.
+
+   An exclusion runs whatever the command executes **outside** the
+   sandbox, so the executed code must not be writable by the thing
+   being sandboxed. Both non-`gh` entries above therefore address code
+   outside the repository — the plugin cache and `~/.claude/scripts/`,
+   neither inside any `allowWrite` root — with `permissions.deny`
+   `Edit(…)` rules over the same paths. An in-repo path cannot carry
+   that guarantee: without a deny the agent rewrites what runs
+   unsandboxed, and a deny only stops the agent's editing tools while
+   the file stays in a tree the agent can otherwise reach. The
+   mechanical cost is separate and already solved — an `Edit(path)`
+   deny merges into `sandbox.filesystem.denyWrite`, so an in-repo
+   denied path must also join the `sandbox_write_denied` anchor in
+   `.pre-commit-config.yaml` or the three whitespace hooks abort the
+   run (#1309).
+
+   The `gh` exemption applies only to invocations made of `cd …` /
+   `gh …` parts; the same whole-command shape rule governs the other
+   entries. The rule and its failure signature are in
    [`sandbox-diagnostics.md`](sandbox-diagnostics.md).
 3. **Tool permissions** — the host's `permissions.deny` blocks denied
    paths/binaries (`Read(~/.ssh/**)`, `Bash(curl *)`, …).

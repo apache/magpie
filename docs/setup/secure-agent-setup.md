@@ -641,10 +641,11 @@ below, annotated.
       // is therefore sandbox-writable. That is tolerable only because the read
       // dispatcher ignores policy when refusing writes: editing the policy can
       // widen which repo is READ, never turn a read into a write.
+      // One rule per surface, not two: `Edit(path)` is the path rule for
+      // every file-writing tool (Write and NotebookEdit included), and a
+      // `Write(path)` rule is not matched by the file permission check at all.
       "Edit(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)",
-      "Write(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)",
-      "Edit(.apache-magpie-overrides/tools/vetted-ops/**)",
-      "Write(.apache-magpie-overrides/tools/vetted-ops/**)"
+      "Edit(.apache-magpie-overrides/tools/vetted-ops/**)"
     ],
     "ask": [
       "Bash(git push *)",                        // including --force / --force-with-lease variants
@@ -876,22 +877,26 @@ harness owns it. So a sandboxed Bash invocation, even one running
 attacker-chosen code, cannot mutate `.claude/settings.local.json`
 to broaden the next session's sandbox.
 
-**2. Edit / Write / MultiEdit agent tools bypass the sandbox.**
-These tools call into the harness directly, not through a Bash
-subprocess, so the sandbox's `denyWithinAllow` does not apply. The
-framework closes the bypass by adding the per-tool denies in the
-committed `.claude/settings.json`:
+**2. The agent's file-editing tools bypass the sandbox.**
+Edit, Write and NotebookEdit call into the harness directly, not
+through a Bash subprocess, so the sandbox's `denyWithinAllow` does
+not apply. The framework closes the bypass by adding path denies in
+the committed `.claude/settings.json`:
 
 ```jsonc
 "deny": [
   "Edit(.claude/settings.json)",
-  "Edit(.claude/settings.local.json)",
-  "Write(.claude/settings.json)",
-  "Write(.claude/settings.local.json)",
-  "MultiEdit(.claude/settings.json)",
-  "MultiEdit(.claude/settings.local.json)"
+  "Edit(.claude/settings.local.json)"
 ]
 ```
+
+Two rules, not six. In `permissions`, `Edit(path)` is *the* path
+rule for file writes and covers every file-editing tool; a
+`Write(path)` or `NotebookEdit(path)` rule is not matched by the
+file permission check, so listing one alongside protects nothing and
+misleads the next reader into thinking the surface is covered twice.
+(Bare tool names — `"Write"` — and `Tool(param:value)` deny / ask
+rules still use each tool's own name.)
 
 A compromised agent that tries `Edit('.claude/settings.local.json', ...)`
 hits the deny rule and the call fails. The denies are committed at
@@ -2977,10 +2982,14 @@ below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
      is ✗ and worth stopping for: it grants every operation in
      the catalogue, because the operation's caller name is chosen
      by whoever runs the command.
-   - `permissions.deny` denies `Edit` and `Write` on both
+   - `permissions.deny` denies `Edit` on both
      `~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**`
      (the catalogue) and
      `.apache-magpie-overrides/tools/vetted-ops/**` (the policy).
+     One `Edit` rule per surface is the whole coverage — it binds
+     every file-editing tool. A `Write(…)` rule sitting next to it
+     is dead weight the file permission check never consults;
+     report it as cruft to remove, not as a second layer.
    If the repo has no vetted-ops policy at all, report n/a.
 10. If a hardware key signs my commits or authenticates my git
     remotes: the touch overlay is wired (`PreToolUse` /
@@ -3035,6 +3044,20 @@ below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
     On any ✗, point at
     [`docs/setup/sandbox-troubleshooting.md` → Docker / Podman command fails with a socket error](sandbox-troubleshooting.md#docker--podman-command-fails-with-a-socket-error)
     rather than re-explaining the fix.
+13. **Eval-harness exclusion**, if installed (optional — report
+    n/a when neither the exclusion nor the script is present;
+    not running eval suites is a normal posture). When either is:
+    `sandbox.excludedCommands` contains
+    `"~/.claude/scripts/magpie-run-evals.sh *"`,
+    `~/.claude/scripts/magpie-run-evals.sh` exists and is
+    executable, `~/.claude/scripts/skill-evals/src/skill_evals/`
+    sits beside it, and `permissions.deny` contains
+    `Edit(~/.claude/scripts/**)`. Either half of the
+    exclusion/script pair alone is ✗, as is a missing deny — the
+    exclusion runs that code outside the sandbox, so it must not
+    be agent-writable. Copies that differ from
+    `tools/skill-evals/` are ⚠, not ✗: the harness runs, it just
+    grades against an older runner than the tree's.
 ```
 
 Re-run either form after every Claude Code upgrade — the sandbox

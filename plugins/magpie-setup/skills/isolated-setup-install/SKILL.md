@@ -588,12 +588,15 @@ writes structurally.
     "Bash(uv run --project ~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/*/tools/vetted-ops vetted-op *)"
   ],
   "deny": [
+    // `Edit(path)` is the path rule for every file-writing tool — Write and
+    // NotebookEdit included. A `Write(path)` rule is NOT matched by the file
+    // permission check; do not add one alongside, it reads as a second layer
+    // that is not there.
+    //
     // the operation catalogue — the read `allow` rests on its shape
     "Edit(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)",
-    "Write(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)",
     // the policy naming which caller may run which operation
-    "Edit(.apache-magpie-overrides/tools/vetted-ops/**)",
-    "Write(.apache-magpie-overrides/tools/vetted-ops/**)"
+    "Edit(.apache-magpie-overrides/tools/vetted-ops/**)"
   ]
 }
 ```
@@ -764,6 +767,70 @@ Tell the operator plainly, every time this step runs:
 
 Verification of all four pieces is check 12 of
 `setup-isolated-setup-verify`; hand off rather than re-checking here.
+
+## Step M — the eval-harness exclusion (optional)
+
+**Offer this only when the operator runs Magpie's eval suites** —
+framework contributors, and adopters who maintain agentic overrides
+and want the suites graded by a model. Everyone else should decline;
+the step adds an unsandboxed command for no benefit. If the repo has
+no `tools/skill-evals/`, skip it silently.
+
+The problem it solves: `--cli` mode needs the model CLI's
+credentials, which the sandbox denies, so an agent that runs a suite
+itself gets one `ERROR` per case rather than a grade.
+
+**M.1 — Copy the wrapper and the package it runs.** Same shape as
+L.1, and for the same reason. Copy
+`tools/skill-evals/magpie-run-evals.sh` into `~/.claude/scripts/`,
+`chmod +x` it, and copy the whole package
+`tools/skill-evals/src/skill_evals/` to
+`~/.claude/scripts/skill-evals/src/skill_evals/` beside it. The
+wrapper finds the package by looking next to itself.
+
+**M.2 — The exclusion and the deny.** Propose, as one diff:
+
+```jsonc
+"sandbox": {
+  "excludedCommands": ["~/.claude/scripts/magpie-run-evals.sh *"]
+},
+"permissions": {
+  "deny": ["Edit(~/.claude/scripts/**)"]
+}
+```
+
+Say why the copy is not optional, because it is the whole point of
+the step:
+
+- An exclusion makes whatever the command executes run **outside**
+  the sandbox, so that code must not be writable by the thing being
+  sandboxed. `~/.claude/scripts/` is outside every
+  `sandbox.filesystem.allowWrite` root, so the copies are already
+  beyond sandboxed Bash; the `Edit` deny closes the agent's own
+  editing tools over the same directory.
+- Excluding the runner **in the repository** instead fails twice
+  over. `--cli` is an arbitrary shell command, so the exclusion
+  would carve out `--cli "curl …"`, not the eval harness — and
+  pinning `--cli` in the pattern does not hold, because argparse is
+  last-wins. An `Edit` deny on an in-repo wrapper does not rescue
+  it either: the wrapper matters only for what it executes, so the
+  runner's whole source tree would need denying too.
+- Remember the coupling when *any* in-repo path gets a deny: it
+  becomes a sandbox write-deny, so the path must also join the
+  `sandbox_write_denied` anchor in `.pre-commit-config.yaml`, or
+  `end-of-file-fixer`, `mixed-line-ending` and `trailing-whitespace`
+  abort `prek run --all-files`. Out-of-tree paths like
+  `~/.claude/scripts/**` need no such entry.
+- The wrapper takes exactly one positional path under `evals/` and
+  no flags. That shape is what the exclusion is trusting. Any other
+  eval invocation stays on the `!` prefix, outside the sandbox.
+- **The copy goes stale.** Re-run M.1 after changing the runner, or
+  the suites run from inside the sandbox are the old ones. Drift is
+  check 13 of `setup-isolated-setup-verify` and a line in
+  `setup-isolated-setup-update`.
+
+Full rationale:
+[`tools/skill-evals/README.md` → Running from inside the sandbox](../../../../tools/skill-evals/README.md#running-from-inside-the-sandbox).
 
 ## After the install lands
 

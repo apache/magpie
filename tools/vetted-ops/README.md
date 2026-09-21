@@ -278,10 +278,12 @@ anything still invoked directly:
     "Bash(uv run --project ~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/*/tools/vetted-ops vetted-op *)"
   ],
   "deny": [
+    // `Edit(path)` is the path rule for every file-writing tool — Write and
+    // NotebookEdit included. A `Write(path)` rule is NOT matched by the file
+    // permission check, so adding one buys nothing and reads as coverage the
+    // deny list does not have.
     "Edit(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)",
-    "Write(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)",
-    "Edit(.apache-magpie-overrides/tools/vetted-ops/**)",
-    "Write(.apache-magpie-overrides/tools/vetted-ops/**)"
+    "Edit(.apache-magpie-overrides/tools/vetted-ops/**)"
   ]
 }
 ```

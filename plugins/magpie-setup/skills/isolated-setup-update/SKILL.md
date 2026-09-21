@@ -195,6 +195,14 @@ Walk each:
    `tools/container-gateway/src/container_gateway/` — a stale copy
    here is a silent behaviour drift, not the no-op a missing copy
    is, so it is worth the same drift check as any other script),
+   `~/.claude/scripts/magpie-run-evals.sh` with the package it runs,
+   `~/.claude/scripts/skill-evals/src/skill_evals/`, where the
+   optional eval-harness exclusion is installed (diff against
+   `tools/skill-evals/magpie-run-evals.sh` and
+   `tools/skill-evals/src/skill_evals/`, ignoring `__pycache__`;
+   absent on both sides is not drift, it is the default posture —
+   but a stale copy is the worst case here, because the suites keep
+   passing while grading against an older runner than the tree's),
    **and** —
    *only when whole-user scope is in effect, detected via
    `git config --global --get core.hooksPath` resolving to
@@ -320,12 +328,16 @@ invocation passes is chosen by whoever runs it. Report that as a
 must-fix, ahead of anything else in this section.
 
 **Second, `permissions.deny` still covers both surfaces**, each with
-`Edit` and `Write`:
+an `Edit` rule:
 
 - `~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**`
 - `.apache-magpie-overrides/tools/vetted-ops/**`
 
-Report a missing rule as drift to repair, not a note. This is the
+Report a missing rule as drift to repair, not a note. A leftover
+`Write(…)` rule on either path is the opposite kind of drift —
+`Edit(path)` already binds every file-editing tool and a
+`Write(path)` rule is not matched by the file permission check, so
+surface it as cruft to delete. This is the
 check most likely to rot in practice: the plugin-cache path carries
 the plugin *name*, so a family rename or a move of the dispatcher to
 a different substrate plugin leaves a deny rule that still looks

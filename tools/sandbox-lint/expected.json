@@ -5,7 +5,8 @@
     "excludedCommands": [
       "gh *",
       "uv run --project tools/vetted-ops vetted-op-read *",
-      "uv run --project ~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/*/tools/vetted-ops vetted-op-read *"
+      "uv run --project ~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/*/tools/vetted-ops vetted-op-read *",
+      "~/.claude/scripts/magpie-run-evals.sh *"
     ],
     "filesystem": {
       "denyRead": [
@@ -123,9 +124,8 @@
       "Edit(.claude/settings.json)",
       "Edit(.claude/settings.local.json)",
       "Edit(.apache-magpie-overrides/tools/vetted-ops/**)",
-      "Write(.apache-magpie-overrides/tools/vetted-ops/**)",
       "Edit(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)",
-      "Write(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)",
+      "Edit(~/.claude/scripts/**)",
       "Bash(curl *)",
       "Bash(wget *)",
       "Bash(aws *)",
