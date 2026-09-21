@@ -425,36 +425,29 @@ Reach Step 0 only when the user named a snapshot method, or when
 the marketplace path handed off here because the agent has no
 plugin mechanism.
 
-<!-- BEGIN MAGPIE BLOCK: main-checkout-precheck — generated from tools/dev/blocks/main-checkout-precheck.md -->
-
-<!-- START doctoc generated TOC please keep comment here to allow auto update -->
-<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
-<!-- END doctoc generated TOC please keep comment here to allow auto update -->
-
-<!-- SPDX-License-Identifier: Apache-2.0
-     https://www.apache.org/licenses/LICENSE-2.0 -->
-
 1. Confirm we are in a git repo (`git rev-parse
    --show-toplevel`).
 2. **Confirm we are in the main checkout, not a git worktree.**
+
+   <!-- BEGIN MAGPIE BLOCK: main-checkout-precheck — generated from tools/dev/blocks/main-checkout-precheck.md -->
+
    Compare `git rev-parse --git-dir` against
    `git rev-parse --git-common-dir` — they are equal in the
    main checkout and different in a worktree.
 
-<!-- END MAGPIE BLOCK: main-checkout-precheck -->
+   <!-- END MAGPIE BLOCK: main-checkout-precheck -->
 
-If different, stop with:
+   If different, stop with:
 
-> *"`adopt` runs in the main checkout, not a worktree. From
-> the main: `cd <main-path> && setup`. To wire this
-> worktree up after adoption lands in the main, use
-> `setup worktree-init`."*
+   > *"`adopt` runs in the main checkout, not a worktree. From
+   > the main: `cd <main-path> && setup`. To wire this
+   > worktree up after adoption lands in the main, use
+   > `setup worktree-init`."*
 
-The main's path is
-`$(dirname "$(cd "$(git rev-parse --git-common-dir)" && pwd)")` —
-surface it explicitly in the error message so the operator
-can `cd` there without guessing.
-
+   The main's path is
+   `$(dirname "$(cd "$(git rev-parse --git-common-dir)" && pwd)")` —
+   surface it explicitly in the error message so the operator
+   can `cd` there without guessing.
 3. Detect whether we are **in the Apache Magpie framework
    checkout itself** rather than an adopter repo. The framework
    checkout is the one place self-adoption is possible — it
@@ -1914,36 +1907,29 @@ Four passes, in this order:
 
    Procedure:
 
-<!-- BEGIN MAGPIE BLOCK: worktree-enumeration — generated from tools/dev/blocks/worktree-enumeration.md -->
+   <!-- BEGIN MAGPIE BLOCK: worktree-enumeration — generated from tools/dev/blocks/worktree-enumeration.md -->
 
-<!-- START doctoc generated TOC please keep comment here to allow auto update -->
-<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
-<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+   1. Enumerate worktrees with `git worktree list --porcelain`.
+      Filter to linked worktrees only — skip the main checkout
+      (already handled earlier in this run) and skip any bare
+      worktrees.
+   2. If the list is empty, this pass is a no-op; record "no
+      linked worktrees" in the recap and continue.
+   3. For each linked worktree, invoke
+      `setup worktree-init` with that worktree's
+      working directory as the `cwd`. The sub-action picks up
+      the family set from `<main>/.apache-magpie.lock` (the
+      committed lock the worktree shares via git) plus the
+      always-on families per
+      [`SKILL.md` Golden rule 8](SKILL.md#golden-rules), and
+      reconciles both the snapshot symlink and the canonical +
+      relay framework-skill symlinks (see
+      [`worktree-init.md` Step 1 + Step 1b](worktree-init.md)).
 
-<!-- SPDX-License-Identifier: Apache-2.0
-     https://www.apache.org/licenses/LICENSE-2.0 -->
+   <!-- END MAGPIE BLOCK: worktree-enumeration -->
 
-1. Enumerate worktrees with `git worktree list --porcelain`.
-   Filter to linked worktrees only — skip the main checkout
-   (already handled earlier in this run) and skip any bare
-   worktrees.
-2. If the list is empty, this pass is a no-op; record "no
-   linked worktrees" in the recap and continue.
-3. For each linked worktree, invoke
-   `setup worktree-init` with that worktree's
-   working directory as the `cwd`. The sub-action picks up
-   the family set from `<main>/.apache-magpie.lock` (the
-   committed lock the worktree shares via git) plus the
-   always-on families per
-   [`SKILL.md` Golden rule 8](SKILL.md#golden-rules), and
-   reconciles both the snapshot symlink and the canonical +
-   relay framework-skill symlinks (see
-   [`worktree-init.md` Step 1 + Step 1b](worktree-init.md)).
-
-<!-- END MAGPIE BLOCK: worktree-enumeration -->
-
-   Then collect each invocation's recap into a per-worktree
-   row in the adopt summary's `Worktrees:` section.
+   4. Collect each invocation's recap into a per-worktree
+      row in the adopt summary's `Worktrees:` section.
 
    Do **not** abort adopt because one worktree failed — the
    main is already adopted, and the failing worktree is
@@ -1958,34 +1944,27 @@ Four passes, in this order:
    `sandbox.filesystem.allowRead: ["."]` does not in practice
    cover CWD, so reads under a freshly-cloned adopter repo
    fail under the sandbox until an explicit absolute path is
-   added. Invoke the helper **with sandbox bypass** (the
-   target file is in Claude Code's built-in sandbox
-   `denyWithinAllow` set, so the Bash write is blocked without
-   it — see
-   [`docs/setup/secure-agent-setup.md` → *Security rationale*](../../../../docs/setup/secure-agent-setup.md#security-rationale--why-project-local-is-safe-to-write-to)):
+   added. **Invoke the helper with `dangerouslyDisableSandbox:
+   true`** — the target file is in Claude Code's built-in
+   sandbox `denyWithinAllow` set, so the Bash write is blocked
+   without it — see
+   [`docs/setup/secure-agent-setup.md` → *Security rationale*](../../../../docs/setup/secure-agent-setup.md#security-rationale--why-project-local-is-safe-to-write-to):
 
-<!-- BEGIN MAGPIE BLOCK: sandbox-allowlist-helper — generated from tools/dev/blocks/sandbox-allowlist-helper.md -->
+   <!-- BEGIN MAGPIE BLOCK: sandbox-allowlist-helper — generated from tools/dev/blocks/sandbox-allowlist-helper.md -->
 
-<!-- START doctoc generated TOC please keep comment here to allow auto update -->
-<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
-<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+   ```bash
+   ~/.claude/scripts/sandbox-add-project-root.sh --all-worktrees
+   ```
 
-<!-- SPDX-License-Identifier: Apache-2.0
-     https://www.apache.org/licenses/LICENSE-2.0 -->
+   Surface the bypass proposal to the operator *before*
+   invoking — name the helper, name the target files, and
+   confirm. The reason for the bypass is *"writing
+   project-local sandbox-allowlist entries (issue #197 fix)"*.
+   The bypass triggers `sandbox-bypass-warn.sh`'s bold-red
+   banner as a backstop, but the agent must propose the bypass
+   first; do not silently approve.
 
-```bash
-~/.claude/scripts/sandbox-add-project-root.sh --all-worktrees
-```
-
-Surface the bypass proposal to the operator *before*
-invoking — name the helper, name the target files, and
-confirm. The reason for the bypass is *"writing
-project-local sandbox-allowlist entries (issue #197 fix)"*.
-The bypass triggers `sandbox-bypass-warn.sh`'s bold-red
-banner as a backstop, but the agent must propose the bypass
-first; do not silently approve.
-
-<!-- END MAGPIE BLOCK: sandbox-allowlist-helper -->
+   <!-- END MAGPIE BLOCK: sandbox-allowlist-helper -->
 
    The helper enumerates `git worktree list --porcelain` and,
    for each worktree, writes that worktree's own absolute path

@@ -597,13 +597,6 @@ Procedure:
 
 <!-- BEGIN MAGPIE BLOCK: worktree-enumeration — generated from tools/dev/blocks/worktree-enumeration.md -->
 
-<!-- START doctoc generated TOC please keep comment here to allow auto update -->
-<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
-<!-- END doctoc generated TOC please keep comment here to allow auto update -->
-
-<!-- SPDX-License-Identifier: Apache-2.0
-     https://www.apache.org/licenses/LICENSE-2.0 -->
-
 1. Enumerate worktrees with `git worktree list --porcelain`.
    Filter to linked worktrees only — skip the main checkout
    (already handled earlier in this run) and skip any bare
@@ -623,9 +616,9 @@ Procedure:
 
 <!-- END MAGPIE BLOCK: worktree-enumeration -->
 
-Then collect each invocation's recap into a per-worktree row
-for the upgrade summary's `Worktrees:` section (Step 8 output
-block).
+4. Collect each invocation's recap into a per-worktree row
+   for the upgrade summary's `Worktrees:` section
+   (Step 8 output block).
 
 **Failure handling per worktree:**
 
@@ -660,13 +653,6 @@ target settings files are in Claude Code's built-in sandbox
 `operation not permitted`.
 
 <!-- BEGIN MAGPIE BLOCK: sandbox-allowlist-helper — generated from tools/dev/blocks/sandbox-allowlist-helper.md -->
-
-<!-- START doctoc generated TOC please keep comment here to allow auto update -->
-<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
-<!-- END doctoc generated TOC please keep comment here to allow auto update -->
-
-<!-- SPDX-License-Identifier: Apache-2.0
-     https://www.apache.org/licenses/LICENSE-2.0 -->
 
 ```bash
 ~/.claude/scripts/sandbox-add-project-root.sh --all-worktrees
@@ -757,15 +743,8 @@ If every template scans clean, surface the section as
 
 <!-- BEGIN MAGPIE BLOCK: asf-detection — generated from tools/dev/blocks/asf-detection.md -->
 
-<!-- START doctoc generated TOC please keep comment here to allow auto update -->
-<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
-<!-- END doctoc generated TOC please keep comment here to allow auto update -->
-
-<!-- SPDX-License-Identifier: Apache-2.0
-     https://www.apache.org/licenses/LICENSE-2.0 -->
-
-Detect ASF the same way
-as [`install.md` Step 9c](install.md#step-9c--comdev-mcp-prerequisites-asf-projects):
+Detect ASF the same way as
+[`install.md` Step 9c](install.md#step-9c--comdev-mcp-prerequisites-asf-projects):
 `<project-config>/project.md` declares `project_metadata.mandatory:
 true` or `Mail sources` `ponymail` `mandatory: yes`. Skip otherwise
 (the two MCP servers are optional for non-ASF adopters).

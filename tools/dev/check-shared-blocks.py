@@ -73,6 +73,7 @@ change whose entire diff would be that rewrite.
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import sys
 from pathlib import Path
@@ -161,12 +162,18 @@ def apply_preflight(path: Path, block: str) -> tuple[bool, str | None]:
 _BLOCK_NAME = r"[a-z][a-z0-9-]*"
 # Discovers a declared-block region by name, wherever it appears — the name
 # in BEGIN and END must match (backreference), so a truncated or mismatched
-# pair is never silently treated as a region.
+# pair is never silently treated as a region. `(?P<indent>[ \t]*)`, anchored
+# with `^` (needs `re.M`), captures whatever leading whitespace the BEGIN
+# line carries — a region nested inside a list item's continuation is
+# indented to stay part of that item; a region at the top of a document is
+# not. The same backreference-on-name trick applies to indent implicitly:
+# both markers are captured from the *same* match, so BEGIN and END are
+# never treated as a pair unless they share both name and column.
 DECLARED_RE = re.compile(
-    r"<!-- BEGIN MAGPIE BLOCK: (?P<name>" + _BLOCK_NAME + r") — generated from \S+ -->\n"
+    r"^(?P<indent>[ \t]*)<!-- BEGIN MAGPIE BLOCK: (?P<name>" + _BLOCK_NAME + r") — generated from \S+ -->\n"
     r"(?P<body>.*?)"
-    r"<!-- END MAGPIE BLOCK: (?P=name) -->\n",
-    re.S,
+    r"^(?P=indent)<!-- END MAGPIE BLOCK: (?P=name) -->\n",
+    re.M | re.S,
 )
 
 
@@ -174,18 +181,46 @@ def declared_block_source(name: str, blocks_dir: Path = BLOCKS_DIR) -> Path:
     return blocks_dir / f"{name}.md"
 
 
-def declared_block_text(name: str, blocks_dir: Path = BLOCKS_DIR) -> str:
-    """The generated region for a declared block. Raises `FileNotFoundError`
-    when the named block has no source — callers turn that into a reported
-    error rather than letting it propagate as a crash."""
+def _indent_body(body: str, indent: str) -> str:
+    """Apply `indent` to every non-blank line of `body`. Blank lines are
+    left *exactly* blank — never `indent` alone — because the
+    `trailing-whitespace` prek hook strips whitespace-only lines on every
+    run. If this function indented a blank line, `--fix` would write it back
+    with trailing whitespace, `trailing-whitespace` would strip it again on
+    the next hook in the same chain, and the two would disagree forever:
+    `process_declared`'s `new_text == text` comparison would never converge,
+    so `--fix` would report a change on every single run."""
+    if not indent:
+        return body
+    return "\n".join(f"{indent}{line}" if line.strip() else "" for line in body.split("\n"))
+
+
+def declared_block_text(name: str, blocks_dir: Path = BLOCKS_DIR, indent: str = "") -> str:
+    """The generated region for a declared block, indented by `indent` (the
+    column the host's own BEGIN marker was found at — see `DECLARED_RE`'s
+    `indent` group). Raises `FileNotFoundError` when the named block has no
+    source — callers turn that into a reported error rather than letting it
+    propagate as a crash.
+
+    Block *sources* under `tools/dev/blocks/` are always written flush left
+    (column 0) — indentation is never baked into the source file, because
+    `body.strip()` below trims only the string's true start/end, not each
+    line's own leading whitespace, so a source pre-indented to "look right"
+    in one host would silently lose that indent on its very first line (and
+    keep it on every other) the moment it landed anywhere else. Applying
+    `indent` here, once, after `.strip()`, is what lets one flat source
+    render correctly whether it lands flush left (`upgrade.md`'s top-level
+    `Procedure:` list) or nested three spaces under a list item
+    (`install.md`'s equivalent, nested under `2. **Propagate ...**`)."""
     source = declared_block_source(name, blocks_dir)
     if not source.is_file():
         raise FileNotFoundError(source)
     raw = source.read_text()
-    body = _strip_licence_header(raw)
-    begin = f"<!-- BEGIN MAGPIE BLOCK: {name} — generated from {source.as_posix()} -->"
-    end = f"<!-- END MAGPIE BLOCK: {name} -->"
-    return f"{begin}\n\n{body.strip()}\n\n{end}\n"
+    body = _strip_licence_header(raw).strip()
+    indented_body = _indent_body(body, indent)
+    begin = f"{indent}<!-- BEGIN MAGPIE BLOCK: {name} — generated from {source.as_posix()} -->"
+    end = f"{indent}<!-- END MAGPIE BLOCK: {name} -->"
+    return f"{begin}\n\n{indented_body}\n\n{end}\n"
 
 
 def strip_generated_regions(text: str) -> str:
@@ -220,8 +255,9 @@ def fill_declared(text: str, blocks_dir: Path = BLOCKS_DIR) -> tuple[str, list[s
 
     def _replace(match: re.Match[str]) -> str:
         name = match.group("name")
+        indent = match.group("indent")
         try:
-            return declared_block_text(name, blocks_dir)
+            return declared_block_text(name, blocks_dir, indent=indent)
         except FileNotFoundError as exc:
             errors.append(f"declares unknown block '{name}' — {exc.args[0]} does not exist")
             return match.group(0)
@@ -237,24 +273,33 @@ def is_allowed_target(path: Path, roots: tuple[Path, ...] = ALLOWED_ROOTS) -> bo
     future caller cannot accidentally propagate shared prose into arbitrary
     documentation.
 
-    Deliberately `.absolute()`, not `.resolve()`: this framework's own repo
-    self-adopts itself, and every `skills/<name>/` entry there is a symlink
-    into `plugins/<family>/skills/<name>/` (see `skills/setup/AGENTS.md` →
-    the canonical-plus-relay model). `.resolve()` follows that symlink to
-    its real location outside `skills/`, which would reject every legitimate
-    target in this repo's own tree. `.absolute()` only normalises a relative
-    path against the cwd — it never follows symlinks — so containment is
-    judged on the path `main()` actually globbed (always under `skills/` by
+    Deliberately `.absolute()` (normalised, not resolved), never
+    `.resolve()`: this framework's own repo self-adopts itself, and every
+    `skills/<name>/` entry there is a symlink into
+    `plugins/<family>/skills/<name>/` (see `skills/setup/agents.md` → the
+    canonical-plus-relay model). `.resolve()` follows that symlink to its
+    real location outside `skills/`, which would reject every legitimate
+    target in this repo's own tree. `.absolute()` only prepends the cwd to a
+    relative path — it never follows symlinks — so containment is judged on
+    the path `main()` actually globbed (always under `skills/` by
     construction), not on where a symlinked skill happens to physically
-    live. A path outside `roots` to begin with (the case this check exists
-    to catch) is still rejected the same way."""
+    live.
+
+    `.absolute()` alone is not enough, though: it does not collapse `..` /
+    `.` segments, so a path such as `skills/../docs/notes.md` would pass a
+    naive `relative_to` check by literal string prefix even though it walks
+    straight back out of `skills/`. `os.path.normpath` collapses those
+    segments on the already-symlink-preserving absolute path, closing that
+    gap without reintroducing the symlink-following `.resolve()` was
+    rejected for. A path outside `roots` to begin with (the case this check
+    exists to catch) is still rejected the same way."""
     try:
-        resolved = path.absolute()
+        resolved = Path(os.path.normpath(str(path.absolute())))
     except OSError:
         return False
     for root in roots:
         try:
-            resolved.relative_to(root.absolute())
+            resolved.relative_to(Path(os.path.normpath(str(root.absolute()))))
             return True
         except ValueError:
             continue
@@ -351,15 +396,16 @@ def main() -> int:
     declared_seen = 0
     declared_changed: list[Path] = []
     for path in declared_targets:
-        # Counted whenever the file actually carries a declared-block
-        # marker, regardless of whether it turned out to be already in
-        # sync — `process_declared` returns `(False, [])` both for "no
-        # marker at all" and for "marker present, nothing to do", so that
-        # return value alone cannot tell the two apart.
-        carries_declared_block = DECLARED_RE.search(path.read_text()) is not None
+        # Counts *regions*, not files: a single detail file can (and does —
+        # `install.md` carries three) hold more than one declared-block
+        # marker, and the maintainer's only confirmation that propagation
+        # actually happened is this count. `process_declared` returns
+        # `(False, [])` both for "no marker at all" and for "marker(s)
+        # present, nothing to do", so that return value alone cannot tell
+        # the two apart — count independently via `finditer`.
+        region_count = len(list(DECLARED_RE.finditer(path.read_text())))
         did_change, target_errors = process_declared(path, fix=args.fix)
-        if carries_declared_block:
-            declared_seen += 1
+        declared_seen += region_count
         errors.extend(target_errors)
         if did_change and args.fix:
             declared_changed.append(path)

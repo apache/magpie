@@ -293,3 +293,176 @@ def test_declared_block_report_mode_does_not_write(tmp_path: Path) -> None:
     assert changed is True
     assert errors and "differ" in errors[0]
     assert target.read_text() == original
+
+
+# --- is_allowed_target: symlinked skill dirs (Task A's own self-adoption shape) -----
+
+
+def test_is_allowed_target_follows_symlinked_skill_dir(tmp_path: Path) -> None:
+    """This repo's own self-adoption layout: `skills/<name>/` is a symlink
+    into `plugins/<family>/skills/<name>/`. `.resolve()` walks that symlink
+    to its real location — outside the `skills/` root — and would reject
+    every legitimate target here; `.absolute()` must not. This is the exact
+    regression the `.resolve()` -> `.absolute()` fix exists to prevent, so
+    it earns its own end-to-end test through `process_declared`, not just
+    `is_allowed_target` in isolation."""
+    real_dir = tmp_path / "real" / "demo"
+    real_dir.mkdir(parents=True)
+    skills_dir = tmp_path / "skills"
+    skills_dir.mkdir()
+    (skills_dir / "demo").symlink_to(real_dir, target_is_directory=True)
+
+    blocks_dir = tmp_path / "blocks"
+    blocks_dir.mkdir()
+    (blocks_dir / "widget.md").write_text("Widget body text.\n")
+
+    target = skills_dir / "demo" / "detail.md"
+    target.write_text(f"# Detail\n\n{_declared_region('widget')}\n## Next\n")
+
+    assert MOD.is_allowed_target(target, roots=(skills_dir,))
+
+    changed, errors = MOD.process_declared(target, blocks_dir=blocks_dir, roots=(skills_dir,), fix=True)
+    assert (changed, errors) == (True, [])
+    assert "Widget body text." in target.read_text()
+    # The write landed through the symlink, at the real file.
+    assert "Widget body text." in (real_dir / "detail.md").read_text()
+
+
+def test_is_allowed_target_rejects_dotdot_traversal(tmp_path: Path) -> None:
+    """`.absolute()` alone does not collapse `..` segments, so a path like
+    `skills/../docs/notes.md` would pass a naive `relative_to` prefix check
+    even though it walks straight back out of `skills/`. `normpath` must
+    close that gap."""
+    skills_dir = tmp_path / "skills"
+    skills_dir.mkdir()
+    (tmp_path / "docs").mkdir()
+
+    traversal_path = skills_dir / ".." / "docs" / "notes.md"
+    assert not MOD.is_allowed_target(traversal_path, roots=(skills_dir,))
+
+
+# --- declared blocks: indentation is preserved, not just filled ---------------------
+
+
+def test_declared_region_preserves_marker_indentation(tmp_path: Path) -> None:
+    """A region nested under a list item (BEGIN/END indented 3 spaces, the
+    `install.md` shape) must come back indented — not flush left, which
+    would break the list it lives inside."""
+    blocks_dir = tmp_path / "blocks"
+    blocks_dir.mkdir()
+    (blocks_dir / "widget.md").write_text("Line one.\n\nLine two.\n")
+
+    target = tmp_path / "skills" / "demo" / "detail.md"
+    target.parent.mkdir(parents=True)
+    region = (
+        "   <!-- BEGIN MAGPIE BLOCK: widget — generated from tools/dev/blocks/widget.md -->\n"
+        "   <!-- END MAGPIE BLOCK: widget -->\n"
+    )
+    target.write_text(f"2. Item.\n\n{region}\n3. Next.\n")
+
+    new_text, errors = MOD.fill_declared(target.read_text(), blocks_dir=blocks_dir)
+    assert errors == []
+    lines = new_text.splitlines()
+    assert any(line.startswith("   <!-- BEGIN MAGPIE BLOCK: widget") for line in lines)
+    assert "   Line one." in lines
+    assert "   Line two." in lines
+    assert "   <!-- END MAGPIE BLOCK: widget -->" in lines
+
+
+def test_declared_region_blank_lines_stay_truly_blank(tmp_path: Path) -> None:
+    """Blank lines inside an indented region must never carry the indent as
+    trailing whitespace — `trailing-whitespace` would strip it right back
+    out on the next hook, and `--fix` would then report a change forever."""
+    blocks_dir = tmp_path / "blocks"
+    blocks_dir.mkdir()
+    (blocks_dir / "widget.md").write_text("Line one.\n\nLine two.\n")
+
+    target = tmp_path / "skills" / "demo" / "detail.md"
+    target.parent.mkdir(parents=True)
+    region = (
+        "   <!-- BEGIN MAGPIE BLOCK: widget — generated from tools/dev/blocks/widget.md -->\n"
+        "   <!-- END MAGPIE BLOCK: widget -->\n"
+    )
+    target.write_text(f"2. Item.\n\n{region}\n")
+
+    new_text, errors = MOD.fill_declared(target.read_text(), blocks_dir=blocks_dir)
+    assert errors == []
+    for line in new_text.splitlines():
+        if line.strip() == "":
+            assert line == "", f"blank line carries trailing whitespace: {line!r}"
+
+
+def test_declared_region_indentation_is_idempotent(tmp_path: Path) -> None:
+    blocks_dir = tmp_path / "blocks"
+    blocks_dir.mkdir()
+    (blocks_dir / "widget.md").write_text("Line one.\n\nLine two.\n")
+
+    target = tmp_path / "skills" / "demo" / "detail.md"
+    target.parent.mkdir(parents=True)
+    region = (
+        "   <!-- BEGIN MAGPIE BLOCK: widget — generated from tools/dev/blocks/widget.md -->\n"
+        "   <!-- END MAGPIE BLOCK: widget -->\n"
+    )
+    target.write_text(f"2. Item.\n\n{region}\n3. Next.\n")
+
+    changed, errors = MOD.process_declared(
+        target, blocks_dir=blocks_dir, roots=(tmp_path / "skills",), fix=True
+    )
+    assert (changed, errors) == (True, [])
+    first = target.read_text()
+
+    changed2, errors2 = MOD.process_declared(
+        target, blocks_dir=blocks_dir, roots=(tmp_path / "skills",), fix=True
+    )
+    assert (changed2, errors2) == (False, [])
+    assert target.read_text() == first
+
+
+def test_declared_region_fence_near_indented_code_threshold(tmp_path: Path) -> None:
+    """A 3-space-indented region containing a fenced code block sits one
+    space shy of CommonMark's 4-space indented-code-block threshold — the
+    fence must still render as a fence, not collapse into an indented code
+    block, once the generator's own indent is added on top."""
+    blocks_dir = tmp_path / "blocks"
+    blocks_dir.mkdir()
+    (blocks_dir / "widget.md").write_text("```bash\necho hi\n```\n")
+
+    target = tmp_path / "skills" / "demo" / "detail.md"
+    target.parent.mkdir(parents=True)
+    region = (
+        "   <!-- BEGIN MAGPIE BLOCK: widget — generated from tools/dev/blocks/widget.md -->\n"
+        "   <!-- END MAGPIE BLOCK: widget -->\n"
+    )
+    target.write_text(f"2. Item.\n\n{region}\n")
+
+    new_text, errors = MOD.fill_declared(target.read_text(), blocks_dir=blocks_dir)
+    assert errors == []
+    assert "   ```bash" in new_text.splitlines()
+    assert "   echo hi" in new_text.splitlines()
+    assert "   ```" in new_text.splitlines()
+    # Not 4+ spaces anywhere the fence content landed — that would be an
+    # indented code block instead of a fenced one once rendered.
+    assert "    echo hi" not in new_text
+
+
+# --- strip_generated_regions: indented declared regions (skill-surface-hash.py) -----
+
+
+def test_strip_generated_regions_strips_indented_declared_block() -> None:
+    """`skill-surface-hash.py` calls this function directly to keep a
+    declared block's contents out of a skill's reconciliation fingerprint.
+    It must strip an *indented* region — indent on the BEGIN line included —
+    exactly as cleanly as a flush-left one, or a nested block's text (and
+    any heading inside it) leaks into the hashed surface."""
+    text = (
+        "1. Item.\n\n"
+        "   <!-- BEGIN MAGPIE BLOCK: widget — generated from tools/dev/blocks/widget.md -->\n\n"
+        "   Some generated text.\n\n"
+        "   <!-- END MAGPIE BLOCK: widget -->\n\n"
+        "2. Next.\n"
+    )
+    stripped = MOD.strip_generated_regions(text)
+    assert "widget" not in stripped
+    assert "Some generated text." not in stripped
+    assert "1. Item." in stripped
+    assert "2. Next." in stripped
