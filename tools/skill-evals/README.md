@@ -88,6 +88,7 @@ Suites are currently implemented for:
 - **workflow-security-audit** — 8 cases across 2 suites (step-findings-report, step-scope-selection)
 - **write-skill** — 5 cases across 1 suite (step-5-security-checklist)
 - **setup-privacy-llm** — 6 cases across 2 suites (step-1-resolve, step-4-gate)
+- **preflight-reconciliation** — 5 cases across 1 suite (step-reconciliation)
 
 ## Prerequisites
 
