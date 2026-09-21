@@ -136,6 +136,15 @@ exclude_path = [
   # repos, private IPs, synthetic issue numbers) and are not documentation.
   # Link-checking them produces noise with no signal.
   "tools/skill-evals/evals",
+
+  # Declared shared-block sources (`check-shared-blocks.py`). A block's
+  # relative links (e.g. `[install.md](install.md#anchor)`) are written to
+  # resolve from the *host* skill directory the block is propagated into,
+  # not from `tools/dev/blocks/` itself — the same file is never read
+  # standalone. The propagated copies are checked normally at their real
+  # location; checking the source here would just re-report the same
+  # links as broken from the wrong directory.
+  "tools/dev/blocks",
 ]
 
 # Treat unresolvable hostnames the same as failures, no silent passes.

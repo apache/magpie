@@ -595,10 +595,22 @@ the existing worktrees **now** is the only thing that does.
 
 Procedure:
 
+<!-- BEGIN MAGPIE BLOCK: worktree-enumeration — generated from tools/dev/blocks/worktree-enumeration.md -->
+
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
 1. Enumerate worktrees with `git worktree list --porcelain`.
-   Filter to the linked worktrees only — skip the main
-   checkout (already handled above) and any bare worktrees.
-2. For each linked worktree, invoke
+   Filter to linked worktrees only — skip the main checkout
+   (already handled earlier in this run) and skip any bare
+   worktrees.
+2. If the list is empty, this pass is a no-op; record "no
+   linked worktrees" in the recap and continue.
+3. For each linked worktree, invoke
    `setup worktree-init` with that worktree's
    working directory as the `cwd`. The sub-action picks up
    the family set from `<main>/.apache-magpie.lock` (the
@@ -608,9 +620,12 @@ Procedure:
    reconciles both the snapshot symlink and the canonical +
    relay framework-skill symlinks (see
    [`worktree-init.md` Step 1 + Step 1b](worktree-init.md)).
-3. Collect each invocation's recap into a per-worktree row
-   for the upgrade summary's `Worktrees:` section
-   (Step 8 output block).
+
+<!-- END MAGPIE BLOCK: worktree-enumeration -->
+
+Then collect each invocation's recap into a per-worktree row
+for the upgrade summary's `Worktrees:` section (Step 8 output
+block).
 
 **Failure handling per worktree:**
 
@@ -638,22 +653,34 @@ ensure each worktree's project root is in that worktree's
 own `.claude/settings.local.json` (defensive against
 [issue #197](https://github.com/apache/magpie/issues/197);
 see
-[`setup-isolated-setup-install/SKILL.md` → Step P](../isolated-setup-install/SKILL.md#step-p--project-root-coverage-in-the-sandbox-allowlists)):
+[`setup-isolated-setup-install/SKILL.md` → Step P](../isolated-setup-install/SKILL.md#step-p--project-root-coverage-in-the-sandbox-allowlists)).
+**Invoke with `dangerouslyDisableSandbox: true`** — the
+target settings files are in Claude Code's built-in sandbox
+`denyWithinAllow` set, so a sandboxed Bash write fails with
+`operation not permitted`.
+
+<!-- BEGIN MAGPIE BLOCK: sandbox-allowlist-helper — generated from tools/dev/blocks/sandbox-allowlist-helper.md -->
+
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
 
 ```bash
 ~/.claude/scripts/sandbox-add-project-root.sh --all-worktrees
 ```
 
-**Invoke with `dangerouslyDisableSandbox: true`** — the
-target settings files are in Claude Code's built-in sandbox
-`denyWithinAllow` set, so a sandboxed Bash write fails with
-`operation not permitted`. Surface the bypass proposal to
-the operator *before* invoking — name the helper, name the
-target files, and confirm. The reason for the bypass is
-*"writing project-local sandbox-allowlist entries (issue
-#197 fix)"*. The bypass fires `sandbox-bypass-warn.sh`'s
-bold-red banner as a backstop, but the agent must propose
-the bypass first; do not silently approve.
+Surface the bypass proposal to the operator *before*
+invoking — name the helper, name the target files, and
+confirm. The reason for the bypass is *"writing
+project-local sandbox-allowlist entries (issue #197 fix)"*.
+The bypass triggers `sandbox-bypass-warn.sh`'s bold-red
+banner as a backstop, but the agent must propose the bypass
+first; do not silently approve.
+
+<!-- END MAGPIE BLOCK: sandbox-allowlist-helper -->
 
 The helper enumerates `git worktree list --porcelain` and
 writes each worktree's path into that worktree's own
@@ -726,10 +753,24 @@ If every template scans clean, surface the section as
 
 ## Step 6e — Refresh comdev MCP checkouts (ASF projects)
 
-**Run this step only for ASF projects** — detect ASF the same way
+**Run this step only for ASF projects.**
+
+<!-- BEGIN MAGPIE BLOCK: asf-detection — generated from tools/dev/blocks/asf-detection.md -->
+
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
+Detect ASF the same way
 as [`install.md` Step 9c](install.md#step-9c--comdev-mcp-prerequisites-asf-projects):
 `<project-config>/project.md` declares `project_metadata.mandatory:
-true` or `ponymail` `mandatory: yes`. Skip otherwise.
+true` or `Mail sources` `ponymail` `mandatory: yes`. Skip otherwise
+(the two MCP servers are optional for non-ASF adopters).
+
+<!-- END MAGPIE BLOCK: asf-detection -->
 
 The [PonyMail](../../../../tools/ponymail/tool.md) and
 [Apache Projects](../../../../tools/apache-projects/tool.md) MCP

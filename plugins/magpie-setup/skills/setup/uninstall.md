@@ -87,19 +87,33 @@ relevant override file rather than uninstalling.
 
 ## Step 0 — Pre-flight
 
-1. Confirm we are in a git repo
-   (`git rev-parse --show-toplevel`).
+<!-- BEGIN MAGPIE BLOCK: main-checkout-precheck — generated from tools/dev/blocks/main-checkout-precheck.md -->
+
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
+1. Confirm we are in a git repo (`git rev-parse
+   --show-toplevel`).
 2. **Confirm we are in the main checkout, not a git worktree.**
    Compare `git rev-parse --git-dir` against
-   `git rev-parse --git-common-dir`. If different, stop with:
+   `git rev-parse --git-common-dir` — they are equal in the
+   main checkout and different in a worktree.
 
-   > *"`uninstall` runs in the main checkout, not a worktree.
-   > Uninstalling removes the shared snapshot every worktree
-   > points at; running from a worktree would leave the main
-   > and other worktrees in a half-removed state. From the
-   > main: `cd <main-path> && setup uninstall`. To
-   > undo just this worktree's symlink without touching the
-   > main, `rm <worktree>/.apache-magpie` manually."*
+<!-- END MAGPIE BLOCK: main-checkout-precheck -->
+
+If different, stop with:
+
+> *"`uninstall` runs in the main checkout, not a worktree.
+> Uninstalling removes the shared snapshot every worktree
+> points at; running from a worktree would leave the main
+> and other worktrees in a half-removed state. From the
+> main: `cd <main-path> && setup uninstall`. To
+> undo just this worktree's symlink without touching the
+> main, `rm <worktree>/.apache-magpie` manually."*
 
 3. Confirm we are **not** in `apache/magpie` itself
    (`git remote get-url origin`); refuse if it resolves to the

@@ -235,14 +235,26 @@ def is_allowed_target(path: Path, roots: tuple[Path, ...] = ALLOWED_ROOTS) -> bo
     same tree `skill-surface-hash.py` walks. This is deliberately checked
     per-file (not just enforced by what `main()` happens to glob), so a
     future caller cannot accidentally propagate shared prose into arbitrary
-    documentation."""
+    documentation.
+
+    Deliberately `.absolute()`, not `.resolve()`: this framework's own repo
+    self-adopts itself, and every `skills/<name>/` entry there is a symlink
+    into `plugins/<family>/skills/<name>/` (see `skills/setup/AGENTS.md` →
+    the canonical-plus-relay model). `.resolve()` follows that symlink to
+    its real location outside `skills/`, which would reject every legitimate
+    target in this repo's own tree. `.absolute()` only normalises a relative
+    path against the cwd — it never follows symlinks — so containment is
+    judged on the path `main()` actually globbed (always under `skills/` by
+    construction), not on where a symlinked skill happens to physically
+    live. A path outside `roots` to begin with (the case this check exists
+    to catch) is still rejected the same way."""
     try:
-        resolved = path.resolve()
+        resolved = path.absolute()
     except OSError:
         return False
     for root in roots:
         try:
-            resolved.relative_to(root.resolve())
+            resolved.relative_to(root.absolute())
             return True
         except ValueError:
             continue

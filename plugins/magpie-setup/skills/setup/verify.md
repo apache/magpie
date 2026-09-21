@@ -738,11 +738,24 @@ the audit trail human-readable. The framework's job is to
 
 ### 8e. comdev MCP prerequisites (ASF projects)
 
-**Run this check only for ASF projects** — detect ASF the same way
+**Run this check only for ASF projects.**
+
+<!-- BEGIN MAGPIE BLOCK: asf-detection — generated from tools/dev/blocks/asf-detection.md -->
+
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
+Detect ASF the same way
 as [`install.md` Step 9c](install.md#step-9c--comdev-mcp-prerequisites-asf-projects):
 `<project-config>/project.md` declares `project_metadata.mandatory:
 true` or `Mail sources` `ponymail` `mandatory: yes`. Skip otherwise
 (the two MCP servers are optional for non-ASF adopters).
+
+<!-- END MAGPIE BLOCK: asf-detection -->
 
 For ASF projects, both the
 [PonyMail](../../../../tools/ponymail/tool.md) and
