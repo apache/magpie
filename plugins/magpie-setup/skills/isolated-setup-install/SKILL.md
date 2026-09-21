@@ -654,11 +654,16 @@ key. Leave the attestation slot alone. A slot already at `On` or
 `tools/agent-isolation/gpg-touch-overlay.sh`,
 `gpg-touch-overlay-window.py` and `gpg-touch-overlay-window-macos.py`
 into `~/.claude/scripts/`, `chmod +x` them, and wire a `PreToolUse`
-`Bash` hook running `gpg-touch-overlay.sh arm` and a `PostToolUse`
-`Bash` hook running `gpg-touch-overlay.sh disarm` into
-`~/.claude/settings.json` — merging into existing arrays with a diff
-the operator approves, exactly as for the bypass-warn hook. Install
-detail:
+`Bash` hook running `gpg-touch-overlay.sh arm` and a
+`gpg-touch-overlay.sh disarm` hook on **three** events —
+`PostToolUse`, `PermissionDenied` and `PostToolUseFailure`, each on
+the `Bash` matcher — into `~/.claude/settings.json`, merging into
+existing arrays with a diff the operator approves, exactly as for the
+bypass-warn hook. The last two matter because `PreToolUse` fires
+before the permission prompt: a command the operator rejects has
+already armed a watcher that `PostToolUse` never tears down, and it
+lives until `MAX_WAIT` raising the window for somebody else's
+signature. Install detail:
 [docs/setup/secure-agent-setup.md → Hardware-key touch overlay](../../../../docs/setup/secure-agent-setup.md#hardware-key-touch-overlay).
 
 **K.3 — Git from the operator's own terminal.** The hook covers only

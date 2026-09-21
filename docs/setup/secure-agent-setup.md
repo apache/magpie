@@ -2182,10 +2182,28 @@ in the `Bash` matcher groups you already have:
         "hooks": [
           { "type": "command", "command": "~/.claude/scripts/gpg-touch-overlay.sh disarm" }
         ] }
+    ],
+    "PermissionDenied": [
+      { "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "~/.claude/scripts/gpg-touch-overlay.sh disarm" }
+        ] }
+    ],
+    "PostToolUseFailure": [
+      { "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "~/.claude/scripts/gpg-touch-overlay.sh disarm" }
+        ] }
     ]
   }
 }
 ```
+
+**Disarm is wired to three events, not one.**
+`PreToolUse` fires *before* the permission prompt, so a command the operator rejects has already armed a watcher that `PostToolUse` will never tear down.
+It then lives until `MAX_WAIT` — ten minutes — and because `signing_in_flight` is a machine-wide `pgrep` for `gpg` / `ssh-keygen` rather than something scoped to the armed context, any unrelated signature inside that window raises the window with nothing of the operator's pending.
+The touch that follows lands while no signature waits, which fires the key's OTP slot and types `cccc…` into whatever has focus.
+`PermissionDenied` and `PostToolUseFailure` are the events that fire when a Bash call does not run; `disarm` is idempotent and exits 0 with nothing armed, so the extra calls cost nothing.
 
 On Linux this needs `python3` with PyGObject for the dimmed overlay;
 where that is missing it falls back to a `zenity` dialog. On macOS it

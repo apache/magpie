@@ -348,8 +348,14 @@ Walk each in order:
 
     **10a — wiring and scripts.** User-scope `~/.claude/settings.json`
     has a `PreToolUse` `Bash` hook running
-    `gpg-touch-overlay.sh arm` and a `PostToolUse` `Bash` hook running
-    `gpg-touch-overlay.sh disarm`, and the scripts are present and
+    `gpg-touch-overlay.sh arm` and a `gpg-touch-overlay.sh disarm`
+    `Bash` hook on each of `PostToolUse`, `PermissionDenied` and
+    `PostToolUseFailure`. A missing `PostToolUse` disarm is ✗; a
+    missing `PermissionDenied` or `PostToolUseFailure` disarm is ⚠
+    with the reason — the overlay still works, but a rejected or
+    failed command leaves its watcher armed until `MAX_WAIT`, and any
+    unrelated signature in that window raises the window with nothing
+    pending. The scripts must also be present and
     executable: `~/.claude/scripts/gpg-touch-overlay.sh`, plus
     `gpg-touch-overlay-window.py` (Linux) or
     `gpg-touch-overlay-window-macos.py` (macOS) beside it. Compare
