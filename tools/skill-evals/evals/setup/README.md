@@ -5,7 +5,7 @@
 
 Behavioral evals for the `setup` skill.
 
-## Suites (75 cases total)
+## Suites (77 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
@@ -26,6 +26,7 @@ Behavioral evals for the `setup` skill.
 | upgrade-adoption-split | upgrade.md § Step 0b | 4 | not adopted (nothing staged), adopted (floor raised and staged), already ahead (floor unchanged), snapshot method (falls through) |
 | verify-floor | verify.md § Adoption floor | 4 | no lock (not a fault), ahead of floor with extra plugins (not a fault), a shortfall (a fault), a floor plugin the marketplace no longer ships (a fault, not installed around) |
 | step-reconcile | reconcile.md § The sweep | 3 | a clean sweep on a pinned-snapshot install (anchor present, config resolved — stamp written, nothing proposed), a renamed step heading stranding an override's anchor (one re-anchor proposal named), a marketplace install whose plugin cache is sandbox-denied (anchor resolution left `unchecked`, config resolution still completes) |
+| step-verify | verify.md § 12. Latest available plugin version | 2 | a dev-to-dev delta where the marketplace clone is one dev build ahead of an installed plugin (`update_available` carries the newer dev version — pins decision 7: nothing strips `.devN`), and a sandbox-denied marketplace clone (`update_available: null` **and** `unchecked: ["latest-version"]`, distinguishing *nothing newer* from *could not look*) |
 
 ## Run
 
@@ -117,3 +118,13 @@ uv run --directory tools/skill-evals skill-eval --cli "claude -p" \
   recommendation: a repo that never adopted, and a contributor ahead of
   the floor with extra families installed, must both come back
   `is_fault: false`.
+- `step-verify` cases are fully auto-comparable: `update_available` is a
+  plain list (or `null`) and `unchecked` is a plain list of enumerated
+  strings. Case 1 is the pair member that pins the dev-build rule from
+  the reconciliation design's decision 7 — the marketplace clone is a
+  newer `.devN` build, not a release, and must still be reported as an
+  update. Case 2 is the pair member that keeps *unreadable* distinct
+  from *up to date*: a sandbox-denied clone must answer
+  `update_available: null` with `unchecked: ["latest-version"]`, never
+  an empty list that a reader could mistake for "checked, nothing
+  found."

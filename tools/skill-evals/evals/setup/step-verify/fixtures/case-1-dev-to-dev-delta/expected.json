@@ -1,0 +1,10 @@
+{
+  "update_available": [
+    {
+      "plugin": "magpie-pr-management",
+      "installed": "0.2.0.dev202609180100",
+      "latest": "0.2.0.dev202609211315"
+    }
+  ],
+  "unchecked": []
+}

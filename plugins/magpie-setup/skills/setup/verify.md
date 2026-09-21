@@ -6,8 +6,13 @@
 Confirms the framework is wired in correctly so the rest of
 the framework's skills resolve from the right paths, and
 surfaces any **drift** between the committed lock (project
-pin) and the local lock (per-machine fetch). Read-only by
-default — surfaces gaps and remediation commands.
+pin) and the local lock (per-machine fetch). Also runs
+[`reconcile`](reconcile.md)'s sweep read-only and, the one
+comparison no other surface makes, checks every installed
+plugin against the marketplace clone for a newer version
+(dev builds included). Read-only by default — surfaces gaps
+and remediation commands; writes only the always-local
+`verified_at` timestamp on completion.
 
 ## Inputs
 
@@ -47,11 +52,15 @@ default — surfaces gaps and remediation commands.
 
 ## Marketplace-install checks
 
-Run these (and only these) when the repo has no committed lock
-and Magpie is installed as a plugin — the default install path.
-There is no snapshot, no lock, and no symlink to check: the
-plugin *is* the install, and the agent's own plugin manager owns
-its lifecycle. Report, do not remediate.
+Run these when the repo has no committed lock and Magpie is
+installed as a plugin — the default install path. There is no
+snapshot, no lock, and no symlink to check: the plugin *is* the
+install, and the agent's own plugin manager owns its lifecycle.
+Report, do not remediate. **Also run checks 11 and 12 below** —
+the read-only reconciliation sweep and the latest-available-
+plugin-version comparison apply to every project regardless of
+adoption state, marketplace or snapshot, adopted or merely
+configured; they are not specific to this branch.
 
 1. **Which plugins are active, and at what version.** Read the
    client's plugin state — Claude Code:
@@ -69,6 +78,8 @@ its lifecycle. Report, do not remediate.
    **version strings**, so a stale marketplace clone reports
    "already at the latest" indefinitely
    ([`marketplace.md`](../../../../docs/setup/marketplace.md#automatic-upgrade-detection)).
+   Check 12 below runs the actual per-plugin comparison this item
+   only names the commands for.
 4. **No half-snapshot left behind.** ⚠ if `.apache-magpie/`,
    `.apache-magpie.local.lock`, or any `magpie-*` symlink exists
    without a committed lock — a snapshot install was started and
@@ -125,6 +136,13 @@ adoption state.
    no `.apache-magpie.local.lock` — local self-adoption uses
    neither. ⚠ surface either if found (a stale remote adoption was
    not cleaned up).
+
+Checks 11 and 12 below do **not** apply to this branch: there is no
+plugin install and no marketplace clone involved in local
+self-adoption, and no `.apache-magpie-overrides/` surface a
+reconciliation sweep would walk. This branch still writes
+`verified_at` on completion — see
+[Writing `verified_at`](#writing-verified_at).
 
 ## The checks
 
@@ -848,6 +866,116 @@ Report missing components and configuration drift without modifying files.
 An absent profile is skipped unless Gemini secure setup was requested; in that case, point to `setup-isolated-setup-install`.
 A static pass does not replace live verification in Gemini.
 
+### 11. Reconciliation sweep (read-only)
+
+Runs the identical two checks
+[`reconcile.md` → The sweep](reconcile.md#the-sweep) performs — anchor
+resolution and `requires_config` resolution, over the identical scope
+(every skill named by a file under `.apache-magpie-local/` or
+`.apache-magpie-overrides/`) — and reports the findings in the same
+shape. This is the same contract reused read-only, not a
+re-implementation: no baseline needed, the same two checks, the same
+sandboxed-session degradation (`reconcile.md` check 4 — an unreadable
+target `SKILL.md` goes in `unchecked`, never reported as clean).
+
+**Read-only here.** Unlike `reconcile`, this check never confirms,
+applies, or writes the `reconciled:` stamp — it reports what a sweep
+would find and names `/magpie-setup reconcile` as where to act on it.
+`verify` is invoked freely and often, including by the pre-flight nudge
+below (check 10 of
+[`tools/dev/preflight-block.md`](../../../../tools/dev/preflight-block.md));
+a health-check sub-action should never itself mutate committed or
+local state beyond the always-local `verified_at` it writes on
+completion (see [Writing `verified_at`](#writing-verified_at) below).
+
+- ✓ no configuration or adoption surface at all
+  ([`reconcile.md` Step 0.1](reconcile.md#step-0--pre-flight)) —
+  nothing to reconcile, not a fault.
+- ✓ every override anchor resolves and every `requires_config` entry
+  resolves.
+- ⚠ an anchor moved, a `requires_config` entry no longer resolves, or
+  no `reconciled:` block exists anywhere (or one exists but never
+  covered this skill) — report the same numbered-proposal shape
+  [`reconcile.md` Step 1](reconcile.md#step-1--present-the-findings)
+  produces; remediation: `/magpie-setup reconcile`.
+- List any `unchecked` skills from the sandboxed-session degradation
+  and say plainly that resolving them needs an unsandboxed
+  `/magpie-setup reconcile` run.
+- A `skills` entry for the same skill present in **both** the
+  committed lock and the local file is drift, reported here exactly as
+  [`reconcile.md` Step 0.3](reconcile.md#step-0--pre-flight) defines
+  it — the local entry wins, name the collision, do not resolve it.
+
+### 12. Latest available plugin version
+
+The one comparison no other surface performs — see
+[Why this surface owns the comparison](#why-this-surface-owns-the-comparison)
+below.
+
+1. Resolve the marketplace clone: `claude plugin marketplace list
+   --json`, and read the `apache-magpie` entry's `installLocation`
+   (typically a full git clone at
+   `~/.claude/plugins/marketplaces/apache-magpie`).
+2. Read that clone's `.claude-plugin/marketplace.json`, which lists
+   every plugin the marketplace ships with its version.
+3. Read the installed set: `claude plugin list --json` (fields
+   `id`, `version`, `scope`, `enabled`, `installPath`, `installedAt`,
+   `lastUpdated`).
+4. For every installed Magpie plugin, compare its installed `version`
+   against the clone's version for that plugin id, **as PEP 440,
+   dev segment included** — `0.2.0.dev202609211315` is newer than
+   `0.2.0.dev202609180100`, and is reported as the available update
+   it is. Nothing strips `.devN` or rounds to the release segment.
+
+- ✓ every installed plugin is at or above the clone's version —
+  report no per-plugin entries.
+- ⚠ an installed plugin is behind the clone's version — name it, its
+  installed version, and the clone's version; remediation:
+  `claude plugin marketplace update apache-magpie` then `claude
+  plugin update <plugin>@apache-magpie` (or the client-appropriate
+  equivalent named in
+  [Marketplace-install checks](#marketplace-install-checks) above).
+- **An unreadable clone is reported as "could not check", never as
+  "up to date".** Either `claude plugin marketplace list --json`
+  fails to resolve `installLocation`, or the resolved clone's
+  `.claude-plugin/marketplace.json` cannot be read — inside a
+  sandboxed session the plugin cache is denied, exactly as it is for
+  check 11 above — do not compare anything; report the comparison as
+  unchecked and say why: this session could not read the marketplace
+  clone, not that it found no update.
+
+#### Why this surface owns the comparison
+
+`verify` is the only surface run deliberately and unsandboxed often
+enough to read the marketplace clone routinely — invoked by the
+operator directly, outside the sandboxed harness that denies the
+plugin cache to every other skill's pre-flight. The shared pre-flight
+block's own per-skill reconciliation check (see
+[`tools/dev/preflight-block.md`](../../../../tools/dev/preflight-block.md)
+step 4) never performs this comparison: it compares a skill's own
+`surface_hash` against the stamp, which is free and works inside the
+sandbox, while reading the marketplace clone is neither. That split is
+deliberate, not an oversight to close later — see
+[`docs/designs/2026-09-21-marketplace-reconciliation-tracking.md`](../../../../docs/designs/2026-09-21-marketplace-reconciliation-tracking.md#the-three-numbers-and-where-each-comes-from).
+
+## Writing `verified_at`
+
+Every run of this sub-action that reaches the report — clean or with
+findings, on any of the three branches above (including
+[Local self-adoption checks](#local-self-adoption-checks), which
+skips checks 11 and 12 but still completes a run) — writes today's
+date as `verified_at` into `.apache-magpie-local/reconciled.json`,
+creating the file (and the directory, if absent) when neither exists
+yet. This is the always-local key the shared pre-flight block's
+end-of-run clock reads (step 10 of
+[`tools/dev/preflight-block.md`](../../../../tools/dev/preflight-block.md))
+to decide whether to suggest `verify` again; per
+[`locks.md`](locks.md#the-reconciled-block--what-was-checked-not-what-to-install)
+`verified_at` is never committed, even inside an adopted project's
+`.apache-magpie.lock`. A run that stops in pre-flight (not installed,
+wrong checkout for a committed-lock write) has not completed and
+writes nothing.
+
 ## Committed default set
 
 Read `.claude/settings.json` at the repo root and compare its committed
@@ -974,5 +1102,13 @@ list, ordered most → least urgent:
   unauthenticated, or checkout behind `origin/main`) →
   `mcp__ponymail__login()` and/or `setup upgrade`
   Step 6e (live fetch + `git pull --ff-only`).
+- ⚠ on check 11 (reconciliation sweep finding, or `unchecked`
+  skills) → `/magpie-setup reconcile` (outside the sandbox, if the
+  skills were left `unchecked`).
+- ⚠ on check 12 (installed plugin behind the marketplace clone) →
+  `claude plugin marketplace update apache-magpie` then `claude
+  plugin update <plugin>@apache-magpie` (or the client-appropriate
+  equivalent). Unchecked (unreadable clone) → no remediation to
+  propose; note that the comparison could not run here.
 - All other ✗ / ⚠ → name the gap, give the one-line
   remediation.
