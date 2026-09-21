@@ -3,7 +3,11 @@
 
 `.apache-magpie.lock` contains `method: marketplace`, `url: apache/magpie`,
 `min_version: 0.3.0`, and a `plugins` list of magpie-setup and
-magpie-agent-guard.
+magpie-agent-guard. It carries no `reconciled:` block.
+
+`.apache-magpie-overrides/` exists and contains `project.md`.
+`.apache-magpie-local/reconciled.json` does not exist, so neither store
+names the invoked skill.
 
 The running agent is Claude Code, inside its sandboxed secure-agent-setup.
 `claude plugin list --json` returns `[]`. The plugin cache directory

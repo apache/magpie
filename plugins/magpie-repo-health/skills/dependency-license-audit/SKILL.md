@@ -111,9 +111,23 @@ couple of file checks, or one CLI call for a marketplace install.
    stamp.** Skip this step entirely — silent, no reads — when there is
    no `.apache-magpie.lock`, no `.apache-magpie-local/`, and no
    `.apache-magpie-overrides/`: nothing has ever been configured or
-   adopted, so there is nothing to reconcile. This check runs the same
-   way regardless of `method`, or whether there is a lock at all — it
-   is not install-method-specific, unlike step 3 above.
+   adopted, so there is nothing to reconcile. **Also skip it** when
+   step 3 just ended in a state step 5 below stops the run for —
+   plugins installed or updated, commands printed because there is no
+   CLI, or nothing run because `url` named another marketplace: the
+   session is about to restart either way, this check costs nothing to
+   repeat next time, and stacking a second proposal onto a restart
+   notice is exactly the prompt pile-up this design avoids everywhere
+   else. **An *unknown* step 3 result is not a reason to skip** — it
+   says nothing about *this project's* configuration, and everything
+   this step needs (this skill's own `surface_hash`, the lock, the
+   local file) is readable whether or not the plugin manager is, so
+   step 4 runs normally after an unknown step 3 result, the same way
+   step 5 already continues past one. Together, this step runs unless
+   there is nothing to reconcile, or step 3 is about to stop the run.
+   This check runs the same way regardless of `method`, or whether
+   there is a lock at all — it is not install-method-specific, unlike
+   step 3 above.
 
    This skill's own `surface_hash` is already in context, keyed by its
    own frontmatter `name:` (e.g. `magpie-security-issue-triage`).
