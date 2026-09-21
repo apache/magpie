@@ -340,6 +340,20 @@ repos:
         entry: python3 tools/dev/check-skill-preflight.py --fix
         files: ^(skills/[^/]+/SKILL\.md|plugins/magpie-[^/]+/skills/[^/]+/SKILL\.md|tools/dev/preflight-block\.md)$
         pass_filenames: false
+  # The reconciliation fingerprint. Runs after the pre-flight propagation so
+  # it hashes the file an adopter actually installs, and before the token
+  # count so that measurement sees the final bytes. The hash covers only
+  # `requires_config` and the skill's structural anchors: a reworded
+  # paragraph must not tell every adopter their configuration went stale,
+  # and a renamed step must.
+  - repo: local
+    hooks:
+      - id: skill-surface-hash
+        name: skill-surface-hash (reconciliation fingerprint in every SKILL.md)
+        language: system
+        entry: python3 tools/dev/skill-surface-hash.py --fix
+        files: ^(skills/[^/]+/SKILL\.md|plugins/magpie-[^/]+/skills/[^/]+/SKILL\.md)$
+        pass_filenames: false
   # Deterministic full-file token measurements. Run after skill fixers.
   # The dedicated path-filtered CI workflow also catches deleted skills.
   - repo: local
