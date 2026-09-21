@@ -30,7 +30,7 @@ own.
 
 The skill cannot compute this itself at invocation time. An agent reads a
 `SKILL.md` as static instructions — there is no code execution hook on most
-harnesses (the same constraint `check-skill-preflight.py` documents), so the
+harnesses (the same constraint `check-shared-blocks.py` documents), so the
 skill has no way to hash its own body and compare it against what the
 adopter last reconciled against. The fingerprint has to be computed once,
 here, deterministically, and carried in the frontmatter where the skill (or
@@ -42,7 +42,7 @@ change) and the sorted set of structural anchors, tagged with the file each
 came from (`##` through `####` headings and `**Golden rule ...**` callouts,
 markdown decoration stripped so `**Step 1**` and `Step 1` hash the same)
 into a short `sha256:` digest, deliberately
-excluding the shared pre-flight block that `check-skill-preflight.py`
+excluding the shared pre-flight block that `check-shared-blocks.py`
 manages — that block is identical everywhere and moving it is a framework
 change, not a project-specific reconciliation event — and deliberately
 excluding ordinary prose, which is free to be reworded without telling
@@ -55,7 +55,7 @@ a `##` step. Stopping at `###` left those renames silent, which is the
 class of drift this fingerprint exists to catch. `#####` and deeper stay
 out: nothing in the catalogue uses them as a contract surface.
 
-Unlike the pre-flight-block hook, this script exempts nothing. The `setup`
+Unlike the shared-blocks hook, this script exempts nothing. The `setup`
 family is exempt from the pre-flight block because those are the skills
 that *perform* setup and would otherwise ask users to set up before setting
 up — but a `setup` skill's own configuration surface (its `requires_config:`
