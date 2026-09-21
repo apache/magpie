@@ -315,6 +315,29 @@ The skill **does not** auto-rewrite overrides. Agentic
 interpretation means the right call is human judgement, not
 pattern-matching.
 
+**Write the stamp for what this walk just confirmed.** Every override
+whose target skill still exists and whose anchors still resolve — no
+conflict surfaced for it above — is, at this moment, reconciled against
+the snapshot this upgrade just fetched (the `fetched_commit` /
+`source_ref` Step 4 captured). Write that skill's current `surface_hash`,
+`version`, and `at` (today) into the reconciliation stamp
+([`locks.md`](locks.md#the-reconciled-block--what-was-checked-not-what-to-install)),
+in whichever store [`reconcile.md`'s Step
+0.2](reconcile.md#step-0--pre-flight) would pick for this project — the
+committed lock's `reconciled.skills` map when adopted,
+`.apache-magpie-local/reconciled.json` otherwise. `git add` the lock
+alongside this upgrade's other committed-file changes when the target is
+the lock; never commit.
+
+Leave out any override this walk flagged as a conflict — it is not
+reconciled until the user resolves it, and the next `setup verify` or
+`reconcile` run will still name it.
+
+Skip this write entirely when `.apache-magpie-overrides/` is empty and
+`.apache-magpie-local/` holds no configuration either — the same
+nothing-to-reconcile gate [`reconcile.md`](reconcile.md#step-0--pre-flight)
+applies, because this walk had nothing to check in the first place.
+
 ## Step 6 — Refresh framework-skill symlinks
 
 This step refreshes symlinks for **every active target dir**
@@ -831,6 +854,11 @@ Overrides:
   ✓ <list of overrides whose target is unchanged>
   ⚠ <list of overrides flagged for re-anchoring> (open the
      file and update against the new framework structure)
+
+Reconciliation stamp:
+  written to <.apache-magpie.lock | .apache-magpie-local/reconciled.json>
+  skills:  <N> entries confirmed by this walk   (<K> left out — conflicts above)
+  - <none written>   (when Overrides above had nothing to confirm)
 
 Framework templates (projects/_template/):
   ✓ all templates look generic   OR

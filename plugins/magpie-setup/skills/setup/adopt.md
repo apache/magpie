@@ -341,11 +341,41 @@ is not there, and stage it. `adopt` is already writing committed
 files, so this is the sub-action that may do it — `config`
 deliberately does not, and uses `.git/info/exclude` instead.
 
+### 4d — Write the reconciliation stamp
+
+**Scope: every skill the committed configuration now covers**, resolved
+the same way [`reconcile.md`'s sweep](reconcile.md#the-sweep) enumerates
+scope — a skill named by a file under `.apache-magpie-overrides/` (a
+config file matching one of that skill's `requires_config:` entries, from
+4a/4b, or an override file named `<skill>.md`, from 4c). Nothing this run
+did not just configure or override enters the stamp.
+
+For each skill in scope, write its current `surface_hash` into the lock's
+`reconciled.skills` map, alongside `version` (the `min_version` Step 2
+already wrote — the same "what version is this validated against"
+question, answered once) and `at` (today). See
+[`locks.md`](locks.md#the-reconciled-block--what-was-checked-not-what-to-install)
+for the block's shape.
+
+This is the **one path where the stamp enters git.** Everywhere else in
+this framework the stamp is a gitignored, per-machine record; here it
+rides along inside the same commit the maintainer is already making
+deliberately for the floor and the configuration store — not a separate
+decision, and not something this sub-action asks about again. `git add`
+the lock — Step 2 already staged it for the floor, so this updates the
+same staged file rather than opening a new one. **Never commit.**
+
+Nothing configured or overridden this run (4a, 4b, and 4c all found
+nothing to do) → leave the `reconciled:` block exactly as it was. A
+re-adoption run that changes only the floor, with no configuration
+change, stamps nothing new.
+
 ## Step 5 — Recap
 
 Tell the user, in this order:
 
-1. **What is staged** — the paths (the lock, the derived wiring, the
+1. **What is staged** — the paths (the lock — including its
+   reconciliation stamp entries from 4d, the derived wiring, the
    configuration store, and `.gitignore` if it changed), and that
    nothing is committed.
 1b. **What was promoted and what was dropped** — which local files
