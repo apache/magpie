@@ -257,29 +257,32 @@ Walk each:
    the secure setup before the guard shipped. Report new entries
    the user does not have; do not auto-merge.
 
-   Two network-layer defaults landed with the `lychee` link-check
-   prek hook — surface both if the user's settings predate them
-   (both `sandbox.network.*`):
+   Two `sandbox.network.*` settings are worth a look while diffing
+   — but neither is a "missing default" to re-add:
 
-   - **Broadened `allowedDomains`.** The dogfooded default now
-     allows the curated set the framework's own docs and dev tools
-     reach — `*.crates.io` (so the rust `lychee` hook can
-     `cargo install` lychee), `*.apache.org`, `*.anthropic.com`,
-     `*.claude.com`, `*.mitre.org`, `*.nist.gov`, `*.github.io`,
-     `gist.github.com`, `astral.sh`, `json.schemastore.org`,
-     `lychee.cli.rs`, `sdkman.io`. Without these, lychee fails the
-     PR-blocking `prek` check locally on first run.
-   - **`enableWeakerNetworkIsolation: true`.** Required for
-     native-TLS CLI tools (lychee, and the same mechanism the
-     schema notes for `gh` / `gcloud` / `terraform`) to verify TLS
-     through the sandbox's TLS-terminating proxy — without it lychee
-     fails every external link with `failed to verify TLS
-     certificate`. **Surface the documented trade-off when
-     reporting it**: the schema warns it "reduces security — opens a
-     potential data-exfiltration vector through the trustd service,"
-     so the user decides whether to enable it (the default ships it
-     on because the link check needs it). It is a no-op outside the
-     sandbox, e.g. in CI.
+   - **`allowedDomains` is deliberately narrow.** The dogfooded
+     default allows `*.crates.io` and `static.rust-lang.org`, the
+     only hosts prek needs to bootstrap a rustup toolchain and
+     `cargo install` the `lychee` link-check hook on first run.
+     The wildcard link-target hosts that once sat beside them
+     (`*.apache.org`, `*.anthropic.com`, `*.claude.com`,
+     `*.mitre.org`, `*.nist.gov`, `*.github.io`, `gist.github.com`,
+     `astral.sh`, `json.schemastore.org`, `lychee.cli.rs`,
+     `sdkman.io`) were dropped when the hook went offline
+     (`offline = true` in `.lychee.toml`): lychee no longer fetches
+     the URLs the docs link to, so it never reaches them. A settings
+     file without those hosts is current, not stale — report their
+     *presence* as dead weight to drop, never their absence as
+     drift.
+   - **`enableWeakerNetworkIsolation: true`.** It is not there for
+     lychee, which runs offline. It lets native-TLS CLI tools verify
+     TLS through the sandbox's TLS-terminating proxy — the mechanism
+     the schema notes for `gh` / `gcloud` / `terraform`. **Surface
+     the documented trade-off when reporting it**: the schema warns
+     it "reduces security — opens a potential data-exfiltration
+     vector through the trustd service," so the user decides whether
+     to keep it. macOS-only, and a no-op outside the sandbox, e.g.
+     in CI.
 5. **comdev MCP checkouts (`ponymail`, `apache-projects`).** These
    ASF MCP servers are installed from a local `apache/comdev`
    checkout and are **tracked at `main`, not pinned** — unlike the
