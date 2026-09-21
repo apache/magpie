@@ -22,11 +22,13 @@ runs on demand, on any method, and needs no snapshot refresh to
 justify it.
 
 **This is the sub-action the shared pre-flight block names** when a
-skill's own hash check finds neither the committed lock nor the local
-file naming that skill at all — no baseline to diff a single skill
-against, so the fix is a project-wide pass rather than a per-skill one.
-It is also runnable directly, any time, as a health check on the
-project's configuration surface.
+skill's own hash check finds no `reconciled:` block in either store at
+all — nothing in this project has ever been reconciled, so the fix is a
+project-wide pass rather than a per-skill one. A block that exists but
+does not name the running skill is *not* that case: the pre-flight stays
+silent there, because a project that does not configure a skill has
+nothing to reconcile for it. This sub-action is also runnable directly,
+any time, as a health check on the project's configuration surface.
 
 **Nothing to reconcile is a valid, silent outcome.** No
 `.apache-magpie.lock`, no `.apache-magpie-local/`, and no
