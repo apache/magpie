@@ -321,24 +321,27 @@ repos:
         entry: python3 tools/dev/check-family-plugins.py --fix
         files: ^(skills/.*/SKILL\.md|plugins/.*|\.claude-plugin/(marketplace|plugin)\.json|\.codex-plugin/plugin\.json|\.agents/plugins/marketplace\.json|(plugin|marketplace)\.json|gemini-extension\.json|apm\.yml|pyproject\.toml)$
         pass_filenames: false
-  # The shared setup pre-flight every skill runs before it acts. It cannot be
-  # a hook: on most harnesses *no code runs at all* when a plugin is installed
-  # or upgraded (AP1 defines no hook component; Claude Code's SessionStart hook
+  # Every shared prose block a skill carries — the auto-inserted setup
+  # pre-flight, plus any number of declared blocks. It cannot be a hook: on
+  # most harnesses *no code runs at all* when a plugin is installed or
+  # upgraded (AP1 defines no hook component; Claude Code's SessionStart hook
   # is wired only into magpie-setup), so the check has to be instructions the
   # agent reads on invocation. It cannot be an include either: a family plugin
   # must be self-contained — the packagers drop symlinks rather than follow
   # them — so a shared file outside the plugin root would be unreachable from
-  # the install shape most adopters use. That leaves one source and 65 generated
-  # copies, which is exactly the drift this hook exists to prevent — edit
-  # `tools/dev/preflight-block.md` and let `--fix` propagate it. The `setup`
-  # family is exempt: those skills perform the setup the block asks for.
+  # the install shape most adopters use. That leaves one source and many
+  # generated copies per block, which is exactly the drift this hook exists
+  # to prevent — edit `tools/dev/preflight-block.md` (the pre-flight block)
+  # or `tools/dev/blocks/<name>.md` (a declared block) and let `--fix`
+  # propagate it. The `setup` family is exempt from the pre-flight block:
+  # those skills perform the setup the block asks for.
   - repo: local
     hooks:
-      - id: check-skill-preflight
-        name: check-skill-preflight (shared pre-flight block in every SKILL.md)
+      - id: check-shared-blocks
+        name: check-shared-blocks (shared prose blocks in every SKILL.md and sibling detail file)
         language: system
-        entry: python3 tools/dev/check-skill-preflight.py --fix
-        files: ^(skills/[^/]+/SKILL\.md|plugins/magpie-[^/]+/skills/[^/]+/SKILL\.md|tools/dev/preflight-block\.md)$
+        entry: python3 tools/dev/check-shared-blocks.py --fix
+        files: ^(skills/[^/]+/[^/]+\.md|plugins/magpie-[^/]+/skills/[^/]+/[^/]+\.md|tools/dev/preflight-block\.md|tools/dev/blocks/.*\.md)$
         pass_filenames: false
   # The reconciliation fingerprint. Runs after the pre-flight propagation so
   # it hashes the file an adopter actually installs, and before the token
