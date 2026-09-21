@@ -82,6 +82,15 @@ exact inputs without changing on every commit or run. The recorded UTC date
 is preserved until changed inputs require regeneration; the document's Git
 history separately provides its publication revision and date.
 
+Every non-`setup` skill's figure below includes the shared reconciliation
+pre-flight check — roughly +1,100 tokens on the smallest skills (~+34%) —
+an accepted, permanent cost rather than a rounding error. The rule text
+cannot move behind a pointer into a file the check itself gates on reading
+(the framework snapshot or the plugin cache), which a sandboxed session
+cannot read; see
+[the design's Risks](designs/2026-09-21-marketplace-reconciliation-tracking.md#risks)
+for the full trade-off.
+
 <!-- BEGIN GENERATED SKILL TOKEN COUNTS -->
 
 Measured on (UTC): 2026-09-21.
@@ -92,7 +101,7 @@ special-token spellings counted as ordinary text.
 Coverage: **75 of 75 local `skills/*/SKILL.md` files**.
 External `source.md` redirects and harness symlinks are excluded.
 
-Measurement manifest SHA-256: `a8985de517a89e051b15ef27de01eab509a59268088e9593eb27ba3886a014ed`.
+Measurement manifest SHA-256: `cc712c1975647ef960c3337b1aeaa245f86750a86b78d16b4b00eacc741262ae`.
 
 | Skill file | Measured tokens | Source SHA-256 (first 16 characters) |
 |---|---:|---|
@@ -161,7 +170,7 @@ Measurement manifest SHA-256: `a8985de517a89e051b15ef27de01eab509a59268088e9593e
 | [setup](../skills/setup/SKILL.md) | 9,094 | `8aee70d9b8440afa` |
 | [setup-isolated-setup-doctor](../skills/setup-isolated-setup-doctor/SKILL.md) | 7,969 | `d664680ac78331ba` |
 | [setup-isolated-setup-install](../skills/setup-isolated-setup-install/SKILL.md) | 11,296 | `02b0b70e01a6f4c9` |
-| [setup-isolated-setup-update](../skills/setup-isolated-setup-update/SKILL.md) | 5,231 | `1d4eec237417b0cd` |
+| [setup-isolated-setup-update](../skills/setup-isolated-setup-update/SKILL.md) | 5,578 | `d2d0b2e8ca4b258d` |
 | [setup-isolated-setup-verify](../skills/setup-isolated-setup-verify/SKILL.md) | 8,519 | `0fab5f6315b9b061` |
 | [setup-override-upstream](../skills/setup-override-upstream/SKILL.md) | 4,028 | `a65b8a7d22c43113` |
 | [setup-privacy-llm](../skills/setup-privacy-llm/SKILL.md) | 2,162 | `32049daee1e06a39` |

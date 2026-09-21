@@ -19,6 +19,16 @@ acceptance:
     the flat skills/ tree mirrors back with single-hop symlinks.
   - Manifests are generated from pyproject.toml and the root metadata anchor,
     never hand-edited; the generator is idempotent and CI fails on drift.
+  - A marketplace-installed project gets the identical reconciliation
+    guarantee a pinned-snapshot install gets — the same generated
+    `surface_hash:` fingerprint, the same `reconciled:` stamp shape, the
+    same pre-flight comparison — reached through the plugin cache's
+    version-bearing path instead of a local lock file; see
+    [`adoption-and-setup.md`](adoption-and-setup.md) for the mechanism.
+  - Every version comparison this surface performs — floor check,
+    installed-vs-stamped fingerprint gate, and `verify`'s
+    installed-vs-marketplace-clone check — is PEP 440 with the `.devN`
+    segment included; nothing strips or rounds it.
 ---
 
 # Marketplace distribution
@@ -138,6 +148,18 @@ adopter-facing page.
    a second run is a no-op.
 3. A version bump is a one-line edit to `pyproject.toml` plus a regeneration.
 4. Every catalogue lists all ten family plugins and no all-in-one.
+5. A skill invoked through a family plugin resolves its own
+   `surface_hash:` from its shipped frontmatter and its reconciliation
+   stamp from the committed lock or the local file exactly as a
+   snapshot-installed skill does — no marketplace-specific branch in the
+   check — closing the gap named in
+   [`adoption-and-setup.md`](adoption-and-setup.md#what-it-does).
+6. Every version compared anywhere in this surface — a plugin's installed
+   version against the floor, against the reconciliation stamp, or
+   against the marketplace clone — is PEP 440, dev segment included:
+   `0.2.0.dev202609211315` is newer than `0.2.0.dev202609180100`, and a
+   dev build is never rounded to its release segment or treated as a
+   non-event.
 
 ## Validation
 

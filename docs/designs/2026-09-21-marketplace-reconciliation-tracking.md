@@ -15,6 +15,7 @@
   - [The three numbers, and where each comes from](#the-three-numbers-and-where-each-comes-from)
   - [Who writes the stamp](#who-writes-the-stamp)
   - [Suggesting `verify`](#suggesting-verify)
+  - [Where the build departed from the design](#where-the-build-departed-from-the-design)
   - [Alternatives considered](#alternatives-considered)
   - [Risks](#risks)
 
@@ -27,7 +28,7 @@
 
 | | |
 |---|---|
-| **Status** | Proposed. Nothing below is built yet. |
+| **Status** | Built. [Where the build departed from the design](#where-the-build-departed-from-the-design) records six places it did. |
 | **Scope** | The `setup` family, the shared pre-flight block, and one generated frontmatter field on every skill. |
 
 ## What is wrong
@@ -93,9 +94,13 @@ reconciled:
   version: 0.2.0.dev202609211315     # what setup last ran against
   at:      2026-09-21
   skills:
-    magpie-pr-management/code-review:  sha256:9f1c4e…
-    magpie-security/issue-triage:      sha256:4ab70d…
+    magpie-pr-management-code-review:  sha256:9f1c4e…
+    magpie-security-issue-triage:      sha256:4ab70d…
 ```
+
+Keyed by the skill's frontmatter `name:`, not `<plugin>/<skill>` — the shape
+above was the design's original guess, and the build revised it (see
+[Where the build departed from the design](#where-the-build-departed-from-the-design)).
 
 It lists only the skills the project actually configures or overrides — a
 handful, not the ~75 that exist.
@@ -129,6 +134,20 @@ Deliberately **not** the file's content. A typo fix, a reworded paragraph or
 a new cross-reference must not move the hash; a renamed step must. Hashing
 the whole file would reproduce the "any version delta" behaviour this design
 exists to avoid, one prompt per dev build, none of them actionable.
+
+**Anchors are not confined to `SKILL.md`.** A multi-file skill (`setup`,
+`pr-management-triage`, `security-issue-sync`, …) keeps steps and
+golden rules in sibling detail files, not only in `SKILL.md` itself, and an
+override can anchor to a heading there just as easily. The shipped
+fingerprint spans the skill's whole directory — `SKILL.md` plus every `*.md`
+file directly inside it, no recursion into subdirectories such as `guards/`
+or `fixtures/` — and tags each anchor with the file it came from, so a
+heading moving between two files in that set changes the hash even though
+the heading text itself did not. This widened after the first cut shipped
+scoped to `SKILL.md` alone; see
+[Where the build departed from the design](#where-the-build-departed-from-the-design).
+`requires_config:` still comes from `SKILL.md`'s frontmatter alone — detail
+files carry no frontmatter of their own.
 
 A prek hook generates the value and CI enforces it, exactly as
 `skill-token-count` maintains the measured figures in
@@ -217,10 +236,16 @@ would act on by proposing to install the entire floor. That is a defect in
 the current block and is fixed alongside this work: an unreadable plugin
 manager is *unknown*, never *absent*.
 
-The last row is best-effort. Where the clone is readable and a newer version
-exists, the fact is mentioned **only if the reconciliation check is already
-speaking**; there is no standalone "an update is available" line. Where it is
-unreadable, nothing is said at all.
+The last row is best-effort, and the pre-flight check never performs it at
+all. The design's first cut planned to mention a newer version only when the
+reconciliation check was already speaking — a piggyback on the free
+comparison. The build dropped that: the pre-flight block never reads the
+marketplace clone, on any branch, because a sandboxed session cannot read it
+either, and a comparison that silently never fires on the machines that run
+pre-flight most often is worse than one that plainly does not live there.
+`verify` owns this comparison exclusively — see
+[Who writes the stamp](#who-writes-the-stamp) and
+[Where the build departed from the design](#where-the-build-departed-from-the-design).
 
 All three are compared as PEP 440, dev segment included — the rule the
 current pre-flight block already states, where `0.2.0` is newer than
@@ -241,10 +266,11 @@ answers, not a suppression of the first.
 
 | Action | Does |
 |---|---|
-| `setup config` | writes the entries for the skills it configures |
-| `setup adopt` | writes the block into the committed lock |
-| `setup reconcile` (new) | the project-wide pass: walks every configured skill and override, re-anchors what moved, rewrites the block |
-| `setup verify` | reports the same sweep read-only, and is the one surface that also compares against the marketplace clone |
+| `setup config` | **Not adopted** — writes the skill's entry into the local `skills` map, whether or not this run had to do anything for it. **Already adopted** — never touches the committed lock's `skills` map; only for a skill whose missing configuration this run actually wrote does it record the per-machine `acknowledged.skills` fact, so an unattended pre-flight-triggered run never stages a committed-file write. |
+| `setup adopt` | writes the block into the committed lock for every skill its own configuration/override scope covers, and first migrates any pre-existing local stamp's `skills` map into the lock so the same skill is never named in both stores at once. |
+| `setup upgrade` | reconciles the narrower slice `.apache-magpie-overrides/` names (not every configured skill), and writes the stamp only for an override that passes its target-skill, anchor, and `requires_config` checks — never a false clean. |
+| `setup reconcile` (new) | the project-wide pass: walks every configured skill and override, re-anchors what moved, rewrites the block. This is what the shared pre-flight check proposes when a skill is named in neither store at all. |
+| `setup verify` | reports the same sweep read-only, and is the one surface that also compares against the marketplace clone — the pre-flight check never does, on any branch. |
 
 ## Suggesting `verify`
 
@@ -275,6 +301,66 @@ to be suggested, and suggested rarely.
 The line says why it is worth taking: *"`/magpie-setup verify` has not run in
 three weeks — it also checks whether newer plugin versions are available,
 which a sandboxed session cannot."*
+
+## Where the build departed from the design
+
+Several places, all deliberate, found in review during the implementing
+plan rather than anticipated here.
+
+**The stamp is keyed by the skill's frontmatter `name:`, not
+`<plugin>/<skill>`.** This document's own first draft of the `reconciled:`
+example used the plugin-qualified form (`magpie-pr-management/code-review`).
+That key is not derivable on a snapshot install, which wires
+`skills/<name>/` with no plugin component at all — exactly the install shape
+a method-agnostic stamp has to work under. `name:` is already in the running
+skill's own context, unique across the framework, and identical under every
+install method.
+
+**The fingerprint's scope widened from `SKILL.md` alone to `SKILL.md` plus
+its sibling detail files.** The first cut hashed only a skill's own
+`SKILL.md`. Review found 18 of the framework's ~75 skills keep steps and
+golden rules in sibling `*.md` files instead — `setup`, `pr-management-
+triage`, and `pr-management-code-review` among the largest — so an override
+anchored to a heading in one of those files could drift with the check
+staying silent. The generator, `reconcile`'s anchor check, and `upgrade`'s
+override walk all now read the whole directory and tag each anchor with the
+file it came from.
+
+**The pre-flight block never reads the marketplace clone, on any branch.**
+The design's first cut mentioned a newer version only when the
+reconciliation check was already speaking, piggybacking on a read the check
+was doing anyway. That read does not exist in the shipped check: the
+per-skill comparison is entirely local (this skill's own hash against the
+stamp), so there was nothing to piggyback on, and reading the clone would
+have added exactly the sandbox-denied, unsandboxed-only cost the design
+otherwise avoids. `verify` is the one surface that performs it.
+
+**The stamp applies to every adopted or configured project, any install
+method — not a marketplace-only gap-closer.** The motivating gap is
+marketplace-specific, but the mechanism (a skill's own hash against a
+stamped one) is not, and a snapshot-install branch in every consumer would
+have bought nothing: a snapshot adopter simply carries a stamp that stays
+silent, which is inert rather than harmful.
+
+**A per-skill pre-flight finding is recorded when shown, not when
+declined; a `reconcile` or `upgrade` finding still records on decline.**
+The design's "Why a decline is remembered" section assumed one rule for
+both surfaces. The shared pre-flight check never blocks for an answer — it
+prints its proposal and continues into the work the user asked for in the
+same turn — so there is no decline event to hook, and recording on show is
+the only way the suppression can fire at all. `reconcile` and `upgrade`
+genuinely block for a real per-item and whole-sweep confirmation, so their
+decline event is real and is what they record against.
+
+**`config` never writes the committed lock's `skills` map, on any branch.**
+The design's summary table said `config` "writes the entries for the skills
+it configures", without saying into which store on an adopted project.
+Because the shared pre-flight block auto-runs `config` unattended, an
+adopted project's committed lock could otherwise be staged for a `git add`
+from a worktree pre-flight never meant to touch it. `config` writes to the
+committed lock never; on an adopted project it writes only the always-local
+`acknowledged.skills` fact, and only for a skill whose missing
+configuration this run actually filled in.
 
 ## Alternatives considered
 
@@ -345,3 +431,26 @@ stamp; silence has no end.
 - **Version in the base path is a harness detail.** It holds for Claude Code
   plugin installs today. Where a harness does not encode the version in the
   path, the check degrades to unknown-and-silent rather than breaking.
+- **The per-skill check is not free at the token level, even though it is
+  free at the read level.** The rule text the shared pre-flight block carries
+  for it is roughly +1,100 tokens (measured, ~+34% on the smallest skills) on
+  every invocation of every non-`setup` skill in every adopting project — an
+  accepted, ongoing cost, not a rounding error. The one real lever — moving
+  the rule text behind a pointer into `locks.md` — was rejected: that file
+  lives in the framework snapshot or the plugin cache, which a sandboxed
+  session cannot read, and would silently disable the check on exactly the
+  setups this design was written for. What is left in the block is rules,
+  not prose; trimming further is the maintainer's call, made explicitly
+  rather than by omission.
+- **`verify` is the only surface that can compare against the marketplace
+  clone**, because it is the only one run deliberately and unsandboxed often
+  enough to read it. A permanently sandboxed user learns about a newer
+  plugin version only when they run `verify` — never from the pre-flight
+  block, on any branch — which is a real gap for that population, accepted
+  rather than closed (see [The three numbers](#the-three-numbers-and-where-each-comes-from)).
+- **The widened fingerprint (`SKILL.md` plus sibling detail files) still
+  stops at the skill's own directory.** An override anchored to a heading in
+  a cross-referenced file outside that directory — a shared doc under
+  `docs/`, a tool adapter's `operations.md` — is not covered and can drift
+  silently. No skill does this as of this writing; it is a boundary to watch
+  for, not a known gap today.
