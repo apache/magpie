@@ -32,28 +32,37 @@ permissions: {}
 
 jobs:
   prek:
-    # The one job that runs on a 4-vCPU runner. #1190 moved every job
-    # here to `ubuntu-slim` (1 vCPU, container-based, 5 GB, killed at
-    # 15 minutes) on the argument that nothing this repo runs in CI is
-    # heavy — correct for the other ten, which land between 3s and 99s.
-    # prek is the exception: it splits each hook's file list across
-    # roughly `cpu_count` invocations, so on one core all ~40 hooks over
-    # ~4.9k files run strictly serial. Measured, `Run prek` is 131s on
-    # 4 vCPUs and 183-211s on slim, and it is ~80% of the job either
-    # way. That is the whole trade — three cores for ~60-80s on the job
-    # every push and every PR waits for. The rest of #1190's reasoning
-    # still holds and the other ten jobs stay put.
+    # Two shapes of the same job, split by event.
+    #
+    # On a pull request the hooks run only over the files the PR
+    # changed (`--from-ref` / `--to-ref` on the `Run prek` step below),
+    # which is a handful of files rather than ~4.9k. At that size the
+    # parallelism prek gets from extra cores buys nothing — it splits
+    # each hook's file list across roughly `cpu_count` invocations, and
+    # there is nothing to split — so the PR run sits on `ubuntu-slim`
+    # (1 vCPU, container-based, 5 GB, killed at 15 minutes) with the
+    # other ten jobs #1190 moved there.
+    #
+    # On a push to `main` the hooks run over the whole tree
+    # (`--all-files`), which is where the cores do pay: measured,
+    # `Run prek` is 131s on 4 vCPUs and 183-211s on slim, and it is
+    # ~80% of the job either way. `main` is also the run that has to be
+    # exhaustive — it is the one that sees files a PR did not touch —
+    # so it stays on `ubuntu-latest`.
     #
     # Nothing in this job needs a Docker daemon, so the constraint that
     # keeps zizmor off the `zizmor-action` (see `pyproject.toml`) is not
-    # what pins it here. Note that `ubuntu-slim`'s 15-minute container
-    # kill does not apply on `ubuntu-latest`, and no workflow here sets
-    # `timeout-minutes`, so leaving this job bare would swap that
-    # implicit ceiling for the 6-hour default. The explicit
-    # `timeout-minutes` below keeps the property #1190 relied on rather
-    # than dropping it as a side effect: 15 minutes is ~4x the slowest
-    # run observed, including a 674s outlier on a throttled host.
-    runs-on: ubuntu-latest
+    # what pins the `main` run to `ubuntu-latest`. Note that
+    # `ubuntu-slim`'s 15-minute container kill does not apply on
+    # `ubuntu-latest`, and no workflow here sets `timeout-minutes`, so
+    # leaving this job bare would swap that implicit ceiling for the
+    # 6-hour default on `main`. The explicit `timeout-minutes` below
+    # keeps the property #1190 relied on rather than dropping it as a
+    # side effect: 15 minutes is ~4x the slowest run observed,
+    # including a 674s outlier on a throttled host.
+    runs-on: >-
+      ${{ github.event_name == 'pull_request' && 'ubuntu-slim'
+      || 'ubuntu-latest' }}
     timeout-minutes: 15
     permissions:
       contents: read
@@ -61,6 +70,19 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
+        # The PR run scopes the hooks with `--from-ref` / `--to-ref`, which
+        # needs both endpoints and their merge base in the local object
+        # store. The default shallow clone has neither, so fetch the full
+        # history on a pull request and keep the cheap depth-1 clone on
+        # `main`, where `--all-files` needs no revision range at all.
+        #
+        # Quoted on purpose. GitHub's `a && b || c` idiom yields `c`
+        # whenever `b` is falsy, and the number `0` is falsy — the
+        # unquoted form silently resolves to `1` on a pull request,
+        # i.e. the shallow clone the PR run must not have. The string
+        # `'0'` is truthy (only the empty string is not), and
+        # `actions/checkout` parses it as the depth.
+          fetch-depth: ${{ github.event_name == 'pull_request' && '0' || '1' }}
       # `uv` brings its own Python and is required by both:
       #  - the four `workspace-*` prek hooks in
       #    `.pre-commit-config.yaml`, which call
@@ -124,13 +146,27 @@ jobs:
         run: uv tool install prek
       # Token measurements run in the path-filtered skill-token-count workflow.
       - name: Run prek
-        # GITHUB_TOKEN lets the `lychee` hook authenticate its
-        # github.com link checks — unauthenticated requests get
-        # rate-limited (429) once a run checks more than a handful of
-        # GitHub URLs. lychee reads GITHUB_TOKEN automatically; the
-        # job's `contents: read` scope is sufficient for link checking.
+        # `PREK_SCOPE` selects which files the hooks see. On a pull
+        # request that is the PR's own diff — base..HEAD, where HEAD is
+        # the merge commit `actions/checkout` leaves behind — so a PR
+        # pays only for what it changed. On a push to `main` it is
+        # `--all-files`, the exhaustive sweep that catches anything the
+        # per-PR runs did not cover (a hook whose config changed, a file
+        # broken by two PRs that were green apart, an anchor a rename
+        # invalidated elsewhere in the tree). Keep that asymmetry in
+        # mind when reading a green PR check: it is not the whole-repo
+        # result. `prek run --all-files` locally before pushing is what
+        # closes that gap ahead of `main` — see `AGENTS.md`.
+        #
+        # The scope is built in `env:` rather than interpolated into the
+        # `run:` line so the expression is never expanded into the shell
+        # source of the step.
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PREK_SCOPE: >-
+            ${{ github.event_name == 'pull_request'
+            && format('--from-ref {0} --to-ref HEAD',
+            github.event.pull_request.base.sha)
+            || '--all-files' }}
         # `--skip workspace-pytest`: pytest already runs in CI as the
         # dedicated, path-filtered `tests` workflow matrix
         # (`.github/workflows/tests.yml`). Running it a second time here
@@ -186,6 +222,47 @@ jobs:
         # single HOOK|PROJECT per occurrence, and a comma-joined value
         # matches no hook at all. It warns rather than failing, so the
         # comma form looks like it worked while skipping nothing.
+        #
+        # `--skip lychee`: the link check is whole-repo on every event,
+        # in the dedicated step below. See its comment for why it cannot
+        # ride along with `PREK_SCOPE`.
         run: >-
-          prek run --show-diff-on-failure --color=always --all-files
+          prek run --show-diff-on-failure --color=always $PREK_SCOPE
           --skip workspace-pytest --skip identity --skip skill-token-count
+          --skip lychee
+      # The link check runs over the whole repository on every event,
+      # `main` and pull request alike — `PREK_SCOPE` does not apply.
+      #
+      # It is a whole-repo hook wearing a file filter. `.pre-commit-
+      # config.yaml` gives it `pass_filenames: false` and a trailing `.`,
+      # so lychee walks the tree itself and prek's file list only decides
+      # *whether the hook fires at all* (`files: \.(md|rst|j2)$`). Under
+      # `--from-ref` that gate is the bug: a PR that renames or deletes a
+      # file some doc links to, without touching a single `.md`, matches
+      # nothing, the hook never fires, and the broken link lands on
+      # `main`. Running it here unconditionally restores the property the
+      # old `--all-files` job had — every PR is checked against every
+      # link in the repo.
+      #
+      # Cheap enough to do on both events: `.lychee.toml` sets
+      # `offline = true`, so this resolves in-repo paths and `#anchor`
+      # fragments only and fetches no URL. The hook is `language: rust`
+      # (no Docker daemon, no service container), so it runs on
+      # `ubuntu-slim` as happily as on `ubuntu-latest`, and the prek
+      # hook-env cache above already holds the compiled binary.
+      #
+      # `!cancelled()` rather than `always()`: a link break and a hook
+      # failure in the step above are independent, and a contributor
+      # should see both in one run instead of fixing one to discover the
+      # other. `always()` would also run this on a cancelled job.
+      - name: Run prek (lychee — whole repo, both events)
+        if: ${{ !cancelled() }}
+        # GITHUB_TOKEN lets lychee authenticate its github.com link
+        # checks — unauthenticated requests get rate-limited (429) once a
+        # run checks more than a handful of GitHub URLs. lychee reads
+        # GITHUB_TOKEN automatically; the job's `contents: read` scope is
+        # sufficient for link checking. Dormant while `offline = true`,
+        # kept so flipping that back on needs no workflow change.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: prek run lychee --color=always --all-files

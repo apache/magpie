@@ -441,19 +441,24 @@ prek install           # installs the git hook into .git/hooks/pre-commit
 ```
 
 **Verify the hook before every commit** (agents and humans alike); CI
-re-runs the same hooks against every push and rejects any commit whose
-contents do not match the hook's output, so a missing local hook
-silently becomes a CI failure. The pre-flight check is one line:
+re-runs the same hooks against every push — scoped to the pull
+request's own diff on a PR, over the whole tree on `main` — and rejects
+any commit whose contents do not match the hook's output, so a missing
+local hook silently becomes a CI failure. The pre-flight check is one
+line:
 
 ```bash
 test -x .git/hooks/pre-commit || prek install
 ```
 
-**Before opening or updating a PR, run `prek run --all-files`** (or
-`prek run --from-ref <base>` against the PR's base branch) as a hard
-pre-flight gate. The commit hook only sees the files in that commit, so
-issues in files committed earlier on the branch can slip past it; a
-whole-tree run mirrors CI and surfaces those locally. If a hook modifies
+**Before opening or updating a PR, run `prek run --all-files`** as a
+hard pre-flight gate. The commit hook only sees the files in that
+commit, so issues in files committed earlier on the branch can slip
+past it; and the PR's CI run is scoped to the PR's diff, so a file the
+branch did not touch but broke anyway (a moved anchor, a renamed
+heading, a hook whose config changed) goes green on the PR and fails on
+the `main` build after merge. A whole-tree run locally mirrors that
+`main` build and surfaces both classes before you push. If a hook modifies
 files (e.g. `doctoc` regenerating a TOC), the commit is aborted —
 re-stage and commit again. **Do not bypass the hooks with
 `--no-verify`**; fix the underlying issue or update the hook config in
@@ -1081,11 +1086,13 @@ model responds.
 
 - Re-read the diff and check that every change is intentional.
 - Check that any renamed headings have matching TOC updates.
-- **Run the lychee link check.** It runs as the `lychee` hook in
-  `prek run --all-files` (the `pre-commit.yml` CI workflow) and gates
-  merge via the required `prek` status; a single broken link, dead
-  `#anchor`, or unreachable URL fails it. Catch it locally first — the
-  hook is `language: rust`, so prek installs lychee for you:
+- **Run the lychee link check.** It runs as the `lychee` hook in the
+  `pre-commit.yml` CI workflow — over the PR's changed files on a pull
+  request, over the whole tree on `main` — and gates merge via the
+  required `prek` status; a single broken link, dead `#anchor`, or
+  unreachable URL fails it. Catch it locally first, whole-tree, since
+  the PR run will not: the hook is `language: rust`, so prek installs
+  lychee for you:
 
   ```bash
   prek run lychee --all-files

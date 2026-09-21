@@ -841,7 +841,12 @@ open a PR — CI runs the same config. The hook set:
 
 Separate GitHub workflows:
 
-- **`pre-commit.yml`** — runs `prek run --all-files` in CI.
+- **`pre-commit.yml`** — runs prek in CI, in two shapes. On a pull
+  request the hooks are scoped to the PR's own diff (`--from-ref` /
+  `--to-ref`) on `ubuntu-slim`; on a push to `main` they run
+  `--all-files` on `ubuntu-latest`. So a green PR check is not a
+  whole-repo result — run `prek run --all-files` locally before you
+  push.
 - **`zizmor.yml`** — lints GitHub Actions workflows for known-bad
   patterns; runs on every PR. zizmor is declared in the root
   `pyproject.toml` dev group, so `uv run zizmor --config .zizmor.yml .`
@@ -850,9 +855,10 @@ Separate GitHub workflows:
   hand, and the only one that writes to the repository. See
   [Bumping the dev version](#bumping-the-dev-version) below.
 The link check ([lychee](https://lychee.cli.rs/)) is **not** a
-separate workflow — it runs as the `lychee` hook inside
-`prek run --all-files` (the `pre-commit.yml` workflow above), and so
-is part of the required `prek` status check. It is a **hard gate**: a
+separate workflow — it runs as the `lychee` hook inside the
+`pre-commit.yml` workflow above (over the PR's changed files on a pull
+request, over the whole tree on `main`), and so is part of the required
+`prek` status check. It is a **hard gate**: a
 single broken internal link, dead `#anchor` fragment, or unreachable
 external URL fails `prek` and blocks merge. The hook is
 `language: rust`, so prek installs lychee itself — `prek run lychee`
