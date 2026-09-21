@@ -1,0 +1,1 @@
+{"findings": [{"override_file": ".apache-magpie-overrides/issue-triage.md", "kind": "requires-config-unresolved", "detail": "scope-labels.md"}], "stamped_skills": {"magpie-pr-management-code-review": "sha256:1d0038ec4fde60bf"}, "target": "lock"}

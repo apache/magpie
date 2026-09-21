@@ -156,10 +156,23 @@ reconciled:
   plugin component to derive at all. Not the whole catalogue — a
   handful, not the ~75 skills that exist.
 
-**Written only by `setup`** (`config`, `adopt`, `reconcile`), never
-hand-edited: a hand-written `sha256:` value is indistinguishable from
-a real one right up until the comparison it is supposed to gate
+**Written only by `setup`** (`config`, `adopt`, `reconcile`, `upgrade`),
+never hand-edited: a hand-written `sha256:` value is indistinguishable
+from a real one right up until the comparison it is supposed to gate
 silently agrees with a hash nobody actually computed.
+
+**`version` and `at` mean "when this block was last written," not "when
+the project was last fully swept."** Every sub-action above updates the
+block without necessarily touching every skill in `skills:` —
+[`config`](config.md#step-3b--record-what-this-run-reconciled)
+reconciles the one skill it just configured,
+[`upgrade`](upgrade.md#step-5--reconcile-overrides) reconciles whatever
+`.apache-magpie-overrides/` covers, and only
+[`reconcile`](reconcile.md) itself walks every configured skill in one
+pass. `at` still feeds the verify-overdue clock in
+[`tools/dev/preflight-block.md`](../../../../tools/dev/preflight-block.md#pre-flight--is-this-project-set-up)
+(step 10) — a recent `at` says only that *something* in this project was
+reconciled recently, not that everything was.
 
 **Where the block lives tracks where the configuration it describes
 lives, not the install method.** An **adopted** project — `marketplace`

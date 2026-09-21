@@ -295,6 +295,13 @@ catches it before the overwrite would erase their work.
 
 ## Step 5 — Reconcile overrides
 
+**This reconciles overrides, not configuration.** It checks only the
+skills `.apache-magpie-overrides/` names — nothing about a skill this
+project has configured (via `.apache-magpie-local/`) but never
+overridden. [`reconcile.md`](reconcile.md) is the full, project-wide
+pass; this is the narrower slice that rides along with a snapshot
+refresh.
+
 For each file in `<repo-root>/.apache-magpie-overrides/`:
 
 1. **Target skill check** — does the named framework skill
@@ -310,17 +317,32 @@ For each file in `<repo-root>/.apache-magpie-overrides/`:
      have moved.
    - The user re-anchors the override against the new
      structure.
+3. **`requires_config` check** — resolve every one of the target
+   skill's `requires_config:` entries through the lookup chain
+   (`.apache-magpie-local/<file>` then `.apache-magpie-overrides/<file>`).
+   An entry that resolves through neither is a finding — the same
+   [`reconcile.md`](reconcile.md#the-sweep) check 3 surfaces — propose
+   `/magpie-setup config <skill>` for it. Unlike check 2, this needs
+   only files already in the repository, so it always completes even in
+   a sandboxed session where the plugin cache is unreadable.
 
 The skill **does not** auto-rewrite overrides. Agentic
 interpretation means the right call is human judgement, not
 pattern-matching.
 
-**Write the stamp for what this walk just confirmed.** Every override
-whose target skill still exists and whose anchors still resolve — no
-conflict surfaced for it above — is, at this moment, reconciled against
-the snapshot this upgrade just fetched (the `fetched_commit` /
-`source_ref` Step 4 captured). Write that skill's current `surface_hash`,
-`version`, and `at` (today) into the reconciliation stamp
+**Write the stamp only for what all three checks just confirmed.** Every
+override whose target skill still exists, whose anchors still resolve,
+and whose `requires_config` entries all resolve — no conflict or finding
+surfaced for it above — is, at this moment, reconciled against the
+snapshot this upgrade just fetched (the `fetched_commit` / `source_ref`
+Step 4 captured). **An override with intact anchors but an unresolved
+`requires_config` entry is not stamped** — stamping it clean would make
+every later pre-flight go silent on a skill that is not actually
+reconciled, a false clean worse than not stamping at all. For every
+skill that does pass all three, write its current `surface_hash`, keyed
+by that skill's frontmatter `name:` (e.g.
+`magpie-pr-management-code-review`), alongside `version` and `at`
+(today) into the reconciliation stamp
 ([`locks.md`](locks.md#the-reconciled-block--what-was-checked-not-what-to-install)),
 in whichever store [`reconcile.md`'s Step
 0.2](reconcile.md#step-0--pre-flight) would pick for this project — the
@@ -329,14 +351,16 @@ committed lock's `reconciled.skills` map when adopted,
 alongside this upgrade's other committed-file changes when the target is
 the lock; never commit.
 
-Leave out any override this walk flagged as a conflict — it is not
-reconciled until the user resolves it, and the next `setup verify` or
-`reconcile` run will still name it.
+Leave out any override this walk flagged as a conflict or a
+`requires_config` finding — it is not reconciled until the user resolves
+it, and the next `setup verify` or `reconcile` run will still name it.
 
-Skip this write entirely when `.apache-magpie-overrides/` is empty and
-`.apache-magpie-local/` holds no configuration either — the same
-nothing-to-reconcile gate [`reconcile.md`](reconcile.md#step-0--pre-flight)
-applies, because this walk had nothing to check in the first place.
+Skip this write entirely when `.apache-magpie-overrides/` is empty or
+absent — the only surface this walk checks, so there is nothing to
+confirm and nothing to stamp. (A project with configuration but no
+overrides may still have unreconciled skills; that gap is
+`reconcile.md`'s to close, not this walk's — it has no overrides to
+iterate over in the first place.)
 
 ## Step 6 — Refresh framework-skill symlinks
 
