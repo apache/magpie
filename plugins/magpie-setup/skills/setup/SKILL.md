@@ -18,6 +18,7 @@ description: |
     `setup upgrade` - refresh the snapshot per the committed lock (main-checkout only)
     `setup worktree-init` - symlink a worktree's snapshot to the main's
     `setup verify` - health check + drift detection
+    `setup reconcile` - one-time project-wide reconciliation sweep (writes the reconciled: stamp)
     `setup skill-sources` - fetch/pin/symlink skills from trusted sources (main-checkout only)
     `setup override <skill>` - open or scaffold an agentic override
     `setup uninstall` - reverse the install; preserves overrides (main-checkout only)
@@ -34,7 +35,7 @@ when_to_use: |
   for this repo", or "commit a default set for the team", route to
   the `adopt` sub-action - it commits files for every contributor
   and is not an install.
-argument-hint: "[install|config|adopt|unadopt|upgrade|worktree-init|verify|override skill-name|uninstall]"
+argument-hint: "[install|config|adopt|unadopt|upgrade|worktree-init|verify|reconcile|override skill-name|uninstall]"
 capability: capability:platform
 surface_hash: sha256:3c2a7fede067cfd9
 license: Apache-2.0
@@ -169,6 +170,7 @@ semantics. Formats, fields, and drift rules:
 | [`install.md`](install.md) | First-time install walk-through — recognise existing-snapshot vs needs-bootstrap, write the two lock files, ask the user which skill families and MCP servers to install, create the gitignored symlinks, scaffold `.apache-magpie-overrides/`, install the post-checkout hook, update project docs. The default sub-action. |
 | [`upgrade.md`](upgrade.md) | Refresh the gitignored snapshot per the committed lock, reconcile any agentic overrides + symlinks against the new framework structure, surface conflicts. Drives the on-drift remediation flow. |
 | [`verify.md`](verify.md) | Read-only health check — snapshot present + intact, both lock files in sync, symlinks point at live targets, `.gitignore` correct, `.apache-magpie-overrides/` exists, drift status (committed vs local), the `setup` skill itself is current. |
+| [`reconcile.md`](reconcile.md) | The one-time project-wide reconciliation sweep — checks every configured or overridden skill's anchors and `requires_config` entries against the current framework, proposes fixes item by item, and writes the `reconciled:` stamp the shared pre-flight block compares against. Runs on any install method, adopted or configured-only. |
 | [`skill-sources.md`](skill-sources.md) | Fetch/verify skills from trusted external sources listed in `<project-config>/skill-sources.md`, pin them in the committed `.apache-magpie.sources.lock`, and symlink the provided skills in exactly like framework skills. The runnable half of [trusted external skill sources](../../../../docs/skill-sources/README.md); the install gate is the adopter trust list. |
 | [`locks.md`](locks.md) | The two lock files of the pinned-snapshot path — `<committed-lock>` (the project's pin) and `<local-lock>` (this machine's fetch), their formats, and the per-source pair used by trusted external sources. |
 | [`agents.md`](agents.md) | The agent-target registry — *which* directories framework-skill symlinks land in across vendors, and the **canonical-plus-relay** model: `.agents/skills/` is the one canonical home (links into the snapshot/source); every other target (`claude-code`, `github`, holdout natives like Windsurf / Goose) gets a per-skill relay symlink into `.agents/skills/`. Defines active-target selection, SKILL.md format portability, and the Claude-Code-only layer (sandbox/hooks). The source of truth every sub-action consults for the target set. |
@@ -403,6 +405,7 @@ The skill dispatches by the first positional argument:
 | `setup upgrade` | [`upgrade.md`](upgrade.md) | Refresh snapshot per `<committed-lock>` + reconcile overrides + refresh symlinks. **Main-checkout only** — worktrees pick up upgrades automatically via the symlink installed by `worktree-init`. |
 | `setup worktree-init` | [`worktree-init.md`](worktree-init.md) | **Worktree-only.** Symlink the worktree's `<snapshot-dir>` to the main checkout's so this worktree shares one framework state. No fetch, no lock files written; idempotent. |
 | `setup verify` | [`verify.md`](verify.md) | Read-only health check + drift status report. Works in both main and worktrees. |
+| `setup reconcile` | [`reconcile.md`](reconcile.md) | One-time project-wide reconciliation sweep — checks anchors + `requires_config` for every configured/overridden skill, proposes fixes item by item, writes the `reconciled:` stamp. Any install method. **Main-checkout only when the stamp target is the committed lock** (adopted); no restriction when it is the local file. |
 | `setup skill-sources` (aka `skill-sources add <id>`) | [`skill-sources.md`](skill-sources.md) | Fetch/verify/pin/symlink skills from the trusted external sources the adopter listed in `<project-config>/skill-sources.md`. **Main-checkout only** — worktrees share the source snapshots via `worktree-init`. |
 | `setup override <skill>` | [`overrides.md`](overrides.md) | Open / scaffold an override file. |
 | `setup uninstall` | [`uninstall.md`](uninstall.md) | Reverse the install. Removes snapshot, the local lock, symlinks, hook, doc sections, and this skill itself. Leaves `.apache-magpie.lock` — that is `unadopt`. Preserves `.apache-magpie-overrides/` unless `--purge-overrides` is passed. **Main-checkout only.** |
@@ -420,6 +423,15 @@ of `adopt` is `worktree-init`; for `upgrade`, every worktree
 automatically sees the refreshed snapshot once the main runs
 upgrade, because each worktree's `<snapshot-dir>` is a symlink to
 the main's.
+
+**`reconcile` is main-checkout only conditionally**, not
+unconditionally like the sub-actions above: the restriction applies
+only when the project is adopted and the stamp it writes therefore
+targets the committed `.apache-magpie.lock` — the same committed-file
+reasoning as `adopt`. A configured-but-unadopted project writes the
+stamp to the gitignored `.apache-magpie-local/reconciled.json`
+instead, which carries no worktree restriction at all. See
+[`reconcile.md` Step 0](reconcile.md#step-0--pre-flight).
 
 **`adopt` and `upgrade` always chain into `worktree-init` on every
 linked worktree as their final pass.** The chain is unconditional

@@ -5,7 +5,7 @@
 
 Behavioral evals for the `setup` skill.
 
-## Suites (72 cases total)
+## Suites (75 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
@@ -25,6 +25,7 @@ Behavioral evals for the `setup` skill.
 | preflight-floor | preflight-block.md § Pre-flight | 8 | at floor (silent), below floor (update), plugin missing (install), foreign marketplace (ask first, run nothing), no `claude` CLI (print), unadopted (propose setup), `apache/magpie` in an alarming context (update anyway, unasked), unreadable `claude plugin list --json` (silent, treated as unknown not absent) |
 | upgrade-adoption-split | upgrade.md § Step 0b | 4 | not adopted (nothing staged), adopted (floor raised and staged), already ahead (floor unchanged), snapshot method (falls through) |
 | verify-floor | verify.md § Adoption floor | 4 | no lock (not a fault), ahead of floor with extra plugins (not a fault), a shortfall (a fault), a floor plugin the marketplace no longer ships (a fault, not installed around) |
+| step-reconcile | reconcile.md § The sweep | 3 | a clean sweep on a pinned-snapshot install (anchor present, config resolved — stamp written, nothing proposed), a renamed step heading stranding an override's anchor (one re-anchor proposal named), a marketplace install whose plugin cache is sandbox-denied (anchor resolution left `unchecked`, config resolution still completes) |
 
 ## Run
 

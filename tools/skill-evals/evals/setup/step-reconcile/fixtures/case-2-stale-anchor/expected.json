@@ -1,0 +1,12 @@
+{
+  "proposals": [
+    {
+      "kind": "reanchor",
+      "skill": "magpie-security-issue-triage",
+      "override_file": ".apache-magpie-overrides/security-issue-triage.md",
+      "detail": "anchors to \"Step 3 — Classify the disposition\", which is now \"Step 3 — Read the report and classify\""
+    }
+  ],
+  "unchecked": [],
+  "stamp_written": false
+}
