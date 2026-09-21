@@ -28,7 +28,7 @@
 
 | | |
 |---|---|
-| **Status** | Built. [Where the build departed from the design](#where-the-build-departed-from-the-design) records six places it did. |
+| **Status** | Built. [Where the build departed from the design](#where-the-build-departed-from-the-design) records seven places it did. |
 | **Scope** | The `setup` family, the shared pre-flight block, and one generated frontmatter field on every skill. |
 
 ## What is wrong
@@ -361,6 +361,25 @@ from a worktree pre-flight never meant to touch it. `config` writes to the
 committed lock never; on an adopted project it writes only the always-local
 `acknowledged.skills` fact, and only for a skill whose missing
 configuration this run actually filled in.
+
+**The pre-flight comparison is conditional on the floor check's own
+outcome, not unconditional.** [The pre-flight check](#the-pre-flight-check)
+above describes the fingerprint comparison as three free steps that
+always run. The shipped check adds one more condition, found only once
+an agent had to decide what to say when both the floor check and the
+reconciliation check have something to report in the same breath: it
+is skipped — along with the reconciliation proposal it would otherwise
+make — when the floor check is itself stopping the session for a
+restart (a plugin installed or updated, commands only printed because
+there is no CLI, or nothing run because of an untrusted marketplace
+`url`). A reconciliation proposal stacked onto a restart notice is
+exactly the prompt pile-up this design set out to avoid elsewhere, and
+the session is about to restart anyway, so the check costs nothing to
+repeat on the next invocation. An *unreadable* plugin manager is not
+such a stop — it says nothing about the project's own configuration,
+and everything this check needs (the skill's own `surface_hash`, the
+lock, the local file) is readable whether or not the plugin manager
+is — so the check still runs through that case, exactly as designed.
 
 ## Alternatives considered
 

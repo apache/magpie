@@ -229,7 +229,9 @@ committed version with drift detection.
   A mismatch, a missing entry, or no stamp at all each propose a specific
   fix rather than a generic "something changed" — see the acceptance
   bullets above for the shape of each case. This check runs on every
-  install method and does not read the marketplace plugin cache.
+  install method and does not read the marketplace plugin cache. It
+  runs unless there is nothing to reconcile or the floor check is
+  stopping the session for a restart — see acceptance criterion 17.
 
 ## Out of scope
 
@@ -288,7 +290,14 @@ committed version with drift detection.
     whether a `requires_config` entry stopped resolving or a structural
     anchor moved, and proposes `/magpie-setup config` or a re-anchor
     accordingly; a skill named in neither store proposes the one-time
-    `/magpie-setup reconcile` sweep instead.
+    `/magpie-setup reconcile` sweep instead. This check itself runs
+    unless there is nothing to reconcile, or the floor check (criteria
+    9–10) is stopping the session for a restart — a plugin installed or
+    updated, commands only printed for lack of a CLI, or nothing run
+    because of an untrusted marketplace `url` — in which case it is
+    skipped rather than stacking a reconciliation proposal onto a
+    restart notice; an *unreadable* plugin manager is not such a stop
+    and does not prevent this check from running.
 18. A per-skill finding the always-on pre-flight check shows is recorded
     (`acknowledged.skills`) the moment it is shown and does not repeat
     until that skill's hash moves again; a project-wide sweep declined
