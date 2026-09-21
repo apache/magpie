@@ -112,20 +112,25 @@ couple of file checks, or one CLI call for a marketplace install.
    is not install-method-specific, unlike step 3 above.
 
    This skill's own `surface_hash` is already in context, keyed by its
-   own frontmatter `name:` (e.g. `magpie-security-issue-triage`). When
-   a lock exists, look that name up in its `reconciled.skills` map —
-   already open from step 1, no extra read.
+   own frontmatter `name:` (e.g. `magpie-security-issue-triage`).
+   **`skills` lives in exactly one store per project**: the committed
+   lock's `reconciled.skills` map when adopted, `.apache-magpie-local/
+   reconciled.json`'s `skills` map when configured but not adopted,
+   never both. When a lock exists, look this skill's name up in its
+   `reconciled.skills` map — already open from step 1, no extra read.
 
    - **Found, hash matches** → **silent**. Continue — nothing else in
      this step needs a read.
    - **Found, hash differs**, **not found in the lock's map**, or
      **no lock at all** → read `.apache-magpie-local/reconciled.json`
      now (reuse this read in step 10 below instead of reading it
-     twice). It carries the identical `version` / `at` / `skills`
-     shape for a configured-but-unadopted project, plus the
-     always-local `verified_at`, `verify_suggested_at`, `acknowledged`.
-     **Its `skills` entry wins whenever both stores name this skill**
-     — same precedence as everywhere else in this framework.
+     twice) — it holds this skill's `skills` entry directly when there
+     is no lock, and always holds `verified_at`, `verify_suggested_at`,
+     `acknowledged` regardless of adoption. A `skills` entry for this
+     skill in **both** stores is the invariant broken, not a
+     configuration this framework writes — the local one wins, and
+     `/magpie-setup reconcile` reports the mismatch as drift to clean
+     up.
 
      Resolve against whichever store actually names this skill:
      - **Match** → silent.
@@ -198,10 +203,10 @@ couple of file checks, or one CLI call for a marketplace install.
    Then drop it. Do not ask, do not offer to run it, and do not repeat
    it on later invocations.
 
-9. **Note what needed confirming, and propose vetting the reads.** Like
-   step 10 below, this is not a pre-flight check — it is settled at the
-   *end* of the run. It lives in this block because this block is the
-   only thing every skill carries.
+9. **Note what needed confirming, and propose vetting the reads.**
+   Neither this step nor step 10 below is a pre-flight check — both
+   are settled at the *end* of the run, and live here only because
+   this block is the one thing every skill carries.
 
    While you work, keep note of each operation that stopped for a
    confirmation prompt: the command, and what it was for. When the run
@@ -231,10 +236,8 @@ couple of file checks, or one CLI call for a marketplace install.
    Say nothing when nothing prompted, or when everything that did was a
    write. A skill that ends every run with the same suggestion is noise.
 
-10. **Suggest `/magpie-setup verify` when it is overdue.** Like the step
-    above, this is not a pre-flight check — it is settled at the *end*
-    of the run, and lives here only because this block is the one thing
-    every skill carries.
+10. **Suggest `/magpie-setup verify` when it is overdue.** Same
+    reasoning as step 9 above.
 
     Compare today against `verified_at` in
     `.apache-magpie-local/reconciled.json` (already read in step 4

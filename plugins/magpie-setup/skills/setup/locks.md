@@ -169,7 +169,8 @@ what the project expects, and this states what state its configuration
 is in. A project that has run `setup config` but never `setup adopt`
 has no committed lock to hold it, so the identical `version`/`at`/
 `skills` shape lives in `.apache-magpie-local/reconciled.json`
-instead, next to the personal configuration it describes. **Neither
+instead, next to the personal configuration it describes. **`skills`
+therefore lives in exactly one place, never both.** **Neither
 configured nor adopted — no `.apache-magpie.lock`, no
 `.apache-magpie-local/`, no `.apache-magpie-overrides/` — → no block
 anywhere**, because there is no configuration to have gone stale. A
@@ -178,7 +179,8 @@ silently, not as a sweep to propose.
 
 **`.apache-magpie-local/reconciled.json` is a plain JSON object, never
 wrapped in a `reconciled:` key** — the filename already says what it
-is:
+is. A **configured-but-unadopted** project, which has nowhere else to
+keep `version`/`at`/`skills`, carries the full shape:
 
 ```json
 {
@@ -198,30 +200,43 @@ is:
 }
 ```
 
-Its top level carries the same `version` / `at` / `skills` shape the
-committed block carries, for a configured-but-unadopted project that
-has nowhere else to put them, **plus three keys that are never
-committed even inside an adopted project's `.apache-magpie.lock`:**
-`verified_at`, `verify_suggested_at`, and `acknowledged`, always here,
-on every project regardless of adoption state. Running
-`/magpie-setup verify` and being shown a reconciliation proposal are
-both per-machine acts — one contributor's health check, one
-contributor's own prompt history — and neither is a fact about the
-project's committed configuration the way `version`/`at`/`skills` are.
-Committing `verified_at` would rewrite the lock every time anyone on
-the team ran `verify`, turning a periodic health check into commit
-noise on a roughly fortnightly cycle; committing `acknowledged` would
-bind every other contributor to one person's prompt history. This is
-the same committed/local split the rest of this file draws everywhere
-else: what the project agreed to is shared, what one person's machine
-has seen is not.
+An **adopted** project's local file carries only the three
+always-local keys below — `version`/`at`/`skills` live in the
+committed lock instead, per the invariant above:
 
-**When an adopted project's committed lock and this local file both
-carry a `skills` entry for the same skill, the local file wins.** Same
-precedence as every other committed/local split in this framework: the
-local file is the more recent, per-machine truth, e.g. someone ran
-`setup config` again locally after the project was last adopted. The
-committed entry is the fallback, not the override.
+```json
+{
+  "verified_at": "2026-09-21",
+  "verify_suggested_at": "2026-09-07",
+  "acknowledged": {
+    "skills": {
+      "magpie-security-issue-triage": "sha256:4ab70d…"
+    },
+    "sweep": "0.2.0.dev202609180100"
+  }
+}
+```
+
+**Three keys are never committed, even inside an adopted project's
+`.apache-magpie.lock`, and live in this file on every project
+regardless of adoption state:** `verified_at`, `verify_suggested_at`,
+and `acknowledged`. Running `/magpie-setup verify` and being shown a
+reconciliation proposal are both per-machine acts — one contributor's
+health check, one contributor's own prompt history — and neither is a
+fact about the project's committed configuration the way
+`version`/`at`/`skills` are. Committing `verified_at` would rewrite the
+lock every time anyone on the team ran `verify`, turning a periodic
+health check into commit noise on a roughly fortnightly cycle;
+committing `acknowledged` would bind every other contributor to one
+person's prompt history. This is the same committed/local split the
+rest of this file draws everywhere else: what the project agreed to is
+shared, what one person's machine has seen is not.
+
+**A `skills` entry for the same skill in both stores is the invariant
+broken, not a configuration this framework ever writes** — a hand edit
+or a bug, not a normal state. When it happens, the local entry wins,
+and `/magpie-setup reconcile` reports the mismatch as drift to clean
+up.
 
 `acknowledged.skills` and `acknowledged.sweep` record when a
 reconciliation proposal was **shown**, not when it was declined — the
