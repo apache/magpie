@@ -153,23 +153,32 @@ reconciled:
   for free), it is unique across the framework, and — unlike
   `<plugin>/<skill>` — it is identical under every install shape,
   including a snapshot install, which wires `skills/<name>/` with no
-  plugin component to derive at all. Not the whole catalogue — a
-  handful, not the ~75 skills that exist.
+  plugin component to derive at all. Not the whole catalogue: a skill
+  is in scope when an override file names it, **or** when its
+  `requires_config:` entries resolve from the project's own config
+  directories — a project that supplies a skill's configuration has
+  configured that skill. How many skills that is depends entirely on
+  how much the project configures; it is two for a project with one
+  override, and most of the catalogue for a project that commits a
+  widely-read `project.md`.
 
-**Written only by `setup`** (`config`, `adopt`, `reconcile`, `upgrade`),
-never hand-edited: a hand-written `sha256:` value is indistinguishable
-from a real one right up until the comparison it is supposed to gate
-silently agrees with a hash nobody actually computed.
+**Written only by `setup`**: `adopt`, `reconcile` and `upgrade` write
+the committed block, and
+[`config`](config.md#step-3b--record-what-this-run-reconciled) writes
+only `.apache-magpie-local/reconciled.json`, never the lock. Never
+hand-edited: a hand-written `sha256:` value is indistinguishable from a
+real one right up until the comparison it is supposed to gate silently
+agrees with a hash nobody actually computed.
 
 **`version` and `at` mean "when this block was last written," not "when
-the project was last fully swept."** Every sub-action above updates the
-block without necessarily touching every skill in `skills:` —
-[`config`](config.md#step-3b--record-what-this-run-reconciled)
-reconciles the one skill it just configured,
+the project was last fully swept."** Each of those sub-actions updates
+the block without necessarily touching every skill in `skills:` —
+[`adopt`](adopt.md) migrates whatever the local stamp already held,
 [`upgrade`](upgrade.md#step-5--reconcile-overrides) reconciles whatever
 `.apache-magpie-overrides/` covers, and only
 [`reconcile`](reconcile.md) itself walks every configured skill in one
-pass. `at` still feeds the verify-overdue clock in
+pass. (`config` moves the same clock in the local store, on a project
+that has not adopted.) `at` still feeds the verify-overdue clock in
 [`tools/dev/preflight-block.md`](../../../../tools/dev/preflight-block.md#pre-flight--is-this-project-set-up)
 (step 10) — a recent `at` says only that *something* in this project was
 reconciled recently, not that everything was.
@@ -245,11 +254,16 @@ person's prompt history. This is the same committed/local split the
 rest of this file draws everywhere else: what the project agreed to is
 shared, what one person's machine has seen is not.
 
-**A `skills` entry for the same skill in both stores is the invariant
-broken, not a configuration this framework ever writes** — a hand edit
-or a bug, not a normal state. When it happens, the local entry wins,
-and `/magpie-setup reconcile` reports the mismatch as drift to clean
-up.
+**A `skills` entry for the same skill in both stores is an expected
+transitional state, not a fault.** The ordinary way there needs no
+hand edit and no bug: a contributor runs `config` on their machine
+before the project adopts, a maintainer runs `adopt` on a different
+machine, and `adopt` can only migrate the local stamp it can see —
+so the contributor's local entry survives beside the newly committed
+one. When it happens, the local entry wins for every comparison, and
+`/magpie-setup reconcile` names the collision and offers to drop the
+redundant local entries, leaving the committed lock as the single
+store. That is the whole remedy.
 
 `acknowledged.skills` and `acknowledged.sweep` record when a
 reconciliation proposal was **shown**, not when it was declined — the
@@ -258,9 +272,11 @@ user asked for in the same turn; it never blocks waiting for an
 answer, so there is no decline event to write on. `acknowledged.skills`
 maps a skill's `name:` to the `surface_hash` it was shown against, and
 is re-armed the moment that skill's hash moves again.
-`acknowledged.sweep` records the installed plugin version at the time
-the project-wide sweep proposal was shown, and is re-armed only when
-that version changes — project-scoped, because the sweep itself is:
+`acknowledged.sweep` records the version the project-wide sweep
+proposal was shown against — the installed plugin version on a
+marketplace install, the framework version otherwise, exactly the
+fallback `version` above already takes — and is re-armed only when
+that version changes; project-scoped, because the sweep itself is:
 keying it per skill would mean the sweep gets proposed once for every
 skill the user happens to invoke, rather than once per project, which
 is what makes it a one-time cost rather than a recurring one.

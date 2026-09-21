@@ -23,7 +23,7 @@ when_to_use: |
   `issue-fix-workflow` for confirmed bugs or the appropriate
   closure flow directly.
 capability: capability:triage
-surface_hash: sha256:f584e86608b5f544
+surface_hash: sha256:9b2993211bdc0e80
 license: Apache-2.0
 ---
 
@@ -117,20 +117,16 @@ couple of file checks, or one CLI call for a marketplace install.
    adopted, so there is nothing to reconcile. **Also skip it** when
    step 3 just ended in a state step 5 below stops the run for —
    plugins installed or updated, commands printed because there is no
-   CLI, or nothing run because `url` named another marketplace: the
-   session is about to restart either way, this check costs nothing to
-   repeat next time, and stacking a second proposal onto a restart
-   notice is exactly the prompt pile-up this design avoids everywhere
-   else. **An *unknown* step 3 result is not a reason to skip** — it
-   says nothing about *this project's* configuration, and everything
-   this step needs (this skill's own `surface_hash`, the lock, the
-   local file) is readable whether or not the plugin manager is, so
-   step 4 runs normally after an unknown step 3 result, the same way
-   step 5 already continues past one. Together, this step runs unless
-   there is nothing to reconcile, or step 3 is about to stop the run.
-   This check runs the same way regardless of `method`, or whether
-   there is a lock at all — it is not install-method-specific, unlike
-   step 3 above.
+   CLI, or nothing run because `url` named another marketplace. **An
+   *unknown* step 3 result is not such a stop**: step 4 runs normally
+   after one, the same way step 5 already continues past one. **Skip
+   it silently too when this skill's own `surface_hash` is not visible
+   in the context you were given** — a check that cannot read its own
+   input says nothing rather than guessing. Together, this step runs
+   unless there is nothing to reconcile, step 3 is about to stop the
+   run, or this skill's own fingerprint is unreadable. This check runs
+   the same way regardless of `method`, or whether there is a lock at
+   all — it is not install-method-specific, unlike step 3 above.
 
    This skill's own `surface_hash` is already in context, keyed by its
    own frontmatter `name:` (e.g. `magpie-security-issue-triage`).
@@ -148,10 +144,11 @@ couple of file checks, or one CLI call for a marketplace install.
      twice) — it holds this skill's `skills` entry directly when there
      is no lock, and always holds `verified_at`, `verify_suggested_at`,
      `acknowledged` regardless of adoption. A `skills` entry for this
-     skill in **both** stores is the invariant broken, not a
-     configuration this framework writes — the local one wins, and
-     `/magpie-setup reconcile` reports the mismatch as drift to clean
-     up.
+     skill in **both** stores is an expected transitional state, not a
+     fault — someone configured the project before it adopted, on a
+     machine `adopt` never ran from. The local one wins, and
+     `/magpie-setup reconcile` offers to drop the redundant local
+     entry.
 
      Resolve against whichever store actually names this skill:
      - **Match** → silent.
@@ -170,13 +167,26 @@ couple of file checks, or one CLI call for a marketplace install.
        write `acknowledged.skills["<name>"]: <current hash>` —
        recorded the moment it is shown, not on a decline this step
        never waits for.
-     - **Neither store names this skill** → propose the one-time
-       `/magpie-setup reconcile` sweep instead of a per-skill fix.
-       Before proposing: `acknowledged.sweep` in the local file already
-       equal to this skill's plugin's currently-installed version →
-       silent. Otherwise show it and write `acknowledged.sweep:
-       <installed version>` — suppressed until that version changes,
-       which is exactly when new drift can have arrived.
+     - **Neither store names this skill** → **silent** whenever a
+       `reconciled:` block exists in either store at all. A stamp that
+       does not name this skill says the project does not configure
+       it; step 7 below already covers the case where it does and a
+       required file is missing. Only when there is **no `reconciled:`
+       block in either store** — nothing here has ever been reconciled
+       — propose the one-time `/magpie-setup reconcile` sweep instead
+       of a per-skill fix. Before proposing: `acknowledged.sweep` in
+       the local file already equal to the current version → silent.
+       Otherwise show it and write `acknowledged.sweep: <version>`,
+       where `<version>` is the installed plugin version on a
+       marketplace install and the framework version otherwise — the
+       same value the stamp's own `version` records — suppressed until
+       it changes, which is exactly when new drift can have arrived.
+
+   **Every write this step makes merges into
+   `.apache-magpie-local/reconciled.json`; it never replaces the
+   file.** Read it, set the one key, write the whole object back with
+   every other key intact — and create the file, and
+   `.apache-magpie-local/` itself, when either is absent.
 
 5. **Unless step 3 passed silently or came back unknown, stop.**
    Whichever branch you took — plugins installed or updated, commands
@@ -260,11 +270,14 @@ couple of file checks, or one CLI call for a marketplace install.
 10. **Suggest `/magpie-setup verify` when it is overdue.** Same
     reasoning as step 9 above.
 
-    Compare today against `verified_at` in
-    `.apache-magpie-local/reconciled.json` (already read in step 4
-    above if that step read it; read it now otherwise) if present, else
-    the stamp's `at:` — a project just configured or adopted needs no
-    reminder to verify what it was just checked against. Older than
+    Compare today against the **most recent** of `verified_at` and
+    `verify_suggested_at` in `.apache-magpie-local/reconciled.json`
+    (already read in step 4 above if that step read it; read it now
+    otherwise), and — when neither is present — against the stamp's
+    `at:`. A project just configured or adopted needs no reminder to
+    verify what it was just checked against, and a suggestion already
+    made re-arms the clock as surely as a `verify` that was taken.
+    Older than
     `setup.verify_interval_days` (default 14, `0` disables) → suggest
     it, once, and say why it is worth taking: `verify` is the only place
     a sandboxed session's own latest-version comparison happens, because

@@ -63,12 +63,18 @@ do not treat the absence as a finding.
    regardless of adoption state — never in the committed lock, even
    when adopted. Read that file now if it exists; you will write to it
    either way.
-3. **A `skills` entry for the same skill in both stores is drift, not a
-   configuration this framework ever writes.** If you find one while
-   reading (step 0 or step 1 of the sweep below), the local entry wins
-   for every comparison this run makes, and the run reports the
-   collision in its summary as drift the operator should clean up (drop
-   the stale committed entry, or the redundant local one, by hand).
+3. **A `skills` entry for the same skill in both stores is an expected
+   transitional state, not a fault.** It is what the ordinary
+   config-then-adopt path produces across two machines: a contributor
+   runs `config` before the project adopts, a maintainer runs `adopt`
+   elsewhere, and `adopt` can only migrate the local stamp on the
+   machine it ran from. If you find one while reading (step 0 or
+   step 1 of the sweep below), the local entry wins for every
+   comparison this run makes; name the collision in this run's summary
+   and **offer to drop the redundant local entries**, leaving the
+   committed lock as the single store. That offer is one confirmation
+   like any other finding in Step 2 — declining it changes nothing,
+   and the collision stays reported.
 4. **Main-checkout only when the target is the committed lock.**
    Writing to `.apache-magpie.lock` is a committed-file write, the same
    restriction [`adopt`](adopt.md) carries and for the same reason.
@@ -86,12 +92,18 @@ diff against. That costs the *report* some precision, not the check:
 two questions are answerable from the current tree alone, with no
 baseline required.
 
-1. **Enumerate the scope.** Every skill named by a file under
-   `.apache-magpie-local/` or `.apache-magpie-overrides/` (a
-   configuration file matching one of that skill's `requires_config:`
-   entries, or an override file named `<skill>.md`) is in scope. This
-   is deliberately **not** every skill the framework ships — a handful,
-   the ones this project actually touches.
+1. **Enumerate the scope.** A skill is in scope when an **override
+   file names it** (`.apache-magpie-overrides/<skill>.md` or
+   `.apache-magpie-local/<skill>.md`), **or** when one of its
+   `requires_config:` entries **resolves** from `.apache-magpie-local/`
+   or `.apache-magpie-overrides/`. A project that supplies a skill's
+   configuration has configured that skill, whether or not it also
+   overrides it — so take the broad reading rather than trying to
+   guess which skills the project "meant". This is still **not** every
+   skill the framework ships; how many it is depends entirely on how
+   much the project configures, which is two for a project with a
+   single override and most of the catalogue for one that commits a
+   widely-read `project.md`.
 
 2. **Anchor resolution.** For every override file
    (`.apache-magpie-overrides/<skill>.md` or
@@ -203,6 +215,12 @@ suppressed by a write that never happened.
 - **A skill named only in `unchecked`** (sandboxed run, check 4) — no
   entry is written either way; it is neither confirmed clean nor
   declined, just unverified this run.
+- **A both-stores collision** (Step 0.3) — confirming drops that
+  skill's redundant `skills` entry from
+  `.apache-magpie-local/reconciled.json`, leaving the committed lock
+  as the single store and the three always-local keys untouched.
+  Declining leaves both entries in place; the local one keeps winning
+  and the collision is reported again next run.
 
 Once every finding has been confirmed, applied, or declined:
 
@@ -216,9 +234,12 @@ Once every finding has been confirmed, applied, or declined:
   lands through the project's normal review like any other committed
   file; do not commit on the operator's behalf.
 - If the whole sweep was declined outright — the operator does not want
-  to act on any finding this run — write
-  `acknowledged.sweep: <installed plugin version>` to the local file
-  and change nothing else. This suppresses the pre-flight's project-wide
+  to act on any finding this run — write `acknowledged.sweep:
+  <version>` to the local file and change nothing else, where
+  `<version>` is the installed plugin version on a marketplace install
+  and the framework version otherwise: the same value this run wrote,
+  or would have written, as the stamp's own `version`. This
+  suppresses the pre-flight's project-wide
   sweep proposal until that version changes, per
   [`agentic-overrides.md` → Reconciliation on framework upgrade](../../../../docs/setup/agentic-overrides.md#reconciliation-on-framework-upgrade);
   it does not suppress the per-skill checks for skills whose findings
@@ -245,7 +266,8 @@ requires_config resolution:
 Both-stores collision:
   ✓ none found   OR
   ⚠ <skill> named in both the committed lock and the local file —
-    the local entry wins; drop one by hand
+    expected after config-then-adopt across two machines; the local
+    entry wins  →  drop the redundant local entry? [confirm]
 
 Unchecked (sandboxed session — plugin cache not readable):
   - <none>   OR

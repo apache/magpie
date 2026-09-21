@@ -205,6 +205,34 @@ def test_no_detail_files_matches_legacy_text_only_algorithm(tmp_path: Path) -> N
     assert MOD.surface_hash(skill_dir) == legacy_digest
 
 
+def test_fourth_level_heading_is_an_anchor(tmp_path: Path) -> None:
+    """`#### Pass B — Security` is a structural sub-step an override can
+    anchor to, not prose: it is recorded, and renaming it moves the hash."""
+    with_h4 = _make_skill(tmp_path / "with-h4", SKILL + "\n#### Pass B — Security\n")
+    renamed = _make_skill(tmp_path / "renamed", SKILL + "\n#### Pass C — Security\n")
+    base = _make_skill(tmp_path / "base")
+
+    _, anchors = MOD.surface_inputs(with_h4)
+    assert "Pass B — Security" in anchors
+    assert MOD.surface_hash(with_h4) != MOD.surface_hash(base)
+    assert MOD.surface_hash(renamed) != MOD.surface_hash(with_h4)
+
+
+def test_fourth_level_heading_in_a_detail_file_is_an_anchor(tmp_path: Path) -> None:
+    base = _make_skill(tmp_path / "base", SKILL, **{"guide.md": "#### Sub-step one\n"})
+    renamed = _make_skill(tmp_path / "renamed", SKILL, **{"guide.md": "#### Sub-step two\n"})
+    _, anchors = MOD.surface_inputs(base)
+    assert "guide.md: Sub-step one" in anchors
+    assert MOD.surface_hash(renamed) != MOD.surface_hash(base)
+
+
+def test_fifth_level_heading_is_not_an_anchor(tmp_path: Path) -> None:
+    """The widening stops at `####`; deeper headings stay prose."""
+    base = _make_skill(tmp_path / "base")
+    with_h5 = _make_skill(tmp_path / "with-h5", SKILL + "\n##### Deep aside\n")
+    assert MOD.surface_hash(with_h5) == MOD.surface_hash(base)
+
+
 def test_subdirectories_are_ignored(tmp_path: Path) -> None:
     without = _make_skill(tmp_path / "without")
 

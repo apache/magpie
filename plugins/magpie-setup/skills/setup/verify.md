@@ -902,9 +902,12 @@ completion (see [Writing `verified_at`](#writing-verified_at) below).
   and say plainly that resolving them needs an unsandboxed
   `/magpie-setup reconcile` run.
 - A `skills` entry for the same skill present in **both** the
-  committed lock and the local file is drift, reported here exactly as
-  [`reconcile.md` Step 0.3](reconcile.md#step-0--pre-flight) defines
-  it — the local entry wins, name the collision, do not resolve it.
+  committed lock and the local file is the expected transitional state
+  [`reconcile.md` Step 0.3](reconcile.md#step-0--pre-flight)
+  describes — config on one machine, adopt on another — not a fault.
+  The local entry wins; name the collision and point at
+  `/magpie-setup reconcile`, which offers to drop the redundant local
+  entry. Do not resolve it here.
 
 ### 12. Latest available plugin version
 

@@ -359,10 +359,12 @@ the same as every other entry 4d writes; only the per-skill hashes move.
 `config` cannot do this migration itself — it has no way to know a
 later `adopt` is coming — so `adopt` is the one surface that carries it
 over. Skipping this would leave the same skill named in the committed
-lock (from 4d's own scope below) **and** the local file at once, the
-exact broken invariant
+lock (from 4d's own scope below) **and** the local file at once — the
+both-stores collision
 [`locks.md`](locks.md#the-reconciled-block--what-was-checked-not-what-to-install)
-warns about.
+describes, which `adopt` is the one surface able to avoid outright
+rather than merely report. It stays an expected state on *other*
+contributors' machines, whose local stamps this run cannot see.
 
 **Then scope the rest of this run's writes.** Every skill the committed
 configuration now covers, resolved the same way
@@ -454,6 +456,19 @@ Tell the user, in this order:
   If that empties a key, remove the empty key rather than leaving `{}`.
 - preserve `.apache-magpie-overrides/` unless `--purge-overrides` is
   passed.
+- **migrate the reconciliation stamp back before the lock goes.** On
+  an adopted project the lock's `reconciled:` block is the project's
+  only copy of the `skills` map (step 4d moved it there), and
+  `.apache-magpie-overrides/` survives this operation — so deleting
+  the lock without moving the map leaves a configured project with no
+  baseline, and every skill's pre-flight proposes the one-time sweep
+  again. Copy `version`, `at` and `skills` into
+  `.apache-magpie-local/reconciled.json` — merging into it, never
+  replacing it, so `verified_at`, `verify_suggested_at` and
+  `acknowledged` stay — which is exactly where a
+  configured-but-unadopted project's stamp belongs. If the copy cannot
+  be made, say plainly that the stamp went with the lock and that
+  `/magpie-setup reconcile` re-establishes one.
 
 **Leave every install alone** — the user's own, and everyone else's.
 Un-adopting is the repo withdrawing a recommendation; it uninstalls

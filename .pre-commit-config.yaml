@@ -345,14 +345,18 @@ repos:
   # count so that measurement sees the final bytes. The hash covers only
   # `requires_config` and the skill's structural anchors: a reworded
   # paragraph must not tell every adopter their configuration went stale,
-  # and a renamed step must.
+  # and a renamed step must. `files:` matches every `*.md` directly inside a
+  # skill directory, not just `SKILL.md`, because the fingerprint spans the
+  # sibling detail files too — a heading renamed in `locks.md` moves the
+  # `setup` digest, and a `SKILL.md`-only pattern would let that commit pass
+  # green here and fail on `main`.
   - repo: local
     hooks:
       - id: skill-surface-hash
         name: skill-surface-hash (reconciliation fingerprint in every SKILL.md)
         language: system
         entry: python3 tools/dev/skill-surface-hash.py --fix
-        files: ^(skills/[^/]+/SKILL\.md|plugins/magpie-[^/]+/skills/[^/]+/SKILL\.md)$
+        files: ^(skills/[^/]+/[^/]+\.md|plugins/magpie-[^/]+/skills/[^/]+/[^/]+\.md)$
         pass_filenames: false
   # Deterministic full-file token measurements. Run after skill fixers.
   # The dedicated path-filtered CI workflow also catches deleted skills.

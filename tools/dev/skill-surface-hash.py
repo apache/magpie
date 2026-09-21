@@ -39,14 +39,21 @@ a future reconciliation check) can read it as plain data.
 So: **one generator, one derived field per skill.** `surface_hash(skill_dir)`
 folds `requires_config:` (order-independent — a re-sorted list is not a
 change) and the sorted set of structural anchors, tagged with the file each
-came from (`##`/`###` headings and `**Golden rule ...**` callouts, markdown
-decoration stripped so `**Step 1**` and `Step 1` hash the same) into a
-short `sha256:` digest, deliberately
+came from (`##` through `####` headings and `**Golden rule ...**` callouts,
+markdown decoration stripped so `**Step 1**` and `Step 1` hash the same)
+into a short `sha256:` digest, deliberately
 excluding the shared pre-flight block that `check-skill-preflight.py`
 manages — that block is identical everywhere and moving it is a framework
 change, not a project-specific reconciliation event — and deliberately
 excluding ordinary prose, which is free to be reworded without telling
 every adopter their configuration went stale.
+
+Fourth-level headings count. Twelve shipped skills use `####` for real
+structure — `#### Pass B — Security`, `#### Category C — ...`, `#### 4c-ii
+— ...` — and an override anchors to one of those exactly as it anchors to
+a `##` step. Stopping at `###` left those renames silent, which is the
+class of drift this fingerprint exists to catch. `#####` and deeper stay
+out: nothing in the catalogue uses them as a contract surface.
 
 Unlike the pre-flight-block hook, this script exempts nothing. The `setup`
 family is exempt from the pre-flight block because those are the skills
@@ -72,7 +79,7 @@ PREFLIGHT_RE = re.compile(re.escape(BEGIN) + r".*?" + re.escape(END), re.S)
 FRONTMATTER_RE = re.compile(r"^---\n(.*?)\n---\n", re.S)
 REQUIRES_RE = re.compile(r"^requires_config:\n((?:[ \t]+-[ \t]*\S+\n)+)", re.M)
 ITEM_RE = re.compile(r"^[ \t]+-[ \t]*(\S+)[ \t]*$", re.M)
-HEADING_RE = re.compile(r"^#{2,3}[ \t]+(.+?)[ \t]*$", re.M)
+HEADING_RE = re.compile(r"^#{2,4}[ \t]+(.+?)[ \t]*$", re.M)
 GOLDEN_RE = re.compile(r"^\*\*(Golden rule[^*]+)\*\*", re.M)
 HASH_RE = re.compile(r"^surface_hash:[ \t]*\S+\n", re.M)
 
