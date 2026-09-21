@@ -172,6 +172,16 @@ maintainer's judgement call, not pattern-matching. A `requires_config`
 gap can be closed mechanically by chaining into
 `/magpie-setup config <skill>`; offer it per item.
 
+Both `acknowledged` writes below fire **on decline**, not on show — unlike
+the pre-flight block's own per-skill check
+([`tools/dev/preflight-block.md`](../../../../tools/dev/preflight-block.md)
+step 4), which never blocks for an answer and so has no decline event to
+hook, only a show. This flow blocks for a real item-by-item and
+whole-sweep confirmation, so a decline here is a real event; a sweep the
+operator abandons mid-flow deliberately leaves nothing recorded, so the
+proposal correctly returns on the next run instead of being silently
+suppressed by a write that never happened.
+
 - **Confirmed and applied** — the skill's configuration now resolves
   cleanly. Its entry in the stamp's `skills:` map is written (or
   refreshed) with its **current** `surface_hash`.
