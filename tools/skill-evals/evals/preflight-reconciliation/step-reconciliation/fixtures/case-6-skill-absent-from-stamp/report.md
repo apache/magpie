@@ -21,16 +21,19 @@ cat .apache-magpie.lock:
     skills:
       magpie-pr-management-code-review: sha256:9f1c4e2a7b3d5c11
       magpie-security-issue-triage:     sha256:4ab70d1e88221fa0
-  (magpie-reviewer-routing was configured after this stamp was written
-  and has never been reconciled — it does not appear in `skills:`
-  above)
+  (magpie-reviewer-routing does not appear in `skills:` above)
 
 cat .apache-magpie-local/reconciled.json:
   {
     "verified_at": "2026-09-18"
   }
-  (no `skills` entry for magpie-reviewer-routing here either, and no
-  `acknowledged` block at all yet)
+  (no `skills` map here at all, and no `acknowledged` block yet)
+
+ls .apache-magpie-local/ .apache-magpie-overrides/:
+  .apache-magpie-local/reconciled.json
+  .apache-magpie-overrides/project.md
+  .apache-magpie-overrides/reviewer-roster.md
+  (both of this skill's requires_config entries resolve)
 
 claude plugin list --json (readable in this session):
   [{"name": "magpie-pr-management", "version": "0.2.0.dev202609180100"}]

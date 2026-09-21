@@ -9,11 +9,11 @@ every non-`setup` `SKILL.md` carries — specifically the reconciliation
 comparison step every skill runs against itself before doing anything
 else.
 
-## Suites (6 cases total)
+## Suites (7 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
-| step-reconciliation | `## Pre-flight — is this project set up?` | 6 | comparing a skill's own `surface_hash` against the project's `reconciled:` stamp |
+| step-reconciliation | `## Pre-flight — is this project set up?` | 7 | comparing a skill's own `surface_hash` against the project's `reconciled:` stamp |
 
 ## Run
 
@@ -54,12 +54,20 @@ PYTHONPATH=tools/skill-evals/src python3 -m skill_evals.runner \
   outcomes rests entirely on whether the *new or changed* entry itself
   resolves through the lookup chain, not on any claim about which input
   the hash change came from (the hash cannot say that on its own).
-- `case-4-no-stamp` (no `reconciled:` block anywhere) and
-  `case-6-skill-absent-from-stamp` (a `reconciled:` block exists but has
-  never covered this particular skill) both land on `outcome:
-  propose_sweep` — the same token, different trigger. Case 6 is the more
-  common real-world shape: a project that reconciles regularly still
-  has newly-configured skills show up unstamped between sweeps.
+- **The sweep is proposed on the absence of the stamp, not on the
+  absence of an entry.** `case-4-no-stamp` (no `reconciled:` block
+  anywhere) is the only `propose_sweep` case in the suite.
+  `case-6-skill-absent-from-stamp` (a stamp exists, this skill has a
+  configuration surface, but the stamp does not name it) and
+  `case-7-no-config-surface` (a stamp exists and this skill declares no
+  `requires_config:` and carries no override, so nothing could ever put
+  it in one) both land on `silent`. Case 7 is the load-bearing one:
+  eleven shipped skills have no configuration surface at all, so under
+  a "no entry → sweep" reading every adopted project would get a sweep
+  proposal from each of them after every plugin update, forever, having
+  already swept. A missing entry in an existing stamp says the project
+  does not configure this skill; step 7 of the block covers the case
+  where it does and a required file is missing.
 - No case exercises the `.apache-magpie.lock`-absent-and-nothing-local
   gate directly (that shape is silent by construction — the step skips
   itself before any read — and is covered by `setup`'s own
