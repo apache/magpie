@@ -209,9 +209,16 @@ Walk each:
    *only when whole-user scope is in effect, detected via
    `git config --global --get core.hooksPath` resolving to
    `~/.claude/git-hooks`* —
-   `~/.claude/git-hooks/post-checkout` for the universal
-   post-checkout hook), `diff` the user copy against the
-   framework's source-of-truth in `tools/agent-isolation/`.
+   the contents of `~/.claude/git-hooks/`, whose shape depends on
+   the flavour Step P.3 installed: the **simple** flavour puts a
+   copy of `git-global-post-checkout.sh` at `post-checkout`, while
+   the **dispatcher** flavour installs `git-hook-dispatcher.sh`
+   there and symlinks every hook name to it, superseding the
+   standalone post-checkout script — diff whichever script is
+   present against its own source, and read the hook-name symlinks
+   as the installed shape rather than as drift), `diff` the user
+   copy against the framework's source-of-truth in
+   `tools/agent-isolation/`.
    Report any drift as a unified diff; do not re-`cp`. The
    re-install path for each is
    [`setup-isolated-setup-install`](../isolated-setup-install/SKILL.md)
