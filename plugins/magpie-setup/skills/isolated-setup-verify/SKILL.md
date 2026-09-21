@@ -449,14 +449,18 @@ Walk each in order:
       ✗.
     - **12b — hook script present.** `~/.claude/scripts/container-gateway-hook.sh`
       exists and is executable. Missing or non-executable is ✗.
-    - **12c — project wiring.** The project `.claude/settings.json`
-      or `.claude/settings.local.json` (check both — which file
-      carries the gateway entries depends on which install variant
-      the adopter chose) has `env.CONTAINER_HOST` and
+    - **12c — project wiring.** The gitignored
+      `.claude/settings.local.json` has `env.CONTAINER_HOST` and
       `env.DOCKER_HOST`, and both gateway sockets appear in
       `sandbox.network.allowUnixSockets`. Either half missing
       (the `env` pair or the socket allow-list pair) is ✗; report
-      which half.
+      which half. All four values must be **absolute** paths: the
+      CLIs read a `unix://` URL's authority as a host component, so
+      a project-relative `unix://./…` value dials a path that does
+      not exist. A relative `env` value — including one left in the
+      committed `.claude/settings.json` by an older install — is ✗,
+      quoting it and pointing at
+      [Container gateway](../../../../docs/setup/secure-agent-setup.md#container-gateway).
     - **12d — no raw daemon socket in any scope's `allowUnixSockets`.**
       Scan project, project-local, and user scope
       (`.claude/settings.json`, `.claude/settings.local.json`,

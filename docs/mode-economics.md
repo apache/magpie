@@ -84,7 +84,7 @@ history separately provides its publication revision and date.
 
 <!-- BEGIN GENERATED SKILL TOKEN COUNTS -->
 
-Measured on (UTC): 2026-09-20.
+Measured on (UTC): 2026-09-21.
 
 Tokenizer: **tiktoken 0.14.0, `cl100k_base`**. Method: full UTF-8 file,
 including frontmatter and comments; line endings normalized to LF;
@@ -92,7 +92,7 @@ special-token spellings counted as ordinary text.
 Coverage: **75 of 75 local `skills/*/SKILL.md` files**.
 External `source.md` redirects and harness symlinks are excluded.
 
-Measurement manifest SHA-256: `f44def0e67cfebd4dceadc4b3253f16215740b0f611736356b3f0f300bb3b2f3`.
+Measurement manifest SHA-256: `025b473aca2cddcd3304dfc5adbda35c972e51c0039ad790437528e3e047060c`.
 
 | Skill file | Measured tokens | Source SHA-256 (first 16 characters) |
 |---|---:|---|
@@ -159,10 +159,10 @@ Measurement manifest SHA-256: `f44def0e67cfebd4dceadc4b3253f16215740b0f611736356
 | [security-model-verify](../skills/security-model-verify/SKILL.md) | 6,625 | `cde155672857b33c` |
 | [security-tracker-stats-dashboard](../skills/security-tracker-stats-dashboard/SKILL.md) | 4,897 | `b52154deb8557ba4` |
 | [setup](../skills/setup/SKILL.md) | 8,724 | `82788542bb240309` |
-| [setup-isolated-setup-doctor](../skills/setup-isolated-setup-doctor/SKILL.md) | 7,651 | `7485a409d69de376` |
-| [setup-isolated-setup-install](../skills/setup-isolated-setup-install/SKILL.md) | 10,059 | `d2a1e98a9f2c3b38` |
+| [setup-isolated-setup-doctor](../skills/setup-isolated-setup-doctor/SKILL.md) | 7,950 | `3fa5d728fa080ed0` |
+| [setup-isolated-setup-install](../skills/setup-isolated-setup-install/SKILL.md) | 10,110 | `c32091305674dd2b` |
 | [setup-isolated-setup-update](../skills/setup-isolated-setup-update/SKILL.md) | 4,843 | `60bab0e30ac2e25a` |
-| [setup-isolated-setup-verify](../skills/setup-isolated-setup-verify/SKILL.md) | 7,410 | `e5c4cd00e97147ad` |
+| [setup-isolated-setup-verify](../skills/setup-isolated-setup-verify/SKILL.md) | 7,489 | `d7fa414b358d90ad` |
 | [setup-override-upstream](../skills/setup-override-upstream/SKILL.md) | 4,012 | `fb583feb56b7f77c` |
 | [setup-privacy-llm](../skills/setup-privacy-llm/SKILL.md) | 2,145 | `0e27b542a1656846` |
 | [setup-shared-config-sync](../skills/setup-shared-config-sync/SKILL.md) | 4,357 | `d1dfcd7cdeb5f5a6` |

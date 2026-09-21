@@ -735,12 +735,16 @@ populated needs neither, since the hook falls back to
 merging into existing arrays with a diff the operator approves,
 exactly as for K.2's touch-overlay hooks.
 
-**L.3 — Project wiring.** Propose the project `env` block
-(`CONTAINER_HOST` / `DOCKER_HOST`, project-relative `unix://` URLs,
-committed in `.claude/settings.json`) and the `allowUnixSockets`
-pair (absolute paths, per-machine, in the gitignored
-`.claude/settings.local.json`) as a single settings diff — the same
-two-file split the setup guide documents. Never propose the real
+**L.3 — Project wiring.** Propose the `env` block
+(`CONTAINER_HOST` / `DOCKER_HOST`) and the `allowUnixSockets` pair
+as a single settings diff into the gitignored
+`.claude/settings.local.json`. All four values are **absolute**
+paths and therefore per-machine: the CLIs do not resolve a
+project-relative `unix://./…` value against the cwd — the URL
+authority is read as a host component, so `unix://./x` dials
+`/.//x` — and `allowUnixSockets` has no relative form either.
+Nothing gateway-related is committed to `.claude/settings.json`.
+Never propose the real
 daemon socket under any name; `tools/sandbox-lint` rejects an
 `allowUnixSockets` entry named `docker.sock` / `podman.sock` /
 `*-api.sock` outside `.apache-magpie-local/run/`.

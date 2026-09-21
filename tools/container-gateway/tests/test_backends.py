@@ -38,6 +38,24 @@ def test_podman_machine_on_darwin() -> None:
     assert found == [Backend("podman", sock, "host.containers.internal")]
 
 
+def test_podman_machine_path_reported_under_a_foreign_tmpdir() -> None:
+    # `podman machine inspect` renders the socket path from the caller's TMPDIR,
+    # so a hook or agent with a different TMPDIR is told a path that does not
+    # exist. Discovery must still find the socket the machine really listens on.
+    reported = Path("/tmp/podman/podman-machine-default-api.sock")
+    real = Path("/var/folders/sm/xxx/T/podman/podman-machine-default-api.sock")
+
+    def run(argv: list[str]) -> str | None:
+        if argv[:3] == ["podman", "machine", "inspect"]:
+            return str(reported)
+        if argv == ["getconf", "DARWIN_USER_TEMP_DIR"]:
+            return "/var/folders/sm/xxx/T/"
+        return None
+
+    found = discover("Darwin", {}, run, lambda p: p == real, ALL)
+    assert found == [Backend("podman", real, "host.containers.internal")]
+
+
 def test_machine_socket_missing_means_no_backend() -> None:
     run = lambda argv: "/nope.sock" if argv[:2] == ["podman", "machine"] else None  # noqa: E731
     assert discover("Darwin", {}, run, lambda p: False, ALL) == []

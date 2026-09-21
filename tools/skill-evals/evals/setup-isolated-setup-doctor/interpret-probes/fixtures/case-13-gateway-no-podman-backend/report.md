@@ -6,4 +6,4 @@ Probe output collected while the gateway is up but the Podman machine is stopped
 PROBE: ssh-agent → ✓ (2 identities listed)
 PROBE: localhost-bind → ✓ (bound + loopback GET → HTTP 200, body=b'ok')
 PROBE: podman-runtime → ✗ (gateway running without a podman backend — is the Podman machine started? start it, then restart the gateway)
-PROBE: docker-runtime → ✓ (docker reaches the container gateway at ./.apache-magpie-local/run/docker.sock)
+PROBE: docker-runtime → ✓ (docker reaches the container gateway at /Users/alice/tracker/.apache-magpie-local/run/docker.sock)

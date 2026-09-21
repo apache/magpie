@@ -130,6 +130,28 @@ is listed here for navigability since its domain is PR threads.
   without either remains `unknown`. Every surfaced finding carries that
   constraint ledger, and its remediation follows the adopter's applicable
   `AGENTS.md` and dependency or release policy for all three classifications.
+- **A green rollup is not evidence CI ran.** `statusCheckRollup.state ==
+  SUCCESS` aggregates only completed check-runs, so a PR whose real
+  workflows sit in `action_required` — awaiting approval for a
+  first-time contributor — reports SUCCESS while nothing was built,
+  linted, or tested, and fast bot checks (Mergeable, WIP, DCO,
+  boring-cyborg) that succeed unconditionally are enough to carry it
+  there. Both `pr-management-triage` and `pr-management-code-review`
+  therefore run a mandatory Real-CI guard before any row classifies a
+  PR as passing. A PR whose real CI never ran is as ineligible for
+  APPROVE as one that fails, sorts below every PR with a real run when
+  a queue is ordered, and is reported as *CI unverified* rather than
+  having its outcome predicted.
+- **A posted review is confirmed, never retried.** `gh pr review` prints
+  nothing on success, so an empty result must not be read as failure: a
+  zero exit means the review posted whatever it printed. Before any
+  retry the skill confirms the post-condition through the reviews API,
+  because a duplicate cannot be withdrawn — GitHub deletes only pending
+  reviews, and `DELETE /repos/{owner}/{repo}/pulls/{n}/reviews/{id}`
+  answers `422 Can not delete a non-pending pull request review` once
+  submitted, leaving the body edited down to a pointer as the only
+  repair. The same rule covers `gh pr comment` and the
+  `addPullRequestReview` mutation.
 - **Config-driven, not skill-edited.** Project-specific values
   (committers team handle, area-label prefix, comment-template wording,
   CI-check → doc-URL map, review criteria, quick-merge path globs) all

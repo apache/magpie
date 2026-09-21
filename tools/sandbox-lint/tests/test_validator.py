@@ -388,25 +388,32 @@ def test_cli_exits_when_top_level_value_is_not_object(tmp_path: Path, baseline: 
 
 
 # ---------------------------------------------------------------------------
-# Container gateway: env vars route CONTAINER_HOST / DOCKER_HOST through the
-# gateway; absolute allowUnixSockets entries for the gateway sockets are
-# per-project, local settings (RELATIVE_SOCKETS=no), not committed here.
+# Container gateway: every setting that points a CLI or a sandboxed Bash at a
+# gateway socket needs that socket's ABSOLUTE path, which is per-machine, so
+# none of them belongs in this committed baseline.
 # ---------------------------------------------------------------------------
 
 
-def test_baseline_routes_containers_through_the_gateway(baseline: dict[str, Any]) -> None:
+def test_baseline_carries_no_gateway_env(baseline: dict[str, Any]) -> None:
+    # CONTAINER_HOST / DOCKER_HOST used to be committed here with a
+    # project-relative "unix://./.apache-magpie-local/run/podman.sock" value,
+    # on the assumption that the CLIs resolve it against the cwd. They do not:
+    # podman parses the URL authority as a host component, so "unix://./x"
+    # dials "/.//x" and "unix://x" dials "/x/" -- no relative spelling reaches
+    # the socket. Only "unix:///abs/path" works, and an absolute path is
+    # per-machine, so both vars live in .claude/settings.local.json next to
+    # the allowUnixSockets entries below (see
+    # docs/setup/secure-agent-setup.md#container-gateway).
     env = baseline.get("env", {})
-    assert env.get("CONTAINER_HOST") == "unix://./.apache-magpie-local/run/podman.sock"
-    assert env.get("DOCKER_HOST") == "unix://./.apache-magpie-local/run/docker.sock"
+    assert "CONTAINER_HOST" not in env
+    assert "DOCKER_HOST" not in env
 
 
 def test_baseline_has_no_gateway_socket_entries(baseline: dict[str, Any]) -> None:
-    # The committed reference (RELATIVE_SOCKETS=no) routes podman/docker
-    # through the project-relative env vars above only. The absolute
+    # Same reason as above, for the other half of the wiring: the absolute
     # allowUnixSockets entries a sandboxed Bash needs to connect(2) to the
     # gateway sockets are per-project, local settings -- written into
-    # .claude/settings.local.json by `/magpie-setup config`, never into this
-    # committed baseline (see docs/setup/secure-agent-setup.md).
+    # .claude/settings.local.json, never into this committed baseline.
     sockets = baseline["sandbox"]["network"].get("allowUnixSockets", [])
     assert not any(s.endswith("podman.sock") or s.endswith("docker.sock") for s in sockets)
 

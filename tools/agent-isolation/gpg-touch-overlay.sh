@@ -632,8 +632,14 @@ _watch() {
         if [[ -n ${MAGPIE_GPG_TOUCH_PARENT:-} ]] && ! kill -0 "$MAGPIE_GPG_TOUCH_PARENT" 2>/dev/null; then
             break
         fi
-        rows="$(agent_socket_rows "$sockets")"
-        if { signing_in_flight || (( rows > baseline )); } && ! pinentry_up; then
+        # `signing_in_flight` is O(1) under `wrap` -- the watcher's own
+        # existence is the answer -- while `agent_socket_rows` shells out to
+        # `lsof -U -n`, which enumerates every unix socket on the machine and
+        # on a loaded host can take longer than the signature it is meant to
+        # observe. Asking the cheap question first keeps the expensive one out
+        # of the hot loop entirely on the wrapped path; polling it first cost
+        # the overlay the whole window on a busy machine, so it never appeared.
+        if { signing_in_flight || { rows="$(agent_socket_rows "$sockets")"; (( rows > baseline )); }; } && ! pinentry_up; then
             blocked=$(( blocked + 1 ))
             (( blocked >= SHOW_DELAY )) && show_overlay
         else

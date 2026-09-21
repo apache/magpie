@@ -462,14 +462,13 @@ below, annotated.
 
 ```jsonc
 {
-  // The container gateway (tools/container-gateway) is where sandboxed
-  // podman / docker calls go. Both CLIs honour these variables; the
-  // sockets are project-relative, so this block is the same for every
-  // adopter. The gateway is started by the SessionStart hook below.
-  "env": {
-    "CONTAINER_HOST": "unix://./.apache-magpie-local/run/podman.sock",
-    "DOCKER_HOST": "unix://./.apache-magpie-local/run/docker.sock"
-  },
+  // No `env` block here. Sandboxed podman / docker calls go through the
+  // container gateway (tools/container-gateway), but CONTAINER_HOST /
+  // DOCKER_HOST have to name its sockets by ABSOLUTE path — the CLIs do
+  // not resolve a project-relative `unix://./…` value against the cwd —
+  // and an absolute path is per-machine. So they live in the gitignored
+  // `.claude/settings.local.json` alongside the matching
+  // `allowUnixSockets` entries, not here. See "Container gateway" below.
   "sandbox": {
     "enabled": true,
     // `excludedCommands` runs the listed commands OUTSIDE the sandbox.
@@ -2369,25 +2368,17 @@ Wire it as a `SessionStart` / `SessionEnd` pair in `~/.claude/settings.json`, al
 }
 ```
 
-The framework's own `.claude/settings.json` already carries the `env` half of the project-settings block, using project-relative `unix://` URLs so the same file works in every worktree:
-
-```jsonc
-// .claude/settings.json (committed, project-wide)
-{
-  "env": {
-    "CONTAINER_HOST": "unix://./.apache-magpie-local/run/podman.sock",
-    "DOCKER_HOST": "unix://./.apache-magpie-local/run/docker.sock"
-  }
-}
-```
-
-`allowUnixSockets` entries need an absolute path, which is per-machine, so they belong in the gitignored `.claude/settings.local.json` instead.
-Add the block by hand, substituting your own project's absolute path for `<project>` — nothing writes it for you.
+Every setting that points something at a gateway socket needs that socket's **absolute** path, which is per-machine, so the whole project-settings block belongs in the gitignored `.claude/settings.local.json` — nothing is committed.
+Add it by hand, substituting your own project's absolute path for `<project>` — nothing writes it for you.
 (`setup-isolated-setup-install` Step L proposes the same block as a settings diff; `/magpie-setup config` does **not** write it, and automating it there is a recorded follow-up.)
 
 ```jsonc
 // .claude/settings.local.json (gitignored, per machine)
 {
+  "env": {
+    "CONTAINER_HOST": "unix:///<project>/.apache-magpie-local/run/podman.sock",
+    "DOCKER_HOST": "unix:///<project>/.apache-magpie-local/run/docker.sock"
+  },
   "sandbox": {
     "network": {
       "allowUnixSockets": [
@@ -2398,6 +2389,10 @@ Add the block by hand, substituting your own project's absolute path for `<proje
   }
 }
 ```
+
+**Do not use a project-relative `unix://./…` value**, even though it would be worktree-portable and this guide recommended it until recently.
+The CLIs do not resolve it against the cwd: a `unix://` URL's authority is parsed as a host component, so `unix://./.apache-magpie-local/run/podman.sock` dials `/.//.apache-magpie-local/run/podman.sock` and `unix://.apache-magpie-local/run/podman.sock` dials `/.apache-magpie-local//run/podman.sock`, neither of which exists (verified against podman 6.1.0).
+`unix:///absolute/path` is the only spelling that reaches the socket, and paying for it in a per-machine file is the cost of that.
 
 Never add the real daemon socket to `allowUnixSockets` under any name: the framework's `sandbox-lint` tool rejects an entry whose basename is `docker.sock`, `podman.sock`, or ends in `-api.sock`, unless its parent directory is `.apache-magpie-local/run`.
 

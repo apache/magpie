@@ -55,9 +55,12 @@ It exits on `SessionEnd`, on `SIGTERM`, or after an idle timeout (default 4h) as
 ## Point the CLIs at it
 
 ```bash
-export CONTAINER_HOST=unix://./.apache-magpie-local/run/podman.sock
-export DOCKER_HOST=unix://./.apache-magpie-local/run/docker.sock
+export CONTAINER_HOST=unix://$PWD/.apache-magpie-local/run/podman.sock
+export DOCKER_HOST=unix://$PWD/.apache-magpie-local/run/docker.sock
 ```
+
+The path must be absolute.
+A `unix://` URL's authority is parsed as a host component, so a project-relative spelling never reaches the socket: `unix://./x` dials `/.//x`, `unix://x` dials `/x/`, and `unix:x` dials `//`.
 
 The podman CLI needs the libpod API and therefore only ever talks to a podman backend.
 The docker CLI talks to a docker backend when one exists, otherwise to podman's compat API.

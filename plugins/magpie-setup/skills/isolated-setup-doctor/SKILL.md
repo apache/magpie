@@ -287,6 +287,17 @@ for rt in podman docker; do
     echo "PROBE: ${rt}-runtime → ✗ ($( [ "$rt" = podman ] && echo CONTAINER_HOST || echo DOCKER_HOST ) unset — gateway not wired into settings)"
     continue
   fi
+  # The CLIs read a unix:// URL's authority as a host component, so only the
+  # absolute "unix:///path" spelling reaches the socket: "unix://./x" dials
+  # "/.//x". A relative value still stats fine here (the socket does exist
+  # relative to the cwd), so catch it by shape or the real cause is lost in
+  # the generic failure branch below.
+  case "$url" in
+    unix:///*) ;;
+    unix://*|unix:*)
+      echo "PROBE: ${rt}-runtime → ✗ ($( [ "$rt" = podman ] && echo CONTAINER_HOST || echo DOCKER_HOST )=$url is not absolute — the CLIs do not resolve a relative unix:// value against the cwd; use unix:///<project>/.apache-magpie-local/run/$rt.sock)"
+      continue ;;
+  esac
   sock="${url#unix://}"
   case "$(gw_state "$rt")" in
     not-running)
@@ -367,12 +378,17 @@ per the catalog entry below.
 
 ### Probe 4 — Per-project scratch directory (`TMPDIR`)
 
-Tests whether the session has a **writable, per-project** scratch
-directory. The sandbox mounts the host `/tmp` read-only and punches
-only specific subpaths writable, so a session whose `TMPDIR` falls
-back to `/tmp` gets no scratch area at all, and one whose `TMPDIR`
-points at the shared session root gets an area that collides with
-every other project on the machine.
+Tests whether the session has a **writable** scratch directory. The
+sandbox mounts the host `/tmp` read-only and punches only specific
+subpaths writable, so a session whose `TMPDIR` falls back to `/tmp`
+gets no scratch area at all.
+
+`TMPDIR` landing on the shared session root rather than a
+per-project directory is **not** a finding. Claude Code sets
+`TMPDIR` itself when it builds the sandbox and that assignment wins
+over `env.TMPDIR` from any settings file, so the shared root is the
+expected value and no configuration changes it. Each session still
+gets a per-project, per-session scratchpad underneath it.
 
 **Command:**
 
@@ -388,7 +404,7 @@ else
   slug=$(pwd | sed 's|/|-|g')
   case "$TMPDIR" in
     *"$slug"*) echo "PROBE: project-scratch → ✓ (per-project + writable: $TMPDIR)" ;;
-    *)         echo "PROBE: project-scratch → ⚠ (writable but shared across projects: $TMPDIR)" ;;
+    *)         echo "PROBE: project-scratch → ✓ (writable; shared session root, which is the harness default: $TMPDIR)" ;;
   esac
 fi
 ```
@@ -398,16 +414,19 @@ fi
 | Result | Status | Meaning |
 |---|---|---|
 | `✓ per-project + writable` | Pass | `TMPDIR` resolves under this project's path slug and accepts writes. |
-| `⚠ writable but shared across projects` | Warn | Scratch works, but every project on this machine shares it; concurrent sessions can collide on identical temp filenames. |
+| `✓ writable; shared session root` | Pass | The expected value on current Claude Code. Every project on the machine shares this directory, so write through the per-session scratchpad beneath it, or use unique filenames — but there is nothing to fix. |
 | `✗ TMPDIR not set` | Fail | Tooling falls back to `/tmp`, which is read-only inside the sandbox. |
-| `✗ directory missing` | Fail | `env.TMPDIR` names a path nothing has created yet. |
+| `✗ directory missing` | Fail | `TMPDIR` names a path nothing has created yet. |
 | `✗ not writable inside sandbox` | Fail | `TMPDIR` points outside `sandbox.filesystem.allowWrite`. |
 
-**On ✗ / ⚠ → remediation:**
+**On ✗ → remediation:**
 [`docs/setup/sandbox-troubleshooting.md` — Temp files fail with "Read-only file system" under `/tmp`](../../../../docs/setup/sandbox-troubleshooting.md#temp-files-fail-with-read-only-file-system-under-tmp).
 
-Note that `env` is applied at session start, so a fix does not take
-effect in the session that makes it — restart before re-probing.
+Do **not** propose `env.TMPDIR` in a settings file as the fix.
+Claude Code overrides it when it builds the sandbox, so the setting
+is accepted and silently has no effect; the giveaway is a directory
+that exists, is named exactly as configured, and stays empty. The
+catalog entry above covers what is actually actionable.
 
 ### Probe 5 — Signing key readable (`gpg.format=ssh`)
 

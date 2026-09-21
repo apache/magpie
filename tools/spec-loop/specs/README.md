@@ -52,6 +52,7 @@ Start with [`overview.md`](overview.md), then:
   [`contributor-growth.md`](contributor-growth.md),
   [`good-first-issue-sweep.md`](good-first-issue-sweep.md),
   [`codex-runtime.md`](codex-runtime.md),
+  [`copilot-runtime.md`](copilot-runtime.md),
   [`maintainer-education.md`](maintainer-education.md),
   [`spec-gap-staleness.md`](spec-gap-staleness.md),
   [`vetted-command-surface.md`](vetted-command-surface.md),

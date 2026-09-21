@@ -49,22 +49,39 @@ def host_alias(kind: str, platform: str) -> str:
     return "10.88.0.1" if kind == "podman" else "172.17.0.1"
 
 
-def _podman_socket(platform: str, env: Mapping[str, str], run: Runner) -> Path | None:
+def _podman_socket(platform: str, env: Mapping[str, str], run: Runner) -> list[Path]:
     if platform == "Darwin":
         out = run(["podman", "machine", "inspect", "--format", "{{.ConnectionInfo.PodmanSocket.Path}}"])
-        return Path(out) if out else None
+        if not out:
+            return []
+        reported = Path(out)
+        # `podman machine inspect` builds that path from the *caller's* TMPDIR,
+        # not from the machine's. A caller whose TMPDIR differs from the one the
+        # machine was started under -- an agent, a hook, a launchd service -- is
+        # told a path that does not exist, and discovery finds no backend on a
+        # host where podman works fine by hand. Only the basename is stable, so
+        # also look for it under the per-user temp directory, which `getconf`
+        # reports regardless of the environment.
+        candidates = [reported]
+        user_temp = run(["getconf", "DARWIN_USER_TEMP_DIR"])
+        if user_temp:
+            candidates.append(Path(user_temp, "podman", reported.name))
+        return candidates
     runtime_dir = env.get("XDG_RUNTIME_DIR")
-    return Path(runtime_dir, "podman", "podman.sock") if runtime_dir else None
+    return [Path(runtime_dir, "podman", "podman.sock")] if runtime_dir else []
 
 
-def _docker_socket(platform: str, env: Mapping[str, str], run: Runner) -> Path | None:
+def _docker_socket(platform: str, env: Mapping[str, str], run: Runner) -> list[Path]:
     if platform == "Darwin":
+        candidates = []
         out = run(["docker", "context", "inspect", "--format", '{{(index .Endpoints "docker").Host}}'])
         if out and out.startswith("unix://"):
-            return Path(out[len("unix://") :])
+            candidates.append(Path(out[len("unix://") :]))
         home = env.get("HOME")
-        return Path(home, ".docker", "run", "docker.sock") if home else None
-    return Path("/var/run/docker.sock")
+        if home:
+            candidates.append(Path(home, ".docker", "run", "docker.sock"))
+        return candidates
+    return [Path("/var/run/docker.sock")]
 
 
 def discover(
@@ -78,9 +95,10 @@ def discover(
     for kind, finder in (("podman", _podman_socket), ("docker", _docker_socket)):
         if kind not in wanted:
             continue
-        sock = finder(platform, env, run)
-        if sock is not None and exists(sock):
-            found.append(Backend(kind, sock, host_alias(kind, platform)))
+        for sock in finder(platform, env, run):
+            if exists(sock):
+                found.append(Backend(kind, sock, host_alias(kind, platform)))
+                break
     return found
 
 

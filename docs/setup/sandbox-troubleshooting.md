@@ -614,19 +614,24 @@ See [Container gateway](secure-agent-setup.md#container-gateway) in the setup gu
 
 | Error line | Cause | Action |
 |---|---|---|
-| `failed to read identity "…/machine/machine": operation not permitted` | `CONTAINER_HOST` / `DOCKER_HOST` are unset, so the CLI fell back to its default connection instead of the gateway | Add the reference `env` block below to `.claude/settings.json` / `settings.local.json` |
-| `dial unix ./.apache-magpie-local/run/podman.sock: connect: no such file or directory` | The gateway is not running for this project | Run `~/.claude/scripts/container-gateway-hook.sh start` from a terminal, or check `<project>/.apache-magpie-local/run/container-gateway.log` for why it did not start |
-| `dial unix ./.apache-magpie-local/run/podman.sock: connect: operation not permitted` | The gateway is running but its socket is missing from `sandbox.network.allowUnixSockets` | Add both gateway sockets as absolute paths, per [Container gateway](secure-agent-setup.md#container-gateway) |
+| `failed to read identity "…/machine/machine": operation not permitted` | `CONTAINER_HOST` / `DOCKER_HOST` are unset, so the CLI fell back to its default connection instead of the gateway | Add the reference `env` block below to `.claude/settings.local.json` |
+| `dial unix /.//.apache-magpie-local/run/podman.sock` — note the leading `/.//` | `CONTAINER_HOST` / `DOCKER_HOST` use a project-relative `unix://./…` value, which the CLIs do **not** resolve against the cwd | Use the absolute `unix:///<project>/…` spelling in the `env` block below |
+| `dial unix /<project>/.apache-magpie-local/run/podman.sock: connect: no such file or directory` | The gateway is not running for this project | Run `~/.claude/scripts/container-gateway-hook.sh start` from a terminal, or check `<project>/.apache-magpie-local/run/container-gateway.log` for why it did not start |
+| `dial unix /<project>/.apache-magpie-local/run/podman.sock: connect: operation not permitted` | The gateway is running but its socket is missing from `sandbox.network.allowUnixSockets` | Add both gateway sockets as absolute paths, per [Container gateway](secure-agent-setup.md#container-gateway) |
+| `no podman or docker backend found; nothing to serve` in the gateway log, while `podman` works by hand | On macOS the gateway asked `podman machine inspect` for the socket path, and that command renders it from the **caller's** `TMPDIR` | Update the framework: discovery now also probes `getconf DARWIN_USER_TEMP_DIR`/`podman/`, so a hook whose `TMPDIR` differs from the machine's still finds the socket |
 
 ```jsonc
-// .claude/settings.json (already the framework's committed default on this branch)
+// .claude/settings.local.json (gitignored, per machine — NOT committed)
 {
   "env": {
-    "CONTAINER_HOST": "unix://./.apache-magpie-local/run/podman.sock",
-    "DOCKER_HOST": "unix://./.apache-magpie-local/run/docker.sock"
+    "CONTAINER_HOST": "unix:///<project>/.apache-magpie-local/run/podman.sock",
+    "DOCKER_HOST": "unix:///<project>/.apache-magpie-local/run/docker.sock"
   }
 }
 ```
+
+A `unix://` URL's authority is parsed as a host component, so every relative spelling misses the socket — `unix://./x` dials `/.//x`, `unix://x` dials `/x/`, and `unix:x` dials `//`.
+`unix:///absolute/path` is the only form that connects (verified against podman 6.1.0), which is why this block is per-machine rather than committed.
 
 #### `403 container-gateway: …`
 
@@ -696,43 +701,50 @@ directory and can collide on identical filenames.
 
 ### Fix
 
-Point `TMPDIR` at a per-project directory inside the writable tree,
-in the **project's** `.claude/settings.local.json` — that file is
-per-project, so the value is per-project by construction:
+For the **unset / overwritten** and **outside `allowWrite`** cases
+above, point `TMPDIR` back at a directory inside the writable tree
+for whatever cleared it — the `env -i` wrapper, the Makefile, the
+login shell — at that call site. `/tmp/claude-<uid>/` is already
+inside the sandbox's writable set, so nothing needs widening.
+
+For the **shared-session-root** case there is currently **no fix**.
+Setting `env.TMPDIR` in the project's `.claude/settings.local.json`
+— which this entry recommended until recently — does not work:
 
 ```jsonc
 // <adopter-repo>/.claude/settings.local.json
 {
   "env": {
-    // <uid> is your numeric uid; <path-slug> is the project's
-    // absolute path with "/" replaced by "-".
+    // Accepted, and silently without effect. Do not rely on it.
     "TMPDIR": "/tmp/claude-<uid>/<path-slug>/shared"
   }
 }
 ```
 
-Per-entry rationale:
+Claude Code sets `TMPDIR` itself when it builds the sandbox, to the
+shared session root `/tmp/claude-<uid>`, and that assignment wins
+over the settings value. The override is specific to `TMPDIR`:
+other `env` keys from the same file do take effect, so a session
+can show a live `CONTAINER_HOST` from project settings and a
+`TMPDIR` that ignores them. The symptom of having tried is a
+directory that exists, is named exactly as configured, and stays
+empty for the life of the setting.
 
-- `/tmp/claude-<uid>/` is already inside the sandbox's writable
-  set, so no `allowWrite` widening is needed — this entry costs
-  nothing in sandbox surface.
-- `<path-slug>` matches the convention Claude Code already uses for
-  its own scratch tree, so the directory sits alongside the
-  session's existing state instead of introducing a second
-  location.
-- Scoping to `settings.local.json` rather than user-scope
-  `settings.json` is what makes the value per-project. A
-  user-scope `TMPDIR` would be shared by every repo and would
-  reintroduce the collision mode.
-
-Create the directory before first use — a `TMPDIR` naming a
-non-existent path fails the same way.
+In practice the collision risk this case describes is mostly
+absorbed elsewhere: each session also gets its own scratchpad
+under `/tmp/claude-<uid>/<path-slug>/<session-id>/`, which is
+per-project and per-session by construction. Prefer that for
+anything a skill or tool writes; treat a bare `$TMPDIR` as shared
+with every other project on the machine, and make temp filenames
+unique rather than assuming the directory is yours.
 
 ### Notes
 
-- **`env` is applied at session start.** The change does not take
-  effect in the session that makes it; restart, then confirm with
-  the doctor skill's *project-scratch* probe.
+- **`env` is applied at session start.** For the keys that are
+  honored, a change does not take effect in the session that makes
+  it; restart, then confirm with the doctor skill's
+  *project-scratch* probe. `TMPDIR` is not one of those keys — see
+  the Fix above.
 - The scratch directory **cannot** be remapped onto literal `/tmp`
   inside the sandbox. `sandbox.filesystem.*` accepts allow / deny
   path lists only — there is no bind-mount or path-remap key.

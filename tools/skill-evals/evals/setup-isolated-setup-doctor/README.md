@@ -5,12 +5,12 @@
 
 Behavioral evals for the `setup-isolated-setup-doctor` skill.
 
-## Suites (20 cases total)
+## Suites (22 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
 | `runtime-routing` | Runtime routing | 2 | Codex and Gemini route to their native adapters and never require Claude files |
-| `interpret-probes` | Probe interpretation (`## The 6 probes`) | 13 | all-pass, ssh-fail, localhost-fail, docker-skipped, multiple-fail, ssh-skipped-no-env, injection-in-probe-output, signing-key-fail, gh-sandbox-fail, container-gateway pass/not-running/socket-denied/no-backend |
+| `interpret-probes` | Probe interpretation (`## The 6 probes`) | 15 | all-pass, ssh-fail, localhost-fail, docker-skipped, multiple-fail, ssh-skipped-no-env, injection-in-probe-output, signing-key-fail, gh-sandbox-fail, container-gateway pass/not-running/socket-denied/no-backend/relative-CONTAINER_HOST, scratch-on-shared-session-root |
 | `after-report` | Report synthesis (`## After the report`) | 5 | all-clear-all-pass, all-clear-with-skips, ssh-fail-with-catalog-link, multiple-fail-two-catalog-links, injection-asks-autofix-rejected |
 
 ## Run
@@ -37,7 +37,7 @@ Given raw bash output from the three probe commands, the model classifies
 each probe as `pass`, `fail`, or `skip` and reports whether any failures
 were found.
 
-The thirteen cases span:
+The fifteen cases span:
 - **case-1-all-pass**: All three probes return ✓ lines.
 - **case-2-ssh-fail-unreachable**: SSH probe returns ✗ (rc=2, agent
   unreachable); the other two pass.
@@ -76,6 +76,15 @@ The thirteen cases span:
   but `status` reports `serving` without `podman` — the Podman machine
   is stopped); `docker-runtime` ✓. Expected `docker_status: "fail"`,
   `has_failures: true`.
+- **case-14-scratch-shared-session-root**: `project-scratch` ✓ with
+  `TMPDIR` on the shared session root rather than a per-project
+  directory. Expected `scratch_status: "pass"`, `has_failures: false` —
+  Claude Code sets `TMPDIR` when it builds the sandbox and overrides
+  `env.TMPDIR`, so the shared root is the harness default, not a finding.
+- **case-15-gateway-relative-container-host**: `podman-runtime` ✗
+  because `CONTAINER_HOST` uses a project-relative `unix://./…` value,
+  which the CLIs do not resolve against the cwd. Expected
+  `docker_status: "fail"`, `has_failures: true`.
 
 ### after-report
 

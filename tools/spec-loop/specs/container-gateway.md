@@ -111,13 +111,15 @@ One gateway process per project, keyed by the project root. It listens
 on `<project>/.apache-magpie-local/run/podman.sock` (libpod + compat
 API, for the podman CLI) and `<project>/.apache-magpie-local/run/docker.sock`
 (compat API, for the docker CLI). Both files sit inside the project tree.
-What shipped: `CONTAINER_HOST` / `DOCKER_HOST` do honour a
-project-relative `unix://./…` value, so the committed reference
-`env` block (below) names both sockets that way and needs no
-per-project edit. `sandbox.network.allowUnixSockets` is a separate
-setting with no such relative form in practice; the committed
-baseline carries no gateway-socket entry in it at all. The operator
-adds the two sockets' **absolute** paths to the gitignored, per-project
+Every setting that names a gateway socket needs its **absolute**
+path. `CONTAINER_HOST` / `DOCKER_HOST` do **not** honour a
+project-relative `unix://./…` value: a `unix://` URL's authority is
+parsed as a host component, so `unix://./x` dials `/.//x`,
+`unix://x` dials `/x/`, and `unix:x` dials `//` (verified against
+podman 6.1.0). `sandbox.network.allowUnixSockets` has no relative
+form either. The committed baseline therefore carries **neither** —
+no gateway `env` block and no gateway-socket entry. The operator
+adds both, with absolute paths, to the gitignored, per-project
 `.claude/settings.local.json` by hand (the block is in
 [Container gateway](../../../docs/setup/secure-agent-setup.md#container-gateway)
 in the setup guide, and `setup-isolated-setup-install` Step L proposes
@@ -330,14 +332,22 @@ CLI flags with environment-variable equivalents, no config file:
 outside the tree — each one is logged at start so it shows up in a
 `setup verify` run), `--idle-timeout`, `--log-level`, `--pid-file`.
 
-Reference settings (committed, project-agnostic):
+Reference settings. The `hooks` half is committed and
+project-agnostic; the `env` half is per-machine and belongs in the
+gitignored `.claude/settings.local.json`, because it needs absolute
+socket paths:
 
 ```jsonc
+// .claude/settings.local.json — per machine
 {
   "env": {
-    "CONTAINER_HOST": "unix://./.apache-magpie-local/run/podman.sock",
-    "DOCKER_HOST":    "unix://./.apache-magpie-local/run/docker.sock"
-  },
+    "CONTAINER_HOST": "unix:///<project>/.apache-magpie-local/run/podman.sock",
+    "DOCKER_HOST":    "unix:///<project>/.apache-magpie-local/run/docker.sock"
+  }
+}
+
+// committed, project-agnostic
+{
   "hooks": {
     "SessionStart": [{ "hooks": [{ "type": "command",
       "command": "~/.claude/scripts/container-gateway-hook.sh start" }] }],
@@ -347,16 +357,16 @@ Reference settings (committed, project-agnostic):
 }
 ```
 
-Both open questions this section used to flag are resolved, and this is
-what shipped: `podman` and `docker` both resolve a project-relative
-`unix://./…` value in `CONTAINER_HOST` / `DOCKER_HOST` against the cwd,
-so the committed `env` block above works unedited in every adopting
-project and carries no `allowUnixSockets` entry at all.
-`sandbox.network.allowUnixSockets` has no equivalent relative-path
-support, so the two gateway sockets are added there as **absolute**
-per-project paths — in the gitignored `.claude/settings.local.json`,
-never in the committed baseline, added by the operator (see *Known
-gaps*):
+This section once recorded both open questions as resolved in favour
+of a project-relative `unix://./…` value, on the strength of the URL
+*parsing* rather than a connection. That was wrong, and the committed
+`env` block it justified could never have worked: the CLIs read the
+authority as a host component and dial a path that does not exist.
+Neither `CONTAINER_HOST` / `DOCKER_HOST` nor
+`sandbox.network.allowUnixSockets` has a usable relative form, so all
+four values are **absolute** per-project paths in the gitignored
+`.claude/settings.local.json`, never in the committed baseline, added
+by the operator (see *Known gaps*):
 
 ```jsonc
 // <project>/.claude/settings.local.json
