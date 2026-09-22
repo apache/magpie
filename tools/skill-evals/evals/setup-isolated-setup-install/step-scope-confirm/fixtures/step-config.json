@@ -1,4 +1,4 @@
 {
-  "skill_md": "skills/setup-isolated-setup-install/SKILL.md",
-  "step_heading": "#### Step P.0 — Ask the user: per-project or whole-user scope?"
+  "skill_md": "skills/setup-isolated-setup-install/step-p-sandbox-allowlists.md",
+  "step_heading": "### Step P.0 — Ask the user: per-project or whole-user scope?"
 }

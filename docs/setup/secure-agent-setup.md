@@ -1073,7 +1073,7 @@ footprint.
 The install skill surfaces this trade-off loudly before setting
 `core.hooksPath` and requires explicit operator acknowledgement.
 See
-[`setup-isolated-setup-install` Step P.0a](../../skills/setup-isolated-setup-install/SKILL.md#step-p0a--loud-disclosure-before-setting-whole-user-scope).
+[`setup-isolated-setup-install` Step P.0a](../../skills/setup-isolated-setup-install/step-p-sandbox-allowlists.md#step-p0a--loud-disclosure-before-setting-whole-user-scope).
 
 #### When to pick which scope
 
