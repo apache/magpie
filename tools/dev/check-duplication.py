@@ -15,9 +15,11 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-"""Fail the build on new cross-file near-duplicate prose in `skills/` —
-the gate that keeps the duplication `check-shared-blocks.py` and
-`skill-surface-hash.py` removed from coming back.
+"""Fail the build on new cross-file near-duplicate prose — the gate that
+keeps the duplication `check-shared-blocks.py` and `skill-surface-hash.py`
+removed from coming back. Designed for the whole `skills/` tree; wired,
+for now, over only the setup-family surface that removal actually
+touched — see "Landing scope vs. the whole duplication problem" below.
 
 `check-shared-blocks.py` gives skills a way to carry shared prose once and
 propagate it everywhere it is used. That mechanism only works if something
@@ -53,12 +55,15 @@ frontmatter and fenced code blocks are excluded the same way: frontmatter is
 metadata, not prose, and a shared command sequence in a code fence is
 legitimately identical across skills.
 
-**Thresholds**, measured against the tree at the time this check was
-written (574 paragraphs in scope, maximum cross-file score 0.45):
+**Thresholds.** Chosen so the *wired* scope below (not the whole tree —
+see "Landing scope" above for why those two differ) passes clean today,
+with no allowlist:
 
-* **Fail above 0.50.** Nothing in the tree reaches it today, so the gate
-  ships with no allowlist and no grandfathered debt, while still blocking a
-  return to the 0.56-0.88 range the shared-block extraction removed.
+* **Fail above 0.50.** Nothing in the *wired* scope reaches it today, so
+  the gate ships with no allowlist and no grandfathered debt there, while
+  still blocking a return to the 0.56-0.88 range the shared-block
+  extraction removed. The whole `skills/` tree is a different story —
+  see "Landing scope" below.
 * **Report, without failing, everything in [0.30, 0.50].** That tail stays
   visible in every run's output so it can be reduced deliberately, instead
   of being hidden behind an ignore file that nobody revisits.
@@ -67,20 +72,69 @@ written (574 paragraphs in scope, maximum cross-file score 0.45):
   contributor to add an ignore entry instead of fixing the duplication, and
   becomes decoration.
 
-**Scope.** `skills/` (recursively — a multi-file skill's sibling detail
-files carry just as much prose as `SKILL.md` itself) plus
-`tools/dev/blocks/*.md` and `tools/dev/preflight-block.md` — the declared-
-block sources themselves are in scope, so a paragraph pasted into a skill
-that already duplicates a block's *source* text is caught too, which is
-exactly the case that should have used the block instead of copying it.
-`docs/`, `.superpowers/`, and eval fixtures are out of scope: fixtures
-repeat each other by design, and this check is about the skill surface the
-shared-block mechanism actually owns.
+**Scope, as designed.** The whole `skills/` tree (recursively — a
+multi-file skill's sibling detail files carry just as much prose as
+`SKILL.md` itself) plus `tools/dev/blocks/*.md` and
+`tools/dev/preflight-block.md` — the declared-block sources themselves are
+in scope, so a paragraph pasted into a skill that already duplicates a
+block's *source* text is caught too, which is exactly the case that should
+have used the block instead of copying it. `docs/`, `.superpowers/`, and
+eval fixtures are out of scope by design: fixtures repeat each other on
+purpose, and this check is about the skill surface the shared-block
+mechanism actually owns.
+
+**Scope, as wired (`WIRED_SKILLS_ROOT` below).** Narrower than the design
+above, on purpose — see "Landing scope vs. the whole duplication problem"
+below for the measured numbers and why. The hook runs this check only
+over `plugins/magpie-setup/skills/setup/*.md`, `tools/dev/blocks/*.md`,
+and `tools/dev/preflight-block.md`: exactly the surfaces the shared-block
+extraction this check was built to guard actually touched, where the tree
+is clean today and the gate passes with no allowlist. `discover_targets`
+still takes `skills_root` as a parameter — a future widening (see the
+recommended sequence below) is a one-line change to `WIRED_SKILLS_ROOT`,
+not a rewrite.
+
+**Landing scope vs. the whole duplication problem.** A whole-tree run
+(`discover_targets(skills_root=Path("skills"))`) finds far more than the
+setup-family surface this effort covers: 4,970 paragraphs, **3,793** pairs
+above `FAIL_THRESHOLD`, maximum score **1.00** — not near-duplicate,
+byte-identical. Traced by hand (`grep`, independent of this script): the
+`**Hard rule**: agents NEVER modify the snapshot under
+`<adopter-repo>/.apache-magpie/`...` admonition is identical in **45**
+`SKILL.md` files; an "Adopter overrides" preamble paragraph (only the
+skill's own filename substituted) is near-identical in **56**; a
+"Snapshot drift" paragraph follows the same pattern. None of the three is
+wrapped in a `<!-- BEGIN MAGPIE BLOCK -->` / auto-preflight marker, so this
+script's own `strip_generated_regions` cannot see them — and
+`skills/write-skill/SKILL.md` documents all three as **the framework
+preamble**: "every framework skill carries these; `init_skill.py`
+scaffolds them." That is the tell. This is not organic copy-paste sprawl;
+it is a *second*, older propagation mechanism (a one-time scaffold copy at
+skill-creation time) that was never migrated to the modern one this file
+already reuses (`check-shared-blocks.py`'s auto pre-flight block, inserted
+into every non-`setup` skill from one source). The fix belongs in that
+*auto*-propagation path, not in declared regions hand-placed into 56
+files one at a time: a declared block only fills a region a target
+already carries by hand, which is the multiplication problem all over
+again at extraction time, whereas the auto block is inserted and kept in
+sync by the tool itself. `check-shared-blocks.py` currently supports
+exactly **one** auto block (the pre-flight block); carrying several
+(pre-flight, `Adopter overrides`, `Snapshot drift`, …) is a mechanism
+change to that script, not something this file can do on its own.
+Recommended sequence for whoever picks this up: **(1)** extend
+`check-shared-blocks.py`'s auto-block mechanism to carry more than one
+named auto block, migrate `Adopter overrides` / `Snapshot drift` (and
+likely the `Hard rule` admonition) onto it; **(2)** re-run this checker
+whole-tree and confirm the fail-band count has actually dropped, not just
+moved; **(3)** widen `WIRED_SKILLS_ROOT` below (or drop it in favour of
+the full `skills/` tree) once the tree is clean at that scope too. None of
+that is done here — the maintainer scoped it out of this landing
+deliberately, and this file does not touch `check-shared-blocks.py`.
 
 Run standalone (`python3 tools/dev/check-duplication.py`) or as the
-`check-duplication` prek hook, wired `pass_filenames: false` and whole-tree:
-a diff-scoped run cannot see that a paragraph added in this PR duplicates
-one that already exists somewhere the PR never touched.
+`check-duplication` prek hook, wired `pass_filenames: false` and
+whole-scope: a diff-scoped run cannot see that a paragraph added in this
+PR duplicates one that already exists in a file the PR never touched.
 """
 
 from __future__ import annotations
@@ -114,9 +168,21 @@ _SHARED_BLOCKS = _load_shared_blocks()
 PREFLIGHT_RE = _SHARED_BLOCKS.PREFLIGHT_RE
 DECLARED_RE = _SHARED_BLOCKS.DECLARED_RE
 
-SKILLS = Path("skills")
 BLOCKS_DIR = Path("tools/dev/blocks")
 PREFLIGHT_SOURCE = Path("tools/dev/preflight-block.md")
+
+# The wired scope is deliberately narrower than the design's `skills/`
+# tree — see the module docstring's "Landing scope vs. the whole
+# duplication problem" section for the measured whole-tree numbers
+# (4,970 paragraphs, 3,793 fail-band pairs, max score 1.00) and why. This
+# is the ONLY root the design scans that is clean today: the setup family
+# is exactly the surface tasks A-C's shared-block extraction touched.
+# Widening this constant to the full `skills/` tree before the preamble
+# duplication documented in the docstring is migrated onto the auto-block
+# mechanism will immediately fail `prek run --all-files` on ~3800
+# pre-existing pairs this script did not introduce and is not scoped to
+# fix. Do not widen it without re-running the whole-tree scan first.
+WIRED_SKILLS_ROOT = Path("plugins/magpie-setup/skills/setup")
 
 WORD_FLOOR = 25  # a paragraph must have MORE than this many words to be scored
 NGRAM_SIZE = 9
@@ -212,16 +278,20 @@ def extract_paragraphs(path: Path, text: str | None = None) -> list[Paragraph]:
 
 
 def discover_targets(
-    skills_root: Path = SKILLS,
+    skills_root: Path = WIRED_SKILLS_ROOT,
     blocks_dir: Path = BLOCKS_DIR,
     preflight_source: Path = PREFLIGHT_SOURCE,
 ) -> list[Path]:
-    """Every file in scope: `skills/` recursively (symlink-aware — a
+    """Every file in scope: `skills_root` recursively (symlink-aware — a
     self-adopted `skills/<name>` is a symlink into `plugins/magpie-<family>/
     skills/<name>`, which `Path.glob("**/...")` does not follow but
-    `os.walk(..., followlinks=True)` does), plus the declared-block sources
-    and the pre-flight source. Cache directories (`__pycache__`,
-    `.pytest_cache`, …) are skipped."""
+    `os.walk(..., followlinks=True)` does — relevant when `skills_root` is
+    widened back to the full `skills/` tree; the wired default,
+    `WIRED_SKILLS_ROOT`, is a real directory, not a symlink), plus the
+    declared-block sources and the pre-flight source. Cache directories
+    (`__pycache__`, `.pytest_cache`, …) are skipped. Pass
+    `skills_root=Path("skills")` for the whole-tree scan described in the
+    module docstring's "Landing scope" section."""
     targets: list[Path] = []
     if skills_root.is_dir():
         for root, dirs, files in os.walk(skills_root, followlinks=True):
@@ -282,7 +352,7 @@ def main() -> int:
 
     targets = discover_targets()
     if not targets:
-        print(f"{SKILLS}: no target files found", file=sys.stderr)
+        print(f"{WIRED_SKILLS_ROOT}: no target files found", file=sys.stderr)
         return 1
 
     paragraphs = scan(targets)

@@ -367,6 +367,26 @@ repos:
         entry: python3 tools/dev/skill-surface-hash.py --fix
         files: ^(skills/[^/]+/[^/]+\.md|plugins/magpie-[^/]+/skills/[^/]+/[^/]+\.md)$
         pass_filenames: false
+  # Cross-file near-duplicate prose gate: fails on a paragraph pasted from
+  # one scoped file into another instead of being pulled into a shared
+  # block. Wired only over the setup-family surface the shared-block
+  # extraction actually touched (`WIRED_SKILLS_ROOT` in the script) — the
+  # design covers the whole `skills/` tree, but that tree carries ~3800
+  # pre-existing near-duplicate pairs this effort never touched (see the
+  # script's module docstring, "Landing scope vs. the whole duplication
+  # problem"), so wiring it there today would fail on day one. `files:`
+  # only gates *whether* the run fires; the script always scans its whole
+  # wired scope itself (`pass_filenames: false`), since a diff-scoped run
+  # cannot see that a paragraph added here duplicates one that already
+  # exists somewhere the diff never touched.
+  - repo: local
+    hooks:
+      - id: check-duplication
+        name: check-duplication (cross-file near-duplicate prose, setup-family scope)
+        language: system
+        entry: python3 tools/dev/check-duplication.py
+        files: ^(plugins/magpie-setup/skills/setup/.*\.md|tools/dev/blocks/.*\.md|tools/dev/preflight-block\.md)$
+        pass_filenames: false
   # Deterministic full-file token measurements. Run after skill fixers.
   # The dedicated path-filtered CI workflow also catches deleted skills.
   - repo: local
