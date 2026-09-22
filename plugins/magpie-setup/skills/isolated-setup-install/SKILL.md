@@ -4,23 +4,16 @@
 name: magpie-setup-isolated-setup-install
 family: setup
 mode: Meta
-description: |
-  Guide an adopter through the first-time install of the
-  framework's secure agent setup for Claude Code, Codex, or
-  Gemini CLI (sandbox, approval, and clean-environment layers). Walks
-  every step interactively; never auto-runs sudo, shell-rc
-  edits, or settings overwrites.
-when_to_use: |
-  Invoke when the user says "set up the secure agent setup",
-  "first-time install of the secure config", "install the
-  secure setup in this tracker", "walk me through the
-  secure-agent-setup install", or starts working on a fresh
-  adopter clone without secure-config wiring. Also appropriate
-  after a fresh OS install / new dev machine where
-  `~/.claude/scripts/` is empty. Skip when the secure setup is
-  already in place — use `setup-isolated-setup-verify` (to
-  confirm completeness) or `setup-isolated-setup-update` (to
-  refresh against the framework's latest) instead.
+description: >-
+  Walk an adopter through the first-time install of the secure agent
+  setup (sandbox, approval and clean-environment layers) for Claude
+  Code, Codex or Gemini CLI. Interactive throughout; never runs sudo,
+  edits a shell rc, or overwrites settings on its own.
+when_to_use: >-
+  When the user wants the secure setup installed for the first time, or
+  is working in a fresh clone or on a new machine with no wiring yet.
+  If it is already installed, use `setup-isolated-setup-verify` to check
+  it or `setup-isolated-setup-update` to refresh it.
 capability: capability:platform
 surface_hash: sha256:c4e60921c5925437
 license: Apache-2.0

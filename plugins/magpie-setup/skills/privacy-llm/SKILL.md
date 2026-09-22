@@ -4,25 +4,17 @@
 name: magpie-setup-privacy-llm
 family: setup
 mode: Meta
-description: |
-  Configure which LLMs this project's skills are allowed to send
-  private foundation content to, and verify the result. Detects
-  the LLM stack actually in use, walks the matching variant from
-  the privacy-LLM recipes, writes
-  <project-config>/privacy-llm.md, and runs the approved-LLM gate
-  and the PII redactor end to end so the configuration is proven
-  rather than declared.
-when_to_use: |
-  Invoke when the user wants to set up, change or check the
-  framework's privacy-aware LLM routing — before any skill reads
-  a private mailing list or a pre-disclosure security report.
-  Also when a skill's pre-flight reports that privacy-llm.md does
-  not resolve, when the LLM stack changes (a local model added, a
-  third-party endpoint approved), and after a framework upgrade,
-  which can narrow what counts as default-approved. Phrases the
-  user might say: "set up privacy", "configure privacy-llm",
-  "which models are approved here", "can this read the private
-  list", "check the PII redactor".
+description: >-
+  Decide which LLMs this project's skills may send private foundation
+  content to, then prove it. Detects the stack in use, writes
+  <project-config>/privacy-llm.md, and runs the approved-model gate and
+  the PII redactor end to end so the result is demonstrated rather than
+  declared.
+when_to_use: >-
+  Before any skill reads a private mailing list or a pre-disclosure
+  report, and whenever a pre-flight says privacy-llm.md does not
+  resolve. Also when the LLM stack changes, or after a framework
+  upgrade, which can narrow what counts as approved by default.
 capability:
   - capability:platform
 surface_hash: sha256:49a65c36a0dc49ab

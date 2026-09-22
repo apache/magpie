@@ -4,31 +4,17 @@
 name: magpie-setup-shared-config-sync
 family: setup
 mode: Meta
-description: |
-  Commit + push the user's shared Claude config to the
-  `~/.claude-config` private dotfile-style sync repo. Inspects
-  for uncommitted local edits and unpushed commits, drafts a
-  commit message, and after explicit approval commits and
-  pushes. Runs `git pull --rebase` first if the local checkout
-  is behind, so a push never overwrites concurrent work from
-  another machine. Bootstraps the repo when it is missing:
-  clones the default private remote if it exists, or creates a
-  new private remote + scaffolds the minimal layout if it does
-  not. Never force-pushes; never rewrites already-pushed
-  history; never creates a public remote; never modifies files
-  outside `~/.claude-config/` (except the confirmed fresh-host
-  symlink wiring into `~/.claude/`).
-when_to_use: |
-  Invoke when the user says "sync my Claude config", "push my
-  ~/.claude-config", "commit shared Claude config", or after
-  modifying a file in `~/.claude-config/` (scripts, CLAUDE.md,
-  commands, sync.sh). Also invoke on a fresh host with no
-  `~/.claude-config/` yet ("set up my shared config", "bootstrap
-  my claude-config repo") — the skill clones the default remote
-  or creates it. Also appropriate after
-  `setup-isolated-setup-update` surfaces drift on a script the
-  user keeps in `~/.claude-config/` and wants propagated to
-  other machines.
+description: >-
+  Commit and push the user's shared Claude config to the
+  `~/.claude-config` sync repo, rebasing first so a push never buries
+  work from another machine. Bootstraps the repo when it is missing.
+  Never force-pushes, never rewrites pushed history, never creates a
+  public remote, and touches nothing outside `~/.claude-config/`.
+when_to_use: >-
+  When the user wants their shared Claude config synced, or has just
+  edited something under `~/.claude-config/`. Also on a fresh host with
+  no such repo yet, and after `setup-isolated-setup-update` finds drift
+  on a script they keep there.
 capability:
   - capability:intake
   - capability:platform

@@ -4,20 +4,16 @@
 name: magpie-setup-isolated-setup-update
 family: setup
 mode: Meta
-description: |
-  Surface drift between the user's installed secure agent setup
-  and the framework's latest (framework checkout, pinned tools,
-  user-scope script copies, denial commands, comdev MCP
-  checkouts). Read-only — surfaces candidates and diffs, never
-  auto-applies. The user decides what to update.
-when_to_use: |
-  Invoke when the user says "update secure setup", "check for
-  secure-config drift", "is my setup at the framework's latest?",
-  "should I bump the pinned tools?", or after an agent harness
-  upgrade / a substantial tracker-repo merge / when a previously
-  blocked Bash call now appears to succeed. Recommended cadence
-  per the doc: once per agent harness upgrade or once a month,
-  whichever comes first. Cheap to re-run; never destructive.
+description: >-
+  Report drift between the installed secure setup and the framework's
+  current one — checkout, pinned tools, user-scope script copies, denial
+  commands, MCP checkouts. Read-only: it surfaces diffs and the user
+  decides.
+when_to_use: >-
+  When the user asks whether their setup is current, or after an agent
+  harness upgrade, a large merge, or a previously blocked command
+  starting to succeed. Worth running about monthly. Cheap and never
+  destructive.
 capability: capability:platform
 surface_hash: sha256:6721ab56e11f79e8
 license: Apache-2.0

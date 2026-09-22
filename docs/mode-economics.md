@@ -122,7 +122,7 @@ special-token spellings counted as ordinary text.
 Coverage: **75 of 75 local `skills/*/SKILL.md` files**.
 External `source.md` redirects and harness symlinks are excluded.
 
-Measurement manifest SHA-256: `0c2b3eabd40860f45fda16c6d6f20d11e2547933179f87621da4b212f8996063`.
+Measurement manifest SHA-256: `f30ce24319a60829add48db08b0908695491a31c9bb8a840464a3aab512ccc80`.
 
 | Skill file | Measured tokens | Source SHA-256 (first 16 characters) |
 |---|---:|---|
@@ -188,16 +188,16 @@ Measurement manifest SHA-256: `0c2b3eabd40860f45fda16c6d6f20d11e2547933179f87621
 | [security-model-update](../skills/security-model-update/SKILL.md) | 4,845 | `8aa3f1ae8efc8c19` |
 | [security-model-verify](../skills/security-model-verify/SKILL.md) | 5,544 | `9af92dbe2cdcab1c` |
 | [security-tracker-stats-dashboard](../skills/security-tracker-stats-dashboard/SKILL.md) | 3,819 | `078bcd7b2771c6a9` |
-| [setup](../skills/setup/SKILL.md) | 9,095 | `b1c14f499e78901d` |
-| [setup-isolated-setup-doctor](../skills/setup-isolated-setup-doctor/SKILL.md) | 7,969 | `d664680ac78331ba` |
-| [setup-isolated-setup-install](../skills/setup-isolated-setup-install/SKILL.md) | 11,293 | `1f521e6169b4aedd` |
-| [setup-isolated-setup-update](../skills/setup-isolated-setup-update/SKILL.md) | 5,578 | `d2d0b2e8ca4b258d` |
-| [setup-isolated-setup-verify](../skills/setup-isolated-setup-verify/SKILL.md) | 8,519 | `0fab5f6315b9b061` |
-| [setup-override-upstream](../skills/setup-override-upstream/SKILL.md) | 4,028 | `a65b8a7d22c43113` |
-| [setup-privacy-llm](../skills/setup-privacy-llm/SKILL.md) | 2,162 | `32049daee1e06a39` |
-| [setup-shared-config-sync](../skills/setup-shared-config-sync/SKILL.md) | 4,375 | `a67a27b586675308` |
-| [setup-status](../skills/setup-status/SKILL.md) | 2,417 | `112442f5270f71f1` |
-| [setup-upstream-fix](../skills/setup-upstream-fix/SKILL.md) | 4,710 | `38b6e4831a8d637b` |
+| [setup](../skills/setup/SKILL.md) | 8,853 | `19fad7495d8dcf4e` |
+| [setup-isolated-setup-doctor](../skills/setup-isolated-setup-doctor/SKILL.md) | 7,859 | `23d6b94d2ffcd718` |
+| [setup-isolated-setup-install](../skills/setup-isolated-setup-install/SKILL.md) | 11,213 | `e6731e07a27faa4e` |
+| [setup-isolated-setup-update](../skills/setup-isolated-setup-update/SKILL.md) | 5,512 | `55fe1d5e957c9128` |
+| [setup-isolated-setup-verify](../skills/setup-isolated-setup-verify/SKILL.md) | 8,428 | `a8e53bf6abd44923` |
+| [setup-override-upstream](../skills/setup-override-upstream/SKILL.md) | 3,960 | `8ab7b08f5fe58452` |
+| [setup-privacy-llm](../skills/setup-privacy-llm/SKILL.md) | 2,055 | `b89f1f5e421df5cc` |
+| [setup-shared-config-sync](../skills/setup-shared-config-sync/SKILL.md) | 4,185 | `716c989013526bf0` |
+| [setup-status](../skills/setup-status/SKILL.md) | 2,321 | `e1c73a7cc0c75001` |
+| [setup-upstream-fix](../skills/setup-upstream-fix/SKILL.md) | 4,614 | `3f9a676cd13ad64c` |
 | [skill-reconciler](../skills/skill-reconciler/SKILL.md) | 4,438 | `d431fd5ba5712980` |
 | [workflow-security-audit](../skills/workflow-security-audit/SKILL.md) | 3,177 | `66b5e868e918b76b` |
 | [write-skill](../skills/write-skill/SKILL.md) | 2,458 | `a7275014b55d13e0` |

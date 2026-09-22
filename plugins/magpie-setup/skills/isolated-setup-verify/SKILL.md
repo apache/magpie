@@ -4,22 +4,17 @@
 name: magpie-setup-isolated-setup-verify
 family: setup
 mode: Meta
-description: |
-  Walk the verification checklist for the framework's secure
-  agent setup and report ✓ done / ✗ missing / ⚠ partial for
-  each check, with concrete evidence (file paths, command
-  output, version strings). Routes Claude Code, Codex, and Gemini CLI
-  to their settings, installed-version, and sandbox checks. Read-only — never modifies anything.
-when_to_use: |
-  Invoke when the user says "verify my secure setup", "is my
-  secure config done?", "check that the secure agent setup is
-  installed", "did setup work?", or after running
-  `setup-isolated-setup-install` to confirm the install landed completely.
-  Also appropriate as a routine — after every agent harness upgrade,
-  after every project / user-scope `settings.json` edit, and any
-  time a previously-blocked Bash call appears to have succeeded
-  (the "did a denial silently turn into an allow?" canary). Cheap
-  to re-run; never destructive.
+description: >-
+  Check the secure agent setup against its checklist and report done,
+  missing or partial for each item, with the evidence — paths, command
+  output, versions. Covers Claude Code, Codex and Gemini CLI.
+  Read-only.
+when_to_use: >-
+  When the user asks whether their secure setup is complete, or right
+  after installing it. Also a routine after any harness upgrade or
+  settings edit, and whenever a previously blocked command appears to
+  have started working — that is the canary for a denial having
+  silently become an allow.
 capability: capability:platform
 surface_hash: sha256:bda5d0cc6087b0fd
 license: Apache-2.0

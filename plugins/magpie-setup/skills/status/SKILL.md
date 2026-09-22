@@ -4,22 +4,16 @@
 name: magpie-setup-status
 family: setup
 mode: Meta
-description: |
-  Show how the apache-magpie framework is adopted in the current
-  repo, then adjust that setup in place. Renders a Markdown
-  adoption dashboard: install method and pin, drift, the wired
-  agent targets, the installed skill families, and symlink health.
-  From the same view the user can add or drop agent targets and
-  skill families; the actual change runs through the setup skill.
-when_to_use: |
-  Invoke when the user asks how magpie is set up here, which
-  agent targets are wired, which skill families are installed, or
-  whether the snapshot is in sync. Also when the user wants to
-  change the wiring — add an agent target, enable the security or
-  pr-management family — and wants to see the current state first.
-  Phrases the user might say: "magpie status", "how is magpie
-  adopted", "which agent targets are wired", "show adoption
-  state", "which families are installed", "add the github target".
+description: >-
+  Show how Magpie is adopted in this repo — install method and pin,
+  drift, wired agent targets, installed skill families, symlink health —
+  and change that wiring from the same view. The change itself runs
+  through the setup skill.
+when_to_use: >-
+  When the user asks how Magpie is set up here, which targets are
+  wired, which families are installed, or whether the snapshot is in
+  sync. Also when they want to add a target or family and want to see
+  the current state first.
 capability:
   - capability:stats
   - capability:platform

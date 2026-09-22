@@ -4,23 +4,17 @@
 name: magpie-setup-upstream-fix
 family: setup
 mode: Meta
-description: |
-  Turn a framework bug or quirk the agent hit while running a
-  Magpie skill or tool into a fix PR against `apache/magpie` —
-  one PR per issue. First confirms the problem is a framework
-  defect (not a local misconfiguration or a stale snapshot), then
-  searches `apache/magpie` for an existing issue or PR that
-  already covers it, and only proposes a new fix PR when none
-  exists — otherwise it points the user at the pending one.
-when_to_use: |
-  Invoke when the agent tripped over a framework rough edge during
-  a run and the user says "upstream that fix", "open a magpie PR
-  for that bug", "report that quirk to magpie", "file the
-  framework bug we just hit", "contribute a fix for what broke",
-  or at the end of a session that ran into one or more framework
-  defects. Skip for bugs in the adopter's own repo or in an
-  upstream project the agent was working on — this skill is only
-  for defects in the Magpie framework itself.
+description: >-
+  Turn a framework defect the agent hit while running a Magpie skill
+  into a fix PR against `apache/magpie`, one PR per defect. Confirms it
+  is a framework bug rather than local misconfiguration or a stale
+  snapshot, then searches for an existing issue or PR and points at that
+  instead of opening a duplicate.
+when_to_use: >-
+  When the agent tripped over a framework rough edge and the user wants
+  it fixed upstream, or at the end of a session that hit one. Not for
+  bugs in the adopter's own repo or in the project being worked on —
+  only defects in Magpie itself.
 argument-hint: "[quirk description]"
 capability: capability:platform
 surface_hash: sha256:30b1a0e51c6e8fa9

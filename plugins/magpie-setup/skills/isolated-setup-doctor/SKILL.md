@@ -4,26 +4,17 @@
 name: magpie-setup-isolated-setup-doctor
 family: setup
 mode: Meta
-description: |
-  Probe the secure-agent setup for in-session functional
-  restrictions that block legitimate workflows in Claude Code,
-  Codex, or Gemini CLI. Runtime-specific diagnostics; Claude has six live
-  probes — SSH agent / Yubikey reachability, localhost port
-  binding, podman / docker through the container gateway,
-  per-project scratch directory, the ssh signing key's readability, and `gh` running
-  outside the sandbox — each pointing the
-  user at the matching numbered troubleshooting entry and its
-  settings.json remediation (see body). Read-only — never
-  modifies settings.json, never invokes the sandbox bypass.
-when_to_use: |
-  Invoke when the user says "doctor my sandbox", "diagnose
-  sandbox friction", "why is the sandbox blocking X", "check
-  whether ssh / docker / port-bind works inside the sandbox",
-  or after the user reports a workflow failure that smells
-  sandbox-shaped (agent unreachable, socket errors, port
-  permission errors). Also a good periodic check after every
-  agent harness upgrade — the sandbox profile evolves and a
-  previously-working call may have moved into deny.
+description: >-
+  Probe the secure-agent setup for restrictions that block legitimate
+  work — SSH agent reachability, port binding, containers, the scratch
+  directory, the signing key, `gh` outside the sandbox. Names the
+  troubleshooting entry and settings fix for each. Read-only.
+when_to_use: >-
+  When the user says "doctor my sandbox", "why is the sandbox blocking
+  X", or reports a failure that smells sandbox-shaped — agent
+  unreachable, socket errors, permission errors on a port. Also worth
+  running after an agent harness upgrade, since the sandbox profile
+  moves.
 capability:
   - capability:platform
   - capability:reassess

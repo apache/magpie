@@ -4,37 +4,22 @@
 name: magpie-setup
 family: setup
 mode: Meta
-description: |
-  Install and maintain the apache-magpie framework, configure it
-  for yourself, and adopt it for a repo. Installing touches only
-  this machine's agent; configuring writes only gitignored local
-  files; adopting commits a recommended floor and the project's
-  configuration for every contributor. Marketplace install by
-  default; the pinned snapshot is the fallback. Sub-actions:
-    `setup` - first-time install, marketplace-first. Writes nothing to the repo.
-    `setup config` - configure for yourself, in gitignored .apache-magpie-local/
-    `setup adopt` - commit the floor lock, project config + wiring (scaffold, or promote from config)
-    `setup unadopt` - remove the lock + its wiring; keeps overrides, installs
-    `setup upgrade` - refresh the snapshot per the committed lock (main-checkout only)
-    `setup worktree-init` - symlink a worktree's snapshot to the main's
-    `setup verify` - health check + drift detection
-    `setup reconcile` - one-time project-wide reconciliation sweep (writes the reconciled: stamp)
-    `setup skill-sources` - fetch/pin/symlink skills from trusted sources (main-checkout only)
-    `setup override <skill>` - open or scaffold an agentic override
-    `setup uninstall` - reverse the install; preserves overrides (main-checkout only)
-when_to_use: |
-  Invoke when the user says "set up magpie in this repo",
-  "install magpie", "follow .claude/skills/magpie-setup", or
-  follows the framework's README install instructions. Also
-  "upgrade magpie", "verify magpie setup", "check magpie drift".
-  For "configure magpie for me", "set up the config so this skill
-  works", or a skill's pre-flight asking for project configuration,
-  route to the `config` sub-action - it writes gitignored local
-  files only and needs nobody's permission.
-  For "adopt apache-magpie", "adopt apache/magpie", "adopt magpie
-  for this repo", or "commit a default set for the team", route to
-  the `adopt` sub-action - it commits files for every contributor
-  and is not an install.
+description: >-
+  Install Magpie, configure it for yourself, and adopt it for a repo.
+  Installing touches only this machine; configuring writes gitignored
+  local files; adopting commits a floor and the project's configuration
+  for every contributor. Marketplace by default, pinned snapshot as
+  fallback. Sub-actions: `config` (yourself, gitignored), `adopt` /
+  `unadopt` (the repo, committed), `upgrade`, `worktree-init`, `verify`,
+  `reconcile`, `skill-sources`, `override <skill>`, `uninstall`.
+when_to_use: >-
+  When the user wants Magpie installed, upgraded, verified, or checked
+  for drift. Two routings matter: "configure magpie for me", or a
+  skill's pre-flight asking for project configuration, goes to `config`
+  — it writes gitignored files and needs nobody's permission. "Adopt
+  magpie for this repo" or "commit a default set for the team" goes to
+  `adopt` — it commits files for every contributor and is not an
+  install.
 argument-hint: "[install|config|adopt|unadopt|upgrade|worktree-init|verify|reconcile|override skill-name|uninstall]"
 capability: capability:platform
 surface_hash: sha256:569135af5ba52d3f

@@ -4,20 +4,14 @@
 name: magpie-setup-override-upstream
 family: setup
 mode: Meta
-description: |
-  Walk an adopter through promoting a local
-  `.apache-magpie-overrides/<skill>.md` file into a PR
-  against `apache/magpie`. After the PR merges and
-  the adopter runs `setup upgrade`, the override file
-  is no longer needed and the skill prompts for its removal.
-when_to_use: |
-  Invoke when the user says "upstream my override", "promote
-  this override to the framework", "convert my local
-  modification into a magpie feature", "make this override
-  a framework feature", "open a PR to apache-magpie for
-  this override", or similar — typically after running the
-  override locally for a while and deciding the change is
-  worth contributing back.
+description: >-
+  Promote a local `.apache-magpie-overrides/<skill>.md` into a PR
+  against `apache/magpie`. Once it merges and the adopter upgrades, the
+  override is redundant and the skill offers to remove it.
+when_to_use: >-
+  When the user wants a local override contributed back to the
+  framework — typically after living with it for a while and deciding
+  it belongs upstream.
 argument-hint: "[skill-name]"
 capability: capability:platform
 surface_hash: sha256:33f740e1edbcdfda
