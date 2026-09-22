@@ -71,8 +71,9 @@ do not treat the absence as a finding.
    <!-- BEGIN MAGPIE BLOCK: both-stores-collision — generated from tools/dev/blocks/both-stores-collision.md -->
 
    A `skills` entry for the same skill in both stores is an expected
-   transitional state, not a fault. It is what the ordinary
-   config-then-adopt path produces across two machines: a contributor
+   transitional state, not a fault — it needs no hand edit and no bug to
+   produce. It is what the ordinary config-then-adopt path produces
+   across two machines: a contributor
    runs `config` on their machine before the project adopts, a
    maintainer runs `adopt` on a different machine, and `adopt` can only
    migrate the local stamp it can see — so the contributor's local
