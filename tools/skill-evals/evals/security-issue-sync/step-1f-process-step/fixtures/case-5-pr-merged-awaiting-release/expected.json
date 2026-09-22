@@ -1,5 +1,4 @@
 {
   "process_step": "11",
-  "step_description": "Fix PR merged into upstream; release carrying the fix has not shipped yet",
-  "key_signals": ["pr merged label set", "fix PR merged at 2025-10-14", "release 3.0.3 not yet on PyPI"]
+  "step_description": "Fix PR merged into upstream; release carrying the fix has not shipped yet"
 }

@@ -610,9 +610,38 @@ def batch_grade_prose_fields(
     failure (timeout, OSError, non-zero exit, unparsable output, missing
     path in the verdict), every pair without a clean verdict is returned as
     ``(False, <one-line explanation>)``.
+
+    A verdict the grader simply *omits* is retried once, on its own, before
+    being reported. One prompt covers every pair, so a grader that drops a
+    path — which it does intermittently on larger batches — fails that pair
+    for a reason that has nothing to do with the candidate output, and is
+    indistinguishable in the report from a real mismatch. Re-asking for the
+    dropped subset removes that class of false red. A pair the grader
+    actively judges is never re-asked: only silence is retried, so a `NO`
+    cannot be turned into a `YES` by asking twice.
     """
     if not pairs:
         return {}
+    graded = _batch_grade_once(pairs, grader_cli, timeout)
+    missing = [pair for pair in pairs if pair[0] not in graded]
+    if missing:
+        graded.update(_batch_grade_once(missing, grader_cli, timeout, final=True))
+    return graded
+
+
+def _batch_grade_once(
+    pairs: list[tuple[str, object, object]],
+    grader_cli: str,
+    timeout: int,
+    *,
+    final: bool = False,
+) -> dict[str, tuple[bool, str]]:
+    """One grader round-trip.
+
+    Pairs the grader returned no verdict for are omitted from the result
+    unless ``final``, in which case they are reported as a failure so the
+    caller never silently drops a field.
+    """
     prompt = BATCH_GRADER_RUBRIC.format(fields_block=_format_batch_fields_block(pairs))
     try:
         stdout, stderr, rc = run_cli(grader_cli, prompt, timeout=timeout)
@@ -629,7 +658,8 @@ def batch_grade_prose_fields(
     for path, _, _ in pairs:
         entry = verdict.get(path)
         if not isinstance(entry, dict) or "match" not in entry:
-            result[path] = (False, f"grader did not return a verdict for {path}")
+            if final:
+                result[path] = (False, f"grader did not return a verdict for {path}")
             continue
         match = bool(entry.get("match"))
         reason = str(entry.get("reason", "")).strip()

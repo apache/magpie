@@ -1437,6 +1437,40 @@ def test_batch_grade_grader_failure_marks_all_fail():
         assert ok is False
 
 
+def test_batch_grade_retries_a_dropped_verdict(tmp_path: Path):
+    """A path the grader silently omits is re-asked, not failed.
+
+    The grader drops fields from larger batches intermittently, which has
+    nothing to do with the candidate output and is indistinguishable in the
+    report from a real mismatch.
+    """
+    state = tmp_path / "drop-state"
+    inner = (
+        f"GRADER_DROP_STATE_FILE={shlex.quote(str(state))} "
+        f"python3 {shlex.quote(str(_TESTS_DIR / '_grader_drops_one.py'))}"
+    )
+    grader = f"bash -c {shlex.quote(inner)}"
+    pairs = [("$.a", "x", "y"), ("$.b", "x", "y")]
+    result = batch_grade_prose_fields(pairs, grader, timeout=5)
+    assert result["$.a"] == (True, "")
+    assert result["$.b"] == (True, "")
+    assert state.read_text().count("call") == 2
+
+
+def test_batch_grade_reports_a_verdict_missing_twice(tmp_path: Path):
+    """Silence that survives the retry is still reported, never dropped."""
+    script = _TESTS_DIR / "_grader_empty.py"
+    script.write_text("import sys; sys.stdin.read(); print('{}')\n")
+    try:
+        pairs = [("$.a", "x", "y")]
+        result = batch_grade_prose_fields(pairs, f"python3 {shlex.quote(str(script))}", timeout=5)
+        ok, note = result["$.a"]
+        assert ok is False
+        assert "did not return a verdict" in note
+    finally:
+        script.unlink()
+
+
 # ---------------------------------------------------------------------------
 # compare_with_grader (uses the batched grader path)
 # ---------------------------------------------------------------------------

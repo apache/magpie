@@ -1,5 +1,4 @@
 {
-  "process_step": "14",
-  "step_description": "Advisory sent and Public advisory URL populated; announced label set; awaiting cve.org propagation before closing",
-  "key_signals": ["announced label set", "Public advisory URL populated", "cve.org state is RESERVED not PUBLISHED"]
+  "process_step": "14-15",
+  "step_description": "Archive URL captured — the combined apply is due, and the tracker is still open"
 }

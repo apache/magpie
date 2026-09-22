@@ -1,5 +1,4 @@
 {
   "process_step": "6",
-  "step_description": "Consensus reached: issue is valid and CVE-worthy, but no CVE has been allocated yet",
-  "key_signals": ["team consensus recorded in comments", "no CVE tool link", "no cve allocated label", "scope label airflow set"]
+  "step_description": "Consensus reached: issue is valid and CVE-worthy, but no CVE has been allocated yet"
 }

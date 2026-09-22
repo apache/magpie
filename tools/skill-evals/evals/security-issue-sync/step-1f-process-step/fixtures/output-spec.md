@@ -20,6 +20,10 @@ Use the exact step number strings from the table (e.g. `"1-2"`, `"3"`,
 `"4"`, `"5/6"`, `"6"`, `"7"`, `"11"`, `"12"`, `"13"`, `"14"`, `"15"`).
 `key_signals` lists the labels, body-field values, or observable facts that
 determined the step — helps reviewers understand why the step was chosen.
+Always emit it.
+It is explanatory rather than asserted: which facts are worth naming, and
+how many, is a judgement call, so the cases grade `process_step` and
+`step_description` and leave this field to the reader.
 
 If the observed state simultaneously satisfies two CONSECUTIVE numbered
 rows of the table — i.e. the tracker has just completed the earlier row's
