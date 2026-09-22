@@ -28,6 +28,24 @@ mechanism) lives in
 [`docs/setup/agentic-overrides.md`](../../../../docs/setup/agentic-overrides.md)
 in the framework. This file is the operational helper.
 
+**Golden rule 7 — agentic overrides are read at run-time.**
+Every framework skill that supports overrides starts its run
+by consulting **two** directories in precedence order (first
+hit wins):
+
+1. `.apache-magpie-local/<this-skill>.md` — personal,
+   gitignored. Per-developer overrides that are never
+   committed.
+2. `.apache-magpie-overrides/<this-skill>.md` — committed,
+   project-wide. Overrides shared with every contributor.
+
+Both files are plain markdown the agent interprets — no
+templating engine, no patch tool. The additive-only guardrail
+applies to both: neither may weaken the framework's safety,
+confidentiality, or privacy baseline. See
+[`docs/setup/agentic-overrides.md`](../../../../docs/setup/agentic-overrides.md)
+for the full contract including the lookup protocol.
+
 ## Inputs
 
 - `<framework-skill>` — required. The skill name to scaffold

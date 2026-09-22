@@ -362,7 +362,7 @@ snapshot's `.apache-magpie/skills/setup/`.
     version, **reloads the skill in-flight** so the rest of
     the upgrade run executes against the new bootstrap
     content (per
-    [`SKILL.md` Golden rule 9](SKILL.md#golden-rules)),
+    [`snapshot-model.md` Golden rule 9](snapshot-model.md#the-golden-rules-that-bind-only-here)),
     surfaces local modifications first if any exist, and
     lands the change in `git status` for the user to commit.
   - **Committed copy is newer than the snapshot** (the

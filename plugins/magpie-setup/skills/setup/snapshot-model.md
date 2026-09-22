@@ -118,7 +118,7 @@ Gitignored in the adopter repo:
   potentially).
 - `<local-lock>` (per-machine state).
 - `.apache-magpie-local/` (personal, per-developer override
-  directory — see Golden rule 7).
+  directory — see [Golden rule 7](overrides.md)).
 - The `magpie-*` symlinks `setup install` creates in every active
   target dir — the canonical ones in `.agents/skills/` (they
   target the gitignored snapshot) and the relays in
@@ -156,3 +156,22 @@ maintenance hazard: copies drift from the framework's source-
 of-truth, and the drift-detection mechanism (which assumes
 the framework version is the one in `<snapshot-dir>`)
 silently mis-applies.
+
+**Golden rule 9 — reload `setup` in-flight after a
+self-update.** When a sub-action changes or creates the
+content of the committed `setup` skill (in practice:
+`adopt` recovering an out-of-date bootstrap, or `upgrade`'s
+overwrite-from-snapshot step), the agent **re-reads the
+modified files of this skill before continuing** the rest of
+the current run. Concretely: after the copy lands on disk,
+re-load `SKILL.md` and the sub-action file you are
+currently executing (and any helper file you have already
+opened, such as `agents.md` or `overrides.md`), then
+resume from the step after the overwrite. The reload runs as
+the **first thing** that happens after the overwrite, before
+any further reconciliation, symlink work, or doc updates.
+The reason: the snapshot's skill version may have renamed
+steps, added new sub-actions, or changed the symlink
+contract; finishing the run against the *old* in-memory
+copy of the skill would silently mis-apply the new
+framework version the project just pinned to.

@@ -33,84 +33,57 @@ Use the operator's explicitly requested runtime when supplied; otherwise use the
 An installed executable or configuration directory alone does not select a runtime.
 For the routing below, treat that selection as the active harness.
 
-When the active harness is Codex, first require the static verification in
-[docs/adapters/codex.md](../../../../docs/adapters/codex.md#verify), then run the
-shared live environment probes inside the active Codex sandbox. Attribute
-failures separately to native sandbox/network denial, approval policy, or
-the POSIX agent-iso layer. Do not prescribe a `.claude` settings change for
-a Codex failure. Then stop before the Claude-specific branch below.
+When the active harness is Codex, first require the static verification in [docs/adapters/codex.md](../../../../docs/adapters/codex.md#verify), then run the shared live environment probes inside the active Codex sandbox.
+Attribute failures separately to native sandbox/network denial, approval policy, or the POSIX agent-iso layer.
+Do not prescribe a `.claude` settings change for a Codex failure.
+Then stop before the Claude-specific branch below.
 
 When the selected runtime is Gemini CLI, follow
 [docs/adapters/gemini.md](../../../../docs/adapters/gemini.md#doctor): verify the profile first, then diagnose the actual tool result in the active Gemini session.
 Distinguish policy refusal, sandbox expansion, hook or trust failures, and wrapper or authentication problems.
 Do not require Claude configuration or prescribe Claude settings changes; then stop before the Claude-specific probes below.
 
-When the harness is Claude Code, continue below. If the harness cannot be
-determined, ask once.
+When the harness is Claude Code, continue below.
+If the harness cannot be determined, ask once.
 
-The **diagnostic** layer over the secure agent setup.
-[`verify`](../isolated-setup-verify/SKILL.md) asks whether the setup is
-*installed* right — static checks that catch drift and missing pieces.
-This skill asks whether common workflows are *functionally blocked* by
-the sandbox as configured, which catches over-restrictive allowlists.
-([`install`](../isolated-setup-install/SKILL.md) puts it in place;
-[`update`](../isolated-setup-update/SKILL.md) reports framework drift.)
+This is the diagnostic layer over the secure agent setup.
+[`verify`](../isolated-setup-verify/SKILL.md) checks statically that the setup is *installed* right, catching drift and missing pieces.
+This skill checks whether common workflows are *functionally blocked* by the sandbox as configured, catching over-restrictive allowlists.
+([`install`](../isolated-setup-install/SKILL.md) puts the setup in place; [`update`](../isolated-setup-update/SKILL.md) reports framework drift.)
 
-Run `verify` first when the install itself is in doubt — fresh machine,
-recent upgrade, sandbox-state surprise. Run `doctor` when the install is
-known good and a workflow fails in a sandbox-shaped way: agent
-unreachable, socket error, port permission error.
+Run `verify` first when the install itself is in doubt: fresh machine, recent upgrade, sandbox-state surprise.
+Run `doctor` when the install is known good and a workflow fails in a sandbox-shaped way: agent unreachable, socket error, port permission error.
 
-Every probe maps to a numbered entry in
-[`docs/setup/sandbox-troubleshooting.md`](../../../../docs/setup/sandbox-troubleshooting.md);
-the doctor's job is to identify *which* entry applies right now,
-not to re-explain the remediation. If a fail surfaces a failure
-mode not catalogued there, propose appending a new entry per the
-catalog's *Adding a new entry* section.
+Every probe maps to a numbered entry in [`docs/setup/sandbox-troubleshooting.md`](../../../../docs/setup/sandbox-troubleshooting.md).
+The doctor identifies *which* entry applies now; it does not re-explain the remediation.
+If a fail shows a failure mode not catalogued there, propose appending a new entry per the catalog's *Adding a new entry* section.
 
 ## Golden rules
 
-- **Read-only.** Each probe runs a small, deterministic,
-  side-effect-free check. The skill never edits any settings
-  file, never runs a command with `dangerouslyDisableSandbox`,
-  never installs anything. If a check fails, surface the failure
-  and point at the catalog entry; do not auto-fix.
-- **Run every probe, even on early failure.** Do not stop at the
-  first ✗. The value of the report is in the full picture — a
-  user may have one of six independent restrictions, or all
-  six, and discovering them one re-run at a time is annoying.
-- **Distinguish ✗ (failing) from ⊘ (not applicable).** ✗ means
-  the probe ran and the sandbox blocked it. ⊘ means the probe
-  was skipped because the prerequisite is absent (e.g. no
-  `docker` / `podman` on `PATH` → docker probe ⊘, not ✗).
-- **Surface evidence.** Each report line names the probe command,
-  the exit code, and the relevant stderr snippet. "Looks
-  blocked" is not a useful report; "ssh-add -l → rc=2 →
-  `Could not open a connection to your authentication agent`" is.
-- **Map each ✗ to a catalog entry.** The fail report includes a
-  direct link to the matching section of
-  [`docs/setup/sandbox-troubleshooting.md`](../../../../docs/setup/sandbox-troubleshooting.md).
-  Do not paraphrase the remediation — the catalog is the single
-  source of truth.
+- **Read-only.** Each probe is a small, deterministic, side-effect-free check.
+  The skill **never** edits a settings file, **never** runs a command with `dangerouslyDisableSandbox`, and **never** installs anything.
+  If a check fails, surface it and point at the catalog entry; do not auto-fix.
+- **Run every probe, even on early failure.** Do not stop at the first ✗.
+  A user may have one of six independent restrictions or all six, and finding them one re-run at a time is annoying.
+- **Distinguish ✗ (failing) from ⊘ (not applicable).** ✗ means the probe ran and the sandbox blocked it.
+  ⊘ means the probe was skipped because a prerequisite is absent (e.g. no `docker` / `podman` on `PATH` → docker probe ⊘, not ✗).
+- **Surface evidence.** Each report line names the probe command, the exit code, and the relevant stderr snippet.
+  "Looks blocked" is not useful; "ssh-add -l → rc=2 → `Could not open a connection to your authentication agent`" is.
+- **Map each ✗ to a catalog entry.** The fail report links directly to the matching section of [`docs/setup/sandbox-troubleshooting.md`](../../../../docs/setup/sandbox-troubleshooting.md).
+  Do not paraphrase the remediation; the catalog is the single source of truth.
 
 ## The 6 probes
 
-The current set covers the six failure modes the catalog
-documents. New probes are added when new entries land in the
-catalog; the two stay in lock-step.
+The probes cover the six failure modes the catalog documents.
+New probes are added when new entries land in the catalog, so the two stay in lock-step.
 
 ### Probe 1 — SSH agent / Yubikey reachable
 
 Tests whether `ssh-agent` is reachable from inside the sandbox.
-Failure modes: `SSH_AUTH_SOCK` is passed through `claude-iso`'s
-env whitelist but the socket file is not in
-`sandbox.filesystem.allowRead`, so the agent's `ssh` /
-`git push` subprocesses cannot even `stat(2)` it; or — on macOS —
-the file is readable but its path is missing from
-`sandbox.network.allowUnixSockets`, so `connect(2)` is denied and
-the agent reports as unreachable while the socket is plainly
-there. The second is the one a signed commit hits as
-`No private key found for public key`.
+Two failure modes:
+`SSH_AUTH_SOCK` passes through `claude-iso`'s env whitelist but the socket file is not in `sandbox.filesystem.allowRead`, so the agent's `ssh` / `git push` subprocesses cannot even `stat(2)` it;
+or, on macOS, the file is readable but its path is missing from `sandbox.network.allowUnixSockets`, so `connect(2)` is denied and the agent looks unreachable while the socket is plainly there.
+A signed commit hits the second as `No private key found for public key`.
 
 **Command:**
 
@@ -133,10 +106,8 @@ bash <skill-dir>/scripts/probe-1-ssh-agent.sh
 
 ### Probe 2 — Localhost port bind
 
-Tests whether a process inside the sandbox can bind to a
-loopback port AND then talk to itself over loopback. The
-failure mode the catalog documents is the second half (egress
-proxy blocks `127.0.0.1`).
+Tests whether a process inside the sandbox can bind to a loopback port AND then talk to itself over loopback.
+The catalog documents the second half failing (egress proxy blocks `127.0.0.1`).
 
 **Command:**
 
@@ -158,14 +129,9 @@ bash <skill-dir>/scripts/probe-2-localhost-bind.sh
 
 ### Probe 3 — Podman / Docker through the container gateway
 
-Tests whether the runtime CLI can talk to the [container
-gateway](../../../../tools/container-gateway/README.md), not the
-real daemon socket — the sandbox never gets a route to the daemon
-itself. Run for each of `podman` / `docker` that is on `PATH`; ⊘
-each that is not installed (this is not a sandbox failure, just an
-absent prerequisite). Each remaining check narrows down which of
-the three wiring pieces (env var, running gateway, allowed socket)
-is missing, in the order a fresh install would hit them.
+Tests whether the runtime CLI can talk to the [container gateway](../../../../tools/container-gateway/README.md), not the real daemon socket; the sandbox never gets a route to the daemon itself.
+Run it for each of `podman` / `docker` on `PATH`; ⊘ each one not installed (an absent prerequisite, not a sandbox failure).
+The remaining checks narrow down which of the three wiring pieces (env var, running gateway, allowed socket) is missing, in the order a fresh install would hit them.
 
 **Command:**
 
@@ -173,20 +139,12 @@ is missing, in the order a fresh install would hit them.
 bash <skill-dir>/scripts/probe-3-container-gateway.sh
 ```
 
-`status_json` comes from the gateway's own read-only `status`
-subcommand — the doctor may call it from inside the sandbox,
-since it neither binds a socket nor touches the daemon. `gw_src`
-picks the adopter's pinned snapshot
-(`.apache-magpie/tools/container-gateway/src`) when present, else
-the framework repo's own tree (`tools/container-gateway/src`), so
-the same probe runs in both an adopter checkout and this
-framework's own worktree. The `gw_state` check runs **before** the
-raw socket-file test: a backend `status` does not list under
-`serving` never gets a socket file in the first place, so testing
-`-S "$sock"` first would misreport "gateway not running" for the
-"running, but this backend's machine/daemon is down" case — the
-`-S` test below is a defensive fallback for an already-serving
-backend whose socket vanished mid-probe, not the primary check.
+`status_json` comes from the gateway's own read-only `status` subcommand.
+The doctor may call it from inside the sandbox, since it neither binds a socket nor touches the daemon.
+`gw_src` picks the adopter's pinned snapshot (`.apache-magpie/tools/container-gateway/src`) when present, else the framework repo's own tree (`tools/container-gateway/src`), so the same probe runs in an adopter checkout and in this framework's own worktree.
+The `gw_state` check runs **before** the raw socket-file test.
+A backend that `status` does not list under `serving` never gets a socket file, so testing `-S "$sock"` first would misreport "gateway not running" for the "running, but this backend's machine/daemon is down" case.
+The `-S` test is a defensive fallback for an already-serving backend whose socket vanished mid-probe, not the primary check.
 
 **Interpretation:**
 
@@ -201,27 +159,20 @@ backend whose socket vanished mid-probe, not the primary check.
 | `✗ no response in 15s — <rt> info hung` | Fail | `_probe_timeout` killed a stalled `<rt> info` call; the backend daemon behind the gateway is likely wedged — restart it from outside the sandbox. |
 | `⊘ <rt> not on PATH` | Skip | Runtime not installed; not a sandbox restriction. |
 
-An empty `podman machine list` from inside the sandbox is a read
-denial on the machine's directory, not proof that no machine
-exists — decide the machine's real state from outside the sandbox,
-per the catalog entry below.
+An empty `podman machine list` from inside the sandbox is a read denial on the machine's directory, not proof that no machine exists.
+Decide the machine's real state from outside the sandbox, per the catalog entry below.
 
 **On ✗ → remediation:**
 [`docs/setup/sandbox-troubleshooting.md` — Docker / Podman command fails with a socket error](../../../../docs/setup/sandbox-troubleshooting.md#docker--podman-command-fails-with-a-socket-error).
 
 ### Probe 4 — Per-project scratch directory (`TMPDIR`)
 
-Tests whether the session has a **writable** scratch directory. The
-sandbox mounts the host `/tmp` read-only and punches only specific
-subpaths writable, so a session whose `TMPDIR` falls back to `/tmp`
-gets no scratch area at all.
+Tests whether the session has a **writable** scratch directory.
+The sandbox mounts the host `/tmp` read-only and makes only specific subpaths writable, so a session whose `TMPDIR` falls back to `/tmp` has no scratch area at all.
 
-`TMPDIR` landing on the shared session root rather than a
-per-project directory is **not** a finding. Claude Code sets
-`TMPDIR` itself when it builds the sandbox and that assignment wins
-over `env.TMPDIR` from any settings file, so the shared root is the
-expected value and no configuration changes it. Each session still
-gets a per-project, per-session scratchpad underneath it.
+`TMPDIR` landing on the shared session root rather than a per-project directory is **not** a finding.
+Claude Code sets `TMPDIR` itself when it builds the sandbox, and that wins over `env.TMPDIR` from any settings file, so the shared root is expected and no configuration changes it.
+Each session still gets a per-project, per-session scratchpad beneath it.
 
 **Command:**
 
@@ -243,19 +194,15 @@ bash <skill-dir>/scripts/probe-4-scratch-dir.sh
 [`docs/setup/sandbox-troubleshooting.md` — Temp files fail with "Read-only file system" under `/tmp`](../../../../docs/setup/sandbox-troubleshooting.md#temp-files-fail-with-read-only-file-system-under-tmp).
 
 Do **not** propose `env.TMPDIR` in a settings file as the fix.
-Claude Code overrides it when it builds the sandbox, so the setting
-is accepted and silently has no effect; the giveaway is a directory
-that exists, is named exactly as configured, and stays empty. The
-catalog entry above covers what is actually actionable.
+Claude Code overrides it when it builds the sandbox, so the setting is accepted and silently has no effect.
+The giveaway is a directory that exists, is named exactly as configured, and stays empty.
+The catalog entry above covers what is actually actionable.
 
 ### Probe 5 — Signing key readable (`gpg.format=ssh`)
 
-Tests whether the public key git hands to `ssh-keygen -Y sign` can
-be opened from inside the sandbox. Failure mode: the framework
-denies `~/.ssh/` wholesale, so with `gpg.format=ssh` every signed
-commit fails before the hardware key is asked for a touch — and the
-touch overlay, which waits for `ssh-keygen` to block, never sees it
-block.
+Tests whether the public key git hands to `ssh-keygen -Y sign` can be opened from inside the sandbox.
+Failure mode: the framework denies `~/.ssh/` wholesale, so with `gpg.format=ssh` every signed commit fails before the hardware key asks for a touch.
+The touch overlay, which waits for `ssh-keygen` to block, never sees it block.
 
 **Command:**
 
@@ -270,7 +217,7 @@ bash <skill-dir>/scripts/probe-5-signing-key.sh
 | `✓ readable inside sandbox` | Pass | `ssh-keygen` will be able to open the public key. |
 | `✓ literal key` | Pass | `user.signingkey` holds the key text itself; no file is involved. |
 | `✗ not readable inside sandbox` | Fail | The sandbox's `~/.ssh/` read deny covers the public key; add that one file to `allowRead`. |
-| `⊘ gpg.format is not ssh` | Skip | Signing goes through gpg (or is off); the previous entry's socket rules are what matter. |
+| `⊘ gpg.format is not ssh` | Skip | Signing goes through gpg (or is off); the agent-socket rules behind Probe 1 are what matter. |
 | `⊘ user.signingkey unset` | Skip | Misconfigured signing, not a sandbox problem — mention it, do not fail the probe. |
 | `signing-program → ✓` | Pass | git's signing program (the touch overlay's `gpg-touch-wrap-*` wrapper, or whatever `gpg.ssh.program` / `gpg.program` names) can be started from inside the sandbox. Nothing printed when neither key is set: git uses its default `ssh-keygen` / `gpg` from `PATH`. |
 | `signing-program → ✗` | Fail | The program git is configured to sign with is read-denied inside the sandbox — for the overlay wrapper, `~/.claude/scripts/` is. Every sandboxed signed commit fails at once with `cannot exec`; add the wrapper's two files to `allowRead`. |
@@ -283,17 +230,11 @@ for the program.
 
 ### Probe 6 — `gh` runs outside the sandbox
 
-Tests whether `gh` can reach GitHub from a sandboxed Bash call, and
-if not, whether the `sandbox.excludedCommands: ["gh *"]` exclusion
-that the framework reference relies on is in place. On macOS a
-sandboxed `gh` cannot verify TLS or read the keychain
-(`x509: OSStatus -26276` / `HTTP 401`), so the exclusion is the only
-thing that makes it work — and the exclusion applies only when
-every segment of a Bash invocation is `cd …` or `gh …`.
+Tests whether `gh` can reach GitHub from a sandboxed Bash call, and if not, whether the `sandbox.excludedCommands: ["gh *"]` exclusion the framework reference relies on is in place.
+On macOS a sandboxed `gh` cannot verify TLS or read the keychain (`x509: OSStatus -26276` / `HTTP 401`), so only the exclusion makes it work.
+The exclusion applies only when every segment of a Bash invocation is `cd …` or `gh …`.
 
-The probe deliberately runs `gh` through `sh -c` so that the
-exclusion cannot apply to the probe itself: that shows what an
-*un-excluded* `gh` does on this machine.
+The probe deliberately runs `gh` through `sh -c` so the exclusion cannot apply to it, showing what an *un-excluded* `gh` does on this machine.
 
 **Command:**
 
@@ -312,21 +253,13 @@ bash <skill-dir>/scripts/probe-6-gh-outside-sandbox.sh
 | `⚠ catch-all "Bash(gh *)" in permissions.ask` | Warn | Ask beats allow regardless of specificity, so this rule prompts on every read-only `gh` call. Replace it with the explicit write-subcommand list from the reference `.claude/settings.json`. Extra line, printed after the main result. |
 | `⊘ gh not on PATH` | Skip | `gh` not installed; not a sandbox restriction. |
 
-`~/.claude/settings.json` is usually unreadable from inside the
-sandbox, so the exclusion check may only see the project-scope
-files; if the user keeps the exclusion at user scope, a ✗ here is
-a false alarm — say so when reporting.
+`~/.claude/settings.json` is usually unreadable from inside the sandbox, so the exclusion check may see only the project-scope files.
+If the user keeps the exclusion at user scope, a ✗ here is a false alarm; say so when reporting.
 
-Even with the exclusion present, a `gh` call is only excluded when
-every part of the Bash invocation is `cd …` or `gh …`: a pipe, a
-`$(…)` substitution, a loop, or any file redirection (`> file`,
-even `> /dev/null`) puts it back in the sandbox. The redirection
-case is a Claude Code regression tracked in
-[anthropics/claude-code#95532](https://github.com/anthropics/claude-code/issues/95532);
-the catalog entry shows the `gh tofile` alias that works around it.
-When the user reports a `gh` failure that this probe does not
-reproduce, ask for the exact command line — the shape is usually
-the answer.
+Even with the exclusion present, a `gh` call is excluded only when every part of the Bash invocation is `cd …` or `gh …`.
+A pipe, a `$(…)` substitution, a loop, or any file redirection (`> file`, even `> /dev/null`) puts it back in the sandbox.
+The redirection case is a Claude Code regression tracked in [anthropics/claude-code#95532](https://github.com/anthropics/claude-code/issues/95532); the catalog entry shows the `gh tofile` alias that works around it.
+When the user reports a `gh` failure this probe does not reproduce, ask for the exact command line; the shape is usually the answer.
 
 **On ✗ → remediation:**
 [`docs/setup/sandbox-troubleshooting.md` — `gh` fails with TLS `OSStatus -26276` or `HTTP 401` inside the sandbox](../../../../docs/setup/sandbox-troubleshooting.md#gh-fails-with-tls-osstatus--26276-or-http-401-inside-the-sandbox).
@@ -345,28 +278,17 @@ If every probe is ✓ or ⊘:
 If any probe is ✗:
 
 1. Surface every fail in one report (do not stop at the first).
-2. For each fail, print the troubleshooting-doc anchor link from
-   the probe's *On ✗ → remediation* row above.
-3. Suggest the user open the catalog entry to read the symptom →
-   root cause → fix shape, then apply the settings.json widening
-   themselves. Do **not** propose to apply the widening from this
-   skill — settings.json widenings are sandbox-bypass-adjacent
-   and need an explicit user-driven edit.
-4. After the user has applied the widening (in a separate flow),
-   re-run `setup-isolated-setup-doctor` to confirm the probe now
-   passes.
+2. For each fail, print the troubleshooting-doc anchor link from the probe's *On ✗ → remediation* line above.
+3. Suggest the user read the catalog entry's symptom → root cause → fix, then apply the settings.json widening themselves.
+   Do **not** propose to apply the widening from this skill; settings.json widenings are sandbox-bypass-adjacent and need an explicit user-driven edit.
+4. After the user has applied the widening (in a separate flow), re-run `setup-isolated-setup-doctor` to confirm the probe now passes.
 
 If a probe surfaces a fail shape not catalogued in
 [`docs/setup/sandbox-troubleshooting.md`](../../../../docs/setup/sandbox-troubleshooting.md):
 
-1. Report the fail with the literal probe command + exit code +
-   stderr.
-2. Suggest the user add a new entry to the catalog per its
-   *Adding a new entry* section (symptom verbatim, root cause,
-   fix, notes).
-3. Once the catalog has the new entry, extend this skill with a
-   matching probe in the same shape so the next doctor run
-   catches it automatically.
+1. Report the fail with the literal probe command + exit code + stderr.
+2. Suggest the user add a new entry to the catalog per its *Adding a new entry* section (symptom verbatim, root cause, fix, notes).
+3. Once the catalog has the new entry, extend this skill with a matching probe in the same shape so the next doctor run catches it automatically.
 
 ## Adding a probe
 

@@ -244,7 +244,7 @@ This step **must run before Steps 5+** so the remainder of
 this upgrade executes against the framework version the
 project just pinned to, not against the pre-upgrade
 bootstrap logic. It implements
-[`SKILL.md` Golden rule 9](SKILL.md#golden-rules).
+[`snapshot-model.md` Golden rule 9](snapshot-model.md#the-golden-rules-that-bind-only-here).
 
 1. Compute the diff between the canonical committed copy
    `.agents/skills/magpie-setup/` and the snapshot's

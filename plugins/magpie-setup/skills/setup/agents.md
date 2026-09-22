@@ -118,7 +118,7 @@ always wires the `magpie-*` set the same way: canonical in
 Every adoption rule is "canonical link, then relays", not
 "per-target independent link":
 
-- **`magpie-` prefix** ([`SKILL.md` Golden rule 6](SKILL.md#golden-rules))
+- **`magpie-` prefix** ([`snapshot-model.md` Golden rule 6](snapshot-model.md#the-golden-rules-that-bind-only-here))
   — unchanged. Every framework skill is `magpie-<skill>` in
   *every* active target dir, so it never collides with an
   adopter's own skills regardless of agent.
@@ -135,7 +135,7 @@ Every adoption rule is "canonical link, then relays", not
   `goose`, …) gets a per-skill relay `magpie-<n>` →
   `../../.agents/skills/magpie-<n>`. See
   [`install.md` Step 8](install.md#step-8--wire-up-the-framework-skill-symlinks).
-- **Committed bootstrap** ([`SKILL.md` Golden rule 6](SKILL.md#golden-rules))
+- **Committed bootstrap** ([`snapshot-model.md` Golden rule 6](snapshot-model.md#the-golden-rules-that-bind-only-here))
   — the one committed framework artefact, `magpie-setup`, lives at
   the **canonical** `.agents/skills/magpie-setup/` (a committed
   copy for adopters; a committed symlink under self-adoption).

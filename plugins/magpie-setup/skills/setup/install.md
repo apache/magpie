@@ -527,7 +527,7 @@ How it differs from a remote adoption:
   narrow the set.
 - **`magpie-setup` is itself a symlink** (→ `../../skills/setup/`),
   not a committed copy. The copy-vs-symlink rule of
-  [`SKILL.md` Golden rule 6](SKILL.md#golden-rules) exists only
+  [`snapshot-model.md` Golden rule 6](snapshot-model.md#the-golden-rules-that-bind-only-here) exists only
   because adopter snapshots disappear on clone; the framework's
   own source is always present, so the bootstrap is linked like
   every other skill.
@@ -700,7 +700,7 @@ fetch produced an unexpected layout — surface and stop.
 
 ## Step 3b — Reconcile the committed `setup` with the new snapshot + reload in-flight
 
-Per [`SKILL.md` Golden rule 9](SKILL.md#golden-rules), the
+Per [`snapshot-model.md` Golden rule 9](snapshot-model.md#the-golden-rules-that-bind-only-here), the
 adopter-side committed `setup` skill must match the
 snapshot's version before the rest of this run executes —
 otherwise we finish adoption against the *old* bootstrap
@@ -1106,7 +1106,7 @@ outside the framework tree points `$MAGPIE_GUARD_DIRS` at them.
 **Symlink entries — one uniform block per active target
 ([`agents.md`](agents.md)), no per-layout variation.** Every
 framework skill is symlinked under the `magpie-` prefix (see
-[`SKILL.md` Golden rule 6](SKILL.md#golden-rules)), so a single
+[`snapshot-model.md` Golden rule 6](snapshot-model.md#the-golden-rules-that-bind-only-here)), so a single
 `magpie-*` glob covers them all in each target dir — no per-family
 lines. The canonical target (`.agents/skills/`) and every relay
 target (`.claude/skills/`, `.github/skills/`, any present holdout)
