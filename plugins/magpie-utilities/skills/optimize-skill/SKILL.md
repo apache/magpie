@@ -4,31 +4,21 @@
 name: magpie-optimize-skill
 family: utilities
 mode: Meta
-description: |
-  Optimize an existing framework skill (or sweep a set of them) by
-  applying the restructuring patterns proven on the security-skill
-  suite: split an oversized `SKILL.md` into linked sibling docs,
-  lift concrete/project-specific values out of the body into
-  `<project-config>` placeholders, replace in-agent-context body
-  reads with out-of-context tool calls, batch per-item fetches into
-  a single upfront pass, and add a deterministic pre-flight no-op
-  classifier ahead of LLM passes. Every change is a behavior-
-  preserving proposal the maintainer signs off on; the skill
-  validator must stay green before and after. The refactoring
-  sibling of `write-skill` (which authors net-new skills).
-when_to_use: |
-  Invoke when a maintainer says "optimize <skill>", "slim down
-  <skill>'s SKILL.md", "this SKILL.md is too long", "split <skill>
-  into subdocs", "lift the hardcoded values out of <skill>", "make
-  <skill> read less into context", or "sweep the skills for P14
-  violations". Also a natural follow-up to a principles/validator
-  audit that flags an over-500-line SKILL.md, concrete-name
-  leakage, or a heavy in-context read. Skip for net-new skills —
-  that is `write-skill`. Skip when the request is a behavior
-  change dressed up as an optimization; route those through normal
-  skill editing + review.
+description: >-
+  Make an existing framework skill leaner without changing what it
+  does: split an oversized body into siblings, lift hardcoded values
+  into placeholders, move bulk reads and per-item fetches out of
+  context, and — with the maintainer writing the words — rewrite
+  verbose prose paragraph by paragraph. Every pass is a proposal, and
+  the validator is green before and after.
+when_to_use: >-
+  When the user says "optimize <skill>", "this SKILL.md is too long",
+  "split <skill> into subdocs", "make <skill> read less into context",
+  or "rewrite <skill> with me". Also after an audit flags an
+  over-500-line body or hardcoded values. For a net-new skill, use
+  write-skill.
 capability: capability:authoring
-surface_hash: sha256:e5d45fdaa4f789eb
+surface_hash: sha256:17d04e5da25a2acb
 license: Apache-2.0
 ---
 
@@ -89,260 +79,158 @@ is in. `/magpie-setup verify` is the full diagnostic.
 
 <!-- END MAGPIE PREFLIGHT -->
 
-Take one existing framework skill — or a maintainer-supplied set of
-them — and make it leaner without changing what it does. The skill
-diagnoses a target against the optimization catalogue distilled from
-the recent security-suite refactors, proposes the applicable passes,
-and applies them one at a time as **behavior-preserving** edits the
-maintainer confirms. The skill validator (and, for tracker-touching
-skills, the placeholder linter) is the deterministic gate: it is
-green before the first pass and green again after the last.
+Make an existing skill leaner without changing what it does.
 
-This skill operates only on **framework-internal files** — `SKILL.md`
-bodies, their sibling docs, `<project-config>` manifests, tool
-adapters in this repo. It reads no external or attacker-controlled
-content, so the prompt-injection-defence callout does not apply.
+There are two kinds of pass. The five in
+[`patterns.md`](patterns.md) move and rewire text without altering a
+word of the instructions. The sixth,
+[`rewrite.md`](rewrite.md), changes the words — the maintainer writes
+them, paragraph by paragraph, and the skill learns their style as it
+goes.
 
-It is the refactoring counterpart to
-[`write-skill`](../write-skill/SKILL.md): `write-skill` authors a
-net-new skill; `optimize-skill` restructures one that already exists.
-The five passes, their smells, exemplar PRs, mechanics, and
-behavior-preservation guarantees live in
-[`patterns.md`](patterns.md); this body is the orchestration.
+The validator is the gate: green before the first pass, green after the
+last. To write a skill from scratch, use
+[`write-skill`](../write-skill/SKILL.md) instead.
 
----
-
-## Adopter overrides
-
-Before running the default behaviour documented
-below, this skill consults
-[`.apache-magpie-local/optimize-skill.md`](../../../../docs/setup/agentic-overrides.md) (personal, gitignored) and [`.apache-magpie-overrides/optimize-skill.md`](../../../../docs/setup/agentic-overrides.md) (committed, project-wide)
-in the adopter repo if it exists, and applies any
-agent-readable overrides it finds. See
-[`docs/setup/agentic-overrides.md`](../../../../docs/setup/agentic-overrides.md)
-for the contract — what overrides may contain, hard
-rules, the reconciliation flow on framework upgrade,
-upstreaming guidance.
-
-**Hard rule**: agents NEVER modify the snapshot under
-`<adopter-repo>/.apache-magpie/`. Local modifications
-go in the override file. Framework changes go via PR
-to `apache/magpie`.
-
----
-
-## Snapshot drift
-
-Also at the top of every run, this skill compares the
-gitignored `.apache-magpie.local.lock` (per-machine
-fetch) against the committed `.apache-magpie.lock`
-(the project pin). On mismatch the skill surfaces the
-gap and proposes
-[`setup upgrade`](../../../magpie-setup/skills/setup/upgrade.md).
-The proposal is non-blocking — the user may defer if
-they want to run with the local snapshot for now.
-
----
+This skill reads only framework files, so the external-content rules do
+not apply to it.
 
 ## Inputs
 
-- **Target** — the skill to optimize, as a skill name
-  (`security-issue-import`), a directory
-  (`.claude/skills/security-issue-import/`), or a `SKILL.md`
-  path. Required for a single-skill run.
-- **Sweep selector** (optional) — `--all` to diagnose every skill
-  under `.claude/skills/` and rank optimization candidates without
-  applying anything, or `over:<N>` to scope the sweep to SKILL.md
-  files longer than `<N>` lines (default threshold: **500**, the
-  `PRINCIPLES.md` P14 cap).
-- **Pass filter** (optional) — restrict to named passes from
-  [`patterns.md`](patterns.md), e.g. `pass:split` or
-  `pass:config-lift,out-of-context`. Default: propose every
-  applicable pass.
+**Target** — a skill name, a directory, or a `SKILL.md` path.
 
-When no target and no sweep selector are given, default to a
-read-only `--all` diagnosis and let the maintainer pick a target
-from the ranked list.
+**`--all`** or **`over:<N>`** — diagnose every skill instead, ranking
+candidates without touching anything. The default threshold is 500
+lines, the `PRINCIPLES.md` P14 cap.
 
----
+**`pass:<name>`** — restrict to named passes. Default is to propose
+every applicable one.
+
+With no target and no selector, diagnose everything read-only and let
+the maintainer choose.
 
 ## Prerequisites
 
-- **`uv`** — runs the skill validator
-  ([`tools/skill-and-tool-validator`](../../../../tools/skill-and-tool-validator/README.md))
-  and the placeholder linter. Without it the green-before /
-  green-after gate cannot run; stop and ask the user to install
-  `uv`.
-- **`git`** — the behavior-preservation checks rely on
-  `git diff` / `git mv`; the skill expects a clean (or
-  intentionally dirty, user-acknowledged) working tree so its own
-  edits are isolable.
-- **`doctoc`** — regenerates a sibling/anchor TOC after a split
-  changes headings. If absent, surface the manual TOC step instead
-  of silently skipping it.
+`uv` runs the validator, which is the gate — without it, stop and say
+so. `git` isolates the diff, so prefer a clean tree or a branch.
+`doctoc` regenerates a TOC when headings move; if it is missing,
+surface the manual step rather than skipping it quietly.
 
----
+## Step 0 — Check the ground
 
-## Step 0 — Pre-flight check
-
-1. **Target resolves** to a real skill directory containing a
-   `SKILL.md`. A bad name → stop and list the available skills.
-2. **Baseline is green.** Run the validator on the target (or the
-   whole tree for a sweep) and record the result. If it is already
-   **red**, stop: optimization is a no-behavior-change operation
-   layered on a passing skill, not a way to fix a broken one. Hand
-   the failures back; the maintainer fixes correctness first.
-3. **Working tree is isolable.** Prefer a clean tree, or a
-   dedicated branch, so the optimization diff is reviewable on its
-   own. If the tree carries unrelated changes, surface them and ask
-   before proceeding.
-4. **Snapshot is current** (see *Snapshot drift* above) — a stale
-   snapshot means the target on disk may not match the framework
-   the maintainer thinks they are editing.
-
----
+The target must resolve to a real skill directory. The validator must
+be **green before you start** — optimization is layered on a working
+skill, not a way to fix a broken one, so hand back the failures and let
+the maintainer fix correctness first. The working tree should be clean
+enough that this diff is reviewable on its own.
 
 ## Step 1 — Diagnose
 
-Run every diagnostic in [`patterns.md`](patterns.md) against the
-target and emit a findings table — one row per detected smell, each
-naming the pass that addresses it, the evidence (`path:line`, line
-count, the offending construct), and an effort/blast-radius note.
-Diagnosis is **read-only**; it never edits.
+Run every diagnostic in [`patterns.md`](patterns.md) and report one row
+per smell: the pass that addresses it, the evidence (`path:line`, line
+count, the construct), and how big a change it implies. Read-only.
 
-The five smells, in the order the passes below apply them:
+The smells, in the order their passes apply:
 
-1. **Oversized body** — `SKILL.md` over the 500-line P14 cap, or a
-   single section that dominates the body. → *split* pass.
-2. **Concrete-name leakage** — adopter-specific values (a concrete
-   `<upstream>` repo slug, real list addresses, real IDs) baked into
-   the body instead of resolved from `<project-config>`. →
-   *config-lift* pass.
-3. **In-context bulk read** — a step that pulls a whole issue body,
-   rollup comment, or large artefact into the agent context only to
-   touch one field of it. → *out-of-context* pass.
-4. **Per-item round-trips** — N sequential fetches the skill could
-   issue as one upfront batch. → *fetch-upfront* pass.
-5. **No deterministic pre-filter** — the skill spends an LLM pass on
-   items a cheap deterministic classifier could skip as obvious
-   no-ops. → *preflight-classifier* pass.
+1. **Oversized body** — past the 500-line cap, or one section
+   dominating. → *split*
+2. **Concrete names** — adopter-specific values baked in instead of
+   resolved from `<project-config>`. → *config-lift*
+3. **Bulk reads** — pulling a whole issue or artefact into context to
+   touch one field. → *out-of-context*
+4. **Per-item round-trips** — N sequential fetches that could be one
+   batch. → *fetch-upfront*
+5. **No cheap pre-filter** — spending a model pass on items a
+   deterministic check would skip. → *preflight-classifier*
+6. **Verbose prose** — the structure is right and the body still reads
+   twice as long as it needs to. → *rewrite*, see
+   [`rewrite.md`](rewrite.md)
 
-For a sweep, rank targets by (cap overflow × number of distinct
-smells) and present the list; apply nothing until the maintainer
-picks one.
-
----
+For a sweep, rank by cap overflow times distinct smells and stop there.
 
 ## Step 2 — Propose
 
-For the chosen target, propose the applicable passes **in the order
-above** (lowest blast radius first: a pure file move before any
-content lift before any tool rewire). For each proposed pass state:
-the exact files created/moved, the slimming delta (e.g. *"SKILL.md
-3425 → ~660 lines, four new siblings"*), and the
-behavior-preservation guarantee from [`patterns.md`](patterns.md).
+Propose the applicable passes lowest-blast-radius first: a file move
+before a content lift before a tool rewire, and the rewrite pass last
+because it is the only one that changes wording. For each, state the
+files touched, the expected delta, and the guarantee from
+[`patterns.md`](patterns.md).
 
-Propose; do not apply. Wait for the maintainer to pick which passes
-to run, in which order.
-
----
+Propose only. The maintainer picks which passes run, and in what order.
 
 ## Step 3 — Apply one pass at a time
 
-For each confirmed pass, smallest reversible step first:
+**Restructure passes** (*split*, *config-lift*) move text and change
+none of it. Use `git mv` for a whole file; otherwise move the exact
+bytes and leave a one-line pointer behind. Never paraphrase something
+you moved — that is a behaviour change wearing a refactor's clothes.
 
-- **Restructure passes (split, config-lift)** move or relocate text
-  with **no wording change to the instructions themselves**. Use
-  `git mv` where a whole file relocates; otherwise cut-and-paste the
-  exact bytes and replace the body region with a one-line pointer to
-  the new sibling. Never paraphrase a moved instruction — a
-  behavior-preserving move means the moved bytes are identical.
-- **Rewire passes (out-of-context, fetch-upfront,
-  preflight-classifier)** change *how* a step runs, not *what
-  decision it reaches*. They route through an existing deterministic
-  tool (e.g. [`github-body-field`](../../../../tools/github-body-field/README.md),
-  [`github-rollup`](../../../../tools/github-rollup/README.md)) or a
-  pre-flight classifier; the human-visible proposals and gates the
-  skill produces are unchanged. If a rewire would alter what the
-  skill proposes to the user, it is a behavior change — stop and
-  route it through normal review, not this skill.
+**Rewire passes** (*out-of-context*, *fetch-upfront*,
+*preflight-classifier*) change how a step runs, not what it decides.
+They route through an existing deterministic tool such as
+[`github-body-field`](../../../../tools/github-body-field/README.md) or
+[`github-rollup`](../../../../tools/github-rollup/README.md). If a
+rewire would change what the skill proposes to a human, it is not a
+rewire — stop and take it through normal review.
 
-After each pass: regenerate the doctoc TOC if headings moved, and
-re-run the validator. One pass per commit keeps the diff reviewable
-and the `git mv` rename-detection intact.
+**The rewrite pass** is different and has its own file:
+[`rewrite.md`](rewrite.md). The maintainer writes the words; the skill
+carries paragraphs one at a time and applies what it has learned from
+their earlier edits to the ones that follow.
 
----
+After each pass, regenerate the TOC if headings moved and re-run the
+validator. One pass per commit.
 
-## Step 4 — Validate (green-after gate)
+## Step 4 — Prove nothing broke
 
-Re-run the validator (and the placeholder linter for tracker-
-touching skills) on the optimized target. It **must** return the
-same green it returned at Step 0. Then prove behavior preservation:
+The validator must return the same green it returned at Step 0.
 
-- For restructure passes, confirm the concatenation of `SKILL.md` +
-  new siblings contains the same instruction bytes as the original
-  (a moved-not-changed check: `git diff` should show deletions in
-  `SKILL.md` matching additions in the siblings, plus the new
-  pointer lines).
-- For rewire passes, confirm the skill's proposal/apply surface —
-  the things a human signs off on — is unchanged; only the
-  in-context cost or round-trip count drops.
+For a restructure pass, show the moved bytes are the same bytes:
+deletions in the body matching additions in the siblings, plus the new
+pointer. For a rewire, show the proposals a human signs off on are
+unchanged and only the cost moved. For a rewrite pass, the maintainer
+approved each paragraph as it went, so the record is the diff itself.
 
-If the validator goes red or behavior preservation cannot be shown,
-**revert the pass** and hand back; do not ship a half-applied
-optimization.
-
----
+If the validator goes red, or you cannot show the behaviour held,
+**revert the pass**. Never ship half of one.
 
 ## Step 5 — Hand back
 
-Summarise per pass: files touched, the slimming delta, validator
-result, and the behavior-preservation evidence. Do **not** open a
-PR or commit unless the maintainer asks — surface the diff and let
-them review. When they do commit, one pass per commit, subject in
-the `refactor(<skill>): …` form the security-suite splits used
-(e.g. *"extract N subdocs to slim SKILL.md A → B lines"*).
+Per pass: files touched, the delta, validator result, evidence. Do not
+commit or open a PR unless asked. After a rewrite pass, also propose
+the learned style rules per [`rewrite.md`](rewrite.md).
 
-If the run was a sweep, restate the ranked remaining candidates so
-the maintainer can queue the next one.
-
----
+If it was a sweep, restate what is still on the list.
 
 ## Hard rules
 
-- **Behavior never changes.** This skill restructures and rewires;
-  it never alters what a skill decides, proposes, or asks a human to
-  confirm. A change that alters behavior is out of scope — route it
-  through normal skill editing and review.
-- **Moved bytes are identical bytes.** A split or lift that
-  paraphrases the moved instructions is a behavior change in
-  disguise. Move verbatim; only the surrounding pointer is new.
-- **Propose before applying.** Every pass is a proposal the
-  maintainer confirms (framework Principle 6). Never batch-apply a
-  sweep.
-- **The validator is the gate.** Green before, green after, every
-  pass. A pass that needs the validator relaxed is not an
-  optimization.
-- **The optimized SKILL.md still obeys P14** — under 500 lines, with
-  every sibling linked exactly one level deep and no unreferenced
-  siblings.
-- **Never touch the snapshot** (`<adopter-repo>/.apache-magpie/`).
-  Framework-skill optimizations land via PR to `apache/magpie`.
-
----
+- **Structure changes, behaviour does not.** Except in the rewrite
+  pass, where wording changes and the maintainer writes every word.
+- **Moved bytes are identical bytes.** A paraphrase during a move is a
+  behaviour change in disguise.
+- **Propose before applying**, every pass, never a batch.
+- **The validator is the gate**, green before and after. A pass that
+  needs it relaxed is not an optimization.
+- **Learned style rules are a proposal too.** Show the diff; never
+  write them silently.
+- **Never touch the snapshot.** Framework changes go via PR to
+  `apache/magpie`.
 
 ## References
 
-- [`patterns.md`](patterns.md) — the five optimization passes:
-  smell, exemplar PR, mechanics, behavior-preservation guarantee,
-  validation.
-- [`write-skill`](../write-skill/SKILL.md) — authoring a net-new
-  skill (this skill's counterpart).
+- [`patterns.md`](patterns.md) — the five behaviour-preserving passes.
+- [`rewrite.md`](rewrite.md) — the paragraph-by-paragraph rewrite and
+  the style-learning loop.
+- [`write-skill`](../write-skill/SKILL.md) — authoring a new skill.
 - [`tools/skill-and-tool-validator`](../../../../tools/skill-and-tool-validator/README.md)
-  — the green-before / green-after gate.
-- [`tools/github-body-field`](../../../../tools/github-body-field/README.md)
-  and [`tools/github-rollup`](../../../../tools/github-rollup/README.md)
-  — out-of-context read/PATCH tools the rewire passes route through.
-- [`docs/labels-and-capabilities.md`](../../../../docs/labels-and-capabilities.md)
-  — the `capability:*` taxonomy and the P14 authorship rule this
-  skill enforces.
+  — the gate.
+
+## Learned style rules
+
+Written by the rewrite pass at the end of a session, as a proposed
+diff. Bullets only — a heading here would move this skill's
+`surface_hash` and tell every adopter their configuration went stale
+over a wording preference.
+
+<!-- BEGIN LEARNED STYLE -->
+<!-- END LEARNED STYLE -->
