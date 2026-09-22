@@ -207,6 +207,25 @@ rewire — stop and take it through normal review.
 carries paragraphs one at a time and applies what it has learned from
 their earlier edits to the ones that follow.
 
+**A moved heading breaks things that point at it.** Before calling a
+restructure pass done, follow every reference to the headings you moved:
+
+- **Eval `step-config.json`** — a suite builds its prompt live from
+  `skill_md` plus `step_heading`, so a heading that moved to a sibling
+  leaves the suite extracting from a file that no longer contains it.
+  Update both fields. `grep -rl '<heading text>'
+  tools/skill-evals/evals/` finds them.
+- **Anchor links** — `other.md#the-heading` anywhere in the tree.
+  `lychee` catches these, which is why it runs over the whole tree
+  rather than the diff.
+- **Heading levels.** A block cut from mid-body starts at `###` and
+  cannot open a new file, so it shifts a level. That changes the anchor
+  *and* the `step_heading` string an eval matches on — so it is the one
+  byte a split is allowed to change, and every reference has to follow.
+
+Neither the validator nor `prek` sees the first of these. Only running
+the suite does, which is the argument for Step 4 running it at all.
+
 After each pass, regenerate the TOC if headings moved and re-run the
 validator. One pass per commit.
 
@@ -256,8 +275,10 @@ If it was a sweep, restate what is still on the list.
 
 - **Structure changes, behaviour does not.** Except in the rewrite
   pass, where wording changes and the maintainer writes every word.
-- **Moved bytes are identical bytes.** A paraphrase during a move is a
-  behaviour change in disguise.
+- **Moved bytes are identical bytes**, heading level excepted. A
+  paraphrase during a move is a behaviour change in disguise.
+- **A heading that moves takes its references with it** — eval
+  `step-config.json`, anchor links, anything matching on the string.
 - **Propose before applying**, every pass, never a batch.
 - **The validator is the gate**, green before and after. A pass that
   needs it relaxed is not an optimization.
