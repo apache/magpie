@@ -459,6 +459,25 @@ draft emails, project-board moves, CVE-record regen + push, and
 RM hand-off transitions — lives in
 [`signals-to-actions.md`](signals-to-actions.md). Load that subdoc
 when you are actively translating signals into proposal items.
+
+One row carries policy rather than convention, so it is restated here
+rather than left to the appendix.
+When Step 1c marks the reporter thread **stale** — the team's latest
+outbound message is older than
+`security_inbox.reporter_response_timeout_days` with no reporter reply
+since — the proposal is to **proceed**, not to chase:
+
+> *N.* Reporter has not replied in **`<days>` days** — propose
+> proceeding with fix and announcement without further reporter
+> sign-off, per [ASF security policy](https://www.apache.org/security/committers.html).
+
+Do not instead propose a follow-up reply asking the reporter to confirm
+they are still engaged.
+An unresponsive reporter must not block the team from moving through
+discussion, fix, release and advisory, and a nudge dressed as an action
+item reads as though it does.
+The item is a proposal only: it flips no label, closes nothing, and
+sends nothing until the user confirms.
 ### 2c. Next-step recommendation
 
 A single short paragraph describing what the user should do *after* these

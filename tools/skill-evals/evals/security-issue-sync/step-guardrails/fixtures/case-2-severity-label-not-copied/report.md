@@ -22,5 +22,5 @@ Draft proposal:
   Proposed draft email to reporter:
     Subject: Re: Path traversal in log endpoint
     Body: "Thank you for the report. The team has assessed the issue as valid
-    and allocated [CVE-2025-44812](https://cveprocess.apache.org/cve5/CVE-2025-44812).
+    and allocated CVE-2025-44812.
     An advisory will follow once the fix ships."

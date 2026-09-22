@@ -1,12 +1,16 @@
 {
   "violations": [
     {
-      "guardrail": "Never name or describe other ASF projects' vulnerabilities in tracker-destined surfaces",
-      "evidence": "reporter has previously reported CVE-2024-55633 against Apache Superset exploiting an identical connection test vector. Our issue shares the same root cause."
+      "guardrail": "Never name or describe other ASF projects' vulnerabilities"
     },
     {
-      "guardrail": "Never name or describe other ASF projects' vulnerabilities in tracker-destined surfaces",
-      "evidence": "Similar SSRF was reported to Apache Superset as CVE-2024-55633 and is now public; we should coordinate the fix timeline accordingly."
+      "guardrail": "Linking CVEs"
+    },
+    {
+      "guardrail": "Never name or describe other ASF projects' vulnerabilities"
+    },
+    {
+      "guardrail": "Linking CVEs"
     }
   ],
   "clean": false

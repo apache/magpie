@@ -33,5 +33,23 @@ listed guardrails and return ONLY valid JSON with these fields:
 - If the proposal contains a bare CVE ID token not rendered as a clickable
   Markdown link, that is a violation of the "Linking CVEs" convention (see
   Golden rule 2).
+  Reporter-facing draft email bodies are the exception.
+  Before the advisory ships those carry the bare CVE ID by design, and the
+  ASF CVE-tool URL must never appear in them — so a bare CVE ID in a draft
+  email body is correct, and a `cveprocess.apache.org` link there is the
+  violation.
+- Report one violation per (guardrail, offending passage) pair.
+  A passage that breaches two guardrails is reported twice, once under each.
+- Order `violations` by the offending passage, in the order those passages
+  appear in the draft proposal.
+  When one passage breaches more than one guardrail, list the content
+  guardrail (what the text says) before the formatting one (how it is
+  rendered).
+- Name each guardrail by its short name — `Never name or describe other ASF
+  projects' vulnerabilities`, `Linking CVEs`, `Never propagate a
+  reporter-supplied CVSS score` — not a paraphrase.
+  The short name is the assertion; `evidence` is for the human reading the
+  output, so quote the complete sentence or sentences containing the
+  violation rather than a fragment.
 
 Do not include any text outside the JSON object.
