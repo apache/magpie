@@ -8,8 +8,9 @@ description: >-
   Make an existing framework skill leaner without changing what it
   does: split an oversized body into siblings, lift hardcoded values
   into placeholders, move bulk reads and per-item fetches out of
-  context, and — with the maintainer writing the words — rewrite
-  verbose prose paragraph by paragraph. Every pass is a proposal, and
+  context, pull embedded shell and Python into scripts, a tool or the
+  vetted-ops catalogue, and — with the maintainer writing the words —
+  rewrite verbose prose paragraph by paragraph. Every pass is a proposal, and
   the validator is green before and after.
 when_to_use: >-
   When the user says "optimize <skill>", "this SKILL.md is too long",
@@ -81,9 +82,9 @@ is in. `/magpie-setup verify` is the full diagnostic.
 
 Make an existing skill leaner without changing what it does.
 
-There are two kinds of pass. The five in
-[`patterns.md`](patterns.md) move and rewire text without altering a
-word of the instructions. The sixth,
+There are two kinds of pass. The first six move, rewire or extract
+without altering a word of the instructions — five in
+[`patterns.md`](patterns.md), plus extract-code below. The seventh,
 [`rewrite.md`](rewrite.md), changes the words — the maintainer writes
 them, paragraph by paragraph, and the skill learns their style as it
 goes.
@@ -171,7 +172,10 @@ The smells, in the order their passes apply:
    batch. → *fetch-upfront*
 5. **No cheap pre-filter** — spending a model pass on items a
    deterministic check would skip. → *preflight-classifier*
-6. **Verbose prose** — the structure is right and the body still reads
+6. **Embedded code** — shell or Python living inside the body, paid for
+   on every invocation although a model never needs to read it. →
+   *extract-code*
+7. **Verbose prose** — the structure is right and the body still reads
    twice as long as it needs to. → *rewrite*, see
    [`rewrite.md`](rewrite.md)
 
@@ -201,6 +205,32 @@ They route through an existing deterministic tool such as
 [`github-rollup`](../../../../tools/github-rollup/README.md). If a
 rewire would change what the skill proposes to a human, it is not a
 rewire — stop and take it through normal review.
+
+**The extract-code pass** takes code out of the body entirely. A script
+runs without entering the context, so embedded code is the one content
+that can be removed rather than merely relocated — the body keeps what
+the command is for and how to read its output, which is the part a model
+is actually for. Three destinations, and the choice is not stylistic:
+
+- **`scripts/` beside the skill** — a self-contained command with no
+  dependencies. The default.
+- **A project under `tools/`** — it needs dependencies, tests, or is
+  worth running outside this skill. Follow `tools/AGENTS.md`: a README
+  declaring its capability and prerequisites, and a workspace entry.
+- **The vetted-ops catalogue** — the command is read-only, takes a
+  closed set of parameters, and would otherwise **prompt for
+  confirmation on every run**. Moving it out of the body does not help
+  if each invocation then stops for approval; a fixed operation in the
+  catalogue is covered by one allow rule and asks nothing. Adding one is
+  a reviewed change to `ops.py` and a caller's grant, never a runtime
+  decision, so propose it and stop.
+
+Check the prompting cost before choosing. A script the agent runs on
+every invocation, behind a prompt, has traded tokens for interruptions —
+which is worse, because a person pays for it rather than a budget.
+
+Extracted code must come out **byte-identical**. It is executable: a
+paraphrase is not a rewording, it is a different program.
 
 **The rewrite pass** is different and has its own file:
 [`rewrite.md`](rewrite.md). The maintainer writes the words; the skill
@@ -291,7 +321,7 @@ If it was a sweep, restate what is still on the list.
 
 ## References
 
-- [`patterns.md`](patterns.md) — the five behaviour-preserving passes.
+- [`patterns.md`](patterns.md) — the behaviour-preserving passes.
 - [`rewrite.md`](rewrite.md) — the paragraph-by-paragraph rewrite and
   the style-learning loop.
 - [`write-skill`](../write-skill/SKILL.md) — authoring a new skill.
