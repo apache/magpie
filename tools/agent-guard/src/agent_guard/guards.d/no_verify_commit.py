@@ -39,7 +39,7 @@ TRIGGERS = ["git:commit"]
 
 
 def guard(ctx):
-    if ctx.argv[:2] != ["git", "commit"]:
+    if ctx.git_subcommand() != "commit":
         return None
     if not any(tok in ("--no-verify", "-n") for tok in ctx.argv):
         return None

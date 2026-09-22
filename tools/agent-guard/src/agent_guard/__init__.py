@@ -240,6 +240,53 @@ GH_COMMAND_GROUPS = frozenset(
 # the group.
 GH_VALUE_FLAGS = frozenset({"-R", "--repo", "-H", "--hostname"})
 
+# Global `git` options that take a separate value and may appear before the
+# subcommand, e.g. `git -C /path commit ...`. `git` parses these interspersed
+# the same way `gh` does, and the value must be consumed here for the same
+# reason GH_VALUE_FLAGS is: leaving it behind shifts the subcommand one token
+# to the right.
+GIT_VALUE_FLAGS = frozenset(
+    {
+        "-C",
+        "-c",
+        "--exec-path",
+        "--html-path",
+        "--man-path",
+        "--info-path",
+        "--namespace",
+        "--work-tree",
+        "--git-dir",
+        "--super-prefix",
+        "--config-env",
+    }
+)
+
+
+def git_subcommand_index(argv: list[str]) -> int | None:
+    """Index into ``argv`` of the ``git`` subcommand (``\"commit\"``,
+    ``\"push\"``, ...), skipping global flags and their values so
+    ``git -C /tmp commit`` resolves the same as ``git commit``. None if
+    ``argv`` is not a ``git`` call, or if no subcommand can be identified.
+
+    Without this, a guard anchored on a fixed ``argv[:2]`` slice is fail-open
+    for any ordinary global flag before the subcommand (``git -C <dir>
+    commit``, ``git -c core.editor=true commit``, ``git --no-pager commit``),
+    the same bypass ``gh_subcommand`` above already guards against for ``gh``.
+    """
+    if not argv or argv[0] != "git":
+        return None
+    i = 1
+    while i < len(argv):
+        tok = argv[i]
+        if tok.startswith("-") and tok != "-":
+            if "=" not in tok and tok in GIT_VALUE_FLAGS:
+                i += 2
+                continue
+            i += 1
+            continue
+        return i
+    return None
+
 
 def gh_subcommand(argv: list[str]) -> tuple[str, str] | None:
     """For an argv whose first token is ``gh``, return ``(group, sub)`` skipping
@@ -352,7 +399,8 @@ def _repo_flag(argv: list[str]) -> list[str]:
 
 
 def guard_commit_trailer(seg: Segment, cwd: str | None) -> str | None:
-    if seg.argv[:2] != ["git", "commit"]:
+    idx = git_subcommand_index(seg.argv)
+    if idx is None or seg.argv[idx] != "commit":
         return None
     if not re.search(r"co-authored-by:", seg.raw, re.IGNORECASE):
         return None
@@ -367,7 +415,8 @@ def guard_commit_trailer(seg: Segment, cwd: str | None) -> str | None:
 
 
 def guard_empty_rebase(seg: Segment, cwd: str | None) -> str | None:
-    if seg.argv[:2] != ["git", "push"]:
+    idx = git_subcommand_index(seg.argv)
+    if idx is None or seg.argv[idx] != "push":
         return None
     forced = any(
         t in ("-f", "--force") or t == "--force-with-lease" or t.startswith("--force-with-lease=")
@@ -379,7 +428,7 @@ def guard_empty_rebase(seg: Segment, cwd: str | None) -> str | None:
         return None
 
     # Resolve the source ref being pushed: last `src[:dst]` positional, else HEAD.
-    positionals = [t for t in seg.argv[2:] if not t.startswith("-")]
+    positionals = [t for t in seg.argv[idx + 1 :] if not t.startswith("-")]
     src = "HEAD"
     if len(positionals) >= 2:
         src = positionals[1].split(":", 1)[0] or "HEAD"
@@ -467,6 +516,13 @@ class GuardContext:
     def gh_subcommand(self) -> tuple[str, str] | None:
         return gh_subcommand(self.argv)
 
+    def git_subcommand(self) -> str | None:
+        """The ``git`` subcommand (``\"commit\"``, ``\"push\"``, ...), skipping
+        global flags and their values the same way :func:`gh_subcommand` does
+        for ``gh``. None if this segment is not a ``git`` call."""
+        idx = git_subcommand_index(self.argv)
+        return self.argv[idx] if idx is not None else None
+
     def opt(self, short: str, long: str) -> str | None:
         return _opt_value(self.argv, short, long)
 
@@ -497,7 +553,14 @@ def command_kinds(seg: Segment) -> set[str]:
         return kinds
     head = seg.argv[0]
     kinds.add(head)
-    if len(seg.argv) > 1 and head in ("git", "gh"):
+    if head == "git":
+        # A TRIGGERS = ["git:commit"] contributed guard must still fire behind
+        # an ordinary global flag (`git -C <dir> commit`); a plain seg.argv[1]
+        # read is the same fail-open shape guard_commit_trailer had.
+        idx = git_subcommand_index(seg.argv)
+        if idx is not None:
+            kinds.add(f"git:{seg.argv[idx]}")
+    elif len(seg.argv) > 1 and head == "gh":
         kinds.add(f"{head}:{seg.argv[1]}")
     return kinds
 

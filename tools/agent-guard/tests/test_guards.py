@@ -93,6 +93,22 @@ def test_commit_coauthor_override():
     assert dispatch('MAGPIE_ALLOW_COAUTHOR=1 git commit -m "x\nCo-Authored-By: a"') is None
 
 
+@pytest.mark.parametrize(
+    "command",
+    [
+        'git -C /tmp commit -m "x\n\nCo-Authored-By: a"',
+        'git -c core.editor=true commit -m "x\n\nCo-Authored-By: a"',
+        'git --no-pager commit -m "x\n\nCo-Authored-By: a"',
+    ],
+)
+def test_commit_coauthor_denied_past_a_global_flag(command):
+    # A global `git` option before the subcommand must not shift it past the
+    # guard's fixed check, the same bypass `gh_subcommand` already guards
+    # against for `gh --repo ... pr create`.
+    reason = dispatch(command)
+    assert reason and "Co-Authored-By" in reason
+
+
 # --------------------------------------------------------------------------- #
 # empty-rebase guard (bundled)
 # --------------------------------------------------------------------------- #
@@ -142,6 +158,16 @@ def test_empty_rebase_override(monkeypatch):
     assert dispatch("MAGPIE_ALLOW_EMPTY_PUSH=1 git push --force origin b:b") is None
 
 
+def test_empty_rebase_denied_past_a_global_flag(monkeypatch):
+    # Same global-flag bypass as test_commit_coauthor_denied_past_a_global_flag,
+    # for the other bundled guard: `git -C <dir> push --force ...` must still
+    # resolve the subcommand as `push`, and the src ref must still be read
+    # relative to the subcommand rather than a fixed argv[2:] slice.
+    monkeypatch.setattr(agent_guard, "_run", fake_run(_push_handler("0")))
+    reason = dispatch("git -C /tmp push --force-with-lease origin mybranch:mybranch")
+    assert reason and "0 commits" in reason
+
+
 # --------------------------------------------------------------------------- #
 # bundled example contributed guard (guards.d/no_verify_commit.py)
 # --------------------------------------------------------------------------- #
@@ -158,6 +184,14 @@ def test_no_verify_override():
 
 def test_plain_commit_not_blocked_by_no_verify_guard():
     assert dispatch('git commit -m "ordinary commit"') is None
+
+
+def test_no_verify_guard_denied_past_a_global_flag():
+    # The guard's own ctx.argv[:2] check had the same bypass as the two
+    # bundled guards; command_kinds' TRIGGERS = ["git:commit"] pre-filter
+    # had it too, so a global flag used to skip calling guard() at all.
+    reason = dispatch('git -C /tmp commit -m "x" --no-verify')
+    assert reason and "no-verify" in reason
 
 
 # --------------------------------------------------------------------------- #
@@ -332,3 +366,34 @@ def test_abs_path_plain_commit_still_allowed():
 )
 def test_gh_subcommand_consumes_flag_values(argv, expected):
     assert agent_guard.gh_subcommand(argv) == expected
+
+
+# ---------------------------------------------------------------------------
+# git_subcommand_index: the same fail-open shape as gh_subcommand above, for
+# the two BUILTIN_GUARDS (guard_commit_trailer, guard_empty_rebase), which
+# used to anchor on a fixed argv[:2] slice.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "argv, expected_index",
+    [
+        (["git", "commit", "-m", "x"], 1),
+        (["git", "push", "origin", "b"], 1),
+        # A global flag before the subcommand: the regression.
+        (["git", "-C", "/tmp", "commit", "-m", "x"], 3),
+        (["git", "-c", "core.editor=true", "commit", "-m", "x"], 3),
+        (["git", "--no-pager", "commit", "-m", "x"], 2),
+        (["git", "--work-tree", "/tmp", "push"], 3),
+        # Several pre-subcommand flags.
+        (["git", "-C", "/tmp", "-c", "a=b", "commit"], 5),
+        # No subcommand at all: only global flags, or nothing after `git`.
+        (["git", "-C", "/tmp"], None),
+        (["git"], None),
+        # Non-git and empty input.
+        (["gh", "pr", "create"], None),
+        ([], None),
+    ],
+)
+def test_git_subcommand_index_consumes_flag_values(argv, expected_index):
+    assert agent_guard.git_subcommand_index(argv) == expected_index
