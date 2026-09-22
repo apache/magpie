@@ -18,7 +18,7 @@ when_to_use: >-
   over-500-line body or hardcoded values. For a net-new skill, use
   write-skill.
 capability: capability:authoring
-surface_hash: sha256:17d04e5da25a2acb
+surface_hash: sha256:be9968c266788028
 license: Apache-2.0
 ---
 
@@ -94,6 +94,35 @@ last. To write a skill from scratch, use
 
 This skill reads only framework files, so the external-content rules do
 not apply to it.
+
+## What counts as small enough
+
+Two budgets, both measured rather than guessed. They were set at the
+catalogue median when this skill was written, so half the skills already
+met them; a skill past either one is an outlier, not merely large.
+
+| | target | why |
+|---|---|---|
+| `SKILL.md` body, pre-flight block excluded | **5,000 tokens** | paid on every invocation of that skill |
+| `description` + `when_to_use` | **200 tokens** | paid in *every session*, for every skill at once, invoked or not |
+
+Measure both before Step 1 and again at Step 4:
+
+```bash
+uv run --project tools/skill-token-count skill-token-count --write
+```
+
+The always-on budget is the one to spend effort on first. A body only
+costs when its skill runs; the frontmatter costs whether or not anyone
+ever invokes it, multiplied by every skill in the catalogue. Cutting 200
+tokens there beats cutting 2,000 from a body nobody triggers this week.
+
+For reference when this was set: 75 skills, median body 4,614 tokens,
+p90 10,613, largest 28,346; median always-on 200, largest 398.
+`PRINCIPLES.md` P14's 500-line cap still applies as the structural
+limit — these are the context budgets underneath it.
+
+Report both numbers in Step 5 whether or not the pass moved them.
 
 ## Inputs
 
@@ -183,7 +212,28 @@ validator. One pass per commit.
 
 ## Step 4 — Prove nothing broke
 
-The validator must return the same green it returned at Step 0.
+The validator must return the same green it returned at Step 0, and the
+budgets from *What counts as small enough* must have moved the right way.
+
+**Run the skill's eval suite if it has one**, at
+`tools/skill-evals/evals/<skill>/`:
+
+```bash
+tools/skill-evals/magpie-run-evals.sh tools/skill-evals/evals/<skill>
+```
+
+Run it **before the first pass as well**, and compare. A suite you only
+ran afterwards cannot tell a regression from a case that was already
+failing.
+
+Some suites are not deterministic — the same unchanged tree grades
+differently between runs. When a case flips, say so plainly instead of
+treating either run as the verdict: name the case, say the suite varies,
+and let the maintainer decide. Claiming a rewrite is proven safe on a
+suite that cannot hold still is worse than admitting the gap.
+
+A skill with no suite is not blocked, but say it has none — that is the
+maintainer's cue that the validator is the only gate on this change.
 
 For a restructure pass, show the moved bytes are the same bytes:
 deletions in the body matching additions in the siblings, plus the new
@@ -213,6 +263,8 @@ If it was a sweep, restate what is still on the list.
   needs it relaxed is not an optimization.
 - **Learned style rules are a proposal too.** Show the diff; never
   write them silently.
+- **Measure, before and after, every pass.** Both budgets and the eval
+  suite. A pass reported without numbers is an opinion.
 - **Never touch the snapshot.** Framework changes go via PR to
   `apache/magpie`.
 

@@ -15,7 +15,7 @@ when_to_use: >-
   current conventions. For making a skill leaner without changing what
   it does, use optimize-skill.
 capability: capability:authoring
-surface_hash: sha256:372821f30b8fe3fc
+surface_hash: sha256:31626428a2545bce
 license: Apache-2.0
 ---
 
@@ -89,7 +89,8 @@ prompt-injection patterns in full). [`provenance.md`](provenance.md)
 records where this skill came from.
 
 To make an existing skill leaner without changing what it does, use
-[`optimize-skill`](../optimize-skill/SKILL.md) instead.
+[`optimize-skill`](../optimize-skill/SKILL.md) instead. Step 7 runs it
+against every new skill regardless.
 
 ## Step 1 — Get three concrete examples
 
@@ -160,7 +161,28 @@ It checks the frontmatter shape, placeholder discipline, the SPDX
 header and internal links. Fix what it reports and run it again. CI
 runs the same check, so a red skill does not merge.
 
-## Step 7 — Ship, then iterate
+## Step 7 — Optimize before you ship
+
+A skill is written to be understood, and first drafts explain too much.
+Run [`optimize-skill`](../optimize-skill/SKILL.md) against what you just
+wrote — always, not only when it feels long. This is part of writing a
+skill, not a later cleanup someone may or may not get to.
+
+It checks the new skill against the two budgets in that skill's *What
+counts as small enough*: the body under 5,000 tokens, and
+`description` + `when_to_use` under 200. The second matters most. It is
+paid in every session, for every skill at once, whether or not anyone
+ever invokes this one — so a wordy description taxes people who will
+never use the skill.
+
+Take its restructuring passes; they move text without changing it. For
+prose it offers the paragraph-by-paragraph rewrite, where you write the
+words and it learns your style as it goes.
+
+A new skill that cannot get under both budgets is usually doing two
+jobs. Consider splitting it before accepting the size.
+
+## Step 8 — Ship, then iterate
 
 Use the skill on real work and watch where it goes wrong: a step whose
 instructions were too loose, a missing reference, a script that would
@@ -189,6 +211,8 @@ walks the promotion.
   much.
 - **Credit adapted third-party content in
   [`NOTICE`](../../../../NOTICE).**
+- **Never ship a skill that has not been through Step 7.** The budgets
+  are the gate: body under 5,000 tokens, frontmatter under 200.
 
 ## References
 
