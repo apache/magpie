@@ -65,18 +65,26 @@ do not treat the absence as a finding.
    regardless of adoption state — never in the committed lock, even
    when adopted. Read that file now if it exists; you will write to it
    either way.
-3. **A `skills` entry for the same skill in both stores is an expected
-   transitional state, not a fault.** It is what the ordinary
+3. **If you find one while reading** (step 0 or step 1 of the sweep
+   below):
+
+   <!-- BEGIN MAGPIE BLOCK: both-stores-collision — generated from tools/dev/blocks/both-stores-collision.md -->
+
+   A `skills` entry for the same skill in both stores is an expected
+   transitional state, not a fault. It is what the ordinary
    config-then-adopt path produces across two machines: a contributor
-   runs `config` before the project adopts, a maintainer runs `adopt`
-   elsewhere, and `adopt` can only migrate the local stamp on the
-   machine it ran from. If you find one while reading (step 0 or
-   step 1 of the sweep below), the local entry wins for every
-   comparison this run makes; name the collision in this run's summary
-   and **offer to drop the redundant local entries**, leaving the
-   committed lock as the single store. That offer is one confirmation
-   like any other finding in Step 2 — declining it changes nothing,
-   and the collision stays reported.
+   runs `config` on their machine before the project adopts, a
+   maintainer runs `adopt` on a different machine, and `adopt` can only
+   migrate the local stamp it can see — so the contributor's local
+   entry survives beside the newly committed one. When it happens, the
+   local entry wins for every comparison, and `/magpie-setup reconcile`
+   names the collision and offers to drop the redundant local entries,
+   leaving the committed lock as the single store.
+
+   <!-- END MAGPIE BLOCK: both-stores-collision -->
+
+   That offer is one confirmation like any other finding in Step 2 —
+   declining it changes nothing, and the collision stays reported.
 4. **Main-checkout only when the target is the committed lock.**
    Writing to `.apache-magpie.lock` is a committed-file write, the same
    restriction [`adopt`](adopt.md) carries and for the same reason.
