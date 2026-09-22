@@ -2120,3 +2120,45 @@ def test_compare_structural_bad_negate_fails_case_not_run():
     assert not ok
     assert any("has_key" in n for n in notes)
     assert any("negate" in n for n in notes)
+
+
+def test_load_step_config_appends_also_include_files(tmp_path: Path) -> None:
+    """A step whose text deliberately spans two files — the shared pre-flight
+    block and the `preflight-detail.md` sidecar it points at — must be graded
+    on both. Building the prompt from the block alone would grade the routing
+    and never the branch it routes to."""
+    repo = tmp_path
+    (repo / ".git").mkdir()
+    (repo / "block.md").write_text("## Step 1\n\nDecide, then read the detail.\n")
+    (repo / "detail.md").write_text("# Detail\n\nThe branch handling.\n")
+    fixtures = repo / "evals" / "s" / "fixtures"
+    fixtures.mkdir(parents=True)
+    (fixtures / "step-config.json").write_text(
+        json.dumps(
+            {
+                "skill_md": "block.md",
+                "step_heading": "## Step 1",
+                "also_include": ["detail.md"],
+            }
+        )
+    )
+
+    system_prompt, _ = load_step_config(fixtures)
+
+    assert "Decide, then read the detail." in system_prompt
+    assert "The branch handling." in system_prompt
+
+
+def test_load_step_config_without_also_include_is_unchanged(tmp_path: Path) -> None:
+    repo = tmp_path
+    (repo / ".git").mkdir()
+    (repo / "block.md").write_text("## Step 1\n\nOnly this.\n")
+    fixtures = repo / "evals" / "s" / "fixtures"
+    fixtures.mkdir(parents=True)
+    (fixtures / "step-config.json").write_text(
+        json.dumps({"skill_md": "block.md", "step_heading": "## Step 1"})
+    )
+
+    system_prompt, _ = load_step_config(fixtures)
+
+    assert system_prompt.strip() == "## Step 1\n\nOnly this."

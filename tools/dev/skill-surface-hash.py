@@ -26,7 +26,12 @@ file to another, or between `SKILL.md` and a detail file, would leave the
 digest unchanged, which is exactly the class of silent drift this
 fingerprint exists to catch. `requires_config:` still comes from
 `SKILL.md`'s frontmatter alone; detail files carry no frontmatter of their
-own.
+own. One detail file is excluded by name: `preflight-detail.md`, the
+generated pre-flight sidecar, which is byte-identical in all 65 skills that
+carry it — hashing it would move every digest on every edit to that shared
+text and tell every adopter their configuration went stale when nothing
+about their skill changed. That is the same reason the generated pre-flight
+region inside `SKILL.md` is stripped.
 
 The skill cannot compute this itself at invocation time. An agent reads a
 `SKILL.md` as static instructions — there is no code execution hook on most
@@ -137,6 +142,17 @@ def _anchors_in(body: str) -> set[str]:
     }
 
 
+# `SKILL.md` is hashed separately (its frontmatter supplies `requires_config`),
+# and `preflight-detail.md` is the generated pre-flight sidecar
+# `check-shared-blocks.py` writes into every non-exempt skill directory. The
+# sidecar is excluded for the same reason the generated pre-flight region
+# inside `SKILL.md` is: it is identical in all 65 skills, so including it
+# would move every digest on every edit to the shared text and tell every
+# adopter their configuration went stale when nothing about their skill
+# changed.
+EXCLUDED_DETAIL_FILES = frozenset({"SKILL.md", "preflight-detail.md"})
+
+
 def surface_inputs(skill_dir: Path) -> tuple[list[str], list[str]]:
     """Return `(requires_config, anchors)` — the two inputs the hash folds in.
 
@@ -164,7 +180,11 @@ def surface_inputs(skill_dir: Path) -> tuple[list[str], list[str]]:
     anchors = sorted(_anchors_in(body))
 
     detail_files = sorted(
-        (p for p in skill_dir.iterdir() if p.is_file() and p.suffix == ".md" and p.name != "SKILL.md"),
+        (
+            p
+            for p in skill_dir.iterdir()
+            if p.is_file() and p.suffix == ".md" and p.name not in EXCLUDED_DETAIL_FILES
+        ),
         key=lambda p: p.name,
     )
     for detail in detail_files:

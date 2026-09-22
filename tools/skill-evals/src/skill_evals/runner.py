@@ -177,9 +177,17 @@ def load_step_config(fixtures_dir: Path) -> tuple[str, str]:
 
     Resolution order:
     1. ``step-config.json`` — extracts the step section live from the skill's
-       SKILL.md, then appends ``output-spec.md`` if present.  This is the
+       SKILL.md, appends each file named by the optional ``also_include``
+       list, then appends ``output-spec.md`` if present.  This is the
        preferred path: tests automatically exercise the current skill text.
     2. ``system-prompt.md`` — a manually maintained prompt used by triage steps.
+
+    ``also_include`` exists for a step whose text deliberately lives in more
+    than one file — the shared pre-flight block points at a
+    ``preflight-detail.md`` sidecar the agent reads when a check fails, so a
+    prompt built from the block alone would grade the routing and never the
+    branch it routes to.  Each entry is a whole file, repo-root-relative and
+    contained against the repository exactly as ``skill_md`` is.
 
     Raises FileNotFoundError if neither file is present.
     """
@@ -197,6 +205,9 @@ def load_step_config(fixtures_dir: Path) -> tuple[str, str]:
         # repository rather than trusted as written.
         skill_md_path = resolve_contained(repo_root / config["skill_md"], repo_root)
         section = extract_skill_section(skill_md_path, config["step_heading"])
+        for extra in config.get("also_include", []):
+            extra_path = resolve_contained(repo_root / extra, repo_root)
+            section += "\n\n" + extra_path.read_text().strip()
         output_spec_path = fixtures_dir / "output-spec.md"
         if output_spec_path.exists():
             section += "\n\n" + read_contained(output_spec_path, fixtures_dir)

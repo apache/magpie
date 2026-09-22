@@ -108,6 +108,40 @@ PREFLIGHT_RE = re.compile(
 # it names.
 EXEMPT_FAMILIES = frozenset({"setup"})
 
+# --- the pre-flight sidecar: a whole generated file, not a region -------------------
+#
+# The block above is what every skill carries *always*, so every token in it
+# is paid on every invocation of every skill. Most of it was branch handling
+# for outcomes that almost never occur — what to do when a plugin is below
+# the floor, when a fingerprint differs, when the verify interval has
+# elapsed. That detail moved into a second source, propagated as a whole file
+# next to each skill's `SKILL.md`, which the block points at and the agent
+# reads only when a check actually fails. The block keeps every rule that has
+# to bind whether or not the file was read (the prohibitions, the
+# unknown-is-not-absent rule, the two things `config` may not do); what moved
+# is the handling and the reasoning.
+#
+# A sidecar file rather than a shared include, for the reason recorded above:
+# Agent Plugins 1.0 forbids a symlink escaping the plugin root, so
+# `skills/_shared/` is unreachable from the install shape most adopters use.
+# A sibling is reachable from every one of them — `plugins/<family>/skills/
+# <skill>/` is the real directory and `skills/<skill>` is the symlink into
+# it, so writing the sidecar beside `SKILL.md` puts it physically inside the
+# plugin, and a relative reference to it needs no path at all.
+#
+# `skill-surface-hash.py` excludes this filename from a skill's
+# reconciliation fingerprint. Without that exclusion every edit to the shared
+# detail would move all 65 digests and tell every adopter their configuration
+# went stale — exactly the failure excluding the generated block region
+# already prevents.
+
+PREFLIGHT_DETAIL_SOURCE = Path("tools/dev/preflight-detail.md")
+PREFLIGHT_DETAIL_NAME = "preflight-detail.md"
+PREFLIGHT_DETAIL_BANNER = (
+    "<!-- GENERATED from tools/dev/preflight-detail.md — do not edit.\n"
+    "     Run `python3 tools/dev/check-shared-blocks.py --fix` after editing the source. -->"
+)
+
 FRONTMATTER_RE = re.compile(r"^---\n.*?\n---\n", re.S)
 HEADING_RE = re.compile(r"^# .*$", re.M)
 FAMILY_RE = re.compile(r"^family:[ \t]*(\S+)[ \t]*$", re.M)
@@ -118,11 +152,24 @@ def family_of(text: str) -> str | None:
     return match.group(1) if match else None
 
 
+DOCTOC_RE = re.compile(
+    r"^<!-- START doctoc.*?<!-- END doctoc[^>]*-->\n+",
+    re.S,
+)
+
+
 def _strip_licence_header(raw: str) -> str:
     """Drop a source file's own licence header, if it is the very first
     thing in the file — each target already carries one of its own, and a
-    second would render inside the target's body."""
-    return re.sub(r"^<!--\s*SPDX-License-Identifier.*?-->\n+", "", raw, flags=re.S)
+    second would render inside the target's body.
+
+    A leading doctoc region goes the same way, and for a sharper reason: it
+    is a table of contents for the *source* file, which is not the file any
+    target is. One rode into all 65 propagated copies until the source was
+    added to the doctoc hook's exclude list; stripping it here means a
+    future source that picks one up again cannot repeat that."""
+    stripped = DOCTOC_RE.sub("", raw)
+    return re.sub(r"^<!--\s*SPDX-License-Identifier.*?-->\n+", "", stripped, flags=re.S)
 
 
 def preflight_block_text(source: Path = PREFLIGHT_SOURCE) -> str:
@@ -155,6 +202,50 @@ def apply_preflight(path: Path, block: str) -> tuple[bool, str | None]:
         return False, None
     path.write_text(updated)
     return True, None
+
+
+def preflight_detail_text(source: Path = PREFLIGHT_DETAIL_SOURCE) -> str:
+    """The whole generated sidecar file: the banner, then the source body.
+
+    The source's own licence header is kept — unlike the auto block, this is
+    a standalone file rather than a region inside one that already carries a
+    header, and the repository's RAT check scans it like any other Markdown.
+    A leading doctoc region is still stripped, for the reason in
+    `_strip_licence_header`."""
+    raw = source.read_text()
+    return f"{PREFLIGHT_DETAIL_BANNER}\n\n{DOCTOC_RE.sub('', raw).strip()}\n"
+
+
+def apply_sidecar(skill_path: Path, text: str) -> bool:
+    """Write the sidecar beside `skill_path`, and report whether that
+    changed anything. Rewrites only on difference, so a repeated `--fix` is
+    a no-op and the hook does not churn the tree."""
+    target = skill_path.parent / PREFLIGHT_DETAIL_NAME
+    if target.is_file() and target.read_text() == text:
+        return False
+    target.write_text(text)
+    return True
+
+
+def remove_sidecar(skill_path: Path) -> bool:
+    """Drop a sidecar an exempt skill must not carry, mirroring how the auto
+    block is removed from one. Reports whether a file was actually there."""
+    target = skill_path.parent / PREFLIGHT_DETAIL_NAME
+    if not target.is_file():
+        return False
+    target.unlink()
+    return True
+
+
+def sidecar_state(skill_path: Path, text: str) -> str | None:
+    """The check-only counterpart of `apply_sidecar`: `None` when the
+    sidecar is present and current, otherwise the reason it is not."""
+    target = skill_path.parent / PREFLIGHT_DETAIL_NAME
+    if not target.is_file():
+        return f"{target}: missing the shared pre-flight detail file"
+    if target.read_text() != text:
+        return f"{target}: differs from {PREFLIGHT_DETAIL_SOURCE}"
+    return None
 
 
 # --- declared blocks ----------------------------------------------------------------
@@ -353,6 +444,13 @@ def main() -> int:
         print(f"{PREFLIGHT_SOURCE}: missing — it is the only source of the pre-flight block", file=sys.stderr)
         return 1
 
+    if not PREFLIGHT_DETAIL_SOURCE.is_file():
+        print(
+            f"{PREFLIGHT_DETAIL_SOURCE}: missing — it is the only source of the pre-flight detail file",
+            file=sys.stderr,
+        )
+        return 1
+
     skills = sorted(SKILLS.glob("*/SKILL.md"))
     if not skills:
         print(f"{SKILLS}: no SKILL.md files found", file=sys.stderr)
@@ -362,8 +460,9 @@ def main() -> int:
     changed: list[Path] = []
     exempt: list[Path] = []
 
-    # --- the auto block ---
+    # --- the auto block, and its sidecar ---
     block = preflight_block_text()
+    detail = preflight_detail_text()
     for path in skills:
         text = path.read_text()
         if family_of(text) in EXEMPT_FAMILIES:
@@ -377,6 +476,14 @@ def main() -> int:
                     changed.append(path)
                 else:
                     errors.append(f"{path}: carries the pre-flight block but its family is exempt")
+            # The sidecar follows the block: an exempt skill carries neither.
+            sidecar = path.parent / PREFLIGHT_DETAIL_NAME
+            if sidecar.is_file():
+                if args.fix:
+                    remove_sidecar(path)
+                    changed.append(sidecar)
+                else:
+                    errors.append(f"{sidecar}: present but its skill's family is exempt")
             continue
         if args.fix:
             did, err = apply_preflight(path, block)
@@ -384,12 +491,17 @@ def main() -> int:
                 errors.append(err)
             elif did:
                 changed.append(path)
+            if apply_sidecar(path, detail):
+                changed.append(path.parent / PREFLIGHT_DETAIL_NAME)
         else:
             found = PREFLIGHT_RE.search(text)
             if not found:
                 errors.append(f"{path}: missing the shared pre-flight block")
             elif found.group(0).rstrip("\n") != block.rstrip("\n"):
                 errors.append(f"{path}: pre-flight block differs from {PREFLIGHT_SOURCE}")
+            drift = sidecar_state(path, detail)
+            if drift:
+                errors.append(drift)
 
     # --- declared blocks: every *.md directly inside a skills/<name>/ dir ---
     declared_targets = sorted(SKILLS.glob("*/*.md"))

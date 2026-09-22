@@ -489,23 +489,50 @@ stamp; silence has no end.
   plugin installs today. Where a harness does not encode the version in the
   path, the check degrades to unknown-and-silent rather than breaking.
 - **The per-skill check is not free at the token level, even though it is
-  free at the read level.** The rule text the shared pre-flight block carries
-  for it grew that block from 1,679 to 3,271 tokens — **+1,592 tokens of
-  rules, +1,608 per skill** once the `surface_hash:` frontmatter line is
-  counted (measured across the 65 skills that carry the block; range
-  1,607–1,611). Relative to what each skill cost before, that is **+49.0% on
-  the smallest** (`ci-runner-audit`, 3,281 → 4,889 tokens) and +5.4% on the
-  largest (`security-issue-import`, 30,010 → 31,617). It is paid on
-  every invocation of every non-`setup` skill in every adopting project — an
-  accepted, ongoing cost, not a rounding error, and at half again the size of
-  the smallest skill in the catalogue it is the figure the feature has to be
-  worth. The one real lever — moving
-  the rule text behind a pointer into `locks.md` — was rejected: that file
-  lives in the framework snapshot or the plugin cache, which a sandboxed
-  session cannot read, and would silently disable the check on exactly the
-  setups this design was written for. What is left in the block is rules,
-  not prose; trimming further is the maintainer's call, made explicitly
-  rather than by omission.
+  free at the read level — but it is now nearly so.** The rule text first
+  grew the shared pre-flight block from 1,679 to 3,271 tokens, **+1,608 per
+  skill** once the `surface_hash:` frontmatter line is counted, or **+49.0%
+  on the smallest** skill in the catalogue (`ci-runner-audit`, 3,281 →
+  4,889). That is the figure this design originally accepted as permanent.
+  It is not permanent. The block was split into a **hot** decision path that
+  stays in every `SKILL.md` and a **cold** `preflight-detail.md` sidecar,
+  generated beside it by `check-shared-blocks.py` and read only when a check
+  actually fails. The block is now 1,754 tokens, so every one of the 65
+  skills is 1,517 tokens lighter than the un-split version and carries the
+  whole check for **+90–91 tokens** over its pre-check cost: +2.8% on the
+  smallest, +0.3% on the largest. What stayed in the block is every rule
+  that has to bind whether or not the sidecar was read — the prohibitions,
+  the unknown-is-not-absent rule, the two things `config` may not do. What
+  moved is branch handling and reasoning.
+
+  **The rejection that made this design accept the cost was wrong, and the
+  correction is worth recording.** It read: the rule text cannot move behind
+  a pointer because the target lives in the framework snapshot or the plugin
+  cache, which a sandboxed session cannot read. That conflated two different
+  policies. The **Bash** sandbox denies those paths; the agent's own
+  file-read tool does not — verified by reading the same plugin-cache file
+  with each, one refused and one served. The check was never gated on
+  reading its own detail file, only on reading the lock. A second, real
+  constraint did apply and shaped the outcome: Agent Plugins 1.0 forbids a
+  symlink escaping the plugin root, so a shared `skills/_shared/` include is
+  unreachable. A **sibling** file is not — `plugins/<family>/skills/<skill>/`
+  is the real directory that `skills/<skill>` symlinks into, so the sidecar
+  lands physically inside the plugin and needs no path to reference. That is
+  the same shape the `setup` family's own detail files have used since
+  before this design.
+
+  **One caveat survives, on one harness.** Codex reads the framework from
+  the workspace (`.agents/skills/` into the repo tree) and its profile
+  declares no filesystem read-deny, so the sidecar is an ordinary file
+  there. Gemini's pinned-snapshot install is in-workspace too. Gemini's
+  *extension* install is not: the sidecar lands under
+  `~/.gemini/extensions/magpie/`, and
+  [the Gemini adapter](../adapters/gemini.md) already notes that native file
+  tools check paths against allowed workspace directories and may need an
+  approved shell read for anything outside them. The read still succeeds;
+  it may prompt. That lands only on the cold path — after a fingerprint has
+  actually moved — so the population affected is a Gemini-extension user on
+  the run after a plugin update, not every user on every run.
 - **`verify` is the only surface that can compare against the marketplace
   clone**, because it is the only one run deliberately and unsandboxed often
   enough to read it. A permanently sandboxed user learns about a newer

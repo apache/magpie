@@ -61,13 +61,17 @@ repos:
         # Skip the PR template — GitHub pre-populates a new PR description
         # with the template verbatim, so a TOC block becomes per-PR noise the
         # contributor has to delete by hand.
-        # Skip declared shared-block sources (tools/dev/blocks/*.md,
+        # Skip every shared-block source (tools/dev/blocks/*.md plus the
+        # pre-flight pair, tools/dev/preflight-block.md and
+        # tools/dev/preflight-detail.md; all propagated by
         # check-shared-blocks.py): their SPDX header must be the first thing
         # in the file too — `_strip_licence_header()` only strips it there —
         # and a TOC block ahead of it would leak the SPDX comment (and an
         # empty TOC wrapper) into every propagated copy, same incompatibility
-        # as the skill definitions above.
-        exclude: ^(\.claude/skills/.*|\.agents/skills/.*|\.github/skills/.*|skills/.*|plugins/magpie-[^/]+/skills/.*|tools/cve-tool-vulnogram/generate-cve-json/SKILL\.md|tools/skill-evals/.*|tools/spec-loop/.*|\.github/PULL_REQUEST_TEMPLATE\.md|tools/dev/blocks/.*)$
+        # as the skill definitions above. The block source was not excluded
+        # before and did carry a TOC, which rode into all 65 propagated
+        # copies as a table of contents for a file none of them are.
+        exclude: ^(\.claude/skills/.*|\.agents/skills/.*|\.github/skills/.*|skills/.*|plugins/magpie-[^/]+/skills/.*|tools/cve-tool-vulnogram/generate-cve-json/SKILL\.md|tools/skill-evals/.*|tools/spec-loop/.*|\.github/PULL_REQUEST_TEMPLATE\.md|tools/dev/blocks/.*|tools/dev/preflight-block\.md|tools/dev/preflight-detail\.md)$
         args:
           - "--maxlevel"
           - "3"
@@ -347,7 +351,7 @@ repos:
         name: check-shared-blocks (shared prose blocks in every SKILL.md and sibling detail file)
         language: system
         entry: python3 tools/dev/check-shared-blocks.py --fix
-        files: ^(skills/[^/]+/[^/]+\.md|plugins/magpie-[^/]+/skills/[^/]+/[^/]+\.md|tools/dev/preflight-block\.md|tools/dev/blocks/.*\.md)$
+        files: ^(skills/[^/]+/[^/]+\.md|plugins/magpie-[^/]+/skills/[^/]+/[^/]+\.md|tools/dev/preflight-block\.md|tools/dev/preflight-detail\.md|tools/dev/blocks/.*\.md)$
         pass_filenames: false
   # The reconciliation fingerprint. Runs after check-shared-blocks so it
   # hashes the file an adopter actually installs, and before the token

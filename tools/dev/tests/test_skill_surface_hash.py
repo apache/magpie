@@ -313,3 +313,35 @@ def test_every_live_skill_is_current() -> None:
         if f"surface_hash: {MOD.surface_hash(p.parent)}" not in p.read_text()
     ]
     assert stale == [], f"run `python3 tools/dev/skill-surface-hash.py --fix`: {stale}"
+
+
+# --- the generated pre-flight sidecar is excluded ----------------------------------
+
+
+def test_preflight_detail_sidecar_does_not_move_the_hash(tmp_path: Path) -> None:
+    """`preflight-detail.md` is byte-identical in all 65 skills that carry it.
+    Hashing it would move every digest on every edit to the shared text and
+    tell every adopter their configuration went stale when nothing about
+    their skill changed — the same failure excluding the generated block
+    region inside `SKILL.md` already prevents."""
+    module = _load()
+    (tmp_path / "SKILL.md").write_text("---\nname: x\n---\n\n# X\n\n## Step one\n")
+    before = module.surface_hash(tmp_path)
+
+    (tmp_path / "preflight-detail.md").write_text("# Detail\n\n## Step 4 — a branch\n")
+    assert module.surface_hash(tmp_path) == before
+
+    (tmp_path / "preflight-detail.md").write_text("# Detail\n\n## Step 4 — renamed\n")
+    assert module.surface_hash(tmp_path) == before
+
+
+def test_a_differently_named_detail_file_still_moves_the_hash(tmp_path: Path) -> None:
+    """The exclusion is by exact filename, not by "looks generated" — an
+    ordinary detail file must keep counting, or the widening this branch
+    shipped would be silently undone."""
+    module = _load()
+    (tmp_path / "SKILL.md").write_text("---\nname: x\n---\n\n# X\n\n## Step one\n")
+    before = module.surface_hash(tmp_path)
+
+    (tmp_path / "locks.md").write_text("# Locks\n\n## A heading\n")
+    assert module.surface_hash(tmp_path) != before

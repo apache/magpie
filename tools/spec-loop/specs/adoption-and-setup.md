@@ -280,7 +280,13 @@ committed version with drift detection.
     covering its `requires_config:` list and the structural anchors in its
     `SKILL.md` and every sibling `*.md` detail file in its own directory
     (never a subdirectory), each anchor tagged with its source file; the
-    field is written only by `tools/dev/skill-surface-hash.py --fix`.
+    field is written only by `tools/dev/skill-surface-hash.py --fix`. The
+    generated pre-flight region inside `SKILL.md` and the generated
+    `preflight-detail.md` sidecar beside it are both excluded: they are
+    identical in every skill that carries them, so hashing either would
+    move all 65 digests on any edit to the shared text and tell every
+    adopter their configuration went stale when nothing about their skill
+    changed.
 16. The reconciliation stamp applies to every adopted or configured
     project regardless of install method: an adopted project's stamp is
     the committed lock's `reconciled:` block; a configured-but-unadopted
@@ -342,6 +348,17 @@ committed version with drift detection.
     pre-flight block performs neither comparison. `setup.verify_interval_days`
     (project → organization → framework, default 14, `0` disables) gates
     how often the pre-flight block's last step suggests running it.
+23. The shared pre-flight block is split in two by
+    `tools/dev/check-shared-blocks.py`: a **hot** path propagated into
+    every non-exempt `SKILL.md`, and a **cold** `preflight-detail.md`
+    sidecar generated beside it from `tools/dev/preflight-detail.md`. The
+    hot path decides only whether to stay silent; every non-silent outcome
+    names the sidecar and is not acted on without it. Every rule that must
+    bind whether or not the sidecar was read stays in the hot path — the
+    prohibitions, the unknown-is-not-absent rule of criterion 10, and the
+    two things `config` may not do. A skill of an exempt family carries
+    neither the block nor the sidecar, and the generator removes a stale
+    one of either.
 
 ## Validation
 
