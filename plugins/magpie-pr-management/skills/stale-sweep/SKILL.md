@@ -131,30 +131,24 @@ into the work the user asked for rather than improvising the branch.
    but does not have**. Why running it unasked is safe, and why it needs
    no restart → *detail, step 7*.
 
-8. **Never run `/magpie-setup adopt` unattended.** Adoption commits a
-   recommendation for every contributor and is a maintainer's decision
-   taken with the other maintainers. When configuration was just
-   written locally, add **one line** saying the project can also adopt
-   Magpie so contributors get this on clone, and name the command.
-   Then drop it. Do not ask, do not offer to run it, and do not repeat
-   it on later invocations.
+8. **Never run `/magpie-setup adopt` unattended** — not here, not later
+   in the run, whatever else this skill is doing. It commits a
+   recommendation for every contributor and is the maintainers' decision.
+   If step 7 just wrote configuration → *detail, step 8*.
 
-9. **Note what needed confirming, and propose vetting the reads.** This
-   step and step 10 are settled at the *end* of the run, not in pre-flight;
-   they live here because this block is the one thing every skill carries.
-   While you work, note each operation that stopped for a confirmation
-   prompt. Say nothing when nothing prompted, or when everything that did
-   was a write. Any that were **read-only** → *detail, step 9*. **Propose;
-   never apply** — never edit the vetted-ops catalogue, the policy, or a
-   permission rule.
+Steps 9 and 10 are settled at the **end** of the run, not in pre-flight.
+Both are silent in the ordinary case; each names what would make it speak.
+
+9. **Propose vetting the reads.** While you work, note each operation that
+   stopped for a confirmation prompt. Nothing prompted, or every one was a
+   write → say nothing. Any that were **read-only** → *detail, step 9*.
 
 10. **Suggest `/magpie-setup verify` when it is overdue.** Compare today
-    against the **most recent** of `verified_at` and `verify_suggested_at`
-    in `.apache-magpie-local/reconciled.json` (already read in step 4 if
-    that step read it; read it now otherwise), and — when neither is
-    present — against the stamp's `at:`. Within
-    `setup.verify_interval_days` (project → organization → framework,
-    default 14, `0` disables) → say nothing. Older → *detail, step 10*.
+    against the most recent of `verified_at` and `verify_suggested_at` in
+    `.apache-magpie-local/reconciled.json` — already read in step 4 if that
+    step read it — falling back to the stamp's `at:`. Inside
+    `setup.verify_interval_days` (default 14, `0` disables) → say nothing.
+    Older → *detail, step 10*.
 
 Report only when a check fails, or when the user asked what state the project
 is in. `/magpie-setup verify` is the full diagnostic.

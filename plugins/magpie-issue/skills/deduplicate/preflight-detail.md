@@ -144,6 +144,18 @@ The two prohibitions are in the block itself because they bind whether or
 not this file was read: never fabricate a value, and never continue past a
 value the skill needs but does not have.
 
+## Step 8 — configuration was just written locally
+
+Add **one line** saying the project can also adopt Magpie, so contributors
+get this on clone, and name the command. Then drop it. Do not ask, do not
+offer to run it, and do not repeat it on later invocations.
+
+The prohibition itself stays in the block, not here, because it has to
+bind whether or not this file was read: adoption commits a recommendation
+into every contributor's checkout, and nothing in a pre-flight is entitled
+to make that call. This section is only the *mention*, which is
+conditional on step 7 having written something.
+
 ## Step 9 — proposing a read-only operation for the vetted-ops catalogue
 
 This step and step 10 are not pre-flight checks. Both are settled at the
@@ -170,7 +182,8 @@ catalogue.
 
 **Propose; never apply.** Adding an operation means editing `ops.py` and a
 caller's grant in the policy — *"a reviewed code change, not a runtime
-decision"*. Print the suggestion and stop.
+decision"*. Print the suggestion and stop. Never edit the vetted-ops
+catalogue, the policy, or a permission rule.
 
 A skill that ends every run with the same suggestion is noise, so this is
 worth saying only when something actually prompted.
@@ -182,8 +195,9 @@ Suggest `/magpie-setup verify`, once, and say why it is worth taking:
 comparison happens, because the plugin cache it would need to read is
 denied there.
 
-Write `verify_suggested_at` when you show it, whether or not the user takes
-it — a suggestion already made re-arms the clock as surely as a `verify`
+`setup.verify_interval_days` resolves project → organization → framework.
+Write `verify_suggested_at` when you show the suggestion, whether or not
+the user takes it — a suggestion already made re-arms the clock as surely as a `verify`
 that was taken, so the same project is not told twice inside one window.
 A project just configured or adopted needs no reminder to verify what it
 was just checked against, which is why the comparison falls back to the

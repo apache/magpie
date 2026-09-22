@@ -498,16 +498,23 @@ stamp; silence has no end.
   stays in every `SKILL.md` and a **cold** `preflight-detail.md` sidecar,
   generated beside it by `check-shared-blocks.py` and read only when a check
   actually fails, and the prose that survived was tightened rather than
-  merely relocated. The block is now **1,540 tokens**: 1,731 lighter than
-  the un-split version and 139 lighter than before the check existed at
-  all, so every one of the 65 skills is **120–126 tokens cheaper than it
+  merely relocated. The block is now **1,448 tokens**: 1,823 lighter than
+  the un-split version and 231 lighter than before the check existed at
+  all, so every one of the 65 skills is **212–218 tokens cheaper than it
   was on `main`** while carrying the whole check (`ci-runner-audit` 3,281 →
-  3,158, −3.7%). What stayed in the block is every rule that has to bind
-  whether or not the sidecar was read: the prohibitions, the
-  unknown-is-not-absent rule, the two things `config` may not do. What
-  moved is branch handling and reasoning — including four steps (2, 5, 9
-  and 10) whose entire body fires only on a branch that already routes to
-  the sidecar.
+  3,066, −6.6%). Every step whose body fires only on a branch moved out:
+  the snapshot remedies (2), the below-the-floor restart notice (5), the
+  adopt mention (8), the vetting proposal (9) and the verify suggestion
+  (10). What stayed is what has to bind whether or not the sidecar was
+  read — the prohibitions, the unknown-is-not-absent rule, the two things
+  `config` may not do — plus each step's own test for whether it is
+  silent.
+
+  **That test is the floor.** A step cannot know it has nothing to say
+  without evaluating its trigger, so moving the trigger behind the pointer
+  would mean reading the sidecar on every run: 2,335 tokens to save 1,448.
+  The same arithmetic rules out replacing the whole block with a pointer,
+  which is why the split stops here rather than continuing.
 
   **The rejection that made this design accept the cost was wrong, and the
   correction is worth recording.** It read: the rule text cannot move behind
