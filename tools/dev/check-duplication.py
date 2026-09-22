@@ -170,8 +170,6 @@ DECLARED_RE = _SHARED_BLOCKS.DECLARED_RE
 
 BLOCKS_DIR = Path("tools/dev/blocks")
 PREFLIGHT_SOURCE = Path("tools/dev/preflight-block.md")
-PREFLIGHT_DETAIL_SOURCE = _SHARED_BLOCKS.PREFLIGHT_DETAIL_SOURCE
-PREFLIGHT_DETAIL_NAME = _SHARED_BLOCKS.PREFLIGHT_DETAIL_NAME
 
 # The wired scope is deliberately narrower than the design's `skills/`
 # tree — see the module docstring's "Landing scope vs. the whole
@@ -283,7 +281,6 @@ def discover_targets(
     skills_root: Path = WIRED_SKILLS_ROOT,
     blocks_dir: Path = BLOCKS_DIR,
     preflight_source: Path = PREFLIGHT_SOURCE,
-    detail_source: Path = PREFLIGHT_DETAIL_SOURCE,
 ) -> list[Path]:
     """Every file in scope: `skills_root` recursively (symlink-aware — a
     self-adopted `skills/<name>` is a symlink into `plugins/magpie-<family>/
@@ -292,11 +289,7 @@ def discover_targets(
     widened back to the full `skills/` tree; the wired default,
     `WIRED_SKILLS_ROOT`, is a real directory, not a symlink), plus the
     declared-block sources and the pre-flight source. Cache directories
-    (`__pycache__`, `.pytest_cache`, …) are skipped, and so is every generated
-    `preflight-detail.md` sidecar: 65 byte-identical copies of one source
-    would be 65 x 64 perfect-score pairs saying nothing except that
-    propagation worked. Its source is scanned in their place, exactly as the
-    pre-flight block's is. Pass
+    (`__pycache__`, `.pytest_cache`, …) are skipped. Pass
     `skills_root=Path("skills")` for the whole-tree scan described in the
     module docstring's "Landing scope" section."""
     targets: list[Path] = []
@@ -304,14 +297,12 @@ def discover_targets(
         for root, dirs, files in os.walk(skills_root, followlinks=True):
             dirs[:] = [d for d in dirs if d != "__pycache__" and not d.startswith(".")]
             for name in files:
-                if name.endswith(".md") and name != PREFLIGHT_DETAIL_NAME:
+                if name.endswith(".md"):
                     targets.append(Path(root) / name)
     if blocks_dir.is_dir():
         targets.extend(sorted(blocks_dir.glob("*.md")))
     if preflight_source.is_file():
         targets.append(preflight_source)
-    if detail_source.is_file():
-        targets.append(detail_source)
     return sorted(set(targets))
 
 

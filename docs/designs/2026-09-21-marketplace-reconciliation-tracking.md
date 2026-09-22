@@ -497,22 +497,34 @@ stamp; silence has no end.
   **First, a hot/cold split.** The block was reduced to a decision path
   and everything that fires only on a branch moved into a generated
   `preflight-detail.md` sidecar, propagated beside each `SKILL.md` and
-  read only when a check reports something.
+  read only when a check reports something. That sidecar was an
+  intermediate step and no longer exists: 2,516 tokens copied into 65
+  skill directories so that a run needing one 150-token section could
+  find it.
 
   **Then the arithmetic left prose altogether.** Reading a lock, ordering
   two versions as PEP 440, comparing two hashes, subtracting two dates and
   applying the already-shown suppression are not judgement, and they were
   costing every skill the same tokens on every invocation to be re-derived
   from text. They live in `tools/setup-preflight` now, which the block
-  runs as one command and which answers with a JSON verdict; each finding
-  names the sidecar section whose rules apply. They are covered by 50
-  tests, where before they were graded by an eval and otherwise taken on
-  trust.
+  runs as one command and which answers with a JSON verdict. They are
+  covered by 56 tests, where before they were graded by an eval and
+  otherwise taken on trust.
 
-  The block is **561 tokens**, against 1,679 before this work began. Every
-  one of the 65 skills is **1,099–1,105 tokens cheaper than on `main`**
-  while carrying the whole check — `ci-runner-audit` 3,281 → 2,179,
-  −33.6%.
+  **Then the rules followed the logic.** The sections a finding names ship
+  inside the same tool, and the verdict carries the text for the findings
+  it actually reported — so one call returns both what is true and what to
+  do about it, there is no second file to read, and the prose exists once
+  in the repository instead of sixty-five times. This removed machinery
+  rather than adding it: the sidecar propagation path, its exclusion from
+  the fingerprint, and its exclusion from the duplication gate all went
+  with it.
+
+  The block is **585 tokens**, against 1,679 before this work began. Every
+  one of the 65 skills is **1,075–1,081 tokens cheaper than on `main`**
+  while carrying the whole check — `ci-runner-audit` 3,281 → 2,203,
+  −32.9%. The rules are 2,057 tokens held once; a run that needs one
+  section pays for that one, and the ordinary answer pays for none.
 
   **The rejection that made this design accept the cost was wrong, and the
   correction is worth recording.** It read: the rule text cannot move
@@ -542,8 +554,9 @@ stamp; silence has no end.
   pinned-snapshot install is in-workspace too. Gemini's *extension*
   install is not, and [its adapter](../adapters/gemini.md) notes that
   native file tools check paths against allowed workspace directories.
-  That affects reading the sidecar, on the cold path only — the checker
-  itself runs from the project tree on every harness.
+  That caveat applied to reading the sidecar and lapsed with it: the
+  checker runs from the project tree on every harness, and the rules come
+  back on its own stdout.
 
 - **`verify` is the only surface that can compare against the marketplace
   clone**, because it is the only one run deliberately and unsandboxed often

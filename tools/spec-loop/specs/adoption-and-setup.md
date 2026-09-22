@@ -348,19 +348,18 @@ committed version with drift detection.
     pre-flight block performs neither comparison. `setup.verify_interval_days`
     (project → organization → framework, default 14, `0` disables) gates
     how often the pre-flight block's last step suggests running it.
-23. The shared pre-flight block is split in two by
-    `tools/dev/check-shared-blocks.py`: a **hot** path propagated into
-    every non-exempt `SKILL.md`, and a **cold** `preflight-detail.md`
-    sidecar generated beside it from `tools/dev/preflight-detail.md`. A
-    skill of an exempt family carries neither, and the generator removes a
-    stale one of either.
-24. The hot path runs `tools/setup-preflight` as a single command and acts
-    only on its verdict: `{"verdict": "ok"}` is silent, and every finding
-    names the `preflight-detail.md` section whose rules apply and is not
-    acted on without reading it. The block itself decides nothing else,
-    and carries exactly one rule of its own — never run `/magpie-setup
-    adopt` unattended — because that one must bind whether or not
-    anything else was read.
+23. The shared pre-flight block is propagated into every non-exempt
+    `SKILL.md` by `tools/dev/check-shared-blocks.py`, and a skill of an
+    exempt family carries none; the generator removes a stale one.
+24. The block runs `tools/setup-preflight` as a single command and acts
+    only on its verdict. `{"verdict": "ok"}` is silent. An `action`
+    verdict carries, alongside each finding, the text of the rules
+    section that finding names, and the skill acts on a finding only
+    through those rules — there is no second file to read. The block
+    decides nothing else and carries exactly one rule of its own — never
+    run `/magpie-setup adopt` unattended — because that one must bind
+    whether or not anything else was read. A command that did not run is
+    never read as a pass, and is not re-derived by hand.
 25. `tools/setup-preflight` resolves the deterministic half in two scopes:
     **project** (lock, snapshot drift, marketplace floor), memoised
     against the inputs it depends on so later skills in a session do not
@@ -368,9 +367,11 @@ committed version with drift detection.
     stamp, its `requires_config:` entries). It applies the already-shown
     suppression of criterion 18 itself. It exits 0 whenever it reached a
     verdict, findings included; a non-zero exit means the check could not
-    run, and the block reads `preflight-detail.md` *step-0* rather than
-    treating it as a pass. Criteria 9, 10, 16, 17 and 18 are enforced by
-    its tests.
+    run. The rules prose ships with the tool as one copy and is emitted
+    per finding, so it cannot drift from the logic that selects it, and
+    a finding naming a section that does not ship is an error rather
+    than a rule-less instruction to act. Criteria 9, 10, 16, 17 and 18
+    are enforced by its tests.
 26. The checker is **copied into the adopter's gitignored
     `.apache-magpie-local/`** by `/magpie-setup config` and refreshed
     there by `/magpie-setup upgrade`, because Bash can neither read nor

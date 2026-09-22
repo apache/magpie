@@ -62,16 +62,16 @@ repos:
         # with the template verbatim, so a TOC block becomes per-PR noise the
         # contributor has to delete by hand.
         # Skip every shared-block source (tools/dev/blocks/*.md plus the
-        # pre-flight pair, tools/dev/preflight-block.md and
-        # tools/dev/preflight-detail.md; all propagated by
-        # check-shared-blocks.py): their SPDX header must be the first thing
+        # pre-flight block source tools/dev/preflight-block.md, and the
+        # rules sections under tools/setup-preflight, which the tool emits
+        # on its own stdout): their SPDX header must be the first thing
         # in the file too — `_strip_licence_header()` only strips it there —
         # and a TOC block ahead of it would leak the SPDX comment (and an
         # empty TOC wrapper) into every propagated copy, same incompatibility
         # as the skill definitions above. The block source was not excluded
         # before and did carry a TOC, which rode into all 65 propagated
         # copies as a table of contents for a file none of them are.
-        exclude: ^(\.claude/skills/.*|\.agents/skills/.*|\.github/skills/.*|skills/.*|plugins/magpie-[^/]+/skills/.*|tools/cve-tool-vulnogram/generate-cve-json/SKILL\.md|tools/skill-evals/.*|tools/spec-loop/.*|\.github/PULL_REQUEST_TEMPLATE\.md|tools/dev/blocks/.*|tools/dev/preflight-block\.md|tools/dev/preflight-detail\.md)$
+        exclude: ^(\.claude/skills/.*|\.agents/skills/.*|\.github/skills/.*|skills/.*|plugins/magpie-[^/]+/skills/.*|tools/cve-tool-vulnogram/generate-cve-json/SKILL\.md|tools/skill-evals/.*|tools/spec-loop/.*|\.github/PULL_REQUEST_TEMPLATE\.md|tools/dev/blocks/.*|tools/dev/preflight-block\.md|tools/setup-preflight/src/setup_preflight/sections/.*)$
         args:
           - "--maxlevel"
           - "3"

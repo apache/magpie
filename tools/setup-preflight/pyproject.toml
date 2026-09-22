@@ -35,6 +35,9 @@ setup-preflight = "setup_preflight.cli:main"
 [tool.hatch.build.targets.wheel]
 packages = ["src/setup_preflight"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"src/setup_preflight/sections" = "setup_preflight/sections"
+
 [tool.ruff]
 line-length = 110
 target-version = "py311"

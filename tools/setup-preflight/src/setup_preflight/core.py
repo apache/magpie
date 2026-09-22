@@ -52,6 +52,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import date, datetime
 from pathlib import Path
 
+from . import sections
 from .lockfile import Lock, MalformedLock, load
 from .version import InvalidVersion, below
 
@@ -88,10 +89,19 @@ class Verdict:
     findings: list[Finding] = field(default_factory=list)
     project_cached: bool = False
 
-    def to_json(self) -> str:
+    def to_json(self, *, with_rules: bool = True) -> str:
+        """The answer, and — for an `action` — the rules that apply to it.
+
+        `rules` carries each named section's Markdown once, so the agent
+        makes one call and reads nothing else. An `ok` verdict carries
+        none, which is the ordinary case and the reason this is cheaper
+        than a file every skill had a copy of.
+        """
         payload: dict[str, object] = {"verdict": self.verdict}
         if self.findings:
             payload["findings"] = [asdict(f) for f in self.findings]
+            if with_rules:
+                payload["rules"] = sections.for_findings([f.section for f in self.findings])
         if self.project_cached:
             payload["project_cached"] = True
         return json.dumps(payload, indent=2, sort_keys=True)

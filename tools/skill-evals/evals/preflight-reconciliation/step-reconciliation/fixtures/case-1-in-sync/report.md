@@ -3,7 +3,7 @@
 
 This skill's frontmatter `name:` is `magpie-pr-management-code-review`.
 
-Its pre-flight ran the checker and it answered:
+Its pre-flight ran the checker, which answered:
 
 ```json
 {

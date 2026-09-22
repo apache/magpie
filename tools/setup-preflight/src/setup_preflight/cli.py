@@ -119,6 +119,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="0 disables the periodic verify suggestion",
     )
     parser.add_argument(
+        "--no-rules",
+        action="store_true",
+        help="omit each finding's rules text (the verdict alone)",
+    )
+    parser.add_argument(
         "--no-cache",
         action="store_true",
         help="recompute the project scope instead of reusing a recent identical verdict",
@@ -151,7 +156,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     verdict = Verdict("action" if findings else "ok", findings, project_cached=cached)
-    print(verdict.to_json())
+    print(verdict.to_json(with_rules=not args.no_rules))
     return 0
 
 
