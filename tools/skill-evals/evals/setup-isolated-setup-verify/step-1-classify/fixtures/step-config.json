@@ -1,4 +1,7 @@
 {
   "skill_md": "skills/setup-isolated-setup-verify/SKILL.md",
-  "step_heading": "## The 12 checks"
+  "step_heading": "## The 12 checks",
+  "also_include": [
+    "skills/setup-isolated-setup-verify/conditional-checks.md"
+  ]
 }
