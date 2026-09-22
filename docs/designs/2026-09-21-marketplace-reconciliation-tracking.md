@@ -497,13 +497,17 @@ stamp; silence has no end.
   It is not permanent. The block was split into a **hot** decision path that
   stays in every `SKILL.md` and a **cold** `preflight-detail.md` sidecar,
   generated beside it by `check-shared-blocks.py` and read only when a check
-  actually fails. The block is now 1,754 tokens, so every one of the 65
-  skills is 1,517 tokens lighter than the un-split version and carries the
-  whole check for **+90–91 tokens** over its pre-check cost: +2.8% on the
-  smallest, +0.3% on the largest. What stayed in the block is every rule
-  that has to bind whether or not the sidecar was read — the prohibitions,
-  the unknown-is-not-absent rule, the two things `config` may not do. What
-  moved is branch handling and reasoning.
+  actually fails, and the prose that survived was tightened rather than
+  merely relocated. The block is now **1,540 tokens**: 1,731 lighter than
+  the un-split version and 139 lighter than before the check existed at
+  all, so every one of the 65 skills is **120–126 tokens cheaper than it
+  was on `main`** while carrying the whole check (`ci-runner-audit` 3,281 →
+  3,158, −3.7%). What stayed in the block is every rule that has to bind
+  whether or not the sidecar was read: the prohibitions, the
+  unknown-is-not-absent rule, the two things `config` may not do. What
+  moved is branch handling and reasoning — including four steps (2, 5, 9
+  and 10) whose entire body fires only on a branch that already routes to
+  the sidecar.
 
   **The rejection that made this design accept the cost was wrong, and the
   correction is worth recording.** It read: the rule text cannot move behind

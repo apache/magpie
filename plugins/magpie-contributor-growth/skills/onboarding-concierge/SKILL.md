@@ -59,14 +59,10 @@ into the work the user asked for rather than improvising the branch.
 1. **Is a lock present?** If `.apache-magpie.lock` exists, read its
    `method`.
 
-2. **A snapshot method** (`svn-zip` / `git-tag` / `git-branch`) →
-   compare with `.apache-magpie.local.lock`:
-   - local lock missing → the snapshot was never fetched on this
-     machine;
-   - `ref` / `commit` differ → this machine is on a different framework
-     version than the project pins.
-   Anything unresolved → **stop and propose `/magpie-setup`** (or
-   `/magpie-setup upgrade` for a version mismatch).
+2. **A snapshot method** (`svn-zip` / `git-tag` / `git-branch`) → compare
+   with `.apache-magpie.local.lock`. Both present and agreeing on
+   `ref` / `commit` → **silent**; continue. Anything unresolved → *detail,
+   step 2*.
 
 3. **`method: marketplace`** → the lock is the project's **floor**: a
    minimum version and a minimum plugin set, never a pin. Compare the
@@ -92,41 +88,31 @@ into the work the user asked for rather than improvising the branch.
    the normal case and is not a finding.
 
 4. **Compare this skill's fingerprint against the reconciliation stamp.**
-   Skip this step entirely — silent, no reads — when any of these holds:
+   Not install-method-specific, unlike step 3: it runs the same way for
+   every `method`, and whether or not there is a lock. Skip it entirely —
+   silent, no reads — when any of these holds:
 
    - none of `.apache-magpie.lock`, `.apache-magpie-local/` or
-     `.apache-magpie-overrides/` exists: nothing has ever been configured
-     or adopted, so there is nothing to reconcile;
-   - step 3 ended in a state step 5 below stops the run for. **An
-     *unknown* step 3 result is not such a stop** — step 4 runs normally
-     after one, the same way step 5 already continues past one;
-   - this skill's own `surface_hash` is not visible in the context you
-     were given — a check that cannot read its own input says nothing
-     rather than guessing.
+     `.apache-magpie-overrides/` exists: nothing has ever been configured,
+     so there is nothing to reconcile;
+   - step 3 ended in a state step 5 stops the run for — but **an *unknown*
+     step 3 result is not one of those**, and this step runs normally
+     after it;
+   - this skill's own `surface_hash` is not in the context you were given:
+     a check that cannot read its own input says nothing rather than
+     guessing.
 
-   This check runs the same way regardless of `method`, or whether there
-   is a lock at all — it is not install-method-specific, unlike step 3.
+   Otherwise look this skill's frontmatter `name:` up in the lock's
+   `reconciled.skills` map, already open from step 1 — no extra read.
+   **Found and equal → silent**, and nothing else here needs a read.
+   Anything else — differing, absent from the map, or no lock at all →
+   *detail, step 4*.
 
-   Otherwise: this skill's own `surface_hash` is already in context, keyed
-   by its own frontmatter `name:` (e.g. `magpie-security-issue-triage`).
-   When a lock exists, look that name up in its `reconciled.skills` map —
-   already open from step 1, no extra read.
-
-   - **Found, hash matches** → **silent**. Continue — nothing else in this
-     step needs a read.
-   - **Anything else** — found and differing, not found in the lock's map,
-     or no lock at all → *detail, step 4*.
-
-5. **Unless step 3 passed silently or came back unknown, stop.**
-   Whichever branch you took — plugins installed or updated, commands
-   printed because there is no CLI, or nothing run at all because `url`
-   named another marketplace — this session is still below the project's
-   floor. Claude Code loads plugins at session start, so anything just
-   installed is not live here, and anything only printed has not run at
-   all. Say what ran, or what to run, and that the session has to be
-   restarted before re-running this command. An unknown result carries no
-   such action — there is nothing to say and nothing to restart for, so
-   continue.
+5. **Unless step 3 passed silently or came back unknown, stop.** The
+   session is still below the project's floor and has to be restarted
+   before this command is re-run; *detail, step 5* has what to say. An
+   unknown result carries no such action — nothing to say, nothing to
+   restart for — so continue.
 
 6. **No lock?** Then this is the marketplace install without adoption,
    or nothing at all. That is a supported end state, not a fault — what
@@ -153,27 +139,22 @@ into the work the user asked for rather than improvising the branch.
    Then drop it. Do not ask, do not offer to run it, and do not repeat
    it on later invocations.
 
-9. **Note what needed confirming, and propose vetting the reads.**
-   Neither this step nor step 10 below is a pre-flight check — both are
-   settled at the *end* of the run, and live here only because this block
-   is the one thing every skill carries.
-
-   While you work, keep note of each operation that stopped for a
-   confirmation prompt: the command, and what it was for. Say nothing when
-   nothing prompted, or when everything that did was a write. When the run
-   ends and any of them were **read-only** → *detail, step 9*. **Propose;
+9. **Note what needed confirming, and propose vetting the reads.** This
+   step and step 10 are settled at the *end* of the run, not in pre-flight;
+   they live here because this block is the one thing every skill carries.
+   While you work, note each operation that stopped for a confirmation
+   prompt. Say nothing when nothing prompted, or when everything that did
+   was a write. Any that were **read-only** → *detail, step 9*. **Propose;
    never apply** — never edit the vetted-ops catalogue, the policy, or a
    permission rule.
 
-10. **Suggest `/magpie-setup verify` when it is overdue.** Same reasoning
-    as step 9 above.
-
-    Compare today against the **most recent** of `verified_at` and
-    `verify_suggested_at` in `.apache-magpie-local/reconciled.json`
-    (already read in step 4 above if that step read it; read it now
-    otherwise), and — when neither is present — against the stamp's `at:`.
-    Not older than `setup.verify_interval_days` (default 14, `0` disables)
-    → say nothing. Older → *detail, step 10*.
+10. **Suggest `/magpie-setup verify` when it is overdue.** Compare today
+    against the **most recent** of `verified_at` and `verify_suggested_at`
+    in `.apache-magpie-local/reconciled.json` (already read in step 4 if
+    that step read it; read it now otherwise), and — when neither is
+    present — against the stamp's `at:`. Within
+    `setup.verify_interval_days` (project → organization → framework,
+    default 14, `0` disables) → say nothing. Older → *detail, step 10*.
 
 Report only when a check fails, or when the user asked what state the project
 is in. `/magpie-setup verify` is the full diagnostic.

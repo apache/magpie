@@ -14,6 +14,18 @@ Read only the section the block named. Nothing here runs on its own, and
 nothing here is a second pre-flight: a step that passed silently in the
 block has already finished.
 
+## Step 2 — a snapshot install is out of sync
+
+Two states send you here, and they need different remedies:
+
+- **`.apache-magpie.local.lock` is missing** — the snapshot was never
+  fetched on this machine. Stop and propose `/magpie-setup`.
+- **`ref` / `commit` differ** — this machine is on a different framework
+  version than the project pins. Stop and propose `/magpie-setup upgrade`.
+
+Either way this is a stop, not a note: the rest of the skill would run
+against a framework version the project did not choose.
+
 ## Step 3 — the marketplace floor
 
 **`url` names something other than `apache/magpie`.** Run **nothing**. Name
@@ -42,8 +54,8 @@ on every sandboxed run.
 
 Where there is no such CLI, run nothing and print the commands instead.
 
-Then step 5 in the block applies: whichever of these you took, the session
-is still below the floor and has to be restarted.
+Then step 5 applies: whichever of these you took, the session is still
+below the floor and has to be restarted.
 
 ## Step 4 — the fingerprint differs, or is not stamped
 
@@ -100,6 +112,22 @@ it, set the one key, write the whole object back with every other key
 intact — and create the file, and `.apache-magpie-local/` itself, when
 either is absent.
 
+## Step 5 — the session is below the floor
+
+Whichever branch of step 3 you took — plugins installed or updated,
+commands printed because there is no CLI, or nothing run at all because
+`url` named another marketplace — this session is still below the
+project's floor. Claude Code loads plugins at session start, so anything
+just installed is not live here, and anything only printed has not run at
+all.
+
+Say what ran, or what to run, and that the session has to be restarted
+before re-running this command.
+
+An *unknown* step 3 result is not one of these branches. There is nothing
+to say and nothing to restart for, so the block continues past it rather
+than sending you here.
+
 ## Step 7 — a required config file is missing
 
 Running `/magpie-setup config` unasked is safe because of what it touches:
@@ -117,6 +145,10 @@ not this file was read: never fabricate a value, and never continue past a
 value the skill needs but does not have.
 
 ## Step 9 — proposing a read-only operation for the vetted-ops catalogue
+
+This step and step 10 are not pre-flight checks. Both are settled at the
+*end* of the run, and live in the shared block only because it is the one
+thing every skill carries.
 
 Name the operations that stopped for a confirmation prompt and were
 read-only, and offer to add them to the vetted-ops read catalogue
