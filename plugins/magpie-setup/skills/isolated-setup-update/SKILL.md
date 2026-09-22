@@ -15,7 +15,7 @@ when_to_use: >-
   starting to succeed. Worth running about monthly. Cheap and never
   destructive.
 capability: capability:platform
-surface_hash: sha256:6721ab56e11f79e8
+surface_hash: sha256:a264f5a8c50c1234
 license: Apache-2.0
 ---
 
@@ -168,111 +168,38 @@ Walk each:
    manifest's `min_version` floor (as `setup-isolated-setup-verify`
    check 5 does) and recommend upgrading to `@latest` when a newer
    build exists.
-3. **User-scope script-copy drift.** For every user-scope file
-   the doc tells the adopter to install
-   (`~/.claude/scripts/sandbox-bypass-warn.sh`,
-   `~/.claude/scripts/sandbox-status-line.sh` or whatever the
-   user's actual statusLine command resolves to,
-   `~/.claude/agent-isolation/agent-iso.sh` for the global
-   wrapper install,
-   `~/.claude/scripts/sandbox-add-project-root.sh` for the
-   issue-#197 project-root helper,
-   `~/.claude/scripts/gpg-touch-overlay.sh` with its window scripts
-   `gpg-touch-overlay-window.py` and
-   `gpg-touch-overlay-window-macos.py` for the hardware-key touch
-   overlay where that is installed (the `gpg-touch-wrap-*` entry
-   beside them is a symlink to the script, not a copy — nothing to
-   diff, but report it missing when git's `gpg.ssh.program` /
-   `gpg.program` or `core.sshCommand` names it and it is gone; the
-   same for any link under `~/.claude/scripts/shims/`, which is a
-   symlink whose target is compared, not its contents),
-   `~/.claude/scripts/container-gateway-hook.sh` for the container
-   gateway's `SessionStart` / `SessionEnd` hook (diff against
-   `tools/agent-isolation/container-gateway-hook.sh`), and the
-   package it runs, `~/.claude/scripts/container-gateway/src/container_gateway/`
-   (diff file-by-file against
-   `tools/container-gateway/src/container_gateway/` — a stale copy
-   here is a silent behaviour drift, not the no-op a missing copy
-   is, so it is worth the same drift check as any other script),
-   `~/.claude/scripts/magpie-run-evals.sh` with the package it runs,
-   `~/.claude/scripts/skill-evals/src/skill_evals/`, where the
-   optional eval-harness exclusion is installed (diff against
-   `tools/skill-evals/magpie-run-evals.sh` and
-   `tools/skill-evals/src/skill_evals/`, ignoring `__pycache__`;
-   absent on both sides is not drift, it is the default posture —
-   but a stale copy is the worst case here, because the suites keep
-   passing while grading against an older runner than the tree's),
-   **and** —
-   *only when whole-user scope is in effect, detected via
-   `git config --global --get core.hooksPath` resolving to
-   `~/.claude/git-hooks`* —
-   the contents of `~/.claude/git-hooks/`, whose shape depends on
-   the flavour Step P.3 installed: the **simple** flavour puts a
-   copy of `git-global-post-checkout.sh` at `post-checkout`, while
-   the **dispatcher** flavour installs `git-hook-dispatcher.sh`
-   there and symlinks every hook name to it, superseding the
-   standalone post-checkout script — diff whichever script is
-   present against its own source, and read the hook-name symlinks
-   as the installed shape rather than as drift), `diff` the user
-   copy against the framework's source-of-truth in
-   `tools/agent-isolation/`.
-   Report any drift as a unified diff; do not re-`cp`. The
-   re-install path for each is
+3. **User-scope script-copy drift.** `diff` every user-scope copy
+   against its source of truth in the framework checkout and report
+   drift as a unified diff. Never re-`cp`: the re-install path is
    [`setup-isolated-setup-install`](../isolated-setup-install/SKILL.md)
-   re-run on the affected Step P sub-step.
+   re-run on the affected Step P sub-step. Which file pairs with which
+   source, and the four that are not a plain content diff — symlinks,
+   the git-hooks flavours, the two Python packages, the eval runner —
+   are in [`script-inventory.md`](script-inventory.md).
 
-   **The agent-guard hook — establish which wiring is in use before
-   diffing anything.** Read `enabledPlugins` in
-   `~/.claude/settings.json`: when it lists
-   `magpie-agent-guard@apache-magpie`, the guard runs **from the
-   installed plugin**, whose manifest registers the `PreToolUse`
-   hook and resolves the engine and every skill-owned guard under
+   **The agent-guard hook needs its wiring established before
+   anything is diffed.** Read `enabledPlugins` in
+   `~/.claude/settings.json`. When it lists
+   `magpie-agent-guard@apache-magpie` the guard runs **from the
+   plugin**, which registers the hook and resolves every guard under
    `${CLAUDE_PLUGIN_ROOT}`. There is then no user-scope copy to diff
-   and no `guards.d` to sync: an absent
-   `~/.claude/scripts/agent-guard.py` is the expected shape, **not
-   drift**, and reporting it as missing sends the user installing a
-   second copy of a guard that is already running. What is worth
-   surfacing for a plugin install is the plugin's own version
-   against the framework's (a refresh is `/plugin`), and any
-   leftover user-scope copy from an earlier hand-wiring.
+   and no `guards.d` to sync, and an absent
+   `~/.claude/scripts/agent-guard.py` is **the expected shape, not
+   drift** — reporting it missing sends the user to install a second
+   copy of a guard already running. Surface instead the plugin's
+   version against the framework's (refresh with `/plugin`), and any
+   leftover user-scope copy from earlier hand-wiring.
 
-   Only when the plugin is **not** enabled does the user-scope
-   wiring apply, and then diff it the same way as the other scripts:
-   `~/.claude/scripts/agent-guard.py` against the framework's
-   `tools/agent-guard/src/agent_guard/__init__.py`, and the
-   `~/.claude/scripts/guards.d/` directory against the union of the
-   engine's bundled `tools/agent-guard/src/agent_guard/guards.d/`
-   **and** every skill-owned `skills/*/guards/*.py` (extra
-   locally-added `*.py` are expected; flag only missing
-   framework/skill guards or stale copies). A new skill guard (or a
-   skill newly adding one) appearing in the framework but absent
-   from the user's `guards.d` is the most common drift on that
-   wiring — re-syncing `guards.d` activates it with **no
-   `settings.json` change**.
+   Only when the plugin is **not** enabled does the user-scope wiring
+   apply; diff it like any other script, per
+   [`script-inventory.md`](script-inventory.md).
 
-   Either way, confirm the guard actually denies. A `git commit`
+   **Either way, confirm the guard actually denies.** A `git commit`
    whose message carries a `Co-Authored-By:` trailer is the cheap
    canary: the bundled `commit-trailer` guard blocks it before the
-   commit runs, so a command that goes through means the hook is
-   not firing, whatever the files and settings say.
+   commit runs, so a command that goes through means the hook is not
+   firing, whatever the files and settings say.
 
-   **Rename migration — `claude-iso.sh` → `agent-iso.sh`.** The
-   clean-env launcher was renamed (it now isolates **OpenCode** as
-   well as Claude Code, exposing both a `claude-iso` and an
-   `opencode-iso` entry point from one file). If a **pre-rename copy
-   exists** at `~/.claude/agent-isolation/claude-iso.sh` (or wherever
-   the adopter installed the wrapper), surface it as a migration
-   candidate: recommend installing the new `agent-iso.sh` (the Step P
-   re-install path above) **and removing the stale
-   `claude-iso.sh`**, plus updating any
-   `source …/claude-iso.sh` line in the shell rc to `agent-iso.sh`.
-   The `claude-iso` shell **function/alias** name is unchanged, so
-   `alias claude=claude-iso` keeps working once the `source` path is
-   fixed. Consistent with this skill's read-only posture, **do not
-   delete the old file automatically** — list it as a candidate the
-   user confirms, and show the two commands they would run:
-   `cp tools/agent-isolation/agent-iso.sh ~/.claude/agent-isolation/agent-iso.sh`
-   then `rm ~/.claude/agent-isolation/claude-iso.sh`.
 4. **Settings.json shape drift.** Diff the user's project
    `.claude/settings.json` against the framework's dogfooded
    one — the framework occasionally adds new `denyRead` paths
