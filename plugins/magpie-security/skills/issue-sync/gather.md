@@ -767,7 +767,7 @@ Concretely, for each closed-`announced` tracker in this run:
    already read).
 2. Call the API:
    ```bash
-   vetted-op-read --caller security-issue-sync cve-check-published <CVE-ID> \
+   uv run --project <framework>/tools/vetted-ops vetted-op-read --caller security-issue-sync cve-check-published <CVE-ID> \
      | jq -r '{state: .cveMetadata.state, datePublished: .cveMetadata.datePublished}'
    ```
 3. Interpret:
