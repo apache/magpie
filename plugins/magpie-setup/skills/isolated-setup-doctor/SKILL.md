@@ -18,7 +18,7 @@ when_to_use: >-
 capability:
   - capability:platform
   - capability:reassess
-surface_hash: sha256:aa2f973a5b88e5c1
+surface_hash: sha256:42ee88aec8f2e3ad
 license: Apache-2.0
 ---
 
@@ -48,28 +48,18 @@ Do not require Claude configuration or prescribe Claude settings changes; then s
 When the harness is Claude Code, continue below. If the harness cannot be
 determined, ask once.
 
-The **diagnostic** layer over the secure agent setup. Complements
-the existing setup skills:
+The **diagnostic** layer over the secure agent setup.
+[`verify`](../isolated-setup-verify/SKILL.md) asks whether the setup is
+*installed* right — static checks that catch drift and missing pieces.
+This skill asks whether common workflows are *functionally blocked* by
+the sandbox as configured, which catches over-restrictive allowlists.
+([`install`](../isolated-setup-install/SKILL.md) puts it in place;
+[`update`](../isolated-setup-update/SKILL.md) reports framework drift.)
 
-- [`setup-isolated-setup-install`](../isolated-setup-install/SKILL.md)
-  installs the secure setup.
-- [`setup-isolated-setup-verify`](../isolated-setup-verify/SKILL.md)
-  answers *"is the secure setup **installed** correctly?"* —
-  static checks on settings.json shape, hook wiring, pinned tool
-  versions. Catches drift and missing pieces.
-- [`setup-isolated-setup-update`](../isolated-setup-update/SKILL.md)
-  surfaces drift against the framework's latest.
-- **`setup-isolated-setup-doctor` (this skill)** answers *"are
-  common workflows **functionally** blocked by the current
-  sandbox?"* — live probes of SSH agent, port binding, podman /
-  docker through the container gateway, per-project scratch dir.
-  Catches over-restrictive allowlists.
-
-Run `verify` first when the install is in question (fresh
-machine, recent framework upgrade, sandbox-state surprise). Run
-`doctor` when the install is known good but a workflow fails in
-a sandbox-shaped way — agent unreachable, socket error, port
-permission error.
+Run `verify` first when the install itself is in doubt — fresh machine,
+recent upgrade, sandbox-state surprise. Run `doctor` when the install is
+known good and a workflow fails in a sandbox-shaped way: agent
+unreachable, socket error, port permission error.
 
 Every probe maps to a numbered entry in
 [`docs/setup/sandbox-troubleshooting.md`](../../../../docs/setup/sandbox-troubleshooting.md);
@@ -125,20 +115,7 @@ there. The second is the one a signed commit hits as
 **Command:**
 
 ```bash
-if [ -z "$SSH_AUTH_SOCK" ]; then
-  echo "PROBE: ssh-agent → ⊘ (SSH_AUTH_SOCK not set in env)"
-elif [ ! -S "$SSH_AUTH_SOCK" ]; then
-  echo "PROBE: ssh-agent → ✗ (socket file at SSH_AUTH_SOCK not stat-able from inside sandbox)"
-  echo "       SSH_AUTH_SOCK=$SSH_AUTH_SOCK"
-else
-  ssh-add -l > /tmp/ssh-add.out 2>&1; rc=$?
-  case "$rc" in
-    0) echo "PROBE: ssh-agent → ✓ ($(wc -l < /tmp/ssh-add.out | tr -d ' ') identities listed)" ;;
-    1) echo "PROBE: ssh-agent → ✓ (agent reachable, no identities configured)" ;;
-    2) echo "PROBE: ssh-agent → ✗ (agent unreachable: $(head -1 /tmp/ssh-add.out))" ;;
-    *) echo "PROBE: ssh-agent → ⚠ (unexpected rc=$rc: $(head -1 /tmp/ssh-add.out))" ;;
-  esac
-fi
+bash <skill-dir>/scripts/probe-1-ssh-agent.sh
 ```
 
 **Interpretation:**
@@ -164,37 +141,7 @@ proxy blocks `127.0.0.1`).
 **Command:**
 
 ```bash
-python3 - <<'PY' 2>&1 || true
-import socket, urllib.request, threading, http.server, sys
-
-# 1. Can we bind?
-try:
-    s = socket.socket()
-    s.bind(("127.0.0.1", 0))
-    port = s.getsockname()[1]
-    s.listen(1)
-except OSError as e:
-    print(f"PROBE: localhost-bind → ✗ (bind: {e})")
-    sys.exit(0)
-
-# 2. Can we GET from our own server over loopback?
-class Handler(http.server.BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200); self.end_headers(); self.wfile.write(b"ok")
-    def log_message(self, *_): pass
-
-server = http.server.HTTPServer(("127.0.0.1", 0), Handler)
-threading.Thread(target=server.serve_forever, daemon=True).start()
-try:
-    with urllib.request.urlopen(f"http://127.0.0.1:{server.server_port}/", timeout=5) as r:
-        body = r.read()
-    print(f"PROBE: localhost-bind → ✓ (bound + loopback GET → HTTP {r.status}, body={body!r})")
-except Exception as e:
-    print(f"PROBE: localhost-bind → ✗ (bind ok, loopback GET: {type(e).__name__}: {e})")
-finally:
-    server.shutdown()
-    s.close()
-PY
+bash <skill-dir>/scripts/probe-2-localhost-bind.sh
 ```
 
 **Interpretation:**
@@ -223,113 +170,7 @@ is missing, in the order a fresh install would hit them.
 **Command:**
 
 ```bash
-# Two candidates, not the hook's three-way order (which also checks
-# $MAGPIE_CONTAINER_GATEWAY_SRC and $HOME/.claude/scripts/container-gateway/src
-# for an operator install): this probe only ever needs to run the read-only
-# `status` subcommand against a source already reachable from this doctor
-# session, so it deliberately omits the operator-install path rather than
-# widen what the probe depends on being readable.
-gw_src=".apache-magpie/tools/container-gateway/src"
-[ -d "$gw_src/container_gateway" ] || gw_src="tools/container-gateway/src"
-status_json=$(PYTHONPATH="$gw_src" python3 -m container_gateway status --project "$PWD" 2>/dev/null)
-
-gw_state() {  # $1=backend -> serving | not-serving | not-running
-  printf '%s' "$status_json" | python3 -c "
-import json, sys
-try:
-    d = json.load(sys.stdin)
-except Exception:
-    print('not-running'); sys.exit()
-if not d.get('running'):
-    print('not-running')
-elif '$1' in d.get('serving', []):
-    print('serving')
-else:
-    print('not-serving')
-" 2>/dev/null
-}
-
-_probe_timeout() {  # seconds cmd...; portable across GNU timeout, macOS Homebrew's gtimeout, or neither
-  local secs="$1"
-  shift
-  if command -v timeout > /dev/null 2>&1; then
-    timeout "$secs" "$@"
-  elif command -v gtimeout > /dev/null 2>&1; then
-    gtimeout "$secs" "$@"
-  else
-    "$@" &
-    local cmd_pid=$!
-    (sleep "$secs" && kill "$cmd_pid" 2> /dev/null) &
-    local watchdog_pid=$!
-    wait "$cmd_pid" 2> /dev/null
-    local rc=$?
-    kill "$watchdog_pid" 2> /dev/null
-    wait "$watchdog_pid" 2> /dev/null
-    return "$rc"
-  fi
-}
-
-for rt in podman docker; do
-  if ! command -v "$rt" > /dev/null 2>&1; then
-    echo "PROBE: ${rt}-runtime → ⊘ ($rt not on PATH)"
-    continue
-  fi
-  case "$rt" in podman) url="${CONTAINER_HOST:-}";; docker) url="${DOCKER_HOST:-}";; esac
-  if [ -z "$url" ]; then
-    echo "PROBE: ${rt}-runtime → ✗ ($( [ "$rt" = podman ] && echo CONTAINER_HOST || echo DOCKER_HOST ) unset — gateway not wired into settings)"
-    continue
-  fi
-  # The CLIs read a unix:// URL's authority as a host component, so only the
-  # absolute "unix:///path" spelling reaches the socket: "unix://./x" dials
-  # "/.//x". A relative value still stats fine here (the socket does exist
-  # relative to the cwd), so catch it by shape or the real cause is lost in
-  # the generic failure branch below.
-  case "$url" in
-    unix:///*) ;;
-    unix://*|unix:*)
-      echo "PROBE: ${rt}-runtime → ✗ ($( [ "$rt" = podman ] && echo CONTAINER_HOST || echo DOCKER_HOST )=$url is not absolute — the CLIs do not resolve a relative unix:// value against the cwd; use unix:///<project>/.apache-magpie-local/run/$rt.sock)"
-      continue ;;
-  esac
-  sock="${url#unix://}"
-  case "$(gw_state "$rt")" in
-    not-running)
-      echo "PROBE: ${rt}-runtime → ✗ (gateway socket missing at $sock — container gateway not running)"
-      continue ;;
-    not-serving)
-      case "$rt" in
-        podman) hint="is the Podman machine started" ;;
-        docker) hint="is Docker Desktop (or the docker daemon) started" ;;
-      esac
-      echo "PROBE: ${rt}-runtime → ✗ (gateway running without a $rt backend — $hint? start it, then restart the gateway)"
-      continue ;;
-  esac
-  if [ ! -S "$sock" ]; then
-    echo "PROBE: ${rt}-runtime → ✗ (gateway socket missing at $sock — container gateway not running)"
-    continue
-  fi
-  if _probe_timeout 15 "$rt" info > /dev/null 2>"${TMPDIR:-/tmp}/$rt-probe.err"; then
-    echo "PROBE: ${rt}-runtime → ✓ ($rt reaches the container gateway at $sock)"
-  else
-    rc=$?
-    err=$(head -1 "${TMPDIR:-/tmp}/$rt-probe.err")
-    case "$rc" in
-      137|143)
-        # The shell-fallback branch of _probe_timeout kills the child with
-        # SIGTERM (rc 143) or, if it does not respond, SIGKILL (rc 137);
-        # `$err` is typically empty in this case, so name the hang instead
-        # of falling through to an uninformative "rc=143: ".
-        echo "PROBE: ${rt}-runtime → ✗ (no response in 15s — $rt info hung; is the backend daemon stuck?)" ;;
-      *)
-        case "$err" in
-          *"operation not permitted"*|*"Operation not permitted"*)
-            echo "PROBE: ${rt}-runtime → ✗ (connect to $sock denied — add it to sandbox.network.allowUnixSockets)" ;;
-          *"502"*|*"unreachable"*)
-            echo "PROBE: ${rt}-runtime → ✗ (gateway up, backend down: $err)" ;;
-          *) echo "PROBE: ${rt}-runtime → ✗ (rc=$rc: $err)" ;;
-        esac ;;
-    esac
-  fi
-done
+bash <skill-dir>/scripts/probe-3-container-gateway.sh
 ```
 
 `status_json` comes from the gateway's own read-only `status`
@@ -385,20 +226,7 @@ gets a per-project, per-session scratchpad underneath it.
 **Command:**
 
 ```bash
-if [ -z "$TMPDIR" ]; then
-  echo "PROBE: project-scratch → ✗ (TMPDIR not set)"
-elif [ ! -d "$TMPDIR" ]; then
-  echo "PROBE: project-scratch → ✗ (TMPDIR set but directory missing: $TMPDIR)"
-elif ! touch "$TMPDIR/.doctor-probe" 2>/dev/null; then
-  echo "PROBE: project-scratch → ✗ (TMPDIR not writable inside sandbox: $TMPDIR)"
-else
-  rm -f "$TMPDIR/.doctor-probe"
-  slug=$(pwd | sed 's|/|-|g')
-  case "$TMPDIR" in
-    *"$slug"*) echo "PROBE: project-scratch → ✓ (per-project + writable: $TMPDIR)" ;;
-    *)         echo "PROBE: project-scratch → ✓ (writable; shared session root, which is the harness default: $TMPDIR)" ;;
-  esac
-fi
+bash <skill-dir>/scripts/probe-4-scratch-dir.sh
 ```
 
 **Interpretation:**
@@ -432,33 +260,7 @@ block.
 **Command:**
 
 ```bash
-if [ "$(git config --get gpg.format)" != "ssh" ]; then
-  echo "PROBE: signing-key → ⊘ (gpg.format is not ssh)"
-else
-  key="$(git config --get user.signingkey)"
-  case "$key" in
-    "")    echo "PROBE: signing-key → ⊘ (gpg.format=ssh but user.signingkey unset)" ;;
-    ssh-*) echo "PROBE: signing-key → ✓ (user.signingkey is a literal key, nothing to read)" ;;
-    *)
-      key="${key/#\~/$HOME}"
-      if head -c 1 "$key" >/dev/null 2>"${TMPDIR:-/tmp}/signing-key.err"; then
-        echo "PROBE: signing-key → ✓ ($key readable inside sandbox)"
-      else
-        echo "PROBE: signing-key → ✗ ($key not readable inside sandbox: $(head -1 "${TMPDIR:-/tmp}/signing-key.err"))"
-      fi ;;
-  esac
-fi
-# The touch overlay's wrapper, when git is pointed at it: git inside the
-# sandbox reads the same global config and has to be able to start it.
-prog="$(git config --get gpg.ssh.program || git config --get gpg.program)"
-if [ -n "$prog" ]; then
-  prog="${prog/#\~/$HOME}"
-  if head -c 1 "$prog" >/dev/null 2>&1; then
-    echo "PROBE: signing-program → ✓ ($prog readable inside sandbox)"
-  else
-    echo "PROBE: signing-program → ✗ ($prog not readable inside sandbox — every sandboxed signed commit fails with 'cannot exec')"
-  fi
-fi
+bash <skill-dir>/scripts/probe-5-signing-key.sh
 ```
 
 **Interpretation:**
@@ -496,33 +298,7 @@ exclusion cannot apply to the probe itself: that shows what an
 **Command:**
 
 ```bash
-if ! command -v gh > /dev/null 2>&1; then
-  echo "PROBE: gh-sandbox → ⊘ (gh not on PATH)"
-else
-  out=$(sh -c 'gh api user --jq .login' 2>&1); rc=$?
-  if [ $rc -eq 0 ]; then
-    echo "PROBE: gh-sandbox → ✓ (gh works inside the sandbox; exclusion not needed on this platform)"
-  else
-    excl=$(cat .claude/settings.json .claude/settings.local.json ~/.claude/settings.json 2>/dev/null \
-      | grep -c '"gh \*"')
-    case "$out" in
-      *"OSStatus -26276"*|*"HTTP 401"*)
-        if [ "$excl" -gt 0 ]; then
-          echo "PROBE: gh-sandbox → ✓ (sandboxed gh fails as expected; \"gh *\" is in excludedCommands — keep gh calls to cd/gh-only segments)"
-        else
-          echo "PROBE: gh-sandbox → ✗ (sandboxed gh fails: $(echo "$out" | head -1); \"gh *\" NOT found in excludedCommands)"
-        fi ;;
-      *) echo "PROBE: gh-sandbox → ⚠ (gh failed for another reason, rc=$rc: $(echo "$out" | head -1))" ;;
-    esac
-  fi
-  # A catch-all ask rule prompts on every gh call, reads included:
-  # Claude Code evaluates deny, then ask, then allow, regardless of
-  # how specific the allow rules are.
-  if cat .claude/settings.json .claude/settings.local.json ~/.claude/settings.json 2>/dev/null \
-      | grep -q '"Bash(gh \*)"'; then
-    echo "PROBE: gh-sandbox → ⚠ (catch-all \"Bash(gh *)\" in permissions.ask — every gh call prompts, read-only allow rules never fire)"
-  fi
-fi
+bash <skill-dir>/scripts/probe-6-gh-outside-sandbox.sh
 ```
 
 **Interpretation:**
@@ -592,19 +368,7 @@ If a probe surfaces a fail shape not catalogued in
    matching probe in the same shape so the next doctor run
    catches it automatically.
 
-## Extending the skill with a new probe
+## Adding a probe
 
-When the catalog grows a new entry, add a matching probe section
-following the shape above:
-
-1. **Command** — a short, deterministic, side-effect-free
-   one-liner (or short Python heredoc) that triggers the failure
-   mode reliably.
-2. **Interpretation** — a 3–5-row table mapping result strings
-   to ✓ / ✗ / ⊘ / ⚠.
-3. **On ✗ → remediation** — a direct link to the matching
-   section of `docs/setup/sandbox-troubleshooting.md`.
-
-Keep probes narrowly scoped: each probe tests **one** failure
-mode, not a bundle. A probe that conflates two restrictions
-makes the report ambiguous when the result is ✗.
+When the troubleshooting catalogue grows an entry, add a matching probe:
+[`scripts/README.md`](scripts/README.md).
