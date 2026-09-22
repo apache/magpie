@@ -146,6 +146,7 @@ framework substrate:
 | `substrate:privacy` | substrate | PII redaction / approved-LLM gating. |
 | `substrate:framework-dev` | substrate | Build / validate / eval the framework itself. |
 | `substrate:release` | substrate | Release-artefact helpers an adopter's release process runs: reproducible-archive build, lint and comparison. |
+| `substrate:setup` | substrate | Adopter-side setup state an agent resolves at runtime rather than at development time: lock parsing, floor comparison, reconciliation fingerprints. |
 
 ### Coverage qualifiers
 
@@ -333,6 +334,7 @@ or a contract-free mix of substrates (e.g. `tools/spec-inventory` is
 | [`tools/probe-templates`](../tools/probe-templates/) | `substrate:sandbox` | Sandbox-doctor probe templates |
 | [`tools/sandbox-lint`](../tools/sandbox-lint/) | `substrate:sandbox` | Sandbox settings linter |
 | [`tools/security-tracker-stats-dashboard`](../tools/security-tracker-stats-dashboard/) | `substrate:analytics` | Security-tracker analytics engine |
+| [`tools/setup-preflight`](../tools/setup-preflight/) | `substrate:setup` | Deterministic setup pre-flight: resolves a project's lock, floor and reconciliation state plus one skill's fingerprint into a JSON verdict, so every skill's shared pre-flight block runs a command instead of re-deriving the rules from prose |
 | [`tools/spec-loop`](../tools/spec-loop/) | `substrate:framework-dev` | Spec-driven build loop runner (Ralph-style) for framework development |
 | [`tools/skill-evals`](../tools/skill-evals/) | `substrate:framework-dev` | Eval harness for skills; framework-dev infrastructure whose run output is governance evidence |
 | [`tools/skill-and-tool-validator`](../tools/skill-and-tool-validator/) | `substrate:framework-dev` | Skill-frontmatter and convention validator |

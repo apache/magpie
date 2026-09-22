@@ -488,62 +488,63 @@ stamp; silence has no end.
 - **Version in the base path is a harness detail.** It holds for Claude Code
   plugin installs today. Where a harness does not encode the version in the
   path, the check degrades to unknown-and-silent rather than breaking.
-- **The per-skill check is not free at the token level, even though it is
-  free at the read level — but it is now nearly so.** The rule text first
-  grew the shared pre-flight block from 1,679 to 3,271 tokens, **+1,608 per
-  skill** once the `surface_hash:` frontmatter line is counted, or **+49.0%
-  on the smallest** skill in the catalogue (`ci-runner-audit`, 3,281 →
-  4,889). That is the figure this design originally accepted as permanent.
-  It is not permanent. The block was split into a **hot** decision path that
-  stays in every `SKILL.md` and a **cold** `preflight-detail.md` sidecar,
-  generated beside it by `check-shared-blocks.py` and read only when a check
-  actually fails, and the prose that survived was tightened rather than
-  merely relocated. The block is now **1,448 tokens**: 1,823 lighter than
-  the un-split version and 231 lighter than before the check existed at
-  all, so every one of the 65 skills is **212–218 tokens cheaper than it
-  was on `main`** while carrying the whole check (`ci-runner-audit` 3,281 →
-  3,066, −6.6%). Every step whose body fires only on a branch moved out:
-  the snapshot remedies (2), the below-the-floor restart notice (5), the
-  adopt mention (8), the vetting proposal (9) and the verify suggestion
-  (10). What stayed is what has to bind whether or not the sidecar was
-  read — the prohibitions, the unknown-is-not-absent rule, the two things
-  `config` may not do — plus each step's own test for whether it is
-  silent.
+- **The per-skill check began as the design's largest cost and ended as a
+  saving.** Its rule text first grew the shared pre-flight block from
+  1,679 to 3,271 tokens, **+1,608 per skill**, +49.0% on the smallest in
+  the catalogue. This design originally accepted that as permanent. It is
+  not. Two changes reversed it.
 
-  **That test is the floor.** A step cannot know it has nothing to say
-  without evaluating its trigger, so moving the trigger behind the pointer
-  would mean reading the sidecar on every run: 2,335 tokens to save 1,448.
-  The same arithmetic rules out replacing the whole block with a pointer,
-  which is why the split stops here rather than continuing.
+  **First, a hot/cold split.** The block was reduced to a decision path
+  and everything that fires only on a branch moved into a generated
+  `preflight-detail.md` sidecar, propagated beside each `SKILL.md` and
+  read only when a check reports something.
+
+  **Then the arithmetic left prose altogether.** Reading a lock, ordering
+  two versions as PEP 440, comparing two hashes, subtracting two dates and
+  applying the already-shown suppression are not judgement, and they were
+  costing every skill the same tokens on every invocation to be re-derived
+  from text. They live in `tools/setup-preflight` now, which the block
+  runs as one command and which answers with a JSON verdict; each finding
+  names the sidecar section whose rules apply. They are covered by 50
+  tests, where before they were graded by an eval and otherwise taken on
+  trust.
+
+  The block is **561 tokens**, against 1,679 before this work began. Every
+  one of the 65 skills is **1,099–1,105 tokens cheaper than on `main`**
+  while carrying the whole check — `ci-runner-audit` 3,281 → 2,179,
+  −33.6%.
 
   **The rejection that made this design accept the cost was wrong, and the
-  correction is worth recording.** It read: the rule text cannot move behind
-  a pointer because the target lives in the framework snapshot or the plugin
-  cache, which a sandboxed session cannot read. That conflated two different
-  policies. The **Bash** sandbox denies those paths; the agent's own
+  correction is worth recording.** It read: the rule text cannot move
+  behind a pointer because the target lives in the framework snapshot or
+  the plugin cache, which a sandboxed session cannot read. That conflated
+  two policies. The **Bash** sandbox denies those paths; the agent's own
   file-read tool does not — verified by reading the same plugin-cache file
-  with each, one refused and one served. The check was never gated on
-  reading its own detail file, only on reading the lock. A second, real
-  constraint did apply and shaped the outcome: Agent Plugins 1.0 forbids a
-  symlink escaping the plugin root, so a shared `skills/_shared/` include is
-  unreachable. A **sibling** file is not — `plugins/<family>/skills/<skill>/`
-  is the real directory that `skills/<skill>` symlinks into, so the sidecar
-  lands physically inside the plugin and needs no path to reference. That is
-  the same shape the `setup` family's own detail files have used since
-  before this design.
+  with each, one refused and one served. The sidecar is a *sibling* of
+  `SKILL.md`, so Agent Plugins 1.0's rule against a symlink escaping the
+  plugin root never applies to it.
+
+  The plugin cache does bite the executable, though, and shapes where it
+  lives: Bash can neither read nor run anything there, so a checker
+  shipped inside the plugin would be unusable in exactly the sandboxed
+  marketplace install this design was written for. `/magpie-setup config`
+  therefore copies the module into the gitignored
+  `.apache-magpie-local/`, and `upgrade` refreshes it. That has a
+  consequence stated rather than buried: pre-flight may run `config`
+  unattended, so an unattended run can place an executable in the
+  checkout. It is framework code of the same provenance as the plugin the
+  adopter installed, it is gitignored, and it goes with the directory —
+  but it is a step beyond writing configuration files, and `config` says
+  so when it does it.
 
   **One caveat survives, on one harness.** Codex reads the framework from
-  the workspace (`.agents/skills/` into the repo tree) and its profile
-  declares no filesystem read-deny, so the sidecar is an ordinary file
-  there. Gemini's pinned-snapshot install is in-workspace too. Gemini's
-  *extension* install is not: the sidecar lands under
-  `~/.gemini/extensions/magpie/`, and
-  [the Gemini adapter](../adapters/gemini.md) already notes that native file
-  tools check paths against allowed workspace directories and may need an
-  approved shell read for anything outside them. The read still succeeds;
-  it may prompt. That lands only on the cold path — after a fingerprint has
-  actually moved — so the population affected is a Gemini-extension user on
-  the run after a plugin update, not every user on every run.
+  the workspace and declares no filesystem read-deny; Gemini's
+  pinned-snapshot install is in-workspace too. Gemini's *extension*
+  install is not, and [its adapter](../adapters/gemini.md) notes that
+  native file tools check paths against allowed workspace directories.
+  That affects reading the sidecar, on the cold path only — the checker
+  itself runs from the project tree on every harness.
+
 - **`verify` is the only surface that can compare against the marketplace
   clone**, because it is the only one run deliberately and unsandboxed often
   enough to read it. A permanently sandboxed user learns about a newer

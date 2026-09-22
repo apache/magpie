@@ -361,6 +361,29 @@ Leave out any override this walk flagged as a conflict or a
 `requires_config` finding — it is not reconciled until the user resolves
 it, and the next `setup verify` or `reconcile` run will still name it.
 
+### Refresh the pre-flight checker
+
+`.apache-magpie-local/setup_preflight/` is a **copy** of the framework's
+`tools/setup-preflight` package, taken when
+[`config`](config.md#step-2a--install-the-pre-flight-checker) last ran.
+An upgrade moves the framework underneath it, so replace that copy with
+the one the newly-installed version ships, from the same source this
+upgrade took everything else from.
+
+Skip it when the directory does not exist: a project that never ran
+`config` has nothing to refresh, and creating the directory here would
+manufacture the "has been configured" signal its absence carries.
+
+A stale copy is the likeliest cause of a skill reporting that its
+pre-flight checker is missing or broken (*step-0* of
+`preflight-detail.md`), which is precisely the state an upgrade
+introduces and this step closes. Verify the refreshed copy answers before
+reporting the upgrade complete:
+
+```bash
+PYTHONPATH=.apache-magpie-local python3 -m setup_preflight --skill magpie-setup
+```
+
 Skip this write entirely when `.apache-magpie-overrides/` is empty or
 absent — the only surface this walk checks, so there is nothing to
 confirm and nothing to stamp. (A project with configuration but no

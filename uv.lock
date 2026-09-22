@@ -41,6 +41,7 @@ members = [
     "reproducible-archive",
     "sandbox-lint",
     "security-tracker-stats-dashboard",
+    "setup-preflight",
     "skill-and-tool-validator",
     "skill-evals",
     "skill-reconciler-diff",
@@ -1845,6 +1846,21 @@ dev = [{ name = "magpie-dev", editable = "tools/dev" }]
 name = "security-tracker-stats-dashboard"
 version = "0.1.0"
 source = { editable = "tools/security-tracker-stats-dashboard" }
+
+[package.dev-dependencies]
+dev = [
+    { name = "magpie-dev" },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [{ name = "magpie-dev", editable = "tools/dev" }]
+
+[[package]]
+name = "setup-preflight"
+version = "0.1.0"
+source = { editable = "tools/setup-preflight" }
 
 [package.dev-dependencies]
 dev = [

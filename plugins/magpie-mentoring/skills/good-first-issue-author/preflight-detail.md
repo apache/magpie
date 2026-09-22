@@ -4,17 +4,47 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
-# Pre-flight detail — the branches, and the rules that constrain them
+# Pre-flight detail — the rules behind each finding
 
-The pre-flight block in this skill's `SKILL.md` decides one thing: whether
-to stay silent. When a step cannot, it sends you here. This file carries
-that step's branch handling and the reasoning behind it.
+The pre-flight block in this skill's `SKILL.md` runs one command, which
+answers whether anything needs doing. It decides nothing else. Every
+finding it reports names a section of this file, and that section carries
+what to propose and what may not be done.
 
-Read only the section the block named. Nothing here runs on its own, and
-nothing here is a second pre-flight: a step that passed silently in the
-block has already finished.
+Read only the section the finding named. Nothing here runs on its own,
+and nothing here re-checks what the command already established: the
+`facts` on the finding are the inputs, not a starting point for a second
+opinion.
 
-## Step 2 — a snapshot install is out of sync
+The split is deliberate. Reading a lock, ordering two versions, comparing
+two hashes and subtracting two dates are not judgement, and they were
+costing every skill the same tokens on every invocation to be re-derived
+from prose. They live in the framework's `tools/setup-preflight` now,
+where they are tested. What is left here is the part a model is actually
+for.
+
+## step-0 — the checker could not run
+
+The project is set up — there is a lock, a local directory or an
+overrides directory — but `python3 -m setup_preflight` did not answer.
+
+**Do not attempt the check by hand.** The rules now live in code
+precisely so there is one implementation of them; re-deriving them in
+conversation would produce a second, unversioned answer that nobody
+tested and that drifts from the first the moment either changes.
+
+Say that the pre-flight checker is missing or broken, name the failure,
+and propose `/magpie-setup config` (which installs it) or
+`/magpie-setup upgrade` (which refreshes it from the installed framework
+version). Then continue into the work the user asked for: a checker that
+cannot run is a setup problem to surface, not a reason to refuse the
+skill.
+
+If the project also carries a `.apache-magpie-local/setup_preflight/`
+that predates the installed framework, `upgrade` is the one to propose —
+a stale copy is the likeliest cause after a plugin update.
+
+## step-2 — a snapshot install is out of sync
 
 Two states send you here, and they need different remedies:
 
@@ -26,7 +56,7 @@ Two states send you here, and they need different remedies:
 Either way this is a stop, not a note: the rest of the skill would run
 against a framework version the project did not choose.
 
-## Step 3 — the marketplace floor
+## step-3 — the marketplace floor
 
 **`url` names something other than `apache/magpie`.** Run **nothing**. Name
 the marketplace the lock points at, show the commands it would take, and
@@ -57,62 +87,54 @@ Where there is no such CLI, run nothing and print the commands instead.
 Then step 5 applies: whichever of these you took, the session is still
 below the floor and has to be restarted.
 
-## Step 4 — the fingerprint differs, or is not stamped
+## step-4 — the fingerprint moved, or was never stamped
 
-**`skills` lives in exactly one store per project**: the committed lock's
-`reconciled.skills` map when adopted, `.apache-magpie-local/reconciled.json`'s
-`skills` map when configured but not adopted.
+The checker has already resolved which store holds this project's
+`skills` map, compared the fingerprints, and applied the already-shown
+suppression. **Do not redo any of that** — it reported this finding
+because it is worth raising, so act on the `code` and the `facts` rather
+than re-deriving them.
 
-Read `.apache-magpie-local/reconciled.json` now — reuse this read in step 10
-instead of reading it twice. It holds this skill's `skills` entry directly
-when there is no lock, and always holds `verified_at`,
-`verify_suggested_at` and `acknowledged` regardless of adoption. A `skills`
-entry for this skill in **both** stores is an expected transitional state,
-not a fault — someone configured the project before it adopted, on a
-machine `adopt` never ran from. The local one wins, and `/magpie-setup
-reconcile` offers to drop the redundant local entry.
+**`code: "fingerprint-moved"`** — this skill's configuration was written
+against a different shape of this skill. `facts.cause` says which half
+moved, and it selects the fix:
 
-Resolve against whichever store actually names this skill:
+- **`"requires_config"`** — an entry no longer resolves. Propose
+  `/magpie-setup config` for this skill. A `config-missing` finding
+  usually accompanies this one, naming the files.
+- **`"anchors"`** — every `requires_config` entry still resolves, so what
+  moved is a step heading or golden-rule name an override may anchor to.
+  Propose re-anchoring per *Reconciliation on framework upgrade*
+  (`docs/setup/agentic-overrides.md`). This is a proposal to make, not a
+  silence to keep: an override anchored to a heading that no longer
+  exists is applied partially and without complaint, which is the whole
+  failure this check exists to catch.
 
-- **Match** → silent.
+Propose both when both findings are present.
 
-- **Differ** → check this skill's `requires_config:` entries against the
-  lookup chain (step 7 does the full resolution; here only whether each
-  entry resolves matters). An entry that does not resolve is the
-  actionable half → propose `/magpie-setup config` for this skill. Every
-  entry resolves → the change is in the anchors instead — a step heading
-  or golden-rule name an override may anchor to → propose re-anchoring per
-  *Reconciliation on framework upgrade*
-  (`docs/setup/agentic-overrides.md`). Propose both when both apply.
+`facts.in_both_stores: true` is an expected transitional state, not a
+fault — someone configured the project before it adopted, on a machine
+`adopt` never ran from. The local entry wins; say that `/magpie-setup
+reconcile` offers to drop the redundant one.
 
-  Before proposing: `acknowledged.skills["<name>"]` in the local file
-  already equal to the current hash → silent, this exact change was
-  already shown. Otherwise show the proposal and write
-  `acknowledged.skills["<name>"]: <current hash>` — recorded the moment it
-  is shown, not on a decline this step never waits for.
+**`code: "sweep-never-run"`** — nothing in this project has ever been
+reconciled, so a per-skill fix would be guesswork about a baseline that
+does not exist. Propose the one-time `/magpie-setup reconcile` sweep
+instead.
 
-- **Neither store names this skill** → **silent** whenever a `reconciled:`
-  block exists in either store at all. A stamp that does not name this
-  skill says the project does not configure it; step 7 already covers the
-  case where it does and a required file is missing.
+**Record what you showed, the moment you show it.** Write
+`acknowledged.skills["<name>"]: <facts.current>` for a `fingerprint-moved`
+proposal, or `acknowledged.sweep: <the stamp's own version>` for a sweep.
+Recorded on display, never on a decline this step does not wait for —
+that is what stops the same proposal reappearing on every later
+invocation, and it is what the checker reads to suppress it.
 
-  Only when there is **no `reconciled:` block in either store** — nothing
-  here has ever been reconciled — propose the one-time `/magpie-setup
-  reconcile` sweep instead of a per-skill fix. Before proposing:
-  `acknowledged.sweep` in the local file already equal to the current
-  version → silent. Otherwise show it and write `acknowledged.sweep:
-  <version>`, where `<version>` is the installed plugin version on a
-  marketplace install and the framework version otherwise — the same value
-  the stamp's own `version` records — suppressed until it changes, which
-  is exactly when new drift can have arrived.
+**Every write merges into `.apache-magpie-local/reconciled.json`; it
+never replaces the file.** Read it, set the one key, write the whole
+object back with every other key intact — and create the file, and
+`.apache-magpie-local/` itself, when either is absent.
 
-**Every write this step makes merges into
-`.apache-magpie-local/reconciled.json`; it never replaces the file.** Read
-it, set the one key, write the whole object back with every other key
-intact — and create the file, and `.apache-magpie-local/` itself, when
-either is absent.
-
-## Step 5 — the session is below the floor
+## step-5 — the session is below the floor
 
 Whichever branch of step 3 you took — plugins installed or updated,
 commands printed because there is no CLI, or nothing run at all because
@@ -128,7 +150,7 @@ An *unknown* step 3 result is not one of these branches. There is nothing
 to say and nothing to restart for, so the block continues past it rather
 than sending you here.
 
-## Step 7 — a required config file is missing
+## step-7 — a required config file is missing
 
 Running `/magpie-setup config` unasked is safe because of what it touches:
 only `.apache-magpie-local/` and `.git/info/exclude`, both gitignored, both
@@ -144,7 +166,7 @@ The two prohibitions are in the block itself because they bind whether or
 not this file was read: never fabricate a value, and never continue past a
 value the skill needs but does not have.
 
-## Step 8 — configuration was just written locally
+## step-8 — configuration was just written locally
 
 Add **one line** saying the project can also adopt Magpie, so contributors
 get this on clone, and name the command. Then drop it. Do not ask, do not
@@ -156,7 +178,7 @@ into every contributor's checkout, and nothing in a pre-flight is entitled
 to make that call. This section is only the *mention*, which is
 conditional on step 7 having written something.
 
-## Step 9 — proposing a read-only operation for the vetted-ops catalogue
+## step-9 — proposing a read-only operation for the vetted-ops catalogue
 
 This step and step 10 are not pre-flight checks. Both are settled at the
 *end* of the run, and live in the shared block only because it is the one
@@ -188,7 +210,7 @@ catalogue, the policy, or a permission rule.
 A skill that ends every run with the same suggestion is noise, so this is
 worth saying only when something actually prompted.
 
-## Step 10 — the verify interval has elapsed
+## step-10 — the verify interval has elapsed
 
 Suggest `/magpie-setup verify`, once, and say why it is worth taking:
 `verify` is the only place a sandboxed session's own latest-version

@@ -391,6 +391,7 @@ TOOL_CAPABILITIES = {
     "substrate:privacy",
     "substrate:framework-dev",
     "substrate:release",
+    "substrate:setup",
 }
 
 

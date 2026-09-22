@@ -351,14 +351,34 @@ committed version with drift detection.
 23. The shared pre-flight block is split in two by
     `tools/dev/check-shared-blocks.py`: a **hot** path propagated into
     every non-exempt `SKILL.md`, and a **cold** `preflight-detail.md`
-    sidecar generated beside it from `tools/dev/preflight-detail.md`. The
-    hot path decides only whether to stay silent; every non-silent outcome
-    names the sidecar and is not acted on without it. Every rule that must
-    bind whether or not the sidecar was read stays in the hot path — the
-    prohibitions, the unknown-is-not-absent rule of criterion 10, and the
-    two things `config` may not do. A skill of an exempt family carries
-    neither the block nor the sidecar, and the generator removes a stale
-    one of either.
+    sidecar generated beside it from `tools/dev/preflight-detail.md`. A
+    skill of an exempt family carries neither, and the generator removes a
+    stale one of either.
+24. The hot path runs `tools/setup-preflight` as a single command and acts
+    only on its verdict: `{"verdict": "ok"}` is silent, and every finding
+    names the `preflight-detail.md` section whose rules apply and is not
+    acted on without reading it. The block itself decides nothing else,
+    and carries exactly one rule of its own — never run `/magpie-setup
+    adopt` unattended — because that one must bind whether or not
+    anything else was read.
+25. `tools/setup-preflight` resolves the deterministic half in two scopes:
+    **project** (lock, snapshot drift, marketplace floor), memoised
+    against the inputs it depends on so later skills in a session do not
+    recompute it, and **skill** (this skill's fingerprint against the
+    stamp, its `requires_config:` entries). It applies the already-shown
+    suppression of criterion 18 itself. It exits 0 whenever it reached a
+    verdict, findings included; a non-zero exit means the check could not
+    run, and the block reads `preflight-detail.md` *step-0* rather than
+    treating it as a pass. Criteria 9, 10, 16, 17 and 18 are enforced by
+    its tests.
+26. The checker is **copied into the adopter's gitignored
+    `.apache-magpie-local/`** by `/magpie-setup config` and refreshed
+    there by `/magpie-setup upgrade`, because Bash can neither read nor
+    execute the plugin cache under the framework's own recommended
+    sandbox. `config` states that it installed an executable, since it may
+    run unattended from a skill's pre-flight. `upgrade` skips the refresh
+    when the directory does not exist rather than creating it, because its
+    absence is what marks a project as never configured.
 
 ## Validation
 

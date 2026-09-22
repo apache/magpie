@@ -1,36 +1,26 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
-This skill's frontmatter `name:` is `magpie-security-issue-triage`.
+This skill's frontmatter `name:` is `magpie-pr-management-code-review`.
 
-cat skills/issue-triage/SKILL.md (frontmatter, this skill's own file):
-  name: magpie-security-issue-triage
-  requires_config:
-    - project.md
-    - canned-responses.md
-  surface_hash: sha256:c11de8a70b4f9922
+Its pre-flight ran the checker and it answered:
 
-cat .apache-magpie.lock:
-  method: git-tag
-  ref:    v0.9.4
-  reconciled:
-    version: 0.9.4
-    at:      2026-08-30
-    skills:
-      magpie-security-issue-triage: sha256:4ab70d1e88221fa0
-
-cat .apache-magpie-local/reconciled.json:
-  (file does not exist)
-
-Lookup-chain resolution for this skill's requires_config right now:
-  .apache-magpie-local/project.md               -> present
-  .apache-magpie-overrides/project.md           -> present
-  .apache-magpie-local/canned-responses.md      -> absent
-  .apache-magpie-overrides/canned-responses.md  -> present
-
-Skill body, current step headings (for context — the fixture is
-narrating the drift, not asking the model to re-derive it):
-  "## Step 3 — Read the report and classify" (renamed from
-  "## Step 3 — Classify the disposition" since v0.9.4; an
-  `.apache-magpie-overrides/issue-triage.md` override anchors to the
-  old heading text)
+```json
+{
+  "verdict": "action",
+  "findings": [
+    {
+      "scope": "skill",
+      "code": "fingerprint-moved",
+      "section": "step-4",
+      "facts": {
+        "skill": "magpie-pr-management-code-review",
+        "stamped": "sha256:1a0b77dd93e40c12",
+        "current": "sha256:7c2a91ff408b6e33",
+        "cause": "anchors",
+        "in_both_stores": false
+      }
+    }
+  ]
+}
+```

@@ -99,6 +99,42 @@ else will see must not open by editing one. `adopt` adds it, because
 
 Say which of the two happened.
 
+## Step 2a — Install the pre-flight checker
+
+Copy the framework's `tools/setup-preflight/src/setup_preflight/`
+package into `.apache-magpie-local/setup_preflight/`, replacing any copy
+already there. Source it from `<snapshot-dir>/tools/setup-preflight/` on
+a snapshot install, or from the installed plugin's copy on a marketplace
+install — the same two places Step 3 takes its templates from.
+
+This is what every skill's pre-flight actually runs:
+
+```bash
+PYTHONPATH=.apache-magpie-local python3 -m setup_preflight --skill … --hash …
+```
+
+It has to be copied rather than referenced. Under the sandbox the
+framework recommends, `~/.claude/plugins/cache/` is read-denied, so a
+module left in the plugin can be read by the agent's file tool but never
+*executed* by a shell — and a sandboxed marketplace install is exactly
+the case the check exists for. `.apache-magpie-local/` is gitignored
+(Step 2), so nothing here reaches another clone.
+
+**Name it when you report.** This sub-action may run unattended from a
+skill's pre-flight, and its licence to do so rests on touching only
+gitignored paths. Copying an executable is still within that promise —
+it is framework code of the same provenance as the plugin already
+installed, and it goes away with the directory — but it is a step beyond
+writing configuration files, so it is said out loud rather than done
+quietly.
+
+Verify the copy answers before moving on; a checker that does not run
+makes every skill fall back to *step-0* of its `preflight-detail.md`:
+
+```bash
+PYTHONPATH=.apache-magpie-local python3 -m setup_preflight --skill magpie-setup
+```
+
 ## Step 3 — Scaffold and fill
 
 For each missing required file, in the order the skills need them

@@ -1,7 +1,4 @@
 {
-  "skill_md": "tools/dev/preflight-block.md",
-  "step_heading": "## Pre-flight — is this project set up?",
-  "also_include": [
-    "tools/dev/preflight-detail.md"
-  ]
+  "skill_md": "tools/dev/preflight-detail.md",
+  "step_heading": "# Pre-flight detail — the rules behind each finding"
 }

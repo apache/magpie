@@ -1,41 +1,12 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
-This skill's frontmatter `name:` is `magpie-reviewer-routing`.
+This skill's frontmatter `name:` is `magpie-pr-management-code-review`.
 
-cat skills/reviewer-routing/SKILL.md (frontmatter, this skill's own file):
-  name: magpie-reviewer-routing
-  requires_config:
-    - project.md
-    - reviewer-roster.md
-  surface_hash: sha256:b90a1c44de77f102
+Its pre-flight ran the checker and it answered:
 
-cat .apache-magpie.lock:
-  method: marketplace
-  url: apache/magpie
-  floor:
-    magpie-pr-management: 0.1.0
-  reconciled:
-    version: 0.2.0.dev202609180100
-    at:      2026-09-18
-    skills:
-      magpie-pr-management-code-review: sha256:9f1c4e2a7b3d5c11
-      magpie-security-issue-triage:     sha256:4ab70d1e88221fa0
-  (magpie-reviewer-routing does not appear in `skills:` above)
-
-cat .apache-magpie-local/reconciled.json:
-  {
-    "verified_at": "2026-09-18"
-  }
-  (no `skills` map here at all, and no `acknowledged` block yet)
-
-ls .apache-magpie-local/ .apache-magpie-overrides/:
-  .apache-magpie-local/reconciled.json
-  .apache-magpie-overrides/project.md
-  .apache-magpie-overrides/reviewer-roster.md
-  (both of this skill's requires_config entries resolve)
-
-claude plugin list --json (readable in this session):
-  [{"name": "magpie-pr-management", "version": "0.2.0.dev202609180100"}]
-  (satisfies the 0.1.0 floor, so step 3 of the pre-flight passes
-  silently and does not skip step 4)
+```json
+{
+  "verdict": "ok"
+}
+```
