@@ -1,0 +1,15 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
+# Failure modes
+
+| Symptom | Likely cause | Remediation |
+|---|---|---|
+| `setup verify` reports drift between committed and local locks | Project lead bumped `<committed-lock>` since this machine last fetched, or local snapshot is stale on a `main`-tracking adopter | `setup upgrade` |
+| Snapshot present but symlinks dangle | Adopter ran `git clone` but not `setup` after — symlinks are gitignored but persist in their target's absence on disk | `setup verify --auto-fix-symlinks` (or `setup install`, idempotent) |
+| Worktree off the adopter repo can't find framework skills | Only reachable on the pinned snapshot install: the snapshot and its `magpie-*` symlinks are gitignored, so git carries neither into a new worktree. A marketplace install is user-scope and needs nothing here | `setup worktree-init` in the worktree — it links the worktree's `<snapshot-dir>` to the main checkout's and recreates the per-worktree symlinks. The `post-checkout` hook does **not** cover this; it only syncs the sandbox allowlist |
+| New worktree's sandboxed session can't read its own working directory | The worktree's absolute path is missing from its own `.claude/settings.local.json`, which is gitignored — so git carries it into no worktree, whichever install path you are on | `setup worktree-init` (Step 1c). For this to happen automatically on `git worktree add`, you need either the repo-local `post-checkout` hook (installed by the snapshot install only) or whole-user scope from [`setup-isolated-setup-install`](../isolated-setup-install/SKILL.md#step-p--project-root-coverage-in-the-sandbox-allowlists) |
+| The agent offers no `/plugin` (or equivalent) command | That agent has no marketplace — the one case the pinned snapshot install exists for | `setup install method:git-branch` (or `svn-zip` for the signed release) — see [`docs/setup/install-recipes.md`](../../../../docs/quick-start/other-install-methods.md) |
+| Every Magpie skill appears twice, under both `/magpie-<skill>` and `/magpie-<family>:<skill>` | Both install paths are live on this machine — a snapshot install underneath a marketplace one | Keep one ([Golden rule 10](SKILL.md#golden-rules)): `setup uninstall` to drop the repo-side snapshot, or uninstall the plugins if the project needs the committed pin |
+| `git clone` of an upstream PR sees no framework skills | Expected — the snapshot is gitignored, so a fresh clone has no `<snapshot-dir>`. The clone needs `setup` once before any framework skill is invocable | `setup` |
+| Project decided to stop using apache-magpie | Two separate reversals. Withdraw the repo's recommendation — the committed floor lock `.apache-magpie.lock` and the `.claude/settings.json` wiring derived from it — with `setup unadopt`. Remove the install itself — snapshot, local lock, symlinks, hook, doc sections, the `setup` skill, but **not** `.apache-magpie.lock` — with `setup uninstall`. Both preserve `.apache-magpie-overrides/` unless `--purge-overrides` is passed | `setup unadopt`, then `setup uninstall` |
