@@ -232,6 +232,25 @@ which is worse, because a person pays for it rather than a budget.
 Extracted code must come out **byte-identical**. It is executable: a
 paraphrase is not a rewording, it is a different program.
 
+**Most of what looks like code in this framework is not.** A fenced
+block full of `<tracker>`, `<N>`, `<target>` is a command *shape* the
+agent fills in per run — an instruction written in shell, not a program.
+There is nothing to extract, and moving it to a script would replace a
+readable recipe with a file that cannot run.
+
+The measurement, taken across the catalogue: of roughly 28,700 tokens
+inside `bash` and `python` fences, **482** are multi-line and free of
+placeholders, spread over four skills in blocks of 32 to 215 tokens. A
+pointer line costs about what those blocks cost. So the honest answer
+for nearly every skill is that this pass does not apply.
+
+It applied to `setup-isolated-setup-doctor` because its six probes were
+whole programs — self-contained, deterministic, printing a fixed line
+the skill then interprets — and they were 2,971 tokens, 59% of that
+skill's budget. That is the shape to look for: **a complete program,
+large enough to matter, that a model never needs to read.** Two out of
+three is not enough.
+
 **The rewrite pass** is different and has its own file:
 [`rewrite.md`](rewrite.md). The maintainer writes the words; the skill
 carries paragraphs one at a time and applies what it has learned from
