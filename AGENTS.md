@@ -529,7 +529,24 @@ to a home-dir path and update the tool to read from there.
   for that project's spec.
 - **Always open PRs with `gh pr create --web`** so the human reviewer can check the title,
   body, and the generative-AI disclosure in the browser before submission. Pre-fill `--title`
-  and `--body` (including the Gen-AI disclosure block) so they only need to review, not edit.
+  and `--body-file` (including the Gen-AI disclosure block) so they only need to review, not edit.
+- **Pass long or multi-line message bodies to `gh` (and similar CLIs) through a file,
+  never inline.**
+  Write the text to a file in the session scratch directory or `$TMPDIR` first,
+  then hand the CLI the path: `gh pr create --body-file`, `gh pr comment --body-file`,
+  `gh issue comment --body-file`, `gh pr review --body-file`,
+  `gh api … --input <file>` for JSON payloads, `git commit -F <file>`.
+  Do not paste the body as a quoted argument, splice it in with `$(cat …)`,
+  or feed it through a pipe or heredoc on the same command line.
+  Three reasons:
+  under the secure agent setup, `gh` runs outside the sandbox only as a plain `gh …` command —
+  a `$(…)`, pipe, or redirect keeps it sandboxed, where it cannot read `~/.config/gh` and fails
+  (see [`docs/setup/secure-agent-setup.md`](docs/setup/secure-agent-setup.md));
+  markdown bodies are full of backticks, `$`, and quotes that the shell rewrites or truncates
+  when inlined;
+  and the file is the exact text the maintainer approved, so what gets posted is what they read.
+  For a close-with-comment, post the comment from the file first, then close with a separate
+  plain command (`gh pr close <N>`, `gh issue close <N> --reason "not planned"`).
 - **Target branch for this repository is declared in the project manifest** — see
   [`<project-config>/project.md`](<project-config>/project.md#repositories)
   (`tracker_default_branch`). The non-default branch (`main`) is used only as a
