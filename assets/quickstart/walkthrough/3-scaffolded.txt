@@ -31,7 +31,7 @@
 
   Nothing staged. Nothing committed. No teammate sees any of this.
 
-  ✓ magpie-pr-management:triage can run now
+  ✓ magpie-pr-management:pr-triage can run now
 
   A TODO left in place is not an error: the skill that needs one names
   it when it needs it, and the skills that do not never look.

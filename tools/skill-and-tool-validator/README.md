@@ -48,11 +48,12 @@ link integrity, and placeholder conventions.
    skill files and docs must point to existing files and anchors.
 3. **Placeholder convention** — Skill docs must use `<PROJECT>`,
    `<upstream>`, and `<tracker>` instead of hardcoded project names.
-4. **Name convention** — Every `SKILL.md` `name:` must be
-   `magpie-<directory-name>`. Framework skills install under a
-   `magpie-` namespace prefix (`skills/issue-triage/` →
-   `.claude/skills/magpie-issue-triage`), so the frontmatter name
-   must match that installed name.
+4. **Name convention** — Every `SKILL.md` `name:` must equal the
+   name of the directory the file really lives in, symlinks
+   resolved — the Agent Skills specification's rule. For a framework
+   skill that is its family-plugin directory
+   (`plugins/magpie-issue/skills/triage/` → `name: triage`), which
+   Claude Code and Codex invoke as `/magpie-issue:triage`.
 
 ### SOFT advisories (warning, do not fail)
 

@@ -127,8 +127,8 @@ class DiscoveryTest(unittest.TestCase):
 
     def test_framework_checkout_skills_are_found(self) -> None:
         root = self.tmp / "framework"
-        write_skill(root / "skills", "setup", name="magpie-setup", family="setup")
-        write_skill(root / "skills", "list-skills", name="magpie-list-skills", family="utilities")
+        write_skill(root / "skills", "setup", name="setup", family="setup")
+        write_skill(root / "skills", "list-skills", name="list-skills", family="utilities")
         rows = list_skills.collect_rows(root, self.plain_script)
         self.assertEqual(sorted(r["invocation"] for r in rows), ["/magpie-list-skills", "/magpie-setup"])
 
@@ -151,7 +151,7 @@ class DiscoveryTest(unittest.TestCase):
             ("magpie-setup", "setup", "setup"),
             ("magpie-pr-management", "pr-management-triage", "pr-management"),
         ]:
-            write_skill(cache / plugin / version / "skills", skill, name=f"magpie-{skill}", family=family)
+            write_skill(cache / plugin / version / "skills", skill, name=skill, family=family)
         script = (
             cache / "magpie-utilities" / version / "skills" / "list-skills" / "scripts" / "list_skills.py"
         )

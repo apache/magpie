@@ -18,7 +18,7 @@
 # Rendered to the .svg beside it by tools/dev/render-screenshot.sh, which
 # strips this header. Edit here, never there.
 
-> /magpie-pr-management:triage
+> /magpie-pr-management:pr-triage
 
   Pre-flight  ✓ plugin installed   ✓ project configuration
 

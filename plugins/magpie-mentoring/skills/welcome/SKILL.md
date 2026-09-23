@@ -1,7 +1,7 @@
 ---
 # SPDX-License-Identifier: Apache-2.0
 # https://www.apache.org/licenses/LICENSE-2.0
-name: magpie-mentoring-welcome
+name: welcome
 family: mentoring
 mode: Mentoring
 requires_config:
@@ -226,7 +226,7 @@ confirmation; the maintainer decides whether to notify the team.
   no webhook, no auto-trigger — the same constraint that governs every
   Agentic Mentoring skill.
 - **Tag or label the thread.** Labeling is Agentic Triage's job
-  ([`pr-management-triage`](../../../magpie-pr-management/skills/triage/SKILL.md)).
+  ([`pr-management-triage`](../../../magpie-pr-management/skills/pr-triage/SKILL.md)).
 - **Teach conventions.** Convention pointers on an existing thread belong
   to [`pr-management-mentor`](../../../magpie-pr-management/skills/mentor/SKILL.md). This
   skill welcomes; it does not coach.

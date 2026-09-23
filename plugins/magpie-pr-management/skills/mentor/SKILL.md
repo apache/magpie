@@ -1,7 +1,7 @@
 ---
 # SPDX-License-Identifier: Apache-2.0
 # https://www.apache.org/licenses/LICENSE-2.0
-name: magpie-pr-management-mentor
+name: mentor
 family: pr-management
 mode: Mentoring
 requires_config:
@@ -228,7 +228,7 @@ maintainer reads the thread.
   [`pr-management-code-review`](../code-review/SKILL.md)
   owns that.
 - **Agentic Triage.** No labels, no draft toggles, no closes.
-  [`pr-management-triage`](../triage/SKILL.md)
+  [`pr-management-triage`](../pr-triage/SKILL.md)
   owns that.
 - **Authoring fixes.** No PRs opened. That is Agentic Drafting.
 - **Predicting maintainer decisions.** The skill never says

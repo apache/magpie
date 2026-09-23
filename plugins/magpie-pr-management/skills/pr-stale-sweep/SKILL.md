@@ -1,7 +1,7 @@
 ---
 # SPDX-License-Identifier: Apache-2.0
 # https://www.apache.org/licenses/LICENSE-2.0
-name: magpie-pr-stale-sweep
+name: pr-stale-sweep
 family: pr-management
 mode: Triage
 requires_config:
@@ -101,7 +101,7 @@ maintainer can review in bulk and confirm or skip individually.
 
 It composes with:
 
-- [`pr-management-triage`](../triage/SKILL.md) — the
+- [`pr-management-triage`](../pr-triage/SKILL.md) — the
   full first-pass triage skill; the stale-sweep targets the dormant-PR
   subset only, while triage covers all action-needed PRs.
 - [`pr-management-stats`](../stats/SKILL.md) — for
@@ -610,7 +610,7 @@ presenting it.
 - [`<project-config>/stale-sweep-config.md`](../../../../projects/_template/stale-sweep-config.md) —
   per-project stale thresholds (`pr_warn_days`, `pr_close_days`,
   `pr_hard_close_days`).
-- [`pr-management-triage`](../triage/SKILL.md) — the
+- [`pr-management-triage`](../pr-triage/SKILL.md) — the
   companion triage skill for full first-pass PR triage including
   stale-draft handling.
 - [`pr-management-stats`](../stats/SKILL.md) — for

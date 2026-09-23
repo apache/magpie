@@ -75,13 +75,13 @@ SETUP_HOOKS = {
 }
 MIRROR_TARGET = "../plugins/{plugin}/skills/{alias}"  # relative to skills/
 
-# A family plugin advertises each skill under its *symlink* name, so the symlink
-# is where the family prefix comes off: `magpie-security` + `security-issue-triage`
-# would otherwise be invoked as `/magpie-security:security-issue-triage`, saying
-# "security" twice. The source directory keeps its prefix — the portable install
-# flattens all 74 skills into one namespace where the prefix is what keeps
-# `issue-stale-sweep` and `pr-stale-sweep` apart, so renaming the directories
-# would collide them.
+# A family plugin advertises each skill under its plugin *directory* name, and
+# that name is where the family prefix comes off: `magpie-security` +
+# `security-issue-triage` would otherwise be invoked as
+# `/magpie-security:security-issue-triage`, saying "security" twice. The flat
+# `skills/<name>` mirror keeps the prefix. The alias is also the skill's
+# frontmatter `name:` (the Agent Skills spec requires `name:` to match the
+# directory, and Claude Code and Codex invoke plugin skills by it).
 #
 # Skills whose mechanical alias is worse than the name it replaces.
 ALIAS_OVERRIDES = {
@@ -89,6 +89,11 @@ ALIAS_OVERRIDES = {
     "setup": "setup",
     # "to-committer" does not read as the name of anything.
     "contributor-to-committer": "contributor-to-committer",
+    # The alias is also the skill's frontmatter `name:`, and Gemini CLI keeps
+    # skill names in one flat registry, so aliases must be unique across every
+    # family, not just within one. `magpie-issue` keeps `triage` / `stale-sweep`.
+    "pr-management-triage": "pr-triage",
+    "pr-stale-sweep": "pr-stale-sweep",
 }
 TOOL_SYMLINK_TARGET = "../../../tools/{tool}"  # relative to plugins/magpie-<p>/tools/
 
@@ -591,9 +596,10 @@ def plugin_alias(skill: str, family: str) -> str:
     leaving the name alone when the remainder would be empty or when
     :data:`ALIAS_OVERRIDES` says the mechanical result reads badly.
 
-    Aliases are unique within a family, which is all that is required: each
-    family plugin is its own namespace, so ``stale-sweep`` in ``magpie-issue``
-    and in ``magpie-pr-management`` do not clash.
+    Aliases must be unique across every family, not only within one: the alias
+    is also the skill's frontmatter ``name:``, and harnesses that keep skills in
+    one flat registry (Gemini CLI) would otherwise collide them. ``check``
+    enforces that; :data:`ALIAS_OVERRIDES` resolves a repeat.
     """
     if skill in ALIAS_OVERRIDES:
         return ALIAS_OVERRIDES[skill]
@@ -732,6 +738,20 @@ def check(fam: dict[str, set[str]]) -> list[str]:
                 errors.append(f"{mirror}: expected a symlink to {want}")
             elif mirror.readlink() != want:
                 errors.append(f"{mirror} -> {mirror.readlink()} (expected {want})")
+
+    # 3b) Aliases are unique across *all* families. The alias is the skill's
+    #     frontmatter `name:`, and Gemini CLI registers skills by that name in
+    #     one flat namespace, so a repeat across two families is a collision.
+    owners: dict[str, list[str]] = {}
+    for family, skills in sorted(fam.items()):
+        for alias in aliases_for(family, skills):
+            owners.setdefault(alias, []).append(f"magpie-{family}")
+    for alias, plugins in sorted(owners.items()):
+        if len(plugins) > 1:
+            errors.append(
+                f"alias '{alias}' is used by {', '.join(plugins)} — skill names must be "
+                f"unique across families; add an ALIAS_OVERRIDES entry"
+            )
 
     # 4) Substrate plugins: manifest + hook wiring + tool symlinks that resolve.
     for name in sorted(SUBSTRATE_PLUGINS):

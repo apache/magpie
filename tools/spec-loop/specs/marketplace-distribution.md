@@ -120,8 +120,12 @@ adopter-facing page.
 
 - **The same skill is invoked by a different name per install method**, and
   both are correct: `/magpie-<name>` under the portable snapshot install (where
-  the `magpie-` prefix *is* the namespace), and `/magpie-<family>:<name>` under
-  a family plugin (where `plugin:skill` supplies the namespace).
+  the `magpie-` prefix on the install directory *is* the namespace), and
+  `/magpie-<family>:<alias>` under a family plugin (where `plugin:skill`
+  supplies the namespace). Each skill's frontmatter `name:` is its alias — the
+  family-plugin directory name, unique across all families — because Claude
+  Code and Codex invoke plugin skills by `name:` and the Agent Skills
+  specification requires it to match the directory.
 
 - **Placeholder syntax in a skill `description` is conformant, not a
   portability risk.** 45 of the 74 descriptions contain `<tracker>`,

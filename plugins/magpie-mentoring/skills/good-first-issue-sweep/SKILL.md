@@ -1,7 +1,7 @@
 ---
 # SPDX-License-Identifier: Apache-2.0
 # https://www.apache.org/licenses/LICENSE-2.0
-name: magpie-good-first-issue-sweep
+name: good-first-issue-sweep
 family: mentoring
 mode: Mentoring
 requires_config:

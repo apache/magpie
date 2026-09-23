@@ -43,7 +43,7 @@
     <text x="28" y="292" fill="#c5c8c6">  Added /.apache-magpie-local/ to .git/info/exclude, not to .gitignore -</text>
     <text x="28" y="318" fill="#c5c8c6">  .gitignore is committed, and nothing here should be.</text>
     <text x="28" y="370" fill="#c5c8c6">  Nothing staged. Nothing committed. No teammate sees any of this.</text>
-    <text x="28" y="422" fill="#7f9f7f">  ✓ magpie-pr-management:triage can run now</text>
+    <text x="28" y="422" fill="#7f9f7f">  ✓ magpie-pr-management:pr-triage can run now</text>
     <text x="28" y="474" fill="#c5c8c6">  A TODO left in place is not an error: the skill that needs one names</text>
     <text x="28" y="500" fill="#c5c8c6">  it when it needs it, and the skills that do not never look.</text>
   </g>

@@ -139,7 +139,7 @@ Never present a cap-distorted absolute series as if it were real history.
   new analytic panels (ready-for-review split; drafts/closes by person).
 - [`SKILL.md` Step 7](SKILL.md#step-7--publish-the-dashboard-always) — the
   always-publish step in the skill flow.
-- [`pr-management-triage/session-history.md`](../triage/session-history.md)
+- [`pr-management-triage/session-history.md`](../pr-triage/session-history.md)
   — the *separate* session-history gist (triage calibration log); the stats
   dashboard gist is its own artefact and reuses the same secret-gist +
   stable-id mechanics.

@@ -26,11 +26,12 @@ skills/:
    files and docs must point to existing files and anchors.
 3. Placeholder convention — skill docs must use <PROJECT>,
    <upstream>, and <tracker> instead of hardcoded project names.
-4. Name convention — every SKILL.md ``name:`` must be
-   ``magpie-<directory-name>``.  Framework skills install under a
-   ``magpie-`` namespace prefix (``skills/issue-triage/`` →
-   ``.claude/skills/magpie-issue-triage``), so the frontmatter name
-   must match the installed name.  A mismatch is a HARD failure.
+4. Name convention — every SKILL.md ``name:`` must equal the name of
+   the directory the file really lives in (symlinks resolved), as the
+   Agent Skills specification requires.  For a framework skill that is
+   its family-plugin directory (``plugins/magpie-issue/skills/triage/``
+   → ``name: triage``), which Claude Code and Codex invoke as
+   ``/magpie-issue:triage``.  A mismatch is a HARD failure.
 5. Injection-guard callout (Pattern 4) — every SKILL.md that reads
    external content (email bodies, public PR comments, scanner
    findings, mailing-list threads, etc.) must carry the standard
@@ -545,8 +546,8 @@ GH_LIST_CATEGORY = "gh_list_no_limit"
 SECURITY_PATTERN_CATEGORY = "security_pattern"
 PRIVACY_CATEGORY = "privacy"
 LOWERCASE_F_FIELD_CATEGORY = "lowercase_f_field"
-# Every framework skill is installed under a `magpie-` namespace prefix, so its
-# SKILL.md `name:` must be `magpie-<directory-name>` (see skills/setup/SKILL.md).
+# A SKILL.md `name:` must equal the directory the file really lives in (the
+# Agent Skills spec rule); for a framework skill, its family-plugin directory.
 NAME_CONVENTION_CATEGORY = "name_convention"
 # License-header check: every skill .md and non-trivial tool Python file must
 # carry the Apache-2.0 SPDX identifier or the full ASF preamble.
@@ -586,8 +587,6 @@ SKILL_LINE_LIMIT_CATEGORY = "skill-line-limit"
 # declared egress surfaces (PRINCIPLE 10).
 NO_TELEMETRY_CATEGORY = "no-telemetry-import"
 
-# The `magpie-` namespace prefix every installed framework skill carries.
-SKILL_NAME_PREFIX = "magpie-"
 SOFT_CATEGORIES: frozenset[str] = frozenset(
     {
         PRINCIPLE_CATEGORY,
@@ -1027,14 +1026,15 @@ def validate_frontmatter(path: Path, text: str, root: Path | None = None) -> Ite
 
 
 def validate_name_convention(path: Path, text: str) -> Iterable[Violation]:
-    """Enforce the ``name: magpie-<directory-name>`` skill-naming convention.
+    """Enforce ``name:`` == the directory the SKILL.md really lives in.
 
-    Every framework skill is installed into an adopter repo under a
-    ``magpie-`` namespace prefix (``skills/issue-triage/`` →
-    ``.claude/skills/magpie-issue-triage``, invoked as
-    ``/magpie-issue-triage``). The SKILL.md ``name:`` frontmatter must match
-    that installed name, i.e. ``magpie-`` followed by the source directory
-    name. A mismatch is a HARD failure.
+    The Agent Skills specification requires ``name`` to match the parent
+    directory, and Claude Code and Codex invoke a plugin skill by its
+    frontmatter ``name`` — so a mismatch shows up as the command users type
+    (``/magpie-setup:magpie-setup-isolated-setup-verify``). Symlinks are
+    resolved first: the flat ``skills/<name>`` tree and the install relays are
+    mirrors of the family-plugin directory, whose name is the one that counts.
+    A mismatch is a HARD failure.
 
     Skipped when ``name`` is absent or empty — ``validate_frontmatter``
     already reports those.
@@ -1042,13 +1042,13 @@ def validate_name_convention(path: Path, text: str) -> Iterable[Violation]:
     fm = parse_frontmatter(text)
     if not fm or not fm.get("name"):
         return
-    expected = f"{SKILL_NAME_PREFIX}{path.parent.name}"
+    expected = path.resolve().parent.name
     if fm["name"] != expected:
         yield Violation(
             path,
             1,
             f"frontmatter name '{fm['name']}' must be '{expected}' "
-            f"(every skill's name is the '{SKILL_NAME_PREFIX}' prefix + its directory name)",
+            f"(a skill's name is the name of the directory it lives in)",
             category=NAME_CONVENTION_CATEGORY,
         )
 

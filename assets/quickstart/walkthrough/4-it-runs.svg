@@ -35,7 +35,7 @@
   <circle cx="44" cy="17" r="6" fill="#3f4448"/>
   <circle cx="66" cy="17" r="6" fill="#3f4448"/>
   <g font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="18" xml:space="preserve">
-    <text x="28" y="84" fill="#8abeb7">&gt; /magpie-pr-management:triage</text>
+    <text x="28" y="84" fill="#8abeb7">&gt; /magpie-pr-management:pr-triage</text>
     <text x="28" y="136" fill="#c5c8c6">  Pre-flight  ✓ plugin installed   ✓ project configuration</text>
     <text x="28" y="188" fill="#c5c8c6">  38 open PRs, 12 untriaged</text>
     <text x="28" y="240" fill="#c5c8c6">  #1421  first-time contributor, CI green, no reviewer</text>

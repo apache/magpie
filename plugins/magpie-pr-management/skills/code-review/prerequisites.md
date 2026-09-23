@@ -190,7 +190,7 @@ maintainer at `pr-management-triage pr:<N>` rather than doing it
 inside this skill.
 
 This mirrors the
-[Real-CI guard](../triage/classify-and-act.md#real-ci-guard) that
+[Real-CI guard](../pr-triage/classify-and-act.md#real-ci-guard) that
 `pr-management-triage` already applies before classifying any PR
 as `passing`; the same rollup behaviour applies here.
 

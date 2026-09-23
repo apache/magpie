@@ -1,7 +1,7 @@
 ---
 # SPDX-License-Identifier: Apache-2.0
 # https://www.apache.org/licenses/LICENSE-2.0
-name: magpie-security-issue-triage
+name: issue-triage
 family: security
 mode: Triage
 requires_config:
@@ -213,7 +213,7 @@ decision. The Step 1 list-echo (see *Step 1 — Resolve selector
 to a concrete tracker list*) is informational only; it is not
 a confirmation prompt the user has to answer before Step 2
 fires. This mirrors
-[`pr-management-triage`'s Golden rule 4](../../../magpie-pr-management/skills/triage/SKILL.md#golden-rules)
+[`pr-management-triage`'s Golden rule 4](../../../magpie-pr-management/skills/pr-triage/SKILL.md#golden-rules)
 and exists for the same reason: maintainer attention is the
 scarce resource, not GraphQL budget.
 

@@ -1,7 +1,7 @@
 ---
 # SPDX-License-Identifier: Apache-2.0
 # https://www.apache.org/licenses/LICENSE-2.0
-name: magpie-pr-management-stats
+name: stats
 family: pr-management
 mode: Triage
 requires_config:
@@ -92,7 +92,7 @@ sections:
 
 The two original tables (**Triaged final-state since cutoff** and **Triaged still-open by area**) are kept as a *collapsible details section* at the bottom of the dashboard for maintainers who want the raw per-area numbers.
 
-The skill is the statistical complement of [`pr-management-triage`](../triage/SKILL.md) — same repo, same classification logic, no mutations. Running the two in sequence (stats → triage → stats) lets a maintainer measure a sweep's effect; the dashboard's recommendations link directly back to specific `pr-management-triage` invocations.
+The skill is the statistical complement of [`pr-management-triage`](../pr-triage/SKILL.md) — same repo, same classification logic, no mutations. Running the two in sequence (stats → triage → stats) lets a maintainer measure a sweep's effect; the dashboard's recommendations link directly back to specific `pr-management-triage` invocations.
 
 Detail files:
 
@@ -159,7 +159,7 @@ Drift severity:
 ## Adopter configuration
 
 This skill reads the same area-label prefix and triage-marker
-string declared in [`pr-management-triage`'s adopter config](../triage/SKILL.md#adopter-configuration):
+string declared in [`pr-management-triage`'s adopter config](../pr-triage/SKILL.md#adopter-configuration):
 
 - [`<project-config>/pr-management-config.md → area_label_prefix`](../../../../projects/_template/pr-management-config.md) — drives the area grouping in both stats tables.
 - [`<project-config>/pr-management-triage-comment-templates.md → Triage-marker visible link text`](../../../../projects/_template/pr-management-triage-comment-templates.md) — the literal string that classifies a PR as triaged. **Both `pr-management-triage` and `pr-management-stats` must agree** on this string; the framework defaults to `Pull Request quality criteria`.

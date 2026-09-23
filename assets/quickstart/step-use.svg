@@ -39,7 +39,7 @@
     <text x="26" y="128" fill="#c5c8c6" opacity="0">  magpie-setup           install, upgrade, adopt, sandbox<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.0596;0.0606;1" dur="6.4s" repeatCount="indefinite"/></text>
     <text x="26" y="152" fill="#c5c8c6" opacity="0">  magpie-utilities       author and index your own skills<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.1191;0.1201;1" dur="6.4s" repeatCount="indefinite"/></text>
     <text x="26" y="176" fill="#c5c8c6" opacity="0">  magpie-pr-management   triage, review, stats, quick-merge<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.1787;0.1797;1" dur="6.4s" repeatCount="indefinite"/></text>
-    <text x="26" y="224" fill="#8abeb7" opacity="0">&gt; /magpie-pr-management:triage<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.2382;0.2392;1" dur="6.4s" repeatCount="indefinite"/></text>
+    <text x="26" y="224" fill="#8abeb7" opacity="0">&gt; /magpie-pr-management:pr-triage<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.2382;0.2392;1" dur="6.4s" repeatCount="indefinite"/></text>
     <text x="26" y="272" fill="#c5c8c6" opacity="0">  38 open PRs, 12 untriaged<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.2978;0.2988;1" dur="6.4s" repeatCount="indefinite"/></text>
     <text x="26" y="320" fill="#c5c8c6" opacity="0">  #1421  first contribution, CI green, no reviewer<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.3574;0.3584;1" dur="6.4s" repeatCount="indefinite"/></text>
     <text x="26" y="344" fill="#8a8f94" opacity="0">         -&gt; mark ready for maintainer review<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.4169;0.4179;1" dur="6.4s" repeatCount="indefinite"/></text>

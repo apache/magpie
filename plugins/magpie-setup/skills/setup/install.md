@@ -459,7 +459,7 @@ plugin mechanism.
    URL, which on a contributor's fork points at
    `<user>/magpie`, not `apache/`. The repo is the
    framework checkout when `skills/setup/SKILL.md` exists at the
-   repo root with `name: magpie-setup` in its frontmatter **and**
+   repo root with `name: setup` in its frontmatter **and**
    `skills/list-skills/` is present.
 
    - **Framework checkout** → self-adoption is available. If the
@@ -520,6 +520,12 @@ How it differs from a remote adoption:
   own skills are discoverable by any harness; `.gitignore`
   un-ignores `magpie-*` in each. Every contributor gets the
   skills active with no setup step, whatever agent they use.
+- **Shorter names in the listing.** A skill is still invoked by
+  its link name (`/magpie-release-vote-tally`), but Claude Code
+  labels a repository skill with its frontmatter `name:` — the
+  family-plugin alias — so the `/` menu and skill listings show
+  the shorter `vote-tally`
+  ([naming](../../../../docs/setup/marketplace.md#skill-names-differ-by-install-method)).
 - **All skills, no family prompt.** Self-adoption links *every*
   skill under `skills/`, so the opt-in family prompt of
   [Step 5](#step-5--pick-the-skill-families-and-mcp-servers) is skipped.

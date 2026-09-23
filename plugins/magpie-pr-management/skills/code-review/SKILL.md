@@ -1,7 +1,7 @@
 ---
 # SPDX-License-Identifier: Apache-2.0
 # https://www.apache.org/licenses/LICENSE-2.0
-name: magpie-pr-management-code-review
+name: code-review
 family: pr-management
 mode: Triage
 requires_config:
@@ -87,7 +87,7 @@ two questions per PR:
 > *If not, what specifically should change before it lands?*
 
 It is the review-bench counterpart to
-[`pr-management-triage`](../triage/SKILL.md). Triage decides whether to
+[`pr-management-triage`](../pr-triage/SKILL.md). Triage decides whether to
 *engage* with a PR (draft / comment / close / rebase / rerun /
 mark-ready / ping). This skill takes PRs that have already
 cleared triage (or any other curated selector) and produces an
@@ -295,7 +295,7 @@ equally off the table. The pre-flight pulls the check rollup; see
 **Golden rule 9 — out of scope: triage actions.** This skill
 does not convert PRs to draft, close them, rebase them, ping
 reviewers, or rerun CI. Those are
-[`pr-management-triage`](../triage/SKILL.md) actions. If the maintainer
+[`pr-management-triage`](../pr-triage/SKILL.md) actions. If the maintainer
 discovers during review that a PR needs a triage action (e.g. it
 should really be drafted because of merge conflicts that
 appeared), the skill says so explicitly and points them at
@@ -629,7 +629,7 @@ writes a session log to disk.
 
 - **First-pass triage actions.** Drafting, rebasing,
   pinging, rerunning CI, marking `ready for maintainer review` —
-  all live in [`pr-management-triage`](../triage/SKILL.md). If the
+  all live in [`pr-management-triage`](../pr-triage/SKILL.md). If the
   current PR needs one of those, the skill says so and points
   at `pr-management-triage pr:<N>`. *(Exception: the
   slop-detection `[X]` close+lock path — see Golden rule 9.)*

@@ -165,7 +165,7 @@ Never commit.
 
 For every skill in scope (Step 1) whose `requires_config:` set now fully
 resolves, record that fact, keyed by that skill's frontmatter `name:`
-(e.g. `magpie-pr-management-code-review`). **Everything this step writes
+(e.g. `code-review`). **Everything this step writes
 stays inside `.apache-magpie-local/reconciled.json` — never the
 committed lock, adopted project or not.** The two branches below trigger
 on **different** conditions — read the "not adopted" one's scope as

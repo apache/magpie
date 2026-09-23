@@ -347,7 +347,7 @@ every later pre-flight go silent on a skill that is not actually
 reconciled, a false clean worse than not stamping at all. For every
 skill that does pass all three, write its current `surface_hash`, keyed
 by that skill's frontmatter `name:` (e.g.
-`magpie-pr-management-code-review`), alongside `version` and `at`
+`code-review`), alongside `version` and `at`
 (today) into the reconciliation stamp
 ([`locks.md`](locks.md#the-reconciled-block--what-was-checked-not-what-to-install)),
 in whichever store [`reconcile.md`'s Step

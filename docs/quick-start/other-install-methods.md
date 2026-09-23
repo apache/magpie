@@ -63,6 +63,10 @@ If none of those describe you, use the marketplace and stop reading here.
 > name is the skill's directory name. Magpie's other docs show the
 > marketplace form; see
 > [Skill names differ by install method](../setup/marketplace.md#skill-names-differ-by-install-method).
+>
+> The skill listing (Claude Code's `/` menu) also shows the **shorter** frontmatter
+> name beside it — `issue-triage` — as a display label; what you type is still
+> the single-token command.
 
 Each recipe below is **the bootstrap that gets `setup` into the repo**; once
 it is in place, the rest of the adoption (skill-family pick, framework

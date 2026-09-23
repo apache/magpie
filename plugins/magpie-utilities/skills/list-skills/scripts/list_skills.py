@@ -176,8 +176,15 @@ def marketplace_context(script: Path) -> tuple[Path | None, str | None]:
     return None, None
 
 
-def _rows_from_dir(skills_dir: Path, source: str, *, plugin: str | None = None) -> list[dict[str, str]]:
-    """Collect one row per ``<skills_dir>/*/SKILL.md``."""
+def _rows_from_dir(
+    skills_dir: Path, source: str, *, plugin: str | None = None, prefix: str = ""
+) -> list[dict[str, str]]:
+    """Collect one row per ``<skills_dir>/*/SKILL.md``.
+
+    ``prefix`` is prepended to the directory name for a tree that is not itself
+    installed — the framework's flat ``skills/`` source, which a repository
+    install exposes as ``magpie-<directory>``.
+    """
     rows: list[dict[str, str]] = []
     if not skills_dir.is_dir():
         return rows
@@ -189,10 +196,11 @@ def _rows_from_dir(skills_dir: Path, source: str, *, plugin: str | None = None) 
         meta = parse_frontmatter(text)
         dir_name = skill_md.parent.name
         # A marketplace install namespaces the skill under its plugin
-        # (`/magpie-utilities:list-skills`); every other install exposes the
-        # flat frontmatter name (`/magpie-list-skills`). Print what the reader
-        # can actually type.
-        invocation = f"/{plugin}:{dir_name}" if plugin else f"/{meta.get('name') or dir_name}"
+        # (`/magpie-utilities:list-skills`); a repository install exposes the
+        # directory it is installed under (`/magpie-list-skills`).
+        # Both come from the directory: the frontmatter `name:` is the plugin
+        # alias, which is not what a repository install is typed as.
+        invocation = f"/{plugin}:{dir_name}" if plugin else f"/{prefix}{dir_name}"
         rows.append(
             {
                 "invocation": invocation,
@@ -220,7 +228,9 @@ def collect_rows(root: Path, script: Path) -> list[dict[str, str]]:
 
     framework = root / FRAMEWORK_SKILLS_DIR
     if (framework / "list-skills" / SKILL_MD).is_file() or (framework / "setup" / SKILL_MD).is_file():
-        rows.extend(_rows_from_dir(framework, f"framework checkout ({FRAMEWORK_SKILLS_DIR}/)"))
+        rows.extend(
+            _rows_from_dir(framework, f"framework checkout ({FRAMEWORK_SKILLS_DIR}/)", prefix="magpie-")
+        )
 
     marketplace, our_version = marketplace_context(script)
     if marketplace is not None:

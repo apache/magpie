@@ -378,7 +378,7 @@ recorded regardless of whether 4a/4b/4c touched that skill on this run.
 
 For each skill in scope, write its current `surface_hash` into the lock's
 `reconciled.skills` map, keyed by that skill's frontmatter `name:` (e.g.
-`magpie-pr-management-code-review`), alongside `at` (today) and
+`code-review`), alongside `at` (today) and
 `version`. **`version` is the version Step 2 actually read off this
 machine, not necessarily the `min_version` value Step 2 wrote to the
 lock** — on a re-adoption the two can differ, because Step 2 never

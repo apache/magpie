@@ -1,7 +1,7 @@
 ---
 # SPDX-License-Identifier: Apache-2.0
 # https://www.apache.org/licenses/LICENSE-2.0
-name: magpie-skill-reconciler
+name: skill-reconciler
 family: utilities
 mode: Meta
 description: |

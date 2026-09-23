@@ -26,8 +26,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 802 456"
      width="802" height="456" role="img"
      data-magpie-rendered="render-screenshot"
-     aria-label="Terminal transcript: triage">
-  <title>triage</title>
+     aria-label="Terminal transcript: pr-triage">
+  <title>pr-triage</title>
   <rect width="802" height="456" rx="10" fill="#1d1f21"/>
   <rect x="0" y="0" width="802" height="34" rx="10" fill="#2b2e31"/>
   <rect x="0" y="24" width="802" height="10" fill="#2b2e31"/>
@@ -35,7 +35,7 @@
   <circle cx="44" cy="17" r="6" fill="#3f4448"/>
   <circle cx="66" cy="17" r="6" fill="#3f4448"/>
   <g font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="18" xml:space="preserve">
-    <text x="28" y="84" fill="#8abeb7">&gt; /magpie-pr-management:triage</text>
+    <text x="28" y="84" fill="#8abeb7">&gt; /magpie-pr-management:pr-triage</text>
     <text x="28" y="136" fill="#c5c8c6">  38 open PRs, 12 untriaged</text>
     <text x="28" y="188" fill="#c5c8c6">  #1421  first-time contributor, CI green, no reviewer</text>
     <text x="28" y="214" fill="#c5c8c6">         -&gt; mark ready for maintainer review</text>

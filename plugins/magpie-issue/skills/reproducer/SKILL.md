@@ -1,7 +1,7 @@
 ---
 # SPDX-License-Identifier: Apache-2.0
 # https://www.apache.org/licenses/LICENSE-2.0
-name: magpie-issue-reproducer
+name: reproducer
 family: issue
 mode: Meta
 requires_config:

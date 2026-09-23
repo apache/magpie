@@ -30,6 +30,7 @@ import importlib.util
 import json
 import os
 import pathlib
+import re
 from pathlib import Path
 from types import ModuleType
 
@@ -198,7 +199,7 @@ def test_fix_regenerates_a_deleted_substrate_plugin(tree, monkeypatch):
 def test_alias_strips_the_repeated_family_name():
     """`/magpie-security:security-issue-triage` said "security" twice."""
     assert mod.plugin_alias("security-issue-triage", "security") == "issue-triage"
-    assert mod.plugin_alias("pr-management-triage", "pr-management") == "triage"
+    assert mod.plugin_alias("issue-triage", "issue") == "triage"
 
 
 def test_alias_strips_the_first_family_segment_too():
@@ -213,19 +214,41 @@ def test_alias_leaves_a_name_that_does_not_repeat_the_family():
 
 
 def test_alias_overrides_win():
-    """`setup` would strip to nothing; `contributor-to-committer` to a fragment."""
+    """`setup` would strip to nothing; `contributor-to-committer` to a fragment;
+    the pull-request family's `triage` / `stale-sweep` would repeat the issue
+    family's."""
     assert mod.plugin_alias("setup", "setup") == "setup"
     assert mod.plugin_alias("contributor-to-committer", "contributor-growth") == ("contributor-to-committer")
+    assert mod.plugin_alias("pr-management-triage", "pr-management") == "pr-triage"
+    assert mod.plugin_alias("pr-stale-sweep", "pr-management") == "pr-stale-sweep"
 
 
 def test_aliases_are_unique_within_every_real_family(monkeypatch):
-    """The guarantee the scheme rests on. Across families they may repeat —
-    `stale-sweep` exists in both magpie-issue and magpie-pr-management — because
-    each plugin is its own namespace."""
+    """The guarantee the scheme rests on: no family loses a skill to a collision."""
     monkeypatch.chdir(REPO_ROOT)
     for family, skills in mod.families_from_frontmatter().items():
         aliases = mod.aliases_for(family, skills)
         assert len(aliases) == len(skills), f"magpie-{family} lost a skill to a collision"
+
+
+def test_aliases_are_unique_across_all_families(monkeypatch):
+    """The alias is also the skill's frontmatter `name:`, and Gemini CLI keeps
+    skills in one flat registry, so a repeat across families is a collision."""
+    monkeypatch.chdir(REPO_ROOT)
+    seen: dict[str, str] = {}
+    for family, skills in mod.families_from_frontmatter().items():
+        for alias in mod.aliases_for(family, skills):
+            assert alias not in seen, f"'{alias}' is in magpie-{seen[alias]} and magpie-{family}"
+            seen[alias] = family
+
+
+def test_every_skill_name_is_its_plugin_directory(monkeypatch):
+    """Claude Code and Codex invoke a plugin skill by frontmatter `name:`; a
+    `magpie-<flat>` name surfaced as `/magpie-setup:magpie-setup-…`."""
+    monkeypatch.chdir(REPO_ROOT)
+    for skill_md in sorted((REPO_ROOT / "plugins").glob("magpie-*/skills/*/SKILL.md")):
+        name = re.search(r"^name:\s*(\S+)", skill_md.read_text(encoding="utf-8"), re.M)
+        assert name and name.group(1) == skill_md.parent.name, skill_md
 
 
 def test_a_within_family_alias_collision_is_refused():

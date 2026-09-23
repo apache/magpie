@@ -403,6 +403,13 @@ def check_no_plugin_name_stutter(errors: list[str]) -> None:
     the docs is a command nobody can run.
     """
     families = set(_key_counts("family"))
+    # An alias that starts with the family's first word is not a stutter when it
+    # is what the plugin actually advertises: `magpie-pr-management` ships
+    # `pr-triage`, because a bare `triage` would collide with `magpie-issue`'s.
+    live = {
+        family: {d.name for d in (Path("plugins") / f"magpie-{family}" / "skills").glob("*/")}
+        for family in families
+    }
     seen: set[Path] = set()
     for pattern in DOC_GLOBS:
         for path in sorted(Path(".").glob(pattern)):
@@ -415,7 +422,10 @@ def check_no_plugin_name_stutter(errors: list[str]) -> None:
                 for family in families:
                     for repeated in {family, family.split("-")[0]}:
                         bad = f"/magpie-{family}:{repeated}-"
-                        if bad in line:
+                        invoked = re.findall(re.escape(f"/magpie-{family}:") + r"([a-z0-9-]+)", line)
+                        if any(
+                            name.startswith(f"{repeated}-") and name not in live[family] for name in invoked
+                        ):
                             errors.append(
                                 f"{path}:{lineno}: '{bad}…' repeats the family name; "
                                 f"the plugin advertises the alias without it"

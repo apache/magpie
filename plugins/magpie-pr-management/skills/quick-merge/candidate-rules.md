@@ -30,18 +30,18 @@ at session start. The values below are the **shape**, not hard-coded constants.
 ## Stage 1 — quality gate
 
 A PR proceeds to Stage 2 only if **every** condition holds. This mirrors the
-strict reading of [`pr-management-triage`](../triage/classify-and-act.md)
+strict reading of [`pr-management-triage`](../pr-triage/classify-and-act.md)
 rows 19/20 plus the workflow-approval guard — a quick-merge candidate must be at
 least as clean as a PR the triage skill would call `passing`.
 
 | # | Gate | Pass condition |
 |---|---|---|
 | G1 | Label present | `labels` contains `ready for maintainer review` (guaranteed by the search query; re-checked defensively). |
-| G2 | Real CI green | `statusCheckRollup.state == SUCCESS` **and** the [Real-CI guard](../triage/classify-and-act.md#real-ci-guard) passes — at least one context matches a `real_ci_patterns` entry, so the SUCCESS is not coming only from `Mergeable`/`WIP`/`DCO`/`boring-cyborg`. |
+| G2 | Real CI green | `statusCheckRollup.state == SUCCESS` **and** the [Real-CI guard](../pr-triage/classify-and-act.md#real-ci-guard) passes — at least one context matches a `real_ci_patterns` entry, so the SUCCESS is not coming only from `Mergeable`/`WIP`/`DCO`/`boring-cyborg`. |
 | G3 | No failed/pending checks | `failed_checks` is empty **and** no context is still `QUEUED`/`IN_PROGRESS`/`PENDING`. A candidate must be *done and green*, not green-so-far. |
 | G4 | No workflow approval pending | the PR's `head_sha` is **not** in the per-session `action_required` index. |
 | G5 | Not obviously conflicting | **Mergeability is resolved live in [Stage 3](#stage-3--live-merge-readiness), not from the batch.** Stage 1 only early-drops a PR whose *batch* `mergeable == CONFLICTING` (a cheap cull of the obviously-conflicted ~10%). `MERGEABLE` and `UNKNOWN` both pass G5 here and defer to the Stage 3 re-poll — see the note below for why. |
-| G6 | No unresolved collaborator threads | zero `reviewThreads` with `isResolved == false` whose first comment's `authorAssociation ∈ {OWNER, MEMBER, COLLABORATOR}`. Contributor-author side threads do not block (same qualifier as triage's [`unresolved_threads_only`](../triage/classify-and-act.md#unresolved_threads_only)). |
+| G6 | No unresolved collaborator threads | zero `reviewThreads` with `isResolved == false` whose first comment's `authorAssociation ∈ {OWNER, MEMBER, COLLABORATOR}`. Contributor-author side threads do not block (same qualifier as triage's [`unresolved_threads_only`](../pr-triage/classify-and-act.md#unresolved_threads_only)). |
 | G7 | No outstanding changes-requested | no `latestReviews` node with `state == CHANGES_REQUESTED` that is newer than the last commit. |
 
 **Why mergeability is deferred to a live re-poll.** GitHub computes `mergeable`
@@ -257,7 +257,7 @@ it is the *approval* bucket (see
 ## Required GraphQL fields
 
 Extend the family batch query
-([`pr-management-triage/fetch-and-batch.md`](../triage/fetch-and-batch.md))
+([`pr-management-triage/fetch-and-batch.md`](../pr-triage/fetch-and-batch.md))
 with the fields this screen needs beyond what triage already fetches:
 
 | Stage | Required fields / calls (delta over the triage batch query) |

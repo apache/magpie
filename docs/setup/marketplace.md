@@ -154,11 +154,11 @@ can say so, because it is the floor everything else is managed from.
 
 | Family plugin | Skills | ~Always-on tokens |
 |---|---|---|
-| `magpie-security` | 15 | ~2.0k |
+| `magpie-security` | 15 | ~1.9k |
 | `magpie-setup` | 10 | ~0.7k |
 | `magpie-release-management` | 10 | ~1.3k |
 | `magpie-pr-management` | 8 | ~1.0k |
-| `magpie-issue` | 8 | ~0.8k |
+| `magpie-issue` | 8 | ~0.7k |
 | `magpie-repo-health` | 7 | ~0.7k |
 | `magpie-utilities` | 5 | ~0.6k |
 | `magpie-contributor-growth` | 6 | ~0.6k |
@@ -209,11 +209,12 @@ twice — [PRINCIPLES §13](../../PRINCIPLES.md) holds.
 ## Skill names differ by install method
 
 The **same skill** is invoked by a **different name** depending on how you
-installed it. The portable `/magpie-setup` install bakes a `magpie-` prefix into
-each skill's name (so framework skills never collide with your own); the
-marketplace plugins namespace with `plugin:skill` and keep the bare skill name.
+installed it. Each skill's frontmatter `name:` is its **plugin directory name**
+(`vote-tally`, `issue-triage`, `setup`); the family plugin adds its namespace
+with a colon, while the portable `/magpie-setup` install puts a `magpie-` prefix
+on the **directory** it installs the skill under.
 
-| Skill (directory) | Portable — `/magpie-setup` snapshot | Marketplace — family plugin |
+| Skill (flat `skills/` name) | Portable — `/magpie-setup` snapshot | Marketplace — family plugin |
 |---|---|---|
 | `release-vote-tally` | `/magpie-release-vote-tally` | `/magpie-release-management:vote-tally` |
 | `security-issue-triage` | `/magpie-security-issue-triage` | `/magpie-security:issue-triage` |
@@ -221,27 +222,35 @@ marketplace plugins namespace with `plugin:skill` and keep the bare skill name.
 
 Why the difference:
 
-- **Portable install** (`/magpie-setup` snapshot) — the `setup` skill symlinks
-  each framework skill under a `magpie-<name>` entry (e.g.
-  `skills/release-vote-tally/` → `magpie-release-vote-tally`), and the skill's
-  own frontmatter `name:` carries the same `magpie-` prefix. It is therefore
-  invoked as a **single hyphenated token**, `/magpie-<name>`. The prefix *is* the
-  namespace — it keeps framework skills from clashing with the adopter's own
-  skills.
 - **Marketplace install** — the **plugin name** is the namespace, applied with a
-  **colon**: `/<plugin>:<skill>`. The `magpie-` frontmatter prefix is ignored
-  (the plugin already namespaces), and the skill is advertised under a
-  **de-stuttered alias**: `/magpie-<family>:<alias>`.
-- **Why the family plugins alias.** `magpie-security` + `security-issue-triage`
-  would read `/magpie-security:security-issue-triage`, saying "security" twice. <!-- allow-stutter -->
-  Each family plugin reaches its skills through symlinks, and the *symlink* name
-  is what the plugin advertises — so the family prefix comes off there, while
-  the source directory keeps it. It has to: the portable install flattens all 74
-  skills into one namespace, where that prefix is the only thing separating
-  `issue-stale-sweep` from `pr-stale-sweep`. The rule lives in `plugin_alias()`
-  in [`tools/dev/check-family-plugins.py`](../../tools/dev/check-family-plugins.py)
-  and is enforced both ways: the plugin symlinks are generated from it, and
-  `check-doc-sync.py` fails any doc that invokes a stuttering form.
+  **colon**: `/<plugin>:<name>`. Claude Code and Codex take `<name>` from the
+  frontmatter `name:`, VS Code from the directory; the two are the same by
+  construction, so every harness shows `/magpie-<family>:<alias>`.
+- **Portable install** (`/magpie-setup` snapshot) — the `setup` skill symlinks
+  each framework skill under a `magpie-<flat-name>` directory (e.g.
+  `skills/release-vote-tally/` → `magpie-release-vote-tally`). Claude Code and
+  VS Code name a repository skill after its directory, so it is invoked as a
+  **single hyphenated token**, `/magpie-<flat-name>`; the prefix keeps framework
+  skills from clashing with the adopter's own. The listing shows **shorter
+  names** than the command, though: Claude Code uses a repository skill's
+  frontmatter `name:` as its display label, so the `/` menu shows
+  `vote-tally` beside `/magpie-release-vote-tally` — the same for a
+  self-adopted framework checkout. Harnesses that name skills by
+  frontmatter instead show the alias there: Codex as `magpie-<family>:<alias>`
+  (it resolves the symlink back to the family plugin that owns the skill),
+  Gemini CLI as the bare alias.
+- **Why the aliases.** `magpie-security` + `security-issue-triage` would read
+  `/magpie-security:security-issue-triage`, saying "security" twice. <!-- allow-stutter -->
+  The family plugin owns each skill as a real directory named by the alias, and
+  the flat `skills/<name>` tree mirrors it back with the family prefix kept.
+  The rule lives in `plugin_alias()` in
+  [`tools/dev/check-family-plugins.py`](../../tools/dev/check-family-plugins.py),
+  which also requires every alias to be unique across **all** families —
+  Gemini CLI registers skills by `name:` in one flat namespace, which is why the
+  pull-request family's are `pr-triage` and `pr-stale-sweep` rather than a
+  second `triage` and `stale-sweep`. `check-doc-sync.py` fails any doc that
+  invokes a stuttering form, and the skill validator fails any `name:` that
+  differs from its directory, as the Agent Skills specification requires.
 
 **Which form the docs use.** Magpie's user-facing docs — the
 [quick start](../quick-start.md), the family READMEs, the top-level README —

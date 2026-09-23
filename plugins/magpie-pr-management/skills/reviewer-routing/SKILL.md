@@ -1,7 +1,7 @@
 ---
 # SPDX-License-Identifier: Apache-2.0
 # https://www.apache.org/licenses/LICENSE-2.0
-name: magpie-reviewer-routing
+name: reviewer-routing
 family: pr-management
 mode: Triage
 requires_config:
@@ -520,7 +520,7 @@ overloaded. Needs maintainer call.
   area-to-handles mapping for ASF projects.
 - [`<project-config>/reviewer-roster.md`](../../../../projects/_template/reviewer-roster.md) —
   maintainer roster for non-ASF adopters.
-- [`pr-management-triage`](../triage/SKILL.md) —
+- [`pr-management-triage`](../pr-triage/SKILL.md) —
   first-pass PR triage; reviewer-routing integrates as the routing step.
 - [`issue-triage`](../../../magpie-issue/skills/triage/SKILL.md) —
   issue-triage family; shares the roster reading contract.

@@ -1,7 +1,7 @@
 ---
 # SPDX-License-Identifier: Apache-2.0
 # https://www.apache.org/licenses/LICENSE-2.0
-name: magpie-pre-first-pr-check
+name: pre-first-pr-check
 family: pr-management
 mode: Pairing
 description: |

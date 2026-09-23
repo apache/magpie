@@ -39,6 +39,10 @@
 > is no plugin namespace on the fallback; the `magpie-` prefix *is* the
 > namespace there, and the name is the skill's directory name. See
 > [Skill names differ by install method](marketplace.md#skill-names-differ-by-install-method).
+>
+> The skill listing (Claude Code's `/` menu) also shows the **shorter** frontmatter
+> name beside it — `issue-triage` — as a display label; what you type is still
+> the single-token command.
 
 ## Overview
 
@@ -253,7 +257,7 @@ Open the target repo's directory in Claude Code and invoke any installed
 skill. **On the marketplace install** (Step 1), use `/<plugin>:<alias>`:
 
 ```text
-/magpie-pr-management:triage
+/magpie-pr-management:pr-triage
 /magpie-issue:triage
 /magpie-security:issue-import
 /magpie-release-management:audit-report

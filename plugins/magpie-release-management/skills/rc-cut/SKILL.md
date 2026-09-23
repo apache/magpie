@@ -1,7 +1,7 @@
 ---
 # SPDX-License-Identifier: Apache-2.0
 # https://www.apache.org/licenses/LICENSE-2.0
-name: magpie-release-rc-cut
+name: rc-cut
 family: release-management
 organization: ASF
 mode: Drafting

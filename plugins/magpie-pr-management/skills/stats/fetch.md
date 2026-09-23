@@ -179,7 +179,7 @@ In this case the visible body contains no "Pull Request quality criteria" text a
 
 Raw bodies are slightly noisier (Markdown formatting characters) but the marker string is distinctive enough that false positives are not a concern on `<upstream>`.
 
-**The marker can now also live in the PR's own `body`, not just a comment.** Under the default `triage_feedback_channel: pr-body`, the `pr-management-triage` skill folds violations feedback into the PR description (a `pr-triage-fold` block) rather than posting a comment — the denoise change (see [`pr-management-triage/rationale.md`](../triage/rationale.md#why-fold-feedback-into-the-pr-body-denoise)). The folded block still contains the `Pull Request quality criteria` link, so the PR-level `body` field (added to the fetch queries above) must be scanned with the same substring match as the comment bodies. A PR is triaged if the marker appears in **any** comment body **or** the PR body.
+**The marker can now also live in the PR's own `body`, not just a comment.** Under the default `triage_feedback_channel: pr-body`, the `pr-management-triage` skill folds violations feedback into the PR description (a `pr-triage-fold` block) rather than posting a comment — the denoise change (see [`pr-management-triage/rationale.md`](../pr-triage/rationale.md#why-fold-feedback-into-the-pr-body-denoise)). The folded block still contains the `Pull Request quality criteria` link, so the PR-level `body` field (added to the fetch queries above) must be scanned with the same substring match as the comment bodies. A PR is triaged if the marker appears in **any** comment body **or** the PR body.
 
 ### Known limitation
 

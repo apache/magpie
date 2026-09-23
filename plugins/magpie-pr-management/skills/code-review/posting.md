@@ -17,7 +17,7 @@ verbatim review-body templates the skill uses.
 > findings folded in from an adversarial reviewer, and any
 > contributor text quoted inside a finding. It is the review-side
 > counterpart of the author-only notification rule in
-> [`pr-management-triage`](../triage/comment-templates.md).
+> [`pr-management-triage`](../pr-triage/comment-templates.md).
 
 Submitting a review already notifies the PR author and every
 subscriber — that is all the notification a review needs. A live

@@ -262,7 +262,7 @@ The override files are **not** modified or deleted — they
 are simply not consulted for this run.
 
 ```text
-/magpie-pr-management:triage --no-overrides
+/magpie-pr-management:pr-triage --no-overrides
 /magpie-security:issue-triage --no-overrides
 ```
 

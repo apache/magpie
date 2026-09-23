@@ -395,6 +395,15 @@ def test_the_dealiased_form_is_silent(repo: Path) -> None:
     assert _errors(mod.check_no_plugin_name_stutter) == []
 
 
+def test_a_live_alias_starting_with_the_family_word_is_silent(repo: Path) -> None:
+    """`magpie-pr-management` really ships `pr-triage` (a bare `triage` would
+    repeat `magpie-issue`'s), so naming it is not a stutter."""
+    _skill(repo, "pr-management-triage", "pr-management", "Triage")
+    (repo / "plugins" / "magpie-pr-management" / "skills" / "pr-triage").mkdir(parents=True)
+    (repo / "docs" / "guide.md").write_text("Run `/magpie-pr-management:pr-triage`.\n", encoding="utf-8")
+    assert _errors(mod.check_no_plugin_name_stutter) == []
+
+
 def test_the_portable_single_token_form_is_not_a_stutter(repo: Path) -> None:
     """Snapshot installs really do invoke `/magpie-security-issue-triage`; the
     guard must not chase the form it is documenting as correct elsewhere."""

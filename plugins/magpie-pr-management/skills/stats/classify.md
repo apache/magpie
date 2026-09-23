@@ -3,7 +3,7 @@
 
 # Classify
 
-Per-PR state determination for the stats tables. Mirrors the triage-detection logic in the triage-marker rows in [`pr-management-triage/classify-and-act.md`](../triage/classify-and-act.md) (rows 3–4 — `already_triaged`) — the two skills must agree on what "triaged" means. Any rule change here must ship simultaneously in `pr-management-triage`.
+Per-PR state determination for the stats tables. Mirrors the triage-detection logic in the triage-marker rows in [`pr-management-triage/classify-and-act.md`](../pr-triage/classify-and-act.md) (rows 3–4 — `already_triaged`) — the two skills must agree on what "triaged" means. Any rule change here must ship simultaneously in `pr-management-triage`.
 
 Classification is pure function of state from [`fetch.md`](fetch.md) — no network calls, no writes.
 
@@ -32,14 +32,14 @@ is_triaged(pr) :=
 **What the literal marker is:** the **substring `Pull Request quality
 criteria`** — this is the visible link text in the canonical triage-comment
 template that every `pr-management-triage` action body carries (see
-[`pr-management-triage/comment-templates.md`](../triage/comment-templates.md)).
+[`pr-management-triage/comment-templates.md`](../pr-triage/comment-templates.md)).
 The classifier scans every comment's `body` (NOT `bodyText` — the latter
 strips HTML comments, see [Both marker forms count](#both-marker-forms-count)
 below) for the exact substring, **and the PR's own `body`** — under the
 default `triage_feedback_channel: pr-body` the `pr-management-triage` skill
 folds the same marker into the PR description as a `pr-triage-fold` block
 instead of posting a comment (the denoise change; see
-[`pr-management-triage/rationale.md`](../triage/rationale.md#why-fold-feedback-into-the-pr-body-denoise)).
+[`pr-management-triage/rationale.md`](../pr-triage/rationale.md#why-fold-feedback-into-the-pr-body-denoise)).
 The string is also accepted in an HTML-comment form left by the legacy
 `breeze pr auto-triage` command.
 
@@ -192,7 +192,7 @@ A PR is *triaged* when **either** of the following holds:
 - contains the literal string `Pull Request quality criteria` in the comment's **raw `body`** (NOT `bodyText` — see below)
 - has `createdAt` **after** the PR's last commit's `committedDate` **at the time the comment was posted** (otherwise the triage pre-dates the current code and is stale). **Exception:** if the PR author subsequently pushes a commit *after* the triage comment (`last_commit.committedDate` > `triage_comment.createdAt`), do **not** treat the marker as stale — that commit is evidence the author responded to triage feedback. Classify as `triaged_responded` (see [Triaged sub-states](#triaged-sub-states) below) rather than reverting to `untriaged`.
 
-**(b) Body-fold channel** (default `triage_feedback_channel: pr-body`) — the PR's **raw `body`** contains a `pr-triage-fold` managed block. The block's opening marker carries `triaged=<ISO>` and `head=<sha7>`; use `triaged=` as the triage timestamp and `head=` matching the current head SHA as the "after last commit" test (when `head=` no longer matches, the author pushed since the fold — classify as `triaged_responded`, same as the comment-channel exception). This is the form the live `pr-management-triage` skill emits by default; see [`pr-management-triage/classify-and-act.md#viewer_triage_fold_present`](../triage/classify-and-act.md#viewer_triage_fold_present).
+**(b) Body-fold channel** (default `triage_feedback_channel: pr-body`) — the PR's **raw `body`** contains a `pr-triage-fold` managed block. The block's opening marker carries `triaged=<ISO>` and `head=<sha7>`; use `triaged=` as the triage timestamp and `head=` matching the current head SHA as the "after last commit" test (when `head=` no longer matches, the author pushed since the fold — classify as `triaged_responded`, same as the comment-channel exception). This is the form the live `pr-management-triage` skill emits by default; see [`pr-management-triage/classify-and-act.md#viewer_triage_fold_present`](../pr-triage/classify-and-act.md#viewer_triage_fold_present).
 
 ### Both marker forms count
 

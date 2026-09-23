@@ -41,7 +41,7 @@
     <text x="26" y="152" fill="#8abeb7" opacity="0">&gt; /plugin install magpie-utilities@apache-magpie<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.1597;0.1607;1" dur="7.1s" repeatCount="indefinite"/></text>
     <text x="26" y="176" fill="#8abeb7" opacity="0">&gt; /plugin install magpie-pr-management@apache-magpie<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.2129;0.2139;1" dur="7.1s" repeatCount="indefinite"/></text>
     <text x="26" y="224" fill="#7f9f7f" opacity="0">  ✓ baseline + one family - nothing written to the repository<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.2661;0.2671;1" dur="7.1s" repeatCount="indefinite"/></text>
-    <text x="26" y="272" fill="#8abeb7" opacity="0">&gt; /magpie-pr-management:triage<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.3193;0.3203;1" dur="7.1s" repeatCount="indefinite"/></text>
+    <text x="26" y="272" fill="#8abeb7" opacity="0">&gt; /magpie-pr-management:pr-triage<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.3193;0.3203;1" dur="7.1s" repeatCount="indefinite"/></text>
     <text x="26" y="320" fill="#c5c8c6" opacity="0">  38 open PRs, 12 untriaged<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.3725;0.3735;1" dur="7.1s" repeatCount="indefinite"/></text>
     <text x="26" y="368" fill="#c5c8c6" opacity="0">  #1421  first contribution, CI green, no reviewer<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.4258;0.4268;1" dur="7.1s" repeatCount="indefinite"/></text>
     <text x="26" y="392" fill="#8a8f94" opacity="0">         -&gt; mark ready for maintainer review<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.4790;0.4800;1" dur="7.1s" repeatCount="indefinite"/></text>

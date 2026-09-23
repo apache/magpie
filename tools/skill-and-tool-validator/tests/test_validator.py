@@ -474,22 +474,33 @@ class TestValidateNameConvention:
         return path
 
     def test_matching_name_passes(self, tmp_path: Path) -> None:
-        path = self._skill(tmp_path, "issue-triage", "magpie-issue-triage")
+        path = self._skill(tmp_path, "issue-triage", "issue-triage")
         assert list(validate_name_convention(path, path.read_text())) == []
 
-    def test_unprefixed_name_fails(self, tmp_path: Path) -> None:
-        path = self._skill(tmp_path, "issue-triage", "issue-triage")
+    def test_prefixed_name_fails(self, tmp_path: Path) -> None:
+        # The old `magpie-<dir>` convention: Claude Code and Codex would invoke
+        # it as `/<plugin>:magpie-<dir>`.
+        path = self._skill(tmp_path, "issue-triage", "magpie-issue-triage")
         violations = list(validate_name_convention(path, path.read_text()))
         assert len(violations) == 1
-        assert "magpie-issue-triage" in violations[0].message
+        assert "'issue-triage'" in violations[0].message
         assert violations[0].category == "name_convention"
 
     def test_wrong_suffix_fails(self, tmp_path: Path) -> None:
-        # Prefixed but the suffix doesn't match the directory name.
-        path = self._skill(tmp_path, "issue-triage", "magpie-issue-triag")
+        path = self._skill(tmp_path, "issue-triage", "issue-triag")
         violations = list(validate_name_convention(path, path.read_text()))
         assert len(violations) == 1
-        assert "magpie-issue-triage" in violations[0].message
+        assert "'issue-triage'" in violations[0].message
+
+    def test_symlinked_skill_uses_real_directory(self, tmp_path: Path) -> None:
+        # skills/<flat> is a mirror of the plugin directory: the name must
+        # match the directory the file really lives in, not the mirror's.
+        real = self._skill(tmp_path, "triage", "triage")
+        mirror = tmp_path / "flat" / "issue-triage"
+        mirror.parent.mkdir()
+        mirror.symlink_to(real.parent, target_is_directory=True)
+        path = mirror / "SKILL.md"
+        assert list(validate_name_convention(path, path.read_text())) == []
 
     def test_missing_name_is_skipped(self, tmp_path: Path) -> None:
         # An absent/empty name is validate_frontmatter's job, not this check's.
@@ -750,7 +761,7 @@ class TestSubDocFiles:
         skill_dir = root / "skills" / skill_name
         skill_dir.mkdir(parents=True)
         (skill_dir / "SKILL.md").write_text(
-            f"---\nname: magpie-{skill_name}\ndescription: bar\ncapability: capability:platform\nfamily: repo-health\nmode: Triage\nwhen_to_use: when it applies\nlicense: Apache-2.0\nsurface_hash: sha256:0123456789abcdef\n---\n"
+            f"---\nname: {skill_name}\ndescription: bar\ncapability: capability:platform\nfamily: repo-health\nmode: Triage\nwhen_to_use: when it applies\nlicense: Apache-2.0\nsurface_hash: sha256:0123456789abcdef\n---\n"
             "<!-- SPDX-License-Identifier: Apache-2.0\n     https://www.apache.org/licenses/LICENSE-2.0 -->\n"
             "# body\n",
             encoding="utf-8",
@@ -2243,7 +2254,7 @@ def _make_valid_skill(root: Path, name: str) -> Path:
     skill_dir = root / "skills" / name
     skill_dir.mkdir(parents=True, exist_ok=True)
     (skill_dir / "SKILL.md").write_text(
-        f"---\nname: magpie-{name}\ndescription: A test skill.\ncapability: capability:platform\nfamily: repo-health\nmode: Triage\nwhen_to_use: when it applies\nlicense: Apache-2.0\nsurface_hash: sha256:0123456789abcdef\n---\n"
+        f"---\nname: {name}\ndescription: A test skill.\ncapability: capability:platform\nfamily: repo-health\nmode: Triage\nwhen_to_use: when it applies\nlicense: Apache-2.0\nsurface_hash: sha256:0123456789abcdef\n---\n"
         "<!-- SPDX-License-Identifier: Apache-2.0\n     https://www.apache.org/licenses/LICENSE-2.0 -->\n"
         "# Body\nSome content.\n"
     )
@@ -2314,7 +2325,7 @@ class TestMain:
         # A --body "..." in a fenced block triggers a SOFT security-pattern-9 warning.
         (skill_dir / "SKILL.md").write_text(
             "---\n"
-            "name: magpie-soft-skill\n"
+            "name: soft-skill\n"
             "description: A test skill.\n"
             "capability: capability:platform\nfamily: repo-health\nmode: Triage\nwhen_to_use: when it applies\nlicense: Apache-2.0\nsurface_hash: sha256:0123456789abcdef\n"
             "---\n"

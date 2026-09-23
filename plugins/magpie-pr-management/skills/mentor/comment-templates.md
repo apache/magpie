@@ -102,7 +102,7 @@ Listed so reviewers see the choices and can push back.
   about to close — closing belongs to triage. If the
   contributor's submission is out of scope or duplicate, the
   skill exits without commenting and lets
-  [`pr-management-triage`](../triage/SKILL.md)
+  [`pr-management-triage`](../pr-triage/SKILL.md)
   handle the close.
 - **Approval / "looks good"**. Agentic Mentoring does not signal review
   outcomes. Even a casual "this looks like a good direction"
