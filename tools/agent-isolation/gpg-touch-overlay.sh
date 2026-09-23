@@ -303,12 +303,31 @@ _set_session_launcher() {
 
 # ---------------------------------------------------------- ownership ---
 
+# The harness process that ran this hook. Claude Code on Linux runs a
+# hook command through `sh -c`, so the hook's own parent is that shell,
+# which exits the moment the hook returns: a watcher told to outlive it
+# ends on its first poll, before the key has blocked. Shells between
+# the hook and the harness are skipped; where the harness starts the
+# hook directly, this is just $PPID.
+_find_harness_pid() {
+    local pid=$PPID ppid comm
+    while read -r ppid comm < <(ps -o ppid= -o comm= -p "$pid" 2>/dev/null); do
+        case ${comm##*/} in
+            sh|bash|dash|zsh|-sh|-bash|-zsh) ;;
+            *) break ;;
+        esac
+        [[ $ppid -gt 1 ]] || break
+        pid=$ppid
+    done
+    printf '%s\n' "$pid"
+}
+
 # The key a signing context is known by, stable from its arm to its
 # disarm and distinct from every other context's. An agent session is
 # identified by the session id the harness puts in both hook payloads;
 # a wrapped git by the wrapper's own pid. The fallback covers a harness
-# that sends no session id: the hook's parent is the harness process,
-# which is the same for that session's arm and its disarm.
+# that sends no session id: the harness process is the same for that
+# session's arm and its disarm.
 _owner_id() {
     local session=${1:-}
     [[ -z $session ]] && session=${CLAUDE_SESSION_ID:-}
@@ -316,7 +335,7 @@ _owner_id() {
         printf 's-%s\n' "${session//[^A-Za-z0-9_-]/_}"
         return 0
     fi
-    printf 'h-%s\n' "$PPID"
+    printf 'h-%s\n' "$(_find_harness_pid)"
 }
 
 # A registration records two pids: the owner, whose death means the
@@ -527,10 +546,12 @@ arm() {
     # spawned, so the process worth watching for is the harness itself:
     # if that goes, the disarm is never coming, and the watcher should
     # not wait out MAX_WAIT to find that out.
-    MAGPIE_GPG_TOUCH_PARENT=$PPID \
+    local harness
+    harness="$(_find_harness_pid)"
+    MAGPIE_GPG_TOUCH_PARENT=$harness \
     MAGPIE_GPG_TOUCH_CONTEXT="$CONTEXT_DIR/$id" \
         "${SESSION_LAUNCHER[@]}" "$SELF" _watch >>"$log" 2>&1 &
-    _register "$id" "$PPID" "$!"
+    _register "$id" "$harness" "$!"
 }
 
 # ------------------------------------------------------------- disarm ---

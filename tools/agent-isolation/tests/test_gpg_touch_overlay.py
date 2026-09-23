@@ -866,6 +866,30 @@ def test_rearming_the_same_session_keeps_one_watcher(tmp_path: Path) -> None:
         _disarm_session(tmp_path, "aaa")
 
 
+def test_watcher_outlives_the_shell_the_hook_ran_in(tmp_path: Path) -> None:
+    """The owner is the harness, not the ``sh -c`` it runs the hook through.
+
+    Claude Code on Linux wraps a hook command in a shell that exits as
+    soon as the hook returns; a watcher that took that shell for its
+    owner ended on its first poll, before the key had blocked.
+    """
+    result = subprocess.run(
+        ["sh", "-c", f"bash '{SCRIPT}' arm"],
+        input=json.dumps({"session_id": "wrapped", "tool_input": {"command": "git commit -m x"}}),
+        capture_output=True,
+        text=True,
+        env=_hook_env(tmp_path),
+    )
+    assert result.returncode == 0, result.stderr
+    try:
+        owner, watcher = _read_registration(tmp_path, "wrapped")
+        assert owner == os.getpid()
+        time.sleep(1)
+        assert _alive(watcher)
+    finally:
+        _disarm_session(tmp_path, "wrapped")
+
+
 def test_a_dead_owners_watcher_is_swept(tmp_path: Path) -> None:
     """A session that died without disarming leaves nothing behind.
 
