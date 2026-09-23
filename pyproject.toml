@@ -147,6 +147,7 @@ members = [
   "tools/vcs",
   "tools/vendor-neutrality-score",
   "tools/skill-token-count",
+  "tools/adversarial-review",
   "tools/vetted-ops",
   "tools/fossil",
   "tools/sourcehut",

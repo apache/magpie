@@ -393,6 +393,7 @@ TOOL_CAPABILITIES = {
     "substrate:framework-dev",
     "substrate:release",
     "substrate:setup",
+    "substrate:review",
 }
 
 
