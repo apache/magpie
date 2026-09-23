@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 import json
+import tomllib
 import urllib.error
 import urllib.request
 from email.message import Message
@@ -1455,3 +1456,13 @@ def test_run_http_execution_non_https_rejected(capsys: pytest.CaptureFixture[str
     rc = cli._run_http({"url": "http://insecure.example.com"}, body=None)
     assert rc == cli.EXIT_COMMAND
     assert "missing valid https://" in capsys.readouterr().err
+
+
+def test_project_resolves_outside_the_workspace() -> None:
+    # The plugin ships this directory alone, without the workspace root, and
+    # runs it with `uv run --project`. uv resolves every dependency group first,
+    # so a group naming a workspace-only package (`magpie-dev`) or a
+    # workspace-relative source breaks every plugin invocation.
+    pyproject = tomllib.loads((Path(__file__).parents[1] / "pyproject.toml").read_text())
+    assert "dependency-groups" not in pyproject
+    assert "sources" not in pyproject.get("tool", {}).get("uv", {})

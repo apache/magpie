@@ -27,6 +27,10 @@ declares ruff, mypy, and pytest as its dependencies, and every other workspace
 member names `magpie-dev` in its own `[dependency-groups] dev` instead of
 repeating the pins. Bump a version here and the whole workspace moves together.
 
+One deliberate exception: `tools/vetted-ops` declares no `dev` group. It ships
+as a plugin and runs from outside the workspace, where `magpie-dev` cannot
+resolve; its tests get the toolchain from the root `dev` group instead.
+
 Each member's environment stays self-contained — the checks still run
 `uv run --directory <member> --project . python -m <tool>`, so no member depends
 on tools leaking in from the root environment. Only the *declaration* is shared.

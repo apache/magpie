@@ -80,7 +80,11 @@ minversion = "8.0"
 addopts = "-ra -q"
 testpaths = ["tests"]
 
-[dependency-groups]
-# The shared toolchain (mypy, pytest, ruff) comes from `magpie-dev`
-# (tools/dev), declared once for the whole workspace.
-dev = ["magpie-dev"]
+# No `[dependency-groups] dev` here, unlike the other workspace members. This
+# project ships as the `magpie-vetted-ops` plugin, and the documented runner is
+# `uv run --project <plugin>/tools/vetted-ops vetted-op-read …`. uv resolves
+# every dependency group before it runs anything, and `magpie-dev` only
+# resolves through the workspace root's `[tool.uv.sources]`, which the plugin
+# does not ship, so a `dev` group makes every plugin invocation fail. The
+# shared toolchain still reaches this project's tests: CI and the workspace
+# checks sync the root `dev` group, which names `magpie-dev`.
