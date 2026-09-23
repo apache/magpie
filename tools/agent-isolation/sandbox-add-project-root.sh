@@ -16,8 +16,9 @@
 # specific language governing permissions and limitations
 # under the License.
 #
-# sandbox-add-project-root.sh — add the project root to the
-# project-local Claude Code sandbox allowlists.
+# sandbox-add-project-root.sh — add the project root, and the
+# home-directory paths the dev tools need, to the project-local
+# Claude Code sandbox allowlists.
 #
 # Defensive fix for the harness behaviour described in
 # https://github.com/apache/magpie/issues/197 :
@@ -30,6 +31,21 @@
 # project's gitignored `.claude/settings.local.json`. The `.` entry
 # stays in the project's committed `.claude/settings.json` —
 # the explicit absolute path is belt-and-braces.
+#
+# Dev-tool paths: the same harness behaviour drops the home-directory
+# `allowRead` / `allowWrite` entries of the committed
+# `.claude/settings.json` too (`~/.local/bin/`, `~/.cache/`, ...), so
+# `prek` and `uv` are not found, or cannot write their caches, inside
+# the sandbox. The helper therefore also adds a fixed set of absolute
+# paths under `$HOME`:
+#   allowRead:  ~/.gitconfig  ~/.config/git  ~/.cache
+#               ~/.local/share/uv  ~/.local/bin
+#   allowWrite: ~/.cache  ~/.local/share/uv
+# The set is deliberately NOT a mirror of the committed `allowRead`:
+# that list also carries credential paths (`~/.config/gh/`,
+# `~/.config/apache-magpie/`, `~/.gnupg/`), and re-opening them to
+# every sandboxed command is a decision for the operator, not for a
+# helper that runs from a git hook. `--no-tool-paths` skips the set.
 #
 # Scope: writes ONLY to project-local `<repo>/.claude/settings.local.json`,
 # never to user-scope (`~/.claude/settings.json`) and never to the
@@ -67,6 +83,7 @@
 #   sandbox-add-project-root.sh                # current worktree only
 #   sandbox-add-project-root.sh --all-worktrees  # main + every linked worktree
 #   sandbox-add-project-root.sh --dry-run        # print what would change, do not write
+#   sandbox-add-project-root.sh --no-tool-paths  # project root only, no dev-tool paths
 #   sandbox-add-project-root.sh --help
 #
 # Behaviour:
@@ -74,7 +91,7 @@
 #   via `git rev-parse --show-toplevel`, then writes/updates
 #   `<that-path>/.claude/settings.local.json` so its
 #   `sandbox.filesystem.allowRead` and `allowWrite` arrays contain
-#   the worktree's absolute path. Used by the `post-checkout` git
+#   the worktree's absolute path and the dev-tool paths. Used by the `post-checkout` git
 #   hook installed by `/magpie-setup adopt` — when a new worktree
 #   is created, the hook fires in the new working tree and the
 #   helper writes that worktree's own settings.local.json.
@@ -108,12 +125,14 @@ set -euo pipefail
 
 all_worktrees=0
 dry_run=0
+tool_paths=1
 while [ $# -gt 0 ]; do
   case "$1" in
     --all-worktrees) all_worktrees=1 ;;
     --dry-run)       dry_run=1 ;;
+    --no-tool-paths) tool_paths=0 ;;
     -h|--help)
-      sed -n '19,103p' "$0"  # print the usage + behaviour block above
+      sed -n '19,121p' "$0"  # print the usage + behaviour block above
       exit 0
       ;;
     *)
@@ -173,12 +192,25 @@ else
   add_pair "$(git rev-parse --show-toplevel)"
 fi
 
+# --- dev-tool paths ---------------------------------------------------------
+
+# JSON arrays handed to jq. Empty when --no-tool-paths is given, or when
+# HOME is unset (nothing absolute to expand `~` to).
+tool_reads='[]'
+tool_writes='[]'
+if [ "$tool_paths" -eq 1 ] && [ -n "${HOME:-}" ]; then
+  tool_reads=$(jq -cn --arg h "$HOME" \
+    '[$h + "/.gitconfig", $h + "/.config/git", $h + "/.cache", $h + "/.local/share/uv", $h + "/.local/bin"]')
+  tool_writes=$(jq -cn --arg h "$HOME" '[$h + "/.cache", $h + "/.local/share/uv"]')
+fi
+
 # --- update a single project-local settings file ----------------------------
 
 # update_settings <file> <project-root-abs-path>
 #
 # Ensure <project-root-abs-path> appears in `.sandbox.filesystem.allowRead`
-# and `.sandbox.filesystem.allowWrite` of <file>. Atomic write.
+# and `.sandbox.filesystem.allowWrite` of <file>, along with the dev-tool
+# paths (`$tool_reads` / `$tool_writes`). Atomic write.
 # Creates <file> + parent dir if missing.
 update_settings() {
   local file="$1"
@@ -254,14 +286,13 @@ update_settings() {
   fi
 
   local jq_prog='
+    def add_missing($new): reduce $new[] as $x (.; if index([$x]) then . else . + [$x] end);
     .
     | .sandbox.filesystem.allowRead  = (
-        (.sandbox.filesystem.allowRead  // [])
-        | if index($p) then . else . + [$p] end
+        (.sandbox.filesystem.allowRead  // []) | add_missing([$p] + $reads)
       )
     | .sandbox.filesystem.allowWrite = (
-        (.sandbox.filesystem.allowWrite // [])
-        | if index($p) then . else . + [$p] end
+        (.sandbox.filesystem.allowWrite // []) | add_missing([$p] + $writes)
       )
   '
 
@@ -269,13 +300,13 @@ update_settings() {
   tmp=$(mktemp "${file}.XXXXXX")
 
   if [ "$input" = "/dev/null" ]; then
-    if ! printf '{}\n' | jq --arg p "$path" "$jq_prog" > "$tmp"; then
+    if ! printf '{}\n' | jq --arg p "$path" --argjson reads "$tool_reads" --argjson writes "$tool_writes" "$jq_prog" > "$tmp"; then
       rm -f "$tmp"
       warn "jq update of $file failed — leaving file untouched."
       return 0
     fi
   else
-    if ! jq --arg p "$path" "$jq_prog" "$file" > "$tmp"; then
+    if ! jq --arg p "$path" --argjson reads "$tool_reads" --argjson writes "$tool_writes" "$jq_prog" "$file" > "$tmp"; then
       rm -f "$tmp"
       warn "jq update of $file failed — leaving file untouched."
       return 0

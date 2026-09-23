@@ -129,8 +129,19 @@ cat .claude/settings.local.json:
 {
   "sandbox": {
     "filesystem": {
-      "allowRead": ["/home/carol/magpie"],
-      "allowWrite": ["/home/carol/magpie"]
+      "allowRead": [
+        "/home/carol/magpie",
+        "/home/carol/.gitconfig",
+        "/home/carol/.config/git",
+        "/home/carol/.cache",
+        "/home/carol/.local/share/uv",
+        "/home/carol/.local/bin"
+      ],
+      "allowWrite": [
+        "/home/carol/magpie",
+        "/home/carol/.cache",
+        "/home/carol/.local/share/uv"
+      ]
     }
   }
 }

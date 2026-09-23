@@ -137,6 +137,8 @@ Walk each in order:
    - **Static:** confirm the current working tree's absolute path appears in both `sandbox.filesystem.allowRead` and `sandbox.filesystem.allowWrite` of `<worktree>/.claude/settings.local.json`.
      For every other linked worktree in `git worktree list --porcelain`, check *that* worktree's own `.claude/settings.local.json`; each worktree carries its own entry.
      ✗ on any missing entry; remediation: `~/.claude/scripts/sandbox-add-project-root.sh --all-worktrees` (or re-run `setup-isolated-setup-install` if the helper is not installed).
+     The same file should also carry the absolute dev-tool paths the helper adds (`$HOME/.local/bin`, `$HOME/.local/share/uv`, `$HOME/.cache`, `$HOME/.gitconfig`, `$HOME/.config/git`), because the harness drops the committed `~/…` entries too.
+     Their absence is ⚠, not ✗: nothing is exposed, but `prek` and `uv` are not found inside the sandbox — [troubleshooting entry](../../../../docs/setup/sandbox-troubleshooting.md#prek-or-uv-not-found-or-cannot-write-its-cache-inside-the-sandbox); same remediation.
    - **Live probe:** attempt a sandboxed read of `.git/HEAD` and a sandboxed write of a temp file inside the *current* worktree's project root (e.g. `<root>/.magpie-verify-probe.tmp`, removed right after the write).
      The write should succeed because `allowWrite` keeps `.` literal at access time; the read is what exercises the harness bug.
      ✗ on either failure; remediation as above.

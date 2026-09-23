@@ -150,6 +150,29 @@ class TestKnownSignatures:
         assert result.returncode == 1
 
 
+class TestDevToolNotFound:
+    ANCHOR = f"{DOC}#prek-or-uv-not-found-or-cannot-write-its-cache-inside-the-sandbox"
+
+    def test_zsh_prek_not_found(self) -> None:
+        result = _run(_bash(stderr="(eval):1: command not found: prek\n"))
+        assert result.returncode == 1
+        assert self.ANCHOR in result.stderr
+
+    def test_bash_uv_not_found(self) -> None:
+        result = _run(_bash(stderr="bash: uv: command not found\n"))
+        assert result.returncode == 1
+        assert self.ANCHOR in result.stderr
+
+    def test_uvx_not_found(self) -> None:
+        result = _run(_bash(stderr="(eval):1: command not found: uvx"))
+        assert result.returncode == 1
+        assert self.ANCHOR in result.stderr
+
+    def test_other_command_not_found_is_silent(self) -> None:
+        result = _run(_bash(stderr="(eval):1: command not found: prekx\nbash: uvicorn: command not found\n"))
+        assert self.ANCHOR not in result.stderr
+
+
 class TestGhInsideSandbox:
     """`gh` that did not get excluded from the sandbox (see the catalog entry)."""
 

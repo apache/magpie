@@ -118,6 +118,8 @@ elif match '127\.0\.0\.1.*[Pp]ermission denied|[Oo]peration not permitted.*bind|
   hint="Localhost port-bind or loopback HTTP may be sandbox-blocked. See ${doc_path}#test-cannot-bind-to-a-localhost-port"
 elif match "/tmp/[^ ]*'?: Read-only file system|Read-only file system: '/tmp/|mktemp: failed to create"; then
   hint="Temp files under /tmp are sandbox-blocked; TMPDIR may be unset or outside the writable tree. See ${doc_path}#temp-files-fail-with-read-only-file-system-under-tmp"
+elif match 'command not found: (prek|uvx?)$|command not found: (prek|uvx?)[^[:alnum:]_-]|(^|[[:space:]:])(prek|uvx?): command not found'; then
+  hint="prek / uv live in ~/.local/bin, which the sandbox reads only when the project-local settings grant it. Re-run sandbox-add-project-root.sh --all-worktrees from a terminal. See ${doc_path}#prek-or-uv-not-found-or-cannot-write-its-cache-inside-the-sandbox"
 elif match 'x509: OSStatus -26276|HTTP 401: Requires authentication \(https://api\.github\.com'; then
   hint="gh ran INSIDE the sandbox (TLS / keychain unreachable). The \"gh *\" exclusion only applies when every segment of the invocation is cd/gh — no pipe, redirect, \$(...) or loop. See ${doc_path}#gh-fails-with-tls-osstatus--26276-or-http-401-inside-the-sandbox"
 fi

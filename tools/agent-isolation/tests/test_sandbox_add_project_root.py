@@ -161,6 +161,73 @@ class TestMerge:
 
 
 # ---------------------------------------------------------------------------
+# dev-tool paths under $HOME
+# ---------------------------------------------------------------------------
+
+
+def _tool_reads(home: Path) -> list[str]:
+    return [str(home / p) for p in (".gitconfig", ".config/git", ".cache", ".local/share/uv", ".local/bin")]
+
+
+def _tool_writes(home: Path) -> list[str]:
+    return [str(home / p) for p in (".cache", ".local/share/uv")]
+
+
+class TestToolPaths:
+    def test_adds_tool_read_paths(self, tmp_path: Path) -> None:
+        repo = _make_git_repo(tmp_path)
+        home = tmp_path / "home"
+        _run(repo, extra_env={"HOME": str(home)})
+        read_paths = _load(repo / ".claude" / "settings.local.json")["sandbox"]["filesystem"]["allowRead"]
+        for path in _tool_reads(home):
+            assert path in read_paths
+
+    def test_adds_tool_write_paths(self, tmp_path: Path) -> None:
+        repo = _make_git_repo(tmp_path)
+        home = tmp_path / "home"
+        _run(repo, extra_env={"HOME": str(home)})
+        write_paths = _load(repo / ".claude" / "settings.local.json")["sandbox"]["filesystem"]["allowWrite"]
+        assert write_paths == [str(repo)] + _tool_writes(home)
+
+    def test_never_adds_credential_paths(self, tmp_path: Path) -> None:
+        repo = _make_git_repo(tmp_path)
+        home = tmp_path / "home"
+        _run(repo, extra_env={"HOME": str(home)})
+        data = _load(repo / ".claude" / "settings.local.json")["sandbox"]["filesystem"]
+        for path in data["allowRead"] + data["allowWrite"]:
+            for secret in (".config/gh", ".config/apache-magpie", ".gnupg", ".ssh"):
+                assert secret not in path
+
+    def test_second_run_no_duplicate_tool_paths(self, tmp_path: Path) -> None:
+        repo = _make_git_repo(tmp_path)
+        home = tmp_path / "home"
+        _run(repo, extra_env={"HOME": str(home)})
+        _run(repo, extra_env={"HOME": str(home)})
+        data = _load(repo / ".claude" / "settings.local.json")["sandbox"]["filesystem"]
+        assert len(data["allowRead"]) == len(set(data["allowRead"]))
+        assert len(data["allowWrite"]) == len(set(data["allowWrite"]))
+
+    def test_adds_only_missing_tool_paths(self, tmp_path: Path) -> None:
+        repo = _make_git_repo(tmp_path)
+        home = tmp_path / "home"
+        cache = str(home / ".cache")
+        _seed_settings(repo, {"sandbox": {"filesystem": {"allowRead": [cache], "allowWrite": [cache]}}})
+        _run(repo, extra_env={"HOME": str(home)})
+        data = _load(repo / ".claude" / "settings.local.json")["sandbox"]["filesystem"]
+        assert data["allowRead"].count(cache) == 1
+        assert data["allowWrite"].count(cache) == 1
+        assert data["allowRead"][0] == cache  # existing entries keep their place
+
+    def test_no_tool_paths_flag_adds_project_root_only(self, tmp_path: Path) -> None:
+        repo = _make_git_repo(tmp_path)
+        home = tmp_path / "home"
+        _run(repo, args=["--no-tool-paths"], extra_env={"HOME": str(home)})
+        data = _load(repo / ".claude" / "settings.local.json")["sandbox"]["filesystem"]
+        assert data["allowRead"] == [str(repo)]
+        assert data["allowWrite"] == [str(repo)]
+
+
+# ---------------------------------------------------------------------------
 # dry-run
 # ---------------------------------------------------------------------------
 

@@ -138,8 +138,19 @@ cat .claude/settings.local.json:
 {
   "sandbox": {
     "filesystem": {
-      "allowRead": ["/home/alice/myrepo"],
-      "allowWrite": ["/home/alice/myrepo"]
+      "allowRead": [
+        "/home/alice/myrepo",
+        "/home/alice/.gitconfig",
+        "/home/alice/.config/git",
+        "/home/alice/.cache",
+        "/home/alice/.local/share/uv",
+        "/home/alice/.local/bin"
+      ],
+      "allowWrite": [
+        "/home/alice/myrepo",
+        "/home/alice/.cache",
+        "/home/alice/.local/share/uv"
+      ]
     }
   }
 }

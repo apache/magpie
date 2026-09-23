@@ -119,6 +119,17 @@ existing sandbox grants can widen the baseline. See `docs/adapters/gemini.md`.
   `.claude/settings.local.json`. Backs the `--apply-permission-audit`
   flag of `/magpie-setup verify` (check 8d). Also handles OpenCode
   `permission` config via `audit-opencode`. Capability: `substrate:sandbox`.
+- `tools/agent-isolation/sandbox-add-project-root.sh` — writes the
+  worktree's absolute path, and the absolute dev-tool paths `prek` and
+  `uv` need (`~/.gitconfig`, `~/.config/git`, `~/.cache`,
+  `~/.local/share/uv`, `~/.local/bin`; the cache and uv dirs also
+  writable), into each worktree's gitignored
+  `.claude/settings.local.json`. The harness drops the committed
+  project-scope `sandbox.filesystem` allow entries (issue #197), so the
+  local file is where they take effect. It never adds the credential
+  paths the committed list also names; `--no-tool-paths` limits it to
+  the project root. Checked by `setup-isolated-setup-verify` check 8.
+  Capability: `substrate:sandbox`.
 - `tools/egress-gateway/` — local HTTP(S) forward proxy for egress
   control. Framework tools point `HTTPS_PROXY`/`HTTP_PROXY` at it; the
   gateway rejects any connection to a host not on its allowlist before a

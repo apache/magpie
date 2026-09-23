@@ -47,6 +47,11 @@
     - [Root cause](#root-cause-7)
     - [Fix](#fix-7)
     - [Notes](#notes-7)
+  - [`prek` or `uv` not found, or cannot write its cache, inside the sandbox](#prek-or-uv-not-found-or-cannot-write-its-cache-inside-the-sandbox)
+    - [Symptom](#symptom-8)
+    - [Root cause](#root-cause-8)
+    - [Fix](#fix-8)
+    - [Notes](#notes-8)
   - [Adding a new entry](#adding-a-new-entry)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -970,6 +975,94 @@ Two parts:
 - Linux / bubblewrap is not measured here. Go uses its own root store
   on Linux, so the TLS half does not apply; the keyring half depends
   on which credential helper `gh` is configured with.
+
+---
+
+## `prek` or `uv` not found, or cannot write its cache, inside the sandbox
+
+### Symptom
+
+```console
+$ prek run --all-files
+(eval):1: command not found: prek
+
+$ uv run pytest
+(eval):1: command not found: uv
+```
+
+A binary reached by absolute path gets further and then fails
+writing its cache or state under `~/.cache/` or
+`~/.local/share/uv/`.
+`git config --global --get <key>` printing nothing inside the
+sandbox, while it prints the value in a terminal, is the same
+failure on `~/.gitconfig`.
+
+### Root cause
+
+Claude Code filesystem allowlist. The framework's committed
+`.claude/settings.json` lists `~/.local/bin/`, `~/.local/share/uv/`,
+`~/.cache/`, `~/.gitconfig` and `~/.config/git/` under
+`sandbox.filesystem.allowRead` (and the first three writable under
+`allowWrite`), carving them out of `denyRead: ["~/"]`. The harness
+does not apply those project-scope entries: the effective sandbox
+denies every one of them, while the same kind of entry in
+`.claude/settings.local.json` or `~/.claude/settings.json` takes
+effect. It is the behaviour behind
+[issue #197](https://github.com/apache/magpie/issues/197), where the
+committed `"."` entry was dropped the same way. The Claude Code
+documentation says `allowRead` merges across every scope, so treat
+this as harness behaviour that may change, not as a contract.
+
+### Fix
+
+Re-run the project-root helper. It writes the dev-tool paths, as
+absolute paths, into the gitignored project-local file, beside the
+project root it already adds:
+
+```bash
+~/.claude/scripts/sandbox-add-project-root.sh --all-worktrees
+```
+
+```jsonc
+// <adopter-repo>/.claude/settings.local.json (written by the helper)
+{
+  "sandbox": {
+    "filesystem": {
+      "allowRead": [
+        "/home/<you>/code/<repo>",
+        "/home/<you>/.gitconfig",          // git's user.name / user.email
+        "/home/<you>/.config/git",         // git's per-host config
+        "/home/<you>/.cache",              // uv / prek / ruff / mypy caches
+        "/home/<you>/.local/share/uv",     // uv's tool venvs (prek)
+        "/home/<you>/.local/bin"           // uv-installed entry points
+      ],
+      "allowWrite": [
+        "/home/<you>/code/<repo>",
+        "/home/<you>/.cache",
+        "/home/<you>/.local/share/uv"
+      ]
+    }
+  }
+}
+```
+
+The helper writes that file only from outside the sandbox (it is in
+the harness's write-deny set), and the change applies from the next
+session. Confirm with `prek --version` in a fresh session.
+
+### Notes
+
+- The helper deliberately does **not** mirror the whole committed
+  `allowRead`. That list also names credential paths
+  (`~/.config/gh/`, `~/.config/apache-magpie/`, `~/.gnupg/`), which
+  the same harness behaviour currently keeps out of sandboxed Bash.
+  Re-open one of those only for the tool that needs it, per the
+  entries above.
+- `--no-tool-paths` keeps the old behaviour (project root only) for
+  an operator who does not run `prek` or `uv` in agent sessions.
+- Do not reach for `dangerouslyDisableSandbox: true` to run `prek`:
+  its hooks execute code from the working tree, and the sandbox is
+  what keeps a compromised hook away from the rest of `$HOME`.
 
 ---
 

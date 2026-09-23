@@ -24,15 +24,24 @@ cat .claude/settings.json:
 {
   "sandbox": {
     "enabled": true,
-    "network": {"allowedDomains": ["github.com", "api.github.com"]},
+    "network": {
+      "allowedDomains": ["github.com", "api.github.com", "pypi.org"]
+    },
     "filesystem": {
-      "allowRead": ["/home/bob/tracker", "/tmp/claude"],
-      "allowWrite": ["/home/bob/tracker", "/tmp/claude"]
+      "allowRead": ["/home/alice/myrepo", "/tmp/claude", "$TMPDIR"],
+      "allowWrite": ["/home/alice/myrepo", "/tmp/claude", "$TMPDIR"]
     }
   },
   "permissions": {
-    "deny": ["Bash(cat ~/.aws/*:*)", "Bash(curl:*)"],
-    "ask": ["Bash(git push:*)"]
+    "deny": [
+      "Bash(cat ~/.aws/*:*)",
+      "Bash(curl:*)",
+      "Bash(wget:*)"
+    ],
+    "ask": [
+      "Bash(git push:*)",
+      "Bash(gh pr create:*)"
+    ]
   }
 }
 ```
@@ -50,20 +59,26 @@ cat ~/.claude/settings.json:
         "matcher": "Bash",
         "hooks": [{"type": "command", "command": "~/.claude/scripts/sandbox-bypass-warn.sh"}]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [{"type": "command", "command": "~/.claude/scripts/sandbox-error-hint.sh"}]
+      }
     ]
   },
   "statusLine": "~/.claude/scripts/sandbox-status-line.sh"
 }
 ```
 
-PostToolUse hook for sandbox-error-hint.sh: not configured.
-
 ---
 
 ## Check 3 — Hook scripts present and executable
 
 ls -la ~/.claude/scripts/:
-  (directory does not exist)
+  -rwxr-xr-x  alice  staff  sandbox-bypass-warn.sh
+  -rwxr-xr-x  alice  staff  sandbox-error-hint.sh
+  -rwxr-xr-x  alice  staff  sandbox-status-line.sh
 
 ---
 
@@ -95,7 +110,7 @@ Harness: Claude Code
 .claude/settings.local.json: (not present)
 .claude/settings.json: sandbox.enabled = true
 ~/.claude/settings.local.json: (not present)
-~/.claude/settings.json: (no sandbox key)
+~/.claude/settings.json: (no sandbox key — inherits project)
 
 Effective sandbox.enabled: true
 
@@ -116,33 +131,29 @@ curl https://example.com:
 
 ## Check 8 — Project-root coverage in sandbox allowlists
 
-CWD: /home/bob/tracker
+CWD: /home/alice/myrepo
 
 cat .claude/settings.local.json:
 ```json
 {
   "sandbox": {
     "filesystem": {
-      "allowRead": [
-        "/home/bob/tracker",
-        "/home/bob/.gitconfig",
-        "/home/bob/.config/git",
-        "/home/bob/.cache",
-        "/home/bob/.local/share/uv",
-        "/home/bob/.local/bin"
-      ],
-      "allowWrite": [
-        "/home/bob/tracker",
-        "/home/bob/.cache",
-        "/home/bob/.local/share/uv"
-      ]
+      "allowRead": ["/home/alice/myrepo"],
+      "allowWrite": ["/home/alice/myrepo"]
     }
   }
 }
 ```
 
-/home/bob/tracker found in allowRead: yes
-/home/bob/tracker found in allowWrite: yes
+/home/alice/myrepo found in allowRead: yes
+/home/alice/myrepo found in allowWrite: yes
+
+git worktree list --porcelain:
+  worktree /home/alice/myrepo
+  HEAD abc123
+  branch refs/heads/main
+
+(Only one worktree — current CWD.)
 
 Live probe:
   Read .git/HEAD: OK (content: "ref: refs/heads/main")

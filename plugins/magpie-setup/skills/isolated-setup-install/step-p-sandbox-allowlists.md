@@ -160,9 +160,13 @@ below covers the equivalent).
 Run the helper once with `--all-worktrees` in the adopter
 repo's main checkout. The helper enumerates
 `git worktree list --porcelain` and, for each worktree, writes
-that worktree's absolute path into that worktree's own
+that worktree's absolute path, plus the absolute dev-tool paths
+`prek` and `uv` need, into that worktree's own
 `<worktree>/.claude/settings.local.json` (creating the file if
-it does not yet exist). Idempotent, atomic, tolerant of missing
+it does not yet exist). The dev-tool paths are there because the
+harness drops the committed `~/…` allow entries as well; pass
+`--no-tool-paths` if the operator does not run `prek` or `uv` in
+agent sessions. Idempotent, atomic, tolerant of missing
 prereqs (see the script's header comment for the full
 failure-mode list). On success, surface the diff so the operator
 sees which entries landed; on no-op (paths already present),

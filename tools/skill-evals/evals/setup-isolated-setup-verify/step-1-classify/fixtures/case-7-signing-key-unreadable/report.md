@@ -57,6 +57,7 @@ curl https://example.com: Permission to use Bash with command 'curl https://exam
 ## Check 8 — Project-root coverage
 
 /Users/alice/tracker in allowRead: yes; in allowWrite: yes (.claude/settings.local.json)
+Dev-tool paths in the same file: /Users/alice/.gitconfig, /Users/alice/.config/git, /Users/alice/.cache, /Users/alice/.local/share/uv, /Users/alice/.local/bin (read); /Users/alice/.cache, /Users/alice/.local/share/uv (write).
 git worktree list: one worktree.
 Live probe: read .git/HEAD OK; write .magpie-verify-probe.tmp OK (removed).
 
