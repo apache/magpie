@@ -8,7 +8,7 @@ description: >-
   Probe the secure-agent setup for restrictions that block legitimate
   work — SSH agent reachability, port binding, containers, the scratch
   directory, the signing key, `gh` outside the sandbox, `prek` and
-  `uv` inside it. Names the
+  `uv` inside it, the global git hook dir. Names the
   troubleshooting entry and settings fix for each. Read-only.
 when_to_use: >-
   When the user says "doctor my sandbox", "why is the sandbox blocking
@@ -19,7 +19,7 @@ when_to_use: >-
 capability:
   - capability:platform
   - capability:reassess
-surface_hash: sha256:c68cb4cb391524f3
+surface_hash: sha256:3b8655e844ac99ab
 license: Apache-2.0
 ---
 
@@ -65,7 +65,7 @@ If a fail shows a failure mode not catalogued there, propose appending a new ent
   The skill **never** edits a settings file, **never** runs a command with `dangerouslyDisableSandbox`, and **never** installs anything.
   If a check fails, surface it and point at the catalog entry; do not auto-fix.
 - **Run every probe, even on early failure.** Do not stop at the first ✗.
-  A user may have one of seven independent restrictions or all seven, and finding them one re-run at a time is annoying.
+  A user may have one of eight independent restrictions or all eight, and finding them one re-run at a time is annoying.
 - **Distinguish ✗ (failing) from ⊘ (not applicable).** ✗ means the probe ran and the sandbox blocked it.
   ⊘ means the probe was skipped because a prerequisite is absent (e.g. no `docker` / `podman` on `PATH` → docker probe ⊘, not ✗).
 - **Surface evidence.** Each report line names the probe command, the exit code, and the relevant stderr snippet.
@@ -73,7 +73,7 @@ If a fail shows a failure mode not catalogued there, propose appending a new ent
 - **Map each ✗ to a catalog entry.** The fail report links directly to the matching section of [`docs/setup/sandbox-troubleshooting.md`](../../../../docs/setup/sandbox-troubleshooting.md).
   Do not paraphrase the remediation; the catalog is the single source of truth.
 
-## The 7 probes
+## The 8 probes
 
 The probes cover the catalog's failure modes that a sandboxed command can detect on its own; the signing entries that need a live touch or a terminal are verified by `setup-isolated-setup-verify` check 10 instead.
 New probes are added when new entries land in the catalog, so the two stay in lock-step.
@@ -289,11 +289,36 @@ bash <skill-dir>/scripts/probe-7-dev-tools.sh
 **On ✗ or ⚠ → remediation:**
 [`docs/setup/sandbox-troubleshooting.md` — `prek` or `uv` not found, or cannot write its cache, inside the sandbox](../../../../docs/setup/sandbox-troubleshooting.md#prek-or-uv-not-found-or-cannot-write-its-cache-inside-the-sandbox).
 
+### Probe 8 — Global git hook dir readable (whole-user scope)
+
+Tests whether git run inside the sandbox can see the hooks a global `core.hooksPath` points at.
+Git treats a hook it cannot see as one that does not exist, so an unreadable hook dir costs every hook — `pre-commit` and `prek` included — without an error.
+Only a look from inside the sandbox shows it, which is where this probe runs.
+
+**Command:**
+
+```bash
+bash <skill-dir>/scripts/probe-8-git-hooks.sh
+```
+
+**Interpretation:**
+
+| Result | Status | Meaning |
+|---|---|---|
+| `✓ (… readable; hooks visible: …)` | Pass | Sandboxed git runs the listed hooks. |
+| `✗ (core.hooksPath … not readable inside sandbox …)` | Fail | The hook dir is hidden; every sandboxed commit skips every hook. |
+| `✗ (… readable, but not the target of: …)` | Fail | The dir is visible but a hook's symlink target is not — typically hooks symlinked from a sync repo the sandbox does not grant. |
+| `⚠ (… holds none of pre-commit, commit-msg, pre-push, post-checkout)` | Warn | `core.hooksPath` is set to a dir with none of the common hooks; check it is the intended one. |
+| `⊘ (no global core.hooksPath …)` | Skip | Per-project scope: hooks live in each repo's `.git/hooks`, inside the project root. |
+
+**On ✗ → remediation:**
+[`docs/setup/sandbox-troubleshooting.md` — Git hooks silently skipped for commits made inside the sandbox](../../../../docs/setup/sandbox-troubleshooting.md#git-hooks-silently-skipped-for-commits-made-inside-the-sandbox).
+
 ## After the report
 
 If every probe is ✓ or ⊘:
 
-> All seven probes pass (or are not applicable). The sandbox is
+> All eight probes pass (or are not applicable). The sandbox is
 > not currently blocking the known failure modes catalogued in
 > `docs/setup/sandbox-troubleshooting.md`. If you hit a different
 > sandbox-shaped failure, follow the catalog's *Adding a new

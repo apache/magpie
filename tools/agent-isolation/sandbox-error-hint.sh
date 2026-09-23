@@ -131,6 +131,6 @@ yellow="${esc}[1;33m"
 reset="${esc}[0m"
 
 printf '%s[sandbox-hint]%s %s\n' "$yellow" "$reset" "$hint" >&2
-printf '%s              %s Run %s/setup-isolated-setup-doctor%s for a structured probe of all seven failure modes.\n' "$yellow" "$reset" "${esc}[1m" "${esc}[0m" >&2
+printf '%s              %s Run %s/setup-isolated-setup-doctor%s for a structured probe of all eight failure modes.\n' "$yellow" "$reset" "${esc}[1m" "${esc}[0m" >&2
 
 exit 1

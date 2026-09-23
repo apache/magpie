@@ -1541,7 +1541,7 @@ automatically. Five classes of failure are recognised today:
 
 The hint also tells the user to run
 `/magpie-setup:isolated-setup-doctor` for a structured probe of all
-seven failure modes, so a single mid-flow failure can lead to a
+eight failure modes, so a single mid-flow failure can lead to a
 broader sandbox health-check.
 
 ### Why install it user-scope, not project-scope

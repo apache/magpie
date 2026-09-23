@@ -1,1 +1,1 @@
-{"ssh_status": "pass", "localhost_status": "fail", "docker_status": "skip", "scratch_status": "skip", "signing_key_status": "skip", "gh_sandbox_status": "skip", "dev_tools_status": "skip", "has_failures": true}
+{"ssh_status": "pass", "localhost_status": "fail", "docker_status": "skip", "scratch_status": "skip", "signing_key_status": "skip", "gh_sandbox_status": "skip", "dev_tools_status": "skip", "git_hooks_status": "skip", "has_failures": true}

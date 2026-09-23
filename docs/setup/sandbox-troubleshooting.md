@@ -1135,8 +1135,9 @@ resolved path. Confirm with `git hook run pre-commit` from the agent.
   `post-checkout`; `~/.claude/scripts/` is granted already for the
   other hooks.
 - There is no error text to match, so the error-hint hook cannot
-  point here. `setup-isolated-setup-verify` check 8 probes the
-  directory from inside the sandbox instead.
+  point here. The doctor skill's *git-hooks* probe and
+  `setup-isolated-setup-verify` check 8 look at the directory from
+  inside the sandbox instead.
 
 ---
 
