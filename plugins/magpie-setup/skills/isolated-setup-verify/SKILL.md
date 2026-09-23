@@ -145,7 +145,7 @@ Walk each in order:
    It reads **project-local** `settings.local.json`, not user-scope —
    [why](../../../../docs/setup/secure-agent-setup.md#project-root-coverage-in-the-sandbox-allowlists).
 
-   **Scope detection.** `git config --global --get core.hooksPath` equal to `$HOME/.claude/git-hooks` means **whole-user** scope, which has its own sub-checks and a reminder that per-repo `.git/hooks/*` are inert host-wide:
+   **Scope detection.** `git config --global --get core.hooksPath` equal to `$HOME/.claude/git-hooks` means **whole-user** scope, in its simple or dispatcher flavour, which has its own sub-checks and a reminder of whether per-repo `.git/hooks/*` still fire:
    [`conditional-checks.md`](conditional-checks.md#check-8--whole-user-scope-detection).
    Unset or pointing elsewhere means per-project scope, the default, fully covered by the two sub-checks above.
 

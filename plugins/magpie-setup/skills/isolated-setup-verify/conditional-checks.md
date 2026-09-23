@@ -17,24 +17,45 @@ reading this file; read the section for a check whose condition holds.
    ```
 
    If the output equals `$HOME/.claude/git-hooks` (or its tilde-
-   resolved form), the operator is in **whole-user** scope:
+   resolved form), the operator is in **whole-user** scope.
+   Install Step P.0b offers two flavours of it, and the shape of
+   `~/.claude/git-hooks/` tells them apart:
 
-   - ✓ if `~/.claude/git-hooks/post-checkout` exists, is
-     executable, and matches the framework's
-     `tools/agent-isolation/git-global-post-checkout.sh` content.
+   - **Simple flavour** — `post-checkout` is a regular file, a copy
+     of `tools/agent-isolation/git-global-post-checkout.sh`.
+   - **Dispatcher flavour** — `post-checkout` (and every other hook
+     name) is a symlink to `git-hook-dispatcher.sh` in the same
+     directory, a copy of `tools/agent-isolation/git-hook-dispatcher.sh`.
+     The dispatcher supersedes the standalone post-checkout script,
+     so do **not** compare `post-checkout` against
+     `git-global-post-checkout.sh` here; read the hook-name symlinks
+     as the installed shape, not as drift.
+
+   Resolve `post-checkout` (`readlink -f`) and check the script it
+   lands on:
+
+   - ✓ if it exists, is executable, and matches its own framework
+     source (`git-global-post-checkout.sh` for the simple flavour,
+     `git-hook-dispatcher.sh` for the dispatcher flavour).
    - ⚠ if the hook is missing or non-executable — the `core.hooksPath`
      pointer is set but the hook content is gone. Remediation:
-     re-run `setup-isolated-setup-install` Step P.3-whole-user,
+     re-run `setup-isolated-setup-install` Step P.3-whole-user
+     (simple) or Step P.3b-whole-user (dispatcher),
      or `setup-isolated-setup-update` to refresh the script copy.
-   - ⚠ if the hook content drifted from the framework's source-of-
-     truth — surface the diff, propose `setup-isolated-setup-update`.
-   - **Loud reminder** (every run, not a ✗): when in whole-user
-     scope, surface a one-line note that per-repo `.git/hooks/*`
-     are inert across the host (per [`docs/setup/secure-agent-setup.md` → *Per-project vs whole-user scope*](../../../../docs/setup/secure-agent-setup.md#per-project-vs-whole-user-scope)).
-     This is informational, not a failure — the operator chose it
-     deliberately during install. Surface so a future self
-     debugging "why didn't my pre-commit fire" recognises the
-     cause.
+   - ⚠ if the script drifted from its framework source-of-truth —
+     surface the diff, propose `setup-isolated-setup-update`.
+   - **Loud reminder** (every run, not a ✗), by flavour:
+     - *Simple:* surface a one-line note that per-repo
+       `.git/hooks/*` are inert across the host (per [`docs/setup/secure-agent-setup.md` → *Per-project vs whole-user scope*](../../../../docs/setup/secure-agent-setup.md#per-project-vs-whole-user-scope)).
+       This is informational, not a failure — the operator chose it
+       deliberately during install. Surface so a future self
+       debugging "why didn't my pre-commit fire" recognises the
+       cause.
+     - *Dispatcher:* surface instead that per-repo `.git/hooks/*`
+       still fire, because the dispatcher chains to each repo's own
+       hook (per [`docs/setup/secure-agent-setup.md` → *Whole-user with the per-repo dispatcher*](../../../../docs/setup/secure-agent-setup.md#whole-user-with-the-per-repo-dispatcher)).
+       Do not report them as inert; that is the simple flavour's
+       cost, which this flavour exists to remove.
 
    If `core.hooksPath` is unset (or points elsewhere), the
    operator is in **per-project** scope (the default). No further
