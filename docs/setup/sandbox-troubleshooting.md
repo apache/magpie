@@ -52,6 +52,11 @@
     - [Root cause](#root-cause-8)
     - [Fix](#fix-8)
     - [Notes](#notes-8)
+  - [Git hooks silently skipped for commits made inside the sandbox](#git-hooks-silently-skipped-for-commits-made-inside-the-sandbox)
+    - [Symptom](#symptom-9)
+    - [Root cause](#root-cause-9)
+    - [Fix](#fix-9)
+    - [Notes](#notes-9)
   - [Adding a new entry](#adding-a-new-entry)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -1065,6 +1070,73 @@ Confirm with `prek --version`, or with the doctor skill's
 - Do not reach for `dangerouslyDisableSandbox: true` to run `prek`:
   its hooks execute code from the working tree, and the sandbox is
   what keeps a compromised hook away from the rest of `$HOME`.
+
+---
+
+## Git hooks silently skipped for commits made inside the sandbox
+
+### Symptom
+
+Nothing, which is the problem: a `git commit` run by the agent
+succeeds without `pre-commit` (and so without `prek`), `commit-msg`
+or any other hook having run, and CI is the first place the skipped
+checks fail. Asked directly, git inside the sandbox cannot see the
+hook:
+
+```console
+$ git hook run pre-commit
+error: cannot find a hook named pre-commit
+
+$ ls ~/.claude/git-hooks
+ls: cannot access '/home/<you>/.claude/git-hooks': No such file or directory
+```
+
+The same commands in a terminal find the hook.
+
+### Root cause
+
+Claude Code filesystem allowlist. Whole-user scope sets
+`git config --global core.hooksPath ~/.claude/git-hooks`, and the
+sandbox read-denies the home directory apart from the paths granted
+back. Git inside the sandbox finds no hook directory, and git treats
+a missing hook as "nothing to run", so it neither fails nor warns.
+Per-project scope is not affected: its hooks live in the repository's
+own `.git/hooks/`, which is inside the project root.
+
+### Fix
+
+Grant the shared hook directory, read-only, in user-scope settings,
+where `core.hooksPath` itself lives:
+
+```jsonc
+// ~/.claude/settings.json
+{
+  "sandbox": {
+    "filesystem": {
+      "allowRead": [
+        "~/.claude/git-hooks/"   // core.hooksPath: sandboxed git runs pre-commit, commit-msg, ...
+      ]
+    }
+  }
+}
+```
+
+When the hooks are symlinks into the sync repository, add
+`~/.claude-config/git-hooks/` as well: the sandbox checks the
+resolved path. Confirm with `git hook run pre-commit` from the agent.
+
+### Notes
+
+- In the session that adds the grant, a new directory under
+  `~/.claude/` may stay hidden until Claude Code is restarted, even
+  where other grants take effect on the next command.
+- The dispatcher flavour also runs
+  `~/.claude/scripts/sandbox-add-project-root.sh` from
+  `post-checkout`; `~/.claude/scripts/` is granted already for the
+  other hooks.
+- There is no error text to match, so the error-hint hook cannot
+  point here. `setup-isolated-setup-verify` check 8 probes the
+  directory from inside the sandbox instead.
 
 ---
 

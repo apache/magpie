@@ -1105,6 +1105,33 @@ upgrade path. The walking pass under whole-user scope is also a
 one-time bulk operation — once existing checkouts are populated,
 the global `post-checkout` keeps everything aligned going forward.
 
+#### The sandbox has to read the shared hook dir
+
+Global `core.hooksPath` points git at `~/.claude/git-hooks/`, under
+the home directory the sandbox read-denies. Git run inside the
+sandbox then sees no hook directory at all and skips every hook
+without an error — `pre-commit` (and so `prek`), `commit-msg`,
+`pre-push` alike — so an agent's sandboxed commit goes out
+unchecked and CI is the first to notice. Grant the directory
+read-only in user-scope settings, where the scope lives too:
+
+```jsonc
+// ~/.claude/settings.json
+"sandbox": {
+  "filesystem": {
+    "allowRead": [
+      "~/.claude/git-hooks/"
+      // and "~/.claude-config/git-hooks/" when the hooks are
+      // symlinks into the sync repo: the sandbox checks the
+      // resolved path
+    ]
+  }
+}
+```
+
+The install skill proposes it at Step P.3-whole-user, and
+`setup-isolated-setup-verify` check 8 flags it when missing.
+
 #### Whole-user with the per-repo dispatcher
 
 The `core.hooksPath`-shadowing trade-off above has a clean

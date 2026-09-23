@@ -272,6 +272,20 @@ standalone `git-global-post-checkout.sh`. Still run step 2 (set
    The operator must migrate any per-repo hooks they want to keep.
    `git config --global --unset core.hooksPath` is the reversal.
 
+4. **Let the sandbox read the shared hook dir.** Propose adding
+   `~/.claude/git-hooks/` to `sandbox.filesystem.allowRead` in the
+   operator's **user-scope** `~/.claude/settings.json` (merge diff
+   and ask, as for the other user-scope grants), plus
+   `~/.claude-config/git-hooks/` when the hooks are symlinked from
+   the sync repo — the sandbox checks the resolved path.
+   Without it the sandbox hides the directory, and git run by the
+   agent finds **no hook at all**: every sandboxed `git commit`
+   skips `pre-commit` (prek included), `commit-msg` and the rest
+   without a word, and CI is the first place the skipped checks
+   fail. The grant is read-only; the hooks already run outside the
+   sandbox. Rationale:
+   [`docs/setup/sandbox-troubleshooting.md` → Git hooks silently skipped for commits made inside the sandbox](../../../../docs/setup/sandbox-troubleshooting.md#git-hooks-silently-skipped-for-commits-made-inside-the-sandbox).
+
 After this step, future `git clone`, `git worktree add`, and
 `git checkout` operations anywhere on the host invoke the
 framework's universal post-checkout, which keeps each

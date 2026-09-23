@@ -44,6 +44,15 @@ reading this file; read the section for a check whose condition holds.
      or `setup-isolated-setup-update` to refresh the script copy.
    - ⚠ if the script drifted from its framework source-of-truth —
      surface the diff, propose `setup-isolated-setup-update`.
+   - ✗ if the hook dir is not readable **from a sandboxed Bash**:
+     `git hook run --ignore-missing post-checkout` succeeds either
+     way, so probe with `test -r ~/.claude/git-hooks/post-checkout`
+     and `test -r "$(readlink -f ~/.claude/git-hooks/post-checkout)"`
+     run inside the sandbox. Unreadable means every git command the
+     agent runs skips every hook silently — `pre-commit` and `prek`
+     included. Remediation: the user-scope `allowRead` grant in
+     [`docs/setup/sandbox-troubleshooting.md` → Git hooks silently skipped for commits made inside the sandbox](../../../../docs/setup/sandbox-troubleshooting.md#git-hooks-silently-skipped-for-commits-made-inside-the-sandbox),
+     applied by the user.
    - **Loud reminder** (every run, not a ✗), by flavour:
      - *Simple:* surface a one-line note that per-repo
        `.git/hooks/*` are inert across the host (per [`docs/setup/secure-agent-setup.md` → *Per-project vs whole-user scope*](../../../../docs/setup/secure-agent-setup.md#per-project-vs-whole-user-scope)).

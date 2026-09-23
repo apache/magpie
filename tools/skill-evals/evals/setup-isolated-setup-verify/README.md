@@ -5,12 +5,12 @@
 
 Behavioral evals for the `setup-isolated-setup-verify` skill.
 
-## Suites (15 cases total)
+## Suites (16 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
 | runtime-routing | Runtime routing | 2 | Codex and Gemini route to their native adapters and never require Claude files |
-| step-1-classify | The 12 checks | 8 | all-pass, sandbox disabled, missing scripts, version drift, project root missing, injection attempt, signing key unreadable in the sandbox (check 10), dev-tool paths missing from settings.local.json (check 8 ⚠) |
+| step-1-classify | The 12 checks | 9 | all-pass, sandbox disabled, missing scripts, version drift, project root missing, injection attempt, signing key unreadable in the sandbox (check 10), dev-tool paths missing from settings.local.json (check 8 ⚠), whole-user hook dir unreadable from the sandbox (check 8 ✗) |
 | step-2-recommend | After the report | 5 | all-pass, install needed, update needed, project-root missing, multiple gaps |
 
 ## Run
