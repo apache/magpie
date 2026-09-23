@@ -16,10 +16,9 @@
 
 **Security-pages checklist (Step 1g closed-bucket scan):**
 - Hand-off comment carries
-  `- [ ] <!-- apache-magpie: security-pages-checklist v1 --> Project security pages updated with CVE-2026-40187` — still unticked
-- No ticked `- [x]` checklist item anywhere on the tracker
+  `- [x] <!-- apache-magpie: security-pages-checklist v1 --> Project security pages updated with CVE-2026-40187` — ticked by the RM
 - No comment carries `<!-- apache-magpie: security-pages-reminder v1 -->`
-- `security_pages_reminder_pending: true`
+- `security_pages_reminder_pending: false`
 - `security_pages_url` = `https://myproject.apache.org/security` (from `projects/myproject/project.md`)
 
 Produce the numbered proposal for this tracker.

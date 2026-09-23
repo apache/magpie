@@ -990,6 +990,14 @@ will change and *why*. Group them by category:
     flip is what the RM cares about. Same PATCH-don't-post
     rationale as the rollup-comment upsert.
 
+  The `security-pages-checklist v1` checkbox is RM state, not
+  template content: compare bodies with that item's box
+  normalised to `- [ ]`, so a tick alone never counts as a
+  mismatch, and when a PATCH does go out, carry a ticked
+  `- [x]` over into the re-rendered body. Resetting it would
+  erase the RM's record and fire the security-pages reminder
+  for a step that is already done.
+
   **Body source.** The comment body comes from the project's
   configured CVE tool, in two **variants** picked by Step 5c:
 
@@ -1043,6 +1051,12 @@ will change and *why*. Group them by category:
     absolute-URL rule used elsewhere in this repo).
   - `CANNED_RESPONSES_URL` — absolute GitHub URL into the tracker
     repo's `<project-config>/canned-responses.md`.
+  - `SECURITY_PAGES_URL` — the `security_pages_url` key from
+    [`<project-config>/project.md`](../../../../<project-config>/project.md#repositories).
+    When the key is unset, render the link text without the link:
+    `[security pages](SECURITY_PAGES_URL)` becomes plain
+    `security pages`. This is the one sanctioned deviation from the
+    verbatim template, and the proposal flags the missing key.
 
   **Apply mechanic** — see the *Release-manager hand-off comment*
   bullet in Step 4 below; depending on the idempotency outcome it
@@ -1069,41 +1083,43 @@ will change and *why*. Group them by category:
   where the marker has not been recorded by the time the advisory has
   shipped.
 
-  **Trigger.** The `announced` label is set and the *Public advisory
-  URL* body field is populated (the advisory has demonstrably shipped),
-  but no ticked `- [x]` form of the checklist item — nor a comment
-  carrying the marker — exists anywhere on the tracker. Scan the issue
-  body and every comment for
-  ```html
-  <!-- apache-magpie: security-pages-checklist v1 -->
-  ```
-  followed by a ticked box; an unticked box inside the hand-off comment
-  is the *pending* state that fires the reminder, not the satisfied one.
+  **Trigger.** Step 1g recorded `security_pages_reminder_pending:
+  true` for a closed-`announced` tracker — the *Public advisory URL*
+  body field is populated (the advisory has demonstrably shipped), no
+  ticked `- [x] <!-- apache-magpie: security-pages-checklist v1 -->`
+  item exists anywhere on the tracker, and no comment carries the
+  reminder marker below. The trigger state only exists on a closed
+  tracker (the Step 14 close-out adds `announced` and closes the
+  tracker in one apply), so this proposal is reached through the
+  [1g](gather.md#1g-recently-closed-trackers--check-cveorg-publication-state)
+  closed-bucket scan, never through the open-tracker signals. An
+  unticked box in the hand-off comment is the *pending* state that
+  fires the reminder, not the satisfied one.
 
   **Proposed action.** A short status comment tagging the release
-  manager: one sentence on what the policy requires, the project's
-  security-pages URL (the `security_pages_url` key from
+  manager. Line 1 of the body is the reminder marker
+  ```html
+  <!-- apache-magpie: security-pages-reminder v1 -->
+  ```
+  followed by one sentence naming the outstanding item with a link to
+  the project's security pages (the `security_pages_url` key from
   [`<project-config>/project.md`](../../../../<project-config>/project.md#repositories);
-  when the key is unset, fall back to the plain phrase *"the project's
-  security pages"* with no link and flag the missing key in the
-  proposal), and the note that ticking the checkbox on the hand-off
-  comment marks the step done for future sync runs. The proposed
-  comment body itself embeds the marker inline in its own
-  `- [ ] Project security pages updated with CVE_ID` box (the same
-  form the hand-off comment carries), so a later
-  tick — or a `- [x]` edit after the RM confirms the update in a reply
-  — satisfies the trigger without another comment. Follow the
-  *"Brevity: emails state facts, not context"* rule from
-  [`AGENTS.md`](../../../../AGENTS.md): the RM has already seen the
-  hand-off comment's version of this ask; the reminder states the
-  outstanding item, not the rationale.
+  when the key is unset, use the plain phrase *"the project's security
+  pages"* with no link and flag the missing key in the proposal), and
+  the checklist item
+  `- [ ] <!-- apache-magpie: security-pages-checklist v1 --> Project security pages updated with CVE_ID`,
+  so ticking the box on either comment records the step. Follow the
+  [*"Brevity: emails state facts, not context"*](../../../../docs/editorial-guidelines.md#brevity-emails-state-facts-not-context)
+  rule: the RM has already seen the hand-off comment's version of this
+  ask; the reminder states the outstanding item, not the rationale.
 
-  **Guard.** Propose this at most once per tracker and never re-propose
-  while a reminder comment carrying the marker already exists (ticked
-  or not) — the unticked-box reminder is itself the recorded prompt;
-  a second one is noise. This is a reminder-and-record mechanism:
-  never propose editing the website, the tracker close-out, or any
-  label on this signal's behalf.
+  **Guard.** The reminder marker is what makes this once per tracker:
+  never re-propose while a comment carrying
+  `<!-- apache-magpie: security-pages-reminder v1 -->` exists, ticked
+  or not. The checklist marker cannot serve as the guard, because the
+  hand-off comment always carries it. This is a reminder-and-record
+  mechanism: never propose editing the website, reopening the
+  tracker, or any label on this signal's behalf.
 
 - **Publication-ready notification comment** — when this sync pass
   proposes populating the *Public advisory URL* body field (Step 14

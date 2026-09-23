@@ -3,8 +3,8 @@
     {
       "number": 1,
       "category": "status_comment",
-      "action": "Post a one-line reminder comment tagging the release manager to update the project's security pages (https://myproject.apache.org/security) with CVE-2026-40187, noting that ticking the checkbox on the hand-off comment records the step; the comment embeds the security-pages-checklist marker inline in its own unticked box so a later tick satisfies the trigger.",
-      "reason": "security_pages_reminder_pending is true — the announced label is set and the Public advisory URL is populated (the advisory has shipped), but the hand-off comment's security-pages checklist item is still unticked and no comment records the marker in ticked form."
+      "action": "Post a short reminder comment tagging the release manager: line 1 is the <!-- apache-magpie: security-pages-reminder v1 --> marker, then one sentence linking the project's security pages (https://myproject.apache.org/security) for CVE-2026-40187, then its own unticked security-pages-checklist item so ticking it records the step.",
+      "reason": "security_pages_reminder_pending is true \u2014 the tracker is closed-announced with the Public advisory URL populated (the advisory has shipped), the hand-off comment's checklist item is still unticked, and no reminder comment has been posted yet."
     }
   ],
   "labels_to_add": [],
