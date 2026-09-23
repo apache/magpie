@@ -7,7 +7,8 @@ mode: Meta
 description: >-
   Probe the secure-agent setup for restrictions that block legitimate
   work — SSH agent reachability, port binding, containers, the scratch
-  directory, the signing key, `gh` outside the sandbox. Names the
+  directory, the signing key, `gh` outside the sandbox, `prek` and
+  `uv` inside it. Names the
   troubleshooting entry and settings fix for each. Read-only.
 when_to_use: >-
   When the user says "doctor my sandbox", "why is the sandbox blocking
@@ -18,7 +19,7 @@ when_to_use: >-
 capability:
   - capability:platform
   - capability:reassess
-surface_hash: sha256:42ee88aec8f2e3ad
+surface_hash: sha256:c68cb4cb391524f3
 license: Apache-2.0
 ---
 
@@ -64,7 +65,7 @@ If a fail shows a failure mode not catalogued there, propose appending a new ent
   The skill **never** edits a settings file, **never** runs a command with `dangerouslyDisableSandbox`, and **never** installs anything.
   If a check fails, surface it and point at the catalog entry; do not auto-fix.
 - **Run every probe, even on early failure.** Do not stop at the first ✗.
-  A user may have one of six independent restrictions or all six, and finding them one re-run at a time is annoying.
+  A user may have one of seven independent restrictions or all seven, and finding them one re-run at a time is annoying.
 - **Distinguish ✗ (failing) from ⊘ (not applicable).** ✗ means the probe ran and the sandbox blocked it.
   ⊘ means the probe was skipped because a prerequisite is absent (e.g. no `docker` / `podman` on `PATH` → docker probe ⊘, not ✗).
 - **Surface evidence.** Each report line names the probe command, the exit code, and the relevant stderr snippet.
@@ -72,9 +73,9 @@ If a fail shows a failure mode not catalogued there, propose appending a new ent
 - **Map each ✗ to a catalog entry.** The fail report links directly to the matching section of [`docs/setup/sandbox-troubleshooting.md`](../../../../docs/setup/sandbox-troubleshooting.md).
   Do not paraphrase the remediation; the catalog is the single source of truth.
 
-## The 6 probes
+## The 7 probes
 
-The probes cover the six failure modes the catalog documents.
+The probes cover the catalog's failure modes that a sandboxed command can detect on its own; the signing entries that need a live touch or a terminal are verified by `setup-isolated-setup-verify` check 10 instead.
 New probes are added when new entries land in the catalog, so the two stay in lock-step.
 
 ### Probe 1 — SSH agent / Yubikey reachable
@@ -264,11 +265,35 @@ When the user reports a `gh` failure this probe does not reproduce, ask for the 
 **On ✗ → remediation:**
 [`docs/setup/sandbox-troubleshooting.md` — `gh` fails with TLS `OSStatus -26276` or `HTTP 401` inside the sandbox](../../../../docs/setup/sandbox-troubleshooting.md#gh-fails-with-tls-osstatus--26276-or-http-401-inside-the-sandbox).
 
+### Probe 7 — `prek` and `uv` usable inside the sandbox
+
+Tests whether the dev tools the framework's hooks and Python tools run on are found and can write their cache from a sandboxed Bash call.
+They live in `~/.local/bin`, which the harness reads only when the worktree's `.claude/settings.local.json` grants it; the committed project-scope entries are not applied.
+Inside the sandbox a read-denied directory looks exactly like an absent one, so the probe reads `settings.local.json` to tell a missing grant from a tool that is not installed.
+
+**Command:**
+
+```bash
+bash <skill-dir>/scripts/probe-7-dev-tools.sh
+```
+
+**Interpretation:**
+
+| Result | Status | Meaning |
+|---|---|---|
+| `✓ (found: …; ~/.cache writable)` | Pass | `prek` / `uv` run inside the sandbox and can write their caches. |
+| `✗ (found: …; ~/.cache not writable …)` | Fail | The tools start but cannot write their cache or state. |
+| `⚠ (… not found; ~/.local/bin is not in … settings.local.json)` | Warn | The grant is missing; the tools are most likely installed but hidden. |
+| `⊘ (… not found; ~/.local/bin is granted …)` | Skip | The grant is present and neither tool is installed there; not a sandbox restriction. |
+
+**On ✗ or ⚠ → remediation:**
+[`docs/setup/sandbox-troubleshooting.md` — `prek` or `uv` not found, or cannot write its cache, inside the sandbox](../../../../docs/setup/sandbox-troubleshooting.md#prek-or-uv-not-found-or-cannot-write-its-cache-inside-the-sandbox).
+
 ## After the report
 
 If every probe is ✓ or ⊘:
 
-> All six probes pass (or are not applicable). The sandbox is
+> All seven probes pass (or are not applicable). The sandbox is
 > not currently blocking the known failure modes catalogued in
 > `docs/setup/sandbox-troubleshooting.md`. If you hit a different
 > sandbox-shaped failure, follow the catalog's *Adding a new

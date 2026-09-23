@@ -1047,8 +1047,10 @@ project root it already adds:
 ```
 
 The helper writes that file only from outside the sandbox (it is in
-the harness's write-deny set), and the change applies from the next
-session. Confirm with `prek --version` in a fresh session.
+the harness's write-deny set). The harness re-reads it without a
+restart: the next sandboxed command already sees the new paths.
+Confirm with `prek --version`, or with the doctor skill's
+*dev-tools* probe.
 
 ### Notes
 

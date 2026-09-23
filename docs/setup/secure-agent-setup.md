@@ -1510,10 +1510,11 @@ automatically. Five classes of failure are recognised today:
 | `127.0.0.1 … Permission denied` / `Operation not permitted … bind` / `Errno 49 … assign requested address` / `Connection refused … 127.0.0.1` | [Localhost port-bind blocked](sandbox-troubleshooting.md#test-cannot-bind-to-a-localhost-port) |
 | `/tmp/…: Read-only file system` / `mktemp: failed to create` | [Temp files fail under `/tmp`](sandbox-troubleshooting.md#temp-files-fail-with-read-only-file-system-under-tmp) |
 | `x509: OSStatus -26276` / `HTTP 401: Requires authentication (https://api.github.com…` | [`gh` ran inside the sandbox](sandbox-troubleshooting.md#gh-fails-with-tls-osstatus--26276-or-http-401-inside-the-sandbox) |
+| `command not found: prek` / `uv: command not found` (also `uvx`) | [`prek` or `uv` not found inside the sandbox](sandbox-troubleshooting.md#prek-or-uv-not-found-or-cannot-write-its-cache-inside-the-sandbox) |
 
 The hint also tells the user to run
 `/magpie-setup:isolated-setup-doctor` for a structured probe of all
-six failure modes, so a single mid-flow failure can lead to a
+seven failure modes, so a single mid-flow failure can lead to a
 broader sandbox health-check.
 
 ### Why install it user-scope, not project-scope

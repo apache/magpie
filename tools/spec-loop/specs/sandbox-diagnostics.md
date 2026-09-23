@@ -64,7 +64,7 @@ error, and two skills that probe or verify the setup on demand.
   exiting 1 so the line reaches the model and the user. Tests under
   `tools/agent-isolation/tests/test_sandbox_error_hint.py`.
 - Skill `setup-isolated-setup-doctor` — live, read-only probes, one per
-  catalog entry (`## The 6 probes`), each reporting ✓ / ✗ / ⊘ / ⚠ with
+  catalog entry (`## The 7 probes`), each reporting ✓ / ✗ / ⊘ / ⚠ with
   the command and its output as evidence, and each mapping ✗ to the
   matching catalog anchor. The `gh` probe runs `gh` through `sh -c` so
   the `excludedCommands` exemption cannot apply to the probe itself,

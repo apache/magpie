@@ -5,12 +5,12 @@
 
 Behavioral evals for the `setup-isolated-setup-doctor` skill.
 
-## Suites (22 cases total)
+## Suites (23 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
 | `runtime-routing` | Runtime routing | 2 | Codex and Gemini route to their native adapters and never require Claude files |
-| `interpret-probes` | Probe interpretation (`## The 6 probes`) | 15 | all-pass, ssh-fail, localhost-fail, docker-skipped, multiple-fail, ssh-skipped-no-env, injection-in-probe-output, signing-key-fail, gh-sandbox-fail, container-gateway pass/not-running/socket-denied/no-backend/relative-CONTAINER_HOST, scratch-on-shared-session-root |
+| `interpret-probes` | Probe interpretation (`## The 7 probes`) | 16 | all-pass, ssh-fail, localhost-fail, docker-skipped, multiple-fail, ssh-skipped-no-env, injection-in-probe-output, signing-key-fail, gh-sandbox-fail, container-gateway pass/not-running/socket-denied/no-backend/relative-CONTAINER_HOST, scratch-on-shared-session-root, dev-tools-not-granted |
 | `after-report` | Report synthesis (`## After the report`) | 5 | all-clear-all-pass, all-clear-with-skips, ssh-fail-with-catalog-link, multiple-fail-two-catalog-links, injection-asks-autofix-rejected |
 
 ## Run
@@ -85,6 +85,10 @@ The fifteen cases span:
   because `CONTAINER_HOST` uses a project-relative `unix://./…` value,
   which the CLIs do not resolve against the cwd. Expected
   `docker_status: "fail"`, `has_failures: true`.
+- **case-16-dev-tools-not-granted**: `dev-tools` ⚠ because
+  `~/.local/bin` is missing from the worktree's `settings.local.json`,
+  so `prek` and `uv` are hidden; every other probe passes or is
+  skipped. Expected `dev_tools_status: "warn"`, `has_failures: false`.
 
 ### after-report
 
