@@ -1,0 +1,16 @@
+{
+  "items": [
+    {
+      "number": 1,
+      "category": "status_comment",
+      "action": "Post a one-line reminder comment tagging the release manager to update the project's security pages (https://myproject.apache.org/security) with CVE-2026-40187, noting that ticking the checkbox on the hand-off comment records the step; the comment embeds the security-pages-checklist marker inline in its own unticked box so a later tick satisfies the trigger.",
+      "reason": "security_pages_reminder_pending is true — the announced label is set and the Public advisory URL is populated (the advisory has shipped), but the hand-off comment's security-pages checklist item is still unticked and no comment records the marker in ticked form."
+    }
+  ],
+  "labels_to_add": [],
+  "labels_to_remove": [],
+  "milestone_create_needed": false,
+  "assignee_proposed": null,
+  "has_bare_issue_numbers": false,
+  "security_pages_reminder_proposed": true
+}

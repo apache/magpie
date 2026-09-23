@@ -411,6 +411,19 @@ hand-off comment, all of it single clicks in the CVE tool —
    (Step 14). The RM does not paste JSON anywhere, does not
    promote the record from `publish-ready` to `public`, does
    not close the tracker.
+4. **Update the project's public security pages** with the
+   advisory once the email has shipped — the
+   [ASF security-committers policy](https://www.apache.org/security/committers.html)
+   requires it as a post-announcement step. The edit lives on the
+   project website (the URL comes from the `security_pages_url`
+   key in the project manifest), outside the tracker and the CVE
+   tool, so sync cannot perform it and does not gate the close-out
+   on it. The hand-off comment carries a
+   `Project security pages updated with CVE_ID` checkbox; ticking
+   it records the completion marker for future sync runs. A sync
+   that sees the advisory shipped but the box still unticked posts
+   a one-line reminder comment — at most once per tracker, never
+   blocking the close-out.
 
 The severity score follows the
 [ASF severity rating](https://security.apache.org/blog/severityrating)
@@ -470,8 +483,12 @@ one pass sync:
     at that moment**, closes the milestone too.
 11. Posts a purely-informational *wrap-up comment* tagging the
     RM as a timeline marker that the lifecycle is complete. No
-    manual asks — everything actionable was already taken care
-    of by the steps above.
+    manual asks from the close-out itself — everything actionable
+    was already taken care of by the steps above. (The one
+    remaining RM-owned step, updating the project's public
+    security pages, is tracked by the hand-off comment's checkbox
+    and its own reminder comment — see Step 13 item 4 — not by
+    the wrap-up comment.)
 
 Until *Public advisory URL* is populated, the sync skill will
 not propose `announced` or any of the downstream steps —
@@ -490,11 +507,16 @@ comment is posted in that case explaining the deferral.
 ### Step 15 — RM verifies the close-out landed
 
 There is no manual close step. The release manager's last
-post-Send-Email action is **none** — sync at Step 14 closes the
+tracker-side action is **none** — sync at Step 14 closes the
 tracker, promotes the CVE record to `public` via
 `<cve-tool>.publish()`, archives the board item, and
 (conditionally) closes the milestone. The RM receives the
-wrap-up comment as a timeline event marker.
+wrap-up comment as a timeline event marker. The one remaining
+RM-owned task is off the tracker entirely: the project's public
+security pages must list the advisory (Step 13 item 4). If the
+hand-off comment's checkbox is still unticked at this point, a
+sync run posts a one-line reminder comment; once the RM ticks
+the box, the marker is recorded and no further reminders fire.
 
 A tracker that sits on `announced - emails sent` without
 `announced` for more than a day or two is a signal that sync

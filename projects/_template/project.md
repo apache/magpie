@@ -90,6 +90,7 @@ produces.
 | `upstream_contributing_docs_url` | TODO | |
 | `upstream_genai_disclosure_anchor` | TODO: URL + anchor for the project's Gen-AI disclosure guideline | |
 | `upstream_security_policy_url` | TODO: `https://github.com/<upstream>/security/policy` | |
+| `security_pages_url` | TODO: e.g. `https://foo.apache.org/security` | Public security pages on the project website — updated by the release manager after each advisory (ASF security-committers policy step); read by `security-issue-sync` for the security-pages checklist reminder. Leave unset if the project has no security pages — the skill then uses the plain phrase without a link |
 
 ## Mailing lists
 

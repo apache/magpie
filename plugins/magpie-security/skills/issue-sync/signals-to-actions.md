@@ -1056,6 +1056,55 @@ will change and *why*. Group them by category:
   body now carries (*"flipped to OAuth-pushed variant after this
   sync's auto-push succeeded"* or vice-versa).
 
+- **Security-pages reminder comment** — the ASF security-committers
+  policy's post-announcement step *"The project team updates the
+  project's security pages"* is a website edit, not a tracker write, so
+  sync cannot perform it and cannot gate the close-out on it (the
+  close-out fires on the archive-URL signal and must not be delayed by
+  an out-of-band website change). What sync *can* do is carry the
+  checklist item that records it: both hand-off comment variants embed a
+  `- [ ] <!-- apache-magpie: security-pages-checklist v1 --> Project
+  security pages updated with CVE_ID` box, and ticking the box records
+  the completion marker on the tracker. This proposal covers the case
+  where the marker has not been recorded by the time the advisory has
+  shipped.
+
+  **Trigger.** The `announced` label is set and the *Public advisory
+  URL* body field is populated (the advisory has demonstrably shipped),
+  but no ticked `- [x]` form of the checklist item — nor a comment
+  carrying the marker — exists anywhere on the tracker. Scan the issue
+  body and every comment for
+  ```html
+  <!-- apache-magpie: security-pages-checklist v1 -->
+  ```
+  followed by a ticked box; an unticked box inside the hand-off comment
+  is the *pending* state that fires the reminder, not the satisfied one.
+
+  **Proposed action.** A short status comment tagging the release
+  manager: one sentence on what the policy requires, the project's
+  security-pages URL (the `security_pages_url` key from
+  [`<project-config>/project.md`](../../../../<project-config>/project.md#repositories);
+  when the key is unset, fall back to the plain phrase *"the project's
+  security pages"* with no link and flag the missing key in the
+  proposal), and the note that ticking the checkbox on the hand-off
+  comment marks the step done for future sync runs. The proposed
+  comment body itself embeds the marker inline in its own
+  `- [ ] Project security pages updated with CVE_ID` box (the same
+  form the hand-off comment carries), so a later
+  tick — or a `- [x]` edit after the RM confirms the update in a reply
+  — satisfies the trigger without another comment. Follow the
+  *"Brevity: emails state facts, not context"* rule from
+  [`AGENTS.md`](../../../../AGENTS.md): the RM has already seen the
+  hand-off comment's version of this ask; the reminder states the
+  outstanding item, not the rationale.
+
+  **Guard.** Propose this at most once per tracker and never re-propose
+  while a reminder comment carrying the marker already exists (ticked
+  or not) — the unticked-box reminder is itself the recorded prompt;
+  a second one is noise. This is a reminder-and-record mechanism:
+  never propose editing the website, the tracker close-out, or any
+  label on this signal's behalf.
+
 - **Publication-ready notification comment** — when this sync pass
   proposes populating the *Public advisory URL* body field (Step 14
   — see the *Advisory archived on `<users-list>`* row of the Step 1d

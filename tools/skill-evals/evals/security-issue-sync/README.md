@@ -14,7 +14,7 @@ skipped — all low-signal for structured-output evals.
 |------|------|-------|-------|
 | 1f | Process step identification | 7 | Decision table covering steps 1-2 through 14 |
 | 2a | Observed state | 3 | Step 11 (PR merged), step 6 (CVE needed), step 2 (stale) |
-| 2b | Proposed changes | 3 | Label swap, milestone create, providers wave |
+| 2b | Proposed changes | 8 | Label swap, milestone create, providers wave, disclosure overdue, distributor pre-announce, reporter unresponsive + replied, security-pages reminder |
 | 2c | Next-step recommendation | 4 | Steps 3, 6, 11, 13 |
 | Guardrails | Guardrail violation detection | 3 | CVSS propagation, ASF project naming, clean pass |
 | 3 | Confirm with user | 3 | apply-all, selective, cancel |
@@ -30,6 +30,7 @@ skipped — all low-signal for structured-output evals.
 - **Providers milestone is never the PR milestone**: For providers scope the milestone is the next wave date (2b case-3).
 - **CVE allocate skill explicitly named and linked**: Step-6 next-step must name and link `security-cve-allocate` (2c case-2).
 - **No-action parking**: Step-11 produces `has_concrete_action: false` (2c case-3).
+- **Security-pages reminder fires only post-advisory, once**: with `announced` + *Public advisory URL* populated and the hand-off comment's checklist item still unticked, the reminder status comment is proposed with `security_pages_reminder_proposed: true`; a ticked marker or an unshipped advisory proposes nothing (2b case-8).
 - **Golden rule 2 — no bare issue numbers**: `has_bare_issue_numbers` must always be false.
 - **CVE-affecting trackers walked individually**: in bulk mode, any tracker whose `proposed_body_field_updates` names a CVE-publication field (Title, Short public summary for publish, CWE, Severity, Affected versions, Reporter credited as, Remediation developer, PR with the fix, Public advisory URL) must end up in `cve_affecting` and the `walk_order` is ascending by tracker number (bulk-orchestration cases 2 + 3).
 - **Non-CVE-affecting trackers bundled**: trackers whose proposals are limited to label flips, milestone touches, assignee swaps, project-board moves, status-rollup entries, reporter Gmail drafts, or RM hand-off comments end up in `non_cve_affecting` (bulk-orchestration case 1 + the two label-only trackers in case 2).

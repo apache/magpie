@@ -400,7 +400,16 @@ commands, no JSON paste:**
    advisory-email preview — for the Vulnogram adapter, the `#email` tab
    on the record. Verify recipients (`<users-list>` and
    `<announce-list>`) and body, then click the send action.
-3. **Stop.** Sync drives the rest at the archive-URL trigger
+3. **Update the project's public security pages** with the advisory
+   once the email has shipped. The
+   [ASF security-committers policy](https://www.apache.org/security/committers.html)
+   requires it, and it is the one step sync cannot do for you — the
+   edit lives on the project website (URL: the `security_pages_url`
+   key in the project manifest), not in the CVE tool and not on the
+   tracker. Ticking the `Project security pages updated` checkbox in
+   the hand-off comment records the step; if it is still unticked when
+   the advisory has shipped, sync posts a one-line reminder.
+4. **Stop.** Sync drives the rest at the archive-URL trigger
    ([Step 14](process.md#step-14--capture-the-public-advisory-url-and-close-out)).
 
 Sync does the `fix released → announced - emails sent` flip at Step 14,
@@ -435,10 +444,13 @@ for the full sequence.
 
 ### Publishing the CVE and closing the issue
 
-**Nothing to do.** Step 14 above already promoted the CVE record to
-`public` in the project's CVE tool, closed the tracker, and archived it
-from the board. You receive a purely-informational wrap-up comment as a
-timeline marker that the lifecycle is complete. See
+**Nothing to do on the tracker.** Step 14 above already promoted the
+CVE record to `public` in the project's CVE tool, closed the tracker,
+and archived it from the board. You receive a purely-informational
+wrap-up comment as a timeline marker that the lifecycle is complete.
+The only post-send task left is the project-website edit from item 3
+above — update the public security pages and tick the hand-off
+comment's checkbox so sync records the step. See
 [Step 15](process.md#step-15--rm-verifies-the-close-out-landed).
 
 A tracker that sits on `announced - emails sent` without `announced` for
