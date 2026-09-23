@@ -14,6 +14,7 @@ exclude-newer-span = "P7D"
 
 [manifest]
 members = [
+    "adversarial-review",
     "agent-guard",
     "agent-isolation",
     "ai-tutors",
@@ -54,6 +55,11 @@ members = [
     "vetted-ops",
     "vulnogram-api",
 ]
+
+[[package]]
+name = "adversarial-review"
+version = "0.1.0"
+source = { editable = "tools/adversarial-review" }
 
 [[package]]
 name = "agent-guard"
