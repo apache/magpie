@@ -62,11 +62,16 @@
 
 # When this file was last touched. The check script uses this as the
 # minimum age the entries below claim to satisfy.
-pinned_at = "2026-07-08"
+pinned_at = "2026-09-23"
 
 [tools.bubblewrap]
-version = "0.11.2"
-released = "2026-04-23"
+version = "0.13.0"
+released = "2026-09-22"
+# Shorter than the 7-day default so 0.13.0 could be adopted a day
+# after release; it carries the 0.12.0 sandbox-setup symlink fix
+# (GHSA-pxhw-h44j-8pfx). Raise it back to the default if a later
+# release needs a fix-forward.
+cooldown_days = 1
 purpose = """
 Linux user-namespace sandbox. The strongest layer of credential
 isolation: enforces the `denyRead` / `allowRead` filesystem rules
@@ -80,10 +85,10 @@ upstream_releases = "https://api.github.com/repos/containers/bubblewrap/releases
 # Install commands per distro (use the package manager's syntax for
 # requesting a specific version where supported). See
 # `docs/setup/secure-agent-setup.md` for adopter-facing install steps.
-install.apt = "apt-get install --no-install-recommends bubblewrap=0.11.2-*"
-install.dnf = "dnf install bubblewrap-0.11.2"
+install.apt = "apt-get install --no-install-recommends bubblewrap=0.13.0-*"
+install.dnf = "dnf install bubblewrap-0.13.0"
 install.brew = "# macOS does not need bubblewrap; it uses Seatbelt."
-install.from_source = "https://github.com/containers/bubblewrap/releases/tag/v0.11.2"
+install.from_source = "https://github.com/containers/bubblewrap/releases/tag/v0.13.0"
 
 [tools.socat]
 version = "1.8.1.3"

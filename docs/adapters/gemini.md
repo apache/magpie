@@ -364,7 +364,7 @@ Apply the approved cleanup before removing the framework source so no known hook
   Repeat verification after upgrades.
 - **Validation scope:** native API tests cover policy decisions across four approval modes and interactive/headless execution.
   The Linux adopter pilot exercised skill loading, the setup lifecycle, guard behavior, and shell/native-edit approval; interactive Plan Mode and authenticated MCP workflows remain unverified.
-  The pilot and live sandbox probes used bubblewrap 0.6.1, below the framework's 0.11.2 pin, so they do not establish validation with the [pinned primitives](../../tools/agent-isolation/pinned-versions.toml).
+  The pilot and live sandbox probes used bubblewrap 0.6.1, below the framework's 0.13.0 pin, so they do not establish validation with the [pinned primitives](../../tools/agent-isolation/pinned-versions.toml).
 
 ## Developer checks
 
