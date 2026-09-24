@@ -5,21 +5,16 @@ name: optimize-skill
 family: utilities
 mode: Meta
 description: >-
-  Make an existing framework skill leaner without changing what it
-  does: split an oversized body into siblings, lift hardcoded values
-  into placeholders, move bulk reads and per-item fetches out of
-  context, pull embedded shell and Python into scripts, a tool or the
-  vetted-ops catalogue, and — with the maintainer writing the words —
-  rewrite verbose prose paragraph by paragraph. Every pass is a proposal, and
-  the validator is green before and after.
+  Make an existing framework skill leaner without changing its behavior.
+  Diagnose and propose seven passes: split, config-lift, out-of-context,
+  fetch-upfront, preflight-classifier, extract-code, and a
+  maintainer-written rewrite. Validate before and after every approved pass.
 when_to_use: >-
-  When the user says "optimize <skill>", "this SKILL.md is too long",
-  "split <skill> into subdocs", "make <skill> read less into context",
-  or "rewrite <skill> with me". Also after an audit flags an
-  over-500-line body or hardcoded values. For a net-new skill, use
-  write-skill.
+  When the user asks to optimize, shorten, split, de-hardcode, rewrite, or
+  reduce the context cost of an existing skill, or an audit flags more than
+  500 lines or hardcoded values. For a new skill, use write-skill.
 capability: capability:authoring
-surface_hash: sha256:be9968c266788028
+surface_hash: sha256:0490765e0debc390
 license: Apache-2.0
 ---
 
@@ -80,27 +75,25 @@ is in. `/magpie-setup verify` is the full diagnostic.
 
 <!-- END MAGPIE PREFLIGHT -->
 
-Make an existing skill leaner without changing what it does.
+Make an existing skill leaner without changing its behavior.
 
-There are two kinds of pass. The first six move, rewire or extract
-without altering a word of the instructions — five in
-[`patterns.md`](patterns.md), plus extract-code below. The seventh,
-[`rewrite.md`](rewrite.md), changes the words — the maintainer writes
-them, paragraph by paragraph, and the skill learns their style as it
-goes.
+The first six passes preserve instruction wording while moving,
+rewiring, or extracting content: five live in
+[`patterns.md`](patterns.md), with extract-code below.
+The seventh, [`rewrite.md`](rewrite.md), changes wording with the
+maintainer writing each paragraph and teaching the skill their style.
 
-The validator is the gate: green before the first pass, green after the
-last. To write a skill from scratch, use
-[`write-skill`](../write-skill/SKILL.md) instead.
+The validator must be green before and after an approved pass.
+For a new skill, use [`write-skill`](../write-skill/SKILL.md).
 
 This skill reads only framework files, so the external-content rules do
 not apply to it.
 
 ## What counts as small enough
 
-Two budgets, both measured rather than guessed. They were set at the
-catalogue median when this skill was written, so half the skills already
-met them; a skill past either one is an outlier, not merely large.
+Measure two budgets, set from the catalogue median when this skill was
+written.
+A skill over either target is an outlier.
 
 | | target | why |
 |---|---|---|
@@ -113,46 +106,41 @@ Measure both before Step 1 and again at Step 4:
 uv run --project tools/skill-token-count skill-token-count --write
 ```
 
-The always-on budget is the one to spend effort on first. A body only
-costs when its skill runs; the frontmatter costs whether or not anyone
-ever invokes it, multiplied by every skill in the catalogue. Cutting 200
-tokens there beats cutting 2,000 from a body nobody triggers this week.
+Prioritize the always-on budget.
+The body costs only when invoked; frontmatter costs in every session for
+every skill.
 
-For reference when this was set: 75 skills, median body 4,614 tokens,
-p90 10,613, largest 28,346; median always-on 200, largest 398.
-`PRINCIPLES.md` P15's 500-line cap still applies as the structural
-limit — these are the context budgets underneath it.
+Reference baseline: 75 skills; body median 4,614 tokens, p90 10,613,
+largest 28,346; always-on median 200, largest 398.
+`PRINCIPLES.md` P15's 500-line structural cap still applies.
 
 Report both numbers in Step 5 whether or not the pass moved them.
 
 ## Inputs
 
-**Target** — a skill name, a directory, or a `SKILL.md` path.
+- **Target** — a skill name, directory, or `SKILL.md` path.
+- **`--all`** or **`over:<N>`** — diagnose and rank every skill without
+  editing; the default threshold is the 500-line P15 cap.
+- **`pass:<name>`** — restrict diagnosis to named passes; otherwise
+  propose every applicable pass.
 
-**`--all`** or **`over:<N>`** — diagnose every skill instead, ranking
-candidates without touching anything. The default threshold is 500
-lines, the `PRINCIPLES.md` P15 cap.
-
-**`pass:<name>`** — restrict to named passes. Default is to propose
-every applicable one.
-
-With no target and no selector, diagnose everything read-only and let
-the maintainer choose.
+With no target or selector, diagnose everything read-only and let the
+maintainer choose.
 
 ## Prerequisites
 
-`uv` runs the validator, which is the gate — without it, stop and say
-so. `git` isolates the diff, so prefer a clean tree or a branch.
-`doctoc` regenerates a TOC when headings move; if it is missing,
-surface the manual step rather than skipping it quietly.
+`uv` runs the validator; stop if it is unavailable.
+Use `git` to isolate the diff, preferably on a clean tree or branch.
+Use `doctoc` when headings move, or report the manual step if it is
+unavailable.
 
 ## Step 0 — Check the ground
 
-The target must resolve to a real skill directory. The validator must
-be **green before you start** — optimization is layered on a working
-skill, not a way to fix a broken one, so hand back the failures and let
-the maintainer fix correctness first. The working tree should be clean
-enough that this diff is reviewable on its own.
+Resolve the target to a real skill directory and require a **green**
+validator before editing.
+Hand back baseline failures for correction; optimization starts from a
+working skill.
+Keep the diff isolated and reviewable.
 
 ## Step 1 — Diagnose
 
@@ -183,105 +171,81 @@ For a sweep, rank by cap overflow times distinct smells and stop there.
 
 ## Step 2 — Propose
 
-Propose the applicable passes lowest-blast-radius first: a file move
-before a content lift before a tool rewire, and the rewrite pass last
-because it is the only one that changes wording. For each, state the
-files touched, the expected delta, and the guarantee from
+Propose applicable passes from lowest to highest blast radius: file
+move, content lift, tool rewire, then rewrite because only it changes
+wording.
+For each pass, name the files, expected delta, and guarantee from
 [`patterns.md`](patterns.md).
 
 Propose only. The maintainer picks which passes run, and in what order.
 
 ## Step 3 — Apply one pass at a time
 
-**Restructure passes** (*split*, *config-lift*) move text and change
-none of it. Use `git mv` for a whole file; otherwise move the exact
-bytes and leave a one-line pointer behind. Never paraphrase something
-you moved — that is a behaviour change wearing a refactor's clothes.
+**Restructure passes** (*split*, *config-lift*) move exact text.
+Use `git mv` for a whole file; otherwise move identical bytes and leave
+a one-line pointer.
 
 **Rewire passes** (*out-of-context*, *fetch-upfront*,
-*preflight-classifier*) change how a step runs, not what it decides.
-They route through an existing deterministic tool such as
+*preflight-classifier*) change execution, not decisions.
+Route through a deterministic tool such as
 [`github-body-field`](../../../../tools/github-body-field/README.md) or
-[`github-rollup`](../../../../tools/github-rollup/README.md). If a
-rewire would change what the skill proposes to a human, it is not a
-rewire — stop and take it through normal review.
+[`github-rollup`](../../../../tools/github-rollup/README.md).
+If human-facing proposals change, stop and use normal review.
 
-**The extract-code pass** takes code out of the body entirely. A script
-runs without entering the context, so embedded code is the one content
-that can be removed rather than merely relocated — the body keeps what
-the command is for and how to read its output, which is the part a model
-is actually for. Three destinations, and the choice is not stylistic:
+**The extract-code pass** removes complete programs from model context.
+Keep the command's purpose and output interpretation in the body, then
+choose the destination by operational need:
 
-- **`scripts/` beside the skill** — a self-contained command with no
-  dependencies. The default.
-- **A project under `tools/`** — it needs dependencies, tests, or is
-  worth running outside this skill. Follow `tools/AGENTS.md`: a README
-  declaring its capability and prerequisites, and a workspace entry.
-- **The vetted-ops catalogue** — the command is read-only, takes a
-  closed set of parameters, and would otherwise **prompt for
-  confirmation on every run**. Moving it out of the body does not help
-  if each invocation then stops for approval; a fixed operation in the
-  catalogue is covered by one allow rule and asks nothing. Adding one is
-  a reviewed change to `ops.py` and a caller's grant, never a runtime
-  decision, so propose it and stop.
+- **Sibling `scripts/`** — default for a dependency-free command.
+- **A `tools/` project** — for dependencies, tests, or reuse outside the
+  skill; follow `tools/AGENTS.md` for its README, declared capability and
+  prerequisites, and workspace entry.
+- **The vetted-ops catalogue** — for a read-only operation with closed
+  parameters that would otherwise prompt every run.
+  Adding one requires reviewed changes to `ops.py` and the caller's
+  grant, so propose it and stop.
 
-Check the prompting cost before choosing. A script the agent runs on
-every invocation, behind a prompt, has traded tokens for interruptions —
-which is worse, because a person pays for it rather than a budget.
+Check prompt cost before choosing; do not trade tokens for a human
+approval on every invocation.
+Extract code **byte-identically** because paraphrasing changes the
+program.
 
-Extracted code must come out **byte-identical**. It is executable: a
-paraphrase is not a rewording, it is a different program.
+Do not extract command *shapes* containing runtime placeholders such as
+`<tracker>`, `<N>`, or `<target>`.
+They are instructions written in shell, not runnable programs.
 
-**Most of what looks like code in this framework is not.** A fenced
-block full of `<tracker>`, `<N>`, `<target>` is a command *shape* the
-agent fills in per run — an instruction written in shell, not a program.
-There is nothing to extract, and moving it to a script would replace a
-readable recipe with a file that cannot run.
+Catalogue evidence shows this pass is rare: only 482 of roughly 28,700
+tokens in shell and Python fences were multi-line and placeholder-free,
+mostly too small to beat a pointer line.
+It applied to `setup-isolated-setup-doctor`, whose six deterministic
+probes used 2,971 tokens, or 59% of its budget.
+Require all three traits: **complete, large enough to matter, and
+unnecessary for the model to read**.
 
-The measurement, taken across the catalogue: of roughly 28,700 tokens
-inside `bash` and `python` fences, **482** are multi-line and free of
-placeholders, spread over four skills in blocks of 32 to 215 tokens. A
-pointer line costs about what those blocks cost. So the honest answer
-for nearly every skill is that this pass does not apply.
+**The rewrite pass** follows [`rewrite.md`](rewrite.md).
+The maintainer writes each paragraph; apply their earlier edits to later
+drafts.
 
-It applied to `setup-isolated-setup-doctor` because its six probes were
-whole programs — self-contained, deterministic, printing a fixed line
-the skill then interprets — and they were 2,971 tokens, 59% of that
-skill's budget. That is the shape to look for: **a complete program,
-large enough to matter, that a model never needs to read.** Two out of
-three is not enough.
+**A moved heading takes every reference with it:**
 
-**The rewrite pass** is different and has its own file:
-[`rewrite.md`](rewrite.md). The maintainer writes the words; the skill
-carries paragraphs one at a time and applies what it has learned from
-their earlier edits to the ones that follow.
+- **Eval `step-config.json`** — update `skill_md` and `step_heading`.
+  Find matches with `grep -rl '<heading text>'
+  tools/skill-evals/evals/`.
+- **Anchor links** — update `other.md#the-heading` references; whole-tree
+  `lychee` verifies them.
+- **Heading levels** — a moved mid-body block may need to become a valid
+  top-level section.
+  This is the only byte a split may change, and its anchor and eval
+  matcher must follow.
 
-**A moved heading breaks things that point at it.** Before calling a
-restructure pass done, follow every reference to the headings you moved:
-
-- **Eval `step-config.json`** — a suite builds its prompt live from
-  `skill_md` plus `step_heading`, so a heading that moved to a sibling
-  leaves the suite extracting from a file that no longer contains it.
-  Update both fields. `grep -rl '<heading text>'
-  tools/skill-evals/evals/` finds them.
-- **Anchor links** — `other.md#the-heading` anywhere in the tree.
-  `lychee` catches these, which is why it runs over the whole tree
-  rather than the diff.
-- **Heading levels.** A block cut from mid-body starts at `###` and
-  cannot open a new file, so it shifts a level. That changes the anchor
-  *and* the `step_heading` string an eval matches on — so it is the one
-  byte a split is allowed to change, and every reference has to follow.
-
-Neither the validator nor `prek` sees the first of these. Only running
-the suite does, which is the argument for Step 4 running it at all.
+Only the eval suite catches a stale `step-config.json` extraction.
 
 After each pass, regenerate the TOC if headings moved and re-run the
 validator. One pass per commit.
 
 ## Step 4 — Prove nothing broke
 
-The validator must return the same green it returned at Step 0, and the
-budgets from *What counts as small enough* must have moved the right way.
+Require the Step 0 validator result and measure both budgets again.
 
 **Run the skill's eval suite if it has one**, at
 `tools/skill-evals/evals/<skill>/`:
@@ -290,53 +254,44 @@ budgets from *What counts as small enough* must have moved the right way.
 tools/skill-evals/magpie-run-evals.sh tools/skill-evals/evals/<skill>
 ```
 
-Run it **before the first pass as well**, and compare. A suite you only
-ran afterwards cannot tell a regression from a case that was already
-failing.
+Run it before the first pass and compare; an after-only run cannot
+distinguish regressions from baseline failures.
 
-Some suites are not deterministic — the same unchanged tree grades
-differently between runs. When a case flips, say so plainly instead of
-treating either run as the verdict: name the case, say the suite varies,
-and let the maintainer decide. Claiming a rewrite is proven safe on a
-suite that cannot hold still is worse than admitting the gap.
+If an unchanged case flips, name it as nondeterministic and let the
+maintainer decide rather than claiming either result proves safety.
 
-A skill with no suite is not blocked, but say it has none — that is the
-maintainer's cue that the validator is the only gate on this change.
+A missing suite does not block the pass, but report that the validator
+was its only gate.
 
-For a restructure pass, show the moved bytes are the same bytes:
-deletions in the body matching additions in the siblings, plus the new
-pointer. For a rewire, show the proposals a human signs off on are
-unchanged and only the cost moved. For a rewrite pass, the maintainer
-approved each paragraph as it went, so the record is the diff itself.
+For restructure, match body deletions to sibling additions plus the new
+pointer.
+For rewire, show that human-facing proposals stayed unchanged.
+For rewrite, the approved paragraph diff is the record.
 
 If the validator goes red, or you cannot show the behaviour held,
 **revert the pass**. Never ship half of one.
 
 ## Step 5 — Hand back
 
-Per pass: files touched, the delta, validator result, evidence. Do not
-commit or open a PR unless asked. After a rewrite pass, also propose
-the learned style rules per [`rewrite.md`](rewrite.md).
+Report files, delta, validator result, and evidence per pass.
+Do not commit or open a PR unless asked.
+After rewrite, propose learned style rules from
+[`rewrite.md`](rewrite.md).
 
 If it was a sweep, restate what is still on the list.
 
 ## Hard rules
 
-- **Structure changes, behaviour does not.** Except in the rewrite
-  pass, where wording changes and the maintainer writes every word.
-- **Moved bytes are identical bytes**, heading level excepted. A
-  paraphrase during a move is a behaviour change in disguise.
-- **A heading that moves takes its references with it** — eval
-  `step-config.json`, anchor links, anything matching on the string.
-- **Propose before applying**, every pass, never a batch.
-- **The validator is the gate**, green before and after. A pass that
-  needs it relaxed is not an optimization.
-- **Learned style rules are a proposal too.** Show the diff; never
-  write them silently.
-- **Measure, before and after, every pass.** Both budgets and the eval
-  suite. A pass reported without numbers is an opinion.
-- **Never touch the snapshot.** Framework changes go via PR to
-  `apache/magpie`.
+- Preserve behavior; only maintainer-written rewrite wording may change.
+- Move identical bytes except for a necessary heading-level change, and
+  update every heading reference.
+- Propose before applying; never batch passes.
+- Require a green validator and measure both budgets and evals before
+  and after every pass.
+- Propose learned style rules as a visible diff; never write them
+  silently.
+- Never touch the snapshot; framework changes go through an
+  `apache/magpie` PR.
 
 ## References
 
