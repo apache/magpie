@@ -128,3 +128,14 @@ def test_the_shipped_claude_command_is_the_generated_one():
     """The plugin publishes this file as its Claude Code command. Regenerate it with
     `python -m adversarial_review commands --harness claude` (the `content` field)."""
     assert SHIPPED.read_text(encoding="utf-8") == render("claude")[1]
+
+
+def test_the_pre_pr_block_invocation_matches_the_sandbox_exclusion():
+    """Every PR-opening skill runs the tool from this block's text."""
+    excluded = json.loads((REPO / "tools" / "sandbox-lint" / "expected.json").read_text())["sandbox"][
+        "excludedCommands"
+    ]
+    [pattern] = [p for p in excluded if "adversarial-review" in p]
+    block = (REPO / "tools" / "dev" / "blocks" / "pre-pr-adversarial-review.md").read_text(encoding="utf-8")
+    line = _invocation_line(block).replace("<version>", "0.2.0.dev202609240000")
+    assert fnmatch.fnmatchcase(line, pattern), (line, pattern)

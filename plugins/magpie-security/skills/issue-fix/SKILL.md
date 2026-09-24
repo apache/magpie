@@ -774,12 +774,19 @@ CVE ID, no reporter detail, no mail, no advisory text. The tool has no
 option that accepts other context; do not work around that by putting it
 in the body file.
 
-**Run it**, as one line with nothing chained to it (that single-line
-form is what the sandbox exclusion matches):
+**Run it**, as one line with nothing chained to it, spelled exactly like
+this — unquoted, with a literal `~` — because that is the form the sandbox
+exclusion matches; a quoted or expanded path stays sandboxed and every
+reviewer reports `unavailable`:
 
 ```bash
-uvx --from <plugin-root>/tools/adversarial-review adversarial-review run --project-root <adopter-repo> --repo-dir <checkout-being-pushed> --base <pr-base-ref> --title "<pr-title>" --body-file <pr-body-file>
+uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/<version>/tools/adversarial-review adversarial-review run --project-root <adopter-repo> --repo-dir <checkout-being-pushed> --base <pr-base-ref> --title "<pr-title>" --body-file <pr-body-file>
 ```
+
+`<version>` is the newest directory under
+`~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/`. The body
+file must sit in the checkout or a temporary directory; the tool refuses any
+other path.
 
 For a patch someone else proposed, review their PR instead:
 `… adversarial-review run --project-root <adopter-repo> --repo-dir <checkout> --target pr:<number> --repo <owner/name>`.
