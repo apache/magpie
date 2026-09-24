@@ -549,6 +549,20 @@ becomes:
 
 ---
 
+## `with-reviewers:<list>` — run model CLIs as adversarial reviewers
+
+Runs the named model CLIs — `codex`, `copilot`, `gemini`, `claude`,
+comma-separated — over each PR at Step 5 of
+[`review-flow.md`](review-flow.md), through the `magpie-adversarial-review`
+tool. The agent runs them; there is no typed step. See
+[`adversarial.md`](adversarial.md#model-clis-through-the-tool-with-reviewers).
+
+```text
+pr-management-code-review with-reviewers:codex,copilot
+```
+
+---
+
 ## `with-reviewer:<command>` — name an adversarial reviewer
 
 Names the slash command the skill should propose at Step 5 of
@@ -564,12 +578,12 @@ Example:
 pr-management-code-review with-reviewer:/some-plugin:adversarial-review
 ```
 
-If `with-reviewer:` is not passed, the skill checks the
-maintainer's agent-instructions file (project-scope
-`AGENTS.md`, harness-specific `CLAUDE.md`) for a "Review
-preferences" entry naming a default reviewer — see
-[`prerequisites.md#2`](prerequisites.md). If none is
-configured, Step 5 is announced as a no-op and skipped.
+Without either selector, the skill uses the configured
+`adversarial-review.md` (unless its `mode` is `off`), and then a
+"Review preferences" entry in the maintainer's agent-instructions file
+(project-scope `AGENTS.md`, harness-specific `CLAUDE.md`) — the full
+order is [`prerequisites.md` §2](prerequisites.md#2-resolve-adversarial-reviewer-configuration-degrades).
+If none is configured, Step 5 is announced as a no-op and skipped.
 
 ---
 

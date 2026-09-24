@@ -25,8 +25,8 @@ Neither is required. If the maintainer has none configured, Step 5 of
 ## Why bother
 
 Two LLM reviewers with different training data flag different
-classes of mistakes. The cost is one extra slash-command turn;
-the benefit is meaningful for upstream PRs that land in front
+classes of mistakes. The cost is one extra run per PR (a typed
+slash command, or a tool run the harness confirms); the benefit is meaningful for upstream PRs that land in front
 of thousands of contributors. Adversarial framing — *"prove this
 PR is wrong"* rather than *"check this PR for issues"* — pushes
 harder on auth, data-loss, and race-condition assumptions, which
@@ -36,8 +36,13 @@ is the right gate for code that ships.
 
 ## How the maintainer configures one
 
-Pass the slash command to invoke as the `with-reviewer:`
-selector:
+The full resolution order is [`prerequisites.md` §2](prerequisites.md#2-resolve-adversarial-reviewer-configuration-degrades).
+
+**Model CLIs** — pass them as `with-reviewers:codex,copilot`, or
+configure them once with `/magpie-setup config adversarial-review`
+(an `adversarial-review.md` whose `mode` is not `off` applies here).
+
+**A slash command** — pass it as the `with-reviewer:` selector:
 
 ```text
 pr-management-code-review with-reviewer:/some-plugin:adversarial-review
@@ -67,23 +72,37 @@ plugins or scan installed extensions.
 ## Model CLIs through the tool (`with-reviewers:`)
 
 The agent runs the reviewers itself, at Step 5 of
-[`review-flow.md`](review-flow.md), after its own findings are drafted:
+[`review-flow.md`](review-flow.md), after its own findings are drafted.
 
-```bash
-uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/<version>/tools/adversarial-review adversarial-review run --reviewers <list> --target pr:<N> --repo <upstream> --project-root <repo-root>
-```
+1. **Once per session, an empty temporary directory** — created as its own
+   command — becomes `--repo-dir`. This skill reads PRs through `gh` and
+   has no checkout of the PR's head, and the reviewers can read every file
+   in `--repo-dir`: the maintainer's own checkout would show them the wrong
+   code and any private file sitting in it (and the tool refuses a tracker
+   checkout outright). With an empty directory the reviewers see the PR's
+   diff, title and body, and nothing else.
+2. **Per PR, one line**, unquoted with a literal `~` — the form the sandbox
+   exclusion matches:
 
-One line, unquoted, with a literal `~` — the form the sandbox exclusion
-matches; `<version>` is the newest directory under
-`~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/`. Omit
-`--reviewers` when the list came from `adversarial-review.md`. The
-harness asks the maintainer before each run; that prompt is the gate.
+   ```bash
+   uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/<version>/tools/adversarial-review adversarial-review run --reviewers <list> --target pr:<N> --repo <upstream> --project-root <repo-root> --repo-dir <empty-temp-dir>
+   ```
 
-- **The PR is public, so the reviewers see only what is already
-  published.** When `<upstream>` is a **private** repository
-  (`gh repo view <upstream> --json visibility`), ask before the first
-  run in the session: the diff would go to other model providers.
-- The tool reviews several reviewers in parallel and returns one JSON
+   `<version>` is the newest directory under
+   `~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/`. Omit
+   `--reviewers` when the list came from `adversarial-review.md`.
+
+- **What leaves the machine.** The PR's diff, title and body go to each
+  reviewer's model provider. For a public repository that is already
+  published. When `<upstream>` is **private**
+  (`gh repo view <upstream> --json visibility`), ask before the first run
+  of the session. The session-start announcement names the reviewers, so
+  the maintainer knows where diffs go even when the harness approves the
+  runs without asking.
+- **Exit code 2** means the tool refused the invocation (an invalid
+  `adversarial-review.md`, a refused path, a tracker checkout). Show its
+  stderr once, and skip the tool path for the rest of the session.
+- The tool runs several reviewers in parallel and returns one JSON
   report. Fold its findings into the Step 4 list the same way as a
   slash-command reviewer's (step 3 below), marking each with the
   reviewers that reported it.

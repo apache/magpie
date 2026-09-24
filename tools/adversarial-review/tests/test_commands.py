@@ -139,3 +139,15 @@ def test_the_pre_pr_block_invocation_matches_the_sandbox_exclusion():
     block = (REPO / "tools" / "dev" / "blocks" / "pre-pr-adversarial-review.md").read_text(encoding="utf-8")
     line = _invocation_line(block).replace("<version>", "0.2.0.dev202609240000")
     assert fnmatch.fnmatchcase(line, pattern), (line, pattern)
+
+
+def test_code_review_invocation_matches_the_sandbox_exclusion():
+    """pr-management-code-review runs the tool from its own copy of the command."""
+    excluded = json.loads((REPO / "tools" / "sandbox-lint" / "expected.json").read_text())["sandbox"][
+        "excludedCommands"
+    ]
+    [pattern] = [p for p in excluded if "adversarial-review" in p]
+    doc = REPO / "plugins" / "magpie-pr-management" / "skills" / "code-review" / "adversarial.md"
+    line = _invocation_line(doc.read_text(encoding="utf-8")).replace("<version>", "0.2.0.dev202609240000")
+    assert "--repo-dir" in line
+    assert fnmatch.fnmatchcase(line, pattern), (line, pattern)

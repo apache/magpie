@@ -713,7 +713,10 @@ queue while the maintainer is in Steps 1–8 of the current
 one. The subagent does the full Step 2–7 work (fetch, classify
 findings, draft body); the parent skill renders the prefetched
 package as a single ready-made headline-plus-findings-plus-draft
-when the maintainer reaches the PR. See
+when the maintainer reaches the PR. Step 5 is **not** part of the
+prefetch: subagents have no shell. When a tool-path reviewer is
+configured, the parent runs Step 5 for each prefetched PR once it
+renders the package, and folds the findings in before Step 6. See
 [Background analysis subagents](#background-analysis-subagents)
 below for the mechanics.
 
@@ -729,8 +732,9 @@ criteria source files) together dominate the per-PR
 wall-clock cost. While the maintainer is reading the current
 PR's draft, those steps can run for the *next* PRs in
 parallel — when the maintainer reaches them, the package is
-already drafted and only Step 6 (disposition pick) and Step 7
-(confirmation) are left to run interactively.
+already drafted and only Step 5 (when a tool-path adversarial
+reviewer is configured), Step 6 (disposition pick) and Step 7
+(confirmation) are left to run.
 
 The maintainer never sees the subagents directly. They run
 silently in the background; their output is what powers the

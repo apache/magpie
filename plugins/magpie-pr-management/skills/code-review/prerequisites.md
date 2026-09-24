@@ -85,13 +85,14 @@ In priority order, first match wins:
 The tool path needs the `magpie-adversarial-review` plugin. When it was
 selected but the plugin is not installed, say so with the install
 command (`/plugin install magpie-adversarial-review@apache-magpie`) and
-fall through to rule 5.
+continue with the next rule — rule 3 when `with-reviewers:` selected it,
+rule 5 when the configuration did.
 
 Announce the result once at session start:
 
 > *Adversarial reviewers configured: codex, copilot (run by me through
-> the adversarial-review tool after my own review of each PR; the
-> harness asks you before each run).*
+> the adversarial-review tool after my own review of each PR; each
+> PR's diff, title and body go to those models' providers).*
 
 > *Adversarial reviewer configured: `<COMMAND>`. After my review of each
 > PR I'll propose typing it so we get a second read.*

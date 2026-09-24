@@ -20,7 +20,7 @@ when_to_use: |
   has not yet engaged the PR.
 argument-hint: "[pr:N] [area:LBL] [collab:true|false] [team:NAME] [ready] [dry-run]"
 capability: capability:review
-surface_hash: sha256:3574875d77b5155d
+surface_hash: sha256:3210ab651b79abc2
 license: Apache-2.0
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -489,12 +489,12 @@ touching any PR:
    account must be a collaborator on `<repo>` (without
    collaborator access, posting reviews via `gh pr review` will
    silently fail with a permission error).
-2. Resolve adversarial-reviewer configuration — the
-   `with-reviewer:` selector wins; otherwise check the
-   maintainer's agent-instructions file (`AGENTS.md` first,
-   then any harness-specific `CLAUDE.md`) for a "Review
-   preferences" entry. Announce the resolution once at session
-   start.
+2. Resolve adversarial-reviewer configuration, in the order of
+   [`prerequisites.md` §2](prerequisites.md#2-resolve-adversarial-reviewer-configuration-degrades):
+   `no-adversarial`, then `with-reviewers:`, then `with-reviewer:`,
+   then `adversarial-review.md`, then a "Review preferences" entry
+   (`AGENTS.md` first, then any harness-specific `CLAUDE.md`).
+   Announce the resolution once at session start.
 3. Resolve the selector against `<repo>`, including the
    touching-mine active-set computation, and produce the
    working list of PR numbers to review, in order.
@@ -679,6 +679,7 @@ writes a session log to disk.
 | `requested-only` / `mine-only` / `codeowner-only` / `mentioned-only` / `reviewed-before-only` | use only one half of the my-reviews union |
 | `no-touching-mine` / `no-codeowner` / `no-mentioned` / `no-reviewed-before` | drop just one half; keep the rest |
 | `since:<window>` | tune the touching-mine main-branch recency window (default `30d`) |
+| `with-reviewers:<list>` | run these model CLIs as adversarial reviewers through the adversarial-review tool |
 | `with-reviewer:<command>` | name the slash command to propose for second-read coverage |
 | `repo:<owner>/<name>` | override the target repository |
 | `max:<N>` | stop after `<N>` PRs reviewed |
