@@ -219,6 +219,10 @@ AGENT_GUARD_ENGINE = "tools/agent-guard/src/agent_guard/__init__.py"
 # can edit `ops.py` has defeated the whole design, so the catalogue has to sit in
 # the installed plugin tree rather than in a consumer repository.
 VETTED_OPS_ENTRY = "tools/vetted-ops/src/vetted_ops/cli.py"
+# Adversarial review runs other models' CLIs outside the sandbox (they need
+# network and their own credentials), so like vetted-ops it has to run from the
+# installed plugin tree, where the agent calling it cannot rewrite it.
+ADVERSARIAL_REVIEW_ENTRY = "tools/adversarial-review/src/adversarial_review/cli.py"
 SUBSTRATE_PLUGINS: dict[str, dict] = {
     "magpie-agent-guard": {
         "description": (
@@ -256,6 +260,15 @@ SUBSTRATE_PLUGINS: dict[str, dict] = {
         # The dispatcher is invoked directly by skills, so the entry point is what
         # must resolve; there is no hook whose silence would hide a broken link.
         "must_resolve": (VETTED_OPS_ENTRY,),
+    },
+    "magpie-adversarial-review": {
+        "description": (
+            "Apache Magpie \u2014 adversarial review: runs other models' CLIs (Codex, Copilot, "
+            "Gemini, Claude) read-only over a change before its PR is created, and merges their "
+            "findings. Runs from the installed plugin, so no repository needs a copy."
+        ),
+        "links": {"tools/adversarial-review": "adversarial-review"},
+        "must_resolve": (ADVERSARIAL_REVIEW_ENTRY,),
     },
 }
 
