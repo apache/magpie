@@ -374,14 +374,21 @@ def test_spawn_session_makes_the_backgrounded_pid_the_group_leader() -> None:
     that same pid. Anything that leaves a shell in between — a wrapper
     function, say — records a pid that leads no group, and disarm then
     kills nothing and leaves the window on screen.
+
+    Until the script reaches its `exec`, the pid still sits in the caller's
+    group, so poll for the change rather than sampling once: a single
+    sample after a fixed delay loses that race on a loaded CI runner.
     """
     result = subprocess.run(
         [
             "bash",
             "-c",
             f'"{SCRIPT}" _spawn_session sleep 5 & '
-            'pid=$!; sleep 0.3; echo "$pid $(ps -o pgid= -p "$pid" 2>/dev/null)"; '
-            "kill -- -\"$pid\" 2>/dev/null; true",
+            "pid=$!; "
+            'for _ in $(seq 50); do pgid=$(ps -o pgid= -p "$pid" 2>/dev/null); '
+            '[[ ${pgid// /} == "$pid" ]] && break; sleep 0.1; done; '
+            'echo "$pid $pgid"; '
+            "kill -- -\"$pid\" 2>/dev/null; kill \"$pid\" 2>/dev/null; true",
         ],
         capture_output=True,
         text=True,
