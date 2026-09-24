@@ -285,9 +285,11 @@ Per-entry rationale:
   not the outcome, as long as that proxy wants credentials `nc`
   cannot offer — `This proxy requires authentication, and this
   client did not offer an authentication method` (Claude Code on
-  macOS, 2026-09). Where the transport *does* get through, it then
-  asks the key for its *authentication* touch — a `git pull` that
-  hangs with no error is usually that, and the
+  macOS, 2026-09). Where the transport *does* get through and the
+  key's `aut` slot carries a touch policy (the recommended setup
+  leaves it `Off`; `gpg.format=ssh` needs it on), it then asks the
+  key for its *authentication* touch — a `git pull` that hangs with
+  no error is usually that, and the
   [touch overlay](secure-agent-setup.md#hardware-key-touch-overlay)
   covers it.
 - If git signs with **`gpg.format=ssh`**, the agent socket is only

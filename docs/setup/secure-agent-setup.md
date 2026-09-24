@@ -224,8 +224,9 @@ npm install -g --no-save @anthropic-ai/claude-code@latest
 #    "Sandbox-error hint hook", and "Sandbox-state status line"
 #    below. Add `gpg-touch-overlay.sh` too if your signing key
 #    asks for a touch — section "Hardware-key touch overlay" —
-#    and set that touch policy on the key's signature and
-#    authentication slots per "Hardware security keys".
+#    and set that touch policy on the key's signing slot (and
+#    none on the ssh authentication slot) per "Hardware security
+#    keys".
 
 # 5. Verify the install actually denies what it claims to —
 #    section "Verification" below has both a three-line Bash
@@ -2024,15 +2025,26 @@ key. The rationale — what the touch adds to the layered defence
 and what it does not — is in
 [RFC-AI-0002 → Layer 3b](../rfcs/RFC-AI-0002.md#layer-3b--hardware-key-touch-physical-confirmation-of-signatures-and-remote-access).
 
-A key with a **touch policy** will not sign, and will not
-authenticate, until somebody physically touches it. That turns every
-signature and every push into a human-in-the-loop check that no
-software gate can fake: a prompt injection that talks the agent into
-pushing a commit still ends at a key waiting for a finger that never
-comes. The touch is the physical form of
+A key with a **touch policy** will not sign until somebody physically
+touches it. That turns every signature into a human-in-the-loop check
+that no software gate can fake: a prompt injection that talks the agent
+into committing in your name still ends at a key waiting for a finger
+that never comes. The touch is the physical form of
 [Layer 3 — Forced confirmation](secure-agent-internals.md), and the
 [touch overlay](#hardware-key-touch-overlay) below is what makes the
 wait visible instead of looking like a hung command.
+
+The touch belongs on the **signature**, not on the ssh transport.
+Authenticating to the forge is what every `git fetch`, `git pull` and
+`git push` does first, and most of those are reads: a touch on each is
+a prompt on a read, which
+[PRINCIPLES.md §1](../../PRINCIPLES.md) calls a defect. A push is a
+write, but it is already confirmed twice without the key —
+`git push` sits in `permissions.ask`, so the agent cannot run one you
+did not approve, and every commit it carries was signed with a touch.
+A third confirmation for the same push only teaches the hand to touch
+without reading. So the recommended split is: touch on signing, no
+touch on authentication.
 
 ### Configure the key to require a touch
 
@@ -2049,26 +2061,37 @@ ykman openpgp info | grep -A4 'Touch policies'
 #   Attestation key:    Off
 ```
 
-Then set the two slots git reaches — `sig` for commits and tags,
-`aut` for ssh — to `cached`. `ykman` asks for the key's admin PIN:
+Then set the slot that signs — `sig`, for commits and tags — to
+`cached`, and leave the slot ssh authenticates with — `aut` — at `off`.
+`ykman` asks for the key's admin PIN:
 
 ```sh
 ykman openpgp keys set-touch sig cached
-ykman openpgp keys set-touch aut cached
+ykman openpgp keys set-touch aut off     # only if it is not Off already
 ykman openpgp info | grep -A4 'Touch policies'
 #   Signature key:      Cached
-#   Authentication key: Cached
+#   Authentication key: Off
 ```
 
-`cached` is the policy to want, not `on`: a touch is required, and
-then **honoured for 15 seconds** on that slot. One touch covers a
-rebase that replays a dozen commits, a `git pull` followed by a
-`git push`, the several fetches a `prek` hook or an IDE fires in a
-row. `on` asks for every single operation, which in an agent session
-means a touch every few seconds and a hand that stops reading what it
-is approving. The cache is a property of the key itself, not of any
-software on the host, so it needs no agent configuration and cannot
+`cached` is the policy to want on `sig`, not `on`: a touch is required,
+and then **honoured for 15 seconds** on that slot. One touch covers a
+rebase that replays a dozen commits, or a `git commit` followed by a
+`git tag -s`. `on` asks for every single signature, which in an agent
+session means a touch every few seconds and a hand that stops reading
+what it is approving. The cache is a property of the key itself, not of
+any software on the host, so it needs no agent configuration and cannot
 be extended by one.
+
+**Signing with `gpg.format=ssh` changes which slot signs.** An ssh
+signature is made by the key `ssh-add -L` lists — the card's `aut`
+slot — so with that format `aut` is the signing slot and must stay
+`cached`; `sig` then signs nothing and its policy does not matter. The
+price is a touch on every ssh transport as well, since one slot now
+does both jobs and the card cannot tell a signature from a login. To
+keep the touch on signatures only, sign with OpenPGP (`gpg.format
+openpgp`, the `sig` slot) and leave `aut` at `off`, or reach the forge
+over an **https** remote, where the transport never asks the key at
+all.
 
 Two policies to avoid: `fixed` and `cached-fixed` behave the same but
 cannot be turned off again without deleting the private key — fine on
@@ -2093,10 +2116,21 @@ gpgconf --launch gpg-agent
 ssh-add -L          # the authentication key's public half, as ssh sees it
 ```
 
-Add that public key to your GitHub account **twice** — once as an
-*Authentication key* (ssh transport) and once as a *Signing key*
-(verified badge on commits signed with it). Then tell git to sign
-with it:
+Add that public key to your GitHub account as an *Authentication
+key* (ssh transport). For OpenPGP signing — the recommended form, which
+keeps the touch on the `sig` slot — upload the card's public OpenPGP key
+as a *GPG key* and tell git to sign with it:
+
+```sh
+git config --global gpg.format openpgp
+git config --global user.signingkey <key id>   # gpg --list-secret-keys
+git config --global commit.gpgsign true
+git config --global tag.gpgSign true
+```
+
+To sign with ssh instead, add the same `ssh-add -L` key a second time,
+as a *Signing key*, and point git at it — accepting, per the section
+above, that the `aut` slot then signs and needs the touch:
 
 ```sh
 ssh-add -L > ~/.ssh/id_yubikey.pub
@@ -2106,10 +2140,9 @@ git config --global commit.gpgsign true
 git config --global tag.gpgSign true
 ```
 
-(Signing with the OpenPGP `sig` slot instead — `gpg.format openpgp`,
-`user.signingkey <key id>` — works the same way and uses the same
-touch policy; the ssh form is shown because one key then serves both
-purposes and GitHub verifies it with one upload.)
+(The ssh form serves both purposes from one key and one kind of
+upload; the OpenPGP form is the one that lets the transport run without
+a touch.)
 
 Under the sandbox, two grants make this reachable from an agent
 session, and the install skill proposes both:
@@ -2123,10 +2156,11 @@ session, and the install skill proposes both:
   per
   [`sandbox-troubleshooting.md` → Signed commit fails before any touch when git signs with ssh](sandbox-troubleshooting.md#signed-commit-fails-before-any-touch-when-git-signs-with-ssh).
 
-With both in place every `git commit`, `git tag -s`, `git pull`,
-`git fetch` and `git push` the agent runs stops at the key until you
-touch it — once per 15-second burst — and the overlay below tells you
-when it is waiting.
+With both in place every `git commit` and `git tag -s` the agent runs
+stops at the key until you touch it — once per 15-second burst — and
+the overlay below tells you when it is waiting. `git fetch`, `git pull`
+and `git push` go through without a touch, unless `aut` carries a
+policy (as it must with `gpg.format=ssh`).
 
 ## Hardware-key touch overlay
 
@@ -2160,8 +2194,9 @@ touch; see
 [`sandbox-troubleshooting.md` → Signed commit fails before any touch when git signs with ssh](sandbox-troubleshooting.md#signed-commit-fails-before-any-touch-when-git-signs-with-ssh).
 
 The key's *authentication* slot can carry a touch policy of its own
-(`ykman openpgp info` lists it under the same heading), and then every
-ssh transport — `git pull`, `git fetch`, `git push`, `git clone` against
+(`ykman openpgp info` lists it under the same heading). The recommended
+setup leaves it `Off`, but with `gpg.format=ssh` it has to be on, and
+then every ssh transport — `git pull`, `git fetch`, `git push`, `git clone` against
 an ssh remote — waits for a touch before a byte moves. The hook arms for
 those commands too, and looks for the wait somewhere other than a
 process name: the ssh git spawns looks the same blocked on the key as
@@ -2295,8 +2330,8 @@ With `gpg.format=ssh`, sign with the key git would use instead:
 ssh-keygen -Y sign -f "$(git config --get user.signingkey)" -n git /etc/hostname &
 ```
 
-For the transport touch, with the authentication slot's touch policy on,
-authenticate to the remote without transferring anything:
+For the transport touch — only when the authentication slot carries a
+touch policy, as with `gpg.format=ssh` — authenticate to the remote without transferring anything:
 
 ```sh
 ssh -T git@github.com &
@@ -2966,11 +3001,14 @@ Then walk through:
    commits or authenticate to GitHub with a hardware key (YubiKey,
    Nitrokey, any OpenPGP card). **Default no.** Only if I say yes:
    hand me `ykman openpgp info` to run myself and read back the
-   touch policies; if the signature or authentication slot is
-   `Off`, surface `ykman openpgp keys set-touch sig cached` and
-   `ykman openpgp keys set-touch aut cached` for me to run (they
-   ask for the admin PIN — never run them yourself, and never
-   propose `fixed`). Then copy
+   touch policies; if the signing slot is `Off`, surface
+   `ykman openpgp keys set-touch sig cached` for me to run —
+   the `aut` slot instead when `gpg.format` is `ssh`, since that
+   slot then signs — and, with OpenPGP signing, surface
+   `ykman openpgp keys set-touch aut off` if `aut` carries a
+   policy, so fetches, pulls and pushes stop asking for a touch
+   (they ask for the admin PIN — never run them yourself, and
+   never propose `fixed`). Then copy
    `<magpie>/tools/agent-isolation/gpg-touch-overlay.sh` and both
    `gpg-touch-overlay-window*.py` into `~/.claude/scripts/`,
    `chmod +x` them, add the `PreToolUse` / `PostToolUse` `Bash`
@@ -3118,8 +3156,10 @@ below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
     commands — but ✗ when git names the wrapper and the wrapper's
     two files are not in `sandbox.filesystem.allowRead`, because
     then every sandboxed signed commit fails with `cannot exec`),
-    the key's signature and authentication slots carry a touch
-    policy (`ykman openpgp info`, which I run myself),
+    the key's signing slot carries a touch policy and — with
+    OpenPGP signing — its authentication slot does not
+    (`ykman openpgp info`, which I run myself; with
+    `gpg.format=ssh` the `aut` slot is the signing slot),
     and — with `gpg.format=ssh` — the file `git config
     user.signingkey` names is readable from a sandboxed Bash (it
     needs its own `sandbox.filesystem.allowRead` entry). For the

@@ -125,8 +125,10 @@ reading this file; read the section for a check whose condition holds.
     Four sub-checks, plus a note: the key's own touch policies
     (`ykman openpgp info`, run by the user — the sandbox does not
     see the device) are what make the overlay matter; report them
-    as seen, and suggest `cached` on the `sig` and `aut` slots
-    where either is `Off`, per
+    as seen, and suggest `cached` on the slot that signs where it is
+    `Off` (`sig` for OpenPGP signing, `aut` with `gpg.format=ssh`) and,
+    with OpenPGP signing, `off` on `aut` where it carries a policy —
+    a transport touch is a prompt on every fetch and pull — per
     [`docs/setup/secure-agent-setup.md` → Hardware security keys](../../../../docs/setup/secure-agent-setup.md#hardware-security-keys--signing-and-authentication).
 
     **10a — wiring and scripts.** User-scope `~/.claude/settings.json`
