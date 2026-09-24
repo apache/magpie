@@ -16,8 +16,9 @@ honest:
   issue/PR → inform, don't duplicate; a merged fix → propose
   upgrade.
 - **step-5-adversarial-review** — the shared pre-PR block in a
-  non-security skill: skipped silently under `mode: on-demand`, run
-  with the drafted title under `mode: on-pr-create`.
+  non-security skill: skipped silently under `mode: on-demand`, `off`,
+  or an empty reviewer list; run with the drafted title and body file
+  under `mode: on-pr-create`.
 
 Each case feeds a `report.md` to the model against the named step
 of `SKILL.md` and asserts the JSON in `expected.json`.

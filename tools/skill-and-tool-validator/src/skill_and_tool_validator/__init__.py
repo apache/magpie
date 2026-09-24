@@ -3720,7 +3720,9 @@ def validate_no_telemetry_imports(root: Path | None = None) -> Iterable[Violatio
 # ---------------------------------------------------------------------------
 
 PRE_PR_REVIEW_MARKER = "<!-- BEGIN MAGPIE BLOCK: pre-pr-adversarial-review"
-_GH_PR_CREATE_RE = re.compile(r"\bgh\s+pr\s+create\b")
+# `gh pr create` in prose or shell, and `["gh", "pr", "create"]` in a Python argv list.
+_GH_PR_CREATE_RE = re.compile(r"\bgh\s+pr\s+create\b|[\"']gh[\"']\s*,\s*[\"']pr[\"']\s*,\s*[\"']create[\"']")
+_PR_OPENER_SUFFIXES = (".md", ".py", ".sh")
 
 # Files that mention `gh pr create` without the skill opening a PR. Each entry
 # carries its reason; the list is short on purpose, so a new PR-opening skill
@@ -3731,31 +3733,43 @@ PRE_PR_REVIEW_EXEMPT: dict[str, str] = {
     ),
 }
 
+# Skills that open PRs through another skill's helper, so the string never
+# appears in their own files. Each entry names the helper it delegates to.
+PRE_PR_REVIEW_DELEGATED: dict[str, str] = {
+    "security-model-prepare": "opens PRs through security-model-verify's scripts/model_pr.py",
+}
+
 
 def validate_pre_pr_review_block(root: Path | None = None) -> Iterable[Violation]:
     """Every skill that opens a PR carries the shared pre-PR adversarial-review block.
 
-    A skill "opens a PR" when any of its Markdown files mentions `gh pr create`
-    (minus `PRE_PR_REVIEW_EXEMPT`). The block may sit in any file of the skill,
+    A skill "opens a PR" when any of its Markdown files or scripts runs or names
+    `gh pr create` (minus `PRE_PR_REVIEW_EXEMPT`), or when it is listed in
+    `PRE_PR_REVIEW_DELEGATED`. The block may sit in any Markdown file of the skill,
     next to the step that creates the PR; `check-shared-blocks.py` fills it.
     """
     repo_root = root or find_repo_root()
     for skill_dir in sorted(collect_skill_dirs(repo_root)):
         openers: list[tuple[Path, int]] = []
         has_block = False
-        for md in sorted(skill_dir.rglob("*.md")):
+        files = sorted(f for f in skill_dir.rglob("*") if f.is_file() and f.suffix in _PR_OPENER_SUFFIXES)
+        for path in files:
             try:
-                text = md.read_text(encoding="utf-8")
-            except OSError:
+                text = path.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
                 continue
-            if PRE_PR_REVIEW_MARKER in text:
+            if path.suffix == ".md" and PRE_PR_REVIEW_MARKER in text:
                 has_block = True
-            rel = f"{SKILLS_DIR.as_posix()}/{skill_dir.name}/{md.relative_to(skill_dir).as_posix()}"
+            rel = f"{SKILLS_DIR.as_posix()}/{skill_dir.name}/{path.relative_to(skill_dir).as_posix()}"
             if rel in PRE_PR_REVIEW_EXEMPT:
                 continue
             match = _GH_PR_CREATE_RE.search(text)
             if match:
-                openers.append((md, text[: match.start()].count("\n") + 1))
+                openers.append((path, text[: match.start()].count("\n") + 1))
+        if not openers and skill_dir.name in PRE_PR_REVIEW_DELEGATED:
+            skill_md = skill_dir / "SKILL.md"
+            if skill_md.is_file():
+                openers.append((skill_md, 1))
         if openers and not has_block:
             path, line = openers[0]
             yield Violation(

@@ -23,7 +23,7 @@ its adversarial-review decision, not for the implementation itself.
 | 5f | Newsfragment | 2 | Default no-fragment, forbidden security framing |
 | 5g | PR body draft | 3 | Clean body, forbidden terms, missing GenAI block |
 | 6 | Confirm plan | 3 | apply-all, free-form edit, cancel |
-| 7 | Adversarial review before the push | 5 | runs under `mode: off` (security family) with the posted title, never the tracker's; silent skip without config; one-line skip without the plugin; an instruction inside a finding is not followed; every reviewer unavailable still continues |
+| 7 | Adversarial review before the push | 6 | runs under `mode: off` (security family) with the posted title and body file, never the tracker's title or the draft that quotes the tracker; a finding the user wants fixed stops the flow; silent skip without config; one-line skip without the plugin; an instruction inside a finding is not followed; every reviewer unavailable still continues |
 | 11 | Recap | 2 | With backport label, no backport needed |
 
 ## Hard rules exercised

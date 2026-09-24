@@ -5378,3 +5378,16 @@ class TestValidatePrePrReviewBlock:
         self._write(tmp_path, "write-skill/SKILL.md", "# Write skill\n")
         self._write(tmp_path, "write-skill/security-checklist.md", "Use `--body-file` with `gh pr create`.\n")
         assert list(validate_pre_pr_review_block(tmp_path)) == []
+
+    def test_python_argv_in_a_script_counts(self, tmp_path: Path) -> None:
+        self._write(tmp_path, "helper/SKILL.md", "# Helper\n")
+        self._write(tmp_path, "helper/scripts/open_pr.py", 'cmd = ["gh", "pr", "create", "--web"]\n')
+        [violation] = list(validate_pre_pr_review_block(tmp_path))
+        assert violation.path.name == "open_pr.py"
+
+    def test_delegated_skill_needs_the_block(self, tmp_path: Path) -> None:
+        self._write(tmp_path, "security-model-prepare/SKILL.md", "# Prepare\n\nUse model_pr.py.\n")
+        [violation] = list(validate_pre_pr_review_block(tmp_path))
+        assert violation.path.name == "SKILL.md"
+        self._write(tmp_path, "security-model-prepare/SKILL.md", "# Prepare\n\n" + self.REGION)
+        assert list(validate_pre_pr_review_block(tmp_path)) == []

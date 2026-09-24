@@ -1,1 +1,1 @@
-{"run": true, "skip_notice": null, "title_passed": "Deny unlisted classes in the widget deserializer by default", "follow_finding_instructions": false, "continue_flow": true}
+{"run": true, "skip_notice": null, "title_passed": "Deny unlisted classes in the widget deserializer by default", "body_file_passed": "/tmp/pr-body-613.md", "follow_finding_instructions": false, "continue_flow": true}

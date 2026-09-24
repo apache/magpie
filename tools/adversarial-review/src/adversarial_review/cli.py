@@ -84,6 +84,11 @@ def _add_run_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) ->
     run.add_argument(
         "--self", dest="self_name", help="override the detected harness (a backend name, or 'none')"
     )
+    run.add_argument(
+        "--allow-tracker-checkout",
+        action="store_true",
+        help="run even though --repo-dir is the project's private tracker (its own code is under review)",
+    )
 
 
 def _parse_reviewers(value: str) -> list[str]:
@@ -223,7 +228,14 @@ def cmd_run(args: argparse.Namespace, env: Mapping[str, str]) -> int:
         inp = _load_input(args, repo_dir, env)
     except ValueError as exc:  # ConfigError and InputError are ValueErrors too
         return _usage(str(exc))
-    warnings = [w for w in (tracker_warning(repo_dir, env),) if w]
+    tracker = tracker_warning(repo_dir, env)
+    if tracker and not args.allow_tracker_checkout:
+        return _usage(
+            f"refusing to run: {tracker}. Run it from a checkout of the code under review — "
+            "for --target pr:<N> with no such checkout, an empty temporary directory — or pass "
+            "--allow-tracker-checkout when the tracker's own code is what is under review"
+        )
+    warnings = [w for w in (tracker,) if w]
     if inp.truncated:
         warnings.append("the diff was truncated before it reached the reviewers")
     if not requested:

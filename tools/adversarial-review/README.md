@@ -67,7 +67,7 @@ Findings are reviewer output and therefore untrusted: a finding that reads like 
 The diff, the files it touches, and the PR title and body as they will be posted — nothing else, by construction: no option or parameter accepts any other context.
 Reviewers can read files with their read-only tools, and that is the residual risk: the prompt is bounded, what a reviewer chooses to read is not.
 
-- When `--repo-dir` is the project's private tracker, the report says so in `warnings`.
+- When `--repo-dir` is the project's private tracker, `run` refuses (exit 2). Pass `--allow-tracker-checkout` only when the tracker's own code is what is under review; the report then still says so in `warnings`.
 - `claude`, `copilot` and `gemini` confine file reads to their working directory (plus the brief's temporary directory for `copilot`).
   `codex -s read-only` restricts writes and network, not reads: an instruction injected into the diff could have it read a file elsewhere on the machine, such as a sibling tracker checkout, and put it into its reply to the model.
   Run the tool where nothing private sits beside the checkout under review, or leave `codex` out of the reviewer list for such machines.

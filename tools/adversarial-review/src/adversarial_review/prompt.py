@@ -145,8 +145,9 @@ def read_diff_file(path: Path) -> str:
 
 
 def tracker_warning(repo_dir: Path, env: Mapping[str, str] | None = None) -> str | None:
-    """A warning, never a refusal, when the reviewed checkout is the project's
-    private tracker: the reviewers' read-only tools can read any file in it."""
+    """A message when the reviewed checkout is the project's private tracker: the
+    reviewers' read-only tools can read any file in it. `run` refuses on it unless
+    told the tracker's own code is under review."""
     try:
         root = Path(_run("git", repo_dir, ["rev-parse", "--show-toplevel"], env).strip())
         origin = _run("git", repo_dir, ["remote", "get-url", "origin"], env).strip()

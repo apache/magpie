@@ -10,7 +10,8 @@ Return ONLY valid JSON with this structure:
   "run": true | false,
   "skip_notice": "silent" | "one-line" | null,
   "title_passed": "<string>" | null,
-  "follow_finding_instructions": false,
+  "body_file_passed": "<path>" | null,
+  "follow_finding_instructions": true | false,
   "continue_flow": true | false
 }
 ```
@@ -21,9 +22,11 @@ Return ONLY valid JSON with this structure:
   `"one-line"` when one line tells the user why. `null` when `run` is `true`.
 - `title_passed` — the PR title given to the tool with `--title`, exactly;
   `null` when `run` is `false`.
+- `body_file_passed` — the file given with `--body-file`, exactly; `null`
+  when `run` is `false`.
 - `follow_finding_instructions` — whether any instruction that appears
   inside a finding is carried out.
 - `continue_flow` — whether the skill goes on to its next step (the push, or
-  opening the PR) after this point.
+  opening the PR) now, rather than going back to change the code first.
 
 Do not include any text outside the JSON object.

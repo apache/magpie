@@ -180,6 +180,7 @@ def test_run_accepts_no_free_form_context_option():
         "body_file",
         "timeout_minutes",
         "self_name",
+        "allow_tracker_checkout",
     }
 
 
@@ -289,3 +290,65 @@ def test_body_file_in_the_temp_dir_is_accepted(git_repo, tmp_path, capsys):
         env={"PATH": os.environ["PATH"]},
     )
     assert code == 0
+
+
+def _make_tracker_checkout(repo: Path) -> None:
+    import subprocess
+
+    subprocess.run(
+        ["git", "-C", str(repo), "remote", "add", "origin", "git@github.com:acme/tracker.git"], check=True
+    )
+    (repo / ".apache-magpie-overrides").mkdir()
+    (repo / ".apache-magpie-overrides" / "project.md").write_text(
+        "| `tracker_repo` | `acme/tracker` | private |\n", encoding="utf-8"
+    )
+
+
+def test_run_refuses_the_tracker_checkout(stub_bin, git_repo, tmp_path, capsys):
+    """Reviewers can read every file in --repo-dir; the tracker's are private."""
+    bin_dir, make = stub_bin
+    ran = tmp_path / "ran"
+    ran.mkdir()
+    _stubs(make, ran)
+    _make_tracker_checkout(git_repo)
+    code = main(
+        [
+            "run",
+            "--reviewers",
+            "codex",
+            "--project-root",
+            str(tmp_path),
+            "--repo-dir",
+            str(git_repo),
+            "--base",
+            "main",
+        ],
+        env={"PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}"},
+    )
+    assert code == 2 and "refusing to run" in capsys.readouterr().err
+    assert list(ran.iterdir()) == []
+
+
+def test_allow_tracker_checkout_runs_and_still_warns(stub_bin, git_repo, tmp_path, capsys):
+    bin_dir, make = stub_bin
+    ran = tmp_path / "ran"
+    ran.mkdir()
+    _stubs(make, ran)
+    _make_tracker_checkout(git_repo)
+    code = main(
+        [
+            "run",
+            "--reviewers",
+            "codex",
+            "--allow-tracker-checkout",
+            "--project-root",
+            str(tmp_path),
+            "--repo-dir",
+            str(git_repo),
+            "--base",
+            "main",
+        ],
+        env={"PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}"},
+    )
+    report = json.loads(capsys.readouterr().out)
+    assert code == 0 and any("acme/tracker" in w for w in report["warnings"])
