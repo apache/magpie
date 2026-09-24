@@ -26,11 +26,21 @@ reviewer's status; 2 means the invocation itself was wrong.
 from __future__ import annotations
 
 import argparse
+import json
 import os
+import sys
 from collections.abc import Mapping, Sequence
+from dataclasses import asdict
+
+from .detect import detect, resolve_self
 
 EXIT_OK = 0
 EXIT_USAGE = 2
+
+
+def _usage(message: str) -> int:
+    print(f"adversarial-review: {message}", file=sys.stderr)
+    return EXIT_USAGE
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -39,12 +49,27 @@ def build_parser() -> argparse.ArgumentParser:
         description="Run other models' CLIs read-only over a change and merge their findings.",
     )
     sub = parser.add_subparsers(dest="command", required=True)
-    sub.add_parser("detect", help="report installed reviewer CLIs and the running harness")
+    det = sub.add_parser("detect", help="report installed reviewer CLIs and the running harness")
+    det.add_argument(
+        "--self", dest="self_name", help="override the detected harness (a backend name, or 'none')"
+    )
     sub.add_parser("run", help="run reviewers over a change and print merged findings as JSON")
     return parser
 
 
+def cmd_detect(args: argparse.Namespace, env: Mapping[str, str]) -> int:
+    try:
+        me = resolve_self(args.self_name, env)
+    except ValueError as exc:
+        return _usage(str(exc))
+    rows = [asdict(d) for d in detect(env, me)]
+    print(json.dumps({"self": me, "backends": rows}, indent=2))
+    return EXIT_OK
+
+
 def main(argv: Sequence[str] | None = None, env: Mapping[str, str] | None = None) -> int:
-    build_parser().parse_args(argv)
-    _ = os.environ if env is None else env
+    args = build_parser().parse_args(argv)
+    environ: Mapping[str, str] = os.environ if env is None else env
+    if args.command == "detect":
+        return cmd_detect(args, environ)
     return EXIT_OK
