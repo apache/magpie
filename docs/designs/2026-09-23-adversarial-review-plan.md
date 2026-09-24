@@ -2286,8 +2286,7 @@ def test_bad_target_is_a_usage_error(git_repo, tmp_path, capsys):
 
 def test_run_accepts_no_free_form_context_option():
     """The privacy boundary, at the CLI: these are the only inputs `run` takes."""
-    run = build_parser()._subparsers._group_actions[0].choices["run"]
-    dests = {a.dest for a in run._actions} - {"help"}
+    dests = set(vars(build_parser().parse_args(["run"]))) - {"command"}
     assert dests == {"reviewers", "project_root", "repo_dir", "target", "base", "repo", "title", "body_file",
                      "timeout_minutes", "self_name"}
 ```
@@ -2449,7 +2448,7 @@ In `build_parser`, replace the `sub.add_parser("run", …)` line with `_add_run_
 Run: `UV_CACHE_DIR=$TMPDIR/uvc uv run --directory tools/adversarial-review pytest -v`
 Expected: all passed.
 Run: `UV_CACHE_DIR=$TMPDIR/uvc uv run --directory tools/adversarial-review ruff check . && UV_CACHE_DIR=$TMPDIR/uvc uv run --directory tools/adversarial-review ruff format --check . && UV_CACHE_DIR=$TMPDIR/uvc uv run --directory tools/adversarial-review mypy`
-Expected: clean. Fix whatever they flag. The private `_subparsers` access in the test is fine under the tests' mypy override.
+Expected: clean. Fix whatever they flag.
 
 - [ ] **Step 5: Commit**
 
