@@ -15,7 +15,7 @@ when_to_use: >-
   If it is already installed, use `setup-isolated-setup-verify` to check
   it or `setup-isolated-setup-update` to refresh it.
 capability: capability:platform
-surface_hash: sha256:e78e03834f4fdec8
+surface_hash: sha256:eb1b228a501f2772
 license: Apache-2.0
 ---
 
@@ -268,6 +268,45 @@ Do not describe per-caller scoping as isolation. It is
 least-privilege hygiene for a cooperating skill, and it is worth
 having for that, but it stops nothing that chooses to name a
 different caller.
+
+### Step R — The adversarial-review exclusion
+
+Only applies when the `magpie-adversarial-review` plugin is installed. If it
+is not, skip this step and say so.
+
+The reviewer CLIs it runs (`codex`, `copilot`, `gemini`, `claude`) need
+network access and read their own credentials (`~/.codex`, `~/.copilot`,
+`~/.gemini`, `~/.claude`), which this sandbox denies. The tool therefore
+runs outside it, through one exclusion that names the installed plugin:
+
+```jsonc
+"sandbox": {
+  "excludedCommands": [
+    "uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/*/tools/adversarial-review adversarial-review *"
+  ]
+},
+"permissions": {
+  "deny": [
+    // the tool runs unsandboxed, so the code it runs must not be editable
+    // by the agent that calls it
+    "Edit(~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/**)"
+  ]
+}
+```
+
+**Do not add an `allow` for it.** Every run sends the change to other
+model providers and costs money; the harness prompt is the gate, by design.
+
+Tell the operator what the exclusion covers and what it does not:
+
+- It matches only the single-line form. A pipe, `$(…)`, `&&` or a
+  redirection puts the command back in the sandbox, where the reviewer
+  CLIs fail to read their credentials and report `unavailable`.
+- Outside the sandbox the tool only runs each reviewer CLI in its own
+  read-only mode, and writes nothing to the repository. `codex`'s
+  read-only mode still reads files anywhere on the machine; see the tool's
+  README for what that means for a machine that also holds a private
+  checkout.
 
 ### Steps K, L and M — optional extras
 
