@@ -58,6 +58,8 @@ def test_codex_argv():
         "-s",
         "read-only",
         "--ephemeral",
+        "-c",
+        "mcp_servers={}",
         "--skip-git-repo-check",
         "-C",
         "/repo",
@@ -110,8 +112,9 @@ def test_claude_argv():
         "-p",
         "--output-format",
         "json",
+        "--strict-mcp-config",
         "--disallowedTools",
-        "Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch",
+        "Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch,Task",
     ]
     assert inv.stdin == "PROMPT"
 
@@ -173,3 +176,13 @@ def test_copilot_extract_is_plain_stdout_but_not_empty():
     assert BACKENDS["copilot"].extract("text", CTX) == "text"
     with pytest.raises(BackendOutputError, match="empty"):
         BACKENDS["copilot"].extract("  \n", CTX)
+
+
+@pytest.mark.parametrize(
+    ("name", "flags"), [("codex", ["-c", "mcp_servers={}"]), ("claude", ["--strict-mcp-config"])]
+)
+def test_mcp_servers_are_switched_off(name, flags):
+    """A reviewer must not inherit the user's MCP tools (Slack, mail, forge writes)."""
+    argv = BACKENDS[name].build(CTX).argv
+    i = argv.index(flags[0])
+    assert argv[i : i + len(flags)] == flags

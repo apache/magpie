@@ -91,7 +91,7 @@ Findings from several reviewers are de-duplicated (same file, overlapping line, 
 ## Data flow before a PR is created
 
 1. **Build the input from public-bound content only.** `git diff <base>...HEAD` (or the PR diff), the changed-file list, and the PR title and body exactly as the skill will post them. For security fixes that is the already-scrubbed title and body. The shared block accepts only these inputs; it has no parameter for tracker or mail content, so no skill can pass private context by accident.
-2. **Run.** Every configured reviewer except `self`, in parallel, each with a timeout (default 10 minutes).
+2. **Run.** Every configured reviewer except `self`, in parallel, each with a timeout (default 8 minutes, under a harness's 10-minute shell-call cap).
 3. **Merge and show.** The merged findings are presented next to the diff. The human chooses what to fix; the skill then continues to its normal push and PR-creation step.
 
 Errors:
@@ -108,7 +108,7 @@ Errors:
 adversarial_review:
   mode: on-pr-create        # on-pr-create | on-demand | off
   reviewers: [codex, copilot]
-  timeout_minutes: 10
+  timeout_minutes: 8        # below a harness's 10-minute shell-call cap
   models:                   # optional per-backend overrides
     copilot: gpt-5
 ```
@@ -176,6 +176,7 @@ Separate PRs, each reviewable and mergeable on its own:
 ## Risks
 
 - **The input builder is the privacy boundary.** If a future change lets tracker or mail content into the prompt, private data reaches third-party models. Mitigated by the shared block accepting only diff and public PR text, and by the input-builder test.
+- **Reviewers can read beyond the prompt.** The input builder bounds the prompt, not a reviewer's read-only file tools. `codex -s read-only` does not confine reads, so an instruction injected into the diff could make it read a private file elsewhere on the machine. `copilot` and `gemini` keep their MCP servers (no switch exists to drop them). Mitigated by switching MCP off where the CLI allows it, by the tracker-checkout warning, and by the README telling operators to keep private checkouts away from review machines or leave `codex` out; not eliminated.
 - **CLI flag drift.** Vendors change headless flags. Mitigated by per-backend snapshot tests and by `detect` probing versions; a broken backend degrades to *unavailable*, never to a writable mode.
 - **Cost and latency.** Two or three reviewers per PR add minutes and model spend. Mitigated by parallel runs, the timeout, and `mode`.
 - **Reviewer noise.** Adversarial prompts over-report. Findings are advisory and never block; the human filters.

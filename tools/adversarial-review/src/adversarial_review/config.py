@@ -51,7 +51,9 @@ class ConfigError(ValueError):
 class ReviewConfig:
     mode: str = "on-pr-create"
     reviewers: tuple[str, ...] = ()
-    timeout_minutes: float = 10.0
+    # Below the 10-minute cap a harness puts on one shell call, so the harness
+    # never kills the tool (and orphans its reviewers) before the tool's own timeout.
+    timeout_minutes: float = 8.0
     models: Mapping[str, str] = field(default_factory=dict)
     source: Path | None = None
 
@@ -116,7 +118,7 @@ def parse(text: str, source: Path) -> ReviewConfig:
         raise ConfigError(f"{source}: mode {mode!r} is not one of {', '.join(MODES)}")
     reviewers = _reviewers(values["reviewers"], str(source)) if "reviewers" in values else ()
     try:
-        timeout = float(values.get("timeout_minutes", "10"))
+        timeout = float(values.get("timeout_minutes", "8"))
     except ValueError:
         raise ConfigError(f"{source}: timeout_minutes must be a number") from None
     if timeout <= 0:

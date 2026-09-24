@@ -113,6 +113,8 @@ def _run(tool: str, repo_dir: Path, args: list[str], env: Mapping[str, str] | No
         )
     except FileNotFoundError:
         raise InputError(f"{tool} is not on PATH") from None
+    except OSError as exc:
+        raise InputError(f"cannot run {tool}: {exc}") from None
     if proc.returncode != 0:
         raise InputError(f"{tool} {' '.join(args[:2])} failed: {first_line(proc.stderr) or proc.returncode}")
     return proc.stdout
@@ -153,7 +155,10 @@ def tracker_warning(repo_dir: Path, env: Mapping[str, str] | None = None) -> str
     project = root / ".apache-magpie-overrides" / "project.md"
     if not project.is_file():
         return None
-    text = project.read_text(encoding="utf-8", errors="replace")
+    try:
+        text = project.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
     declared = _TABLE_TRACKER.search(text) or _YAML_TRACKER.search(text)
     slug = _REMOTE_SLUG.search(origin)
     if declared and slug and declared.group(1).lower() == slug.group(1).lower():
