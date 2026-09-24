@@ -24,6 +24,12 @@ reviewer read-only, and none carries the prompt in argv: the diff can exceed
 ARG_MAX, so the prompt goes on stdin, or through a brief file for Copilot, whose
 `-p` takes text only. `tests/test_backends.py` snapshots every argv and rejects
 known write-granting flags, so a regression that drops a read-only flag fails.
+
+Read-only also means no MCP tools: a reviewer inherits the user's MCP servers
+(Slack, mail, forge writes) unless told otherwise, and an injected instruction
+in the diff could reach them. Codex gets an empty `mcp_servers` table and
+Claude `--strict-mcp-config` with no config. Copilot and Gemini expose no
+equivalent switch in the versions this was written against; the README says so.
 """
 
 from __future__ import annotations
@@ -38,7 +44,7 @@ COPILOT_INSTRUCTION = (
     "Read the review brief at {brief} and follow it exactly. Change no file and run no command."
 )
 STDIN_INSTRUCTION = "Follow the review brief given on standard input exactly. Change no file."
-CLAUDE_DENIED_TOOLS = "Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch"
+CLAUDE_DENIED_TOOLS = "Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch,Task"
 
 
 class BackendOutputError(ValueError):
@@ -91,6 +97,8 @@ def _codex(ctx: RunContext) -> Invocation:
         "-s",
         "read-only",
         "--ephemeral",
+        "-c",
+        "mcp_servers={}",
         "--skip-git-repo-check",
         "-C",
         str(ctx.repo_dir),
@@ -160,6 +168,7 @@ def _claude(ctx: RunContext) -> Invocation:
         "-p",
         "--output-format",
         "json",
+        "--strict-mcp-config",
         "--disallowedTools",
         CLAUDE_DENIED_TOOLS,
         *_model("--model", ctx),

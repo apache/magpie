@@ -26,13 +26,17 @@ reviewer's status; 2 means the invocation itself was wrong.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import os
+import signal
 import sys
 import tempfile
-from collections.abc import Mapping, Sequence
+import threading
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import asdict
 from pathlib import Path
+from types import FrameType
 
 from . import config
 from .backends import BACKENDS, RunContext
@@ -49,7 +53,7 @@ from .prompt import (
     render_prompt,
     tracker_warning,
 )
-from .runner import ReviewerResult, run_all
+from .runner import ReviewerResult, run_all, terminate_all
 
 EXIT_OK = 0
 EXIT_USAGE = 2
@@ -112,6 +116,26 @@ def _load_input(args: argparse.Namespace, repo_dir: Path, env: Mapping[str, str]
     raise InputError(f"--target {target!r}: expected branch, pr:<N> or diff:<path>")
 
 
+@contextlib.contextmanager
+def _reviewers_die_with_us() -> Iterator[None]:
+    """Reviewers run in their own sessions, so a Ctrl-C or a harness kill aimed at
+    this process would not reach them: forward both as a kill of every live group."""
+    if threading.current_thread() is not threading.main_thread():
+        yield
+        return
+
+    def handler(signum: int, frame: FrameType | None) -> None:
+        terminate_all()
+        raise SystemExit(128 + signum)
+
+    previous = {s: signal.signal(s, handler) for s in (signal.SIGINT, signal.SIGTERM)}
+    try:
+        yield
+    finally:
+        for sig, old in previous.items():
+            signal.signal(sig, old)
+
+
 def _run_reviewers(
     names: list[str],
     inp: ReviewInput,
@@ -133,7 +157,8 @@ def _run_reviewers(
             )
             for n in names
         }
-        return run_all(names, contexts, timeout_s, env)
+        with _reviewers_die_with_us():
+            return run_all(names, contexts, timeout_s, env)
 
 
 def _report(
@@ -173,6 +198,8 @@ def cmd_run(args: argparse.Namespace, env: Mapping[str, str]) -> int:
         me = resolve_self(args.self_name, env)
         requested = _parse_reviewers(args.reviewers) if args.reviewers else list(cfg.reviewers)
         repo_dir = Path(args.repo_dir).resolve()
+        if args.timeout_minutes is not None and args.timeout_minutes <= 0:
+            raise InputError("--timeout-minutes must be greater than 0")
         inp = _load_input(args, repo_dir, env)
     except ValueError as exc:  # ConfigError and InputError are ValueErrors too
         return _usage(str(exc))
@@ -189,7 +216,8 @@ def cmd_run(args: argparse.Namespace, env: Mapping[str, str]) -> int:
         warnings.append("empty diff: nothing to review, no reviewer was run")
         results = []
     elif to_run:
-        timeout_s = 60 * (args.timeout_minutes or cfg.timeout_minutes)
+        minutes = cfg.timeout_minutes if args.timeout_minutes is None else args.timeout_minutes
+        timeout_s = 60 * minutes
         results += _run_reviewers(to_run, inp, repo_dir, cfg, timeout_s, env)
     order = {n: i for i, n in enumerate(requested)}
     results.sort(key=lambda r: order[r.reviewer])

@@ -20,6 +20,7 @@
     - [Task 8: Configuration file](#task-8-configuration-file)
     - [Task 9: The `run` subcommand, end to end](#task-9-the-run-subcommand-end-to-end)
     - [Task 10: Substrate plugin, README, design status](#task-10-substrate-plugin-readme-design-status)
+    - [After the whole-branch review of PR 1](#after-the-whole-branch-review-of-pr-1)
   - [PR 2 — `setup`: detection, configuration, per-harness commands, sandbox](#pr-2--setup-detection-configuration-per-harness-commands-sandbox)
     - [Task 2.1: `commands --harness <name>` in the tool](#task-21-commands---harness-name-in-the-tool)
     - [Task 2.2: Claude Code command shipped in the plugin](#task-22-claude-code-command-shipped-in-the-plugin)
@@ -2594,6 +2595,22 @@ git commit -m "feat(plugins): publish adversarial-review as the magpie-adversari
 - [ ] **Step 8: Before opening PR 1, propose the second read**
 
 Propose `/codex:adversarial-review` to the user, who types it. Then draft the PR title and body, write them to a tempfile, and show them to the user for approval before `gh pr create --body-file`. Use the labels `family:tools` and `capability:feature` if they exist (check with `gh label list --repo apache/magpie --search …`).
+
+### After the whole-branch review of PR 1
+
+The code in Tasks 1–10 above is what was first committed. The branch review then changed it as follows. The branch, not this plan, is the reference.
+
+- **Runner:** output goes to temporary files rather than pipes. The wait ends when the reviewer exits, so a finished reply is no longer lost to a helper holding stdout, and a helper that calls `setsid` cannot stretch the timeout. The process group is always killed afterwards. A SIGINT/SIGTERM handler kills every live group.
+- **Auth detection:** it reads stderr only, against specific auth messages (it had matched `login`, `401` and `credential` anywhere).
+- **Parsing:**
+  - The last JSON object by position wins, fenced or not.
+  - Findings are parsed one at a time, so a bad one is skipped and reported (`reason`, `raw`) instead of voiding the reply.
+  - Line ranges become their first line, unknown severities become `low`, and `file` and `evidence` may be empty.
+  - Paths are normalised against the repo (`./`, `a/`, `b/`, absolute).
+- **Merge:** escalating to a more severe report carries its file and line along with its claim.
+- **Backends:** `codex -c mcp_servers={}`, `claude --strict-mcp-config`, and `Task` added to Claude's denied tools.
+- **CLI and defaults:** `--timeout-minutes` must be greater than 0. The default timeout is 8 minutes, under a harness's 10-minute shell-call cap. `prompt._run` maps any `OSError` to an input error.
+- **Residual risks documented** in the README and the spec: `codex` read-only mode does not confine reads, and `copilot`/`gemini` keep their MCP servers.
 
 ---
 

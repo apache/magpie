@@ -74,3 +74,10 @@ def test_as_dict_shape():
             }
         ],
     }
+
+
+def test_escalation_keeps_file_line_and_claim_together():
+    [m] = merge(
+        [f("codex", line=10), f("copilot", severity="critical", line=12, claim="f returns a wrong value")]
+    )
+    assert (m.severity, m.line, m.claim) == ("critical", 12, "f returns a wrong value")

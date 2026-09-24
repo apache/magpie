@@ -45,7 +45,7 @@ def test_full_example_from_the_spec():
 
 def test_defaults_when_keys_are_absent():
     cfg = parse("```yaml\nadversarial_review:\n  reviewers: [gemini]\n```\n", SRC)
-    assert cfg.mode == "on-pr-create" and cfg.timeout_minutes == 10.0 and cfg.models == {}
+    assert cfg.mode == "on-pr-create" and cfg.timeout_minutes == 8.0 and cfg.models == {}
 
 
 def test_no_file_means_no_reviewers(tmp_path):

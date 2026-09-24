@@ -90,6 +90,7 @@ def merge(findings: Iterable[Finding]) -> list[MergedFinding]:
                 group.reports.append(finding)
                 if RANK[finding.severity] < RANK[group.severity]:
                     group.severity, group.claim = finding.severity, finding.claim
+                    group.file, group.line = finding.file, finding.line
                 break
         else:
             groups.append(

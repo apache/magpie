@@ -181,3 +181,62 @@ def test_run_accepts_no_free_form_context_option():
         "timeout_minutes",
         "self_name",
     }
+
+
+@pytest.mark.parametrize("minutes", ["0", "-1"])
+def test_non_positive_timeout_is_a_usage_error(git_repo, tmp_path, capsys, minutes):
+    code = main(
+        [
+            "run",
+            "--timeout-minutes",
+            minutes,
+            "--project-root",
+            str(tmp_path),
+            "--repo-dir",
+            str(git_repo),
+            "--base",
+            "main",
+        ],
+        env={"PATH": os.environ["PATH"]},
+    )
+    assert code == 2 and "--timeout-minutes" in capsys.readouterr().err
+
+
+def test_truncated_diff_is_flagged_in_the_report(stub_bin, tmp_path, capsys):
+    bin_dir, make = stub_bin
+    make(
+        "codex",
+        "import json, sys\na = sys.argv\nopen(a[a.index('-o') + 1], 'w').write(json.dumps({'findings': []}))\n",
+    )
+    diff = tmp_path / "big.diff"
+    diff.write_text("diff --git a/x b/x\n" + "+" * 500_000 + "\n", encoding="utf-8")
+    code = main(
+        [
+            "run",
+            "--reviewers",
+            "codex",
+            "--target",
+            f"diff:{diff}",
+            "--project-root",
+            str(tmp_path),
+            "--repo-dir",
+            str(tmp_path),
+        ],
+        env={"PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}"},
+    )
+    report = json.loads(capsys.readouterr().out)
+    assert code == 0 and report["truncated"] is True
+    assert any("truncated" in w for w in report["warnings"])
+    assert report["reviewers"][0]["status"] == "ok"
+
+
+def test_unrunnable_git_is_a_usage_error_not_a_traceback(stub_bin, git_repo, tmp_path, capsys):
+    bin_dir, _ = stub_bin
+    broken = bin_dir / "git"
+    broken.write_text("not a program", encoding="utf-8")
+    broken.chmod(0o755)  # executable but not a valid binary: exec fails with OSError
+    code = main(
+        ["run", "--project-root", str(tmp_path), "--repo-dir", str(git_repo), "--base", "main"],
+        env={"PATH": str(bin_dir)},
+    )
+    assert code == 2 and "git" in capsys.readouterr().err

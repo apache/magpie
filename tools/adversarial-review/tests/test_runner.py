@@ -123,3 +123,95 @@ def test_one_timeout_does_not_block_the_others(stub_bin, tmp_path):
     contexts = {n: ctx(tmp_path, n) for n in ("codex", "gemini")}
     results = {r.reviewer: r for r in run_all(["codex", "gemini"], contexts, 1, {"PATH": str(bin_dir)})}
     assert results["codex"].status == "ok" and results["gemini"].status == "timeout"
+
+
+def test_a_finished_answer_is_kept_when_a_helper_lingers(stub_bin, tmp_path):
+    """Review finding: with pipes, a helper holding stdout turned a finished
+    reply into a timeout. The reviewer's own exit must end the wait."""
+    bin_dir, make = stub_bin
+    make(
+        "copilot",
+        "import json, subprocess, sys\n"
+        "subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'])\n"
+        f"print(json.dumps({{'findings': [{FINDING!r}]}}))\n",
+    )
+    start = time.monotonic()
+    r = run_one("copilot", ctx(tmp_path, "copilot"), 5, {"PATH": str(bin_dir)})
+    assert r.status == "ok" and len(r.findings) == 1
+    assert time.monotonic() - start < 4
+
+
+def test_timeout_is_bounded_even_when_a_helper_escapes_the_group(stub_bin, tmp_path):
+    bin_dir, make = stub_bin
+    make(
+        "copilot",
+        "import subprocess, sys, time\n"
+        "subprocess.Popen([sys.executable, '-c', 'import os, time; os.setsid(); time.sleep(60)'])\n"
+        "time.sleep(60)\n",
+    )
+    start = time.monotonic()
+    r = run_one("copilot", ctx(tmp_path, "copilot"), 1, {"PATH": str(bin_dir)})
+    assert r.status == "timeout" and time.monotonic() - start < 10
+
+
+def test_terminate_all_kills_running_reviewers(stub_bin, tmp_path):
+    import threading
+
+    from adversarial_review.runner import terminate_all
+
+    bin_dir, make = stub_bin
+    make("gemini", "import time; time.sleep(60)")
+    results = []
+    worker = threading.Thread(
+        target=lambda: results.append(run_one("gemini", ctx(tmp_path, "gemini"), 60, {"PATH": str(bin_dir)}))
+    )
+    start = time.monotonic()
+    worker.start()
+    time.sleep(1)
+    terminate_all()
+    worker.join(timeout=10)
+    assert results and results[0].status == "error" and time.monotonic() - start < 10
+
+
+def test_auth_words_in_stdout_are_not_an_auth_failure(stub_bin, tmp_path):
+    bin_dir, make = stub_bin
+    make(
+        "claude",
+        "import sys\nprint('the login endpoint lacks a check; error at line 401 in credentials.json')\n"
+        "sys.stderr.write('crashed\\n'); sys.exit(1)\n",
+    )
+    r = run_one("claude", ctx(tmp_path, "claude"), 30, {"PATH": str(bin_dir)})
+    assert r.status == "error"
+
+
+def test_gemini_auth_method_message_is_unavailable(stub_bin, tmp_path):
+    bin_dir, make = stub_bin
+    make(
+        "gemini",
+        "import sys; sys.stderr.write('Please set an Auth method in settings.json\\n'); sys.exit(41)",
+    )
+    r = run_one("gemini", ctx(tmp_path, "gemini"), 30, {"PATH": str(bin_dir)})
+    assert r.status == "unavailable"
+
+
+def test_a_bad_finding_does_not_cost_the_good_ones(stub_bin, tmp_path):
+    bin_dir, make = stub_bin
+    make(
+        "copilot",
+        "import json\n"
+        f"print(json.dumps({{'findings': [{FINDING!r}, {{'severity': 'high', 'claim': ''}}]}}))\n",
+    )
+    r = run_one("copilot", ctx(tmp_path, "copilot"), 30, {"PATH": str(bin_dir)})
+    assert r.status == "ok" and len(r.findings) == 1
+    assert r.reason.startswith("skipped 1 malformed finding(s)") and r.raw
+
+
+def test_paths_are_normalised_against_the_repo(stub_bin, tmp_path):
+    bin_dir, make = stub_bin
+    (tmp_path / "app.py").write_text("", encoding="utf-8")
+    make(
+        "copilot",
+        f"import json\nprint(json.dumps({{'findings': [{{**{FINDING!r}, 'file': './app.py'}}]}}))\n",
+    )
+    r = run_one("copilot", ctx(tmp_path, "copilot"), 30, {"PATH": str(bin_dir)})
+    assert r.findings[0].file == "app.py"
