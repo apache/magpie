@@ -265,8 +265,27 @@ def take_focus(root):
     )
 
 
-def build_window():
+def take_back_signals(stopping):
+    """Route termination signals to the flag ``watch_for_stop`` polls.
+
+    Only once the root exists: Aqua Tk's initialisation installs its own
+    SIGINT/SIGHUP/SIGTERM handler, replacing anything set before
+    ``tk.Tk()``. That handler calls ``Tcl_Exit`` from inside the signal,
+    which is not async-signal-safe — a SIGTERM landing mid-redraw (the
+    pulse repaints every ``PULSE_MS``) tears the windows down while
+    CoreAnimation's backing-store lock is held by the interrupted draw,
+    and the destroy blocks on that same lock. The window then hangs on
+    screen, deadlocked on its own main thread, until force-quit.
+    Python's handler only sets a flag, so nothing unsafe runs in signal
+    context.
+    """
+    for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+        signal.signal(sig, lambda *_: stopping.append(True))
+
+
+def build_window(stopping):
     root = tk.Tk()
+    take_back_signals(stopping)
     root.title(TITLE)
     root.configure(bg=BG_HEX)
 
@@ -349,10 +368,7 @@ def watch_for_stop(root, stopping):
 
 def main():
     stopping = []
-    signal.signal(signal.SIGTERM, lambda *_: stopping.append(True))
-    signal.signal(signal.SIGINT, lambda *_: stopping.append(True))
-
-    root = build_window()
+    root = build_window(stopping)
     watch_for_stop(root, stopping)
     root.mainloop()
     return 0

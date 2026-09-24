@@ -1248,3 +1248,54 @@ def test_the_aqua_window_closes_when_it_loses_the_keyboard() -> None:
         f"keyboard; it binds only {sorted(bound)}"
     )
     assert "<Escape>" in bound, "the Aqua overlay no longer closes on Esc"
+
+
+def test_the_aqua_window_takes_termination_signals_back_from_tk() -> None:
+    """The watcher's SIGTERM must reach the flag, never Tk's own handler.
+
+    Aqua Tk's initialisation installs a SIGINT/SIGHUP/SIGTERM handler that
+    calls ``Tcl_Exit`` from inside the signal. Landing mid-redraw it tears
+    the windows down while the interrupted draw holds CoreAnimation's
+    backing-store lock, and the teardown blocks on that lock: the overlay
+    hangs on screen until force-quit. Python handlers installed *before*
+    ``tk.Tk()`` are silently replaced, so the order is the whole fix —
+    ``take_back_signals`` has to run after the root exists, and nothing
+    may install a handler ahead of it.
+    """
+    window = SCRIPT.parent / "gpg-touch-overlay-window-macos.py"
+    tree = ast.parse(window.read_text())
+    functions = {
+        node.name: node for node in tree.body if isinstance(node, ast.FunctionDef)
+    }
+
+    def calls(node: ast.AST) -> list[str]:
+        found: list[tuple[int, str]] = []
+        for sub in ast.walk(node):
+            if isinstance(sub, ast.Call):
+                func = sub.func
+                if isinstance(func, ast.Attribute):
+                    found.append((sub.lineno, func.attr))
+                elif isinstance(func, ast.Name):
+                    found.append((sub.lineno, func.id))
+        return [name for _, name in sorted(found)]
+
+    build = calls(functions["build_window"])
+    assert "Tk" in build and "take_back_signals" in build, (
+        "build_window no longer creates the root and then takes the signals back"
+    )
+    assert build.index("take_back_signals") > build.index("Tk"), (
+        "signal handlers installed before tk.Tk() are replaced by Tk's own, "
+        "which deadlocks the window when SIGTERM lands mid-draw"
+    )
+    assert "signal" not in calls(functions["main"]), (
+        "main() installs a signal handler before tk.Tk() exists; Tk replaces it"
+    )
+
+    handled = {
+        sub.attr
+        for sub in ast.walk(functions["take_back_signals"])
+        if isinstance(sub, ast.Attribute) and sub.attr.startswith("SIG")
+    }
+    assert {"SIGTERM", "SIGINT", "SIGHUP"} <= handled, (
+        f"Tk's handler still owns {sorted({'SIGTERM', 'SIGINT', 'SIGHUP'} - handled)}"
+    )
