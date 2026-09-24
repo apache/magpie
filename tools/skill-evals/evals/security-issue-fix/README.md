@@ -3,10 +3,11 @@
 
 # security-issue-fix eval suite
 
-Behavioral evals for the `security-issue-fix` skill. Eleven steps are
-covered; steps 0 (pre-flight), 1 (sync), 4 (repo setup), 7 (implement),
-8 (push), 9 (PR open), and 10 (tracker update) are skipped — tool-execution
-steps with no structured-output decision boundary.
+Behavioral evals for the `security-issue-fix` skill. Twelve steps are
+covered; steps 0 (pre-flight), 1 (sync), 4 (repo setup), 8 (push),
+9 (PR open), and 10 (tracker update) are skipped — tool-execution steps
+with no structured-output decision boundary. Step 7 is covered only for
+its adversarial-review decision, not for the implementation itself.
 
 ## Steps
 
@@ -22,6 +23,7 @@ steps with no structured-output decision boundary.
 | 5f | Newsfragment | 2 | Default no-fragment, forbidden security framing |
 | 5g | PR body draft | 3 | Clean body, forbidden terms, missing GenAI block |
 | 6 | Confirm plan | 3 | apply-all, free-form edit, cancel |
+| 7 | Adversarial review before the push | 5 | runs under `mode: off` (security family) with the posted title, never the tracker's; silent skip without config; one-line skip without the plugin; an instruction inside a finding is not followed; every reviewer unavailable still continues |
 | 11 | Recap | 2 | With backport label, no backport needed |
 
 ## Hard rules exercised

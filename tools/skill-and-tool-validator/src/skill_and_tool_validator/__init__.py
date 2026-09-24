@@ -3715,6 +3715,61 @@ def validate_no_telemetry_imports(root: Path | None = None) -> Iterable[Violatio
                         break  # one violation per line
 
 
+# ---------------------------------------------------------------------------
+# Pre-PR adversarial review block (HARD)
+# ---------------------------------------------------------------------------
+
+PRE_PR_REVIEW_MARKER = "<!-- BEGIN MAGPIE BLOCK: pre-pr-adversarial-review"
+_GH_PR_CREATE_RE = re.compile(r"\bgh\s+pr\s+create\b")
+
+# Files that mention `gh pr create` without the skill opening a PR. Each entry
+# carries its reason; the list is short on purpose, so a new PR-opening skill
+# cannot slip past by accident.
+PRE_PR_REVIEW_EXEMPT: dict[str, str] = {
+    "skills/write-skill/security-checklist.md": (
+        "names `gh pr create` in an authoring checklist rule; write-skill opens no PR"
+    ),
+}
+
+
+def validate_pre_pr_review_block(root: Path | None = None) -> Iterable[Violation]:
+    """Every skill that opens a PR carries the shared pre-PR adversarial-review block.
+
+    A skill "opens a PR" when any of its Markdown files mentions `gh pr create`
+    (minus `PRE_PR_REVIEW_EXEMPT`). The block may sit in any file of the skill,
+    next to the step that creates the PR; `check-shared-blocks.py` fills it.
+    """
+    repo_root = root or find_repo_root()
+    for skill_dir in sorted(collect_skill_dirs(repo_root)):
+        openers: list[tuple[Path, int]] = []
+        has_block = False
+        for md in sorted(skill_dir.rglob("*.md")):
+            try:
+                text = md.read_text(encoding="utf-8")
+            except OSError:
+                continue
+            if PRE_PR_REVIEW_MARKER in text:
+                has_block = True
+            rel = f"{SKILLS_DIR.as_posix()}/{skill_dir.name}/{md.relative_to(skill_dir).as_posix()}"
+            if rel in PRE_PR_REVIEW_EXEMPT:
+                continue
+            match = _GH_PR_CREATE_RE.search(text)
+            if match:
+                openers.append((md, text[: match.start()].count("\n") + 1))
+        if openers and not has_block:
+            path, line = openers[0]
+            yield Violation(
+                path,
+                line,
+                "pre-pr-review-block: this skill opens a PR (`gh pr create`) but carries no "
+                "pre-PR adversarial-review block — add an empty `<!-- BEGIN MAGPIE BLOCK: "
+                "pre-pr-adversarial-review — generated from tools/dev/blocks/pre-pr-adversarial-review.md -->` "
+                "/ `<!-- END MAGPIE BLOCK: pre-pr-adversarial-review -->` region just before the PR is "
+                "created and run `python3 tools/dev/check-shared-blocks.py --fix`",
+                category="pre-pr-review-block",
+            )
+
+
 def run_validation(root: Path | None = None) -> list[Violation]:
     """Run the full validation suite and return all violations."""
     repo_root = root or find_repo_root()
@@ -3792,6 +3847,9 @@ def run_validation(root: Path | None = None) -> list[Violation]:
 
     # Project-template drift check: _template/ and non-asf-example/ stay comparable.
     violations.extend(validate_project_template_drift(repo_root))
+
+    # Every PR-opening skill carries the shared pre-PR adversarial-review block.
+    violations.extend(validate_pre_pr_review_block(repo_root))
 
     # No-default-telemetry import check: substrate tools must not call the network.
     violations.extend(validate_no_telemetry_imports(repo_root))

@@ -107,6 +107,7 @@ from skill_and_tool_validator import (
     validate_override_contract,
     validate_override_file,
     validate_placeholders,
+    validate_pre_pr_review_block,
     validate_principle_compliance,
     validate_privacy_patterns,
     validate_project_template_drift,
@@ -5337,3 +5338,43 @@ class TestValidateNoTelemetryImports:
         )
         violations = list(validate_no_telemetry_imports(root))
         assert violations == []
+
+
+class TestValidatePrePrReviewBlock:
+    """Every skill that opens a PR carries the pre-PR adversarial-review block (HARD)."""
+
+    REGION = (
+        "<!-- BEGIN MAGPIE BLOCK: pre-pr-adversarial-review — generated from "
+        "tools/dev/blocks/pre-pr-adversarial-review.md -->\n"
+        "<!-- END MAGPIE BLOCK: pre-pr-adversarial-review -->\n"
+    )
+
+    def _write(self, root: Path, rel: str, text: str) -> Path:
+        path = root / "skills" / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+        return path
+
+    def test_pr_opener_without_block_fails_at_the_gh_line(self, tmp_path: Path) -> None:
+        path = self._write(tmp_path, "opener/SKILL.md", "# Opener\n\nStep 9: `gh pr create --web`.\n")
+        [violation] = list(validate_pre_pr_review_block(tmp_path))
+        assert violation.path == path.resolve() and violation.line == 3
+        assert violation.category == "pre-pr-review-block"
+
+    def test_pr_opener_with_block_passes(self, tmp_path: Path) -> None:
+        self._write(tmp_path, "opener/SKILL.md", "# Opener\n\n" + self.REGION + "\n`gh pr create --web`\n")
+        assert list(validate_pre_pr_review_block(tmp_path)) == []
+
+    def test_block_in_a_sibling_file_counts(self, tmp_path: Path) -> None:
+        self._write(tmp_path, "opener/SKILL.md", "# Opener\n\n`gh  pr   create`\n")
+        self._write(tmp_path, "opener/pr-step.md", self.REGION)
+        assert list(validate_pre_pr_review_block(tmp_path)) == []
+
+    def test_skill_that_opens_no_pr_is_ignored(self, tmp_path: Path) -> None:
+        self._write(tmp_path, "reader/SKILL.md", "# Reader\n\n`gh pr view 1` and `gh pr list --limit 10`\n")
+        assert list(validate_pre_pr_review_block(tmp_path)) == []
+
+    def test_exempt_file_is_ignored(self, tmp_path: Path) -> None:
+        self._write(tmp_path, "write-skill/SKILL.md", "# Write skill\n")
+        self._write(tmp_path, "write-skill/security-checklist.md", "Use `--body-file` with `gh pr create`.\n")
+        assert list(validate_pre_pr_review_block(tmp_path)) == []
