@@ -301,3 +301,23 @@ reading this file; read the section for a check whose condition holds.
 
     Rationale:
     [`tools/skill-evals/README.md` → Running from inside the sandbox](../../../../tools/skill-evals/README.md#running-from-inside-the-sandbox).
+
+## Check 14 — adversarial-review exclusion, if installed
+
+14. **Adversarial-review exclusion, if installed.** Optional (step R of
+    `setup-isolated-setup-install`): report **n/a** when the
+    `magpie-adversarial-review` plugin is not installed.
+
+    When it is:
+
+    - **14a — the exclusion.** `sandbox.excludedCommands` contains
+      `uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/*/tools/adversarial-review adversarial-review *`.
+      Missing is ⚠, not ✗: nothing unsafe happens, but every run stays
+      sandboxed, where the reviewer CLIs cannot read their credentials,
+      and every reviewer reports `unavailable`.
+    - **14b — the plugin cache is not agent-writable.** `permissions.deny`
+      contains `Edit(~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/**)`.
+      Missing is ✗: the exclusion runs that code outside the sandbox.
+    - **14c — no `allow`.** No `permissions.allow` entry matches the tool's
+      invocation. One is ✗: each run sends the change to other model
+      providers and must keep its prompt.

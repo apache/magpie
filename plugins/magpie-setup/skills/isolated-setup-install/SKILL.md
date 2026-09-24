@@ -299,9 +299,16 @@ model providers and costs money; the harness prompt is the gate, by design.
 
 Tell the operator what the exclusion covers and what it does not:
 
-- It matches only the single-line form. A pipe, `$(…)`, `&&` or a
-  redirection puts the command back in the sandbox, where the reviewer
-  CLIs fail to read their credentials and report `unavailable`.
+- It matches only the single-line form, spelled with a literal `~` and an
+  unquoted path. A pipe, `$(…)`, `&&`, a redirection, quotes, or an
+  expanded home directory put the command back in the sandbox, where the
+  reviewer CLIs fail to read their credentials and report `unavailable`.
+- The `*` in the pattern can match more than a version directory — a path
+  with `..` segments would still match. The prompt that every run keeps is
+  the gate against that; read the path in it before approving.
+- The tool refuses a `--body-file` or `diff:` file outside the repository
+  or a temporary directory, so an approved run cannot be pointed at
+  `~/.ssh` or a private checkout to send it to a model.
 - Outside the sandbox the tool only runs each reviewer CLI in its own
   read-only mode, and writes nothing to the repository. `codex`'s
   read-only mode still reads files anywhere on the machine; see the tool's

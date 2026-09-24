@@ -23,6 +23,7 @@ from what this sub-action produced**. See
 | Input | Default |
 |---|---|
 | `<skills>` | The families installed on this machine. `config <skill>` narrows it to one. |
+| `adversarial-review` | Not a skill: `config adversarial-review` runs only [Step 3c](#step-3c--adversarial-reviewers-optional), which configures the other models that review a change before a PR is opened. |
 | `<repo-root>` | The git repository the session is in. |
 
 ## Invoked by a skill's pre-flight
@@ -158,8 +159,8 @@ For each missing required file, in the order the skills need them
    skills that do not need it never look. Say that, so a half-filled
    file does not read as a failed run.
 
-Never write outside `.apache-magpie-local/`. Never stage anything.
-Never commit.
+Never write outside `.apache-magpie-local/` (Step 3c's harness command
+files are the one, named exception). Never stage anything. Never commit.
 
 ## Step 3b — Record what this run reconciled
 
@@ -237,51 +238,64 @@ for other skills, in either store, are left exactly as they are —
 
 ## Step 3c — Adversarial reviewers (optional)
 
-Offer this only when the `magpie-adversarial-review` plugin is installed and
-the run was **not** entered from a skill's pre-flight: no skill requires it,
-so it is never part of the one batched question a pre-flight entry asks.
-`config adversarial-review` asks for it by name.
+Run this only when the user named it — `config adversarial-review` — and the
+`magpie-adversarial-review` plugin is installed. No skill requires it, so it
+is never part of a pre-flight entry's one batched question, and a plain
+`config` run does not ask about it (Step 1: optional files are not
+interviewed). A plain run mentions it in the recap instead.
 
-1. **Detect.** Run the tool's `detect` as one line (the form the sandbox
-   exclusion matches):
+1. **Detect.** Run the tool's `detect` as one line, spelled exactly like this
+   — unquoted, with a literal `~`, because that is the form the sandbox
+   exclusion matches:
 
    ```bash
-   uvx --from <plugin-root>/tools/adversarial-review adversarial-review detect
+   uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/<version>/tools/adversarial-review adversarial-review detect
    ```
 
-   `<plugin-root>` is the installed plugin's directory. Report each backend:
-   available or not, with the reason, and which one is `self` — the model
-   this harness runs, which is never used as its own reviewer.
+   `<version>` is the newest directory under
+   `~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/`. Report
+   each backend: available or not, with the reason, and which one is `self` —
+   the model this harness runs, which is never used as its own reviewer.
+   `detect` makes no model call, so a CLI that is installed but logged out
+   looks available here; say so.
 2. **Propose.** Pre-tick every available backend except `self`, and ask
    which to enable, and whether reviews should run on every PR a skill
    opens (`on-pr-create`, the default) or only when asked (`on-demand`).
    Say that the security family runs the reviewers whenever any is listed,
-   whatever the mode.
+   whatever the mode, and that each run sends the change to those models'
+   providers.
 3. **Write** `.apache-magpie-local/adversarial-review.md` from
-   `projects/_template/adversarial-review.md`, with the chosen
-   `reviewers` and `mode`. If the project committed one, this shadows it
+   `projects/_template/adversarial-review.md`, with the chosen `reviewers`
+   and `mode`. If the file already exists, show the difference and ask
+   before replacing it. If the project committed one, this shadows it
    (hard rule 4).
 4. **Offer the harness commands**, one multi-select, nothing pre-ticked,
    for each harness installed on this machine other than Claude Code (whose
    command ships in the plugin as `/magpie-adversarial-review:adversarial-review`).
-   `adversarial-review commands --harness <name> --plugin-root <plugin-root>`
-   prints each one's path and content:
+   `adversarial-review commands --harness <name>` prints each one's path and
+   content:
    - Codex CLI → `~/.codex/prompts/magpie-adversarial-review.md`
    - Gemini CLI → `~/.gemini/commands/magpie-adversarial-review.toml`
    - Copilot CLI has no command mechanism: show the one-line invocation
      instead, and write nothing.
 
    Write only what the user ticks, and name each path as you write it.
-   These files sit in the user's home, not in any repository, and carry the
-   absolute plugin path — `upgrade` rewrites them when the plugin moves.
-   If a file already exists there and differs, show the difference and ask.
+   These files sit in the user's home, not in any repository. They name no
+   plugin version — each resolves the newest one when it runs — so a plugin
+   upgrade leaves them valid. If a file already exists there and differs,
+   show the difference and ask.
 
 ## Step 4 — Recap
 
 Tell the user, in this order:
 
 1. **What was written**, by path, and that all of it is gitignored and
-   invisible to everyone else.
+   invisible to everyone else. List any Step 3c harness command files
+   separately: those sit in the user's home, outside every repository.
+   On a plain `config` run with the `magpie-adversarial-review` plugin
+   installed and no `adversarial-review.md`, add one line that
+   `/magpie-setup config adversarial-review` configures other models as
+   reviewers — state it, do not ask.
 1b. **What the reconciliation stamp recorded** (Step 3b), all of it in
    the gitignored `.apache-magpie-local/reconciled.json` — on an
    unadopted project, the skill(s) whose `skills` entry was just

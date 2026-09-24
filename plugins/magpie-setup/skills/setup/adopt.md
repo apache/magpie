@@ -201,10 +201,12 @@ If the directory holds configuration files:
    every contributor reads. Name any that look personal rather than
    project-wide — a local clone path, a personal mail address — and
    recommend leaving those behind.
-   `adversarial-review.md` is personal by default: its `reviewers`
-   reflect the model CLIs installed on this one machine. Pre-tick it only
-   when the maintainers want a project-wide default mode or reviewer
-   list; a contributor's own file still overrides it.
+   Always flag `adversarial-review.md` as personal: its `reviewers`
+   reflect the model CLIs installed on this one machine. Promoting it
+   with `mode: on-pr-create` would make every contributor's PR-opening
+   skills send changes to those models' providers, paid for by each
+   contributor, for anyone who has the CLIs — say so if the user ticks it.
+   A contributor's own file still overrides the project's.
 2. **Ask which to promote.** One structured multi-select, everything
    pre-ticked *except* what step 1 flagged.
 3. **Copy** each selected file into `.apache-magpie-overrides/`.

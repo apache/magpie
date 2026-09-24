@@ -564,15 +564,6 @@ rather than pulls in via symlink. Examples:
 - An installed Gemini workspace profile and guard registration:
   follow [the Gemini update lifecycle](../../../../docs/adapters/gemini.md#update) to report drift, then use its install merge for approved repairs.
   Preserve unrelated configuration and hand edits, and verify after restarting the runtime.
-- The adversarial-review harness commands that
-  [`config` Step 3c](config.md#step-3c--adversarial-reviewers-optional)
-  wrote under the user's home (`~/.codex/prompts/magpie-adversarial-review.md`,
-  `~/.gemini/commands/magpie-adversarial-review.toml`), when present. Each
-  names the plugin's absolute path, which a plugin upgrade changes. The
-  expected content is what
-  `adversarial-review commands --harness <name> --plugin-root <new plugin root>`
-  prints. These live outside the repository, so show the difference and
-  ask before rewriting even a stock file.
 - Any future hook or local config the framework adds.
 
 These can drift independently of the snapshot — an

@@ -94,11 +94,25 @@ def _parse_reviewers(value: str) -> list[str]:
     return names
 
 
-def _read_body(path: str | None) -> str:
+def _input_roots(repo_dir: Path) -> list[Path]:
+    return [repo_dir.resolve(), Path(tempfile.gettempdir()).resolve(), Path("/tmp").resolve()]
+
+
+def _checked_input(path: str, what: str, repo_dir: Path) -> Path:
+    """A file whose content goes to other model providers, read by a tool that
+    runs outside the sandbox: it must sit in the repository or a temporary
+    directory, so a crafted path cannot send `~/.ssh` or a private checkout."""
+    resolved = Path(path).expanduser().resolve()
+    if not any(resolved.is_relative_to(root) for root in _input_roots(repo_dir)):
+        raise InputError(f"{what} {path} must be inside the repository or a temporary directory")
+    return resolved
+
+
+def _read_body(path: str | None, repo_dir: Path) -> str:
     if path is None:
         return ""
     try:
-        return Path(path).read_text(encoding="utf-8")
+        return _checked_input(path, "--body-file", repo_dir).read_text(encoding="utf-8")
     except OSError as exc:
         raise InputError(f"cannot read --body-file: {exc}") from None
 
@@ -106,13 +120,19 @@ def _read_body(path: str | None) -> str:
 def _load_input(args: argparse.Namespace, repo_dir: Path, env: Mapping[str, str]) -> ReviewInput:
     target: str = args.target
     if target == "branch":
-        return make_input(diff_for_branch(repo_dir, args.base, env), args.title, _read_body(args.body_file))
+        return make_input(
+            diff_for_branch(repo_dir, args.base, env), args.title, _read_body(args.body_file, repo_dir)
+        )
     if target.startswith("pr:"):
         if not target[3:].isdigit():
             raise InputError(f"--target {target!r}: expected pr:<number>")
         return make_input(*pr_input(repo_dir, int(target[3:]), args.repo, env))
     if target.startswith("diff:"):
-        return make_input(read_diff_file(Path(target[5:])), args.title, _read_body(args.body_file))
+        return make_input(
+            read_diff_file(_checked_input(target[5:], "diff file", repo_dir)),
+            args.title,
+            _read_body(args.body_file, repo_dir),
+        )
     raise InputError(f"--target {target!r}: expected branch, pr:<N> or diff:<path>")
 
 
@@ -240,7 +260,9 @@ def build_parser() -> argparse.ArgumentParser:
     cmds = sub.add_parser("commands", help="print one harness's command file as JSON {path, content}")
     cmds.add_argument("--harness", required=True, choices=commands.HARNESSES)
     cmds.add_argument(
-        "--plugin-root", required=True, help="the installed magpie-adversarial-review plugin directory"
+        "--plugin-dir",
+        default=commands.PLUGIN_DIR,
+        help="the directory holding the plugin's version directories (default: %(default)s)",
     )
     return parser
 
@@ -263,7 +285,7 @@ def main(argv: Sequence[str] | None = None, env: Mapping[str, str] | None = None
     if args.command == "run":
         return cmd_run(args, environ)
     if args.command == "commands":
-        path, content = commands.render(args.harness, args.plugin_root)
+        path, content = commands.render(args.harness, args.plugin_dir)
         print(json.dumps({"path": path, "content": content}, indent=2))
         return EXIT_OK
     return EXIT_OK

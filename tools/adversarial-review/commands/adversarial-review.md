@@ -8,10 +8,12 @@ argument-hint: [branch | pr:<number> | diff:<path>]
 Run an adversarial review of a change by other models, with Apache Magpie's adversarial-review tool.
 
 1. Work out the target: `$ARGUMENTS` if it is not empty (`branch`, `pr:<number>` or `diff:<path>`), otherwise `branch`.
-2. Run exactly this command, as one line with nothing chained to it, replacing <target>:
+2. Run exactly this command, as one line with nothing chained to it, replacing <version> and <target>:
 
-   uvx --from "${CLAUDE_PLUGIN_ROOT}/tools/adversarial-review" adversarial-review run --target <target>
+   uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/<version>/tools/adversarial-review adversarial-review run --target <target>
 
+   `<version>` is the last path component of `${CLAUDE_PLUGIN_ROOT}`. Type the path exactly
+   as shown, unquoted and with a literal `~`: that is the form the sandbox exclusion matches.
    For `branch`, add `--base <ref>` when the base is not `origin/main`, and
    `--title "<PR title>" --body-file <file>` when a PR title and body exist.
 3. Show each reviewer's status and reason, then the findings, most severe first,

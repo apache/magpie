@@ -27,6 +27,7 @@
     - [Task 2.3: Configuration template and `setup config`](#task-23-configuration-template-and-setup-config)
     - [Task 2.4: `setup verify` and `setup adopt`](#task-24-setup-verify-and-setup-adopt)
     - [Task 2.5: Sandbox exclusion](#task-25-sandbox-exclusion)
+    - [PR 2 as built, after its whole-branch review](#pr-2-as-built-after-its-whole-branch-review)
   - [PR 3 — the shared pre-PR block in every PR-creating skill](#pr-3--the-shared-pre-pr-block-in-every-pr-creating-skill)
     - [Task 3.1: Block source](#task-31-block-source)
     - [Task 3.2: Declare the region in each PR-creating skill](#task-32-declare-the-region-in-each-pr-creating-skill)
@@ -2647,6 +2648,20 @@ Task-level. Each task follows the same TDD loop as PR 1.
 - **Files:** `tools/dev/blocks/sandbox-allowlist-helper.md` (or the helper chain it feeds), `docs/setup/secure-agent-setup.md`, and the `tools/sandbox-lint` rules if they enumerate allowed exclusions.
 - **Behaviour:** add `uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/*/tools/adversarial-review adversarial-review *` as the one `excludedCommands` entry, mirroring vetted-ops. Document that a compound command falls back into the sandbox.
 - **Tests:** sandbox-lint accepts the entry and rejects a broader `uvx *`.
+
+### PR 2 as built, after its whole-branch review
+
+- **One command form everywhere:** `uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/<version>/tools/adversarial-review …`, unquoted with a literal `~`, which is the form the sandbox exclusion matches.
+  - A test checks every generated command against the pattern in `tools/sandbox-lint/expected.json`.
+  - Claude Code's command reads `<version>` from `${CLAUDE_PLUGIN_ROOT}`; the others resolve the newest installed version at run time.
+  - No command bakes a version in, so the `upgrade` rewrite this plan called for is not needed and was dropped. The `commands` flag is `--plugin-dir` (optional), not `--plugin-root`.
+- **Gemini command:** it lives at `~/.gemini/commands/`, and the agent runs the tool through its own shell tool, not through `!{…}` injection.
+- **Sandbox hint:** the Codex, Gemini and Copilot commands tell the agent to ask for the one command to run outside its sandbox.
+- **`config` Step 3c** runs only when named (`config adversarial-review`). A plain `config` run mentions it in the recap, a pre-flight entry never touches it, and an existing file is shown as a diff before it is replaced.
+- **`verify` 8i** is also run on marketplace installs. `adopt` 4a always flags `adversarial-review.md` as personal.
+- **Canonical secure-setup list:** check 14 covers the exclusion, the deny and the absence of an `allow`, in `isolated-setup-verify`.
+- **Input paths:** the tool refuses a `--body-file` or `diff:` path outside the repository or a temporary directory.
+- **Not built:** a unit test for `verify` 8i and an `adopt` eval (both prose steps), and a `sandbox-lint` rule rejecting a broad `uvx *`. `sandbox-lint` compares against its baseline rather than judging entries, so the baseline pairs the settings file and review guards it.
 
 ---
 

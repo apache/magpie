@@ -16,7 +16,7 @@ when_to_use: >-
   have started working — that is the canary for a denial having
   silently become an allow.
 capability: capability:platform
-surface_hash: sha256:b3582f9511e28ef0
+surface_hash: sha256:2321708548dbd769
 license: Apache-2.0
 ---
 
@@ -183,6 +183,11 @@ Walk each in order:
     **n/a** when `sandbox.excludedCommands` has no `~/.claude/scripts/magpie-run-evals.sh *` entry *and* the script is absent.
     Otherwise:
     [`conditional-checks.md`](conditional-checks.md#check-13--eval-harness-exclusion-if-installed).
+
+14. **Adversarial-review exclusion, if installed.** Optional (step R of `setup-isolated-setup-install`).
+    **n/a** when the `magpie-adversarial-review` plugin is not installed.
+    Otherwise:
+    [`conditional-checks.md`](conditional-checks.md#check-14--adversarial-review-exclusion-if-installed).
 
 ## After the report
 

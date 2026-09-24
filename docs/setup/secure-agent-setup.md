@@ -3223,6 +3223,17 @@ below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
     be agent-writable. Copies that differ from
     `tools/skill-evals/` are ⚠, not ✗: the harness runs, it just
     grades against an older runner than the tree's.
+14. **Adversarial-review exclusion**, if the
+    `magpie-adversarial-review` plugin is installed (n/a otherwise).
+    `sandbox.excludedCommands` contains
+    `"uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/*/tools/adversarial-review adversarial-review *"`,
+    `permissions.deny` contains
+    `Edit(~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/**)`,
+    and **no** `permissions.allow` entry covers the tool. A missing
+    exclusion is ⚠ (every reviewer reports `unavailable` from inside
+    the sandbox); a missing deny is ✗ (the exclusion runs that code
+    unsandboxed); an `allow` is ✗ (each run sends the change to other
+    model providers and must keep its prompt).
 ```
 
 Re-run either form after every Claude Code upgrade — the sandbox

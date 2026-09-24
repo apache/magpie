@@ -56,11 +56,11 @@ Run these when the repo has no committed lock and Magpie is
 installed as a plugin — the default install path. There is no
 snapshot, no lock, and no symlink to check: the plugin *is* the
 install, and the agent's own plugin manager owns its lifecycle.
-Report, do not remediate. **Also run checks 11 and 12 below** —
-the read-only reconciliation sweep and the latest-available-
-plugin-version comparison apply to every project regardless of
-adoption state, marketplace or snapshot, adopted or merely
-configured; they are not specific to this branch.
+Report, do not remediate. **Also run checks 8i, 11 and 12 below** —
+the adversarial-reviewer check, the read-only reconciliation sweep
+and the latest-available-plugin-version comparison apply to every
+project regardless of adoption state, marketplace or snapshot,
+adopted or merely configured; they are not specific to this branch.
 
 1. **Which plugins are active, and at what version.** Read the
    client's plugin state — Claude Code:
@@ -875,9 +875,10 @@ A static pass does not replace live verification in Gemini.
 ### 8i. Adversarial reviewers (if configured)
 
 When `adversarial-review.md` resolves (`.apache-magpie-local/` first, then
-`.apache-magpie-overrides/`), run the tool's `detect` in its one-line form
-(`uvx --from <plugin-root>/tools/adversarial-review adversarial-review detect`)
-and compare it with the configured `reviewers`.
+`.apache-magpie-overrides/`), run the tool's `detect` in its one-line form —
+`uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/<version>/tools/adversarial-review adversarial-review detect`,
+unquoted with a literal `~`, `<version>` the newest installed — and compare
+it with the configured `reviewers`.
 
 - ✓ when every configured reviewer is available, or is `self` (skipped
   by design).
@@ -885,15 +886,17 @@ and compare it with the configured `reviewers`.
   `--version` probe fails, with the reason `detect` gave. A warning, never a
   failure: reviews are advisory, and a PR is never blocked by an
   unavailable reviewer. The remediation is to install or log in to that
-  CLI, or to drop it from the list with `setup config adversarial-review`.
-- ⚠ when the `magpie-adversarial-review` plugin is not installed but a
-  configuration names reviewers: print
+  CLI, or to drop it with `/magpie-setup config adversarial-review`.
+- ⚠ when a configuration names reviewers but the `magpie-adversarial-review`
+  plugin is not installed: print
   `/plugin install magpie-adversarial-review@apache-magpie`.
 - ⚠ for each harness command under the user's home
   (`~/.codex/prompts/magpie-adversarial-review.md`,
   `~/.gemini/commands/magpie-adversarial-review.toml`) that differs from
   what `adversarial-review commands --harness <name>` prints for the
-  installed plugin; the remediation is `upgrade` Step 6b.
+  installed plugin — the command text changed in a newer plugin. The
+  remediation is `/magpie-setup config adversarial-review`, which shows the
+  difference and asks.
 
 `detect` makes no model call, so a logged-out CLI passes here and shows up
 as `unavailable` in the report of the first real review. Say so.

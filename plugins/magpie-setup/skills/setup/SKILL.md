@@ -133,6 +133,7 @@ The skill dispatches by the first positional argument:
 | `setup install method:svn-zip\|git-tag\|git-branch` | [`install.md`](install.md) | The pinned snapshot install — the fallback path. Main-checkout only. |
 | `setup config` | [`config.md`](config.md) | **Not an install, and not adoption.** Configure the installed skills for *you*, in gitignored `.apache-magpie-local/`. Works on any repo, adopted or not, with nobody's permission. Writes nothing committable and stages nothing. |
 | `setup config <skill>` | [`config.md`](config.md) | The same, narrowed to one skill's required configuration. |
+| `setup config adversarial-review` | [`config.md`](config.md#step-3c--adversarial-reviewers-optional) | Detect the installed model CLIs and configure them as adversarial reviewers. |
 | `setup adopt` | [`adopt.md`](adopt.md) | **Not an install.** Commit the repo's recommended default plugin set and scaffold its overrides store, so every contributor arrives with them. Needs an explicit maintainer decision; stages, never commits. Default set is Claude Code only. |
 | `setup upgrade` | [`upgrade.md`](upgrade.md) | Refresh the snapshot per `<committed-lock>`, reconcile overrides, refresh symlinks. **Main-checkout only** — worktrees pick it up through the symlink `worktree-init` installs. |
 | `setup worktree-init` | [`worktree-init.md`](worktree-init.md) | **Worktree-only.** Symlink the worktree's `<snapshot-dir>` to the main checkout's so both share one framework state. No fetch, no lock files written; idempotent. |

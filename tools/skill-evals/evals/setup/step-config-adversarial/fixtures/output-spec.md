@@ -15,8 +15,9 @@ Return ONLY valid JSON with this structure:
 ```
 
 - `offer` — `true` when this run offers adversarial-reviewer configuration at
-  all. `false` when the `magpie-adversarial-review` plugin is not installed,
-  or when the run was entered from a skill's pre-flight.
+  all: only when the user named it (`config adversarial-review`) and the
+  `magpie-adversarial-review` plugin is installed. `false` on a plain `config`
+  run, on a run entered from a skill's pre-flight, and without the plugin.
 - `preticked` — the backends pre-ticked in the proposal: every backend
   `detect` reports available, except the one marked `self`. Sorted
   alphabetically. Empty when `offer` is `false`.

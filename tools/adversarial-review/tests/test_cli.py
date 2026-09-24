@@ -240,3 +240,52 @@ def test_unrunnable_git_is_a_usage_error_not_a_traceback(stub_bin, git_repo, tmp
         env={"PATH": str(bin_dir)},
     )
     assert code == 2 and "git" in capsys.readouterr().err
+
+
+def test_inputs_outside_repo_and_tmp_are_refused(git_repo, tmp_path, capsys, monkeypatch):
+    """The tool runs outside the sandbox and sends these files to other models."""
+    from adversarial_review import cli
+
+    monkeypatch.setattr(cli, "_input_roots", lambda repo_dir: [repo_dir.resolve()])
+    secret = tmp_path / "elsewhere" / "id_rsa"
+    secret.parent.mkdir()
+    secret.write_text("PRIVATE KEY", encoding="utf-8")
+    for extra in (["--body-file", str(secret)], ["--target", f"diff:{secret}"]):
+        code = main(
+            [
+                "run",
+                "--reviewers",
+                "codex",
+                "--project-root",
+                str(tmp_path),
+                "--repo-dir",
+                str(git_repo),
+                "--base",
+                "main",
+                *extra,
+            ],
+            env={"PATH": os.environ["PATH"]},
+        )
+        assert (
+            code == 2 and "must be inside the repository or a temporary directory" in capsys.readouterr().err
+        )
+
+
+def test_body_file_in_the_temp_dir_is_accepted(git_repo, tmp_path, capsys):
+    body = tmp_path / "pr-body.md"  # pytest's tmp_path lives under the system temp dir
+    body.write_text("Deny by default.", encoding="utf-8")
+    code = main(
+        [
+            "run",
+            "--project-root",
+            str(tmp_path),
+            "--repo-dir",
+            str(git_repo),
+            "--base",
+            "main",
+            "--body-file",
+            str(body),
+        ],
+        env={"PATH": os.environ["PATH"]},
+    )
+    assert code == 0
