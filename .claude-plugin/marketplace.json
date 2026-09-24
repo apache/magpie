@@ -7,6 +7,12 @@
   "description": "Apache Magpie agentic skills for maintaining open-source projects. Install the per-family plugins you use, so a session loads only what you need.",
   "plugins": [
     {
+      "name": "magpie-adversarial-review",
+      "source": "./plugins/magpie-adversarial-review",
+      "version": "0.2.0.dev202609222337",
+      "description": "Apache Magpie \u2014 adversarial review: runs other models' CLIs (Codex, Copilot, Gemini, Claude) read-only over a change before its PR is created, and merges their findings. Runs from the installed plugin, so no repository needs a copy."
+    },
+    {
       "name": "magpie-agent-guard",
       "source": "./plugins/magpie-agent-guard",
       "version": "0.2.0.dev202609222337",
