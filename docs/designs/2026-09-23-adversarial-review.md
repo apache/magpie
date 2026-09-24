@@ -18,6 +18,7 @@
   - [Consumers](#consumers)
   - [Testing](#testing)
   - [Rollout](#rollout)
+  - [As built](#as-built)
   - [Alternatives considered](#alternatives-considered)
   - [Risks](#risks)
 
@@ -30,7 +31,7 @@
 
 | | |
 |---|---|
-| **Status** | Being built: the tool and plugin (PR 1 of 4, apache/magpie#1368), then `setup` (PR 2 of 4). Plan: [`2026-09-23-adversarial-review-plan.md`](2026-09-23-adversarial-review-plan.md). |
+| **Status** | Built, in apache/magpie#1368 and the three PRs stacked on it; see [As built](#as-built) for where it departs from this text. |
 | **Scope** | A new tool (`tools/adversarial-review`) and substrate plugin, the `setup` family (detection, configuration, per-harness commands), a shared pre-PR block included by every PR-creating skill, and an optional multi-reviewer second read in `pr-management-code-review`. |
 
 ## What is wrong
@@ -165,6 +166,21 @@ Separate PRs, each reviewable and mergeable on its own:
 2. `setup`: `detect` in `config` and `verify`, the configuration template, per-harness command generation, the sandbox exclusion.
 3. The shared pre-PR block and its inclusion in every PR-creating skill.
 4. `pr-management-code-review`: `with-reviewers:`.
+
+## As built
+
+Where the shipped system departs from the sections above; the code and its
+tests are the reference.
+
+- **The invocation has one spelling.** `uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/<version>/tools/adversarial-review …`, unquoted with a literal `~`, is the only form the sandbox exclusion matches. Every generated command and the shared block use it, and tests pin both to the exclusion pattern in `tools/sandbox-lint/expected.json`. No command bakes a version in: Claude Code's reads it from `${CLAUDE_PLUGIN_ROOT}`, the others take the newest installed. So `upgrade` has nothing to rewrite.
+- **`detect` does not see login state.** It makes no model call. A logged-out CLI shows up as `unavailable` in the first real review, classified from its stderr.
+- **Reviewers are read-only only as far as each CLI allows.** Codex gets `-c mcp_servers={}` and Claude gets `--strict-mcp-config`. Copilot and Gemini have no switch to drop MCP servers. `codex -s read-only` does not confine reads (see [Risks](#risks)).
+- **The runner survives CLIs that spawn helpers.** Output goes to temporary files, so a reviewer's exit ends the wait. The whole process group is killed afterwards, and SIGINT/SIGTERM kill every live reviewer. The default timeout is 8 minutes, under a harness's 10-minute shell-call cap.
+- **Reviewer output is parsed per finding.** A malformed item is skipped and reported; the reviewer's other findings are kept.
+- **Inputs are confined.** The tool refuses a `--body-file` or `diff:` path outside the repository or a temporary directory, since it runs outside the sandbox. When the checkout under review is the project's tracker, the report warns.
+- **`setup config` offers reviewers only when named** (`config adversarial-review`). Codex and Gemini command files go under the user's home, never into a repository. The Claude Code command is `/magpie-adversarial-review:adversarial-review`, because plugin commands are namespaced.
+- **The pre-PR block also covers verifying a patch someone else proposed** (`security-issue-import-from-pr`). The skill validator fails any PR-opening skill that lacks it.
+- **`pr-management-code-review` gains `with-reviewers:`** (the tool path, run by the agent) next to `with-reviewer:` (the slash path, typed by the maintainer). A configured `adversarial-review.md` applies to code review unless `mode: off`. Before the first tool run on a private repository's PR, the maintainer is asked.
 
 ## Alternatives considered
 

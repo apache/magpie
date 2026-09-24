@@ -515,10 +515,21 @@ from text the contributor wrote.
 
 If an adversarial reviewer was configured at session start (see
 [`prerequisites.md`](prerequisites.md)) and the maintainer
-hasn't passed `no-adversarial`, **propose** invoking it now.
-See [`adversarial.md`](adversarial.md) for full mechanics.
+hasn't passed `no-adversarial`, bring it in now, after the Step 4
+findings are drafted. See [`adversarial.md`](adversarial.md) for full
+mechanics.
 
-The proposal is:
+**Tool path** (`with-reviewers:` or `adversarial-review.md`): run the
+tool over this PR — the one-line command in
+[`adversarial.md`](adversarial.md#model-clis-through-the-tool-with-reviewers)
+— and fold the report's findings into the Step 4 list. Deduplicate
+where a reviewer landed on the same line as the primary pass, and mark
+each finding with its source: `primary`, `adversarial (<reviewers>)`, or
+`both`. List any reviewer that did not answer, with its reason, in the
+session summary. No typed step and no pause beyond the harness prompt.
+
+**Slash path** (`with-reviewer:` or "Review preferences"): **propose**
+invoking it:
 
 > *Now I'd like a second read. Type `<ADVERSARIAL_COMMAND>`
 > and I'll wait. Or `[N]o` / `[Q]uit` to skip.*

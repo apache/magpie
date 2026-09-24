@@ -484,8 +484,9 @@ not confirmed.
 
 ## Adversarial-reviewer attribution
 
-When a finding came from the adversarial reviewer, mark it
-inline:
+When a finding came from an adversarial reviewer, mark it
+inline. Name the reviewer when the tool path ran several (*"Flagged by
+codex and copilot (adversarial review); cross-checked."*); otherwise:
 
 ```markdown
 ### Blocking — Race condition on lock release (`scheduler.py:312`)

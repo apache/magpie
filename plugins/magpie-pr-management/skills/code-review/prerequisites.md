@@ -54,39 +54,52 @@ maintainer to run `gh auth login`. Do not proceed.
 
 ## 2. Resolve adversarial-reviewer configuration (DEGRADES)
 
-The skill does not auto-discover plugins or scan installed
-extensions. Adversarial-reviewer integration is opt-in: the
-maintainer names the slash command at invocation time, or
-documents it in their agent-instructions file.
+Adversarial-reviewer integration is opt-in, and comes in two shapes:
+**model CLIs** the agent runs through the `magpie-adversarial-review`
+tool (the *tool path*), or a **slash command** the maintainer types
+(the *slash path*). The skill does not scan installed extensions; the
+tool's own `detect` is only consulted for what the maintainer named.
 
-In priority order:
+In priority order, first match wins:
 
-1. **`with-reviewer:<command>` selector** on the current
-   invocation — wins over everything else; the maintainer is
-   explicit.
-2. **Project-scope `AGENTS.md`** at the repo root, if it has a
-   `## Review preferences` (or equivalent) section that names
-   a slash command.
-3. **Harness-specific project file** (e.g. `.claude/CLAUDE.md`)
-   under the working directory, same convention.
-4. **User-scope harness file** (e.g. `~/.claude/CLAUDE.md`),
-   same convention.
+1. **`no-adversarial`** on the current invocation → no reviewer this
+   session (still announce: *"adversarial reviewer disabled for this
+   session"*).
+2. **`with-reviewers:<list>`** → the tool path, with exactly that list
+   (comma-separated backend names: `codex`, `copilot`, `gemini`,
+   `claude`).
+3. **`with-reviewer:<command>`** → the slash path, with that command.
+4. **`adversarial-review.md`** (`.apache-magpie-local/` first, then
+   `.apache-magpie-overrides/`) with a non-empty `reviewers` list and
+   `mode` other than `off` → the tool path, with the configured list.
+   A code review is itself a request for a review, so `on-demand`
+   counts here.
+5. **Project-scope `AGENTS.md`** at the repo root, if it has a
+   `## Review preferences` (or equivalent) section that names a slash
+   command → the slash path.
+6. **Harness-specific project file** (e.g. `.claude/CLAUDE.md`) under
+   the working directory, same convention.
+7. **User-scope harness file** (e.g. `~/.claude/CLAUDE.md`), same
+   convention.
 
-If a command is found, announce once at session start:
+The tool path needs the `magpie-adversarial-review` plugin. When it was
+selected but the plugin is not installed, say so with the install
+command (`/plugin install magpie-adversarial-review@apache-magpie`) and
+fall through to rule 5.
 
-> *Adversarial reviewer configured: `<COMMAND>`. After my
-> review of each PR I'll propose typing it so we get a
+Announce the result once at session start:
+
+> *Adversarial reviewers configured: codex, copilot (run by me through
+> the adversarial-review tool after my own review of each PR; the
+> harness asks you before each run).*
+
+> *Adversarial reviewer configured: `<COMMAND>`. After my review of each
+> PR I'll propose typing it so we get a second read.*
+
+> *No adversarial reviewer configured. Reviews this session use only my
+> own pass. Pass `with-reviewers:codex,copilot` (model CLIs) or
+> `with-reviewer:<command>` (a slash command) next time if you want a
 > second read.*
-
-If none is found, announce:
-
-> *No adversarial reviewer configured. Reviews this session
-> use only my own pass. Pass `with-reviewer:<command>` next
-> time if you want a second read.*
-
-If the maintainer passed `no-adversarial` explicitly, skip the
-per-PR proposal regardless of what's configured (still
-announce: *"adversarial reviewer disabled for this session"*).
 
 See [`adversarial.md`](adversarial.md) for the full integration
 mechanics — including why the assistant proposes the slash
