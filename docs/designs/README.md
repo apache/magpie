@@ -25,7 +25,7 @@ what was designed and deliberately not built.
 | [Body-owned configuration layers](2026-09-17-body-owned-config-layers.md) | Proposed — depends on the Incubator PMC and ComDev |
 | [Reproducible releases](2026-09-20-reproducible-releases.md) | Built (apache/magpie#1296); the ASF automated-signing path and the ATR SWHID comparison await first use |
 | [Reconciliation tracking for marketplace installs](2026-09-21-marketplace-reconciliation-tracking.md) | Built, bar seven items it names |
-| [Adversarial review by other models, before every PR](2026-09-23-adversarial-review.md) | Being built — PR 1 of 4 (the tool and plugin); [plan](2026-09-23-adversarial-review-plan.md) |
+| [Adversarial review by other models, before every PR](2026-09-23-adversarial-review.md) | Being built — the tool and plugin (apache/magpie#1366), then `setup` (PR 2 of 4); [plan](2026-09-23-adversarial-review-plan.md) |
 
 One document per subject, describing the result rather than the phases it was
 built in. While a design is being implemented it may be split into plans; when

@@ -235,6 +235,47 @@ the ones this run did work for actually get written. Existing entries
 for other skills, in either store, are left exactly as they are —
 [`reconcile.md`](reconcile.md) is the project-wide pass.
 
+## Step 3c — Adversarial reviewers (optional)
+
+Offer this only when the `magpie-adversarial-review` plugin is installed and
+the run was **not** entered from a skill's pre-flight: no skill requires it,
+so it is never part of the one batched question a pre-flight entry asks.
+`config adversarial-review` asks for it by name.
+
+1. **Detect.** Run the tool's `detect` as one line (the form the sandbox
+   exclusion matches):
+
+   ```bash
+   uvx --from <plugin-root>/tools/adversarial-review adversarial-review detect
+   ```
+
+   `<plugin-root>` is the installed plugin's directory. Report each backend:
+   available or not, with the reason, and which one is `self` — the model
+   this harness runs, which is never used as its own reviewer.
+2. **Propose.** Pre-tick every available backend except `self`, and ask
+   which to enable, and whether reviews should run on every PR a skill
+   opens (`on-pr-create`, the default) or only when asked (`on-demand`).
+   Say that the security family runs the reviewers whenever any is listed,
+   whatever the mode.
+3. **Write** `.apache-magpie-local/adversarial-review.md` from
+   `projects/_template/adversarial-review.md`, with the chosen
+   `reviewers` and `mode`. If the project committed one, this shadows it
+   (hard rule 4).
+4. **Offer the harness commands**, one multi-select, nothing pre-ticked,
+   for each harness installed on this machine other than Claude Code (whose
+   command ships in the plugin as `/magpie-adversarial-review:adversarial-review`).
+   `adversarial-review commands --harness <name> --plugin-root <plugin-root>`
+   prints each one's path and content:
+   - Codex CLI → `~/.codex/prompts/magpie-adversarial-review.md`
+   - Gemini CLI → `~/.gemini/commands/magpie-adversarial-review.toml`
+   - Copilot CLI has no command mechanism: show the one-line invocation
+     instead, and write nothing.
+
+   Write only what the user ticks, and name each path as you write it.
+   These files sit in the user's home, not in any repository, and carry the
+   absolute plugin path — `upgrade` rewrites them when the plugin moves.
+   If a file already exists there and differs, show the difference and ask.
+
 ## Step 4 — Recap
 
 Tell the user, in this order:
@@ -282,6 +323,9 @@ will see.
    edit, no lock file, no staging, no commit. This includes Step 3b's
    reconciliation stamp: even on an already-adopted project, it never
    touches the committed lock — only `.apache-magpie-local/reconciled.json`.
+   The one exception is Step 3c's harness command files: written under the
+   user's home (never inside a repository), only the ones the user ticked,
+   and never on a run entered from a skill's pre-flight.
 2. **Never fabricate a value.** A value you cannot derive is a question
    or a `TODO`, never a plausible-looking guess. A wrong `upstream_repo`
    sends a skill at the wrong repository.

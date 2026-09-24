@@ -66,7 +66,8 @@ def _invocation(root: str) -> str:
 
 
 def render(harness: str, plugin_root: str) -> tuple[str, str]:
-    """(path to write, relative to the harness's home or project; content).
+    """(path, content). The path is plugin-relative for Claude Code (the plugin ships it)
+    and under the user's home for the others — never inside a repository.
     An empty path means the harness has no command mechanism: print the content."""
     if harness == "claude":
         body = _STEPS.format(args="$ARGUMENTS", invocation=_invocation("${CLAUDE_PLUGIN_ROOT}"))
@@ -77,7 +78,7 @@ def render(harness: str, plugin_root: str) -> tuple[str, str]:
     if harness == "gemini":
         body = _STEPS.format(args="{{args}}", invocation=_invocation(plugin_root))
         return (
-            ".gemini/commands/magpie-adversarial-review.toml",
+            "~/.gemini/commands/magpie-adversarial-review.toml",
             f"description = {json.dumps(DESCRIPTION)}\nprompt = '''\n{body}'''\n",
         )
     if harness == "copilot":

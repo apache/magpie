@@ -51,7 +51,7 @@ def test_codex_prompt():
 
 def test_gemini_command_is_valid_toml():
     path, content = render("gemini", ROOT)
-    assert path == ".gemini/commands/magpie-adversarial-review.toml"
+    assert path == "~/.gemini/commands/magpie-adversarial-review.toml"
     data = tomllib.loads(content)
     assert set(data) == {"description", "prompt"}
     assert "{{args}}" in data["prompt"] and f"{ROOT}/tools/adversarial-review" in data["prompt"]

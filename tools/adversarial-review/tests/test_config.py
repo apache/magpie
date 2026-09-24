@@ -90,3 +90,9 @@ def test_invalid_config_is_an_error_naming_the_problem(block, message):
 def test_file_without_a_block_is_an_error():
     with pytest.raises(ConfigError, match="no ```yaml block"):
         parse("# nothing here\n", SRC)
+
+
+def test_the_shipped_template_parses():
+    template = Path(__file__).resolve().parents[3] / "projects" / "_template" / "adversarial-review.md"
+    cfg = parse(template.read_text(encoding="utf-8"), template)
+    assert cfg.mode == "on-pr-create" and cfg.reviewers == () and cfg.timeout_minutes == 8.0

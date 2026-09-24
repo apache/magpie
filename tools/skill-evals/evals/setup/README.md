@@ -5,7 +5,7 @@
 
 Behavioral evals for the `setup` skill.
 
-## Suites (83 cases total)
+## Suites (87 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
@@ -28,6 +28,7 @@ Behavioral evals for the `setup` skill.
 | step-reconcile | reconcile.md § The sweep | 3 | a clean sweep on a pinned-snapshot install (anchor present, config resolved — stamp written, nothing proposed), a renamed step heading stranding an override's anchor (one re-anchor proposal named), a marketplace install whose plugin cache is sandbox-denied (anchor resolution left `unchecked`, config resolution still completes) |
 | step-verify | verify.md § 12. Latest available plugin version | 2 | a dev-to-dev delta where the marketplace clone is one dev build ahead of an installed plugin (`update_available` carries the newer dev version — pins decision 7: nothing strips `.devN`), and a sandbox-denied marketplace clone (`update_available: null` **and** `unchecked: ["latest-version"]`, distinguishing *nothing newer* from *could not look*) |
 | step-config-stamp | config.md § Step 3b | 4 | `config` on an already-adopted project where Step 3 wrote the skill's last missing file this run, which records `acknowledged.skills` locally and never touches the committed lock; `config` on an unadopted one, whose entries land in `.apache-magpie-local/reconciled.json`'s `skills` map with `version`/`at` regardless of whether this run touched a file; the R2 skip on a repo where nothing has ever been configured or adopted (`write_stamp: false`); and an already-adopted project where the one skill in scope was already fully configured *before* this run, so nothing is recorded even though the lock exists (`write_stamp: false` for a different reason — the narrowed acknowledged-write trigger) |
+| step-config-adversarial | config.md § Step 3c | 4 | an explicit `config` run pre-ticks every available backend except `self` and offers command files only for installed non-Claude, non-Copilot harnesses (Copilot gets the invocation); a run entered from a skill's pre-flight offers nothing; no offer without the plugin; and an offer with nothing pre-ticked when only `self` is available |
 | step-adopt-stamp | adopt.md § 4d | 1 | a re-adoption that migrates an earlier `config` run's local `skills` map into the committed lock, adds the skill 4a/4b/4c just configured, and records the version Step 2 actually read off the machine rather than the (higher, ratcheted) `min_version` it kept |
 | step-upgrade-stamp | upgrade.md § Step 5 | 1 | two overrides after a snapshot refresh — one whose target skill, anchors, and `requires_config` all resolve (stamped), and one with intact anchors but an unresolved `requires_config` entry (a finding, deliberately left unstamped rather than reported false-clean) |
 

@@ -30,7 +30,7 @@
 
 | | |
 |---|---|
-| **Status** | Being built: the tool and plugin (PR 1 of 4). Plan: [`2026-09-23-adversarial-review-plan.md`](2026-09-23-adversarial-review-plan.md). |
+| **Status** | Being built: the tool and plugin (PR 1 of 4, apache/magpie#1366), then `setup` (PR 2 of 4). Plan: [`2026-09-23-adversarial-review-plan.md`](2026-09-23-adversarial-review-plan.md). |
 | **Scope** | A new tool (`tools/adversarial-review`) and substrate plugin, the `setup` family (detection, configuration, per-harness commands), a shared pre-PR block included by every PR-creating skill, and an optional multi-reviewer second read in `pr-management-code-review`. |
 
 ## What is wrong
@@ -126,7 +126,7 @@ adversarial_review:
 |---|---|
 | Claude Code | `/magpie-adversarial-review:adversarial-review`, shipped in the plugin (Claude Code namespaces plugin commands by plugin name) |
 | Codex CLI | `~/.codex/prompts/magpie-adversarial-review.md` |
-| Gemini CLI | `.gemini/commands/magpie-adversarial-review.toml` |
+| Gemini CLI | `~/.gemini/commands/magpie-adversarial-review.toml` |
 | Copilot CLI | a reusable-prompt entry if the installed Copilot CLI supports one; otherwise `setup` prints the one-line `adversarial-review run` invocation to use instead |
 
 Where a harness has no user-defined command mechanism, the fallback is always the same single-line tool invocation, which works from any harness's shell.

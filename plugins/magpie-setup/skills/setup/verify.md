@@ -872,6 +872,34 @@ Report missing components and configuration drift without modifying files.
 An absent profile is skipped unless Gemini secure setup was requested; in that case, point to `setup-isolated-setup-install`.
 A static pass does not replace live verification in Gemini.
 
+### 8i. Adversarial reviewers (if configured)
+
+When `adversarial-review.md` resolves (`.apache-magpie-local/` first, then
+`.apache-magpie-overrides/`), run the tool's `detect` in its one-line form
+(`uvx --from <plugin-root>/tools/adversarial-review adversarial-review detect`)
+and compare it with the configured `reviewers`.
+
+- ✓ when every configured reviewer is available, or is `self` (skipped
+  by design).
+- ⚠ for each configured reviewer whose CLI is missing or whose
+  `--version` probe fails, with the reason `detect` gave. A warning, never a
+  failure: reviews are advisory, and a PR is never blocked by an
+  unavailable reviewer. The remediation is to install or log in to that
+  CLI, or to drop it from the list with `setup config adversarial-review`.
+- ⚠ when the `magpie-adversarial-review` plugin is not installed but a
+  configuration names reviewers: print
+  `/plugin install magpie-adversarial-review@apache-magpie`.
+- ⚠ for each harness command under the user's home
+  (`~/.codex/prompts/magpie-adversarial-review.md`,
+  `~/.gemini/commands/magpie-adversarial-review.toml`) that differs from
+  what `adversarial-review commands --harness <name>` prints for the
+  installed plugin; the remediation is `upgrade` Step 6b.
+
+`detect` makes no model call, so a logged-out CLI passes here and shows up
+as `unavailable` in the report of the first real review. Say so.
+
+When no `adversarial-review.md` resolves, this check is skipped.
+
 ### 11. Reconciliation sweep (read-only)
 
 Runs the identical two checks
