@@ -30,7 +30,7 @@
 
 | | |
 |---|---|
-| **Status** | Being built: the tool and plugin (PR 1 of 4, apache/magpie#1366), then `setup` (PR 2 of 4). Plan: [`2026-09-23-adversarial-review-plan.md`](2026-09-23-adversarial-review-plan.md). |
+| **Status** | Being built: the tool and plugin (PR 1 of 4, apache/magpie#1368), then `setup` (PR 2 of 4). Plan: [`2026-09-23-adversarial-review-plan.md`](2026-09-23-adversarial-review-plan.md). |
 | **Scope** | A new tool (`tools/adversarial-review`) and substrate plugin, the `setup` family (detection, configuration, per-harness commands), a shared pre-PR block included by every PR-creating skill, and an optional multi-reviewer second read in `pr-management-code-review`. |
 
 ## What is wrong
