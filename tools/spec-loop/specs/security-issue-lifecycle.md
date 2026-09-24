@@ -59,6 +59,26 @@ publication, with a human gate and an audit-log entry at every step.
 - **Reporter PII redacted in-context; reporter *credit* preserved** in
   the CVE `credits[]` only after the reporter confirms on the thread.
 - **Audit log** of every applied change (redacted identifiers only).
+- **An unresponsive reporter never blocks the team.** When
+  `security-issue-sync` finds the reporter thread stale — the team's last
+  outbound message older than
+  `security_inbox.reporter_response_timeout_days` with no reply since —
+  its step 2b proposes proceeding with fix and announcement without
+  further reporter sign-off, per ASF security policy, and never a
+  follow-up asking the reporter to confirm they are still engaged. The
+  rule is restated in the step body rather than left to
+  `signals-to-actions.md`, because it carries policy (#1340).
+- **The post-advisory security-pages update is tracked, not performed.**
+  Both release-manager hand-off comment variants carry a
+  `Project security pages updated with CVE_ID` checkbox behind a
+  `security-pages-checklist` marker. The edit is a website change outside
+  anything sync can write, so it never gates the close-out; instead sync's
+  closed-tracker pass (Step 1g) proposes a one-line reminder comment,
+  behind its own `security-pages-reminder` marker and at most once per
+  tracker, when the advisory has shipped and the box is still unticked.
+  A re-rendered hand-off comment keeps the release manager's tick, and a
+  ticked box keeps later runs quiet. The reminder links the project's
+  pages through the optional `security_pages_url` manifest key (#1355).
 
 ## Out of scope
 

@@ -40,6 +40,27 @@ change.
 
 Shipping implementation: [`tools/vetted-ops`](../../vetted-ops/README.md).
 
+The HTTP read backend (`http-read`, which implies `writes=False`) carries the
+security-data lookups the adapters used to spell as raw `curl`: four OSV.dev
+operations (`osv-get-vuln`, `osv-query-package`, `osv-query-commit`,
+`osv-query-batch`) and `cve-check-published` against CVE Services. URLs are
+built from closed templates over `[endpoints]` bases the policy declares, which
+must be `https://`; parameters are validated against `..` and shell
+characters; responses stream to stdout, never to a file; and `urllib.request`
+honours `HTTPS_PROXY`, so the egress gateway still applies (#1326). The
+`tools/osv/` and `tools/cve-org/` recipes, and `security-issue-sync`'s
+cve.org check, invoke it through the same `uv run --project
+<framework>/tools/vetted-ops vetted-op-read …` spelling every permission rule
+and sandbox exclusion names — a bare `vetted-op-read` would miss the
+allowlist and prompt or run sandboxed (#1339).
+
+The dispatcher runs from the installed `magpie-vetted-ops` plugin, which ships
+`tools/vetted-ops` without the workspace root, so the project must resolve
+standalone: it declares no `dev` dependency group, because uv resolves every
+group before running and `magpie-dev` resolves only through the root's
+`[tool.uv.sources]`. Its tests take the shared toolchain from the root `dev`
+group instead (#1357).
+
 ## Scoping — what is real and what is aspiration
 
 The dispatcher requires `--caller` and refuses operations outside that caller's

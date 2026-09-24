@@ -47,7 +47,7 @@ error, and two skills that probe or verify the setup on demand.
   **Root cause** (which sandbox layer blocks it and why), **Fix** (a
   settings widening with per-entry rationale, or — for the `gh` entry —
   an invocation-shape rule, because there is nothing to widen), and
-  **Notes**. Eight entries today: SSH agent / Yubikey, signed commit
+  **Notes**. Ten entries today: SSH agent / Yubikey, signed commit
   failing before any touch (`gpg.format=ssh` key unreadable), signed
   commit failing with `cannot exec` of the touch-overlay wrapper
   (`gpg.ssh.program` under the read-denied `~/.claude/scripts/`),
@@ -55,26 +55,51 @@ error, and two skills that probe or verify the setup on demand.
   appearing (the touch overlay's runtime-state directory denied —
   `/tmp` on a platform with no `$XDG_RUNTIME_DIR`, before the
   per-user cache-dir fallback), localhost port bind, Docker / Podman
-  socket, `/tmp` read-only, and `gh` inside the sandbox (TLS
-  `OSStatus -26276` / `HTTP 401`).
+  socket, `/tmp` read-only, `gh` inside the sandbox (TLS
+  `OSStatus -26276` / `HTTP 401`), `prek` or `uv` not found or unable
+  to write its cache (the home-directory dev-tool paths not granted in
+  the worktree's `settings.local.json`, #1359), and git hooks silently
+  skipped for sandboxed commits (whole-user `core.hooksPath` under the
+  read-denied home, #1364).
 - `tools/agent-isolation/sandbox-error-hint.sh` — a Claude Code
   `PostToolUse` hook on the `Bash` matcher. Scans the tool's stdout +
   stderr for the catalogued symptom strings and, on a match, prints
   one `[sandbox-hint] …` line to stderr naming the catalog anchor,
   exiting 1 so the line reaches the model and the user. Tests under
   `tools/agent-isolation/tests/test_sandbox_error_hint.py`.
-- Skill `setup-isolated-setup-doctor` — live, read-only probes, one per
-  catalog entry (`## The 8 probes`), each reporting ✓ / ✗ / ⊘ / ⚠ with
-  the command and its output as evidence, and each mapping ✗ to the
-  matching catalog anchor. The `gh` probe runs `gh` through `sh -c` so
+- Skill `setup-isolated-setup-doctor` — live, read-only probes
+  (`## The 8 probes`), each reporting ✓ / ✗ / ⊘ / ⚠ with the command
+  and its output as evidence, and each mapping ✗ to the matching
+  catalog anchor. Each probe is a deterministic, side-effect-free
+  script, `scripts/probe-<n>-<slug>.sh`, printing one
+  `PROBE: <slug> → ✓|✗|⊘|⚠ (<evidence>)` line the skill's
+  interpretation tables match on; the commands stay out of the
+  skill body, so they cost no context and can be run and tested on
+  their own (#1336). Probe 7 checks that `prek` and `uv` run inside
+  the sandbox and can write `~/.cache`, telling a missing grant (⚠)
+  from a tool that is not installed (⊘) by reading the worktree's
+  `settings.local.json`, since a read-denied `~/.local/bin` looks the
+  same as an absent one (#1362). Probe 8 looks at the global
+  `core.hooksPath` directory from inside the sandbox: skip when none
+  is set, fail when the directory or a hook's symlink target is
+  unreadable, warn when it holds none of the common hooks (#1364). The `gh` probe runs `gh` through `sh -c` so
   the `excludedCommands` exemption cannot apply to the probe itself,
   which shows what an un-excluded `gh` does on this machine, then
   checks that `"gh *"` is configured.
 - Skill `setup-isolated-setup-verify` — static checks of the installed
-  configuration (`## The 11 checks`): settings shape, hook wiring, hook
-  scripts, wrapper, pinned versions, status line, denial canaries,
-  project-root grant, the vetted-ops split, the touch overlay and
-  signing key (check 10), and (check 11) the `gh` exclusion. Mirrors the "Via a Claude Code prompt" checklist in
+  configuration (`## The 12 checks`, numbered 1–13 with the last
+  optional): settings shape, hook wiring, hook scripts, wrapper,
+  pinned versions, status line, denial canaries, project-root grant
+  (check 8 — also the dev-tool paths, whose absence is ⚠ not ✗, and in
+  whole-user scope the shared hook directory probed from inside the
+  sandbox, whose unreadability is ✗), the vetted-ops split, the touch
+  overlay and signing key (check 10), the `gh` exclusion (check 11),
+  the container gateway (check 12), and the eval-harness exclusion
+  (check 13, if installed). The conditional checks — 9, 10, 12, 13 and
+  check 8's whole-user branch — live in `conditional-checks.md`; the
+  body keeps each one's condition and its **n/a** answer, so a run
+  that meets none of the conditions reads none of them (#1334).
+  Mirrors the "Via a Claude Code prompt" checklist in
   `docs/setup/secure-agent-setup.md`, which is the canonical list.
 - `docs/setup/secure-agent-setup.md` § Sandbox-error hint hook — the
   signature → anchor table, install recipe, and trade-offs.
@@ -87,7 +112,11 @@ error, and two skills that probe or verify the setup on demand.
   branch to the hook, a probe to the doctor, and — where the entry
   relies on a static setting — a check to the verify skill. A catalog
   entry with no hook branch, or a hook branch with no catalog anchor,
-  is drift.
+  is drift. The one sanctioned exception is a failure that prints
+  nothing: git skips a hook directory it cannot see without a word, so
+  the git-hooks entry has no symptom string to match and is reached
+  through the doctor's probe 8 and verify check 8 instead, and says so
+  in its **Notes**.
 - **Symptom strings are literal.** Entries quote the exact error text
   so a grep into the catalog finds them; the hook matches those same
   strings with anchored, specific regexes. False-positive hints are
@@ -183,6 +212,12 @@ PYTHONPATH=tools/skill-evals/src python3 -m skill_evals.runner \
 ```
 
 ## Known gaps
+
+- The doctor runs 8 probes over the catalog's 10 entries: the two
+  touch-overlay entries (`cannot exec` of the wrapper, and the
+  runtime-state directory) have no live probe. Verify check 10 covers
+  the wrapper's `allowRead` grant statically; the runtime-state entry
+  is reached only through the hint hook.
 
 - The invocation-shape rule is measured on macOS / Claude Code 2.1.278
   and will change when anthropics/claude-code#95532 is fixed; the

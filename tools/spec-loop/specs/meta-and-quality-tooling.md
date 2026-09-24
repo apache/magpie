@@ -36,13 +36,24 @@ trustworthy as it grows.
 - `tools/skill-and-tool-validator/` — validates `SKILL.md` frontmatter (required
   `name`, `description`, `license`) and tool definitions, internal link integrity,
   placeholder conventions, license headers on tool Python files, and eval-coverage
-  (soft check: warns when a skill has no eval suite). CLI: `skill-and-tool-validate`.
+  (soft check: warns when a skill has no eval suite). A skill's `name:` must
+  equal the directory its `SKILL.md` actually lives in — the family-plugin
+  directory name, which is the alias every harness invokes it by (#1361).
+  CLI: `skill-and-tool-validate`.
 - `tools/skill-evals/` — harness for measuring skill behaviour. A case whose
   CLI produced no usable JSON reports ERROR unless something asserts on a
   synthetic wrap key (`raw_output` / `stderr` / `exit_code`, via
   `expected.json` or an `assertions.json` `field`) — a wrap nothing addresses
   compares nothing, and passing it turned an unauthenticated CLI into a green
-  run.
+  run. Every fixture read is contained to the eval tree by resolved path:
+  `magpie-run-evals.sh` runs outside the sandbox, so its wrapper resolves its
+  target against `tools/skill-evals/evals` and the runner resolves every path
+  it reads — `report.md`, `step-config.json`'s `skill_md` — rejecting a
+  symlink or a `..` walk that leads out, while symlinks that stay inside the
+  tree keep working (#1315). A prose-field verdict the grader drops from a
+  batched rubric is re-asked once, and only silence that survives the retry
+  is reported; a verdict the grader actually gave is never re-asked, so a NO
+  cannot become a YES by asking twice (#1341).
 - `tools/sandbox-lint/` — lints the sandbox/permissions configuration.
 - `tools/symlink-lint/` — lints the framework's self-adoption skill
   symlinks: rejects cyclic symlinks, misdirected relays (canonical/
@@ -81,11 +92,14 @@ trustworthy as it grows.
   SPDX-License-Identifier header, Validation code block present,
   filesystem paths in Validation blocks must exist under repo root);
   the spec-side counterpart to `skill-and-tool-validator`.
-- Skills: `write-skill` (author/update a skill), `optimize-skill`
-  (restructure an existing skill or sweep a set: split oversized
-  `SKILL.md`, lift project-specific values into placeholders, harden
-  prompt-injection defences), `list-skills` (live, generated index of
-  every skill, grouped by family).
+- Skills: `write-skill` (author/update a skill; its Step 7 runs
+  `optimize-skill` on every new skill before it ships, unconditionally),
+  `optimize-skill` (restructure an existing skill or sweep a set: split
+  oversized `SKILL.md`, lift project-specific values into placeholders,
+  harden prompt-injection defences, extract embedded code, and — in a
+  separate rewrite pass, `rewrite.md` — rewrite prose paragraph by
+  paragraph with the maintainer writing every word), `list-skills` (live,
+  generated index of every skill, grouped by family).
 
 - `tools/skill-token-count/` measures full local skill files with pinned
   `tiktoken` / `cl100k_base`, generates the mode-economics table, and checks
@@ -123,6 +137,38 @@ trustworthy as it grows.
   should capture the same minimal fields every time: skill/family,
   target repo/profile, blocked preflights, false positives, confirmation
   points, privacy/adapter notes, and proposed spec changes.
+- **Skill size has measured budgets.** `optimize-skill` targets 5,000
+  tokens for a `SKILL.md` body (pre-flight block excluded) and 200 for
+  `description` plus `when_to_use`, both set at the catalogue median and
+  measured with `skill-token-count` before and after every pass; the
+  always-on frontmatter budget is spent on first, because it is paid in
+  every session for every skill (#1331, #1332).
+  Every pass other than the rewrite is behaviour-preserving: moved bytes
+  are identical bytes, heading level excepted, and a heading that moves
+  takes its references with it — eval `step-config.json` `step_heading`
+  / `also_include` entries, anchor links, anything matching on the
+  string (#1334).
+  The extract-code pass moves a complete, deterministic program the model
+  never needs to read out of the body — to `scripts/` beside the skill, a
+  `tools/` project, or the vetted-ops catalogue when it would otherwise
+  prompt on every run — byte-identical; placeholder-bearing command
+  templates are instructions, not programs, and stay inline (#1335,
+  #1338).
+  The target's eval suite runs before the first pass and after the last;
+  a case that flips on an unchanged tree is reported as such to the
+  maintainer rather than read as a verdict, and a skill with no suite
+  says so (#1332).
+  Style rules the rewrite pass learns are proposed as a diff into a
+  bullets-only region of `optimize-skill/SKILL.md` in this repository —
+  never headings, which would move its `surface_hash` — and into an
+  override file for adopters (#1331).
+- **CI runs the prek hooks in two shapes.** On a pull request the hooks
+  see only the PR's own diff (`--from-ref` / `--to-ref`); on a push to
+  `main` they run `--all-files`. The lychee link check is exempt from the
+  scoping and runs whole-repo on both events, because its file filter
+  only decides whether it fires. A green PR check is therefore not a
+  whole-repo result, which is why `prek run --all-files` before pushing
+  is a required pre-flight (#1317).
 - **Eval trust roles stay separate.** Mock tool output in `report.md` enters the user turn as untrusted data.
   Repository policy read from a trusted revision may enter through a case-level `trusted-context.md`, which the runner appends only to the system prompt.
 
@@ -174,6 +220,11 @@ trustworthy as it grows.
 9. `skill-evals` never reports PASS for a case in which nothing was graded:
    a CLI that emits no JSON, or exits non-zero, errors unless the suite
    explicitly asserts on the wrapped output.
+10. `skill-evals` reads no fixture whose resolved path leaves
+    `tools/skill-evals/evals`, and re-asks a dropped grader verdict once
+    without ever re-asking a verdict the grader gave.
+11. The validator fails a skill whose `name:` does not match the
+    directory holding its `SKILL.md`.
 
 ## Validation
 

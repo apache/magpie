@@ -56,6 +56,7 @@ Start with [`overview.md`](overview.md), then:
   [`maintainer-education.md`](maintainer-education.md),
   [`spec-gap-staleness.md`](spec-gap-staleness.md),
   [`vetted-command-surface.md`](vetted-command-surface.md),
+  [`adversarial-review.md`](adversarial-review.md),
   [`sandbox-diagnostics.md`](sandbox-diagnostics.md),
   [`container-gateway.md`](container-gateway.md).
 

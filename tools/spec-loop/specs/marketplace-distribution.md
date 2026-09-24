@@ -118,6 +118,19 @@ adopter-facing page.
   still installs them intact — measured on Codex, which used to install such a
   plugin with zero skills and no error. Every catalogue lists all ten families.
 
+- **Substrate plugins publish a tool, not a family.** Beside the ten
+  families, the Claude Code catalogue carries three substrate plugins —
+  `magpie-agent-guard`, `magpie-vetted-ops` and `magpie-adversarial-review`
+  (#1368) — declared in `SUBSTRATE_PLUGINS` in `check-family-plugins.py`.
+  Each inherits the shared manifest metadata, declares no `skills`, exposes
+  its `tools/<name>` through a symlink whose entry point must resolve, and
+  declares hook wiring only where it has a hook (agent-guard's
+  `PreToolUse`). They exist to run the tool from the installed plugin tree:
+  the code a sandbox exclusion or a hook executes must sit where the agent
+  calling it cannot rewrite it. A tool shipped this way must resolve
+  outside the workspace, so it declares no workspace-only `dev` dependency
+  group (#1357).
+
 - **The same skill is invoked by a different name per install method**, and
   both are correct: `/magpie-<name>` under the portable snapshot install (where
   the `magpie-` prefix on the install directory *is* the namespace), and

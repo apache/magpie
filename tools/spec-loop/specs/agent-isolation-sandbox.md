@@ -98,13 +98,39 @@ existing sandbox grants can widen the baseline. See `docs/adapters/gemini.md`.
   `watcher.pid: Operation not permitted` before any watcher started —
   and it has to be stable across contexts rather than `$TMPDIR`, which
   differs between the agent's hooks and a terminal `git` and would give
-  two contexts two registries that cannot see each other. The
+  two contexts two registries that cannot see each other.
+  The hook-side owner is the harness process, not the hook's parent:
+  Claude Code on Linux runs a hook through `sh -c`, which exits the
+  moment the hook returns, so `arm` walks up past intermediate shells
+  to the first non-shell ancestor and records that — otherwise the
+  watcher's parent-liveness check ended the watch before the key ever
+  blocked (#1365).
+  On macOS the window closes when its application loses activation
+  (`<Deactivate>`, bound after a short grace because activation itself
+  churns focus) rather than re-grabbing the keyboard: the overlay
+  never traps the screen, since the key still has to be touched for
+  the command to go through (#1325). The
   git the agent runs reads the same global config, so the wrapper's
   two files are a `sandbox.filesystem.allowRead` grant of their own
   (nothing wider under `~/.claude/`), or every sandboxed signed commit
   fails with `cannot exec`. Installed by `setup-isolated-setup-install` Step K,
   checked by `setup-isolated-setup-verify` check 10. Capability:
   `substrate:sandbox`.
+- **Hardware-key touch policy** (the recommendation Step K proposes and
+  check 10 reports against). The touch goes on the slot that **signs**,
+  never on the ssh transport alone: a touch on every fetch and pull is
+  a prompt on a read, and a push is already gated by the `git push`
+  ask rule and carries only commits signed with a touch. Which slot
+  signs follows `gpg.format`: with OpenPGP signing (unset or
+  `openpgp`) it is `sig`, recommended `cached`, and `aut` is
+  recommended `off`; with `gpg.format=ssh` the signature is made by the
+  key `ssh-add -L` lists, so `aut` is the signing slot and must stay
+  `cached` — the skill never proposes turning it off there, and states
+  once that the transport then pays the touch too (OpenPGP signing or
+  an https remote avoids it) — while `sig` signs nothing and is left
+  alone. `cached` (a touch honoured for 15 seconds) rather than `on`,
+  and never `fixed` / `cached-fixed`, which cannot be undone without
+  deleting the private key (#1367).
 - `tools/agent-guard/` — deterministic pre-execution guard dispatcher
   (`stdlib`-only). Wired as a `PreToolUse` hook (Claude Code) or a
   `tool.execute.before` plugin (OpenCode), with a `--gemini` adapter for
@@ -113,7 +139,12 @@ existing sandbox grants can widen the baseline. See `docs/adapters/gemini.md`.
   before it runs and denies the ones that break a hard framework rule,
   independent of model memory. The guard decisions live in a single
   harness-agnostic `dispatch()` core so every wired harness enforces
-  an identical rule set. Capability: `substrate:action-guard`.
+  an identical rule set. Git guards resolve the subcommand by walking
+  past git's global options (`git -C <dir> commit`, `git -c k=v commit`,
+  `git --no-pager commit`), never by a fixed argv slice, and
+  `GuardContext.git_subcommand()` gives contributed guards the same
+  resolution `gh_subcommand()` gives for `gh` (#1330).
+  Capability: `substrate:action-guard`.
 - `tools/permission-audit/` — audits and atomically edits Claude Code's
   `permissions.allow[]` entries in `.claude/settings.json` and
   `.claude/settings.local.json`. Backs the `--apply-permission-audit`
@@ -130,6 +161,22 @@ existing sandbox grants can widen the baseline. See `docs/adapters/gemini.md`.
   paths the committed list also names; `--no-tool-paths` limits it to
   the project root. Checked by `setup-isolated-setup-verify` check 8.
   Capability: `substrate:sandbox`.
+- Whole-user git hooks — the install skill's Step P.3 alternative to
+  per-project scope: global `core.hooksPath` pointing at
+  `~/.claude/git-hooks/`, in a *simple* flavour (a standalone
+  `post-checkout`) or a *dispatcher* flavour (every hook name symlinked
+  to `git-hook-dispatcher.sh`, which chains to per-repo `.git/hooks/*`).
+  That directory sits under the read-denied home, and git treats a hook
+  directory it cannot see as "no hooks", so without a read-only
+  user-scope `sandbox.filesystem.allowRead` grant for it (plus
+  `~/.claude-config/git-hooks/` when the hooks are symlinks into the
+  sync repo, since the sandbox checks the resolved path) every
+  sandboxed commit silently skips `pre-commit`, `commit-msg` and the
+  rest. Install proposes the grant at Step P.3-whole-user; verify
+  check 8 probes the directory from inside the sandbox (#1364). Both
+  the update skill's drift check and verify check 8 recognise the
+  dispatcher flavour's symlinks as its installed shape, not as drift
+  or as inert per-repo hooks (#1322, #1358).
 - `tools/egress-gateway/` — local HTTP(S) forward proxy for egress
   control. Framework tools point `HTTPS_PROXY`/`HTTP_PROXY` at it; the
   gateway rejects any connection to a host not on its allowlist before a
@@ -150,7 +197,13 @@ existing sandbox grants can widen the baseline. See `docs/adapters/gemini.md`.
   `sandbox-lint --gemini .gemini` checks the static profile, with opt-in pytest integration tests against native 0.59.0 APIs for settings, policies, headless refusal, and Linux enforcement.
   Every Gemini upgrade requires revalidating the native probe against that version; static CI checks alone do not establish effective policy precedence.
 - Skills: `setup-isolated-setup-install`, `-update`, `-verify`,
-  `-doctor`. The diagnostic side — the failure catalog in
+  `-doctor`. The update skill establishes the agent-guard wiring before
+  diffing anything: with the `magpie-agent-guard` plugin enabled, the
+  plugin registers the hook and resolves the engine under
+  `${CLAUDE_PLUGIN_ROOT}`, so an absent `~/.claude/scripts/agent-guard.py`
+  is the expected shape rather than drift, and on either wiring a
+  `git commit` carrying a `Co-Authored-By:` trailer must be denied as a
+  behavioural canary (#1323). The diagnostic side — the failure catalog in
   `docs/setup/sandbox-troubleshooting.md`, the `sandbox-error-hint.sh`
   hook, the doctor's live probes and the verify checks — is specified
   in [`sandbox-diagnostics.md`](sandbox-diagnostics.md).
@@ -227,7 +280,12 @@ The reference model is four layers, layered:
    default (prompt in default mode, classifier in auto).
 
 Pinned system tools (`bubblewrap`, `socat`, agent CLI) are aged through a
-cooldown window; bumps are PRs, not silent updates.
+cooldown window; bumps are PRs, not silent updates. The window is the
+framework's 7-day default unless a tool's `[tools.<name>]` table in
+`tools/agent-isolation/pinned-versions.toml` sets its own
+`cooldown_days`; `bubblewrap` carries `cooldown_days = 1`, so a pin
+carrying a sandbox-setup security fix can move a day after release
+(#1360, pinned at 0.13.0).
 
 ## Out of scope
 
