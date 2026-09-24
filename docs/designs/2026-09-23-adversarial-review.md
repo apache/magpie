@@ -124,7 +124,7 @@ adversarial_review:
 
 | Harness | Command |
 |---|---|
-| Claude Code | `/magpie-adversarial-review`, shipped in the plugin |
+| Claude Code | `/magpie-adversarial-review:adversarial-review`, shipped in the plugin (Claude Code namespaces plugin commands by plugin name) |
 | Codex CLI | `~/.codex/prompts/magpie-adversarial-review.md` |
 | Gemini CLI | `.gemini/commands/magpie-adversarial-review.toml` |
 | Copilot CLI | a reusable-prompt entry if the installed Copilot CLI supports one; otherwise `setup` prints the one-line `adversarial-review run` invocation to use instead |

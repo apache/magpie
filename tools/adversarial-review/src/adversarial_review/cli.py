@@ -38,7 +38,7 @@ from dataclasses import asdict
 from pathlib import Path
 from types import FrameType
 
-from . import config
+from . import commands, config
 from .backends import BACKENDS, RunContext
 from .detect import detect, resolve_self
 from .findings import FINDINGS_SCHEMA
@@ -237,6 +237,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--self", dest="self_name", help="override the detected harness (a backend name, or 'none')"
     )
     _add_run_parser(sub)
+    cmds = sub.add_parser("commands", help="print one harness's command file as JSON {path, content}")
+    cmds.add_argument("--harness", required=True, choices=commands.HARNESSES)
+    cmds.add_argument(
+        "--plugin-root", required=True, help="the installed magpie-adversarial-review plugin directory"
+    )
     return parser
 
 
@@ -257,4 +262,8 @@ def main(argv: Sequence[str] | None = None, env: Mapping[str, str] | None = None
         return cmd_detect(args, environ)
     if args.command == "run":
         return cmd_run(args, environ)
+    if args.command == "commands":
+        path, content = commands.render(args.harness, args.plugin_root)
+        print(json.dumps({"path": path, "content": content}, indent=2))
+        return EXIT_OK
     return EXIT_OK

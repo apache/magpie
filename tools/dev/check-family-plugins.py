@@ -267,8 +267,13 @@ SUBSTRATE_PLUGINS: dict[str, dict] = {
             "Gemini, Claude) read-only over a change before its PR is created, and merges their "
             "findings. Runs from the installed plugin, so no repository needs a copy."
         ),
-        "links": {"tools/adversarial-review": "adversarial-review"},
-        "must_resolve": (ADVERSARIAL_REVIEW_ENTRY,),
+        # The Claude Code command is a generated file in the tool (pinned there by a
+        # test against the generator), published at the plugin's `commands/`.
+        "links": {
+            "tools/adversarial-review": "adversarial-review",
+            "commands/adversarial-review.md": "adversarial-review/commands/adversarial-review.md",
+        },
+        "must_resolve": (ADVERSARIAL_REVIEW_ENTRY, "commands/adversarial-review.md"),
     },
 }
 

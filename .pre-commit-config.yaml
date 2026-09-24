@@ -71,7 +71,11 @@ repos:
         # as the skill definitions above. The block source was not excluded
         # before and did carry a TOC, which rode into all 65 propagated
         # copies as a table of contents for a file none of them are.
-        exclude: ^(\.claude/skills/.*|\.agents/skills/.*|\.github/skills/.*|skills/.*|plugins/magpie-[^/]+/skills/.*|tools/cve-tool-vulnogram/generate-cve-json/SKILL\.md|tools/skill-evals/.*|tools/spec-loop/.*|\.github/PULL_REQUEST_TEMPLATE\.md|tools/dev/blocks/.*|tools/dev/preflight-block\.md|tools/setup-preflight/src/setup_preflight/sections/.*)$
+        # Skip harness command files (plugins/magpie-*/commands/ and the
+        # generated source in tools/adversarial-review/commands/): frontmatter
+        # first, like skills, and the source is pinned byte-for-byte to its
+        # generator by a test, which a TOC wrapper would break.
+        exclude: ^(plugins/magpie-[^/]+/commands/.*|tools/adversarial-review/commands/.*|\.claude/skills/.*|\.agents/skills/.*|\.github/skills/.*|skills/.*|plugins/magpie-[^/]+/skills/.*|tools/cve-tool-vulnogram/generate-cve-json/SKILL\.md|tools/skill-evals/.*|tools/spec-loop/.*|\.github/PULL_REQUEST_TEMPLATE\.md|tools/dev/blocks/.*|tools/dev/preflight-block\.md|tools/setup-preflight/src/setup_preflight/sections/.*)$
         args:
           - "--maxlevel"
           - "3"

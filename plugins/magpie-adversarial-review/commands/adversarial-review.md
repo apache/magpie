@@ -1,0 +1,1 @@
+../../../tools/adversarial-review/commands/adversarial-review.md
