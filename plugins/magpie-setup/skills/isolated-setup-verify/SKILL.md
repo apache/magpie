@@ -113,7 +113,8 @@ Walk each in order:
      Report drift either way (newer or older than the pin) as ⚠.
      On macOS, skip both (Seatbelt is built-in); nothing is left to check here.
    - **Agent harness (`claude-code`) — `min_version` floor, NOT a pin.** The runtime tracks `@latest`, so there is no exact version to match; the manifest's `[tools.claude-code]` table declares a `min_version` floor instead.
-     Get the running version (`claude --version`) and compare it to `min_version`:
+     Get the running version (`command claude --version`) and compare it to `min_version`.
+     `command` skips the doc-suggested `alias claude=claude-iso`, which would otherwise launch the isolation wrapper just to print a version:
      - **At or above the floor** → ✓.
        Note the version, and suggest `@latest` if it is not already newest (a note, not a ⚠).
      - **Below the floor, under Claude Code** → **HARD FAIL (✗)**; do not downgrade it to ⚠.
