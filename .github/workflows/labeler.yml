@@ -15,34 +15,65 @@
 # specific language governing permissions and limitations
 # under the License.
 #
-# Applies the tool-capability labels (`contract:*` / `substrate:*`) to a pull
-# request from the tool directories it touches. The mapping is
+# Applies the tool-capability labels (`contract:*` / `substrate:*`) to new
+# pull requests from the tool directories they touch. The mapping is
 # `.github/labeler.yml`, generated from each tool README's `**Capability:**`
 # line by tools/dev/generate-labeler-config.py.
 #
-# `pull_request_target` is needed so fork PRs get a token that can write
-# labels. It is safe here because nothing from the PR is checked out or run:
-# the labeler reads the changed-file list and the config through the API, and
-# the config comes from the base branch, so a PR cannot change its own rules.
+# It runs on a schedule rather than on a pull-request event: a scheduled run
+# executes in this repository's context, so its token can label fork PRs
+# without `pull_request_target`, and no PR event ever starts it. Nothing from
+# a PR is checked out or run; the labeler reads the changed-file list and the
+# config (from the default branch) through the API.
 #
-# Path-based labels are a starting point; docs/labels-and-capabilities.md asks
-# for the capability the change *implements*. The workflow runs only when a PR
-# is opened, reopened or marked ready, never on a push, so a label a
-# maintainer removed is not re-added by the next commit.
+# Each run labels the open PRs created since the previous successful run
+# started, so a PR is labelled once, shortly after it is opened. Path-based
+# labels are a starting point (docs/labels-and-capabilities.md asks for the
+# capability the change *implements*), and a label a maintainer removes
+# afterwards is not re-added.
 ---
 name: "Tool capability labels"
 "on":
-  pull_request_target:  # zizmor: ignore[dangerous-triggers] labels only; never checks out or runs PR code
-    types: [opened, reopened, ready_for_review]
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
 permissions: {}
+concurrency:
+  group: tool-capability-labels
+  cancel-in-progress: false
 jobs:
   label:
-    # Dependency and version bumps implement no capability.
-    if: github.event.pull_request.user.type != 'Bot'
+    name: Label new pull requests
     runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions:
-      contents: read
-      pull-requests: write
+      actions: read  # find the previous successful run
+      contents: read  # read .github/labeler.yml and the PRs' changed files
+      pull-requests: write  # add the labels
     steps:
-      - uses: actions/labeler@bf12e9b00b37c5c0ca2b87b79b2daf7891dbda13  # v7.0.0
+      - name: Select pull requests opened since the last run
+        id: select
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          since=$(gh api "repos/$REPO/actions/workflows/labeler.yml/runs?status=success&per_page=1" \
+            --jq '.workflow_runs[0].run_started_at // empty')
+          if [ -z "$since" ]; then
+            since=$(date -u -d '24 hours ago' +%Y-%m-%dT%H:%M:%SZ)
+          fi
+          # Dependency and version bumps implement no capability: skip bot authors.
+          prs=$(gh pr list --repo "$REPO" --state open --limit 100 \
+            --search "created:>=$since" \
+            --json number,author --jq '.[] | select(.author.is_bot | not) | .number')
+          echo "since $since: ${prs:-none}" | tr '\n' ' '
+          {
+            echo "prs<<EOF"
+            if [ -n "$prs" ]; then echo "$prs"; fi
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+      - if: steps.select.outputs.prs != ''
+        uses: actions/labeler@bf12e9b00b37c5c0ca2b87b79b2daf7891dbda13  # v7.0.0
+        with:
+          pr-number: ${{ steps.select.outputs.prs }}

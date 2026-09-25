@@ -423,9 +423,10 @@ that adjusts the validator config to support a new triage rule is
 `capability:triage` (the change's purpose), not `substrate:framework-dev`
 (the file it edited).
 
-The tool-capability labels are pre-applied when a PR is opened:
-[`.github/workflows/labeler.yml`](../.github/workflows/labeler.yml) labels it
-with the `**Capability:**` of every tool directory it touches, from
+The tool-capability labels are pre-applied within an hour of a PR being opened:
+the scheduled [`.github/workflows/labeler.yml`](../.github/workflows/labeler.yml)
+labels each new PR once, with the `**Capability:**` of every tool directory it
+touches, from
 [`.github/labeler.yml`](../.github/labeler.yml), which
 [`tools/dev/generate-labeler-config.py`](../tools/dev/generate-labeler-config.py)
 generates from the tool READMEs.
