@@ -84,12 +84,13 @@ For `none`, pass no `--trailer`.
 
 ## What the guard does with it
 
-The agent-guard `commit-trailer` guard blocks a `git commit` that carries `Co-Authored-By:` (in the message or a `--trailer`) unless the resolved convention for the repository being committed to is `co-authored-by`.
+The agent-guard `commit-trailer` guard blocks a `git commit` that carries `Co-Authored-By:` (in the message, a `-F <file>`, or a `--trailer`) unless the resolved convention for the repository being committed to is `co-authored-by`.
 It follows `git -C <dir>` to that repository.
 The per-command override `MAGPIE_ALLOW_COAUTHOR=1` still works.
 
 This is a policy aid, not a security boundary.
-A contributor can relax the guard with their own gitignored file whenever the project leaves the choice open, and the guard does not read the message inside a `-F <file>`.
+A contributor can relax the guard with their own gitignored file whenever the project leaves the choice open.
+It reads a `-F <file>` message only if the file exists when the command starts, so a file written earlier in the same command line is not checked.
 
 ## Adopting projects and skills
 

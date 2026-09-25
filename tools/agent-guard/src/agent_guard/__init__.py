@@ -471,8 +471,8 @@ def resolve_commit_attribution(repo_root: Path | None) -> str:
     return DEFAULT_ATTRIBUTION
 
 
-def _commit_repo_root(argv: list[str], sub_index: int, cwd: str | None) -> Path | None:
-    """The repository a ``git [-C <dir>]… commit`` would commit to."""
+def _git_start_dir(argv: list[str], sub_index: int, cwd: str | None) -> Path:
+    """The directory ``git [-C <dir>]… <subcommand>`` runs as if started in."""
     base = Path(cwd) if cwd else Path.cwd()
     i = 1
     while i < sub_index:
@@ -481,14 +481,46 @@ def _commit_repo_root(argv: list[str], sub_index: int, cwd: str | None) -> Path 
             i += 2
             continue
         i += 1
-    return _find_repo_root(base)
+    return base
+
+
+def _commit_repo_root(argv: list[str], sub_index: int, cwd: str | None) -> Path | None:
+    """The repository a ``git [-C <dir>]… commit`` would commit to."""
+    return _find_repo_root(_git_start_dir(argv, sub_index, cwd))
+
+
+COMMIT_MESSAGE_FILE_MAX = 1024 * 1024  # bytes read from a `git commit -F` file
+
+
+def _commit_message_file_text(argv: list[str], sub_index: int, cwd: str | None) -> str:
+    """The message a ``git commit -F/--file <path>`` would read, or ``""``.
+
+    AGENTS.md sends commit bodies through a file, so the command line alone
+    no longer shows what the commit will say. A relative path is resolved the
+    way git resolves it, against the ``-C``-adjusted start directory. A file
+    that is missing or unreadable now yields nothing: git itself would fail on
+    it, and one written earlier in the same command line does not exist yet
+    when the hook runs — a known limit of any pre-execution check.
+    """
+    path = _opt_value(argv[sub_index + 1 :], "-F", "--file")
+    if not path or path == "-":
+        return ""
+    target = Path(path)
+    if not target.is_absolute():
+        target = _git_start_dir(argv, sub_index, cwd) / target
+    try:
+        with open(target, encoding="utf-8", errors="replace") as fh:
+            return fh.read(COMMIT_MESSAGE_FILE_MAX)
+    except OSError:
+        return ""
 
 
 def guard_commit_trailer(seg: Segment, cwd: str | None) -> str | None:
     idx = git_subcommand_index(seg.argv)
     if idx is None or seg.argv[idx] != "commit":
         return None
-    if not re.search(r"co-authored-by:", seg.raw, re.IGNORECASE):
+    message = seg.raw + "\n" + _commit_message_file_text(seg.argv, idx, cwd)
+    if not re.search(r"co-authored-by:", message, re.IGNORECASE):
         return None
     if seg.override("MAGPIE_ALLOW_COAUTHOR"):
         return None
