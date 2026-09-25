@@ -79,7 +79,9 @@ trustworthy as it grows.
   no model calls). For each capability contract, answers: does Magpie
   already work across more than one vendor, and is any skill locked to a
   vendor with no alternative? Reads `tools/*/README.md` and
-  `skills/*/SKILL.md` locally. Capability: `substrate:framework-dev +
+  `skills/*/SKILL.md` locally. A tool declaring `**Coverage:** partial`
+  (or `partial-read-only`) is listed but never counted as a backend
+  vendor. Capability: `substrate:framework-dev +
   substrate:analytics`.
 - `tools/preflight-audit/` — dry-runs the bulk-mode pre-flight classifier
   in live mode (via `gh api graphql`) or replay mode (offline, from a

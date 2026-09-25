@@ -28,7 +28,10 @@ else, so the same tree always yields the same score:
     ``**Capability:**`` (the ``contract:<name>`` it fulfils),
     ``**Kind:**`` (``interface`` for a pure spec, ``implementation``
     for a concrete backend), and ``**Vendor:**`` (the backend identity,
-    or ``agnostic`` for an interface).
+    or ``agnostic`` for an interface). An optional ``**Coverage:**``
+    of ``partial`` / ``partial-read-only`` marks a foundation that
+    implements only part of its contracts; it is reported but never
+    counted as a backend vendor.
 2.  ``skills/*/SKILL.md`` — the ``organization:`` frontmatter field
     (declared org scope) plus the skill body (scanned for the concrete
     backends it names).
@@ -144,10 +147,17 @@ CONTRACT_USAGE_TOKENS: dict[str, tuple[str, ...]] = {
 _CAP_RE = re.compile(r"^\*\*Capability:\*\*[ \t]+(.+)$", re.MULTILINE)
 _KIND_RE = re.compile(r"^\*\*Kind:\*\*[ \t]+(.+?)[ \t]*$", re.MULTILINE)
 _VENDOR_RE = re.compile(r"^\*\*Vendor:\*\*[ \t]+(.+?)[ \t]*$", re.MULTILINE)
+_COVERAGE_RE = re.compile(r"^\*\*Coverage:\*\*[ \t]+(.+?)[ \t]*$", re.MULTILINE)
 _ORG_RE = re.compile(r"^organization:[ \t]*(.+?)[ \t]*$", re.MULTILINE)
 
 INTERFACE = "interface"
 IMPLEMENTATION = "implementation"
+
+# Coverage qualifiers (docs/labels-and-capabilities.md#coverage-qualifiers).
+# A partial implementation "must not be counted as a complete/selectable
+# backend", so it never adds a vendor to a contract's count.
+COMPLETE = "complete"
+PARTIAL_COVERAGE = frozenset({"partial", "partial-read-only"})
 
 # ---------------------------------------------------------------------------
 # LLM / agent-integration axis
@@ -193,6 +203,11 @@ class ToolMeta:
     contracts: tuple[str, ...]
     kind: str
     vendor: str
+    coverage: str = COMPLETE
+
+    @property
+    def partial(self) -> bool:
+        return self.coverage in PARTIAL_COVERAGE
 
 
 @dataclass
@@ -204,6 +219,7 @@ class ContractResult:
     basis: str
     interfaces: list[str] = field(default_factory=list)
     implementations: list[ToolMeta] = field(default_factory=list)
+    partial_implementations: list[ToolMeta] = field(default_factory=list)
 
     @property
     def vendors(self) -> list[str]:
@@ -285,7 +301,22 @@ def load_tools(repo_root: Path) -> list[ToolMeta]:
             raise ValueError(
                 f"tools/{name}: **Kind:** must be '{INTERFACE}' or '{IMPLEMENTATION}', got '{kind}'"
             )
-        tools.append(ToolMeta(name=name, contracts=contracts, kind=kind, vendor=vendor_m.group(1).strip()))
+        coverage_m = _COVERAGE_RE.search(text)
+        coverage = coverage_m.group(1).strip().strip("`").strip() if coverage_m else COMPLETE
+        if coverage != COMPLETE and coverage not in PARTIAL_COVERAGE:
+            raise ValueError(
+                f"tools/{name}: **Coverage:** must be one of "
+                f"{sorted({COMPLETE, *PARTIAL_COVERAGE})}, got '{coverage}'"
+            )
+        tools.append(
+            ToolMeta(
+                name=name,
+                contracts=contracts,
+                kind=kind,
+                vendor=vendor_m.group(1).strip(),
+                coverage=coverage,
+            )
+        )
     return tools
 
 
@@ -399,7 +430,8 @@ def score_contracts(tools: list[ToolMeta]) -> list[ContractResult]:
     for contract, (klass, summary) in CONTRACT_POLICY.items():
         providers = [t for t in tools if contract in t.contracts]
         interfaces = sorted(t.name for t in providers if t.kind == INTERFACE)
-        impls = [t for t in providers if t.kind == IMPLEMENTATION]
+        impls = [t for t in providers if t.kind == IMPLEMENTATION and not t.partial]
+        partials = [t for t in providers if t.kind == IMPLEMENTATION and t.partial]
         res = ContractResult(
             contract=contract,
             klass=klass,
@@ -408,6 +440,7 @@ def score_contracts(tools: list[ToolMeta]) -> list[ContractResult]:
             basis="",
             interfaces=interfaces,
             implementations=sorted(impls, key=lambda t: t.vendor),
+            partial_implementations=sorted(partials, key=lambda t: t.name),
         )
         if klass == AGNOSTIC:
             res.green = True
@@ -427,6 +460,9 @@ def score_contracts(tools: list[ToolMeta]) -> list[ContractResult]:
                 res.basis = (
                     f"only {n} backend vendor ({', '.join(res.vendors)}); needs {MIN_VENDORS - n} more"
                 )
+        if res.partial_implementations:
+            names = ", ".join(t.name for t in res.partial_implementations)
+            res.basis += f"; partial foundation, not counted: {names}"
         results.append(res)
     return results
 
@@ -539,6 +575,10 @@ def render_json(
                 "vendors": r.vendors,
                 "interfaces": r.interfaces,
                 "implementations": [{"tool": t.name, "vendor": t.vendor} for t in r.implementations],
+                "partial_implementations": [
+                    {"tool": t.name, "vendor": t.vendor, "coverage": t.coverage}
+                    for t in r.partial_implementations
+                ],
             }
             for r in contract_results
         ],

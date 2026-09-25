@@ -80,6 +80,51 @@ def test_interface_tools_do_not_count_as_a_backend() -> None:
     assert r.vendors == ["CVE.org"]
 
 
+def test_partial_implementation_does_not_count_as_a_backend() -> None:
+    tools = [
+        _tool("github", "contract:tracker", vns.IMPLEMENTATION, "GitHub"),
+        vns.ToolMeta(
+            name="gitlab",
+            contracts=("contract:tracker",),
+            kind=vns.IMPLEMENTATION,
+            vendor="GitLab",
+            coverage="partial",
+        ),
+    ]
+    r = _result(vns.score_contracts(tools), "contract:tracker")
+    assert r.green is False  # one complete backend + one partial = one vendor
+    assert r.vendors == ["GitHub"]
+    assert [t.name for t in r.partial_implementations] == ["gitlab"]
+    assert "partial foundation, not counted: gitlab" in r.basis
+
+
+def _write_contract_tool(root, name: str, extra: str = "") -> None:
+    d = root / "tools" / name
+    d.mkdir(parents=True)
+    (d / "README.md").write_text(
+        f"# {name}\n\n**Capability:** contract:tracker\n{extra}"
+        "**Kind:** implementation\n**Vendor:** Example\n\nProse.\n",
+        encoding="utf-8",
+    )
+
+
+def test_load_tools_reads_coverage(tmp_path) -> None:
+    _write_contract_tool(tmp_path, "full")
+    _write_contract_tool(tmp_path, "ticked", "**Coverage:** `partial`\n")
+    _write_contract_tool(tmp_path, "readonly", "**Coverage:** partial-read-only\n")
+    by_name = {t.name: t for t in vns.load_tools(tmp_path)}
+    assert by_name["full"].coverage == vns.COMPLETE
+    assert not by_name["full"].partial
+    assert by_name["ticked"].coverage == "partial"
+    assert by_name["readonly"].partial
+
+
+def test_load_tools_unknown_coverage_raises(tmp_path) -> None:
+    _write_contract_tool(tmp_path, "odd", "**Coverage:** mostly\n")
+    with pytest.raises(ValueError, match="Coverage"):
+        vns.load_tools(tmp_path)
+
+
 def test_agnostic_contract_is_green_with_only_an_interface() -> None:
     tools = [_tool("scan-format", "contract:scan-format", vns.INTERFACE, "agnostic")]
     r = _result(vns.score_contracts(tools), "contract:scan-format")

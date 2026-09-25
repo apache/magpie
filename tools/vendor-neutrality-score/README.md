@@ -49,6 +49,10 @@ score:
    (the `contract:<name>` it fulfils), `**Kind:**` (`interface` for a pure
    spec, `implementation` for a concrete backend), and `**Vendor:**` (the
    backend identity, or `agnostic` for an interface).
+   An optional `**Coverage:**` of `partial` or `partial-read-only`
+   ([coverage qualifiers](../../docs/labels-and-capabilities.md#coverage-qualifiers))
+   marks a foundation that implements only part of its contracts:
+   it is listed in the result but never counted as a backend vendor.
 2. **`skills/*/SKILL.md`** — the `organization:` frontmatter field plus the
    skill body, scanned for the concrete backends it names.
 3. **The policy** in `src/vendor_neutrality_score/__init__.py`

@@ -157,6 +157,14 @@ when the tool intentionally implements only part of a contract.
 `partial-read-only` means the tool implements a read-only subset of named
 contract operations, but does not satisfy the complete contract and must not
 be advertised as a complete/selectable backend.
+`partial` means the same without the read-only restriction: some named
+operations, including writes, are implemented, but not the complete contract.
+
+The README form is a line `**Coverage:** partial` (or `partial-read-only`).
+[`tools/vendor-neutrality-score`](../tools/vendor-neutrality-score/) reads it
+and never counts a partial tool as a backend vendor, so a partial foundation
+cannot turn a contract green in
+[`docs/vendor-neutrality.md`](vendor-neutrality.md).
 
 Both capability axes are **orthogonal** to `family:*`. A single
 query can answer "how is our triage stack doing across PR + issue +
