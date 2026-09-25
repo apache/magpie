@@ -6,15 +6,14 @@ family: utilities
 mode: Meta
 description: >-
   Make an existing framework skill leaner without changing its behavior.
-  Diagnose and propose seven passes: split, config-lift, out-of-context,
-  fetch-upfront, preflight-classifier, extract-code, and a
-  maintainer-written rewrite. Validate before and after every approved pass.
+  Diagnose context-cost smells, propose the applicable optimization passes,
+  and validate before and after every approved change.
 when_to_use: >-
   When the user asks to optimize, shorten, split, de-hardcode, rewrite, or
   reduce the context cost of an existing skill, or an audit flags more than
   500 lines or hardcoded values. For a new skill, use write-skill.
 capability: capability:authoring
-surface_hash: sha256:0490765e0debc390
+surface_hash: sha256:be9968c266788028
 license: Apache-2.0
 ---
 
