@@ -5,8 +5,7 @@ Target: .claude/skills/verbose-workflow/SKILL.md
 
 wc -l SKILL.md: 420
 Largest section: "## Step 3 — Apply one pass at a time" (120 lines) —
-within the structural limit and still substantially longer than the
-other orchestration sections.
+within range, with no dominating section.
 
 Placeholder linter: clean.
 In-context reads: none.

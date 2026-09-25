@@ -122,7 +122,7 @@ special-token spellings counted as ordinary text.
 Coverage: **75 of 75 local `skills/*/SKILL.md` files**.
 External `source.md` redirects and harness symlinks are excluded.
 
-Measurement manifest SHA-256: `501ba889db2058c12fd9016ee9bac7c2514827fee7d63b7dbbd94139308324ac`.
+Measurement manifest SHA-256: `df0f8f57d310126f21a39c99497602ad22ab81542da679b4d76476649e3aacfc`.
 
 | Skill file | Measured tokens | Source SHA-256 (first 16 characters) |
 |---|---:|---|
@@ -169,7 +169,7 @@ Measurement manifest SHA-256: `501ba889db2058c12fd9016ee9bac7c2514827fee7d63b7db
 | [newcomer-issue-explainer](../skills/newcomer-issue-explainer/SKILL.md) | 3,491 | `9e77f68d2a5dae0e` |
 | [nomination](../skills/nomination/SKILL.md) | 4,756 | `4bc286c0b557b3cd` |
 | [onboarding-concierge](../skills/onboarding-concierge/SKILL.md) | 3,372 | `7a0e539f79ed7dff` |
-| [optimize-skill](../skills/optimize-skill/SKILL.md) | 3,050 | `f6d1a02edd2ca4c0` |
+| [optimize-skill](../skills/optimize-skill/SKILL.md) | 3,036 | `d2c307e172220556` |
 | [override-upstream](../skills/override-upstream/SKILL.md) | 4,750 | `500115be65241da1` |
 | [pr-stale-sweep](../skills/pr-stale-sweep/SKILL.md) | 6,726 | `64755e0df9770efe` |
 | [pr-triage](../skills/pr-triage/SKILL.md) | 11,604 | `5c4829112ce7ac35` |

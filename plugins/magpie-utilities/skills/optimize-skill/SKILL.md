@@ -244,7 +244,8 @@ validator. One pass per commit.
 
 ## Step 4 — Prove nothing broke
 
-Require the Step 0 validator result and measure both budgets again.
+Require the Step 0 validator result, and both budgets must have moved the
+right way.
 
 **Run the skill's eval suite if it has one**, at
 `tools/skill-evals/evals/<skill>/`:
@@ -285,8 +286,8 @@ If it was a sweep, restate what is still on the list.
 - Move identical bytes except for a necessary heading-level change, and
   update every heading reference.
 - Propose before applying; never batch passes.
-- Require a green validator and measure both budgets and evals before
-  and after every pass.
+- Require a green validator, never a relaxed one, and measure both budgets
+  and evals before and after every pass.
 - Propose learned style rules as a visible diff; never write them
   silently.
 - Never touch the snapshot; framework changes go through an
