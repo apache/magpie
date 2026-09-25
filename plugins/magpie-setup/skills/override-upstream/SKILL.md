@@ -175,8 +175,8 @@ In `<framework-clone>`:
 4. Show the user the diff (`git diff`).
    Get explicit confirmation before committing.
 5. Commit with a message matching the framework's conventions (Conventional-Commits prefix: `feat(skills): ...` for new framework behaviour, `refactor(skills): ...` for restructure, etc.).
-   End the message with a `Generated-by: <agent> (<model>)` trailer, where `<agent>` and `<model>` are the actual agent and model you are running as (e.g. `Claude (Opus 4.8)`, `OpenCode (Big Pickle)`).
-   Do not hardcode either, per the framework's no-coauthored-by hook.
+   Add a `Generated-by: <agent> (<model>)` trailer with `git commit --trailer`, where `<agent>` and `<model>` are the actual agent and model you are running as (e.g. `Claude (Opus 4.8)`, `OpenCode (Big Pickle)`).
+   It is the framework repository's own convention ([`commit-attribution.md`](../../../../docs/setup/commit-attribution.md)), whatever the adopter uses; do not hardcode either value, per the framework's no-coauthored-by hook.
 
 ### Step 6 — Open the PR
 

@@ -154,7 +154,17 @@ For each missing required file, in the order the skills need them
    structured-question tool. One question covering every remaining
    `TODO` across every file, grouped by file — not a per-field
    interrogation, and not one question per skill.
-4. **Leave what the user skips.** A `TODO` left in place is not an
+4. **Commit attribution is the one exception to "the project's file
+   is just a default".** Resolve it per
+   [`commit-attribution.md`](../../../../docs/setup/commit-attribution.md#how-the-convention-is-resolved).
+   When the project's `.apache-magpie-overrides/commit-attribution.toml`
+   sets a convention other than `contributor-choice`, do not ask and do
+   not write a local file: say which convention the project uses.
+   Otherwise include one question in the batch — `generated-by`
+   (default), `assisted-by`, `co-authored-by`, `none`, or custom
+   wording — and write the answer to
+   `.apache-magpie-local/commit-attribution.toml`.
+5. **Leave what the user skips.** A `TODO` left in place is not an
    error: the skill that needs it names it when it needs it, and the
    skills that do not need it never look. Say that, so a half-filled
    file does not read as a failed run.

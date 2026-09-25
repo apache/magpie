@@ -122,7 +122,8 @@ Walk each:
    Only when the plugin is **not** enabled does the user-scope wiring apply; diff it like any other script, per [`script-inventory.md`](script-inventory.md).
 
    **Either way, confirm the guard actually denies.**
-   A `git commit` whose message carries a `Co-Authored-By:` trailer is the cheap canary: the bundled `commit-trailer` guard blocks it before the commit runs, so a command that goes through means the hook is not firing, whatever the files and settings say.
+   A `git commit --no-verify --dry-run` is the cheap canary: the bundled `no-verify` guard blocks it before the commit runs, so a command that goes through means the hook is not firing, whatever the files and settings say.
+   (A `Co-Authored-By:` trailer is no longer a reliable canary: the `commit-trailer` guard allows it in a project whose [commit-attribution convention](../../../../docs/setup/commit-attribution.md) is `co-authored-by`.)
 
 4. **Settings.json shape drift.**
    Diff the user's project `.claude/settings.json` against the framework's dogfooded one.

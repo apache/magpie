@@ -64,16 +64,16 @@ default policy. Most projects need only one or two.
 
 ## Commit trailer
 
-TODO: the project's convention for AI-assisted commits. Example:
+Which trailer an AI-assisted commit carries is set in
+[`commit-attribution.toml`](commit-attribution.toml) — `generated-by`,
+`assisted-by`, `co-authored-by`, `none`, `custom`, or `contributor-choice`
+— and resolved per
+[`docs/setup/commit-attribution.md`](../../docs/setup/commit-attribution.md).
+`setup adopt` asks for it.
 
-> Never use `Co-Authored-By:` with an AI agent as co-author. Use a
-> `Generated-by:` trailer instead.
-
-And the concrete trailer text for this project:
-
-```text
-Generated-by: TODO: model + URL to the project's Gen-AI disclosure anchor
-```
+TODO (optional): anything the project adds to the trailer beyond the
+convention's default wording, e.g. a URL to its Gen-AI disclosure anchor.
+Put the full wording in the `template` key of `commit-attribution.toml`.
 
 ## PR title / body scrubbing
 

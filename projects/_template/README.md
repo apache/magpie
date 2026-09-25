@@ -99,6 +99,7 @@ the rest.
 | File | Purpose |
 |---|---|
 | [`fix-workflow.md`](fix-workflow.md) | Fork / clone / toolchain specifics, backport-label policy, commit-trailer wording, PR scrubbing, private-PR fallback. |
+| [`commit-attribution.toml`](commit-attribution.toml) | Which trailer an agent-assisted commit carries (`generated-by`, `assisted-by`, `co-authored-by`, `none`, custom, or `contributor-choice`). The project's value wins over a contributor's — see [`commit-attribution.md`](../../docs/setup/commit-attribution.md). |
 
 ### Editorial + reporter-facing
 

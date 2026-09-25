@@ -46,7 +46,9 @@ The engine ships two **bundled** guards — the universal ``git`` hygiene rules
 that apply to every project:
 
 1. **commit-trailer** — never let a ``git commit`` carry a ``Co-Authored-By:``
-   trailer (AGENTS.md: agents use ``Generated-by:``, never co-author).
+   trailer unless the repository's commit-attribution convention is
+   ``co-authored-by`` (see :func:`resolve_commit_attribution` and
+   ``docs/setup/commit-attribution.md``; the default is ``generated-by``).
 2. **empty-rebase** — never force-push a branch that has no commits over its
    base (an empty push to a PR head auto-closes the PR and revokes write).
 
@@ -86,6 +88,7 @@ import re
 import shlex
 import subprocess
 import sys
+import tomllib
 from collections.abc import Callable
 from pathlib import Path
 
@@ -111,6 +114,15 @@ _FENCED_RE = re.compile(r"```.*?```", re.DOTALL)
 _INLINE_CODE_RE = re.compile(r"`[^`\n]*`")
 
 GUARD_TIMEOUT = 10  # seconds for any subprocess (gh / git) a guard shells out to.
+
+# Commit attribution (docs/setup/commit-attribution.md): one small TOML file
+# per layer, the project's committed and the contributor's gitignored.
+ATTRIBUTION_FILE = "commit-attribution.toml"
+ATTRIBUTION_PROJECT_DIR = ".apache-magpie-overrides"
+ATTRIBUTION_LOCAL_DIR = ".apache-magpie-local"
+ATTRIBUTION_CONVENTIONS = frozenset({"generated-by", "assisted-by", "co-authored-by", "none", "custom"})
+ATTRIBUTION_CONTRIBUTOR_CHOICE = "contributor-choice"  # project file only
+DEFAULT_ATTRIBUTION = "generated-by"
 
 
 class Segment:
@@ -398,6 +410,80 @@ def _repo_flag(argv: list[str]) -> list[str]:
 # --------------------------------------------------------------------------- #
 
 
+def _find_repo_root(start: Path) -> Path | None:
+    """The nearest ancestor of ``start`` (inclusive) holding a ``.git`` entry.
+
+    A plain filesystem walk rather than ``git rev-parse``: this runs on every
+    ``git commit`` the agent makes, and ``.git`` is a directory in a main
+    checkout and a file in a linked worktree, so ``exists()`` covers both.
+    """
+    for candidate in (start, *start.parents):
+        if (candidate / ".git").exists():
+            return candidate
+    return None
+
+
+def _read_attribution(path: Path) -> str | None:
+    """The ``convention`` value of one ``commit-attribution.toml``.
+
+    ``None`` when the file does not exist. Raises ``ValueError`` when it
+    exists but cannot be read or parsed, so the caller can fail closed.
+    """
+    try:
+        text = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return None
+    except (OSError, UnicodeDecodeError) as exc:
+        raise ValueError(f"{path}: {exc}") from exc
+    try:
+        data = tomllib.loads(text)
+    except tomllib.TOMLDecodeError as exc:
+        raise ValueError(f"{path}: {exc}") from exc
+    value = data.get("convention")
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError(f"{path}: convention must be a string")
+    return value.strip().lower()
+
+
+def resolve_commit_attribution(repo_root: Path | None) -> str:
+    """The commit-attribution convention in force for ``repo_root``.
+
+    See ``docs/setup/commit-attribution.md``. The project's committed choice
+    wins when it makes one; the contributor's gitignored choice applies only
+    when the project's file is absent, sets no ``convention``, or sets
+    ``contributor-choice``. Anything unreadable, unparsable or unknown
+    resolves to the default, which is the conservative answer for every guard
+    that consults this: the default never permits ``Co-Authored-By:``.
+    """
+    if repo_root is None:
+        return DEFAULT_ATTRIBUTION
+    try:
+        project = _read_attribution(repo_root / ATTRIBUTION_PROJECT_DIR / ATTRIBUTION_FILE)
+        if project is not None and project != ATTRIBUTION_CONTRIBUTOR_CHOICE:
+            return project if project in ATTRIBUTION_CONVENTIONS else DEFAULT_ATTRIBUTION
+        local = _read_attribution(repo_root / ATTRIBUTION_LOCAL_DIR / ATTRIBUTION_FILE)
+    except ValueError:
+        return DEFAULT_ATTRIBUTION
+    if local in ATTRIBUTION_CONVENTIONS:
+        return local
+    return DEFAULT_ATTRIBUTION
+
+
+def _commit_repo_root(argv: list[str], sub_index: int, cwd: str | None) -> Path | None:
+    """The repository a ``git [-C <dir>]… commit`` would commit to."""
+    base = Path(cwd) if cwd else Path.cwd()
+    i = 1
+    while i < sub_index:
+        if argv[i] == "-C" and i + 1 < sub_index:
+            base = base / argv[i + 1]
+            i += 2
+            continue
+        i += 1
+    return _find_repo_root(base)
+
+
 def guard_commit_trailer(seg: Segment, cwd: str | None) -> str | None:
     idx = git_subcommand_index(seg.argv)
     if idx is None or seg.argv[idx] != "commit":
@@ -406,11 +492,16 @@ def guard_commit_trailer(seg: Segment, cwd: str | None) -> str | None:
         return None
     if seg.override("MAGPIE_ALLOW_COAUTHOR"):
         return None
+    convention = resolve_commit_attribution(_commit_repo_root(seg.argv, idx, cwd))
+    if convention == "co-authored-by":
+        return None
     return (
         "agent-guard[commit-trailer]: this commit message carries a 'Co-Authored-By:' "
-        "trailer. Per AGENTS.md, agents are assistants, not authors — use a "
-        "'Generated-by: <agent name and version>' trailer instead and remove the "
-        "Co-Authored-By line. Override (not for AI co-authorship): MAGPIE_ALLOW_COAUTHOR=1."
+        f"trailer, but this repository's commit-attribution convention is '{convention}'. "
+        "Agents are assistants, not authors: remove the Co-Authored-By line and add the "
+        "trailer the convention names with `git commit --trailer` (see "
+        "docs/setup/commit-attribution.md). Override (not for AI co-authorship): "
+        "MAGPIE_ALLOW_COAUTHOR=1."
     )
 
 

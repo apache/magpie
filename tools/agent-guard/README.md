@@ -103,7 +103,7 @@ project):
 
 | Guard | Blocks | Rule it enforces |
 |---|---|---|
-| `commit-trailer` | `git commit` whose message contains `Co-Authored-By:` | AGENTS.md: agents use a `Generated-by:` trailer, never co-author |
+| `commit-trailer` | `git commit` whose message contains `Co-Authored-By:`, unless the repository's [commit-attribution convention](../../docs/setup/commit-attribution.md) is `co-authored-by` | AGENTS.md: agents use the project's attribution trailer (default `Generated-by:`), not co-authorship |
 | `empty-rebase` | `git push --force[-with-lease]` of a branch with 0 commits over its base | an empty push to a PR head auto-closes it + revokes write |
 
 **Skill-owned** (each lives in its skill's `guards/` dir, discovered the same

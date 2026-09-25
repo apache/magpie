@@ -175,15 +175,21 @@ Every commit on the branch must satisfy all three rules:
    A conventional-commits prefix (`feat:`, `fix:`, `docs:`, `chore:`, etc.) is
    acceptable as long as the remainder of the subject is imperative.
 
-2. **No `Co-Authored-By:` for an AI agent** — the commit must not carry a trailer of the
+Rules 2 and 3 follow the project's commit-attribution convention, resolved per
+[`commit-attribution.md`](../../../../docs/setup/commit-attribution.md);
+the default is `generated-by`.
+
+2. **No `Co-Authored-By:` for an AI agent** — unless the convention is
+   `co-authored-by`, the commit must not carry a trailer of the
    form `Co-Authored-By: Claude`, `Co-Authored-By: GPT`, `Co-Authored-By: Copilot`, or
    any equivalent that attributes authorship to an AI model or agent.
    Using `Co-Authored-By:` for a *human* co-author is fine.
    See [`AGENTS.md` § Commit and PR conventions](../../../../AGENTS.md#commit-and-pr-conventions).
 
-3. **`Generated-by:` trailer when AI-assisted** — any commit that was substantially
-   written or edited by an AI agent must carry a `Generated-by:` trailer naming the
-   agent, e.g. `Generated-by: Claude Code (Opus 4.7)`. If the contributor indicates
+3. **The convention's trailer when AI-assisted** — any commit that was substantially
+   written or edited by an AI agent must carry the trailer the convention names, e.g.
+   `Generated-by: Claude Code (Opus 4.7)` by default; under `none`, no trailer is
+   expected. If the contributor indicates
    the commit was hand-written, no trailer is required; if there is any uncertainty,
    add the trailer (it is opt-in and costs nothing).
 

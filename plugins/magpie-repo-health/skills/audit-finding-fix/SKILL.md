@@ -397,7 +397,8 @@ Write the commit message per the project's convention:
 - **Body** — one paragraph: which tool, how many findings, the
   rules addressed, and a one-sentence summary of the fix strategy.
   No security language.
-- **Trailer** — `Generated-by: <tool-name>` per the
+- **Trailer** — the trailer the repository's commit-attribution convention names, resolved per [`commit-attribution.md`](../../../../docs/setup/commit-attribution.md) (`Generated-by: <tool-name>` by default),
+  added with `git commit --trailer "<trailer>"` per the
   [`AGENTS.md` → *Commit and PR conventions*](../../../../AGENTS.md#commit-and-pr-conventions).
   The trailer is the contributor's call on their own commit; the
   skill does not add it to anyone else's commit.
