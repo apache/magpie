@@ -80,8 +80,8 @@ mandatory ASF approval + announce mechanisms (`dev-list-vote`,
 
 `pyproject.toml`'s `project.version` is the **single authority** for the
 framework version; every other file above mirrors it verbatim, including a
-`.devN` suffix (between releases the manifests read `0.2.0.dev<YYYYMMDDHHMM>`,
-not `0.2.0`). Keeping one identical string across every manifest is what lets
+`.devN` suffix (between releases the manifests read `0.9.0.dev<YYYYMMDDHHMM>`,
+not `0.9.0`). Keeping one identical string across every manifest is what lets
 the Step 2a bump work as a single literal search/replace.
 
 The dev suffix is a **UTC timestamp that moves when adopters need to pick work
@@ -98,7 +98,7 @@ merged work has piled up behind a stale stamp. Requiring it of every PR would
 only put contributors in conflict over one line.
 
 ```bash
-sed -i '' "s/^version = .*/version = \"0.2.0.dev$(date -u +%Y%m%d%H%M)\"/" pyproject.toml
+sed -i '' "s/^version = .*/version = \"0.9.0.dev$(date -u +%Y%m%d%H%M)\"/" pyproject.toml
 python3 tools/dev/check-family-plugins.py --fix
 uv lock
 ```
