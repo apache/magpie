@@ -145,7 +145,7 @@ always-on token cost (each installed skill advertises a short description to
 the model on **every** turn — see ["always-on" cost](#versioning) below).
 
 Install only the families you use, and the always-on cost stays proportional
-to them: `magpie-security` ≈ 2.0k tokens, `magpie-pairing` ≈ 0.2k. Mixing is
+to them: `magpie-security` ≈ 1.9k tokens, `magpie-pairing` ≈ 0.1k. Mixing is
 the normal case — e.g. `magpie-release-management` + `magpie-security` and
 nothing else. Adding a family later is one more install.
 
@@ -163,7 +163,7 @@ can say so, because it is the floor everything else is managed from.
 | `magpie-utilities` | 5 | ~0.6k |
 | `magpie-contributor-growth` | 6 | ~0.6k |
 | `magpie-mentoring` | 4 | ~0.5k |
-| `magpie-pairing` | 2 | ~0.2k |
+| `magpie-pairing` | 2 | ~0.1k |
 
 > [!NOTE]
 > **How the token column is measured.** An installed skill advertises its

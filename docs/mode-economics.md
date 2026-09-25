@@ -122,7 +122,7 @@ special-token spellings counted as ordinary text.
 Coverage: **75 of 75 local `skills/*/SKILL.md` files**.
 External `source.md` redirects and harness symlinks are excluded.
 
-Measurement manifest SHA-256: `68cb00b425b1aa4a7a7cf803b6dd5c2fa6e991600ce2d0b4b3db2c0399c95c82`.
+Measurement manifest SHA-256: `278b0a20cb23e08dc5b4df65a7bd9595591901774a3b8f669f8d614278440693`.
 
 | Skill file | Measured tokens | Source SHA-256 (first 16 characters) |
 |---|---:|---|
@@ -152,8 +152,8 @@ Measurement manifest SHA-256: `68cb00b425b1aa4a7a7cf803b6dd5c2fa6e991600ce2d0b4b
 | [newcomer-issue-explainer](../skills/newcomer-issue-explainer/SKILL.md) | 3,491 | `9e77f68d2a5dae0e` |
 | [onboarding-concierge](../skills/onboarding-concierge/SKILL.md) | 3,372 | `7a0e539f79ed7dff` |
 | [optimize-skill](../skills/optimize-skill/SKILL.md) | 3,995 | `6e9218fca431d0c3` |
-| [pairing-multi-agent-review](../skills/pairing-multi-agent-review/SKILL.md) | 3,762 | `68924796bc0d5f39` |
-| [pairing-self-review](../skills/pairing-self-review/SKILL.md) | 3,512 | `785fe0fccddffe2b` |
+| [pairing-multi-agent-review](../skills/pairing-multi-agent-review/SKILL.md) | 3,386 | `f58287013972c8ef` |
+| [pairing-self-review](../skills/pairing-self-review/SKILL.md) | 3,366 | `6c0d797898dcf58a` |
 | [pr-management-code-review](../skills/pr-management-code-review/SKILL.md) | 9,147 | `0d1a0aa49ff89ee2` |
 | [pr-management-mentor](../skills/pr-management-mentor/SKILL.md) | 2,976 | `bb4ed59aae93365b` |
 | [pr-management-quick-merge](../skills/pr-management-quick-merge/SKILL.md) | 7,356 | `e42fb82d385fd3fc` |
