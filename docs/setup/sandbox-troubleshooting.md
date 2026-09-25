@@ -889,11 +889,17 @@ macOS 26 with Claude Code 2.1.278:
 | `x=$(gh api …)` | no |
 | `for n in 1 2; do gh pr view "$n"; done` | no |
 | `sh -c 'gh …'`, `uv run … vetted-op-read …` (`gh` as a child process) | no |
+| ``gh search issues "\`x\`"`` or ``gh pr create --body '`x`'`` (a backtick anywhere, even escaped or single-quoted) | no |
 
 Claude Code's documentation says the exclusion list is matched
 against each `&&` / `|` / `;` segment independently; in practice a
 single non-`gh` segment, or any redirection, keeps the whole
 invocation inside the sandbox.
+So does a backtick anywhere in the command string, even one the shell
+would leave literal (escaped, or inside single quotes): the match
+treats it as a command substitution (measured on Claude Code
+2.1.280). A Markdown PR or issue body passed inline with `--body`
+hits this, since its code spans are backticks.
 
 ### Fix
 
@@ -924,6 +930,10 @@ Two parts:
    - for writes that need a JSON body, write the file in a separate
      non-`gh` call and pass it with `--input file.json` — *reading* a
      file is fine, only shell redirection breaks the match;
+   - pass Markdown titles and bodies from a file — `--body-file` for
+     `gh pr create`, `gh issue create` and `gh pr comment`, `--input`
+     for `gh api` — never inline, because a backtick in the command
+     breaks the match;
    - to capture a large payload to a file, move the redirection
      *inside* `gh` with a shell alias, so the Bash command stays a
      single `gh …` part. Import once from a YAML file

@@ -114,7 +114,7 @@ arithmetic, which is now tested rather than graded.
 
 <!-- BEGIN GENERATED SKILL TOKEN COUNTS -->
 
-Measured on (UTC): 2026-09-24.
+Measured on (UTC): 2026-09-25.
 
 Tokenizer: **tiktoken 0.14.0, `cl100k_base`**. Method: full UTF-8 file,
 including frontmatter and comments; line endings normalized to LF;
@@ -122,7 +122,7 @@ special-token spellings counted as ordinary text.
 Coverage: **75 of 75 local `skills/*/SKILL.md` files**.
 External `source.md` redirects and harness symlinks are excluded.
 
-Measurement manifest SHA-256: `68cb00b425b1aa4a7a7cf803b6dd5c2fa6e991600ce2d0b4b3db2c0399c95c82`.
+Measurement manifest SHA-256: `ca1f7f556a7ed64112271356460c6f6376a6945cf00a1baeec4b4e47bd9dde30`.
 
 | Skill file | Measured tokens | Source SHA-256 (first 16 characters) |
 |---|---:|---|
@@ -190,9 +190,9 @@ Measurement manifest SHA-256: `68cb00b425b1aa4a7a7cf803b6dd5c2fa6e991600ce2d0b4b
 | [security-tracker-stats-dashboard](../skills/security-tracker-stats-dashboard/SKILL.md) | 3,815 | `8bf5804a8f214d6a` |
 | [setup](../skills/setup/SKILL.md) | 4,229 | `9d1f0c2cbeda3422` |
 | [setup-isolated-setup-doctor](../skills/setup-isolated-setup-doctor/SKILL.md) | 5,539 | `ba5d0773615f463d` |
-| [setup-isolated-setup-install](../skills/setup-isolated-setup-install/SKILL.md) | 4,399 | `9b8ed9a8354e2f60` |
+| [setup-isolated-setup-install](../skills/setup-isolated-setup-install/SKILL.md) | 4,414 | `c9bb83973f01078d` |
 | [setup-isolated-setup-update](../skills/setup-isolated-setup-update/SKILL.md) | 4,013 | `8f851263948c42a3` |
-| [setup-isolated-setup-verify](../skills/setup-isolated-setup-verify/SKILL.md) | 4,764 | `71a193ecf4cc2f15` |
+| [setup-isolated-setup-verify](../skills/setup-isolated-setup-verify/SKILL.md) | 4,796 | `f3e0c4771367dfe8` |
 | [setup-override-upstream](../skills/setup-override-upstream/SKILL.md) | 4,715 | `d04f8253084c8f00` |
 | [setup-privacy-llm](../skills/setup-privacy-llm/SKILL.md) | 2,051 | `daf38d5849397854` |
 | [setup-shared-config-sync](../skills/setup-shared-config-sync/SKILL.md) | 3,833 | `8a53b61ee3d3cb56` |

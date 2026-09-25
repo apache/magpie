@@ -185,7 +185,8 @@ permission-rule / sandbox / prompt-injection fixes. The manifest's
 declares a `min_version` **floor**, not a pin. Because this install is
 driven from Claude Code, apply the same hard gate
 `setup-isolated-setup-verify` check 5 applies: read the running
-version (`claude --version`) and, if it is **below** `min_version`,
+version (`command claude --version`, which skips an
+`alias claude=claude-iso`) and, if it is **below** `min_version`,
 **hard-fail** — stop the install, tell the operator to upgrade to
 `@latest`, and have them re-run. The secure setup must not be stood up
 on a below-floor runtime.
