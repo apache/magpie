@@ -477,6 +477,47 @@ class TestSourcedDoesNotReplaceTheShell:
         )
         assert "AFTER_AGENT" in res.stdout, "claude-iso exec'd and replaced the shell"
 
+    @pytest.mark.parametrize("shell", ["bash", "zsh"])
+    @pytest.mark.parametrize("entry", ["claude-iso", f"agent-iso {_FAKE_CLI}"])
+    def test_snapshot_replayed_launcher_survives(
+        self, tmp_path: Path, shell: str, entry: str
+    ) -> None:
+        # Claude Code's Bash tool does not source the rc file: it replays a
+        # snapshot of the user's functions and aliases (`typeset -f`), which
+        # carries no plain variables. The launcher must still run the agent as
+        # a child there, so the command after it keeps running.
+        shell_bin = shutil.which(shell)
+        if shell_bin is None:
+            pytest.skip(f"{shell} not installed")
+        self._fake_cli_exiting(tmp_path, "claude", 0)
+        self._fake_cli_exiting(tmp_path, _FAKE_CLI, 0)
+        snapshot = tmp_path / "snapshot.sh"
+        dump = subprocess.run(
+            [shell_bin, "-c", f'source "{SCRIPT}"\ntypeset -f > "{snapshot}"\n'],
+            env=self._env(tmp_path),
+            cwd=str(tmp_path),
+            capture_output=True,
+            text=True,
+        )
+        assert dump.returncode == 0, dump.stderr
+        res = subprocess.run(
+            [
+                shell_bin,
+                "-c",
+                f'source "{snapshot}"\n'
+                'echo "FLAG=[${_AGENT_ISO_SOURCED-unset}]"\n'
+                f"{entry}\necho AFTER_AGENT\n",
+            ],
+            env=self._env(tmp_path),
+            cwd=str(tmp_path),
+            capture_output=True,
+            text=True,
+        )
+        # Precondition: the replay really dropped the global, as a snapshot does.
+        assert "FLAG=[unset]" in res.stdout, res.stdout
+        assert "AGENT RAN" in res.stdout, res.stderr
+        assert "AFTER_AGENT" in res.stdout, f"{entry} exec'd and replaced the snapshot shell"
+
     def test_direct_exec_still_execs(self, tmp_path: Path) -> None:
         # The direct-exec path exists only to become the agent, so it must
         # keep `exec`ing — the agent replaces this process, not a child of it.

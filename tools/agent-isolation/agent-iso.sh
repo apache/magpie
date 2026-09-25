@@ -319,10 +319,17 @@ if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
   # shell, so nothing on this path may `exec` or `exit` — both would take
   # the shell with them. The flag tells `agent_iso_run` to launch the agent
   # as a child and `return`; the guards below use `return`, never `exit`.
-  _AGENT_ISO_SOURCED=1
-  claude-iso()   { agent_iso_run claude "$@"; }
-  opencode-iso() { agent_iso_run opencode "$@"; }
-  kiro-iso()     { agent_iso_run kiro "$@"; }
+  #
+  # Each entry point sets the flag itself, as a `local`, rather than relying
+  # on a global set here: a shell that replays these functions from a
+  # snapshot (Claude Code's Bash tool does, via `typeset -f`) gets the
+  # function bodies and the `alias claude=claude-iso`, but not this file's
+  # plain variables. With a global flag, `claude --version` in such a shell
+  # took the `exec` path and replaced the shell, dropping the rest of the
+  # command.
+  claude-iso()   { local _AGENT_ISO_SOURCED=1; agent_iso_run claude "$@"; }
+  opencode-iso() { local _AGENT_ISO_SOURCED=1; agent_iso_run opencode "$@"; }
+  kiro-iso()     { local _AGENT_ISO_SOURCED=1; agent_iso_run kiro "$@"; }
   # Harness-agnostic entry point: agent-iso <cli> [cli-args]
   # Guard the no-CLI case so it matches the direct-exec path (usage + exit 1)
   # instead of falling through to agent_iso_run with an empty agent name.
@@ -331,6 +338,7 @@ if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
       printf 'Usage: agent-iso <cli> [cli-args]\n  e.g.: agent-iso codex "my prompt"\n' >&2
       return 1
     fi
+    local _AGENT_ISO_SOURCED=1
     agent_iso_run "$@"
   }
 else
