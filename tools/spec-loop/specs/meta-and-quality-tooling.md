@@ -212,7 +212,10 @@ trustworthy as it grows.
    exists under `organizations/`.
 5. Capabilities declared in skill frontmatter and tool READMEs are
    present in `docs/labels-and-capabilities.md`; taxonomy entries with no
-   implementation are explicitly marked reserved or future.
+   implementation are explicitly marked reserved or future. The tool
+   READMEs' `**Capability:**` lines also generate `.github/labeler.yml`
+   (`tools/dev/generate-labeler-config.py`, kept in sync by a prek hook),
+   which pre-applies `contract:*` / `substrate:*` labels to new PRs.
 6. `docs/modes.md` skill lists and shipped counts are checked against
    live skill frontmatter.
 7. `spec-inventory` emits a compact, deterministic routing map for specs,

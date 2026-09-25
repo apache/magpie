@@ -431,6 +431,17 @@ that adjusts the validator config to support a new triage rule is
 `capability:triage` (the change's purpose), not `substrate:framework-dev`
 (the file it edited).
 
+The tool-capability labels are pre-applied within an hour of a PR being opened:
+the scheduled [`.github/workflows/labeler.yml`](../.github/workflows/labeler.yml)
+labels each new PR once, with the `**Capability:**` of every tool directory it
+touches, from
+[`.github/labeler.yml`](../.github/labeler.yml), which
+[`tools/dev/generate-labeler-config.py`](../tools/dev/generate-labeler-config.py)
+generates from the tool READMEs.
+That is a starting point, not the answer: remove a label the change does not
+implement, and add the skill capability yourself.
+Bot PRs and sweeps that would gain more than eight labels are left unlabelled.
+
 ### A new tool under `tools/`
 
 Declare the tool's capability in the **first paragraph of its README**

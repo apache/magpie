@@ -514,6 +514,17 @@ repos:
         entry: tools/dev/check-workspace-members.py
         files: ^((tools/[^/]+(/[^/]+)?|ai-tutors|skills)/pyproject\.toml|pyproject\.toml|.*/tests?/.*\.py|.*/test_[^/]+\.py|.*_test\.py)$
         pass_filenames: false
+  # Tool-capability PR labels. `.github/labeler.yml` is generated from every
+  # tool README's `**Capability:**` line; regenerate it whenever a README or
+  # the generator changes, so a new tool is labelled with no hand-edit.
+  - repo: local
+    hooks:
+      - id: generate-labeler-config
+        name: generate-labeler-config (tool READMEs -> .github/labeler.yml)
+        language: system
+        entry: tools/dev/generate-labeler-config.py
+        files: ^(tools/[^/]+/README\.md|\.github/labeler\.yml|tools/dev/generate-labeler-config\.py)$
+        pass_filenames: false
   # Workspace-level static checks. Iterate over every uv-workspace
   # member declared in the root `pyproject.toml`'s
   # `[tool.uv.workspace] members` list via
