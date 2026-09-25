@@ -117,7 +117,7 @@ before moving on to the next item. Use:
     ```
 
   The PATCH path is what powers the "OAuth-pushed today, manual-paste
-  next sync (because the cookie expired)" recovery: the existing
+  next sync (because the Vulnogram token expired)" recovery: the existing
   comment's body flips between variants in place, keeping a single
   comment as the canonical RM-facing surface and avoiding the
   "fresh duplicate buries the timeline" failure mode (same rationale
@@ -223,8 +223,8 @@ before moving on to the next item. Use:
 
   Idempotent: re-running on a record already in `PUBLIC` exits 0
   with an informational message. Exit-code interpretation matches
-  `record-update` (2 = session expired, 3 = unexpected state,
-  4 = CSRF, 5 = save failed, 6 = other API error, 7 = unexpected
+  `record-update` (2 = token expired, 3 = unexpected state,
+  5 = save failed, 6 = other API error, 7 = unexpected
   envelope). On a non-zero exit, the combined apply stops and the
   failure surfaces in the recap; the partial state (URL captured,
   labels flipped, JSON re-pushed, tracker NOT yet closed) is the

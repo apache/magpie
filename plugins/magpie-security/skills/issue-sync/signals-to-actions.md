@@ -984,7 +984,7 @@ will change and *why*. Group them by category:
     (rewrite the body to the current variant). Common cases:
     a previous sync posted the manual-paste variant and this
     sync's OAuth push succeeded → flip to the OAuth-pushed
-    variant; or vice-versa (cookie expired between sync runs).
+    variant; or vice-versa (Vulnogram token expired between sync runs).
     The PATCH preserves the comment URL, the timeline position,
     and any notifications already delivered for it; the body
     flip is what the RM cares about. Same PATCH-don't-post
