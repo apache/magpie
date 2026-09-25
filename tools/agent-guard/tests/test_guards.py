@@ -200,6 +200,49 @@ def test_commit_attribution_trailer_flag_is_seen(tmp_path):
     assert dispatch(command, cwd=str(repo)) is not None
 
 
+@pytest.mark.parametrize(
+    "flag",
+    ["-F {path}", "--file {path}", "--file={path}"],
+)
+def test_commit_coauthor_in_message_file_denied(tmp_path, flag):
+    # AGENTS.md sends commit bodies through a file; the trailer inside it is
+    # what the commit will say, so the guard has to read it.
+    repo = _attribution_repo(tmp_path)
+    msg = repo / "msg.txt"
+    msg.write_text("subject\n\nbody\n\nCo-Authored-By: a <x@y.z>\n")
+    reason = dispatch(f"git commit {flag.format(path=msg)}", cwd=str(repo))
+    assert reason and "Co-Authored-By" in reason
+
+
+def test_commit_message_file_relative_to_git_dash_c(tmp_path):
+    repo = _attribution_repo(tmp_path / "repo")
+    (repo / "msg.txt").write_text("subject\n\nCo-authored-by: a <x@y.z>\n")
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    reason = dispatch(f"git -C {repo} commit -F msg.txt", cwd=str(elsewhere))
+    assert reason and "Co-Authored-By" in reason
+
+
+def test_commit_message_file_follows_the_convention(tmp_path):
+    repo = _attribution_repo(tmp_path, 'convention = "co-authored-by"\n')
+    (repo / "msg.txt").write_text("subject\n\nCo-Authored-By: a <x@y.z>\n")
+    assert dispatch("git commit -F msg.txt", cwd=str(repo)) is None
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "git commit -F msg.txt",  # clean message file
+        "git commit -F missing.txt",  # git would fail on it itself
+        "git commit -F -",  # stdin: nothing to read ahead of time
+    ],
+)
+def test_commit_message_file_without_coauthor_allowed(tmp_path, command):
+    repo = _attribution_repo(tmp_path)
+    (repo / "msg.txt").write_text("subject\n\nGenerated-by: Claude Code\n")
+    assert dispatch(command, cwd=str(repo)) is None
+
+
 def test_resolve_commit_attribution_outside_a_repo():
     assert agent_guard.resolve_commit_attribution(None) == "generated-by"
 
