@@ -1,0 +1,48 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
+# Applies the tool-capability labels (`contract:*` / `substrate:*`) to a pull
+# request from the tool directories it touches. The mapping is
+# `.github/labeler.yml`, generated from each tool README's `**Capability:**`
+# line by tools/dev/generate-labeler-config.py.
+#
+# `pull_request_target` is needed so fork PRs get a token that can write
+# labels. It is safe here because nothing from the PR is checked out or run:
+# the labeler reads the changed-file list and the config through the API, and
+# the config comes from the base branch, so a PR cannot change its own rules.
+#
+# Path-based labels are a starting point; docs/labels-and-capabilities.md asks
+# for the capability the change *implements*. The workflow runs only when a PR
+# is opened, reopened or marked ready, never on a push, so a label a
+# maintainer removed is not re-added by the next commit.
+---
+name: "Tool capability labels"
+"on":
+  pull_request_target:  # zizmor: ignore[dangerous-triggers] labels only; never checks out or runs PR code
+    types: [opened, reopened, ready_for_review]
+permissions: {}
+jobs:
+  label:
+    # Dependency and version bumps implement no capability.
+    if: github.event.pull_request.user.type != 'Bot'
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/labeler@bf12e9b00b37c5c0ca2b87b79b2daf7891dbda13  # v7.0.0
