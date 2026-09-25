@@ -834,8 +834,8 @@ After the user confirms the diff:
 
 1. Stage only the intentional changes (`git add <paths>` — never
    `git add -A` or `git add .`).
-2. Commit with the agreed message from 5c, ending in the
-   `Generated-by:` trailer (not `Co-Authored-By:`), per
+2. Commit with the agreed message from 5c, adding the trailer the repository's commit-attribution convention names, resolved per [`commit-attribution.md`](../../../../docs/setup/commit-attribution.md)
+   (`Generated-by:` by default), with `git commit --trailer`, per
    [`AGENTS.md`](../../../../AGENTS.md).
 3. Rebase onto the latest upstream base one more time in case
    something landed while you were working:

@@ -430,15 +430,15 @@ shapes:
 - **Body** — a short paragraph explaining the cause (not just
   the symptom) and the chosen fix shape. One paragraph; not a
   novel.
-- **Trailers** — AI-assisted commits use a `Generated-by: <tool>`
-  trailer (e.g. `Generated-by: <tool-name>`), never
-  `Co-Authored-By:` with an agent as co-author — per
-  [`AGENTS.md` → *Commit and PR conventions*](../../../../AGENTS.md#commit-and-pr-conventions)
+- **Trailers** — AI-assisted commits carry the trailer the project's
+  commit-attribution convention names (`Generated-by:` by default;
+  `Assisted-by:`, `Co-authored-by:`, none or a custom wording where the
+  project chose one), resolved per
+  [`commit-attribution.md`](../../../../docs/setup/commit-attribution.md)
   and the [ASF Generative Tooling guidance](https://www.apache.org/legal/generative-tooling.html).
-  Including the tool name is a recommended practice per the policy;
-  the project's `<project-config>/fix-workflow.md` may specify a
-  preferred format. The trailer is the *contributor's* call on their
-  own commit; the skill does not add it to anyone else's commit.
+  Add it with `git commit --trailer "<trailer>"`, not in the message
+  body. The trailer is the *contributor's* call on their own commit;
+  the skill does not add it to anyone else's commit.
 - **Security language scrub** — before finalising the commit body,
   confirm no line references the security nature of the change
   (e.g. *"fixes CVE"*, *"security fix"*, *"patches

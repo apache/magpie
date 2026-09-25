@@ -110,6 +110,101 @@ def test_commit_coauthor_denied_past_a_global_flag(command):
 
 
 # --------------------------------------------------------------------------- #
+# commit-trailer guard: the configured commit-attribution convention
+# --------------------------------------------------------------------------- #
+
+COAUTHOR_COMMIT = 'git commit -m "x\n\nCo-Authored-By: a <x@y.z>"'
+
+
+def _attribution_repo(tmp_path, project=None, local=None):
+    """A bare-bones repo with optional project / contributor attribution files.
+
+    ``project`` / ``local`` are the raw TOML text of each layer's file.
+    """
+    (tmp_path / ".git").mkdir(parents=True)
+    for layer, text in ((".apache-magpie-overrides", project), (".apache-magpie-local", local)):
+        if text is not None:
+            (tmp_path / layer).mkdir()
+            (tmp_path / layer / "commit-attribution.toml").write_text(text)
+    return tmp_path
+
+
+@pytest.mark.parametrize(
+    "project, local, allowed",
+    [
+        # Nothing configured: the default, generated-by, keeps the block.
+        (None, None, False),
+        # The project chose co-authored-by.
+        ('convention = "co-authored-by"\n', None, True),
+        # The project's choice wins over the contributor's.
+        ('convention = "generated-by"\n', 'convention = "co-authored-by"\n', False),
+        ('convention = "none"\n', 'convention = "co-authored-by"\n', False),
+        # The project leaves it open, explicitly or by not deciding.
+        ('convention = "contributor-choice"\n', 'convention = "co-authored-by"\n', True),
+        (None, 'convention = "co-authored-by"\n', True),
+        ("# no convention key yet\n", 'convention = "co-authored-by"\n', True),
+        ('convention = "contributor-choice"\n', None, False),
+        ('convention = "contributor-choice"\n', 'convention = "assisted-by"\n', False),
+        # Case and whitespace in the value are not a way around the choice.
+        ('convention = " Co-Authored-By "\n', None, True),
+    ],
+)
+def test_commit_coauthor_follows_the_resolved_convention(tmp_path, project, local, allowed):
+    repo = _attribution_repo(tmp_path, project, local)
+    reason = dispatch(COAUTHOR_COMMIT, cwd=str(repo))
+    assert (reason is None) is allowed, reason
+
+
+@pytest.mark.parametrize(
+    "project, local",
+    [
+        # Unparsable project file: fail closed, even though the contributor chose.
+        ("convention = [unclosed\n", 'convention = "co-authored-by"\n'),
+        # Unknown project value: the default, not the contributor's choice.
+        ('convention = "anything-goes"\n', 'convention = "co-authored-by"\n'),
+        # contributor-choice is a project-only value.
+        (None, 'convention = "contributor-choice"\n'),
+        # A non-string value.
+        ("convention = 1\n", None),
+    ],
+)
+def test_commit_attribution_fails_closed(tmp_path, project, local):
+    repo = _attribution_repo(tmp_path, project, local)
+    reason = dispatch(COAUTHOR_COMMIT, cwd=str(repo))
+    assert reason and "Co-Authored-By" in reason and "'generated-by'" in reason
+
+
+def test_commit_attribution_found_from_a_subdirectory(tmp_path):
+    repo = _attribution_repo(tmp_path, 'convention = "co-authored-by"\n')
+    sub = repo / "src" / "pkg"
+    sub.mkdir(parents=True)
+    assert dispatch(COAUTHOR_COMMIT, cwd=str(sub)) is None
+
+
+def test_commit_attribution_follows_git_dash_c(tmp_path):
+    # `git -C <repo> commit` commits to <repo>, so its convention is the one
+    # that applies, not the one where the command was typed.
+    repo = _attribution_repo(tmp_path / "repo", 'convention = "co-authored-by"\n')
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    (elsewhere / ".git").mkdir()
+    command = f'git -C {repo} commit -m "x\n\nCo-Authored-By: a <x@y.z>"'
+    assert dispatch(command, cwd=str(elsewhere)) is None
+    assert dispatch(COAUTHOR_COMMIT, cwd=str(elsewhere)) is not None
+
+
+def test_commit_attribution_trailer_flag_is_seen(tmp_path):
+    # The trailer added the way the convention docs prescribe is still caught.
+    repo = _attribution_repo(tmp_path, 'convention = "generated-by"\n')
+    command = "git commit -F msg.txt --trailer 'Co-authored-by: a <x@y.z>'"
+    assert dispatch(command, cwd=str(repo)) is not None
+
+
+def test_resolve_commit_attribution_outside_a_repo():
+    assert agent_guard.resolve_commit_attribution(None) == "generated-by"
+
+
+# --------------------------------------------------------------------------- #
 # empty-rebase guard (bundled)
 # --------------------------------------------------------------------------- #
 
@@ -298,8 +393,8 @@ def test_main_allows_malformed_stdin(monkeypatch, capsys):
 
 
 # Convenience wrapper so each test reads cleanly.
-def dispatch(command):
-    return agent_guard.dispatch(command, cwd=None)
+def dispatch(command, cwd=None):
+    return agent_guard.dispatch(command, cwd=cwd)
 
 
 class _Stdin:

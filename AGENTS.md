@@ -522,11 +522,19 @@ to a home-dir path and update the tool to read from there.
   Generated-by: Claude Code (Opus 4.7)
   ```
 
-  For commits in adopting projects, the exact trailer wording may carry
-  additional project-specific elements (e.g. a URL to the project's Gen-AI
-  disclosure anchor) — see
-  [`<project-config>/fix-workflow.md`](<project-config>/fix-workflow.md#commit-trailer)
-  for that project's spec.
+  That is this repository's convention, pinned in
+  [`.apache-magpie-overrides/commit-attribution.toml`](.apache-magpie-overrides/commit-attribution.toml).
+- **In an adopting project, use the project's commit-attribution convention.**
+  `Generated-by:`, `Assisted-by:`, `Co-authored-by:`, no trailer, or a custom
+  one — the project chooses when it adopts Magpie, and a contributor chooses
+  only where the project leaves it open. Resolve it per
+  [`docs/setup/commit-attribution.md`](docs/setup/commit-attribution.md);
+  the `commit-trailer` guard resolves it the same way.
+- **Add the trailer with `git commit --trailer`**, never by typing it into the
+  message body or the `-F <file>`:
+  `git commit -F <file> --trailer "Generated-by: <agent name and version>"`.
+  git then places it in the trailer block, and it stays on the command line
+  where the guard and other hooks can see it.
 - **Always open PRs with `gh pr create --web`** so the human reviewer can check the title,
   body, and the generative-AI disclosure in the browser before submission. Pre-fill `--title`
   and `--body-file` (including the Gen-AI disclosure block) so they only need to review, not edit.
@@ -535,7 +543,8 @@ to a home-dir path and update the tool to read from there.
   Write the text to a file in the session scratch directory or `$TMPDIR` first,
   then hand the CLI the path: `gh pr create --body-file`, `gh pr comment --body-file`,
   `gh issue comment --body-file`, `gh pr review --body-file`,
-  `gh api … --input <file>` for JSON payloads, `git commit -F <file>`.
+  `gh api … --input <file>` for JSON payloads, `git commit -F <file>`
+  (with the attribution trailer as a separate `--trailer`, see above).
   Do not paste the body as a quoted argument, splice it in with `$(cat …)`,
   or feed it through a pipe or heredoc on the same command line.
   Three reasons:

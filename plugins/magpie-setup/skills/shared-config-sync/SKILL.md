@@ -99,7 +99,7 @@ Any remote the skill *creates* is **private** (see the golden rules); never publ
   Concurrent work from another machine takes precedence; the local commit lands on top, as the example `sync.sh` does for the periodic pull.
 - **Draft the commit message; never auto-send.** For every uncommitted change, draft a one-line commit subject (plus a 2–4 line body if the change merits it) and show it to the user.
   The user replies *"go"* / *"yes"* / edits / *"split into two commits"* etc. before any `git commit` runs.
-- **Use the `Generated-by:` trailer per AGENTS.md.** Agent-authored commits carry `Generated-by: <agent> (<model>)` at the end of the body, where `<agent>` and `<model>` are the agent and model you are actually running as (e.g. `Claude (Opus 4.8)`, `OpenCode (Big Pickle)`).
+- **Use the resolved attribution trailer, added with `--trailer`.** Agent-authored commits carry the trailer the user's commit-attribution convention names, resolved per [`commit-attribution.md`](../../../../docs/setup/commit-attribution.md) (the sync repo has no project file, so the user's choice applies, else `Generated-by: <agent> (<model>)`), where `<agent>` and `<model>` are the agent and model you are actually running as (e.g. `Claude (Opus 4.8)`, `OpenCode (Big Pickle)`). Add it with `git commit --trailer`, never in the message body.
   Do not hardcode either, and never use `Co-Authored-By:`.
   Canonical wording: [AGENTS.md → Commit and PR conventions](../../../../AGENTS.md#commit-and-pr-conventions).
 - **Stop on lock conflict.** The example `sync.sh` uses `flock --nonblock` on `~/.claude-config/.sync.lock` so two sync runs do not race.
@@ -156,7 +156,7 @@ On approval:
    [A minimal `sync.sh`](../../../../docs/setup/secure-agent-setup.md#a-minimal-syncsh)
    section.
    `.gitignore` must at minimum carry `.sync.lock` (the `flock` file) so the lock is never committed.
-3. **Initial commit + push.** `git add` the scaffolded files individually (never `git add -A`; see [Walk-through](#walk-through) step 5), commit with the `Generated-by:` trailer, `git remote add origin <url>`, then `git push -u origin main`.
+3. **Initial commit + push.** `git add` the scaffolded files individually (never `git add -A`; see [Walk-through](#walk-through) step 5), commit with the resolved attribution trailer (via `--trailer`), `git remote add origin <url>`, then `git push -u origin main`.
 
 ### Step B4 — fresh-host symlink wiring
 
@@ -201,8 +201,8 @@ Wire only the artifacts the checkout contains; on a brand-new scaffold `scripts/
 
 5. **Stage + commit (when applicable).** For each modification the user approves:
    - `git add <file>` for the specific file (never `git add -A` or `git add .` — the sync repo is the user's most personal directory and `git add -A` risks staging an editor swap file or a `.DS_Store` you forgot to gitignore),
-   - `git commit -m '<subject>' -m '<body>'` with the approved message.
-     Always include a `Generated-by: <agent> (<model>)` trailer in the body per AGENTS.md — the actual agent and model you are running as, not a hardcoded value.
+   - `git commit -m '<subject>' -m '<body>' --trailer '<trailer>'` with the approved message.
+     `<trailer>` is the resolved attribution trailer (see the golden rule above) — the actual agent and model you are running as, not a hardcoded value; omit `--trailer` when the convention is `none`.
 
    Probe the gpg-agent cache first when `commit.gpgsign` is true: a token-backed key with a cold cache stalls this commit until `gpg: signing failed: Timeout`.
    Surface a dialogue, or hand the user the command — see

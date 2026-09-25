@@ -239,6 +239,27 @@ auto-detect-before-asking discipline `config` uses.
 A maintainer who knows they are adopting can arrive here directly,
 without having run `config` first; this step is what makes that work.
 
+**Ask the commit-attribution convention explicitly**, even when
+`commit-attribution.toml` would otherwise be scaffolded unasked: it is
+project policy, and unlike other configuration the project's value
+wins over every contributor's
+([`commit-attribution.md`](../../../../docs/setup/commit-attribution.md#how-the-convention-is-resolved)).
+One structured question, with these options:
+
+- `generated-by` — `Generated-by: <agent> (<model>)`; the ASF
+  convention and the default. Recommend it for ASF projects.
+- `assisted-by` — `Assisted-by: <agent>:<model>`.
+- `co-authored-by` — `Co-authored-by: <agent> <email>`; the guard then
+  stops blocking `Co-Authored-By:` in this project.
+- `none` — no trailer.
+- `contributor-choice` — each contributor decides, through `config`.
+- custom — ask for the wording and write it as `template`.
+
+Auto-detect first: if the project's contributing docs or recent history
+already use one of these trailers, offer it as the recommended option
+and say where it was found. Write the answer to
+`.apache-magpie-overrides/commit-attribution.toml`.
+
 `git add` the store; do not commit.
 
 ### 4c — Review the project's existing process

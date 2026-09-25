@@ -1436,7 +1436,9 @@ lives in [`tools/agent-guard`](../../tools/agent-guard/README.md) and
 ships two **bundled** (universal `git` hygiene) guards:
 
 - **commit-trailer** — never let a `git commit` carry a
-  `Co-Authored-By:` trailer (use `Generated-by:`).
+  `Co-Authored-By:` trailer, unless the repository's
+  [commit-attribution convention](commit-attribution.md) is
+  `co-authored-by` (the default is `Generated-by:`).
 - **empty-rebase** — never force-push a branch with no commits over
   its base (an empty push to a PR head auto-closes it and revokes
   write).
