@@ -5,7 +5,7 @@
 
 Behavioral evals for the `setup` skill.
 
-## Suites (88 cases total)
+## Suites (92 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
@@ -31,6 +31,7 @@ Behavioral evals for the `setup` skill.
 | step-config-adversarial | config.md § Step 3c | 5 | a named `config adversarial-review` run pre-ticks every available backend except `self` and offers command files only for installed non-Claude, non-Copilot harnesses (Copilot gets the invocation); a plain `config` run and a run entered from a skill's pre-flight offer nothing; no offer without the plugin; and an offer with nothing pre-ticked when only `self` is available |
 | step-adopt-stamp | adopt.md § 4d | 1 | a re-adoption that migrates an earlier `config` run's local `skills` map into the committed lock, adds the skill 4a/4b/4c just configured, and records the version Step 2 actually read off the machine rather than the (higher, ratcheted) `min_version` it kept |
 | step-upgrade-stamp | upgrade.md § Step 5 | 1 | two overrides after a snapshot refresh — one whose target skill, anchors, and `requires_config` all resolve (stamped), and one with intact anchors but an unresolved `requires_config` entry (a finding, deliberately left unstamped rather than reported false-clean) |
+| step-unknown-subaction | SKILL.md § Unrecognised sub-action | 4 | a one-letter typo (`upgrede` — ask, suggest `upgrade`, run nothing), an exact name (`reconcile` — run it), no close match (`frobnicate` — ask with the list only), and a prefix shared by two sub-actions (`un` — suggest both) |
 
 ## Run
 
