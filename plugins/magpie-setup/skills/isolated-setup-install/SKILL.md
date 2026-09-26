@@ -17,7 +17,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:eb1b228a501f2772
 license: Apache-2.0
-measured_tokens: 4820
+measured_tokens: 4937
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -239,11 +239,11 @@ writes structurally.
 ```jsonc
 "permissions": {
   "allow": [
-    "Bash(uv run --project ~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/*/tools/vetted-ops vetted-op-read *)",
-    "Bash(uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/*/tools/vetted-ops vetted-op-read *)"
+    "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-read *)",
+    "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *)"
   ],
   "ask": [
-    "Bash(uv run --project ~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/*/tools/vetted-ops vetted-op *)"
+    "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op *)"
   ],
   "deny": [
     // `Edit(path)` is the path rule for every file-writing tool — Write and
@@ -253,6 +253,8 @@ writes structurally.
     //
     // the operation catalogue — the read `allow` rests on its shape
     "Edit(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)",
+    // the fixed path the rules name, which points into that catalogue
+    "Edit(~/.claude/magpie/**)",
     // the policy naming which caller may run which operation
     "Edit(.apache-magpie-overrides/tools/vetted-ops/**)"
   ]
@@ -260,11 +262,21 @@ writes structurally.
 ```
 
 Allow **both** invocation forms, and add both to
-`sandbox.excludedCommands` (`"uv run --project ~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/*/tools/vetted-ops vetted-op-read *"` and
-`"uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/*/tools/vetted-ops vetted-op-read *"`). Skills document `uv run --project`; read-only
+`sandbox.excludedCommands` (`"uv run --project ~/.claude/magpie/vetted-ops vetted-op-read *"` and
+`"uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *"`). Skills document `uv run --project`; read-only
 gatherer agents use `uvx --from`, because `uv run` in the plugin cache
 needs to write a venv there. A rule for only one form leaves every call
 in the other form prompting.
+
+The rules name the fixed path `~/.claude/magpie/vetted-ops`, never the
+versioned plugin-cache directory. The plugin's `SessionStart` hook points
+that path at the installed version every session, so an upgrade needs no
+rule change. **Never write a rule with `*` in place of the plugin
+version.** A `*` also matches spaces, so it approves — and, in
+`excludedCommands`, runs unsandboxed — a command with extra `uv` options
+spliced in at that position (`--with <any package>`, a second `--from`).
+If an adopter's settings still carry the versioned `*` form, replace it
+with the fixed path.
 
 Tell the operator plainly what this buys and what it does not:
 

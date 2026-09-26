@@ -501,8 +501,8 @@ below, annotated.
     // read-only gatherer agents use (`uv run --project` and `uvx --from`).
     "excludedCommands": [
       "gh *",
-      "uv run --project ~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/*/tools/vetted-ops vetted-op-read *",
-      "uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/*/tools/vetted-ops vetted-op-read *",
+      "uv run --project ~/.claude/magpie/vetted-ops vetted-op-read *",
+      "uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *",
       "uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/*/tools/adversarial-review adversarial-review *"
     ],
     // The `lychee` link-check hook runs in OFFLINE mode (`offline =
@@ -638,9 +638,13 @@ below, annotated.
       // (`vetted-op`) is deliberately NOT here — it is in `ask` below.
       // Allowlisting it on the strength of a read-only *caller name* would
       // grant the whole catalogue, because --caller is chosen by the caller.
-      // The version segment is globbed: the plugin cache is versioned per install.
-      "Bash(uv run --project ~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/*/tools/vetted-ops vetted-op-read *)",
-      "Bash(uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/*/tools/vetted-ops vetted-op-read *)",   // same dispatcher, the form bulk gatherer agents use
+      // The rules name the fixed path ~/.claude/magpie/vetted-ops, which the
+      // plugin's SessionStart hook points at the installed version. Never glob
+      // the version in the plugin-cache path instead: a `*` also matches
+      // spaces, so it would approve (and, excluded, run unsandboxed) a command
+      // with extra `uv` options spliced in at that position.
+      "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-read *)",
+      "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *)",   // same dispatcher, the form bulk gatherer agents use
       // Read-only MCP tools the security skills call on every sync / import /
       // triage run. Without these, each archive or mailbox read prompts, and a
       // bulk sync fans out into hundreds of prompts. Write tools stay off this
@@ -687,6 +691,7 @@ below, annotated.
       // every file-writing tool (Write and NotebookEdit included), and a
       // `Write(path)` rule is not matched by the file permission check at all.
       "Edit(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)",
+      "Edit(~/.claude/magpie/**)",
       "Edit(.apache-magpie-overrides/tools/vetted-ops/**)",
       // The adversarial-review tool runs unsandboxed (excludedCommands above), so
       // the code it runs must not be editable by the agent that calls it.
@@ -694,7 +699,7 @@ below, annotated.
     ],
     "ask": [
       "Bash(git push *)",                        // including --force / --force-with-lease variants
-      "Bash(uv run --project ~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/*/tools/vetted-ops vetted-op *)",  // the vetted-ops WRITE dispatcher: bounded in shape, but still a remote mutation, so it keeps a confirmation
+      "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op *)",  // the vetted-ops WRITE dispatcher: bounded in shape, but still a remote mutation, so it keeps a confirmation
       // gh WRITE subcommands, listed one by one. Claude Code evaluates deny,
       // then ask, then allow, and "a matching ask rule prompts even when a
       // more specific allow rule also matches the same call" — so a catch-all
@@ -3181,10 +3186,13 @@ below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
      is ✗ and worth stopping for: it grants every operation in
      the catalogue, because the operation's caller name is chosen
      by whoever runs the command.
-   - `permissions.deny` denies `Edit` on both
+   - `permissions.deny` denies `Edit` on
      `~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**`
-     (the catalogue) and
+     (the catalogue), `~/.claude/magpie/**` (the fixed path the
+     rules name) and
      `.apache-magpie-overrides/tools/vetted-ops/**` (the policy).
+   - No `vetted-op` rule names the versioned plugin-cache path with
+     a `*`; the rules name `~/.claude/magpie/vetted-ops`.
      One `Edit` rule per surface is the whole coverage — it binds
      every file-editing tool. A `Write(…)` rule sitting next to it
      is dead weight the file permission check never consults;

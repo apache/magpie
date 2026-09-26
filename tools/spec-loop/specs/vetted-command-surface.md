@@ -61,6 +61,14 @@ group before running and `magpie-dev` resolves only through the root's
 `[tool.uv.sources]`. Its tests take the shared toolchain from the root `dev`
 group instead (#1357).
 
+Permission rules and sandbox exclusions name the fixed path
+`~/.claude/magpie/vetted-ops`, never the versioned plugin-cache directory. The
+plugin's `SessionStart` hook points that path at the installed version each
+session, and it is `Edit`-denied alongside the catalogue. A `*` in place of the
+version would also match spaces, approving a command with extra `uv` options
+spliced in at that position; sandbox-lint rejects any Bash `allow` rule with a
+`*` before its end.
+
 ## Scoping — what is real and what is aspiration
 
 The dispatcher requires `--caller` and refuses operations outside that caller's
