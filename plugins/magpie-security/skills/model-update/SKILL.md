@@ -35,6 +35,7 @@ capability:
   - capability:authoring
 surface_hash: sha256:70cc9d9595998186
 license: Apache-2.0
+measured_tokens: 4842
 ---
 
 # Security model update

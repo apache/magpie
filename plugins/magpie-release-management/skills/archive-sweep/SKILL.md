@@ -26,6 +26,7 @@ capability:
   - capability:triage
 surface_hash: sha256:7cb626368f367e76
 license: Apache-2.0
+measured_tokens: 4522
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0

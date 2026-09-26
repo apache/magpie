@@ -28,6 +28,7 @@ argument-hint: "[--tool <name>] [--report <path>] [--finding <id>]"
 capability: capability:fix
 surface_hash: sha256:9e749aa429ac8777
 license: Apache-2.0
+measured_tokens: 6148
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0

@@ -23,6 +23,7 @@ argument-hint: "[all|retired|macos-arch] [--repo owner/name | --repo-file repos.
 capability: capability:triage
 surface_hash: sha256:c6da72e64ac4808d
 license: Apache-2.0
+measured_tokens: 2201
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0

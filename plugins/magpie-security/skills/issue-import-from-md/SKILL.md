@@ -26,6 +26,7 @@ argument-hint: "[path-to-markdown-file]"
 capability: capability:intake
 surface_hash: sha256:1b9464815ffad903
 license: Apache-2.0
+measured_tokens: 9169
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):

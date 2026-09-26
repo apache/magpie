@@ -34,7 +34,6 @@ on:
       - 'plugins/magpie-*/skills/**/SKILL.md'
       - 'tools/dev/preflight-block.md'
       - 'tools/skill-token-count/**'
-      - 'docs/mode-economics.md'
       - 'uv.lock'
       - '.pre-commit-config.yaml'
       - '.github/workflows/skill-token-count.yml'
@@ -65,5 +64,5 @@ jobs:
           cache-suffix: "skill-token-count"
       - name: Prepare verified tokenizer vocabulary
         run: uv run --locked --project tools/skill-token-count skill-token-count --prepare-tokenizer
-      - name: Check committed token measurements
+      - name: Check measured_tokens stamps
         run: uv run --locked --project tools/skill-token-count skill-token-count --check

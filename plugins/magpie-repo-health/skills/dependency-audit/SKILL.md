@@ -24,6 +24,7 @@ argument-hint: "[--manager pip|npm|cargo|trivy] [--repo owner/name | --path /pat
 capability: capability:triage
 surface_hash: sha256:19ba62ec34a55604
 license: Apache-2.0
+measured_tokens: 3110
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0

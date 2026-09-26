@@ -16,6 +16,7 @@ argument-hint: "[skill-name]"
 capability: capability:platform
 surface_hash: sha256:33f740e1edbcdfda
 license: Apache-2.0
+measured_tokens: 4750
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
