@@ -527,6 +527,8 @@ below, annotated.
         "~/.cache/",                  // dev tool caches (uv HTTP cache, prek logs, ruff/mypy caches, and prek's own rustup + CARGO_HOME for the `lychee` rust hook)
         "~/.local/share/uv/",         // uv's tool venvs (prek, etc.)
         "~/.local/bin/",              // uv-installed tool entry points
+        "~/.docker/bin/",             // Docker Desktop's `docker` CLI (macOS); the rest of ~/.docker stays denied
+        "~/.docker/cli-plugins/",     // `docker compose` / `docker buildx` plugin binaries
         "~/.config/apache-magpie/",  // Gmail OAuth refresh token (oauth-draft tool)
         "~/.gnupg/",                  // gpg keyring reads (needed for signing, not sufficient on Linux — see sandbox-troubleshooting.md)
         "/run/user/*/gnupg/",         // gpg-agent socket dir (see "agent appears unreachable" in sandbox-troubleshooting.md)

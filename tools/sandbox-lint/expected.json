@@ -22,6 +22,8 @@
         "~/.cache/",
         "~/.local/share/uv/",
         "~/.local/bin/",
+        "~/.docker/bin/",
+        "~/.docker/cli-plugins/",
         "~/.config/apache-magpie/",
         "~/.gnupg/",
         "/run/user/*/gnupg/"

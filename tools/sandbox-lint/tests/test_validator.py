@@ -212,6 +212,18 @@ def test_invariant_allow_read_rejects_credential_paths(baseline: dict[str, Any],
     assert any("allowRead" in e and forbidden.rstrip("/") in e for e in errors)
 
 
+def test_baseline_allows_docker_desktop_cli_without_credentials(baseline: dict[str, Any]) -> None:
+    # Docker Desktop installs `docker` and its compose/buildx plugins under
+    # ~/.docker; without these the CLI cannot even start inside the sandbox.
+    allow_read = baseline["sandbox"]["filesystem"]["allowRead"]
+    assert {"~/.docker/bin/", "~/.docker/cli-plugins/"} <= set(allow_read)
+    assert not [
+        p for p in allow_read if p.rstrip("/") in ("~/.docker", "~/.docker/contexts", "~/.docker/config.json")
+    ]
+    assert "Read(~/.docker/**)" in baseline["permissions"]["deny"]
+    assert check_invariants(baseline) == []
+
+
 @pytest.mark.parametrize(
     "forbidden",
     [
