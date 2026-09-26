@@ -53,9 +53,7 @@ class MockDecisionProvider(DecisionProvider):
             raise self.raise_exc
         return self.choice_result or {"label": options[0], "confidence": 0.90}
 
-    def score(
-        self, prompt: str, scale: tuple[float, float] | list[float] | int | float
-    ) -> dict[str, Any]:
+    def score(self, prompt: str, scale: tuple[float, float] | list[float] | int | float) -> dict[str, Any]:
         return {"value": 1.0, "confidence": 0.9}
 
     def noul(self, prompt: str) -> dict[str, Any]:

@@ -99,4 +99,3 @@ Can be declared here or overridden in `.apache-magpie-overrides/pr-management-tr
 **Human-in-the-loop invariant:** Pre-filtering only accelerates candidate generation — it NEVER acts on or mutates a PR without explicit maintainer confirmation in the interaction loop.
 
 **Telemetry:** When enabled, every call is logged to `.apache-magpie-local/logs/pr-triage-typed-decision.jsonl` with `{predicted_label, confidence, latency_ms, used_or_fell_through}` for adopter precision/recall evaluation.
-
