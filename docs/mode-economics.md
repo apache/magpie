@@ -122,7 +122,7 @@ special-token spellings counted as ordinary text.
 Coverage: **75 of 75 local `skills/*/SKILL.md` files**.
 External `source.md` redirects and harness symlinks are excluded.
 
-Measurement manifest SHA-256: `f1041a30a295af2528921db50a3bd71ef24937a3d4d144b6490b98af3590ed7b`.
+Measurement manifest SHA-256: `b7298c42ca4164abda1adaba6222ec311a34cc9412cef55fcc295e2f10eb2e0f`.
 
 | Skill file | Measured tokens | Source SHA-256 (first 16 characters) |
 |---|---:|---|
@@ -188,7 +188,7 @@ Measurement manifest SHA-256: `f1041a30a295af2528921db50a3bd71ef24937a3d4d144b64
 | [security-model-update](../skills/security-model-update/SKILL.md) | 4,842 | `7b3e5fda39ea64a6` |
 | [security-model-verify](../skills/security-model-verify/SKILL.md) | 6,626 | `7b3e32fad0fb2047` |
 | [security-tracker-stats-dashboard](../skills/security-tracker-stats-dashboard/SKILL.md) | 3,815 | `8bf5804a8f214d6a` |
-| [setup](../skills/setup/SKILL.md) | 4,229 | `9d1f0c2cbeda3422` |
+| [setup](../skills/setup/SKILL.md) | 4,526 | `619a7dcc0c0f64ae` |
 | [setup-isolated-setup-doctor](../skills/setup-isolated-setup-doctor/SKILL.md) | 5,539 | `ba5d0773615f463d` |
 | [setup-isolated-setup-install](../skills/setup-isolated-setup-install/SKILL.md) | 4,414 | `c9bb83973f01078d` |
 | [setup-isolated-setup-update](../skills/setup-isolated-setup-update/SKILL.md) | 4,062 | `7906fe6011ec1442` |

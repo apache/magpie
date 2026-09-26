@@ -19,7 +19,7 @@ when_to_use: >-
   contributor and is not an install.
 argument-hint: "[install|config|adopt|unadopt|upgrade|worktree-init|verify|reconcile|override skill-name|uninstall]"
 capability: capability:platform
-surface_hash: sha256:3bc8ddeb317a6377
+surface_hash: sha256:df6116cc7828707c
 license: Apache-2.0
 ---
 
@@ -156,6 +156,26 @@ A configured-but-unadopted project writes the gitignored `.apache-magpie-local/r
 It is a no-op with no worktrees and idempotent where they already look wired, which is how broken symlinks and newly always-on families get repaired — nobody has to re-run anything per worktree.
 
 **A missing snapshot with a committed lock** turns any sub-action into the recover-snapshot path: re-install per the lock, then continue.
+
+### Unrecognised sub-action
+
+When the first positional argument matches no sub-action in the table above and is not a flag from [*Inputs*](#inputs), **do not guess, and do not fall back to `install`**.
+The usual cause is a typo (`upgrede`, `reconcie`), and quietly mapping it to the nearest name runs something the user never named — `upgrade`, `reconcile` and `adopt` stage committed files.
+
+Print this instead, using the invocation name this install answers to (`/magpie-setup:setup` on a marketplace install, `/magpie-setup` on the pinned snapshot):
+
+```text
+Unknown setup sub-action: `upgrede`.
+Did you mean `upgrade`?  →  /magpie-setup:setup upgrade
+
+Sub-actions: install, config, adopt, upgrade, worktree-init, verify,
+reconcile, skill-sources, override, uninstall, unadopt
+```
+
+- Suggest only a **close** match: an edit distance of one or two, or a prefix of the name.
+  When several qualify (`un` → `uninstall`, `unadopt`), name them all.
+  When none is close, print only the list.
+- Then **stop and wait**. Run a suggested sub-action only once the user confirms it — a plain *"yes"* to a single suggestion is enough — never on your own because it was the only near match.
 
 ## Inputs
 
