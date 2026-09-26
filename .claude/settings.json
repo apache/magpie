@@ -6,6 +6,7 @@
       "gh *",
       "uv run --project tools/vetted-ops vetted-op-read *",
       "uv run --project ~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/*/tools/vetted-ops vetted-op-read *",
+      "uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/*/tools/vetted-ops vetted-op-read *",
       "uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/*/tools/adversarial-review adversarial-review *",
       "~/.claude/scripts/magpie-run-evals.sh *"
     ],
@@ -108,7 +109,22 @@
       "mcp__apache-projects__get_group_members",
       "mcp__apache-projects__get_person",
       "mcp__apache-projects__search_people",
-      "Bash(zizmor *)"
+      "Bash(zizmor *)",
+      "Bash(uv run --project ~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/*/tools/vetted-ops vetted-op-read *)",
+      "Bash(uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/*/tools/vetted-ops vetted-op-read *)",
+      "mcp__ponymail__get_source",
+      "mcp__ponymail__list_lists",
+      "mcp__claude_ai_Gmail__get_message",
+      "mcp__claude_ai_Gmail__list_drafts",
+      "mcp__claude_ai_Gmail__get_draft",
+      "mcp__gmail-plaintext__check_auth",
+      "mcp__apache-projects__get_releases",
+      "mcp__apache-projects__get_repositories",
+      "mcp__apache-projects__list_committees",
+      "mcp__apache-projects__search_projects",
+      "WebFetch(domain:cveawg.mitre.org)",
+      "WebFetch(domain:pypi.org)",
+      "WebFetch(domain:lists.apache.org)"
     ],
     "deny": [
       "Read(~/.aws/**)",

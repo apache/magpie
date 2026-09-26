@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:1f327e069312dad2
 license: Apache-2.0
-measured_tokens: 4530
+measured_tokens: 4635
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -133,6 +133,10 @@ Walk each:
    The framework occasionally adds new `denyRead` paths (a credential type the team newly cares about), new `allowedDomains` entries, new `permissions.deny` patterns for newly-discovered exfiltration paths, **or the agent-guard `hooks.PreToolUse` entry** (matcher `Bash`) — the last only matters if the user wired the secure setup before the guard shipped and does not have the `magpie-agent-guard` plugin enabled.
    With the plugin, that hook comes from the plugin manifest and its absence from `settings.json` is correct.
    Report new entries the user does not have; do not auto-merge.
+
+   **Diff `permissions.allow` too, not only `deny` / `ask`.**
+   Every read-only entry the framework allows and the user lacks — a vetted-ops read form, an MCP read tool, a registry `WebFetch` host — is a permission prompt on every skill run; a bulk sync multiplies it by the number of trackers.
+   List the missing entries as "prompts you are paying", and separately flag any entry the user has in `allow` that is not read-only.
 
    Two `sandbox.network.*` settings are worth a look while diffing, but neither is a "missing default" to re-add:
 

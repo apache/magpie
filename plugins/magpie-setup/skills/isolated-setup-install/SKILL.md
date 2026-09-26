@@ -17,7 +17,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:eb1b228a501f2772
 license: Apache-2.0
-measured_tokens: 4553
+measured_tokens: 4820
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -115,7 +115,12 @@ Drift severity:
   user already has a project `.claude/settings.json` or a
   user-scope `~/.claude/settings.json`, the skill *diffs* the
   desired merge against the existing file and asks for explicit
-  approval before writing. Re-installs / partial-state recoveries
+  approval before writing. The merge carries the framework's
+  `permissions.allow` set (the read-only reads: `gh` reads, the
+  vetted-ops read dispatcher, archive / mailbox / roster MCP reads,
+  registry `WebFetch` hosts) alongside `deny` and `ask` — leaving it
+  out makes every skill read prompt. Only read-only entries belong in
+  `allow`. Re-installs / partial-state recoveries
   are common — the skill must not blow away an unrelated
   pre-existing hook or `permissions.ask` rule. The desired merge
   **includes the agent-guard `hooks.PreToolUse` entry** (matcher
@@ -234,7 +239,8 @@ writes structurally.
 ```jsonc
 "permissions": {
   "allow": [
-    "Bash(uv run --project ~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/*/tools/vetted-ops vetted-op-read *)"
+    "Bash(uv run --project ~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/*/tools/vetted-ops vetted-op-read *)",
+    "Bash(uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/*/tools/vetted-ops vetted-op-read *)"
   ],
   "ask": [
     "Bash(uv run --project ~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/*/tools/vetted-ops vetted-op *)"
@@ -252,6 +258,13 @@ writes structurally.
   ]
 }
 ```
+
+Allow **both** invocation forms, and add both to
+`sandbox.excludedCommands` (`"uv run --project ~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/*/tools/vetted-ops vetted-op-read *"` and
+`"uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/*/tools/vetted-ops vetted-op-read *"`). Skills document `uv run --project`; read-only
+gatherer agents use `uvx --from`, because `uv run` in the plugin cache
+needs to write a venv there. A rule for only one form leaves every call
+in the other form prompting.
 
 Tell the operator plainly what this buys and what it does not:
 
