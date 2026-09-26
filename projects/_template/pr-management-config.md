@@ -10,6 +10,7 @@
   - [Project-specific labels](#project-specific-labels)
   - [Grace windows](#grace-windows)
   - [Workflow choices](#workflow-choices)
+  - [Typed-decision pre-filter (opt-in)](#typed-decision-pre-filter-opt-in)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -84,3 +85,17 @@ default to use the standard variant.
 | `triage_feedback_channel` | `pr-body` | Where the deterministic quality-violation feedback for the `draft`, `comment` (deterministic-flag), and `close` actions is delivered. `pr-body` (default): the violations are **folded into the PR description** as a managed marker block — editing a PR body does **not** notify subscribers, so the maintainer mailbox stays quiet (the [denoise rationale](../../skills/pr-management-triage/rationale.md#why-fold-feedback-into-the-pr-body-denoise)). `comment`: the legacy behaviour — the same feedback is posted as a PR comment, which notifies every subscriber. Pings, `request-author-confirmation`, security-language, suspicious-changes, and stale-sweep messages are unaffected by this key — their purpose *is* to notify a human, so they always post a comment. See [`actions.md`](../../skills/pr-management-triage/actions.md) and [`comment-templates.md#body-fold-rendering`](../../skills/pr-management-triage/comment-templates.md#body-fold-rendering). |
 | `confirmation_handback_mode` | `reviewer-ping` | `request-author-confirmation` action's "If yes" branch. `reviewer-ping`: the author marks threads resolved and `@`-pings the reviewer for a final look + label. `maintainer-sweep`: the author replies with a short `yes / ready` and the next triage sweep promotes the PR to the maintainer review queue. Pick `maintainer-sweep` if your project runs a regular maintainer triage cadence and prefers a lightweight contributor confirmation over a reviewer-driven hand-back. See [`comment-templates.md#request-author-confirmation`](../../skills/pr-management-triage/comment-templates.md) for both bodies. |
 | `session_history_gist` | `enabled` | [Step 6b](../../skills/pr-management-triage/session-history.md#step-6b--propose-session-history-gist-update) — propose appending each session to a private GitHub gist on the maintainer's account. Set to `disabled` to skip Step 6b unconditionally for this project (overrides the per-invocation `no-history` flag). The local state file at `.apache-magpie.session-state.json` is read regardless so an existing gist remains discoverable. See [`session-history.md`](../../skills/pr-management-triage/session-history.md). |
+
+## Typed-decision pre-filter (opt-in)
+
+Accelerates candidate generation during Step 2 classification using `typed_decision.choice()`.
+Can be declared here or overridden in `.apache-magpie-overrides/pr-management-triage.md` (or `.apache-magpie-local/pr-management-triage.md`).
+
+| Key | Default | Notes |
+|---|---|---|
+| `enable_typed_decision_prefilter` | `false` | Enable the opt-in typed-decision pre-filter. When `false` (default), triage behavior is strictly deterministic/agent-reasoning only. When `true`, calls `typed_decision.choice()` across candidate triage buckets. On provider unavailability or low confidence, falls through silently. |
+| `confidence_threshold` | `0.85` | Minimum confidence score required to accept the pre-filter's predicted classification. Below this threshold, falls through to standard agent triage / decision table. |
+
+**Human-in-the-loop invariant:** Pre-filtering only accelerates candidate generation — it NEVER acts on or mutates a PR without explicit maintainer confirmation in the interaction loop.
+
+**Telemetry:** When enabled, every call is logged to `.apache-magpie-local/logs/pr-triage-typed-decision.jsonl` with `{predicted_label, confidence, latency_ms, used_or_fell_through}` for adopter precision/recall evaluation.

@@ -151,4 +151,5 @@ members = [
   "tools/vetted-ops",
   "tools/fossil",
   "tools/sourcehut",
+  "tools/typed-decision",
 ]

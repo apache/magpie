@@ -43,10 +43,22 @@ Run **every PR fetched in Step 1** through
    active maintainer conversation (72-hour author cooldown, an
    unanswered maintainer-to-maintainer ping, or an unanswered
    author question to a maintainer — ball in our court).
-2. Evaluate the [decision table](classify-and-act.md#decision-table)
+2. **Opt-in typed-decision pre-filter:** When enabled via
+   `enable_typed_decision_prefilter` (default `false`) with threshold
+   `confidence_threshold` (default `0.85`), invoke `typed_decision.choice()`
+   using the PR state prompt and candidate triage buckets:
+   - If confidence ≥ threshold: use the returned bucket directly as the
+     candidate classification for that PR, skipping the agent-reasoning step.
+   - On `TypedDecisionUnavailable`, provider error, or confidence < threshold:
+     fall through silently to step 3 below (fail-open contract).
+   - Every call is logged to `.apache-magpie-local/logs/pr-triage-typed-decision.jsonl`
+     with `{predicted_label, confidence, latency_ms, used_or_fell_through}`.
+   - **Strict HITL invariant:** Pre-filtering only accelerates candidate
+     generation; human review and confirmation in Step 3 is strictly required.
+3. Evaluate the [decision table](classify-and-act.md#decision-table)
    top-to-bottom. The first matching row yields the
    `(classification, action, reason)` tuple for that PR.
-3. For any PR that the table classifies as `passing` (rows 19,
+4. For any PR that the table classifies as `passing` (rows 19,
    20), the [Real-CI guard](classify-and-act.md#real-ci-guard)
    must pass — otherwise re-route to `pending_workflow_approval`
    (row 1) or `rebase` (row 16).
