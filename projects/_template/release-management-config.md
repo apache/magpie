@@ -5,7 +5,7 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [Apache Airflow: release-management configuration (filled example)](#apache-airflow-release-management-configuration-filled-example)
+- [Apache Foo: release-management configuration (filled example)](#apache-foo-release-management-configuration-filled-example)
   - [Identifiers](#identifiers)
   - [Backends](#backends)
   - [Distribution URLs](#distribution-urls)
@@ -24,7 +24,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
-# Apache Airflow: release-management configuration (filled example)
+# Apache Foo: release-management configuration (filled example)
 
 **This file is a placeholder ahead of the release-management skill
 family landing.** None of the `release-*` skills exist in the
@@ -36,7 +36,7 @@ below match the
 and are the values the future skills will read. New adopters
 should copy this file into their own
 `<project-config>/release-management-config.md` and replace every
-Airflow-specific value with their project's equivalents.
+Foo-specific value with their project's equivalents.
 
 This file is the *family-wide* contract. Three related scaffolds
 ship in the same adopter directory and are referenced from here:
@@ -54,11 +54,11 @@ ship in the same adopter directory and are referenced from here:
 
 | Key | Value |
 |---|---|
-| `project_dist_name` | `airflow` |
+| `project_dist_name` | `foo` |
 | `git_upstream_remote` | `origin` |
 | `release_planning_issue_template` | `<project-config>/release-planning-issue.md` |
 | `release_branch_base` | `main` |
-| `version_manifest_files` | `setup.cfg`, `airflow/__init__.py` |
+| `version_manifest_files` | `setup.cfg`, `foo/__init__.py` |
 
 > `git_upstream_remote` is the **git remote name** in the RM's local
 > checkout that points at the upstream release repo (`<upstream>`), used
@@ -140,8 +140,8 @@ The state-change boundaries are backend-independent.
 
 | Key | Value |
 |---|---|
-| `release_dist_url_template` | `https://dist.apache.org/repos/dist/<bucket>/airflow/<version>/` |
-| `archive_url_template` | `https://archive.apache.org/dist/airflow/` |
+| `release_dist_url_template` | `https://dist.apache.org/repos/dist/<bucket>/foo/<version>/` |
+| `archive_url_template` | `https://archive.apache.org/dist/foo/` |
 | `atr_platform_url` | *(set when `release_vote_backend = atr` or `release_dist_backend = atr`; `https://releases.apache.org/` — the former `release-test.apache.org` redirects there. Static catalogue: `https://release-catalog.apache.org/`)* |
 | `release_publish_command_template` | *(`svnpubsub` default; non-ASF adopters override with backend-specific command, e.g. `gh release upload <version> <artefacts>` for `github-releases`, `aws s3 cp --recursive <local> s3://<bucket>/<version>/` for `s3`)* |
 
@@ -159,7 +159,7 @@ checks + vote; promotion is still `svn mv` to the `release` bucket.
 
 | Key | Value |
 |---|---|
-| `keys_file_url` | `https://dist.apache.org/repos/dist/release/airflow/KEYS` |
+| `keys_file_url` | `https://dist.apache.org/repos/dist/release/foo/KEYS` |
 | `keyserver` | `keys.openpgp.org` |
 | `rm_key_fingerprint` | *(per-RM; lives in `.apache-magpie-overrides/user.md` under `release_manager.gpg_fingerprint`)* |
 
@@ -208,7 +208,7 @@ variants* below).
 
 | Key | Value |
 |---|---|
-| `vote_dev_list` | `<dev-list>` *(e.g. `dev@airflow.apache.org`)* |
+| `vote_dev_list` | `<dev-list>` *(e.g. `dev@foo.apache.org`)* |
 | `mail_archive` | `ponymail` |
 | `mail_archive_url_template` | `<mail-archive-url>` *(ASF e.g. `https://lists.apache.org/list.html?<dev-list>`)* |
 | `vote_window_hours` | `72` |
@@ -273,9 +273,9 @@ variants* below).
 | Key | Value |
 |---|---|
 | `announce_list` | `announce@apache.org` |
-| `announce_cc_lists` | `<dev-list>`, `<users-list>` *(e.g. `dev@airflow.apache.org`, `users@airflow.apache.org`)* |
+| `announce_cc_lists` | `<dev-list>`, `<users-list>` *(e.g. `dev@foo.apache.org`, `users@foo.apache.org`)* |
 | `announce_subject_template` | `[ANNOUNCE] <Product Name> <version> released` |
-| `site_repo` | `<site-repo>` *(e.g. `apache/airflow-site`)* |
+| `site_repo` | `<site-repo>` *(e.g. `apache/foo-site`)* |
 | `site_pr_files` | `landing-pages/site/content/en/_index.md`, `landing-pages/site/content/en/announcements/<version>.md` |
 
 `announce@apache.org` is mandatory for ASF TLP releases per

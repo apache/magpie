@@ -408,6 +408,12 @@ maintainer-confirmed variant when that check returned `admin`,
 warning). Picking between the two is a selection, not a
 paraphrase; render the matching block verbatim.
 
+`<upstream_contributing_docs_url>` resolves from
+`<project-config>/project.md`. It is the only value substituted into
+a footer. If the project has not set it, drop the footer's last two
+lines (the *"More on how …"* line and its link) rather than linking
+to a guess.
+
 #### `<ai_attribution_footer>` for `APPROVE`
 
 ```markdown
@@ -420,7 +426,7 @@ paraphrase; render the matching block verbatim.
 > will follow up.*
 >
 > *More on how <PROJECT> handles maintainer review:*
-> [contributing-docs/05_pull_requests.rst](https://github.com/<upstream>/blob/main/contributing-docs/05_pull_requests.rst).
+> [Contributing guide](<upstream_contributing_docs_url>).
 ```
 
 #### `<ai_attribution_footer>` for `REQUEST_CHANGES`
@@ -437,7 +443,7 @@ paraphrase; render the matching block verbatim.
 > PR and a maintainer will weigh in.*
 >
 > *More on how <PROJECT> handles maintainer review:*
-> [contributing-docs/05_pull_requests.rst](https://github.com/<upstream>/blob/main/contributing-docs/05_pull_requests.rst).
+> [Contributing guide](<upstream_contributing_docs_url>).
 ```
 
 #### `<ai_attribution_footer>` for `COMMENT`, maintainer-confirmed
@@ -456,7 +462,7 @@ Use when [`prerequisites.md#1`](prerequisites.md) returned
 > the PR and a maintainer will weigh in.*
 >
 > *More on how <PROJECT> handles maintainer review:*
-> [contributing-docs/05_pull_requests.rst](https://github.com/<upstream>/blob/main/contributing-docs/05_pull_requests.rst).
+> [Contributing guide](<upstream_contributing_docs_url>).
 ```
 
 #### `<ai_attribution_footer>` for `COMMENT`, role-neutral
@@ -477,7 +483,7 @@ not confirmed.
 > finding is mis-applied, please reply on the PR.*
 >
 > *More on how <PROJECT> handles maintainer review:*
-> [contributing-docs/05_pull_requests.rst](https://github.com/<upstream>/blob/main/contributing-docs/05_pull_requests.rst).
+> [Contributing guide](<upstream_contributing_docs_url>).
 ```
 
 ---

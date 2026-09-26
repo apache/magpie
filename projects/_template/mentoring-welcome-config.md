@@ -27,15 +27,15 @@ missing or contains an unresolved placeholder.
 
 | Key | Value | Notes |
 |---|---|---|
-| `contributing_guide_url` | `<contributing-guide-url>` | Absolute `https://` URL to your primary contributing guide. Must resolve. Example: `https://github.com/apache/airflow/blob/main/contributing-docs/README.rst` |
+| `contributing_guide_url` | `<contributing-guide-url>` | Absolute `https://` URL to your primary contributing guide. Must resolve. Example: `https://github.com/apache/foo/blob/main/CONTRIBUTING.md` |
 | `code_of_conduct_url` | `<code-of-conduct-url>` | Absolute `https://` URL to your code of conduct or community norms document. Must resolve. |
-| `maintainer_team_handle` | `@<github-org>/<maintainer-team-slug>` | GitHub team handle used when the skill cannot draft (e.g. out-of-scope thread). Example: `@apache/airflow-committers` |
+| `maintainer_team_handle` | `@<github-org>/<maintainer-team-slug>` | GitHub team handle used when the skill cannot draft (e.g. out-of-scope thread). Example: `@apache/foo-committers` |
 
 ## Optional keys
 
 | Key | Value | Notes |
 |---|---|---|
-| `good_first_issue_url` | `<good-first-issue-url>` | Absolute `https://` URL to the filtered good-first-issues view for the upstream repo. When present, the issue welcome template includes a pointer to this list. Omit the key to suppress the pointer. Example: `https://github.com/apache/airflow/issues?q=is%3Aopen+label%3A%22good+first+issue%22` |
+| `good_first_issue_url` | `<good-first-issue-url>` | Absolute `https://` URL to the filtered good-first-issues view for the upstream repo. When present, the issue welcome template includes a pointer to this list. Omit the key to suppress the pointer. Example: `https://github.com/apache/foo/issues?q=is%3Aopen+label%3A%22good+first+issue%22` |
 | `welcome_note_issue` | *(empty)* | One additional sentence of project-specific context appended to the issue welcome comment, before the footer. Leave absent or empty for the default template. |
 | `welcome_note_pr` | *(empty)* | One additional sentence of project-specific context appended to the PR welcome comment, before the footer. Leave absent or empty for the default template. |
 
@@ -56,15 +56,15 @@ mentoring / triage policy URL and `<PROJECT>` with the project's display
 name (read from [`<project-config>/project.md`](project.md)).
 
 Add the rendered footer to the config as `ai_attribution_footer`.
-Filled-in example for Apache Airflow:
+Filled-in example for Apache Foo:
 
 ```markdown
 ai_attribution_footer: |
   ---
 
   _Note: This comment was drafted by an AI-assisted mentoring tool and may
-  contain mistakes. An Apache Airflow maintainer — a real person — will be the
-  next to engage. We use this [two-stage process](https://github.com/apache/airflow/blob/main/contributing-docs/09_who_can_merge.rst)
+  contain mistakes. An Apache Foo maintainer — a real person — will be the
+  next to engage. We use this [two-stage process](https://github.com/apache/foo/blob/main/CONTRIBUTING.md#review-process)
   so that our maintainers' limited time is spent where it matters most:
   the conversation with you._
 ```

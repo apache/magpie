@@ -185,7 +185,7 @@ the purpose of your PR and a maintainer will take another look.
 ```
 
 The `<contributing-docs-url>` is the adopter's contributing guide, read
-from `<project-config>/project.md → contributing_docs_url`. If not set,
+from `<project-config>/project.md → upstream_contributing_docs_url`. If not set,
 link to the repo's `CONTRIBUTING.md`.
 
 Substitute `<PROJECT>` with the project name from
