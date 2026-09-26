@@ -389,6 +389,7 @@ TOOL_CAPABILITIES = {
     "contract:scan-format",
     "contract:project-metadata",
     "contract:security-cross-ref",
+    "contract:typed-decision",
     "substrate:analytics",
     "substrate:sandbox",
     "substrate:action-guard",

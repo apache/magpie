@@ -97,6 +97,10 @@ CONTRACT_POLICY: dict[str, tuple[str, str]] = {
         VENDOR_BACKED,
         "Vulnerability database / cross-reference alias lookup (OSV.dev / NVD)",
     ),
+    "contract:typed-decision": (
+        VENDOR_BACKED,
+        "Provider-agnostic typed decision backend (Choice / Score / Noul)",
+    ),
 }
 
 # Which capability *contract* a skill actually invokes, keyed by

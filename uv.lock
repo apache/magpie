@@ -51,6 +51,7 @@ members = [
     "spec-status-index",
     "spec-validator",
     "symlink-lint",
+    "typed-decision",
     "vendor-neutrality-score",
     "vetted-ops",
     "vulnogram-api",
@@ -2097,6 +2098,21 @@ sdist = { url = "https://files.pythonhosted.org/packages/53/a3/1585216310e344e81
 wheels = [
     { url = "https://files.pythonhosted.org/packages/19/97/56608b2249fe206a67cd573bc93cd9896e1efb9e98bce9c163bcdc704b88/truststore-0.10.4-py3-none-any.whl", hash = "sha256:adaeaecf1cbb5f4de3b1959b42d41f6fab57b2b1666adb59e89cb0b53361d981", size = 18660, upload-time = "2025-08-12T18:49:01.46Z" },
 ]
+
+[[package]]
+name = "typed-decision"
+version = "0.1.0"
+source = { editable = "tools/typed-decision" }
+
+[package.dev-dependencies]
+dev = [
+    { name = "magpie-dev" },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [{ name = "magpie-dev", editable = "tools/dev" }]
 
 [[package]]
 name = "typing-extensions"
