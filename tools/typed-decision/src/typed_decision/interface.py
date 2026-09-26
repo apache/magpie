@@ -30,7 +30,6 @@ class DecisionProvider(ABC):
     @abstractmethod
     def name(self) -> str:
         """Provider name identifier (e.g. 'jev')."""
-        ...
 
     @abstractmethod
     def choice(self, prompt: str, options: list[str]) -> dict[str, Any]:
@@ -48,7 +47,6 @@ class DecisionProvider(ABC):
         Raises:
             TypedDecisionUnavailable: On provider/network failure, timeout, or missing config.
         """
-        ...
 
     @abstractmethod
     def score(
@@ -70,7 +68,6 @@ class DecisionProvider(ABC):
         Raises:
             TypedDecisionUnavailable: On provider/network failure, timeout, or missing config.
         """
-        ...
 
     @abstractmethod
     def noul(self, prompt: str) -> dict[str, Any]:
@@ -86,4 +83,3 @@ class DecisionProvider(ABC):
         Raises:
             TypedDecisionUnavailable: On provider/network failure, timeout, or missing config.
         """
-        ...

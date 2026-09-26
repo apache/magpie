@@ -118,6 +118,7 @@ def _resolve_api_key(explicit_key: str | None = None) -> str | None:
                     if content:
                         return content
                 except OSError:
+                    # Ignore unreadable or inaccessible key files and try next candidate path.
                     pass
 
     return None
