@@ -29,6 +29,7 @@ members = [
     "magpie-bitbucket",
     "magpie-dev",
     "magpie-fossil",
+    "magpie-gitlab",
     "magpie-maildir",
     "magpie-skills",
     "magpie-sourcehut",
@@ -933,6 +934,21 @@ requires-dist = [
 name = "magpie-fossil"
 version = "0.1.0"
 source = { editable = "tools/fossil" }
+
+[package.dev-dependencies]
+dev = [
+    { name = "magpie-dev" },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [{ name = "magpie-dev", editable = "tools/dev" }]
+
+[[package]]
+name = "magpie-gitlab"
+version = "0.1.0"
+source = { editable = "tools/gitlab" }
 
 [package.dev-dependencies]
 dev = [
