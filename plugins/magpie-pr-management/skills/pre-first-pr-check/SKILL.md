@@ -5,25 +5,24 @@ name: pre-first-pr-check
 family: pr-management
 mode: Pairing
 description: |
-  Run a newcomer-focused pre-flight checklist on a local branch before opening a pull
-  request. Checks CONTRIBUTING conventions, SPDX headers on new files, commit-message
-  shape (including the Generated-by: trailer for AI-assisted work), and the placeholder
-  convention — then returns a structured checklist report. Read-only; no state changes,
-  no PR, no external writes.
+  Run a newcomer-focused pre-flight checklist on a local branch before
+  opening a PR. Checks CONTRIBUTING conventions, SPDX headers on new files,
+  commit-message shape (including the Generated-by: trailer for AI-assisted
+  work), and the placeholder convention — then returns a structured
+  checklist report. Read-only; no state changes, no PR, no external writes.
 when_to_use: |
-  Invoke when a contributor says "am I ready to open a PR?", "check my branch before I
-  push", "is my commit message correct?", "do I need a Generated-by trailer?", or any
-  variation on wanting a newcomer-friendly pre-flight check before their first (or any)
-  pull request. This skill focuses on contribution mechanics: file headers, commit
-  format, and placeholder hygiene — the things first-time contributors most often miss.
-  Skip when the goal is a deep correctness/security review of the diff itself — use
-  pairing-self-review for that. Skip when a PR is already open — use
-  pr-management-code-review for in-flight PR review.
+  Invoke on "am I ready to open a PR?", "check my branch before I push",
+  "is my commit message correct?", or "do I need a Generated-by trailer?".
+  Focuses on contribution mechanics — file headers, commit format, and
+  placeholder hygiene, the things first-time contributors most often miss.
+  Skip for deep correctness/security review of the diff — use
+  pairing-self-review. Skip when a PR is already open — use
+  pr-management-code-review.
 argument-hint: "[base:<ref>] [path:<glob>]"
 capability: capability:review
 surface_hash: sha256:70f8fcdaa24d9a4e
 license: Apache-2.0
-measured_tokens: 3506
+measured_tokens: 3467
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->

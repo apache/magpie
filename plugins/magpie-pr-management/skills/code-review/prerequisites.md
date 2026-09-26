@@ -214,7 +214,7 @@ as `passing`; the same rollup behaviour applies here.
 
 The skill prompts before opening each PR's files tab in the
 maintainer's default browser (see Golden rule 11 in
-[`SKILL.md`](SKILL.md)). The opener is `xdg-open` (Linux),
+[`review-flow.md`](review-flow.md)). The opener is `xdg-open` (Linux),
 `open` (macOS), or `start` (Windows). At session start the
 skill checks that at least one is on `$PATH`:
 

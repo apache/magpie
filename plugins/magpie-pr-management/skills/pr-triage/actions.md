@@ -338,6 +338,35 @@ call, not the skill.
 
 ## `mark-ready` — add `ready for maintainer review` label
 
+**Golden rule 1b — never mark ready for review while workflow
+approval is pending.** Before adding the `ready for maintainer
+review` label, the implementation MUST verify, via
+`GET /repos/.../actions/runs?status=action_required&head_sha=<SHA>`,
+that zero workflow runs are awaiting approval. If any are, the
+PR is really `pending_workflow_approval` and the `mark-ready`
+action must refuse — even if `statusCheckRollup.state` reports
+`SUCCESS`: fast bot checks (`Mergeable`, `WIP`, `DCO`,
+`boring-cyborg`) can report SUCCESS while `Tests`, `CodeQL`, and
+newsfragment-check sit in `action_required`, and trusting the
+rollup there fills the maintainer-review queue with PRs whose
+real CI never ran. The guard applies to every code path that
+adds the label, including the
+[`mark-ready`](actions.md#mark-ready--add-ready-for-maintainer-review-label)
+action invoked from
+[row 14a](classify-and-act.md#decision-table) after author
+confirmation; the
+[`request-author-confirmation`](actions.md#request-author-confirmation--ask-the-pr-author-whether-feedback-is-addressed)
+action only posts a comment, so the REST check is not required
+there — but the subsequent sweep that promotes the PR via
+`mark-ready` runs it as documented above.
+Implementation recipe: [`actions.md#mark-ready`](actions.md).
+This rule is **also enforced deterministically** by the
+agent-guard `PreToolUse` hook (the `mark-ready` guard) when the
+framework's secure setup is installed — it blocks the
+`--add-label "ready for maintainer review"` command if the head
+SHA still has `action_required` runs. See
+[`tools/agent-guard`](../../../../tools/agent-guard/README.md).
+
 **Mandatory pre-mutation check.** Before adding the label, the
 implementation MUST verify there are no GitHub Actions workflow
 runs awaiting approval for the PR's head SHA. The classifier's
@@ -412,16 +441,63 @@ error; this is the only action of the skill whose sole purpose
 
 ---
 
+## Step 0.5 — Promote bot-authored draft PRs
+
+Before the main triage loop, sweep for open *draft* PRs authored
+by the bot logins enumerated in
+[`classify-and-act.md#pre-filters`](classify-and-act.md), row F2
+(`dependabot`, `dependabot[bot]`, `renovate[bot]`,
+`github-actions`, `github-actions[bot]`, anything matching
+`*[bot]`). For each match the skill proposes two mutations —
+convert draft → non-draft (`gh pr ready`) **and** add the
+`ready for maintainer review` label — bundled as the single
+[`promote-bot-draft`](actions.md#promote-bot-draft--convert-a-bot-authored-draft-and-label-it-ready)
+action.
+
+This is a once-per-session pre-pass, not a per-page sweep — bot
+drafts are author-deterministic, low volume, and don't benefit
+from pagination. F2 still excludes the same logins from
+Steps 1–5, so a bot draft the maintainer skips here stays a
+draft and does not surface again in the main loop.
+
+Fetch query (one GraphQL call, no overlap with Step 1's page-1
+fetch):
+
+```text
+is:pr is:open draft:true repo:<repo>
+```
+
+then client-filter the returned authors to the F2 login pattern.
+If the result set is empty, log a one-line "no bot drafts open"
+and proceed to Step 1.
+
+Otherwise present every match as a single group via the
+[interaction loop](interaction-loop.md). Default keystroke is
+`[A]ll` — the action is deterministic and the bot authorship
+removes the contributor-conversation concern that motivates
+per-PR review elsewhere. The maintainer may still pick
+`[E]ach` / `[P]ick NN` / `[S]kip group` for individual review.
+
+**Golden rule 1b still applies.** The `promote-bot-draft` action
+adds the `ready for maintainer review` label, so its
+implementation MUST run the same `action_required` workflow-run
+check that [`mark-ready`](actions.md#mark-ready--add-ready-for-maintainer-review-label)
+does. A bot draft with workflow runs awaiting approval refuses
+promotion and is re-routed to `pending_workflow_approval` —
+unusual for trusted bots in practice, but defensive against the
+case where the head SHA picks up a first-time-contributor commit
+via a merge or a misconfigured bot account.
+
 ## `promote-bot-draft` — convert a bot-authored draft and label it ready
 
-The action behind [Step 0.5 of `SKILL.md`](SKILL.md#step-05--promote-bot-authored-draft-prs).
+The action behind [Step 0.5](#step-05--promote-bot-authored-draft-prs).
 Two mutations bundled per PR: convert draft → non-draft
 (`gh pr ready`) and add the `ready for maintainer review`
 label.
 
 Inherits the workflow-approval guard from
 [`mark-ready`](#mark-ready--add-ready-for-maintainer-review-label)
-verbatim — Golden rule 1b in [`SKILL.md`](SKILL.md) applies
+verbatim — Golden rule 1b (above) applies
 to every code path that adds the label, including this one.
 
 ```bash
@@ -727,7 +803,7 @@ done <<< "$ids"
 
 The optimistic-lock pattern is the same one
 [`mark-ready`](#mark-ready--add-ready-for-maintainer-review-label)
-uses (Golden rule 1b in [`SKILL.md`](SKILL.md)) — read the
+uses (Golden rule 1b, above) — read the
 authoritative state immediately before mutating, exit cleanly
 if the desired state is already in place. Without it, a sweep
 that classified at T0 and acts at T0 + minutes (after the

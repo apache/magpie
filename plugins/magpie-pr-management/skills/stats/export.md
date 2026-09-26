@@ -85,7 +85,7 @@ the inline SVG line charts are produced by
 [`tools/pr-management-stats/gen_charts.sh`](../../../../tools/pr-management-stats/gen_charts.sh).
 
 Required panels, in order (every one always rendered — see
-[`SKILL.md` Golden rule 8](SKILL.md#golden-rules)):
+[`render.md` Golden rule 8](render.md#golden-rules)):
 
 1. **Context line** — repo, open count, cutoff, viewer, refresh timestamp.
 2. **Hero cards (4)** — `Total open` · `Non-maintainer` (contributor-authored)

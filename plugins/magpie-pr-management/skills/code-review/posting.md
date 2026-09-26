@@ -92,7 +92,7 @@ claiming the branch is clean.
 
 Rebasing the branch is a triage action, not a review action — point
 the maintainer at `pr-management-triage pr:<N>` rather than
-doing it here (Golden rule 9).
+doing it here (Golden rule 9, in [`scope.md`](scope.md)).
 
 ---
 
