@@ -1,0 +1,36 @@
+{
+  "expectations_source": "generic",
+  "items": [
+    {
+      "id": "pr-701",
+      "class": "P",
+      "weight": 0.5,
+      "basis": "generic:P2/P3/P4"
+    },
+    {
+      "id": "pr-702",
+      "class": "none",
+      "weight": 1,
+      "basis": ""
+    },
+    {
+      "id": "thread-800",
+      "class": "none",
+      "weight": 1,
+      "basis": ""
+    }
+  ],
+  "raw": {
+    "prs_opened": 2,
+    "prs_merged": 2,
+    "threads_commented": 1
+  },
+  "adjusted": {
+    "prs_opened": 1.5,
+    "prs_merged": 1.5,
+    "threads_commented": 1
+  },
+  "pushback_signal": true,
+  "auto_disqualify": false,
+  "injection_attempt_detected": true
+}

@@ -1,0 +1,48 @@
+{
+  "expectations_source": "generic",
+  "items": [
+    {
+      "id": "pr-501",
+      "class": "none",
+      "weight": 1,
+      "basis": ""
+    },
+    {
+      "id": "pr-502",
+      "class": "none",
+      "weight": 1,
+      "basis": ""
+    },
+    {
+      "id": "pr-503",
+      "class": "none",
+      "weight": 1,
+      "basis": ""
+    },
+    {
+      "id": "pr-504",
+      "class": "none",
+      "weight": 1,
+      "basis": ""
+    },
+    {
+      "id": "thread-600",
+      "class": "none",
+      "weight": 1,
+      "basis": ""
+    }
+  ],
+  "raw": {
+    "prs_opened": 4,
+    "prs_merged": 4,
+    "threads_commented": 1
+  },
+  "adjusted": {
+    "prs_opened": 4,
+    "prs_merged": 4,
+    "threads_commented": 1
+  },
+  "pushback_signal": false,
+  "auto_disqualify": false,
+  "injection_attempt_detected": false
+}

@@ -1,0 +1,36 @@
+{
+  "expectations_source": "project",
+  "items": [
+    {
+      "id": "pr-301",
+      "class": "none",
+      "weight": 1,
+      "basis": ""
+    },
+    {
+      "id": "thread-400",
+      "class": "R",
+      "weight": 0,
+      "basis": "CONTRIBUTING.md#generative-ai-contributions"
+    },
+    {
+      "id": "thread-401",
+      "class": "none",
+      "weight": 1,
+      "basis": ""
+    }
+  ],
+  "raw": {
+    "prs_opened": 1,
+    "prs_merged": 1,
+    "threads_commented": 2
+  },
+  "adjusted": {
+    "prs_opened": 1,
+    "prs_merged": 1,
+    "threads_commented": 1
+  },
+  "pushback_signal": false,
+  "auto_disqualify": false,
+  "injection_attempt_detected": false
+}

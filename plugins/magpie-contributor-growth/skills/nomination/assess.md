@@ -82,18 +82,21 @@ declares thresholds calibrated to that project.
 
 ## Part 1 — GitHub activity summary
 
-Report the raw counts from [`fetch.md`](fetch.md) without
+Report the counts from [`fetch.md`](fetch.md), raw and adjusted per
+[Part 1b](#part-1b--automated-and-low-signal-contributions), without
 applying ratings unless thresholds are declared in
 `<project-config>/contributor-nomination-config.md`:
 
-| Area | Count | Rating (if configured) |
-|---|---|---|
-| PRs opened | N | — or configured rating |
-| PRs merged | N | — or configured rating |
-| Reviews given | N | — |
-| Substantive reviews | N | — |
-| Issues filed | N | — |
-| Issue / PR comments | N | — |
+| Area | Raw | Adjusted | Rating (if configured) |
+|---|---|---|---|
+| PRs opened | N | N.N | — or configured rating |
+| PRs merged | N | N.N | — or configured rating |
+| Reviews given | N | N.N | — |
+| Substantive reviews | N | N.N | — |
+| Issues filed | N | N.N | — |
+| Issue / PR comments | N | N.N | — |
+
+Ratings, configured or default, are applied to the adjusted count.
 
 If the config declares thresholds, apply them and show the
 rating. If not, apply the **low-bar defaults** below — clearly
@@ -124,6 +127,23 @@ caveats:
 When the brief is rendered, label any rating drawn from defaults
 with *(framework default — calibrate for your project)* so the
 PMC knows not to treat it as the project's own standard.
+
+---
+
+## Part 1b — Automated and low-signal contributions
+
+Apply [`automated-contributions.md`](automated-contributions.md) to the GitHub items before rating anything.
+In short:
+
+- The project's own expectations, listed in `automated_contribution_expectations`, are read first and cited as the basis of every flag they decide; the generic heuristics cover only what the project has not documented.
+- Comments and reviews that only restate what is already written weigh `0` by default.
+- Contributions that drew maintainer pushback as looking generated, unreviewed, restating, fabricated, or unwanted weigh `0.25` by default.
+- PRs and issues closed unmerged after that pushback are removed from every metric.
+- Using AI tools, and disclosing it, is not penalised.
+
+Maintainer pushback is a negative signal the PMC should see.
+Record it plainly — which items, which maintainers, which expectation — and do not soften or omit it, in the same way as a community-interaction concern in [Part 1a](#part-1a--community-interaction-nominator-supplied).
+It is not a disqualification, and the brief must not present it as one.
 
 ---
 
@@ -280,9 +300,10 @@ Report these as plain numbers, not ratings:
 
 | Signal | Value |
 |---|---|
-| PR merge rate | `merged / (merged + closed_not_merged)` % |
-| Substantive review ratio | `substantive / total_reviewed` % |
+| PR merge rate | `merged / (merged + closed_not_merged)` %, from adjusted counts |
+| Substantive review ratio | `substantive / total_reviewed` %, from adjusted counts |
 | Issues that attracted discussion | `issues_with_discussion / total_filed` % |
+| Maintainer pushback on automated content | `<N>` items from `<M>` maintainers, or `none` |
 
 Do not attach good/bad labels to these values. A low merge rate
 may mean the contributor experiments openly; a high one may
