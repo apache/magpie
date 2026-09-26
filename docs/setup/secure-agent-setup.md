@@ -71,6 +71,7 @@
     - [Direct Bash verification](#direct-bash-verification)
     - [Via a Claude Code prompt](#via-a-claude-code-prompt-1)
   - [Keeping the setup updated](#keeping-the-setup-updated)
+    - [Automatic reminders from the pre-flight](#automatic-reminders-from-the-pre-flight)
     - [Direct steps](#direct-steps)
     - [Via a Claude Code prompt](#via-a-claude-code-prompt-2)
   - [What a session looks like](#what-a-session-looks-like)
@@ -3253,6 +3254,35 @@ agent harness (`claude-code`, tracked at `@latest`), and
 any user-scope copies of helper scripts you installed under
 `~/.claude/scripts/` or `~/.claude/agent-isolation/`. Keeping them
 synchronised is a periodic operation, not a one-time install.
+
+### Automatic reminders from the pre-flight
+
+You do not have to remember to check.
+Every Magpie skill's pre-flight proposes `/magpie-setup:isolated-setup-update` when the isolated setup is used on this machine:
+
+- **After an upgrade that changed the secure-setup files.**
+  The pre-flight fingerprints the files an install copies or mirrors: `tools/agent-isolation/`, `tools/agent-guard/src/`, `tools/container-gateway/src/` and the dogfooded `.claude/settings.json`.
+  Documentation is not included, so a reworded page does not trigger it.
+  If the fingerprint differs from the one recorded at the last update run, the first skill you run after the upgrade proposes the update, once per change.
+- **Weekly otherwise**, counted from the last update run or the last reminder.
+  The pinned sandbox tools and the agent harness move upstream even when Magpie does not.
+
+"Used on this machine" means `isolated-setup-install` or `isolated-setup-update` has recorded a run here, or the project's `.claude/settings*.json` enables the sandbox.
+The reminder is a one- or two-line suggestion.
+It never runs the update by itself and never blocks the skill you asked for.
+
+**Changing the frequency.**
+Set `isolated_setup_update_interval_days` under `setup:` in `.apache-magpie-local/project.md` (personal) or `.apache-magpie-overrides/project.md` (project-wide); the personal file wins.
+The default is `7`.
+`0` turns the timer off but still reports changes that come with an upgrade.
+To turn both off on a machine that does not use the isolated setup, set `"isolated_setup": {"enabled": false}` in `.apache-magpie-local/reconciled.json`.
+
+**Running it now.**
+Invoke the skill directly at any time: `/magpie-setup:isolated-setup-update` on a marketplace install, `/magpie-setup-isolated-setup-update` on a pinned snapshot.
+The pre-flight state is recorded when the run finishes, so a manual run also resets the timer.
+
+On a marketplace install, the pre-flight checker in `.apache-magpie-local/` sees a new fingerprint once `/magpie-setup upgrade` has refreshed it.
+The upgrade prompt after each plugin update tells you to run that.
 
 ### Direct steps
 

@@ -132,6 +132,15 @@ if you're on the pinned-snapshot fallback instead).
 - `/plugin marketplace update apache-magpie` then
   `/plugin update <plugin>@apache-magpie` — refresh the marketplace
   metadata, then bump the installed plugin(s) to its latest.
+  Auto-update does the same in the background once enabled.
+- Reconciliation needs no extra step.
+  Each skill checks itself on its first run after an upgrade and proposes any fixes your configuration or overrides need.
+  To check the whole project at once, run `/magpie-setup:setup reconcile`.
+  See [Reconciliation when a skill first runs after an upgrade](docs/setup/marketplace.md#reconciliation-when-a-skill-first-runs-after-an-upgrade).
+- If you use the secure agent setup, the same pre-flight proposes
+  `/magpie-setup:isolated-setup-update` after an upgrade that changed its files, and weekly otherwise.
+  Run it directly to check now.
+  See [Automatic reminders from the pre-flight](docs/setup/secure-agent-setup.md#automatic-reminders-from-the-pre-flight).
 - Add or drop families by installing or uninstalling their plugin —
   there is no separate "pick families" step once you're on a
   marketplace install.

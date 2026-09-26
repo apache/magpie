@@ -24,6 +24,7 @@
     - [What each harness supports](#what-each-harness-supports)
     - [Claude Code: the default set](#claude-code-the-default-set)
   - [Automatic upgrade detection](#automatic-upgrade-detection)
+    - [Reconciliation when a skill first runs after an upgrade](#reconciliation-when-a-skill-first-runs-after-an-upgrade)
   - [Versioning](#versioning)
   - [Verification status](#verification-status)
 
@@ -609,6 +610,51 @@ goes to the client-provided persistent data directory (`CLAUDE_PLUGIN_DATA` /
 `PLUGIN_DATA`), falling back to `$XDG_STATE_HOME/magpie` — never inside the
 plugin checkout, which a plugin update may replace wholesale. It makes no
 network calls and touches nothing in the adopter repo.
+
+### Reconciliation when a skill first runs after an upgrade
+
+`marketplace update`, `plugin update` and auto-update are all you need to get new skills onto your machine.
+They replace the plugin files and nothing else.
+They do not check whether your project's configuration and overrides still match the new skills.
+Magpie does that itself, when you run a skill, so you have no extra step to remember.
+
+Every skill runs a short self-check in its pre-flight.
+It compares the skill's current configuration surface (its `surface_hash`) with the value recorded when this project was last reconciled.
+That value is kept in the `reconciled:` stamp: in the committed `.apache-magpie.lock` if the project is adopted, or in the gitignored `.apache-magpie-local/reconciled.json` if you have only configured it
+(format in [`locks.md`](../../plugins/magpie-setup/skills/setup/locks.md#the-reconciled-block--what-was-checked-not-what-to-install)).
+Nothing is fetched over the network, and a skill whose surface has not changed stays silent.
+
+After an upgrade, the first run of a changed skill is where reconciliation happens:
+
+- **The skill changed since the last reconciliation**, for example a new `requires_config` entry or a moved anchor that one of your overrides points at.
+  The skill shows the matching ⚠ and proposes the fix, then carries on with what you asked it to do.
+  The warning is shown once per change and comes back only if the skill changes again.
+- **The project has never been reconciled** (it has no stamp yet).
+  The skill proposes a project-wide sweep instead.
+  This proposal is shown once per installed version, not once per skill.
+
+Nothing is changed without your confirmation.
+The check only detects and proposes.
+Applying a fix and writing the new stamp are left to `setup`, which asks you first.
+
+**To reconcile on demand**, without waiting for a skill to notice, run:
+
+```text
+/magpie-setup:setup reconcile
+```
+
+(`/magpie-setup reconcile` on a pinned-snapshot install.)
+This checks anchors and `requires_config` for every skill the project configures or overrides, proposes each fix separately, and writes a fresh stamp.
+It works with every install method.
+Add `dry-run` to see the report without changing anything.
+It is worth running right after a large upgrade, or before other contributors pick up the new version.
+Mechanics: [`reconcile.md`](../../plugins/magpie-setup/skills/setup/reconcile.md).
+
+**The isolated setup is checked in the same pre-flight.**
+If you use the [secure agent setup](secure-agent-setup.md) on this machine, the first skill you run after an upgrade that changed its files (the sandbox wrapper and helper scripts, agent-guard, the container gateway, the dogfooded `.claude/settings.json`) proposes `/magpie-setup:isolated-setup-update`.
+The same suggestion also comes back weekly by default, and the interval can be changed.
+Run the skill directly at any time to check now.
+Details: [Automatic reminders from the pre-flight](secure-agent-setup.md#automatic-reminders-from-the-pre-flight).
 
 ## Versioning
 

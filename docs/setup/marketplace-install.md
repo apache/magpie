@@ -93,6 +93,14 @@ claude plugin marketplace update apache-magpie
 claude plugin update magpie-setup@apache-magpie
 ```
 
+Updating brings in the new skills.
+It does not check your project against them.
+Magpie does that when you next run a skill:
+each skill checks whether it changed since the project was last reconciled,
+and the first run after an upgrade proposes any fixes your configuration or overrides now need.
+To run the whole check at once, use `/magpie-setup:setup reconcile`.
+See [Reconciliation when a skill first runs after an upgrade](marketplace.md#reconciliation-when-a-skill-first-runs-after-an-upgrade).
+
 **After `magpie-setup` is in, you never have to type these again.** Ask for
 the rest in plain language and the setup skill runs the installs for you:
 

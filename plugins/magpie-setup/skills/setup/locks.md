@@ -239,6 +239,26 @@ committed lock instead, per the invariant above:
 }
 ```
 
+**`isolated_setup` is per-machine too** and sits beside them in the same
+file. It records the last `setup-isolated-setup-update` run here (its
+secure-setup `fingerprint` and `updated_at`), the last time the
+pre-flight suggested it (`reminded_at`), and the fingerprint that
+suggestion was shown against (`acknowledged`); `"enabled": false` opts
+the machine out. Only `python3 -m setup_preflight.isolated
+record-update` / `record-reminder` write it — see
+[`isolated-setup-update`](../isolated-setup-update/SKILL.md#when-the-pre-flight-proposes-this-skill).
+
+```json
+{
+  "isolated_setup": {
+    "fingerprint": "sha256:17ed2370…",
+    "updated_at": "2026-09-26",
+    "reminded_at": "2026-09-26",
+    "acknowledged": "sha256:17ed2370…"
+  }
+}
+```
+
 **Three keys are never committed, even inside an adopted project's
 `.apache-magpie.lock`, and live in this file on every project
 regardless of adoption state:** `verified_at`, `verify_suggested_at`,
