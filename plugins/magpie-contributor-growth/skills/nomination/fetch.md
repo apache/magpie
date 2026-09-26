@@ -205,3 +205,12 @@ for event in all_events:
 
 Produce a map `{ "YYYY-MM": count }` covering every month from
 `<since>` to today, with zero-filled gaps.
+
+Items that [`automated-contributions.md`](automated-contributions.md) weighs at `0` are left out of the map.
+
+---
+
+## Conversation fetch for the discount
+
+The automated-contribution discount needs the conversation on each inspected item — maintainer replies with their `authorAssociation`, review bodies, and the thread's description.
+Use the query and the per-kind budget in [`automated-contributions.md` § Budget](automated-contributions.md#budget), with the same injection guard as the streams above.

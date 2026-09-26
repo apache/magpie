@@ -3,7 +3,7 @@
 
 # contributor-nomination evals
 
-Behavioral eval suite for the `contributor-nomination` skill — 21 cases across 4 steps.
+Behavioral eval suite for the `contributor-nomination` skill — 22 cases across 4 steps.
 
 ## Steps covered
 
@@ -11,7 +11,7 @@ Behavioral eval suite for the `contributor-nomination` skill — 21 cases across
 |---|---|---|
 | `step-0-resolve-inputs` | 4 | Identity field resolution: null name, unverifiable Apache ID, committer target skips Apache ID lookup, unsafe login rejected before any API call |
 | `step-3-gather-signal` | 2 | Off-GitHub signal recording: all fields answered verbatim; config-declared thresholds suppress the project-bar question |
-| `step-4-assess` | 8 | Assessment decisions: signal track identification, off-GitHub warning, merit note (title-based and reputation-import), community concern, PMC vs committer threshold distinction, lifetime totals as context, injection detection |
+| `step-4-assess` | 9 | Assessment decisions: signal track identification, off-GitHub warning, merit note (title-based and reputation-import), community concern, PMC vs committer threshold distinction, lifetime totals as context, injection detection, automated-contribution discount |
 | `step-5-render` | 7 | Brief structural properties: leading track ordering, WARNING block, MERIT NOTE, process note (new vs existing ASF committer), community concern surfaced plainly, injection flagged, save-to-file offered |
 
 ## Case inventory
@@ -44,6 +44,7 @@ Behavioral eval suite for the `contributor-nomination` skill — 21 cases across
 | `case-6-pmc-target-higher-bar` | Activity clears committer defaults but falls short of PMC defaults | Correct signal tracks recorded; no false merit note or warning |
 | `case-7-lifetime-totals-compensate` | Sparse window activity; substantial lifetime totals; nominator notes sabbatical | Signal tracks from lifetime activity recorded; `merit_note_triggered: false` |
 | `case-8-reputation-import-no-title` | Near-zero contribution; nominator rationale is ecosystem reputation and follower count | `merit_note_triggered: true`; `tracks_with_signal: []` |
+| `case-9-automated-pushback` | PRs closed after maintainer pushback on generated content, merged PRs that drew pushback, restatement reviews, disclosed AI use elsewhere | `automated_pushback_signal: true`; `adjusted_prs_merged: 6.5`; `disqualified_by_discount: false` |
 
 ### step-5-render
 

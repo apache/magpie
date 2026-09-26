@@ -1,4 +1,8 @@
 {
   "skill_md": "skills/contributor-nomination/SKILL.md",
-  "step_heading": "## Step 4 — Assess"
+  "step_heading": "## Step 4 — Assess",
+  "also_include": [
+    "plugins/magpie-contributor-growth/skills/nomination/assess.md",
+    "plugins/magpie-contributor-growth/skills/nomination/automated-contributions.md"
+  ]
 }

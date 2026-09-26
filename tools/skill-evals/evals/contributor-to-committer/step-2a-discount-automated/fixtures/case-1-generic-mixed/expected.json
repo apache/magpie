@@ -1,0 +1,48 @@
+{
+  "expectations_source": "generic",
+  "items": [
+    {
+      "id": "pr-101",
+      "class": "P",
+      "weight": 0.25,
+      "basis": "generic:P1/P2"
+    },
+    {
+      "id": "pr-102",
+      "class": "C",
+      "weight": 0,
+      "basis": "generic:P4/P5"
+    },
+    {
+      "id": "pr-103",
+      "class": "none",
+      "weight": 1,
+      "basis": ""
+    },
+    {
+      "id": "thread-200",
+      "class": "R",
+      "weight": 0,
+      "basis": "generic:restatement"
+    },
+    {
+      "id": "thread-201",
+      "class": "none",
+      "weight": 1,
+      "basis": ""
+    }
+  ],
+  "raw": {
+    "prs_opened": 3,
+    "prs_merged": 2,
+    "threads_commented": 2
+  },
+  "adjusted": {
+    "prs_opened": 1.25,
+    "prs_merged": 1.25,
+    "threads_commented": 1
+  },
+  "pushback_signal": true,
+  "auto_disqualify": false,
+  "injection_attempt_detected": false
+}

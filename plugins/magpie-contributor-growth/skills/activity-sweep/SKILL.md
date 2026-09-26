@@ -26,7 +26,7 @@ argument-hint: "<github-handle> [window:Nm]"
 capability: capability:stats
 surface_hash: sha256:748187f2d78d9991
 license: Apache-2.0
-measured_tokens: 3318
+measured_tokens: 3398
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -108,6 +108,10 @@ section for the nominator to fill in by hand.
 timeline — it does not evaluate whether the contributor is ready for
 nomination, nor does it rank or score them. All interpretation is the
 nominator's responsibility.
+
+The counts here are raw: nothing is discounted for visibly automated or low-signal activity.
+The readiness and nomination skills apply that discount, judged against the project's own expectations, and report raw and adjusted counts side by side — see [`automated-contributions.md`](../nomination/automated-contributions.md).
+Do not read a raw count on this card as the number those skills will measure.
 
 The skill is read-only and produces no GitHub mutations.
 

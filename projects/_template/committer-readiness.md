@@ -9,6 +9,8 @@
   - [Assessment window](#assessment-window)
   - [Committer thresholds](#committer-thresholds)
   - [PMC thresholds](#pmc-thresholds)
+  - [Automated and low-signal contributions](#automated-and-low-signal-contributions)
+    - [Project expectations for AI-assisted contributions](#project-expectations-for-ai-assisted-contributions)
   - [Project-specific notes *(optional)*](#project-specific-notes-optional)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -76,6 +78,42 @@ PMC as a senior track.
 | `issues_filed` | `0` | TODO or leave blank | |
 | `threads_commented` | `10` | TODO or leave blank | |
 | `area_breadth` | `2` | TODO or leave blank | PMC members typically span multiple project areas |
+
+---
+
+## Automated and low-signal contributions
+
+How the readiness tracker discounts visibly automated or low-signal GitHub activity.
+The full definition — detection heuristics, aggregation, and how the brief reports raw and adjusted counts — is [`automated-contributions.md`](../../skills/contributor-nomination/automated-contributions.md).
+
+The discount is a signal for the humans reading the brief, never an automatic disqualification.
+Using AI tools, and disclosing that use, is not penalised; only restatement, content maintainers pushed back on, and work closed after that pushback are discounted.
+
+Each key is resolved from this file first, then from `contributor-nomination-config.md`, then from the default below.
+
+| Key | Default | Project value | Notes |
+|---|---|---|---|
+| `automated_contribution_weight` | `0.25` | TODO or leave blank | Weight (0–1) of a merged or open PR, issue, review or comment that drew maintainer pushback as looking generated, unreviewed, restating, fabricated, or unwanted |
+| `restatement_comment_weight` | `0` | TODO or leave blank | Weight (0–1) of a comment or review body that only restates the description, earlier comments, or the diff |
+| `closed_after_pushback_weight` | `0` | TODO or leave blank | Weight (0–1) of a PR or issue closed unmerged after that pushback; `0` removes it from every metric |
+| `automated_pushback_phrases` | empty | TODO or leave blank | Extra phrases your maintainers use when pushing back, added to the generic list |
+
+Set all three weights to `1` to turn the arithmetic off; flagged items are still listed in the brief.
+
+### Project expectations for AI-assisted contributions
+
+List the documents in which your project states what it expects from AI-assisted and automated contributions — a generative-AI contribution policy, PR guidelines, a review or triage guide.
+Use paths relative to the repository root, or `https://` URLs, optionally with a `#section` anchor.
+
+```yaml
+automated_contribution_expectations:
+  - TODO: e.g. CONTRIBUTING.md#generative-ai-contributions
+  - TODO: e.g. https://example.org/docs/pr-guidelines#ai-assisted-changes
+```
+
+When the list is present, the skill reads each document, judges contributions against it first, and cites the document and section each flagged item conflicts with.
+When it is empty or none of the documents can be read, the skill falls back to the framework's generic heuristics and says so in the brief.
+The skill does not go looking for policy documents this list does not name.
 
 ---
 
