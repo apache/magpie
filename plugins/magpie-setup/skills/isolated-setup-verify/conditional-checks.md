@@ -92,12 +92,21 @@ reading this file; read the section for a check whose condition holds.
 
    `vetted-op` in `ask` (or absent) is correct.
 
-   **9b — the exclusion.** `permissions.deny` covers both surfaces,
+   A `vetted-op` rule, in `allow` or in `sandbox.excludedCommands`,
+   that spells the versioned plugin-cache path with a `*`
+   (`…/magpie-vetted-ops/*/tools/vetted-ops …`) is also ✗. The `*`
+   matches spaces too, so it approves — and runs unsandboxed — a
+   command with extra `uv` options spliced in where the version
+   sits. The rule must name `~/.claude/magpie/vetted-ops`.
+
+   **9b — the exclusion.** `permissions.deny` covers every surface,
    each with an `Edit` rule:
 
    - `~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**` —
      the operation catalogue. The read dispatcher's `allow` rests on
      its shape, so an editable catalogue dissolves that `allow`.
+   - `~/.claude/magpie/**` — the fixed path the rules name, which
+     the plugin's `SessionStart` hook points at the catalogue.
    - `.apache-magpie-overrides/tools/vetted-ops/**` — the policy.
 
    Either one missing is ✗. One `Edit` rule per surface is the whole

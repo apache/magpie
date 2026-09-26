@@ -292,10 +292,10 @@ anything still invoked directly:
   // Only the READ dispatcher is allowlisted. Allowlisting `vetted-op` itself
   // would grant every write in the catalogue, since --caller is argv.
   "allow": [
-    "Bash(uv run --project ~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/*/tools/vetted-ops vetted-op-read *)"
+    "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-read *)"
   ],
   "ask": [
-    "Bash(uv run --project ~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/*/tools/vetted-ops vetted-op *)"
+    "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op *)"
   ],
   "deny": [
     // `Edit(path)` is the path rule for every file-writing tool — Write and
@@ -303,6 +303,7 @@ anything still invoked directly:
     // permission check, so adding one buys nothing and reads as coverage the
     // deny list does not have.
     "Edit(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)",
+    "Edit(~/.claude/magpie/**)",
     "Edit(.apache-magpie-overrides/tools/vetted-ops/**)"
   ]
 }
@@ -319,7 +320,7 @@ fails the same way:
 "sandbox": {
   "excludedCommands": [
     "gh *",
-    "uv run --project ~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/*/tools/vetted-ops vetted-op-read *"
+    "uv run --project ~/.claude/magpie/vetted-ops vetted-op-read *"
   ]
 }
 ```
@@ -328,6 +329,17 @@ Only `vetted-op-read` is excluded, never `vetted-op` — the same reasoning as t
 `allow` rule. The read dispatcher refuses writes before it consults the policy
 at all, so running it outside the sandbox exposes only the fixed read
 operations; excluding the write dispatcher would run the whole catalogue there.
+
+Every rule names the fixed path `~/.claude/magpie/vetted-ops`, not the
+versioned plugin-cache directory. The plugin's `SessionStart` hook
+([`hooks/link-stable-path.sh`](hooks/link-stable-path.sh)) points that path at
+the installed version each session, so an upgrade changes no rule. Do not glob
+the version instead (`…/magpie-vetted-ops/*/tools/vetted-ops …`): a `*` also
+matches spaces, so it approves a command with extra `uv` options spliced in at
+that position (`--with <any package>`, a second `--from`), and the exclusion
+then runs it outside the sandbox. The fixed path is `Edit`-denied like the
+catalogue it points at, and sits outside every `sandbox.filesystem.allowWrite`
+root.
 
 The dispatcher must live where the agent cannot rewrite it — otherwise an agent
 that edits `ops.py` has defeated the whole design. That is why it ships as the

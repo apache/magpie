@@ -219,6 +219,7 @@ AGENT_GUARD_ENGINE = "tools/agent-guard/src/agent_guard/__init__.py"
 # can edit `ops.py` has defeated the whole design, so the catalogue has to sit in
 # the installed plugin tree rather than in a consumer repository.
 VETTED_OPS_ENTRY = "tools/vetted-ops/src/vetted_ops/cli.py"
+VETTED_OPS_LINK_HOOK = "tools/vetted-ops/hooks/link-stable-path.sh"
 # Adversarial review runs other models' CLIs outside the sandbox (they need
 # network and their own credentials), so like vetted-ops it has to run from the
 # installed plugin tree, where the agent calling it cannot rewrite it.
@@ -257,9 +258,22 @@ SUBSTRATE_PLUGINS: dict[str, dict] = {
             "catalogue out of reach of the agent that calls it."
         ),
         "links": {"tools/vetted-ops": "vetted-ops"},
-        # The dispatcher is invoked directly by skills, so the entry point is what
-        # must resolve; there is no hook whose silence would hide a broken link.
-        "must_resolve": (VETTED_OPS_ENTRY,),
+        # The entry point skills invoke, and the hook that keeps the fixed path
+        # permission rules name (~/.claude/magpie/vetted-ops) on this version.
+        "must_resolve": (VETTED_OPS_ENTRY, VETTED_OPS_LINK_HOOK),
+        "hooks": {
+            "SessionStart": [
+                {
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": f'bash "${{CLAUDE_PLUGIN_ROOT}}/{VETTED_OPS_LINK_HOOK}"',
+                            "timeout": 10,
+                        }
+                    ],
+                }
+            ]
+        },
     },
     "magpie-adversarial-review": {
         "description": (
@@ -367,7 +381,7 @@ def check_substrate(name: str, shared: dict) -> list[str]:
     for rel in spec["must_resolve"]:
         if not (pdir / rel).is_file():
             consequence = (
-                "the hook command names it, so the guard would silently never run"
+                "the hook command names it, so the hook would silently never run"
                 if "hooks" in spec
                 else "the tool's entry point names it, so every call would fail to start"
             )

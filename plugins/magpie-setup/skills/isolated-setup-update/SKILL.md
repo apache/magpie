@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:1f327e069312dad2
 license: Apache-2.0
-measured_tokens: 4635
+measured_tokens: 4819
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -171,7 +171,7 @@ Walk each:
 
 ### The vetted-ops split and exclusion
 
-If the adopter uses the `vetted-ops` dispatcher (a `.apache-magpie-overrides/tools/vetted-ops/config.toml` exists, or `.claude/settings.json` carries a `vetted-op` rule), check two things.
+If the adopter uses the `vetted-ops` dispatcher (a `.apache-magpie-overrides/tools/vetted-ops/config.toml` exists, or `.claude/settings.json` carries a `vetted-op` rule), check three things.
 
 **First, and most important: has `vetted-op` drifted into `allow`?**
 Only `vetted-op-read` belongs there.
@@ -181,12 +181,19 @@ Report that as a must-fix, ahead of anything else in this section.
 **Second, `permissions.deny` still covers both surfaces**, each with an `Edit` rule:
 
 - `~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**`
+- `~/.claude/magpie/**`
 - `.apache-magpie-overrides/tools/vetted-ops/**`
 
 Report a missing rule as drift to repair, not a note.
 A leftover `Write(…)` rule on either path is the opposite kind of drift: `Edit(path)` already binds every file-editing tool, and the file permission check does not match a `Write(path)` rule, so surface it as cruft to delete.
 This check is the most likely to rot: the plugin-cache path carries the plugin *name*, so a family rename or a move of the dispatcher to another substrate plugin leaves a deny rule that looks plausible but matches nothing.
 Resolve the glob against the installed tree and confirm it actually hits the catalogue, rather than eyeballing the string.
+
+**Third, no `vetted-op` rule names the versioned plugin-cache path with a `*`.**
+Rules and `sandbox.excludedCommands` entries spelled `~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/*/tools/vetted-ops …` are the pre-fixed-path form.
+The `*` also matches spaces, so it approves, and runs unsandboxed, a command with extra `uv` options spliced in where the version sits.
+Report each one as a must-fix and propose the replacement, which names the fixed path the plugin's `SessionStart` hook maintains: `~/.claude/magpie/vetted-ops`.
+Check the user-scope settings and any agent definition whose `tools:` list carries the rule, not only the project's `.claude/settings.json`.
 
 ## When the pre-flight proposes this skill
 

@@ -94,7 +94,7 @@ def test_baseline_asks_on_gh_writes_not_on_reads(baseline: dict[str, Any]) -> No
     assert "Bash(gh pr view *)" in baseline["permissions"]["allow"]
 
 
-VETTED_OP_READ = "~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/*/tools/vetted-ops vetted-op-read *"
+VETTED_OP_READ = "~/.claude/magpie/vetted-ops vetted-op-read *"
 
 
 @pytest.mark.parametrize("form", ["uv run --project", "uvx --from"])
@@ -113,6 +113,22 @@ def test_baseline_never_allows_the_vetted_op_write_dispatcher(baseline: dict[str
     write = VETTED_OP_READ.replace("vetted-op-read", "vetted-op")
     for form in ("uv run --project", "uvx --from"):
         assert f"Bash({form} {write})" not in baseline["permissions"]["allow"]
+
+
+def test_baseline_names_the_fixed_vetted_ops_path_not_a_versioned_glob(baseline: dict[str, Any]) -> None:
+    # A `*` where the plugin version sits also matches spaces, so it would
+    # approve, and run unsandboxed, a command with extra uv options spliced in.
+    rules = baseline["sandbox"]["excludedCommands"] + baseline["permissions"]["allow"]
+    assert not [r for r in rules if "magpie-vetted-ops/*" in r]
+    assert "Edit(~/.claude/magpie/**)" in baseline["permissions"]["deny"]
+
+
+def test_mid_rule_wildcard_in_allow_is_an_invariant_error(baseline: dict[str, Any]) -> None:
+    weakened = copy.deepcopy(baseline)
+    rule = "Bash(uvx --from ~/.claude/plugins/cache/x/*/tools/vetted-ops vetted-op-read *)"
+    weakened["permissions"]["allow"].append(rule)
+    errors = check_invariants(weakened)
+    assert any(rule in e for e in errors), errors
 
 
 def test_catch_all_gh_ask_rule_is_an_invariant_error(baseline: dict[str, Any]) -> None:

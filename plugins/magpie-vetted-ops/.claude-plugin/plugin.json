@@ -8,5 +8,18 @@
   },
   "homepage": "https://magpie.apache.org/",
   "repository": "https://github.com/apache/magpie",
-  "license": "Apache-2.0"
+  "license": "Apache-2.0",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/tools/vetted-ops/hooks/link-stable-path.sh\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
 }
