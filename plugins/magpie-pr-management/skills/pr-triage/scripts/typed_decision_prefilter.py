@@ -250,7 +250,9 @@ def resolve_prefilter_config(
             found_kv[k.lower()] = str(v)
 
     enabled = _parse_bool(found_kv.get("enable_typed_decision_prefilter", False))
-    threshold = _parse_float(found_kv.get("confidence_threshold", DEFAULT_CONFIDENCE_THRESHOLD), DEFAULT_CONFIDENCE_THRESHOLD)
+    threshold = _parse_float(
+        found_kv.get("confidence_threshold", DEFAULT_CONFIDENCE_THRESHOLD), DEFAULT_CONFIDENCE_THRESHOLD
+    )
 
     raw_log = found_kv.get("log_path")
     if raw_log:
@@ -374,8 +376,12 @@ def prefilter_pr(
         PrefilterResult indicating whether pre-fill was applied or fell through.
     """
     resolved_cfg = config or resolve_prefilter_config(project_root)
-    effective_log_path = log_path or resolved_cfg.log_path or (
-        _find_repo_root(project_root) / ".apache-magpie-local" / "logs" / "pr-triage-typed-decision.jsonl"
+    effective_log_path = (
+        log_path
+        or resolved_cfg.log_path
+        or (
+            _find_repo_root(project_root) / ".apache-magpie-local" / "logs" / "pr-triage-typed-decision.jsonl"
+        )
     )
 
     # 1. Flag off: behaves identically to today (no provider call, no prefill)
@@ -491,14 +497,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         data = json.loads(Path(args.file).read_text(encoding="utf-8"))
 
     result = prefilter_pr(data, config=cfg)
-    print(json.dumps({
-        "applied": result.applied,
-        "predicted_label": result.predicted_label,
-        "confidence": result.confidence,
-        "latency_ms": result.latency_ms,
-        "used_or_fell_through": result.used_or_fell_through,
-        "reason": result.reason,
-    }, indent=2))
+    print(
+        json.dumps(
+            {
+                "applied": result.applied,
+                "predicted_label": result.predicted_label,
+                "confidence": result.confidence,
+                "latency_ms": result.latency_ms,
+                "used_or_fell_through": result.used_or_fell_through,
+                "reason": result.reason,
+            },
+            indent=2,
+        )
+    )
     return 0
 
 
