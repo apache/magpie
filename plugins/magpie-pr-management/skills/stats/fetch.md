@@ -3,7 +3,7 @@
 
 # Fetch
 
-Two GraphQL shapes drive the whole skill: one for the currently-open PRs, one for the closed/merged PRs that were triaged within the cutoff window. Both are paginated with `after: <cursor>` and must follow the "one query per batch" rule from [`SKILL.md`](SKILL.md#golden-rules).
+Two GraphQL shapes drive the whole skill: one for the currently-open PRs, one for the closed/merged PRs that were triaged within the cutoff window. Both are paginated with `after: <cursor>` and must follow the "one query per batch" rule from [Golden rule 3](#golden-rules).
 
 ---
 
@@ -455,3 +455,8 @@ in case".
 ### Writing discipline
 
 Write once at the end of the full run, not after each page. A half-written cache from a Ctrl-C mid-paginate is harder to reason about than a missing cache.
+---
+
+## Golden rules
+
+**Golden rule 3 — one GraphQL call per batch, not per PR.** Same rule as `pr-management-triage/fetch-and-batch.md`. One aliased query covers the open-PR list for a whole page; the closed/merged fetch is paginated by GitHub's search cursor. Never call `gh pr view` per PR.

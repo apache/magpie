@@ -418,3 +418,15 @@ over-zealous auto-finding is a contributor who feels
 nitpicked; the cost of a missed nit is one round of
 back-and-forth a maintainer can catch easily on their own
 pass.
+
+**Golden rule 3 — criteria are authoritative; this skill is a
+checker, not a re-interpreter.** The project's review criteria
+live in the source files declared in
+`<project-config>/pr-management-code-review-criteria.md` (see
+[`projects/_template/pr-management-code-review-criteria.md`](../../../../projects/_template/pr-management-code-review-criteria.md)
+for the shape) and in the project's repo-wide
+[`AGENTS.md`](../../../../AGENTS.md). When you find a violation,
+quote the **specific rule** from those files in the review
+finding. Do not invent new rules; do not soften documented ones.
+A summary checklist lives in [`criteria.md`](criteria.md) for
+quick reference, but the source files are the ground truth.

@@ -263,3 +263,16 @@ explicitly**. The two are independent:
 
 Don't conflate the two. The hook is a safety net at end-of-
 turn; the per-PR adversarial step is the actual review tool.
+
+**Golden rule 4 — adversarial reviewers are additive, not
+substitutes.** If the maintainer has named a second LLM
+reviewer — model CLIs through the `with-reviewers:` selector or
+the project's `adversarial-review.md`, or a slash command through
+`with-reviewer:` or a "Review preferences" entry in their
+agent-instructions file (`AGENTS.md` or a harness-specific
+equivalent) — the skill runs or proposes it **in addition** to its
+own pass, not instead of. The second reviewer runs *after* the skill has
+drafted its own findings, so the maintainer can see two
+independent reads. See [`adversarial.md`](adversarial.md) for
+the "assistant-proposes-user-fires" pattern (slash commands
+cannot be invoked from the assistant side).

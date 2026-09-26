@@ -32,6 +32,37 @@ populated by the single batched GraphQL query in
 [`fetch-and-batch.md`](fetch-and-batch.md). No network calls, no
 prompts, no writes.
 
+## Step 2 — Classify the entire fetched set
+
+Run **every PR fetched in Step 1** through
+[`classify-and-act.md`](classify-and-act.md), once:
+
+1. Apply the [pre-filters](classify-and-act.md#pre-filters) (F1–F5c)
+   to drop collaborator PRs, bot accounts, fresh drafts,
+   already-marked-ready PRs without regression, and PRs with an
+   active maintainer conversation (72-hour author cooldown, an
+   unanswered maintainer-to-maintainer ping, or an unanswered
+   author question to a maintainer — ball in our court).
+2. Evaluate the [decision table](classify-and-act.md#decision-table)
+   top-to-bottom. The first matching row yields the
+   `(classification, action, reason)` tuple for that PR.
+3. For any PR that the table classifies as `passing` (rows 19,
+   20), the [Real-CI guard](classify-and-act.md#real-ci-guard)
+   must pass — otherwise re-route to `pending_workflow_approval`
+   (row 1) or `rebase` (row 16).
+
+Classification + action selection is a pure function of the data
+already fetched in Step 1. No extra network calls. No prompts.
+The full-set classification runs in a single pass over the
+in-memory list assembled in Step 1 — no pagination, no chunking.
+
+The output is a single list of `(pr, classification, action,
+reason)` tuples covering the entire queue, which the
+interaction loop then groups in Step 3. See
+[`rationale.md`](rationale.md) only when a decision needs prose
+context — borderline PR, contested rule, or when editing the
+table itself.
+
 ---
 
 ## Pre-filters
@@ -61,6 +92,44 @@ CI fix themselves if needed.) See
 and
 [`rationale.md#pre-filter-6-maintainer-co-drafted`](rationale.md#pre-filter-6-maintainer-co-drafted)
 for the why.
+
+**Golden rule 9 — never talk over an active maintainer
+conversation.** When a human conversation needs the next move,
+the skill steps back. Three specific cases, all
+enforced as pre-classification filters in
+[`classify-and-act.md#pre-filters`](classify-and-act.md) (rows F5a, F5b, F5c):
+
+- **Author-response cooldown (≥ 72 hours).** If the most recent
+  feedback across general comments, review-thread comments and
+  submitted reviews with non-whitespace bodies is by a
+  `COLLABORATOR`/`MEMBER`/`OWNER`, was posted after the latest
+  author push and is < 72 hours old, skip the PR. Select the latest
+  item before checking its author. The author needs at least three
+  days to read maintainer feedback and respond — auto-drafting in
+  <24 hours reads as the bot rushing the contributor.
+- **Maintainer-to-maintainer ping.** If the most recent
+  collaborator comment `@`-mentions another maintainer (or a
+  team) and that mentioned party hasn't replied yet, skip the
+  PR — the conversation is between maintainers, and a "the
+  author should work on comments" auto-draft de-focuses the
+  thread away from the input the original commenter was asking
+  for.
+- **Author question to a maintainer (ball in our court).** The
+  inverse of the maintainer-to-maintainer case: if the most
+  recent human comment is by the **PR author** and `@`-mentions a
+  maintainer (or the committers team) with no maintainer reply
+  after it, the author is waiting on *us*. Skip the author-facing
+  flow — never ping the author, request readiness confirmation,
+  convert to draft, or close it for "silence". The next move is a
+  maintainer answering; the PR belongs in the maintainers' court.
+  This is the case that closed a real PR after the triage process
+  missed an open question to the team.
+
+These filters override every deterministic flag (failing CI,
+conflicts, unresolved threads). The cost of a missed auto-action
+on one of these PRs is one extra day of queue presence; the cost
+of an auto-action that talks over a maintainer is a contributor
+who reads it as the project being chaotic. Prefer the former.
 
 ---
 

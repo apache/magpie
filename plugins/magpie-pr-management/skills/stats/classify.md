@@ -453,3 +453,8 @@ The first-match-wins ordering matters: a ready-for-review PR that's also a stale
 The stats run must produce the same numbers when invoked twice on the same cached state. Keep the classification pure (no time-dependent randomness) and anchor age-bucket cutoffs to `<now>` captured at fetch start, not at render time. Otherwise a slow run drifts PRs across buckets between fetch and render.
 
 This applies to `pressure_weight` too — the `7d` / `28d` thresholds are computed from the same `<now>` as the age buckets, so a PR that's exactly on a bucket boundary scores deterministically across re-runs of the same fetch.
+---
+
+## Golden rules
+
+**Golden rule 9 — `is_engaged` requires the FULL engagement schema.** The open-PRs GraphQL query MUST include `reviewThreads`, `latestReviews`, and `timelineItems` (for `LABELED_EVENT`/`READY_FOR_REVIEW_EVENT`/`CONVERT_TO_DRAFT_EVENT`). The `is_engaged` predicate in [`classify.md`](classify.md) counts ALL of these as maintainer engagement; omitting any of them under-counts engagement and over-counts untriaged — concretely, a maintainer who left only a line-level review comment (no submitted review, no issue comment) would otherwise show as "no engagement" and that PR would be misclassified as untriaged. The implication: don't trim the open-PRs query to "save complexity points" — the missing fields are load-bearing. (Earlier iterations of [`fetch.md`](fetch.md) suggested `reviewThreads` was not needed for stats; that was a spec bug and has been corrected.)

@@ -25,6 +25,43 @@ Why this exists:
 
 ---
 
+### Step 6b — Propose session-history gist update
+
+After the on-screen summary, the skill proposes appending the
+session to a long-lived **private GitHub gist** so the
+maintainer can review automation calibration across many
+sessions. The proposal step is **always confirm-before-mutate**
+— gist content is published under the maintainer's account.
+
+The gist captures:
+
+- per-action PR counts and the PR numbers (so the maintainer can
+  re-open any individual decision later),
+- per-rule "rule-fired" vs "user-overrode" counts (the input
+  signal for which actions can be safely automated further),
+- per-PR notes when the maintainer overrode the proposed action
+  (the reason matters more than the override itself),
+- stale-sweep counts and any deferrals.
+
+See [`session-history.md`](session-history.md) for the gist
+content schema, the create-vs-update logic, the local
+state-file location, and the maintainer-confirmation flow.
+
+The local state file
+(`.apache-magpie.session-state.json` at the adopter repo root,
+gitignored) is the persistence anchor — it stores the gist URL
+across sessions so subsequent runs of the skill update the same
+gist rather than creating a new one each time.
+
+This step is a no-op when:
+
+- `gh auth status` reports a token without `gist` scope (the
+  skill prints a one-line warning pointing at
+  [`prerequisites.md`](prerequisites.md) and continues),
+- the maintainer passes `--no-history` (see
+  [Parameters](SKILL.md#parameters-the-user-may-pass)),
+- or `dry-run` is active.
+
 ## Local state file
 
 **Path.** `<adopter-repo-root>/.apache-magpie.session-state.json`.

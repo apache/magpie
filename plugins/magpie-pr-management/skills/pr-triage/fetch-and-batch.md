@@ -12,6 +12,15 @@ session-scoped cache that holds the fetched set.
 
 ---
 
+**Golden rule 3 — one GraphQL call per batch, not per PR.** The
+PR-list + enrichment layer uses aliased GraphQL queries so that
+50 PRs' check state, mergeability, unresolved threads, commits
+behind, last-comment-by-viewer, and latest reviews come back in a
+*single* request. Individual `gh pr view` / `gh api` calls per
+PR will quickly blow the maintainer's 5000-point/h GraphQL
+budget. See [`fetch-and-batch.md`](fetch-and-batch.md) for the
+canonical query templates.
+
 ## The one query that matters — PR-list + rollup enrichment
 
 On entering Step 1, issue **one** GraphQL query that pulls the
@@ -281,6 +290,63 @@ expand them. Capture the JSON output and parse it with `jq` or
 
 ---
 
+**Golden rule 4 — fetch all pages up front, then classify
+once, then present.** Pagination happens entirely in Step 1
+before any group is shown to the maintainer. The fetch loop
+runs until `has_next_page=false`, accumulating every PR record
+into a single in-memory set. Classification runs once over the
+full set (a pure function over the fetched data — zero further
+GraphQL). Groups are then formed across the whole queue, not
+per page. The maintainer sees one screen per `(classification,
+action)` group regardless of how many GitHub pages it spans —
+the `mark-ready` group is presented once with every passing
+PR, not chunk-by-chunk. This eliminates the per-page
+context switch and lets the maintainer step away during the
+fetch phase. The cost is one upfront wait; the saving is no
+intra-session context-switching between action classes. See
+[`fetch-and-batch.md#full-pagination-loop`](fetch-and-batch.md#full-pagination-loop)
+and
+[`interaction-loop.md#group-ordering`](interaction-loop.md#group-ordering).
+
+## Step 1 — Resolve the selector and fetch every page
+
+Translate the selector into the GraphQL PR-list query from
+[`fetch-and-batch.md`](fetch-and-batch.md). **Walk every page**
+of the result set in a loop until `pageInfo.hasNextPage` is
+false, each iteration issuing one aliased batch call that
+returns, for every PR on the page:
+
+- head SHA, base ref, draft flag, mergeable state,
+- check-rollup state + list of failing check names,
+- unresolved review-thread count and reviewer logins,
+- commits-behind count vs. the base branch,
+- most recent comment author and timestamp (for "already
+  triaged" detection),
+- `authorAssociation` and labels.
+
+Accumulate every PR into a single in-memory list, then deduplicate
+it by number after the final page, keeping each PR's last (freshest)
+occurrence. Do not classify, do not present, do not prompt the
+maintainer between pages — the fetch loop is uninterrupted,
+runs to completion, and emits one progress line per page so
+the maintainer can step away during the wait. See
+[`fetch-and-batch.md#full-pagination-loop`](fetch-and-batch.md#full-pagination-loop)
+for the canonical loop pattern and rate-limit accounting.
+
+Also fetch, once per session before the page loop:
+
+- the `action_required` workflow-run index, per
+  [`fetch-and-batch.md#mandatory-action_required-run-index-per-page`](fetch-and-batch.md#mandatory-action_required-run-index-per-page)
+- the recent main-branch failures set, per
+  [`fetch-and-batch.md#recent-main-branch-failures`](fetch-and-batch.md#recent-main-branch-failures-for-is-this-failure-systemic)
+
+Both are repo-scoped (not page-scoped) and only need fetching
+once. Stash them on the session for Step 2.
+
+Do not read PR bodies, diffs, or failed-job logs in this step —
+those are deferred to the per-PR drill-in when the maintainer
+pulls a PR out of a group.
+
 ## Full-pagination loop
 
 Step 1 of [`SKILL.md`](SKILL.md) walks **every page** of the
@@ -369,6 +435,28 @@ mid-loop, surface a warning and ask the maintainer whether to
 continue or pause; do not silently sleep and retry.
 
 ---
+
+## Inputs
+
+Before running, resolve the maintainer's selector into a concrete
+query:
+
+| Selector | Resolves to |
+|---|---|
+| `triage` (default) | every open non-collaborator / non-bot PR against `<repo>`, most-recently-updated first, one page of 20 |
+| `triage pr:<N>` | the single PR number `<N>` — useful for re-triage after a contributor push, or for a spot check |
+| `triage label:<LBL>` | open PRs carrying label `<LBL>` (supports wildcards like `area:*`, `provider:amazon*`) |
+| `triage author:<LOGIN>` | open PRs from a specific author |
+| `triage review-for-me` | open PRs where review is requested from the authenticated user |
+| `triage stale` | stale sweep only — skips triage of active PRs, runs just the sweep rules from [`stale-sweeps.md`](stale-sweeps.md) |
+
+If no selector is supplied, default to `triage`.
+
+The target repository defaults to `<upstream>`. Pass
+`repo:<owner>/<name>` to override. Only `<upstream>` is
+the fully-exercised target; other repos may lack the expected
+labels (the skill will warn and degrade gracefully — see
+[`prerequisites.md`](prerequisites.md)).
 
 ## Search-query construction
 
@@ -670,6 +758,39 @@ Any failure appearing in ≥2 of them is "systemic". Store the
 resulting set in the session cache as `recent_main_failures`.
 
 ---
+
+## Budget discipline
+
+This skill's practical GraphQL budget per full-sweep session
+(every page of the candidate set fetched, everything acted on)
+is:
+
+- 1 PR-list + rollup query per page in Step 1 (default
+  `$batchSize=20`, so a 200-PR queue is ~10 page queries)
+- 1 REST call for the `action_required` workflow-run index
+  (paginated, typically ≤3 pages)
+- 1 query for the recent main-branch failures set
+  (cached for 4h)
+- 0–5 additional fetch loops for stale-sweep candidate sets
+  (each loop is itself paginated)
+- 1 mutation per action taken (draft / close / comment / label /
+  rerun / workflow-approve)
+
+Per page the cost is `cost=3` against the rate-limit budget
+(see [`fetch-and-batch.md#batch-size`](fetch-and-batch.md#batch-size)),
+so a 200-PR full-sweep is ~30 points of fetch + N mutations —
+well under the 5000/h budget. If a run starts approaching the
+limit, the skill is mis-batching (most likely: an individual
+`gh pr view` per PR instead of an aliased batch query) — stop
+and fix the call pattern, do not work around it with
+rate-limit sleeps.
+
+The fetch loop in Step 1 runs serially page-by-page. Do not
+fire pages in parallel hoping to win wall-clock time — GitHub
+rate-limits per-account and parallel page fetches just push
+you to the throttling boundary faster. The maintainer can
+step away during the fetch; serial pagination uses the budget
+predictably.
 
 ## What not to do
 
