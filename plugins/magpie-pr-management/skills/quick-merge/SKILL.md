@@ -28,7 +28,7 @@ capability:
   - capability:review
 surface_hash: sha256:ea4648413feb1eca
 license: Apache-2.0
-measured_tokens: 7356
+measured_tokens: 4722
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0

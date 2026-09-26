@@ -27,7 +27,7 @@ argument-hint: "[pr:N] [label:LBL] [author:LOGIN] [review-for-me] [stale] [repo:
 capability: capability:triage
 surface_hash: sha256:4a3a20f254a3b7c7
 license: Apache-2.0
-measured_tokens: 11604
+measured_tokens: 4951
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->

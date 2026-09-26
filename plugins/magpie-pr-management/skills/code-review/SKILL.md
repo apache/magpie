@@ -24,7 +24,7 @@ argument-hint: "[pr:N] [area:LBL] [collab:true|false] [team:NAME] [ready] [dry-r
 capability: capability:review
 surface_hash: sha256:261649569ebac577
 license: Apache-2.0
-measured_tokens: 9147
+measured_tokens: 4925
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->

@@ -17,14 +17,15 @@ description: |
   REVIEWER signal, never a fabricated handle.
 when_to_use: |
   Invoke on "who should review this PR?", "route this issue to the right
-  person", "who owns this area?", or "suggest a reviewer for PR NNN". Also
+  person", "who owns this area?", "suggest a reviewer for PR NNN", "find the best
+  reviewer for this change", or any variation on proposing a first reviewer. Also
   part of a triage sweep when review-cycle latency is the concern. Skip
   when a reviewer is already assigned and no second opinion was asked for.
 argument-hint: "[pr:<N> | issue:<N>] [--repo owner/name]"
 capability: capability:triage
 surface_hash: sha256:c9b9669a27ceaad7
 license: Apache-2.0
-measured_tokens: 5192
+measured_tokens: 4931
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -117,7 +118,7 @@ explicitly and proceed with normal scoring. See the absolute rule in
 
 **Golden rule 1 — read-only, propose-then-confirm.** This skill emits a
 routing proposal and nothing else. No assignee set, no review requested,
-no label applied, no comment posted without explicit confirmation.
+no label applied, no comment posted without explicit confirmation in this session.
 
 **Golden rule 2 — roster-bounded suggestions.** Every suggested reviewer must be
 a member of the configured roster. The skill never invents a handle or
