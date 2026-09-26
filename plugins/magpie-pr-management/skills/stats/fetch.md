@@ -455,6 +455,7 @@ in case".
 ### Writing discipline
 
 Write once at the end of the full run, not after each page. A half-written cache from a Ctrl-C mid-paginate is harder to reason about than a missing cache.
+
 ---
 
 ## Golden rules

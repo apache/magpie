@@ -39,7 +39,7 @@ The maintainer's options on the group:
 
 - `[V]NN` — fetch and show the full diff for PR `NN` (lazy `gh pr diff`). **Read-only.**
 - `[A]pprove NN` — submit an APPROVE review on PR `NN` as the maintainer (see
-  [Step 3b](#step-3b--optional-approve-action)). **The only mutation; per-PR, confirmed.**
+  [Step 3b](SKILL.md#step-3b--optional-approve-action)). **The only mutation; per-PR, confirmed.**
 - `[O]pen NN` — print the PR URL to open in a browser. **Read-only.**
 - `[D]one` / `[Q]uit` — finish; print the session summary.
 

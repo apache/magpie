@@ -61,7 +61,7 @@ them when the token expires.
 
 ### `gist` scope (non-blocking)
 
-[Step 6b](SKILL.md#step-6b--propose-session-history-gist-update)
+[Step 6b](session-history.md#step-6b--propose-session-history-gist-update)
 (session-history gist persistence) needs the `gist` scope on
 the `gh` token. If the scope is missing, the rest of the skill
 runs unchanged; only Step 6b is skipped with a one-line notice.

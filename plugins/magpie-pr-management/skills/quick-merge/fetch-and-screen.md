@@ -36,6 +36,7 @@ reads SUCCESS.
 
 Do not read full diffs in this step. The diff is fetched lazily only when the
 maintainer asks for `[V]iew diff` on a specific candidate.
+
 ---
 
 ## Step 2 — Three-stage screen

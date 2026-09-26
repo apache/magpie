@@ -413,7 +413,7 @@ Batch the re-check queries for `[A]` actions — one aliased
 ## Lazy drill-in fetches
 
 The full-set fetch in
-[`SKILL.md#step-1--resolve-the-selector-and-fetch-every-page`](SKILL.md#step-1--resolve-the-selector-and-fetch-every-page)
+[`fetch-and-batch.md#step-1--resolve-the-selector-and-fetch-every-page`](fetch-and-batch.md#step-1--resolve-the-selector-and-fetch-every-page)
 deliberately omits per-PR deep data (failed-job log snippets,
 full diffs, author profile rollups). Defer those to the moment
 the maintainer pulls a PR out of a group via `[P]NN`, `[E]`, or

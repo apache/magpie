@@ -324,7 +324,6 @@ Selector semantics (`triage pr:<N>` / `label:<LBL>` / `author:<LOGIN>` / `review
 ---
 **Step 1 — fetch:** resolve the selector per [`fetch-and-batch.md#inputs`](fetch-and-batch.md#inputs), walk every page of the aliased PR-list query until `pageInfo.hasNextPage` is false, deduplicate at the end, and prefetch the `action_required` run index and the recent main-branch failures once per session — the canonical loop is in [`fetch-and-batch.md#full-pagination-loop`](fetch-and-batch.md#full-pagination-loop).
 
-
 **Step 2 — classify:** run **every PR fetched in Step 1** through
 [`classify-and-act.md`](classify-and-act.md), once — the pre-filters
 (F1–F5c), the first-match-wins decision table, the Real-CI guard on

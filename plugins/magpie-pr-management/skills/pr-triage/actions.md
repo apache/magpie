@@ -490,7 +490,7 @@ via a merge or a misconfigured bot account.
 
 ## `promote-bot-draft` — convert a bot-authored draft and label it ready
 
-The action behind [Step 0.5 of `SKILL.md`](SKILL.md#step-05--promote-bot-authored-draft-prs).
+The action behind [Step 0.5](#step-05--promote-bot-authored-draft-prs).
 Two mutations bundled per PR: convert draft → non-draft
 (`gh pr ready`) and add the `ready for maintainer review`
 label.

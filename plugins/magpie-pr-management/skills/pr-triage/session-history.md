@@ -25,7 +25,7 @@ Why this exists:
 
 ---
 
-### Step 6b — Propose session-history gist update
+## Step 6b — Propose session-history gist update
 
 After the on-screen summary, the skill proposes appending the
 session to a long-lived **private GitHub gist** so the

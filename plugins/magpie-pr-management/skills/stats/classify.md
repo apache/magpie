@@ -453,6 +453,7 @@ The first-match-wins ordering matters: a ready-for-review PR that's also a stale
 The stats run must produce the same numbers when invoked twice on the same cached state. Keep the classification pure (no time-dependent randomness) and anchor age-bucket cutoffs to `<now>` captured at fetch start, not at render time. Otherwise a slow run drifts PRs across buckets between fetch and render.
 
 This applies to `pressure_weight` too — the `7d` / `28d` thresholds are computed from the same `<now>` as the age buckets, so a PR that's exactly on a bucket boundary scores deterministically across re-runs of the same fetch.
+
 ---
 
 ## Golden rules
