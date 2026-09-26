@@ -36,7 +36,7 @@ sentence.>
 people are best placed to answer>?
 ```
 
-### `@`-mention routing
+## `@`-mention routing
 
 The skill picks **2–3 maintainer handles** per comment from the
 roster cached in Step 0. The picking heuristic:

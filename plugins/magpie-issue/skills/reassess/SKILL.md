@@ -87,7 +87,6 @@ is in. `/magpie-setup verify` is the full diagnostic.
 
 <!-- END MAGPIE PREFLIGHT -->
 
-
 Use this skill for a **campaign** over a bounded set of resolved or
 end-of-life `<issue-tracker>` issues: pick the candidate set, run
 each reproducer via [`issue-reproducer`](../reproducer/SKILL.md)

@@ -147,6 +147,7 @@ See [Prerequisites for running the agent skills](../../../../docs/quick-start/pr
 ---
 
 ## Inputs
+
 | Selector | Resolves to |
 |---|---|
 | `triage` (default) | every open issue in the project's default-triage pool, per the default-pool query in `<project-config>/issue-tracker-config.md` |
@@ -155,6 +156,7 @@ See [Prerequisites for running the agent skills](../../../../docs/quick-start/pr
 | `triage updated-since:<date>` | issues with new activity since the date (ISO 8601) |
 | `triage reporter:<id>` | issues filed by a specific reporter — useful for bulk-from-one-reporter reviews |
 | `--retriage` (flag) | force-include trackers that have already been triaged but where new comment activity warrants a fresh proposal. Combine with a concrete selector above; bare `--retriage` is a hard error. |
+
 No selector defaults to `triage`; bare `--retriage` — stop and ask which issues to re-triage.
 
 ---
@@ -362,6 +364,7 @@ itself before presenting it.
 ---
 
 ## Failure modes
+
 | Symptom | Likely cause | Remediation |
 |---|---|---|
 | Selector resolves to zero issues | Pool empty or selector mismatched | Surface and stop; do not fall back to a wider selector |

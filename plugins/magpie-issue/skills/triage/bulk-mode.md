@@ -24,4 +24,3 @@ aggregates.
   inconsistent reads slip past.)
 - The orchestrator runs the apply phase (Step 6) sequentially,
   one comment per issue, never in parallel.
-
