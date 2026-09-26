@@ -77,7 +77,7 @@ PROJECT_CACHE_TTL_SECONDS = 900
 class Finding:
     """One thing the agent has to act on, and where the rules for it live."""
 
-    scope: str  # "project" | "skill" | "end-of-run"
+    scope: str  # "project" | "skill" | "machine" | "end-of-run"
     code: str
     section: str  # the `preflight-detail.md` section to read
     facts: dict[str, object] = field(default_factory=dict)
@@ -315,6 +315,63 @@ def verify_findings(root: Path, interval_days: int, today: date | None = None) -
             "verify-overdue",
             "step-10",
             {"days_since": age, "interval_days": interval_days},
+        )
+    ]
+
+
+# --- machine scope: the isolated (secure agent) setup -------------------------------
+
+
+def isolated_setup_findings(
+    root: Path,
+    interval_days: int | None = None,
+    today: date | None = None,
+) -> list[Finding]:
+    """Whether to propose `setup-isolated-setup-update` on this machine.
+
+    One finding at most: a changed fingerprint says everything the timer
+    would, so the timer is not reported beside it.
+    """
+    from . import isolated
+
+    raw = _read_stamp(root).get(isolated.BLOCK)
+    block: dict[str, object] = raw if isinstance(raw, dict) else {}
+    if block.get("enabled") is False:
+        return []
+    if not block and not isolated.sandbox_enabled_in_project(root):
+        # Not used here, or not known to be: nobody is told about a setup
+        # they never installed.
+        return []
+
+    fingerprint = isolated.current(root)
+    recorded = block.get("fingerprint")
+    if fingerprint and recorded != fingerprint and block.get("acknowledged") != fingerprint:
+        return [
+            Finding(
+                "machine",
+                "isolated-setup-changed",
+                "step-11",
+                {"recorded": recorded, "current": fingerprint},
+            )
+        ]
+
+    interval = isolated.interval_days(root) if interval_days is None else interval_days
+    if interval <= 0:
+        return []
+    known = [
+        day
+        for day in (_parse_day(block.get("updated_at")), _parse_day(block.get("reminded_at")))
+        if day is not None
+    ]
+    age = ((today or date.today()) - max(known)).days if known else None
+    if age is not None and age < interval:
+        return []
+    return [
+        Finding(
+            "machine",
+            "isolated-setup-update-due",
+            "step-11",
+            {"days_since": age, "interval_days": interval},
         )
     ]
 

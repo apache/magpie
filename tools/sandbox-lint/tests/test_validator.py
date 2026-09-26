@@ -94,6 +94,27 @@ def test_baseline_asks_on_gh_writes_not_on_reads(baseline: dict[str, Any]) -> No
     assert "Bash(gh pr view *)" in baseline["permissions"]["allow"]
 
 
+VETTED_OP_READ = "~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/*/tools/vetted-ops vetted-op-read *"
+
+
+@pytest.mark.parametrize("form", ["uv run --project", "uvx --from"])
+def test_baseline_allows_and_excludes_every_vetted_op_read_form(baseline: dict[str, Any], form: str) -> None:
+    # Skills invoke the read dispatcher with `uv run --project`, read-only
+    # gatherer agents with `uvx --from`. A rule for only one form leaves every
+    # call in the other form prompting (a bulk sync makes hundreds of them) or
+    # failing inside the sandbox, where it cannot reach gh or the network.
+    assert f"{form} {VETTED_OP_READ}" in baseline["sandbox"]["excludedCommands"]
+    assert f"Bash({form} {VETTED_OP_READ})" in baseline["permissions"]["allow"]
+
+
+def test_baseline_never_allows_the_vetted_op_write_dispatcher(baseline: dict[str, Any]) -> None:
+    # `--caller` is an argv string the caller picks, so an allow on the write
+    # dispatcher would grant the whole catalogue. It stays on ask.
+    write = VETTED_OP_READ.replace("vetted-op-read", "vetted-op")
+    for form in ("uv run --project", "uvx --from"):
+        assert f"Bash({form} {write})" not in baseline["permissions"]["allow"]
+
+
 def test_catch_all_gh_ask_rule_is_an_invariant_error(baseline: dict[str, Any]) -> None:
     weakened = copy.deepcopy(baseline)
     weakened["permissions"]["ask"].append("Bash(gh *)")

@@ -19,7 +19,18 @@ from pathlib import Path
 
 import pytest
 
-from skill_token_count import END, START, main, prepare_tokenizer, render, replace_block, vocabulary_path
+from skill_token_count import (
+    FIELD,
+    main,
+    measure,
+    offline_encoding,
+    prepare_tokenizer,
+    split_stamp,
+    stamp,
+    vocabulary_path,
+)
+
+SKILL = "---\nname: hello\nsurface_hash: sha256:0123456789abcdef\nlicense: Apache-2.0\n---\nhello world\n"
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -31,89 +42,103 @@ def installed_tokenizer() -> None:
 @pytest.fixture
 def repo(tmp_path: Path) -> Path:
     (tmp_path / "skills/hello").mkdir(parents=True)
-    (tmp_path / "skills/hello/SKILL.md").write_text("hello world", encoding="utf-8")
-    (tmp_path / "docs").mkdir()
-    (tmp_path / "docs/mode-economics.md").write_text(f"Before\n{START}\n{END}\nAfter\n", encoding="utf-8")
+    (tmp_path / "skills/hello/SKILL.md").write_text(SKILL, encoding="utf-8")
     return tmp_path
 
 
-def test_known_token_count_and_coverage(repo: Path) -> None:
-    block = render(repo)
-    assert "[hello](../skills/hello/SKILL.md) | 2 |" in block
-    assert "1 of 1" in block
-    assert "cl100k_base" in block
+def stamped_value(repo: Path, name: str = "hello") -> str | None:
+    return split_stamp((repo / f"skills/{name}/SKILL.md").read_text(encoding="utf-8"))[1]
 
 
-def test_check_never_writes_and_write_preserves_surroundings(repo: Path) -> None:
-    target = repo / "docs/mode-economics.md"
+def test_check_never_writes_and_write_is_idempotent(repo: Path) -> None:
+    target = repo / "skills/hello/SKILL.md"
     original = target.read_bytes()
     assert main(["--root", str(repo)]) == 1
     assert target.read_bytes() == original
     assert main(["--root", str(repo), "--write"]) == 0
-    generated = target.read_bytes()
-    assert generated.startswith(b"Before\n") and generated.endswith(b"\nAfter\n")
+    stamped = target.read_bytes()
     assert main(["--root", str(repo), "--check"]) == 0
     assert main(["--root", str(repo), "--write"]) == 0
-    assert target.read_bytes() == generated
+    assert target.read_bytes() == stamped
 
 
-@pytest.mark.parametrize("change", ["edit", "add", "delete", "rename"])
-def test_source_drift(repo: Path, change: str) -> None:
-    other = repo / "skills/other"
-    other.mkdir()
-    (other / "SKILL.md").write_text("another skill", encoding="utf-8")
+def test_stamp_excludes_itself_so_writing_never_changes_the_count(repo: Path) -> None:
+    encoder = offline_encoding()
+    before = measure(SKILL, encoder)
+    assert main(["--root", str(repo), "--write"]) == 0
+    after = (repo / "skills/hello/SKILL.md").read_text(encoding="utf-8")
+    assert f"{FIELD}: {before}" in after
+    assert measure(after, encoder) == before
+
+
+def test_stamp_sits_after_license_so_surface_hash_never_reorders_it() -> None:
+    # surface_hash anchors immediately *before* license:; the stamp anchors
+    # immediately *after*. Neither tool then moves the other's line.
+    lines = stamp(SKILL, 7).split("\n")
+    assert lines.index("license: Apache-2.0") == lines.index("surface_hash: sha256:0123456789abcdef") + 1
+    assert lines.index(f"{FIELD}: 7") == lines.index("license: Apache-2.0") + 1
+
+
+def test_restamp_replaces_rather_than_duplicates() -> None:
+    twice = stamp(stamp(SKILL, 7), 9)
+    assert twice.count(f"{FIELD}:") == 1 and f"{FIELD}: 9" in twice
+
+
+@pytest.mark.parametrize("change", ["edit", "tamper", "remove"])
+def test_drift_is_detected(repo: Path, change: str) -> None:
     assert main(["--root", str(repo), "--write"]) == 0
     target = repo / "skills/hello/SKILL.md"
+    text = target.read_text(encoding="utf-8")
     if change == "edit":
-        # Same token count, different content must still invalidate provenance.
-        target.write_text("hello earth", encoding="utf-8")
-    elif change == "add":
-        (repo / "skills/new").mkdir()
-        (repo / "skills/new/SKILL.md").write_text("new", encoding="utf-8")
-    elif change == "delete":
-        target.unlink()
+        target.write_text(text.replace("hello world", "hello brave new world"), encoding="utf-8")
+    elif change == "tamper":
+        target.write_text(text.replace(f"{FIELD}: {stamped_value(repo)}", f"{FIELD}: 999"), encoding="utf-8")
     else:
-        target.parent.rename(repo / "skills/renamed")
+        target.write_text(split_stamp(text)[0], encoding="utf-8")
     assert main(["--root", str(repo), "--check"]) == 1
 
 
-def test_no_git_or_clock_dependency_and_line_endings(repo: Path) -> None:
+def test_editing_one_skill_never_touches_another(repo: Path) -> None:
+    # The point of per-file stamps: a PR that edits one skill writes one file.
+    (repo / "skills/other").mkdir()
+    (repo / "skills/other/SKILL.md").write_text(SKILL.replace("hello", "other"), encoding="utf-8")
+    assert main(["--root", str(repo), "--write"]) == 0
+    other = (repo / "skills/other/SKILL.md").read_bytes()
     target = repo / "skills/hello/SKILL.md"
-    target.write_bytes("Olá\n世界\n<|endoftext|>\n".encode())
-    first = render(repo)
-    target.write_bytes(target.read_bytes().replace(b"\n", b"\r\n"))
-    (repo / "unrelated.txt").write_text("unrelated", encoding="utf-8")
-    assert render(repo) == first
+    target.write_text(target.read_text(encoding="utf-8").replace("hello world", "changed"), encoding="utf-8")
+    assert main(["--root", str(repo), "--write"]) == 0
+    assert (repo / "skills/other/SKILL.md").read_bytes() == other
 
 
-def test_frontmatter_and_comments_are_measured(repo: Path) -> None:
-    before = render(repo)
+def test_line_endings_do_not_change_the_count(repo: Path) -> None:
+    encoder = offline_encoding()
+    text = SKILL.replace("hello world", "Olá\n世界\n<|endoftext|>")
+    assert measure(text, encoder) == measure(text.replace("\n", "\r\n").replace("\r\n", "\n"), encoder)
+
+
+def test_table_lists_every_skill_without_writing(repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
     target = repo / "skills/hello/SKILL.md"
-    target.write_text("---\nname: hello\n---\n<!-- comment -->\nhello world", encoding="utf-8")
-    assert render(repo) != before
+    original = target.read_bytes()
+    assert main(["--root", str(repo), "--table"]) == 0
+    out = capsys.readouterr().out
+    assert "[hello](../skills/hello/SKILL.md) |" in out and "cl100k_base" in out
+    assert target.read_bytes() == original
 
 
 def test_redirects_and_harness_copies_are_not_skills(repo: Path) -> None:
-    before = render(repo)
+    assert main(["--root", str(repo), "--write"]) == 0
     (repo / "skills/external").mkdir()
     (repo / "skills/external/source.md").write_text("redirect", encoding="utf-8")
     (repo / ".agents/skills").mkdir(parents=True)
     (repo / ".agents/skills/hello").symlink_to(repo / "skills/hello", target_is_directory=True)
-    assert render(repo) == before
-
-
-@pytest.mark.parametrize("document", ["missing", f"{START}{START}{END}", f"{END}{START}"])
-def test_invalid_markers_fail_without_writing(repo: Path, document: str) -> None:
-    target = repo / "docs/mode-economics.md"
-    target.write_text(document, encoding="utf-8")
-    assert main(["--root", str(repo), "--write"]) == 2
-    assert target.read_text(encoding="utf-8") == document
+    assert main(["--root", str(repo), "--check"]) == 0
 
 
 def test_symlinked_file_is_rejected(repo: Path) -> None:
     target = repo / "skills/hello/SKILL.md"
+    (repo / "elsewhere.md").write_text(SKILL, encoding="utf-8")
     target.unlink()
-    target.symlink_to(repo / "docs/mode-economics.md")
+    target.symlink_to(repo / "elsewhere.md")
     assert main(["--root", str(repo), "--write"]) == 2
 
 
@@ -122,15 +147,9 @@ def test_empty_catalogue_is_error(repo: Path) -> None:
     assert main(["--root", str(repo), "--write"]) == 2
 
 
-def test_manual_table_tampering_is_detected(repo: Path) -> None:
-    assert main(["--root", str(repo), "--write"]) == 0
-    target = repo / "docs/mode-economics.md"
-    target.write_text(target.read_text().replace("| 2 |", "| 999 |"), encoding="utf-8")
-    assert main(["--root", str(repo)]) == 1
-
-
-def test_only_one_block_is_replaced() -> None:
-    assert replace_block(f"prefix{START}old{END}suffix", f"{START}new{END}") == f"prefix{START}new{END}suffix"
+def test_skill_without_license_cannot_be_stamped(repo: Path) -> None:
+    (repo / "skills/hello/SKILL.md").write_text("---\nname: hello\n---\nbody\n", encoding="utf-8")
+    assert main(["--root", str(repo), "--write"]) == 2
 
 
 @pytest.mark.parametrize("corrupt", [False, True])
@@ -157,36 +176,11 @@ def test_cold_or_corrupt_cache_fails_before_network(
     assert "--prepare-tokenizer" in capsys.readouterr().err
 
 
-def test_prepared_cache_works_in_fresh_offline_process(repo: Path) -> None:
-    import subprocess
-    import sys
-
-    script = """
-from pathlib import Path
-from unittest.mock import patch
-from skill_token_count import render
-import sys
-with patch('requests.get', side_effect=AssertionError('unexpected network')):
-    print(render(Path(sys.argv[1])))
-"""
-    result = subprocess.run([sys.executable, "-c", script, str(repo)], capture_output=True, text=True)
-    assert result.returncode == 0, result.stderr
-    assert "| 2 |" in result.stdout
-
-
-def test_measurement_date_is_preserved_until_content_changes(repo: Path) -> None:
-    import re
-
-    assert main(["--root", str(repo), "--write"]) == 0
-    target = repo / "docs/mode-economics.md"
-    dated = re.sub(r"Measured on \(UTC\): .*?\.", "Measured on (UTC): 2020-01-01.", target.read_text())
-    target.write_text(dated, encoding="utf-8")
-    assert main(["--root", str(repo), "--check"]) == 0
-    assert main(["--root", str(repo), "--write"]) == 0
-    assert target.read_text() == dated
-    (repo / "skills/hello/SKILL.md").write_text("changed content", encoding="utf-8")
-    assert main(["--root", str(repo), "--write"]) == 0
-    assert "2020-01-01" not in target.read_text()
+def test_repository_skills_are_all_stamped() -> None:
+    root = Path(__file__).resolve().parents[3]
+    if not (root / ".github/workflows/skill-token-count.yml").is_file():
+        pytest.skip("Not the framework checkout")
+    assert main(["--root", str(root), "--check"]) == 0
 
 
 def test_ci_path_filter_covers_every_measured_skill() -> None:

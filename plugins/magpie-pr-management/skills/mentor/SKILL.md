@@ -7,28 +7,24 @@ mode: Mentoring
 requires_config:
   - project.md
 description: |
-  Draft a teaching-register comment on a single GitHub issue
-  or PR thread on the configured `<upstream>` repo, aimed at a
-  contributor who is missing repo context the maintainer would
-  otherwise have to spell out. The skill reads the thread,
-  decides whether a mentoring intervention is warranted,
-  drafts one comment per the project's tone guide and
-  convention pointers, and waits for explicit maintainer
-  confirmation before posting via `gh`. Escalates to the
-  configured maintainer team on the four hand-off triggers.
+  Draft a teaching-register comment on a GitHub issue or PR thread on the
+  configured `<upstream>` repo, aimed at a contributor missing context the
+  maintainer would spell out. Reads the thread, decides
+  whether an intervention is warranted, drafts one comment per the tone
+  guide and convention pointers, and waits for explicit confirmation before
+  posting via `gh`. Escalates on the four hand-off triggers.
 when_to_use: |
-  Invoke when a maintainer says "mentor PR NNN", "help the
-  reporter on issue NNN", "draft a clarifying comment for
-  NNN", "explain the convention to this contributor on NNN",
-  or chains this skill after `pr-management-triage` flags a PR
-  as "first contributor, missing repro / convention". Skip
-  when a PR is already mid-review with a maintainer, when the
-  thread is security-sensitive, or when the maintainer has
-  *deliberately* not replied yet — ask before invoking.
+  Invoke on "mentor PR NNN", "help the reporter on issue NNN", "draft a
+  clarifying comment for NNN", or "explain the convention to this
+  contributor on NNN"; also after `pr-management-triage` flags a "first
+  contributor, missing repro / convention" PR. Skip when a PR is mid-review
+  with a maintainer, the thread is security-sensitive, or the maintainer
+  has *deliberately* not replied yet — ask before invoking.
 argument-hint: "[issue-or-pr-number]"
 capability: capability:review
 surface_hash: sha256:3c380e6ecb0fb4c8
 license: Apache-2.0
+measured_tokens: 2940
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->

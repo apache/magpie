@@ -22,15 +22,15 @@ build-backend = "hatchling.build"
 [project]
 name = "skill-token-count"
 version = "0.1.0"
-description = "Measure skill file tokens and check generated documentation."
+description = "Measure skill file tokens and stamp them into each SKILL.md."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "Apache-2.0" }
-# Pinned exactly, and bumping it is not a routine dependency update: the
-# generated block in docs/mode-economics.md records the tokenizer version it
-# measured with, so `skill-token-count --check` fails the moment this moves.
+# Pinned exactly, and bumping it is not a routine dependency update: every
+# skill's `measured_tokens:` stamp was measured with this version, so a bump
+# that changes tokenization fails `skill-token-count --check` on every skill.
 # A bump PR must run `uv run --project tools/skill-token-count
-# skill-token-count --write` and carry the regenerated file, or it reddens the
+# skill-token-count --write` and carry the restamped skills, or it reddens the
 # `measure` job on main and on every branch cut from it. This happened once
 # already — see #1240.
 dependencies = ["tiktoken==0.14.0"]

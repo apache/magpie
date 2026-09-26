@@ -14,6 +14,29 @@ calls defeats the whole rate-limit strategy of this skill.
 
 ---
 
+## Step 0 — Pre-flight check
+
+Run the checks in [`prerequisites.md`](prerequisites.md) before
+touching any PR:
+
+1. `gh auth status` must return authenticated, and the active
+   account must be a collaborator on `<repo>`. (Without
+   collaborator access the mutations below — label-add,
+   convert-to-draft, close, approve-workflow — will silently
+   fail.)
+2. The expected labels (`ready for maintainer review`,
+   `closed because of multiple quality violations`,
+   `suspicious changes detected`) must exist on `<repo>`;
+   missing ones degrade to "post the comment, skip the label"
+   with a warning.
+3. Initialise (or read) the session cache at
+   `/tmp/pr-management-triage-cache-<repo-slug>.json` (see
+   [`fetch-and-batch.md#session-cache`](fetch-and-batch.md)).
+
+A failure of step 1 is a **stop** — surface it and ask the
+maintainer to run `gh auth login`. Steps 2 and 3 degrade
+gracefully with warnings.
+
 ## 1. `gh` CLI authenticated (blocking)
 
 ```bash
@@ -38,7 +61,7 @@ them when the token expires.
 
 ### `gist` scope (non-blocking)
 
-[Step 6b](SKILL.md#step-6b--propose-session-history-gist-update)
+[Step 6b](session-history.md#step-6b--propose-session-history-gist-update)
 (session-history gist persistence) needs the `gist` scope on
 the `gh` token. If the scope is missing, the rest of the skill
 runs unchanged; only Step 6b is skipped with a one-line notice.
@@ -185,3 +208,46 @@ removed from the repo mid-sweep — stop the current group, tell
 the maintainer, and print the summary for what *was* done this
 session. Do not keep trying; retries on a permissions error
 burn GraphQL budget without progress.
+
+---
+
+## Adopter overrides
+
+Before running the default behaviour documented
+below, this skill consults
+[`.apache-magpie-local/pr-management-triage.md`](../../../../docs/setup/agentic-overrides.md) (personal, gitignored) and [`.apache-magpie-overrides/pr-management-triage.md`](../../../../docs/setup/agentic-overrides.md) (committed, project-wide)
+in the adopter repo if it exists, and applies any
+agent-readable overrides it finds. See
+[`docs/setup/agentic-overrides.md`](../../../../docs/setup/agentic-overrides.md)
+for the contract — what overrides may contain, hard
+rules, the reconciliation flow on framework upgrade,
+upstreaming guidance.
+
+**Hard rule**: agents NEVER modify the snapshot under
+`<adopter-repo>/.apache-magpie/`. Local modifications
+go in the override file. Framework changes go via PR
+to `apache/magpie`.
+
+---
+
+## Snapshot drift
+
+Also at the top of every run, this skill compares the
+gitignored `.apache-magpie.local.lock` (per-machine
+fetch) against the committed `.apache-magpie.lock`
+(the project pin). On mismatch the skill surfaces the
+gap and proposes
+[`setup upgrade`](../../../magpie-setup/skills/setup/upgrade.md).
+The proposal is non-blocking — the user may defer if
+they want to run with the local snapshot for now. See
+[`docs/setup/install-recipes.md` § Subsequent runs and drift detection](../../../../docs/quick-start/other-install-methods.md#subsequent-runs-and-drift-detection)
+for the full flow.
+
+Drift severity:
+
+- **method or URL differ** → ✗ full re-install needed.
+- **ref differs** (project bumped tag, or `git-branch`
+  local is behind upstream tip) → ⚠ sync needed.
+- **`svn-zip` SHA-512 mismatches the committed
+  anchor** → ✗ security-flagged; investigate before
+  upgrading.

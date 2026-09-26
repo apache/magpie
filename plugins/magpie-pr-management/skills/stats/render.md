@@ -697,3 +697,55 @@ Use `show_lines=True` and `show_footer=True` so the footer mirrors the header on
 - **No emoji in HTML body text** outside of recommendation icons and the health-rating label. The icons are functional (priority signals); free-text emoji is noise.
 - **No opinions.** The dashboard surfaces deterministic numbers; interpretation belongs to the maintainer reading them. Don't let the renderer add "queue is in good shape" or "need to close stale drafts" sentences. The recommendation panel's `detail` strings explain the *trigger* and the *action* — not editorial.
 - **No PR-level drill-in** in any rendered output. If the maintainer wants to zoom in on a specific area, the follow-up is `pr-management-triage label:area:<X>`, not a stats continuation. Recommendations encode this discipline by always pointing at another skill, never embedding PR numbers.
+---
+
+## Golden rules
+
+**Golden rule 4 — include a legend with every render.** The tables are dense (15+ columns on the still-open table). Always print a short legend after the tables explaining the columns — `Contrib.` = non-collaborator, `Responded` = author replied after the triage comment, `Drafted by triager` = PR converted to draft by the viewer, etc. Nobody remembers column abbreviations in isolation. The dashboard's hero cards and recommendation panel are themselves self-explanatory and don't need the legend; the legend is for the collapsed "Detailed tables" section.
+
+**Golden rule 5 — state the input scope up front.** Before rendering, print one line summarising what the stats cover: repo name, total open PR count, closed-since cutoff date, and viewer login. The numbers only make sense in context.
+
+**Golden rule 6 — recommendations are deterministic, not opinions.** Every action surfaced in the "What needs attention" panel comes from a fixed rule in [`render.md#recommendation-rules`](render.md#recommendation-rules). The skill never editorialises ("queue is doing well", "you should focus on X") — it surfaces the rule's trigger and the suggested next-step command. The maintainer reads the trigger and decides; the skill never decides for them. New rules are added by editing the rules table, not by adding free-text inside the renderer.
+
+**Golden rule 7 — actions link to other skills, never mutate.** Every recommendation's `action` field is the *exact* slash-command the maintainer can paste to do the work — almost always `pr-management-triage`, `pr-management-code-review`, or a focused variant with a label/PR-number filter. The stats skill itself remains pure-read (Golden rule 1); the dashboard makes downstream skills *one paste away* from running.
+
+**Golden rule 8 — render ALL sections, never silently skip.** The dashboard layout in [`render.md`](render.md) declares 11 sections (Title context, Hero cards, Recommendations, Trends-over-time line charts, Closure velocity, Opened-vs-closed momentum, Ready-for-review trend by top areas, Closed-by-triage-reason, Pressure by area, CODEOWNERS responsibility, Triage funnel, Triager activity, Detailed tables, Legend). The agent MUST render every section. If a section's data is genuinely unavailable (e.g. no `.github/CODEOWNERS` present), render a stub with a one-line explanation of why — never omit a section silently. A "compact" rendering that drops line charts or the CODEOWNERS table is **not** an acceptable simplification — the maintainer asked for the dashboard, the dashboard is the full set of panels. The reference implementation in [`tools/pr-management-stats/reference.py`](../../../../tools/pr-management-stats/reference.py) encodes the canonical fetch + classify contract; the agent's render MUST be consistent with what that script produces.
+
+---
+
+## Step 6 — Render dashboard
+
+Render the maintainer dashboard per the layout in [`render.md#dashboard-layout`](render.md#dashboard-layout):
+
+1. **Context line** — repo, open count, cutoff, viewer, timestamp.
+2. **Hero cards (4)** — health rating, total open, ready count, untriaged-non-draft count.
+3. **What needs attention** — recommendation list from Step 5a.
+3b. **Trends over time** — 5 inline-SVG line charts (open backlog, PRs opened by author class, ready-queue cumulative, triage velocity, triage coverage rate). Each chart sits above a precise per-week table.
+4. **Closure velocity** — weekly line chart + stacked-bar table from Step 5b.
+5. **Opened vs closed momentum** — line chart from Step 5c.
+6. **Ready-for-review trend by top areas** — multi-line chart from Step 5d.
+7. **Closed by triage reason** — line chart + stacked-bar table from Step 5e.
+8. **Pressure by area** — top areas from Step 5f.
+8b. **Ready-for-review queue by CODEOWNER** — per-owner Ready + Waiting-for-author table (skip if `.github/CODEOWNERS` absent). See [`aggregate.md#ready-for-review-queue-by-codeowner`](aggregate.md#ready-for-review-queue-by-codeowner).
+9. **Triage funnel** — 5-column hero grid: Ready / Responded / Waiting (AI-only) / Waiting (manual maintainer response) / Not yet triaged. The "Waiting" cards are mutually exclusive — see [`classify.md#waiting-sub-states--ai-only-vs-maintainer-response`](classify.md#waiting-sub-states--ai-only-vs-maintainer-response).
+9b. **Triager activity** — per-maintainer per-week PR-engagement counts.
+10. **Detailed tables** (collapsed by default):
+    1. **Triaged PRs — Final State since `<cutoff>`** — one row per area where `Triaged Total > 0`.
+    2. **Triaged PRs — Still Open** — one row per area where `Total > 0`, plus the `TOTAL` row.
+11. **Legend** — verbose explanation of every colour, column abbreviation, and computed metric on the dashboard.
+
+The dashboard is **HTML by default** so the colour-coded hero cards, action priority bars, and velocity bars render correctly. A Markdown fallback (and a Rich terminal-tables variant for the detailed-tables section only) is produced when the maintainer passes `markdown` or `tables-only`. See [`render.md`](render.md) for the full layout, the colour scheme, and the recommendation rule definitions.
+
+Two analytic panels are **required** in addition to the eleven above and
+are specified in [`render.md`](render.md):
+
+- **Ready-for-review queue split (by why-waiting)** — the `ready` queue
+  broken into never-reviewed / discussed-no-decision / changes-requested /
+  approved, as 4 coloured hero cards plus an age timeline (oldest bucket on
+  the left). See [`render.md#ready-for-review-queue-split-by-why-waiting`](render.md#ready-for-review-queue-split-by-why-waiting).
+- **Drafts & closes attribution by person** — who does the
+  draft-conversions and closes, triage-action (actor ≠ author) vs
+  author-self, with per-maintainer shares; counted from timeline events,
+  bots/backports excluded. See [`render.md#drafts--closes-attribution-by-person`](render.md#drafts--closes-attribution-by-person).
+
+---

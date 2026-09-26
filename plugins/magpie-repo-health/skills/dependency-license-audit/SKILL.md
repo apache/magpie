@@ -25,6 +25,7 @@ argument-hint: "[--manager pip|npm|cargo|maven|gradle|trivy] [--policy asf|allow
 capability: capability:triage
 surface_hash: sha256:a04e73ccb6484b03
 license: Apache-2.0
+measured_tokens: 5244
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0

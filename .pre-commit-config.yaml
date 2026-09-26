@@ -187,7 +187,7 @@ repos:
   # .gitignore inside `.venv`, so a synced workspace stays out of the
   # walk: it covers the same files the list did.
   - repo: https://github.com/crate-ci/typos
-    rev: v1.50.1
+    rev: v1.50.2
     hooks:
       - id: typos
         name: typos
@@ -375,6 +375,19 @@ repos:
         entry: python3 tools/dev/skill-surface-hash.py --fix
         files: ^(skills/[^/]+/[^/]+\.md|plugins/magpie-[^/]+/skills/[^/]+/[^/]+\.md)$
         pass_filenames: false
+  # The isolated-setup fingerprint shipped inside the pre-flight checker.
+  # A marketplace install has no framework source to hash, so the checker
+  # compares against this constant to notice that an upgrade changed the
+  # secure-setup files and propose `setup-isolated-setup-update`. `files:`
+  # mirrors `SOURCES` in `setup_preflight/isolated.py`.
+  - repo: local
+    hooks:
+      - id: isolated-setup-fingerprint
+        name: isolated-setup-fingerprint (secure-setup fingerprint in setup-preflight)
+        language: system
+        entry: env PYTHONPATH=tools/setup-preflight/src python3 -m setup_preflight.isolated write-constant
+        files: ^(\.claude/settings\.json|tools/agent-guard/src/.*|tools/agent-isolation/.*|tools/container-gateway/src/.*|tools/setup-preflight/src/setup_preflight/isolated(_fingerprint)?\.py)$
+        pass_filenames: false
   # Cross-file near-duplicate prose gate: fails on a paragraph pasted from
   # one scoped file into another instead of being pulled into a shared
   # block. Wired only over the setup-family surface the shared-block
@@ -400,10 +413,10 @@ repos:
   - repo: local
     hooks:
       - id: skill-token-count
-        name: Check measured skill tokens in docs/mode-economics.md
+        name: Check measured_tokens stamps in SKILL.md frontmatter
         language: system
         entry: uv run --project tools/skill-token-count skill-token-count --check
-        files: ^(skills/.*/SKILL\.md|plugins/magpie-[^/]+/skills/.*/SKILL\.md|tools/dev/preflight-block\.md|tools/skill-token-count/.*|docs/mode-economics\.md|uv\.lock|\.pre-commit-config\.yaml)$
+        files: ^(skills/.*/SKILL\.md|plugins/magpie-[^/]+/skills/.*/SKILL\.md|tools/dev/preflight-block\.md|tools/skill-token-count/.*|uv\.lock|\.pre-commit-config\.yaml)$
         pass_filenames: false
   # Quick-start screenshot set. Three lists have to agree — the harnesses
   # `capture-screenshot.sh` offers, the ecosystem manifests that make a harness

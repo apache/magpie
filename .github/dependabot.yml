@@ -83,10 +83,10 @@ updates:
       semver-minor-days: 7
       semver-patch-days: 7
     groups:
-      # `tiktoken` is separated from the batch deliberately. The generated
-      # block in docs/mode-economics.md records the tokenizer version it
-      # measured with, so a tiktoken bump fails `skill-token-count --check`
-      # until the file is regenerated in the same PR. Grouped under `*` it
+      # `tiktoken` is separated from the batch deliberately. Every skill's
+      # `measured_tokens:` stamp was measured with the pinned version, so a
+      # tiktoken bump that changes tokenization fails `skill-token-count
+      # --check` until the skills are restamped in the same PR. Grouped under `*` it
       # arrives buried among unrelated bumps and the coupling is invisible;
       # on its own the PR title says what it is. See #1240, where it reddened
       # main and every branch cut from it.

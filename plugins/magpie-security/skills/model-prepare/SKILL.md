@@ -30,6 +30,7 @@ argument-hint: "[repo-or-project]"
 capability: capability:authoring
 surface_hash: sha256:db4f1e33c6b3fab3
 license: Apache-2.0
+measured_tokens: 4684
 ---
 
 # Security model prepare

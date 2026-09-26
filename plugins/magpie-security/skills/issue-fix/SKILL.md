@@ -31,6 +31,7 @@ capability:
   - capability:resolve
 surface_hash: sha256:2a6de2a57fe22095
 license: Apache-2.0
+measured_tokens: 12976
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):

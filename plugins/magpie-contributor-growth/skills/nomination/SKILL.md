@@ -27,6 +27,7 @@ argument-hint: "<github-handle> [window:Nm] [target:committer|pmc]"
 capability: capability:stats
 surface_hash: sha256:c4cdfe4477057b94
 license: Apache-2.0
+measured_tokens: 4756
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0

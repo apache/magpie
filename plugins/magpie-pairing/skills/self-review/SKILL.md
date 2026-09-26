@@ -21,6 +21,7 @@ argument-hint: "[base:<ref>] [staged] [path:<glob>]"
 capability: capability:review
 surface_hash: sha256:eab5db00307d2dd7
 license: Apache-2.0
+measured_tokens: 3512
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->

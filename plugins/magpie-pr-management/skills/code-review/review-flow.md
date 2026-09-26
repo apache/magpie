@@ -24,7 +24,7 @@ The flow uses three roles for things the skill does:
 For each PR, **read** the per-PR data (already cached from the
 working-list fetch — re-fetch only if the head SHA changed since
 the working list was built; otherwise reuse) and **propose** a
-multi-line headline. Per Golden rule 10 in `SKILL.md`, the PR
+multi-line headline. Per Golden rule 10 (below), the PR
 number is always printed alongside its full URL so the
 maintainer can click straight through:
 
@@ -64,8 +64,8 @@ The headline is your at-a-glance frame. Below it, ask:
 
 If the maintainer hits `[Y]`:
 
-1. **Ask before opening the browser.** Per Golden rule 11 in
-   `SKILL.md`, do **not** auto-open anything. Prompt:
+1. **Ask before opening the browser.** Per Golden rule 11
+   (below), do **not** auto-open anything. Prompt:
 
    > *Open files view in browser? `[y]es / [N]o` (default no).*
 
@@ -994,3 +994,55 @@ longer the head SHA), the skill notes the divergence:
 Default is `[S]kip` unless the maintainer explicitly opts in
 — the prior approval still counts toward GitHub's
 `reviewDecision`.
+
+**Golden rule 10 — every PR number is rendered as its full
+URL.** A bare `#65981` is unclickable in most terminals; the
+maintainer cannot open it without retyping. Whenever this
+skill prints a PR identifier — in the headline, in a prompt,
+in the session summary, in error messages — the **full
+`https://github.com/<repo>/pull/<N>` URL is printed alongside
+the number** so that any URL-aware terminal (iTerm2, Kitty,
+GNOME Terminal, Windows Terminal, etc.) makes it clickable.
+The recommended format is one of:
+
+```text
+PR #65981 — https://github.com/<upstream>/pull/65981 — <title>
+```
+
+…or, in a multi-line headline, the URL on its own line so the
+title stays scannable:
+
+```text
+PR #65981 — <title>
+  https://github.com/<upstream>/pull/65981
+```
+
+Either is fine; the rule is that **the URL is always present**.
+Do not abbreviate to `<upstream>#65981` (that's
+GitHub-web-only auto-linking and is not clickable in a
+terminal). Do not compress to `gh pr view 65981` (that's a
+shell command, not a link). Always emit the full HTTPS URL.
+
+**Golden rule 11 — ask before opening the browser, and open
+the files tab.** When the maintainer says `[Y]es` at a PR's
+headline (Step 1 of [`review-flow.md`](review-flow.md)), the
+skill **prompts** before launching anything:
+
+> *Open files view in browser? `[y]es / [N]o` (default no).*
+
+The headline already carries the file-count and
+additions / deletions (`Files: N changed +X −Y`), so the
+maintainer has the size of the change in hand when deciding
+— don't re-render it. On `[y]`, the skill opens the PR's
+**files tab** (`https://github.com/<owner>/<repo>/pull/<N>/files`)
+via `xdg-open` / `open` / `start`, in the background. On any
+other reply, no browser action — the diff fetch (Step 2)
+proceeds either way.
+
+`gh pr view --web` is not used here: it always opens the
+conversation tab, but the files tab is the one that pairs
+naturally with the terminal-side line-comment workflow.
+
+The skill never opens drafts, already-merged PRs, or
+self-authored PRs (those are skipped before they reach the
+headline-confirm gate anyway).

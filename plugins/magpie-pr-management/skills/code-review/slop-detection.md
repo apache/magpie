@@ -276,3 +276,30 @@ Do not raise slop signals as findings inside the normal review. If the
 maintainer chose `[R]eview anyway`, they made a deliberate choice. The
 normal review covers the code; the slop detection covered the
 structural envelope.
+
+**Exception — slop-detection early exit.** The `[X]` action in
+[`slop-detection.md`](slop-detection.md) (close PR + lock
+conversation) is an explicit, deliberate carve-out for structurally
+non-genuine PRs detected at Step 2.5. This action is only surfaced
+after two or more hard signals fire; it is never available during a
+normal review flow. The maintainer must confirm before execution —
+the skill never auto-closes. The decision to add this action here
+rather than in `pr-management-triage` is deliberate: slop detection
+fires in the middle of a review session and the `[X]` path must not
+require a context switch to a separate skill.
+
+**Golden rule 12 — fast-exit on crystal-clear slop; do not spend a
+full review on structurally non-genuine PRs.** After fetching the
+diff (Step 2), run the structural scan in
+[`slop-detection.md`](slop-detection.md). If two or more hard
+signals fire, or one hard signal plus three or more soft signals fire
+(note: H3+H4 together count as one hard signal for threshold purposes
+when no other hard signal is present — see the Threshold section of
+[`slop-detection.md`](slop-detection.md)),
+**stop the review and present the slop report** to the maintainer
+before spending tokens on a line-by-line analysis. Offer: post a
+contribution-guidelines warning comment, close+lock the PR and show
+the GitHub report link, review anyway, or skip. The maintainer
+decides — the skill never auto-closes or auto-comments. If the
+maintainer picks `[R]eview anyway`, the normal review resumes from
+Step 3 with no changes to findings or disposition.

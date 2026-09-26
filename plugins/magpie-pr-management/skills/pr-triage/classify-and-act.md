@@ -32,6 +32,37 @@ populated by the single batched GraphQL query in
 [`fetch-and-batch.md`](fetch-and-batch.md). No network calls, no
 prompts, no writes.
 
+## Step 2 — Classify the entire fetched set
+
+Run **every PR fetched in Step 1** through
+[`classify-and-act.md`](classify-and-act.md), once:
+
+1. Apply the [pre-filters](classify-and-act.md#pre-filters) (F1–F5c)
+   to drop collaborator PRs, bot accounts, fresh drafts,
+   already-marked-ready PRs without regression, and PRs with an
+   active maintainer conversation (72-hour author cooldown, an
+   unanswered maintainer-to-maintainer ping, or an unanswered
+   author question to a maintainer — ball in our court).
+2. Evaluate the [decision table](classify-and-act.md#decision-table)
+   top-to-bottom. The first matching row yields the
+   `(classification, action, reason)` tuple for that PR.
+3. For any PR that the table classifies as `passing` (rows 19,
+   20), the [Real-CI guard](classify-and-act.md#real-ci-guard)
+   must pass — otherwise re-route to `pending_workflow_approval`
+   (row 1) or `rebase` (row 16).
+
+Classification + action selection is a pure function of the data
+already fetched in Step 1. No extra network calls. No prompts.
+The full-set classification runs in a single pass over the
+in-memory list assembled in Step 1 — no pagination, no chunking.
+
+The output is a single list of `(pr, classification, action,
+reason)` tuples covering the entire queue, which the
+interaction loop then groups in Step 3. See
+[`rationale.md`](rationale.md) only when a decision needs prose
+context — borderline PR, contested rule, or when editing the
+table itself.
+
 ---
 
 ## Pre-filters
@@ -42,7 +73,7 @@ filter is skipped silently from the main triage flow.
 | # | Filter | Match condition |
 |---|---|---|
 | F1 | Author is collaborator/member/owner | `authorAssociation ∈ {OWNER, MEMBER, COLLABORATOR}` (override: `authors:all` or `authors:collaborators`) |
-| F2 | Author is a known bot | login is `dependabot`, `dependabot[bot]`, `renovate[bot]`, `github-actions`, `github-actions[bot]`, or matches `*[bot]`. Bot-authored **draft** PRs are handled separately by [`SKILL.md` Step 0.5](SKILL.md#step-05--promote-bot-authored-draft-prs) *before* this filter runs; F2 then drops the same logins from the main triage flow regardless of whether Step 0.5 promoted them. |
+| F2 | Author is a known bot | login is `dependabot`, `dependabot[bot]`, `renovate[bot]`, `github-actions`, `github-actions[bot]`, or matches `*[bot]`. Bot-authored **draft** PRs are handled separately by [`actions.md` Step 0.5](actions.md#step-05--promote-bot-authored-draft-prs) *before* this filter runs; F2 then drops the same logins from the main triage flow regardless of whether Step 0.5 promoted them. |
 | F3 | Draft and not stale | `isDraft == true` and any activity within the last 14 days. Stale-sweep classifications in [`stale-sweeps.md`](stale-sweeps.md) may still pull the PR back in. |
 | F4 | Already marked ready, no regression | `labels` contains `ready for maintainer review` AND CI green AND `mergeable != CONFLICTING` AND no unresolved **collaborator** threads (same collaborator-author qualifier as rows 19/20 / [`unresolved_threads_only`](#unresolved_threads_only) — contributor-author threads alone don't count as a regression for an already-ready PR). **Regression bypasses this filter** — any of: CI red, new conflict, or a new unresolved collaborator thread whose triggering event (failing check `startedAt`, conflict detection, thread `createdAt`) is *after* the label-add timestamp. The typical case is a contributor pushing a rebase or fixup commit to a ready-for-review PR that re-introduces deterministic failures, OR a maintainer leaving a new review thread post-label-add. PRs bypassing F4 fall through to the decision table normally; the cross-cutting [`strip-ready-on-downgrade` hard rule](#hard-rules-cross-cutting-the-table) ensures the label comes off if a `deterministic_flag` row fires. |
 | F5a | Recent collaborator feedback (author cooldown) | Take the **most recent item** across the three feedback sources, ordered newest-first by its own timestamp: general-issue comments (`comments(last:10)`, timestamp `createdAt`), review-thread comments (`reviewThreads.nodes.comments`, timestamp `createdAt`), and **submitted top-level reviews** (`latestReviews`, timestamp `submittedAt`, counted only when `body` is non-empty after stripping whitespace). F5a fires iff that most-recent item is by a `COLLABORATOR`/`MEMBER`/`OWNER`, is **strictly `< 72h`** old, AND was posted after `commits(last:1).committedDate`. The recency pick happens **before** the author test: when the newest item is the author's, F5a does not fire even if an older maintainer review is still inside the 72h window — this remains a "the maintainer spoke last" rule, **not** an "any recent maintainer feedback" rule. Both extra legs are essential — a maintainer asking a clarifying question in-thread, or submitting a review whose body carries the feedback with no inline thread at all, is just as much an active conversation as a top-level comment, and missing either routes the PR to `ping` / `request-author-confirmation` while the maintainer is still mid-sentence. The review body carries **no length threshold beyond non-whitespace** — the `≥ 80 chars` calibration belongs to F6, not F5a. |
@@ -61,6 +92,44 @@ CI fix themselves if needed.) See
 and
 [`rationale.md#pre-filter-6-maintainer-co-drafted`](rationale.md#pre-filter-6-maintainer-co-drafted)
 for the why.
+
+**Golden rule 9 — never talk over an active maintainer
+conversation.** When a human conversation needs the next move,
+the skill steps back. Three specific cases, all
+enforced as pre-classification filters in
+[`classify-and-act.md#pre-filters`](classify-and-act.md) (rows F5a, F5b, F5c):
+
+- **Author-response cooldown (≥ 72 hours).** If the most recent
+  feedback across general comments, review-thread comments and
+  submitted reviews with non-whitespace bodies is by a
+  `COLLABORATOR`/`MEMBER`/`OWNER`, was posted after the latest
+  author push and is < 72 hours old, skip the PR. Select the latest
+  item before checking its author. The author needs at least three
+  days to read maintainer feedback and respond — auto-drafting in
+  <24 hours reads as the bot rushing the contributor.
+- **Maintainer-to-maintainer ping.** If the most recent
+  collaborator comment `@`-mentions another maintainer (or a
+  team) and that mentioned party hasn't replied yet, skip the
+  PR — the conversation is between maintainers, and a "the
+  author should work on comments" auto-draft de-focuses the
+  thread away from the input the original commenter was asking
+  for.
+- **Author question to a maintainer (ball in our court).** The
+  inverse of the maintainer-to-maintainer case: if the most
+  recent human comment is by the **PR author** and `@`-mentions a
+  maintainer (or the committers team) with no maintainer reply
+  after it, the author is waiting on *us*. Skip the author-facing
+  flow — never ping the author, request readiness confirmation,
+  convert to draft, or close it for "silence". The next move is a
+  maintainer answering; the PR belongs in the maintainers' court.
+  This is the case that closed a real PR after the triage process
+  missed an open question to the team.
+
+These filters override every deterministic flag (failing CI,
+conflicts, unresolved threads). The cost of a missed auto-action
+on one of these PRs is one extra day of queue presence; the cost
+of an auto-action that talks over a maintainer is a contributor
+who reads it as the project being chaotic. Prefer the former.
 
 ---
 

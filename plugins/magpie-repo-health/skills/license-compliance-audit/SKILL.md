@@ -25,6 +25,7 @@ argument-hint: "[--repo owner/name | --path /path/to/checkout] [--declared-spdx 
 capability: capability:triage
 surface_hash: sha256:b40b2993e5f18f54
 license: Apache-2.0
+measured_tokens: 4631
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0

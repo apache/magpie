@@ -9,31 +9,26 @@ requires_config:
   - pr-management-quick-merge-config.md
   - project.md
 description: |
-  Identify trivial, low-risk pull requests in the `ready for maintainer review`
-  queue of <upstream> that pass every quality gate and touch only supplementary
-  areas (docs, changelog, translations, tests) — the "express lane" a maintainer
-  can review and merge in seconds. Surfaces and ranks candidates with per-PR diff
-  summaries, an all-gates-green attestation, and the exact merge command. On the
-  maintainer's explicit per-PR confirmation it can submit an APPROVE review (the
-  maintainer's own review of the trivial diff — useful when the PR has no
-  approvals yet and branch protection needs one), exactly as
-  pr-management-code-review does. It never merges itself — automated merge is the
-  framework's deliberately-deferred Agentic Autonomous mode; the maintainer runs the printed merge
-  command in their own session.
+  Identify trivial, low-risk PRs in the `ready for maintainer review` queue
+  of <upstream> that pass every quality gate and touch only supplementary
+  areas (docs, changelog, translations, tests) — the "express lane".
+  Surfaces and ranks candidates with per-PR diff summaries, an
+  all-gates-green attestation, and the exact merge command. On explicit
+  per-PR confirmation it can submit an APPROVE review, exactly as
+  pr-management-code-review does. It never merges itself — automated merge
+  is the deliberately-deferred Agentic Autonomous mode.
 when_to_use: |
-  When a maintainer says "what can I merge quickly", "show me the easy wins",
-  "any trivial PRs ready to merge", "quick-merge candidates", "clear the easy
-  ready PRs", or — after a triage or stats pass — wants to drain the low-risk
-  tail of the ready-for-maintainer-review queue. Run it after
-  `pr-management-triage` (which fills the `ready for maintainer review` queue)
-  and alongside `pr-management-code-review` (which handles the non-trivial
-  remainder).
+  Invoke on "what can I merge quickly", "show me the easy wins", "any
+  trivial PRs ready to merge", "quick-merge candidates", or "clear the
+  easy ready PRs". Run after `pr-management-triage`; alongside
+  `pr-management-code-review` (non-trivial remainder).
 argument-hint: "[repo:owner/name] [tier:A|B] [max-churn:N] [clear-cache]"
 capability:
   - capability:triage
   - capability:review
-surface_hash: sha256:e595586446c4bc73
+surface_hash: sha256:ea4648413feb1eca
 license: Apache-2.0
+measured_tokens: 4722
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -121,7 +116,7 @@ uses. That exists so the maintainer can clear the common case where a trivial,
 all-green PR simply has no approval yet and branch protection needs one. It
 does **not** merge, label, comment, or convert. See
 [Golden rule 1](#golden-rules), [the approve action](#step-3b--optional-approve-action),
-and [Why the skill does not merge](#why-the-skill-does-not-merge-agentic-autonomous).
+and [Why the skill does not merge](why-not-merge.md#why-the-skill-does-not-merge-agentic-autonomous).
 
 Detail files in this directory:
 
@@ -134,7 +129,7 @@ This skill reuses the `pr-management` family's shared machinery rather than
 re-implementing it:
 
 - **Pre-flight** — [`pr-management-triage/prerequisites.md`](../pr-triage/prerequisites.md).
-- **Batched fetch + session cache** — [`pr-management-triage/fetch-and-batch.md`](../pr-triage/fetch-and-batch.md), extended with a `files` connection (see [Step 1](#step-1--fetch-the-ready-queue)).
+- **Batched fetch + session cache** — [`pr-management-triage/fetch-and-batch.md`](../pr-triage/fetch-and-batch.md), extended with a `files` connection (see [Step 1](fetch-and-screen.md#step-1--fetch-the-ready-queue)).
 - **Real-CI guard** — [`pr-management-triage/classify-and-act.md#real-ci-guard`](../pr-triage/classify-and-act.md#real-ci-guard).
 - **Interaction loop / clickable references** — [`pr-management-triage/interaction-loop.md`](../pr-triage/interaction-loop.md).
 
@@ -151,21 +146,7 @@ See the absolute rule in
 
 ---
 
-## Adopter overrides
-
-Before running the default behaviour, this skill consults
-[`.apache-magpie-local/pr-management-quick-merge.md`](../../../../docs/setup/agentic-overrides.md) (personal, gitignored) and [`.apache-magpie-overrides/pr-management-quick-merge.md`](../../../../docs/setup/agentic-overrides.md) (committed, project-wide)
-in the adopter repo if it exists, and applies any agent-readable overrides it
-finds. **Hard rule**: agents never modify the snapshot under
-`<adopter-repo>/.apache-magpie/`. Local modifications go in the override file;
-framework changes go via PR to `apache/magpie`.
-
-## Snapshot drift
-
-At the top of every run, compare the gitignored `.apache-magpie.local.lock`
-against the committed `.apache-magpie.lock`. On mismatch, surface the gap and
-propose [`setup upgrade`](../../../magpie-setup/skills/setup/upgrade.md). Non-blocking —
-the maintainer may defer.
+Override files, snapshot-drift handling, and the upgrade proposal: [`adopter-config.md`](adopter-config.md).
 
 ---
 
@@ -177,7 +158,7 @@ rerun. Automated merge — even narrowly-scoped and per-PR-confirmed — is the
 framework's **Agentic Autonomous** mode, deliberately off until the
 Triage/Mentoring/Drafting modes have a two-quarter track record (see
 [`docs/labels-and-capabilities.md`](../../../../docs/labels-and-capabilities.md),
-`mode:Autonomous`, and [Why the skill does not merge](#why-the-skill-does-not-merge-agentic-autonomous));
+`mode:Autonomous`, and [Why the skill does not merge](why-not-merge.md#why-the-skill-does-not-merge-agentic-autonomous));
 do not add a merge action while that gate stands. The skill's **one** permitted
 mutation is submitting an **APPROVE review** on a single PR, and only after the
 maintainer explicitly confirms that PR by index — never batched, never implied,
@@ -219,13 +200,7 @@ The cost of missing a trivial PR is that it waits for the next run or for
 "safe to merge in seconds" is a maintainer merging something they didn't
 actually read. Prefer the former every time.
 
-**Golden rule 5 — this is a screen, not a review.** Passing this skill's
-screen means "small, low-risk, all gates green" — it does **not** mean the
-change is correct. A docs PR can still state something wrong; a test-only PR
-can still assert the wrong thing. The maintainer still reads the diff before
-merging — the skill just guarantees the diff is short and the surrounding
-machinery is green. Anything that needs more than a skim belongs in
-[`pr-management-code-review`](../code-review/SKILL.md).
+**Golden rule 5 — this is a screen, not a review.** Full rule in [`candidate-rules.md`](candidate-rules.md).
 
 **Golden rule 6 — one GraphQL call per page.** Reuse the family's aliased batch
 query (extended with a `files` connection) so a full ready-queue sweep costs a
@@ -277,124 +252,11 @@ the shared [`<project-config>/pr-management-config.md`](../../../../projects/_te
 
 ---
 
-## Step 1 — Fetch the ready queue
-
-Build the search query (oldest-updated first so the longest-waiting easy wins
-surface at the top):
-
-```text
-is:pr is:open repo:<repo> label:"ready for maintainer review" sort:updated-asc
-```
-
-Walk every page with the family's batched query from
-[`pr-management-triage/fetch-and-batch.md`](../pr-triage/fetch-and-batch.md),
-**extended with the per-PR file list and churn totals** the triviality screen
-needs:
-
-```graphql
-        additions
-        deletions
-        mergeStateStatus      # CLEAN / UNSTABLE / BLOCKED / DIRTY / UNKNOWN / BEHIND
-        files(first: 100) { nodes { path additions deletions } }
-```
-
-`files(first: 100)` caps at 100 changed files — any PR with more than 100 files
-is by definition not a quick-merge candidate, so the cap never truncates a real
-candidate (a PR that hits it fails the `max_files` screen immediately). Keep the
-inner `first:` arguments modest (lower the outer `$batchSize` to 15 if the
-complexity ceiling trips — the `files` connection adds nodes).
-
-Fetch the repo-scoped `action_required` workflow-run index once per session
-(same REST call as
-[`pr-management-triage/fetch-and-batch.md#mandatory-action_required-run-index-per-page`](../pr-triage/fetch-and-batch.md#mandatory-action_required-run-index-per-page))
-— a PR with a run awaiting approval is **not** gate-green even if its rollup
-reads SUCCESS.
-
-Do not read full diffs in this step. The diff is fetched lazily only when the
-maintainer asks for `[V]iew diff` on a specific candidate.
+The ready-queue fetch (Step 1) and the three-stage screen (Step 2) are specified in [`fetch-and-screen.md`](fetch-and-screen.md).
 
 ---
 
-## Step 2 — Three-stage screen
-
-Run every fetched PR through [`candidate-rules.md`](candidate-rules.md):
-
-1. **Quality-gate gate** (hard pass/fail, from the batch) — drop any PR not green
-   on every Stage-1 gate: real CI green, no failed/pending checks, no workflow
-   approval pending, no unresolved collaborator threads, no outstanding
-   changes-requested. Mergeability is **not** gated here beyond an early-drop of
-   the obviously batch-`CONFLICTING`. No partial credit.
-2. **Triviality classification** (from the batch) — of the survivors, keep those
-   whose footprint is within `max_churn` / `max_files` **and** whose every file
-   matches the allow-list with none in the deny-list. Assign Tier A or Tier B.
-3. **Live merge-readiness** — for each survivor (now a handful), make **one REST
-   call** (`GET /repos/<repo>/pulls/<N>`) to resolve `mergeable` +
-   `mergeable_state` live, because the batched value is unreliable for a large
-   `ready` queue. Bucket each as **ready-to-merge** (`clean`/`unstable`/`behind`),
-   **needs-approval** (`blocked` — branch merges cleanly but a committer approval
-   is missing; the skill's primary case), or **drop** (`dirty`/conflict, or still
-   `unknown` this run). See [Stage 3](candidate-rules.md#stage-3--live-merge-readiness).
-
-Stages 1–2 are a pure function of the Step-1 batch (no mutations, no prompts);
-Stage 3 adds the small per-candidate re-poll. The output is two ranked lists:
-**ready-to-merge** and **needs-approval-then-merge**.
-
----
-
-## Step 3 — Rank and present
-
-Order within each bucket: **Tier A before Tier B; within a tier, smallest churn
-first; ties broken by oldest-updated.** Present **two** read-only buckets — the
-*ready-to-merge* set first, then the *needs-your-approval-then-merge* set:
-
-```text
-─────────────────────────────────────────────────────
-Quick-merge candidates · all gates green · review & act yourself
-─────────────────────────────────────────────────────
-
-READY TO MERGE — M PRs (clean / mergeable now)
- [A] #67452  @nailo2c       +12/-1   1 file   Tier A (docs)   mergeable_state: clean
-       airflow-core/docs/core-concepts/dags.rst
-       gates: CI ✓ (Tests, Static checks, Docs)  threads 0  approvals: 1
-       merge:  gh pr merge 67452 --squash --repo <repo>
-       [V] view full diff
-
-NEEDS YOUR APPROVAL, THEN MERGE — K PRs (clean branch, blocked on a missing committer approval)
- [A] #64724  @auyua9        +2/-2    1 file   Tier A (docs)   mergeable_state: blocked (REVIEW_REQUIRED)
-       INSTALLING.md
-       gates: CI ✓  threads 0  approvals: 0
-       action:  [A]pprove 64724  →  then  gh pr merge 64724 --squash --repo <repo>
-       [V] view full diff
- ...
-```
-
-For each candidate print: PR number (clickable), author, `+adds/-dels`, file
-count, tier + one-word reason, the live `mergeable_state`, the **full file
-list**, an explicit per-gate attestation (which real-CI checks are green,
-unresolved-thread count, current approval count), and a `[V]iew diff` affordance.
-For the *ready* bucket print the **merge command**; for the *needs-approval*
-bucket print the `[A]pprove NN` → merge sequence.
-
-The maintainer's options on the group:
-
-- `[V]NN` — fetch and show the full diff for PR `NN` (lazy `gh pr diff`). **Read-only.**
-- `[A]pprove NN` — submit an APPROVE review on PR `NN` as the maintainer (see
-  [Step 3b](#step-3b--optional-approve-action)). **The only mutation; per-PR, confirmed.**
-- `[O]pen NN` — print the PR URL to open in a browser. **Read-only.**
-- `[D]one` / `[Q]uit` — finish; print the session summary.
-
-There is **no** `[A]ll`, no `[M]erge`, no per-PR merge key, and approve is never
-batched. The skill stops short of merging; the maintainer copies the printed
-merge command (or opens the PR) and merges in their own session, having read the
-diff. That is the line Golden rule 1 draws.
-
-### Approval reminder
-
-For each candidate, print its current approval count and whether `<repo>`'s
-branch protection requires an approving review. If a candidate has zero
-approvals and the repo requires one, note inline: *"no approval yet — `[A]pprove
-NN` to add yours, then run the merge command"* so the maintainer sees both the
-prerequisite and the in-skill way to clear it.
+Ranking and presentation (Step 3), the session summary (Step 4), and the handoff of the remainder to the review skill (Step 5) are specified in [`present-and-handoff.md`](present-and-handoff.md).
 
 ---
 
@@ -422,7 +284,7 @@ is purely read-only.
    (default), `[A]pprove NN` is rejected unless `[V]NN` was run for that PR
    earlier in the session — you cannot approve a diff you have not opened. The
    skill is a triviality *screen*, not a substitute for the maintainer's read
-   (Golden rule 5); the approve is *their* review, so they must look.
+   (Golden rule 5, in [`candidate-rules.md`](candidate-rules.md)); the approve is *their* review, so they must look.
 3. **Optimistic lock + live gate re-check.** Immediately before submitting,
    re-fetch the PR and confirm the `head_sha` is unchanged since the screen and
    that every [Stage 1 gate](candidate-rules.md#stage-1--quality-gate) is still
@@ -460,80 +322,14 @@ already-approved candidate.
 
 ---
 
-## Step 4 — Session summary
-
-On exit, print:
-
-- count of candidates surfaced, split by tier
-- count of ready-queue PRs screened and the drop reasons (gate-red, too large,
-  consequential-path, path-unmatched) so the maintainer can see *why* the
-  non-candidates were excluded — the screen is auditable, not a black box
-- the ready-queue total and what fraction was fast-track-eligible (a useful
-  queue-health signal: a high trivial fraction means the deep-review queue is
-  smaller than the raw count suggests)
-- count of APPROVE reviews submitted this session (Step 3b), with PR numbers —
-  the one mutation the skill makes, so it is always reported explicitly
-- total wall-clock time
-
-Approvals aside, the skill makes no mutations. (If a future Mode-D merge step is
-ever added, *that* step — not this one — owns merge logging and any
-session-history gist.)
-
----
-
-## Step 5 — Hand the remainder to code-review
-
-The PRs this skill *drops* are not noise — they are the deep-review queue. A
-ready-for-review PR that failed the triviality screen — `too-large`, or a
-`path-denied`/`path-unmatched` change in a consequential area — is exactly the
-kind of substantive change that wants a real, line-level read. After the
-candidate group, surface the handoff:
-
-- Report the count of ready-queue PRs that are **not** quick-merge candidates,
-  split by [drop reason](candidate-rules.md#drop-reason-taxonomy), and name the
-  `too-large` / `path-*` ones (the "so-close" and substantive PRs) with
-  clickable links.
-- Recommend the family's review skill for them, with the exact invocation:
-  *"N ready PRs need a full read — run
-  [`pr-management-code-review`](../code-review/SKILL.md), or
-  `pr-management-code-review pr:<N>` for a single one."*
-
-This is a **pointer, not an auto-invocation** — the same maintainer-fires
-principle as everywhere else; the skill does not launch another skill. The two
-compose cleanly: quick-merge skims the trivial top of the `ready` queue,
-[`pr-management-code-review`](../code-review/SKILL.md) does the
-line-level read of the substantive remainder, and
-[`pr-management-triage`](../pr-triage/SKILL.md) is what fills the
-queue in the first place. Together they drain it from both ends.
-
----
-
-## Why the skill does not merge (Agentic Autonomous)
-
-The framework's [`docs/labels-and-capabilities.md`](../../../../docs/labels-and-capabilities.md)
-defines `mode:Autonomous` as *"narrowly-scoped auto-merge (off until
-Triage/Mentoring/Drafting run 2 quarters)"*. A per-PR-confirmed merge of a
-trivial PR is precisely narrowly-scoped auto-merge — it is Agentic Autonomous,
-not a loophole around it. The framework chose to hold Agentic Autonomous back
-until the Triage, Mentoring, and Drafting modes have demonstrated two quarters of
-safe operation. This skill respects that decision: it ships the **Triage-mode
-identification half** (sweep the queue, classify, propose for human action —
-`capability:triage`) and stops at the boundary. The merge stays a manual
-maintainer action.
-
-When the governance gate lifts, a merge action belongs in a **separate,
-explicitly Mode-D-labelled change** (its own skill or a gated sub-action) with
-its own safety protocol — live gate re-verification immediately before merge,
-head-SHA optimistic lock, branch-protection respect (no `--admin`, no force),
-per-PR confirmation, never batch, and session-history logging. That change is
-out of scope here and must not be smuggled in under `capability:triage`.
+The governance rationale for the no-merge stance: [`why-not-merge.md`](why-not-merge.md).
 
 ---
 
 ## What this skill deliberately does NOT do
 
 - **Merge, label, comment, or convert to draft.** The skill never merges
-  (Agentic Autonomous — see [below](#why-the-skill-does-not-merge-agentic-autonomous)) and never labels,
+  (Agentic Autonomous — see [above](why-not-merge.md#why-the-skill-does-not-merge-agentic-autonomous)) and never labels,
   comments, or drafts. Its *only* mutation is an explicitly-confirmed APPROVE
   review (Step 3b). See Golden rule 1.
 - **Auto-approve, batch-approve, or approve a diff it hasn't shown you.** Every

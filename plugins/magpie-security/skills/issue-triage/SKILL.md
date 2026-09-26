@@ -33,6 +33,7 @@ when_to_use: |
 capability: capability:triage
 surface_hash: sha256:fdf5d4aa9633f812
 license: Apache-2.0
+measured_tokens: 13157
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):

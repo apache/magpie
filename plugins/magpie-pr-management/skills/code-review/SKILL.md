@@ -8,20 +8,23 @@ requires_config:
   - pr-management-code-review-criteria.md
   - project.md
 description: |
-  Walk a maintainer through deep, sequential code review of open pull requests on the configured `<upstream>` repo.
-  Defaults to the **"my reviews"** queue (the union of five maintainer signals — see the Inputs table); selectors can
-  narrow to a single PR, an area label, or a collaborator subset. Drafts an `approve` / `request-changes` / `comment`
-  review per PR and posts on the maintainer's confirmation.
+  Walk a maintainer through deep, sequential code review of open PRs on the
+  configured `<upstream>` repo. Defaults to the **"my reviews"** queue (five
+  maintainer signals — see the Inputs table); selectors narrow to one PR, an
+  area label, or a collaborator subset. Drafts an `approve` /
+  `request-changes` / `comment` review per PR and posts on confirmation.
 when_to_use: |
-  Invoke when a maintainer says "review my PRs", "go through my review queue", "review PR NNN", "review the
-  area:scheduler PRs", "do my review pass", or any variation on "look over PRs I'm responsible for, one at a time."
-  Also fires on "review my CODEOWNER PRs", "pair this PR with Codex / adversarial review", and "review the
-  ready-for-maintainer-review queue". Use after `pr-management-triage` has produced reviewable PRs; skip when triage
-  has not yet engaged the PR.
+  Invoke on "review my PRs", "go through my review queue", "review PR NNN",
+  "review the area:scheduler PRs", "do my review pass", or any "look over PRs
+  I'm responsible for, one at a time". Also fires on "review my CODEOWNER
+  PRs", "pair this PR with Codex / adversarial review", and "review the
+  ready-for-maintainer-review queue". Run after `pr-management-triage` has
+  produced reviewable PRs; skip when triage has not engaged the PR.
 argument-hint: "[pr:N] [area:LBL] [collab:true|false] [team:NAME] [ready] [dry-run]"
 capability: capability:review
-surface_hash: sha256:3210ab651b79abc2
+surface_hash: sha256:261649569ebac577
 license: Apache-2.0
+measured_tokens: 4925
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
@@ -119,59 +122,8 @@ absolute rule in
 
 ---
 
-## Adopter overrides
-
-Before running the default behaviour documented
-below, this skill consults
-[`.apache-magpie-local/pr-management-code-review.md`](../../../../docs/setup/agentic-overrides.md) (personal, gitignored) and [`.apache-magpie-overrides/pr-management-code-review.md`](../../../../docs/setup/agentic-overrides.md) (committed, project-wide)
-in the adopter repo if it exists, and applies any
-agent-readable overrides it finds. See
-[`docs/setup/agentic-overrides.md`](../../../../docs/setup/agentic-overrides.md)
-for the contract — what overrides may contain, hard
-rules, the reconciliation flow on framework upgrade,
-upstreaming guidance.
-
-**Hard rule**: agents NEVER modify the snapshot under
-`<adopter-repo>/.apache-magpie/`. Local modifications
-go in the override file. Framework changes go via PR
-to `apache/magpie`.
-
----
-
-## Snapshot drift
-
-Also at the top of every run, this skill compares the
-gitignored `.apache-magpie.local.lock` (per-machine
-fetch) against the committed `.apache-magpie.lock`
-(the project pin). On mismatch the skill surfaces the
-gap and proposes
-[`setup upgrade`](../../../magpie-setup/skills/setup/upgrade.md).
-The proposal is non-blocking — the user may defer if
-they want to run with the local snapshot for now. See
-[`docs/setup/install-recipes.md` § Subsequent runs and drift detection](../../../../docs/quick-start/other-install-methods.md#subsequent-runs-and-drift-detection)
-for the full flow.
-
-Drift severity:
-
-- **method or URL differ** → ✗ full re-install needed.
-- **ref differs** (project bumped tag, or `git-branch`
-  local is behind upstream tip) → ⚠ sync needed.
-- **`svn-zip` SHA-512 mismatches the committed
-  anchor** → ✗ security-flagged; investigate before
-  upgrading.
-
----
-## Adopter configuration
-
-This skill resolves project-specific content from the adopter's
-`<project-config>/` directory:
-
-- [`<project-config>/pr-management-code-review-criteria.md`](../../../../projects/_template/pr-management-code-review-criteria.md) — list of the project's review-criteria source files (repo-wide AGENTS.md, code-review docs, per-area AGENTS.md), security-model calibration doc, backport-branch pattern, and section-anchor URLs the framework links per finding.
-
-The skill reads all project-specific content (source-file paths,
-security-model doc, backport-branch pattern, section anchors)
-from the file listed above.  No defaults are baked into the
-framework.
+Adopter override files and snapshot-drift handling: [`adopter-config.md`](adopter-config.md).
+Project review-criteria configuration pointers: [`adopter-config.md`](adopter-config.md).
 
 ---
 
@@ -211,30 +163,9 @@ actions the skill *does* take unilaterally: reading PR state via
 `gh`, fetching diffs, computing findings, drafting review bodies,
 proposing to invoke a locally-installed adversarial reviewer.
 
-**Golden rule 3 — criteria are authoritative; this skill is a
-checker, not a re-interpreter.** The project's review criteria
-live in the source files declared in
-`<project-config>/pr-management-code-review-criteria.md` (see
-[`projects/_template/pr-management-code-review-criteria.md`](../../../../projects/_template/pr-management-code-review-criteria.md)
-for the shape) and in the project's repo-wide
-[`AGENTS.md`](../../../../AGENTS.md). When you find a violation,
-quote the **specific rule** from those files in the review
-finding. Do not invent new rules; do not soften documented ones.
-A summary checklist lives in [`criteria.md`](criteria.md) for
-quick reference, but the source files are the ground truth.
+**Golden rule 3 — criteria are authoritative; this skill is a checker, not a re-interpreter.** Full rule in [`criteria.md`](criteria.md).
 
-**Golden rule 4 — adversarial reviewers are additive, not
-substitutes.** If the maintainer has named a second LLM
-reviewer — model CLIs through the `with-reviewers:` selector or
-the project's `adversarial-review.md`, or a slash command through
-`with-reviewer:` or a "Review preferences" entry in their
-agent-instructions file (`AGENTS.md` or a harness-specific
-equivalent) — the skill runs or proposes it **in addition** to its
-own pass, not instead of. The second reviewer runs *after* the skill has
-drafted its own findings, so the maintainer can see two
-independent reads. See [`adversarial.md`](adversarial.md) for
-the "assistant-proposes-user-fires" pattern (slash commands
-cannot be invoked from the assistant side).
+**Golden rule 4 — adversarial reviewers are additive, not substitutes.** Full rule in [`adversarial.md`](adversarial.md).
 
 **Golden rule 5 — every review body ends with the AI-attribution
 footer.** Reviews this skill posts are AI-drafted, and
@@ -293,93 +224,12 @@ Where it does not, merge-readiness is unknown and `APPROVE` is
 equally off the table. The pre-flight pulls the check rollup; see
 [`prerequisites.md#ci-precheck`](prerequisites.md).
 
-**Golden rule 9 — out of scope: triage actions.** This skill
-does not convert PRs to draft, close them, rebase them, ping
-reviewers, or rerun CI. Those are
-[`pr-management-triage`](../pr-triage/SKILL.md) actions. If the maintainer
-discovers during review that a PR needs a triage action (e.g. it
-should really be drafted because of merge conflicts that
-appeared), the skill says so explicitly and points them at
-`pr-management-triage pr:<N>`. It does not silently invoke triage actions.
+Golden rule 9 (out-of-scope triage actions) and its slop-detection exception: [`scope.md`](scope.md).
 
-**Exception — slop-detection early exit.** The `[X]` action in
-[`slop-detection.md`](slop-detection.md) (close PR + lock
-conversation) is an explicit, deliberate carve-out for structurally
-non-genuine PRs detected at Step 2.5. This action is only surfaced
-after two or more hard signals fire; it is never available during a
-normal review flow. The maintainer must confirm before execution —
-the skill never auto-closes. The decision to add this action here
-rather than in `pr-management-triage` is deliberate: slop detection
-fires in the middle of a review session and the `[X]` path must not
-require a context switch to a separate skill.
+**Golden rule 10 — every PR number is rendered as its full URL.** Full rule in [`review-flow.md`](review-flow.md).
+**Golden rule 11 — ask before opening the browser, and open the files tab.** Full rule in [`review-flow.md`](review-flow.md).
 
-**Golden rule 10 — every PR number is rendered as its full
-URL.** A bare `#65981` is unclickable in most terminals; the
-maintainer cannot open it without retyping. Whenever this
-skill prints a PR identifier — in the headline, in a prompt,
-in the session summary, in error messages — the **full
-`https://github.com/<repo>/pull/<N>` URL is printed alongside
-the number** so that any URL-aware terminal (iTerm2, Kitty,
-GNOME Terminal, Windows Terminal, etc.) makes it clickable.
-The recommended format is one of:
-
-```text
-PR #65981 — https://github.com/<upstream>/pull/65981 — <title>
-```
-
-…or, in a multi-line headline, the URL on its own line so the
-title stays scannable:
-
-```text
-PR #65981 — <title>
-  https://github.com/<upstream>/pull/65981
-```
-
-Either is fine; the rule is that **the URL is always present**.
-Do not abbreviate to `<upstream>#65981` (that's
-GitHub-web-only auto-linking and is not clickable in a
-terminal). Do not compress to `gh pr view 65981` (that's a
-shell command, not a link). Always emit the full HTTPS URL.
-
-**Golden rule 11 — ask before opening the browser, and open
-the files tab.** When the maintainer says `[Y]es` at a PR's
-headline (Step 1 of [`review-flow.md`](review-flow.md)), the
-skill **prompts** before launching anything:
-
-> *Open files view in browser? `[y]es / [N]o` (default no).*
-
-The headline already carries the file-count and
-additions / deletions (`Files: N changed +X −Y`), so the
-maintainer has the size of the change in hand when deciding
-— don't re-render it. On `[y]`, the skill opens the PR's
-**files tab** (`https://github.com/<owner>/<repo>/pull/<N>/files`)
-via `xdg-open` / `open` / `start`, in the background. On any
-other reply, no browser action — the diff fetch (Step 2)
-proceeds either way.
-
-`gh pr view --web` is not used here: it always opens the
-conversation tab, but the files tab is the one that pairs
-naturally with the terminal-side line-comment workflow.
-
-The skill never opens drafts, already-merged PRs, or
-self-authored PRs (those are skipped before they reach the
-headline-confirm gate anyway).
-
-**Golden rule 12 — fast-exit on crystal-clear slop; do not spend a
-full review on structurally non-genuine PRs.** After fetching the
-diff (Step 2), run the structural scan in
-[`slop-detection.md`](slop-detection.md). If two or more hard
-signals fire, or one hard signal plus three or more soft signals fire
-(note: H3+H4 together count as one hard signal for threshold purposes
-when no other hard signal is present — see the Threshold section of
-[`slop-detection.md`](slop-detection.md)),
-**stop the review and present the slop report** to the maintainer
-before spending tokens on a line-by-line analysis. Offer: post a
-contribution-guidelines warning comment, close+lock the PR and show
-the GitHub report link, review anyway, or skip. The maintainer
-decides — the skill never auto-closes or auto-comments. If the
-maintainer picks `[R]eview anyway`, the normal review resumes from
-Step 3 with no changes to findings or disposition.
+**Golden rule 12 — fast-exit on crystal-clear slop.** Full rule in [`slop-detection.md`](slop-detection.md).
 
 ---
 
@@ -447,36 +297,7 @@ labels (the skill warns and degrades gracefully — see
 
 ---
 
-## How to invoke — examples
-
-The slash command is `pr-management-code-review`. A few worked
-examples a maintainer can paste:
-
-| Goal | Invocation |
-|---|---|
-| Walk through everything in **"my reviews"**, newest first | `pr-management-code-review` |
-| Review a single PR (the most common ad-hoc trigger) | `pr-management-code-review pr:65981` |
-| Just the PRs where I'm a CODEOWNER, ignore the rest | `pr-management-code-review codeowner-only` |
-| PRs that explicitly `@`-mention me, skip the noise | `pr-management-code-review mentioned-only` |
-| Re-look at the PRs I already reviewed (follow-ups after author push) | `pr-management-code-review reviewed-before-only` |
-| My-reviews **but** drop touching-mine (too noisy this morning) | `pr-management-code-review no-touching-mine` |
-| My-reviews limited to scheduler-area, max 5 | `pr-management-code-review area:scheduler max:5` |
-| My-reviews scoped to non-collaborator authors (extra-careful pass) | `pr-management-code-review collab:false` |
-| The team queue (PRs where `<upstream>-<team-name>` is requested) | `pr-management-code-review team:project-team-name` |
-| The wider curated queue triage already promoted | `pr-management-code-review ready` |
-| Stay body-only this session (no inline picker) | `pr-management-code-review inline:off` |
-| Dry-run the queue — draft everything, post nothing | `pr-management-code-review dry-run` |
-| Same, against a different repo | `pr-management-code-review dry-run repo:<upstream>-site` |
-| Have other models read each PR adversarially, run by the agent | `pr-management-code-review with-reviewers:codex,copilot` |
-| Pair with an adversarial reviewer for a second read on each PR | `pr-management-code-review with-reviewer:/codex-plugin:adversarial-review` |
-| Skip background analysis subagents (tiny queue, prefetch is wasted) | `pr-management-code-review max:1 no-prefetch` |
-
-Selectors compose freely. Most flags carry through cleanly:
-`area:scheduler reviewed-before-only since:7d` is "PRs in
-the scheduler area that I reviewed in the last 7 days."
-
-When in doubt, run with no flags first — the default surfaces
-everything you'd reasonably be expected to look at.
+Worked invocation examples: [`invocation.md`](invocation.md).
 
 ---
 
@@ -552,167 +373,20 @@ maintainer reviews PR N (see
 
 ---
 
-## Step 2 — Sequential per-PR review
-
-For each PR in the list, run the per-PR review loop in
-[`review-flow.md`](review-flow.md). The loop is:
-
-1. **Present headline** — PR number, title, author, label chips,
-   CI state, threads count, ±LOC summary, files changed count.
-2. **Fetch diff and PR body** — via `gh pr diff <N>` and `gh pr
-   view <N> --json body,...`.
-3. **Examine the diff against the criteria** from
-   [`criteria.md`](criteria.md), grouping findings by category:
-   architecture, DB/query correctness, code quality, testing,
-   API correctness, generated files, AI-generated-code signals,
-   and any provider/area-specific rules pulled from the relevant
-   `AGENTS.md` (see [`review-flow.md#area-specific`](review-flow.md)).
-4. **Optionally run the adversarial reviewer** — if a
-   second-reviewer plugin is configured (Step 0), propose
-   invoking it now and integrate its findings (see
-   [`adversarial.md`](adversarial.md)). The user runs the slash
-   command; the skill resumes once the user pastes / continues
-   with the output.
-5. **Draft the review body and disposition** — pick `APPROVE`,
-   `REQUEST_CHANGES`, or `COMMENT` per the rules in
-   [`posting.md#disposition`](posting.md), apply Golden rules 7
-   and 8, and produce a draft body using the templates in
-   [`posting.md`](posting.md). The body may close with up to
-   2–3 **suggested additional reviewers** — domain experts for
-   the touched area, derived from `CODEOWNERS` and commit /
-   review history per
-   [`review-flow.md#step-45`](review-flow.md), never fabricated,
-   never auto-requested, and named with backtick-quoted handles
-   so nobody is notified (see the mention policy in
-   [`posting.md#mention-policy`](posting.md)).
-6. **Show the inline-comments picker** — inline review
-   comments are the **default and preferred** output of this
-   skill: for every anchored finding the skill drafts an
-   inline review comment and presents them in a numbered list
-   with all entries enabled by default, so the maintainer
-   accepts them individually. The maintainer picks `[A]ll` /
-   `[N]one` / `[<indices>]` / drops a few. A body-only review
-   is the explicit exception, reached only by passing
-   `inline:off`, which suppresses the picker for the whole
-   session. Findings that cannot be anchored to a `file:line`
-   (e.g. on unchanged lines) go in the review body instead.
-7. **Show the draft to the maintainer** — full body, count of
-   inline comments to be posted, and the chosen disposition.
-8. **On confirmation** — post via the GraphQL
-   `addPullRequestReview` mutation (or `gh pr review` if no
-   inline comments survived the picker). See
-   [`posting.md`](posting.md). On rejection — capture the
-   maintainer's edits and re-draft.
-9. **On `[S]kip`** — leave the PR alone and move on.
-10. **On `[Q]uit`** — exit the session.
+The per-PR loop — headline, diff fetch, findings, adversarial step, draft, inline picker, confirm, post — is specified in [`review-loop.md`](review-loop.md).
 
 ---
 
-## Step 3 — Session summary
-
-On exit (whether by `[Q]uit` or by exhausting the working list),
-print a one-screen summary:
-
-- counts of PRs reviewed per disposition (`APPROVE` /
-  `REQUEST_CHANGES` / `COMMENT`)
-- counts of PRs skipped, with the maintainer's stated reason
-  (e.g. "wanted to re-look later", "needs author response first")
-- counts of PRs left untouched (selector match but never reached
-  this session)
-- which PRs had adversarial-reviewer findings folded in, and
-  which didn't (because the maintainer skipped that step)
-- total wall-clock time and PRs-per-hour velocity
-
-The summary is for the maintainer's records — this skill never
-writes a session log to disk.
+Session-summary contents: [`session-summary.md`](session-summary.md).
 
 ---
 
-## What this skill deliberately does NOT do
-
-- **First-pass triage actions.** Drafting, rebasing,
-  pinging, rerunning CI, marking `ready for maintainer review` —
-  all live in [`pr-management-triage`](../pr-triage/SKILL.md). If the
-  current PR needs one of those, the skill says so and points
-  at `pr-management-triage pr:<N>`. *(Exception: the
-  slop-detection `[X]` close+lock path — see Golden rule 9.)*
-- **Requesting or notifying reviewers.** Step 4.5 *names*
-  domain experts in the review body as backtick-quoted handles;
-  it never live-`@`-mentions them (see the mention policy in
-  [`posting.md#mention-policy`](posting.md)), never calls
-  `gh pr edit --add-reviewer`, and never uses the
-  `requestReviews` mutation. Formally requesting a reviewer is
-  a separate maintainer action (or a job for
-  [`reviewer-routing`](../reviewer-routing/SKILL.md)).
-- **Merging.** Merging is a conscious maintainer action that
-  belongs in a separate flow.
-- **Submitting reviews on closed / merged PRs.** The skill only
-  reviews open PRs.
-- **Running CI locally.** The skill examines the diff and
-  reasons about it; running tests locally before approving is a
-  judgment call the maintainer makes per PR (the `dry-run`
-  selector and `[S]kip-for-now` exit are how that gets handled
-  inside this skill).
-- **Modifying PR code.** This skill never pushes commits, never
-  proposes patches via `gh pr review --suggested-changes`
-  beyond the verbatim suggestion blocks in
-  [`posting.md`](posting.md), and never edits the contributor's
-  branch.
-- **Bypassing the project's review criteria.** Findings cite
-  specific rules from the source files declared in
-  `<project-config>/pr-management-code-review-criteria.md` and
-  from the project's repo-wide [`AGENTS.md`](../../../../AGENTS.md).
-  New review philosophies belong in those files first; this
-  skill picks them up automatically once they land.
+Scope boundaries — triage actions, reviewer requests, merging, CI, and more — are in [`scope.md`](scope.md).
 
 ---
 
-## Parameters the user may pass
-
-| Selector / flag | Effect |
-|---|---|
-| `pr:<N>` | review only PR `<N>` |
-| `area:<LBL>` | restrict to PRs carrying `area:<LBL>` (wildcards supported) |
-| `collab:true|false` | restrict to PRs whose author is / isn't a collaborator |
-| `team:<NAME>` | restrict to PRs requesting review from a team `<viewer>` is on |
-| `ready` | source from the `ready for maintainer review` label instead of the default union |
-| `requested-only` / `mine-only` / `codeowner-only` / `mentioned-only` / `reviewed-before-only` | use only one half of the my-reviews union |
-| `no-touching-mine` / `no-codeowner` / `no-mentioned` / `no-reviewed-before` | drop just one half; keep the rest |
-| `since:<window>` | tune the touching-mine main-branch recency window (default `30d`) |
-| `with-reviewers:<list>` | run these model CLIs as adversarial reviewers through the adversarial-review tool |
-| `with-reviewer:<command>` | name the slash command to propose for second-read coverage |
-| `repo:<owner>/<name>` | override the target repository |
-| `max:<N>` | stop after `<N>` PRs reviewed |
-| `dry-run` | draft but never post |
-| `no-adversarial` | skip the optional second-reviewer step |
-| `inline:off` (alias `body-only`) | suppress the inline-comments picker; post body-only reviews this session |
-| `lookahead:<N>` | size of the background-analysis lookahead window (default `3`) |
-| `no-prefetch` | disable background analysis subagents for this session |
-
-When in doubt about the selector, ask the maintainer *before*
-fetching — a one-line clarification is cheaper than a 30-PR
-list-then-throw-away.
+Full selector/flag reference: [`invocation.md`](invocation.md).
 
 ---
 
-## Budget discipline
-
-This skill's practical GraphQL / `gh` budget per PR is:
-
-- 1 query for the working PR list (one-shot, at session start)
-- 1 `gh pr view --json body,reviewRequests,reviews,statusCheckRollup,commits,labels,...` per PR
-- 1 `gh pr diff` per PR
-- 0–1 calls into the adversarial reviewer (out-of-band, not
-  GitHub API)
-- 0–1 `CODEOWNERS` read + 0–3 `commits?path=` reads for the
-  Step 4.5 reviewer suggestions (the PR-review-history source is
-  reached only when the cheap sources fall short)
-- 1 `gh pr review` mutation per posted review
-
-That's ~3 GitHub calls per PR plus one optional plugin call.
-A normal review pass (5–10 PRs) stays well under 100 GitHub-API
-points — a tiny fraction of the maintainer's 5000/h budget. If a
-session starts approaching the limit, the skill is
-mis-batching (most likely: re-fetching the diff after every
-finding instead of caching it locally) — stop and fix the call
-pattern, do not work around it with rate-limit sleeps.
+Per-PR API-call budget: [`budget-discipline.md`](budget-discipline.md).

@@ -28,6 +28,7 @@ argument-hint: "[scan-source ...]  (one or more GitHub issues and/or report fold
 capability: capability:intake
 surface_hash: sha256:3aa895ba2115c1d9
 license: Apache-2.0
+measured_tokens: 5560
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):

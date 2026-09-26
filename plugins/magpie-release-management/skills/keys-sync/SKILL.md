@@ -26,6 +26,7 @@ argument-hint: "[--fingerprint <fp>] [--keys-url <url>] [--keyserver <host>]"
 capability: capability:resolve
 surface_hash: sha256:bc9f77e9dcb305da
 license: Apache-2.0
+measured_tokens: 4865
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0

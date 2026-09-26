@@ -37,6 +37,60 @@ five.
 
 ---
 
+## Step 3 — Group and present
+
+Using [`interaction-loop.md`](interaction-loop.md), group the
+tuples produced in Step 2 by `(classification, action)`. Groups
+**span the entire queue**: every passing PR across every page
+goes into a single `mark-ready` group, every CI-failed PR
+across every page goes into a single `draft` group, and so on.
+The maintainer sees one screen per `(classification, action)`
+class regardless of how many GitHub pages it spans.
+
+Present each group to the maintainer in the order:
+
+1. `pending_workflow_approval` — safety-relevant, goes first
+2. `deterministic_flag` with action `close` — destructive,
+   review individually
+3. `deterministic_flag` with actions `draft` / `comment` /
+   `rebase` / `rerun` / `ping` — in that order
+4. `stale_review` → `ping`
+5. `deterministic_flag` → `request-author-confirmation`
+   (engagement heuristic fired; ask the author whether the
+   PR is ready before any label or reviewer-ping is generated
+   — first leg of the two-sweep gate)
+6. `author_confirmed_ready` → `mark-ready` (author replied
+   to a prior request; silent label apply, presented just
+   before plain `mark-ready` so the maintainer reviews all
+   label-add proposals back-to-back)
+7. `passing` → `mark-ready`
+8. Stale sweeps (`stale_draft` → `close`, `inactive_open` →
+   `draft`, `stale_workflow_approval` → `draft`,
+   `stale_ready_label` → `strip-ready-label`,
+   `stale_ready_label_unhealthy` → `close`,
+   `stale_author_confirm_request` → `ping`)
+
+For each group, present one screen worth of headline info
+(PR number, title, author, 1-line reason, label chips) and
+offer:
+
+- `[A]ll` — apply the suggested action to every PR in the group
+- `[E]ach` — walk through the group one PR at a time
+- `[P]ick NN` — handle PR `NN` individually, keep the rest in
+  the group
+- `[S]kip group` — leave every PR in the group alone this run
+- `[Q]uit` — exit the session
+
+`close` and `flag-suspicious` groups never accept `[A]ll`
+without an extra per-PR confirm — those are destructive enough
+that batching must still route through a per-PR review.
+
+When a PR is pulled out of a group via `[P]NN` or `[E]`, fetch
+the per-PR drill-in data (failed-job log snippets, full diff
+for `[W]`) lazily at that moment. Step 1's full-set fetch
+intentionally omits this deep data — the per-PR cost is paid
+only when the maintainer actually drills in.
+
 ## Group ordering
 
 After classification and suggested-action computation, partition
@@ -297,6 +351,23 @@ previews per-PR.
 
 ---
 
+## Step 4 — Execute
+
+On the maintainer's confirmation, execute the action for the
+confirmed PR(s) using the recipes in [`actions.md`](actions.md).
+Each action builds its comment body (when one is needed) from
+[`comment-templates.md`](comment-templates.md) and — before
+mutating — re-checks the PR's `head_sha` against the value
+captured in Step 1. If the SHA has changed, the maintainer is
+notified (the contributor pushed while we were deciding) and the
+PR is re-enriched and re-classified before the action is applied.
+This optimistic-lock pattern is the same one the original breeze
+tool used and catches the common race.
+
+After each group completes, update the session cache with the
+new classification and head SHA so a re-run inside the same
+window skips the PRs we just handled.
+
 ## Optimistic lock (re-check before mutate)
 
 Between the fetch (Step 1 / 2) and the mutation (Step 4) the
@@ -342,7 +413,7 @@ Batch the re-check queries for `[A]` actions — one aliased
 ## Lazy drill-in fetches
 
 The full-set fetch in
-[`SKILL.md#step-1--resolve-the-selector-and-fetch-every-page`](SKILL.md#step-1--resolve-the-selector-and-fetch-every-page)
+[`fetch-and-batch.md#step-1--resolve-the-selector-and-fetch-every-page`](fetch-and-batch.md#step-1--resolve-the-selector-and-fetch-every-page)
 deliberately omits per-PR deep data (failed-job log snippets,
 full diffs, author profile rollups). Defer those to the moment
 the maintainer pulls a PR out of a group via `[P]NN`, `[E]`, or
@@ -386,6 +457,23 @@ logged, the batch continues, and the final tally is surfaced
 before moving on.
 
 ---
+
+## Step 6 — Session summary
+
+On exit, print a one-screen summary:
+
+- counts of PRs handled per action (drafted, commented, closed,
+  rebased, reruns triggered, author-confirm requests posted,
+  marked ready, bot drafts promoted, pinged, workflow approvals,
+  suspicious flags)
+- counts of PRs skipped and per-reason breakdown (already
+  triaged, inside grace window, bot, collaborator)
+- counts of PRs left pending (classified in Step 2 but the
+  group containing them wasn't decided before quit)
+- total wall-clock time and PRs-per-minute velocity
+
+The on-screen summary is for the maintainer's quick read at
+session end.
 
 ## Session summary
 

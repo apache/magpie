@@ -25,6 +25,7 @@ argument-hint: "[issue-number]"
 capability: capability:intake
 surface_hash: sha256:d8b81ac9e34c0b34
 license: Apache-2.0
+measured_tokens: 9941
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):

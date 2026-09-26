@@ -22,6 +22,7 @@ when_to_use: |
 capability: capability:stats
 surface_hash: sha256:17acede01fa2f929
 license: Apache-2.0
+measured_tokens: 2993
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0

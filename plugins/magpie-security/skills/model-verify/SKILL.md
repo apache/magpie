@@ -34,6 +34,7 @@ argument-hint: "[repo-or-model-path]"
 capability: capability:review
 surface_hash: sha256:e54146731464c571
 license: Apache-2.0
+measured_tokens: 6626
 ---
 
 # Security model verify

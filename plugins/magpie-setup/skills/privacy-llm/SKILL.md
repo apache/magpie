@@ -19,6 +19,7 @@ capability:
   - capability:platform
 surface_hash: sha256:49a65c36a0dc49ab
 license: Apache-2.0
+measured_tokens: 2051
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0

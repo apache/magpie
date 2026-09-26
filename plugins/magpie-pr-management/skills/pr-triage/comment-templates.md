@@ -57,6 +57,62 @@ anchor text breaks the re-triage skip logic.
 > triage feedback is delivered as **one** managed, replace-in-place block folded
 > into the PR description — never as a standalone comment.
 
+**Golden rule 11 — deliver violation feedback through the
+configured channel, and default to the silent one.** The
+deterministic quality-violation feedback for `draft`, `comment`
+(deterministic-flag), and `close` is delivered per
+[`<project-config>/pr-management-config.md → triage_feedback_channel`](../../../../projects/_template/pr-management-config.md),
+which defaults to **`pr-body`**: the feedback is *folded into the
+PR description* as a managed marker block instead of posted as a
+comment. Editing a PR body does not notify subscribers, so the
+default keeps maintainer mailboxes quiet (see
+[`rationale.md#why-fold-feedback-into-the-pr-body-denoise`](rationale.md#why-fold-feedback-into-the-pr-body-denoise)).
+Under the default `pr-body` channel **every** contributor-facing
+action — not just the three violation actions, but `ping`,
+`request-author-confirmation`, and the stale-sweep notices too —
+folds into the one managed block (Golden rule 12), so a PR never
+carries more than a single triage note. The legacy
+`triage_feedback_channel: comment` mode keeps the per-template
+comment bodies for adopters who opt into it. See
+[`comment-templates.md#the-folded-maintainer-triage-note--the-single-contributor-channel`](comment-templates.md#the-folded-maintainer-triage-note--the-single-contributor-channel)
+and [`actions.md`](actions.md).
+
+**Golden rule 12 — the folded note notifies the author, and only
+the author.** Under the default `pr-body` channel the folded
+maintainer-triage note is **not** silent — it deliberately
+`@`-mentions the PR author and **assigns** them, because the note
+is a "your move" signal. But the author is the *only* person ever
+notified:
+
+- Only the author is `@`-mentioned; only the author is assigned
+  (`gh pr edit --add-assignee <author>`). On the ready-for-review
+  flip the author is **un-assigned** (the ball returns to the
+  maintainers).
+- **No maintainer is ever `@`-mentioned, assigned, or pinged** —
+  not the operator, not a reviewer, not a CODEOWNER, not a team.
+  Maintainer handles appear backtick-quoted (`` `@login` ``) only.
+- The framework's reviewer-re-review / reviewer-ping variants are
+  removed; the author-primary nudge (folded, reviewer named with a
+  backtick handle) is the only nudge. The author pings the reviewer
+  themselves, from their own account, when ready.
+- Enforced deterministically by the agent-guard `mention` guard:
+  in a `gh pr edit --body` it permits the author's `@`-mention and
+  blocks every other. See
+  [`tools/agent-guard`](../../../../tools/agent-guard/README.md) and
+  [`comment-templates.md`](comment-templates.md#the-folded-maintainer-triage-note--the-single-contributor-channel).
+- Exemption — **your own PR/issue**: this rule targets triaging
+  *other* people's PRs. When the operator is themselves the author
+  (author == the authenticated `gh` user), the guard allows
+  `@`-mentioning maintainers/reviewers — nudging your own reviewers
+  from your own PR is a legitimate, deliberate act. A one-off
+  `MAGPIE_ALLOW_MENTIONS=1` override is the escape hatch for any
+  other intentional exception.
+
+This supersedes Golden rule 9's "pings still notify a maintainer"
+expectation for the operator/reviewer side: F5a/F5b still make the
+skill *step back* from an active maintainer conversation, but the
+skill itself never generates a maintainer notification.
+
 ### Author-only notification (the hard rule)
 
 The PR **author** is the only person this skill ever notifies:
@@ -176,6 +232,47 @@ than by the bot.
 | `<reviewer_logins>` | `` `login` [, `login` ...] `` (no `@`) | `request-author-confirmation`, `reviewer-ping` (author-primary), `review-nudge` (author-primary) |
 
 ---
+
+**Golden rule 7 — never bypass the quality-criteria rationale.**
+Every comment posted to a contributor cites the [Pull Request
+quality criteria](https://github.com/<upstream>/blob/main/contributing-docs/05_pull_requests.rst#pull-request-quality-criteria)
+page and lists the specific violations found. Never post a
+bare "please fix CI" comment. The "why" is part of the kindness
+owed to a contributor who will otherwise be left guessing. See
+[`comment-templates.md`](comment-templates.md) for the canonical
+bodies.
+
+**Golden rule 8 — every contributor-facing comment ends with
+the AI-attribution footer.** (Under the default folded-note model
+the multi-sentence footer is replaced by the single `<sub>`
+disclaimer line in the note — see Golden rule 12; the long footer
+below applies to the legacy `triage_feedback_channel: comment`
+mode.) The triage comments this skill
+posts are AI-drafted on the maintainer's behalf, and
+contributors deserve to know that up front. Every template in
+[`comment-templates.md`](comment-templates.md) (with one
+intentional exception: `suspicious-changes`) ends with the
+`<ai_attribution_footer>` block, which:
+
+- tells the contributor the message was drafted by an
+  AI-assisted tool and may contain mistakes,
+- reassures them that after they address the points raised an
+  <PROJECT> maintainer — a real person — will take the next
+  look at the PR,
+- links to the [two-stage triage process
+  description](https://github.com/<upstream>/blob/main/contributing-docs/25_maintainer_pr_triage.md#why-the-first-pass-is-automated)
+  so the contributor can see why the first pass is automated:
+  the project automates the mechanical checks so maintainers'
+  limited time is spent where it matters most — the
+  conversation with the contributor.
+
+Do not paraphrase the footer, do not omit it from templates
+that carry it, and do not let per-PR edits drop it. When a body
+is folded into the PR description instead of posted as a comment
+(Golden rule 11), use the parallel `<ai_attribution_footer_body>`
+variant — same calibration, worded for a description edit. See
+[`comment-templates.md#ai-attribution-footer`](comment-templates.md)
+and [`comment-templates.md#body-fold-rendering`](comment-templates.md#body-fold-rendering).
 
 ## AI-attribution footer
 

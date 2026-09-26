@@ -5,7 +5,7 @@
 
 The two-stage screen that turns the `ready for maintainer review` queue into a
 ranked list of quick-merge candidates. Both stages are a **pure function** of
-the data fetched in [`SKILL.md` Step 1](SKILL.md#step-1--fetch-the-ready-queue) —
+the data fetched in [Step 1](fetch-and-screen.md#step-1--fetch-the-ready-queue) —
 no network calls, no prompts, no writes.
 
 Reading order:
@@ -17,7 +17,7 @@ Reading order:
 3. [Tiers](#tiers) — what Tier A and Tier B mean.
 4. [Path matching](#path-matching) — how globs are evaluated, deny precedence.
 5. [Drop-reason taxonomy](#drop-reason-taxonomy) — the auditable reasons a PR
-   is excluded (surfaced in the [Step 4 summary](SKILL.md#step-4--session-summary)).
+   is excluded (surfaced in the [Step 4 summary](present-and-handoff.md#step-4--session-summary)).
 6. [Required fields](#required-graphql-fields) — what the batch query must
    populate.
 
@@ -227,7 +227,7 @@ should warn.
 ## Drop-reason taxonomy
 
 Every screened-out PR carries exactly one drop reason, surfaced in the
-[Step 4 summary](SKILL.md#step-4--session-summary) so the screen is auditable:
+[Step 4 summary](present-and-handoff.md#step-4--session-summary) so the screen is auditable:
 
 | Reason | Meaning |
 |---|---|
@@ -279,3 +279,11 @@ post-triviality survivor set, not the whole queue.
 > real `ready` queue because GitHub reports `BLOCKED`/`UNKNOWN` for most ready
 > PRs in a batch. The batch value is now informational only; Stage 3's live
 > re-poll is authoritative.
+
+**Golden rule 5 — this is a screen, not a review.** Passing this skill's
+screen means "small, low-risk, all gates green" — it does **not** mean the
+change is correct. A docs PR can still state something wrong; a test-only PR
+can still assert the wrong thing. The maintainer still reads the diff before
+merging — the skill just guarantees the diff is short and the surrounding
+machinery is green. Anything that needs more than a skim belongs in
+[`pr-management-code-review`](../code-review/SKILL.md).

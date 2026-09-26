@@ -9,6 +9,7 @@
   - [Prerequisites](#prerequisites)
   - [Usage](#usage)
   - [Measurement and provenance](#measurement-and-provenance)
+    - [Why a per-skill stamp, not a committed table](#why-a-per-skill-stamp-not-a-committed-table)
   - [Hook](#hook)
   - [Scope](#scope)
   - [Runtime replay benchmark](#runtime-replay-benchmark)
@@ -23,8 +24,10 @@
 
 **Harness:** agnostic
 
-Measures full local skill files with pinned `tiktoken` and checks the generated
-table in [mode economics](../../docs/mode-economics.md).
+Measures full local skill files with pinned `tiktoken` and stamps each count
+into that skill's own frontmatter as `measured_tokens:`. The per-skill table in
+[mode economics](../../docs/mode-economics.md) is rendered from those stamps by
+the website build (or locally with `--table`); it is not committed.
 Implements the deterministic measurement check discussed in
 [issue 327](https://github.com/apache/magpie/issues/327).
 
@@ -54,61 +57,58 @@ between worktrees. `TIKTOKEN_CACHE_DIR` can select a pre-provisioned cache
 (including one copied to an offline machine); an empty value is rejected.
 The vocabulary SHA-256 is checked before measurement.
 
-Then regenerate or check:
+Then stamp, check, or print:
 
 ```bash
 uv run --project tools/skill-token-count skill-token-count --write
 uv run --project tools/skill-token-count skill-token-count --check
+uv run --project tools/skill-token-count skill-token-count --table
 uv run --directory tools/skill-token-count pytest
 ```
 
-`--check` is the default and never writes. Exit status is 0 when current,
-1 for drift, and 2 for invalid input. `--write` replaces only the marked block;
-missing, duplicated, or reversed markers are errors. No files are staged.
-`--root PATH` supports a different checkout or an extracted source archive.
+`--check` is the default and never writes. Exit status is 0 when every stamp
+is current, 1 for a missing or stale stamp, and 2 for invalid input.
+`--write` rewrites only the `measured_tokens:` line of the skills whose count
+changed; nothing is staged. `--table` prints the per-skill markdown table to
+stdout and writes nothing. `--root PATH` supports a different checkout or an
+extracted source archive.
 
 ## Measurement and provenance
 
-Each regular `skills/**/SKILL.md` is read as UTF-8, with LF-normalized line
-endings, including frontmatter and comments. `encode_ordinary` counts literal
-special-token spellings as text. Referenced documents, tool output, model
-responses, and external `source.md` redirects are not included. Harness
-symlinks outside `skills/` are not counted again. Symlinked skill files are errors.
+Each regular `skills/*/SKILL.md` is read as UTF-8, with LF-normalized line
+endings, including frontmatter and comments, and **excluding the
+`measured_tokens:` line itself** — so writing the stamp never changes the
+count it records. `encode_ordinary` counts literal special-token spellings as
+text. Referenced documents, tool output, model responses, and external
+`source.md` redirects are not included. Harness symlinks outside `skills/`
+are not counted again. Symlinked skill files are errors.
 
-Rows are sorted by repository-relative path. A per-file SHA-256 identifies
-the normalized source; a full manifest SHA-256 covers every path, token count,
-full source digest, tokenizer version, encoding, and measurement schema.
-The manifest is canonical JSON (ASCII escaped, compact separators, insertion
-order as defined in the generator). The displayed source digest is abbreviated;
-the manifest includes all 64 characters.
+The stamp sits immediately **after** `license:`; `surface_hash:` sits
+immediately **before** it. Anchoring on opposite sides keeps the two
+stampers from reordering each other's line, so each is idempotent whichever
+runs last.
 
-The generated block records a UTC measurement date. Checks and unchanged
-writes preserve it; regeneration after changed inputs stamps a new date.
-The date is descriptive metadata, not part of the content fingerprint.
-A HEAD stamp is deliberately omitted: it would become stale when the
-generated table is committed.
-This tool works without Git history, including shallow CI and source archives.
-For the publication revision and date, inspect the committed document history:
+### Why a per-skill stamp, not a committed table
 
-```bash
-git log -1 --format='%H %cI' -- docs/mode-economics.md
-```
+The counts used to live in one generated table in `docs/mode-economics.md`,
+with a measurement date and a manifest hash that changed on every
+regeneration. Every PR that touched any skill rewrote those shared lines,
+and alphabetically adjacent rows collided too, so almost any two skill PRs
+conflicted. A stamp in the skill's own file changes only when that skill
+changes, so two PRs conflict on it only when they edit the same skill —
+which they would anyway.
 
-That is the document's commit date, not a claim about when tokenization ran.
-No runtime percentiles or provider billing measurements are inferred.
+This tool works without Git history, including shallow CI and source
+archives. No runtime percentiles or provider billing measurements are
+inferred.
 
 ## Hook
 
-The prek hook checks after skill fixers and runs on skill, generator, lockfile,
-or target-document changes. A dedicated path-filtered CI workflow prepares the
-vocabulary and checks the table. The general CI all-files run excludes this
-hook to avoid running token measurements on unrelated PRs. Workspace dependency
-installation and ordinary lint/test gates retain their existing behavior.
-It deliberately checks rather than mutates, so generated headings cannot
-invalidate an earlier doctoc pass. Regenerate and rerun prek after drift.
-Deleted files may be omitted from a local hook's input; the dedicated CI workflow
-and an explicit `--check` detect deletions even when no surviving file triggered
-the local hook.
+The prek hook checks after skill fixers and runs on skill, generator, or
+lockfile changes. A dedicated path-filtered CI workflow prepares the
+vocabulary and checks every stamp. The general CI all-files run excludes this
+hook to avoid running token measurements on unrelated PRs. It deliberately
+checks rather than mutates; restamp with `--write` and rerun prek after drift.
 
 ## Scope
 

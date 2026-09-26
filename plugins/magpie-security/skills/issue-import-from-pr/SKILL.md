@@ -29,6 +29,7 @@ argument-hint: "[pr-number] [repo:owner/name]"
 capability: capability:intake
 surface_hash: sha256:cccaf9dcf399c5eb
 license: Apache-2.0
+measured_tokens: 11098
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
