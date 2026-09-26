@@ -722,9 +722,11 @@ Adjust the request rather than widening the sandbox: a `403` from the gateway is
 - The gateway's `podman`-backend discovery on Linux reads `$XDG_RUNTIME_DIR/podman/podman.sock` directly, which is rootless Podman's default socket location, again with no separate configuration.
 - Do **not** widen `allowRead` to `~/.docker/**`.
   The directory holds auth tokens and saved contexts, and the whole point of the framework's `Read(~/.docker/**)` denial is to keep those out of the agent's reach.
-- Docker Desktop's CLI binary and plugins still need explicit read access, independently of which socket the CLI talks to.
+- Docker Desktop's CLI binary and plugins need read access, independently of which socket the CLI talks to.
   `docker` on `PATH` is `~/.docker/bin/docker`, a symlink into `/Applications/Docker.app`, and `docker compose` / `docker buildx` are separate binaries under `~/.docker/cli-plugins/`.
-  Add `~/.docker/bin/` and `~/.docker/cli-plugins/` to `sandbox.filesystem.allowRead` as exact paths rather than the broader `~/.docker/**`, or install `docker` via Homebrew, whose CLI lives on a normal `PATH` directory outside `~/.docker` and needs no extra allow.
+  The framework's `sandbox.filesystem.allowRead` includes both as exact paths, so a settings file derived from it runs them out of the box; the rest of `~/.docker` stays denied.
+  If yours predates that and fails with `operation not permitted: docker` or `unknown command: docker compose`, add `~/.docker/bin/` and `~/.docker/cli-plugins/` to it.
+  With `docker` installed via Homebrew, the CLI lives on a normal `PATH` directory outside `~/.docker`, and the two entries are harmless no-ops.
 - If no Podman machine exists, or it is stopped, run `podman machine init` / `podman machine start` from your own terminal, outside the sandbox.
   Verify the result from outside the sandbox too: per the Symptom note above, `podman machine list` run inside the sandbox reports an empty table regardless of the machine's real state.
 - When only Podman is installed, the gateway still serves the `docker` CLI.

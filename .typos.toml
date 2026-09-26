@@ -34,7 +34,14 @@
 # reason — a truncated sha256 hex digest routinely contains letter runs
 # typos reads as words (e.g. `19ba62ec34a55604` → `ba`). The value is
 # written only by `tools/dev/skill-surface-hash.py`, never hand-edited.
-extend-ignore-re = ["`[0-9a-f]{7,40}`", "surface_hash: sha256:[0-9a-f]+"]
+# `FRAMEWORK_FINGERPRINT` in setup-preflight's `isolated_fingerprint.py` is
+# the same kind of generated digest, rewritten whenever a secure-setup file
+# changes (e.g. `83afe25bd59e7d7a` → `afe`).
+extend-ignore-re = [
+  "`[0-9a-f]{7,40}`",
+  "surface_hash: sha256:[0-9a-f]+",
+  "FRAMEWORK_FINGERPRINT = \"sha256:[0-9a-f]+\"",
+]
 
 [default.extend-words]
 # Domain terms typos' default dictionary flags as misspellings.
