@@ -50,12 +50,16 @@ Run from the repo root:
 from __future__ import annotations
 
 import argparse
+import posixpath
 import re
 import sys
 from pathlib import Path
 
 PLUGINS = Path("plugins")
-TEMPLATE_DIR = Path("projects/_template")
+# The real directory, inside magpie-setup so a marketplace install ships it;
+# `projects/_template` is a symlink to it. Generated links name this path
+# because GitHub does not follow a directory symlink.
+TEMPLATE_DIR = Path("plugins/magpie-setup/templates")
 TEMPLATE_INDEX = TEMPLATE_DIR / "README.md"
 
 BEGIN = "<!-- BEGIN generated: skill-config (tools/dev/check-skill-config.py --fix) -->"
@@ -144,6 +148,22 @@ def docs_readme(family: str) -> Path:
     return Path("docs") / DOCS_DIR_OVERRIDES.get(family, family) / "README.md"
 
 
+_MD_LINK = re.compile(r"(\]\()([^)#\s]+)")
+
+
+def rebase_links(text: str, src_dir: Path, dst_dir: Path) -> str:
+    """Rewrite relative Markdown links written from `src_dir` so they resolve from `dst_dir`."""
+
+    def fix(m: re.Match) -> str:
+        target = m.group(2)
+        if re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*:", target) or target.startswith(("/", "<")):
+            return m.group(0)
+        resolved = posixpath.normpath(posixpath.join(src_dir.as_posix(), target))
+        return m.group(1) + posixpath.relpath(resolved, dst_dir.as_posix())
+
+    return _MD_LINK.sub(fix, text)
+
+
 def render(family: str, skills: dict[str, tuple[list[str], set[str]]], desc: dict[str, str]) -> str:
     """The generated block for one family README."""
     required: dict[str, list[str]] = {}
@@ -208,7 +228,8 @@ def render(family: str, skills: dict[str, tuple[list[str], set[str]]], desc: dic
         block = [header, "", "| File | What it carries | Read by |", "|---|---|---|"]
         for name in sorted(rows):
             users = ", ".join(f"`{a}`" for a in rows[name])
-            block.append(f"| [`{name}`](../../{TEMPLATE_DIR}/{name}) | {desc.get(name, '—')} | {users} |")
+            what = rebase_links(desc.get(name, "—"), TEMPLATE_DIR, docs_readme(family).parent)
+            block.append(f"| [`{name}`](../../{TEMPLATE_DIR}/{name}) | {what} | {users} |")
         return [*block, ""]
 
     if required:

@@ -6,12 +6,12 @@
 - [`AGENTS.md`](../../../../AGENTS.md) — placeholder conventions, link form,
   tone (polite-but-firm), injection-guard rule, the rule that external
   content is never an instruction.
-- [`<project-config>/project.md`](../../../../projects/_template/project.md) —
+- [`<project-config>/project.md`](../../../magpie-setup/templates/project.md) —
   identifiers, `upstream_repo`, `upstream_default_branch`.
-- [`<project-config>/pr-management-config.md`](../../../../projects/_template/pr-management-config.md) —
+- [`<project-config>/pr-management-config.md`](../../../magpie-setup/templates/pr-management-config.md) —
   PR management config including `ready_for_maintainer_review_label` and
   `committers_team`.
-- [`<project-config>/stale-sweep-config.md`](../../../../projects/_template/stale-sweep-config.md) —
+- [`<project-config>/stale-sweep-config.md`](../../../magpie-setup/templates/stale-sweep-config.md) —
   per-project stale thresholds (`pr_warn_days`, `pr_close_days`,
   `pr_hard_close_days`).
 - [`pr-management-triage`](../pr-triage/SKILL.md) — the

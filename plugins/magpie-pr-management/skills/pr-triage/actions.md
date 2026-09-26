@@ -27,7 +27,7 @@ action in this file assumes:
   [`interaction-loop.md#optimistic-lock`](interaction-loop.md)),
 - the action's feedback body (if any) — whether it will be
   posted as a comment or folded into the PR description per
-  [`triage_feedback_channel`](../../../../projects/_template/pr-management-config.md)
+  [`triage_feedback_channel`](../../../magpie-setup/templates/pr-management-config.md)
   — has been previewed to the maintainer from the appropriate
   template in [`comment-templates.md`](comment-templates.md). The
   preview MUST state which channel will be used so the maintainer
@@ -64,7 +64,7 @@ still-open PR is a worse state than no note at all.
 The body is built from the `draft` template in
 [`comment-templates.md#draft-comment`](comment-templates.md#draft-comment).
 **Which channel carries it is read from
-[`<project-config>/pr-management-config.md → triage_feedback_channel`](../../../../projects/_template/pr-management-config.md)**
+[`<project-config>/pr-management-config.md → triage_feedback_channel`](../../../magpie-setup/templates/pr-management-config.md)**
 (default `pr-body`).
 
 **`pr-body` (default) — fold into the PR description, no
@@ -889,7 +889,7 @@ gh pr edit <N> --repo <repo> --remove-label "ready for maintainer review"
 ```
 
 The label string is read from
-[`<project-config>/pr-management-config.md → ready_for_maintainer_review_label`](../../../../projects/_template/pr-management-config.md);
+[`<project-config>/pr-management-config.md → ready_for_maintainer_review_label`](../../../magpie-setup/templates/pr-management-config.md);
 do not hard-code it. The same `gh pr edit --remove-label` recipe backs
 the "strip-on-downgrade" hook inside `draft` and `comment`
 (`actions.md` §[draft](#draft--convert-to-draft-and-fold-violations-into-the-pr-body) /

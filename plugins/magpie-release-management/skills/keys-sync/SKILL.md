@@ -26,7 +26,7 @@ argument-hint: "[--fingerprint <fp>] [--keys-url <url>] [--keyserver <host>]"
 capability: capability:resolve
 surface_hash: sha256:bc9f77e9dcb305da
 license: Apache-2.0
-measured_tokens: 4865
+measured_tokens: 4866
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -427,7 +427,7 @@ The AI-driven part ends with a hand-back artefact containing:
   Step 3 context.
 - [`docs/release-management/spec.md`](../../../../docs/release-management/spec.md) —
   `release-keys-sync` per-skill specification.
-- [`<project-config>/release-management-config.md`](../../../../projects/_template/release-management-config.md) —
+- [`<project-config>/release-management-config.md`](../../../magpie-setup/templates/release-management-config.md) —
   adopter keys this skill reads (`keys_file_url`, `keyserver`,
   `rm_key_fingerprint`).
 - `release-prepare` — upstream step; planning issue should be open.

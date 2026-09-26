@@ -15,7 +15,7 @@
 
 The PMC roster `release-vote-tally` reads to classify each `[VOTE]`
 reply as binding (PMC member) or non-binding (committer / community).
-Template: [`projects/_template/pmc-roster.md`](../_template/pmc-roster.md).
+Template: [`projects/_template/pmc-roster.md`](../../plugins/magpie-setup/templates/pmc-roster.md).
 
 Authoritative source is the project's official committee roster
 (`https://whimsy.apache.org/roster/committee/magpie`). This file

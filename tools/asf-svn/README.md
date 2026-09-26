@@ -84,7 +84,7 @@ that ships through `dist.apache.org`.
 ## Configuration
 
 An adopting project enables this tool per capability in its
-[`<project-config>/project.md`](../../projects/_template/project.md)
+[`<project-config>/project.md`](../../plugins/magpie-setup/templates/project.md)
 manifest under *Tools enabled* — one row per capability, naming
 `asf-svn` for the capabilities it fulfils (see
 [`tool.md`](tool.md#when-to-use-this-tool-alongside-another) for the

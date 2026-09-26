@@ -107,7 +107,7 @@ canonical step-by-step pattern is in
 
 The collaborator filter is **adopter-tunable** — the
 *"Collaborator exemption"* knob in the adopter's
-[`<project-config>/privacy-llm.md`](../../projects/_template/privacy-llm.md#collaborator-exemption)
+[`<project-config>/privacy-llm.md`](../../plugins/magpie-setup/templates/privacy-llm.md#collaborator-exemption)
 controls whether the exemption is enabled at all. Default is
 enabled (collaborator names flow as-is); disabled is the
 stricter posture (every non-reporter individual gets redacted,

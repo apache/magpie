@@ -170,7 +170,7 @@ python3 reproducible_archive.py build --ref "$GITHUB_REF_NAME" --prefix "apache-
     --format tar.gz -o "apache-foo-${VERSION}-source.tar.gz"
 ```
 
-The ASF automated-release-signing workflow template in [`projects/_template/workflows/release-candidate.yml`](../../projects/_template/workflows/release-candidate.yml) does exactly that.
+The ASF automated-release-signing workflow template in [`projects/_template/workflows/release-candidate.yml`](../../plugins/magpie-setup/templates/workflows/release-candidate.yml) does exactly that.
 
 ## Wiring
 

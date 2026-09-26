@@ -72,7 +72,7 @@ the shape: it runs itself, it writes only gitignored files, and it stages
 nothing.*
 
 Every skill here resolves project-specific values from the adopter's
-[`<project-config>/`](../../projects/_template/) directory — which is
+[`<project-config>/`](../../plugins/magpie-setup/templates/) directory — which is
 `.apache-magpie-local/` (gitignored, yours) first, then
 `.apache-magpie-overrides/` (committed, the project's).
 
@@ -89,19 +89,19 @@ says which file is missing.
 
 | File | What it carries | Read by |
 |---|---|---|
-| [`committer-onboarding-config.md`](../../projects/_template/committer-onboarding-config.md) | Capability-flag vocabulary for committer intake and governance models (`icla`/`dco`/`no-cla`; `asf-pmc`/`github-codeowners`/`maintainer-roster`). | `committer-onboarding` |
-| [`committer-readiness.md`](../../projects/_template/committer-readiness.md) | The project's declared committer and PMC thresholds — what a contributor's activity is measured against. | `contributor-to-committer` |
-| [`contributor-nomination-config.md`](../../projects/_template/contributor-nomination-config.md) | Nomination-brief thresholds and assessment window. | `nomination` |
-| [`contributor-sentiment-config.md`](../../projects/_template/contributor-sentiment-config.md) | Signal thresholds for the sentiment gate. Every key has a default. | `sentiment` |
-| [`onboarding-concierge-config.md`](../../projects/_template/onboarding-concierge-config.md) | The path a new contributor is walked through, and who owns each step. | `onboarding-concierge` |
-| [`project.md`](../../projects/_template/project.md) | Project manifest. Identity, repositories, mailing lists, tools enabled, CVE tooling, GitHub project-board + issue-template field declarations. The single file every skill reads to resolve project-scoped references. | `activity-sweep`, `committer-onboarding`, `contributor-to-committer`, `nomination`, `onboarding-concierge`, `sentiment` |
+| [`committer-onboarding-config.md`](../../plugins/magpie-setup/templates/committer-onboarding-config.md) | Capability-flag vocabulary for committer intake and governance models (`icla`/`dco`/`no-cla`; `asf-pmc`/`github-codeowners`/`maintainer-roster`). | `committer-onboarding` |
+| [`committer-readiness.md`](../../plugins/magpie-setup/templates/committer-readiness.md) | The project's declared committer and PMC thresholds — what a contributor's activity is measured against. | `contributor-to-committer` |
+| [`contributor-nomination-config.md`](../../plugins/magpie-setup/templates/contributor-nomination-config.md) | Nomination-brief thresholds and assessment window. | `nomination` |
+| [`contributor-sentiment-config.md`](../../plugins/magpie-setup/templates/contributor-sentiment-config.md) | Signal thresholds for the sentiment gate. Every key has a default. | `sentiment` |
+| [`onboarding-concierge-config.md`](../../plugins/magpie-setup/templates/onboarding-concierge-config.md) | The path a new contributor is walked through, and who owns each step. | `onboarding-concierge` |
+| [`project.md`](../../plugins/magpie-setup/templates/project.md) | Project manifest. Identity, repositories, mailing lists, tools enabled, CVE tooling, GitHub project-board + issue-template field declarations. The single file every skill reads to resolve project-scoped references. | `activity-sweep`, `committer-onboarding`, `contributor-to-committer`, `nomination`, `onboarding-concierge`, `sentiment` |
 
 **Optional.** Each has a documented fallback; absent, the skill still runs.
 
 | File | What it carries | Read by |
 |---|---|---|
-| [`pmc-roster.md`](../../projects/_template/pmc-roster.md) | Who is binding. Read wherever a vote is counted or a PMC-only action is gated. | `nomination` |
-| [`privacy-llm.md`](../../projects/_template/privacy-llm.md) | Which model tier may see which class of content, for projects routing foundation-private information away from third-party models. | `committer-onboarding` |
+| [`pmc-roster.md`](../../plugins/magpie-setup/templates/pmc-roster.md) | Who is binding. Read wherever a vote is counted or a PMC-only action is gated. | `nomination` |
+| [`privacy-llm.md`](../../plugins/magpie-setup/templates/privacy-llm.md) | Which model tier may see which class of content, for projects routing foundation-private information away from third-party models. | `committer-onboarding` |
 
 <!-- END generated: skill-config -->
 
@@ -219,7 +219,7 @@ per-project policy knobs before a skill can safely propose anything):
 - [`docs/mentoring/README.md`](../mentoring/README.md) — the Agentic Mentoring
   mode family overview, which cross-references `mentoring-welcome`,
   `good-first-issue-author`, and `good-first-issue-sweep`.
-- [`projects/_template/README.md`](../../projects/_template/README.md) —
+- [`projects/_template/README.md`](../../plugins/magpie-setup/templates/README.md) —
   adopter scaffold index, with a purpose line for every file the table under
   *Before the first run* links.
 - [`docs/setup/agentic-overrides.md`](../setup/agentic-overrides.md) —

@@ -27,7 +27,7 @@ argument-hint: "[pr:N] [label:LBL] [author:LOGIN] [review-for-me] [stale] [repo:
 capability: capability:triage
 surface_hash: sha256:4a3a20f254a3b7c7
 license: Apache-2.0
-measured_tokens: 4951
+measured_tokens: 4954
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
@@ -154,9 +154,9 @@ This skill resolves project-specific content from the adopter's
 `<project-config>/` directory (which resolves to
 `.apache-magpie/` in the adopter's tracker root):
 
-- [`<project-config>/pr-management-config.md`](../../../../projects/_template/pr-management-config.md) — committers team handle, area-label prefix, project-specific labels (`ready for maintainer review`, etc.), grace windows.
-- [`<project-config>/pr-management-triage-comment-templates.md`](../../../../projects/_template/pr-management-triage-comment-templates.md) — comment-body URLs (PR quality criteria, two-stage triage rationale), AI-attribution footer wording, project display name.
-- [`<project-config>/pr-management-triage-ci-check-map.md`](../../../../projects/_template/pr-management-triage-ci-check-map.md) — (Optional) CI-check name pattern → category name + doc-URL mapping for the violations comment; if absent, all failing CI checks are reported as "Failing CI checks" pointing to the generic `upstream_contributing_docs_url` in `project.md`.
+- [`<project-config>/pr-management-config.md`](../../../magpie-setup/templates/pr-management-config.md) — committers team handle, area-label prefix, project-specific labels (`ready for maintainer review`, etc.), grace windows.
+- [`<project-config>/pr-management-triage-comment-templates.md`](../../../magpie-setup/templates/pr-management-triage-comment-templates.md) — comment-body URLs (PR quality criteria, two-stage triage rationale), AI-attribution footer wording, project display name.
+- [`<project-config>/pr-management-triage-ci-check-map.md`](../../../magpie-setup/templates/pr-management-triage-ci-check-map.md) — (Optional) CI-check name pattern → category name + doc-URL mapping for the violations comment; if absent, all failing CI checks are reported as "Failing CI checks" pointing to the generic `upstream_contributing_docs_url` in `project.md`.
 
 The skill reads all project-specific content (comment bodies, CI
 patterns, team handles, doc URLs) from the files listed above; if

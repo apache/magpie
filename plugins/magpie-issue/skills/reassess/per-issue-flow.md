@@ -34,7 +34,7 @@ Call [`issue-reproducer`](../reproducer/SKILL.md) with the
 candidate's tracker key. The skill writes the full evidence
 package at
 `<scratch>/<campaign-id>/<KEY>/` per
-[`<project-config>/reproducer-conventions.md`](../../../../projects/_template/reproducer-conventions.md).
+[`<project-config>/reproducer-conventions.md`](../../../magpie-setup/templates/reproducer-conventions.md).
 
 Pass through campaign flags:
 

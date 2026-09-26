@@ -50,7 +50,7 @@ runs against:
 | Promote | `svn mv dist/dev → dist/release` | **Finish** phase: ATR strips `-rcN`, publishes |
 | Announce | RM sends `[ANNOUNCE]` | **Finish** phase: ATR-assisted announce |
 
-`atr` is a value of the [`release_dist_backend`](../../projects/_template/release-management-config.md#backends)
+`atr` is a value of the [`release_dist_backend`](../../plugins/magpie-setup/templates/release-management-config.md#backends)
 switch, alongside `svnpubsub`. The 14 abstract steps are identical;
 only the commands the RM (and the skills) emit change.
 
@@ -300,7 +300,7 @@ key and perform the registration
 1. **Build and sign the source artefact locally** — this half is
    unchanged from the [`svnpubsub` runbook Steps 2–5](svn-release-runbook.md#step-2-tag-the-release-candidate).
    [`release-rc-cut`](../../skills/release-rc-cut/SKILL.md) emits the
-   recipe from [`release-build.md`](../../projects/_template/release-build.md):
+   recipe from [`release-build.md`](../../plugins/magpie-setup/templates/release-build.md):
 
    ```bash
    export VERSION=0.1.0
@@ -404,7 +404,7 @@ the binding votes.
 3. **72-hour window** (Step 8). Minimum per
    [release-policy § release approval](https://www.apache.org/legal/release-policy.html#release-approval);
    the Magpie config may lengthen but not shorten it
-   ([`release-management-config.md` § Vote](../../projects/_template/release-management-config.md#vote)).
+   ([`release-management-config.md` § Vote](../../plugins/magpie-setup/templates/release-management-config.md#vote)).
    What a PMC member does during the window, in either order:
    - **Agentic:** `/magpie-release-management:verify-rc <version>-rcN`
      from any Magpie-enabled agent — read-only; it fetches the staged
@@ -424,7 +424,7 @@ the binding votes.
 4. **Tally** (Step 9). ATR tabulates the replies; cross-check with
    [`release-vote-tally`](../../skills/release-vote-tally/SKILL.md),
    which classifies each reply binding-vs-non-binding against the
-   [`pmc-roster.md`](../../projects/_template/pmc-roster.md) and
+   [`pmc-roster.md`](../../plugins/magpie-setup/templates/pmc-roster.md) and
    drafts the `[RESULT] [VOTE]`. On any ambiguity the skill refuses to
    count and flags `AMBIGUOUS, needs RM call` — **the binding tally is
    the PMC's, not the platform's**. If the vote fails, bump `RC` and
@@ -461,7 +461,7 @@ release.**
    `announce@apache.org`, cc `dev@` — mandatory per
    [release-policy § announcements](https://www.apache.org/legal/release-policy.html#release-announcements)
    — and the site-bump PR against
-   [`site-repo.md`](../../projects/_template/site-repo.md). ATR can
+   [`site-repo.md`](../../plugins/magpie-setup/templates/site-repo.md). ATR can
    assist the announce; the **agent never sends the mail and never
    merges the site PR**.
 
@@ -473,7 +473,7 @@ release.**
 ## Step F: Archive, audit, post-release bump (Steps 12-14)
 
 - **Archive sweep** (Step 12): follow the retention rule in
-  [`release-management-config.md` § Archive](../../projects/_template/release-management-config.md#archive).
+  [`release-management-config.md` § Archive](../../plugins/magpie-setup/templates/release-management-config.md#archive).
   Releases committed to `dist/release` are copied to `archive.apache.org` automatically.
   Archiving a release in ATR updates the release catalog and removes its files from `dist/release` in the background.
   If enabled in the project settings, select "Auto archive prior release" to archive the previous release in the same cycle when announcing the new release.
@@ -504,7 +504,7 @@ local `atr` client path above (Step C); revisit CI-driven compose once
 the build is demonstrably reproducible. When it is, `release-prepare
 automated-signing` drafts the Infra key request, the Security Team
 notification and the workflow PR (template:
-[`projects/_template/workflows/release-candidate.yml`](../../projects/_template/workflows/release-candidate.yml))
+[`projects/_template/workflows/release-candidate.yml`](../../plugins/magpie-setup/templates/workflows/release-candidate.yml))
 under the conditions in
 [Infra § Automated release signing](https://infra.apache.org/release-signing.html#automated-release-signing);
 see [`reproducibility.md`](reproducibility.md#automated-release-signing--asf-specific-optional). See the
@@ -543,7 +543,7 @@ repository for a worked GitHub Actions example.
   holds the key, never publishes) that hold identically on ATR.
 - [`README.md`](README.md) — the release-management skill family that
   drives every step.
-- [`release-management-config.md`](../../projects/_template/release-management-config.md)
+- [`release-management-config.md`](../../plugins/magpie-setup/templates/release-management-config.md)
   — where the `atr` distribution backend is selected.
 - **ATR platform** —
   [beta deployment](https://releases.apache.org/) ·

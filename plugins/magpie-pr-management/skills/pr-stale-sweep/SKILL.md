@@ -22,7 +22,7 @@ when_to_use: |
 capability: capability:triage
 surface_hash: sha256:2c5b8030569b63e6
 license: Apache-2.0
-measured_tokens: 4937
+measured_tokens: 4940
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -166,13 +166,13 @@ Before reading any PR state, verify:
 2. **`gh` CLI authenticated** — `gh auth status` reports a token with
    at minimum read scope on `<upstream>`.
 3. **Project config resolved** — read
-   [`<project-config>/project.md`](../../../../projects/_template/project.md)
+   [`<project-config>/project.md`](../../../magpie-setup/templates/project.md)
    and
-   [`<project-config>/pr-management-config.md`](../../../../projects/_template/pr-management-config.md)
+   [`<project-config>/pr-management-config.md`](../../../magpie-setup/templates/pr-management-config.md)
    into cache.
 4. **Thresholds resolved** — read `pr_warn_days` and `pr_close_days`
    from
-   [`<project-config>/stale-sweep-config.md`](../../../../projects/_template/stale-sweep-config.md)
+   [`<project-config>/stale-sweep-config.md`](../../../magpie-setup/templates/stale-sweep-config.md)
    if it exists; otherwise use framework defaults (45 / 90). Apply any
    inline overrides from the invocation selector.
 5. **Validate thresholds** — hard error if `warn_days >= close_days` or

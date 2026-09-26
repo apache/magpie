@@ -22,7 +22,7 @@ Reading order:
    populate.
 
 All thresholds and path lists are read from
-[`<project-config>/pr-management-quick-merge-config.md`](../../../../projects/_template/pr-management-quick-merge-config.md)
+[`<project-config>/pr-management-quick-merge-config.md`](../../../magpie-setup/templates/pr-management-quick-merge-config.md)
 at session start. The values below are the **shape**, not hard-coded constants.
 
 ---
@@ -170,7 +170,7 @@ assertions).
   (Golden rule 4: unknown paths are not assumed safe).
 
 The default globs live in the
-[template config](../../../../projects/_template/pr-management-quick-merge-config.md);
+[template config](../../../magpie-setup/templates/pr-management-quick-merge-config.md);
 the shape for an Airflow-like project:
 
 ```text

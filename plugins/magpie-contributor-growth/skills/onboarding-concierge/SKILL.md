@@ -30,7 +30,7 @@ argument-hint: "[newcomer question or issue/PR URL]"
 capability: capability:review
 surface_hash: sha256:4105a6571bcb70c2
 license: Apache-2.0
-measured_tokens: 3372
+measured_tokens: 3374
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
@@ -124,7 +124,7 @@ See the absolute rule in
 
 Per-project values live in `<project-config>/onboarding-concierge-config.md`.
 See the template at
-[`projects/_template/onboarding-concierge-config.md`](../../../../projects/_template/onboarding-concierge-config.md).
+[`projects/_template/onboarding-concierge-config.md`](../../../magpie-setup/templates/onboarding-concierge-config.md).
 Keys this skill reads:
 
 | Key | Used for |
@@ -313,7 +313,7 @@ or handle the thread directly. The skill does not post anything.
 - [`good-first-issue-author`](../../../magpie-mentoring/skills/good-first-issue-author/SKILL.md) —
   authors newcomer-ready issues so the "where do I start?" answer has
   supply.
-- [`projects/_template/onboarding-concierge-config.md`](../../../../projects/_template/onboarding-concierge-config.md) —
+- [`projects/_template/onboarding-concierge-config.md`](../../../magpie-setup/templates/onboarding-concierge-config.md) —
   adopter config scaffold.
 - [`MISSION.md` § Agentic Mentoring](../../../../MISSION.md#technical-scope) —
   onboarding-latency framing.

@@ -28,7 +28,7 @@ capability:
   - capability:resolve
 surface_hash: sha256:b0b69aea022307a5
 license: Apache-2.0
-measured_tokens: 5613
+measured_tokens: 5615
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -546,9 +546,9 @@ The AI-driven part ends with a hand-back artefact containing:
   Step 9 context.
 - [`docs/release-management/spec.md`](../../../../docs/release-management/spec.md) —
   `release-vote-tally` per-skill specification.
-- [`<project-config>/release-management-config.md`](../../../../projects/_template/release-management-config.md) —
+- [`<project-config>/release-management-config.md`](../../../magpie-setup/templates/release-management-config.md) —
   adopter keys this skill reads.
-- [`<project-config>/pmc-roster.md`](../../../../projects/_template/pmc-roster.md) —
+- [`<project-config>/pmc-roster.md`](../../../magpie-setup/templates/pmc-roster.md) —
   ASF default approver roster.
 - `release-vote-draft` (proposed) —
   upstream step; opens the `[VOTE]` thread.

@@ -286,3 +286,57 @@ def test_no_plugin_path_escapes_its_own_root(tree, monkeypatch):
             continue
         for entry in skills.iterdir():
             assert not entry.is_symlink(), f"{entry} is a symlink; Codex would drop it"
+
+
+# ---------------------------------------------------------------------------
+# magpie-setup ships the project templates inside its own root
+# ---------------------------------------------------------------------------
+
+
+def _templates_layout(root: Path) -> None:
+    """The shape the repository has: real templates in the setup skill,
+    ``projects/_template`` linking in to them."""
+    templates = root / mod.SETUP_TEMPLATES
+    templates.mkdir(parents=True)
+    (templates / "project.md").write_text("# template\n", encoding="utf-8")
+    mirror = root / mod.SETUP_TEMPLATES_MIRROR
+    mirror.parent.mkdir(parents=True)
+    mirror.symlink_to(mod.SETUP_TEMPLATES_MIRROR_TARGET)
+
+
+def test_the_setup_plugin_ships_the_project_templates(monkeypatch):
+    """`setup config` scaffolds from these; a marketplace install has only
+    the plugin root to take them from."""
+    monkeypatch.chdir(REPO_ROOT)
+    templates = REPO_ROOT / mod.SETUP_TEMPLATES
+    assert templates.is_dir() and not templates.is_symlink()
+    for name in ("project.md", "adversarial-review.md", "commit-attribution.toml"):
+        assert (templates / name).is_file(), name
+    assert mod.check_setup_templates() == []
+
+
+def test_the_generated_templates_layout_passes(tmp_path, monkeypatch):
+    _templates_layout(tmp_path)
+    monkeypatch.chdir(tmp_path)
+    assert mod.check_setup_templates() == []
+
+
+def test_missing_templates_are_reported(tmp_path, monkeypatch):
+    _templates_layout(tmp_path)
+    (tmp_path / mod.SETUP_TEMPLATES / "project.md").unlink()
+    monkeypatch.chdir(tmp_path)
+    assert any("no templates to scaffold from" in e for e in mod.check_setup_templates())
+
+
+def test_templates_linked_out_of_the_plugin_are_reported(tmp_path, monkeypatch):
+    """The out-of-root link Agent Plugins 1.0 forbids in a Codex-listed plugin."""
+    real = tmp_path / "projects" / "_template"
+    real.mkdir(parents=True)
+    (real / "project.md").write_text("# template\n", encoding="utf-8")
+    templates = tmp_path / mod.SETUP_TEMPLATES
+    templates.parent.mkdir(parents=True)
+    templates.symlink_to("../../projects/_template")
+    monkeypatch.chdir(tmp_path)
+    errors = mod.check_setup_templates()
+    assert any("must be a real directory" in e for e in errors)
+    assert any("expected a symlink" in e for e in errors)

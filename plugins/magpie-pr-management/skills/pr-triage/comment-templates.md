@@ -61,7 +61,7 @@ anchor text breaks the re-triage skip logic.
 configured channel, and default to the silent one.** The
 deterministic quality-violation feedback for `draft`, `comment`
 (deterministic-flag), and `close` is delivered per
-[`<project-config>/pr-management-config.md → triage_feedback_channel`](../../../../projects/_template/pr-management-config.md),
+[`<project-config>/pr-management-config.md → triage_feedback_channel`](../../../magpie-setup/templates/pr-management-config.md),
 which defaults to **`pr-body`**: the feedback is *folded into the
 PR description* as a managed marker block instead of posted as a
 comment. Editing a PR body does not notify subscribers, so the
@@ -335,7 +335,7 @@ Rules for the footer:
 
 When `<project-config>/pr-management-config.md` sets
 `triage_feedback_channel: pr-body` (the default — see
-[`pr-management-config.md`](../../../../projects/_template/pr-management-config.md)
+[`pr-management-config.md`](../../../magpie-setup/templates/pr-management-config.md)
 "Workflow choices"), the deterministic quality-violation feedback
 for the **`draft`**, **`comment`** (deterministic-flag only), and
 **`close`** actions is **not posted as a PR comment**. Instead the
@@ -777,7 +777,7 @@ takes over.
 ### Variant: maintainer-sweep handback
 
 Use when
-[`<project-config>/pr-management-config.md`](../../../../projects/_template/pr-management-config.md)
+[`<project-config>/pr-management-config.md`](../../../magpie-setup/templates/pr-management-config.md)
 sets `confirmation_handback_mode: maintainer-sweep` (see the
 "Workflow choices" section of that file).
 
@@ -814,7 +814,7 @@ Notes on the variant:
   detector on subsequent sweeps.
 - **`<PROJECT>` placeholder** in the "If yes" sentence — read
   from
-  [`<project-config>/pr-management-triage-comment-templates.md`](../../../../projects/_template/pr-management-triage-comment-templates.md)
+  [`<project-config>/pr-management-triage-comment-templates.md`](../../../magpie-setup/templates/pr-management-triage-comment-templates.md)
   (same source as the AI-attribution footer's `<PROJECT>`).
 
 When to pick this variant: your project runs a regular

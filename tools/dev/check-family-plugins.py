@@ -96,6 +96,13 @@ ALIAS_OVERRIDES = {
     "pr-stale-sweep": "pr-stale-sweep",
 }
 TOOL_SYMLINK_TARGET = "../../../tools/{tool}"  # relative to plugins/magpie-<p>/tools/
+# `setup config` scaffolds adopter configuration from these templates, so on a
+# marketplace install they have to ship inside magpie-setup's root; the Codex
+# and Copilot catalogs list magpie-setup, and Agent Plugins 1.0 §4.1 forbids a
+# link out of it. `projects/_template` keeps resolving through the inward link.
+SETUP_TEMPLATES = Path("plugins/magpie-setup/templates")
+SETUP_TEMPLATES_MIRROR = Path("projects/_template")
+SETUP_TEMPLATES_MIRROR_TARGET = Path("../plugins/magpie-setup/templates")
 
 # The vendor-neutral Agent Plugins 1.0 manifest for the repository itself.
 # It lives at the repo root (the spec permits no alternative location) and is
@@ -334,6 +341,26 @@ def substrate_manifest(name: str, shared: dict) -> dict:
     if "hooks" in spec:
         manifest["hooks"] = spec["hooks"]
     return manifest
+
+
+def check_setup_templates() -> list[str]:
+    """magpie-setup ships the project templates as real files, and
+    `projects/_template` mirrors them rather than holding a second copy."""
+    errors: list[str] = []
+    index = SETUP_TEMPLATES / "project.md"
+    if SETUP_TEMPLATES.is_symlink() or not index.is_file():
+        errors.append(
+            f"{SETUP_TEMPLATES}: must be a real directory holding {index.name} — "
+            f"a marketplace install of magpie-setup would ship no templates to scaffold from"
+        )
+    if not SETUP_TEMPLATES_MIRROR.is_symlink():
+        errors.append(f"{SETUP_TEMPLATES_MIRROR}: expected a symlink to {SETUP_TEMPLATES_MIRROR_TARGET}")
+    elif SETUP_TEMPLATES_MIRROR.readlink() != SETUP_TEMPLATES_MIRROR_TARGET:
+        errors.append(
+            f"{SETUP_TEMPLATES_MIRROR} -> {SETUP_TEMPLATES_MIRROR.readlink()} "
+            f"(expected {SETUP_TEMPLATES_MIRROR_TARGET})"
+        )
+    return errors
 
 
 def check_substrate(name: str, shared: dict) -> list[str]:
@@ -697,6 +724,8 @@ def check(fam: dict[str, set[str]]) -> list[str]:
     setup_data, _setup_err = load_json(setup_manifest)
     if setup_data is not None and "check-upgrade.sh" not in json.dumps(setup_data.get("hooks", {})):
         errors.append(f"{setup_manifest}: SessionStart hook does not reference check-upgrade.sh")
+
+    errors += check_setup_templates()
 
     # 2) Every marketplace entry resolves to a matching, uniquely-named manifest.
     seen: set[str] = set()

@@ -164,15 +164,15 @@ byte-identical bar with the committer's own trusted-hardware assertion, and
 | Piece | Where |
 |---|---|
 | `repro-archive build` / `check` / `compare` / `swhid` / `recipe` / `epoch` | [`tools/reproducible-archive`](../../tools/reproducible-archive/README.md) |
-| `§ Source archive`, `§ Convenience artefacts`, `§ Source-tree validators`, `§ Reproducibility checks` | [`projects/_template/release-build.md`](../../projects/_template/release-build.md) |
-| `vote_verification_doc_url`, `reproducibility_doc_url`, `vote_verification_skill`, `automated_release_signing` | [`projects/_template/release-management-config.md`](../../projects/_template/release-management-config.md) |
+| `§ Source archive`, `§ Convenience artefacts`, `§ Source-tree validators`, `§ Reproducibility checks` | [`projects/_template/release-build.md`](../../plugins/magpie-setup/templates/release-build.md) |
+| `vote_verification_doc_url`, `reproducibility_doc_url`, `vote_verification_skill`, `automated_release_signing` | [`projects/_template/release-management-config.md`](../../plugins/magpie-setup/templates/release-management-config.md) |
 | First-release `.gitattributes` review (prep Step 2e); `automated-signing` sub-command | [`release-prepare`](../../skills/release-prepare/SKILL.md) |
 | Reproducible source build, per-artefact builds, self-check (Step 2b), CI-signed flow (Step 2c), the record | [`release-rc-cut`](../../skills/release-rc-cut/SKILL.md) |
 | Config-driven Step 7 validators; Step 9 rebuild-and-compare with SWHID check | [`release-verify-rc`](../../skills/release-verify-rc/SKILL.md) |
 | *How to verify* section with the record and the artefact list | [`release-vote-draft`](../../skills/release-vote-draft/SKILL.md) |
 | Per-artefact publish, reproducibility gate, trusted-hardware gate | [`release-promote`](../../skills/release-promote/SKILL.md) |
 | Rationale for adopters and voters | [`docs/release-management/reproducibility.md`](../release-management/reproducibility.md) |
-| CI workflow template (ASF automated signing) | [`projects/_template/workflows/release-candidate.yml`](../../projects/_template/workflows/release-candidate.yml) |
+| CI workflow template (ASF automated signing) | [`projects/_template/workflows/release-candidate.yml`](../../plugins/magpie-setup/templates/workflows/release-candidate.yml) |
 
 ## Alternatives considered
 

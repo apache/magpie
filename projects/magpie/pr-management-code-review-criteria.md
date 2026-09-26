@@ -26,7 +26,7 @@ config the
 [`pr-management-code-review`](../../skills/pr-management-code-review/SKILL.md)
 skill reads when reviewing a PR against `apache/magpie` itself, not a
 scaffold. The adopter template lives at
-[`projects/_template/pr-management-code-review-criteria.md`](../_template/pr-management-code-review-criteria.md);
+[`projects/_template/pr-management-code-review-criteria.md`](../../plugins/magpie-setup/templates/pr-management-code-review-criteria.md);
 this file is that template filled with Magpie's values.
 
 This file is a **navigation map, not a rule set**. Magpie's review rules

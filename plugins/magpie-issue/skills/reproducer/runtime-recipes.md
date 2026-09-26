@@ -13,7 +13,7 @@ between issues.
 
 Some projects require a fresh build of `<default-branch>` before
 the runtime exercises current behaviour. The project's recipe is
-in [`<project-config>/runtime-invocation.md`](../../../../projects/_template/runtime-invocation.md)
+in [`<project-config>/runtime-invocation.md`](../../../magpie-setup/templates/runtime-invocation.md)
 under the *Build prerequisite* heading.
 
 Examples (each project specifies its own):
@@ -33,7 +33,7 @@ the build output for the user to inspect.
 ## Running with bounded resources
 
 Invoke `<runtime>` on the adapted reproducer file per
-[`<project-config>/runtime-invocation.md`](../../../../projects/_template/runtime-invocation.md)'s
+[`<project-config>/runtime-invocation.md`](../../../magpie-setup/templates/runtime-invocation.md)'s
 *Run a single file* recipe.
 
 | Setting | Default | Notes |
@@ -111,7 +111,7 @@ The protocol:
 For campaign sweeps that run many dependency-resolving reproducers,
 consider isolating the dependency cache per campaign. The
 `cache_isolation_flag` field in
-[`<project-config>/runtime-invocation.md`](../../../../projects/_template/runtime-invocation.md)
+[`<project-config>/runtime-invocation.md`](../../../magpie-setup/templates/runtime-invocation.md)
 declares the flag the skill passes through (e.g.,
 `-Dgrape.root=<scratch>/grape` for JVM scripting languages with
 Grape). When set, this keeps the operator's everyday cache from
@@ -189,7 +189,7 @@ equivalent), and where the verdict matters:
   produced.
 - [`verification.md`](verification.md) — how the run output gets
   classified.
-- [`<project-config>/runtime-invocation.md`](../../../../projects/_template/runtime-invocation.md) —
+- [`<project-config>/runtime-invocation.md`](../../../magpie-setup/templates/runtime-invocation.md) —
   project's build + run + cache-isolation recipe.
-- [`<project-config>/reproducer-conventions.md`](../../../../projects/_template/reproducer-conventions.md) —
+- [`<project-config>/reproducer-conventions.md`](../../../magpie-setup/templates/reproducer-conventions.md) —
   scratch directory layout.

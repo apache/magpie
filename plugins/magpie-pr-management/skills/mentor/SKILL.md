@@ -24,7 +24,7 @@ argument-hint: "[issue-or-pr-number]"
 capability: capability:review
 surface_hash: sha256:3c380e6ecb0fb4c8
 license: Apache-2.0
-measured_tokens: 2940
+measured_tokens: 2942
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
@@ -137,7 +137,7 @@ for the override file shape.
 
 Per-project values live in
 `<project-config>/mentoring-config.md`. See the template at
-[`projects/_template/mentoring-config.md`](../../../../projects/_template/mentoring-config.md).
+[`projects/_template/mentoring-config.md`](../../../magpie-setup/templates/mentoring-config.md).
 The keys this skill reads:
 
 | Key | Used for |
@@ -248,7 +248,7 @@ maintainer reads the thread.
 - [`docs/modes.md` § Mentoring](../../../../docs/modes.md#mentoring) —
   current implementation status (experimental once this skill
   ships).
-- [`projects/_template/mentoring-config.md`](../../../../projects/_template/mentoring-config.md) —
+- [`projects/_template/mentoring-config.md`](../../../magpie-setup/templates/mentoring-config.md) —
   adopter scaffold.
 - [`MISSION.md` § Agentic Mentoring](../../../../MISSION.md#technical-scope) —
   RAI empowerment framing.

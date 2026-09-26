@@ -49,7 +49,7 @@ Drift severity:
 This skill resolves project-specific content from the adopter's
 `<project-config>/` directory:
 
-- [`<project-config>/pr-management-code-review-criteria.md`](../../../../projects/_template/pr-management-code-review-criteria.md) — list of the project's review-criteria source files (repo-wide AGENTS.md, code-review docs, per-area AGENTS.md), security-model calibration doc, backport-branch pattern, and section-anchor URLs the framework links per finding.
+- [`<project-config>/pr-management-code-review-criteria.md`](../../../magpie-setup/templates/pr-management-code-review-criteria.md) — list of the project's review-criteria source files (repo-wide AGENTS.md, code-review docs, per-area AGENTS.md), security-model calibration doc, backport-branch pattern, and section-anchor URLs the framework links per finding.
 
 The skill reads all project-specific content (source-file paths,
 security-model doc, backport-branch pattern, section anchors)

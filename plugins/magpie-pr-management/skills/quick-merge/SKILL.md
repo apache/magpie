@@ -28,7 +28,7 @@ capability:
   - capability:review
 surface_hash: sha256:ea4648413feb1eca
 license: Apache-2.0
-measured_tokens: 4722
+measured_tokens: 4727
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -123,7 +123,7 @@ Detail files in this directory:
 | File | Purpose |
 |---|---|
 | [`candidate-rules.md`](candidate-rules.md) | The two-stage screen — quality-gate gate (hard pass/fail) then triviality classification (footprint + path allow/deny + tier). The only file needed at decision time. |
-| [`<project-config>/pr-management-quick-merge-config.md`](../../../../projects/_template/pr-management-quick-merge-config.md) | Per-project thresholds, allow/deny path globs, merge-command template. |
+| [`<project-config>/pr-management-quick-merge-config.md`](../../../magpie-setup/templates/pr-management-quick-merge-config.md) | Per-project thresholds, allow/deny path globs, merge-command template. |
 
 This skill reuses the `pr-management` family's shared machinery rather than
 re-implementing it:
@@ -165,7 +165,7 @@ maintainer explicitly confirms that PR by index — never batched, never implied
 never auto. That is `capability:review` (an act the
 [`pr-management-code-review`](../code-review/SKILL.md) skill
 already performs on confirmation), not Agentic Autonomous. The approve is gated by
-[`enable_approve`](../../../../projects/_template/pr-management-quick-merge-config.md)
+[`enable_approve`](../../../magpie-setup/templates/pr-management-quick-merge-config.md)
 and detailed in [Step 3b](#step-3b--optional-approve-action). Everything else
 the skill emits is read-only.
 
@@ -245,10 +245,10 @@ skill's entire candidate set is defined by that label). Initialise the session
 cache at `/tmp/pr-management-quick-merge-cache-<repo-slug>.json`.
 
 Load the project config from
-[`<project-config>/pr-management-quick-merge-config.md`](../../../../projects/_template/pr-management-quick-merge-config.md):
+[`<project-config>/pr-management-quick-merge-config.md`](../../../magpie-setup/templates/pr-management-quick-merge-config.md):
 `max_churn`, `max_files`, `tier_a_allow_globs`, `tier_b_allow_globs`,
 `deny_globs`, `merge_command_template`, and the `real_ci_patterns` (read from
-the shared [`<project-config>/pr-management-config.md`](../../../../projects/_template/pr-management-config.md)).
+the shared [`<project-config>/pr-management-config.md`](../../../magpie-setup/templates/pr-management-config.md)).
 
 ---
 
@@ -271,7 +271,7 @@ the same assistant-proposes / maintainer-fires review act that
 is `capability:review`, not Agentic Autonomous.
 
 Gated by `enable_approve` in
-[`<project-config>/pr-management-quick-merge-config.md`](../../../../projects/_template/pr-management-quick-merge-config.md)
+[`<project-config>/pr-management-quick-merge-config.md`](../../../magpie-setup/templates/pr-management-quick-merge-config.md)
 (default `true`). When `false`, the `[A]pprove` key is not offered and the skill
 is purely read-only.
 

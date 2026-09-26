@@ -25,7 +25,7 @@ argument-hint: "<version>-rc<N> [--planning-issue <url>] [--non-asf]"
 capability: capability:resolve
 surface_hash: sha256:e4f8b18462e8da1d
 license: Apache-2.0
-measured_tokens: 6964
+measured_tokens: 6966
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -542,10 +542,10 @@ The AI-driven part ends with a hand-back artefact containing:
   Step 10 context.
 - [`docs/release-management/spec.md`](../../../../docs/release-management/spec.md) —
   `release-promote` per-skill specification and Boundary 2.
-- [`<project-config>/release-management-config.md`](../../../../projects/_template/release-management-config.md) —
+- [`<project-config>/release-management-config.md`](../../../magpie-setup/templates/release-management-config.md) —
   adopter keys this skill reads (`release_dist_backend`,
   `release_dist_url_template`, `release_publish_command_template`).
-- [`<project-config>/pmc-roster.md`](../../../../projects/_template/pmc-roster.md) —
+- [`<project-config>/pmc-roster.md`](../../../magpie-setup/templates/pmc-roster.md) —
   PMC membership roster (used for the PMC gate).
 - `release-vote-tally` (proposed) — upstream step; `vote-passed` label is
   the gate.

@@ -72,7 +72,7 @@ The canonical category list:
 - Security model
 
 See
-[`projects/_template/pr-management-code-review-criteria.md` § Section anchors](../../../../projects/_template/pr-management-code-review-criteria.md#section-anchors)
+[`projects/_template/pr-management-code-review-criteria.md` § Section anchors](../../../magpie-setup/templates/pr-management-code-review-criteria.md#section-anchors)
 for a worked example.
 
 ---
@@ -423,7 +423,7 @@ pass.
 checker, not a re-interpreter.** The project's review criteria
 live in the source files declared in
 `<project-config>/pr-management-code-review-criteria.md` (see
-[`projects/_template/pr-management-code-review-criteria.md`](../../../../projects/_template/pr-management-code-review-criteria.md)
+[`projects/_template/pr-management-code-review-criteria.md`](../../../magpie-setup/templates/pr-management-code-review-criteria.md)
 for the shape) and in the project's repo-wide
 [`AGENTS.md`](../../../../AGENTS.md). When you find a violation,
 quote the **specific rule** from those files in the review

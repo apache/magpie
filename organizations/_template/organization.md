@@ -58,7 +58,7 @@ governance_vocabulary:
 Declare each capability your organization standardizes. Use the same key
 namespaces as the project manifest's *Security workflow configuration*
 section so resolution is mechanical — see
-[`projects/_template/project.md`](../../projects/_template/project.md)
+[`projects/_template/project.md`](../../plugins/magpie-setup/templates/project.md)
 for the full set of keys and their per-field documentation, and
 [`organizations/ASF/organization.md`](../ASF/organization.md) for a
 filled-in example. Typical blocks: `cve_authority`, `governance`,

@@ -27,7 +27,7 @@ when_to_use: |
 capability: capability:reassess
 surface_hash: sha256:573d724afd671f6f
 license: Apache-2.0
-measured_tokens: 6545
+measured_tokens: 6552
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -254,15 +254,15 @@ proposal is non-blocking — the user may defer.
 - **Tracker read access** to `<issue-tracker>` for fetching the
   issue body, comments, and attachments. Anonymous read suffices
   for many JIRA-based projects; see
-  [`<project-config>/issue-tracker-config.md`](../../../../projects/_template/issue-tracker-config.md)
+  [`<project-config>/issue-tracker-config.md`](../../../magpie-setup/templates/issue-tracker-config.md)
   for the project's auth model.
 - **Runtime invocable** per
-  [`<project-config>/runtime-invocation.md`](../../../../projects/_template/runtime-invocation.md).
+  [`<project-config>/runtime-invocation.md`](../../../magpie-setup/templates/runtime-invocation.md).
   The skill runs the project's *Build prerequisite* (if any) and
   then the *Run a single file* recipe. If the project's runtime
   is not installed locally, the skill surfaces this and stops.
 - **Scratch directory writable** per the campaign layout in
-  [`<project-config>/reproducer-conventions.md`](../../../../projects/_template/reproducer-conventions.md)
+  [`<project-config>/reproducer-conventions.md`](../../../magpie-setup/templates/reproducer-conventions.md)
   — typically `~/work/<project>-reassess/<campaign-id>/<ISSUE-KEY>/`.
 - **Working tree on `<default-branch>`** of the
   `<upstream>` checkout, ideally clean. The skill resets between
@@ -300,7 +300,7 @@ skill once per candidate in its campaign loop.
    project's equivalent) to confirm the runtime is on `PATH` and
    matches the build the user expects.
 3. **Scratch directory** exists or is creatable per
-   [`<project-config>/reproducer-conventions.md`](../../../../projects/_template/reproducer-conventions.md).
+   [`<project-config>/reproducer-conventions.md`](../../../magpie-setup/templates/reproducer-conventions.md).
 4. **Working tree** — confirm we are in the `<upstream>` checkout
    and `git status` is clean (or accept a `--allow-dirty` flag if
    the user explicitly opts in). The `git` calls in this skill (here
@@ -376,7 +376,7 @@ for the contract.
 ## Step 5 — Build the project distribution (if required)
 
 If the project's
-[`runtime-invocation.md`](../../../../projects/_template/runtime-invocation.md)
+[`runtime-invocation.md`](../../../magpie-setup/templates/runtime-invocation.md)
 declares a build prerequisite, run it now. Some projects need a
 fresh build of `<default-branch>` for the reproducer to exercise
 current behaviour; others have a runtime already on `PATH` that
@@ -575,9 +575,9 @@ See [`runtime-recipes.md` → *"Working-tree hygiene"*](runtime-recipes.md#worki
   pattern.
 - [`verdict-composition.md`](verdict-composition.md) — `verdict.json`
   schema, nature taxonomy, evidence-package contract.
-- [`<project-config>/runtime-invocation.md`](../../../../projects/_template/runtime-invocation.md) —
+- [`<project-config>/runtime-invocation.md`](../../../magpie-setup/templates/runtime-invocation.md) —
   project's build + run recipe.
-- [`<project-config>/reproducer-conventions.md`](../../../../projects/_template/reproducer-conventions.md) —
+- [`<project-config>/reproducer-conventions.md`](../../../magpie-setup/templates/reproducer-conventions.md) —
   evidence-package directory layout.
 - [`issue-triage`](../triage/SKILL.md) — single-issue caller.
 - [`issue-reassess`](../reassess/SKILL.md) — campaign-level

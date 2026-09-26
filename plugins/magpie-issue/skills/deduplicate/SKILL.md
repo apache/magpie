@@ -25,7 +25,7 @@ argument-hint: "[kept-issue] [duplicate-issue]"
 capability: capability:resolve
 surface_hash: sha256:cee70e29c6fadb04
 license: Apache-2.0
-measured_tokens: 4538
+measured_tokens: 4539
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -454,7 +454,7 @@ links — never bare `#NNN`.
   deduplicating when a stale issue is also a likely duplicate.
 - `issue-triage` — may surface DUPLICATE candidates that feed this
   skill.
-- [`<project-config>/issue-tracker-config.md`](../../../../projects/_template/issue-tracker-config.md) —
+- [`<project-config>/issue-tracker-config.md`](../../../magpie-setup/templates/issue-tracker-config.md) —
   `url` and `project_key` that this skill reads.
 - [GitHub CLI `gh issue` reference](https://cli.github.com/manual/gh_issue) —
   the commands this skill emits.

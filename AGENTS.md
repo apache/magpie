@@ -83,7 +83,7 @@ The framework has two layers:
    written by `/magpie-setup adopt`). See
    [`docs/setup/agentic-overrides.md`](docs/setup/agentic-overrides.md).
    The
-   [`projects/_template/`](projects/_template/) directory in this
+   [`projects/_template/`](plugins/magpie-setup/templates/) directory in this
    repo is the bootstrap scaffold a new adopter copies into their
    `<project-config>/` to get started.
 
@@ -92,7 +92,7 @@ Repo-root files:
 - [`README.md`](README.md) — the end-to-end process for handling security issues (generic lifecycle).
 - [`docs/security/fixing-security-issues.md`](docs/security/fixing-security-issues.md) — high-level description of the fix workflow.
 - [`docs/security/how-the-security-team-works.md`](docs/security/how-the-security-team-works.md) — how the security team operates, and the onboarding guide for new members.
-- [`projects/_template/`](projects/_template/) — bootstrap scaffold for a new adopter's `<project-config>/`.
+- [`projects/_template/`](plugins/magpie-setup/templates/) — bootstrap scaffold for a new adopter's `<project-config>/`.
 - [`tools/<name>/`](tools/) — tool adapters (GitHub operations, issue-template schema, project-board GraphQL, …) for the external tools the skills invoke.
 - [`skills/<name>/SKILL.md`](skills/) — the agentic workflows.
 - `.agents/skills/magpie-<name>/`, `.claude/skills/magpie-<name>/`, `.github/skills/magpie-<name>/` — committed symlinks created by this repo's self-adoption (`/magpie-setup method:local`) so the framework's own skills are callable from any harness while developing it; targets are in-repo so no snapshot or remote fetch is involved. Mechanics: [`skills/setup/install.md`](skills/setup/install.md) → "Local self-adoption".
@@ -241,7 +241,7 @@ Two configuration layers tell the skills how this working tree is set up.
 project-specific configuration in a `<project-config>/` directory in its
 tracker repository, alongside the gitignored framework snapshot at
 `.apache-magpie/`. The concrete path is the adopter's choice; the
-[`projects/_template/`](projects/_template/) scaffold is the starting
+[`projects/_template/`](plugins/magpie-setup/templates/) scaffold is the starting
 point an adopter copies in. The directory contains:
 
 ```text
@@ -263,7 +263,7 @@ point an adopter copies in. The directory contains:
 `<project-config>/project.md` is the load-bearing file: identity,
 repositories, mailing lists, tools enabled, CVE-tooling references, and
 pointers to the other files. Use
-[`projects/_template/`](projects/_template/) as the bootstrap scaffold.
+[`projects/_template/`](plugins/magpie-setup/templates/) as the bootstrap scaffold.
 
 **User layer — personal, gitignored.** Each triager keeps their own
 `user.md` (copied from `user.md.example`) declaring identity, PMC
@@ -852,7 +852,7 @@ add. Both apply.
 The framework's privacy-LLM contract is enforced via
 [`tools/privacy-llm/`](tools/privacy-llm/tool.md) and configured
 per-adopter in `<project-config>/privacy-llm.md` (template at
-[`projects/_template/privacy-llm.md`](projects/_template/privacy-llm.md)).
+[`projects/_template/privacy-llm.md`](plugins/magpie-setup/templates/privacy-llm.md)).
 Setup recipes for the supported variants are in
 [`docs/setup/privacy-llm.md`](docs/setup/privacy-llm.md).
 
@@ -1156,7 +1156,7 @@ model responds.
 - `.apache-magpie-overrides/user.md` — per-user configuration (governance membership, local clone paths, optional tool backends) scaffolded during adoption.
 - [`<project-config>/project.md`](<project-config>/project.md) — the adopting project's manifest (identity, repositories, mailing lists, tools enabled, CVE tooling, GitHub project board + issue-template field declarations).
 - `.apache-magpie-overrides/` — adopter-specific overrides and per-user config committed in the adopter repo.
-- [`<project-config>/`](projects/_template/) — other project-specific files (canned responses, release trains, security model, scope labels, milestones, title-normalization, fix workflow, naming conventions).
+- [`<project-config>/`](plugins/magpie-setup/templates/) — other project-specific files (canned responses, release trains, security model, scope labels, milestones, title-normalization, fix workflow, naming conventions).
 - [`tools/github/`](tools/github/) — GitHub tool adapter: `tool.md` (overview), `operations.md` (`gh` CLI / API catalogue), `issue-template.md` (body-field schema), `labels.md` (lifecycle-label taxonomy), `project-board.md` (Projects V2 GraphQL).
 - [`tools/gmail/`](tools/gmail/) — Gmail tool adapter: `tool.md` (overview), `operations.md` (MCP catalogue + no-update limitation), `threading.md` (prefer-`threadId`-else-subject-fallback rule), `asf-relay.md` (ASF-security-relay drafting), `search-queries.md` (query templates), `ponymail-archive.md` (ASF PonyMail URL construction).
 - [`tools/cve-tool-vulnogram/`](tools/cve-tool-vulnogram/) — Vulnogram (ASF CVE tool) adapter: `tool.md` (overview), `allocation.md` (PMC-gated allocation flow), `record.md` (record URLs + `#source` paste + `DRAFT`/`REVIEW`/`PUBLIC` state machine + reviewer-comment signal), `generate-cve-json/` (CVE-5.x JSON generator — Python project).

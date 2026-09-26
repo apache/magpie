@@ -112,5 +112,5 @@ loads templates that exist.
 - [`issue-reproducer/verdict-composition.md`](../../skills/issue-reproducer/verdict-composition.md) —
   schema for the `cross_type_probe` and `operator_variants_probe`
   sub-objects.
-- [`<project-config>/reproducer-conventions.md`](../../projects/_template/reproducer-conventions.md) —
+- [`<project-config>/reproducer-conventions.md`](../../plugins/magpie-setup/templates/reproducer-conventions.md) —
   where probe artefacts live in the per-issue evidence package.

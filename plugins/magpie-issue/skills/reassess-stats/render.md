@@ -229,5 +229,5 @@ in the per-issue table without a recommendation prefix.
 - [`tools/dashboard-generator/`](../../../../tools/dashboard-generator/) —
   reference implementation producing the same output
   deterministically.
-- [`<project-config>/issue-tracker-config.md`](../../../../projects/_template/issue-tracker-config.md) —
+- [`<project-config>/issue-tracker-config.md`](../../../magpie-setup/templates/issue-tracker-config.md) —
   `issue_url_template` for clickable issue links.

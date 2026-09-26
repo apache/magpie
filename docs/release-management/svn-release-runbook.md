@@ -44,7 +44,7 @@ it, and stage it to `dist.apache.org/repos/dist/dev/` for the
 This runbook is the hands-on companion to the
 [`release-rc-cut`](../../skills/release-rc-cut/SKILL.md) skill
 (lifecycle Steps 4–5). The skill *emits* this command set tailored
-to the adopter's [`release-build.md`](../../projects/_template/release-build.md);
+to the adopter's [`release-build.md`](../../plugins/magpie-setup/templates/release-build.md);
 this document is the same set written out longhand so a Release
 Manager (RM) can run a release by hand, or sanity-check what the
 skill produced. Every command runs **on the RM's own machine, with
@@ -311,7 +311,7 @@ https://dist.apache.org/repos/dist/dev/magpie/<VERSION>-<RC>/
   holds the key, never publishes).
 - [`release-rc-cut`](../../skills/release-rc-cut/SKILL.md) — the
   skill that emits this command set from
-  [`release-build.md`](../../projects/_template/release-build.md).
+  [`release-build.md`](../../plugins/magpie-setup/templates/release-build.md).
 - [`release-keys-sync`](../../skills/release-keys-sync/SKILL.md),
   [`release-verify-rc`](../../skills/release-verify-rc/SKILL.md),
   [`release-promote`](../../skills/release-promote/SKILL.md) — the

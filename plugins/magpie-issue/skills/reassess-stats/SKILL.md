@@ -22,7 +22,7 @@ when_to_use: |
 capability: capability:stats
 surface_hash: sha256:17acede01fa2f929
 license: Apache-2.0
-measured_tokens: 2993
+measured_tokens: 2994
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -159,7 +159,7 @@ the skill surfaces the gap and proposes
 
 - A campaign directory exists at the path the user supplies (or
   the project's default per
-  [`<project-config>/reproducer-conventions.md`](../../../../projects/_template/reproducer-conventions.md)).
+  [`<project-config>/reproducer-conventions.md`](../../../magpie-setup/templates/reproducer-conventions.md)).
 - That directory contains `<KEY>/verdict.json` files for the
   campaign's candidates (at least one).
 

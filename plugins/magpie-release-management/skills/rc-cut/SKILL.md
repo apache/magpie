@@ -31,7 +31,7 @@ argument-hint: "<version> rc<N>"
 capability: capability:resolve
 surface_hash: sha256:3bbf726eae07fe4e
 license: Apache-2.0
-measured_tokens: 11861
+measured_tokens: 11863
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -900,7 +900,7 @@ The AI-driven part ends with a hand-back artefact containing:
   Steps 4–5 context.
 - [`docs/release-management/spec.md`](../../../../docs/release-management/spec.md) —
   `release-rc-cut` per-skill specification.
-- [`<project-config>/release-build.md`](../../../../projects/_template/release-build.md) —
+- [`<project-config>/release-build.md`](../../../magpie-setup/templates/release-build.md) —
   adopter keys this skill reads (`build_command`, `expected_artefacts`,
   `digest_set`, `binary_exclude_list`, `source_archive_*`,
   `export_ignore_reviewed`, `reproducibility_*`).
@@ -913,7 +913,7 @@ The AI-driven part ends with a hand-back artefact containing:
   the archive rules the source artefact satisfies.
 - [Infra § Automated release signing](https://infra.apache.org/release-signing.html#automated-release-signing) —
   🪶 ASF-specific policy behind Step 2c.
-- [`<project-config>/release-management-config.md`](../../../../projects/_template/release-management-config.md) —
+- [`<project-config>/release-management-config.md`](../../../magpie-setup/templates/release-management-config.md) —
   adopter keys this skill reads (`release_dist_backend`,
   `release_dist_url_template`, `release_publish_command_template`,
   `rm_key_fingerprint`, `release_branch_base`, `git_upstream_remote`).

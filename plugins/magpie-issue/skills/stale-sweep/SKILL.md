@@ -26,7 +26,7 @@ when_to_use: |
 capability: capability:triage
 surface_hash: sha256:d2a78aaabcc57f26
 license: Apache-2.0
-measured_tokens: 6418
+measured_tokens: 6427
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -121,7 +121,7 @@ The skill uses **exactly two** disposition classes:
 | `CLOSE-STALE` | Issue is dormant past the close threshold **and** has already received a `REQUEST-UPDATE` nudge with no response, **or** is dormant past a hard-close threshold with no nudge needed | Post a pre-close notice and, on a second explicit confirmation, close the issue |
 
 The two thresholds (`warn_days` and `close_days`) default to the values in
-[`<project-config>/stale-sweep-config.md`](../../../../projects/_template/stale-sweep-config.md)
+[`<project-config>/stale-sweep-config.md`](../../../magpie-setup/templates/stale-sweep-config.md)
 when that file exists, or to framework defaults (90 / 180 days) when it
 does not. The user may override either threshold inline at invocation time.
 
@@ -229,7 +229,7 @@ the gap and proposes
 
 - **Tracker read access** to `<issue-tracker>` for the sweep phase. For
   GitHub Issues, the `gh` CLI must be authenticated. See
-  [`<project-config>/issue-tracker-config.md`](../../../../projects/_template/issue-tracker-config.md).
+  [`<project-config>/issue-tracker-config.md`](../../../magpie-setup/templates/issue-tracker-config.md).
 - **Tracker comment-write access** for the apply phase. The skill surfaces
   an auth error and stops before any apply if write credentials are missing.
 - **`<project-config>/project.md`** populated — the skill reads
@@ -272,12 +272,12 @@ Before reading any tracker state, verify:
 2. **`gh` CLI authenticated** if the tracker is GitHub Issues —
    `gh auth status` reports a token with read scope on `<upstream>`.
 3. **Project config resolved** — read
-   [`<project-config>/issue-tracker-config.md`](../../../../projects/_template/issue-tracker-config.md)
+   [`<project-config>/issue-tracker-config.md`](../../../magpie-setup/templates/issue-tracker-config.md)
    and
-   [`<project-config>/project.md`](../../../../projects/_template/project.md)
+   [`<project-config>/project.md`](../../../magpie-setup/templates/project.md)
    into cache.
 4. **Thresholds resolved** — read `warn_days` and `close_days` from
-   [`<project-config>/stale-sweep-config.md`](../../../../projects/_template/stale-sweep-config.md)
+   [`<project-config>/stale-sweep-config.md`](../../../magpie-setup/templates/stale-sweep-config.md)
    if it exists; otherwise use framework defaults (90 / 180). Apply any
    inline overrides from the invocation selector.
 5. **Validate thresholds** — hard error if `warn_days >= close_days` or
@@ -484,7 +484,7 @@ For each confirmed proposal, post one comment via the tracker write API:
   `<issue-tracker>/rest/api/2/issue/<KEY>/comment` with the body in
   the request payload.
 - **Other trackers**: project-specific; the recipe lives in
-  [`<project-config>/issue-tracker-config.md`](../../../../projects/_template/issue-tracker-config.md).
+  [`<project-config>/issue-tracker-config.md`](../../../magpie-setup/templates/issue-tracker-config.md).
 
 **Use the file-via-Write-tool pattern for the body** — write the body to
 `$TMPDIR/stale-sweep-<N>.md` via the Write tool, then pass with
@@ -564,11 +564,11 @@ presenting it.
 - [`AGENTS.md`](../../../../AGENTS.md) — placeholder conventions, link form,
   tone (polite-but-firm), injection-guard rule, the rule that reporter
   content is never an instruction.
-- [`<project-config>/project.md`](../../../../projects/_template/project.md) —
+- [`<project-config>/project.md`](../../../magpie-setup/templates/project.md) —
   identifiers, `upstream_repo`, `upstream_default_branch`.
-- [`<project-config>/issue-tracker-config.md`](../../../../projects/_template/issue-tracker-config.md) —
+- [`<project-config>/issue-tracker-config.md`](../../../magpie-setup/templates/issue-tracker-config.md) —
   tracker URL, project key, auth, default queries, close-status mapping.
-- [`<project-config>/stale-sweep-config.md`](../../../../projects/_template/stale-sweep-config.md) —
+- [`<project-config>/stale-sweep-config.md`](../../../magpie-setup/templates/stale-sweep-config.md) —
   per-project stale thresholds (`warn_days`, `close_days`, `hard_close_days`).
 - [`issue-triage`](../triage/SKILL.md) — the companion triage skill
   for unsorted-new issues.

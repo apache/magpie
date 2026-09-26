@@ -25,7 +25,7 @@ argument-hint: "[issue-or-pr-number]"
 capability: capability:review
 surface_hash: sha256:a61c6575d69da08a
 license: Apache-2.0
-measured_tokens: 3220
+measured_tokens: 3222
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
@@ -136,7 +136,7 @@ for the override file shape.
 
 Per-project values live in
 `<project-config>/mentoring-welcome-config.md`. See the template at
-[`projects/_template/mentoring-welcome-config.md`](../../../../projects/_template/mentoring-welcome-config.md).
+[`projects/_template/mentoring-welcome-config.md`](../../../magpie-setup/templates/mentoring-welcome-config.md).
 The keys this skill reads:
 
 | Key | Used for |
@@ -244,7 +244,7 @@ confirmation; the maintainer decides whether to notify the team.
   skill for teaching-register interventions on existing threads.
 - [`good-first-issue-author`](../good-first-issue-author/SKILL.md) —
   the supply-side Agentic Mentoring skill that authors newcomer-ready issues.
-- [`projects/_template/mentoring-welcome-config.md`](../../../../projects/_template/mentoring-welcome-config.md) —
+- [`projects/_template/mentoring-welcome-config.md`](../../../magpie-setup/templates/mentoring-welcome-config.md) —
   adopter config scaffold.
 - [`MISSION.md` § Agentic Mentoring](../../../../MISSION.md#technical-scope) —
   onboarding-latency framing.

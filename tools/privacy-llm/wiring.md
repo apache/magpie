@@ -34,7 +34,7 @@ reveal-before-send). The redactor itself is documented in
 [`pii.md`](pii.md); the approved-LLM gate is in
 [`models.md`](models.md); the adopter's per-project config lives
 at `<project-config>/privacy-llm.md`
-([`projects/_template/privacy-llm.md`](../../projects/_template/privacy-llm.md)
+([`projects/_template/privacy-llm.md`](../../plugins/magpie-setup/templates/privacy-llm.md)
 is the starting point).
 
 ## The protocol at a glance
@@ -211,7 +211,7 @@ Reveal does **not** run on:
 
 The adopter's per-project `<project-config>/privacy-llm.md`
 controls these knobs (see
-[`projects/_template/privacy-llm.md`](../../projects/_template/privacy-llm.md)
+[`projects/_template/privacy-llm.md`](../../plugins/magpie-setup/templates/privacy-llm.md)
 for the template):
 
 | Knob | Default | Notes |

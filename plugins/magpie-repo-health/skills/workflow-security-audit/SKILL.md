@@ -25,7 +25,7 @@ argument-hint: "[--repo owner/name | --repo-file repos.txt | --owner org]"
 capability: capability:triage
 surface_hash: sha256:e50eafff464d131a
 license: Apache-2.0
-measured_tokens: 3174
+measured_tokens: 3175
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -338,7 +338,7 @@ require human confirmation.
 
 - [`ci-runner-audit`](../ci-runner-audit/SKILL.md) — sibling
   repo-health skill: obsolete runner labels and macOS arch mismatches.
-- [`projects/_template/repo-health-config.md`](../../../../projects/_template/repo-health-config.md) —
+- [`projects/_template/repo-health-config.md`](../../../magpie-setup/templates/repo-health-config.md) —
   adopter config: enabled rules, repo scope overrides.
 - [`tools/spec-loop/specs/triage-mode.md`](../../../../tools/spec-loop/specs/triage-mode.md) —
   the Agentic Triage-mode spec this skill's family lives under.

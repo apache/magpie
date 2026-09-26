@@ -34,7 +34,7 @@ foundation, a company, or an informal maintainer collective — makes
   concrete URLs / addresses those backends use.
 
 It is the layer between a single project's
-[`<project-config>/`](../projects/_template/) and the framework
+[`<project-config>/`](../plugins/magpie-setup/templates/) and the framework
 defaults. A project names its organization once
 (`organization: <org>` in `<project-config>/project.md`) and inherits
 the rest.

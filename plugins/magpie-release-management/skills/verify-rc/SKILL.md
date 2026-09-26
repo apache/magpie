@@ -34,7 +34,7 @@ argument-hint: "<version>-rcN [--post-to <planning-issue-url>] [--skip-repro] [-
 capability: capability:triage
 surface_hash: sha256:eb35d109439cd24b
 license: Apache-2.0
-measured_tokens: 10798
+measured_tokens: 10800
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -943,10 +943,10 @@ the RM has not yet confirmed posting.
   Step 6 context.
 - [`docs/release-management/spec.md`](../../../../docs/release-management/spec.md) —
   `release-verify-rc` per-skill specification.
-- [`<project-config>/release-management-config.md`](../../../../projects/_template/release-management-config.md) —
+- [`<project-config>/release-management-config.md`](../../../magpie-setup/templates/release-management-config.md) —
   adopter keys this skill reads (`keys_file_url`, `keyserver`,
   `release_dist_url_template`, `version_manifest_files`).
-- [`<project-config>/release-build.md`](../../../../projects/_template/release-build.md) —
+- [`<project-config>/release-build.md`](../../../magpie-setup/templates/release-build.md) —
   expected artefact list, digest set, binary-exclude list, RAT config,
   `§ Source archive`, `§ Reproducibility checks`.
 - [`docs/release-management/reproducibility.md`](../../../../docs/release-management/reproducibility.md) —

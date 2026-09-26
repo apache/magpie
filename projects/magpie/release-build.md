@@ -24,7 +24,7 @@
 
 Build invocation, expected artefact set, and digest selection the
 `release-rc-cut` and `release-verify-rc` skills read for a Magpie
-release. Template: [`projects/_template/release-build.md`](../_template/release-build.md).
+release. Template: [`projects/_template/release-build.md`](../../plugins/magpie-setup/templates/release-build.md).
 
 Magpie is a source-first project (skills, docs, and Python tooling).
 **The source package is the release** per

@@ -46,7 +46,7 @@ The lifecycle is described in **ASF terminology by default**
 on `announce@apache.org`), because the framework's first pilots
 include an ASF PMC release. Every step that touches an ASF-specific
 surface is implemented as a *backend call* the adopter selects in
-[`release-management-config.md`](../../projects/_template/release-management-config.md),
+[`release-management-config.md`](../../plugins/magpie-setup/templates/release-management-config.md),
 not a hard-coded operation. Non-ASF adopters resolve the same
 abstract step to their own backend; see the
 [Adopter backends](#adopter-backends) section for the dimensions
@@ -158,7 +158,7 @@ Agentic Drafting.
 
 The RM opens a planning issue listing the target version, the
 release train it belongs to (see
-[`<project-config>/release-trains.md`](../../projects/_template/release-trains.md)),
+[`<project-config>/release-trains.md`](../../plugins/magpie-setup/templates/release-trains.md)),
 the cut-off commit, and the issues / PRs in scope. The skill drafts
 that planning issue from the configured release-train metadata, then
 drafts the version-bump PR (e.g. `pom.xml`, `pyproject.toml`,
@@ -168,7 +168,7 @@ merges.
 
 For non-ASF adopters with no release-train concept the planning step
 collapses to a tag-and-PR pair; the skill detects the absence of
-[`<project-config>/release-trains.md`](../../projects/_template/release-trains.md)
+[`<project-config>/release-trains.md`](../../plugins/magpie-setup/templates/release-trains.md)
 and adapts.
 
 ### Step 2: Changelog, NOTICE, LICENSE
@@ -249,7 +249,7 @@ The skill emits a paste-ready command sequence:
    besides the source (binary tarball, wheels, jars, a container
    image, a chart) — are project-specific by nature and are declared
    one by one in
-   [`<project-config>/release-build.md` § Convenience artefacts](../../projects/_template/release-build.md);
+   [`<project-config>/release-build.md` § Convenience artefacts](../../plugins/magpie-setup/templates/release-build.md);
    each entry's own `build_command` follows, under the same
    `SOURCE_DATE_EPOCH`. A source-only project declares none.
 3. *Optional* reproducibility self-check (`release-build.md
@@ -291,7 +291,7 @@ issue's audit-trail comment for Step 13.
 > [release-distribution § sigs-and-sums](https://infra.apache.org/release-distribution.html#sigs-and-sums),
 > and signatures are published as detached `.asc` only, never a
 > binary `.sig`. The skill reads
-> [`<project-config>/release-build.md`](../../projects/_template/release-build.md)
+> [`<project-config>/release-build.md`](../../plugins/magpie-setup/templates/release-build.md)
 > to determine which digests apply.
 
 ### Step 5: Stage to `dist/dev/`
@@ -332,12 +332,12 @@ Read-only. The skill fetches the staged artefacts from
 - **`NOTICE` and `LICENSE` presence** at the artefact root, content
   diff against the previous release.
 - **No prohibited binaries** in the source artefact (per
-  [`<project-config>/release-build.md`](../../projects/_template/release-build.md)
+  [`<project-config>/release-build.md`](../../plugins/magpie-setup/templates/release-build.md)
   binary-exclusion list).
 - **Version string consistency** between artefact filename, embedded
   manifests, and tag.
 - **Reproducibility** (optional, per
-  [`<project-config>/release-build.md` § Reproducibility checks](../../projects/_template/release-build.md);
+  [`<project-config>/release-build.md` § Reproducibility checks](../../plugins/magpie-setup/templates/release-build.md);
   mandatory under automated release signing): the source artefact is
   rebuilt from the tag with `repro-archive build` at the recorded
   `SOURCE_DATE_EPOCH` and compared with the staged one —
@@ -371,7 +371,7 @@ the planning issue's metadata: version, RC number, staging URL,
 tag URL, KEYS URL, changelog URL, voting-window deadline
 (per the [release-policy.html § release approval](https://www.apache.org/legal/release-policy.html#release-approval)
 baseline, the configured per-project window in
-[`<project-config>/release-management-config.md`](../../projects/_template/release-management-config.md)
+[`<project-config>/release-management-config.md`](../../plugins/magpie-setup/templates/release-management-config.md)
 overrides). The RM sends the email; the skill never sends mail.
 
 The skill simultaneously drafts a `[VOTE]` notification on the
@@ -400,7 +400,7 @@ After the window closes, the skill fetches the thread from the
 project's mail archive (PonyMail by default), parses each reply,
 classifies each vote (`+1` / `0` / `-1`), determines binding vs
 non-binding by cross-referencing
-[`<project-config>/pmc-roster.md`](../../projects/_template/pmc-roster.md)
+[`<project-config>/pmc-roster.md`](../../plugins/magpie-setup/templates/pmc-roster.md)
 with the From-address, and proposes the `[RESULT] [VOTE]` body. The
 RM reviews and sends.
 
@@ -413,7 +413,7 @@ Pass / fail follows the
 [`release-policy.html § release approval`](https://www.apache.org/legal/release-policy.html#release-approval)
 baseline (three binding `+1` minimum, more binding `+1` than `-1`);
 the configured per-project rule in
-[`<project-config>/release-management-config.md`](../../projects/_template/release-management-config.md)
+[`<project-config>/release-management-config.md`](../../plugins/magpie-setup/templates/release-management-config.md)
 overrides if the project demands stricter conditions.
 
 On fail the planning issue gets the `rc-rolled` label, the RM
@@ -438,7 +438,7 @@ This is **the moment of release**. The skill writes nothing and
 runs nothing; the human commit is the act.
 
 When the project declares **convenience artefacts**
-([`release-build.md` § Convenience artefacts](../../projects/_template/release-build.md)),
+([`release-build.md` § Convenience artefacts](../../plugins/magpie-setup/templates/release-build.md)),
 the skill follows the source promotion with each artefact's own
 `publish_command` to its declared channel (PyPI, Maven Central, a
 container registry, a chart repository, …) — project-specific
@@ -495,7 +495,7 @@ Two artefacts:
   `dist.apache.org` path
   ([release-distribution](https://infra.apache.org/release-distribution.html)).
   The PR is opened against the site repo configured in
-  [`<project-config>/site-repo.md`](../../projects/_template/site-repo.md);
+  [`<project-config>/site-repo.md`](../../plugins/magpie-setup/templates/site-repo.md);
   a committer merges.
 
 The skill never sends the `[ANNOUNCE]` email and never merges the
@@ -504,7 +504,7 @@ site PR.
 ### Step 12: Archive sweep
 
 **Owner:** RM (or whoever holds release-archive duty per
-[`<project-config>/release-management-config.md`](../../projects/_template/release-management-config.md)).
+[`<project-config>/release-management-config.md`](../../plugins/magpie-setup/templates/release-management-config.md)).
 **Skill:** `release-archive-sweep`
 Agentic Triage.
 
@@ -513,7 +513,7 @@ only the current release line is kept on `dist/release/`;
 non-current releases must be moved to
 `archive.apache.org`. The skill reads the configured retention
 rule (per-project, in
-[`<project-config>/release-management-config.md`](../../projects/_template/release-management-config.md);
+[`<project-config>/release-management-config.md`](../../plugins/magpie-setup/templates/release-management-config.md);
 the ASF baseline is "only the latest version of each supported
 line"), lists releases past retention, and proposes the `svn mv`
 sequence to move them to `dist/release/<project>/archive/` or the
@@ -527,7 +527,7 @@ under their own credentials.
 ### Step 13: Audit log
 
 **Owner:** the framework (per-project audit-log store configured in
-[`<project-config>/release-management-config.md`](../../projects/_template/release-management-config.md)).
+[`<project-config>/release-management-config.md`](../../plugins/magpie-setup/templates/release-management-config.md)).
 **Skill:** `release-audit-report`
 Agentic Triage (read-only dashboard).
 
@@ -605,7 +605,7 @@ state machine participant.
 - [`README.md`](README.md), family overview, skill table.
 - [`spec.md`](spec.md), per-skill scope, state-change boundary,
   hand-off protocol, adopter knobs.
-- [`projects/_template/release-management-config.md`](../../projects/_template/release-management-config.md), adopter contract scaffold.
+- [`projects/_template/release-management-config.md`](../../plugins/magpie-setup/templates/release-management-config.md), adopter contract scaffold.
 - [`reproducibility.md`](reproducibility.md), the reproducible source
   archive (`git archive` + `.gitattributes` + the reproducible-builds.org
   rules), the optional reproducibility checks for source and binaries,

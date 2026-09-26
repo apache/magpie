@@ -365,7 +365,7 @@ sort:updated-asc
 ```
 
 The label name comes from
-[`<project-config>/pr-management-config.md → ready_for_maintainer_review_label`](../../../../projects/_template/pr-management-config.md)
+[`<project-config>/pr-management-config.md → ready_for_maintainer_review_label`](../../../magpie-setup/templates/pr-management-config.md)
 — do not hard-code the string.
 
 ### Entry condition
@@ -398,7 +398,7 @@ Every "maintainer" test in this sweep — and the
 `last_maintainer_comment_at` / F5a / F5b signals it shares with
 [`classify-and-act.md`](classify-and-act.md#maintainer-activity) —
 means **a member of the `committers_team`** (see
-[`<project-config>/pr-management-config.md`](../../../../projects/_template/pr-management-config.md))
+[`<project-config>/pr-management-config.md`](../../../magpie-setup/templates/pr-management-config.md))
 **or** an account with repo permission `write`/`maintain`/`admin` —
 **not** `authorAssociation ∈ {COLLABORATOR, MEMBER, OWNER}` alone.
 GitHub returns `COLLABORATOR` for any triage/read collaborator, so
@@ -501,7 +501,7 @@ and the *next move*. When the author-facing action is itself a comment
 (`ping` / `request-author-confirmation`), fold it into the **same**
 comment rather than posting twice; a quality-flag `comment`/`draft`
 keeps its own
-[`triage_feedback_channel`](../../../../projects/_template/pr-management-config.md)
+[`triage_feedback_channel`](../../../magpie-setup/templates/pr-management-config.md)
 body and the audit marker accompanies it.
 
 ### Persistent bitrot — hand back, do not close

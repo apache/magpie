@@ -25,7 +25,7 @@ when_to_use: |
 capability: capability:fix
 surface_hash: sha256:3ccf080bbb094dad
 license: Apache-2.0
-measured_tokens: 7153
+measured_tokens: 7157
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -248,9 +248,9 @@ proposal is non-blocking.
   [`issue-triage`](../triage/SKILL.md) first.
 - **`<upstream>` working tree clean** (or `--allow-dirty` set).
 - **Runtime invocable** per
-  [`<project-config>/runtime-invocation.md`](../../../../projects/_template/runtime-invocation.md).
+  [`<project-config>/runtime-invocation.md`](../../../magpie-setup/templates/runtime-invocation.md).
 - **Branch convention** documented in
-  [`<project-config>/fix-workflow.md`](../../../../projects/_template/fix-workflow.md)
+  [`<project-config>/fix-workflow.md`](../../../magpie-setup/templates/fix-workflow.md)
   — fork name, branch-name pattern, commit-trailer convention.
 
 ---
@@ -625,10 +625,10 @@ hand-back artefact is the terminal output.
 
 - [`AGENTS.md`](../../../../AGENTS.md) — placeholder conventions,
   trailer policy, *"what not to do"* list.
-- [`<project-config>/fix-workflow.md`](../../../../projects/_template/fix-workflow.md) —
+- [`<project-config>/fix-workflow.md`](../../../magpie-setup/templates/fix-workflow.md) —
   branch-name pattern, commit-trailer convention, sibling-repo
   handling.
-- [`<project-config>/runtime-invocation.md`](../../../../projects/_template/runtime-invocation.md) —
+- [`<project-config>/runtime-invocation.md`](../../../magpie-setup/templates/runtime-invocation.md) —
   build prerequisite + test invocation.
 - [`issue-triage`](../triage/SKILL.md) — predecessor;
   produces the classification.

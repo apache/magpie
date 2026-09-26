@@ -324,7 +324,7 @@ once here so the table rows stay short and unambiguous.
 "Maintainer" — for `last_maintainer_comment_at`, F5a (author-cooldown),
 F5b (maintainer-to-maintainer ping), and the Sweep-4 court
 disposition — means a member of the `committers_team` (see
-[`<project-config>/pr-management-config.md`](../../../../projects/_template/pr-management-config.md))
+[`<project-config>/pr-management-config.md`](../../../magpie-setup/templates/pr-management-config.md))
 **or** an account with repo permission `write` / `maintain` / `admin`.
 
 It is **not** `authorAssociation ∈ {COLLABORATOR, MEMBER, OWNER}` on its

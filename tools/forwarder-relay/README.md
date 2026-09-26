@@ -46,7 +46,7 @@ reporter-facing drafts back through the same relay channel. This
 file defines what the skills expect from an adapter, what the
 single shipping adapter (ASF Security relay) does today, and how
 adopters declare which adapters are enabled in
-[`<project-config>/project.md`](../../projects/_template/project.md).
+[`<project-config>/project.md`](../../plugins/magpie-setup/templates/project.md).
 
 The framework default is the ASF Security relay adapter, which is
 the only one shipping in the tree today. The contract exists so
@@ -137,7 +137,7 @@ ASF adopters install the optional sub-skill
 [`security-issue-import-via-forwarder`](../../skills/security-issue-import-via-forwarder/SKILL.md)
 to enable forwarder-aware handling. The sub-skill consumes the
 `forwarders.enabled` config knob from
-[`<project-config>/project.md`](../../projects/_template/project.md)
+[`<project-config>/project.md`](../../plugins/magpie-setup/templates/project.md)
 and runs after the main classification cascade in
 `security-issue-import`, `security-issue-invalidate`, and
 `security-issue-sync`. Generic skill bodies no longer carry
@@ -379,7 +379,7 @@ The handle lives in config rather than hard-coded so that:
 ## Configuration
 
 The adopter declares enabled adapters in
-[`<project-config>/project.md`](../../projects/_template/project.md)
+[`<project-config>/project.md`](../../plugins/magpie-setup/templates/project.md)
 under the `forwarders` block:
 
 ```yaml
@@ -444,7 +444,7 @@ addresses than just `*@apache.org`).
 * **Tracker field schema.** The names of the tracker body
   fields (*Reporter credited as*, *Security mailing list
   thread*, etc.) are declared in
-  [`<project-config>/project.md`](../../projects/_template/project.md)
+  [`<project-config>/project.md`](../../plugins/magpie-setup/templates/project.md)
   under the `tracker.body_fields` block. The adapter returns
   values; the tracker decides where to write them.
 * **Multi-thread reconciliation.** When a tracker records both

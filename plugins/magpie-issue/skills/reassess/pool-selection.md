@@ -12,7 +12,7 @@ useful findings; an unbounded sweep produces noise.
 ## Pool taxonomy
 
 Adopters declare named pools in
-[`<project-config>/reassess-pool-defaults.md`](../../../../projects/_template/reassess-pool-defaults.md).
+[`<project-config>/reassess-pool-defaults.md`](../../../magpie-setup/templates/reassess-pool-defaults.md).
 Common pools across projects:
 
 | Pool | Surfaces |
@@ -83,7 +83,7 @@ Recommend per-session caps:
 ## Query construction
 
 The pool's query lives in
-[`<project-config>/reassess-pool-defaults.md`](../../../../projects/_template/reassess-pool-defaults.md).
+[`<project-config>/reassess-pool-defaults.md`](../../../magpie-setup/templates/reassess-pool-defaults.md).
 Each project declares its own queries against `<issue-tracker>`.
 
 The skill resolves the pool name to a query, runs it, and
@@ -161,9 +161,9 @@ silent-fix candidates this time around.
 ## Cross-references
 
 - [`SKILL.md`](SKILL.md) — orchestration; this file expands Step 1.
-- [`<project-config>/reassess-pool-defaults.md`](../../../../projects/_template/reassess-pool-defaults.md) —
+- [`<project-config>/reassess-pool-defaults.md`](../../../magpie-setup/templates/reassess-pool-defaults.md) —
   per-project named-pool queries.
-- [`<project-config>/issue-tracker-config.md`](../../../../projects/_template/issue-tracker-config.md) —
+- [`<project-config>/issue-tracker-config.md`](../../../magpie-setup/templates/issue-tracker-config.md) —
   tracker URL, project key, query syntax declaration.
 - [`per-issue-flow.md`](per-issue-flow.md) — what happens to each
   candidate after pool selection.

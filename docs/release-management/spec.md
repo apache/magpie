@@ -203,7 +203,7 @@ PR.
   offered only under `organization: ASF`): an Infra Jira ticket
   draft requesting the CI signing key, a Security Team notification
   draft, a reproducible-build workflow PR rendered from
-  [`projects/_template/workflows/release-candidate.yml`](../../projects/_template/workflows/release-candidate.yml),
+  [`projects/_template/workflows/release-candidate.yml`](../../plugins/magpie-setup/templates/workflows/release-candidate.yml),
   and the `release-management-config.md § Signing` diff — gated on the
   build being demonstrably reproducible. Nothing is filed or sent.
 
@@ -373,7 +373,7 @@ own ASF credentials.
 
 **Adopter knobs.** Inherits `<project-config>/release-build.md`
 verbatim, see the
-[`projects/_template/release-build.md`](../../projects/_template/release-build.md)
+[`projects/_template/release-build.md`](../../plugins/magpie-setup/templates/release-build.md)
 scaffold. Convenience artefacts — anything the project ships besides
 the source — are project-specific by nature and are declared one by
 one under `§ Convenience artefacts` (`build_command`, `staging` /
@@ -825,7 +825,7 @@ flag for that field and continues.
 
 Per-project values live in
 `<project-config>/release-management-config.md`. See the template at
-[`projects/_template/release-management-config.md`](../../projects/_template/release-management-config.md).
+[`projects/_template/release-management-config.md`](../../plugins/magpie-setup/templates/release-management-config.md).
 
 Required keys (cross-skill):
 
@@ -850,7 +850,7 @@ the file, fall back to documented defaults if a key is missing,
 and refuse to proceed if a *required* key is missing (refusal
 text names the key). Backend-specific required keys (per the
 backend table in
-[`projects/_template/release-management-config.md`](../../projects/_template/release-management-config.md))
+[`projects/_template/release-management-config.md`](../../plugins/magpie-setup/templates/release-management-config.md))
 are required only when the corresponding backend is selected.
 
 ASF TLP releases are pinned to `release_approval_mechanism =
@@ -943,7 +943,7 @@ built.
 
 - [`README.md`](README.md), [`process.md`](process.md), within
   this family.
-- [`projects/_template/release-management-config.md`](../../projects/_template/release-management-config.md), adopter contract scaffold.
+- [`projects/_template/release-management-config.md`](../../plugins/magpie-setup/templates/release-management-config.md), adopter contract scaffold.
 - [`docs/modes.md` § Drafting](../modes.md#drafting), [§ Triage](../modes.md#triage), modes the skills inhabit.
 - [`docs/security/README.md`](../security/README.md), precedent
   for a multi-skill ASF-process family with shared state-change

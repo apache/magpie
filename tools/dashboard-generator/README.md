@@ -111,5 +111,5 @@ as long as they:
   the agent-emitted version of the same dashboard.
 - [`issue-reassess-stats/render.md`](../../skills/issue-reassess-stats/render.md) —
   the layout contract the references implement.
-- [`<project-config>/reproducer-conventions.md`](../../projects/_template/reproducer-conventions.md) —
+- [`<project-config>/reproducer-conventions.md`](../../plugins/magpie-setup/templates/reproducer-conventions.md) —
   the campaign directory layout.

@@ -23,7 +23,7 @@ argument-hint: "<version> [--planning-issue <url>]"
 capability: capability:stats
 surface_hash: sha256:bed8d4c39f43581d
 license: Apache-2.0
-measured_tokens: 6688
+measured_tokens: 6690
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -582,9 +582,9 @@ The AI-driven part ends with a hand-back artefact containing:
   Step 13 context.
 - [`docs/release-management/spec.md`](../../../../docs/release-management/spec.md) —
   `release-audit-report` per-skill specification and privacy boundary.
-- [`<project-config>/release-management-config.md`](../../../../projects/_template/release-management-config.md) —
+- [`<project-config>/release-management-config.md`](../../../magpie-setup/templates/release-management-config.md) —
   `audit_log_path` and `release_approver_roster_path` keys this skill reads.
-- [`<project-config>/pmc-roster.md`](../../../../projects/_template/pmc-roster.md) —
+- [`<project-config>/pmc-roster.md`](../../../magpie-setup/templates/pmc-roster.md) —
   authoritative handle source for binding-voter citations.
 - `release-archive-sweep` — upstream step; Step 12 cleans up RC artefacts.
 - `release-announce-draft` — provides `[ANNOUNCE]` archive URL.

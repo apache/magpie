@@ -307,7 +307,7 @@ repos:
         name: symlink-lint (release archive)
         language: system
         entry: python3 tools/symlink-lint/src/symlink_lint/__init__.py --archive
-        files: ^(\.gitattributes|\.(agents|claude|github|kiro)/skills/.*|skills/.*|plugins/magpie-[^/]+/skills/.*|projects/_template/.*)$
+        files: ^(\.gitattributes|\.(agents|claude|github|kiro)/skills/.*|skills/.*|plugins/magpie-[^/]+/skills/.*|plugins/magpie-setup/templates/.*)$
         types_or: [symlink, file]
         pass_filenames: false
   # Marketplace-plugin consistency guard. Validates that every plugin is
@@ -480,7 +480,7 @@ repos:
         name: check-skill-config (family config tables vs requires_config)
         language: system
         entry: python3 tools/dev/check-skill-config.py --fix
-        files: ^(skills/[^/]+/SKILL\.md|plugins/magpie-[^/]+/skills/.*|projects/_template/.*|docs/[^/]+/README\.md|tools/dev/check-skill-config\.py)$
+        files: ^(skills/[^/]+/SKILL\.md|plugins/magpie-[^/]+/skills/.*|plugins/magpie-setup/templates/.*|docs/[^/]+/README\.md|tools/dev/check-skill-config\.py)$
         pass_filenames: false
       # The animated wizard runs derive from the same frontmatter, so they move
       # when it moves. Regenerated here rather than only checked, for the same
@@ -489,7 +489,7 @@ repos:
         name: render-wizard (animated setup + per-family config runs)
         language: system
         entry: python3 tools/dev/render-wizard.py
-        files: ^(skills/[^/]+/SKILL\.md|plugins/magpie-[^/]+/skills/.*/SKILL\.md|projects/_template/.*|tools/dev/(render-wizard|check-skill-config)\.py)$
+        files: ^(skills/[^/]+/SKILL\.md|plugins/magpie-[^/]+/skills/.*/SKILL\.md|plugins/magpie-setup/templates/.*|tools/dev/(render-wizard|check-skill-config)\.py)$
         pass_filenames: false
   # something else.
   - repo: local

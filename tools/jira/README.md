@@ -251,7 +251,7 @@ The bridge reads its configuration from the environment:
 | `JIRA_AUTH_SCHEME` | `Basic` (default) or `Bearer` — see auth notes below |
 
 The caller is responsible for exporting these (a skill resolves them
-from [`<project-config>/issue-tracker-config.md`](../../projects/_template/issue-tracker-config.md)
+from [`<project-config>/issue-tracker-config.md`](../../plugins/magpie-setup/templates/issue-tracker-config.md)
 and passes them in the environment). Direct file-fallback inside the
 bridge is a possible future enhancement — it is **not** implemented
 today; the bridge exits if `ISSUE_TRACKER_URL` is unset.
@@ -318,5 +318,5 @@ uv run pytest
   write-path consumer (close with label + comment).
 - [`tools/github/operations.md`](../github/operations.md) —
   write-path discipline reference.
-- [`<project-config>/issue-tracker-config.md`](../../projects/_template/issue-tracker-config.md) —
+- [`<project-config>/issue-tracker-config.md`](../../plugins/magpie-setup/templates/issue-tracker-config.md) —
   the adopter's tracker URL + project key.

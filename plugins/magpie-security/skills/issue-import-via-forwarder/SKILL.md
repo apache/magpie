@@ -32,7 +32,7 @@ when_to_use: |
 capability: capability:intake
 surface_hash: sha256:7be6fd9a774bbde5
 license: Apache-2.0
-measured_tokens: 7952
+measured_tokens: 7953
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -634,7 +634,7 @@ call against the tracker; there is no Gmail draft created.
   paste-ready block convention, the clickable external-
   reference URL rule, and the threading semantics for relay
   drafts.
-- [`projects/_template/project.md → forwarders`](../../../../projects/_template/project.md#forwarders)
+- [`projects/_template/project.md → forwarders`](../../../magpie-setup/templates/project.md#forwarders)
   — the YAML config schema each adopter declares to register
   enabled adapters and their per-adapter overrides
   (`contact_handle`, `preamble_match`, `credit_extraction_rule`).
