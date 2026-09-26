@@ -370,6 +370,13 @@ An upgrade moves the framework underneath it, so replace that copy with
 the one the newly-installed version ships, from the same source this
 upgrade took everything else from.
 
+The fresh copy also carries the new version's isolated-setup
+fingerprint. When the secure-setup files changed in this upgrade, the
+next skill's pre-flight on a machine that uses the isolated setup
+proposes `setup-isolated-setup-update` — the refresh is what makes that
+happen on a marketplace install, where there is no framework source to
+hash.
+
 Skip it when the directory does not exist: a project that never ran
 `config` has nothing to refresh, and creating the directory here would
 manufacture the "has been configured" signal its absence carries.

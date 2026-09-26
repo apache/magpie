@@ -10,7 +10,7 @@
   - [Why it is installed into the project](#why-it-is-installed-into-the-project)
   - [Invocation](#invocation)
   - [Output](#output)
-    - [The two scopes](#the-two-scopes)
+    - [The scopes](#the-scopes)
   - [Two rules that are the reason this is code](#two-rules-that-are-the-reason-this-is-code)
   - [Tests](#tests)
 
@@ -111,7 +111,7 @@ finding is the answer, not a failure. A non-zero exit means the check
 could not run, and the caller falls back to the detail file rather than
 assuming the project is fine.
 
-### The two scopes
+### The scopes
 
 **`project`** findings are true of the checkout and identical for every
 skill invoked in it — the lock, snapshot drift, the marketplace floor.
@@ -122,6 +122,18 @@ own fingerprint comparison.
 
 **`skill`** findings differ per skill: its fingerprint against the
 reconciliation stamp, and whether its `requires_config:` entries resolve.
+
+**`machine`** findings are about the isolated (secure agent) setup on
+this machine, reported only where it is used: `isolated-setup-changed`
+when the fingerprint of the secure-setup files differs from the one the
+last `setup-isolated-setup-update` run recorded, and
+`isolated-setup-update-due` when that run or its last reminder is older
+than `isolated_setup_update_interval_days` (default 7). The fingerprint
+is computed from the framework source when the checkout has it, and
+otherwise read from the generated `isolated_fingerprint.py`, which the
+`isolated-setup-fingerprint` prek hook keeps current.
+`python3 -m setup_preflight.isolated record-update | record-reminder`
+writes the stamp.
 
 **`end-of-run`** is the periodic `/magpie-setup verify` suggestion, which
 is settled when the run finishes rather than before it starts.

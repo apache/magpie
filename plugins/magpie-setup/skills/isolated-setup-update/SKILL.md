@@ -12,10 +12,11 @@ description: >-
 when_to_use: >-
   When the user asks whether their setup is current, or after an agent
   harness upgrade, a large merge, or a previously blocked command
-  starting to succeed. Worth running about monthly. Cheap and never
-  destructive.
+  starting to succeed. Every skill's pre-flight proposes it after an
+  upgrade that changes the secure-setup files, and weekly otherwise.
+  Cheap and never destructive.
 capability: capability:platform
-surface_hash: sha256:a264f5a8c50c1234
+surface_hash: sha256:1f327e069312dad2
 license: Apache-2.0
 ---
 
@@ -81,6 +82,7 @@ Drift severity:
 - **Read-only.**
   This skill does not bump the manifest, edit `~/.claude/scripts/`, `git pull`, `npm install -g`, or modify the user's shell rc.
   It reports drift and points at the doc or the install skill; the user runs the updates by hand or by re-invoking `setup-isolated-setup-install` for the touched piece.
+  The one write is the run record in [Record the run](#record-the-run), to a gitignored file.
 - **Surface upstream changelog links.**
   For every pinned-tool upgrade candidate, include the upstream changelog / release-notes URL so the user can read the diff before deciding.
   A bump is not a foregone conclusion: for the **pinned sandbox primitives** (`bubblewrap`, `socat`) the policy is "wait for a feature you actually want or a security fix", not "always run latest".
@@ -180,6 +182,34 @@ Report a missing rule as drift to repair, not a note.
 A leftover `Write(…)` rule on either path is the opposite kind of drift: `Edit(path)` already binds every file-editing tool, and the file permission check does not match a `Write(path)` rule, so surface it as cruft to delete.
 This check is the most likely to rot: the plugin-cache path carries the plugin *name*, so a family rename or a move of the dispatcher to another substrate plugin leaves a deny rule that looks plausible but matches nothing.
 Resolve the glob against the installed tree and confirm it actually hits the catalogue, rather than eyeballing the string.
+
+## When the pre-flight proposes this skill
+
+Every skill's pre-flight proposes this one when the isolated setup is used on this machine, for one of two reasons:
+
+- **An upgrade changed the secure-setup files.**
+  The checker fingerprints the files an install copies or mirrors (`tools/agent-isolation/`, `tools/agent-guard/src/`, `tools/container-gateway/src/`, the dogfooded `.claude/settings.json`; documentation excluded).
+  When that fingerprint differs from the one recorded by this skill's last run, it proposes a run, once per change.
+- **The interval has elapsed.**
+  Weekly by default, counted from the last run or the last time it was suggested.
+  Set `isolated_setup_update_interval_days` in `.apache-magpie-local/project.md` (personal) or `.apache-magpie-overrides/project.md` (project-wide); `0` turns the timer off and keeps the change report.
+
+"Used on this machine" means this skill or `setup-isolated-setup-install` has recorded a run here, or the project's `.claude/settings*.json` enables the sandbox.
+To silence both reasons, set `"isolated_setup": {"enabled": false}` in `.apache-magpie-local/reconciled.json`.
+The proposal never runs this skill by itself.
+To run it on demand, invoke it directly: `/magpie-setup:isolated-setup-update` on a marketplace install, `/magpie-setup-isolated-setup-update` on a pinned snapshot.
+
+## Record the run
+
+At the end of every completed run, whatever it found, record it:
+
+```bash
+PYTHONPATH=.apache-magpie-local python3 -m setup_preflight.isolated record-update
+```
+
+This writes the current fingerprint and today's date into the `isolated_setup` block of `.apache-magpie-local/reconciled.json`, which resets both pre-flight reasons.
+Do not write the block by hand.
+Skip it when `.apache-magpie-local/setup_preflight/` does not exist, and say that `/magpie-setup config` installs the checker.
 
 ## After the report
 

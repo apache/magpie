@@ -114,7 +114,7 @@ arithmetic, which is now tested rather than graded.
 
 <!-- BEGIN GENERATED SKILL TOKEN COUNTS -->
 
-Measured on (UTC): 2026-09-25.
+Measured on (UTC): 2026-09-26.
 
 Tokenizer: **tiktoken 0.14.0, `cl100k_base`**. Method: full UTF-8 file,
 including frontmatter and comments; line endings normalized to LF;
@@ -122,7 +122,7 @@ special-token spellings counted as ordinary text.
 Coverage: **75 of 75 local `skills/*/SKILL.md` files**.
 External `source.md` redirects and harness symlinks are excluded.
 
-Measurement manifest SHA-256: `b7298c42ca4164abda1adaba6222ec311a34cc9412cef55fcc295e2f10eb2e0f`.
+Measurement manifest SHA-256: `78fe65fbafc7ba185274a532ac662560dacd5d781be4593d195e5ae0db5625d0`.
 
 | Skill file | Measured tokens | Source SHA-256 (first 16 characters) |
 |---|---:|---|
@@ -190,8 +190,8 @@ Measurement manifest SHA-256: `b7298c42ca4164abda1adaba6222ec311a34cc9412cef55fc
 | [security-tracker-stats-dashboard](../skills/security-tracker-stats-dashboard/SKILL.md) | 3,815 | `8bf5804a8f214d6a` |
 | [setup](../skills/setup/SKILL.md) | 4,526 | `619a7dcc0c0f64ae` |
 | [setup-isolated-setup-doctor](../skills/setup-isolated-setup-doctor/SKILL.md) | 5,539 | `ba5d0773615f463d` |
-| [setup-isolated-setup-install](../skills/setup-isolated-setup-install/SKILL.md) | 4,414 | `c9bb83973f01078d` |
-| [setup-isolated-setup-update](../skills/setup-isolated-setup-update/SKILL.md) | 4,062 | `7906fe6011ec1442` |
+| [setup-isolated-setup-install](../skills/setup-isolated-setup-install/SKILL.md) | 4,553 | `adcf95da160ad971` |
+| [setup-isolated-setup-update](../skills/setup-isolated-setup-update/SKILL.md) | 4,530 | `c51147afe2929c0b` |
 | [setup-isolated-setup-verify](../skills/setup-isolated-setup-verify/SKILL.md) | 4,796 | `f3e0c4771367dfe8` |
 | [setup-override-upstream](../skills/setup-override-upstream/SKILL.md) | 4,750 | `500115be65241da1` |
 | [setup-privacy-llm](../skills/setup-privacy-llm/SKILL.md) | 2,051 | `daf38d5849397854` |

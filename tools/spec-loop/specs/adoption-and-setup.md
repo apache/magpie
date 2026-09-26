@@ -380,6 +380,25 @@ committed version with drift detection.
     run unattended from a skill's pre-flight. `upgrade` skips the refresh
     when the directory does not exist rather than creating it, because its
     absence is what marks a project as never configured.
+27. `tools/setup-preflight` also has a **machine** scope for the isolated
+    (secure agent) setup, reported only where it is used here — an
+    `isolated_setup` block in `.apache-magpie-local/reconciled.json`
+    written by `setup-isolated-setup-install` / `-update`, or a project
+    `.claude/settings*.json` that enables the sandbox — and silenced by
+    `"isolated_setup": {"enabled": false}`. It proposes
+    `setup-isolated-setup-update` once per change of the fingerprint of the
+    files an install copies (`tools/agent-isolation/`,
+    `tools/agent-guard/src/`, `tools/container-gateway/src/`, the dogfooded
+    `.claude/settings.json`; documentation excluded), and otherwise every
+    `isolated_setup_update_interval_days` (personal
+    `.apache-magpie-local/project.md` → `.apache-magpie-overrides/project.md`,
+    default 7, `0` disables the timer but not the change report). The
+    fingerprint is computed from the framework source when the checkout
+    carries it and otherwise read from a constant generated into the
+    checker, kept current by the `isolated-setup-fingerprint` prek hook.
+    The stamp is written only by `python3 -m setup_preflight.isolated
+    record-update | record-reminder`, never by hand; the proposal never
+    runs the update and never blocks the skill.
 
 ## Validation
 

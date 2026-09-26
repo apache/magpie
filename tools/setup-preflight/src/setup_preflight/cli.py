@@ -41,6 +41,7 @@ from .core import (
     DEFAULT_VERIFY_INTERVAL_DAYS,
     Verdict,
     cached_project_findings,
+    isolated_setup_findings,
     skill_findings,
     verify_findings,
 )
@@ -119,6 +120,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="0 disables the periodic verify suggestion",
     )
     parser.add_argument(
+        "--isolated-setup-interval-days",
+        type=int,
+        default=None,
+        help="days between isolated-setup-update reminders (default: the "
+        "`isolated_setup_update_interval_days` config key, else 7); 0 disables the timer",
+    )
+    parser.add_argument(
         "--no-rules",
         action="store_true",
         help="omit each finding's rules text (the verdict alone)",
@@ -146,6 +154,7 @@ def main(argv: list[str] | None = None) -> int:
         findings = [
             *project,
             *skill_findings(root, args.skill, args.surface_hash, args.requires),
+            *isolated_setup_findings(root, args.isolated_setup_interval_days),
             *verify_findings(root, args.verify_interval_days),
         ]
     except MalformedLock as exc:
