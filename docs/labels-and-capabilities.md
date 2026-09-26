@@ -140,6 +140,7 @@ framework substrate:
 | `contract:scan-format` | contract | Security-scanner report parsing. |
 | `contract:project-metadata` | contract | Governance rosters / people / releases. |
 | `contract:security-cross-ref` | contract | Vulnerability database / cross-reference alias lookup (OSV.dev / NVD). |
+| `contract:typed-decision` | contract | Provider-agnostic typed decision backend (Choice / Score / Noul). |
 | `substrate:analytics` | substrate | Read-only metrics / dashboards / renderers. |
 | `substrate:sandbox` | substrate | Agent isolation, egress control, settings audit. |
 | `substrate:action-guard` | substrate | Deterministic pre-tool-use command guards. |
@@ -359,6 +360,7 @@ or a contract-free mix of substrates (e.g. `tools/spec-inventory` is
 | [`tools/skill-reconciler-diff`](../tools/skill-reconciler-diff/) | `substrate:framework-dev` | Deterministic structural diff between two skill trees — parses frontmatter, section headings, step inventory, placeholders, support files, and safety-baseline clauses into a JSON diff object for the `skill-reconciler` skill |
 | [`tools/vcs`](../tools/vcs/) | `contract:source-control` | Backend-dispatching implementation of the source-control (VCS) capability ([`tools/github/source-control.md`](../tools/github/source-control.md)); complete Git, Mercurial (Hg), and Fossil backends, plus detected extension point for SVN (#602) |
 | [`tools/sourcehut`](../tools/sourcehut/) | `contract:tracker` + `contract:source-control` + `contract:mail-archive` | SourceHut (sr.ht) forge bridge: todo.sr.ht, lists.sr.ht, builds.sr.ht, and git/hg repository reads |
+| [`tools/typed-decision`](../tools/typed-decision/) | `contract:typed-decision` | Provider-agnostic typed decision tool contract (Choice / Score / Noul) with TypeSafe Jev API as initial backend |
 
 A tool's capability is the **interface it provides**, not which skills
 happen to consume it (RFC-AI-0005). `tools/github` provides the
