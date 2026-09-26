@@ -669,6 +669,8 @@ programming, and worth describing explicitly — getting the rhythm
 right is the difference between a smooth contribution and a
 frustrating one.
 
+What the project expects from an AI-assisted contribution — licensing, the `Generated-by:` trailer, disclosure, and human ownership of the change — is set out in [`docs/ai-contribution-policy.md`](docs/ai-contribution-policy.md), which follows the [ASF Generative Tooling Guidance](https://www.apache.org/legal/generative-tooling.html).
+
 **The framework is code at two abstraction levels.** The bulk —
 skills, tool contracts, RFCs — is English, executed by an agent
 (see [English as code](#english-as-code)). The minority — Python
