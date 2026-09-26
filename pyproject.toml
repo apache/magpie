@@ -154,4 +154,5 @@ members = [
   "tools/fossil",
   "tools/sourcehut",
   "tools/gitlab",
+  "tools/typed-decision",
 ]
