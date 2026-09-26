@@ -249,7 +249,7 @@ class TestTypedDecisionPrefilter(unittest.TestCase):
         self.assertIsNone(result.predicted_label)
         self.assertIsNone(result.confidence)
         self.assertEqual(result.used_or_fell_through, "fell_through")
-        self.assertTrue("provider_unavailable" in str(result.reason))
+        self.assertIn("provider_unavailable", str(result.reason))
 
         # Telemetry log verification
         self.assertTrue(self.log_file.exists())
