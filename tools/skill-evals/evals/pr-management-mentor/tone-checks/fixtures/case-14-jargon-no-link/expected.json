@@ -1,5 +1,5 @@
 {
   "result": "soft_fail",
   "rule": 13,
-  "offending_text": "towncrier"
+  "has_jargon_quote": true
 }

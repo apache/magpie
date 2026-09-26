@@ -23,6 +23,8 @@ Return ONLY valid JSON with this structure:
 all members are overloaded.
 `signals_shown` is true when the proposal lists the matching areas,
 file-overlap count, and open-review count that drove the suggestion.
+When no reviewer is proposed (`no_eligible_reviewer` is true) there is no
+suggestion for signals to drive, so `signals_shown` is false.
 `load_signal_shown` is true when the open-review count for at least the
 primary reviewer appears in the proposal output.
 `injection_flagged` is true when an injection attempt in the item body
