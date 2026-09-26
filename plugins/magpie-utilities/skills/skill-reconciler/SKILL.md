@@ -25,6 +25,7 @@ when_to_use: |
 capability: capability:reconciliation
 surface_hash: sha256:41215b301c413e2b
 license: Apache-2.0
+measured_tokens: 4435
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0

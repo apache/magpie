@@ -25,6 +25,7 @@ when_to_use: |
 capability: capability:fix
 surface_hash: sha256:3ccf080bbb094dad
 license: Apache-2.0
+measured_tokens: 7153
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0

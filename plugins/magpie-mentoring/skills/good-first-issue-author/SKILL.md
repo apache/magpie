@@ -32,6 +32,7 @@ argument-hint: "[candidate-gap-or-task]"
 capability: capability:review
 surface_hash: sha256:ac2d0fda09c67231
 license: Apache-2.0
+measured_tokens: 3609
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->

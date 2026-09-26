@@ -29,6 +29,7 @@ argument-hint: "[what broke, or a problem description]"
 capability: capability:platform
 surface_hash: sha256:b99d3a8e3221a0cc
 license: Apache-2.0
+measured_tokens: 4625
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0

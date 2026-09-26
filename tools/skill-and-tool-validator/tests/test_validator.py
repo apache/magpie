@@ -410,6 +410,19 @@ class TestValidateFrontmatter:
         violations = list(validate_frontmatter(path, text))
         assert not any("surface_hash" in v.message for v in violations)
 
+    @pytest.mark.parametrize("value", ["0", "-5", "1,234", "many"])
+    def test_malformed_measured_tokens_is_an_error(self, tmp_path: Path, value: str) -> None:
+        path = tmp_path / "SKILL.md"
+        text = f"---\nname: foo\ndescription: bar\ncapability: capability:platform\nfamily: repo-health\nmode: Triage\nwhen_to_use: when it applies\nsurface_hash: sha256:0123456789abcdef\nlicense: Apache-2.0\nmeasured_tokens: {value}\n---\n"
+        violations = list(validate_frontmatter(path, text))
+        assert any("measured_tokens" in v.message and "skill-token-count" in v.message for v in violations)
+
+    def test_valid_measured_tokens_is_silent(self, tmp_path: Path) -> None:
+        path = tmp_path / "SKILL.md"
+        text = "---\nname: foo\ndescription: bar\ncapability: capability:platform\nfamily: repo-health\nmode: Triage\nwhen_to_use: when it applies\nsurface_hash: sha256:0123456789abcdef\nlicense: Apache-2.0\nmeasured_tokens: 1234\n---\n"
+        violations = list(validate_frontmatter(path, text))
+        assert not any("measured_tokens" in v.message for v in violations)
+
 
 # ---------------------------------------------------------------------------
 # Multi-capability form: space/comma-separated string → SOFT advisory

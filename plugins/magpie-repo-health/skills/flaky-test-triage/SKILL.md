@@ -25,6 +25,7 @@ argument-hint: "[--repo owner/name] [--window-days N] [--threshold F]"
 capability: capability:triage
 surface_hash: sha256:eda3c3891897f08d
 license: Apache-2.0
+measured_tokens: 3068
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0

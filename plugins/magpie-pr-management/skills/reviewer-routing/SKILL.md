@@ -28,6 +28,7 @@ argument-hint: "[pr:<N> | issue:<N>] [--repo owner/name]"
 capability: capability:triage
 surface_hash: sha256:c9b9669a27ceaad7
 license: Apache-2.0
+measured_tokens: 5192
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0

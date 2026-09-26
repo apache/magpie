@@ -31,6 +31,7 @@ argument-hint: "[import] [last Nd|all] [skip threadId]"
 capability: capability:intake
 surface_hash: sha256:fd9f58cb77807aca
 license: Apache-2.0
+measured_tokens: 28928
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):

@@ -21,6 +21,7 @@ argument-hint: "[repo:owner/name] [since:date] [clear-cache]"
 capability: capability:stats
 surface_hash: sha256:3da2380d3a73eccf
 license: Apache-2.0
+measured_tokens: 7211
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0

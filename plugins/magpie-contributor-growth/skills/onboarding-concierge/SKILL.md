@@ -30,6 +30,7 @@ argument-hint: "[newcomer question or issue/PR URL]"
 capability: capability:review
 surface_hash: sha256:4105a6571bcb70c2
 license: Apache-2.0
+measured_tokens: 3372
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->

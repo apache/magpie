@@ -413,10 +413,10 @@ repos:
   - repo: local
     hooks:
       - id: skill-token-count
-        name: Check measured skill tokens in docs/mode-economics.md
+        name: Check measured_tokens stamps in SKILL.md frontmatter
         language: system
         entry: uv run --project tools/skill-token-count skill-token-count --check
-        files: ^(skills/.*/SKILL\.md|plugins/magpie-[^/]+/skills/.*/SKILL\.md|tools/dev/preflight-block\.md|tools/skill-token-count/.*|docs/mode-economics\.md|uv\.lock|\.pre-commit-config\.yaml)$
+        files: ^(skills/.*/SKILL\.md|plugins/magpie-[^/]+/skills/.*/SKILL\.md|tools/dev/preflight-block\.md|tools/skill-token-count/.*|uv\.lock|\.pre-commit-config\.yaml)$
         pass_filenames: false
   # Quick-start screenshot set. Three lists have to agree — the harnesses
   # `capture-screenshot.sh` offers, the ecosystem manifests that make a harness

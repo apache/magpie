@@ -17,6 +17,7 @@ when_to_use: >-
 capability: capability:authoring
 surface_hash: sha256:31626428a2545bce
 license: Apache-2.0
+measured_tokens: 2456
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0

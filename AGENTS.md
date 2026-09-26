@@ -1085,11 +1085,14 @@ follow-up actions are part of the change, not optional polish:
    run a **cross-model pass** for substantive changes (new steps, prompt
    restructures, behaviour changes that cross a classification
    boundary).
-2. **Update [`docs/mode-economics.md`](docs/mode-economics.md)** if the
-   change materially shifts the per-invocation token shape — a new step
-   that loads substantial context, a removed read path, a new skill.
-   That doc is hand-maintained and documents its own re-estimation
-   anchors; pure prose / link / typo edits need no update.
+2. **Restamp and review the token cost.** Every `SKILL.md` edit needs
+   `uv run --project tools/skill-token-count skill-token-count --write`,
+   which rewrites that skill's own `measured_tokens:` frontmatter line (the
+   hook fails until it matches). Separately, update the prose in
+   [`docs/mode-economics.md`](docs/mode-economics.md) if the change
+   materially shifts the per-invocation token shape — a new step that loads
+   substantial context, a removed read path, a new skill. Pure prose / link
+   / typo edits need only the restamp.
 
 Both signals catch the same class of regression: a skill that silently
 starts producing different output (eval failure) or that silently became
