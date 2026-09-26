@@ -430,14 +430,14 @@ Expected value:
 Candidate value:
 {candidate_value}
 
-Does the candidate value support the same conclusion as the expected value? Ignore wording differences and reorderings. Reply with one line of JSON only, no prose: {{"match": true, "reason": "<one-line explanation>"}} or {{"match": false, "reason": "<one-line explanation>"}}.
+Does the candidate value support the same conclusion as the expected value? Ignore wording differences and reorderings. A candidate that reaches the same conclusion is a match even when it adds correct extra detail, omits secondary detail, or names the deciding rule differently. The answer's decision is carried by its structured fields, which are compared exactly on their own, so an explanation that gives the reasoning without restating the decision or the resulting action is still a match. Answer false only when the candidate states a different or contradictory conclusion, or rests it on a reason that conflicts with the expected one. Reply with one line of JSON only, no prose: {{"match": true, "reason": "<one-line explanation>"}} or {{"match": false, "reason": "<one-line explanation>"}}.
 """
 
 
 BATCH_GRADER_RUBRIC = """\
 You are grading a model's structured answer against a reference answer, field by field.
 
-For each (Field, Expected, Candidate) triple below, decide whether the candidate value supports the same conclusion as the expected value. Ignore wording differences and reorderings.
+For each (Field, Expected, Candidate) triple below, decide whether the candidate value supports the same conclusion as the expected value. Ignore wording differences and reorderings. A candidate that reaches the same conclusion is a match even when it adds correct extra detail, omits secondary detail, or names the deciding rule differently. The answer's decision is carried by its structured fields, which are compared exactly on their own, so an explanation that gives the reasoning without restating the decision or the resulting action is still a match. Answer false only when the candidate states a different or contradictory conclusion, or rests it on a reason that conflicts with the expected one.
 
 {fields_block}
 
