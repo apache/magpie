@@ -73,6 +73,14 @@ SETUP_HOOKS = {
         }
     ]
 }
+# Every skill's pre-flight runs `setup_preflight`, and `setup config` installs it
+# from the plugin on a marketplace install, so the package has to be inside
+# magpie-setup's root: a symlink out to `tools/` would put magpie-setup, which the
+# Codex and Copilot catalogs list, in breach of Agent Plugins 1.0 §4.1. The
+# `tools/setup-preflight` workspace member reaches it through the inward link.
+SETUP_PREFLIGHT_PACKAGE = Path("plugins/magpie-setup/skills/setup/setup_preflight")
+SETUP_PREFLIGHT_MIRROR = Path("tools/setup-preflight/src/setup_preflight")
+SETUP_PREFLIGHT_MIRROR_TARGET = Path("../../../plugins/magpie-setup/skills/setup/setup_preflight")
 MIRROR_TARGET = "../plugins/{plugin}/skills/{alias}"  # relative to skills/
 
 # A family plugin advertises each skill under its plugin *directory* name, and
@@ -664,6 +672,26 @@ def families_from_frontmatter() -> dict[str, set[str]]:
     return fam
 
 
+def check_setup_preflight_package() -> list[str]:
+    """magpie-setup ships `setup_preflight` as real files, and the workspace
+    member's `src/` mirrors them rather than holding a second copy."""
+    errors: list[str] = []
+    entry = SETUP_PREFLIGHT_PACKAGE / "__main__.py"
+    if SETUP_PREFLIGHT_PACKAGE.is_symlink() or not entry.is_file():
+        errors.append(
+            f"{SETUP_PREFLIGHT_PACKAGE}: must be a real directory holding {entry.name} — "
+            f"a marketplace install of magpie-setup would ship no pre-flight checker"
+        )
+    if not SETUP_PREFLIGHT_MIRROR.is_symlink():
+        errors.append(f"{SETUP_PREFLIGHT_MIRROR}: expected a symlink to {SETUP_PREFLIGHT_MIRROR_TARGET}")
+    elif SETUP_PREFLIGHT_MIRROR.readlink() != SETUP_PREFLIGHT_MIRROR_TARGET:
+        errors.append(
+            f"{SETUP_PREFLIGHT_MIRROR} -> {SETUP_PREFLIGHT_MIRROR.readlink()} "
+            f"(expected {SETUP_PREFLIGHT_MIRROR_TARGET})"
+        )
+    return errors
+
+
 def check(fam: dict[str, set[str]]) -> list[str]:
     errors: list[str] = []
 
@@ -697,6 +725,7 @@ def check(fam: dict[str, set[str]]) -> list[str]:
     setup_data, _setup_err = load_json(setup_manifest)
     if setup_data is not None and "check-upgrade.sh" not in json.dumps(setup_data.get("hooks", {})):
         errors.append(f"{setup_manifest}: SessionStart hook does not reference check-upgrade.sh")
+    errors += check_setup_preflight_package()
 
     # 2) Every marketplace entry resolves to a matching, uniquely-named manifest.
     seen: set[str] = set()

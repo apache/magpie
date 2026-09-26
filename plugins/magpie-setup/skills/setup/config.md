@@ -102,11 +102,13 @@ Say which of the two happened.
 
 ## Step 2a — Install the pre-flight checker
 
-Copy the framework's `tools/setup-preflight/src/setup_preflight/`
-package into `.apache-magpie-local/setup_preflight/`, replacing any copy
-already there. Source it from `<snapshot-dir>/tools/setup-preflight/` on
-a snapshot install, or from the installed plugin's copy on a marketplace
-install — the same two places Step 3 takes its templates from.
+Copy the framework's `setup_preflight/` package into
+`.apache-magpie-local/setup_preflight/`, replacing any copy already
+there. The package lives in this skill's own directory, `setup_preflight/`
+next to this file, so every install method has it: on a marketplace
+install that is inside the installed `magpie-setup` plugin, and on a
+snapshot install `<snapshot-dir>/tools/setup-preflight/src/setup_preflight/`
+reaches the same files.
 
 This is what every skill's pre-flight actually runs:
 

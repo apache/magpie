@@ -386,7 +386,7 @@ repos:
         name: isolated-setup-fingerprint (secure-setup fingerprint in setup-preflight)
         language: system
         entry: env PYTHONPATH=tools/setup-preflight/src python3 -m setup_preflight.isolated write-constant
-        files: ^(\.claude/settings\.json|tools/agent-guard/src/.*|tools/agent-isolation/.*|tools/container-gateway/src/.*|tools/setup-preflight/src/setup_preflight/isolated(_fingerprint)?\.py)$
+        files: ^(\.claude/settings\.json|tools/agent-guard/src/.*|tools/agent-isolation/.*|tools/container-gateway/src/.*|plugins/magpie-setup/skills/setup/setup_preflight/isolated(_fingerprint)?\.py)$
         pass_filenames: false
   # Cross-file near-duplicate prose gate: fails on a paragraph pasted from
   # one scoped file into another instead of being pulled into a shared
