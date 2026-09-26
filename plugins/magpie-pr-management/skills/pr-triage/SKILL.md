@@ -27,7 +27,7 @@ argument-hint: "[pr:N] [label:LBL] [author:LOGIN] [review-for-me] [stale] [repo:
 capability: capability:triage
 surface_hash: sha256:4a3a20f254a3b7c7
 license: Apache-2.0
-measured_tokens: 5171
+measured_tokens: 5170
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
@@ -342,7 +342,6 @@ On `TypedDecisionUnavailable` or low confidence, it falls through silently to st
 reasoning. **Strict HITL invariant:** Pre-filtering only accelerates candidate generation;
 the maintainer confirmation UX in Step 3 is preserved unchanged and never bypassed.
 Telemetry is logged to `.apache-magpie-local/logs/pr-triage-typed-decision.jsonl`.
-
 
 ---
 
