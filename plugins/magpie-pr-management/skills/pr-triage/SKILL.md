@@ -326,9 +326,23 @@ Selector semantics (`triage pr:<N>` / `label:<LBL>` / `author:<LOGIN>` / `review
 
 **Step 2 — classify:** run **every PR fetched in Step 1** through
 [`classify-and-act.md`](classify-and-act.md), once — the pre-filters
-(F1–F5c), the first-match-wins decision table, the Real-CI guard on
-`passing` rows, and the single-pass output contract are specified
-there.
+(F1–F5c), the optional typed-decision pre-filter pass (gated by
+`enable_typed_decision_prefilter`), the first-match-wins decision table,
+the Real-CI guard on `passing` rows, and the single-pass output contract
+are specified there.
+
+**Typed-decision pre-filter (opt-in):** Adopters can enable an accelerated
+candidate-generation pass via `enable_typed_decision_prefilter: true`
+(default `false`) and configurable `confidence_threshold` (default `0.85`)
+in `<project-config>/pr-management-config.md` or `.apache-magpie-overrides/pr-management-triage.md`.
+When enabled, `typed_decision.choice()` classifies candidate PRs using the triage
+bucket taxonomy; if confidence meets or exceeds the threshold, the predicted bucket
+pre-fills the candidate classification and skips the agent-reasoning step for that PR.
+On `TypedDecisionUnavailable` or low confidence, it falls through silently to standard
+reasoning. **Strict HITL invariant:** Pre-filtering only accelerates candidate generation;
+the maintainer confirmation UX in Step 3 is preserved unchanged and never bypassed.
+Telemetry is logged to `.apache-magpie-local/logs/pr-triage-typed-decision.jsonl`.
+
 
 ---
 
