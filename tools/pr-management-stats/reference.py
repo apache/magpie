@@ -331,7 +331,7 @@ def fold_triaged_at(pr):
     always AI-drafted (it is written by the automated triage tool).
 
     The block lives in the PR body, which the PR author controls, so the
-    marker text is untrusted input: an unparseable or timezone-naive
+    marker text is untrusted input: an unparsable or timezone-naive
     ``triaged=`` value means "no fold event", never a crash -- a
     framework-written fold always carries an ISO-8601 UTC timestamp."""
     m = _FOLD_TRIAGED_RE.search(pr.get("body") or "")

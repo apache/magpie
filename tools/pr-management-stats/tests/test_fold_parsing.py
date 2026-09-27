@@ -18,7 +18,7 @@
 """The fold block lives in the PR body, which the PR author controls.
 
 A hand-written or malformed ``pr-triage-fold`` marker must degrade to "no
-fold event" -- never crash the dashboard run (ValueError on an unparseable
+fold event" -- never crash the dashboard run (ValueError on an unparsable
 ``triaged=`` value, TypeError downstream on a timezone-naive one).
 """
 from __future__ import annotations
