@@ -36,7 +36,7 @@ gh issue list --repo <tracker> --state open --label "needs triage" \
   --limit 100 \
   --json number,title,comments \
   --jq '.[] | select(.comments | map(.body) | any(
-    startswith("**Triage proposal**") and contains("INVALID")
+    startswith("**Triage proposal**") and contains("**Proposed disposition: INVALID.**")
   )) | .number'
 ```
 

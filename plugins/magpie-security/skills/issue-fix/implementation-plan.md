@@ -41,20 +41,22 @@ The commit message and the PR title must be **neutral bug-fix /
 improvement language**. They must not contain any of:
 
 - `CVE-YYYY-NNNNN`
-- `CVE`, `vulnerability`, `security fix`, `advisory`
+- `CVE`, `vulnerability`, `security fix`, `advisory`, `security@`
+- the name of a vulnerability class — for example `SSRF`, `XSS`,
+  `CSRF`, `SQL injection`, `path traversal`, `remote code execution`,
+  `privilege escalation`, `auth bypass`
 - any reporter name tied to a security finding
 - the word *"sensitive"* in a way that points at an unmasked-credential
   bug
 - explicit exploitation detail — a working payload, exact reproduction
   steps, or an exploit primitive
 
-Naming the affected component or the bug class in neutral terms (for
-example `SSRF`, `deserialization`, `path traversal`) is **allowed** — it
-is ordinary bug-fix language, as the good examples below show. Only the
-explicit security *framing* words above and reconstructable exploit
-detail are forbidden. When enumerating `forbidden_terms_found`, list
-only the framing terms above (and any reporter name / CVE id) that
-actually appear — not neutral technical descriptors of the bug.
+This is the single forbidden-term list for every public surface of this skill.
+5g, Step 7, Step 9 and the Guardrails check against it rather than keeping their own copies.
+
+Naming the affected component and describing the behaviour change in neutral terms is **allowed** — for example *"restrict the connection test endpoint to the configured host allowlist"* or *"stop deserializing XCom values with pickle"*, as the good examples below show.
+Naming the vulnerability class is not: a class name such as `SSRF` or `path traversal` in a public PR tells every reader the change is a security fix, which the [Confidentiality of the tracker repository](../../../../AGENTS.md#confidentiality-of-the-tracker-repository) rule embargoes until the advisory ships.
+When enumerating `forbidden_terms_found`, list only the terms above (and any reporter name / CVE id) that actually appear.
 
 Tracker URLs (`https://github.com/<tracker>/issues/NNN`),
 `<tracker>#NNN`, and bare `#NNN` references **are** allowed — they

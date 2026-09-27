@@ -32,19 +32,18 @@ before moving on to the next item. Use:
   comment <N> --repo <tracker> --body-file <tmpfile>` seeded with
   the marker + the new entry + any folded legacy entries.
   Before PATCHing / posting, **scrub the entry body for bare-name
-  mentions** of anyone on the "Current release managers" or
-  rotation-roster lists in
-  [`AGENTS.md`](../../../../AGENTS.md), and of known security-team
-  members. Replace each bare name with the corresponding
+  mentions** of anyone on the release-manager and
+  security-team rosters in
+  [`<project-config>/release-trains.md`](../../../../<project-config>/release-trains.md).
+  Replace each bare name with the corresponding
   ``@``-handle (or `"<Full Name> (@handle)"` when readability
   warrants keeping the plain name too) so GitHub actually notifies
   the person. See the "Mentioning maintainers and
   security-team members" section of
   [`AGENTS.md`](../../../../AGENTS.md). Concrete grep-list to check
-  against: `Jarek Potiuk`, `Jens Scheffler`, `Vincent BECK`,
-  `Shahar Epstein`, `Buğra Öztürk`, `Jedidiah Cunningham`,
-  `Rahul Vats`, `Aritra Basu`, `Pierre Jeambrun`, `Kaxil Naik`,
-  `Amogh Desai`, plus any name that appears in a `Reporter credited
+  against: every full name on those rosters (resolve name-to-handle via
+  [`<project-config>/naming-conventions.md`](../../../../<project-config>/naming-conventions.md)
+  when it declares a mapping), plus any name that appears in a `Reporter credited
   as` field without a confirmed external-credit decision.
 - **CVE-reviewer-comment ledger:** when this run acted on any
   reviewer comment found in
@@ -717,7 +716,8 @@ Step 6 below describes how to verify the state advance landed
    or extract from the body via `awk` between the markers — either
    yields a byte-identical payload because the generator is
    deterministic. Conventional path:
-   `/tmp/cve-<CVE-ID>-<N>.json`.
+   `<scratch>/cve-<CVE-ID>-<N>.json`.
+   `<scratch>` is the session scratch directory as an absolute path (fall back to `$TMPDIR`); `gh` may run outside the sandbox, where `$TMPDIR` differs, so pass it absolute paths.
 
 4. **Push the update through the adapter's `push_update` method.**
    Invoke `push_update(cve_id, fields, state_transition=None)` per
@@ -727,7 +727,7 @@ Step 6 below describes how to verify the state advance landed
 
    ```bash
    uv run --project <framework>/tools/cve-tool-vulnogram/oauth-api vulnogram-api-record-update \
-     --cve-id <CVE-ID> --json-file /tmp/cve-<CVE-ID>-<N>.json
+     --cve-id <CVE-ID> --json-file <scratch>/cve-<CVE-ID>-<N>.json
    ```
 
    The `state_transition` argument is omitted here — the JSON

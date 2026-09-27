@@ -69,29 +69,30 @@ will change and *why*. Group them by category:
   the release manager so the advisory owner is visible at a glance:
 
   **Use the Write tool** (not Bash) to write each field value verbatim
-  to a temp file, then pass via `-F`:
+  to a temp file, then pass via `-F`.
+  `<scratch>` is the session scratch directory as an absolute path (fall back to `$TMPDIR`); `gh` may run outside the sandbox, where `$TMPDIR` differs, so pass it absolute paths.
 
-  *Write tool call:* `file_path: /tmp/ms-title-<tracker>.txt`,
+  *Write tool call:* `file_path: <scratch>/ms-title-<tracker>.txt`,
   `content: <Milestone>`
 
-  *Write tool call:* `file_path: /tmp/ms-desc-<tracker>.txt`,
+  *Write tool call:* `file_path: <scratch>/ms-desc-<tracker>.txt`,
   `content: <optional>`
 
   ```bash
   # Core or chart (due_on mirrored from upstream when available):
   gh api repos/<tracker>/milestones \
-    -F title=@/tmp/ms-title-<tracker>.txt \
+    -F title=@<scratch>/ms-title-<tracker>.txt \
     -f state=open \
-    -F description=@/tmp/ms-desc-<tracker>.txt \
+    -F description=@<scratch>/ms-desc-<tracker>.txt \
     -f due_on='<ISO8601 from upstream, omit if upstream has none>'
   ```
 
   For provider waves, update the Write tool calls with:
 
-  *Write tool call:* `file_path: /tmp/ms-title-<tracker>.txt`,
+  *Write tool call:* `file_path: <scratch>/ms-title-<tracker>.txt`,
   `content: Providers YYYY-MM-DD`
 
-  *Write tool call:* `file_path: /tmp/ms-desc-<tracker>.txt`,
+  *Write tool call:* `file_path: <scratch>/ms-desc-<tracker>.txt`,
   `content: Providers release cut on YYYY-MM-DD, RM: <Name>`
 
   ```bash
@@ -99,9 +100,9 @@ will change and *why*. Group them by category:
   # dev@ [VOTE] thread; upstream does not milestone providers
   # waves so due_on typically comes from the wiki):
   gh api repos/<tracker>/milestones \
-    -F title=@/tmp/ms-title-<tracker>.txt \
+    -F title=@<scratch>/ms-title-<tracker>.txt \
     -f state=open \
-    -F description=@/tmp/ms-desc-<tracker>.txt
+    -F description=@<scratch>/ms-desc-<tracker>.txt
   ```
 
   After the create call, assign the milestone to the issue via

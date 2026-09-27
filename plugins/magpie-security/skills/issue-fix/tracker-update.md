@@ -37,8 +37,9 @@ Now that a public PR exists, update the private tracking issue:
    [`<project-config>/release-trains.md`](../../../../<project-config>/release-trains.md).
    The public `<upstream>` PR description and any follow-up public
    comments must also obey the rule, but under the usual
-   public-surface confidentiality constraints (no `CVE-`,
-   `<tracker>`, *"security fix"*, etc. alongside the mention).
+   public-surface confidentiality constraints (none of the
+   [5c forbidden terms](implementation-plan.md#5c-commit-message-and-pr-title)
+   alongside the mention).
 
 2. **Update the issue body "PR with the fix" field** if it is empty
    or points to a stale PR. Use `gh issue view --json body`, patch
@@ -87,14 +88,16 @@ The fix skill is responsible for leaving the private issue in a
 consistent "fix-proposed, awaiting review" state by the time it
 returns. That means both the milestone and the label set must match
 the current release plan (see "Release branches currently in flight"
-in [`AGENTS.md`](../../../../AGENTS.md) for the authoritative default
+and "What this means for sync and fix skills" in
+[`<project-config>/release-trains.md`](../../../../<project-config>/release-trains.md#release-branches-currently-in-flight) for the authoritative default
 release target). **Every action in this section is a proposal that
 requires explicit user confirmation before it is applied.**
 
 #### 10a. Ensure the target milestone exists
 
 The default milestone for a patch-release fix is whatever
-`AGENTS.md` names as the next patch release (currently **`3.2.2`**).
+`<project-config>/release-trains.md` names as the next patch release
+(referred to as `<target>` below).
 Before assigning, check that the milestone exists:
 
 ```bash
@@ -102,15 +105,16 @@ gh api 'repos/<tracker>/milestones?state=all&per_page=100' \
   --jq '.[] | select(.title == "<target>") | {number, state}'
 ```
 
-If the query returns nothing, **propose creating the milestone**:
+If the query returns nothing, **propose creating the milestone**.
+`<scratch>` is the session scratch directory as an absolute path (fall back to `$TMPDIR`); `gh` may run outside the sandbox, where `$TMPDIR` differs, so pass it absolute paths.
 
 ```bash
-# Write tool: file_path: /tmp/ms-title.txt, content: <target>
-# Write tool: file_path: /tmp/ms-desc.txt, content: <product> <target> release tracking.
+# Write tool: file_path: <scratch>/ms-title.txt, content: <target>
+# Write tool: file_path: <scratch>/ms-desc.txt, content: <product> <target> release tracking.
 gh api repos/<tracker>/milestones \
-  -F title=@/tmp/ms-title.txt \
+  -F title=@<scratch>/ms-title.txt \
   -f state=open \
-  -F description=@/tmp/ms-desc.txt
+  -F description=@<scratch>/ms-desc.txt
 ```
 
 The skill must present the `title`, `state` and `description` it
@@ -130,8 +134,9 @@ gh api repos/<tracker>/issues/<N> -X PATCH -F milestone=<milestone-number>
 #### 10b. Assign the issue to the target milestone
 
 If the issue currently sits on a stale milestone (for example
-`3.1.9`, `3.2.1` now that it has been cut, or a legacy catch-all
-milestone placeholder), propose moving it to the current default and apply
+a patch release that has already been cut, a retired release line
+listed as legacy in `<project-config>/release-trains.md`, or a legacy
+catch-all milestone placeholder), propose moving it to the current default and apply
 with user confirmation:
 
 ```bash
@@ -200,7 +205,8 @@ Before leaving the tracking issue, verify:
 
 - exactly one scope label is set (`<scope-a>` **xor** `<scope-b>`
   **xor** `<scope-c>`);
-- the milestone matches the current default from `AGENTS.md`, or
+- the milestone matches the current default from
+  `<project-config>/release-trains.md`, or
   the user has explicitly confirmed a different one;
 - the issue body "PR with the fix" field points at the newly-opened
   public PR;

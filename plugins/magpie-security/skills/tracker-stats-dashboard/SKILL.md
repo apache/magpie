@@ -18,7 +18,7 @@ when_to_use: |
 capability: capability:stats
 surface_hash: sha256:c8643a3c02bf3d73
 license: Apache-2.0
-measured_tokens: 3599
+measured_tokens: 3659
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -173,8 +173,11 @@ fetch.
    `default-config.yaml`.
 
 2. **Check cache freshness.** Inspect
-   `${TRACKER_STATS_CACHE:-/tmp/tracker-stats-cache}/issues.json`
-   mtime. If older than 24 h, propose a fresh fetch; if missing or
+   `<cache>/issues.json` mtime, where `<cache>` is the
+   `tracker_stats_cache` value from the step 1 config (else
+   `${TRACKER_STATS_CACHE:-/tmp/tracker-stats-cache}`, the fetch scripts' default).
+   Step 3 passes the same `<cache>` so the check and the fetch agree.
+   If older than 24 h, propose a fresh fetch; if missing or
    the user passed `clear-cache`, do a fresh fetch unconditionally.
 
 3. **Run the orchestrator.** Substitute placeholders and invoke:
@@ -183,6 +186,7 @@ fetch.
    TRACKER_STATS_REPO=<tracker> \
    TRACKER_STATS_UPSTREAM_REPO=<upstream> \
    TRACKER_STATS_CONFIG=<adopter-repo>/.apache-magpie-overrides/security-tracker-stats.yaml \
+   TRACKER_STATS_CACHE=<cache> \
    bash <framework>/tools/security-tracker-stats-dashboard/run.sh <output-path>
    ```
 

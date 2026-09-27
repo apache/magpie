@@ -29,7 +29,7 @@ argument-hint: "[pr-number] [repo:owner/name]"
 capability: capability:intake
 surface_hash: sha256:249e4ff2ba6b1d91
 license: Apache-2.0
-measured_tokens: 9462
+measured_tokens: 9512
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -249,12 +249,13 @@ mid-flow leaving half-built state.
 
 ## Step 1 — Fetch PR metadata
 
-Pull everything needed in one `gh pr view`:
+Pull everything needed in one `gh pr view`.
+`<scratch>` is the session scratch directory as an absolute path (fall back to `$TMPDIR`); `gh` may run outside the sandbox, where `$TMPDIR` differs, so pass it absolute paths.
 
 ```bash
 gh pr view <N> --repo <upstream> --json \
     number,title,body,author,state,mergedAt,url,files,labels,milestone,baseRefName \
-  > /tmp/pr-<N>.json
+  > <scratch>/pr-<N>.json
 ```
 
 Record into the observed-state bag:
@@ -432,7 +433,7 @@ proposed swap to the user.
 
 The `<tracker>` issue template (see
 [`tools/github/issue-template.md`](../../../../tools/github/issue-template.md))
-has nine fields. Fill them as follows:
+has eleven fields. Fill them as follows:
 
 | Field | Value |
 |---|---|
@@ -647,7 +648,7 @@ Surface the full proposal:
 2. Detected scope and reasoning (which file paths drove it).
 3. Proposed milestone.
 4. Title (original → cleaned).
-5. Body (each of the nine fields, inline).
+5. Body (each of the eleven fields, inline).
 6. Labels.
 7. Target board column (`Assessed`).
 8. Rollup comment text.
@@ -689,7 +690,7 @@ required-field check does not fire. Equivalent to
 Write the body to a temp file:
 
 ```bash
-cat > /tmp/import-pr-<N>-body.md <<'EOF'
+cat > <scratch>/import-pr-<N>-body.md <<'EOF'
 ### The issue description
 
 > **Imported from public PR <upstream>#<N>** — there is no inbound `security@` report; the PR description below is the public statement of the vulnerability.
@@ -741,8 +742,8 @@ EOF
 Create it per the safe-create recipe in
 [`tools/github/operations.md`](../../../../tools/github/operations.md#create).
 The cleaned title still derives from the public PR title, which is
-attacker-controlled. Title file `/tmp/import-pr-<N>-title.txt` with
-content `<cleaned title>`; body file `/tmp/import-pr-<N>-body.md`; no
+attacker-controlled. Title file `<scratch>/import-pr-<N>-title.txt` with
+content `<cleaned title>`; body file `<scratch>/import-pr-<N>-body.md`; no
 `labels[]` (7b adds them).
 
 Capture `number`, `node_id`, `html_url` from the response.
@@ -787,7 +788,7 @@ either mutation returns `not found`.
 ```bash
 gh issue comment <new-issue-number> \
   --repo <tracker> \
-  --body-file /tmp/import-pr-<N>-rollup.md
+  --body-file <scratch>/import-pr-<N>-rollup.md
 ```
 
 The rollup body is the one drafted in Step 5e with placeholders
@@ -795,8 +796,8 @@ filled.
 
 ### 7f — Cleanup
 
-Delete `/tmp/import-pr-<N>-body.md` and
-`/tmp/import-pr-<N>-rollup.md`. They served their purpose for
+Delete `<scratch>/import-pr-<N>-body.md` and
+`<scratch>/import-pr-<N>-rollup.md`. They served their purpose for
 this run and would otherwise accumulate.
 
 ---

@@ -61,7 +61,7 @@ named explicitly** in the Step 5e rollup terminal entry:
   awaiting user review."*
 
 For every other `security@`-imported tracker, the invalidation
-reply is one of the five
+reply is one of the four
 [forwarder-routing-policy milestones](../../../../docs/security/forwarder-routing-policy.md#milestones--do-relay)
 (*Report assessed as invalid*) — so the draft fires in both
 direct-reporter and via-forwarder modes; the policy only changes

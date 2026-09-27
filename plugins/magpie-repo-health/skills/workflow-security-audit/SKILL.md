@@ -25,7 +25,7 @@ argument-hint: "[--repo owner/name | --repo-file repos.txt | --owner org]"
 capability: capability:triage
 surface_hash: sha256:e50eafff464d131a
 license: Apache-2.0
-measured_tokens: 3175
+measured_tokens: 3283
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -178,11 +178,13 @@ adopter routinely audits alongside their primary upstream.
 
 For one repository (e.g. `<upstream>`):
 
+`<scratch>` is the session scratch directory as an absolute path (fall back to `$TMPDIR`); `gh` may run outside the sandbox, where `$TMPDIR` differs, so pass it absolute paths.
+
 ```bash
 # Clone or use an existing local checkout:
-gh repo clone <upstream> /tmp/workflow-security-audit/<repo> -- --depth=1
+gh repo clone <upstream> <scratch>/workflow-security-audit/<repo> -- --depth=1
 # Then run zizmor against the checkout:
-zizmor /tmp/workflow-security-audit/<repo>/
+zizmor <scratch>/workflow-security-audit/<repo>/
 ```
 
 Or directly via the GitHub API (no clone needed for public repos):
@@ -198,9 +200,13 @@ For a whole GitHub org, iterate over repos:
 ```bash
 gh api /orgs/<org>/repos --paginate --jq '.[].full_name' \
   | while read repo; do
-      zizmor --gh-token "$(gh auth token)" github:"$repo" 2>/dev/null
+      zizmor --gh-token "$(gh auth token)" github:"$repo" \
+        || echo "zizmor exit $? for $repo" >&2
     done
 ```
+
+zizmor exits 11–14 when it reports findings, so those codes are expected.
+Any other non-zero exit means that repository was **not** scanned: list it in the report as a scan failure with its error output, never as a clean repository.
 
 **Enabled rule classes.** By default all four zizmor audits are active.
 Restrict to a subset (from the adopter config or the user's request) in

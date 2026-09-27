@@ -25,7 +25,7 @@ argument-hint: "[issue-number]"
 capability: capability:intake
 surface_hash: sha256:b0ff65771ca4650a
 license: Apache-2.0
-measured_tokens: 7507
+measured_tokens: 7488
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -293,7 +293,7 @@ Before reading any tracker state, verify:
    `gh api repos/<tracker> --jq .name` must return
    `<tracker>`. A 401/403/404 means the user needs
    `gh auth login` or collaborator access.
-3. **PonyMail MCP status.** Four-outcome gate (hard stop when `ponymail` is `mandatory: yes`): [`mail-preflight.md`](mail-preflight.md).
+3. **PonyMail MCP status.** Three-outcome gate (hard stop when `ponymail` is `mandatory: yes`): [`mail-preflight.md`](mail-preflight.md).
 4. **Selector resolves to a concrete issue (or set of issues)** —
    if the user said `sync NNN` but the number does not exist in
    `<tracker>`, stop before Step 1 and ask which issue
@@ -342,8 +342,10 @@ Before reading any tracker state, verify:
    condition — adopters who have not yet created this config receive the same
    ASF defaults the skill has always applied.
 
-If any check fails (other than PonyMail, which degrades quietly),
-stop and surface what is missing. Do **not** proceed to Step 1 on a
+If any check fails, stop and surface what is missing.
+The only exceptions are the degradations the checks above allow explicitly: a `mandatory: no` mail-source backend (PonyMail included) degrades quietly, and a missing `security-intake-config.md` falls back to the defaults in check 6.
+A `mandatory: yes` backend that is unavailable or unauthenticated, PonyMail included, is a hard stop.
+Do **not** proceed to Step 1 on a
 partial setup — half the observations would be wrong and the
 proposals downstream would be junk.
 
@@ -602,15 +604,9 @@ disagree, surface the disagreement in the proposal and let the user decide.
 ## Canned responses
 
 When drafting an email reply, prefer a verbatim canned response from
-[`canned-responses.md`](../../../../<project-config>/canned-responses.md) over ad-hoc text. The
-currently available canned responses include: confirmation of receipt (now
-including the credit-preference question), invalid Simple Auth Manager report,
-invalid automated report, consolidated multi-issue report rejection, "not an
-issue — please submit it", parameter injection in operators/hooks, DoS by
-authenticated users, Dag-author user-input claims, image scan results, self-XSS
-by authenticated users, positive and negative assessment, automated scanning
-results, DoS/RCE/arbitrary read via connection configuration, and media-report
-requests. If none of them fit, draft a new reply that follows the editorial
+[`canned-responses.md`](../../../../<project-config>/canned-responses.md) over ad-hoc text.
+The available canned responses are that file's section headings; read them rather than assuming a fixed set.
+If none of them fit, draft a new reply that follows the editorial
 rules in `AGENTS.md` and offer to add it to
 [`<project-config>/canned-responses.md`](../../../../<project-config>/canned-responses.md)
 as a follow-up.

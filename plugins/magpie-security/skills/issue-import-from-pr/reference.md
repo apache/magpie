@@ -37,7 +37,7 @@
 |---|---|---|
 | `gh api repos/<upstream>` returns 404 | Repo placeholder not substituted | Re-read `<project-config>/project.md` for the `upstream_repo:` value. |
 | PR is `CLOSED` (not merged) | Fix abandoned upstream | Stop and confirm with the user that a tracker is still wanted; otherwise abandon. |
-| `gh api repos/<tracker>/issues` returns 422 | Missing or invalid title / body field shape | Re-check the body against the issue template's nine fields; the `### <field>` headings must match exactly (case-sensitive). |
+| `gh api repos/<tracker>/issues` returns 422 | Missing or invalid title / body field shape | Re-check the body against the issue template's eleven fields; the `### <field>` headings must match exactly (case-sensitive). |
 | `addProjectV2ItemById` returns `not found` for the project | Project-board node ID changed | Re-run the introspection query in [`project-board.md`](../../../../tools/github/project-board.md) and update [`project.md`](../../../../<project-config>/project.md). |
 | Multiple existing trackers match the duplicate-guard search | Earlier closed-as-duplicate trackers reference the PR number in passing | Surface all hits to the user; let them confirm `force` to proceed anyway. |
 | Mixed-scope PR (e.g. `<scope-b>/` + `<scope-a>/`) | The fix lives in more than one product | Stop; surface the per-scope split decision to the user before re-invoking. |

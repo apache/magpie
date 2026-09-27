@@ -19,7 +19,7 @@ is not a security issue. Strong signals:
   *"not a CVE"*, *"won't fix"*, *"working as
   intended"*.
 - Pointers to existing CVEs that already addressed the broader
-  class (e.g. *"already covered by CVE-2023-37379"*).
+  class (e.g. *"already covered by CVE-YYYY-NNNNN"*).
 - Pointers to a documented mitigation the reporter missed
   (config flag, RBAC role, security-policy section).
 - Counter-examples or PoC failures from team members trying to
@@ -52,9 +52,11 @@ same pattern as
 [`security-issue-import` Step 5](../issue-import/SKILL.md).
 Read [`<project-config>/canned-responses.md`](../../../../<project-config>/canned-responses.md)
 and pick the section that best matches the invalidity reasoning
-mined in Step 3:
+mined in Step 3.
+Section names always come from the adopting project's own `canned-responses.md` headings.
+The table below is an **illustrative example** of one adopting project's headings, showing the kind of reasoning-shape to section mapping to perform; substitute the matching headings from `<project-config>/canned-responses.md`:
 
-| Reasoning shape | Canned section |
+| Reasoning shape | Canned section (example headings) |
 |---|---|
 | Generic *"after review, not CVE-worthy"* with case-specific reasoning | *Negative Assessment response* (the `HERE DETAILED EXPLANATION FOLLOWS` placeholder is filled with the augmentation). |
 | Dag-author-provided input is the attack vector | *When someone claims Dag author-provided "user input" is dangerous*. |
@@ -66,8 +68,9 @@ mined in Step 3:
 | Image / video reproducer instead of a written report | *When someone submits a media report* (or *Or an alternative response*). |
 
 If multiple canned sections apply, pick the most-specific one and
-note the others to the user; if none fits, default to *Negative
-Assessment response* with the team's reasoning filling the
+note the others to the user; if none fits, default to the project's
+generic negative-assessment section (*Negative Assessment response*
+in the example) with the team's reasoning filling the
 placeholder.
 
 The skill must not invent a canned response or paraphrase one
