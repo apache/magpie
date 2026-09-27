@@ -5,37 +5,23 @@ name: model-update
 family: security
 mode: Drafting
 description: |
-  Refresh an existing security model from what has actually
-  happened since it was written. Mines the decision history —
-  `<tracker>` dispositions with their stated reasons, reporter
-  correspondence on `<security-list>`, published advisories and
-  the project's canned responses — then maps each outcome onto
-  the model's own disposition set and proposes a diff. Two
-  products: **new known-non-finding entries** (§1.15) for
-  patterns rejected repeatedly for the same documented reason,
-  and a **model-gap list** naming decisions the model cannot
-  derive. Regression-checks the proposal against past valid
-  reports so a widened disclaimer cannot silently start closing
-  real vulnerabilities. Read-only on the tracker; every output
-  scrubbed for public release.
+  Refresh a published security model from the project's decision
+  history (tracker dispositions, advisories, canned responses).
+  Proposes new known-non-finding entries (§1.15) and a model-gap
+  list, regression-checked against past valid reports. Read-only
+  on the tracker.
 when_to_use: |
-  Invoke when a security-team member says "update our threat
-  model", "our model is out of date", "add the false positives
-  to the model", "why do we keep rejecting the same report",
-  "what's missing from our security model", or on a periodic
-  cadence after a batch of trackers has closed. Also when
-  `security-issue-triage` or
-  `security-issue-invalidate` reaches for a rejection
-  reason the model does not cover — that is a model gap, and this
-  is the skill that records it. Skip when the project has no
-  published model (`security-model-prepare` first).
+  "update our threat model", "add the false positives to the
+  model", "why do we keep rejecting the same report", or when
+  triage/invalidate needs a rejection reason the model lacks.
+  No model yet: `security-model-prepare`.
 argument-hint: "[since-date | last-N | tracker-range]"
 capability:
   - capability:reassess
   - capability:authoring
 surface_hash: sha256:70cc9d9595998186
 license: Apache-2.0
-measured_tokens: 4842
+measured_tokens: 4659
 ---
 
 # Security model update
