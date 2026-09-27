@@ -26,7 +26,7 @@ argument-hint: "<github-handle> [target:committer|pmc] [window:Nm]"
 capability: capability:stats
 surface_hash: sha256:5432ce04ea3e9c32
 license: Apache-2.0
-measured_tokens: 5756
+measured_tokens: 5765
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -344,7 +344,7 @@ Every count in this step is the **adjusted** count from Step 2a; the raw count t
 | `area_breadth` | `area_breadth` vs. threshold (0 = no requirement) |
 | `issues_triaged` | `issues_triaged` vs. threshold (0 = no requirement) |
 | `mailing_list_posts` | development-list threads started plus replies vs. threshold (0 = no requirement); counted only when the contributor's list address is confirmed |
-| `off_github` | qualitative — required `present`; MET if the maintainer described any off-GitHub signal, NOT_YET if it is absent |
+| `off_github` | qualitative — required `present`; MET if the maintainer described any off-GitHub signal or Step 3 collected any confirmed community row, NOT_YET if both are absent |
 
 For each dimension, assign one of three statuses:
 

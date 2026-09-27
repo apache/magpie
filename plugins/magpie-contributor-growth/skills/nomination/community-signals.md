@@ -12,7 +12,8 @@ Each skill's own Step 3 says how the result is presented to the maintainer.
 
 - **Evidence plus a separate indicator.**
   Community signals are listed as linked evidence and summarised in the community indicator below.
-  They never change activity counts, threshold pass/fail, or the traffic light.
+  The classification and the indicator never change activity counts, threshold pass/fail, or the traffic light.
+  Two things collected here are facts rather than judgements, and do feed the readiness check: the count of `<dev-list>` threads started and replies from a confirmed address is the activity metric `mailing_list_posts`, which a project may give a floor like any other count; and any confirmed collected row means an off-GitHub signal is present.
 - **The candidate is never contacted.**
   Everything here comes from public archives and public channels.
 - **Confirmed identity or not used.**
@@ -33,11 +34,11 @@ A mailing-list address, chat account, or social account counts as the contributo
 
 1. the address appears as an author email on the contributor's own commits to `<upstream>`;
 2. the organization's people directory ties it to the contributor (ASF: `mcp__apache-projects__get_person`);
-3. the chat profile names the contributor's GitHub handle (`tools/chat` `resolve_user` → `confirmed_by: "profile"`);
-4. the account is linked from the contributor's own GitHub profile;
-5. the maintainer running the skill confirms it.
+3. the account is linked from the contributor's own GitHub profile;
+4. the maintainer running the skill confirms it.
 
-Anything else — a similar display name, a matching first name, a guess from an email address — goes into a *possible match, not used* list shown to the maintainer, and contributes nothing.
+A chat or social profile that names the contributor's GitHub handle is that account's own claim — anyone can write it — so on its own it is not a confirmation (`tools/chat` `resolve_user` → `confirmed_by: "profile"` means exactly that claim).
+It, and anything else — a similar display name, a matching first name, a guess from an email address — goes into a *possible match, not used* list shown to the maintainer, and contributes nothing.
 
 ---
 

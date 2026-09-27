@@ -29,7 +29,8 @@ Return `{id, name, is_private: false}` per channel; never request `private_chann
 
 1. `mcp__claude_ai_Slack__slack_search_users` with the handle, then with the contributor's verified real name when one is known.
 2. For each candidate, `mcp__claude_ai_Slack__slack_read_user_profile`.
-   The user is **confirmed** (`confirmed_by: "profile"`) only when a profile field — title, a custom field, or a linked account — names the GitHub handle or its `github.com/<handle>` URL.
+   Return `confirmed_by: "profile"` only when a profile field — title, a custom field, or a linked account — names the GitHub handle or its `github.com/<handle>` URL.
+   That is the Slack account's own claim; the consuming skill still requires the GitHub side, the directory, or the maintainer to confirm it (see [`community-signals.md` § Identity](../../plugins/magpie-contributor-growth/skills/nomination/community-signals.md#identity)).
 3. Otherwise return the best candidate with `confirmed_by: null`, or `null` when there is none.
 
 ## `search_messages(chat_user_id, since, until, channels)`

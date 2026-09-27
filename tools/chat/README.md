@@ -77,7 +77,7 @@ No backend configured: `[]`.
 | `github_handle` | string | Validated against the GitHub handle grammar by the caller. |
 
 **Output shape.** `{chat_user_id, confirmed_by}` where `confirmed_by` is `"profile"` when the chat profile names the GitHub handle, or `null` when the adapter found only a similar name.
-The consuming skill counts messages only for a confirmed user, or one the maintainer confirms.
+`"profile"` is the chat account's own claim, which anyone can write; the consuming skill counts messages only when the GitHub side confirms the account (a link from the contributor's GitHub profile), the organization's directory does, or the maintainer does, and otherwise lists the account as a possible match.
 No match: `null`.
 
 ### `search_messages(chat_user_id, since, until, channels) to [message]`
