@@ -1,0 +1,5 @@
+{
+  "classification": "already_triaged",
+  "action": "skip",
+  "reason": "Row 3: the PR body carries a pr-triage-fold block whose head (abc1234) matches the current head SHA and was triaged 2 days ago with no author activity since — already triaged, skip rather than re-flag the folded violation."
+}

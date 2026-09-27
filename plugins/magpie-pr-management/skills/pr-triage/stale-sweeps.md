@@ -82,9 +82,11 @@ Each stale sweep needs these timestamps per PR:
   batch query)
 - `last_triage_comment_at` — the most recent triage-marker
   timestamp from **either feedback channel**, if any: the
-  `createdAt` of the most recent viewer comment containing the
-  `Pull Request quality criteria` marker (comment channel), OR
-  the `triaged=` timestamp parsed from the `pr-triage-fold` block
+  `createdAt` of the most recent comment by a triager
+  (authorAssociation `OWNER`, `MEMBER`, or `COLLABORATOR`)
+  containing the `Pull Request quality criteria` marker (comment
+  channel), OR the `triaged=` timestamp parsed from the
+  `pr-triage-fold` block
   in the PR `body` (pr-body channel — the default; see
   [`viewer_triage_fold_present`](classify-and-act.md#viewer_triage_fold_present)).
   When both are present (a project that switched channels), take

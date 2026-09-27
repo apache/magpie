@@ -359,7 +359,7 @@ span, appended at the **end** of the PR body (the author's own
 description is preserved above it, untouched):
 
 ```markdown
-<!-- pr-triage-fold: triaged=2026-06-11T14:22:00Z head=abc1234 action=draft -->
+<!-- pr-triage-fold: triaged=2026-06-11T14:22:00Z head=abc1234 action=draft by=maya-triager -->
 
 <the rendered template body — same content the comment channel would post,
  minus the @-mention; see the no-@-mention rule below>
@@ -368,7 +368,8 @@ description is preserved above it, untouched):
 ```
 
 - **Opening marker metadata** (one HTML comment, space-separated
-  `key=value` fields — all required):
+  `key=value` fields — all required except `by=` on folds written
+  before the field existed):
   - `triaged=<ISO-8601 UTC>` — the moment the block was written.
     This replaces a comment's `createdAt` for every downstream
     age / "posted after last commit" check (see
@@ -380,6 +381,13 @@ description is preserved above it, untouched):
     new state).
   - `action=<draft|comment|close>` — which action wrote the block,
     for human readability and stats attribution.
+  - `by=<login>` — the triager who wrote the block. Surfaces in
+    the rows 3–4 reason template via the `<triager>` placeholder
+    (see
+    [`classify-and-act.md#reason-template-rules`](classify-and-act.md#reason-template-rules)),
+    which matters once another triager's fold suppresses a
+    re-proposal. Required on every fold written from this spec
+    onward; readers must accept folds without it (legacy).
 - **`pr-triage-fold` and `/pr-triage-fold` are the literal,
   framework-fixed marker tokens.** They must appear byte-for-byte
   identical everywhere they are written or searched
