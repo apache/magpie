@@ -83,4 +83,3 @@ disallow_incomplete_defs = false
 minversion = "8.0"
 addopts = "-ra -q"
 testpaths = ["tests"]
-
