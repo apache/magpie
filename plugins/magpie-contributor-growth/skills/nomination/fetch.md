@@ -30,15 +30,15 @@ Do not construct any other `gh` call that interpolates `<login>` into a shell co
 
 ## What it collects
 
-| Stream | Search | Item kind |
+| Stream | Dated by | Item kind |
 |---|---|---|
-| PRs authored | `repo:<upstream> type:pr author:<login> created:<since>..<end>` | `pr` |
-| Issues filed | `repo:<upstream> type:issue author:<login> created:<since>..<end>` | `issue` |
-| Reviews given | `repo:<upstream> type:pr reviewed-by:<login> updated:>=<since>` | `review` |
-| Threads commented | `repo:<upstream> commenter:<login> updated:>=<since>` | `thread` |
-| Issues triaged | `repo:<upstream> type:issue commenter:<login> -author:<login> updated:>=<since>` | `triage` |
+| PRs authored | creation inside the window; counted as merged only when merged by the window end | `pr` |
+| Issues filed | creation inside the window | `issue` |
+| Reviews given | the candidate's first review inside the window (from GitHub's contributions record); substantive when a review body is longer than 100 characters or carries a line comment — every reviewed PR is checked | `review` |
+| Threads commented | the candidate's own first comment inside the window | `thread` |
+| Issues triaged | as threads, on issues opened by someone else | `triage` |
 
-A review is **substantive** when its body is longer than 100 characters or it carries a line comment; the ten most recent reviewed PRs get that depth check.
+Nothing the candidate did after the window end is counted, which matters when `calibrate` measures a nominee as of their vote date.
 PR and review items carry their labels, which `score` turns into areas using `area_label_prefix`.
 
 ---
@@ -47,6 +47,7 @@ PR and review items carry their labels, which `score` turns into areas using `ar
 
 Each stream fetches at most 300 results.
 A stream in `caps_hit` returned more than that: record its counts as minimums and surface a warning, so the maintainer knows the number is a floor.
+Any `notes` in `metrics.json` — threads whose dates could not be checked, an out-of-range setting — go into the brief as well.
 
 ---
 
@@ -59,7 +60,7 @@ Items that [`automated-contributions.md`](automated-contributions.md) weighs at 
 
 ## Conversation fetch for the discount
 
-The tool fetches the conversation on the 50 most recent authored PRs and issues and the 50 most recent comment threads, and sets `pushback_candidate` to the first maintainer comment containing a known pushback phrase.
+The tool fetches the conversation on the 50 most recent authored PRs and issues, the 20 most recent reviewed PRs, and the 100 most recent comment threads, and sets `pushback_candidate` to the first maintainer comment containing a known pushback phrase.
 A candidate is a pointer, not a verdict.
 Read the linked comment and its thread and confirm `P` or `C` by the rules in [`automated-contributions.md`](automated-contributions.md) — within its budget — and classify restatements there too.
 Then run `contributor-metrics score` with the confirmed classes, as [`SKILL.md` § Step 4](SKILL.md#step-4--assess) describes.

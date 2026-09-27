@@ -26,7 +26,7 @@ argument-hint: "<github-handle> [target:committer|pmc] [window:Nm]"
 capability: capability:stats
 surface_hash: sha256:c205c960041719dc
 license: Apache-2.0
-measured_tokens: 5397
+measured_tokens: 5421
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -252,8 +252,8 @@ uv run --directory <framework>/tools/contributor-metrics contributor-metrics fet
 - Exit `2` means `<login>` is not a valid GitHub handle: stop and report it.
 - Exit `1` means `gh` failed: stop and show its error.
 
-The tool runs five searches — PRs authored, issues filed, reviews given, threads commented, and issues triaged (other people's issues the candidate commented on) — at most 300 results each.
-It marks a review **substantive** when its body is longer than 100 characters or it carries a line comment.
+The tool collects five streams — PRs authored, issues filed, reviews given (from GitHub's contributions record), threads commented, and issues triaged (other people's issues the candidate commented on) — at most 300 results each, every item dated by the candidate's own activity inside the window.
+It marks a review **substantive** when its body is longer than 100 characters or it carries a line comment, checking every reviewed PR.
 A stream listed in `caps_hit` returned more results than were fetched: record its counts as minimums and note the cap in the brief.
 The handle reaches `gh` only through a tempfile the tool writes, never a shell argument.
 

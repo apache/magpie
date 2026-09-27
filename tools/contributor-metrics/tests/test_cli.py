@@ -66,3 +66,75 @@ def test_fetch_cli_invalid_login_exit_2(tmp_path):
     )
     assert rc == 2
     assert not (tmp_path / "x.json").exists()
+
+
+def test_fetch_reuses_the_cache(tmp_path, monkeypatch):
+    import contributor_metrics.cli as cli
+
+    calls = []
+
+    def fake_fetch(*a, **k):
+        calls.append(1)
+        return [], [], []
+
+    monkeypatch.setattr(cli, "fetch_items", fake_fetch)
+    args = [
+        "fetch",
+        "--repo",
+        "o/r",
+        "--login",
+        "alice",
+        "--end",
+        "2026-08-31",
+        "--months",
+        "6",
+        "--cache-dir",
+        str(tmp_path / "c"),
+    ]
+    assert main([*args, "--out", str(tmp_path / "a.json")]) == 0
+    assert main([*args, "--out", str(tmp_path / "b.json")]) == 0
+    assert len(calls) == 1
+    assert json.loads((tmp_path / "a.json").read_text()) == json.loads((tmp_path / "b.json").read_text())
+
+
+def test_score_since_scores_a_sub_window(tmp_path):
+    def pr(n, d):
+        return {
+            "id": f"pr-{n}",
+            "kind": "pr",
+            "url": f"u{n}",
+            "thread": f"u{n}",
+            "created_at": d,
+            "merged": True,
+            "closed_unmerged": False,
+            "substantive": False,
+            "areas": [],
+            "pushback_candidate": "",
+        }
+
+    items = {
+        "login": "alice",
+        "repo": "o/r",
+        "since": "2025-09-01",
+        "end": "2026-08-31",
+        "caps_hit": [],
+        "items": [pr(1, "2025-10-01"), pr(2, "2026-05-01")],
+    }
+    (tmp_path / "items.json").write_text(json.dumps(items))
+    assert (
+        main(
+            [
+                "score",
+                "--items",
+                str(tmp_path / "items.json"),
+                "--since",
+                "2026-03-01",
+                "--out",
+                str(tmp_path / "m.json"),
+            ]
+        )
+        == 0
+    )
+    out = json.loads((tmp_path / "m.json").read_text())
+    assert out["metrics"]["prs_merged"]["raw"] == 1
+    assert out["window"]["since"] == "2026-03-01"

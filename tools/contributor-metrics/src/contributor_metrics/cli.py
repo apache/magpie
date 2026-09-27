@@ -5,8 +5,11 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import os
 import sys
+import tempfile
 from collections.abc import Sequence
 from datetime import date
 from pathlib import Path
@@ -21,6 +24,13 @@ def _since(end: str, months: int) -> str:
     e = date.fromisoformat(end)
     y, m = divmod(e.year * 12 + e.month - 1 - months, 12)
     return date(y, m + 1, min(e.day, 28)).isoformat()
+
+
+def _cache_file(
+    cache_dir: str, repo: str, login: str, since: str, end: str, phrases: list[str], maintainers: list[str]
+) -> Path:
+    key = hashlib.sha256(json.dumps([sorted(phrases), sorted(maintainers)]).encode()).hexdigest()[:12]
+    return Path(cache_dir) / f"{repo.replace('/', '__')}__{login}__{since}__{end}__{key}.json"
 
 
 def _read(path: str | None) -> dict[str, Any]:
@@ -38,7 +48,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     f.add_argument("--login", required=True)
     f.add_argument("--end", required=True)
     f.add_argument("--months", type=int, default=6)
-    f.add_argument("--review-depth", type=int, default=10)
+    f.add_argument(
+        "--cache-dir",
+        default=os.path.join(os.environ.get("TMPDIR") or tempfile.gettempdir(), "contributor-metrics-cache"),
+    )
     f.add_argument("--phrases-file")
     f.add_argument("--maintainers-file")
     f.add_argument("--out", required=True)
@@ -47,6 +60,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     s.add_argument("--classes")
     s.add_argument("--weights")
     s.add_argument("--area-prefix", default="area:")
+    s.add_argument("--since", help="score only items on or after this date (a sub-window of the fetched one)")
     s.add_argument("--out", required=True)
     args = p.parse_args(argv)
 
@@ -54,13 +68,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         since = _since(args.end, args.months)
         phrases = Path(args.phrases_file).read_text().splitlines() if args.phrases_file else []
         maintainers = Path(args.maintainers_file).read_text().split() if args.maintainers_file else []
+        cached = _cache_file(args.cache_dir, args.repo, args.login, since, args.end, phrases, maintainers)
+        if cached.exists():
+            Path(args.out).write_text(cached.read_text())
+            return 0
         try:
-            items, caps = fetch_items(
+            items, caps, fetch_notes = fetch_items(
                 args.repo,
                 args.login,
                 since=since,
                 end=args.end,
-                review_depth=args.review_depth,
                 phrases=phrases,
                 maintainers=maintainers,
             )
@@ -76,9 +93,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             "since": since,
             "end": args.end,
             "caps_hit": caps,
+            "notes": fetch_notes,
             "items": [i.to_json() for i in items],
         }
-        Path(args.out).write_text(json.dumps(payload, indent=2))
+        text = json.dumps(payload, indent=2)
+        cached.parent.mkdir(parents=True, exist_ok=True)
+        cached.write_text(text)
+        Path(args.out).write_text(text)
         return 0
 
     data = _read(args.items)
@@ -87,11 +108,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         [Item.from_json(d) for d in data["items"]],
         _read(args.classes),
         weights,
-        since=data["since"],
+        since=args.since or data["since"],
         end=data["end"],
         area_prefix=args.area_prefix,
         caps_hit=data.get("caps_hit", []),
     )
-    result["notes"] = notes + result["notes"]
+    result["notes"] = notes + list(data.get("notes", [])) + result["notes"]
     Path(args.out).write_text(json.dumps(result, indent=2))
     return 0

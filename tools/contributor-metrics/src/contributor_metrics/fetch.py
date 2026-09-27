@@ -8,7 +8,9 @@ import json
 import re
 import subprocess
 import tempfile
+import time
 from collections.abc import Iterable
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -31,14 +33,35 @@ GENERIC_PHRASES = (
     "does not exist",
     "stop posting",
 )
-PAGES, CONVO_BUDGET = 3, 50
+PAGES = 3
+AUTHORED_BUDGET, REVIEW_BUDGET, THREAD_BUDGET = 50, 20, 100
+RETRYABLE = ("rate limit", "secondary rate", "abuse", "http 502", "http 503", "timed out", "timeout")
+MAX_TRIES = 6
 
 SEARCH_GQL = """query($q: String!, $cursor: String) {
   search(query: $q, type: ISSUE, first: 100, after: $cursor) {
     issueCount pageInfo { hasNextPage endCursor }
     nodes {
-      ... on PullRequest { number url state merged createdAt labels(first: 20) { nodes { name } } }
-      ... on Issue { number url state createdAt labels(first: 20) { nodes { name } } }
+      ... on PullRequest { number url state merged mergedAt createdAt updatedAt labels(first: 20) { nodes { name } } }
+      ... on Issue { number url state createdAt updatedAt labels(first: 20) { nodes { name } } }
+    }
+  }
+}"""
+
+CONTRIB_GQL = """query($login: String!, $from: DateTime!, $to: DateTime!, $cursor: String) {
+  user(login: $login) {
+    contributionsCollection(from: $from, to: $to) {
+      pullRequestReviewContributionsByRepository(maxRepositories: 100) {
+        repository { nameWithOwner }
+        contributions(first: 100, after: $cursor) {
+          totalCount pageInfo { hasNextPage endCursor }
+          nodes {
+            occurredAt
+            pullRequestReview { url body comments { totalCount } }
+            pullRequest { url number labels(first: 20) { nodes { name } } }
+          }
+        }
+      }
     }
   }
 }"""
@@ -47,10 +70,10 @@ CONVO_GQL = """query($owner: String!, $repo: String!, $number: Int!) {
   repository(owner: $owner, name: $repo) {
     issueOrPullRequest(number: $number) {
       ... on PullRequest {
-        comments(first: 100) { nodes { url author { login } authorAssociation body } }
+        comments(first: 100) { nodes { url author { login } authorAssociation body createdAt } }
         reviews(first: 50) { nodes { url author { login } authorAssociation body createdAt comments { totalCount } } }
       }
-      ... on Issue { comments(first: 100) { nodes { url author { login } authorAssociation body } } }
+      ... on Issue { comments(first: 100) { nodes { url author { login } authorAssociation body createdAt } } }
     }
   }
 }"""
@@ -64,8 +87,12 @@ class GhError(RuntimeError):
     pass
 
 
-def _gh_graphql(gql: str, *, search: str | None = None, **fields: str | int) -> dict[str, Any]:
-    """Run one GraphQL call. The search string goes through a tempfile (`-F q=@file`), never the command line."""
+def _gh_graphql(gql: str, *, search: str | None = None, **fields: str | int | None) -> dict[str, Any]:
+    """Run one GraphQL call, retrying rate-limit and transient errors with backoff.
+
+    The search string goes through a tempfile (`-F q=@file`), never the command line.
+    A field whose value is None or "" is omitted, so an unset cursor is sent as null.
+    """
     cmd = ["gh", "api", "graphql", "-f", f"query={gql}"]
     tmp = None
     if search is not None:
@@ -74,21 +101,31 @@ def _gh_graphql(gql: str, *, search: str | None = None, **fields: str | int) -> 
             tmp = fh.name
         cmd += ["-F", f"q=@{tmp}"]
     for key, value in fields.items():
+        if value is None or value == "":
+            continue
         cmd += ["-F", f"{key}={value}"] if isinstance(value, int) else ["-f", f"{key}={value}"]
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        delay = 2.0
+        for attempt in range(MAX_TRIES):
+            result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+            if result.returncode == 0:
+                data: dict[str, Any] = json.loads(result.stdout)
+                return data
+            err = result.stderr.lower()
+            if attempt < MAX_TRIES - 1 and any(t in err for t in RETRYABLE):
+                time.sleep(delay)
+                delay = min(delay * 2, 120.0)
+                continue
+            raise GhError(result.stderr.strip())
+        raise GhError("gh failed after retries")
     finally:
         if tmp:
             Path(tmp).unlink(missing_ok=True)
-    if result.returncode != 0:
-        raise GhError(result.stderr.strip())
-    data: dict[str, Any] = json.loads(result.stdout)
-    return data
 
 
 def _search(q: str) -> tuple[list[dict[str, Any]], bool]:
     nodes: list[dict[str, Any]] = []
-    cursor = ""
+    cursor: str | None = None
     total = 0
     for _ in range(PAGES):
         data = _gh_graphql(SEARCH_GQL, search=q, cursor=cursor)["data"]["search"]
@@ -100,17 +137,89 @@ def _search(q: str) -> tuple[list[dict[str, Any]], bool]:
     return nodes, total > len(nodes)
 
 
-def _item(kind: Kind, node: dict[str, Any], prefix: str) -> Item:
+def _labels(node: dict[str, Any]) -> tuple[str, ...]:
+    return tuple(n["name"] for n in (node.get("labels") or {}).get("nodes", []))
+
+
+def _authored(kind: Kind, node: dict[str, Any], end: str) -> Item:
+    merged_at = (node.get("mergedAt") or "")[:10]
+    merged = bool(node.get("merged")) and bool(merged_at) and merged_at <= end
     return Item(
-        id=f"{prefix}-{node['number']}",
+        id=f"{kind}-{node['number']}",
         kind=kind,
         url=node["url"],
         thread=node["url"],
         created_at=node["createdAt"][:10],
-        merged=bool(node.get("merged")),
+        merged=merged,
         closed_unmerged=node.get("state") == "CLOSED" and not node.get("merged"),
-        areas=tuple(n["name"] for n in node.get("labels", {}).get("nodes", [])),
+        areas=_labels(node),
     )
+
+
+def _chunks(since: str, end: str) -> list[tuple[str, str]]:
+    """contributionsCollection accepts at most one year per call."""
+    s, e = date.fromisoformat(since), date.fromisoformat(end)
+    out = []
+    while s <= e:
+        stop = min(e, s + timedelta(days=364))
+        out.append((s.isoformat(), stop.isoformat()))
+        s = stop + timedelta(days=1)
+    return out
+
+
+def _reviews(repo: str, login: str, since: str, end: str) -> tuple[list[Item], bool]:
+    """One item per reviewed PR, dated by the candidate's first review in the window."""
+    by_pr: dict[int, dict[str, Any]] = {}
+    capped = False
+    for frm, to in _chunks(since, end):
+        cursor: str | None = None
+        for page in range(PAGES):
+            data = _gh_graphql(
+                CONTRIB_GQL,
+                login=login,
+                cursor=cursor,
+                **{"from": f"{frm}T00:00:00Z", "to": f"{to}T23:59:59Z"},
+            )
+            groups = data["data"]["user"]["contributionsCollection"][
+                "pullRequestReviewContributionsByRepository"
+            ]
+            group = next(
+                (g for g in groups if g["repository"]["nameWithOwner"].lower() == repo.lower()), None
+            )
+            if group is None:
+                break
+            conn = group["contributions"]
+            for n in conn["nodes"]:
+                day = n["occurredAt"][:10]
+                if not since <= day <= end:
+                    continue
+                pr = n["pullRequest"]
+                review = n["pullRequestReview"] or {}
+                entry = by_pr.setdefault(pr["number"], {"pr": pr, "first": day, "substantive": False})
+                entry["first"] = min(entry["first"], day)
+                if (
+                    len(review.get("body") or "") > 100
+                    or (review.get("comments") or {}).get("totalCount", 0) > 0
+                ):
+                    entry["substantive"] = True
+            if not conn["pageInfo"]["hasNextPage"]:
+                break
+            if page == PAGES - 1:
+                capped = True
+            cursor = conn["pageInfo"]["endCursor"]
+    items = [
+        Item(
+            id=f"review-{number}",
+            kind="review",
+            url=e["pr"]["url"],
+            thread=e["pr"]["url"],
+            created_at=e["first"],
+            substantive=e["substantive"],
+            areas=_labels(e["pr"]),
+        )
+        for number, e in sorted(by_pr.items())
+    ]
+    return items, capped
 
 
 def _convo(repo: str, number: int) -> dict[str, Any]:
@@ -124,7 +233,7 @@ def _pushback(convo: dict[str, Any], login: str, phrases: Iterable[str], maintai
     """URL of the first maintainer comment containing a pushback phrase — a candidate, not a verdict."""
     wanted = tuple(p.lower() for p in (*GENERIC_PHRASES, *phrases) if p.strip())
     maint = set(maintainers)
-    comments = convo.get("comments", {}).get("nodes", []) + convo.get("reviews", {}).get("nodes", [])
+    comments = (convo.get("comments") or {}).get("nodes", []) + (convo.get("reviews") or {}).get("nodes", [])
     for c in comments:
         who = (c.get("author") or {}).get("login", "")
         if who == login or who.endswith("[bot]"):
@@ -137,63 +246,123 @@ def _pushback(convo: dict[str, Any], login: str, phrases: Iterable[str], maintai
     return ""
 
 
+def _own_comment_day(convo: dict[str, Any], login: str, since: str, end: str) -> str | None:
+    days = [
+        c["createdAt"][:10]
+        for c in (convo.get("comments") or {}).get("nodes", [])
+        if (c.get("author") or {}).get("login") == login
+        and c.get("createdAt")
+        and since <= c["createdAt"][:10] <= end
+    ]
+    return min(days) if days else None
+
+
 def fetch_items(
     repo: str,
     login: str,
     *,
     since: str,
     end: str,
-    review_depth: int,
     phrases: Iterable[str],
     maintainers: Iterable[str],
-) -> tuple[list[Item], list[str]]:
-    """Fetch the five activity streams; return the items and the names of streams that hit their cap."""
+) -> tuple[list[Item], list[str], list[str]]:
+    """Fetch the five activity streams inside [since, end].
+
+    Returns the items, the names of streams that hit their cap, and notes for the brief.
+    """
     if not LOGIN_RE.match(login):
         raise InvalidLogin(login)
     phrases, maintainers = tuple(phrases), tuple(maintainers)
     base = f"repo:{repo}"
-    streams: list[tuple[str, str, Kind]] = [
+    caps: list[str] = []
+    notes: list[str] = []
+
+    items: list[Item] = []
+    authored_streams: tuple[tuple[str, str, Kind], ...] = (
         ("prs_opened", f"{base} type:pr author:{login} created:{since}..{end}", "pr"),
         ("issues_filed", f"{base} type:issue author:{login} created:{since}..{end}", "issue"),
-        ("reviews_total", f"{base} type:pr reviewed-by:{login} updated:>={since}", "review"),
-        (
-            "issues_triaged",
-            f"{base} type:issue commenter:{login} -author:{login} updated:>={since}",
-            "triage",
-        ),
-        ("threads_commented", f"{base} commenter:{login} updated:>={since}", "thread"),
-    ]
-    items: list[Item] = []
-    caps: list[str] = []
-    for name, q, kind in streams:
+    )
+    for name, q, kind in authored_streams:
         nodes, capped = _search(q)
         if capped:
             caps.append(name)
-        items += [_item(kind, n, kind) for n in nodes]
+        items += [_authored(kind, n, end) for n in nodes]
 
-    def recent(kinds: tuple[str, ...], n: int) -> list[Item]:
-        return sorted((i for i in items if i.kind in kinds), key=lambda i: i.created_at, reverse=True)[:n]
+    reviews, capped = _reviews(repo, login, since, end)
+    if capped:
+        caps.append("reviews_total")
+    items += reviews
 
-    deep = {i.id for i in recent(("review",), review_depth)}
-    inspect = {
-        i.id for i in (*recent(("pr", "issue"), CONVO_BUDGET), *recent(("thread",), CONVO_BUDGET))
-    } | deep
+    thread_nodes: dict[Kind, list[dict[str, Any]]] = {}
+    thread_streams: tuple[tuple[str, str, Kind], ...] = (
+        (
+            "issues_triaged",
+            f"{base} type:issue commenter:{login} -author:{login} created:<={end} updated:>={since}",
+            "triage",
+        ),
+        ("threads_commented", f"{base} commenter:{login} created:<={end} updated:>={since}", "thread"),
+    )
+    for name, q, kind in thread_streams:
+        nodes, capped = _search(q)
+        if capped:
+            caps.append(name)
+        thread_nodes[kind] = sorted(nodes, key=lambda n: n.get("updatedAt") or n["createdAt"], reverse=True)
 
+    convos: dict[int, dict[str, Any]] = {}
+
+    def convo(number: int) -> dict[str, Any]:
+        if number not in convos:
+            convos[number] = _convo(repo, number)
+        return convos[number]
+
+    def recent(kinds: tuple[str, ...], n: int) -> set[str]:
+        chosen = sorted((i for i in items if i.kind in kinds), key=lambda i: i.created_at, reverse=True)[:n]
+        return {i.id for i in chosen}
+
+    inspect = recent(("pr", "issue"), AUTHORED_BUDGET) | recent(("review",), REVIEW_BUDGET)
     out: list[Item] = []
     for i in items:
-        if i.id not in inspect:
-            out.append(i)
-            continue
-        convo = _convo(repo, int(i.url.rstrip("/").rsplit("/", 1)[1]))
-        changes: dict[str, Any] = {"pushback_candidate": _pushback(convo, login, phrases, maintainers)}
-        if i.id in deep:
-            mine = [
-                r
-                for r in convo.get("reviews", {}).get("nodes", [])
-                if (r.get("author") or {}).get("login") == login
-            ]
-            changes["substantive"] = any(
-                len(r.get("body") or "") > 100 or r["comments"]["totalCount"] > 0 for r in mine
+        if i.id in inspect:
+            number = int(i.url.rstrip("/").rsplit("/", 1)[1])
+            i = Item.from_json(
+                {**i.to_json(), "pushback_candidate": _pushback(convo(number), login, phrases, maintainers)}
             )
-        out.append(Item.from_json({**i.to_json(), **changes}))
-    return out, caps
+        out.append(i)
+
+    for kind, nodes in thread_nodes.items():
+        unverified = 0
+        for rank, n in enumerate(nodes):
+            if rank < THREAD_BUDGET:
+                c = convo(n["number"])
+                day = _own_comment_day(c, login, since, end)
+                if day is None:
+                    continue
+                out.append(
+                    Item(
+                        id=f"{kind}-{n['number']}",
+                        kind=kind,
+                        url=n["url"],
+                        thread=n["url"],
+                        created_at=day,
+                        areas=_labels(n),
+                        pushback_candidate=_pushback(c, login, phrases, maintainers),
+                    )
+                )
+            else:
+                unverified += 1
+                day = min((n.get("updatedAt") or n["createdAt"])[:10], end)
+                out.append(
+                    Item(
+                        id=f"{kind}-{n['number']}",
+                        kind=kind,
+                        url=n["url"],
+                        thread=n["url"],
+                        created_at=day,
+                        areas=_labels(n),
+                    )
+                )
+        if unverified:
+            notes.append(
+                f"{kind}: {unverified} threads beyond the {THREAD_BUDGET} most recent were counted without checking the date of the candidate's own comment"
+            )
+    return out, caps, notes

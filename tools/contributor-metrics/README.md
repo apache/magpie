@@ -46,36 +46,40 @@ Comment bodies never leave `fetch`; its output holds links and flags only.
 
 ```bash
 contributor-metrics fetch --repo <upstream> --login <handle> --end YYYY-MM-DD --months 6 \
-  [--review-depth 10] [--phrases-file <file>] [--maintainers-file <file>] --out items.json
+  [--phrases-file <file>] [--maintainers-file <file>] [--cache-dir <dir>] --out items.json
 ```
 
 - `--phrases-file` — one extra pushback phrase per line (the project's `automated_pushback_phrases`), added to the generic list.
 - `--maintainers-file` — whitespace-separated handles treated as maintainers in addition to `OWNER` / `MEMBER` / `COLLABORATOR` authors.
-- `--review-depth` — how many of the most recent reviewed PRs get the depth query that decides *substantive*; reviews beyond it count as reviews but not as substantive.
+- `--cache-dir` — where fetched items are cached per repository, handle, window, phrases and roster; default `$TMPDIR/contributor-metrics-cache`. A second fetch with the same key reads the cache and makes no `gh` call. The cache holds links and flags only, never comment bodies.
 
-Five GitHub searches, at most 3 × 100 results each:
+Every item is dated by the contributor's own activity and must fall inside `[since, end]`:
 
-| Stream | Search | Item kind |
-|---|---|---|
-| PRs authored | `repo:<repo> type:pr author:<login> created:<since>..<end>` | `pr` |
-| Issues filed | `repo:<repo> type:issue author:<login> created:<since>..<end>` | `issue` |
-| Reviews | `repo:<repo> type:pr reviewed-by:<login> updated:>=<since>` | `review` |
-| Threads commented | `repo:<repo> commenter:<login> updated:>=<since>` | `thread` |
-| Issues triaged | `repo:<repo> type:issue commenter:<login> -author:<login> updated:>=<since>` | `triage` |
+| Stream | Source | Dated by | Item kind |
+|---|---|---|---|
+| PRs authored | search `repo:<repo> type:pr author:<login> created:<since>..<end>` | creation; *merged* only when `mergedAt` ≤ `end` | `pr` |
+| Issues filed | search `repo:<repo> type:issue author:<login> created:<since>..<end>` | creation | `issue` |
+| Reviews | `contributionsCollection` between `since` and `end`, one item per reviewed PR | the first review in the window; *substantive* when any of those reviews has a body over 100 characters or a line comment — every reviewed PR is checked | `review` |
+| Threads commented | search `repo:<repo> commenter:<login> created:<=<end> updated:>=<since>` | the contributor's first comment in the window; a thread with none is dropped | `thread` |
+| Issues triaged | search `repo:<repo> type:issue commenter:<login> -author:<login> created:<=<end> updated:>=<since>` | as threads | `triage` |
 
+Searches fetch at most 3 × 100 results; a stream that returned more is listed in `caps_hit`.
+The 100 most recent threads of each kind are dated from their conversation; older ones keep their last-update date and are reported in `notes`.
+The 50 most recent authored PRs and issues and the 20 most recent reviewed PRs get a conversation fetch for pushback candidates.
 The search string is written to a tempfile and passed as `-F q=@<file>`, so a handle never reaches a shell argument.
-The 50 most recent authored PRs and issues and the 50 most recent threads get a conversation fetch for pushback candidates.
+Rate-limit and transient `gh` errors are retried with exponential backoff (up to six attempts); any other error exits `1`.
 
 ### `score`
 
 ```bash
 contributor-metrics score --items items.json [--classes classes.json] [--weights weights.json] \
-  [--area-prefix area:] --out metrics.json
+  [--area-prefix area:] [--since YYYY-MM-DD] --out metrics.json
 ```
 
 - `--classes` — `{"<item id>": "P" | "R" | "C"}`, as confirmed by the calling skill; unknown ids and other values are reported in `notes` and ignored.
 - `--weights` — any of `automated_contribution_weight`, `restatement_comment_weight`, `closed_after_pushback_weight`, `automated_pushback_penalty`; a missing, non-numeric or out-of-range value falls back to its default with a note.
 - `--area-prefix` — the label prefix that marks a PR's area (the project's `area_label_prefix`).
+- `--since` — score only a sub-window of what was fetched, e.g. the 6-month window from a 12-month fetch.
 
 ## Output schema
 
