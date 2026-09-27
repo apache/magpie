@@ -1,0 +1,5 @@
+{
+  "classification": "already_triaged",
+  "action": "skip",
+  "reason": "Row 3: the PR body carries a pr-triage-fold block written by kaxil-maintainer whose head (abc1234) matches the current head SHA and was triaged 2 days ago with no author activity since — already triaged by kaxil-maintainer, skip rather than re-flag the folded violation."
+}

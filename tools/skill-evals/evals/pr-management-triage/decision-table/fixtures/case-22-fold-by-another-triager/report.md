@@ -16,9 +16,9 @@ Labels: []
 Now: 2026-05-18T10:00:00Z
 HeadSHA: abc1234
 
-PRBodyFoldBlock (pr-triage-fold; legacy fold written before the by= field
-existed — triaged=2026-05-16T09:00:00Z head=abc1234 action=draft, no by=
-field):
+PRBodyFoldBlock (pr-triage-fold; triaged=2026-05-16T09:00:00Z head=abc1234
+action=draft by=kaxil-maintainer — the fold was written by another triager,
+not the viewer running this session):
   "Converting to draft — this PR doesn't yet meet our Pull Request quality
    criteria.
    - mypy (type checking): failing mypy-core. See the linked criteria, then

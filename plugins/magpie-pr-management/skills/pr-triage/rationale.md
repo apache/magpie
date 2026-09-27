@@ -321,7 +321,12 @@ block is a single managed span on the PR body — inherently
 shared across triagers — and carries the writer's login in the
 `by=` field, which feeds the `<triager>` substitution in the
 rows 3–4 reason templates so the maintainer can see *who* to
-sync with before re-engaging.
+sync with before re-engaging. Association alone only ever
+drives the `skip` rows; when a non-viewer's marker feeds a
+close (Sweep 1a's stale-draft clock), its author must pass the
+live committer check first — the exact rule
+[Maintainer detection — committer, not `authorAssociation`](stale-sweeps.md#maintainer-detection--committer-not-authorassociation)
+already imposes on every load-bearing maintainer test.
 
 ---
 

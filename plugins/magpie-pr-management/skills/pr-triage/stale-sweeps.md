@@ -92,6 +92,20 @@ Each stale sweep needs these timestamps per PR:
   When both are present (a project that switched channels), take
   the later of the two. Despite the legacy field name, this is
   "last triaged at", not strictly a comment.
+
+  **Close gate.** This timestamp starts Sweep 1a's `close` — the
+  least reversible action the skill takes — so a comment-channel
+  marker left by anyone other than the viewer is load-bearing
+  for a close: confirm its author passes the live maintainer
+  test ([Maintainer detection — committer, not
+  `authorAssociation`](#maintainer-detection--committer-not-authorassociation))
+  before it may establish `last_triage_comment_at`.
+  Association is only the cheap first filter; a
+  `read`/`triage` collaborator's marker comment does not start
+  the close clock. The viewer's own marker needs no live check
+  (the operator is running the sweep), and the fold channel
+  needs none (a fold is written by the triage tool under the
+  maintainer's seat, never by an arbitrary comment author).
 - `last_author_activity_at` — the max of three timestamps,
   all already in the batch query:
   1. the head commit's `committedDate` from `commits(last: 1)`
@@ -110,8 +124,11 @@ Each stale sweep needs these timestamps per PR:
 - `last_maintainer_comment_at` — the `createdAt` of the most
   recent comment in `comments(last: 10)` whose
   `authorAssociation` is one of `COLLABORATOR`/`MEMBER`/`OWNER`,
-  excluding the viewer's own triage comments (the
-  `Pull Request quality criteria` marker disqualifies).
+  excluding triage-marker comments by **any** triager (a comment
+  carrying the `Pull Request quality criteria` marker
+  disqualifies, whoever wrote it — the marker is already counted
+  through `last_triage_comment_at` and must not double-count as
+  maintainer activity).
 
 All inputs come from the same aliased query that drives
 classification — no extra fetches. If a PR hasn't been triaged
