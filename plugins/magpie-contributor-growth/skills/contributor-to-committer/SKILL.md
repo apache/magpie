@@ -24,9 +24,9 @@ when_to_use: |
   been provided.
 argument-hint: "<github-handle> [target:committer|pmc] [window:Nm]"
 capability: capability:stats
-surface_hash: sha256:c205c960041719dc
+surface_hash: sha256:5432ce04ea3e9c32
 license: Apache-2.0
-measured_tokens: 5672
+measured_tokens: 5756
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -297,6 +297,8 @@ This step reduces counts; it never changes a band on its own and never ends the 
 
 ## Step 3 — Gather off-GitHub signal
 
+Collect community signals per [`community-signals.md`](../nomination/community-signals.md) and record the `dev-list` rows (threads started plus replies) as `mailing_list_posts`, the community items, and the community indicator for the brief; the indicator never changes a status or the band.
+
 Ask the maintainer once for off-GitHub contributions the contributor
 is known for. Do not ask the contributor — committer path tracking is
 a maintainer-side activity; the contributor may not know they are
@@ -407,6 +409,10 @@ Produce the brief and present it to the maintainer for review.
 
 [Cap note if any stream hit the 300-result budget]
 [Note if thresholds are qualitative / runtime-supplied]
+
+### Community  *(collected)*
+
+<Section per community-signals.md § Reporting.>
 
 ### Areas
 

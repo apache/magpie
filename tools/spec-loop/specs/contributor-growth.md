@@ -131,6 +131,14 @@ state change for human sign-off.
   from `area_label_prefix` labels, and the weights and penalty above.
   The tool flags pushback candidates; the skill confirms each one on
   meaning before the tool scores it.
+- **Community signals are evidence, not a score.** Step 3 of both
+  skills collects `nomination/community-signals.md`: dev/users-list
+  presence and release testing, chat answers through `contract:chat`
+  (Slack adapter; public channels only), GitHub Discussions answers,
+  and project-related posts on accounts the contributor linked
+  themselves. Identities count only when confirmed; reasoned criticism
+  is constructive; the community indicator never changes counts,
+  thresholds or the band.
 - **Teaching register for first-contact.** `mentoring-welcome` and
   `good-first-issue-author` follow the Agentic Mentoring mode's tone
   contract (polite, never gatekeeping) and hand off to a human

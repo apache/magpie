@@ -31,6 +31,13 @@ contract:change-request:
               - 'tools/jira-patch/**'
               - 'tools/mail-patch/**'
 
+contract:chat:
+  - any:
+      - changed-files:
+          - any-glob-to-any-file:
+              - 'tools/chat/**'
+              - 'tools/chat-slack/**'
+
 contract:cve-authority:
   - any:
       - changed-files:

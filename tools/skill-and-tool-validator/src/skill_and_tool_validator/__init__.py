@@ -382,6 +382,7 @@ TOOL_CAPABILITIES = {
     "contract:source-control",
     "contract:change-request",
     "contract:mail-archive",
+    "contract:chat",
     "contract:mail-source",
     "contract:mail-create",
     "contract:cve-authority",

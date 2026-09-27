@@ -1,4 +1,7 @@
 {
   "skill_md": "skills/contributor-nomination/SKILL.md",
-  "step_heading": "## Step 3 — Gather off-GitHub signal and project context"
+  "step_heading": "## Step 3 \u2014 Gather off-GitHub signal and project context",
+  "also_include": [
+    "plugins/magpie-contributor-growth/skills/nomination/community-signals.md"
+  ]
 }

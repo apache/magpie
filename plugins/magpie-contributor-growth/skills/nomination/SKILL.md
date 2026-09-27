@@ -25,9 +25,9 @@ when_to_use: |
   a contributor.
 argument-hint: "<github-handle> [window:Nm] [target:committer|pmc]"
 capability: capability:stats
-surface_hash: sha256:4a760f6342036903
+surface_hash: sha256:08cdd99bc4367063
 license: Apache-2.0
-measured_tokens: 5282
+measured_tokens: 5374
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -325,7 +325,10 @@ Surface a warning if any stream is in `caps_hit` — the maintainer should know 
 
 ## Step 3 — Gather off-GitHub signal and project context
 
-Before assessing or rendering anything, ask the nominator four
+First collect community signals per [`community-signals.md`](community-signals.md): mailing-list presence and release testing, help given in chat and GitHub Discussions, and posts about the project on accounts the candidate linked themselves — confirmed identities only, each item classified, and the community indicator computed.
+Show the collected rows, the indicator, and any *possible match, not used* accounts to the nominator, and let them confirm, correct, or add.
+
+Then, before assessing or rendering anything, ask the nominator four
 things in a single prompt. Do not split them into separate
 questions.
 

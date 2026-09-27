@@ -133,6 +133,7 @@ framework substrate:
 | `contract:source-control` | contract | Branch / commit / diff / push (VCS). |
 | `contract:change-request` | contract | Proposed-change review + merge gate (pull request / merge request / Gerrit change). |
 | `contract:mail-archive` | contract | Mailing-list / forum archive reads. |
+| `contract:chat` | contract | Project chat reads — public channels only (Slack, Discord). Read-only; never posts. |
 | `contract:mail-source` | contract | Inbound-mail ingestion (mbox / IMAP / …). |
 | `contract:mail-create` | contract | Outbound mail composition. Always produces an editable draft; sending is a separate human-approved step on that draft (draft mode = default and the only mode implemented today; send mode declared but unimplemented — no autonomous send). |
 | `contract:cve-authority` | contract | CVE allocation / record management / publication. |
@@ -329,6 +330,8 @@ or a contract-free mix of substrates (e.g. `tools/spec-inventory` is
 | [`tools/gmail`](../tools/gmail/) | `contract:mail-source` + `contract:mail-create` + `contract:mail-archive` | Gmail API substrate — inbound report intake (`mail-source`), thread / archive reads (`mail-archive`), plus outbound courtesy-reply drafting (`mail-create`); read + draft only, never sends |
 | [`tools/jira`](../tools/jira/) | `contract:tracker` | JIRA REST substrate (read-only today; write subcommands tracked in [#301](https://github.com/apache/magpie/issues/301)) |
 | [`tools/jira-patch`](../tools/jira-patch/) | `contract:change-request` | JIRA-patch change-request backend: patches attached to JIRA issues as the proposal, reviewed via JIRA comments, landed via `contract:source-control` (`svn patch` + `svn commit`). Composes `tools/jira/` (REST) + `tools/asf-svn/` (land). Implements the `tools/change-request/` contract |
+| [`tools/chat`](../tools/chat/) | `contract:chat` | Adapter contract for project chat (Slack, Discord): public-channel reads for community signals. Pure interface spec. |
+| [`tools/chat-slack`](../tools/chat-slack/) | `contract:chat` | Slack adapter for the `tools/chat/` contract, over the Slack MCP; public channels only, never posts. |
 | [`tools/mail-archive`](../tools/mail-archive/) | `contract:mail-archive` | Adapter contract for public mail-archive backends (PonyMail, Hyperkitty, Discourse, Google Groups, GitHub Discussions). Pure interface spec. |
 | [`tools/mail-patch`](../tools/mail-patch/) | `contract:change-request` | `[PATCH]`-mail change-request backend: a `[PATCH]` thread on `dev@` as the proposal, reviewed via drafted replies (`contract:mail-create`), read via `contract:mail-archive`, landed via `contract:source-control` (`svn patch` + `svn commit`). Implements the `tools/change-request/` contract |
 | [`tools/mail-source`](../tools/mail-source/) | `contract:mail-source` | Mail-source backend abstraction (mbox / IMAP / Mailman 3) feeding a uniform inbound thread/message view to the intake pipeline |
@@ -383,13 +386,14 @@ separate axis — it is classified by the capability its *wrapping tool*
 provides; the MCP is just the transport, interchangeable with a CLI or
 REST backend behind the same contract. A skill never names an MCP
 server — it targets the capability, and the tool routes to whichever
-backend the adopter wired in. The framework consumes four:
+backend the adopter wired in. The framework consumes five:
 
 | MCP server | Tool prefix | Wrapped by | Capability provided | Organization |
 |---|---|---|---|---|
 | GitHub MCP | `mcp__github__*` | [`tools/github`](../tools/github/) | `contract:tracker` + `contract:source-control` + `contract:change-request` | — |
 | Gmail MCP (claude.ai) | `mcp__claude_ai_Gmail__*` | [`tools/gmail`](../tools/gmail/) | `contract:mail-source` + `contract:mail-create` + `contract:mail-archive` | — |
 | PonyMail MCP (`apache/comdev`) | `mcp__ponymail__*` | [`tools/ponymail`](../tools/ponymail/) | `contract:mail-archive` + `contract:mail-source` | ASF |
+| Slack MCP (claude.ai) | `mcp__claude_ai_Slack__*` | [`tools/chat-slack`](../tools/chat-slack/) | `contract:chat` | — |
 | apache-projects MCP (`apache/comdev`) | `mcp__apache-projects__*` | [`tools/apache-projects`](../tools/apache-projects/) | `contract:project-metadata` | ASF |
 
 Each wrapping tool declares this relationship in its own README with an

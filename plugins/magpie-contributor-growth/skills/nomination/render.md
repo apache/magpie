@@ -70,6 +70,12 @@ when the list is empty.>
 ```
 
 ```markdown
+<Community section per community-signals.md § Reporting — sources collected
+and not collected, the community indicator, the constructive and
+unconstructive items with links, and possible matches not used.>
+```
+
+```markdown
 ### Community interaction  *(nominator-supplied)*
 
 Response to feedback:   <nominator's assessment, or "(not assessed)">

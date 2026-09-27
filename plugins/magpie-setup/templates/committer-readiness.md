@@ -48,6 +48,7 @@ to update them.
 | `calibrated_on` | leave blank | Written by `calibrate` when it sets the thresholds below from past nominations; other skills suggest recalibrating after 12 months. |
 | `calibration_recency_halflife_years` | `2` | How fast `calibrate` down-weights older nominations. |
 | `calibrated_window_months` | leave blank | Written by `calibrate`: the activity window the floors were derived for. The skills warn when it differs from the assessment window. |
+| `community_negative_weight` | `1` | How much each unconstructive community item subtracts from the community indicator; the indicator never feeds a threshold. |
 
 ---
 

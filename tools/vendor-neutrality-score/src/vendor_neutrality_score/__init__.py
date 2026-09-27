@@ -83,6 +83,7 @@ CONTRACT_POLICY: dict[str, tuple[str, str]] = {
         "Proposed-change review + merge gate (PR / MR / Gerrit change)",
     ),
     "contract:mail-archive": (VENDOR_BACKED, "Mailing-list / forum archive reads"),
+    "contract:chat": (VENDOR_BACKED, "Project chat reads — public channels only (Slack, Discord)"),
     "contract:mail-source": (VENDOR_BACKED, "Inbound-mail ingestion (mbox / IMAP / …)"),
     "contract:mail-create": (
         VENDOR_BACKED,
