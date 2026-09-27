@@ -104,10 +104,11 @@ def test_identical_text_inside_generated_regions_is_invisible() -> None:
     `strip_generated_regions` exists. Reuses a real propagated block from the
     live tree so the test tracks the real marker text, not a hand-written
     stand-in."""
-    live_skill = next((REPO / "skills").glob("*/SKILL.md"))
-    text = live_skill.read_text()
-    match = MOD.PREFLIGHT_RE.search(text)
-    assert match, "expected the live skill to carry the auto pre-flight block"
+    # Not every skill carries the block (the setup skills do not), and glob
+    # order is filesystem-dependent, so pick the first carrier in sorted order.
+    matches = (MOD.PREFLIGHT_RE.search(p.read_text()) for p in sorted((REPO / "skills").glob("*/SKILL.md")))
+    match = next((m for m in matches if m), None)
+    assert match, "expected at least one live skill to carry the auto pre-flight block"
     block = match.group(0)
 
     paragraphs = MOD.extract_paragraphs(
