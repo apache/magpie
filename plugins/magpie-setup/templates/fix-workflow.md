@@ -96,13 +96,19 @@ before submission. Pre-fill `--title` and `--body` (including the
 Gen-AI disclosure block) so the reviewer only needs to review, not
 edit.
 
-When a fix is split into several dependent PRs, stack them with
-GitHub's stacked PRs: suggest the contributor install the
+When a fix is split into several dependent PRs and the contributor
+has write access to the upstream repository
+(`gh api repos/<upstream> --jq .permissions.push` is `true`), stack
+them with GitHub's stacked PRs: suggest the contributor install the
 [`github/gh-stack`](https://gh.io/stacks) extension
 (`gh extension install github/gh-stack`) if `gh extension list`
-does not show it, open each PR with `gh pr create --base <previous
-branch> --web`, then run `gh stack link <bottom-PR> … <top-PR>`.
-Never let `gh stack` generate PR titles or bodies.
+does not show it, push every branch of the stack to the upstream
+repository — never the fork, since each PR's base is the previous
+PR's branch — open each PR with `gh pr create --repo <upstream>
+--base <previous branch> --web`, then run `gh stack link <bottom-PR>
+… <top-PR>`. Without write access, open the PRs from the fork against
+the default branch, each with a "Depends on #N" line. Never let
+`gh stack` generate PR titles or bodies.
 
 ## Private-PR fallback
 
