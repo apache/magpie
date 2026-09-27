@@ -1,0 +1,18 @@
+{
+  "kept": [
+    "alpha",
+    "bravo"
+  ],
+  "dropped": [
+    {
+      "handle": "charlie",
+      "merged_prs": 6,
+      "reviewed_prs": 2
+    },
+    {
+      "handle": "delta",
+      "merged_prs": 19,
+      "reviewed_prs": 9
+    }
+  ]
+}

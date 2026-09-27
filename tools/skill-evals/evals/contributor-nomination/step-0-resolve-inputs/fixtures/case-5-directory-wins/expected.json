@@ -1,0 +1,8 @@
+{
+  "real_name": "Alice Smith",
+  "real_name_source": "directory",
+  "apache_id": "asmith",
+  "real_name_warning": false,
+  "apache_id_warning": false,
+  "login_rejected": false
+}

@@ -46,6 +46,10 @@ and there are no meaningful framework defaults.
 | `calibration_recency_halflife_years` | `2` | How fast `calibrate` down-weights older nominations. |
 | `calibrated_window_months` | leave blank | Written by `calibrate`: the activity window the floors were derived for. The skills warn when it differs from the assessment window. |
 | `community_negative_weight` | `1` | How much each unconstructive community item subtracts from the community indicator; the indicator never feeds a threshold. |
+| `report_repo` | TODO: `owner/name` of a **private** repository | Where `candidate-screen` commits its report. The skill refuses unless the GitHub API reports the repository as private; restrict it to `<governance-body>` members. |
+| `report_path` | `reports/` | Directory inside `report_repo` for the reports. |
+| `screen_prefilter_ratio` | `0.5` | `candidate-screen` keeps a contributor for full measurement when merged PRs or reviews reach this share of the floor. |
+| `shortlist_max_missing` | `2` | `candidate-screen` shortlists a contributor who misses at most this many floors (evidence-only metrics excluded). |
 
 ---
 

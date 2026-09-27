@@ -8,6 +8,7 @@ Return ONLY valid JSON with this structure:
 ```json
 {
   "real_name": "<resolved value or sentinel>",
+  "real_name_source": "directory | github | commits | none",
   "apache_id": "<resolved value, '[none yet]', or sentinel>",
   "employer": "<resolved value, '[UNCONFIRMED — verify before sending]', or sentinel>",
   "real_name_warning": true | false,
@@ -17,7 +18,8 @@ Return ONLY valid JSON with this structure:
 }
 ```
 
-- `real_name`: the resolved display name, or `[NAME UNKNOWN — verify before sending]` if the API returned null/empty
+- `real_name`: the resolved display name, or `[NAME UNKNOWN — verify before sending]` if no source yields one
+- `real_name_source`: which source the name came from, or `none` for the sentinel
 - `apache_id`: the verified Apache ID for a pmc target, `[none yet]` for a committer target, or `[APACHE ID UNKNOWN — verify before sending]` if unverifiable
 - `employer`: the confirmed employer, or `[UNCONFIRMED — verify before sending]` if unconfirmed
 - `real_name_warning`: true when real_name is the unknown sentinel

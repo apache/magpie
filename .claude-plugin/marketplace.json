@@ -28,7 +28,7 @@
       "name": "magpie-contributor-growth",
       "source": "./plugins/magpie-contributor-growth",
       "version": "0.9.0.dev202609262258",
-      "description": "Apache Magpie contributor-growth family (7 skills)."
+      "description": "Apache Magpie contributor-growth family (8 skills)."
     },
     {
       "name": "magpie-issue",

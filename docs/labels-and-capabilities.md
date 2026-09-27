@@ -80,7 +80,7 @@ every install; the other eight are opt-in (see
 | `family:repo-health` | opt-in | Read-only repository audits and their follow-up fixes: `ci-runner-audit`, `workflow-security-audit`, `dependency-audit`, `dependency-license-audit`, `license-compliance-audit`, `flaky-test-triage`, `audit-finding-fix` ([`docs/repo-health/`](repo-health/README.md)) |
 | `family:pairing` | opt-in | `pairing-self-review`, `pairing-multi-agent-review` ([`docs/pairing/`](pairing/README.md)) |
 | `family:mentoring` | opt-in | `mentoring-welcome`, `newcomer-issue-explainer`, `good-first-issue-author`, `good-first-issue-sweep` ([`docs/mentoring/`](mentoring/README.md)) |
-| `family:contributor-growth` | opt-in | The path-to-committer track: `contributor-activity-sweep`, `contributor-sentiment`, `contributor-to-committer`, `contributor-nomination`, `contributor-calibrate`, `committer-onboarding`, `onboarding-concierge` ([`docs/contributor-growth/`](contributor-growth/README.md)) |
+| `family:contributor-growth` | opt-in | The path-to-committer track: `contributor-activity-sweep`, `contributor-sentiment`, `contributor-to-committer`, `contributor-nomination`, `contributor-calibrate`, `contributor-candidate-screen`, `committer-onboarding`, `onboarding-concierge` ([`docs/contributor-growth/`](contributor-growth/README.md)) |
 
 Three further `family:*` labels cover parts of the repository that are
 **not** a skill family. They exist only as issue / PR labels and never
@@ -278,6 +278,7 @@ Capabilities for every skill currently in
 | `contributor-nomination` | `capability:stats` |
 | `contributor-to-committer` | `capability:stats` |
 | `contributor-calibrate` | `capability:stats` |
+| `contributor-candidate-screen` | `capability:stats` |
 | `contributor-activity-sweep` | `capability:stats` |
 | `contributor-sentiment` | `capability:stats` *(measures contributor-sentiment signals — thread tone, time-to-first-reply, first-PR retention, reviewer load — and produces the gate report for experimental→stable advancement)* |
 | `committer-onboarding` | `capability:resolve` + `capability:triage` *(post-vote onboarding close-out — resolve — after validating the vote result in pre-flight — triage)* |

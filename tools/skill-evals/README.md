@@ -54,7 +54,7 @@ Suites are currently implemented for:
 - **security-model-prepare** — 9 cases across 2 steps (step-1-consent-gate, step-4-provenance); consent before the first repo write, and the four provenance tags with no hedge variants
 - **security-model-update** — 15 cases across 3 steps (step-1-disposition-map, step-2-kn-entry-rules, step-3-regression-gate); the precedence-promotion trap, the four known-non-finding entry rules, and the blocking regression gate
 - **audit-finding-fix** — 12 cases across 4 suites (step-2-parse-findings, step-5-scope-check, step-6-compose-commit, step-7-handback)
-- **contributor-nomination** — 26 cases across 4 suites (step-0-resolve-inputs, step-3-gather-signal, step-4-assess, step-5-render)
+- **contributor-nomination** — 29 cases across 4 suites (step-0-resolve-inputs, step-3-gather-signal, step-4-assess, step-5-render)
 - **contributor-to-committer** — 21 cases across 4 suites (step-0-resolve-inputs, step-2a-discount-automated, step-4-map-thresholds, step-5-render-brief)
 - **dependency-audit** — 8 cases across 2 suites (step-findings-report, step-scope-selection)
 - **dependency-license-audit** — 19 cases across 4 suites (step-license-classification, step-license-normalization, step-license-report, step-scope-selection)
@@ -90,6 +90,7 @@ Suites are currently implemented for:
 - **setup-privacy-llm** — 6 cases across 2 suites (step-1-resolve, step-4-gate)
 - **preflight-reconciliation** — 7 cases across 1 suite (step-reconciliation)
 - **contributor-calibrate** — 7 cases across 2 suites (step-1-find-nominations, step-4-propose-floors)
+- **contributor-candidate-screen** — 8 cases across 5 suites (step-0-gates, step-2-pre-filter, step-3-measure-and-shortlist, step-4-write-report, step-5-deliver)
 
 ## Prerequisites
 

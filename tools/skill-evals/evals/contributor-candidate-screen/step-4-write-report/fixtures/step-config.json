@@ -1,0 +1,8 @@
+{
+  "skill_md": "skills/contributor-candidate-screen/SKILL.md",
+  "step_heading": "## Step 4 \u2014 Write the report",
+  "also_include": [
+    "plugins/magpie-contributor-growth/skills/candidate-screen/report.md",
+    "plugins/magpie-contributor-growth/skills/nomination/real-names.md"
+  ]
+}

@@ -25,9 +25,9 @@ when_to_use: |
   a contributor.
 argument-hint: "<github-handle> [window:Nm] [target:committer|pmc]"
 capability: capability:stats
-surface_hash: sha256:08cdd99bc4367063
+surface_hash: sha256:68634efda46f3980
 license: Apache-2.0
-measured_tokens: 5374
+measured_tokens: 5440
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -189,16 +189,20 @@ Resolve in order:
 
    Immediately attempt to resolve three identity fields:
 
-   **Real name** (`<real_name>`):
+   **Real name** (`<real_name>`): resolve it per
+   [`real-names.md`](real-names.md) — the people directory when the
+   candidate has an account there, then the GitHub profile's `name`,
+   then a commit author name used consistently on every commit —
+   and record which source it came from as `<real_name_source>`.
    ```bash
    gh api users/<login> --jq '.name'
    ```
    GitHub's `name` field is optional and user-controlled — it
-   may be null, an alias, or a partial name. If the result is
-   null or empty, set `<real_name>` to
+   may be null, an alias, or a partial name. If no source yields a
+   name, set `<real_name>` to
    `[NAME UNKNOWN — verify before sending]` and surface a
    warning to the maintainer at the top of the brief. Do not
-   infer a name from the login string itself.
+   infer a name from the login string or an email address.
 
    **Apache ID** (`<apache_id>`): only relevant for a `pmc`
    target. PMC candidates are already committers with an ASF

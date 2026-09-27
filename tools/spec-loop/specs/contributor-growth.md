@@ -74,6 +74,14 @@ state change for human sign-off.
   keeps per-nominee data in the session scratch directory. Ships
   `mode: Triage` + `experimental`, eval suite under
   `tools/skill-evals/evals/contributor-calibrate/`.
+- Skill: `contributor-candidate-screen` — screens every recent
+  contributor against the floors (deterministic pre-filter, every drop
+  logged), shortlists committer and PMC candidates, and writes a
+  per-candidate report with areas, floors, community signals and verified
+  real names; commits it only to a repository the GitHub API reports as
+  private, checked twice, after the maintainer confirms; no
+  `@`-mentions. Ships `mode: Triage` + `experimental`, eval suite under
+  `tools/skill-evals/evals/contributor-candidate-screen/`.
 - Skill: `good-first-issue-author` — drafts one net-new good first
   issue from a supplied gap or small task; suitability gate plus
   R1–R9 readiness checklist; waits for maintainer confirmation

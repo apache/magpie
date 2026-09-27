@@ -23,7 +23,7 @@ argument-hint: "[since:YYYY-MM-DD] [holdout:YYYY-MM-DD] [exclude-thread:<id>] [w
 capability: capability:stats
 surface_hash: sha256:9c623c35a58589e5
 license: Apache-2.0
-measured_tokens: 2964
+measured_tokens: 2968
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -188,7 +188,7 @@ The distribution numbers — medians and percentiles per outcome — are shown t
 
 ## Step 5 — Holdout check (optional)
 
-Offer to screen the current window with the proposed floors: run `candidate-screen` in dry mode when it is installed, or list who meets the floors among handles the maintainer names.
+Offer to screen the current window with the proposed floors: run `candidate-screen` through its Step 4 and stop before it delivers anything, or list who meets the floors among handles the maintainer names.
 The maintainer compares the result with any live discussion themselves; the skill never opens a thread listed in `exclude-thread`.
 
 ---

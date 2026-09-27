@@ -1,0 +1,17 @@
+{
+  "no_at_mentions": {
+    "type": "regex",
+    "field": "report",
+    "pattern": "(^|[^\\w/\\[`])@[A-Za-z0-9][A-Za-z0-9-]*",
+    "negate": true
+  },
+  "uses_verified_name": {
+    "type": "contains",
+    "field": "report",
+    "substring": "Kiran Shah"
+  },
+  "has_floor_note": {
+    "type": "field_true",
+    "field": "has_floor_note"
+  }
+}
