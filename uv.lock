@@ -2151,6 +2151,9 @@ wheels = [
 name = "typed-decision"
 version = "0.1.0"
 source = { editable = "tools/typed-decision" }
+dependencies = [
+    { name = "checker" },
+]
 
 [package.dev-dependencies]
 dev = [
@@ -2158,6 +2161,7 @@ dev = [
 ]
 
 [package.metadata]
+requires-dist = [{ name = "checker", editable = "tools/privacy-llm/checker" }]
 
 [package.metadata.requires-dev]
 dev = [{ name = "magpie-dev", editable = "tools/dev" }]

@@ -265,7 +265,7 @@ class JevProvider(DecisionProvider):
 
             label = result.get("label")
             if label is None:
-                raise TypedDecisionUnavailable(f"Jev API response missing 'label': {resp!r}")
+                raise TypedDecisionUnavailable("Jev API response missing 'label'")
             label_str = str(label)
             if label_str not in options:
                 raise TypedDecisionUnavailable(
@@ -274,7 +274,7 @@ class JevProvider(DecisionProvider):
 
             raw_conf = result.get("confidence")
             if raw_conf is None:
-                raise TypedDecisionUnavailable(f"Jev API response missing 'confidence': {resp!r}")
+                raise TypedDecisionUnavailable("Jev API response missing 'confidence'")
             try:
                 confidence = float(raw_conf)
             except (ValueError, TypeError) as exc:
@@ -306,24 +306,42 @@ class JevProvider(DecisionProvider):
         Returns:
             {"value": float | int, "confidence": float}
         """
-        if isinstance(scale, (tuple, list)):
+        norm_scale: tuple[float, float]
+        if isinstance(scale, bool):
+            raise TypedDecisionUnavailable(f"Invalid scale: bool ({scale!r}) is not a valid numeric scale")
+        elif isinstance(scale, (int, float)):
+            try:
+                s_max = float(scale)
+                if s_max <= 0:
+                    raise TypedDecisionUnavailable(
+                        f"Invalid scalar scale: upper bound ({s_max}) must be strictly positive"
+                    )
+                norm_scale = (0.0, s_max)
+            except (ValueError, TypeError) as exc:
+                raise TypedDecisionUnavailable(f"Invalid scalar scale {scale!r}: {exc}") from exc
+        elif isinstance(scale, (tuple, list)):
             if len(scale) != 2:
                 raise TypedDecisionUnavailable("scale must be a (min, max) pair of 2 values")
+            if isinstance(scale[0], bool) or isinstance(scale[1], bool):
+                raise TypedDecisionUnavailable("scale bounds must not be bool")
             try:
                 s_min, s_max = float(scale[0]), float(scale[1])
                 if s_min >= s_max:
                     raise TypedDecisionUnavailable(
                         f"Invalid scale: min ({s_min}) must be strictly less than max ({s_max})"
                     )
+                norm_scale = (s_min, s_max)
             except (ValueError, TypeError) as exc:
                 raise TypedDecisionUnavailable(f"Invalid scale values {scale!r}: {exc}") from exc
+        else:
+            raise TypedDecisionUnavailable(f"Invalid scale type: {type(scale).__name__}")
 
         vetted_prompt = enforce_privacy_gate(prompt, self._endpoint, provider_name="TypeSafe Jev")
         payload = {
             "model": self._model,
             "operation": "score",
             "prompt": vetted_prompt,
-            "scale": scale,
+            "scale": [norm_scale[0], norm_scale[1]],
         }
 
         resp = self._execute_request(payload)
@@ -342,7 +360,7 @@ class JevProvider(DecisionProvider):
 
             raw_val = result.get("value")
             if raw_val is None:
-                raise TypedDecisionUnavailable(f"Jev API response missing 'value': {resp!r}")
+                raise TypedDecisionUnavailable("Jev API response missing 'value'")
             try:
                 value = float(raw_val)
             except (ValueError, TypeError) as exc:
@@ -350,16 +368,14 @@ class JevProvider(DecisionProvider):
                     f"Jev API returned non-numeric score value {raw_val!r}: {exc}"
                 ) from exc
 
-            if isinstance(scale, (tuple, list)) and len(scale) == 2:
-                min_val, max_val = float(scale[0]), float(scale[1])
-                if not min_val <= value <= max_val:
-                    raise TypedDecisionUnavailable(
-                        f"Jev API returned score {value} outside scale range [{min_val}, {max_val}]"
-                    )
+            if not norm_scale[0] <= value <= norm_scale[1]:
+                raise TypedDecisionUnavailable(
+                    f"Jev API returned score {value} outside scale range [{norm_scale[0]}, {norm_scale[1]}]"
+                )
 
             raw_conf = result.get("confidence")
             if raw_conf is None:
-                raise TypedDecisionUnavailable(f"Jev API response missing 'confidence': {resp!r}")
+                raise TypedDecisionUnavailable("Jev API response missing 'confidence'")
             try:
                 confidence = float(raw_conf)
             except (ValueError, TypeError) as exc:
@@ -410,7 +426,7 @@ class JevProvider(DecisionProvider):
 
             raw_prob = result.get("probability")
             if raw_prob is None:
-                raise TypedDecisionUnavailable(f"Jev API response missing 'probability': {resp!r}")
+                raise TypedDecisionUnavailable("Jev API response missing 'probability'")
             try:
                 probability = float(raw_prob)
             except (ValueError, TypeError) as exc:

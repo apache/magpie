@@ -25,59 +25,23 @@ The gate strictly denies unapproved endpoints by default.
 
 from __future__ import annotations
 
-import pathlib
-import sys
-from collections.abc import Callable
+from checker.check import check_endpoint
 
 from typed_decision.exceptions import TypedDecisionUnavailable
 
-try:
-    from checker.check import _approve_by_default_rules, _approve_by_opt_in
-    from checker.config import LLMEntry, locate_config_path, parse_config
-except ImportError:
-    _checker_src = pathlib.Path(__file__).resolve().parents[3] / "privacy-llm" / "checker" / "src"
-    if _checker_src.is_dir() and str(_checker_src) not in sys.path:
-        sys.path.insert(0, str(_checker_src))
-    from checker.check import _approve_by_default_rules, _approve_by_opt_in
-    from checker.config import LLMEntry, locate_config_path, parse_config
-
-# Optional custom gate hook for testing or specialized filtering.
-_CUSTOM_GATE_HOOK: Callable[[str, str], str] | None = None
-
-
-def set_custom_gate_hook(hook: Callable[[str, str], str] | None) -> None:
-    """Register or clear a custom gate hook (for testing or extensions)."""
-    global _CUSTOM_GATE_HOOK
-    _CUSTOM_GATE_HOOK = hook
+DEFAULT_ENDPOINT: str = "https://api.typesafe.ai/v1/systemone"
 
 
 def _check_endpoint_approved(endpoint: str, provider_name: str | None = None) -> tuple[bool, str]:
     """Check if the given endpoint is approved per tools/privacy-llm/models.md.
 
     Denies by default per tools/privacy-llm/models.md ('Anything else -> ✗').
-    Uses tools/privacy-llm/checker for canonical parsing, comment stripping,
-    and placeholder detection.
+    Binds opt-in checks to the specific URL/host. Only applies the provider-name
+    label when endpoint matches DEFAULT_ENDPOINT to prevent name-only opt-ins from
+    authorizing arbitrary destination hosts.
     """
-    raw_desc = f"{provider_name} ({endpoint})" if provider_name else endpoint
-    entry = LLMEntry(raw=raw_desc, url=endpoint)
-
-    # 1. Check default approval rules (localhost, *.apache.org except carve-outs, Claude Code)
-    verdict = _approve_by_default_rules(entry)
-    if verdict is not None:
-        return verdict.approved, verdict.reason
-
-    # 2. Third-party endpoint: requires explicit opt-in entry in privacy-llm.md
-    try:
-        config_path = locate_config_path()
-    except FileNotFoundError as err:
-        return False, f"Third-party endpoint {endpoint} denied (no privacy-llm config found): {err}"
-
-    try:
-        config = parse_config(config_path)
-    except Exception as err:
-        return False, f"Failed to parse privacy-llm config at {config_path}: {err}"
-
-    verdict = _approve_by_opt_in(entry, config.opt_in)
+    raw_desc = f"{provider_name} ({endpoint})" if endpoint == DEFAULT_ENDPOINT and provider_name else endpoint
+    verdict = check_endpoint(endpoint, raw_desc=raw_desc)
     return verdict.approved, verdict.reason
 
 
@@ -105,9 +69,6 @@ def enforce_privacy_gate(prompt: str, endpoint: str, provider_name: str | None =
     Raises:
         TypedDecisionUnavailable: If the destination endpoint is unapproved.
     """
-    if _CUSTOM_GATE_HOOK is not None:
-        return _CUSTOM_GATE_HOOK(prompt, endpoint)
-
     approved, reason = _check_endpoint_approved(endpoint, provider_name=provider_name)
     if not approved:
         raise TypedDecisionUnavailable(f"Privacy-LLM gate rejected outbound request to {endpoint}: {reason}")

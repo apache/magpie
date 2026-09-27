@@ -312,3 +312,34 @@ def test_framework_template_is_approved_by_default(tmp_path: pathlib.Path, monke
     assert verdicts, "template should declare at least Claude Code in its stack"
     bad = [v for v in verdicts if not v.approved]
     assert not bad, f"unapproved entries in shipped template: {bad}"
+
+
+# -- check_endpoint helper tests ---------------------------------------
+
+
+def test_check_endpoint_default_approved():
+    v = check.check_endpoint("http://localhost:8000/v1")
+    assert v.approved is True
+    assert "local-only" in v.reason
+
+
+def test_check_endpoint_denied_no_config(monkeypatch):
+    monkeypatch.delenv("PRIVACY_LLM_CONFIG", raising=False)
+    v = check.check_endpoint("https://api.example.com/v1")
+    assert v.approved is False
+    assert "denied" in v.reason
+
+
+def test_check_endpoint_approved_opt_in():
+    opt = OptInEntry(
+        name="Example Provider",
+        data_residency="Strict US",
+        approved_by="PMC 2026-09-01",
+    )
+    cfg = ParsedConfig(path=pathlib.Path("/dev/null"), llm_stack=[], opt_in=[opt])
+    v = check.check_endpoint(
+        "https://api.example.com/v1",
+        config=cfg,
+        raw_desc="Example Provider (https://api.example.com/v1)",
+    )
+    assert v.approved is True

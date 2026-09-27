@@ -185,6 +185,46 @@ def check_stack(config: ParsedConfig) -> list[Verdict]:
     return out
 
 
+def check_endpoint(
+    endpoint: str,
+    config: ParsedConfig | None = None,
+    *,
+    raw_desc: str | None = None,
+) -> Verdict:
+    """Verify whether a single outbound LLM endpoint URL is approved.
+
+    Checks default-approval rules (e.g. localhost, *.apache.org), falling back
+    to opt-in entries in ``<project-config>/privacy-llm.md``. If ``config`` is not
+    passed, attempts to locate and parse the active configuration.
+    """
+    desc = raw_desc if raw_desc is not None else endpoint
+    entry = LLMEntry(raw=desc, url=endpoint)
+
+    verdict = _approve_by_default_rules(entry)
+    if verdict is not None:
+        return verdict
+
+    if config is None:
+        try:
+            path = locate_config_path()
+        except FileNotFoundError as err:
+            return Verdict(
+                entry,
+                False,
+                f"Third-party endpoint {endpoint} denied (no privacy-llm config found): {err}",
+            )
+        try:
+            config = parse_config(path)
+        except Exception as err:
+            return Verdict(
+                entry,
+                False,
+                f"Failed to parse privacy-llm config at {path}: {err}",
+            )
+
+    return _approve_by_opt_in(entry, config.opt_in)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="privacy-llm-check",
