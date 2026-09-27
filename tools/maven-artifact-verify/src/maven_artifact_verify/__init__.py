@@ -240,8 +240,13 @@ def check_companions(jar: Path, digests: list[str]) -> dict:
                 }
             )
             continue
-        for suffix, what in ((f"{companion.name}.asc", ".asc signature"), *[(f"{companion.name}.{d}", f".{d} checksum") for d in digests]):
-            if not (jar.parent / suffix).exists():
+        missing = [
+            (suffix, what)
+            for suffix, what in ((f"{companion.name}.asc", ".asc signature"), *[(f"{companion.name}.{d}", f".{d} checksum") for d in digests])
+            if not (jar.parent / suffix).exists()
+        ]
+        if missing:
+            for suffix, what in missing:
                 results.append(
                     {
                         "companion": companion.name,

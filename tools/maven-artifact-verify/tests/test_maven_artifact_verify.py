@@ -62,9 +62,9 @@ def pom_xml(
     parts = [
         '<?xml version="1.0" encoding="UTF-8"?>',
         '<project xmlns="http://maven.apache.org/POM/4.0.0"'
-        ' xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"'
-        ' xsi:schemaLocation="http://maven.apache.org/POM/4.0.0'
-        ' http://maven.apache.org/xsd/maven-4.0.0.xsd">',
+        + ' xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"'
+        + ' xsi:schemaLocation="http://maven.apache.org/POM/4.0.0'
+        + ' http://maven.apache.org/xsd/maven-4.0.0.xsd">',
         "  <modelVersion>4.0.0</modelVersion>",
     ]
     if parent:
@@ -314,6 +314,12 @@ def test_companion_missing_signature_fails(tmp_path: Path) -> None:
     fails = [c for c in report["jars"][0]["companions"] if c["classification"] == "FAIL"]
     assert len(fails) == 2  # one .asc missing per companion
     assert all(".asc" in c["detail"] for c in fails)
+    # a companion with a missing file must not also carry a PASS record
+    # (regression: a loop-else used to append PASS unconditionally)
+    companions = {c["companion"] for c in report["jars"][0]["companions"]}
+    for name in companions:
+        classifications = [c["classification"] for c in report["jars"][0]["companions"] if c["companion"] == name]
+        assert classifications == ["FAIL"], f"{name}: {classifications}"
 
 
 def test_companion_missing_digest_fails(tmp_path: Path) -> None:
