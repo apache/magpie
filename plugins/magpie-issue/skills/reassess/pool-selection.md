@@ -60,16 +60,9 @@ the project's `stale-unresolved` or component-absent pool.
 ## Bounded-sweep discipline
 
 A useful campaign sweeps **5–50 issues**. More is rarely
-productive:
-
-- Context exhaustion: a 50-issue sweep with full per-issue
-  evidence can fill an agent's context budget. Bound shorter than
-  the theoretical maximum.
-- Diminishing returns: the first 10 issues from a well-chosen pool
-  surface the patterns; the next 40 mostly confirm them.
-- Crash recovery: a 200-issue sweep that crashes at issue 150 loses
-  150 issues of work even with disk-resumability — re-loading the
-  context is non-trivial.
+productive. A campaign trying to sweep 200 issues in one session
+blows context, produces low-quality bulk output, and means a crash
+at issue 150 loses 150 issues' work.
 
 Recommend per-session caps:
 
