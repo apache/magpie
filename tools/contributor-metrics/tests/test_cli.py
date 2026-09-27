@@ -2,7 +2,7 @@
 # https://www.apache.org/licenses/LICENSE-2.0
 import json
 
-from contributor_metrics.cli import main
+from contributor_metrics.cli import fetch_items, main
 
 
 def test_score_cli_round_trip(tmp_path):
@@ -189,15 +189,13 @@ def test_score_rejects_weights_that_are_not_an_object(tmp_path):
 
 
 def test_fetch_refresh_ignores_the_cache(tmp_path, monkeypatch):
-    import contributor_metrics.cli as cli
-
     calls = []
 
     def fake_fetch(*a, **k):
         calls.append(1)
         return [], [], []
 
-    monkeypatch.setattr(cli, "fetch_items", fake_fetch)
+    monkeypatch.setattr("contributor_metrics.cli.fetch_items", fake_fetch)
     args = [
         "fetch",
         "--repo",
