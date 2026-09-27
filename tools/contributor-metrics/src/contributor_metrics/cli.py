@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from contributor_metrics.fetch import GhError, InvalidLogin, fetch_items
+from contributor_metrics.floors import propose_floors
 from contributor_metrics.model import Item, Weights
 from contributor_metrics.score import score
 
@@ -62,7 +63,21 @@ def main(argv: Sequence[str] | None = None) -> int:
     s.add_argument("--area-prefix", default="area:")
     s.add_argument("--since", help="score only items on or after this date (a sub-window of the fetched one)")
     s.add_argument("--out", required=True)
+    fl = sub.add_parser("floors", help="propose threshold floors from measured past nominations")
+    fl.add_argument(
+        "--rows", required=True, help="JSON list of {target, outcome, vote_date, metrics, capped}"
+    )
+    fl.add_argument("--today", default=date.today().isoformat())
+    fl.add_argument("--halflife", type=float, default=2.0)
+    fl.add_argument("--min-elected", type=int, default=5)
+    fl.add_argument("--out", required=True)
     args = p.parse_args(argv)
+
+    if args.cmd == "floors":
+        rows = json.loads(Path(args.rows).read_text())
+        result = propose_floors(rows, today=args.today, halflife=args.halflife, min_elected=args.min_elected)
+        Path(args.out).write_text(json.dumps(result, indent=2))
+        return 0
 
     if args.cmd == "fetch":
         since = _since(args.end, args.months)

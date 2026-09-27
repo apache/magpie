@@ -13,3 +13,21 @@ All rows voted in the last year, so every row has the same recency weight. Metri
 | r6 | committer | deferred | 10 | 0 |
 | r7 | committer | deferred | 15 | 1 |
 | r8 | committer | deferred | 20 | 1 |
+
+`contributor-metrics floors` output for these rows:
+
+```json
+{
+  "floors": {
+    "committer": {
+      "issues_filed": 3,
+      "prs_merged": 48
+    }
+  },
+  "evidence_only": {
+    "committer": []
+  },
+  "no_floors_for": [],
+  "notes": []
+}
+```

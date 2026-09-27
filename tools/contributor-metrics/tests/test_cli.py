@@ -138,3 +138,32 @@ def test_score_since_scores_a_sub_window(tmp_path):
     out = json.loads((tmp_path / "m.json").read_text())
     assert out["metrics"]["prs_merged"]["raw"] == 1
     assert out["window"]["since"] == "2026-03-01"
+
+
+def test_floors_cli(tmp_path):
+    rows = [
+        {
+            "target": "committer",
+            "outcome": "elected",
+            "vote_date": "2026-06-01",
+            "metrics": {"prs_merged": p},
+            "capped": [],
+        }
+        for p in (40, 48, 55, 60, 72)
+    ]
+    (tmp_path / "rows.json").write_text(json.dumps(rows))
+    assert (
+        main(
+            [
+                "floors",
+                "--rows",
+                str(tmp_path / "rows.json"),
+                "--today",
+                "2026-09-27",
+                "--out",
+                str(tmp_path / "f.json"),
+            ]
+        )
+        == 0
+    )
+    assert json.loads((tmp_path / "f.json").read_text())["floors"]["committer"]["prs_merged"] == 48

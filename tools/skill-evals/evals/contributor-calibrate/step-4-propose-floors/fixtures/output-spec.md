@@ -14,7 +14,7 @@ Return ONLY valid JSON with this structure:
 }
 ```
 
-- `floors`: the proposed floor per metric and target, as the skill defines it.
+- `floors`: the floor per metric and target that the skill proposes for the config diff.
 - `evidence_only`: metrics the skill proposes as evidence only, per target, alphabetical; empty when none.
 - `no_floors_for`: targets the skill proposes no floors for; empty when none.
 - `diff_contains_names`: whether the proposed config diff contains any nominee name or handle.

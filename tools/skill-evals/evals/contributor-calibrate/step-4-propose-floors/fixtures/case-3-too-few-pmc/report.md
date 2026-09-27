@@ -14,3 +14,27 @@ All rows voted in the last year, so every row has the same recency weight. Metri
 | r7 | pmc | elected | 45 | 2 |
 | r8 | pmc | elected | 52 | 1 |
 | r9 | pmc | deferred | 30 | 1 |
+
+`contributor-metrics floors` output for these rows:
+
+```json
+{
+  "floors": {
+    "committer": {
+      "issues_filed": 3,
+      "prs_merged": 48
+    },
+    "pmc": {}
+  },
+  "evidence_only": {
+    "committer": [],
+    "pmc": []
+  },
+  "no_floors_for": [
+    "pmc"
+  ],
+  "notes": [
+    "pmc: 2 elected rows, fewer than 5; no floors proposed"
+  ]
+}
+```

@@ -4,6 +4,7 @@
 # Propose
 
 How the measured rows become proposed floors, and how the floors map onto the two config files.
+`contributor-metrics floors` does the arithmetic below; this file states what it computes, so the maintainer can check the result, and how to present it.
 
 ## Weighting
 
@@ -16,7 +17,7 @@ The weighted *q*-th percentile is the smallest value whose cumulative weight rea
 
 ## Floors
 
-For each metric and each target, over the 6-month window unless the maintainer picks another:
+For each metric and each target, over the configured assessment window:
 
 1. Compute the weighted 25th percentile and the weighted median of the **elected** rows, and the weighted median of the **deferred** rows.
    Show them split into the last three years and older, so the maintainer can see whether the bar has moved.
@@ -25,6 +26,7 @@ For each metric and each target, over the 6-month window unless the maintainer p
    Propose it as **evidence only**: floor `0`, advisory, shown in briefs but never required.
    Say plainly that it does not separate.
 4. A target with fewer than five elected rows gets no proposed floors; say so and leave its thresholds unchanged.
+5. A value that was capped is left out of that metric's distribution; with no deferred rows, separation cannot be tested and the note says so.
 
 ## Mapping to configuration
 
@@ -41,5 +43,5 @@ For each metric and each target, over the 6-month window unless the maintainer p
 
 ## Output
 
-A diff to both files that sets, for each target, the proposed floors (evidence-only metrics at `0` with the note *"evidence only — does not separate elected from deferred"*), and `calibrated_on: <today>`.
+A diff to both files that sets, for each target, the proposed floors (evidence-only metrics at `0` with the note *"evidence only — does not separate elected from deferred"*), `calibrated_on: <today>`, and `calibrated_window_months: <the configured window>`, so the floors are never read against a different window.
 The diff contains no name, no handle, no count of nominees, and no description of how the numbers were derived.

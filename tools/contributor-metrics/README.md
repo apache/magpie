@@ -9,6 +9,7 @@
   - [Invocation](#invocation)
     - [`fetch`](#fetch)
     - [`score`](#score)
+    - [`floors`](#floors)
   - [Output schema](#output-schema)
   - [Failure modes](#failure-modes)
 
@@ -80,6 +81,23 @@ contributor-metrics score --items items.json [--classes classes.json] [--weights
 - `--weights` — any of `automated_contribution_weight`, `restatement_comment_weight`, `closed_after_pushback_weight`, `automated_pushback_penalty`; a missing, non-numeric or out-of-range value falls back to its default with a note.
 - `--area-prefix` — the label prefix that marks a PR's area (the project's `area_label_prefix`).
 - `--since` — score only a sub-window of what was fetched, e.g. the 6-month window from a 12-month fetch.
+
+### `floors`
+
+```bash
+contributor-metrics floors --rows rows.json [--today YYYY-MM-DD] [--halflife 2] [--min-elected 5] --out floors.json
+```
+
+Proposes threshold floors from measured past nominations, for `contributor-calibrate`.
+`rows.json` is a list of `{"target": "committer" | "pmc", "outcome": "elected" | "deferred" | "withdrawn", "vote_date": "YYYY-MM-DD", "metrics": {"<metric>": <number>}, "capped": ["<metric>"]}`.
+
+- Rows are weighted by recency, `0.5 ** (age_years / halflife)`; withdrawn rows are ignored.
+- The weighted percentile is the smallest value whose cumulative weight reaches the percentile's share of the total weight.
+- The floor is the weighted 25th percentile of elected rows, rounded down; when it is at or below the weighted median of deferred rows the metric is *evidence only* (floor `0`).
+- A target with fewer than `--min-elected` elected rows gets no floors.
+- A capped value is left out of that metric's distribution and counted in `excluded_capped`.
+
+Output: `{"floors": {target: {metric: int}}, "evidence_only": {target: [metric]}, "no_floors_for": [target], "distribution": {...}, "notes": [...]}`.
 
 ## Output schema
 

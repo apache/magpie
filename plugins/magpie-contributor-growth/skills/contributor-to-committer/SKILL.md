@@ -26,7 +26,7 @@ argument-hint: "<github-handle> [target:committer|pmc] [window:Nm]"
 capability: capability:stats
 surface_hash: sha256:c205c960041719dc
 license: Apache-2.0
-measured_tokens: 5603
+measured_tokens: 5631
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -219,6 +219,7 @@ If the repo is not found or inaccessible, stop with a clear message.
    Mention once that `calibrate` can derive the thresholds from the project's past nominations.
 
 When the thresholds carry `calibrated_on` older than 12 months, add one line to the brief suggesting the maintainer re-run `calibrate`.
+When `calibrated_window_months` differs from `<window>`, warn in the brief header that the floors were derived for a different window.
 
 Record the resolved thresholds as `<thresholds>` (structured when
 from config files, narrative when from the runtime fallback). Surface

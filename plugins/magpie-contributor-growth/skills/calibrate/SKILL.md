@@ -23,7 +23,7 @@ argument-hint: "[since:YYYY-MM-DD] [holdout:YYYY-MM-DD] [exclude-thread:<id>] [w
 capability: capability:stats
 surface_hash: sha256:9c623c35a58589e5
 license: Apache-2.0
-measured_tokens: 2667
+measured_tokens: 2964
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -109,7 +109,7 @@ for the contract.
 | `since:YYYY-MM-DD` | five years before today | Earliest nomination thread to read |
 | `holdout:YYYY-MM-DD` | none | Nothing dated after this is read — no thread, no message |
 | `exclude-thread:<id>` | none | A thread never to open; repeatable. Use it for a live discussion you want the floors to be validated against rather than derived from |
-| `windows:6,12` | `6,12` | Activity windows, in months before each vote, to measure |
+| `windows:<N>,12` | the configured assessment window, and 12 | Activity windows, in months before each vote, to measure; floors are proposed for the configured window (`assessment_window_months` in `<project-config>/committer-readiness.md`, else `nomination_window_months`, else 6) |
 
 The recency half-life comes from `calibration_recency_halflife_years` in `<project-config>/contributor-nomination-config.md`, default `2`.
 
@@ -156,20 +156,32 @@ List every nominee who cannot be resolved for the maintainer; never guess a hand
 
 ## Step 3 — Measure
 
-For each resolved row and each window in `windows`:
+For each resolved row:
 
-1. Run `contributor-metrics fetch` with `--end <vote date> --months <window>` and the project's pushback phrases, per [`nomination/fetch.md`](../nomination/fetch.md).
+1. Run `contributor-metrics fetch` once, with `--end <vote date> --months <largest window>` and the project's pushback phrases, per [`nomination/fetch.md`](../nomination/fetch.md).
+   Nothing after the vote date is counted, and the tool's cache makes a re-run cheap.
 2. Confirm pushback candidates by the rules in [`automated-contributions.md`](../nomination/automated-contributions.md), at most 10 candidates per nominee; an unconfirmed candidate keeps full weight.
-3. Run `contributor-metrics score` with the project's discount settings.
+3. Run `contributor-metrics score` with the project's discount settings once per window, using `--since` for the shorter windows.
 4. Count mailing-list presence: threads started and replies on `<dev-list>` in the window, through the `mail-archive` search in statistics mode, filtered by the nominee's confirmed address only.
+5. Record which metrics were **capped** for the row: every stream in `caps_hit` marks its metrics (`prs_opened` → `prs_opened`, `prs_merged`; `reviews_total` → `reviews_total`, `reviews_substantive`; the others one to one).
+   A capped count is only a lower bound, so the floor arithmetic leaves it out of that metric's distribution.
 
-Record every measurement in the working table in `<scratch>/calibrate/`.
+Record every measurement, with its capped metrics, in the working table in `<scratch>/calibrate/`.
+If `gh` fails after the tool's retries, stop, and say how many nominees were measured; a re-run resumes from the cache.
 
 ---
 
 ## Step 4 — Propose floors
 
-Compute and present the floors per [`propose.md`](propose.md).
+Write the working table's rows for the configured window to `<scratch>/calibrate/rows.json` and run:
+
+```bash
+uv run --directory <framework>/tools/contributor-metrics contributor-metrics floors \
+  --rows <scratch>/calibrate/rows.json --halflife <calibration_recency_halflife_years> \
+  --out <scratch>/calibrate/floors.json
+```
+
+Present the result per [`propose.md`](propose.md): the proposed floors, the evidence-only metrics, targets without floors, the tool's notes, and how many capped values each metric left out.
 The distribution numbers — medians and percentiles per outcome — are shown to the maintainer in the session only; they never go into configuration.
 
 ---
