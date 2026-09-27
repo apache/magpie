@@ -24,9 +24,9 @@ when_to_use: |
   anchor the import on (`security-issue-import-from-pr`).
 argument-hint: "[path-to-markdown-file]"
 capability: capability:intake
-surface_hash: sha256:1b9464815ffad903
+surface_hash: sha256:8a669c8592bfd4ce
 license: Apache-2.0
-measured_tokens: 9169
+measured_tokens: 8948
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -205,29 +205,6 @@ to `apache/magpie`.
 
 ---
 
-## Snapshot drift
-
-Also at the top of every run, this skill compares the
-gitignored `.apache-magpie.local.lock` (per-machine
-fetch) against the committed `.apache-magpie.lock`
-(the project pin). On mismatch the skill surfaces the
-gap and proposes
-[`setup upgrade`](../../../magpie-setup/skills/setup/upgrade.md).
-The proposal is non-blocking — the user may defer if
-they want to run with the local snapshot for now. See
-[`docs/setup/install-recipes.md` § Subsequent runs and drift detection](../../../../docs/quick-start/other-install-methods.md#subsequent-runs-and-drift-detection)
-for the full flow.
-
-Drift severity:
-
-- **method or URL differ** → ✗ full re-install needed.
-- **ref differs** (project bumped tag, or `git-branch`
-  local is behind upstream tip) → ⚠ sync needed.
-- **`svn-zip` SHA-512 mismatches the committed
-  anchor** → ✗ security-flagged; investigate before
-  upgrading.
-
----
 ## Prerequisites
 
 Before running, the skill needs:
