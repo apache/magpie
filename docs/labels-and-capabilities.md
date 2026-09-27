@@ -338,6 +338,7 @@ or a contract-free mix of substrates (e.g. `tools/spec-inventory` is
 | [`tools/permission-audit`](../tools/permission-audit/) | `substrate:sandbox` | Audit + atomically edit Claude Code `permissions.allow[]` entries; backs `/magpie-setup verify --apply-permission-audit` (check 8d) |
 | [`tools/adversarial-review`](../tools/adversarial-review/) | `substrate:review` | Runs other models' CLIs (Codex, Copilot, Gemini, Claude) read-only over a change before its PR is created, and merges their findings into one advisory JSON report |
 | [`tools/vetted-ops`](../tools/vetted-ops/) | `substrate:sandbox` | Fixed, policy-scoped forge operations — a closed catalogue whose parameters can never become commands or flags, so one `allow` entry replaces the wildcard Layer 3 `ask` rules |
+| [`tools/contributor-metrics`](../tools/contributor-metrics/) | `substrate:analytics` | Deterministic contributor activity counts, per-area shares and automated-work weighting for the contributor-growth skills |
 | [`tools/pr-management-stats`](../tools/pr-management-stats/) | `substrate:analytics` | PR-backlog analytics engine |
 | [`tools/preflight-audit`](../tools/preflight-audit/) | `substrate:analytics` | Dry-run the bulk-mode pre-flight classifier; measure skip-rate before / after any rule edit in the security-issue-sync skill |
 | [`tools/privacy-llm`](../tools/privacy-llm/) | `substrate:privacy` | Privacy-LLM PII-scrubbing gate |

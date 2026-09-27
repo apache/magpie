@@ -120,6 +120,7 @@ substrate:analytics:
   - any:
       - changed-files:
           - any-glob-to-any-file:
+              - 'tools/contributor-metrics/**'
               - 'tools/dashboard-generator/**'
               - 'tools/pr-management-stats/**'
               - 'tools/preflight-audit/**'

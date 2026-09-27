@@ -21,6 +21,7 @@ members = [
     "apache-magpie",
     "checker",
     "container-gateway",
+    "contributor-metrics",
     "egress-gateway",
     "generate-cve-json",
     "github-body-field",
@@ -516,6 +517,21 @@ wheels = [
 name = "container-gateway"
 version = "0.1.0"
 source = { editable = "tools/container-gateway" }
+
+[package.dev-dependencies]
+dev = [
+    { name = "magpie-dev" },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [{ name = "magpie-dev", editable = "tools/dev" }]
+
+[[package]]
+name = "contributor-metrics"
+version = "0.1.0"
+source = { editable = "tools/contributor-metrics" }
 
 [package.dev-dependencies]
 dev = [
