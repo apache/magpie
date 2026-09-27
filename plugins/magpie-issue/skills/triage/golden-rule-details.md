@@ -9,7 +9,7 @@ Companion to [`SKILL.md`](SKILL.md). Full body text of the Golden rules; SKILL.m
 discussion comments and nothing else. No workflow transitions, no
 assignments, no label mutations, no body edits, no project-board
 column moves, no field changes. The skill's output is *text on the
-invites reaction*; the team's reply drives state change, applied
+tracker that invites reaction*; the team's reply drives state change, applied
 later by sibling skills.
 
 **Golden rule 2 — every comment is a draft until the user
