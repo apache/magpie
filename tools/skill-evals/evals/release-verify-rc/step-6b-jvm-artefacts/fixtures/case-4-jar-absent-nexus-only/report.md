@@ -22,7 +22,7 @@ maven-artifact-verify JSON report (verbatim):
       "check1": {
         "licenses": "PASS",
         "developers": "INHERITED-UNVERIFIED",
-        "developers_detail": "element absent and no locally staged parent POM to resolve against; verify against the effective POM",
+        "developers_detail": "element absent and the parent chain is not fully staged locally; verify against the effective POM",
         "scm": "PASS"
       }
     }

@@ -94,7 +94,7 @@ code lands.
   runs read-only RC pre-flight (signatures, checksums, RAT headers,
   NOTICE/LICENSE, prohibited binaries, published-JVM-artefact
   compliance via `tools/maven-artifact-verify` — POM licence set,
-  podling disclaimer, companion jars, Step 6b; version consistency,
+  podling disclaimer, companion jars; version consistency,
   Step 6);
   `release-vote-draft` (`mode: Drafting`) drafts the `[VOTE]` email body
   and planning-issue comment after a PASS pre-flight, never sending or

@@ -23,13 +23,16 @@ Grading rules:
 - A `FAIL` in the tool report (wrong POM licence, missing companion,
   missing companion `.asc` / checksum) is a hard `"FAIL"` — never a
   warning.
-- `INHERITED-UNVERIFIED` results (element inherited from a parent POM
-  that is not staged locally) are `"WARN"`, never `"FAIL"`: a correct
-  POM that inherits from the ASF parent must not be failed.
+- `INHERITED-UNVERIFIED` results (the parent chain is not fully staged
+  locally, so the element cannot be resolved offline) are `"WARN"`,
+  never `"FAIL"`: a correct POM that inherits from the ASF parent must
+  not be failed.
 - `pom_findings` / `companion_findings` name the exact failing artefact
   and what is wrong; an empty list means no findings for that kind.
 - `paste_recipe` must be a non-empty string invoking
   `maven-artifact-verify` on the staged directory, with `--digests`
-  set from `release-build.md § Digest set` and `--podling` passed only
-  when the source artefact ships a `DISCLAIMER` / `DISCLAIMER-WIP`.
+  set from `jvm_digest_set` when `release-build.md § JVM artefact
+  checks` sets it, otherwise from the § Digest set, and `--podling`
+  passed only when the source artefact ships a `DISCLAIMER` /
+  `DISCLAIMER-WIP`.
 - No extra keys are permitted in the response.
