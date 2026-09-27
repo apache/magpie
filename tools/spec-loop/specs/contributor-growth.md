@@ -67,6 +67,21 @@ state change for human sign-off.
   Read-only; never posts to any list. Ships `mode: Triage`
   + `experimental`, eval suite under
   `tools/skill-evals/evals/contributor-nomination/`.
+- Skill: `contributor-calibrate` — derives committer and PMC
+  threshold floors from the project's past nomination decisions on
+  the private list (behind the privacy-LLM gate), honouring a holdout
+  date and excluded threads; proposes a numbers-only config diff and
+  keeps per-nominee data in the session scratch directory. Ships
+  `mode: Triage` + `experimental`, eval suite under
+  `tools/skill-evals/evals/contributor-calibrate/`.
+- Skill: `contributor-candidate-screen` — screens every recent
+  contributor against the floors (deterministic pre-filter, every drop
+  logged), shortlists committer and PMC candidates, and writes a
+  per-candidate report with areas, floors, community signals and verified
+  real names; commits it only to a repository the GitHub API reports as
+  private, checked twice, after the maintainer confirms; no
+  `@`-mentions. Ships `mode: Triage` + `experimental`, eval suite under
+  `tools/skill-evals/evals/contributor-candidate-screen/`.
 - Skill: `good-first-issue-author` — drafts one net-new good first
   issue from a supplied gap or small task; suitability gate plus
   R1–R9 readiness checklist; waits for maintainer confirmation
@@ -107,6 +122,31 @@ state change for human sign-off.
   they do not invent contributions or inflate counts. The brief and
   activity card are inputs for a PMC vote, not a pre-decided
   recommendation.
+- **Automated and low-signal work counts for less.**
+  `contributor-to-committer` and `contributor-nomination` apply the
+  shared definition in `nomination/automated-contributions.md`:
+  restatements and work maintainers pushed back on are down-weighted,
+  work closed after pushback weighs `0`, and each pushed-back thread
+  carries a small penalty (`automated_pushback_penalty`, default
+  `0.25`) so the adjusted count can fall below the discounted one.
+  Using AI tools is not penalised; the brief shows raw, discounted,
+  penalty and adjusted values, and pushback is a signal to weigh,
+  never a disqualification.
+- **Counting is deterministic.** Both skills collect activity with
+  `tools/contributor-metrics`: five GitHub streams (PRs authored,
+  issues filed, reviews with one shared substantive rule, threads
+  commented, issues triaged on other people's issues), per-area shares
+  from `area_label_prefix` labels, and the weights and penalty above.
+  The tool flags pushback candidates; the skill confirms each one on
+  meaning before the tool scores it.
+- **Community signals are evidence, not a score.** Step 3 of both
+  skills collects `nomination/community-signals.md`: dev/users-list
+  presence and release testing, chat answers through `contract:chat`
+  (Slack adapter; public channels only), GitHub Discussions answers,
+  and project-related posts on accounts the contributor linked
+  themselves. Identities count only when confirmed; reasoned criticism
+  is constructive; the community indicator never changes counts,
+  thresholds or the band.
 - **Teaching register for first-contact.** `mentoring-welcome` and
   `good-first-issue-author` follow the Agentic Mentoring mode's tone
   contract (polite, never gatekeeping) and hand off to a human

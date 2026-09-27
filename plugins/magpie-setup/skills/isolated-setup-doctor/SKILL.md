@@ -19,9 +19,9 @@ when_to_use: >-
 capability:
   - capability:platform
   - capability:reassess
-surface_hash: sha256:3b8655e844ac99ab
+surface_hash: sha256:7d670b572d43bbeb
 license: Apache-2.0
-measured_tokens: 5539
+measured_tokens: 6034
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -315,11 +315,37 @@ bash <skill-dir>/scripts/probe-8-git-hooks.sh
 **On ✗ → remediation:**
 [`docs/setup/sandbox-troubleshooting.md` — Git hooks silently skipped for commits made inside the sandbox](../../../../docs/setup/sandbox-troubleshooting.md#git-hooks-silently-skipped-for-commits-made-inside-the-sandbox).
 
+### Probe 9 — Working directories under the read block
+
+Tests whether, with `permissions.blockReadsOutsideWorkingDirectories` on, the two directories the skills read on every run are working directories: `$HOME/.claude/magpie` (the fixed path the vetted-ops rules name) and the scratch root `/tmp/claude-<uid>`.
+Without them nothing breaks, but each read there prompts, and a bulk sync multiplies that by its gatherer agents.
+The prompt comes before any command runs, so the [sandbox-error hint hook](../../../../docs/setup/secure-agent-setup.md#sandbox-error-hint-hook) never sees it; this probe is the only in-session pointer.
+
+**Command:**
+
+```bash
+bash <skill-dir>/scripts/probe-9-working-dirs.sh
+```
+
+**Interpretation:**
+
+| Result | Status | Meaning |
+|---|---|---|
+| `✓ … are working directories` | Pass | Both resolved paths are listed (normally in `.claude/settings.local.json`, written by `sandbox-add-project-root.sh`). |
+| `⚠ not a working directory: …` | Warn | Each named path is missing; reads under it prompt. |
+| `⚠ … the glob entry … is never matched` | Warn | A glob such as `/tmp/claude-*` is listed as a working directory but does not match; replace it with the resolved path. |
+| `⊘ … blockReadsOutsideWorkingDirectories is off` | Skip | No read block, so nothing prompts. |
+| `⊘ HOME is not set` | Skip | The paths cannot be resolved; nothing to compare. |
+| `⊘ … user-scope settings unreadable from the sandbox` | Skip | The entries are missing from the readable project files, but the read block is usually set in user scope, which the sandbox cannot read; `setup-isolated-setup-verify` check 15 reads it from outside the sandbox. |
+
+**On ⚠ → remediation:**
+[`docs/setup/sandbox-troubleshooting.md` — Reads of `~/.claude/magpie` or `/tmp/claude-<uid>` ask for approval every time](../../../../docs/setup/sandbox-troubleshooting.md#reads-of-claudemagpie-or-tmpclaude-uid-ask-for-approval-every-time).
+
 ## After the report
 
 If every probe is ✓ or ⊘:
 
-> All eight probes pass (or are not applicable). The sandbox is
+> All nine probes pass (or are not applicable). The sandbox is
 > not currently blocking the known failure modes catalogued in
 > `docs/setup/sandbox-troubleshooting.md`. If you hit a different
 > sandbox-shaped failure, follow the catalog's *Adding a new

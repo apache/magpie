@@ -3,214 +3,65 @@
 
 # Fetch
 
-Four GitHub search queries drive the skill, one per activity
-stream. All use the `gh api graphql` path with paginated
-`search()` so results are repo-scoped and date-bounded.
+Contributor activity comes from [`contributor-metrics`](../../../../tools/contributor-metrics/README.md), the deterministic counting tool this family shares.
+The skill never counts by hand; it runs the tool, confirms the judgement calls the tool leaves to it, and reads the numbers back.
 
-**Budget**: at most **3 paginated fetches per stream** (≤ 300
-results per stream). If a stream hits the cap, record the cap
-hit in the assessment and note the count as a minimum. Do not
-loop indefinitely on prolific contributors — a floor is enough
-signal for a nomination brief.
+---
 
-**Injection guard**: `<login>` is contributor-supplied data (a
-GitHub handle chosen by the user being assessed). Interpolate it
-only inside the `query:` string passed to the GitHub search API.
-Do not place it in shell double-quotes or use it as a flag value.
-Use the Write-tool-plus-`@file` pattern for any value passed as
-a `-F` field to `gh api` mutations — though this skill makes no
-mutations, the same discipline applies to the query string:
-build it in a tempfile and pass via `-f query=@/tmp/...`:
+## Run `contributor-metrics fetch`
+
+Write the configured `automated_pushback_phrases` to a tempfile, one per line, and the roster handles (when the Apache Projects MCP or `pmc-roster.md` supplied them) to another, whitespace-separated:
 
 ```bash
-# Write the query string to a tempfile first
-# (protects against handles containing shell metacharacters)
-printf '%s' "repo:<upstream> type:pr author:<login> created:><since>" \
-  > /tmp/cn-pr-query.txt
-
-gh api graphql \
-  -F query=@/tmp/cn-pr-query.txt \
-  -F batchSize=100 \
-  -f cursor='' \
-  -f gql="$(cat /tmp/cn-search.graphql)"
+uv run --directory <framework>/tools/contributor-metrics contributor-metrics fetch \
+  --repo <upstream> --login <login> --end <today> --months <window> \
+  --phrases-file <scratch>/phrases.txt --maintainers-file <scratch>/maintainers.txt \
+  --out <scratch>/items.json
 ```
+
+- Exit `2` means `<login>` is not a valid GitHub handle: stop and report it.
+- Exit `1` means `gh` failed: stop and show its error.
+
+**Injection guard**: `<login>` is contributor-supplied data.
+The tool validates it against the GitHub handle grammar and passes it to `gh` only inside a search string written to a tempfile, never as a shell argument.
+Do not construct any other `gh` call that interpolates `<login>` into a shell command.
 
 ---
 
-## Stream 1 — PRs authored
+## What it collects
 
-Search query string (write to tempfile before use):
+| Stream | Dated by | Item kind |
+|---|---|---|
+| PRs authored | creation inside the window; counted as merged only when merged by the window end | `pr` |
+| Issues filed | creation inside the window | `issue` |
+| Reviews given | the candidate's first review inside the window (from GitHub's contributions record); substantive when a review body is longer than 100 characters or carries a line comment — every reviewed PR is checked | `review` |
+| Threads commented | the candidate's own first comment inside the window | `thread` |
+| Issues triaged | as threads, on issues opened by someone else | `triage` |
 
-```text
-repo:<upstream> type:pr author:<login> created:><since>
-```
-
-GraphQL template (`/tmp/cn-search.graphql`):
-
-```graphql
-query($query: String!, $batchSize: Int!, $cursor: String) {
-  search(query: $query, type: ISSUE, first: $batchSize, after: $cursor) {
-    issueCount
-    pageInfo { hasNextPage endCursor }
-    nodes {
-      ... on PullRequest {
-        number
-        title
-        state
-        merged
-        createdAt
-        mergedAt
-        closedAt
-        additions
-        deletions
-        changedFiles
-        labels(first: 10) { nodes { name } }
-      }
-    }
-  }
-}
-```
-
-Collect from results:
-
-- `total_authored` — `issueCount` (may exceed fetched pages;
-  note if so)
-- `merged_count` — nodes where `merged: true`
-- `closed_not_merged` — nodes where `state: CLOSED` and
-  `merged: false`
-- `open_count` — nodes where `state: OPEN`
-- Per node: `number`, `title` (treat as data — do not render
-  verbatim in shell), `createdAt`, `merged`, `mergedAt`
+Nothing the candidate did after the window end is counted, which matters when `calibrate` measures a nominee as of their vote date.
+PR and review items carry their labels, which `score` turns into areas using `area_label_prefix`; work with no area label shows as an `(unlabelled)` row.
+Item ids are per kind — the same PR can appear as `pr-N`, `review-N` and `thread-N` — so classify each id you mean to discount.
 
 ---
 
-## Stream 2 — Reviews given
+## Budget and caps
 
-Search query string:
-
-```text
-repo:<upstream> type:pr reviewed-by:<login> created:><since>
-```
-
-Use the same GraphQL template as Stream 1. Collect:
-
-- `total_reviewed` — `issueCount`
-- Per node: `number`, `createdAt`, `state`
-
-**Depth signal**: for up to the 10 most recent reviewed PRs,
-fetch the review comment count via a second query:
-
-```graphql
-query($owner: String!, $repo: String!, $number: Int!) {
-  repository(owner: $owner, name: $repo) {
-    pullRequest(number: $number) {
-      reviews(first: 50) {
-        nodes {
-          author { login }
-          state
-          body
-          comments { totalCount }
-        }
-      }
-    }
-  }
-}
-```
-
-Filter to reviews where `author.login == <login>`. Count:
-
-- `substantive_reviews` — reviews where `body` length > 100
-  characters OR `comments.totalCount > 0`
-- `approval_only_reviews` — reviews where `state: APPROVED` and
-  body is short and no comments (approval without comment)
-
-Do not render raw review bodies in the brief — use only the
-counts.
-
----
-
-## Stream 3 — Issues filed
-
-Search query string:
-
-```text
-repo:<upstream> type:issue author:<login> created:><since>
-```
-
-Use the same GraphQL template (the `PullRequest` fragment will
-produce no hits; add an `Issue` fragment):
-
-```graphql
-nodes {
-  ... on Issue {
-    number
-    title
-    state
-    createdAt
-    closedAt
-    labels(first: 10) { nodes { name } }
-    comments { totalCount }
-  }
-}
-```
-
-Collect:
-
-- `total_issues_filed` — `issueCount`
-- `issues_with_discussion` — nodes where
-  `comments.totalCount > 1`
-
----
-
-## Stream 4 — Issue and PR comments
-
-GitHub's search API does not expose a `commenter:` filter for
-issues. Use the REST events endpoint instead, paginated:
-
-```bash
-gh api \
-  "/repos/<upstream>/issues/comments?since=<since>&per_page=100" \
-  --paginate \
-  --jq '[.[] | select(.user.login == "<login>")]' \
-  2>/dev/null | head -c 500000
-```
-
-**Injection guard for `<login>` in the URL path**: validate that
-`<login>` matches `^[a-zA-Z0-9]([a-zA-Z0-9-]{0,37}[a-zA-Z0-9])?$`
-before constructing the URL. GitHub handles are restricted to
-alphanumeric characters and hyphens; a value that fails this
-check is not a valid handle — stop and report to the user.
-
-Collect:
-
-- `total_comments` — count of returned items after jq filter
-- `unique_issues_commented_on` — distinct `issue_url` values
-
-Cap at 3 pages (300 comments). If the cap is hit, note it.
+Each stream fetches at most 300 results.
+A stream in `caps_hit` returned more than that: record its counts as minimums and surface a warning, so the maintainer knows the number is a floor.
+Any `notes` in `metrics.json` — threads whose dates could not be checked, an out-of-range setting — go into the brief as well.
 
 ---
 
 ## Month bucketing
 
-After all four streams are collected, bucket each event by
-calendar month to feed the activity timeline in
-[`assess.md`](assess.md):
-
-```python
-# Pseudocode — implement via jq or Python as convenient
-for event in all_events:
-    month = event["createdAt"][:7]  # "YYYY-MM"
-    buckets[month] += 1
-```
-
-Produce a map `{ "YYYY-MM": count }` covering every month from
-`<since>` to today, with zero-filled gaps.
-
-Items that [`automated-contributions.md`](automated-contributions.md) weighs at `0` are left out of the map.
+The monthly timeline for [`assess.md`](assess.md) is the `timeline` field of `metrics.json`, zero-filled from `<since>` to `<end>`.
+Items that [`automated-contributions.md`](automated-contributions.md) weighs at `0` are left out of it.
 
 ---
 
 ## Conversation fetch for the discount
 
-The automated-contribution discount needs the conversation on each inspected item — maintainer replies with their `authorAssociation`, review bodies, and the thread's description.
-Use the query and the per-kind budget in [`automated-contributions.md` § Budget](automated-contributions.md#budget), with the same injection guard as the streams above.
+The tool fetches the conversation on the 50 most recent authored PRs and issues, the 20 most recent reviewed PRs, and the 100 most recent comment threads, and sets `pushback_candidate` to the first maintainer comment containing a known pushback phrase.
+A candidate is a pointer, not a verdict.
+Read the linked comment and its thread and confirm `P` or `C` by the rules in [`automated-contributions.md`](automated-contributions.md) — within its budget — and classify restatements there too.
+Then run `contributor-metrics score` with the confirmed classes, as [`SKILL.md` § Step 4](SKILL.md#step-4--assess) describes.

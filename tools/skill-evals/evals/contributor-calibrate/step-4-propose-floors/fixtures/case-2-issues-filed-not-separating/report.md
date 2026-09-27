@@ -1,0 +1,35 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
+All rows voted in the last year, so every row has the same recency weight. Metrics measured: prs_merged, issues_filed.
+
+| Row | Target | Outcome | prs_merged | issues_filed |
+|---|---|---|---|---|
+| r1 | committer | elected | 40 | 1 |
+| r2 | committer | elected | 48 | 0 |
+| r3 | committer | elected | 55 | 2 |
+| r4 | committer | elected | 60 | 1 |
+| r5 | committer | elected | 72 | 0 |
+| r6 | committer | deferred | 10 | 1 |
+| r7 | committer | deferred | 15 | 2 |
+| r8 | committer | deferred | 20 | 0 |
+
+`contributor-metrics floors` output for these rows:
+
+```json
+{
+  "floors": {
+    "committer": {
+      "issues_filed": 0,
+      "prs_merged": 48
+    }
+  },
+  "evidence_only": {
+    "committer": [
+      "issues_filed"
+    ]
+  },
+  "no_floors_for": [],
+  "notes": []
+}
+```

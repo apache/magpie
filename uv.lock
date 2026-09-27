@@ -21,6 +21,7 @@ members = [
     "apache-magpie",
     "checker",
     "container-gateway",
+    "contributor-metrics",
     "egress-gateway",
     "generate-cve-json",
     "github-body-field",
@@ -29,6 +30,7 @@ members = [
     "magpie-bitbucket",
     "magpie-dev",
     "magpie-fossil",
+    "magpie-gitlab",
     "magpie-maildir",
     "magpie-skills",
     "magpie-sourcehut",
@@ -529,6 +531,21 @@ dev = [
 dev = [{ name = "magpie-dev", editable = "tools/dev" }]
 
 [[package]]
+name = "contributor-metrics"
+version = "0.1.0"
+source = { editable = "tools/contributor-metrics" }
+
+[package.dev-dependencies]
+dev = [
+    { name = "magpie-dev" },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [{ name = "magpie-dev", editable = "tools/dev" }]
+
+[[package]]
 name = "cryptography"
 version = "50.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -934,6 +951,21 @@ requires-dist = [
 name = "magpie-fossil"
 version = "0.1.0"
 source = { editable = "tools/fossil" }
+
+[package.dev-dependencies]
+dev = [
+    { name = "magpie-dev" },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [{ name = "magpie-dev", editable = "tools/dev" }]
+
+[[package]]
+name = "magpie-gitlab"
+version = "0.1.0"
+source = { editable = "tools/gitlab" }
 
 [package.dev-dependencies]
 dev = [

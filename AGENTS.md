@@ -538,6 +538,22 @@ to a home-dir path and update the tool to read from there.
 - **Always open PRs with `gh pr create --web`** so the human reviewer can check the title,
   body, and the generative-AI disclosure in the browser before submission. Pre-fill `--title`
   and `--body-file` (including the Gen-AI disclosure block) so they only need to review, not edit.
+- **Stack a series of dependent PRs with GitHub's stacked PRs — only with write access to `<upstream>`.**
+  A stacked PR's base is the previous PR's branch, and a PR can only target a branch in the repository
+  it is opened against, so every branch of a stack must be pushed to `<upstream>` itself, never to a fork.
+  When one change is split into several PRs that each build on the previous one:
+  - Check write access with a plain `gh api repos/<upstream> --jq .permissions.push`.
+  - **`true`:** check for the [`github/gh-stack`](https://gh.io/stacks) extension with a plain `gh extension list`;
+    if it is missing, suggest the user install it themselves with `! gh extension install github/gh-stack` —
+    the secure setup denies extension installs from the agent, and installing one is the user's call.
+    Push every branch of the stack to `<upstream>` (its URL, not the fork's remote),
+    create each PR from its approved body file with `gh pr create --repo <upstream> --base <previous branch> --web`,
+    then join them bottom to top with `gh stack link --remote <upstream URL> <bottom-PR> … <top-PR>`.
+  - **Anything else:** do not suggest the extension. Push the branches to the fork and open each PR
+    against `<upstream>`'s default branch, one at a time or with a *"Depends on #N"* line naming the PR below it.
+  Never use `gh stack submit --auto`, or let `gh stack link` create a PR for a bare branch:
+  both post auto-generated titles and bodies nobody approved.
+  If the repository does not have stacks enabled, the base-chained PRs still work; say so and carry on.
 - **Pass long or multi-line message bodies to `gh` (and similar CLIs) through a file,
   never inline.**
   Write the text to a file in the session scratch directory or `$TMPDIR` first,

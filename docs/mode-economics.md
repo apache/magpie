@@ -266,6 +266,8 @@ cost depends on contributor volume.
 | `mentoring-welcome` | One first-time contributor → one welcome draft | 4K–12K | Estimated; reads the triggering thread + contributing-guide pointers, no full-thread history; skill experimental | Not measured |
 | `onboarding-concierge` | One newcomer question → one grounded answer draft | 4K–12K | Estimated; reads `CONTRIBUTING.md` + the relevant doc excerpt; read-only; skill experimental | Not measured |
 | `contributor-to-committer` | Single contributor readiness brief | 20K–70K | Estimated; reads the contributor's activity history against the adopter's thresholds, plus the conversations on up to 50 authored items, 50 comment threads and 20 reviews for the automated-contribution discount, and any project expectation documents; read-only; skill experimental | Not measured |
+| `contributor-calibrate` | One calibration run (~100 past nominations) | 150K–500K | Estimated; reads the private list's nomination threads (rows only are kept), then runs `contributor-metrics` per nominee and window with up to 10 pushback confirmations each; read-only until the confirmed config diff; skill experimental | Not measured |
+| `contributor-candidate-screen` | One screening run (pool of ~100, shortlist of ~15) | 200K–800K | Estimated; count-only pre-filter over the pool, then `contributor-metrics` and community signals per survivor and shortlisted candidate, plus two or three paragraphs each; writes only after confirmation; skill experimental | Not measured |
 | `good-first-issue-sweep` | Backlog sweep (10 issues) | 20K–80K | Estimated; scales linearly with the number of issues scored; skill experimental | Not measured |
 
 **Unvalidated planning assumption for Agentic Mentoring:** budget 10K–20K tokens per

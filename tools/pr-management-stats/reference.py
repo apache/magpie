@@ -328,9 +328,22 @@ def fold_triaged_at(pr):
     PR *description* as a ``<!-- pr-triage-fold: triaged=<ISO> ... -->`` block
     rather than posting a comment. A comment-only marker scan is blind to it,
     so every folded triage note goes uncounted -- the bug this fixes. A fold is
-    always AI-drafted (it is written by the automated triage tool)."""
-    m = _FOLD_TRIAGED_RE.search(pr.get("body") or "")
-    return parse_iso(m.group(1)) if m else None
+    always AI-drafted (it is written by the automated triage tool).
+
+    The block lives in the PR body, which the PR author controls, so the
+    marker text is untrusted input: an unparsable or timezone-naive
+    ``triaged=`` value means "no fold event", never a crash -- a
+    framework-written fold always carries an ISO-8601 UTC timestamp. Every
+    marker is tried, so a malformed one placed above the real block cannot
+    hide it."""
+    for m in _FOLD_TRIAGED_RE.finditer(pr.get("body") or ""):
+        try:
+            at = parse_iso(m.group(1))
+        except ValueError:
+            continue
+        if at.tzinfo is not None:
+            return at
+    return None
 
 
 def triage_marker_events(pr, ctx):

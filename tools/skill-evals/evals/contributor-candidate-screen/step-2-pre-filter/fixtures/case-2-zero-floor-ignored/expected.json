@@ -1,0 +1,12 @@
+{
+  "kept": [
+    "foxtrot"
+  ],
+  "dropped": [
+    {
+      "handle": "echo",
+      "merged_prs": 5,
+      "reviewed_prs": 0
+    }
+  ]
+}

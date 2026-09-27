@@ -1,4 +1,7 @@
 {
   "skill_md": "skills/contributor-nomination/SKILL.md",
-  "step_heading": "## Step 0 — Resolve inputs"
+  "step_heading": "## Step 0 \u2014 Resolve inputs",
+  "also_include": [
+    "plugins/magpie-contributor-growth/skills/nomination/real-names.md"
+  ]
 }

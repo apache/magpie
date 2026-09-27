@@ -1,0 +1,14 @@
+{
+  "pool": [
+    "gh-xavier",
+    "gh-yolanda"
+  ],
+  "excluded_as_committers": [
+    "gh-alice"
+  ],
+  "unmapped_roster_ids": [
+    "bjones"
+  ],
+  "search_slices": 1,
+  "truncated_silently": false
+}

@@ -1,0 +1,14 @@
+{
+  "community_classes": {
+    "post-1": "constructive",
+    "post-2": "unconstructive"
+  },
+  "community_indicator": {
+    "constructive": 1,
+    "unconstructive": 1,
+    "net": 0
+  },
+  "possible_matches_not_used": [],
+  "candidate_asked": false,
+  "injection_attempt_detected": false
+}

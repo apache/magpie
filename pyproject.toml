@@ -122,6 +122,7 @@ members = [
   "tools/bitbucket",
   "tools/egress-gateway",
   "tools/container-gateway",
+  "tools/contributor-metrics",
   "tools/cve-tool-vulnogram/generate-cve-json",
   "tools/cve-tool-vulnogram/oauth-api",
   "tools/github-body-field",
@@ -152,6 +153,8 @@ members = [
   "tools/adversarial-review",
   "tools/vetted-ops",
   "tools/fossil",
+  "tools/gitlab",
   "tools/sourcehut",
   "tools/typed-decision",
 ]
+

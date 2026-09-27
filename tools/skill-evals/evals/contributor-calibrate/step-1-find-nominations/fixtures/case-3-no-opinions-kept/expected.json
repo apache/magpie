@@ -1,0 +1,15 @@
+{
+  "rows": [
+    {
+      "thread_id": "t30",
+      "nominee_name": "Nominee M",
+      "handle": null,
+      "target": "committer",
+      "vote_date": "2025-04-08",
+      "outcome": "elected",
+      "deferral_category": null
+    }
+  ],
+  "skipped_threads": [],
+  "injection_attempt_detected": false
+}

@@ -1,0 +1,14 @@
+{
+  "floors": {
+    "committer": {
+      "prs_merged": 48,
+      "issues_filed": 0
+    }
+  },
+  "evidence_only": {
+    "committer": [
+      "issues_filed"
+    ]
+  },
+  "diff_contains_names": false
+}

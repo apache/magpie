@@ -1,0 +1,7 @@
+{
+  "skill_md": "skills/contributor-calibrate/SKILL.md",
+  "step_heading": "## Step 1 \u2014 Find nominations",
+  "also_include": [
+    "plugins/magpie-contributor-growth/skills/calibrate/extract.md"
+  ]
+}

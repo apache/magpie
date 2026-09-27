@@ -49,7 +49,7 @@ them makes the adopter configuration and the evaluation story coherent.
 
 ## Install & first runs
 
-Install just this family — one plugin, 6 skills. The path-to-committer track.
+Install just this family — one plugin, 8 skills. The path-to-committer track.
 
 Once you have [added the marketplace](../setup/marketplace-install.md):
 
@@ -90,18 +90,18 @@ says which file is missing.
 | File | What it carries | Read by |
 |---|---|---|
 | [`committer-onboarding-config.md`](../../plugins/magpie-setup/templates/committer-onboarding-config.md) | Capability-flag vocabulary for committer intake and governance models (`icla`/`dco`/`no-cla`; `asf-pmc`/`github-codeowners`/`maintainer-roster`). | `committer-onboarding` |
-| [`committer-readiness.md`](../../plugins/magpie-setup/templates/committer-readiness.md) | The project's declared committer and PMC thresholds — what a contributor's activity is measured against. | `contributor-to-committer` |
-| [`contributor-nomination-config.md`](../../plugins/magpie-setup/templates/contributor-nomination-config.md) | Nomination-brief thresholds and assessment window. | `nomination` |
+| [`committer-readiness.md`](../../plugins/magpie-setup/templates/committer-readiness.md) | The project's declared committer and PMC thresholds — what a contributor's activity is measured against. | `calibrate`, `candidate-screen`, `contributor-to-committer` |
+| [`contributor-nomination-config.md`](../../plugins/magpie-setup/templates/contributor-nomination-config.md) | Nomination-brief thresholds and assessment window. | `calibrate`, `candidate-screen`, `nomination` |
 | [`contributor-sentiment-config.md`](../../plugins/magpie-setup/templates/contributor-sentiment-config.md) | Signal thresholds for the sentiment gate. Every key has a default. | `sentiment` |
 | [`onboarding-concierge-config.md`](../../plugins/magpie-setup/templates/onboarding-concierge-config.md) | The path a new contributor is walked through, and who owns each step. | `onboarding-concierge` |
-| [`project.md`](../../plugins/magpie-setup/templates/project.md) | Project manifest. Identity, repositories, mailing lists, tools enabled, CVE tooling, GitHub project-board + issue-template field declarations. The single file every skill reads to resolve project-scoped references. | `activity-sweep`, `committer-onboarding`, `contributor-to-committer`, `nomination`, `onboarding-concierge`, `sentiment` |
+| [`privacy-llm.md`](../../plugins/magpie-setup/templates/privacy-llm.md) | Which model tier may see which class of content, for projects routing foundation-private information away from third-party models. | `calibrate` |
+| [`project.md`](../../plugins/magpie-setup/templates/project.md) | Project manifest. Identity, repositories, mailing lists, tools enabled, CVE tooling, GitHub project-board + issue-template field declarations. The single file every skill reads to resolve project-scoped references. | `activity-sweep`, `calibrate`, `candidate-screen`, `committer-onboarding`, `contributor-to-committer`, `nomination`, `onboarding-concierge`, `sentiment` |
 
 **Optional.** Each has a documented fallback; absent, the skill still runs.
 
 | File | What it carries | Read by |
 |---|---|---|
-| [`pmc-roster.md`](../../plugins/magpie-setup/templates/pmc-roster.md) | Who is binding. Read wherever a vote is counted or a PMC-only action is gated. | `nomination` |
-| [`privacy-llm.md`](../../plugins/magpie-setup/templates/privacy-llm.md) | Which model tier may see which class of content, for projects routing foundation-private information away from third-party models. | `committer-onboarding` |
+| [`pmc-roster.md`](../../plugins/magpie-setup/templates/pmc-roster.md) | Who is binding. Read wherever a vote is counted or a PMC-only action is gated. | `candidate-screen`, `nomination` |
 
 <!-- END generated: skill-config -->
 
@@ -142,6 +142,8 @@ below sends, merges, or posts anything without you confirming it.*
 | **Issue on-ramp** | [`good-first-issue-author`](../../skills/good-first-issue-author/SKILL.md) | Drafts one net-new good first issue from a supplied gap or small task; a suitability gate and R1–R9 readiness checklist gate the draft; waits for maintainer confirmation before filing via `gh`. |
 | **Backlog curation** | [`good-first-issue-sweep`](../../skills/good-first-issue-sweep/SKILL.md) | Sweeps the open issue backlog for existing issues that could be labelled as good first issues; scores each against the G1–G7 suitability rubric; classifies as READY / NEAR-MISS / SKIP and proposes labels after explicit maintainer confirmation. |
 | **Activity tracking** | [`contributor-activity-sweep`](../../skills/contributor-activity-sweep/SKILL.md) | Produces a read-only GitHub activity card (PRs authored, code reviews, issues, comments) over a configurable window. |
+| **Calibration** | [`contributor-calibrate`](../../skills/contributor-calibrate/SKILL.md) | Derives committer and PMC threshold floors from the project's own past nomination decisions on the private list; proposes a config diff holding numbers only, with nothing about any nominee leaving the session. |
+| **Candidate screening** | [`contributor-candidate-screen`](../../skills/contributor-candidate-screen/SKILL.md) | Screens every recent contributor against the calibrated floors, shortlists committer and PMC candidates, and writes a per-candidate evidence report — areas, floors, community signals, two or three paragraphs each — to a repository the GitHub API reports as private, after the maintainer has read it. |
 | **Readiness check** | [`contributor-to-committer`](../../skills/contributor-to-committer/SKILL.md) | Maps a contributor's GitHub activity against the adopter's PMC-declared committer or PMC thresholds; surfaces a traffic-light brief (Not yet / Approaching / Ready to nominate) and a gap table showing what would close each remaining gap. Read-only; never opens a nomination thread. |
 | **Nomination brief** | [`contributor-nomination`](../../skills/contributor-nomination/SKILL.md) | Assembles evidence prose for a committer or PMC vote thread: activity breadth, consistency, vendor-neutrality context, and a nomination-ready summary. Read-only; never posts to any list. |
 | **Sentiment analysis** | [`contributor-sentiment`](../../skills/contributor-sentiment/SKILL.md) | Analyse contributor sentiment signals (issue tone, PR abandonment, response-time frustration) to surface early-warning indicators of contributor disengagement. Read-only. |
@@ -164,9 +166,11 @@ without explicit maintainer confirmation.
 | [`contributor-activity-sweep`](../../skills/contributor-activity-sweep/SKILL.md) | Triage | experimental |
 | [`contributor-to-committer`](../../skills/contributor-to-committer/SKILL.md) | Mentoring | experimental |
 | [`contributor-nomination`](../../skills/contributor-nomination/SKILL.md) | Triage | experimental |
+| [`contributor-calibrate`](../../skills/contributor-calibrate/SKILL.md) | Triage | experimental |
+| [`contributor-candidate-screen`](../../skills/contributor-candidate-screen/SKILL.md) | Triage | experimental |
 | [`committer-onboarding`](../../skills/committer-onboarding/SKILL.md) | Triage | experimental |
 
-All nine skills are `experimental`; no adopter has run the full
+All eleven skills are `experimental`; no adopter has run the full
 contributor-to-committer path under evaluation conditions yet.
 
 ## Family boundary
@@ -194,7 +198,7 @@ direct action.
 
 ## Status
 
-**Experimental.** All nine skills are on main with eval suites; no
+**Experimental.** All eleven skills are on main with eval suites; no
 adopter has run the full contributor-to-committer path end-to-end under
 evaluation conditions.
 

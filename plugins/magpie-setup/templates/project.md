@@ -12,6 +12,7 @@
   - [Tools enabled](#tools-enabled)
   - [CVE tooling](#cve-tooling)
   - [GitHub project board](#github-project-board)
+  - [Project chat](#project-chat)
   - [Mail sources](#mail-sources)
     - [Backend declaration](#backend-declaration)
     - [Per-backend config](#per-backend-config)
@@ -125,6 +126,7 @@ for ASF projects) is org-level — inherited from your organization's
 | CVE allocation + record mgmt | *org-level* — inherited from `organizations/<org>/organization.md → cve_authority.tool`; for ASF: `vulnogram` ([`tools/cve-tool-vulnogram/`](../../../tools/cve-tool-vulnogram/)), for independent: `mitre-form` | — | override in [CVE authority](#cve-authority) only if this project differs from its org |
 | Security cross-ref | `osv` | [`../../tools/osv/`](../../../tools/osv/) | `security_cross_ref.tool`, `security_cross_ref.ecosystem` |
 | Project metadata (rosters / people / releases) | *org-level* — inherited from `organizations/<org>/organization.md → project_metadata.kind`; for ASF: `apache-projects` ([`tools/apache-projects/`](../../../tools/apache-projects/)), for independent: `none` | — | override in [Project metadata](#project-metadata) only if this project differs from its org |
+| Project chat | TODO: `slack`, `discord`, or `none` | [`../../tools/chat/`](../../../tools/chat/) (abstract) + adapter dirs (`tools/chat-slack/`) | `chat.kind`, `chat.channels` — see [Project chat](#project-chat) below; read-only, public channels only |
 | Release comms | TODO: the backend that carries release announcements — for ASF: `dev_list` / `announce_list` / `users_list`; for GitHub Releases leave blank | — | whichever release-comms keys the org default or per-project override declares |
 
 To replace a tool (e.g. swap GitHub issues for JIRA), declare an
@@ -181,6 +183,18 @@ returns `not found`):
 | `PR merged` | TODO |
 | `Fix released` | TODO |
 | `Announced` | TODO |
+
+## Project chat
+
+The contributor-growth skills read public chat channels for community signals, through the [`tools/chat/`](../../../tools/chat/) contract.
+Leave `kind: none` if the project has no public chat, or does not want it read.
+
+```yaml
+chat:
+  kind: none         # slack | discord | none
+  channels: []       # channel names to read; empty = every public channel —
+                     # list them explicitly in a workspace shared by several projects
+```
 
 ## Mail sources
 

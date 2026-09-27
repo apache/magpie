@@ -228,6 +228,56 @@ class TestToolPaths:
 
 
 # ---------------------------------------------------------------------------
+# working directories (permissions.additionalDirectories)
+# ---------------------------------------------------------------------------
+
+
+def _work_dirs(home: Path) -> list[str]:
+    return [str(home / ".claude" / "magpie"), f"/tmp/claude-{os.getuid()}"]
+
+
+class TestWorkingDirs:
+    def test_adds_resolved_working_dirs(self, tmp_path: Path) -> None:
+        repo = _make_git_repo(tmp_path)
+        home = tmp_path / "home"
+        _run(repo, extra_env={"HOME": str(home)})
+        data = _load(repo / ".claude" / "settings.local.json")
+        assert data["permissions"]["additionalDirectories"] == _work_dirs(home)
+
+    def test_never_writes_a_glob_or_tilde(self, tmp_path: Path) -> None:
+        # additionalDirectories matches literal paths only: a glob is listed but never matched.
+        repo = _make_git_repo(tmp_path)
+        home = tmp_path / "home"
+        _run(repo, extra_env={"HOME": str(home)})
+        for entry in _load(repo / ".claude" / "settings.local.json")["permissions"]["additionalDirectories"]:
+            assert "*" not in entry
+            assert not entry.startswith("~")
+
+    def test_second_run_no_duplicate_working_dirs(self, tmp_path: Path) -> None:
+        repo = _make_git_repo(tmp_path)
+        home = tmp_path / "home"
+        _run(repo, extra_env={"HOME": str(home)})
+        _run(repo, extra_env={"HOME": str(home)})
+        dirs = _load(repo / ".claude" / "settings.local.json")["permissions"]["additionalDirectories"]
+        assert dirs == _work_dirs(home)
+
+    def test_keeps_existing_working_dirs(self, tmp_path: Path) -> None:
+        repo = _make_git_repo(tmp_path)
+        home = tmp_path / "home"
+        _seed_settings(repo, {"permissions": {"additionalDirectories": ["/opt/data"], "allow": ["Bash(ls *)"]}})
+        _run(repo, extra_env={"HOME": str(home)})
+        permissions = _load(repo / ".claude" / "settings.local.json")["permissions"]
+        assert permissions["additionalDirectories"] == ["/opt/data"] + _work_dirs(home)
+        assert permissions["allow"] == ["Bash(ls *)"]  # other permission keys untouched
+
+    def test_no_working_dirs_flag_skips_them(self, tmp_path: Path) -> None:
+        repo = _make_git_repo(tmp_path)
+        home = tmp_path / "home"
+        _run(repo, args=["--no-working-dirs"], extra_env={"HOME": str(home)})
+        assert "permissions" not in _load(repo / ".claude" / "settings.local.json")
+
+
+# ---------------------------------------------------------------------------
 # dry-run
 # ---------------------------------------------------------------------------
 

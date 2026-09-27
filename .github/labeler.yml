@@ -28,8 +28,16 @@ contract:change-request:
               - 'tools/bitbucket/**'
               - 'tools/change-request/**'
               - 'tools/github/**'
+              - 'tools/gitlab/**'
               - 'tools/jira-patch/**'
               - 'tools/mail-patch/**'
+
+contract:chat:
+  - any:
+      - changed-files:
+          - any-glob-to-any-file:
+              - 'tools/chat/**'
+              - 'tools/chat-slack/**'
 
 contract:cve-authority:
   - any:
@@ -95,6 +103,7 @@ contract:source-control:
               - 'tools/asf-svn/**'
               - 'tools/fossil/**'
               - 'tools/github/**'
+              - 'tools/gitlab/**'
               - 'tools/sourcehut/**'
               - 'tools/vcs/**'
 
@@ -107,6 +116,7 @@ contract:tracker:
               - 'tools/github/**'
               - 'tools/github-body-field/**'
               - 'tools/github-rollup/**'
+              - 'tools/gitlab/**'
               - 'tools/jira/**'
               - 'tools/sourcehut/**'
 
@@ -126,6 +136,7 @@ substrate:analytics:
   - any:
       - changed-files:
           - any-glob-to-any-file:
+              - 'tools/contributor-metrics/**'
               - 'tools/dashboard-generator/**'
               - 'tools/pr-management-stats/**'
               - 'tools/preflight-audit/**'

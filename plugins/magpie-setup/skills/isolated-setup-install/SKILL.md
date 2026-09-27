@@ -15,9 +15,9 @@ when_to_use: >-
   If it is already installed, use `setup-isolated-setup-verify` to check
   it or `setup-isolated-setup-update` to refresh it.
 capability: capability:platform
-surface_hash: sha256:eb1b228a501f2772
+surface_hash: sha256:3f90b1ffdaa6e9ea
 license: Apache-2.0
-measured_tokens: 4937
+measured_tokens: 5244
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -341,6 +341,29 @@ Tell the operator what the exclusion covers and what it does not:
   read-only mode still reads files anywhere on the machine; see the tool's
   README for what that means for a machine that also holds a private
   checkout.
+
+### Step W — Working directories for the read block
+
+Nothing extra to write: the `sandbox-add-project-root.sh` run in Step P also
+adds `$HOME/.claude/magpie` and `/tmp/claude-<uid>`, resolved, to
+`permissions.additionalDirectories` of each worktree's project-local
+`settings.local.json`. Under `permissions.blockReadsOutsideWorkingDirectories`
+the skills read both on every run; without the entries each read prompts, and
+a bulk sync multiplies that by its gatherer agents.
+
+After Step P, show the operator the resulting `additionalDirectories` list and
+check two things:
+
+- **No glob and no `~`.** If the operator already has an entry such as
+  `/tmp/claude-*` in any scope, say it does nothing: the setting matches
+  literal paths only, so the glob is listed but never matched.
+- **Nothing per-host in a synced or committed file.** If the operator put the
+  paths in a user-scope `~/.claude/settings.json` that is synced across
+  machines, or in the committed project settings, suggest moving them: they
+  name this host's home directory and uid.
+
+Rationale and the rules in full:
+[`docs/setup/secure-agent-setup.md` → Working directories under the read-outside-working-directories block](../../../../docs/setup/secure-agent-setup.md#working-directories-under-the-read-outside-working-directories-block).
 
 ### Steps K, L and M — optional extras
 

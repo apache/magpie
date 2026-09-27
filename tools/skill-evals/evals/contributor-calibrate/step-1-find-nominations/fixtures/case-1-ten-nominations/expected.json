@@ -1,0 +1,96 @@
+{
+  "rows": [
+    {
+      "thread_id": "t01",
+      "nominee_name": "Nominee A",
+      "handle": null,
+      "target": "committer",
+      "vote_date": "2024-02-17",
+      "outcome": "elected",
+      "deferral_category": null
+    },
+    {
+      "thread_id": "t02",
+      "nominee_name": "Nominee B",
+      "handle": null,
+      "target": "committer",
+      "vote_date": "2024-03-05",
+      "outcome": "deferred",
+      "deferral_category": "narrow-focus"
+    },
+    {
+      "thread_id": "t03",
+      "nominee_name": "Nominee C",
+      "handle": null,
+      "target": "committer",
+      "vote_date": "2024-05-19",
+      "outcome": "elected",
+      "deferral_category": null
+    },
+    {
+      "thread_id": "t04",
+      "nominee_name": "Nominee D",
+      "handle": null,
+      "target": "committer",
+      "vote_date": "2024-08-01",
+      "outcome": "deferred",
+      "deferral_category": "little-list-presence"
+    },
+    {
+      "thread_id": "t05",
+      "nominee_name": "Nominee E",
+      "handle": null,
+      "target": "committer",
+      "vote_date": "2024-09-22",
+      "outcome": "withdrawn",
+      "deferral_category": null
+    },
+    {
+      "thread_id": "t06",
+      "nominee_name": "Nominee F",
+      "handle": null,
+      "target": "committer",
+      "vote_date": "2025-01-22",
+      "outcome": "elected",
+      "deferral_category": null
+    },
+    {
+      "thread_id": "t07",
+      "nominee_name": "Nominee G",
+      "handle": null,
+      "target": "pmc",
+      "vote_date": "2025-03-10",
+      "outcome": "elected",
+      "deferral_category": null
+    },
+    {
+      "thread_id": "t08",
+      "nominee_name": "Nominee H",
+      "handle": null,
+      "target": "pmc",
+      "vote_date": "2025-06-18",
+      "outcome": "deferred",
+      "deferral_category": "short-tenure"
+    },
+    {
+      "thread_id": "t09",
+      "nominee_name": "Nominee I",
+      "handle": null,
+      "target": "committer",
+      "vote_date": "2025-09-16",
+      "outcome": "elected",
+      "deferral_category": null
+    },
+    {
+      "thread_id": "t10",
+      "nominee_name": "Nominee J",
+      "handle": null,
+      "target": "pmc",
+      "vote_date": "2026-02-09",
+      "outcome": "elected",
+      "deferral_category": null
+    }
+  ],
+  "skipped_threads": [],
+  "injection_attempt_detected": false
+}

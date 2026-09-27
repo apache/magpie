@@ -57,6 +57,11 @@
     - [Root cause](#root-cause-9)
     - [Fix](#fix-9)
     - [Notes](#notes-9)
+  - [Reads of `~/.claude/magpie` or `/tmp/claude-<uid>` ask for approval every time](#reads-of-claudemagpie-or-tmpclaude-uid-ask-for-approval-every-time)
+    - [Symptom](#symptom-10)
+    - [Root cause](#root-cause-10)
+    - [Fix](#fix-10)
+    - [Notes](#notes-10)
   - [Adding a new entry](#adding-a-new-entry)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -1154,6 +1159,68 @@ resolved path. Confirm with `git hook run pre-commit` from the agent.
   inside the sandbox instead.
 
 ---
+
+## Reads of `~/.claude/magpie` or `/tmp/claude-<uid>` ask for approval every time
+
+### Symptom
+
+Every read of a temporary clone or file under the scratch root, or of
+the vetted-ops tree, stops for approval. A bulk sync that fans out into
+read-only gatherer agents raises one prompt per read per agent. The
+`Read` tool's refusal reads:
+
+```text
+/tmp/claude-1000/… is outside <repo>; the permissions.blockReadsOutsideWorkingDirectories setting blocks reads outside the working directories.
+```
+
+### Root cause
+
+Not the sandbox: Claude Code's `permissions.blockReadsOutsideWorkingDirectories`
+setting. When it is on, a read of any path outside the session's working
+directories asks first, whatever the `allow` rules say. The adopter
+repository is a working directory; the fixed vetted-ops path and the
+scratch root are not.
+
+`permissions.additionalDirectories` takes literal paths. A glob such as
+`/tmp/claude-*` is accepted, and even listed as a working directory, but
+it is never matched.
+
+### Fix
+
+Re-run `~/.claude/scripts/sandbox-add-project-root.sh --all-worktrees`
+from a terminal (or with the sandbox bypass, as the setup skills do). It
+adds both directories as resolved absolute paths to each worktree's
+project-local, gitignored `.claude/settings.local.json`:
+
+```jsonc
+"permissions": {
+  "additionalDirectories": [
+    "/home/alice/.claude/magpie",   // "$HOME/.claude/magpie", resolved
+    "/tmp/claude-1000"              // "/tmp/claude-$(id -u)", resolved
+  ]
+}
+```
+
+Nothing becomes editable that was not before: `Edit(~/.claude/magpie/**)`
+in `permissions.deny` still binds every file-editing tool there, and the
+scratch root is already writable to sandboxed Bash. Rationale:
+[Working directories under the read-outside-working-directories block](secure-agent-setup.md#working-directories-under-the-read-outside-working-directories-block).
+
+### Notes
+
+- For one session, `/add-dir <path>` does the same without a settings
+  change.
+- A Bash command that spells the path with a literal `~` can still stop
+  with `… names '~/.claude/magpie/vetted-ops', which cannot be checked
+  against the read block`, even with the directory listed: the check
+  does not resolve `~` inside a command. That case is not fixed by this
+  entry.
+- The prompt comes before any command runs, so the sandbox-error hint
+  hook never sees it. `setup-isolated-setup-doctor` probe 9 and
+  `setup-isolated-setup-verify` check 15 detect it instead.
+- Keep the entries out of the committed project settings and out of a
+  user-scope `~/.claude/settings.json` synced across machines: both paths
+  name this host's home directory and uid.
 
 ## Adding a new entry
 

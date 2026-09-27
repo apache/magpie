@@ -25,9 +25,9 @@ when_to_use: |
   a contributor.
 argument-hint: "<github-handle> [window:Nm] [target:committer|pmc]"
 capability: capability:stats
-surface_hash: sha256:4dbd3136d81a2f87
+surface_hash: sha256:68634efda46f3980
 license: Apache-2.0
-measured_tokens: 5155
+measured_tokens: 5543
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -129,7 +129,7 @@ Detail files:
 
 | File | Purpose |
 |---|---|
-| [`fetch.md`](fetch.md) | GitHub search queries and GraphQL templates for contributor activity data. |
+| [`fetch.md`](fetch.md) | Running `contributor-metrics` to collect contributor activity, and what each stream counts. |
 | [`assess.md`](assess.md) | Breadth and quality assessment criteria. Thresholds for committer vs. PMC target. |
 | [`render.md`](render.md) | Nomination brief layout — contributions table, community interaction, activity timeline, narrative template. |
 | [`automated-contributions.md`](automated-contributions.md) | Discount for visibly automated and low-signal contributions — project expectations lookup, detection heuristics, weights, raw-versus-adjusted reporting. Shared with `contributor-to-committer`. |
@@ -189,16 +189,20 @@ Resolve in order:
 
    Immediately attempt to resolve three identity fields:
 
-   **Real name** (`<real_name>`):
+   **Real name** (`<real_name>`): resolve it per
+   [`real-names.md`](real-names.md) — the people directory when the
+   candidate has an account there, then the GitHub profile's `name`,
+   then a commit author name used consistently on every commit —
+   and record which source it came from as `<real_name_source>`.
    ```bash
    gh api users/<login> --jq '.name'
    ```
    GitHub's `name` field is optional and user-controlled — it
-   may be null, an alias, or a partial name. If the result is
-   null or empty, set `<real_name>` to
+   may be null, an alias, or a partial name. If no source yields a
+   name, set `<real_name>` to
    `[NAME UNKNOWN — verify before sending]` and surface a
    warning to the maintainer at the top of the brief. Do not
-   infer a name from the login string itself.
+   infer a name from the login string or an email address.
 
    **Apache ID** (`<apache_id>`): only relevant for a `pmc`
    target. PMC candidates are already committers with an ASF
@@ -310,25 +314,26 @@ Apache-ID / affiliation lookups below as nominator-supplied.
 
 ## Step 2 — Fetch contributor activity
 
-Follow [`fetch.md`](fetch.md) to collect the four activity
-streams for `<login>` on `<upstream>` since `<since>`:
+Follow [`fetch.md`](fetch.md) to run `contributor-metrics fetch` for `<login>` on `<upstream>` since `<since>`.
+It collects five streams:
 
 - **PRs authored** — opened, merged, closed (not merged)
-- **Reviews given** — PRs on `<upstream>` reviewed by `<login>`
+- **Reviews given** — PRs on `<upstream>` reviewed by `<login>`, with the substantive-review check
 - **Issues filed** — issues opened by `<login>`
-- **Issue comments** — comments left by `<login>` on others'
-  issues and PRs
+- **Threads commented** — issues and PRs `<login>` commented on
+- **Issues triaged** — other people's issues `<login>` commented on
 
-Each stream is paginated per the budget rules in
-[`fetch.md`](fetch.md). Surface a warning if any stream hits the
-page cap — the maintainer should know a count may be a floor
-rather than an exact total.
+Surface a warning if any stream is in `caps_hit` — the maintainer should know a count may be a floor rather than an exact total.
 
 ---
 
 ## Step 3 — Gather off-GitHub signal and project context
 
-Before assessing or rendering anything, ask the nominator four
+First collect community signals per [`community-signals.md`](community-signals.md): mailing-list presence and release testing, help given in chat and GitHub Discussions, and posts about the project on accounts the candidate linked themselves — confirmed identities only, each item classified, and the community indicator computed.
+Attribute an item to the candidate only when its identity is confirmed per [`community-signals.md` § Identity](community-signals.md#identity); a chat profile's own claim, or a self-linked account that does not link back, is a *possible match, not used*.
+Show the collected rows, the indicator, and any *possible match, not used* accounts to the nominator, and let them confirm, correct, or add.
+
+Then, before assessing or rendering anything, ask the nominator four
 things in a single prompt. Do not split them into separate
 questions.
 
@@ -402,18 +407,20 @@ data — GitHub activity from Step 2 and maintainer-supplied
 off-GitHub signal from Step 3.
 
 First apply [`automated-contributions.md`](automated-contributions.md) to the Step 2 items, per [`assess.md` § Part 1b](assess.md#part-1b--automated-and-low-signal-contributions).
-Resolve its settings — the weight keys, `automated_contribution_expectations` and `automated_pushback_phrases` — from `<project-config>/contributor-nomination-config.md`, else the framework defaults.
+Resolve its settings — the weight keys, `automated_pushback_penalty`, `automated_contribution_expectations` and `automated_pushback_phrases` — from `<project-config>/contributor-nomination-config.md`, else the framework defaults.
 When the run was handed off from `contributor-to-committer`, reuse that skill's classification and cleared flags instead of classifying again.
-Every count below is then the adjusted count, with the raw count kept alongside it:
+Write the confirmed classes to `<scratch>/classes.json` and the settings to `<scratch>/weights.json`, and run `contributor-metrics score --items <scratch>/items.json --classes <scratch>/classes.json --weights <scratch>/weights.json --area-prefix <area_label_prefix> --out <scratch>/metrics.json`; resolve `area_label_prefix` from `contributor-nomination-config.md`, default `area:`.
+Every count below is then the adjusted count from `metrics.json`, with the raw count kept alongside it:
 
 - **GitHub breadth**: which areas have meaningful signal, which
-  are thin or absent
+  are thin or absent, with each area's share of merged PRs and reviews from `metrics.json.areas`
 - **Off-GitHub breadth**: what the maintainer reported for each
   non-GitHub area
 - **Activity timeline**: month-by-month GitHub breakdown across
   `<window>`, with a note if mailing list presence compensates
   for a sparse GitHub period
 - **Quality signals**: PR merge rate, review depth
+- **Threshold freshness**: when the thresholds carry `calibrated_on` older than 12 months, or `calibrated_window_months` differs from `<window>`, say so in one line and suggest `contributor-calibrate`
 - **Automated and low-signal contributions**: what was discounted,
   against which project expectation or generic heuristic, and any
   maintainer pushback — a negative signal for the PMC to weigh, never

@@ -1,0 +1,15 @@
+{
+  "snapshot_drift": "none",
+  "checks": [
+    {
+      "n": 1,
+      "status": "✓",
+      "evidence": "sandbox.enabled: true; deny and ask lists present; network and filesystem allowlists configured"
+    },
+    {
+      "n": 15,
+      "status": "⚠",
+      "evidence": "read block on; /home/alice/.claude/magpie and /tmp/claude-1000 missing from additionalDirectories in .claude/settings.local.json; the glob entry /tmp/claude-* is listed but never matched, so it does nothing"
+    }
+  ]
+}

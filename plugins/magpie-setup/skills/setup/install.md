@@ -1768,6 +1768,22 @@ framework before they hit a "skill not found" error:
    — never edit the snapshot directly. Framework changes go
    via PR to
    [`apache/magpie`](https://github.com/apache/magpie).
+
+   **Series of dependent PRs.** When a change is split into
+   PRs that build on each other and the contributor has write
+   access to this repository (`gh api repos/<upstream>
+   --jq .permissions.push` is `true`), stack them with GitHub's
+   stacked PRs: if `gh extension list` does not show
+   [`github/gh-stack`](https://gh.io/stacks), suggest the
+   contributor run `gh extension install github/gh-stack`
+   themselves; push every branch of the stack to this
+   repository, never a fork, since each PR's base is the
+   previous PR's branch; open each PR from its approved body
+   against that branch, in the browser, then
+   `gh stack link <bottom-PR> … <top-PR>`. Without write
+   access, open the PRs from the fork against the default
+   branch, each with a "Depends on #N" line. Never let
+   `gh stack` generate titles or bodies.
    ```
 
    **If the adopter installed the `pr-management-*` family**

@@ -5,7 +5,7 @@
       "id": "pr-701",
       "class": "P",
       "weight": 0.5,
-      "basis": "generic:P2/P3/P4"
+      "basis": "generic:P2, generic:P3 or generic:P4 (any is correct)"
     },
     {
       "id": "pr-702",
@@ -25,10 +25,20 @@
     "prs_merged": 2,
     "threads_commented": 1
   },
-  "adjusted": {
+  "discounted": {
     "prs_opened": 1.5,
     "prs_merged": 1.5,
-    "threads_commented": 1
+    "threads_commented": 1.0
+  },
+  "penalty": {
+    "prs_opened": 0.25,
+    "prs_merged": 0.25,
+    "threads_commented": 0.0
+  },
+  "adjusted": {
+    "prs_opened": 1.25,
+    "prs_merged": 1.25,
+    "threads_commented": 1.0
   },
   "pushback_signal": true,
   "auto_disqualify": false,

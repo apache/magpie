@@ -35,9 +35,9 @@ Suites are currently implemented for:
 - **pr-management-stats** — 13 cases across 2 steps (classify, pressure-weight)
 - **pr-management-triage** — 51 cases across 5 steps (pre-filter, decision-table, terminal-links, pagination-dedup, interaction-progress)
 - **list-skills** — 8 cases across 2 steps (step-1-command, step-2-present)
-- **setup-isolated-setup-verify** — 16 cases across 3 steps (runtime-routing, step-1-classify, step-2-recommend)
+- **setup-isolated-setup-verify** — 17 cases across 3 steps (runtime-routing, step-1-classify, step-2-recommend)
 - **setup-isolated-setup-update** — 15 cases across 4 steps (runtime-routing, step-snapshot-drift, step-tool-freshness, step-after-report)
-- **setup-isolated-setup-doctor** — 24 cases across 3 steps (runtime-routing, interpret-probes, after-report)
+- **setup-isolated-setup-doctor** — 25 cases across 3 steps (runtime-routing, interpret-probes, after-report)
 - **contributor-activity-sweep** — 12 cases across 3 steps (step-0-resolve-inputs, step-1-classify-reviews, step-2-render)
 - **optimize-skill** — 7 cases across 1 step (step-diagnose)
 - **committer-onboarding** — 27 cases across 4 steps (step-0-validate-vote, step-1-icla-comms, step-2-checklist, step-3-completion-summary)
@@ -54,8 +54,8 @@ Suites are currently implemented for:
 - **security-model-prepare** — 9 cases across 2 steps (step-1-consent-gate, step-4-provenance); consent before the first repo write, and the four provenance tags with no hedge variants
 - **security-model-update** — 15 cases across 3 steps (step-1-disposition-map, step-2-kn-entry-rules, step-3-regression-gate); the precedence-promotion trap, the four known-non-finding entry rules, and the blocking regression gate
 - **audit-finding-fix** — 12 cases across 4 suites (step-2-parse-findings, step-5-scope-check, step-6-compose-commit, step-7-handback)
-- **contributor-nomination** — 22 cases across 4 suites (step-0-resolve-inputs, step-3-gather-signal, step-4-assess, step-5-render)
-- **contributor-to-committer** — 17 cases across 4 suites (step-0-resolve-inputs, step-2a-discount-automated, step-4-map-thresholds, step-5-render-brief)
+- **contributor-nomination** — 30 cases across 4 suites (step-0-resolve-inputs, step-3-gather-signal, step-4-assess, step-5-render)
+- **contributor-to-committer** — 21 cases across 4 suites (step-0-resolve-inputs, step-2a-discount-automated, step-4-map-thresholds, step-5-render-brief)
 - **dependency-audit** — 8 cases across 2 suites (step-findings-report, step-scope-selection)
 - **dependency-license-audit** — 19 cases across 4 suites (step-license-classification, step-license-normalization, step-license-report, step-scope-selection)
 - **flaky-test-triage** — 10 cases across 3 suites (step-classify, step-reporting, step-scope-and-config)
@@ -89,6 +89,8 @@ Suites are currently implemented for:
 - **write-skill** — 5 cases across 1 suite (step-5-security-checklist)
 - **setup-privacy-llm** — 6 cases across 2 suites (step-1-resolve, step-4-gate)
 - **preflight-reconciliation** — 7 cases across 1 suite (step-reconciliation)
+- **contributor-calibrate** — 7 cases across 2 suites (step-1-find-nominations, step-4-propose-floors)
+- **contributor-candidate-screen** — 13 cases across 6 suites (step-0-gates, step-2-pre-filter, step-3-measure-and-shortlist, step-4-write-report, step-5-deliver)
 
 ## Prerequisites
 

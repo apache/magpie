@@ -1,0 +1,52 @@
+{
+  "expectations_source": "generic",
+  "items": [
+    {
+      "id": "pr-601",
+      "class": "P",
+      "weight": 0.25,
+      "basis": "generic:P1"
+    },
+    {
+      "id": "pr-602",
+      "class": "C",
+      "weight": 0,
+      "basis": "generic:P5"
+    },
+    {
+      "id": "pr-603",
+      "class": "none",
+      "weight": 1,
+      "basis": ""
+    },
+    {
+      "id": "pr-604",
+      "class": "none",
+      "weight": 1,
+      "basis": ""
+    }
+  ],
+  "raw": {
+    "prs_opened": 4,
+    "prs_merged": 3,
+    "threads_commented": 0
+  },
+  "discounted": {
+    "prs_opened": 2.25,
+    "prs_merged": 2.25,
+    "threads_commented": 0.0
+  },
+  "penalty": {
+    "prs_opened": 0.5,
+    "prs_merged": 0.25,
+    "threads_commented": 0.0
+  },
+  "adjusted": {
+    "prs_opened": 1.75,
+    "prs_merged": 2.0,
+    "threads_commented": 0.0
+  },
+  "pushback_signal": true,
+  "auto_disqualify": false,
+  "injection_attempt_detected": false
+}

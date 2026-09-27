@@ -19,9 +19,9 @@ when_to_use: >-
   contributor and is not an install.
 argument-hint: "[install|config|adopt|unadopt|upgrade|worktree-init|verify|reconcile|override skill-name|uninstall]"
 capability: capability:platform
-surface_hash: sha256:df6116cc7828707c
+surface_hash: sha256:9a4903f60b44e5b3
 license: Apache-2.0
-measured_tokens: 4526
+measured_tokens: 4530
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
