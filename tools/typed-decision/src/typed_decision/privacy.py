@@ -32,14 +32,14 @@ from collections.abc import Callable
 from typed_decision.exceptions import TypedDecisionUnavailable
 
 try:
-    from checker.check import _approve_by_default_rules, _approve_by_opt_in  # type: ignore[import-untyped]
-    from checker.config import LLMEntry, locate_config_path, parse_config  # type: ignore[import-untyped]
+    from checker.check import _approve_by_default_rules, _approve_by_opt_in
+    from checker.config import LLMEntry, locate_config_path, parse_config
 except ImportError:
     _checker_src = pathlib.Path(__file__).resolve().parents[3] / "privacy-llm" / "checker" / "src"
     if _checker_src.is_dir() and str(_checker_src) not in sys.path:
         sys.path.insert(0, str(_checker_src))
-    from checker.check import _approve_by_default_rules, _approve_by_opt_in  # type: ignore[import-untyped]
-    from checker.config import LLMEntry, locate_config_path, parse_config  # type: ignore[import-untyped]
+    from checker.check import _approve_by_default_rules, _approve_by_opt_in
+    from checker.config import LLMEntry, locate_config_path, parse_config
 
 # Optional custom gate hook for testing or specialized filtering.
 _CUSTOM_GATE_HOOK: Callable[[str, str], str] | None = None

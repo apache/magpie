@@ -351,14 +351,11 @@ class JevProvider(DecisionProvider):
                 ) from exc
 
             if isinstance(scale, (tuple, list)) and len(scale) == 2:
-                try:
-                    min_val, max_val = float(scale[0]), float(scale[1])
-                    if not min_val <= value <= max_val:
-                        raise TypedDecisionUnavailable(
-                            f"Jev API returned score {value} outside scale range [{min_val}, {max_val}]"
-                        )
-                except (ValueError, TypeError):
-                    pass
+                min_val, max_val = float(scale[0]), float(scale[1])
+                if not min_val <= value <= max_val:
+                    raise TypedDecisionUnavailable(
+                        f"Jev API returned score {value} outside scale range [{min_val}, {max_val}]"
+                    )
 
             raw_conf = result.get("confidence")
             if raw_conf is None:
