@@ -58,7 +58,7 @@ mid-size active project.
 |---|---|---|---|
 | `prs_merged` | `5` | TODO or leave blank (uses default) | Merged PRs — the clearest signal of sustained code contribution |
 | `reviews_total` | `3` | TODO or leave blank | Total review acts — shows engagement with others' work |
-| `reviews_substantive` | `2` | TODO or leave blank | Reviews with real inline feedback (≥ 3 comments or > 50 char body) |
+| `reviews_substantive` | `2` | TODO or leave blank | Reviews with real feedback — a body over 100 characters or at least one line comment |
 | `issues_filed` | `0` | TODO or leave blank | Set to 0 to treat as non-required; many valid tracks don't involve filing issues |
 | `threads_commented` | `5` | TODO or leave blank | PR/issue comment threads — basic community presence |
 | `area_breadth` | `0` | TODO or leave blank | Distinct `area:*` labels across merged PRs; 0 = no breadth requirement |
