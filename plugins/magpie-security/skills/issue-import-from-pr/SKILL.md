@@ -27,9 +27,9 @@ when_to_use: |
   `<security-list>`, use `security-issue-import`.
 argument-hint: "[pr-number] [repo:owner/name]"
 capability: capability:intake
-surface_hash: sha256:10543a78a3c5beb6
+surface_hash: sha256:249e4ff2ba6b1d91
 license: Apache-2.0
-measured_tokens: 10877
+measured_tokens: 9831
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -872,93 +872,16 @@ with other trackers.
 
 ## What this skill does **not** do
 
-- **Does not run a validity discussion.** The skill's contract is
-  that the assessment has already happened; the tracker lands
-  `Assessed`. If you want a validity discussion, do not use this
-  skill — open the tracker manually with `Needs triage` instead.
-- **Does not draft a reporter reply.** There is no reporter; the
-  PR author is the de-facto finder, and any communication with
-  them happens on the public PR (which already exists).
-- **Does not create the GHSA.** GHSA creation, advisory drafting,
-  and the `<upstream>` private-repo coordination all happen
-  later in the process — see
-  [`docs/security/process.md`](../../../../docs/security/process.md#process-reference-the-16-steps).
-- **Does not characterise the public PR as a security fix until
-  the advisory ships.** The tracker URL itself is a public-safe
-  identifier and may appear in the PR description as a
-  cross-reference; what does not appear is the CVE ID, the words
-  *"vulnerability"* / *"security fix"* / *"advisory"*, and any
-  verbatim quote from the tracker discussion. See the
-  [Confidentiality of `<tracker>`](../../../../AGENTS.md#confidentiality-of-the-tracker-repository)
-  rule.
-- **Does not run `security-issue-sync` on the new tracker.** The
-  initial body is already coherent; sync's job (reconciling PR
-  state, milestone, assignee against current reality) is not
-  needed on a tracker that is being created from those exact
-  signals. Run sync only when the PR or thread state evolves
-  later.
+Out-of-scope actions (validity discussion, reporter reply, GHSA, sync): [`reference.md`](reference.md#what-this-skill-does-not-do).
 
 ---
 
 ## Failure modes
 
-| Symptom | Likely cause | Fix |
-|---|---|---|
-| `gh api repos/<upstream>` returns 404 | Repo placeholder not substituted | Re-read `<project-config>/project.md` for the `upstream_repo:` value. |
-| PR is `CLOSED` (not merged) | Fix abandoned upstream | Stop and confirm with the user that a tracker is still wanted; otherwise abandon. |
-| `gh api repos/<tracker>/issues` returns 422 | Missing or invalid title / body field shape | Re-check the body against the issue template's nine fields; the `### <field>` headings must match exactly (case-sensitive). |
-| `addProjectV2ItemById` returns `not found` for the project | Project-board node ID changed | Re-run the introspection query in [`project-board.md`](../../../../tools/github/project-board.md) and update [`project.md`](../../../../<project-config>/project.md). |
-| Multiple existing trackers match the duplicate-guard search | Earlier closed-as-duplicate trackers reference the PR number in passing | Surface all hits to the user; let them confirm `force` to proceed anyway. |
-| Mixed-scope PR (e.g. `<scope-b>/` + `<scope-a>/`) | The fix lives in more than one product | Stop; surface the per-scope split decision to the user before re-invoking. |
+Symptom / cause / fix table: [`reference.md`](reference.md#failure-modes).
 
 ---
 
 ## Examples
 
-### Example 1 — `<scope-b>` scope, already merged
-
-```text
-import from pr 65703
-```
-
-PR `<upstream>#65703` (*Prevent unauthorized access to
-team-scoped secrets in SM and SSM*), state `MERGED`, author
-`justinpakzad`. Files: 6 paths under
-`<scope-b>/<name>/.../secrets/`. Scope detection: `<scope-b>`
-(sub-package `<name>`). Milestone: next release-train wave (the PR
-itself has no milestone). Labels: `<scope-b>`, `pr merged`,
-`security issue`. Board column: `Assessed`. *Affected versions*:
-`<product>-<component> < NEXT VERSION`. *Remediation
-developer*: `Justin Pakzad` (PR commit attributes the change
-publicly). *Reporter credited as*: blank — public-PR imports do
-not credit the PR author as the CVE reporter (no responsible
-disclosure; see *[Reporter credit policy](#reporter-credit-policy-for-public-pr-imports)*).
-
-### Example 2 — `<scope-a>` scope, in-flight
-
-```text
-import from pr https://github.com/<upstream>/pull/65999
-```
-
-PR state `OPEN`, milestone `X.Y.Z` (the project's core release
-train). Files all under
-`<scope-a>/src/.../api_fastapi/`. Scope: `<scope-a>`.
-Milestone: `X.Y.Z`. Labels: `<scope-a>`, `pr created`,
-`security issue`. *Affected versions*: `< X.Y.Z`. The skill
-proposes everything; on user confirmation, the tracker lands
-`Assessed`, ready for `security-cve-allocate`.
-
-### Example 3 — Mixed-scope PR (blocker)
-
-```text
-import from pr 66042
-```
-
-PR touches `<scope-a>/src/.../serialization.py` **and**
-`<scope-b>/<name>/src/.../python_operator.py`. The skill
-**stops** and surfaces:
-
-> PR 66042 changes files across `<scope-a>` and `<scope-b>`
-> scopes. Split the report into two trackers (one per scope)
-> manually, or re-confirm which scope the CVE should be
-> allocated against.
+Worked examples (merged single-scope, in-flight, mixed-scope blocker): [`examples.md`](examples.md).

@@ -30,9 +30,9 @@ when_to_use: |
   `forwarders.enabled` is empty or the inbound message is
   obviously from the direct reporter.
 capability: capability:intake
-surface_hash: sha256:9bc90c73f61a4aa2
+surface_hash: sha256:23903c54f5da4596
 license: Apache-2.0
-measured_tokens: 7732
+measured_tokens: 6528
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -487,55 +487,7 @@ skip the draft entirely for that milestone.
 
 ## Step 4 — Hand back to parent skill
 
-Return a structured result the parent skill folds into its
-proposal:
-
-```yaml
-sub_skill_applied: true | false
-match:
-  adapter_name: <string>         # e.g. "asf-security" — recap only
-  preamble_snippet: <string>     # first ~80 chars of matched preamble
-  sender_pattern_matched: <string>
-credit:
-  name: <string>                 # empty when adapter returned null
-  kind: human | tool | service | unknown
-  raw_string: <string>
-routing:
-  to_recipients: [<string>, ...]
-  addressing_block: <string>     # paste-ready, ready to attach to draft
-  question_mode: true | false
-warnings:
-  - <one-line warning>           # e.g. "matched sender is on collaborator list"
-notes:
-  - <one-line informational>     # e.g. "credit unknown — confirm before draft"
-```
-
-When `sub_skill_applied: false`, the rest of the fields are
-empty / `null`; the parent skill proceeds with its direct-
-reporter classification for the candidate.
-
-The parent skill is responsible for:
-
-- folding the `match` block into its proposal so the user sees
-  *"matched as relay via adapter `<name>` — preamble: `<snippet>`"*;
-- pre-filling the *Reporter credited as* tracker field with
-  `credit.name` (subject to user override on confirmation);
-- assembling the Gmail draft from `routing.to_recipients`,
-  `routing.addressing_block`, and the appropriate canned-response
-  body; surfacing `routing.question_mode` to decide whether to
-  fold the credit-preference question in;
-- surfacing every `warning` inline in the proposal — the user
-  decides whether a warning blocks confirmation;
-- recording the matched adapter name in the tracker's status-
-  rollup entry per
-  [`tools/github/status-rollup.md`](../../../../tools/github/status-rollup.md)
-  so a future sync pass knows the tracker is in via-forwarder
-  mode without having to re-detect.
-
-Hand-back is the only output of this sub-skill. There is no
-recap printed to the console (the parent renders its own recap
-that includes the sub-skill's contribution); there is no `gh`
-call against the tracker; there is no Gmail draft created.
+Hand-back YAML schema and the parent skill's duties: [`handback-schema.md`](handback-schema.md).
 
 ---
 
@@ -597,58 +549,4 @@ call against the tracker; there is no Gmail draft created.
 
 ## References
 
-- [`tools/forwarder-relay/README.md`](../../../../tools/forwarder-relay/README.md)
-  — the adapter contract this skill consumes (`detect`,
-  `extract_credit`, `contact_handle`, `preamble_match`,
-  `reporter_addressing_block`, `via_forwarder_question_mode`).
-  The ASF-default adapter ships today; any further third-party
-  forwarders are placeholder contract slots.
-- [`tools/gmail/asf-relay.md`](../../../../tools/gmail/asf-relay.md)
-  — the reference doc for the ASF Security forwarder adapter
-  (the framework's default, registered as `asf-security` in
-  the ASF adopter's `forwarders.enabled`). Documents the
-  paste-ready block convention, the clickable external-
-  reference URL rule, and the threading semantics for relay
-  drafts.
-- [`projects/_template/project.md → forwarders`](../../../magpie-setup/templates/project.md#forwarders)
-  — the YAML config schema each adopter declares to register
-  enabled adapters and their per-adapter overrides
-  (`contact_handle`, `preamble_match`, `credit_extraction_rule`).
-- [`docs/security/forwarder-routing-policy.md`](../../../../docs/security/forwarder-routing-policy.md)
-  — the policy that decides *when* via-forwarder mode applies to
-  a tracker, *which* milestones get relayed, and *what* falls
-  into the do-not-relay negative space. The adapter contract is
-  the mechanism; this doc is the policy that drives it.
-- [`tools/cve-tool-vulnogram/bot-credits-policy.md`](../../../../tools/cve-tool-vulnogram/bot-credits-policy.md)
-  — the bot / AI credit policy applied to the extracted credit
-  string at Step 2. Drives whether the CVE record lists the
-  credit as a tool vs an individual, and whether the parent
-  skill folds the *"if a human was behind the tool, please pass
-  back their preferred attribution"* line into its receipt-of-
-  confirmation draft.
-- [`tools/mail-source/contract.md`](../../../../tools/mail-source/contract.md)
-  — the mail-source layer this skill sits on top of. The
-  sub-skill consumes a message returned by the mail-source
-  layer; it does not itself fetch or send mail.
-- Parent skills:
-  - [`security-issue-import`](../issue-import/SKILL.md)
-    — invokes this sub-skill at Step 3 (classification) and
-    Step 4 (credit extraction); folds the routing decision into
-    its Step 7 *Apply confirmed imports*.
-  - [`security-issue-invalidate`](../issue-invalidate/SKILL.md)
-    — invokes this sub-skill at Step 5 to route the reporter-
-    facing invalidation notice through the matched forwarder.
-  - [`security-issue-sync`](../issue-sync/SKILL.md) —
-    invokes this sub-skill at Step 2b to route reporter-facing
-    milestone drafts (CVE allocated, advisory shipped, etc.) on
-    via-forwarder-mode trackers.
-- [`AGENTS.md`](../../../../AGENTS.md) — placeholder convention,
-  prompt-injection absolute rule, *"Confidentiality of
-  `<tracker>`"* rule, link-form rules. The skill body relies on
-  every one of these.
-- [`docs/labels-and-capabilities.md`](../../../../docs/labels-and-capabilities.md)
-  — capability taxonomy; this skill carries
-  `capability:intake` because every operation it performs sits
-  inside the parent's intake pipeline (classification, credit
-  extraction, draft routing — all phases of bringing an inbound
-  report into the tracker).
+Adapter contract, ASF relay doc, config schema, routing and credit policies, parent skills: [`references.md`](references.md).

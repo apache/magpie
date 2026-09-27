@@ -24,9 +24,9 @@ when_to_use: |
   anchor the import on (`security-issue-import-from-pr`).
 argument-hint: "[path-to-markdown-file]"
 capability: capability:intake
-surface_hash: sha256:8a669c8592bfd4ce
+surface_hash: sha256:1d08d4f255528555
 license: Apache-2.0
-measured_tokens: 8948
+measured_tokens: 7426
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -270,78 +270,7 @@ If any check fails, do **not** proceed.
 
 ## Step 1 — Parse the file into findings
 
-The expected per-finding shape:
-
-```markdown
-# <Title — one short imperative phrase>
-
-## Details
-<Multi-paragraph technical description. May reference file paths,
-line numbers, function names. Often the longest section.>
-
-## Location
-[<file/line label>](<URL into the public source>)
-
-## Impact
-<One sentence. The threat actor's gain: arbitrary code execution,
-data exfiltration, privilege escalation, etc.>
-
-## Reproduction steps
-1. <numbered list>
-2. ...
-
-## Recommended fix
-<Suggested remediation. Free-form prose.>
-
----
-**Severity:** HIGH|MEDIUM|LOW|UNKNOWN
-**Status:** Open
-**Category:** <free-text — Insecure Deserialization / RCE, SSRF, Broken Access Control, etc.>
-**Repository:** <owner>/<repo>
-**Branch:** <ref>
-**Date created:** YYYY-MM-DD
-```
-
-Findings are separated by `---` on its own line (with blank lines
-around it). The metadata block at the end of each finding is
-itself preceded by `---`.
-
-Parsing recipe:
-
-1. Read the whole file.
-2. Split on the regex `(?m)^---\s*$` to get raw blocks.
-3. Drop blocks that are pure whitespace.
-4. Group adjacent blocks: a "finding" is the block ending in the
-   `**Severity:**` metadata line, plus the immediately preceding
-   block (which carries `# Title` through `## Recommended fix`).
-   Equivalently: walk blocks pairwise, treating
-   `(narrative-block, metadata-block)` as one finding.
-5. For each finding, extract the per-section payload:
-   - `# Title` → the line after `# ` until newline.
-   - Each `## <Section>` → everything until the next `## ` heading
-     or the end of the narrative block.
-   - Metadata: per-line `**Field:** value` extraction.
-6. Validate per finding:
-   - `# Title` is non-empty.
-   - `**Severity:**` is one of `HIGH`, `MEDIUM`, `LOW`, `UNKNOWN`
-     (case-insensitive); anything else → record as `UNKNOWN` and
-     surface a one-line warning.
-   - `**Repository:**` matches `<owner>/<repo>` shape; if absent,
-     fall back to `<upstream>` (from `<project-config>/project.md`)
-     and warn.
-   - `## Details`, `## Impact`, and `## Reproduction steps` are
-     present and non-empty. If any are missing, surface a warning
-     but do not skip the finding (the importer can fill in
-     `_No response_` for the corresponding tracker body field).
-
-Record into the observed-state bag a list of `findings`, each with:
-
-- `index` (1-based, matches the proposal table number).
-- `title` (raw).
-- `details`, `location_url`, `location_label`, `impact`,
-  `repro_steps`, `recommended_fix` (string payloads).
-- `severity`, `status`, `category`, `repository`, `branch`,
-  `date_created` (metadata).
+Expected per-finding shape, parsing recipe, validation, and the `findings` observed-state record: [`findings-format.md`](findings-format.md).
 
 ---
 
@@ -757,84 +686,16 @@ the validity discussion produces signal.
 
 ## What this skill does **not** do
 
-- **Does not run the validity discussion.** Every finding lands as
-  `Needs triage`; Step 3 of the handling process happens in tracker
-  comments after import.
-- **Does not draft a reporter reply.** There is no reporter — the
-  markdown file is the report, and any clarification questions the
-  team has about a finding are recorded as comments on the
-  resulting tracker, not on a Gmail thread.
-- **Does not allocate CVEs.** A finding tagged `**Severity:** HIGH`
-  in the source markdown is *still* unassessed from the security
-  team's perspective; the CVE-allocation gate (per
-  [`security-cve-allocate`](../cve-allocate/SKILL.md)) requires the team's
-  own validity decision first.
-- **Does not parse markdown formats other than the one documented
-  in Step 1.** If the input file uses a different shape (e.g.
-  `### Title` instead of `# Title`, or a YAML front-matter block
-  instead of `**Field:**` lines), surface a one-line ask for the
-  user to either reformat the file or open the trackers manually.
-  The skill must not silently best-effort parse a divergent shape;
-  the resulting trackers would be subtly malformed and confuse the
-  rest of the lifecycle.
-- **Does not characterise the source as authoritative.** The
-  status-rollup line `Severity (from source): HIGH (informational;
-  CVSS scoring happens at allocation)` is the standard wording —
-  the source's tags are recorded, not adopted.
+Out-of-scope actions (validity discussion, reporter reply, CVEs, other formats): [`reference.md`](reference.md#what-this-skill-does-not-do).
 
 ---
 
 ## Failure modes
 
-| Symptom | Likely cause | Fix |
-|---|---|---|
-| File parse yields zero findings | The file uses a different heading level or no `**Severity:**` metadata block | Stop; surface the expected shape from Step 1 and ask the user to reformat. |
-| `gh api repos/<tracker>/issues` returns 422 | Title or body field shape doesn't match the issue template | Re-check the body against the eleven `### <field>` headings; the heading text is case-sensitive. |
-| `addProjectV2ItemById` returns `not found` for the project | Project-board node ID changed in `<project-config>/project.md` | Re-run the introspection query in [`project-board.md`](../../../../tools/github/project-board.md) and update `<project-config>/project.md`. |
-| Many possible-duplicate hits surfaced for every finding | The file is a re-scan against an already-triaged branch | Pause; consider whether the right action is `skip` for every finding (the existing trackers cover this) rather than landing duplicates. |
-| `gh api` rate-limits mid-batch | Large file (50+ findings) hits the per-minute limit | The skill surfaces the partial-success recap from Step 6; re-invoke against the same file later for the failed indices (the duplicate-guard at Step 2 will catch the already-imported ones). |
+Symptom / cause / fix table: [`reference.md`](reference.md#failure-modes).
 
 ---
 
 ## Examples
 
-### Example 1 — A six-finding AI-scan output
-
-In this example the filename happens to follow a
-`<reporter>-<project>-<date>` convention — your project's
-file-naming convention is irrelevant to the skill; the basename
-just gets carried into the rollup comment verbatim.
-
-```text
-import findings from /tmp/scan-reporter-product-2026-04-28.md
-```
-
-The skill parses six findings (severities: HIGH×2, MEDIUM×2,
-LOW×2). The duplicate guard flags one HIGH as a possible
-duplicate of an already-tracked deserialization finding; the user
-replies `skip 1`, accepting the duplicate hint. The remaining five
-land as `<tracker>#NNN..#NNN+4` in `Needs triage`. Recap shows
-the five new tracker URLs and one skip with the duplicate
-reference.
-
-### Example 2 — A single-finding scanner export
-
-```text
-import findings from ~/Downloads/sast-export.md
-```
-
-The file contains one finding (a SAST report exported as
-markdown). The skill parses, surfaces a one-row proposal, the
-user replies `go`, the tracker lands. The cardinality is the same
-as a Gmail import; the only difference is the source format.
-
-### Example 3 — Malformed input
-
-```text
-import findings from /tmp/notes.md
-```
-
-`/tmp/notes.md` is a free-form scratch file — no `**Severity:**`
-lines, no `---`-separated blocks. Step 0's sanity check fires;
-the skill stops with the expected-shape ask and does not create
-any tracker.
+Worked examples (six-finding scan, single-finding export, malformed input): [`examples.md`](examples.md).

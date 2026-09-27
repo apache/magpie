@@ -246,7 +246,7 @@ will change and *why*. Group them by category:
   `generate-cve-json` script on every regen) and from there into the
   published advisory and `cve.org`. **On every sync pass**, run the
   same title-strip cascade the
-  [`security-cve-allocate` skill applies at allocation time](../cve-allocate/SKILL.md#step-2--compute-the-cve-ready-title) —
+  [`security-cve-allocate` skill applies at allocation time](../cve-allocate/title-normalize.md#step-2--compute-the-cve-ready-title) —
   strip leading/trailing project-name tokens (e.g. ``<project>:``,
   ``in <project>``, ``(<project> X.Y)``), internal
   split-markers (``(split from #NNN)``), report-form classifiers

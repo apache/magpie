@@ -32,9 +32,9 @@ when_to_use: |
   `security-issue-triage`.
 argument-hint: "[repo-or-model-path]"
 capability: capability:review
-surface_hash: sha256:e54146731464c571
+surface_hash: sha256:03ecb6b8514583b2
 license: Apache-2.0
-measured_tokens: 6626
+measured_tokens: 5480
 ---
 
 # Security model verify
@@ -380,125 +380,11 @@ security-relevant build flags), §1.19 the machine-readable companions.
 
 ## The bundled helper
 
-[`scripts/model_pr.py`](scripts/model_pr.py) collapses fork → clone → write the
-scaffold (create-or-append, idempotent) → commit → push → open the PR into one
-command. The create-versus-append branch on `SECURITY.md` and `AGENTS.md` is the
-fiddly part — it must create the file when absent and append exactly one section
-when present, without touching a line of existing prose — so it is a tested pure
-function rather than something re-derived per repository.
-
-```bash
-# In-repo model: lands the model file and wires AGENTS.md -> SECURITY.md -> it.
-python3 <framework>/skills/security-model-verify/scripts/model_pr.py open \
-  --repo <owner>/<name> \
-  --model /path/to/THREAT_MODEL.md \
-  --date <YYYY-MM-DD> \
-  --title "<title>" \
-  --body-file "$TMPDIR/model-pr-body.md" \
-  --dry-run
-
-# Pointer: a satellite repository deferring to an umbrella model elsewhere.
-python3 <framework>/skills/security-model-verify/scripts/model_pr.py open \
-  --repo <owner>/<name> \
-  --pointer https://github.com/<owner>/<umbrella>/blob/main/THREAT_MODEL.md \
-  --date <YYYY-MM-DD> \
-  --agents-note "This repository is build-time tooling for <PROJECT>." \
-  --dry-run
-```
-
-Always run `--dry-run` first and show the diff. Without `--submit` the final step
-is `gh pr create --web`, so the human still submits from the browser.
-
-`--license-header` picks what the created files carry: `spdx` (default),
-`apache-full` (the canonical boilerplate — some license checkers match only
-that form and not the SPDX identifier), or `none`. `--report-to` supplies the
-private reporting address a newly created `SECURITY.md` needs;
-`--branch-prefix` and `--base` adapt to the project's branch conventions.
+What `scripts/model_pr.py` does, invocation examples, and its flags: [`helper.md`](helper.md).
 
 ## Templates
 
-### Template 1 — PR: wire the discoverability chain
-
-**Title**: `Link the project's security model for agent discoverability`
-
-**Body**:
-
-```markdown
-**This is a proposal for the maintainers to review — please correct,
-reject, or discuss as needed.** Nothing here is a requirement.
-
-This wires the conventional `AGENTS.md` → `SECURITY.md` → threat-model
-chain so an automated agent can mechanically find the security model
-this project already publishes at <path or URL>. It changes no model
-content and edits no existing prose — it adds one section to each file
-(creating the file where absent).
-
-Why it matters: a scanner that cannot locate the model has to treat
-every component as in scope and every property as unclaimed, which is
-how a review turns into a hundred findings the maintainers have to
-read. Finding the model first is what keeps the output small enough to
-be worth your time.
-
-Happy to adjust the wording or move the section if the project has a
-house style for these files.
-```
-
-### Template 2 — PR: propose draft sections
-
-**Title**: `SECURITY.md: draft additions for <section list>`
-
-Append the generated sections; group every inferred claim into §1.18 open
-questions. The body says, in order: this is a proposal; every claim carries a
-provenance tag and the inferred ones are guesses to confirm or strike; here are
-the sections and why each helps; what is needed back is a one-line
-confirm/correct/strike per question, not composed prose; this PR edits no
-existing content, and closing it is a fine answer.
-
-### Template 3 — Mail: model gaps, maintainers drive
-
-Recipients follow the project's configured security-list conventions. Plain
-text. Signed by the human who sends it — this skill does not sign for anyone.
-
-```text
-Hi <name>,
-
-Where the pre-flight on <PROJECT>'s security model stands:
-
-- Discoverability: <passes, with a one-line note on how / addressed in
-  <PR URL>, which wires AGENTS.md -> SECURITY.md -> your existing model
-  at <path>. Adjust or close it as you see fit.>
-
-- Completeness: your model is substantive on <the sections that landed
-  well>. Measured against the Alpha-Omega threat-model rubric
-  (https://github.com/alpha-omega-security/threat-model) we noticed a
-  few gaps. None of these block anything; closing them mostly reduces
-  the noise an automated review sends back to you:
-
-    * §<NN> <name> — <what is missing, and what it would let a triager
-      decide. Be specific and cite the section.>
-    * §<NN> <name> — ...
-
-Two ways forward, both fine by us:
-
-  1. You drive — work through the gaps and ping us for a re-check.
-  2. We draft — we run the model producer against your public
-     artefacts, open a PR with tagged draft sections, and collect the
-     open questions at the end, so you react to something concrete
-     instead of composing from scratch. Usually faster.
-
-No deadline attached.
-
-<signature>
-```
-
-### Template 4 — Mail: the chain does not resolve
-
-Same conventions. Says: discoverability currently fails, here is exactly where
-the chain breaks, this is the one hard gate because an agent that cannot find the
-model cannot use it — and then hands the decision back: the model can live in
-`SECURITY.md`, in an in-repo file, on the project site, or in an umbrella repo,
-and the maintainers pick. Offer the wiring PR once they have. Do not touch the
-repository before they answer.
+Templates 1–4 (wire-the-chain PR, draft-sections PR, model-gaps mail, chain-does-not-resolve mail): [`templates.md`](templates.md).
 
 ## Style
 

@@ -23,9 +23,9 @@ when_to_use: |
   current state of the world.
 argument-hint: "[issue-number]"
 capability: capability:intake
-surface_hash: sha256:f919035d836adb5a
+surface_hash: sha256:b0ff65771ca4650a
 license: Apache-2.0
-measured_tokens: 9715
+measured_tokens: 7507
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -293,47 +293,7 @@ Before reading any tracker state, verify:
    `gh api repos/<tracker> --jq .name` must return
    `<tracker>`. A 401/403/404 means the user needs
    `gh auth login` or collaborator access.
-3. **PonyMail MCP status.** Whether this is a hard gate depends on
-   the manifest: if `<project-config>/project.md → Mail sources`
-   declares `ponymail` with `mandatory: yes` (the **ASF default**),
-   PonyMail is a pre-flight prerequisite and the outcomes below
-   that "degrade quietly" become **hard stops** instead. Call
-   `mcp__ponymail__auth_status()` once. Four outcomes:
-   - **Authenticated session** — record
-     `ponymail_enabled: true, ponymail_authenticated: true` in the
-     skill's observed-state bag. **Downstream steps use PonyMail
-     MCP as the primary read path** for the mailing-list queries
-     documented in 1c / 1d / 1e / 2b / 2c; Gmail becomes the
-     fallback. This is the normal configuration for <governance-body>-authenticated
-     triagers.
-   - **No session / expired session** —
-     - *`mandatory: yes` (ASF default):* **stop**. Surface
-       *"mandatory mail-source backend `ponymail` is registered but
-       not authenticated — run `mcp__ponymail__login()` and
-       re-invoke"*. Private-list reads need the LDAP session, and
-       ASF triagers are <governance-body>-authenticated, so an unauthenticated
-       session is a hard stop, not a Gmail-only fallback.
-     - *`mandatory: no`:* record
-       `ponymail_enabled: true, ponymail_authenticated: false`,
-       warn (*"PonyMail MCP is configured but not authenticated —
-       run `mcp__ponymail__login()` if you want this session to use
-       it; otherwise Gmail will serve all reads"*), and proceed
-       with Gmail as the primary read path.
-   - **MCP tools not available** (the `mcp__ponymail__*` tools
-     are absent from the current session's tool list) —
-     - *`mandatory: yes` (ASF default):* **stop**. Surface
-       *"mandatory mail-source backend `ponymail` unavailable: MCP
-       not registered; run aborted — register it per
-       `tools/ponymail/tool.md` (install from the latest `main` of
-       `apache/comdev`) and re-invoke"*.
-     - *`mandatory: no`:* record `ponymail_enabled: false` and
-       silently proceed Gmail-only.
-   When the manifest declares `ponymail` with `mandatory: no` and
-   `.apache-magpie-overrides/user.md` sets `tools.ponymail.enabled:
-   false` (or omits the block), skip this sub-step; Gmail is the
-   only read backend. See
-   [`tools/ponymail/tool.md`](../../../../tools/ponymail/tool.md)
-   for the one-time setup instructions.
+3. **PonyMail MCP status.** Four-outcome gate (hard stop when `ponymail` is `mandatory: yes`): [`mail-preflight.md`](mail-preflight.md).
 4. **Selector resolves to a concrete issue (or set of issues)** —
    if the user said `sync NNN` but the number does not exist in
    `<tracker>`, stop before Step 1 and ask which issue
@@ -458,105 +418,7 @@ The item is a proposal only: it flips no label, closes nothing, and
 sends nothing until the user confirms.
 ### 2c. Next-step recommendation
 
-A single short paragraph describing what the user should do *after* these
-updates land, based on the process step. Examples:
-
-- *"Step 3: start the CVE-worthiness discussion in a comment on the issue, tagging at least one other security team member."*
-- *"Step 4: escalate to a wider audience — the discussion has been stalled for 34 days. Run the two-phase escalation per [`docs/security/process.md` — Step 4](../../../../docs/security/process.md#step-4--escalate-stalled-discussions): phase 1 is a short call for ideas to `<private-list>` (no AI analysis), phase 2 — only if phase 1 stays silent for ~7 more days — is an AI-generated design-space analysis that the triager reviews before posting. The agent drafts both phases as proposals; the triager confirms the exact wording + the list of people to `@`-mention before anything is sent."*
-- *"Step 6: allocate a CVE. Run the [`security-cve-allocate`](../cve-allocate/SKILL.md) skill (it prints the `<cve-tool>` form URL plus a CVE-ready title and wires the allocated ID back into the tracker)."*
-- *"Step 10: close the private PR at <tracker>#NNN now that <upstream>#NNNN has merged."*
-- *"Step 11: `pr merged` — tracker parked until the release train ships. No action needed from the security team; the next sync run will detect the PyPI / Helm release and propose the `fix released` swap (Step 12)."*
-- *"Step 12: `fix released` — the release carrying the fix is now on PyPI / the Helm registry. Ownership of the issue has transferred to the release manager; the label swap was the hand-off."*
-- *"Step 13: the release manager should now fill in the CVE tool fields taken from the issue — CWE, product, versions, severity, patch link, credits — move the CVE to REVIEW → READY, and send the advisory to `<announce-list>` / `<users-list>`."*
-- *"Step 14: scan the users@ archive for the CVE ID, populate the *Public advisory URL* body field, regenerate the CVE JSON attachment, and move the issue to `announced`. Sync does all of this automatically on the next run once the advisory is archived."*
-- *"Step 15: release manager — copy the regenerated CVE JSON into Vulnogram, close the issue."*
-
-**Never guess the release manager.** When a next-step recommendation or a
-status-comment references "the release manager for `<version>`", look up
-the actual person, in this order:
-
-1. **Check the "Known release managers" subsection of
-   [`AGENTS.md`](../../../../AGENTS.md) first** — if the release is already
-   listed there, use that name. This is the cache; the next two sources
-   are how the cache was populated and how you refresh it.
-2. **Check the project's release plan** at
-   `<project-wiki>`.
-   This is the canonical forward-looking schedule for every release
-   train and lists the release manager for each *upcoming* cut. Use this when
-   the relevant release hasn't been cut yet, or when you need the
-   rotation roster.
-3. **Check the `[RESULT][VOTE]` thread on `<dev-list>`** —
-   the sender of the `[RESULT][VOTE] Release <product> <version>` (or
-   `[RESULT][VOTE] <product> <scope-b> - release preparation date
-   <YYYY-MM-DD>`) message **is** the release manager for that specific
-   cut. Use this when the release has already shipped (the wiki only
-   tracks upcoming schedule, not past releases). Two query paths:
-
-   - **PonyMail MCP (preferred when enabled).** `dev@` is a public
-     list; no LDAP allowlist check is needed. Call:
-
-     ```text
-     mcp__ponymail__search_list(
-       list: "dev",
-       domain: "<project-domain>",
-       subject: "[RESULT][VOTE]",
-       query: "<version-or-wave-token>",
-       timespan: "lte=14d"
-     )
-     ```
-
-     See
-     [`tools/ponymail/operations.md` — Find the `[RESULT][VOTE]` thread](../../../../tools/ponymail/operations.md#find-the-resultvote-thread-for-a-release)
-     for the full call shape. The sender of the top hit is the RM.
-
-   - **Gmail (fallback).** When PonyMail MCP is disabled or
-     unauthenticated, search Gmail:
-     `"[RESULT][VOTE]" "<product> <scope-b>" from:<dev-list>`.
-     Narrow with a date range if needed. Gmail requires the user
-     to be subscribed to `dev@` from the account they are running
-     from — PonyMail MCP is the more reliable path for triagers
-     who are on the security team but not the general dev list.
-
-If the release manager is not yet in
-[`<project-config>/release-trains.md`](../../../../<project-config>/release-trains.md)
-after you look them up, surface that in the proposal and propose
-appending them (with the source link to the `[RESULT][VOTE]` thread
-and the release date) to the "Release managers for releases currently
-relevant to the security tracker" subsection in the same sync run. **Do
-not substitute a "plausible" name** (e.g. a frequent release manager
-from previous releases) — the release manager rotates per cut, and a
-wrong name in a status update leads to the advisory sitting on nobody's
-desk.
-
-**If a CVE needs to be allocated**, always point the user at the
-[`security-cve-allocate`](../cve-allocate/SKILL.md) skill explicitly on its own
-line so the handoff is unambiguous:
-
-> Allocate a CVE via the [`security-cve-allocate`](../cve-allocate/SKILL.md)
-> skill. It opens the `<cve-tool>` form at
-> `<cve-tool-url>`, pre-computes a CVE-ready
-> title (stripped of `<vendor>: <product>:` / `[ Security Report ]` / version
-> noise), and — once you paste back the allocated `CVE-YYYY-NNNNN` ID —
-> wires it into the tracker (body field, label, status comment, CVE
-> JSON embed).
-
-**Whenever a CVE ID is mentioned** — in the proposal, in the status-change
-comment on the `<tracker>` issue, in the draft email to the reporter, or in
-the recap — render it as a clickable link per the "Linking CVEs" section of
-[`AGENTS.md`](../../../../AGENTS.md). Concretely:
-
-- Before publication: link to the `<cve-tool>` record, e.g.
-  `[CVE-2026-40690](<cve-tool-url>/cve5/CVE-2026-40690)`.
-- After publication (issue has `vendor-advisory`, advisory has been sent to
-  `<users-list>`): additionally link to the public `cve.org`
-  record, e.g. `CVE-2025-50213 ([CVE tool](<cve-tool-url>/cve5/CVE-2025-50213),
-  [cve.org](https://www.cve.org/CVERecord?id=CVE-2025-50213))`.
-
-Do not emit bare `CVE-YYYY-NNNNN` text — always link.
-
-See **Golden rule 2** at the top of this skill: every
-`<tracker>` reference in the proposal must be a clickable
-markdown link. Do not emit bare `#NNN` or `<tracker>#NNN`.
+Next-step examples, the release-manager lookup, and the CVE handoff and linking rules: [`next-step.md`](next-step.md).
 
 ---
 
