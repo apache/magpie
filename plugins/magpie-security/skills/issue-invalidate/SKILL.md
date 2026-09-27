@@ -29,7 +29,7 @@ argument-hint: "[issue-number]"
 capability: capability:resolve
 surface_hash: sha256:3de4299ddc44314c
 license: Apache-2.0
-measured_tokens: 7865
+measured_tokens: 7736
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -425,36 +425,12 @@ here).
 
 ### 5c — Project-board archive
 
-Locate the project-board item ID:
-
-```bash
-gh api graphql -f query='
-  query($pid:ID!,$nid:ID!) {
-    node(id:$pid) {
-      ... on ProjectV2 {
-        items(first: 100) {
-          nodes { id content { ... on Issue { number id } } }
-        }
-      }
-    }
-  }' \
-  -F pid=PVT_kwDOCAwKzs4BUzbt \
-  -F nid=<tracker-node-id> \
-  --jq '.data.node.items.nodes[] | select(.content.number == <N>) | .id'
-```
-
-Then archive:
-
-```bash
-gh api graphql -f query='
-  mutation($pid:ID!,$iid:ID!) {
-    archiveProjectV2Item(input: { projectId: $pid, itemId: $iid }) {
-      item { id isArchived }
-    }
-  }' \
-  -F pid=PVT_kwDOCAwKzs4BUzbt \
-  -F iid=<item-id>
-```
+Locate the tracker's board item with the introspection query in
+[`tools/github/project-board.md`](../../../../tools/github/project-board.md#introspection--find-the-itemid-and-current-column),
+then archive it with that file's
+[archive recipe](../../../../tools/github/project-board.md#archive-recipe).
+The `pid` comes from
+[`<project-config>/project.md`](../../../../<project-config>/project.md#github-project-board).
 
 `archiveProjectV2Item` (not `deleteProjectV2Item`) — archiving
 preserves the item's history in the board's archived view; the
@@ -462,7 +438,7 @@ team can still find old invalid trackers via the *Archived items*
 filter when they need precedent for a similar future close.
 Deletion would lose that history.
 
-If the tracker is not on the board (no rows returned by the
+If the tracker is not on the board (no item returned by the
 introspection query), skip the archive step and note in the
 rollup that the item was already absent from the board (an
 `Auto-add` workflow gap or a manual prior removal — surface as
