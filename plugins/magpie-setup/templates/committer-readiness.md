@@ -44,6 +44,7 @@ to update them.
 | Key | Value | Notes |
 |---|---|---|
 | `assessment_window_months` | TODO: e.g. `6` | How many months of activity to assess. 6 is common; slower-moving projects may prefer 12. |
+| `area_label_prefix` | TODO or leave blank (default `area:`) | Label prefix that marks a PR's area; used for area breadth and the per-area table in the brief. |
 
 ---
 

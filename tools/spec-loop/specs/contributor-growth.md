@@ -117,6 +117,13 @@ state change for human sign-off.
   Using AI tools is not penalised; the brief shows raw, discounted,
   penalty and adjusted values, and pushback is a signal to weigh,
   never a disqualification.
+- **Counting is deterministic.** Both skills collect activity with
+  `tools/contributor-metrics`: five GitHub streams (PRs authored,
+  issues filed, reviews with one shared substantive rule, threads
+  commented, issues triaged on other people's issues), per-area shares
+  from `area_label_prefix` labels, and the weights and penalty above.
+  The tool flags pushback candidates; the skill confirms each one on
+  meaning before the tool scores it.
 - **Teaching register for first-contact.** `mentoring-welcome` and
   `good-first-issue-author` follow the Agentic Mentoring mode's tone
   contract (polite, never gatekeeping) and hand off to a human

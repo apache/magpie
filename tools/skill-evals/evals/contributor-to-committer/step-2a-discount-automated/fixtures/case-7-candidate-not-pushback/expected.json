@@ -1,0 +1,46 @@
+{
+  "expectations_source": "generic",
+  "items": [
+    {
+      "id": "pr-801",
+      "class": "none",
+      "weight": 1,
+      "basis": ""
+    },
+    {
+      "id": "pr-802",
+      "class": "P",
+      "weight": 0.25,
+      "basis": "generic:P1 or generic:P2 (either is correct)"
+    },
+    {
+      "id": "pr-803",
+      "class": "none",
+      "weight": 1,
+      "basis": ""
+    }
+  ],
+  "raw": {
+    "prs_opened": 3,
+    "prs_merged": 3,
+    "threads_commented": 0
+  },
+  "discounted": {
+    "prs_opened": 2.25,
+    "prs_merged": 2.25,
+    "threads_commented": 0.0
+  },
+  "penalty": {
+    "prs_opened": 0.25,
+    "prs_merged": 0.25,
+    "threads_commented": 0.0
+  },
+  "adjusted": {
+    "prs_opened": 2.0,
+    "prs_merged": 2.0,
+    "threads_commented": 0.0
+  },
+  "pushback_signal": true,
+  "auto_disqualify": false,
+  "injection_attempt_detected": false
+}

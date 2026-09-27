@@ -584,8 +584,8 @@ generated block below.
 
 | Skill neutrality | Count |
 |---|---|
-| capability-pure (names no backend) | 17 |
-| portable (named backends are swappable) | 58 |
+| capability-pure (names no backend) | 18 |
+| portable (named backends are swappable) | 57 |
 | vendor-coupled (sole-backend dependency) | 0 |
 
 Organization scope (declared, orthogonal to vendor): ASF = 14, agnostic = 61.

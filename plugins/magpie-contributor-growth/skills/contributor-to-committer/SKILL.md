@@ -24,9 +24,9 @@ when_to_use: |
   been provided.
 argument-hint: "<github-handle> [target:committer|pmc] [window:Nm]"
 capability: capability:stats
-surface_hash: sha256:57f8813ba1ea4a69
+surface_hash: sha256:c205c960041719dc
 license: Apache-2.0
-measured_tokens: 5681
+measured_tokens: 5397
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -231,134 +231,34 @@ Resolve each key of the [automated-contribution configuration](../nomination/aut
 
 Record the result as `<discount_settings>`, including which file each key came from.
 
+**Load the area label prefix.**
+Resolve `area_label_prefix` the same way — `committer-readiness.md`, then `contributor-nomination-config.md`, else `area:` — and record it as `<area_label_prefix>`.
+A PR's labels that start with it are its areas, for area breadth and the per-area shares.
+
 ---
 
 ## Step 2 — Fetch contributor activity
 
-Collect four GitHub streams for `<login>` on `<upstream>` since
-`<since>`. Write `<login>` and query strings to tempfiles; never
-interpolate unescaped into shell double-quotes.
-
-**Budget**: at most 3 paginated fetches per stream (≤ 300 results per
-stream). If a stream hits the cap, record the count as a minimum and
-note the cap hit in the output.
-
-### Stream A — PRs authored
+Run [`contributor-metrics`](../../../../tools/contributor-metrics/README.md) to collect `<login>`'s activity on `<upstream>` over `<window>` months ending today.
+Write the configured `automated_pushback_phrases` to a tempfile, one per line, and — when the roster is available — the maintainer handles to another, whitespace-separated:
 
 ```bash
-printf '%s' "repo:<upstream> type:pr author:<login> created:><since>" \
-  > /tmp/ctc-pr-query.txt
-
-gh api graphql \
-  -F query=@/tmp/ctc-pr-query.txt \
-  -F batchSize=100 \
-  -f cursor='' \
-  -f gql='query($query:String!,$batchSize:Int!,$cursor:String){
-    search(query:$query,type:ISSUE,first:$batchSize,after:$cursor){
-      issueCount
-      pageInfo{hasNextPage endCursor}
-      nodes{...on PullRequest{number state merged mergedAt createdAt}}
-    }
-  }'
+uv run --directory <framework>/tools/contributor-metrics contributor-metrics fetch \
+  --repo <upstream> --login <login> --end <today> --months <window> \
+  --phrases-file <scratch>/phrases.txt --maintainers-file <scratch>/maintainers.txt \
+  --out <scratch>/items.json
 ```
 
-Record: `prs_opened`, `prs_merged`, merge rate.
+- Exit `2` means `<login>` is not a valid GitHub handle: stop and report it.
+- Exit `1` means `gh` failed: stop and show its error.
 
-For area breadth, fetch labels on each merged PR:
+The tool runs five searches — PRs authored, issues filed, reviews given, threads commented, and issues triaged (other people's issues the candidate commented on) — at most 300 results each.
+It marks a review **substantive** when its body is longer than 100 characters or it carries a line comment.
+A stream listed in `caps_hit` returned more results than were fetched: record its counts as minimums and note the cap in the brief.
+The handle reaches `gh` only through a tempfile the tool writes, never a shell argument.
 
-```bash
-gh api graphql -f gql='query($owner:String!,$repo:String!,$pr:Int!){
-  repository(owner:$owner,name:$repo){
-    pullRequest(number:$pr){labels(first:20){nodes{name}}}
-  }
-}' -F owner=<owner> -F repo=<repo> -F pr=<pr_number>
-```
-
-Count distinct label namespaces (e.g. `area:*`, `kind:*`) touched —
-a contributor who has merged PRs across multiple areas shows breadth.
-Record as `area_breadth` (integer — distinct `area:*` labels hit) and
-`area_list` (list of unique `area:*` values).
-
-### Stream B — PR reviews given
-
-```bash
-gh search prs \
-  --repo <upstream> \
-  --reviewed-by <login> \
-  --created "><since>" \
-  --json number,title \
-  --limit 300
-```
-
-For each returned PR, fetch the review thread:
-
-```graphql
-query($owner: String!, $repo: String!, $pr: Int!, $login: String!) {
-  repository(owner: $owner, name: $repo) {
-    pullRequest(number: $pr) {
-      reviews(first: 100) {
-        nodes {
-          author { login }
-          state
-          body
-          comments { totalCount }
-        }
-      }
-    }
-  }
-}
-```
-
-Count only reviews where `author.login == <login>`. A review is
-**substantive** if `comments.totalCount >= 3` OR `body` length > 50.
-Record: `reviews_total`, `reviews_substantive`.
-
-### Stream C — Issues filed
-
-```bash
-printf '%s' "repo:<upstream> type:issue author:<login> created:><since>" \
-  > /tmp/ctc-issue-query.txt
-
-gh api graphql \
-  -F query=@/tmp/ctc-issue-query.txt \
-  -F batchSize=100 \
-  -f cursor='' \
-  -f gql='query($query:String!,$batchSize:Int!,$cursor:String){
-    search(query:$query,type:ISSUE,first:$batchSize,after:$cursor){
-      issueCount
-      pageInfo{hasNextPage endCursor}
-      nodes{...on Issue{number state createdAt}}
-    }
-  }'
-```
-
-Record: `issues_filed`.
-
-### Stream D — PR and issue comments
-
-```bash
-printf '%s' "repo:<upstream> commenter:<login> updated:><since>" \
-  > /tmp/ctc-comment-query.txt
-
-gh api graphql \
-  -F query=@/tmp/ctc-comment-query.txt \
-  -F batchSize=100 \
-  -f cursor='' \
-  -f gql='query($query:String!,$batchSize:Int!,$cursor:String){
-    search(query:$query,type:ISSUE,first:$batchSize,after:$cursor){
-      issueCount
-      pageInfo{hasNextPage endCursor}
-      nodes{...on Issue{number}...on PullRequest{number}}
-    }
-  }'
-```
-
-Record: `threads_commented`.
-
-### Activity timeline
-
-Bucket all stream events by calendar month from `<since>` to today.
-Record month-by-month totals for the timeline bar in the brief.
+Each item in `items.json` carries a link, its kind, dates, area labels, and a `pushback_candidate` link when a maintainer comment on it contains a known pushback phrase.
+No comment bodies are in the file.
 
 ---
 
@@ -370,11 +270,21 @@ Apply [`automated-contributions.md`](../nomination/automated-contributions.md) t
    Read each document listed in `automated_contribution_expectations`.
    With none configured, or none readable, use the generic heuristics and record that.
 2. **Classify.**
-   Within the budget in that file, mark each authored PR or issue, review, and comment thread as `C` (closed after pushback), `P` (drew maintainer pushback), `R` (restatement), or unflagged.
+   A `pushback_candidate` is a pointer, not a verdict: within the budget in that file, read each linked comment and its thread, and confirm `P` or `C` only when the rules there hold — a negation, praise, a remark about someone else's content, or a later retraction is not pushback.
+   Classify restatements (`R`) within the same budget.
    Record each flagged item's link, class, category, the pushback comment's link and maintainer handle where there is one, and its `basis` — the project expectation it conflicts with, or `generic:<id>`.
 3. **Compute adjusted counts.**
-   Keep every Step 2 count as `raw` and compute the matching `adjusted` value by the aggregation rules in that file.
-   Items weighted `0` leave the merge rate, area breadth and activity timeline as well.
+   Write the confirmed classes to `<scratch>/classes.json` as `{"<item id>": "P" | "R" | "C"}` and the discount settings to `<scratch>/weights.json`, then run:
+
+   ```bash
+   uv run --directory <framework>/tools/contributor-metrics contributor-metrics score \
+     --items <scratch>/items.json --classes <scratch>/classes.json \
+     --weights <scratch>/weights.json --area-prefix <area_label_prefix> \
+     --out <scratch>/metrics.json
+   ```
+
+   `metrics.json` holds raw, discounted, penalty and adjusted values per count, per-area shares, area breadth, merge rate and the monthly timeline, computed by the aggregation rules in that file.
+   Any `notes` in it (an unknown item id, an out-of-range setting) go into the brief.
 4. **Record** `pushback_items`, the number of distinct maintainers who pushed back, and the inspected-versus-total counts.
 
 This step reduces counts; it never changes a band on its own and never ends the assessment.
@@ -488,6 +398,14 @@ Produce the brief and present it to the maintainer for review.
 
 [Cap note if any stream hit the 300-result budget]
 [Note if thresholds are qualitative / runtime-supplied]
+
+### Areas
+
+| Area | PRs merged (adjusted, share) | Reviews (adjusted, share) |
+|------|------------------------------|---------------------------|
+| <area> | N.N (NN.N %) | N.N (NN.N %) |
+
+<One row per entry in `metrics.json.areas`, largest PR share first; omit when empty.>
 
 ### Automated and low-signal contributions
 

@@ -103,8 +103,8 @@ A Python project run with `uv`, `**Capability:** substrate:analytics`, calling `
 - a monthly timeline;
 - every flagged item with its link and class.
 
-Pushback detection by phrase is deterministic and happens in the tool.
-Restatement needs judgement: the tool emits `R` *candidates*, and the calling skill confirms them within the existing inspection budget.
+The tool flags pushback *candidates* deterministically — a maintainer comment containing a known phrase — but `automated-contributions.md` requires matching on meaning (negations, retractions, remarks about someone else's content), so the calling skill confirms or rejects each candidate.
+Restatement needs judgement too and stays entirely in the skill, within the existing inspection budget; the skill hands the confirmed classes back to the tool for the arithmetic.
 
 Results are cached per handle and window under `$TMPDIR`, so `calibrate` and `candidate-screen` do not refetch.
 

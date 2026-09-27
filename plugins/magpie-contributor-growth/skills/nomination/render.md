@@ -43,6 +43,7 @@ rows come from the nominator's own knowledge and public archives
 | Code — PRs merged      | N.N adjusted (N raw, −N.N penalty; of N opened; lifetime: N) | GitHub (automated)     |
 | Code — reviews given   | N.N total, N.N substantive adjusted (N, N raw, −N.N penalty; lifetime: N) | GitHub (automated) |
 | Issues filed           | N.N adjusted (N raw, −N.N penalty; lifetime: N) | GitHub (automated)        |
+| Issues triaged         | N.N adjusted (N raw, −N.N penalty; lifetime: N) | GitHub (automated)        |
 | Issue / PR comments    | N.N threads adjusted (N raw, −N.N penalty; lifetime: N) | GitHub (automated)        |
 | Mailing list           | <nominator's knowledge / archive search>    | Nominator-supplied        |
 | Documentation          | <nominator's knowledge / archive search>    | Nominator-supplied        |
@@ -56,6 +57,16 @@ rows come from the nominator's own knowledge and public archives
 Assessment window: <since> → <today>
 
 [WARNING block here if all nominator-supplied rows are blank]
+
+### Areas  *(GitHub-derived)*
+
+| Area | PRs merged (adjusted, share) | Reviews (adjusted, share) |
+|------|------------------------------|---------------------------|
+| <area> | N.N (NN.N %)               | N.N (NN.N %)              |
+
+<One row per entry in `metrics.json.areas`, largest PR share first.
+Omit the table and say "No area labels on this contributor's work"
+when the list is empty.>
 ```
 
 ```markdown
