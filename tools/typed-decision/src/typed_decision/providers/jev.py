@@ -192,8 +192,13 @@ class JevProvider(DecisionProvider):
                     body = resp.read().decode("utf-8")
                     parsed = json.loads(body)
                     if not isinstance(parsed, dict):
-                        raise TypedDecisionUnavailable(f"Expected JSON object response from {self._endpoint}")
+                        raise TypedDecisionUnavailable(
+                            f"Malformed response from Jev API: expected JSON object, got {type(parsed).__name__}"
+                        )
                     return parsed
+
+            except TypedDecisionUnavailable:
+                raise
 
             except TimeoutError as exc:
                 if attempt < max_retries:
@@ -236,7 +241,7 @@ class JevProvider(DecisionProvider):
         if not options:
             raise TypedDecisionUnavailable("choice operation requires a non-empty list of options")
 
-        vetted_prompt = enforce_privacy_gate(prompt, self._endpoint)
+        vetted_prompt = enforce_privacy_gate(prompt, self._endpoint, provider_name="TypeSafe Jev")
         payload = {
             "model": self._model,
             "operation": "choice",
@@ -246,17 +251,50 @@ class JevProvider(DecisionProvider):
 
         resp = self._execute_request(payload)
 
-        # Handle top-level or nested results
-        result = resp.get("result") or resp.get("decision") or resp
-        label = result.get("label")
-        if label is None:
-            raise TypedDecisionUnavailable(f"Jev API response missing 'label': {resp}")
+        try:
+            if not isinstance(resp, dict):
+                raise TypedDecisionUnavailable(
+                    f"Malformed response from Jev API: expected JSON object, got {type(resp).__name__}"
+                )
 
-        confidence = float(result.get("confidence", 1.0))
-        return {
-            "label": str(label),
-            "confidence": confidence,
-        }
+            result = resp
+            if isinstance(resp.get("result"), dict):
+                result = resp["result"]
+            elif isinstance(resp.get("decision"), dict):
+                result = resp["decision"]
+
+            label = result.get("label")
+            if label is None:
+                raise TypedDecisionUnavailable(f"Jev API response missing 'label': {resp!r}")
+            label_str = str(label)
+            if label_str not in options:
+                raise TypedDecisionUnavailable(
+                    f"Jev API returned label {label_str!r} not in candidate options: {options}"
+                )
+
+            raw_conf = result.get("confidence")
+            if raw_conf is None:
+                raise TypedDecisionUnavailable(f"Jev API response missing 'confidence': {resp!r}")
+            try:
+                confidence = float(raw_conf)
+            except (ValueError, TypeError) as exc:
+                raise TypedDecisionUnavailable(
+                    f"Jev API returned non-numeric confidence {raw_conf!r}: {exc}"
+                ) from exc
+
+            if not 0.0 <= confidence <= 1.0:
+                raise TypedDecisionUnavailable(
+                    f"Jev API returned confidence {confidence} outside valid range [0.0, 1.0]"
+                )
+
+            return {
+                "label": label_str,
+                "confidence": confidence,
+            }
+        except TypedDecisionUnavailable:
+            raise
+        except Exception as exc:
+            raise TypedDecisionUnavailable(f"Malformed response from Jev API: {exc}") from exc
 
     def score(
         self,
@@ -268,7 +306,19 @@ class JevProvider(DecisionProvider):
         Returns:
             {"value": float | int, "confidence": float}
         """
-        vetted_prompt = enforce_privacy_gate(prompt, self._endpoint)
+        if isinstance(scale, (tuple, list)):
+            if len(scale) != 2:
+                raise TypedDecisionUnavailable("scale must be a (min, max) pair of 2 values")
+            try:
+                s_min, s_max = float(scale[0]), float(scale[1])
+                if s_min >= s_max:
+                    raise TypedDecisionUnavailable(
+                        f"Invalid scale: min ({s_min}) must be strictly less than max ({s_max})"
+                    )
+            except (ValueError, TypeError) as exc:
+                raise TypedDecisionUnavailable(f"Invalid scale values {scale!r}: {exc}") from exc
+
+        vetted_prompt = enforce_privacy_gate(prompt, self._endpoint, provider_name="TypeSafe Jev")
         payload = {
             "model": self._model,
             "operation": "score",
@@ -278,16 +328,61 @@ class JevProvider(DecisionProvider):
 
         resp = self._execute_request(payload)
 
-        result = resp.get("result") or resp.get("decision") or resp
-        value = result.get("value")
-        if value is None:
-            raise TypedDecisionUnavailable(f"Jev API response missing 'value': {resp}")
+        try:
+            if not isinstance(resp, dict):
+                raise TypedDecisionUnavailable(
+                    f"Malformed response from Jev API: expected JSON object, got {type(resp).__name__}"
+                )
 
-        confidence = float(result.get("confidence", 1.0))
-        return {
-            "value": value,
-            "confidence": confidence,
-        }
+            result = resp
+            if isinstance(resp.get("result"), dict):
+                result = resp["result"]
+            elif isinstance(resp.get("decision"), dict):
+                result = resp["decision"]
+
+            raw_val = result.get("value")
+            if raw_val is None:
+                raise TypedDecisionUnavailable(f"Jev API response missing 'value': {resp!r}")
+            try:
+                value = float(raw_val)
+            except (ValueError, TypeError) as exc:
+                raise TypedDecisionUnavailable(
+                    f"Jev API returned non-numeric score value {raw_val!r}: {exc}"
+                ) from exc
+
+            if isinstance(scale, (tuple, list)) and len(scale) == 2:
+                try:
+                    min_val, max_val = float(scale[0]), float(scale[1])
+                    if not min_val <= value <= max_val:
+                        raise TypedDecisionUnavailable(
+                            f"Jev API returned score {value} outside scale range [{min_val}, {max_val}]"
+                        )
+                except (ValueError, TypeError):
+                    pass
+
+            raw_conf = result.get("confidence")
+            if raw_conf is None:
+                raise TypedDecisionUnavailable(f"Jev API response missing 'confidence': {resp!r}")
+            try:
+                confidence = float(raw_conf)
+            except (ValueError, TypeError) as exc:
+                raise TypedDecisionUnavailable(
+                    f"Jev API returned non-numeric confidence {raw_conf!r}: {exc}"
+                ) from exc
+
+            if not 0.0 <= confidence <= 1.0:
+                raise TypedDecisionUnavailable(
+                    f"Jev API returned confidence {confidence} outside valid range [0.0, 1.0]"
+                )
+
+            return {
+                "value": value,
+                "confidence": confidence,
+            }
+        except TypedDecisionUnavailable:
+            raise
+        except Exception as exc:
+            raise TypedDecisionUnavailable(f"Malformed response from Jev API: {exc}") from exc
 
     def noul(self, prompt: str) -> dict[str, Any]:
         """Evaluate null/binary decision probability.
@@ -295,7 +390,7 @@ class JevProvider(DecisionProvider):
         Returns:
             {"probability": float}
         """
-        vetted_prompt = enforce_privacy_gate(prompt, self._endpoint)
+        vetted_prompt = enforce_privacy_gate(prompt, self._endpoint, provider_name="TypeSafe Jev")
         payload = {
             "model": self._model,
             "operation": "noul",
@@ -304,11 +399,37 @@ class JevProvider(DecisionProvider):
 
         resp = self._execute_request(payload)
 
-        result = resp.get("result") or resp.get("decision") or resp
-        probability = result.get("probability")
-        if probability is None:
-            raise TypedDecisionUnavailable(f"Jev API response missing 'probability': {resp}")
+        try:
+            if not isinstance(resp, dict):
+                raise TypedDecisionUnavailable(
+                    f"Malformed response from Jev API: expected JSON object, got {type(resp).__name__}"
+                )
 
-        return {
-            "probability": float(probability),
-        }
+            result = resp
+            if isinstance(resp.get("result"), dict):
+                result = resp["result"]
+            elif isinstance(resp.get("decision"), dict):
+                result = resp["decision"]
+
+            raw_prob = result.get("probability")
+            if raw_prob is None:
+                raise TypedDecisionUnavailable(f"Jev API response missing 'probability': {resp!r}")
+            try:
+                probability = float(raw_prob)
+            except (ValueError, TypeError) as exc:
+                raise TypedDecisionUnavailable(
+                    f"Jev API returned non-numeric probability {raw_prob!r}: {exc}"
+                ) from exc
+
+            if not 0.0 <= probability <= 1.0:
+                raise TypedDecisionUnavailable(
+                    f"Jev API returned probability {probability} outside valid range [0.0, 1.0]"
+                )
+
+            return {
+                "probability": probability,
+            }
+        except TypedDecisionUnavailable:
+            raise
+        except Exception as exc:
+            raise TypedDecisionUnavailable(f"Malformed response from Jev API: {exc}") from exc
