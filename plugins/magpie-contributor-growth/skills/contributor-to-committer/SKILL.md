@@ -26,7 +26,7 @@ argument-hint: "<github-handle> [target:committer|pmc] [window:Nm]"
 capability: capability:stats
 surface_hash: sha256:c205c960041719dc
 license: Apache-2.0
-measured_tokens: 5631
+measured_tokens: 5672
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -342,7 +342,7 @@ Every count in this step is the **adjusted** count from Step 2a; the raw count t
 | `area_breadth` | `area_breadth` vs. threshold (0 = no requirement) |
 | `issues_triaged` | `issues_triaged` vs. threshold (0 = no requirement) |
 | `mailing_list_posts` | development-list threads started plus replies vs. threshold (0 = no requirement); counted only when the contributor's list address is confirmed |
-| `off_github` | qualitative — met if maintainer described any signal |
+| `off_github` | qualitative — required `present`; MET if the maintainer described any off-GitHub signal, NOT_YET if it is absent |
 
 For each dimension, assign one of three statuses:
 
@@ -356,10 +356,11 @@ skip numeric MET/APPROACHING/NOT_YET and instead record a qualitative
 said and how the observed activity relates to it.
 
 **Traffic-light logic.** *Mandatory dimensions* are the ones the config
-declares with a threshold greater than 0, plus `off_github` when a
-signal is required. Dimensions with threshold 0, or not declared in the
-config, are advisory: always treated as MET and excluded from the
-aggregate below (no gap shown for them).
+declares with a threshold greater than 0, plus `off_github`, which is
+not a config threshold and is always mandatory: an absent off-GitHub
+signal is NOT_YET, never auto-MET. Numeric dimensions with threshold 0,
+or not declared in the config, are advisory: always treated as MET and
+excluded from the aggregate below (no gap shown for them).
 
 - **Ready to nominate** — every mandatory dimension is MET (or
   narrative_only with strong signal)
