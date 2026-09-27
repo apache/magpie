@@ -89,7 +89,8 @@ default to use the standard variant.
 ## Typed-decision pre-filter (opt-in)
 
 Runs an advisory classification pass during Step 2 triage alongside the deterministic decision table using `typed_decision.choice()`.
-The deterministic decision table always executes authoritatively to determine classifications and actions per `PRINCIPLES.md` §6; the pre-filter pass runs alongside it to record predictive telemetry and evaluate accuracy.
+The deterministic decision table always executes authoritatively to determine classifications and actions per `PRINCIPLES.md` §6.
+The pre-filter pass runs alongside it to record predictive telemetry and evaluate accuracy.
 Can be declared here or overridden in `.apache-magpie-overrides/pr-management-triage.md` (or `.apache-magpie-local/pr-management-triage.md`).
 
 | Key | Default | Notes |
@@ -103,6 +104,9 @@ Can be declared here or overridden in `.apache-magpie-overrides/pr-management-tr
 - Privacy-LLM approval: Requires an opt-in entry in `<project-config>/privacy-llm.md` with non-empty `Data-residency contract` and valid non-placeholder `Approved-by` sign-offs.
 - Callers are responsible for redacting PII before invoking external model providers.
 
-**Human-in-the-loop invariant:** Pre-filtering only gathers advisory predictions and evaluates accuracy — it NEVER bypasses the deterministic table or acts on a PR without explicit maintainer confirmation in the interaction loop.
+**Human-in-the-loop invariant:**
+Pre-filtering only gathers advisory predictions and evaluates accuracy.
+It NEVER bypasses the deterministic table or acts on a PR without explicit maintainer confirmation in the interaction loop.
 
-**Telemetry:** When enabled, every call is logged to `.apache-magpie-local/logs/pr-triage-typed-decision.jsonl` with `{pr_number, table_classification, predicted_label, confidence, latency_ms, match, used_or_fell_through}` for adopter precision/recall evaluation.
+**Telemetry:**
+When enabled, every call is logged to `.apache-magpie-local/logs/pr-triage-typed-decision.jsonl` with `{pr_number, table_classification, predicted_label, confidence, latency_ms, match, used_or_fell_through}` for adopter precision/recall evaluation.

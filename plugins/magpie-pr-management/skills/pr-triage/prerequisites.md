@@ -200,6 +200,18 @@ landed in `gh` 2.20+; earlier versions need the REST call from
 
 ---
 
+## 6. Typed-decision shadow pre-filter prerequisites (when enabled)
+
+When `enable_typed_decision_prefilter: true` is configured in `<project-config>/pr-management-config.md` or overrides:
+
+1. **Third-party endpoint:** The provider calls `https://api.typesafe.ai/v1/systemone` to classify PR states.
+2. **Credentials:** `TYPESAFE_API_KEY` (or fallback `JEV_API_KEY`) environment variable or `~/.config/apache-magpie/typesafe.key` must be present.
+3. **Privacy-LLM opt-in:** Requires an approved entry in `<project-config>/privacy-llm.md` with a non-empty `Data-residency contract` and valid maintainer `Approved-by` sign-offs.
+4. **Prompt injection defense:** Contributor title, body, and commits are enclosed in `<untrusted-external-data>` as data only.
+5. **Fail-open contract:** If any credential, module import, or privacy approval is missing, or on network error/timeout, the pre-filter logs `fell_through` and triage proceeds normally without interrupting the maintainer.
+
+---
+
 ## What to do when a prerequisite fails mid-session
 
 If step 1 or 2 passes at start but a later mutation fails with a
