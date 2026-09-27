@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:2321708548dbd769
 license: Apache-2.0
-measured_tokens: 4796
+measured_tokens: 5093
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -191,6 +191,13 @@ Walk each in order:
     Otherwise:
     [`conditional-checks.md`](conditional-checks.md#check-14--adversarial-review-exclusion-if-installed).
 
+15. **Working directories under the read block.** Only when `permissions.blockReadsOutsideWorkingDirectories` is `true` in any scope (user, project, project-local or managed); otherwise **n/a**.
+    Resolve `$HOME` and `id -u`, then confirm user-scope `permissions.additionalDirectories` contains both `$HOME/.claude/magpie` and `/tmp/claude-<uid>` as literal absolute paths.
+    A missing path is ⚠, not ✗: nothing is exposed, but every read under it prompts, and a bulk sync multiplies that by its gatherer agents.
+    An entry with a glob (`/tmp/claude-*`) is listed as a working directory but never matched; report the path it was meant to cover as missing (⚠) and say plainly that the entry does nothing.
+    The same paths in the committed project `.claude/settings.json` are ⚠: they are per-user and belong in user scope.
+    [Why these two directories](../../../../docs/setup/secure-agent-setup.md#working-directories-under-the-read-outside-working-directories-block).
+
 ## After the report
 
 If every check is ✓, say so explicitly and stop; no further suggestion is needed.
@@ -211,4 +218,5 @@ If anything is ✗ or ⚠, suggest the matching follow-up skill without invoking
 - ✗ on check 12a / 12b (hooks or the hook script missing) → `setup-isolated-setup-install` Step L.
 - ✗ on check 12c (project `env` or `allowUnixSockets` half missing) → `setup-isolated-setup-install` Step L, to propose the missing block as a settings diff for the operator to approve.
 - ✗ on check 12d (a raw daemon socket in `allowUnixSockets`) → the operator removes that entry themselves (settings.json changes are never applied from a skill) and, if they need the daemon reachable, follows Step L instead; then re-run `setup-isolated-setup-verify`.
+- ⚠ on check 15 (a working directory missing, or covered only by a glob) → the operator adds the resolved absolute paths to user-scope `permissions.additionalDirectories` themselves (settings.json changes are never applied from a skill); `/add-dir <path>` covers the current session meanwhile.
 - For users who maintain the `~/.claude-config/` sync repo, the user-scope script copies live there; uncommitted local edits there → `setup-shared-config-sync`.

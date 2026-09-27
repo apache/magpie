@@ -15,9 +15,9 @@ when_to_use: >-
   If it is already installed, use `setup-isolated-setup-verify` to check
   it or `setup-isolated-setup-update` to refresh it.
 capability: capability:platform
-surface_hash: sha256:eb1b228a501f2772
+surface_hash: sha256:3f90b1ffdaa6e9ea
 license: Apache-2.0
-measured_tokens: 4937
+measured_tokens: 5348
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -341,6 +341,48 @@ Tell the operator what the exclusion covers and what it does not:
   read-only mode still reads files anywhere on the machine; see the tool's
   README for what that means for a machine that also holds a private
   checkout.
+
+### Step W — Working directories for the read block
+
+Always propose this step: `permissions.blockReadsOutsideWorkingDirectories`
+may be on in a scope the operator does not think of (managed settings, a
+synced user config), and the entries are harmless when it is off.
+
+Two directories the skills read on every run sit outside the adopter
+repository: `~/.claude/magpie` (the fixed path the vetted-ops rules name)
+and the session scratch root `/tmp/claude-<uid>`. Under the read block each
+read there prompts, and a bulk sync multiplies that by its gatherer agents.
+
+Resolve both paths first, one command each, and show the operator the
+result:
+
+```bash
+echo "$HOME/.claude/magpie"
+```
+
+```bash
+echo "/tmp/claude-$(id -u)"
+```
+
+Then propose the user-scope `~/.claude/settings.json` entry, merged into
+any existing `permissions.additionalDirectories` list:
+
+```jsonc
+"permissions": {
+  "additionalDirectories": ["<resolved magpie path>", "<resolved scratch root>"]
+}
+```
+
+- **Write the resolved literal paths.** Never `~/…` and never a glob such
+  as `/tmp/claude-*`: a glob is accepted and listed as a working
+  directory, but it is not matched, so reads under it keep prompting.
+- **User scope only.** Both paths are per-user; never add them to the
+  committed project `.claude/settings.json`.
+- **Approve before writing.** Show the merge diff and write only after
+  the operator approves it, as for the rest of the user-scope wiring.
+
+Rationale and the rules in full:
+[`docs/setup/secure-agent-setup.md` → Working directories under the read-outside-working-directories block](../../../../docs/setup/secure-agent-setup.md#working-directories-under-the-read-outside-working-directories-block).
 
 ### Steps K, L and M — optional extras
 

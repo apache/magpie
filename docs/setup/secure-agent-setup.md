@@ -22,6 +22,7 @@
     - [`sandbox-add-project-root.sh`](#sandbox-add-project-rootsh)
     - [When the helper runs](#when-the-helper-runs)
     - [Per-project vs whole-user scope](#per-project-vs-whole-user-scope)
+  - [Working directories under the read-outside-working-directories block](#working-directories-under-the-read-outside-working-directories-block)
   - [The clean-env wrapper](#the-clean-env-wrapper)
     - [Automatic sandbox allow-paths](#automatic-sandbox-allow-paths)
   - [Sandbox-bypass visibility hook](#sandbox-bypass-visibility-hook)
@@ -1224,6 +1225,56 @@ dispatchers + prek shim):
 Reversal is the same as simple whole-user (`git config --global
 --unset core.hooksPath`), plus removing `~/.claude/bin` from PATH to
 restore the stock `prek`.
+
+## Working directories under the read-outside-working-directories block
+
+Claude Code's `permissions.blockReadsOutsideWorkingDirectories` setting,
+when it is on in user or managed settings, makes any read of a path
+outside the session's working directories ask first. That covers the
+agent's `Read` tool and Bash commands that name such a path. Two
+locations the Magpie skills read on every run sit outside the adopter
+repository:
+
+- **`~/.claude/magpie`** — the fixed path the vetted-ops rules and
+  commands name ([why a fixed path](#the-frameworks-own-claudesettingsjson)).
+- **`/tmp/claude-<uid>`** — the session scratch root the sandbox makes
+  writable, where skills keep temporary clones, rendered bodies and
+  other intermediate files.
+
+Without them, each such read prompts, and a bulk sync that fans out into
+read-only gatherer agents turns into one prompt per read per agent.
+Add both to `permissions.additionalDirectories` in the **user-scope**
+`~/.claude/settings.json`:
+
+```jsonc
+"permissions": {
+  "additionalDirectories": [
+    "/home/alice/.claude/magpie",   // "$HOME/.claude/magpie", resolved
+    "/tmp/claude-1000"              // "/tmp/claude-$(id -u)", resolved
+  ]
+}
+```
+
+Three rules for the entries:
+
+- **Literal absolute paths.** Resolve `$HOME` and `id -u` when writing
+  them. A glob such as `/tmp/claude-*` is accepted and even listed as a
+  working directory, but it is not matched: reads under
+  `/tmp/claude-<uid>/…` keep prompting.
+- **User scope, never the committed project settings.** Both paths are
+  per-user, and so is the read block they answer.
+- **Nothing becomes editable that was not before.** The `deny` rule
+  `Edit(~/.claude/magpie/**)` still binds every file-editing tool in
+  that directory, so the catalogue behind the vetted-ops read `allow`
+  stays out of the agent's reach. The scratch root is already writable
+  to sandboxed Bash.
+
+For a single session, `/add-dir <path>` does the same without a settings
+change. One case these entries do not cover: a Bash command that spells
+the path with a literal `~` can still prompt, because the read check does
+not resolve `~` inside a command. `setup-isolated-setup-install` proposes the resolved entries,
+`setup-isolated-setup-verify` checks them, and `setup-isolated-setup-update`
+reports them when they are missing.
 
 ## The clean-env wrapper
 
@@ -3030,6 +3081,11 @@ Then walk through:
    to `sandbox-status-line.sh`. If either key exists already
    (e.g. I have other PreToolUse hooks for unrelated work),
    surface the merge diff and ask me to approve before writing.
+   In the same file, add `permissions.additionalDirectories` with
+   `$HOME/.claude/magpie` and `/tmp/claude-$(id -u)` resolved to
+   literal absolute paths — no `~`, no globs — merging into any
+   existing list. See
+   [Working directories under the read-outside-working-directories block](#working-directories-under-the-read-outside-working-directories-block).
 
 6. **(Optional) Waiting-for-input terminal tint.** Ask me whether
    I want the terminal background to tint while Claude is waiting
@@ -3278,6 +3334,18 @@ below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
     the sandbox); a missing deny is ✗ (the exclusion runs that code
     unsandboxed); an `allow` is ✗ (each run sends the change to other
     model providers and must keep its prompt).
+15. **Working directories under the read block**, if
+    `permissions.blockReadsOutsideWorkingDirectories` is on in any
+    scope (n/a otherwise). User-scope
+    `permissions.additionalDirectories` contains the resolved
+    absolute paths of `$HOME/.claude/magpie` and
+    `/tmp/claude-$(id -u)`. A missing path is ⚠: nothing is exposed,
+    but every read under it prompts. An entry with a glob (such as
+    `/tmp/claude-*`) does not cover the path it was meant to: it is
+    listed as a working directory but never matched, so report it as
+    that path missing (⚠) and say plainly the entry does nothing. The
+    same paths in the committed project settings are ⚠: they are
+    per-user.
 ```
 
 Re-run either form after every Claude Code upgrade — the sandbox
