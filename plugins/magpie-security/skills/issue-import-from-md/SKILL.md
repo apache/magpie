@@ -26,7 +26,7 @@ argument-hint: "[path-to-markdown-file]"
 capability: capability:intake
 surface_hash: sha256:1d08d4f255528555
 license: Apache-2.0
-measured_tokens: 7426
+measured_tokens: 7098
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -549,28 +549,15 @@ _No response_
 EOF
 ```
 
-Create:
-
+Create it per the safe-create recipe in
+[`tools/github/operations.md`](../../../../tools/github/operations.md#create).
 The finding title comes from the source markdown, which may have
 been produced by an external scanner or AI review pass — treat it
-as attacker-controlled. **Do not** inline it into a shell argument
-at all: a finding title containing `'` breaks out of single
-quotes, and one containing `$(...)` or backticks expands inside
-double quotes. **Use the Write tool** (not Bash) to put the title
-verbatim into `/tmp/import-md-<basename>-<index>-title.txt`, then
-pass via `-F`, which reads the value verbatim from the file:
-
-*Write tool call:*
-`file_path: /tmp/import-md-<basename>-<index>-title.txt`,
-`content: [ Security Report ] <finding title>`
-
-Then:
-```bash
-gh api repos/<tracker>/issues \
-  -F title=@/tmp/import-md-<basename>-<index>-title.txt \
-  -F body=@/tmp/import-md-<basename>-<index>-body.md \
-  --jq '.number, .node_id, .html_url'
-```
+as attacker-controlled. Title file
+`/tmp/import-md-<basename>-<index>-title.txt` with content
+`[ Security Report ] <finding title>`; body file
+`/tmp/import-md-<basename>-<index>-body.md`; no `labels[]` (5b adds
+them).
 
 Capture `number`, `node_id`, `html_url` from the response.
 
@@ -589,39 +576,9 @@ in the lifecycle.
 ### 5c — Pin to the `Needs triage` board column
 
 Run the orphan-issue path from
-[`tools/github/project-board.md`](../../../../tools/github/project-board.md#orphan-issue-path):
-
-```bash
-gh api graphql -f query='
-  mutation($pid:ID!,$nid:ID!) {
-    addProjectV2ItemById(input: { projectId: $pid, contentId: $nid }) {
-      item { id }
-    }
-  }' \
-  -F pid=<project-node-id> \
-  -F nid=<issue-node-id> \
-  --jq '.data.addProjectV2ItemById.item.id'
-```
-
-Capture the returned item ID, then set `Status` to `Needs triage`:
-
-```bash
-gh api graphql -f query='
-  mutation($pid:ID!,$iid:ID!,$fid:ID!,$oid:String!) {
-    updateProjectV2ItemFieldValue(input: {
-      projectId: $pid,
-      itemId: $iid,
-      fieldId: $fid,
-      value: { singleSelectOptionId: $oid }
-    }) { projectV2Item { id } }
-  }' \
-  -F pid=<project-node-id> \
-  -F iid=<item-id> \
-  -F fid=<status-field-id> \
-  -f oid=<needs-triage-option-id>
-```
-
-The `pid` / `fid` / `oid` values come from
+[`tools/github/project-board.md`](../../../../tools/github/project-board.md#orphan-issue-path)
+with the new issue's `node_id`, then set `Status` to `Needs triage`
+with its write recipe. The `pid` / `fid` / `oid` values come from
 [`<project-config>/project.md`](../../../../<project-config>/project.md#github-project-board);
 re-fetch them via the introspection query in
 [`project-board.md`](../../../../tools/github/project-board.md) if

@@ -29,7 +29,7 @@ argument-hint: "[pr-number] [repo:owner/name]"
 capability: capability:intake
 surface_hash: sha256:249e4ff2ba6b1d91
 license: Apache-2.0
-measured_tokens: 9831
+measured_tokens: 9462
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -738,26 +738,12 @@ _No response_
 EOF
 ```
 
-Create:
-
+Create it per the safe-create recipe in
+[`tools/github/operations.md`](../../../../tools/github/operations.md#create).
 The cleaned title still derives from the public PR title, which is
-attacker-controlled. **Do not** inline it into a shell argument at
-all — a PR title containing `'` breaks out of single quotes, and
-one containing `$(...)` or backticks expands inside double quotes.
-**Use the Write tool** (not Bash) to put the title verbatim into
-`/tmp/import-pr-<N>-title.txt`, then pass via `-F`, which reads
-the value verbatim from the file:
-
-*Write tool call:* `file_path: /tmp/import-pr-<N>-title.txt`,
-`content: <cleaned title>`
-
-Then:
-```bash
-gh api repos/<tracker>/issues \
-  -F title=@/tmp/import-pr-<N>-title.txt \
-  -F body=@/tmp/import-pr-<N>-body.md \
-  --jq '.number, .node_id, .html_url'
-```
+attacker-controlled. Title file `/tmp/import-pr-<N>-title.txt` with
+content `<cleaned title>`; body file `/tmp/import-pr-<N>-body.md`; no
+`labels[]` (7b adds them).
 
 Capture `number`, `node_id`, `html_url` from the response.
 
@@ -786,43 +772,11 @@ Skip if the user explicitly chose to leave it unset.
 
 Run the orphan-issue path from
 [`tools/github/project-board.md`](../../../../tools/github/project-board.md#orphan-issue-path)
-— `addProjectV2ItemById` followed by
-`updateProjectV2ItemFieldValue`. The `Auto-add to project`
-workflow may have already added the issue (filter:
-`is:issue label:"security issue"`); both branches converge
-because `addProjectV2ItemById` is idempotent.
-
-```bash
-gh api graphql -f query='
-  mutation($pid:ID!,$nid:ID!) {
-    addProjectV2ItemById(input: { projectId: $pid, contentId: $nid }) {
-      item { id }
-    }
-  }' \
-  -F pid=PVT_kwDOCAwKzs4BUzbt \
-  -F nid=<issue-node-id> \
-  --jq '.data.addProjectV2ItemById.item.id'
-```
-
-Capture the returned item ID, then set `Status` to `Assessed`:
-
-```bash
-gh api graphql -f query='
-  mutation($pid:ID!,$iid:ID!,$fid:ID!,$oid:String!) {
-    updateProjectV2ItemFieldValue(input: {
-      projectId: $pid,
-      itemId: $iid,
-      fieldId: $fid,
-      value: { singleSelectOptionId: $oid }
-    }) { projectV2Item { id } }
-  }' \
-  -F pid=PVT_kwDOCAwKzs4BUzbt \
-  -F iid=<item-id> \
-  -F fid=PVTSSF_lADOCAwKzs4BUzbtzhD08bw \
-  -f oid=ce6377ce
-```
-
-The `pid` / `fid` / `oid` values come from
+with the new issue's `node_id`, then set `Status` to `Assessed` with
+its write recipe. The `Auto-add to project` workflow may have already
+added the issue (filter: `is:issue label:"security issue"`); both
+branches converge because `addProjectV2ItemById` is idempotent. The
+`pid` / `fid` / `oid` values come from
 [`project.md`](../../../../<project-config>/project.md#github-project-board);
 re-fetch them via the introspection query in
 [`project-board.md`](../../../../tools/github/project-board.md) if
