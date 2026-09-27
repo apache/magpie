@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 import copy
+import fnmatch
 import json
 from pathlib import Path
 from typing import Any
@@ -84,7 +85,6 @@ def test_baseline_asks_on_gh_writes_not_on_reads(baseline: dict[str, Any]) -> No
     ask = baseline["permissions"]["ask"]
     assert "Bash(gh *)" not in ask
     for rule in (
-        "Bash(gh api *)",
         "Bash(gh pr merge *)",
         "Bash(gh issue close *)",
         "Bash(gh release delete *)",
@@ -92,6 +92,43 @@ def test_baseline_asks_on_gh_writes_not_on_reads(baseline: dict[str, Any]) -> No
     ):
         assert rule in ask, rule
     assert "Bash(gh pr view *)" in baseline["permissions"]["allow"]
+
+
+# Every way `gh api` can send something other than a GET: an explicit method,
+# request fields (which switch the default method to POST), or a request body.
+GH_API_WRITE_FLAGS = ("-X", "--method", "-f", "-F", "--field", "--raw-field", "--input")
+
+
+def test_baseline_asks_on_gh_api_writes_not_on_gets(baseline: dict[str, Any]) -> None:
+    # A blanket `Bash(gh api *)` ask made every read-only GET prompt and, by
+    # ask-over-allow precedence, silenced the specific `gh api` GET allow rules.
+    # The write shapes are asked instead, each flag both right after `gh api`
+    # and later in the command, and with the value attached (`-XPOST`).
+    ask = baseline["permissions"]["ask"]
+    assert "Bash(gh api *)" not in ask
+    for flag in GH_API_WRITE_FLAGS:
+        assert f"Bash(gh api {flag}*)" in ask, flag
+        assert f"Bash(gh api * {flag}*)" in ask, flag
+
+
+@pytest.mark.parametrize(
+    ("command", "asks"),
+    [
+        ("gh api repos/o/r/pulls/1/files --jq .[].filename", False),
+        ("gh api repos/o/r/contents/README.md -H 'Accept: application/vnd.github.raw'", False),
+        ("gh api repos/o/r/commits --paginate", False),
+        ("gh api repos/o/r/pulls/1/reviews --method POST --input body.json", True),
+        ("gh api -XPOST repos/o/r/issues/1/comments -f body=hi", True),
+        ("gh api repos/o/r/labels -f name=x", True),
+        ("gh api repos/o/r/collaborators/u -X PUT", True),
+        ("gh api --method=DELETE repos/o/r/git/refs/heads/x", True),
+        ("gh api graphql -f query='mutation{x}'", True),
+        ("gh api graphql -F query=@q.graphql", True),
+    ],
+)
+def test_gh_api_ask_rules_split_gets_from_writes(baseline: dict[str, Any], command: str, asks: bool) -> None:
+    patterns = [r[len("Bash(") : -1] for r in baseline["permissions"]["ask"] if r.startswith("Bash(gh api")]
+    assert any(fnmatch.fnmatchcase(command, p) for p in patterns) is asks
 
 
 VETTED_OP_READ = "~/.claude/magpie/vetted-ops vetted-op-read *"

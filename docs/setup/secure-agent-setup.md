@@ -612,7 +612,7 @@ below, annotated.
   },
   "permissions": {
     "allow": [
-      "Bash(gh api graphql *)",                 // read-only GraphQL fetches (PR-triage paginated loop). MORE SPECIFIC than the `gh *` ask below, so it — and the read-only rules that follow — run WITHOUT a prompt. GraphQL mutations slip through; accepted, since the skills route mutations through REST, not graphql.
+      "Bash(gh api graphql *)",                 // GraphQL fetches (PR-triage paginated loop). Every GraphQL call sends `-f query=…`, so the write-shaped `gh api * -f*` ask below still prompts for it (ask beats allow); this rule only matters in a config without that ask. Bounded GraphQL reads go through vetted-ops instead.
       // Two read-only REST `gh api` GETs the skills need for read-only
       // analysis (security-team / reviewer roster lookup; release-tag ↔
       // fix-commit ancestry when verifying a fix shipped). Without these,
@@ -622,9 +622,9 @@ below, annotated.
       // mutation (`… /collaborators/<user> -X PUT`, which has no ` --` prefix);
       // `compare/…` is a GET-only endpoint with no mutating counterpart.
       "Bash(gh api repos/*/*/collaborators --*)", "Bash(gh api repos/*/*/compare/*)",
-      // Read-only gh, allow-listed so they don't trip the `gh *` ask below.
-      // Anything NOT listed here — every write/destructive gh, and any other
-      // REST `gh api` (GET included) — falls through to `gh *` and prompts.
+      // Read-only gh, allow-listed so they run without a prompt. Every
+      // write/destructive gh subcommand, and every write-shaped `gh api`, is
+      // on ask below; anything in neither list falls to the mode's default.
       "Bash(gh pr view *)", "Bash(gh pr list *)", "Bash(gh pr diff *)", "Bash(gh pr checks *)",
       "Bash(gh issue view *)", "Bash(gh issue list *)",
       "Bash(gh repo view *)", "Bash(gh repo list *)",
@@ -709,7 +709,21 @@ below, annotated.
       // A gh subcommand that appears in neither list falls through to the
       // mode's default (a prompt in default mode, the classifier in auto).
       // `gh auth token` / `refresh` are denied above (deny > ask).
-      "Bash(gh api *)",                          // GET and POST look the same to a pattern; keep the whole thing on ask (vetted-ops carries the bounded reads)
+      // `gh api` asks only in its write shapes. A call is a GET unless it
+      // names a method (-X / --method), sends fields (-f / -F / --field /
+      // --raw-field, which switch the default to POST) or a body (--input);
+      // each flag is matched right after `gh api` and later, with the value
+      // attached (-XPOST) or separate. A plain GET no longer prompts, and the
+      // specific `gh api` GET allow rules above now take effect. GraphQL still
+      // asks: it always sends `-f query=…`, and a pattern cannot tell a query
+      // from a mutation (vetted-ops carries the bounded GraphQL reads).
+      "Bash(gh api -X*)", "Bash(gh api * -X*)",
+      "Bash(gh api --method*)", "Bash(gh api * --method*)",
+      "Bash(gh api -f*)", "Bash(gh api * -f*)",
+      "Bash(gh api -F*)", "Bash(gh api * -F*)",
+      "Bash(gh api --field*)", "Bash(gh api * --field*)",
+      "Bash(gh api --raw-field*)", "Bash(gh api * --raw-field*)",
+      "Bash(gh api --input*)", "Bash(gh api * --input*)",
       "Bash(gh pr create *)",
       "Bash(gh pr comment *)",
       "Bash(gh pr review *)",
