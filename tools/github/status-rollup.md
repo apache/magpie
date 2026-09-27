@@ -46,7 +46,7 @@ One comment per tracker, identified by an opening HTML marker on the
 first line:
 
 ```markdown
-<!-- airflow-s status rollup v1 — all bot-authored status updates fold into this single comment. -->
+<!-- <tracker-name> status rollup v1 — all bot-authored status updates fold into this single comment. -->
 <details><summary>YYYY-MM-DD · @user · <Action></summary>
 
 <entry body>
@@ -65,9 +65,11 @@ first line:
 Rules (all load-bearing — breaking any of them breaks GitHub's
 Markdown rendering):
 
-- **First line is the marker.** `<!-- airflow-s status rollup v1 — … -->`
-  identifies the comment as the rollup. Detection is anchored on
-  `airflow-s status rollup v` so future `v2` bumps remain findable.
+- **First line is the marker.** `<!-- <tracker-name> status rollup v1 — … -->`
+  identifies the comment as the rollup, where `<tracker-name>` is the
+  tracker repository's name (the part of `<tracker>` after the `/`).
+  Detection matches `<!-- <any-name> status rollup v<N>` so a rollup
+  is found whatever wrote it, and future `v2` bumps remain findable.
 - **Every entry is its own `<details>` block.** Including the very
   first one (the import receipt). There is no always-visible
   preamble above the first `<details>`. The reason: every entry —
@@ -169,82 +171,39 @@ as before.
 
 ## Upsert recipe — append to an existing rollup, or create one
 
-Every skill that emits a status update runs this recipe. The steps
-assume the skill has already composed `<new-entry>` — the full
-`<details>…</details>` block for this pass, with no leading/trailing
-blank lines.
+Every skill that emits a status update runs this recipe, through
+[`github-rollup`](../github-rollup/README.md). The tool reads, appends
+and writes in a subprocess, so the rollup body — the largest comment on
+a long-running tracker — never enters the agent's context.
 
 ### 1. Find the existing rollup comment
 
-```bash
-gh issue view <N> --repo <tracker> \
-  --json comments \
-  --jq '.comments[] | select(.body | startswith("<!-- airflow-s status rollup v")) | {id: .id, body: .body, url: .url}'
-```
-
-The matching comment is the rollup. If the query returns nothing,
-there is no rollup yet (expected on a fresh tracker where
-`security-issue-import` has not run, or on a legacy tracker that
-pre-dates this convention).
-
-Use the **first** match chronologically if the query somehow returns
-more than one — two rollups is a bug; surface it to the user and
-let them pick which one to keep.
+Nothing to do by hand: the tool finds the comment whose first line is
+a rollup marker. Two rollups on one tracker is a bug; `github-rollup
+list <N>` shows what the tool sees, and the user picks which to keep.
 
 ### 2a. Append to an existing rollup
 
-Construct the new body by concatenating the old body + a ruler + the
-new entry, with exactly one blank line on each side of the ruler:
-
-```text
-<old body>
-
----
-
-<new entry>
-```
-
-Write the new body to a temp file and PATCH the comment:
+Write the entry body (without the `<details>` envelope) to a file with
+the Write tool, then:
 
 ```bash
-python3 - <<'PY' > /tmp/rollup-body.md
-import pathlib, subprocess, json, textwrap
-
-old = subprocess.check_output(
-    ["gh", "api", "repos/<tracker>/issues/comments/<comment-id>", "--jq", ".body"],
-    text=True,
-).rstrip("\n")
-new_entry = pathlib.Path("/tmp/new-entry.md").read_text().rstrip("\n")
-print(old + "\n\n---\n\n" + new_entry)
-PY
-
-jq -Rs '{body: .}' /tmp/rollup-body.md > /tmp/rollup-patch.json
-gh api -X PATCH repos/<tracker>/issues/comments/<comment-id> --input /tmp/rollup-patch.json
+uv run --directory <framework>/tools/github-rollup github-rollup \
+  --repo <tracker> append <N> --action "<Action>" \
+  --entry-body-file <scratch>/<entry>.md
 ```
 
-The `-X PATCH repos/<tracker>/issues/comments/<id>` form is the only
-reliable way; `gh issue comment --edit-last` does **not** target an
-arbitrary comment, and the `--input` flag is needed because
-`--field body=@file` URL-encodes the newlines in the body.
+The tool adds the `<details><summary>YYYY-MM-DD · @user · <Action></summary>`
+envelope and the ruler. `--dry-run` reports create-vs-append without
+writing. `amend-latest <N> --action "<Action>" --entry-body-file …`
+replaces the body of the most recent entry (keeping its date and user)
+when a later step of the same pass has to fill in a value such as a
+draft id; it refuses when the latest entry carries a different action.
 
 ### 2b. Create a new rollup
 
-Only if Step 1 returned no existing rollup. Prepend the marker line
-and emit the new entry as the rollup's first entry:
-
-```markdown
-<!-- airflow-s status rollup v1 — all bot-authored status updates fold into this single comment. -->
-<new entry>
-```
-
-Post as a regular comment via `gh issue comment --body-file`:
-
-```bash
-gh issue comment <N> --repo <tracker> --body-file /tmp/rollup-body.md
-```
-
-Capture the returned comment URL + ID so subsequent passes in the
-same run can append without re-searching.
+The same `append` call creates the rollup, with the marker line, when
+the tracker has none yet.
 
 ## Migrating legacy comments into a rollup
 
@@ -258,8 +217,8 @@ original.
 
 A comment is a candidate for folding when **all** of the following hold:
 
-1. **Not already a rollup.** Its body does not start with
-   `<!-- airflow-s status rollup v`.
+1. **Not already a rollup.** Its body does not start with a rollup
+   marker (`<!-- <tracker-name> status rollup v`).
 2. **Author is on the security-team roster.** Cross-check
    `.comments[].author.login` against the collaborator list (see
    [`operations.md`](operations.md#collaborator-lookup-security-team-roster))
@@ -310,24 +269,23 @@ For each foldable legacy comment, in chronological order:
      not map cleanly, use `Sync` and tag the fold as
      `Reformat (N legacy comments folded)` on the overall rollup
      entry the sync is about to write.
-   - **Left-trim every line** before pasting. Legacy comments that
-     were hand-edited sometimes carry stray indentation (see
-     `airflow-s#244`'s 2026-04-20 comment, which had `        ` on
-     most lines); leaving that indentation inside a `<details>`
-     turns the whole entry into a preformatted-code block.
-2. **Append the reconstructed entry to the rollup**, using the upsert
-   recipe above (Step 2a). Preserve the original order by appending
-   oldest-first.
-3. **Delete the legacy comment** once the rollup PATCH succeeds:
+   - **Every line is left-trimmed** (`fold` does it). Legacy comments
+     that were hand-edited sometimes carry stray indentation on most
+     lines; leaving it inside a `<details>` turns the whole entry
+     into a preformatted-code block.
+2. **Append, then delete**, oldest first, with one call per legacy
+   comment:
 
    ```bash
-   gh api -X DELETE repos/<tracker>/issues/comments/<legacy-comment-id>
+   uv run --directory <framework>/tools/github-rollup github-rollup \
+     --repo <tracker> fold <N> --comment-id <legacy-comment-id> --action "<Action>"
    ```
 
-   Only delete after the append lands — if the PATCH fails, the
-   content is still on the tracker via the legacy comment and the
-   fold can be retried on the next pass. Never delete first and hope
-   the append works.
+   `fold` builds the entry from the legacy comment's own date and
+   author, left-trims every line, appends it, and deletes the legacy
+   comment only after the append succeeded. If the append fails, the
+   content is still on the tracker via the legacy comment and the fold
+   can be retried on the next pass.
 
 ### The fold-legacy sub-step is a proposal, not an auto-apply
 
@@ -369,7 +327,7 @@ audit the change.
   subsequent line of the entry. Compose entries with all lines
   flush-left.
 - **Never create two rollups on the same tracker.** If Step 1 of the
-  upsert finds more than one `<!-- airflow-s status rollup v` marker,
+  upsert finds more than one `status rollup v` marker,
   stop and ask the user which to keep — the cheapest recovery is a
   manual merge, not a silent overwrite.
 - **Never name or describe other ASF projects' vulnerabilities** in a

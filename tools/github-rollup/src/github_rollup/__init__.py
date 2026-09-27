@@ -17,21 +17,31 @@
 from github_rollup.cli import main
 from github_rollup.rollup import (
     ROLLUP_MARKER_PREFIX,
+    ROLLUP_MARKER_RE,
     RollupEntry,
     build_entry,
     build_new_rollup_body,
+    is_rollup_body,
     iter_entries,
+    left_trim_lines,
+    marker_line,
     parse_summary_line,
     rebuild_with_appended_entry,
+    replace_latest_entry,
 )
 
 __all__ = [
     "ROLLUP_MARKER_PREFIX",
+    "ROLLUP_MARKER_RE",
     "RollupEntry",
     "build_entry",
     "build_new_rollup_body",
+    "is_rollup_body",
     "iter_entries",
+    "left_trim_lines",
     "main",
+    "marker_line",
     "parse_summary_line",
     "rebuild_with_appended_entry",
+    "replace_latest_entry",
 ]
