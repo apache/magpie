@@ -58,5 +58,6 @@ and community work; factual flags. Every claim links to its evidence.>
 - A handle is always a plain link, `[handle](https://github.com/handle)` — never `@handle`, so no one is notified.
 - Names follow [`real-names.md`](../nomination/real-names.md); a person with no verified name is listed by handle.
 - Shares are percentages with one decimal.
+- A count fed by a capped stream is written `≥ N` and footnoted *"at least N — the search returned more than was fetched"*; any `notes` from `metrics.json` are listed under the candidate.
 - Candidates are ordered by floors met, then by adjusted merged PRs.
 - No email addresses, and no quotes from private material.

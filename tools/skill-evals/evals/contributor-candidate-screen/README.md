@@ -5,14 +5,15 @@
 
 Behavioural eval suite for the
 [`contributor-candidate-screen`](../../../../skills/contributor-candidate-screen/SKILL.md)
-skill. Tests five decision points:
+skill. Tests six decision points:
 
 | Step dir | What is tested | Cases |
 |---|---|---|
 | `step-0-gates` | A public report repository is refused with no alternative offered; a private one proceeds after the audience is confirmed | 2 |
-| `step-2-pre-filter` | Pre-filter ratio applied; every dropped contributor logged with counts | 1 |
+| `step-1-pool` | Roster ids mapped to GitHub handles (unmapped ids listed, current committers excluded); a merged-PR search over 1000 results sliced by month, never truncated | 2 |
+| `step-2-pre-filter` | Pre-filter ratio applied; a zero (evidence-only) floor ignored; the PMC pool not pre-filtered; every dropped contributor logged with counts | 3 |
 | `step-3-measure-and-shortlist` | Shortlist boundaries at `shortlist_max_missing`; evidence-only metrics never count as missing | 1 |
-| `step-4-write-report` | Floor-not-decision note; verified real name; no `@`-mentions anywhere in the report | 1 |
+| `step-4-write-report` | Floor-not-decision note; verified real name; no `@`-mentions anywhere in the report; capped counts shown as minimums | 2 |
 | `step-5-deliver` | No write without confirmation; privacy re-checked before the write; nothing posted elsewhere | 3 |
 
 ## Run

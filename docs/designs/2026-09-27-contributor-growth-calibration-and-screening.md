@@ -184,7 +184,8 @@ It shows the repository's collaborators for the maintainer to confirm the audien
    Committer target: everyone with a merged PR in the window who is not a committer.
    `<governance-body>` target: committers not in it.
    Rosters from the Apache Projects MCP where reachable, else `pmc-roster.md`.
-2. **Pre-filter** deterministically on cheap search counts: keep anyone at or above `screen_prefilter_ratio` (default `0.5`) of any floor.
+2. **Pre-filter** deterministically on cheap search counts — merged PRs and reviewed PRs, the only counts cheap enough for a large pool: keep anyone at or above `screen_prefilter_ratio` (default `0.5`) of either floor, ignoring floors of `0`.
+   The `<governance-body>` pool is small and is not pre-filtered.
    Everyone dropped is logged with their counts.
 3. **Measure** survivors with `contributor-metrics`.
    The shortlist is everyone missing at most `shortlist_max_missing` (default `2`) floors, evidence-only metrics excluded.

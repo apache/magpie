@@ -21,7 +21,7 @@ argument-hint: "[target:committer|pmc|both] [window:6m] [end:YYYY-MM-DD]"
 capability: capability:stats
 surface_hash: sha256:a85d8562c0c9e801
 license: Apache-2.0
-measured_tokens: 2539
+measured_tokens: 2858
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -135,12 +135,25 @@ Floors come from `<project-config>/committer-readiness.md`, else `contributor-no
 
 Rosters come from the organization's people directory (ASF: `mcp__apache-projects__get_group_members(<project>)` for committers, `get_group_members(pmc-<project>)` for members), else from `<project-config>/pmc-roster.md`.
 
+**Map roster ids to GitHub handles** before comparing: use the directory's GitHub field for each id, or the maintainer.
+Never guess from a similar name.
+List every roster id without a confirmed handle in `unmapped_roster_ids` and ask the maintainer to map them, so that no current committer is shortlisted as a committer candidate and no committer is silently left out of the `<governance-body>` pool.
+
+**Never truncate the pool.**
+GitHub search returns at most 1000 results.
+When the merged-PR search reports more than that, run it in date slices — by month, then by week if a month still exceeds 1000 — until every slice's `issueCount` is under the limit, and merge the authors.
+If even a one-day slice exceeds the limit, stop and say so rather than build a partial pool.
+
 ---
 
 ## Step 2 — Pre-filter
 
-For each person in the pool, run two count-only searches — merged PRs authored, and PRs reviewed, in the window — reading `issueCount` only.
+**`<governance-body>` target:** no pre-filter — the pool is the current committers who are not members, small enough to measure in full.
+
+**Committer target:** for each person in the pool, run two count-only searches — merged PRs authored, and PRs reviewed, in the window — reading `issueCount` only.
 Keep the person when either count is at least `screen_prefilter_ratio` × its floor.
+A floor of `0` (an evidence-only metric) is ignored here; it never keeps anyone by itself.
+Only these two counts are cheap enough to pre-filter a large pool; list, triage and community activity are measured in Step 3 for everyone who stays.
 Log everyone dropped, with both counts, in `dropped`; nobody leaves the pool silently.
 
 ---
@@ -152,6 +165,7 @@ For each person who survived the pre-filter:
 1. Run `contributor-metrics fetch` and `score` exactly as [`contributor-to-committer` Step 2 and Step 2a](../contributor-to-committer/SKILL.md#step-2--fetch-contributor-activity) do, confirming pushback candidates on meaning.
 2. Compare each numeric floor with the adjusted count.
    A metric the config marks *evidence only* never counts as missing.
+   A metric fed by a stream in `caps_hit` is a minimum: if it already meets the floor it is met; if it does not, it is *unknown* — not counted as missing — and the report says so.
 3. **Shortlist** the person when they miss at most `shortlist_max_missing` floors.
 
 For each shortlisted candidate, collect community signals per [`community-signals.md`](../nomination/community-signals.md) and resolve their name per [`real-names.md`](../nomination/real-names.md).

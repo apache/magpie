@@ -90,7 +90,7 @@ Suites are currently implemented for:
 - **setup-privacy-llm** — 6 cases across 2 suites (step-1-resolve, step-4-gate)
 - **preflight-reconciliation** — 7 cases across 1 suite (step-reconciliation)
 - **contributor-calibrate** — 7 cases across 2 suites (step-1-find-nominations, step-4-propose-floors)
-- **contributor-candidate-screen** — 8 cases across 5 suites (step-0-gates, step-2-pre-filter, step-3-measure-and-shortlist, step-4-write-report, step-5-deliver)
+- **contributor-candidate-screen** — 13 cases across 6 suites (step-0-gates, step-2-pre-filter, step-3-measure-and-shortlist, step-4-write-report, step-5-deliver)
 
 ## Prerequisites
 
