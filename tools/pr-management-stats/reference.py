@@ -333,15 +333,17 @@ def fold_triaged_at(pr):
     The block lives in the PR body, which the PR author controls, so the
     marker text is untrusted input: an unparsable or timezone-naive
     ``triaged=`` value means "no fold event", never a crash -- a
-    framework-written fold always carries an ISO-8601 UTC timestamp."""
-    m = _FOLD_TRIAGED_RE.search(pr.get("body") or "")
-    if not m:
-        return None
-    try:
-        at = parse_iso(m.group(1))
-    except ValueError:
-        return None
-    return at if at is not None and at.tzinfo is not None else None
+    framework-written fold always carries an ISO-8601 UTC timestamp. Every
+    marker is tried, so a malformed one placed above the real block cannot
+    hide it."""
+    for m in _FOLD_TRIAGED_RE.finditer(pr.get("body") or ""):
+        try:
+            at = parse_iso(m.group(1))
+        except ValueError:
+            continue
+        if at.tzinfo is not None:
+            return at
+    return None
 
 
 def triage_marker_events(pr, ctx):

@@ -57,6 +57,16 @@ def test_valid_fold_still_parses():
     assert at.tzinfo is not None
 
 
+def test_malformed_marker_does_not_hide_a_later_valid_fold():
+    pr = {
+        "body": "<!-- pr-triage-fold: triaged=oops -->\n"
+        + _body_with("2026-06-11T14:22:00Z")["body"]
+    }
+    at = reference.fold_triaged_at(pr)
+    assert at is not None
+    assert at.isoformat() == "2026-06-11T14:22:00+00:00"
+
+
 def test_marker_events_survive_malformed_fold():
     """The dashboard entry point must not raise on author-controlled bodies."""
     events = reference.triage_marker_events(_body_with("oops"), make_ctx())
