@@ -27,7 +27,7 @@ Magpie's **own** release-management config (Magpie self-adopts the
 framework — see [`.apache-magpie.lock`](../../.apache-magpie.lock)).
 This is the live config the `release-*` skills read for a Magpie
 release, not a scaffold. The adopter template lives at
-[`projects/_template/release-management-config.md`](../_template/release-management-config.md);
+[`projects/_template/release-management-config.md`](../../plugins/magpie-setup/templates/release-management-config.md);
 this file is that template filled with Magpie's values.
 
 Magpie is an **ASF Top-Level Project** (established by Board

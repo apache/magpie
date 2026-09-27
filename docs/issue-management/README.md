@@ -93,7 +93,7 @@ the shape: it runs itself, it writes only gitignored files, and it stages
 nothing.*
 
 Every skill here resolves project-specific values from the adopter's
-[`<project-config>/`](../../projects/_template/) directory — which is
+[`<project-config>/`](../../plugins/magpie-setup/templates/) directory — which is
 `.apache-magpie-local/` (gitignored, yours) first, then
 `.apache-magpie-overrides/` (committed, the project's).
 
@@ -110,21 +110,21 @@ says which file is missing.
 
 | File | What it carries | Read by |
 |---|---|---|
-| [`fix-workflow.md`](../../projects/_template/fix-workflow.md) | Fork / clone / toolchain specifics, backport-label policy, commit-trailer wording, PR scrubbing, private-PR fallback. | `fix-workflow` |
-| [`issue-tracker-config.md`](../../projects/_template/issue-tracker-config.md) | Tracker URL, project key, auth model, default query templates. | `backlog-stats`, `deduplicate`, `reassess`, `reassess-stats`, `reproducer`, `stale-sweep`, `triage` |
-| [`project.md`](../../projects/_template/project.md) | Project manifest. Identity, repositories, mailing lists, tools enabled, CVE tooling, GitHub project-board + issue-template field declarations. The single file every skill reads to resolve project-scoped references. | `stale-sweep`, `triage` |
-| [`reassess-pool-defaults.md`](../../projects/_template/reassess-pool-defaults.md) | Named pools for reassessment sweeps (`open-eol`, `reopened`, `stale-unresolved`, project-specific). | `reassess` |
-| [`reproducer-conventions.md`](../../projects/_template/reproducer-conventions.md) | Evidence-package directory layout and frozen-copy discipline. | `reproducer` |
-| [`runtime-invocation.md`](../../projects/_template/runtime-invocation.md) | Build prerequisite, run-a-single-file recipe, stream-capture conventions, network/dependency handling. | `fix-workflow`, `reproducer` |
+| [`fix-workflow.md`](../../plugins/magpie-setup/templates/fix-workflow.md) | Fork / clone / toolchain specifics, backport-label policy, commit-trailer wording, PR scrubbing, private-PR fallback. | `fix-workflow` |
+| [`issue-tracker-config.md`](../../plugins/magpie-setup/templates/issue-tracker-config.md) | Tracker URL, project key, auth model, default query templates. | `backlog-stats`, `deduplicate`, `reassess`, `reassess-stats`, `reproducer`, `stale-sweep`, `triage` |
+| [`project.md`](../../plugins/magpie-setup/templates/project.md) | Project manifest. Identity, repositories, mailing lists, tools enabled, CVE tooling, GitHub project-board + issue-template field declarations. The single file every skill reads to resolve project-scoped references. | `stale-sweep`, `triage` |
+| [`reassess-pool-defaults.md`](../../plugins/magpie-setup/templates/reassess-pool-defaults.md) | Named pools for reassessment sweeps (`open-eol`, `reopened`, `stale-unresolved`, project-specific). | `reassess` |
+| [`reproducer-conventions.md`](../../plugins/magpie-setup/templates/reproducer-conventions.md) | Evidence-package directory layout and frozen-copy discipline. | `reproducer` |
+| [`runtime-invocation.md`](../../plugins/magpie-setup/templates/runtime-invocation.md) | Build prerequisite, run-a-single-file recipe, stream-capture conventions, network/dependency handling. | `fix-workflow`, `reproducer` |
 
 **Optional.** Each has a documented fallback; absent, the skill still runs.
 
 | File | What it carries | Read by |
 |---|---|---|
-| [`canned-responses.md`](../../projects/_template/canned-responses.md) | Reusable reporter-facing reply templates. | `triage` |
-| [`release-trains.md`](../../projects/_template/release-trains.md) | Active release branches, release-manager attribution per cut, rotation rosters, security-team roster. | `triage` |
-| [`scope-labels.md`](../../projects/_template/scope-labels.md) | Scope label → CVE product / `packageName` / collection-URL mapping. Exactly one scope label per tracker. | `backlog-stats`, `reassess`, `triage` |
-| [`stale-sweep-config.md`](../../projects/_template/stale-sweep-config.md) | Grace windows and exemption labels for stale sweeps. Absent, the framework defaults apply. | `backlog-stats`, `stale-sweep` |
+| [`canned-responses.md`](../../plugins/magpie-setup/templates/canned-responses.md) | Reusable reporter-facing reply templates. | `triage` |
+| [`release-trains.md`](../../plugins/magpie-setup/templates/release-trains.md) | Active release branches, release-manager attribution per cut, rotation rosters, security-team roster. | `triage` |
+| [`scope-labels.md`](../../plugins/magpie-setup/templates/scope-labels.md) | Scope label → CVE product / `packageName` / collection-URL mapping. Exactly one scope label per tracker. | `backlog-stats`, `reassess`, `triage` |
+| [`stale-sweep-config.md`](../../plugins/magpie-setup/templates/stale-sweep-config.md) | Grace windows and exemption labels for stale sweeps. Absent, the framework defaults apply. | `backlog-stats`, `stale-sweep` |
 
 <!-- END generated: skill-config -->
 
@@ -209,7 +209,7 @@ uv run --project tools/pilot-report-validator pilot-report-validate <your-report
 ## Cross-references
 
 - [Top-level README — Install](../../README.md#install) — 3-step bootstrap.
-- [`projects/_template/README.md`](../../projects/_template/README.md) — adopter scaffold index.
+- [`projects/_template/README.md`](../../plugins/magpie-setup/templates/README.md) — adopter scaffold index.
 - [`docs/modes.md`](../modes.md) — MISSION mode taxonomy that the
   `mode:` frontmatter field declares against.
 - [`docs/setup/agentic-overrides.md`](../setup/agentic-overrides.md) —

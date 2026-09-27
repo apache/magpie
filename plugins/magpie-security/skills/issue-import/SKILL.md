@@ -31,7 +31,7 @@ argument-hint: "[import] [last Nd|all] [skip threadId]"
 capability: capability:intake
 surface_hash: sha256:fd9f58cb77807aca
 license: Apache-2.0
-measured_tokens: 28928
+measured_tokens: 28929
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -343,7 +343,7 @@ Before touching any candidate thread, verify:
 
    The checker auto-locates `<project-config>/privacy-llm.md`
    (template at
-   [`projects/_template/privacy-llm.md`](../../../../projects/_template/privacy-llm.md))
+   [`projects/_template/privacy-llm.md`](../../../magpie-setup/templates/privacy-llm.md))
    and verifies every entry in *Currently configured LLM stack*
    is approved per
    [`tools/privacy-llm/models.md`](../../../../tools/privacy-llm/models.md#the-pre-flight-check).

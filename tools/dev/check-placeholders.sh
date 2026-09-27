@@ -73,7 +73,8 @@ FORBIDDEN_REGEXES=(
 # Files / directories where Airflow references are intentional:
 # the framework's own onboarding / contributor docs use Airflow as
 # the canonical example adopter; the bootstrap scaffold under
-# `projects/_template/` may reference Airflow in pointers; this
+# `plugins/magpie-setup/templates/` (reached as
+# `projects/_template/`) may reference Airflow in pointers; this
 # linter file itself contains the patterns to look for.
 ALLOWLIST_PATHS=(
   "README.md"
@@ -83,7 +84,7 @@ ALLOWLIST_PATHS=(
   "docs/security/fixing-security-issues.md"
   "docs/security/how-the-security-team-works.md"
   "pyproject.toml"
-  "projects/_template/"
+  "plugins/magpie-setup/templates/"
   "organizations/"
   "tools/dev/check-placeholders.sh"
   ".github/"

@@ -46,7 +46,7 @@ and archived past retention per
 The procedural shape is foundation-wide; the project-specific
 content (release-train identity, build invocation, `KEYS` file
 path, vote-window length, retention rule, audit-log location)
-plugs in through [`<project-config>/`](../../projects/_template/)
+plugs in through [`<project-config>/`](../../plugins/magpie-setup/templates/)
 just like the security family.
 
 Non-ASF adopters are first-class adopters of this family, not a
@@ -54,7 +54,7 @@ follow-up case. The 14-step lifecycle is described in ASF
 terminology because the framework's first pilot is an ASF PMC,
 but every step that touches an ASF-specific surface is implemented
 as a backend call the adopter selects in
-[`release-management-config.md`](../../projects/_template/release-management-config.md).
+[`release-management-config.md`](../../plugins/magpie-setup/templates/release-management-config.md).
 Three dimensions parametrise the lifecycle, with no ASF assumption
 baked into the install path:
 
@@ -105,7 +105,7 @@ the shape: it runs itself, it writes only gitignored files, and it stages
 nothing.*
 
 Every skill here resolves project-specific values from the adopter's
-[`<project-config>/`](../../projects/_template/) directory — which is
+[`<project-config>/`](../../plugins/magpie-setup/templates/) directory — which is
 `.apache-magpie-local/` (gitignored, yours) first, then
 `.apache-magpie-overrides/` (committed, the project's).
 
@@ -122,16 +122,16 @@ says which file is missing.
 
 | File | What it carries | Read by |
 |---|---|---|
-| [`pmc-roster.md`](../../projects/_template/pmc-roster.md) | Who is binding. Read wherever a vote is counted or a PMC-only action is gated. | `promote`, `vote-tally` |
-| [`release-build.md`](../../projects/_template/release-build.md) | How this project builds and signs artefacts: reproducible source-archive recipe (`git archive` + `.gitattributes`), build command, the project's optional convenience artefacts (each with its own build, staging, reproducibility mode, vote scope and publish channel), artefact names, checksum algorithm, optional reproducibility checks. | `rc-cut`, `verify-rc` |
-| [`release-management-config.md`](../../projects/_template/release-management-config.md) | Vote window and pass rule, distribution backend and paths, announce/vote list addresses, retention rule. | `announce-draft`, `archive-sweep`, `audit-report`, `keys-sync`, `prepare`, `promote`, `rc-cut`, `verify-rc`, `vote-draft`, `vote-tally` |
-| [`release-trains.md`](../../projects/_template/release-trains.md) | Active release branches, release-manager attribution per cut, rotation rosters, security-team roster. | `archive-sweep`, `prepare` |
+| [`pmc-roster.md`](../../plugins/magpie-setup/templates/pmc-roster.md) | Who is binding. Read wherever a vote is counted or a PMC-only action is gated. | `promote`, `vote-tally` |
+| [`release-build.md`](../../plugins/magpie-setup/templates/release-build.md) | How this project builds and signs artefacts: reproducible source-archive recipe (`git archive` + `.gitattributes`), build command, the project's optional convenience artefacts (each with its own build, staging, reproducibility mode, vote scope and publish channel), artefact names, checksum algorithm, optional reproducibility checks. | `rc-cut`, `verify-rc` |
+| [`release-management-config.md`](../../plugins/magpie-setup/templates/release-management-config.md) | Vote window and pass rule, distribution backend and paths, announce/vote list addresses, retention rule. | `announce-draft`, `archive-sweep`, `audit-report`, `keys-sync`, `prepare`, `promote`, `rc-cut`, `verify-rc`, `vote-draft`, `vote-tally` |
+| [`release-trains.md`](../../plugins/magpie-setup/templates/release-trains.md) | Active release branches, release-manager attribution per cut, rotation rosters, security-team roster. | `archive-sweep`, `prepare` |
 
 **Optional.** Each has a documented fallback; absent, the skill still runs.
 
 | File | What it carries | Read by |
 |---|---|---|
-| [`canned-responses.md`](../../projects/_template/canned-responses.md) | Reusable reporter-facing reply templates. | `announce-draft`, `vote-draft` |
+| [`canned-responses.md`](../../plugins/magpie-setup/templates/canned-responses.md) | Reusable reporter-facing reply templates. | `announce-draft`, `vote-draft` |
 
 <!-- END generated: skill-config -->
 
@@ -189,7 +189,7 @@ Every skill is flagged `experimental` and tracked in
 The family landed as docs first (this README, the 14-step
 [`process.md`](process.md), the per-skill [`spec.md`](spec.md), and
 the adopter scaffold
-[`projects/_template/release-management-config.md`](../../projects/_template/release-management-config.md))
+[`projects/_template/release-management-config.md`](../../plugins/magpie-setup/templates/release-management-config.md))
 so the lifecycle, the state-change boundaries, and the adopter
 contract are reviewable independently from runtime behaviour.
 This pattern matches [Mentoring](../mentoring/README.md).
@@ -273,10 +273,10 @@ Two non-negotiable boundaries cross every Agentic Drafting skill above:
 Two documents that **do not** ship in this family but are
 referenced from it:
 
-- [`<project-config>/release-trains.md`](../../projects/_template/release-trains.md)
+- [`<project-config>/release-trains.md`](../../plugins/magpie-setup/templates/release-trains.md)
  , release-train identity (already present in the adopter
   scaffold for security use; release-management reuses it).
-- [`<project-config>/release-management-config.md`](../../projects/_template/release-management-config.md)
+- [`<project-config>/release-management-config.md`](../../plugins/magpie-setup/templates/release-management-config.md)
  , the family's adopter contract (new in this PR).
 
 ## Mode mapping

@@ -677,7 +677,7 @@ kept so PRs triaged under the old channel still classify correctly.
 See [`viewer_triage_fold_present`](classify-and-act.md#viewer_triage_fold_present).
 
 The behaviour is a project-config switch
-([`triage_feedback_channel`](../../../../projects/_template/pr-management-config.md))
+([`triage_feedback_channel`](../../../magpie-setup/templates/pr-management-config.md))
 defaulting to `pr-body`; an adopter that prefers the notifying
 comment channel can set it to `comment` and get the prior
 behaviour unchanged.

@@ -102,11 +102,13 @@ Say which of the two happened.
 
 ## Step 2a — Install the pre-flight checker
 
-Copy the framework's `tools/setup-preflight/src/setup_preflight/`
-package into `.apache-magpie-local/setup_preflight/`, replacing any copy
-already there. Source it from `<snapshot-dir>/tools/setup-preflight/` on
-a snapshot install, or from the installed plugin's copy on a marketplace
-install — the same two places Step 3 takes its templates from.
+Copy the framework's `setup_preflight/` package into
+`.apache-magpie-local/setup_preflight/`, replacing any copy already
+there. The package lives in this skill's own directory, `setup_preflight/`
+next to this file, so every install method has it: on a marketplace
+install that is inside the installed `magpie-setup` plugin, and on a
+snapshot install `<snapshot-dir>/tools/setup-preflight/src/setup_preflight/`
+reaches the same files.
 
 This is what every skill's pre-flight actually runs:
 
@@ -141,9 +143,11 @@ PYTHONPATH=.apache-magpie-local python3 -m setup_preflight --skill magpie-setup
 For each missing required file, in the order the skills need them
 (`project.md` first — most others reference values it carries):
 
-1. **Copy the template** from `<snapshot-dir>/projects/_template/<file>`,
-   or from the installed plugin's copy on a marketplace install, into
-   `.apache-magpie-local/<file>`.
+1. **Copy the template** into `.apache-magpie-local/<file>` from the
+   `magpie-setup` plugin's `templates/<file>` (two directories above this
+   file) on a marketplace install, or from
+   `<snapshot-dir>/projects/_template/<file>` on a snapshot install. Both
+   are the same file.
 2. **Auto-detect first.** Read what the repository already reveals
    before asking anything: the `origin` remote for `upstream_repo`, the
    label taxonomy, existing milestones, the CI checks that actually
@@ -275,7 +279,7 @@ interviewed). A plain run mentions it in the recap instead.
    whatever the mode, and that each run sends the change to those models'
    providers.
 3. **Write** `.apache-magpie-local/adversarial-review.md` from
-   `projects/_template/adversarial-review.md`, with the chosen `reviewers`
+   the `adversarial-review.md` template (Step 3), with the chosen `reviewers`
    and `mode`. If the file already exists, show the difference and ask
    before replacing it. If the project committed one, this shadows it
    (hard rule 4).

@@ -21,7 +21,7 @@
 
 Magpie's own `project.md`. Magpie self-adopts the framework, so this is the
 live config the skills read, not a scaffold. The adopter template lives at
-[`projects/_template/project.md`](../_template/project.md).
+[`projects/_template/project.md`](../../plugins/magpie-setup/templates/project.md).
 
 Values here are the ones derivable from this repository and its `.asf.yaml`.
 Keys that belong to the **private security tracker** and the **CNA queue** are

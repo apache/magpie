@@ -157,7 +157,7 @@ choices were reviewable independently from the runtime behaviour.
 |---|---|
 | [`docs/mentoring/README.md`](mentoring/README.md) | Family overview, current status, planned shape. |
 | [`docs/mentoring/spec.md`](mentoring/spec.md) | Full spec: scope, triggers, register, hand-off, adopter knobs. |
-| [`projects/_template/mentoring-config.md`](../projects/_template/mentoring-config.md) | Adopter-config scaffold (required before running the skill). |
+| [`projects/_template/mentoring-config.md`](../plugins/magpie-setup/templates/mentoring-config.md) | Adopter-config scaffold (required before running the skill). |
 
 The prototype ships flagged `mode: Mentoring` + `experimental`. Shape
 may change as adopter pilots and contributor-sentiment evaluation land.

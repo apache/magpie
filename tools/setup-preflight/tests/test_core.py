@@ -23,6 +23,7 @@ every skill does before it runs, not merely a refactor.
 
 from __future__ import annotations
 
+import json
 from datetime import date
 from pathlib import Path
 
@@ -121,6 +122,27 @@ def test_a_snapshot_ref_mismatch_is_drift(project: Path) -> None:
     differs = found[0].facts["differs"]
     assert isinstance(differs, dict)
     assert differs["ref"] == {"project": "v0.2.0", "machine": "v0.1.0"}
+
+
+LOCAL = """\
+method: local
+source: skills/
+"""
+
+
+def test_the_framework_checkout_self_adoption_lock_parses(project: Path) -> None:
+    """`install.md` writes `source: skills/` for `method: local`; rejecting
+    it failed every skill's pre-flight in the framework checkout."""
+    write_lock(project, LOCAL)
+    project_findings(project, None)
+
+
+def test_the_framework_checkout_has_nothing_to_drift(project: Path) -> None:
+    """Its skills are the working tree: no snapshot, no floor. Routing it to
+    the snapshot-drift section proposed an `upgrade` that cannot help."""
+    write_lock(project, LOCAL)
+    assert project_findings(project, None) == []
+    assert project_findings(project, {"magpie-setup": "0.0.1"}) == []
 
 
 def test_a_malformed_lock_raises_rather_than_reading_as_no_lock(project: Path) -> None:
@@ -240,6 +262,20 @@ def test_a_changed_plugin_listing_invalidates_the_cache(project: Path) -> None:
     cached_project_findings(project, {"magpie-setup": "0.1.0"})
     found, cached = cached_project_findings(project, {"magpie-setup": "9.9.9"})
     assert cached is False and found == []
+
+
+def test_a_refreshed_checker_invalidates_the_cache(project: Path) -> None:
+    """`upgrade` replaces the checker's copy; a verdict the old code computed
+    must not outlive it."""
+    write_lock(project, MARKETPLACE)
+    (project / ".apache-magpie-local").mkdir()
+    cached_project_findings(project, {"magpie-setup": "0.1.0"})
+    cache = project / ".apache-magpie-local" / ".preflight-cache.json"
+    stale = json.loads(cache.read_text())
+    stale["key"] = stale["key"].rsplit("|checker:", 1)[0] + "|checker:previous-code"
+    cache.write_text(json.dumps(stale))
+    _, cached = cached_project_findings(project, {"magpie-setup": "0.1.0"})
+    assert cached is False
 
 
 def test_the_cache_expires(project: Path) -> None:

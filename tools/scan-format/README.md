@@ -114,7 +114,7 @@ the real disposition from the project's Security Model + precedents.
 ## Configuration
 
 The adopter declares, in
-[`<project-config>/project.md`](../../projects/_template/project.md):
+[`<project-config>/project.md`](../../plugins/magpie-setup/templates/project.md):
 
 - **scan sources** — the GitHub issues and/or report-tree roots the
   scanner publishes to (reference: `apache/tooling-agents`);

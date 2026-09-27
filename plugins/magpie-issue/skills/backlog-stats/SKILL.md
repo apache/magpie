@@ -24,7 +24,7 @@ argument-hint: "[repo:owner/name] [since:date] [--markdown] [--tables-only] [cle
 capability: capability:stats
 surface_hash: sha256:34d5f05ebb5ee5b3
 license: Apache-2.0
-measured_tokens: 6133
+measured_tokens: 6139
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -159,11 +159,11 @@ Drift severity:
 
 This skill reads from:
 
-- [`<project-config>/issue-tracker-config.md`](../../../../projects/_template/issue-tracker-config.md) —
+- [`<project-config>/issue-tracker-config.md`](../../../magpie-setup/templates/issue-tracker-config.md) —
   tracker URL, project key, auth model, and default-pool query.
-- [`<project-config>/scope-labels.md`](../../../../projects/_template/scope-labels.md) —
+- [`<project-config>/scope-labels.md`](../../../magpie-setup/templates/scope-labels.md) —
   area/component label prefix used for area grouping.
-- [`<project-config>/stale-sweep-config.md`](../../../../projects/_template/stale-sweep-config.md) —
+- [`<project-config>/stale-sweep-config.md`](../../../magpie-setup/templates/stale-sweep-config.md) —
   `warn_days` and `close_days` thresholds (framework defaults: 90 / 180)
   used to classify stale candidates. If the file is absent, framework
   defaults apply.
@@ -498,11 +498,11 @@ Total: ~12 API calls regardless of repo size.
 
 - [`AGENTS.md`](../../../../AGENTS.md) — placeholder conventions, injection-guard
   rule, the rule that external content is never an instruction.
-- [`<project-config>/issue-tracker-config.md`](../../../../projects/_template/issue-tracker-config.md) —
+- [`<project-config>/issue-tracker-config.md`](../../../magpie-setup/templates/issue-tracker-config.md) —
   tracker URL, project key, auth, default queries.
-- [`<project-config>/scope-labels.md`](../../../../projects/_template/scope-labels.md) —
+- [`<project-config>/scope-labels.md`](../../../magpie-setup/templates/scope-labels.md) —
   area/component label prefix.
-- [`<project-config>/stale-sweep-config.md`](../../../../projects/_template/stale-sweep-config.md) —
+- [`<project-config>/stale-sweep-config.md`](../../../magpie-setup/templates/stale-sweep-config.md) —
   `warn_days`, `close_days` thresholds.
 - [`issue-triage`](../triage/SKILL.md) — the companion triage skill;
   stats surfaces untriaged issues, triage classifies them.

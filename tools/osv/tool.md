@@ -148,7 +148,7 @@ The following strict confidentiality rules apply per [`AGENTS.md`](../../AGENTS.
 ## Per-project configuration
 
 Adopters configure cross-referencing in `<project-config>/project.md`
-(see [`projects/_template/project.md#security-cross-reference`](../../projects/_template/project.md#security-cross-reference)):
+(see [`projects/_template/project.md#security-cross-reference`](../../plugins/magpie-setup/templates/project.md#security-cross-reference)):
 
 ```yaml
 security_cross_ref:

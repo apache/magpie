@@ -25,7 +25,7 @@ when_to_use: |
 capability: capability:triage
 surface_hash: sha256:9b2993211bdc0e80
 license: Apache-2.0
-measured_tokens: 8512
+measured_tokens: 8529
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -276,7 +276,7 @@ Drift severity:
 - **Tracker read access** to `<issue-tracker>` for the
   classification phase. For most JIRA-based projects this is
   anonymous; for GitHub Issues, the `gh` CLI must be authenticated.
-  See [`<project-config>/issue-tracker-config.md`](../../../../projects/_template/issue-tracker-config.md)
+  See [`<project-config>/issue-tracker-config.md`](../../../magpie-setup/templates/issue-tracker-config.md)
   for the project's auth model.
 - **Tracker comment-write access** for the apply phase. The skill
   surfaces an auth error and stops before any apply if write
@@ -320,14 +320,14 @@ Before reading any tracker state, verify:
 2. **`gh` CLI authenticated** if the tracker is GitHub Issues —
    `gh auth status` reports a token with read scope on `<upstream>`.
 3. **Project config resolved** — read
-   [`<project-config>/issue-tracker-config.md`](../../../../projects/_template/issue-tracker-config.md),
-   [`<project-config>/project.md`](../../../../projects/_template/project.md),
+   [`<project-config>/issue-tracker-config.md`](../../../magpie-setup/templates/issue-tracker-config.md),
+   [`<project-config>/project.md`](../../../magpie-setup/templates/project.md),
    and
-   [`<project-config>/scope-labels.md`](../../../../projects/_template/scope-labels.md)
+   [`<project-config>/scope-labels.md`](../../../magpie-setup/templates/scope-labels.md)
    into cache.
 4. **Resolve the routing roster** for `@`-mention selection later.
    Read
-   [`<project-config>/release-trains.md`](../../../../projects/_template/release-trains.md)
+   [`<project-config>/release-trains.md`](../../../magpie-setup/templates/release-trains.md)
    for the per-component / per-area handle list.
 
 If any check fails, stop and surface what is missing.
@@ -339,7 +339,7 @@ If any check fails, stop and surface what is missing.
 Apply the selector grammar from the *Inputs* table above. The
 mapping from selector to tracker query depends on the tracker
 type, declared in
-[`<project-config>/issue-tracker-config.md`](../../../../projects/_template/issue-tracker-config.md)
+[`<project-config>/issue-tracker-config.md`](../../../magpie-setup/templates/issue-tracker-config.md)
 as `tracker_type`.
 
 | Tracker | Default-pool query source |
@@ -378,7 +378,7 @@ permits batched reads) the inputs the classifier needs.
 
 2. **Component / area mapping** — extract from labels and map to
    the project's components via
-   [`<project-config>/scope-labels.md`](../../../../projects/_template/scope-labels.md).
+   [`<project-config>/scope-labels.md`](../../../magpie-setup/templates/scope-labels.md).
    The component drives the `@`-mention routing in Step 4.
 
 3. **Linked-PR state** — open or merged PRs that reference this
@@ -499,14 +499,14 @@ Propose when **any** of:
   work"*, *"crashes sometimes"*) without enough specifics for
   the classifier to evaluate.
 - A
-  [`<project-config>/canned-responses.md`](../../../../projects/_template/canned-responses.md)
+  [`<project-config>/canned-responses.md`](../../../magpie-setup/templates/canned-responses.md)
   template named *"Information needed"* (or equivalent per project)
   applies cleanly.
 
 The proposal lists the specific information needed, in a
 polite-but-direct tone. If a matching canned-response template
 exists in
-[`<project-config>/canned-responses.md`](../../../../projects/_template/canned-responses.md),
+[`<project-config>/canned-responses.md`](../../../magpie-setup/templates/canned-responses.md),
 name it in the proposal so the team can confirm-with-template.
 
 #### `DUPLICATE`
@@ -616,7 +616,7 @@ roster cached in Step 0. The picking heuristic:
 
 1. **Component-based** — issues labelled `component:scheduler`
    (or analogous) route to the maintainers of that component per
-   [`<project-config>/release-trains.md`](../../../../projects/_template/release-trains.md).
+   [`<project-config>/release-trains.md`](../../../magpie-setup/templates/release-trains.md).
 2. **Topic-specific override** — if the issue is a variant of a
    recently-discussed issue, also tag the handle of whoever owned
    that prior discussion.
@@ -641,7 +641,7 @@ Re-read the draft once with the report's text beside it. Verify:
   the project's `issue_url_template`;
 - the canned-response name (if `NEEDS-INFO`) matches a real
   heading in
-  [`<project-config>/canned-responses.md`](../../../../projects/_template/canned-responses.md);
+  [`<project-config>/canned-responses.md`](../../../magpie-setup/templates/canned-responses.md);
 - the linked sibling issue (if `DUPLICATE`) is open or closed
   appropriately for the proposed merge direction;
 - the fixing commit (if `ALREADY-FIXED`) actually touches the
@@ -682,7 +682,7 @@ write API:
   in the request payload, or `<jira-cli> issue comment <KEY> --body-file <tmp>`.
 - **GitHub Issues**: `gh issue comment <N> --repo <upstream> --body-file <tmp>`.
 - **Other trackers**: project-specific; the recipe lives in
-  [`<project-config>/issue-tracker-config.md`](../../../../projects/_template/issue-tracker-config.md).
+  [`<project-config>/issue-tracker-config.md`](../../../magpie-setup/templates/issue-tracker-config.md).
 
 **Use the file-via-Write-tool pattern for the body** — direct CLI
 arguments are vulnerable to shell expansion of `$(...)` when the
@@ -774,15 +774,15 @@ itself before presenting it.
   form, `@`-mention conventions, tone (polite-but-firm,
   collaborative), the rule that reporter-supplied severity is
   informational only.
-- [`<project-config>/project.md`](../../../../projects/_template/project.md) —
+- [`<project-config>/project.md`](../../../magpie-setup/templates/project.md) —
   identifiers, `upstream_repo`, `upstream_default_branch`.
-- [`<project-config>/issue-tracker-config.md`](../../../../projects/_template/issue-tracker-config.md) —
+- [`<project-config>/issue-tracker-config.md`](../../../magpie-setup/templates/issue-tracker-config.md) —
   tracker URL, project key, auth, default queries.
-- [`<project-config>/scope-labels.md`](../../../../projects/_template/scope-labels.md) —
+- [`<project-config>/scope-labels.md`](../../../magpie-setup/templates/scope-labels.md) —
   component / area mapping.
-- [`<project-config>/release-trains.md`](../../../../projects/_template/release-trains.md) —
+- [`<project-config>/release-trains.md`](../../../magpie-setup/templates/release-trains.md) —
   roster for `@`-mention routing.
-- [`<project-config>/canned-responses.md`](../../../../projects/_template/canned-responses.md) —
+- [`<project-config>/canned-responses.md`](../../../magpie-setup/templates/canned-responses.md) —
   `NEEDS-INFO` templates.
 - [`issue-reproducer`](../reproducer/SKILL.md) — invoke for
   classification that hinges on runtime evidence.

@@ -41,7 +41,7 @@ indexes and catalogs exist for discovery, not installation.
 | **Tool / tool adapter** | the only layer that knows a vendor — a backend behind a capability contract | [vendor-neutrality § Tool adapters](vendor-neutrality.md#tool-adapters), [`adapters/authoring.md`](adapters/authoring.md) |
 | **Capability contract** | the stable verb set a skill depends on; the seam adapters plug into | [`tools/cve-tool/`](../tools/cve-tool/) and siblings |
 | **Organization** | governance vocabulary + backend bundle + identity, shared by an org's projects | [`organizations/README.md`](../organizations/README.md) |
-| **Project config** | one adopter's concrete values | [`projects/_template/`](../projects/_template/) |
+| **Project config** | one adopter's concrete values | [`projects/_template/`](../plugins/magpie-setup/templates/) |
 | **User config** | one person's preferences (handle, governance membership, local clone paths) | [`AGENTS.md` § user.md](../AGENTS.md#usermd-resolution-order) |
 
 ## Where an extension can live (the three homes)

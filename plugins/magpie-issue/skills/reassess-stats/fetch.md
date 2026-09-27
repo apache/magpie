@@ -19,7 +19,7 @@ matching:
 Where `<KEY>` is a tracker key (typically `[A-Z][A-Z0-9_]*-\d+`
 for JIRA-style trackers, or `<owner>-<repo>-<N>` for GitHub-Issues-
 style). The directory layout convention is in
-[`<project-config>/reproducer-conventions.md`](../../../../projects/_template/reproducer-conventions.md).
+[`<project-config>/reproducer-conventions.md`](../../../magpie-setup/templates/reproducer-conventions.md).
 
 Skip subdirectories that don't match the expected pattern (the
 directory may also contain `report.md`, `_template/`, or other
@@ -105,5 +105,5 @@ Return to the orchestrator:
 - [`classify.md`](classify.md) — what happens after fetch.
 - [`issue-reproducer/verdict-composition.md`](../reproducer/verdict-composition.md) —
   the schema being validated.
-- [`<project-config>/reproducer-conventions.md`](../../../../projects/_template/reproducer-conventions.md) —
+- [`<project-config>/reproducer-conventions.md`](../../../magpie-setup/templates/reproducer-conventions.md) —
   campaign directory layout.

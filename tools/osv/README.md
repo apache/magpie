@@ -35,4 +35,4 @@ See [`tool.md`](tool.md) for endpoint recipes, payload structures, and confident
 
 Adopters select this backend with `<project-config>/project.md` → `security_cross_ref.tool: osv` when performing automated vulnerability cross-referencing.
 The default ecosystem (e.g. `PyPI`, `Maven`, `npm`, `Go`, `crates.io`, `NuGet`, `RubyGems`, `Packagist`) can be configured via `security_cross_ref.ecosystem`.
-The adopter-facing configuration block is declared in [`projects/_template/project.md`](../../projects/_template/project.md#security-cross-reference).
+The adopter-facing configuration block is declared in [`projects/_template/project.md`](../../plugins/magpie-setup/templates/project.md#security-cross-reference).

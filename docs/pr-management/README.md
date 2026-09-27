@@ -66,7 +66,7 @@ maintained inside one ASF project's developer-tooling repo as
 ASF project with a meaningful contributor-PR queue, but locked
 behind that project's local toolchain. Lifting them into the
 framework lets other adopters reuse the playbook with their own
-[adopter-config files](../../projects/_template/) for project-specific
+[adopter-config files](../../plugins/magpie-setup/templates/) for project-specific
 knobs (committers team handle, area-label prefix, comment-template
 wording, CI-check → doc-URL map, review-criteria source files).
 
@@ -101,7 +101,7 @@ the shape: it runs itself, it writes only gitignored files, and it stages
 nothing.*
 
 Every skill here resolves project-specific values from the adopter's
-[`<project-config>/`](../../projects/_template/) directory — which is
+[`<project-config>/`](../../plugins/magpie-setup/templates/) directory — which is
 `.apache-magpie-local/` (gitignored, yours) first, then
 `.apache-magpie-overrides/` (committed, the project's).
 
@@ -118,22 +118,22 @@ says which file is missing.
 
 | File | What it carries | Read by |
 |---|---|---|
-| [`pr-management-code-review-criteria.md`](../../projects/_template/pr-management-code-review-criteria.md) | List of project's review-criteria source files (repo-wide AGENTS.md, code-review docs, per-area AGENTS.md), security-model calibration doc, backport-branch pattern, section-anchor URLs. | `code-review` |
-| [`pr-management-config.md`](../../projects/_template/pr-management-config.md) | Committers team handle, area-label prefix, project-specific labels (`ready for maintainer review`, etc.), grace windows. | `pr-stale-sweep`, `pr-triage`, `quick-merge`, `stats` |
-| [`pr-management-quick-merge-config.md`](../../projects/_template/pr-management-quick-merge-config.md) | Thresholds, path globs, and the merge-command template for the express lane. | `quick-merge` |
-| [`pr-management-triage-comment-templates.md`](../../projects/_template/pr-management-triage-comment-templates.md) | Comment-body URLs (PR quality criteria, two-stage triage rationale), AI-attribution footer wording, project display name. | `pr-triage` |
-| [`project.md`](../../projects/_template/project.md) | Project manifest. Identity, repositories, mailing lists, tools enabled, CVE tooling, GitHub project-board + issue-template field declarations. The single file every skill reads to resolve project-scoped references. | `code-review`, `mentor`, `pr-stale-sweep`, `pr-triage`, `quick-merge`, `reviewer-routing` |
-| [`reviewer-roster.md`](../../projects/_template/reviewer-roster.md) | Who reviews what. | `reviewer-routing` |
+| [`pr-management-code-review-criteria.md`](../../plugins/magpie-setup/templates/pr-management-code-review-criteria.md) | List of project's review-criteria source files (repo-wide AGENTS.md, code-review docs, per-area AGENTS.md), security-model calibration doc, backport-branch pattern, section-anchor URLs. | `code-review` |
+| [`pr-management-config.md`](../../plugins/magpie-setup/templates/pr-management-config.md) | Committers team handle, area-label prefix, project-specific labels (`ready for maintainer review`, etc.), grace windows. | `pr-stale-sweep`, `pr-triage`, `quick-merge`, `stats` |
+| [`pr-management-quick-merge-config.md`](../../plugins/magpie-setup/templates/pr-management-quick-merge-config.md) | Thresholds, path globs, and the merge-command template for the express lane. | `quick-merge` |
+| [`pr-management-triage-comment-templates.md`](../../plugins/magpie-setup/templates/pr-management-triage-comment-templates.md) | Comment-body URLs (PR quality criteria, two-stage triage rationale), AI-attribution footer wording, project display name. | `pr-triage` |
+| [`project.md`](../../plugins/magpie-setup/templates/project.md) | Project manifest. Identity, repositories, mailing lists, tools enabled, CVE tooling, GitHub project-board + issue-template field declarations. The single file every skill reads to resolve project-scoped references. | `code-review`, `mentor`, `pr-stale-sweep`, `pr-triage`, `quick-merge`, `reviewer-routing` |
+| [`reviewer-roster.md`](../../plugins/magpie-setup/templates/reviewer-roster.md) | Who reviews what. | `reviewer-routing` |
 
 **Optional.** Each has a documented fallback; absent, the skill still runs.
 
 | File | What it carries | Read by |
 |---|---|---|
-| [`mentoring-config.md`](../../projects/_template/mentoring-config.md) | Tone knobs and hand-off protocol for the thread-level mentoring skill. | `mentor` |
-| [`pr-management-triage-ci-check-map.md`](../../projects/_template/pr-management-triage-ci-check-map.md) | CI-check name pattern → category name + doc-URL mapping for the violations comment. | `pr-triage` |
-| [`privacy-llm.md`](../../projects/_template/privacy-llm.md) | Which model tier may see which class of content, for projects routing foundation-private information away from third-party models. | `reviewer-routing` |
-| [`release-trains.md`](../../projects/_template/release-trains.md) | Active release branches, release-manager attribution per cut, rotation rosters, security-team roster. | `code-review`, `reviewer-routing` |
-| [`stale-sweep-config.md`](../../projects/_template/stale-sweep-config.md) | Grace windows and exemption labels for stale sweeps. Absent, the framework defaults apply. | `pr-stale-sweep` |
+| [`mentoring-config.md`](../../plugins/magpie-setup/templates/mentoring-config.md) | Tone knobs and hand-off protocol for the thread-level mentoring skill. | `mentor` |
+| [`pr-management-triage-ci-check-map.md`](../../plugins/magpie-setup/templates/pr-management-triage-ci-check-map.md) | CI-check name pattern → category name + doc-URL mapping for the violations comment. | `pr-triage` |
+| [`privacy-llm.md`](../../plugins/magpie-setup/templates/privacy-llm.md) | Which model tier may see which class of content, for projects routing foundation-private information away from third-party models. | `reviewer-routing` |
+| [`release-trains.md`](../../plugins/magpie-setup/templates/release-trains.md) | Active release branches, release-manager attribution per cut, rotation rosters, security-team roster. | `code-review`, `reviewer-routing` |
+| [`stale-sweep-config.md`](../../plugins/magpie-setup/templates/stale-sweep-config.md) | Grace windows and exemption labels for stale sweeps. Absent, the framework defaults apply. | `pr-stale-sweep` |
 
 <!-- END generated: skill-config -->
 
@@ -207,6 +207,6 @@ below sends, merges, or posts anything without you confirming it.*
 ## Cross-references
 
 - [Top-level README — Install](../../README.md#install) — 3-step bootstrap.
-- [`projects/_template/README.md`](../../projects/_template/README.md) — adopter scaffold index, including the PR-management config files.
+- [`projects/_template/README.md`](../../plugins/magpie-setup/templates/README.md) — adopter scaffold index, including the PR-management config files.
 - [`tools/spec-loop/specs/pr-management-family.md`](../../tools/spec-loop/specs/pr-management-family.md) — functional spec: acceptance criteria, validation commands, and known gaps.
 - [`docs/mentoring/README.md`](../mentoring/README.md) — `pr-management-mentor` family overview.

@@ -40,7 +40,7 @@ argument-hint: "[prep | post] <version> [--review-archive] | automated-signing"
 capability: capability:resolve
 surface_hash: sha256:5cfba199f4348e98
 license: Apache-2.0
-measured_tokens: 13889
+measured_tokens: 13894
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -963,7 +963,7 @@ per the repository's email rules.
 ### A4 — Propose the workflow PR
 
 From
-[`projects/_template/workflows/release-candidate.yml`](../../../../projects/_template/workflows/release-candidate.yml),
+[`projects/_template/workflows/release-candidate.yml`](../../../magpie-setup/templates/workflows/release-candidate.yml),
 rendered with the project's slug, artefact prefix, source format and
 `build_command`, placed at `ci_release_workflow`. The template builds
 the source archive with the embedded `repro-archive` script (copy
@@ -1187,18 +1187,18 @@ The AI-driven part ends with a hand-back artefact containing:
 - [`docs/release-management/reproducibility.md`](../../../../docs/release-management/reproducibility.md) —
   the source-archive review (2e) buckets and rationale, and the 🪶
   ASF-specific automated-signing setup (Step A).
-- [`<project-config>/release-build.md`](../../../../projects/_template/release-build.md) —
+- [`<project-config>/release-build.md`](../../../magpie-setup/templates/release-build.md) —
   `§ Source archive` (`source_archive_method`, `export_ignore_reviewed`)
   and `§ Reproducibility checks`.
-- [`projects/_template/workflows/release-candidate.yml`](../../../../projects/_template/workflows/release-candidate.yml) —
+- [`projects/_template/workflows/release-candidate.yml`](../../../magpie-setup/templates/workflows/release-candidate.yml) —
   the workflow template Step A renders.
 - [`tools/reproducible-archive`](../../../../tools/reproducible-archive/README.md) —
   `repro-archive build` / `compare` used for the before/after listing.
-- [`<project-config>/release-management-config.md`](../../../../projects/_template/release-management-config.md) —
+- [`<project-config>/release-management-config.md`](../../../magpie-setup/templates/release-management-config.md) —
   adopter keys this skill reads (`release_branch_base`,
   `version_manifest_files`, `category_x_dependencies`,
   `release_planning_issue_template`).
-- [`<project-config>/release-trains.md`](../../../../projects/_template/release-trains.md) —
+- [`<project-config>/release-trains.md`](../../../magpie-setup/templates/release-trains.md) —
   release train identity and RM roster.
 - `release-keys-sync` (proposed) — downstream Step 3.
 - `release-rc-cut` (proposed) — downstream Steps 4–5.

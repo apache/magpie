@@ -26,7 +26,7 @@ when_to_use: |
 capability: capability:reassess
 surface_hash: sha256:26b90046cd97aef2
 license: Apache-2.0
-measured_tokens: 5664
+measured_tokens: 5671
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -135,7 +135,7 @@ limit, an age bucket, a component slice. Practical first sweeps are
 **Golden rule 3 — resumable from disk.** A 50-issue run that
 crashes at issue 30 must be resumable from issue 31. Per-issue
 evidence packages on disk (per
-[`<project-config>/reproducer-conventions.md`](../../../../projects/_template/reproducer-conventions.md))
+[`<project-config>/reproducer-conventions.md`](../../../magpie-setup/templates/reproducer-conventions.md))
 are the resumption point — in-memory campaign state is not.
 
 **Golden rule 4 — surface headlines, not stats.** *"30
@@ -239,16 +239,16 @@ proposal is non-blocking — the user may defer.
 
 - **Tracker read access** to `<issue-tracker>` — anonymous reads
   are sufficient for the classification phase on many trackers.
-  See [`<project-config>/issue-tracker-config.md`](../../../../projects/_template/issue-tracker-config.md).
+  See [`<project-config>/issue-tracker-config.md`](../../../magpie-setup/templates/issue-tracker-config.md).
 - **Pool defaults populated** in
-  [`<project-config>/reassess-pool-defaults.md`](../../../../projects/_template/reassess-pool-defaults.md)
+  [`<project-config>/reassess-pool-defaults.md`](../../../magpie-setup/templates/reassess-pool-defaults.md)
   — at least the `open-eol` and `reopened` queries.
 - **`<runtime>` invocable** — per
-  [`<project-config>/runtime-invocation.md`](../../../../projects/_template/runtime-invocation.md).
+  [`<project-config>/runtime-invocation.md`](../../../magpie-setup/templates/runtime-invocation.md).
   Each candidate's reproducer runs via this recipe; if the runtime
   is broken, the whole campaign is `cannot-run-environment`.
 - **Scratch directory writable** at the campaign root per
-  [`<project-config>/reproducer-conventions.md`](../../../../projects/_template/reproducer-conventions.md).
+  [`<project-config>/reproducer-conventions.md`](../../../magpie-setup/templates/reproducer-conventions.md).
 
 ---
 
@@ -508,9 +508,9 @@ After the report is written, surface to the user:
   the `still-fails-*` tail goes next.
 - [`issue-reassess-stats`](../reassess-stats/SKILL.md) —
   read-only dashboard over campaign artefacts.
-- [`<project-config>/reassess-pool-defaults.md`](../../../../projects/_template/reassess-pool-defaults.md) —
+- [`<project-config>/reassess-pool-defaults.md`](../../../magpie-setup/templates/reassess-pool-defaults.md) —
   the per-project named-pool queries.
-- [`<project-config>/reproducer-conventions.md`](../../../../projects/_template/reproducer-conventions.md) —
+- [`<project-config>/reproducer-conventions.md`](../../../magpie-setup/templates/reproducer-conventions.md) —
   evidence-package directory layout (shared with `issue-reproducer`).
 - [`docs/issue-management/README.md`](../../../../docs/issue-management/README.md) —
   family overview.

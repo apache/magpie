@@ -52,7 +52,7 @@ rule, carry both kinds of adopter-side content:
 - **Configuration** — facts about the project a skill reads: the
   upstream repo, the tracker, the committers team, the release
   trains. Scaffolded from
-  [`projects/_template/`](../../projects/_template/README.md), and
+  [`projects/_template/`](../../plugins/magpie-setup/templates/README.md), and
   what `<project-config>` resolves to.
 - **Overrides** — deliberate changes to how a skill behaves,
   named after the skill they modify.

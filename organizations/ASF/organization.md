@@ -30,7 +30,7 @@
 The **ASF organization**: the default governance vocabulary,
 backend selections, and infrastructure values shared by every Apache
 project that adopts Magpie. A project under the ASF sets
-`organization: ASF` in [`<project-config>/project.md`](../../projects/_template/project.md)
+`organization: ASF` in [`<project-config>/project.md`](../../plugins/magpie-setup/templates/project.md)
 and inherits everything below; it overrides a key only where it genuinely
 differs (and supplies its own per-project values — security list address,
 scope labels, product name, roster — which are *not* org-level and stay in

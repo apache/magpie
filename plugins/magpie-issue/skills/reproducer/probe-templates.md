@@ -85,7 +85,7 @@ under test.
 ## Saving the probe and its output
 
 Per the
-[`<project-config>/reproducer-conventions.md`](../../../../projects/_template/reproducer-conventions.md)
+[`<project-config>/reproducer-conventions.md`](../../../magpie-setup/templates/reproducer-conventions.md)
 layout, the probe artefacts live alongside the main reproducer:
 
 ```text
@@ -170,5 +170,5 @@ reproducer's claim:
   probed.
 - [`verdict-composition.md`](verdict-composition.md) — schema for
   the `cross_type_probe` / `operator_variants_probe` sub-objects.
-- [`<project-config>/reproducer-conventions.md`](../../../../projects/_template/reproducer-conventions.md) —
+- [`<project-config>/reproducer-conventions.md`](../../../magpie-setup/templates/reproducer-conventions.md) —
   where probe artefacts live in the evidence package.

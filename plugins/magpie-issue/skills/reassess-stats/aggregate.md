@@ -167,5 +167,5 @@ Return to the orchestrator the full dashboard payload:
 - [`fetch.md`](fetch.md) — produces the parsed verdicts.
 - [`classify.md`](classify.md) — buckets the verdicts.
 - [`render.md`](render.md) — turns this payload into HTML.
-- [`<project-config>/issue-tracker-config.md`](../../../../projects/_template/issue-tracker-config.md) —
+- [`<project-config>/issue-tracker-config.md`](../../../magpie-setup/templates/issue-tracker-config.md) —
   `issue_url_template` for clickable links.

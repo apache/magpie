@@ -19,7 +19,7 @@ project-agnostic; the concrete lists, repos, release trains, and
 tooling for the adopting project live in
 [`<project-config>/project.md`](<project-config>/project.md)
 (adopters bootstrap from the
-[`projects/_template/`](../../projects/_template/) scaffold).
+[`projects/_template/`](../../plugins/magpie-setup/templates/) scaffold).
 
 The end-to-end 16-step lifecycle is in [`process.md`](process.md). This
 page is the two-minute summary.

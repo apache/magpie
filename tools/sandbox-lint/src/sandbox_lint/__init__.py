@@ -271,6 +271,17 @@ def check_invariants(settings: dict[str, Any], project_root: Path | None = None)
         # catch-all gh ask rule therefore prompts on every read-only gh call
         # and silently defeats the read-only allow list; writes are listed
         # subcommand by subcommand instead.
+        # A `*` in a Bash allow rule matches any characters, spaces included.
+        # Anywhere but the end it therefore also matches options spliced in at
+        # that position, which the rule then approves without a prompt (the
+        # vetted-ops rules once globbed the plugin version this way).
+        for rule in perms.get("allow", []) or []:
+            if isinstance(rule, str) and rule.startswith("Bash(") and "*" in rule[:-2]:
+                errors.append(
+                    f"permissions.allow: {rule!r} has a '*' before the end of the command, "
+                    "so it also approves any options inserted at that position; "
+                    "name the exact value there and use '*' only at the end"
+                )
         ask = set(perms.get("ask", []) or [])
         if "Bash(gh *)" in ask:
             errors.append(

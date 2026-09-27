@@ -49,7 +49,7 @@ independent adopter would declare — only values that override or extend the
 Org-level values (`cve_authority`, `forwarders`, `mail_provider`,
 `project_metadata`, and most of `archive_system` and `release_process`) are
 inherited from that manifest and not repeated here. See
-[`projects/_template/project.md`](../_template/project.md) for the full
+[`projects/_template/project.md`](../../plugins/magpie-setup/templates/project.md) for the full
 schema and field descriptions.
 
 ## Repositories

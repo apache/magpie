@@ -35,9 +35,9 @@ how a Release Manager (RM) and every voter confirm that the staged artefacts rea
 and, for ASF projects, how that opens the door to CI-signed releases.
 
 The configuration keys this page refers to live in
-[`<project-config>/release-build.md`](../../projects/_template/release-build.md)
+[`<project-config>/release-build.md`](../../plugins/magpie-setup/templates/release-build.md)
 (`§ Source archive`, `§ Reproducibility checks`) and
-[`<project-config>/release-management-config.md`](../../projects/_template/release-management-config.md)
+[`<project-config>/release-management-config.md`](../../plugins/magpie-setup/templates/release-management-config.md)
 (`§ Signing › Automated release signing`).
 The tool that does the mechanical work is
 [`tools/reproducible-archive`](../../tools/reproducible-archive/README.md) (`repro-archive`).
@@ -237,7 +237,7 @@ The sub-command is a **drafting** step: it produces the artefacts the RM files, 
 2. **Infra Jira ticket draft** requesting the CI signing key, naming the workflow, the staging target (ATR trusted publishing via [`apache/tooling-actions/upload-to-atr`](https://github.com/apache/tooling-actions), pinned by commit SHA), and the trusted-hardware validation step.
 3. **Security Team notification draft** for `security@apache.org` (the mail is drafted, never sent — [spec § Boundary 3](spec.md#boundary-3-agent-never-sends-mail-to-dev-users-announce)).
 4. **Workflow PR proposal** from the template
-   [`projects/_template/workflows/release-candidate.yml`](../../projects/_template/workflows/release-candidate.yml):
+   [`projects/_template/workflows/release-candidate.yml`](../../plugins/magpie-setup/templates/workflows/release-candidate.yml):
    build the source archive with the embedded `repro-archive` script, build binaries under `SOURCE_DATE_EPOCH`, self-check reproducibility in CI, upload to ATR with OIDC. The workflow contains no key material; signing is performed by the infra-managed mechanism agreed on the ticket.
 5. **Config diff proposal**: `automated_release_signing: requested` now, `enabled` plus `ci_signing_key_fingerprint` and `ci_signing_infra_ticket` once Infra has provisioned the key and the public block is in `KEYS` (`release-keys-sync` handles the `KEYS` diff).
 

@@ -186,7 +186,7 @@ every piece of context it needs from some combination of the four
   external system the skills talk to. Each subtree is
   project-agnostic. Adapter-side variables are declared in the
   subtree and filled in by the adopter's `<project-config>/`.
-- **Project template** under [`projects/_template/`](projects/_template/)
+- **Project template** under [`projects/_template/`](plugins/magpie-setup/templates/)
   is the bootstrap scaffold for an adopter's `<project-config>/`
   directory. The adopter clones it into their own tracker repo
   and fills in the TODOs.
@@ -628,7 +628,7 @@ editing:
 | An editorial / confidentiality / placeholder rule | [`AGENTS.md`](AGENTS.md) |
 | A skill's workflow | [`skills/<name>/SKILL.md`](skills/) |
 | An adapter surface for an external system | the matching [`tools/<system>/`](tools/) subtree |
-| Bootstrap scaffolding for an adopter `<project-config>/` | [`projects/_template/`](projects/_template/) |
+| Bootstrap scaffolding for an adopter `<project-config>/` | [`projects/_template/`](plugins/magpie-setup/templates/) |
 | Sandbox / privacy-LLM / dev-loop infrastructure | [`tools/agent-isolation/`](tools/agent-isolation/), [`tools/privacy-llm/`](tools/privacy-llm/), [`tools/dev/`](tools/dev/) |
 | Anything project-specific (canned reply, milestone convention, scope label) | **not in this repo** — that lives in the adopter's `<project-config>/` |
 
@@ -668,6 +668,8 @@ once their adapters land). The loop is different from traditional
 programming, and worth describing explicitly — getting the rhythm
 right is the difference between a smooth contribution and a
 frustrating one.
+
+What the project expects from an AI-assisted contribution — licensing, the `Generated-by:` trailer, disclosure, and human ownership of the change — is set out in [`docs/ai-contribution-policy.md`](docs/ai-contribution-policy.md), which follows the [ASF Generative Tooling Guidance](https://www.apache.org/legal/generative-tooling.html).
 
 **The framework is code at two abstraction levels.** The bulk —
 skills, tool contracts, RFCs — is English, executed by an agent

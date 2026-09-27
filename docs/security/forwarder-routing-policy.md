@@ -27,7 +27,7 @@ forwarding service — the skills route reporter-facing communication
 through whoever delivered the report to us instead (the *forwarder*
 — typically a relay broker addressable at
 `forwarders.<adapter>.contact_handle` per
-[`<project-config>/project.md`](../../projects/_template/project.md),
+[`<project-config>/project.md`](../../plugins/magpie-setup/templates/project.md),
 or an internal security-team member who opened the tracker on
 someone else's behalf). The ASF-Airflow default has the ASF Security
 team relaying via `<security-list>` (the

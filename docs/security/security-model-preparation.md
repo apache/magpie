@@ -225,17 +225,17 @@ conditions with an independent reviewer. Two reversals against the same claim
 mean that claim is wrong.
 
 A canned response in
-[`<project-config>/canned-responses.md`](../../projects/_template/canned-responses.md)
+[`<project-config>/canned-responses.md`](../../plugins/magpie-setup/templates/canned-responses.md)
 that cites no model section is a gap by definition — the project is stating a
 position in reporter mail that its own model does not hold. That is precisely
 what the drafting rule in
-[`<project-config>/security-model.md`](../../projects/_template/security-model.md)
+[`<project-config>/security-model.md`](../../plugins/magpie-setup/templates/security-model.md)
 warns about, and this loop is what closes it.
 
 ## Adopter configuration
 
 The three skills read
-[`<project-config>/security-model.md`](../../projects/_template/security-model.md):
+[`<project-config>/security-model.md`](../../plugins/magpie-setup/templates/security-model.md):
 the authoritative model URL, the repositories in scope and their shape (in-repo
 model or pointer to an umbrella), the private list to route substantive
 conversation to, and the branch and license-header conventions the PR helper

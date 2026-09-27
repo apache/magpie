@@ -16,7 +16,7 @@
 
 Release-train identity and the Release Manager roster the release
 skills (and the security family) read. Template:
-[`projects/_template/release-trains.md`](../_template/release-trains.md).
+[`projects/_template/release-trains.md`](../../plugins/magpie-setup/templates/release-trains.md).
 
 ## Trains
 

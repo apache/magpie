@@ -25,7 +25,7 @@ argument-hint: "<version>-rcN [--skip-verify-check <reason>]"
 capability: capability:resolve
 surface_hash: sha256:3b74a3ec69e4b358
 license: Apache-2.0
-measured_tokens: 6741
+measured_tokens: 6742
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -556,7 +556,7 @@ The AI-driven part ends with a hand-back artefact containing:
   Step 7 context.
 - [`docs/release-management/spec.md`](../../../../docs/release-management/spec.md) —
   `release-vote-draft` per-skill specification.
-- [`<project-config>/release-management-config.md`](../../../../projects/_template/release-management-config.md) —
+- [`<project-config>/release-management-config.md`](../../../magpie-setup/templates/release-management-config.md) —
   adopter keys this skill reads (`vote_*`, `vote_verification_doc_url`,
   `reproducibility_doc_url`, `vote_verification_skill`).
 - [`docs/release-management/reproducibility.md`](../../../../docs/release-management/reproducibility.md) —

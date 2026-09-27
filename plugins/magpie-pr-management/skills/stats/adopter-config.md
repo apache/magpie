@@ -48,8 +48,8 @@ Drift severity:
 This skill reads the same area-label prefix and triage-marker
 string declared in [`pr-management-triage`'s adopter config](../pr-triage/SKILL.md#adopter-configuration):
 
-- [`<project-config>/pr-management-config.md → area_label_prefix`](../../../../projects/_template/pr-management-config.md) — drives the area grouping in both stats tables.
-- [`<project-config>/pr-management-triage-comment-templates.md → Triage-marker visible link text`](../../../../projects/_template/pr-management-triage-comment-templates.md) — the literal string that classifies a PR as triaged. **Both `pr-management-triage` and `pr-management-stats` must agree** on this string; the framework defaults to `Pull Request quality criteria`.
+- [`<project-config>/pr-management-config.md → area_label_prefix`](../../../magpie-setup/templates/pr-management-config.md) — drives the area grouping in both stats tables.
+- [`<project-config>/pr-management-triage-comment-templates.md → Triage-marker visible link text`](../../../magpie-setup/templates/pr-management-triage-comment-templates.md) — the literal string that classifies a PR as triaged. **Both `pr-management-triage` and `pr-management-stats` must agree** on this string; the framework defaults to `Pull Request quality criteria`.
 
 No `pr-management-stats`-specific config file is needed — the skill is
 read-only and inherits everything from `pr-management-triage`'s contract.

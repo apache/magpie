@@ -61,7 +61,7 @@ anchor text breaks the re-triage skip logic.
 configured channel, and default to the silent one.** The
 deterministic quality-violation feedback for `draft`, `comment`
 (deterministic-flag), and `close` is delivered per
-[`<project-config>/pr-management-config.md → triage_feedback_channel`](../../../../projects/_template/pr-management-config.md),
+[`<project-config>/pr-management-config.md → triage_feedback_channel`](../../../magpie-setup/templates/pr-management-config.md),
 which defaults to **`pr-body`**: the feedback is *folded into the
 PR description* as a managed marker block instead of posted as a
 comment. Editing a PR body does not notify subscribers, so the
@@ -234,9 +234,8 @@ than by the bot.
 ---
 
 **Golden rule 7 — never bypass the quality-criteria rationale.**
-Every comment posted to a contributor cites the [Pull Request
-quality criteria](https://github.com/<upstream>/blob/main/contributing-docs/05_pull_requests.rst#pull-request-quality-criteria)
-page and lists the specific violations found. Never post a
+Every comment posted to a contributor cites the Pull Request
+quality criteria page (`<quality_criteria_url>`) and lists the specific violations found. Never post a
 bare "please fix CI" comment. The "why" is part of the kindness
 owed to a contributor who will otherwise be left guessing. See
 [`comment-templates.md`](comment-templates.md) for the canonical
@@ -259,9 +258,8 @@ intentional exception: `suspicious-changes`) ends with the
 - reassures them that after they address the points raised an
   <PROJECT> maintainer — a real person — will take the next
   look at the PR,
-- links to the [two-stage triage process
-  description](https://github.com/<upstream>/blob/main/contributing-docs/25_maintainer_pr_triage.md#why-the-first-pass-is-automated)
-  so the contributor can see why the first pass is automated:
+- links to the two-stage triage process description
+  (`<two_stage_triage_rationale_url>`) so the contributor can see why the first pass is automated:
   the project automates the mechanical checks so maintainers'
   limited time is spent where it matters most — the
   conversation with the contributor.
@@ -337,7 +335,7 @@ Rules for the footer:
 
 When `<project-config>/pr-management-config.md` sets
 `triage_feedback_channel: pr-body` (the default — see
-[`pr-management-config.md`](../../../../projects/_template/pr-management-config.md)
+[`pr-management-config.md`](../../../magpie-setup/templates/pr-management-config.md)
 "Workflow choices"), the deterministic quality-violation feedback
 for the **`draft`**, **`comment`** (deterministic-flag only), and
 **`close`** actions is **not posted as a PR comment**. Instead the
@@ -486,7 +484,7 @@ Used when the action is `draft` (see
 [`actions.md#draft`](actions.md)).
 
 ```markdown
-@<author> Converting to **draft** — this PR doesn't yet meet our [Pull Request quality criteria](https://github.com/<upstream>/blob/main/contributing-docs/05_pull_requests.rst#pull-request-quality-criteria).
+@<author> Converting to **draft** — this PR doesn't yet meet our [Pull Request quality criteria](<quality_criteria_url>).
 
 <violations>
 
@@ -523,7 +521,7 @@ Used when the action is `comment` for a `deterministic_flag`
 classification.
 
 ```markdown
-@<author> A few things need addressing before review — see our [Pull Request quality criteria](https://github.com/<upstream>/blob/main/contributing-docs/05_pull_requests.rst#pull-request-quality-criteria).
+@<author> A few things need addressing before review — see our [Pull Request quality criteria](<quality_criteria_url>).
 
 <violations>
 
@@ -560,7 +558,7 @@ has >3 flagged PRs) — see
 [`actions.md#close`](actions.md).
 
 ```markdown
-@<author> Closing — this PR has multiple violations of our [Pull Request quality criteria](https://github.com/<upstream>/blob/main/contributing-docs/05_pull_requests.rst#pull-request-quality-criteria).
+@<author> Closing — this PR has multiple violations of our [Pull Request quality criteria](<quality_criteria_url>).
 
 <violations>
 - :x: **Multiple flagged PRs**: <flagged_count> of your PRs are currently flagged for quality issues. Please focus on those before opening new ones.
@@ -779,7 +777,7 @@ takes over.
 ### Variant: maintainer-sweep handback
 
 Use when
-[`<project-config>/pr-management-config.md`](../../../../projects/_template/pr-management-config.md)
+[`<project-config>/pr-management-config.md`](../../../magpie-setup/templates/pr-management-config.md)
 sets `confirmation_handback_mode: maintainer-sweep` (see the
 "Workflow choices" section of that file).
 
@@ -816,7 +814,7 @@ Notes on the variant:
   detector on subsequent sweeps.
 - **`<PROJECT>` placeholder** in the "If yes" sentence — read
   from
-  [`<project-config>/pr-management-triage-comment-templates.md`](../../../../projects/_template/pr-management-triage-comment-templates.md)
+  [`<project-config>/pr-management-triage-comment-templates.md`](../../../magpie-setup/templates/pr-management-triage-comment-templates.md)
   (same source as the AI-attribution footer's `<PROJECT>`).
 
 When to pick this variant: your project runs a regular

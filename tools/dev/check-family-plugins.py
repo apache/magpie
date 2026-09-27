@@ -73,6 +73,14 @@ SETUP_HOOKS = {
         }
     ]
 }
+# Every skill's pre-flight runs `setup_preflight`, and `setup config` installs it
+# from the plugin on a marketplace install, so the package has to be inside
+# magpie-setup's root: a symlink out to `tools/` would put magpie-setup, which the
+# Codex and Copilot catalogs list, in breach of Agent Plugins 1.0 §4.1. The
+# `tools/setup-preflight` workspace member reaches it through the inward link.
+SETUP_PREFLIGHT_PACKAGE = Path("plugins/magpie-setup/skills/setup/setup_preflight")
+SETUP_PREFLIGHT_MIRROR = Path("tools/setup-preflight/src/setup_preflight")
+SETUP_PREFLIGHT_MIRROR_TARGET = Path("../../../plugins/magpie-setup/skills/setup/setup_preflight")
 MIRROR_TARGET = "../plugins/{plugin}/skills/{alias}"  # relative to skills/
 
 # A family plugin advertises each skill under its plugin *directory* name, and
@@ -96,6 +104,13 @@ ALIAS_OVERRIDES = {
     "pr-stale-sweep": "pr-stale-sweep",
 }
 TOOL_SYMLINK_TARGET = "../../../tools/{tool}"  # relative to plugins/magpie-<p>/tools/
+# `setup config` scaffolds adopter configuration from these templates, so on a
+# marketplace install they have to ship inside magpie-setup's root; the Codex
+# and Copilot catalogs list magpie-setup, and Agent Plugins 1.0 §4.1 forbids a
+# link out of it. `projects/_template` keeps resolving through the inward link.
+SETUP_TEMPLATES = Path("plugins/magpie-setup/templates")
+SETUP_TEMPLATES_MIRROR = Path("projects/_template")
+SETUP_TEMPLATES_MIRROR_TARGET = Path("../plugins/magpie-setup/templates")
 
 # The vendor-neutral Agent Plugins 1.0 manifest for the repository itself.
 # It lives at the repo root (the spec permits no alternative location) and is
@@ -219,6 +234,7 @@ AGENT_GUARD_ENGINE = "tools/agent-guard/src/agent_guard/__init__.py"
 # can edit `ops.py` has defeated the whole design, so the catalogue has to sit in
 # the installed plugin tree rather than in a consumer repository.
 VETTED_OPS_ENTRY = "tools/vetted-ops/src/vetted_ops/cli.py"
+VETTED_OPS_LINK_HOOK = "tools/vetted-ops/hooks/link-stable-path.sh"
 # Adversarial review runs other models' CLIs outside the sandbox (they need
 # network and their own credentials), so like vetted-ops it has to run from the
 # installed plugin tree, where the agent calling it cannot rewrite it.
@@ -257,9 +273,22 @@ SUBSTRATE_PLUGINS: dict[str, dict] = {
             "catalogue out of reach of the agent that calls it."
         ),
         "links": {"tools/vetted-ops": "vetted-ops"},
-        # The dispatcher is invoked directly by skills, so the entry point is what
-        # must resolve; there is no hook whose silence would hide a broken link.
-        "must_resolve": (VETTED_OPS_ENTRY,),
+        # The entry point skills invoke, and the hook that keeps the fixed path
+        # permission rules name (~/.claude/magpie/vetted-ops) on this version.
+        "must_resolve": (VETTED_OPS_ENTRY, VETTED_OPS_LINK_HOOK),
+        "hooks": {
+            "SessionStart": [
+                {
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": f'bash "${{CLAUDE_PLUGIN_ROOT}}/{VETTED_OPS_LINK_HOOK}"',
+                            "timeout": 10,
+                        }
+                    ],
+                }
+            ]
+        },
     },
     "magpie-adversarial-review": {
         "description": (
@@ -322,6 +351,26 @@ def substrate_manifest(name: str, shared: dict) -> dict:
     return manifest
 
 
+def check_setup_templates() -> list[str]:
+    """magpie-setup ships the project templates as real files, and
+    `projects/_template` mirrors them rather than holding a second copy."""
+    errors: list[str] = []
+    index = SETUP_TEMPLATES / "project.md"
+    if SETUP_TEMPLATES.is_symlink() or not index.is_file():
+        errors.append(
+            f"{SETUP_TEMPLATES}: must be a real directory holding {index.name} — "
+            f"a marketplace install of magpie-setup would ship no templates to scaffold from"
+        )
+    if not SETUP_TEMPLATES_MIRROR.is_symlink():
+        errors.append(f"{SETUP_TEMPLATES_MIRROR}: expected a symlink to {SETUP_TEMPLATES_MIRROR_TARGET}")
+    elif SETUP_TEMPLATES_MIRROR.readlink() != SETUP_TEMPLATES_MIRROR_TARGET:
+        errors.append(
+            f"{SETUP_TEMPLATES_MIRROR} -> {SETUP_TEMPLATES_MIRROR.readlink()} "
+            f"(expected {SETUP_TEMPLATES_MIRROR_TARGET})"
+        )
+    return errors
+
+
 def check_substrate(name: str, shared: dict) -> list[str]:
     """A substrate plugin's manifest, hook wiring, and tool symlinks.
 
@@ -367,7 +416,7 @@ def check_substrate(name: str, shared: dict) -> list[str]:
     for rel in spec["must_resolve"]:
         if not (pdir / rel).is_file():
             consequence = (
-                "the hook command names it, so the guard would silently never run"
+                "the hook command names it, so the hook would silently never run"
                 if "hooks" in spec
                 else "the tool's entry point names it, so every call would fail to start"
             )
@@ -650,6 +699,26 @@ def families_from_frontmatter() -> dict[str, set[str]]:
     return fam
 
 
+def check_setup_preflight_package() -> list[str]:
+    """magpie-setup ships `setup_preflight` as real files, and the workspace
+    member's `src/` mirrors them rather than holding a second copy."""
+    errors: list[str] = []
+    entry = SETUP_PREFLIGHT_PACKAGE / "__main__.py"
+    if SETUP_PREFLIGHT_PACKAGE.is_symlink() or not entry.is_file():
+        errors.append(
+            f"{SETUP_PREFLIGHT_PACKAGE}: must be a real directory holding {entry.name} — "
+            f"a marketplace install of magpie-setup would ship no pre-flight checker"
+        )
+    if not SETUP_PREFLIGHT_MIRROR.is_symlink():
+        errors.append(f"{SETUP_PREFLIGHT_MIRROR}: expected a symlink to {SETUP_PREFLIGHT_MIRROR_TARGET}")
+    elif SETUP_PREFLIGHT_MIRROR.readlink() != SETUP_PREFLIGHT_MIRROR_TARGET:
+        errors.append(
+            f"{SETUP_PREFLIGHT_MIRROR} -> {SETUP_PREFLIGHT_MIRROR.readlink()} "
+            f"(expected {SETUP_PREFLIGHT_MIRROR_TARGET})"
+        )
+    return errors
+
+
 def check(fam: dict[str, set[str]]) -> list[str]:
     errors: list[str] = []
 
@@ -683,6 +752,9 @@ def check(fam: dict[str, set[str]]) -> list[str]:
     setup_data, _setup_err = load_json(setup_manifest)
     if setup_data is not None and "check-upgrade.sh" not in json.dumps(setup_data.get("hooks", {})):
         errors.append(f"{setup_manifest}: SessionStart hook does not reference check-upgrade.sh")
+    errors += check_setup_preflight_package()
+
+    errors += check_setup_templates()
 
     # 2) Every marketplace entry resolves to a matching, uniquely-named manifest.
     seen: set[str] = set()

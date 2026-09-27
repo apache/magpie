@@ -17,7 +17,7 @@ The external [skill sources](../../docs/skill-sources/README.md) the ASF
 organization **vouches for**. A project that sets `organization: ASF` sees
 these as candidate sources it *may* adopt — curation is **not**
 installation. The project still opts each one in by committing its pin to
-[`<project-config>/skill-sources.md`](../../projects/_template/skill-sources.md).
+[`<project-config>/skill-sources.md`](../../plugins/magpie-setup/templates/skill-sources.md).
 
 ## Curated sources
 

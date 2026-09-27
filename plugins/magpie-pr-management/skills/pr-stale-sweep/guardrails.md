@@ -13,7 +13,7 @@ The skill uses **exactly two** disposition classes:
 | `CLOSE-STALE` | PR is dormant past the close threshold **and** has already received a `REQUEST-UPDATE` nudge with no response, **or** is dormant past a hard-close threshold with no nudge needed | Post a pre-close notice and, on a second explicit confirmation, close the PR |
 
 The two thresholds (`warn_days` and `close_days`) default to the values in
-[`<project-config>/stale-sweep-config.md`](../../../../projects/_template/stale-sweep-config.md)
+[`<project-config>/stale-sweep-config.md`](../../../magpie-setup/templates/stale-sweep-config.md)
 when that file exists, or to framework defaults (45 / 90 days) when it
 does not. PR queues typically move faster than issue trackers, so the
 framework defaults are tighter. The user may override either threshold
@@ -42,7 +42,7 @@ maintainer knows to respond.
 **Golden rule 6 — never sweep `ready for maintainer review` PRs.** A PR
 carrying the `ready for maintainer review` label (or equivalent
 configured in
-[`<project-config>/pr-management-config.md`](../../../../projects/_template/pr-management-config.md))
+[`<project-config>/pr-management-config.md`](../../../magpie-setup/templates/pr-management-config.md))
 is waiting on maintainer action. Closing or nudging it for "inactivity"
 punishes the contributor for maintainer silence. Skip such PRs
 entirely.

@@ -30,7 +30,7 @@ capability:
   - capability:triage
 surface_hash: sha256:591ae352325ca83d
 license: Apache-2.0
-measured_tokens: 4122
+measured_tokens: 4123
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
@@ -365,7 +365,7 @@ After the apply loop, print a recap:
   family overview and status.
 - [`good-first-issue-author`](../good-first-issue-author/SKILL.md) —
   the companion skill that drafts net-new issues from a supplied candidate.
-- [`<project-config>/good-first-issue-config.md`](../../../../projects/_template/good-first-issue-config.md) —
+- [`<project-config>/good-first-issue-config.md`](../../../magpie-setup/templates/good-first-issue-config.md) —
   adopter config scaffold shared with `good-first-issue-author`.
 - [`docs/modes.md` § Mentoring](../../../../docs/modes.md#mentoring) —
   current implementation status.

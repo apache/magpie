@@ -32,7 +32,7 @@ the gap and proposes
 
 - **GitHub read access** to `<upstream>` for the sweep phase. The `gh`
   CLI must be authenticated. See
-  [`<project-config>/project.md`](../../../../projects/_template/project.md).
+  [`<project-config>/project.md`](../../../magpie-setup/templates/project.md).
 - **GitHub write access** for the apply phase. The skill surfaces an
   auth error and stops before any apply if write credentials are missing.
 - **`<project-config>/project.md`** populated — the skill reads

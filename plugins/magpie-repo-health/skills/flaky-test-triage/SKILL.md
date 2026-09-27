@@ -25,7 +25,7 @@ argument-hint: "[--repo owner/name] [--window-days N] [--threshold F]"
 capability: capability:triage
 surface_hash: sha256:eda3c3891897f08d
 license: Apache-2.0
-measured_tokens: 3068
+measured_tokens: 3069
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -308,7 +308,7 @@ this skill.
   skill: obsolete runner labels and macOS arch mismatches.
 - `workflow-security-audit` (proposed) — sibling repo-health skill:
   GitHub Actions security findings via zizmor.
-- [`projects/_template/repo-health-config.md`](../../../../projects/_template/repo-health-config.md) —
+- [`projects/_template/repo-health-config.md`](../../../magpie-setup/templates/repo-health-config.md) —
   adopter config: audit window, failure-rate threshold, include/exclude
   patterns.
 - `docs/repo-health/README.md` (ships with `repo-health-family-spec`) —

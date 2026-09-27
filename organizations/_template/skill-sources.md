@@ -16,7 +16,7 @@ The external [skill sources](../../docs/skill-sources/README.md) this
 organization **vouches for**. A project that sets `organization: <org>`
 sees these as candidate sources it *may* adopt — curation is **not**
 installation. The project still opts each one in by committing its pin to
-[`<project-config>/skill-sources.md`](../../projects/_template/skill-sources.md).
+[`<project-config>/skill-sources.md`](../../plugins/magpie-setup/templates/skill-sources.md).
 
 Leave the list empty if the organization curates none; projects can still
 trust a source directly in their own `skill-sources.md`.

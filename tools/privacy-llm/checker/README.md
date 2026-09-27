@@ -113,4 +113,4 @@ uv run --project tools/privacy-llm/checker --group dev mypy
 - [`tools/privacy-llm/tool.md`](../tool.md) — tool overview.
 - [`tools/privacy-llm/models.md`](../models.md) — approved-model registry contract that the checker implements.
 - [`tools/privacy-llm/wiring.md`](../wiring.md) — skill-side wiring contract; the checker is called from Step 0 pre-flight.
-- [`projects/_template/privacy-llm.md`](../../../projects/_template/privacy-llm.md) — adopter template; this is the file the checker parses.
+- [`projects/_template/privacy-llm.md`](../../../plugins/magpie-setup/templates/privacy-llm.md) — adopter template; this is the file the checker parses.

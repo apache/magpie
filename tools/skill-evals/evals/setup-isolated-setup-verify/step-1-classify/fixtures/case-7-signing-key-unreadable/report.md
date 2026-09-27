@@ -64,7 +64,7 @@ Live probe: read .git/HEAD OK; write .magpie-verify-probe.tmp OK (removed).
 ## Check 9 — vetted-ops split and exclusion
 
 permissions.allow contains vetted-op-read only; vetted-op is in ask.
-permissions.deny has Edit on ~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/** and .apache-magpie-overrides/tools/vetted-ops/**.
+permissions.deny has Edit on ~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**, ~/.claude/magpie/** and .apache-magpie-overrides/tools/vetted-ops/**.
 
 ## Check 10 — Hardware-key touch overlay and the signing key
 

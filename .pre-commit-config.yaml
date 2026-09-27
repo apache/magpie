@@ -307,7 +307,7 @@ repos:
         name: symlink-lint (release archive)
         language: system
         entry: python3 tools/symlink-lint/src/symlink_lint/__init__.py --archive
-        files: ^(\.gitattributes|\.(agents|claude|github|kiro)/skills/.*|skills/.*|plugins/magpie-[^/]+/skills/.*|projects/_template/.*)$
+        files: ^(\.gitattributes|\.(agents|claude|github|kiro)/skills/.*|skills/.*|plugins/magpie-[^/]+/skills/.*|plugins/magpie-setup/templates/.*)$
         types_or: [symlink, file]
         pass_filenames: false
   # Marketplace-plugin consistency guard. Validates that every plugin is
@@ -386,7 +386,7 @@ repos:
         name: isolated-setup-fingerprint (secure-setup fingerprint in setup-preflight)
         language: system
         entry: env PYTHONPATH=tools/setup-preflight/src python3 -m setup_preflight.isolated write-constant
-        files: ^(\.claude/settings\.json|tools/agent-guard/src/.*|tools/agent-isolation/.*|tools/container-gateway/src/.*|tools/setup-preflight/src/setup_preflight/isolated(_fingerprint)?\.py)$
+        files: ^(\.claude/settings\.json|tools/agent-guard/src/.*|tools/agent-isolation/.*|tools/container-gateway/src/.*|plugins/magpie-setup/skills/setup/setup_preflight/isolated(_fingerprint)?\.py)$
         pass_filenames: false
   # Cross-file near-duplicate prose gate: fails on a paragraph pasted from
   # one scoped file into another instead of being pulled into a shared
@@ -480,7 +480,7 @@ repos:
         name: check-skill-config (family config tables vs requires_config)
         language: system
         entry: python3 tools/dev/check-skill-config.py --fix
-        files: ^(skills/[^/]+/SKILL\.md|plugins/magpie-[^/]+/skills/.*|projects/_template/.*|docs/[^/]+/README\.md|tools/dev/check-skill-config\.py)$
+        files: ^(skills/[^/]+/SKILL\.md|plugins/magpie-[^/]+/skills/.*|plugins/magpie-setup/templates/.*|docs/[^/]+/README\.md|tools/dev/check-skill-config\.py)$
         pass_filenames: false
       # The animated wizard runs derive from the same frontmatter, so they move
       # when it moves. Regenerated here rather than only checked, for the same
@@ -489,7 +489,7 @@ repos:
         name: render-wizard (animated setup + per-family config runs)
         language: system
         entry: python3 tools/dev/render-wizard.py
-        files: ^(skills/[^/]+/SKILL\.md|plugins/magpie-[^/]+/skills/.*/SKILL\.md|projects/_template/.*|tools/dev/(render-wizard|check-skill-config)\.py)$
+        files: ^(skills/[^/]+/SKILL\.md|plugins/magpie-[^/]+/skills/.*/SKILL\.md|plugins/magpie-setup/templates/.*|tools/dev/(render-wizard|check-skill-config)\.py)$
         pass_filenames: false
   # something else.
   - repo: local

@@ -78,6 +78,13 @@ Both paths run the same flow.
    "already at the latest version" however far behind the clone
    has fallen. If neither install is present, suggest
    `setup install` and stop.
+   **`method: local`** is the framework checkout linking its own
+   `skills/` source ([`install.md`](install.md#local-self-adoption-methodlocal)).
+   Its skills are the working tree, so there is no snapshot to
+   fetch, no `<local-lock>`, and nothing to drift; `git pull`
+   is its upgrade. Run only
+   [Refresh the pre-flight checker](#refresh-the-pre-flight-checker),
+   copying from the in-repo `tools/setup-preflight` package, and stop.
 3. Read `<local-lock>`. If missing (gitignored, fresh
    clone), the local install hasn't been initialised yet —
    route as a recover-snapshot install per the committed

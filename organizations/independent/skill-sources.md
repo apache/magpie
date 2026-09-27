@@ -17,7 +17,7 @@ it **curates no skill sources** — there is no governing body to vouch on a
 project's behalf. A project under `organization: independent` (the default)
 that wants an external skill trusts the source **directly** by writing its
 full [descriptor](../../docs/skill-sources/README.md#source-descriptor) into
-its own [`<project-config>/skill-sources.md`](../../projects/_template/skill-sources.md).
+its own [`<project-config>/skill-sources.md`](../../plugins/magpie-setup/templates/skill-sources.md).
 
 ## Curated sources
 

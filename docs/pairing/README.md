@@ -79,7 +79,7 @@ it does not.
 
 | File | What it carries | Read by |
 |---|---|---|
-| [`project.md`](../../projects/_template/project.md) | Project manifest. Identity, repositories, mailing lists, tools enabled, CVE tooling, GitHub project-board + issue-template field declarations. The single file every skill reads to resolve project-scoped references. | `multi-agent-review`, `self-review` |
+| [`project.md`](../../plugins/magpie-setup/templates/project.md) | Project manifest. Identity, repositories, mailing lists, tools enabled, CVE tooling, GitHub project-board + issue-template field declarations. The single file every skill reads to resolve project-scoped references. | `multi-agent-review`, `self-review` |
 
 <!-- END generated: skill-config -->
 
@@ -204,7 +204,7 @@ uv run --project tools/pilot-report-validator pilot-report-validate <your-report
   status and mode-lifecycle stage.
 - [`docs/modes.md` § Mode lifecycle](../modes.md#mode-lifecycle) — how
   a mode moves from `experimental` to `stable`.
-- [`projects/_template/README.md`](../../projects/_template/README.md) —
+- [`projects/_template/README.md`](../../plugins/magpie-setup/templates/README.md) —
   adopter scaffold index.
 - [`docs/setup/agentic-overrides.md`](../setup/agentic-overrides.md) —
   the override mechanism every skill in this family supports.

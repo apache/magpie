@@ -46,7 +46,7 @@ The string is also accepted in an HTML-comment form left by the legacy
 The marker is a **single point of failure** — rename the link text in the
 comment template and this detector silently stops counting. Adopters can
 customise the URL the link points to via
-[`<project-config>/pr-management-triage-comment-templates.md`](../../../../projects/_template/pr-management-triage-comment-templates.md)'s
+[`<project-config>/pr-management-triage-comment-templates.md`](../../../magpie-setup/templates/pr-management-triage-comment-templates.md)'s
 `quality_criteria_url`, but the link **text** must remain `Pull Request
 quality criteria` verbatim.
 
@@ -282,7 +282,7 @@ Splitting them lets the maintainer focus stale-sweep / ping efforts on the high-
 
 - Both predicates rely on `pr.comments(last:10)` — older outstanding comments on chatty PRs may be missed. Lower-bound numbers.
 - The footer-substring match (`AI-assisted triage tool`) applies to the **comment
-  channel** only and is configurable per [`<project-config>/pr-management-config.md`](../../../../projects/_template/pr-management-config.md)'s `ai_attribution_substring`. The **body-fold channel** is detected structurally by the `pr-triage-fold` block (always AI-drafted) and does not depend on this substring.
+  channel** only and is configurable per [`<project-config>/pr-management-config.md`](../../../magpie-setup/templates/pr-management-config.md)'s `ai_attribution_substring`. The **body-fold channel** is detected structurally by the `pr-triage-fold` block (always AI-drafted) and does not depend on this substring.
 
 ---
 
@@ -376,7 +376,7 @@ not gate any mutation. This keeps the action-flow conservatism while letting
 the dashboard surface the fuller picture.
 
 For the configurable AI-attribution detection substring, adopters can override
-[`<project-config>/pr-management-config.md`](../../../../projects/_template/pr-management-config.md)'s
+[`<project-config>/pr-management-config.md`](../../../magpie-setup/templates/pr-management-config.md)'s
 `ai_attribution_substring` field; the framework defaults to
 `AI-assisted triage tool`. That substring is the **comment-channel** signal and
 is a single point of failure — keep it identical between the comment templates and
@@ -403,7 +403,7 @@ own count keeps the contributor backlog signal clean.
 
 Adopters with project-specific bots not on this list — e.g. a release-bot or
 a CI-helper bot — should extend the `is_bot` match via
-[`<project-config>/pr-management-config.md`](../../../../projects/_template/pr-management-config.md)'s
+[`<project-config>/pr-management-config.md`](../../../magpie-setup/templates/pr-management-config.md)'s
 `bot_logins` setting (a list of additional logins to recognise; the framework
 defaults always apply).
 

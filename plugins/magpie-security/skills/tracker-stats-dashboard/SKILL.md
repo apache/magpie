@@ -18,7 +18,7 @@ when_to_use: |
 capability: capability:stats
 surface_hash: sha256:114e9edce736c86b
 license: Apache-2.0
-measured_tokens: 3815
+measured_tokens: 3820
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -117,7 +117,7 @@ categories, scope labels, triage keywords, …) lives in a separate
 YAML file the adopter places at
 `.apache-magpie-overrides/security-tracker-stats.yaml` (path is
 adopter-configurable via `tracker_stats_config:` in
-[`<project-config>/security-tracker-stats.md`](../../../../projects/_template/security-tracker-stats.md)).
+[`<project-config>/security-tracker-stats.md`](../../../magpie-setup/templates/security-tracker-stats.md)).
 The agentic override file above is reserved for *behavioural*
 overrides of this skill (when to propose a refresh, where to write
 the HTML, etc.); renderer knobs go in the YAML config.
@@ -188,7 +188,7 @@ fetch.
 ## How to invoke
 
 1. **Resolve config.** Read
-   [`<project-config>/security-tracker-stats.md`](../../../../projects/_template/security-tracker-stats.md)
+   [`<project-config>/security-tracker-stats.md`](../../../magpie-setup/templates/security-tracker-stats.md)
    for the project's per-renderer YAML config path (default:
    `<adopter-repo>/.apache-magpie-overrides/security-tracker-stats.yaml`).
    Surface to the user *which* config file will be applied and
@@ -271,9 +271,9 @@ The most-overridden knobs by adopters tend to be:
   handover, policy update). Set to `[]` to remove them.
 - **`scope_labels:`** — the project's primary "what does this
   affect" axis. Resolved from `scope_detection.labels` in
-  [`<project-config>/project.md`](../../../../projects/_template/project.md)
+  [`<project-config>/project.md`](../../../magpie-setup/templates/project.md)
   (and the matching rows of
-  [`<project-config>/scope-labels.md`](../../../../projects/_template/scope-labels.md)).
+  [`<project-config>/scope-labels.md`](../../../magpie-setup/templates/scope-labels.md)).
   The framework default is `[<scope-a>, <scope-b>, <scope-c>]` —
   adopters re-state this list in their overlay to
   match their own scope set.
@@ -283,7 +283,7 @@ The most-overridden knobs by adopters tend to be:
   (e.g. `triaged` instead of *no `needs triage`*) re-state the
   whole list. The label literals used in predicates come from
   `tracker.labels` in
-  [`<project-config>/project.md`](../../../../projects/_template/project.md).
+  [`<project-config>/project.md`](../../../magpie-setup/templates/project.md).
 - **`triage.keywords:`** / **`triage.bot_prefixes:`** — the
   time-to-triage signal. Adopters whose security team uses
   different phrasing in triage-proposal comments override these.

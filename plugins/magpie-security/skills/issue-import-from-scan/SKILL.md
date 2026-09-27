@@ -28,7 +28,7 @@ argument-hint: "[scan-source ...]  (one or more GitHub issues and/or report fold
 capability: capability:intake
 surface_hash: sha256:3aa895ba2115c1d9
 license: Apache-2.0
-measured_tokens: 5560
+measured_tokens: 5562
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -111,7 +111,7 @@ The scan-format details (how to parse a given scanner's index +
 evidence, the finding schema) live behind a **pluggable adapter** at
 [`tools/scan-format/`](../../../../tools/scan-format/README.md); ASVS is the
 reference adapter. The project declares its scan sources and enabled
-formats in [`<project-config>/project.md`](../../../../projects/_template/project.md).
+formats in [`<project-config>/project.md`](../../../magpie-setup/templates/project.md).
 
 ## Golden rules
 
@@ -242,7 +242,7 @@ the full triage analysis — do **not** invent a parallel taxonomy; reuse:
   precedent search, against `<project-config>` label names);
 - the project's **reject-pattern taxonomy** (the canned-response /
   out-of-scope shapes in
-  [`<project-config>/canned-responses.md`](../../../../projects/_template/canned-responses.md)),
+  [`<project-config>/canned-responses.md`](../../../magpie-setup/templates/canned-responses.md)),
   and a cross-check against recently-closed-invalid trackers;
 - the [`security-issue-import` Step 2a](../issue-import/SKILL.md)
   fuzzy-dup search against existing trackers;

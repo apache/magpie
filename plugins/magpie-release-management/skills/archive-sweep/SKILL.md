@@ -26,7 +26,7 @@ capability:
   - capability:triage
 surface_hash: sha256:7cb626368f367e76
 license: Apache-2.0
-measured_tokens: 4522
+measured_tokens: 4523
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -419,7 +419,7 @@ The AI-driven part ends with a hand-back artefact containing:
   Step 12 context.
 - [`docs/release-management/spec.md`](../../../../docs/release-management/spec.md) —
   `release-archive-sweep` per-skill specification.
-- [`<project-config>/release-management-config.md`](../../../../projects/_template/release-management-config.md) —
+- [`<project-config>/release-management-config.md`](../../../magpie-setup/templates/release-management-config.md) —
   adopter keys this skill reads (`archive_retention_rule`,
   `release_dist_backend`, `release_dist_url_template`).
 - `release-announce-draft` — upstream step (Step 11).

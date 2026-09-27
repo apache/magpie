@@ -209,7 +209,7 @@ to take based on the verdict.
 ## Evidence-package contract
 
 The full evidence package per issue, per
-[`<project-config>/reproducer-conventions.md`](../../../../projects/_template/reproducer-conventions.md):
+[`<project-config>/reproducer-conventions.md`](../../../magpie-setup/templates/reproducer-conventions.md):
 
 | File | Purpose |
 |---|---|
@@ -243,13 +243,13 @@ Rules:
 
 - The campaign root lives **outside any git repository** by
   default — per
-  [`<project-config>/reproducer-conventions.md`](../../../../projects/_template/reproducer-conventions.md)
+  [`<project-config>/reproducer-conventions.md`](../../../magpie-setup/templates/reproducer-conventions.md)
   the convention is `~/work/<project>-reassess/<campaign-id>/<ISSUE-KEY>/`,
   deliberately under `$HOME`, not in the source tree.
 - If an operator relocates the scratch dir inside a repo (including
   the adopter's `<project-config>` tree), the campaign directory
   **MUST be gitignored**. The shipped
-  [`projects/_template/.gitignore`](../../../../projects/_template/.gitignore)
+  [`projects/_template/.gitignore`](../../../magpie-setup/templates/.gitignore)
   carries the default patterns so a fresh adopter is safe without
   having to think about it.
 - Never add a campaign/evidence path to a commit to "share results"
@@ -268,7 +268,7 @@ Rules:
   `cases_summary`.
 - [`probe-templates.md`](probe-templates.md) — populates
   `cross_type_probe`, `operator_variants_probe`.
-- [`<project-config>/reproducer-conventions.md`](../../../../projects/_template/reproducer-conventions.md) —
+- [`<project-config>/reproducer-conventions.md`](../../../magpie-setup/templates/reproducer-conventions.md) —
   evidence-package directory layout.
 - [`issue-reassess`](../reassess/SKILL.md) — campaign caller
   consuming `verdict.json`.

@@ -25,7 +25,7 @@ argument-hint: "[pr:<N> | issue:<N>] [--repo owner/name]"
 capability: capability:triage
 surface_hash: sha256:c9b9669a27ceaad7
 license: Apache-2.0
-measured_tokens: 4931
+measured_tokens: 4936
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -199,7 +199,7 @@ On mismatch it surfaces the gap and proposes
 - **`<project-config>/privacy-llm.md`** — project-approved LLM
   endpoints, required for the Privacy-LLM gate-check at Step 0.
   Template at
-  [`projects/_template/privacy-llm.md`](../../../../projects/_template/privacy-llm.md).
+  [`projects/_template/privacy-llm.md`](../../../magpie-setup/templates/privacy-llm.md).
 
 See [Prerequisites for running the agent skills](../../../../docs/quick-start/prerequisites.md#prerequisites-for-running-the-agent-skills).
 
@@ -491,11 +491,11 @@ overloaded. Needs maintainer call.
 ## References
 
 - [`AGENTS.md`](../../../../AGENTS.md) — placeholder conventions, injection guard, propose-then-confirm posture.
-- [`<project-config>/project.md`](../../../../projects/_template/project.md) — `upstream_repo`, `upstream_default_branch`.
-- [`<project-config>/release-trains.md`](../../../../projects/_template/release-trains.md) — area-to-handles mapping for ASF projects.
-- [`<project-config>/reviewer-roster.md`](../../../../projects/_template/reviewer-roster.md) — maintainer roster for non-ASF adopters.
+- [`<project-config>/project.md`](../../../magpie-setup/templates/project.md) — `upstream_repo`, `upstream_default_branch`.
+- [`<project-config>/release-trains.md`](../../../magpie-setup/templates/release-trains.md) — area-to-handles mapping for ASF projects.
+- [`<project-config>/reviewer-roster.md`](../../../magpie-setup/templates/reviewer-roster.md) — maintainer roster for non-ASF adopters.
 - [`pr-management-triage`](../pr-triage/SKILL.md) — first-pass PR triage; this skill is its routing step.
 - [`issue-triage`](../../../magpie-issue/skills/triage/SKILL.md) — shares the roster reading contract.
 - [`tools/github/operations.md`](../../../../tools/github/operations.md) — `gh` command catalogue for Steps 1–2.
 - [`tools/privacy-llm/`](../../../../tools/privacy-llm/) — gate-check docs; `models.md` lists approved endpoints.
-- [`<project-config>/privacy-llm.md`](../../../../projects/_template/privacy-llm.md) — per-project approved endpoint declaration.
+- [`<project-config>/privacy-llm.md`](../../../magpie-setup/templates/privacy-llm.md) — per-project approved endpoint declaration.

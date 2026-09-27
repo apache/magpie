@@ -40,7 +40,7 @@ involved.
 
 For ASF projects this adapter is a **mandatory pre-flight
 prerequisite**: the manifest's `project_metadata` block (see
-[`../../projects/_template/project.md`](../../projects/_template/project.md#project-metadata))
+[`../../projects/_template/project.md`](../../plugins/magpie-setup/templates/project.md#project-metadata))
 declares `kind: apache-projects-mcp` with `mandatory: true` as the
 ASF default. Skills that resolve PMC/committer rosters, employer
 affiliations, or release history (`contributor-nomination`,

@@ -186,7 +186,7 @@ the conversation; the maintainer reads the thread.
 
 Per-project values live in `<project-config>/mentoring-config.md`.
 See the template at
-[`projects/_template/mentoring-config.md`](../../projects/_template/mentoring-config.md).
+[`projects/_template/mentoring-config.md`](../../plugins/magpie-setup/templates/mentoring-config.md).
 Required keys:
 
 | Key | Purpose |

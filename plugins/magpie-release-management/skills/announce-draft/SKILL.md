@@ -25,7 +25,7 @@ argument-hint: "<version> [--planning-issue <url>]"
 capability: capability:resolve
 surface_hash: sha256:1b0ebe953b9fa334
 license: Apache-2.0
-measured_tokens: 6967
+measured_tokens: 6968
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -591,7 +591,7 @@ The AI-driven part ends with a hand-back artefact containing:
   Step 11 context.
 - [`docs/release-management/spec.md`](../../../../docs/release-management/spec.md) —
   `release-announce-draft` per-skill specification.
-- [`<project-config>/release-management-config.md`](../../../../projects/_template/release-management-config.md) —
+- [`<project-config>/release-management-config.md`](../../../magpie-setup/templates/release-management-config.md) —
   adopter keys this skill reads (`announce_list`, `announce_cc_lists`,
   `announce_subject_template`, `site_repo`, `site_pr_files`,
   `release_announce_backend`).

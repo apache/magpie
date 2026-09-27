@@ -68,7 +68,7 @@ the shape: it runs itself, it writes only gitignored files, and it stages
 nothing.*
 
 Every skill here resolves project-specific values from the adopter's
-[`<project-config>/`](../../projects/_template/) directory — which is
+[`<project-config>/`](../../plugins/magpie-setup/templates/) directory — which is
 `.apache-magpie-local/` (gitignored, yours) first, then
 `.apache-magpie-overrides/` (committed, the project's).
 
@@ -85,16 +85,16 @@ says which file is missing.
 
 | File | What it carries | Read by |
 |---|---|---|
-| [`good-first-issue-config.md`](../../projects/_template/good-first-issue-config.md) | What counts as a good first issue here: labels, size limits, and the areas safe to hand to a newcomer. | `good-first-issue-author`, `good-first-issue-sweep` |
-| [`issue-tracker-config.md`](../../projects/_template/issue-tracker-config.md) | Tracker URL, project key, auth model, default query templates. | `good-first-issue-author`, `good-first-issue-sweep` |
-| [`project.md`](../../projects/_template/project.md) | Project manifest. Identity, repositories, mailing lists, tools enabled, CVE tooling, GitHub project-board + issue-template field declarations. The single file every skill reads to resolve project-scoped references. | `good-first-issue-author`, `good-first-issue-sweep`, `newcomer-issue-explainer`, `welcome` |
+| [`good-first-issue-config.md`](../../plugins/magpie-setup/templates/good-first-issue-config.md) | What counts as a good first issue here: labels, size limits, and the areas safe to hand to a newcomer. | `good-first-issue-author`, `good-first-issue-sweep` |
+| [`issue-tracker-config.md`](../../plugins/magpie-setup/templates/issue-tracker-config.md) | Tracker URL, project key, auth model, default query templates. | `good-first-issue-author`, `good-first-issue-sweep` |
+| [`project.md`](../../plugins/magpie-setup/templates/project.md) | Project manifest. Identity, repositories, mailing lists, tools enabled, CVE tooling, GitHub project-board + issue-template field declarations. The single file every skill reads to resolve project-scoped references. | `good-first-issue-author`, `good-first-issue-sweep`, `newcomer-issue-explainer`, `welcome` |
 
 **Optional.** Each has a documented fallback; absent, the skill still runs.
 
 | File | What it carries | Read by |
 |---|---|---|
-| [`mentoring-welcome-config.md`](../../projects/_template/mentoring-welcome-config.md) | Wording and triggers for first-time-contributor welcomes. | `welcome` |
-| [`newcomer-issue-explainer-config.md`](../../projects/_template/newcomer-issue-explainer-config.md) | How much context an explanation carries, and the register it is written in. | `newcomer-issue-explainer` |
+| [`mentoring-welcome-config.md`](../../plugins/magpie-setup/templates/mentoring-welcome-config.md) | Wording and triggers for first-time-contributor welcomes. | `welcome` |
+| [`newcomer-issue-explainer-config.md`](../../plugins/magpie-setup/templates/newcomer-issue-explainer-config.md) | How much context an explanation carries, and the register it is written in. | `newcomer-issue-explainer` |
 
 <!-- END generated: skill-config -->
 
@@ -211,7 +211,7 @@ uv run --project tools/pilot-report-validator pilot-report-validate <your-report
   current implementation status.
 - [`spec.md`](spec.md) — full Agentic Mentoring spec: tone guide, hand-off
   protocol, adopter contract.
-- [`projects/_template/README.md`](../../projects/_template/README.md) —
+- [`projects/_template/README.md`](../../plugins/magpie-setup/templates/README.md) —
   adopter scaffold index.
 - [`docs/setup/agentic-overrides.md`](../setup/agentic-overrides.md) —
   the override mechanism every skill in this family supports.

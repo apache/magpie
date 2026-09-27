@@ -150,7 +150,7 @@ silently grow into.
 
 Adopters declare their privacy-LLM posture in a single markdown
 file at `<project-config>/privacy-llm.md`. The framework's
-[`projects/_template/privacy-llm.md`](../../projects/_template/privacy-llm.md)
+[`projects/_template/privacy-llm.md`](../../plugins/magpie-setup/templates/privacy-llm.md)
 ships a starting point pre-filled with the Claude-Code default;
 adopters customise from there.
 
