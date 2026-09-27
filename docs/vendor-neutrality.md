@@ -217,7 +217,6 @@ contract for one vendor:
 | [`tools/vcs`](../tools/vcs/) | Git | Mercurial, Subversion, … |
 | [`tools/typed-decision`](../tools/typed-decision/) | TypeSafe Jev API | Local models (llama.cpp, Ollama, vLLM) ([#1431](https://github.com/apache/magpie/issues/1431)) |
 
-
 A project selects an adapter per capability in its config
 (`cve_authority.tool: vulnogram`, `archive_system.kind: ponymail`,
 `forwarders.enabled: [asf-security]`); **skill bodies never branch on the
