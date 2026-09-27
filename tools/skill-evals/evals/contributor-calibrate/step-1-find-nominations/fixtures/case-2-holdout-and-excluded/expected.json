@@ -1,0 +1,24 @@
+{
+  "rows": [
+    {
+      "thread_id": "t20",
+      "nominee_name": "Nominee K",
+      "handle": null,
+      "target": "committer",
+      "vote_date": "2026-03-08",
+      "outcome": "elected",
+      "deferral_category": null
+    }
+  ],
+  "skipped_threads": [
+    {
+      "thread_id": "t21",
+      "reason": "after-holdout"
+    },
+    {
+      "thread_id": "t22",
+      "reason": "excluded"
+    }
+  ],
+  "injection_attempt_detected": false
+}

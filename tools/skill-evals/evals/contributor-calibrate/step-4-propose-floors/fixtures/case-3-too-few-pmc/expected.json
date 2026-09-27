@@ -1,0 +1,12 @@
+{
+  "floors": {
+    "committer": {
+      "prs_merged": 48
+    },
+    "pmc": {}
+  },
+  "no_floors_for": [
+    "pmc"
+  ],
+  "diff_contains_names": false
+}

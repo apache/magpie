@@ -89,6 +89,7 @@ Suites are currently implemented for:
 - **write-skill** — 5 cases across 1 suite (step-5-security-checklist)
 - **setup-privacy-llm** — 6 cases across 2 suites (step-1-resolve, step-4-gate)
 - **preflight-reconciliation** — 7 cases across 1 suite (step-reconciliation)
+- **contributor-calibrate** — 7 cases across 2 suites (step-1-find-nominations, step-4-propose-floors)
 
 ## Prerequisites
 

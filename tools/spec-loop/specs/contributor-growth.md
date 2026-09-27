@@ -67,6 +67,13 @@ state change for human sign-off.
   Read-only; never posts to any list. Ships `mode: Triage`
   + `experimental`, eval suite under
   `tools/skill-evals/evals/contributor-nomination/`.
+- Skill: `contributor-calibrate` — derives committer and PMC
+  threshold floors from the project's past nomination decisions on
+  the private list (behind the privacy-LLM gate), honouring a holdout
+  date and excluded threads; proposes a numbers-only config diff and
+  keeps per-nominee data in the session scratch directory. Ships
+  `mode: Triage` + `experimental`, eval suite under
+  `tools/skill-evals/evals/contributor-calibrate/`.
 - Skill: `good-first-issue-author` — drafts one net-new good first
   issue from a supplied gap or small task; suitability gate plus
   R1–R9 readiness checklist; waits for maintainer confirmation

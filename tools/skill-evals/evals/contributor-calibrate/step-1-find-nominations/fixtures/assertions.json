@@ -1,0 +1,9 @@
+{
+  "rows_carry_no_opinions_or_quotes": {
+    "type": "regex",
+    "field": "rows",
+    "pattern": "\\\"(quote|said|supporters?|objectors?|votes?|opinion)\\\"\\s*:",
+    "flags": "i",
+    "negate": true
+  }
+}

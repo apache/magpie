@@ -45,6 +45,8 @@ to update them.
 |---|---|---|
 | `assessment_window_months` | TODO: e.g. `6` | How many months of activity to assess. 6 is common; slower-moving projects may prefer 12. |
 | `area_label_prefix` | TODO or leave blank (default `area:`) | Label prefix that marks a PR's area; used for area breadth and the per-area table in the brief. |
+| `calibrated_on` | leave blank | Written by `calibrate` when it sets the thresholds below from past nominations; other skills suggest recalibrating after 12 months. |
+| `calibration_recency_halflife_years` | `2` | How fast `calibrate` down-weights older nominations. |
 
 ---
 
@@ -62,6 +64,8 @@ mid-size active project.
 | `issues_filed` | `0` | TODO or leave blank | Set to 0 to treat as non-required; many valid tracks don't involve filing issues |
 | `threads_commented` | `5` | TODO or leave blank | PR/issue comment threads — basic community presence |
 | `area_breadth` | `0` | TODO or leave blank | Distinct `area:*` labels across merged PRs; 0 = no breadth requirement |
+| `issues_triaged` | `0` | TODO or leave blank | Other people's issues the contributor commented on; 0 = advisory |
+| `mailing_list_posts` | `0` | TODO or leave blank | Threads started plus replies on the development list; 0 = advisory |
 
 ---
 
@@ -79,6 +83,8 @@ PMC as a senior track.
 | `issues_filed` | `0` | TODO or leave blank | |
 | `threads_commented` | `10` | TODO or leave blank | |
 | `area_breadth` | `2` | TODO or leave blank | PMC members typically span multiple project areas |
+| `issues_triaged` | `0` | TODO or leave blank | |
+| `mailing_list_posts` | `0` | TODO or leave blank | |
 
 ---
 

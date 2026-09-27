@@ -299,6 +299,14 @@ interviewed). A plain run mentions it in the recap instead.
    upgrade leaves them valid. If a file already exists there and differs,
    show the difference and ask.
 
+## Step 3d — Contributor-growth calibration (optional)
+
+Run this only when the `magpie-contributor-growth` plugin is installed and every threshold row in `committer-readiness.md` and `contributor-nomination-config.md` is blank or still at its template default.
+It is never part of a pre-flight entry's batched question, and this step implements none of the calibration.
+
+Say that `contributor-calibrate` (`/magpie-contributor-growth:calibrate` on a marketplace install) derives the thresholds from the project's own past nomination decisions, reading the private list behind the privacy-LLM gate and writing numbers only.
+Hand off to it only on the user's explicit yes; never run it unattended.
+
 ## Step 4 — Recap
 
 Tell the user, in this order:
@@ -310,6 +318,9 @@ Tell the user, in this order:
    installed and no `adversarial-review.md`, add one line that
    `/magpie-setup config adversarial-review` configures other models as
    reviewers — state it, do not ask.
+   When Step 3d's conditions hold and the user did not take the hand-off,
+   add one line that `contributor-calibrate` can derive the contributor
+   thresholds from past nominations — state it, do not ask.
 1b. **What the reconciliation stamp recorded** (Step 3b), all of it in
    the gitignored `.apache-magpie-local/reconciled.json` — on an
    unadopted project, the skill(s) whose `skills` entry was just

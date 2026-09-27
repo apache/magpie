@@ -184,7 +184,7 @@ means and which modes are still proposed vs. shipping today.
 | [**repo-health**](docs/repo-health/README.md) | opt-in | Triage | Read-only repository-health audits: obsolete runner labels, Actions workflow security, dependency vulnerabilities, dependency licence review, license/NOTICE compliance, flaky-test patterns, plus audit-finding fixes. | 7 skills, [`docs/repo-health/`](docs/repo-health/) |
 | [**pairing**](docs/pairing/README.md) | opt-in | Pairing | Pair a change with a structured self-review or a multi-agent adversarial review before it lands. | 2 skills, [`docs/pairing/`](docs/pairing/README.md) |
 | [**mentoring**](docs/mentoring/README.md) | opt-in | Mentoring | Newcomer-facing mentoring — first-contact welcome, newcomer-issue explanations, and good-first-issue authoring + backlog curation. **Experimental**. | 4 skills, [`docs/mentoring/`](docs/mentoring/README.md) |
-| [**contributor-growth**](docs/contributor-growth/README.md) | opt-in | Triage, Mentoring | The path-to-committer track: activity sweeps, nomination briefs, contributor-sentiment signals, readiness tracking, and committer / post-vote onboarding. | 6 skills, [`docs/contributor-growth/`](docs/contributor-growth/README.md) |
+| [**contributor-growth**](docs/contributor-growth/README.md) | opt-in | Triage, Mentoring | The path-to-committer track: activity sweeps, nomination briefs, contributor-sentiment signals, readiness tracking, threshold calibration, and committer / post-vote onboarding. | 7 skills, [`docs/contributor-growth/`](docs/contributor-growth/README.md) |
 
 ### External skill sources
 

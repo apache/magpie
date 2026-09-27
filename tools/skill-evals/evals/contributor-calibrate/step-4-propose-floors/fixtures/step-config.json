@@ -1,0 +1,7 @@
+{
+  "skill_md": "skills/contributor-calibrate/SKILL.md",
+  "step_heading": "## Step 4 \u2014 Propose floors",
+  "also_include": [
+    "plugins/magpie-contributor-growth/skills/calibrate/propose.md"
+  ]
+}

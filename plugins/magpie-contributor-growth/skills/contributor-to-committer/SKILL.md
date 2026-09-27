@@ -26,7 +26,7 @@ argument-hint: "<github-handle> [target:committer|pmc] [window:Nm]"
 capability: capability:stats
 surface_hash: sha256:c205c960041719dc
 license: Apache-2.0
-measured_tokens: 5421
+measured_tokens: 5603
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -216,6 +216,9 @@ If the repo is not found or inaccessible, stop with a clear message.
    nomination usually require on this project? (Describe the bar in
    plain text — counts or qualitative.)"* Record the response
    verbatim and treat it as a qualitative threshold narrative.
+   Mention once that `calibrate` can derive the thresholds from the project's past nominations.
+
+When the thresholds carry `calibrated_on` older than 12 months, add one line to the brief suggesting the maintainer re-run `calibrate`.
 
 Record the resolved thresholds as `<thresholds>` (structured when
 from config files, narrative when from the runtime fallback). Surface
@@ -336,6 +339,8 @@ Every count in this step is the **adjusted** count from Step 2a; the raw count t
 | `issues_filed` | `issues_filed` vs. threshold (0 = no requirement) |
 | `threads_commented` | `threads_commented` vs. threshold |
 | `area_breadth` | `area_breadth` vs. threshold (0 = no requirement) |
+| `issues_triaged` | `issues_triaged` vs. threshold (0 = no requirement) |
+| `mailing_list_posts` | development-list threads started plus replies vs. threshold (0 = no requirement); counted only when the contributor's list address is confirmed |
 | `off_github` | qualitative — met if maintainer described any signal |
 
 For each dimension, assign one of three statuses:
@@ -394,6 +399,8 @@ Produce the brief and present it to the maintainer for review.
 | Issues filed        | N        | N.N        | −N.N    | N.N      | N (or 0) | MET/~/?     | −N or —    |
 | PR/issue comments   | N        | N.N        | −N.N    | N.N      | N        | MET/~/?     | −N or —    |
 | Area breadth        | N areas  | N areas    | —       | N areas  | N areas  | MET/~/?     | −N or —    |
+| Issues triaged      | N        | N.N        | −N.N    | N.N      | N (or 0) | MET/~/?     | −N or —    |
+| Dev-list posts      | N        | —          | —       | N        | N (or 0) | MET/~/?     | −N or —    |
 | Off-GitHub          | present/absent | — | — | — | present | MET/? | —          |
 
 [Cap note if any stream hit the 300-result budget]
