@@ -624,7 +624,8 @@ below, annotated.
       "Bash(gh api repos/*/*/collaborators --*)", "Bash(gh api repos/*/*/compare/*)",
       // Read-only gh, allow-listed so they don't trip the `gh *` ask below.
       // Anything NOT listed here — every write/destructive gh, and any other
-      // REST `gh api` (GET included) — falls through to `gh *` and prompts.
+      // REST `gh api` GET — falls through to the mode's default; a `gh api`
+      // carrying a write flag hits the ask list below.
       "Bash(gh pr view *)", "Bash(gh pr list *)", "Bash(gh pr diff *)", "Bash(gh pr checks *)",
       "Bash(gh issue view *)", "Bash(gh issue list *)",
       "Bash(gh repo view *)", "Bash(gh repo list *)",
@@ -709,7 +710,14 @@ below, annotated.
       // A gh subcommand that appears in neither list falls through to the
       // mode's default (a prompt in default mode, the classifier in auto).
       // `gh auth token` / `refresh` are denied above (deny > ask).
-      "Bash(gh api *)",                          // GET and POST look the same to a pattern; keep the whole thing on ask (vetted-ops carries the bounded reads)
+      // `gh api` asks on its write flags only: an explicit method, a field
+      // (which makes gh default to POST), or a request body. A plain GET
+      // falls through to the mode's default; vetted-ops still carries the
+      // bounded reads the skills depend on.
+      "Bash(gh api -X*)", "Bash(gh api * -X*)", "Bash(gh api --method*)", "Bash(gh api * --method*)",
+      "Bash(gh api -f*)", "Bash(gh api * -f*)", "Bash(gh api -F*)", "Bash(gh api * -F*)",
+      "Bash(gh api --field*)", "Bash(gh api * --field*)", "Bash(gh api --raw-field*)", "Bash(gh api * --raw-field*)",
+      "Bash(gh api --input*)", "Bash(gh api * --input*)",
       "Bash(gh pr create *)",
       "Bash(gh pr comment *)",
       "Bash(gh pr review *)",

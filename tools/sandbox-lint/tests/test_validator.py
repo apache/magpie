@@ -80,11 +80,15 @@ def test_baseline_asks_on_gh_writes_not_on_reads(baseline: dict[str, Any]) -> No
     # Claude Code evaluates deny, then ask, then allow, and "a matching ask
     # rule prompts even when a more specific allow rule also matches", so a
     # catch-all `Bash(gh *)` in ask would silently defeat every read-only
-    # allow below it. The write subcommands are listed one by one instead.
+    # allow below it. The write subcommands are listed one by one instead,
+    # and `gh api` asks on its write flags rather than as a whole.
     ask = baseline["permissions"]["ask"]
     assert "Bash(gh *)" not in ask
+    assert "Bash(gh api *)" not in ask
+    for flag in ("-X", "--method", "-f", "-F", "--field", "--raw-field", "--input"):
+        for rule in (f"Bash(gh api {flag}*)", f"Bash(gh api * {flag}*)"):
+            assert rule in ask, rule
     for rule in (
-        "Bash(gh api *)",
         "Bash(gh pr merge *)",
         "Bash(gh issue close *)",
         "Bash(gh release delete *)",

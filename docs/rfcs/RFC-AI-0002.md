@@ -201,7 +201,12 @@ The reference implementation's project-scope `.claude/settings.json`, annotated
       "Bash(gh issue create *)", "Bash(gh issue edit *)",
       "Bash(gh issue close *)", "Bash(gh issue comment *)",
       "Bash(gh release create *)",
-      "Bash(gh api *)"                           // GET and POST look the same to a prefix rule, so the whole thing asks; vetted-ops carries the bounded reads
+      // gh api asks on its write flags only (method, field, request body);
+      // a plain GET falls through to the mode's default
+      "Bash(gh api -X*)", "Bash(gh api * -X*)", "Bash(gh api --method*)", "Bash(gh api * --method*)",
+      "Bash(gh api -f*)", "Bash(gh api * -f*)", "Bash(gh api -F*)", "Bash(gh api * -F*)",
+      "Bash(gh api --field*)", "Bash(gh api * --field*)", "Bash(gh api --raw-field*)", "Bash(gh api * --raw-field*)",
+      "Bash(gh api --input*)", "Bash(gh api * --input*)"
     ]
   }
 }
@@ -222,10 +227,13 @@ Claude Code evaluates deny, then ask, then allow, and a matching ask rule
 prompts even when a more specific allow rule also matches, so the wildcard
 prompted for `gh issue view` as loudly as for `gh issue close`. The reference
 now lists the write subcommands one by one, but the shape of the problem
-survives wherever a prefix rule cannot tell a read from a write — `gh api`
-above all, where a GET and a POST look identical, so the whole command stays on
-`ask` and every read through it prompts. On a sweep across thirty trackers that
-is a hundred prompts, and the hundredth gets the attention the first deserved.
+survives wherever a prefix rule cannot tell a read from a write. `gh api` was
+the worst case: while the whole command stayed on `ask`, every read through it
+prompted. The reference now asks only on its write flags — an explicit method,
+a field, or a request body — but a read that falls to the mode's default can
+still prompt, and a GraphQL query always carries `-f`. On a sweep across thirty
+trackers that is a hundred prompts, and the hundredth gets the attention the
+first deserved.
 Prompt fatigue is not a usability complaint here; it is the mechanism by which
 Layer 3 stops working — which is why
 [`PRINCIPLES.md` §1](../../PRINCIPLES.md#1-avoiding-prompt-fatigue) ranks avoiding it
