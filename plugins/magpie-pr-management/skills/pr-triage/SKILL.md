@@ -27,7 +27,7 @@ argument-hint: "[pr:N] [label:LBL] [author:LOGIN] [review-for-me] [stale] [repo:
 capability: capability:triage
 surface_hash: sha256:960ba49c12442c7e
 license: Apache-2.0
-measured_tokens: 5292
+measured_tokens: 5306
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
@@ -326,9 +326,9 @@ Selector semantics (`triage pr:<N>` / `label:<LBL>` / `author:<LOGIN>` / `review
 
 **Step 2 — classify:** run **every PR fetched in Step 1** through
 [`classify-and-act.md`](classify-and-act.md), once — the pre-filters
-(F1–F6), the authoritative first-match-wins decision table, the optional
-typed-decision shadow pre-filter pass (gated by `enable_typed_decision_prefilter`),
-the Real-CI guard on `passing` rows, and the single-pass output contract
+(F1–F6), the authoritative first-match-wins decision table,
+the Real-CI guard on `passing` rows, the optional typed-decision shadow pre-filter pass
+(gated by `enable_typed_decision_prefilter`), and the single-pass output contract
 are specified there.
 
 **Typed-decision pre-filter (opt-in shadow mode):**
@@ -337,12 +337,12 @@ Adopters can enable an advisory classification pass via `enable_typed_decision_p
 (default `0.85`, also accepts `confidence_threshold`)
 in `<project-config>/pr-management-config.md` or `.apache-magpie-overrides/pr-management-triage.md`.
 The deterministic decision table always executes authoritatively to determine classifications and actions per `PRINCIPLES.md` §6.
-When enabled, `typed_decision.choice()` runs alongside the decision table to record shadow predictions and evaluate classifier accuracy.
-Invocation: `python plugins/magpie-pr-management/skills/pr-triage/scripts/typed_decision_prefilter.py --file <scratch>/pr-<N>.json --table-classification <label>`.
+When enabled, `typed_decision.choice()` runs alongside the post-guard classification to record shadow predictions and evaluate classifier accuracy.
+Invocation: `uv run --project <framework>/tools/typed-decision python3 <framework>/skills/pr-management-triage/scripts/typed_decision_prefilter.py --file <scratch>/pr-<N>.json --table-classification <label>`.
 On `TypedDecisionUnavailable`, network error, or low confidence, it falls through cleanly without affecting triage.
 Third-party LLM endpoint and privacy prerequisites:
 Endpoint `https://api.typesafe.ai/v1/systemone`, credentials `TYPESAFE_API_KEY` (or `JEV_API_KEY`), and an approved entry in `<project-config>/privacy-llm.md`.
-Contributor title, body, and commits are fenced inside `<untrusted-external-data>` as data only.
+Contributor title, body, and commits are fenced inside `<untrusted-external-data>` with tags escaped as data only.
 Telemetry is logged to `.apache-magpie-local/logs/pr-triage-typed-decision.jsonl`.
 Strict HITL invariant: Pre-filtering only gathers advisory predictions and evaluates accuracy; maintainer review and confirmation in Step 3 is strictly required before any mutation.
 

@@ -49,27 +49,38 @@ Run **every PR fetched in Step 1** through
    `(classification, action, reason)` tuple for that PR.
    The deterministic decision table is a pure function of fetched state
    and is never bypassed or short-circuited (`PRINCIPLES.md` §6).
-3. **Opt-in typed-decision shadow pre-filter (advisory):**
+3. For any PR that the table classifies as `passing` (rows 19,
+   20), the [Real-CI guard](classify-and-act.md#real-ci-guard)
+   must pass — otherwise re-route to `pending_workflow_approval`
+   (row 1) or `rebase` (row 16).
+4. **Opt-in typed-decision shadow pre-filter (advisory):**
    When enabled via `enable_typed_decision_prefilter: true`
    (default `false`) with threshold `typed_decision_confidence_threshold`
    (default `0.85`, also accepts `confidence_threshold`), run the helper
-   alongside the decision table to evaluate classifier accuracy.
+   alongside the post-guard classification to evaluate classifier accuracy.
    Write the PR state to a scratch file and invoke:
    ```bash
-   python plugins/magpie-pr-management/skills/pr-triage/scripts/typed_decision_prefilter.py \
+   uv run --project <framework>/tools/typed-decision python3 <framework>/skills/pr-management-triage/scripts/typed_decision_prefilter.py \
      --file <scratch>/pr-<N>.json \
      --table-classification <label>
    ```
    - **Contract:**
-     The decision table result from step 2 remains authoritative in all cases.
-     The shadow pass records predictions alongside the table classification for telemetry.
+     The decision table and Real-CI guard result remains authoritative in all cases.
+     The shadow pass records predictions alongside the final table classification for telemetry.
+   - **`--file` JSON schema:**
+     The input file provides a JSON object containing:
+     `number` (int/str), `author` (str or `{"login": str}`), `authorAssociation` (str), `statusCheckRollup` (str), `failed_checks` (list of str), `recent_main_failures` (list of str), `mergeable` (str), `unresolved_threads` (int), `isDraft` (bool), `commits_behind` (int), `real_ci_ran` (bool), `labels` (list of str), `title` (str), `body` (str), `commit_messages` (list of str).
+     Missing fields default to `UNKNOWN` to avoid biasing prompts toward `passing`.
    - **Outcomes:**
-     - `used`:
+     - `high_confidence`:
        Confidence meets or exceeds threshold and predicted label is valid.
-       Logs `{pr, table_classification, predicted_label, confidence, latency_ms, match, used_or_fell_through: "used"}`.
+       Logs `{pr, table_classification, predicted_label, confidence, latency_ms, match, outcome: "high_confidence"}`.
+     - `low_confidence`:
+       Confidence below threshold or unrecognised label.
+       Logs `{pr, table_classification, predicted_label, confidence, latency_ms, match, outcome: "low_confidence"}`.
      - `fell_through`:
-       Flag disabled, confidence below threshold, or provider unavailable.
-       Logs `{used_or_fell_through: "fell_through"}` with the specific reason (or skips logging if disabled).
+       Flag disabled, provider unavailable, or network error.
+       Logs `{pr, outcome: "fell_through"}` with the specific reason (or skips logging if disabled).
        Triage proceeds unaffected.
    - **Third-party LLM endpoint and privacy prerequisites:**
      - Endpoint: `https://api.typesafe.ai/v1/systemone`
@@ -79,16 +90,13 @@ Run **every PR fetched in Step 1** through
        with non-empty `Data-residency contract` and maintainer sign-off
        before enabling outbound classification.
      - Contributor title, body, and commits are fenced
-       inside `<untrusted-external-data>` as data only.
+       inside `<untrusted-external-data>` with tags escaped as data only.
    - **Telemetry:**
      Records are appended to `.apache-magpie-local/logs/pr-triage-typed-decision.jsonl`.
-4. For any PR that the table classifies as `passing` (rows 19,
-   20), the [Real-CI guard](classify-and-act.md#real-ci-guard)
-   must pass — otherwise re-route to `pending_workflow_approval`
-   (row 1) or `rebase` (row 16).
 
 Classification + action selection is a pure function of the data
-already fetched in Step 1. No extra network calls. No prompts.
+already fetched in Step 1.
+The decision table itself makes no network calls; the optional shadow pass in step 4 does.
 The full-set classification runs in a single pass over the
 in-memory list assembled in Step 1 — no pagination, no chunking.
 

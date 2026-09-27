@@ -102,11 +102,11 @@ Can be declared here or overridden in `.apache-magpie-overrides/pr-management-tr
 - Endpoint: `https://api.typesafe.ai/v1/systemone`
 - Credentials: `TYPESAFE_API_KEY` (or fallback `JEV_API_KEY`) or `~/.config/apache-magpie/typesafe.key`.
 - Privacy-LLM approval: Requires an opt-in entry in `<project-config>/privacy-llm.md` with non-empty `Data-residency contract` and valid non-placeholder `Approved-by` sign-offs.
-- Callers are responsible for redacting PII before invoking external model providers.
+- Transmits public PR metadata (title, body, and commits); does not send private repository data.
 
 **Human-in-the-loop invariant:**
 Pre-filtering only gathers advisory predictions and evaluates accuracy.
 It NEVER bypasses the deterministic table or acts on a PR without explicit maintainer confirmation in the interaction loop.
 
 **Telemetry:**
-When enabled, every call is logged to `.apache-magpie-local/logs/pr-triage-typed-decision.jsonl` with `{pr_number, table_classification, predicted_label, confidence, latency_ms, match, used_or_fell_through}` for adopter precision/recall evaluation.
+When enabled, every call is logged to `.apache-magpie-local/logs/pr-triage-typed-decision.jsonl` with `{pr, table_classification, predicted_label, confidence, latency_ms, match, outcome}` for adopter precision/recall evaluation.
