@@ -192,7 +192,8 @@ Leave `kind: none` if the project has no public chat, or does not want it read.
 ```yaml
 chat:
   kind: none         # slack | discord | none
-  channels: []       # channel names to read; empty = every public channel
+  channels: []       # channel names to read; empty = every public channel —
+                     # list them explicitly in a workspace shared by several projects
 ```
 
 ## Mail sources

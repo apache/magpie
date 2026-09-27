@@ -35,7 +35,7 @@ Return `{id, name, is_private: false}` per channel; never request `private_chann
 
 ## `search_messages(chat_user_id, since, until, channels)`
 
-`mcp__claude_ai_Slack__slack_search_public` with the query `from:<@chat_user_id> after:<since> before:<until>`, adding `in:<#channel>` per configured channel.
+`mcp__claude_ai_Slack__slack_search_public` with the query `from:<@chat_user_id> after:<the day before since> before:<the day after until>` (Slack's `after:` and `before:` exclude the day they name), adding `in:<#channel>` per configured channel.
 Page through the results; map each hit to `{url, channel, ts, text, is_reply, answers_question}`, where `answers_question` is true when the message is a thread reply to a message that asks a question and was written by someone else.
 
 ## Tools this adapter never calls

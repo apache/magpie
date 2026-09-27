@@ -40,15 +40,15 @@ rows come from the nominator's own knowledge and public archives
 
 | Track                  | Evidence                                    | Source                    |
 |------------------------|---------------------------------------------|---------------------------|
-| Code — PRs merged      | N.N adjusted (N raw, −N.N penalty; of N opened; lifetime: N) | GitHub (automated)     |
-| Code — reviews given   | N.N total, N.N substantive adjusted (N, N raw, −N.N penalty; lifetime: N) | GitHub (automated) |
-| Issues filed           | N.N adjusted (N raw, −N.N penalty; lifetime: N) | GitHub (automated)        |
-| Issues triaged         | N.N adjusted (N raw, −N.N penalty; lifetime: N) | GitHub (automated)        |
-| Issue / PR comments    | N.N threads adjusted (N raw, −N.N penalty; lifetime: N) | GitHub (automated)        |
-| Mailing list           | <nominator's knowledge / archive search>    | Nominator-supplied        |
+| Code — PRs merged      | N.N adjusted (N raw, N.N discounted, −N.N penalty; of N opened; lifetime: N) | GitHub (automated)     |
+| Code — reviews given   | N.N total, N.N substantive adjusted (N, N raw; N.N, N.N discounted; −N.N penalty; lifetime: N) | GitHub (automated) |
+| Issues filed           | N.N adjusted (N raw, N.N discounted, −N.N penalty; lifetime: N) | GitHub (automated)        |
+| Issues triaged         | N.N adjusted (N raw, N.N discounted, −N.N penalty; lifetime: N) | GitHub (automated)        |
+| Issue / PR comments    | N.N threads adjusted (N raw, N.N discounted, −N.N penalty; lifetime: N) | GitHub (automated)        |
+| Mailing list           | <collected rows (community-signals.md) + nominator> | Collected + nominator     |
 | Documentation          | <nominator's knowledge / archive search>    | Nominator-supplied        |
-| Testing                | <nominator's knowledge / archive search>    | Nominator-supplied        |
-| User support           | <nominator's knowledge / archive search>    | Nominator-supplied        |
+| Testing                | <collected rows (community-signals.md) + nominator> | Collected + nominator     |
+| User support           | <collected rows (community-signals.md) + nominator> | Collected + nominator     |
 | Talks / writing        | <nominator's knowledge / archive search>    | Nominator-supplied        |
 | Release management     | <nominator's knowledge / archive search>    | Nominator-supplied        |
 | Mentoring              | <nominator's knowledge / archive search>    | Nominator-supplied        |
@@ -64,7 +64,7 @@ Assessment window: <since> → <today>
 |------|------------------------------|---------------------------|
 | <area> | N.N (NN.N %)               | N.N (NN.N %)              |
 
-<One row per entry in `metrics.json.areas`, largest PR share first.
+<One row per entry in `metrics.json.areas`, largest PR share first, `(unlabelled)` last.
 Omit the table and say "No area labels on this contributor's work"
 when the list is empty.>
 ```

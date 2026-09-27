@@ -21,7 +21,7 @@ argument-hint: "[target:committer|pmc|both] [window:6m] [end:YYYY-MM-DD]"
 capability: capability:stats
 surface_hash: sha256:a85d8562c0c9e801
 license: Apache-2.0
-measured_tokens: 2858
+measured_tokens: 2997
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -134,6 +134,7 @@ Floors come from `<project-config>/committer-readiness.md`, else `contributor-no
 - **`<governance-body>` target:** current committers minus current members.
 
 Rosters come from the organization's people directory (ASF: `mcp__apache-projects__get_group_members(<project>)` for committers, `get_group_members(pmc-<project>)` for members), else from `<project-config>/pmc-roster.md`.
+When neither is available, stop: without a roster the skill cannot tell candidates from current committers. When only `pmc-roster.md` is available, say so and show its last-modified date.
 
 **Map roster ids to GitHub handles** before comparing: use the directory's GitHub field for each id, or the maintainer.
 Never guess from a similar name.
@@ -186,8 +187,10 @@ Handles appear as plain profile links, never as `@`-mentions.
 
 1. Show the report to the maintainer and ask whether to commit it to `<report_repo>`.
    Without an explicit yes, stop; the report stays in scratch.
-2. On yes, run the privacy check from Step 0 again; if the repository is no longer private, refuse.
-3. Write the contents payload (`message`, base64 `content`) to a file, and commit it with one plain command:
+2. On yes, run the privacy check and the collaborator listing from Step 0 again; if the repository is no longer private, or its collaborators changed since the maintainer confirmed them, stop and ask again.
+   Normalise `report_path` to have no leading or trailing slash.
+   If a report of the same name already exists, read its `sha` with `gh api repos/<report_repo>/contents/<report_path>/<end>-candidate-screen.md --jq .sha` and include it in the payload, so the commit replaces it instead of failing.
+3. Write the contents payload (`message`, base64 `content`, and `sha` when replacing) to a file, and commit it with one plain command:
 
    ```bash
    gh api repos/<report_repo>/contents/<report_path>/<end>-candidate-screen.md -X PUT --input <scratch>/candidate-screen/payload.json

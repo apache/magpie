@@ -39,7 +39,8 @@ Do not construct any other `gh` call that interpolates `<login>` into a shell co
 | Issues triaged | as threads, on issues opened by someone else | `triage` |
 
 Nothing the candidate did after the window end is counted, which matters when `calibrate` measures a nominee as of their vote date.
-PR and review items carry their labels, which `score` turns into areas using `area_label_prefix`.
+PR and review items carry their labels, which `score` turns into areas using `area_label_prefix`; work with no area label shows as an `(unlabelled)` row.
+Item ids are per kind — the same PR can appear as `pr-N`, `review-N` and `thread-N` — so classify each id you mean to discount.
 
 ---
 

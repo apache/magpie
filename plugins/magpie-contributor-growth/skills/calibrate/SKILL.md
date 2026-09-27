@@ -23,7 +23,7 @@ argument-hint: "[since:YYYY-MM-DD] [holdout:YYYY-MM-DD] [exclude-thread:<id>] [w
 capability: capability:stats
 surface_hash: sha256:9c623c35a58589e5
 license: Apache-2.0
-measured_tokens: 2968
+measured_tokens: 3011
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -136,6 +136,7 @@ The recency half-life comes from `calibration_recency_halflife_years` in `<proje
 ## Step 1 — Find nominations
 
 Search `<private-list>` through the `mail-archive` contract for threads whose subject marks a committer or `<governance-body>` nomination — `[DISCUSS]`, `[VOTE]` and `[RESULT]` threads — from `since` up to `holdout` (or today).
+Bound the archive query itself to that date range (PonyMail: `timespan: dfr=<since> dto=<holdout>`), so threads after the holdout do not even appear in the listing.
 
 - A thread whose id is in `exclude-thread` is dropped **without being opened**; record it in `skipped_threads` with reason `excluded`.
 - A thread or message dated after `holdout` is dropped **without being opened**; record the thread with reason `after-holdout`.

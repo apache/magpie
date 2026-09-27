@@ -62,6 +62,10 @@ class Weights:
             if raw is None:
                 values[attr] = default
                 continue
+            if isinstance(raw, bool):
+                notes.append(f"{key}={raw!r} is not a number; using default {default}")
+                values[attr] = default
+                continue
             try:
                 v = float(raw)
             except (TypeError, ValueError):

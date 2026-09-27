@@ -12,6 +12,7 @@ from typing import Any
 from contributor_metrics.model import CLASSES, Item, Weights
 
 Select = Callable[[Item, "str | None"], bool]
+UNLABELLED = "(unlabelled)"
 
 METRICS: dict[str, Select] = {
     "prs_opened": lambda i, c: i.kind == "pr",
@@ -87,16 +88,17 @@ def score(
     }
 
     per_area: dict[str, dict[str, list[float]]] = defaultdict(lambda: {"prs": [], "reviews": []})
+    totals = {"prs": 0.0, "reviews": 0.0}
     for i in in_window:
         bucket = "prs" if (i.kind == "pr" and i.merged) else "reviews" if i.kind == "review" else None
         if bucket is None:
             continue
-        for a in i.areas:
-            if a.startswith(area_prefix):
-                per_area[a][bucket].append(w(i))
-    totals = {b: sum(sum(v[b]) for v in per_area.values()) for b in ("prs", "reviews")}
+        totals[bucket] += w(i)
+        labelled = [a for a in i.areas if a.startswith(area_prefix)]
+        for a in labelled or [UNLABELLED]:
+            per_area[a][bucket].append(w(i))
     areas = []
-    for a in sorted(per_area):
+    for a in sorted(per_area, key=lambda k: (k == UNLABELLED, k)):
         entry: dict[str, Any] = {"area": a}
         for b in ("prs", "reviews"):
             adj = sum(per_area[a][b])
@@ -106,9 +108,10 @@ def score(
                 "share": _r(adj / totals[b]) if totals[b] else 0.0,
             }
         areas.append(entry)
+    labelled_areas = {k: v for k, v in per_area.items() if k != UNLABELLED}
     breadth = {
-        "raw": sum(1 for v in per_area.values() if v["prs"]),
-        "adjusted": sum(1 for v in per_area.values() if sum(v["prs"]) >= 1),
+        "raw": sum(1 for v in labelled_areas.values() if v["prs"]),
+        "adjusted": sum(1 for v in labelled_areas.values() if sum(v["prs"]) >= 1),
     }
 
     timeline = dict.fromkeys(_months(since, end), 0)

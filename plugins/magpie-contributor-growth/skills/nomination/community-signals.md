@@ -34,7 +34,7 @@ A mailing-list address, chat account, or social account counts as the contributo
 
 1. the address appears as an author email on the contributor's own commits to `<upstream>`;
 2. the organization's people directory ties it to the contributor (ASF: `mcp__apache-projects__get_person`);
-3. the account is linked from the contributor's own GitHub profile;
+3. the account is linked from the contributor's own GitHub profile **and** links back to that GitHub profile — a one-way link proves only that the contributor pointed at the account, not that it is theirs;
 4. the maintainer running the skill confirms it.
 
 A chat or social profile that names the contributor's GitHub handle is that account's own claim — anyone can write it — so on its own it is not a confirmation (`tools/chat` `resolve_user` → `confirmed_by: "profile"` means exactly that claim).
@@ -50,11 +50,12 @@ Each source is collected only when the project configures it; an unconfigured or
 |---|---|---|
 | `<dev-list>`, `<users-list>` | `mail-archive` contract search, public archives, filtered by the contributor's confirmed address | dev-list threads started, dev-list replies, replies to user questions on `<users-list>`, **release testing** — replies to `[VOTE]` threads on `<dev-list>` that say what was tested |
 | Project chat | [`tools/chat`](../../../../tools/chat/README.md) — `resolve_user`, then `search_messages` over the configured public channels | chat messages, answers to other people's questions |
-| GitHub Discussions | `gh api graphql` over `repository(owner, name) { discussions(first: 100, orderBy: {field: UPDATED_AT, direction: DESC}) { nodes { url answer { author { login } url } comments(first: 50) { nodes { author { login } url createdAt } } } } }` | answers given, answers accepted |
-| Self-linked accounts | `gh api users/<login>` (`blog`, `twitter_username`) and `gh api users/<login>/social_accounts` | posts in the window that mention `<PROJECT>` or `<upstream>` |
+| GitHub Discussions | `gh api graphql` over `repository(owner, name) { discussions(first: 100, orderBy: {field: UPDATED_AT, direction: DESC}) { nodes { url answer { author { login } url } comments(first: 50) { nodes { author { login } url createdAt } } } } }` | answers given, answers accepted; when the newest 100 discussions do not reach back to the window start, say the count is partial |
+| Self-linked accounts | `gh api users/<login>` (`blog`, `twitter_username`) and `gh api users/<login>/social_accounts` | posts in the window that mention `<PROJECT>` or `<upstream>`, from accounts that link back (see [Identity](#identity)) |
 
 For self-linked accounts, read only the pages and feeds the contributor linked, and only posts that mention the project.
 Never search the web for the contributor's name or handle.
+In a chat workspace shared by several projects, read only the channels `chat.channels` lists; an empty list there would read every project's channels.
 
 ---
 

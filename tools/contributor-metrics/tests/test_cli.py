@@ -167,3 +167,69 @@ def test_floors_cli(tmp_path):
         == 0
     )
     assert json.loads((tmp_path / "f.json").read_text())["floors"]["committer"]["prs_merged"] == 48
+
+
+def test_score_rejects_weights_that_are_not_an_object(tmp_path):
+    (tmp_path / "items.json").write_text(
+        json.dumps({"since": "2026-03-01", "end": "2026-08-31", "items": []})
+    )
+    (tmp_path / "w.json").write_text("[1, 2]")
+    rc = main(
+        [
+            "score",
+            "--items",
+            str(tmp_path / "items.json"),
+            "--weights",
+            str(tmp_path / "w.json"),
+            "--out",
+            str(tmp_path / "m.json"),
+        ]
+    )
+    assert rc == 2
+
+
+def test_fetch_refresh_ignores_the_cache(tmp_path, monkeypatch):
+    import contributor_metrics.cli as cli
+
+    calls = []
+
+    def fake_fetch(*a, **k):
+        calls.append(1)
+        return [], [], []
+
+    monkeypatch.setattr(cli, "fetch_items", fake_fetch)
+    args = [
+        "fetch",
+        "--repo",
+        "o/r",
+        "--login",
+        "alice",
+        "--end",
+        "2026-08-31",
+        "--cache-dir",
+        str(tmp_path / "c"),
+        "--out",
+        str(tmp_path / "a.json"),
+    ]
+    assert main(args) == 0
+    assert main([*args, "--refresh"]) == 0
+    assert len(calls) == 2
+
+
+def test_fetch_cli_invalid_repo_exit_2(tmp_path):
+    rc = main(
+        [
+            "fetch",
+            "--repo",
+            "norepo",
+            "--login",
+            "alice",
+            "--end",
+            "2026-08-31",
+            "--cache-dir",
+            str(tmp_path / "c"),
+            "--out",
+            str(tmp_path / "x.json"),
+        ]
+    )
+    assert rc == 2

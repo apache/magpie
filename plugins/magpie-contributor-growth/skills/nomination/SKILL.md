@@ -27,7 +27,7 @@ argument-hint: "<github-handle> [window:Nm] [target:committer|pmc]"
 capability: capability:stats
 surface_hash: sha256:68634efda46f3980
 license: Apache-2.0
-measured_tokens: 5440
+measured_tokens: 5543
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -330,6 +330,7 @@ Surface a warning if any stream is in `caps_hit` — the maintainer should know 
 ## Step 3 — Gather off-GitHub signal and project context
 
 First collect community signals per [`community-signals.md`](community-signals.md): mailing-list presence and release testing, help given in chat and GitHub Discussions, and posts about the project on accounts the candidate linked themselves — confirmed identities only, each item classified, and the community indicator computed.
+Attribute an item to the candidate only when its identity is confirmed per [`community-signals.md` § Identity](community-signals.md#identity); a chat profile's own claim, or a self-linked account that does not link back, is a *possible match, not used*.
 Show the collected rows, the indicator, and any *possible match, not used* accounts to the nominator, and let them confirm, correct, or add.
 
 Then, before assessing or rendering anything, ask the nominator four
@@ -419,6 +420,7 @@ Every count below is then the adjusted count from `metrics.json`, with the raw c
   `<window>`, with a note if mailing list presence compensates
   for a sparse GitHub period
 - **Quality signals**: PR merge rate, review depth
+- **Threshold freshness**: when the thresholds carry `calibrated_on` older than 12 months, or `calibrated_window_months` differs from `<window>`, say so in one line and suggest `contributor-calibrate`
 - **Automated and low-signal contributions**: what was discounted,
   against which project expectation or generic heuristic, and any
   maintainer pushback — a negative signal for the PMC to weigh, never

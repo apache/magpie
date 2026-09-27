@@ -410,3 +410,11 @@ def test_fetch_records_cap_hit(fake_gh):
     )
     assert "issues_filed" in caps
     assert sum(1 for i in items if i.kind == "issue") == 300
+
+
+def test_fetch_rejects_a_repository_without_owner(fake_gh):
+    from contributor_metrics.fetch import InvalidRepo
+
+    with pytest.raises(InvalidRepo):
+        fetch_items("justarepo", "alice", since="2026-03-01", end="2026-08-31", phrases=(), maintainers=())
+    assert fake_gh.calls == []

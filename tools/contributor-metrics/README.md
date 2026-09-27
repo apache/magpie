@@ -53,6 +53,9 @@ contributor-metrics fetch --repo <upstream> --login <handle> --end YYYY-MM-DD --
 - `--phrases-file` — one extra pushback phrase per line (the project's `automated_pushback_phrases`), added to the generic list.
 - `--maintainers-file` — whitespace-separated handles treated as maintainers in addition to `OWNER` / `MEMBER` / `COLLABORATOR` authors.
 - `--cache-dir` — where fetched items are cached per repository, handle, window, phrases and roster; default `$TMPDIR/contributor-metrics-cache`. A second fetch with the same key reads the cache and makes no `gh` call. The cache holds links and flags only, never comment bodies.
+  Weights, penalty and area prefix are applied by `score`, not cached, so changing them needs no refetch; anything that changes on GitHub after a fetch (a new label, a late comment) is picked up only with `--refresh`, or by deleting the cache directory.
+- `--refresh` — ignore any cached result for this key and fetch again.
+- `--repo` must be `owner/name`; anything else exits `2` before any `gh` call.
 
 Every item is dated by the contributor's own activity and must fall inside `[since, end]`:
 
@@ -66,7 +69,8 @@ Every item is dated by the contributor's own activity and must fall inside `[sin
 
 Searches fetch at most 3 × 100 results; a stream that returned more is listed in `caps_hit`.
 The 100 most recent threads of each kind are dated from their conversation; older ones keep their last-update date and are reported in `notes`.
-The 50 most recent authored PRs and issues and the 20 most recent reviewed PRs get a conversation fetch for pushback candidates.
+The 50 most recent authored PRs and issues and the 20 most recent reviewed PRs get a conversation fetch for pushback candidates; older items, and triage threads beyond the thread budget, get none and keep full weight — the budget errs toward the contributor, as `automated-contributions.md` requires.
+Item ids are per kind: the same PR can appear as `pr-N`, `review-N`, `thread-N` and `triage-N`, and the calling skill classifies each id it means to discount.
 The search string is written to a tempfile and passed as `-F q=@<file>`, so a handle never reaches a shell argument.
 Rate-limit and transient `gh` errors are retried with exponential backoff (up to six attempts); any other error exits `1`.
 
@@ -128,6 +132,8 @@ Output: `{"floors": {target: {metric: int}}, "evidence_only": {target: [metric]}
 
 - `discounted` is the sum of item weights; `penalty` is `automated_pushback_penalty` times the distinct threads classed `P` or `C` in that count; `adjusted` is `max(0, discounted − penalty)`.
 - Area shares, area breadth and merge rate use item weights without the penalty.
+- An area's share is its weight over **all** merged PRs (or reviews) in the window; work with no area label is reported as an `(unlabelled)` row, and a PR with two area labels counts toward both, so shares can add up to more than 100 %.
+- The penalty is applied once per thread **in each count** the thread appears in — a pushed-back PR lowers opened, merged and threads-commented alike, because each count is compared with its own floor.
 - `caps_hit` names every stream whose search returned more results than were fetched; its counts are floors.
 
 ## Failure modes

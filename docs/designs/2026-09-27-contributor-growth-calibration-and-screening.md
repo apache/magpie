@@ -106,7 +106,7 @@ A Python project run with `uv`, `**Capability:** substrate:analytics`, calling `
 The tool flags pushback *candidates* deterministically — a maintainer comment containing a known phrase — but `automated-contributions.md` requires matching on meaning (negations, retractions, remarks about someone else's content), so the calling skill confirms or rejects each candidate.
 Restatement needs judgement too and stays entirely in the skill, within the existing inspection budget; the skill hands the confirmed classes back to the tool for the arithmetic.
 
-Results are cached per handle and window under `$TMPDIR`, so `calibrate` and `candidate-screen` do not refetch.
+Results are cached per repository, handle, window, pushback phrases and roster under `$TMPDIR`, so `calibrate` and `candidate-screen` do not refetch; weights are applied at scoring time and never cached, and `--refresh` refetches.
 
 ### 3. `calibrate` skill
 
@@ -152,7 +152,7 @@ Step 3 becomes *collect, then ask the nominator to confirm or add*, instead of *
 | `<dev-list>`, `<users-list>` | `mail-archive` contract, public archives | threads started, replies, replies to user questions, **release testing** (vote-thread replies showing testing) |
 | Project chat | new `tools/chat` contract — Slack adapter over the Slack MCP, public channels only; Discord as a tracked extension point | messages, answers to other people's questions |
 | GitHub Discussions | `gh` GraphQL | answers, accepted answers |
-| Self-linked accounts | the candidate's GitHub profile links (blog, social accounts) | posts in the window that mention the project |
+| Self-linked accounts | the candidate's GitHub profile links (blog, social accounts) that link back to that profile | posts in the window that mention the project |
 
 No direct messages, no private channels, and the candidate is never contacted.
 
@@ -200,7 +200,7 @@ It shows the repository's collaborators for the maintainer to confirm the audien
 - per candidate: area table (area, PRs, reviews, share), threshold table (raw, discounted, penalty, adjusted), community items, and the paragraphs;
 - *considered, not shortlisted:* handles with counts only.
 
-**Delivery:** the maintainer reviews the local file first; on confirmation it is committed through `gh api …/contents` with the payload in a file.
+**Delivery:** the maintainer reviews the local file first; on confirmation the privacy check and the collaborator list are run again, and only then is the report committed through `gh api …/contents` with the payload in a file.
 The report contains **no `@`-mentions** — plain handles with profile links — so no candidate is notified.
 Nothing is posted anywhere else.
 

@@ -166,3 +166,15 @@ def test_flagged_lists_classified_items():
             "penalised": True,
         }
     ]
+
+
+def test_area_shares_are_over_all_merged_prs_with_an_unlabelled_row():
+    out, _ = run([pr(1, areas=("area:a",)), pr(2), pr(3), pr(4)])
+    areas = {a["area"]: a for a in out["areas"]}
+    assert areas["area:a"]["prs"]["share"] == 0.25
+    assert areas["(unlabelled)"]["prs"] == {"raw": 3, "adjusted": 3.0, "share": 0.75}
+
+
+def test_boolean_weight_is_rejected():
+    weights, notes = Weights.from_mapping({"automated_pushback_penalty": True})
+    assert weights.penalty == 0.25 and len(notes) == 1

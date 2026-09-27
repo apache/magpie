@@ -17,6 +17,7 @@ from typing import Any
 from contributor_metrics.model import Item, Kind
 
 LOGIN_RE = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$")
+REPO_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 MAINTAINER_ASSOC = {"OWNER", "MEMBER", "COLLABORATOR"}
 GENERIC_PHRASES = (
     "ai-generated",
@@ -80,6 +81,10 @@ CONVO_GQL = """query($owner: String!, $repo: String!, $number: Int!) {
 
 
 class InvalidLogin(ValueError):
+    pass
+
+
+class InvalidRepo(ValueError):
     pass
 
 
@@ -270,6 +275,8 @@ def fetch_items(
 
     Returns the items, the names of streams that hit their cap, and notes for the brief.
     """
+    if not REPO_RE.match(repo):
+        raise InvalidRepo(repo)
     if not LOGIN_RE.match(login):
         raise InvalidLogin(login)
     phrases, maintainers = tuple(phrases), tuple(maintainers)

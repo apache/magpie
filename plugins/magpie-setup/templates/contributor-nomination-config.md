@@ -77,11 +77,11 @@ project, not a universal standard. Calibrate in either direction:
 |---|---|---|---|
 | PRs merged | 5 | TODO or leave as default | Reasonable floor for a mid-size project; set lower if your project is small or welcomes contributors freely |
 | Reviews given | 3 | TODO or leave as default | Shows engagement with others' work |
-| Substantive reviews | 2 | TODO or leave as default | Reviews with real inline feedback |
+| Substantive reviews | 2 | TODO or leave as default | A review body over 100 characters or at least one line comment |
 | Issues filed | 0 | TODO or leave as default | Not required — many valid tracks don't involve filing issues |
 | Comments | 5 | TODO or leave as default | Basic community presence |
 | Issues triaged | 0 | TODO or leave as default | Other people's issues the contributor commented on; 0 = advisory |
-| Mailing list presence | none | TODO or leave as default | Qualitative — fill in if your project tracks this |
+| Mailing list presence | 0 | TODO or leave as default | Threads started plus replies on the development list, from a confirmed address; 0 = advisory |
 
 ### PMC thresholds
 
@@ -90,8 +90,11 @@ project, not a universal standard. Calibrate in either direction:
 | PRs merged | 10 | TODO or leave as default | |
 | Reviews given | 8 | TODO or leave as default | PMC members are expected to help evaluate others' work |
 | Substantive reviews | 4 | TODO or leave as default | |
+| Issues filed | 0 | TODO or leave as default | |
+| Comments | 10 | TODO or leave as default | |
+| Area breadth | 2 | TODO or leave as default | Distinct area labels across merged PRs |
 | Issues triaged | 0 | TODO or leave as default | |
-| Mailing list presence | none | TODO or leave as default | Threads started plus replies on the development list |
+| Mailing list presence | 0 | TODO or leave as default | Threads started plus replies on the development list, from a confirmed address; 0 = advisory |
 | Community leadership signal | "present" | TODO or leave as default | Qualitative — some evidence of guiding others or shaping direction |
 
 ---

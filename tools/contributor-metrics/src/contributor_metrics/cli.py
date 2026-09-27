@@ -15,7 +15,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
-from contributor_metrics.fetch import GhError, InvalidLogin, fetch_items
+from contributor_metrics.fetch import GhError, InvalidLogin, InvalidRepo, fetch_items
 from contributor_metrics.floors import propose_floors
 from contributor_metrics.model import Item, Weights
 from contributor_metrics.score import score
@@ -53,6 +53,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--cache-dir",
         default=os.path.join(os.environ.get("TMPDIR") or tempfile.gettempdir(), "contributor-metrics-cache"),
     )
+    f.add_argument("--refresh", action="store_true", help="ignore any cached result and fetch again")
     f.add_argument("--phrases-file")
     f.add_argument("--maintainers-file")
     f.add_argument("--out", required=True)
@@ -84,7 +85,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         phrases = Path(args.phrases_file).read_text().splitlines() if args.phrases_file else []
         maintainers = Path(args.maintainers_file).read_text().split() if args.maintainers_file else []
         cached = _cache_file(args.cache_dir, args.repo, args.login, since, args.end, phrases, maintainers)
-        if cached.exists():
+        if cached.exists() and not args.refresh:
             Path(args.out).write_text(cached.read_text())
             return 0
         try:
@@ -98,6 +99,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         except InvalidLogin as exc:
             print(f"invalid GitHub handle: {exc}", file=sys.stderr)
+            return 2
+        except InvalidRepo as exc:
+            print(f"invalid repository (expected owner/name): {exc}", file=sys.stderr)
             return 2
         except GhError as exc:
             print(f"gh failed: {exc}", file=sys.stderr)
@@ -118,7 +122,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     data = _read(args.items)
-    weights, notes = Weights.from_mapping(_read(args.weights))
+    raw_weights = json.loads(Path(args.weights).read_text()) if args.weights else {}
+    if not isinstance(raw_weights, dict):
+        print("weights file must hold a JSON object of setting names to numbers", file=sys.stderr)
+        return 2
+    weights, notes = Weights.from_mapping(raw_weights)
     result = score(
         [Item.from_json(d) for d in data["items"]],
         _read(args.classes),
