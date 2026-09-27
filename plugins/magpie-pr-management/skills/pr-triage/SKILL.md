@@ -25,9 +25,9 @@ when_to_use: |
   already triaged or in its grace window.
 argument-hint: "[pr:N] [label:LBL] [author:LOGIN] [review-for-me] [stale] [repo:owner/name]"
 capability: capability:triage
-surface_hash: sha256:4a3a20f254a3b7c7
+surface_hash: sha256:960ba49c12442c7e
 license: Apache-2.0
-measured_tokens: 5296
+measured_tokens: 5292
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
