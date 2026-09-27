@@ -215,6 +215,7 @@ JIRA), `contract:change-request` (GitHub PRs, JIRA patches, or dev@
   needs a fork of `<upstream>` on your GitHub account (it pushes a branch
   there, then opens the PR via `gh pr create --web`). Claude Code also
   ships a GitHub MCP; `gh` covers the rest and is what OpenCode uses.
+- **Optional: [`github/gh-stack`](https://gh.io/stacks).** When a change goes up as a series of dependent PRs, the agent suggests this `gh` extension and links the PRs into a native GitHub stack with `gh stack link`. Install it yourself with `gh extension install github/gh-stack`; the secure setup does not let the agent install extensions.
 - **JIRA / SVN-first projects.** No `gh` is required. The tracker is JIRA,
   review + merge run through `jira-patch` or `dev@` `[PATCH]` mail, and
   commits land via SVN — declare those backends in

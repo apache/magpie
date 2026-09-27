@@ -96,6 +96,14 @@ before submission. Pre-fill `--title` and `--body` (including the
 Gen-AI disclosure block) so the reviewer only needs to review, not
 edit.
 
+When a fix is split into several dependent PRs, stack them with
+GitHub's stacked PRs: suggest the contributor install the
+[`github/gh-stack`](https://gh.io/stacks) extension
+(`gh extension install github/gh-stack`) if `gh extension list`
+does not show it, open each PR with `gh pr create --base <previous
+branch> --web`, then run `gh stack link <bottom-PR> … <top-PR>`.
+Never let `gh stack` generate PR titles or bodies.
+
 ## Private-PR fallback
 
 The exceptional private-PR path (target branch `main` of the
