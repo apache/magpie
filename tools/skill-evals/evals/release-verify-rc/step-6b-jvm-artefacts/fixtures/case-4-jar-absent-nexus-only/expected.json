@@ -1,0 +1,7 @@
+{
+  "step": "jvm-artefacts",
+  "status": "WARN",
+  "pom_findings": ["foo-core-1.0.0.pom: check1 developers INHERITED-UNVERIFIED — element absent and no locally staged parent POM to resolve against; verify against the effective POM"],
+  "companion_findings": ["foo-core-1.0.0.jar is declared by a staged POM but not staged locally (ABSENT); jvm_companion_location: nexus-staging — an observation, not a failure"],
+  "paste_recipe": "uv run --project .apache-magpie/tools/maven-artifact-verify maven-artifact-verify \"dist/dev/foo/1.0.0-rc1\" --digests sha512"
+}

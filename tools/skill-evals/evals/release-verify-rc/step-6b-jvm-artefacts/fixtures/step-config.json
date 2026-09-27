@@ -1,0 +1,4 @@
+{
+  "skill_md": "skills/release-verify-rc/SKILL.md",
+  "step_heading": "## Step 6b — JVM artefact checks (when the RC stages jars)"
+}

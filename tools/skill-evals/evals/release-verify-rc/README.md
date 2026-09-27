@@ -15,10 +15,11 @@ Behavioural eval suite for the
 | `step-3-verify-checksums` | Step 3 — Verify checksums | 2 | Checksum classification (PASS/MISMATCH/MISSING-DIGEST), deprecated md5 detection |
 | `step-5-notice-license` | Step 5 — NOTICE/LICENSE presence | 2 | File presence (PASS/WARN/FAIL), diff-lines count, diff summary |
 | `step-6-binary-exclusion` | Step 6 — Binary exclusion check | 2 | Prohibited-binary detection (PASS/FAIL), expected-binary classification |
+| `step-6b-jvm-artefacts` | Step 6b — JVM artefact checks | 4 | Tool-report classification (PASS/WARN/FAIL), POM licence/`INHERITED-UNVERIFIED` handling, companion signature detection, `ABSENT` jar vs `jvm_companion_location` |
 | `step-8-version-consistency` | Step 8 — Version string consistency | 2 | Exact version match across manifest files (PASS/FAIL) |
 | `step-9-reproducibility` | Step 9 — Reproducibility checks | 5 | `repro-archive compare` verdict → status (`identical` PASS, `differs` FAIL, `content-identical` WARN in RM-key mode / FAIL under automated signing), `mandatory` under `automated_release_signing: enabled` with `--skip-repro` ignored, `trusted_hardware_asserted` mirrors the flag, a project-specific convenience artefact whose rebuild differs (source identical, artefact `FAIL`, named in `binaries.differs`) |
 
-Total: **18 cases** across 7 step suites.
+Total: **22 cases** across 8 step suites.
 
 ## Run
 
@@ -63,6 +64,13 @@ semantically (see each suite's `grading-schema.json`).
   `"WARN"` for material diffs; `"PASS"` for version-string-only diffs.
 - **Step 6**: `status` must be `"FAIL"` when `prohibited_found` is
   non-empty.
+- **Step 6b**: a tool `FAIL` (wrong POM licence, missing companion or
+  companion signature) is always `"FAIL"`; `INHERITED-UNVERIFIED` is
+  `"WARN"` — a correct POM inheriting from the ASF parent must not be
+  failed; an `ABSENT` jar is a `"FAIL"` only when `release-build.md`
+  declares `jvm_companion_location: staged`, and an observation
+  otherwise; classified jars (`-tests`, `-shaded`, …) are never
+  flagged in either direction.
 - **Step 8**: `status` must be `"FAIL"` for any `match: false` or
   `extracted: null`; dev/snapshot suffixes are always `match: false`.
 - **Step 9**: `differs` and `tag-moved` are always `"FAIL"`;

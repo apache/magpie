@@ -408,8 +408,11 @@ loop before posting `+1`.
 
 - A pass/fail report per check (signatures, checksums, license
   headers via Apache RAT, NOTICE / LICENSE presence + diff vs
-  previous release, no prohibited binaries, source-tree integrity,
-  version-string consistency, and — optional per
+  previous release, no prohibited binaries, published-JVM-artefact
+  compliance via `tools/maven-artifact-verify` — POM licence set,
+  podling incubation disclaimer, companion `-sources.jar` /
+  `-javadoc.jar` with signatures and checksums — source-tree
+  integrity, version-string consistency, and — optional per
   `release-build.md § Reproducibility checks` — reproducibility: the
   source artefact rebuilt from the tag with `repro-archive build` at
   the recorded `SOURCE_DATE_EPOCH` and compared (`identical` /

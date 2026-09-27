@@ -92,7 +92,10 @@ code lands.
   `@apache.org` address reminder, Download Page link constraint, and
   no-send / no-auto-merge boundaries; `release-verify-rc` (`mode: Triage`)
   runs read-only RC pre-flight (signatures, checksums, RAT headers,
-  NOTICE/LICENSE, prohibited binaries, version consistency, Step 6);
+  NOTICE/LICENSE, prohibited binaries, published-JVM-artefact
+  compliance via `tools/maven-artifact-verify` — POM licence set,
+  podling disclaimer, companion jars, Step 6b; version consistency,
+  Step 6);
   `release-vote-draft` (`mode: Drafting`) drafts the `[VOTE]` email body
   and planning-issue comment after a PASS pre-flight, never sending or
   posting (Step 7); `release-vote-tally` (`mode: Triage`) classifies

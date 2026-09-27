@@ -146,7 +146,7 @@ framework substrate:
 | `substrate:action-guard` | substrate | Deterministic pre-tool-use command guards. |
 | `substrate:privacy` | substrate | PII redaction / approved-LLM gating. |
 | `substrate:framework-dev` | substrate | Build / validate / eval the framework itself. |
-| `substrate:release` | substrate | Release-artefact helpers an adopter's release process runs: reproducible-archive build, lint and comparison. |
+| `substrate:release` | substrate | Release-artefact helpers an adopter's release process runs: reproducible-archive build, lint and comparison; maven-artifact-verify for staged JVM artefacts. |
 | `substrate:setup` | substrate | Adopter-side setup state an agent resolves at runtime rather than at development time: lock parsing, floor comparison, reconciliation fingerprints. |
 | `substrate:review` | substrate | A second model's read of a change before it is published: other models' CLIs run read-only, findings merged. |
 
@@ -362,6 +362,7 @@ or a contract-free mix of substrates (e.g. `tools/spec-inventory` is
 | [`tools/vendor-neutrality-score`](../tools/vendor-neutrality-score/) | `substrate:framework-dev` + `substrate:analytics` | Deterministic vendor-neutrality score — reads each contract tool's `**Kind:**` / `**Vendor:**` metadata and scores per-contract + per-skill neutrality (`analytics`); backs the score block in [`docs/vendor-neutrality.md`](vendor-neutrality.md) |
 | [`tools/spec-validator`](../tools/spec-validator/) | `substrate:framework-dev` | Spec-frontmatter and body-section validator — counterpart to `skill-and-tool-validator` for `tools/spec-loop/specs/` |
 | [`tools/reproducible-archive`](../tools/reproducible-archive/) | `substrate:release` | `repro-archive` — build, lint and compare reproducible source archives from a git ref (`git archive` + `.gitattributes` `export-ignore`, every reproducible-builds.org archive rule applied); used by `release-rc-cut` Step 2/2b and `release-verify-rc` Step 9 |
+| [`tools/maven-artifact-verify`](../tools/maven-artifact-verify/) | `substrate:release` | `maven-artifact-verify` — verify locally staged JVM RC artefacts: POM ALv2 licence / developers / scm (with parent-POM inheritance resolution), podling incubation disclaimer in `<description>`, companion `-sources.jar` / `-javadoc.jar` presence with their own signatures and checksums; used by `release-verify-rc` Step 6b |
 | [`tools/symlink-lint`](../tools/symlink-lint/) | `substrate:framework-dev` | Self-adoption symlink hygiene — rejects cyclic symlinks, misdirected skill relays (canonical/relay target-correctness), and incomplete self-adoption symlink sets |
 | [`tools/pilot-report-validator`](../tools/pilot-report-validator/) | `substrate:framework-dev` | Adopter pilot-report validator — required frontmatter keys, no unfilled placeholders, valid profile, and required body sections; counterpart to `spec-validator` for `docs/pilot-report-template.md` |
 | [`tools/skill-reconciler-diff`](../tools/skill-reconciler-diff/) | `substrate:framework-dev` | Deterministic structural diff between two skill trees — parses frontmatter, section headings, step inventory, placeholders, support files, and safety-baseline clauses into a JSON diff object for the `skill-reconciler` skill |

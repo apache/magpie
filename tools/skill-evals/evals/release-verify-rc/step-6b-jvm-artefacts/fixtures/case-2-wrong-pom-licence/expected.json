@@ -1,0 +1,7 @@
+{
+  "step": "jvm-artefacts",
+  "status": "FAIL",
+  "pom_findings": ["foo-core-1.0.0.pom: licences declared but none is ALv2 (expected name matching 'Apache License, Version 2.0' or url containing apache.org/licenses/LICENSE-2.0)"],
+  "companion_findings": [],
+  "paste_recipe": "uv run --project .apache-magpie/tools/maven-artifact-verify maven-artifact-verify \"dist/dev/foo/1.0.0-rc1\" --digests sha512 --podling"
+}

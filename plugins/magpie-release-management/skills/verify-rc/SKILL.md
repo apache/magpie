@@ -13,8 +13,11 @@ description: |
   for `<upstream>`. Checks artefact integrity (GPG signatures and
   checksums), Apache RAT licence headers, NOTICE/LICENSE completeness,
   prohibited-binary absence (including `.pyc` / `__pycache__`),
-  source-tree integrity (no dangling symlinks or broken internal
-  references), version-string consistency, and — optionally, per
+  published-JVM-artefact compliance (POM licence/developers/scm,
+  podling incubation disclaimer, companion `-sources.jar` /
+  `-javadoc.jar` with their own signatures and checksums), source-tree
+  integrity (no dangling symlinks or broken internal references),
+  version-string consistency, and — optionally, per
   `release-build.md § Reproducibility checks` — reproducibility: the
   source archive is rebuilt from the tag with `repro-archive` and
   compared byte-for-byte with the staged artefact, and convenience
@@ -32,9 +35,9 @@ when_to_use: |
   run standalone with no other release-* skill in the session.
 argument-hint: "<version>-rcN [--post-to <planning-issue-url>] [--skip-repro] [--trusted-hardware]"
 capability: capability:triage
-surface_hash: sha256:42f7f872b6dcd0e8
+surface_hash: sha256:cc95c562f91c28ec
 license: Apache-2.0
-measured_tokens: 10725
+measured_tokens: 12127
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -550,6 +553,81 @@ tarball was not exported clean from the tag.
 
 ---
 
+## Step 6b — JVM artefact checks (when the RC stages jars)
+
+**When it runs.** Only when the Step 1 listing contains at least one
+`.jar` or `.pom`. A non-JVM project's RC skips this step cleanly —
+state the skip explicitly, do not silently pass.
+
+Step 6 treats a `.jar` as contraband inside the **source** artefact.
+The jars downstream consumers actually resolve are a separate surface:
+the published `.pom` files, the main jars, and their companion
+`-sources.jar` / `-javadoc.jar`. This step validates that surface with
+the [`maven-artifact-verify`](../../../../tools/maven-artifact-verify/README.md)
+tool — blocking checks 1–3 of
+[issue #1173](https://github.com/apache/magpie/issues/1173), which
+implement [ASF Incubator distribution policy § Maven
+distribution](https://incubator.apache.org/guides/distribution.html)
+and [Maven Central's publishing
+requirements](https://central.sonatype.org/publish/requirements/):
+
+1. **POM licence entry** — every `.pom` declares ALv2, `<developers>`
+   and `<scm>`. An element absent locally resolves against a locally
+   staged parent POM when possible; otherwise it reports
+   `INHERITED-UNVERIFIED` — a warning naming what to verify, never a
+   failure of a correct POM that inherits from the ASF parent.
+2. **Incubator disclaimer in `<description>`** — podlings only, when
+   `--podling` is passed. Accepts the standard disclaimer text and the
+   `DISCLAIMER-WIP` variant, tolerating whitespace and line-wrapping.
+3. **Companion jars** — for every main jar staged locally,
+   `-sources.jar` and `-javadoc.jar` exist and each carries its own
+   `.asc` and checksums. A main jar declared by a staged POM but not
+   staged locally is an observation (`ABSENT`), not a failure: in the
+   common ASF workflow the jars are staged in the Nexus staging
+   repository, which this step never reads (read-only, and check 4 is
+   a later PR on #1173). Classify an `ABSENT` jar against
+   `release-build.md § JVM artefact checks` — when that file declares
+   `jvm_companion_location: staged`, an absent jar is a `FAIL`.
+
+Emit the paste-ready recipe. Resolve every placeholder to a concrete
+value: `<staged-dir>` is the local directory holding the staged RC
+artefacts, `<digest-set>` is the § Digest set from
+`release-build.md` (comma-separated, default `sha512`), and pass
+`--podling` **only** when the unpacked source artefact ships a
+`DISCLAIMER` or `DISCLAIMER-WIP` file at its root — that is the
+podling signal this step uses until #1172 lands the `project_stage`
+plumbing.
+
+```bash
+uv run --project <framework>/tools/maven-artifact-verify \
+  maven-artifact-verify "<staged-dir>" --digests <digest-set> [--podling]
+# without uv:
+# python3 <framework>/tools/maven-artifact-verify/src/maven_artifact_verify/__init__.py ...
+```
+
+The step never modifies anything: the tool is offline and reads the
+staged directory only, so any voter may run it.
+
+Return ONLY valid JSON with this structure:
+
+```json
+{
+  "step": "jvm-artefacts",
+  "status": "PASS" | "WARN" | "FAIL" | "SKIP",
+  "tool_report": "<the maven-artifact-verify JSON report verbatim>",
+  "pom_findings": ["<one line per POM finding>"],
+  "companion_findings": ["<one line per jar finding>"],
+  "paste_recipe": "<multi-line shell commands>"
+}
+```
+
+`status` is the tool report's `status`, except that an `ABSENT` jar
+becomes `FAIL` when `release-build.md § JVM artefact checks` declares
+`jvm_companion_location: staged` (the RC was expected to stage it).
+`SKIP` when no jars or POMs are staged.
+
+---
+
 ## Step 7 — Source-tree integrity (dangling symlinks + broken references)
 
 A source archive can be signed, checksummed and licence-clean and
@@ -914,6 +992,10 @@ the RM has not yet confirmed posting.
 | Step 5 WARN — material diff | Licence or attribution changed vs previous release | RM reviews diff; if intentional, document in planning issue |
 | Step 6 FAIL — prohibited binary | Binary sneaked into source artefact | RM removes binary, updates `.gitattributes` or build excludes, cuts new RC |
 | Step 6 FAIL — `.pyc` / `__pycache__` present | Tarball zipped from a working tree that ran tests, not exported clean from the tag | RM rebuilds via `git archive <tag>` (never `zip -r`), cuts new RC |
+| Step 6b FAIL — POM licence/developers/scm wrong | The POM does not satisfy ASF Incubator distribution policy § Maven distribution | RM fixes the POM, re-deploys, re-cuts RC |
+| Step 6b FAIL — companion jar or its `.asc`/checksum missing | Maven Central requires `-sources.jar` / `-javadoc.jar` companions, each signed and checksummed; Nexus close-time validation fails without them | RM re-deploys with signed companions, re-cuts RC |
+| Step 6b WARN — `INHERITED-UNVERIFIED` | POM element inherited from a parent POM that is not staged locally | Verify against the effective POM (`mvn help:effective-pom`); if correct, no action |
+| Step 6b FAIL — jar absent but `jvm_companion_location: staged` | The RC was expected to stage its jars locally and did not | RM re-stages the jar set or corrects `release-build.md` |
 | Step 7 FAIL — dangling symlink | A committed symlink's target was stripped by `export-ignore` (or is otherwise absent) | RM fixes `.gitattributes` to ship the target (or drops the symlink), cuts new RC |
 | Step 7 FAIL — broken internal reference | A shipped file links to a path stripped from the artefact | RM stops stripping the referenced path, or repoints the reference at shipped content, cuts new RC |
 | Step 8 FAIL — version mismatch | Version bump missed one manifest file | RM fixes the manifest and cuts a new RC |
@@ -943,6 +1025,13 @@ the RM has not yet confirmed posting.
   checks, and the 🪶 ASF-specific automated-signing validation.
 - [`tools/reproducible-archive`](../../../../tools/reproducible-archive/README.md) —
   `repro-archive check` / `build` / `compare`.
+- [`tools/maven-artifact-verify`](../../../../tools/maven-artifact-verify/README.md) —
+  the JVM-artefact checker behind Step 6b (blocking checks 1–3 of
+  [issue #1173](https://github.com/apache/magpie/issues/1173)).
+- [ASF Incubator distribution guidelines § Maven distribution](https://incubator.apache.org/guides/distribution.html) —
+  the policy behind the Step 6b POM and disclaimer checks.
+- [Maven Central publishing requirements](https://central.sonatype.org/publish/requirements/) —
+  the mandatory sources/javadoc companions behind Step 6b check 3.
 - [reproducible-builds.org § Archive metadata](https://reproducible-builds.org/docs/archives/) —
   the rules `repro-archive check` verifies.
 - `release-keys-sync` (proposed) — remediation path when a signing
