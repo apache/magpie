@@ -23,9 +23,9 @@ when_to_use: |
   current state of the world.
 argument-hint: "[issue-number]"
 capability: capability:intake
-surface_hash: sha256:d8b81ac9e34c0b34
+surface_hash: sha256:f919035d836adb5a
 license: Apache-2.0
-measured_tokens: 9941
+measured_tokens: 9715
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -199,29 +199,6 @@ to `apache/magpie`.
 
 ---
 
-## Snapshot drift
-
-Also at the top of every run, this skill compares the
-gitignored `.apache-magpie.local.lock` (per-machine
-fetch) against the committed `.apache-magpie.lock`
-(the project pin). On mismatch the skill surfaces the
-gap and proposes
-[`setup upgrade`](../../../magpie-setup/skills/setup/upgrade.md).
-The proposal is non-blocking — the user may defer if
-they want to run with the local snapshot for now. See
-[`docs/setup/install-recipes.md` § Subsequent runs and drift detection](../../../../docs/quick-start/other-install-methods.md#subsequent-runs-and-drift-detection)
-for the full flow.
-
-Drift severity:
-
-- **method or URL differ** → ✗ full re-install needed.
-- **ref differs** (project bumped tag, or `git-branch`
-  local is behind upstream tip) → ⚠ sync needed.
-- **`svn-zip` SHA-512 mismatches the committed
-  anchor** → ✗ security-flagged; investigate before
-  upgrading.
-
----
 ## Inputs
 
 Before running the skill, you need a **selector** that resolves to one

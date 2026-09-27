@@ -16,9 +16,9 @@ when_to_use: |
   path is stale (older than ~24 h) and the user is reviewing tracker
   health. Read-only — the skill never modifies any tracker state.
 capability: capability:stats
-surface_hash: sha256:114e9edce736c86b
+surface_hash: sha256:c8643a3c02bf3d73
 license: Apache-2.0
-measured_tokens: 3820
+measured_tokens: 3599
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -126,30 +126,6 @@ the HTML, etc.); renderer knobs go in the YAML config.
 `<adopter-repo>/.apache-magpie/`. Local modifications
 go in the override file. Framework changes go via PR
 to `apache/magpie`.
-
----
-
-## Snapshot drift
-
-Also at the top of every run, this skill compares the
-gitignored `.apache-magpie.local.lock` (per-machine
-fetch) against the committed `.apache-magpie.lock`
-(the project pin). On mismatch the skill surfaces the
-gap and proposes
-[`setup upgrade`](../../../magpie-setup/skills/setup/upgrade.md).
-The proposal is non-blocking — the user may defer if
-they want to run with the local snapshot for now. See
-[`docs/setup/install-recipes.md` § Subsequent runs and drift detection](../../../../docs/quick-start/other-install-methods.md#subsequent-runs-and-drift-detection)
-for the full flow.
-
-Drift severity:
-
-- **method or URL differ** -> ✗ full re-install needed.
-- **ref differs** (project bumped tag, or `git-branch`
-  local is behind upstream tip) -> ⚠ sync needed.
-- **`svn-zip` SHA-512 mismatches the committed
-  anchor** -> ✗ security-flagged; investigate before
-  upgrading.
 
 ---
 

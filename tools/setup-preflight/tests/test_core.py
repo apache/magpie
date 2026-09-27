@@ -124,6 +124,20 @@ def test_a_snapshot_ref_mismatch_is_drift(project: Path) -> None:
     assert differs["ref"] == {"project": "v0.2.0", "machine": "v0.1.0"}
 
 
+def test_a_snapshot_method_or_url_mismatch_is_drift(project: Path) -> None:
+    """A different fetch method or source needs a re-install, not an upgrade;
+    the facts carry which key differs so the rule can say which."""
+    write_lock(project, "method: git-tag\nurl: https://a.example/magpie\nref: v0.2.0\n")
+    (project / ".apache-magpie.local.lock").write_text(
+        "method: git-branch\nurl: https://b.example/magpie\nref: v0.2.0\n"
+    )
+    found = project_findings(project, None)
+    assert codes(found) == ["snapshot-drift"]
+    differs = found[0].facts["differs"]
+    assert isinstance(differs, dict)
+    assert set(differs) == {"method", "url"}
+
+
 LOCAL = """\
 method: local
 source: skills/
