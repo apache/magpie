@@ -14,14 +14,13 @@
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
-<!-- SPDX-License-Identifier: Apache-2.0
-     https://www.apache.org/licenses/LICENSE-2.0 -->
-
 # `maven-artifact-verify`
 
 **Capability:** substrate:release
 
 **Harness:** agnostic
+
+**Organization:** ASF
 
 Verifies **locally staged JVM release-candidate artefacts** — the
 `.pom` files, the main jars and their companion `-sources.jar` /
@@ -45,20 +44,32 @@ blocking.
 
 1. **POM licence entry** — every staged `.pom` declares ALv2 in its
    `<licenses>` block, plus `<developers>` and `<scm>`. An element
-   that is absent locally but supplied by a parent POM resolves
-   against the parent **when the parent POM is itself staged**;
-   otherwise it is `INHERITED-UNVERIFIED` — a warning that names what
-   to verify, never a failure of a correct POM.
+   absent from the POM itself resolves against the chain of locally
+   staged parent POMs (with cycle protection, up through
+   grandparents): the first ancestor declaring the element is judged
+   as-is, so a staged parent carrying a non-ALv2 licence fails the
+   child too. An element no staged ancestor declares when the chain
+   ends at a POM with no `<parent>` — including a POM with no
+   `<parent>` at all — is a `FAIL`, the same judgement Maven Central
+   applies. `INHERITED-UNVERIFIED` — a warning that names what to
+   verify, never a failure of a correct POM — is reserved for a chain
+   that cannot be fully resolved offline.
 2. **Incubator disclaimer in `<description>`** — podlings only
    (`--podling`). Accepts the standard disclaimer text and the
    `DISCLAIMER-WIP` variant, tolerating whitespace and line-wrapping
    differences inside the XML element. Matching is deliberately keyed
    to the core both texts share ("is an effort undergoing incubation
    at The Apache Software Foundation … has yet to be fully endorsed by
-   the ASF") rather than to one full verbatim text.
+   the ASF") rather than to one full verbatim text. An inherited
+   description is judged the same way as a local one.
 3. **Companion jars** — for every main jar, both `-sources.jar` and
    `-javadoc.jar` exist and each carries its own `.asc` signature and
    checksum files (the digest set is configurable, default `sha512`).
+   Checksum files are verified against the companion jar's actual
+   bytes (`hashlib`, still offline); `.asc` signatures are checked
+   for presence only — offline signature verification needs GPG and
+   the release key, which `release-verify-rc` Step 2 runs against the
+   main artefacts, and the Step 6b recipe extends to the companions.
 
 The overall `status` is `FAIL` when any check fails, `WARN` when only
 `INHERITED-UNVERIFIED` results remain, `PASS` otherwise, and `SKIP`
@@ -111,10 +122,14 @@ not fail correct releases:
   companions; only POM-declared main jars do.
 - Inherited POM elements: `<licenses>`, `<developers>`, `<scm>` and
   `<description>` are commonly inherited from the ASF parent POM
-  (`org.apache:apache`). Resolution is attempted against locally
-  staged parent POMs only — the tool is offline by design and never
-  fetches a parent from a remote repository — and falls back to
-  `INHERITED-UNVERIFIED` rather than guessing.
+  (`org.apache:apache`). Resolution walks the locally staged parent
+  chain (cycle-protected, up through grandparents) — the tool is
+  offline by design and never fetches a parent from a remote
+  repository. A complete staged chain that supplies the element
+  decides `PASS`/`FAIL` on its own content; a complete chain that
+  supplies nothing — like a POM with no `<parent>` at all — is a hard
+  `FAIL`; and only a chain that cannot be fully resolved offline
+  falls back to `INHERITED-UNVERIFIED` rather than guessing.
 
 ## Tests
 

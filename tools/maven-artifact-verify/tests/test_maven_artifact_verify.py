@@ -24,6 +24,7 @@ blobs.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import zipfile
 from pathlib import Path
@@ -121,6 +122,15 @@ def write_jar(directory: Path, name: str, entry: str = "org/apache/foo/Main.clas
     return path
 
 
+def write_checksum(jar_path: Path, digest: str) -> Path:
+    """Write a checksum file holding the jar's real digest."""
+    hasher = hashlib.new(digest)
+    hasher.update(jar_path.read_bytes())
+    path = jar_path.with_name(f"{jar_path.name}.{digest}")
+    path.write_text(hasher.hexdigest() + "\n", encoding="utf-8")
+    return path
+
+
 def write_staged(
     directory: Path,
     artifact: str = "foo-core",
@@ -134,11 +144,11 @@ def write_staged(
     write_jar(directory, f"{stem}.jar")
     if companions:
         for classifier in ("sources", "javadoc"):
-            write_jar(directory, f"{stem}-{classifier}.jar")
+            companion = write_jar(directory, f"{stem}-{classifier}.jar")
             if companion_signatures:
                 (directory / f"{stem}-{classifier}.jar.asc").write_bytes(b"sig")
             for digest in companion_digests:
-                (directory / f"{stem}-{classifier}.jar.{digest}").write_bytes(b"hash")
+                write_checksum(companion, digest)
 
 
 def mav_json(directory: Path, extra: tuple[str, ...]) -> str:
@@ -201,6 +211,115 @@ def test_inherited_licence_without_staged_parent_warns(tmp_path: Path) -> None:
     report = json.loads(mav_json(tmp_path, ()))
     assert report["status"] == "WARN"
     assert report["poms"][0]["check1"]["licenses"] == "INHERITED-UNVERIFIED"
+
+
+def test_staged_parent_with_non_alv2_licence_fails(tmp_path: Path) -> None:
+    # Regression: a staged parent used to report a blind PASS without its
+    # own <licenses> ever being read. A child of a staged parent that
+    # declares MIT must fail the blocking check.
+    write_pom(
+        tmp_path,
+        "foo-parent-1.0.0.pom",
+        pom_xml(artifact_id="foo-parent", packaging="pom", licenses=MIT_LICENSES, developers=DEVELOPERS, scm=SCM),
+    )
+    write_pom(
+        tmp_path,
+        "foo-core-1.0.0.pom",
+        pom_xml(
+            parent="  <parent>    <groupId>org.apache.foo</groupId>    <artifactId>foo-parent</artifactId>    <version>1.0.0</version>  </parent>",
+            developers=DEVELOPERS,
+            scm=SCM,
+        ),
+    )
+    report = json.loads(mav_json(tmp_path, ()))
+    assert report["status"] == "FAIL"
+    check1 = next(e["check1"] for e in report["poms"] if e["pom"] == "foo-core-1.0.0.pom")
+    assert check1["licenses"] == "FAIL"
+    assert "foo-parent" in check1["licenses_detail"]
+
+
+def test_staged_parent_without_scm_fails(tmp_path: Path) -> None:
+    # The staged parent declares no <scm> and has no parent of its own,
+    # so nothing can supply the element: a hard FAIL, not a warning.
+    write_pom(
+        tmp_path,
+        "foo-parent-1.0.0.pom",
+        pom_xml(artifact_id="foo-parent", packaging="pom", licenses=APACHE_LICENSES, developers=DEVELOPERS),
+    )
+    write_pom(
+        tmp_path,
+        "foo-core-1.0.0.pom",
+        pom_xml(
+            parent="  <parent>    <groupId>org.apache.foo</groupId>    <artifactId>foo-parent</artifactId>    <version>1.0.0</version>  </parent>",
+            developers=DEVELOPERS,
+        ),
+    )
+    report = json.loads(mav_json(tmp_path, ()))
+    assert report["status"] == "FAIL"
+    check1 = next(e["check1"] for e in report["poms"] if e["pom"] == "foo-core-1.0.0.pom")
+    assert check1["licenses"] == "PASS"  # resolved through the parent
+    assert check1["scm"] == "FAIL"
+
+
+def test_parentless_pom_with_missing_licence_fails(tmp_path: Path) -> None:
+    # Regression: a POM with no <parent> at all used to get the
+    # INHERITED-UNVERIFIED warning, but nothing can be inherited —
+    # Maven Central rejects such a POM, so it is a hard FAIL.
+    write_pom(tmp_path, "foo-core-1.0.0.pom", pom_xml(developers=DEVELOPERS, scm=SCM))
+    report = json.loads(mav_json(tmp_path, ()))
+    assert report["status"] == "FAIL"
+    check1 = report["poms"][0]["check1"]
+    assert check1["licenses"] == "FAIL"
+    assert "no <parent>" in check1["licenses_detail"]
+
+
+def test_licence_resolved_from_staged_grandparent(tmp_path: Path) -> None:
+    # The ASF parent chain is two levels deep (project parent -> apache
+    # parent); an element may only be declared at the grandparent.
+    write_pom(
+        tmp_path,
+        "apache-33.pom",
+        pom_xml(artifact_id="apache", version="33", packaging="pom", group_id="org.apache", licenses=APACHE_LICENSES, developers=DEVELOPERS, scm=SCM),
+    )
+    write_pom(
+        tmp_path,
+        "foo-parent-1.0.0.pom",
+        pom_xml(
+            artifact_id="foo-parent",
+            packaging="pom",
+            parent=ASF_PARENT,
+            developers=DEVELOPERS,
+            scm=SCM,
+        ),
+    )
+    write_pom(
+        tmp_path,
+        "foo-core-1.0.0.pom",
+        pom_xml(
+            parent="  <parent>    <groupId>org.apache.foo</groupId>    <artifactId>foo-parent</artifactId>    <version>1.0.0</version>  </parent>",
+            developers=DEVELOPERS,
+            scm=SCM,
+        ),
+    )
+    report = json.loads(mav_json(tmp_path, ()))
+    assert report["status"] == "PASS"
+    check1 = next(e["check1"] for e in report["poms"] if e["pom"] == "foo-core-1.0.0.pom")
+    assert check1["licenses"] == "PASS"
+    assert "org.apache:apache:33" in check1["licenses_detail"]
+
+
+def test_parent_chain_cycle_warns_without_hanging(tmp_path: Path) -> None:
+    # Two staged POMs naming each other as parent: the walk must stop,
+    # report the cycle, and never fail a POM it could not resolve.
+    foo_parent = "  <parent>    <groupId>org.apache.foo</groupId>    <artifactId>foo-b</artifactId>    <version>1.0.0</version>  </parent>"
+    bar_parent = "  <parent>    <groupId>org.apache.foo</groupId>    <artifactId>foo-a</artifactId>    <version>1.0.0</version>  </parent>"
+    write_pom(tmp_path, "foo-a-1.0.0.pom", pom_xml(artifact_id="foo-a", parent=foo_parent, developers=DEVELOPERS, scm=SCM))
+    write_pom(tmp_path, "foo-b-1.0.0.pom", pom_xml(artifact_id="foo-b", parent=bar_parent, developers=DEVELOPERS, scm=SCM))
+    report = json.loads(mav_json(tmp_path, ()))
+    assert report["status"] == "WARN"
+    check1 = next(e["check1"] for e in report["poms"] if e["pom"] == "foo-a-1.0.0.pom")
+    assert check1["licenses"] == "INHERITED-UNVERIFIED"
+    assert "cyclic" in check1["licenses_detail"]
 
 
 def test_empty_scm_element_fails(tmp_path: Path) -> None:
@@ -337,6 +456,58 @@ def test_sha256_digest_set(tmp_path: Path) -> None:
     write_staged(tmp_path, companion_digests=("sha512", "sha256"))
     report = json.loads(mav_json(tmp_path, ("--digests", "sha512,sha256")))
     assert report["status"] == "PASS"
+
+
+def test_checksum_mismatch_fails(tmp_path: Path) -> None:
+    # Regression: the checksum file used to be an existence check only —
+    # any bytes passed. A recorded digest that does not match the
+    # companion jar's actual bytes must fail.
+    write_pom(tmp_path, "foo-core-1.0.0.pom", pom_xml(licenses=APACHE_LICENSES, developers=DEVELOPERS, scm=SCM))
+    write_staged(tmp_path)
+    (tmp_path / "foo-core-1.0.0-sources.jar.sha512").write_text("0" * 128 + "\n", encoding="utf-8")
+    report = json.loads(mav_json(tmp_path, ()))
+    assert report["status"] == "FAIL"
+    fails = [c for c in report["jars"][0]["companions"] if c["classification"] == "FAIL"]
+    assert len(fails) == 1 and "checksum mismatch" in fails[0]["detail"]
+
+
+def test_checksum_file_with_bsd_style_line_passes(tmp_path: Path) -> None:
+    # Some tooling writes "<digest>  <filename>"; the recorded digest is
+    # the first whitespace-separated token.
+    write_pom(tmp_path, "foo-core-1.0.0.pom", pom_xml(licenses=APACHE_LICENSES, developers=DEVELOPERS, scm=SCM))
+    write_staged(tmp_path)
+    companion = tmp_path / "foo-core-1.0.0-sources.jar"
+    hasher = hashlib.sha512()
+    hasher.update(companion.read_bytes())
+    (tmp_path / "foo-core-1.0.0-sources.jar.sha512").write_text(f"{hasher.hexdigest()}  {companion.name}\n", encoding="utf-8")
+    report = json.loads(mav_json(tmp_path, ()))
+    assert report["status"] == "PASS"
+
+
+def test_unknown_digest_algorithm_is_presence_only(tmp_path: Path) -> None:
+    # An algorithm this Python's hashlib does not provide cannot be
+    # checked offline: the file is still required, but the tool must say
+    # plainly that it verified presence only, never a fake PASS.
+    write_pom(tmp_path, "foo-core-1.0.0.pom", pom_xml(licenses=APACHE_LICENSES, developers=DEVELOPERS, scm=SCM))
+    write_staged(tmp_path)
+    (tmp_path / "foo-core-1.0.0-sources.jar.sha999").write_bytes(b"hash")
+    (tmp_path / "foo-core-1.0.0-javadoc.jar.sha999").write_bytes(b"hash")
+    report = json.loads(mav_json(tmp_path, ("--digests", "sha999")))
+    assert report["status"] == "PASS"
+    assert any("not verified" in f for f in report["findings"])
+
+
+def test_maven_repository_layout_is_verified(tmp_path: Path) -> None:
+    # Regression: a top-level-only scan misreported a staging directory
+    # in Maven-repository layout as a non-JVM artefact set and skipped.
+    nested = tmp_path / "org" / "apache" / "foo" / "foo-core" / "1.0.0"
+    nested.mkdir(parents=True)
+    write_pom(nested, "foo-core-1.0.0.pom", pom_xml(licenses=APACHE_LICENSES, developers=DEVELOPERS, scm=SCM))
+    write_staged(nested)
+    report = json.loads(mav_json(tmp_path, ()))
+    assert report["status"] == "PASS"
+    assert report["poms"][0]["pom"] == "foo-core-1.0.0.pom"
+    assert all(c["classification"] == "PASS" for c in report["jars"][0]["companions"])
 
 
 def test_main_jar_absent_is_an_observation_not_a_failure(tmp_path: Path) -> None:

@@ -21,21 +21,31 @@ Implements the blocking checks 1-3 of apache/magpie issue #1173
 (`release-verify-rc: validate rc jars`), local artefacts only:
 
 1. **POM licence entry** - every staged ``.pom`` must declare the
-   ALv2 licence, ``<developers>`` and ``<scm>``. An element that is
-   absent locally but supplied by a parent POM is resolved against the
-   parent *when the parent POM is itself staged*; otherwise the result
-   is ``inherited-unverified`` (a warning, never a failure - the
-   correct POM must not be failed, per the issue's boundary conditions).
+   ALv2 licence, ``<developers>`` and ``<scm>``. An element absent
+   from the POM itself is resolved against the chain of locally
+   staged parent POMs: the first ancestor declaring the element
+   decides PASS or FAIL. When the staged chain proves that nothing
+   could supply the element - including a POM with no ``<parent>``
+   at all - the result is a failure, the same judgement Maven
+   Central applies. When the chain cannot be fully resolved offline
+   the result is ``inherited-unverified`` (a warning, never a
+   failure - the correct POM must not be failed, per the issue's
+   boundary conditions).
 2. **Incubator disclaimer in ``<description>``** - podlings only,
    enabled by ``--podling``. Accepts the standard disclaimer and the
    ``DISCLAIMER-WIP`` variant; matching tolerates whitespace and
    line-wrapping differences. An absent description resolves against
-   a locally staged parent POM when possible: ``INHERITED-UNVERIFIED``
-   (a warning) when the parent is not staged, a failure when the
-   effective description verifiably lacks the disclaimer.
+   the locally staged parent chain the same way: a failure when the
+   effective description verifiably lacks the disclaimer, a failure
+   when nothing could supply it, ``INHERITED-UNVERIFIED`` (a
+   warning) when the chain is not fully staged.
 3. **Companion jars** - for every staged main jar, the
-   ``-sources.jar`` and ``-javadoc.jar`` companions must exist and each
-   must carry its own ``.asc`` signature and checksum files.
+   ``-sources.jar`` and ``-javadoc.jar`` companions must exist and
+   each must carry its own ``.asc`` signature and checksum files.
+   Checksum files are verified against the companion jar's actual
+   bytes (``hashlib``, still offline); ``.asc`` signatures are
+   presence-only here - verifying a signature needs GPG and the
+   release key, which `release-verify-rc` Step 2 does.
    ``packaging=pom`` modules are exempt (no jar), classified jars
    (``-tests``, ``-shaded``, ...) are neither mains nor companions.
 
@@ -50,6 +60,7 @@ Output is a single JSON document on stdout, in the shape
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import sys
@@ -150,84 +161,191 @@ def _has_apache_license(licenses: list[ET.Element]) -> bool:
     return False
 
 
-def check_pom_entries(pom: dict, parent_pom: dict | None) -> dict:
-    """Check 1 - ALv2 licence, <developers> and <scm> in one POM."""
+def _pom_label(pom: dict) -> str:
+    """Human-readable GAV coordinate for report details."""
+    return ":".join(str(pom.get(key) or "?") for key in ("group_id", "artifact_id", "version"))
+
+
+def _element_present(pom: dict, key: str) -> bool:
+    # lists (licenses/developers): present when non-empty;
+    # Element (scm): present when the element exists at all — an
+    # empty <scm/> is a declaration that fails the url check.
+    value = pom.get(key)
+    return bool(value) if isinstance(value, list) else value is not None
+
+
+def _evaluate_element(pom: dict, key: str) -> tuple[bool, str | None]:
+    """Judge one POM's own declaration of ``key``.
+
+    The same judgement whether the element is declared by the POM
+    itself or inherited from a staged ancestor.
+    """
+    if key == "licenses":
+        if _has_apache_license(pom["licenses"]):
+            return True, None
+        return False, (
+            "licences declared but none is ALv2 (expected name matching 'Apache License, Version 2.0' or url containing apache.org/licenses/LICENSE-2.0)"
+        )
+    if key == "developers":
+        if pom["developers"]:
+            return True, None
+        return False, "<developers> declared but empty"
+    scm = pom["scm"]
+    if _text(_find_child(scm, "url")) is not None or _text(_find_child(scm, "connection")) is not None:
+        return True, None
+    return False, "<scm> declared without url or connection"
+
+
+def _resolve_chain(pom: dict, by_coordinate: dict) -> tuple[list[dict], str]:
+    """Walk the parent chain through locally staged POMs.
+
+    Returns ``(chain, reason)`` where ``chain`` is ``[pom, parent,
+    grandparent, ...]`` as far as staged POMs resolve it, and ``reason``
+    is ``"complete"`` when the walk ends at a POM with no ``<parent>``
+    (so nothing outside the staged set could supply an inherited
+    element), ``"unstaged"`` when it stops at a parent reference whose
+    POM is not staged, or ``"cycle"`` when a parent coordinate repeats
+    (including a POM naming itself as its own parent).
+    """
+    chain = [pom]
+    visited = {(pom.get("group_id"), pom.get("artifact_id"), pom.get("version"))}
+    current = pom
+    while current.get("parent"):
+        coordinate = tuple(current["parent"])
+        if coordinate in visited:
+            return chain, "cycle"
+        parent = by_coordinate.get(coordinate)
+        if parent is None:
+            return chain, "unstaged"
+        visited.add(coordinate)
+        chain.append(parent)
+        current = parent
+    return chain, "complete"
+
+
+def check_pom_entries(pom: dict, chain: list[dict], chain_reason: str) -> dict:
+    """Check 1 - ALv2 licence, <developers> and <scm> in one POM.
+
+    An element absent from the POM itself is resolved against the
+    locally staged parent chain: the first ancestor that declares the
+    element is judged as-is, so a staged parent carrying a non-ALv2
+    licence (or an empty ``<scm/>``) fails the child too. When the
+    chain is complete and no ancestor declares the element — including
+    a POM with no ``<parent>`` at all, where nothing can be inherited —
+    the result is a hard FAIL; Maven Central rejects such a POM. When
+    the chain cannot be fully resolved offline (unstaged parent, or a
+    cycle), the result is ``INHERITED-UNVERIFIED`` — a warning, never a
+    failure of a correct POM inheriting from the ASF parent (see issue
+    #1173 boundary conditions).
+    """
     entries: dict[str, str | None] = {}
     for key in ("licenses", "developers", "scm"):
-        value = pom.get(key)
-        # lists (licenses/developers): present when non-empty;
-        # Element (scm): present when the element exists at all — an
-        # empty <scm/> is a declaration that fails the url check.
-        present = bool(value) if isinstance(value, list) else value is not None
-        if present:
-            if key == "licenses":
-                ok = _has_apache_license(pom["licenses"])
-                entries[key] = "PASS" if ok else "FAIL"
-                if not ok:
-                    entries[key + "_detail"] = (
-                        "licences declared but none is ALv2 "
-                        "(expected name matching 'Apache License, Version 2.0' "
-                        "or url containing apache.org/licenses/LICENSE-2.0)"
-                    )
-            elif key == "developers":
-                entries[key] = "PASS" if pom["developers"] else "FAIL"
-            else:  # scm
-                scm = pom["scm"]
-                has_url = _text(_find_child(scm, "url")) is not None or _text(_find_child(scm, "connection")) is not None
-                entries[key] = "PASS" if has_url else "FAIL"
+        if _element_present(pom, key):
+            ok, fail_detail = _evaluate_element(pom, key)
+            entries[key] = "PASS" if ok else "FAIL"
+            if fail_detail is not None:
+                entries[key + "_detail"] = fail_detail
             continue
 
-        # Element absent locally: resolve against the parent POM when it
-        # is staged, otherwise report inherited-unverified (WARN, never
-        # FAIL - a correct POM inheriting from the ASF parent must not
-        # fail this check; see issue #1173 boundary conditions).
-        if parent_pom is not None:
-            entries[key] = "PASS"
-            entries[key + "_detail"] = "inherited from locally staged parent POM"
+        inherited = next((ancestor for ancestor in chain[1:] if _element_present(ancestor, key)), None)
+        if inherited is not None:
+            ok, fail_detail = _evaluate_element(inherited, key)
+            label = _pom_label(inherited)
+            entries[key] = "PASS" if ok else "FAIL"
+            entries[key + "_detail"] = (
+                f"inherited from locally staged parent POM {label}" if ok else f"{fail_detail} (inherited from locally staged parent POM {label})"
+            )
+        elif chain_reason == "complete":
+            entries[key] = "FAIL"
+            if len(chain) == 1:
+                entries[key + "_detail"] = "element absent and the POM declares no <parent>: nothing to inherit from"
+            else:
+                entries[key + "_detail"] = "element absent and no parent POM in the staged chain declares it"
         else:
+            detail = "element absent and the parent chain is not fully staged locally; verify against the effective POM"
+            if chain_reason == "cycle":
+                detail = f"element absent and the parent chain is cyclic ({_pom_label(pom)}); verify against the effective POM"
             entries[key] = "INHERITED-UNVERIFIED"
-            entries[key + "_detail"] = "element absent and no locally staged parent POM to resolve against; verify against the effective POM"
+            entries[key + "_detail"] = detail
     return entries
 
 
-def check_disclaimer(pom: dict, parent_pom: dict | None) -> dict:
-    """Check 2 - incubation disclaimer inside <description> (podlings only)."""
-    description = pom.get("description")
-    if description is None and not pom.get("description_present") and parent_pom is not None:
-        # Element absent locally: resolve against a locally staged
-        # parent POM when possible. A resolvable parent whose
-        # description still lacks the disclaimer stays a FAIL.
-        description = parent_pom.get("description")
-        if description is not None:
-            if all(core in _normalize_ws(description) for core in DISCLAIMER_CORE):
-                return {"disclaimer": "PASS", "disclaimer_detail": "inherited from locally staged parent POM"}
-            return {"disclaimer": "FAIL", "disclaimer_detail": "inherited description lacks the incubation disclaimer"}
+def check_disclaimer(pom: dict, chain: list[dict], chain_reason: str) -> dict:
+    """Check 2 - incubation disclaimer inside <description> (podlings only).
 
-    if description is None:
-        if pom.get("description_present"):
+    Resolution mirrors check 1: a ``<description>`` declared by a
+    staged ancestor is judged as-is (an inherited description without
+    the disclaimer stays a FAIL), an element no staged ancestor
+    declares when the chain is complete is a FAIL, and an unresolvable
+    chain reports ``INHERITED-UNVERIFIED``.
+    """
+    if pom.get("description_present"):
+        description = pom.get("description")
+        if description is None:
             # <description></description> declared but empty.
             return {"disclaimer": "FAIL", "disclaimer_detail": "<description> empty for a podling POM"}
-        if pom.get("parent") is not None:
-            # Inherited from a parent POM that is not staged locally —
-            # the effective POM may well carry the disclaimer; do not
-            # fail a correct POM we cannot resolve offline.
-            return {
-                "disclaimer": "INHERITED-UNVERIFIED",
-                "disclaimer_detail": ("<description> absent and no locally staged parent POM to resolve against; verify against the effective POM"),
-            }
-        return {"disclaimer": "FAIL", "disclaimer_detail": "<description> absent for a podling POM"}
+        if all(core in _normalize_ws(description) for core in DISCLAIMER_CORE):
+            return {"disclaimer": "PASS", "disclaimer_detail": None}
+        return {
+            "disclaimer": "FAIL",
+            "disclaimer_detail": ("<description> does not carry the incubation disclaimer (neither the standard text nor the DISCLAIMER-WIP variant)"),
+        }
 
-    normalized = _normalize_ws(description)
-    if all(core in normalized for core in DISCLAIMER_CORE):
-        return {"disclaimer": "PASS", "disclaimer_detail": None}
+    # Element absent locally: resolve against the staged parent chain.
+    for ancestor in chain[1:]:
+        if not ancestor.get("description_present"):
+            continue
+        description = ancestor.get("description")
+        label = _pom_label(ancestor)
+        if description is None:
+            return {"disclaimer": "FAIL", "disclaimer_detail": f"inherited <description> is empty (from locally staged parent POM {label})"}
+        if all(core in _normalize_ws(description) for core in DISCLAIMER_CORE):
+            return {"disclaimer": "PASS", "disclaimer_detail": f"inherited from locally staged parent POM {label}"}
+        return {"disclaimer": "FAIL", "disclaimer_detail": f"inherited description lacks the incubation disclaimer (from locally staged parent POM {label})"}
+
+    if chain_reason == "complete":
+        if len(chain) == 1:
+            return {"disclaimer": "FAIL", "disclaimer_detail": "<description> absent for a podling POM with no <parent> to inherit from"}
+        return {"disclaimer": "FAIL", "disclaimer_detail": "<description> absent and no parent POM in the staged chain declares it"}
     return {
-        "disclaimer": "FAIL",
-        "disclaimer_detail": ("<description> does not carry the incubation disclaimer (neither the standard text nor the DISCLAIMER-WIP variant)"),
+        "disclaimer": "INHERITED-UNVERIFIED",
+        "disclaimer_detail": "<description> absent and the parent chain is not fully staged locally; verify against the effective POM",
     }
 
 
-def check_companions(jar: Path, digests: list[str]) -> dict:
-    """Check 3 - companion jars exist, each signed and checksummed."""
+def _checksum_status(companion: Path, digest_file: Path, digest: str) -> str | None:
+    """Compare a checksum file's recorded digest with the companion's bytes.
+
+    Returns ``None`` when the recorded digest matches, an error message
+    when it does not, or ``"unverified"`` when ``digest`` names an
+    algorithm this Python's ``hashlib`` does not provide (the file is
+    still required, but its content cannot be checked offline). The
+    file is parsed leniently: the first whitespace-separated token is
+    the recorded digest, tolerating a trailing newline or a BSD-style
+    ``<digest>  <filename>`` line.
+    """
+    try:
+        hasher = hashlib.new(digest)
+    except ValueError:
+        return "unverified"
+    hasher.update(companion.read_bytes())
+    actual = hasher.hexdigest()
+    recorded = digest_file.read_text(encoding="utf-8", errors="replace").split()
+    if not recorded or recorded[0].lower() != actual:
+        return f"checksum mismatch: {digest_file.name} does not match {companion.name}"
+    return None
+
+
+def check_companions(jar: Path, digests: list[str], findings: list[str]) -> dict:
+    """Check 3 - companion jars exist, each signed and checksummed.
+
+    Checksum files are verified against the companion jar's actual
+    bytes (``hashlib``, still offline). ``.asc`` signatures are checked
+    for presence only: verifying a signature needs GPG and the release
+    key, which `release-verify-rc` Step 2 runs against the main
+    artefacts — the Step 6b recipe extends that verification to the
+    companions when it emits the paste-ready commands.
+    """
     results: list[dict[str, str | None]] = []
     for classifier in COMPANION_CLASSIFIERS:
         companion = jar.with_name(jar.name[: -len(".jar")] + f"-{classifier}.jar")
@@ -240,18 +358,26 @@ def check_companions(jar: Path, digests: list[str]) -> dict:
                 }
             )
             continue
-        missing = [
-            (suffix, what)
-            for suffix, what in ((f"{companion.name}.asc", ".asc signature"), *[(f"{companion.name}.{d}", f".{d} checksum") for d in digests])
-            if not (jar.parent / suffix).exists()
-        ]
-        if missing:
-            for suffix, what in missing:
+        problems: list[str] = []
+        if not (jar.parent / f"{companion.name}.asc").exists():
+            problems.append(f"missing .asc signature file ({companion.name}.asc)")
+        for digest in digests:
+            digest_file = jar.parent / f"{companion.name}.{digest}"
+            if not digest_file.exists():
+                problems.append(f"missing .{digest} checksum file ({digest_file.name})")
+                continue
+            status = _checksum_status(companion, digest_file, digest)
+            if status == "unverified":
+                findings.append(f"{digest_file.name}: '{digest}' is not a digest algorithm this Python provides; checksum content not verified (presence only)")
+            elif status is not None:
+                problems.append(status)
+        if problems:
+            for problem in problems:
                 results.append(
                     {
                         "companion": companion.name,
                         "classification": "FAIL",
-                        "detail": f"missing {what} file ({suffix})",
+                        "detail": problem,
                     }
                 )
         else:
@@ -286,8 +412,11 @@ def split_jar_name(name: str) -> tuple[str, str | None, str | None]:
 
 
 def verify_staged_dir(staged_dir: Path, digests: list[str], podling: bool) -> dict:
-    poms = sorted(staged_dir.glob("*.pom"))
-    jars = sorted(staged_dir.glob("*.jar"))
+    # rglob, not glob: a staging directory in Maven-repository layout
+    # (org/apache/foo/foo-core/1.0.0/...) is a JVM artefact set too — a
+    # top-level-only scan would misreport it as non-JVM and skip.
+    poms = sorted(staged_dir.rglob("*.pom"))
+    jars = sorted(staged_dir.rglob("*.jar"))
 
     report: dict = {
         "tool": "maven-artifact-verify",
@@ -324,22 +453,23 @@ def verify_staged_dir(staged_dir: Path, digests: list[str], podling: bool) -> di
     for pom_path, data in parsed.items():
         if "error" in data:
             continue
-        parent_pom = None
-        if data.get("parent"):
-            parent_pom = by_coordinate.get(tuple(data["parent"]))
-        check1 = check_pom_entries(data, parent_pom)
+        chain, chain_reason = _resolve_chain(data, by_coordinate)
+        check1 = check_pom_entries(data, chain, chain_reason)
         entry = {"pom": pom_path.name, "packaging": data["packaging"], "check1": check1}
         if podling:
-            entry["check2"] = check_disclaimer(data, parent_pom)
+            entry["check2"] = check_disclaimer(data, chain, chain_reason)
         report["poms"].append(entry)
 
     # --- check 3: per main jar ---
     main_jars = []
-    for data in parsed.values():
+    for pom_path, data in parsed.items():
         if "error" in data or data["packaging"] == "pom":
             continue
         if data["artifact_id"] and data["version"]:
-            main = staged_dir / f"{data['artifact_id']}-{data['version']}.jar"
+            # The main jar lives in the POM's own directory (in Maven
+            # repository layout that is the versioned subdirectory, not
+            # the staged root).
+            main = pom_path.parent / f"{data['artifact_id']}-{data['version']}.jar"
             if main.exists():
                 main_jars.append(main)
             else:
@@ -383,7 +513,7 @@ def verify_staged_dir(staged_dir: Path, digests: list[str], podling: bool) -> di
         report["unmatched_jars"].append(jar.name)
 
     for main in main_jars:
-        report["jars"].append(check_companions(main, digests))
+        report["jars"].append(check_companions(main, digests, report["findings"]))
 
     # --- aggregate ---
     statuses = []
