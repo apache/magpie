@@ -215,7 +215,8 @@ contract for one vendor:
 | [`tools/forwarder-relay`](../tools/forwarder-relay/) | ASF-security ([`tools/gmail/asf-relay.md`](../tools/gmail/asf-relay.md)) | huntr.com, HackerOne |
 | [`tools/scan-format`](../tools/scan-format/) | ASVS | other scanner formats |
 | [`tools/vcs`](../tools/vcs/) | Git | Mercurial, Subversion, … |
-| [`tools/typed-decision`](../tools/typed-decision/) | [`tools/typed-decision`](../tools/typed-decision/) (TypeSafe Jev API) | Local models (llama.cpp, Ollama, vLLM) ([#1370](https://github.com/apache/magpie/issues/1370)) |
+| [`tools/typed-decision`](../tools/typed-decision/) | TypeSafe Jev API | Local models (llama.cpp, Ollama, vLLM) ([#1431](https://github.com/apache/magpie/issues/1431)) |
+
 
 A project selects an adapter per capability in its config
 (`cve_authority.tool: vulnogram`, `archive_system.kind: ponymail`,

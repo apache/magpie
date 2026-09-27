@@ -25,11 +25,16 @@ version = "0.1.0"
 description = "Provider-agnostic typed decision tool contract (Choice, Score, Noul) for Apache Magpie with TypeSafe Jev API as first backend."
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "Apache-2.0" }
-dependencies = []
+dependencies = [
+  "checker",
+]
+
+[tool.uv.sources]
+checker = { workspace = true }
 
 [dependency-groups]
 dev = ["magpie-dev"]
+
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/typed_decision"]
@@ -74,11 +79,8 @@ module = "tests.*"
 disallow_untyped_defs = false
 disallow_incomplete_defs = false
 
-[[tool.mypy.overrides]]
-module = "checker.*"
-ignore_missing_imports = true
-
 [tool.pytest.ini_options]
 minversion = "8.0"
 addopts = "-ra -q"
 testpaths = ["tests"]
+

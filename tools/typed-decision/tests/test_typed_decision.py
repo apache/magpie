@@ -39,7 +39,7 @@ from typed_decision import (
     noul,
     score,
 )
-from typed_decision.privacy import enforce_privacy_gate, set_custom_gate_hook
+from typed_decision.privacy import enforce_privacy_gate
 from typed_decision.providers.jev import (
     DEFAULT_ENDPOINT,
     JEV_MODEL,
@@ -70,8 +70,6 @@ def clean_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
     monkeypatch.delenv("JEV_API_KEY", raising=False)
     monkeypatch.delenv("PRIVACY_LLM_CONFIG", raising=False)
-    monkeypatch.delenv("MAGPIE_PRIVACY_GATE_STRICT", raising=False)
-    set_custom_gate_hook(None)
 
 
 @pytest.fixture
@@ -297,37 +295,39 @@ def test_outbound_passes_through_privacy_gate(approved_privacy_config: pathlib.P
         )
 
 
-def test_privacy_gate_redaction_is_propagated_outbound() -> None:
-    """If the privacy gate sanitizes or redacts the prompt, the sanitized text is sent."""
-    provider = JevProvider(api_key="test-key")
+def test_name_only_opt_in_does_not_approve_different_host(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An opt-in matching 'TypeSafe Jev' by name must not approve an arbitrary endpoint host."""
+    config_file = tmp_path / "privacy-llm.md"
+    config_file.write_text(
+        "# Privacy LLM Configuration\n\n"
+        "## Approved third-party endpoints (opt-in)\n\n"
+        "- TypeSafe Jev\n"
+        "  - Data-residency contract: https://typesafe.ai/legal/dpa\n"
+        "  - Approved-by: JP 2026-09-01\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("PRIVACY_LLM_CONFIG", str(config_file))
 
-    def custom_redactor(prompt: str, endpoint: str) -> str:
-        return prompt.replace("secret_identifier", "[REDACTED]")
+    # DEFAULT_ENDPOINT matches via provider_name
+    enforce_privacy_gate("Test prompt", DEFAULT_ENDPOINT, provider_name="TypeSafe Jev")
 
-    set_custom_gate_hook(custom_redactor)
-    mock_resp = _make_mock_response({"probability": 0.99})
-
-    with patch("urllib.request.OpenerDirector.open", return_value=mock_resp) as mock_open:
-        provider.noul("Analyzing report for secret_identifier vulnerability")
-
-        req: urllib.request.Request = mock_open.call_args[0][0]
-        assert isinstance(req.data, bytes)
-        body = json.loads(req.data.decode("utf-8"))
-        assert body["prompt"] == "Analyzing report for [REDACTED] vulnerability"
-        assert "secret_identifier" not in body["prompt"]
+    # Different endpoint must NOT be approved even if provider_name is passed
+    with pytest.raises(TypedDecisionUnavailable, match="Privacy-LLM gate rejected outbound request"):
+        enforce_privacy_gate(
+            "Test prompt",
+            "https://unapproved.attacker.example.com/v1",
+            provider_name="TypeSafe Jev",
+        )
 
 
 def test_privacy_gate_rejection_prevents_network_egress() -> None:
     """When the privacy gate rejects an endpoint, no HTTP network call is made."""
     provider = JevProvider(api_key="test-key")
 
-    def rejecting_gate(prompt: str, endpoint: str) -> str:
-        raise TypedDecisionUnavailable(f"Privacy-LLM gate blocked outbound egress to {endpoint}")
-
-    set_custom_gate_hook(rejecting_gate)
-
     with patch("urllib.request.OpenerDirector.open") as mock_open:
-        with pytest.raises(TypedDecisionUnavailable, match="Privacy-LLM gate blocked"):
+        with pytest.raises(TypedDecisionUnavailable, match="Privacy-LLM gate rejected outbound request"):
             provider.choice("Test prompt", ["a", "b"])
 
         assert mock_open.call_count == 0
@@ -623,6 +623,43 @@ def test_score_invalid_scale_argument() -> None:
     provider = JevProvider(api_key="test-key")
     with pytest.raises(TypedDecisionUnavailable, match="Invalid scale"):
         provider.score("Test", scale=(5, 1))
+
+
+def test_score_scalar_scale_normalized(approved_privacy_config: pathlib.Path) -> None:
+    """Scalar scale=10 is normalized to (0, 10) and bounds-checked."""
+    provider = JevProvider(api_key="test-key")
+    mock_resp = _make_mock_response({"value": 7.5, "confidence": 0.85})
+    with patch("urllib.request.OpenerDirector.open", return_value=mock_resp) as mock_open:
+        res = provider.score("Test", scale=10)
+        assert res["value"] == 7.5
+        assert res["confidence"] == 0.85
+
+        req: urllib.request.Request = mock_open.call_args[0][0]
+        assert isinstance(req.data, bytes)
+        payload = json.loads(req.data.decode("utf-8"))
+        assert payload["scale"] == [0.0, 10.0]
+
+
+def test_score_scalar_scale_rejects_out_of_bounds(approved_privacy_config: pathlib.Path) -> None:
+    """Scalar scale=10 rejects value=42 outside [0, 10]."""
+    provider = JevProvider(api_key="test-key")
+    mock_resp = _make_mock_response({"value": 42.0, "confidence": 0.9})
+    with patch("urllib.request.OpenerDirector.open", return_value=mock_resp):
+        with pytest.raises(TypedDecisionUnavailable, match="outside scale range"):
+            provider.score("Test", scale=10)
+
+
+def test_score_rejects_invalid_scalar_scales() -> None:
+    """Scalar scale <= 0 or bool is rejected on input."""
+    provider = JevProvider(api_key="test-key")
+    with pytest.raises(TypedDecisionUnavailable, match="Invalid scale: bool"):
+        provider.score("Test", scale=True)
+
+    with pytest.raises(TypedDecisionUnavailable, match="strictly positive"):
+        provider.score("Test", scale=0)
+
+    with pytest.raises(TypedDecisionUnavailable, match="strictly positive"):
+        provider.score("Test", scale=-5)
 
 
 def test_score_rejects_missing_value(approved_privacy_config: pathlib.Path) -> None:

@@ -14,17 +14,10 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-"""Approved-LLM gate-check for the apache-magpie privacy-llm tool.
+from checker.check import Verdict, check_endpoint, check_stack
 
-Single console script: ``privacy-llm-check`` (:mod:`checker.check`).
-
-Parses ``<project-config>/privacy-llm.md``, extracts the active LLM
-stack and the opt-in third-party-endpoint registry, applies the
-approval rules from ``tools/privacy-llm/models.md``, and exits 0
-if every entry in the active stack is approved — exit 1 with a
-stderr explanation otherwise.
-
-Skills shell out to this command at Step 0 (pre-flight) when they
-may read ``<private-list>`` content. The contract is documented
-in ``tools/privacy-llm/wiring.md``.
-"""
+__all__ = [
+    "Verdict",
+    "check_endpoint",
+    "check_stack",
+]
