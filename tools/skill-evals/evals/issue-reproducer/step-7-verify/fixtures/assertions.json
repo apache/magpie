@@ -1,9 +1,8 @@
 {
   "has_rationale_different_error": {
-    "type": "regex",
+    "type": "judge",
     "field": "rationale",
-    "pattern": "different|differs|not the (same|claimed)|rather than|instead of|another error",
-    "flags": "i"
+    "rubric": "The rationale states that the observed failure does not match the reporter's claimed failure: the run raised an AttributeError (missing `_prefix`) rather than the claimed KeyError. Any phrasing that contrasts the observed error with the claimed one counts (for example 'AttributeError, not KeyError', 'a different error', 'instead of the reported KeyError'). The property is false if the rationale treats the observed error as the same failure the reporter described."
   },
   "has_rationale_cites_observed_error": {
     "type": "regex",

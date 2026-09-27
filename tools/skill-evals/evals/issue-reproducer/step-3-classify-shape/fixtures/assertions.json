@@ -1,8 +1,12 @@
 {
-  "has_rationale_fragment_no_entry_point": {
-    "type": "regex",
+  "has_rationale_missing_setup": {
+    "type": "judge",
     "field": "rationale",
-    "pattern": "fragment|entry.?point|how to (invoke|run|trigger|set up)|missing context|no (clear )?(entry|invocation)|lacks",
-    "flags": "i"
+    "rubric": "The rationale explains that the snippet is not enough on its own to build a faithful reproducer: turning it into a runnable test would require setup the reporter never gave (for example the environment-variable / secrets backend configuration, the variable prefix, or the connection definition), or equivalently that the fragment has no usable entry point or context. Wording does not matter; the property is false only if the rationale gives a different reason for the classification (for example that the code is self-contained or merely missing imports)."
+  },
+  "has_rationale_self_contained": {
+    "type": "judge",
+    "field": "rationale",
+    "rubric": "The rationale supports shape A: the reproducer it classifies is a self-contained script with its imports that runs as-is, without external fixtures or test-framework scaffolding. Which of the two code blocks the rationale treats as the reproducer, and whether it compares them, does not matter (picking between blocks is a separate step). Remarks that the other, non-chosen block would need a scheduler or extra setup are fine. The property is false only if the rationale argues that the reproducer it classifies needs additions, fixtures, a test wrapper, or unstated setup."
   }
 }

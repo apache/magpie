@@ -1,6 +1,5 @@
 {
   "in_scope": false,
-  "violations": [
-    {"type": "drive-by-reformat", "description": "Import splitting (import json, pickle → two lines) and extra-space fix are formatting changes unrelated to the fix."}
-  ]
+  "has_import_reformat_flagged": true,
+  "has_no_false_positive_on_bytes_fix": true
 }

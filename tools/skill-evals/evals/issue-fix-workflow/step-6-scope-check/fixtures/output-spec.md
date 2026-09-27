@@ -15,4 +15,5 @@ Return ONLY valid JSON with this structure:
 ```
 
 `in_scope` is false when `violations` is non-empty.
+Grouping is not significant: related problems may be reported as one entry or as one entry per problem, and each entry takes whichever `type` best describes it.
 Do not include any text outside the JSON object.

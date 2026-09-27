@@ -15,6 +15,10 @@ Return ONLY valid JSON with this structure:
 
 `issues` is an empty array when `error` is non-null.
 
-`selector_type` is ALWAYS one of the five enum string tokens above and is NEVER null and NEVER omitted, even when `error` is non-null. When no valid concrete selector was supplied (for example a bare `--retriage` with nothing to resolve, or any hard error that falls back to the default pool), use `"default"`. Report the category the invocation resolved to (or would have resolved to), independent of whether an error was raised.
+`selector_type` is ALWAYS one of the five enum string tokens above and is NEVER null and NEVER omitted, even when `error` is non-null.
+It names the kind of selector the user *supplied*, independent of whether that selector then failed validation:
+
+- A positional argument given as an issue key (for example `triage <something>`) is `"explicit-key"`, including when the key fails the format check and `error` is set.
+- `"default"` is used ONLY when the user supplied no selector at all (for example a bare `triage`, or a bare `--retriage` with nothing to resolve).
 
 Do not include any text outside the JSON object.

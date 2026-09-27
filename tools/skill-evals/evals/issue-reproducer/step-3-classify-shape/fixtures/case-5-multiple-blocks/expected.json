@@ -1,4 +1,4 @@
 {
   "shape": "A",
-  "rationale": "The body contains a complete, runnable DAG script with imports and a top-level construction, which is shape A (complete runnable script). A simpler one-liner also appears in a comment, but the primary reproducer is the full self-contained script."
+  "has_rationale_self_contained": true
 }
