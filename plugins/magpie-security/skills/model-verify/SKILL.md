@@ -8,33 +8,21 @@ requires_config:
   - project.md
   - security-model.md
 description: |
-  Pre-flight check on a project's published security model, run
-  per repository in scope. Verifies two things — (1)
-  **discoverability**: an agent can mechanically reach the model
-  by following `AGENTS.md` → `SECURITY.md` → model at a named
-  commit, and (2) **completeness**: the model covers the
-  minimum-bar sections an automated triager depends on. Produces
-  one concrete remediation per failing check: a repo PR when the
-  gap is mechanical (a missing link line, a missing pointer
-  file), a private mail to `<governance-body>` when the gap is
-  substantive and needs maintainer input. Read-only by default;
-  every external write is gated on explicit approval.
+  Check a published security model per repository: is it reachable
+  via `AGENTS.md` → `SECURITY.md` at a named commit, and does it
+  cover the minimum-bar sections? Proposes one fix per failing
+  check (a PR for mechanical gaps, mail to `<governance-body>` for
+  substantive ones).
 when_to_use: |
-  Invoke when a maintainer or security-team member says "check
-  our security model", "is our threat model good enough for the
-  scanner", "verify the model for <repo>", or before queuing an
-  automated security scan that will triage its findings against
-  the model. Also after `security-model-prepare` lands a
-  first model, to confirm the chain resolves. Skip when the
-  project has no model yet — run
-  `security-model-prepare` first — and skip when the
-  question is "should this *finding* be closed", which is
-  `security-issue-triage`.
+  "check our security model", "is our model good enough for the
+  scanner", or before an automated security scan, or after
+  `security-model-prepare` lands a model. For "should this finding
+  be closed", use `security-issue-triage`.
 argument-hint: "[repo-or-model-path]"
 capability: capability:review
 surface_hash: sha256:03ecb6b8514583b2
 license: Apache-2.0
-measured_tokens: 5480
+measured_tokens: 5315
 ---
 
 # Security model verify

@@ -7,30 +7,19 @@ mode: Drafting
 requires_config:
   - security-model.md
 description: |
-  Front door for a project that has no published security model
-  yet. Opens the conversation with `<governance-body>` on the
-  private list, drives production of a first draft — delegating
-  the model-writing itself to the Alpha-Omega threat-model skill
-  set — in **draft-first** mode so maintainers react to concrete
-  prose instead of composing from a blank page, then lands the
-  model and its `AGENTS.md` → `SECURITY.md` discoverability chain
-  as one reviewable PR per repository. Every claim carries a
-  provenance tag; every inferred claim carries a matching open
-  question. Drafts and proposes; the maintainers decide.
+  Produce a first security model for a project that has none:
+  draft it with `<governance-body>` (draft-first, provenance-tagged),
+  then land the model and its `AGENTS.md` → `SECURITY.md` chain as
+  one PR per repository. Proposes; the maintainers decide.
 when_to_use: |
-  Invoke when a maintainer or security-team member says "we need
-  a threat model", "write our security model", "prepare
-  <PROJECT> for an automated security review", "we have nothing
-  in SECURITY.md", or when
-  `security-model-verify` reports that a repository has
-  no model to verify. Skip when a model already exists — verify
-  it with `security-model-verify`, and grow it with
-  `security-model-update`.
+  "we need a threat model", "write our security model", "we have
+  nothing in SECURITY.md", or when `security-model-verify` finds no
+  model. If one exists, use `security-model-update` instead.
 argument-hint: "[repo-or-project]"
 capability: capability:authoring
 surface_hash: sha256:db4f1e33c6b3fab3
 license: Apache-2.0
-measured_tokens: 4684
+measured_tokens: 4555
 ---
 
 # Security model prepare
