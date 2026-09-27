@@ -273,6 +273,12 @@ Present all candidates as a single numbered proposal grouped by class:
   [<tracker>#NNN](https://github.com/<tracker>/issues/<N>)"*). These need explicit confirmation — no
   default-to-tracker. The draft **must** follow the canned-response
   discipline below.
+- **Dropped silently** (class `cve-tool-bookkeeping`): do not even
+  surface these to the user — they are consumed by
+  `security-issue-sync` Step 1e. The skill should just report the
+  count in the recap (*"N CVE-tool-bookkeeping emails dropped"*) so
+  the user knows the filter is working but is not forced to scroll
+  past them.
 
 ### fix-already-public reply shape
 
@@ -320,12 +326,6 @@ arrived after the fix went public. The user can override during
 Step 6 confirmation if there is a project-specific reason to
 credit (e.g. the reporter privately spotted the issue before the
 unrelated PR landed).
-- **Dropped silently** (class `cve-tool-bookkeeping`): do not even
-  surface these to the user — they are consumed by
-  `security-issue-sync` Step 1e. The skill should just report the
-  count in the recap (*"N CVE-tool-bookkeeping emails dropped"*) so
-  the user knows the filter is working but is not forced to scroll
-  past them.
 
 ### Consolidated receipts for multi-tracker imports
 

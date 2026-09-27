@@ -18,9 +18,10 @@ point at the PR, ask them to verify, and skip tracker creation.
 **Run Step 2c on** every `Report` or forwarder-relayed candidate
 that Step 2a did *not* flag STRONG (STRONG-dedup routes to
 `security-issue-deduplicate`, which already handles the
-already-tracked case). Skip on `automated-scanner`,
+already-tracked case). Skip on candidates whose provisional
+class (the Step 2a pre-classification) is `automated-scanner`,
 `consolidated-multi-issue`, `media-request`, `spam`,
-`cve-tool-bookkeeping`, and `cross-thread-followup` candidates —
+`cve-tool-bookkeeping`, or `cross-thread-followup` —
 those never become trackers regardless.
 
 **Detection signals** (any one is sufficient to surface the
@@ -40,7 +41,7 @@ candidate as a potential `fix-already-public`):
 
    ```bash
    # Write keywords to a temp file first; sanitise with `tr -cd`.
-   KW=$(tr -cd 'A-Za-z0-9._ -' < /tmp/pubfix-kw-<threadId>.txt)
+   KW=$(tr -cd 'A-Za-z0-9._ -' < <scratch>/pubfix-kw-<threadId>.txt)
    gh search prs "$KW" --repo <upstream> \
      --merged --merged-at ">=$(date -u -d '180 days ago' +%Y-%m-%d)" \
      --json number,title,author,mergedAt,url --limit 10

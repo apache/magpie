@@ -7,7 +7,7 @@
   "has_keyword_from_file": {
     "type": "contains",
     "field": "bash_command",
-    "substring": "/tmp/import-md-adversarial-findings-2025-05-10-1-kw.txt"
+    "substring": "import-md-adversarial-findings-2025-05-10-1-kw.txt"
   },
   "has_gh_search_issues": {
     "type": "regex",

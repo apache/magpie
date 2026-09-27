@@ -31,7 +31,7 @@ capability:
   - capability:resolve
 surface_hash: sha256:9884ef304a3fad88
 license: Apache-2.0
-measured_tokens: 6640
+measured_tokens: 6849
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -383,7 +383,7 @@ Only after Step 6 confirmation:
    possible (prefer `Edit` over `Write` unless creating a new file).
 3. Run the test and static-check commands from 5d. If any fail, stop
    and report the failure — do not push red code to the fork.
-4. Run `git diff main...HEAD` against the upstream base, and present
+4. Run `git diff <upstream-remote>/<base-branch>...HEAD` against the upstream base, and present
    the full diff to the user.
 
 Before the review below, run the [5c](#5c-commit-message-and-pr-title) forbidden-term
@@ -502,27 +502,32 @@ and 5g. The user reviews the title, body and gen-AI disclosure in the
 browser before actually submitting the PR — matching the rule in
 [`AGENTS.md`](../../../../AGENTS.md).
 
+`<scratch>` is the session scratch directory as an absolute path (fall back to `$TMPDIR`); `gh` may run outside the sandbox, where `$TMPDIR` differs, so pass it absolute paths.
+
 ```bash
 gh pr create --web --repo <upstream> --base <base-branch> \
   --title "<neutral title>" \
-  --body-file /tmp/pr-body-<issue>.md
+  --body-file <scratch>/pr-body-<issue>.md
 ```
 
 If a backport label is needed, apply it via `gh` after the PR is
-created:
+created, using the label chosen in 5e (vocabulary in
+[`<project-config>/fix-workflow.md`](../../../../<project-config>/fix-workflow.md#backport-labels)):
 
 ```bash
-gh pr edit <PR-NUMBER> --repo <upstream> --add-label "backport-to-v3-2-test"
+gh pr edit <PR-NUMBER> --repo <upstream> --add-label "<backport-label>"
 ```
 
 This is safe to do immediately after PR creation — the backport bot
 only fires on merge, not on label application, so there is no race
 with CI. Applying the label early ensures it is not forgotten.
 
-**Grep the PR body one more time for forbidden terms** (`CVE`,
-`<tracker>`, `vulnerability`, `security fix`, `advisory`, private
-issue number, reporter name tied to a finding) before calling
-`gh pr create --web`. If anything matches, abort and tell the user.
+**Grep the PR title and body one more time for the
+[5c forbidden terms](implementation-plan.md#5c-commit-message-and-pr-title)**
+before calling `gh pr create --web`. If anything matches, abort and tell the user.
+When the framework's secure setup is installed, the agent-guard `security-language` guard ([`guards/security_language.py`](guards/security_language.py)) also blocks a `gh pr create` / `gh pr edit` whose title or body carries a CVE ID, `security fix` or a vulnerability-class name.
+It does not match the bare words `vulnerability` or `advisory`, which would block ordinary PRs everywhere the guard runs, so those rely on this manual check.
+It is a backstop, not a replacement for this check: it covers only a subset of the 5c list, and it does not see the commit message, the branch name, or a newsfragment.
 
 After the user submits the PR in the browser, capture the PR URL
 (either from the browser or by running
@@ -555,8 +560,8 @@ Print a short recap:
 ## Guardrails
 
 - **No public leakage of *content* or *security framing*.** The
-  skill runs a final `grep` for `CVE-`, `vulnerability`,
-  `security fix`, `advisory`, `security@`, and any reporter name on
+  skill runs a final `grep` for the
+  [5c forbidden terms](implementation-plan.md#5c-commit-message-and-pr-title) on
   every piece of text headed for a public surface — commit message,
   PR title, PR body, branch name, newsfragment, comments on
   `<upstream>`. If any hit, abort and ask the user. Bare tracker

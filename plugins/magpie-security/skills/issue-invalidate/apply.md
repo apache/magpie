@@ -7,6 +7,8 @@
 
 ### 6a — Post the rollup entry first
 
+`<scratch>` is the session scratch directory as an absolute path (fall back to `$TMPDIR`); `gh` may run outside the sandbox, where `$TMPDIR` differs, so pass it absolute paths.
+
 Posting the rollup before the closing comment lets the closing
 comment link to the rollup's permalink. Append to the existing
 rollup comment via the upsert recipe in
@@ -14,13 +16,13 @@ rollup comment via the upsert recipe in
 
 ```bash
 EXISTING=$(gh api repos/<tracker>/issues/comments/<rollup-comment-id> --jq .body)
-cat > /tmp/invalidate-<N>-rollup.md <<EOF
+cat > <scratch>/invalidate-<N>-rollup.md <<EOF
 ${EXISTING}
 
 <new <details> block from Step 5e>
 EOF
 gh api -X PATCH repos/<tracker>/issues/comments/<rollup-comment-id> \
-  -F body=@/tmp/invalidate-<N>-rollup.md \
+  -F body=@<scratch>/invalidate-<N>-rollup.md \
   --jq .html_url
 ```
 
@@ -33,7 +35,7 @@ Capture the rollup permalink for use in the closing comment.
 ### 6b — Post the closing comment
 
 ```bash
-gh issue comment <N> --repo <tracker> --body-file /tmp/invalidate-<N>-close.md
+gh issue comment <N> --repo <tracker> --body-file <scratch>/invalidate-<N>-close.md
 ```
 
 Body is the Step 5b shape with comment IDs substituted.
@@ -74,14 +76,14 @@ Skip if PR-imported or the user chose `silent`.
 
 Use the backend chosen in Step 5d:
 
-- **`claude_ai_mcp`:** call `mcp__claude_ai_Gmail__get_thread`
+- **`claude_ai_mcp`** (discouraged — rewrites URLs; only when the backend selection rule permits it): call `mcp__claude_ai_Gmail__get_thread`
   on `<tracker.threadId>` with `messageFormat: MINIMAL`, take
   the chronologically-last message's `id`, and call
   `mcp__claude_ai_Gmail__create_draft` with `to=<reporterEmail>`,
   `cc=security_cc`, `subject='Re: <root subject>'`,
   `body=<file>`, and `replyToMessageId=<that message id>`. The
   draft lands attached to the inbound thread.
-- **`oauth_curl`:** call the `oauth_curl drafts:create` script
+- **`oauth_curl`** (preferred): call the `oauth_curl drafts:create` script
   per [`draft-backends.md`](../../../../tools/gmail/draft-backends.md)
   with `threadId=<tracker.threadId>`, `to=<reporterEmail>`,
   `cc=security_cc`, `subject='Re: <root subject>'`,
@@ -94,4 +96,4 @@ when 6a ran).
 
 ### 6g — Cleanup
 
-Delete `/tmp/invalidate-<N>-*.md`.
+Delete `<scratch>/invalidate-<N>-*.md`.

@@ -4,6 +4,8 @@
 name: model-update
 family: security
 mode: Drafting
+requires_config:
+  - security-model.md
 description: |
   Refresh a published security model from the project's decision
   history (tracker dispositions, advisories, canned responses).
@@ -19,9 +21,9 @@ argument-hint: "[since-date | last-N | tracker-range]"
 capability:
   - capability:reassess
   - capability:authoring
-surface_hash: sha256:70cc9d9595998186
+surface_hash: sha256:5f058bd378b65f45
 license: Apache-2.0
-measured_tokens: 4659
+measured_tokens: 4703
 ---
 
 # Security model update
@@ -127,6 +129,7 @@ check — exists to enforce that one sentence.
 | Published advisories / CVE records | The confirmed-valid set. The ground truth the regression check scores against. | Public |
 | `<project-config>/canned-responses.md` | Rejections stable enough that someone wrote a template for them. A canned response with no matching model section is a model gap by definition. | In-repo |
 | Scanner and fuzzer output already triaged | High-volume recurring false-positive classes | Per `tools/scan-format` |
+| The current model | The text every proposal is routed against and diffed from | Located via `<project-config>/security-model.md` → **Authoritative URL** |
 | The model's own §1.18 open questions | Questions a subsequent decision may have answered | The model |
 
 ## Mapping a project disposition onto the model's

@@ -8,7 +8,7 @@
    declares `ponymail` with `mandatory: yes` (the **ASF default**),
    PonyMail is a pre-flight prerequisite and the outcomes below
    that "degrade quietly" become **hard stops** instead. Call
-   `mcp__ponymail__auth_status()` once. Four outcomes:
+   `mcp__ponymail__auth_status()` once. Three outcomes:
    - **Authenticated session** — record
      `ponymail_enabled: true, ponymail_authenticated: true` in the
      skill's observed-state bag. **Downstream steps use PonyMail

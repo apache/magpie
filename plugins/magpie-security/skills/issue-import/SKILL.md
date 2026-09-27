@@ -31,7 +31,7 @@ argument-hint: "[import] [last Nd|all] [skip threadId]"
 capability: capability:intake
 surface_hash: sha256:779cf1467953799b
 license: Apache-2.0
-measured_tokens: 10865
+measured_tokens: 11013
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -245,11 +245,15 @@ Before running, the skill needs:
   hand.
 - **`gh` CLI authenticated** (`gh auth status` returns OK) with
   collaborator access to `<tracker>`. The skill calls
-  `gh issue create` and `gh search issues` directly.
+  `gh api` (issue creation, per the safe-create recipe) and
+  `gh search issues` directly.
 
 See
 [Prerequisites for running the agent skills](../../../../docs/quick-start/prerequisites.md#prerequisites-for-running-the-agent-skills)
 in `docs/prerequisites.md` for the overall setup.
+
+Scratch files this skill writes (Steps 2a, 2c, 7) live under `<scratch>/`.
+`<scratch>` is the session scratch directory as an absolute path (fall back to `$TMPDIR`); `gh` may run outside the sandbox, where `$TMPDIR` differs, so pass it absolute paths.
 
 ---
 
@@ -333,7 +337,7 @@ Before touching any candidate thread, verify:
      enabled field types) are loaded into the skill's
      observed-state bag — they apply at filter-time below.
 
-   Each subsequent body fetch in Steps 4 / 7 / 7g (template-
+   Each subsequent body fetch in Steps 4 / 7 / 8 (template-
    field extraction, draft assembly, recap) follows the
    redact-after-fetch protocol in
    [`tools/privacy-llm/wiring.md`](../../../../tools/privacy-llm/wiring.md#redact-after-fetch-protocol);
@@ -463,6 +467,9 @@ the worst outcome of a wrong classification is one round of user
 rejection, whereas the worst outcome of *not* importing a real report
 is missing a vulnerability.
 
+Steps 2a and 2c skipped their searches for candidates they provisionally classed as never-a-tracker.
+If this step classes such a candidate as a `Report` (or forwarder-relayed) instead, run the skipped Step 2a and Step 2c searches for it before Step 4.
+
 ---
 
 ## Step 4 — Extract template fields
@@ -475,7 +482,7 @@ repo). Most fields the reporter did not explicitly supply stay as
 the triager to fill them as the discussion progresses.
 
 **Apply the redact-after-fetch protocol BEFORE extracting fields.**
-Every body fetched in Steps 2 / 2b / 3 (via `mcp__claude_ai_Gmail__get_thread`
+Every body fetched in Steps 2 / 2a / 2b / 3 (via `mcp__claude_ai_Gmail__get_thread`
 with `messageFormat: FULL_CONTENT`) goes through the redactor per
 [`tools/privacy-llm/wiring.md`](../../../../tools/privacy-llm/wiring.md#redact-after-fetch-protocol)
 before its content is used for field extraction. Concretely:

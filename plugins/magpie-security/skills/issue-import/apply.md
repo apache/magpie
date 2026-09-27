@@ -59,7 +59,7 @@ For each confirmed `Report` or forwarder-relayed candidate:
    malformed markdown risks compounding the breakage; the triager
    reads the tracker with the malformed render and decides
    whether a manual cleanup is worth the time. Add a one-line
-   note to the Step 5 status-rollup entry:
+   note to the Step 7.5 status-rollup entry:
    *"Body markdown was malformed at import (unclosed
    `<indicator>`) — inlined verbatim, may need manual cleanup."*
 
@@ -76,7 +76,7 @@ For each confirmed `Report` or forwarder-relayed candidate:
    warning, not the rule itself.
 
    ```bash
-   cat > /tmp/issue-body-<threadId>.md <<'EOF'
+   cat > <scratch>/issue-body-<threadId>.md <<'EOF'
    ### The issue description
 
    > [!IMPORTANT]
@@ -137,8 +137,8 @@ For each confirmed `Report` or forwarder-relayed candidate:
    per the safe-create recipe in
    [`tools/github/operations.md`](../../../../tools/github/operations.md#create).
    The title comes from an attacker-controlled email subject: title
-   file `/tmp/issue-title-<threadId>.txt`, body file
-   `/tmp/issue-body-<threadId>.md`, `labels[]=needs triage` and
+   file `<scratch>/issue-title-<threadId>.txt`, body file
+   `<scratch>/issue-body-<threadId>.md`, `labels[]=needs triage` and
    `labels[]=security issue`. Capture the new issue's `number`.
    The recipe's rule covers every `gh` call this skill makes with
    attacker-controlled text as an argument.
@@ -380,7 +380,7 @@ media / cross-thread-followup / fix-already-public):
      --label rejections-ledger --limit 5 --json number --jq '.[0].number')
    ```
 
-   *Write tool call:* `file_path: /tmp/rejection-<threadId>.md`,
+   *Write tool call:* `file_path: <scratch>/rejection-<threadId>.md`,
    `content:`
    ```text
    <!-- rejection v1 -->
@@ -408,7 +408,7 @@ media / cross-thread-followup / fix-already-public):
 
    ```bash
    gh api repos/<tracker>/issues/$LEDGER/comments \
-     -F body=@/tmp/rejection-<threadId>.md --jq '.id'
+     -F body=@<scratch>/rejection-<threadId>.md --jq '.id'
    ```
 
    If the resolution returns no number (no ledger issue exists yet),
@@ -421,7 +421,7 @@ media / cross-thread-followup / fix-already-public):
    counted in the dashboard's closed buckets, so adding them here
    would double-count.
 
-Apply sequentially (not in parallel): one `gh issue create` per
+Apply sequentially (not in parallel): one issue creation per
 confirmed candidate, one draft per reply. If any step fails, stop and
 report — do not guess.
 

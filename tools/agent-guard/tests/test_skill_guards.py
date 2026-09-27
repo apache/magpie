@@ -189,6 +189,20 @@ def test_security_clean_pr_create_allowed():
     assert dispatch('gh pr create --title "Add retry policy" --body "implements an AIP"') is None
 
 
+@pytest.mark.parametrize(
+    "body",
+    [
+        "prevents SSRF in the connection test endpoint",
+        "blocks path traversal in the log endpoint",
+    ],
+)
+def test_security_class_names_denied(body):
+    # The vulnerability class is embargoed on a public PR (AGENTS.md); the
+    # skill's 5c list forbids the same names.
+    reason = dispatch(f'gh pr create --title "fix" --body "{body}"')
+    assert reason and "security-language" in reason
+
+
 def test_security_language_in_comment_allowed():
     # Comments are out of scope (avoids colliding with the triage security warning).
     assert dispatch('gh pr comment 5 --body "this looks like a SQL injection risk"') is None

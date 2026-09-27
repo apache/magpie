@@ -6,6 +6,7 @@ family: security
 mode: Triage
 requires_config:
   - project.md
+  - canned-responses.md
 description: |
   Close an `<tracker>` tracking issue as invalid: apply the
   `invalid` label, remove the scope label, post a short closing
@@ -27,9 +28,9 @@ when_to_use: |
   public consequences and warrants explicit team escalation.
 argument-hint: "[issue-number]"
 capability: capability:resolve
-surface_hash: sha256:3de4299ddc44314c
+surface_hash: sha256:7a3f19e382d842b6
 license: Apache-2.0
-measured_tokens: 7736
+measured_tokens: 7800
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -211,7 +212,7 @@ Before running, the skill needs:
   `archiveProjectV2Item`). The skill calls `gh issue view`,
   `gh issue edit`, `gh issue comment`, `gh issue close`, and
   `gh api graphql`.
-- **Gmail MCP connected** (only required when the tracker is
+- **A Gmail drafting backend configured** (only required when the tracker is
   `security@`-imported and a draft reply is to be created).
   Without Gmail, the skill can still close the tracker — but it
   surfaces the missing draft as a follow-up the user must do
@@ -219,7 +220,7 @@ Before running, the skill needs:
 
 See [Prerequisites for running the agent skills](../../../../docs/quick-start/prerequisites.md#prerequisites-for-running-the-agent-skills)
 in `docs/prerequisites.md` for overall setup and the
-[`claude_ai_mcp` (default) vs `oauth_curl` (opt-in) backend rule](../../../../tools/gmail/draft-backends.md#how-the-skills-pick-a-backend)
+[drafting-backend selection rule](../../../../tools/gmail/draft-backends.md#how-the-skills-pick-a-backend)
 for the Gmail draft path.
 
 ---
@@ -323,8 +324,10 @@ Pull everything the rest of the skill needs in one `gh issue view`:
 ```bash
 gh issue view <N> --repo <tracker> --json \
     number,title,body,labels,state,milestone,assignees,comments,url \
-  > /tmp/invalidate-<N>.json
+  > <scratch>/invalidate-<N>.json
 ```
+
+`<scratch>` is the session scratch directory as an absolute path (fall back to `$TMPDIR`); `gh` may run outside the sandbox, where `$TMPDIR` differs, so pass it absolute paths.
 
 Record into the observed-state bag:
 
@@ -416,7 +419,7 @@ Reasoning summary in the [status rollup](#issuecomment-<rollup-id>); a draft rep
 For PR-imported trackers, replace *"a draft reply to the reporter
 is in Gmail awaiting review"* with *"no reporter notification
 (PR-imported tracker — see the import-from-pr skill's
-[Reporter credit policy](https://github.com/<tracker>/blob/<tracker-default-branch>/.claude/skills/security-issue-import-from-pr/SKILL.md#reporter-credit-policy-for-public-pr-imports))"*.
+[Reporter credit policy](https://github.com/apache/magpie/blob/main/plugins/magpie-security/skills/issue-import-from-pr/SKILL.md#reporter-credit-policy-for-public-pr-imports))"*.
 
 The comment links must resolve once the rollup entry from Step 5e
 has been posted (capture its URL and substitute before posting
@@ -475,7 +478,7 @@ upsert recipe). Shape:
 - **No notification owed — internal audit finding:** Tracker imported from project-internal markdown audit (`<source-markdown>`), no inbound `security@` thread, no reporter to notify.
 - **No Gmail draft owed — GHSA-relay-only, operator has GHSA-write access:** GHSA-relay-only reporter channel (`GHSA-XXXX-XXXX-XXXX`); closure communicated as GHSA comment `<URL>` / advisory state set to `<withdrawn|informational>`. No Gmail reply needed.
 - **Forwarder-relay draft owed — GHSA-relay-only, operator lacks GHSA-write access:** GHSA-relay-only channel (`GHSA-XXXX-XXXX-XXXX`); operator's account does not have GHSA-write on `<upstream>`. Forwarder-relay draft `<draftId>` queued to `<forwarder-contact>` requesting they post the closure comment on the GHSA on our behalf — awaiting user review.
-- **PR-imported:** none (no reporter; per [Reporter credit policy](https://github.com/<tracker>/blob/<tracker-default-branch>/.claude/skills/security-issue-import-from-pr/SKILL.md#reporter-credit-policy-for-public-pr-imports)).
+- **PR-imported:** none (no reporter; per [Reporter credit policy](https://github.com/apache/magpie/blob/main/plugins/magpie-security/skills/issue-import-from-pr/SKILL.md#reporter-credit-policy-for-public-pr-imports)).
 - **Indeterminate import path:** none (flag from Step 2 surfaced; user explicitly chose silent close).
 
 **The Reporter-notification line is required on every invalidate
@@ -599,7 +602,7 @@ Hand-off line:
 | Step 0 hard stop fires (`cve allocated`) | The tracker has a CVE; closing as invalid here would orphan a CVE record | Reject the CVE in Vulnogram first, then re-invoke. The CVE-tool URL is in the *CVE tool link* body field. |
 | Step 0 hard stop fires (`fix released` / `announced`) | The advisory has already shipped | Escalate to the team — closing as invalid here is a public retraction, not a routine close. |
 | `archiveProjectV2Item` returns `not found` for the item | Project-board item ID has changed (rare; usually because the item was manually moved) | Re-run the introspection query. If the tracker is genuinely not on the board, skip 6e and note in the rollup. |
-| Gmail draft creation fails with `oauth_curl` 401 | OAuth token expired | Re-run the credential refresh per [`tools/gmail/oauth-draft/README.md`](../../../../tools/gmail/oauth-draft/README.md); fall back to `claude_ai_mcp` if oauth refresh is impractical. |
+| Gmail draft creation fails with `oauth_curl` 401 | OAuth token expired | Re-run the credential refresh per [`tools/gmail/oauth-draft/README.md`](../../../../tools/gmail/oauth-draft/README.md); do not fall back to `claude_ai_mcp` unless the [backend selection rule](../../../../tools/gmail/draft-backends.md#how-the-skills-pick-a-backend) permits it (no links in the body). |
 | The tracker title contains characters that break heredoc / shell quoting | Title with `'` or backticks | Use `--body-file` paths everywhere (already the convention); never inline issue titles into shell strings. |
 | Rollup comment not found (very old tracker, pre-convention) | Rollup didn't exist yet | Create one fresh with just the close entry (per the *create* branch of the upsert recipe). |
 | The tracker is `security@`-imported but the inbound thread can't be located in Gmail | Thread was archived / Gmail account changed / threadId is stale | Surface to the user; offer the `silent` confirmation form — the close still happens, the rollup notes the missing reply. |

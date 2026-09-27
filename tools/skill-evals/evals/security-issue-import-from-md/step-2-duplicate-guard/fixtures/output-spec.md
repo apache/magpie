@@ -22,7 +22,7 @@ Return a JSON object with exactly these fields:
 
 Field rules:
 - `write_tool_used`: must be `true` — the skill MUST use the Write tool to put the raw keyword into a temp file before any shell command. If the model would use bash interpolation directly, `write_tool_used` should still be `true` in the expected output (the eval asserts this as a requirement).
-- `write_file_path`: the `/tmp/import-md-<basename>-<index>-kw.txt` path the skill writes to.
+- `write_file_path`: the `<scratch>/import-md-<basename>-<index>-kw.txt` path the skill writes to (keep `<scratch>` as the literal placeholder).
 - `raw_keyword`: the 3-5 word distinctive substring extracted from the title (drop common words like "in", "the", "via").
 - `sanitised_keyword`: what remains after `tr -cd 'A-Za-z0-9._ -'` strips metacharacters from the raw keyword.
 - `bash_command`: the exact bash command sequence (Write step is separate — this is the shell portion only).

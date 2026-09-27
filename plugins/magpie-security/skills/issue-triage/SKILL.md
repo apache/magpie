@@ -8,6 +8,8 @@ requires_config:
   - project.md
   - scope-labels.md
   - security-model.md
+  - release-trains.md
+  - canned-responses.md
 description: |
   For each open `<tracker>` issue carrying the `needs triage`
   label, read body + comments and classify the candidate
@@ -31,9 +33,9 @@ when_to_use: |
   `security-issue-invalidate` (INFO-ONLY / INVALID), or
   `security-issue-deduplicate` (PROBABLE-DUP) directly.
 capability: capability:triage
-surface_hash: sha256:225bde7b18eed4e4
+surface_hash: sha256:7d5054dc4806f995
 license: Apache-2.0
-measured_tokens: 7291
+measured_tokens: 7349
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -470,7 +472,7 @@ by class. Accept any of:
   the @-mention to @other-person"*, *"add a sentence about the
   prior precedent on #218"*); re-draft and re-confirm.
 - `NN:downgrade <CLASS>` / `NN:upgrade <CLASS>` — change the
-  classification for item NN to a different one of the five
+  classification for item NN to a different one of the six
   classes; re-draft and re-confirm.
 - `NN:skip` — drop item NN from the post list (no comment).
 - `none` / `cancel` — bail entirely.
@@ -493,8 +495,9 @@ Use the
 file-via-Write-tool pattern for the body — `gh issue comment --body '<x>'` permits shell expansion of `$(...)` inside double
 quotes, and the comment body inevitably contains user-supplied
 text from the tracker (which crossed a trust boundary at
-import time). Write the body to `/tmp/triage-<N>.md` via the
+import time). Write the body to `<scratch>/triage-<N>.md` via the
 Write tool, then pass with `--body-file`.
+`<scratch>` is the session scratch directory as an absolute path (fall back to `$TMPDIR`); `gh` may run outside the sandbox, where `$TMPDIR` differs, so pass it absolute paths.
 
 **Before posting, scrub the body for bare-name mentions** of
 maintainers, release managers, and security-team members per
