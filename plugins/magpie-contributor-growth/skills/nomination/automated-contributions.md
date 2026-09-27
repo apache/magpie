@@ -50,10 +50,11 @@ A key that is absent, or set outside its allowed range, falls back to the defaul
 | `automated_contribution_weight` | `0.25` | 0–1 | Weight of an item that drew maintainer pushback but was not closed for it — a merged or open PR, an issue, a review, or a comment |
 | `restatement_comment_weight` | `0` | 0–1 | Weight of a comment or review body that only restates what was already written |
 | `closed_after_pushback_weight` | `0` | 0–1 | Weight of a PR or issue closed unmerged after pushback; at `0` the item is removed from every metric |
+| `automated_pushback_penalty` | `0.25` | 0–1 | Subtracted once per PR or issue thread classed `P` or `C`, per count, after the weights are summed; `0` turns the penalty off |
 | `automated_contribution_expectations` | empty list | list of links | The project's own documented expectations for AI-assisted and automated contributions — see below |
 | `automated_pushback_phrases` | empty list | list of strings | Extra phrases the project's maintainers use when pushing back, added to the generic list below |
 
-Setting all three weights to `1` turns the arithmetic off.
+Setting all three weights to `1` and `automated_pushback_penalty` to `0` turns the arithmetic off.
 The classification still runs and the *Automated and low-signal contributions* section still renders, so the evidence stays visible to the humans reading the brief.
 
 ---
@@ -146,6 +147,8 @@ A comment or review body is a restatement when both hold:
 
 Short acknowledgements ("LGTM", "thanks") are not restatements; the substantive-review rules already give them little weight.
 
+Record a restatement's basis as `generic:restatement`, or as the project expectation it conflicts with.
+
 ### C — closed after pushback
 
 A PR authored by the candidate that was closed without merging, or an issue closed as not planned, after a maintainer pushed back on it (P).
@@ -163,13 +166,19 @@ A PR authored by the candidate that was closed without merging, or an issue clos
 
 An item in more than one class takes the lowest weight.
 
-Adjusted counts are sums of weights, shown to one decimal place:
+**Penalty.**
+After the weights of a count are summed, subtract `automated_pushback_penalty` once for each distinct PR or issue thread among that count's items that is classed `P` or `C`.
+A restatement (`R`) is low-value, not pushed back on, and is never penalised.
+The adjusted count never goes below `0`.
+The penalty is applied per count: a pushed-back PR that is both opened and merged is penalised once in each of those two counts, never twice within one.
+
+Discounted counts are sums of weights; adjusted counts are discounted counts minus the penalty. Both are shown to one decimal place:
 
 - **PRs opened and merged, issues filed, reviews** — sum the weights of the items counted.
   A restatement review is never substantive, whatever its length.
 - **Threads commented** — a thread's weight is the highest weight among the candidate's comments in it, so one real comment keeps the thread at full weight.
-- **Merge rate** — computed from adjusted counts; items weighted `0` leave both numerator and denominator.
-- **Area breadth** — an area counts when the adjusted weight of the merged PRs in it reaches `1`.
+- **Merge rate** — computed from discounted counts (the penalty does not apply); items weighted `0` leave both numerator and denominator.
+- **Area breadth** — an area counts when the summed weight of the merged PRs in it reaches `1` (the penalty does not apply).
 - **Activity timeline** — items weighted `0` are left out; everything else is plotted as before, since the timeline records when work happened, not how much it counts.
 
 Thresholds and gap arithmetic use the adjusted counts.
@@ -178,7 +187,7 @@ Thresholds and gap arithmetic use the adjusted counts.
 
 ## Reporting
 
-The brief shows the raw count next to the adjusted count for every GitHub-derived row, and adds a section:
+The brief shows raw, discounted, penalty and adjusted values for every GitHub-derived row, and adds a section:
 
 ```text
 ### Automated and low-signal contributions

@@ -27,7 +27,7 @@ argument-hint: "<github-handle> [window:Nm] [target:committer|pmc]"
 capability: capability:stats
 surface_hash: sha256:4dbd3136d81a2f87
 license: Apache-2.0
-measured_tokens: 5155
+measured_tokens: 5162
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -402,7 +402,7 @@ data — GitHub activity from Step 2 and maintainer-supplied
 off-GitHub signal from Step 3.
 
 First apply [`automated-contributions.md`](automated-contributions.md) to the Step 2 items, per [`assess.md` § Part 1b](assess.md#part-1b--automated-and-low-signal-contributions).
-Resolve its settings — the weight keys, `automated_contribution_expectations` and `automated_pushback_phrases` — from `<project-config>/contributor-nomination-config.md`, else the framework defaults.
+Resolve its settings — the weight keys, `automated_pushback_penalty`, `automated_contribution_expectations` and `automated_pushback_phrases` — from `<project-config>/contributor-nomination-config.md`, else the framework defaults.
 When the run was handed off from `contributor-to-committer`, reuse that skill's classification and cleared flags instead of classifying again.
 Every count below is then the adjusted count, with the raw count kept alongside it:
 

@@ -113,9 +113,10 @@ The readiness tracker falls back to these values when `committer-readiness.md` d
 | `automated_contribution_weight` | `0.25` | TODO or leave blank | Weight (0–1) of a merged or open PR, issue, review or comment that drew maintainer pushback as looking generated, unreviewed, restating, fabricated, or unwanted |
 | `restatement_comment_weight` | `0` | TODO or leave blank | Weight (0–1) of a comment or review body that only restates the description, earlier comments, or the diff |
 | `closed_after_pushback_weight` | `0` | TODO or leave blank | Weight (0–1) of a PR or issue closed unmerged after that pushback; `0` removes it from every metric |
+| `automated_pushback_penalty` | `0.25` | TODO or leave blank | Subtracted (0–1) once per pushed-back or closed-after-pushback thread, after the weights; `0` turns it off |
 | `automated_pushback_phrases` | empty | TODO or leave blank | Extra phrases your maintainers use when pushing back, added to the generic list |
 
-Set all three weights to `1` to turn the arithmetic off; flagged items are still listed in the brief.
+Set all three weights to `1` and the penalty to `0` to turn the arithmetic off; flagged items are still listed in the brief.
 
 ### Project expectations for AI-assisted contributions
 

@@ -2,45 +2,39 @@
   "expectations_source": "generic",
   "items": [
     {
-      "id": "pr-101",
+      "id": "pr-601",
       "class": "P",
       "weight": 0.25,
-      "basis": "generic:P1 or generic:P2 (either is correct)"
+      "basis": "generic:P1"
     },
     {
-      "id": "pr-102",
+      "id": "pr-602",
       "class": "C",
       "weight": 0,
-      "basis": "generic:P4 or generic:P5 (either is correct)"
+      "basis": "generic:P5"
     },
     {
-      "id": "pr-103",
+      "id": "pr-603",
       "class": "none",
       "weight": 1,
       "basis": ""
     },
     {
-      "id": "thread-200",
-      "class": "R",
-      "weight": 0,
-      "basis": "generic:restatement"
-    },
-    {
-      "id": "thread-201",
+      "id": "pr-604",
       "class": "none",
       "weight": 1,
       "basis": ""
     }
   ],
   "raw": {
-    "prs_opened": 3,
-    "prs_merged": 2,
-    "threads_commented": 2
+    "prs_opened": 4,
+    "prs_merged": 3,
+    "threads_commented": 0
   },
   "discounted": {
-    "prs_opened": 1.25,
-    "prs_merged": 1.25,
-    "threads_commented": 1.0
+    "prs_opened": 2.25,
+    "prs_merged": 2.25,
+    "threads_commented": 0.0
   },
   "penalty": {
     "prs_opened": 0.5,
@@ -48,9 +42,9 @@
     "threads_commented": 0.0
   },
   "adjusted": {
-    "prs_opened": 0.75,
-    "prs_merged": 1.0,
-    "threads_commented": 1.0
+    "prs_opened": 1.75,
+    "prs_merged": 2.0,
+    "threads_commented": 0.0
   },
   "pushback_signal": true,
   "auto_disqualify": false,

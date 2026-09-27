@@ -107,6 +107,16 @@ state change for human sign-off.
   they do not invent contributions or inflate counts. The brief and
   activity card are inputs for a PMC vote, not a pre-decided
   recommendation.
+- **Automated and low-signal work counts for less.**
+  `contributor-to-committer` and `contributor-nomination` apply the
+  shared definition in `nomination/automated-contributions.md`:
+  restatements and work maintainers pushed back on are down-weighted,
+  work closed after pushback weighs `0`, and each pushed-back thread
+  carries a small penalty (`automated_pushback_penalty`, default
+  `0.25`) so the adjusted count can fall below the discounted one.
+  Using AI tools is not penalised; the brief shows raw, discounted,
+  penalty and adjusted values, and pushback is a signal to weigh,
+  never a disqualification.
 - **Teaching register for first-contact.** `mentoring-welcome` and
   `good-first-issue-author` follow the Agentic Mentoring mode's tone
   contract (polite, never gatekeeping) and hand off to a human

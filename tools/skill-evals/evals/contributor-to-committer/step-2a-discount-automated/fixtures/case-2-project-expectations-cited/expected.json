@@ -25,10 +25,20 @@
     "prs_merged": 1,
     "threads_commented": 2
   },
+  "discounted": {
+    "prs_opened": 1.0,
+    "prs_merged": 1.0,
+    "threads_commented": 1.0
+  },
+  "penalty": {
+    "prs_opened": 0.0,
+    "prs_merged": 0.0,
+    "threads_commented": 0.0
+  },
   "adjusted": {
-    "prs_opened": 1,
-    "prs_merged": 1,
-    "threads_commented": 1
+    "prs_opened": 1.0,
+    "prs_merged": 1.0,
+    "threads_commented": 1.0
   },
   "pushback_signal": false,
   "auto_disqualify": false,

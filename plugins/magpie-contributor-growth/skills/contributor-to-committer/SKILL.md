@@ -26,7 +26,7 @@ argument-hint: "<github-handle> [target:committer|pmc] [window:Nm]"
 capability: capability:stats
 surface_hash: sha256:57f8813ba1ea4a69
 license: Apache-2.0
-measured_tokens: 5580
+measured_tokens: 5681
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -111,7 +111,7 @@ declares thresholds, the skill asks the maintainer for the project's
 typical bar before assessing.
 
 **Visibly automated and low-signal contributions count for less.**
-Comments that only restate what is already written, and contributions maintainers pushed back on as unreviewed or generated, are discounted before thresholds are applied; work closed after that pushback does not count at all.
+Comments that only restate what is already written, and contributions maintainers pushed back on as unreviewed or generated, are discounted before thresholds are applied; work closed after that pushback does not count at all, and each pushed-back thread also carries a small penalty.
 Using AI tools is not penalised, the discount is judged against the project's own documented expectations where it has them, and it is a signal for the maintainer, never a disqualification.
 See [Step 2a](#step-2a--discount-automated-and-low-signal-contributions).
 
@@ -223,7 +223,7 @@ the source in the brief header so the maintainer knows what the
 assessment is measuring against.
 
 **Load discount settings.**
-Resolve each key of the [automated-contribution configuration](../nomination/automated-contributions.md#configuration) — `automated_contribution_weight`, `restatement_comment_weight`, `closed_after_pushback_weight`, `automated_contribution_expectations`, `automated_pushback_phrases` — per key, in order:
+Resolve each key of the [automated-contribution configuration](../nomination/automated-contributions.md#configuration) — `automated_contribution_weight`, `restatement_comment_weight`, `closed_after_pushback_weight`, `automated_pushback_penalty`, `automated_contribution_expectations`, `automated_pushback_phrases` — per key, in order:
 
 1. `<project-config>/committer-readiness.md`;
 2. `<project-config>/contributor-nomination-config.md`;
@@ -476,15 +476,15 @@ Produce the brief and present it to the maintainer for review.
 
 ### Activity vs. thresholds
 
-| Dimension           | Raw      | Adjusted | Required | Status      | Gap        |
-|---------------------|----------|----------|----------|-------------|------------|
-| PRs merged          | N        | N.N      | N        | MET/~/?     | −N or —    |
-| Reviews total       | N        | N.N      | N        | MET/~/?     | −N or —    |
-| Reviews substantive | N        | N.N      | N        | MET/~/?     | −N or —    |
-| Issues filed        | N        | N.N      | N (or 0) | MET/~/?     | −N or —    |
-| PR/issue comments   | N        | N.N      | N        | MET/~/?     | −N or —    |
-| Area breadth        | N areas  | N areas  | N areas  | MET/~/?     | −N or —    |
-| Off-GitHub          | present/absent | — | present | MET/? | —          |
+| Dimension           | Raw      | Discounted | Penalty | Adjusted | Required | Status      | Gap        |
+|---------------------|----------|------------|---------|----------|----------|-------------|------------|
+| PRs merged          | N        | N.N        | −N.N    | N.N      | N        | MET/~/?     | −N or —    |
+| Reviews total       | N        | N.N        | −N.N    | N.N      | N        | MET/~/?     | −N or —    |
+| Reviews substantive | N        | N.N        | −N.N    | N.N      | N        | MET/~/?     | −N or —    |
+| Issues filed        | N        | N.N        | −N.N    | N.N      | N (or 0) | MET/~/?     | −N or —    |
+| PR/issue comments   | N        | N.N        | −N.N    | N.N      | N        | MET/~/?     | −N or —    |
+| Area breadth        | N areas  | N areas    | —       | N areas  | N areas  | MET/~/?     | −N or —    |
+| Off-GitHub          | present/absent | — | — | — | present | MET/? | —          |
 
 [Cap note if any stream hit the 300-result budget]
 [Note if thresholds are qualitative / runtime-supplied]
@@ -519,6 +519,7 @@ a disqualification.>
   for MET dimensions or threshold-0 dimensions.
 - **Raw and adjusted**: when nothing was discounted the two columns are
   equal; keep both so the reader can see the discount ran.
+- **Penalty**: show `−N.N`, or `—` when zero.
 - **Status symbols**: `MET`, `~` (approaching), `✗` (not yet), or
   `?` (narrative only — no numeric threshold).
 - **Bar chart**: Unicode block characters (`█ ▇ ▆ ▅ ▄ ▃ ▂ ▁ ·`)
