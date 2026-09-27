@@ -200,7 +200,7 @@ def render(family: str, skills: dict[str, tuple[list[str], set[str]]], desc: dic
             "nothing.*",
             "",
             "Every skill here resolves project-specific values from the adopter's",
-            f"[`<project-config>/`](../../{TEMPLATE_DIR}/) directory — which is",
+            f"[`<project-config>/`](../../{TEMPLATE_DIR.as_posix()}/) directory — which is",
             "`.apache-magpie-local/` (gitignored, yours) first, then",
             "`.apache-magpie-overrides/` (committed, the project's).",
             "",
@@ -229,7 +229,7 @@ def render(family: str, skills: dict[str, tuple[list[str], set[str]]], desc: dic
         for name in sorted(rows):
             users = ", ".join(f"`{a}`" for a in rows[name])
             what = rebase_links(desc.get(name, "—"), TEMPLATE_DIR, docs_readme(family).parent)
-            block.append(f"| [`{name}`](../../{TEMPLATE_DIR}/{name}) | {what} | {users} |")
+            block.append(f"| [`{name}`](../../{TEMPLATE_DIR.as_posix()}/{name}) | {what} | {users} |")
         return [*block, ""]
 
     if required:

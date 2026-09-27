@@ -109,6 +109,8 @@ package = false
 # here once so every member can name it in its `dev` group without repeating
 # the source; workspace members inherit the root's sources.
 magpie-dev = { workspace = true }
+checker = { workspace = true }
+
 
 [tool.uv.workspace]
 members = [
@@ -151,6 +153,7 @@ members = [
   "tools/adversarial-review",
   "tools/vetted-ops",
   "tools/fossil",
-  "tools/sourcehut",
   "tools/gitlab",
+  "tools/sourcehut",
+  "tools/typed-decision",
 ]
