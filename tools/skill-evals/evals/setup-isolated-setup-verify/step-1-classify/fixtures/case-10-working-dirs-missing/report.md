@@ -45,7 +45,15 @@ cat ~/.claude/settings.json (permissions only):
 ```json
 {
   "permissions": {
-    "blockReadsOutsideWorkingDirectories": true,
+    "blockReadsOutsideWorkingDirectories": true
+  }
+}
+```
+
+cat /home/alice/myrepo/.claude/settings.local.json (permissions only):
+```json
+{
+  "permissions": {
     "additionalDirectories": ["/tmp/claude-*"]
   }
 }

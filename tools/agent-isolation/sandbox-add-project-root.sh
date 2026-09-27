@@ -47,6 +47,16 @@
 # every sandboxed command is a decision for the operator, not for a
 # helper that runs from a git hook. `--no-tool-paths` skips the set.
 #
+# Working directories: with `permissions.blockReadsOutsideWorkingDirectories`
+# on, every read outside the session's working directories asks first.
+# The skills read two such places on every run, so the helper also adds
+# them to `permissions.additionalDirectories`:
+#   $HOME/.claude/magpie     the fixed path the vetted-ops rules name
+#   /tmp/claude-<uid>        the session scratch root
+# Both are resolved to literal absolute paths: the setting does not
+# match globs such as `/tmp/claude-*`. They are harmless when the read
+# block is off. `--no-working-dirs` skips them.
+#
 # Scope: writes ONLY to project-local `<repo>/.claude/settings.local.json`,
 # never to user-scope (`~/.claude/settings.json`) and never to the
 # committed project-scope (`<repo>/.claude/settings.json`).
@@ -84,6 +94,7 @@
 #   sandbox-add-project-root.sh --all-worktrees  # main + every linked worktree
 #   sandbox-add-project-root.sh --dry-run        # print what would change, do not write
 #   sandbox-add-project-root.sh --no-tool-paths  # project root only, no dev-tool paths
+#   sandbox-add-project-root.sh --no-working-dirs  # no additionalDirectories entries
 #   sandbox-add-project-root.sh --help
 #
 # Behaviour:
@@ -91,7 +102,9 @@
 #   via `git rev-parse --show-toplevel`, then writes/updates
 #   `<that-path>/.claude/settings.local.json` so its
 #   `sandbox.filesystem.allowRead` and `allowWrite` arrays contain
-#   the worktree's absolute path and the dev-tool paths. Used by the `post-checkout` git
+#   the worktree's absolute path and the dev-tool paths, and its
+#   `permissions.additionalDirectories` array contains the working
+#   directories. Used by the `post-checkout` git
 #   hook installed by `/magpie-setup adopt` — when a new worktree
 #   is created, the hook fires in the new working tree and the
 #   helper writes that worktree's own settings.local.json.
@@ -102,8 +115,9 @@
 #   `setup-isolated-setup-install`, `/magpie-setup adopt`,
 #   `/magpie-setup upgrade`.
 # - The target file is created from scratch if it does not exist
-#   (only the `sandbox.filesystem` block is written; nothing else
-#   is touched). Existing files: idempotent, atomic (`jq` → tmp →
+#   (only the `sandbox.filesystem` block and
+#   `permissions.additionalDirectories` are written; nothing else is
+#   touched). Existing files: idempotent, atomic (`jq` → tmp →
 #   `mv`), no-op when the path is already present.
 # - Tolerant of missing prerequisites:
 #   - Not inside a git repo  → warn on stderr, exit 0.
@@ -126,13 +140,15 @@ set -euo pipefail
 all_worktrees=0
 dry_run=0
 tool_paths=1
+working_dirs=1
 while [ $# -gt 0 ]; do
   case "$1" in
     --all-worktrees) all_worktrees=1 ;;
     --dry-run)       dry_run=1 ;;
     --no-tool-paths) tool_paths=0 ;;
+    --no-working-dirs) working_dirs=0 ;;
     -h|--help)
-      sed -n '19,121p' "$0"  # print the usage + behaviour block above
+      sed -n '19,134p' "$0"  # print the usage + behaviour block above
       exit 0
       ;;
     *)
@@ -204,13 +220,23 @@ if [ "$tool_paths" -eq 1 ] && [ -n "${HOME:-}" ]; then
   tool_writes=$(jq -cn --arg h "$HOME" '[$h + "/.cache", $h + "/.local/share/uv"]')
 fi
 
+# --- working directories ----------------------------------------------------
+
+# JSON array handed to jq. Empty when --no-working-dirs is given, or when
+# HOME is unset (nothing absolute to resolve).
+work_dirs='[]'
+if [ "$working_dirs" -eq 1 ] && [ -n "${HOME:-}" ]; then
+  work_dirs=$(jq -cn --arg h "$HOME" --arg u "$(id -u)" '[$h + "/.claude/magpie", "/tmp/claude-" + $u]')
+fi
+
 # --- update a single project-local settings file ----------------------------
 
 # update_settings <file> <project-root-abs-path>
 #
 # Ensure <project-root-abs-path> appears in `.sandbox.filesystem.allowRead`
 # and `.sandbox.filesystem.allowWrite` of <file>, along with the dev-tool
-# paths (`$tool_reads` / `$tool_writes`). Atomic write.
+# paths (`$tool_reads` / `$tool_writes`), and that the working directories
+# (`$work_dirs`) appear in `.permissions.additionalDirectories`. Atomic write.
 # Creates <file> + parent dir if missing.
 update_settings() {
   local file="$1"
@@ -294,19 +320,24 @@ update_settings() {
     | .sandbox.filesystem.allowWrite = (
         (.sandbox.filesystem.allowWrite // []) | add_missing([$p] + $writes)
       )
+    | if ($dirs | length) > 0 then
+        .permissions.additionalDirectories = (
+          (.permissions.additionalDirectories // []) | add_missing($dirs)
+        )
+      else . end
   '
 
   local tmp
   tmp=$(mktemp "${file}.XXXXXX")
 
   if [ "$input" = "/dev/null" ]; then
-    if ! printf '{}\n' | jq --arg p "$path" --argjson reads "$tool_reads" --argjson writes "$tool_writes" "$jq_prog" > "$tmp"; then
+    if ! printf '{}\n' | jq --arg p "$path" --argjson reads "$tool_reads" --argjson writes "$tool_writes" --argjson dirs "$work_dirs" "$jq_prog" > "$tmp"; then
       rm -f "$tmp"
       warn "jq update of $file failed — leaving file untouched."
       return 0
     fi
   else
-    if ! jq --arg p "$path" --argjson reads "$tool_reads" --argjson writes "$tool_writes" "$jq_prog" "$file" > "$tmp"; then
+    if ! jq --arg p "$path" --argjson reads "$tool_reads" --argjson writes "$tool_writes" --argjson dirs "$work_dirs" "$jq_prog" "$file" > "$tmp"; then
       rm -f "$tmp"
       warn "jq update of $file failed — leaving file untouched."
       return 0

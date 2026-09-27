@@ -1028,9 +1028,12 @@ The helper:
   into **each worktree's** own `.claude/settings.local.json`.
 - Without the flag, writes only the current worktree's path
   into the current worktree's `.claude/settings.local.json`.
+- Also adds the two [working directories](#working-directories-under-the-read-outside-working-directories-block)
+  (`$HOME/.claude/magpie`, `/tmp/claude-<uid>`), resolved, to
+  `permissions.additionalDirectories`; `--no-working-dirs` skips them.
 - Creates `.claude/settings.local.json` from scratch if missing
-  (with only the `sandbox.filesystem` block — nothing else is
-  touched).
+  (with only the `sandbox.filesystem` block and
+  `permissions.additionalDirectories` — nothing else is touched).
 - Updates the file in place, atomically (`jq` → tmp → `mv`).
 - Skips any path already present in either array (idempotent).
 - Tolerant of missing prerequisites (no `jq`, not in a git repo,
@@ -1243,8 +1246,11 @@ repository:
 
 Without them, each such read prompts, and a bulk sync that fans out into
 read-only gatherer agents turns into one prompt per read per agent.
-Add both to `permissions.additionalDirectories` in the **user-scope**
-`~/.claude/settings.json`:
+Add both to `permissions.additionalDirectories` in the **project-local**
+`<repo>/.claude/settings.local.json` — the per-host file the
+[project-root coverage](#project-root-coverage-in-the-sandbox-allowlists)
+fix already uses. [`sandbox-add-project-root.sh`](#sandbox-add-project-rootsh)
+writes them there, next to the project root and the dev-tool paths:
 
 ```jsonc
 "permissions": {
@@ -1257,12 +1263,15 @@ Add both to `permissions.additionalDirectories` in the **user-scope**
 
 Three rules for the entries:
 
-- **Literal absolute paths.** Resolve `$HOME` and `id -u` when writing
-  them. A glob such as `/tmp/claude-*` is accepted and even listed as a
+- **Literal absolute paths.** The helper resolves `$HOME` and `id -u`.
+  A glob such as `/tmp/claude-*` is accepted and even listed as a
   working directory, but it is not matched: reads under
   `/tmp/claude-<uid>/…` keep prompting.
-- **User scope, never the committed project settings.** Both paths are
-  per-user, and so is the read block they answer.
+- **Per host, so project-local.** Both paths name this machine's home
+  directory and uid. Keep them out of the committed project settings,
+  and out of a user-scope `~/.claude/settings.json` that is
+  [synced across machines](#syncing-user-scope-config-across-machines):
+  a synced file carries one machine's paths to every other.
 - **Nothing becomes editable that was not before.** The `deny` rule
   `Edit(~/.claude/magpie/**)` still binds every file-editing tool in
   that directory, so the catalogue behind the vetted-ops read `allow`
@@ -1272,9 +1281,9 @@ Three rules for the entries:
 For a single session, `/add-dir <path>` does the same without a settings
 change. One case these entries do not cover: a Bash command that spells
 the path with a literal `~` can still prompt, because the read check does
-not resolve `~` inside a command. `setup-isolated-setup-install` proposes the resolved entries,
-`setup-isolated-setup-verify` checks them, and `setup-isolated-setup-update`
-reports them when they are missing.
+not resolve `~` inside a command. `setup-isolated-setup-install` runs the
+helper, `setup-isolated-setup-verify` checks the entries, and
+`setup-isolated-setup-update` reports them when they are missing.
 
 ## The clean-env wrapper
 
@@ -3081,10 +3090,9 @@ Then walk through:
    to `sandbox-status-line.sh`. If either key exists already
    (e.g. I have other PreToolUse hooks for unrelated work),
    surface the merge diff and ask me to approve before writing.
-   In the same file, add `permissions.additionalDirectories` with
-   `$HOME/.claude/magpie` and `/tmp/claude-$(id -u)` resolved to
-   literal absolute paths — no `~`, no globs — merging into any
-   existing list. See
+   Do **not** add `permissions.additionalDirectories` here: its
+   entries are per-host, and `sandbox-add-project-root.sh` writes
+   them to the project-local `settings.local.json` instead. See
    [Working directories under the read-outside-working-directories block](#working-directories-under-the-read-outside-working-directories-block).
 
 6. **(Optional) Waiting-for-input terminal tint.** Ask me whether
@@ -3336,16 +3344,17 @@ below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
     model providers and must keep its prompt).
 15. **Working directories under the read block**, if
     `permissions.blockReadsOutsideWorkingDirectories` is on in any
-    scope (n/a otherwise). User-scope
-    `permissions.additionalDirectories` contains the resolved
-    absolute paths of `$HOME/.claude/magpie` and
+    scope (n/a otherwise). The worktree's project-local
+    `.claude/settings.local.json` `permissions.additionalDirectories`
+    contains the resolved absolute paths of `$HOME/.claude/magpie` and
     `/tmp/claude-$(id -u)`. A missing path is ⚠: nothing is exposed,
     but every read under it prompts. An entry with a glob (such as
     `/tmp/claude-*`) does not cover the path it was meant to: it is
     listed as a working directory but never matched, so report it as
     that path missing (⚠) and say plainly the entry does nothing. The
-    same paths in the committed project settings are ⚠: they are
-    per-user.
+    same paths in the committed project settings, or in a user-scope
+    settings file that is synced across machines, are ⚠: they are
+    per-host.
 ```
 
 Re-run either form after every Claude Code upgrade — the sandbox

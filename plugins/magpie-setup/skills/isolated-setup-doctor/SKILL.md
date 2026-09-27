@@ -21,7 +21,7 @@ capability:
   - capability:reassess
 surface_hash: sha256:7d670b572d43bbeb
 license: Apache-2.0
-measured_tokens: 6004
+measured_tokens: 6034
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -331,12 +331,12 @@ bash <skill-dir>/scripts/probe-9-working-dirs.sh
 
 | Result | Status | Meaning |
 |---|---|---|
-| `✓ … are working directories` | Pass | Both resolved paths are listed. |
+| `✓ … are working directories` | Pass | Both resolved paths are listed (normally in `.claude/settings.local.json`, written by `sandbox-add-project-root.sh`). |
 | `⚠ not a working directory: …` | Warn | Each named path is missing; reads under it prompt. |
 | `⚠ … the glob entry … is never matched` | Warn | A glob such as `/tmp/claude-*` is listed as a working directory but does not match; replace it with the resolved path. |
 | `⊘ … blockReadsOutsideWorkingDirectories is off` | Skip | No read block, so nothing prompts. |
 | `⊘ HOME is not set` | Skip | The paths cannot be resolved; nothing to compare. |
-| `⊘ user-scope settings unreadable from the sandbox` | Skip | The user-scope file is where both the block and the entries usually live; `setup-isolated-setup-verify` check 15 reads it from outside the sandbox. |
+| `⊘ … user-scope settings unreadable from the sandbox` | Skip | The entries are missing from the readable project files, but the read block is usually set in user scope, which the sandbox cannot read; `setup-isolated-setup-verify` check 15 reads it from outside the sandbox. |
 
 **On ⚠ → remediation:**
 [`docs/setup/sandbox-troubleshooting.md` — Reads of `~/.claude/magpie` or `/tmp/claude-<uid>` ask for approval every time](../../../../docs/setup/sandbox-troubleshooting.md#reads-of-claudemagpie-or-tmpclaude-uid-ask-for-approval-every-time).

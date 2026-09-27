@@ -9,7 +9,7 @@
     {
       "n": 15,
       "status": "⚠",
-      "evidence": "read block on; /home/alice/.claude/magpie and /tmp/claude-1000 missing from user-scope additionalDirectories; the glob entry /tmp/claude-* is listed but never matched, so it does nothing"
+      "evidence": "read block on; /home/alice/.claude/magpie and /tmp/claude-1000 missing from additionalDirectories in .claude/settings.local.json; the glob entry /tmp/claude-* is listed but never matched, so it does nothing"
     }
   ]
 }

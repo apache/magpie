@@ -1187,8 +1187,10 @@ it is never matched.
 
 ### Fix
 
-Add both directories as resolved absolute paths to the **user-scope**
-`~/.claude/settings.json`:
+Re-run `~/.claude/scripts/sandbox-add-project-root.sh --all-worktrees`
+from a terminal (or with the sandbox bypass, as the setup skills do). It
+adds both directories as resolved absolute paths to each worktree's
+project-local, gitignored `.claude/settings.local.json`:
 
 ```jsonc
 "permissions": {
@@ -1216,8 +1218,9 @@ scratch root is already writable to sandboxed Bash. Rationale:
 - The prompt comes before any command runs, so the sandbox-error hint
   hook never sees it. `setup-isolated-setup-doctor` probe 9 and
   `setup-isolated-setup-verify` check 15 detect it instead.
-- Keep the entries out of the committed project settings: both paths are
-  per-user.
+- Keep the entries out of the committed project settings and out of a
+  user-scope `~/.claude/settings.json` synced across machines: both paths
+  name this host's home directory and uid.
 
 ## Adding a new entry
 

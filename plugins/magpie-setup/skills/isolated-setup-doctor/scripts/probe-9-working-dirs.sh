@@ -36,23 +36,22 @@ fi
 # shellcheck disable=SC2086
 settings=$(cat $files 2>/dev/null)
 
-if ! printf '%s' "$settings" | grep -q '"blockReadsOutsideWorkingDirectories"[[:space:]]*:[[:space:]]*true'; then
-  if [ "$user_readable" -eq 0 ]; then
-    echo "PROBE: working-dirs → ⊘ (user-scope settings unreadable from the sandbox; setup-isolated-setup-verify check 15 covers it)"
-  else
-    echo "PROBE: working-dirs → ⊘ (permissions.blockReadsOutsideWorkingDirectories is off)"
-  fi
-else
-  missing=""
-  for dir in "$magpie_dir" "$scratch_dir"; do
-    printf '%s' "$settings" | grep -qF "\"$dir\"" || missing="$missing $dir"
-  done
-  globs=$(printf '%s' "$settings" | grep -o '"/tmp/claude-\*[^"]*"' | head -1)
-  if [ -z "$missing" ]; then
-    echo "PROBE: working-dirs → ✓ ($magpie_dir and $scratch_dir are working directories)"
-  elif [ -n "$globs" ]; then
+missing=""
+for dir in "$magpie_dir" "$scratch_dir"; do
+  printf '%s' "$settings" | grep -qF "\"$dir\"" || missing="$missing $dir"
+done
+globs=$(printf '%s' "$settings" | grep -o '"/tmp/claude-\*[^"]*"' | head -1)
+
+if [ -z "$missing" ]; then
+  echo "PROBE: working-dirs → ✓ ($magpie_dir and $scratch_dir are working directories)"
+elif printf '%s' "$settings" | grep -q '"blockReadsOutsideWorkingDirectories"[[:space:]]*:[[:space:]]*true'; then
+  if [ -n "$globs" ]; then
     echo "PROBE: working-dirs → ⚠ (not a working directory:$missing; the glob entry $globs is never matched)"
   else
     echo "PROBE: working-dirs → ⚠ (not a working directory:$missing)"
   fi
+elif [ "$user_readable" -eq 0 ]; then
+  echo "PROBE: working-dirs → ⊘ (not a working directory:$missing; user-scope settings unreadable from the sandbox, so whether the read block is on is unknown — setup-isolated-setup-verify check 15 covers it)"
+else
+  echo "PROBE: working-dirs → ⊘ (permissions.blockReadsOutsideWorkingDirectories is off)"
 fi
