@@ -605,7 +605,7 @@ Step 6 below describes how to verify the state advance landed
    make the published CVE record user-facing:
 
    - **Title strip cascade** — `containers.cna.title` must have
-     gone through the [`security-cve-allocate` Step 2 cascade](../cve-allocate/SKILL.md#step-2--compute-the-cve-ready-title)
+     gone through the [`security-cve-allocate` Step 2 cascade](../cve-allocate/title-normalize.md#step-2--compute-the-cve-ready-title)
      and contain no project-name prefix/suffix, no `[GHSA-...]` /
      `(ZDRES-...)` / `(HUNTR-...)` / `(GHSL-...)` external tracker
      IDs, no `(split from #NNN)` markers, no `[Security Report]`

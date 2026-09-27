@@ -27,9 +27,9 @@ when_to_use: |
   public consequences and warrants explicit team escalation.
 argument-hint: "[issue-number]"
 capability: capability:resolve
-surface_hash: sha256:33a0ec8656a391bb
+surface_hash: sha256:3de4299ddc44314c
 license: Apache-2.0
-measured_tokens: 12153
+measured_tokens: 7865
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -312,50 +312,7 @@ privacy-llm pre-flight failure is also a hard stop.
 | `invalidate #N1, #N2, …` / `invalidate #N1-#N5` | explicit list; bulk-mode flow |
 | `invalidate proposed` | every open tracker that satisfies **both**: (a) has a triage proposal posted by [`security-issue-triage`](../issue-triage/SKILL.md) carrying **Proposed disposition: INVALID**, and (b) has a team-consensus marker — a thumbs-up reaction on the triage proposal from a roster member who is **not** the proposal author, OR a follow-up comment from a roster member containing a positive-acknowledgement keyword (`agree`, `concur`, `+1`, `confirmed`, `LGTM`) |
 
-Bulk-mode aggregates the per-tracker close-comment, reporter-
-draft, label / close-issue / board-archive actions into one
-combined proposal. The user confirms once with `all`; the apply
-phase runs sequentially per the existing Step 6 rule (one tracker
-fully applied — labels + comment + close + board archive + draft
-— before the next starts).
-
-`invalidate proposed` is a convenience for the
-"please proceed the agreed INVALID ones in bulk"
-pattern. The team-consensus detection is *necessary but not
-sufficient* — the user is still presented with the full list
-in the proposal and can override per-item before confirming.
-A INVALID triage proposal that hasn't yet received a
-second-roster-member ack is **excluded** from the resolved set
-with an explicit *"awaiting consensus on #NNN — skipped"* note
-in the recap.
-
-**Bulk-mode `all` confirmation does not pre-authorise reporter
-drafts.** Each draft body is still surfaced in the combined
-proposal and gated by the `all` confirmation, per the existing
-"draft before send" rule in
-[`AGENTS.md`](../../../../AGENTS.md). The draft creation runs
-during the apply phase; sending stays with the human triager
-in Gmail.
-
-**Resolution recipe for `invalidate proposed`:**
-
-```bash
-# Find open trackers with a INVALID triage proposal
-gh issue list --repo <tracker> --state open --label "needs triage" \
-  --limit 100 \
-  --json number,title,comments \
-  --jq '.[] | select(.comments | map(.body) | any(
-    startswith("**Triage proposal**") and contains("INVALID")
-  )) | .number'
-```
-
-If the result count equals the limit, note that there may be additional results not shown.
-
-Then, per resolved tracker, check the triage-proposal comment's
-reactions and follow-up comments for the team-consensus marker
-via `gh api repos/<tracker>/issues/comments/<id>/reactions`.
-Drop trackers that fail the consensus check; surface them in
-the recap as awaiting-consensus.
+Bulk-mode aggregation, the `invalidate proposed` consensus rules, and its resolution recipe: [`bulk.md`](bulk.md).
 
 ---
 
@@ -419,75 +376,13 @@ For `security@`-imported trackers, locate the Gmail `threadId`:
 
 ## Step 3 — Mine invalidity reasoning from the discussion
 
-The team's reasoning is the load-bearing input for the email
-draft. Extract verbatim quotes the user can confirm before any
-draft is written.
-
-Scan `tracker.comments[]` for posts that argue **why** the report
-is not a security issue. Strong signals:
-
-- Citations of the project's security model (`<security-model-url>`)
-  (full URL, anchor links, paraphrases).
-- Phrases like *"this is by design"*, *"out of scope"*,
-  *"documented behavior"*, *"requires X privileges already"*,
-  *"not a CVE"*, *"won't fix"*, *"working as
-  intended"*.
-- Pointers to existing CVEs that already addressed the broader
-  class (e.g. *"already covered by CVE-2023-37379"*).
-- Pointers to a documented mitigation the reporter missed
-  (config flag, RBAC role, security-policy section).
-- Counter-examples or PoC failures from team members trying to
-  reproduce.
-
-Surface the **3–5 most-load-bearing quotes** verbatim, each with
-the comment author's handle and a clickable comment URL. Do not
-paraphrase — the user should be able to copy a quote into the
-email draft if it fits.
-
-If no clear reasoning is present in the comments (e.g. the team
-discussed in chat and only landed a one-line *"closing as invalid"*
-on the tracker), surface this gap to the user with:
-
-> The tracker has no detailed reasoning in its public comments.
-> The email draft will need a reason to communicate to the
-> reporter. Options: (a) supply a one-paragraph reason inline
-> (`--reason "<text>"`), (b) point me to a chat transcript /
-> private GHSA comment to extract from, or (c) close silently
-> with no reply (only appropriate when the tracker is
-> `security@`-imported but the reporter is unreachable — flag
-> this in the rollup so the gap is visible).
+Full procedure: [`reasoning-and-canned.md`](reasoning-and-canned.md).
 
 ---
 
 ## Step 4 — Match a canned-response template
 
-The email draft is built canned-response-spine + augmentation,
-same pattern as
-[`security-issue-import` Step 5](../issue-import/SKILL.md).
-Read [`<project-config>/canned-responses.md`](../../../../<project-config>/canned-responses.md)
-and pick the section that best matches the invalidity reasoning
-mined in Step 3:
-
-| Reasoning shape | Canned section |
-|---|---|
-| Generic *"after review, not CVE-worthy"* with case-specific reasoning | *Negative Assessment response* (the `HERE DETAILED EXPLANATION FOLLOWS` placeholder is filled with the augmentation). |
-| Dag-author-provided input is the attack vector | *When someone claims Dag author-provided "user input" is dangerous*. |
-| DoS / RCE / arbitrary read via Connection configuration | *DoS/RCE/Arbitrary read via Provider's Connection configuration*. |
-| Self-XSS by an authenticated user | *Immediate response for self-XSS issues triggered by Authenticated users*. |
-| DoS triggered by an authenticated user (no privilege escalation) | *DoS issues triggered by Authenticated users*. |
-| Parameter injection to operator/hook called by the dag author | *Parameter injection to operator or hook*. |
-| Automated-scanner output without human-verified PoC | *Automated scanning results*. |
-| Image / video reproducer instead of a written report | *When someone submits a media report* (or *Or an alternative response*). |
-
-If multiple canned sections apply, pick the most-specific one and
-note the others to the user; if none fits, default to *Negative
-Assessment response* with the team's reasoning filling the
-placeholder.
-
-The skill must not invent a canned response or paraphrase one
-into the file. If the adopting project lacks a fitting template,
-surface the gap to the user — adding a canned response is a
-separate `canned-responses.md` PR, not part of this run.
+Full procedure, including the reasoning-shape to canned-section table: [`reasoning-and-canned.md`](reasoning-and-canned.md).
 
 ---
 
@@ -575,138 +470,7 @@ informational, not a blocker).
 
 ### 5d — Email draft (security@-imported only)
 
-Skip this entire substep when the import path detected in Step 2
-is *PR-imported*. Two additional skip cases — both **must be
-named explicitly** in the Step 5e rollup terminal entry:
-
-- **Internal-audit-finding imports.** The tracker was
-  imported from a project-internal markdown audit
-  (`<source-markdown>` or equivalent) with no inbound
-  `security@` thread. No reporter to notify. The rollup
-  terminal entry MUST state: *"No reporter notification owed
-  — internal audit finding, no inbound `security@` thread."*
-- **GHSA-relay-only reports — operator with GHSA write
-  access.** The only inbound channel is a GHSA advisory and
-  the tracker carries no Gmail thread. The operator running
-  the skill IS a maintainer with write access to the
-  `<upstream>` repo's GHSA (verify via
-  `gh api repos/<upstream>/security-advisories/<GHSA-ID>`
-  returning a non-403). In that case the GHSA advisory
-  itself IS the closure communication: post a closing
-  comment on the GHSA, mark the advisory as withdrawn or
-  closed informational, and record in the rollup terminal
-  entry: *"GHSA-relay-only reporter channel
-  (GHSA-XXXX-XXXX-XXXX) — closure communicated as GHSA
-  comment `<URL>` / advisory state set to
-  `<withdrawn|informational>`; no Gmail reply needed."*
-- **GHSA-relay-only reports — operator without GHSA write
-  access.** Same intake (GHSA-only, no Gmail thread) but the
-  operator cannot comment on / modify the GHSA — the API
-  call above returns 403, or the operator is running from a
-  triager account that does not hold GHSA-write membership.
-  In that case the GHSA channel is **not** self-sufficient;
-  the closure must be relayed via a forwarder with the
-  required GHSA-write permissions so they can post the
-  closure comment / state-change on our behalf. If the
-  parent tracker was imported via a forwarder adapter (per
-  the optional
-  [`security-issue-import-via-forwarder`](../issue-import-via-forwarder/SKILL.md)
-  sub-skill — i.e. when `forwarders.enabled` is non-empty in
-  `<project-config>/project.md` and a registered adapter
-  applies), route the drafted message through that adapter's
-  `contact_handle` and use the adapter's
-  `reporter_addressing_block` convention. See
-  [`tools/forwarder-relay/README.md`](../../../../tools/forwarder-relay/README.md)
-  for the contract. The drafted body includes the clickable
-  GHSA URL on its own line + a paste-ready block in the
-  reporter's voice with the invalid-disposition rationale +
-  canonical CVE-ID (when `duplicate`) for the forwarder to
-  post on the GHSA. Record in the rollup terminal entry: *"GHSA-relay-only
-  reporter channel (GHSA-XXXX-XXXX-XXXX); operator lacks
-  GHSA-write access on `<upstream>`. Forwarder-relay draft
-  `<draftId>` queued to `<forwarder-contact>` requesting they
-  post the closure comment on the GHSA on our behalf —
-  awaiting user review."*
-
-For every other `security@`-imported tracker, the invalidation
-reply is one of the five
-[forwarder-routing-policy milestones](../../../../docs/security/forwarder-routing-policy.md#milestones--do-relay)
-(*Report assessed as invalid*) — so the draft fires in both
-direct-reporter and via-forwarder modes; the policy only changes
-the **recipient** and the **body shape**.
-
-1. **Recipients:**
-   - **Direct-reporter mode**: `toRecipients` is
-     `tracker.reporterEmail` (the `From:` of the inbound root
-     message). The reply lands on the inbound thread via thread
-     attachment.
-   - **Via-forwarder mode** (the parent tracker was imported via
-     a forwarder adapter — see the optional
-     [`security-issue-import-via-forwarder`](../issue-import-via-forwarder/SKILL.md)
-     sub-skill and the
-     [policy's detection list](../../../../docs/security/forwarder-routing-policy.md#when-does-via-forwarder-mode-apply)):
-     `toRecipients` is the **forwarder contact** resolved via the
-     matching adapter's `contact_handle` per
-     [`tools/forwarder-relay/README.md`](../../../../tools/forwarder-relay/README.md)
-     (or the named contact from an explicit no-direct-contact
-     marker comment on the tracker). The body follows the
-     adapter's `reporter_addressing_block` convention and the
-     *Report assessed as invalid* milestone-body shape in the
-     policy doc — short, references the external identifier
-     (GHSA ID, HackerOne URL) rather than restating the
-     technical detail.
-   - `ccRecipients`: includes `security_cc` from the shared
-     [security draft CC resolution](../../../../tools/mail-source/contract.md#security-draft-cc-resolution).
-     If no address resolves, block draft creation.
-2. **Subject:** `Re: <root subject>`. Never invent a fresh
-   subject — the reply lands on the inbound thread via
-   thread attachment (`replyToMessageId` for `claude_ai_mcp`,
-   `--thread-id` for `oauth_curl`).
-3. **Body:**
-   - Spine: the canned section picked in Step 4, verbatim.
-   - Augmentation: a clearly-marked block filling the
-     `HERE DETAILED EXPLANATION FOLLOWS` placeholder (or
-     equivalent) with the case-specific reasoning gathered in
-     Step 3. Use the same `> **[Inline addition for this
-     report]**` block convention as
-     [`security-issue-import` Step 5](../issue-import/SKILL.md)
-     — the user must be able to delete the augmentation
-     cleanly without leaving a grammatical orphan.
-   - **No mention of `<tracker>`.** The tracker repo is
-     private; the reporter has no access; references would
-     leak. Cite the public Security Model and any public CVEs
-     instead.
-   - **Canonical CVE-ID for `duplicate` dispositions.** When
-     the close is a `duplicate` of an existing CVE record, the
-     body MUST name the canonical `CVE-YYYY-NNNNN` ID
-     verbatim — e.g. *"This is the same root cause as
-     `CVE-2026-XXXXX` which we already track and ship the fix
-     for in `<product>` X.Y.Z."* This lets a forwarder's
-     dedup workflow group the two threads. For via-forwarder mode this
-     additionally goes inside the adapter's paste-ready
-     reporter-voice block per the matching adapter's
-     `reporter_addressing_block` convention — see
-     [`tools/forwarder-relay/README.md`](../../../../tools/forwarder-relay/README.md).
-   - **Polite-but-firm.** Per
-     [`AGENTS.md`](../../../../AGENTS.md#tone-polite-but-firm--no-room-to-wiggle), state
-     the team's position once, clearly, with reasoning. Do not
-     re-open the discussion with phrases like *"happy to
-     discuss further"* — close the loop.
-4. **Backend selection:** use the project's configured
-   drafting backend per
-   [`tools/gmail/draft-backends.md`](../../../../tools/gmail/draft-backends.md#how-the-skills-pick-a-backend).
-   Prefer `oauth_curl` (credentials at default path
-   `~/.config/apache-magpie/gmail-oauth.json`); it preserves URLs
-   verbatim. The `claude_ai_mcp` backend is discouraged because it
-   rewrites embedded URLs into Google tracking redirects (see
-   [`draft-backends.md`](../../../../tools/gmail/draft-backends.md#privacy-warning--the-claudeai-gmail-mcp-rewrites-embedded-urls-into-google-tracking-redirects)) — use it only when `oauth_curl`
-   credentials are missing AND the body has no links.
-5. **Existing-draft check.** Before drafting, scan the inbound
-   thread for an existing pending draft per the
-   [*Detecting drafts that already exist on a thread*](../../../../tools/gmail/draft-backends.md#detecting-drafts-that-already-exist-on-a-thread)
-   recipe — both `mcp__claude_ai_Gmail__list_drafts` and
-   `mcp__claude_ai_Gmail__get_thread`. If a pending draft
-   already exists, surface it instead of silently shadowing.
+Skip cases, recipients, subject, body, backend selection, and the existing-draft check: [`reporter-draft.md`](reporter-draft.md).
 
 ### 5e — Status-rollup entry
 
@@ -804,96 +568,7 @@ If any sub-step fails on tracker N, **stop**. Surface:
 The user retries the remaining trackers with an explicit
 selector; do not silently retry the failed tracker.
 
-### 6a — Post the rollup entry first
-
-Posting the rollup before the closing comment lets the closing
-comment link to the rollup's permalink. Append to the existing
-rollup comment via the upsert recipe in
-[`status-rollup.md`](../../../../tools/github/status-rollup.md):
-
-```bash
-EXISTING=$(gh api repos/<tracker>/issues/comments/<rollup-comment-id> --jq .body)
-cat > /tmp/invalidate-<N>-rollup.md <<EOF
-${EXISTING}
-
-<new <details> block from Step 5e>
-EOF
-gh api -X PATCH repos/<tracker>/issues/comments/<rollup-comment-id> \
-  -F body=@/tmp/invalidate-<N>-rollup.md \
-  --jq .html_url
-```
-
-If no rollup comment exists (very old trackers predating the
-rollup convention), create one fresh with just the new entry —
-same as the *create* branch of the upsert recipe.
-
-Capture the rollup permalink for use in the closing comment.
-
-### 6b — Post the closing comment
-
-```bash
-gh issue comment <N> --repo <tracker> --body-file /tmp/invalidate-<N>-close.md
-```
-
-Body is the Step 5b shape with comment IDs substituted.
-
-### 6c — Apply labels
-
-```bash
-gh issue edit <N> --repo <tracker> \
-  --add-label 'invalid' \
-  --remove-label '<scope-label>' \
-  --remove-label 'needs triage' \
-  --remove-label 'pr created' \
-  --remove-label 'pr merged'
-```
-
-`gh issue edit` ignores `--remove-label` for labels that aren't
-set, so listing all candidates is safe and idempotent.
-
-### 6d — Close the tracker
-
-```bash
-gh issue close <N> --repo <tracker> --reason 'not planned'
-```
-
-`not planned` is the right close reason — `completed` would
-imply the issue was resolved, which is misleading for an
-invalid disposition.
-
-### 6e — Archive the project-board item
-
-Run the introspection query + `archiveProjectV2Item` mutation
-from Step 5c. Capture the returned `isArchived: true` and
-record in the rollup if it differs from expected.
-
-### 6f — Create the Gmail draft (security@-imported only)
-
-Skip if PR-imported or the user chose `silent`.
-
-Use the backend chosen in Step 5d:
-
-- **`claude_ai_mcp`:** call `mcp__claude_ai_Gmail__get_thread`
-  on `<tracker.threadId>` with `messageFormat: MINIMAL`, take
-  the chronologically-last message's `id`, and call
-  `mcp__claude_ai_Gmail__create_draft` with `to=<reporterEmail>`,
-  `cc=security_cc`, `subject='Re: <root subject>'`,
-  `body=<file>`, and `replyToMessageId=<that message id>`. The
-  draft lands attached to the inbound thread.
-- **`oauth_curl`:** call the `oauth_curl drafts:create` script
-  per [`draft-backends.md`](../../../../tools/gmail/draft-backends.md)
-  with `threadId=<tracker.threadId>`, `to=<reporterEmail>`,
-  `cc=security_cc`, `subject='Re: <root subject>'`,
-  `body=<file>`. The draft lands attached to the inbound thread.
-
-Capture the returned `draftId`. Update the rollup entry's
-*Reporter notification* line with the actual draft ID
-(re-PATCH the rollup comment if the draft ID was a placeholder
-when 6a ran).
-
-### 6g — Cleanup
-
-Delete `/tmp/invalidate-<N>-*.md`.
+Sub-steps 6a (rollup entry) through 6g (cleanup), with their commands: [`apply.md`](apply.md).
 
 ---
 
@@ -957,56 +632,4 @@ Hand-off line:
 
 ## Examples
 
-### Example 1 — `security@`-imported, dag-author-input class
-
-```text
-invalidate 244
-```
-
-Tracker `<tracker>#244` (*DAG author RCE on webserver via
-unrestricted import_string() in BaseSerialization.deserialize()*),
-import path: `security@`-imported. Step 3 mines five comments
-arguing the dag author is already trusted (with quotes from
-two security-team members). Canned: *When someone claims Dag
-author-provided "user input" is dangerous*. Email draft created
-on thread `<threadId>` with the canned spine + augmentation
-quoting the team's specific reasoning. Tracker closed as
-`not planned`, `invalid` label applied, scope label removed,
-project board item archived. Rollup entry posted with five
-verbatim quotes and the draft ID. Hand-off: terminal.
-
-### Example 2 — PR-imported, no email
-
-```text
-invalidate 355
-```
-
-Tracker `#355` (the public-PR-imported tracker from the test of
-`security-issue-import-from-pr` against PR 65703). Suppose the
-team later decides the report is not CVE-worthy on its own
-merits. Step 2 detects the `N/A — opened from public PR` sentinel;
-the email-draft step is skipped. Closing comment notes *"no
-reporter notification (PR-imported tracker)"*. Rollup entry
-records the `silent` notification path with a link to the
-*Reporter credit policy* explaining why. Tracker closed,
-archived. PR `<upstream>#65703` is **not** commented on —
-the public PR stays unaware of the CVE process per the
-import-from-pr skill's golden rules.
-
-### Example 3 — Hard stop: CVE already allocated
-
-```text
-invalidate 257
-```
-
-Step 0 sees `cve allocated` label and *CVE tool link* populated
-with `<cve-tool-url>`. The
-skill stops:
-
-> Tracker `#257` has CVE `CVE-2026-XXXXX` allocated.
-> Closing as invalid here would orphan a public CVE record.
-> Reject the CVE in Vulnogram first
-> (<cve-tool-url>), then
-> re-invoke `invalidate 257`.
-
-No labels touched, no comments posted, no archive performed.
+Worked examples (`security@`-imported, PR-imported, CVE-allocated hard stop): [`examples.md`](examples.md).
