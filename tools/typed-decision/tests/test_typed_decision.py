@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import io
 import json
+import pathlib
 import urllib.error
 import urllib.request
 from typing import Any
@@ -45,13 +46,14 @@ from typed_decision.providers.jev import (
     NoAuthRedirectHandler,
     _require_https,
 )
+from typed_decision.registry import _is_jev_configured
 
 
-def _make_mock_response(body: dict[str, Any] | str, status: int = 200) -> MagicMock:
+def _make_mock_response(body: dict[str, Any] | list[Any] | str | int, status: int = 200) -> MagicMock:
     """Helper to produce a mock HTTP response object for urllib."""
     mock_resp = MagicMock()
     mock_resp.status = status
-    if isinstance(body, dict):
+    if isinstance(body, (dict, list, int)):
         raw_bytes = json.dumps(body).encode("utf-8")
     else:
         raw_bytes = body.encode("utf-8")
@@ -70,6 +72,22 @@ def clean_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("PRIVACY_LLM_CONFIG", raising=False)
     monkeypatch.delenv("MAGPIE_PRIVACY_GATE_STRICT", raising=False)
     set_custom_gate_hook(None)
+
+
+@pytest.fixture
+def approved_privacy_config(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch) -> pathlib.Path:
+    """Provide a valid privacy-llm.md approving the default Jev endpoint."""
+    config_file = tmp_path / "privacy-llm.md"
+    config_file.write_text(
+        "# Privacy LLM Configuration\n\n"
+        "## Approved third-party endpoints (opt-in)\n\n"
+        "- api.typesafe.ai (TypeSafe Jev)\n"
+        "  - Data-residency contract: https://typesafe.ai/legal/dpa-strict\n"
+        "  - Approved-by: JP 2026-09-01\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("PRIVACY_LLM_CONFIG", str(config_file))
+    return config_file
 
 
 # ---------------------------------------------------------------------------
@@ -124,7 +142,7 @@ def test_model_version_is_pinned_constant() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_jev_choice_success() -> None:
+def test_jev_choice_success(approved_privacy_config: pathlib.Path) -> None:
     """Mocked successful choice operation returns {label, confidence}."""
     provider = JevProvider(api_key="test-key")
     expected_response = {
@@ -153,7 +171,7 @@ def test_jev_choice_success() -> None:
         assert body["options"] == ["bug", "feature", "question"]
 
 
-def test_jev_score_success() -> None:
+def test_jev_score_success(approved_privacy_config: pathlib.Path) -> None:
     """Mocked successful score operation returns {value, confidence}."""
     provider = JevProvider(api_key="test-key")
     expected_response = {
@@ -176,7 +194,7 @@ def test_jev_score_success() -> None:
         assert body["scale"] == [1, 5]
 
 
-def test_jev_noul_success() -> None:
+def test_jev_noul_success(approved_privacy_config: pathlib.Path) -> None:
     """Mocked successful noul operation returns {probability}."""
     provider = JevProvider(api_key="test-key")
     expected_response = {
@@ -198,7 +216,7 @@ def test_jev_noul_success() -> None:
         assert body["prompt"] == "Is this report actionable?"
 
 
-def test_jev_nested_result_object() -> None:
+def test_jev_nested_result_object(approved_privacy_config: pathlib.Path) -> None:
     """Provider handles nested 'result' or 'decision' dictionaries from backend."""
     provider = JevProvider(api_key="test-key")
     nested_response = {
@@ -219,7 +237,7 @@ def test_jev_nested_result_object() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_timeout_retries_once_then_unavailable() -> None:
+def test_timeout_retries_once_then_unavailable(approved_privacy_config: pathlib.Path) -> None:
     """On timeout, client retries exactly once with backoff, then raises TypedDecisionUnavailable."""
     provider = JevProvider(api_key="test-key", backoff_seconds=0.001)
 
@@ -233,7 +251,7 @@ def test_timeout_retries_once_then_unavailable() -> None:
         assert mock_open.call_count == 2
 
 
-def test_timeout_on_urlerror_retries_once_then_unavailable() -> None:
+def test_timeout_on_urlerror_retries_once_then_unavailable(approved_privacy_config: pathlib.Path) -> None:
     """URLError caused by timeout retries once, then raises TypedDecisionUnavailable."""
     provider = JevProvider(api_key="test-key", backoff_seconds=0.001)
     timeout_url_err = urllib.error.URLError("timed out")
@@ -245,7 +263,7 @@ def test_timeout_on_urlerror_retries_once_then_unavailable() -> None:
         assert mock_open.call_count == 2
 
 
-def test_timeout_first_attempt_retry_succeeds() -> None:
+def test_timeout_first_attempt_retry_succeeds(approved_privacy_config: pathlib.Path) -> None:
     """First attempt times out, retry succeeds: operation returns response."""
     provider = JevProvider(api_key="test-key", backoff_seconds=0.001)
 
@@ -259,11 +277,11 @@ def test_timeout_first_attempt_retry_succeeds() -> None:
 
 
 # ---------------------------------------------------------------------------
-# 5. Outbound Content Passes Through Privacy-LLM Gate
+# 5. Outbound Content Passes Through Privacy-LLM Gate (Deny-by-Default)
 # ---------------------------------------------------------------------------
 
 
-def test_outbound_passes_through_privacy_gate() -> None:
+def test_outbound_passes_through_privacy_gate(approved_privacy_config: pathlib.Path) -> None:
     """Every outbound prompt must be routed through enforce_privacy_gate before dispatch."""
     provider = JevProvider(api_key="test-key")
     mock_resp = _make_mock_response({"label": "approved", "confidence": 1.0})
@@ -274,7 +292,9 @@ def test_outbound_passes_through_privacy_gate() -> None:
     ):
         provider.choice("Confidential triage prompt", ["approved", "rejected"])
 
-        mock_gate.assert_called_once_with("Confidential triage prompt", DEFAULT_ENDPOINT)
+        mock_gate.assert_called_once_with(
+            "Confidential triage prompt", DEFAULT_ENDPOINT, provider_name="TypeSafe Jev"
+        )
 
 
 def test_privacy_gate_redaction_is_propagated_outbound() -> None:
@@ -293,7 +313,6 @@ def test_privacy_gate_redaction_is_propagated_outbound() -> None:
         req: urllib.request.Request = mock_open.call_args[0][0]
         assert isinstance(req.data, bytes)
         body = json.loads(req.data.decode("utf-8"))
-        # Verify the payload carried the gate's vetted text, not the raw secret
         assert body["prompt"] == "Analyzing report for [REDACTED] vulnerability"
         assert "secret_identifier" not in body["prompt"]
 
@@ -311,39 +330,123 @@ def test_privacy_gate_rejection_prevents_network_egress() -> None:
         with pytest.raises(TypedDecisionUnavailable, match="Privacy-LLM gate blocked"):
             provider.choice("Test prompt", ["a", "b"])
 
-        # No network call was attempted
         assert mock_open.call_count == 0
 
 
-def test_privacy_gate_strict_mode_without_config_fails(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Strict privacy mode rejects third-party endpoint when privacy-llm.md is missing."""
-    monkeypatch.setenv("MAGPIE_PRIVACY_GATE_STRICT", "true")
+def test_privacy_gate_denies_by_default_when_no_config() -> None:
+    """Third-party endpoints are denied by default when no privacy-llm config is found."""
     provider = JevProvider(api_key="test-key")
 
-    with pytest.raises(TypedDecisionUnavailable, match="Privacy-LLM gate rejected"):
+    with pytest.raises(TypedDecisionUnavailable, match="Privacy-LLM gate rejected outbound request"):
         provider.choice("Test prompt", ["a", "b"])
 
+    with pytest.raises(TypedDecisionUnavailable, match="no privacy-llm config found"):
+        enforce_privacy_gate("Test prompt", DEFAULT_ENDPOINT, provider_name="TypeSafe Jev")
 
-def test_privacy_gate_opt_in_config(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Privacy gate approves third-party endpoint when declared in privacy-llm.md opt-in."""
+
+def test_privacy_gate_denies_missing_config_file(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """When PRIVACY_LLM_CONFIG points to a missing file, third-party endpoints are denied."""
+    monkeypatch.setenv("PRIVACY_LLM_CONFIG", str(tmp_path / "nonexistent-privacy-llm.md"))
+
+    with pytest.raises(TypedDecisionUnavailable, match="Failed to parse privacy-llm config"):
+        enforce_privacy_gate("Prompt", DEFAULT_ENDPOINT, provider_name="TypeSafe Jev")
+
+
+def test_privacy_gate_denies_unapproved_third_party_endpoint(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Third-party endpoint not listed in opt-in section is denied."""
+    config_file = tmp_path / "privacy-llm.md"
+    config_file.write_text(
+        "# Privacy LLM Configuration\n\n"
+        "## Approved third-party endpoints (opt-in)\n\n"
+        "- api.other.ai (Other AI Service)\n"
+        "  - Data-residency contract: https://other.ai/legal/dpa\n"
+        "  - Approved-by: JP 2026-09-01\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("PRIVACY_LLM_CONFIG", str(config_file))
+
+    with pytest.raises(TypedDecisionUnavailable, match="no opt-in entry was declared"):
+        enforce_privacy_gate("Prompt", DEFAULT_ENDPOINT, provider_name="TypeSafe Jev")
+
+
+def test_privacy_gate_denies_endpoint_in_currently_configured_stack_only(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Endpoint declared only under 'Currently configured LLM stack' is denied without opt-in sign-off."""
+    config_file = tmp_path / "privacy-llm.md"
+    config_file.write_text(
+        "# Privacy LLM Configuration\n\n"
+        "## Currently configured LLM stack\n\n"
+        "- api.typesafe.ai (TypeSafe Jev)\n\n"
+        "## Approved third-party endpoints (opt-in)\n\n"
+        "- none\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("PRIVACY_LLM_CONFIG", str(config_file))
+
+    with pytest.raises(TypedDecisionUnavailable, match="no opt-in entry was declared"):
+        enforce_privacy_gate("Prompt", DEFAULT_ENDPOINT, provider_name="TypeSafe Jev")
+
+
+def test_privacy_gate_denies_placeholder_approved_by(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Opt-in entry with placeholder Approved-by (e.g. <pmc-member-initials>) is denied."""
     config_file = tmp_path / "privacy-llm.md"
     config_file.write_text(
         "# Privacy LLM Configuration\n\n"
         "## Approved third-party endpoints (opt-in)\n\n"
         "- api.typesafe.ai (TypeSafe Jev)\n"
         "  - Data-residency contract: https://typesafe.ai/legal/dpa-strict\n"
-        "  - Approved-by: Security Team 2026-09-01\n",
+        "  - Approved-by: <pmc-member-initials> 2026-09-01\n",
         encoding="utf-8",
     )
     monkeypatch.setenv("PRIVACY_LLM_CONFIG", str(config_file))
-    monkeypatch.setenv("MAGPIE_PRIVACY_GATE_STRICT", "true")
 
-    provider = JevProvider(api_key="test-key")
-    mock_resp = _make_mock_response({"probability": 0.5})
+    with pytest.raises(TypedDecisionUnavailable, match="placeholder text"):
+        enforce_privacy_gate("Prompt", DEFAULT_ENDPOINT, provider_name="TypeSafe Jev")
 
-    with patch("urllib.request.OpenerDirector.open", return_value=mock_resp):
-        res = provider.noul("Test prompt")
-        assert res == {"probability": 0.5}
+
+def test_privacy_gate_denies_missing_data_residency(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Opt-in entry missing Data-residency contract is denied."""
+    config_file = tmp_path / "privacy-llm.md"
+    config_file.write_text(
+        "# Privacy LLM Configuration\n\n"
+        "## Approved third-party endpoints (opt-in)\n\n"
+        "- api.typesafe.ai (TypeSafe Jev)\n"
+        "  - Approved-by: JP 2026-09-01\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("PRIVACY_LLM_CONFIG", str(config_file))
+
+    with pytest.raises(TypedDecisionUnavailable, match="missing the 'Data-residency contract'"):
+        enforce_privacy_gate("Prompt", DEFAULT_ENDPOINT, provider_name="TypeSafe Jev")
+
+
+def test_privacy_gate_approves_valid_opt_in(approved_privacy_config: pathlib.Path) -> None:
+    """Opt-in entry with contract and real PMC Approved-by succeeds."""
+    prompt = "Prompt destined for approved provider"
+    result = enforce_privacy_gate(prompt, DEFAULT_ENDPOINT, provider_name="TypeSafe Jev")
+    assert result == prompt
+
+
+def test_privacy_gate_approves_default_rules() -> None:
+    """Localhost, 127.0.0.1, and *.apache.org endpoints are approved without config."""
+    assert enforce_privacy_gate("Test", "http://localhost:8080/v1") == "Test"
+    assert enforce_privacy_gate("Test", "http://127.0.0.1:9000/v1") == "Test"
+    assert enforce_privacy_gate("Test", "https://infra.apache.org/v1") == "Test"
+
+
+def test_privacy_gate_denies_carved_out_apache_host() -> None:
+    """llm.apache.org is carved out and denied by default without explicit opt-in."""
+    with pytest.raises(TypedDecisionUnavailable, match=r"carved out of the \*.apache.org default approval"):
+        enforce_privacy_gate("Test", "https://llm.apache.org/v1")
 
 
 # ---------------------------------------------------------------------------
@@ -383,12 +486,24 @@ def test_registry_unset_unavailable_if_unconfigured() -> None:
         get_provider()
 
 
+def test_registry_is_jev_configured_deduplicated(monkeypatch: pytest.MonkeyPatch) -> None:
+    """_is_jev_configured() delegates to _resolve_api_key()."""
+    assert _is_jev_configured() is False
+
+    monkeypatch.setenv("TYPESAFE_API_KEY", "key-1")
+    assert _is_jev_configured() is True
+
+    monkeypatch.delenv("TYPESAFE_API_KEY")
+    monkeypatch.setenv("JEV_API_KEY", "key-2")
+    assert _is_jev_configured() is True
+
+
 # ---------------------------------------------------------------------------
-# 7. Fail-Open on Network and Provider Errors
+# 7. Fail-Open, Validation, and Error Handling Tests
 # ---------------------------------------------------------------------------
 
 
-def test_http_error_fail_open() -> None:
+def test_http_error_fail_open(approved_privacy_config: pathlib.Path) -> None:
     """HTTP 500 error raises TypedDecisionUnavailable without fabricated fallback."""
     provider = JevProvider(api_key="test-key")
     err_body = json.dumps({"error": "Internal server error in model execution"}).encode("utf-8")
@@ -405,7 +520,7 @@ def test_http_error_fail_open() -> None:
             provider.choice("Test", ["a", "b"])
 
 
-def test_http_auth_error_fail_open() -> None:
+def test_http_auth_error_fail_open(approved_privacy_config: pathlib.Path) -> None:
     """HTTP 401 Unauthorized raises TypedDecisionUnavailable."""
     provider = JevProvider(api_key="bad-key")
     http_err = urllib.error.HTTPError(
@@ -421,7 +536,7 @@ def test_http_auth_error_fail_open() -> None:
             provider.score("Test", (1, 5))
 
 
-def test_invalid_json_fail_open() -> None:
+def test_invalid_json_fail_open(approved_privacy_config: pathlib.Path) -> None:
     """Non-JSON response raises TypedDecisionUnavailable."""
     provider = JevProvider(api_key="test-key")
     mock_resp = _make_mock_response("Bad Gateway (HTML error page)", status=502)
@@ -431,6 +546,16 @@ def test_invalid_json_fail_open() -> None:
             provider.noul("Test")
 
 
+def test_malformed_response_object_handled_fail_open(approved_privacy_config: pathlib.Path) -> None:
+    """Non-dictionary JSON responses raise TypedDecisionUnavailable fail-open."""
+    provider = JevProvider(api_key="test-key")
+    mock_resp = _make_mock_response(["not", "a", "dict"])
+
+    with patch("urllib.request.OpenerDirector.open", return_value=mock_resp):
+        with pytest.raises(TypedDecisionUnavailable, match="Malformed response from Jev API"):
+            provider.choice("Test", ["a", "b"])
+
+
 def test_choice_empty_options_raises() -> None:
     """Passing empty options list raises TypedDecisionUnavailable."""
     provider = JevProvider(api_key="test-key")
@@ -438,14 +563,146 @@ def test_choice_empty_options_raises() -> None:
         provider.choice("Test prompt", [])
 
 
-def test_choice_missing_label_in_response() -> None:
+def test_choice_missing_label_in_response(approved_privacy_config: pathlib.Path) -> None:
     """Response missing label raises TypedDecisionUnavailable."""
     provider = JevProvider(api_key="test-key")
-    mock_resp = _make_mock_response({"unexpected": 123})
+    mock_resp = _make_mock_response({"confidence": 0.95})
 
     with patch("urllib.request.OpenerDirector.open", return_value=mock_resp):
         with pytest.raises(TypedDecisionUnavailable, match="missing 'label'"):
             provider.choice("Test", ["a", "b"])
+
+
+def test_choice_rejects_missing_confidence(approved_privacy_config: pathlib.Path) -> None:
+    """Choice response missing confidence must raise TypedDecisionUnavailable (never default to 1.0)."""
+    provider = JevProvider(api_key="test-key")
+    mock_resp = _make_mock_response({"label": "a"})
+
+    with patch("urllib.request.OpenerDirector.open", return_value=mock_resp):
+        with pytest.raises(TypedDecisionUnavailable, match="missing 'confidence'"):
+            provider.choice("Test", ["a", "b"])
+
+
+def test_choice_rejects_label_not_in_options(approved_privacy_config: pathlib.Path) -> None:
+    """Choice response returning a label outside the provided options must raise TypedDecisionUnavailable."""
+    provider = JevProvider(api_key="test-key")
+    mock_resp = _make_mock_response({"label": "unexpected", "confidence": 0.9})
+
+    with patch("urllib.request.OpenerDirector.open", return_value=mock_resp):
+        with pytest.raises(TypedDecisionUnavailable, match="not in candidate options"):
+            provider.choice("Test", ["a", "b"])
+
+
+def test_choice_rejects_invalid_confidence_range(approved_privacy_config: pathlib.Path) -> None:
+    """Confidence outside [0.0, 1.0] must raise TypedDecisionUnavailable."""
+    provider = JevProvider(api_key="test-key")
+
+    mock_resp_high = _make_mock_response({"label": "a", "confidence": 1.5})
+    with patch("urllib.request.OpenerDirector.open", return_value=mock_resp_high):
+        with pytest.raises(TypedDecisionUnavailable, match="outside valid range"):
+            provider.choice("Test", ["a", "b"])
+
+    mock_resp_low = _make_mock_response({"label": "a", "confidence": -0.1})
+    with patch("urllib.request.OpenerDirector.open", return_value=mock_resp_low):
+        with pytest.raises(TypedDecisionUnavailable, match="outside valid range"):
+            provider.choice("Test", ["a", "b"])
+
+
+def test_choice_rejects_non_numeric_confidence(approved_privacy_config: pathlib.Path) -> None:
+    """Non-numeric confidence raises TypedDecisionUnavailable."""
+    provider = JevProvider(api_key="test-key")
+    mock_resp = _make_mock_response({"label": "a", "confidence": "high"})
+
+    with patch("urllib.request.OpenerDirector.open", return_value=mock_resp):
+        with pytest.raises(TypedDecisionUnavailable, match="non-numeric confidence"):
+            provider.choice("Test", ["a", "b"])
+
+
+def test_score_invalid_scale_argument() -> None:
+    """Passing invalid scale (min >= max) raises TypedDecisionUnavailable."""
+    provider = JevProvider(api_key="test-key")
+    with pytest.raises(TypedDecisionUnavailable, match="Invalid scale"):
+        provider.score("Test", scale=(5, 1))
+
+
+def test_score_rejects_missing_value(approved_privacy_config: pathlib.Path) -> None:
+    """Score response missing value raises TypedDecisionUnavailable."""
+    provider = JevProvider(api_key="test-key")
+    mock_resp = _make_mock_response({"confidence": 0.8})
+
+    with patch("urllib.request.OpenerDirector.open", return_value=mock_resp):
+        with pytest.raises(TypedDecisionUnavailable, match="missing 'value'"):
+            provider.score("Test", scale=(1, 5))
+
+
+def test_score_rejects_value_outside_scale(approved_privacy_config: pathlib.Path) -> None:
+    """Score response value outside scale raises TypedDecisionUnavailable."""
+    provider = JevProvider(api_key="test-key")
+
+    mock_resp_high = _make_mock_response({"value": 6.0, "confidence": 0.9})
+    with patch("urllib.request.OpenerDirector.open", return_value=mock_resp_high):
+        with pytest.raises(TypedDecisionUnavailable, match="outside scale"):
+            provider.score("Test", scale=(1, 5))
+
+    mock_resp_low = _make_mock_response({"value": 0.5, "confidence": 0.9})
+    with patch("urllib.request.OpenerDirector.open", return_value=mock_resp_low):
+        with pytest.raises(TypedDecisionUnavailable, match="outside scale"):
+            provider.score("Test", scale=(1, 5))
+
+
+def test_score_rejects_missing_confidence(approved_privacy_config: pathlib.Path) -> None:
+    """Score response missing confidence raises TypedDecisionUnavailable."""
+    provider = JevProvider(api_key="test-key")
+    mock_resp = _make_mock_response({"value": 3.0})
+
+    with patch("urllib.request.OpenerDirector.open", return_value=mock_resp):
+        with pytest.raises(TypedDecisionUnavailable, match="missing 'confidence'"):
+            provider.score("Test", scale=(1, 5))
+
+
+def test_score_rejects_invalid_confidence_range(approved_privacy_config: pathlib.Path) -> None:
+    """Score response confidence outside [0.0, 1.0] raises TypedDecisionUnavailable."""
+    provider = JevProvider(api_key="test-key")
+    mock_resp = _make_mock_response({"value": 3.0, "confidence": 1.2})
+
+    with patch("urllib.request.OpenerDirector.open", return_value=mock_resp):
+        with pytest.raises(TypedDecisionUnavailable, match="outside valid range"):
+            provider.score("Test", scale=(1, 5))
+
+
+def test_noul_rejects_missing_probability(approved_privacy_config: pathlib.Path) -> None:
+    """Noul response missing probability raises TypedDecisionUnavailable."""
+    provider = JevProvider(api_key="test-key")
+    mock_resp = _make_mock_response({"decision": "yes"})
+
+    with patch("urllib.request.OpenerDirector.open", return_value=mock_resp):
+        with pytest.raises(TypedDecisionUnavailable, match="missing 'probability'"):
+            provider.noul("Test")
+
+
+def test_noul_rejects_invalid_probability_range(approved_privacy_config: pathlib.Path) -> None:
+    """Probability outside [0.0, 1.0] raises TypedDecisionUnavailable."""
+    provider = JevProvider(api_key="test-key")
+
+    mock_resp_high = _make_mock_response({"probability": 1.1})
+    with patch("urllib.request.OpenerDirector.open", return_value=mock_resp_high):
+        with pytest.raises(TypedDecisionUnavailable, match="outside valid range"):
+            provider.noul("Test")
+
+    mock_resp_low = _make_mock_response({"probability": -0.2})
+    with patch("urllib.request.OpenerDirector.open", return_value=mock_resp_low):
+        with pytest.raises(TypedDecisionUnavailable, match="outside valid range"):
+            provider.noul("Test")
+
+
+def test_noul_rejects_non_numeric_probability(approved_privacy_config: pathlib.Path) -> None:
+    """Non-numeric probability raises TypedDecisionUnavailable."""
+    provider = JevProvider(api_key="test-key")
+    mock_resp = _make_mock_response({"probability": "likely"})
+
+    with patch("urllib.request.OpenerDirector.open", return_value=mock_resp):
+        with pytest.raises(TypedDecisionUnavailable, match="non-numeric probability"):
+            provider.noul("Test")
 
 
 # ---------------------------------------------------------------------------

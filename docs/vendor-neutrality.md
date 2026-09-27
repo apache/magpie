@@ -164,6 +164,7 @@ with pluggable backends already include:
 | [`tools/forwarder-relay`](../tools/forwarder-relay/) | ASF Security relay, huntr.com, HackerOne triagers |
 | [`tools/scan-format`](../tools/scan-format/) | security-scanner report formats (ASVS reference) |
 | [`tools/vcs`](../tools/vcs/) | Git (complete), Mercurial (complete), Subversion, … (extension points) |
+| [`tools/typed-decision`](../tools/typed-decision/) | TypeSafe Jev API (cloud), local models via llama.cpp / Ollama (extension point) |
 
 The security-team surface follows the same pattern: CNA backends live
 behind [`tools/cve-tool`](../tools/cve-tool/) (the ASF Vulnogram adapter
@@ -173,6 +174,11 @@ reference), inbound report relays behind
 behind [`tools/scan-format`](../tools/scan-format/), and an OSV.dev
 vulnerability cross-reference client [`tools/osv`](../tools/osv/)
 implements the `contract:security-cross-ref` capability.
+Similarly, structured low-latency decisions sit behind the
+`contract:typed-decision` contract ([`tools/typed-decision`](../tools/typed-decision/)),
+with TypeSafe's Jev API as the initial reference backend and local
+inference (via llama.cpp, Ollama, or vLLM) tracked as the second backend to
+ensure cross-vendor choice.
 
 The distinction Magpie enforces: **vendor-specific *integrations* are
 expected and welcome; vendor-specific *workflows* are forbidden.** A
@@ -209,6 +215,7 @@ contract for one vendor:
 | [`tools/forwarder-relay`](../tools/forwarder-relay/) | ASF-security ([`tools/gmail/asf-relay.md`](../tools/gmail/asf-relay.md)) | huntr.com, HackerOne |
 | [`tools/scan-format`](../tools/scan-format/) | ASVS | other scanner formats |
 | [`tools/vcs`](../tools/vcs/) | Git | Mercurial, Subversion, … |
+| [`tools/typed-decision`](../tools/typed-decision/) | [`tools/typed-decision`](../tools/typed-decision/) (TypeSafe Jev API) | Local models (llama.cpp, Ollama, vLLM) ([#1370](https://github.com/apache/magpie/issues/1370)) |
 
 A project selects an adapter per capability in its config
 (`cve_authority.tool: vulnogram`, `archive_system.kind: ponymail`,

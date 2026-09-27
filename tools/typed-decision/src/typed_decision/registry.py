@@ -20,12 +20,11 @@
 from __future__ import annotations
 
 import os
-import pathlib
 from typing import Any
 
 from typed_decision.exceptions import TypedDecisionUnavailable
 from typed_decision.interface import DecisionProvider
-from typed_decision.providers.jev import JevProvider
+from typed_decision.providers.jev import JevProvider, _resolve_api_key
 
 DEFAULT_PROVIDER_ENV = "MAGPIE_TYPED_DECISION_PROVIDER"
 
@@ -41,17 +40,7 @@ def register_provider(name: str, provider_cls: type[DecisionProvider]) -> None:
 
 def _is_jev_configured() -> bool:
     """Check if Jev credentials are configured in environment or home directory."""
-    if os.environ.get("TYPESAFE_API_KEY") or os.environ.get("JEV_API_KEY"):
-        return True
-    home = os.environ.get("HOME") or os.environ.get("USERPROFILE")
-    if home:
-        key_paths = (
-            pathlib.Path(home) / ".config" / "apache-magpie" / "typesafe.key",
-            pathlib.Path(home) / ".config" / "apache-magpie" / "jev.key",
-        )
-        if any(kp.is_file() for kp in key_paths):
-            return True
-    return False
+    return _resolve_api_key() is not None
 
 
 def get_provider(name: str | None = None, **kwargs: Any) -> DecisionProvider:
