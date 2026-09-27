@@ -37,27 +37,51 @@ prompts, no writes.
 Run **every PR fetched in Step 1** through
 [`classify-and-act.md`](classify-and-act.md), once:
 
-1. Apply the [pre-filters](classify-and-act.md#pre-filters) (F1–F5c)
+1. Apply the [pre-filters](classify-and-act.md#pre-filters) (F1–F6)
    to drop collaborator PRs, bot accounts, fresh drafts,
    already-marked-ready PRs without regression, and PRs with an
    active maintainer conversation (72-hour author cooldown, an
    unanswered maintainer-to-maintainer ping, or an unanswered
    author question to a maintainer — ball in our court).
-2. **Opt-in typed-decision pre-filter:** When enabled via
-   `enable_typed_decision_prefilter` (default `false`) with threshold
-   `confidence_threshold` (default `0.85`), invoke `typed_decision.choice()`
-   using the PR state prompt and candidate triage buckets:
-   - If confidence ≥ threshold: use the returned bucket directly as the
-     candidate classification for that PR, skipping the agent-reasoning step.
-   - On `TypedDecisionUnavailable`, provider error, or confidence < threshold:
-     fall through silently to step 3 below (fail-open contract).
-   - Every call is logged to `.apache-magpie-local/logs/pr-triage-typed-decision.jsonl`
-     with `{predicted_label, confidence, latency_ms, used_or_fell_through}`.
-   - **Strict HITL invariant:** Pre-filtering only accelerates candidate
-     generation; human review and confirmation in Step 3 is strictly required.
-3. Evaluate the [decision table](classify-and-act.md#decision-table)
-   top-to-bottom. The first matching row yields the
+2. Evaluate the [decision table](classify-and-act.md#decision-table)
+   top-to-bottom.
+   The first matching row authoritatively yields the
    `(classification, action, reason)` tuple for that PR.
+   The deterministic decision table is a pure function of fetched state
+   and is never bypassed or short-circuited (`PRINCIPLES.md` §6).
+3. **Opt-in typed-decision shadow pre-filter (advisory):**
+   When enabled via `enable_typed_decision_prefilter: true`
+   (default `false`) with threshold `typed_decision_confidence_threshold`
+   (default `0.85`, also accepts `confidence_threshold`), run the helper
+   alongside the decision table to evaluate classifier accuracy.
+   Write the PR state to a scratch file and invoke:
+   ```bash
+   python plugins/magpie-pr-management/skills/pr-triage/scripts/typed_decision_prefilter.py \
+     --file <scratch>/pr-<N>.json \
+     --table-classification <label>
+   ```
+   - **Contract:**
+     The decision table result from step 2 remains authoritative in all cases.
+     The shadow pass records predictions alongside the table classification for telemetry.
+   - **Outcomes:**
+     - `used`:
+       Confidence meets or exceeds threshold and predicted label is valid.
+       Logs `{pr, table_classification, predicted_label, confidence, latency_ms, match, used_or_fell_through: "used"}`.
+     - `fell_through`:
+       Flag disabled, confidence below threshold, or provider unavailable.
+       Logs `{used_or_fell_through: "fell_through"}` with the specific reason (or skips logging if disabled).
+       Triage proceeds unaffected.
+   - **Third-party LLM endpoint and privacy prerequisites:**
+     - Endpoint: `https://api.typesafe.ai/v1/systemone`
+     - Credentials: `TYPESAFE_API_KEY` (or fallback `JEV_API_KEY`) or `~/.config/apache-magpie/typesafe.key`.
+     - Privacy-LLM approval:
+       Requires an explicit entry in `<project-config>/privacy-llm.md`
+       with non-empty `Data-residency contract` and maintainer sign-off
+       before enabling outbound classification.
+     - Contributor title, body, and commits are fenced
+       inside `<untrusted-external-data>` as data only.
+   - **Telemetry:**
+     Records are appended to `.apache-magpie-local/logs/pr-triage-typed-decision.jsonl`.
 4. For any PR that the table classifies as `passing` (rows 19,
    20), the [Real-CI guard](classify-and-act.md#real-ci-guard)
    must pass — otherwise re-route to `pending_workflow_approval`
