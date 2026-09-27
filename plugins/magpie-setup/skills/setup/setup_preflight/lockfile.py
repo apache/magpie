@@ -59,6 +59,7 @@ class Lock:
     min_version: str | None = None
     ref: str | None = None
     commit: str | None = None
+    source: str | None = None
     plugins: list[str] = field(default_factory=list)
     reconciled: Reconciled | None = None
 
@@ -94,7 +95,7 @@ def parse(text: str) -> Lock:
                 raise MalformedLock(f"not a key: value line: {raw!r}")
             key, _, value = body.partition(":")
             key, value = key.strip(), value.strip()
-            if key in {"method", "url", "min_version", "ref", "commit"}:
+            if key in {"method", "url", "min_version", "ref", "commit", "source"}:
                 setattr(lock, key, value)
             else:
                 raise MalformedLock(f"unknown key: {key!r}")

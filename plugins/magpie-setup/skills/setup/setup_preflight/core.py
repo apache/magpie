@@ -65,6 +65,9 @@ CACHE_NAME = ".preflight-cache.json"
 
 TRUSTED_MARKETPLACE = "apache/magpie"
 SNAPSHOT_METHODS = frozenset({"svn-zip", "git-tag", "git-branch"})
+#: The framework checkout linking its own in-repo `skills/` source.  The
+#: skills *are* the working tree, so there is no snapshot or floor to drift.
+LOCAL_METHOD = "local"
 DEFAULT_VERIFY_INTERVAL_DAYS = 14
 #: How long a memoised project verdict stays usable when the inputs it was
 #: computed from have not changed.  Short enough that a plugin installed
@@ -179,6 +182,8 @@ def project_findings(root: Path, installed: dict[str, str] | None) -> list[Findi
         return _snapshot_findings(lock, root)
     if lock.method == "marketplace":
         return _floor_findings(lock, installed)
+    if lock.method == LOCAL_METHOD:
+        return []
     return [Finding("project", "unknown-method", "step-2", {"method": lock.method})]
 
 
@@ -387,6 +392,15 @@ def _cache_key(root: Path, installed: dict[str, str] | None) -> str:
             f"{name}:{path.stat().st_mtime_ns}:{path.stat().st_size}" if path.exists() else f"{name}:-"
         )
     parts.append("installed:" + ("?" if installed is None else json.dumps(installed, sort_keys=True)))
+    # The verdict is also a function of this code: an upgrade that refreshes
+    # the checker must not keep serving the previous checker's answer.
+    here = Path(__file__).parent
+    parts.append(
+        "checker:"
+        + ",".join(
+            f"{p.stat().st_mtime_ns}:{p.stat().st_size}" for p in (here / "core.py", here / "lockfile.py")
+        )
+    )
     return "|".join(parts)
 
 
