@@ -25,7 +25,7 @@ argument-hint: "[--repo owner/name | --repo-file repos.txt | --owner org]"
 capability: capability:triage
 surface_hash: sha256:e50eafff464d131a
 license: Apache-2.0
-measured_tokens: 3453
+measured_tokens: 3554
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -190,8 +190,12 @@ zizmor <scratch>/workflow-security-audit/<repo>/
 Or directly via the GitHub API (no clone needed for public repos):
 
 ```bash
-zizmor --gh-token "$(gh auth token)" github:<upstream>
+zizmor github:<upstream>
 ```
+
+Remote inputs (`github:…`) and zizmor's online audits need a GitHub token, which zizmor reads from `GH_TOKEN`, `GITHUB_TOKEN` or `ZIZMOR_GITHUB_TOKEN`; without one it runs offline and cannot fetch a remote repository.
+Do not pass `--gh-token "$(gh auth token)"`: under the secure setup a `gh` inside `$(…)` stays sandboxed, cannot read its credentials, and fails.
+If no token variable is set in the session, use the clone path above (`gh repo clone` is a plain command), or ask the user to run the remote scan from their own terminal.
 
 For several repositories, and for a whole GitHub org, pass the repositories to one `zizmor` run —
 zizmor audits multiple inputs in the same invocation ([usage docs](https://docs.zizmor.sh/usage/)).
@@ -204,7 +208,7 @@ gh api /orgs/<org>/repos --paginate --jq '.[].full_name'
 Then scan them in batches of up to 50 repositories per invocation (keeps the argument list and the blast radius of one failed run small):
 
 ```bash
-zizmor --gh-token "$(gh auth token)" --format json \
+zizmor --format json \
   github:<owner>/<repo-1> github:<owner>/<repo-2> … github:<owner>/<repo-50>
 ```
 
@@ -225,7 +229,7 @@ severity, excessive-permissions and unpinned-actions are medium:
 
 ```bash
 # High-severity audits only (injection + fork-secrets):
-zizmor --gh-token "$(gh auth token)" --min-severity high github:<owner>/<repo>
+zizmor --min-severity high github:<owner>/<repo>
 ```
 
 Audit-level narrowing — disable the audits the adopter config leaves
@@ -242,7 +246,7 @@ rules:
 ```
 
 ```bash
-zizmor --gh-token "$(gh auth token)" --config zizmor-subset.yml github:<owner>/<repo>
+zizmor --config zizmor-subset.yml github:<owner>/<repo>
 ```
 
 The mapping from adopter-config rule names to zizmor audit IDs:

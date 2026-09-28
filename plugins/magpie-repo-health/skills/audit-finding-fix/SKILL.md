@@ -28,7 +28,7 @@ argument-hint: "[--tool <name>] [--report <path>] [--finding <id>]"
 capability: capability:fix
 surface_hash: sha256:9e749aa429ac8777
 license: Apache-2.0
-measured_tokens: 6151
+measured_tokens: 6170
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -465,8 +465,9 @@ explicitly confirms after the hand-back artefact.
 **Adversarial review by other models.** Before this skill opens a PR, once
 the PR's title and body are final, run the configured adversarial
 reviewers over the change, before the push where the flow allows it. When
-this skill verifies a patch someone else proposed, run them over that PR
-before reporting on it. The review happens in the conversation; it adds
+this skill instead works from a PR someone else proposed (verifying it, or
+importing it into the tracker), run them over that PR before reporting on
+it or acting on it. The review happens in the conversation; it adds
 nothing to any structured (JSON) result the step returns. The tool and its
 guarantees are in
 [`tools/adversarial-review`](../../../../tools/adversarial-review/README.md).

@@ -20,7 +20,7 @@ argument-hint: "[issue-number]"
 capability: capability:resolve
 surface_hash: sha256:7a3f19e382d842b6
 license: Apache-2.0
-measured_tokens: 7694
+measured_tokens: 7718
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -313,9 +313,10 @@ Pull everything the rest of the skill needs in one `gh issue view`:
 
 ```bash
 gh issue view <N> --repo <tracker> --json \
-    number,title,body,labels,state,milestone,assignees,comments,url \
-  > <scratch>/invalidate-<N>.json
+    number,title,body,labels,state,milestone,assignees,comments,url
 ```
+
+Run it as a plain command and read the JSON it prints; do not redirect it to a file (under the secure setup a redirected `gh` stays sandboxed and fails).
 
 `<scratch>` is the session scratch directory as an absolute path (fall back to `$TMPDIR`); `gh` may run outside the sandbox, where `$TMPDIR` differs, so pass it absolute paths.
 

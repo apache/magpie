@@ -20,7 +20,7 @@ argument-hint: "[pr-number] [repo:owner/name]"
 capability: capability:intake
 surface_hash: sha256:249e4ff2ba6b1d91
 license: Apache-2.0
-measured_tokens: 9605
+measured_tokens: 9624
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -565,8 +565,9 @@ refuses.
 **Adversarial review by other models.** Before this skill opens a PR, once
 the PR's title and body are final, run the configured adversarial
 reviewers over the change, before the push where the flow allows it. When
-this skill verifies a patch someone else proposed, run them over that PR
-before reporting on it. The review happens in the conversation; it adds
+this skill instead works from a PR someone else proposed (verifying it, or
+importing it into the tracker), run them over that PR before reporting on
+it or acting on it. The review happens in the conversation; it adds
 nothing to any structured (JSON) result the step returns. The tool and its
 guarantees are in
 [`tools/adversarial-review`](../../../../tools/adversarial-review/README.md).

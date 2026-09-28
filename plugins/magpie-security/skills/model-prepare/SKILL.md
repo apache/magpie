@@ -19,7 +19,7 @@ argument-hint: "[repo-or-project]"
 capability: capability:authoring
 surface_hash: sha256:db4f1e33c6b3fab3
 license: Apache-2.0
-measured_tokens: 4555
+measured_tokens: 4574
 ---
 
 # Security model prepare
@@ -242,8 +242,9 @@ diff the PR will carry — and review it with `--target diff:<file>`:
 **Adversarial review by other models.** Before this skill opens a PR, once
 the PR's title and body are final, run the configured adversarial
 reviewers over the change, before the push where the flow allows it. When
-this skill verifies a patch someone else proposed, run them over that PR
-before reporting on it. The review happens in the conversation; it adds
+this skill instead works from a PR someone else proposed (verifying it, or
+importing it into the tracker), run them over that PR before reporting on
+it or acting on it. The review happens in the conversation; it adds
 nothing to any structured (JSON) result the step returns. The tool and its
 guarantees are in
 [`tools/adversarial-review`](../../../../tools/adversarial-review/README.md).

@@ -16,7 +16,7 @@ argument-hint: "[skill-name]"
 capability: capability:platform
 surface_hash: sha256:33f740e1edbcdfda
 license: Apache-2.0
-measured_tokens: 4750
+measured_tokens: 4769
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -194,8 +194,9 @@ In `<framework-clone>`:
    **Adversarial review by other models.** Before this skill opens a PR, once
    the PR's title and body are final, run the configured adversarial
    reviewers over the change, before the push where the flow allows it. When
-   this skill verifies a patch someone else proposed, run them over that PR
-   before reporting on it. The review happens in the conversation; it adds
+   this skill instead works from a PR someone else proposed (verifying it, or
+   importing it into the tracker), run them over that PR before reporting on
+   it or acting on it. The review happens in the conversation; it adds
    nothing to any structured (JSON) result the step returns. The tool and its
    guarantees are in
    [`tools/adversarial-review`](../../../../tools/adversarial-review/README.md).

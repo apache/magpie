@@ -22,7 +22,7 @@ argument-hint: "[repo-or-model-path]"
 capability: capability:review
 surface_hash: sha256:03ecb6b8514583b2
 license: Apache-2.0
-measured_tokens: 5553
+measured_tokens: 5572
 ---
 
 # Security model verify
@@ -304,8 +304,9 @@ security-relevant build flags), §1.19 the machine-readable companions.
    **Adversarial review by other models.** Before this skill opens a PR, once
    the PR's title and body are final, run the configured adversarial
    reviewers over the change, before the push where the flow allows it. When
-   this skill verifies a patch someone else proposed, run them over that PR
-   before reporting on it. The review happens in the conversation; it adds
+   this skill instead works from a PR someone else proposed (verifying it, or
+   importing it into the tracker), run them over that PR before reporting on
+   it or acting on it. The review happens in the conversation; it adds
    nothing to any structured (JSON) result the step returns. The tool and its
    guarantees are in
    [`tools/adversarial-review`](../../../../tools/adversarial-review/README.md).
