@@ -11,7 +11,8 @@ source: >
   standard process within 3 months of resolution adoption"). README.md
   § Skill families (release-management, proposed). Designed spec-first in
   docs/release-management/ (README.md, process.md, spec.md) plus the
-  adopter scaffold projects/_template/release-management-config.md.
+  adopter scaffold plugins/magpie-setup/templates/release-management-config.md
+  (reached as projects/_template/, #1410).
   All ten skills have since shipped (release-prepare, release-keys-sync,
   release-rc-cut, release-vote-draft, release-archive-sweep,
   release-audit-report, release-announce-draft, release-verify-rc,
@@ -53,12 +54,28 @@ code lands.
   (family overview + skill table), `docs/release-management/process.md`
   (14-step lifecycle, Mermaid flow, label reference),
   `docs/release-management/spec.md` (per-skill scope and state-change
-  boundary).
-- Adopter contract: `projects/_template/release-management-config.md`,
-  `projects/_template/release-build.md`, `projects/_template/pmc-roster.md`,
-  `projects/_template/site-repo.md`, and the shared
-  `projects/_template/release-trains.md`.
-- Skills (all ten shipped, all `experimental`): `release-prepare`
+  boundary), plus the operator runbooks
+  `docs/release-management/atr-release-runbook.md`,
+  `docs/release-management/svn-release-runbook.md`,
+  `docs/release-management/manual-release-process.md`, and
+  `docs/release-management/reproducibility.md`.
+- Adopter contract: `release-management-config.md`, `release-build.md`,
+  `pmc-roster.md`, `site-repo.md`, the shared `release-trains.md`, and
+  `workflows/release-candidate.yml`, all under
+  `plugins/magpie-setup/templates/` since #1410 so a marketplace install of
+  `magpie-setup` ships them; `projects/_template` is a symlink to that
+  directory, so the old paths still resolve.
+  The filled-example values in the template use the neutral `Apache Foo`
+  project rather than a real adopter (#1407).
+- Magpie's own release configuration: `projects/magpie/` holds the filled
+  `release-management-config.md` (ATR for both distribution and vote),
+  `release-build.md`, `release-trains.md`, and `pmc-roster.md`; #1412 also
+  committed `release-management-config.md`, `release-build.md`,
+  `release-trains.md`, and `pmc-roster.md` under
+  `.apache-magpie-overrides/` for the framework checkout's self-adoption.
+- Skills (all ten shipped, all `experimental`, under
+  `plugins/magpie-release-management/skills/<alias>/` with
+  `skills/release-<alias>` symlinks): `release-prepare`
   (`mode: Drafting`) drafts the planning issue (Step 1), the prep PR with
   version bump / changelog / NOTICE / LICENSE (Step 2), and the
   post-release development-version bump PR (Step 14), never marking ready,
@@ -152,7 +169,8 @@ code lands.
   organization manifest; `null` elsewhere). `release-prepare
   automated-signing` drafts — never files or sends — the Infra key-request
   ticket, the Security Team notification and the workflow PR
-  (`projects/_template/workflows/release-candidate.yml`, no key material).
+  (`plugins/magpie-setup/templates/workflows/release-candidate.yml`, no key
+  material).
   With `automated_release_signing: enabled`, `release-rc-cut` emits the
   RM-signed tag push instead of local sign/stage, `release-verify-rc` Step 9
   is mandatory at a byte-identical bar and carries the committer's
@@ -197,7 +215,8 @@ code lands.
 ```bash
 test -f docs/release-management/spec.md
 test -f docs/release-management/process.md
-test -f projects/_template/release-management-config.md
+test -f plugins/magpie-setup/templates/release-management-config.md
+test -L projects/_template
 test -f .agents/skills/magpie-release-prepare/SKILL.md
 test -f .agents/skills/magpie-release-keys-sync/SKILL.md
 test -f .agents/skills/magpie-release-rc-cut/SKILL.md
@@ -224,6 +243,21 @@ uv run --project tools/skill-evals skill-eval tools/skill-evals/evals/release-an
   evidence window that would justify default-on or a state-changing lane
   has no data behind it.
 - **Release audit record schema has shipped.** The canonical structured
-  schema lives at `skills/release-audit-report/audit-record-schema.md`.
+  schema lives at
+  `plugins/magpie-release-management/skills/audit-report/audit-record-schema.md`
+  (reached as `skills/release-audit-report/audit-record-schema.md`).
   The `tools/skill-evals/evals/release-audit-report/` suite validates
   incomplete records, including the `case-4-all-required-missing` fixture.
+- **Magpie's committed override is the unfilled template.** Per-file
+  `<project-config>` resolution reads
+  `.apache-magpie-overrides/release-management-config.md` in this
+  repository, and that file (added by #1412) is the template's
+  `Apache Foo` example with `release_dist_backend = svnpubsub` and
+  `release_vote_backend = manual`, whereas
+  `projects/magpie/release-management-config.md` carries Magpie's real
+  values (`project_dist_name: magpie`, ATR for both backends).
+  `.apache-magpie-overrides/release-build.md` likewise differs from
+  `projects/magpie/release-build.md`.
+- **The family's `SKILL.md` files are the largest in the catalogue.**
+  Eight of the ten are over the 500-line cap (`release-prepare` 1,208,
+  `release-verify-rc` 968, `release-rc-cut` 932).

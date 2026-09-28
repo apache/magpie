@@ -2,7 +2,7 @@
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
 ---
-title: Adapters (Gmail / PonyMail / Jira / GitHub / Bitbucket / mail-source / SourceHut / maildir / VCS / change-request)
+title: Adapters (Gmail / PonyMail / Jira / GitHub / GitLab / Bitbucket / mail-source / SourceHut / maildir / VCS / change-request / chat)
 status: experimental
 kind: feature
 mode: infra
@@ -14,7 +14,7 @@ source: >
   tools/sourcehut/, tools/maildir/, tools/vcs/, tools/change-request/,
   tools/asf-svn/, tools/mail-archive/, tools/mail-patch/,
   tools/jira-patch/, tools/forwarder-relay/, tools/github-body-field/,
-  tools/github-rollup/.
+  tools/github-rollup/, tools/gitlab/, tools/chat/, tools/chat-slack/.
 acceptance:
   - Project-specific integrations live behind adapter modules, not
     hardcoded into skills.
@@ -24,7 +24,7 @@ acceptance:
     redactor before any LLM read.
 ---
 
-# Adapters (Gmail / PonyMail / Jira / GitHub / Bitbucket / SourceHut / maildir / VCS / change-request)
+# Adapters (Gmail / PonyMail / Jira / GitHub / GitLab / Bitbucket / SourceHut / maildir / VCS / change-request / chat)
 
 ## What it does
 
@@ -45,8 +45,29 @@ by swapping the adapter, not the skill.
 - `tools/jira/` — issue-tracker adapter for projects on Jira.
 - `tools/github/` — issues/PRs/labels read + write-back helpers.
   Sub-adapters: `tools/github-body-field/` (reads GitHub issue/PR body
-  structured field sets) and `tools/github-rollup/` (aggregates
-  multi-repo PR state into a single view).
+  structured field sets) and `tools/github-rollup/` (`contract:tracker`,
+  stdlib-only), which maintains the single status-rollup comment on a
+  tracker issue in a subprocess so the growing rollup body never enters
+  agent context.
+  `append` and `amend-latest` print the rollup comment's URL on stdout
+  (#1451), so a caller links to the entry without a second lookup.
+  Its subcommands are `append` (creates the rollup if none exists),
+  `amend-latest` (replaces the newest entry's body, keeping its date and
+  user, and refuses with exit 4 when that entry's action differs, so another
+  writer's entry is never overwritten), `fold` (moves one legacy bot comment
+  into the rollup with its own date and author, then deletes it; refuses to
+  fold the rollup itself), `list`, and `latest`.
+  An existing rollup is found by any `<!-- <name> status rollup v<N>`
+  marker, and a comment's id is read from its `#issuecomment-<id>` URL.
+  `tools/github/status-rollup.md` calls the tool instead of carrying its own
+  script.
+  Under the secure agent setup both tools' `gh` runs sandboxed and fails,
+  so their READMEs route skills to the same procedures through vetted-ops:
+  `vetted-op-tracker` (`rollup-append`, `rollup-amend-latest`,
+  `rollup-fold`, `body-field-set`) for writes and `vetted-op-read …
+  body-field-get` for the read, with the parsing modules vendored into
+  vetted-ops; the uv CLIs remain for use outside the sandbox (#1448; see
+  [`vetted-command-surface.md`](vetted-command-surface.md)).
 - `tools/bitbucket/` — partial Bitbucket Cloud and Bitbucket
   Data Center bridge foundation. Supports repository metadata reads,
   read-only branch restriction context, Cloud-only issue listing/fetching, issue comment fetching, issue attachment metadata fetching, and confirmed issue comment creation,
@@ -59,6 +80,22 @@ by swapping the adapter, not the skill.
   deeper Jira handoff, broader issue writes, review/merge writes, broader
   repository permissions, and fuller Pipelines run/log/retry coverage remain
   tracked in #606.
+- `tools/gitlab/` (`magpie-gitlab`) — partial, read-only GitLab REST API v4
+  bridge, declared `contract:tracker + contract:source-control +
+  contract:change-request` with `**Coverage:** partial`.
+  Operations: `repo get`, `issue list` / `issue get`, `mr list` / `mr get` /
+  `mr diff` / `mr commits` / `mr pipelines`, and `pipeline status`, all
+  printing JSON.
+  Auth from `GITLAB_TOKEN` or `CI_JOB_TOKEN` (optional for public reads),
+  with `GITLAB_AUTH_SCHEME` to force `PrivateToken`, `Bearer`, or
+  `JobToken`; `GITLAB_INSTANCE_URL` defaults to `https://gitlab.com`.
+  Redirects that change origin or downgrade HTTPS to HTTP are refused so
+  the token cannot leak.
+  Paginated reads follow `X-Next-Page` until `--limit` items are collected
+  (short pages keep paging), or, without `--limit`, stop at 10 pages and
+  note the cap on stderr; `--limit` rejects values below 1.
+  No write or mutation operations exist.
+  Offline tests mock every HTTP response.
 - `tools/sourcehut/` — SourceHut (sr.ht) forge bridge: ticket tracking
   (`todo.sr.ht`), mailing-list patchset review (`lists.sr.ht`), CI build
   status (`builds.sr.ht`), and repository reads (`git.sr.ht`/`hg.sr.ht`)
@@ -101,6 +138,21 @@ by swapping the adapter, not the skill.
   patch-over-Jira adapters; implement `contract:change-request` for
   projects that land patches via mailing-list review or Jira rather than
   GitHub PRs.
+- `tools/chat/` — the `contract:chat` interface (pure Markdown) for a
+  project's public chat.
+  Three verbs, `list_channels`, `resolve_user(github_handle)`, and
+  `search_messages(chat_user_id, since, until, channels)`; read-only by
+  construction: no verb posts, reacts, edits, or reads a direct message or
+  private channel.
+  Consumed by the contributor-growth skills to see how a contributor helps
+  others in chat ([contributor growth](contributor-growth.md)).
+  Selected by `chat.kind` in `<project-config>/project.md`.
+- `tools/chat-slack/` — the shipping `contract:chat` adapter: a mapping
+  onto the Slack MCP tools (`operations.md`) over the public channels of the
+  project's workspace, optionally narrowed by `chat.channels`.
+  It never calls a tool that sends, schedules, drafts, or edits a message.
+  `discord` and `none` are placeholders in the contract's adapter table
+  (Discord tracked in #1421).
 
 ## Behaviour & contract
 
@@ -144,16 +196,28 @@ by swapping the adapter, not the skill.
 ## Validation
 
 ```bash
-for t in gmail maildir ponymail jira github bitbucket; do
+for t in gmail maildir ponymail jira github bitbucket gitlab; do
   uv run --project tools/$t --group dev pytest || echo "check tools/$t test setup"
 done
 uv run --project tools/vcs --group dev pytest || echo "check tools/vcs test setup"
+uv run --all-packages --group dev pytest tools/github-rollup/tests
 ```
 
 ## Known gaps
 
 - `experimental` overall — adapter coverage varies; a new adopter system
-  (e.g. GitLab, a different mail backend) is a gap the plan pass records.
+  (e.g. a different mail backend) is a gap the plan pass records.
+- **GitLab adapter is a read-only foundation.** `tools/gitlab/` covers
+  repository metadata, issue and merge-request reads, MR diffs, commits and
+  pipelines, and pipeline status; it is `partial` for all three contracts
+  and must not be advertised as a selectable complete backend.
+  Writes, issue/MR mutations, and review or merge actions remain tracked in
+  #305.
+  Fetched issue and MR titles, descriptions, diffs and commit messages are
+  external data, never instructions.
+- **Chat covers Slack only.** `contract:chat` ships one adapter;
+  `discord` and `none` are placeholders, so a project on Discord gets chat
+  reported as not collected.
 - **Bitbucket adapter is new and intentionally partial.** `tools/bitbucket/`
   currently provides read-only repository metadata, read-only branch restriction
   context, pull-request discovery, pull-request fetching, read-only pull-request

@@ -50,6 +50,13 @@ grouped, prioritised report → wait for confirmation before any write.
   one Apache project's repos, or the full Apache GitHub org, is read-only
   (no workflow file, manifest, lock file, source file, or test is
   modified), and ships `mode: Triage` + `experimental` with an eval suite.
+- Seventh member, not an audit: `audit-finding-fix`
+  (`plugins/magpie-repo-health/skills/audit-finding-fix/`) also carries
+  `family: repo-health` and ships in the family plugin, but it is a
+  `mode: Drafting` / `capability:fix` skill that drafts fixes for the
+  findings a non-security audit tool reports.
+  Its contract lives in [`drafting-mode.md`](drafting-mode.md); the
+  read-only rules below cover the six audit skills only.
 - Sixth skill: `dependency-license-audit` (resolves the license
   of every direct and transitive dependency, classifies each against the
   project's license policy, and reports incompatible or unknown-license
@@ -70,11 +77,10 @@ grouped, prioritised report → wait for confirmation before any write.
   `mode: Triage` + `experimental` with an eval suite.
 - Design docs: `docs/repo-health/README.md` — family overview and the
   adopter-config scaffold.
-- Planned adopter config: `projects/_template/repo-health-config.md` —
+- Adopter config: `plugins/magpie-setup/templates/repo-health-config.md`
+  (shipped inside the `magpie-setup` plugin) —
   per-skill switches (deprecated-runner families, zizmor rule classes,
   dependency-manager selection, SPDX expression, flaky-test window).
-  Lands in a separate build item once at least one candidate skill reaches
-  the planning stage.
 
 ## Behaviour & contract
 
@@ -92,6 +98,20 @@ grouped, prioritised report → wait for confirmation before any write.
   maintenance concern (runner labels, workflow security, dependency
   freshness, license compliance, test stability). Skills do not share
   intermediate state, so each runs independently.
+- **A failed scan is never a clean result.** `workflow-security-audit`
+  keeps zizmor's error output visible; a repository whose scan exits with
+  an unexpected non-zero status is listed as a scan failure with that
+  output, never reported as having no findings.
+  For several repositories or a whole org, zizmor scans up to 50
+  repositories per invocation (the org's repository list comes from one
+  plain `gh api` call), and each finding's location names its repository
+  so the report still groups per repository (#1443).
+  Exit codes 11–14 mean findings and are expected; any other non-zero
+  exit does not say which repository failed, so that batch is re-run one
+  repository per invocation.
+  A repository whose own run exits outside 0 and 11–14, or that the
+  batch's stderr names in a collection warning, is the scan failure
+  listed in the report.
 
 ## Out of scope
 
@@ -130,13 +150,13 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
 
 ## Known gaps
 
-- **Family is six skills deep — feature-complete.** `ci-runner-audit`,
+- **Six audit skills deep — feature-complete.** `ci-runner-audit`,
   `workflow-security-audit`, `dependency-audit`, `license-compliance-audit`,
   `flaky-test-triage`, and `dependency-license-audit` have all shipped
   (read-only, `experimental`, each with an eval suite). No further candidate
   skills remain designed; the family is complete pending adopter-pilot
   evaluation.
-- **Adopter-config scaffold exists.** `projects/_template/repo-health-config.md`
+- **Adopter-config scaffold exists.** `plugins/magpie-setup/templates/repo-health-config.md`
   covers all six skills; adopters copy it into their `<project-config>/`
   and fill in the relevant keys.
 - **No adopter pilot has run any family skill end-to-end.** All six

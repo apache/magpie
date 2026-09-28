@@ -7,8 +7,10 @@ status: experimental
 kind: feature
 mode: Triage
 source: >
-  MISSION.md § Technical scope (Triage). docs/modes.md § Triage.
-  Implemented by the pr-management, issue, and security skill families.
+  MISSION.md § Technical scope (Triage). docs/modes.md § Triage
+  (38 skills). Implemented by the pr-management, issue, security,
+  contributor-growth, repo-health, and release-management skill
+  families.
 acceptance:
   - Every triage skill is read-only on tracker state or proposes-then-
     confirms; none transitions, closes, or labels without confirmation.
@@ -32,7 +34,11 @@ suggestion the human signs off on.
 - PR queue: `pr-management-triage`, `pr-management-stats`,
   `pr-management-code-review` (deep review is a triage variant),
   `pr-management-quick-merge` (read-only express-lane surfacing of
-  trivial, low-risk PRs a maintainer can review in seconds).
+  trivial, low-risk PRs a maintainer can review in seconds),
+  `pr-stale-sweep` (inactivity nudge or pre-close notice for PRs,
+  skipping maintainer-court and ready-labelled PRs), and
+  `reviewer-routing` (roster-bounded reviewer suggestion; see
+  [reviewer-routing.md](reviewer-routing.md)).
   Reference implementation: `tools/pr-management-stats/`.
 - General issues: `issue-triage`, `issue-reassess`, `issue-reproducer`,
   `issue-stale-sweep` (configurable inactivity sweep: nudge or
@@ -44,13 +50,27 @@ suggestion the human signs off on.
   `issue-backlog-stats` (read-only maintainer dashboard over the open
   general-issue backlog — health rating, age/staleness, area pressure,
   triage funnel).
-- Contributor readiness: `contributor-nomination` (read-only brief for a
-  named contributor — activity breadth, consistency, and nomination-
-  evidence prose for a committer or PMC thread);
+- Contributor readiness (the `mode: Triage` members of the
+  contributor-growth family; see
+  [contributor-growth.md](contributor-growth.md)):
+  `contributor-nomination` (read-only brief for a named contributor —
+  activity breadth, consistency, and nomination-evidence prose for a
+  committer or PMC thread);
   `contributor-activity-sweep` (read-only GitHub activity card for a
   named contributor over a configurable window);
-  `committer-onboarding` (post-vote ICLA/account/permissions/welcome
-  checklist for committer and PMC promotions).
+  `contributor-calibrate` (threshold floors derived from past nomination
+  decisions, behind the privacy-LLM gate; numbers-only config diff);
+  `contributor-candidate-screen` (screens recent contributors against
+  the floors and writes a per-candidate report to a verified-private
+  repository);
+  `contributor-identity-map` (GitHub handle to chat, mailing-list, and
+  social identities, recording only maintainer-confirmed mappings);
+  `contributor-sentiment` (sentiment-signal gate report for
+  `experimental` to `stable` advancement).
+  `committer-onboarding` (post-vote checklist) belongs to the same
+  family but carries `mode: Meta`.
+  Counting is deterministic through `tools/contributor-metrics`; chat
+  evidence is read through `tools/chat` (`contract:chat`).
 - Security inbound: `security-issue-import`, `-import-from-pr`,
   `-import-from-md`, `-import-from-scan` (triage-first scanner-output
   import via pluggable scan-format adapters),
@@ -59,9 +79,17 @@ suggestion the human signs off on.
   `security-issue-triage` (batch-triage open tracker issues carrying
   `needs triage`), `security-issue-deduplicate`,
   `security-issue-invalidate`, `security-issue-sync`,
-  `security-cve-allocate`.
+  `security-cve-allocate`, and `security-model-verify` (pre-flight on a
+  published security model).
+- Repo-health audits (see [repo-health-family.md](repo-health-family.md))
+  and the four read-only `release-*` skills (`release-verify-rc`,
+  `release-vote-tally`, `release-archive-sweep`,
+  `release-audit-report`; see
+  [release-management-lifecycle.md](release-management-lifecycle.md))
+  are also catalogued under Triage in `docs/modes.md`.
 - Adapters it reads through: `tools/github`, `tools/jira`,
-  `tools/ponymail`, `tools/gmail`, `tools/mail-source`.
+  `tools/ponymail`, `tools/gmail`, `tools/mail-source`,
+  `tools/contributor-metrics`, `tools/chat`.
 
 ## Behaviour & contract
 
@@ -103,14 +131,12 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
   (`experimental`); `issue-stale-sweep` provides stale-handling /
   close-proposal. No adopter-pilot eval has run on the general-issue
   family yet, so behaviour may change.
-- **The contributor-growth skills span the path but are not yet a named
-  family.** `contributor-nomination`, `contributor-activity-sweep`,
-  `committer-onboarding`, and `good-first-issue-author` (Agentic Mentoring) are
-  now all catalogued in the specs. Missing members of the
-  contributor-to-committer path: PMC-member nomination (distinct from
-  committer), emeritus / inactive-committer handling, and contributor
-  offboarding. Worth deciding whether this becomes a named family with
-  its own spec.
+- **The contributor-growth skills are now a named family.** They ship
+  as the `magpie-contributor-growth` plugin (with three Mentoring
+  members in `magpie-mentoring`) and have their own spec,
+  [contributor-growth.md](contributor-growth.md), which tracks the
+  remaining gaps: PMC-member nomination (distinct from committer),
+  emeritus / inactive-committer handling, and contributor offboarding.
 - **Repo-health audits are now a six-skill family — feature-complete.**
   `ci-runner-audit`, `workflow-security-audit` (zizmor-backed),
   `dependency-audit`, `license-compliance-audit`, `flaky-test-triage`, and

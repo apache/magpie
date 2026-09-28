@@ -34,13 +34,31 @@ artefact for leakage before emission.
 
 ## Where it lives
 
-- `tools/privacy-llm/checker/` — the approved-LLM gate.
+- `tools/privacy-llm/checker/` — the approved-LLM gate
+  (`privacy-llm-check`; `--config` to name the config file,
+  `--reads-private-list` so the banner says a PMC-private list is in
+  play, `--quiet` to print nothing on approval).
+- `tools/privacy-llm/models.md` — the approved-model registry and its
+  carve-outs.
 - `tools/privacy-llm/redactor/` — the PII redactor (name→`N-<hash>`,
   email→`E-<hash>`, IP→`IP-<hash>`).
 - `tools/privacy-llm/wiring.md` — the redact-after-fetch protocol every
   Gmail/PonyMail-reading skill follows.
 - `tools/privacy-llm/pii.md` — the PII pattern catalogue.
 - `docs/setup/privacy-llm.md` — adopter-facing setup.
+- Adopter config: `<project-config>/privacy-llm.md`, scaffolded from
+  `plugins/magpie-setup/templates/privacy-llm.md` (moved from
+  `projects/_template/` in #1410).
+- Skill: `setup-privacy-llm` (`plugins/magpie-setup/skills/privacy-llm/`)
+  detects the LLM stack in use, writes `<project-config>/privacy-llm.md`,
+  and runs the gate and the redactor end to end so the approval is
+  demonstrated rather than declared.
+- Consumers: the gate runs as a hard stop in the pre-flight of the
+  security lifecycle skills that read private mail or tracker content
+  (`security-issue-import`, `-import-from-md`, `-triage`, `-deduplicate`,
+  `-sync`, `-fix`, `-invalidate`, `security-cve-allocate`), and outside
+  the security family in `reviewer-routing`, `contributor-calibrate` and
+  `committer-onboarding` (the last with `--reads-private-list`).
 
 ## Behaviour & contract
 

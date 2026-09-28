@@ -69,10 +69,21 @@ that is a symlink yields no manifest at all, with no fallback. See
 `docs/setup/marketplace.md` (*Which manifest Codex reads*).
 
 Plus `plugins/magpie-<family>/` — ten per-family plugins, one per skill family,
-each a manifest and a `skills/` directory of single-hop symlinks into the
-shared `skills/<skill>` tree. Their manifest is Claude Code's
-`.claude-plugin/plugin.json`, but they are not Claude-Code-only: Codex installs
-them by falling through to that same file.
+each a manifest and a `skills/` directory holding that family's skills as real
+directories (`plugins/magpie-<family>/skills/<alias>/SKILL.md`); the flat
+`skills/<dir>` tree mirrors each one back with a single-hop symlink. Their
+manifest is Claude Code's `.claude-plugin/plugin.json`, but they are not
+Claude-Code-only: Codex installs them by falling through to that same file.
+
+`magpie-setup` also carries two non-skill payloads as real files inside its
+plugin root, because `setup config` installs them from the plugin on a
+marketplace install: the `setup_preflight` package at
+`plugins/magpie-setup/skills/setup/setup_preflight/` (#1409) and the project
+templates at `plugins/magpie-setup/templates/` (#1410). Both mirrors point
+inward — `tools/setup-preflight/src/setup_preflight` and `projects/_template`
+are symlinks into the plugin — since `magpie-setup` is listed by the Codex and
+Copilot catalogs, and Agent Plugins 1.0 §4.1 forbids a link out of such a
+plugin root.
 
 `tools/dev/check-family-plugins.py` is both the generator (`--fix`) and the
 CI gate — the prek hook runs it in `--fix` mode, so the gate corrects drift
@@ -89,8 +100,9 @@ adopter-facing page.
   `repository`, and `license`.
 
 - **Between releases the version carries a moving dev suffix, and it is
-  load-bearing.** The manifests read `0.2.0.dev<YYYYMMDDHHMM>`, never a bare
-  `0.2.0` — a bare version would advertise a release that does not exist. The
+  load-bearing.** The manifests read `0.9.0.dev<YYYYMMDDHHMM>` (the base moved
+  from `0.2.0` to `0.9.0` in #1389), never a bare `0.9.0` — a bare version
+  would advertise a release that does not exist. The
   marketplace is served straight from the `main` branch, so adopters *do*
   install dev versions; that is the normal case. `claude plugin update`
   compares **version strings, not commit SHAs**, so while the suffix stays
@@ -100,6 +112,16 @@ adopter-facing page.
   every plugin — which nobody discovers unaided. The stamp is minute-resolution
   **UTC** so bumps from contributors in different timezones sort in the order
   they were made.
+
+- **A plugin update replaces plugin files and nothing else.** Neither
+  `claude plugin update` nor auto-update runs anything in the adopter's
+  repo; each skill's pre-flight self-checks against the last reconciliation
+  on its first run after an upgrade, and `/magpie-setup:setup reconcile`
+  forces the full pass (`docs/setup/marketplace.md`, #1392). On machines
+  using the isolated setup, the same pre-flight also proposes
+  `setup-isolated-setup-update` when the upgrade moved the secure-setup
+  fingerprint (see [`adoption-and-setup.md`](adoption-and-setup.md),
+  criterion 27).
 
 - **Bump when the work needs to reach installed copies**, not per PR — a
   per-PR bump puts every contributor in conflict with every other over one
@@ -124,8 +146,15 @@ adopter-facing page.
   (#1368) — declared in `SUBSTRATE_PLUGINS` in `check-family-plugins.py`.
   Each inherits the shared manifest metadata, declares no `skills`, exposes
   its `tools/<name>` through a symlink whose entry point must resolve, and
-  declares hook wiring only where it has a hook (agent-guard's
-  `PreToolUse`). They exist to run the tool from the installed plugin tree:
+  declares hook wiring only where it has a hook: agent-guard's `PreToolUse`,
+  and vetted-ops' `SessionStart` hook (`tools/vetted-ops/hooks/link-stable-path.sh`,
+  #1406), which points the fixed path `~/.claude/magpie/vetted-ops` at the
+  installed version each session so permission rules never name a versioned
+  plugin-cache glob. `magpie-adversarial-review` additionally publishes a
+  `commands/adversarial-review.md` link to the command file generated into
+  `tools/adversarial-review/commands/`, which Claude Code exposes as
+  `/magpie-adversarial-review:adversarial-review` (#1371); that file too must
+  resolve. They exist to run the tool from the installed plugin tree:
   the code a sandbox exclusion or a hook executes must sit where the agent
   calling it cannot rewrite it. A tool shipped this way must resolve
   outside the workspace, so it declares no workspace-only `dev` dependency
@@ -160,7 +189,10 @@ adopter-facing page.
 1. `check-family-plugins.py` passes: version parity across every ecosystem
    manifest, AP1 conformance for the root `plugin.json` (pinned `$schema`,
    name pattern, closed ten-field set), one well-formed plugin per declared
-   family, and symlink sets matching `family:` frontmatter exactly.
+   family, skill sets matching `family:` frontmatter exactly, every
+   substrate plugin's links and hook entry points resolving, and
+   `magpie-setup` carrying `setup_preflight` and the templates as real files
+   with their inward mirror links intact.
 2. `--fix` regenerates every manifest from `pyproject.toml` and is idempotent —
    a second run is a no-op.
 3. A version bump is a one-line edit to `pyproject.toml` plus a regeneration.

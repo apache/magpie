@@ -13,13 +13,16 @@ source: >
   docs/issue-management/README.md. Implemented by issue-triage,
   issue-reassess, issue-reassess-stats, issue-reproducer,
   issue-fix-workflow, issue-stale-sweep, issue-backlog-stats, and
-  issue-deduplicate.
+  issue-deduplicate, shipped in plugins/magpie-issue/skills/<alias>/ and
+  linked from skills/issue-<alias>.
 acceptance:
   - Every issue-management skill is read-only or proposes-then-confirms;
     none applies a label, comment, or close without explicit maintainer
     confirmation.
-  - issue-fix-workflow produces a branch, commits, and test results but
-    never pushes or opens a PR without the maintainer's direct action.
+  - issue-fix-workflow produces a branch, commits, and test results; it
+    opens a PR only as a draft, through `gh pr create --web --draft`, when
+    `--draft-pr` was passed and the maintainer confirms, and runs the
+    adversarial review first.
   - issue-backlog-stats and issue-reassess-stats are strictly read-only;
     no tracker state is mutated.
   - All family skills validate under skill-and-tool-validate with no errors.
@@ -58,6 +61,16 @@ and a consistent propose-before-act discipline.
 
 ## Where it lives
 
+Every skill ships in the `magpie-issue` plugin under
+`plugins/magpie-issue/skills/<alias>/` (`triage`, `reassess`,
+`reassess-stats`, `reproducer`, `fix-workflow`, `stale-sweep`,
+`backlog-stats`, `deduplicate`), and `skills/issue-<alias>` links to it.
+Since #1400 each `SKILL.md` keeps its gates, hard rules and safety rules
+inline and moves golden-rule elaboration, backend tables and reference
+material into siblings such as `golden-rule-details.md`, `link-form.md`,
+`clickable-references.md`, and `security-screening.md`; the behaviour is
+unchanged.
+
 - Skill: `issue-triage` — sweeps the configured candidate pool, classifies
   each issue against the project's disposition criteria (BUG /
   FEATURE-REQUEST / NEEDS-INFO / DUPLICATE / INVALID / ALREADY-FIXED),
@@ -86,8 +99,11 @@ and a consistent propose-before-act discipline.
 - Skill: `issue-fix-workflow` — drafts a fix for a triaged confirmed issue:
   failing regression test, smallest production change, targeted test run,
   commit message, and PR-description template. Hands back a branch and
-  commit summary; does not push or open a PR without the maintainer's
-  explicit direction. Ships `mode: Drafting` + `experimental`.
+  commit summary. An optional Step 9 opens a draft PR only when
+  `--draft-pr` was passed and the maintainer confirms after the hand-back
+  (`draft-pr-procedure.md`), after the shared pre-PR adversarial review in
+  its sibling `pre-pr-adversarial-review.md`. Ships `mode: Drafting` +
+  `experimental`.
 
 - Skill: `issue-stale-sweep` — sweeps open issues for inactivity past
   configurable thresholds, classifies each as `REQUEST-UPDATE` (activity
@@ -112,7 +128,8 @@ and a consistent propose-before-act discipline.
   mode boundary with `pr-management-*` and `security-issue-*`, and the
   adopter-config scaffold.
 
-- Adopter config (in `projects/_template/`): `project.md`,
+- Adopter config (templates in `plugins/magpie-setup/templates/`, which
+  `projects/_template/` links to): `project.md`,
   `issue-tracker-config.md`, `scope-labels.md`, `release-trains.md`,
   `canned-responses.md`, `runtime-invocation.md`,
   `reassess-pool-defaults.md`, `reproducer-conventions.md`,
@@ -131,10 +148,17 @@ and a consistent propose-before-act discipline.
   cross-link comment, and a second explicit confirmation before any issue
   is closed. Closing is never implied by the first confirmation.
 
-- **Draft, never push.** `issue-fix-workflow` produces a local branch with
-  commits and test results. The human maintainer reviews, then pushes and
-  opens the PR via `gh pr create --web`. The skill never executes a push
-  or a `gh pr create` autonomously.
+- **Draft, never on autopilot.** `issue-fix-workflow` produces a local
+  branch with commits and test results, and the hand-back artefact is its
+  terminal output by default.
+  With `--draft-pr` and an explicit confirmation after the hand-back, Step 9
+  shows the proposed title, body and diff, runs the configured
+  [adversarial reviewers](adversarial-review.md) over the change, and opens
+  a **draft** PR from the user's fork with `gh pr create --web --draft`, so
+  the maintainer submits it in the browser.
+  It never opens a non-draft PR, never pushes to a contributor's fork, never
+  posts to `<issue-tracker>`, self-assigns, or transitions workflow state,
+  and never merges.
 
 - **Evidence-only for reproducer.** `issue-reproducer` extracts and runs
   code; it never posts its verdict to the tracker. The reproduction
@@ -178,8 +202,10 @@ and a consistent propose-before-act discipline.
 2. `issue-stale-sweep` and `issue-deduplicate` require a second explicit
    confirmation before any issue is closed; a single confirmation posts
    the notice or cross-link only.
-3. `issue-fix-workflow` hands back a branch + commit summary; the PR is
-   opened by the maintainer (`gh pr create --web`), never by the skill.
+3. `issue-fix-workflow` hands back a branch + commit summary; a PR is
+   opened only with `--draft-pr` and a confirmation, only as a draft through
+   `gh pr create --web --draft`, and only after the pre-PR adversarial
+   review block.
 4. `issue-backlog-stats` and `issue-reassess-stats` produce a rendered
    report without mutating any tracker state.
 5. All family skills pass `skill-and-tool-validate` with no errors.
@@ -197,6 +223,10 @@ Every skill in the family ships a behavioural eval suite under
 `tools/skill-evals/evals/<skill>/`. Run `--cli` mode outside any sandbox that
 denies the model CLI its credentials; an unauthenticated CLI now errors rather
 than reporting a vacuous pass (see `meta-and-quality-tooling.md`).
+#1434 fixed eleven issue-family cases that failed correct answers (ambiguous
+output specs, fixtures that did not show what the expected answer claimed,
+and keyword graders now replaced by judge checks); no safety check was
+weakened.
 
 ## Known gaps
 

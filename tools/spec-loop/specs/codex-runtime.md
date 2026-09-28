@@ -40,8 +40,13 @@ tool adapters, and uses its own sandbox, rules, and approvals.
 - tools/sandbox-lint/ - static Codex profile validator (--codex).
 - tools/agent-isolation/ - clean-env agent-iso codex launcher.
 - docs/adapters/codex.md - operator contract and lifecycle.
-- skills/setup/ and skills/setup-isolated-setup-*/ - installation, drift,
-  verification, and removal paths.
+- plugins/magpie-setup/skills/setup/ and
+  plugins/magpie-setup/skills/isolated-setup-*/ (linked from skills/setup and
+  skills/setup-isolated-setup-*) - installation, drift, verification, and
+  removal paths.
+- tools/adversarial-review/ - Codex as an adversarial reviewer backend, and
+  the Codex command file for asking other models to review a change
+  (see [adversarial review](adversarial-review.md)).
 
 ## Behaviour & contract
 
@@ -55,6 +60,17 @@ tool adapters, and uses its own sandbox, rules, and approvals.
 6. Project trust is a human decision. Setup never edits Codex trust state.
 7. The .codex policy files are committed and reviewed; existing unrelated
    .codex configuration is preserved during adoption and upgrade.
+8. Codex as a reviewer runs read-only: the adversarial-review tool invokes
+   `codex exec -s read-only --ephemeral -c mcp_servers={}` with an output
+   schema, pinned by `tools/adversarial-review/tests/test_backends.py`, and
+   skips it when Codex is the harness running the review.
+9. From a Codex session, `setup config adversarial-review` can write
+   `~/.codex/prompts/magpie-adversarial-review.md`, rendered by
+   `adversarial-review commands --harness codex`, under the user's home and
+   never in a repository.
+   The prompt resolves the newest installed plugin version at run time and
+   tells the agent to ask for an unsandboxed run, because the reviewer CLIs
+   need network and their own credentials.
 
 ## Out of scope
 
@@ -103,3 +119,8 @@ codex execpolicy check --pretty \
 - The POSIX clean-environment wrapper needs WSL on Windows.
 - User-scoped MCP registration and tool authentication remain outside
   repository policy.
+- As a reviewer, `codex -s read-only` restricts writes and network but not
+  reads, so an instruction injected into a reviewed diff could have it read
+  files elsewhere on the machine; the adversarial-review README tells
+  operators to leave `codex` out of the reviewer list on machines that hold
+  private checkouts.

@@ -11,9 +11,14 @@ source: >
   base"). triage-mode.md § Known gaps (contributor-growth skills span
   Agentic Triage and Agentic Mentoring but are not yet a named family).
   mentoring-mode.md § Known gaps. Implemented by contributor-nomination,
-  contributor-activity-sweep, committer-onboarding, contributor-identity-map,
-  good-first-issue-author,
-  mentoring-welcome, contributor-to-committer, and good-first-issue-sweep.
+  contributor-activity-sweep, contributor-calibrate,
+  contributor-candidate-screen, committer-onboarding,
+  contributor-identity-map, contributor-sentiment, onboarding-concierge,
+  contributor-to-committer (plugins/magpie-contributor-growth/), and
+  good-first-issue-author, mentoring-welcome, good-first-issue-sweep
+  (plugins/magpie-mentoring/). Deterministic counting in
+  tools/contributor-metrics; chat evidence through tools/chat
+  (contract:chat) and tools/chat-slack.
 acceptance:
   - Every family skill is read-only or propose-before-post; none
     transitions, promotes, or announces without explicit maintainer
@@ -40,7 +45,14 @@ stage a maintainer or nominator cares about:
    to open a committer or PMC vote thread.
 4. **Good first issue authoring** — keeping the on-ramp stocked with
    newcomer-ready issues so contributors can find self-contained tasks.
-5. **Post-vote onboarding** — walking the nominator through the
+5. **Calibration and screening** — deriving the committer and PMC
+   threshold floors from the project's own past nomination decisions,
+   then screening every recent contributor against them so candidates
+   are noticed rather than waiting to be named.
+6. **Identity mapping** — linking a contributor's GitHub handle to
+   their chat, mailing-list, and social-media identities, recording
+   only what a maintainer confirms.
+7. **Post-vote onboarding** — walking the nominator through the
    ICLA check, account provisioning, permissions, and welcome
    announcement once a vote passes.
 
@@ -49,6 +61,23 @@ list, `author_association` field, ICLA records) and proposes every
 state change for human sign-off.
 
 ## Where it lives
+
+Skills ship in two plugins, each reachable through a `skills/<dir>`
+symlink:
+`plugins/magpie-contributor-growth/skills/<alias>/SKILL.md`
+(`activity-sweep`, `calibrate`, `candidate-screen`,
+`committer-onboarding`, `contributor-to-committer`, `identity-map`,
+`nomination`, `onboarding-concierge`, `sentiment`) and
+`plugins/magpie-mentoring/skills/<alias>/SKILL.md` (`welcome`,
+`good-first-issue-author`, `good-first-issue-sweep`).
+Family overview: `docs/contributor-growth/README.md`.
+Design record:
+`docs/designs/2026-09-27-contributor-growth-calibration-and-screening.md`.
+Adopter config scaffolds live in `plugins/magpie-setup/templates/`
+(`projects/_template` is a symlink to it): `committer-readiness.md`,
+`contributor-nomination-config.md`, `committer-onboarding-config.md`,
+`contributor-identities.md`, `contributor-sentiment-config.md`,
+`onboarding-concierge-config.md`.
 
 - Skill: `mentoring-welcome` — drafts a first-contact orientation
   comment for a first-time contributor on a newly opened issue or PR.
@@ -92,10 +121,12 @@ state change for human sign-off.
   provisioning, permissions, and welcome-announcement checklist for
   committer and PMC promotions at ASF TLPs and podlings.
   Propose-before-post at every state-changing step. Ships
-  `mode: Triage` + `experimental`, eval suite under
+  `mode: Meta` + `experimental` (catalogued in the Meta table of
+  `docs/modes.md`), eval suite under
   `tools/skill-evals/evals/committer-onboarding/`. Step 2 maps the
   new committer's channel identities through
-  `contributor-identity-map`.
+  `contributor-identity-map`; the former Steps 2 and 3 are now
+  Steps 3 and 4.
 - Skill: `contributor-identity-map` — maps any contributor's GitHub
   handle to their Slack, Discord, Matrix, mailing-list, and
   social-media handles. Infers from the sources the session can
@@ -114,12 +145,47 @@ state change for human sign-off.
   committer or PMC thresholds; surfaces a traffic-light brief (Not yet /
   Approaching / Ready to nominate) plus the specific evidence gaps that
   remain. Ships `mode: Mentoring` + `experimental`.
+- Skill: `contributor-sentiment` — measures contributor-sentiment
+  signals over a window (thread tone, time-to-first-reply, first-PR
+  retention, reviewer-load Gini), compares them with a pre-adoption
+  baseline, and produces the structured gate report used to decide
+  whether a family advances from `experimental` to `stable`. Read-only.
+  Ships `mode: Triage` + `experimental`, eval suite under
+  `tools/skill-evals/evals/contributor-sentiment/`.
+- Skill: `onboarding-concierge` — answers a newcomer's "how do I
+  contribute here" question grounded in `CONTRIBUTING.md` and the
+  project's docs; classifies the question (setup / workflow /
+  first-issue / out-of-scope) and hands design, security, and
+  deprecation questions to a human. Draft only. Ships
+  `mode: Mentoring` + `experimental`, eval suite under
+  `tools/skill-evals/evals/onboarding-concierge/`.
 - Skill: `good-first-issue-sweep` — sweeps the open issue backlog for
   existing issues that could be labelled as good first issues; classifies
   each candidate as READY, NEAR-MISS, or SKIP against the G1–G7 rubric;
   applies labels only after explicit maintainer confirmation. Ships
   `mode: Mentoring` + `experimental`, eval suite under
   `tools/skill-evals/evals/good-first-issue-sweep/`.
+- Shared nomination references under
+  `plugins/magpie-contributor-growth/skills/nomination/`:
+  `automated-contributions.md` (discount and pushback-penalty rules),
+  `community-signals.md` (Step 3 community evidence), and
+  `real-names.md` (how people are named in briefs and reports),
+  alongside the step files `fetch.md`, `assess.md`, and `render.md`.
+- Tool: `tools/contributor-metrics` (`substrate:analytics`,
+  stdlib-only, shells out to `gh`) with three subcommands.
+  `fetch` collects five GitHub streams, applies the substantive-review
+  rule, flags pushback candidates, and caches by repository, handle,
+  window, phrases and roster (`--refresh` bypasses the cache).
+  `score` applies weights and the penalty and returns per-area shares
+  (with an `(unlabelled)` row), merge rate, a monthly timeline, and
+  which streams hit their search cap; `--since` scores a sub-window.
+  `floors` computes recency-weighted nearest-rank percentiles for
+  calibration.
+  Unit tests under `tools/contributor-metrics/tests/`.
+- Tools: `tools/chat` (`contract:chat`, read-only `list_channels`,
+  `resolve_user`, `search_messages`) and `tools/chat-slack` (Slack MCP
+  adapter, public channels only, never posts).
+  Discord is an extension point with no adapter yet.
 
 ## Behaviour & contract
 
@@ -160,9 +226,47 @@ state change for human sign-off.
   presence and release testing, chat answers through `contract:chat`
   (Slack adapter; public channels only), GitHub Discussions answers,
   and project-related posts on accounts the contributor linked
-  themselves. Identities count only when confirmed; reasoned criticism
-  is constructive; the community indicator never changes counts,
-  thresholds or the band.
+  themselves. Identities count only when confirmed: a chat or social
+  profile that merely names the GitHub handle is a possible match, not
+  an identity, and a self-linked account counts only when it links back
+  to the GitHub profile. Reasoned criticism is constructive. The
+  community indicator never changes counts, thresholds or the band,
+  though any confirmed collected row means an off-GitHub signal is
+  present; in `contributor-to-committer` that signal is always
+  mandatory and never treated as met by default.
+- **Thresholds come from the project's own history.**
+  `contributor-calibrate` reads past `[DISCUSS]` / `[VOTE]` / `[RESULT]`
+  nomination threads on the private list behind the privacy-LLM gate.
+  It keeps one structured row per nomination (target, vote date,
+  outcome, coarse deferral category), never votes, opinions or quotes.
+  It bounds the archive query at the holdout date and never opens an
+  excluded thread.
+  `contributor-metrics floors` computes the floors; a metric that does
+  not separate elected from deferred nominees is evidence-only, and
+  capped counts are left out of a metric's distribution.
+  The config diff carries numbers, `calibrated_on` and
+  `calibrated_window_months` only.
+  `contributor-to-committer` warns on a mismatched window and suggests
+  recalibrating after a year; `contributor-nomination` flags stale or
+  mismatched calibration; `/magpie-setup config` offers calibration
+  when thresholds are blank.
+- **Screening reports go only to a verified-private repository.**
+  `contributor-candidate-screen` builds its pool from merged PRs,
+  sliced by month and then week so GitHub's 1000-result search limit
+  never truncates it (it stops if a single day exceeds the limit).
+  It maps roster ids to GitHub handles through the directory or the
+  maintainer, never by guessing, and stops without a roster.
+  It logs every pre-filter drop, ignores evidence-only floors, does not
+  pre-filter the PMC pool, and treats a capped count below its floor as
+  unknown (written `>= N`), never missing.
+  The report is committed to `report_repo` only after the maintainer
+  confirms, and only when `gh api` reports the repository private,
+  checked before showing and again before writing; a gist is never
+  offered. The report uses plain profile links, never `@`-mentions.
+- **Real names are verified, never inferred.** Briefs and reports name
+  people per `nomination/real-names.md`: the people directory first,
+  then the GitHub profile name, then a consistent commit author name.
+  A name is never inferred from an email address or a handle.
 - **Teaching register for first-contact.** `mentoring-welcome` and
   `good-first-issue-author` follow the Agentic Mentoring mode's tone
   contract (polite, never gatekeeping) and hand off to a human
@@ -216,15 +320,27 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
   before a skill can safely propose anything. These are candidate work
   items once the active-path skills stabilise and an adopter pilot
   surfaces the concrete policy knobs needed.
-- **Mode boundary with Agentic Mentoring is intentionally fuzzy.** Four family
-  skills (`mentoring-welcome`, `good-first-issue-author`,
-  `contributor-to-committer`, `good-first-issue-sweep`) carry
-  `mode: Mentoring` and are documented in [mentoring-mode.md](mentoring-mode.md);
-  three carry `mode: Triage` (`contributor-activity-sweep`,
-  `contributor-nomination`, `committer-onboarding`). A later family-maturity
-  review may formalise the boundary or merge the families; for now, both
-  specs cross-reference each other.
-- **`experimental` — no adopter pilot has run.** All seven skills exist
+- **Mode boundary with Agentic Mentoring is intentionally fuzzy.** Five
+  family skills (`mentoring-welcome`, `good-first-issue-author`,
+  `contributor-to-committer`, `good-first-issue-sweep`,
+  `onboarding-concierge`) carry `mode: Mentoring` and are documented in
+  [mentoring-mode.md](mentoring-mode.md).
+  Six carry `mode: Triage` (`contributor-activity-sweep`,
+  `contributor-nomination`, `contributor-calibrate`,
+  `contributor-candidate-screen`, `contributor-identity-map`,
+  `contributor-sentiment`), and `committer-onboarding` carries
+  `mode: Meta`.
+  The plugin split does not follow the mode split either:
+  `onboarding-concierge` and `contributor-to-committer` ship in
+  `magpie-contributor-growth`, the other three Mentoring skills in
+  `magpie-mentoring`.
+  A later family-maturity review may formalise the boundary or merge the
+  families; for now, both specs cross-reference each other.
+- **Chat evidence is Slack-only.** `contract:chat` has one adapter
+  (`tools/chat-slack`); Discord and Matrix answers are not collected
+  until an adapter lands.
+- **`experimental` — no adopter pilot has run.** All twelve skills exist
   but no maintainer has run the full contributor-to-committer path
-  end-to-end through the family. Shape may change as adopter pilots
-  surface real-world usage patterns.
+  end-to-end through the family, and calibration has not yet run against
+  a real project's nomination history. Shape may change as adopter
+  pilots surface real-world usage patterns.

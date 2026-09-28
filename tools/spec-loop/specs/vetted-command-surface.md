@@ -53,6 +53,13 @@ cve.org check, invoke it through the same `uv run --project
 <framework>/tools/vetted-ops vetted-op-read …` spelling every permission rule
 and sandbox exclusion names — a bare `vetted-op-read` would miss the
 allowlist and prompt or run sandboxed (#1339).
+Two spellings are recognised, and each is both allowed and excluded from the
+sandbox: `uv run --project … vetted-op-read` and `uvx --from … vetted-op-read`,
+the form the read-only gatherer agents use (#1393). Before #1393 only the
+`uv run --project` form was excluded and neither was allowed, so every
+gatherer read prompted. The adopter install now carries these read `allow`
+entries into the settings merge and the update skill diffs them; `vetted-op`
+(writes) stays on `ask`.
 
 The `procedure` backend carries the tracker read-modify-write updates that
 `tools/github-rollup` and `tools/github-body-field` do outside the sandbox:
@@ -66,6 +73,25 @@ read), with bodies on stdin and no `@file` fields. An operation declared
 read-only gets a runner that refuses every write. The parsing and composing
 modules are vendored byte-for-byte from the two tools, with a test that fails
 on drift, because the dispatcher installs without them.
+The runner also refuses a `gh api` call that names its own repo or host, a
+path that traverses, a method other than `GET`, `PATCH` or `DELETE`, and a
+`gh issue --body-file` other than `-`, so no procedure makes `gh` read a local
+file.
+The dispatcher refuses a plan bound to any repository other than the policy's
+tracker.
+`rollup-amend-latest` refuses when the latest entry carries a different action,
+and `rollup-fold` refuses the rollup comment itself or a comment that belongs
+to another issue, and deletes the folded comment only after the append
+succeeded.
+Skills write with `vetted-op-tracker --caller <skill> rollup-append|rollup-amend-latest|rollup-fold|body-field-set …`
+and read a field with `vetted-op-read --caller <skill> body-field-get …`;
+the `github-rollup` and `github-body-field` uv CLIs remain for use outside the
+sandbox (#1448).
+On stdout, `body-field-get` prints the one value and `rollup-append` /
+`rollup-amend-latest` print the rollup comment's URL (`…#issuecomment-<id>`),
+so a caller can link to the entry without reading the rollup (#1451).
+The security skills are the first callers (#1451), and the policy example
+grants each security caller exactly the tracker operations it uses.
 
 A third entry point, `vetted-op-tracker`, refuses every operation except the
 procedure ones before it reads the policy — the same shape as
@@ -88,6 +114,15 @@ session, and it is `Edit`-denied alongside the catalogue. A `*` in place of the
 version would also match spaces, approving a command with extra `uv` options
 spliced in at that position; sandbox-lint rejects any Bash `allow` rule with a
 `*` before its end.
+The hook (`tools/vetted-ops/hooks/link-stable-path.sh`) only ever replaces a
+symlink: a real file or directory at the path is left alone and reported. The
+isolated-setup update and verify skills report a leftover versioned glob as
+must-fix (#1406).
+Under `permissions.blockReadsOutsideWorkingDirectories`, reads of the fixed
+path would prompt every time, so `sandbox-add-project-root.sh` lists
+`$HOME/.claude/magpie`, resolved, as a working directory in each worktree's
+`settings.local.json` (#1418; see
+[`agent-isolation-sandbox.md`](agent-isolation-sandbox.md)).
 
 ## Scoping — what is real and what is aspiration
 

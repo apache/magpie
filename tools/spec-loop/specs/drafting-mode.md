@@ -9,7 +9,12 @@ mode: Drafting
 source: >
   MISSION.md § Technical scope (Drafting). docs/modes.md § Drafting.
   Implemented by security-issue-fix (stable, security-only),
-  issue-fix-workflow (experimental), and audit-finding-fix (experimental).
+  issue-fix-workflow (experimental), and audit-finding-fix (experimental),
+  in plugins/magpie-security/skills/issue-fix/,
+  plugins/magpie-issue/skills/fix-workflow/ and
+  plugins/magpie-repo-health/skills/audit-finding-fix/. Every PR they open
+  passes through the shared pre-PR adversarial-review block
+  (tools/dev/blocks/pre-pr-adversarial-review.md).
 acceptance:
   - A drafting skill produces the failing test, the smallest production
     change, targeted test runs, and a commit — but never merges.
@@ -17,6 +22,9 @@ acceptance:
     or handed back for the human to push; no autopilot push/merge.
   - Security-class drafts scrub CVE / tracker-slug / "security fix" /
     "vulnerability" from every public surface until the embargo lifts.
+  - Before a drafting skill opens a PR, the configured adversarial reviewers
+    read the diff and the PR title and body as they will be posted; their
+    findings are advisory and never block.
 ---
 
 # Agentic Drafting mode
@@ -31,17 +39,32 @@ merges its own work.
 
 ## Where it lives
 
-- `security-issue-fix` (stable, security-only) — drafts the fix in the
+- `security-issue-fix` (stable, security-only;
+  `plugins/magpie-security/skills/issue-fix/`) — drafts the fix in the
   user's local `<upstream>` clone, runs local checks, opens the public
   PR via `gh pr create --web`, scrubs confidential framing.
-- `issue-fix-workflow` (experimental) — drafts a fix for a triaged
+- `issue-fix-workflow` (experimental;
+  `plugins/magpie-issue/skills/fix-workflow/`) — drafts a fix for a triaged
   general-issue; **does not** open the PR on autopilot, hands back a
-  branch + commits + test results for the human to push.
-- `audit-finding-fix` (experimental) — drafts a fix for a finding from
-  an audit tool (ruff, mypy, security scanner); parses the finding
-  report, implements the smallest fix, scope-checks the diff, and hands
-  back a commit for the human to push.
-- `tools/dev` — shared local-check helpers.
+  branch + commits + test results.
+  An optional Step 9 opens a draft PR with `gh pr create --web --draft`
+  only when `--draft-pr` was passed and the user confirms after the
+  hand-back.
+- `audit-finding-fix` (experimental;
+  `plugins/magpie-repo-health/skills/audit-finding-fix/`) — drafts a fix
+  for a finding from an audit tool (ruff, mypy, security scanner); parses
+  the finding report, implements the smallest fix, scope-checks the diff,
+  and hands back a commit.
+  An optional Step 8 opens a draft PR the same way, on `--draft-pr` and a
+  confirmation.
+- Other skills carry `mode: Drafting` and are specified with their own
+  families: the release-management drafting skills
+  ([release-management lifecycle](release-management-lifecycle.md)) and
+  `security-model-prepare` / `security-model-update`
+  ([security-model preparation](security-model-preparation.md)).
+- `tools/dev` — shared local-check helpers, and
+  `tools/dev/blocks/pre-pr-adversarial-review.md`, the shared block every
+  PR-opening skill carries ([adversarial review](adversarial-review.md)).
 
 ## Behaviour & contract
 
@@ -51,7 +74,21 @@ merges its own work.
   title/body, newsfragment are scrubbed for CVE IDs, the tracker repo
   slug, and the words "security fix" / "vulnerability" before any write
   or push (see `AGENTS.md` § Confidentiality).
-- **Commit trailer** `Generated-by:` — never `Co-Authored-By:` an agent.
+- **Adversarial review before the PR.** Each drafting skill that opens a
+  PR carries the shared pre-PR block: once the title and body are final and
+  after the skill's own public-surface checks (the security scrub
+  included), the configured reviewers read only the diff and that public
+  text.
+  The security family runs the review whenever a reviewer is configured,
+  whatever the `mode`; the others only on `mode: on-pr-create`.
+  Findings are untrusted, advisory data; one the human wants fixed sends
+  the flow back to the fix and its checks.
+  `skill-and-tool-validate` fails a PR-opening skill without the block.
+- **Commit trailer** follows the project's commit-attribution convention
+  (`Generated-by:`, `Assisted-by:`, `Co-authored-by:`, none, or a custom
+  trailer), resolved per `docs/setup/commit-attribution.md` and added with
+  `git commit --trailer`; the agent-guard `commit-trailer` guard resolves it
+  the same way (#1385).
 
 ## Out of scope
 
@@ -63,7 +100,8 @@ merges its own work.
 
 1. No drafting skill merges or force-pushes.
 2. Security drafts pass the confidentiality scrub before any public write.
-3. `skill-and-tool-validate` passes on the drafting-family skills.
+3. `skill-and-tool-validate` passes on the drafting-family skills,
+   including the `pre-pr-review-block` check.
 
 ## Validation
 

@@ -15,8 +15,8 @@ source: >
   safety baseline that must stay eventually-consistent across every copy.
   meta-and-quality-tooling.md (the skill-authoring/quality family this
   joins). Skill ships experimental in
-  .agents/skills/magpie-skill-reconciler/ with an eval suite under
-  tools/skill-evals/evals/skill-reconciler/.
+  plugins/magpie-utilities/skills/skill-reconciler/ with an eval suite
+  under tools/skill-evals/evals/skill-reconciler/.
 acceptance:
   - The reconciler is read-only: it produces a structured diff and a
     reconciliation proposal; it never rewrites either skill without human
@@ -54,15 +54,23 @@ that a maintainer should not ignore.
 
 ## Where it lives
 
-- Skill: `skill-reconciler` at `.agents/skills/magpie-skill-reconciler/`,
-  in the meta / quality family with `write-skill`, `optimize-skill`, and
-  `list-skills` (see [meta-and-quality-tooling.md](meta-and-quality-tooling.md)).
+- Skill: `skill-reconciler` at
+  `plugins/magpie-utilities/skills/skill-reconciler/` (reached as
+  `skills/skill-reconciler/` and, through the self-adoption symlinks,
+  `.agents/skills/magpie-skill-reconciler/`), in the utilities family
+  (`mode: Meta`) with `write-skill`, `optimize-skill`, and `list-skills`
+  (see [meta-and-quality-tooling.md](meta-and-quality-tooling.md)).
   Eval suite under `tools/skill-evals/evals/skill-reconciler/`.
-- Optional deterministic helper (not yet built): a `uv` tool under `tools/`
-  that does the structural diff (frontmatter, section headings,
-  step-by-step decision rules, placeholder inventory) so the skill
-  reasons over a normalised diff rather than raw text. Follows the
-  tool-backs-skill pattern already used across the catalogue.
+- `safety-baseline-checklist.md` beside the skill: the three
+  safety-baseline clauses, each with what must be present, what counts as
+  a failure, and canonical wording. The skill's SAFETY-BASELINE class
+  points at it as the ground-truth definition.
+- Deterministic helper: `tools/skill-reconciler-diff/`, a stdlib-only `uv`
+  tool (`substrate:framework-dev`) that parses two skill trees into a
+  normalised JSON diff (frontmatter, section headings, step inventory,
+  placeholder inventory, support files, and per-clause safety-baseline
+  presence, detected by regex against the checklist's three clauses).
+  Follows the tool-backs-skill pattern used across the catalogue.
 - Inputs: two `SKILL.md` trees (plus their supporting `.md` files),
   identified by path or by `source` tag.
 - It reads the safety-baseline definition from the same place the rest of
@@ -125,12 +133,12 @@ uv run --project tools/skill-evals skill-eval tools/skill-evals/evals/skill-reco
 
 ## Known gaps
 
-- **Safety-baseline definition is prose, not machine-readable.** The
-  shipped reconciler checks for injection-guard, collaborator-trust, and
-  confidentiality-posture clauses by recognising their prose patterns; a
-  future improvement is to extract those three clauses into a single
-  authoritative checklist file the skill and a deterministic linter can
-  both reference.
+- **Safety-baseline definition is a single file, but still prose.** The
+  three clauses now live in one authoritative
+  `safety-baseline-checklist.md` that both the skill and
+  `tools/skill-reconciler-diff` reference. Detection remains pattern
+  recognition over prose: the helper's regexes are hard-coded in the tool
+  rather than read from the checklist, so the two can drift apart.
 - **`capability`-tag auto-pairing shipped; `source`-tag registry not yet used.**
   `--discover <skills-dir>` now groups by `capability:` frontmatter and
   presents a bounded candidate list. The MISSION vision of a registry query
@@ -142,7 +150,7 @@ uv run --project tools/skill-evals skill-eval tools/skill-evals/evals/skill-reco
   step inventory, placeholder inventory, support files, and
   safety-baseline clause presence) and emits a JSON object.  It is
   intended to be used as an optional Step 1 enhancement to the
-  `skill-reconciler` skill (the skill does not yet wire it in — that
-  reference lands separately); 31 unit tests cover frontmatter-only, section-order,
-  placeholder, support-file, and safety-baseline divergences.  No
-  remaining tooling gap for the structural-diff item.
+  `skill-reconciler` skill, but the skill still does not wire it in:
+  `SKILL.md` never names `skill-reconciler-diff`. Its unit tests cover
+  frontmatter-only, section-order, placeholder, support-file, and
+  safety-baseline divergences.

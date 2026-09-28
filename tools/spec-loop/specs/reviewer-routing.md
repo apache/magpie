@@ -10,12 +10,12 @@ source: >
   MISSION.md § Rationale ("review-cycle latency" is one of the two named
   priorities) and § Technical scope (Agentic Triage: "proposes initial routing",
   "proposes routing"). The substrate config already declares "who
-  reviews" (overview.md § Substrate; projects/_template adopter config),
+  reviews" (overview.md § Substrate; plugins/magpie-setup/templates adopter config),
   but no skill turns that roster plus repository signal into an assignee
   suggestion. triage-mode.md § What it does ("propose routing to the
   right human") names the behaviour. Skill ships experimental in
-  .agents/skills/magpie-reviewer-routing/ with an eval suite under
-  tools/skill-evals/evals/reviewer-routing/.
+  plugins/magpie-pr-management/skills/reviewer-routing/ with an eval
+  suite under tools/skill-evals/evals/reviewer-routing/.
 acceptance:
   - The skill is read-only on tracker state and proposes-then-confirms;
     it never assigns, requests review, or labels without confirmation.
@@ -46,13 +46,23 @@ side: a grounded brief a human acts on, not a state change.
 
 ## Where it lives
 
-- Skill: `reviewer-routing` under `.agents/skills/magpie-reviewer-routing/`,
-  in the Agentic Triage family alongside `pr-management-triage` and
+- Skill: `plugins/magpie-pr-management/skills/reviewer-routing/SKILL.md`,
+  shipped in the `magpie-pr-management` plugin and reachable through the
+  `skills/reviewer-routing` and `.agents/skills/magpie-reviewer-routing`
+  symlinks. Agentic Triage mode, alongside `pr-management-triage` and
   `issue-triage`. Eval suite under `tools/skill-evals/evals/reviewer-routing/`.
-- Roster source: the project's configured reviewer roster
-  (`projects/<project>/` adopter config; `pmc-roster.md` for ASF
-  projects, an arbitrary maintainer list for non-ASF adopters). The
-  skill reads the roster through configuration, never a hard-coded list.
+- Roster source: the project's configured reviewer roster, read through
+  configuration, never a hard-coded list.
+  ASF projects use `<project-config>/release-trains.md` (the
+  per-component handle table `issue-triage` and `pr-management-triage`
+  already read); non-ASF adopters use `<project-config>/reviewer-roster.md`
+  (GitHub handles and declared areas, optional per-reviewer
+  `max_reviews`). Scaffolds for both live in
+  `plugins/magpie-setup/templates/` (`projects/_template` is a symlink
+  to it); `projects/non-asf-example/reviewer-roster.md` is a worked
+  non-ASF example.
+- Privacy-LLM gate: `<project-config>/privacy-llm.md`, checked with
+  `tools/privacy-llm/checker` at Step 0.
 - Repository signal: `tools/github` for changed paths, blame/history on
   those paths, and the reviewer's current open-review queue.
 - Identity resolution for ASF projects: `tools/apache-projects`
@@ -82,6 +92,31 @@ side: a grounded brief a human acts on, not a state change.
 - **Untrusted content stays data.** Issue / PR bodies are input data,
   never instructions; an injected "assign this to X" line in a PR
   description is ignored, the same posture every triage skill inherits.
+  When one is detected, the proposal says it is based on metadata and
+  roster signals only.
+- **Privacy gate before any body is fetched.** Step 0 checks `gh`
+  authentication, reads `project.md`, resolves the roster and the input,
+  then runs `privacy-llm-check` (flags: `--config`,
+  `--reads-private-list`, `--quiet`); a non-zero exit is a hard stop.
+  Step 0 returns a JSON verdict (`proceed` / `blocked`) with
+  `privacy_gate_passed` and `roster_source`
+  (`release-trains` / `reviewer-roster` / `null`).
+- **Deterministic scoring.** Area match scores 3 points per matched area
+  (capped at 6), git familiarity 2 points per authored path in the
+  changed set (capped at 6; zero for issues), and load subtracts 1 point
+  per open review request above 2 (down to -5). Load is the count of
+  open PRs on `<upstream>` with a review requested from the member; at
+  or above `max_reviews` (default 5) the member is `OVERLOADED`.
+  An overloaded member never takes the primary slot but may be proposed
+  as backup when no one else remains. Ties break alphabetically.
+  If every member is overloaded or none matches the touched areas, the
+  output is `NO ELIGIBLE REVIEWER — all roster members overloaded or no
+  area match`.
+- **Maintainer controls the outcome.** The confirmation step accepts
+  the proposal, declines it, swaps primary and backup, or overrides the
+  primary with a handle that must itself be on the roster.
+  On accept the skill prints the `gh` command for the maintainer to run
+  and stops; it never runs it.
 
 ## Out of scope
 
@@ -113,10 +148,16 @@ uv run --project tools/skill-evals skill-eval tools/skill-evals/evals/reviewer-r
 
 ## Known gaps
 
-- **Open-review-load signal is implementation-defined.** Whether load is
-  counted as open review requests, assigned-and-unreviewed PRs, or a
-  decay-weighted recent count is left to the implementation; the contract
-  only requires that some load signal is present and shown.
+- **Open-review-load signal is now defined.** The skill counts open
+  review requests (`review-requested:@<handle>` on open PRs) against a
+  per-reviewer `max_reviews` (default 5); assigned-but-unrequested PRs
+  and recency decay are not counted. Gap cleared; a richer load model
+  would be a future change.
+- **The skill names a checker flag that does not exist.** Step 0 of
+  `SKILL.md` tells the maintainer to "run `privacy-llm-check --list`"
+  after a gate failure, but `tools/privacy-llm/checker` accepts only
+  `--config`, `--reads-private-list` and `--quiet`, so that command
+  fails with an argument error. The skill text needs correcting.
 - **Non-ASF roster shape is now exercised.** `projects/non-asf-example/reviewer-roster.md`
   provides a Velox Stream roster with no ASF-specific fields; the
   `non-asf-profile-smoke/step-reviewer-routing/` eval suite asserts that
