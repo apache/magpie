@@ -138,6 +138,19 @@ same directory; the behaviour is unchanged.
   double-counts as maintainer activity.
   Regression cases: `tools/skill-evals/evals/pr-management-triage/`
   decision-table fixtures, including `case-22-fold-by-another-triager`.
+- **Backports are checked early, when the project cherry-picks.** With
+  `backport_branches` set in `pr-management-config.md`,
+  `pr-management-triage` runs Step 0.7 before the main flow on every open
+  PR targeting one of those branches — from any author, drafts included,
+  since pre-filters F1/F2 would otherwise drop bot-opened backports. It
+  resolves each commit's default-branch source, compares `-U0` patch-ids
+  (context lines differ between branches), ignores commits already on the
+  base, and under `backport_policy: fixes-only` (the default) flags source
+  changes that are not fixes — features, new checks, behaviour changes,
+  deprecations, removals, refactors — for closing. It proposes
+  hand-off, surface or close and never merges. With `backport_branches`
+  empty the step is skipped. Regression cases:
+  `tools/skill-evals/evals/pr-management-triage/backport-check/`.
 - **The fold timestamp is untrusted input to stats.** The
   `pr-triage-fold` block lives in the PR body, which the author controls.
   `tools/pr-management-stats/reference.py` (`fold_triaged_at`) treats an
@@ -262,6 +275,11 @@ same directory; the behaviour is unchanged.
 8. Every `pr-management-triage` per-PR drill-in shows a stable
    `[position/total]` header and the active classify-to-propose transition;
    `[E]` and `[P]NN` do not renumber the original group.
+9. When `backport_branches` is configured, `pr-management-triage` classifies
+   every open backport PR as a direct cherry-pick, an adapted backport, a
+   policy violation, already landed, or unverified before the main flow,
+   and never proposes handing off a change that is not a fix under
+   `backport_policy: fixes-only`.
 
 ## Validation
 
