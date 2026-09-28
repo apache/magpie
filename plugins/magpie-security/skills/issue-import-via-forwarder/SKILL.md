@@ -7,32 +7,20 @@ mode: Triage
 requires_config:
   - project.md
 description: |
-  Optional sub-skill of `security-issue-import`,
-  `security-issue-invalidate`, and `security-issue-sync` that
-  handles the *relay/forwarder* case: a report that did not
-  arrive directly from the reporter but was relayed onto
-  `<security-list>` by an upstream broker (the ASF security team,
-  a third-party disclosure platform, or an internal SOC). Runs after the
-  parent skill's generic classification cascade, dispatches
-  through adapters declared in `forwarders.enabled` per
-  `tools/forwarder-relay/README.md`, applies the matched
-  adapter's preamble-detect + credit-extract + reporter-
-  addressing rules, and hands the routing decision back. Never
-  mutates tracker state on its own.
+  Sub-skill for reports relayed onto `<security-list>` by a broker
+  (the ASF security team, a disclosure platform, a SOC) rather than
+  sent by the reporter. Detects the relay, extracts the credit and the
+  reporter-addressing rules through the adapters in
+  `forwarders.enabled`, and hands the routing back. Never mutates the
+  tracker.
 when_to_use: |
-  Invoked by `security-issue-import`, `security-issue-invalidate`,
-  and `security-issue-sync` for classification and draft routing
-  when `forwarders.enabled` is non-empty in
-  `<project-config>/project.md`. Also invocable standalone when
-  a security team member says "is this thread a relay?",
-  "extract the credit from this relay body", or "route the
-  draft on <tracker>#NNN through the forwarder". Skip when
-  `forwarders.enabled` is empty or the inbound message is
-  obviously from the direct reporter.
+  Called by import, invalidate and sync when `forwarders.enabled` is
+  set. Standalone: "is this thread a relay?", "extract the credit from
+  this relay". Skip when no forwarders are enabled.
 capability: capability:intake
 surface_hash: sha256:23903c54f5da4596
 license: Apache-2.0
-measured_tokens: 6528
+measured_tokens: 6376
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):

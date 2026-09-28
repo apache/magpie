@@ -155,7 +155,7 @@ can say so, because it is the floor everything else is managed from.
 
 | Family plugin | Skills | ~Always-on tokens |
 |---|---|---|
-| `magpie-security` | 15 | ~1.6k |
+| `magpie-security` | 15 | ~1.1k |
 | `magpie-setup` | 10 | ~0.7k |
 | `magpie-release-management` | 10 | ~1.3k |
 | `magpie-pr-management` | 8 | ~0.8k |

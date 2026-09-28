@@ -8,28 +8,19 @@ requires_config:
   - project.md
   - scope-labels.md
 description: |
-  Open a tracking issue in <tracker> for a security-relevant fix that
-  has already been opened (or merged) as a public PR in <upstream>,
-  in the case where there is no inbound `<security-list>`
-  report. The tracker lands in the `Assessed` board column with
-  the scope label applied, `pr created` / `pr merged` reflecting
-  the PR's state, and `Remediation developer` / `PR with the
-  fix` body fields populated from the PR. Pairs with
-  `security-cve-allocate` afterwards.
+  Open a tracker for a security-relevant fix that already exists as a
+  public `<upstream>` PR, with no `<security-list>` report. The tracker
+  lands in `Assessed` with scope, PR-state and remediation fields filled
+  from the PR; pairs with `security-cve-allocate`.
 when_to_use: |
-  Invoke when a security team member says "import a tracker from
-  PR <N>", "open a tracker for <upstream>#NNN", "we need a CVE
-  for this PR", or similar — typically when a contributor opens or
-  merges a public fix that the team agrees is security-relevant but
-  that never went through `security@`. Use only when the PR's
-  security relevance has already been agreed informally; this skill
-  does not host a validity discussion. For reports that arrive on
-  `<security-list>`, use `security-issue-import`.
+  "import a tracker from PR <N>", "we need a CVE for this PR", once
+  the team agrees the PR is security-relevant. For mailed reports use
+  `security-issue-import`.
 argument-hint: "[pr-number] [repo:owner/name]"
 capability: capability:intake
 surface_hash: sha256:249e4ff2ba6b1d91
 license: Apache-2.0
-measured_tokens: 9567
+measured_tokens: 9431
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):

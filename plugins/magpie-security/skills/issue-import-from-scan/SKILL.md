@@ -7,28 +7,19 @@ mode: Triage
 requires_config:
   - project.md
 description: |
-  Triage a security scanner's multi-finding output (read via a
-  pluggable scan-format adapter) and turn findings into security work
-  only after a complete operator-reviewed triage. Reads the scan's
-  finding index plus its per-finding evidence; buckets each finding by
-  disposition; applies only the operator's confirmed per-entry
-  decisions. Publishes the report as a gist and can open a report-back
-  PR.
+  Triage a security scanner's multi-finding output (via a scan-format
+  adapter; ASVS is the reference), bucket each finding, and apply only
+  the operator's confirmed decisions. Publishes the report as a gist
+  and can open a report-back PR.
 when_to_use: |
-  Invoke when a security team member says "import the scan",
-  "triage the <scanner> findings for <repo/component>", "import
-  scan results from <issue>", or hands one or more paths / tree-URLs
-  to scan report folders. The reference adapter is ASVS, but the flow is
-  scanner-agnostic via `tools/scan-format/`. Skip for a single
-  human-authored inbound report (use `security-issue-import`), a
-  single markdown findings file with no per-finding evidence split
-  (use `security-issue-import-from-md`), or a public PR to anchor on
-  (`security-issue-import-from-pr`).
+  "import the scan", "triage the <scanner> findings", or given scan
+  report folders. A single report goes to `security-issue-import`, a
+  single markdown file to `-from-md`.
 argument-hint: "[scan-source ...]  (one or more GitHub issues and/or report folders)"
 capability: capability:intake
 surface_hash: sha256:3aa895ba2115c1d9
 license: Apache-2.0
-measured_tokens: 5646
+measured_tokens: 5515
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
