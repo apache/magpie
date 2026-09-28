@@ -24,8 +24,7 @@ updates land, based on the process step. Examples:
 status-comment references "the release manager for `<version>`", look up
 the actual person, in this order:
 
-1. **Check the "Known release managers" subsection of
-   [`AGENTS.md`](../../../../AGENTS.md) first** — if the release is already
+1. **Check [`<project-config>/release-trains.md` § *Release managers for releases currently relevant to the security tracker*](../../../../<project-config>/release-trains.md#release-managers-for-releases-currently-relevant-to-the-security-tracker) first** — if the release is already
    listed there, use that name; it is the cache the next two sources fill.
 2. **Check the project's release plan** at
    `<project-wiki>`, which names the release manager for each *upcoming* cut.

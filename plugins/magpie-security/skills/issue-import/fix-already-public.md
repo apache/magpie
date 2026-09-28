@@ -45,13 +45,22 @@ candidate as a potential `fix-already-public`):
    no `date` command substitution, so the `gh` call stays a plain
    command and works on both macOS and Linux:
 
+   Write the keywords to `<scratch>/pubfix-kw-<threadId>.txt` with the Write tool, clean them as in Step 2a:
+
    ```bash
-   # Write keywords to a temp file first; sanitise with `tr -cd`.
-   KW=$(tr -cd 'A-Za-z0-9._ -' < <scratch>/pubfix-kw-<threadId>.txt)
-   gh search prs "$KW" --repo <upstream> \
+   tr -cd 'A-Za-z0-9._ -' < <scratch>/pubfix-kw-<threadId>.txt > <scratch>/pubfix-kw-<threadId>.clean.txt
+   ```
+
+   then read the cleaned file and run each search as a plain command, keywords single-quoted:
+
+   ```bash
+   gh search prs '<cleaned keywords>' --repo <upstream> \
      --merged --merged-at ">=<since-date>" \
      --json number,title,author,closedAt,url --limit 10
-   gh search prs "$KW" --repo <upstream> --state open \
+   ```
+
+   ```bash
+   gh search prs '<cleaned keywords>' --repo <upstream> --state open \
      --json number,title,author,createdAt,url --limit 10
    ```
 

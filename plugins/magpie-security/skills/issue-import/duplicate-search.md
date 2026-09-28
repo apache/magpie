@@ -59,15 +59,20 @@ Step 3 (root message and the last-5-messages converged-disposition check) and St
 
    Then:
    ```bash
-   KEYWORDS=$(tr -cd 'A-Za-z0-9._ -' < <scratch>/kw-<threadId>.txt)
-   gh search issues "$KEYWORDS" --repo <tracker> \
+   tr -cd 'A-Za-z0-9._ -' < <scratch>/kw-<threadId>.txt > <scratch>/kw-<threadId>.clean.txt
+   ```
+
+   Read `<scratch>/kw-<threadId>.clean.txt`, then search with its content single-quoted:
+
+   ```bash
+   gh search issues '<cleaned keywords>' --repo <tracker> \
      --state open --match title,body
    ```
 
-   The Write tool puts the bytes on disk without shell tokenisation;
-   `tr -cd` reads from the file and the result contains no shell
-   metacharacters. Never `printf '%s' "<raw keywords>"` — the
-   double-quoted argument expands `$(...)` before `printf` runs.
+   The Write tool puts the raw bytes on disk without shell tokenisation, and `tr -cd` leaves only letters, digits, `.`, `_`, space and `-`,
+   so the cleaned string is safe inside single quotes.
+   Run the two commands separately and keep the `gh` call plain: a `gh` inside `$(…)`, a pipe, or a command that also sets a variable stays sandboxed under the secure setup and fails.
+   Never paste the raw keywords, and never `printf '%s' "<raw keywords>"`: the double-quoted argument expands `$(...)` before `printf` runs.
 
    Title / body matches here are informational — a tracker with a
    similar title is worth a human glance but is not necessarily a

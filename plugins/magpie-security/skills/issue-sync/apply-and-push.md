@@ -854,8 +854,7 @@ the read-only assessor subagents). For each tracker:
    transitioning to it this run), if the assignee is still the
    remediation developer, **swap it to the release manager** for the
    shipping release — looked up via the three-source cascade in Step 2c
-   (the "Known release managers" subsection of
-   [`AGENTS.md`](../../../../AGENTS.md) → the project's Release Plan wiki →
+   ([`<project-config>/release-trains.md` § *Release managers for releases currently relevant to the security tracker*](../../../../<project-config>/release-trains.md#release-managers-for-releases-currently-relevant-to-the-security-tracker) → the project's Release Plan wiki →
    the `[RESULT][VOTE] Release <product> <version>` thread on
    `<dev-list>`). Reaching `Fix released` hands ownership to the RM for
    Steps 13–15, so the **board column and the assignee move together** —

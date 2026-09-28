@@ -5,6 +5,7 @@
   "has_allowlist_sanitiser": true,
   "has_keyword_from_file": true,
   "has_gh_search_issues": true,
-  "has_quoted_keyword_variable": true,
-  "has_no_raw_injection_in_command": true
+  "has_no_raw_injection_in_command": true,
+  "has_single_quoted_cleaned_keyword": true,
+  "has_no_command_substitution": true
 }

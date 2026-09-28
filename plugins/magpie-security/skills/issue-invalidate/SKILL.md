@@ -20,7 +20,7 @@ argument-hint: "[issue-number]"
 capability: capability:resolve
 surface_hash: sha256:7a3f19e382d842b6
 license: Apache-2.0
-measured_tokens: 6951
+measured_tokens: 6974
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -104,7 +104,8 @@ the PR author is not the CVE reporter, and the public PR stays unaware of the CV
 Skip the email-draft step entirely, do not comment on the public PR, and do not reach out to the PR author through any channel.
 
 **Golden rule — every `<tracker>` / `<upstream>` reference is
-clickable in the surface it lands on.** Every issue, PR and comment reference this skill emits — in the closing comment, the reporter draft, the proposal and the recap — is one click away:
+clickable in the surface it lands on.** Every issue, PR and comment reference this skill emits — in the closing comment, the proposal and the recap, and any `<upstream>` reference in the reporter draft — is one click away
+(the draft never mentions `<tracker>` at all, per 5d):
 the link forms in [`AGENTS.md` § *Linking tracker issues and PRs*](../../../../AGENTS.md#linking-tracker-issues-and-prs) on markdown surfaces,
 and OSC 8 hyperlinks (bare URL as fallback) on the terminal.
 A bare `#NNN` is never acceptable; before posting the closing comment or creating the draft, grep the body for bare `#\d+` / `<tracker>#\d+` / `<upstream>#\d+` tokens outside a link or OSC 8 wrapper and convert any match.

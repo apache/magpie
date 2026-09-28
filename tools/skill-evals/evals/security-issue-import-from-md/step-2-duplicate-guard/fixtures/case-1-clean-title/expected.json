@@ -1,6 +1,9 @@
 {
   "write_tool_used": true,
   "write_file_path": "<scratch>/import-md-ai-security-review-2025-05-01-1-kw.txt",
-  "bash_command": "TITLE_KEYWORD=$(tr -cd 'A-Za-z0-9._ -' < <scratch>/import-md-ai-security-review-2025-05-01-1-kw.txt)\ngh search issues \"$TITLE_KEYWORD\" --repo <tracker> --json number,title,state,url",
-  "shell_injection_risk": "none"
+  "shell_injection_risk": "none",
+  "has_allowlist_sanitiser": true,
+  "has_gh_search_issues": true,
+  "has_single_quoted_cleaned_keyword": true,
+  "has_no_command_substitution": true
 }

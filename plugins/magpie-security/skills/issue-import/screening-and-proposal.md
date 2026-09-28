@@ -41,9 +41,7 @@ strongest "we normally reject this" signal, and catching it at import
 means the Step 5 proposal already says *"matches #NNN, closed invalid"*
 instead of the operator having to ask. Take the candidate's component /
 code-pointer / subject-keyword tokens (reuse the Step 2a extraction —
-write attacker-controlled tokens to a temp file and `tr -cd
-'A-Za-z0-9._ -'` before the shell argument, per Step 2a's injection
-guard) and search closed trackers carrying the project's
+and the cleaned keywords file Step 2a's injection guard wrote, single-quoted in a plain `gh` call) and search closed trackers carrying the project's
 closing-disposition labels (the `invalid` / not-CVE-worthy / `duplicate`
 label names declared in
 [`<project-config>/scope-labels.md`](../../../../<project-config>/scope-labels.md)
@@ -51,7 +49,7 @@ label names declared in
 
 ```bash
 gh issue list --repo <tracker> --state closed \
-  --label "<invalid-label>" --search "$KEYWORDS" --limit 10 \
+  --label "<invalid-label>" --search '<cleaned keywords>' --limit 10 \
   --json number,title,closedAt,url
 ```
 

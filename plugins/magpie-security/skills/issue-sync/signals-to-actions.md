@@ -172,8 +172,7 @@ will change and *why*. Group them by category:
   **Propose swapping the assignee from the remediation developer to
   the release manager** in the same sync run that flips
   `pr merged` → `fix released`. Look up the release manager using the
-  three-source cascade from Step 2c (the "Known release managers"
-  subsection of [`AGENTS.md`](../../../../AGENTS.md), then the
+  three-source cascade from Step 2c ([`<project-config>/release-trains.md` § *Release managers for releases currently relevant to the security tracker*](../../../../<project-config>/release-trains.md#release-managers-for-releases-currently-relevant-to-the-security-tracker), then the
   project's Release Plan wiki (`<project-wiki>`),
   then the `[RESULT][VOTE] Release <product> <version>` thread on
   `<dev-list>`), and propose the swap as a concrete
@@ -916,7 +915,7 @@ will change and *why*. Group them by category:
 
   - `CVE_ID` — from the tracker's *CVE tool link* body field.
   - `RM_HANDLE` — looked up via the three-source cascade in Step 2c
-    (project's *Known release managers* / Release Plan wiki / dev@
+    (`release-trains.md` / Release Plan wiki / dev@
     `[RESULT][VOTE]` thread). Same lookup the assignee swap uses;
     do it once and reuse.
   - `SECURITY_LIST`, `USERS_LIST`, `ANNOUNCE_LIST` — from

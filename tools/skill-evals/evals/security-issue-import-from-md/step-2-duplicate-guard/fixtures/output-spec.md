@@ -25,5 +25,5 @@ Field rules:
 - `write_file_path`: the `<scratch>/import-md-<basename>-<index>-kw.txt` path the skill writes to (keep `<scratch>` as the literal placeholder).
 - `raw_keyword`: the 3-5 word distinctive substring extracted from the title (drop common words like "in", "the", "via").
 - `sanitised_keyword`: what remains after `tr -cd 'A-Za-z0-9._ -'` strips metacharacters from the raw keyword.
-- `bash_command`: the exact bash command sequence (Write step is separate — this is the shell portion only).
+- `bash_command`: the exact bash command sequence (Write step is separate — this is the shell portion only): the `tr -cd` clean into a file, then the plain `gh search issues` with the cleaned keyword single-quoted.
 - `shell_injection_risk`: `none` if the title has no metacharacters; `present_and_mitigated` if it has metacharacters that are stripped by the allowlist; `present_and_unmitigated` if metacharacters would survive (should never happen with correct implementation).
