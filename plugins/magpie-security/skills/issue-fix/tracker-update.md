@@ -7,51 +7,26 @@
 
 Now that a public PR exists, update the private tracking issue:
 
-1. **Append a `Fix PR` entry to the tracker's status-rollup
-   comment** — not a new top-level comment. The rollup-upsert
-   recipe (detection, append, zero-whitespace rules) lives in
-   [`tools/github/status-rollup.md`](../../../../tools/github/status-rollup.md).
+1. **Append a `Fix PR` entry to the tracker's status-rollup comment** — not a new top-level comment.
+   The rollup recipe (detection, append, zero-whitespace rules) lives in [`tools/github/status-rollup.md`](../../../../tools/github/status-rollup.md).
    Write the entry body to `<scratch>/rollup-entry-<N>.md` with the Write tool and append it:
 
    ```bash
    uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-fix rollup-append <N> "Fix PR (<upstream>#<PR>)" <scratch>/rollup-entry-<N>.md
    ```
 
-   The tool adds the `<YYYY-MM-DD> · @<author-handle> · Fix PR (<upstream>#<PR>)` `<details>` envelope,
-   so the file holds the body only.
-   The entry body announces the new PR, the branch name, and the
-   intended backport (if any). Render the issue reference, the PR
-   reference, and any CVE as clickable markdown links per the
-   "Linking CVEs" and "Linking `<tracker>` issues and PRs" rules in
-   [`AGENTS.md`](../../../../AGENTS.md). The rollup lives inside the
-   private repo so it may freely contain the `<upstream>` PR URL,
-   the branch name, and the CVE reference.
+   The tool adds the `<YYYY-MM-DD> · @<author-handle> · Fix PR (<upstream>#<PR>)` `<details>` envelope, so the file holds the body only.
+   The entry body announces the new PR, the branch name, and the intended backport (if any), with the issue, PR and CVE references as clickable links per [`AGENTS.md` § *Linking CVEs*](../../../../AGENTS.md#linking-cves) and [§ *Linking tracker issues and PRs*](../../../../AGENTS.md#linking-tracker-issues-and-prs).
+   The rollup is private, so it may contain the `<upstream>` PR URL, the branch name, and the CVE reference.
 
-   If the tracker has no rollup yet (legacy tracker pre-dating the
-   convention), `rollup-append` creates it; propose folding any
-   pre-existing bot comments into it first —
-   see the fold-legacy sub-step in
-   [`security-issue-sync`](../issue-sync/SKILL.md) — one call per accepted comment, oldest first:
+   If the tracker has no rollup yet (a legacy tracker), `rollup-append` creates it; first propose folding any pre-existing bot comments into it (the fold-legacy sub-step in [`security-issue-sync`](../issue-sync/SKILL.md)), one call per accepted comment, oldest first:
    `uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-fix rollup-fold <N> <comment-id> "<Action>"`.
 
-   Before writing the entry, **scrub the body for bare-name
-   mentions** of project maintainers, release managers, and
-   security-team members, and replace them with the corresponding
-   `@`-handle so GitHub actually notifies the person. The rule
-   itself lives in
-   [`AGENTS.md` — *Mentioning project maintainers and security-team members*](../../../../AGENTS.md#mentioning-project-maintainers-and-security-team-members);
-   the authoritative list of handles for the adopting project is in
-   [`<project-config>/release-trains.md`](../../../../<project-config>/release-trains.md).
-   The public `<upstream>` PR description and any follow-up public
-   comments must also obey the rule, but under the usual
-   public-surface confidentiality constraints (none of the
-   [5c forbidden terms](implementation-plan.md#5c-commit-message-and-pr-title)
-   alongside the mention).
+   Before writing the entry, **replace bare-name mentions** of maintainers, release managers, and security-team members with their `@`-handle, per [`AGENTS.md` — *Mentioning project maintainers and security-team members*](../../../../AGENTS.md#mentioning-project-maintainers-and-security-team-members); the handles are in [`<project-config>/release-trains.md`](../../../../<project-config>/release-trains.md).
+   The public `<upstream>` PR description and follow-up public comments obey the same rule, with none of the [5c forbidden terms](implementation-plan.md#5c-commit-message-and-pr-title) alongside the mention.
 
-2. **Update the issue body "PR with the fix" field** if it is empty
-   or points to a stale PR (the Step 2a value tells you which).
-   Write the PR URL to `<scratch>/pr-with-fix-<N>.md` with the Write tool, then patch
-   only that field:
+2. **Update the issue body "PR with the fix" field** if it is empty or points to a stale PR (the Step 2a value tells you which).
+   Write the PR URL to `<scratch>/pr-with-fix-<N>.md` with the Write tool, then patch only that field:
 
    ```bash
    uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-fix body-field-set <N> "PR with the fix" <scratch>/pr-with-fix-<N>.md
@@ -59,57 +34,28 @@ Now that a public PR exists, update the private tracking issue:
 
    Exit `3` means the heading is absent or duplicated — surface it and fall back to a manual edit.
 
-3. **Assign the tracker to the fix owner.** Now that a PR exists,
-   propose setting the tracking issue's assignee so the board
-   reflects who is on it. This applies the **same rule** as
-   `security-issue-sync` — the *Assignees* rule's PR-author and
-   sign-up branches in
-   [`security-issue-sync/signals-to-actions.md`](../issue-sync/signals-to-actions.md):
-   - The natural owner is the **remediation developer** — the
-     `<upstream>` PR author driving this fix.
-   - If a security-team member **signed up** to own the issue in the
-     thread, that volunteer is the owner instead (sign-up branch).
-   - **Project-member gate** (mandatory): assign only when the
-     person is on the security-team roster in
-     [`<project-config>/release-trains.md`](../../../../<project-config>/release-trains.md)
-     or a `<tracker>` collaborator. A non-member is recorded and
-     surfaced but **not** assigned — they cannot see the private
-     tracker and GitHub silently drops the write.
-   - **Never override** an existing conflicting assignee here; the
-     hand-off to the release manager stays at the `fix released`
-     transition (sync owns it).
+3. **Assign the tracker to the fix owner.** Propose setting the assignee so the board reflects who is on it, applying the **same rule** as `security-issue-sync` — the *Assignees* rule's PR-author and sign-up branches in [`security-issue-sync/signals-to-actions.md`](../issue-sync/signals-to-actions.md):
+   - The natural owner is the **remediation developer** — the `<upstream>` PR author driving this fix.
+   - If a security-team member **signed up** to own the issue in the thread, that volunteer is the owner instead (sign-up branch).
+   - **Project-member gate** (mandatory): assign only when the person is on the security-team roster in [`<project-config>/release-trains.md`](../../../../<project-config>/release-trains.md) or a `<tracker>` collaborator.
+     A non-member is recorded and surfaced but **not** assigned — GitHub silently drops the write.
+   - **Never override** an existing conflicting assignee here; the hand-off to the release manager stays at the `fix released` transition (sync owns it).
 
-   Propose; apply on confirmation. (The `security-issue-sync` run
-   this skill invokes also reconciles the assignee, so when sync
-   runs in the same pass this step and sync agree — they read the
-   one rule.)
+   Propose; apply on confirmation.
 
 4. **Maintain milestones and labels** — see the next section.
 
-5. **Status update to the reporter** — if the <tracker> issue has an
-   identified external reporter and the reporter has not yet been
-   told about the fix PR, delegate to the `security-issue-sync`
-   skill's "Status update to the reporter" category by re-running
-   that skill with a pointer to the new PR. Do **not** draft the
-   reporter email directly in this skill — it is the sync skill's
-   responsibility.
+5. **Status update to the reporter** — if the `<tracker>` issue has an identified external reporter who has not yet been told about the fix PR, re-run `security-issue-sync` with a pointer to the new PR (its "Status update to the reporter" category).
+   Do **not** draft the reporter email in this skill.
 
 ### Maintaining milestones and labels on `<tracker>`
 
-The fix skill is responsible for leaving the private issue in a
-consistent "fix-proposed, awaiting review" state by the time it
-returns. That means both the milestone and the label set must match
-the current release plan (see "Release branches currently in flight"
-and "What this means for sync and fix skills" in
-[`<project-config>/release-trains.md`](../../../../<project-config>/release-trains.md#release-branches-currently-in-flight) for the authoritative default
-release target). **Every action in this section is a proposal that
-requires explicit user confirmation before it is applied.**
+The skill leaves the private issue in a consistent "fix-proposed, awaiting review" state: milestone and label set match the current release plan (the default release target is in "Release branches currently in flight" and "What this means for sync and fix skills" in [`<project-config>/release-trains.md`](../../../../<project-config>/release-trains.md#release-branches-currently-in-flight)).
+**Every action in this section is a proposal that requires explicit user confirmation before it is applied.**
 
 #### 10a. Ensure the target milestone exists
 
-The default milestone for a patch-release fix is whatever
-`<project-config>/release-trains.md` names as the next patch release
-(referred to as `<target>` below).
+The default milestone for a patch-release fix is the next patch release `<project-config>/release-trains.md` names (`<target>` below).
 Before assigning, check that the milestone exists:
 
 ```bash
@@ -129,15 +75,11 @@ gh api repos/<tracker>/milestones \
   -F description=@<scratch>/ms-desc.txt
 ```
 
-The skill must present the `title`, `state` and `description` it
-will use and wait for a `yes` before running the create call. Once
-created, capture the returned milestone `number` — you will need it
-for a closed-milestone fallback later.
+Present the `title`, `state` and `description` and wait for a `yes` before running the create call.
+Capture the returned milestone `number` for the closed-milestone fallback.
 
-If the milestone exists but is **closed** (for example because it
-was reopened from history), `gh issue edit --milestone "<title>"`
-will fail with `'<title>' not found`. Fall back to the REST API and
-reference it by number:
+If the milestone exists but is **closed**, `gh issue edit --milestone "<title>"` fails with `'<title>' not found`.
+Fall back to the REST API and reference it by number:
 
 ```bash
 gh api repos/<tracker>/issues/<N> -X PATCH -F milestone=<milestone-number>
@@ -145,11 +87,7 @@ gh api repos/<tracker>/issues/<N> -X PATCH -F milestone=<milestone-number>
 
 #### 10b. Assign the issue to the target milestone
 
-If the issue currently sits on a stale milestone (for example
-a patch release that has already been cut, a retired release line
-listed as legacy in `<project-config>/release-trains.md`, or a legacy
-catch-all milestone placeholder), propose moving it to the current default and apply
-with user confirmation:
+If the issue sits on a stale milestone (a patch release already cut, a retired release line listed as legacy in `<project-config>/release-trains.md`, or a legacy catch-all placeholder), propose moving it to the current default and apply on confirmation:
 
 ```bash
 gh issue edit <N> --repo <tracker> --milestone '<target>'
@@ -157,10 +95,8 @@ gh issue edit <N> --repo <tracker> --milestone '<target>'
 gh api repos/<tracker>/issues/<N> -X PATCH -F milestone=<number>
 ```
 
-Do **not** silently move an issue that is intentionally parked on
-an older milestone (e.g. an already-released patch that still needs
-an advisory sent). When in doubt, surface the question to the user
-instead of moving it.
+Do **not** silently move an issue intentionally parked on an older milestone (e.g. an already-released patch that still needs an advisory sent).
+When in doubt, ask the user instead of moving it.
 
 #### 10c. Ensure the required labels exist
 
@@ -177,19 +113,11 @@ For a post-triage, pre-merge fix, the target label set is:
 - `cve allocated` if a CVE has been allocated;
 - `needs triage` **removed** (if still present after triage);
 - `pr created` once the public PR is open;
-- **not** `pr merged` or `fix released` (those belong to post-merge
-  / post-release states, applied by the `security-issue-sync` skill
-  on later runs);
-- **not** `announced - emails sent` or `announced` (those
-  belong to post-advisory states, also applied by the sync skill).
+- **not** `pr merged` or `fix released` (post-merge / post-release states, applied by `security-issue-sync` on later runs);
+- **not** `announced - emails sent` or `announced` (post-advisory states, also applied by sync).
 
-If a label the skill wants to apply does **not** exist on the
-repository (for example a typo in a past doc version — the canonical
-example is the README historically saying `vendor-advisory` when the
-actual label is `announced - emails sent`), stop and report the
-mismatch. Do **not** silently create labels without asking — label
-names are the shared vocabulary of the security team, and new labels
-should be discussed.
+If a label the skill wants to apply does **not** exist on the repository (e.g. a stale doc name — the README once said `vendor-advisory` where the actual label is `announced - emails sent`), stop and report the mismatch.
+Do **not** create labels without asking — label names are the security team's shared vocabulary.
 
 If the user confirms creating a label, do it explicitly:
 
@@ -201,9 +129,7 @@ gh label create '<name>' --repo <tracker> \
 
 #### 10d. Apply the label changes
 
-Once the target label set is agreed, apply all add / remove
-operations in a single `gh issue edit` call so the change lands as
-one audit trail entry:
+Once the target label set is agreed, apply all adds and removes in a single `gh issue edit` call, so the change lands as one audit-trail entry:
 
 ```bash
 gh issue edit <N> --repo <tracker> \
@@ -215,16 +141,10 @@ gh issue edit <N> --repo <tracker> \
 
 Before leaving the tracking issue, verify:
 
-- exactly one scope label is set (`<scope-a>` **xor** `<scope-b>`
-  **xor** `<scope-c>`);
-- the milestone matches the current default from
-  `<project-config>/release-trains.md`, or
-  the user has explicitly confirmed a different one;
-- the issue body "PR with the fix" field points at the newly-opened
-  public PR;
-- the `cve allocated` label is present if the issue body contains a
-  CVE tool link, and absent if it does not
-  (read both fields with `body-field-get`, never the whole body);
+- exactly one scope label is set (`<scope-a>` **xor** `<scope-b>` **xor** `<scope-c>`);
+- the milestone matches the current default from `<project-config>/release-trains.md`, or the user has explicitly confirmed a different one;
+- the issue body "PR with the fix" field points at the newly-opened public PR;
+- the `cve allocated` label is present if the issue body contains a CVE tool link, and absent if it does not (read both fields with `body-field-get`, never the whole body);
 - `needs triage` is gone.
 
 Surface any remaining inconsistency in the Step 11 recap.
