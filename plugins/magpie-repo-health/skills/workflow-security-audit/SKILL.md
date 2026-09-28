@@ -25,7 +25,7 @@ argument-hint: "[--repo owner/name | --repo-file repos.txt | --owner org]"
 capability: capability:triage
 surface_hash: sha256:e50eafff464d131a
 license: Apache-2.0
-measured_tokens: 3283
+measured_tokens: 3453
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -193,20 +193,28 @@ Or directly via the GitHub API (no clone needed for public repos):
 zizmor --gh-token "$(gh auth token)" github:<upstream>
 ```
 
-For several repositories, run the above per repo and merge the output.
-
-For a whole GitHub org, iterate over repos:
+For several repositories, and for a whole GitHub org, pass the repositories to one `zizmor` run —
+zizmor audits multiple inputs in the same invocation ([usage docs](https://docs.zizmor.sh/usage/)).
+For an org, list the repositories first with a plain call and keep the list:
 
 ```bash
-gh api /orgs/<org>/repos --paginate --jq '.[].full_name' \
-  | while read repo; do
-      zizmor --gh-token "$(gh auth token)" github:"$repo" \
-        || echo "zizmor exit $? for $repo" >&2
-    done
+gh api /orgs/<org>/repos --paginate --jq '.[].full_name'
 ```
 
+Then scan them in batches of up to 50 repositories per invocation (keeps the argument list and the blast radius of one failed run small):
+
+```bash
+zizmor --gh-token "$(gh auth token)" --format json \
+  github:<owner>/<repo-1> github:<owner>/<repo-2> … github:<owner>/<repo-50>
+```
+
+Each finding in the JSON output names its repository in its location `key` (`"Remote": {"owner": …, "repo": …}`), so the report still groups findings per repository.
+
 zizmor exits 11–14 when it reports findings, so those codes are expected.
-Any other non-zero exit means that repository was **not** scanned: list it in the report as a scan failure with its error output, never as a clean repository.
+Any other non-zero exit means the batch did **not** complete, and the exit code does not say which repository caused it:
+re-run that batch one repository per invocation to find the failing one(s).
+A repository whose own run exits outside 0 and 11–14, or that the batch's stderr names in a collection warning, was **not** scanned:
+list it in the report as a scan failure with its error output, never as a clean repository.
 
 **Enabled rule classes.** By default all four zizmor audits are active.
 Restrict to a subset (from the adopter config or the user's request) in

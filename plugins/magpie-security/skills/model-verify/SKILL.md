@@ -22,7 +22,7 @@ argument-hint: "[repo-or-model-path]"
 capability: capability:review
 surface_hash: sha256:03ecb6b8514583b2
 license: Apache-2.0
-measured_tokens: 5315
+measured_tokens: 5553
 ---
 
 # Security model verify
@@ -238,6 +238,22 @@ security-relevant build flags), §1.19 the machine-readable companions.
 2. **Run Check A on every repository**, following the chain with the
    source-control adapter's contents read at the pinned ref, and resolving any
    external link with a HEAD request to confirm it returns a document.
+   On GitHub, fetch the first two hops for every repository in one aliased GraphQL query instead of two contents reads per repository.
+   Write the query with the Write tool to a scratch file (it holds only the configured owner/name/ref values) and run a plain `gh api graphql -F query=@<file>`:
+
+   ```graphql
+   query {
+     r1: repository(owner: "<owner>", name: "<name>") {
+       agents: object(expression: "<ref>:AGENTS.md") { ... on Blob { text isTruncated } }
+       security: object(expression: "<ref>:SECURITY.md") { ... on Blob { text isTruncated } }
+     }
+     # repeat one aliased block per repository in scope
+   }
+   ```
+
+   A `null` object means the file is absent at that ref.
+   Any hop the result cannot answer — a `SECURITY.md` at the path `AGENTS.md` names rather than the root, an in-repo model file, a truncated blob — is a follow-up contents read for that repository alone.
+   The fetch is batched; the verdict is still reached per repository, as above.
 
 3. **Run Check B on every distinct model.** When several repositories share one
    model URL, read it once — the assessment is per model. Discoverability stays

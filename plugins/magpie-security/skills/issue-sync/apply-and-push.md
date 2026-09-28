@@ -85,13 +85,10 @@ before moving on to the next item. Use:
   `fix released` with a review-ready record but no hand-off marker
   (see *Hand-off presence is an invariant* under **Assignees** in
   [`signals-to-actions.md`](signals-to-actions.md)). Then
-  decide POST vs PATCH by grepping the tracker's comment list for
-  the marker:
-
-  ```bash
-  existing=$(gh issue view <N> --repo <tracker> --json comments \
-    --jq '[.comments[] | select(.body | startswith("<!-- apache-magpie: release-manager-handoff v1 -->"))] | .[0].id // empty')
-  ```
+  decide POST vs PATCH by scanning the comments the
+  [Step 1a](gather.md#1a-read-the-github-issue) fetch already returned
+  for one whose body starts with
+  `<!-- apache-magpie: release-manager-handoff v1 -->` — no extra call.
 
   - **No marker found (first hand-off, or marker lost)** — POST a
     fresh comment:
@@ -100,19 +97,16 @@ before moving on to the next item. Use:
     gh issue comment <N> --repo <tracker> --body-file <tmpfile>
     ```
 
-  - **Marker found** — fetch the existing body, compare against the
-    re-rendered body for the current variant, and PATCH-edit
-    in-place only if they differ (skip the round-trip when the
-    body is byte-identical):
+  - **Marker found** — compare the existing body (from the same 1a
+    fetch) against the re-rendered body for the current variant, and
+    PATCH-edit in-place only if they differ (skip the round-trip when
+    the body is byte-identical). The REST id (not the GraphQL node id)
+    is the number after `#issuecomment-` in that comment's `url`
+    field, so no lookup call is needed:
 
     ```bash
-    # extract the REST id (not the GraphQL node id)
-    rest_id=$(gh api repos/<tracker>/issues/comments \
-      --jq '.[] | select(.node_id == "<existing>") | .id')
-    # PATCH
-    jq -n --rawfile body <tmpfile> '{body: $body}' | \
-      gh api -X PATCH repos/<tracker>/issues/comments/${rest_id} \
-        --input - --jq '{id, updated_at}'
+    gh api -X PATCH repos/<tracker>/issues/comments/<id> \
+      -F body=@<tmpfile> --jq '{id, updated_at}'
     ```
 
   The PATCH path is what powers the "OAuth-pushed today, manual-paste
@@ -168,26 +162,17 @@ before moving on to the next item. Use:
   milestone), substitute with a one-line *informational* note —
   not an ask:
 
-  ```bash
-  ms=$(gh issue view <N> --repo <tracker> --json milestone \
-    --jq '.milestone.number // empty')
-
-  if [ -n "$ms" ]; then
-    # The just-closed tracker is no longer in the open list, so
-    # `open` here counts SIBLINGS still open on the same milestone.
-    open=$(gh issue list --repo <tracker> --milestone "$ms" \
-      --state open --limit 1000 --json number --jq 'length')
-    if [ "$open" -eq 0 ]; then
-      ms_url=$(gh api repos/<tracker>/milestones/$ms --jq '.html_url')
-      ms_title=$(gh api repos/<tracker>/milestones/$ms --jq '.title')
-      bullet="Milestone [\`$ms_title\`]($ms_url) closed automatically (every tracker on it is now done)."
-    else
-      bullet=""
-    fi
-  else
-    bullet=""
-  fi
+  ```text
+  Milestone [`<ms-title>`](https://github.com/<tracker>/milestone/<ms-number>) closed automatically (every tracker on it is now done).
   ```
+
+  This needs no extra call.
+  Whether the milestone-close PATCH ran in this apply is already known
+  (it fired only after its own open-sibling count came back `0`), and
+  `<ms-number>` / `<ms-title>` are the tracker's milestone from the
+  [Step 1a](gather.md#1a-read-the-github-issue) fetch.
+  When the close did not fire, or the tracker has no milestone,
+  substitute an empty string.
 
   Substitute into the template, write the result to a temp file,
   then POST a fresh comment — there is no PATCH recovery for this

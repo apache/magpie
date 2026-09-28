@@ -30,7 +30,7 @@ argument-hint: "[issue-number]"
 capability: capability:resolve
 surface_hash: sha256:7a3f19e382d842b6
 license: Apache-2.0
-measured_tokens: 7800
+measured_tokens: 7836
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -328,6 +328,8 @@ gh issue view <N> --repo <tracker> --json \
 ```
 
 `<scratch>` is the session scratch directory as an absolute path (fall back to `$TMPDIR`); `gh` may run outside the sandbox, where `$TMPDIR` differs, so pass it absolute paths.
+
+In bulk mode, skip this per-tracker call: the batched GraphQL read in [`bulk.md`](bulk.md) already returned the same fields for every tracker in the set.
 
 Record into the observed-state bag:
 

@@ -45,7 +45,10 @@ r = subprocess.run(
         # events file older than the issue's last update. Dropping it here silently
         # disables that guard, because the check falls back to "no timestamp -> trust
         # the cache" and every relabelled issue keeps its stale event history.
-        "number,title,state,stateReason,createdAt,closedAt,updatedAt,labels,comments",
+        # `body` and `closedByPullRequestsReferences` ride on this one paginated call
+        # so fetch_bodies.py can build issue_extra.json without a `gh issue view`
+        # per issue.
+        "number,title,state,stateReason,createdAt,closedAt,updatedAt,labels,comments,body,closedByPullRequestsReferences",
     ],
     capture_output=True,
     text=True,
@@ -59,3 +62,8 @@ with open(f"{ROOT}/issues.json", "w") as f:
     json.dump(issues, f)
 
 print(f"Wrote {len(issues)} issues to {ROOT}/issues.json")
+if len(issues) >= 1000:
+    print(
+        "WARNING: the issue list hit the 1000-issue cap; older issues are missing "
+        "and every count in the dashboard is a floor. Raise --limit in fetch_issues.py."
+    )

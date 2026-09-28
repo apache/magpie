@@ -28,6 +28,7 @@ reports lifecycle bands that silently disagree with the tracker.
 
 from __future__ import annotations
 
+import importlib.util
 import pathlib
 import re
 
@@ -50,3 +51,43 @@ def test_fetch_events_guard_depends_on_updated_at():
 def test_fetch_issues_requests_updated_at():
     """So fetch_issues.py must actually request it, or the guard never fires."""
     assert "updatedAt" in _json_fields(TOOL_DIR / "fetch_issues.py")
+
+
+def test_fetch_issues_requests_extra_fields():
+    """fetch_bodies.py builds issue_extra.json from these list-call fields."""
+    fields = _json_fields(TOOL_DIR / "fetch_issues.py")
+    assert {"body", "closedByPullRequestsReferences"} <= fields
+
+
+def _load_fetch_bodies():
+    spec = importlib.util.spec_from_file_location("fetch_bodies", TOOL_DIR / "fetch_bodies.py")
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_build_extra_takes_fields_from_list_call():
+    """Issues carrying the list-call fields need no per-issue fetch, and fresh list data wins over cache."""
+    fb = _load_fetch_bodies()
+    refs = [{"number": 7, "repository": {"name": "airflow"}}]
+    issues = [
+        {"number": 1, "body": "new body", "closedByPullRequestsReferences": refs},
+        {"number": 2, "body": "", "closedByPullRequestsReferences": []},
+    ]
+    cache = {"1": {"number": 1, "body": "stale body", "closedByPullRequestsReferences": []}}
+    todo = fb.build_extra(issues, cache)
+    assert todo == []
+    assert cache["1"] == {"number": 1, "body": "new body", "closedByPullRequestsReferences": refs}
+    assert cache["2"] == {"number": 2, "body": "", "closedByPullRequestsReferences": []}
+
+
+def test_build_extra_falls_back_to_cache_then_per_issue_fetch():
+    """An issues.json without the fields keeps the old resume-from-cache behaviour."""
+    fb = _load_fetch_bodies()
+    issues = [{"number": 1}, {"number": 2}]
+    cached = {"number": 1, "body": "cached", "closedByPullRequestsReferences": []}
+    cache = {"1": dict(cached)}
+    todo = fb.build_extra(issues, cache)
+    assert todo == [2]
+    assert cache == {"1": cached}

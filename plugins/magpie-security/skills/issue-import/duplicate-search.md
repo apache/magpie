@@ -17,7 +17,9 @@ should exist per CVE.
 For each candidate that survived Step 2, read the root message body
 (this is the only place in the whole skill where we consume Gmail
 budget on a thread we are about to propose importing) and run a
-fuzzy-match search against existing issues on three orthogonal keys:
+fuzzy-match search against existing issues on three orthogonal keys.
+Fetch the thread **once** with `mcp__claude_ai_Gmail__get_thread` and `messageFormat: FULL_CONTENT`, and keep the result as *the Step 2a thread fetch*.
+Step 3 (root message and the last-5-messages converged-disposition check) and Step 4 (field extraction) reuse it instead of fetching the thread again.
 
 1. **GHSA IDs**: grep the body for `GHSA-[a-z0-9-]{4,}` tokens. For
    each hit, `gh search issues "<GHSA-ID>" --repo <tracker>
@@ -73,12 +75,14 @@ fuzzy-match search against existing issues on three orthogonal keys:
 
 4. **Semantic sweep** (runs only when no STRONG GHSA match was found in
    key 1): fetch the title and the first 300 characters of the body of
-   every **open** `<tracker>` issue in a single call:
+   every **open** `<tracker>` issue in a single call, **once per run** —
+   the first candidate that reaches this key fetches it, and every later
+   candidate reuses *the Step 2a open-tracker list*:
 
    ```bash
    gh issue list --repo <tracker> --state open --limit 200 \
      --json number,title,body \
-     | jq '[.[] | {number, title, body: .body[:300]}]'
+     --jq '[.[] | {number, title, body: .body[:300]}]'
    ```
 
    Write the result to a temp file and use it as read-only reference
@@ -199,6 +203,7 @@ highest-scoring semantic candidates. A candidate with more than 5
 structural match keys is almost certainly pulled from a noisy
 source; treat the excess as WEAK signal only. The semantic sweep's
 single bulk-list call is fixed-cost regardless of the number of
-open trackers.
+open trackers, and runs once per run, not once per candidate.
+If that list holds exactly 200 entries, say in the Step 5 proposal that the semantic sweep was capped at 200 open trackers.
 
 ---

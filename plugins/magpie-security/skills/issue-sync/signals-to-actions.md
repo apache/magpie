@@ -133,7 +133,8 @@ will change and *why*. Group them by category:
   handle appears in the security-team roster in
   [`<project-config>/release-trains.md`](../../../../<project-config>/release-trains.md) — when in doubt,
   run `gh api repos/<tracker>/collaborators --jq '.[].login'`
-  as the authoritative check; **every collaborator counts regardless
+  as the authoritative check — once per run, reused for every
+  membership check below; **every collaborator counts regardless
   of their permission level** — read, triage, write, maintain, and
   admin are all valid), **propose setting the tracking issue's
   assignee to that PR author**. The PR author is the natural owner
@@ -159,8 +160,8 @@ will change and *why*. Group them by category:
   **same project-member gate** as the PR-author branch: their handle
   must appear in the security-team roster in
   [`<project-config>/release-trains.md`](../../../../<project-config>/release-trains.md),
-  or in `gh api repos/<tracker>/collaborators --jq '.[].login'`
-  (every permission level counts). The gate matters twice over for a
+  or in the `gh api repos/<tracker>/collaborators --jq '.[].login'`
+  list already fetched this run (every permission level counts). The gate matters twice over for a
   private tracker: a non-collaborator **cannot see the issue**, and
   GitHub silently drops assignee writes for non-collaborators. So a
   volunteer who is **not** a project member is recorded in the
@@ -912,8 +913,8 @@ will change and *why*. Group them by category:
     *Remediation developer* body field. When the field carries a
     `Full Name (@handle)` line, extract the `@handle` token. When
     only the name is set, fall back to the fix-PR author's
-    `@`-handle (looked up via `gh pr view --json author --jq
-    .author.login`) and propose adding the `@handle` to the body
+    `@`-handle (`author.login` from the Step 1b PR fetch — no
+    extra call) and propose adding the `@handle` to the body
     field on the same sync pass (so the next sync resolves
     cleanly).
   - `MISSING_FIELDS_LIST` — Markdown bullet list, one line per
@@ -971,8 +972,8 @@ will change and *why*. Group them by category:
   <!-- apache-magpie: release-manager-handoff v1 -->
   ```
   exactly. The marker is on line 1 of the comment body so a
-  literal `gh issue view --json comments --jq` filter detects it
-  cheaply. Three outcomes:
+  literal prefix match over the comments the Step 1a fetch already
+  returned detects it without another call. Three outcomes:
 
   - **No marker found.** Propose a fresh POST of the appropriate
     variant (per Step 5c's decision).

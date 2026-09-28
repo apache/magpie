@@ -9,16 +9,26 @@ For each candidate `threadId`, check whether that ID already appears in
 an `<tracker>` issue body. The sync skill records each thread
 ID in the *"Security mailing list thread"* field of the tracking issue
 (either as the `<mail-archive-url>/thread/<id>` URL or as a textual note
-containing the Gmail `threadId`). One `gh search issues` call is
-enough:
+containing the Gmail `threadId`). Check every candidate in one pass:
+OR the candidates' `threadId`s into one `gh search issues` query, at
+most 6 IDs per query (GitHub search allows at most five `OR`
+operators), so a run makes one call per 6 candidates instead of one
+per candidate:
 
 ```bash
-gh search issues "<threadId>" --repo <tracker> --match body --limit 5 \
-  --json number,title,state,url
+gh search issues "<threadId-1> OR <threadId-2> OR … OR <threadId-6>" \
+  --repo <tracker> --match body --limit 100 \
+  --json number,title,state,url,body
 ```
 
-If the search returns any hit, the thread is already imported — skip
-it. Do **not** propose re-importing (that would create a duplicate
+Attribute each hit to a candidate by finding which `threadId` its
+`body` contains; a hit can match more than one candidate.
+If a query returns exactly 100 hits, the result may be truncated —
+split that batch into smaller ones and re-run rather than treating
+the unmatched `threadId`s as untracked.
+
+If the search returns any hit for a candidate, the thread is already
+imported — skip it. Do **not** propose re-importing (that would create a duplicate
 tracker). If the user explicitly passed `import thread:<id>` and the
 thread is already imported, tell the user and link the existing issue
 rather than trying to create a duplicate.
@@ -54,8 +64,9 @@ check:
 1. **At least one message in the thread is authored by a
    security-team member.** Cross-reference the `From:` of each
    non-root message against the collaborator list of
-   `<tracker>` (authoritative: `gh api
-   repos/<tracker>/collaborators --jq '.[].login'`) or
+   `<tracker>` fetched once in Step 0 (authoritative: `gh api
+   repos/<tracker>/collaborators --jq '.[].login'`; do not
+   re-fetch it per candidate) or
    the roster declared in
    [`<project-config>/release-trains.md`](../../../../<project-config>/release-trains.md).
    A message from a team member on an inbound report thread is
@@ -126,9 +137,11 @@ record the team's assessment formally rather than rely on the
 mail-thread paper trail).
 
 **Budget guardrail**: one MINIMAL `get_thread` call per candidate
-(on top of the Step 2 search). This step deliberately avoids
+(on top of the batched Step 2 search). This step deliberately avoids
 FULL_CONTENT — the snippet + `From:` headers are enough to
-classify the shape. If the snippet is ambiguous (the canned-
+classify the shape, and most threads reaching this filter are
+dropped here or never proposed; the one FULL_CONTENT fetch per
+surviving thread happens in Step 2a and is reused from there. If the snippet is ambiguous (the canned-
 response opening is cut off), default to *keep the candidate*
 rather than risk a false-positive drop.
 

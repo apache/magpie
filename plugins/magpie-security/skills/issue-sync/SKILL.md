@@ -25,7 +25,7 @@ argument-hint: "[issue-number]"
 capability: capability:intake
 surface_hash: sha256:b0ff65771ca4650a
 license: Apache-2.0
-measured_tokens: 7488
+measured_tokens: 7507
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -150,9 +150,10 @@ messages): grep the text for bare `#\d+` and bare `<tracker>#\d+`
 tokens that aren't already inside a markdown link or an OSC 8
 wrapper, and convert any match to the appropriate clickable
 form for that surface. If the scrub finds a reference the skill
-does not have the full URL for yet, look it up with
-`gh issue view <N> --repo <tracker> --json url --jq .url`
-before emitting. Tracker URLs and `#NNN` identifiers are public-safe
+does not have the full URL for yet, build it as
+`https://github.com/<tracker>/issues/<N>` before emitting — no lookup
+call; GitHub redirects an `/issues/<N>` URL to `/pull/<N>` when the
+number is a PR. Tracker URLs and `#NNN` identifiers are public-safe
 per the
 [Confidentiality of `<tracker>`](../../../../AGENTS.md#confidentiality-of-the-tracker-repository)
 rule (the page they point at is access-gated, so the link itself

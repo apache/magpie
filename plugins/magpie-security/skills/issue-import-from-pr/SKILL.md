@@ -29,7 +29,7 @@ argument-hint: "[pr-number] [repo:owner/name]"
 capability: capability:intake
 surface_hash: sha256:249e4ff2ba6b1d91
 license: Apache-2.0
-measured_tokens: 9512
+measured_tokens: 9567
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -377,20 +377,21 @@ discriminators because the *PR with the fix* body field on
 existing trackers contains the URL once `security-issue-sync`
 has run on them.
 
-```bash
-gh search issues --repo <tracker> "in:body \"pull/<N>\"" \
-    --json number,title,state \
-  | jq '.'
-```
-
-Also search for the bare number to catch trackers where the
-field has been hand-edited:
+One search covers both the PR URL and the bare number (which
+catches trackers where the field has been hand-edited), OR'd
+together:
 
 ```bash
-gh search issues --repo <tracker> "in:body <N>" --json number,title,state | jq '.'
+gh search issues --repo <tracker> "in:body \"pull/<N>\" OR <N>" \
+    --limit 30 --json number,title,state
 ```
 
-If either search returns a hit:
+`<N>` is the integer `pr.number` fetched in Step 1, never free text.
+If the search returns exactly 30 hits, the bare number is matching
+too broadly to rule a duplicate out: list the hits and ask the user
+rather than treating the absence of a `pull/<N>` hit as conclusive.
+
+If the search returns a hit:
 
 - Surface the existing tracker(s) to the user with a clickable
   `<tracker>#NNN` reference.

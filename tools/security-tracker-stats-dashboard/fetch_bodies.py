@@ -17,33 +17,50 @@
 # specific language governing permissions and limitations
 # under the License.
 
-"""Fetch issue body + closedByPullRequestsReferences for every tracker
-issue and cache to /tmp/claude/dashboard/issue_extra.json."""
+"""Build <cache>/issue_extra.json (issue body + closedByPullRequestsReferences).
+
+fetch_issues.py requests both fields on its single paginated `gh issue list`
+call, so this step normally makes no network call at all: it copies the two
+fields out of issues.json. The per-issue `gh issue view` path survives only as
+a fallback for issues whose list entry lacks the fields (an issues.json written
+by an older fetch_issues.py, or a gh too old to offer the field on `list`); it
+keeps the original resume-from-cache semantics.
+"""
 
 import json
 import os
 import subprocess
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-ROOT = os.environ.get("TRACKER_STATS_CACHE", "/tmp/tracker-stats-cache")
-REPO = os.environ.get("TRACKER_STATS_REPO", "airflow-s/airflow-s")
-OUT = f"{ROOT}/issue_extra.json"
-
-with open(f"{ROOT}/issues.json") as f:
-    issues = json.load(f)
-
-# Resume support
-cache = {}
-if os.path.exists(OUT):
-    with open(OUT) as f:
-        cache = json.load(f)
-    print(f"resume: {len(cache)} cached")
-
-todo = [i["number"] for i in issues if str(i["number"]) not in cache]
-print(f"to fetch: {len(todo)}")
+EXTRA_FIELDS = ("body", "closedByPullRequestsReferences")
 
 
-def fetch(n):
+def extra_from_list(issue):
+    """Return the issue_extra entry for a list-call issue, or None if the list lacks the fields."""
+    if not all(k in issue for k in EXTRA_FIELDS):
+        return None
+    return {"number": issue["number"], **{k: issue[k] for k in EXTRA_FIELDS}}
+
+
+def build_extra(issues, cache):
+    """Merge list-call fields into *cache*; return the issue numbers still needing a per-issue fetch.
+
+    List data is fresh on every run, so it overwrites any cached entry for the
+    same issue. Issues without list data keep their cached entry and are only
+    fetched when no cached entry exists.
+    """
+    todo = []
+    for issue in issues:
+        key = str(issue["number"])
+        entry = extra_from_list(issue)
+        if entry is not None:
+            cache[key] = entry
+        elif key not in cache:
+            todo.append(issue["number"])
+    return todo
+
+
+def fetch(repo, n):
     try:
         r = subprocess.run(
             [
@@ -52,7 +69,7 @@ def fetch(n):
                 "view",
                 str(n),
                 "--repo",
-                REPO,
+                repo,
                 "--json",
                 "number,body,closedByPullRequestsReferences",
             ],
@@ -67,18 +84,40 @@ def fetch(n):
         return n, {"error": str(e)}
 
 
-done = 0
-with ThreadPoolExecutor(max_workers=10) as ex:
-    futs = {ex.submit(fetch, n): n for n in todo}
-    for fut in as_completed(futs):
-        n, data = fut.result()
-        cache[str(n)] = data
-        done += 1
-        if done % 25 == 0:
-            with open(OUT, "w") as f:
-                json.dump(cache, f)
-            print(f"  {done}/{len(todo)}")
+def main():
+    root = os.environ.get("TRACKER_STATS_CACHE", "/tmp/tracker-stats-cache")
+    repo = os.environ.get("TRACKER_STATS_REPO", "airflow-s/airflow-s")
+    out = f"{root}/issue_extra.json"
 
-with open(OUT, "w") as f:
-    json.dump(cache, f)
-print(f"done: cached {len(cache)} → {OUT}")
+    with open(f"{root}/issues.json") as f:
+        issues = json.load(f)
+
+    # Resume support
+    cache = {}
+    if os.path.exists(out):
+        with open(out) as f:
+            cache = json.load(f)
+        print(f"resume: {len(cache)} cached")
+
+    todo = build_extra(issues, cache)
+    print(f"from list call: {len(issues) - len(todo)}; to fetch per issue: {len(todo)}")
+
+    done = 0
+    with ThreadPoolExecutor(max_workers=10) as ex:
+        futs = {ex.submit(fetch, repo, n): n for n in todo}
+        for fut in as_completed(futs):
+            n, data = fut.result()
+            cache[str(n)] = data
+            done += 1
+            if done % 25 == 0:
+                with open(out, "w") as f:
+                    json.dump(cache, f)
+                print(f"  {done}/{len(todo)}")
+
+    with open(out, "w") as f:
+        json.dump(cache, f)
+    print(f"done: cached {len(cache)} → {out}")
+
+
+if __name__ == "__main__":
+    main()

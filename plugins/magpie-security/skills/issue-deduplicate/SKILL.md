@@ -25,7 +25,7 @@ argument-hint: "[kept-issue] [duplicate-issue]"
 capability: capability:resolve
 surface_hash: sha256:ea8092b0eb507603
 license: Apache-2.0
-measured_tokens: 5676
+measured_tokens: 5721
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -244,9 +244,8 @@ in `docs/prerequisites.md`.
 
 1. `gh api repos/<tracker> --jq .name` returns
    `<tracker>`.
-2. Both issue numbers resolve —
-   `gh issue view <kept> --repo <tracker> --json number`
-   and the same for `<dropped>` — before any write.
+2. Both issue numbers resolve — checked by the two Step 1 fetches, which run before any write;
+   a not-found on either side is a stop (no separate `--json number` probe).
 3. `uv --version` returns.
 4. **Privacy-LLM gate-check** passes:
 
@@ -272,6 +271,8 @@ than no dedup.
 gh issue view <keep>  --repo <tracker> --json number,title,state,body,labels,milestone,assignees,author,comments
 gh issue view <drop>  --repo <tracker> --json number,title,state,body,labels,milestone,assignees,author,comments
 ```
+
+`comments` stays in the field set: Step 2's CVE-JSON-attachment check reads it, and so does the legacy-bot-comment detection behind Step 5's fold-legacy sub-step.
 
 Verify:
 
