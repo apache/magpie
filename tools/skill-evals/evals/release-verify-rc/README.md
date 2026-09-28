@@ -43,8 +43,9 @@ document the allowed schema.
 The grader extracts JSON from the model's output and compares the
 fields in `expected.json` exactly. Fields not present in `expected.json`
 are ignored; fields present in `expected.json` must match exactly
-(including `null` vs omitted). `paste_recipe` fields are graded
-semantically (see each suite's `grading-schema.json`).
+(including `null` vs omitted), except prose fields declared in the step
+fixtures' `grading-schema.json` (e.g. `paste_recipe`, `pom_findings`),
+which are graded semantically.
 
 `PASS` — all fields in `expected.json` match the model output.
 `FAIL` — any field mismatch.
