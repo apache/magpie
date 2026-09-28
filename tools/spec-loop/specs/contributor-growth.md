@@ -11,7 +11,8 @@ source: >
   base"). triage-mode.md § Known gaps (contributor-growth skills span
   Agentic Triage and Agentic Mentoring but are not yet a named family).
   mentoring-mode.md § Known gaps. Implemented by contributor-nomination,
-  contributor-activity-sweep, committer-onboarding, good-first-issue-author,
+  contributor-activity-sweep, committer-onboarding, contributor-identity-map,
+  good-first-issue-author,
   mentoring-welcome, contributor-to-committer, and good-first-issue-sweep.
 acceptance:
   - Every family skill is read-only or propose-before-post; none
@@ -92,7 +93,22 @@ state change for human sign-off.
   committer and PMC promotions at ASF TLPs and podlings.
   Propose-before-post at every state-changing step. Ships
   `mode: Triage` + `experimental`, eval suite under
-  `tools/skill-evals/evals/committer-onboarding/`.
+  `tools/skill-evals/evals/committer-onboarding/`. Step 2 maps the
+  new committer's channel identities through
+  `contributor-identity-map`.
+- Skill: `contributor-identity-map` — maps any contributor's GitHub
+  handle to their Slack, Discord, Matrix, mailing-list, and
+  social-media handles. Infers from the sources the session can
+  reach (GitHub profile and social accounts, organization directory,
+  connected chat tools, mail archives, the contributor's own text),
+  grades each match `verified` / `self-declared` / `name-match` /
+  `unknown`, and records into `<project-config>/contributor-identities.md`
+  only what the maintainer confirms. In `nomination` context it never
+  contacts the contributor and never edits the committed file.
+  Consumed by `committer-onboarding` (Step 2) and
+  `contributor-nomination` (Step 3). Ships `mode: Triage` +
+  `experimental`, eval suite under
+  `tools/skill-evals/evals/contributor-identity-map/`.
 - Skill: `contributor-to-committer` — read-only readiness tracker that
   maps a contributor's GitHub activity against the adopter's PMC-declared
   committer or PMC thresholds; surfaces a traffic-light brief (Not yet /

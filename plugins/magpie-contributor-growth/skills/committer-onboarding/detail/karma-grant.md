@@ -2,7 +2,7 @@
 # Karma grant guide
 
 Step-by-step instructions for each karma-grant action in
-Step 2 of `committer-onboarding`. Work through these in
+Step 3 of `committer-onboarding`. Work through these in
 order; confirm each one with the nominator before moving on.
 
 Whimsy (https://whimsy.apache.org) is the most convenient tool for

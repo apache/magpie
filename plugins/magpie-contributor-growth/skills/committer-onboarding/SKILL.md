@@ -12,7 +12,9 @@ description: |
   Post-vote committer and PMC onboarding for Apache projects.
   Walks the nominator through every step from ICLA check to
   welcome announcement for both incubating podlings and
-  graduated top-level projects.
+  graduated top-level projects, including mapping the new
+  committer's GitHub handle to their Slack, Discord, and
+  social-media identities for the nominator to confirm.
 when_to_use: |
   Invoke after a committer or PMC vote has closed and the
   nominator needs to carry out the post-vote steps. Trigger
@@ -25,9 +27,9 @@ when_to_use: |
 capability:
   - capability:resolve
   - capability:triage
-surface_hash: sha256:0b1081376b51a75a
+surface_hash: sha256:40434f039974e45b
 license: Apache-2.0
-measured_tokens: 7308
+measured_tokens: 7915
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -43,6 +45,7 @@ measured_tokens: 7308
      <apache-id>     → candidate's Apache ID (if they already have one, else "none")
      <nominator>      → Apache ID of the person running this skill
      <vote-thread>   → URL of the [VOTE] thread in the mailing list archive
+     <github-handle> → candidate's GitHub login (the anchor of the identity map)
      Substitute these before any command or URL below. -->
 
 # committer-onboarding
@@ -95,7 +98,10 @@ is in. `/magpie-setup verify` is the full diagnostic.
 This skill walks the nominator (the person who proposed the vote)
 through every action required after a committer or PMC vote
 passes, from validating the result through to the welcome
-announcement. It produces draft text for every external
+announcement. Along the way it infers which Slack, Discord, and
+social-media accounts belong to the candidate's GitHub handle and
+records each mapping once the nominator confirms it. It produces
+draft text for every external
 communication — the candidate congratulations email, the
 secretary account-creation request, and the dev-list welcome
 — and confirms each one with the nominator before anything is
@@ -179,7 +185,7 @@ subsequent instruction accordingly.
 Before collecting inputs, read
 `<project-config>/committer-onboarding-config.md`. If the file is
 absent, use the ASF defaults listed below. Two top-level fields
-determine how Steps 1 and 2 behave:
+determine how Steps 1 and 3 behave:
 
 | Key | Default | Meaning |
 |---|---|---|
@@ -327,7 +333,7 @@ Set `<apache-id>` to "none" if the candidate has no existing
 Apache account.
 
 **5. Confirm the project is incubating or graduated.** This
-governs the Whimsy URL and roster-edit path in Step 2.
+governs the Whimsy URL and roster-edit path in Step 3.
 
 Output from Step 0:
 
@@ -491,18 +497,41 @@ confirmation.**
 **`github-codeowners` model:**
 
 No external account-creation request is needed — the candidate
-already has a GitHub account used during contribution. Proceed
-directly to Step 2 (invite to the GitHub maintainer team and
+already has a GitHub account used during contribution. Continue
+with Step 2, then Step 3 (invite to the GitHub maintainer team and
 optional CODEOWNERS update).
 
 **`maintainer-roster` model:**
 
-No external account-creation request is needed. Proceed directly
-to Step 2 (roster file update and notification announcement).
+No external account-creation request is needed. Continue with
+Step 2, then Step 3 (roster file update and notification
+announcement).
 
 ---
 
-## Step 2 — Post-vote access and checklist
+## Step 2 — Map the candidate's channel identities
+
+Run [`contributor-identity-map`](../identity-map/SKILL.md)
+for `<github-handle>` in `context:onboarding`.
+It infers the candidate's Slack, Discord, Matrix, mailing-list, and
+social-media handles from the sources this session can reach,
+grades the evidence, and asks the nominator to confirm each row.
+Nothing it infers is used until the nominator accepts it.
+
+If `<github-handle>` is not known yet, ask the nominator for it; do
+not derive it from the candidate's name.
+A `committer-to-pmc` candidate usually has an entry already: the
+skill shows it and fills only the missing channels.
+Skip this step when `identity_mapping.enabled` is `false`.
+
+Keep the returned summary for Step 3: the confirmed handles drive
+the community-channel checklist and the welcome-announcement
+mentions, and every `ask-contributor` or `unknown` channel becomes a
+pending item.
+
+---
+
+## Step 3 — Post-vote access and checklist
 
 Branch on `committer_governance.model` resolved in Config pre-flight.
 Present all checklist items with checkboxes; confirm each one with
@@ -534,7 +563,7 @@ for the exact commands and UI steps for each item.
   https://whimsy.apache.org/roster/committee/<podling> (TLP).
   See `karma-grant.md § Whimsy roster update`.
 - [ ] **Welcome announcement** — post the welcome message on
-  dev@<podling>.apache.org. Draft in Step 2a below.
+  dev@<podling>.apache.org. Draft in Step 3a below.
 
 #### Checklist — committer-to-pmc or direct-to-pmc (asf-pmc)
 
@@ -575,7 +604,7 @@ config for the team slug, CODEOWNERS path, and vote channel.
 
 - [ ] **Welcome announcement** — post to the project's community channel
   (GitHub Discussion, mailing list, or Slack, per project conventions).
-  Draft in Step 2a below.
+  Draft in Step 3a below.
 
 ### `maintainer-roster` model
 
@@ -599,9 +628,26 @@ config for the roster file path and minimum approvals.
   and open it only after confirmation.
 
 - [ ] **Welcome announcement** — post to the project's community channel
-  per project conventions. Draft in Step 2a below.
+  per project conventions. Draft in Step 3a below.
 
-### 2a. Draft the welcome announcement
+### Community channels (all models)
+
+Skip when Step 2 was skipped or confirmed no channel handles.
+For each channel in `identity_mapping.channels`
+(`<project-config>/contributor-identities.md`) that
+carries an `on_onboard` action and has a **confirmed** handle
+for the candidate, add one checklist item:
+
+- [ ] **<channel label>** — `<on_onboard>` for `<confirmed handle>`
+  (for example: invite to the committers Slack channel, grant the
+  Discord committer role).
+
+Never run an `on_onboard` action against an unconfirmed or
+`name-match` handle. A channel with no confirmed handle becomes a
+pending item (*"ask the candidate for their <channel> handle"*),
+not a guess.
+
+### 3a. Draft the welcome announcement
 
 For `asf-pmc`: read [`detail/email-templates.md`](detail/email-templates.md) §
 Welcome announcement and fill the template. Post to
@@ -614,12 +660,19 @@ committer role and how to get started. The delivery channel (GitHub
 Discussion, mailing list, Slack) follows project conventions — ask the
 nominator if unclear.
 
+When the announcement is posted on a channel where Step 2
+confirmed a handle for the candidate, mention them by that
+handle (a Slack or Discord mention, `@user@instance` on
+Mastodon, and so on) so they are notified. On a public mailing
+list, list confirmed social handles only if the candidate agreed
+to share them publicly.
+
 **Show the draft to the nominator and send / post only after
 confirmation.**
 
 ---
 
-## Step 3 — Completion summary
+## Step 4 — Completion summary
 
 Print a one-screen summary adapted to the active governance and intake
 models. Omit lines that do not apply to the resolved model pair.
@@ -682,6 +735,10 @@ Pending (if any):
   ⏳ Roster PR merge
 ```
 
+When Step 2 ran, add an `Identity mapping:` block listing each
+confirmed channel handle, and list every `ask-contributor` or
+`unknown` channel under Pending.
+
 If any items are still pending, list them explicitly so the nominator
 knows to follow up.
 
@@ -708,6 +765,9 @@ Two ordering rules govern the summary:
   root@apache.org via the account-creation request in Step 1c;
   the skill drafts the request but does not interact with LDAP
   or SVN directly.
+- **Map identities itself.** Step 2 delegates to
+  `contributor-identity-map`, which never records or acts on a
+  mapping the nominator has not confirmed.
 - **Guarantee ICLA processing time.** The secretary processes
   ICLAs as they arrive; the skill notes when to wait but
   cannot accelerate processing.

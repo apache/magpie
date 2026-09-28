@@ -120,6 +120,7 @@ these skills can delete this group.
 | [`contributor-nomination-config.md`](contributor-nomination-config.md) | Nomination-brief thresholds and assessment window. Used by `contributor-nomination`. |
 | [`committer-onboarding-config.md`](committer-onboarding-config.md) | **Capability-flag vocabulary for committer intake and governance models** (`icla`/`dco`/`no-cla`; `asf-pmc`/`github-codeowners`/`maintainer-roster`). Used by `committer-onboarding`. |
 | `committer-readiness.md` | Activity thresholds the `contributor-to-committer` readiness tracker compares against. Added by the `contributor-to-committer` skill. |
+| [`contributor-identities.md`](contributor-identities.md) | The project's community channels, and confirmed mappings from each contributor's GitHub handle to their Slack, Discord, mailing-list, and social-media handles. Written by `contributor-identity-map` after a maintainer confirms each one. |
 | [`committer-readiness.md`](committer-readiness.md) | The project's declared committer and PMC thresholds — what a contributor's activity is measured against. |
 | [`onboarding-concierge-config.md`](onboarding-concierge-config.md) | The path a new contributor is walked through, and who owns each step. |
 | [`contributor-sentiment-config.md`](contributor-sentiment-config.md) | **Optional.** Signal thresholds for the sentiment gate. Every key has a default. |

@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
-# Step 3 output spec
+# Step 4 output spec
 
 The model must produce a completion summary with the following
 structure:

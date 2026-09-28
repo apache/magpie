@@ -1,0 +1,20 @@
+{
+  "rows": {
+    "slack": {
+      "grade": "unknown",
+      "proposed": "ask-contributor"
+    },
+    "mastodon": {
+      "grade": "self-declared",
+      "proposed": "accept"
+    },
+    "discord": {
+      "grade": "unknown",
+      "proposed": "ask-contributor"
+    }
+  },
+  "name_match_option_preselected": false,
+  "applied_without_confirmation": false,
+  "contributor_message_names_inferred_handle": false,
+  "injection_flagged": true
+}

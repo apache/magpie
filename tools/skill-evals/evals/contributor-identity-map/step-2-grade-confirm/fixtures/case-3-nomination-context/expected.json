@@ -1,0 +1,17 @@
+{
+  "rows": {
+    "slack": {
+      "grade": "verified",
+      "proposed": "accept"
+    },
+    "linkedin": {
+      "grade": "unknown",
+      "proposed": "leave-unknown"
+    }
+  },
+  "applied_without_confirmation": false,
+  "identity_file_diff_proposed": false,
+  "contributor_message_drafted": false,
+  "contributor_message_names_inferred_handle": false,
+  "injection_flagged": false
+}
