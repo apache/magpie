@@ -18,47 +18,23 @@ named explicitly** in the Step 5e rollup terminal entry:
   terminal entry MUST state: *"No reporter notification owed
   — internal audit finding, no inbound `security@` thread."*
 - **GHSA-relay-only reports — operator with GHSA write
-  access.** The only inbound channel is a GHSA advisory and
-  the tracker carries no Gmail thread. The operator running
-  the skill IS a maintainer with write access to the
-  `<upstream>` repo's GHSA (verify via
-  `gh api repos/<upstream>/security-advisories/<GHSA-ID>`
-  returning a non-403). In that case the GHSA advisory
-  itself IS the closure communication: post a closing
-  comment on the GHSA, mark the advisory as withdrawn or
-  closed informational, and record in the rollup terminal
-  entry: *"GHSA-relay-only reporter channel
-  (GHSA-XXXX-XXXX-XXXX) — closure communicated as GHSA
-  comment `<URL>` / advisory state set to
-  `<withdrawn|informational>`; no Gmail reply needed."*
+  access.** The only inbound channel is a GHSA advisory, the tracker carries no Gmail thread,
+  and the operator has write access to the `<upstream>` repo's GHSA
+  (`gh api repos/<upstream>/security-advisories/<GHSA-ID>` returns non-403).
+  The GHSA advisory itself IS then the closure communication: post a closing comment on the GHSA, mark the advisory withdrawn or closed informational,
+  and record in the rollup terminal entry: *"GHSA-relay-only reporter channel (GHSA-XXXX-XXXX-XXXX) — closure communicated as GHSA comment `<URL>` / advisory state set to `<withdrawn|informational>`; no Gmail reply needed."*
 - **GHSA-relay-only reports — operator without GHSA write
-  access.** Same intake (GHSA-only, no Gmail thread) but the
-  operator cannot comment on / modify the GHSA — the API
-  call above returns 403, or the operator is running from a
-  triager account that does not hold GHSA-write membership.
-  In that case the GHSA channel is **not** self-sufficient;
-  the closure must be relayed via a forwarder with the
-  required GHSA-write permissions so they can post the
-  closure comment / state-change on our behalf. If the
-  parent tracker was imported via a forwarder adapter (per
-  the optional
+  access.** Same intake, but the operator cannot comment on or modify the GHSA
+  (the call above returns 403, or the triager account lacks GHSA-write membership).
+  The GHSA channel is then **not** self-sufficient: relay the closure through a forwarder with GHSA-write permission, who posts the closure comment / state change on our behalf.
+  If the parent tracker was imported via a forwarder adapter (the optional
   [`security-issue-import-via-forwarder`](../issue-import-via-forwarder/SKILL.md)
-  sub-skill — i.e. when `forwarders.enabled` is non-empty in
-  `<project-config>/project.md` and a registered adapter
-  applies), route the drafted message through that adapter's
-  `contact_handle` and use the adapter's
-  `reporter_addressing_block` convention. See
-  [`tools/forwarder-relay/README.md`](../../../../tools/forwarder-relay/README.md)
-  for the contract. The drafted body includes the clickable
-  GHSA URL on its own line + a paste-ready block in the
-  reporter's voice with the invalid-disposition rationale +
-  canonical CVE-ID (when `duplicate`) for the forwarder to
-  post on the GHSA. Record in the rollup terminal entry: *"GHSA-relay-only
-  reporter channel (GHSA-XXXX-XXXX-XXXX); operator lacks
-  GHSA-write access on `<upstream>`. Forwarder-relay draft
-  `<draftId>` queued to `<forwarder-contact>` requesting they
-  post the closure comment on the GHSA on our behalf —
-  awaiting user review."*
+  sub-skill, with `forwarders.enabled` non-empty in `<project-config>/project.md` and a registered adapter that applies),
+  route the draft through that adapter's `contact_handle` and its `reporter_addressing_block` convention, per
+  [`tools/forwarder-relay/README.md`](../../../../tools/forwarder-relay/README.md).
+  The body carries the clickable GHSA URL on its own line and a paste-ready block in the reporter's voice with the invalid-disposition rationale
+  (plus the canonical CVE-ID when `duplicate`) for the forwarder to post on the GHSA.
+  Record in the rollup terminal entry: *"GHSA-relay-only reporter channel (GHSA-XXXX-XXXX-XXXX); operator lacks GHSA-write access on `<upstream>`. Forwarder-relay draft `<draftId>` queued to `<forwarder-contact>` requesting they post the closure comment on the GHSA on our behalf — awaiting user review."*
 
 For every other `security@`-imported tracker, the invalidation
 reply is one of the four
@@ -96,10 +72,9 @@ the **recipient** and the **body shape**.
    - `ccRecipients`: includes `security_cc` from the shared
      [security draft CC resolution](../../../../tools/mail-source/contract.md#security-draft-cc-resolution).
      If no address resolves, block draft creation.
-2. **Subject:** `Re: <root subject>`. Never invent a fresh
-   subject — the reply lands on the inbound thread via
-   thread attachment (`replyToMessageId` for `claude_ai_mcp`,
-   `--thread-id` for `oauth_curl`).
+2. **Subject:** `Re: <root subject>`.
+   Never invent a fresh subject: the reply lands on the inbound thread
+   (`replyToMessageId` for `claude_ai_mcp`, `--thread-id` for `oauth_curl`).
 3. **Body:**
    - Spine: the canned section picked in Step 4, verbatim.
    - Augmentation: a clearly-marked block filling the
@@ -110,10 +85,8 @@ the **recipient** and the **body shape**.
      [`security-issue-import` Step 5](../issue-import/SKILL.md)
      — the user must be able to delete the augmentation
      cleanly without leaving a grammatical orphan.
-   - **No mention of `<tracker>`.** The tracker repo is
-     private; the reporter has no access; references would
-     leak. Cite the public Security Model and any public CVEs
-     instead.
+   - **No mention of `<tracker>`.** The tracker repo is private and the reporter has no access;
+     cite the public Security Model and any public CVEs instead.
    - **Canonical CVE-ID for `duplicate` dispositions.** When
      the close is a `duplicate` of an existing CVE record, the
      body MUST name the canonical `CVE-YYYY-NNNNN` ID
@@ -125,23 +98,16 @@ the **recipient** and the **body shape**.
      reporter-voice block per the matching adapter's
      `reporter_addressing_block` convention — see
      [`tools/forwarder-relay/README.md`](../../../../tools/forwarder-relay/README.md).
-   - **Polite-but-firm.** Per
-     [`AGENTS.md`](../../../../AGENTS.md#tone-polite-but-firm--no-room-to-wiggle), state
-     the team's position once, clearly, with reasoning. Do not
-     re-open the discussion with phrases like *"happy to
-     discuss further"* — close the loop.
-4. **Backend selection:** use the project's configured
-   drafting backend per
+   - **Polite-but-firm**, per
+     [`AGENTS.md`](../../../../AGENTS.md#tone-polite-but-firm--no-room-to-wiggle):
+     state the team's position once, with reasoning, and do not re-open the discussion (*"happy to discuss further"*).
+4. **Backend selection:** the project's configured drafting backend, per
    [`tools/gmail/draft-backends.md`](../../../../tools/gmail/draft-backends.md#how-the-skills-pick-a-backend).
-   Prefer `oauth_curl` (credentials at default path
-   `~/.config/apache-magpie/gmail-oauth.json`); it preserves URLs
-   verbatim. The `claude_ai_mcp` backend is discouraged because it
-   rewrites embedded URLs into Google tracking redirects (see
-   [`draft-backends.md`](../../../../tools/gmail/draft-backends.md#privacy-warning--the-claudeai-gmail-mcp-rewrites-embedded-urls-into-google-tracking-redirects)) — use it only when `oauth_curl`
-   credentials are missing AND the body has no links.
-5. **Existing-draft check.** Before drafting, scan the inbound
-   thread for an existing pending draft per the
+   Prefer `oauth_curl` (credentials at default path `~/.config/apache-magpie/gmail-oauth.json`), which preserves URLs verbatim.
+   Use the discouraged `claude_ai_mcp` backend, which
+   [rewrites embedded URLs into Google tracking redirects](../../../../tools/gmail/draft-backends.md#privacy-warning--the-claudeai-gmail-mcp-rewrites-embedded-urls-into-google-tracking-redirects),
+   only when `oauth_curl` credentials are missing AND the body has no links.
+5. **Existing-draft check.** Before drafting, scan the inbound thread for a pending draft per the
    [*Detecting drafts that already exist on a thread*](../../../../tools/gmail/draft-backends.md#detecting-drafts-that-already-exist-on-a-thread)
-   recipe — both `mcp__claude_ai_Gmail__list_drafts` and
-   `mcp__claude_ai_Gmail__get_thread`. If a pending draft
-   already exists, surface it instead of silently shadowing.
+   recipe — both `mcp__claude_ai_Gmail__list_drafts` and `mcp__claude_ai_Gmail__get_thread`.
+   If one exists, surface it instead of silently shadowing it.

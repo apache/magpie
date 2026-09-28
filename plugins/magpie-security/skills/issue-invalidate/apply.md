@@ -9,25 +9,21 @@
 
 `<scratch>` is the session scratch directory as an absolute path (fall back to `$TMPDIR`); `gh` may run outside the sandbox, where `$TMPDIR` differs, so pass it absolute paths.
 
-Posting the rollup before the closing comment lets the closing
-comment link to the rollup's permalink. Write the Step 5e entry body to
-`<scratch>/invalidate-<N>-rollup.md` with the Write tool and append it
-per the upsert recipe in
+Post the rollup first, so the closing comment can link to its permalink.
+Write the Step 5e entry body to `<scratch>/invalidate-<N>-rollup.md` with the Write tool and append it per the upsert recipe in
 [`status-rollup.md`](../../../../tools/github/status-rollup.md):
 
 ```bash
 uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-invalidate rollup-append <N> "Closed as invalid" <scratch>/invalidate-<N>-rollup.md
 ```
 
-These run through vetted-ops' `vetted-op-tracker` entry point,
-which the secure setup lets out of the sandbox (every write still asks).
+This runs through vetted-ops' `vetted-op-tracker` entry point, which the secure setup lets out of the sandbox (every write still asks).
 Without the secure setup, the same operations are
 `uv run --directory <framework>/tools/github-rollup github-rollup --repo <tracker> append|amend-latest|fold …`
 and `uv run --directory <framework>/tools/github-body-field body-field --repo <tracker> get|set …`;
 see [`tools/vetted-ops/README.md`](../../../../tools/vetted-ops/README.md#tracker-procedures-rollup-and-body-field-writes).
 
-On a very old tracker with no rollup comment (predating the rollup
-convention), the same call creates one with just the new entry.
+On a very old tracker with no rollup comment, the same call creates one with just the new entry.
 
 The tool prints the rollup comment's URL (`…#issuecomment-<id>`) on stdout and nothing else.
 Keep it: the closing comment's permalink uses that comment ID.
@@ -51,8 +47,7 @@ gh issue edit <N> --repo <tracker> \
   --remove-label 'pr merged'
 ```
 
-`gh issue edit` ignores `--remove-label` for labels that aren't
-set, so listing all candidates is safe and idempotent.
+`gh issue edit` ignores `--remove-label` for labels that aren't set, so listing all candidates is safe and idempotent.
 
 ### 6d — Close the tracker
 
@@ -60,15 +55,12 @@ set, so listing all candidates is safe and idempotent.
 gh issue close <N> --repo <tracker> --reason 'not planned'
 ```
 
-`not planned` is the right close reason — `completed` would
-imply the issue was resolved, which is misleading for an
-invalid disposition.
+Use `not planned`, never `completed`: an invalid report was not resolved.
 
 ### 6e — Archive the project-board item
 
-Run the introspection query + `archiveProjectV2Item` mutation
-from Step 5c. Capture the returned `isArchived: true` and
-record in the rollup if it differs from expected.
+Run the introspection query and the `archiveProjectV2Item` mutation from Step 5c.
+Capture the returned `isArchived: true`, and record in the rollup if it differs.
 
 ### 6f — Create the Gmail draft (security@-imported only)
 
@@ -89,17 +81,15 @@ Use the backend chosen in Step 5d:
   `cc=security_cc`, `subject='Re: <root subject>'`,
   `body=<file>`. The draft lands attached to the inbound thread.
 
-Capture the returned `draftId`. Update the rollup entry's
-*Reporter notification* line with the actual draft ID
-if the draft ID was a placeholder when 6a ran:
+Capture the returned `draftId`.
+If 6a ran with a placeholder draft ID in the *Reporter notification* line,
 rewrite `<scratch>/invalidate-<N>-rollup.md` with the real ID and run
 
 ```bash
 uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-invalidate rollup-amend-latest <N> "Closed as invalid" <scratch>/invalidate-<N>-rollup.md
 ```
 
-It keeps the entry's date and author, and refuses if someone else's
-entry has landed after it.
+It keeps the entry's date and author, and refuses if someone else's entry has landed after it.
 
 ### 6g — Cleanup
 

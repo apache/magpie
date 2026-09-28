@@ -47,12 +47,10 @@ on the tracker), surface this gap to the user with:
 
 ## Step 4 — Match a canned-response template
 
-The email draft is built canned-response-spine + augmentation,
-same pattern as
+The email draft is a canned-response spine plus augmentation, as in
 [`security-issue-import` Step 5](../issue-import/SKILL.md).
 Read [`<project-config>/canned-responses.md`](../../../../<project-config>/canned-responses.md)
-and pick the section that best matches the invalidity reasoning
-mined in Step 3.
+and pick the section that best matches the invalidity reasoning mined in Step 3.
 Section names always come from the adopting project's own `canned-responses.md` headings.
 The table below is an **illustrative example** of one adopting project's headings, showing the kind of reasoning-shape to section mapping to perform; substitute the matching headings from `<project-config>/canned-responses.md`:
 
@@ -67,15 +65,11 @@ The table below is an **illustrative example** of one adopting project's heading
 | Automated-scanner output without human-verified PoC | *Automated scanning results*. |
 | Image / video reproducer instead of a written report | *When someone submits a media report* (or *Or an alternative response*). |
 
-If multiple canned sections apply, pick the most-specific one and
-note the others to the user; if none fits, default to the project's
-generic negative-assessment section (*Negative Assessment response*
-in the example) with the team's reasoning filling the
-placeholder.
+If multiple canned sections apply, pick the most specific one and note the others to the user;
+if none fits, default to the project's generic negative-assessment section (*Negative Assessment response* in the example),
+with the team's reasoning filling the placeholder.
 
-The skill must not invent a canned response or paraphrase one
-into the file. If the adopting project lacks a fitting template,
-surface the gap to the user — adding a canned response is a
-separate `canned-responses.md` PR, not part of this run.
+Never invent a canned response or paraphrase one into the file.
+If the project lacks a fitting template, surface the gap to the user: adding one is a separate `canned-responses.md` PR, not part of this run.
 
 ---
