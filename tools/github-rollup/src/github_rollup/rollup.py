@@ -29,17 +29,27 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-# First line of any rollup comment. The trailing space is intentional —
-# the comment ends with ` -->` and matching just the prefix lets the
-# detector survive minor edits to the marker tail (e.g. a future
-# `airflow-s status rollup v2 — ...` bump).
+# First line of any rollup comment: `<!-- <name> status rollup v<N> ...`.
+# `<name>` is the tracker repository's name (for example `airflow-s` for
+# `airflow-s/airflow-s`). Detection accepts any name so a rollup is found
+# whatever repository wrote it, and any version so a future `v2` bump
+# stays findable.
+ROLLUP_MARKER_RE = re.compile(r"^<!-- \S+ status rollup v\d+")
+
+# Kept for callers that imported it; detection no longer depends on it.
 ROLLUP_MARKER_PREFIX = "<!-- airflow-s status rollup v"
 
-# Full first-line marker the tool writes when creating a new rollup.
-# Matches what every existing skill emits.
-_DEFAULT_MARKER_LINE = (
-    "<!-- airflow-s status rollup v1 — all bot-authored status updates fold into this single comment. -->"
-)
+
+def is_rollup_body(body: str) -> bool:
+    """True when ``body`` starts with a status-rollup marker line."""
+    return bool(ROLLUP_MARKER_RE.match(body))
+
+
+def marker_line(tracker_name: str) -> str:
+    """The first-line marker the tool writes when creating a rollup for
+    the tracker repository named ``tracker_name`` (the part after `/`)."""
+    return f"<!-- {tracker_name} status rollup v1 — all bot-authored status updates fold into this single comment. -->"
+
 
 # Between consecutive `<details>` entries we always write exactly one
 # blank line, a horizontal rule, and one blank line. Keeping this as
@@ -100,7 +110,7 @@ def iter_entries(rollup_body: str) -> list[RollupEntry]:
     text = rollup_body
     # Drop the marker line if present so the regex doesn't false-match
     # the marker's HTML-comment content.
-    if text.startswith(ROLLUP_MARKER_PREFIX):
+    if is_rollup_body(text):
         nl = text.find("\n")
         text = text[nl + 1 :] if nl != -1 else ""
 
@@ -151,11 +161,11 @@ def build_entry(*, date: str, user: str, action: str, body: str) -> str:
     return f"<details><summary>{summary}</summary>\n\n{body_stripped}\n\n{_CLOSE_TAG}"
 
 
-def build_new_rollup_body(entry: str) -> str:
+def build_new_rollup_body(entry: str, tracker_name: str) -> str:
     """Compose a brand-new rollup comment body wrapping the first
     entry. Use when no rollup comment exists yet on the tracker.
     """
-    return f"{_DEFAULT_MARKER_LINE}\n{entry}"
+    return f"{marker_line(tracker_name)}\n{entry}"
 
 
 def rebuild_with_appended_entry(existing_body: str, new_entry: str) -> str:
@@ -164,3 +174,23 @@ def rebuild_with_appended_entry(existing_body: str, new_entry: str) -> str:
     ``existing_body`` so the ruler lands in the right place.
     """
     return f"{existing_body.rstrip()}{_RULER_BETWEEN_ENTRIES}{new_entry}"
+
+
+def replace_latest_entry(existing_body: str, new_entry: str) -> str:
+    """Replace the last `<details>` entry of ``existing_body`` with
+    ``new_entry``, keeping everything before it byte-identical.
+
+    Raises ``ValueError`` when the body has no entry to replace.
+    """
+    body = existing_body.rstrip()
+    starts = [m.start() for m in _OPEN_TAG_RE.finditer(body)]
+    if not starts:
+        raise ValueError("rollup has no entries")
+    return f"{body[: starts[-1]]}{new_entry}"
+
+
+def left_trim_lines(text: str) -> str:
+    """Left-trim every line. Legacy comments that were hand-edited carry
+    stray indentation that would render as a code block inside
+    `<details>`."""
+    return "\n".join(line.lstrip() for line in text.splitlines())
