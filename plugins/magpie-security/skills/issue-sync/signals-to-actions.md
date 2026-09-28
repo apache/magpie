@@ -32,22 +32,12 @@ will change and *why*. Group them by category:
     thread: `<thread-url>` carrying version X.Y.Z, matches fix-PR
     milestone"*.
   - *Remove* the `rc voting` label when the existing
-    `pr merged` → `fix released` transition fires (the release
-    shipped — the vote passed and is now historical). This
-    removal piggy-backs on the same proposal that adds
-    `fix released` and removes `pr merged`; surface it as part
-    of the same numbered item so the user confirms one combined
-    label flip rather than two separate ones. The label can
-    also be removed by hand if a vote *fails* and the team
-    re-cuts an RC; the sync skill does not actively detect
-    failed votes (the heuristic is fragile and the human re-add
-    on the next vote is cheap).
+    `pr merged` → `fix released` transition fires (the release shipped),
+    as part of that same numbered item, so the user confirms one combined label flip.
+    Sync does not detect *failed* votes; the team removes the label by hand when it re-cuts an RC.
 
-  The label gating is **only** consulted for projects that
-  opted in via the generator config. For non-ASF adopters that
-  did not opt in, this entire sub-paragraph is a no-op — the
-  label is never proposed, added, or referenced, and the
-  generator's legacy *"ready ⇒ REVIEW"* behaviour applies.
+  Projects that did not opt in never see the label proposed, added, or referenced,
+  and the generator's legacy *"ready ⇒ REVIEW"* behaviour applies.
 - **Milestone** — propose the matching release milestone on the
   issue. The milestone format depends on the scope label and is
   project-specific; for the adopting project see
@@ -137,18 +127,12 @@ will change and *why*. Group them by category:
   membership check below; **every collaborator counts regardless
   of their permission level** — read, triage, write, maintain, and
   admin are all valid), **propose setting the tracking issue's
-  assignee to that PR author**. The PR author is the natural owner
-  for driving the issue through the rest of the process (review,
-  merge, backport label, advisory coordination), and setting them
-  as assignee gives the whole team a fast "who is on this?" answer
-  in the issue list.
+  assignee to that PR author**, the natural owner for the rest of the process.
 
   If the PR author is **not** on the security-team roster (for
   example, an external contributor who submitted the fix via the
-  public process), do **not** assign them — they are not part of the
-  internal handling process and do not need the tracking-issue
-  notifications. Instead, leave the assignee empty or propose a
-  security-team member who is already engaged in the discussion.
+  public process), do **not** assign them.
+  Leave the assignee empty or propose a security-team member already engaged in the discussion.
 
   **Sign-up (volunteer) branch.** A fix PR is not the only ownership
   signal. When a person has **signed up** to own the issue — the
@@ -161,10 +145,9 @@ will change and *why*. Group them by category:
   must appear in the security-team roster in
   [`<project-config>/release-trains.md`](../../../../<project-config>/release-trains.md),
   or in the `gh api repos/<tracker>/collaborators --jq '.[].login'`
-  list already fetched this run (every permission level counts). The gate matters twice over for a
-  private tracker: a non-collaborator **cannot see the issue**, and
-  GitHub silently drops assignee writes for non-collaborators. So a
-  volunteer who is **not** a project member is recorded in the
+  list already fetched this run (every permission level counts).
+  On a private tracker a non-collaborator **cannot see the issue**, and GitHub silently drops assignee writes for them,
+  so a volunteer who is **not** a project member is recorded in the
   proposal as context but **not** assigned — surface *"`<handle>`
   volunteered but is not a `<tracker>` collaborator — invite them
   first?"* and let the user decide. Precedence and idempotency:
@@ -188,8 +171,7 @@ will change and *why*. Group them by category:
   (advisory send → URL capture → Vulnogram PUBLIC → close).
   **Propose swapping the assignee from the remediation developer to
   the release manager** in the same sync run that flips
-  `pr merged` → `fix released`, so the issue list reflects who is
-  actually on the hook next. Look up the release manager using the
+  `pr merged` → `fix released`. Look up the release manager using the
   three-source cascade from Step 2c (the "Known release managers"
   subsection of [`AGENTS.md`](../../../../AGENTS.md), then the
   project's Release Plan wiki (`<project-wiki>`),
@@ -203,13 +185,8 @@ will change and *why*. Group them by category:
   This swap is appropriate at the `fix released` transition **and on
   the repair path below** (a tracker already at `fix released` whose
   swap never landed). Earlier transitions (`pr created`, `pr merged`)
-  keep the remediation developer as assignee because the fix PR is
-  still their responsibility. Later transitions
-  (`announced - emails sent`, `announced`,
-  `vendor-advisory`) keep the release manager because the advisory
-  lifecycle is theirs. Do **not** shuffle assignees back and forth —
-  the swap fires once, at (or in repair of) the `fix released`
-  hand-off.
+  keep the remediation developer; later ones (`announced - emails sent`, `announced`, `vendor-advisory`) keep the release manager.
+  Do **not** shuffle assignees back and forth — the swap fires once, at (or in repair of) the `fix released` hand-off.
 
   **Hand-off presence is an invariant — repair trackers already at
   `fix released`.** The release-manager hand-off comment and the
@@ -218,11 +195,8 @@ will change and *why*. Group them by category:
   arrive at `fix released` *without* a hand-off ever having been
   posted — a prior run's POST failed, the `fix released` label was
   applied by hand, or the CVE record only reached review-ready
-  (Vulnogram `REVIEW`) on a later run than the label flip. Because no
-  transition fires on those later syncs, the transition-scoped
-  proposal never regenerates and the hand-off is silently skipped,
-  leaving an advisory with **no named owner** — it stalls until a
-  human notices.
+  (Vulnogram `REVIEW`) on a later run than the label flip.
+  No transition fires on those later syncs, so without a check the advisory stays with **no named owner**.
 
   So treat the hand-off as a **reconciled invariant, checked on every
   sync**, not a one-shot transition side-effect. On every sync of a
@@ -266,11 +240,9 @@ will change and *why*. Group them by category:
   section) or into the rollup as an audit entry; never silently
   drop them. Titles drift between allocation and the final regen
   (manual edits, sibling-tracker splits, GHSA-relay imports that
-  append the GHSA ID), so the cascade has to re-run on every sync
-  even when no other body update is being proposed. The Step 1d
-  signal-table row *"The issue title contains adopter-specific or
-  internal noise"* is the detector that surfaces the cleanup
-  proposal on every qualifying pass.
+  append the GHSA ID), so the cascade re-runs on every sync
+  even when no other body update is proposed; the Step 1d row
+  *"The issue title contains adopter-specific or internal noise"* is its detector.
 - **Description fields** — if the issue body is missing any of the fields the
   release manager will eventually need (CWE, product, affected versions, severity,
   CVE ID, credits, links to PRs, short public summary for publish), propose a
@@ -361,13 +333,8 @@ will change and *why*. Group them by category:
      task logs in the UI"*, *"PATCHes the deferred-state endpoint
      with crafted `next_kwargs`"*).
 
-  The condition tuple lets a reader who is *not* familiar with the
-  internal code paths decide whether their deployment is exposed
-  without opening the source or the original report. A summary that
-  omits any of the three forces them to read the issue PR / patch
-  to figure out the trigger — exactly the work the advisory is
-  meant to remove. When the field is technically accurate but
-  missing one of (who / when / action), propose adding it on the
+  The tuple lets a reader decide whether their deployment is exposed without reading the code or the report.
+  When the field is accurate but missing one of (who / when / action), propose adding it on the
   same sync pass as the upgrade-target tightening.
 
   Worked example shape (a single CVE):
@@ -417,14 +384,8 @@ will change and *why*. Group them by category:
      additionally upgrade `<current-package>` to <X.Y.Z> or later
      — the two fixes are complementary, not duplicates``).
 
-  **Why this matters.** When a CVE is published as a "follow-up"
-  to an earlier CVE, the reader's natural reading is *"I already
-  applied the earlier fix; this one is a duplicate"*. Without
-  explicit cross-CVE + cross-product framing, downstream consumers
-  miss that two upgrades are needed (one per product / package) to
-  close the original vulnerability fully. The advisory has to do
-  the work of explaining the split — the CVE ID alone is not
-  enough signal.
+  **Why this matters.** A reader of a "follow-up" CVE assumes *"I already applied the earlier fix; this one is a duplicate"*,
+  and misses that two upgrades (one per product / package) are needed.
 
   **Detection signals** (any one triggers the cross-CVE summary
   shape):
@@ -449,15 +410,9 @@ will change and *why*. Group them by category:
   blind spot the rule exists to prevent.
 
   **Special case for the "Security mailing list thread" field — leave
-  it alone.** This field holds the internal navigation reference to
-  the private `<security-list>` thread that originated the
-  report. The URL is expected to 404 for anyone outside the security
-  team; that is the intended behaviour. **Do not scrub this field,
-  do not replace the URL with a textual note, do not "clean it up".**
-  The `generate-cve-json` script no longer exports URLs from this
-  field to `references[]`, so the 404-risk it used to carry is gone.
-  Keep whatever the reporter or triager put there so the team can
-  navigate back to the original thread from the tracker.
+  it alone.** It is the internal link to the private `<security-list>` thread, expected to 404 outside the security team.
+  **Do not scrub this field, do not replace the URL with a textual note, do not "clean it up".**
+  `generate-cve-json` never exports it to `references[]`.
 
   **The "Public advisory URL" body field** is a separate body field
   that carries the archived public advisory URL on
@@ -528,20 +483,11 @@ will change and *why*. Group them by category:
   rationale of the two-field split.
 
   **Special case for the `Severity` field — never propagate reporter-supplied
-  CVSS scores.** If the reporter attached a CVSS vector or a qualitative label
-  (*"Low"*, *"High"*, *"Critical"*) to the mail thread, a GHSA draft, or the
-  issue body, surface it in the *observed state* dump as informational context
-  (e.g. *"reporter estimated CVSS 4.0 = 7.2 per the GHSA"*) but **do not** use
-  it as the proposed value for the `Severity` field. The security team
-  scores every accepted vulnerability independently during the CVE-allocation
-  step; the independent score is the one that ends up in the CVE record and
-  the public advisory. The `Severity` field on the tracking issue must either
-  stay `_No response_` until a security-team member scores it independently
-  (in-thread or in an issue comment), or reflect that independent score —
-  never the reporter's. Apply the same rule to a self-assigned CWE the
-  reporter attaches alongside. Full rationale: the
-  "Reporter-supplied CVSS scores are informational only" subsection of
-  [`AGENTS.md`](../../../../AGENTS.md).
+  CVSS scores.** A reporter's CVSS vector or qualitative label (*"Low"*, *"High"*, *"Critical"*), from the thread, a GHSA draft or the body,
+  goes in the *observed state* as informational context (e.g. *"reporter estimated CVSS 4.0 = 7.2 per the GHSA"*), **never** as the proposed `Severity` value.
+  The field stays `_No response_` until a security-team member scores it independently (in-thread or in an issue comment), then carries that score.
+  The same applies to a self-assigned CWE. Rule and rationale:
+  [`AGENTS.md` § *Reporter-supplied CVSS scores*](../../../../AGENTS.md#reporter-supplied-cvss-scores-are-informational-only--never-propagate-them).
 - **Status transitions** — e.g. *"close the issue as invalid"*, *"add `Not yet
   announced` now that <upstream>#NNNN has merged"*, *"add `vendor-advisory
   ready` now that the users@ advisory URL has been captured — the release
@@ -591,21 +537,15 @@ will change and *why*. Group them by category:
   "Brevity: emails state facts, not context" section of
   [`AGENTS.md`](../../../../AGENTS.md): (a) one sentence on what
   changed, (b) one sentence on what comes next and roughly when,
-  (c) the relevant artifact URLs on their own line(s). Nothing else.
-  No re-introduction of the vulnerability, no recap of earlier
-  messages on the same thread, no process explanation, no
-  speculation about severity or schedule beyond the single
-  forward-looking sentence. The reporter read the previous update
-  on this same thread — trust that and do not restate it.
+  (c) the relevant artifact URLs on their own line(s). Nothing else:
+  no re-introduction, no recap of earlier messages, no process explanation,
+  no speculation about severity or schedule.
 
   Always reply on the **original** Gmail thread (the one identified
   in Step 1c), not on the GitHub-notifications mirror thread.
 
   **Use full, clickable URLs for every reference in the email body.**
-  Gmail renders plain URLs as clickable links; shorthand like
-  ``<upstream>#65346`` or ``<tracker>#261`` does **not**
-  render as a link and forces the reporter to reconstruct the URL by
-  hand. Concretely:
+  Shorthand like ``<upstream>#65346`` or ``<tracker>#261`` does **not** render as a link in mail. Concretely:
 
   - For the internal tracking issue (allowed on the private mail
     thread), write the **full** URL:
@@ -618,21 +558,12 @@ will change and *why*. Group them by category:
     (public issues, commits, security advisories): always the full
     URL. Markdown-link syntax (``[text](url)``) does **not** render
     in plain-text email — use the bare URL.
-  - CVE IDs appear as **plain ``CVE-YYYY-NNNN`` inline text only**
-    — email clients typically do not autolink them, which is the
-    intended behaviour. **Never** include the CVE-tool URL
-    (``<cve-tool-url>/cve5/CVE-YYYY-NNNN``) in a
-    reporter email: the tool is access-gated, the reporter
-    cannot authenticate, and the URL exposes internal tooling to
-    an external party. Once the CVE is **published** on
-    ``cve.org`` (advisory sent, ``announced`` label set on the
-    tracker), the ``cve.org`` URL
-    (``https://www.cve.org/CVERecord?id=CVE-YYYY-NNNN``) is an
-    acceptable clickable alternative, but plain CVE-ID text is
-    still the default. See the "Reporter emails: CVE ID only,
-    never the CVE-tool URL" subsection of
-    [`AGENTS.md`](../../../../AGENTS.md) for the full rule +
-    rationale + the pre-draft self-check.
+  - CVE IDs appear as **plain ``CVE-YYYY-NNNN`` inline text only**.
+    **Never** include the CVE-tool URL (``<cve-tool-url>/cve5/CVE-YYYY-NNNN``) in a reporter email.
+    Once the CVE is **published** on ``cve.org`` (advisory sent, ``announced`` label set),
+    the ``cve.org`` URL (``https://www.cve.org/CVERecord?id=CVE-YYYY-NNNN``) is an acceptable alternative,
+    but plain text stays the default. Full rule and pre-draft self-check: the "Reporter emails: CVE ID only,
+    never the CVE-tool URL" subsection of [`AGENTS.md`](../../../../AGENTS.md).
   - Advisory archive URLs (``<mail-archive-url>/thread/...``) are
     already full URLs; just paste them as-is.
 
@@ -641,23 +572,11 @@ will change and *why*. Group them by category:
   markdown-linked ``[#<N>](url)`` / ``[<upstream>#<N>](url)``
   form per Golden rule 2, because GitHub does render that markdown.
 
-  **Confidentiality:** tracker URLs are identifiers — public-safe
-  per the
-  [Confidentiality of `<tracker>`](../../../../AGENTS.md#confidentiality-of-the-tracker-repository)
-  rule. A status-update email to the reporter on the
-  `<security-list>` thread *may* include the
-  `<tracker>` tracking-issue URL; on a public surface (a public
-  `<upstream>` PR description, a public commit message, the
-  archived advisory) the same URL is also fine **as long as the
-  surrounding text does not characterise the change as a security
-  fix** before the advisory ships. What stays internal is the
-  *content* of the tracker — comment quotes, label transitions,
-  rollup-entry text, severity assessments — and the security
-  framing of an embargoed PR. When the recipient is an external
-  reporter who cannot access the tracker, pair the URL with a
-  one-line note that the link is an identifier-only reference (see
-  *Sharing a tracker URL with someone who cannot access it* in
-  AGENTS.md).
+  **Confidentiality:** the tracking-issue URL is a public-safe identifier and *may* go in the reporter email;
+  the tracker's content and, before the advisory ships, the security framing may not, per
+  [Confidentiality of `<tracker>`](../../../../AGENTS.md#confidentiality-of-the-tracker-repository).
+  For a reporter who cannot access the tracker, pair the URL with a one-line identifier-only note
+  (see [`docs/confidentiality.md`](../../../../docs/confidentiality.md#sharing-a-tracker-url-with-someone-who-cannot-access-it)).
 
   **Do not re-ask questions that have already been asked.** Before drafting,
   scan the existing thread end-to-end for any open question we have already
@@ -666,8 +585,7 @@ will change and *why*. Group them by category:
   from the reporter, **omit it from the new draft**. Restate the credit
   question only if (a) it has never been asked on the thread, or (b) more than
   ~7 days have passed since it was last asked **and** publication is imminent.
-  When in doubt, ask the user before re-pinging the reporter — pinging twice
-  about the same question is rude and gets us blocklisted.
+  When in doubt, ask the user before re-pinging the reporter.
 
   Concrete check: when you find a previous message from the security team in
   the thread, look for keywords like *"credited"*, *"credit"*, *"how would
@@ -689,8 +607,7 @@ will change and *why*. Group them by category:
   [`security-issue-import`](../issue-import/SKILL.md)
   skill); every subsequent pass — this sync skill, security-cve-allocate,
   security-issue-deduplicate, security-issue-fix — appends a new
-  *entry* to that comment instead of posting a fresh one. Readers
-  scroll one comment instead of fifteen. The full shape, summary
+  *entry* to that comment instead of posting a fresh one. The full shape, summary
   conventions, upsert recipe, and legacy-comment-folding rules
   live in the shared spec at
   [`tools/github/status-rollup.md`](../../../../tools/github/status-rollup.md).
@@ -709,14 +626,9 @@ will change and *why*. Group them by category:
   *Release-manager hand-off comment* (fired at the
   `pr merged` → `fix released` transition, Step 12) and the
   *Publication-ready notification comment* (fired at the
-  *Public advisory URL* update, Step 14). Both exist because they
-  tell the RM to *do something next* on a fresh, dated,
-  mention-bearing surface — the rollup's `<details>`-collapsed
-  entries are the wrong shape for an actionable nudge. If a
-  proposal does not fit one of those two shapes, it goes into the
-  rollup. When in doubt, default to the rollup; do not invent a
-  new standalone-comment shape because something "feels important
-  enough".
+  *Public advisory URL* update, Step 14): they tell the RM to *do something next*,
+  which a `<details>`-collapsed entry hides.
+  Everything else goes into the rollup; do not invent a new standalone-comment shape because something "feels important enough".
 
   **Entry shape for a sync pass.** Emit the entry body below;
   `rollup-append` wraps it in the rollup's
@@ -739,13 +651,8 @@ will change and *why*. Group them by category:
   Flush-left, no leading spaces, no sub-`<details>` blocks.>
   ```
 
-  Because the entire entry is already inside a `<details>`
-  collapsed by default (the scroller never sees it until they
-  expand the summary), the old pre-rollup *"keep visible part
-  under six lines"* cap is retired. Write what the auditor needs
-  — but do not pad. Each entry is *incremental*: what changed in
-  this pass, what comes next. Earlier state lives in earlier
-  entries; do not restate.
+  The entry is collapsed inside `<details>`, so there is no line cap: write what the auditor needs, without padding.
+  Each entry is *incremental* — what changed in this pass, what comes next; do not restate earlier entries.
 
   **Reporter-notification line options** (one exactly, when
   applicable — omit when no reporter notification is meaningful):
@@ -765,9 +672,8 @@ will change and *why*. Group them by category:
     discarded."* — never assert "still pending" without checking.
     This rule applies on **every** sync that emits the line,
     including the sync that created the draft (the user may have
-    switched to Gmail and sent it before the comment landed). See
-    the [verify-before-claim rule](../../../../tools/gmail/operations.md#verify-before-claim--never-assert-a-draft-is-still-pending-without-checking)
-    for the full rationale.
+    switched to Gmail and sent it before the comment landed), per
+    the [verify-before-claim rule](../../../../tools/gmail/operations.md#verify-before-claim--never-assert-a-draft-is-still-pending-without-checking).
 
   **Summary action-label for a sync pass** — see the table in
   [`status-rollup.md`](../../../../tools/github/status-rollup.md#summary--action-labels).
@@ -779,10 +685,7 @@ will change and *why*. Group them by category:
   **Apply recipe** — `rollup-append` (the Status-rollup comment item in
   [Step 4](apply-and-push.md#step-4--apply-confirmed-changes)).
   For a tracker that already carries a rollup (the common case)
-  it edits the existing rollup, not a fresh `gh issue comment`. The edit surfaces on the
-  tracker as an *edit* of the rollup comment, not as a new
-  timeline event, which is exactly the noise reduction the
-  rollup is for.
+  it edits the existing rollup, not a fresh `gh issue comment`.
 
   For a tracker with **no rollup yet** (legacy tracker pre-dating
   the convention), the same call creates it; the pass
@@ -843,10 +746,7 @@ will change and *why*. Group them by category:
   the release-manager hand-off is **not** fired until the gate
   clears.
 
-  **This is its own first-class comment, not a rollup entry**, for
-  the same reason as the RM hand-off — it carries a concrete
-  call-to-action that needs to be visible at-a-glance, not hidden
-  inside a `<details>` block.
+  **This is its own first-class comment, not a rollup entry**: like the RM hand-off, it is a call to action.
 
   **Trigger — two firing points**:
 
@@ -937,12 +837,8 @@ will change and *why*. Group them by category:
   13–15) end-to-end, on a single tracker page, without forcing them
   to consult the rollup or external docs.
 
-  **This is its own first-class comment, not a rollup entry.** The
-  rollup is for the security team's audit trail and accumulates many
-  small entries; the hand-off comment is a one-shot orientation
-  surface for the release manager and must stay readable as a single
-  comment. Folding it into the rollup would bury the call-to-action
-  inside a `<details>` block.
+  **This is its own first-class comment, not a rollup entry**: it is the release manager's one-shot orientation,
+  which a `<details>` block would bury.
 
   **Trigger — gated on `state == REVIEW`.** Fires *exactly once*
   per tracker, at the sync pass that proposes
@@ -982,18 +878,13 @@ will change and *why*. Group them by category:
     a previous sync posted the manual-paste variant and this
     sync's OAuth push succeeded → flip to the OAuth-pushed
     variant; or vice-versa (Vulnogram token expired between sync runs).
-    The PATCH preserves the comment URL, the timeline position,
-    and any notifications already delivered for it; the body
-    flip is what the RM cares about. Same PATCH-don't-post
-    rationale as the rollup-comment upsert.
+    The PATCH keeps the comment URL, timeline position and delivered notifications.
 
   The `security-pages-checklist v1` checkbox is RM state, not
   template content: compare bodies with that item's box
   normalised to `- [ ]`, so a tick alone never counts as a
   mismatch, and when a PATCH does go out, carry a ticked
-  `- [x]` over into the re-rendered body. Resetting it would
-  erase the RM's record and fire the security-pages reminder
-  for a step that is already done.
+  `- [x]` over into the re-rendered body; resetting it would re-fire the security-pages reminder for a done step.
 
   **Body source.** The comment body comes from the project's
   configured CVE tool, in two **variants** picked by Step 5c:
@@ -1128,13 +1019,8 @@ will change and *why*. Group them by category:
   the final paste + `READY` → `PUBLIC` move is now unblocked.
 
   **Why a second comment instead of one comment with two states.**
-  The hand-off comment posted at Step 12 has `READY` as its
-  rendered-final state and `PUBLIC` as a "wait for follow-up"
-  pointer. The follow-up is exactly this notification. Splitting
-  the call-to-action into two comments (rather than nudging the RM
-  to re-read step 7 of the same comment from days ago) gives the
-  RM a fresh, dated surface for the second action and a working
-  `@`-mention notification.
+  The Step 12 hand-off ends at `READY` and points to this follow-up for `PUBLIC`;
+  a fresh comment gives the RM a dated surface and a working `@`-mention.
 
   **Trigger.** Fires *exactly once* per tracker, at the same sync
   pass that proposes the *Public advisory URL* body update. Do not
@@ -1310,12 +1196,12 @@ will change and *why*. Group them by category:
   **How to check — content probe, not ancestry.** A cherry-pick
   changes the SHA, so `compare/<sha>...<branch>` reporting
   `diverged` is not evidence of absence. Pick a distinctive string
-  the fix introduces (a comment line, a new identifier) and probe
-  each branch:
+  the fix introduces (a comment line, a new identifier), fetch the file on
+  each branch as a plain `gh` call, and look for the string in the output:
 
   ```bash
   gh api "repos/<upstream>/contents/<path>?ref=<branch>" \
-    --jq '.content' | base64 -d | grep -q "<distinctive string>"
+    -H "Accept: application/vnd.github.raw+json"
   ```
 
   Probe the development branch, the release branch the milestone

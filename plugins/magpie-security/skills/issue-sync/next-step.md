@@ -26,20 +26,15 @@ the actual person, in this order:
 
 1. **Check the "Known release managers" subsection of
    [`AGENTS.md`](../../../../AGENTS.md) first** — if the release is already
-   listed there, use that name. This is the cache; the next two sources
-   are how the cache was populated and how you refresh it.
+   listed there, use that name; it is the cache the next two sources fill.
 2. **Check the project's release plan** at
-   `<project-wiki>`.
-   This is the canonical forward-looking schedule for every release
-   train and lists the release manager for each *upcoming* cut. Use this when
-   the relevant release hasn't been cut yet, or when you need the
-   rotation roster.
+   `<project-wiki>`, which names the release manager for each *upcoming* cut.
+   Use it when the release has not been cut yet, or for the rotation roster.
 3. **Check the `[RESULT][VOTE]` thread on `<dev-list>`** —
    the sender of the `[RESULT][VOTE] Release <product> <version>` (or
    `[RESULT][VOTE] <product> <scope-b> - release preparation date
    <YYYY-MM-DD>`) message **is** the release manager for that specific
-   cut. Use this when the release has already shipped (the wiki only
-   tracks upcoming schedule, not past releases). Two query paths:
+   cut. Use this when the release has already shipped (the wiki tracks only upcoming releases). Two query paths:
 
    - **PonyMail MCP (preferred when enabled).** `dev@` is a public
      list; no LDAP allowlist check is needed. Call:
@@ -60,26 +55,19 @@ the actual person, in this order:
 
    - **Gmail (fallback).** When PonyMail MCP is disabled or
      unauthenticated, search Gmail:
-     `"[RESULT][VOTE]" "<product> <scope-b>" from:<dev-list>`.
-     Narrow with a date range if needed. Gmail requires the user
-     to be subscribed to `dev@` from the account they are running
-     from — PonyMail MCP is the more reliable path for triagers
-     who are on the security team but not the general dev list.
+     `"[RESULT][VOTE]" "<product> <scope-b>" from:<dev-list>`,
+     narrowed by date if needed.
+     It finds the thread only if the account is subscribed to `dev@`.
 
-If the release manager is not yet in
-[`<project-config>/release-trains.md`](../../../../<project-config>/release-trains.md)
-after you look them up, surface that in the proposal and propose
-appending them (with the source link to the `[RESULT][VOTE]` thread
-and the release date) to the "Release managers for releases currently
-relevant to the security tracker" subsection in the same sync run. **Do
-not substitute a "plausible" name** (e.g. a frequent release manager
-from previous releases) — the release manager rotates per cut, and a
-wrong name in a status update leads to the advisory sitting on nobody's
-desk.
+If the release manager you found is not yet in
+[`<project-config>/release-trains.md`](../../../../<project-config>/release-trains.md),
+propose appending them, with the `[RESULT][VOTE]` thread link and the release date, to its
+"Release managers for releases currently relevant to the security tracker" subsection in the same sync run.
+**Do not substitute a "plausible" name** (e.g. a frequent release manager from previous releases):
+the role rotates per cut, and a wrong name leaves the advisory on nobody's desk.
 
-**If a CVE needs to be allocated**, always point the user at the
-[`security-cve-allocate`](../cve-allocate/SKILL.md) skill explicitly on its own
-line so the handoff is unambiguous:
+**If a CVE needs to be allocated**, point the user at the
+[`security-cve-allocate`](../cve-allocate/SKILL.md) skill on its own line:
 
 > Allocate a CVE via the [`security-cve-allocate`](../cve-allocate/SKILL.md)
 > skill. It opens the `<cve-tool>` form at
@@ -90,9 +78,10 @@ line so the handoff is unambiguous:
 > JSON embed).
 
 **Whenever a CVE ID is mentioned** — in the proposal, in the status-change
-comment on the `<tracker>` issue, in the draft email to the reporter, or in
-the recap — render it as a clickable link per the "Linking CVEs" section of
-[`AGENTS.md`](../../../../AGENTS.md). Concretely:
+comment on the `<tracker>` issue, or in the recap — render it as a clickable link per the "Linking CVEs" section of
+[`AGENTS.md`](../../../../AGENTS.md).
+The draft email to the reporter is the exception: it carries the bare CVE ID (the `cve.org` URL once published), never the `<cve-tool>` URL, per the same section.
+Concretely:
 
 - Before publication: link to the `<cve-tool>` record, e.g.
   `[CVE-2026-40690](<cve-tool-url>/cve5/CVE-2026-40690)`.
@@ -103,8 +92,7 @@ the recap — render it as a clickable link per the "Linking CVEs" section of
 
 Do not emit bare `CVE-YYYY-NNNNN` text — always link.
 
-See **Golden rule 2** at the top of this skill: every
-`<tracker>` reference in the proposal must be a clickable
-markdown link. Do not emit bare `#NNN` or `<tracker>#NNN`.
+Per **Golden rule 2** in [`SKILL.md`](SKILL.md), every `<tracker>` reference in the proposal is a clickable markdown link;
+never emit a bare `#NNN` or `<tracker>#NNN`.
 
 ---
