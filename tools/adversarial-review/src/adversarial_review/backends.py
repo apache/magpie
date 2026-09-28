@@ -21,15 +21,18 @@ harness it belongs to is recognised, and where its final answer sits in its outp
 
 The command lines are this package's security surface. Each one keeps the
 reviewer read-only, and none carries the prompt in argv: the diff can exceed
-ARG_MAX, so the prompt goes on stdin, or through a brief file for Copilot, whose
-`-p` takes text only. `tests/test_backends.py` snapshots every argv and rejects
-known write-granting flags, so a regression that drops a read-only flag fails.
+ARG_MAX, so the prompt goes on stdin, or through a brief file for Copilot and
+Grok, whose single-turn flag takes text only. `tests/test_backends.py` snapshots
+every argv and rejects known write-granting flags, so a regression that drops a
+read-only flag fails.
 
 Read-only also means no MCP tools: a reviewer inherits the user's MCP servers
 (Slack, mail, forge writes) unless told otherwise, and an injected instruction
 in the diff could reach them. Codex gets an empty `mcp_servers` table and
-Claude `--strict-mcp-config` with no config. Copilot and Gemini expose no
-equivalent switch in the versions this was written against; the README says so.
+Claude `--strict-mcp-config` with no config. Grok cannot close its MCP servers
+from the CLI, so `--deny MCPTool` auto-denies every MCP tool invocation
+instead. Copilot and Gemini expose no equivalent switch in the versions this
+was written against; the README says so.
 """
 
 from __future__ import annotations
@@ -45,6 +48,9 @@ COPILOT_INSTRUCTION = (
 )
 STDIN_INSTRUCTION = "Follow the review brief given on standard input exactly. Change no file."
 CLAUDE_DENIED_TOOLS = "Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch,Task"
+# Bare permission-rule prefix: matches every MCP tool invocation (grok's own
+# rule-matching semantics), since the CLI cannot close the servers themselves.
+GROK_DENIED_TOOLS = "MCPTool"
 
 
 class BackendOutputError(ValueError):
@@ -186,6 +192,35 @@ def _claude_extract(stdout: str, ctx: RunContext) -> str:
     return result
 
 
+def _grok(ctx: RunContext) -> Invocation:
+    # `plan` is read-only everywhere but the session's own plan file, so no
+    # approval prompt is needed — and none could be answered in headless mode.
+    argv = [
+        "grok",
+        "--permission-mode",
+        "plan",
+        "--output-format",
+        "json",
+        "--deny",
+        GROK_DENIED_TOOLS,
+        "--prompt-file",
+        str(ctx.brief_path),
+        *_model("-m", ctx),
+    ]
+    return Invocation(argv, stdin=None)
+
+
+def _grok_extract(stdout: str, ctx: RunContext) -> str:
+    data = _json_envelope(stdout, "grok")
+    stop = data.get("stopReason")
+    if stop != "end_turn":
+        raise BackendOutputError(f"grok did not finish its review (stopReason {stop!r})")
+    text = data.get("text")
+    if not isinstance(text, str) or not text.strip():
+        raise BackendOutputError("grok output has no `text`")
+    return text
+
+
 # Order matters for self-detection: a harness started from inside another
 # inherits the outer one's variables, so the innermost candidates are checked
 # first and Claude Code's widely inherited CLAUDECODE comes last.
@@ -193,5 +228,6 @@ BACKENDS: dict[str, Backend] = {
     "codex": Backend("codex", (("CODEX_SANDBOX", None), ("CODEX_THREAD_ID", None)), _codex, _codex_extract),
     "copilot": Backend("copilot", (("COPILOT_CLI", None),), _copilot, _plain_extract),
     "gemini": Backend("gemini", (("GEMINI_CLI", "1"),), _gemini, _gemini_extract),
+    "grok": Backend("grok", (("GROK_SESSION_ID", None),), _grok, _grok_extract),
     "claude": Backend("claude", (("CLAUDECODE", "1"),), _claude, _claude_extract),
 }

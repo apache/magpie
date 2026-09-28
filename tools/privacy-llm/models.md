@@ -111,6 +111,16 @@ no-training agreement, Vertex AI with VPC-SC) are in
 The recipes spell out the data-residency contract each one
 implies.
 
+Reviewer backends make this concrete. The `grok` backend in
+[`tools/adversarial-review/`](../../tools/adversarial-review/README.md)
+sends the change under review to the xAI API, which no
+default-approved rule above covers: an adopter who adds `grok`
+to their reviewer list declares xAI in
+`<project-config>/privacy-llm.md` (endpoint, data-residency
+contract, approval line), and until then the Step 0 gate stops
+any skill that reads private lists while the Grok reviewer is
+part of the active stack.
+
 ## The pre-flight check
 
 Skills that may read `<private-list>` content (or any private

@@ -47,7 +47,9 @@ WRITE_GRANTING = {
 
 
 def test_backend_set_and_order():
-    assert list(BACKENDS) == ["codex", "copilot", "gemini", "claude"]
+    # Claude Code's widely inherited CLAUDECODE must stay last; grok's marker
+    # is narrowly scoped to grok's own children, so it sits just before it.
+    assert list(BACKENDS) == ["codex", "copilot", "gemini", "grok", "claude"]
 
 
 def test_codex_argv():
@@ -105,6 +107,22 @@ def test_gemini_argv():
     assert inv.stdin == "PROMPT"
 
 
+def test_grok_argv():
+    inv = BACKENDS["grok"].build(CTX)
+    assert inv.argv == [
+        "grok",
+        "--permission-mode",
+        "plan",
+        "--output-format",
+        "json",
+        "--deny",
+        "MCPTool",
+        "--prompt-file",
+        "/t/brief.md",
+    ]
+    assert inv.stdin is None
+
+
 def test_claude_argv():
     inv = BACKENDS["claude"].build(CTX)
     assert inv.argv == [
@@ -120,7 +138,8 @@ def test_claude_argv():
 
 
 @pytest.mark.parametrize(
-    ("name", "flag"), [("codex", "-m"), ("copilot", "--model"), ("gemini", "-m"), ("claude", "--model")]
+    ("name", "flag"),
+    [("codex", "-m"), ("copilot", "--model"), ("gemini", "-m"), ("grok", "-m"), ("claude", "--model")],
 )
 def test_model_override_is_passed(name, flag):
     ctx = RunContext(**{**CTX.__dict__, "model": "some-model"})
@@ -166,7 +185,22 @@ def test_claude_extract_is_error():
         BACKENDS["claude"].extract(json.dumps({"result": "Invalid API key", "is_error": True}), CTX)
 
 
-@pytest.mark.parametrize("name", ["gemini", "claude"])
+def test_grok_extract_unwraps_text():
+    assert BACKENDS["grok"].extract(json.dumps({"text": "R", "stopReason": "end_turn"}), CTX) == "R"
+
+
+@pytest.mark.parametrize("stop", ["refusal", "cancelled", "max_tokens", None])
+def test_grok_extract_rejects_a_stop_that_is_not_end_turn(stop):
+    with pytest.raises(BackendOutputError, match="did not finish"):
+        BACKENDS["grok"].extract(json.dumps({"text": "R", "stopReason": stop}), CTX)
+
+
+def test_grok_extract_empty_text():
+    with pytest.raises(BackendOutputError, match="no `text`"):
+        BACKENDS["grok"].extract(json.dumps({"text": "  ", "stopReason": "end_turn"}), CTX)
+
+
+@pytest.mark.parametrize("name", ["gemini", "grok", "claude"])
 def test_json_envelope_backends_reject_non_json(name):
     with pytest.raises(BackendOutputError, match="not JSON"):
         BACKENDS[name].extract("plain text", CTX)
@@ -186,3 +220,10 @@ def test_mcp_servers_are_switched_off(name, flags):
     argv = BACKENDS[name].build(CTX).argv
     i = argv.index(flags[0])
     assert argv[i : i + len(flags)] == flags
+
+
+def test_grok_denies_every_mcp_tool_invocation():
+    """Grok cannot close its MCP servers from the CLI; every invocation is denied instead."""
+    argv = BACKENDS["grok"].build(CTX).argv
+    i = argv.index("--deny")
+    assert argv[i : i + 2] == ["--deny", "MCPTool"]
