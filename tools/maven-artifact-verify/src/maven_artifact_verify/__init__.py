@@ -78,7 +78,10 @@ DISCLAIMER_CORE = [
     "has yet to be fully endorsed by the asf",
 ]
 
-APACHE_LICENSE_NAME_RE = re.compile(r"apache\s+license.*2\.0", re.IGNORECASE)
+# The licence <name> may carry the canonical ASF wording, the legacy
+# "The Apache Software License, Version 2.0" phrasing, or the SPDX id
+# "Apache-2.0" — all three identify ALv2.
+APACHE_LICENSE_NAME_RE = re.compile(r"apache(?:\s+software)?\s+license.*2\.0|apache\s*-\s*2\.0", re.IGNORECASE)
 APACHE_LICENSE_URL_RE = re.compile(r"apache\.org/licenses/LICENSE-2\.0", re.IGNORECASE)
 
 # Classifiers that mark a jar as a companion of another artefact rather
@@ -93,6 +96,12 @@ VERSION_SPLIT_RE = re.compile(
     r"^(?P<stem>.+?)-(?P<version>\d[\w.]*(?:-[A-Za-z]+)*)"
     r"(?:-(?P<classifier>[a-zA-Z][\w-]*))?$"
 )
+
+# Maven coordinates as they may appear in <artifactId>/<version>: the
+# characters Central accepts. Coordinates go straight into paths when
+# the main jar is located, so anything else (e.g. "../..") is rejected
+# before the filesystem is touched.
+MAVEN_COORDINATE_RE = re.compile(r"[A-Za-z0-9_.-]+")
 
 
 def _local(tag: str) -> str:
@@ -208,8 +217,9 @@ def _check_scm(pom: dict, chain: list[dict], chain_reason: str) -> dict:
     non-emptily wins (empty declarations are skipped, the walk
     continues). Either field resolvable — from the POM itself or
     inherited — is a PASS; neither field resolvable anywhere in a
-    complete chain is a hard FAIL; a chain that cannot be fully
-    resolved offline reports ``INHERITED-UNVERIFIED``.
+    complete chain is a hard FAIL, and so is a cyclic chain (Maven
+    refuses to build one); an unstaged chain reports
+    ``INHERITED-UNVERIFIED``.
     """
     source: dict[str, tuple[int, str]] = {}
     for field in ("url", "connection"):
@@ -230,8 +240,8 @@ def _check_scm(pom: dict, chain: list[dict], chain_reason: str) -> dict:
 
     if chain_reason == "cycle":
         return {
-            "scm": "INHERITED-UNVERIFIED",
-            "scm_detail": f"<scm> declares no url or connection and the parent chain is cyclic ({_pom_label(pom)}); verify against the effective POM",
+            "scm": "FAIL",
+            "scm_detail": f"<scm> declares no url or connection and the parent chain is cyclic ({_pom_label(pom)}); Maven refuses to build a cyclic parent chain",
         }
     if chain_reason == "complete":
         if len(chain) == 1:
@@ -288,10 +298,11 @@ def check_pom_entries(pom: dict, chain: list[dict], chain_reason: str) -> dict:
     ``_check_scm``. When the chain is complete and nothing resolves an
     element — including a POM with no ``<parent>`` at all, where
     nothing can be inherited — the result is a hard FAIL; Maven Central
-    rejects such a POM. When the chain cannot be fully resolved offline
-    (unstaged parent, or a cycle), the result is ``INHERITED-UNVERIFIED``
-    — a warning, never a failure of a correct POM inheriting from the
-    ASF parent (see issue #1173 boundary conditions).
+    rejects such a POM. A cyclic chain is a FAIL too: Maven refuses to
+    build one, so it cannot be a correct POM inheriting from the ASF
+    parent. An unstaged chain — the one case where a correct POM may
+    inherit from the un-staged ASF parent — reports
+    ``INHERITED-UNVERIFIED`` (see issue #1173 boundary conditions).
     """
     entries: dict[str, str | None] = {}
     for key in ("licenses", "developers"):
@@ -316,12 +327,12 @@ def check_pom_entries(pom: dict, chain: list[dict], chain_reason: str) -> dict:
                 entries[key + "_detail"] = "element absent and the POM declares no <parent>: nothing to inherit from"
             else:
                 entries[key + "_detail"] = "element absent and no parent POM in the staged chain declares it"
+        elif chain_reason == "cycle":
+            entries[key] = "FAIL"
+            entries[key + "_detail"] = f"element absent and the parent chain is cyclic ({_pom_label(pom)}); Maven refuses to build a cyclic parent chain"
         else:
-            detail = "element absent and the parent chain is not fully staged locally; verify against the effective POM"
-            if chain_reason == "cycle":
-                detail = f"element absent and the parent chain is cyclic ({_pom_label(pom)}); verify against the effective POM"
             entries[key] = "INHERITED-UNVERIFIED"
-            entries[key + "_detail"] = detail
+            entries[key + "_detail"] = "element absent and the parent chain is not fully staged locally; verify against the effective POM"
     entries.update(_check_scm(pom, chain, chain_reason))
     return entries
 
@@ -332,8 +343,8 @@ def check_disclaimer(pom: dict, chain: list[dict], chain_reason: str) -> dict:
     Resolution mirrors check 1: a ``<description>`` declared by a
     staged ancestor is judged as-is (an inherited description without
     the disclaimer stays a FAIL), an element no staged ancestor
-    declares when the chain is complete is a FAIL, and an unresolvable
-    chain reports ``INHERITED-UNVERIFIED``.
+    declares when the chain is complete is a FAIL, a cyclic chain is a
+    FAIL, and an unstaged chain reports ``INHERITED-UNVERIFIED``.
     """
     if pom.get("description_present"):
         description = pom.get("description")
@@ -363,6 +374,11 @@ def check_disclaimer(pom: dict, chain: list[dict], chain_reason: str) -> dict:
         if len(chain) == 1:
             return {"disclaimer": "FAIL", "disclaimer_detail": "<description> absent for a podling POM with no <parent> to inherit from"}
         return {"disclaimer": "FAIL", "disclaimer_detail": "<description> absent and no parent POM in the staged chain declares it"}
+    if chain_reason == "cycle":
+        return {
+            "disclaimer": "FAIL",
+            "disclaimer_detail": f"<description> absent and the parent chain is cyclic ({_pom_label(pom)}); Maven refuses to build a cyclic parent chain",
+        }
     return {
         "disclaimer": "INHERITED-UNVERIFIED",
         "disclaimer_detail": "<description> absent and the parent chain is not fully staged locally; verify against the effective POM",
@@ -375,10 +391,12 @@ def _checksum_status(companion: Path, digest_file: Path, digest: str) -> str | N
     Returns ``None`` when the recorded digest matches, an error message
     when it does not, or ``"unverified"`` when ``digest`` names an
     algorithm this Python's ``hashlib`` does not provide (the file is
-    still required, but its content cannot be checked offline). The
-    file is parsed leniently: the first whitespace-separated token is
-    the recorded digest, tolerating a trailing newline or a BSD-style
-    ``<digest>  <filename>`` line.
+    still required, but its content cannot be checked offline). The hex
+    digest is extracted leniently, so every layout published in
+    practice is accepted: a bare digest, the GNU coreutils
+    ``<digest>  <filename>``, the BSD/tagged ``ALGO (filename) =
+    <digest>`` (``shasum --tag``), and ``gpg --print-md``'s
+    ``filename: <DIGEST>`` — any case.
     """
     try:
         hasher = hashlib.new(digest)
@@ -386,8 +404,10 @@ def _checksum_status(companion: Path, digest_file: Path, digest: str) -> str | N
         return "unverified"
     hasher.update(companion.read_bytes())
     actual = hasher.hexdigest()
-    recorded = digest_file.read_text(encoding="utf-8", errors="replace").split()
-    if not recorded or recorded[0].lower() != actual:
+    text = digest_file.read_text(encoding="utf-8", errors="replace")
+    hex_length = len(actual)
+    match = re.search(rf"(?<![0-9a-fA-F])[0-9a-fA-F]{{{hex_length}}}(?![0-9a-fA-F])", text)
+    if match is None or match.group(0).lower() != actual:
         return f"checksum mismatch: {digest_file.name} does not match {companion.name}"
     return None
 
@@ -522,6 +542,15 @@ def verify_staged_dir(staged_dir: Path, digests: list[str], podling: bool) -> di
         if "error" in data or data["packaging"] == "pom":
             continue
         if data["artifact_id"] and data["version"]:
+            if MAVEN_COORDINATE_RE.fullmatch(data["artifact_id"]) is None or MAVEN_COORDINATE_RE.fullmatch(data["version"]) is None:
+                # The coordinates go straight into a path below; reject
+                # anything Maven itself would not accept (e.g. "../..")
+                # before touching the filesystem.
+                report["findings"].append(
+                    f"{pom_path.name}: artifactId {data['artifact_id']!r} / version {data['version']!r} is not a valid Maven coordinate "
+                    "([A-Za-z0-9_.-] only); jar and companion checks skipped"
+                )
+                continue
             # The main jar lives in the POM's own directory (in Maven
             # repository layout that is the versioned subdirectory, not
             # the staged root).

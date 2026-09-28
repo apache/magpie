@@ -194,6 +194,19 @@ def test_non_alv2_license_fails(tmp_path: Path) -> None:
     assert report["poms"][0]["check1"]["licenses"] == "FAIL"
 
 
+def test_licence_name_variants_without_url_pass(tmp_path: Path) -> None:
+    # The SPDX id and the legacy ASF wording identify ALv2 on their own;
+    # without this, <name>Apache-2.0</name> with no <url> failed.
+    for index, name in enumerate(("Apache-2.0", "The Apache Software License, Version 2.0")):
+        directory = tmp_path / str(index)
+        directory.mkdir()
+        licenses = f"  <licenses>    <license><name>{name}</name></license>  </licenses>"
+        write_pom(directory, "foo-core-1.0.0.pom", pom_xml(licenses=licenses, developers=DEVELOPERS, scm=SCM))
+        report = json.loads(mav_json(directory, ()))
+        assert report["status"] == "PASS", name
+        assert report["poms"][0]["check1"]["licenses"] == "PASS", name
+
+
 def test_inherited_licence_resolved_from_staged_parent(tmp_path: Path) -> None:
     write_pom(
         tmp_path,
@@ -310,17 +323,19 @@ def test_licence_resolved_from_staged_grandparent(tmp_path: Path) -> None:
     assert "org.apache:apache:33" in check1["licenses_detail"]
 
 
-def test_parent_chain_cycle_warns_without_hanging(tmp_path: Path) -> None:
-    # Two staged POMs naming each other as parent: the walk must stop,
-    # report the cycle, and never fail a POM it could not resolve.
+def test_parent_chain_cycle_fails_without_hanging(tmp_path: Path) -> None:
+    # Two staged POMs naming each other as parent: the walk must stop
+    # and never hang. A cyclic chain is a broken staged set (Maven
+    # refuses to build it), so the elements that cannot be resolved
+    # FAIL instead of warning.
     foo_parent = "  <parent>    <groupId>org.apache.foo</groupId>    <artifactId>foo-b</artifactId>    <version>1.0.0</version>  </parent>"
     bar_parent = "  <parent>    <groupId>org.apache.foo</groupId>    <artifactId>foo-a</artifactId>    <version>1.0.0</version>  </parent>"
     write_pom(tmp_path, "foo-a-1.0.0.pom", pom_xml(artifact_id="foo-a", parent=foo_parent, developers=DEVELOPERS, scm=SCM))
     write_pom(tmp_path, "foo-b-1.0.0.pom", pom_xml(artifact_id="foo-b", parent=bar_parent, developers=DEVELOPERS, scm=SCM))
     report = json.loads(mav_json(tmp_path, ()))
-    assert report["status"] == "WARN"
+    assert report["status"] == "FAIL"
     check1 = next(e["check1"] for e in report["poms"] if e["pom"] == "foo-a-1.0.0.pom")
-    assert check1["licenses"] == "INHERITED-UNVERIFIED"
+    assert check1["licenses"] == "FAIL"
     assert "cyclic" in check1["licenses_detail"]
 
 
@@ -425,6 +440,21 @@ def test_podling_inherited_description_without_staged_parent_warns(tmp_path: Pat
     report = json.loads(mav_json(tmp_path, ("--podling",)))
     assert report["status"] == "WARN"
     assert report["poms"][0]["check2"]["disclaimer"] == "INHERITED-UNVERIFIED"
+
+
+def test_podling_cycle_fails_disclaimer_without_hanging(tmp_path: Path) -> None:
+    # The same cycle rule under check 2: a cyclic chain is a broken
+    # staged set, so the unresolved <description> is a FAIL, not a
+    # warning.
+    foo_parent = "  <parent>    <groupId>org.apache.foo</groupId>    <artifactId>foo-b</artifactId>    <version>1.0.0</version>  </parent>"
+    bar_parent = "  <parent>    <groupId>org.apache.foo</groupId>    <artifactId>foo-a</artifactId>    <version>1.0.0</version>  </parent>"
+    write_pom(tmp_path, "foo-a-1.0.0.pom", pom_xml(artifact_id="foo-a", parent=foo_parent, developers=DEVELOPERS, scm=SCM))
+    write_pom(tmp_path, "foo-b-1.0.0.pom", pom_xml(artifact_id="foo-b", parent=bar_parent, developers=DEVELOPERS, scm=SCM))
+    report = json.loads(mav_json(tmp_path, ("--podling",)))
+    assert report["status"] == "FAIL"
+    check2 = next(e["check2"] for e in report["poms"] if e["pom"] == "foo-a-1.0.0.pom")
+    assert check2["disclaimer"] == "FAIL"
+    assert "cyclic" in check2["disclaimer_detail"]
 
 
 def test_podling_inherited_description_without_disclaimer_fails(tmp_path: Path) -> None:
@@ -537,9 +567,8 @@ def test_checksum_mismatch_fails(tmp_path: Path) -> None:
     assert len(fails) == 1 and "checksum mismatch" in fails[0]["detail"]
 
 
-def test_checksum_file_with_bsd_style_line_passes(tmp_path: Path) -> None:
-    # Some tooling writes "<digest>  <filename>"; the recorded digest is
-    # the first whitespace-separated token.
+def test_checksum_file_with_gnu_coreutils_line_passes(tmp_path: Path) -> None:
+    # The GNU coreutils layout "<digest>  <filename>".
     write_pom(tmp_path, "foo-core-1.0.0.pom", pom_xml(licenses=APACHE_LICENSES, developers=DEVELOPERS, scm=SCM))
     write_staged(tmp_path)
     companion = tmp_path / "foo-core-1.0.0-sources.jar"
@@ -548,6 +577,44 @@ def test_checksum_file_with_bsd_style_line_passes(tmp_path: Path) -> None:
     (tmp_path / "foo-core-1.0.0-sources.jar.sha512").write_text(f"{hasher.hexdigest()}  {companion.name}\n", encoding="utf-8")
     report = json.loads(mav_json(tmp_path, ()))
     assert report["status"] == "PASS"
+
+
+def test_checksum_file_with_bsd_tagged_line_passes(tmp_path: Path) -> None:
+    # The real BSD/tagged layout "ALGO (filename) = <digest>" as written
+    # by `shasum --tag` used to report a false checksum mismatch.
+    write_pom(tmp_path, "foo-core-1.0.0.pom", pom_xml(licenses=APACHE_LICENSES, developers=DEVELOPERS, scm=SCM))
+    write_staged(tmp_path)
+    companion = tmp_path / "foo-core-1.0.0-sources.jar"
+    hasher = hashlib.sha512()
+    hasher.update(companion.read_bytes())
+    (tmp_path / "foo-core-1.0.0-sources.jar.sha512").write_text(f"SHA512 ({companion.name}) = {hasher.hexdigest()}\n", encoding="utf-8")
+    report = json.loads(mav_json(tmp_path, ()))
+    assert report["status"] == "PASS"
+
+
+def test_checksum_file_with_gpg_print_md_line_passes(tmp_path: Path) -> None:
+    # `gpg --print-md` writes "<filename>: <DIGEST>" in upper case, and
+    # some ASF projects still publish that layout.
+    write_pom(tmp_path, "foo-core-1.0.0.pom", pom_xml(licenses=APACHE_LICENSES, developers=DEVELOPERS, scm=SCM))
+    write_staged(tmp_path)
+    companion = tmp_path / "foo-core-1.0.0-sources.jar"
+    hasher = hashlib.sha512()
+    hasher.update(companion.read_bytes())
+    (tmp_path / "foo-core-1.0.0-sources.jar.sha512").write_text(f"{companion.name}: {hasher.hexdigest().upper()}\n", encoding="utf-8")
+    report = json.loads(mav_json(tmp_path, ()))
+    assert report["status"] == "PASS"
+
+
+def test_checksum_file_with_wrong_digest_still_fails(tmp_path: Path) -> None:
+    # Lenient extraction must not start accepting any 128-hex-char
+    # looking string: a recorded digest that does not match the bytes
+    # stays a FAIL.
+    write_pom(tmp_path, "foo-core-1.0.0.pom", pom_xml(licenses=APACHE_LICENSES, developers=DEVELOPERS, scm=SCM))
+    write_staged(tmp_path)
+    (tmp_path / "foo-core-1.0.0-sources.jar.sha512").write_text("SHA512 (foo-core-1.0.0-sources.jar) = " + "0" * 128 + "\n", encoding="utf-8")
+    report = json.loads(mav_json(tmp_path, ()))
+    assert report["status"] == "FAIL"
+    assert any("checksum mismatch" in str(c.get("detail")) for e in report["jars"] for c in e["companions"])
 
 
 def test_unknown_digest_algorithm_is_presence_only(tmp_path: Path) -> None:
@@ -585,6 +652,22 @@ def test_main_jar_absent_is_an_observation_not_a_failure(tmp_path: Path) -> None
     assert report["status"] == "PASS"
     assert report["jars"][0]["companions"][0]["classification"] == "ABSENT"
     assert any("not staged locally" in f for f in report["findings"])
+
+
+def test_invalid_coordinates_are_rejected_before_path_build(tmp_path: Path) -> None:
+    # artifactId/version go straight into a path when the main jar is
+    # located; a POM with <artifactId>../../evil</artifactId> must not
+    # make the tool stat or hash files outside the staging directory.
+    staged = tmp_path / "staged"
+    staged.mkdir()
+    outside = tmp_path / "evil-1.0.0.jar"
+    outside.write_bytes(b"outside the staging directory")
+    write_pom(staged, "foo-core-1.0.0.pom", pom_xml(artifact_id="../../evil", licenses=APACHE_LICENSES, developers=DEVELOPERS, scm=SCM))
+    report = json.loads(mav_json(staged, ()))
+    assert report["status"] == "PASS"  # checks 1-2 still ran; the jar checks are what is skipped
+    assert any("not a valid Maven coordinate" in f for f in report["findings"])
+    assert not any(entry["jar"].startswith("evil") for entry in report["jars"])
+    assert outside.read_bytes() == b"outside the staging directory"
 
 
 def test_pom_packaging_exempt_from_companions(tmp_path: Path) -> None:

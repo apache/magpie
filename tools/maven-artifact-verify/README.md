@@ -57,7 +57,9 @@ blocking.
    `<parent>` at all — is a `FAIL`, the same judgement Maven Central
    applies. `INHERITED-UNVERIFIED` — a warning that names what to
    verify, never a failure of a correct POM — is reserved for a chain
-   that cannot be fully resolved offline.
+   that cannot be fully resolved offline. A cyclic parent chain is a
+   `FAIL` instead: Maven refuses to build one, so it cannot be a
+   correct POM inheriting from the ASF parent.
 2. **Incubator disclaimer in `<description>`** — podlings only
    (`--podling`). Accepts the standard disclaimer text and the
    `DISCLAIMER-WIP` variant, tolerating whitespace and line-wrapping
