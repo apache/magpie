@@ -48,7 +48,11 @@ blocking.
    staged parent POMs (with cycle protection, up through
    grandparents): the first ancestor declaring the element is judged
    as-is, so a staged parent carrying a non-ALv2 licence fails the
-   child too. An element no staged ancestor declares when the chain
+   child too. `<scm>` resolves per field, the way Maven merges it: a
+   child declaring only `<scm><tag>` still inherits `url` /
+   `connection` from the nearest ancestor declaring them, and an
+   empty or tag-only declaration never fails the child on its own. An
+   element no staged ancestor declares when the chain
    ends at a POM with no `<parent>` — including a POM with no
    `<parent>` at all — is a `FAIL`, the same judgement Maven Central
    applies. `INHERITED-UNVERIFIED` — a warning that names what to

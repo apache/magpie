@@ -167,9 +167,8 @@ def _pom_label(pom: dict) -> str:
 
 
 def _element_present(pom: dict, key: str) -> bool:
-    # lists (licenses/developers): present when non-empty;
-    # Element (scm): present when the element exists at all — an
-    # empty <scm/> is a declaration that fails the url check.
+    # lists (licenses/developers): present when non-empty. <scm> is not
+    # judged here: Maven merges it per field, see _check_scm.
     value = pom.get(key)
     return bool(value) if isinstance(value, list) else value is not None
 
@@ -186,14 +185,68 @@ def _evaluate_element(pom: dict, key: str) -> tuple[bool, str | None]:
         return False, (
             "licences declared but none is ALv2 (expected name matching 'Apache License, Version 2.0' or url containing apache.org/licenses/LICENSE-2.0)"
         )
-    if key == "developers":
-        if pom["developers"]:
-            return True, None
-        return False, "<developers> declared but empty"
-    scm = pom["scm"]
-    if _text(_find_child(scm, "url")) is not None or _text(_find_child(scm, "connection")) is not None:
+    if pom["developers"]:
         return True, None
-    return False, "<scm> declared without url or connection"
+    return False, "<developers> declared but empty"
+
+
+def _scm_field(pom: dict, field: str) -> str | None:
+    """One ``<scm>`` field, or None when this POM declares no non-empty value."""
+    scm = pom.get("scm")
+    if scm is None:
+        return None
+    return _text(_find_child(scm, field))
+
+
+def _check_scm(pom: dict, chain: list[dict], chain_reason: str) -> dict:
+    """Check 1, the ``<scm>`` part - resolved per field along the chain.
+
+    Maven merges ``<scm>`` per field: a child declaring only
+    ``<scm><tag>`` still inherits ``url`` / ``connection`` from an
+    ancestor, so a local ``<scm>`` is never judged in isolation. For
+    each field, the nearest POM in the staged chain declaring it
+    non-emptily wins (empty declarations are skipped, the walk
+    continues). Either field resolvable — from the POM itself or
+    inherited — is a PASS; neither field resolvable anywhere in a
+    complete chain is a hard FAIL; a chain that cannot be fully
+    resolved offline reports ``INHERITED-UNVERIFIED``.
+    """
+    source: dict[str, tuple[int, str]] = {}
+    for field in ("url", "connection"):
+        for index, chain_pom in enumerate(chain):
+            if _scm_field(chain_pom, field) is not None:
+                source[field] = (index, _pom_label(chain_pom))
+                break
+
+    if source:
+        inherited: dict[str, list[str]] = {}
+        for field, (index, label) in source.items():
+            if index > 0:
+                inherited.setdefault(label, []).append(field)
+        if inherited:
+            detail = "; ".join(f"{', '.join(fields)} inherited from locally staged parent POM {label}" for label, fields in inherited.items())
+            return {"scm": "PASS", "scm_detail": detail}
+        return {"scm": "PASS"}
+
+    if chain_reason == "cycle":
+        return {
+            "scm": "INHERITED-UNVERIFIED",
+            "scm_detail": f"<scm> declares no url or connection and the parent chain is cyclic ({_pom_label(pom)}); verify against the effective POM",
+        }
+    if chain_reason == "complete":
+        if len(chain) == 1:
+            return {
+                "scm": "FAIL",
+                "scm_detail": "<scm> declares no url or connection and the POM declares no <parent>: nothing to inherit from",
+            }
+        return {
+            "scm": "FAIL",
+            "scm_detail": "<scm> declares no url or connection and no parent POM in the staged chain declares one",
+        }
+    return {
+        "scm": "INHERITED-UNVERIFIED",
+        "scm_detail": "<scm> declares no url or connection and the parent chain is not fully staged locally; verify against the effective POM",
+    }
 
 
 def _resolve_chain(pom: dict, by_coordinate: dict) -> tuple[list[dict], str]:
@@ -226,20 +279,22 @@ def _resolve_chain(pom: dict, by_coordinate: dict) -> tuple[list[dict], str]:
 def check_pom_entries(pom: dict, chain: list[dict], chain_reason: str) -> dict:
     """Check 1 - ALv2 licence, <developers> and <scm> in one POM.
 
-    An element absent from the POM itself is resolved against the
-    locally staged parent chain: the first ancestor that declares the
+    ``<licenses>`` and ``<developers>`` are judged at element level: an
+    element absent from the POM itself is resolved against the locally
+    staged parent chain, and the first ancestor that declares the
     element is judged as-is, so a staged parent carrying a non-ALv2
-    licence (or an empty ``<scm/>``) fails the child too. When the
-    chain is complete and no ancestor declares the element — including
-    a POM with no ``<parent>`` at all, where nothing can be inherited —
-    the result is a hard FAIL; Maven Central rejects such a POM. When
-    the chain cannot be fully resolved offline (unstaged parent, or a
-    cycle), the result is ``INHERITED-UNVERIFIED`` — a warning, never a
-    failure of a correct POM inheriting from the ASF parent (see issue
-    #1173 boundary conditions).
+    licence fails the child too. ``<scm>`` is judged per field (Maven
+    merges ``url`` / ``connection`` / ``tag`` independently) — see
+    ``_check_scm``. When the chain is complete and nothing resolves an
+    element — including a POM with no ``<parent>`` at all, where
+    nothing can be inherited — the result is a hard FAIL; Maven Central
+    rejects such a POM. When the chain cannot be fully resolved offline
+    (unstaged parent, or a cycle), the result is ``INHERITED-UNVERIFIED``
+    — a warning, never a failure of a correct POM inheriting from the
+    ASF parent (see issue #1173 boundary conditions).
     """
     entries: dict[str, str | None] = {}
-    for key in ("licenses", "developers", "scm"):
+    for key in ("licenses", "developers"):
         if _element_present(pom, key):
             ok, fail_detail = _evaluate_element(pom, key)
             entries[key] = "PASS" if ok else "FAIL"
@@ -267,6 +322,7 @@ def check_pom_entries(pom: dict, chain: list[dict], chain_reason: str) -> dict:
                 detail = f"element absent and the parent chain is cyclic ({_pom_label(pom)}); verify against the effective POM"
             entries[key] = "INHERITED-UNVERIFIED"
             entries[key + "_detail"] = detail
+    entries.update(_check_scm(pom, chain, chain_reason))
     return entries
 
 

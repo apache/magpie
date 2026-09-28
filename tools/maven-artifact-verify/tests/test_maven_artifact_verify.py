@@ -105,8 +105,10 @@ DEVELOPERS = (
     "  </developers>"
 )
 SCM = "  <scm>    <connection>scm:git:https://gitbox.apache.org/repos/asf/foo.git</connection>    <url>https://github.com/apache/foo</url>  </scm>"
+TAG_ONLY_SCM = "  <scm>    <tag>v1.0.0</tag>  </scm>"
 EMPTY_SCM = "  <scm/>"
 ASF_PARENT = "  <parent>    <groupId>org.apache</groupId>    <artifactId>apache</artifactId>    <version>33</version>  </parent>"
+FOO_PARENT = "  <parent>    <groupId>org.apache.foo</groupId>    <artifactId>foo-parent</artifactId>    <version>1.0.0</version>  </parent>"
 
 
 def write_pom(directory: Path, name: str, xml: str) -> Path:
@@ -322,7 +324,71 @@ def test_parent_chain_cycle_warns_without_hanging(tmp_path: Path) -> None:
     assert "cyclic" in check1["licenses_detail"]
 
 
+def test_tag_only_scm_inherits_from_staged_parent(tmp_path: Path) -> None:
+    # Regression: Maven merges <scm> per field, so a child declaring
+    # only <tag> still inherits url/connection from its parent. Judging
+    # the child's <scm> in isolation used to make this a hard FAIL.
+    write_pom(
+        tmp_path,
+        "foo-parent-1.0.0.pom",
+        pom_xml(artifact_id="foo-parent", packaging="pom", licenses=APACHE_LICENSES, developers=DEVELOPERS, scm=SCM),
+    )
+    write_pom(tmp_path, "foo-core-1.0.0.pom", pom_xml(parent=FOO_PARENT, licenses=APACHE_LICENSES, developers=DEVELOPERS, scm=TAG_ONLY_SCM))
+    report = json.loads(mav_json(tmp_path, ()))
+    assert report["status"] == "PASS"
+    check1 = next(e["check1"] for e in report["poms"] if e["pom"] == "foo-core-1.0.0.pom")
+    assert check1["scm"] == "PASS"
+    assert "inherited" in check1["scm_detail"]
+
+
+def test_tag_only_scm_with_unstaged_parent_warns(tmp_path: Path) -> None:
+    # An unstaged parent may carry url/connection, so the child's
+    # tag-only <scm> is INHERITED-UNVERIFIED, never a hard FAIL.
+    write_pom(tmp_path, "foo-core-1.0.0.pom", pom_xml(parent=ASF_PARENT, licenses=APACHE_LICENSES, developers=DEVELOPERS, scm=TAG_ONLY_SCM))
+    report = json.loads(mav_json(tmp_path, ()))
+    assert report["status"] == "WARN"
+    check1 = report["poms"][0]["check1"]
+    assert check1["scm"] == "INHERITED-UNVERIFIED"
+    assert "not fully staged" in check1["scm_detail"]
+
+
+def test_scm_without_url_anywhere_in_complete_chain_fails(tmp_path: Path) -> None:
+    # The staged parent declares a tag-only <scm> too and has no parent
+    # of its own: nothing in the chain supplies url or connection —
+    # a hard FAIL, the POM Maven Central would reject.
+    write_pom(
+        tmp_path,
+        "foo-parent-1.0.0.pom",
+        pom_xml(artifact_id="foo-parent", packaging="pom", licenses=APACHE_LICENSES, developers=DEVELOPERS, scm=TAG_ONLY_SCM),
+    )
+    write_pom(tmp_path, "foo-core-1.0.0.pom", pom_xml(parent=FOO_PARENT, licenses=APACHE_LICENSES, developers=DEVELOPERS, scm=TAG_ONLY_SCM))
+    report = json.loads(mav_json(tmp_path, ()))
+    assert report["status"] == "FAIL"
+    check1 = next(e["check1"] for e in report["poms"] if e["pom"] == "foo-core-1.0.0.pom")
+    assert check1["scm"] == "FAIL"
+    assert "no parent POM in the staged chain" in check1["scm_detail"]
+
+
+def test_empty_child_scm_resolves_from_staged_grandparent(tmp_path: Path) -> None:
+    # Empty and tag-only declarations don't win: the per-field walk
+    # continues past them to the grandparent that declares url.
+    write_pom(
+        tmp_path,
+        "apache-33.pom",
+        pom_xml(artifact_id="apache", version="33", packaging="pom", group_id="org.apache", licenses=APACHE_LICENSES, developers=DEVELOPERS, scm=SCM),
+    )
+    write_pom(tmp_path, "foo-parent-1.0.0.pom", pom_xml(artifact_id="foo-parent", packaging="pom", parent=ASF_PARENT, developers=DEVELOPERS, scm=TAG_ONLY_SCM))
+    write_pom(tmp_path, "foo-core-1.0.0.pom", pom_xml(parent=FOO_PARENT, licenses=APACHE_LICENSES, developers=DEVELOPERS, scm=EMPTY_SCM))
+    report = json.loads(mav_json(tmp_path, ()))
+    assert report["status"] == "PASS"
+    check1 = next(e["check1"] for e in report["poms"] if e["pom"] == "foo-core-1.0.0.pom")
+    assert check1["scm"] == "PASS"
+    assert "org.apache:apache:33" in check1["scm_detail"]
+
+
 def test_empty_scm_element_fails(tmp_path: Path) -> None:
+    # No <parent> at all, so the empty <scm> cannot inherit url or
+    # connection from anywhere: a hard FAIL.
     write_pom(tmp_path, "foo-core-1.0.0.pom", pom_xml(licenses=APACHE_LICENSES, developers=DEVELOPERS, scm=EMPTY_SCM))
     report = json.loads(mav_json(tmp_path, ()))
     assert report["status"] == "FAIL"
