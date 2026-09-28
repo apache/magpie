@@ -8,30 +8,21 @@ requires_config:
   - fix-workflow.md
   - project.md
 description: |
-  Attempt to fix a security issue tracked in `<tracker>` by
-  implementing the change in a public `<upstream>` PR. Runs
-  `security-issue-sync` first to reconcile the issue's state,
-  proposes an implementation plan, and on explicit user
-  confirmation writes the change, opens a PR from the user's
-  fork, and updates the `<tracker>` tracking issue. Public PR
-  content is scrubbed so it does **not** reveal the CVE, the
-  security nature of the change, or any link back to
-  `<tracker>`.
+  Fix a tracked security issue in a public `<upstream>` PR: sync the
+  tracker, propose a plan, and on confirmation write the change, open
+  the PR from the user's fork, and update the tracker. Public content
+  never reveals the CVE or the security nature of the change.
 when_to_use: |
-  Invoke when a security team member says "try to fix issue
-  NNN", "see if you can land a fix for NNN", "draft a PR for
-  NNN", or similar — *after* the issue has been triaged and
-  the team has a rough consensus on what the fix should look
-  like. Skip for issues still being assessed, reports not yet
-  classified as valid vulnerabilities, or changes that require
-  the private-PR fallback path.
+  "try to fix NNN", "draft a PR for NNN", after triage, once the team
+  agrees on the fix. Skip for issues still being assessed or needing
+  the private-PR path.
 argument-hint: "[issue-number]"
 capability:
   - capability:fix
   - capability:resolve
 surface_hash: sha256:9884ef304a3fad88
 license: Apache-2.0
-measured_tokens: 6849
+measured_tokens: 6768
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -105,8 +96,9 @@ public is pushed without the user explicitly approving the exact PR
 title, body and diff first.**
 
 **Confidentiality is paramount.** The resulting PR in `<upstream>`
-is public to the world. It must not reveal the CVE ID, the security
-nature of the change, or any link back to `<tracker>` — **and it
+is public to the world. It must not reveal the CVE ID or the security
+nature of the change (a `<tracker>` link is a public-safe identifier,
+but never with security framing around it) — **and it
 must not name, reference, or describe vulnerabilities in other ASF
 projects**, even when the private discussion has mentioned them.
 See the "Confidentiality of `<tracker>`" section of
@@ -129,9 +121,10 @@ it lands on:
   `<tracker>`): use the markdown link form per
   [`AGENTS.md` § *Linking tracker issues and PRs*](../../../../AGENTS.md#linking-tracker-issues-and-prs):
   - **`<upstream>` PR**: `[<upstream>#NNN](https://github.com/<upstream>/pull/NNN)`
-  - **`<tracker>` issue** (only in the status-rollup update on
-    `<tracker>` itself — *never* in the public PR body, where the
-    private tracker URL has no place): `[<tracker>#NNN](https://github.com/<tracker>/issues/NNN)`
+  - **`<tracker>` issue**: `[<tracker>#NNN](https://github.com/<tracker>/issues/NNN)`.
+    In the public PR body it is a bare identifier only, with no
+    security framing around it, per the
+    [Confidentiality of the tracker repository](../../../../AGENTS.md#confidentiality-of-the-tracker-repository) rule.
   - **Commit**: `[<sha>](https://github.com/<upstream>/commit/<sha>)`
 
 - **On terminal surfaces** (the implementation-plan proposal, the

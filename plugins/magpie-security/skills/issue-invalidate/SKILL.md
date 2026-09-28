@@ -8,29 +8,19 @@ requires_config:
   - project.md
   - canned-responses.md
 description: |
-  Close an `<tracker>` tracking issue as invalid: apply the
-  `invalid` label, remove the scope label, post a short closing
-  comment, archive the item from the project board, and — for
-  trackers imported from `<security-list>` — draft a
-  polite-but-firm reply to the reporter on the original Gmail
-  thread explaining the team's reasoning (extracted from the
-  tracker's discussion). For trackers opened via
-  `security-issue-import-from-pr`, the email-draft step is skipped
-  per the *no outreach to the PR author* rule of that skill.
+  Close a tracker as invalid: label, closing comment, board archive,
+  and — for `<security-list>` imports — a polite-but-firm reply draft
+  to the reporter with the team's reasoning. No reporter outreach for
+  trackers imported from a public PR.
 when_to_use: |
-  Invoke when a security team member says "close NN as invalid",
-  "invalidate NN", "mark NN invalid", "NN is not a security
-  issue" — typically after a consensus-invalid decision in the
-  issue's discussion. Skip when the team has not yet reached
-  consensus, when a CVE has already been allocated (a separate
-  Vulnogram REJECT flow runs first), or when the advisory has
-  already shipped — closing as invalid then is a retraction with
-  public consequences and warrants explicit team escalation.
+  "close NN as invalid", "NN is not a security issue", after the team
+  agreed it is invalid. Skip before consensus, or once a CVE is
+  allocated or the advisory has shipped.
 argument-hint: "[issue-number]"
 capability: capability:resolve
 surface_hash: sha256:7a3f19e382d842b6
 license: Apache-2.0
-measured_tokens: 7836
+measured_tokens: 7698
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):

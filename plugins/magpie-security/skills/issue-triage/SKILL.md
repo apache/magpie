@@ -11,31 +11,19 @@ requires_config:
   - release-trains.md
   - canned-responses.md
 description: |
-  For each open `<tracker>` issue carrying the `needs triage`
-  label, read body + comments and classify the candidate
-  disposition into one of six classes: VALID / DEFENSE-IN-DEPTH
-  / INFO-ONLY / INVALID / PROBABLE-DUP / FIX-ALREADY-PUBLIC. On
-  user confirmation, posts a triage-proposal comment that invites
-  the security team to react. Read-only on tracker state — no
-  label flips, closes, or CVE allocations. Supports `--retriage`
-  for re-litigating passed-triage decisions when substantive new
-  activity lands.
+  Classify each `needs triage` tracker as VALID / DEFENSE-IN-DEPTH /
+  INFO-ONLY / INVALID / PROBABLE-DUP / FIX-ALREADY-PUBLIC and, on
+  confirmation, post a triage-proposal comment for the team.
+  Read-only on tracker state. `--retriage` reopens a decided case after
+  new activity.
 when_to_use: |
-  Invoke when a security team member says "triage open issues",
-  "start triage discussions on the new trackers", or "propose
-  dispositions for the needs-triage queue". Also appropriate
-  after a batch import via `security-issue-import` lands new
-  trackers, or as a periodic sweep on stale needs-triage
-  trackers. Use `--retriage` when a passed-triage decision
-  needs re-litigating after new comment activity. Skip when
-  team consensus on validity has already landed — invoke
-  `security-cve-allocate` (VALID),
-  `security-issue-invalidate` (INFO-ONLY / INVALID), or
-  `security-issue-deduplicate` (PROBABLE-DUP) directly.
+  "triage open issues", "propose dispositions for the needs-triage
+  queue", or after an import. Once the team has decided, go straight
+  to cve-allocate, invalidate or deduplicate.
 capability: capability:triage
 surface_hash: sha256:7d5054dc4806f995
 license: Apache-2.0
-measured_tokens: 7351
+measured_tokens: 7189
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):

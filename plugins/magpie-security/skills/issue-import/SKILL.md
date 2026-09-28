@@ -8,30 +8,19 @@ requires_config:
   - project.md
   - security-intake-config.md
 description: |
-  Scan <security-list> for reports that have not yet been
-  copied into <tracker> as tracking issues, present the proposed
-  imports to the user, and — defaulting to *import unless the user
-  rejects upfront* — create the tracking issues with the
-  `Needs triage` project-board status and draft a receipt-of-
-  confirmation reply to each reporter. This is the first step of the
-  handling process: the entry point that converts an inbound email
-  thread into a tracker the rest of the skills (security-issue-sync,
-  security-issue-fix, generate-cve-json) operate on.
+  Import new `<security-list>` reports into `<tracker>`: find threads
+  not yet tracked, propose the imports (default: import unless
+  rejected), create each tracker in `Needs triage`, and draft a
+  receipt reply to the reporter. First step of the handling process.
 when_to_use: |
-  Invoke when a security team member says "import new reports", "check
-  for unimported security@ messages", "import #<threadId>", or when
-  they start a morning-triage sweep and want to see what has landed on
-  security@ overnight. Also appropriate as a recurring check — the
-  skill is cheap to run against the default 14-day Gmail window and a
-  no-op when every recent thread is already tracked or already
-  answered-and-closed on-thread. Use `import last 30d` / `import all`
-  (= disclosure_governance.window_days, default 90d) for a wider backlog
-  sweep when genuinely warranted.
+  "import new reports", "check for unimported security@ messages",
+  "import #<threadId>", or a morning sweep (default window 14 days;
+  `import last 30d` / `import all` for a backlog).
 argument-hint: "[import] [last Nd|all] [skip threadId]"
 capability: capability:intake
 surface_hash: sha256:779cf1467953799b
 license: Apache-2.0
-measured_tokens: 11120
+measured_tokens: 10962
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
