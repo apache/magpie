@@ -205,7 +205,7 @@ step skips cleanly and nothing here needs to be configured.
 | Key | Value | Notes |
 |---|---|---|
 | `jvm_artefact_checks` | `on` | `on` (default) — run Step 6b whenever the staged set contains jars or POMs; `off` — skip (e.g. the project stages jars only through a platform checked elsewhere) |
-| `jvm_companion_location` | `staged` | `staged` — the companion `.pom` / `-sources.jar` / `-javadoc.jar` set is staged with the RC and must be present, each companion signed and checksummed; `nexus-staging` — the jars publish through the Nexus staging repository only, so a locally absent jar is an observation, not a failure; *(unset)* — same as `nexus-staging` |
+| `jvm_companion_location` | *(unset)* | `staged` — the companion `.pom` / `-sources.jar` / `-javadoc.jar` set is staged with the RC and must be present, each companion signed and checksummed; `nexus-staging` — the jars publish through the Nexus staging repository only, so a locally absent jar is an observation, not a failure; *(unset)* — same as `nexus-staging` |
 | `jvm_digest_set` | *(unset)* | digests each companion must carry; unset means the § Digest set above applies as-is |
 
 Model the companion set in § Expected artefact list too: for a
