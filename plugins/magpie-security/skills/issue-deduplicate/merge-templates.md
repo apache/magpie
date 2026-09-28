@@ -5,11 +5,10 @@
 
 ## Step 3 — Build the merged body proposal
 
-The output is a single body that preserves both reporters' content
-verbatim. The body-field schema (role names, empty-field convention,
-body-field-surgery pattern) is documented in
+The output is a single body that preserves both reporters' content verbatim.
+The body-field schema (role names, empty-field convention, body-field-surgery pattern) is in
 [`tools/github/issue-template.md`](../../../../tools/github/issue-template.md);
-the concrete field names for the adopting project live in
+the adopting project's concrete field names live in
 [`<project-config>/project.md`](../../../../<project-config>/project.md#issue-template-fields).
 Structure:
 
@@ -72,34 +71,24 @@ confirmed, or the placeholder form when unconfirmed; the merge
 does not silently re-synthesize credits)
 
 **Apply the [bot/AI credit policy](../../../../tools/cve-tool-vulnogram/bot-credits-policy.md)
-(at `tools/<cve-tool>/bot-credits-policy.md`) when consolidating.** If either tracker carries a credit line on
-the **finder side** (*Reporter credited as*) that matches the bot
-detection rule (`*[bot]` suffix, known-bot list,
-`*-bot`/`*-ai`/`*-agent`/`*-gpt` / `*scanner*` / `*automat*`
-suffix patterns, automation-name list), propagate the line into
-the kept tracker's *Reporter credited as* field unchanged — the
-CVE JSON generator emits it with `type: "tool"` per the policy's
-finder-side rule. Surface in the proposal *"credited as tool
-(during merge): `<line>` (matches bot policy — `<rule>`)"* with
-the source tracker number so the user can see which rows are
-being routed as tools. If the drop tracker has an inbound
-reporter thread to reply on, also propose the policy's
-*clarification-reply* Gmail draft asking whether a human behind
-the bot/AI handle should be **additionally** credited as finder.
+(at `tools/<cve-tool>/bot-credits-policy.md`) when consolidating.**
+A **finder-side** credit line (*Reporter credited as*) on either tracker that matches the bot detection rule
+(`*[bot]` suffix, known-bot list, `*-bot`/`*-ai`/`*-agent`/`*-gpt` / `*scanner*` / `*automat*` suffix patterns, automation-name list)
+goes into the kept tracker's *Reporter credited as* field unchanged;
+the CVE JSON generator emits it with `type: "tool"` per the policy's finder-side rule.
+Surface it in the proposal as *"credited as tool (during merge): `<line>` (matches bot policy — `<rule>`)"*,
+with the source tracker number, so the user sees which rows are routed as tools.
+If the drop tracker has an inbound reporter thread to reply on, also propose the policy's *clarification-reply* Gmail draft
+asking whether a human behind the bot/AI handle should be **additionally** credited as finder.
 The user can override per the policy doc.
 
-For the **remediation-developer side**, the dedup still applies
-the original *skip* rule: a bot-matching line in either tracker's
-*Remediation developer* field is dropped from the merge result
-(no `type: "tool"` mapping exists for remediation-developer
-credits — see the policy doc). Surface *"skipped credit
-(during merge): `<line>` (matches bot policy — `<rule>`)"* for
-remediation-side rows.
+On the **remediation-developer side**, the original *skip* rule still applies:
+a bot-matching line in either tracker's *Remediation developer* field is dropped from the merge result
+(the policy has no `type: "tool"` mapping for remediation-developer credits).
+Surface it as *"skipped credit (during merge): `<line>` (matches bot policy — `<rule>`)"*.
 
-Manual credits that a human security-team member typed in
-(visible in the issue timeline) are always preserved verbatim
-on both sides — the filter only fires on credit lines that were
-auto-extracted upstream.
+Manual credits a human security-team member typed in (visible in the issue timeline) are always preserved verbatim on both sides;
+the filter only fires on credit lines auto-extracted upstream.
 
 ```markdown
 ### PR with the fix
@@ -124,37 +113,26 @@ the same way it applies to a single reporter's content>
 <keep's value>
 ```
 
-The **Second independent report** block is the load-bearing part of
-the merge. It lets every future triager read both reports in one
-place without having to chase the closed duplicate's content.
-Append the drop side's body **verbatim except for reporter-supplied
-CVSS scores, CVSS vectors, and qualitative severity labels** inside
-the `<details>` disclosure — preserve the reporter's wording, code
-blocks, and PoC text. Do not paraphrase; paraphrasing a security report is how
-credits get subtly wrong before publication. The short headline that
-stays visible at the top of the `<details>` block is a one-sentence
-summary for scroll-readers; clicking expands to the full verbatim
-report. This is the same short-headline-over-collapsed-details
-pattern the status-change comments use, applied to the body so a
-long secondary report does not push every other body field below
-the fold.
+The **Second independent report** block is the load-bearing part of the merge:
+every future triager reads both reports in one place, without chasing the closed duplicate's content.
+Inside the `<details>` disclosure, append the drop side's body **verbatim except for reporter-supplied
+CVSS scores, CVSS vectors, and qualitative severity labels** — preserve the reporter's wording, code
+blocks, and PoC text. Do not paraphrase.
+The one-sentence headline that stays visible above the collapsed block is for scroll-readers
+(the short-headline-over-collapsed-details pattern the status-change comments use),
+so a long secondary report does not push every other body field below the fold.
 
-If the drop-side body already had a *"Second independent report"*
-`<details>` block (chain-merge case — rare), nest its content
-inside the new outer block (or append as a sibling sub-block) so
-the chain of merges stays visible. Never flatten or rewrite earlier
-merges.
+If the drop-side body already had a *"Second independent report"* `<details>` block (chain-merge case — rare),
+nest its content inside the new outer block (or append it as a sibling sub-block) so the chain of merges stays visible.
+Never flatten or rewrite earlier merges.
 
 ## Step 4 — Build the rollup-entry proposals
 
-Two rollup-comment entries, one per tracker — **not** two new
-top-level comments. The entries are appended to each tracker's
-existing status-rollup comment (created by `security-issue-import`)
-via the upsert recipe in
+Two rollup-comment entries, one per tracker — **not** two new top-level comments —
+appended to each tracker's existing status-rollup comment (created by `security-issue-import`) via the upsert recipe in
 [`tools/github/status-rollup.md`](../../../../tools/github/status-rollup.md#upsert-recipe--append-to-an-existing-rollup-or-create-one).
-When either tracker does not yet carry a rollup (legacy tracker
-pre-dating the convention), the upsert recipe's Step 2b creates
-one and folds any pre-existing legacy bot comments in on the way.
+When either tracker has no rollup yet (legacy tracker pre-dating the convention),
+the recipe's Step 2b creates one and folds any pre-existing legacy bot comments in on the way.
 
 Draft only each entry's body; the Step 5 tool call writes the
 `<details><summary>YYYY-MM-DD · @user · <Action></summary>` envelope.
@@ -205,10 +183,9 @@ See [the merge entry on <tracker>#<keep>](https://github.com/<tracker>/issues/<N
 <Reporter-notification line — one of the four canonical options from the sync skill.>
 ```
 
-Both entries must render every cross-issue reference as a
-clickable markdown link per the *Linking `<tracker>` issues and
-PRs* convention in [`AGENTS.md`](../../../../AGENTS.md). No
-six-line visible cap — the entire entry is already collapsed
-inside `<details>`; write what the auditor needs. Do not pad.
+Both entries must render every cross-issue reference as a clickable markdown link, per
+[`AGENTS.md` § *Linking tracker issues and PRs*](../../../../AGENTS.md#linking-tracker-issues-and-prs).
+There is no six-line visible cap: the entire entry is already collapsed inside `<details>`,
+so write what the auditor needs. Do not pad.
 
 ---
