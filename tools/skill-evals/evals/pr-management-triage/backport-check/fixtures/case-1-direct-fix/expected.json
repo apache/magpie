@@ -1,0 +1,5 @@
+{
+  "classification": "direct_cherry_pick",
+  "action": "hand-off",
+  "reason": "Every commit matches its default-branch source by -U0 patch-id and the source change fixes broken SQL copying."
+}

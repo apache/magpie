@@ -70,6 +70,10 @@ table itself.
 Run these **before** the decision table. A PR that matches any
 filter is skipped silently from the main triage flow.
 
+PRs targeting a configured `backport_branches` base were already
+classified by [Step 0.7](backport-check.md) and are not evaluated
+here again.
+
 | # | Filter | Match condition |
 |---|---|---|
 | F1 | Author is collaborator/member/owner | `authorAssociation ∈ {OWNER, MEMBER, COLLABORATOR}` (override: `authors:all` or `authors:collaborators`) |

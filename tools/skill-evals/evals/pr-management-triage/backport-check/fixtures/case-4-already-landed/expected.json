@@ -1,0 +1,5 @@
+{
+  "classification": "backport_already_landed",
+  "action": "close",
+  "reason": "Every commit already has an equivalent change on the base branch, so there is nothing left to merge."
+}

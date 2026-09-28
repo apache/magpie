@@ -25,9 +25,9 @@ when_to_use: |
   already triaged or in its grace window.
 argument-hint: "[pr:N] [label:LBL] [author:LOGIN] [review-for-me] [stale] [repo:owner/name]"
 capability: capability:triage
-surface_hash: sha256:4a3a20f254a3b7c7
+surface_hash: sha256:1818e17a0a77470c
 license: Apache-2.0
-measured_tokens: 4954
+measured_tokens: 5050
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
@@ -322,6 +322,8 @@ Selector semantics (`triage pr:<N>` / `label:<LBL>` / `author:<LOGIN>` / `review
 **Step 0.5 — bot-draft promotion:** before the main loop, sweep open draft PRs authored by the F2 bot logins and propose the bundled [`promote-bot-draft`](actions.md#promote-bot-draft--convert-a-bot-authored-draft-and-label-it-ready) action — the pre-pass spec is in [`actions.md`](actions.md#step-05--promote-bot-authored-draft-prs).
 
 ---
+**Step 0.7 — backport check:** only when `backport_branches` is configured — for every open PR targeting a release branch (any author, drafts included), verify it is a direct cherry-pick of a default-branch commit and, under `backport_policy: fixes-only`, that the source change is a fix rather than a feature, behaviour change, deprecation, removal or refactor; the spec is in [`backport-check.md`](backport-check.md).
+
 **Step 1 — fetch:** resolve the selector per [`fetch-and-batch.md#inputs`](fetch-and-batch.md#inputs), walk every page of the aliased PR-list query until `pageInfo.hasNextPage` is false, deduplicate at the end, and prefetch the `action_required` run index and the recent main-branch failures once per session — the canonical loop is in [`fetch-and-batch.md#full-pagination-loop`](fetch-and-batch.md#full-pagination-loop).
 
 **Step 2 — classify:** run **every PR fetched in Step 1** through
