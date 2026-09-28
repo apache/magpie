@@ -8,27 +8,15 @@
 - **Does not run the validity discussion.** Every finding lands as
   `Needs triage`; Step 3 of the handling process happens in tracker
   comments after import.
-- **Does not draft a reporter reply.** There is no reporter — the
-  markdown file is the report, and any clarification questions the
-  team has about a finding are recorded as comments on the
-  resulting tracker, not on a Gmail thread.
-- **Does not allocate CVEs.** A finding tagged `**Severity:** HIGH`
-  in the source markdown is *still* unassessed from the security
-  team's perspective; the CVE-allocation gate (per
-  [`security-cve-allocate`](../cve-allocate/SKILL.md)) requires the team's
-  own validity decision first.
-- **Does not parse markdown formats other than the one documented
-  in Step 1.** If the input file uses a different shape (e.g.
-  `### Title` instead of `# Title`, or a YAML front-matter block
-  instead of `**Field:**` lines), surface a one-line ask for the
-  user to either reformat the file or open the trackers manually.
-  The skill must not silently best-effort parse a divergent shape;
-  the resulting trackers would be subtly malformed and confuse the
-  rest of the lifecycle.
-- **Does not characterise the source as authoritative.** The
-  status-rollup line `Severity (from source): HIGH (informational;
-  CVSS scoring happens at allocation)` is the standard wording —
-  the source's tags are recorded, not adopted.
+- **Does not draft a reporter reply.** There is no reporter — the file is the report;
+  clarification questions go in comments on the resulting tracker.
+- **Does not allocate CVEs.** A `**Severity:** HIGH` finding is *still* unassessed;
+  [`security-cve-allocate`](../cve-allocate/SKILL.md) needs the team's own validity decision first.
+- **Does not parse markdown formats other than the one documented in Step 1.**
+  For a different shape (e.g. `### Title` instead of `# Title`, or YAML front matter instead of `**Field:**` lines), ask the user in one line to reformat the file or open the trackers manually.
+  Never best-effort parse a divergent shape — the trackers would be subtly malformed.
+- **Does not characterise the source as authoritative.** The rollup line `Severity (from source): HIGH (informational;
+  CVSS scoring happens at allocation)` records the source's tags without adopting them.
 
 ## Failure modes
 
