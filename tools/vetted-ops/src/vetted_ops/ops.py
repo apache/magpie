@@ -518,6 +518,25 @@ _register(
 
 _register(
     Op(
+        name="pr-view-with-body",
+        params=("number",),
+        summary="Read one upstream PR as JSON, including its description.",
+        build=lambda cfg, number: [
+            "gh",
+            "pr",
+            "view",
+            number,
+            "--repo",
+            _upstream(cfg),
+            "--json",
+            "number,title,body,state,isDraft,mergedAt,mergeCommit,baseRefName,headRefName,"
+            "author,url,files,labels,milestone",
+        ],
+    )
+)
+
+_register(
+    Op(
         name="pr-checks",
         params=("number",),
         summary="Read the CI rollup for one upstream PR.",

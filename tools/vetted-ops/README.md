@@ -210,7 +210,7 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
                            "body-field-get", "body-field-set"]
 "security-issue-import" = ["rollup-append"]
 "security-issue-import-from-md" = ["rollup-append"]
-"security-issue-import-from-pr" = ["rollup-append"]
+"security-issue-import-from-pr" = ["pr-view-with-body", "rollup-append"]
 "security-issue-invalidate" = ["rollup-append", "rollup-amend-latest"]
 "security-issue-triage" = ["issue-view", "issue-comments",
                            "osv-get-vuln", "osv-query-package"]

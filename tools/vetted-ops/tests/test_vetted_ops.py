@@ -1477,3 +1477,14 @@ def test_project_resolves_outside_the_workspace() -> None:
     pyproject = tomllib.loads((Path(__file__).parents[1] / "pyproject.toml").read_text())
     assert "dependency-groups" not in pyproject
     assert "sources" not in pyproject.get("tool", {}).get("uv", {})
+
+
+def test_pr_view_with_body_reads_the_upstream_pr_including_its_body(policy: config.Config) -> None:
+    op = ops.resolve("pr-view-with-body")
+    assert not op.writes
+    params, _body = cli._validate_params(op, ["65703"], policy)
+    argv = cli.build_argv(op, params, policy)
+    assert isinstance(argv, list)
+    assert argv[:6] == ["gh", "pr", "view", "65703", "--repo", "acme/product"]
+    fields = argv[argv.index("--json") + 1].split(",")
+    assert "body" in fields and "files" in fields and "author" in fields
