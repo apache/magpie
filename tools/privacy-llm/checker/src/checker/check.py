@@ -35,12 +35,15 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
+import re
 import sys
+import urllib.parse
 
 from checker.config import (
     LLMEntry,
     OptInEntry,
     ParsedConfig,
+    _first_url,
     host_of,
     locate_config_path,
     parse_config,
@@ -185,25 +188,140 @@ def check_stack(config: ParsedConfig) -> list[Verdict]:
     return out
 
 
+def _extract_opt_in_host(name: str) -> str | None:
+    """Extract destination hostname from an opt-in entry name.
+
+    Recognises full URLs (https://api.example.com/v1) and bare hostnames
+    at the start of the entry (api.example.com (Provider)). Returns None
+    for name-only opt-ins (e.g. 'TypeSafe — Jev API', 'AWS Bedrock').
+    """
+    url = _first_url(name)
+    if url is not None:
+        return host_of(url)
+
+    first_token = re.split(r"[\s—\-,(:]+", name.strip())[0]
+    if "." in first_token and not first_token.endswith("."):
+        return host_of("//" + first_token)
+    return None
+
+
+def _approve_endpoint_by_opt_in(
+    entry: LLMEntry,
+    ep_host: str,
+    opt_in: list[OptInEntry],
+    *,
+    default_endpoint: str | None = None,
+    raw_desc: str | None = None,
+) -> Verdict:
+    """Match endpoint against opt-in entries.
+
+    For URL opt-in entries: requires exact host_of(endpoint) == host_of(opt_url).
+    For name-only opt-in entries: matches only if endpoint matches default_endpoint
+    and the provider name matches the opt-in entry name.
+    """
+    for opt in opt_in:
+        opt_host = _extract_opt_in_host(opt.name)
+        matched = False
+
+        if opt_host is not None:
+            if ep_host == opt_host:
+                matched = True
+        else:
+            # Name-only opt-in: matches only if endpoint is the default endpoint
+            if default_endpoint is not None:
+                def_host = host_of(default_endpoint)
+                if (entry.url == default_endpoint) or (def_host is not None and ep_host == def_host):
+                    name_lc = opt.name.lower()
+                    desc_to_check = (raw_desc or "").lower()
+                    if (
+                        name_lc in desc_to_check
+                        or _shortname(name_lc) in desc_to_check
+                        or desc_to_check in name_lc
+                    ):
+                        matched = True
+
+        if not matched:
+            continue
+
+        if not opt.data_residency:
+            return Verdict(
+                entry,
+                False,
+                f"opt-in entry {opt.name!r} matches but is missing the 'Data-residency contract' sub-bullet",
+            )
+        if not opt.approved_by or _is_placeholder(opt.approved_by):
+            return Verdict(
+                entry,
+                False,
+                f"opt-in entry {opt.name!r} matches but the 'Approved-by' "
+                f"sub-bullet is missing or still has placeholder text "
+                f"({opt.approved_by!r}); a real PMC member must sign off.",
+            )
+        return Verdict(entry, True, f"opt-in entry {opt.name!r} (data-residency + approved-by present)")
+
+    return Verdict(
+        entry,
+        False,
+        f"third-party endpoint {entry.url} denied: no opt-in entry was declared "
+        f"with matching host in <project-config>/privacy-llm.md",
+    )
+
+
 def check_endpoint(
     endpoint: str,
     config: ParsedConfig | None = None,
     *,
+    default_endpoint: str | None = None,
     raw_desc: str | None = None,
 ) -> Verdict:
     """Verify whether a single outbound LLM endpoint URL is approved.
 
     Checks default-approval rules (e.g. localhost, *.apache.org), falling back
-    to opt-in entries in ``<project-config>/privacy-llm.md``. If ``config`` is not
-    passed, attempts to locate and parse the active configuration.
+    to host-bound opt-in entries in ``<project-config>/privacy-llm.md``.
+    URLs containing userinfo or fragments are strictly rejected. The free-text
+    Claude Code rule does not apply to endpoint URL checks.
     """
     desc = raw_desc if raw_desc is not None else endpoint
     entry = LLMEntry(raw=desc, url=endpoint)
 
-    verdict = _approve_by_default_rules(entry)
-    if verdict is not None:
-        return verdict
+    # 1. URL validation: reject userinfo, fragments, or malformed URLs
+    try:
+        parsed = urllib.parse.urlsplit(endpoint)
+    except ValueError as err:
+        return Verdict(entry, False, f"unparsable URL {endpoint!r}: {err}")
 
+    if not parsed.scheme or not parsed.netloc:
+        return Verdict(entry, False, f"invalid URL (missing scheme or host): {endpoint!r}")
+
+    if parsed.scheme.lower() not in ("http", "https"):
+        return Verdict(entry, False, f"unsupported URL scheme {parsed.scheme!r} in {endpoint!r}")
+
+    if parsed.fragment or "#" in endpoint:
+        return Verdict(entry, False, f"endpoint URL must not contain a fragment: {endpoint!r}")
+
+    if parsed.username is not None or parsed.password is not None or "@" in parsed.netloc:
+        return Verdict(entry, False, f"endpoint URL must not contain userinfo: {endpoint!r}")
+
+    ep_host = parsed.hostname
+    if ep_host is None:
+        return Verdict(entry, False, f"unparsable URL host in {endpoint!r}")
+    ep_host = ep_host.lower()
+
+    # 2. Default rules for URL-only check (no Claude Code free-text rule!)
+    if ep_host in _LOCAL_HOSTS:
+        return Verdict(entry, True, f"local-only inference at {ep_host} (default-approved)")
+    if ep_host in _APACHE_ORG_CARVE_OUTS:
+        return Verdict(
+            entry,
+            False,
+            f"{ep_host} is carved out of the *.apache.org default approval "
+            f"({_APACHE_ORG_CARVE_OUTS[ep_host]}); declare it as an opt-in "
+            f"entry if the PMC accepts the residency terms",
+        )
+    if ep_host.endswith(".apache.org") or ep_host == "apache.org":
+        return Verdict(entry, True, f"*.apache.org-hosted endpoint at {ep_host} (default-approved)")
+
+    # 3. Locate and parse config if not passed
     if config is None:
         try:
             path = locate_config_path()
@@ -222,7 +340,13 @@ def check_endpoint(
                 f"Failed to parse privacy-llm config at {path}: {err}",
             )
 
-    return _approve_by_opt_in(entry, config.opt_in)
+    return _approve_endpoint_by_opt_in(
+        entry,
+        ep_host,
+        config.opt_in,
+        default_endpoint=default_endpoint,
+        raw_desc=raw_desc,
+    )
 
 
 def main(argv: list[str] | None = None) -> int:

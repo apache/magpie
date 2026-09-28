@@ -24,6 +24,7 @@ using the Python standard library (urllib.request) with zero external dependenci
 from __future__ import annotations
 
 import json
+import math
 import os
 import pathlib
 import socket
@@ -35,12 +36,11 @@ from typing import Any
 
 from typed_decision.exceptions import TypedDecisionUnavailable
 from typed_decision.interface import DecisionProvider
-from typed_decision.privacy import enforce_privacy_gate
+from typed_decision.privacy import DEFAULT_ENDPOINT, enforce_privacy_gate
 
 # The model version is strictly pinned to an immutable release snapshot, never "latest"
 # (per RFC-AI-0004 § Principle 3: Vendor neutrality & reproducible evaluations).
 JEV_MODEL: str = "systemone-2026-06-01"
-DEFAULT_ENDPOINT: str = "https://api.typesafe.ai/v1/systemone"
 DEFAULT_TIMEOUT_SECONDS: float = 30.0
 DEFAULT_BACKOFF_SECONDS: float = 0.5
 
@@ -312,9 +312,9 @@ class JevProvider(DecisionProvider):
         elif isinstance(scale, (int, float)):
             try:
                 s_max = float(scale)
-                if s_max <= 0:
+                if not math.isfinite(s_max) or s_max <= 0:
                     raise TypedDecisionUnavailable(
-                        f"Invalid scalar scale: upper bound ({s_max}) must be strictly positive"
+                        f"Invalid scalar scale: upper bound ({s_max}) must be finite and strictly positive"
                     )
                 norm_scale = (0.0, s_max)
             except (ValueError, TypeError) as exc:
@@ -326,6 +326,10 @@ class JevProvider(DecisionProvider):
                 raise TypedDecisionUnavailable("scale bounds must not be bool")
             try:
                 s_min, s_max = float(scale[0]), float(scale[1])
+                if not (math.isfinite(s_min) and math.isfinite(s_max)):
+                    raise TypedDecisionUnavailable(
+                        f"Invalid scale: bounds must be finite numbers, got ({s_min}, {s_max})"
+                    )
                 if s_min >= s_max:
                     raise TypedDecisionUnavailable(
                         f"Invalid scale: min ({s_min}) must be strictly less than max ({s_max})"
@@ -368,7 +372,7 @@ class JevProvider(DecisionProvider):
                     f"Jev API returned non-numeric score value {raw_val!r}: {exc}"
                 ) from exc
 
-            if not norm_scale[0] <= value <= norm_scale[1]:
+            if not math.isfinite(value) or not norm_scale[0] <= value <= norm_scale[1]:
                 raise TypedDecisionUnavailable(
                     f"Jev API returned score {value} outside scale range [{norm_scale[0]}, {norm_scale[1]}]"
                 )

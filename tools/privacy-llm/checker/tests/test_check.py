@@ -323,8 +323,9 @@ def test_check_endpoint_default_approved():
     assert "local-only" in v.reason
 
 
-def test_check_endpoint_denied_no_config(monkeypatch):
+def test_check_endpoint_denied_no_config(monkeypatch, tmp_path):
     monkeypatch.delenv("PRIVACY_LLM_CONFIG", raising=False)
+    monkeypatch.chdir(tmp_path)
     v = check.check_endpoint("https://api.example.com/v1")
     assert v.approved is False
     assert "denied" in v.reason
@@ -340,6 +341,69 @@ def test_check_endpoint_approved_opt_in():
     v = check.check_endpoint(
         "https://api.example.com/v1",
         config=cfg,
+        default_endpoint="https://api.example.com/v1",
         raw_desc="Example Provider (https://api.example.com/v1)",
     )
+    assert v.approved is True
+
+
+def test_check_endpoint_rejects_url_fragment_and_claude_code():
+    """A URL containing a fragment is rejected and cannot trigger the Claude Code rule."""
+    v = check.check_endpoint("https://evil.example.com/v1#claude code")
+    assert v.approved is False
+    assert "fragment" in v.reason
+
+
+def test_check_endpoint_rejects_subdomain_opt_in_bypass():
+    """An opt-in for api.typesafe.ai does not approve api.typesafe.ai.evil.example."""
+    opt = OptInEntry(
+        name="https://api.typesafe.ai",
+        data_residency="eu-central-1",
+        approved_by="PMC 2026-09-01",
+    )
+    cfg = ParsedConfig(path=pathlib.Path("/dev/null"), llm_stack=[], opt_in=[opt])
+    v = check.check_endpoint("https://api.typesafe.ai.evil.example/v1", config=cfg)
+    assert v.approved is False
+    assert "denied" in v.reason
+
+
+def test_check_endpoint_rejects_userinfo_opt_in_bypass():
+    """A URL containing userinfo (e.g. user@host) is strictly rejected."""
+    opt = OptInEntry(
+        name="https://api.typesafe.ai",
+        data_residency="eu-central-1",
+        approved_by="PMC 2026-09-01",
+    )
+    cfg = ParsedConfig(path=pathlib.Path("/dev/null"), llm_stack=[], opt_in=[opt])
+    v = check.check_endpoint("https://api.typesafe.ai@evil.example/v1", config=cfg)
+    assert v.approved is False
+    assert "userinfo" in v.reason
+
+
+def test_check_endpoint_name_only_opt_in_rejects_different_host():
+    """A name-only opt-in like 'TypeSafe — Jev API' never approves a non-default host."""
+    opt = OptInEntry(
+        name="TypeSafe — Jev API",
+        data_residency="eu-central-1",
+        approved_by="PMC 2026-09-01",
+    )
+    cfg = ParsedConfig(path=pathlib.Path("/dev/null"), llm_stack=[], opt_in=[opt])
+    v = check.check_endpoint(
+        "https://typesafe.evil.example/v1",
+        config=cfg,
+        default_endpoint="https://api.typesafe.ai/v1/systemone",
+    )
+    assert v.approved is False
+    assert "denied" in v.reason
+
+
+def test_check_endpoint_approved_opt_in_url():
+    """An opt-in with a full URL approves endpoints sharing the exact same host."""
+    opt = OptInEntry(
+        name="https://api.typesafe.ai",
+        data_residency="eu-central-1",
+        approved_by="PMC 2026-09-01",
+    )
+    cfg = ParsedConfig(path=pathlib.Path("/dev/null"), llm_stack=[], opt_in=[opt])
+    v = check.check_endpoint("https://api.typesafe.ai/v1/systemone", config=cfg)
     assert v.approved is True

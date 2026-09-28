@@ -25,6 +25,7 @@ version = "0.1.0"
 description = "Provider-agnostic typed decision tool contract (Choice, Score, Noul) for Apache Magpie with TypeSafe Jev API as first backend."
 readme = "README.md"
 requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
 dependencies = [
   "checker",
 ]
@@ -34,7 +35,6 @@ checker = { workspace = true }
 
 [dependency-groups]
 dev = ["magpie-dev"]
-
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/typed_decision"]

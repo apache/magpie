@@ -322,6 +322,70 @@ def test_name_only_opt_in_does_not_approve_different_host(
         )
 
 
+def test_privacy_gate_rejects_url_fragment() -> None:
+    """Outbound endpoint with a fragment is rejected and cannot trigger free-text rules."""
+    with pytest.raises(TypedDecisionUnavailable, match="fragment"):
+        enforce_privacy_gate("Test prompt", "https://evil.example.com/v1#claude code")
+
+
+def test_privacy_gate_rejects_subdomain_opt_in_bypass(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An opt-in for api.typesafe.ai does not approve api.typesafe.ai.evil.example."""
+    config_file = tmp_path / "privacy-llm.md"
+    config_file.write_text(
+        "# Privacy LLM Configuration\n\n"
+        "## Approved third-party endpoints (opt-in)\n\n"
+        "- https://api.typesafe.ai\n"
+        "  - Data-residency contract: https://typesafe.ai/legal/dpa\n"
+        "  - Approved-by: JP 2026-09-01\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("PRIVACY_LLM_CONFIG", str(config_file))
+
+    with pytest.raises(TypedDecisionUnavailable, match="Privacy-LLM gate rejected outbound request"):
+        enforce_privacy_gate("Test prompt", "https://api.typesafe.ai.evil.example/v1")
+
+
+def test_privacy_gate_rejects_userinfo_opt_in_bypass(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An endpoint with userinfo (@) is rejected by the privacy gate."""
+    config_file = tmp_path / "privacy-llm.md"
+    config_file.write_text(
+        "# Privacy LLM Configuration\n\n"
+        "## Approved third-party endpoints (opt-in)\n\n"
+        "- https://api.typesafe.ai\n"
+        "  - Data-residency contract: https://typesafe.ai/legal/dpa\n"
+        "  - Approved-by: JP 2026-09-01\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("PRIVACY_LLM_CONFIG", str(config_file))
+
+    with pytest.raises(TypedDecisionUnavailable, match="userinfo"):
+        enforce_privacy_gate("Test prompt", "https://api.typesafe.ai@evil.example/v1")
+
+
+def test_privacy_gate_name_only_opt_in_rejects_similar_host(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A name-only opt-in ('TypeSafe — Jev API') does not approve typesafe.evil.example."""
+    config_file = tmp_path / "privacy-llm.md"
+    config_file.write_text(
+        "# Privacy LLM Configuration\n\n"
+        "## Approved third-party endpoints (opt-in)\n\n"
+        "- TypeSafe — Jev API\n"
+        "  - Data-residency contract: https://typesafe.ai/legal/dpa\n"
+        "  - Approved-by: JP 2026-09-01\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("PRIVACY_LLM_CONFIG", str(config_file))
+
+    # Reject non-default endpoint
+    with pytest.raises(TypedDecisionUnavailable, match="Privacy-LLM gate rejected outbound request"):
+        enforce_privacy_gate("Test prompt", "https://typesafe.evil.example/v1")
+
+
 def test_privacy_gate_rejection_prevents_network_egress() -> None:
     """When the privacy gate rejects an endpoint, no HTTP network call is made."""
     provider = JevProvider(api_key="test-key")
@@ -333,8 +397,12 @@ def test_privacy_gate_rejection_prevents_network_egress() -> None:
         assert mock_open.call_count == 0
 
 
-def test_privacy_gate_denies_by_default_when_no_config() -> None:
+def test_privacy_gate_denies_by_default_when_no_config(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Third-party endpoints are denied by default when no privacy-llm config is found."""
+    monkeypatch.delenv("PRIVACY_LLM_CONFIG", raising=False)
+    monkeypatch.chdir(tmp_path)
     provider = JevProvider(api_key="test-key")
 
     with pytest.raises(TypedDecisionUnavailable, match="Privacy-LLM gate rejected outbound request"):
@@ -660,6 +728,44 @@ def test_score_rejects_invalid_scalar_scales() -> None:
 
     with pytest.raises(TypedDecisionUnavailable, match="strictly positive"):
         provider.score("Test", scale=-5)
+
+
+def test_score_rejects_non_finite_scales() -> None:
+    """Non-finite scales (nan, inf) are rejected on input."""
+    provider = JevProvider(api_key="test-key")
+
+    with pytest.raises(TypedDecisionUnavailable, match="finite"):
+        provider.score("Test", scale=float("nan"))
+
+    with pytest.raises(TypedDecisionUnavailable, match="finite"):
+        provider.score("Test", scale=float("inf"))
+
+    with pytest.raises(TypedDecisionUnavailable, match="finite"):
+        provider.score("Test", scale=(0, float("inf")))
+
+    with pytest.raises(TypedDecisionUnavailable, match="finite"):
+        provider.score("Test", scale=(float("-inf"), 10))
+
+    with pytest.raises(TypedDecisionUnavailable, match="finite"):
+        provider.score("Test", scale=(float("nan"), 5))
+
+    with pytest.raises(TypedDecisionUnavailable, match="finite"):
+        provider.score("Test", scale=(0, float("nan")))
+
+
+def test_score_rejects_non_finite_response_value(approved_privacy_config: pathlib.Path) -> None:
+    """Score response value that is NaN or Inf raises TypedDecisionUnavailable."""
+    provider = JevProvider(api_key="test-key")
+
+    mock_resp_nan = _make_mock_response({"value": float("nan"), "confidence": 0.9})
+    with patch("urllib.request.OpenerDirector.open", return_value=mock_resp_nan):
+        with pytest.raises(TypedDecisionUnavailable, match="outside scale range"):
+            provider.score("Test", scale=(1, 5))
+
+    mock_resp_inf = _make_mock_response({"value": float("inf"), "confidence": 0.9})
+    with patch("urllib.request.OpenerDirector.open", return_value=mock_resp_inf):
+        with pytest.raises(TypedDecisionUnavailable, match="outside scale range"):
+            provider.score("Test", scale=(1, 5))
 
 
 def test_score_rejects_missing_value(approved_privacy_config: pathlib.Path) -> None:
