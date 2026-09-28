@@ -204,10 +204,17 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
                            "body-field-get", "body-field-set",
                            "cve-check-published"]
 "security-cve-allocate" = ["issue-view", "issue-add-label", "comment-update",
-                           "rollup-append", "body-field-get", "body-field-set"]
+                           "rollup-append", "rollup-fold",
+                           "body-field-get", "body-field-set"]
+"security-issue-fix"    = ["rollup-append", "rollup-fold",
+                           "body-field-get", "body-field-set"]
+"security-issue-import" = ["rollup-append"]
+"security-issue-import-from-md" = ["rollup-append"]
+"security-issue-import-from-pr" = ["rollup-append"]
+"security-issue-invalidate" = ["rollup-append", "rollup-amend-latest"]
 "security-issue-triage" = ["issue-view", "issue-comments",
                            "osv-get-vuln", "osv-query-package"]
-"security-issue-deduplicate" = ["osv-get-vuln"]
+"security-issue-deduplicate" = ["osv-get-vuln", "rollup-append", "rollup-fold"]
 "dependency-audit"      = ["osv-query-package", "osv-query-commit", "osv-query-batch"]
 "pr-management-triage"  = ["pr-list", "pr-view", "pr-checks", "gql-pr-liveness",
                            "pr-add-label", "pr-remove-label", "pr-draft", "pr-ready",
@@ -338,7 +345,7 @@ prompts. `vetted-op` can run the same operations, but only inside the sandbox.
   the legacy comment only after the append succeeded.
 - `body-field-set` refuses when the field is absent or appears more than once, and
   writes nothing when the value is unchanged.
-- Only a one-line summary reaches stderr; `body-field-get` prints the one value.
+- Only a one-line summary reaches stderr. On stdout, `body-field-get` prints the one value, and `rollup-append` / `rollup-amend-latest` print the rollup comment's URL (`…#issuecomment-<id>`) so a caller can link to it without reading the rollup.
   Refusals exit `3`, a failed `gh` call exits `4`.
 - `--dry-run` runs the reads (the plan depends on them) and prints each write
   instead of running it, with any body reported by size, never by content.

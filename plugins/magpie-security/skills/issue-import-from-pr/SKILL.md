@@ -20,7 +20,7 @@ argument-hint: "[pr-number] [repo:owner/name]"
 capability: capability:intake
 surface_hash: sha256:249e4ff2ba6b1d91
 license: Apache-2.0
-measured_tokens: 9431
+measured_tokens: 9605
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -199,7 +199,8 @@ Before running, the skill needs:
 - **`gh` CLI authenticated** (`gh auth status` returns OK) with
   collaborator access to `<tracker>` **and** read access to
   `<upstream>`. The skill calls `gh pr view`, `gh search issues`,
-  `gh api repos/<tracker>/issues`, and `gh issue edit`.
+  `gh api repos/<tracker>/issues`, `gh issue edit`, and vetted-ops'
+  `rollup-append`.
 - **Project-board write access.** Setting the `Assessed` column
   uses the `addProjectV2ItemById` /
   `updateProjectV2ItemFieldValue` GraphQL mutations from
@@ -528,13 +529,13 @@ This validates the *Label + body state → Status* mapping:
 
 ### 5e — Status-rollup comment
 
-The first entry on the tracker's status rollup. Shape per
-[`tools/github/status-rollup.md`](../../../../tools/github/status-rollup.md):
+The first entry on the tracker's status rollup
+([`tools/github/status-rollup.md`](../../../../tools/github/status-rollup.md)),
+with the action label `Import from PR (<scope>, <upstream>#<N>)`.
+Draft only the entry body; Step 7e's tool writes the `<details>` envelope
+and creates the rollup with its marker line:
 
 ```markdown
-<!-- <tracker> status rollup v1 — all bot-authored status updates fold into this single comment. -->
-<details><summary><YYYY-MM-DD> · @<author-handle> · Import from PR (<scope>, <upstream>#<N>)</summary>
-
 **Imported from public PR `<upstream>#<N>` on <YYYY-MM-DD>** (scope: `<scope>`, PR state: `<state>`).
 
 This tracker was deliberately opened by the security team for a public fix that did **not** arrive on `<security-list>`. The validity assessment was made informally before invocation; the tracker landed in the `Assessed` column accordingly.
@@ -547,11 +548,8 @@ Extracted fields: scope=`<scope>`, *PR with the fix*=<pr.url>, *Remediation deve
 *Reporter credited as* intentionally left blank — public-PR imports do not credit the PR author as the CVE reporter (no responsible disclosure). See the [Reporter credit policy](https://github.com/<tracker>/blob/<tracker-default-branch>/.claude/skills/security-issue-import-from-pr/SKILL.md#reporter-credit-policy-for-public-pr-imports) section of the skill for the rationale.
 ```
 
-Zero-whitespace rules from
-[`status-rollup.md`](../../../../tools/github/status-rollup.md#the-rollup-comment-shape)
-apply: no leading spaces on any line inside the `<details>`
-block, exactly one blank line after `<summary>…</summary>`,
-exactly one blank line before `</details>`.
+Start every body line at column 0 — leading spaces inside the `<details>`
+envelope render as a code block.
 
 ---
 
@@ -777,14 +775,21 @@ either mutation returns `not found`.
 
 ### 7e — Post the status-rollup comment
 
+Write the Step 5e entry body, placeholders filled, to
+`<scratch>/import-pr-<N>-rollup.md` with the Write tool, then:
+
 ```bash
-gh issue comment <new-issue-number> \
-  --repo <tracker> \
-  --body-file <scratch>/import-pr-<N>-rollup.md
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-import-from-pr rollup-append <new-issue-number> "Import from PR (<scope>, <upstream>#<N>)" <scratch>/import-pr-<N>-rollup.md
 ```
 
-The rollup body is the one drafted in Step 5e with placeholders
-filled.
+These run through vetted-ops' `vetted-op-tracker` entry point,
+which the secure setup lets out of the sandbox (every write still asks).
+Without the secure setup, the same operations are
+`uv run --directory <framework>/tools/github-rollup github-rollup --repo <tracker> append|amend-latest|fold …`
+and `uv run --directory <framework>/tools/github-body-field body-field --repo <tracker> get|set …`;
+see [`tools/vetted-ops/README.md`](../../../../tools/vetted-ops/README.md#tracker-procedures-rollup-and-body-field-writes).
+
+The tool prints the rollup comment's URL (`…#issuecomment-<id>`) on stdout and nothing else; keep it for the Step 8 recap.
 
 ### 7f — Cleanup
 

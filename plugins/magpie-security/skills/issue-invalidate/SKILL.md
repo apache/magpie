@@ -20,7 +20,7 @@ argument-hint: "[issue-number]"
 capability: capability:resolve
 surface_hash: sha256:7a3f19e382d842b6
 license: Apache-2.0
-measured_tokens: 7698
+measured_tokens: 7694
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -445,14 +445,13 @@ Skip cases, recipients, subject, body, backend selection, and the existing-draft
 
 ### 5e — Status-rollup entry
 
-Append a new `<details>` block to the existing rollup comment
+Append a new entry to the existing rollup comment
 (per
 [`tools/github/status-rollup.md`](../../../../tools/github/status-rollup.md)
-upsert recipe). Shape:
+upsert recipe) with the action label `Closed as invalid`.
+Draft only the entry body; Step 6a's tool writes the `<details>` envelope. Shape:
 
 ```markdown
-<details><summary><YYYY-MM-DD> · @<author-handle> · Closed as invalid</summary>
-
 **Closed as `invalid` on <YYYY-MM-DD>** (decided in [comment](#issuecomment-<id>)).
 
 **Reasoning** (verbatim from the team's discussion, capped at ~5 quotes):
@@ -482,13 +481,10 @@ entry without the line.
 **Project board:** archived (item `<item-id>`).
 
 **Next:** none — terminal disposition.
-
-</details>
 ```
 
-Zero-whitespace rules from
-[`status-rollup.md`](../../../../tools/github/status-rollup.md#the-rollup-comment-shape)
-apply. The reasoning quotes section is trimmed to ~5 entries
+Start every body line at column 0 — leading spaces inside the `<details>`
+envelope render as a code block. The reasoning quotes section is trimmed to ~5 entries
 even when more material exists in the discussion — the rollup is
 a navigation aid, not an archive.
 
@@ -596,7 +592,7 @@ Hand-off line:
 | `archiveProjectV2Item` returns `not found` for the item | Project-board item ID has changed (rare; usually because the item was manually moved) | Re-run the introspection query. If the tracker is genuinely not on the board, skip 6e and note in the rollup. |
 | Gmail draft creation fails with `oauth_curl` 401 | OAuth token expired | Re-run the credential refresh per [`tools/gmail/oauth-draft/README.md`](../../../../tools/gmail/oauth-draft/README.md); do not fall back to `claude_ai_mcp` unless the [backend selection rule](../../../../tools/gmail/draft-backends.md#how-the-skills-pick-a-backend) permits it (no links in the body). |
 | The tracker title contains characters that break heredoc / shell quoting | Title with `'` or backticks | Use `--body-file` paths everywhere (already the convention); never inline issue titles into shell strings. |
-| Rollup comment not found (very old tracker, pre-convention) | Rollup didn't exist yet | Create one fresh with just the close entry (per the *create* branch of the upsert recipe). |
+| Rollup comment not found (very old tracker, pre-convention) | Rollup didn't exist yet | Nothing to do: Step 6a's `rollup-append` creates it with just the close entry. |
 | The tracker is `security@`-imported but the inbound thread can't be located in Gmail | Thread was archived / Gmail account changed / threadId is stale | Surface to the user; offer the `silent` confirmation form — the close still happens, the rollup notes the missing reply. |
 
 ---

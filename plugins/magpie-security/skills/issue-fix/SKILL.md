@@ -22,7 +22,7 @@ capability:
   - capability:resolve
 surface_hash: sha256:9884ef304a3fad88
 license: Apache-2.0
-measured_tokens: 6768
+measured_tokens: 6775
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -291,8 +291,8 @@ continue.
      privacy-llm-check
    ```
 
-   This skill reads the `<tracker>` issue body to update the
-   "PR with the fix" field; the redact-after-fetch protocol
+   This skill reads the `<tracker>` issue body and comments through the
+   Step 1 sync, for the Step 3 fixability assessment; the redact-after-fetch protocol
    (see [`tools/privacy-llm/wiring.md`](../../../../tools/privacy-llm/wiring.md))
    applies to that fetch.
 

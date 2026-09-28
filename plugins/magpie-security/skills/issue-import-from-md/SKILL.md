@@ -27,7 +27,7 @@ argument-hint: "[path-to-markdown-file]"
 capability: capability:intake
 surface_hash: sha256:a0bf5966806f210a
 license: Apache-2.0
-measured_tokens: 7236
+measured_tokens: 7369
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -212,7 +212,7 @@ Before running, the skill needs:
 
 - **`gh` CLI authenticated** with collaborator access to
   `<tracker>`. The skill calls `gh api repos/<tracker>/issues`,
-  `gh search issues`, and `gh issue comment`.
+  `gh search issues`, and vetted-ops' `rollup-append`.
 - **Project-board write access** for the `addProjectV2ItemById` /
   `updateProjectV2ItemFieldValue` mutations from
   [`tools/github/project-board.md`](../../../../tools/github/project-board.md).
@@ -403,13 +403,13 @@ orphan-issue path in
 
 ### 3e — Status-rollup comment
 
-The first entry on the tracker's status rollup. Shape per
-[`tools/github/status-rollup.md`](../../../../tools/github/status-rollup.md):
+The first entry on the tracker's status rollup
+([`tools/github/status-rollup.md`](../../../../tools/github/status-rollup.md)),
+with the action label `Import from markdown (<basename>, finding <K>/<N>)`.
+Draft only the entry body; Step 5d's tool writes the `<details>` envelope
+and creates the rollup with its marker line:
 
 ```markdown
-<!-- <tracker> status rollup v1 — all bot-authored status updates fold into this single comment. -->
-<details><summary><YYYY-MM-DD> · @<author-handle> · Import from markdown (<basename>, finding <K>/<N>)</summary>
-
 **Imported from markdown file `<basename>` on <YYYY-MM-DD>** (severity: `<severity>`, category: `<category>`).
 
 This tracker was deliberately opened by the security team from a batch findings file. The validity of the report has **not** been assessed yet — the tracker landed in the `Needs triage` column accordingly. Standard Step 3 discussion applies.
@@ -418,14 +418,10 @@ This tracker was deliberately opened by the security team from a batch findings 
 **Location reference:** <location_url>
 **Severity (from source):** `<severity>` (informational; CVSS scoring happens at allocation).
 **Category (from source):** `<category>` (informational; CWE assignment happens at allocation).
-</details>
 ```
 
-Zero-whitespace rules from
-[`status-rollup.md`](../../../../tools/github/status-rollup.md#the-rollup-comment-shape)
-apply: no leading spaces on any line inside the `<details>`
-block, exactly one blank line after `<summary>…</summary>`,
-exactly one blank line before `</details>`.
+Start every body line at column 0 — leading spaces inside the `<details>`
+envelope render as a code block.
 
 ---
 
@@ -592,14 +588,19 @@ either mutation returns `not found`.
 
 ### 5d — Post the status-rollup comment
 
+Write the Step 3e entry body, placeholders filled, to
+`<scratch>/import-md-<basename>-<index>-rollup.md` with the Write tool, then:
+
 ```bash
-gh issue comment <new-issue-number> \
-  --repo <tracker> \
-  --body-file <scratch>/import-md-<basename>-<index>-rollup.md
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-import-from-md rollup-append <new-issue-number> "Import from markdown (<basename>, finding <K>/<N>)" <scratch>/import-md-<basename>-<index>-rollup.md
 ```
 
-The rollup body is the one drafted in Step 3e with placeholders
-filled.
+These run through vetted-ops' `vetted-op-tracker` entry point,
+which the secure setup lets out of the sandbox (every write still asks).
+Without the secure setup, the same operations are
+`uv run --directory <framework>/tools/github-rollup github-rollup --repo <tracker> append|amend-latest|fold …`
+and `uv run --directory <framework>/tools/github-body-field body-field --repo <tracker> get|set …`;
+see [`tools/vetted-ops/README.md`](../../../../tools/vetted-ops/README.md#tracker-procedures-rollup-and-body-field-writes).
 
 ### 5e — Cleanup (per finding)
 

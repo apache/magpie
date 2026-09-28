@@ -10,27 +10,27 @@
 `<scratch>` is the session scratch directory as an absolute path (fall back to `$TMPDIR`); `gh` may run outside the sandbox, where `$TMPDIR` differs, so pass it absolute paths.
 
 Posting the rollup before the closing comment lets the closing
-comment link to the rollup's permalink. Append to the existing
-rollup comment via the upsert recipe in
+comment link to the rollup's permalink. Write the Step 5e entry body to
+`<scratch>/invalidate-<N>-rollup.md` with the Write tool and append it
+per the upsert recipe in
 [`status-rollup.md`](../../../../tools/github/status-rollup.md):
 
 ```bash
-EXISTING=$(gh api repos/<tracker>/issues/comments/<rollup-comment-id> --jq .body)
-cat > <scratch>/invalidate-<N>-rollup.md <<EOF
-${EXISTING}
-
-<new <details> block from Step 5e>
-EOF
-gh api -X PATCH repos/<tracker>/issues/comments/<rollup-comment-id> \
-  -F body=@<scratch>/invalidate-<N>-rollup.md \
-  --jq .html_url
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-invalidate rollup-append <N> "Closed as invalid" <scratch>/invalidate-<N>-rollup.md
 ```
 
-If no rollup comment exists (very old trackers predating the
-rollup convention), create one fresh with just the new entry —
-same as the *create* branch of the upsert recipe.
+These run through vetted-ops' `vetted-op-tracker` entry point,
+which the secure setup lets out of the sandbox (every write still asks).
+Without the secure setup, the same operations are
+`uv run --directory <framework>/tools/github-rollup github-rollup --repo <tracker> append|amend-latest|fold …`
+and `uv run --directory <framework>/tools/github-body-field body-field --repo <tracker> get|set …`;
+see [`tools/vetted-ops/README.md`](../../../../tools/vetted-ops/README.md#tracker-procedures-rollup-and-body-field-writes).
 
-Capture the rollup permalink for use in the closing comment.
+On a very old tracker with no rollup comment (predating the rollup
+convention), the same call creates one with just the new entry.
+
+The tool prints the rollup comment's URL (`…#issuecomment-<id>`) on stdout and nothing else.
+Keep it: the closing comment's permalink uses that comment ID.
 
 ### 6b — Post the closing comment
 
@@ -91,8 +91,15 @@ Use the backend chosen in Step 5d:
 
 Capture the returned `draftId`. Update the rollup entry's
 *Reporter notification* line with the actual draft ID
-(re-PATCH the rollup comment if the draft ID was a placeholder
-when 6a ran).
+if the draft ID was a placeholder when 6a ran:
+rewrite `<scratch>/invalidate-<N>-rollup.md` with the real ID and run
+
+```bash
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-invalidate rollup-amend-latest <N> "Closed as invalid" <scratch>/invalidate-<N>-rollup.md
+```
+
+It keeps the entry's date and author, and refuses if someone else's
+entry has landed after it.
 
 ### 6g — Cleanup
 

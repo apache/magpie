@@ -130,7 +130,8 @@ def _gh_delete_comment(comment_id: str, repo: str) -> None:
         raise SystemExit(result.returncode or 1)
 
 
-def _gh_post_comment(issue: str, repo: str | None, body: str) -> None:
+def _gh_post_comment(issue: str, repo: str | None, body: str) -> str:
+    """Post a comment; return its URL (``gh issue comment`` prints it)."""
     cmd = ["gh", "issue", "comment", issue, "--body-file", "-"]
     if repo:
         cmd.extend(["--repo", repo])
@@ -138,6 +139,14 @@ def _gh_post_comment(issue: str, repo: str | None, body: str) -> None:
     if result.returncode != 0:
         sys.stderr.write(result.stderr)
         raise SystemExit(result.returncode or 1)
+    return (result.stdout or "").strip()
+
+
+def _print_url(url: str) -> None:
+    """The rollup comment URL is the only stdout, so a caller can link to it
+    without reading the rollup body."""
+    if url:
+        sys.stdout.write(f"{url}\n")
 
 
 def _find_rollup(comments: list[dict]) -> dict | None:
@@ -197,11 +206,13 @@ def _write_entry(issue: str, repo: str, entry: str, action: str, date: str, dry_
             sys.stderr.write(f"dry-run: would APPEND to existing rollup comment {rollup.get('url')}\n")
         return True
     if rollup is None:
-        _gh_post_comment(issue, repo, build_new_rollup_body(entry, repo.split("/")[-1]))
+        url = _gh_post_comment(issue, repo, build_new_rollup_body(entry, repo.split("/")[-1]))
         sys.stderr.write(f"created rollup on {repo}#{issue} ({action!r}, date={date})\n")
+        _print_url(url)
         return True
     _gh_patch_comment(rollup, repo, rebuild_with_appended_entry(rollup["body"], entry))
     sys.stderr.write(f"appended to rollup on {repo}#{issue} ({action!r}, date={date})\n")
+    _print_url(str(rollup.get("url") or ""))
     return True
 
 
@@ -241,6 +252,7 @@ def _cmd_amend_latest(args: argparse.Namespace) -> int:
         return 0
     _gh_patch_comment(rollup, repo, replace_latest_entry(rollup["body"], entry))
     sys.stderr.write(f"amended latest entry on {repo}#{args.issue} ({latest.action!r})\n")
+    _print_url(str(rollup.get("url") or ""))
     return 0
 
 

@@ -21,17 +21,37 @@ before moving on to the next item. Use:
 - **Milestone (create then assign):** run the create call from 2b, then the edit. The create call mirrors `due_on` from the matching upstream milestone when available — see the *Read the due date from upstream* rule in [`<project-config>/milestones.md`](../../../../<project-config>/milestones.md#read-the-due-date-from-upstream).
 - **Milestone (close):** `gh api -X PATCH repos/<tracker>/milestones/<N> -f state=closed`. Only when the last open tracker on that milestone just closed via Step 15 (cve.org PUBLISHED). See the condition set in [`<project-config>/milestones.md`](../../../../<project-config>/milestones.md#closing-the-milestone).
 - **Assignees:** `gh issue edit <N> --repo <tracker> --add-assignee @me` (or a named user).
-- **Description:** `gh issue edit <N> --repo <tracker> --body-file <tmpfile>` — write the
+- **Body fields (one or a few changed fields):** one call per confirmed field.
+  Write the new value to `<scratch>/field-<N>-<slug>.md` with the Write tool, then:
+
+  ```bash
+  uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-sync body-field-set <N> "<Field>" <scratch>/field-<N>-<slug>.md
+  ```
+
+  This covers every Step 2b body-field item — CWE, Severity, Affected versions,
+  Reporter credited as, Short public summary for publish, PR with the fix,
+  Remediation developer, Public advisory URL, CVE tool link, and backtick-wrapping an existing value.
+  Exit `3` means the heading is absent or duplicated: fall back to the whole-body path below for that tracker.
+  These run through vetted-ops' `vetted-op-tracker` entry point, which the secure setup lets out of the sandbox (every write still asks).
+  Without the secure setup, the same operations are `uv run --directory <framework>/tools/github-rollup github-rollup --repo <tracker> append|amend-latest|fold …` and `uv run --directory <framework>/tools/github-body-field body-field --repo <tracker> get|set …`.
+  See [`tools/vetted-ops/README.md`](../../../../tools/vetted-ops/README.md#tracker-procedures-rollup-and-body-field-writes).
+- **Description (whole body):** `gh issue edit <N> --repo <tracker> --body-file <tmpfile>` — write the
   new body to a temporary file first so nothing is lost to shell quoting.
-- **Status-rollup comment:** use the upsert recipe in
-  [`tools/github/status-rollup.md`](../../../../tools/github/status-rollup.md#upsert-recipe--append-to-an-existing-rollup-or-create-one).
-  On a tracker that already carries a rollup, this is
-  `gh api -X PATCH repos/<tracker>/issues/comments/<id> --input
-  <json>` with the old body + `\n\n---\n\n` + the new entry; on a
-  legacy tracker with no rollup yet, it is a one-off `gh issue
-  comment <N> --repo <tracker> --body-file <tmpfile>` seeded with
-  the marker + the new entry + any folded legacy entries.
-  Before PATCHing / posting, **scrub the entry body for bare-name
+  Only for proposals that change the body's structure rather than field values:
+  adding `### Field` sections the body lacks (the *Description fields* item in
+  [`signals-to-actions.md`](signals-to-actions.md), which shows the full replacement body),
+  adding the `### Related references` audit section from the title cleanup,
+  or a field `body-field-set` refused with exit `3`.
+- **Status-rollup comment:** write the entry body (no `<details>` envelope, no marker, no ruler)
+  to `<scratch>/rollup-entry-<N>.md` with the Write tool, then:
+
+  ```bash
+  uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-sync rollup-append <N> "Sync (<short headline>)" <scratch>/rollup-entry-<N>.md
+  ```
+
+  The tool adds the envelope and ruler, and creates the rollup with its marker on a
+  legacy tracker that has none yet; the rollup body never enters context.
+  Before writing the entry file, **scrub the entry body for bare-name
   mentions** of anyone on the release-manager and
   security-team rosters in
   [`<project-config>/release-trains.md`](../../../../<project-config>/release-trains.md).
@@ -49,7 +69,7 @@ before moving on to the next item. Use:
   reviewer comment found in
   [Step 1e](gather.md#1e-check-the-cve-record-for-reviewer-comments) —
   including comments that were pure acknowledgements and needed no
-  other change — append the ledger marker to the same rollup entry
+  other change — put the ledger marker in the same rollup entry body file
   the rest of the run's changes land in:
 
   ```markdown
@@ -58,18 +78,22 @@ before moving on to the next item. Use:
 
   One marker per CVE ID, slugs comma-separated with no spaces. This
   is what makes Step 1e idempotent, so it must land **in the same
-  PATCH** as the changes it records — writing the ledger in a
+  `rollup-append`** as the entry recording the changes — writing the ledger in a
   separate later call risks a run that applies the body update and
   then fails before ledgering it, which re-proposes the same comment
   on the next sync. Conversely, never ledger a slug whose
   accompanying body update was *not* confirmed: an unprocessed
   comment recorded as processed disappears from every future run.
 
-- **Fold-legacy deletes:** after the rollup PATCH succeeds and
-  carries the folded entries, delete each original legacy bot
-  comment with `gh api -X DELETE
-  repos/<tracker>/issues/comments/<id>`. Never delete before the
-  PATCH lands.
+- **Fold legacy comments:** one call per confirmed legacy comment, oldest first,
+  before the pass's own `rollup-append`:
+
+  ```bash
+  uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-sync rollup-fold <N> <comment-id> "<Action>"
+  ```
+
+  The tool appends the legacy body as an entry under its original date and author,
+  and deletes the legacy comment only after the append succeeded.
 - **Release-manager hand-off comment:** pick the body template
   per the variant decision from
   [Step 5c](#step-5c--reconcile-the-release-manager-hand-off-comment) —
@@ -119,7 +143,7 @@ before moving on to the next item. Use:
   Capture the comment URL (POST or PATCH) for the Step 6 recap.
   Before posting / PATCHing, **scrub the resolved body** for the
   same bare-name → `@`-handle replacements documented for the rollup
-  PATCH above, so the `RM_HANDLE` substitution actually notifies
+  entry above, so the `RM_HANDLE` substitution actually notifies
   the release manager.
 - **Publication-ready notification comment:** same recipe as the
   hand-off comment above (same variant decision, same POST-vs-PATCH
@@ -183,7 +207,7 @@ before moving on to the next item. Use:
   entirely.
 
   Before posting, apply the same bare-name → `@handle` scrub used
-  for the rollup PATCH and hand-off comment, so the `RM_HANDLE`
+  for the rollup entry and hand-off comment, so the `RM_HANDLE`
   substitution actually notifies the release manager.
 - **Vulnogram state transition (`REVIEW → PUBLIC`):** invoke the
   [`vulnogram-api-record-publish`](../../../../tools/cve-tool-vulnogram/oauth-api/README.md)

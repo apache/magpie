@@ -156,16 +156,16 @@ When either tracker does not yet carry a rollup (legacy tracker
 pre-dating the convention), the upsert recipe's Step 2b creates
 one and folds any pre-existing legacy bot comments in on the way.
 
-Each entry is a single `<details>` block. Follow the zero-whitespace
-rules from the shared spec — no leading spaces inside the block,
-one blank line after `<summary>…</summary>`, one blank line
-before `</details>`.
+Draft only each entry's body; the Step 5 tool call writes the
+`<details><summary>YYYY-MM-DD · @user · <Action></summary>` envelope.
+The action labels are `Merge (kept) (from #<drop>)` and
+`Merge (dropped) (into #<keep>)`.
+Start every body line at column 0 — leading spaces inside the
+envelope render as a code block.
 
 ### Entry appended to the kept tracker's rollup
 
 ```markdown
-<details><summary><YYYY-MM-DD> · @<author-handle> · Merge (kept) (from #<drop>)</summary>
-
 **Merged [<tracker>#<drop>](https://github.com/<tracker>/issues/<drop>) into this tracker.** <one-sentence headline: same root-cause bug, different attack vector / affected process.>
 
 - Body: <keep.reporter>'s original report preserved; <drop.reporter>'s report appended as *"Second independent report"*.
@@ -185,15 +185,11 @@ Full analysis of why the two reports are the same root-cause bug (same function,
 - *CWE*: <set to <value> | kept as _No response_ | BLOCKER: conflict between <keep.cwe> and <drop.cwe> — triager to resolve>.
 - *Affected versions*: widened to <value>.
 - CVE JSON attachment regenerated: <comment URL>.
-
-</details>
 ```
 
 ### Entry appended to the dropped tracker's rollup
 
 ```markdown
-<details><summary><YYYY-MM-DD> · @<author-handle> · Merge (dropped) (into #<keep>)</summary>
-
 **Closing as duplicate of [<tracker>#<keep>](https://github.com/<tracker>/issues/<keep>).** <one-sentence headline.>
 
 Full content merged into [<tracker>#<keep>](https://github.com/<tracker>/issues/<N>) as *"Second independent report"*; <drop.reporter> credited alongside <keep.reporter> there.
@@ -207,8 +203,6 @@ Specific artifacts merged: <CVSS scoring, attack chain, PoC, remediation options
 See [the merge entry on <tracker>#<keep>](https://github.com/<tracker>/issues/<N>) for the full hand-off record.
 
 <Reporter-notification line — one of the four canonical options from the sync skill.>
-
-</details>
 ```
 
 Both entries must render every cross-issue reference as a

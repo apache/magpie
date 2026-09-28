@@ -276,6 +276,8 @@ will change and *why*. Group them by category:
   CVE ID, credits, links to PRs, short public summary for publish), propose a
   patched description. Show the full replacement body in the proposal, not a
   diff, so the user can review it.
+  This is the whole-body write in Step 4; a field whose `### ` heading already exists
+  and only needs a value is a per-field `body-field-set` item instead.
 
   **Every `_No response_` field must be explicitly reviewed in every sync
   run.** Before presenting the proposal, scan the issue body for remaining
@@ -716,12 +718,11 @@ will change and *why*. Group them by category:
   new standalone-comment shape because something "feels important
   enough".
 
-  **Entry shape for a sync pass.** Inside the rollup's
-  `<details>` block, emit:
+  **Entry shape for a sync pass.** Emit the entry body below;
+  `rollup-append` wraps it in the rollup's
+  `<details><summary><YYYY-MM-DD> · @<author-handle> · Sync (<short headline>)</summary>` block:
 
   ```markdown
-  <details><summary><YYYY-MM-DD> · @<author-handle> · Sync (<short headline>)</summary>
-
   **Sync <YYYY-MM-DD> — <one-sentence bold headline>.**
 
   - <Action 1: short, imperative, links only when load-bearing>
@@ -736,8 +737,6 @@ will change and *why*. Group them by category:
   comments, CVSS rationale, RM-attribution trail, label-transition
   reasoning, stale-draft flags, cross-links, prior-entry pointers.
   Flush-left, no leading spaces, no sub-`<details>` blocks.>
-
-  </details>
   ```
 
   Because the entire entry is already inside a `<details>`
@@ -777,19 +776,17 @@ will change and *why*. Group them by category:
   `Reformat (N legacy comments folded)` when this pass's primary
   purpose is migrating pre-rollup bot comments (see below).
 
-  **Apply recipe** — use the upsert recipe in
-  [`status-rollup.md` — Upsert recipe](../../../../tools/github/status-rollup.md#upsert-recipe--append-to-an-existing-rollup-or-create-one).
+  **Apply recipe** — `rollup-append` (the Status-rollup comment item in
+  [Step 4](apply-and-push.md#step-4--apply-confirmed-changes)).
   For a tracker that already carries a rollup (the common case)
-  this is `gh api -X PATCH repos/<tracker>/issues/comments/<id>
-  --input <json-body>` — a single PATCH on the existing rollup,
-  not a fresh `gh issue comment`. The PATCH surfaces on the
+  it edits the existing rollup, not a fresh `gh issue comment`. The edit surfaces on the
   tracker as an *edit* of the rollup comment, not as a new
   timeline event, which is exactly the noise reduction the
   rollup is for.
 
   For a tracker with **no rollup yet** (legacy tracker pre-dating
-  the convention), the sync pass creates it via Step 2b of the
-  upsert recipe and immediately runs the legacy-fold sub-step
+  the convention), the same call creates it; the pass
+  also runs the legacy-fold sub-step
   below so the new rollup absorbs every pre-existing bot
   comment.
 
@@ -807,19 +804,17 @@ will change and *why*. Group them by category:
   skill`). For each hit, the Step 2 proposal carries a numbered
   item: *"fold legacy comment `<url>` (`<YYYY-MM-DD>`, first line
   <first-line>) into the rollup as a `<Action>` entry, then
-  delete the original"*. On user confirmation:
+  delete the original"*. On user confirmation, apply each with one
+  `rollup-fold` call, oldest first (the Fold legacy comments item in
+  [Step 4](apply-and-push.md#step-4--apply-confirmed-changes)):
 
-  1. Read the legacy comment's body and `createdAt`.
-  2. Wrap in a rollup entry with summary
-     `<createdAt-date> · @<author-login> · <derived-Action>`.
-  3. Left-trim every line in the body (a single stray leading
-     space wrecks markdown rendering inside `<details>`).
-  4. Append to the rollup via the upsert recipe (oldest-first,
-     preserving chronological order).
-  5. **Only after the PATCH succeeds**, delete the original with
-     `gh api -X DELETE repos/<tracker>/issues/comments/<id>`.
+  ```bash
+  uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-sync rollup-fold <N> <comment-id> "<derived-Action>"
+  ```
 
-  Never delete a legacy comment before the append lands. Never
+  The tool keeps the legacy comment's `createdAt` date and author in the summary,
+  left-trims every line (a single stray leading space wrecks markdown rendering inside `<details>`),
+  and deletes the original only after the append lands. Never
   touch a comment authored by someone outside the security-team
   roster (that is reporter discussion, not bot noise).
 
@@ -833,8 +828,8 @@ will change and *why*. Group them by category:
 
   **Before emitting any rollup body — run the zero-whitespace
   self-check.** `<details>` blocks in GitHub markdown break
-  silently when any line inside carries leading whitespace, or
-  when the blank-line-after-`<summary>` is missing. Re-read
+  silently when any line inside carries leading whitespace
+  (the tool supplies the blank line after `<summary>`, not the entry body's indentation). Re-read
   [`status-rollup.md` — The rollup comment shape](../../../../tools/github/status-rollup.md#the-rollup-comment-shape)
   before posting; the bug manifests as the entry rendering as a
   single preformatted block and hiding every link. Do not

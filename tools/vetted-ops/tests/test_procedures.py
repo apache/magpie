@@ -87,6 +87,8 @@ class FakeGh:
             return 0, (self.body + "\n").encode(), b""
         if argv[:2] == ["gh", "api"] and "-X" not in argv:
             return 0, json.dumps(self.legacy).encode(), b""
+        if argv[:3] == ["gh", "issue", "comment"]:
+            return 0, b"https://github.com/acme/tracker/issues/7#issuecomment-901\n", b""
         return 0, b"", b""
 
     @property
@@ -211,6 +213,24 @@ def test_append_patches_the_existing_rollup_by_its_url_id() -> None:
         old, rollup_format.build_entry(date="2026-09-28", user="alice", action="Sync", body="new")
     )
     assert stdin.decode() == expected
+
+
+def test_append_prints_the_new_rollup_url_and_nothing_else(capsys: pytest.CaptureFixture[str]) -> None:
+    fake = FakeGh(comments=[])
+    procedures.rollup_append(runner(fake), number="7", action="Sync", text="hello", date="2026-09-28")
+    assert capsys.readouterr().out == "https://github.com/acme/tracker/issues/7#issuecomment-901\n"
+
+
+def test_append_to_an_existing_rollup_prints_its_url(capsys: pytest.CaptureFixture[str]) -> None:
+    fake = FakeGh(comments=[rollup_comment(existing_rollup("Import"))])
+    procedures.rollup_append(runner(fake), number="7", action="Sync", text="new", date="2026-09-28")
+    assert capsys.readouterr().out == "https://github.com/acme/tracker/issues/7#issuecomment-555\n"
+
+
+def test_amend_prints_the_rollup_url(capsys: pytest.CaptureFixture[str]) -> None:
+    fake = FakeGh(comments=[rollup_comment(existing_rollup("Import"))])
+    procedures.rollup_amend_latest(runner(fake), number="7", action="Import", text="filled in")
+    assert capsys.readouterr().out == "https://github.com/acme/tracker/issues/7#issuecomment-555\n"
 
 
 def test_append_finds_a_rollup_written_for_another_tracker_name() -> None:
@@ -620,6 +640,7 @@ def test_tracker_dispatcher_runs_the_procedures(
     base = ["--caller", "security-issue-sync", "--config", str(wide_policy)]
     assert cli.main_tracker([*base, "rollup-append", "7", "Sync", str(entry)]) == cli.EXIT_OK
     assert [a[:3] for a, _ in fake.writes] == [["gh", "issue", "comment"]]
+    assert capsys.readouterr().out == "https://github.com/acme/tracker/issues/7#issuecomment-901\n"
     assert cli.main_tracker([*base, "body-field-get", "7", "Severity"]) == cli.EXIT_OK
     assert capsys.readouterr().out == "High\n"
 

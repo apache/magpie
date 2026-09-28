@@ -25,7 +25,7 @@ argument-hint: "[kept-issue] [duplicate-issue]"
 capability: capability:resolve
 surface_hash: sha256:ea8092b0eb507603
 license: Apache-2.0
-measured_tokens: 5721
+measured_tokens: 6023
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -365,16 +365,38 @@ After confirmation, apply **sequentially** (never in parallel):
 
 1. `gh issue edit <keep> --body-file <tmpfile>` — updated body
 2. Rollup-comment upsert on the kept tracker per
-   [`tools/github/status-rollup.md`](../../../../tools/github/status-rollup.md#upsert-recipe--append-to-an-existing-rollup-or-create-one)
-   — append the `Merge (kept)` entry (`gh api -X PATCH
-   repos/<tracker>/issues/comments/<id> --input …`) or create
-   the rollup if none exists yet. The same step folds any legacy
-   bot comments on the kept tracker into the rollup first, per
-   the fold-legacy sub-step in
-   [`security-issue-sync`](../issue-sync/SKILL.md).
-3. Rollup-comment upsert on the dropped tracker — append the
-   `Merge (dropped)` entry (same recipe; fold legacy comments
-   first when needed).
+   [`tools/github/status-rollup.md`](../../../../tools/github/status-rollup.md#upsert-recipe--append-to-an-existing-rollup-or-create-one).
+   First fold any legacy bot comments on the kept tracker into the
+   rollup, oldest first, per the fold-legacy sub-step in
+   [`security-issue-sync`](../issue-sync/SKILL.md) — one call per
+   legacy comment, which deletes the original only after its append
+   succeeded:
+
+   ```bash
+   uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-deduplicate rollup-fold <keep> <legacy-comment-id> "<Action>"
+   ```
+
+   Then write the `Merge (kept)` entry body to
+   `<scratch>/dedupe-<keep>-rollup.md` with the Write tool and append
+   it (the call creates the rollup if none exists yet):
+
+   ```bash
+   uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-deduplicate rollup-append <keep> "Merge (kept) (from #<drop>)" <scratch>/dedupe-<keep>-rollup.md
+   ```
+
+   These run through vetted-ops' `vetted-op-tracker` entry point,
+   which the secure setup lets out of the sandbox (every write still asks).
+   Without the secure setup, the same operations are
+   `uv run --directory <framework>/tools/github-rollup github-rollup --repo <tracker> append|amend-latest|fold …`
+   and `uv run --directory <framework>/tools/github-body-field body-field --repo <tracker> get|set …`;
+   see [`tools/vetted-ops/README.md`](../../../../tools/vetted-ops/README.md#tracker-procedures-rollup-and-body-field-writes).
+3. Rollup-comment upsert on the dropped tracker — fold its legacy
+   comments first when needed (`rollup-fold <drop> …`, same shape),
+   then append the `Merge (dropped)` entry:
+
+   ```bash
+   uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-deduplicate rollup-append <drop> "Merge (dropped) (into #<keep>)" <scratch>/dedupe-<drop>-rollup.md
+   ```
 4. `gh issue edit <drop> --repo <tracker> --add-label duplicate`
 5. `gh issue close <drop> --repo <tracker> --reason "not planned"`
    (GitHub's `duplicate` close-reason is not exposed by `gh` on
@@ -409,10 +431,6 @@ After confirmation, apply **sequentially** (never in parallel):
    firing. The contract refuses retraction of any record already
    at the `public` state — the Step 0 / Inputs pre-check above
    should already have blocked the merge in that case.
-8. For each legacy bot comment folded in steps 2 / 3, delete the
-   original with `gh api -X DELETE
-   repos/<tracker>/issues/comments/<id>` — only after the
-   matching rollup PATCH succeeded.
 
 If any step fails, stop and ask the user how to proceed — do not
 guess. Partial merges are recoverable as long as the body update

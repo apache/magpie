@@ -25,7 +25,7 @@ argument-hint: "[issue-number]"
 capability: capability:intake
 surface_hash: sha256:b0ff65771ca4650a
 license: Apache-2.0
-measured_tokens: 7507
+measured_tokens: 7508
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -444,7 +444,7 @@ Never assume confirmation. If the user replies ambiguously, ask again.
 
 Run the confirmed items sequentially. The apply mechanics (label
 edits, milestone create / assign / close, assignee swaps, body
-PATCH, rollup append, RM hand-off comment, project-board moves,
+field writes, rollup append, RM hand-off comment, project-board moves,
 GHSA write paths, Gmail draft creation), the CVE JSON regen flow
 (Step 5 / 5a), the OAuth-API push including the six pre-push
 hygiene gates (Step 5b), the RM hand-off comment reconciliation

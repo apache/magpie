@@ -64,6 +64,8 @@ context every sync pass.
 This tool does the read / append / PATCH in a subprocess. Only a
 one-line confirmation lands on the agent's stderr. The body never
 crosses the boundary.
+`append` and `amend-latest` print the rollup comment's URL on stdout, so a
+caller can link to it without reading the rollup.
 
 ## Invocation
 

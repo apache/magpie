@@ -305,13 +305,23 @@ For each confirmed `Report` or forwarder-relayed candidate:
    The full shape, upsert recipe, and legacy-comment folding rules
    live in
    [`tools/github/status-rollup.md`](../../../../tools/github/status-rollup.md).
-   Emit the rollup body below and post via
-   `gh issue comment <N> --repo <tracker> --body-file <tmpfile>`:
+   Write the entry body below to
+   `<scratch>/import-<threadId>-rollup.md` with the Write tool and
+   append it; the tool creates the rollup, with its marker line,
+   because the tracker has none yet:
+
+   ```bash
+   uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-import rollup-append <N> "Import (<classification>, <reporter>)" <scratch>/import-<threadId>-rollup.md
+   ```
+
+   These run through vetted-ops' `vetted-op-tracker` entry point,
+   which the secure setup lets out of the sandbox (every write still asks).
+   Without the secure setup, the same operations are
+   `uv run --directory <framework>/tools/github-rollup github-rollup --repo <tracker> append|amend-latest|fold …`
+   and `uv run --directory <framework>/tools/github-body-field body-field --repo <tracker> get|set …`;
+   see [`tools/vetted-ops/README.md`](../../../../tools/vetted-ops/README.md#tracker-procedures-rollup-and-body-field-writes).
 
    ```markdown
-   <!-- <tracker> status rollup v1 — all bot-authored status updates fold into this single comment. -->
-   <details><summary><YYYY-MM-DD> · @<author-handle> · Import (<classification>, <reporter>)</summary>
-
    **Imported from Gmail thread `<threadId>` on <YYYY-MM-DD>** (class: `<classification>`, reporter: `<reporter>`).
 
    **Next:** Step 3 — start the validity / CVE-worthiness discussion; tag at least one other security-team member.
@@ -319,23 +329,18 @@ For each confirmed `Report` or forwarder-relayed candidate:
    Provenance: <forwarder-relay chain if any (e.g. ASF-security adapter for ASF adopters), GHSA reference if any, mail-archive URL if recorded>.
    Extracted fields: <summary of what landed in the template — Affected versions pre-filled, reporter-credited-as placeholder, Severity=Unknown, etc.>.
    Receipt-of-confirmation reply: draft `<draftId>` waiting for user review in Gmail.
-
-   </details>
    ```
 
-   Zero-whitespace rules from
-   [`status-rollup.md`](../../../../tools/github/status-rollup.md#the-rollup-comment-shape)
-   apply: no leading spaces on any line inside the `<details>`
-   block, exactly one blank line after `<summary>…</summary>`,
-   exactly one blank line before `</details>`. Clickable
-   `<tracker>` references (Golden rule 2 in
+   The action label must not contain `<`, `>` or `·`.
+   Start every body line at column 0 — the tool writes the `<details>` envelope,
+   and leading spaces inside it render as a code block.
+   Clickable `<tracker>` references (Golden rule 2 in
    [`AGENTS.md`](../../../../AGENTS.md)) apply inside the entry the
    same way they did in the pre-rollup shape.
 
-   Capture the returned comment ID — the recap (Step 8) links it,
-   and if a later skill pass in the same invocation (for example,
-   dedupe into an existing tracker surfaced by Step 2a) needs to
-   append another entry, it can skip the Step 1 lookup.
+   A later skill pass in the same invocation that appends another entry
+   (for example, dedupe into an existing tracker surfaced by Step 2a)
+   calls `rollup-append` the same way; no comment ID is needed.
 
 For each confirmed non-import (automated-scanner / consolidated /
 media / cross-thread-followup / fix-already-public):

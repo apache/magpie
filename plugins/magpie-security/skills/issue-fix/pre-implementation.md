@@ -14,9 +14,17 @@ search. **This check is mandatory before any new code is written.**
 
 Run (in order, stop at the first that produces results):
 
-1. **Tracker body field** — parse the issue body for a "PR with the fix"
-   field value. If it contains a `<upstream>` PR URL or `#NNN`
+1. **Tracker body field** — read the "PR with the fix" field value:
+
+   ```bash
+   uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller security-issue-fix body-field-get <N> "PR with the fix"
+   ```
+
+   If it contains a `<upstream>` PR URL or `#NNN`
    reference, that is the candidate.
+   This and the Step 10 writes run through vetted-ops' `vetted-op-read` / `vetted-op-tracker` entry points, which the secure setup lets out of the sandbox (every write still asks).
+   Without the secure setup, the same operations are `uv run --directory <framework>/tools/github-rollup github-rollup --repo <tracker> append|amend-latest|fold …` and `uv run --directory <framework>/tools/github-body-field body-field --repo <tracker> get|set …`.
+   See [`tools/vetted-ops/README.md`](../../../../tools/vetted-ops/README.md#tracker-procedures-rollup-and-body-field-writes).
 2. **Tracker comments** — scan the comment thread for `<upstream>` PR
    URLs posted by tracker collaborators.
 3. **GitHub search** — query the `<upstream>` repo for open PRs that

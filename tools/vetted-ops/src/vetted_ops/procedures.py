@@ -228,7 +228,7 @@ class Runner:
         self.calls.append(("read", list(argv)))
         return self._run(argv, None)
 
-    def write(self, argv: list[str], stdin: str | None = None) -> None:
+    def write(self, argv: list[str], stdin: str | None = None) -> str:
         self._check(argv)
         if not self.allow_writes:
             raise RunnerRefused("this operation is read-only; it may not write")
@@ -238,8 +238,8 @@ class Runner:
         self.calls.append(("write", list(argv)))
         if self.dry_run:
             print(f"dry-run: would run: {self._render(argv, data)}", file=self._out or sys.stdout)
-            return
-        self._run(argv, data)
+            return ""
+        return self._run(argv, data)
 
 
 @dataclass(frozen=True)
@@ -319,17 +319,28 @@ def _patch_comment(r: Runner, comment_id: str, body: str) -> None:
     )
 
 
-def _write_entry(r: Runner, number: str, entry: str) -> str:
-    """Append ``entry`` to the rollup, creating it when absent. Returns a summary."""
+def _write_entry(r: Runner, number: str, entry: str) -> tuple[str, str]:
+    """Append ``entry`` to the rollup, creating it when absent.
+
+    Returns a summary and the rollup comment's URL (empty in a dry run).
+    """
     rollup = _find_rollup(_list_comments(r, number))
     if rollup is None:
-        r.write(
+        out = r.write(
             ["gh", "issue", "comment", number, "--repo", r.tracker, "--body-file", "-"],
             stdin=build_new_rollup_body(entry, r.tracker.split("/")[-1]),
         )
-        return f"created rollup on {r.tracker}#{number}"
+        # `gh issue comment` prints the new comment's URL.
+        return f"created rollup on {r.tracker}#{number}", out.strip()
     _patch_comment(r, _rest_id(r, rollup), rebuild_with_appended_entry(str(rollup.get("body") or ""), entry))
-    return f"appended to rollup on {r.tracker}#{number}"
+    return f"appended to rollup on {r.tracker}#{number}", "" if r.dry_run else str(rollup.get("url") or "")
+
+
+def _print_url(url: str) -> None:
+    """The rollup comment URL is the only stdout: a caller links to it
+    (`#issuecomment-<id>`) without reading the rollup body."""
+    if url:
+        sys.stdout.write(f"{url}\n")
 
 
 def _today() -> str:
@@ -342,8 +353,9 @@ def rollup_append(r: Runner, *, number: str, action: str, text: str, date: str |
         raise ProcedureRefused("could not determine the authenticated gh login")
     day = date or _today()
     entry = build_entry(date=day, user=login, action=action, body=text)
-    summary = _write_entry(r, number, entry)
+    summary, url = _write_entry(r, number, entry)
     _say(f"{'dry-run: ' if r.dry_run else ''}{summary} ({action!r}, date={day})")
+    _print_url(url)
     return 0
 
 
@@ -361,6 +373,7 @@ def rollup_amend_latest(r: Runner, *, number: str, action: str, text: str) -> in
     entry = build_entry(date=latest.date, user=latest.user, action=latest.action, body=text)
     _patch_comment(r, _rest_id(r, rollup), replace_latest_entry(existing, entry))
     _say(f"{'dry-run: ' if r.dry_run else ''}amended latest entry on {r.tracker}#{number} ({action!r})")
+    _print_url("" if r.dry_run else str(rollup.get("url") or ""))
     return 0
 
 
@@ -379,7 +392,7 @@ def rollup_fold(r: Runner, *, number: str, comment_id: str, action: str) -> int:
     if not login or not date:
         raise ProcedureRefused(f"comment {comment_id} has no author or creation date")
     entry = build_entry(date=date, user=login, action=action, body=left_trim_lines(legacy_body))
-    summary = _write_entry(r, number, entry)
+    summary, _ = _write_entry(r, number, entry)
     # Only reached when the append succeeded: a failed write raises first.
     r.write(["gh", "api", f"repos/{r.tracker}/issues/comments/{comment_id}", "-X", "DELETE"])
     prefix = "dry-run: " if r.dry_run else ""
