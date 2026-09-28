@@ -54,6 +54,26 @@ cve.org check, invoke it through the same `uv run --project
 and sandbox exclusion names — a bare `vetted-op-read` would miss the
 allowlist and prompt or run sandboxed (#1339).
 
+The `procedure` backend carries the tracker read-modify-write updates that
+`tools/github-rollup` and `tools/github-body-field` do outside the sandbox:
+`rollup-append`, `rollup-amend-latest`, `rollup-fold` and `body-field-set`
+(writes), and `body-field-get` (a read). The builder returns a plan bound to one
+of five fixed procedures; the procedure reads the rollup comment or the issue
+body in-process and makes its writes through a runner that permits only `gh`
+calls with no shell, `gh issue view|comment|edit` with `--repo <tracker>`, and
+`gh api` paths under `repos/<tracker>/` (plus the fixed `gh api user` login
+read), with bodies on stdin and no `@file` fields. An operation declared
+read-only gets a runner that refuses every write. The parsing and composing
+modules are vendored byte-for-byte from the two tools, with a test that fails
+on drift, because the dispatcher installs without them.
+
+A third entry point, `vetted-op-tracker`, refuses every operation except the
+procedure ones before it reads the policy — the same shape as
+`vetted-op-read`'s write refusal. It is excluded from the sandbox, because the
+procedures' `gh` must verify TLS, and kept on `ask`, never `allow`.
+`vetted-op` itself stays sandboxed: excluding it would run the whole write
+catalogue there.
+
 The dispatcher runs from the installed `magpie-vetted-ops` plugin, which ships
 `tools/vetted-ops` without the workspace root, so the project must resolve
 standalone: it declares no `dev` dependency group, because uv resolves every

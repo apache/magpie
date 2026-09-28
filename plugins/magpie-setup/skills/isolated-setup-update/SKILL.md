@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:1f327e069312dad2
 license: Apache-2.0
-measured_tokens: 5020
+measured_tokens: 5114
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -183,6 +183,8 @@ If the adopter uses the `vetted-ops` dispatcher (a `.apache-magpie-overrides/too
 Only `vetted-op-read` belongs there.
 The write dispatcher in an `allow` list grants the whole catalogue, because whoever runs an invocation chooses the caller name it passes.
 Report that as a must-fix, ahead of anything else in this section.
+`vetted-op-tracker` in `allow`, or `vetted-op` in `sandbox.excludedCommands`, is the same must-fix.
+`vetted-op-tracker` in `ask` and in `sandbox.excludedCommands` (both the `uv run --project` and `uvx --from` forms) is the intended wiring; a missing entry is drift, since without the exclusion the rollup and body-field writes fail in the sandbox.
 
 **Second, `permissions.deny` still covers both surfaces**, each with an `Edit` rule:
 

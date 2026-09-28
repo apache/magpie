@@ -152,6 +152,27 @@ def test_baseline_never_allows_the_vetted_op_write_dispatcher(baseline: dict[str
         assert f"Bash({form} {write})" not in baseline["permissions"]["allow"]
 
 
+@pytest.mark.parametrize("form", ["uv run --project", "uvx --from"])
+def test_baseline_excludes_and_asks_the_vetted_op_tracker_dispatcher(
+    baseline: dict[str, Any], form: str
+) -> None:
+    # The tracker dispatcher writes (status rollup, body fields), and its gh
+    # must verify TLS, so it runs outside the sandbox. That is acceptable only
+    # because it refuses every operation but the tracker procedures; its writes
+    # still need a confirmation, so it is on ask and never on allow.
+    tracker = VETTED_OP_READ.replace("vetted-op-read", "vetted-op-tracker")
+    assert f"{form} {tracker}" in baseline["sandbox"]["excludedCommands"]
+    assert f"Bash({form} {tracker})" in baseline["permissions"]["ask"]
+    assert f"Bash({form} {tracker})" not in baseline["permissions"]["allow"]
+
+
+def test_baseline_never_excludes_the_vetted_op_write_dispatcher(baseline: dict[str, Any]) -> None:
+    # Excluding `vetted-op` would run the whole write catalogue unsandboxed.
+    write = VETTED_OP_READ.replace("vetted-op-read", "vetted-op")
+    for form in ("uv run --project", "uvx --from"):
+        assert f"{form} {write}" not in baseline["sandbox"]["excludedCommands"]
+
+
 def test_baseline_names_the_fixed_vetted_ops_path_not_a_versioned_glob(baseline: dict[str, Any]) -> None:
     # A `*` where the plugin version sits also matches spaces, so it would
     # approve, and run unsandboxed, a command with extra uv options spliced in.

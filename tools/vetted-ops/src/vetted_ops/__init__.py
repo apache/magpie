@@ -17,6 +17,6 @@
 # under the License.
 """Vetted, policy-scoped GitHub operations for agent sessions."""
 
-from .cli import main, main_read
+from .cli import main, main_read, main_tracker
 
-__all__ = ["main", "main_read"]
+__all__ = ["main", "main_read", "main_tracker"]

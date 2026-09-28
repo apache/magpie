@@ -71,6 +71,12 @@ crosses the boundary.
 uv run --directory tools/github-rollup github-rollup <subcommand> ...
 ```
 
+Under the [secure agent setup](../../docs/setup/secure-agent-setup.md) this CLI's `gh` runs sandboxed and fails,
+so skills call the same procedures through [`vetted-ops`](../vetted-ops/README.md#tracker-procedures-rollup-and-body-field-writes) instead:
+`vetted-op-tracker --caller <skill> rollup-append <N> "<action>" <scratch>/entry.md`,
+`rollup-amend-latest <N> "<action>" <scratch>/entry.md`, and `rollup-fold <N> <comment-id> "<action>"`.
+The uv CLI remains for use outside the sandbox.
+
 ### `append <issue> --action "<label>" ...`
 
 Append a new entry to the rollup comment on `<issue>`. Creates

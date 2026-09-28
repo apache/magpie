@@ -72,6 +72,12 @@ uv run --directory tools/github-body-field body-field --repo <owner>/<repo> <sub
 The `--repo` argument is forwarded verbatim to `gh`; omit it when
 the current working directory is already inside the right clone.
 
+Under the [secure agent setup](../../docs/setup/secure-agent-setup.md) this CLI's `gh` runs sandboxed and fails,
+so skills call the same procedures through [`vetted-ops`](../vetted-ops/README.md#tracker-procedures-rollup-and-body-field-writes) instead:
+`vetted-op-tracker --caller <skill> body-field-set <N> "<field>" <scratch>/value.md` to write,
+`vetted-op-read --caller <skill> body-field-get <N> "<field>"` to read.
+The uv CLI remains for use outside the sandbox.
+
 ### `get <issue> --field "<name>"`
 
 Print the field's value to stdout (with a trailing newline added if
