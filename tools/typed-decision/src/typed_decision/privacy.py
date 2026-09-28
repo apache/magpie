@@ -36,12 +36,12 @@ def _check_endpoint_approved(endpoint: str, provider_name: str | None = None) ->
     """Check if the given endpoint is approved per tools/privacy-llm/models.md.
 
     Denies by default per tools/privacy-llm/models.md ('Anything else -> ✗').
-    Binds opt-in checks to the specific URL/host. Only applies the provider-name
-    label when endpoint matches DEFAULT_ENDPOINT to prevent name-only opt-ins from
-    authorizing arbitrary destination hosts.
+    Binds opt-in checks to the specific destination host: rejects URLs with userinfo
+    or fragments, requires exact host matching for URL opt-ins, and restricts
+    name-only opt-ins strictly to DEFAULT_ENDPOINT.
     """
     raw_desc = f"{provider_name} ({endpoint})" if endpoint == DEFAULT_ENDPOINT and provider_name else endpoint
-    verdict = check_endpoint(endpoint, raw_desc=raw_desc)
+    verdict = check_endpoint(endpoint, default_endpoint=DEFAULT_ENDPOINT, raw_desc=raw_desc)
     return verdict.approved, verdict.reason
 
 
