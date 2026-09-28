@@ -844,13 +844,22 @@ blocks the agent's Read tool from reading the same path.
 rules block the agent's own `Edit`/`Write` tools. The catalogue gets
 a second, independent layer for free: the plugin cache sits outside
 every `sandbox.filesystem.allowWrite` root, so a sandboxed `Bash`
-call cannot write it either. The **policy TOML has no such second
-layer** — it lives inside the adopter repo, which is sandbox-writable
-by design, so a Bash-level write (`sed -i`, a heredoc redirect) would
-slip past the `Edit`/`Write` deny.
+call cannot write it either. The **policy TOML** lives inside the
+adopter repo, which is sandbox-writable by design. Under Claude Code its
+`Edit(.apache-magpie-overrides/tools/vetted-ops/**)` deny is also merged
+into the sandbox's write-deny list, so a Bash-level write (`sed -i`, a
+heredoc redirect) is refused as well. Harnesses without that merge have
+only the tool-level deny, and must deny writes to that path in their
+sandbox configuration explicitly.
 
-That asymmetry is survivable only because of where the privilege
-boundary sits. `vetted-op-read` refuses a write **before** it reads
+This matters more since `vetted-op-tracker`: its procedures write, and the
+tracker they write to comes from the policy. Rewriting the policy could
+point those writes at another repository. The `ask` on
+`vetted-op-tracker` is the remaining check, so keep the policy path
+write-denied at both layers.
+
+For the read dispatcher, the privilege boundary sits earlier.
+`vetted-op-read` refuses a write **before** it reads
 the policy, so rewriting the policy cannot convert a read into a
 write; the worst it buys is pointing a read at a different
 repository. Had the `allow` been written against `vetted-op` — the

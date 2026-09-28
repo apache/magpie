@@ -50,9 +50,11 @@ characters; responses stream to stdout, never to a file; and `urllib.request`
 honours `HTTPS_PROXY`, so the egress gateway still applies (#1326). The
 `tools/osv/` and `tools/cve-org/` recipes, and `security-issue-sync`'s
 cve.org check, invoke it through the same `uv run --project
-<framework>/tools/vetted-ops vetted-op-read …` spelling every permission rule
-and sandbox exclusion names — a bare `vetted-op-read` would miss the
-allowlist and prompt or run sandboxed (#1339).
+~/.claude/magpie/vetted-ops vetted-op-read …` spelling every permission rule
+and sandbox exclusion names — a bare `vetted-op-read`, or the in-repo
+`tools/vetted-ops` copy, would miss the allowlist and prompt or run sandboxed
+(#1339). No rule names the in-repo copy: it is agent-editable, so excluding it
+would run editable code outside the sandbox.
 Two spellings are recognised, and each is both allowed and excluded from the
 sandbox: `uv run --project … vetted-op-read` and `uvx --from … vetted-op-read`,
 the form the read-only gatherer agents use (#1393). Before #1393 only the
