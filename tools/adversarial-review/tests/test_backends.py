@@ -43,6 +43,8 @@ WRITE_GRANTING = {
     "--dangerously-bypass-approvals-and-sandbox",
     "--dangerously-skip-permissions",
     "bypassPermissions",
+    "--always-approve",
+    "acceptEdits",
 }
 
 
@@ -111,12 +113,22 @@ def test_grok_argv():
     inv = BACKENDS["grok"].build(CTX)
     assert inv.argv == [
         "grok",
-        "--permission-mode",
-        "plan",
-        "--output-format",
-        "json",
+        "--tools",
+        "read_file,grep,list_dir",
+        "--no-subagents",
+        "--disable-web-search",
+        "--deny",
+        "Bash",
+        "--deny",
+        "Edit",
+        "--deny",
+        "Write",
+        "--deny",
+        "WebFetch",
         "--deny",
         "MCPTool",
+        "--output-format",
+        "json",
         "--prompt-file",
         "/t/brief.md",
     ]
@@ -225,5 +237,15 @@ def test_mcp_servers_are_switched_off(name, flags):
 def test_grok_denies_every_mcp_tool_invocation():
     """Grok cannot close its MCP servers from the CLI; every invocation is denied instead."""
     argv = BACKENDS["grok"].build(CTX).argv
-    i = argv.index("--deny")
-    assert argv[i : i + 2] == ["--deny", "MCPTool"]
+    denied = {argv[i + 1] for i, arg in enumerate(argv) if arg == "--deny"}
+    assert "MCPTool" in denied
+
+
+def test_grok_is_read_only_by_allowlist_not_by_mode():
+    """`--permission-mode plan` is accepted by grok but not enforced, so it must not be relied on."""
+    argv = BACKENDS["grok"].build(CTX).argv
+    assert "--permission-mode" not in argv
+    assert argv[argv.index("--tools") + 1] == "read_file,grep,list_dir"
+    assert {"--no-subagents", "--disable-web-search"} <= set(argv)
+    denied = {argv[i + 1] for i, arg in enumerate(argv) if arg == "--deny"}
+    assert {"Bash", "Edit", "Write", "WebFetch"} <= denied

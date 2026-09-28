@@ -33,6 +33,11 @@ Claude `--strict-mcp-config` with no config. Grok cannot close its MCP servers
 from the CLI, so `--deny MCPTool` auto-denies every MCP tool invocation
 instead. Copilot and Gemini expose no equivalent switch in the versions this
 was written against; the README says so.
+
+Grok's `--permission-mode plan` is not used: grok accepts it for compatibility
+but wires only `bypassPermissions` at spawn, so it would restrict nothing.
+Grok is kept read-only by an explicit tool allowlist instead, with deny rules
+behind it in case the allowlist is ever loosened.
 """
 
 from __future__ import annotations
@@ -48,9 +53,13 @@ COPILOT_INSTRUCTION = (
 )
 STDIN_INSTRUCTION = "Follow the review brief given on standard input exactly. Change no file."
 CLAUDE_DENIED_TOOLS = "Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch,Task"
-# Bare permission-rule prefix: matches every MCP tool invocation (grok's own
-# rule-matching semantics), since the CLI cannot close the servers themselves.
-GROK_DENIED_TOOLS = "MCPTool"
+# Grok's read-only built-in tools. `--tools` removes everything else, including
+# the shell and the edit tools, but keeps the MCP meta-tools unless denied.
+GROK_ALLOWED_TOOLS = "read_file,grep,list_dir"
+# Bare permission-rule prefixes match every invocation of that tool class.
+# MCPTool covers the MCP tools the CLI cannot disconnect; the rest back up the
+# allowlist.
+GROK_DENIED_TOOLS = ("Bash", "Edit", "Write", "WebFetch", "MCPTool")
 
 
 class BackendOutputError(ValueError):
@@ -193,16 +202,17 @@ def _claude_extract(stdout: str, ctx: RunContext) -> str:
 
 
 def _grok(ctx: RunContext) -> Invocation:
-    # `plan` is read-only everywhere but the session's own plan file, so no
-    # approval prompt is needed — and none could be answered in headless mode.
+    # No shell, edit, web or subagent tools: subagents escape the parent's
+    # gates, and web search runs unprompted, which makes it an egress channel.
     argv = [
         "grok",
-        "--permission-mode",
-        "plan",
+        "--tools",
+        GROK_ALLOWED_TOOLS,
+        "--no-subagents",
+        "--disable-web-search",
+        *(arg for tool in GROK_DENIED_TOOLS for arg in ("--deny", tool)),
         "--output-format",
         "json",
-        "--deny",
-        GROK_DENIED_TOOLS,
         "--prompt-file",
         str(ctx.brief_path),
         *_model("-m", ctx),

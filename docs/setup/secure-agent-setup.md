@@ -494,7 +494,7 @@ below, annotated.
     // are in sandbox-troubleshooting.md → "`gh` fails with TLS …".
     // The adversarial-review tool runs other models' CLIs, which need network
     // access and their own credentials (~/.codex, ~/.copilot, ~/.gemini,
-    // ~/.claude). Only its single-line, installed-plugin form is excluded;
+    // ~/.grok, ~/.claude). Only its single-line, installed-plugin form is excluded;
     // it keeps its permission prompt (no `allow`), and the plugin cache is
     // `Edit`-denied below. See the isolated-setup-install skill, Step R.
     // The vetted-ops READ dispatcher calls `gh` and the network, so it runs

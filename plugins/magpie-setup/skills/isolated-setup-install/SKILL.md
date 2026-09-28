@@ -17,7 +17,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:3f90b1ffdaa6e9ea
 license: Apache-2.0
-measured_tokens: 5515
+measured_tokens: 5524
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -314,9 +314,9 @@ different caller.
 Only applies when the `magpie-adversarial-review` plugin is installed. If it
 is not, skip this step and say so.
 
-The reviewer CLIs it runs (`codex`, `copilot`, `gemini`, `claude`) need
-network access and read their own credentials (`~/.codex`, `~/.copilot`,
-`~/.gemini`, `~/.claude`), which this sandbox denies. The tool therefore
+The reviewer CLIs it runs (`codex`, `copilot`, `gemini`, `grok`, `claude`)
+need network access and read their own credentials (`~/.codex`,
+`~/.copilot`, `~/.gemini`, `~/.grok`, `~/.claude`), which this sandbox denies. The tool therefore
 runs outside it, through one exclusion that names the installed plugin:
 
 ```jsonc

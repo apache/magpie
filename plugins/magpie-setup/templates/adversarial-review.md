@@ -27,8 +27,8 @@ adversarial_review:
   # off:          never — except the security family, which runs them
   #               whenever at least one reviewer is listed.
   mode: on-pr-create
-  # Any of: codex, copilot, gemini, claude. The model running the current
-  # harness is skipped automatically, so listing it is harmless.
+  # Any of: codex, copilot, gemini, grok, claude. The model running the
+  # current harness is skipped automatically, so listing it is harmless.
   reviewers: []
   # Per reviewer. Below the 10-minute cap a harness puts on one shell call.
   timeout_minutes: 8

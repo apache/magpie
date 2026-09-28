@@ -24,7 +24,7 @@ argument-hint: "[pr:N] [area:LBL] [collab:true|false] [team:NAME] [ready] [dry-r
 capability: capability:review
 surface_hash: sha256:261649569ebac577
 license: Apache-2.0
-measured_tokens: 4925
+measured_tokens: 4929
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
@@ -272,7 +272,7 @@ query and chip semantics.
 | `requested-only` / `mine-only` / `codeowner-only` / `mentioned-only` / `reviewed-before-only` | use **only** the named half of the default union (drops the other four) |
 | `no-touching-mine` / `no-codeowner` / `no-mentioned` / `no-reviewed-before` | drop just the named half; keep the rest of the union (composable) |
 | `since:<window>` | tune the recency window for the touching-mine main-branch source (default `30d`; accepts `7d`, `2w`, `90d`, …) |
-| `with-reviewers:<list>` | run these model CLIs (`codex`, `copilot`, `gemini`, `claude`) as adversarial reviewers at Step 5, through the `magpie-adversarial-review` tool — the agent runs them; the harness prompt gates each run |
+| `with-reviewers:<list>` | run these model CLIs (`codex`, `copilot`, `gemini`, `grok`, `claude`) as adversarial reviewers at Step 5, through the `magpie-adversarial-review` tool — the agent runs them; the harness prompt gates each run |
 | `with-reviewer:<command>` | name the slash command the skill should propose at Step 5 for second-read coverage (the maintainer types it) |
 | `repo:<owner>/<name>` | override the target repository |
 | `max:<N>` | stop after `<N>` PRs have been reviewed this session |
