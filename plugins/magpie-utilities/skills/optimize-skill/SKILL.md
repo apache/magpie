@@ -15,7 +15,7 @@ when_to_use: >-
 capability: capability:authoring
 surface_hash: sha256:be9968c266788028
 license: Apache-2.0
-measured_tokens: 3038
+measured_tokens: 3209
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -311,4 +311,9 @@ diff. Bullets only — a heading here would move this skill's
 over a wording preference.
 
 <!-- BEGIN LEARNED STYLE -->
+- Point at the source instead of restating it: a rule that lives in AGENTS.md, a tool doc or another skill gets a link, and the skill keeps only what it adds.
+- Cut rationale a nearby section already gives; keep the rule itself.
+- Leave short paragraphs (one sentence, or two lines) as they are.
+- Keep an example that marks a boundary the model must not cross: dropping "one file under `^<scope-b>/` and one under `^<scope-a>/`" from a mixed-scope guard made a same-scope case fail; restoring it fixed the case.
+- In a wording pass, also fix any `gh` call that is piped, redirected or wrapped in `$(…)`, or that belongs in a vetted-ops read; that shape fails under the secure setup.
 <!-- END LEARNED STYLE -->
