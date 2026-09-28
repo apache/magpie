@@ -35,7 +35,7 @@ when_to_use: |
 capability: capability:triage
 surface_hash: sha256:7d5054dc4806f995
 license: Apache-2.0
-measured_tokens: 7349
+measured_tokens: 7351
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -333,7 +333,7 @@ Apply the selector grammar from the *Inputs* table above:
 |---|---|
 | `triage` (default) | `gh issue list --repo <tracker> --state open --label "needs triage" --limit 1000 --json number,title,labels,updatedAt` |
 | `triage #NNN` | take the numbers verbatim; no resolution |
-| `triage scope:<label>` | `gh issue list --repo <tracker> --state open --label "needs triage" --label "<label>" --limit 1000 --json number,title,labels` |
+| `triage scope:<label>` | `gh issue list --repo <tracker> --state open --label "needs triage" --label "<label>" --limit 1000 --json number,title,labels,updatedAt` |
 | `triage CVE-YYYY-NNNNN` | regex-validate the CVE token first (anything not matching `^CVE-\d{4}-\d{4,7}$` is a hard error — *never* interpolate an unvalidated free-form string into a search arg); then `gh search issues "<CVE>" --repo <tracker> --match body --json number,title --jq '.[] | .number'` |
 
 When `--retriage` is set, the selector also includes trackers

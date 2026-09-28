@@ -230,10 +230,11 @@ For each confirmed `Report` or forwarder-relayed candidate:
    preserves URLs verbatim. The `claude_ai_mcp` backend is discouraged
    because it rewrites embedded URLs into Google tracking redirects
    (see [`draft-backends.md`](../../../../tools/gmail/draft-backends.md#privacy-warning--the-claudeai-gmail-mcp-rewrites-embedded-urls-into-google-tracking-redirects)); as a credentials-missing fallback
-   it resolves the candidate's chronologically-last message ID (call
-   `mcp__claude_ai_Gmail__get_thread(threadId=<candidate>,
-   messageFormat='MINIMAL')` and take `messages[-1].id`) and passes
-   it to `mcp__claude_ai_Gmail__create_draft` as `replyToMessageId`.
+   it resolves the candidate's chronologically-last message ID (take
+   `messages[-1].id` from the fresh `get_thread` read made for the
+   existing-draft check below — do not fetch the thread a second time)
+   and passes it to `mcp__claude_ai_Gmail__create_draft` as
+   `replyToMessageId`.
    Surface in the proposal which backend was used and which path the
    draft took (thread-attached vs subject fallback).
 
@@ -242,11 +243,18 @@ For each confirmed `Report` or forwarder-relayed candidate:
    thread* section of
    [`draft-backends.md`](../../../../tools/gmail/draft-backends.md#detecting-drafts-that-already-exist-on-a-thread)
    — run **both** `mcp__claude_ai_Gmail__list_drafts` and
-   `mcp__claude_ai_Gmail__get_thread` (scan messages for `DRAFT`
+   `mcp__claude_ai_Gmail__get_thread(threadId=<candidate>,
+   messageFormat='MINIMAL')` (scan messages for `DRAFT`
    labels) so thread-attached drafts that may have piled up and
    hidden from the global Drafts folder are not missed. If a pending
    draft already exists, surface it to the user instead of silently
    shadowing it with a second draft.
+   This is the one thread re-read in Step 7, and it is deliberately
+   fresh rather than reused from the Step 2a thread fetch: a draft
+   (or a new reporter message) can land between the scan and the
+   apply, and a stale read would miss it.
+   The same result supplies `messages[-1].id` for the fallback
+   backend above.
 
    Never fabricate a new subject — subject is always
    `Re: <root subject>`, even when the recipient changes.
@@ -370,14 +378,16 @@ media / cross-thread-followup / fix-already-public):
    are dropped silently — no disposition to record), and it
    **never** creates a security tracker.
 
-   Resolve the ledger issue number, then append the comment (the
+   Resolve the ledger issue number **once per run** — the first
+   rejection recorded in the run looks it up and every later one
+   reuses it as `<ledger-N>` — then append the comment (the
    `summary` text is attacker-derived, so write it to a tempfile
    with the Write tool and pass via `-F`, per the injection guard
    used elsewhere in this skill):
 
    ```bash
-   LEDGER=$(gh issue list --repo <tracker> --state open \
-     --label rejections-ledger --limit 5 --json number --jq '.[0].number')
+   gh issue list --repo <tracker> --state open \
+     --label rejections-ledger --limit 5 --json number --jq '.[0].number'
    ```
 
    *Write tool call:* `file_path: <scratch>/rejection-<threadId>.md`,
@@ -407,7 +417,7 @@ media / cross-thread-followup / fix-already-public):
    `thread:` id so a later run can backfill it.
 
    ```bash
-   gh api repos/<tracker>/issues/$LEDGER/comments \
+   gh api repos/<tracker>/issues/<ledger-N>/comments \
      -F body=@<scratch>/rejection-<threadId>.md --jq '.id'
    ```
 

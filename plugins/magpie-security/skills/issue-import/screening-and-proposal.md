@@ -130,11 +130,13 @@ mailbox. The per-candidate budget is ≤ 2 archive searches
    -from:notifications@github.com -from:noreply@github.com
    ```
 
-   For each hit, cross-reference the `threadId` against existing
-   trackers — `gh search issues "<threadId>" --repo <tracker>` on
-   the body field (the *Security mailing list thread* field or
-   the rollup's threadId backfill note) — and keep the hits that
-   have **no** corresponding tracker. Those are the "rejected
+   Cross-reference the hits' `threadId`s against existing
+   trackers in one batched query, as in Step 2 — `gh search issues
+   "<threadId-1> OR … OR <threadId-6>" --repo <tracker> --match body
+   --limit 100 --json number,body` (≤ 6 IDs per query), attributing
+   each hit to the `threadId` its body contains (the *Security mailing
+   list thread* field or the rollup's threadId backfill note) — and
+   keep the hits that have **no** corresponding tracker. Those are the "rejected
    without tracker" precedents.
 
 **Surfacing in Step 5.** For each precedent found, attach to the

@@ -38,7 +38,8 @@ record it in the observed-state bag:
 | Change **state** / publish | `PATCH …` with `state`, or the publish call | **admin / security-manager** |
 | Comment on the reporter discussion thread | *(none — `…/comments` → 404)* | **web UI only** |
 
-Probe: `gh api /repos/<upstream>/security-advisories --jq 'length'`
+Probe: the `gh api "/repos/<upstream>/security-advisories?per_page=100"`
+list call in the Step 1 add-on below
 (a `200` with a list ⇒ at least collaborator read). Attempting a
 collaborator-management `PATCH` returns
 `403 "Cannot update advisory collaborators unless you have
@@ -60,8 +61,13 @@ collaborator tier allows and *hands off* the rest — never blind-fire a
 
 Detect GHSA-sourced trackers by grepping the body / provenance for
 `GHSA-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}` ids scoped to `<upstream>`
-(reuse the import skill's GHSA grep). For each id, fetch the advisory and
-record it. Surface drift in the Step 2 proposal:
+(reuse the import skill's GHSA grep). Take each id's advisory from one list call, which doubles as the access-tier probe above:
+
+```bash
+gh api "/repos/<upstream>/security-advisories?per_page=100"
+```
+
+Fetch an advisory individually (`gh api /repos/<upstream>/security-advisories/<GHSA>`) only when its id is not in that list — it is older than the first 100 — and record each one. Surface drift in the Step 2 proposal:
 
 - **cve_id drift** — advisory `cve_id` ≠ the tracker's CVE (or empty).
 - **field drift** — `credits` / `severity` / `cwe_ids` / `vulnerabilities`
@@ -90,7 +96,8 @@ record it. Surface drift in the Step 2 proposal:
     reply so the reporter is not told *"it is all public now"* while
     reading an advisory still marked `triage`.
 - **access drift** — security-team roster
-  (`gh api repos/<tracker>/collaborators --jq '.[].login'`) members
+  (the collaborator list fetched once per run, see
+  [`gather.md`](gather.md#step-1--gather-the-current-state)) members
   missing from the advisory's `collaborating_users`. Informational at the
   collaborator tier (adding collaborators is an admin hand-off).
 

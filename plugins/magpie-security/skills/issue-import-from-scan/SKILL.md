@@ -28,7 +28,7 @@ argument-hint: "[scan-source ...]  (one or more GitHub issues and/or report fold
 capability: capability:intake
 surface_hash: sha256:3aa895ba2115c1d9
 license: Apache-2.0
-measured_tokens: 5562
+measured_tokens: 5646
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -231,6 +231,12 @@ mapping in Step B.
 
 ## Step B — Triage every finding (mandatory; reuse the existing machinery)
 
+**Fetch the open-tracker list once, before the per-finding loop**, and
+reuse it for every finding's Step 2a semantic sweep (one bounded
+`gh issue list --limit <N>` call, with the capped-list warning that step
+gives).
+Only the searches keyed on a finding's own tokens run per finding.
+
 For **each** finding, **first read its full evidence entry**, then run
 the full triage analysis — do **not** invent a parallel taxonomy; reuse:
 
@@ -245,7 +251,8 @@ the full triage analysis — do **not** invent a parallel taxonomy; reuse:
   [`<project-config>/canned-responses.md`](../../../magpie-setup/templates/canned-responses.md)),
   and a cross-check against recently-closed-invalid trackers;
 - the [`security-issue-import` Step 2a](../issue-import/SKILL.md)
-  fuzzy-dup search against existing trackers;
+  fuzzy-dup search against existing trackers (its semantic sweep reads
+  the open-tracker list fetched above);
 - a **fix-already-public** check — and, because a scan is pinned to a
   specific commit, also check whether the finding was **already fixed on
   the default branch since the scan's commit** (the scan ages quickly;

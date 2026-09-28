@@ -59,6 +59,12 @@ concurrently, which is exactly what the sync needs.
    When the selector resolves to zero issues, tell the user and stop
    — do not fall back to `sync all`.
 
+   When a selector's list call returns exactly its `--limit` (100, or
+   50 for the closed bucket), the set may be truncated.
+   Say so in the echo (*"the list hit the 100-issue cap — the set may
+   be incomplete"*) and offer to re-run that list with a larger
+   `--limit` before dispatching; never sweep a capped list silently.
+
    **Exclude the rejections ledger.** The single open issue labelled
    `rejections-ledger` (the rejected-without-tracker ledger written
    by `security-issue-import`) is **not** a security tracker — it
@@ -82,10 +88,15 @@ concurrently, which is exactly what the sync needs.
     GraphQL query that fetches state for every resolved issue at
     once. The `body` field on `comments(last: 1)` lets the classifier
     distinguish skill-authored writes from human activity (see
-    *Skill-or-bot detection* below):
+    *Skill-or-bot detection* below).
 
-    ```bash
-    gh api graphql --raw-field query="$(cat <<'GQL'
+    Use the Write tool to write the query to
+    `<scratch>/sync-preflight.graphql` (`<scratch>` is the session
+    scratch directory as an absolute path), then run it as a plain
+    `gh` command — a `$(…)` around `gh` keeps it sandboxed under the
+    secure setup, where it cannot read its credentials:
+
+    ```graphql
     query {
       repository(owner: "<owner>", name: "<repo>") {
         i<N1>: issue(number: <N1>) {
@@ -99,8 +110,10 @@ concurrently, which is exactly what the sync needs.
         # repeat one aliased block per resolved issue
       }
     }
-    GQL
-    )"
+    ```
+
+    ```bash
+    gh api graphql -F query=@<scratch>/sync-preflight.graphql
     ```
 
     The aliased-field form (`i<N>: issue(number: <N>) { ... }`)

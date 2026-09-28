@@ -119,6 +119,7 @@ search for that orthogonal key (the dedup STRONG match
 supersedes; the proposal routes to
 [`security-issue-deduplicate`](../issue-deduplicate/SKILL.md)
 instead).
+These searches stay per tracker: each key comes from that tracker's own report, so there is no cross-tracker query to batch them into.
 
 **Hard rule**: a rejection precedent in Step 2.6 does **not**
 auto-classify INVALID — the human team reads the precedent

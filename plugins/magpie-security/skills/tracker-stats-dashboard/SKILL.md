@@ -18,7 +18,7 @@ when_to_use: |
 capability: capability:stats
 surface_hash: sha256:c8643a3c02bf3d73
 license: Apache-2.0
-measured_tokens: 3659
+measured_tokens: 3718
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -215,11 +215,13 @@ fetch.
 The full pipeline:
 
 1. `fetch_issues.py` — `gh issue list --state all --limit 1000` ->
-   `<cache>/issues.json`.
+   `<cache>/issues.json`, `body` and `closedByPullRequestsReferences` included.
+   At 1000 issues it warns that the list hit the cap and every count is a floor.
 2. `fetch_roster.py` — `gh api repos/<tracker>/collaborators` ->
    `<cache>/roster.txt`.
-3. `fetch_bodies.py` — per-issue `body` +
-   `closedByPullRequestsReferences` -> `<cache>/issue_extra.json`.
+3. `fetch_bodies.py` — copies `body` +
+   `closedByPullRequestsReferences` out of `issues.json` into `<cache>/issue_extra.json`;
+   a per-issue `gh issue view` runs only for an issue whose list entry lacks them.
 4. `fetch_events.py` — per-issue label-history events ->
    `<cache>/events/<N>.json`.
 5. `fetch_prs.py` — per-PR `createdAt` / `mergedAt` / `state` from

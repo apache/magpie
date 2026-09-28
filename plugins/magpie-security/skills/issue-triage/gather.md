@@ -6,11 +6,34 @@
 ## Step 2 — Gather per-tracker state
 
 For each tracker in the list, gather (in parallel where possible)
-the inputs the classifier needs. Each tracker gets:
+the inputs the classifier needs.
+Items 1 and 3's `closedByPullRequestsReferences` are fetched for the whole list in one batched read, not per tracker;
+the remaining items are per-tracker. Each tracker gets:
 
-1. **Issue body + last 10 comments** —
-   `gh issue view <N> --repo <tracker>
-   --json number,title,body,labels,milestone,assignees,comments`.
+1. **Issue body + last 10 comments** — one aliased GraphQL query per chunk of up to 20 trackers from the Step 1 list
+   (a list of 20 or fewer is one round-trip; larger lists take ⌈N/20⌉, which keeps each response well inside GitHub's GraphQL timeout).
+   Write the query with the Write tool to a scratch file — it holds only issue numbers and the `<tracker>` owner/name — and run it as a plain `gh api graphql -F query=@<file>`:
+
+   ```graphql
+   query {
+     repository(owner: "<owner>", name: "<repo>") {
+       i<N1>: issue(number: <N1>) {
+         number title body updatedAt
+         labels(first: 30) { nodes { name } }
+         milestone { title }
+         assignees(first: 10) { nodes { login } }
+         comments(last: 10) { nodes { author { login } createdAt body } }
+         closedByPullRequestsReferences(first: 10, includeClosedPrs: true) {
+           nodes { number url state mergedAt repository { nameWithOwner } }
+         }
+       }
+       # repeat one aliased block per tracker in the chunk
+     }
+   }
+   ```
+
+   A `null` alias means the number does not exist in `<tracker>` (typically a mistyped `#NNN` selector) — surface it and drop that number; do not retry per tracker.
+   This batched result is the source for items 1–3 below; later steps and bulk-mode subagents reuse it rather than calling `gh issue view`.
    Apply the redact-after-fetch protocol on the body and comment
    bodies before passing them to the classifier.
 
@@ -25,9 +48,10 @@ the inputs the classifier needs. Each tracker gets:
 
 3. **Linked-PR state** — same `gh search prs` calls as
    [`security-issue-sync`](../issue-sync/SKILL.md) Step
-   1b: `closedByPullRequestsReferences`, `gh search prs
+   1b: `closedByPullRequestsReferences` (already in the item 1 batch), `gh search prs
    "<tracker>#<N>" --repo <upstream>` for cross-repo references,
-   and the issue body's *PR with the fix* field. The presence of
+   and the issue body's *PR with the fix* field.
+   The cross-repo search stays one call per tracker: a hit has to be attributed to the tracker it mentions, and an OR-joined search cannot say which term matched. The presence of
    a merged or open public PR for this tracker materially changes
    the disposition (the team has already converged enough to
    write code → the right next step is usually `VALID` →
@@ -94,6 +118,8 @@ than 5 trackers, follow the same subagent-fanout pattern as
 one `general-purpose` subagent per tracker, all spawned in a
 single message, each returning a structured per-tracker report
 that the orchestrator aggregates into one proposal.
+The orchestrator runs the item 1 batched read first and hands each subagent its tracker's redacted slice,
+so subagents run only the genuinely per-tracker calls (the item 3 searches, the item 4 mail thread, the item 6 cross-reference search) and never `gh issue view`.
 
 **Hard rules for bulk mode** (mirrors `security-issue-sync`):
 

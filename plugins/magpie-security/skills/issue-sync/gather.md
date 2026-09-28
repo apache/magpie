@@ -15,12 +15,18 @@ This subdoc carries Step 1 sub-steps — read the GitHub issue (1a), find refere
 
 Run these reads in parallel where possible. Do **not** make any changes yet.
 
+**Fetch each surface once per run.**
+The 1a issue read, the 1b PR reads, the 1c reporter thread, and the tracker's collaborator list (`gh api repos/<tracker>/collaborators --jq '.[].login'`, fetched at most once per run, when the first membership check needs it) are the cached results every later step reads from — the signal mining in 1d, the reviewer-comment ledger in 1e, the checklist scan in 1g, the Step 2b proposals, and the Step 4 marker and milestone lookups.
+Do not re-run `gh issue view` on the same tracker with a different `--json` set, re-fetch a PR already fetched in 1b, or re-read a mail thread already read in 1c.
+
 ### 1a. Read the GitHub issue
 
 ```bash
 gh issue view <N> --repo <tracker> \
-  --json number,title,state,body,labels,milestone,assignees,author,createdAt,updatedAt,closedAt,comments
+  --json number,title,state,body,labels,milestone,assignees,author,createdAt,updatedAt,closedAt,comments,closedByPullRequestsReferences
 ```
+
+A `Could not resolve to an issue` error here is the Step 0 *selector resolves* failure: stop and ask which issue the user meant.
 
 Record:
 
@@ -78,12 +84,8 @@ current `status` column.
 
 ### 1b. Find referenced and referencing PRs
 
-First, get the PRs that GitHub itself has linked to the issue via "fixes" /
-"closes" / "resolves" keywords:
-
-```bash
-gh issue view <N> --repo <tracker> --json closedByPullRequestsReferences
-```
+First, take the PRs that GitHub itself has linked to the issue via "fixes" /
+"closes" / "resolves" keywords from the `closedByPullRequestsReferences` field of the 1a read — no separate call.
 
 Then look for any PR in either repo that mentions the issue number, in either
 state. `gh search prs --state` only accepts `open` or `closed`, so run two
@@ -99,8 +101,35 @@ the fix" field), fetch that PR directly and trust it more than the search:
 
 ```bash
 gh pr view <PR-NUMBER> --repo <upstream> \
-  --json number,title,state,url,milestone,mergedAt,mergeCommit,labels,reviews,isDraft
+  --json number,title,state,url,milestone,mergedAt,mergeCommit,labels,reviews,isDraft,author
 ```
+
+`author` is in the field set so the *Remediation developer* append and the `REMEDIATION_DEVELOPER_HANDLE` lookup in Step 2b read the PR author from this fetch instead of a second `gh pr view`.
+When the field lists **more than one** PR, fetch them in one aliased GraphQL query instead of one `gh pr view` each.
+Use the Write tool to write the query to `<scratch>/sync-prs-<N>.graphql` (`<scratch>` is the session scratch directory as an absolute path), one aliased block per PR number parsed from the body:
+
+```graphql
+query {
+  repository(owner: "<upstream-owner>", name: "<upstream-name>") {
+    p<PR1>: pullRequest(number: <PR1>) {
+      number title state url isDraft mergedAt
+      mergeCommit { oid }
+      milestone { title }
+      author { login ... on User { name } }
+      labels(first: 30) { nodes { name } }
+      reviews(last: 20) { nodes { author { login } state submittedAt } }
+    }
+    p<PR2>: pullRequest(number: <PR2>) { ... }
+  }
+}
+```
+
+```bash
+gh api graphql -F query=@<scratch>/sync-prs-<N>.graphql
+```
+
+Only the integer PR numbers parsed from the body go into the query — never other body text.
+A `null` alias means the number is not a PR in `<upstream>`; record it as a dangling reference, as a failed `gh pr view` would have been.
 
 For each PR found, record: number, repo, title, state (open / merged / closed),
 merge date, milestone. A PR that is merged into `<upstream>` with a milestone
@@ -365,7 +394,7 @@ update, label change, or next-step recommendation in Step 2:
 | CVE record has open **review comments / reviewer proposals** (detected in Step 1e by reading the record's own `comments[]` through the CVE-tool adapter's authenticated record fetch — for the ASF default, `vulnogram-api-record-fetch --comments-only`; the mailing-list notification on `<security-list>` is the fallback signal source and the place the courtesy reply lands). Which of those comments count as *open* is computed by slug against the processed-ledger markers in the tracker's status rollup — see Step 1e. | Surface each open review comment in Step 2a with **clickable links** to the Gmail thread and to the CVE record on `<cve-tool-url>` (the reader can authenticate in-browser to see live state), verbatim-quoted; then for each one that maps cleanly to a tracking-issue body field (CWE, Affected versions, Reporter credited as, Public advisory URL, Short public summary), **propose the matching body-field update** as a numbered item in Step 2b. The body is the source of truth for the CVE JSON — regeneration in Step 5 will pull the update back into the paste-ready attachment, and the release manager's only remaining action is the Vulnogram paste + comment-resolution click. Comments that do not map to a body field (severity/CVSS, out-of-scope challenges, free-form rewrites) are surfaced verbatim and flagged for human decision. See Step 1e for the full Gmail-search recipe, the reviewer-comment-to-field mapping table, and the courtesy-reply pattern. |
 | The referenced `<upstream>` PR has been opened but is still in `open` state | Propose `pr created` label; update the *"PR with the fix"* body field with the PR URL. |
 | The referenced `<upstream>` PR moved to `merged` | Propose swapping `pr created` → `pr merged`; update milestone to the shipping release if now known. **Also**: check whether all six mandatory CVE body fields are populated (*CWE*, *Affected versions*, *Severity*, *Reporter credited as*, *Short public summary for publish*, *PR with the fix*). If any is empty / `_No response_`, propose posting (or PATCH-updating) the *Remediation-developer fill-fields comment* per [the dedicated bullet in Step 2b](SKILL.md#step-2--build-a-proposal-do-not-apply-anything-yet) — the remediation developer is best-positioned to fill these in, and the tracker stays assigned to them until the fields are complete. This is the **first** of two firing points for the fill-fields comment; the second is the `pr merged` → `fix released` row below. |
-| The *"PR with the fix"* body field has at least one PR URL **and** the *"Remediation developer"* body field is missing the PR author's name (or is `_No response_`) | Propose appending the PR author's display name (`gh pr view <N> --repo <upstream> --json author --jq '.author.name // .author.login'`) to the *"Remediation developer"* body field. **Append, never overwrite** — manual edits (co-authors added by the triager, name spelling corrections, "Anonymous" overrides) must survive subsequent syncs. Run once per fresh PR URL added to the field; skip if the resolved name is already present (case-insensitive substring match). **Apply the [bot/AI credit policy](../../../../tools/cve-tool-vulnogram/bot-credits-policy.md) to the resolved name + handle before proposing the append** — if the PR author matches the bot detection rule (`*[bot]` suffix, known-bot list, `*-bot`/`*-ai`/`*-agent`/`*-gpt` suffix patterns), do **not** propose the append; surface *"skipped credit: `<handle>` (matches bot policy — `<rule>`)"* in Step 2 instead. The user can override per the policy doc. The CVE JSON generator reads the field on its next regeneration and emits one `type: "remediation developer"` credit per line, so this hand-off keeps the credit attached even if Vulnogram drops the CLI flag. See the *"Auto-resolve --remediation-developer"* note in Step 5 for the historical CLI-flag fallback. |
+| The *"PR with the fix"* body field has at least one PR URL **and** the *"Remediation developer"* body field is missing the PR author's name (or is `_No response_`) | Propose appending the PR author's display name (`author.name`, else `author.login`, from the Step 1b PR fetch — no extra call) to the *"Remediation developer"* body field. **Append, never overwrite** — manual edits (co-authors added by the triager, name spelling corrections, "Anonymous" overrides) must survive subsequent syncs. Run once per fresh PR URL added to the field; skip if the resolved name is already present (case-insensitive substring match). **Apply the [bot/AI credit policy](../../../../tools/cve-tool-vulnogram/bot-credits-policy.md) to the resolved name + handle before proposing the append** — if the PR author matches the bot detection rule (`*[bot]` suffix, known-bot list, `*-bot`/`*-ai`/`*-agent`/`*-gpt` suffix patterns), do **not** propose the append; surface *"skipped credit: `<handle>` (matches bot policy — `<rule>`)"* in Step 2 instead. The user can override per the policy doc. The CVE JSON generator reads the field on its next regeneration and emits one `type: "remediation developer"` credit per line, so this hand-off keeps the credit attached even if Vulnogram drops the CLI flag. See the *"Auto-resolve --remediation-developer"* note in Step 5 for the historical CLI-flag fallback. |
 | The *"Affected versions"* body field is missing, holds a pre-convention shape, or carries the project's pre-release sentinel, and the tracker is **not** at `fix released` yet | Propose populating / refining *"Affected versions"* per the project's convention. The per-scope shape, the pre-release sentinel (if any), and the lifecycle live in [`<project-config>/scope-labels.md` — *Affected versions convention by scope*](../../../../<project-config>/scope-labels.md#affected-versions-convention-by-scope). After updating, regenerate the CVE JSON attachment so the parser picks up the new shape. **Always emit the proposed value wrapped in backticks** (`` `>= X.Y.Z, < A.B.C` `` rather than `>= X.Y.Z, < A.B.C`) — see the dedicated row below for why. |
 | The *"Affected versions"* body field has a value but it is **not backtick-wrapped** (the raw value, as returned by `gh issue view --json body`, starts with a `>` character or contains a bare `>=` / `<=` / `<` / `>` token outside a `` ` `` … `` ` `` span) | Propose wrapping the value in backticks (e.g. `` `>= 3.0.0, < 3.2.2` ``, `` `< 3.2.2` ``, `` `<= 3.2.1` ``). **Why:** the leading `>` is the markdown blockquote marker — without backticks, GitHub renders the rendered field as a quoted single line, and maintainers editing via the issue-form UI silently lose the `>=` prefix (saving back the visible quoted text), turning a bounded range like `>= 3.0.0, < 3.2.2` into a misleading single-version entry like `3.2.1`. The CVE-JSON generator already strips backticks at parse time (`cleaned = value.strip().strip("\`").strip()`), so wrapping is a pure-cosmetic + edit-resilience fix with no semantic change. Apply this fix on every sync run that surfaces an un-wrapped value, even if no other body update is being proposed for the tracker. After updating, regenerate the CVE JSON attachment so the un-wrapped → wrapped transition is recorded in the next emission. |
 | A tracker is transitioning to `fix released` (per the row below) and *"Affected versions"* still carries the project's pre-release sentinel | Propose replacing the sentinel with the concrete released version per the project's convention; see [`<project-config>/scope-labels.md` — *Affected versions convention by scope*](../../../../<project-config>/scope-labels.md#affected-versions-convention-by-scope) for the recipe. After the body update, regenerate the CVE JSON attachment so `versions[]` picks up the bounded `lessThan` shape and the record becomes review-ready. |
@@ -459,7 +488,7 @@ comments on records that have already moved on, and a comment on a
 flag on the record, so sync tracks what it has already acted on by
 **`slug`** — the stable per-comment id in the array above. On every run:
 
-1. Read the tracker's status-rollup comment and collect every slug from
+1. Read the tracker's status-rollup comment (from the comments the 1a fetch returned) and collect every slug from
    its processed-ledger markers, which have the fixed form:
 
    ```markdown
@@ -816,7 +845,7 @@ the observed state only when **no** ticked checklist item exists
 comment is the pending state, not the satisfied one. Step 2b turns a
 pending flag into the *Security-pages reminder comment* proposal
 ([`signals-to-actions.md`](signals-to-actions.md)). The scan reads
-comments the 1g fetch already returns — no extra API call.
+the body and comments the 1a fetch already returned — no extra API call.
 
 **When the tracker has no CVE ID.** Closed trackers without a
 `CVE-YYYY-NNNNN` in the *CVE tool link* body field are closing
@@ -917,7 +946,9 @@ returned thread:
    2026-04-21*) maps to a `[VOTE] Release <scope-b> …` thread.
 3. Check the thread's most recent message: a
    `[RESULT][VOTE]` reply is a closed vote. Open votes have **no**
-   `[RESULT]` reply yet. Closed votes do not warrant a label
+   `[RESULT]` reply yet.
+   The `[VOTE]` query above already returns the `[RESULT][VOTE]` messages (their subjects contain `[VOTE]`), so decide open / closed from that one result set — no per-thread fetch.
+   Closed votes do not warrant a label
    add — by the time the vote has resolved, either the release
    shipped (and `fix released` flow takes over) or the vote
    failed (and the team will cut a fresh RC; the next sync will

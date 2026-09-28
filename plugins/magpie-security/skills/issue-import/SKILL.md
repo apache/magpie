@@ -31,7 +31,7 @@ argument-hint: "[import] [last Nd|all] [skip threadId]"
 capability: capability:intake
 surface_hash: sha256:779cf1467953799b
 license: Apache-2.0
-measured_tokens: 11013
+measured_tokens: 11120
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -332,7 +332,11 @@ Before touching any candidate thread, verify:
    - `~/.config/apache-magpie/` is writable (the redactor's
      mapping file lives there);
    - the configured collaborator source is reachable via
-     `gh api` (default: `<tracker>` from `project.md`);
+     `gh api` (default: `<tracker>` from `project.md`) — fetch the
+     collaborator list here, once per run, with
+     `gh api repos/<tracker>/collaborators --jq '.[].login'` and keep
+     it in the observed-state bag; Step 2-bis (team-member senders)
+     and Step 4 (collaborator exemption) reuse it;
    - the redaction-tuning knobs (collaborator exemption,
      enabled field types) are loaded into the skill's
      observed-state bag — they apply at filter-time below.
@@ -422,8 +426,10 @@ Full procedure: [`fix-already-public.md`](fix-already-public.md).
 ## Step 3 — Classify each candidate
 
 For each remaining candidate, read the **root message only** (the one
-with no `In-Reply-To`). Use `mcp__claude_ai_Gmail__get_thread` with
-`messageFormat: FULL_CONTENT` and pick the first message.
+with no `In-Reply-To`). Take it from the Step 2a thread fetch
+(`mcp__claude_ai_Gmail__get_thread` with `messageFormat: FULL_CONTENT`)
+and pick the first message; fetch the thread here only for a candidate
+Step 2a did not fetch.
 
 Decide the candidate's class from the root message:
 
@@ -452,7 +458,7 @@ if not, fall through to the table below.
 | Class | How to spot it | How to handle |
 |---|---|---|
 | **Report**: a reporter describes a vulnerability | The body has a description, a PoC / reproduction steps, an impact claim. Sender is an external address (not a project-internal address, not on the security-team roster in [`AGENTS.md`](../../../../AGENTS.md)). | Proceed to Step 4. |
-| **Report (disposition converged)**: a `Report` where the inbound thread has a team-member substantive technical disposition AND the reporter has acknowledged it | Same body shape as `Report`, but the thread has a team-member reply with one of: option-1/option-2 framing, *"we agree, opening fix PR"* disposition, a docs-clarification acknowledgement; AND the reporter has replied confirming the disposition; AND no further reporter follow-up is needed. Detected at Step 3 by reading the thread (FULL_CONTENT, last 5 messages) and scanning for a team-roster sender's reply followed by an external-sender acknowledgement | Proceed to Step 4 (extract template fields and create the tracker for audit trail); in Step 7, **skip the canned receipt-of-confirmation reply** (the reporter has already seen our substantive response and a canned receipt would be tone-deaf). Note in the rollup entry that the disposition is converged on the inbound thread. |
+| **Report (disposition converged)**: a `Report` where the inbound thread has a team-member substantive technical disposition AND the reporter has acknowledged it | Same body shape as `Report`, but the thread has a team-member reply with one of: option-1/option-2 framing, *"we agree, opening fix PR"* disposition, a docs-clarification acknowledgement; AND the reporter has replied confirming the disposition; AND no further reporter follow-up is needed. Detected at Step 3 by reading the thread (FULL_CONTENT, last 5 messages — from the Step 2a thread fetch) and scanning for a team-roster sender's reply followed by an external-sender acknowledgement | Proceed to Step 4 (extract template fields and create the tracker for audit trail); in Step 7, **skip the canned receipt-of-confirmation reply** (the reporter has already seen our substantive response and a canned receipt would be tone-deaf). Note in the rollup entry that the disposition is converged on the inbound thread. |
 | **CVE-tool bookkeeping**: an automated or human status-change notification on the ASF CVE tool | Sender is `<security-list>` (or one of the security-team members acting on behalf of the CVE tool). Subject matches one of: `"CVE-YYYY-NNNNN reserved for <product>"`, `"Comment added on CVE-YYYY-NNNNN"`, `"CVE-YYYY-NNNNN is now READY"`, `"CVE-YYYY-NNNNN is now PUBLIC"`, `"CVE-YYYY-NNNNN is now PUBLISHED"`, `"CVE-YYYY-NNNNN REJECTED"`, or a verbatim `"<state-change>"` line in the body pointing at `<cve-tool-url>/cve5/CVE-YYYY-NNNNN`. | Do **not** import and do **not** draft a reply — the CVE-tool notifications are consumed by the `security-issue-sync` skill's Step 1e review-comment check. Classify as `cve-tool-bookkeeping` and drop. |
 | **Automated scanner dump**: SAST/DAST tool output, CodeQL/Dependabot alert paste, a string of "issues" with no human PoC | Body is machine-generated, contains multiple unrelated findings, no explanation of Security Model violation | Surface as a candidate with class `automated-scanner` and **do not** propose auto-import. In Step 5 the skill proposes a Gmail draft from the *"Automated scanning results"* canned response in [`canned-responses.md`](../../../../<project-config>/canned-responses.md) instead. |
 | **Consolidated multi-issue report**: one email bundles ≥3 unrelated vulnerabilities | The root message has headings like *"Issue 1"*, *"Issue 2"*, each of which would be its own tracker | Surface class `consolidated-multi-issue`; do not auto-import. Propose the "Sending multiple issues in consolidated report" canned reply. |
@@ -487,7 +493,7 @@ with `messageFormat: FULL_CONTENT`) goes through the redactor per
 [`tools/privacy-llm/wiring.md`](../../../../tools/privacy-llm/wiring.md#redact-after-fetch-protocol)
 before its content is used for field extraction. Concretely:
 
-1. Resolve the collaborator set once for this skill run via
+1. Reuse the collaborator set fetched once in Step 0 via
    `gh api repos/<tracker>/collaborators --jq '.[].login'`
    (the configured collaborator source from
    `<project-config>/privacy-llm.md` — default `<tracker>`).

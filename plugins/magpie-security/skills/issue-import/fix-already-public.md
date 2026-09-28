@@ -39,15 +39,24 @@ candidate as a potential `fix-already-public`):
    3) — never put report-derived strings directly into the
    `gh search prs` argument:
 
+   Compute `<since-date>` yourself as today minus 180 days, in
+   `YYYY-MM-DD` form, and write the literal date into the qualifier —
+   no `date` command substitution, so the `gh` call stays a plain
+   command and works on both macOS and Linux:
+
    ```bash
    # Write keywords to a temp file first; sanitise with `tr -cd`.
    KW=$(tr -cd 'A-Za-z0-9._ -' < <scratch>/pubfix-kw-<threadId>.txt)
    gh search prs "$KW" --repo <upstream> \
-     --merged --merged-at ">=$(date -u -d '180 days ago' +%Y-%m-%d)" \
-     --json number,title,author,mergedAt,url --limit 10
+     --merged --merged-at ">=<since-date>" \
+     --json number,title,author,closedAt,url --limit 10
    gh search prs "$KW" --repo <upstream> --state open \
      --json number,title,author,createdAt,url --limit 10
    ```
+
+   `gh search prs` has no `mergedAt` JSON field; for the merged search,
+   `closedAt` is the merge date (the `--merged` filter guarantees every
+   hit was merged).
 
 3. **GHSA cross-reference.** If the body contains a `GHSA-…` ID
    that Step 2a did *not* match against an existing tracker,
