@@ -189,7 +189,9 @@ Skip the Step 2a searches when the candidate's **provisional** class
 is `automated-scanner`, `consolidated-multi-issue`, `media-request`,
 `spam`, or `cve-tool-bookkeeping` — those never get a tracker, so
 the "is there already a tracker?" question is moot.
-The final class is assigned only in Step 3, so pre-classify here: once the root message has been read (above), match it against the Step 3 classification table — `cve-tool-bookkeeping` is recognisable from the subject alone.
+The final class is assigned only in Step 3, so pre-classify here: once the root message has been read (above), match it against the Step 3 classification table.
+Subject-pattern `cve-tool-bookkeeping` threads never get this far — the [Step 1 pre-filter](candidate-listing.md#step-1-pre-filter--classes-decidable-from-subject-and-sender) already dropped them — so one seen here is the body-line variant, recognisable from the root message.
+A thread Step 1 pre-tagged as a GHSA relay is provisionally a `Report`.
 Still extract the subject keywords and code pointers, because Step 2b reuses them.
 When the provisional class is unclear, treat the candidate as a `Report` and run the searches.
 

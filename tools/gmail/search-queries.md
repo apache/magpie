@@ -108,9 +108,9 @@ noreply sender, which is what we actually want to drop.
 for CVE-tool bookkeeping *and* for ASF-security-team forwarding of
 inbound reports *and* for ad-hoc ASF Security discussion.
 Blanket-excluding the sender would drop forwarded reports along with
-the bookkeeping noise, so the bookkeeping emails are filtered out in
-the import skill's Step 3 classification table by subject pattern
-instead.
+the bookkeeping noise, so the bookkeeping emails are filtered out by
+subject pattern instead — in the import skill's Step 1 pre-filter,
+with its Step 3 classification table as the backstop.
 
 Adjust the time window per the user's selector (`since:` →
 `newer_than:` or `after:`; `import all` → `newer_than:90d`).

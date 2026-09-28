@@ -60,9 +60,10 @@ for three very different message types — CVE-tool bookkeeping,
 **ASF Security Team forwarding of inbound reports**, and ad-hoc ASF
 Security discussion / advice. Blanket-excluding the sender would drop
 the forwarded reports along with the bookkeeping noise, so the
-bookkeeping emails are filtered out at Step 3 by subject pattern
-instead — see the `cve-tool-bookkeeping` row of the classification
-table.
+bookkeeping emails are filtered out by subject pattern instead —
+by the [Step 1 pre-filter](#step-1-pre-filter--classes-decidable-from-subject-and-sender)
+below, with the `cve-tool-bookkeeping` row of the Step 3
+classification table as the backstop for the body-line variant.
 
 **Do not exclude `-from:notifications@github.com` wholesale.** GitHub
 uses this address for **two distinct categories** of messages:
@@ -131,5 +132,34 @@ hinges on this.
 
 **Do not read the thread bodies yet.** Body reads cost Gmail budget and
 most threads will be filtered out at Step 2.
+
+### Step 1 pre-filter — classes decidable from subject and sender
+
+Some candidate classes are decided by the subject line and the sender alone.
+Apply them here, to the union of the candidate-listing, GHSA and PonyMail-paired results, so those threads never reach the Step 2 search, the Step 2-bis MINIMAL read, or the Step 2a `FULL_CONTENT` fetch.
+This is a pre-flight no-op classifier in the sense of `security-issue-sync`'s [bulk-mode Step 1b](../issue-sync/bulk-mode.md): deterministic, conservative, and never silent.
+
+**Inputs.** Only the subject and `From:` address the search result carries for each message of the thread, plus `<tracker>`, `<upstream>` and `<security-list>` from [`<project-config>/project.md`](../../../../<project-config>/project.md).
+Drop a thread only when **every** message the result lists for it matches the **same** rule; a result that carries no subject or no sender keeps the thread.
+Never read a body to decide.
+
+**Rules**, applied in order; the first match wins:
+
+| # | Rule | Decision |
+|---|---|---|
+| 1 | Subject carries a `GHSA-` token, sender is `notifications@github.com`, and the subject begins with `[<upstream>]` | **Keep**, pre-tagged as a GHSA relay. It is a `Report` candidate whose body is needed. |
+| 2 | Sender satisfies the sender condition of the Step 3 [`cve-tool-bookkeeping` row](SKILL.md#step-3--classify-each-candidate), **and** the whole subject matches one of that row's subject patterns, with `CVE-YYYY-NNNNN` read as `CVE-\d{4}-\d{4,7}` and no `Re:` / `Fwd:` / other prefix | **Pre-filter** as `cve-tool-bookkeeping`. The row's other trigger — a state-change line in the body — needs the body, so it stays at Step 3. |
+| 3 | Anything else | **Keep** — Steps 2 to 3 decide. |
+
+Tracker-mirror chatter is left to Step 2 and Step 2-bis, as before.
+Every other class (`automated-scanner`, `consolidated-multi-issue`, `media-request`, `spam`, `cross-thread-followup`, `fix-already-public`, forwarder relays, and the body-line variant of `cve-tool-bookkeeping`) needs the body and is **never** pre-filtered.
+
+**Hard rules.**
+
+- **Never silent.** Every pre-filtered thread is recorded with its `threadId`, sender, subject, class and rule number.
+  Step 5 shows the per-class counts and Step 8 lists each thread, per [Step 5](screening-and-proposal.md#step-5--propose-the-imports) and [Step 8](SKILL.md#step-8--recap).
+  The user can send any of them back through Steps 2 to 3 with `keep <threadId>` at Step 6.
+- **A named thread is never pre-filtered.** Under `import thread:<id>` the rules are evaluated for context only; Step 3 classifies the thread as usual.
+- **Borderline means keep.** A subject that only resembles a pattern (a `Re:` prefix, a different CVE-token shape, an extra suffix) keeps the thread, and Step 3 still applies its table.
 
 ---

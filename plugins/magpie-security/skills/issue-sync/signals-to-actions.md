@@ -1278,6 +1278,9 @@ will change and *why*. Group them by category:
   forwarder-adapter marker), proceed in direct-reporter mode as
   written above — the draft targets the reporter on the inbound
   thread.
+  In either of those cases do not load or invoke the sub-skill at all:
+  with `forwarders.enabled` empty its Step 0 returns no match, and the marker is the recorded result of the import-time `detect()`, so a tracker without it has no adapter to route through.
+  The sub-skill's Step 1 stays the authoritative detection for the trackers that do carry the marker.
 
   **Never send.** Always create a draft. Prefer attaching it to the
   inbound mail thread (the preferred `oauth_curl` backend uses

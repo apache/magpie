@@ -23,6 +23,7 @@ class (the Step 2a pre-classification) is `automated-scanner`,
 `consolidated-multi-issue`, `media-request`, `spam`,
 `cve-tool-bookkeeping`, or `cross-thread-followup` —
 those never become trackers regardless.
+(Threads the Step 1 pre-filter dropped as `cve-tool-bookkeeping` never reach this step.)
 
 **Detection signals** (any one is sufficient to surface the
 candidate as a potential `fix-already-public`):

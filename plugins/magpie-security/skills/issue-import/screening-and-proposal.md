@@ -281,6 +281,15 @@ Present all candidates as a single numbered proposal grouped by class:
   count in the recap (*"N CVE-tool-bookkeeping emails dropped"*) so
   the user knows the filter is working but is not forced to scroll
   past them.
+  This holds the same whether Step 3 or the
+  [Step 1 pre-filter](candidate-listing.md#step-1-pre-filter--classes-decidable-from-subject-and-sender)
+  classified the thread.
+- **Pre-filtered at Step 1** (class `cve-tool-bookkeeping`): end
+  the proposal with one informational line giving the count —
+  *"Pre-filtered at Step 1 by subject/sender: N
+  cve-tool-bookkeeping — listed in the recap; `keep <threadId>`
+  sends one through Steps 2–3"*. It asks for no decision; omit it
+  when the count is zero.
 
 ### fix-already-public reply shape
 

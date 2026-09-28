@@ -21,9 +21,9 @@ when_to_use: |
   queue", or after an import. Once the team has decided, go straight
   to cve-allocate, invalidate or deduplicate.
 capability: capability:triage
-surface_hash: sha256:7d5054dc4806f995
+surface_hash: sha256:c1768478d7a01990
 license: Apache-2.0
-measured_tokens: 7189
+measured_tokens: 7636
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -267,6 +267,7 @@ in `docs/prerequisites.md` for the overall setup.
 | `triage scope:<label>` (e.g. `triage scope:<scope-a>`; the project's scope labels come from `scope_detection.labels` in [`<project-config>/project.md`](../../../../<project-config>/project.md)) | subset by scope label, when set; useful when scoped-batch triage is split across triagers |
 | `triage CVE-YYYY-NNNNN` | the tracker for that allocated CVE — used together with `--retriage` (below) when a passed-triage decision needs re-litigating |
 | `--retriage` (flag) | force-include trackers that already had `needs triage` removed but where new comment activity warrants a fresh proposal (e.g. a reporter follow-up landed a substantive update; a sibling-vector report changed the team's read on a prior `INVALID` close). Combine with one of the selectors above; bare `--retriage` without a selector is a hard error — the skill refuses to re-triage everything ever. |
+| `--no-preflight` (flag) | bypass the Step 2 [pre-flight skip](gather.md#pre-flight-skip--trackers-awaiting-reaction) and classify every resolved tracker, including those whose last comment is an unanswered triage proposal. Same opt-out as `security-issue-sync`'s bulk-mode pre-flight; useful for a trust-but-verify sweep after a rule change. |
 
 If the user supplies no selector at all, default to `triage`
 (every open `needs triage`). If `--retriage` is passed without
@@ -372,6 +373,14 @@ prompt they see is Step 5's batched confirm screen.
 
 Per-tracker inputs, independent-public-fix detection, and bulk mode: [`gather.md`](gather.md).
 
+**Pre-flight skip before any per-tracker work.**
+Right after each chunk of the batched item 1 read, drop the trackers whose most recent comment is this skill's own unanswered Step 4 proposal and that show no later activity:
+they are awaiting the team's reaction, and re-classifying them would only draft a second proposal the maintainer skips at Step 5.
+Skipped trackers get no enrichment, no Step 2.5 / 2.6 / 3 / 4 work, and no bulk-mode subagent;
+each one is listed in the *"Pre-flight skipped (awaiting reaction)"* group at Step 5 and Step 7.
+`--retriage` and `--no-preflight` disable the skip, and an explicitly-numbered selector is never skipped.
+Rule table and hard rules: [`gather.md` — Pre-flight skip](gather.md#pre-flight-skip--trackers-awaiting-reaction).
+
 ---
 
 ## Step 2.5 — Apply the Security Model verbatim
@@ -452,7 +461,10 @@ and the apply phase (Step 6) then runs sequentially without
 further prompting.
 
 Present the full list of proposals as numbered items, grouped
-by class. Accept any of:
+by class.
+Above them, render the informational *"Pre-flight skipped (awaiting reaction)"* group from Step 2 — one line per skipped tracker with the proposal date and the rule that fired — which asks for no decision.
+An explicitly-numbered tracker the pre-flight would have skipped is proposed as usual, with a one-line note that it already carries an unanswered proposal from `<date>`.
+Accept any of:
 
 - `all` — post every proposal as drafted.
 - `1,3,5` — post only the listed items.
@@ -463,6 +475,8 @@ by class. Accept any of:
   classification for item NN to a different one of the six
   classes; re-draft and re-confirm.
 - `NN:skip` — drop item NN from the post list (no comment).
+- `force-triage <N>` — pull a pre-flight-skipped tracker back in;
+  run Steps 2–4 for it and re-present it on the next turn.
 - `none` / `cancel` — bail entirely.
 
 Never assume confirmation. If the user replies ambiguously, ask
@@ -519,6 +533,10 @@ After the post loop, print a recap with:
 - Disposition distribution (e.g. *"3 VALID, 1 DEFENSE-IN-DEPTH,
   2 INVALID, 1 INFO-ONLY, 0 PROBABLE-DUP, 1 FIX-ALREADY-PUBLIC"*).
 - Per-tracker line: clickable issue link, class, comment URL.
+- A *"Pre-flight skipped (awaiting reaction)"* group: one line per
+  tracker Step 2 skipped, with its clickable link, the date of the
+  unanswered proposal, and the rule that fired. Never omit it when
+  it is non-empty.
 - The set of sibling-skill next-step recommendations, grouped:
   - `security-cve-allocate NNN` for each VALID
   - `security-issue-invalidate NNN` for each INVALID and

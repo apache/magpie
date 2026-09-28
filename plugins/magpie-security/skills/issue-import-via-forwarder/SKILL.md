@@ -20,7 +20,7 @@ when_to_use: |
 capability: capability:intake
 surface_hash: sha256:23903c54f5da4596
 license: Apache-2.0
-measured_tokens: 6376
+measured_tokens: 6492
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -221,6 +221,10 @@ Before running, the skill needs:
   [`<project-config>/project.md`](../../../../<project-config>/project.md#forwarders).**
   When the list is empty, the sub-skill is a no-op — see Step 0
   below.
+  Parent skills check this themselves and do not invoke the sub-skill at all when it is empty.
+  They also pre-screen each message with the same sender-OR-preamble signals Step 1 uses and skip the invocation when neither matches any enabled adapter
+  (see [`security-issue-import` Step 3](../issue-import/SKILL.md#step-3--classify-each-candidate)).
+  That shortcut is a strict subset of Step 1's *not a relay* outcome; Step 1 remains the authoritative detection for every message that is passed in.
 - **At least one matching adapter directory under
   `tools/forwarder-relay/<name>/`.** Each `name` listed in
   `forwarders.enabled` must resolve to a directory that satisfies
