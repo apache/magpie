@@ -112,6 +112,13 @@ grouped, prioritised report → wait for confirmation before any write.
   A repository whose own run exits outside 0 and 11–14, or that the
   batch's stderr names in a collection warning, is the scan failure
   listed in the report.
+- **No `gh` inside command substitution.** `workflow-security-audit` never
+  passes `--gh-token "$(gh auth token)"` to zizmor: under the secure setup
+  a `gh` inside `$(…)` stays sandboxed and cannot read its credentials.
+  zizmor reads its token from `GH_TOKEN`, `GITHUB_TOKEN` or
+  `ZIZMOR_GITHUB_TOKEN`; with none set, the skill scans a shallow clone
+  made by a plain `gh repo clone`, or asks the user to run the remote scan
+  from their own terminal (#1453).
 
 ## Out of scope
 

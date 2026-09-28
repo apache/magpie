@@ -190,7 +190,9 @@ publication, with a human gate and an audit-log entry at every step.
   and a message matches an enabled adapter's sender or preamble pattern,
   a strict subset of the sub-skill's own *not a relay* outcome.
   `gh` calls that were wrapped in `$(…)` or piped are now plain commands,
-  which the secure setup needs.
+  which the secure setup needs; #1453 made the last one plain too
+  (`security-issue-invalidate` Step 1 no longer redirects `gh issue view`
+  into a file, it reads the JSON the plain command prints).
 - **Small always-on footprint (#1447).**
   Each security skill's `description` and `when_to_use`, which load in
   every session, state only its purpose, main trigger phrases and where

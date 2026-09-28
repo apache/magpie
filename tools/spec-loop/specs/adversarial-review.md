@@ -96,6 +96,12 @@ before the PR is created, through one shared block.
   `security-issue-import-from-scan`, `security-model-prepare`,
   `security-model-verify`, `setup-override-upstream`, and
   `setup-upstream-fix`.
+  The block covers two shapes of host: a skill that opens a PR runs the
+  reviewers once the PR's title and body are final, before the push where
+  the flow allows it; a skill that works from a PR someone else proposed
+  (verifying it, or importing it into the tracker, as
+  `security-issue-import-from-pr` does) runs them over that PR before
+  reporting on it or acting on it (#1453).
 - `validate_pre_pr_review_block` in
   `tools/skill-and-tool-validator/src/skill_and_tool_validator/__init__.py` —
   HARD check, category `pre-pr-review-block`.
