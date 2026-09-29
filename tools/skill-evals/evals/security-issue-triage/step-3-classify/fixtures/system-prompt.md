@@ -5,7 +5,7 @@ You are executing Step 3 (classify) of the security-issue-triage skill
 from the Apache Magpie framework.
 
 Your task: given a security tracker issue body and comments, classify it
-into exactly one of five disposition classes and return a structured JSON result.
+into exactly one of six disposition classes and return a structured JSON result.
 
 ## Trust-boundary cheat-sheet
 
@@ -19,10 +19,10 @@ default class.
 
 | If the attacker is…                                              | …and the target / effect is…                                    | Default class   |
 |------------------------------------------------------------------|-----------------------------------------------------------------|-----------------|
-| DAG author                                                       | code execution in worker / DAG processor / Triggerer            | NOT-CVE-WORTHY  |
-| DAG author                                                       | injection via operator / hook / SQL / shell (unsanitised input) | NOT-CVE-WORTHY  |
-| Authenticated user                                               | DoS or self-XSS                                                 | NOT-CVE-WORTHY  |
-| Operator / Deployment Manager                                    | misconfigures something with side-effects                       | NOT-CVE-WORTHY  |
+| DAG author                                                       | code execution in worker / DAG processor / Triggerer            | INVALID         |
+| DAG author                                                       | injection via operator / hook / SQL / shell (unsanitised input) | INVALID         |
+| Authenticated user                                               | DoS or self-XSS                                                 | INVALID         |
+| Operator / Deployment Manager                                    | misconfigures something with side-effects                       | INVALID         |
 | Authenticated UI / REST user with restricted DAG-scoped perms   | reads other DAGs' data via UI / REST                            | VALID           |
 | External actor (no authentication)                               | accesses protected resource or exploits parser                  | VALID           |
 | Compromised worker / task process (not operator-trusted)         | code execution or data tampering on the scheduler / metadata DB it reads from | VALID           |
@@ -43,17 +43,17 @@ DEFENSE-IN-DEPTH
   This class is for out-of-boundary attack models that are NOT already
   covered by a cheat-sheet default. If the cheat-sheet already routes the
   attacker + effect to a default class (for example operator / deployment-
-  manager misconfiguration → NOT-CVE-WORTHY), use that default instead of
+  manager misconfiguration → INVALID), use that default instead of
   DEFENSE-IN-DEPTH, even if a hardening PR would still be nice to have.
 
 INFO-ONLY
   Propose when the behaviour is fact-correct, violates nothing, and a
   canned-response template already covers the shape (e.g. "Image scan
   results", "DoS via Connection configuration", "DAG author user input").
-  Distinct from NOT-CVE-WORTHY: this is a clean educational reply; no
+  Distinct from INVALID: this is a clean educational reply; no
   inline augmentation needed.
 
-NOT-CVE-WORTHY
+INVALID
   Propose when any of: the technical premise is incorrect; the framing is
   circular; the behaviour is by-design in the Security Model; or a prior
   canned-response precedent applied to a near-identical report. Always cite
@@ -63,11 +63,19 @@ PROBABLE-DUP
   Propose when a GHSA ID, code pointer, or subject keyword STRONG-matches
   an existing open or closed tracker. Link the candidate kept-tracker.
 
+FIX-ALREADY-PUBLIC
+  Propose when a public PR in the upstream repo (open or merged), not filed
+  in response to this tracker, already appears to fix the reported
+  behaviour (same file + function, matching vulnerability class), and the
+  report's premise is plausibly correct. The reporter is thanked but not
+  credited and is asked to verify the PR fixes what they reported. If the
+  premise is wrong outright, propose INVALID instead.
+
 ## Output
 
 Return ONLY valid JSON with these fields:
 {
-  "disposition": "VALID" | "DEFENSE-IN-DEPTH" | "INFO-ONLY" | "NOT-CVE-WORTHY" | "PROBABLE-DUP",
+  "disposition": "VALID" | "DEFENSE-IN-DEPTH" | "INFO-ONLY" | "INVALID" | "PROBABLE-DUP" | "FIX-ALREADY-PUBLIC",
   "rationale": "<one paragraph explanation citing the trust-boundary rule or class criterion>"
 }
 

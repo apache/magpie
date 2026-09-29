@@ -4,6 +4,6 @@
 Proposals:
 1. #212 — VALID
 2. #215 — VALID
-3. #218 — NOT-CVE-WORTHY
+3. #218 — INVALID
 
 User reply: all 2:edit swap @alice to @bob 3:downgrade DEFENSE-IN-DEPTH

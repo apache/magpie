@@ -16,7 +16,7 @@
   "comments": [
     {
       "author": {"login": "security-team-member"},
-      "body": "The /health endpoint intentionally exposes aggregate status. This matches our prior NOT-CVE-WORTHY call on #198."
+      "body": "The /health endpoint intentionally exposes aggregate status. This matches our prior INVALID call on #198."
     }
   ]
 }
@@ -33,7 +33,7 @@ No results.
   {
     "from": "reporter@example.com",
     "date": "2026-05-03T10:00:00Z",
-    "snippet": "I disagree with the NOT-CVE-WORTHY assessment. The DAG count is sensitive metadata..."
+    "snippet": "I disagree with the INVALID assessment. The DAG count is sensitive metadata..."
   },
   {
     "from": "security@airflow.apache.org",
@@ -57,6 +57,6 @@ No match found.
 
 ### Cross-reference search
 
-STRONG match: issue #198 (closed as NOT-CVE-WORTHY 2026-01-15).
+STRONG match: issue #198 (closed as INVALID 2026-01-15).
 Same code surface: /health endpoint. Same vulnerability class: information
 disclosure via unauthenticated aggregate endpoint.

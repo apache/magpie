@@ -8,6 +8,6 @@
     }
   ],
   "positive_precedents": [],
-  "disposition_signal": "lowers_to_not_cve_worthy",
+  "disposition_signal": "lowers_to_invalid",
   "budget_exhausted": false
 }

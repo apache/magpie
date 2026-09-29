@@ -3,6 +3,6 @@
 
 Proposals:
 1. #212 — VALID
-2. #215 — NOT-CVE-WORTHY
+2. #215 — INVALID
 
 User reply: cancel

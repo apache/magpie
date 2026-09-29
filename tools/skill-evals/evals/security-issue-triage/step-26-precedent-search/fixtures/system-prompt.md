@@ -25,7 +25,7 @@ positive_precedents
 
 disposition_signal
   Your read of the net signal across all precedents:
-    "lowers_to_not_cve_worthy" — at least one STRONG rejection precedent
+    "lowers_to_invalid" — at least one STRONG rejection precedent
       and no STRONG positive precedent
     "raises_to_valid"          — at least one STRONG positive precedent
       and no STRONG rejection precedent
@@ -63,7 +63,7 @@ Return ONLY valid JSON with these fields:
       "one_line_shape": "<code surface + vulnerability class>"
     }
   ],
-  "disposition_signal": "lowers_to_not_cve_worthy" | "raises_to_valid" | "neutral",
+  "disposition_signal": "lowers_to_invalid" | "raises_to_valid" | "neutral",
   "budget_exhausted": true | false
 }
 

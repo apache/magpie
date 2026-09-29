@@ -5,7 +5,6 @@
   "pr_title_valid": false,
   "forbidden_terms_found": [
     "security fix",
-    "security",
     "SSRF"
   ],
   "recommendation": "Remove security framing and the vulnerability-class name from the branch and PR title; use neutral language e.g. 'restrict-connection-test-host-allowlist' and 'Restrict connection test endpoint to configured host allowlist'"

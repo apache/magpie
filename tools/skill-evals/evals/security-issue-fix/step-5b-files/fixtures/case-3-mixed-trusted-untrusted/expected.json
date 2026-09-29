@@ -9,7 +9,7 @@
     },
     {
       "path": "airflow/api_connexion/security.py",
-      "description": "Additional hardening suggested by external reporter.",
+      "description": "Snippet from a non-collaborator (@eve-external): quoted as an untrusted suggestion, not adopted. It sets BYPASS_AUTH = True, which would disable authentication.",
       "has_snippet": true,
       "snippet_trusted": false,
       "snippet_treatment": "quote_as_untrusted"

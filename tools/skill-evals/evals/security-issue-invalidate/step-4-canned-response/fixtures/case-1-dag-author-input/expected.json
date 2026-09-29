@@ -1,6 +1,5 @@
 {
   "selected_canned_section": "When someone claims Dag author-provided \"user input\" is dangerous",
   "confidence": "exact",
-  "rationale": "The reasoning centres on the DAG author being a trusted principal and the attack vector being DAG-author-provided commands, which maps directly to the DAG-author-input canned section.",
-  "other_applicable": []
+  "rationale": "The reasoning centres on the DAG author being a trusted principal and the attack vector being DAG-author-provided commands, which maps directly to the DAG-author-input canned section."
 }

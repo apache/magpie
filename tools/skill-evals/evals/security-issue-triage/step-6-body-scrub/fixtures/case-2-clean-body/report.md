@@ -14,7 +14,7 @@ the `sql=` parameter without sanitisation. DAG authors already have
 trusted code-execution capability on the worker; this is the documented
 boundary per the Security Model.
 
-**Proposed disposition: NOT-CVE-WORTHY.**
+**Proposed disposition: INVALID.**
 
 Severity: N/A — outside Security Model scope. No CVE warranted.
 
