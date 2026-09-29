@@ -22,6 +22,9 @@ structured JSON result.
 | External actor                                                 | exploit only manifests on a non-supported platform               | INVALID        | (cite the project's supported-platforms section)                   |
 | DAG author who deliberately routes user input                  | injection in operator / hook / SQL / shell                       | INVALID        | DAG Author code passing unsanitized input                          |
 
+The two DAG-author rows differ in whose input it is: when the DAG author controls the value themselves (their own code, or an Airflow Variable they can write), it is the *code execution* row;
+the *routes user input* row applies only when input from someone else (a UI / API user, an external party) reaches the operator.
+
 If the attacker model and effect combination does not match any row above,
 set "uncertain": true and "default_class": "UNCERTAIN". Do not guess — flag
 it and let the user decide.
