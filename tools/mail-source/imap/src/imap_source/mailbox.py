@@ -33,8 +33,6 @@ from typing import Protocol, runtime_checkable
 
 from imap_source.config import ImapConfig
 
-_QUOTED = re.compile(r'"((?:[^"\\]|\\.)*)"')
-
 
 @dataclass(frozen=True)
 class MessageHead:
@@ -50,15 +48,20 @@ class ImapOperationError(RuntimeError):
 class MailSource(Protocol):
     """The method surface the operation modules need — satisfied by ``Mailbox`` and by test fakes."""
 
-    def folder_exists(self, name: str) -> bool: ...
+    def folder_exists(self, name: str) -> bool:
+        "Whether ``name`` exists as a mailbox folder on the server."
 
-    def select(self, name: str, *, read_only: bool = True) -> None: ...
+    def select(self, name: str, *, read_only: bool = True) -> None:
+        "Select ``name`` as the current mailbox, read-only by default."
 
-    def search_uids(self, *criteria: str) -> list[int]: ...
+    def search_uids(self, *criteria: str) -> list[int]:
+        "Run a UID SEARCH with the given IMAP criteria and return numeric UIDs."
 
-    def fetch(self, uids: Iterable[int], *, headers_only: bool = True) -> list[MessageHead]: ...
+    def fetch(self, uids: Iterable[int], *, headers_only: bool = True) -> list[MessageHead]:
+        "Fetch header or full payloads for the given UIDs."
 
-    def append(self, folder: str, message: bytes, *, flags: str = "\\Draft") -> int: ...
+    def append(self, folder: str, message: bytes, *, flags: str = "\\Draft") -> int:
+        "APPEND a raw RFC822 message to ``folder`` and return its UID."
 
 
 class Mailbox:
