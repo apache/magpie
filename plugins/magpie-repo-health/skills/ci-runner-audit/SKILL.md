@@ -5,25 +5,22 @@ name: ci-runner-audit
 family: repo-health
 mode: Triage
 description: |
-  Read-only audit of GitHub Actions workflow runner compatibility
-  for one repository, an explicit repository set, one Apache project
-  with multiple repositories, or the full Apache GitHub org. Finds
-  obsolete GitHub-hosted runner labels and macOS runner/tool
-  architecture mismatches. Produces TSV evidence files; never edits
-  workflows, opens PRs, or posts comments.
+  Read-only audit of GitHub Actions runner compatibility for one
+  repository, a repository set, one Apache project, or the full Apache
+  org. Finds obsolete GitHub-hosted runner labels and macOS runner/tool
+  architecture mismatches. Produces TSV evidence; never edits workflows,
+  opens PRs, or posts comments.
 when_to_use: |
   Invoke when a maintainer asks to "check CI runners", "find stale
   GitHub Actions runners", "audit workflow runner labels", "look for
-  macOS arm64/x64 mismatches", "find ubuntu-20.04 runners", or any
-  variation on auditing GitHub Actions runner compatibility. Ask for
-  scope when the request does not specify one. Skip when the user asks
-  to fix workflow files directly; run this audit first, then hand off
-  findings for a separate patch workflow.
+  macOS arm64/x64 mismatches", "find ubuntu-20.04 runners", or similar.
+  Ask for scope when unspecified. Skip when asked to fix workflow files
+  directly — audit first, hand off findings for a separate patch.
 argument-hint: "[all|retired|macos-arch] [--repo owner/name | --repo-file repos.txt | --owner apache]"
 capability: capability:triage
 surface_hash: sha256:c6da72e64ac4808d
 license: Apache-2.0
-measured_tokens: 2201
+measured_tokens: 2168
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0

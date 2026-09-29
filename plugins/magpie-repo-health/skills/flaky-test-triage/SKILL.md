@@ -7,25 +7,22 @@ mode: Triage
 requires_config:
   - repo-health-config.md
 description: |
-  Read-only flaky-test detection from GitHub Actions CI run history for one
-  repository. Parses workflow run outcomes over a configurable window,
-  computes per-job failure rates, and distinguishes intermittent failures
-  (flaky) from consistent failures (deterministically broken). Produces a
-  prioritised triage list without modifying any test code, workflow file,
-  or tracker state.
+  Read-only flaky-test detection from GitHub Actions run history for one
+  repository: parses run outcomes over a configurable window, computes
+  per-job failure rates, and separates intermittent failures from
+  deterministically broken ones. Produces a prioritised triage list without
+  modifying tests, workflows, or tracker state.
 when_to_use: |
   Invoke when a maintainer asks to "find flaky tests", "detect intermittent
   CI failures", "triage test instability", "show which CI jobs are flaky",
-  "analyse CI run history for failures", or any variation on identifying
-  non-deterministic test behaviour. Ask for the repo and window when not
-  supplied. Skip when the user wants to fix or skip a test directly; run
-  this audit first to surface the evidence, then hand off for a separate
-  patch.
+  "analyse CI run history for failures", or similar. Ask for the repo and
+  window when unsupplied. Skip when asked to fix or skip a test directly —
+  run this audit first, hand off the evidence for a separate patch.
 argument-hint: "[--repo owner/name] [--window-days N] [--threshold F]"
 capability: capability:triage
 surface_hash: sha256:eda3c3891897f08d
 license: Apache-2.0
-measured_tokens: 3069
+measured_tokens: 3039
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0

@@ -7,25 +7,22 @@ mode: Triage
 requires_config:
   - repo-health-config.md
 description: |
-  Read-only license compliance audit for one repository or a local
-  checkout. Checks that a LICENSE file exists, that a NOTICE file is
-  present and complete when required by the declared license, and that
-  source files carry SPDX-License-Identifier headers consistent with
-  the project's declared license. Produces a grouped compliance report
-  and proposes remedies for maintainer review. Never modifies any file.
+  Read-only license compliance audit for one repository or checkout:
+  LICENSE present, NOTICE complete when the declared license requires it,
+  and source files carrying SPDX-License-Identifier headers consistent with
+  that license. Produces a grouped report with proposed remedies for
+  review; never modifies any file.
 when_to_use: |
   Invoke when a maintainer asks to "check license compliance", "audit
   SPDX headers", "verify the NOTICE file", "find files missing license
-  headers", "check if our LICENSE file is present", or any variation on
-  auditing repository license hygiene. Ask for scope (repo or local path)
-  when not supplied. Skip when the user asks to apply license headers
-  directly; run this audit first, then hand off findings for a separate
-  patch.
+  headers", "check if our LICENSE file is present", or similar. Ask for
+  scope when unsupplied. Skip when asked to apply license headers
+  directly — audit first, hand off findings for a separate patch.
 argument-hint: "[--repo owner/name | --path /path/to/checkout] [--declared-spdx Apache-2.0]"
 capability: capability:triage
 surface_hash: sha256:b40b2993e5f18f54
 license: Apache-2.0
-measured_tokens: 4631
+measured_tokens: 4589
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0

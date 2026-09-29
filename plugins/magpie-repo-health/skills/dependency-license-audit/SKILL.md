@@ -5,27 +5,24 @@ name: dependency-license-audit
 family: repo-health
 mode: Triage
 description: |
-  Read-only license audit of a project's direct and transitive dependency
-  tree. Detects the dependency manager(s), resolves each dependency's
-  declared license from ecosystem metadata, classifies each against a
-  configured policy (ASF three-category A/B/X model or a custom allowlist),
-  and surfaces incompatible, forbidden, and unknown-license dependencies for
-  maintainer review. Never modifies manifests or lock files.
+  Read-only license audit of a dependency tree. Detects the manager(s),
+  resolves each dependency's license from ecosystem metadata, and classifies
+  it against a configured policy (ASF A/B/X or allowlist), surfacing
+  incompatible, forbidden, and unknown-license dependencies. Never modifies
+  manifests or lock files.
 when_to_use: |
   Invoke when a maintainer asks to "audit dependency licenses",
   "check for GPL dependencies", "find license conflicts", "classify
   dependency licenses", "check ASF license policy compliance for
   dependencies", "find copyleft dependencies", "flag unknown licenses", or
-  any variation on reviewing the license landscape of the dependency tree.
-  Also invoke when preparing for an ASF release and the maintainer needs
-  to verify no category X dependencies are present. Skip when the user
-  asks about the project's own LICENSE or NOTICE file — use
-  `license-compliance-audit` for that instead.
+  similar. Also invoke when preparing an ASF release that must carry no
+  category X dependency. Skip LICENSE / NOTICE questions —
+  `license-compliance-audit` covers those.
 argument-hint: "[--manager pip|npm|cargo|maven|gradle|trivy] [--policy asf|allowlist] [--repo owner/name | --path /path/to/checkout]"
 capability: capability:triage
-surface_hash: sha256:a04e73ccb6484b03
+surface_hash: sha256:ca025ba838856187
 license: Apache-2.0
-measured_tokens: 5244
+measured_tokens: 3453
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -217,223 +214,19 @@ When a dependency's license cannot be resolved:
 
 ## Pre-flight: verify audit tools
 
-Before scanning, verify the required tool is available.
-
-### pip-licenses (Python)
-
-```bash
-pip-licenses --version
-# If not installed:
-pip install pip-licenses
-# or, if the project uses uv:
-uv tool install pip-licenses
-```
-
-### license-checker (Node.js)
-
-```bash
-npx license-checker --version
-# If not installed:
-npm install -g license-checker
-```
-
-### cargo-deny (Rust — preferred)
-
-```bash
-cargo-deny --version
-# If not installed:
-cargo install cargo-deny
-# or: brew install cargo-deny
-```
-
-### cargo license (Rust — fallback)
-
-```bash
-cargo license --version
-# If not installed:
-cargo install cargo-license
-```
-
-### license-maven-plugin (Java — Maven)
-
-```bash
-mvn --version   # the plugin is fetched on demand; no separate install
-# Requires a JDK and a network-reachable Maven repository.
-```
-
-### dependency-license-report (Java — Gradle)
-
-```bash
-./gradlew --version   # use the project's wrapper when present
-# The license-report plugin is applied per-project (see Scan commands);
-# no global install is required.
-```
-
-### trivy (multi-language)
-
-```bash
-trivy --version
-# If not installed: https://trivy.dev/latest/getting-started/installation/
-# Homebrew: brew install trivy
-# trivy also covers Maven (pom.xml) and Gradle (*.lockfile) trees when a
-# native plugin cannot be applied.
-```
+Before scanning, verify the required tool is available (Golden rule 5): the per-manager availability checks and installation recipes live in [`audit-tool-setup.md`](audit-tool-setup.md) and are not repeated here.
 
 ---
 
 ## Scan commands
 
-Run from the repository root (local checkout or a temporary clone).
-
-### Python — pip-licenses
-
-```bash
-pip-licenses --format json --with-urls --with-description \
-    --output-file /tmp/dep-lic-pip.json
-```
-
-Parse the JSON output: each entry has `Name`, `Version`, `License`, and
-`URL`. Normalise the `License` string to an SPDX expression before
-classifying (e.g. `MIT License` → `MIT`).
-
-If the project uses `uv`:
-
-```bash
-uv run pip-licenses --format json --with-urls --with-description \
-    --output-file /tmp/dep-lic-pip.json
-```
-
-### Node.js — license-checker
-
-```bash
-npx license-checker --json --out /tmp/dep-lic-npm.json
-```
-
-Parse the JSON output: each key is `package@version`; the value object
-has `licenses` (a string or array) and `licenseFile`.
-
-### Rust — cargo-deny
-
-```bash
-cargo-deny --format json check licenses 2>/tmp/dep-lic-cargo-deny.json || true
-```
-
-Parse the JSON output: each `deny` or `warn` event has `name`, `version`,
-`license`, and the matched policy rule. Use `advisories`, `licenses`, and
-`sources` sections.
-
-If `cargo-deny` is not available, fall back to `cargo license`:
-
-```bash
-cargo license --json --avoid-build-deps \
-    > /tmp/dep-lic-cargo.json
-```
-
-Parse the JSON array: each entry has `name`, `version`, and `license`.
-
-### Java — Maven (license-maven-plugin)
-
-```bash
-mvn org.codehaus.mojo:license-maven-plugin:2.4.0:aggregate-download-licenses \
-    -Dlicense.outputDirectory=/tmp/dep-lic-maven
-# The aggregated report is written to
-# /tmp/dep-lic-maven/licenses.xml (covers a multi-module reactor).
-```
-
-Parse the XML output: each `<dependency>` has `<groupId>`, `<artifactId>`,
-`<version>`, and one or more `<license><name>` elements. Normalise each
-`<name>` to an SPDX expression before classifying (for example
-`The Apache Software License, Version 2.0` → `Apache-2.0`). Maven license
-metadata is free text, so expect to normalise more aggressively than for the
-Python or Rust ecosystems.
-
-### Java — Gradle (dependency-license-report)
-
-Apply the plugin without editing the checked-in build. Write a throwaway
-init script and point Gradle at it so no manifest is modified:
-
-```bash
-cat > /tmp/license-report.init.gradle <<'EOF'
-initscript {
-  repositories { mavenCentral() }
-  dependencies { classpath 'com.github.jk1:gradle-license-report:2.9' }
-}
-allprojects {
-  apply plugin: com.github.jk1.license.LicenseReportPlugin
-  licenseReport {
-    outputDir = '/tmp/dep-lic-gradle'
-    renderers = [new com.github.jk1.license.render.JsonReportRenderer()]
-  }
-}
-EOF
-./gradlew --init-script /tmp/license-report.init.gradle generateLicenseReport
-```
-
-Parse `/tmp/dep-lic-gradle/index.json`: each entry under `dependencies` has
-`moduleName` (`group:artifact`), `moduleVersion`, and `moduleLicense` /
-`moduleLicenses[]`. Normalise each license name to an SPDX expression before
-classifying, as with Maven.
-
-If neither wrapper nor plugin can be applied (no JDK, offline, or a locked
-build), fall back to **trivy** below, which reads `pom.xml` and Gradle
-`*.lockfile` trees directly.
-
-### Multi-language — trivy
-
-```bash
-trivy fs --format cyclonedx --output /tmp/dep-lic-trivy.json .
-```
-
-Parse the CycloneDX JSON: `components[]` each has `name`, `version`, and
-`licenses[].expression` (SPDX expression).
-
-Alternatively, use the `--scanners license` flag for a simpler output:
-
-```bash
-trivy fs --scanners license --format json \
-    --output /tmp/dep-lic-trivy.json .
-```
+Run the per-manager scan commands from [`scan-commands.md`](scan-commands.md); they are run from the repository root (a local checkout or a temporary clone) and are not repeated here.
 
 ---
 
 ## License normalization
 
-Ecosystem tools report license names as free text, legacy labels, or
-classifier strings. Normalise each to a canonical SPDX identifier from the
-SPDX License List (<https://spdx.org/licenses/>) **before** classifying. Maven
-`<name>` fields and Python trove classifiers are the least consistent, so
-expect to normalise those most.
-
-Common raw strings and their SPDX identifiers:
-
-| Raw string(s) | SPDX identifier |
-|---|---|
-| `MIT`, `MIT License`, `Expat` | `MIT` |
-| `Apache 2`, `Apache License 2.0`, `ASL 2.0`, `The Apache Software License, Version 2.0` | `Apache-2.0` |
-| `New BSD`, `BSD 3-Clause`, `BSD-3` | `BSD-3-Clause` |
-| `Simplified BSD`, `BSD 2-Clause`, `FreeBSD` | `BSD-2-Clause` |
-| `ISC License (ISCL)` | `ISC` |
-| `MPL 2.0`, `Mozilla Public License 2.0 (MPL 2.0)` | `MPL-2.0` |
-| `EPL 2.0`, `Eclipse Public License - v 2.0` | `EPL-2.0` |
-| `CDDL 1.1`, `Common Development and Distribution License` | `CDDL-1.1` |
-| `PSF`, `Python Software Foundation License` | `PSF-2.0` |
-| `GPLv3`, `GNU General Public License v3` | `GPL-3.0-only` |
-| `LGPLv2.1`, `GNU Lesser General Public License v2.1` | `LGPL-2.1-only` |
-| `Public Domain` | `LicenseRef-Public-Domain` (flag for review) |
-
-Normalization rules:
-
-- **"or later" matters.** `... v3 or later` / `GPLv3+` maps to the
-  `-or-later` suffix (`GPL-3.0-or-later`); a bare version maps to `-only`.
-  The two are distinct SPDX identifiers, so do not collapse them.
-- **Do not guess ambiguous strings.** A bare `BSD`, `GNU`, `Creative
-  Commons`, or `Apache` with no version resolves to no single SPDX
-  identifier. Treat it as unresolved and apply `unknown_license_action`
-  rather than assuming the most common variant.
-- **Preserve the operators.** When a tool reports a compound expression
-  (`Apache-2.0 OR MIT`, `MIT AND BSD-3-Clause`, `GPL-2.0 WITH
-  Classpath-exception-2.0`), normalise each operand but keep the `OR` /
-  `AND` / `WITH` structure for the classification step below.
+Normalise every license string to a canonical SPDX identifier before classifying: the raw-string table and the rules live in [`license-normalization.md`](license-normalization.md).
 
 ---
 
@@ -441,8 +234,7 @@ Normalization rules:
 
 For each dependency, apply the policy to its normalised license:
 
-1. Normalise the license string to SPDX notation (see **License
-   normalization** above).
+1. Normalise the license string to SPDX notation (see [`license-normalization.md`](license-normalization.md)).
 2. **Resolve compound expressions before categorising.** An SPDX expression
    may combine several licenses; evaluate the operators rather than treating
    the whole string as one atom:

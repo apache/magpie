@@ -7,25 +7,22 @@ mode: Triage
 requires_config:
   - repo-health-config.md
 description: |
-  Read-only GitHub Actions workflow security audit for one repository,
-  an explicit repository set, or a whole GitHub org. Runs `zizmor` to
-  surface injection vulnerabilities, excessive permissions, unpinned
-  external actions, and self-hosted-runner fork-secret leaks. Produces
-  a grouped, prioritised finding report; never edits workflow files,
-  opens PRs, or posts comments.
+  Read-only GitHub Actions workflow security audit for one repository, a
+  repository set, or a whole GitHub org. Runs `zizmor` to surface injection
+  vulnerabilities, excessive permissions, unpinned external actions, and
+  self-hosted-runner fork-secret leaks. Produces a grouped, prioritised
+  report; never edits workflows, opens PRs, or posts comments.
 when_to_use: |
   Invoke when a maintainer asks to "audit workflow security", "check
   GitHub Actions for vulnerabilities", "find unpinned actions", "look
-  for workflow injection risks", "run zizmor on the repo", or any
-  variation on auditing GitHub Actions security. Ask for scope when the
-  request does not specify one. Skip when the user asks to fix workflow
-  files directly; run this audit first, then hand off findings for a
-  separate patch.
+  for workflow injection risks", "run zizmor on the repo", or similar.
+  Ask for scope when unspecified. Skip when asked to fix workflow files
+  directly — audit first, hand off findings for a separate patch.
 argument-hint: "[--repo owner/name | --repo-file repos.txt | --owner org]"
 capability: capability:triage
 surface_hash: sha256:e50eafff464d131a
 license: Apache-2.0
-measured_tokens: 3554
+measured_tokens: 3530
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
