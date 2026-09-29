@@ -205,7 +205,7 @@ contract for one vendor:
 |---|---|---|
 | [`tools/cve-tool`](../tools/cve-tool/) | [`tools/cve-tool-vulnogram`](../tools/cve-tool-vulnogram/) (ASF) | MITRE form, CVE.org direct, GHSA |
 | [`tools/mail-archive`](../tools/mail-archive/) | [`tools/ponymail`](../tools/ponymail/) (ASF) | Hyperkitty, Discourse, Google Groups, GitHub Discussions |
-| [`tools/mail-source`](../tools/mail-source/) | mbox, IMAP, Gmail API ([`tools/gmail`](../tools/gmail/)) | Mailman 3 |
+| [`tools/mail-source`](../tools/mail-source/) | mbox, IMAP, Gmail API ([`tools/gmail`](../tools/gmail/)), Mailman 3 ([`tools/mail-source/mailman3`](../tools/mail-source/mailman3/)) | — |
 | [`tools/forwarder-relay`](../tools/forwarder-relay/) | ASF-security ([`tools/gmail/asf-relay.md`](../tools/gmail/asf-relay.md)) | huntr.com, HackerOne |
 | [`tools/scan-format`](../tools/scan-format/) | ASVS | other scanner formats |
 | [`tools/vcs`](../tools/vcs/) | Git | Mercurial, Subversion, … |
@@ -392,8 +392,7 @@ Both surfaces sit behind adapter contracts:
 The open extension points are labelled `good first issue`:
 mail-source backends —
 [mbox](https://github.com/apache/magpie/issues/304),
-[IMAP](https://github.com/apache/magpie/issues/303),
-[Mailman 3 / Hyperkitty](https://github.com/apache/magpie/issues/306);
+[IMAP](https://github.com/apache/magpie/issues/303);
 and chat / forum bridges —
 [Discourse](https://github.com/apache/magpie/issues/307),
 [Zulip](https://github.com/apache/magpie/issues/308),
@@ -506,7 +505,7 @@ coverage without pretending one team can implement an open-ended set.
 | LLM backend | ✅ by construction | Claude Code, Ollama, vLLM, Apache-hosted, Bedrock, direct Anthropic | Any endpoint meeting the capability floor + privacy gate |
 | Agentic harness | ✅ by construction (`AGENTS.md` standard) | Claude Code; OpenCode; [Codex adapter](adapters/codex.md) (experimental); [Gemini adapter](adapters/gemini.md) (experimental); community use under Cursor, Copilot, Kiro | Remaining runtime adapters [#314–#322](https://github.com/apache/magpie/issues?q=is%3Aissue+state%3Aopen+adapter+in%3Atitle) |
 | Forge / tracker | ✅ by construction | GitHub, Jira, SourceHut; Bitbucket and GitLab `partial-read-only` foundations excluded from complete-backend counts; CVE/scan/relay via adapter contracts | Forgejo/Gitea [#310](https://github.com/apache/magpie/issues/310), Pagure [#312](https://github.com/apache/magpie/issues/312), full Bitbucket tracker/change-request/Jira coverage [#606](https://github.com/apache/magpie/issues/606), GitLab [#305](https://github.com/apache/magpie/issues/305), Bugzilla [#302](https://github.com/apache/magpie/issues/302) |
-| Communication channels | ✅ by construction | PonyMail / mail-archive reads | mbox [#304](https://github.com/apache/magpie/issues/304), IMAP [#303](https://github.com/apache/magpie/issues/303), Mailman 3 [#306](https://github.com/apache/magpie/issues/306); Discourse [#307](https://github.com/apache/magpie/issues/307), Zulip [#308](https://github.com/apache/magpie/issues/308), Matrix [#309](https://github.com/apache/magpie/issues/309) |
+| Communication channels | ✅ by construction | PonyMail / mail-archive reads; Mailman 3 / Hyperkitty public-archive reads ([`tools/mail-source/mailman3`](../tools/mail-source/mailman3/)) | mbox [#304](https://github.com/apache/magpie/issues/304), IMAP [#303](https://github.com/apache/magpie/issues/303); Discourse [#307](https://github.com/apache/magpie/issues/307), Zulip [#308](https://github.com/apache/magpie/issues/308), Matrix [#309](https://github.com/apache/magpie/issues/309) |
 | Source control (VCS) | ✅ by construction | **Git (complete)**, **Mercurial (complete)**; ASF SVN surface ([`tools/asf-svn`](../tools/asf-svn/): source control + dist.apache.org + authorization) | Subversion generic VCS binding [\#602](https://github.com/apache/magpie/issues/602) (detected); Jujutsu [\#603](https://github.com/apache/magpie/issues/603), Fossil [\#604](https://github.com/apache/magpie/issues/604), Perforce [\#605](https://github.com/apache/magpie/issues/605) (tracked) |
 | Project governance | ✅ by construction | ASF + non-ASF adopter profiles | Adopter config (modes, thresholds) |
 

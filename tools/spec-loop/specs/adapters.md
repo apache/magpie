@@ -118,8 +118,8 @@ by swapping the adapter, not the skill.
   active implementation is the adapter named by `change_request.backend`
   in `project.md` (ASF default: `tools/github/`).
 - `tools/mail-source/` — abstract mail backend contract (operations,
-  capability matrix, adopter-declaration syntax) with concrete IMAP and
-  mbox implementations. Skills (`security-issue-import`,
+  capability matrix, adopter-declaration syntax) with concrete IMAP,
+  mbox, and Mailman 3 / Hyperkitty implementations. Skills (`security-issue-import`,
   `security-issue-sync`, `security-cve-allocate`) address every mail
   source through this contract rather than calling Gmail or PonyMail
   directly; the adopter's `<project-config>/project.md → Mail sources`

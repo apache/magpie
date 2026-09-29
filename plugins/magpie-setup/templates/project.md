@@ -220,7 +220,7 @@ remaining backends (and skips ops that no available backend supports).
 |---|---|---|---|
 | TODO: `gmail` | TODO: e.g. `primary` | TODO: `yes` / `no` | TODO: e.g. "Triager Gmail account subscribed to `<security-list>` and `<private-list>`" |
 | TODO: `ponymail` | TODO: e.g. `fallback` or `preferred for thread_url` | TODO: `yes` / `no` | TODO: e.g. "Read-only archive backstop; install per [`tools/ponymail/tool.md`](../../../tools/ponymail/tool.md)" |
-| TODO: *(add more rows as needed — `imap`, `mbox`, project-specific adapter)* | | | |
+| TODO: *(add more rows as needed — `imap`, `mbox`, `mailman3`, project-specific adapter)* | | | |
 
 > **Mail backend selection is org-level.** The `mail_provider` block in
 > your organization manifest sets the primary and fallback backends
@@ -236,7 +236,8 @@ Reference adapter docs:
 [`tools/gmail/tool.md`](../../../tools/gmail/tool.md) (full read+write),
 [`tools/ponymail/tool.md`](../../../tools/ponymail/tool.md) (read-only ASF archive),
 [`tools/mail-source/imap/README.md`](../../../tools/mail-source/imap/README.md) (stub),
-[`tools/mail-source/mbox/README.md`](../../../tools/mail-source/mbox/README.md) (read-only offline archive — stub).
+[`tools/mail-source/mbox/README.md`](../../../tools/mail-source/mbox/README.md) (read-only offline archive — stub),
+[`tools/mail-source/mailman3/README.md`](../../../tools/mail-source/mailman3/README.md) (read-only public Mailman 3 / Hyperkitty archive).
 
 ### Per-backend config
 
@@ -256,6 +257,7 @@ remove the row.
 | `imap_security_list_folder` | `imap` | TODO: e.g. `INBOX.security-list` |
 | `imap_drafts_folder` | `imap` | TODO: e.g. `Drafts` (or leave blank to declare `create_draft` unsupported on this adapter) |
 | `mbox_archive_path` | `mbox` | TODO: e.g. `/srv/audit/security-list-2024.mbox` |
+| `mailman3_archive_url` | `mailman3` | TODO: e.g. `https://mail.example.org/archives` (the Hyperkitty root, without `/api`) |
 
 ## Issue-template fields
 
