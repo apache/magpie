@@ -35,9 +35,9 @@ when_to_use: |
   run standalone with no other release-* skill in the session.
 argument-hint: "<version>-rcN [--post-to <planning-issue-url>] [--skip-repro] [--trusted-hardware]"
 capability: capability:triage
-surface_hash: sha256:cc95c562f91c28ec
+surface_hash: sha256:ed944a58facaae21
 license: Apache-2.0
-measured_tokens: 12460
+measured_tokens: 12380
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
