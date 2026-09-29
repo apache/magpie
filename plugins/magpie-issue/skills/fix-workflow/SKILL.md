@@ -23,9 +23,9 @@ when_to_use: |
   FEATURE-REQUEST. Skip when the fix is non-trivial enough to
   need design discussion — those go through an RFC first.
 capability: capability:fix
-surface_hash: sha256:3cd56b5468ad1bda
+surface_hash: sha256:cdd7487f53514882
 license: Apache-2.0
-measured_tokens: 4873
+measured_tokens: 4795
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -140,13 +140,6 @@ Local modifications go in the override file; framework changes go via PR to `apa
 
 ---
 
-## Snapshot drift
-
-Also at the top of every run, this skill compares the gitignored `.apache-magpie.local.lock` (per-machine fetch) against the committed `.apache-magpie.lock` (the project pin).
-On mismatch the skill surfaces the gap and proposes [`setup upgrade`](../../../magpie-setup/skills/setup/upgrade.md); the proposal is non-blocking.
-
----
-
 ## Prerequisites
 
 - **Issue triaged** as `BUG` or `FEATURE-REQUEST` (or reclassified-as-actionable) — otherwise the skill stops and points to [`issue-triage`](../triage/SKILL.md).
@@ -186,7 +179,7 @@ If the manifest enables a non-Git VCS under *Tools enabled → Source control*, 
 4. **Runtime invocable.** `<runtime> --version` runs.
 5. **Project config resolved** — `project.md`, `fix-workflow.md`,
    `runtime-invocation.md` readable.
-6. **Drift check** — see *Snapshot drift* above.
+6. **Drift check** — the generated pre-flight block reports snapshot drift.
 7. **Override consultation** — see *Adopter overrides* above.
 
 If any check fails, stop and surface what is missing.

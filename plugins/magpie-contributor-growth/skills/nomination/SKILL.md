@@ -25,9 +25,9 @@ when_to_use: |
   a contributor.
 argument-hint: "<github-handle> [window:Nm] [target:committer|pmc]"
 capability: capability:stats
-surface_hash: sha256:68634efda46f3980
+surface_hash: sha256:ce38f115ea57c59b
 license: Apache-2.0
-measured_tokens: 5703
+measured_tokens: 5610
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -151,18 +151,6 @@ reconciliation flow on framework upgrade, and upstreaming guidance.
 `<adopter-repo>/.apache-magpie/`. Local modifications go in the
 override file. Framework changes go via PR to
 `apache/magpie`.
-
----
-
-## Snapshot drift
-
-At the top of every run, this skill compares the gitignored
-`.apache-magpie.local.lock` (per-machine fetch) against the
-committed `.apache-magpie.lock` (the project pin). On mismatch
-the skill surfaces the gap and proposes
-[`setup upgrade`](../../../magpie-setup/skills/setup/upgrade.md) before
-proceeding, so the maintainer is always running the version the
-project pinned.
 
 ---
 

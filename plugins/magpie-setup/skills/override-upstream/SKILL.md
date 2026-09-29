@@ -14,9 +14,9 @@ when_to_use: >-
   it belongs upstream.
 argument-hint: "[skill-name]"
 capability: capability:platform
-surface_hash: sha256:33f740e1edbcdfda
+surface_hash: sha256:6aa9dd2488726450
 license: Apache-2.0
-measured_tokens: 4769
+measured_tokens: 4519
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -48,25 +48,6 @@ The contract (what overrides may contain, hard rules, reconciliation on framewor
 **Hard rule**: agents NEVER modify the snapshot under `<adopter-repo>/.apache-magpie/`.
 Local modifications go in the override file.
 Framework changes go via PR to `apache/magpie`.
-
----
-
-## Snapshot drift
-
-Also at the top of every run, this skill compares the gitignored `.apache-magpie.local.lock` (per-machine fetch) against the committed `.apache-magpie.lock` (the project pin).
-On mismatch it surfaces the gap and proposes [`setup upgrade`](../setup/upgrade.md).
-The proposal is non-blocking; the user may defer and run with the local snapshot for now.
-Full flow: [`docs/quick-start/other-install-methods.md` § Subsequent runs and drift detection](../../../../docs/quick-start/other-install-methods.md#subsequent-runs-and-drift-detection).
-
-Drift severity:
-
-- **method or URL differ** → ✗ full re-install needed.
-- **ref differs** (project bumped tag, or `git-branch` local is behind upstream tip) → ⚠ sync needed.
-- **`svn-zip` SHA-512 mismatches the committed anchor** → ✗ security-flagged; investigate before upgrading.
-
-> **Doubly important here**: the skill designs a framework-level abstraction by reading the snapshot's framework skill.
-> A stale snapshot means designing against a version that may already have changed upstream.
-> Address drift before proceeding.
 
 ---
 

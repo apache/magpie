@@ -25,9 +25,9 @@ when_to_use: |
   already triaged or in its grace window.
 argument-hint: "[pr:N] [label:LBL] [author:LOGIN] [review-for-me] [stale] [repo:owner/name]"
 capability: capability:triage
-surface_hash: sha256:1818e17a0a77470c
+surface_hash: sha256:5c92df54aab39ad7
 license: Apache-2.0
-measured_tokens: 5050
+measured_tokens: 5005
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
@@ -138,14 +138,6 @@ The override-file contract, the reconciliation flow on
 framework upgrade, and the hard rule on snapshot
 modifications are specified in
 [`prerequisites.md#adopter-overrides`](prerequisites.md).
-
----
-
-## Snapshot drift
-
-The top-of-run committed-vs-local snapshot comparison, its
-severity levels, and the `setup upgrade` proposal are
-specified in [`prerequisites.md#snapshot-drift`](prerequisites.md).
 
 ---
 ## Adopter configuration

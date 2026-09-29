@@ -23,9 +23,9 @@ when_to_use: |
   write-skill or optimize-skill after the reconciler has surfaced the
   proposal.
 capability: capability:reconciliation
-surface_hash: sha256:41215b301c413e2b
+surface_hash: sha256:964dbda42cb402ce
 license: Apache-2.0
-measured_tokens: 4435
+measured_tokens: 4363
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -117,15 +117,6 @@ for the contract.
 **Hard rule**: agents NEVER modify the snapshot under
 `<adopter-repo>/.apache-magpie/`. Framework-skill changes land via PR to
 `apache/magpie`.
-
----
-
-## Snapshot drift
-
-At the top of every run, compare the gitignored `.apache-magpie.local.lock`
-against the committed `.apache-magpie.lock`. On mismatch, surface the gap
-and propose [`setup upgrade`](../../../magpie-setup/skills/setup/upgrade.md). The proposal is
-non-blocking — the user may defer.
 
 ---
 

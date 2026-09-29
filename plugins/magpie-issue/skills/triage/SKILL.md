@@ -23,9 +23,9 @@ when_to_use: |
   `issue-fix-workflow` for confirmed bugs or the appropriate
   closure flow directly.
 capability: capability:triage
-surface_hash: sha256:67a3cb0c1cfd195f
+surface_hash: sha256:fb90bdc45aec5f8a
 license: Apache-2.0
-measured_tokens: 5115
+measured_tokens: 4973
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -136,21 +136,6 @@ if they exist, applying any overrides found (contract:
 **Hard rule**: NEVER modify the snapshot under
 `<adopter-repo>/.apache-magpie/`; local modifications go in the
 override file, framework changes via PR to `apache/magpie`.
-
----
-
-## Snapshot drift
-
-Every run compares the gitignored `.apache-magpie.local.lock`
-against the committed `.apache-magpie.lock`; on mismatch surface
-the gap and propose
-[`setup upgrade`](../../../magpie-setup/skills/setup/upgrade.md)
-(non-blocking; see
-[`docs/setup/install-recipes.md`](../../../../docs/quick-start/other-install-methods.md#subsequent-runs-and-drift-detection)
-for details).
-Severity: **method or URL differ** → ✗ full re-install; **ref
-differs** → ⚠ sync; **`svn-zip` SHA-512 mismatch** → ✗
-security-flagged, investigate before upgrading.
 
 ---
 

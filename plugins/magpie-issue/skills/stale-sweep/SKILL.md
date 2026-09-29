@@ -24,9 +24,9 @@ when_to_use: |
   automated stale bot configured and the maintainer wants to manage it
   through that instead.
 capability: capability:triage
-surface_hash: sha256:d2a78aaabcc57f26
+surface_hash: sha256:65673690910c37f0
 license: Apache-2.0
-measured_tokens: 4988
+measured_tokens: 4910
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -167,16 +167,6 @@ file. Framework changes go via PR to `apache/magpie`.
 
 ---
 
-## Snapshot drift
-
-At the top of every run, compare the gitignored
-`.apache-magpie.local.lock` (per-machine fetch) against the committed
-`.apache-magpie.lock` (the project pin); on mismatch, surface the gap and
-propose [`setup upgrade`](../../../magpie-setup/skills/setup/upgrade.md)
-(non-blocking — the user may defer).
-
----
-
 ## Prerequisites
 
 - **Tracker read access** to `<issue-tracker>` for the sweep phase
@@ -230,7 +220,7 @@ Before reading any tracker state, verify:
    overrides from the invocation selector.
 5. **Validate thresholds** — hard error if `warn_days >= close_days` or
    if either value is negative.
-6. **Drift check** — see *Snapshot drift* above.
+6. **Drift check** — the generated pre-flight block reports snapshot drift.
 7. **Override consultation** — see *Adopter overrides* above.
 
 If any check fails, stop and surface what is missing.

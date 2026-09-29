@@ -20,9 +20,9 @@ when_to_use: |
   pre-release check on whether the EOL pool has dropped, and
   as a periodic health-of-the-backlog view.
 capability: capability:stats
-surface_hash: sha256:17acede01fa2f929
+surface_hash: sha256:44c7826660a3ae71
 license: Apache-2.0
-measured_tokens: 2994
+measured_tokens: 2922
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -145,16 +145,6 @@ override file.
 
 ---
 
-## Snapshot drift
-
-Also at the top of every run, this skill compares the gitignored
-`.apache-magpie.local.lock` (per-machine fetch) against the
-committed `.apache-magpie.lock` (the project pin). On mismatch
-the skill surfaces the gap and proposes
-[`setup upgrade`](../../../magpie-setup/skills/setup/upgrade.md).
-
----
-
 ## Prerequisites
 
 - A campaign directory exists at the path the user supplies (or
@@ -188,7 +178,7 @@ or opens it directly.
 1. **Campaign directory exists** at the supplied path.
 2. **At least one `verdict.json`** present under the directory.
 3. **Override consultation** — see *Adopter overrides* above.
-4. **Drift check** — see *Snapshot drift* above.
+4. **Drift check** — the generated pre-flight block reports snapshot drift.
 
 If the directory has multiple campaign subdirs (e.g., the user
 pointed at `<scratch>/`), prompt which to use.

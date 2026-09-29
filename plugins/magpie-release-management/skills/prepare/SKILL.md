@@ -38,9 +38,9 @@ when_to_use: |
   `<project-config>/release-trains.md` to exist.
 argument-hint: "[prep | post] <version> [--review-archive] | automated-signing"
 capability: capability:resolve
-surface_hash: sha256:5cfba199f4348e98
+surface_hash: sha256:d553c5eab83e2635
 license: Apache-2.0
-measured_tokens: 13951
+measured_tokens: 13872
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -199,17 +199,6 @@ override file. Framework changes go via PR to
 
 ---
 
-## Snapshot drift
-
-At the top of every run, this skill compares the gitignored
-`.apache-magpie.local.lock` (per-machine fetch) against the
-committed `.apache-magpie.lock` (the project pin). On mismatch
-the skill surfaces the gap and proposes
-[`setup upgrade`](../../../magpie-setup/skills/setup/upgrade.md). The proposal is
-non-blocking.
-
----
-
 ## Prerequisites
 
 - **`<project-config>/release-trains.md` readable** — identifies the
@@ -280,7 +269,7 @@ For Step A (`automated-signing`, 🪶 ASF-specific):
 6. **For Step 14 (`post`):** Planning issue found and labelled
    `announced`.
 7. **`<upstream>` access.** `gh pr list --repo <upstream>` succeeds.
-8. **Drift check** — see *Snapshot drift* above.
+8. **Drift check** — the generated pre-flight block reports snapshot drift.
 9. **Override consultation** — see *Adopter overrides* above.
 
 If any check fails (and is not overridden), stop and surface what is

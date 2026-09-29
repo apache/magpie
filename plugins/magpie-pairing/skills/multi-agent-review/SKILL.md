@@ -23,9 +23,9 @@ when_to_use: |
   instead.
 argument-hint: "[base:<ref>] [staged] [path:<glob>]"
 capability: capability:review
-surface_hash: sha256:4012f0b7bbeba101
+surface_hash: sha256:d1b0ba75f03a00c1
 license: Apache-2.0
-measured_tokens: 3762
+measured_tokens: 3686
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
@@ -358,15 +358,6 @@ it exists, and applies any agent-readable overrides it finds. See
 [`docs/setup/agentic-overrides.md`](../../../../docs/setup/agentic-overrides.md) for
 the contract. Hard rule: agents never modify the snapshot under
 `<adopter-repo>/.apache-magpie/`.
-
----
-
-## Snapshot drift
-
-At the top of every run this skill compares the gitignored `.apache-magpie.local.lock`
-(per-machine fetch) against the committed `.apache-magpie.lock` (the project pin). On
-mismatch, the skill surfaces the gap and proposes
-[`setup upgrade`](../../../magpie-setup/skills/setup/upgrade.md). The proposal is non-blocking.
 
 ---
 

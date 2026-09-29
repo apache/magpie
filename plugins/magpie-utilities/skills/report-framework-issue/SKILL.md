@@ -27,9 +27,9 @@ when_to_use: |
   `<upstream>` have their own skills, not this one.
 argument-hint: "[what broke, or a problem description]"
 capability: capability:platform
-surface_hash: sha256:b99d3a8e3221a0cc
+surface_hash: sha256:f14640fa1249c172
 license: Apache-2.0
-measured_tokens: 4625
+measured_tokens: 4517
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -148,18 +148,6 @@ for the full contract. The keys this skill reads:
 **Hard rule**: agents NEVER modify the snapshot under
 `<adopter-repo>/.apache-magpie/`. Local modifications go in the
 override file. Framework changes go via PR to `apache/magpie`.
-
----
-
-## Snapshot drift
-
-Also at the top of every run, this skill compares the gitignored
-`.apache-magpie.local.lock` (per-machine fetch) against the
-committed `.apache-magpie.lock` (the project pin). On mismatch the
-skill surfaces the gap and proposes
-[`setup upgrade`](../../../magpie-setup/skills/setup/upgrade.md) — a drifted snapshot
-is itself worth mentioning in the report, since the bug may already
-be fixed upstream. The proposal is non-blocking.
 
 ---
 

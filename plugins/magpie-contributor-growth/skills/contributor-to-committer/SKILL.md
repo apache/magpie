@@ -24,9 +24,9 @@ when_to_use: |
   been provided.
 argument-hint: "<github-handle> [target:committer|pmc] [window:Nm]"
 capability: capability:stats
-surface_hash: sha256:f9f406d17097d008
+surface_hash: sha256:a9fc9fe789116b23
 license: Apache-2.0
-measured_tokens: 5818
+measured_tokens: 5741
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -134,16 +134,6 @@ in the adopter repo if it exists, and applies any agent-readable
 overrides it finds. See
 [`docs/setup/agentic-overrides.md`](../../../../docs/setup/agentic-overrides.md)
 for the contract.
-
----
-
-## Snapshot drift
-
-At the top of every run, this skill compares the gitignored
-`.apache-magpie.local.lock` (per-machine fetch) against the
-committed `.apache-magpie.lock` (the project pin). On mismatch
-the skill surfaces the gap and proposes
-[`setup upgrade`](../../../magpie-setup/skills/setup/upgrade.md) before proceeding.
 
 ---
 

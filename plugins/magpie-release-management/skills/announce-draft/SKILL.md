@@ -23,9 +23,9 @@ when_to_use: |
   the same session — only that the release was promoted.
 argument-hint: "<version> [--planning-issue <url>]"
 capability: capability:resolve
-surface_hash: sha256:1b0ebe953b9fa334
+surface_hash: sha256:edffafcd9d9948ab
 license: Apache-2.0
-measured_tokens: 6987
+measured_tokens: 6907
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -190,17 +190,6 @@ override file. Framework changes go via PR to
 
 ---
 
-## Snapshot drift
-
-At the top of every run, this skill compares the gitignored
-`.apache-magpie.local.lock` (per-machine fetch) against the
-committed `.apache-magpie.lock` (the project pin). On mismatch
-the skill surfaces the gap and proposes
-[`setup upgrade`](../../../magpie-setup/skills/setup/upgrade.md). The proposal is
-non-blocking.
-
----
-
 ## Prerequisites
 
 - **Planning issue carries `promoted`** — confirms Step 10 (promote)
@@ -249,7 +238,7 @@ non-blocking.
    promote timestamp, or `--skip-promote-wait <reason>` was passed.
 7. **Download Page URL available.** The URL is present in the planning
    issue body, the config file, or via `--download-page <url>`.
-8. **Drift check** — see *Snapshot drift* above.
+8. **Drift check** — the generated pre-flight block reports snapshot drift.
 9. **Override consultation** — see *Adopter overrides* above.
 
 If any check fails (and is not overridden), stop and surface what is

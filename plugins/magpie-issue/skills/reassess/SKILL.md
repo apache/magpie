@@ -24,9 +24,9 @@ when_to_use: |
   when the goal is per-PR triage — that is `pr-management-triage`
   — or when the issues are still in active triage flow.
 capability: capability:reassess
-surface_hash: sha256:26b90046cd97aef2
+surface_hash: sha256:cb023dff6e95a57a
 license: Apache-2.0
-measured_tokens: 4988
+measured_tokens: 4911
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -186,17 +186,6 @@ override file. Framework changes go via PR to
 
 ---
 
-## Snapshot drift
-
-Also at the top of every run, compare the gitignored
-`.apache-magpie.local.lock` (per-machine fetch) against the
-committed `.apache-magpie.lock` (the project pin). On mismatch,
-surface the gap and propose
-[`setup upgrade`](../../../magpie-setup/skills/setup/upgrade.md);
-non-blocking — the user may defer.
-
----
-
 ## Prerequisites
 
 - **Tracker read access** to `<issue-tracker>` — anonymous reads
@@ -241,7 +230,7 @@ where `<default>` is the project's first-pool from
 3. **`<runtime>` invocable** — `<runtime> --version`.
 4. **Scratch directory** exists or is creatable per the
    campaign root convention.
-5. **Drift check** — see *Snapshot drift* above.
+5. **Drift check** — the generated pre-flight block reports snapshot drift.
 6. **Override consultation** — see *Adopter overrides* above.
 7. **Credential-isolation setup verified** — the loop runs
    attacker-controlled reproducer code via

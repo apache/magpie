@@ -22,9 +22,9 @@ when_to_use: |
   `pr-management-stats` for that.
 argument-hint: "[repo:owner/name] [since:date] [--markdown] [--tables-only] [clear-cache]"
 capability: capability:stats
-surface_hash: sha256:0945bc4e32c11d2b
+surface_hash: sha256:0f124437a9fa54f9
 license: Apache-2.0
-measured_tokens: 4904
+measured_tokens: 4729
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -107,20 +107,6 @@ Local modifications go in the override file; framework changes go via PR to `apa
 
 ---
 
-## Snapshot drift
-
-At the top of every run, compare the gitignored `.apache-magpie.local.lock` (per-machine fetch) vs the committed `.apache-magpie.lock` (project pin); on mismatch surface the gap and propose [`setup upgrade`](../../../magpie-setup/skills/setup/upgrade.md) — non-blocking; the user may defer.
-See [`docs/setup/install-recipes.md` § Subsequent runs and drift detection](../../../../docs/quick-start/other-install-methods.md#subsequent-runs-and-drift-detection) for details.
-
-Drift severity:
-
-- **method or URL differ** → ✗ full re-install needed.
-- **ref differs** → ⚠ sync needed.
-- **`svn-zip` SHA-512 mismatches the committed anchor** → ✗
-  security-flagged; investigate before upgrading.
-
----
-
 ## Adopter configuration
 
 This skill reads [`<project-config>/issue-tracker-config.md`](../../../magpie-setup/templates/issue-tracker-config.md) (tracker URL, project key, auth, default-pool query), [`<project-config>/scope-labels.md`](../../../magpie-setup/templates/scope-labels.md) (area label prefix), and [`<project-config>/stale-sweep-config.md`](../../../magpie-setup/templates/stale-sweep-config.md) (`warn_days` / `close_days` for stale candidates — framework defaults 90 / 180; absent file → defaults apply).
@@ -180,7 +166,7 @@ No per-issue drill-in — this skill is aggregate-only.
 3. Read or initialise the scratch cache at `/tmp/issue-backlog-stats-cache-<project-slug>.json` (maps `issue_number → (updated_at, triage_status)`; re-runs skip re-classification).
 4. Read thresholds and the area-label prefix per *Adopter configuration* above (defaults: `warn_days: 90`, `close_days: 180`; prefix `area:`).
 5. **Override consultation** — see *Adopter overrides* above.
-6. **Drift check** — see *Snapshot drift* above.
+6. **Drift check** — the generated pre-flight block reports snapshot drift.
 
 A failure at step 1 or 2 is a **stop**; steps 3–6 degrade with warnings.
 

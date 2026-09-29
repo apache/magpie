@@ -17,9 +17,9 @@ when_to_use: >-
   only defects in Magpie itself.
 argument-hint: "[quirk description]"
 capability: capability:platform
-surface_hash: sha256:30b1a0e51c6e8fa9
+surface_hash: sha256:ac2752440081dd6c
 license: Apache-2.0
-measured_tokens: 5354
+measured_tokens: 5215
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -65,16 +65,6 @@ Local changes go in the override file; framework changes go via PR to `apache/ma
 
 ---
 
-## Snapshot drift
-
-At the top of every run, this skill compares the gitignored `.apache-magpie.local.lock` (per-machine fetch) with the committed `.apache-magpie.lock` (the project pin).
-On mismatch it reports the gap and proposes [`setup upgrade`](../setup/upgrade.md) (non-blocking).
-
-> **Doubly important here.** A "framework bug" seen on a *stale* snapshot may already be fixed on `main`.
-> If the snapshot is behind, resolve drift **before** classifying quirks; an upgrade may make the PR unnecessary (the `already-fixed-upstream` outcome in Step 2).
-
----
-
 ## Golden rules
 
 **Golden rule 1 — one PR per defect.**
@@ -115,7 +105,7 @@ If neither gives a concrete quirk, ask for one before proceeding.
 
 1. **Candidate quirks exist.** Confirm at least one concrete framework quirk (from the session or the user).
    Zero → stop; there is nothing to upstream.
-2. **Resolve snapshot drift first.** Run the drift check above.
+2. **Resolve snapshot drift first.** The generated pre-flight block reports it.
    On drift, propose `setup upgrade` and pause; the quirk may already be fixed on the newer snapshot.
 3. **Locate `<framework-clone>` and `<framework-fork>`.** Common clone locations: `~/code/magpie/`, `~/work/magpie/`.
    If there is no clone, help the user clone `apache/magpie`.

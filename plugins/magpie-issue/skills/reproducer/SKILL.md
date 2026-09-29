@@ -25,9 +25,9 @@ when_to_use: |
   carry runnable example code — use `issue-triage` to assess
   instead.
 capability: capability:reassess
-surface_hash: sha256:d8012bc3fb8573bc
+surface_hash: sha256:85440f7009f84de6
 license: Apache-2.0
-measured_tokens: 5108
+measured_tokens: 5043
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -156,15 +156,6 @@ file; framework changes go via PR to `apache/magpie`.
 
 ---
 
-## Snapshot drift
-
-Every run compares the gitignored `.apache-magpie.local.lock`
-(per-machine fetch) against the committed `.apache-magpie.lock` (the
-project pin); on mismatch, surface and propose
-[`setup upgrade`](../../../magpie-setup/skills/setup/upgrade.md) (non-blocking).
-
----
-
 ## Prerequisites
 
 - **Tracker read access** to `<issue-tracker>` (body, comments,
@@ -216,8 +207,8 @@ The selector is single-issue by design; bulk invocation comes from
    ([`tools/github/source-control.md`](../../../../tools/github/source-control.md));
    a non-Git VCS under *Tools enabled → Source control* substitutes
    its binding.
-5. **Drift check** / **override consultation** — see *Snapshot drift* /
-   *Adopter overrides* above.
+5. **Override consultation** — see *Adopter overrides* above; the generated
+   pre-flight block reports snapshot drift.
 6. **Credential-isolation verified** — run
    [`setup-isolated-setup-verify`](../../../magpie-setup/skills/isolated-setup-verify/SKILL.md)
    (or rely on a recorded pass this session); any ✗ / ⚠ on sandbox,

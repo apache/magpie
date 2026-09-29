@@ -26,9 +26,9 @@ argument-hint: "[repo:owner/name] [tier:A|B] [max-churn:N] [clear-cache]"
 capability:
   - capability:triage
   - capability:review
-surface_hash: sha256:ea4648413feb1eca
+surface_hash: sha256:f903031f79ba2566
 license: Apache-2.0
-measured_tokens: 4727
+measured_tokens: 4717
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -146,7 +146,7 @@ See the absolute rule in
 
 ---
 
-Override files, snapshot-drift handling, and the upgrade proposal: [`adopter-config.md`](adopter-config.md).
+Override files: [`adopter-config.md`](adopter-config.md).
 
 ---
 

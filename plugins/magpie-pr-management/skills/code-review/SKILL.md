@@ -22,9 +22,9 @@ when_to_use: |
   produced reviewable PRs; skip when triage has not engaged the PR.
 argument-hint: "[pr:N] [area:LBL] [collab:true|false] [team:NAME] [ready] [dry-run]"
 capability: capability:review
-surface_hash: sha256:261649569ebac577
+surface_hash: sha256:763550b25082861b
 license: Apache-2.0
-measured_tokens: 4929
+measured_tokens: 4925
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
@@ -122,7 +122,7 @@ absolute rule in
 
 ---
 
-Adopter override files and snapshot-drift handling: [`adopter-config.md`](adopter-config.md).
+Adopter override files: [`adopter-config.md`](adopter-config.md).
 Project review-criteria configuration pointers: [`adopter-config.md`](adopter-config.md).
 
 ---

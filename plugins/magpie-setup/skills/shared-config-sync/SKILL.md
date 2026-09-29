@@ -18,9 +18,9 @@ when_to_use: >-
 capability:
   - capability:intake
   - capability:platform
-surface_hash: sha256:ca51fa0c9ac2a8ce
+surface_hash: sha256:bc445ef323563cd8
 license: Apache-2.0
-measured_tokens: 3908
+measured_tokens: 3700
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -41,21 +41,6 @@ The contract (what overrides may contain, hard rules, reconciliation on framewor
 **Hard rule**: agents NEVER modify the snapshot under `<adopter-repo>/.apache-magpie/`.
 Local changes go in the override file.
 Framework changes go via PR to `apache/magpie`.
-
----
-
-## Snapshot drift
-
-Also at the top of every run, this skill compares the gitignored `.apache-magpie.local.lock` (per-machine fetch) against the committed `.apache-magpie.lock` (the project pin).
-On mismatch it surfaces the gap and proposes [`setup upgrade`](../setup/upgrade.md).
-The proposal is non-blocking; the user may defer and run with the local snapshot for now.
-Full flow: [`docs/quick-start/other-install-methods.md` § Subsequent runs and drift detection](../../../../docs/quick-start/other-install-methods.md#subsequent-runs-and-drift-detection).
-
-Drift severity:
-
-- **method or URL differ** → ✗ full re-install needed.
-- **ref differs** (project bumped tag, or `git-branch` local is behind upstream tip) → ⚠ sync needed.
-- **`svn-zip` SHA-512 mismatches the committed anchor** → ✗ security-flagged; investigate before upgrading.
 
 ---
 ## Hardcoded path

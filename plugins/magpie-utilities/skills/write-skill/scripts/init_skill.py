@@ -37,7 +37,8 @@ The script creates the skill directory with:
 - ``SKILL.md`` carrying the framework's expected preamble (YAML
   frontmatter with ``license: Apache-2.0``, SPDX header,
   placeholder-convention comment, ``Adopter overrides``,
-  ``Snapshot drift``, ``Inputs``, ``Prerequisites``, ``Step 0``);
+  ``Inputs``, ``Prerequisites``, ``Step 0``; the generated pre-flight
+  block covers snapshot drift);
 - placeholder ``scripts/`` / ``references/`` / ``assets/``
   directories with ``.gitkeep`` files (delete the ones the skill
   doesn't need);
@@ -135,19 +136,6 @@ flow on framework upgrade, upstreaming guidance.
 `<adopter-repo>/.apache-magpie/`. Local modifications
 go in the override file. Framework changes go via PR
 to `apache/magpie`.
-
----
-
-## Snapshot drift
-
-Also at the top of every run, this skill compares the
-gitignored `.apache-magpie.local.lock` (per-machine
-fetch) against the committed `.apache-magpie.lock`
-(the project pin). On mismatch the skill surfaces the
-gap and proposes
-[`setup upgrade`](../magpie-setup/upgrade.md).
-The proposal is non-blocking — the user may defer if
-they want to run with the local snapshot for now.
 
 ---
 

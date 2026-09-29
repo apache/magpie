@@ -23,9 +23,9 @@ when_to_use: |
   when a reviewer is already assigned and no second opinion was asked for.
 argument-hint: "[pr:<N> | issue:<N>] [--repo owner/name]"
 capability: capability:triage
-surface_hash: sha256:c9b9669a27ceaad7
+surface_hash: sha256:462046cb3b3bc54b
 license: Apache-2.0
-measured_tokens: 4936
+measured_tokens: 4867
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -176,15 +176,6 @@ Optional per-reviewer config in the roster:
   (default: 5). At or above this load they are marked `OVERLOADED`
   and excluded from the primary slot (may still appear as backup if
   no one else is eligible).
-
----
-
-## Snapshot drift
-
-At the top of every run, this skill compares the gitignored
-`.apache-magpie.local.lock` against the committed `.apache-magpie.lock`.
-On mismatch it surfaces the gap and proposes
-[`setup upgrade`](../../../magpie-setup/skills/setup/upgrade.md). Non-blocking — the user may defer.
 
 ---
 

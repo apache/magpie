@@ -26,9 +26,9 @@ when_to_use: |
   discussion.
 argument-hint: "[--tool <name>] [--report <path>] [--finding <id>]"
 capability: capability:fix
-surface_hash: sha256:9e749aa429ac8777
+surface_hash: sha256:a31ea1f8e96846eb
 license: Apache-2.0
-measured_tokens: 6170
+measured_tokens: 6091
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -183,17 +183,6 @@ override file. Framework changes go via PR to
 
 ---
 
-## Snapshot drift
-
-Also at the top of every run, this skill compares the gitignored
-`.apache-magpie.local.lock` (per-machine fetch) against the
-committed `.apache-magpie.lock` (the project pin). On mismatch
-the skill surfaces the gap and proposes
-[`setup upgrade`](../../../magpie-setup/skills/setup/upgrade.md). The
-proposal is non-blocking.
-
----
-
 ## Prerequisites
 
 - **Audit report available** — either a file (`--report <path>`),
@@ -234,7 +223,7 @@ confirmation.
    `<default-branch>` itself, propose creating a fix branch named
    `fix/audit-<tool>-<short-description>`.
 4. **Runtime invocable.** `<runtime> --version` runs.
-5. **Drift check** — see *Snapshot drift* above.
+5. **Drift check** — the generated pre-flight block reports snapshot drift.
 6. **Override consultation** — see *Adopter overrides* above.
 
 If any check fails, stop and surface what is missing.

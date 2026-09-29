@@ -21,9 +21,9 @@ when_to_use: |
   periodically to refresh existing audit entries from updated source data.
 argument-hint: "<version> [--planning-issue <url>]"
 capability: capability:stats
-surface_hash: sha256:bed8d4c39f43581d
+surface_hash: sha256:576d71b04f203cd8
 license: Apache-2.0
-measured_tokens: 6709
+measured_tokens: 6629
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -178,17 +178,6 @@ override file. Framework changes go via PR to
 
 ---
 
-## Snapshot drift
-
-At the top of every run, this skill compares the gitignored
-`.apache-magpie.local.lock` (per-machine fetch) against the
-committed `.apache-magpie.lock` (the project pin). On mismatch
-the skill surfaces the gap and proposes
-[`setup upgrade`](../../../magpie-setup/skills/setup/upgrade.md). The proposal is
-non-blocking.
-
----
-
 ## Prerequisites
 
 - **`<version>` argument supplied.**
@@ -225,7 +214,7 @@ non-blocking.
 4. **Roster file readable.** The file at `release_approver_roster_path`
    (default `<project-config>/pmc-roster.md`) is readable and parses as a
    valid roster.
-5. **Drift check** — see *Snapshot drift* above.
+5. **Drift check** — the generated pre-flight block reports snapshot drift.
 6. **Override consultation** — see *Adopter overrides* above.
 
 If any check fails, stop and surface what is missing with the exact key
