@@ -117,4 +117,3 @@ Alternatively, use the `--scanners license` flag for a simpler output:
 trivy fs --scanners license --format json \
     --output /tmp/dep-lic-trivy.json .
 ```
-

@@ -43,4 +43,3 @@ Normalization rules:
   (`Apache-2.0 OR MIT`, `MIT AND BSD-3-Clause`, `GPL-2.0 WITH
   Classpath-exception-2.0`), normalise each operand but keep the `OR` /
   `AND` / `WITH` structure for the classification step below.
-

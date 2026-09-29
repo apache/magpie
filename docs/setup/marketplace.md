@@ -160,7 +160,7 @@ can say so, because it is the floor everything else is managed from.
 | `magpie-release-management` | 10 | ~1.3k |
 | `magpie-pr-management` | 8 | ~0.8k |
 | `magpie-issue` | 8 | ~0.7k |
-| `magpie-repo-health` | 7 | ~0.7k |
+| `magpie-repo-health` | 7 | ~0.6k |
 | `magpie-utilities` | 5 | ~0.5k |
 | `magpie-contributor-growth` | 9 | ~0.8k |
 | `magpie-mentoring` | 4 | ~0.5k |

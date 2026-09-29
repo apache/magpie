@@ -68,4 +68,3 @@ trivy --version
 # trivy also covers Maven (pom.xml) and Gradle (*.lockfile) trees when a
 # native plugin cannot be applied.
 ```
-

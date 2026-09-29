@@ -8,7 +8,6 @@ Companion to [`SKILL.md`](SKILL.md). The full Step 8 flow: when it runs, what th
 This step runs only if `--draft-pr` was passed AND the user
 explicitly confirms after the hand-back artefact.
 
-
 The skill:
 
 1. Shows the user the proposed PR title, body, and diff.
