@@ -1,0 +1,92 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "imap-source"
+version = "0.1.0"
+description = "Concrete IMAP mail-source adapter — thread-view reads and draft-only APPEND over stdlib imaplib."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+# Stdlib only: imaplib + email cover the whole surface (see issue #303).
+dependencies = []
+
+[project.scripts]
+imap-source-threads = "imap_source.list_recent_threads:main"
+imap-source-read = "imap_source.read_thread:main"
+imap-source-drafts = "imap_source.list_drafts:main"
+imap-source-sent = "imap_source.list_sent_since:main"
+imap-source-create-draft = "imap_source.create_draft:main"
+imap-source-thread-url = "imap_source.thread_url:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/imap_source"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+  "E",     # pycodestyle errors
+  "W",     # pycodestyle warnings
+  "F",     # pyflakes
+  "I",     # isort
+  "B",     # flake8-bugbear
+  "UP",    # pyupgrade
+  "SIM",   # flake8-simplify
+  "C4",    # flake8-comprehensions
+  "RUF",   # ruff-specific
+]
+ignore = [
+  "E501",  # line-too-long — the 110-char limit above is already generous
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["B", "SIM"]  # test clarity beats these
+
+[tool.mypy]
+python_version = "3.11"
+files = ["src", "tests"]
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unreachable = true
+check_untyped_defs = true
+no_implicit_optional = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-ra -q"
+testpaths = ["tests"]
+
+[dependency-groups]
+# The shared toolchain (mypy, pytest, ruff) comes from `magpie-dev`
+# (tools/dev), declared once for the whole workspace.
+dev = [
+  "magpie-dev",
+]
