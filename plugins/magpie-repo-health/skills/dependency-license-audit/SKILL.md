@@ -20,9 +20,9 @@ when_to_use: |
   `license-compliance-audit` covers those.
 argument-hint: "[--manager pip|npm|cargo|maven|gradle|trivy] [--policy asf|allowlist] [--repo owner/name | --path /path/to/checkout]"
 capability: capability:triage
-surface_hash: sha256:ca025ba838856187
+surface_hash: sha256:9723ef52fb16204e
 license: Apache-2.0
-measured_tokens: 3453
+measured_tokens: 3455
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0

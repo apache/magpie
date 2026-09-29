@@ -5,8 +5,6 @@
 
 Companion to [`SKILL.md`](SKILL.md). The raw-string → SPDX normalisation table and the normalisation rules applied before classification.
 
-## License normalization
-
 Ecosystem tools report license names as free text, legacy labels, or
 classifier strings. Normalise each to a canonical SPDX identifier from the
 SPDX License List (<https://spdx.org/licenses/>) **before** classifying. Maven

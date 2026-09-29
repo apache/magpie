@@ -5,11 +5,9 @@
 
 Companion to [`SKILL.md`](SKILL.md). Per-manager scan commands and the JSON/XML fields to parse, run from the repository root.
 
-## Scan commands
-
 Run from the repository root (local checkout or a temporary clone).
 
-### Python — pip-licenses
+## Python — pip-licenses
 
 ```bash
 pip-licenses --format json --with-urls --with-description \
@@ -27,7 +25,7 @@ uv run pip-licenses --format json --with-urls --with-description \
     --output-file /tmp/dep-lic-pip.json
 ```
 
-### Node.js — license-checker
+## Node.js — license-checker
 
 ```bash
 npx license-checker --json --out /tmp/dep-lic-npm.json
@@ -36,7 +34,7 @@ npx license-checker --json --out /tmp/dep-lic-npm.json
 Parse the JSON output: each key is `package@version`; the value object
 has `licenses` (a string or array) and `licenseFile`.
 
-### Rust — cargo-deny
+## Rust — cargo-deny
 
 ```bash
 cargo-deny --format json check licenses 2>/tmp/dep-lic-cargo-deny.json || true
@@ -55,7 +53,7 @@ cargo license --json --avoid-build-deps \
 
 Parse the JSON array: each entry has `name`, `version`, and `license`.
 
-### Java — Maven (license-maven-plugin)
+## Java — Maven (license-maven-plugin)
 
 ```bash
 mvn org.codehaus.mojo:license-maven-plugin:2.4.0:aggregate-download-licenses \
@@ -71,7 +69,7 @@ Parse the XML output: each `<dependency>` has `<groupId>`, `<artifactId>`,
 metadata is free text, so expect to normalise more aggressively than for the
 Python or Rust ecosystems.
 
-### Java — Gradle (dependency-license-report)
+## Java — Gradle (dependency-license-report)
 
 Apply the plugin without editing the checked-in build. Write a throwaway
 init script and point Gradle at it so no manifest is modified:
@@ -102,7 +100,7 @@ If neither wrapper nor plugin can be applied (no JDK, offline, or a locked
 build), fall back to **trivy** below, which reads `pom.xml` and Gradle
 `*.lockfile` trees directly.
 
-### Multi-language — trivy
+## Multi-language — trivy
 
 ```bash
 trivy fs --format cyclonedx --output /tmp/dep-lic-trivy.json .
