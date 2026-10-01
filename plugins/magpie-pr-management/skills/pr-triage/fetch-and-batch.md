@@ -326,7 +326,10 @@ returns, for every PR on the page:
 
 Accumulate every PR into a single in-memory list, then deduplicate
 it by number after the final page, keeping each PR's last (freshest)
-occurrence. Do not classify, do not present, do not prompt the
+occurrence, then silently suppress PRs the session cache already
+holds under a terminal `action_taken` with an unchanged head SHA (see
+[`#full-pagination-loop`](#full-pagination-loop)). Do not classify,
+do not present, do not prompt the
 maintainer between pages — the fetch loop is uninterrupted,
 runs to completion, and emits one progress line per page so
 the maintainer can step away during the wait. See
@@ -355,6 +358,8 @@ loop serially until `pageInfo.hasNextPage` is false, then hand
 the accumulated list to Step 2.
 
 ```text
+cache = load_session_cache().prs        # may be empty — a fresh session starts empty
+
 all_prs = []
 cursor = null
 page = 1
@@ -374,7 +379,18 @@ for pr in reverse(all_prs):
         continue
     seen_numbers.add(pr.number)
     deduped_prs_reversed.append(pr)
-return reverse(deduped_prs_reversed)
+queue = reverse(deduped_prs_reversed)
+
+# Session suppression: a PR already taken to a terminal action earlier
+# in this session, whose head SHA is unchanged, has nothing new to
+# read. Drop it silently — no queue entry, no progress line, no prompt.
+kept = []
+for pr in queue:
+    entry = cache.get(pr.number)
+    if entry and entry.get("action_taken") and entry.get("head_sha") == pr.head_sha:
+        continue
+    kept.append(pr)
+return kept
 ```
 
 Key invariants:
@@ -398,6 +414,19 @@ Key invariants:
   first record for each PR number, then restore the list order.
   This keeps the last (freshest) occurrence and its position in
   the fetched ordering. Leave an already-unique list unchanged.
+- **Suppress already-acted-on, unchanged-head entries.** After
+  deduplication, drop every PR the session cache holds under a
+  terminal `action_taken` whose cached `head_sha` equals the
+  freshly fetched head SHA — the decision was already made and
+  nothing has changed since, so re-surfacing the PR only invites
+  a second, possibly different decision. The drop is silent: the
+  PR must not appear in any group, progress line, or the Step 6
+  summary. A PR whose head SHA **differs** does not match the
+  suppression and is re-classified as usual — the invalidation
+  rule in [`#session-cache`](#session-cache) and this suppression
+  are complementary, not conflicting. The suppression is session
+  state: it dies with the cache, so a fresh session re-surfaces
+  everything.
 - **Skip prefetch heuristics.** With pages fetched serially up
   front, there is no per-page maintainer wait to overlap with
   a next-page prefetch — the old prefetch-during-interaction
@@ -686,6 +715,15 @@ anything that isn't needed. Schema:
 - An entry's `head_sha` must match the head SHA returned by the
   current fetch — if it doesn't, the contributor pushed since
   and the entry is stale. Drop it and re-classify.
+- Conversely, an entry carrying a terminal `action_taken` whose
+  `head_sha` **does** match the current fetch suppresses the PR
+  for the rest of the session: Step 1 drops it silently before
+  handing the queue to Step 2 (see
+  [`#full-pagination-loop`](#full-pagination-loop)). Unchanged
+  head plus already-acted-on means nothing new to read; a changed
+  head falls through to the staleness rule above, so the two
+  rules never fire against each other. The suppression dies with
+  the session cache — a fresh session re-surfaces everything.
 - The `recent_main_failures` block is valid for 4 hours; after
   that, re-fetch via the canary/main-branch failure query
   (see below).

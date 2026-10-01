@@ -5,7 +5,7 @@
 
 Behavioral evals for the `pr-management-triage` skill.
 
-## Suites (59 cases total)
+## Suites (62 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
@@ -13,7 +13,7 @@ Behavioral evals for the `pr-management-triage` skill.
 | pre-filter | Step 2 (pre-filters) | 21 | F1 (collaborator), F2 (bot), F3 (draft recent), F4 (already ready), F5a (active maintainer feedback — general comments, review-thread comments, **and submitted top-level reviews with a non-empty body**, including the 72-hour and last-commit boundaries), F5b (maintainer ping unanswered; a ping answered by a review does not fire), F6 (maintainer co-drafted), row-6 (viewer is author), row-7a (fresh PR); clean contributor continues |
 | decision-table | Step 2 (decision table) | 22 | Rows 3/4 (already-triaged via a cross-triager comment marker→skip, via body-fold block→skip, and via a fold carrying `by=<another triager>`→skip with the reason naming that triager), plus the negative case (a non-triager comment quoting the QC link is not a marker), 7b (security signal), 9 (conflict→draft), 10 (all systemic→rerun), 11 (partial systemic→rerun), 12 (static-only→comment), 13 (flaky ≤2→rerun), 14a (author confirmed→mark-ready), 14b (pending confirmation→skip), 14c (threads addressed→request-author-confirmation), 15 (threads→ping), 16 (no CI→rebase), 18 (changes-requested+new-commits→ping), 19 (already ready→skip), 20 (passing→mark-ready), 21 (stale draft sweep→close), 22 (rollup anomaly→skip) |
 | terminal-links | Golden rule 10 | 5 | Short, context-short, and full PR references retain their visible form and use the canonical target; `NO_COLOR` (including an empty value) and `TERM=dumb` select the plain-text fallback |
-| pagination-dedup | Step 1 (full pagination) | 2 | A PR that moves to a later page is emitted once at its freshest occurrence; distinct PRs keep their fetched order |
+| pagination-dedup | Step 1 (full pagination) | 5 | A PR that moves to a later page is emitted once at its freshest occurrence; distinct PRs keep their fetched order; a PR already acted on earlier in the session is silently suppressed while its head SHA is unchanged, re-classified once it moved, and never suppressed from a cache entry that carries no terminal `action_taken` |
 | interaction-progress | Interaction loop | 4 | Per-PR drill-ins retain the original one-based group position at the first, middle, and last rows and show the active classify-to-propose transition for `[E]` and `[P]` entry |
 
 The two body-fold cases (`case-17-fold-already-triaged`,
