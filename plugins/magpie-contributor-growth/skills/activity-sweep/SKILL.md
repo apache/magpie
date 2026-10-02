@@ -8,25 +8,18 @@ mode: Triage
 requires_config:
   - project.md
 description: |
-  Read-only GitHub activity card for a named contributor on <upstream>.
-  Fetches PR authorship, code-review activity, issues, and PR/issue
-  comments over a configurable window. Limited to GitHub-visible
-  activity — the body documents the off-GitHub tracks the nominator
-  must supply separately. No readiness verdict is produced; use
-  contributor-nomination for a full nomination brief.
+  Read-only GitHub activity card for a named contributor on `<upstream>`.
+  Summarizes PRs, reviews, issues, and comments over a configurable window.
+  Produces factual activity data without a nomination readiness verdict.
 when_to_use: |
-  Invoke when a maintainer says "show me activity for <handle>",
-  "what has <handle> been doing lately", "give me a quick summary
-  of <handle>'s contributions", or any variation on getting a
-  factual activity summary without running a full nomination flow.
-  Also invoke as a pre-check before starting contributor-nomination.
-  Skip when the user explicitly wants an assessment of nomination
-  readiness — use contributor-nomination instead.
+  Invoke when asked "show me activity for <handle>", "what has <handle> been doing lately",
+  or "give me a quick summary of <handle>'s contributions".
+  Skip when assessing nomination readiness (use `contributor-nomination` instead).
 argument-hint: "<github-handle> [window:Nm]"
 capability: capability:stats
 surface_hash: sha256:748187f2d78d9991
 license: Apache-2.0
-measured_tokens: 3398
+measured_tokens: 3320
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
