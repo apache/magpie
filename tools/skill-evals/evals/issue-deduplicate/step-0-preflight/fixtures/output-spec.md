@@ -10,7 +10,7 @@ Return ONLY valid JSON with this structure:
   "verdict": "proceed" | "blocked",
   "blockers": ["<string describing each hard blocker>"],
   "kept": <integer>,
-  "duplicate": <integer>
+  "duplicate": <integer> | null
 }
 ```
 
@@ -19,7 +19,7 @@ Return ONLY valid JSON with this structure:
 - `kept` is the issue number that will remain open. It is the FIRST issue
   number supplied in the invocation.
 - `duplicate` is the issue number that will be closed. It is the SECOND
-  issue number supplied in the invocation.
+  issue number supplied in the invocation, or `null` when none was supplied.
 - When both issues are open and neither is labelled `duplicate`, all hard
   blockers resolve: `verdict` is `"proceed"` and `blockers` is the empty
   array `[]`.

@@ -2,7 +2,7 @@
   "has_planning_issue_blocker": {
     "field": "blockers",
     "type": "regex",
-    "pattern": "(?is)no planning issue.*2\\.12\\.0.*--planning-issue",
+    "pattern": "(?is)(no planning issue|planning issue\\b.{0,40}\\bnot found).*2\\.12\\.0.*--planning-issue",
     "flags": "is"
   }
 }

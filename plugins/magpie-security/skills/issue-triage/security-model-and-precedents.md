@@ -39,6 +39,9 @@ in Step 2.6 reads the precedent-tracker label name from
 | External actor | exploit only manifests on a non-supported platform | INVALID (cite the project's supported-platforms section of the Security Model) |
 | DAG author who deliberately routes user input | injection in operator / hook / SQL / shell | INVALID (cite §"DAG Author code passing unsanitized input") |
 
+The two DAG-author rows differ in whose input it is: when the DAG author controls the value themselves (their own code, or an Airflow Variable they can write), it is the *code execution* row;
+the *routes user input* row applies only when input from someone else (a UI / API user, an external party) reaches the operator.
+
 **If the answer is not in the cheat-sheet, stop and ask the
 user** rather than guessing. The classifier flags `UNCERTAIN`
 internally per the existing Step 3 contract; the new sub-step is
