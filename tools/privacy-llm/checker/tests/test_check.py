@@ -409,8 +409,8 @@ def test_check_endpoint_approved_opt_in_url():
     assert v.approved is True
 
 
-def test_name_only_opt_in_rejects_empty_or_missing_raw_desc():
-    """Empty or missing raw_desc must not match name-only opt-in entries."""
+def test_check_endpoint_name_only_opt_in_rejects_empty_raw_desc():
+    """Configure opt-in - AWS Bedrock — eu-central-1. Call check_endpoint without raw_desc. Assert approved is False."""
     opt = OptInEntry(
         name="AWS Bedrock — eu-central-1",
         data_residency="eu-central-1",
@@ -418,15 +418,16 @@ def test_name_only_opt_in_rejects_empty_or_missing_raw_desc():
     )
     cfg = ParsedConfig(path=pathlib.Path("/dev/null"), llm_stack=[], opt_in=[opt])
 
-    # No raw_desc provided
+    # No raw_desc (raw_desc=None)
     v1 = check.check_endpoint(
         "https://api.typesafe.ai/v1/systemone",
         config=cfg,
         default_endpoint="https://api.typesafe.ai/v1/systemone",
+        raw_desc=None,
     )
     assert v1.approved is False
 
-    # Empty raw_desc
+    # Empty string raw_desc
     v2 = check.check_endpoint(
         "https://api.typesafe.ai/v1/systemone",
         config=cfg,
@@ -489,8 +490,8 @@ def test_extract_opt_in_host_rejects_model_version_tokens():
     assert check._extract_opt_in_host("https://api.example.com/v1") == "api.example.com"
 
 
-def test_check_endpoint_rejects_numeric_host_bypass_with_model_version_opt_in():
-    """Opt-in starting with a version does not approve numeric/decimal host targets."""
+def test_check_endpoint_rejects_numeric_version_token_as_host():
+    """Configure opt-in - 3.5 Sonnet (AWS Bedrock). Call check_endpoint('https://3.5/v1'). Assert approved is False."""
     opt = OptInEntry(
         name="3.5 Sonnet (AWS Bedrock)",
         data_residency="eu-central-1",
@@ -501,6 +502,18 @@ def test_check_endpoint_rejects_numeric_host_bypass_with_model_version_opt_in():
     v = check.check_endpoint("https://3.5/v1", config=cfg)
     assert v.approved is False
     assert "denied" in v.reason
+
+
+def test_check_endpoint_bare_domain_opt_in_extracts_and_approves():
+    """Bare valid domain in opt-in entries (e.g. - api.example.com (Provider)) extracts correctly and approves."""
+    opt = OptInEntry(
+        name="api.example.com (Provider)",
+        data_residency="eu-central-1",
+        approved_by="PMC 2026-09-01",
+    )
+    cfg = ParsedConfig(path=pathlib.Path("/dev/null"), llm_stack=[], opt_in=[opt])
+    v = check.check_endpoint("https://api.example.com/v1", config=cfg)
+    assert v.approved is True
 
 
 def test_is_valid_hostname_rules():
