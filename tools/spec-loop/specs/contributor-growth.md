@@ -18,7 +18,7 @@ source: >
   good-first-issue-author, mentoring-welcome, good-first-issue-sweep
   (plugins/magpie-mentoring/). Deterministic counting in
   tools/contributor-metrics; chat evidence through tools/chat
-  (contract:chat) and tools/chat-slack.
+  (contract:chat), tools/chat-slack, and tools/chat-discord.
 acceptance:
   - Every family skill is read-only or propose-before-post; none
     transitions, promotes, or announces without explicit maintainer
@@ -336,8 +336,8 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
   `magpie-mentoring`.
   A later family-maturity review may formalise the boundary or merge the
   families; for now, both specs cross-reference each other.
-- **Chat evidence is Slack-only.** `contract:chat` has one adapter
-  (`tools/chat-slack`); Discord and Matrix answers are not collected
+- **Chat evidence covers Slack and Discord.** `contract:chat` has two shipping adapters
+  (`tools/chat-slack`, `tools/chat-discord`); Matrix answers are not collected
   until an adapter lands.
 - **`experimental` — no adopter pilot has run.** All twelve skills exist
   but no maintainer has run the full contributor-to-committer path

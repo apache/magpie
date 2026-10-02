@@ -126,7 +126,7 @@ for ASF projects) is org-level — inherited from your organization's
 | CVE allocation + record mgmt | *org-level* — inherited from `organizations/<org>/organization.md → cve_authority.tool`; for ASF: `vulnogram` ([`tools/cve-tool-vulnogram/`](../../../tools/cve-tool-vulnogram/)), for independent: `mitre-form` | — | override in [CVE authority](#cve-authority) only if this project differs from its org |
 | Security cross-ref | `osv` | [`../../tools/osv/`](../../../tools/osv/) | `security_cross_ref.tool`, `security_cross_ref.ecosystem` |
 | Project metadata (rosters / people / releases) | *org-level* — inherited from `organizations/<org>/organization.md → project_metadata.kind`; for ASF: `apache-projects` ([`tools/apache-projects/`](../../../tools/apache-projects/)), for independent: `none` | — | override in [Project metadata](#project-metadata) only if this project differs from its org |
-| Project chat | TODO: `slack`, `discord`, or `none` | [`../../tools/chat/`](../../../tools/chat/) (abstract) + adapter dirs (`tools/chat-slack/`) | `chat.kind`, `chat.channels` — see [Project chat](#project-chat) below; read-only, public channels only |
+| Project chat | TODO: `slack`, `discord`, or `none` | [`../../tools/chat/`](../../../tools/chat/) (abstract) + adapter dirs (`tools/chat-slack/`, `tools/chat-discord/`) | `chat.kind`, `chat.channels` — see [Project chat](#project-chat) below; read-only, public channels only |
 | Release comms | TODO: the backend that carries release announcements — for ASF: `dev_list` / `announce_list` / `users_list`; for GitHub Releases leave blank | — | whichever release-comms keys the org default or per-project override declares |
 
 To replace a tool (e.g. swap GitHub issues for JIRA), declare an
