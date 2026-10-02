@@ -40,7 +40,7 @@ def _check_endpoint_approved(endpoint: str, provider_name: str | None = None) ->
     or fragments, requires exact host matching for URL opt-ins, and restricts
     name-only opt-ins strictly to DEFAULT_ENDPOINT.
     """
-    raw_desc = f"{provider_name} ({endpoint})" if endpoint == DEFAULT_ENDPOINT and provider_name else endpoint
+    raw_desc = f"{provider_name} ({endpoint})" if provider_name else endpoint
     verdict = check_endpoint(endpoint, default_endpoint=DEFAULT_ENDPOINT, raw_desc=raw_desc)
     return verdict.approved, verdict.reason
 

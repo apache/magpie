@@ -188,19 +188,52 @@ def check_stack(config: ParsedConfig) -> list[Verdict]:
     return out
 
 
+_HOSTNAME_LABEL_RE = re.compile(r"^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?$")
+
+
+def _is_valid_hostname(token: str) -> bool:
+    """Validate that candidate token is a genuine hostname.
+
+    Rejects tokens containing userinfo (@), fragments (#), path slashes (/),
+    version numbers (all-numeric dot-separated segments like 3.5, 4.0, 1.0.0),
+    TLDs without ASCII alphabetical characters, or invalid label syntax.
+    """
+    if not token or len(token) > 253:
+        return False
+    if any(c in token for c in ("@", "#", "/", ":", "?")):
+        return False
+    labels = token.split(".")
+    if len(labels) < 2:
+        return False
+    # Reject tokens where all dot-separated segments are purely numeric
+    if all(lbl.isdigit() for lbl in labels):
+        return False
+    # Require at least one ASCII alphabetical character in top-level domain / rightmost label
+    if not any(c.isascii() and c.isalpha() for c in labels[-1]):
+        return False
+    # Require valid hostname label syntax for each label
+    for lbl in labels:
+        if not lbl or len(lbl) > 63:
+            return False
+        if not _HOSTNAME_LABEL_RE.match(lbl):
+            return False
+    return True
+
+
 def _extract_opt_in_host(name: str) -> str | None:
     """Extract destination hostname from an opt-in entry name.
 
     Recognises full URLs (https://api.example.com/v1) and bare hostnames
     at the start of the entry (api.example.com (Provider)). Returns None
-    for name-only opt-ins (e.g. 'TypeSafe — Jev API', 'AWS Bedrock').
+    for name-only opt-ins (e.g. 'TypeSafe — Jev API', 'AWS Bedrock',
+    '3.5 Sonnet (AWS Bedrock)').
     """
     url = _first_url(name)
     if url is not None:
         return host_of(url)
 
     first_token = re.split(r"[\s—\-,(:]+", name.strip())[0]
-    if "." in first_token and not first_token.endswith("."):
+    if _is_valid_hostname(first_token):
         return host_of("//" + first_token)
     return None
 
@@ -232,12 +265,10 @@ def _approve_endpoint_by_opt_in(
                 def_host = host_of(default_endpoint)
                 if (entry.url == default_endpoint) or (def_host is not None and ep_host == def_host):
                     name_lc = opt.name.lower()
-                    desc_to_check = (raw_desc or "").lower()
-                    if (
-                        name_lc in desc_to_check
-                        or _shortname(name_lc) in desc_to_check
-                        or desc_to_check in name_lc
-                    ):
+                    desc_to_check = (raw_desc or "").strip().lower()
+                    if not desc_to_check:
+                        matched = False
+                    elif name_lc in desc_to_check or _shortname(name_lc) in desc_to_check:
                         matched = True
 
         if not matched:

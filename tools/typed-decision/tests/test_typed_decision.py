@@ -816,7 +816,7 @@ def test_score_rejects_invalid_confidence_range(approved_privacy_config: pathlib
 def test_noul_rejects_missing_probability(approved_privacy_config: pathlib.Path) -> None:
     """Noul response missing probability raises TypedDecisionUnavailable."""
     provider = JevProvider(api_key="test-key")
-    mock_resp = _make_mock_response({"decision": "yes"})
+    mock_resp = _make_mock_response({})
 
     with patch("urllib.request.OpenerDirector.open", return_value=mock_resp):
         with pytest.raises(TypedDecisionUnavailable, match="missing 'probability'"):
@@ -894,3 +894,99 @@ def test_no_auth_redirect_handler_blocks_redirects() -> None:
 
     with pytest.raises(TypedDecisionUnavailable, match="refusing to forward credentials"):
         handler.redirect_request(req, None, 302, "Found", {}, "https://attacker.example.com")
+
+
+# ---------------------------------------------------------------------------
+# 10. Type-Confusion & Envelope Extraction Guards
+# ---------------------------------------------------------------------------
+
+
+def test_choice_rejects_boolean_label(approved_privacy_config: pathlib.Path) -> None:
+    """Boolean for 'label' must raise TypedDecisionUnavailable."""
+    provider = JevProvider(api_key="test-key")
+    mock_resp = _make_mock_response({"label": True, "confidence": 0.9})
+    with patch("urllib.request.OpenerDirector.open", return_value=mock_resp):
+        with pytest.raises(TypedDecisionUnavailable, match="boolean"):
+            provider.choice("Test", ["True", "False"])
+
+
+def test_choice_rejects_boolean_confidence(approved_privacy_config: pathlib.Path) -> None:
+    """Boolean for 'confidence' in choice must raise TypedDecisionUnavailable."""
+    provider = JevProvider(api_key="test-key")
+    mock_resp = _make_mock_response({"label": "a", "confidence": True})
+    with patch("urllib.request.OpenerDirector.open", return_value=mock_resp):
+        with pytest.raises(TypedDecisionUnavailable, match="boolean is not allowed"):
+            provider.choice("Test", ["a", "b"])
+
+
+def test_score_rejects_boolean_value(approved_privacy_config: pathlib.Path) -> None:
+    """Boolean for 'value' in score must raise TypedDecisionUnavailable."""
+    provider = JevProvider(api_key="test-key")
+    mock_resp_false = _make_mock_response({"value": False, "confidence": 0.9})
+    with patch("urllib.request.OpenerDirector.open", return_value=mock_resp_false):
+        with pytest.raises(TypedDecisionUnavailable, match="boolean is not allowed"):
+            provider.score("Test", scale=(0, 1))
+
+    mock_resp_true = _make_mock_response({"value": True, "confidence": 0.9})
+    with patch("urllib.request.OpenerDirector.open", return_value=mock_resp_true):
+        with pytest.raises(TypedDecisionUnavailable, match="boolean is not allowed"):
+            provider.score("Test", scale=(0, 1))
+
+
+def test_score_rejects_boolean_confidence(approved_privacy_config: pathlib.Path) -> None:
+    """Boolean for 'confidence' in score must raise TypedDecisionUnavailable."""
+    provider = JevProvider(api_key="test-key")
+    mock_resp = _make_mock_response({"value": 0.5, "confidence": True})
+    with patch("urllib.request.OpenerDirector.open", return_value=mock_resp):
+        with pytest.raises(TypedDecisionUnavailable, match="boolean is not allowed"):
+            provider.score("Test", scale=(0, 1))
+
+
+def test_noul_rejects_boolean_probability(approved_privacy_config: pathlib.Path) -> None:
+    """Boolean for 'probability' in noul must raise TypedDecisionUnavailable."""
+    provider = JevProvider(api_key="test-key")
+    mock_resp_true = _make_mock_response({"probability": True})
+    with patch("urllib.request.OpenerDirector.open", return_value=mock_resp_true):
+        with pytest.raises(TypedDecisionUnavailable, match="boolean is not allowed"):
+            provider.noul("Test")
+
+    mock_resp_false = _make_mock_response({"probability": False})
+    with patch("urllib.request.OpenerDirector.open", return_value=mock_resp_false):
+        with pytest.raises(TypedDecisionUnavailable, match="boolean is not allowed"):
+            provider.noul("Test")
+
+
+def test_rejects_non_dict_result_envelope(approved_privacy_config: pathlib.Path) -> None:
+    """A non-dict 'result' payload (e.g. error string) raises TypedDecisionUnavailable."""
+    provider = JevProvider(api_key="test-key")
+    mock_resp = _make_mock_response({"result": "unauthorized", "label": "a", "confidence": 0.9})
+    with patch("urllib.request.OpenerDirector.open", return_value=mock_resp):
+        with pytest.raises(
+            TypedDecisionUnavailable,
+            match="Malformed 'result' in Jev API response: expected JSON object, got str",
+        ):
+            provider.choice("Test", ["a", "b"])
+
+
+def test_rejects_non_dict_decision_envelope(approved_privacy_config: pathlib.Path) -> None:
+    """A non-dict 'decision' payload raises TypedDecisionUnavailable."""
+    provider = JevProvider(api_key="test-key")
+    mock_resp = _make_mock_response({"decision": "unauthorized", "probability": 0.5})
+    with patch("urllib.request.OpenerDirector.open", return_value=mock_resp):
+        with pytest.raises(
+            TypedDecisionUnavailable,
+            match="Malformed 'decision' in Jev API response: expected JSON object, got str",
+        ):
+            provider.noul("Test")
+
+
+def test_privacy_gate_raw_desc_carries_provider_for_custom_endpoint() -> None:
+    """_check_endpoint_approved includes provider_name in raw_desc even for custom endpoints."""
+    from typed_decision.privacy import _check_endpoint_approved
+
+    with patch("typed_decision.privacy.check_endpoint") as mock_check:
+        mock_check.return_value = MagicMock(approved=True, reason="ok")
+        _check_endpoint_approved("https://custom.example.com/v1", provider_name="CustomProvider")
+        mock_check.assert_called_once()
+        _, kwargs = mock_check.call_args
+        assert kwargs["raw_desc"] == "CustomProvider (https://custom.example.com/v1)"

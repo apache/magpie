@@ -33,7 +33,7 @@ from checker.config import (
 
 
 def _write(path: pathlib.Path, body: str) -> pathlib.Path:
-    path.write_text(textwrap.dedent(body))
+    path.write_text(textwrap.dedent(body), encoding="utf-8")
     return path
 
 
