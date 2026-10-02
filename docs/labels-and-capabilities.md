@@ -341,6 +341,7 @@ or a contract-free mix of substrates (e.g. `tools/spec-inventory` is
 | [`tools/jira-patch`](../tools/jira-patch/) | `contract:change-request` | JIRA-patch change-request backend: patches attached to JIRA issues as the proposal, reviewed via JIRA comments, landed via `contract:source-control` (`svn patch` + `svn commit`). Composes `tools/jira/` (REST) + `tools/asf-svn/` (land). Implements the `tools/change-request/` contract |
 | [`tools/chat`](../tools/chat/) | `contract:chat` | Adapter contract for project chat (Slack, Discord): public-channel reads for community signals. Pure interface spec. |
 | [`tools/chat-slack`](../tools/chat-slack/) | `contract:chat` | Slack adapter for the `tools/chat/` contract, over the Slack MCP; public channels only, never posts. |
+| [`tools/chat-discord`](../tools/chat-discord/) | `contract:chat` | Discord adapter for the `tools/chat/` contract, over the Discord MCP; public channels only, never posts. |
 | [`tools/mail-archive`](../tools/mail-archive/) | `contract:mail-archive` | Adapter contract for public mail-archive backends (PonyMail, Hyperkitty, Discourse, Google Groups, GitHub Discussions). Pure interface spec. |
 | [`tools/mail-patch`](../tools/mail-patch/) | `contract:change-request` | `[PATCH]`-mail change-request backend: a `[PATCH]` thread on `dev@` as the proposal, reviewed via drafted replies (`contract:mail-create`), read via `contract:mail-archive`, landed via `contract:source-control` (`svn patch` + `svn commit`). Implements the `tools/change-request/` contract |
 | [`tools/mail-source`](../tools/mail-source/) | `contract:mail-source` | Mail-source backend abstraction (mbox / IMAP / Mailman 3) feeding a uniform inbound thread/message view to the intake pipeline |
@@ -401,7 +402,7 @@ separate axis — it is classified by the capability its *wrapping tool*
 provides; the MCP is just the transport, interchangeable with a CLI or
 REST backend behind the same contract. A skill never names an MCP
 server — it targets the capability, and the tool routes to whichever
-backend the adopter wired in. The framework consumes five:
+backend the adopter wired in. The framework consumes six:
 
 | MCP server | Tool prefix | Wrapped by | Capability provided | Organization |
 |---|---|---|---|---|
@@ -409,6 +410,7 @@ backend the adopter wired in. The framework consumes five:
 | Gmail MCP (claude.ai) | `mcp__claude_ai_Gmail__*` | [`tools/gmail`](../tools/gmail/) | `contract:mail-source` + `contract:mail-create` + `contract:mail-archive` | — |
 | PonyMail MCP (`apache/comdev`) | `mcp__ponymail__*` | [`tools/ponymail`](../tools/ponymail/) | `contract:mail-archive` + `contract:mail-source` | ASF |
 | Slack MCP (claude.ai) | `mcp__claude_ai_Slack__*` | [`tools/chat-slack`](../tools/chat-slack/) | `contract:chat` | — |
+| Discord MCP | `mcp__discord__*` | [`tools/chat-discord`](../tools/chat-discord/) | `contract:chat` | — |
 | apache-projects MCP (`apache/comdev`) | `mcp__apache-projects__*` | [`tools/apache-projects`](../tools/apache-projects/) | `contract:project-metadata` | ASF |
 
 Each wrapping tool declares this relationship in its own README with an
