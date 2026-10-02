@@ -472,7 +472,7 @@ class FossilBackend(VCSBackend):
     @classmethod
     def detect(cls, start: Path) -> Path | None:
         for d in (start, *start.parents):
-            if (d / ".fslckg").exists() or (d / "_FOSSIL_").exists():
+            if (d / ".fslckout").exists() or (d / "_FOSSIL_").exists():
                 return d
         return None
 

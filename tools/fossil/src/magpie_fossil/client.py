@@ -64,7 +64,7 @@ def run_fossil(args: Sequence[str], cwd: Path | None = None) -> str:
 def find_repo_db(start_dir: Path) -> Path | None:
     """Resolve the Fossil repository database path from the checkout."""
     for d in (start_dir, *start_dir.parents):
-        for marker in (".fslckg", "_FOSSIL_"):
+        for marker in (".fslckout", "_FOSSIL_"):
             db_path = d / marker
             if db_path.exists():
                 try:

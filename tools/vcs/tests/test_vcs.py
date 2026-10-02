@@ -102,7 +102,7 @@ def test_detect_marks_hg_svn_fossil(tmp_path: Path) -> None:
 
     fossil_dir = tmp_path / "fossil_wc"
     fossil_dir.mkdir()
-    (fossil_dir / ".fslckg").touch()
+    (fossil_dir / ".fslckout").touch()
     assert isinstance(detect_backend(fossil_dir), FossilBackend)
 
     fossil_dir2 = tmp_path / "fossil_wc_win"

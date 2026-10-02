@@ -15,16 +15,32 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import contextlib
+import sqlite3
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from magpie_fossil.cli import main
-from magpie_fossil.client import FossilError
+from magpie_fossil.client import FossilError, find_repo_db
 from magpie_fossil.forum import list_forum_threads, parse_forum_artifact, read_forum_thread
 from magpie_fossil.ticket import get_ticket, list_tickets, submit_comment, submit_ticket
 from magpie_fossil.wiki import list_wiki, read_wiki
+
+# -- checkout resolution ---------------------------------------------------
+
+
+def test_find_repo_db_reads_fslckout(tmp_path: Path) -> None:
+    checkout = tmp_path / "wc"
+    (checkout / "sub").mkdir(parents=True)
+    with contextlib.closing(sqlite3.connect(checkout / ".fslckout")) as conn:
+        conn.execute("CREATE TABLE vvar (name TEXT PRIMARY KEY, value TEXT)")
+        conn.execute("INSERT INTO vvar VALUES ('repository', '/srv/repo.fossil')")
+        conn.commit()
+
+    assert find_repo_db(checkout / "sub") == Path("/srv/repo.fossil")
+
 
 # -- manifest parser tests -------------------------------------------------
 

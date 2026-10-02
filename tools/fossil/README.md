@@ -53,4 +53,4 @@ uv run --project tools/fossil magpie-fossil wiki list
 
 ## Configuration
 
-The bridge resolves the Fossil repository from the checkout directories (`.fslckg` or `_FOSSIL_`) or via the `-R/--repository` argument.
+The bridge resolves the Fossil repository from the checkout directories (`.fslckout` or `_FOSSIL_`) or via the `-R/--repository` argument.
